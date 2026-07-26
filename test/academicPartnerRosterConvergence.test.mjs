@@ -36,7 +36,7 @@ test('the status column uses the canonical StatusPill (ASPIRE_STATUS_CONFIG), no
 })
 
 test('the ASPIRE status header opens the canonical legend with staff disposition detail hidden', () => {
-  assert.match(portal, /<span className="ptl-ap-th-legend">[\s\S]*?ASPIRE status[\s\S]*?<StatusLegendPopover showStaffDetail=\{false\} \/>/)
+  assert.match(portal, /<SortHeader label="ASPIRE status" column="status"[\s\S]*?<StatusLegendPopover showStaffDetail=\{false\} \/>[\s\S]*?<\/SortHeader>/)
   // The legend gates the disposition + readiness (staff) detail behind the prop (default keeps the
   // main app unchanged); the Academic Partner passes false.
   assert.match(legend, /export default function StatusLegendPopover\(\{ position = 'bottom-left', dark = false, showStaffDetail = true \}\)/)

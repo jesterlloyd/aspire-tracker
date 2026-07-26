@@ -909,7 +909,16 @@
 .ptl-ap-table td { vertical-align: middle; }
 .ptl-ap-student { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .ptl-ap-student-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.ptl-ap-th-legend { display: inline-flex; align-items: center; gap: 6px; }
+/* Sortable header: the label is a button; aria-sort lives on the th. The indicator is a non-color
+   cue (arrow glyph) alongside the aria-sort state. */
+.ptl-ap-th { display: inline-flex; align-items: center; gap: 6px; }
+.ptl-ap-sort {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; color: inherit;
+}
+.ptl-ap-sort-ind { font-size: 10px; color: var(--ptl-ink-soft, #9ca3af); }
+.ptl-ap-sort-active .ptl-ap-sort-ind { color: var(--ptl-navy, #1D2567); }
 
 /* Unit Leader Preceptors workspace. The existing .ptl-table mobile conversion
    supplies stacked cards below 760px; these rules cover only workspace-specific

@@ -25,7 +25,7 @@ import StatusLegendPopover from '../components/StatusLegendPopover'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
-import { cohortOptions, inCohortScope, summaryCounts, applyFilter } from './ap/academicPartnerRoster'
+import { cohortOptions, inCohortScope, summaryCounts, applyFilter, sortRoster } from './ap/academicPartnerRoster'
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -55,6 +55,25 @@ function ApHoursCell({ hours }) {
       </span>
       <span className="ptl-hours-text">{h.completed} of {h.required}{pending > 0 ? ` (+${pending})` : ''}</span>
     </span>
+  )
+}
+
+// A sortable column header: a button carrying the label + the current sort direction, with aria-sort
+// on the th. Sorting is client-side and preserves the filter, cohort, and school selection. The
+// optional children render beside the button (used for the ASPIRE status legend).
+function SortHeader({ label, column, sort, onSort, children }) {
+  const active = sort.column === column
+  const ariaSort = active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+  const indicator = active ? (sort.direction === 'asc' ? '▲' : '▼') : '↕'
+  return (
+    <th scope="col" aria-sort={ariaSort}>
+      <span className="ptl-ap-th">
+        <button type="button" className={`ptl-ap-sort${active ? ' ptl-ap-sort-active' : ''}`} onClick={() => onSort(column)}>
+          {label}<span className="ptl-ap-sort-ind" aria-hidden="true">{indicator}</span>
+        </button>
+        {children}
+      </span>
+    </th>
   )
 }
 
@@ -92,6 +111,7 @@ function StudentsView() {
   const [selectedSchoolKey, setSelectedSchoolKey] = useState(null)
   const [selectedCohortId, setSelectedCohortId]   = useState(null)
   const [filter, setFilter]                       = useState('all')
+  const [sort, setSort]                           = useState({ column: null, direction: 'asc' })
 
   const dateLabel = useMemo(
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
@@ -145,9 +165,14 @@ function StudentsView() {
 
   const scoped = students.filter(s => inCohortScope(s, cohortId, currentIds))
   const counts = summaryCounts(scoped)
-  const rows = applyFilter(scoped, filter)
+  // Filter, then sort, entirely client-side from the already-scoped response (no new request). The
+  // sort selection is independent of filter/cohort/school, so changing sort never re-scopes.
+  const rows = sortRoster(applyFilter(scoped, filter), sort.column, sort.direction)
 
   const onSchoolChange = (key) => { setSelectedSchoolKey(key); setSelectedCohortId(null); setFilter('all') }
+  const onSort = (col) => setSort(s => (
+    s.column === col ? { column: col, direction: s.direction === 'asc' ? 'desc' : 'asc' } : { column: col, direction: 'asc' }
+  ))
 
   const FILTERS = [
     { key: 'all',       label: 'All Students',       n: counts.all,       accent: 'nightfall' },
@@ -211,19 +236,16 @@ function StudentsView() {
             <table className="ptl-table ptl-ap-table">
               <thead>
                 <tr>
-                  <th scope="col">Student</th>
+                  <SortHeader label="Student" column="student" sort={sort} onSort={onSort} />
                   <th scope="col">Cohort</th>
-                  <th scope="col">
-                    <span className="ptl-ap-th-legend">
-                      ASPIRE status
-                      {/* The canonical ASPIRE Status Legend, with staff disposition detail hidden. */}
-                      <StatusLegendPopover showStaffDetail={false} />
-                    </span>
-                  </th>
+                  <SortHeader label="ASPIRE status" column="status" sort={sort} onSort={onSort}>
+                    {/* The canonical ASPIRE Status Legend, with staff disposition detail hidden. */}
+                    <StatusLegendPopover showStaffDetail={false} />
+                  </SortHeader>
                   <th scope="col">Confirmed unit</th>
                   <th scope="col">Primary preceptor</th>
                   <th scope="col">Rotation</th>
-                  <th scope="col">Hours</th>
+                  <SortHeader label="Hours" column="hours" sort={sort} onSort={onSort} />
                 </tr>
               </thead>
               <tbody>

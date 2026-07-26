@@ -6,6 +6,8 @@
 // COHORT_STATUSES). Historical students are never silently discarded: "All Cohorts" always
 // includes them, and it is the default only when no cohort is currently Active.
 
+import { ASPIRE_STATUSES } from '../../lib/constants.js'
+
 export const AP_ALL_CURRENT = 'all-current'
 export const AP_ALL = 'all'
 
@@ -68,4 +70,46 @@ export function applyFilter(scopedStudents, filter) {
   if (filter === 'rotating') return scopedStudents.filter(s => s.status === 'Active Rotation')
   if (filter === 'completed') return scopedStudents.filter(s => s.status === 'Completed')
   return scopedStudents
+}
+
+// ── Sorting (client-side, from the already-scoped rows) ───────────────────────
+// Reuses the canonical pathway order (ASPIRE_STATUSES) for status, so status sorting follows the
+// ASPIRE pathway, not the alphabet. No second status-rank map is invented.
+const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
+export const displayNameOf = (s) =>
+  `${s?.preferred_first_name || s?.first_name || ''} ${s?.last_name || ''}`.trim()
+// Canonical rank; an unknown status sorts safely at the end. Terminal statuses (Declined,
+// Not Proceeding) keep their canonical order because they are the last entries of ASPIRE_STATUSES.
+export const statusRank = (status) => {
+  const i = ASPIRE_STATUSES.indexOf(status)
+  return i === -1 ? ASPIRE_STATUSES.length : i
+}
+const approvedOf = (s) => { const n = Number(s?.hours?.approved); return Number.isFinite(n) ? n : 0 }
+const requiredOf = (s) => { const n = Number(s?.hours?.required); return Number.isFinite(n) ? n : 0 }
+
+// Compare two students by a sortable column. Ties break by name for a stable, predictable order.
+function compareByColumn(column, a, b) {
+  if (column === 'student') return collator.compare(displayNameOf(a), displayNameOf(b))
+  if (column === 'status') {
+    const d = statusRank(a.status) - statusRank(b.status)
+    return d !== 0 ? d : collator.compare(displayNameOf(a), displayNameOf(b))
+  }
+  if (column === 'hours') {
+    // Approved hours numerically; required as a stable secondary; pending is never treated as approved.
+    const d = approvedOf(a) - approvedOf(b)
+    if (d !== 0) return d
+    const r = requiredOf(a) - requiredOf(b)
+    return r !== 0 ? r : collator.compare(displayNameOf(a), displayNameOf(b))
+  }
+  return 0
+}
+
+export const SORTABLE_COLUMNS = new Set(['student', 'status', 'hours'])
+
+// Return a sorted copy (never mutates). column null => original order preserved. Array.sort is
+// stable in modern engines, so equal rows keep their incoming order.
+export function sortRoster(students, column, direction) {
+  if (!SORTABLE_COLUMNS.has(column)) return students
+  const sign = direction === 'desc' ? -1 : 1
+  return [...students].sort((a, b) => sign * compareByColumn(column, a, b))
 }
