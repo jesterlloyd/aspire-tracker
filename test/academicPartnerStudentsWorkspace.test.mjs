@@ -81,6 +81,20 @@ test('summary counts and filtering map to real students.status values only', () 
   assert.equal(applyFilter(scoped, 'all').length, 5)
 })
 
+test('the KPI filters and pickers share one control row that wraps responsively', () => {
+  // KPI cards left, pickers pushed right on desktop, both wrap cleanly on narrow.
+  assert.match(css, /\.ptl-ap-controls \{ display: flex; flex-wrap: wrap;[^}]*\}/)
+  assert.match(css, /\.ptl-ap-kpis \{ display: grid; grid-template-columns: repeat\(3, minmax\(132px, 200px\)\);/)
+  assert.match(css, /\.ptl-ap-pickers \{[^}]*margin-left: auto;/)
+  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.ptl-ap-pickers \{ width: 100%; margin-left: 0; \}/)
+  // The canonical FilterKPICard is a native button with built-in aria-pressed (selection is not
+  // color-only) and hover movement; the AP page inherits the portal focus-visible ring.
+  const kpi = read('src/components/KPIBand.jsx')
+  assert.match(kpi, /export function FilterKPICard\(\{ value, label, sub, accent = 'nightfall', active, onClick \}\)/)
+  assert.match(kpi, /aria-pressed=\{active\}/)
+  assert.match(kpi, /translateY\(-2px\)/)
+})
+
 test('the workspace reuses the shared masthead, last-visit hook, and state primitives', () => {
   assert.match(portal, /import GreetingMasthead from '\.\.\/components\/masthead\/GreetingMasthead'/)
   assert.match(portal, /import \{ useLastVisitLabel \} from '\.\.\/lib\/lastVisit'/)
@@ -91,19 +105,20 @@ test('the workspace reuses the shared masthead, last-visit hook, and state primi
 })
 
 test('the school picker appears only for multiple schools; scope is never sent to the server', () => {
-  assert.match(portal, /schools\.length > 1 \? \(/)
-  assert.match(portal, /<p className="ptl-unit-context">School · <b>\{school\.school_key\}<\/b><\/p>/)   // single-school context
+  assert.match(portal, /schools\.length > 1 && \(/)                                       // picker only when >1
+  assert.match(portal, /schools\.length === 1 && <p className="ptl-unit-context ptl-ap-schoolline">School · <b>\{school\.school_key\}<\/b>/)  // single-school context
   // The roster fetch carries only the JWT; no school/cohort/scope query parameter is ever sent.
   assert.match(portal, /fetch\('\/api\/portal\/school-students', \{ headers: \{ Authorization: `Bearer \$\{token\}` \} \}\)/)
   assert.doesNotMatch(portalCode, /school-students\?|school_key=|cohort_id=|[?&]school=/)
 })
 
-test('summary filters are exactly All Students, Currently Rotating, Completed, with accessible state', () => {
-  assert.match(portal, /label: 'All Students'/)
-  assert.match(portal, /label: 'Currently Rotating', n: counts\.rotating/)
-  assert.match(portal, /label: 'Completed',\s*n: counts\.completed/)
-  assert.match(portal, /aria-pressed=\{filter === f\.key\}/)                 // selection is not color-only
-  assert.match(portal, /aria-label=\{`\$\{f\.label\}: \$\{f\.n\}/)           // screen-reader-friendly counts
+test('summary filters reuse the canonical FilterKPICard, exactly All / Currently Rotating / Completed', () => {
+  // Reuse of the main-app pastel filter card (built-in aria-pressed + hover), not a bespoke pill.
+  assert.match(portal, /import \{ FilterKPICard \} from '\.\.\/components\/KPIBand'/)
+  assert.match(portal, /<FilterKPICard[\s\S]*?value=\{f\.n\}[\s\S]*?accent=\{f\.accent\}[\s\S]*?active=\{filter === f\.key\}/)
+  assert.match(portal, /label: 'All Students',       n: counts\.all,       accent: 'nightfall'/)
+  assert.match(portal, /label: 'Currently Rotating', n: counts\.rotating,  accent: 'marina'/)
+  assert.match(portal, /label: 'Completed',          n: counts\.completed, accent: 'sage'/)
   assert.doesNotMatch(portalCode, /Needs Attention|needsAttention/)          // no Needs Attention this phase
 })
 

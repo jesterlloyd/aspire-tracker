@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../lib/lastVisit'
+import { FilterKPICard } from '../components/KPIBand'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
 import { cohortOptions, inCohortScope, summaryCounts, applyFilter } from './ap/academicPartnerRoster'
 
@@ -124,9 +125,9 @@ function StudentsView() {
   const onSchoolChange = (key) => { setSelectedSchoolKey(key); setSelectedCohortId(null); setFilter('all') }
 
   const FILTERS = [
-    { key: 'all',       label: 'All Students',      n: counts.all },
-    { key: 'rotating',  label: 'Currently Rotating', n: counts.rotating },
-    { key: 'completed', label: 'Completed',          n: counts.completed },
+    { key: 'all',       label: 'All Students',       n: counts.all,       accent: 'nightfall' },
+    { key: 'rotating',  label: 'Currently Rotating', n: counts.rotating,  accent: 'marina' },
+    { key: 'completed', label: 'Completed',          n: counts.completed, accent: 'sage' },
   ]
 
   return (
@@ -139,40 +140,39 @@ function StudentsView() {
         lastVisitLine={lastVisitLine}
       />
 
-      <section className="ptl-ap-scope" aria-label="Roster scope">
-        {schools.length > 1 ? (
+      {/* One control row: the canonical pastel KPI filter cards on the left, the school (only when
+          more than one) and cohort pickers aligned right on desktop. Wraps cleanly on narrow. */}
+      <section className="ptl-ap-controls">
+        {schools.length === 1 && <p className="ptl-unit-context ptl-ap-schoolline">School · <b>{school.school_key}</b></p>}
+        <div className="ptl-ap-kpis" role="group" aria-label="Filter students by status">
+          {FILTERS.map(f => (
+            <FilterKPICard
+              key={f.key}
+              value={f.n}
+              label={f.label}
+              accent={f.accent}
+              active={filter === f.key}
+              onClick={() => setFilter(f.key)}
+            />
+          ))}
+        </div>
+        <div className="ptl-ap-pickers">
+          {schools.length > 1 && (
+            <div className="ptl-ap-field">
+              <label className="ptl-label" htmlFor="ap-school">School</label>
+              <select id="ap-school" className="ptl-select" value={school.school_key} onChange={e => onSchoolChange(e.target.value)}>
+                {schools.map(s => <option key={s.school_key} value={s.school_key}>{s.school_key}</option>)}
+              </select>
+            </div>
+          )}
           <div className="ptl-ap-field">
-            <label className="ptl-label" htmlFor="ap-school">School</label>
-            <select id="ap-school" className="ptl-select" value={school.school_key} onChange={e => onSchoolChange(e.target.value)}>
-              {schools.map(s => <option key={s.school_key} value={s.school_key}>{s.school_key}</option>)}
+            <label className="ptl-label" htmlFor="ap-cohort">Cohort</label>
+            <select id="ap-cohort" className="ptl-select" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
+              {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
           </div>
-        ) : (
-          <p className="ptl-unit-context">School · <b>{school.school_key}</b></p>
-        )}
-        <div className="ptl-ap-field">
-          <label className="ptl-label" htmlFor="ap-cohort">Cohort</label>
-          <select id="ap-cohort" className="ptl-select" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
-            {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
         </div>
       </section>
-
-      <div className="ptl-ap-filters" role="group" aria-label="Filter students by status">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            type="button"
-            className={`ptl-ap-filter${filter === f.key ? ' ptl-ap-filter-active' : ''}`}
-            aria-pressed={filter === f.key}
-            aria-label={`${f.label}: ${f.n} ${f.n === 1 ? 'student' : 'students'}`}
-            onClick={() => setFilter(f.key)}
-          >
-            <span className="ptl-ap-filter-count">{f.n}</span>
-            <span className="ptl-ap-filter-label">{f.label}</span>
-          </button>
-        ))}
-      </div>
 
       {students.length === 0 ? (
         <EmptyState title="No students in this school yet" detail="When your school's students enter the ASPIRE pathway, they will appear here." />
