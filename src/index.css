@@ -19,6 +19,11 @@ input[type="number"] { -moz-appearance: textfield; }
 :root {
   --nightfall:   #1d2567;
   --nightfall85: rgba(29,37,103,0.85);
+  /* Canonical Nightfall taskbar chrome, the single source of truth shared by the main-app
+     header (.top-section / .app-header) and the portal Nightfall taskbar (.ptl-header-nightfall)
+     so they cannot drift. Values are the main app's existing ones, so its output is unchanged. */
+  --nightfall-gradient: linear-gradient(180deg, #1c2452 0%, #141928 100%);
+  --nightfall-shadow:   0 2px 8px rgba(29,37,103,0.25);
   --nova:        #9faff8;
   --nova-tint:   rgba(159,175,248,0.18);
   --marina:      #dceff8;
@@ -58,18 +63,20 @@ body { min-height: 100vh; }
 .top-section {
   position: sticky; top: 0; z-index: 200;
   background: var(--color-header-bg, var(--nightfall));
-  box-shadow: 0 2px 8px rgba(29,37,103,0.25);
+  box-shadow: var(--nightfall-shadow);
 }
 
-/* App header - deep navy gradient */
+/* App header - deep navy gradient (the canonical Nightfall gradient, now a shared token) */
 .app-header {
-  background: linear-gradient(180deg, #1c2452 0%, #141928 100%);
+  background: var(--nightfall-gradient);
+}
+/* Dark theme: a deeper solid header and a stronger shadow. The shadow rides the shared token
+   so the portal Nightfall taskbar inherits the identical dark treatment. */
+[data-theme="dark"] {
+  --nightfall-shadow: 0 2px 8px rgba(0,0,0,0.40);
 }
 [data-theme="dark"] .app-header {
   background: var(--color-header-bg, #0A0E14);
-}
-[data-theme="dark"] .top-section {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.40);
 }
 .header-inner {
   max-width: 1600px; margin: 0 auto;

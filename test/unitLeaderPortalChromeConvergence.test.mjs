@@ -51,6 +51,23 @@ test('Nightfall header is shared and uses the canonical app token and logo treat
   assert.match(css, /\.ptl-header-nightfall \.ptl-header-name/)
 })
 
+test('the Nightfall gradient and shadow are shared tokens used by the main app and both portals', () => {
+  // The single source of truth: tokens defined once, with a dark-theme shadow override.
+  assert.match(indexCss, /--nightfall-gradient:\s*linear-gradient\(180deg, #1c2452 0%, #141928 100%\)/)
+  assert.match(indexCss, /--nightfall-shadow:\s*0 2px 8px rgba\(29,37,103,0\.25\)/)
+  assert.match(indexCss, /\[data-theme="dark"\] \{\s*--nightfall-shadow:\s*0 2px 8px rgba\(0,0,0,0\.40\)/)
+  // Main app consumes the tokens (output unchanged; same values).
+  assert.match(indexCss, /\.top-section \{[\s\S]*?box-shadow: var\(--nightfall-shadow\)/)
+  assert.match(indexCss, /\.app-header \{\s*background: var\(--nightfall-gradient\)/)
+  // Both portals (via the shared .ptl-header-nightfall) consume the SAME tokens.
+  const nf = cssBlock('.ptl-header-nightfall')
+  assert.match(nf, /background-image: var\(--nightfall-gradient\)/)
+  assert.match(nf, /box-shadow: var\(--nightfall-shadow\)/)
+  // No portal-only gradient or shadow literal remains.
+  assert.doesNotMatch(nf, /linear-gradient\(180deg/)
+  assert.doesNotMatch(nf, /rgba\(14,20,40/)
+})
+
 test('Student and Unit Leader profile photos use safe sources and keep initials fallback', () => {
   assert.match(appCode, /import \{ usePortalHeadshotUrl \} from '\.\.\/lib\/useStudentFile'/)
   assert.match(appCode, /const \{ url: studentHeaderPhotoUrl \} = usePortalHeadshotUrl\(\{ enabled: isStudent \}\)/)
