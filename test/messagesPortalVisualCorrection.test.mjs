@@ -25,11 +25,10 @@ const jsxFiles = { workspace, inbox, reply, drawer }
 
 test('primary buttons use the established base, not the hero-only modifier', async (t) => {
   await t.test('.ptl-btn-primary is retired and no component uses it', () => {
-    // ASPIRE-COMPASS removed the hero and the trap class with it: the "primary"
-    // that was secretly white-on-navy no longer exists anywhere. The compass
-    // CTA carries its own explicit on-navy class instead.
+    // The "primary" that was secretly white-on-navy no longer exists anywhere. (The compass CTA
+    // that once carried its own on-navy class was also retired with the compass band.)
     assert.doesNotMatch(css, /\.ptl-btn-primary/)
-    assert.match(css, /\.ptl-compass-cta \{/)
+    assert.doesNotMatch(css, /\.ptl-compass-cta/)
     for (const [name, s] of Object.entries(jsxFiles)) {
       assert.doesNotMatch(s, /ptl-btn-primary/, `${name} must not use the retired hero modifier`)
     }

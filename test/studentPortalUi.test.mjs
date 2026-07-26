@@ -19,32 +19,29 @@ const nav = read('src/portal/PortalNav.jsx')
 const drawer = read('src/portal/EditProfileDrawer.jsx')
 const css = read('src/portal/portal.css')
 
-test('the Compass orientation band', async (t) => {
-  await t.test('identity with avatar and initials fallback', () => {
-    assert.match(portal, /ptl-compass-id/)
-    assert.match(portal, /function initials/)
-    // WAVE F-2: the own headshot now resolves through the portal access endpoint
-    // (server-mediated signed URL); the photo-or-initials fallback is unchanged.
-    assert.match(portal, /ownHeadshotUrl \? <img[\s\S]*?: initials\(fullName\)/)
+test('the shared greeting masthead replaces the student-only hero', async (t) => {
+  await t.test('reuses the shared GreetingMasthead (greeting + date/cohort/last-visit + weather)', () => {
+    assert.match(portal, /import GreetingMasthead from '\.\.\/components\/masthead\/GreetingMasthead'/)
+    assert.match(portal, /<GreetingMasthead[\s\S]*?fullName=\{fullName\}[\s\S]*?dateLabel=\{dateLabel\}[\s\S]*?contextLabel=\{cohortName\}[\s\S]*?lastVisitLine=\{lastVisitLine\}/)
   })
 
-  await t.test('the welcome name and stage are the Fraunces moments', () => {
-    assert.match(css, /\.ptl-compass-name \{[\s\S]*?font-family: var\(--ptl-serif\)/)
-    assert.match(css, /\.ptl-compass-stage \{[\s\S]*?font-family: var\(--ptl-serif\)/)
+  await t.test('the old navy compass hero (welcome / stage / attention) is fully removed', () => {
+    assert.doesNotMatch(portal, /ptl-compass|Welcome back|ptl-attention|deriveHeroStage|deriveAttentionItems|function initials/)
+    assert.doesNotMatch(css, /\.ptl-compass/)
   })
 
-  await t.test('the stage derives ONLY from reliable status data', () => {
-    assert.match(portal, /deriveHeroStage\(student\.status\)/)
+  await t.test('last-visit reuses the shared hook, scoped to this browser + student', () => {
+    assert.match(portal, /import \{ useLastVisitLabel \} from '\.\.\/lib\/lastVisit'/)
+    assert.match(portal, /useLastVisitLabel\(student\?\.id \? `aspire:lastVisit:portal:student:\$\{student\.id\}` : null\)/)
+  })
+
+  await t.test('the single stage representation is Your progress; the stage action stays on its own card', () => {
+    // The timeline (Your progress card) is the one stage representation; the redundant hero
+    // stage/next block and duplicated CTA are gone. The action lives on the Hours / Badge cards.
     assert.match(portal, /derivePortalTimeline\(\{ status: student\.status/)
-  })
-
-  await t.test('attention items derive from real records and stay quiet at zero', () => {
-    assert.match(portal, /deriveAttentionItems\(\{ unreadMessages: unread, evaluations: myEvals, shiftLogs: myLogs \}\)/)
-    assert.match(portal, /\{attention\.length > 0 && \(/)
-  })
-
-  await t.test('the ONE primary action is stage-derived, never invented', () => {
-    assert.match(portal, /deriveCompassAction\(\{ status: student\.status, certificateDownloadable/)
+    assert.match(portal, />Your progress<\/h2>/)
+    const logShift = portal.match(/Log a Shift/g) || []
+    assert.equal(logShift.length, 1, 'exactly one Log a Shift entry point (the Hours card)')
   })
 })
 
@@ -86,10 +83,14 @@ test('student-facing vocabulary', async (t) => {
 })
 
 test('data discipline', async (t) => {
-  await t.test('dates use the null-safe helpers (no raw Invalid Date rendering)', () => {
+  await t.test('record dates use the null-safe helpers (no raw Invalid Date rendering)', () => {
     assert.match(portal, /import \{ fmtDate, placementWindow, TBC \} from '\.\.\/lib\/portalDates'/)
     assert.match(portal, /placementWindow\(student\.cohort, student\.term_dates\)/)
-    assert.doesNotMatch(portal, /toLocaleDateString/, 'formatting goes through portalDates, not inline')
+    // The ONLY inline toLocaleDateString is the shared masthead's date label (always today's date,
+    // never a nullable record value), matching the Unit Leader Home. Record dates stay on fmtDate.
+    const localeUses = portal.match(/toLocaleDateString/g) || []
+    assert.equal(localeUses.length, 1, 'only the masthead date label formats inline')
+    assert.match(portal, /const dateLabel = useMemo\(\s*\n\s*\(\) => new Date\(\)\.toLocaleDateString/)
   })
 
   await t.test('the hours bar renders only with reliable data (via deriveClinicalHours)', () => {

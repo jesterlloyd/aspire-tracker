@@ -19,15 +19,15 @@
 // Student-facing vocabulary (display only; API fields are untouched):
 //   Evaluations -> Surveys, Documents -> Badge & Certificate,
 //   Need help? -> Support.
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   MapPin, Clock, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail,
   ChevronRight, Copy, Download, Award, IdCard, MessageSquare, ArrowRight,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { deriveHeroStage, derivePortalTimeline, deriveClinicalHours } from '../lib/portalProgress'
-import { deriveCompassAction, deriveAttentionItems } from '../lib/portalHome'
+import { derivePortalTimeline, deriveClinicalHours } from '../lib/portalProgress'
+import { deriveCompassAction } from '../lib/portalHome'
 import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocuments'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { composePortalEmail } from '../lib/outlookCompose'
@@ -35,6 +35,8 @@ import { usePortalInboxPreview } from '../lib/messages/portalMessagesPolling'
 import { formatInboxTimestamp, formatUnread } from '../lib/messages/messagesConstants'
 import { usePortalHeadshotUrl } from '../lib/useStudentFile'
 import { classifyStoredFileRef } from '../lib/studentFileClient'
+import GreetingMasthead from '../components/masthead/GreetingMasthead'
+import { useLastVisitLabel } from '../lib/lastVisit'
 import EditProfileDrawer from './EditProfileDrawer'
 
 const SUPPORT = 'aspire@cshs.org'
@@ -50,10 +52,6 @@ const EVAL_WAITING = new Set(['sent', 'opened', 'reminder_due'])
 const TIMEPOINT_LABELS = {
   baseline: 'Baseline', early_rotation_baseline: 'Early rotation',
   midpoint: 'Midpoint', post_rotation: 'Post-rotation',
-}
-
-function initials(name) {
-  return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
 // Approved, non-sensitive support message body (no ids, notes, scores, or history).
@@ -194,9 +192,14 @@ export default function StudentPortal({
   const certStatus = student
     ? deriveCertificateStatus({ certificate: myCert, status: student.status, evaluations: myEvals })
     : null
-  const action = student
-    ? deriveCompassAction({ status: student.status, certificateDownloadable: !!certStatus?.downloadable })
-    : null
+
+  // Shared greeting masthead inputs (same system the main app + Unit Leader Home use). Hooks run
+  // unconditionally, before the early returns below; the last-visit key is browser + student scoped.
+  const dateLabel = useMemo(
+    () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+    [],
+  )
+  const lastVisitLine = useLastVisitLabel(student?.id ? `aspire:lastVisit:portal:student:${student.id}` : null)
 
   if (loading) return <HomeSkeleton />
   if (error)   return <div className="ptl-card ptl-error">{error}</div>
@@ -218,10 +221,8 @@ export default function StudentPortal({
   const supportItems = myLogs.filter(l => (l.support_needed || '').trim().length > 0)
 
   const hours = deriveClinicalHours(student.hours)
-  const stage = deriveHeroStage(student.status)
   const timeline = derivePortalTimeline({ status: student.status, certificateUnlocked: !!myCert?.certificate_unlocked_at })
   const badgeStatus = deriveBadgeStatus({ badgeCreated: student.badge_created, status: student.status })
-  const attention = deriveAttentionItems({ unreadMessages: unread, evaluations: myEvals, shiftLogs: myLogs })
 
   const displayName = student.preferred_first_name || student.first_name
   const fullName = [displayName, student.last_name].filter(Boolean).join(' ')
@@ -237,11 +238,6 @@ export default function StudentPortal({
   const waitingSurveys = myEvals.filter(e => EVAL_WAITING.has(e.status))
   const badgeRelevant = badgeStatus && badgeStatus.state !== 'not_yet'
   const certRelevant = certStatus && (certStatus.downloadable || ['processing', 'eligible', 'available'].includes(certStatus.state))
-  const attentionTarget = (t) => {
-    if (t === 'messages') onOpenMessages?.()
-    else if (t === 'surveys') document.getElementById('ptl-surveys')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    else if (t === 'shifts') document.getElementById('ptl-hours')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 
   return (
     <div className="ptl-student">
@@ -260,61 +256,16 @@ export default function StudentPortal({
         </div>
       )}
 
-      {/* ── The Compass: one orientation band ─────────────────────────────── */}
-      <section className="ptl-compass" aria-label="Your ASPIRE orientation">
-        <div className="ptl-compass-main">
-          <div className="ptl-compass-id">
-            <div className="ptl-avatar" aria-hidden="true">
-              {ownHeadshotUrl ? <img src={ownHeadshotUrl} alt="" onError={e => { e.currentTarget.style.display = 'none' }} /> : initials(fullName)}
-            </div>
-            <div className="ptl-compass-text">
-              <p className="ptl-compass-hello">Welcome back,</p>
-              <p className="ptl-compass-name">{displayName}</p>
-              <p className="ptl-compass-meta">{[student.school, cohortName].filter(Boolean).join(' · ') || 'ASPIRE Student'}{student.unit_name ? ` · ${student.unit_name}` : ''}</p>
-            </div>
-          </div>
-
-          {/* Attention: real items only; silent when nothing waits. */}
-          {attention.length > 0 && (
-            <ul className="ptl-attention" aria-label="Needs your attention">
-              {attention.map(item => (
-                <li key={item.key}>
-                  <button type="button" className="ptl-attention-chip" onClick={() => attentionTarget(item.target)}>
-                    <span className="ptl-attention-count" aria-hidden="true">{item.count}</span>
-                    {item.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="ptl-compass-side">
-          {stage ? (
-            <>
-              <p className="ptl-compass-stage-eyebrow">Current stage</p>
-              <p className="ptl-compass-stage">{stage.current}</p>
-              {/* The pathway strip: the authenticated echo of the public
-                  waypoint motif. Text state lives in the timeline card copy
-                  below the fold via the same derivation; here the dots are
-                  decorative reinforcement, never the only signal. */}
-              {!timeline.terminal && (
-                <div className="ptl-compass-dots" aria-hidden="true">
-                  {timeline.steps.map(s => <span key={s.key} className={`ptl-dot ptl-dot-${s.state}`} />)}
-                </div>
-              )}
-              <p className="ptl-compass-next"><span className="ptl-compass-next-label">Next:</span> {stage.next}</p>
-            </>
-          ) : (
-            <p className="ptl-compass-next">{timeline.steps[0]?.label}</p>
-          )}
-          {action && (
-            action.kind === 'shift-log'
-              ? <a className="ptl-btn ptl-compass-cta" href={action.href}><CalendarPlus size={16} /> {action.label}</a>
-              : <button type="button" className="ptl-btn ptl-compass-cta" onClick={downloadCertificate} disabled={certBusy}><Award size={16} /> {certBusy ? 'Preparing...' : action.label}</button>
-          )}
-        </div>
-      </section>
+      {/* The shared greeting masthead: the SAME card the main app "At a Glance" and the Unit Leader
+          Home use (greeting + date/cohort/last-visit + weather). No student-only hero graphic. The
+          old stage/next block is dropped; "Your progress" below is the single stage representation,
+          and the stage action stays on its own card (the Hours and Badge cards). */}
+      <GreetingMasthead
+        fullName={fullName}
+        dateLabel={dateLabel}
+        contextLabel={cohortName}
+        lastVisitLine={lastVisitLine}
+      />
 
       <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
 
@@ -552,7 +503,7 @@ export default function StudentPortal({
         </section>
       </div>
 
-      <EditProfileDrawer open={editOpen} student={student} loginEmail={loginEmail} returnFocusRef={editBtnRef} onClose={onCloseEdit} onSaved={() => load()} />
+      <EditProfileDrawer open={editOpen} student={student} headshotUrl={ownHeadshotUrl} loginEmail={loginEmail} returnFocusRef={editBtnRef} onClose={onCloseEdit} onSaved={() => load()} />
     </div>
   )
 }

@@ -61,7 +61,7 @@ test('Request a correction uses the centralized compose helper', async (t) => {
     assert.doesNotMatch(drawer, /buildCorrectionBody[\s\S]{0,300}student_id/)
   })
   await t.test('the drawer is passed the login email from the portal', () => {
-    assert.match(portal, /<EditProfileDrawer open=\{editOpen\} student=\{student\} loginEmail=\{loginEmail\}/)
+    assert.match(portal, /<EditProfileDrawer open=\{editOpen\} student=\{student\} headshotUrl=\{ownHeadshotUrl\} loginEmail=\{loginEmail\}/)
   })
 })
 

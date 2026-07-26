@@ -330,80 +330,11 @@
 .ptl-menu-item:hover, .ptl-menu-item:focus { background: #f5f4ef; }
 .ptl-menu-danger { color: #b91c1c; }
 
-/* ── ASPIRE-COMPASS: the orientation band ─────────────────────────────────────
-   One navy surface that answers "where am I, what needs attention, what is
-   next". Fraunces appears here ONLY on the welcome name and the stage name
-   (the two allowed display moments); everything else stays DM Sans. */
+/* Student Portal Home column. The old navy compass orientation band was retired in favor of the
+   shared greeting masthead (GreetingMasthead / .mast*), so its styles (and the attention-chip /
+   pathway-dot styles it owned) were removed. */
 .ptl-student { display: flex; flex-direction: column; gap: 18px; }
 .ptl-rotation-switch { background: var(--ptl-card, #fff); border: 1px solid var(--ptl-line, #e3ded4); border-radius: var(--ptl-radius, 16px); padding: 14px 18px; }
-
-.ptl-compass {
-  background:
-    radial-gradient(110% 130% at 100% 0%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 55%),
-    linear-gradient(135deg, #1D2567 0%, #232c74 60%, #141a4d 100%);
-  color: #fff; border-radius: var(--ptl-radius, 16px);
-  padding: 24px 26px;
-  box-shadow: 0 8px 28px rgba(29, 37, 103, 0.18);
-  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 20px 28px; align-items: center;
-  position: relative; overflow: hidden;
-}
-.ptl-compass::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
-  background: linear-gradient(90deg, var(--aspire-red-editorial, #B3282D), rgba(179, 40, 45, 0) 60%);
-}
-.ptl-compass-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.ptl-compass-id { display: flex; align-items: center; gap: 18px; min-width: 0; }
-.ptl-compass .ptl-avatar { width: 88px; height: 88px; font-size: 31px; border: 3px solid rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
-.ptl-compass-text { min-width: 0; }
-.ptl-compass-hello { margin: 0; font-size: 13px; color: rgba(255,255,255,0.72); }
-.ptl-compass-name {
-  margin: 0; font-family: var(--ptl-serif); font-weight: 560;
-  font-size: clamp(26px, 3vw, 34px); line-height: 1.1; letter-spacing: -0.01em;
-}
-.ptl-compass-meta { margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.82); overflow-wrap: anywhere; }
-
-/* Attention chips: appear only when something is genuinely waiting. The count
-   uses the standard red badge token; the chip itself stays neutral. */
-.ptl-attention { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
-.ptl-attention-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  min-height: 36px; padding: 6px 12px 6px 6px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.22);
-  color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.ptl-attention-chip:hover { background: rgba(255, 255, 255, 0.22); }
-.ptl-attention-chip:focus-visible { outline-color: #fff; }
-.ptl-attention-count {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
-  background: var(--cs-red, #DC1E34); color: #fff; font-size: 11.5px; font-weight: 700;
-}
-
-/* Right side: stage, pathway dots, next step, and the ONE primary action. */
-.ptl-compass-side {
-  display: flex; flex-direction: column; gap: 8px; min-width: 0;
-  background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 14px; padding: 18px 20px;
-}
-.ptl-compass-stage-eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: rgba(255,255,255,0.62); }
-.ptl-compass-stage {
-  margin: 0; font-family: var(--ptl-serif); font-weight: 560; font-style: italic;
-  font-size: clamp(20px, 2.2vw, 25px); line-height: 1.15; color: #fff;
-}
-.ptl-compass-dots { display: flex; gap: 7px; margin: 4px 0 2px; }
-.ptl-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.28); }
-.ptl-dot-complete { background: #7ee2a0; }
-.ptl-dot-current { background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
-.ptl-compass-next { margin: 0; font-size: 13.5px; line-height: 1.5; color: rgba(255,255,255,0.92); }
-.ptl-compass-next-label { font-weight: 700; color: #fff; }
-.ptl-compass-cta {
-  margin-top: 10px; align-self: flex-start;
-  display: inline-flex; align-items: center; gap: 8px;
-  background: #fff; color: var(--ptl-navy);
-}
-.ptl-compass-cta:hover { background: #f0f2fb; }
-.ptl-compass-cta:disabled { background: rgba(255,255,255,0.6); cursor: default; }
 
 /* Section cards with icons */
 .ptl-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -646,11 +577,6 @@
   .ptl-header-nightfall .ptl-header-divider { display: none; }
   .ptl-header-nightfall .ptl-header-aspire { font-size: 16px; }
   .ptl-header-sub { display: none; }
-  .ptl-compass { grid-template-columns: 1fr; padding: 18px 16px; gap: 14px; }
-  .ptl-compass .ptl-avatar { width: 64px; height: 64px; font-size: 23px; }
-  .ptl-compass-name { font-size: 24px; }
-  .ptl-compass-side { padding: 14px 16px; }
-  .ptl-compass-cta { align-self: stretch; justify-content: center; }
   .ptl-help-grid { grid-template-columns: 1fr; }
   .ptl-card { padding: 18px 16px; }
   .ptl-drawer { max-width: 100%; }
@@ -944,6 +870,9 @@
    grid gap own the vertical rhythm, so the reused margin is zeroed here (staff usage untouched). */
 .ptl-unit-page .mast,
 .ptl-unit-page .mast-live { margin: 0; }
+/* Same alignment for the Student Portal Home column: the shared masthead sits flush with the
+   rotation switch and the card grid, and the .ptl-student flex gap owns the vertical rhythm. */
+.ptl-student .mast { margin: 0; }
 
 /* Unit Leader Preceptors workspace. The existing .ptl-table mobile conversion
    supplies stacked cards below 760px; these rules cover only workspace-specific

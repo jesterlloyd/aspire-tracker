@@ -14,7 +14,6 @@ const site = read('src/public-site/PublicSite.jsx')
 const css = read('src/public-site/publicSite.css')
 const content = read('src/public-site/publicContent.js')
 const portalCss = read('src/portal/portal.css')
-const portal = read('src/portal/StudentPortal.jsx')
 
 test('public-site mobile header + compact menu', async (t) => {
   await t.test('the old full-screen drawer is gone', () => {
@@ -79,21 +78,12 @@ test('public-site mobile header + compact menu', async (t) => {
   })
 })
 
-test('Student Portal hero avatar is larger and keeps the initials fallback', async (t) => {
-  await t.test('desktop avatar is prominent with a preserved ring (ASPIRE-COMPASS)', () => {
-    assert.match(portalCss, /\.ptl-compass \.ptl-avatar \{ width: 88px; height: 88px;[\s\S]*?border: 3px solid rgba\(255,255,255/)
-  })
-  await t.test('mobile avatar scales down but stays recognizable', () => {
-    assert.match(portalCss, /\.ptl-compass \.ptl-avatar \{ width: 64px; height: 64px;/)
-  })
-  await t.test('circular crop and non-stretch image are preserved', () => {
-    assert.match(portalCss, /\.ptl-avatar \{[\s\S]*?border-radius: 50%;/)
-    assert.match(portalCss, /\.ptl-avatar img \{ width: 100%; height: 100%; object-fit: cover; \}/)
-  })
-  await t.test('initials fallback remains when no photo exists', () => {
-    // WAVE F-2: the own headshot now resolves through the portal access endpoint
-    // (server-mediated signed URL); the photo-or-initials fallback is unchanged.
-    assert.match(portal, /ownHeadshotUrl \? <img[\s\S]*?: initials\(fullName\)/)
-    assert.match(portal, /alt=""/, 'decorative avatar image has empty alt (initials carry identity)')
-  })
+// The Student Portal home avatar moved: the navy compass hero (and its enlarged avatar) was
+// retired in favor of the shared greeting masthead, which carries the weather scene rather than a
+// photo. The shared circular .ptl-avatar primitive still lives in the header and the Edit Profile
+// drawer; its crop is covered by the portal chrome tests.
+test('the retired student hero avatar leaves no compass avatar styles behind', () => {
+  assert.doesNotMatch(portalCss, /\.ptl-compass/)
+  assert.match(portalCss, /\.ptl-avatar \{[\s\S]*?border-radius: 50%;/)
+  assert.match(portalCss, /\.ptl-avatar img \{ width: 100%; height: 100%; object-fit: cover; \}/)
 })

@@ -60,19 +60,17 @@ test('mobile-first layout is preserved', async (t) => {
     assert.match(css, /@media \(max-width: 760px\) \{[\s\S]*?\.ptl-grid \{ grid-template-columns: 1fr; \}/)
   })
 
-  await t.test('the compass avatar scales down on mobile', () => {
-    assert.match(css, /\.ptl-compass \.ptl-avatar \{ width: 88px; height: 88px;/)
-    assert.match(css, /@media \(max-width: 760px\) \{[\s\S]*?\.ptl-compass \.ptl-avatar \{ width: 64px; height: 64px;/)
-  })
-
-  await t.test('the compass band stacks to one column on mobile', () => {
-    assert.match(css, /@media \(max-width: 760px\) \{[\s\S]*?\.ptl-compass \{ grid-template-columns: 1fr;/)
+  await t.test('the shared masthead (not a compass band) leads the mobile column', () => {
+    // The compass band and its avatar/mobile overrides were removed; the shared masthead aligns
+    // flush inside the student column and the flex gap owns the rhythm.
+    assert.doesNotMatch(css, /\.ptl-compass/)
+    assert.match(css, /\.ptl-student \.mast \{ margin: 0; \}/)
   })
 })
 
-test('the Compass replaces duplicated surfaces', async (t) => {
-  await t.test('one progress representation: the dots strip plus one timeline card', () => {
-    assert.match(portal, /ptl-compass-dots/)
+test('the home replaces duplicated surfaces', async (t) => {
+  await t.test('one progress representation: a single timeline card, no separate hero dots', () => {
+    assert.doesNotMatch(portal, /ptl-compass-dots/)
     const timelineCount = (portal.match(/ptl-timeline/g) || []).length
     assert.ok(timelineCount <= 2, 'exactly one timeline list (class + aria usage)')
     assert.doesNotMatch(portal, /ptl-hero-stage|ptl-stage-value/)
@@ -167,9 +165,10 @@ test('accessibility and hygiene', async (t) => {
     assert.doesNotMatch(portal, /window\.location\.href = ['"`]mailto/)
   })
 
-  await t.test('dates route through the null-safe helper (Invalid Date never renders)', () => {
+  await t.test('record dates route through the null-safe helper (Invalid Date never renders)', () => {
     assert.match(portal, /fmtDate\(/)
-    assert.doesNotMatch(portal, /toLocaleDateString/)
+    // The only inline toLocaleDateString is the shared masthead's always-valid date label.
+    assert.equal((portal.match(/toLocaleDateString/g) || []).length, 1)
   })
 
   await t.test('no service-role reference leaks into the client bundle', () => {
