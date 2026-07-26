@@ -1,15 +1,14 @@
-// ASPIRE-COMPASS: Student Portal home. The public site is the map; this is
-// the compass. One orientation band answers "where am I, what needs my
-// attention, what do I do next"; the surfaces below it are ordered by
-// priority for the student's actual stage instead of rendered as equal cards.
+// Student Portal home. It opens with the shared greeting masthead (GreetingMasthead: greeting +
+// date/cohort/last-visit + weather, the same card the main app and Unit Leader Home use), then a
+// card grid ordered by priority: Placement + Your progress lead, the full-width Hours & shifts
+// surface follows, and Surveys / Badge & Certificate / Support form a compact trio. The Home
+// Messages card was removed as redundant with the Messages tab and the floating Messages button.
 //
-// Reads (all server-authorized, UNCHANGED from the previous home):
+// Reads (all server-authorized):
 //   - Summary (profile, placement, cohort, hours, badge_created): GET
 //     /api/portal/student-summary
 //   - Shift logs / evaluation statuses / certificate: scoped definer views
 //     (empty for anyone without an active student grant)
-//   - Latest-message strip: the SAME shared inbox query Messages uses
-//     (usePortalInboxPreview); listing never marks anything read.
 // Writes: only self-service presentation fields via /api/portal/update-profile
 // (EditProfileDrawer). Shift logging stays on the public /shift-log flow;
 // surveys stay on their tokenized email links. Document downloads go through
@@ -22,7 +21,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   MapPin, Clock, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail,
-  ChevronRight, Copy, Download, Award, IdCard, MessageSquare, ArrowRight,
+  ChevronRight, Copy, Download, Award, IdCard,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -31,8 +30,6 @@ import { deriveCompassAction } from '../lib/portalHome'
 import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocuments'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { composePortalEmail } from '../lib/outlookCompose'
-import { usePortalInboxPreview } from '../lib/messages/portalMessagesPolling'
-import { formatInboxTimestamp, formatUnread } from '../lib/messages/messagesConstants'
 import { usePortalHeadshotUrl } from '../lib/useStudentFile'
 import { classifyStoredFileRef } from '../lib/studentFileClient'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
@@ -74,8 +71,7 @@ function HomeSkeleton() {
 }
 
 export default function StudentPortal({
-  editOpen = false, onOpenEdit, onCloseEdit,
-  unread = 0, onOpenMessages, onOpenThread, onMobileAction,
+  editOpen = false, onOpenEdit, onCloseEdit, onMobileAction,
 }) {
   const { user } = useAuth()
   const loginEmail = user?.email || ''
@@ -90,9 +86,6 @@ export default function StudentPortal({
   const [certBusy, setCertBusy] = useState(false)
   const [certMsg, setCertMsg]   = useState(null)  // { ok, text } | null
   const editBtnRef = useRef(null)
-
-  // Latest-message strip: shared inbox cache, never marks read.
-  const { latest } = usePortalInboxPreview({ enabled: true })
 
   const contactAspire = (ctx) => {
     const body = buildContactBody(ctx)
@@ -270,8 +263,48 @@ export default function StudentPortal({
       <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
 
       <div className="ptl-grid">
-        {/* ── Hours & shifts: ONE authoritative surface ─────────────────────── */}
-        <section className={`ptl-card ptl-section ptl-col-7${activeRotation ? '' : ' ptl-section-quiet'}`} id="ptl-hours">
+        {/* Home IA: Placement + Your progress lead (always populated, strong visibility), then the
+            full-width Hours & shifts surface, then the compact Surveys / Badge / Support trio. The
+            Home Messages card was removed as redundant with the Messages tab and the floating
+            Messages button; the Messages tab and that floating utility are unchanged. */}
+
+        {/* ── Placement (where you are) ─────────────────────────────────────── */}
+        <section className={`ptl-card ptl-section ptl-col-7${placedMoment ? ' ptl-moment' : ''}`}>
+          <div className="ptl-section-head">
+            <span className="ptl-section-icon" style={{ background: '#eef2fb', color: '#1D2567' }}><MapPin size={16} /></span>
+            <h2 className="ptl-section-title">Placement</h2>
+            {placedMoment && <span className="ptl-chip ptl-chip-ok">Confirmed</span>}
+          </div>
+          {placedMoment && (
+            <p className="ptl-moment-line">Your placement is confirmed. Welcome to {student.unit_name || 'your unit'}.</p>
+          )}
+          <dl className="ptl-dl ptl-dl-lg">
+            <div><dt>Unit</dt><dd>{student.unit_name || TBC}</dd></div>
+            <div><dt>Preceptor</dt><dd>{student.preceptor_name || TBC}</dd></div>
+            <div><dt>Rotation window</dt><dd>{rotationWindow}</dd></div>
+            <div><dt>School</dt><dd>{student.school || TBC}</dd></div>
+          </dl>
+        </section>
+
+        {/* ── Your progress (the single stage representation) ───────────────── */}
+        <section className="ptl-card ptl-section ptl-col-5">
+          <div className="ptl-section-head">
+            <span className="ptl-section-icon" style={{ background: '#edf2e2', color: '#166534' }}><ClipboardCheck size={16} /></span>
+            <h2 className="ptl-section-title">Your progress</h2>
+          </div>
+          <ol className="ptl-timeline" aria-label="Your ASPIRE progress">
+            {timeline.steps.map(s => (
+              <li key={s.key} className={`ptl-tl-step ptl-tl-${s.state}`}>
+                <span className="ptl-tl-mark" aria-hidden="true">{s.state === 'complete' ? '✓' : s.state === 'current' ? '●' : '○'}</span>
+                <span className="ptl-tl-label">{s.label}</span>
+                <span className="ptl-tl-state">{s.stateLabel}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* ── Hours & shifts: ONE authoritative surface, full width ─────────── */}
+        <section className={`ptl-card ptl-section ptl-col-12${activeRotation ? '' : ' ptl-section-quiet'}`} id="ptl-hours">
           <div className="ptl-section-head">
             <span className="ptl-section-icon" style={{ background: '#e0f7fa', color: '#0d7a8a' }}><Clock size={16} /></span>
             <h2 className="ptl-section-title">Hours &amp; shifts</h2>
@@ -317,65 +350,6 @@ export default function StudentPortal({
           {activeRotation && (
             <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>
           )}
-        </section>
-
-        {/* ── Latest message: awareness only; never marks read ──────────────── */}
-        <section className="ptl-card ptl-section ptl-col-5" aria-labelledby="ptl-latest-title">
-          <div className="ptl-section-head">
-            <span className="ptl-section-icon" style={{ background: '#eef2fb', color: '#1D2567' }}><MessageSquare size={16} /></span>
-            <h2 className="ptl-section-title" id="ptl-latest-title">Messages</h2>
-            {unread > 0 && <span className="ptl-nav-badge" aria-hidden="true">{formatUnread(unread)}</span>}
-          </div>
-          {latest ? (
-            <button type="button" className="ptl-latest-row" onClick={() => onOpenThread?.(latest.id)}>
-              <span className="ptl-latest-top">
-                <span className={`ptl-latest-subject${Number(latest.unread_count) > 0 ? ' ptl-latest-unread' : ''}`}>{latest.subject}</span>
-                <span className="ptl-latest-time">{formatInboxTimestamp(latest.last_message_at)}</span>
-              </span>
-              {latest.latest_preview && <span className="ptl-latest-preview">{latest.latest_preview}</span>}
-              <span className="ptl-latest-open">Open conversation <ArrowRight size={13} aria-hidden="true" /></span>
-            </button>
-          ) : (
-            <p className="ptl-muted">Messages between you and the ASPIRE Team will appear here.</p>
-          )}
-          <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={() => onOpenMessages?.()}>
-            Go to Messages <ChevronRight size={14} aria-hidden="true" />
-          </button>
-        </section>
-
-        {/* ── Placement ─────────────────────────────────────────────────────── */}
-        <section className={`ptl-card ptl-section ptl-col-7${placedMoment ? ' ptl-moment' : ''}`}>
-          <div className="ptl-section-head">
-            <span className="ptl-section-icon" style={{ background: '#eef2fb', color: '#1D2567' }}><MapPin size={16} /></span>
-            <h2 className="ptl-section-title">Placement</h2>
-            {placedMoment && <span className="ptl-chip ptl-chip-ok">Confirmed</span>}
-          </div>
-          {placedMoment && (
-            <p className="ptl-moment-line">Your placement is confirmed. Welcome to {student.unit_name || 'your unit'}.</p>
-          )}
-          <dl className="ptl-dl ptl-dl-lg">
-            <div><dt>Unit</dt><dd>{student.unit_name || TBC}</dd></div>
-            <div><dt>Preceptor</dt><dd>{student.preceptor_name || TBC}</dd></div>
-            <div><dt>Rotation window</dt><dd>{rotationWindow}</dd></div>
-            <div><dt>School</dt><dd>{student.school || TBC}</dd></div>
-          </dl>
-        </section>
-
-        {/* ── Your progress (single detailed representation) ────────────────── */}
-        <section className="ptl-card ptl-section ptl-col-5">
-          <div className="ptl-section-head">
-            <span className="ptl-section-icon" style={{ background: '#edf2e2', color: '#166534' }}><ClipboardCheck size={16} /></span>
-            <h2 className="ptl-section-title">Your progress</h2>
-          </div>
-          <ol className="ptl-timeline" aria-label="Your ASPIRE progress">
-            {timeline.steps.map(s => (
-              <li key={s.key} className={`ptl-tl-step ptl-tl-${s.state}`}>
-                <span className="ptl-tl-mark" aria-hidden="true">{s.state === 'complete' ? '✓' : s.state === 'current' ? '●' : '○'}</span>
-                <span className="ptl-tl-label">{s.label}</span>
-                <span className="ptl-tl-state">{s.stateLabel}</span>
-              </li>
-            ))}
-          </ol>
         </section>
 
         {/* ── Surveys (prominent only when one is waiting) ──────────────────── */}

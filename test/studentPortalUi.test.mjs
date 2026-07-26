@@ -104,8 +104,9 @@ test('data discipline', async (t) => {
     assert.doesNotMatch(portal, /hours\.completed \+ hours\.pending/)
   })
 
-  await t.test('the Home message strip never marks read and duplicates no inbox', () => {
-    assert.match(portal, /usePortalInboxPreview/)
+  await t.test('the Home no longer embeds a message strip (the Messages tab owns messages)', () => {
+    // The redundant Home Messages card was removed, so Home neither queries nor renders inbox data.
+    assert.doesNotMatch(portal, /usePortalInboxPreview|ptl-latest-|Go to Messages/)
     assert.doesNotMatch(portal, /markPortalConversationRead|messages-read|getPortalThreadPage/)
   })
 

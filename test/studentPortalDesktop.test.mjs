@@ -42,12 +42,20 @@ test('desktop workspace and 12-column grid', async (t) => {
     }
   })
 
-  await t.test('the Compass rows: Hours 7 / Messages 5, Placement 7 / Progress 5, then 4/4/4', () => {
-    assert.match(portal, /Hours &amp; shifts<\/h2>[\s\S]{0,400}/)
-    assert.match(portal, /ptl-col-7[\s\S]*?id="ptl-hours"|id="ptl-hours"[\s\S]{0,200}/)
-    assert.match(portal, /className="ptl-card ptl-section ptl-col-5" aria-labelledby="ptl-latest-title"/)
-    assert.match(portal, /Your progress<\/h2>/)
-    assert.match(portal, /id="ptl-surveys"/)
+  await t.test('the refined rows: Placement 7 / Progress 5, Hours full width (12), then 4/4/4', () => {
+    // The Home Messages card is gone (no latest-message strip).
+    assert.doesNotMatch(portal, /ptl-latest-title/)
+    // Order: Placement, then Your progress, then the full-width Hours surface, then Surveys.
+    const iPlacement = portal.indexOf('>Placement</h2>')
+    const iProgress = portal.indexOf('>Your progress</h2>')
+    const iHours = portal.indexOf('id="ptl-hours"')
+    const iSurveys = portal.indexOf('id="ptl-surveys"')
+    assert.ok(iPlacement > 0 && iPlacement < iProgress && iProgress < iHours && iHours < iSurveys,
+      'card order is Placement, Your progress, Hours, Surveys')
+    // Spans: Placement col-7, Progress col-5, Hours full-width col-12.
+    assert.match(portal, /ptl-col-7\$\{placedMoment/)                          // Placement card is col-7
+    assert.match(portal, /<section className="ptl-card ptl-section ptl-col-5">/) // Your progress card is col-5
+    assert.match(portal, /ptl-col-12\$\{activeRotation[\s\S]{0,40}id="ptl-hours"/) // Hours is full width
   })
 
   await t.test('tablet collapses to two-up', () => {

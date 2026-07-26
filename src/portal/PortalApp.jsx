@@ -173,9 +173,6 @@ export default function PortalApp() {
             editOpen={editOpen}
             onOpenEdit={() => setEditOpen(true)}
             onCloseEdit={() => setEditOpen(false)}
-            unread={unread}
-            onOpenMessages={goMessages}
-            onOpenThread={openThread}
             onMobileAction={setMobileAction}
           />
         </div>
