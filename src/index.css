@@ -1678,7 +1678,11 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-row { position: relative; display: flex; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
 .mast-left { min-width: 0; flex: 1 1 340px; }
 .mast-greet {
-  font-size: 30px; margin: 0; line-height: 1.1;
+  /* line-height 1.1 gave the 30px Fraunces greeting too tight a line box, and the overflow:hidden
+     required by the horizontal ellipsis then cropped the descenders (the g in "Good morning"). A
+     taller line box plus a small bottom pad give the descender room without changing the 30px size.
+     Shared by every masthead surface (main app, Unit Leader, Student) through .mast-greet. */
+  font-size: 30px; margin: 0; line-height: 1.25; padding-bottom: 2px;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mast-sub { font-size: 13px; color: var(--chart-ink-soft, #6b7280); margin-top: 4px; }
@@ -1716,8 +1720,12 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* Compact weather variant - the HTC-inspired scene, resized for the masthead.
    .wx-mast .wx-svg outranks the component's own responsive .wx-svg widths. */
 .wx-mast { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.wx-mast-art { position: relative; flex-shrink: 0; width: 110px; }
-.wx-mast .wx-svg { width: 110px; }
+/* The existing weather scene (same SVG / licensed assets, same query), enlarged so it carries real
+   presence in the masthead and reaches farther up into the card's headroom. The negative top margin
+   lifts the taller graphic upward while staying inside the card's top padding (18px), so it never
+   clips the border. Reused artwork only, no new assets. */
+.wx-mast-art { position: relative; flex-shrink: 0; width: 146px; margin-top: -6px; }
+.wx-mast .wx-svg { width: 146px; }
 .wx-mast-temp { font-size: 24px; font-weight: 700; color: var(--chart-ink, #191919); letter-spacing: -0.01em; line-height: 1.05; }
 .wx-mast-cond { font-size: 12px; font-weight: 600; color: var(--chart-ink, #191919); margin-top: 1px; }
 .wx-mast-hilo { font-size: 11px; color: var(--chart-ink-soft, #6b7280); margin-top: 1px; }
@@ -1860,6 +1868,9 @@ button.ov-group-row {
   .mast-greet { font-size: 24px; white-space: normal; }
   .mast-vdiv { display: none; }
   .mast-right { width: 100%; justify-content: space-between; }
+  /* Keep the enlarged weather art balanced beside its caption on narrow screens. */
+  .wx-mast-art { width: 118px; margin-top: 0; }
+  .wx-mast .wx-svg { width: 118px; }
 }
 @media (max-width: 480px) {
   .ov-hero { grid-template-columns: 1fr 1fr; gap: 10px; }

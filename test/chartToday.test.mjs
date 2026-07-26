@@ -66,10 +66,10 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
   await t.test('the weather scene survives as the compact masthead variant', () => {
     assert.match(masthead, /import \{ WeatherMasthead \} from '\.\/WeatherScene'/)
     const wx = read('src/components/WeatherScene.jsx')
-    // Same scenes and animations; only resized/repositioned per the approval.
+    // Same scenes and animations; only resized/repositioned per the approval (enlarged for presence).
     assert.match(wx, /export function WeatherMasthead\(\)/)
     assert.match(wx, /manifest\s*\?\s*<AssetScene manifest=\{manifest\} onBroken=\{\(\) => setAssetsBroken\(true\)\} \/>\s*:\s*<SceneSvg scene=\{scene\} \/>/)
-    assert.match(css, /\.wx-mast \.wx-svg \{ width: 110px; \}/)
+    assert.match(css, /\.wx-mast \.wx-svg \{ width: 146px; \}/)
   })
 
   await t.test('the Today-in-ASPIRE line renders only when it has content', () => {
