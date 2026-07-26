@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, Copy } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { composePortalEmail } from '../lib/outlookCompose'
+import ProfileIdentityHero from '../components/portal/ProfileIdentityHero'
 
 const SUPPORT = 'aspire@cshs.org'
 const CORRECTION_SUBJECT = 'ASPIRE Student Profile Correction Request'
@@ -17,7 +18,7 @@ function buildCorrectionBody({ fullName, field, currentValue }) {
   return `Hello ASPIRE Team,\n\nI would like to request a correction to my student profile.\n\nName: ${fullName || 'not available'}\nField: ${field || ''}\nCurrent information: ${currentValue || ''}\n\nRequested correction:\n\n\nThank you.`
 }
 
-export default function EditProfileDrawer({ open, student, loginEmail = '', onClose, onSaved, returnFocusRef }) {
+export default function EditProfileDrawer({ open, student, headshotUrl = null, loginEmail = '', onClose, onSaved, returnFocusRef }) {
   const panelRef = useRef(null)
   const [preferred, setPreferred] = useState('')
   const [phone, setPhone] = useState('')
@@ -83,11 +84,17 @@ export default function EditProfileDrawer({ open, student, loginEmail = '', onCl
     <>
       <div className="ptl-drawer-backdrop" onClick={() => !busy && onClose?.()} />
       <div ref={panelRef} className="ptl-drawer" role="dialog" aria-modal="true" aria-label="Edit your profile">
-        <div className="ptl-drawer-head">
-          <h2 className="ptl-drawer-title">Edit your profile</h2>
-          <button type="button" data-drawer-initial className="ptl-icon-btn" aria-label="Close" onClick={() => !busy && onClose?.()}><X size={18} /></button>
-        </div>
+        <button type="button" data-drawer-initial className="ptl-icon-btn ptl-edit-close" aria-label="Close" onClick={() => !busy && onClose?.()}><X size={18} /></button>
+        {/* The approved student-profile identity language (sky-blue header, circular photo, centred
+            name) via the shared ProfileIdentityHero primitive. The photo is the student's OWN
+            server-mediated headshot; only student-appropriate identity is shown here. */}
+        <ProfileIdentityHero
+          name={[student?.preferred_first_name || student?.first_name, student?.last_name].filter(Boolean).join(' ')}
+          photoUrl={headshotUrl}
+          subtitle={student?.school || null}
+        />
         <div className="ptl-drawer-body">
+          <p className="ptl-edit-eyebrow">Edit your profile</p>
           <label className="ptl-field-label" htmlFor="ep-pref">Preferred display name</label>
           <input id="ep-pref" className="ptl-input ptl-input-full" value={preferred} onChange={e => setPreferred(e.target.value)} placeholder="What should we call you?" />
           <label className="ptl-field-label" htmlFor="ep-phone" style={{ marginTop: 14 }}>Phone (optional)</label>
