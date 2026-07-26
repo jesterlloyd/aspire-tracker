@@ -70,7 +70,7 @@ test('the Unit Leader Home renders the shared masthead without a duplicated unit
   assert.match(portal, /<GreetingMasthead[\s\S]*?headingRef=\{greetingRef\}/)
   // The greeting <h1> is the focus-on-navigation target (programmatic focus, like SectionHeading).
   assert.match(portal, /el\.dataset\.programmaticFocus = 'true'/)
-  // The role/unit context appears exactly once — no "Unit · X" AND "Unit Leader · X" pair.
+  // The role/unit context appears exactly once, no "Unit · X" AND "Unit Leader · X" pair.
   assert.ok(!portal.includes('Unit · '), 'must not add a second unit label line')
   const unitLeaderLines = portal.match(/Unit Leader · /g) || []
   assert.equal(unitLeaderLines.length, 1, 'exactly one Unit Leader context line')

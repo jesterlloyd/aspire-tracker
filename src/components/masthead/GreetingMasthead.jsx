@@ -1,9 +1,9 @@
 // src/components/masthead/GreetingMasthead.jsx
 //
 // Shared portal greeting masthead. It REUSES the exact visual system of the main-app "At a
-// Glance" masthead — the deterministic greeting (src/lib/masthead.js), the compact HTC-style
+// Glance" masthead; the deterministic greeting (src/lib/masthead.js), the compact HTC-style
 // weather scene (WeatherMasthead from WeatherScene.jsx, with its own saved icon assets), and
-// the .mast* card styling in src/index.css — so no parallel greeting art or design system is
+// the .mast* card styling in src/index.css; so no parallel greeting art or design system is
 // introduced.
 //
 // It is presentational and role-neutral: every role-specific value arrives as a prop, so the
