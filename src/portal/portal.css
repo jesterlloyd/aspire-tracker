@@ -903,6 +903,14 @@
   .ptl-ap-field { min-width: 0; flex: 1 1 160px; }
 }
 
+/* Roster convergence with the Unit Leader table: circular avatar + name in the Student cell, the
+   info-icon legend in the ASPIRE status header, and vertically centered rows. The status pill,
+   hours bar (.ptl-mini-progress / .ptl-hours-cell), and avatar are the canonical shared primitives. */
+.ptl-ap-table td { vertical-align: middle; }
+.ptl-ap-student { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.ptl-ap-student-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.ptl-ap-th-legend { display: inline-flex; align-items: center; gap: 6px; }
+
 /* Unit Leader Preceptors workspace. The existing .ptl-table mobile conversion
    supplies stacked cards below 760px; these rules cover only workspace-specific
    controls and the create-only dialog. */

@@ -20,6 +20,10 @@ import { useAuth } from '../contexts/AuthContext'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../lib/lastVisit'
 import { FilterKPICard } from '../components/KPIBand'
+import StatusPill from '../components/StatusPill'
+import StatusLegendPopover from '../components/StatusLegendPopover'
+import { deriveClinicalHours } from '../lib/portalProgress'
+import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
 import { cohortOptions, inCohortScope, summaryCounts, applyFilter } from './ap/academicPartnerRoster'
 
@@ -32,6 +36,27 @@ const fmtDate = (d) => {
 
 const rotationText = (s) =>
   s.term_dates || (s.cohort?.start_date ? `${fmtDate(s.cohort.start_date)} to ${fmtDate(s.cohort.end_date)}` : '')
+
+const displayName = (s) => `${s.preferred_first_name || s.first_name || ''} ${s.last_name || ''}`.trim()
+
+// Hours cell reusing the canonical .ptl-mini-progress bar + deriveClinicalHours (pct capped at 100,
+// never a misleading bar when required is missing/zero). The exact numbers are duplicated in text
+// for the accessible equivalent. Pending is shown but never counted as approved.
+function ApHoursCell({ hours }) {
+  const h = deriveClinicalHours({ required: hours.required, approved: hours.approved, pending: hours.pending })
+  if (!h.reliable) return <span className="ptl-muted ptl-small">Not set</span>
+  const pending = Number(hours.pending) > 0 ? Number(hours.pending) : 0
+  const pendingText = pending > 0 ? `, ${pending} pending review` : ''
+  return (
+    <span className="ptl-hours-cell">
+      <span className="ptl-mini-progress" role="img"
+        aria-label={`${h.completed} of ${h.required} required hours approved${pendingText}`}>
+        <i style={{ width: `${h.pct}%` }} />
+      </span>
+      <span className="ptl-hours-text">{h.completed} of {h.required}{pending > 0 ? ` (+${pending})` : ''}</span>
+    </span>
+  )
+}
 
 // Placement Requests and Messages have stable routes now but no active backend in this phase, so
 // each renders an honest prepared state (shared .ptl-state language, no controls, no API calls).
@@ -183,12 +208,18 @@ function StudentsView() {
       ) : (
         <div className="ptl-card ptl-ap-roster">
           <div className="ptl-table-wrap">
-            <table className="ptl-table">
+            <table className="ptl-table ptl-ap-table">
               <thead>
                 <tr>
                   <th scope="col">Student</th>
                   <th scope="col">Cohort</th>
-                  <th scope="col">ASPIRE status</th>
+                  <th scope="col">
+                    <span className="ptl-ap-th-legend">
+                      ASPIRE status
+                      {/* The canonical ASPIRE Status Legend, with staff disposition detail hidden. */}
+                      <StatusLegendPopover showStaffDetail={false} />
+                    </span>
+                  </th>
                   <th scope="col">Confirmed unit</th>
                   <th scope="col">Primary preceptor</th>
                   <th scope="col">Rotation</th>
@@ -198,17 +229,18 @@ function StudentsView() {
               <tbody>
                 {rows.map(s => (
                   <tr key={s.id}>
-                    <td>{(s.preferred_first_name || s.first_name)} {s.last_name}</td>
+                    <td>
+                      <span className="ptl-ap-student">
+                        <UnitStudentAvatar url={null} name={displayName(s)} size={34} />
+                        <span className="ptl-ap-student-name">{displayName(s)}</span>
+                      </span>
+                    </td>
                     <td>{s.cohort?.name || ''}</td>
-                    <td><span className="ptl-chip ptl-chip-soft">{s.status}</span></td>
+                    <td><StatusPill status={s.status} /></td>
                     <td>{s.unit_name || <span className="ptl-muted">Not yet confirmed</span>}</td>
                     <td>{s.preceptor_name || ''}</td>
                     <td>{rotationText(s)}</td>
-                    <td>
-                      {s.hours.required
-                        ? `${s.hours.approved} of ${s.hours.required} approved${s.hours.pending ? `, ${s.hours.pending} pending` : ''}`
-                        : ''}
-                    </td>
+                    <td><ApHoursCell hours={s.hours} /></td>
                   </tr>
                 ))}
               </tbody>

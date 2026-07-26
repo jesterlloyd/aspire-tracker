@@ -915,6 +915,14 @@ body { min-height: 100vh; }
 .badge-teal   { background: var(--marina); color: var(--nightfall); }
 .badge-navy   { background: var(--raven); color: var(--pearl); }
 .badge-red    { background: var(--raven); color: var(--pearl); }
+
+/* Shared ASPIRE status pill (StatusPill.jsx): layout only; the canonical colors come inline from
+   ASPIRE_STATUS_CONFIG. The status text always carries the meaning (never color alone). */
+.aspire-status-pill {
+  display: inline-block; font-size: 11px; font-weight: 700; line-height: 1.4;
+  padding: 3px 9px; border-radius: 999px; border: 1px solid transparent;
+  white-space: nowrap; font-family: 'DM Sans', sans-serif;
+}
 .badge-amber  { background: var(--amber-bg); color: var(--amber); }
 
 /* ================================================================

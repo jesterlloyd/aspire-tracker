@@ -67,13 +67,19 @@ const POST_PLACEMENT_DISPOSITIONS = [
   'rotation_discontinued', 'removed_from_program',
 ];
 
-export default function StatusLegendPopover({ position = 'bottom-left', dark = false }) {
+export default function StatusLegendPopover({ position = 'bottom-left', dark = false, showStaffDetail = true }) {
   const [isOpen,        setIsOpen]        = useState(false);
   const [showTooltip,   setShowTooltip]   = useState(false);
   const [tooltipPos,    setTooltipPos]    = useState({ top: 0, left: 0 });
   const [popoverCoords, setPopoverCoords] = useState({ top: 0, left: undefined, right: undefined });
   const popoverRef = useRef(null);
   const triggerRef = useRef(null);
+  // Restore focus to the trigger when the popover closes (derived, not a setState-in-effect).
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !isOpen) triggerRef.current?.focus();
+    wasOpen.current = isOpen;
+  }, [isOpen]);
 
   const handleToggle = () => {
     if (!isOpen && triggerRef.current) {
@@ -133,6 +139,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
         onMouseLeave={() => setShowTooltip(false)}
         onFocus={() => setShowTooltip(false)}
         aria-label="View status legend"
+        aria-expanded={isOpen}
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
           width: '20px', height: '20px', flexShrink: 0,
@@ -198,6 +205,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             </div>
             <button
               onClick={() => setIsOpen(false)}
+              aria-label="Close status legend"
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: '2px' }}
             >×</button>
           </div>
@@ -226,6 +234,9 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
               ))}
             </div>
 
+            {/* Staff-only detail (disposition types + readiness colors). Hidden for audiences that
+                should not see disposition breakdowns, e.g. the Academic Partner roster. */}
+            {showStaffDetail && (<>
             {/* Not Proceeding section */}
             <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: '14px' }} />
             <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
@@ -316,6 +327,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                 </div>
               ))}
             </div>
+            </>)}
           </div>
         </div>,
         document.body
