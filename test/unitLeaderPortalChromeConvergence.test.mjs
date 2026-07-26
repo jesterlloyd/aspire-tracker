@@ -59,13 +59,29 @@ test('the Nightfall gradient and shadow are shared tokens used by the main app a
   // Main app consumes the tokens (output unchanged; same values).
   assert.match(indexCss, /\.top-section \{[\s\S]*?box-shadow: var\(--nightfall-shadow\)/)
   assert.match(indexCss, /\.app-header \{\s*background: var\(--nightfall-gradient\)/)
-  // Both portals (via the shared .ptl-header-nightfall) consume the SAME tokens.
+  // Both portals (via the shared .ptl-header-nightfall) take the SAME background path as the
+  // main-app .app-header: `background: var(--nightfall-gradient)` as the whole background, with no
+  // portal-only solid background-color underneath (so the COMPUTED background matches, not just the
+  // token). They also consume the shared shadow token.
   const nf = cssBlock('.ptl-header-nightfall')
-  assert.match(nf, /background-image: var\(--nightfall-gradient\)/)
+  assert.match(nf, /background: var\(--nightfall-gradient\)/)
+  assert.doesNotMatch(nf, /background:\s*var\(--nightfall,/)      // the old redundant solid layer is gone
+  assert.doesNotMatch(nf, /background-image:/)                    // no separate image layer either
   assert.match(nf, /box-shadow: var\(--nightfall-shadow\)/)
-  // No portal-only gradient or shadow literal remains.
+  // No portal-only gradient, alternate gradient, or shadow literal remains.
   assert.doesNotMatch(nf, /linear-gradient\(180deg/)
   assert.doesNotMatch(nf, /rgba\(14,20,40/)
+})
+
+test('dark theme: the portal taskbar mirrors the main app flat solid, not a gradient that fades to black', () => {
+  // The main app swaps the gradient for a flat near-black solid in dark theme.
+  assert.match(indexCss, /\[data-theme="dark"\] \.app-header \{\s*background: var\(--color-header-bg, #0A0E14\)/)
+  // The portal must do the identical swap so it does not keep the navy gradient (which visibly
+  // faded toward black) while the main app is uniform. Same declaration, same token, same fallback.
+  assert.match(css, /\[data-theme="dark"\] \.ptl-header-nightfall \{\s*background: var\(--color-header-bg, #0A0E14\)/)
+  // No portal-only dark overlay, opacity, filter, or backdrop dims the header in either theme.
+  const nf = cssBlock('.ptl-header-nightfall')
+  assert.doesNotMatch(nf, /opacity:|filter:|backdrop-filter:|::before|::after/)
 })
 
 test('Student and Unit Leader profile photos use safe sources and keep initials fallback', () => {

@@ -224,12 +224,21 @@
   padding-bottom: 9px;
   padding-left: max(32px, env(safe-area-inset-left));
   padding-right: max(32px, env(safe-area-inset-right));
-  background: var(--nightfall, var(--ptl-navy, #1D2567));
-  /* The canonical Nightfall gradient + shadow, shared with the main-app header via tokens so
-     the portal taskbar and the main app cannot drift. */
-  background-image: var(--nightfall-gradient);
+  /* Byte-for-byte the main-app header background: the shared Nightfall gradient as the whole
+     background and nothing else. The main app's .app-header sets `background: var(--nightfall-gradient)`
+     (which resets background-color to transparent); matching that exactly means dropping the earlier
+     portal-only solid `background-color` that sat under the gradient, so the computed background,
+     not just the source token, is identical to the main app. */
+  background: var(--nightfall-gradient);
   border-bottom: 0;
   box-shadow: var(--nightfall-shadow);
+}
+/* Dark theme: mirror the main app, which swaps the gradient for a flat near-black solid
+   ([data-theme="dark"] .app-header). Without this override the portal kept the navy gradient and
+   visibly faded toward black while the main app stayed a uniform dark, the exact chrome drift that
+   made the portal taskbars read as darker than the main app. */
+[data-theme="dark"] .ptl-header-nightfall {
+  background: var(--color-header-bg, #0A0E14);
 }
 .ptl-header-nightfall .ptl-header-logo {
   height: 46px;
