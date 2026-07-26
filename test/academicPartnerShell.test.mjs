@@ -75,6 +75,16 @@ test('Messages backend stays dormant for the Academic Partner', () => {
   assert.doesNotMatch(stripJs(portal), /PortalMessagesWorkspace|portalMessages|team-messages/)
 })
 
+test('the Academic Partner top-chrome profile control uses avatar_url with an initials fallback', () => {
+  // Reuses the exact Unit Leader profile-image resolution path (user_profiles.avatar_url); no new
+  // upload flow, no raw storage path, and the shared ProfileMenu keeps the initials fallback.
+  assert.match(apBranch, /profileImageUrl=\{userProfile\?\.avatar_url\}/)
+  const shell = read('src/portal/PortalShell.jsx')
+  assert.match(shell, /const showPhoto = Boolean\(profileImageUrl && failedImageUrl !== profileImageUrl\)/)
+  assert.match(shell, /\? <img src=\{profileImageUrl\} alt="" onError=\{\(\) => setFailedImageUrl\(profileImageUrl\)\} \/>/)
+  assert.match(shell, /: initials\(userName\)/)
+})
+
 test('the utility layer enables Feedback (not Messages) for the Academic Partner, end to end', () => {
   assert.match(layer, /isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'/)
   assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal/)

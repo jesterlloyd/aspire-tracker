@@ -143,6 +143,58 @@ workspace; they belong with the later Reports / NGRP surface.
   placement-request submit and a request-editing lifecycle (new tables/RPCs/audit, Owner-gated);
   Messages auth RPC changes (Owner-gated). None are started here.
 
+## Visual convergence pass (roster refinement)
+
+A follow-up refinement brought the Students workspace closer to the approved Unit Leader roster
+and main-app Student Profiles language, reusing canonical components (no new palette, legend,
+avatar, or progress bar):
+
+- **KPI + control row:** the summary filters are now the canonical `FilterKPICard`
+  (`src/components/KPIBand.jsx`, the main-app pastel filter card) reused as-is: native button,
+  built-in `aria-pressed`, hover lift, design-token accents (nightfall / marina / sage). The same
+  Phase 1 filters remain (All Students / Currently Rotating / Completed). The cohort picker (and the
+  multi-school school picker) moved into the same control row, right-aligned on desktop, wrapping
+  cleanly on narrow screens.
+- **Roster visual reuse:** the Student cell uses the Unit Leader `UnitStudentAvatar` (circular,
+  initials fallback); the ASPIRE Status cell uses a new shared `StatusPill`
+  (`src/components/StatusPill.jsx`) driven by the canonical `ASPIRE_STATUS_CONFIG` colors; the Hours
+  cell uses the canonical `.ptl-mini-progress` bar driven by `deriveClinicalHours` (percentage
+  capped at 100, accessible text equivalent, pending shown but never counted as approved).
+- **Status legend:** an info icon in the ASPIRE Status header opens the canonical
+  `StatusLegendPopover`. It gained a `showStaffDetail` prop (default true keeps the main app
+  unchanged) that hides the staff-only disposition and readiness detail for the Academic Partner
+  audience, plus accessibility hardening that benefits all callers: `aria-expanded` on the trigger,
+  an `aria-label` on the close button, and focus return to the trigger on close (Escape close already
+  existed). It never exposes the internal disposition reason categories.
+- **Sorting:** Student, ASPIRE Status, and Hours are client-side sortable from the already-scoped
+  rows (no new request). Student is locale-aware by preferred display name; ASPIRE Status uses the
+  canonical pathway order (`ASPIRE_STATUSES`), terminals last, unknown at the end; Hours sorts by
+  approved hours numerically (required as a stable secondary; pending never counted as approved).
+  Headers are buttons with `aria-sort`; sorting preserves the active filter, cohort, and school.
+
+### Student photo security path (deferred)
+
+Real student photos are NOT shown in this pass. The approved pattern is a `has_photo` boolean plus a
+server-mediated signed URL, but the existing school roster endpoint cannot serve signed photo URLs:
+`api/portal/unit-student-file-access.js` is unit-scoped only, and there is no school-scoped
+file-access endpoint. Per the escape clause ("if the existing endpoint cannot safely support photos
+through current code-only infrastructure, stop and report rather than exposing raw URLs or paths"),
+the avatar renders with `url={null}` (initials only) and no storage path is exposed. Enabling real
+photos is a code-only (no SQL) fast-follow: add a `has_photo` boolean to `school-students.js`
+(derived from `students.headshot_url`, never the raw path) and a new
+`api/portal/school-student-file-access.js` that mirrors the unit file-access endpoint but authorizes
+through the Academic Partner chain (`hasActiveRoleGrant('academic_partner')` + `user_school_scopes`),
+plus an Academic Partner photo hook and cache namespace. No new response photo field was added, so
+the private-field exclusion coverage is unchanged (it already asserts `headshot_url` is never
+exposed).
+
+### Academic Partner profile image
+
+The upper-right profile control already resolves from `user_profiles.avatar_url` via the shared
+`PortalShell` `ProfileMenu` (wired in Phase 1, identical to the Unit Leader path), with the initials
+fallback preserved. No new upload flow, no raw storage path, no broadened role authorization. If a
+partner has no `avatar_url`, the initials fallback shows.
+
 ## Test coverage
 
 - `test/academicPartnerShell.test.mjs`: shell, three-tab nav, URL routing, prepared states, the
