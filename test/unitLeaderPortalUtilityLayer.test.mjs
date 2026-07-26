@@ -35,11 +35,11 @@ const sharedFeedbackCode = strip(sharedFeedback)
 const teamPanelCode = strip(teamPanel)
 const clientCode = strip(client)
 
-test('utility layer mounts through PortalShell for Student and Unit Leader only', () => {
+test('utility layer mounts through PortalShell for Student, Unit Leader, and Academic Partner (Feedback)', () => {
   assert.match(shell, /utilityLayer = null/)
   assert.match(shell, /\{utilityLayer\}/)
   assert.match(app, /import PortalUtilityLayer from '\.\/PortalUtilityLayer'/)
-  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 2)
+  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 3)
   const studentBranch = app.slice(app.indexOf("roles.includes('student')"), app.indexOf("roles.includes('unit_leader')"))
   const unitBranch = app.slice(app.indexOf("roles.includes('unit_leader')"), app.indexOf("roles.includes('academic_partner')"))
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
@@ -53,7 +53,13 @@ test('utility layer mounts through PortalShell for Student and Unit Leader only'
   assert.match(unitBranch, /portalType="unit_leader"/)
   assert.match(unitBranch, /unread=\{unread\}/)
   assert.match(unitBranch, /onOpenMessages=\{goMessages\}/)
-  assert.doesNotMatch(academicBranch, /PortalUtilityLayer|utilityLayer=/)
+  // Academic Partner mounts the utility layer for Feedback only: Messages unauthorized, no unread,
+  // no onOpenMessages.
+  assert.match(academicBranch, /portalRole="academic_partner"/)
+  assert.match(academicBranch, /portalType="academic_partner"/)
+  assert.match(academicBranch, /messagesAuthorized=\{false\}/)
+  assert.doesNotMatch(academicBranch, /unread=\{unread\}/)
+  assert.doesNotMatch(academicBranch, /onOpenMessages=/)
   assert.doesNotMatch(unitPortal, /PortalUtilityLayer/)
   assert.doesNotMatch(studentPortal, /PortalUtilityLayer|PortalFeedbackPanel|portalFeedbackApiClient/)
   assert.doesNotMatch(academicPortal, /PortalUtilityLayer|PortalFeedbackPanel|portalFeedbackApiClient/)

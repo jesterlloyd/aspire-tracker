@@ -33,25 +33,35 @@ test('shared feedback copy and Student durable feedback activation are canonical
   assert.match(sharedFeedback, /Report a bug, suggest a feature, or ask a question\./)
   assert.match(read('src/components/FeedbackPanel.jsx'), /SharedFeedbackPanel/)
   assert.match(portalFeedback, /submitPortalFeedbackReport/)
-  assert.match(portalFeedback, /portalType === 'student' \? 'Student Portal' : 'Unit Leader Portal'/)
-  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal/)
-  assert.match(layer, /portalType=\{isStudentPortal \? 'student' : 'unit_leader'\}/)
+  // The portal label now names all three portals.
+  assert.match(portalFeedback, /portalType === 'student' \? 'Student Portal'/)
+  assert.match(portalFeedback, /portalType === 'academic_partner' \? 'Academic Partner Portal'/)
+  assert.match(portalFeedback, /: 'Unit Leader Portal'/)
+  // Feedback (not Messages) is enabled for the Academic Partner too.
+  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal/)
+  assert.match(layer, /portalType=\{isStudentPortal \? 'student' : isAcademicPartnerPortal \? 'academic_partner' : 'unit_leader'\}/)
   const studentBranch = app.slice(app.indexOf("roles.includes('student')"), app.indexOf("roles.includes('unit_leader')"))
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
   assert.match(studentBranch, /PortalUtilityLayer/)
   assert.doesNotMatch(studentBranch, /desktopNotice/)
-  assert.doesNotMatch(academicBranch, /PortalUtilityLayer|utilityLayer=/)
+  // Academic Partner mounts the utility layer for Feedback, with Messages unauthorized.
+  assert.match(academicBranch, /PortalUtilityLayer/)
+  assert.match(academicBranch, /messagesAuthorized=\{false\}/)
 })
 
-test('portal feedback endpoint accepts Student and Unit Leader, not Academic Partner', () => {
+test('portal feedback endpoint accepts Student, Unit Leader, and Academic Partner', () => {
   assert.match(endpoint, /verifyPortalFeedbackCaller/)
   assert.match(endpoint, /verifyPortalStudentCaller/)
   assert.match(endpoint, /verifyPortalUnitLeaderCaller/)
   assert.match(endpoint, /actorKind: 'student'/)
   assert.match(endpoint, /actorKind: 'unit_leader'/)
+  assert.match(endpoint, /actorKind: 'academic_partner'/)
   assert.match(endpoint, /unit_leader_active_scope_required/)
   assert.match(endpoint, /reporterContext: auth\.actorKind === 'student'/)
-  assert.doesNotMatch(endpoint, /verifyPortalSchool|academic_partner|user_school_scopes/)
+  // AP is authorized by an ACTIVE academic_partner grant (no school scope needed for feedback,
+  // which carries no student data); the endpoint does not read school scope for feedback.
+  assert.match(endpoint, /hasActiveRoleGrant\([^)]*'academic_partner'\)/)
+  assert.doesNotMatch(endpoint, /verifyPortalSchool|user_school_scopes/)
   assert.doesNotMatch(endpoint, /parsed\.body\.(role|profile_id|student_id|school|unit)/)
 })
 

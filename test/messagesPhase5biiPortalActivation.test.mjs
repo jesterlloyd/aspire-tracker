@@ -306,7 +306,14 @@ test('regression: nothing else moved', async (t) => {
     // a unit_leader participant. Academic Partner and Preceptor remain schema
     // reservations with no authorization branch, so the guard keeps its value for
     // them and would still catch an accidental activation.
-    assert.doesNotMatch(read('../src/portal/AcademicPartnerPortal.jsx'), /Messages|portalMessages/)
+    //
+    // AP Phase 1 adds a Messages TAB (a stable route + honest prepared state), but the AP
+    // Messages BACKEND is not activated: the portal mounts no Messages workspace and makes no
+    // Messages request (the tab label "Messages" is allowed; a real workspace/client is not).
+    const apPortal = read('../src/portal/AcademicPartnerPortal.jsx')
+    assert.doesNotMatch(apPortal, /PortalMessagesWorkspace|portalMessages|team-messages|messages-thread|usePortalUnread/)
+    // And the AP branch runs the utility layer with Messages explicitly unauthorized.
+    assert.match(appCode.slice(appCode.indexOf("roles.includes('academic_partner')")), /messagesAuthorized=\{false\}/)
   })
 
   await t.test('no analytics, telemetry, persistence, or dangerous HTML in the activation', () => {

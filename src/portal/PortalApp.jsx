@@ -29,6 +29,7 @@ import PortalNav from './PortalNav'
 import StudentPortal from './StudentPortal'
 import UnitLeaderPortal from './UnitLeaderPortal'
 import { UnitLeaderNav } from './unit/UnitLeaderChrome'
+import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import {
@@ -65,6 +66,15 @@ function unitViewFromPath(pathname) {
   return 'home'
 }
 
+// AP-PORTAL sections are real routes under /portal/ap, so back, forward, refresh, and a
+// pasted deep link all work. /portal (no section) resolves to Students, the default.
+const AP_SECTIONS = new Set(['students', 'placement-requests', 'messages'])
+function apViewFromPath(pathname) {
+  const m = /^\/portal\/ap\/([^/]+)\/?$/.exec(pathname)
+  if (m && AP_SECTIONS.has(m[1])) return m[1]
+  return 'students'
+}
+
 export default function PortalApp() {
   const { userProfile } = useAuth()
   const location = useLocation()
@@ -89,6 +99,14 @@ export default function PortalApp() {
   // A section change is a real navigation, so the URL is the source of truth.
   const goUnitSection = useCallback((key) => {
     navigate(key === 'messages' ? '/portal/messages' : `/portal/unit/${key}`)
+  }, [navigate])
+
+  // Academic Partner sections are their own URL space (/portal/ap/<section>); /portal
+  // resolves to Students. Messages and Placement Requests are stable routes now, showing
+  // an honest prepared state until their backends land in later phases.
+  const apView = apViewFromPath(location.pathname)
+  const goApSection = useCallback((key) => {
+    navigate(`/portal/ap/${key}`)
   }, [navigate])
 
   const isStudent = (access?.roles || []).includes('student')
@@ -224,9 +242,27 @@ export default function PortalApp() {
   }
 
   if (roles.includes('academic_partner')) {
+    // The same shared shell, Nightfall chrome, and attached nav as the Student and Unit
+    // Leader portals. Messages is NOT authorized for Academic Partners yet, so the utility
+    // layer runs with messagesAuthorized={false} (Feedback only, no floating Messages
+    // launcher, no unread polling).
     return (
-      <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name}>
-        <AcademicPartnerPortal />
+      <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+        headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        profileImageUrl={userProfile?.avatar_url}
+        publicSiteUrl="https://aspireintelligence.app"
+        nav={<AcademicPartnerNav view={apView} onNavigate={goApSection} />}
+        utilityLayer={(
+          <PortalUtilityLayer
+            enabled
+            portalRole="academic_partner"
+            portalType="academic_partner"
+            profileId={userProfile?.id}
+            pathname={location.pathname}
+            messagesAuthorized={false}
+          />
+        )}>
+        <AcademicPartnerPortal view={apView} schoolKeys={access?.school_keys || []} />
       </PortalShell>
     )
   }

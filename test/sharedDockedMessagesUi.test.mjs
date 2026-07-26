@@ -26,7 +26,9 @@ const panelCode = strip(panel)
 const startBlock = panel.match(/const startTeamConversation = async[\s\S]*?\n  }/)?.[0] || ''
 
 test('Student and Unit Leader mount the same docked ASPIRE Team Messages utility', () => {
-  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 2)
+  // Student, Unit Leader, and Academic Partner all mount PortalUtilityLayer; only Student and
+  // Unit Leader are Messages-authorized, so only they get the docked ASPIRE Team Messages launcher.
+  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 3)
   const studentBranch = app.slice(app.indexOf("roles.includes('student')"), app.indexOf("roles.includes('unit_leader')"))
   const unitBranch = app.slice(app.indexOf("roles.includes('unit_leader')"), app.indexOf("roles.includes('academic_partner')"))
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
@@ -38,12 +40,17 @@ test('Student and Unit Leader mount the same docked ASPIRE Team Messages utility
   assert.match(unitBranch, /portalRole="unit_leader"/)
   assert.match(unitBranch, /portalType="unit_leader"/)
   assert.match(unitBranch, /messagesAuthorized/)
-  assert.doesNotMatch(academicBranch, /PortalUtilityLayer|utilityLayer=/)
+  // Academic Partner mounts the utility layer for Feedback only: messagesAuthorized is false and
+  // no onOpenMessages is passed, so there is no docked Messages launcher and no Messages request.
+  assert.match(academicBranch, /portalRole="academic_partner"/)
+  assert.match(academicBranch, /messagesAuthorized=\{false\}/)
+  assert.doesNotMatch(academicBranch, /onOpenMessages=/)
 
   assert.match(layer, /isUnitLeaderPortal = portalRole === 'unit_leader' && portalType === 'unit_leader'/)
   assert.match(layer, /isStudentPortal = portalRole === 'student' && portalType === 'student'/)
+  assert.match(layer, /isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'/)
   assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal\)/)
-  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal/)
+  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal/)
   assert.match(layer, /noticeVisible = enabled && isUnitLeaderPortal/)
   assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : 'student'\}/)
 })

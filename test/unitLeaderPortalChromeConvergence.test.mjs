@@ -25,14 +25,15 @@ const cssBlock = (selector) => {
   return end === -1 ? '' : css.slice(start, end + 2)
 }
 
-test('canonical Cedars-Sinai logo asset exists and is used by Student and Unit Leader portals', () => {
+test('canonical Cedars-Sinai logo asset exists and is used by all three Nightfall portals', () => {
   assert.ok(existsSync(join(root, 'public/cs-logo-large.png')))
   assert.match(shellCode, /logoSrc = '\/Cedars-Sinai\.png'/)
   assert.match(shellCode, /src=\{logoSrc\}/)
   assert.match(shellCode, /alt="Cedars-Sinai"/)
   assert.match(appCode, /title="Student Portal"[\s\S]{0,180}headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
   assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,140}headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
-  assert.doesNotMatch(appCode, /title="Academic Partner Portal"[\s\S]{0,180}logoSrc="\/cs-logo-large\.png"/)
+  // Academic Partner now uses the same Nightfall shell and logo (Phase 1 shell upgrade).
+  assert.match(appCode, /title="Academic Partner Portal"[\s\S]{0,200}headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
 })
 
 test('Nightfall header is shared and uses the canonical app token and logo treatment', () => {

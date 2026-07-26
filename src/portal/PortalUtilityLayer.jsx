@@ -101,7 +101,11 @@ export default function PortalUtilityLayer({
 
   const isUnitLeaderPortal = portalRole === 'unit_leader' && portalType === 'unit_leader'
   const isStudentPortal = portalRole === 'student' && portalType === 'student'
-  const feedbackEnabled = isUnitLeaderPortal || isStudentPortal
+  // Feedback (Report a Bug) is server-authorized for Academic Partners; Messages is NOT.
+  // So AP enables the Feedback launcher only, never the Messages launcher, and makes no
+  // Messages request from this layer.
+  const isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'
+  const feedbackEnabled = isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal
   const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal)
   const noticeVisible = enabled && isUnitLeaderPortal && narrow && !onMessagesRoute && !storedDismissed && !sessionDismissed
 
@@ -123,7 +127,7 @@ export default function PortalUtilityLayer({
     onOpenMessages?.()
   }, [onOpenMessages])
 
-  if (!enabled || (!isUnitLeaderPortal && !isStudentPortal)) return null
+  if (!enabled || (!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal)) return null
 
   const utilitiesHidden = suppressed
   const visiblePanel = suppressed ? null : activePanel
@@ -145,7 +149,7 @@ export default function PortalUtilityLayer({
           launcherRef={feedbackRef}
           pathname={pathname}
           section={section}
-          portalType={isStudentPortal ? 'student' : 'unit_leader'}
+          portalType={isStudentPortal ? 'student' : isAcademicPartnerPortal ? 'academic_partner' : 'unit_leader'}
         />
       )}
 
@@ -168,14 +172,18 @@ export default function PortalUtilityLayer({
         </div>
       )}
 
-      <PortalTeamMessagesPanel
-        open={visiblePanel === 'messages'}
-        onClose={() => setActivePanel(null)}
-        launcherRef={messagesRef}
-        unread={unread}
-        onOpenFullMessages={openFullMessages}
-        variant={isUnitLeaderPortal ? 'unit_leader' : 'student'}
-      />
+      {/* Mounted only where Messages is enabled, so an Academic Partner (Messages not
+          authorized) never instantiates the panel or makes a Messages request. */}
+      {messagesEnabled && (
+        <PortalTeamMessagesPanel
+          open={visiblePanel === 'messages'}
+          onClose={() => setActivePanel(null)}
+          launcherRef={messagesRef}
+          unread={unread}
+          onOpenFullMessages={openFullMessages}
+          variant={isUnitLeaderPortal ? 'unit_leader' : 'student'}
+        />
+      )}
     </>
   )
 }

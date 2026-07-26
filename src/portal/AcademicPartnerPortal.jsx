@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { EmptyState } from './unit/UnitLeaderChrome'
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -22,7 +23,30 @@ const STAGE_ORDER = [
   'Interviewed', 'Placed', 'Active Rotation', 'Completed', 'Declined', 'Not Proceeding',
 ]
 
-export default function AcademicPartnerPortal() {
+// Placement Requests and Messages have stable routes now but no active backend in this
+// phase, so each renders an honest prepared state (shared .ptl-state language, no controls,
+// no API calls) rather than an empty or broken screen.
+export default function AcademicPartnerPortal({ view = 'students' }) {
+  if (view === 'placement-requests') {
+    return (
+      <EmptyState
+        title="Placement Requests"
+        detail="You will be able to submit and track your school's placement requests here. This section is being prepared and is not active yet."
+      />
+    )
+  }
+  if (view === 'messages') {
+    return (
+      <EmptyState
+        title="Messages"
+        detail="Secure messaging with the ASPIRE team will live here. This section is being prepared and is not active yet."
+      />
+    )
+  }
+  return <StudentsView />
+}
+
+function StudentsView() {
   const [schools, setSchools] = useState(null)
   const [reports, setReports] = useState([])
   const [error, setError]     = useState(null)
