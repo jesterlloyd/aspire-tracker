@@ -50,12 +50,26 @@ test('all three surfaces use the shared .mast-greet, so the fix applies once', (
 
 // ── weather artwork enlarged, reusing the existing scene ──────────────────────
 test('the masthead weather artwork is enlarged from the existing scene', () => {
-  // up from 110px, nudged upward into the card headroom
-  assert.match(css, /\.wx-mast-art \{ position: relative; flex-shrink: 0; width: 146px; margin-top: -6px; \}/)
-  assert.match(css, /\.wx-mast \.wx-svg \{ width: 146px; \}/)
+  // up from the original 110px, nudged farther up into the card headroom
+  assert.match(css, /\.wx-mast-art \{ position: relative; flex-shrink: 0; width: 178px; margin-top: -10px; \}/)
+  assert.match(css, /\.wx-mast \.wx-svg \{ width: 178px; \}/)
   // Narrow screens keep it balanced beside the caption.
-  assert.match(css, /\.wx-mast-art \{ width: 118px; margin-top: 0; \}/)
-  assert.match(css, /\.wx-mast \.wx-svg \{ width: 118px; \}/)
+  assert.match(css, /\.wx-mast-art \{ width: 132px; margin-top: 0; \}/)
+  assert.match(css, /\.wx-mast \.wx-svg \{ width: 132px; \}/)
+})
+
+test('the evening wash is cooler and less reddish so the night sky elements read', () => {
+  const evening = css.slice(css.indexOf('.mast-wash-evening::before'))
+  const block = evening.slice(0, evening.indexOf('}') + 1)
+  // The warm peach radial that read as reddish is gone; the dusk glow is a cool indigo.
+  assert.doesNotMatch(block, /255,180,130/)
+  assert.match(block, /rgba\(84,96,168,0\.40\)/)
+  assert.match(block, /rgba\(52,64,128,0\.34\)/)
+  // The dark-theme evening wash is cooled too (no warm sunset cast).
+  const dark = css.slice(css.indexOf('[data-theme="dark"] .mast-wash-evening::before'))
+  const darkBlock = dark.slice(0, dark.indexOf('}') + 1)
+  assert.doesNotMatch(darkBlock, /255,160,110/)
+  assert.match(darkBlock, /rgba\(96,120,210,0\.16\)/)
 })
 
 test('no new weather artwork or weather request is introduced', () => {

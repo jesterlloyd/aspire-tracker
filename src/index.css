@@ -1650,9 +1650,13 @@ a.doc-file-link:hover { text-decoration: underline; }
   background: radial-gradient(560px 220px at 88% -30%, rgba(255,236,180,0.30), transparent 70%),
     linear-gradient(115deg, transparent 50%, rgba(214,236,250,0.40) 100%);
 }
+/* Evening: a cool dusk, not a warm sunset. The old peach radial read too reddish and left the
+   white stars/moon of the night weather scene washed out. This is a cooler, slightly deeper indigo
+   glow placed upper-right behind the weather art (like morning/afternoon), so the sky elements read
+   more clearly while the upper-left greeting stays light. */
 .mast-wash-evening::before {
-  background: radial-gradient(620px 240px at 90% 120%, rgba(255,180,130,0.26), transparent 70%),
-    linear-gradient(115deg, transparent 44%, rgba(197,203,235,0.42) 100%);
+  background: radial-gradient(560px 220px at 88% -20%, rgba(84,96,168,0.40), transparent 72%),
+    linear-gradient(115deg, transparent 42%, rgba(52,64,128,0.34) 100%);
 }
 .mast-wash-night::before {
   background: linear-gradient(115deg, transparent 44%, rgba(29,37,103,0.10) 100%);
@@ -1666,8 +1670,8 @@ a.doc-file-link:hover { text-decoration: underline; }
     linear-gradient(115deg, transparent 50%, rgba(107,142,255,0.10) 100%);
 }
 [data-theme="dark"] .mast-wash-evening::before {
-  background: radial-gradient(620px 240px at 90% 120%, rgba(255,160,110,0.12), transparent 70%),
-    linear-gradient(115deg, transparent 44%, rgba(107,142,255,0.13) 100%);
+  background: radial-gradient(560px 220px at 88% -20%, rgba(96,120,210,0.16), transparent 72%),
+    linear-gradient(115deg, transparent 44%, rgba(80,104,190,0.15) 100%);
 }
 [data-theme="dark"] .mast-wash-night::before {
   background: radial-gradient(2px 2px at 78% 24%, rgba(255,255,255,0.7), transparent 60%),
@@ -1724,8 +1728,8 @@ a.doc-file-link:hover { text-decoration: underline; }
    presence in the masthead and reaches farther up into the card's headroom. The negative top margin
    lifts the taller graphic upward while staying inside the card's top padding (18px), so it never
    clips the border. Reused artwork only, no new assets. */
-.wx-mast-art { position: relative; flex-shrink: 0; width: 146px; margin-top: -6px; }
-.wx-mast .wx-svg { width: 146px; }
+.wx-mast-art { position: relative; flex-shrink: 0; width: 178px; margin-top: -10px; }
+.wx-mast .wx-svg { width: 178px; }
 .wx-mast-temp { font-size: 24px; font-weight: 700; color: var(--chart-ink, #191919); letter-spacing: -0.01em; line-height: 1.05; }
 .wx-mast-cond { font-size: 12px; font-weight: 600; color: var(--chart-ink, #191919); margin-top: 1px; }
 .wx-mast-hilo { font-size: 11px; color: var(--chart-ink-soft, #6b7280); margin-top: 1px; }
@@ -1869,8 +1873,8 @@ button.ov-group-row {
   .mast-vdiv { display: none; }
   .mast-right { width: 100%; justify-content: space-between; }
   /* Keep the enlarged weather art balanced beside its caption on narrow screens. */
-  .wx-mast-art { width: 118px; margin-top: 0; }
-  .wx-mast .wx-svg { width: 118px; }
+  .wx-mast-art { width: 132px; margin-top: 0; }
+  .wx-mast .wx-svg { width: 132px; }
 }
 @media (max-width: 480px) {
   .ov-hero { grid-template-columns: 1fr 1fr; gap: 10px; }
