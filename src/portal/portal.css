@@ -988,6 +988,12 @@
   display: flex; justify-content: flex-end; gap: 10px; padding: 14px 18px;
   border-top: 1px solid var(--ptl-line, #e3ded4);
 }
+/* Footer buttons pair at equal size. The primary .ptl-btn carries a standalone `margin-top: 10px`
+   (correct when it sits under form content) that, inside a flex footer, pushed it down and shrank
+   its stretched height so the outline Cancel rendered taller. Neutralize it here so paired actions
+   (Cancel / Add Preceptor, Cancel / Change Primary, and the Assignment Manager confirm/cancel) share
+   one baseline and height. */
+.ptl-modal-actions > button { margin-top: 0; }
 .ptl-btn-danger {
   border: 1px solid #b42318; border-radius: 8px; background: #b42318; color: #fff;
   padding: 9px 14px; font: inherit; font-weight: 700; cursor: pointer;

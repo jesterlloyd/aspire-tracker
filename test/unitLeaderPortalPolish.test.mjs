@@ -202,7 +202,10 @@ test('P1-12: the Compass form treatment covers portal and create forms', async (
     const grids = portal.match(/className="ptl-form-grid"/g) || []
     assert.equal(grids.length, 2, 'capacity and concern forms')
     assert.match(portal, /ptl-input ptl-input-full/)
-    assert.match(createModal, /ptl-modal-body ptl-form-grid/)
+    // The Add Preceptor modal converged on the canonical main-app modal, so it uses the canonical
+    // responsive field grid (form-grid form-grid-2), not the Compass ptl-form-grid. Full coverage of
+    // that convergence lives in test/unitLeaderPreceptorModalConvergence.test.mjs.
+    assert.match(createModal, /form-grid form-grid-2/)
     assert.match(css, /@media \(min-width: 760px\) \{\s*\n\s*\.ptl-form-grid \{ grid-template-columns: 1fr 1fr; \}/)
   })
   await t.test('helper text and a right-aligned submit row', () => {
@@ -210,7 +213,8 @@ test('P1-12: the Compass form treatment covers portal and create forms', async (
     const submits = portal.match(/className="ptl-form-submit"/g) || []
     assert.equal(submits.length, 2)
     assert.match(css, /\.ptl-form-submit \{\s*\n\s*display: flex; align-items: center; justify-content: flex-end/)
-    assert.match(createModal, /ptl-modal-actions/)
+    // The create modal's footer is now the canonical right-aligned .modal-footer with paired .btn actions.
+    assert.match(createModal, /modal-footer/)
   })
   await t.test('success notices name what was recorded', () => {
     assert.match(portal, /Thank you, \{form\.unit_name\}/)
