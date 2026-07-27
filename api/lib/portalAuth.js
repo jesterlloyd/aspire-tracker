@@ -20,6 +20,22 @@ export function getServiceDb() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
+// A Supabase client scoped to the CALLER's JWT (PostgREST role `authenticated`), for calling
+// SECURITY DEFINER RPCs that grant EXECUTE to `authenticated` (e.g. the school-form password
+// functions). Distinct from the service-role client. Returns null when no bearer token is present;
+// the caller should already have been verified before using it.
+export function getCallerScopedDb(req) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'] || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!token) return null
+  const url     = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+  return createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
+}
+
 // Verifies the JWT and resolves the caller's user_profiles row.
 // Returns { authenticated, status, reason } on failure, or
 // { authenticated: true, authUserId, profile } on success.

@@ -54,6 +54,16 @@ export function schoolScopeTerms(scopes) {
   }))
 }
 
+// Is the (school, cohortId) pair within these active scopes? EXACT normalized-term membership
+// (never substring, so WCU campuses stay isolated), cohort-aware (a cohort-scoped grant matches only
+// that cohort; a null-cohort grant matches any). Used to authorize an authenticated placement
+// submission: the caller may submit ONLY for a school+cohort they are actually scoped to, and the
+// school is validated here rather than trusted from the browser.
+export function matchSchoolCohortScope(scopes, school, cohortId) {
+  const n = norm(school)
+  return schoolScopeTerms(scopes).some(t => t.terms.has(n) && (t.cohort_id === null || t.cohort_id === cohortId))
+}
+
 // The authorized students for these scopes, selecting `columns`. Uses EXACT normalized term
 // membership (never substring), so a campus scope resolves only to its own students; a cohort-scoped
 // row is honored. Returns { scopeTerms, matches: [{ student, school_key }] }.
