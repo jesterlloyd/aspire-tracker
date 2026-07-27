@@ -2,12 +2,14 @@
 
 The authenticated Academic Partner Placement Requests workflow: the portal counterpart of the public
 `/school-form`, sharing one canonical form definition and one server write path. Branch:
-`ap-placement-requests-phase-1`, off `main` at `e233980`. No SQL, no migrations were added.
+`ap-placement-requests-phase-1`, off `main` at `e233980`.
 
-**Submission is intentionally not enabled.** Recording the authenticated submitting profile requires
-a `students` column that does not exist yet. Per the approved provenance rule, the workflow stops
-before enabling the final submit rather than omit that identity silently. The exact migration is in
-"Provenance and the SQL gate" below; everything else is built and live.
+**Submission is code-complete and fail-closed on a runtime readiness gate.** It requires one approved
+migration (three latest-submission provenance columns). Until the Owner applies it, the server returns
+`submission_not_enabled` and the workspace disables its submit control; the moment the columns exist,
+the SAME code path enables submission with no redeploy (readiness is detected at runtime). The exact
+migration, verification, enablement sequence, and live QC checklist are in "Provenance and the
+readiness gate" below. No SQL was run and no migration was applied by this work.
 
 ## Shared form modules (no drift)
 
@@ -81,45 +83,134 @@ disposition, matched_unit_id, preceptor_id, CS-Link/badge, notes) are NEVER over
 single submission update in place rather than re-inserting. The response reports added / updated /
 skipped counts.
 
-## Provenance and the SQL gate
+## Provenance model (approved)
 
-Approved provenance to record on a placement request: `submission_source = academic_partner_portal`,
-the authenticated submitting profile, the authorized school, the server-selected cohort, and a server
-timestamp. Using existing columns we can already record:
+The ORIGINAL source stays in `students.submitted_via` (set once on a new row, preserved on updates;
+never overwritten or reinterpreted). The LATEST placement submission is recorded in three new
+columns, refreshed on every successful insert AND every duplicate-safe update:
 
-- origin: `students.submitted_via = 'academic_partner_portal'` (free TEXT, no CHECK; the shared
-  helper already parameterizes this via `submittedVia`),
-- authorized school: `students.school` / `students.school_id`,
-- server-selected cohort: `students.cohort_id`,
-- timestamp: `students.created_at`.
+- `placement_request_last_source` (`school_form` | `academic_partner_portal`)
+- `placement_request_last_submitted_by_profile_id` (uuid; the verified submitting profile, or NULL)
+- `placement_request_last_submitted_at` (timestamptz; server-generated)
 
-**Missing:** there is no column to record WHICH authenticated profile submitted the request.
-`students` has no `submitting_profile_id` / `submitted_by` / `created_by uuid`. The smallest migration
-that closes the gap (Owner SQL gate; not written or run here):
+Public `/school-form` writes source `school_form` with a NULL profile id. The authenticated portal
+writes source `academic_partner_portal` with the verified caller `user_profiles.id`. All three values
+are chosen SERVER-SIDE (`api/portal/school-placement-requests.js` for the portal,
+`api/school-form-submit.js` for the public form); nothing is taken from the browser payload. The
+authorized school and server-selected cohort remain recorded via the existing `school` / `school_id`
+and `cohort_id` columns. A full append-only submission-history model remains deferred.
+
+### Exact migration filename
+
+`supabase/migrations/20260727000000_add_academic_partner_placement_provenance.sql`
+
+### Exact SQL to apply (whole file, one block, Supabase SQL editor)
 
 ```sql
+BEGIN;
+
 ALTER TABLE public.students
-  ADD COLUMN IF NOT EXISTS submitting_profile_id uuid REFERENCES public.user_profiles(id);
+  ADD COLUMN IF NOT EXISTS placement_request_last_source text,
+  ADD COLUMN IF NOT EXISTS placement_request_last_submitted_by_profile_id uuid
+    REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS placement_request_last_submitted_at timestamptz;
+
+ALTER TABLE public.students
+  DROP CONSTRAINT IF EXISTS chk_students_placement_request_last_source;
+ALTER TABLE public.students
+  ADD CONSTRAINT chk_students_placement_request_last_source CHECK (
+    placement_request_last_source IS NULL
+    OR placement_request_last_source IN ('school_form', 'academic_partner_portal')
+  );
+
+COMMIT;
 ```
 
-Optionally, a dedicated `submission_source text` column if product prefers a semantically distinct
-field over overloading `submitted_via`; it is not required (the free-text `submitted_via` carries the
-origin today).
+### Verification query (run after applying)
 
-Until `submitting_profile_id` exists, `POST /api/portal/school-placement-requests` fails closed with
-`503 { error: 'submission_not_enabled', reason: 'provenance_pending_migration' }` after the auth
-chain, performing no write, and the workspace disables its submit control with a truthful banner.
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'students'
+  AND column_name LIKE 'placement_request_last_%'
+ORDER BY column_name;
+-- expect 3 rows (text, uuid, timestamptz), all nullable YES.
 
-### Enabling submission after the migration (follow-up, not in this branch)
+SELECT count(*) AS total, count(placement_request_last_source) AS with_source
+FROM public.students;
+-- expect with_source = 0 immediately after applying (no backfill).
+```
 
-1. Apply the migration above via the Owner SQL gate.
-2. In `api/portal/school-placement-requests.js`, replace the POST gate with: re-derive/validate the
-   school (in scope) and cohort (accepting) server-side; re-verify the cohort password via
-   `verify_school_form_password` when required; call `performSchoolPlacementUpsert(db, { ...,
-   submittedVia: 'academic_partner_portal' })`; and write `submitting_profile_id = auth.profile.id`
-   (extend the helper with an optional `submittingProfileId` that it only writes when provided).
-3. Wire the workspace submit button to `submitSchoolPlacementRequest` (already in the AP client) and
-   remove the disabled/pending banner.
+### Expected null behavior for old rows
+
+No backfill. Every existing row keeps NULL in all three columns until its next successful placement
+submission (public or authenticated) refreshes them. This is expected and correct.
+
+### Password POST enforcement
+
+The final authenticated POST does NOT trust the client-side gate. On every submission it independently:
+re-authorizes the submitted school + cohort against the caller's active `user_school_scopes`
+(`matchSchoolCohortScope`, exact-term, WCU campuses isolated); re-derives and re-validates the cohort
+server-side (exists + accepting); determines the cohort's password requirement via
+`school_form_requires_password`; and, when required, verifies the entered password via
+`verify_school_form_password`, rejecting missing (`password_required`) or wrong (`password_invalid`)
+before any write. The RPCs are called through a caller-JWT client (role `authenticated`), never the
+service role. The password is transient (verified, then dropped): never logged, echoed, persisted, or
+copied into a write payload. Per-IP rate limiting is deferred: the only shared limiter is
+evaluation-namespaced and DB-RPC-backed, and the caller is already JWT + active-role + school-scope
+gated; the canonical RPC protection is preserved.
+
+### Migration-readiness mechanism
+
+`isPlacementProvenanceReady(db)` (in `api/lib/schoolPlacementUpsert.js`) probes the three columns at
+runtime. The POST fails closed (`503 submission_not_enabled` / `provenance_pending_migration`) until
+they exist; the GET list returns a `submission_enabled` hint for the UI, but the POST gates
+independently and never trusts client state. There is no permanent false flag: applying the migration
+flips readiness at runtime, so the SAME code path enables submission with no redeploy.
+
+### Enablement sequence
+
+1. Apply the migration file via the Owner SQL gate (`docs/security/OWNER_SQL_GATE.md`); run the
+   verification query above.
+2. PostgREST reloads its schema automatically (usually seconds); the readiness probe then passes.
+3. No code deploy: the authenticated POST enables itself, and the workspace submit control enables
+   from the server's `submission_enabled` signal. Public `/school-form` also begins recording the
+   latest-submission provenance from that point.
+4. Run the live QC checklist below.
+
+### Rollback considerations
+
+Reversible with no data loss beyond the latest-submission provenance (`submitted_via` untouched):
+
+```sql
+ALTER TABLE public.students DROP CONSTRAINT IF EXISTS chk_students_placement_request_last_source;
+ALTER TABLE public.students
+  DROP COLUMN IF EXISTS placement_request_last_source,
+  DROP COLUMN IF EXISTS placement_request_last_submitted_by_profile_id,
+  DROP COLUMN IF EXISTS placement_request_last_submitted_at;
+```
+
+After a rollback the readiness probe returns false again and submission fail-closes; no other behavior
+regresses.
+
+### Live QC checklist (after applying the migration)
+
+1. Academic Partner portal, Placement Requests, New Placement Request: the submit control is enabled
+   (no pending banner). Submit a one-student request for your authorized school.
+2. Confirm the added/updated/skipped confirmation, and that the new request appears in the list after
+   the automatic refresh.
+3. Main App, At a Glance, Placement Requests: the student appears under the correct school/cohort.
+4. Row check:
+   `SELECT submitted_via, placement_request_last_source, placement_request_last_submitted_by_profile_id, placement_request_last_submitted_at`
+   `FROM public.students WHERE school_email = '<the test email>';`
+   expect `submitted_via = 'academic_partner_portal'`, `placement_request_last_source = 'academic_partner_portal'`,
+   the submitting profile id populated, and a recent timestamp.
+5. Password: for a password-required cohort, a wrong password is rejected before any row is written; a
+   correct one succeeds. Confirm the password appears in no server log.
+6. Public `/school-form`: submit as before; the student is created and
+   `placement_request_last_source = 'school_form'` with a NULL profile id.
+7. Duplicate: re-submit the same student email; only coordinator-owned fields update, `submitted_via`
+   is unchanged, and the three `placement_request_last_*` columns refresh.
 
 ## Not implemented in Phase 1 (explicit)
 
@@ -131,15 +222,24 @@ design.
 
 - `test/schoolPlacementFormConvergence.test.mjs`: shared form rules (validation, soft warnings,
   payload, labels) and the public/portal do-not-drift guard.
-- `test/schoolPlacementUpsert.test.mjs`: the shared write helper (mock db) - insert defaults,
-  coordinator-owned-only updates, `submitted_via` provenance, skip-incomplete, public-endpoint delegation.
+- `test/schoolPlacementUpsert.test.mjs`: the shared write helper (mock db) - insert defaults, the
+  latest-submission provenance on insert and duplicate-safe update, `submitted_via` preservation, the
+  not-ready path omitting the columns, skip-incomplete, public-endpoint delegation, and
+  `isPlacementProvenanceReady`.
+- `test/academicPartnerPlacementPassword.test.mjs`: `matchSchoolCohortScope` (school/cohort
+  authorization + WCU isolation) plus the endpoint's independent server-side password verification
+  chain and password hygiene (never logged/echoed/persisted, caller-JWT RPC).
+- `test/academicPartnerPlacementProvenance.test.mjs`: server-selected provenance (browser value
+  ignored), readiness ordering (no partial write when not ready), Main-App At-a-Glance visibility
+  fields (school + cohort_id + status), and the public `/school-form` regression.
 - `test/academicPartnerPlacementRequests.test.mjs`: the workspace + list endpoint - read-only list,
-  status pill/legend, refresh, cohort + server-verified password flow, locked school, gated submit,
-  and the absence of drafts/edit/withdraw/Request-a-Change/audit controls.
+  status pill/legend, refresh, cohort + server-verified password flow, locked school, the
+  server-gated submit (enabled from `submission_enabled`), the readiness gate + shared-write
+  delegation, and the absence of drafts/edit/withdraw/Request-a-Change/audit controls.
 - `test/academicPartnerPrivateFieldExclusion.test.mjs`: shared authorization across roster/photo/
-  placement, the public-safe allowlist and confidential denylist, the fail-closed POST gate, and WCU
-  campus isolation.
-- `test/academicPartnerShell.test.mjs`: the Placement Requests section now routes to the workspace;
+  placement, the public-safe allowlist and confidential denylist, the readiness gate, and WCU campus
+  isolation.
+- `test/academicPartnerShell.test.mjs`: the Placement Requests section routes to the workspace;
   Messages stays a prepared state.
 
 ## Baseline lint (pre-existing, unchanged)
