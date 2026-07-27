@@ -919,6 +919,60 @@
    aria-sort on the th), so the former bespoke .ptl-ap-sort treatment was removed. The status header
    pairs that button with the legend via the shared .am-sort-th-inner row. */
 
+/* Academic Partner Placement Requests workspace (list + new-request form). Reuses the shared
+   .ptl-card / .ptl-table / form primitives; these rules cover the request-specific layout. */
+.ptl-plr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ptl-plr-title { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 22px; color: var(--ptl-navy, #1D2567); margin: 0; }
+.ptl-plr-lede { max-width: 62ch; margin: 6px 0 0; }
+.ptl-plr-new { flex-shrink: 0; }
+.ptl-plr-back { margin-bottom: 4px; align-self: flex-start; }
+.ptl-plr-gate { max-width: 460px; }
+.ptl-plr-gate-form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.ptl-plr-gate-error { color: var(--cs-red, #dc1e34); font-size: 13px; margin: 0; }
+.ptl-plr-form-card { display: flex; flex-direction: column; gap: 4px; }
+.ptl-plr-form-head { display: flex; align-items: center; gap: 12px; }
+.ptl-ap-cohort-badge {
+  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700;
+  color: var(--ptl-navy, #1D2567); background: var(--ptl-navy-tint, #eef2fb);
+  border-radius: 999px; padding: 3px 12px;
+}
+.ptl-plr-gated-banner {
+  background: #fff8e6; border: 1px solid #f4d98a; border-radius: 8px;
+  padding: 10px 14px; margin: 12px 0 4px; font-size: 13px; color: #7a5c07; line-height: 1.55;
+}
+.ptl-plr-form { display: flex; flex-direction: column; gap: 22px; margin-top: 12px; }
+.ptl-plr-section { display: flex; flex-direction: column; gap: 12px; }
+.ptl-plr-section-title {
+  font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: #6b7280; border-bottom: 1px solid var(--ptl-line, #e3ded4);
+  padding-bottom: 6px;
+}
+.ptl-plr-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ptl-plr-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.ptl-plr-weekdays { display: flex; flex-wrap: wrap; gap: 6px; }
+.ptl-plr-day {
+  padding: 6px 12px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+  font-weight: 600; cursor: pointer; background: #fff; color: #374151; border: 1px solid #d1d5db;
+}
+.ptl-plr-day-on { background: var(--ptl-navy, #1D2567); color: #fff; border-color: var(--ptl-navy, #1D2567); }
+.ptl-plr-blackout { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ptl-plr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ptl-plr-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 16px;
+  background: #f1f5f9; color: #374151; font-size: 12px;
+}
+.ptl-plr-chip button { background: none; border: none; cursor: pointer; color: #6b7280; font-weight: 700; padding: 0; }
+.ptl-plr-student {
+  border: 1px solid var(--ptl-line, #e3ded4); border-radius: 10px; padding: 14px; display: flex;
+  flex-direction: column; gap: 12px; background: #fcfcfb;
+}
+.ptl-plr-student-head { display: flex; align-items: center; justify-content: space-between; }
+.ptl-plr-student-num { font-weight: 700; color: var(--ptl-navy, #1D2567); font-size: 14px; }
+.ptl-plr-submit-row { display: flex; align-items: center; gap: 12px; }
+@media (max-width: 640px) {
+  .ptl-plr-row-2, .ptl-plr-row-3 { grid-template-columns: 1fr; }
+}
+
 /* Unit Leader Preceptors workspace. The existing .ptl-table mobile conversion
    supplies stacked cards below 760px; these rules cover only workspace-specific
    controls and the create-only dialog. */

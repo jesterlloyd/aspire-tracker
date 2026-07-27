@@ -52,18 +52,20 @@ test('AcademicPartnerNav is exactly Students, Placement Requests, Messages', () 
   assert.doesNotMatch(stripJs(nav), /unread|ptl-nav-badge|formatUnread/)
 })
 
-test('Placement Requests and Messages render honest prepared states, not broken controls', () => {
+test('the three sections route: Students roster, Placement Requests workspace, Messages prepared', () => {
   const code = stripJs(portal)
   assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students' \}\)/)
   assert.match(portal, /if \(view === 'placement-requests'\)/)
   assert.match(portal, /if \(view === 'messages'\)/)
-  // The prepared states reuse the shared EmptyState primitive (no bespoke card, no controls).
+  // Placement Requests is now the live workspace; Messages stays an honest prepared state.
+  assert.match(portal, /import PlacementRequestsView from '\.\/ap\/PlacementRequestsView'/)
+  assert.match(code, /return <PlacementRequestsView \/>/)
   assert.match(portal, /import \{[^}]*\bEmptyState\b[^}]*\} from '\.\/unit\/UnitLeaderChrome'/)
-  assert.match(portal, /being prepared and is not active yet/)
-  // Students still renders the roster (StudentsView), which is the only view that fetches.
+  assert.match(portal, /being prepared and is not active yet/)  // Messages prepared state
+  // Students still renders the roster (StudentsView).
   assert.match(code, /return <StudentsView \/>/)
   assert.match(code, /function StudentsView\(\)/)
-  // No fake data, no drawer, no On Campus Now, no Needs Attention in this phase.
+  // No fake data, no drawer, no On Campus Now, no Needs Attention on the students surface.
   assert.doesNotMatch(code, /OnCampusNow|NeedsAttention|StudentDetailDrawer|ptl-detail-drawer/)
 })
 

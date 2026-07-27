@@ -23,6 +23,7 @@ const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/g
 
 const publicForm = read('src/components/SchoolFormPage.jsx')
 const publicCode = stripJs(publicForm)
+const apForm = read('src/portal/ap/PlacementRequestsView.jsx')
 
 const validForm = () => ({
   coordinator: { school: 'West Coast University', name: 'Jane Coord, MSN', email: 'jane@wcu.edu', notes: '' },
@@ -134,4 +135,23 @@ test('the public /school-form imports and uses the shared canonical definition',
   assert.doesNotMatch(publicCode, /outside the typical 4-16 week range/)
   // Program types remain sourced canonically.
   assert.ok(PROGRAM_TYPES.includes('MECN'))
+})
+
+test('the public form and the Academic Partner form share the canonical definition (no drift)', () => {
+  // Both surfaces import the shared module and consume the same copy, validation, and constants.
+  assert.match(publicForm, /from '\.\.\/lib\/schoolPlacementForm'/)
+  assert.match(apForm, /from '\.\.\/\.\.\/lib\/schoolPlacementForm'/)
+  for (const src of [publicForm, apForm]) {
+    assert.ok(src.includes('SCHOOL_PLACEMENT_TEXT'), 'uses shared copy')
+    assert.ok(src.includes('validatePlacementForm'), 'uses shared validation')
+    assert.ok(src.includes('placementSubmitLabel'), 'uses shared submit label')
+    assert.ok(src.includes('newStudentRow'), 'uses shared student-row factory')
+    assert.ok(src.includes('PROGRAM_TYPES'), 'uses canonical program types')
+  }
+  // The Academic Partner form renders labels from the shared text, exactly like the public form.
+  assert.match(apForm, /\{T\.schoolLabel\}/)
+  assert.match(apForm, /\{T\.rotationStartLabel\}/)
+  assert.match(apForm, /\{T\.hoursRequiredLabel\}/)
+  // Neither surface hardcodes the validation strings (they live only in the shared module).
+  assert.doesNotMatch(stripJs(apForm), /Hours required must be at least 90/)
 })

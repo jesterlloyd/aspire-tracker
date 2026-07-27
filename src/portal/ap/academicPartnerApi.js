@@ -52,3 +52,20 @@ async function apiFetch(path, { method = 'POST', body = null, signal } = {}) {
  */
 export const getSchoolStudentFileUrlsBatch = (items, signal) =>
   apiFetch('/api/portal/school-student-file-access', { method: 'POST', body: { items }, signal })
+
+/**
+ * The authenticated school's submitted placement requests, grouped by authorized school. School
+ * scope is derived server-side from user_school_scopes; the browser sends no school identifier.
+ */
+export const getSchoolPlacementRequests = (signal) =>
+  apiFetch('/api/portal/school-placement-requests', { method: 'GET', signal })
+
+/**
+ * Submit a new placement request. The server re-derives and re-validates the school, cohort, and
+ * (when required) the cohort password, and derives the submitting identity from the caller's
+ * profile. NOTE: submission is currently gated on a provenance schema change and returns 503
+ * submission_not_enabled until that migration is applied; the workspace disables its submit control
+ * accordingly.
+ */
+export const submitSchoolPlacementRequest = (payload, signal) =>
+  apiFetch('/api/portal/school-placement-requests', { method: 'POST', body: payload, signal })

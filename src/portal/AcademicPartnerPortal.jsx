@@ -24,6 +24,7 @@ import StatusPill from '../components/StatusPill'
 import StatusLegendPopover from '../components/StatusLegendPopover'
 import SortHeader from '../components/shared/SortHeader'
 import { useRegisterPortalRefresh } from './PortalRefresh'
+import PlacementRequestsView from './ap/PlacementRequestsView'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
@@ -69,12 +70,7 @@ function ApHoursCell({ hours }) {
 // each renders an honest prepared state (shared .ptl-state language, no controls, no API calls).
 export default function AcademicPartnerPortal({ view = 'students' }) {
   if (view === 'placement-requests') {
-    return (
-      <EmptyState
-        title="Placement Requests"
-        detail="You will be able to submit and track your school's placement requests here. This section is being prepared and is not active yet."
-      />
-    )
+    return <PlacementRequestsView />
   }
   if (view === 'messages') {
     return (
