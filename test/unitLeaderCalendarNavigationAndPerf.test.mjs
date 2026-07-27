@@ -75,7 +75,9 @@ test('the calendar is still fetched once and does not refetch on unit switching'
   // Shift activity: one fetch, deps [] so a unit-switch never refetches it; the
   // visible set is narrowed client-side instead.
   assert.match(home, /useEndpoint\(s => getShiftActivity\(\{\}, s\), \[\]\)/)
-  assert.match(home, /const visibleShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
+  // The single roster/activity fetch is filtered client-side by unit (no refetch on unit switching);
+  // a cohort selection narrows on top of that, still from the same fetch.
+  assert.match(home, /const unitShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
   assert.equal((portalCode.match(/getShiftActivity\(/g) || []).length, 1)
   // Still exactly one bootstrap read.
   assert.equal((portalCode.match(/useEndpoint\(getRoster/g) || []).length, 1)

@@ -310,7 +310,7 @@ test('Home renders welcome, an attention strip, the calendar, then the students 
 
 test('a student on shift now is surfaced in the On Campus Now card', () => {
   // Live shifts moved from the attention strip into the canonical On Campus Now card (Commit 2).
-  assert.match(portalCode, /const visibleShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
+  assert.match(portalCode, /const unitShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
   assert.match(portalCode, /const onShiftNow = visibleShifts\.filter\(x => x\.state === 'in_progress'\)/)
   assert.match(portalCode, /const campusRows = onShiftNow\.map/)
   assert.match(portal, /<OnCampusNow/)

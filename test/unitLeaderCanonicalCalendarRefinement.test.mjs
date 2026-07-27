@@ -58,7 +58,10 @@ test('selected date and activity details stay synchronized without opening empty
 })
 
 test('Unit Leader Home filters calendar activity by authorized unit selection', () => {
-  assert.match(portalCode, /const visibleShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
+  assert.match(portalCode, /const unitShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
+  // A cohort selection narrows the shift-derived surfaces to that cohort's students; "All Cohorts"
+  // leaves them unit-scoped (prior behavior).
+  assert.match(portalCode, /const visibleShifts = cohortNarrowed\s*\n?\s*\? unitShifts\.filter\(shift => scopedStudentIds\.has\(shift\.student_id\)\)\s*\n?\s*: unitShifts/)
   assert.match(portalCode, /const onShiftNow = visibleShifts\.filter\(x => x\.state === 'in_progress'\)/)
   assert.match(portalCode, /shifts=\{visibleShifts\}/)
   // The calendar's day drawer opens from the selected day's shifts (the live-row day filter
