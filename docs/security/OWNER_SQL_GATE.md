@@ -329,3 +329,84 @@ with the runbook queries in the pre-pilot verification section.
 File 1, `supabase/migrations/20260712000000_phase0b_wave_a_is_staff_helper.sql`
 (additive, no behavior change). It creates is_staff(), which Waves E and F-1
 depend on.
+
+## Follow-up: Academic Partner placement provenance (independent of the ordered list above)
+
+**File:** `supabase/migrations/20260727000000_add_academic_partner_placement_provenance.sql`
+**Gate notes:** additive; three nullable columns on `public.students` plus one
+CHECK constraint; idempotent (IF NOT EXISTS columns, drop-then-add constraint);
+no data conversion, no backfill; not dependent on any un-applied file above (the
+`students` table and `user_profiles` already exist in production).
+**Unlocks:** authenticated Academic Partner placement submission.
+
+### Why it is required
+Enabling authenticated Academic Partner placement submission requires recording
+WHICH authenticated profile submitted a request, without omitting provenance. The
+server code fails closed (`submission_not_enabled`) until these columns exist, so
+the feature cannot write a partial or unattributed request. The existing
+`students.submitted_via` (original source) is NOT changed by this migration.
+
+### Exact SQL to apply
+Run the whole file as one block in the Supabase SQL editor. Its body:
+
+```sql
+BEGIN;
+
+ALTER TABLE public.students
+  ADD COLUMN IF NOT EXISTS placement_request_last_source text,
+  ADD COLUMN IF NOT EXISTS placement_request_last_submitted_by_profile_id uuid
+    REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS placement_request_last_submitted_at timestamptz;
+
+ALTER TABLE public.students
+  DROP CONSTRAINT IF EXISTS chk_students_placement_request_last_source;
+ALTER TABLE public.students
+  ADD CONSTRAINT chk_students_placement_request_last_source CHECK (
+    placement_request_last_source IS NULL
+    OR placement_request_last_source IN ('school_form', 'academic_partner_portal')
+  );
+
+COMMIT;
+```
+
+### Verification query (run after applying)
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'students'
+  AND column_name LIKE 'placement_request_last_%'
+ORDER BY column_name;
+-- expect 3 rows (text, uuid, timestamptz), all nullable YES.
+
+SELECT count(*) AS total, count(placement_request_last_source) AS with_source
+FROM public.students;
+-- expect with_source = 0 immediately after applying (no backfill).
+```
+
+### No-backfill behavior
+Existing rows keep NULL in all three columns until their next successful
+placement submission (public `/school-form` or the Academic Partner portal)
+refreshes them. This is expected and correct; a full append-only submission
+history is deferred.
+
+### Rollback considerations
+Reversible with no data loss beyond the latest-submission provenance (the
+original `submitted_via` is untouched):
+```sql
+ALTER TABLE public.students DROP CONSTRAINT IF EXISTS chk_students_placement_request_last_source;
+ALTER TABLE public.students
+  DROP COLUMN IF EXISTS placement_request_last_source,
+  DROP COLUMN IF EXISTS placement_request_last_submitted_by_profile_id,
+  DROP COLUMN IF EXISTS placement_request_last_submitted_at;
+```
+
+### Enablement sequence
+1. Apply the migration file above via the Owner SQL gate; run the verification query.
+2. PostgREST reloads its schema automatically (usually within seconds); the server
+   readiness probe then sees the columns.
+3. No code deploy is required: the server auto-detects readiness and enables the
+   authenticated POST; the workspace submit control enables from the server's
+   `submission_enabled` signal. Public `/school-form` also begins recording the
+   latest-submission provenance from that point.
+4. Verify with the live QC checklist in
+   `docs/product/ACADEMIC_PARTNER_PLACEMENT_REQUESTS_HANDOFF.md`.
