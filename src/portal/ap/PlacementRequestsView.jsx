@@ -20,6 +20,7 @@ import StatusPill from '../../components/StatusPill'
 import StatusLegendPopover from '../../components/StatusLegendPopover'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
+import { PortalHeaderScope, PortalHeaderControls } from '../PortalHeaderSlots'
 import { getSchoolPlacementRequests, submitSchoolPlacementRequest } from './academicPartnerApi'
 import { cohortOptions, inCohortScope } from './academicPartnerRoster'
 import { toggleWeekday, isValidIsoDate } from '../../lib/availability'
@@ -122,25 +123,24 @@ export default function PlacementRequestsView() {
         </button>
       </div>
 
-      <section className="ptl-ap-controls">
-        {schools.length === 1 && <p className="ptl-unit-context ptl-ap-schoolline">School · <b>{school.school_key}</b></p>}
-        <div className="ptl-ap-pickers">
-          {schools.length > 1 && (
-            <div className="ptl-ap-field">
-              <label className="ptl-label" htmlFor="plr-school">School</label>
-              <select id="plr-school" className="ptl-select" value={school.school_key} onChange={e => onSchoolChange(e.target.value)}>
-                {schools.map(s => <option key={s.school_key} value={s.school_key}>{s.school_key}</option>)}
-              </select>
-            </div>
-          )}
-          <div className="ptl-ap-field">
-            <label className="ptl-label" htmlFor="plr-cohort">Cohort</label>
-            <select id="plr-cohort" className="ptl-select" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
-              {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+      {/* School scope + cohort picker live in the persistent Nightfall header (no page-level row). */}
+      <PortalHeaderScope>{schools.length === 1 ? <> · {school.school_key}</> : null}</PortalHeaderScope>
+      <PortalHeaderControls>
+        {schools.length > 1 && (
+          <span className="ptl-header-ctl">
+            <span className="ptl-header-ctl-label">School</span>
+            <select aria-label="School" value={school.school_key} onChange={e => onSchoolChange(e.target.value)}>
+              {schools.map(s => <option key={s.school_key} value={s.school_key}>{s.school_key}</option>)}
             </select>
-          </div>
-        </div>
-      </section>
+          </span>
+        )}
+        <span className="ptl-header-ctl">
+          <span className="ptl-header-ctl-label">Cohort</span>
+          <select aria-label="Cohort" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
+            {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </select>
+        </span>
+      </PortalHeaderControls>
 
       {requests.length === 0 ? (
         <EmptyState title="No placement requests yet" detail="When you submit a placement request, it will appear here with its current ASPIRE status." />

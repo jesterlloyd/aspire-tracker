@@ -17,6 +17,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { useRegisterPortalRefresh } from './PortalRefresh'
+import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { useLastVisitLabel } from '../lib/lastVisit'
@@ -31,7 +32,7 @@ import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
 import { sortUnitLeaderStudentsByName } from './unit/unitLeaderStudentSort'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  UnitSwitcher, LoadingState, EmptyState, ErrorState, DeniedState,
+  LoadingState, EmptyState, ErrorState, DeniedState,
   SectionHeading, Pill, TableSkeleton,
 } from './unit/UnitLeaderChrome'
 import {
@@ -157,8 +158,20 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
 
   return (
     <div className="ptl-page ptl-unit-page">
-      {UNIT_SCOPED_VIEWS.includes(view) && (
-        <UnitSwitcher unitKeys={unitKeys} value={unitKey} onChange={setUnitKey} />
+      {/* Unit scope lives in the persistent Nightfall header. A single-unit leader sees the unit in
+          the header subtitle (no page-level "Unit · X" row); a multi-unit leader gets an authorized
+          unit selector in the header, only on the unit-scoped views. */}
+      {unitKeys.length === 1 && <PortalHeaderScope> · {unitKeys[0]}</PortalHeaderScope>}
+      {unitKeys.length > 1 && UNIT_SCOPED_VIEWS.includes(view) && (
+        <PortalHeaderControls>
+          <span className="ptl-header-ctl">
+            <span className="ptl-header-ctl-label">Viewing</span>
+            <select aria-label="Viewing units" value={unitKey} onChange={e => setUnitKey(e.target.value)}>
+              <option value={ALL_UNITS}>All Assigned Units</option>
+              {unitKeys.map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </span>
+        </PortalHeaderControls>
       )}
 
         {view === 'home'       && <HomeScreen {...shared} profile={userProfile} onNavigate={onNavigate} onOpenThread={onSelectThread} />}

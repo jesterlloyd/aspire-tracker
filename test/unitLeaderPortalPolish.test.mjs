@@ -59,11 +59,13 @@ test('P0-3: the change-request comment is an inline editor, never window.prompt'
 })
 
 test('P0-4: unit switcher scope and the single-unit context line', async (t) => {
-  await t.test('the switcher renders only on views where narrowing changes the data', () => {
+  await t.test('the unit selector renders only on views where narrowing changes the data', () => {
     // Placement Requests and Capacity are excluded (each carries its own unit context),
-    // so the switcher lives on Home, Students, and Preceptors only.
+    // so the selector lives on Home, Students, and Preceptors only. It now sits in the Nightfall
+    // header (multi-unit); a single-unit leader sees the unit in the header subtitle instead.
     assert.match(portal, /UNIT_SCOPED_VIEWS = \['home', 'students', 'preceptors'\]/)
-    assert.match(portal, /\{UNIT_SCOPED_VIEWS\.includes\(view\) && \(\s*<UnitSwitcher/)
+    assert.match(portal, /unitKeys\.length > 1 && UNIT_SCOPED_VIEWS\.includes\(view\)/)
+    assert.match(portal, /unitKeys\.length === 1 && <PortalHeaderScope>/)
   })
   await t.test('a single-unit leader sees a static context line, not a dead control', () => {
     assert.match(chrome, /if \(unitKeys\.length === 1\) \{\s*return <p className="ptl-unit-context">/)

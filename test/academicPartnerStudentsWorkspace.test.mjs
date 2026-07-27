@@ -104,9 +104,12 @@ test('the workspace reuses the shared masthead, last-visit hook, and state primi
   assert.match(css, /\.ptl-ap-page \.mast \{ margin: 0; \}/)
 })
 
-test('the school picker appears only for multiple schools; scope is never sent to the server', () => {
-  assert.match(portal, /schools\.length > 1 && \(/)                                       // picker only when >1
-  assert.match(portal, /schools\.length === 1 && <p className="ptl-unit-context ptl-ap-schoolline">School · <b>\{school\.school_key\}<\/b>/)  // single-school context
+test('the school scope is in the header (selector only for multiple schools); scope is never sent to the server', () => {
+  // Single school shows in the header subtitle; multiple schools get an authorized-school selector in
+  // the header controls. No page-level school context row.
+  assert.match(portal, /<PortalHeaderScope>\{schools\.length === 1 \? <> · \{school\.school_key\}<\/> : null\}<\/PortalHeaderScope>/)
+  assert.match(portal, /schools\.length > 1 && \(/)                                       // selector only when >1
+  assert.doesNotMatch(portalCode, /ptl-ap-schoolline/)
   // The roster fetch carries only the JWT; no school/cohort/scope query parameter is ever sent.
   assert.match(portal, /fetch\('\/api\/portal\/school-students', \{ headers: \{ Authorization: `Bearer \$\{token\}` \} \}\)/)
   assert.doesNotMatch(portalCode, /school-students\?|school_key=|cohort_id=|[?&]school=/)

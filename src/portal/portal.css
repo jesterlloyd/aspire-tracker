@@ -51,6 +51,27 @@
 .ptl-header-name { font-size: 13.5px; font-weight: 600; color: #232842; }
 .ptl-header-link { font-size: 13px; color: #1D2567; text-decoration: none; }
 .ptl-header-link:hover { text-decoration: underline; }
+/* Header slots filled by the active portal: the role/scope line inherits the subtitle style; the
+   controls area holds compact scope selectors / the cohort picker, left of the profile menu. */
+.ptl-header-scope:empty { display: none; }
+.ptl-header-controls { display: inline-flex; align-items: center; gap: 8px; }
+.ptl-header-controls:empty { display: none; }
+.ptl-header-ctl { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.ptl-header-ctl select {
+  font-family: 'DM Sans', sans-serif; font-size: 12.5px; font-weight: 600;
+  padding: 5px 8px; border-radius: 8px; cursor: pointer; max-width: 15rem;
+  background: rgba(255, 255, 255, 0.10); color: var(--pearl, #fff);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+.ptl-header-ctl select option { color: #1D2567; }
+.ptl-header-ctl-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--nova, #9faff8); opacity: 0.85;
+}
+@media (max-width: 760px) {
+  .ptl-header-ctl-label { display: none; }
+  .ptl-header-ctl select { max-width: 44vw; font-size: 12px; padding: 5px 6px; }
+}
 
 /* ASPIRE-STUDENT-HOME: fluid desktop workspace. Mobile and tablet keep full
    width with comfortable side padding (no restrictive max-width). From 1024px

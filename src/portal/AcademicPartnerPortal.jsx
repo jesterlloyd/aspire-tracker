@@ -25,6 +25,7 @@ import StatusLegendPopover from '../components/StatusLegendPopover'
 import SortHeader from '../components/shared/SortHeader'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import PlacementRequestsView from './ap/PlacementRequestsView'
+import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
@@ -189,39 +190,39 @@ function StudentsView() {
         lastVisitLine={lastVisitLine}
       />
 
-      {/* One control row: the canonical pastel KPI filter cards on the left, the school (only when
-          more than one) and cohort pickers aligned right on desktop. Wraps cleanly on narrow. */}
-      <section className="ptl-ap-controls">
-        {schools.length === 1 && <p className="ptl-unit-context ptl-ap-schoolline">School · <b>{school.school_key}</b></p>}
-        <div className="ptl-ap-kpis" role="group" aria-label="Filter students by status">
-          {FILTERS.map(f => (
-            <FilterKPICard
-              key={f.key}
-              value={f.n}
-              label={f.label}
-              accent={f.accent}
-              active={filter === f.key}
-              onClick={() => setFilter(f.key)}
-            />
-          ))}
-        </div>
-        <div className="ptl-ap-pickers">
-          {schools.length > 1 && (
-            <div className="ptl-ap-field">
-              <label className="ptl-label" htmlFor="ap-school">School</label>
-              <select id="ap-school" className="ptl-select" value={school.school_key} onChange={e => onSchoolChange(e.target.value)}>
-                {schools.map(s => <option key={s.school_key} value={s.school_key}>{s.school_key}</option>)}
-              </select>
-            </div>
-          )}
-          <div className="ptl-ap-field">
-            <label className="ptl-label" htmlFor="ap-cohort">Cohort</label>
-            <select id="ap-cohort" className="ptl-select" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
-              {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+      {/* School scope + cohort picker live in the persistent Nightfall header (no page-level context
+          row). The single-school case shows the school in the header subtitle; multi-school shows an
+          authorized-school selector. The cohort picker drives KPIs and the roster. */}
+      <PortalHeaderScope>{schools.length === 1 ? <> · {school.school_key}</> : null}</PortalHeaderScope>
+      <PortalHeaderControls>
+        {schools.length > 1 && (
+          <span className="ptl-header-ctl">
+            <span className="ptl-header-ctl-label">School</span>
+            <select aria-label="School" value={school.school_key} onChange={e => onSchoolChange(e.target.value)}>
+              {schools.map(s => <option key={s.school_key} value={s.school_key}>{s.school_key}</option>)}
             </select>
-          </div>
-        </div>
-      </section>
+          </span>
+        )}
+        <span className="ptl-header-ctl">
+          <span className="ptl-header-ctl-label">Cohort</span>
+          <select aria-label="Cohort" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
+            {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </select>
+        </span>
+      </PortalHeaderControls>
+
+      <div className="ptl-ap-kpis" role="group" aria-label="Filter students by status">
+        {FILTERS.map(f => (
+          <FilterKPICard
+            key={f.key}
+            value={f.n}
+            label={f.label}
+            accent={f.accent}
+            active={filter === f.key}
+            onClick={() => setFilter(f.key)}
+          />
+        ))}
+      </div>
 
       {students.length === 0 ? (
         <EmptyState title="No students in this school yet" detail="When your school's students enter the ASPIRE pathway, they will appear here." />

@@ -33,6 +33,7 @@ import { composePortalEmail } from '../lib/outlookCompose'
 import { usePortalHeadshotUrl } from '../lib/useStudentFile'
 import { classifyStoredFileRef } from '../lib/studentFileClient'
 import { useRegisterPortalRefresh } from './PortalRefresh'
+import { PortalHeaderScope } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../lib/lastVisit'
 import EditProfileDrawer from './EditProfileDrawer'
@@ -240,6 +241,9 @@ export default function StudentPortal({
   return (
     <div className="ptl-student">
       <h1 className="ptl-visually-hidden">Student Portal home</h1>
+      {/* Role scope in the persistent header subtitle: the student's school. No cohort switcher for
+          students (they remain in one cohort); school context is not repeated below the masthead. */}
+      {student.school && <PortalHeaderScope> · {student.school}</PortalHeaderScope>}
       {students.length > 1 && (
         <div className="ptl-rotation-switch">
           <label className="ptl-label" htmlFor="ptl-rotation-pick">Rotation</label>

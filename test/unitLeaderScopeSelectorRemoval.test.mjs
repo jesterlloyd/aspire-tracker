@@ -19,9 +19,11 @@ const chrome = read('src/portal/unit/UnitLeaderChrome.jsx')
 const sliceFn = (name, next) =>
   portalCode.slice(portalCode.indexOf(`function ${name}`), portalCode.indexOf(`function ${next}`))
 
-test('the switcher renders only on Home, Students, and Preceptors', () => {
+test('the unit selector renders only on Home, Students, and Preceptors', () => {
   assert.match(portalCode, /const UNIT_SCOPED_VIEWS = \['home', 'students', 'preceptors'\]/)
-  assert.match(portalCode, /\{UNIT_SCOPED_VIEWS\.includes\(view\) && \(\s*<UnitSwitcher/)
+  // The multi-unit selector now lives in the Nightfall header, gated to the scoped views.
+  assert.match(portalCode, /unitKeys\.length > 1 && UNIT_SCOPED_VIEWS\.includes\(view\)/)
+  assert.match(portalCode, /<PortalHeaderControls>/)
   // Placement Requests and Capacity are explicitly not in the scoped-views list.
   assert.ok(!/const UNIT_SCOPED_VIEWS = \[[^\]]*'placements'/.test(portalCode))
   assert.ok(!/const UNIT_SCOPED_VIEWS = \[[^\]]*'capacity'/.test(portalCode))
