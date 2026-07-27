@@ -29,6 +29,8 @@
 
 import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, matchSchoolCohortScope } from '../lib/schoolScope.js'
 import { getCallerScopedDb } from '../lib/portalAuth.js'
+import { performSchoolPlacementUpsert, isPlacementProvenanceReady } from '../lib/schoolPlacementUpsert.js'
+import { emailBaseUrl } from '../../lib/server/appUrl.js'
 
 // Explicit allowlist (allowlist, not denylist). Confirmed unit resolves through the reliable
 // normalized matched_unit_id -> units, not the legacy free-text students.unit. created_at is the
@@ -64,7 +66,12 @@ export default async function handler(req, res) {
     return submitPlacementRequest(req, res, auth)
   }
 
-  if (scopes.length === 0) return res.status(200).json({ schools: [] })
+  // Whether authenticated submission is enabled (the provenance migration is applied). Surfaced to
+  // the workspace so it can show a truthful banner and enable/disable its submit control. The POST
+  // still gates on this independently; the flag is a server-computed hint, never trusted as authority.
+  const submissionEnabled = await isPlacementProvenanceReady(db)
+
+  if (scopes.length === 0) return res.status(200).json({ schools: [], submission_enabled: submissionEnabled })
 
   let scopeTerms, matches
   try {
@@ -74,7 +81,7 @@ export default async function handler(req, res) {
   }
 
   if (matches.length === 0) {
-    return res.status(200).json({ schools: scopeTerms.map(t => ({ school_key: t.school_key, requests: [] })) })
+    return res.status(200).json({ schools: scopeTerms.map(t => ({ school_key: t.school_key, requests: [] })), submission_enabled: submissionEnabled })
   }
 
   // Cohort context (name, status, dates) for grouping and labels.
@@ -161,7 +168,7 @@ export default async function handler(req, res) {
     requests: bySchool[t.school_key] || [],
   }))
 
-  return res.status(200).json({ schools })
+  return res.status(200).json({ schools, submission_enabled: submissionEnabled })
 }
 
 // Authenticated placement submission. The caller has already been verified as an active
@@ -170,7 +177,7 @@ export default async function handler(req, res) {
 // POST. The password is transient: verified here and then dropped. It is never copied into a write
 // payload, logged, echoed in a response, or persisted.
 async function submitPlacementRequest(req, res, auth) {
-  const { scopes } = auth
+  const { scopes, profile } = auth
   const db = auth.db
 
   const body = req.body && typeof req.body === 'object' ? req.body : {}
@@ -181,6 +188,7 @@ async function submitPlacementRequest(req, res, auth) {
   const coordEmail = String(coordinator.email || '').trim()
   const rotationStartDate = typeof body.rotationStartDate === 'string' ? body.rotationStartDate : ''
   const rotationEndDate = typeof body.rotationEndDate === 'string' ? body.rotationEndDate : ''
+  const availability = body.availability
   const students = Array.isArray(body.students) ? body.students : []
 
   // Essential server-side validation (the shared client validation also runs, but the server never
@@ -235,7 +243,47 @@ async function submitPlacementRequest(req, res, auth) {
   // The password (if any) has served its only purpose. It is intentionally NOT copied into any write
   // payload, log line, response body, or audit metadata.
 
-  // Provenance-readiness gate + the shared write are wired in the next commit; until then the write
-  // is fail-closed even after a valid password.
-  return res.status(503).json({ error: 'submission_not_enabled', reason: 'provenance_pending_migration' })
+  // PROVENANCE-READINESS GATE. Fail closed (no write) until the migration is applied, detected at
+  // runtime from the live schema, never from client state. Once the columns exist, this SAME path
+  // enables the write with no redeploy.
+  const provenanceReady = await isPlacementProvenanceReady(db)
+  if (!provenanceReady) {
+    return res.status(503).json({ error: 'submission_not_enabled', reason: 'provenance_pending_migration' })
+  }
+
+  // Trusted, server-selected provenance: source and the submitting profile id are chosen here (never
+  // from the body), and the timestamp is generated here. The shared helper is the SAME canonical
+  // write the public /school-form uses, so the two paths cannot drift.
+  const result = await performSchoolPlacementUpsert(db, {
+    cohortId, cohortName: cohort.name, coordinator,
+    rotationStartDate, rotationEndDate, availability, students,
+    provenance: {
+      source: 'academic_partner_portal',
+      submittedByProfileId: profile.id,
+      submittedAt: new Date().toISOString(),
+    },
+    provenanceReady: true,
+  })
+  if (result.error) return res.status(500).json({ error: 'internal_error' })
+
+  // Fire-and-forget form_received notifications for each NEW student, mirroring the public endpoint.
+  const baseUrl = emailBaseUrl(req)
+  for (const s of result.added) {
+    fetch(`${baseUrl}/api/form-received-notification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: s.id, cohortId,
+        studentName: s.name, studentFirstName: s.name.split(' ')[0],
+        studentEmail: s.email, school,
+      }),
+    }).catch(() => { /* notification failure never blocks the submission */ })
+  }
+
+  return res.status(200).json({
+    success: true,
+    added: result.added.map(s => s.name),
+    updated: result.updated.map(s => s.name),
+    skipped: result.skipped,
+  })
 }

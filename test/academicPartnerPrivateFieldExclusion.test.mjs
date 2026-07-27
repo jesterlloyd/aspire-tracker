@@ -238,14 +238,17 @@ test('the placement-request list evaluation/interview surface is absent (no scor
   assert.doesNotMatch(placement, /Needs Clarification|changes_requested/)
 })
 
-test('placement submission is fail-closed on the provenance gate, AFTER the auth chain, with no write', () => {
-  // Method allowlist is GET + POST only; an empty scope returns an empty list (GET).
+test('placement submission gates on provenance readiness AFTER the auth chain, and never writes inline', () => {
+  // Method allowlist is GET + POST only; an empty scope returns an empty list (with the readiness hint).
   assert.match(placement, /req\.method !== 'GET' && req\.method !== 'POST'/)
-  assert.match(placement, /if \(scopes\.length === 0\) return res\.status\(200\)\.json\(\{ schools: \[\] \}\)/)
-  // The auth chain runs BEFORE the POST gate, so an unauthorized caller is rejected first.
+  assert.match(placement, /if \(scopes\.length === 0\) return res\.status\(200\)\.json\(\{ schools: \[\], submission_enabled: submissionEnabled \}\)/)
+  // The auth chain runs BEFORE the POST submission logic, so an unauthorized caller is rejected first.
   assert.match(placement, /verifyPortalAcademicPartnerCaller\(req\)[\s\S]*if \(req\.method === 'POST'\)/)
+  // Fail-closed until the migration is applied, detected at runtime from the live schema.
+  assert.match(placement, /const provenanceReady = await isPlacementProvenanceReady\(db\)/)
   assert.match(placement, /submission_not_enabled/)
   assert.match(placement, /provenance_pending_migration/)
-  // The endpoint performs no student write in this phase.
+  // The write goes through the shared helper (never an inline students insert/update in the endpoint).
+  assert.match(placement, /performSchoolPlacementUpsert\(db,/)
   assert.doesNotMatch(placement, /\.insert\(|\.update\(|\.upsert\(/)
 })

@@ -20,13 +20,13 @@ import StatusPill from '../../components/StatusPill'
 import StatusLegendPopover from '../../components/StatusLegendPopover'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
-import { getSchoolPlacementRequests } from './academicPartnerApi'
+import { getSchoolPlacementRequests, submitSchoolPlacementRequest } from './academicPartnerApi'
 import { cohortOptions, inCohortScope } from './academicPartnerRoster'
 import { toggleWeekday, isValidIsoDate } from '../../lib/availability'
 import {
   PROGRAM_TYPES, WEEKDAYS, SCHOOL_PLACEMENT_TEXT,
   newStudentRow, emptyCoordinator, emptyRotation, emptyAvailability,
-  validatePlacementForm, placementSubmitLabel,
+  validatePlacementForm, buildPlacementBody, placementSubmitLabel,
 } from '../../lib/schoolPlacementForm'
 
 const T = SCHOOL_PLACEMENT_TEXT
@@ -42,6 +42,7 @@ const rotationText = (r) => (r?.start_date ? `${fmtDate(r.start_date)} to ${fmtD
 
 export default function PlacementRequestsView() {
   const [schools, setSchools] = useState(null)
+  const [submissionEnabled, setSubmissionEnabled] = useState(false)
   const [error, setError]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
@@ -65,6 +66,7 @@ export default function PlacementRequestsView() {
         if (cancelled) return
         if (!res.ok) { setError('We could not load your placement requests right now. Please try again shortly.'); setLoading(false); return }
         setSchools(res.data?.schools || [])
+        setSubmissionEnabled(res.data?.submission_enabled === true)
       } catch {
         if (!cancelled) setError('We could not load your placement requests right now. Please try again shortly.')
       }
@@ -98,7 +100,9 @@ export default function PlacementRequestsView() {
     return (
       <NewPlacementRequest
         schoolKey={school.school_key}
+        submissionEnabled={submissionEnabled}
         onBack={() => setMode('list')}
+        onSubmitted={() => { setMode('list'); reload() }}
       />
     )
   }
@@ -188,14 +192,20 @@ export default function PlacementRequestsView() {
 }
 
 // The New Placement Request flow: resolve the accepting cohort and its password requirement exactly
-// like the public form, then render the shared-definition form. Submission is gated (see file top).
-function NewPlacementRequest({ schoolKey, onBack }) {
+// like the public form, then render the shared-definition form. The final submit is enabled from the
+// server's submission_enabled signal (the provenance migration is applied); the server independently
+// gates and re-verifies regardless. A confirmation with added/updated/skipped counts is shown on
+// success; recoverable errors (password, readiness) keep the in-progress form intact.
+function NewPlacementRequest({ schoolKey, submissionEnabled, onBack, onSubmitted }) {
   const [gate, setGate] = useState('loading')  // 'loading' | 'unavailable' | 'password' | 'open'
   const [cohortId, setCohortId]     = useState(null)
   const [cohortName, setCohortName] = useState('')
   const [pwdInput, setPwdInput]     = useState('')
   const [pwdError, setPwdError]     = useState(null)
   const [pwdChecking, setPwdChecking] = useState(false)
+  // The verified cohort password, kept ONLY in transient component state so it can be re-verified on
+  // the final POST. Never persisted to storage, never logged.
+  const [verifiedPassword, setVerifiedPassword] = useState('')
 
   // Form state (canonical shared shapes). The school is locked to the caller's authorized school.
   const [coord, setCoord] = useState(() => ({ ...emptyCoordinator(), school: schoolKey }))
@@ -204,6 +214,8 @@ function NewPlacementRequest({ schoolKey, onBack }) {
   const [blackoutInput, setBlackoutInput] = useState('')
   const [rows, setRows] = useState([newStudentRow()])
   const [formError, setFormError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [result, setResult] = useState(null)  // { added, updated, skipped } on success
 
   const setC = (k, v) => setCoord(p => ({ ...p, [k]: v }))
   const setA = (k, v) => setAvail(p => ({ ...p, [k]: v }))
@@ -236,7 +248,7 @@ function NewPlacementRequest({ schoolKey, onBack }) {
         p_cohort_id: cohortId, p_entered_password: pwdInput.trim(),
       })
       if (rpcErr) throw rpcErr
-      if (ok) setGate('open')
+      if (ok) { setVerifiedPassword(pwdInput.trim()); setGate('open') }
       else { setPwdError('Incorrect password. Please check with the ASPIRE team.'); setPwdInput('') }
     } catch { setPwdError('Unable to verify at this time. Please try again.') }
     setPwdChecking(false)
@@ -246,6 +258,31 @@ function NewPlacementRequest({ schoolKey, onBack }) {
     () => validatePlacementForm({ coordinator: coord, rotation, students: rows, cohortId }),
     [coord, rotation, rows, cohortId],
   )
+
+  // Final submission. Validates client-side (shared rules), then POSTs the canonical body plus the
+  // transient verified password. The server independently re-authorizes the school/cohort, re-verifies
+  // the password, and gates on provenance readiness. On a recoverable failure the form is preserved.
+  const doSubmit = async () => {
+    if (submitting) return
+    setFormError(null)
+    if (validation) { setFormError(validation.message); return }
+    setSubmitting(true)
+    const payload = buildPlacementBody({ cohortId, cohortName, coordinator: coord, rotation, availability: avail, students: rows })
+    if (verifiedPassword) payload.password = verifiedPassword
+    const res = await submitSchoolPlacementRequest(payload)
+    setSubmitting(false)
+    if (res.ok) {
+      setResult({
+        added: res.data?.added || [], updated: res.data?.updated || [], skipped: res.data?.skipped || [],
+      })
+      return
+    }
+    // Truthful, non-technical messages by failure kind; the form values are kept intact.
+    if (res.status === 503) setFormError('Online submission is not enabled yet. The ASPIRE team is finalizing it; please try again later.')
+    else if (res.error === 'password_required' || res.error === 'password_invalid') { setFormError('The cohort password could not be verified. Please reopen the form and re-enter it.'); setGate('password'); setVerifiedPassword('') }
+    else if (res.status === 403) setFormError('This school or cohort is not in your access scope.')
+    else setFormError('That request could not be submitted right now. Your entries are preserved; please try again.')
+  }
 
   const backBtn = (
     <button type="button" className="ptl-btn-outline ptl-btn-sm ptl-plr-back" onClick={onBack}>
@@ -287,7 +324,30 @@ function NewPlacementRequest({ schoolKey, onBack }) {
     )
   }
 
-  // gate === 'open': the shared-definition form. Submission is gated (disabled) this phase.
+  // Success confirmation with added / updated / skipped counts.
+  if (result) {
+    const n = (arr) => (arr || []).length
+    return (
+      <div className="ptl-page ptl-ap-page">
+        <div className="ptl-card ptl-plr-form-card">
+          <h2 className="ptl-card-title">Thank you.</h2>
+          {n(result.added) > 0 && (
+            <p className="ptl-plr-confirm"><b>{n(result.added)} student{n(result.added) !== 1 ? 's' : ''} added</b> to ASPIRE for {cohortName}.</p>
+          )}
+          {n(result.updated) > 0 && (
+            <p className="ptl-plr-confirm ptl-muted"><b>{n(result.updated)} existing student{n(result.updated) !== 1 ? 's' : ''} updated</b> with the latest placement details.</p>
+          )}
+          {n(result.skipped) > 0 && (
+            <p className="ptl-plr-confirm ptl-muted"><b>{n(result.skipped)} skipped</b> (incomplete rows): {result.skipped.join(', ')}</p>
+          )}
+          <button type="button" className="ptl-btn ptl-plr-back" onClick={onSubmitted}>Back to requests</button>
+        </div>
+      </div>
+    )
+  }
+
+  // gate === 'open': the shared-definition form. The submit control is enabled only when the server
+  // reports submission is enabled (the provenance migration is applied); the server gates regardless.
   return (
     <div className="ptl-page ptl-ap-page">
       {backBtn}
@@ -297,10 +357,12 @@ function NewPlacementRequest({ schoolKey, onBack }) {
           {cohortName && <span className="ptl-ap-cohort-badge">{cohortName}</span>}
         </div>
 
-        <div className="ptl-plr-gated-banner" role="status">
-          Online submission is being finalized with the ASPIRE team and is not enabled yet. You can
-          prepare this request, but the submit button stays disabled until submissions are activated.
-        </div>
+        {!submissionEnabled && (
+          <div className="ptl-plr-gated-banner" role="status">
+            Online submission is being finalized with the ASPIRE team and is not enabled yet. You can
+            prepare this request, but the submit button stays disabled until submissions are activated.
+          </div>
+        )}
 
         <form className="ptl-plr-form" onSubmit={e => e.preventDefault()}>
           {/* School Information */}
@@ -493,14 +555,14 @@ function NewPlacementRequest({ schoolKey, onBack }) {
           {formError && <div className="ptl-plr-gate-error" role="alert">{formError}</div>}
 
           <div className="ptl-plr-submit-row">
-            {/* Submission is intentionally disabled this phase (provenance gate). The button reflects
-                client validation so the prepared request is clearly complete or not. */}
-            <button type="button" className="ptl-btn" disabled
-              title="Submissions are not enabled yet"
-              onClick={() => setFormError(validation ? validation.message : null)}>
-              {placementSubmitLabel(rows.length)}
+            {/* Enabled only when the server reports submission is enabled (the migration is applied);
+                the server re-authorizes, re-verifies the password, and gates on readiness regardless. */}
+            <button type="button" className="ptl-btn" disabled={!submissionEnabled || submitting}
+              title={submissionEnabled ? undefined : 'Submissions are not enabled yet'}
+              onClick={doSubmit}>
+              {submitting ? 'Submitting…' : placementSubmitLabel(rows.length)}
             </button>
-            <span className="ptl-muted ptl-small">Submission activation pending.</span>
+            {!submissionEnabled && <span className="ptl-muted ptl-small">Submission activation pending.</span>}
           </div>
         </form>
       </div>

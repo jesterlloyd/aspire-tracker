@@ -57,13 +57,26 @@ test('the school is prefilled and locked to the caller authorized school', () =>
   assert.match(view, /value=\{coord\.school\} disabled/)
 })
 
-test('submission is GATED: the submit control is disabled and no submit call is wired live', () => {
-  // The button is disabled with a truthful pending banner; it does not POST.
+test('submission is SERVER-gated: submit enables only from the server submission_enabled signal', () => {
+  // The submit is wired to the endpoint, but enabled only when the server reports submission is
+  // enabled (the migration is applied); the server re-gates regardless. Readiness is never inferred
+  // from client state alone.
+  assert.match(view, /submitSchoolPlacementRequest\(payload\)/)
+  assert.match(view, /disabled=\{!submissionEnabled \|\| submitting\}/)
+  assert.match(view, /setSubmissionEnabled\(res\.data\?\.submission_enabled === true\)/)
+  // When not enabled, a truthful pending banner shows and the pending note appears.
   assert.match(view, /submission is being finalized/)
-  assert.match(view, /<button type="button" className="ptl-btn" disabled/)
-  assert.match(view, /Submission activation pending\./)
-  // The view never calls the submit endpoint in this phase (only the read list is fetched).
-  assert.doesNotMatch(viewCode, /submitSchoolPlacementRequest/)
+  assert.match(view, /\{!submissionEnabled && <span className="ptl-muted ptl-small">Submission activation pending\./)
+  // On a 503 the form is preserved with a truthful message (never cleared on a gate failure).
+  assert.match(viewCode, /res\.status === 503/)
+})
+
+test('the verified cohort password is transient and re-sent only in the POST body', () => {
+  // Retained in component state (never storage), re-attached to the POST for server re-verification.
+  assert.match(view, /const \[verifiedPassword, setVerifiedPassword\] = useState\(''\)/)
+  assert.match(view, /setVerifiedPassword\(pwdInput\.trim\(\)\)/)
+  assert.match(view, /if \(verifiedPassword\) payload\.password = verifiedPassword/)
+  assert.doesNotMatch(viewCode, /localStorage|sessionStorage/)
 })
 
 test('no drafts, editing, withdrawal, Request-a-Change, or audit-history controls are present', () => {
@@ -81,13 +94,17 @@ test('the list endpoint reuses the shared AP authorization and never trusts a re
   assert.doesNotMatch(stripJs(endpoint), /req\.query|req\.params/)            // no request-supplied scope
 })
 
-test('the POST submit path fails closed on the provenance gate (503), without writing', () => {
+test('the POST fails closed on provenance readiness, then delegates to the shared write when ready', () => {
   assert.match(endpoint, /if \(req\.method === 'POST'\) \{/)
-  assert.match(endpoint, /submission_not_enabled/)
-  assert.match(endpoint, /provenance_pending_migration/)
-  // The auth chain runs before the gate, so an unauthorized caller is rejected first.
+  // Fail closed until the migration is applied, detected at runtime (never from client state).
+  assert.match(endpoint, /const provenanceReady = await isPlacementProvenanceReady\(db\)/)
+  assert.match(endpoint, /if \(!provenanceReady\) \{\s*\n\s*return res\.status\(503\)\.json\(\{ error: 'submission_not_enabled', reason: 'provenance_pending_migration' \}\)/)
+  // The auth chain runs before any submission logic, so an unauthorized caller is rejected first.
   assert.match(stripJs(endpoint), /verifyPortalAcademicPartnerCaller\(req\)[\s\S]*if \(req\.method === 'POST'\)/)
-  // No student write occurs in this endpoint yet.
+  // When ready, the write goes through the SAME shared helper the public form uses, with trusted,
+  // server-selected provenance (source + the caller's profile id); the endpoint has no inline write.
+  assert.match(endpoint, /performSchoolPlacementUpsert\(db, \{/)
+  assert.match(endpoint, /source: 'academic_partner_portal',\s*\n\s*submittedByProfileId: profile\.id/)
   assert.doesNotMatch(stripJs(endpoint), /\.insert\(|\.update\(|\.upsert\(/)
 })
 

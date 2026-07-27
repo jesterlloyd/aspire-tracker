@@ -969,6 +969,7 @@
 .ptl-plr-student-head { display: flex; align-items: center; justify-content: space-between; }
 .ptl-plr-student-num { font-weight: 700; color: var(--ptl-navy, #1D2567); font-size: 14px; }
 .ptl-plr-submit-row { display: flex; align-items: center; gap: 12px; }
+.ptl-plr-confirm { margin: 8px 0 0; line-height: 1.5; }
 @media (max-width: 640px) {
   .ptl-plr-row-2, .ptl-plr-row-3 { grid-template-columns: 1fr; }
 }
