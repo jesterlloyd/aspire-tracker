@@ -7,11 +7,14 @@
 // includes them, and it is the default only when no cohort is currently Active.
 
 import { ASPIRE_STATUSES } from '../../lib/constants.js'
+import { orderCohortsByTimeline } from '../../lib/derivations/cohortOrder.js'
 
 export const AP_ALL_CURRENT = 'all-current'
 export const AP_ALL = 'all'
 
 // Newest first: start_date descending (missing dates sort last), then name ascending as a tiebreak.
+// Retained to resolve the "newest Active cohort" DEFAULT selection, which is independent of the option
+// list's timeline order (the list reads oldest→newest within each group).
 export function compareCohortNewest(a, b) {
   const ad = a?.start_date || ''
   const bd = b?.start_date || ''
@@ -19,36 +22,38 @@ export function compareCohortNewest(a, b) {
   return String(a?.name || '').localeCompare(String(b?.name || ''))
 }
 
-// Split the CANONICAL, server-provided cohorts (school-scoped, independent of the roster; endpoint
-// returns them newest-first) into the Active subset. This replaces the old roster-only inference that
-// hid open-but-empty cohorts, so a Planning + Accepting cohort with zero students still appears.
+// Split the CANONICAL, server-provided cohorts (school-scoped, independent of the roster) into the
+// Active subset, in canonical timeline order (orderCohortsByTimeline). This keeps open-but-empty
+// cohorts visible (a Planning + Accepting cohort with zero students still appears) AND presents them
+// in timeline order (current → upcoming → historical) rather than by creation order.
 export function splitCohorts(cohorts) {
-  const list = Array.isArray(cohorts) ? cohorts : []
+  const list = orderCohortsByTimeline(cohorts)
   return { cohorts: list, current: list.filter(c => c.status === 'Active') }
 }
 
 // The Students cohort picker: options in order, the default option id, and the set of current cohort
 // ids. Consumes the canonical cohort list (school.cohorts from the endpoint), NOT the students.
 //   - "All Current Cohorts" only when more than one cohort is currently Active
-//   - each cohort, newest first
+//   - each cohort in canonical timeline order (current → upcoming → historical)
 //   - "All Cohorts" (includes historical), always last
-// Default: the newest Active cohort; if none is Active, "All Cohorts".
+// Default: the newest Active cohort (start_date DESC); if none is Active, "All Cohorts".
 export function cohortOptions(cohorts) {
   const { cohorts: list, current } = splitCohorts(cohorts)
   const options = []
   if (current.length > 1) options.push({ id: AP_ALL_CURRENT, label: 'All Current Cohorts' })
   for (const c of list) options.push({ id: c.id, label: c.name || 'Cohort' })
   options.push({ id: AP_ALL, label: 'All Cohorts' })
-  const defaultId = current.length > 0 ? current[0].id : AP_ALL
+  const defaultId = current.length > 0 ? [...current].sort(compareCohortNewest)[0].id : AP_ALL
   return { options, defaultId, currentIds: new Set(current.map(c => c.id)) }
 }
 
 // The Placement Requests SUBMISSION cohort picker: only cohorts currently accepting_submissions are
-// valid targets (no "All" pseudo-option). The default is the nearest upcoming accepting cohort, i.e.
-// the newest accepting cohort (endpoint order is newest-first), so when the active cohort is closed
-// and a later cohort is accepting, the later one is selected.
+// valid targets (no "All" pseudo-option), in canonical timeline order. The intake model keeps exactly
+// one cohort accepting at a time (api resolveAcceptingCohort), so the default is that cohort; if
+// several were ever open, current precedes upcoming and each group is ordered soonest-start first, so
+// the default is the nearest submission cohort.
 export function submissionCohortOptions(cohorts) {
-  const accepting = (Array.isArray(cohorts) ? cohorts : []).filter(c => c.accepting_submissions)
+  const accepting = orderCohortsByTimeline(cohorts).filter(c => c.accepting_submissions)
   const options = accepting.map(c => ({ id: c.id, label: c.name || 'Cohort' }))
   return { options, accepting, defaultId: accepting[0]?.id || null }
 }
