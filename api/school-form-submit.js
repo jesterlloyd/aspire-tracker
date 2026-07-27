@@ -15,7 +15,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { emailBaseUrl } from '../lib/server/appUrl.js'
-import { performSchoolPlacementUpsert } from './lib/schoolPlacementUpsert.js'
+import { performSchoolPlacementUpsert, isPlacementProvenanceReady } from './lib/schoolPlacementUpsert.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -60,11 +60,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'This cohort is not currently accepting submissions.' })
 
   // Canonical write, shared with the authenticated Academic Partner endpoint so the two submission
-  // paths can never drift (rotation upsert + duplicate-safe student insert/update + event log).
+  // paths can never drift (rotation upsert + duplicate-safe student insert/update + event log). The
+  // public path is anonymous, so the latest-submission provenance records source 'school_form' with a
+  // null profile id and a server timestamp. It is written only when the schema is ready; before the
+  // migration is applied the public submission still succeeds, simply without those columns.
+  const provenanceReady = await isPlacementProvenanceReady(db)
   const result = await performSchoolPlacementUpsert(db, {
     cohortId, cohortName, coordinator,
     rotationStartDate, rotationEndDate, availability, students,
-    submittedVia: 'school_form',
+    provenance: { source: 'school_form', submittedByProfileId: null, submittedAt: new Date().toISOString() },
+    provenanceReady,
   })
   if (result.error) return res.status(500).json({ error: result.error })
   const { added, updated, skipped, rotationId } = result

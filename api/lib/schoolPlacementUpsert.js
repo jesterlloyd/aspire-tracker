@@ -12,15 +12,35 @@
 // 'student_form' record is not relabeled). It logs one rotation_created program_event for the first
 // new student. Notifications and the accepting-submissions check stay with the caller.
 //
-// PROVENANCE: `submittedVia` records the origin on new rows ('school_form' for the public form,
-// 'academic_partner_portal' for the authenticated portal). Recording WHICH authenticated profile
-// submitted a request needs a students.submitting_profile_id column that does not exist yet; this
-// helper deliberately does NOT invent a hidden field for it. The authenticated caller must gate
-// submission until that column exists (see the endpoint), so full provenance is never silently
-// dropped.
+// PROVENANCE: the caller passes a TRUSTED, server-selected `provenance` object
+// ({ source, submittedByProfileId, submittedAt }) plus a `provenanceReady` flag. The ORIGINAL source
+// is recorded once in submitted_via (preserved on updates). The LATEST placement submission is
+// recorded in placement_request_last_source / _submitted_by_profile_id / _submitted_at, refreshed on
+// every insert AND duplicate-safe update, but ONLY when provenanceReady (the migration is applied).
+// Before then the public path still writes the student, simply omitting the new columns; the
+// authenticated path gates its whole write on readiness (see the endpoint), so an authenticated
+// request is never written without its full provenance.
 
 import { normalizeEmailForLookup } from '../../src/lib/emailUtils.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull, coerceMinDaysOrNull } from '../../src/lib/availability.js'
+
+// The latest-submission provenance columns added by
+// supabase/migrations/20260727000000_add_academic_partner_placement_provenance.sql.
+export const PLACEMENT_PROVENANCE_COLUMNS = [
+  'placement_request_last_source',
+  'placement_request_last_submitted_by_profile_id',
+  'placement_request_last_submitted_at',
+]
+
+// Runtime readiness probe: are the provenance columns present in the live schema? A cheap bounded
+// select that returns an error (undefined_column) until the migration is applied and PostgREST has
+// reloaded. Returns true only when all three columns resolve. The server fails closed on false, so
+// readiness is never inferred from client state, and the SAME code path enables writes once the
+// migration exists (no redeploy needed). Not cached, so it re-detects automatically.
+export async function isPlacementProvenanceReady(db) {
+  const { error } = await db.from('students').select(PLACEMENT_PROVENANCE_COLUMNS.join(', ')).limit(1)
+  return !error
+}
 
 // Sanitize coordinator-owned, school-wide availability to canonical encodings (weekdays Mon-Sun, ISO
 // dates). Invalid entries are dropped, never rejected, so a submission never hard-fails on them.
@@ -45,9 +65,24 @@ export function sanitizeAvailabilityCols(availability) {
  */
 export async function performSchoolPlacementUpsert(db, {
   cohortId, cohortName, coordinator, rotationStartDate, rotationEndDate, availability, students = [],
-  submittedVia = 'school_form',
+  provenance = { source: 'school_form', submittedByProfileId: null, submittedAt: null },
+  provenanceReady = false,
 }) {
   const availabilityCols = sanitizeAvailabilityCols(availability)
+
+  // TRUSTED provenance. The caller selects the source and profile id SERVER-SIDE and generates the
+  // timestamp server-side; nothing here comes from the browser payload. `source` is also the original
+  // submitted_via on a NEW row (submitted_via is set once and preserved; the placement_request_last_*
+  // columns are the LATEST submission and are refreshed on every insert AND update). The
+  // placement_request_last_* columns are written ONLY when the schema is ready, so the public path
+  // keeps working before the migration is applied (it simply omits them until then).
+  const source = provenance?.source || 'school_form'
+  const submittedAt = provenance?.submittedAt || new Date().toISOString()
+  const provenanceCols = provenanceReady ? {
+    placement_request_last_source: source,
+    placement_request_last_submitted_by_profile_id: provenance?.submittedByProfileId ?? null,
+    placement_request_last_submitted_at: submittedAt,
+  } : {}
 
   // (1) Upsert the rotation row for this school + cohort.
   const { data: rotationRow, error: rotErr } = await db
@@ -123,7 +158,10 @@ export async function performSchoolPlacementUpsert(db, {
         coordinators:              (coordinator.notes || '').trim(),
         aspire_cohort:             cohortName || '',
         cohort_school_rotation_id: rotationId,
-        ...(existing.submitted_via ? {} : { submitted_via: submittedVia }),
+        // submitted_via is the ORIGINAL source: preserve it, set only when currently null.
+        ...(existing.submitted_via ? {} : { submitted_via: source }),
+        // Latest-submission provenance is refreshed on every duplicate-safe update (when ready).
+        ...provenanceCols,
       }
       const { error: updErr } = await db.from('students').update(updatePayload).eq('id', existing.id)
       if (updErr) {
@@ -150,7 +188,8 @@ export async function performSchoolPlacementUpsert(db, {
         status:                     'Pending Outreach',
         interview_outcome:          'Pending Interview',
         ngrp_outcome:               'Pending',
-        submitted_via:              submittedVia,
+        submitted_via:              source,
+        ...provenanceCols,
         school_coordinator_name:    coordinator.name.trim(),
         school_coordinator_email:   coordinator.email.trim(),
         aspire_cohort:              cohortName || '',
@@ -168,7 +207,7 @@ export async function performSchoolPlacementUpsert(db, {
     }
 
     // Index the new row so a duplicate email within THIS same submission updates, not re-inserts.
-    existingByEmail.set(normEmail, { id: newStudent.id, school_email: normEmail, submitted_via: submittedVia })
+    existingByEmail.set(normEmail, { id: newStudent.id, school_email: normEmail, submitted_via: source })
     added.push({ name: fullName, id: newStudent.id, email: normEmail })
   }
 
