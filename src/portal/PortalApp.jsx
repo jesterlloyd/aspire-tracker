@@ -32,6 +32,7 @@ import { UnitLeaderNav } from './unit/UnitLeaderChrome'
 import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
+import { AP_MESSAGING_ENABLED } from '../lib/apMessaging'
 import {
   PORTAL_ACTIVE_POLL_MS, PORTAL_IDLE_UNREAD_POLL_MS, usePortalUnreadCount,
 } from '../lib/messages/portalMessagesPolling'
@@ -70,9 +71,16 @@ function unitViewFromPath(pathname) {
 // pasted deep link all work. /portal (no section) resolves to Students, the default.
 const AP_SECTIONS = new Set(['students', 'placement-requests', 'messages'])
 function apViewFromPath(pathname) {
+  // Messages owns a thread sub-route (/portal/ap/messages/:threadId) so a thread deep link, back, and
+  // forward all work, mirroring the Student/Unit Leader /portal/messages space.
+  if (/^\/portal\/ap\/messages(\/|$)/.test(pathname)) return 'messages'
   const m = /^\/portal\/ap\/([^/]+)\/?$/.exec(pathname)
   if (m && AP_SECTIONS.has(m[1])) return m[1]
   return 'students'
+}
+function apThreadIdFromPath(pathname) {
+  const m = /^\/portal\/ap\/messages\/([^/]+)\/?$/.exec(pathname)
+  return m ? m[1] : null
 }
 
 export default function PortalApp() {
@@ -105,19 +113,26 @@ export default function PortalApp() {
   // resolves to Students. Messages and Placement Requests are stable routes now, showing
   // an honest prepared state until their backends land in later phases.
   const apView = apViewFromPath(location.pathname)
+  const apThreadId = apThreadIdFromPath(location.pathname)
   const goApSection = useCallback((key) => {
     navigate(`/portal/ap/${key}`)
   }, [navigate])
+  const openApThread = useCallback((id) => navigate(`/portal/ap/messages/${id}`), [navigate])
+  const apBackToList = useCallback(() => navigate('/portal/ap/messages'), [navigate])
 
   const isStudent = (access?.roles || []).includes('student')
   // UL-POLISH P0: the idle unread poll runs for Unit Leaders too, so the
   // Messages badge is live from Home and every other section, exactly like the
   // Student Portal. Same endpoint, same cadence, faster while on Messages.
   const isUnitLeader = !isStudent && (access?.roles || []).includes('unit_leader')
+  // AP-PORTAL: Academic Partner messaging is fail-closed behind AP_MESSAGING_ENABLED (Owner SQL gate).
+  // Until enabled, the unread poll and launcher stay off, exactly as before.
+  const isAcademicPartner = !isStudent && !isUnitLeader && (access?.roles || []).includes('academic_partner')
+  const apMessagesEnabled = isAcademicPartner && AP_MESSAGING_ENABLED
   const { url: studentHeaderPhotoUrl } = usePortalHeadshotUrl({ enabled: isStudent })
-  const onMessagesRoute = location.pathname.startsWith('/portal/messages')
+  const onMessagesRoute = location.pathname.startsWith('/portal/messages') || location.pathname.startsWith('/portal/ap/messages')
   const unread = usePortalUnreadCount({
-    enabled: isStudent || isUnitLeader,
+    enabled: isStudent || isUnitLeader || apMessagesEnabled,
     intervalMs: onMessagesRoute ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,
   })
 
@@ -243,10 +258,10 @@ export default function PortalApp() {
   }
 
   if (roles.includes('academic_partner')) {
-    // The same shared shell, Nightfall chrome, and attached nav as the Student and Unit
-    // Leader portals. Messages is NOT authorized for Academic Partners yet, so the utility
-    // layer runs with messagesAuthorized={false} (Feedback only, no floating Messages
-    // launcher, no unread polling).
+    // The same shared shell, Nightfall chrome, and attached nav as the Student and Unit Leader
+    // portals. Messages reuses the canonical workspace + lower-right launcher, gated on
+    // AP_MESSAGING_ENABLED: until the Owner SQL gate lands it is fail-closed (messagesAuthorized
+    // false => Feedback only, no floating Messages launcher, no unread polling), exactly as before.
     return (
       <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
@@ -260,10 +275,13 @@ export default function PortalApp() {
             portalType="academic_partner"
             profileId={userProfile?.id}
             pathname={location.pathname}
-            messagesAuthorized={false}
+            unread={unread}
+            messagesAuthorized={AP_MESSAGING_ENABLED}
+            onOpenMessages={() => goApSection('messages')}
           />
         )}>
-        <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []} />
+        <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
+          threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
       </PortalShell>
     )
   }

@@ -22,6 +22,12 @@ export const UL_PORTAL_SUBTITLE =
 
 export const UL_PORTAL_NO_SELECTION = 'Select a conversation to review your messages.';
 
+// AP-PORTAL: an Academic Partner's inbox holds only general ASPIRE Team threads (no student-linked or
+// direct threads), so the subtitle names the school-partner relationship. Additive; student/UL copy
+// is unchanged.
+export const AP_PORTAL_SUBTITLE =
+  "Contact the ASPIRE Team about your school's ASPIRE placements and students.";
+
 // The visible participant labels on a Unit Leader inbox card. Direct student
 // threads and ASPIRE Team threads are semantically separate flows and must
 // never look interchangeable.

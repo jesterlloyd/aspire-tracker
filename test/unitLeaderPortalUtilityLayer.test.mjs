@@ -57,9 +57,10 @@ test('utility layer mounts through PortalShell for Student, Unit Leader, and Aca
   // no onOpenMessages.
   assert.match(academicBranch, /portalRole="academic_partner"/)
   assert.match(academicBranch, /portalType="academic_partner"/)
-  assert.match(academicBranch, /messagesAuthorized=\{false\}/)
-  assert.doesNotMatch(academicBranch, /unread=\{unread\}/)
-  assert.doesNotMatch(academicBranch, /onOpenMessages=/)
+  assert.match(academicBranch, /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
+  // The launcher is wired (unread + onOpenMessages) so a single flag flip activates it post-migration;
+  // with the flag off it stays fail-closed (no launcher mounts).
+  assert.match(academicBranch, /onOpenMessages=\{\(\) => goApSection\('messages'\)\}/)
   assert.doesNotMatch(unitPortal, /PortalUtilityLayer/)
   assert.doesNotMatch(studentPortal, /PortalUtilityLayer|PortalFeedbackPanel|portalFeedbackApiClient/)
   assert.doesNotMatch(academicPortal, /PortalUtilityLayer|PortalFeedbackPanel|portalFeedbackApiClient/)
@@ -158,7 +159,7 @@ test('matched corner behavior and accessibility are explicit', () => {
   assert.match(layer, /hidden=\{utilitiesHidden \|\| visiblePanel === 'messages'\}/)
   assert.match(layer, /visiblePanel !== 'feedback'/)
   assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal/)
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal\)/)
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal\)/)
   assert.match(layer, /const visiblePanel = suppressed \? null : activePanel/)
   assert.match(layerCode, /\[aria-modal="true"\]:not\(\.shared-feedback-panel\):not\(\.ptl-team-message-panel\)/)
   assert.match(layerCode, /INPUT', 'TEXTAREA', 'SELECT'/)

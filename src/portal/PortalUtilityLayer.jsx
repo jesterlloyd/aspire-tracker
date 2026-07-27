@@ -104,9 +104,12 @@ export default function PortalUtilityLayer({
   // Feedback (Report a Bug) is server-authorized for Academic Partners; Messages is NOT.
   // So AP enables the Feedback launcher only, never the Messages launcher, and makes no
   // Messages request from this layer.
+  // Feedback (Report a Bug) is server-authorized for all three portal kinds. Messages is gated on
+  // messagesAuthorized, which the caller drives per kind (Academic Partner is fail-closed behind
+  // AP_MESSAGING_ENABLED until the Owner SQL gate lands).
   const isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'
   const feedbackEnabled = isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal
-  const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal)
+  const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal)
   const noticeVisible = enabled && isUnitLeaderPortal && narrow && !onMessagesRoute && !storedDismissed && !sessionDismissed
 
   const dismissNotice = () => {
@@ -172,8 +175,8 @@ export default function PortalUtilityLayer({
         </div>
       )}
 
-      {/* Mounted only where Messages is enabled, so an Academic Partner (Messages not
-          authorized) never instantiates the panel or makes a Messages request. */}
+      {/* Mounted only where Messages is enabled, so a portal with Messages unauthorized (e.g. an
+          Academic Partner before the Owner SQL gate) never instantiates the panel or polls. */}
       {messagesEnabled && (
         <PortalTeamMessagesPanel
           open={visiblePanel === 'messages'}
@@ -181,7 +184,7 @@ export default function PortalUtilityLayer({
           launcherRef={messagesRef}
           unread={unread}
           onOpenFullMessages={openFullMessages}
-          variant={isUnitLeaderPortal ? 'unit_leader' : 'student'}
+          variant={isUnitLeaderPortal ? 'unit_leader' : isAcademicPartnerPortal ? 'academic_partner' : 'student'}
         />
       )}
     </>

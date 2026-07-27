@@ -300,20 +300,18 @@ test('regression: nothing else moved', async (t) => {
     assert.match(read('../api/messages-staff-thread.js'), /messages_staff_get_thread_v2/)
   })
 
-  await t.test('no Academic Partner or Preceptor Messages', () => {
-    // UL-PORTAL: Unit Leader Messages is now DELIBERATELY activated, after both
-    // Unit Leader migrations were applied and the RPCs were generalized to handle
-    // a unit_leader participant. Academic Partner and Preceptor remain schema
-    // reservations with no authorization branch, so the guard keeps its value for
-    // them and would still catch an accidental activation.
-    //
-    // AP Phase 1 adds a Messages TAB (a stable route + honest prepared state), but the AP
-    // Messages BACKEND is not activated: the portal mounts no Messages workspace and makes no
-    // Messages request (the tab label "Messages" is allowed; a real workspace/client is not).
+  await t.test('Academic Partner Messages is fail-closed (Preceptor remains a reservation)', () => {
+    // UL-PORTAL: Unit Leader Messages is DELIBERATELY activated. Preceptor remains a schema
+    // reservation with no authorization branch. Academic Partner Messages is now WIRED but
+    // fail-closed behind AP_MESSAGING_ENABLED (Owner SQL gate): the portal reuses the canonical
+    // workspace, gated so that with the flag off it mounts no workspace and makes no request.
     const apPortal = read('../src/portal/AcademicPartnerPortal.jsx')
-    assert.doesNotMatch(apPortal, /PortalMessagesWorkspace|portalMessages|team-messages|messages-thread|usePortalUnread/)
-    // And the AP branch runs the utility layer with Messages explicitly unauthorized.
-    assert.match(appCode.slice(appCode.indexOf("roles.includes('academic_partner')")), /messagesAuthorized=\{false\}/)
+    assert.match(apPortal, /import \{ AP_MESSAGING_ENABLED \} from '\.\.\/lib\/apMessaging'/)
+    assert.match(apPortal, /if \(!AP_MESSAGING_ENABLED\)/)   // fail-closed gate precedes the workspace
+    // The AP branch runs the utility layer with Messages gated on the same fail-closed flag.
+    assert.match(appCode.slice(appCode.indexOf("roles.includes('academic_partner')")), /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
+    // Preceptor is still never admitted anywhere in the messaging auth chain.
+    assert.doesNotMatch(read('../api/lib/messagesAuth.js').replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''), /preceptor/)
   })
 
   await t.test('no analytics, telemetry, persistence, or dangerous HTML in the activation', () => {

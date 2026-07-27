@@ -40,19 +40,22 @@ test('Student and Unit Leader mount the same docked ASPIRE Team Messages utility
   assert.match(unitBranch, /portalRole="unit_leader"/)
   assert.match(unitBranch, /portalType="unit_leader"/)
   assert.match(unitBranch, /messagesAuthorized/)
-  // Academic Partner mounts the utility layer for Feedback only: messagesAuthorized is false and
-  // no onOpenMessages is passed, so there is no docked Messages launcher and no Messages request.
+  // Academic Partner mounts the utility layer with Messages gated on the fail-closed AP_MESSAGING_ENABLED
+  // flag: with the flag off there is no docked Messages launcher and no Messages request. The launcher
+  // is wired (onOpenMessages) so a single flag flip (after the Owner SQL gate) activates it.
   assert.match(academicBranch, /portalRole="academic_partner"/)
-  assert.match(academicBranch, /messagesAuthorized=\{false\}/)
-  assert.doesNotMatch(academicBranch, /onOpenMessages=/)
+  assert.match(academicBranch, /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
+  assert.match(academicBranch, /onOpenMessages=\{\(\) => goApSection\('messages'\)\}/)
 
   assert.match(layer, /isUnitLeaderPortal = portalRole === 'unit_leader' && portalType === 'unit_leader'/)
   assert.match(layer, /isStudentPortal = portalRole === 'student' && portalType === 'student'/)
   assert.match(layer, /isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'/)
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal\)/)
+  // Messages is gated on messagesAuthorized (Academic Partner is fail-closed behind AP_MESSAGING_ENABLED
+  // until the Owner SQL gate lands), so all three kinds share the same launcher wiring.
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal\)/)
   assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal/)
   assert.match(layer, /noticeVisible = enabled && isUnitLeaderPortal/)
-  assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : 'student'\}/)
+  assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : isAcademicPartnerPortal \? 'academic_partner' : 'student'\}/)
 })
 
 test('panel header and launch targets match the shared Messages spec', () => {

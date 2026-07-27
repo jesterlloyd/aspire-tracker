@@ -388,12 +388,11 @@ test('API handlers: security and privacy posture', async (t) => {
     assert.match(authSrc, /no_active_student_grant/);
     assert.match(authSrc, /no_active_student_link/);
     assert.match(authSrc, /expires_at == null \|\| g\.expires_at > nowIso/);
-    // Future roles are not activated.
-    // UL-PORTAL: unit_leader is now deliberately activated in this module, after
-    // both Unit Leader migrations were applied and the RPCs were generalized to
-    // handle it. academic_partner and preceptor REMAIN schema reservations and must
-    // still not appear, so the original guard keeps its value for those two.
-    assert.doesNotMatch(authSrc.replace(/\/\/[^\n]*/g, ''), /academic_partner|preceptor/);
+    // UL-PORTAL: unit_leader is deliberately activated. AP-PORTAL: academic_partner is now admitted
+    // too, via the shared verifyPortalAcademicPartnerCaller (fail-closed at the DB layer until the
+    // Owner SQL gate). Preceptor REMAINS a schema reservation and must still not appear anywhere.
+    assert.match(authSrc, /verifyPortalAcademicPartnerCaller/);
+    assert.doesNotMatch(authSrc.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''), /preceptor/);
   });
 
   await t.test('no client-supplied delivery payload is ever accepted', () => {

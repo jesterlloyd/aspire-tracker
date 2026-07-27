@@ -15,6 +15,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { verifyPortalCaller, getServiceDb } from './portalAuth.js';
 import { verifyPortalUnitLeaderCaller } from './unitLeaderScope.js';
+import { verifyPortalAcademicPartnerCaller } from './schoolScope.js';
 
 export { getServiceDb };
 
@@ -57,19 +58,21 @@ export async function verifyStaffCaller(req) {
 //
 // Returns { ok: true, profile, studentIds } or { ok: false, status, reason }.
 /**
- * UL-PORTAL: an ACTIVE portal caller who may use Messages, of either supported kind.
+ * UL-PORTAL / AP-PORTAL: an ACTIVE portal caller who may use Messages, of any supported kind.
  *
- * Returns { ok: true, profile, actorKind: 'student' | 'unit_leader', studentIds, unitKeys }
- * or { ok: false, status, reason }.
+ * Returns { ok: true, profile, actorKind: 'student' | 'unit_leader' | 'academic_partner',
+ *   studentIds, unitKeys, schoolKeys } or { ok: false, status, reason }.
  *
- * Student is tried FIRST and its result is returned unchanged, so every existing
- * Student Portal path behaves exactly as before, including its failure reasons.
- * A unit leader is admitted only when the student check finds no student role at
- * all, never as a fallback for a student whose access is merely broken.
+ * Student is tried FIRST and its result is returned unchanged, so every existing Student Portal path
+ * behaves exactly as before, including its failure reasons. A unit leader is admitted only when the
+ * student check finds no student role at all, never as a fallback for a student whose access is merely
+ * broken. An academic partner is admitted LAST, only when the caller is neither a student nor a unit
+ * leader, so no existing student/unit-leader behavior changes.
  *
- * This deliberately does NOT re-derive per-conversation authorization. The read RPCs
- * gate every row through my_message_conversation_ids(), and the write RPCs gate
- * through message_participant_can_send, both of which already handle both kinds.
+ * This deliberately does NOT re-derive per-conversation authorization. The read RPCs gate every row
+ * through my_message_conversation_ids(), and the write RPCs gate through message_participant_can_send.
+ * For academic_partner those DB predicates are fail-closed until the Owner SQL gate is applied: reads
+ * return an EMPTY inbox (never a leak) and general-thread creation is refused.
  * This helper only answers "may this account use Messages at all".
  */
 export async function verifyPortalMessagesCaller(req) {
@@ -82,16 +85,32 @@ export async function verifyPortalMessagesCaller(req) {
   if (asStudent.reason !== 'no_active_student_grant') return asStudent;
 
   const asUnitLeader = await verifyPortalUnitLeaderCaller(req);
-  if (!asUnitLeader.ok) {
-    return { ok: false, status: asUnitLeader.status, reason: asUnitLeader.reason };
+  if (asUnitLeader.ok) {
+    return {
+      ok: true,
+      profile: asUnitLeader.profile,
+      actorKind: 'unit_leader',
+      studentIds: [],
+      unitKeys: asUnitLeader.unitKeys,
+    };
   }
-  return {
-    ok: true,
-    profile: asUnitLeader.profile,
-    actorKind: 'unit_leader',
-    studentIds: [],
-    unitKeys: asUnitLeader.unitKeys,
-  };
+
+  // Academic Partner: active academic_partner grant + at least one active user_school_scopes row.
+  const asPartner = await verifyPortalAcademicPartnerCaller(req);
+  if (asPartner.ok) {
+    const schoolKeys = [...new Set((asPartner.scopes || []).map((s) => s.school_key).filter(Boolean))];
+    return {
+      ok: true,
+      profile: asPartner.profile,
+      actorKind: 'academic_partner',
+      studentIds: [],
+      unitKeys: [],
+      schoolKeys,
+    };
+  }
+
+  // Neither student, unit leader, nor academic partner: keep the unit-leader denial (prior behavior).
+  return { ok: false, status: asUnitLeader.status, reason: asUnitLeader.reason };
 }
 
 export async function verifyPortalStudentCaller(req) {

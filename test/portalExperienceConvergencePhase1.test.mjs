@@ -44,9 +44,9 @@ test('shared feedback copy and Student durable feedback activation are canonical
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
   assert.match(studentBranch, /PortalUtilityLayer/)
   assert.doesNotMatch(studentBranch, /desktopNotice/)
-  // Academic Partner mounts the utility layer for Feedback, with Messages unauthorized.
+  // Academic Partner mounts the utility layer; Messages is gated on the fail-closed AP_MESSAGING_ENABLED.
   assert.match(academicBranch, /PortalUtilityLayer/)
-  assert.match(academicBranch, /messagesAuthorized=\{false\}/)
+  assert.match(academicBranch, /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
 })
 
 test('portal feedback endpoint accepts Student, Unit Leader, and Academic Partner', () => {
@@ -109,7 +109,7 @@ test('one shared message bubble presenter drives portal and staff perspectives',
 test('Unit Leader full Messages workspace uses available width without role regression', () => {
   assert.match(css, /\.ptl-msg-workspace \{ width: 100%; max-width: none;/)
   assert.match(css, /\.ptl-msg-split \{ display: grid; grid-template-columns: 360px 1fr/)
-  assert.match(portalWorkspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
+  assert.match(portalWorkspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
   assert.match(read('src/portal/messages/PortalMessagesInbox.jsx'), /direct_student_name/)
   assert.doesNotMatch(strip(app), /academic_partner[\s\S]{0,200}PortalMessagesWorkspace/)
 })

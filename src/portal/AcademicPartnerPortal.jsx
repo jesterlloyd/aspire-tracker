@@ -25,6 +25,8 @@ import StatusLegendPopover from '../components/StatusLegendPopover'
 import SortHeader from '../components/shared/SortHeader'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import PlacementRequestsView from './ap/PlacementRequestsView'
+import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
+import { AP_MESSAGING_ENABLED } from '../lib/apMessaging'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
@@ -68,17 +70,31 @@ function ApHoursCell({ hours }) {
   )
 }
 
-// Placement Requests and Messages have stable routes now but no active backend in this phase, so
-// each renders an honest prepared state (shared .ptl-state language, no controls, no API calls).
-export default function AcademicPartnerPortal({ view = 'students', onNavigate }) {
+// Messages reuses the SAME canonical PortalMessagesWorkspace the Student and Unit Leader portals use
+// (variant='academic_partner'): thread list, unread, open conversation, compose to the ASPIRE Team,
+// reply, and Refresh integration. It is fail-closed behind AP_MESSAGING_ENABLED until the Owner SQL
+// gate admits the academic_partner participant shape; until then Messages shows an honest prepared
+// state (no workspace, no polling) and no lower-right launcher mounts.
+export default function AcademicPartnerPortal({ view = 'students', onNavigate, threadId, onSelectThread, onBackToList }) {
   if (view === 'placement-requests') {
     return <PlacementRequestsView onNavigate={onNavigate} />
   }
   if (view === 'messages') {
+    if (!AP_MESSAGING_ENABLED) {
+      return (
+        <EmptyState
+          title="Messages"
+          detail="Secure messaging with the ASPIRE Team will live here. This section is being prepared and is not active yet."
+        />
+      )
+    }
     return (
-      <EmptyState
-        title="Messages"
-        detail="Secure messaging with the ASPIRE team will live here. This section is being prepared and is not active yet."
+      <PortalMessagesWorkspace
+        active
+        variant="academic_partner"
+        threadId={threadId}
+        onSelectThread={onSelectThread}
+        onBackToList={onBackToList}
       />
     )
   }

@@ -63,9 +63,24 @@ test('the unit leader branch fails closed and leaks no extra fields', () => {
   const fn = auth.slice(
     auth.indexOf('export async function verifyPortalMessagesCaller'),
     auth.indexOf('export async function verifyPortalStudentCaller'))
-  assert.match(fn, /if \(!asUnitLeader\.ok\) \{[\s\S]{0,160}return \{ ok: false, status: asUnitLeader\.status, reason: asUnitLeader\.reason \}/)
-  // A unit leader has no student ids.
-  assert.match(fn, /studentIds: \[\]/)
+  // A unit leader success returns the unit_leader shape (no student ids).
+  assert.match(fn, /if \(asUnitLeader\.ok\) \{[\s\S]{0,200}actorKind: 'unit_leader'[\s\S]{0,120}studentIds: \[\]/)
+  // When the caller is neither student, unit leader, nor academic partner, the unit-leader denial is
+  // returned (prior behavior preserved), never a fabricated one.
+  assert.match(fn, /return \{ ok: false, status: asUnitLeader\.status, reason: asUnitLeader\.reason \}/)
+})
+
+test('the academic partner branch is admitted LAST and fail-closed at the DB layer', () => {
+  const fn = auth.slice(
+    auth.indexOf('export async function verifyPortalMessagesCaller'),
+    auth.indexOf('export async function verifyPortalStudentCaller'))
+  // AP is only considered after both student and unit-leader checks, so no existing behavior changes.
+  assert.ok(
+    fn.indexOf('verifyPortalUnitLeaderCaller') < fn.indexOf('verifyPortalAcademicPartnerCaller'),
+    'the academic partner path must be evaluated after the unit leader path')
+  assert.match(fn, /actorKind: 'academic_partner'/)
+  // School scope is derived from the active user_school_scopes rows, never a request value.
+  assert.match(fn, /schoolKeys = \[\.\.\.new Set\(\(asPartner\.scopes \|\| \[\]\)\.map\(\(s\) => s\.school_key\)/)
 })
 
 test('the caller does NOT re-derive per-conversation authorization', () => {

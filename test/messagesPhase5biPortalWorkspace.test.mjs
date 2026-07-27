@@ -684,7 +684,8 @@ test('accessibility foundation', async (t) => {
     // UL-POLISH: the copy is selected by variant; the student strings above
     // stay byte-identical and remain the default branch.
     assert.match(thread, /variant === 'unit_leader' \? UL_PORTAL_NO_SELECTION : PORTAL_NO_SELECTION/)
-    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
+    // The Academic Partner variant adds its own subtitle; the student string stays the default branch.
+    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
     // No response-time promise and no continuous-monitoring implication.
     for (const s of [PORTAL_SUBTITLE, PORTAL_NO_SELECTION, PORTAL_EMPTY_BODY]) {
       assert.doesNotMatch(s, /respond within|response time|24\/7|monitored|immediately/i)
@@ -714,16 +715,17 @@ test('privacy', async (t) => {
 })
 
 test('dormancy and regression', async (t) => {
-  await t.test('only the two activated portals mount the workspace', () => {
-    // Phase 5B-ii activated Messages for the Student Portal through PortalApp.
-    // UL-PORTAL activated it for the Unit Leader Portal, which mounts the SAME
-    // workspace component so the approved Messages design is shared rather than
-    // reimplemented. The staff shell, the Academic Partner Portal, and the staff
-    // app still must not reach it.
+  await t.test('the portals mount the SAME shared workspace (Academic Partner fail-closed-gated)', () => {
+    // Phase 5B-ii activated Messages for the Student Portal through PortalApp. UL-PORTAL activated it
+    // for the Unit Leader Portal. Commit 4 wires it for the Academic Partner Portal too, but fail-closed
+    // behind AP_MESSAGING_ENABLED. All mount the SAME workspace component (shared, not reimplemented).
+    // The staff shell and the staff app still must not reach it.
     assert.match(read('../src/portal/PortalApp.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
     assert.match(read('../src/portal/UnitLeaderPortal.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
-    for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx',
-      '../src/portal/AcademicPartnerPortal.jsx', '../src/App.jsx']) {
+    const ap = read('../src/portal/AcademicPartnerPortal.jsx')
+    assert.match(ap, /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
+    assert.match(ap, /if \(!AP_MESSAGING_ENABLED\)/)   // gated: prepared state until the Owner SQL gate lands
+    for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx', '../src/App.jsx']) {
       assert.doesNotMatch(read(f), /PortalMessagesWorkspace/, `${f} must not mount the workspace`)
     }
   })

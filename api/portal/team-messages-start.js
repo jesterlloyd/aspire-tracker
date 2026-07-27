@@ -5,10 +5,15 @@
 // Accepted callers:
 //   - active Student portal user
 //   - active Unit Leader with at least one active unit scope
+//   - active Academic Partner with at least one active school scope (fail-closed: see below)
 //
 // The browser supplies only request_id and body. It never sends a student id,
 // unit key, role, profile id, destination, category, or subject. The server
 // derives identity, actor kind, subject, category, routing, and delivery.
+//
+// Academic Partner thread creation is fail-closed: the DB start RPC does not admit the
+// academic_partner actor shape until the Owner SQL gate is applied, so this handler refuses AP writes
+// with 503 (never attempting the RPC) while AP_MESSAGING_ENABLED is false.
 
 /* global process */
 import { Resend } from 'resend';
@@ -16,6 +21,7 @@ import { verifyPortalMessagesCaller, getServiceDb } from '../lib/messagesAuth.js
 import { methodGuard, readJsonBody, mapRpcError, logApiError } from '../lib/messagesApi.js';
 import { validateBody, isUuid } from '../../lib/server/messages/validation.js';
 import { startGeneralTeamConversationForPortal } from '../../lib/server/messages/conversationService.js';
+import { AP_MESSAGING_ENABLED } from '../../src/lib/apMessaging.js';
 
 const ALLOWED_FIELDS = new Set(['request_id', 'body']);
 
@@ -27,6 +33,15 @@ export default async function handler(req, res) {
   if (!caller.ok) return res.status(caller.status).json({ error: caller.reason });
   if (caller.actorKind === 'unit_leader' && (!caller.unitKeys || caller.unitKeys.length === 0)) {
     return res.status(403).json({ error: 'no_active_unit_scope' });
+  }
+  if (caller.actorKind === 'academic_partner') {
+    if (!caller.schoolKeys || caller.schoolKeys.length === 0) {
+      return res.status(403).json({ error: 'no_active_school_scope' });
+    }
+    // Fail closed until the Owner SQL gate admits the academic_partner shape to the start RPC.
+    if (!AP_MESSAGING_ENABLED) {
+      return res.status(503).json({ error: 'messaging_not_enabled', reason: 'ap_messaging_pending_migration' });
+    }
   }
 
   const parsed = readJsonBody(req);

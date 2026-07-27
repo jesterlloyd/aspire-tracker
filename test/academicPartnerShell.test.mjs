@@ -25,7 +25,7 @@ test('the Academic Partner branch renders the shared Nightfall shell', () => {
   assert.match(apBranch, /headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
   assert.match(apBranch, /publicSiteUrl="https:\/\/aspireintelligence\.app"/)
   assert.match(apBranch, /nav=\{<AcademicPartnerNav view=\{apView\} onNavigate=\{goApSection\} \/>\}/)
-  assert.match(apBranch, /<AcademicPartnerPortal view=\{apView\} onNavigate=\{goApSection\} schoolKeys=\{access\?\.school_keys \|\| \[\]\} \/>/)
+  assert.match(apBranch, /<AcademicPartnerPortal view=\{apView\} onNavigate=\{goApSection\} schoolKeys=\{access\?\.school_keys \|\| \[\]\}[\s\S]*?threadId=\{apThreadId\} onSelectThread=\{openApThread\} onBackToList=\{apBackToList\} \/>/)
 })
 
 test('the three sections are stable URL routes; /portal resolves to Students', () => {
@@ -54,14 +54,14 @@ test('AcademicPartnerNav is exactly Students, Placement Requests, Messages', () 
 
 test('the three sections route: Students roster, Placement Requests workspace, Messages prepared', () => {
   const code = stripJs(portal)
-  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate \}\)/)
+  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, threadId, onSelectThread, onBackToList \}\)/)
   assert.match(portal, /if \(view === 'placement-requests'\)/)
   assert.match(portal, /if \(view === 'messages'\)/)
   // Placement Requests is now the live workspace; Messages stays an honest prepared state.
   assert.match(portal, /import PlacementRequestsView from '\.\/ap\/PlacementRequestsView'/)
   assert.match(code, /return <PlacementRequestsView onNavigate=\{onNavigate\} \/>/)
   assert.match(portal, /import \{[^}]*\bEmptyState\b[^}]*\} from '\.\/unit\/UnitLeaderChrome'/)
-  assert.match(portal, /being prepared and is not active yet/)  // Messages prepared state
+  assert.match(portal, /being prepared and is not active yet/)  // Messages prepared state (flag off)
   // Students still renders the roster (StudentsView).
   assert.match(code, /return <StudentsView \/>/)
   assert.match(code, /function StudentsView\(\)/)
@@ -69,12 +69,18 @@ test('the three sections route: Students roster, Placement Requests workspace, M
   assert.doesNotMatch(code, /OnCampusNow|NeedsAttention|StudentDetailDrawer|ptl-detail-drawer/)
 })
 
-test('Messages backend stays dormant for the Academic Partner', () => {
-  // The AP branch runs the utility layer with Messages explicitly unauthorized: Feedback only.
-  assert.match(apBranch, /messagesAuthorized=\{false\}/)
-  assert.doesNotMatch(apBranch, /onOpenMessages=|unread=\{unread\}/)
-  // No Messages workspace or Messages client is mounted from the AP portal.
-  assert.doesNotMatch(stripJs(portal), /PortalMessagesWorkspace|portalMessages|team-messages/)
+test('Messages is fail-closed for the Academic Partner behind the Owner SQL gate flag', () => {
+  // The AP branch wires the canonical launcher + workspace, but authorization is the fail-closed
+  // AP_MESSAGING_ENABLED flag (false until the Owner SQL gate lands), so nothing activates by default.
+  assert.match(app, /import \{ AP_MESSAGING_ENABLED \} from '\.\.\/lib\/apMessaging'/)
+  assert.match(apBranch, /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
+  const flag = read('src/lib/apMessaging.js')
+  assert.match(flag, /export const AP_MESSAGING_ENABLED = false/)
+  // The AP Messages view reuses the CANONICAL workspace (no parallel system), gated on the flag; when
+  // off it shows the honest prepared state.
+  assert.match(portal, /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
+  assert.match(stripJs(portal), /if \(!AP_MESSAGING_ENABLED\) \{[\s\S]*?being prepared and is not active yet/)
+  assert.match(stripJs(portal), /<PortalMessagesWorkspace[\s\S]*?variant="academic_partner"/)
 })
 
 test('the Academic Partner top-chrome profile control uses avatar_url with an initials fallback', () => {
@@ -87,10 +93,12 @@ test('the Academic Partner top-chrome profile control uses avatar_url with an in
   assert.match(shell, /: initials\(userName\)/)
 })
 
-test('the utility layer enables Feedback (not Messages) for the Academic Partner, end to end', () => {
+test('the utility layer enables Feedback for the Academic Partner, and Messages only when authorized', () => {
   assert.match(layer, /isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'/)
   assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal/)
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal\)/)
+  // Messages is gated on messagesAuthorized (AP is fail-closed behind AP_MESSAGING_ENABLED), so with
+  // the flag off the AP launcher never mounts, exactly as before.
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal\)/)
   assert.match(layer, /if \(!enabled \|\| \(!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal\)\) return null/)
   // The docked Messages panel mounts only where Messages is enabled, so AP never instantiates it.
   assert.match(layer, /\{messagesEnabled && \(\s*\n\s*<PortalTeamMessagesPanel/)
