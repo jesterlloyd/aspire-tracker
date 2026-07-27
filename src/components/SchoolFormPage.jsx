@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { PROGRAM_TYPES, SCHOOLS } from '../lib/constants'
 import { toLocalDateStr } from '../lib/designTokens'
-import { WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
+import { toggleWeekday, isValidIsoDate } from '../lib/availability'
+import {
+  PROGRAM_TYPES, SCHOOLS, WEEKDAYS,
+  PLACEMENT_PAGE_TITLE, SCHOOL_PLACEMENT_TEXT,
+  newStudentRow, validatePlacementForm, collectPlacementSoftWarnings,
+  buildPlacementBody, placementSubmitLabel,
+} from '../lib/schoolPlacementForm'
 
-const PAGE_TITLE = 'ASPIRE Student Placement Request Form'
+const PAGE_TITLE = PLACEMENT_PAGE_TITLE
 const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
+const T = SCHOOL_PLACEMENT_TEXT
 
-// Per-student row factory; term_dates removed, estimated_graduation_date is now a date picker
-const newStudent = () => ({
-  _key: Date.now() + Math.random(),
-  first_name: '', last_name: '', email: '', phone: '',
-  program_type: '', hours_required: '', estimated_graduation_date: '',
-})
+// Per-student row factory (canonical shared definition).
+const newStudent = newStudentRow
 
 // pageState: 'loading' | 'unavailable' | 'password' | 'verified'
 export default function SchoolFormPage() {
@@ -93,30 +95,9 @@ export default function SchoolFormPage() {
       const res = await fetch('/api/school-form-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cohortId,
-          cohortName,
-          coordinator: coord,
-          rotationStartDate: rotation.start_date,
-          rotationEndDate:   rotation.end_date,
-          availability: {
-            unavailable_weekdays: avail.unavailable_weekdays,
-            min_days_per_week:    avail.min_days_per_week,
-            weekends_allowed:     avail.weekends_allowed,
-            nights_allowed:       avail.nights_allowed,
-            blackout_dates:       avail.blackout_dates,
-            scheduling_notes:     avail.scheduling_notes,
-          },
-          students: rows.map(r => ({
-            first_name:                r.first_name.trim(),
-            last_name:                 r.last_name.trim(),
-            email:                     r.email.trim(),
-            phone:                     r.phone.trim(),
-            program_type:              r.program_type,
-            hours_required:            r.hours_required,
-            estimated_graduation_date: r.estimated_graduation_date || null,
-          })),
-        }),
+        body: JSON.stringify(buildPlacementBody({
+          cohortId, cohortName, coordinator: coord, rotation, availability: avail, students: rows,
+        })),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -125,7 +106,7 @@ export default function SchoolFormPage() {
         return
       }
       setResult({ added: data.added || [], updated: data.updated || [], skipped: data.skipped || [] })
-    } catch (e) {
+    } catch {
       setError('Network error. Please check your connection and try again.')
     }
     setSubmitting(false)
@@ -136,57 +117,17 @@ export default function SchoolFormPage() {
     setError(null)
     setRotError(null)
 
-    // Hard validation: coordinator fields
-    if (!coord.school.trim() || !coord.name.trim() || !coord.email.trim()) {
-      setError('Please fill in your school and contact information.'); return
-    }
-
-    // Hard validation: rotation dates required
-    if (!rotation.start_date || !rotation.end_date) {
-      setRotError('Both rotation start and end dates are required.')
+    // Hard validation (canonical, shared with the authenticated portal surface). Rotation errors
+    // render inline on the date fields; every other scope shows at the top of the form.
+    const invalid = validatePlacementForm({ coordinator: coord, rotation, students: rows, cohortId })
+    if (invalid) {
+      if (invalid.scope === 'rotation') setRotError(invalid.message)
+      else setError(invalid.message)
       return
     }
 
-    // Hard validation: end must be after start
-    if (rotation.end_date <= rotation.start_date) {
-      setRotError('Rotation end date must be after the start date.')
-      return
-    }
-
-    // Hard validation: per-student required fields and minimum hours
-    const invalid = rows.find(r => !r.first_name?.trim() || !r.last_name?.trim() || !r.email.trim())
-    if (invalid) { setError('Each student requires a first name, last name, and email.'); return }
-    const underMinHours = rows.find(r => (parseInt(r.hours_required) || 0) < 90)
-    if (underMinHours) {
-      setError(`Hours required must be at least 90 for all students. Check the entry for ${underMinHours.first_name || 'a student'} ${underMinHours.last_name || ''}.`)
-      return
-    }
-    if (!cohortId) {
-      setError('Submissions are not currently open. Please contact the ASPIRE team.')
-      return
-    }
-
-    // Soft warnings (collect all, then show as one confirmation)
-    const softWarnings = []
-    const today = toLocalDateStr()
-
-    if (rotation.start_date < today) {
-      softWarnings.push('The rotation start date is in the past.')
-    }
-
-    const diffDays = (new Date(rotation.end_date) - new Date(rotation.start_date)) / 86400000
-    const weeks = Math.round(diffDays / 7)
-    if (diffDays > 0 && (weeks < 4 || weeks > 16)) {
-      softWarnings.push(`The rotation length is ${weeks} week${weeks !== 1 ? 's' : ''}, outside the typical 4-16 week range.`)
-    }
-
-    // Per-student: grad date should be after rotation end
-    rows.forEach(r => {
-      if (r.estimated_graduation_date && r.estimated_graduation_date < rotation.end_date) {
-        softWarnings.push(`${r.first_name.trim()} ${r.last_name.trim()}: estimated graduation date is before the rotation end date.`)
-      }
-    })
-
+    // Soft warnings (collect all, then show as one confirmation).
+    const softWarnings = collectPlacementSoftWarnings({ rotation, students: rows }, toLocalDateStr())
     if (softWarnings.length > 0) {
       setWarnModal({ lines: softWarnings, onConfirm: doSubmit })
       return
@@ -366,34 +307,34 @@ export default function SchoolFormPage() {
 
           {/* Section 1: School Information */}
           <div className="uf-section">
-            <div className="sf-section-title">School Information</div>
+            <div className="sf-section-title">{T.schoolSectionTitle}</div>
             <div className="uf-field">
-              <label className="uf-label">School or University Name *</label>
+              <label className="uf-label">{T.schoolLabel}</label>
               <select className="uf-input" value={coord.school} onChange={e => setC('school', e.target.value)}>
-                <option value="">Select your school...</option>
+                <option value="">{T.schoolPlaceholder}</option>
                 {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="sf-row-2">
               <div className="uf-field">
-                <label className="uf-label">Your Name (Placement Coordinator) *</label>
+                <label className="uf-label">{T.coordinatorNameLabel}</label>
                 <input className="uf-input" value={coord.name}
-                  onChange={e => setC('name', e.target.value)} placeholder="First Last, Title" />
+                  onChange={e => setC('name', e.target.value)} placeholder={T.coordinatorNamePlaceholder} />
               </div>
               <div className="uf-field">
-                <label className="uf-label">Your Email Address *</label>
+                <label className="uf-label">{T.coordinatorEmailLabel}</label>
                 <input className="uf-input" type="email" value={coord.email}
-                  onChange={e => setC('email', e.target.value)} placeholder="coordinator@school.edu" />
+                  onChange={e => setC('email', e.target.value)} placeholder={T.coordinatorEmailPlaceholder} />
               </div>
             </div>
           </div>
 
           {/* Section 2: Rotation Dates (new) */}
           <div className="uf-section">
-            <div className="sf-section-title">Rotation Dates</div>
+            <div className="sf-section-title">{T.rotationSectionTitle}</div>
             <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: '#6b7280',
               lineHeight: 1.6, margin: '0 0 16px' }}>
-              When will your students be at Cedars-Sinai? These dates apply to all students in this submission.
+              {T.rotationIntro}
             </p>
             {rotError && (
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
@@ -404,14 +345,14 @@ export default function SchoolFormPage() {
             )}
             <div className="sf-row-2">
               <div className="uf-field">
-                <label className="uf-label">Rotation Start Date *</label>
+                <label className="uf-label">{T.rotationStartLabel}</label>
                 <input className="uf-input" type="date"
                   value={rotation.start_date}
                   onChange={e => { setRotation(p => ({ ...p, start_date: e.target.value })); setRotError(null) }}
                   style={{ colorScheme: 'light' }} />
               </div>
               <div className="uf-field">
-                <label className="uf-label">Rotation End Date *</label>
+                <label className="uf-label">{T.rotationEndLabel}</label>
                 <input className="uf-input" type="date"
                   value={rotation.end_date}
                   onChange={e => { setRotation(p => ({ ...p, end_date: e.target.value })); setRotError(null) }}
@@ -422,17 +363,15 @@ export default function SchoolFormPage() {
 
           {/* Section 2b: Rotation Availability (AVAILABILITY-CANON-1B) */}
           <div className="uf-section">
-            <div className="sf-section-title">Rotation Availability</div>
+            <div className="sf-section-title">{T.availabilitySectionTitle}</div>
             <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: '#6b7280',
               lineHeight: 1.6, margin: '0 0 16px' }}>
-              This helps ASPIRE identify possible scheduling conflicts before matching students with
-              preceptors. These constraints apply to your program; individual student availability is
-              collected separately. Availability is considered but cannot be guaranteed.
+              {T.availabilityIntro}
             </p>
 
             <div className="uf-field">
               <label className="uf-label">
-                Weekdays students are generally unavailable (class, lab, or school requirements)
+                {T.unavailableWeekdaysLabel}
               </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {WEEKDAYS.map(day => {
@@ -453,27 +392,27 @@ export default function SchoolFormPage() {
 
             <div className="sf-row-3">
               <div className="uf-field">
-                <label className="uf-label">Minimum clinical days per week</label>
+                <label className="uf-label">{T.minDaysLabel}</label>
                 <input className="uf-input" type="number" min="1" max="7"
                   value={avail.min_days_per_week}
-                  onChange={e => setA('min_days_per_week', e.target.value)} placeholder="e.g. 2" />
+                  onChange={e => setA('min_days_per_week', e.target.value)} placeholder={T.minDaysPlaceholder} />
               </div>
               <div className="uf-field">
-                <label className="uf-label">Weekend rotations allowed?</label>
+                <label className="uf-label">{T.weekendsAllowedLabel}</label>
                 <select className="uf-input"
                   value={avail.weekends_allowed === null ? '' : (avail.weekends_allowed ? 'yes' : 'no')}
                   onChange={e => setA('weekends_allowed', e.target.value === '' ? null : e.target.value === 'yes')}>
-                  <option value="">Select…</option>
+                  <option value="">{T.triStatePlaceholder}</option>
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
                 </select>
               </div>
               <div className="uf-field">
-                <label className="uf-label">Night shifts allowed?</label>
+                <label className="uf-label">{T.nightsAllowedLabel}</label>
                 <select className="uf-input"
                   value={avail.nights_allowed === null ? '' : (avail.nights_allowed ? 'yes' : 'no')}
                   onChange={e => setA('nights_allowed', e.target.value === '' ? null : e.target.value === 'yes')}>
-                  <option value="">Select…</option>
+                  <option value="">{T.triStatePlaceholder}</option>
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
                 </select>
@@ -481,7 +420,7 @@ export default function SchoolFormPage() {
             </div>
 
             <div className="uf-field">
-              <label className="uf-label">School-wide blackout dates or academic breaks (optional)</label>
+              <label className="uf-label">{T.blackoutLabel}</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <input className="uf-input" type="date" value={blackoutInput}
                   onChange={e => setBlackoutInput(e.target.value)} style={{ colorScheme: 'light', maxWidth: 200 }} />
@@ -492,7 +431,7 @@ export default function SchoolFormPage() {
                     }
                     setBlackoutInput('')
                   }}>
-                  + Add date
+                  {T.addDateLabel}
                 </button>
               </div>
               {avail.blackout_dates.length > 0 && (
@@ -510,73 +449,73 @@ export default function SchoolFormPage() {
             </div>
 
             <div className="uf-field">
-              <label className="uf-label">Scheduling notes for the ASPIRE team (optional)</label>
+              <label className="uf-label">{T.schedulingNotesLabel}</label>
               <textarea className="uf-textarea" rows={2} value={avail.scheduling_notes}
                 onChange={e => setA('scheduling_notes', e.target.value)}
-                placeholder="e.g. Students attend lecture Mon/Tue mornings; clinical Wed–Fri only." />
+                placeholder={T.schedulingNotesPlaceholder} />
             </div>
           </div>
 
           {/* Section 3: Students */}
           <div className="uf-section">
-            <div className="sf-section-title">Students</div>
+            <div className="sf-section-title">{T.studentsSectionTitle}</div>
 
             {rows.map((row, idx) => (
               <div key={row._key} className="sf-student-block">
                 <div className="sf-student-header">
-                  <span className="sf-student-num">Student {idx + 1}</span>
+                  <span className="sf-student-num">{T.studentLabelPrefix} {idx + 1}</span>
                   {rows.length > 1 && (
                     <button type="button" className="sf-remove-btn" onClick={() => removeRow(row._key)}>
-                      Remove
+                      {T.removeLabel}
                     </button>
                   )}
                 </div>
 
                 <div className="sf-row-2">
                   <div className="uf-field">
-                    <label className="uf-label">First Name *</label>
+                    <label className="uf-label">{T.firstNameLabel}</label>
                     <input className="uf-input" value={row.first_name}
-                      onChange={e => updRow(row._key, 'first_name', e.target.value)} placeholder="First" />
+                      onChange={e => updRow(row._key, 'first_name', e.target.value)} placeholder={T.firstNamePlaceholder} />
                   </div>
                   <div className="uf-field">
-                    <label className="uf-label">Last Name *</label>
+                    <label className="uf-label">{T.lastNameLabel}</label>
                     <input className="uf-input" value={row.last_name}
-                      onChange={e => updRow(row._key, 'last_name', e.target.value)} placeholder="Last" />
+                      onChange={e => updRow(row._key, 'last_name', e.target.value)} placeholder={T.lastNamePlaceholder} />
                   </div>
                 </div>
 
                 <div className="sf-row-2">
                   <div className="uf-field">
-                    <label className="uf-label">School Email *</label>
+                    <label className="uf-label">{T.schoolEmailLabel}</label>
                     <input className="uf-input" type="email" value={row.email}
                       onChange={e => updRow(row._key, 'email', e.target.value)}
-                      placeholder="student@school.edu" />
+                      placeholder={T.schoolEmailPlaceholder} />
                   </div>
                   <div className="uf-field">
-                    <label className="uf-label">Phone (optional)</label>
+                    <label className="uf-label">{T.phoneLabel}</label>
                     <input className="uf-input" value={row.phone}
-                      onChange={e => updRow(row._key, 'phone', e.target.value)} placeholder="(555) 000-0000" />
+                      onChange={e => updRow(row._key, 'phone', e.target.value)} placeholder={T.phonePlaceholder} />
                   </div>
                 </div>
 
                 <div className="sf-row-3">
                   <div className="uf-field">
-                    <label className="uf-label">Program Type</label>
+                    <label className="uf-label">{T.programTypeLabel}</label>
                     <select className="uf-input" value={row.program_type}
                       onChange={e => updRow(row._key, 'program_type', e.target.value)}>
-                      <option value="">Select...</option>
+                      <option value="">{T.programTypePlaceholder}</option>
                       {PROGRAM_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div className="uf-field">
-                    <label className="uf-label">Hours Required</label>
+                    <label className="uf-label">{T.hoursRequiredLabel}</label>
                     <input className="uf-input" type="text" inputMode="numeric" pattern="[0-9]*"
                       value={row.hours_required}
                       onChange={e => updRow(row._key, 'hours_required', e.target.value)}
-                      placeholder="e.g. 144" />
+                      placeholder={T.hoursRequiredPlaceholder} />
                   </div>
                   <div className="uf-field">
-                    <label className="uf-label">Estimated Graduation Date</label>
+                    <label className="uf-label">{T.estimatedGraduationLabel}</label>
                     <input className="uf-input" type="date"
                       value={row.estimated_graduation_date}
                       onChange={e => updRow(row._key, 'estimated_graduation_date', e.target.value)}
@@ -587,23 +526,23 @@ export default function SchoolFormPage() {
             ))}
 
             <button type="button" className="sf-add-btn" onClick={addRow}>
-              + Add Another Student
+              {T.addStudentLabel}
             </button>
           </div>
 
           {/* Section 4: Additional Notes */}
           <div className="uf-section">
             <div className="uf-field">
-              <label className="uf-label">Additional notes for the ASPIRE team (optional)</label>
+              <label className="uf-label">{T.additionalNotesLabel}</label>
               <textarea className="uf-textarea" rows={3} value={coord.notes}
                 onChange={e => setC('notes', e.target.value)}
-                placeholder="Any special scheduling needs, course requirements, or information we should know" />
+                placeholder={T.additionalNotesPlaceholder} />
             </div>
           </div>
 
           <div className="uf-submit-row">
             <button type="submit" className="uf-submit-btn" disabled={submitting}>
-              {submitting ? 'Submitting...' : `Submit ${rows.length} Student${rows.length !== 1 ? 's' : ''}`}
+              {submitting ? 'Submitting...' : placementSubmitLabel(rows.length)}
             </button>
           </div>
         </form>
