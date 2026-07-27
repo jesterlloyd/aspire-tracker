@@ -61,23 +61,10 @@ export function inCohortScope(student, optionId, currentIds) {
 }
 
 // Summary counts within a cohort-scoped set. Definitions map to REAL students.status values only
-// (Currently Rotating = 'Active Rotation', Completed = 'Completed'); nothing is inferred.
-export function summaryCounts(scopedStudents) {
-  let rotating = 0
-  let completed = 0
-  for (const s of scopedStudents) {
-    if (s.status === 'Active Rotation') rotating += 1
-    else if (s.status === 'Completed') completed += 1
-  }
-  return { all: scopedStudents.length, rotating, completed }
-}
-
-// Apply the active summary filter, client-side (no new request when the rows are already loaded).
-export function applyFilter(scopedStudents, filter) {
-  if (filter === 'rotating') return scopedStudents.filter(s => s.status === 'Active Rotation')
-  if (filter === 'completed') return scopedStudents.filter(s => s.status === 'Completed')
-  return scopedStudents
-}
+// The pathway KPI counts + filtering come from the canonical shared grouping
+// (src/lib/derivations/cohortStatus.computeStatusCounts), consumed directly by the workspace; the
+// former AP-only summaryCounts/applyFilter (a parallel 3-bucket grouping) were removed so the AP band
+// cannot drift from the main-app Student Profiles band.
 
 // ── Sorting (client-side, from the already-scoped rows) ───────────────────────
 // Reuses the canonical pathway order (ASPIRE_STATUSES) for status, so status sorting follows the

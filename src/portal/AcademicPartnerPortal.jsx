@@ -29,7 +29,8 @@ import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
-import { cohortOptions, inCohortScope, summaryCounts, applyFilter, sortRoster } from './ap/academicPartnerRoster'
+import { cohortOptions, inCohortScope, sortRoster } from './ap/academicPartnerRoster'
+import { computeStatusCounts } from '../lib/derivations/cohortStatus'
 import { useSchoolStudentPhotos } from './ap/useSchoolStudentPhotos'
 
 // A stable empty roster reference so the photo-prefetch effect does not re-run every render while
@@ -95,7 +96,7 @@ function StudentsView() {
   // needed to seed the selection: the newest school and its default cohort resolve at render time.
   const [selectedSchoolKey, setSelectedSchoolKey] = useState(null)
   const [selectedCohortId, setSelectedCohortId]   = useState(null)
-  const [filter, setFilter]                       = useState('all')
+  const [statusFilter, setStatusFilter]           = useState(null)   // canonical status payload; null = all
   const [sort, setSort]                           = useState({ column: null, direction: 'asc' })
 
   const dateLabel = useMemo(
@@ -164,20 +165,33 @@ function StudentsView() {
   const cohortLabel = options.find(o => o.id === cohortId)?.label || 'All Cohorts'
 
   const scoped = students.filter(s => inCohortScope(s, cohortId, currentIds))
-  const counts = summaryCounts(scoped)
-  // Filter, then sort, entirely client-side from the already-scoped response (no new request). The
-  // sort selection is independent of filter/cohort/school, so changing sort never re-scopes.
-  const rows = sortRoster(applyFilter(scoped, filter), sort.column, sort.direction)
+  // Canonical status grouping, shared with the main-app Student Profiles band (never a parallel AP
+  // grouping). Filter, then sort, entirely client-side from the already-scoped response (no new
+  // request). The sort selection is independent of filter/cohort/school, so changing sort never
+  // re-scopes; the filter payload matches the main app (a status string or a status-array bucket).
+  const counts = computeStatusCounts(scoped)
+  const matchesStatus = (s, f) => f === null || (Array.isArray(f) ? f.includes(s.status) : s.status === f)
+  const filtered = scoped.filter(s => matchesStatus(s, statusFilter))
+  const rows = sortRoster(filtered, sort.column, sort.direction)
 
-  const onSchoolChange = (key) => { setSelectedSchoolKey(key); setSelectedCohortId(null); setFilter('all') }
+  const onSchoolChange = (key) => { setSelectedSchoolKey(key); setSelectedCohortId(null); setStatusFilter(null) }
   const onSort = (col) => setSort(s => (
     s.column === col ? { column: col, direction: s.direction === 'asc' ? 'desc' : 'asc' } : { column: col, direction: 'asc' }
   ))
+  const sameFilter = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+  const toggleStatus = (payload) => setStatusFilter(prev => sameFilter(prev, payload) ? null : payload)
 
+  // The full canonical Student Profiles KPI band (same order, grouping, and accents as the main app).
+  // The Not Proceeding subtitle is privacy-safe for the Academic Partner (no disposition detail).
   const FILTERS = [
-    { key: 'all',       label: 'All Students',       n: counts.all,       accent: 'nightfall' },
-    { key: 'rotating',  label: 'Currently Rotating', n: counts.rotating,  accent: 'marina' },
-    { key: 'completed', label: 'Completed',          n: counts.completed, accent: 'sage' },
+    { label: 'Total',             sub: 'All students',              n: counts.total,             accent: 'nightfall',  payload: null },
+    { label: 'Needs Outreach',    sub: 'Pending + Form Sent',       n: counts.needsOutreach,     accent: 'dawn',       payload: ['Pending Outreach', 'Form Sent'] },
+    { label: 'Awaiting Interview', sub: 'Form Received + Scheduled', n: counts.awaitingInterview, accent: 'periwinkle', payload: ['Form Received', 'Interview Scheduled'] },
+    { label: 'Interviewed',       sub: 'Ready to place',            n: counts.interviewed,       accent: 'lavender',   payload: 'Interviewed' },
+    { label: 'Placed',            sub: 'Unit assigned',             n: counts.placed,            accent: 'sage',       payload: 'Placed' },
+    { label: 'Active Rotation',   sub: 'In rotation',               n: counts.activeRotation,    accent: 'marina',     payload: 'Active Rotation' },
+    { label: 'Completed',         sub: 'Program done',              n: counts.completed,         accent: 'sage',       payload: 'Completed' },
+    { label: 'Not Proceeding',    sub: 'No longer moving forward',  n: counts.notProceeding,     accent: 'chroma',     payload: ['Not Proceeding', 'Declined'] },
   ]
 
   return (
@@ -211,15 +225,16 @@ function StudentsView() {
         </span>
       </PortalHeaderControls>
 
-      <div className="ptl-ap-kpis" role="group" aria-label="Filter students by status">
+      <div className="ptl-ap-kpis" role="group" aria-label="Filter students by pathway status">
         {FILTERS.map(f => (
           <FilterKPICard
-            key={f.key}
+            key={f.label}
             value={f.n}
             label={f.label}
+            sub={f.sub}
             accent={f.accent}
-            active={filter === f.key}
-            onClick={() => setFilter(f.key)}
+            active={sameFilter(statusFilter, f.payload)}
+            onClick={() => toggleStatus(f.payload)}
           />
         ))}
       </div>

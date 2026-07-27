@@ -83,6 +83,6 @@ test('the roster headers use the shared canonical SortHeader; sort stays client-
   assert.match(portal, /sortKey="status" sortBy=\{sort\.column\} sortDir=\{sort\.direction\} onSort=\{onSort\} thClassName=""/)
   // Sort runs over the already filtered + scoped rows, never a new request; filter/cohort/school
   // state is independent of the sort state.
-  assert.match(portal, /const rows = sortRoster\(applyFilter\(scoped, filter\), sort\.column, sort\.direction\)/)
+  assert.match(portal, /const rows = sortRoster\(filtered, sort\.column, sort\.direction\)/)
   assert.doesNotMatch(portal, /fetch\([^)]*sort|[?&]sort=|order_by/)
 })

@@ -10,8 +10,9 @@ import { dirname, join } from 'node:path'
 
 import {
   compareCohortNewest, splitCohorts, cohortOptions, submissionCohortOptions, inCohortScope,
-  summaryCounts, applyFilter, AP_ALL, AP_ALL_CURRENT,
+  AP_ALL, AP_ALL_CURRENT,
 } from '../src/portal/ap/academicPartnerRoster.js'
+import { computeStatusCounts } from '../src/lib/derivations/cohortStatus.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -86,23 +87,23 @@ test('cohort scope: All, All Current, and a single cohort each select the right 
   assert.deepEqual(inScope('c-2026a').sort(), ['s2', 's4'])
 })
 
-test('summary counts and filtering map to real students.status values only', () => {
-  const scoped = students   // treat all as the scope for the count test
-  const counts = summaryCounts(scoped)
-  assert.deepEqual(counts, { all: 5, rotating: 2, completed: 2 })
-  assert.deepEqual(applyFilter(scoped, 'rotating').map(s => s.id).sort(), ['s1', 's4'])
-  assert.deepEqual(applyFilter(scoped, 'completed').map(s => s.id).sort(), ['s3', 's5'])
-  assert.equal(applyFilter(scoped, 'all').length, 5)
+test('the AP roster counts use the canonical shared grouping (no parallel AP grouping)', () => {
+  // computeStatusCounts is the SAME grouping the main-app Student Profiles band uses.
+  const counts = computeStatusCounts(students)
+  assert.equal(counts.total, 5)
+  assert.equal(counts.activeRotation, 2)
+  assert.equal(counts.completed, 2)
+  // The AP portal imports and uses it directly; the old AP-only summaryCounts/applyFilter are gone.
+  assert.match(portal, /import \{ computeStatusCounts \} from '\.\.\/lib\/derivations\/cohortStatus'/)
+  assert.match(portal, /computeStatusCounts\(scoped\)/)
+  assert.doesNotMatch(portal, /summaryCounts|applyFilter/)
 })
 
-test('the KPI filters and pickers share one control row that wraps responsively', () => {
-  // KPI cards left, pickers pushed right on desktop, both wrap cleanly on narrow.
-  assert.match(css, /\.ptl-ap-controls \{ display: flex; flex-wrap: wrap;[^}]*\}/)
-  assert.match(css, /\.ptl-ap-kpis \{ display: grid; grid-template-columns: repeat\(3, minmax\(132px, 200px\)\);/)
-  assert.match(css, /\.ptl-ap-pickers \{[^}]*margin-left: auto;/)
-  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.ptl-ap-pickers \{ width: 100%; margin-left: 0; \}/)
-  // The canonical FilterKPICard is a native button with built-in aria-pressed (selection is not
-  // color-only) and hover movement; the AP page inherits the portal focus-visible ring.
+test('the KPI band is the canonical 8-up grid stepping 8 -> 4 -> 2, like the main app', () => {
+  assert.match(css, /\.ptl-ap-kpis \{ display: grid; grid-template-columns: repeat\(8, 1fr\); gap: 10px; \}/)
+  assert.match(css, /@media \(max-width: 1100px\) \{ \.ptl-ap-kpis \{ grid-template-columns: repeat\(4, 1fr\); \} \}/)
+  assert.match(css, /@media \(max-width: 560px\)  \{ \.ptl-ap-kpis \{ grid-template-columns: repeat\(2, 1fr\); \} \}/)
+  // The canonical FilterKPICard: native button, built-in aria-pressed (selection not color-only), hover.
   const kpi = read('src/components/KPIBand.jsx')
   assert.match(kpi, /export function FilterKPICard\(\{ value, label, sub, accent = 'nightfall', active, onClick \}\)/)
   assert.match(kpi, /aria-pressed=\{active\}/)
@@ -129,14 +130,21 @@ test('the school scope is in the header (selector only for multiple schools); sc
   assert.doesNotMatch(portalCode, /school-students\?|school_key=|cohort_id=|[?&]school=/)
 })
 
-test('summary filters reuse the canonical FilterKPICard, exactly All / Currently Rotating / Completed', () => {
-  // Reuse of the main-app pastel filter card (built-in aria-pressed + hover), not a bespoke pill.
+test('the full canonical 8-card pathway band renders in order, with privacy-safe Not Proceeding copy', () => {
   assert.match(portal, /import \{ FilterKPICard \} from '\.\.\/components\/KPIBand'/)
-  assert.match(portal, /<FilterKPICard[\s\S]*?value=\{f\.n\}[\s\S]*?accent=\{f\.accent\}[\s\S]*?active=\{filter === f\.key\}/)
-  assert.match(portal, /label: 'All Students',       n: counts\.all,       accent: 'nightfall'/)
-  assert.match(portal, /label: 'Currently Rotating', n: counts\.rotating,  accent: 'marina'/)
-  assert.match(portal, /label: 'Completed',          n: counts\.completed, accent: 'sage'/)
-  assert.doesNotMatch(portalCode, /Needs Attention|needsAttention/)          // no Needs Attention this phase
+  assert.match(portal, /<FilterKPICard[\s\S]*?value=\{f\.n\}[\s\S]*?sub=\{f\.sub\}[\s\S]*?accent=\{f\.accent\}[\s\S]*?active=\{sameFilter\(statusFilter, f\.payload\)\}/)
+  // Exactly the eight canonical cards, in order, using canonical counts + grouping payloads.
+  for (const [label, count] of [
+    ['Total', 'counts.total'], ['Needs Outreach', 'counts.needsOutreach'], ['Awaiting Interview', 'counts.awaitingInterview'],
+    ['Interviewed', 'counts.interviewed'], ['Placed', 'counts.placed'], ['Active Rotation', 'counts.activeRotation'],
+    ['Completed', 'counts.completed'], ['Not Proceeding', 'counts.notProceeding'],
+  ]) {
+    assert.ok(portal.includes(`label: '${label}'`), `band has the ${label} card`)
+    assert.ok(portal.includes(count), `${label} uses ${count}`)
+  }
+  // Not Proceeding is privacy-safe (no internal disposition detail leaked to the partner).
+  assert.match(portal, /label: 'Not Proceeding',    sub: 'No longer moving forward'/)
+  assert.doesNotMatch(portalCode, /not selected|withdrew|declined offer/i)
 })
 
 test('rows are non-interactive and no later-phase surfaces are rendered', () => {

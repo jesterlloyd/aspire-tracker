@@ -917,18 +917,11 @@
 .ptl-ap-page { display: flex; flex-direction: column; gap: 16px; }
 .ptl-ap-page .mast { margin: 0; }
 
-/* One control row: the canonical pastel FilterKPICard filters (left), school + cohort pickers
-   (right on desktop). Wraps cleanly; the KPI cards keep a readable minimum width. */
-.ptl-ap-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 20px; }
-.ptl-ap-schoolline { flex-basis: 100%; margin: 0; }
-.ptl-ap-kpis { display: grid; grid-template-columns: repeat(3, minmax(132px, 200px)); gap: 10px; }
-.ptl-ap-pickers { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-left: auto; }
-.ptl-ap-field { display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
-@media (max-width: 640px) {
-  .ptl-ap-kpis { grid-template-columns: repeat(3, 1fr); width: 100%; }
-  .ptl-ap-pickers { width: 100%; margin-left: 0; }
-  .ptl-ap-field { min-width: 0; flex: 1 1 160px; }
-}
+/* The full canonical Student Profiles KPI band (8 cards), mirroring the main app's .profiles-kpis
+   column steps (8 -> 4 -> 2) so the AP band reads and reflows identically. */
+.ptl-ap-kpis { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; }
+@media (max-width: 1100px) { .ptl-ap-kpis { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 560px)  { .ptl-ap-kpis { grid-template-columns: repeat(2, 1fr); } }
 
 /* Roster convergence with the Unit Leader table: circular avatar + name in the Student cell, the
    info-icon legend in the ASPIRE status header, and vertically centered rows. The status pill,
