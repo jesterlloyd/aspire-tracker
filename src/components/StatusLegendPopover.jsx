@@ -81,16 +81,22 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
     wasOpen.current = isOpen;
   }, [isOpen]);
 
+  // The popover is position:fixed and portaled, so its coordinates are anchored to the trigger's
+  // current viewport rect. Shared by open and by the reposition-on-scroll effect below.
+  const computeCoords = () => {
+    const rect = triggerRef.current.getBoundingClientRect();
+    const coords = { top: rect.bottom + 8 };
+    if (position.includes('right')) {
+      coords.right = window.innerWidth - rect.right;
+    } else {
+      coords.left = rect.left;
+    }
+    return coords;
+  };
+
   const handleToggle = () => {
     if (!isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const coords = { top: rect.bottom + 8 };
-      if (position.includes('right')) {
-        coords.right = window.innerWidth - rect.right;
-      } else {
-        coords.left = rect.left;
-      }
-      setPopoverCoords(coords);
+      setPopoverCoords(computeCoords());
     }
     setIsOpen(p => !p);
   };
@@ -114,15 +120,26 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  // Close on external scroll only - ignore scroll events inside the popover itself
+  // Stay open while the page, roster, or viewport scrolls: reposition the popover to follow the
+  // trigger instead of closing. Scroll is a navigation gesture, not a dismiss gesture; the legend
+  // closes only via the close button, an outside click, Escape, or toggling the trigger. A scroll
+  // that originates INSIDE the popover's own scrollable body does not move the trigger, so it is
+  // ignored. Capture phase is required because scroll events do not bubble. Resize is handled too, so
+  // the anchor stays correct when the window changes size.
   useEffect(() => {
     if (!isOpen) return;
-    const handleScroll = (e) => {
-      if (popoverRef.current && popoverRef.current.contains(e.target)) return;
-      setIsOpen(false);
+    const reposition = (e) => {
+      if (e && e.type === 'scroll' && popoverRef.current && popoverRef.current.contains(e.target)) return;
+      if (!triggerRef.current) return;
+      setPopoverCoords(computeCoords());
     };
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+    return () => {
+      window.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   return (
