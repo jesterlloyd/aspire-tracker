@@ -27,7 +27,7 @@
 // or evaluation content, no shift narratives, no support requests, no disposition reasons, no
 // compliance/health flags, no Unit Leader comments, and never another school's students.
 
-import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, matchSchoolCohortScope } from '../lib/schoolScope.js'
+import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, resolveSchoolScopedCohorts, matchSchoolCohortScope } from '../lib/schoolScope.js'
 import { getCallerScopedDb } from '../lib/portalAuth.js'
 import { performSchoolPlacementUpsert, isPlacementProvenanceReady } from '../lib/schoolPlacementUpsert.js'
 import { emailBaseUrl } from '../../lib/server/appUrl.js'
@@ -73,15 +73,18 @@ export default async function handler(req, res) {
 
   if (scopes.length === 0) return res.status(200).json({ schools: [], submission_enabled: submissionEnabled })
 
-  let scopeTerms, matches
+  let scopeTerms, matches, cohortsBySchool
   try {
     ;({ scopeTerms, matches } = await resolveSchoolScopedStudents(db, scopes, STUDENT_COLUMNS))
+    // Canonical, school-scoped cohorts (independent of the roster), so the submission cohort picker
+    // can offer an open-but-empty accepting cohort (e.g. Fall) even with no requests yet.
+    cohortsBySchool = await resolveSchoolScopedCohorts(db, scopes, matches)
   } catch {
     return res.status(500).json({ error: 'internal_error' })
   }
 
   if (matches.length === 0) {
-    return res.status(200).json({ schools: scopeTerms.map(t => ({ school_key: t.school_key, requests: [] })), submission_enabled: submissionEnabled })
+    return res.status(200).json({ schools: scopeTerms.map(t => ({ school_key: t.school_key, requests: [], cohorts: cohortsBySchool.get(t.school_key) || [] })), submission_enabled: submissionEnabled })
   }
 
   // Cohort context (name, status, dates) for grouping and labels.
@@ -166,6 +169,7 @@ export default async function handler(req, res) {
   const schools = scopeTerms.map(t => ({
     school_key: t.school_key,
     requests: bySchool[t.school_key] || [],
+    cohorts: cohortsBySchool.get(t.school_key) || [],
   }))
 
   return res.status(200).json({ schools, submission_enabled: submissionEnabled })

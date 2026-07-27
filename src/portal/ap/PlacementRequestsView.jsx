@@ -90,7 +90,7 @@ export default function PlacementRequestsView() {
 
   const school = schools.find(s => s.school_key === selectedSchoolKey) || schools[0]
   const requests = school.requests || []
-  const { options, defaultId, currentIds } = cohortOptions(requests)
+  const { options, defaultId, currentIds } = cohortOptions(school.cohorts || [])
   const cohortId = options.some(o => o.id === selectedCohortId) ? selectedCohortId : defaultId
   const cohortLabel = options.find(o => o.id === cohortId)?.label || 'All Cohorts'
   const scoped = requests.filter(s => inCohortScope(s, cohortId, currentIds))

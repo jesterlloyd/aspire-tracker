@@ -1,3 +1,4 @@
+/* global process */
 // api/portal/school-students.js
 //
 // PHASE4-SCHOOL-PORTAL: academic partner roster endpoint.
@@ -17,7 +18,7 @@
 // no support requests, no disposition reasons, no compliance flags (the
 // exact compliance field list awaits the Owner's decision item 8).
 
-import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents } from '../lib/schoolScope.js'
+import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, resolveSchoolScopedCohorts } from '../lib/schoolScope.js'
 import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
 
 // Explicit allowlist (allowlist, not denylist, so a new students column is excluded by default).
@@ -58,15 +59,18 @@ export default async function handler(req, res) {
   const { db, scopes } = auth
   if (scopes.length === 0) return res.status(200).json({ schools: [] })
 
-  let scopeTerms, matches
+  let scopeTerms, matches, cohortsBySchool
   try {
     ;({ scopeTerms, matches } = await resolveSchoolScopedStudents(db, scopes, STUDENT_COLUMNS))
+    // Canonical, school-scoped cohorts (independent of the roster), so an open-but-empty cohort like
+    // Fall still appears in the portal picker.
+    cohortsBySchool = await resolveSchoolScopedCohorts(db, scopes, matches)
   } catch {
     return res.status(500).json({ error: 'internal_error' })
   }
 
   if (matches.length === 0) {
-    return res.status(200).json({ schools: scopeTerms.map(t => ({ school_key: t.school_key, students: [] })) })
+    return res.status(200).json({ schools: scopeTerms.map(t => ({ school_key: t.school_key, students: [], cohorts: cohortsBySchool.get(t.school_key) || [] })) })
   }
 
   const cohortIds = [...new Set(matches.map(m => m.student.cohort_id).filter(Boolean))]
@@ -162,6 +166,7 @@ export default async function handler(req, res) {
   const schools = scopeTerms.map(t => ({
     school_key: t.school_key,
     students: bySchool[t.school_key] || [],
+    cohorts: cohortsBySchool.get(t.school_key) || [],
   }))
 
   return res.status(200).json({ schools })

@@ -19,31 +19,38 @@ export function compareCohortNewest(a, b) {
   return String(a?.name || '').localeCompare(String(b?.name || ''))
 }
 
-// The unique cohorts present among a school's students, newest first, plus the Active subset.
-export function deriveCohorts(students) {
-  const byId = new Map()
-  for (const s of students || []) {
-    const c = s?.cohort
-    if (c?.id && !byId.has(c.id)) byId.set(c.id, c)
-  }
-  const cohorts = [...byId.values()].sort(compareCohortNewest)
-  const current = cohorts.filter(c => c.status === 'Active')
-  return { cohorts, current }
+// Split the CANONICAL, server-provided cohorts (school-scoped, independent of the roster; endpoint
+// returns them newest-first) into the Active subset. This replaces the old roster-only inference that
+// hid open-but-empty cohorts, so a Planning + Accepting cohort with zero students still appears.
+export function splitCohorts(cohorts) {
+  const list = Array.isArray(cohorts) ? cohorts : []
+  return { cohorts: list, current: list.filter(c => c.status === 'Active') }
 }
 
-// The cohort picker options in order, the default option id, and the set of current cohort ids.
+// The Students cohort picker: options in order, the default option id, and the set of current cohort
+// ids. Consumes the canonical cohort list (school.cohorts from the endpoint), NOT the students.
 //   - "All Current Cohorts" only when more than one cohort is currently Active
 //   - each cohort, newest first
 //   - "All Cohorts" (includes historical), always last
 // Default: the newest Active cohort; if none is Active, "All Cohorts".
-export function cohortOptions(students) {
-  const { cohorts, current } = deriveCohorts(students)
+export function cohortOptions(cohorts) {
+  const { cohorts: list, current } = splitCohorts(cohorts)
   const options = []
   if (current.length > 1) options.push({ id: AP_ALL_CURRENT, label: 'All Current Cohorts' })
-  for (const c of cohorts) options.push({ id: c.id, label: c.name || 'Cohort' })
+  for (const c of list) options.push({ id: c.id, label: c.name || 'Cohort' })
   options.push({ id: AP_ALL, label: 'All Cohorts' })
   const defaultId = current.length > 0 ? current[0].id : AP_ALL
   return { options, defaultId, currentIds: new Set(current.map(c => c.id)) }
+}
+
+// The Placement Requests SUBMISSION cohort picker: only cohorts currently accepting_submissions are
+// valid targets (no "All" pseudo-option). The default is the nearest upcoming accepting cohort, i.e.
+// the newest accepting cohort (endpoint order is newest-first), so when the active cohort is closed
+// and a later cohort is accepting, the later one is selected.
+export function submissionCohortOptions(cohorts) {
+  const accepting = (Array.isArray(cohorts) ? cohorts : []).filter(c => c.accepting_submissions)
+  const options = accepting.map(c => ({ id: c.id, label: c.name || 'Cohort' }))
+  return { options, accepting, defaultId: accepting[0]?.id || null }
 }
 
 // Whether a student falls in the selected cohort scope.

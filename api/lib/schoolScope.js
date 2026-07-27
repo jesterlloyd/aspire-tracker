@@ -87,3 +87,68 @@ export async function resolveSchoolScopedStudents(db, scopes, columns) {
   }
   return { scopeTerms, matches }
 }
+
+// The canonical cohorts available to each authorized school, INDEPENDENT of whether the cohort has
+// any student rows yet. This is the fix for the roster-only inference that hid open-but-empty cohorts
+// (e.g. a Planning + Accepting Fall cohort) from the portal while the main app showed them.
+//
+// Source of truth = the cohorts table (same as the main app's picker), scoped per school:
+//   - an UNRESTRICTED scope for a school (a user_school_scopes row with cohort_id NULL) sees the
+//     union of: cohorts its students are in, cohorts the school participates in via
+//     cohort_school_rotations (matched by EXACT normalized school name, so WCU campuses stay
+//     isolated), and any cohort currently accepting_submissions (a valid submission target).
+//   - a COHORT-RESTRICTED scope (specific cohort_id) sees only that cohort.
+// Returns Map(school_key -> cohort[]), each cohort { id, name, status, start_date, end_date,
+// accepting_submissions }, ordered newest-first (created_at desc), matching the main app.
+export async function resolveSchoolScopedCohorts(db, scopes, matches) {
+  const scopeTerms = schoolScopeTerms(scopes)
+  if (scopeTerms.length === 0) return new Map()
+
+  // Per school_key: union of alias terms; unrestricted if any scope row is cohort_id NULL, else the
+  // set of specific cohort ids.
+  const perSchool = new Map()
+  for (const t of scopeTerms) {
+    const cur = perSchool.get(t.school_key) || { terms: new Set(), unrestricted: false, cohortIds: new Set() }
+    for (const term of t.terms) cur.terms.add(term)
+    if (t.cohort_id === null || t.cohort_id === undefined) cur.unrestricted = true
+    else cur.cohortIds.add(t.cohort_id)
+    perSchool.set(t.school_key, cur)
+  }
+
+  const { data: allCohorts, error } = await db
+    .from('cohorts')
+    .select('id, name, status, start_date, end_date, accepting_submissions, created_at')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error('cohorts_query_failed')
+  const cohorts = allCohorts || []
+  const acceptingIds = cohorts.filter(c => c.accepting_submissions).map(c => c.id)
+
+  const { data: rotations } = await db.from('cohort_school_rotations').select('cohort_id, school_name')
+
+  const studentCohortsBySchool = new Map()
+  for (const { student, school_key } of matches || []) {
+    if (student?.cohort_id) {
+      const set = studentCohortsBySchool.get(school_key) || new Set()
+      set.add(student.cohort_id)
+      studentCohortsBySchool.set(school_key, set)
+    }
+  }
+
+  const result = new Map()
+  for (const [school_key, info] of perSchool) {
+    const ids = new Set()
+    if (info.unrestricted) {
+      for (const id of (studentCohortsBySchool.get(school_key) || [])) ids.add(id)
+      for (const r of rotations || []) {
+        if (r.cohort_id && info.terms.has(norm(r.school_name))) ids.add(r.cohort_id)
+      }
+      for (const id of acceptingIds) ids.add(id)
+    } else {
+      for (const id of info.cohortIds) ids.add(id)
+    }
+    // Preserve the canonical newest-first order.
+    result.set(school_key, cohorts.filter(c => ids.has(c.id))
+      .map(c => ({ id: c.id, name: c.name, status: c.status, start_date: c.start_date, end_date: c.end_date, accepting_submissions: c.accepting_submissions })))
+  }
+  return result
+}

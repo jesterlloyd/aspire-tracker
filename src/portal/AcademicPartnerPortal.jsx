@@ -159,7 +159,7 @@ function StudentsView() {
 
   const school = activeSchool
   const students = roster
-  const { options, defaultId, currentIds } = cohortOptions(students)
+  const { options, defaultId, currentIds } = cohortOptions(school.cohorts || [])
   const cohortId = options.some(o => o.id === selectedCohortId) ? selectedCohortId : defaultId
   const cohortLabel = options.find(o => o.id === cohortId)?.label || 'All Cohorts'
 

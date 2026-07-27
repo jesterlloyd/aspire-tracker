@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import {
-  compareCohortNewest, deriveCohorts, cohortOptions, inCohortScope, summaryCounts, applyFilter,
-  AP_ALL, AP_ALL_CURRENT,
+  compareCohortNewest, splitCohorts, cohortOptions, submissionCohortOptions, inCohortScope,
+  summaryCounts, applyFilter, AP_ALL, AP_ALL_CURRENT,
 } from '../src/portal/ap/academicPartnerRoster.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -20,10 +20,15 @@ const portal = read('src/portal/AcademicPartnerPortal.jsx')
 const portalCode = stripJs(portal)
 const css = read('src/portal/portal.css')
 
-// Fixtures: two current (Active) cohorts and one historical (Completed).
-const c2026b = { id: 'c-2026b', name: 'Fall 2026', status: 'Active', start_date: '2026-09-01', end_date: '2026-12-15' }
-const c2026a = { id: 'c-2026a', name: 'Summer 2026', status: 'Active', start_date: '2026-06-01', end_date: '2026-08-15' }
-const c2025  = { id: 'c-2025',  name: 'Fall 2025', status: 'Completed', start_date: '2025-09-01', end_date: '2025-12-15' }
+// Fixtures: two current (Active) cohorts, one historical (Completed), and one Planning + Accepting
+// cohort with ZERO students (the case the roster-only inference used to hide). The CANONICAL cohort
+// list comes from the endpoint newest-first, independent of the roster.
+const c2026b = { id: 'c-2026b', name: 'Summer 2026', status: 'Active', start_date: '2026-06-01', end_date: '2026-08-15', accepting_submissions: false }
+const c2026a = { id: 'c-2026a', name: 'Spring 2026', status: 'Active', start_date: '2026-01-01', end_date: '2026-04-15', accepting_submissions: false }
+const c2025  = { id: 'c-2025',  name: 'Fall 2025', status: 'Completed', start_date: '2025-09-01', end_date: '2025-12-15', accepting_submissions: false }
+const cFall2026 = { id: 'c-fall-2026', name: 'Fall 2026', status: 'Planning', start_date: '2026-09-01', end_date: '2026-12-15', accepting_submissions: true }
+// Endpoint order (newest-first): the Planning+Accepting Fall cohort, the two Active, then historical.
+const canonicalCohorts = [cFall2026, c2026b, c2026a, c2025]
 const students = [
   { id: 's1', status: 'Active Rotation', cohort: c2026b },
   { id: 's2', status: 'Placed',          cohort: c2026a },
@@ -32,40 +37,49 @@ const students = [
   { id: 's5', status: 'Completed',       cohort: c2026b },
 ]
 
-test('cohorts sort newest first and split out the current (Active) subset', () => {
-  const { cohorts, current } = deriveCohorts(students)
-  assert.deepEqual(cohorts.map(c => c.id), ['c-2026b', 'c-2026a', 'c-2025'])   // newest start_date first
-  assert.deepEqual(current.map(c => c.id), ['c-2026b', 'c-2026a'])             // only Active
-  // compareCohortNewest is a stable newest-first comparator.
-  assert.ok(compareCohortNewest(c2026b, c2025) < 0)
-  assert.ok(compareCohortNewest(c2025, c2026b) > 0)
+test('canonical cohorts are consumed directly (not inferred from students) and split by Active status', () => {
+  const { cohorts, current } = splitCohorts(canonicalCohorts)
+  assert.deepEqual(cohorts.map(c => c.id), ['c-fall-2026', 'c-2026b', 'c-2026a', 'c-2025'])  // endpoint order
+  assert.deepEqual(current.map(c => c.id), ['c-2026b', 'c-2026a'])                            // only Active
+  assert.ok(compareCohortNewest(c2026b, c2025) < 0)  // start_date newest-first comparator still exported
+})
+
+test('a Planning + Accepting cohort with ZERO student rows still appears as an option (root-cause fix)', () => {
+  const { options } = cohortOptions(canonicalCohorts)
+  assert.ok(options.some(o => o.id === 'c-fall-2026'), 'Fall 2026 appears even with no students')
 })
 
 test('cohort options: All Current only with >1 current, cohorts newest-first, All Cohorts last', () => {
-  const { options, defaultId } = cohortOptions(students)
-  assert.deepEqual(options.map(o => o.id), [AP_ALL_CURRENT, 'c-2026b', 'c-2026a', 'c-2025', AP_ALL])
+  const { options, defaultId } = cohortOptions(canonicalCohorts)
+  assert.deepEqual(options.map(o => o.id), [AP_ALL_CURRENT, 'c-fall-2026', 'c-2026b', 'c-2026a', 'c-2025', AP_ALL])
   assert.equal(options[0].label, 'All Current Cohorts')
   assert.equal(options.at(-1).label, 'All Cohorts')
-  // Default is the NEWEST current cohort (not All Current).
+  // Default is the NEWEST current (Active) cohort, not the Planning cohort and not All Current.
   assert.equal(defaultId, 'c-2026b')
 })
 
 test('with a single current cohort there is no All Current option, and it is the default', () => {
-  const one = [{ id: 'x', status: 'Placed', cohort: c2026a }, { id: 'y', status: 'Completed', cohort: c2025 }]
+  const one = [c2026a, c2025]
   const { options, defaultId } = cohortOptions(one)
   assert.deepEqual(options.map(o => o.id), ['c-2026a', 'c-2025', AP_ALL])   // no all-current
   assert.equal(defaultId, 'c-2026a')
 })
 
 test('with no current cohort, All Cohorts is the default (historical never hidden)', () => {
-  const historical = [{ id: 'z', status: 'Completed', cohort: c2025 }]
+  const historical = [c2025]
   const { options, defaultId } = cohortOptions(historical)
   assert.deepEqual(options.map(o => o.id), ['c-2025', AP_ALL])
   assert.equal(defaultId, AP_ALL)
 })
 
+test('the submission cohort picker offers only accepting cohorts (no All), default = nearest upcoming', () => {
+  const { options, defaultId } = submissionCohortOptions(canonicalCohorts)
+  assert.deepEqual(options.map(o => o.id), ['c-fall-2026'])   // only accepting; no All pseudo-option
+  assert.equal(defaultId, 'c-fall-2026')                      // Fall selected though Summer/Spring are Active
+})
+
 test('cohort scope: All, All Current, and a single cohort each select the right students', () => {
-  const { currentIds } = cohortOptions(students)
+  const { currentIds } = cohortOptions(canonicalCohorts)
   const inScope = (opt) => students.filter(s => inCohortScope(s, opt, currentIds)).map(s => s.id)
   assert.deepEqual(inScope(AP_ALL).sort(), ['s1', 's2', 's3', 's4', 's5'])
   assert.deepEqual(inScope(AP_ALL_CURRENT).sort(), ['s1', 's2', 's4', 's5'])   // excludes the Completed 2025 cohort
