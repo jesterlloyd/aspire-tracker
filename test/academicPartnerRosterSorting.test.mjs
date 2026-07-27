@@ -70,13 +70,17 @@ test('sorting never mutates the input and is stable for full ties', () => {
   assert.equal(sortRoster(rows, null, 'asc'), rows)
 })
 
-test('the roster headers are accessible sortable buttons with aria-sort; sort is client-side', () => {
-  assert.match(portal, /function SortHeader\(\{ label, column, sort, onSort, children \}\)/)
-  assert.match(portal, /aria-sort=\{ariaSort\}/)
-  assert.match(portal, /const ariaSort = active \? \(sort\.direction === 'asc' \? 'ascending' : 'descending'\) : 'none'/)
-  assert.match(portal, /<button type="button" className=\{`ptl-ap-sort/)
-  assert.match(portal, /<SortHeader label="Student" column="student"/)
-  assert.match(portal, /<SortHeader label="Hours" column="hours"/)
+test('the roster headers use the shared canonical SortHeader; sort stays client-side', () => {
+  // The bespoke AP sort header is gone; the portal imports and uses the shared canonical component.
+  assert.match(portal, /import SortHeader from '\.\.\/components\/shared\/SortHeader'/)
+  assert.doesNotMatch(portal, /function SortHeader\(/)          // no local redefinition
+  assert.doesNotMatch(portal, /ptl-ap-sort/)                   // no bespoke sort class
+  assert.doesNotMatch(portal, /[▲▼↕]/)          // no ▲ ▼ ↕ text-glyph indicators
+  // Exactly Student, ASPIRE status, and Hours are sortable, wired to the client sort state and the
+  // portal cell context (thClassName="").
+  assert.match(portal, /<SortHeader sortKey="student" sortBy=\{sort\.column\} sortDir=\{sort\.direction\} onSort=\{onSort\} thClassName="">Student<\/SortHeader>/)
+  assert.match(portal, /<SortHeader sortKey="hours" sortBy=\{sort\.column\} sortDir=\{sort\.direction\} onSort=\{onSort\} thClassName="">Hours<\/SortHeader>/)
+  assert.match(portal, /sortKey="status" sortBy=\{sort\.column\} sortDir=\{sort\.direction\} onSort=\{onSort\} thClassName=""/)
   // Sort runs over the already filtered + scoped rows, never a new request; filter/cohort/school
   // state is independent of the sort state.
   assert.match(portal, /const rows = sortRoster\(applyFilter\(scoped, filter\), sort\.column, sort\.direction\)/)

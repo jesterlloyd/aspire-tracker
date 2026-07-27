@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { preceptorInitials, sortAssignmentsForDisplay } from '../../lib/preceptorDirectory'
 import RowActionsMenu from './RowActionsMenu'
+import SortHeader from './SortHeader'
 
 const ROLE_CLASS = {
   Primary: 'primary',
@@ -9,20 +10,6 @@ const ROLE_CLASS = {
   primary: 'primary',
   secondary: 'secondary',
   coverage: 'coverage',
-}
-
-function SortHeader({ sortKey, sortBy, sortDir, onSort, children }) {
-  const active = sortBy === sortKey
-  const next = active && sortDir === 'asc' ? 'descending' : 'ascending'
-  return (
-    <th scope="col" className="am-th am-sortable" aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button type="button" className="preceptor-dir-sort" onClick={() => onSort?.(sortKey)}
-        aria-label={`Sort by ${children} ${next}`}>
-        <span>{children}</span>
-        <span aria-hidden="true">{active ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</span>
-      </button>
-    </th>
-  )
 }
 
 function StatusPill({ active }) {

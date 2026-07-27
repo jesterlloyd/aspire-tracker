@@ -2450,6 +2450,9 @@ button.ov-group-row {
 .am-sortable { cursor: pointer; user-select: none; }
 .am-sortable:hover { color: var(--raven); }
 .am-sort-icon { opacity: 0.35; font-size: 10px; }
+/* Header cell that pairs the shared SortHeader button with adjacent content (e.g. the status
+   legend). Keeps the button and the trailing control on one aligned row. */
+.am-sort-th-inner { display: inline-flex; align-items: center; gap: 6px; }
 
 .am-td { padding: 8px 12px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
 .am-row:last-child .am-td { border-bottom: none; }

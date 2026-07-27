@@ -21,6 +21,7 @@ const chrome = strip(read('src/portal/unit/UnitLeaderChrome.jsx'))
 const portal = strip(read('src/portal/UnitLeaderPortal.jsx'))
 const preceptorsWorkspace = strip(read('src/portal/unit/UnitPreceptorsWorkspace.jsx'))
 const preceptorTable = strip(read('src/components/shared/PreceptorDirectoryTable.jsx'))
+const sortHeader = strip(read('src/components/shared/SortHeader.jsx'))
 const studentSort = strip(read('src/portal/unit/unitLeaderStudentSort.js'))
 const css = read('src/index.css')
 const portalCss = read('src/portal/portal.css')
@@ -52,7 +53,11 @@ test('Messages workspace begins with the real workspace unless the concern route
 test('Unit Leader Preceptors table uses the shared main-app table container and header treatment', () => {
   assert.match(preceptorsWorkspace, /<div className="am-table-wrap">\s*<PreceptorDirectoryTable/)
   assert.match(preceptorTable, /<table className="am-table preceptor-dir-table">/)
-  assert.match(preceptorTable, /<th scope="col" className="am-th am-sortable" aria-sort=/)
+  // The header treatment moved into the shared SortHeader; the table composes it, and the staff
+  // default keeps the am-th am-sortable cell so the appearance is unchanged.
+  assert.match(preceptorTable, /import SortHeader from '\.\/SortHeader'/)
+  assert.match(sortHeader, /thClassName = 'am-th am-sortable'/)
+  assert.match(sortHeader, /<th[\s\S]*?scope="col"[\s\S]*?className=\{thClassName\}[\s\S]*?aria-sort=/)
   assert.match(css, /\.am-table-wrap \{[\s\S]*border: 1px solid var\(--border\);[\s\S]*border-radius: 6px;[\s\S]*background: var\(--pearl\);/)
   assert.match(css, /\.am-th \{[\s\S]*font-size: 11px;[\s\S]*font-weight: 700;[\s\S]*letter-spacing: 0\.05em;[\s\S]*border-bottom: 2px solid var\(--border\);/)
   assert.match(css, /\.preceptor-dir-sort \{[\s\S]*display: inline-flex;[\s\S]*align-items: center;/)

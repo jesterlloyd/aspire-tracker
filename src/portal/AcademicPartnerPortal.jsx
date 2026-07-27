@@ -22,6 +22,7 @@ import { useLastVisitLabel } from '../lib/lastVisit'
 import { FilterKPICard } from '../components/KPIBand'
 import StatusPill from '../components/StatusPill'
 import StatusLegendPopover from '../components/StatusLegendPopover'
+import SortHeader from '../components/shared/SortHeader'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
@@ -60,25 +61,6 @@ function ApHoursCell({ hours }) {
       </span>
       <span className="ptl-hours-text">{h.completed} of {h.required}{pending > 0 ? ` (+${pending})` : ''}</span>
     </span>
-  )
-}
-
-// A sortable column header: a button carrying the label + the current sort direction, with aria-sort
-// on the th. Sorting is client-side and preserves the filter, cohort, and school selection. The
-// optional children render beside the button (used for the ASPIRE status legend).
-function SortHeader({ label, column, sort, onSort, children }) {
-  const active = sort.column === column
-  const ariaSort = active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'
-  const indicator = active ? (sort.direction === 'asc' ? '▲' : '▼') : '↕'
-  return (
-    <th scope="col" aria-sort={ariaSort}>
-      <span className="ptl-ap-th">
-        <button type="button" className={`ptl-ap-sort${active ? ' ptl-ap-sort-active' : ''}`} onClick={() => onSort(column)}>
-          {label}<span className="ptl-ap-sort-ind" aria-hidden="true">{indicator}</span>
-        </button>
-        {children}
-      </span>
-    </th>
   )
 }
 
@@ -252,16 +234,23 @@ function StudentsView() {
             <table className="ptl-table ptl-ap-table">
               <thead>
                 <tr>
-                  <SortHeader label="Student" column="student" sort={sort} onSort={onSort} />
+                  {/* Canonical sort headers (shared with the staff roster): ↑/↓ arrows, aria-sort,
+                      dynamic aria-label. thClassName="" keeps the portal table cell styling; the sort
+                      logic, school/cohort scope, and KPI filter are untouched. */}
+                  <SortHeader sortKey="student" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName="">Student</SortHeader>
                   <th scope="col">Cohort</th>
-                  <SortHeader label="ASPIRE status" column="status" sort={sort} onSort={onSort}>
-                    {/* The canonical ASPIRE Status Legend, with staff disposition detail hidden. */}
-                    <StatusLegendPopover showStaffDetail={false} />
+                  {/* The status header pairs the canonical sort button with the ASPIRE Status Legend
+                      (staff disposition detail hidden) via the shared after= slot. */}
+                  <SortHeader
+                    sortKey="status" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName=""
+                    after={<StatusLegendPopover showStaffDetail={false} />}
+                  >
+                    ASPIRE status
                   </SortHeader>
                   <th scope="col">Confirmed unit</th>
                   <th scope="col">Primary preceptor</th>
                   <th scope="col">Rotation</th>
-                  <SortHeader label="Hours" column="hours" sort={sort} onSort={onSort} />
+                  <SortHeader sortKey="hours" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName="">Hours</SortHeader>
                 </tr>
               </thead>
               <tbody>

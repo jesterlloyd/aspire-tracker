@@ -20,6 +20,8 @@ const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '
 const staffDirectory = strip(read('src/components/PreceptorsTable.jsx'))
 const unitDirectory = strip(read('src/portal/unit/UnitPreceptorsWorkspace.jsx'))
 const sharedTable = strip(read('src/components/shared/PreceptorDirectoryTable.jsx'))
+// The sortable-header treatment was extracted into a shared SortHeader that the table imports.
+const sortHeader = strip(read('src/components/shared/SortHeader.jsx'))
 const manager = strip(read('src/portal/unit/UnitLeaderPreceptorManager.jsx'))
 const staffEndpoint = strip(read('api/preceptor-assignment-manage.js'))
 const portalEndpoint = strip(read('api/portal/unit-preceptor-manage.js'))
@@ -28,7 +30,9 @@ test('main app and Unit Leader use the shared preceptor directory table foundati
   assert.match(staffDirectory, /PreceptorDirectoryTable/)
   assert.match(unitDirectory, /PreceptorDirectoryTable/)
   assert.match(sharedTable, /preceptor-dir-avatar/)
-  assert.match(sharedTable, /aria-sort=/)
+  // The table composes the shared SortHeader, which carries the canonical aria-sort treatment.
+  assert.match(sharedTable, /import SortHeader from '\.\/SortHeader'/)
+  assert.match(sortHeader, /aria-sort=/)
   assert.match(sharedTable, /Primary: 'primary'/)
   assert.match(sharedTable, /preceptor-dir-role-\$\{roleClass\}/)
   assert.match(sharedTable, /showAdminActions/)
@@ -51,8 +55,8 @@ test('shared sorting is deterministic and keyboard-exposed', () => {
   assert.deepEqual(sortPreceptorDirectoryRows(rows, { sortBy: 'count', sortDir: 'desc' }).map(r => r.full_name), [
     'Bob Nurse', 'Ana Nurse', 'Zed Nurse',
   ])
-  assert.match(sharedTable, /<button type="button" className="preceptor-dir-sort"/)
-  assert.match(sharedTable, /aria-label=\{`Sort by \$\{children\}/)
+  assert.match(sortHeader, /<button[\s\S]*?type="button"[\s\S]*?className="preceptor-dir-sort"/)
+  assert.match(sortHeader, /aria-label=\{`Sort by \$\{children\}/)
 })
 
 test('Current Student rows preserve all roles and exact manager context', () => {
