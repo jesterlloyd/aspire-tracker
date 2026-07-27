@@ -69,9 +69,9 @@ function ApHoursCell({ hours }) {
 
 // Placement Requests and Messages have stable routes now but no active backend in this phase, so
 // each renders an honest prepared state (shared .ptl-state language, no controls, no API calls).
-export default function AcademicPartnerPortal({ view = 'students' }) {
+export default function AcademicPartnerPortal({ view = 'students', onNavigate }) {
   if (view === 'placement-requests') {
-    return <PlacementRequestsView />
+    return <PlacementRequestsView onNavigate={onNavigate} />
   }
   if (view === 'messages') {
     return (

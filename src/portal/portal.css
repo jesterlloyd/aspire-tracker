@@ -991,6 +991,8 @@
 .ptl-plr-student-num { font-weight: 700; color: var(--ptl-navy, #1D2567); font-size: 14px; }
 .ptl-plr-submit-row { display: flex; align-items: center; gap: 12px; }
 .ptl-plr-confirm { margin: 8px 0 0; line-height: 1.5; }
+/* The submission flow is embedded inside the Placement Requests page (not a full-page replacement). */
+.ptl-plr-embed { display: flex; flex-direction: column; gap: 16px; }
 @media (max-width: 640px) {
   .ptl-plr-row-2, .ptl-plr-row-3 { grid-template-columns: 1fr; }
 }

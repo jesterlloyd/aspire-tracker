@@ -24,32 +24,40 @@ test('the placement-requests view exists and is wired into the AP portal', () =>
   assert.ok(existsSync(join(root, 'src/portal/ap/PlacementRequestsView.jsx')))
   const portal = read('src/portal/AcademicPartnerPortal.jsx')
   assert.match(portal, /import PlacementRequestsView from '\.\/ap\/PlacementRequestsView'/)
-  assert.match(stripJs(portal), /if \(view === 'placement-requests'\) \{\s*return <PlacementRequestsView \/>/)
+  assert.match(stripJs(portal), /if \(view === 'placement-requests'\) \{\s*return <PlacementRequestsView onNavigate=\{onNavigate\} \/>/)
 })
 
-test('the list is read-only and shows the approved public-safe fields, with a status pill + legend', () => {
-  assert.match(view, /getSchoolPlacementRequests/)
-  for (const col of ['Student', 'Cohort', 'ASPIRE status', 'Requested rotation', 'Confirmed unit', 'Primary preceptor', 'Submitted']) {
-    assert.ok(view.includes(col), `list shows the ${col} column`)
-  }
-  assert.match(view, /<StatusPill status=\{s\.status\} \/>/)
-  assert.match(view, /<StatusLegendPopover showStaffDetail=\{false\} \/>/)
+test('Placement Requests is submission-focused: no duplicate roster table, links to the Students tab', () => {
+  assert.match(view, /getSchoolPlacementRequests/)                    // still loads school/cohort context
+  assert.doesNotMatch(viewCode, /<table/)                            // NO roster/request table
+  assert.doesNotMatch(viewCode, /Requested rotation|Confirmed unit|Primary preceptor/)  // no roster columns
+  // A clear action to follow statuses in the canonical Students tab.
+  assert.match(view, /View students and statuses/)
+  assert.match(view, /onNavigate\?\.\('students'\)/)
 })
 
-test('the shared portal Refresh re-fetches the request list', () => {
+test('the shared portal Refresh re-reads the submission context without discarding the form', () => {
   assert.match(view, /import \{ useRegisterPortalRefresh \} from '\.\.\/PortalRefresh'/)
   assert.match(view, /useRegisterPortalRefresh\(reload\)/)
 })
 
-test('a new request resolves the cohort and verifies the password server-side before the form', () => {
-  // Same cohort + password behavior as the public form, via the same RPCs (verified before the form).
-  assert.match(view, /accepting_submissions/)
+test('the submission cohort is the canonical nearest-upcoming accepting cohort; password verified server-side', () => {
+  // The submission target comes from the canonical accepting cohorts (no "All" target), server-derived.
+  assert.match(view, /submissionCohortOptions\(school\.cohorts \|\| \[\]\)/)
+  assert.match(view, /cohortId=\{submissionCohort\.id\}/)
+  assert.doesNotMatch(view, /accepting_submissions', true/)          // no client-side accepting inference
+  // Same password RPCs as the public form; verified before the form; transient only.
   assert.match(view, /rpc\('school_form_requires_password'/)
   assert.match(view, /rpc\('verify_school_form_password'/)
   assert.match(view, /gate === 'password'/)
   assert.match(view, /gate === 'open'/)
-  // The password is only transient client state; it is never persisted or logged here.
   assert.doesNotMatch(viewCode, /localStorage|sessionStorage|console\.(log|warn|error)\([^)]*pwd/)
+})
+
+test('a truthful closed state shows only when no authorized cohort is accepting', () => {
+  assert.match(view, /No cohort is accepting requests right now/)
+  // The closed state is gated on the ABSENCE of an accepting submission cohort, not on the roster.
+  assert.match(view, /submissionCohort \?[\s\S]*?<NewPlacementRequest[\s\S]*?\) : \(/)
 })
 
 test('the school is prefilled and locked to the caller authorized school', () => {

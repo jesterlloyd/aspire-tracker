@@ -25,7 +25,7 @@ test('the Academic Partner branch renders the shared Nightfall shell', () => {
   assert.match(apBranch, /headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
   assert.match(apBranch, /publicSiteUrl="https:\/\/aspireintelligence\.app"/)
   assert.match(apBranch, /nav=\{<AcademicPartnerNav view=\{apView\} onNavigate=\{goApSection\} \/>\}/)
-  assert.match(apBranch, /<AcademicPartnerPortal view=\{apView\} schoolKeys=\{access\?\.school_keys \|\| \[\]\} \/>/)
+  assert.match(apBranch, /<AcademicPartnerPortal view=\{apView\} onNavigate=\{goApSection\} schoolKeys=\{access\?\.school_keys \|\| \[\]\} \/>/)
 })
 
 test('the three sections are stable URL routes; /portal resolves to Students', () => {
@@ -54,12 +54,12 @@ test('AcademicPartnerNav is exactly Students, Placement Requests, Messages', () 
 
 test('the three sections route: Students roster, Placement Requests workspace, Messages prepared', () => {
   const code = stripJs(portal)
-  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students' \}\)/)
+  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate \}\)/)
   assert.match(portal, /if \(view === 'placement-requests'\)/)
   assert.match(portal, /if \(view === 'messages'\)/)
   // Placement Requests is now the live workspace; Messages stays an honest prepared state.
   assert.match(portal, /import PlacementRequestsView from '\.\/ap\/PlacementRequestsView'/)
-  assert.match(code, /return <PlacementRequestsView \/>/)
+  assert.match(code, /return <PlacementRequestsView onNavigate=\{onNavigate\} \/>/)
   assert.match(portal, /import \{[^}]*\bEmptyState\b[^}]*\} from '\.\/unit\/UnitLeaderChrome'/)
   assert.match(portal, /being prepared and is not active yet/)  // Messages prepared state
   // Students still renders the roster (StudentsView).

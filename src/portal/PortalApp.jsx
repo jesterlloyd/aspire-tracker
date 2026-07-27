@@ -263,7 +263,7 @@ export default function PortalApp() {
             messagesAuthorized={false}
           />
         )}>
-        <AcademicPartnerPortal view={apView} schoolKeys={access?.school_keys || []} />
+        <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []} />
       </PortalShell>
     )
   }

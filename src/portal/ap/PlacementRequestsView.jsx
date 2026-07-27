@@ -16,13 +16,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
-import StatusPill from '../../components/StatusPill'
-import StatusLegendPopover from '../../components/StatusLegendPopover'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from '../PortalHeaderSlots'
 import { getSchoolPlacementRequests, submitSchoolPlacementRequest } from './academicPartnerApi'
-import { cohortOptions, inCohortScope } from './academicPartnerRoster'
+import { submissionCohortOptions } from './academicPartnerRoster'
 import { toggleWeekday, isValidIsoDate } from '../../lib/availability'
 import {
   PROGRAM_TYPES, WEEKDAYS, SCHOOL_PLACEMENT_TEXT,
@@ -32,16 +30,7 @@ import {
 
 const T = SCHOOL_PLACEMENT_TEXT
 
-const fmtDate = (d) => {
-  if (!d) return ''
-  try {
-    return new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  } catch { return String(d) }
-}
-const displayName = (s) => `${s.preferred_first_name || s.first_name || ''} ${s.last_name || ''}`.trim()
-const rotationText = (r) => (r?.start_date ? `${fmtDate(r.start_date)} to ${fmtDate(r.end_date)}` : '')
-
-export default function PlacementRequestsView() {
+export default function PlacementRequestsView({ onNavigate }) {
   const [schools, setSchools] = useState(null)
   const [submissionEnabled, setSubmissionEnabled] = useState(false)
   const [error, setError]     = useState(null)
@@ -50,12 +39,11 @@ export default function PlacementRequestsView() {
   const reload = useCallback(() => setReloadKey(k => k + 1), [])
 
   const [selectedSchoolKey, setSelectedSchoolKey] = useState(null)
-  const [selectedCohortId, setSelectedCohortId]   = useState(null)
-  const [mode, setMode] = useState('list')  // 'list' | 'new'
+  const [selectedCohortId, setSelectedCohortId]   = useState(null)   // the chosen submission cohort
 
-  // The shared portal Refresh re-fetches the submitted-request list without discarding an
-  // in-progress form (a new-request draft is only started from the list, and Refresh acts on the
-  // list). Registered only while this workspace is mounted (the Placement Requests section).
+  // Refresh re-reads the school + accepting-cohort context and the submission_enabled signal. It does
+  // NOT discard an in-progress form: the form state lives in the child and Refresh only reloads
+  // context. Registered only while this workspace is mounted (the Placement Requests section).
   useRegisterPortalRefresh(reload)
 
   useEffect(() => {
@@ -65,11 +53,11 @@ export default function PlacementRequestsView() {
       try {
         const res = await getSchoolPlacementRequests()
         if (cancelled) return
-        if (!res.ok) { setError('We could not load your placement requests right now. Please try again shortly.'); setLoading(false); return }
+        if (!res.ok) { setError('We could not load your placement request workspace right now. Please try again shortly.'); setLoading(false); return }
         setSchools(res.data?.schools || [])
         setSubmissionEnabled(res.data?.submission_enabled === true)
       } catch {
-        if (!cancelled) setError('We could not load your placement requests right now. Please try again shortly.')
+        if (!cancelled) setError('We could not load your placement request workspace right now. Please try again shortly.')
       }
       if (!cancelled) setLoading(false)
     }
@@ -77,36 +65,25 @@ export default function PlacementRequestsView() {
     return () => { cancelled = true }
   }, [reloadKey])
 
-  if (loading) return <LoadingState label="Loading your placement requests" />
+  if (loading) return <LoadingState label="Loading your placement request workspace" />
   if (error)   return <ErrorState detail={error} onRetry={reload} />
   if (!schools || schools.length === 0) {
     return (
       <DeniedState
         title="No school linked yet"
-        detail="Your account is active, but no school is connected to it yet. The ASPIRE team connects your school, and your placement requests will appear here once it is in place."
+        detail="Your account is active, but no school is connected to it yet. The ASPIRE team connects your school, and you can submit placement requests here once it is in place."
       />
     )
   }
 
+  // Submission-focused: the canonical accepting cohorts are the only valid targets. Default is the
+  // nearest upcoming accepting cohort, so a closed Summer cohort never blocks an accepting Fall one.
   const school = schools.find(s => s.school_key === selectedSchoolKey) || schools[0]
-  const requests = school.requests || []
-  const { options, defaultId, currentIds } = cohortOptions(school.cohorts || [])
-  const cohortId = options.some(o => o.id === selectedCohortId) ? selectedCohortId : defaultId
-  const cohortLabel = options.find(o => o.id === cohortId)?.label || 'All Cohorts'
-  const scoped = requests.filter(s => inCohortScope(s, cohortId, currentIds))
+  const { options: acceptingOptions, defaultId: acceptingDefault } = submissionCohortOptions(school.cohorts || [])
+  const submissionCohortId = acceptingOptions.some(o => o.id === selectedCohortId) ? selectedCohortId : acceptingDefault
+  const submissionCohort = (school.cohorts || []).find(c => c.id === submissionCohortId) || null
 
   const onSchoolChange = (key) => { setSelectedSchoolKey(key); setSelectedCohortId(null) }
-
-  if (mode === 'new') {
-    return (
-      <NewPlacementRequest
-        schoolKey={school.school_key}
-        submissionEnabled={submissionEnabled}
-        onBack={() => setMode('list')}
-        onSubmitted={() => { setMode('list'); reload() }}
-      />
-    )
-  }
 
   return (
     <div className="ptl-page ptl-ap-page">
@@ -114,16 +91,17 @@ export default function PlacementRequestsView() {
         <div>
           <h1 className="ptl-plr-title">Placement Requests</h1>
           <p className="ptl-muted ptl-small ptl-plr-lede">
-            Submit and track your school's ASPIRE placement requests. Each request enters the ASPIRE
-            pathway and appears with its current status once the team begins outreach.
+            Submit your school's ASPIRE placement requests here. After you submit, follow each
+            student's status, unit and preceptor assignment, rotation dates, and hours in the Students
+            tab.
           </p>
         </div>
-        <button type="button" className="ptl-btn ptl-plr-new" onClick={() => setMode('new')}>
-          New Placement Request
+        <button type="button" className="ptl-btn-outline ptl-btn-sm ptl-plr-new" onClick={() => onNavigate?.('students')}>
+          View students and statuses
         </button>
       </div>
 
-      {/* School scope + cohort picker live in the persistent Nightfall header (no page-level row). */}
+      {/* School scope + the SUBMISSION cohort picker (accepting cohorts only) live in the header. */}
       <PortalHeaderScope>{schools.length === 1 ? <> · {school.school_key}</> : null}</PortalHeaderScope>
       <PortalHeaderControls>
         {schools.length > 1 && (
@@ -134,72 +112,41 @@ export default function PlacementRequestsView() {
             </select>
           </span>
         )}
-        <span className="ptl-header-ctl">
-          <span className="ptl-header-ctl-label">Cohort</span>
-          <select aria-label="Cohort" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
-            {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
-        </span>
+        {acceptingOptions.length > 1 && (
+          <span className="ptl-header-ctl">
+            <span className="ptl-header-ctl-label">Cohort</span>
+            <select aria-label="Submission cohort" value={submissionCohortId || ''} onChange={e => setSelectedCohortId(e.target.value)}>
+              {acceptingOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          </span>
+        )}
       </PortalHeaderControls>
 
-      {requests.length === 0 ? (
-        <EmptyState title="No placement requests yet" detail="When you submit a placement request, it will appear here with its current ASPIRE status." />
-      ) : scoped.length === 0 ? (
-        <EmptyState title={`No requests in ${cohortLabel}`} detail="Choose a different cohort to see more of your school's requests." />
+      {submissionCohort ? (
+        <NewPlacementRequest
+          schoolKey={school.school_key}
+          cohortId={submissionCohort.id}
+          cohortName={submissionCohort.name}
+          submissionEnabled={submissionEnabled}
+          onViewStudents={() => onNavigate?.('students')}
+        />
       ) : (
-        <div className="ptl-card ptl-ap-roster">
-          <div className="ptl-table-wrap">
-            <table className="ptl-table ptl-ap-table">
-              <thead>
-                <tr>
-                  <th scope="col">Student</th>
-                  <th scope="col">Cohort</th>
-                  <th scope="col">
-                    <span className="am-sort-th-inner">
-                      ASPIRE status
-                      <StatusLegendPopover showStaffDetail={false} />
-                    </span>
-                  </th>
-                  <th scope="col">Requested rotation</th>
-                  <th scope="col">Confirmed unit</th>
-                  <th scope="col">Primary preceptor</th>
-                  <th scope="col">Submitted</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scoped.map(s => (
-                  <tr key={s.id}>
-                    <td><span className="ptl-ap-student-name">{displayName(s)}</span></td>
-                    <td>{s.cohort?.name || ''}</td>
-                    <td><StatusPill status={s.status} /></td>
-                    <td>{rotationText(s.rotation) || <span className="ptl-muted">Not set</span>}</td>
-                    <td>{s.unit_name || <span className="ptl-muted">Not yet confirmed</span>}</td>
-                    <td>{s.preceptor_name || <span className="ptl-muted">Not assigned</span>}</td>
-                    <td>{s.submitted_at ? fmtDate(s.submitted_at) : ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="ptl-muted ptl-small">
-            Status and unit updates come from the ASPIRE team as each request moves through the
-            pathway. Interview scores, evaluation content, and internal notes stay with the team.
-          </p>
-        </div>
+        <EmptyState
+          title="No cohort is accepting requests right now"
+          detail="New submissions open when the ASPIRE team activates a cohort for your school. You can still follow your current students in the Students tab."
+        />
       )}
     </div>
   )
 }
 
-// The New Placement Request flow: resolve the accepting cohort and its password requirement exactly
-// like the public form, then render the shared-definition form. The final submit is enabled from the
-// server's submission_enabled signal (the provenance migration is applied); the server independently
-// gates and re-verifies regardless. A confirmation with added/updated/skipped counts is shown on
-// success; recoverable errors (password, readiness) keep the in-progress form intact.
-function NewPlacementRequest({ schoolKey, submissionEnabled, onBack, onSubmitted }) {
-  const [gate, setGate] = useState('loading')  // 'loading' | 'unavailable' | 'password' | 'open'
-  const [cohortId, setCohortId]     = useState(null)
-  const [cohortName, setCohortName] = useState('')
+// The New Placement Request flow for a specific accepting cohort (chosen by the parent from the
+// canonical accepting-cohort list). It determines the cohort's password requirement, gates behind
+// verification when required, then renders the shared-definition form. The final submit is enabled
+// from the server's submission_enabled signal; the server independently re-authorizes and re-verifies
+// regardless. Success shows added/updated/skipped counts; recoverable errors keep the form intact.
+function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnabled, onViewStudents }) {
+  const [gate, setGate] = useState('checking')  // 'checking' | 'password' | 'open'
   const [pwdInput, setPwdInput]     = useState('')
   const [pwdError, setPwdError]     = useState(null)
   const [pwdChecking, setPwdChecking] = useState(false)
@@ -223,21 +170,29 @@ function NewPlacementRequest({ schoolKey, submissionEnabled, onBack, onSubmitted
   const addRow = () => setRows(prev => [...prev, newStudentRow()])
   const removeRow = (key) => setRows(prev => prev.filter(r => r._key !== key))
 
+  // When the submission cohort changes, reset ONLY the cohort-dependent password verification (the
+  // gate + entered/verified password); typed form data (coordinator, rotation, students) is preserved.
+  // This is the "adjust state during render" pattern (not a setState-in-effect), so the reset is
+  // applied before the password-requirement effect runs.
+  const [prevCohortId, setPrevCohortId] = useState(cohortId)
+  if (cohortId !== prevCohortId) {
+    setPrevCohortId(cohortId)
+    setGate('checking'); setVerifiedPassword(''); setPwdInput(''); setPwdError(null)
+  }
+
+  // Determine the cohort's password requirement. On an RPC error we fall open to the form; the server
+  // re-verifies the password on submit, so a required-password cohort is still enforced there.
   useEffect(() => {
     let cancelled = false
     async function init() {
-      const { data } = await supabase.from('cohorts').select('id, name').eq('accepting_submissions', true).limit(1).single()
-      if (cancelled) return
-      if (!data) { setGate('unavailable'); return }
-      setCohortId(data.id); setCohortName(data.name)
       try {
-        const { data: requiresPwd } = await supabase.rpc('school_form_requires_password', { p_cohort_id: data.id })
-        setGate(requiresPwd ? 'password' : 'open')
-      } catch { setGate('unavailable') }
+        const { data: requiresPwd } = await supabase.rpc('school_form_requires_password', { p_cohort_id: cohortId })
+        if (!cancelled) setGate(requiresPwd ? 'password' : 'open')
+      } catch { if (!cancelled) setGate('open') }
     }
     init()
     return () => { cancelled = true }
-  }, [])
+  }, [cohortId])
 
   const verifyPassword = async (e) => {
     e.preventDefault()
@@ -284,28 +239,10 @@ function NewPlacementRequest({ schoolKey, submissionEnabled, onBack, onSubmitted
     else setFormError('That request could not be submitted right now. Your entries are preserved; please try again.')
   }
 
-  const backBtn = (
-    <button type="button" className="ptl-btn-outline ptl-btn-sm ptl-plr-back" onClick={onBack}>
-      ← Back to requests
-    </button>
-  )
-
-  if (gate === 'loading') return <LoadingState label="Preparing the request form" />
-  if (gate === 'unavailable') {
-    return (
-      <div className="ptl-page ptl-ap-page">
-        {backBtn}
-        <EmptyState
-          title="Submissions are not open"
-          detail="A cohort is not currently accepting placement requests. The ASPIRE team opens submissions when a cohort is ready."
-        />
-      </div>
-    )
-  }
+  if (gate === 'checking') return <LoadingState label="Preparing the request form" />
   if (gate === 'password') {
     return (
-      <div className="ptl-page ptl-ap-page">
-        {backBtn}
+      <div className="ptl-plr-embed">
         <div className="ptl-card ptl-plr-gate">
           <h2 className="ptl-card-title">Cohort access</h2>
           <p className="ptl-muted">Enter the cohort password provided by the ASPIRE team to open the request form for {cohortName}.</p>
@@ -324,11 +261,12 @@ function NewPlacementRequest({ schoolKey, submissionEnabled, onBack, onSubmitted
     )
   }
 
-  // Success confirmation with added / updated / skipped counts.
+  // Success confirmation with added / updated / skipped counts. No duplicate roster: the partner
+  // follows each student's status in the Students tab.
   if (result) {
     const n = (arr) => (arr || []).length
     return (
-      <div className="ptl-page ptl-ap-page">
+      <div className="ptl-plr-embed">
         <div className="ptl-card ptl-plr-form-card">
           <h2 className="ptl-card-title">Thank you.</h2>
           {n(result.added) > 0 && (
@@ -340,7 +278,7 @@ function NewPlacementRequest({ schoolKey, submissionEnabled, onBack, onSubmitted
           {n(result.skipped) > 0 && (
             <p className="ptl-plr-confirm ptl-muted"><b>{n(result.skipped)} skipped</b> (incomplete rows): {result.skipped.join(', ')}</p>
           )}
-          <button type="button" className="ptl-btn ptl-plr-back" onClick={onSubmitted}>Back to requests</button>
+          <button type="button" className="ptl-btn ptl-plr-back" onClick={onViewStudents}>View students and statuses</button>
         </div>
       </div>
     )
@@ -349,8 +287,7 @@ function NewPlacementRequest({ schoolKey, submissionEnabled, onBack, onSubmitted
   // gate === 'open': the shared-definition form. The submit control is enabled only when the server
   // reports submission is enabled (the provenance migration is applied); the server gates regardless.
   return (
-    <div className="ptl-page ptl-ap-page">
-      {backBtn}
+    <div className="ptl-plr-embed">
       <div className="ptl-card ptl-plr-form-card">
         <div className="ptl-plr-form-head">
           <h2 className="ptl-card-title">New Placement Request</h2>
