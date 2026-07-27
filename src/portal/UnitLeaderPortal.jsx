@@ -30,6 +30,7 @@ import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
 import { sortUnitLeaderStudentsByName } from './unit/unitLeaderStudentSort'
+import { unitCohortOptions, studentInCohort, UL_ALL } from './unit/unitCohortScope'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LoadingState, EmptyState, ErrorState, DeniedState,
@@ -103,6 +104,7 @@ function useEndpoint(loader, deps) {
 export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null }) {
   const { userProfile } = useAuth()
   const [unitKey, setUnitKey] = useState(ALL_UNITS)
+  const [cohortSel, setCohortSel] = useState(null)   // null => the resolved default (newest active)
 
   const roster = useEndpoint(getRoster, [])
   const units = useMemo(() => roster.data?.units || [], [roster.data])
@@ -117,6 +119,24 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
     const src = unitKey === ALL_UNITS ? units : units.filter(u => u.unit_key === unitKey)
     return src.flatMap(u => (u.students || []).map(s => ({ ...s, unit_key: u.unit_key })))
   }, [units, unitKey])
+
+  // Cohort context. Only Home and Students are genuinely cohort-scoped: the roster mixes cohorts, and a
+  // browser cohort choice NARROWS only within the already server-authorized set (it never widens it).
+  // Placement Requests and Capacity act on the single server-resolved accepting cohort; Evaluations,
+  // Preceptors, and Messages are not cohort-scoped, so no picker is offered there. The picker also
+  // appears only when the authorized roster actually spans more than one cohort (never cosmetic).
+  const UNIT_COHORT_SCOPED_VIEWS = ['home', 'students']
+  const cohortView = UNIT_COHORT_SCOPED_VIEWS.includes(view)
+  const { options: cohortOpts, defaultId: cohortDefault, currentIds: cohortCurrentIds, cohortCount } =
+    useMemo(() => unitCohortOptions(students), [students])
+  const cohortId = cohortOpts.some(o => o.id === cohortSel) ? cohortSel : cohortDefault
+  const cohortScopedStudents = useMemo(
+    () => (cohortView ? students.filter(s => studentInCohort(s, cohortId, cohortCurrentIds)) : students),
+    [cohortView, students, cohortId, cohortCurrentIds],
+  )
+  // "All Cohorts" applies no narrowing, so Home's shift-derived surfaces keep their exact current
+  // behavior; any narrower selection scopes them to the cohort's students too.
+  const cohortNarrowed = cohortView && cohortId !== UL_ALL
 
   // UL-PERF: warm the lazy calendar chunk as soon as an authorized Unit Leader mounts
   // the portal, so it downloads in parallel with the roster bootstrap instead of only
@@ -155,29 +175,44 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
   // row and shows the full authorized set, and Capacity has its own in-form unit picker,
   // so a page-level selector there was redundant and could conflict with the form.
   const UNIT_SCOPED_VIEWS = ['home', 'students', 'preceptors']
+  const showUnitPicker = unitKeys.length > 1 && UNIT_SCOPED_VIEWS.includes(view)
+  // The cohort picker is genuinely scoped (Home/Students) AND only when there is more than one cohort
+  // to choose between, so it is never a cosmetic global filter.
+  const showCohortPicker = cohortView && cohortCount > 1
 
   return (
     <div className="ptl-page ptl-unit-page">
-      {/* Unit scope lives in the persistent Nightfall header. A single-unit leader sees the unit in
-          the header subtitle (no page-level "Unit · X" row); a multi-unit leader gets an authorized
-          unit selector in the header, only on the unit-scoped views. */}
+      {/* Unit and cohort scope live in the persistent Nightfall header. A single-unit leader sees the
+          unit in the header subtitle (no page-level "Unit · X" row); a multi-unit leader gets an
+          authorized unit selector, only on the unit-scoped views. The cohort picker sits beside it on
+          the cohort-scoped views (Home, Students) when the roster spans multiple cohorts. */}
       {unitKeys.length === 1 && <PortalHeaderScope> · {unitKeys[0]}</PortalHeaderScope>}
-      {unitKeys.length > 1 && UNIT_SCOPED_VIEWS.includes(view) && (
+      {(showUnitPicker || showCohortPicker) && (
         <PortalHeaderControls>
-          <span className="ptl-header-ctl">
-            <span className="ptl-header-ctl-label">Viewing</span>
-            <select aria-label="Viewing units" value={unitKey} onChange={e => setUnitKey(e.target.value)}>
-              <option value={ALL_UNITS}>All Assigned Units</option>
-              {unitKeys.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </span>
+          {showUnitPicker && (
+            <span className="ptl-header-ctl">
+              <span className="ptl-header-ctl-label">Viewing</span>
+              <select aria-label="Viewing units" value={unitKey} onChange={e => setUnitKey(e.target.value)}>
+                <option value={ALL_UNITS}>All Assigned Units</option>
+                {unitKeys.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </span>
+          )}
+          {showCohortPicker && (
+            <span className="ptl-header-ctl">
+              <span className="ptl-header-ctl-label">Cohort</span>
+              <select aria-label="Cohort" value={cohortId} onChange={e => setCohortSel(e.target.value)}>
+                {cohortOpts.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </span>
+          )}
         </PortalHeaderControls>
       )}
 
-        {view === 'home'       && <HomeScreen {...shared} profile={userProfile} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
+        {view === 'home'       && <HomeScreen {...shared} students={cohortScopedStudents} cohortNarrowed={cohortNarrowed} profile={userProfile} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
         {view === 'placements' && <PlacementScreen {...shared} />}
         {view === 'capacity'   && <CapacityScreen {...shared} />}
-        {view === 'students'   && <StudentsScreen {...shared} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
+        {view === 'students'   && <StudentsScreen {...shared} students={cohortScopedStudents} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
         {view === 'evaluations' && (
           <Suspense fallback={<LoadingState label="Loading evaluations" />}>
             <UnitEvaluationsWorkspace unitKeys={unitKeys} />
@@ -206,7 +241,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
 }
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
-function HomeScreen({ unitKey, students, profile, acceptingCohort, onNavigate, onOpenThread, refreshRoster }) {
+function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, acceptingCohort, onNavigate, onOpenThread, refreshRoster }) {
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
   const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
@@ -223,7 +258,14 @@ function HomeScreen({ unitKey, students, profile, acceptingCohort, onNavigate, o
 
   const notifications = alerts.data?.notifications || []
   const shifts = activity.data?.shifts || []
-  const visibleShifts = unitKey === ALL_UNITS ? shifts : shifts.filter(shift => shift.unit_key === unitKey)
+  // Shift-derived surfaces (On Campus Now + the rotation calendar) follow the header cohort selection:
+  // when a specific cohort (or All Current) is active, they are narrowed to that cohort's students so
+  // Home stays internally consistent; "All Cohorts" applies no narrowing and keeps the prior behavior.
+  const scopedStudentIds = useMemo(() => new Set(students.map(s => s.id)), [students])
+  const unitShifts = unitKey === ALL_UNITS ? shifts : shifts.filter(shift => shift.unit_key === unitKey)
+  const visibleShifts = cohortNarrowed
+    ? unitShifts.filter(shift => scopedStudentIds.has(shift.student_id))
+    : unitShifts
   // A student currently checked in is the single most time-sensitive thing on this
   // screen, so it is promoted into the attention list rather than left to the grid.
   const onShiftNow = visibleShifts.filter(x => x.state === 'in_progress')

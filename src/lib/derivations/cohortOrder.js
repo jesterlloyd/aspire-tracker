@@ -56,3 +56,11 @@ export function orderCohortsByTimeline(cohorts) {
 export function currentCohorts(cohorts) {
   return orderCohortsByTimeline(cohorts).filter(c => cohortLifecycle(c) === 'current')
 }
+
+// The single newest cohort by start date (present dates before missing), or null. Used to pick a
+// "newest active" DEFAULT selection independent of the ascending display order within a group.
+export function newestByStart(cohorts) {
+  const list = Array.isArray(cohorts) ? cohorts.slice() : []
+  if (!list.length) return null
+  return list.sort(byStart('desc'))[0]
+}

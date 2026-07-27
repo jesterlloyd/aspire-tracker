@@ -86,7 +86,9 @@ test('AP submission options are accepting-only, timeline-ordered, and never incl
   assert.ok(!options.some(o => o.id === AP_ALL || o.id === AP_ALL_CURRENT))
 })
 
-test('the Academic Partner roster consumes the shared canonical helper', () => {
+test('the Academic Partner roster and the Unit Leader cohort scope both consume the shared helper', () => {
   const roster = read('src/portal/ap/academicPartnerRoster.js')
   assert.match(roster, /import \{ orderCohortsByTimeline \} from '\.\.\/\.\.\/lib\/derivations\/cohortOrder\.js'/)
+  const ulScope = read('src/portal/unit/unitCohortScope.js')
+  assert.match(ulScope, /from '\.\.\/\.\.\/lib\/derivations\/cohortOrder\.js'/)
 })
