@@ -837,6 +837,10 @@
   background: var(--cs-red, #DC1E34); color: #fff;
   font-size: 11.5px; font-weight: 700; line-height: 1.5; text-align: center;
 }
+/* Shared Refresh action: right-aligned at the end of the attached desktop nav row (margin-left:auto
+   pushes it past the tabs without shrinking them). Hidden on phones, where .ptl-nav is the fixed
+   bottom tab bar, exactly like the main app's .chart-nav-refresh. */
+.ptl-nav-refresh { margin-left: auto; display: inline-flex; align-items: center; flex-shrink: 0; }
 
 @media (max-width: 760px) {
   /* Phone: the nav becomes THE bottom bar. */
@@ -862,6 +866,8 @@
   }
   .ptl-nav-action { display: inline-flex; color: #fff; background: var(--ptl-navy); }
   .ptl-nav-action:hover { color: #fff; }
+  /* The nav row is the bottom tab bar on phones; Refresh is a desktop chrome affordance. */
+  .ptl-nav-refresh { display: none; }
 }
 
 /* ============================================================================

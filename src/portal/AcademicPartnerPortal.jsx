@@ -23,6 +23,7 @@ import { FilterKPICard } from '../components/KPIBand'
 import StatusPill from '../components/StatusPill'
 import StatusLegendPopover from '../components/StatusLegendPopover'
 import SortHeader from '../components/shared/SortHeader'
+import { useRegisterPortalRefresh } from './PortalRefresh'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
@@ -107,6 +108,10 @@ function StudentsView() {
   const lastVisitLine = useLastVisitLabel(userProfile?.id ? `aspire:lastVisit:portal:ap:${userProfile.id}` : null)
 
   const reload = useCallback(() => setReloadKey(k => k + 1), [])
+
+  // The shared portal Refresh re-fetches the school roster (and, through has_photo, re-primes secure
+  // photos). StudentsView is mounted only for the Students section, so registering on mount is enough.
+  useRegisterPortalRefresh(reload)
 
   useEffect(() => {
     let cancelled = false

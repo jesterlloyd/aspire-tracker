@@ -32,6 +32,7 @@ import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { composePortalEmail } from '../lib/outlookCompose'
 import { usePortalHeadshotUrl } from '../lib/useStudentFile'
 import { classifyStoredFileRef } from '../lib/studentFileClient'
+import { useRegisterPortalRefresh } from './PortalRefresh'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../lib/lastVisit'
 import EditProfileDrawer from './EditProfileDrawer'
@@ -71,7 +72,7 @@ function HomeSkeleton() {
 }
 
 export default function StudentPortal({
-  editOpen = false, onOpenEdit, onCloseEdit, onMobileAction,
+  active = true, editOpen = false, onOpenEdit, onCloseEdit, onMobileAction,
 }) {
   const { user } = useAuth()
   const loginEmail = user?.email || ''
@@ -165,6 +166,10 @@ export default function StudentPortal({
   }
 
   useEffect(() => { let c = false; load().then(() => { if (c) return }); return () => { c = true } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The shared portal Refresh re-fetches Home's data. Registered only while Home is the active
+  // surface, since the Student portal keeps Home and Messages mounted (display-toggled).
+  useRegisterPortalRefresh(load, active)
 
   const students = summary?.students || []
   const student = students.find(s => s.id === activeId) || students[0] || null

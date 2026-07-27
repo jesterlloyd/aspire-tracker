@@ -11,6 +11,7 @@
 
 import { MessageSquare, Home, CalendarPlus, Award } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
+import { PortalNavRefresh } from './PortalRefresh'
 
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
@@ -67,6 +68,9 @@ export default function PortalNav({ view, unread = 0, onHome, onMessages, action
           </button>
         )
       )}
+
+      {/* Right-aligned shared Refresh (desktop only; hidden in the phone bottom bar). */}
+      <PortalNavRefresh tooltipLabel="Refresh" />
     </nav>
   )
 }

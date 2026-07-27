@@ -20,6 +20,7 @@ import PortalNewMessageDrawer from './PortalNewMessageDrawer'
 import PortalReplyComposer from './PortalReplyComposer'
 import { markPortalConversationRead } from '../../lib/messages/portalMessagesApiClient'
 import { portalThreadQueryKey } from '../../lib/messages/portalThreadState'
+import { useRegisterPortalRefresh } from '../PortalRefresh'
 import {
   PORTAL_ACTIVE_POLL_MS, usePortalIsNarrow, usePortalUnreadCount,
 } from '../../lib/messages/portalMessagesPolling'
@@ -78,6 +79,15 @@ export default function PortalMessagesWorkspace({
   const refreshThread = useCallback((id) => {
     if (id) qc.invalidateQueries({ queryKey: portalThreadQueryKey(id) })
   }, [qc])
+
+  // The shared portal Refresh re-fetches the inbox (and the open thread, if any). Registered only
+  // while Messages is the active surface, since the Student portal keeps it mounted (display-toggled).
+  const manualRefresh = useCallback(() => Promise.all([
+    qc.invalidateQueries({ queryKey: ['portal_messages_list'] }),
+    qc.invalidateQueries({ queryKey: ['portal_messages_unread'] }),
+    selectedId ? qc.invalidateQueries({ queryKey: portalThreadQueryKey(selectedId) }) : null,
+  ]), [qc, selectedId])
+  useRegisterPortalRefresh(manualRefresh, active)
 
   // Mark read only on an authoritative newest-page render, and only for the
   // conversation still selected. Never on an older-page load, never on hover,

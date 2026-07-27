@@ -7,6 +7,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, ExternalLink, Pencil, UserRound, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { PortalRefreshProvider } from './PortalRefresh'
 
 function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
@@ -78,33 +79,38 @@ export default function PortalShell({
   // like the main app. On phones the nav is a fixed bottom bar, so the wrapper then holds only the
   // header (the nav positions itself away), and the shadow falls under the header.
   const chromeClass = `ptl-topsection${nightfall ? ' ptl-topsection-nightfall' : ''}`
+  // The shared Refresh action lives in the nav row and re-fetches the active section's data. The
+  // provider wraps both the nav (which renders the button) and the children (where each active
+  // section registers its refetch), so any portal that passes a nav gets Refresh for free.
   return (
-    <div className={`ptl-page${withTabBar ? ' ptl-page-tabbar' : ''}`}>
-      <div className={chromeClass}>
-        <header className={headerClass}>
-          <div className="ptl-header-brand">
-            <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
-            <span className="ptl-header-divider" aria-hidden="true" />
-            <div className="ptl-header-title">
-              <span className="ptl-header-aspire">ASPIRE</span>
-              <span className="ptl-header-sub">{title}</span>
+    <PortalRefreshProvider>
+      <div className={`ptl-page${withTabBar ? ' ptl-page-tabbar' : ''}`}>
+        <div className={chromeClass}>
+          <header className={headerClass}>
+            <div className="ptl-header-brand">
+              <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
+              <span className="ptl-header-divider" aria-hidden="true" />
+              <div className="ptl-header-title">
+                <span className="ptl-header-aspire">ASPIRE</span>
+                <span className="ptl-header-sub">{title}</span>
+              </div>
             </div>
-          </div>
-          <div className="ptl-header-user">
-            {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
-                widths, opt-in per portal so student behavior is unchanged. */}
-            {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
-            <ProfileMenu userName={userName} profileImageUrl={profileImageUrl}
-              onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
-          </div>
-        </header>
-        {nav}
+            <div className="ptl-header-user">
+              {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
+                  widths, opt-in per portal so student behavior is unchanged. */}
+              {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
+              <ProfileMenu userName={userName} profileImageUrl={profileImageUrl}
+                onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
+            </div>
+          </header>
+          {nav}
+        </div>
+        {utilityLayer}
+        <main className="ptl-main">{children}</main>
+        <footer className="ptl-footer">
+          ASPIRE, Geri and Richard Brawerman Nursing Institute, Cedars-Sinai
+        </footer>
       </div>
-      {utilityLayer}
-      <main className="ptl-main">{children}</main>
-      <footer className="ptl-footer">
-        ASPIRE, Geri and Richard Brawerman Nursing Institute, Cedars-Sinai
-      </footer>
-    </div>
+    </PortalRefreshProvider>
   )
 }

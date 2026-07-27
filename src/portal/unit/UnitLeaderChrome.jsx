@@ -18,6 +18,7 @@ import {
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 import { ALL_UNITS } from './unitLeaderApi'
 import SegmentedTabs from '../../components/ui/SegmentedTabs'
+import { PortalNavRefresh } from '../PortalRefresh'
 
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
@@ -153,6 +154,8 @@ export function UnitLeaderNav({ view, unread = 0, onNavigate }) {
           <MoreHorizontal size={16} aria-hidden="true" />
           <span className="ptl-nav-label">More</span>
         </button>
+        {/* Right-aligned shared Refresh (desktop only; hidden in the phone bottom bar). */}
+        <PortalNavRefresh tooltipLabel="Refresh" />
       </nav>
       {moreOpen && (
         <MoreSheet view={view} returnFocusRef={moreBtnRef}

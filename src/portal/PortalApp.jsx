@@ -188,6 +188,7 @@ export default function PortalApp() {
         )}>
         <div style={{ display: studentView === 'home' ? 'block' : 'none' }}>
           <StudentPortal
+            active={studentView === 'home'}
             editOpen={editOpen}
             onOpenEdit={() => setEditOpen(true)}
             onCloseEdit={() => setEditOpen(false)}

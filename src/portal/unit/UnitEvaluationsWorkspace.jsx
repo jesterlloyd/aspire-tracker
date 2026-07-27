@@ -24,6 +24,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SectionHeading, LoadingState, ErrorState } from './UnitLeaderChrome'
 import { ALL_UNITS, getUnitEvaluations } from './unitLeaderApi'
+import { useRegisterPortalRefresh } from '../PortalRefresh'
 import {
   APPROVED_UL_INSTRUMENTS, UL_TIMEPOINTS, instrumentLabel, instrumentMetricPaths,
   NO_APPROVED_METRICS_MESSAGE,
@@ -85,6 +86,8 @@ export default function UnitEvaluationsWorkspace({ unitKeys = [] }) {
   const setTimepointFilter = (v) => { setLoading(true); setModalRow(null); setTimepoint(v) }
   const setUnitFilter = (v) => { setLoading(true); setModalRow(null); setLocalUnit(v) }
   const reload = () => { setLoading(true); reqId.current++; setTimepoint(t => t) }
+  // The shared portal Refresh re-fetches the released evaluation results for the current selection.
+  useRegisterPortalRefresh(reload)
 
   const payload = byInstrument?.[instrument] || null
   const metricPaths = instrumentMetricPaths(instrument)

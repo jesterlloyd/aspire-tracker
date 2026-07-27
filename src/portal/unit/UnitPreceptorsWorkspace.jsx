@@ -4,6 +4,7 @@ import {
 } from './UnitLeaderChrome'
 import PreceptorDirectoryTable from '../../components/shared/PreceptorDirectoryTable'
 import { sortPreceptorDirectoryRows } from '../../lib/preceptorDirectory'
+import { useRegisterPortalRefresh } from '../PortalRefresh'
 import UnitPreceptorCreateModal from './UnitPreceptorCreateModal'
 import UnitLeaderPreceptorManager from './UnitLeaderPreceptorManager'
 import {
@@ -51,6 +52,9 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
   const loadHistory = useCallback(signal => getNominations(unitKey, signal), [unitKey])
   const preceptors = useResource(loadPreceptors)
   const history = useResource(loadHistory)
+  // The shared portal Refresh re-fetches the preceptor directory and its nomination history. No-op
+  // when this workspace is rendered outside a portal (the hook needs the portal refresh provider).
+  useRegisterPortalRefresh(() => Promise.all([preceptors.refresh(), history.refresh()]))
   const [search, setSearch] = useState('')
   const [shift, setShift] = useState('all')
   const [active, setActive] = useState('active')

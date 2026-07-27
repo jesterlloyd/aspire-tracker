@@ -9,6 +9,7 @@
 // Partner Messages backend is not authorized yet, so no unread is polled.
 
 import { Users, ClipboardList, MessageSquare } from 'lucide-react'
+import { PortalNavRefresh } from '../PortalRefresh'
 
 // Product order, not alphabetical. Module-local (exporting a non-component from a
 // component module breaks fast refresh), consumed only by AcademicPartnerNav.
@@ -39,6 +40,8 @@ export function AcademicPartnerNav({ view, onNavigate }) {
           <span className="ptl-nav-label">{label}</span>
         </button>
       ))}
+      {/* Right-aligned shared Refresh (desktop only; hidden in the phone bottom bar). */}
+      <PortalNavRefresh tooltipLabel="Refresh" />
     </nav>
   )
 }

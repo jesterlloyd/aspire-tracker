@@ -104,7 +104,7 @@ test('Message the ASPIRE Team lives inside Messages and opens from the concern l
 })
 
 test('/portal/unit/students renders the same roster module Home embeds', () => {
-  assert.match(portalCode, /function StudentsScreen\(props\) \{\s*return <StudentRoster \{\.\.\.props\} \/>/)
+  assert.match(portalCode, /function StudentsScreen\(props\) \{[\s\S]*?return <StudentRoster \{\.\.\.props\} \/>/)
   assert.match(portalCode, /<StudentRoster[\s\S]{0,200}heading="Your students"/,
     'Home embeds the same module')
 })

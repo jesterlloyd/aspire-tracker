@@ -47,7 +47,9 @@ test('Placement Requests shows the full authorized set and keeps its per-row Uni
 
 test('Capacity depends only on its own in-form unit picker, not a page-level selector', () => {
   const cap = sliceFn('CapacityScreen', 'HoursCell')
-  assert.match(cap, /function CapacityScreen\(\{ unitKeys, acceptingCohort \}\)/)
+  // refreshRoster is the shared-Refresh refetch callback, not a scope input; scope still comes only
+  // from the in-form unit picker (asserted below).
+  assert.match(cap, /function CapacityScreen\(\{ unitKeys, acceptingCohort, refreshRoster \}\)/)
   // \b guards against a false positive on "unitKeys" (the authorized list, which is fine).
   assert.ok(!/\bunitKey\b/.test(cap), 'Capacity must not read a page-level unitKey')
   assert.match(cap, /const initialUnit = singleUnit \? assignedUnits\[0\] : ''/)

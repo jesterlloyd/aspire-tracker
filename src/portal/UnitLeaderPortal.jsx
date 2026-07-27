@@ -16,6 +16,7 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
+import { useRegisterPortalRefresh } from './PortalRefresh'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { useLastVisitLabel } from '../lib/lastVisit'
@@ -201,6 +202,12 @@ function HomeScreen({ unitKey, students, profile, acceptingCohort, onNavigate, o
   const activity = useEndpoint(s => getShiftActivity({}, s), [])
   const [dayOpen, setDayOpen] = useState(null)   // { ymd, shifts }
 
+  // The shared portal Refresh re-fetches Home's three data paths: the roster (identity/hours), the
+  // in-app feed, and the rotation calendar activity.
+  useRegisterPortalRefresh(() => Promise.all([
+    refreshRoster?.(), alerts.refresh(), activity.refresh(),
+  ]))
+
   const notifications = alerts.data?.notifications || []
   const shifts = activity.data?.shifts || []
   const visibleShifts = unitKey === ALL_UNITS ? shifts : shifts.filter(shift => shift.unit_key === unitKey)
@@ -343,6 +350,8 @@ function PlacementScreen() {
   // column. ALL_UNITS omits the unit filter, so the server returns exactly the caller's
   // authorized set; it never widens scope.
   const { loading, error, data, loadedAt, refresh } = useEndpoint(s => getPlacementRequests(ALL_UNITS, s), [])
+  // The shared portal Refresh re-fetches the placement-requests list (this screen's data path).
+  useRegisterPortalRefresh(refresh)
   const [busy, setBusy] = useState(null)
   const [notice, setNotice] = useState(null)
   // UL-POLISH P0: the change-request comment is an inline editor beneath the
@@ -499,7 +508,10 @@ function PlacementRow({ r, busy, now, editorOpen, changing, onStartChanging, onS
  * assigned units for a multi-unit leader; the endpoint independently rejects any unit
  * outside the caller's active scope.
  */
-function CapacityScreen({ unitKeys, acceptingCohort }) {
+function CapacityScreen({ unitKeys, acceptingCohort, refreshRoster }) {
+  // Capacity submits availability; its data path is the accepting cohort, derived from the roster.
+  // The shared Refresh re-fetches the roster (the form's own draft state is untouched).
+  useRegisterPortalRefresh(refreshRoster)
   const assignedUnits = unitKeys || []
   const singleUnit = assignedUnits.length === 1
   // The form's own unit picker is the only unit selection that matters for submission,
@@ -908,6 +920,8 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
  * Home embeds, so a bookmark or an emailed link still works.
  */
 function StudentsScreen(props) {
+  // The roster IS this screen's data path; the shared Refresh re-fetches it.
+  useRegisterPortalRefresh(props.refreshRoster)
   return <StudentRoster {...props} />
 }
 
@@ -1124,6 +1138,8 @@ function ConcernScreen({ students }) {
 // ── Profile and unit context ────────────────────────────────────────────────
 function ProfileScreen({ unitKeys, profile }) {
   const prefs = useEndpoint(s => getNotifications(null, s), [])
+  // The shared portal Refresh re-fetches this screen's notification preferences.
+  useRegisterPortalRefresh(prefs.refresh)
   const [rows, setRows] = useState(null)
   const [notice, setNotice] = useState(null)
 
