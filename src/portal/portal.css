@@ -986,6 +986,9 @@
 .ptl-plr-confirm { margin: 8px 0 0; line-height: 1.5; }
 /* The submission flow is embedded inside the Placement Requests page (not a full-page replacement). */
 .ptl-plr-embed { display: flex; flex-direction: column; gap: 16px; }
+/* The cohort-access gate is centered in the workspace (below the page heading + Nightfall header),
+   converging with the public /school-form access card. Once access succeeds the form uses full width. */
+.ptl-plr-gate-center { display: flex; justify-content: center; padding: 32px 16px 48px; }
 @media (max-width: 640px) {
   .ptl-plr-row-2, .ptl-plr-row-3 { grid-template-columns: 1fr; }
 }

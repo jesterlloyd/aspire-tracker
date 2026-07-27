@@ -1421,6 +1421,29 @@ body { min-height: 100vh; }
 .uf-card { background: var(--pearl); border-radius: 8px; padding: 40px; width: 100%; max-width: 640px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border-top: 3px solid var(--nightfall); }
 .uf-card-confirm { text-align: center; padding: 56px 40px; }
 .uf-logo   { display: block; margin-bottom: 24px; }
+
+/* Shared cohort-password access card (CohortAccessCard): the public /school-form gate and the
+   authenticated Academic Partner Placement Requests gate render the same centered, constrained card. */
+.cohort-access-card {
+  width: 100%; max-width: 440px; box-sizing: border-box; text-align: center;
+  background: var(--pearl); border-radius: 8px; padding: 48px 40px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); border-top: 3px solid var(--nightfall);
+}
+.cohort-access-title { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 22px; color: var(--nightfall); margin: 0 0 10px; line-height: 1.3; }
+.cohort-access-intro { font-family: 'DM Sans', sans-serif; font-weight: 400; font-size: 14px; color: var(--text-secondary, #6b7280); line-height: 1.6; margin: 0 0 24px; }
+.cohort-access-form { display: flex; flex-direction: column; }
+.cohort-access-input {
+  width: 100%; height: 52px; font-size: 16px; padding: 0 14px; border-radius: 12px;
+  border: 1px solid #e5e7eb; font-family: 'DM Sans', sans-serif; outline: none;
+  box-sizing: border-box; margin-bottom: 8px;
+}
+.cohort-access-input.is-error { border-color: var(--cs-red, #dc1e34); }
+.cohort-access-error { font-size: 14px; color: var(--cs-red, #dc1e34); margin: 0 0 12px; font-family: 'DM Sans', sans-serif; text-align: left; }
+.cohort-access-submit {
+  width: 100%; height: 52px; font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+  background: var(--nightfall); color: #fff; border: none; border-radius: 12px; cursor: pointer;
+}
+.cohort-access-submit:disabled { opacity: 0.6; cursor: default; }
 .uf-header { margin-bottom: 32px; }
 .uf-title  { font-size: 22px; font-weight: 700; color: var(--nightfall); margin-bottom: 10px; line-height: 1.3; }
 .uf-cohort-badge { display: inline-block; background: var(--marina); color: var(--nightfall); font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 20px; margin-bottom: 12px; }

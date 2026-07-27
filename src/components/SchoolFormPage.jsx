@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import CohortAccessCard from './CohortAccessCard'
 import { toLocalDateStr } from '../lib/designTokens'
 import { toggleWeekday, isValidIsoDate } from '../lib/availability'
 import {
@@ -168,17 +169,21 @@ export default function SchoolFormPage() {
   )
 
   // ── State: Password ────────────────────────────────────────────────────────
+  // The centered access card is the shared CohortAccessCard (converged with the authenticated Academic
+  // Partner gate). The full-screen .uf-page shell + Cedars-Sinai logo stay here, on the public page
+  // only; the verify RPC and page-state transition are unchanged.
   if (pageState === 'password') return (
     <div className="uf-page">
-      <div className="uf-card" style={{ textAlign: 'center', padding: '48px 40px', maxWidth: 440 }}>
-        <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-        <h2 style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 22,
-          color: 'var(--nightfall)', margin: '0 0 10px' }}>School Coordinator Access</h2>
-        <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 14,
-          color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
-          Please enter the cohort password provided by the ASPIRE team.
-        </p>
-        <form onSubmit={async e => {
+      <CohortAccessCard
+        logo={<img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />}
+        title="School Coordinator Access"
+        intro="Please enter the cohort password provided by the ASPIRE team."
+        value={pwdInput}
+        onChange={e => { setPwdInput(e.target.value); setPwdError(null) }}
+        error={pwdError}
+        busy={pwdChecking}
+        submitLabel="Access Form"
+        onSubmit={async e => {
           e.preventDefault()
           if (!pwdInput.trim()) return
           setPwdChecking(true)
@@ -196,27 +201,8 @@ export default function SchoolFormPage() {
             setPwdError('Unable to verify at this time. Please try again.')
           }
           setPwdChecking(false)
-        }}>
-          <input type="password" value={pwdInput}
-            onChange={e => { setPwdInput(e.target.value); setPwdError(null) }}
-            placeholder="Enter cohort password"
-            style={{ width: '100%', height: 52, fontSize: 16, padding: '0 14px', borderRadius: 12,
-              border: `1px solid ${pwdError ? '#dc1e34' : '#e5e7eb'}`,
-              fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
-            autoFocus />
-          {pwdError && (
-            <p style={{ fontSize: 14, color: '#dc1e34', margin: '0 0 12px',
-              fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>{pwdError}</p>
-          )}
-          <button type="submit" disabled={pwdChecking || !pwdInput.trim()}
-            style={{ width: '100%', height: 52, fontSize: 15, fontWeight: 700,
-              fontFamily: 'DM Sans, sans-serif',
-              background: 'var(--nightfall)', color: '#fff',
-              border: 'none', borderRadius: 12, cursor: 'pointer' }}>
-            {pwdChecking ? 'Verifying…' : 'Access Form'}
-          </button>
-        </form>
-      </div>
+        }}
+      />
     </div>
   )
 

@@ -17,6 +17,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from '../unit/UnitLeaderChrome'
+import CohortAccessCard from '../../components/CohortAccessCard'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from '../PortalHeaderSlots'
 import { getSchoolPlacementRequests, submitSchoolPlacementRequest } from './academicPartnerApi'
@@ -239,24 +240,25 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
     else setFormError('That request could not be submitted right now. Your entries are preserved; please try again.')
   }
 
-  if (gate === 'checking') return <LoadingState label="Preparing the request form" />
+  // The gate is centered in the workspace (below the page heading), converging with the public
+  // /school-form access card via the shared CohortAccessCard. Both the checking and the
+  // verifying/invalid-password states stay in this centered position.
+  if (gate === 'checking') {
+    return <div className="ptl-plr-gate-center"><LoadingState label="Preparing the request form" /></div>
+  }
   if (gate === 'password') {
     return (
-      <div className="ptl-plr-embed">
-        <div className="ptl-card ptl-plr-gate">
-          <h2 className="ptl-card-title">Cohort access</h2>
-          <p className="ptl-muted">Enter the cohort password provided by the ASPIRE team to open the request form for {cohortName}.</p>
-          <form onSubmit={verifyPassword} className="ptl-plr-gate-form">
-            <input type="password" className="ptl-input ptl-input-full" value={pwdInput}
-              onChange={e => { setPwdInput(e.target.value); setPwdError(null) }}
-              placeholder="Enter cohort password" autoFocus
-              style={pwdError ? { borderColor: 'var(--cs-red, #dc1e34)' } : undefined} />
-            {pwdError && <p className="ptl-plr-gate-error" role="alert">{pwdError}</p>}
-            <button type="submit" className="ptl-btn" disabled={pwdChecking || !pwdInput.trim()}>
-              {pwdChecking ? 'Verifying…' : 'Access form'}
-            </button>
-          </form>
-        </div>
+      <div className="ptl-plr-gate-center">
+        <CohortAccessCard
+          title="School Coordinator Access"
+          intro={<>Enter the cohort password provided by the ASPIRE team to open the request form for {cohortName}.</>}
+          value={pwdInput}
+          onChange={e => { setPwdInput(e.target.value); setPwdError(null) }}
+          onSubmit={verifyPassword}
+          error={pwdError}
+          busy={pwdChecking}
+          submitLabel="Access Form"
+        />
       </div>
     )
   }
