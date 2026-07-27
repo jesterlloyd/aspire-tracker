@@ -23,6 +23,7 @@ const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/g
 const roster = stripJs(read('api/portal/school-students.js'))     // AP roster endpoint
 const scope = stripJs(read('api/lib/schoolScope.js'))             // shared AP authorization + scope
 const photo = stripJs(read('api/portal/school-student-file-access.js')) // secure photo endpoint
+const placement = stripJs(read('api/portal/school-placement-requests.js')) // placement request list + gated submit
 const portalRaw = read('src/portal/AcademicPartnerPortal.jsx')
 const portal = stripJs(portalRaw)                                 // AP roster UI
 const hook = stripJs(read('src/portal/ap/useSchoolStudentPhotos.js'))   // client photo prefetch
@@ -82,12 +83,14 @@ test('evaluation exposure stays counts-only (no evaluation content)', () => {
 // The roster and the photo endpoint both authorize through this one module, so a photo can never be
 // signed on a different rule than the roster it appears in.
 
-test('the roster and the photo endpoint share ONE authorization + scope implementation', () => {
-  // Neither endpoint re-implements the scope query; both call the shared helpers.
-  for (const [name, s] of [['roster', roster], ['photo', photo]]) {
+test('the roster, photo, and placement endpoints share ONE authorization + scope implementation', () => {
+  // No endpoint re-implements the scope query; all call the shared helpers, so a placement request
+  // is authorized on exactly the same rule (and same student set) as the roster.
+  for (const [name, s] of [['roster', roster], ['photo', photo], ['placement', placement]]) {
     assert.match(s, /verifyPortalAcademicPartnerCaller\(req\)/, `${name} verifies via the shared helper`)
     assert.match(s, /resolveSchoolScopedStudents\(db, scopes,/, `${name} resolves scope via the shared helper`)
     assert.doesNotMatch(s, /\.from\('user_school_scopes'\)/, `${name} does not re-read scopes inline`)
+    assert.doesNotMatch(s, /req\.query|req\.params/, `${name} never reads scope from the request`)
   }
 })
 
@@ -202,4 +205,47 @@ test('sorting and filtering are unchanged; the photo prefetch keys off the roste
   // so changing sort or filter never re-signs photos.
   assert.match(portalRaw, /useSchoolStudentPhotos\(roster\)/)
   assert.doesNotMatch(portalRaw, /useSchoolStudentPhotos\(rows\)/)
+})
+
+// ── Placement request list endpoint (api/portal/school-placement-requests.js) ─────────────────────
+
+test('the placement-request list selects a public-safe allowlist and no confidential field', () => {
+  // The request list may show identity, cohort, status, rotation dates, unit, preceptor, hours, and
+  // the submission timestamp. It must never select or return a confidential field.
+  for (const col of ['id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
+    'school', 'status', 'matched_unit_id', 'preceptor_name',
+    'hours_required', 'approved_hours', 'pending_hours', 'created_at', 'cohort_school_rotation_id']) {
+    assert.match(placement, new RegExp(`'${col}'`), `placement list must select ${col}`)
+  }
+  for (const forbidden of [
+    'support_needed', 'learning_highlight', 'admin_notes', 'reviewed_by', 'review_reason',
+    'exception_flags', 'unit_override_reason', 'preceptor_override_note',
+    'interview_outcome', 'interview_notes', 'rubric', 'ngrp', 'disposition',
+    'gpa_verified', 'cumulative_gpa', 'bls_current', 'health_cleared', 'background_check',
+    'ssn', 'date_of_birth', 'personal_email', 'headshot_url', 'resume_url',
+    'changes_requested', 'unit_comment', 'unit_response',
+  ]) {
+    assert.ok(!placement.includes(forbidden), `placement endpoint must not reference ${forbidden}`)
+  }
+  // Rotation dates come from the coordinator-owned rotation row, not any private student field.
+  assert.match(placement, /\.from\('cohort_school_rotations'\)/)
+  assert.match(placement, /rotation_start_date, rotation_end_date/)
+})
+
+test('the placement-request list evaluation/interview surface is absent (no scores or content)', () => {
+  assert.doesNotMatch(placement, /evaluation_assignments|response_json|answers|score|rubric|interview/)
+  // No Needs Clarification / Unit Leader changes_requested is exposed to the Academic Partner.
+  assert.doesNotMatch(placement, /Needs Clarification|changes_requested/)
+})
+
+test('placement submission is fail-closed on the provenance gate, AFTER the auth chain, with no write', () => {
+  // Method allowlist is GET + POST only; an empty scope returns an empty list (GET).
+  assert.match(placement, /req\.method !== 'GET' && req\.method !== 'POST'/)
+  assert.match(placement, /if \(scopes\.length === 0\) return res\.status\(200\)\.json\(\{ schools: \[\] \}\)/)
+  // The auth chain runs BEFORE the POST gate, so an unauthorized caller is rejected first.
+  assert.match(placement, /verifyPortalAcademicPartnerCaller\(req\)[\s\S]*if \(req\.method === 'POST'\)/)
+  assert.match(placement, /submission_not_enabled/)
+  assert.match(placement, /provenance_pending_migration/)
+  // The endpoint performs no student write in this phase.
+  assert.doesNotMatch(placement, /\.insert\(|\.update\(|\.upsert\(/)
 })
