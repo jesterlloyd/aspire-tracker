@@ -193,9 +193,12 @@ test('P1-11: the Students table identity, hours bar', async (t) => {
     assert.ok(!portal.includes('function StudentActions'))
     assert.ok(!portal.includes('ptl-stu-rowbtn'), 'the row-button list markup is superseded by a table')
   })
-  await t.test('hours render as a mini progress bar with the exact numbers', () => {
+  await t.test('hours render as a mini progress bar with the exact (uncapped) numbers', () => {
     assert.match(portal, /ptl-mini-progress/)
-    assert.match(portal, /aria-label=\{`\$\{approved\} of \$\{hours\.required\} required hours approved`\}/)
+    // The aria-label now also announces "Hours complete" when the requirement is met; the numbers stay
+    // uncapped (approved of the raw required, e.g. 192 of 144).
+    assert.match(portal, /aria-label=\{`\$\{c\.approved\} of \$\{hours\.required\} required hours approved\$\{c\.complete \? '\. Hours complete' : ''\}`\}/)
+    assert.match(portal, /<span className="ptl-hours-text">\{c\.approved\} of \{hours\.required\}<\/span>/)
   })
 })
 

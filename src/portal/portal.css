@@ -1606,6 +1606,23 @@ img.ptl-detail-photo {
 }
 .ptl-mini-progress i { display: block; height: 100%; border-radius: 999px; background: var(--ptl-navy, #1D2567); }
 .ptl-hours-text { font-size: 12.5px; color: #4b5265; font-variant-numeric: tabular-nums; }
+/* Hours completion (approved >= required). Reuses the canonical portal "complete" green
+   (#16a34a / #e7f4ec / #14532d, as the Next Steps timeline), not a new status color system.
+   Hours completion is NOT lifecycle completion; the status pill stays Active Rotation. */
+.ptl-hours-complete {
+  display: inline-flex; align-items: center; align-self: start; gap: 4px;
+  font-size: 11px; font-weight: 600; color: #14532d;
+  background: #e7f4ec; border-radius: 999px; padding: 1px 8px;
+}
+.ptl-hours-complete::before { content: '✓'; color: #16a34a; font-weight: 700; }
+.ptl-hours-note { font-size: 11px; color: #6b7280; line-height: 1.4; }
+/* Derived, display-only readiness signal: rotation end reached, requirement met, still Active
+   Rotation. Amber attention treatment (matches the portal's pending/attention language). */
+.ptl-ready-complete {
+  display: inline-flex; align-items: center; align-self: start;
+  font-size: 11px; font-weight: 700; color: #92400e;
+  background: #fef3c7; border: 1px solid #fcd34d; border-radius: 999px; padding: 1px 8px;
+}
 .ptl-ochips { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-left: 6px; vertical-align: middle; }
 .ptl-ochip {
   font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px;

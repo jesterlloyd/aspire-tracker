@@ -32,6 +32,7 @@ import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
 import { sortUnitLeaderStudentsByName } from './unit/unitLeaderStudentSort'
 import { unitCohortOptions, studentInCohort, UL_ALL } from './unit/unitCohortScope'
+import { deriveHoursCompletion } from './unit/hoursCompletion'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LoadingState, EmptyState, ErrorState, DeniedState,
@@ -794,18 +795,39 @@ function CapacityScreen({ unitKeys, acceptingCohort, refreshRoster }) {
 
 // ── Students ────────────────────────────────────────────────────────────────
 
-/** UL-POLISH P1: hours as a mini progress bar plus the exact numbers. */
-function HoursCell({ hours }) {
+/**
+ * UL-POLISH P1: hours as a mini progress bar plus the exact numbers.
+ *
+ * Hours completion is NOT lifecycle completion. A student can reach or exceed the required hours
+ * before the scheduled rotation end date; when that happens the numbers stay UNCAPPED (e.g. 192 of
+ * 144) and a "Hours complete" indicator appears, but the lifecycle status stays Active Rotation.
+ * There is no automatic Active Rotation -> Completed transition in the system (the only writer is a
+ * manual Owner/Admin action; see the handoff), so:
+ *   - while the canonical rotation end date is still in the FUTURE, a helper note explains the rotation
+ *     remains active through that date;
+ *   - once the end date is TODAY/PAST with the requirement met and the status still Active Rotation, a
+ *     DERIVED, DISPLAY-ONLY "Ready to complete" signal flags the student for the manual completion.
+ * This cell never changes any status; the signal is computed from roster data already present.
+ */
+function HoursCell({ hours, rotationEnd = null, todayYmd = null, status = null }) {
   if (!hours || hours.required == null) return EMPTY
-  const approved = hours.approved ?? 0
-  const pct = hours.required > 0 ? Math.min(100, Math.round((approved / hours.required) * 100)) : 0
+  const c = deriveHoursCompletion({ hours, rotationEnd, todayYmd, status })
+  const pct = c.validReq ? Math.min(100, Math.round((Math.max(0, c.approved) / c.required) * 100)) : 0
   return (
     <span className="ptl-hours-cell">
       <span className="ptl-mini-progress" role="img"
-        aria-label={`${approved} of ${hours.required} required hours approved`}>
+        aria-label={`${c.approved} of ${hours.required} required hours approved${c.complete ? '. Hours complete' : ''}`}>
         <i style={{ width: `${pct}%` }} />
       </span>
-      <span className="ptl-hours-text">{approved} of {hours.required}</span>
+      {/* The numbers are never capped at the requirement: overage stays visible (e.g. 192 of 144). */}
+      <span className="ptl-hours-text">{c.approved} of {hours.required}</span>
+      {c.complete && <span className="ptl-hours-complete">Hours complete</span>}
+      {c.endFuture && (
+        <span className="ptl-hours-note">
+          Required approved hours reached. Rotation remains active through {fmtShortDate(rotationEnd)}.
+        </span>
+      )}
+      {c.readyToComplete && <span className="ptl-ready-complete" role="status">Ready to complete</span>}
     </span>
   )
 }
@@ -843,6 +865,10 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
     () => sortUnitLeaderStudentsByName(students, nameSortDir),
     [students, nameSortDir],
   )
+  // A stable local "today" (YYYY-MM-DD), read once on mount (not during render), used to compare each
+  // student's canonical rotation end date against now for the hours-complete helper and the derived
+  // "Ready to complete" signal. Frozen for the life of the mounted roster, like the Home masthead date.
+  const todayYmd = useMemo(() => new Date().toLocaleDateString('en-CA'), [])
 
   const openDetail = (student, triggerEl) => {
     detailTriggerRef.current = triggerEl || null
@@ -935,6 +961,7 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
                   key={s.id}
                   student={s}
                   photoUrl={photos.peek(s.id)}
+                  todayYmd={todayYmd}
                   busy={busy}
                   open={openActions === s.id}
                   onToggleActions={() => setOpenActions(openActions === s.id ? null : s.id)}
@@ -997,7 +1024,7 @@ function StudentsScreen(props) {
  * button is invalid HTML and resolves unpredictably.
  */
 function StudentRow({
-  student: s, photoUrl, busy, open, onToggleActions, onCloseActions, onOpen, onMessage, onManage,
+  student: s, photoUrl, todayYmd = null, busy, open, onToggleActions, onCloseActions, onOpen, onMessage, onManage,
 }) {
   const status = statusToken(s.status)
   const rot = s.rotation ? `${fmtShortDate(s.rotation.start)} to ${fmtShortDate(s.rotation.end)}` : EMPTY
@@ -1037,7 +1064,7 @@ function StudentRow({
       <td data-label="Shift">{s.shift || 'Not assigned'}</td>
       <td data-label="Rotation">{rot}</td>
       <td data-label="Cohort">{orDash(s.cohort?.name)}</td>
-      <td data-label="Hours"><HoursCell hours={s.hours} /></td>
+      <td data-label="Hours"><HoursCell hours={s.hours} rotationEnd={s.rotation?.end} todayYmd={todayYmd} status={s.status} /></td>
       <td data-label="Actions" className="ptl-stu-actioncell"
         onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         {/* The menu renders through document.body so the table overflow cannot clip it.
