@@ -10,14 +10,25 @@
 // Never hard-deletes: "archive" sets status='archived'. created_by/updated_by are the caller's
 // user_profiles.id. Generic error messages; best-effort activity_logs audit.
 
+/* global process */
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Kept in sync with src/lib/aspireEvents.js (api/ imports don't resolve safely at the Vercel runtime).
-const EVENT_TYPES = ['ngrp_open','ngrp_deadline','town_hall','interview_window','orientation','milestone','deadline','rotation','reminder','custom'];
+const EVENT_TYPES = ['ngrp_open','ngrp_deadline','town_hall','interview_window','orientation','milestone','deadline','rotation','reminder','birthday','custom'];
 const AUDIENCES = ['internal','all','cohort','school'];
+const RECURRENCE_VALUES = ['none','weekly','monthly','annually'];
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Runtime readiness probe for the recurrence columns (added by 20260731000000_add_aspire_event_recurrence
+// .sql, applied only by the Owner). A bounded select errors until the columns exist. Recurrence is
+// fail-closed until then: one-time events are unaffected; recurring create/update returns 503.
+async function isRecurrenceReady(db) {
+  const { error } = await db.from('aspire_events').select('recurrence').limit(1);
+  return !error;
+}
 
 async function verifyCaller(req) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
@@ -176,6 +187,31 @@ function validateEventBody(body, { partial = false } = {}) {
     else return { ok: false, status: 400, field: 'cohort_id', message: 'Invalid cohort.' };
   }
 
+  // recurrence (defaults to 'none' on create). Validated independently of the client.
+  if (has('recurrence') || !partial) {
+    const r = typeof body.recurrence === 'string' && body.recurrence ? body.recurrence : 'none';
+    if (!RECURRENCE_VALUES.includes(r)) return { ok: false, status: 400, field: 'recurrence', message: 'Invalid recurrence.' };
+    out.recurrence = r;
+  }
+  // recurrence_end (optional, date-only 'YYYY-MM-DD'; NULL/'' = never).
+  if (has('recurrence_end')) {
+    if (body.recurrence_end === null || body.recurrence_end === '') out.recurrence_end = null;
+    else if (typeof body.recurrence_end === 'string' && YMD_RE.test(body.recurrence_end)) out.recurrence_end = body.recurrence_end;
+    else return { ok: false, status: 400, field: 'recurrence_end', message: 'Recurrence end must be a date.' };
+  }
+  // One-time events IGNORE recurrence-only fields; recurrence end cannot precede the start.
+  if (out.recurrence === 'none') {
+    if ('recurrence_end' in out) out.recurrence_end = null;
+  } else if (out.recurrence_end) {
+    const startRef = out.start_at || body.start_at;
+    if (startRef) {
+      const startYmd = new Date(startRef).toISOString().slice(0, 10);
+      if (out.recurrence_end < startYmd) {
+        return { ok: false, status: 400, field: 'recurrence_end', message: 'Recurrence end cannot be before the start.' };
+      }
+    }
+  }
+
   return { ok: true, value: out };
 }
 
@@ -213,21 +249,28 @@ export default async function handler(req, res) {
     }
     const fromStart = new Date(`${from}T00:00:00`).toISOString();
     const toEnd     = new Date(`${to}T23:59:59.999`).toISOString();
+    const recurrenceReady = await isRecurrenceReady(db);
     // Active events overlapping [fromStart, toEnd]: start on/before the window end AND
     // (start on/after the window start OR end on/after it). For point events (end_at NULL) the
     // NULL end comparison is false, so start_at.gte alone decides - which is correct.
+    // When recurrence is available, ALSO include active recurring parents that started before the
+    // window; their occurrences are expanded client-side by eventOnDate, which bounds them to the
+    // requested range and to recurrence_end (no materialized rows, no duplicates).
+    const overlap = recurrenceReady
+      ? `start_at.gte.${fromStart},end_at.gte.${fromStart},recurrence.neq.none`
+      : `start_at.gte.${fromStart},end_at.gte.${fromStart}`;
     const { data, error } = await db
       .from('aspire_events')
       .select('*')
       .eq('status', 'active')
       .lte('start_at', toEnd)
-      .or(`start_at.gte.${fromStart},end_at.gte.${fromStart}`)
+      .or(overlap)
       .order('start_at', { ascending: true });
     if (error) {
       console.log('[aspire-events] list failed', { request_id: requestId, errorCode: error.code });
       return res.status(500).json({ error: 'internal_error' });
     }
-    return res.status(200).json({ success: true, events: data || [] });
+    return res.status(200).json({ success: true, events: data || [], recurrence_enabled: recurrenceReady });
   }
 
   // ── writes: owner/admin only ─────────────────────────────────────────────────────────────────
@@ -239,12 +282,19 @@ export default async function handler(req, res) {
   if (action === 'create') {
     const v = validateEventBody(body, { partial: false });
     if (!v.ok) return res.status(v.status).json({ error: 'invalid_request', field: v.field, message: v.message });
+    const recurrenceReady = await isRecurrenceReady(db);
+    // Fail closed: a recurring event cannot be created until the Owner applies the recurrence migration.
+    if (v.value.recurrence && v.value.recurrence !== 'none' && !recurrenceReady) {
+      return res.status(503).json({ error: 'recurrence_not_enabled', message: 'Recurring events are not enabled yet. The recurrence update is pending.' });
+    }
     const row = {
       ...v.value,
       status: 'active',
       created_by: auth.profileId,
       updated_by: auth.profileId,
     };
+    // Without the columns, never reference them (a one-time event still saves normally).
+    if (!recurrenceReady) { delete row.recurrence; delete row.recurrence_end; }
     const { data, error } = await db.from('aspire_events').insert(row).select('*').single();
     if (error || !data) {
       console.log('[aspire-events] create failed', { request_id: requestId, errorCode: error?.code });
@@ -259,9 +309,14 @@ export default async function handler(req, res) {
     if (!id || !UUID_REGEX.test(id)) return res.status(400).json({ error: 'invalid_request', field: 'id' });
     const v = validateEventBody(body, { partial: true });
     if (!v.ok) return res.status(v.status).json({ error: 'invalid_request', field: v.field, message: v.message });
+    const recurrenceReady = await isRecurrenceReady(db);
+    if (v.value.recurrence && v.value.recurrence !== 'none' && !recurrenceReady) {
+      return res.status(503).json({ error: 'recurrence_not_enabled', message: 'Recurring events are not enabled yet. The recurrence update is pending.' });
+    }
     // Client never sets status directly here (archive is a separate action).
     const patch = { ...v.value, updated_by: auth.profileId };
     delete patch.status;
+    if (!recurrenceReady) { delete patch.recurrence; delete patch.recurrence_end; }
     if (Object.keys(patch).length === 1) return res.status(400).json({ error: 'invalid_request', message: 'Nothing to update.' });
     const { data, error } = await db.from('aspire_events').update(patch).eq('id', id).eq('status', 'active').select('*').maybeSingle();
     if (error) {

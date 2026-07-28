@@ -15,10 +15,23 @@ export const ASPIRE_EVENT_TYPES = [
   { value: 'deadline',         label: 'Deadline',               color: '#DC2626' },
   { value: 'rotation',         label: 'Rotation Milestone',     color: '#0891B2' },
   { value: 'reminder',         label: 'Reminder',               color: '#6B7280' },
+  { value: 'birthday',         label: 'Birthday',               color: '#C2410C' },
   { value: 'custom',           label: 'Custom Event',           color: '#475569' },
 ]
 
 export const EVENT_TYPE_VALUES = ASPIRE_EVENT_TYPES.map(t => t.value)
+
+// Recurrence: the smallest canonical set (no custom builder). Order = the modal's picker order.
+export const RECURRENCE_OPTIONS = [
+  { value: 'none',     label: 'Does not repeat' },
+  { value: 'weekly',   label: 'Weekly' },
+  { value: 'monthly',  label: 'Monthly' },
+  { value: 'annually', label: 'Annually' },
+]
+export const RECURRENCE_VALUES = RECURRENCE_OPTIONS.map(o => o.value)
+
+// Event types that default to an annual all-day series when chosen (the user may still change it).
+export const ANNUAL_ALLDAY_TYPES = new Set(['birthday'])
 
 export const AUDIENCE_OPTIONS = [
   { value: 'internal', label: 'Internal team' },
@@ -68,13 +81,54 @@ export function formatEventWhen(ev) {
   return sameDay ? `${start} – ${end}` : `${start} →`
 }
 
-// Does an event touch a given 'YYYY-MM-DD' local date? Covers point events (start only) and ranges
-// (start_at .. end_at inclusive of both calendar days).
+// 'YYYY-MM-DD' -> { y, mo (1-12), d } or null.
+function parseYmd(s) {
+  const m = typeof s === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(s) : null
+  return m ? { y: +m[1], mo: +m[2], d: +m[3] } : null
+}
+// Local weekday (0-6) for a YMD (noon-local via the Y/M/D constructor avoids DST edges).
+function weekdayOf(ymd) {
+  const p = parseYmd(ymd)
+  return p ? new Date(p.y, p.mo - 1, p.d).getDay() : -1
+}
+const isLeapYear = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0
+
+// Whether a recurring event that STARTED on startYmd has an occurrence on dateStr. Deterministic:
+//   weekly   -> same weekday (every 7 days).
+//   monthly  -> same day-of-month; a month lacking that day (e.g. the 31st, or the 30th in Feb) simply
+//               has NO occurrence that month (never a shifted date).
+//   annually -> same month + day; Feb 29 -> Feb 28 in non-leap years (Feb 29 in leap years).
+// Interval is always 1 (no custom builder). Assumes dateStr >= startYmd (the caller checks bounds).
+export function matchesRecurrence(repeats, startYmd, dateStr) {
+  const s = parseYmd(startYmd), t = parseYmd(dateStr)
+  if (!s || !t) return false
+  if (repeats === 'weekly') return weekdayOf(startYmd) === weekdayOf(dateStr)
+  if (repeats === 'monthly') return t.d === s.d
+  if (repeats === 'annually') {
+    if (s.mo === 2 && s.d === 29) return t.mo === 2 && (isLeapYear(t.y) ? t.d === 29 : t.d === 28)
+    return t.mo === s.mo && t.d === s.d
+  }
+  return false
+}
+
+// Does an event touch a given 'YYYY-MM-DD' local date?
+//   One-time (recurrence 'none' or absent/unknown -> fail closed to one-time): point event (start only)
+//     or multi-day range (start_at .. end_at inclusive of both calendar days).
+//   Recurring: on/after the local start date, on/before recurrence_end (when set), and matching the
+//     cadence. Occurrences are computed here at read time (no materialized rows, no duplicates), so a
+//     recurring parent renders on each occurrence day within whatever range the caller iterates.
 export function eventOnDate(ev, dateStr) {
   if (!ev?.start_at) return false
   const startDay = localDateStr(ev.start_at)
-  const endDay = ev.end_at ? localDateStr(ev.end_at) : startDay
-  return dateStr >= startDay && dateStr <= endDay
+  const repeats = ev.recurrence || 'none'
+  if (repeats === 'none' || !RECURRENCE_VALUES.includes(repeats)) {
+    const endDay = ev.end_at ? localDateStr(ev.end_at) : startDay
+    return dateStr >= startDay && dateStr <= endDay
+  }
+  if (dateStr < startDay) return false
+  const recEnd = ev.recurrence_end || null
+  if (recEnd && dateStr > recEnd) return false
+  return matchesRecurrence(repeats, startDay, dateStr)
 }
 
 // Group active events by the local date(s) they touch → { 'YYYY-MM-DD': [ev, ...] }. Multi-day events

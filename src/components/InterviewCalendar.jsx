@@ -1134,13 +1134,15 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ action: 'list', from: eventsRange.from, to: eventsRange.to }),
       })
-      if (!res.ok) return []
+      if (!res.ok) return { events: [], recurrence_enabled: false }
       const json = await res.json().catch(() => ({}))
-      return json.events || []
+      return { events: json.events || [], recurrence_enabled: json.recurrence_enabled === true }
     },
     enabled: !!eventsRange.from,
   })
-  const aspireEvents = aspireEventsData || []
+  const aspireEvents = aspireEventsData?.events || []
+  // Server capability: recurrence is enabled only when the Owner migration is applied (fail-closed).
+  const recurrenceEnabled = aspireEventsData?.recurrence_enabled === true
   const openEvent = (ev) => setEventModal({ event: ev })
 
   // US holidays for the visible range - computed client-side, read-only, never persisted.
@@ -1726,6 +1728,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           event={eventModal.event}
           canManage={isAdmin}
           defaultDate={eventModal.defaultDate}
+          recurrenceEnabled={recurrenceEnabled}
           onClose={() => setEventModal(null)}
           onSaved={() => { setEventModal(null); queryClient.invalidateQueries({ queryKey: ['aspire_events'] }) }}
         />

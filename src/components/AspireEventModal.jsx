@@ -4,7 +4,7 @@
 // Cohort scoping is DEFERRED in Phase 2 (no cohort picker here) - reported deferred.
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ASPIRE_EVENT_TYPES, AUDIENCE_OPTIONS, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
+import { ASPIRE_EVENT_TYPES, RECURRENCE_OPTIONS, ANNUAL_ALLDAY_TYPES, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
 
 const COLOR_SWATCHES = ['#1D2567', '#0E7490', '#7C3AED', '#C2410C', '#B91C1C', '#2F7D5C']
 
@@ -30,7 +30,7 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function AspireEventModal({ event, canManage, defaultDate, onClose, onSaved }) {
+export default function AspireEventModal({ event, canManage, defaultDate, recurrenceEnabled = false, onClose, onSaved }) {
   const isEdit = !!event
   const readOnly = !canManage
 
@@ -45,17 +45,33 @@ export default function AspireEventModal({ event, canManage, defaultDate, onClos
     location:        event?.location || '',
     url:             event?.url || '',
     school:          event?.school || '',
+    // Audience is preserved server-side (default 'internal') but its control is hidden: only 'internal'
+    // is operative today (nothing consumes the others; no authorized portal read path). See discovery.
     audience:        event?.audience || 'internal',
     description:     event?.description || '',
     is_milestone:    event?.is_milestone ?? false,
     show_on_welcome: event?.show_on_welcome ?? false,
     color:           event?.color || '',
+    // Recurrence (gated on recurrenceEnabled from the server capability; fail-closed to 'none').
+    recurrence:      event?.recurrence || 'none',
+    recurrence_end:  event?.recurrence_end || '',
   }))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmArchive, setConfirmArchive] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // Selecting a Birthday (or any annual-all-day type) applies its defaults: all-day on, and — when
+  // recurrence is enabled — Annually. The user can still change any default before saving.
+  const setEventType = (val) => setForm(f => {
+    const next = { ...f, event_type: val }
+    if (ANNUAL_ALLDAY_TYPES.has(val)) {
+      next.all_day = true
+      if (recurrenceEnabled) next.recurrence = 'annually'
+    }
+    return next
+  })
 
   const post = async (payload) => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -84,6 +100,9 @@ export default function AspireEventModal({ event, canManage, defaultDate, onClos
     if (end_at && start_at && new Date(end_at).getTime() < new Date(start_at).getTime()) {
       setError('End cannot be before start.'); return
     }
+    if (recurrenceEnabled && form.recurrence !== 'none' && form.recurrence_end && form.recurrence_end < form.start_date) {
+      setError('Recurrence end cannot be before the start date.'); return
+    }
 
     const payload = {
       action: isEdit ? 'update' : 'create',
@@ -101,6 +120,11 @@ export default function AspireEventModal({ event, canManage, defaultDate, onClos
       is_milestone: form.is_milestone,
       show_on_welcome: form.show_on_welcome,
       color: form.color || null,
+      // Only send recurrence when the server reports it enabled; a one-time event omits it entirely.
+      ...(recurrenceEnabled ? {
+        recurrence: form.recurrence,
+        recurrence_end: form.recurrence !== 'none' && form.recurrence_end ? form.recurrence_end : null,
+      } : {}),
     }
 
     setSaving(true)
@@ -173,16 +197,20 @@ export default function AspireEventModal({ event, canManage, defaultDate, onClos
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="form-field">
               <label className="form-label">Event type</label>
-              <select className="form-select" value={form.event_type} onChange={e => set('event_type', e.target.value)}>
+              <select className="form-select" value={form.event_type} onChange={e => setEventType(e.target.value)}>
                 {ASPIRE_EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
-            <div className="form-field">
-              <label className="form-label">Audience</label>
-              <select className="form-select" value={form.audience} onChange={e => set('audience', e.target.value)}>
-                {AUDIENCE_OPTIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-              </select>
-            </div>
+            {/* Repeats replaces the (hidden) Audience control. Shown only when the server reports
+                recurrence is enabled (the Owner migration is applied); fail-closed otherwise. */}
+            {recurrenceEnabled && (
+              <div className="form-field">
+                <label className="form-label">Repeats</label>
+                <select className="form-select" value={form.recurrence} onChange={e => set('recurrence', e.target.value)}>
+                  {RECURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
@@ -190,6 +218,28 @@ export default function AspireEventModal({ event, canManage, defaultDate, onClos
               style={{ accentColor: '#1D2567', width: 15, height: 15 }} />
             All-day event
           </label>
+
+          {/* Recurrence end — only when repeating. "Never" (blank) or "On date". */}
+          {recurrenceEnabled && form.recurrence !== 'none' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="form-field">
+                <label className="form-label">Ends</label>
+                <select className="form-select"
+                  value={form.recurrence_end ? 'on' : 'never'}
+                  onChange={e => set('recurrence_end', e.target.value === 'never' ? '' : (form.recurrence_end || form.start_date))}>
+                  <option value="never">Never</option>
+                  <option value="on">On date</option>
+                </select>
+              </div>
+              {form.recurrence_end && (
+                <div className="form-field">
+                  <label className="form-label">End date</label>
+                  <input className="form-input" type="date" value={form.recurrence_end}
+                    min={form.start_date || undefined} onChange={e => set('recurrence_end', e.target.value)} />
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: form.all_day ? '1fr 1fr' : '1fr 1fr', gap: 12 }}>
             <div className="form-field">
