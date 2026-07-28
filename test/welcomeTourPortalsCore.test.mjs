@@ -508,3 +508,13 @@ test('launcher steps sit before the profile-menu step in every portal set', () =
     assert.ok(fb > -1 && menu > -1 && fb < menu, `${exp} orders feedback before the profile menu`)
   }
 })
+
+test('the tour dialog is exempt from the portal utility-launcher suppression', () => {
+  // useUtilitySuppression hides the launchers whenever an aria-modal element is
+  // open. The tour tooltip is aria-modal AND is the one dialog that spotlights
+  // the launchers, so it carries data-tour-dialog and the suppression selector
+  // excludes it - otherwise the launcher steps could never be shown.
+  assert.match(engineSrc, /data-tour-dialog="true"/)
+  const utility = read('../src/portal/PortalUtilityLayer.jsx')
+  assert.match(utility, /:not\(\[data-tour-dialog\]\)/)
+})

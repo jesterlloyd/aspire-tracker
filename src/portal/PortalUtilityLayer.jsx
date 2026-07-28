@@ -53,7 +53,11 @@ function useUtilitySuppression(panelOpen) {
       const active = document.activeElement
       const inputFocused = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)
       const narrow = window.matchMedia('(max-width: 760px)').matches
-      const modalOpen = Boolean(document.querySelector('[aria-modal="true"]:not(.shared-feedback-panel):not(.ptl-team-message-panel), .ptl-drawer, .ptl-sheet, .ptl-asn-manager'))
+      // WELCOME-TOUR-FOLLOWUP-1: the welcome-tour tooltip is aria-modal but is
+      // EXEMPT from suppression ([data-tour-dialog]) - it is the one dialog
+      // that deliberately spotlights these launchers, and hiding them would
+      // make their tour steps permanently unreachable.
+      const modalOpen = Boolean(document.querySelector('[aria-modal="true"]:not(.shared-feedback-panel):not(.ptl-team-message-panel):not([data-tour-dialog]), .ptl-drawer, .ptl-sheet, .ptl-asn-manager'))
       setSuppressed(modalOpen || (narrow && inputFocused && !panelOpen))
     }
     compute()

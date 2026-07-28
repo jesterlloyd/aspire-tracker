@@ -333,6 +333,7 @@ export default function CustomOnboardingTour({ run, onClose, experience = 'staff
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        data-tour-dialog="true"
         aria-label={currentStep.title}
         style={{
           ...tooltipStyle,
