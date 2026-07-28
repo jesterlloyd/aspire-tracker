@@ -1925,6 +1925,15 @@ button.ov-group-row {
 
 .ov-group-row { display: flex; align-items: center; gap: 10px; padding: 10px 18px; cursor: pointer; transition: background 0.1s; }
 .ov-group-row:hover { background: var(--sand); }
+
+/* STAFF-SCHOOL-RESPONSE-VISIBILITY-1: the Placement Requests school header is a flex WRAPPER
+   (div.ov-group-row.ov-school-row) holding two separate controls - the accordion toggle and the
+   View response action - so no button is ever nested inside another. The toggle inherits the row
+   look; the wrapper keeps the established hover/padding. */
+.ov-school-row { flex-wrap: wrap; }
+.ov-school-toggle { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; background: none; border: none; font: inherit; color: inherit; text-align: left; cursor: pointer; padding: 0; }
+.ov-view-response-btn { background: none; border: 1px solid #d1d5db; border-radius: 6px; padding: 2px 8px; font-size: 10.5px; font-weight: 600; color: var(--nightfall, #1D2567); cursor: pointer; white-space: nowrap; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
+.ov-view-response-btn:hover { border-color: var(--nightfall, #1D2567); }
 .ov-chevron    { font-size: 13px; color: var(--nightfall); flex-shrink: 0; }
 .ov-group-name { font-size: 15px; font-weight: 600; color: var(--nightfall); flex: 1; }
 .ov-group-badge { background: var(--marina); color: var(--nightfall); font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 20px; flex-shrink: 0; }

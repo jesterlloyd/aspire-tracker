@@ -15,6 +15,8 @@ import OnCampusNow from './oncampus/OnCampusNow'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import UnitResponseDrawer from './UnitResponseDrawer'
+import SchoolResponseDrawer from './SchoolResponseDrawer'
+import { matchSchoolResponse } from '../lib/schoolResponseDisplay'
 import TodayMasthead from './TodayMasthead'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
@@ -411,6 +413,10 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [unitStatusFilter, setUnitStatusFilter] = useState('all')
   // UNIT-FORM-RESPONSE-VISIBILITY: the unit_cohort_responses row open in the read-only detail drawer.
   const [selectedUnitResponse, setSelectedUnitResponse] = useState(null)
+  // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: the school (group key) open in the read-only School Form
+  // Response drawer. The school NAME is stored (not the row) so a failed detail query still opens
+  // the drawer with an honest error + Retry instead of silently doing nothing.
+  const [responseDrawerSchool, setResponseDrawerSchool] = useState(null)
   const [localToast,       setLocalToast]       = useState(null)
 
   // ASPIRE-CHART performance: the five workspace tabs stay mounted while
@@ -490,6 +496,38 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         .select('*')
         .eq('cohort_id', cohortId)
         .order('unit_name')
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!cohortId,
+    staleTime: 30000,
+  })
+
+  // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: full school placement responses for the active cohort,
+  // powering the read-only School Form Response drawer. DISTINCT query key from the date-only
+  // ['cohort_rotation_range', ...] consumers (CohortBar/ManageCohortModal), which must stay bounded
+  // to the two date columns. Read-only select with an EXPLICIT allowlist: exactly the fields the
+  // response association and SchoolResponseDrawer render - never audit columns (created_by,
+  // updated_by) or unrelated future columns. Independent failure never blocks the student list.
+  const SCHOOL_RESPONSE_FIELDS = [
+    'id', 'cohort_id', 'school_name', 'coordinator_name', 'coordinator_email',
+    'rotation_start_date', 'rotation_end_date',
+    'unavailable_weekdays', 'min_days_per_week', 'weekends_allowed', 'nights_allowed',
+    'blackout_dates', 'scheduling_notes', 'created_at', 'updated_at',
+  ].join(', ')
+  const {
+    data: schoolResponses = [],
+    error: schoolResponsesError,
+    isLoading: schoolResponsesLoading,
+    refetch: refetchSchoolResponses,
+  } = useQuery({
+    queryKey: ['cohort_school_responses', cohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cohort_school_rotations')
+        .select(SCHOOL_RESPONSE_FIELDS)
+        .eq('cohort_id', cohortId)
+        .order('school_name')
       if (error) throw error
       return data || []
     },
@@ -887,27 +925,38 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
                 return (
                   <div key={school} className="ov-group">
-                    <button type="button" className="ov-group-row" onClick={() => toggleSchoolGroup(school)} aria-expanded={!!open}>
-                      <span className="ov-chevron">{open ? '▾' : '▸'}</span>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <span className="ov-group-name">{school}</span>
-                        {coord && (coord.name || coord.email) && (
-                          <div className="ov-coord-line">
-                            {coord.name}{coord.name && coord.email ? ' | ' : ''}{coord.email}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-                        {placed > 0 && (
-                          <span style={{ background:'#dcfce7', color:'#166534', fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20 }}>
-                            {placed} placed
+                    {/* STAFF-SCHOOL-RESPONSE-VISIBILITY-1: the header row is a flex wrapper so the
+                        accordion toggle and View response are SEPARATE buttons (never nested);
+                        View response opens the read-only drawer without expanding the group. The
+                        toggle keeps the ORIGINAL full-row hit area - chevron, school info,
+                        coordinator line, AND both badges all expand/collapse the group. */}
+                    <div className="ov-group-row ov-school-row">
+                      <button type="button" className="ov-school-toggle" onClick={() => toggleSchoolGroup(school)} aria-expanded={!!open}>
+                        <span className="ov-chevron">{open ? '▾' : '▸'}</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <span className="ov-group-name">{school}</span>
+                          {coord && (coord.name || coord.email) && (
+                            <div className="ov-coord-line">
+                              {coord.name}{coord.name && coord.email ? ' | ' : ''}{coord.email}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0, flexWrap:'wrap', justifyContent:'flex-end' }}>
+                          {placed > 0 && (
+                            <span style={{ background:'#dcfce7', color:'#166534', fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20 }}>
+                              {placed} placed
+                            </span>
+                          )}
+                          <span className="ov-group-badge">
+                            {sStudents.length} student{sStudents.length !== 1 ? 's' : ''}
                           </span>
-                        )}
-                        <span className="ov-group-badge">
-                          {sStudents.length} student{sStudents.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    </button>
+                        </div>
+                      </button>
+                      <button type="button" className="ov-view-response-btn"
+                        onClick={e => { e.stopPropagation(); setResponseDrawerSchool(school) }}>
+                        View response
+                      </button>
+                    </div>
 
                     {open && (
                       <div className="ov-group-items">
@@ -1009,6 +1058,34 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         response={selectedUnitResponse}
         onClose={() => setSelectedUnitResponse(null)}
       />
+
+      {/* STAFF-SCHOOL-RESPONSE-VISIBILITY-1: read-only school placement response detail. */}
+      {(() => {
+        if (!responseDrawerSchool) return null
+        const group = schoolMap[responseDrawerSchool] || []
+        const drawerResponse = matchSchoolResponse(responseDrawerSchool, group, schoolResponses)
+        // Every student associated with the response: canonical rotation-id links first, plus this
+        // school group's legacy rows that predate the link. Students linked to a DIFFERENT
+        // response are never pulled in.
+        const drawerStudents = drawerResponse
+          ? [
+              ...students.filter(s => s.cohort_school_rotation_id === drawerResponse.id),
+              ...group.filter(s => !s.cohort_school_rotation_id),
+            ]
+          : group
+        return (
+          <SchoolResponseDrawer
+            open
+            onClose={() => setResponseDrawerSchool(null)}
+            schoolName={responseDrawerSchool}
+            response={drawerResponse}
+            students={drawerStudents}
+            loading={schoolResponsesLoading}
+            error={schoolResponsesError}
+            onRetry={refetchSchoolResponses}
+          />
+        )
+      })()}
     </div>
   )
 }

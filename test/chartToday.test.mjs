@@ -120,14 +120,22 @@ test('honest error states', () => {
 })
 
 test('ledger group rows are real buttons', () => {
+  // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: the Placement Requests school row became a flex wrapper
+  // (div.ov-group-row.ov-school-row) holding TWO separate buttons - the accordion toggle
+  // (.ov-school-toggle, still a real button with aria-expanded) and the read-only View response
+  // action - because a button may never nest inside another button. The two unit-ledger rows
+  // remain single full-row buttons.
   const rows = overview.match(/className="ov-group-row"/g) || []
-  assert.equal(rows.length, 3, 'three group-row call sites')
-  // Every call site is a real button, and every one declares its state.
+  assert.equal(rows.length, 2, 'two plain group-row call sites (unit ledgers)')
   const buttons = overview.match(/<button type="button" className="ov-group-row"/g) || []
-  assert.equal(buttons.length, 3, 'all three are buttons')
+  assert.equal(buttons.length, 2, 'both unit ledger rows are buttons')
   const expanded = overview.match(/className="ov-group-row" onClick=\{[^}]*\}[^>]*? aria-expanded=\{!!open\}/g) || []
-  assert.equal(expanded.length, 3, 'all three carry aria-expanded')
+  assert.equal(expanded.length, 2, 'both carry aria-expanded')
+  // The school row keeps a real toggle button with aria-expanded inside its wrapper.
+  assert.match(overview, /className="ov-group-row ov-school-row"/)
+  assert.match(overview, /<button type="button" className="ov-school-toggle" onClick=\{\(\) => toggleSchoolGroup\(school\)\} aria-expanded=\{!!open\}/)
   assert.match(css, /button\.ov-group-row \{[\s\S]*?text-align: left;/)
+  assert.match(css, /\.ov-school-toggle \{[^}]*text-align: left;/)
 })
 
 test('responsive reflow of the operational surfaces', async (t) => {

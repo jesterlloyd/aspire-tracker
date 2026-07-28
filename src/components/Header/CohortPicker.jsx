@@ -1,6 +1,16 @@
 // WS2.0: extracted verbatim from App.jsx header (Zone 2 - cohort picker). No behavior
 // change. State/handlers remain owned by App.jsx and arrive as props. The header-only
 // helpers (status colors, date formatting, chevron) moved here with the JSX.
+//
+// STAFF-SCHOOL-RESPONSE-VISIBILITY-1: each dropdown row now prefers the CANONICAL school-response
+// span (earliest valid rotation_start_date -> latest valid rotation_end_date across that cohort's
+// cohort_school_rotations rows, sentinel/invalid rows excluded) over the manually entered
+// cohorts.start_date/end_date, which remain the fallback. Display-only: nothing is written back to
+// the cohorts table. One bounded query (cohort_id + the two dates) covers every listed cohort; the
+// main-nav Refresh is a full reload, so this in-memory query refetches with it.
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../../lib/supabase'
+import { groupRotationRowsByCohort, resolveCohortPickerRange } from '../../lib/schoolResponseDisplay'
 import Tooltip from '../ui/Tooltip'
 
 const COHORT_STATUS_COLORS = {
@@ -33,6 +43,24 @@ export default function CohortPicker({
   activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch,
   canEdit, setShowManageCohort, setShowNewCohort,
 }) {
+  // Bounded date-only rows for every listed cohort (no coordinator or student data in the header).
+  const cohortIds = cohorts.map(c => c.id).filter(Boolean)
+  const { data: rotationDateRows = [] } = useQuery({
+    queryKey: ['cohort_picker_rotation_ranges', [...cohortIds].sort().join('|')],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cohort_school_rotations')
+        .select('cohort_id, rotation_start_date, rotation_end_date')
+        .in('cohort_id', cohortIds)
+      if (error) throw error
+      return data || []
+    },
+    enabled: cohortIds.length > 0,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  })
+  const rotationRowsByCohort = groupRotationRowsByCohort(rotationDateRows)
+
   if (!(cohorts.length > 0)) return null
   return (
     <div ref={cohortPickerRef} className="chart-cohort-area">
@@ -72,7 +100,12 @@ export default function CohortPicker({
                 onMouseLeave={e => { if (!isSel) e.currentTarget.style.background='transparent' }}>
                 <div style={{ fontSize:15, fontWeight:600, color:'#374151' }}>{c.name}</div>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:3 }}>
-                  <span style={{ fontSize:12, color:'#6b7280' }}>{fmtCohortRange(c.start_date, c.end_date) || ' '}</span>
+                  <span style={{ fontSize:12, color:'#6b7280' }}>{(() => {
+                    // Derived school-response span first; manual cohort dates as fallback;
+                    // otherwise the existing blank behavior.
+                    const range = resolveCohortPickerRange(c, rotationRowsByCohort[c.id])
+                    return (range ? fmtCohortRange(range.start, range.end) : '') || ' '
+                  })()}</span>
                   <div style={{ display:'flex', gap:4, flexShrink:0, marginLeft:8 }}>
                     {c.status && <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20, background:sc.bg, color:sc.color }}>{c.status}</span>}
                     {c.accepting_submissions && <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20, background:'#dbeafe', color:'#1e40af', border:'1px solid #bfdbfe' }}>Accepting</span>}
