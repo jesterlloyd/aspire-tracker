@@ -148,3 +148,63 @@ Recurrence lives on the single parent row, so the existing `update` edits the **
 `archive` removes the whole series — no new per-occurrence concept is introduced. **Per-occurrence
 exceptions (edit/skip a single occurrence) are explicitly deferred**; this release is create + display
 + series-level edit/delete.
+
+## Interaction convergence (implemented)
+
+### Anchored Add Availability, centered Add Event
+The small **Add Availability** panel now opens **anchored to the control or date cell that triggered
+it** rather than screen-center. Every trigger threads a `triggerRect` (a button's
+`getBoundingClientRect()` or a `rectFromPoint(x, y)` for a click) into `CreatePopover`, which reuses the
+shared `computeLegendPlacement` helper (`src/components/statusLegendPlacement.js`) to flip
+below/above, clamp to the viewport, and bound its height with a scrollable body. It is a labelled,
+dismissable dialog (`role="dialog"`, `aria-label="Add Availability"`, Escape to close, focus returned
+to the trigger, repositions on resize/scroll). The large **Add Event** modal (`AspireEventModal`) is
+**unchanged and stays centered** — it deliberately does not adopt the anchoring machinery.
+
+### Converged action hierarchy (order + color)
+The two create actions read as one family everywhere they appear (header toolbar + date-cell hover
+chips):
+
+- **Order is always Availability, then Event.** The header toolbar was reordered to match the cells.
+- **Availability is ASPIRE navy** (`#1D2567` / `--nightfall`, hover `#141928`) — unchanged.
+- **Event is an accessible dark purple** design token, replacing the previous light purple
+  (`#7C3AED`): `EVENT_ACTION = #6D28D9` (violet-700, ~6.7:1 on white), hover `#5B21B6` (violet-800).
+  The token drives the header **Add Event** button and the date-cell **+ Event** chip, including their
+  hover states.
+
+These are **action colors only**. Per-type event chip colors (including `town_hall`'s `#7C3AED` and
+the `Milestone` badge) are untouched, so an event's type color never changes.
+
+## Implementation handoff
+
+**Branch:** `calendar-recurrence-and-interaction-convergence` (off `main`). Not merged, not pushed, not
+deployed; no SQL applied.
+
+**Commits (in order):**
+1. `Document calendar event model` — this discovery/audit doc.
+2. `Add recurring ASPIRE events` — `birthday` type; `recurrence`/`recurrence_end` fields; read-time
+   expansion (`eventOnDate`, `matchesRecurrence`); server allow-list + validation + `recurrence_enabled`
+   capability + fail-closed 503; Owner-gated idempotent migration (not applied); modal Repeats control.
+3. `Anchor availability to calendar actions` — `triggerRect` threading + `computeLegendPlacement`
+   reuse; the centered Add Event modal left unchanged.
+4. `Converge calendar action hierarchy` — action order (Availability then Event) and the navy/dark-
+   purple action color family.
+5. `Document calendar recurrence and interaction convergence` — this section, tests, handoff.
+
+**Files changed:** `docs/product/CALENDAR_RECURRENCE_DISCOVERY.md`, `src/lib/aspireEvents.js`,
+`api/aspire-events.js`, `src/components/AspireEventModal.jsx`, `src/components/InterviewCalendar.jsx`,
+`supabase/migrations/20260731000000_add_aspire_event_recurrence.sql` (new, **not applied**),
+`test/aspireCalendarRecurrenceAndInteractionConvergence.test.mjs` (new).
+
+**Owner action required before recurrence goes live:** apply
+`supabase/migrations/20260731000000_add_aspire_event_recurrence.sql`. Until then the API's readiness
+probe fails closed: one-time events are unaffected, and the modal's Repeats control is hidden
+(`recurrence_enabled: false`). After applying, verify with the SQL in the migration's footer.
+
+**Tests:** `node --test test/aspireCalendarRecurrenceAndInteractionConvergence.test.mjs` (21 cases —
+event model, recurrence expansion incl. Feb 29 / monthly-skip / no-duplicates, server allow-list +
+fail-closed gate, anchored-vs-centered interaction, converged action order + color, type-color
+regression).
+
+**Deferred:** per-occurrence exceptions (edit/skip one occurrence), a user-facing US-holiday toggle,
+and any Audience beyond `internal` (control hidden, column retained defaulting to `internal`).
