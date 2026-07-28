@@ -207,9 +207,9 @@ test('grants are least privilege: service_role EXECUTE for entry functions; inte
     assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${esc}\\s*\\n\\s*FROM PUBLIC, anon, authenticated;`), `${fn} revoked`)
     assert.match(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${esc}\\s*\\n\\s*TO service_role;`), `${fn} granted to service_role`)
   }
-  // The internal core is revoked from everyone and granted to NO ONE (invoked only by the definer RPCs).
+  // The internal core is revoked from EVERY role (service_role INCLUDED) and granted to NO ONE.
   const coreEsc = 'messages_start_general_team_conversation_core(uuid, text, uuid, text, text, text, text, jsonb, text)'.replace(/[().]/g, m => '\\' + m)
-  assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${coreEsc}\\s*\\n\\s*FROM PUBLIC, anon, authenticated;`))
+  assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${coreEsc}\\s*\\n\\s*FROM PUBLIC, anon, authenticated, service_role;`))
   assert.doesNotMatch(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${coreEsc}`))
   // No EXECUTE is ever granted to anon or authenticated for any function.
   assert.doesNotMatch(sql, /GRANT EXECUTE ON FUNCTION[\s\S]*?TO (anon|authenticated)\b/)

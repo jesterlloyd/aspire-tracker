@@ -1,9 +1,13 @@
 # Portal Cohort Polish and Academic Partner Messages — Handoff
 
 Branch: `portal-cohort-polish-and-ap-messages` (off `main` at `bd92c51`)
-Status: complete on the branch; NOT merged, pushed, or deployed. A single Owner-gated migration is
-committed but **NOT applied** (no SQL was run); everything else is fail-closed until the Owner applies
-it and sets the server env flag. See §6 for the exact activation sequence.
+Status: complete on the branch; the branch code is NOT merged, pushed, or deployed. The primary
+Owner-gated migration `20260728000000_enable_academic_partner_team_messages.sql` **has been applied in
+production** (with a manual privilege correction — see §6, "Post-application privilege reconciliation");
+an idempotent follow-up migration `20260729000000_revoke_service_role_from_general_team_core.sql` is
+committed but **not applied** and is not required in the current production environment. Academic
+Partner messaging remains fail-closed until the server env flag is set. See §6 for the activation
+sequence and reconciliation.
 
 Ordered commits:
 
@@ -249,6 +253,26 @@ a committed, unapplied, **atomic** migration.
     chain admits AP strictly last, after the unchanged student and unit_leader checks. Preceptor remains
     a schema reservation, admitted nowhere.
 
+### Post-application privilege reconciliation (internal core EXECUTE)
+
+- The primary migration `20260728000000_enable_academic_partner_team_messages.sql` **was applied in
+  production.**
+- Production verification found the internal
+  `public.messages_start_general_team_conversation_core(...)` still had an **inherited `service_role`
+  EXECUTE** privilege: the original `REVOKE` named only `PUBLIC, anon, authenticated`, so a role-level
+  default left `service_role` able to execute the internal core directly. (The core is meant to be
+  reachable only through the two SECURITY DEFINER entry RPCs.)
+- The **Owner manually revoked** that privilege in production.
+- **Final verified production state:** `EXECUTE` on the core is `false` for `anon`, `authenticated`,
+  **and** `service_role`. The core is granted to no role; the two entry RPCs remain `service_role`-only.
+- The primary migration file was updated so its core `REVOKE` names `service_role` explicitly, and an
+  **idempotent follow-up migration**
+  `20260729000000_revoke_service_role_from_general_team_core.sql` re-affirms the revoke so any future
+  environment lands in the same state after applying the migration set. It is privilege-only (no
+  function/table/data change), grants nothing, and is safe to run repeatedly.
+- **No further production SQL is required now.** The follow-up is for parity in fresh/other
+  environments and as the durable record of the reconciled state.
+
 ## Verification
 
 - Focused + full suite: `node --test 'test/*.test.mjs'` — all passing.
@@ -266,6 +290,8 @@ portal-experience convergence.
 
 Main app cohort switcher order; placement provenance / password security; email routing; the stray
 `src/portal/UnitLeaderPortal 2.jsx` (untouched). The messaging DB predicates change ONLY via the
-committed-but-unapplied migration in §6 — no SQL was run, no migration was applied. The former
-hardcoded client constant `src/lib/apMessaging.js` was removed in favor of the server capability gate.
-Nothing was merged, pushed, or deployed.
+migrations in §6. The primary migration `20260728000000` has been applied in production (by the Owner,
+with the manual privilege revoke reconciled in §6); the follow-up `20260729000000` is committed but
+unapplied. No SQL was run from this branch. The former hardcoded client constant
+`src/lib/apMessaging.js` was removed in favor of the server capability gate. The branch code was not
+merged, pushed, or deployed.

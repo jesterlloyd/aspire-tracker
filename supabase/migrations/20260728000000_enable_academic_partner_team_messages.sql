@@ -597,8 +597,12 @@ REVOKE ALL ON FUNCTION public.message_participant_can_read(uuid, uuid)
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.message_participant_can_send(uuid, uuid)
   FROM PUBLIC, anon, authenticated;
+-- The internal core is revoked from EVERY role, service_role INCLUDED. It is invoked only from the two
+-- SECURITY DEFINER entry RPCs (which execute as the owner), so no role needs direct EXECUTE. Naming
+-- service_role explicitly strips any privilege that would otherwise be inherited (e.g. via a role-level
+-- default), keeping the core truly internal.
 REVOKE ALL ON FUNCTION public.messages_start_general_team_conversation_core(uuid, text, uuid, text, text, text, text, jsonb, text)
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.messages_start_general_team_conversation_ap(uuid, uuid, text, text, text, text, jsonb, text)
