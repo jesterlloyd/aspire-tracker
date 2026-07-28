@@ -552,6 +552,14 @@ AS $$
 DECLARE
   v_school text := btrim(coalesce(p_school_key, ''));
 BEGIN
+  -- Verify the active academic_partner ROLE GRANT (and at least one active school scope) FIRST, before
+  -- delegating to the core. The core performs the idempotency-ledger lookup and can return a COMPLETED
+  -- replay before its own access checks; gating here ensures a revoked/expired academic_partner can
+  -- never reach that replay path and receive a prior thread's result. The core re-checks too (defense
+  -- in depth).
+  IF NOT public.message_profile_has_active_academic_partner_portal_scope(p_actor_profile_id) THEN
+    RAISE EXCEPTION 'academic partner access is not active' USING ERRCODE = 'MS403';
+  END IF;
   IF v_school = '' THEN
     RAISE EXCEPTION 'academic partner school scope is required' USING ERRCODE = 'MS400';
   END IF;

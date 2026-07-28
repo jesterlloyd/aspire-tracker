@@ -163,6 +163,21 @@ test('the AP RPC verifies the SERVER-SUPPLIED school against active scopes, then
   assert.doesNotMatch(sql, /array_agg\(DISTINCT s\.school_key\)/)
 })
 
+test('the AP RPC verifies the active academic_partner ROLE GRANT before delegating to the core (pre-replay)', () => {
+  const ap = sql.slice(sql.indexOf('-- 4c. Dedicated Academic Partner'), sql.indexOf('-- 5. Grants'))
+  const grantIdx = ap.indexOf('message_profile_has_active_academic_partner_portal_scope(p_actor_profile_id)')
+  const coreIdx = ap.indexOf('RETURN public.messages_start_general_team_conversation_core')
+  const schoolIdx = ap.indexOf("v_school = ''")
+  assert.ok(grantIdx > -1 && grantIdx < coreIdx, 'role-grant check precedes the core delegation')
+  assert.ok(grantIdx < schoolIdx, 'role-grant check is the FIRST gate (before school checks and the core)')
+  assert.match(ap, /IF NOT public\.message_profile_has_active_academic_partner_portal_scope\(p_actor_profile_id\) THEN\s*\n\s*RAISE EXCEPTION 'academic partner access is not active' USING ERRCODE = 'MS403'/)
+})
+
+test('the core ledger raises MS409 when the same request_id carries a different payload (e.g. a different school)', () => {
+  const core = sql.slice(sql.indexOf('-- 4a. Internal CORE'), sql.indexOf('-- 4b. Public'))
+  assert.match(core, /v_existing\.payload_fingerprint IS DISTINCT FROM p_payload_fingerprint THEN\s*\n\s*RAISE EXCEPTION 'request id was already used with a different payload' USING ERRCODE = 'MS409'/)
+})
+
 test('the AP path LOCKS the recipient to the ASPIRE Team in the core, asserted before any write', () => {
   const core = sql.slice(sql.indexOf('-- 4a. Internal CORE'), sql.indexOf('-- 4b. Public'))
   // The academic_partner recipient assertion appears BEFORE the idempotency ledger insert (so a bad

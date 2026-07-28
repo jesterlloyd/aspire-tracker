@@ -9,6 +9,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { buildGeneralTeamPayloadFingerprint } from '../lib/server/messages/conversationService.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -37,6 +39,33 @@ test('the endpoint verifies against the SERVER-derived active scopes, not a brow
   // caller.schoolKeys comes from verifyPortalMessagesCaller (active user_school_scopes), never the body.
   assert.match(teamStart, /caller\.schoolKeys\.includes\(requested\)/)
   assert.doesNotMatch(teamStart, /parsed\.body\.school_keys|req\.body\.schools/)
+})
+
+test('the AP idempotency fingerprint is bound to the verified school: a different school cannot replay', () => {
+  // Same actor, request context (subject/category/body), and delivery, but a DIFFERENT authorized
+  // school => a DIFFERENT fingerprint. With the same request_id this hits the ledger's distinct-payload
+  // guard (MS409, asserted in the migration test), so school B never replays school A's result.
+  const base = { actorKind: 'academic_partner', subject: 'Placement question', category: 'General question', body: 'Hello team' }
+  const anaheim = buildGeneralTeamPayloadFingerprint({ ...base, schoolKey: 'West Coast University Anaheim' })
+  const northHollywood = buildGeneralTeamPayloadFingerprint({ ...base, schoolKey: 'West Coast University North Hollywood' })
+  assert.notEqual(anaheim, northHollywood)
+  // A legitimate replay of the SAME request (same school) reproduces the SAME fingerprint.
+  assert.equal(anaheim, buildGeneralTeamPayloadFingerprint({ ...base, schoolKey: 'West Coast University Anaheim' }))
+  // The server computes the fingerprint WITH the verified school (see conversationService).
+  assert.match(svc, /buildGeneralTeamPayloadFingerprint\(\{[\s\S]*?schoolKey,[\s\S]*?\}\)/)
+  assert.match(svc, /if \(schoolKey\) payload\.school_key = schoolKey/)
+})
+
+test('student / unit_leader fingerprints are byte-identical to before (no school field added)', () => {
+  const base = { actorKind: 'student', subject: 'Question', category: 'General question', body: 'Hi' }
+  // Omitting schoolKey and passing null are identical (no school_key field either way).
+  assert.equal(buildGeneralTeamPayloadFingerprint(base), buildGeneralTeamPayloadFingerprint({ ...base, schoolKey: null }))
+  // And equal to the legacy canonical construction (no school_key key at all).
+  const legacy = createHash('sha256').update(JSON.stringify({
+    version: 1, operation: 'general_team_thread_start', actor_kind: 'student',
+    subject: 'Question', category: 'General question', body: 'Hi',
+  })).digest('hex')
+  assert.equal(buildGeneralTeamPayloadFingerprint(base), legacy)
 })
 
 test('conversationService routes AP to the dedicated AP RPC with the verified school; student/UL unchanged', () => {
