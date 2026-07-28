@@ -1,16 +1,24 @@
 # Portal Cohort Polish and Academic Partner Messages — Handoff
 
 Branch: `portal-cohort-polish-and-ap-messages` (off `main` at `bd92c51`)
-Status: complete on the branch; NOT merged, pushed, or deployed. No SQL or migration was added or
-run. The one database change this work needs is reported below as an unapplied Owner SQL gate.
+Status: complete on the branch; NOT merged, pushed, or deployed. A single Owner-gated migration is
+committed but **NOT applied** (no SQL was run); everything else is fail-closed until the Owner applies
+it and sets the server env flag. See §6 for the exact activation sequence.
 
-Five ordered commits:
+Ordered commits:
 
+Portal cohort + access-card + messaging convergence:
 1. Converge portal cohort timeline ordering
 2. Add Unit Leader cohort context
 3. Center Academic Partner cohort access
 4. Enable Academic Partner messages
 5. Document portal cohort and messaging convergence (this doc + regression test updates)
+
+Academic Partner messaging Owner gate:
+6. Add Academic Partner messaging Owner migration (unapplied)
+7. Gate Academic Partner messages by server capability (replaces the hardcoded client constant)
+8. Harden Academic Partner messaging release gate (migration static-security + capability tests)
+9. Document Academic Partner messaging activation (this doc's §6)
 
 ---
 
@@ -105,8 +113,14 @@ student-linked, revoked/expired, and WCU-campus isolation are enforced by that s
 DB read/send predicates; browser-supplied identifiers never widen scope. `team-messages-start`
 additionally requires an active school scope and derives identity/subject/routing server-side.
 
-**Fail-closed capability flag.** [`src/lib/apMessaging.js`](../../src/lib/apMessaging.js) exports
-`AP_MESSAGING_ENABLED = false`. Until the Owner SQL gate (below) is applied and this flag is flipped:
+**Fail-closed server capability gate (no hardcoded client constant).** Enablement is a server-owned
+capability, `resolveApMessagingCapability(db)` in
+[`api/lib/apMessagingCapability.js`](../../api/lib/apMessagingCapability.js): it is `true` only when
+BOTH the server env `AP_MESSAGING_ENABLED === 'true'` AND the database migration is applied (proved by
+probing the `ap_team_messaging_capability()` sentinel via service role — read-only, no mutation, no
+anon/RLS false positive). The client never decides enablement: `PortalApp` fetches one canonical result
+from `GET /api/portal/portal-capabilities` (authenticated), and that single value gates both the
+Messages tab and the lower-right launcher. Until enabled:
 
 - the AP Messages tab shows an honest prepared state (no workspace, no polling);
 - no lower-right Messages launcher mounts for an Academic Partner;
@@ -114,49 +128,101 @@ additionally requires an active school scope and derives identity/subject/routin
   the RPC);
 - even if the read endpoints are reached, the DB predicates return an **empty** inbox (never a leak).
 
-Flipping `AP_MESSAGING_ENABLED` to `true` after the Owner applies the SQL activates the fully-wired
-canonical workspace + launcher with no further code change. The AP Messages tab and thread deep links
-live under `/portal/ap/messages` and `/portal/ap/messages/:threadId`.
-
-### Owner SQL gate (unapplied — the ONLY remaining blocker)
-
-The messaging schema already reserves the `academic_partner` / `school` participant shape
-(`conversation_participants.participant_role` and `scope_kind` CHECKs already list it), but three
-`SECURITY DEFINER` functions admit only `student` and `unit_leader`. The Owner must
-`CREATE OR REPLACE` all three, **preserving the existing student/unit_leader logic** and **adding** an
-`academic_partner` branch. Smallest exact gate:
-
-1. **`message_participant_can_read(...)`** and **`message_participant_can_send(...)`**
-   (last defined in `supabase/migrations/20260724000001_general_team_threads_backend.sql`): admit a
-   participant row where `participant_role = 'academic_partner'` and `scope_kind = 'school'`, gated to
-   the caller's active `user_school_scopes` (`scope_school_key` must match an active, non-revoked,
-   in-window school scope for `portal_profile_id()`), exactly mirroring how the `unit_leader` /
-   `scope_unit_key` branch is gated to active unit scopes. Read admits the general (student-and-unit
-   context null) thread; send admits the same. `my_message_conversation_ids()` inherits this through
-   `message_participant_can_read`.
-
-2. **`messages_start_general_team_conversation(p_actor_profile_id, p_actor_kind, ...)`**
-   (same migration): accept `p_actor_kind = 'academic_partner'`, and create the conversation with all
-   `related_*` columns NULL plus one participant row `(participant_role='academic_partner',
-   scope_kind='school', scope_school_key = <the caller's active school scope>, all other scope columns
-   NULL)`. Author role on the message = `'academic_partner'`. Rate-limit / idempotency behavior
-   unchanged.
-
-Security invariants the gate must keep: an AP sees only its own school's general threads; no
-student-linked or staff-internal thread is ever readable; a revoked/expired grant or school scope
-fails closed; and the two WCU campuses stay isolated (exact normalized `scope_school_key` match, never
-substring).
-
-After applying: flip `AP_MESSAGING_ENABLED` to `true` and redeploy.
+Writes re-authorize independently even when capability reports enabled (the caller JWT + role/scope
+verification runs first, and the start RPC re-authorizes in the DB). The AP Messages tab and thread
+deep links live under `/portal/ap/messages` and `/portal/ap/messages/:threadId`.
 
 ## 5. Shared lower-right launcher
 
 `PortalUtilityLayer` now includes the Academic Partner kind in `messagesEnabled` (gated on
-`messagesAuthorized`, which the AP branch drives from `AP_MESSAGING_ENABLED`), and passes
-`variant="academic_partner"` to the one shared `PortalTeamMessagesPanel`. Same launcher, same modal,
-same `#DC1E34` unread badge, same inbox/thread data as the Messages tab (shared cache keys, no
+`messagesAuthorized`, which the AP branch drives from the server capability `apMessagesEnabled`), and
+passes `variant="academic_partner"` to the one shared `PortalTeamMessagesPanel`. Same launcher, same
+modal, same `#DC1E34` unread badge, same inbox/thread data as the Messages tab (shared cache keys, no
 duplicate polling). The lower-left Feedback control is unchanged; there is never a second lower-right
 launcher.
+
+## 6. Owner activation — Academic Partner messaging (the ONLY remaining blocker)
+
+The messaging schema already reserves the `academic_partner` / `school` participant shape
+(`conversation_participants.chk_participant_role_scope` already allows it). The one remaining change is
+a committed, unapplied migration that extends three `SECURITY DEFINER` functions to admit that shape.
+
+1. **Exact migration filename:**
+   [`supabase/migrations/20260728000000_enable_academic_partner_team_messages.sql`](../../supabase/migrations/20260728000000_enable_academic_partner_team_messages.sql)
+
+2. **Copy-paste-ready SQL:** apply that migration file verbatim (it is the authoritative, review-ready
+   SQL — kept in one place to avoid drift). It is additive and idempotent (`CREATE OR REPLACE` +
+   revoke/grant), changes no table, and performs no backfill. It:
+   - adds `public.message_profile_has_active_academic_partner_portal_scope(uuid)` (active
+     `academic_partner` grant + at least one active `user_school_scopes` row);
+   - `CREATE OR REPLACE`s `message_participant_can_read` — student/unit_leader branches byte-for-byte,
+     plus an academic_partner branch admitting a school-scoped participant whose `scope_school_key`
+     EXACTLY equals an active `user_school_scopes.school_key` (WCU campuses isolated, never substring);
+   - `CREATE OR REPLACE`s `message_participant_can_send` unchanged (it composes `can_read`, so AP
+     inherits the active-scope check; only the unit_leader staleness guard remains);
+   - `CREATE OR REPLACE`s `messages_start_general_team_conversation` — accepts
+     `p_actor_kind = 'academic_partner'`, derives the single authorized school server-side from active
+     `user_school_scopes` (a missing or ambiguous multi-school scope raises `MS400`), and inserts a
+     general thread (`related_*` NULL) with one `(academic_partner, school, scope_school_key)`
+     participant and `student_id`/student-context NULL;
+   - adds the `public.ap_team_messaging_capability()` sentinel used by the server capability gate.
+
+3. **Verification queries:** included at the bottom of the migration file — (a) all five functions
+   exist with `prosecdef` and a locked `search_path`; (b) EXECUTE is granted only to `service_role`
+   (not anon/authenticated/PUBLIC); (c) `SELECT public.ap_team_messaging_capability();` returns `true`;
+   (d) student/unit_leader results unchanged.
+
+4. **Expected function signatures (unchanged):**
+   - `public.message_participant_can_read(p_conversation_id uuid, p_profile_id uuid) -> boolean`
+   - `public.message_participant_can_send(p_conversation_id uuid, p_profile_id uuid) -> boolean`
+   - `public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb) -> jsonb`
+   - added: `public.message_profile_has_active_academic_partner_portal_scope(uuid) -> boolean`,
+     `public.ap_team_messaging_capability() -> boolean`
+
+5. **Expected grants:** `REVOKE ALL ... FROM PUBLIC, anon, authenticated;` and
+   `GRANT EXECUTE ... TO service_role;` for every one of the five functions. `CREATE OR REPLACE`
+   preserves the existing grants on the three replaced functions; the migration re-affirms them.
+
+6. **Environment variable:** `AP_MESSAGING_ENABLED` (server env, e.g. Vercel Production). Accepted
+   enabling value: the exact string `true`. Missing or any other value = disabled (fail-closed). This
+   is a server env var only; it is never exposed to the client (no `VITE_` variable).
+
+7. **Activation sequence (no code edit required after the migration is approved):**
+   1. Owner applies `20260728000000_enable_academic_partner_team_messages.sql`.
+   2. Run the verification queries (functions, grants, sentinel = true).
+   3. Set server env `AP_MESSAGING_ENABLED=true`.
+   4. Trigger a normal production deployment.
+   5. `GET /api/portal/portal-capabilities` (authenticated) returns `{ "ap_messaging": true }`.
+   6. The Academic Partner Messages tab and the lower-right launcher activate.
+
+8. **Rollback considerations:** additive migration, so no data to back out. Fastest operational
+   disable WITHOUT SQL: unset `AP_MESSAGING_ENABLED` (or set it to anything but `true`) and redeploy —
+   the capability gate reports disabled and the feature is fail-closed even while the migration remains
+   applied. Full revert: re-apply the prior three function definitions from
+   `20260724000001_general_team_threads_backend.sql`, then
+   `DROP FUNCTION public.ap_team_messaging_capability()` and
+   `DROP FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)`.
+
+9. **Authenticated live-QC checklist (after activation):**
+   - An active Academic Partner sees the Messages tab render the canonical workspace and the
+     lower-right launcher with the `#DC1E34` unread badge.
+   - Compose a new thread → recipient shows as **ASPIRE Team**; the confirmation is "Your message was
+     sent to the ASPIRE Team."; `aspire@cshs.org` receives the shared-inbox notification.
+   - Reply to the thread; active-tab Refresh refetches inbox and the open thread; unread clears on
+     read.
+   - There is no recipient picker and no staff directory; the composer targets only ASPIRE Team.
+   - A second authorized school (if any) cannot see the first school's thread; a partner with a
+     revoked grant loses access; the two WCU campuses see only their own threads.
+   - Student and Unit Leader messaging behave exactly as before.
+
+10. **General-thread-only:** Academic Partner messaging is general school-partner threads to the ASPIRE
+    Team only (`student_id`/student-context NULL). No AP-to-student, AP-to-preceptor, AP-to-another-
+    school, student-linked, or staff-internal threads exist or are reachable.
+
+11. **Student and Unit Leader messaging unchanged:** the migration reproduces the student and
+    unit_leader branches byte-for-byte and adds only the academic_partner branch; the server auth chain
+    admits AP strictly last, after the unchanged student and unit_leader checks. Preceptor remains a
+    schema reservation, admitted nowhere.
 
 ## Verification
 
@@ -166,12 +232,15 @@ launcher.
 - `git diff --check` — clean.
 
 New tests: `cohortTimelineOrdering`, `unitLeaderCohortContext`, `cohortAccessCardConvergence`,
-`academicPartnerMessages`. Updated regressions: AP roster/students/shell, portal header scope, UL
+`academicPartnerMessages`, `apMessagingMigration` (migration static-security), `apMessagingCapabilityGate`
+(behavioral capability gate). Updated regressions: AP roster/students/shell, portal header scope, UL
 scope-selector/polish/utility-layer/calendar, messaging phases 3B/5bi/5bii, docked-messages UI,
 portal-experience convergence.
 
 ## Explicitly unchanged
 
-Main app cohort switcher order; placement provenance / password security; Supabase RLS and the
-messaging DB predicates (the gate above is reported, not applied); email routing; the stray
-`src/portal/UnitLeaderPortal 2.jsx` (untouched). Nothing was merged, pushed, or deployed.
+Main app cohort switcher order; placement provenance / password security; email routing; the stray
+`src/portal/UnitLeaderPortal 2.jsx` (untouched). The messaging DB predicates change ONLY via the
+committed-but-unapplied migration in §6 — no SQL was run, no migration was applied. The former
+hardcoded client constant `src/lib/apMessaging.js` was removed in favor of the server capability gate.
+Nothing was merged, pushed, or deployed.
