@@ -85,6 +85,7 @@ export default function PortalUtilityLayer({
   unread = 0,
   messagesAuthorized = false,
   onOpenMessages,
+  schools = [],
 }) {
   const [activePanel, setActivePanel] = useState(null)
   const [sessionDismissedKey, setSessionDismissedKey] = useState(null)
@@ -185,6 +186,7 @@ export default function PortalUtilityLayer({
           unread={unread}
           onOpenFullMessages={openFullMessages}
           variant={isUnitLeaderPortal ? 'unit_leader' : isAcademicPartnerPortal ? 'academic_partner' : 'student'}
+          schools={isAcademicPartnerPortal ? schools : []}
         />
       )}
     </>

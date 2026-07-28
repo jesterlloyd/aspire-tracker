@@ -2,10 +2,9 @@
 -- Enable Academic Partner general team messages
 --
 -- Owner-gated. NOT auto-applied by this branch. Activates Academic Partner <-> ASPIRE Team
--- general messaging by extending the existing SECURITY DEFINER message predicates and the general
--- team-thread start RPC to admit the academic_partner / school participant shape that the schema
--- already reserves (conversation_participants.chk_participant_role_scope already allows
--- participant_role = 'academic_partner' AND scope_kind = 'school'; see
+-- general messaging by extending the existing SECURITY DEFINER message predicates and adding a
+-- dedicated Academic Partner start RPC, admitting the academic_partner / school participant shape the
+-- schema already reserves (conversation_participants.chk_participant_role_scope; see
 -- 20260724000001_general_team_threads_backend.sql).
 --
 -- ATOMIC: the entire executable migration runs inside ONE transaction (BEGIN ... COMMIT). If any
@@ -15,24 +14,31 @@
 -- half-applied migration. Verification queries are OUTSIDE the transaction, as comments.
 --
 -- Smallest safe extension. Student, Unit Leader, Owner, Admin, and staff behavior is preserved: the
--- student and unit_leader branches of every function below are reproduced byte-for-byte, and only an
--- additive academic_partner branch is introduced. No table is altered; no data is backfilled.
+-- public general-team start RPC keeps its EXACT signature and admits ONLY student and unit_leader
+-- (as before); its body is refactored to delegate to a shared internal core so the workflow is not
+-- duplicated. A dedicated academic_partner RPC handles the school-scoped path.
 --
--- Security model for the added branch (all server-derived, never browser-supplied):
+-- Security model for the academic_partner path (all server-derived, never browser-supplied for
+-- authorization):
 --   * caller must have an active academic_partner role grant AND at least one active user_school_scopes
 --     row (message_profile_has_active_academic_partner_portal_scope);
 --   * a thread is readable/sendable only by a participant whose row is participant_role =
 --     'academic_partner', scope_kind = 'school', with scope_school_key matching one of the caller's
---     ACTIVE user_school_scopes.school_key by EXACT equality (so West Coast University Anaheim and
---     West Coast University North Hollywood, being distinct canonical school_key values, stay isolated
---     -- never a substring match);
---   * general threads only: student_id / related_student_id / scope_student_id are NULL, so no
---     student-linked or staff-internal conversation is ever reachable;
---   * the recipient always resolves to the ASPIRE Team shared inbox (aspire@cshs.org).
+--     ACTIVE user_school_scopes.school_key by EXACT equality (WCU Anaheim vs North Hollywood, being
+--     distinct canonical school_key values, stay isolated -- never LIKE/substring/email/display-name);
+--   * general threads only: student/unit/cohort context is NULL on BOTH the participant and the
+--     conversation (the canonical general-team discriminator; there is no stored thread_kind column);
+--   * the recipient is LOCKED to the ASPIRE Team shared inbox (aspire@cshs.org), asserted before any
+--     write;
+--   * a multi-school Academic Partner supplies the selected school through the server, which verifies
+--     it against active scopes and passes only the verified canonical key to the RPC; the RPC
+--     re-verifies. A single-school caller is auto-resolved server-side. Missing/invalid selection fails
+--     closed before any write.
 --
 -- All functions keep SECURITY DEFINER, the repository search_path convention
 -- (SET search_path = public, pg_catalog), schema-qualified references, and least-privilege grants
--- (service_role EXECUTE only; revoked from PUBLIC/anon/authenticated).
+-- (service_role EXECUTE only; the internal core is revoked from everyone and invoked only by the two
+-- SECURITY DEFINER entry RPCs).
 -- ############################################################################
 
 BEGIN;
@@ -222,12 +228,14 @@ AS $$
 $$;
 
 -- ----------------------------------------------------------------------------
--- 4. General team start RPC: student + unit_leader branches unchanged; add academic_partner.
---    The Academic Partner's authorized school is derived SERVER-SIDE from active user_school_scopes;
---    a missing or ambiguous (multi-school) scope is rejected. The signature is unchanged (no school
---    parameter is trusted from the caller).
+-- 4a. Internal CORE workflow for starting a general ASPIRE Team thread. Shared by the public
+--     student/unit_leader RPC and the dedicated academic_partner RPC so the idempotency ledger, rate
+--     limits, delivery validation, and conversation/message/event/read/delivery inserts are written
+--     ONCE. Not granted to anyone: it is invoked only from the two SECURITY DEFINER entry RPCs, which
+--     execute as the owner. p_scope_school_key is NULL for student/unit_leader and the SERVER-VERIFIED
+--     canonical school_key for academic_partner.
 -- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation(
+CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation_core(
   p_actor_profile_id       uuid,
   p_actor_kind             text,
   p_request_id             uuid,
@@ -235,7 +243,8 @@ CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation(
   p_subject                text,
   p_category               text,
   p_body                   text,
-  p_delivery               jsonb
+  p_delivery               jsonb,
+  p_scope_school_key       text
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -252,9 +261,8 @@ DECLARE
   v_subject          text := btrim(coalesce(p_subject, ''));
   v_category         text := nullif(btrim(coalesce(p_category, '')), '');
   v_rate             jsonb;
-  v_schools          text[];      -- ADDED: active school_keys for an academic_partner actor
-  v_school_key       text;        -- ADDED: the single derived authorized school
-  v_ap_recipient_kind    text;    -- ADDED: fixed-recipient assertion (academic_partner only)
+  v_school_key       text;        -- the verified authorized school (academic_partner only)
+  v_ap_recipient_kind    text;    -- fixed-recipient assertion (academic_partner only)
   v_ap_recipient_email   text;
   v_ap_recipient_profile text;
 BEGIN
@@ -347,21 +355,26 @@ BEGIN
       RAISE EXCEPTION 'unit leader access is not active' USING ERRCODE = 'MS403';
     END IF;
   ELSE
-    -- academic_partner: verify active grant + scope, then derive the single authorized school.
+    -- academic_partner: verify active grant + scope, then re-verify the SERVER-SUPPLIED school key is
+    -- an active scope for this actor (browser selection is never trusted; the caller passes only a
+    -- server-verified canonical key, and this is the SQL re-verification). Exact match => WCU isolated.
     IF NOT public.message_profile_has_active_academic_partner_portal_scope(p_actor_profile_id) THEN
       RAISE EXCEPTION 'academic partner access is not active' USING ERRCODE = 'MS403';
     END IF;
-    SELECT array_agg(DISTINCT s.school_key)
-      INTO v_schools
-      FROM public.user_school_scopes s
+    v_school_key := btrim(coalesce(p_scope_school_key, ''));
+    IF v_school_key = '' THEN
+      RAISE EXCEPTION 'academic partner school scope is required' USING ERRCODE = 'MS400';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.user_school_scopes s
       WHERE s.user_profile_id = p_actor_profile_id
+        AND s.school_key = v_school_key
         AND s.revoked_at IS NULL
         AND s.starts_at <= v_now
-        AND (s.expires_at IS NULL OR s.expires_at > v_now);
-    IF v_schools IS NULL OR array_length(v_schools, 1) <> 1 THEN
-      RAISE EXCEPTION 'academic partner school scope is missing or ambiguous' USING ERRCODE = 'MS400';
+        AND (s.expires_at IS NULL OR s.expires_at > v_now)
+    ) THEN
+      RAISE EXCEPTION 'academic partner school scope is not active' USING ERRCODE = 'MS403';
     END IF;
-    v_school_key := v_schools[1];
   END IF;
 
   SELECT public.consume_message_rate_limit(
@@ -410,8 +423,8 @@ BEGIN
       NULL, NULL, NULL, NULL, v_now
     );
   ELSE
-    -- academic_partner: school-scoped participant with the server-derived authorized school. No
-    -- student/unit context, matching chk_participant_role_scope for the academic_partner shape.
+    -- academic_partner: school-scoped participant with the verified authorized school. No student/unit
+    -- context, matching chk_participant_role_scope for the academic_partner shape.
     INSERT INTO public.conversation_participants (
       conversation_id, participant_profile_id, participant_role, scope_kind,
       scope_student_id, scope_unit_key, scope_school_key, scope_cohort_id, added_at
@@ -478,13 +491,97 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb) IS
-  'Service-role-only. Idempotently starts a general portal-to-ASPIRE Team conversation with no student or unit context for an active Student, an active Unit Leader with at least one active unit scope, or an active Academic Partner with exactly one active school scope (a missing or ambiguous multi-school scope is rejected; the school is derived server-side from user_school_scopes, never from the caller). The unique request ledger is scoped to actor_profile_id + operation_kind + request_id and stores an opaque payload fingerprint plus result ids. Replays with the same fingerprint return the original result; replays with a different fingerprint raise MS409. The function also creates the first notification delivery row (ASPIRE Team shared inbox) in the same transaction.';
+COMMENT ON FUNCTION public.messages_start_general_team_conversation_core(uuid, text, uuid, text, text, text, text, jsonb, text) IS
+  'Internal only (not granted; invoked by the two SECURITY DEFINER entry RPCs). Idempotent general ASPIRE Team thread workflow: ledger, rate limits, delivery validation, and conversation/message/event/read/delivery inserts. p_scope_school_key is NULL for student/unit_leader and the SERVER-VERIFIED canonical school_key for academic_partner (re-verified here as an active scope; exact match keeps WCU campuses isolated). Academic Partner deliveries are locked to aspire@cshs.org before any write.';
 
 -- ----------------------------------------------------------------------------
--- 5. Grants for the authorization functions (least privilege; service_role only). CREATE OR REPLACE
---    preserves existing grants on the replaced functions; the new helper needs an explicit grant, and
---    all are re-affirmed to keep this migration self-contained.
+-- 4b. Public general-team start RPC. EXACT original signature; behavior for Student and Unit Leader is
+--     preserved (a thin, behavior-identical wrapper over the core). Academic Partner is NOT accepted
+--     here -- it has its own dedicated RPC (4c) -- so this signature keeps its original student/UL-only
+--     contract.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation(
+  p_actor_profile_id       uuid,
+  p_actor_kind             text,
+  p_request_id             uuid,
+  p_payload_fingerprint    text,
+  p_subject                text,
+  p_category               text,
+  p_body                   text,
+  p_delivery               jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+BEGIN
+  IF p_actor_kind NOT IN ('student', 'unit_leader') THEN
+    RAISE EXCEPTION 'invalid actor kind' USING ERRCODE = 'MS400';
+  END IF;
+  RETURN public.messages_start_general_team_conversation_core(
+    p_actor_profile_id, p_actor_kind, p_request_id, p_payload_fingerprint,
+    p_subject, p_category, p_body, p_delivery, NULL
+  );
+END;
+$$;
+
+COMMENT ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb) IS
+  'Service-role-only. Idempotently starts a general portal-to-ASPIRE Team conversation for an active Student or an active Unit Leader with at least one active unit scope (academic_partner uses messages_start_general_team_conversation_ap). Behavior is unchanged from 20260724000001; the body now delegates to the shared internal core. Same idempotency ledger and ASPIRE Team shared-inbox delivery.';
+
+-- ----------------------------------------------------------------------------
+-- 4c. Dedicated Academic Partner start RPC. Distinct name (no ambiguous Supabase overload). The server
+--     passes the SELECTED, already-verified canonical school_key; this RPC re-verifies it is an active
+--     scope for the actor (browser selection is never authorization), then delegates to the core.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation_ap(
+  p_actor_profile_id       uuid,
+  p_request_id             uuid,
+  p_payload_fingerprint    text,
+  p_subject                text,
+  p_category               text,
+  p_body                   text,
+  p_delivery               jsonb,
+  p_school_key             text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_school text := btrim(coalesce(p_school_key, ''));
+BEGIN
+  IF v_school = '' THEN
+    RAISE EXCEPTION 'academic partner school scope is required' USING ERRCODE = 'MS400';
+  END IF;
+  -- The supplied canonical key must be an ACTIVE scope for this actor (exact match). Fail closed
+  -- before any write. The core re-verifies as well (defense in depth).
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_school_scopes s
+    WHERE s.user_profile_id = p_actor_profile_id
+      AND s.school_key = v_school
+      AND s.revoked_at IS NULL
+      AND s.starts_at <= now()
+      AND (s.expires_at IS NULL OR s.expires_at > now())
+  ) THEN
+    RAISE EXCEPTION 'academic partner school scope is not active' USING ERRCODE = 'MS403';
+  END IF;
+  RETURN public.messages_start_general_team_conversation_core(
+    p_actor_profile_id, 'academic_partner', p_request_id, p_payload_fingerprint,
+    p_subject, p_category, p_body, p_delivery, v_school
+  );
+END;
+$$;
+
+COMMENT ON FUNCTION public.messages_start_general_team_conversation_ap(uuid, uuid, text, text, text, text, jsonb, text) IS
+  'Service-role-only. Idempotently starts a general Academic Partner -> ASPIRE Team conversation. p_school_key is the SERVER-VERIFIED selected canonical school_key (a single-school AP is auto-resolved server-side; a multi-school AP supplies the selected school, verified against active user_school_scopes before it reaches here). This RPC re-verifies it is an active scope (exact match; WCU isolated), then delegates to the shared core. General-thread null context and the fixed aspire@cshs.org recipient are enforced in the core before any write.';
+
+-- ----------------------------------------------------------------------------
+-- 5. Grants for the authorization + entry functions (least privilege; service_role only). The internal
+--    core is revoked from everyone and granted to NO ONE: it is invoked only by the two SECURITY
+--    DEFINER entry RPCs, which execute as the owner. CREATE OR REPLACE preserves existing grants on the
+--    replaced functions; all are re-affirmed to keep this migration self-contained.
 -- ----------------------------------------------------------------------------
 REVOKE ALL ON FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)
   FROM PUBLIC, anon, authenticated;
@@ -492,7 +589,11 @@ REVOKE ALL ON FUNCTION public.message_participant_can_read(uuid, uuid)
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.message_participant_can_send(uuid, uuid)
   FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.messages_start_general_team_conversation_core(uuid, text, uuid, text, text, text, text, jsonb, text)
+  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.messages_start_general_team_conversation_ap(uuid, uuid, text, text, text, text, jsonb, text)
   FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)
@@ -501,7 +602,10 @@ GRANT EXECUTE ON FUNCTION public.message_participant_can_read(uuid, uuid)
   TO service_role;
 GRANT EXECUTE ON FUNCTION public.message_participant_can_send(uuid, uuid)
   TO service_role;
+-- NOTE: messages_start_general_team_conversation_core is intentionally NOT granted (internal only).
 GRANT EXECUTE ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)
+  TO service_role;
+GRANT EXECUTE ON FUNCTION public.messages_start_general_team_conversation_ap(uuid, uuid, text, text, text, text, jsonb, text)
   TO service_role;
 
 -- ----------------------------------------------------------------------------
@@ -521,7 +625,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.ap_team_messaging_capability() IS
-  'Capability sentinel for Academic Partner team messaging. Returns true. Created last in the enable_academic_partner_team_messages migration, so its existence proves the AP read/send predicates and start-RPC branch committed atomically. Probed server-side (service_role) by the AP messaging capability gate.';
+  'Capability sentinel for Academic Partner team messaging. Returns true. Created last in the enable_academic_partner_team_messages migration, so its existence proves the AP read/send predicates and the dedicated AP start RPC committed atomically. Probed server-side (service_role) by the AP messaging capability gate.';
 
 REVOKE ALL ON FUNCTION public.ap_team_messaging_capability()
   FROM PUBLIC, anon, authenticated;
@@ -533,47 +637,58 @@ COMMIT;
 -- ############################################################################
 -- Verification (run AFTER applying; expect the described results). OUTSIDE the transaction.
 -- ############################################################################
--- (a) All five functions exist with SECURITY DEFINER and a locked search_path:
---   SELECT p.proname, p.prosecdef, p.proconfig
+-- (a) All expected functions exist with SECURITY DEFINER (except the IMMUTABLE sentinel) and a locked
+--     search_path, and the ORIGINAL student/unit_leader RPC signature is still available:
+--   SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args, p.prosecdef, p.proconfig
 --   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 --   WHERE n.nspname = 'public'
 --     AND p.proname IN (
 --       'message_profile_has_active_academic_partner_portal_scope',
 --       'message_participant_can_read', 'message_participant_can_send',
---       'messages_start_general_team_conversation', 'ap_team_messaging_capability')
---   ORDER BY p.proname;
---   -- Expect prosecdef = true for the four SECURITY DEFINER functions (the sentinel is IMMUTABLE and
---   -- need not be DEFINER), and proconfig containing search_path=public, pg_catalog on each.
+--       'messages_start_general_team_conversation',
+--       'messages_start_general_team_conversation_core',
+--       'messages_start_general_team_conversation_ap',
+--       'ap_team_messaging_capability')
+--   ORDER BY p.proname, args;
+--   -- Expect exactly ONE messages_start_general_team_conversation with 8 args
+--   --   (uuid, text, uuid, text, text, text, text, jsonb)  [student/unit_leader],
+--   -- exactly ONE messages_start_general_team_conversation_ap with 8 args
+--   --   (uuid, uuid, text, text, text, text, jsonb, text)  [academic_partner], and
+--   -- exactly ONE _core with 9 args. No stray/prior overload of the 8-arg RPC that accepts
+--   -- academic_partner. prosecdef = true for all except the sentinel; proconfig has the search_path.
 --
--- (b) Grants are service_role only (no anon/authenticated/PUBLIC EXECUTE):
---   SELECT p.proname, r.rolname, has_function_privilege(r.rolname, p.oid, 'EXECUTE') AS can_exec
+-- (b) Grants are service_role only, and the internal core is granted to NO ONE:
+--   SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args, r.rolname,
+--          has_function_privilege(r.rolname, p.oid, 'EXECUTE') AS can_exec
 --   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 --   CROSS JOIN (VALUES ('anon'),('authenticated'),('service_role')) AS r(rolname)
 --   WHERE n.nspname='public' AND p.proname IN (
 --     'message_participant_can_read','message_participant_can_send',
---     'messages_start_general_team_conversation','ap_team_messaging_capability',
---     'message_profile_has_active_academic_partner_portal_scope');
---   -- Expect can_exec = true only for service_role.
+--     'messages_start_general_team_conversation','messages_start_general_team_conversation_ap',
+--     'messages_start_general_team_conversation_core','ap_team_messaging_capability',
+--     'message_profile_has_active_academic_partner_portal_scope')
+--   ORDER BY p.proname;
+--   -- Expect can_exec = true only for service_role, and FALSE for service_role on _core too
+--   -- (internal-only; invoked by the definer entry RPCs, not granted).
 --
--- (c) Capability sentinel:
---   SELECT public.ap_team_messaging_capability();   -- expect true
+-- (c) Capability sentinel:  SELECT public.ap_team_messaging_capability();   -- expect true
 --
--- (d) Student/Unit Leader unchanged: re-run the existing messaging regression suite against the DB,
---     or spot-check that message_participant_can_read/can_send return the same results for known
---     student and unit_leader participant rows as before this migration.
+-- (d) Student/Unit Leader unchanged: re-run the existing messaging regression suite against the DB, or
+--     spot-check message_participant_can_read/can_send for known student/unit_leader rows.
 
 -- ############################################################################
--- Rollback considerations
+-- Rollback considerations (ordered; corrected function set)
 -- ############################################################################
--- This migration is additive and idempotent (CREATE OR REPLACE + grants). No table, column, or data
--- changed, so there is no data to back out.
---   * To fully revert Academic Partner messaging: re-apply the prior definitions of
---     message_participant_can_read, message_participant_can_send, and
---     messages_start_general_team_conversation from 20260724000001_general_team_threads_backend.sql
---     (which reject actor_kind = 'academic_partner' and admit no academic_partner participant rows),
---     then DROP FUNCTION public.ap_team_messaging_capability() and
---     DROP FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid).
---   * Faster operational disable WITHOUT any SQL: unset the server env AP_MESSAGING_ENABLED (or set it
---     to anything other than 'true') and redeploy. The capability gate then reports disabled and the
---     feature is fail-closed even while this migration remains applied.
--- No backfill is performed or required.
+-- Additive and idempotent (CREATE OR REPLACE + grants). No table, column, or data changed, so there is
+-- no data to back out. To fully revert Academic Partner messaging, run inside one transaction:
+--   1. Re-apply the prior definitions of message_participant_can_read, message_participant_can_send,
+--      and messages_start_general_team_conversation from
+--      20260724000001_general_team_threads_backend.sql (which reject academic_partner and admit no
+--      academic_partner participant rows).
+--   2. DROP FUNCTION public.messages_start_general_team_conversation_ap(uuid, uuid, text, text, text, text, jsonb, text);
+--   3. DROP FUNCTION public.messages_start_general_team_conversation_core(uuid, text, uuid, text, text, text, text, jsonb, text);
+--   4. DROP FUNCTION public.ap_team_messaging_capability();
+--   5. DROP FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid);
+-- Faster operational disable WITHOUT any SQL: unset the server env AP_MESSAGING_ENABLED (or set it to
+-- anything other than 'true') and redeploy. The capability gate then reports disabled and the feature
+-- is fail-closed even while this migration remains applied. No backfill is performed or required.

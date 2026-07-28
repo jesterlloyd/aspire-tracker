@@ -299,6 +299,7 @@ export default function PortalApp() {
             unread={unread}
             messagesAuthorized={apMessagesEnabled}
             onOpenMessages={() => goApSection('messages')}
+            schools={access?.school_keys || []}
           />
         )}>
         <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}

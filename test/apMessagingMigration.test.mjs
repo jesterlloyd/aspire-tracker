@@ -53,13 +53,24 @@ test('the capability sentinel is created LAST, after every authorization functio
   }
 })
 
-test('the three functions are CREATE OR REPLACE with their EXACT existing signatures', () => {
+test('signatures: predicates unchanged; the public 8-arg RPC preserved; plus internal core + AP RPC', () => {
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.message_participant_can_read\(\s*\n\s*p_conversation_id uuid,\s*\n\s*p_profile_id\s+uuid\s*\n\)/)
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.message_participant_can_send\(\s*\n\s*p_conversation_id uuid,\s*\n\s*p_profile_id\s+uuid\s*\n\)/)
+  // Public student/unit_leader RPC: EXACT original 8-arg signature (no p_school_key), unchanged.
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.messages_start_general_team_conversation\(\s*\n\s*p_actor_profile_id\s+uuid,\s*\n\s*p_actor_kind\s+text,\s*\n\s*p_request_id\s+uuid,\s*\n\s*p_payload_fingerprint\s+text,\s*\n\s*p_subject\s+text,\s*\n\s*p_category\s+text,\s*\n\s*p_body\s+text,\s*\n\s*p_delivery\s+jsonb\s*\n\)/)
-  // The start RPC signature carries NO school parameter: the school is never supplied by the caller.
-  const startSig = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation'))
-  assert.doesNotMatch(startSig.slice(0, startSig.indexOf(')')), /school/i)
+  // Internal core: 9 args including the verified school key.
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.messages_start_general_team_conversation_core\([\s\S]*?p_scope_school_key\s+text\s*\n\)/)
+  // Dedicated AP RPC: distinct name, 8 args with an explicit p_school_key and NO p_actor_kind.
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.messages_start_general_team_conversation_ap\(\s*\n\s*p_actor_profile_id\s+uuid,\s*\n\s*p_request_id\s+uuid,\s*\n\s*p_payload_fingerprint\s+text,\s*\n\s*p_subject\s+text,\s*\n\s*p_category\s+text,\s*\n\s*p_body\s+text,\s*\n\s*p_delivery\s+jsonb,\s*\n\s*p_school_key\s+text\s*\n\)/)
+})
+
+test('the public 8-arg RPC accepts ONLY student/unit_leader and delegates to core (behavior preserved)', () => {
+  // Slice the wrapper FUNCTION BODY only (CREATE .. $$;), excluding its trailing COMMENT string.
+  const wIdx = sql.indexOf('CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation(', sql.indexOf('-- 4b.'))
+  const wrapper = sql.slice(wIdx, sql.indexOf('$$;', wIdx) + 3)
+  assert.match(wrapper, /IF p_actor_kind NOT IN \('student', 'unit_leader'\) THEN/)
+  assert.match(wrapper, /RETURN public\.messages_start_general_team_conversation_core\([\s\S]*?p_delivery, NULL\s*\n\s*\)/)
+  assert.doesNotMatch(wrapper, /academic_partner/)  // AP is not handled in this signature
 })
 
 test('every changed/added function keeps SECURITY DEFINER and a locked search_path', () => {
@@ -132,42 +143,48 @@ test('the send predicate composes can_read (so AP send inherits the active-scope
   assert.doesNotMatch(canSend, /academic_partner/)
 })
 
-test('the start RPC admits academic_partner, derives ONE school server-side, and rejects ambiguity', () => {
-  const start = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation'))
-  assert.match(start, /p_actor_kind NOT IN \('student', 'unit_leader', 'academic_partner'\)/)
-  // Verify active AP scope, then derive exactly one authorized school from active user_school_scopes.
-  assert.match(start, /public\.message_profile_has_active_academic_partner_portal_scope\(p_actor_profile_id\)/)
-  assert.match(start, /SELECT array_agg\(DISTINCT s\.school_key\)\s*\n\s*INTO v_schools\s*\n\s*FROM public\.user_school_scopes s/)
-  assert.match(start, /IF v_schools IS NULL OR array_length\(v_schools, 1\) <> 1 THEN\s*\n\s*RAISE EXCEPTION 'academic partner school scope is missing or ambiguous'/)
-  // General thread only: the conversation has NULL related_* and the participant is school-scoped with
-  // NO student/unit context (student_id IS NULL), matching chk_participant_role_scope.
-  assert.match(start, /'academic_partner', 'school',\s*\n\s*NULL, NULL, v_school_key, NULL, v_now/)
-  assert.match(start, /related_student_id, related_unit_key, related_school_key, related_cohort_id,[\s\S]*?NULL, NULL, NULL, NULL,/)
-  // The message author role is the derived actor kind (academic_partner is allowed by the schema CHECK).
-  assert.match(start, /author_role, body[\s\S]*?p_actor_kind, p_body/)
+test('the AP RPC verifies the SERVER-SUPPLIED school against active scopes, then delegates to core', () => {
+  const ap = sql.slice(sql.indexOf('-- 4c. Dedicated Academic Partner'), sql.indexOf('-- 5. Grants'))
+  assert.match(ap, /messages_start_general_team_conversation_ap\(/)
+  assert.match(ap, /p_school_key\s+text/)
+  // Re-verify the supplied canonical key is an ACTIVE scope for the actor (exact match; fail closed).
+  assert.match(ap, /WHERE s\.user_profile_id = p_actor_profile_id\s*\n\s*AND s\.school_key = v_school/)
+  assert.match(ap, /RAISE EXCEPTION 'academic partner school scope is not active' USING ERRCODE = 'MS403'/)
+  assert.match(ap, /RETURN public\.messages_start_general_team_conversation_core\([\s\S]*?'academic_partner'[\s\S]*?v_school\s*\n\s*\)/)
+  // Core also re-verifies (defense in depth) and inserts a school-scoped participant with the key.
+  const core = sql.slice(sql.indexOf('-- 4a. Internal CORE'), sql.indexOf('-- 4b. Public'))
+  assert.match(core, /public\.message_profile_has_active_academic_partner_portal_scope\(p_actor_profile_id\)/)
+  assert.match(core, /v_school_key := btrim\(coalesce\(p_scope_school_key, ''\)\)/)
+  assert.match(core, /AND s\.school_key = v_school_key/)   // exact match on the verified key
+  // General thread only: conversation related_* NULL and school-scoped participant with no student/unit.
+  assert.match(core, /'academic_partner', 'school',\s*\n\s*NULL, NULL, v_school_key, NULL, v_now/)
+  assert.match(core, /related_student_id, related_unit_key, related_school_key, related_cohort_id,[\s\S]*?NULL, NULL, NULL, NULL,/)
+  // No ambiguity-rejection heuristic remains: the school is passed + verified, never array-derived.
+  assert.doesNotMatch(sql, /array_agg\(DISTINCT s\.school_key\)/)
 })
 
-test('the AP path LOCKS the recipient to the ASPIRE Team, asserted before any write', () => {
-  const start = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation'))
+test('the AP path LOCKS the recipient to the ASPIRE Team in the core, asserted before any write', () => {
+  const core = sql.slice(sql.indexOf('-- 4a. Internal CORE'), sql.indexOf('-- 4b. Public'))
   // The academic_partner recipient assertion appears BEFORE the idempotency ledger insert (so a bad
   // recipient leaves no row) and requires the exact shared inbox, shared_inbox kind, and no profile id.
-  const apCheckIdx = start.indexOf("IF p_actor_kind = 'academic_partner' THEN")
-  const ledgerIdx = start.indexOf('INSERT INTO public.message_creation_requests')
+  const apCheckIdx = core.indexOf("IF p_actor_kind = 'academic_partner' THEN")
+  const ledgerIdx = core.indexOf('INSERT INTO public.message_creation_requests')
   assert.ok(apCheckIdx > -1 && apCheckIdx < ledgerIdx, 'AP recipient check precedes the ledger insert')
-  assert.match(start, /v_ap_recipient_email\s+:= lower\(btrim\(coalesce\(p_delivery->>'recipient_email', ''\)\)\)/)
-  assert.match(start, /v_ap_recipient_email <> 'aspire@cshs\.org'/)
-  assert.match(start, /v_ap_recipient_kind <> 'shared_inbox'/)
-  assert.match(start, /v_ap_recipient_profile IS NOT NULL/)
-  assert.match(start, /RAISE EXCEPTION 'academic partner messages must be sent to the ASPIRE Team' USING ERRCODE = 'MS403'/)
+  assert.match(core, /v_ap_recipient_email\s+:= lower\(btrim\(coalesce\(p_delivery->>'recipient_email', ''\)\)\)/)
+  assert.match(core, /v_ap_recipient_email <> 'aspire@cshs\.org'/)
+  assert.match(core, /v_ap_recipient_kind <> 'shared_inbox'/)
+  assert.match(core, /v_ap_recipient_profile IS NOT NULL/)
+  assert.match(core, /RAISE EXCEPTION 'academic partner messages must be sent to the ASPIRE Team' USING ERRCODE = 'MS403'/)
   // Defense in depth: the shared validator also runs (it forces shared_inbox kind for new_conversation).
-  assert.match(start, /message_assert_valid_delivery\(p_delivery, 'new_conversation'/)
+  assert.match(core, /message_assert_valid_delivery\(p_delivery, 'new_conversation'/)
 })
 
-test('grants are least privilege: service_role EXECUTE only; revoked from PUBLIC/anon/authenticated', () => {
+test('grants are least privilege: service_role EXECUTE for entry functions; internal core granted to NO ONE', () => {
   for (const fn of [
     'message_participant_can_read(uuid, uuid)',
     'message_participant_can_send(uuid, uuid)',
     'messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)',
+    'messages_start_general_team_conversation_ap(uuid, uuid, text, text, text, text, jsonb, text)',
     'message_profile_has_active_academic_partner_portal_scope(uuid)',
     'ap_team_messaging_capability()',
   ]) {
@@ -175,7 +192,11 @@ test('grants are least privilege: service_role EXECUTE only; revoked from PUBLIC
     assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${esc}\\s*\\n\\s*FROM PUBLIC, anon, authenticated;`), `${fn} revoked`)
     assert.match(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${esc}\\s*\\n\\s*TO service_role;`), `${fn} granted to service_role`)
   }
-  // No EXECUTE is ever granted to anon or authenticated for these functions.
+  // The internal core is revoked from everyone and granted to NO ONE (invoked only by the definer RPCs).
+  const coreEsc = 'messages_start_general_team_conversation_core(uuid, text, uuid, text, text, text, text, jsonb, text)'.replace(/[().]/g, m => '\\' + m)
+  assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${coreEsc}\\s*\\n\\s*FROM PUBLIC, anon, authenticated;`))
+  assert.doesNotMatch(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${coreEsc}`))
+  // No EXECUTE is ever granted to anon or authenticated for any function.
   assert.doesNotMatch(sql, /GRANT EXECUTE ON FUNCTION[\s\S]*?TO (anon|authenticated)\b/)
 })
 

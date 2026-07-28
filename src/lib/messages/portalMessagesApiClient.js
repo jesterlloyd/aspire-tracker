@@ -79,10 +79,15 @@ export function startPortalConversation({ subject, category, body, signal } = {}
 //
 // Returns 201 for a new thread or 200 for an idempotent replay:
 // { conversation_id, message_id, created_at, status, thread_kind, idempotent_replay, confirmation }.
-export function startGeneralTeamConversation({ requestId, body, signal } = {}) {
+// schoolKey is the Academic Partner's selected school (only used by an AP with more than one
+// authorized school; the server verifies it and ignores it for other roles). Omitted from the payload
+// when absent.
+export function startGeneralTeamConversation({ requestId, body, schoolKey, signal } = {}) {
+  const payload = { request_id: requestId, body };
+  if (schoolKey) payload.school_key = schoolKey;
   return request('/api/portal/team-messages-start', {
     method: 'POST',
-    body: { request_id: requestId, body },
+    body: payload,
     signal,
   });
 }

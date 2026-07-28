@@ -241,15 +241,18 @@ test('migration grants the new write boundary service-role only', () => {
   assert.doesNotMatch(executableSql, /GRANT EXECUTE[^;]*messages_start_general_team_conversation[^;]*authenticated/)
 })
 
-test('new endpoint contract accepts only request_id and body', () => {
+test('new endpoint contract accepts request_id, body, and the AP-only selected school_key', () => {
   assert.match(endpoint, /res\.setHeader\('Cache-Control', 'no-store'\)/)
   assert.match(endpoint, /methodGuard\(req, res, \['POST'\]\)/)
   assert.match(endpoint, /verifyPortalMessagesCaller\(req\)/)
   assert.match(endpoint, /caller\.actorKind === 'unit_leader'[\s\S]*no_active_unit_scope/)
-  assert.match(endpoint, /const ALLOWED_FIELDS = new Set\(\['request_id', 'body'\]\)/)
-  for (const forbidden of ['student_id', 'unit_key', 'school_key', 'role', 'portal_type', 'profile_id', 'actor_profile_id', 'destination', 'category', 'subject']) {
+  // school_key is accepted only to carry an Academic Partner's selected school; verified server-side.
+  assert.match(endpoint, /const ALLOWED_FIELDS = new Set\(\['request_id', 'body', 'school_key'\]\)/)
+  for (const forbidden of ['student_id', 'unit_key', 'role', 'portal_type', 'profile_id', 'actor_profile_id', 'destination', 'category', 'subject']) {
     assert.doesNotMatch(endpoint, new RegExp(`parsed\\.body\\.${forbidden}\\b`), forbidden)
   }
+  // school_key is consumed ONLY on the academic_partner path, verified against active scopes.
+  assert.match(endpoint, /caller\.schoolKeys\.includes\(requested\)/)
   assert.match(endpoint, /isUuid\(requestId\)/)
   assert.match(endpoint, /validateBody\(parsed\.body\.body\)/)
   assert.match(endpoint, /startGeneralTeamConversationForPortal/)
@@ -258,10 +261,11 @@ test('new endpoint contract accepts only request_id and body', () => {
 test('browser helper is adopted only by the shared docked ASPIRE Team composer', () => {
   assert.match(portalClient, /export function startGeneralTeamConversation/)
   assert.match(portalClient, /\/api\/portal\/team-messages-start/)
-  assert.match(portalClient, /body: \{ request_id: requestId, body \}/)
+  assert.match(portalClient, /const payload = \{ request_id: requestId, body \}/)
+  assert.match(portalClient, /if \(schoolKey\) payload\.school_key = schoolKey/)
   assert.doesNotMatch(portalClient.match(/export function startGeneralTeamConversation[\s\S]*?\n}/)?.[0] || '', /student_id|unit_key|role|profile_id|subject|category|destination/)
   assert.match(teamPanel, /startGeneralTeamConversation/)
-  assert.match(teamPanel, /api\.startGeneralTeamConversation\(\{\s*\n\s*requestId: stableRequestId,\s*\n\s*body: normalized,\s*\n\s*\}\)/)
+  assert.match(teamPanel, /api\.startGeneralTeamConversation\(\{\s*\n\s*requestId: stableRequestId,\s*\n\s*body: normalized,\s*\n\s*\/\/[^\n]*\n\s*schoolKey: effectiveSchool \|\| undefined,\s*\n\s*\}\)/)
   assert.doesNotMatch(newDrawer, /startGeneralTeamConversation/)
 })
 

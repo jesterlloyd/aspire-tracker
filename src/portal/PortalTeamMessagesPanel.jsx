@@ -44,6 +44,9 @@ export default function PortalTeamMessagesPanel({
   unread = 0,
   onOpenFullMessages,
   variant = 'student',
+  // Academic Partner authorized schools (server-derived). Only used to let a MULTI-school AP pick the
+  // school a NEW thread belongs to; the server verifies the choice. Single-school and non-AP ignore it.
+  schools = [],
   api = { startGeneralTeamConversation },
 }) {
   const qc = useQueryClient()
@@ -58,6 +61,10 @@ export default function PortalTeamMessagesPanel({
   const [pendingStart, setPendingStart] = useState(false)
   const [err, setErr] = useState('')
   const [announcement, setAnnouncement] = useState('')
+  // Multi-school Academic Partner: which authorized school a NEW thread is for. Defaults to the first.
+  const apMultiSchool = variant === 'academic_partner' && Array.isArray(schools) && schools.length > 1
+  const [schoolChoice, setSchoolChoice] = useState('')
+  const effectiveSchool = apMultiSchool ? (schoolChoice || schools[0]) : null
 
   usePortalDialogFocus({
     open,
@@ -153,6 +160,8 @@ export default function PortalTeamMessagesPanel({
       const out = await api.startGeneralTeamConversation({
         requestId: stableRequestId,
         body: normalized,
+        // Only a multi-school AP sends a school; the server verifies it and single-school auto-resolves.
+        schoolKey: effectiveSchool || undefined,
       })
       setDraft('')
       setRequestId(null)
@@ -247,6 +256,15 @@ export default function PortalTeamMessagesPanel({
             />
           ) : (
             <form onSubmit={startTeamConversation} className="ptl-team-start-form">
+              {apMultiSchool && (
+                <div className="ptl-team-start-school">
+                  <label className="ptl-label" htmlFor="ptl-team-start-school">School</label>
+                  <select id="ptl-team-start-school" className="ptl-input ptl-input-full"
+                    value={effectiveSchool} onChange={(e) => setSchoolChoice(e.target.value)}>
+                    {schools.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
               <label className="ptl-label" htmlFor="ptl-team-start-body">Message</label>
               <div className="ptl-msg-compose-row">
                 <textarea

@@ -7,13 +7,16 @@
 //   - active Unit Leader with at least one active unit scope
 //   - active Academic Partner with at least one active school scope (fail-closed: see below)
 //
-// The browser supplies only request_id and body. It never sends a student id,
-// unit key, role, profile id, destination, category, or subject. The server
-// derives identity, actor kind, subject, category, routing, and delivery.
+// The browser supplies request_id and body, plus (Academic Partner only) an optional selected
+// school_key. It never sends a student id, unit key, role, profile id, destination, category, or
+// subject. The server derives identity, actor kind, subject, category, routing, and delivery, and for
+// an Academic Partner VERIFIES the selected school against active scopes before passing only a
+// verified canonical key to the DB.
 //
-// Academic Partner thread creation is fail-closed: the DB start RPC does not admit the
-// academic_partner actor shape until the Owner SQL gate is applied, so this handler refuses AP writes
-// with 503 (never attempting the RPC) while AP_MESSAGING_ENABLED is false.
+// Academic Partner thread creation is fail-closed on the server capability gate (env flag AND the
+// applied DB migration): this handler refuses AP writes with 503 (never attempting the RPC) until the
+// capability is reported. A single-school AP auto-resolves; a multi-school AP must supply the selected
+// school, which is verified here; a missing/invalid selection fails closed.
 
 /* global process */
 import { Resend } from 'resend';
@@ -23,7 +26,9 @@ import { validateBody, isUuid } from '../../lib/server/messages/validation.js';
 import { startGeneralTeamConversationForPortal } from '../../lib/server/messages/conversationService.js';
 import { resolveApMessagingCapability } from '../lib/apMessagingCapability.js';
 
-const ALLOWED_FIELDS = new Set(['request_id', 'body']);
+// school_key is accepted only to carry an Academic Partner's selected school; it is ignored for
+// student / unit_leader callers (verified and consumed only on the academic_partner path below).
+const ALLOWED_FIELDS = new Set(['request_id', 'body', 'school_key']);
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -59,6 +64,21 @@ export default async function handler(req, res) {
   const body = validateBody(parsed.body.body);
   if (!body.ok) return res.status(422).json({ error: body.error });
 
+  // Academic Partner: resolve the SERVER-VERIFIED school for the participant. A single active scope
+  // auto-resolves. A multi-school AP must supply the selected school, verified against the caller's
+  // ACTIVE scopes (browser selection is never authorization); a missing/invalid selection fails closed.
+  let apSchoolKey = null;
+  if (caller.actorKind === 'academic_partner') {
+    if (caller.schoolKeys.length === 1) {
+      apSchoolKey = caller.schoolKeys[0];
+    } else {
+      const requested = typeof parsed.body.school_key === 'string' ? parsed.body.school_key.trim() : '';
+      if (!requested) return res.status(400).json({ error: 'school_selection_required' });
+      if (!caller.schoolKeys.includes(requested)) return res.status(403).json({ error: 'invalid_school_scope' });
+      apSchoolKey = requested;
+    }
+  }
+
   try {
     const out = await startGeneralTeamConversationForPortal(
       { db: getServiceDb(), resend: new Resend(process.env.RESEND_API_KEY) },
@@ -67,6 +87,7 @@ export default async function handler(req, res) {
         actorKind: caller.actorKind,
         requestId,
         body: body.value,
+        schoolKey: apSchoolKey,
       },
     );
 
