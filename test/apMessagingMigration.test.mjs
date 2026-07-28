@@ -89,9 +89,39 @@ test('the ADDED academic_partner read branch matches school scope EXACTLY (WCU i
   // Active academic_partner grant AND active school scope; scope matched by EXACT equality.
   assert.match(canRead, /g\.role = 'academic_partner'/)
   assert.match(canRead, /FROM public\.user_school_scopes s\s*\n\s*WHERE s\.user_profile_id = p_profile_id\s*\n\s*AND s\.school_key = cp\.scope_school_key/)
-  // Never a substring / fuzzy match on school (the WCU-campus isolation invariant).
-  assert.doesNotMatch(canRead, /school_key\s+(LIKE|ILIKE|~|SIMILAR TO)/i)
-  assert.doesNotMatch(canRead, /position\(|strpos\(|substring\(/i)
+  // Never a substring / fuzzy match on school (the WCU-campus isolation invariant). Strip SQL line
+  // comments first so the explanatory comment text does not trip the guard.
+  const canReadCode = canRead.replace(/--[^\n]*/g, '')
+  assert.doesNotMatch(canReadCode, /school_key\s+(LIKE|ILIKE|~|SIMILAR TO)/i)
+  assert.doesNotMatch(canReadCode, /position\(|strpos\(|substring\(/i)
+  assert.doesNotMatch(canReadCode, /email|domain|display/i)  // no email-domain / display-name matching
+})
+
+test('the academic_partner read branch EXPLICITLY enforces general-thread isolation (participant + conversation)', () => {
+  // Isolate the AP branch: from the academic_partner role marker to the end of its school-scope EXISTS.
+  const canRead = sql.slice(
+    sql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_read'),
+    sql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_send'))
+  const ap = canRead.slice(canRead.indexOf("cp.participant_role = 'academic_partner'"))
+  // Participant row: no student / unit / cohort context.
+  assert.match(ap, /cp\.scope_student_id IS NULL/)
+  assert.match(ap, /cp\.scope_unit_key IS NULL/)
+  assert.match(ap, /cp\.scope_cohort_id IS NULL/)
+  // Conversation row: joined and required to carry no student / unit / cohort context (the canonical
+  // general-team discriminator, since there is no stored thread_kind column).
+  assert.match(ap, /FROM public\.conversations c\s*\n\s*WHERE c\.id = cp\.conversation_id\s*\n\s*AND c\.related_student_id IS NULL\s*\n\s*AND c\.related_unit_key IS NULL\s*\n\s*AND c\.related_cohort_id IS NULL/)
+  // A removed participant row is excluded by the outer cp.removed_at IS NULL.
+  assert.match(canRead, /cp\.removed_at IS NULL/)
+})
+
+test('student and unit_leader read branches are NOT joined to the conversation null-context (unchanged)', () => {
+  // The conversation null-context join is scoped to the AP branch only; the student/unit_leader
+  // branches keep their exact prior logic (no new conversations join in their sub-conditions).
+  const canRead = sql.slice(
+    sql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_read'),
+    sql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_send'))
+  const conversationsJoins = canRead.match(/FROM public\.conversations c/g) || []
+  assert.equal(conversationsJoins.length, 1, 'exactly one conversations join, in the AP branch')
 })
 
 test('the send predicate composes can_read (so AP send inherits the active-scope check) and only guards unit_leader staleness', () => {

@@ -131,13 +131,30 @@ AS $$
         )
         OR
         (
-          -- ADDED: an Academic Partner reads a general school thread only when the participant row is
-          -- a school-scoped academic_partner row whose scope_school_key EXACTLY matches one of the
-          -- caller's active school scopes (WCU campuses isolated; revoked/expired fails closed).
+          -- ADDED: an Academic Partner reads a GENERAL school thread ONLY. This is enforced
+          -- EXPLICITLY, not by comment or the participant CHECK constraint alone:
+          --   * the participant row is a school-scoped academic_partner row with NO student/unit/cohort
+          --     context (scope_student_id / scope_unit_key / scope_cohort_id all NULL);
+          --   * the CONVERSATION itself carries no student/unit/cohort context. Because there is no
+          --     stored thread_kind column, the school-scoped participant PLUS these null-context checks
+          --     ARE the canonical general-team discriminator;
+          --   * scope_school_key EXACTLY matches one of the caller's active school scopes (WCU campuses
+          --     isolated; never LIKE/substring/email-domain/display-name; revoked/expired fails closed).
+          -- A removed participant row is already excluded by cp.removed_at IS NULL above.
           cp.participant_role = 'academic_partner'
           AND cp.scope_kind = 'school'
           AND cp.scope_school_key IS NOT NULL
+          AND cp.scope_student_id IS NULL
+          AND cp.scope_unit_key IS NULL
+          AND cp.scope_cohort_id IS NULL
           AND public.message_profile_is_active(p_profile_id)
+          AND EXISTS (
+            SELECT 1 FROM public.conversations c
+            WHERE c.id = cp.conversation_id
+              AND c.related_student_id IS NULL
+              AND c.related_unit_key IS NULL
+              AND c.related_cohort_id IS NULL
+          )
           AND EXISTS (
             SELECT 1 FROM public.user_role_grants g
             WHERE g.user_profile_id = p_profile_id
