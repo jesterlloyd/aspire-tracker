@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 import { ASPIRE_STATUSES } from '../lib/statuses';
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions';
+import { computeLegendPlacement } from './statusLegendPlacement';
 
 const READINESS_COLORS = [
   {
@@ -71,7 +72,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
   const [isOpen,        setIsOpen]        = useState(false);
   const [showTooltip,   setShowTooltip]   = useState(false);
   const [tooltipPos,    setTooltipPos]    = useState({ top: 0, left: 0 });
-  const [popoverCoords, setPopoverCoords] = useState({ top: 0, left: undefined, right: undefined });
+  const [popoverCoords, setPopoverCoords] = useState({ placement: 'below', top: 0, bottom: null, left: 0, width: 360, maxHeight: 0 });
   const popoverRef = useRef(null);
   const triggerRef = useRef(null);
   // Restore focus to the trigger when the popover closes (derived, not a setState-in-effect).
@@ -82,17 +83,15 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
   }, [isOpen]);
 
   // The popover is position:fixed and portaled, so its coordinates are anchored to the trigger's
-  // current viewport rect. Shared by open and by the reposition-on-scroll effect below.
-  const computeCoords = () => {
-    const rect = triggerRef.current.getBoundingClientRect();
-    const coords = { top: rect.bottom + 8 };
-    if (position.includes('right')) {
-      coords.right = window.innerWidth - rect.right;
-    } else {
-      coords.left = rect.left;
-    }
-    return coords;
-  };
+  // current viewport rect. Shared by open and by the reposition-on-scroll effect below. The pure
+  // geometry (viewport collision, below/above flip, clamping, bounded max-height) lives in
+  // computeLegendPlacement so it is deterministically testable.
+  const computeCoords = () => computeLegendPlacement({
+    rect: triggerRef.current.getBoundingClientRect(),
+    viewportW: window.innerWidth,
+    viewportH: window.innerHeight,
+    position,
+  });
 
   const handleToggle = () => {
     if (!isOpen && triggerRef.current) {
@@ -191,13 +190,17 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
       {isOpen && createPortal(
         <div
           ref={popoverRef}
+          role="dialog"
+          aria-label="ASPIRE Status Legend"
           style={{
             position: 'fixed',
-            top:   popoverCoords.top,
-            left:  popoverCoords.left,
-            right: popoverCoords.right,
-            width: '360px',
-            maxHeight: 'min(780px, calc(100vh - 60px))',
+            // Below-placements anchor by top; above-placements anchor by bottom so they grow upward.
+            top:    popoverCoords.top != null ? popoverCoords.top : undefined,
+            bottom: popoverCoords.bottom != null ? popoverCoords.bottom : undefined,
+            left:   popoverCoords.left,
+            width:  popoverCoords.width,
+            // Viewport-bounded height for the chosen side; the body (below) scrolls within it.
+            maxHeight: popoverCoords.maxHeight,
             background: '#ffffff',
             borderRadius: '14px',
             boxShadow: '0 8px 32px rgba(29,37,103,0.18), 0 2px 8px rgba(0,0,0,0.08)',
@@ -207,10 +210,11 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             flexDirection: 'column',
           }}
         >
-          {/* Header */}
+          {/* Header: never shrinks, so the title and close button stay visible while the body scrolls. */}
           <div style={{
             background: '#1D2567', padding: '14px 18px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexShrink: 0,
           }}>
             <div>
               <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
@@ -227,7 +231,9 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             >×</button>
           </div>
 
-          <div style={{ padding: '14px 18px', flex: 1, overflowY: 'auto' }}>
+          {/* Scrollable body: minHeight:0 lets a flex child actually overflow-scroll within the bounded
+              max-height; the whole page never scrolls to reveal legend content. Touch scrolling kept. */}
+          <div style={{ padding: '14px 18px', flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {/* Lifecycle statuses */}
             <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
               Active Pathway Statuses
