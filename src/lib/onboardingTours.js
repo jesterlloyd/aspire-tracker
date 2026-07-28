@@ -27,7 +27,9 @@ export const TOUR_EXPERIENCES = {
   // launcher steps were added, so the corrected tours appear once.
   student: 'v2',
   unit_leader: 'v2',
-  academic_partner: 'v2',
+  // v2 -> v3: corrected Students / Placement Requests role boundary copy
+  // (Placement Requests submits only; tracking lives on Students).
+  academic_partner: 'v3',
 };
 
 // Legacy alias. Nothing outside this module should need it (use TOUR_EXPERIENCES
@@ -488,12 +490,17 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
     {
       target: '[data-tour="portal-nav-students"]',
       title: 'Students',
-      content: "The roster of your school's students in ASPIRE.",
+      // WELCOME-TOUR-FOLLOWUP-2: the tracking side of the boundary. Submitted
+      // requests and each student's placement progress are managed HERE, not
+      // on the Placement Requests tab.
+      content: "The roster of your school's students in ASPIRE. Your submitted requests and each student's placement progress are managed and tracked here.",
     },
     {
       target: '[data-tour="portal-nav-placement-requests"]',
       title: 'Placement Requests',
-      content: 'Submit a new placement request for a student and track the status of requests you have already sent.',
+      // WELCOME-TOUR-FOLLOWUP-2: the submission side of the boundary. This tab
+      // is exclusively for submitting NEW requests; no tracking claim here.
+      content: 'Submit new placement requests for your students here. This tab is just for sending a new request; everything you have submitted is tracked on the Students tab.',
     },
   ];
 

@@ -97,7 +97,9 @@ test('TOUR_EXPERIENCES and the legacy TOUR_VERSION alias', () => {
   assert.equal(TOUR_EXPERIENCES.staff, 'v4')
   assert.equal(TOUR_EXPERIENCES.student, 'v2')
   assert.equal(TOUR_EXPERIENCES.unit_leader, 'v2')
-  assert.equal(TOUR_EXPERIENCES.academic_partner, 'v2')
+  // WELCOME-TOUR-FOLLOWUP-2: v2 -> v3, the Students / Placement Requests role
+  // boundary correction re-shows the AP tour once. Only the AP version moved.
+  assert.equal(TOUR_EXPERIENCES.academic_partner, 'v3')
   assert.equal(TOUR_VERSION, TOUR_EXPERIENCES.staff)
 })
 
@@ -517,4 +519,40 @@ test('the tour dialog is exempt from the portal utility-launcher suppression', (
   assert.match(engineSrc, /data-tour-dialog="true"/)
   const utility = read('../src/portal/PortalUtilityLayer.jsx')
   assert.match(utility, /:not\(\[data-tour-dialog\]\)/)
+})
+
+// ── WELCOME-TOUR-FOLLOWUP-2: AP Students / Placement Requests role boundary ──
+
+test('AP tour draws the submit-vs-track boundary correctly for both capability branches', () => {
+  const profile = { full_name: 'Alex Rivera' }
+  for (const enabled of [true, false]) {
+    const steps = getTourSteps('academic_partner', { userProfile: profile, apMessagesEnabled: enabled })
+    const students = steps.find(s => s.target === '[data-tour="portal-nav-students"]')
+    const requests = steps.find(s => s.target === '[data-tour="portal-nav-placement-requests"]')
+
+    // Placement Requests: exclusively for SUBMITTING new requests. No tracking
+    // claim of any phrasing may appear on this step.
+    assert.match(requests.content, /Submit new placement requests/)
+    assert.match(requests.content, /just for sending a new request/)
+    assert.doesNotMatch(requests.content, /track the status|already sent|monitor|follow the status/i)
+    // The only mention of tracking on this step points AT the Students tab.
+    assert.match(requests.content, /tracked on the Students tab/)
+
+    // Students: submitted requests and placement progress are managed and
+    // tracked THERE.
+    assert.match(students.content, /submitted requests/)
+    assert.match(students.content, /placement progress/)
+    assert.match(students.content, /managed and tracked here/)
+  }
+})
+
+test('the AP boundary bump moved only the academic_partner version', () => {
+  assert.equal(TOUR_EXPERIENCES.academic_partner, 'v3')
+  assert.equal(TOUR_EXPERIENCES.staff, 'v4')
+  assert.equal(TOUR_EXPERIENCES.student, 'v2')
+  assert.equal(TOUR_EXPERIENCES.unit_leader, 'v2')
+  // A pre-bump AP acknowledgement no longer suppresses; other experiences' do.
+  assert.equal(isTourAcknowledged({ onboarding_tour_version: 'academic_partner:v2' }, 'academic_partner'), false)
+  assert.equal(isTourAcknowledged({ onboarding_tour_version: 'academic_partner:v3' }, 'academic_partner'), true)
+  assert.equal(isTourAcknowledged({ onboarding_tour_version: 'student:v2' }, 'student'), true)
 })
