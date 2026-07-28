@@ -1,20 +1,31 @@
 // ASPIRE-PORTAL-ACCESS-UI: scalable Accounts & Access directory. Replaces the
 // role-grouped profile-card board with a compact directory (Staff Access,
-// Portal Access, Pending Invitations), summary counts, search + filters,
-// pagination, three-dot row menus, and a right-side details drawer. Staff and
-// portal access stay separate: staff invitations use InviteUserModal
-// (/api/invite-user); portal access uses GrantPortalAccessModal
-// (/api/invite-portal-user) and /api/revoke-portal-access. Portal data comes
-// only from GET /api/list-portal-access; the browser never reads or writes the
+// Portal Access), summary counts, search + filters, pagination, three-dot row
+// menus, and a right-side details drawer. Staff and portal access stay
+// separate: staff invitations use InviteUserModal (/api/invite-user); portal
+// access uses GrantPortalAccessModal (/api/invite-portal-user) and
+// /api/revoke-portal-access. Portal data comes only from
+// GET /api/list-portal-access; the browser never reads or writes the
 // authorization tables directly.
-import { useState, useRef, useEffect, useMemo } from 'react'
+//
+// ACCOUNTS-ACCESS-DIRECTORY-2: the old three-tab tablist (Staff Access /
+// Portal Access / Pending Invitations) is replaced with a two-way segmented
+// control (Staff Access | Portal Access) - pending invitations are now just
+// portal grants with status 'pending', filterable from the KPI row and the
+// status select like any other status. The summary strip is now a row of
+// clickable FilterKPICard cards (same primitive as Student Profiles), and
+// both tables show an online-presence dot next to each identity avatar,
+// sourced from onlineProfileIds (profile_id) - never the auth identifier.
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { UserPlus, ShieldPlus, Search, MoreVertical, AlertCircle } from 'lucide-react'
+import { UserPlus, ShieldPlus, Search, MoreVertical } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePresence } from '../../contexts/PresenceContext'
 import { supabase } from '../../lib/supabase'
 import StatusBadge from '../ui/StatusBadge'
+import { FilterKPICard } from '../KPIBand'
 import { UserInitials, displayRole, formatLoginDate, ROLE_OPTIONS } from './accountsShared'
-import { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, PORTAL_STATUS_STYLES, summarizeScope } from '../../lib/portalAccessStatus'
+import { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, PORTAL_STATUS_STYLES, EXPIRING_SOON_DAYS, summarizeScope } from '../../lib/portalAccessStatus'
 import InviteUserModal from './InviteUserModal'
 import GrantPortalAccessModal from './GrantPortalAccessModal'
 import AccountDetailsDrawer from './AccountDetailsDrawer'
@@ -83,12 +94,20 @@ function RowMenu({ label, items }) {
   )
 }
 
-function SummaryStat({ label, value }) {
+// ACCOUNTS-ACCESS-DIRECTORY-2: wraps UserInitials with a small online-presence
+// dot. Presence is visually separate from the Access Status badge - it never
+// replaces or changes the status badge, it just sits on the avatar corner.
+// The caller decides "online" from onlineProfileIds (profile_id), never
+// the auth identifier.
+function PresenceAvatar({ user, size = 32, online }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 88, padding: '8px 14px', border: '1px solid #eceef2', borderRadius: 10, background: '#fff' }}>
-      <span style={{ fontSize: 19, fontWeight: 700, color: '#1D2567', lineHeight: 1.1 }}>{value}</span>
-      <span style={{ fontSize: 11.5, color: '#6b7280', fontWeight: 500 }}>{label}</span>
-    </div>
+    <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+      <UserInitials user={user} size={size} />
+      {online && (
+        <span aria-hidden="true" title="Online now"
+          style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', background: '#22c55e', border: '2px solid #fff' }} />
+      )}
+    </span>
   )
 }
 
@@ -114,13 +133,15 @@ function EmptyState({ text }) {
 
 export default function AccountsDirectory() {
   const { isAdmin, userProfile } = useAuth()
+  const { onlineProfileIds } = usePresence()
   const queryClient = useQueryClient()
   const isNarrow = useIsNarrow()
 
-  const [tab, setTab] = useState('staff') // staff | portal | pending
+  const [tab, setTab] = useState('staff') // staff | portal
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [expiringOnly, setExpiringOnly] = useState(false)
   const [staffLimit, setStaffLimit] = useState(PAGE_SIZE)
   const [portalLimit, setPortalLimit] = useState(PAGE_SIZE)
 
@@ -144,7 +165,7 @@ export default function AccountsDirectory() {
 
   // ── Portal data (secure endpoint; never reads authz tables in-browser) ────
   const portalQuery = useQuery({
-    queryKey: ['portal_access_list', search, roleFilter, statusFilter],
+    queryKey: ['portal_access_list', search, roleFilter, statusFilter, tab],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
@@ -212,7 +233,7 @@ export default function AccountsDirectory() {
   }
 
   // ── Derived collections ──────────────────────────────────────────────────
-  const staffUsers = useMemo(() => {
+  const staffUsers = (() => {
     const s = search.trim().toLowerCase()
     return allUsers
       .filter(u => u.is_owner || STAFF_ROLES.has(u.role) || (u.role && u.role !== 'portal'))
@@ -220,11 +241,12 @@ export default function AccountsDirectory() {
       .filter(u => !roleFilter || (roleFilter === 'owner' ? u.is_owner : (!u.is_owner && (u.role === roleFilter))))
       .filter(u => !statusFilter || (statusFilter === 'active' ? u.is_active !== false : u.is_active === false))
       .filter(u => !s || `${u.full_name || ''} ${u.email || ''}`.toLowerCase().includes(s))
-  }, [allUsers, search, roleFilter, statusFilter])
+  })()
 
-  const portalData = portalQuery.data || { accounts: [], counts: {}, pending: [], pending_available: true }
-  const portalAccounts = portalData.accounts || []
-  const pending = portalData.pending || []
+  const portalData = portalQuery.data || { accounts: [], counts: {} }
+  // ACCOUNTS-ACCESS-DIRECTORY-2: expiringOnly is a client-side filter on
+  // r.expiring_soon (server-computed flag), applied before pagination slicing.
+  const portalAccounts = (portalData.accounts || []).filter(r => !expiringOnly || r.expiring_soon === true)
 
   const openDrawer = (kind, record, el) => { triggerRef.current = el || null; setDrawer({ kind, record }) }
   const closeDrawer = () => setDrawer(null)
@@ -236,11 +258,16 @@ export default function AccountsDirectory() {
   const counts = {
     staff: allUsers.filter(u => u.role !== 'portal').length,
     portal: portalData.counts?.portal_users ?? 0,
-    pending: pending.length,
+    pending: portalData.counts?.pending ?? 0,
     expiring: portalData.counts?.expiring_soon ?? 0,
   }
 
   const openGrant = (initial = null) => { setGrantInitial(initial); setGrantOpen(true) }
+
+  // Segmented-control tab switch: full reset, same as switching Student
+  // Profiles' Profiles/CS-Link toggle - filters from one tab rarely make
+  // sense in the other.
+  const switchTab = (t) => { setTab(t); setRoleFilter(''); setStatusFilter(''); setExpiringOnly(false) }
 
   if (!isAdmin) return (
     <div style={{ fontSize: 13, color: '#6b7280' }}>You don’t have access to Accounts &amp; Access.</div>
@@ -251,7 +278,7 @@ export default function AccountsDirectory() {
     ? PORTAL_ROLE_OPTIONS
     : [{ value: 'owner', label: 'Owner' }, ...ROLE_OPTIONS.filter(r => r.value !== 'co-lead').map(r => ({ value: r.value, label: r.label })), { value: 'co-lead', label: 'Co-Lead' }]
   const statusFilterOptions = tab === 'portal'
-    ? [{ value: 'active', label: 'Active' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'expired', label: 'Expired' }, { value: 'revoked', label: 'Revoked' }]
+    ? [{ value: 'pending', label: 'Pending' }, { value: 'active', label: 'Active' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'expired', label: 'Expired' }, { value: 'revoked', label: 'Revoked' }]
     : [{ value: 'active', label: 'Active' }, { value: 'disabled', label: 'Disabled' }]
 
   return (
@@ -272,16 +299,39 @@ export default function AccountsDirectory() {
         </div>
       </div>
 
-      {/* Summary indicators */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <SummaryStat label="Staff" value={counts.staff} />
-        <SummaryStat label="Portal Users" value={counts.portal} />
-        <SummaryStat label="Pending Invitations" value={counts.pending} />
-        <SummaryStat label="Expiring Soon" value={counts.expiring} />
+      {/* Filter KPI cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
+        <FilterKPICard value={counts.staff} label="Staff" sub="Staff accounts" accent="nightfall"
+          active={tab === 'staff'}
+          onClick={() => switchTab('staff')} />
+        <FilterKPICard value={counts.portal} label="Portal Users" sub="Active portal access" accent="marina"
+          active={tab === 'portal' && statusFilter !== 'pending' && !expiringOnly}
+          onClick={() => switchTab('portal')} />
+        <FilterKPICard value={counts.pending} label="Pending Invitations" sub="Awaiting first sign-in" accent="dawn"
+          active={tab === 'portal' && statusFilter === 'pending'}
+          onClick={() => { setTab('portal'); setExpiringOnly(false); setStatusFilter(f => f === 'pending' ? '' : 'pending') }} />
+        <FilterKPICard value={counts.expiring} label="Expiring Soon" sub={`Within ${EXPIRING_SOON_DAYS} days`} accent="chroma"
+          active={tab === 'portal' && expiringOnly}
+          onClick={() => { setTab('portal'); setStatusFilter(''); setExpiringOnly(e => !e) }} />
       </div>
 
-      {/* Search + filters */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+      {/* Unified toolbar: Staff/Portal segmented control + search + filters, one row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'var(--bg-card,#fff)', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--border-input,rgba(29,37,103,0.10))', overflow: 'hidden', flexShrink: 0 }}>
+          <button type="button" onClick={() => switchTab('staff')}
+            style={{ height: 32, padding: '0 13px', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: F, fontWeight: 500,
+              background: tab === 'staff' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+              color: tab === 'staff' ? '#fff' : 'var(--text-secondary,#4A5560)', transition: 'all 0.12s' }}>
+            Staff Access
+          </button>
+          <button type="button" onClick={() => switchTab('portal')}
+            style={{ height: 32, padding: '0 13px', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: F, fontWeight: 500,
+              background: tab === 'portal' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+              color: tab === 'portal' ? '#fff' : 'var(--text-secondary,#4A5560)', transition: 'all 0.12s' }}>
+            Portal Access
+          </button>
+        </div>
+
         <div style={{ position: 'relative', flex: '1 1 260px', minWidth: 200 }}>
           <Search size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search accounts by name or email" aria-label="Search accounts"
@@ -297,20 +347,10 @@ export default function AccountsDirectory() {
         </select>
       </div>
 
-      {/* Tabs */}
-      <div role="tablist" aria-label="Account groups" style={{ display: 'flex', gap: 4, borderBottom: '1px solid #eceef2', marginBottom: 4 }}>
-        {[{ k: 'staff', label: 'Staff Access' }, { k: 'portal', label: 'Portal Access' }, { k: 'pending', label: 'Pending Invitations' }].map(t => (
-          <button key={t.k} role="tab" id={`tab-${t.k}`} aria-selected={tab === t.k} aria-controls={`panel-${t.k}`}
-            onClick={() => { setTab(t.k); setRoleFilter(''); setStatusFilter('') }}
-            style={{ padding: '9px 14px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: F, fontSize: 13.5, fontWeight: tab === t.k ? 700 : 500, color: tab === t.k ? '#1D2567' : '#6b7280', borderBottom: `2px solid ${tab === t.k ? '#1D2567' : 'transparent'}`, marginBottom: -1 }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ border: '1px solid #eceef2', borderTop: 'none', borderRadius: '0 0 12px 12px', background: '#fff', overflow: 'hidden' }}>
+      <div style={{ border: '1px solid #eceef2', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
         {tab === 'staff' && (
           <StaffPanel isNarrow={isNarrow} loading={staffLoading} error={staffErr} users={staffUsers} limit={staffLimit} onMore={() => setStaffLimit(l => l + PAGE_SIZE)}
+            onlineProfileIds={onlineProfileIds}
             onRetry={refetchStaff}
             onView={(u, el) => openDrawer('staff', u, el)}
             onEdit={(u) => setStaffEdit(u)}
@@ -320,16 +360,12 @@ export default function AccountsDirectory() {
         {tab === 'portal' && (
           <PortalPanel isNarrow={isNarrow} loading={portalQuery.isLoading} error={portalQuery.error}
             accounts={portalAccounts} limit={portalLimit} onMore={() => setPortalLimit(l => l + PAGE_SIZE)}
+            onlineProfileIds={onlineProfileIds}
             onRetry={refetchPortal}
             onView={(r, el) => openDrawer('portal', r, el)}
             onRenew={(r) => openGrant(r)}
             onRevoke={(r, el) => openDrawer('portal', r, el)}
             onGrantFirst={() => openGrant(null)} />
-        )}
-        {tab === 'pending' && (
-          <PendingPanel isNarrow={isNarrow} loading={portalQuery.isLoading} error={portalQuery.error}
-            pending={pending} available={portalData.pending_available !== false} onRetry={refetchPortal}
-            onView={(r, el) => openDrawer('portal', r, el)} />
         )}
       </div>
 
@@ -345,7 +381,7 @@ export default function AccountsDirectory() {
       )}
       {selectedStaffFresh && (
         <AccountProfileModal user={selectedStaffFresh} isCurrentUser={selectedStaffFresh.id === userProfile?.id}
-          online={false} onSaveAccess={saveAccess} onToggleActive={handleToggleActive} onUploadPhoto={uploadPhoto}
+          online={onlineProfileIds.has(selectedStaffFresh.id)} onSaveAccess={saveAccess} onToggleActive={handleToggleActive} onUploadPhoto={uploadPhoto}
           canSendPasswordReset={canReset} onSendPasswordReset={sendPasswordReset} onClose={() => setStaffEdit(null)} />
       )}
     </section>
@@ -353,7 +389,7 @@ export default function AccountsDirectory() {
 }
 
 // ── Staff tab ────────────────────────────────────────────────────────────────
-function StaffPanel({ isNarrow, loading, error, users, limit, onMore, onRetry, onView, onEdit, onToggleActive, onResetPw }) {
+function StaffPanel({ isNarrow, loading, error, users, limit, onMore, onlineProfileIds, onRetry, onView, onEdit, onToggleActive, onResetPw }) {
   if (loading) return <LoadingRows />
   if (error) return <ErrorState onRetry={onRetry} />
   if (!users.length) return <EmptyState text="No staff accounts match your search." />
@@ -364,11 +400,11 @@ function StaffPanel({ isNarrow, loading, error, users, limit, onMore, onRetry, o
     !u.is_owner && { label: u.is_active === false ? 'Enable account' : 'Disable account', danger: u.is_active !== false, onClick: () => onToggleActive(u.id, u.is_active !== false) },
   ]
   return (
-    <div id="panel-staff" role="tabpanel" aria-labelledby="tab-staff">
+    <div id="panel-staff">
       {isNarrow ? (
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {page.map(u => (
-            <AccountCard key={u.id} onOpen={(el) => onView(u, el)} avatar={<UserInitials user={u} size={40} />}
+            <AccountCard key={u.id} onOpen={(el) => onView(u, el)} avatar={<PresenceAvatar user={u} size={40} online={onlineProfileIds.has(u.id)} />}
               title={u.full_name} subtitle={u.email}
               badges={[<StatusBadge key="s" value={u.is_active === false ? 'disabled' : 'active'} colorMap={STAFF_STATUS_STYLES} />, <span key="r" style={{ fontSize: 11.5, fontWeight: 600, color: '#4b5563' }}>{displayRole(u)}</span>]}
               meta={`Last login: ${formatLoginDate(u.last_login_at)}`}
@@ -384,7 +420,7 @@ function StaffPanel({ isNarrow, loading, error, users, limit, onMore, onRetry, o
               {page.map(u => (
                 <tr key={u.id} tabIndex={0} onClick={(e) => onView(u, e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter') onView(u, e.currentTarget) }} style={{ cursor: 'pointer' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#fafbfc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><UserInitials user={u} size={32} /><div style={{ minWidth: 0 }}><div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.full_name}</div><div style={{ fontSize: 11.5, color: '#9ca3af' }}>{u.email}</div></div></div></td>
+                  <td style={td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><PresenceAvatar user={u} size={32} online={onlineProfileIds.has(u.id)} /><div style={{ minWidth: 0 }}><div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.full_name}</div><div style={{ fontSize: 11.5, color: '#9ca3af' }}>{u.email}</div></div></div></td>
                   <td style={td}>{displayRole(u)}</td>
                   <td style={td}>{u.can_conduct_interviews ? 'Yes' : 'No'}</td>
                   <td style={td}><StatusBadge value={u.is_active === false ? 'disabled' : 'active'} colorMap={STAFF_STATUS_STYLES} /></td>
@@ -402,7 +438,7 @@ function StaffPanel({ isNarrow, loading, error, users, limit, onMore, onRetry, o
 }
 
 // ── Portal tab ───────────────────────────────────────────────────────────────
-function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, onRetry, onView, onRenew, onRevoke, onGrantFirst }) {
+function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, onlineProfileIds, onRetry, onView, onRenew, onRevoke, onGrantFirst }) {
   if (loading) return <LoadingRows />
   if (error) return <ErrorState onRetry={onRetry} />
   if (!accounts.length) return (
@@ -418,14 +454,14 @@ function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, onRetr
     r.status !== 'revoked' && { label: 'Revoke access', danger: true, onClick: () => onRevoke(r) },
   ]
   return (
-    <div id="panel-portal" role="tabpanel" aria-labelledby="tab-portal">
+    <div id="panel-portal">
       {isNarrow ? (
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {page.map(r => (
-            <AccountCard key={r.grant_id} onOpen={(el) => onView(r, el)} avatar={<UserInitials user={r} size={40} />}
+            <AccountCard key={r.grant_id} onOpen={(el) => onView(r, el)} avatar={<PresenceAvatar user={r} size={40} online={onlineProfileIds.has(r.user_profile_id)} />}
               title={r.full_name} subtitle={r.email}
               badges={[<StatusBadge key="s" value={r.status} colorMap={PORTAL_STATUS_STYLES} />, <span key="r" style={{ fontSize: 11.5, fontWeight: 600, color: '#4b5563' }}>{PORTAL_ROLE_LABELS[r.portal_role]}</span>]}
-              meta={summarizeScope(r)}
+              meta={`${summarizeScope(r)} · Last login: ${formatLoginDate(r.last_login_at)}`}
               menu={<RowMenu label={`Actions for ${r.full_name}`} items={menu(r)} />} />
           ))}
           <LoadMore shown={page.length} total={accounts.length} onMore={onMore} />
@@ -433,16 +469,16 @@ function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, onRetr
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
-            <thead><tr><th style={th}>Name</th><th style={th}>Email</th><th style={th}>Portal role</th><th style={th}>Assigned scope</th><th style={th}>Status</th><th style={th}>Expiration</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+            <thead><tr><th style={th}>Name</th><th style={th}>Portal role</th><th style={th}>Assigned scope</th><th style={th}>Status</th><th style={th}>Last login</th><th style={th}>Expiration</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
             <tbody>
               {page.map(r => (
                 <tr key={r.grant_id} tabIndex={0} onClick={(e) => onView(r, e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter') onView(r, e.currentTarget) }} style={{ cursor: 'pointer' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#fafbfc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={td}><div style={{ fontWeight: 600 }}>{r.full_name}</div></td>
-                  <td style={{ ...td, color: '#6b7280' }}>{r.email}</td>
+                  <td style={td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><PresenceAvatar user={r} size={32} online={onlineProfileIds.has(r.user_profile_id)} /><div style={{ minWidth: 0 }}><div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.full_name}</div><div style={{ fontSize: 11.5, color: '#9ca3af' }}>{r.email}</div></div></div></td>
                   <td style={td}>{PORTAL_ROLE_LABELS[r.portal_role]}</td>
                   <td style={{ ...td, color: '#4b5563', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summarizeScope(r)}</td>
                   <td style={td}><StatusBadge value={r.status} colorMap={PORTAL_STATUS_STYLES} /></td>
+                  <td style={{ ...td, color: '#6b7280' }}>{formatLoginDate(r.last_login_at)}</td>
                   <td style={{ ...td, color: '#6b7280' }}>{r.expires_at ? new Date(r.expires_at).toLocaleDateString() : '—'}</td>
                   <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}><RowMenu label={`Actions for ${r.full_name}`} items={menu(r)} /></td>
                 </tr>
@@ -452,40 +488,6 @@ function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, onRetr
           <LoadMore shown={page.length} total={accounts.length} onMore={onMore} />
         </div>
       )}
-    </div>
-  )
-}
-
-// ── Pending tab ──────────────────────────────────────────────────────────────
-function PendingPanel({ isNarrow, loading, error, pending, available, onRetry, onView }) {
-  if (loading) return <LoadingRows />
-  if (error) return <ErrorState onRetry={onRetry} />
-  if (!available) return (
-    <div id="panel-pending" role="tabpanel" aria-labelledby="tab-pending" style={{ padding: '30px 20px', textAlign: 'center', color: '#6b7280', fontSize: 13, lineHeight: 1.6 }}>
-      <AlertCircle size={20} style={{ color: '#9ca3af', marginBottom: 8 }} />
-      <div>Pending invitation tracking is not currently available.</div>
-      <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>Staff acceptance state is not exposed by the current staff data source; portal invitation state is derived from the authentication platform when reachable.</div>
-    </div>
-  )
-  if (!pending.length) return <div id="panel-pending" role="tabpanel" aria-labelledby="tab-pending"><EmptyState text="No pending invitations. Portal invitations that have not yet been accepted appear here." /></div>
-  return (
-    <div id="panel-pending" role="tabpanel" aria-labelledby="tab-pending">
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
-          <thead><tr><th style={th}>Name</th><th style={th}>Email</th><th style={th}>Intended access</th><th style={th}>Invitation date</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
-          <tbody>
-            {pending.map(p => (
-              <tr key={`${p.user_profile_id}-${p.portal_role}`} tabIndex={0} onClick={(e) => onView(p, e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter') onView(p, e.currentTarget) }} style={{ cursor: 'pointer' }}>
-                <td style={td}>{p.full_name}</td>
-                <td style={{ ...td, color: '#6b7280' }}>{p.email}</td>
-                <td style={td}>{PORTAL_ROLE_LABELS[p.portal_role]}</td>
-                <td style={{ ...td, color: '#6b7280' }}>{p.invited_at ? new Date(p.invited_at).toLocaleDateString() : '—'}</td>
-                <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}><RowMenu label={`Actions for ${p.full_name}`} items={[{ label: 'View access', onClick: () => onView(p) }]} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   )
 }

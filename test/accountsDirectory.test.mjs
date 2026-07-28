@@ -1,8 +1,14 @@
 // ASPIRE-PORTAL-ACCESS-UI: static-source guards for the Accounts & Access
-// directory. Confirms the old role-grouped card board is replaced, the three
-// tabs and dual invite actions exist, summary counts and search/filters render,
-// staff and portal roles stay separated, and the browser never reads or writes
-// the authorization tables directly.
+// directory. Confirms the old role-grouped card board is replaced, the
+// segmented control and dual invite actions exist, filter KPI cards and
+// search/filters render, staff and portal roles stay separated, and the
+// browser never reads or writes the authorization tables directly.
+//
+// ACCOUNTS-ACCESS-DIRECTORY-2: the old three-tab tablist (Staff Access /
+// Portal Access / Pending Invitations) was replaced by a two-way segmented
+// control (Staff Access | Portal Access); "pending" is now a portal grant
+// status, surfaced via the KPI row and the status select instead of a
+// dedicated tab/panel.
 // Run: node --test test/accountsDirectory.test.mjs
 
 import test from 'node:test'
@@ -26,13 +32,22 @@ test('Accounts & Access directory replaces the card board', async (t) => {
     assert.doesNotMatch(panel, /columnizeUsers|ProfileCard/, 'no card-board layout in the panel')
   })
 
-  await t.test('three access tabs render with tablist semantics', () => {
-    assert.match(dir, /role="tablist"/)
-    for (const label of ['Staff Access', 'Portal Access', 'Pending Invitations']) {
-      assert.match(dir, new RegExp(label), `missing tab ${label}`)
-    }
-    assert.match(dir, /role="tab"/)
-    assert.match(dir, /role="tabpanel"/)
+  await t.test('a two-way segmented control replaces the old three-tab tablist', () => {
+    assert.doesNotMatch(dir, /role="tablist"/, 'the old ARIA tablist must be gone')
+    assert.doesNotMatch(dir, /role="tab"/, 'no role="tab" buttons remain')
+    assert.doesNotMatch(dir, /Pending Invitations['"]?\s*\}/, 'no Pending Invitations tab label object')
+    assert.match(dir, /Staff Access/)
+    assert.match(dir, /Portal Access/)
+    assert.match(dir, /switchTab\('staff'\)/)
+    assert.match(dir, /switchTab\('portal'\)/)
+  })
+
+  await t.test('the old PendingPanel and SummaryStat are removed', () => {
+    assert.doesNotMatch(dir, /function PendingPanel/, 'PendingPanel must be deleted')
+    assert.doesNotMatch(dir, /PendingPanel/, 'PendingPanel must not be referenced anywhere')
+    assert.doesNotMatch(dir, /function SummaryStat/, 'SummaryStat must be deleted')
+    assert.doesNotMatch(dir, /<SummaryStat/, 'SummaryStat must not be rendered')
+    assert.doesNotMatch(dir, /AlertCircle/, 'AlertCircle icon was only used by PendingPanel')
   })
 
   await t.test('Invite Staff User and Grant Portal Access are distinct actions', () => {
@@ -44,16 +59,53 @@ test('Accounts & Access directory replaces the card board', async (t) => {
     assert.match(dir, /import GrantPortalAccessModal/)
   })
 
-  await t.test('summary indicators render the four counts', () => {
+  await t.test('four FilterKPICard filter cards render, imported from KPIBand', () => {
+    assert.match(dir, /import \{ FilterKPICard \} from '\.\.\/KPIBand'/)
     for (const label of ['Staff', 'Portal Users', 'Pending Invitations', 'Expiring Soon']) {
-      assert.match(dir, new RegExp(`label="${label}"`), `missing summary ${label}`)
+      assert.match(dir, new RegExp(`label="${label}"`), `missing KPI card ${label}`)
     }
+    assert.match(dir, /<FilterKPICard/)
   })
 
-  await t.test('search and role/status filters render', () => {
+  await t.test('KPI card wiring matches the click/active spec', () => {
+    // Staff card: switches tab only.
+    assert.match(dir, /value=\{counts\.staff\}[^]*?onClick=\{\(\) => switchTab\('staff'\)\}/)
+    // Portal Users card: switches tab, active only when no pending/expiring card filter is engaged.
+    assert.match(dir, /value=\{counts\.portal\}[^]*?active=\{tab === 'portal' && statusFilter !== 'pending' && !expiringOnly\}/)
+    // Pending card: toggles statusFilter to/from 'pending', clears expiringOnly.
+    assert.match(dir, /value=\{counts\.pending\}[^]*?statusFilter === 'pending'/)
+    assert.match(dir, /setStatusFilter\(f => f === 'pending' \? '' : 'pending'\)/)
+    // Expiring card: toggles expiringOnly, clears statusFilter.
+    assert.match(dir, /value=\{counts\.expiring\}[^]*?active=\{tab === 'portal' && expiringOnly\}/)
+    assert.match(dir, /setExpiringOnly\(e => !e\)/)
+  })
+
+  await t.test('counts.pending comes from the server contract, not a client array length', () => {
+    assert.match(dir, /pending: portalData\.counts\?\.pending \?\? 0/)
+    assert.doesNotMatch(dir, /pending: pending\.length/)
+  })
+
+  await t.test('search and role/status filters render in one unified toolbar', () => {
     assert.match(dir, /aria-label="Search accounts"/)
     assert.match(dir, /aria-label="Filter by role"/)
     assert.match(dir, /aria-label="Filter by status"/)
+  })
+
+  await t.test("portal status filter offers 'pending' first", () => {
+    assert.match(dir, /\{ value: 'pending', label: 'Pending' \}/)
+  })
+
+  await t.test('expiringOnly is a client-side filter on expiring_soon', () => {
+    assert.match(dir, /const \[expiringOnly, setExpiringOnly\] = useState\(false\)/)
+    assert.match(dir, /r\.expiring_soon === true/)
+  })
+
+  await t.test('tab switching clears role, status, and expiring filters', () => {
+    assert.match(dir, /const switchTab = \(t\) => \{ setTab\(t\); setRoleFilter\(''\); setStatusFilter\(''\); setExpiringOnly\(false\) \}/)
+  })
+
+  await t.test('the portal query key includes everything the queryFn reads', () => {
+    assert.match(dir, /queryKey: \['portal_access_list', search, roleFilter, statusFilter, tab\]/)
   })
 
   await t.test('pagination via Load more exists', () => {
@@ -81,8 +133,22 @@ test('Accounts & Access directory replaces the card board', async (t) => {
     assert.match(dir, /function AccountCard/)
   })
 
-  await t.test('no auth_user_id or service-role secret is rendered', () => {
-    assert.doesNotMatch(dir, /auth_user_id/, 'directory must never render auth_user_id')
+  await t.test('portal table shows one identity cell (avatar + name + email) and a Last login column', () => {
+    assert.doesNotMatch(dir, /<th style=\{th\}>Email<\/th>/, 'the separate Email column must be gone from the portal table')
+    assert.match(dir, /<th style=\{th\}>Last login<\/th>/)
+    assert.match(dir, /formatLoginDate\(r\.last_login_at\)/)
+  })
+
+  await t.test('online presence is wired from onlineProfileIds, never auth_user_id', () => {
+    assert.match(dir, /import \{ usePresence \} from '\.\.\/\.\.\/contexts\/PresenceContext'/)
+    assert.match(dir, /const \{ onlineProfileIds \} = usePresence\(\)/)
+    assert.match(dir, /onlineProfileIds\.has\(u\.id\)/)
+    assert.match(dir, /onlineProfileIds\.has\(r\.user_profile_id\)/)
+    assert.match(dir, /function PresenceAvatar/)
+    assert.doesNotMatch(dir, /auth_user_id/, 'directory must never render or key on auth_user_id')
+  })
+
+  await t.test('no service-role secret is rendered', () => {
     assert.doesNotMatch(dir, /SERVICE_ROLE|service_role/i)
   })
 

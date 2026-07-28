@@ -15,9 +15,16 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+// ACCOUNTS-ACCESS-DIRECTORY-2: same normalization used for the contacts
+// avatar fallback match, so an email that differs only by case, whitespace,
+// or a zero-width character still resolves.
+import { normalizeEmailForLookup } from '../src/lib/emailUtils.js'
 
 const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner']
-const STATUSES = ['active', 'scheduled', 'expired', 'revoked']
+// ACCOUNTS-ACCESS-DIRECTORY-2: 'pending' is a real derived status (a portal
+// auth user who has not yet accepted their invitation), not only the legacy
+// `pending` array. It overrides 'active'/'scheduled' only, see step 3 below.
+const STATUSES = ['active', 'scheduled', 'expired', 'revoked', 'pending']
 const EXPIRING_SOON_DAYS = 30
 const DEFAULT_LIMIT = 25
 const MAX_LIMIT = 100
@@ -138,10 +145,22 @@ export default async function handler(req, res) {
     let profilesById = {}
     if (profileIds.length) {
       const { data: profs, error: pErr } = await db
-        .from('user_profiles').select('id, full_name, email, role, last_login_at').in('id', profileIds)
+        .from('user_profiles').select('id, full_name, email, role, last_login_at, avatar_url').in('id', profileIds)
       if (pErr) { console.log('[list-portal-access] profile read failed', { errorCode: pErr.code, request_id: requestId }); return res.status(500).json({ error: 'internal_error' }) }
       profilesById = Object.fromEntries((profs || []).map(p => [p.id, p]))
     }
+
+    // ACCOUNTS-ACCESS-DIRECTORY-2: portal avatars. A profile with no avatar_url
+    // falls back to an exact normalized-email match against contacts.avatar_url.
+    // Bounded read (contacts with a photo are a small subset); built once and
+    // reused for every record below.
+    const { data: avatarContacts } = await db
+      .from('contacts').select('email, avatar_url').not('avatar_url', 'is', null).limit(2000)
+    const contactAvatarByEmail = new Map(
+      (avatarContacts || [])
+        .filter(c => c.email && c.avatar_url)
+        .map(c => [normalizeEmailForLookup(c.email), c.avatar_url])
+    )
 
     // 2. Active scope rows per role, resolved to display labels.
     const { data: links } = profileIds.length ? await db
@@ -171,10 +190,37 @@ export default async function handler(req, res) {
 
     const studentName = (s) => s ? [s.preferred_first_name || s.first_name, s.last_name].filter(Boolean).join(' ') : null
 
-    // 3. Build one sanitized record per grant.
+    // 3. Pending invitations: portal auth users invited but not yet accepted.
+    //    Computed BEFORE record building so 'pending' can be applied as a real
+    //    derived status (not only the legacy `pending` array below). Reliable
+    //    via the auth admin API (invited_at / confirmed_at / last_sign_in_at).
+    let pendingAvailable = true
+    const pendingEmails = new Set()
+    const pendingInvitedAtByEmail = new Map()
+    try {
+      const { data: list, error: luErr } = await db.auth.admin.listUsers({ page: 1, perPage: 200 })
+      if (luErr) { pendingAvailable = false }
+      else {
+        for (const u of (list?.users || [])) {
+          const email = (u.email || '').toLowerCase()
+          if (!email) continue
+          const accepted = !!(u.email_confirmed_at || u.confirmed_at || u.last_sign_in_at)
+          if (accepted) continue
+          pendingEmails.add(email)
+          pendingInvitedAtByEmail.set(email, u.invited_at || u.created_at || null)
+        }
+      }
+    } catch { pendingAvailable = false }
+
+    // 4. Build one sanitized record per grant.
     const records = (grants || []).map(g => {
       const p = profilesById[g.user_profile_id] || {}
-      const status = deriveStatus(g, nowMs)
+      let status = deriveStatus(g, nowMs)
+      // 'revoked' and 'expired' always win over 'pending'; only an 'active' or
+      // 'scheduled' grant can be reclassified as an unaccepted invitation.
+      if ((status === 'active' || status === 'scheduled') && pendingEmails.has((p.email || '').toLowerCase())) {
+        status = 'pending'
+      }
       const scope = { students: [], units: [], schools: [] }
       if (g.role === 'student') {
         scope.students = (links || [])
@@ -203,11 +249,13 @@ export default async function handler(req, res) {
         expires_at: g.expires_at || null,
         expiring_soon: isExpiringSoon(g, nowMs),
         scope,
+        last_login_at: p.last_login_at || null,
+        avatar_url: p.avatar_url || contactAvatarByEmail.get(normalizeEmailForLookup(p.email)) || null,
       }
     })
 
-    // 4. Counts across the FULL (unfiltered) set for the summary indicators.
-    const counts = { active: 0, scheduled: 0, expired: 0, revoked: 0, expiring_soon: 0, portal_users: 0 }
+    // 5. Counts across the FULL (unfiltered) set for the summary indicators.
+    const counts = { active: 0, scheduled: 0, expired: 0, revoked: 0, pending: 0, expiring_soon: 0, portal_users: 0 }
     const activeProfiles = new Set()
     for (const r of records) {
       counts[r.status] = (counts[r.status] || 0) + 1
@@ -216,7 +264,7 @@ export default async function handler(req, res) {
     }
     counts.portal_users = activeProfiles.size
 
-    // 5. Apply filters + search, then paginate.
+    // 6. Apply filters + search, then paginate.
     const matches = (r) => {
       if (roleFilter && r.portal_role !== roleFilter) return false
       if (statusFilter && r.status !== statusFilter) return false
@@ -238,35 +286,20 @@ export default async function handler(req, res) {
     const total = filtered.length
     const page = filtered.slice(offset, offset + limit)
 
-    // 6. Pending invitations: portal auth users invited but not yet accepted,
-    //    cross-referenced by email against portal grants. Reliable via the auth
-    //    admin API (invited_at / confirmed_at / last_sign_in_at).
-    const pending = []
-    let pendingAvailable = true
-    try {
-      const emailsWithGrant = new Set(records.map(r => (r.email || '').toLowerCase()).filter(Boolean))
-      const { data: list, error: luErr } = await db.auth.admin.listUsers({ page: 1, perPage: 200 })
-      if (luErr) { pendingAvailable = false }
-      else {
-        for (const u of (list?.users || [])) {
-          const email = (u.email || '').toLowerCase()
-          if (!emailsWithGrant.has(email)) continue
-          const accepted = !!(u.email_confirmed_at || u.confirmed_at || u.last_sign_in_at)
-          if (accepted) continue
-          const rec = records.find(r => (r.email || '').toLowerCase() === email && r.status !== 'revoked')
-          if (!rec) continue
-          pending.push({
-            user_profile_id: rec.user_profile_id,
-            full_name: rec.full_name,
-            email: rec.email,
-            portal_role: rec.portal_role,
-            scope: rec.scope,
-            invited_at: u.invited_at || u.created_at || null,
-            expires_at: rec.expires_at,
-          })
-        }
-      }
-    } catch { pendingAvailable = false }
+    // 7. Legacy `pending` array, kept for response compatibility: the same
+    //    shape as before, now built directly from records already carrying the
+    //    derived 'pending' status (computed in step 3/4 above).
+    const pending = records
+      .filter(r => r.status === 'pending')
+      .map(r => ({
+        user_profile_id: r.user_profile_id,
+        full_name: r.full_name,
+        email: r.email,
+        portal_role: r.portal_role,
+        scope: r.scope,
+        invited_at: pendingInvitedAtByEmail.get((r.email || '').toLowerCase()) || null,
+        expires_at: r.expires_at,
+      }))
 
     console.log('[list-portal-access] served', { total, returned: page.length, request_id: requestId })
     return res.status(200).json({

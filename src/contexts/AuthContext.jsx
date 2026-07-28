@@ -14,6 +14,12 @@ export function AuthProvider({ children }) {
   // file controls are shown; the server access endpoint stays authoritative.
   const [interviewerCohortIds, setInterviewerCohortIds] = useState([]);
   const loadingRef = useRef(false); // Prevent concurrent profile loads
+  // ACCOUNTS-ACCESS-DIRECTORY-2: last_login_at is stamped once per session (staff
+  // and portal alike), including a resumed session on app open. Holds the
+  // user.id that has already been stamped this session so a re-render, a
+  // refreshUserProfile call, or a TOKEN_REFRESHED tick never re-stamps it.
+  // Reset to null on SIGNED_OUT so the next sign-in stamps again.
+  const touchedLoginRef = useRef(null);
 
   const loadUserProfile = async () => {
     if (loadingRef.current) return;
@@ -37,7 +43,23 @@ export function AuthProvider({ children }) {
 
       if (data && data.length > 0) {
         setUserProfile(data[0]);
-        // last_login_at is handled by the get_my_profile RPC - no separate update needed
+        // ACCOUNTS-ACCESS-DIRECTORY-2: get_my_profile is a dashboard-created RPC,
+        // untracked in this repo, and may or may not also stamp last_login_at -
+        // that behavior is not under our control and not something we rely on.
+        // touch_my_last_login (supabase/migrations/20260730000000_touch_my_last_login.sql)
+        // is the tracked, deterministic once-per-session stamp: guarded here by
+        // touchedLoginRef so it fires exactly once per authenticated session,
+        // including a resumed session on app open, for staff and portal users
+        // alike. Fire-and-forget; every error is swallowed because the function
+        // does not exist until the Owner applies the migration (see
+        // docs/security/OWNER_SQL_GATE.md), and a missing function must never
+        // break login or add console noise.
+        if (touchedLoginRef.current !== user.id) {
+          touchedLoginRef.current = user.id;
+          supabase.rpc('touch_my_last_login').then(({ error: touchError }) => {
+            if (touchError) console.debug('touch_my_last_login skipped:', touchError.message);
+          });
+        }
       }
     } catch (err) {
       console.error('Profile load exception:', err.message);
@@ -89,6 +111,9 @@ export function AuthProvider({ children }) {
           setUser(null);
           setUserProfile(null);
           setLoading(false);
+          // ACCOUNTS-ACCESS-DIRECTORY-2: clear the once-per-session guard so the
+          // next sign-in (a different user, or the same user again) stamps again.
+          touchedLoginRef.current = null;
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           setUser(session.user);
           // Don't reload profile on token refresh, just update user

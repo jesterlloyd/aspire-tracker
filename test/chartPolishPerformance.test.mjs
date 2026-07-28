@@ -66,5 +66,7 @@ test('performance: context values are memoized', () => {
   assert.match(auth, /\}\), \[user, userProfile, loading, signOut, refreshUserProfile, interviewerCohortIds\]\);/)
   assert.match(auth, /const signOut = useCallback\(/)
   const presence = read('src/contexts/PresenceContext.jsx')
-  assert.match(presence, /const value = useMemo\(\(\) => \(\{ onlineUserIds \}\), \[onlineUserIds\]\)/)
+  // ACCOUNTS-ACCESS-DIRECTORY-2: the context now also exposes onlineProfileIds;
+  // the memoization contract this test guards is unchanged.
+  assert.match(presence, /const value = useMemo\(\(\) => \(\{ onlineUserIds, onlineProfileIds \}\), \[onlineUserIds, onlineProfileIds\]\)/)
 })
