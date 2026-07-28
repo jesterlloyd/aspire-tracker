@@ -23,6 +23,16 @@ import { getUsHolidaysForRange } from '../lib/usHolidays'
 // ASPIRE-EVENTS-CALENDAR-2B: local 'YYYY-MM-DD' for a Date (calendar range bounds).
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
+// Calendar action colors. The two create actions read as one consistent family everywhere they
+// appear (header toolbar + date-cell hover chips): Availability is ASPIRE navy, Event is an
+// accessible dark purple. These are ACTION colors only - they never recolor per-type event chips.
+//   Availability: #1D2567 (--nightfall navy), hover #141928 - unchanged.
+//   Event:        #6D28D9 (violet-700, ~6.7:1 on white), hover #5B21B6 (violet-800, ~8:1).
+const AVAIL_ACTION = '#1D2567'
+const AVAIL_ACTION_HOVER = '#141928'
+const EVENT_ACTION = '#6D28D9'
+const EVENT_ACTION_HOVER = '#5B21B6'
+
 // Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
 function AspireEventChip({ ev, compact = false, onClick }) {
@@ -820,7 +830,9 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                     <button
                       onClick={e => { e.stopPropagation(); onAddEvent(dateStr) }}
                       title="Add ASPIRE event"
-                      style={{ background:'#7C3AED', color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
+                      style={{ background:EVENT_ACTION, color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
+                      onMouseEnter={e => e.currentTarget.style.background = EVENT_ACTION_HOVER}
+                      onMouseLeave={e => e.currentTarget.style.background = EVENT_ACTION}
                     >
                       + Event
                     </button>
@@ -1508,29 +1520,30 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               )}
             </div>
 
-            {/* Right: Add Event (owner/admin) + Add Availability + Month/Week toggle */}
+            {/* Right: Add Availability + Add Event (owner/admin) + Month/Week toggle.
+                Action order is Availability then Event everywhere (header + date cells). */}
             <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              <button
+                onClick={handleAddAvailabilityClick}
+                style={{ height:'32px', padding:'0 14px', background:AVAIL_ACTION, border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.background = AVAIL_ACTION_HOVER}
+                onMouseLeave={e => e.currentTarget.style.background = AVAIL_ACTION}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Availability
+              </button>
               {isAdmin && (
                 <button
                   onClick={() => setEventModal({ event: null, defaultDate: selectedDate })}
                   title="Add a custom ASPIRE event"
-                  style={{ height:'32px', padding:'0 14px', background:'#1D2567', border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#141928'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#1D2567'}
+                  style={{ height:'32px', padding:'0 14px', background:EVENT_ACTION, border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
+                  onMouseEnter={e => e.currentTarget.style.background = EVENT_ACTION_HOVER}
+                  onMouseLeave={e => e.currentTarget.style.background = EVENT_ACTION}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add Event
                 </button>
               )}
-              <button
-                onClick={handleAddAvailabilityClick}
-                style={{ height:'32px', padding:'0 14px', background:'#1D2567', border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#141928'}
-                onMouseLeave={e => e.currentTarget.style.background = '#1D2567'}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Availability
-              </button>
 
               <div style={{ display:'flex', alignItems:'center', background:'#f3f4f6', borderRadius:'9px', padding:'3px', gap:'2px', height:'32px', boxSizing:'border-box' }}>
                 {[{ view:'dayGridMonth', label:'Month' }, { view:'timeGridWeek', label:'Week' }].map(({ view, label }) => {
