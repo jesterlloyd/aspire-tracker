@@ -413,9 +413,10 @@ test('geometry tick is a real dependency of availability and the re-settle effec
   // The tick value must be held (not discarded) ...
   assert.match(engineSrc, /const \[geometryTick, setGeometryTick\] = useState\(0\)/)
   assert.doesNotMatch(engineSrc, /const \[, setGeometryTick\]/)
-  // ... feed the availability memo, so the "n / N" progress recalculates on
-  // resize/rotation ...
-  assert.match(engineSrc, /useMemo\(\(\) => steps\.filter\(isStepAvailable\), \[steps, geometryTick\]\)/)
+  // ... feed the availability memo ALONGSIDE stepIndex, so the "n / N"
+  // progress recalculates both on normal navigation (the memo first computes
+  // before the nav targets exist) and on resize/rotation ...
+  assert.match(engineSrc, /useMemo\(\(\) => steps\.filter\(isStepAvailable\), \[steps, stepIndex, geometryTick\]\)/)
   // ... and re-run the re-settle effect, so a target hidden while the tour is
   // open advances past the hidden step instead of stalling.
   assert.match(engineSrc, /\}, \[run, stepIndex, steps, geometryTick\]\)/)

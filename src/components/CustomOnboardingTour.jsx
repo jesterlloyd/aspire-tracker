@@ -79,9 +79,11 @@ export default function CustomOnboardingTour({ run, onClose, experience = 'staff
   // "n / N" counts only the steps that are CURRENTLY available, so a leader
   // with one unit (no switcher step) or a phone-width viewer (no desktop-only
   // sections) sees a true count rather than one inflated by steps they will
-  // never see. geometryTick is the resize/rotation signal: it forces this memo
-  // to re-read DOM availability whenever the viewport geometry changes.
-  const availableSteps = useMemo(() => steps.filter(isStepAvailable), [steps, geometryTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  // never see. BOTH re-read signals are dependencies: stepIndex re-reads DOM
+  // availability on every normal navigation (the memo first computes while the
+  // app shell is still loading, before any nav target exists), and geometryTick
+  // re-reads it on resize/rotation while the user sits on one step.
+  const availableSteps = useMemo(() => steps.filter(isStepAvailable), [steps, stepIndex, geometryTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const availablePosition = availableSteps.indexOf(currentStep);
   const progressCurrent = availablePosition >= 0 ? availablePosition + 1 : stepIndex + 1;
   const progressTotal = availableSteps.length || steps.length;
