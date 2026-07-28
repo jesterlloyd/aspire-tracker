@@ -145,84 +145,109 @@ launcher.
 
 The messaging schema already reserves the `academic_partner` / `school` participant shape
 (`conversation_participants.chk_participant_role_scope` already allows it). The one remaining change is
-a committed, unapplied migration that extends three `SECURITY DEFINER` functions to admit that shape.
+a committed, unapplied, **atomic** migration.
 
 1. **Exact migration filename:**
    [`supabase/migrations/20260728000000_enable_academic_partner_team_messages.sql`](../../supabase/migrations/20260728000000_enable_academic_partner_team_messages.sql)
 
 2. **Copy-paste-ready SQL:** apply that migration file verbatim (it is the authoritative, review-ready
-   SQL — kept in one place to avoid drift). It is additive and idempotent (`CREATE OR REPLACE` +
-   revoke/grant), changes no table, and performs no backfill. It:
+   SQL — kept in one place to avoid drift). The executable statements run inside ONE transaction
+   (`BEGIN … COMMIT`); if any fails, nothing is applied. It is additive and idempotent
+   (`CREATE OR REPLACE` + revoke/grant), changes no table, and performs no backfill. It:
    - adds `public.message_profile_has_active_academic_partner_portal_scope(uuid)` (active
      `academic_partner` grant + at least one active `user_school_scopes` row);
    - `CREATE OR REPLACE`s `message_participant_can_read` — student/unit_leader branches byte-for-byte,
-     plus an academic_partner branch admitting a school-scoped participant whose `scope_school_key`
-     EXACTLY equals an active `user_school_scopes.school_key` (WCU campuses isolated, never substring);
+     plus an academic_partner branch that EXPLICITLY enforces general-thread isolation: the participant
+     row has no student/unit/cohort context, the joined **conversation** row has no student/unit/cohort
+     context (the canonical general-team discriminator, since there is no stored `thread_kind` column),
+     and `scope_school_key` EXACTLY equals an active `user_school_scopes.school_key` (WCU campuses
+     isolated; never LIKE/substring/email-domain/display-name);
    - `CREATE OR REPLACE`s `message_participant_can_send` unchanged (it composes `can_read`, so AP
      inherits the active-scope check; only the unit_leader staleness guard remains);
-   - `CREATE OR REPLACE`s `messages_start_general_team_conversation` — accepts
-     `p_actor_kind = 'academic_partner'`, derives the single authorized school server-side from active
-     `user_school_scopes` (a missing or ambiguous multi-school scope raises `MS400`), and inserts a
+   - refactors the general-team start path WITHOUT duplicating the workflow: an internal
+     `messages_start_general_team_conversation_core(…, p_scope_school_key)` holds the shared workflow;
+     the public 8-arg `messages_start_general_team_conversation` keeps its EXACT signature and admits
+     ONLY student/unit_leader (delegating to the core); a dedicated
+     `messages_start_general_team_conversation_ap(…, p_school_key)` handles the school-scoped path;
+   - locks the Academic Partner recipient to `aspire@cshs.org` (asserted in the core BEFORE any write —
+     the shared validator only forces the `shared_inbox` kind, not the exact address) and inserts a
      general thread (`related_*` NULL) with one `(academic_partner, school, scope_school_key)`
-     participant and `student_id`/student-context NULL;
-   - adds the `public.ap_team_messaging_capability()` sentinel used by the server capability gate.
+     participant and student/unit context NULL;
+   - creates the `public.ap_team_messaging_capability()` sentinel LAST, so its presence proves the whole
+     migration committed.
 
-3. **Verification queries:** included at the bottom of the migration file — (a) all five functions
-   exist with `prosecdef` and a locked `search_path`; (b) EXECUTE is granted only to `service_role`
-   (not anon/authenticated/PUBLIC); (c) `SELECT public.ap_team_messaging_capability();` returns `true`;
-   (d) student/unit_leader results unchanged.
+3. **Multi-school Academic Partners:** the browser selection is never authorization. A single-school AP
+   auto-resolves server-side. A multi-school AP sends the selected school; `team-messages-start`
+   verifies it against the caller's active `user_school_scopes` (`school_selection_required` /
+   `invalid_school_scope` otherwise) and passes only the verified canonical key to the AP RPC, which
+   re-verifies it is an active scope (exact match; WCU isolated) before the core writes.
 
-4. **Expected function signatures (unchanged):**
+4. **Verification queries:** at the bottom of the migration file (OUTSIDE the transaction) — (a) all
+   functions exist with `prosecdef` (except the IMMUTABLE sentinel) and a locked `search_path`, exactly
+   ONE 8-arg `messages_start_general_team_conversation` (student/UL), ONE 8-arg
+   `messages_start_general_team_conversation_ap`, ONE 9-arg `_core`, and NO stray prior overload; (b)
+   EXECUTE granted only to `service_role`, and the internal `_core` granted to NO ONE; (c)
+   `SELECT public.ap_team_messaging_capability();` returns `true`; (d) student/unit_leader unchanged.
+
+5. **Expected function signatures:**
    - `public.message_participant_can_read(p_conversation_id uuid, p_profile_id uuid) -> boolean`
    - `public.message_participant_can_send(p_conversation_id uuid, p_profile_id uuid) -> boolean`
-   - `public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb) -> jsonb`
+   - `public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb) -> jsonb` (unchanged; student/UL only)
+   - `public.messages_start_general_team_conversation_ap(uuid, uuid, text, text, text, text, jsonb, text) -> jsonb` (new; academic_partner)
+   - `public.messages_start_general_team_conversation_core(uuid, text, uuid, text, text, text, text, jsonb, text) -> jsonb` (new; internal-only)
    - added: `public.message_profile_has_active_academic_partner_portal_scope(uuid) -> boolean`,
      `public.ap_team_messaging_capability() -> boolean`
 
-5. **Expected grants:** `REVOKE ALL ... FROM PUBLIC, anon, authenticated;` and
-   `GRANT EXECUTE ... TO service_role;` for every one of the five functions. `CREATE OR REPLACE`
-   preserves the existing grants on the three replaced functions; the migration re-affirms them.
+6. **Expected grants:** `REVOKE ALL ... FROM PUBLIC, anon, authenticated;` for every function, plus
+   `GRANT EXECUTE ... TO service_role;` for the two predicates, the two entry RPCs (8-arg + `_ap`), the
+   scope helper, and the sentinel. The internal `_core` is revoked from everyone and granted to NO ONE
+   (invoked only by the two SECURITY DEFINER entry RPCs).
 
-6. **Environment variable:** `AP_MESSAGING_ENABLED` (server env, e.g. Vercel Production). Accepted
+7. **Environment variable:** `AP_MESSAGING_ENABLED` (server env, e.g. Vercel Production). Accepted
    enabling value: the exact string `true`. Missing or any other value = disabled (fail-closed). This
    is a server env var only; it is never exposed to the client (no `VITE_` variable).
 
-7. **Activation sequence (no code edit required after the migration is approved):**
+8. **Activation sequence (no code edit required after the migration is approved):**
    1. Owner applies `20260728000000_enable_academic_partner_team_messages.sql`.
-   2. Run the verification queries (functions, grants, sentinel = true).
+   2. Run the verification queries (signatures, DEFINER, grants, sentinel = true).
    3. Set server env `AP_MESSAGING_ENABLED=true`.
    4. Trigger a normal production deployment.
    5. `GET /api/portal/portal-capabilities` (authenticated) returns `{ "ap_messaging": true }`.
    6. The Academic Partner Messages tab and the lower-right launcher activate.
 
-8. **Rollback considerations:** additive migration, so no data to back out. Fastest operational
-   disable WITHOUT SQL: unset `AP_MESSAGING_ENABLED` (or set it to anything but `true`) and redeploy —
-   the capability gate reports disabled and the feature is fail-closed even while the migration remains
-   applied. Full revert: re-apply the prior three function definitions from
-   `20260724000001_general_team_threads_backend.sql`, then
-   `DROP FUNCTION public.ap_team_messaging_capability()` and
-   `DROP FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)`.
+9. **Rollback (ordered; corrected function set):** additive migration, so no data to back out. Fastest
+   operational disable WITHOUT SQL: unset `AP_MESSAGING_ENABLED` (or set it to anything but `true`) and
+   redeploy — the capability gate reports disabled and the feature is fail-closed even while the
+   migration remains applied. Full revert, in one transaction: (1) re-apply the prior definitions of
+   `message_participant_can_read`, `message_participant_can_send`, and
+   `messages_start_general_team_conversation` from `20260724000001_general_team_threads_backend.sql`;
+   (2) `DROP FUNCTION public.messages_start_general_team_conversation_ap(...)`;
+   (3) `DROP FUNCTION public.messages_start_general_team_conversation_core(...)`;
+   (4) `DROP FUNCTION public.ap_team_messaging_capability()`;
+   (5) `DROP FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)`.
 
-9. **Authenticated live-QC checklist (after activation):**
-   - An active Academic Partner sees the Messages tab render the canonical workspace and the
-     lower-right launcher with the `#DC1E34` unread badge.
-   - Compose a new thread → recipient shows as **ASPIRE Team**; the confirmation is "Your message was
-     sent to the ASPIRE Team."; `aspire@cshs.org` receives the shared-inbox notification.
-   - Reply to the thread; active-tab Refresh refetches inbox and the open thread; unread clears on
-     read.
-   - There is no recipient picker and no staff directory; the composer targets only ASPIRE Team.
-   - A second authorized school (if any) cannot see the first school's thread; a partner with a
-     revoked grant loses access; the two WCU campuses see only their own threads.
-   - Student and Unit Leader messaging behave exactly as before.
+10. **Authenticated live-QC checklist (after activation):**
+    - An active Academic Partner sees the Messages tab render the canonical workspace and the
+      lower-right launcher with the `#DC1E34` unread badge.
+    - Compose a new thread → recipient shows as **ASPIRE Team**; the confirmation is "Your message was
+      sent to the ASPIRE Team."; `aspire@cshs.org` receives the shared-inbox notification.
+    - A multi-school AP picks the school in the launcher composer; a single-school AP sends with no
+      picker. Reply to the thread; active-tab Refresh refetches inbox and the open thread; unread
+      clears on read.
+    - There is no recipient picker and no staff directory; the composer targets only ASPIRE Team.
+    - A second authorized school cannot see the first school's thread; a partner with a revoked grant
+      loses access; the two WCU campuses see only their own threads.
+    - Student and Unit Leader messaging behave exactly as before.
 
-10. **General-thread-only:** Academic Partner messaging is general school-partner threads to the ASPIRE
+11. **General-thread-only:** Academic Partner messaging is general school-partner threads to the ASPIRE
     Team only (`student_id`/student-context NULL). No AP-to-student, AP-to-preceptor, AP-to-another-
     school, student-linked, or staff-internal threads exist or are reachable.
 
-11. **Student and Unit Leader messaging unchanged:** the migration reproduces the student and
-    unit_leader branches byte-for-byte and adds only the academic_partner branch; the server auth chain
-    admits AP strictly last, after the unchanged student and unit_leader checks. Preceptor remains a
-    schema reservation, admitted nowhere.
+12. **Student and Unit Leader messaging unchanged:** the migration reproduces the student and
+    unit_leader branches byte-for-byte; the public 8-arg RPC keeps its exact signature and admits only
+    student/unit_leader (delegating to the shared core), so their behavior is preserved. The server auth
+    chain admits AP strictly last, after the unchanged student and unit_leader checks. Preceptor remains
+    a schema reservation, admitted nowhere.
 
 ## Verification
 

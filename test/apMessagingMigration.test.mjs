@@ -214,6 +214,28 @@ test('the capability sentinel exists (read-only, returns true) with an explanato
   assert.match(sql, /COMMENT ON FUNCTION public\.ap_team_messaging_capability\(\) IS/)
 })
 
+test('the Owner verification queries cover signatures, DEFINER, search_path, grants, sentinel, no-overload', () => {
+  const v = sql.slice(sql.indexOf('Verification (run AFTER'))
+  assert.match(v, /pg_get_function_identity_arguments/)                     // (1) exact signatures
+  assert.match(v, /prosecdef/)                                              // (2) SECURITY DEFINER
+  assert.match(v, /proconfig/)                                              // (3) explicit search_path
+  assert.match(v, /has_function_privilege\([^)]*'EXECUTE'\)/)               // (4)/(7) service_role-only EXECUTE
+  assert.match(v, /messages_start_general_team_conversation_ap/)            // (5) dedicated AP RPC exists
+  assert.match(v, /SELECT public\.ap_team_messaging_capability\(\);\s+-- expect true/)  // (6) sentinel true
+  assert.match(v, /No stray\/prior overload/i)                             // (8) no partial prior overload
+  assert.match(v, /messages_start_general_team_conversation with 8 args/i)  // (9) original 8-arg RPC available
+  assert.match(v, /FALSE for service_role on _core/)                        // core is internal (not granted)
+})
+
+test('the migration provides ordered rollback for the CORRECTED function set', () => {
+  const r = sql.slice(sql.indexOf('Rollback considerations'))
+  assert.match(r, /Re-apply the prior definitions of message_participant_can_read/)
+  assert.match(r, /DROP FUNCTION public\.messages_start_general_team_conversation_ap\(/)
+  assert.match(r, /DROP FUNCTION public\.messages_start_general_team_conversation_core\(/)
+  assert.match(r, /DROP FUNCTION public\.ap_team_messaging_capability\(\)/)
+  assert.match(r, /DROP FUNCTION public\.message_profile_has_active_academic_partner_portal_scope\(uuid\)/)
+})
+
 test('the migration is additive (no schema/table change, no backfill) and documents verify + rollback', () => {
   // Only function replacement + grants at apply time. No table DDL and no data backfill. (The RPC
   // BODY contains DML, but that is runtime behavior, not an apply-time mutation.)
