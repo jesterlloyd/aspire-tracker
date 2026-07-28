@@ -22,6 +22,7 @@ import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { useLastVisitLabel } from '../lib/lastVisit'
 import { buildLiveShiftDisplay } from '../lib/onCampusRows'
+import StatusLegendPopover from '../components/StatusLegendPopover'
 import StudentActionsMenu from './unit/StudentActionsMenu'
 import PreceptorList from './unit/PreceptorList'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
@@ -914,7 +915,12 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
                     <span aria-hidden="true">{nameSortDir === 'asc' ? ' ↑' : ' ↓'}</span>
                   </button>
                 </th>
-                <th scope="col">ASPIRE status</th>
+                <th scope="col">
+                  {/* Shared ASPIRE Status Legend, same trigger/position/behavior as the Academic
+                      Partner roster. Portal-safe detail mode (showStaffDetail=false): no NGRP
+                      disposition reasons, interview recommendations, or staff-only readiness detail. */}
+                  <span className="am-sort-th-inner">ASPIRE status<StatusLegendPopover showStaffDetail={false} /></span>
+                </th>
                 <th scope="col">Preceptor(s)</th>
                 <th scope="col">Shift</th>
                 <th scope="col">Rotation</th>
