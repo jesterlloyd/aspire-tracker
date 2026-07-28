@@ -18,11 +18,16 @@
 // The ledger token in onboarding_tour_version is the sole acknowledgement source
 // - see isTourAcknowledged.
 export const TOUR_EXPERIENCES = {
-  staff: 'v3', // bumped v2 -> v3: the Aggregate -> "At a Glance" rename and the
-               // Student Profiles / CS-Link Access copy correction re-show once.
-  student: 'v1',
-  unit_leader: 'v1',
-  academic_partner: 'v1',
+  staff: 'v4', // v2 -> v3: the Aggregate -> "At a Glance" rename and the Student
+               // Profiles / CS-Link Access copy correction re-show once.
+               // v3 -> v4: the Rotation step now names the three subtabs
+               // (Placement Board / Preceptors / Activity) and drops the stale
+               // "matching board" phrase.
+  // v1 -> v2 (all three portals): the Send Feedback and Messages shortcut
+  // launcher steps were added, so the corrected tours appear once.
+  student: 'v2',
+  unit_leader: 'v2',
+  academic_partner: 'v2',
 };
 
 // Legacy alias. Nothing outside this module should need it (use TOUR_EXPERIENCES
@@ -167,11 +172,16 @@ const staffInterviewRubric = {
 };
 
 // Rotation tab. Internal name + the tab-embed anchor are preserved; user-facing
-// copy uses the current "Rotation" label.
+// copy uses the current "Rotation" label and the RENDERED subtab names from
+// RotationTab.jsx: Placement Board (the approved rename - never "matching
+// board"), Preceptors, and Activity (canEdit-gated: Owners and Admins).
+// The subtabs render only inside /rotation, and the staff tour runs on At a
+// Glance without navigating, so revealing them as separate spotlight steps
+// would disrupt tour state - all three are described here instead.
 const staffEmbed = {
   target: '[data-tour="tab-embed"]',
   title: 'Rotation',
-  content: 'The matching board for placing students into units by preference. Unit availability, placement capacity, and matches live here. Owner, Admin, and Co-Lead.',
+  content: 'Placement and rotation operations, in three subtabs: Placement Board, the click-to-place board for assigning students to units by preference; Preceptors, the preceptor directory; and Activity (Owners and Admins), the history of placements and changes. Owner, Admin, and Co-Lead.',
 };
 
 const staffEvaluation = {
@@ -303,6 +313,26 @@ function getStaffSteps(userProfile) {
   ];
 }
 
+// ── Shared portal utility-launcher steps ─────────────────────────────────────
+// WELCOME-TOUR-FOLLOWUP-1: the two floating lower-corner launchers every portal
+// renders through PortalUtilityLayer. The Feedback anchor is the SHARED
+// feedback-button anchor (SharedFeedbackPanel hardcodes it; exactly one
+// instance exists per page). The Messages shortcut anchor is portal-only.
+// Both lean on the engine's missing-target skip when a launcher is not
+// rendered (Messages unauthorized, or the launchers suppressed on a route).
+
+const portalFeedbackStep = {
+  target: '[data-tour="feedback-button"]',
+  title: 'Send Feedback',
+  content: 'Found a bug or have a suggestion? The feedback button in the lower corner sends it straight to the ASPIRE team, with your current section attached.',
+};
+
+const portalMessagesLauncherStep = {
+  target: '[data-tour="portal-messages-launcher"]',
+  title: 'Messages Shortcut',
+  content: 'This floating shortcut opens a quick messages panel from any section, so you can reach the ASPIRE team without leaving what you are doing. Your unread count appears on it too.',
+};
+
 // ── Student Portal (Compass) step definitions ────────────────────────────────
 // WELCOME-TOUR-PORTALS-1: targets are the portal-nav-* anchors the portal agent
 // is adding to PortalNav.jsx/PortalShell.jsx in the same feature. The stage-
@@ -337,6 +367,8 @@ function getStudentSteps(userProfile) {
       title: 'Quick Action',
       content: 'A stage-aware quick action, such as logging a shift, appears here on your phone when your current stage offers one.',
     },
+    portalFeedbackStep,
+    portalMessagesLauncherStep,
     {
       target: '[data-tour="portal-profile-menu"]',
       title: 'Your Profile',
@@ -406,6 +438,8 @@ function getUnitLeaderSteps(userProfile) {
       title: 'Capacity',
       content: "Submit and update your unit's clinical placement capacity for a cohort.",
     },
+    portalFeedbackStep,
+    portalMessagesLauncherStep,
     {
       // Rendered only when the leader is assigned more than one unit; a single-
       // unit leader has nothing to switch between, so this step is skipped.
@@ -470,6 +504,12 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
       content: 'Send and receive secure messages with the ASPIRE team here.',
     });
   }
+
+  // Feedback is server-authorized for every Academic Partner; the Messages
+  // shortcut launcher exists only under the same fail-closed capability that
+  // gates the Messages tab above.
+  steps.push(portalFeedbackStep);
+  if (apMessagesEnabled === true) steps.push(portalMessagesLauncherStep);
 
   steps.push(
     {

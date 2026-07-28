@@ -60,7 +60,7 @@ test('parseTourAcks / serializeTourAcks', async (t) => {
 
 test('isTourAcknowledged', async (t) => {
   await t.test('true when the ledger token matches the current TOUR_EXPERIENCES version', () => {
-    const profile = { onboarding_tour_version: 'staff:v3' }
+    const profile = { onboarding_tour_version: 'staff:v4' }
     assert.equal(isTourAcknowledged(profile, 'staff'), true)
   })
 
@@ -70,20 +70,20 @@ test('isTourAcknowledged', async (t) => {
   })
 
   await t.test('false when the experience has no ledger entry at all', () => {
-    const profile = { onboarding_tour_version: 'staff:v3' }
+    const profile = { onboarding_tour_version: 'staff:v4' }
     assert.equal(isTourAcknowledged(profile, 'student'), false)
   })
 
   await t.test('one experience acknowledgement never acknowledges another', () => {
-    const studentAcked = { onboarding_tour_version: 'student:v1' }
+    const studentAcked = { onboarding_tour_version: 'student:v2' }
     assert.equal(isTourAcknowledged(studentAcked, 'staff'), false)
 
-    const staffAcked = { onboarding_tour_version: 'staff:v3' }
+    const staffAcked = { onboarding_tour_version: 'staff:v4' }
     assert.equal(isTourAcknowledged(staffAcked, 'student'), false)
   })
 
   await t.test('a mixed ledger acknowledges only the experiences it names', () => {
-    const profile = { onboarding_tour_version: 'staff:v3,unit_leader:v1' }
+    const profile = { onboarding_tour_version: 'staff:v4,unit_leader:v2' }
     assert.equal(isTourAcknowledged(profile, 'staff'), true)
     assert.equal(isTourAcknowledged(profile, 'unit_leader'), true)
     assert.equal(isTourAcknowledged(profile, 'student'), false)
@@ -92,10 +92,12 @@ test('isTourAcknowledged', async (t) => {
 })
 
 test('TOUR_EXPERIENCES and the legacy TOUR_VERSION alias', () => {
-  assert.equal(TOUR_EXPERIENCES.staff, 'v3')
-  assert.equal(TOUR_EXPERIENCES.student, 'v1')
-  assert.equal(TOUR_EXPERIENCES.unit_leader, 'v1')
-  assert.equal(TOUR_EXPERIENCES.academic_partner, 'v1')
+  // WELCOME-TOUR-FOLLOWUP-1 bumps: staff v4 (Rotation subtab copy), portals v2
+  // (Send Feedback + Messages shortcut steps) - each corrected tour re-shows once.
+  assert.equal(TOUR_EXPERIENCES.staff, 'v4')
+  assert.equal(TOUR_EXPERIENCES.student, 'v2')
+  assert.equal(TOUR_EXPERIENCES.unit_leader, 'v2')
+  assert.equal(TOUR_EXPERIENCES.academic_partner, 'v2')
   assert.equal(TOUR_VERSION, TOUR_EXPERIENCES.staff)
 })
 
@@ -120,7 +122,7 @@ test('shouldAutoStartTour', async (t) => {
   })
 
   await t.test('false once the current version is acknowledged for that experience', () => {
-    const profile = { onboarding_tour_completed: true, onboarding_tour_version: 'staff:v3' }
+    const profile = { onboarding_tour_completed: true, onboarding_tour_version: 'staff:v4' }
     assert.equal(shouldAutoStartTour(profile, 'staff'), false)
   })
 })
@@ -440,4 +442,69 @@ test('a restarted tour rewinds to the first step', () => {
   // stepIndex (and any open skip modal) or a finished tour would "restart" on
   // its own final step.
   assert.match(engineSrc, /if \(run\) \{ setStepIndex\(0\); setShowSkipModal\(false\); \}/)
+})
+
+// ── WELCOME-TOUR-FOLLOWUP-1: utility-launcher steps + Rotation subtab copy ────
+
+test('staff Rotation step names all three subtabs and never says matching board', () => {
+  const owner = { full_name: 'Ada Lovelace', is_owner: true }
+  const steps = getTourSteps('staff', { userProfile: owner })
+  const rotation = steps.find(s => s.target === '[data-tour="tab-embed"]')
+  assert.match(rotation.content, /Placement Board/)
+  assert.match(rotation.content, /Preceptors/)
+  assert.match(rotation.content, /Activity/)
+  // Activity is canEdit-gated in RotationTab.jsx; the copy says so honestly.
+  assert.match(rotation.content, /Owners and Admins/)
+  for (const s of steps) {
+    assert.doesNotMatch(String(s.content) + String(s.title), /[Mm]atching [Bb]oard/)
+  }
+})
+
+test('every portal tour walks the Send Feedback launcher via the shared anchor', () => {
+  const profile = { full_name: 'Alex Rivera' }
+  for (const [exp, ctx] of [
+    ['student', { userProfile: profile }],
+    ['unit_leader', { userProfile: profile }],
+    ['academic_partner', { userProfile: profile, apMessagesEnabled: false }],
+    ['academic_partner', { userProfile: profile, apMessagesEnabled: true }],
+  ]) {
+    const targets = getTourSteps(exp, ctx).map(s => s.target)
+    assert.ok(targets.includes('[data-tour="feedback-button"]'), `${exp} includes the feedback launcher`)
+  }
+  // The anchor is the one SharedFeedbackPanel already hardcodes - no duplicate anchor invented.
+  const sharedFeedback = read('../src/components/shared/SharedFeedbackPanel.jsx')
+  assert.match(sharedFeedback, /data-tour="feedback-button"/)
+})
+
+test('the Messages shortcut step follows the same authorization as the Messages surface', () => {
+  const profile = { full_name: 'Alex Rivera' }
+  const launcher = '[data-tour="portal-messages-launcher"]'
+  // Student and Unit Leader: always in the step set (engine skips if hidden).
+  for (const exp of ['student', 'unit_leader']) {
+    const targets = getTourSteps(exp, { userProfile: profile }).map(s => s.target)
+    assert.ok(targets.includes(launcher), `${exp} includes the messages shortcut`)
+  }
+  // Academic Partner: present ONLY under the fail-closed server capability.
+  const withCap = getTourSteps('academic_partner', { userProfile: profile, apMessagesEnabled: true }).map(s => s.target)
+  const withoutCap = getTourSteps('academic_partner', { userProfile: profile, apMessagesEnabled: false }).map(s => s.target)
+  assert.ok(withCap.includes(launcher))
+  assert.ok(!withoutCap.includes(launcher))
+  // The anchor exists on the actual launcher button in PortalUtilityLayer.
+  const utility = read('../src/portal/PortalUtilityLayer.jsx')
+  assert.match(utility, /data-tour="portal-messages-launcher"/)
+  assert.match(utility, /portal-messages-launcher"\s*\n\s*className={\`ptl-team-message-launcher/)
+})
+
+test('launcher steps sit before the profile-menu step in every portal set', () => {
+  const profile = { full_name: 'Alex Rivera' }
+  for (const [exp, ctx] of [
+    ['student', { userProfile: profile }],
+    ['unit_leader', { userProfile: profile }],
+    ['academic_partner', { userProfile: profile, apMessagesEnabled: true }],
+  ]) {
+    const targets = getTourSteps(exp, ctx).map(s => s.target)
+    const fb = targets.indexOf('[data-tour="feedback-button"]')
+    const menu = targets.indexOf('[data-tour="portal-profile-menu"]')
+    assert.ok(fb > -1 && menu > -1 && fb < menu, `${exp} orders feedback before the profile menu`)
+  }
 })

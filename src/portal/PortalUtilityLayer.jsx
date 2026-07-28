@@ -165,6 +165,7 @@ export default function PortalUtilityLayer({
           <button
             ref={messagesRef}
             type="button"
+            data-tour="portal-messages-launcher"
             className={`ptl-team-message-launcher${visiblePanel === 'messages' ? ' is-open' : ''}`}
             onClick={openMessages}
             aria-label="Open messages with the ASPIRE Team"
