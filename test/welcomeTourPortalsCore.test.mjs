@@ -434,3 +434,10 @@ test('global Enter shortcut yields to native activation on interactive elements'
   const advanceIdx = engineSrc.indexOf("if (e.key === 'ArrowRight' || e.key === 'Enter')")
   assert.ok(guardIdx > -1 && advanceIdx > -1 && guardIdx < advanceIdx)
 })
+
+test('a restarted tour rewinds to the first step', () => {
+  // The engine stays mounted between runs, so flipping run back on must reset
+  // stepIndex (and any open skip modal) or a finished tour would "restart" on
+  // its own final step.
+  assert.match(engineSrc, /if \(run\) \{ setStepIndex\(0\); setShowSkipModal\(false\); \}/)
+})

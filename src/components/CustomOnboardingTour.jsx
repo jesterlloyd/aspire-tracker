@@ -90,6 +90,14 @@ export default function CustomOnboardingTour({ run, onClose, experience = 'staff
   const progressTotal = availableSteps.length || steps.length;
   const isLastStep = settleForward(stepIndex + 1) >= steps.length;
 
+  // The component stays mounted between runs (run merely toggles), so a
+  // restart from the profile menu or Settings > Tours & Help must rewind to
+  // the first step explicitly; otherwise a finished tour would "restart" on
+  // its final step, exactly where the previous run left stepIndex.
+  useEffect(() => {
+    if (run) { setStepIndex(0); setShowSkipModal(false); }
+  }, [run]);
+
   useEffect(() => {
     if (!run) return;
     const handler = () => setGeometryTick(t => t + 1);
