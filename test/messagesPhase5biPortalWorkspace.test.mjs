@@ -717,14 +717,14 @@ test('privacy', async (t) => {
 test('dormancy and regression', async (t) => {
   await t.test('the portals mount the SAME shared workspace (Academic Partner fail-closed-gated)', () => {
     // Phase 5B-ii activated Messages for the Student Portal through PortalApp. UL-PORTAL activated it
-    // for the Unit Leader Portal. Commit 4 wires it for the Academic Partner Portal too, but fail-closed
-    // behind AP_MESSAGING_ENABLED. All mount the SAME workspace component (shared, not reimplemented).
-    // The staff shell and the staff app still must not reach it.
+    // for the Unit Leader Portal. The Academic Partner Portal wires it too, but fail-closed behind the
+    // SERVER capability (messagesEnabled prop). All mount the SAME workspace component (shared, not
+    // reimplemented). The staff shell and the staff app still must not reach it.
     assert.match(read('../src/portal/PortalApp.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
     assert.match(read('../src/portal/UnitLeaderPortal.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
     const ap = read('../src/portal/AcademicPartnerPortal.jsx')
     assert.match(ap, /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
-    assert.match(ap, /if \(!AP_MESSAGING_ENABLED\)/)   // gated: prepared state until the Owner SQL gate lands
+    assert.match(ap, /if \(!messagesEnabled\)/)   // gated: prepared state until the server reports capable
     for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx', '../src/App.jsx']) {
       assert.doesNotMatch(read(f), /PortalMessagesWorkspace/, `${f} must not mount the workspace`)
     }

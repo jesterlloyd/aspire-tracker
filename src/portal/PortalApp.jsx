@@ -32,7 +32,6 @@ import { UnitLeaderNav } from './unit/UnitLeaderChrome'
 import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
-import { AP_MESSAGING_ENABLED } from '../lib/apMessaging'
 import {
   PORTAL_ACTIVE_POLL_MS, PORTAL_IDLE_UNREAD_POLL_MS, usePortalUnreadCount,
 } from '../lib/messages/portalMessagesPolling'
@@ -125,10 +124,12 @@ export default function PortalApp() {
   // Messages badge is live from Home and every other section, exactly like the
   // Student Portal. Same endpoint, same cadence, faster while on Messages.
   const isUnitLeader = !isStudent && (access?.roles || []).includes('unit_leader')
-  // AP-PORTAL: Academic Partner messaging is fail-closed behind AP_MESSAGING_ENABLED (Owner SQL gate).
-  // Until enabled, the unread poll and launcher stay off, exactly as before.
+  // AP-PORTAL: Academic Partner messaging enablement is a SERVER capability (env flag AND applied DB
+  // migration), fetched below. The client never decides it from a constant. Fail-closed (false) until
+  // the server reports it, so the unread poll and launcher stay off until then.
   const isAcademicPartner = !isStudent && !isUnitLeader && (access?.roles || []).includes('academic_partner')
-  const apMessagesEnabled = isAcademicPartner && AP_MESSAGING_ENABLED
+  const [apMessagingCapable, setApMessagingCapable] = useState(false)
+  const apMessagesEnabled = isAcademicPartner && apMessagingCapable
   const { url: studentHeaderPhotoUrl } = usePortalHeadshotUrl({ enabled: isStudent })
   const onMessagesRoute = location.pathname.startsWith('/portal/messages') || location.pathname.startsWith('/portal/ap/messages')
   const unread = usePortalUnreadCount({
@@ -158,6 +159,26 @@ export default function PortalApp() {
       .catch(() => { if (!cancelled) { setAccess({ roles: [] }); setLoading(false) } })
     return () => { cancelled = true }
   }, [])
+
+  // AP-PORTAL: read the ONE canonical server capability (env flag AND applied DB migration) for
+  // Academic Partner messaging, only for an Academic Partner. Fails closed on any error; the Messages
+  // tab and the lower-right launcher both derive from this single value.
+  useEffect(() => {
+    if (!isAcademicPartner) return undefined
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data: s } = await supabase.auth.getSession()
+        const token = s?.session?.access_token
+        if (!token) return
+        const res = await fetch('/api/portal/portal-capabilities', { headers: { Authorization: `Bearer ${token}` } })
+        if (cancelled || !res.ok) return
+        const data = await res.json()
+        if (!cancelled) setApMessagingCapable(data?.ap_messaging === true)
+      } catch { /* fail closed: leave capability false */ }
+    })()
+    return () => { cancelled = true }
+  }, [isAcademicPartner])
 
   if (loading) {
     return (
@@ -259,9 +280,9 @@ export default function PortalApp() {
 
   if (roles.includes('academic_partner')) {
     // The same shared shell, Nightfall chrome, and attached nav as the Student and Unit Leader
-    // portals. Messages reuses the canonical workspace + lower-right launcher, gated on
-    // AP_MESSAGING_ENABLED: until the Owner SQL gate lands it is fail-closed (messagesAuthorized
-    // false => Feedback only, no floating Messages launcher, no unread polling), exactly as before.
+    // portals. Messages reuses the canonical workspace + lower-right launcher, gated on the SERVER
+    // capability (apMessagesEnabled): until the server reports enabled it is fail-closed
+    // (messagesAuthorized false => Feedback only, no floating Messages launcher, no unread polling).
     return (
       <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
@@ -276,11 +297,12 @@ export default function PortalApp() {
             profileId={userProfile?.id}
             pathname={location.pathname}
             unread={unread}
-            messagesAuthorized={AP_MESSAGING_ENABLED}
+            messagesAuthorized={apMessagesEnabled}
             onOpenMessages={() => goApSection('messages')}
           />
         )}>
         <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
+          messagesEnabled={apMessagesEnabled}
           threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
       </PortalShell>
     )

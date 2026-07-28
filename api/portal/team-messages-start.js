@@ -21,7 +21,7 @@ import { verifyPortalMessagesCaller, getServiceDb } from '../lib/messagesAuth.js
 import { methodGuard, readJsonBody, mapRpcError, logApiError } from '../lib/messagesApi.js';
 import { validateBody, isUuid } from '../../lib/server/messages/validation.js';
 import { startGeneralTeamConversationForPortal } from '../../lib/server/messages/conversationService.js';
-import { AP_MESSAGING_ENABLED } from '../../src/lib/apMessaging.js';
+import { resolveApMessagingCapability } from '../lib/apMessagingCapability.js';
 
 const ALLOWED_FIELDS = new Set(['request_id', 'body']);
 
@@ -38,9 +38,11 @@ export default async function handler(req, res) {
     if (!caller.schoolKeys || caller.schoolKeys.length === 0) {
       return res.status(403).json({ error: 'no_active_school_scope' });
     }
-    // Fail closed until the Owner SQL gate admits the academic_partner shape to the start RPC.
-    if (!AP_MESSAGING_ENABLED) {
-      return res.status(503).json({ error: 'messaging_not_enabled', reason: 'ap_messaging_pending_migration' });
+    // Fail closed on the server capability gate (env flag AND applied DB migration). This never
+    // attempts the RPC while disabled; the RPC also independently re-authorizes when enabled.
+    const apCapable = await resolveApMessagingCapability(getServiceDb());
+    if (!apCapable) {
+      return res.status(503).json({ error: 'messaging_not_enabled', reason: 'ap_messaging_capability_unavailable' });
     }
   }
 

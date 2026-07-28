@@ -57,9 +57,9 @@ test('utility layer mounts through PortalShell for Student, Unit Leader, and Aca
   // no onOpenMessages.
   assert.match(academicBranch, /portalRole="academic_partner"/)
   assert.match(academicBranch, /portalType="academic_partner"/)
-  assert.match(academicBranch, /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
-  // The launcher is wired (unread + onOpenMessages) so a single flag flip activates it post-migration;
-  // with the flag off it stays fail-closed (no launcher mounts).
+  assert.match(academicBranch, /messagesAuthorized=\{apMessagesEnabled\}/)
+  // The launcher is wired (unread + onOpenMessages) so it activates when the server reports capable;
+  // until then it stays fail-closed (no launcher mounts).
   assert.match(academicBranch, /onOpenMessages=\{\(\) => goApSection\('messages'\)\}/)
   assert.doesNotMatch(unitPortal, /PortalUtilityLayer/)
   assert.doesNotMatch(studentPortal, /PortalUtilityLayer|PortalFeedbackPanel|portalFeedbackApiClient/)

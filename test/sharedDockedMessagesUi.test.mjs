@@ -40,11 +40,11 @@ test('Student and Unit Leader mount the same docked ASPIRE Team Messages utility
   assert.match(unitBranch, /portalRole="unit_leader"/)
   assert.match(unitBranch, /portalType="unit_leader"/)
   assert.match(unitBranch, /messagesAuthorized/)
-  // Academic Partner mounts the utility layer with Messages gated on the fail-closed AP_MESSAGING_ENABLED
-  // flag: with the flag off there is no docked Messages launcher and no Messages request. The launcher
-  // is wired (onOpenMessages) so a single flag flip (after the Owner SQL gate) activates it.
+  // Academic Partner mounts the utility layer with Messages gated on the fail-closed SERVER capability
+  // (apMessagesEnabled): until the server reports capable there is no docked Messages launcher and no
+  // Messages request. The launcher is wired (onOpenMessages) so it activates once the server reports it.
   assert.match(academicBranch, /portalRole="academic_partner"/)
-  assert.match(academicBranch, /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
+  assert.match(academicBranch, /messagesAuthorized=\{apMessagesEnabled\}/)
   assert.match(academicBranch, /onOpenMessages=\{\(\) => goApSection\('messages'\)\}/)
 
   assert.match(layer, /isUnitLeaderPortal = portalRole === 'unit_leader' && portalType === 'unit_leader'/)

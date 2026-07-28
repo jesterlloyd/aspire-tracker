@@ -303,13 +303,14 @@ test('regression: nothing else moved', async (t) => {
   await t.test('Academic Partner Messages is fail-closed (Preceptor remains a reservation)', () => {
     // UL-PORTAL: Unit Leader Messages is DELIBERATELY activated. Preceptor remains a schema
     // reservation with no authorization branch. Academic Partner Messages is now WIRED but
-    // fail-closed behind AP_MESSAGING_ENABLED (Owner SQL gate): the portal reuses the canonical
-    // workspace, gated so that with the flag off it mounts no workspace and makes no request.
+    // fail-closed behind the SERVER capability (messagesEnabled prop / apMessagesEnabled): the portal
+    // reuses the canonical workspace, gated so that until the server reports capable it mounts no
+    // workspace and makes no request.
     const apPortal = read('../src/portal/AcademicPartnerPortal.jsx')
-    assert.match(apPortal, /import \{ AP_MESSAGING_ENABLED \} from '\.\.\/lib\/apMessaging'/)
-    assert.match(apPortal, /if \(!AP_MESSAGING_ENABLED\)/)   // fail-closed gate precedes the workspace
-    // The AP branch runs the utility layer with Messages gated on the same fail-closed flag.
-    assert.match(appCode.slice(appCode.indexOf("roles.includes('academic_partner')")), /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
+    assert.match(apPortal, /if \(!messagesEnabled\)/)   // fail-closed gate precedes the workspace
+    assert.doesNotMatch(apPortal, /AP_MESSAGING_ENABLED|apMessaging/)   // no client capability constant
+    // The AP branch runs the utility layer with Messages gated on the server capability value.
+    assert.match(appCode.slice(appCode.indexOf("roles.includes('academic_partner')")), /messagesAuthorized=\{apMessagesEnabled\}/)
     // Preceptor is still never admitted anywhere in the messaging auth chain.
     assert.doesNotMatch(read('../api/lib/messagesAuth.js').replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''), /preceptor/)
   })

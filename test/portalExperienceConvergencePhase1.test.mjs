@@ -44,9 +44,9 @@ test('shared feedback copy and Student durable feedback activation are canonical
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
   assert.match(studentBranch, /PortalUtilityLayer/)
   assert.doesNotMatch(studentBranch, /desktopNotice/)
-  // Academic Partner mounts the utility layer; Messages is gated on the fail-closed AP_MESSAGING_ENABLED.
+  // Academic Partner mounts the utility layer; Messages is gated on the fail-closed server capability.
   assert.match(academicBranch, /PortalUtilityLayer/)
-  assert.match(academicBranch, /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
+  assert.match(academicBranch, /messagesAuthorized=\{apMessagesEnabled\}/)
 })
 
 test('portal feedback endpoint accepts Student, Unit Leader, and Academic Partner', () => {

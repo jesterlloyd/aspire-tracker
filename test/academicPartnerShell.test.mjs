@@ -54,7 +54,7 @@ test('AcademicPartnerNav is exactly Students, Placement Requests, Messages', () 
 
 test('the three sections route: Students roster, Placement Requests workspace, Messages prepared', () => {
   const code = stripJs(portal)
-  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, threadId, onSelectThread, onBackToList \}\)/)
+  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList \}\)/)
   assert.match(portal, /if \(view === 'placement-requests'\)/)
   assert.match(portal, /if \(view === 'messages'\)/)
   // Placement Requests is now the live workspace; Messages stays an honest prepared state.
@@ -69,17 +69,21 @@ test('the three sections route: Students roster, Placement Requests workspace, M
   assert.doesNotMatch(code, /OnCampusNow|NeedsAttention|StudentDetailDrawer|ptl-detail-drawer/)
 })
 
-test('Messages is fail-closed for the Academic Partner behind the Owner SQL gate flag', () => {
-  // The AP branch wires the canonical launcher + workspace, but authorization is the fail-closed
-  // AP_MESSAGING_ENABLED flag (false until the Owner SQL gate lands), so nothing activates by default.
-  assert.match(app, /import \{ AP_MESSAGING_ENABLED \} from '\.\.\/lib\/apMessaging'/)
-  assert.match(apBranch, /messagesAuthorized=\{AP_MESSAGING_ENABLED\}/)
-  const flag = read('src/lib/apMessaging.js')
-  assert.match(flag, /export const AP_MESSAGING_ENABLED = false/)
-  // The AP Messages view reuses the CANONICAL workspace (no parallel system), gated on the flag; when
-  // off it shows the honest prepared state.
+test('Messages is fail-closed for the Academic Partner behind a SERVER capability (no client constant)', () => {
+  // The AP branch wires the canonical launcher + workspace, but enablement is a SERVER capability the
+  // client fetches (env flag AND applied DB migration); the browser never decides it from a constant.
+  assert.match(app, /const apMessagesEnabled = isAcademicPartner && apMessagingCapable/)
+  assert.match(app, /fetch\('\/api\/portal\/portal-capabilities'/)
+  assert.match(app, /setApMessagingCapable\(data\?\.ap_messaging === true\)/)
+  assert.match(apBranch, /messagesAuthorized=\{apMessagesEnabled\}/)
+  assert.match(apBranch, /messagesEnabled=\{apMessagesEnabled\}/)
+  // No client capability constant survives: no AP_MESSAGING_ENABLED and no import of the old module.
+  assert.doesNotMatch(app, /AP_MESSAGING_ENABLED/)
+  assert.doesNotMatch(app, /from '\.\.\/lib\/apMessaging'/)
+  // The AP Messages view reuses the CANONICAL workspace (no parallel system), gated on the prop; when
+  // disabled it shows the honest prepared state.
   assert.match(portal, /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
-  assert.match(stripJs(portal), /if \(!AP_MESSAGING_ENABLED\) \{[\s\S]*?being prepared and is not active yet/)
+  assert.match(stripJs(portal), /if \(!messagesEnabled\) \{[\s\S]*?being prepared and is not active yet/)
   assert.match(stripJs(portal), /<PortalMessagesWorkspace[\s\S]*?variant="academic_partner"/)
 })
 

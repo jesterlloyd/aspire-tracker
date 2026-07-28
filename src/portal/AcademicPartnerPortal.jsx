@@ -26,7 +26,6 @@ import SortHeader from '../components/shared/SortHeader'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import PlacementRequestsView from './ap/PlacementRequestsView'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
-import { AP_MESSAGING_ENABLED } from '../lib/apMessaging'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
@@ -72,15 +71,15 @@ function ApHoursCell({ hours }) {
 
 // Messages reuses the SAME canonical PortalMessagesWorkspace the Student and Unit Leader portals use
 // (variant='academic_partner'): thread list, unread, open conversation, compose to the ASPIRE Team,
-// reply, and Refresh integration. It is fail-closed behind AP_MESSAGING_ENABLED until the Owner SQL
-// gate admits the academic_partner participant shape; until then Messages shows an honest prepared
-// state (no workspace, no polling) and no lower-right launcher mounts.
-export default function AcademicPartnerPortal({ view = 'students', onNavigate, threadId, onSelectThread, onBackToList }) {
+// reply, and Refresh integration. Enablement is the SERVER capability passed as messagesEnabled (env
+// flag AND applied DB migration), never a client constant; until the server reports enabled, Messages
+// shows an honest prepared state (no workspace, no polling) and no lower-right launcher mounts.
+export default function AcademicPartnerPortal({ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList }) {
   if (view === 'placement-requests') {
     return <PlacementRequestsView onNavigate={onNavigate} />
   }
   if (view === 'messages') {
-    if (!AP_MESSAGING_ENABLED) {
+    if (!messagesEnabled) {
       return (
         <EmptyState
           title="Messages"
