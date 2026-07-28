@@ -13,6 +13,11 @@ import InterviewDayDrawer from './InterviewDayDrawer'
 import AspireEventModal from './AspireEventModal'
 import { toLocalDateStr } from '../lib/designTokens'
 import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
+import { computeLegendPlacement } from './statusLegendPlacement'
+
+// A zero-size rect at a viewport point, so a click position can anchor a popover the same way a
+// trigger element's getBoundingClientRect() does (both feed computeLegendPlacement).
+const rectFromPoint = (x, y) => ({ top: y, bottom: y, left: x, right: x, width: 0, height: 0 })
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 
 // ASPIRE-EVENTS-CALENDAR-2B: local 'YYYY-MM-DD' for a Date (calendar range bounds).
@@ -102,7 +107,7 @@ const hexToRgba = (hex, alpha) => {
 }
 
 // ─── Popover: Create Block ────────────────────────────────────────────────────
-function CreatePopover({ date, startTime, endTime, position, interviewerProfiles, isAdmin, cohortId, userProfile, onSave, onClose }) {
+function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfiles, isAdmin, cohortId, userProfile, onSave, onClose }) {
   const [form, setForm] = useState({
     block_date:       date || '',
     start_time:       startTime || '09:00',
@@ -172,19 +177,50 @@ function CreatePopover({ date, startTime, endTime, position, interviewerProfiles
     return total > 0 ? Math.floor(total / form.duration_minutes) : 0
   })()
 
+  // Anchor near the trigger (a date cell or the header button) using the shared collision helper:
+  // prefer below/beside, flip near a viewport edge, clamp within margins, and bound the height so the
+  // body scrolls rather than the popover running off-screen. Recompute on resize/scroll; Escape closes;
+  // focus returns to the trigger on close.
+  const restoreFocusRef = useRef(typeof document !== 'undefined' ? document.activeElement : null)
+  const computePlace = () => computeLegendPlacement({
+    rect: triggerRect || rectFromPoint(window.innerWidth / 2, Math.min(180, window.innerHeight / 2)),
+    viewportW: window.innerWidth, viewportH: window.innerHeight,
+    position: 'bottom-left', margin: 12, gap: 8, desktopWidth: 280,
+    maxDesired: Math.min(460, window.innerHeight - 24),
+  })
+  const [coords, setCoords] = useState(computePlace)
+  useEffect(() => {
+    const reposition = () => setCoords(computePlace())
+    reposition()
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('resize', reposition)
+    window.addEventListener('scroll', reposition, true)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('resize', reposition)
+      window.removeEventListener('scroll', reposition, true)
+      document.removeEventListener('keydown', onKey)
+      restoreFocusRef.current?.focus?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerRect])
+
   return (
-    <div style={{
+    <div role="dialog" aria-label="Add Availability" style={{
       position: 'fixed',
-      top:  Math.min(position.y, window.innerHeight - 440),
-      left: Math.min(position.x, window.innerWidth  - 300),
-      width: '280px', background: '#ffffff',
+      top:    coords.top != null ? coords.top : undefined,
+      bottom: coords.bottom != null ? coords.bottom : undefined,
+      left:   coords.left,
+      width:  coords.width,
+      maxHeight: coords.maxHeight,
+      background: '#ffffff',
       borderRadius: '16px', zIndex: 9999,
       boxShadow: '0 8px 40px rgba(29,37,103,0.22)',
-      overflow: 'hidden',
+      overflow: 'hidden', display: 'flex', flexDirection: 'column',
     }}>
       <div style={{
         background: 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
-        padding: '14px 16px',
+        padding: '14px 16px', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
@@ -199,7 +235,7 @@ function CreatePopover({ date, startTime, endTime, position, interviewerProfiles
         </button>
       </div>
 
-      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
         <div>
           <label style={labelStyle}>Date</label>
           <input type="date" value={form.block_date}
@@ -671,7 +707,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
           return (
             <div
               key={dateStr}
-              onClick={() => onDayClick(dateStr, hasActivity, dayEvents.length > 0)}
+              onClick={e => onDayClick(dateStr, hasActivity, dayEvents.length > 0, e.currentTarget.getBoundingClientRect())}
               onMouseEnter={() => setHoveredDate(dateStr)}
               onMouseLeave={() => setHoveredDate(null)}
               style={{
@@ -775,7 +811,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
               {isHovered && daySlots.length === 0 && (
                 <div style={{ position:'absolute', bottom:4, right:4, display:'flex', gap:4, alignItems:'center' }}>
                   <button
-                    onClick={e => { e.stopPropagation(); onAddAvailability(dateStr) }}
+                    onClick={e => { e.stopPropagation(); onAddAvailability(dateStr, e.currentTarget.getBoundingClientRect()) }}
                     style={{ background:'rgba(29,37,103,0.92)', color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
                   >
                     + Availability
@@ -1010,7 +1046,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
                   const snapped = Math.floor(rawMins / 30) * 30
                   const sT = minutesToTimeStr(Math.min(snapped, (END_HOUR-1)*60))
                   const eT = minutesToTimeStr(Math.min(toMinutes(sT) + 120, END_HOUR*60))
-                  onEmptyClick(ds, sT, eT)
+                  onEmptyClick(ds, sT, eT, rectFromPoint(e.clientX, e.clientY))
                 }}
               >
                 {/* Half-hour sub-lines */}
@@ -1239,7 +1275,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       const [h, m] = clickedTime.split(':').map(Number)
       const endH = Math.min(h + 2, 19)
       const endTime = `${endH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
-      setCreatePopover({ date: clickedDate, startTime: clickedTime, endTime, position: { x: info.jsEvent.clientX, y: info.jsEvent.clientY } })
+      setCreatePopover({ date: clickedDate, startTime: clickedTime, endTime, triggerRect: rectFromPoint(info.jsEvent.clientX, info.jsEvent.clientY) })
     } else {
       // Month view: open drawer if day has blocks/slots; else open CreatePopover
       const dayBlocks = (blocks || []).filter(b => b.block_date === clickedDate)
@@ -1248,7 +1284,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       if (dayBlocks.length > 0 || daySlots.length > 0) {
         setDayDrawerDate(clickedDate)
       } else {
-        setCreatePopover({ date: clickedDate, position: { x: info.jsEvent.clientX, y: info.jsEvent.clientY } })
+        setCreatePopover({ date: clickedDate, triggerRect: rectFromPoint(info.jsEvent.clientX, info.jsEvent.clientY) })
       }
     }
   }
@@ -1354,13 +1390,10 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   }
 
   const handleAddAvailabilityClick = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect()
+    // Anchor the popover to the header button; the placement helper handles below/above + clamping.
     setCreatePopover({
-      date:     selectedDate || toLocalDateStr(),
-      position: {
-        x: Math.max(8, rect.right - 280),
-        y: rect.bottom + 8,
-      },
+      date:        selectedDate || toLocalDateStr(),
+      triggerRect: e.currentTarget.getBoundingClientRect(),
     })
   }
 
@@ -1604,7 +1637,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               slots={slots}
               colorMap={colorMap}
               selectedDate={selectedDate}
-              onDayClick={(dateStr, hasActivity, hasEvents) => {
+              onDayClick={(dateStr, hasActivity, hasEvents, rect) => {
                 setSelectedDate(dateStr)
                 setHighlightedSlotId(null)
                 if (hasEvents) {
@@ -1613,11 +1646,11 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                 } else if (hasActivity) {
                   setDayDrawerDate(dateStr) // interviews only - existing behavior unchanged
                 } else {
-                  setCreatePopover({ date: dateStr, position: { x: window.innerWidth / 2 - 140, y: 200 } })
+                  setCreatePopover({ date: dateStr, triggerRect: rect })
                 }
               }}
-              onAddAvailability={(dateStr) => {
-                setCreatePopover({ date: dateStr, position: { x: window.innerWidth / 2 - 140, y: 200 } })
+              onAddAvailability={(dateStr, rect) => {
+                setCreatePopover({ date: dateStr, triggerRect: rect })
               }}
               events={aspireEvents}
               onEventClick={openEvent}
@@ -1638,8 +1671,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                 setDayDrawerDate(dateStr)
                 setHighlightedSlotId(slot.id)
               }}
-              onEmptyClick={(dateStr, startTime, endTime) => {
-                setCreatePopover({ date: dateStr, startTime, endTime, position: { x: window.innerWidth / 2 - 140, y: 200 } })
+              onEmptyClick={(dateStr, startTime, endTime, rect) => {
+                setCreatePopover({ date: dateStr, startTime, endTime, triggerRect: rect })
               }}
               events={aspireEvents}
               onEventClick={openEvent}
@@ -1667,7 +1700,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           date={createPopover.date}
           startTime={createPopover.startTime}
           endTime={createPopover.endTime}
-          position={createPopover.position}
+          triggerRect={createPopover.triggerRect}
           interviewerProfiles={interviewerProfiles}
           isAdmin={isAdmin}
           cohortId={cohortId}
@@ -1705,7 +1738,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           onRefresh={fetchData}
           onAddAvailability={(date) => {
             setDayDrawerDate(null)
-            setCreatePopover({ date, position: { x: window.innerWidth - 460, y: 140 } })
+            // The drawer is closing, so anchor to a stable top-right point (no persistent trigger el).
+            setCreatePopover({ date, triggerRect: rectFromPoint(window.innerWidth - 160, 140) })
           }}
         />
       )}
