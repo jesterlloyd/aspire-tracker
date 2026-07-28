@@ -38,7 +38,7 @@ import { useSupportRequestReads } from './lib/support/useSupportRequestReads'
 import { useStaffNotifications } from './hooks/useStaffNotifications'
 import { unreadSupportBellCount } from './lib/support/supportRequests'
 import CustomOnboardingTour from './components/CustomOnboardingTour'
-import { TOUR_VERSION } from './lib/onboardingTours'
+import { shouldAutoStartTour } from './lib/onboardingTours'
 import Keith from './components/Keith'
 import FeedbackPanel from './components/FeedbackPanel'
 import { logEvent, eventExists } from './lib/logEvent'
@@ -460,19 +460,15 @@ function MainApp({ onLogout }) {
   useEffect(() => {
     if (!currentUserProfile?.auth_user_id || !activeCohortId) return
 
-    // WELCOME-TOUR-REFRESH-RESET: acknowledgement is version-scoped - completing OR dismissing
-    // counts only for the version it was made against. A TOUR_VERSION bump therefore re-shows the
-    // tour once to everyone (completed AND previously-dismissed users), with no data mutation.
-    // Wait until the tour fields are loaded (undefined = profile/migration not ready yet).
+    // WELCOME-TOUR-PORTALS-1: acknowledgement now lives in the per-experience
+    // ledger in onboarding_tour_version (parseTourAcks / isTourAcknowledged),
+    // so the version-scoped-reset behavior from WELCOME-TOUR-REFRESH-RESET is
+    // preserved through shouldAutoStartTour(profile, 'staff') rather than a
+    // bare TOUR_VERSION string compare here. Wait until the tour fields are
+    // loaded (undefined = profile/migration not ready yet) before deciding.
     if (currentUserProfile.onboarding_tour_completed === undefined) return
 
-    const acknowledgedCurrent =
-      (currentUserProfile.onboarding_tour_completed === true ||
-       currentUserProfile.onboarding_tour_dismissed === true) &&
-      currentUserProfile.onboarding_tour_version === TOUR_VERSION
-    const snoozed = sessionStorage.getItem('onboarding_tour_snoozed') === 'true'
-
-    if (acknowledgedCurrent || snoozed) {
+    if (!shouldAutoStartTour(currentUserProfile, 'staff')) {
       setTourRunning(false)  // ensure tour is off if user refreshes after acknowledging
       return
     }
@@ -1148,7 +1144,7 @@ function MainApp({ onLogout }) {
         isAuthenticated={true}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <CustomOnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} />
+      <CustomOnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} experience="staff" />
       {/* WS2.2: People & Access re-homed to Settings → /settings/accounts.
           The legacy UserManagement modal render (formerly here) was removed; the
           modal wrapper component is retained in its file for direct callers/rollback. */}

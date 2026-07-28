@@ -1,9 +1,9 @@
 // WS2.3: Settings → Tours & Help panel. Visible to all authenticated users.
 //
 // Welcome Tour: reuses the EXISTING restart behavior (onRestartTour, threaded from
-// App.jsx - the same closure the UserMenu entry uses: switch to the Aggregate/overview
-// workspace, then start CustomOnboardingTour). This panel adds NO new tour
-// persistence/completion/version/role/target logic.
+// App.jsx - the same closure the UserMenu entry used before WS2.4 removed it: switch
+// to the At a Glance/overview workspace, then start CustomOnboardingTour). This panel
+// adds NO new tour persistence/completion/version/role/target logic.
 //
 // Help: purely informational pointers to the existing floating Keith assistant and the
 // existing Feedback button. No new feedback/help/ticketing system, no API or Supabase
@@ -37,7 +37,8 @@ export default function ToursHelpPanel({ onRestartTour }) {
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary, #191919)' }}>Welcome Tour</div>
           <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', marginTop: 2 }}>
-            Replay the guided walkthrough of the areas you use most. It opens on the Aggregate dashboard.
+            {/* WELCOME-TOUR-PORTALS-1: "Aggregate" renamed to "At a Glance" (ASPIRE-MASTHEAD) - stale copy corrected. */}
+            Replay the guided walkthrough of the areas you use most. It opens on the At a Glance dashboard.
           </div>
         </div>
         <button

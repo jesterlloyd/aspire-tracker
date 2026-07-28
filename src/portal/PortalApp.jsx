@@ -19,7 +19,7 @@
 // polling or marking anything read. Refresh, back, and forward now work
 // because the view derives from the location instead of transient state.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -36,6 +36,10 @@ import {
   PORTAL_ACTIVE_POLL_MS, PORTAL_IDLE_UNREAD_POLL_MS, usePortalUnreadCount,
 } from '../lib/messages/portalMessagesPolling'
 import { usePortalHeadshotUrl } from '../lib/useStudentFile'
+// WELCOME-TOUR-PORTALS-1: the same Welcome Tour engine the staff app uses, mounted here
+// for the three portal experiences (student, unit_leader, academic_partner).
+import CustomOnboardingTour from '../components/CustomOnboardingTour'
+import { shouldAutoStartTour } from '../lib/onboardingTours'
 import '../styles/aspireBrand.css'
 import './portal.css'
 
@@ -129,7 +133,17 @@ export default function PortalApp() {
   // the server reports it, so the unread poll and launcher stay off until then.
   const isAcademicPartner = !isStudent && !isUnitLeader && (access?.roles || []).includes('academic_partner')
   const [apMessagingCapable, setApMessagingCapable] = useState(false)
+  // WELCOME-TOUR-PORTALS-1: whether the AP capability fetch below has settled (succeeded or
+  // failed), so the Academic Partner tour waits to decide the Messages step before it starts.
+  // Student and Unit Leader have no such fetch to wait on.
+  const [apCapabilityResolved, setApCapabilityResolved] = useState(false)
   const apMessagesEnabled = isAcademicPartner && apMessagingCapable
+  // WELCOME-TOUR-PORTALS-1: the Welcome Tour experience for the resolved portal role, derived
+  // from the same role booleans the rest of this component already uses.
+  const experience = isStudent ? 'student' : isUnitLeader ? 'unit_leader' : isAcademicPartner ? 'academic_partner' : null
+  const [tourRunning, setTourRunning] = useState(false)
+  const tourArmedRef = useRef(false)
+  const tourTimeoutRef = useRef(null)
   const { url: studentHeaderPhotoUrl } = usePortalHeadshotUrl({ enabled: isStudent })
   const onMessagesRoute = location.pathname.startsWith('/portal/messages') || location.pathname.startsWith('/portal/ap/messages')
   const unread = usePortalUnreadCount({
@@ -170,15 +184,44 @@ export default function PortalApp() {
       try {
         const { data: s } = await supabase.auth.getSession()
         const token = s?.session?.access_token
-        if (!token) return
+        if (!token) { if (!cancelled) setApCapabilityResolved(true); return }
         const res = await fetch('/api/portal/portal-capabilities', { headers: { Authorization: `Bearer ${token}` } })
-        if (cancelled || !res.ok) return
+        if (cancelled) return
+        if (!res.ok) { setApCapabilityResolved(true); return }
         const data = await res.json()
-        if (!cancelled) setApMessagingCapable(data?.ap_messaging === true)
-      } catch { /* fail closed: leave capability false */ }
+        if (!cancelled) {
+          setApMessagingCapable(data?.ap_messaging === true)
+          // WELCOME-TOUR-PORTALS-1: the fetch settled, so the Academic Partner tour is now free to
+          // decide whether its Messages step belongs in the sequence.
+          setApCapabilityResolved(true)
+        }
+      } catch {
+        /* fail closed: leave capability false, but the fetch still settled */
+        if (!cancelled) setApCapabilityResolved(true)
+      }
     })()
     return () => { cancelled = true }
   }, [isAcademicPartner])
+
+  // WELCOME-TOUR-PORTALS-1: unmount-only cleanup for the auto-start timer below. Kept in its own
+  // effect (empty deps) so a dependency change never cancels an already-armed timer; only real
+  // unmount does.
+  useEffect(() => () => { if (tourTimeoutRef.current) clearTimeout(tourTimeoutRef.current) }, [])
+
+  // WELCOME-TOUR-PORTALS-1: auto-start once, after portal access AND role resolution. Student and
+  // Unit Leader need only the profile's tour fields to have loaded; Academic Partner additionally
+  // waits for the capability fetch to settle, so the Messages step is decided before the tour
+  // starts. tourArmedRef guards this so re-renders (e.g. a userProfile object identity change from
+  // AuthContext) never re-arm or re-schedule the timeout.
+  useEffect(() => {
+    if (tourArmedRef.current) return
+    if (!experience) return
+    if (!userProfile || userProfile.onboarding_tour_completed === undefined) return
+    if (experience === 'academic_partner' && !apCapabilityResolved) return
+    if (!shouldAutoStartTour(userProfile, experience)) return
+    tourArmedRef.current = true
+    tourTimeoutRef.current = setTimeout(() => setTourRunning(true), 700)
+  }, [experience, userProfile, apCapabilityResolved])
 
   if (loading) {
     return (
@@ -195,12 +238,26 @@ export default function PortalApp() {
 
   const roles = access?.roles || []
 
+  // WELCOME-TOUR-PORTALS-1: one tour instance, mounted inside whichever portal branch below is
+  // active. It renders null while not running, so this is safe to include unconditionally per
+  // branch. context.apMessagesEnabled lets the engine include or skip the capability-gated AP
+  // messaging step for the experiences that need it.
+  const tourOverlay = experience ? (
+    <CustomOnboardingTour
+      run={tourRunning}
+      onClose={() => setTourRunning(false)}
+      experience={experience}
+      context={{ apMessagesEnabled }}
+    />
+  ) : null
+
   if (roles.includes('student')) {
     return (
       <PortalShell title="Student Portal" userName={userProfile?.full_name}
         onEditProfile={() => setEditOpen(true)} withTabBar
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={studentHeaderPhotoUrl}
+        onRestartTour={() => setTourRunning(true)}
         nav={(
           <PortalNav
             view={studentView}
@@ -239,6 +296,7 @@ export default function PortalApp() {
             onBackToList={backToList}
           />
         </div>
+        {tourOverlay}
       </PortalShell>
     )
   }
@@ -253,6 +311,7 @@ export default function PortalApp() {
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={userProfile?.avatar_url}
         onProfile={() => goUnitSection('profile')} publicSiteUrl="https://aspireintelligence.app"
+        onRestartTour={() => setTourRunning(true)}
         nav={<UnitLeaderNav view={unitView} unread={unread} onNavigate={goUnitSection} />}
         utilityLayer={(
           <PortalUtilityLayer
@@ -274,6 +333,7 @@ export default function PortalApp() {
           onSelectThread={openThread}
           onBackToList={backToList}
         />
+        {tourOverlay}
       </PortalShell>
     )
   }
@@ -288,6 +348,7 @@ export default function PortalApp() {
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={userProfile?.avatar_url}
         publicSiteUrl="https://aspireintelligence.app"
+        onRestartTour={() => setTourRunning(true)}
         nav={<AcademicPartnerNav view={apView} onNavigate={goApSection} />}
         utilityLayer={(
           <PortalUtilityLayer
@@ -305,6 +366,7 @@ export default function PortalApp() {
         <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
           messagesEnabled={apMessagesEnabled}
           threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
+        {tourOverlay}
       </PortalShell>
     )
   }

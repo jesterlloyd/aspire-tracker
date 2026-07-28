@@ -1,6 +1,9 @@
 import { useRef } from 'react'
 
-export default function SegmentedTabs({ label, items = [], value, onChange, className = '' }) {
+// WELCOME-TOUR-PORTALS-1: dataTour is an optional passthrough so a caller can attach a
+// stable Welcome Tour anchor to the root element; omitted by every other caller, so
+// behavior elsewhere is unchanged.
+export default function SegmentedTabs({ label, items = [], value, onChange, className = '', dataTour }) {
   const refs = useRef([])
   const enabledItems = items.filter(item => !item.disabled)
 
@@ -32,7 +35,7 @@ export default function SegmentedTabs({ label, items = [], value, onChange, clas
   }
 
   return (
-    <div className={`segmented-tabs ${className}`.trim()} role="tablist" aria-label={label}>
+    <div className={`segmented-tabs ${className}`.trim()} role="tablist" aria-label={label} data-tour={dataTour}>
       {items.map((item, index) => {
         const Icon = item.Icon
         const selected = value === item.key

@@ -25,7 +25,8 @@ test('PortalShell renders the header scope + controls slots and provides them to
   assert.ok(existsSync(join(root, 'src/portal/PortalHeaderSlots.jsx')))
   assert.match(shell, /import \{ PortalHeaderSlotsContext \} from '\.\/PortalHeaderSlots'/)
   assert.match(shell, /<span className="ptl-header-sub">\{title\}<span className="ptl-header-scope" ref=\{setScopeSlot\} \/><\/span>/)
-  assert.match(shell, /<span className="ptl-header-controls" ref=\{setControlsSlot\} \/>/)
+  // WELCOME-TOUR-PORTALS-1: this span also carries the portal-scope-selector tour anchor now.
+  assert.match(shell, /<span className="ptl-header-controls" ref=\{setControlsSlot\} data-tour="portal-scope-selector" \/>/)
   assert.match(shell, /<PortalHeaderSlotsContext\.Provider value=\{\{ scopeSlot, controlsSlot \}\}>/)
 })
 

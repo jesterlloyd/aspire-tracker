@@ -28,12 +28,14 @@ const SECTIONS = [
 export function AcademicPartnerNav({ view, onNavigate }) {
   return (
     <nav className="ptl-nav" aria-label="Academic Partner Portal sections">
+      {/* WELCOME-TOUR-PORTALS-1: each section carries a stable data-tour anchor. */}
       {SECTIONS.map(({ key, label, Icon }) => (
         <button
           key={key}
           type="button"
           className={`ptl-nav-item${view === key ? ' ptl-nav-item-active' : ''}`}
           aria-current={view === key ? 'page' : undefined}
+          data-tour={`portal-nav-${key}`}
           onClick={() => onNavigate?.(key)}
         >
           <Icon size={16} aria-hidden="true" />

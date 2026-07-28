@@ -51,6 +51,9 @@ const DESKTOP_KEYS = ['home', 'preceptors', 'messages', 'evaluations', 'placemen
 const MOBILE_PRIMARY_KEYS = ['home', 'preceptors', 'messages']
 const MOBILE_MORE_KEYS = ['evaluations', 'placements', 'capacity']
 
+// WELCOME-TOUR-PORTALS-1: NavItem is used ONLY by the main bar below (UnitLeaderNav);
+// the More bottom sheet (MoreSheet) renders its own buttons directly, so the
+// data-tour anchor here never reaches the sheet.
 function NavItem({ section, active, unread, onNavigate }) {
   const { key, label, Icon } = section
   const isMessages = key === 'messages'
@@ -59,6 +62,7 @@ function NavItem({ section, active, unread, onNavigate }) {
       type="button"
       className={`ptl-nav-item${active ? ' ptl-nav-item-active' : ''}`}
       aria-current={active ? 'page' : undefined}
+      data-tour={`portal-nav-${key}`}
       onClick={() => onNavigate?.(key)}
     >
       {isMessages ? (
@@ -189,6 +193,7 @@ export function UnitSwitcher({ unitKeys = [], value, onChange }) {
       items={items}
       value={value}
       onChange={onChange}
+      dataTour="portal-unit-switcher"
     />
   )
 }

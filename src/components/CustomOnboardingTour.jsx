@@ -1,50 +1,120 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { getTourSteps, TOUR_VERSION } from '../lib/onboardingTours';
+import {
+  getTourSteps, TOUR_EXPERIENCES, parseTourAcks, serializeTourAcks, tourSnoozeKey,
+} from '../lib/onboardingTours';
 
 const NIGHTFALL = '#1D2567';
 const OVERLAY   = 'rgba(20, 25, 40, 0.55)';
 const TOOLTIP_WIDTH = 360;
 const GAP = 14;
 
-export default function CustomOnboardingTour({ run, onClose }) {
+// WELCOME-TOUR-PORTALS-1: a step's target is "available" when it is 'body'
+// (the only case that gets the centered treatment), or when the element it
+// names exists AND is actually visible - getClientRects().length === 0 catches
+// display:none (e.g. the responsive .ptl-nav-desktop-only / phone-only slots),
+// and a zero-size rect catches the same thing by another route.
+function isTargetAvailable(target) {
+  if (target === 'body') return true;
+  if (typeof document === 'undefined') return false;
+  const el = document.querySelector(target);
+  if (!el) return false;
+  if (el.getClientRects().length === 0) return false;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+function isStepAvailable(step) {
+  return Boolean(step) && isTargetAvailable(step.target);
+}
+
+export default function CustomOnboardingTour({ run, onClose, experience = 'staff', context = {} }) {
   const { userProfile, refreshUserProfile } = useAuth();
+  const { apMessagesEnabled = false } = context || {};
   const [stepIndex,    setStepIndex]    = useState(0);
-  const [targetRect,   setTargetRect]   = useState(null);
   const [tooltipSize,  setTooltipSize]  = useState({ width: TOOLTIP_WIDTH, height: 220 });
   const [showSkipModal, setShowSkipModal] = useState(false);
+  // Bumped on resize/scroll so the target rect and availability are re-read;
+  // the rect itself is computed straight from the DOM during render (see
+  // targetRect below), not stored in state, so a step never renders one frame
+  // behind its own measurement. The tick VALUE is a real dependency of the
+  // availability memo and the re-settle effect below, so a rotation that hides
+  // the current target recalculates the progress count and advances past the
+  // hidden step on the same tick instead of waiting for an unrelated re-run.
+  const [geometryTick, setGeometryTick] = useState(0);
   const tooltipRef = useRef(null);
 
-  const steps       = userProfile ? getTourSteps(userProfile) : [];
-  const currentStep = steps[stepIndex];
-  const isLastStep  = stepIndex === steps.length - 1;
-  const isCentered  = !currentStep || currentStep.target === 'body';
+  const steps = useMemo(
+    () => (userProfile ? getTourSteps(experience, { userProfile, apMessagesEnabled }) : []),
+    [experience, userProfile, apMessagesEnabled]
+  );
 
-  // Locate target element and store its bounding rect
-  const updateTarget = useCallback(() => {
-    if (!currentStep || isCentered) { setTargetRect(null); return; }
-    const el = document.querySelector(currentStep.target);
-    if (el) {
-      setTargetRect(el.getBoundingClientRect());
-    } else {
-      console.warn('[Tour] Target not found:', currentStep.target);
-      setTargetRect(null);
-    }
-  }, [currentStep, isCentered]);
+  // Walk forward from `idx` until an available step is found, or return
+  // steps.length if every remaining step is unavailable (the caller finishes).
+  const settleForward = useCallback((idx) => {
+    let i = idx;
+    while (i < steps.length && !isStepAvailable(steps[i])) i += 1;
+    return i;
+  }, [steps]);
+
+  // Walk backward from `idx` until an available step is found; clamps at 0
+  // rather than going negative (the first step is always 'body', so it is
+  // always available and this never actually needs the clamp in practice).
+  const settleBackward = useCallback((idx) => {
+    let i = idx;
+    while (i >= 0 && !isStepAvailable(steps[i])) i -= 1;
+    return i < 0 ? 0 : i;
+  }, [steps]);
+
+  const currentStep = steps[stepIndex];
+  const isCentered  = !currentStep || currentStep.target === 'body';
+  // Only 'body' steps get the centered treatment. A non-centered step is only
+  // ever reached via settleForward/settleBackward, so by the time we render it
+  // its target is expected to already be present and visible.
+  const targetEl   = (!isCentered && currentStep) ? document.querySelector(currentStep.target) : null;
+  const targetRect = targetEl ? targetEl.getBoundingClientRect() : null;
+
+  // "n / N" counts only the steps that are CURRENTLY available, so a leader
+  // with one unit (no switcher step) or a phone-width viewer (no desktop-only
+  // sections) sees a true count rather than one inflated by steps they will
+  // never see. geometryTick is the resize/rotation signal: it forces this memo
+  // to re-read DOM availability whenever the viewport geometry changes.
+  const availableSteps = useMemo(() => steps.filter(isStepAvailable), [steps, geometryTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const availablePosition = availableSteps.indexOf(currentStep);
+  const progressCurrent = availablePosition >= 0 ? availablePosition + 1 : stepIndex + 1;
+  const progressTotal = availableSteps.length || steps.length;
+  const isLastStep = settleForward(stepIndex + 1) >= steps.length;
 
   useEffect(() => {
     if (!run) return;
-    updateTarget();
-    const handler = () => updateTarget();
+    const handler = () => setGeometryTick(t => t + 1);
     window.addEventListener('resize', handler);
     window.addEventListener('scroll', handler, true);
     return () => {
       window.removeEventListener('resize', handler);
       window.removeEventListener('scroll', handler, true);
     };
-  }, [run, updateTarget]);
+  }, [run]);
+
+  // Resize can flip a step's availability out from under the current index
+  // (rotating a phone across the .ptl-nav-desktop-only breakpoint, for
+  // example). Re-settle forward from the current position whenever that
+  // happens, same rule as an explicit Next. geometryTick is a real dependency:
+  // without it a rotation that hides the CURRENT target would leave the tour
+  // rendering nothing until some unrelated state change re-ran this effect.
+  useEffect(() => {
+    if (!run || !currentStep) return;
+    if (isStepAvailable(currentStep)) return;
+    const settled = settleForward(stepIndex);
+    if (settled >= steps.length) {
+      markCompleted().finally(onClose);
+    } else if (settled !== stepIndex) {
+      setStepIndex(settled);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run, stepIndex, steps, geometryTick]);
 
   // Measure rendered tooltip height so we can auto-flip placement
   useEffect(() => {
@@ -56,70 +126,127 @@ export default function CustomOnboardingTour({ run, onClose }) {
     }
   });
 
+  // Focus the tooltip on every step change so a screen-reader user lands on
+  // the new step instead of wherever focus happened to be.
+  useEffect(() => {
+    if (!run) return;
+    tooltipRef.current?.focus();
+  }, [run, stepIndex]);
+
   // ── Persistence ─────────────────────────────────────────────────────────────
 
   async function markCompleted() {
-    console.log('[Tour] markCompleted firing');
     if (!userProfile?.auth_user_id) {
-      console.error('[Tour] No auth_user_id, cannot save');
+      console.error('[Tour] No auth_user_id, cannot save completion');
       return;
     }
-    const { data, error } = await supabase
+    // WELCOME-TOUR-PORTALS-1: merge this experience's acknowledgement into the
+    // ledger rather than overwriting the whole column, so completing the
+    // Student tour does not erase a Unit Leader (or staff) acknowledgement
+    // already recorded for the same person.
+    const acks = parseTourAcks(userProfile.onboarding_tour_version);
+    acks[experience] = TOUR_EXPERIENCES[experience];
+    const { error } = await supabase
       .from('user_profiles')
       .update({
         onboarding_tour_completed:    true,
         onboarding_tour_completed_at: new Date().toISOString(),
-        onboarding_tour_version:      TOUR_VERSION,
+        onboarding_tour_version:      serializeTourAcks(acks),
       })
-      .eq('auth_user_id', userProfile.auth_user_id)
-      .select();
+      .eq('auth_user_id', userProfile.auth_user_id);
 
     if (error) {
       console.error('[Tour] Save failed:', error);
-      alert('Could not save tour completion. See console.');
       return;
     }
-    console.log('[Tour] Save succeeded:', data);
     if (typeof refreshUserProfile === 'function') await refreshUserProfile();
   }
 
   async function markDismissed(permanent) {
     if (!userProfile?.auth_user_id) return;
     if (permanent) {
-      // WELCOME-TOUR-REFRESH-RESET: stamp the version so "Don't show again" is version-scoped -
-      // a user who dismissed v1 still sees v2 once; dismissing v2 suppresses only v2.
-      await supabase
+      // WELCOME-TOUR-REFRESH-RESET / WELCOME-TOUR-PORTALS-1: "Don't show again"
+      // is version-scoped per experience via the same merged ledger as
+      // markCompleted, so dismissing the Unit Leader tour cannot suppress a
+      // future staff (or student) tour bump for the same person.
+      const acks = parseTourAcks(userProfile.onboarding_tour_version);
+      acks[experience] = TOUR_EXPERIENCES[experience];
+      const { error } = await supabase
         .from('user_profiles')
-        .update({ onboarding_tour_dismissed: true, onboarding_tour_version: TOUR_VERSION })
+        .update({ onboarding_tour_dismissed: true, onboarding_tour_version: serializeTourAcks(acks) })
         .eq('auth_user_id', userProfile.auth_user_id);
+      if (error) console.error('[Tour] Dismiss save failed:', error);
       if (typeof refreshUserProfile === 'function') await refreshUserProfile();
     } else {
-      sessionStorage.setItem('onboarding_tour_snoozed', 'true');
+      sessionStorage.setItem(tourSnoozeKey(experience), 'true');
+      // Legacy plain key, staff only, so a build that still reads only that
+      // key (or a snooze written by it) keeps working for staff.
+      if (experience === 'staff') sessionStorage.setItem('onboarding_tour_snoozed', 'true');
     }
   }
 
   // ── Navigation ───────────────────────────────────────────────────────────────
 
   function handleNext() {
-    if (isLastStep) {
+    const settled = settleForward(stepIndex + 1);
+    if (settled >= steps.length) {
       markCompleted().finally(onClose);
     } else {
-      setStepIndex(i => i + 1);
+      setStepIndex(settled);
     }
   }
 
   function handleBack() {
-    if (stepIndex > 0) setStepIndex(i => i - 1);
+    if (stepIndex <= 0) return;
+    setStepIndex(settleBackward(stepIndex - 1));
   }
 
+  // Keyboard: ArrowRight/Enter advances (Finish on the last available step),
+  // ArrowLeft goes back, Escape opens the skip modal. Disabled while the skip
+  // modal itself is open so its own buttons stay the only interaction. Tab is
+  // left alone, the Back/Next/Skip buttons stay reachable in DOM order.
+  // Enter on an INTERACTIVE element (a button, link, or form control) is left
+  // to native activation: intercepting it too would advance twice (the native
+  // click plus this shortcut), and pressing Enter on the focused Back or Skip
+  // button must do what that button says, not act as a global Next.
+  useEffect(() => {
+    if (!run || showSkipModal) return undefined;
+    const isInteractive = (el) =>
+      Boolean(el && typeof el.closest === 'function'
+        && el.closest('button, a[href], input, select, textarea, [role="button"]'));
+    const onKeyDown = (e) => {
+      if (e.key === 'Enter' && isInteractive(e.target)) return;
+      if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); handleNext(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); handleBack(); }
+      else if (e.key === 'Escape') { e.preventDefault(); setShowSkipModal(true); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run, showSkipModal, stepIndex, steps]);
+
   if (!run || !currentStep) return null;
+
+  // WELCOME-TOUR-PORTALS-1: the restart location differs by experience (staff
+  // moved to Settings > Tours & Help under WS2.4; every portal keeps it in its
+  // own profile menu), so the skip modal's own copy has to match rather than
+  // repeat the old blanket "your user menu" claim.
+  const restartHint = experience === 'staff' ? 'Settings > Tours & Help' : 'your profile menu';
+
+  // A non-'body' step is only ever reached via settleForward/settleBackward (or
+  // the resize-driven re-settle effect above), so targetRect is expected to be
+  // non-null here. On the rare tick where it is not (the element vanished
+  // between the settle check and this render, outside the tour's own control),
+  // render nothing rather than ever falling back to a centered tooltip for a
+  // missing target - the availability effect resolves it on the next tick.
+  if (!isCentered && !targetRect) return null;
 
   // ── Tooltip positioning ──────────────────────────────────────────────────────
 
   let tooltipStyle;
   let arrowSide = null;
 
-  if (isCentered || !targetRect) {
+  if (isCentered) {
     tooltipStyle = {
       position: 'fixed',
       top: '50%',
@@ -162,8 +289,11 @@ export default function CustomOnboardingTour({ run, onClose }) {
 
   return createPortal(
     <>
-      {/* Spotlight overlay - 4 panels + ring */}
-      {targetRect ? (
+      {/* Spotlight overlay - 4 panels + ring. Centered ('body') steps get a
+          plain full-screen overlay; every other step is guaranteed a real
+          targetRect by this point, so there is no separate "target missing"
+          rendering path left to maintain. */}
+      {!isCentered && targetRect ? (
         <>
           <div style={{ position:'fixed', inset:'0 0 auto 0', height: Math.max(0, targetRect.top - 4),          background: OVERLAY, zIndex: 999990 }} />
           <div style={{ position:'fixed', inset:'auto 0 0 0', top: targetRect.bottom + 4,                        background: OVERLAY, zIndex: 999990 }} />
@@ -187,16 +317,24 @@ export default function CustomOnboardingTour({ run, onClose }) {
       )}
 
       {/* Tooltip */}
-      <div ref={tooltipRef} style={{
-        ...tooltipStyle,
-        background: '#fff',
-        borderRadius: 12,
-        padding: '22px 22px 18px',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-        fontFamily: 'DM Sans, sans-serif',
-        maxWidth: TOOLTIP_WIDTH,
-        overflow: 'visible',
-      }}>
+      <div
+        ref={tooltipRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label={currentStep.title}
+        style={{
+          ...tooltipStyle,
+          background: '#fff',
+          borderRadius: 12,
+          padding: '22px 22px 18px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+          fontFamily: 'DM Sans, sans-serif',
+          maxWidth: TOOLTIP_WIDTH,
+          overflow: 'visible',
+          outline: 'none',
+        }}
+      >
         {/* Arrow */}
         {arrowSide && targetRect && (
           <div style={{
@@ -224,7 +362,7 @@ export default function CustomOnboardingTour({ run, onClose }) {
           <button onClick={() => setShowSkipModal(true)} style={btnText}>Skip tour</button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: '#9CA3AF', marginRight: 4 }}>
-              {stepIndex + 1} / {steps.length}
+              {progressCurrent} / {progressTotal}
             </span>
             {stepIndex > 0 && (
               <button onClick={handleBack} style={btnSecondary}>Back</button>
@@ -242,7 +380,7 @@ export default function CustomOnboardingTour({ run, onClose }) {
           <div style={{ background: '#fff', borderRadius: 12, padding: 28, maxWidth: 420, width: '90%', fontFamily: 'DM Sans, sans-serif', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: NIGHTFALL, marginBottom: 10 }}>Skip the tour?</div>
             <div style={{ fontSize: 13, color: '#374151', marginBottom: 20, lineHeight: 1.5 }}>
-              You can always restart it from your user menu.
+              You can always restart it from {restartHint}.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               <button style={btnSecondary} onClick={async () => { await markDismissed(false); setShowSkipModal(false); onClose(); }}>

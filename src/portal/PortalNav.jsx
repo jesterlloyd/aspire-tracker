@@ -24,10 +24,12 @@ export default function PortalNav({ view, unread = 0, onHome, onMessages, action
   const ActionIcon = action ? (ACTION_ICONS[action.kind] || CalendarPlus) : null
   return (
     <nav className="ptl-nav" aria-label="Student Portal sections">
+      {/* WELCOME-TOUR-PORTALS-1: stable anchors for the Welcome Tour. */}
       <button
         type="button"
         className={`ptl-nav-item${view === 'home' ? ' ptl-nav-item-active' : ''}`}
         aria-current={view === 'home' ? 'page' : undefined}
+        data-tour="portal-nav-home"
         onClick={() => onHome?.()}
       >
         <Home size={16} aria-hidden="true" />
@@ -38,6 +40,7 @@ export default function PortalNav({ view, unread = 0, onHome, onMessages, action
         type="button"
         className={`ptl-nav-item${view === 'messages' ? ' ptl-nav-item-active' : ''}`}
         aria-current={view === 'messages' ? 'page' : undefined}
+        data-tour="portal-nav-messages"
         onClick={() => onMessages?.()}
       >
         <span className="ptl-nav-iconwrap">
@@ -57,12 +60,12 @@ export default function PortalNav({ view, unread = 0, onHome, onMessages, action
           It exists only when the stage genuinely offers one. */}
       {action && (
         action.kind === 'shift-log' ? (
-          <a className="ptl-nav-item ptl-nav-action" href={action.href}>
+          <a className="ptl-nav-item ptl-nav-action" href={action.href} data-tour="portal-nav-action">
             <ActionIcon size={16} aria-hidden="true" />
             <span className="ptl-nav-label">{action.label}</span>
           </a>
         ) : (
-          <button type="button" className="ptl-nav-item ptl-nav-action" onClick={action.onActivate}>
+          <button type="button" className="ptl-nav-item ptl-nav-action" data-tour="portal-nav-action" onClick={action.onActivate}>
             <ActionIcon size={16} aria-hidden="true" />
             <span className="ptl-nav-label">{action.label}</span>
           </button>

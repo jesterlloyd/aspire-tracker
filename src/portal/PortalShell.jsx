@@ -5,7 +5,7 @@
 // mobile (the desktop header may surface a couple of them inline). Portals are
 // focused, read-mostly surfaces; the staff shell is never loaded here.
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ExternalLink, Pencil, UserRound, LogOut } from 'lucide-react'
+import { ChevronDown, ExternalLink, Pencil, UserRound, LogOut, RotateCcw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { PortalRefreshProvider } from './PortalRefresh'
 import { PortalHeaderSlotsContext } from './PortalHeaderSlots'
@@ -14,7 +14,7 @@ function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, publicSiteUrl = '/' }) {
+function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, publicSiteUrl = '/', onRestartTour }) {
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [failedImageUrl, setFailedImageUrl] = useState(null)
@@ -32,7 +32,7 @@ function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, publ
   }, [open])
   return (
     <div className="ptl-menu-wrap">
-      <button ref={btnRef} type="button" className="ptl-avatar-btn" aria-haspopup="menu" aria-expanded={open} aria-label="Open profile menu" onClick={() => setOpen(o => !o)}>
+      <button ref={btnRef} type="button" className="ptl-avatar-btn" aria-haspopup="menu" aria-expanded={open} aria-label="Open profile menu" data-tour="portal-profile-menu" onClick={() => setOpen(o => !o)}>
         <span className="ptl-avatar ptl-avatar-sm" aria-hidden="true">
           {showPhoto
             ? <img src={profileImageUrl} alt="" onError={() => setFailedImageUrl(profileImageUrl)} />
@@ -50,6 +50,11 @@ function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, publ
              {...(publicSiteUrl !== '/' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
             <ExternalLink size={15} /> Public site
           </a>
+          {/* WELCOME-TOUR-PORTALS-1: only rendered when the caller wires a restart handler, so
+              a portal that has not adopted the tour yet keeps its existing menu unchanged. */}
+          {onRestartTour && (
+            <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onRestartTour() }}><RotateCcw size={15} /> Restart Welcome Tour</button>
+          )}
           <button role="menuitem" type="button" className="ptl-menu-item ptl-menu-danger" onClick={() => { setOpen(false); signOut() }}><LogOut size={15} /> Sign out</button>
         </div>
       )}
@@ -70,6 +75,7 @@ export default function PortalShell({
   profileImageUrl = null,
   nav = null,
   utilityLayer = null,
+  onRestartTour,
   children,
 }) {
   const nightfall = headerVariant === 'nightfall'
@@ -103,12 +109,16 @@ export default function PortalShell({
               </div>
             </div>
             <div className="ptl-header-user">
-              <span className="ptl-header-controls" ref={setControlsSlot} />
+              {/* WELCOME-TOUR-PORTALS-1: this span is the DOM wrapper every portal's school/cohort
+                  scope selectors portal into (see PortalHeaderControls), so it is the outermost
+                  wrapper for however many of those controls a given portal renders. */}
+              <span className="ptl-header-controls" ref={setControlsSlot} data-tour="portal-scope-selector" />
               {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
                   widths, opt-in per portal so student behavior is unchanged. */}
               {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
               <ProfileMenu userName={userName} profileImageUrl={profileImageUrl}
-                onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
+                onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl}
+                onRestartTour={onRestartTour} />
             </div>
           </header>
           {nav}
