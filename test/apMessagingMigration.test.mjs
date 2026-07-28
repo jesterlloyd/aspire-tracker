@@ -21,6 +21,38 @@ test('the migration file exists with the conventional timestamped name', () => {
   assert.ok(existsSync(join(root, MIGRATION)))
 })
 
+test('the executable migration is ONE atomic transaction (BEGIN ... COMMIT)', () => {
+  const begin = sql.indexOf('\nBEGIN;')
+  const commit = sql.indexOf('\nCOMMIT;')
+  assert.ok(begin > -1, 'has a BEGIN;')
+  assert.ok(commit > begin, 'has a COMMIT; after BEGIN;')
+  // Every executable statement (function replacement, revoke, grant, sentinel) is inside the txn.
+  const body = sql.slice(begin, commit)
+  assert.equal((body.match(/CREATE OR REPLACE FUNCTION/g) || []).length, (sql.match(/CREATE OR REPLACE FUNCTION/g) || []).length,
+    'all function definitions are inside the transaction')
+  assert.ok(!/\nBEGIN;[\s\S]*\nBEGIN;/.test(sql), 'exactly one top-level BEGIN;')
+  // Verification queries live OUTSIDE the transaction (after COMMIT), as comments only.
+  const after = sql.slice(commit)
+  assert.match(after, /Verification \(run AFTER applying/)
+  assert.doesNotMatch(after, /^\s*(CREATE|GRANT|REVOKE|INSERT|UPDATE|ALTER)\b/m)
+})
+
+test('the capability sentinel is created LAST, after every authorization function and grant', () => {
+  const commit = sql.indexOf('\nCOMMIT;')
+  const sentinelCreate = sql.indexOf('CREATE OR REPLACE FUNCTION public.ap_team_messaging_capability')
+  assert.ok(sentinelCreate > -1 && sentinelCreate < commit, 'sentinel created inside the transaction')
+  // No authorization-function CREATE and no GRANT for the four auth functions appears AFTER the
+  // sentinel create (the sentinel is the final capability established).
+  for (const marker of [
+    'CREATE OR REPLACE FUNCTION public.message_participant_can_read',
+    'CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation(',
+    'GRANT EXECUTE ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)',
+    'GRANT EXECUTE ON FUNCTION public.message_participant_can_read(uuid, uuid)',
+  ]) {
+    assert.ok(sql.indexOf(marker) > -1 && sql.indexOf(marker) < sentinelCreate, `${marker} precedes the sentinel`)
+  }
+})
+
 test('the three functions are CREATE OR REPLACE with their EXACT existing signatures', () => {
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.message_participant_can_read\(\s*\n\s*p_conversation_id uuid,\s*\n\s*p_profile_id\s+uuid\s*\n\)/)
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.message_participant_can_send\(\s*\n\s*p_conversation_id uuid,\s*\n\s*p_profile_id\s+uuid\s*\n\)/)

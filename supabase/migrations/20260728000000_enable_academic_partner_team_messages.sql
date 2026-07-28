@@ -8,6 +8,12 @@
 -- participant_role = 'academic_partner' AND scope_kind = 'school'; see
 -- 20260724000001_general_team_threads_backend.sql).
 --
+-- ATOMIC: the entire executable migration runs inside ONE transaction (BEGIN ... COMMIT). If any
+-- statement fails, the whole change rolls back and no partial messaging capability can remain. The
+-- capability sentinel (public.ap_team_messaging_capability) is created LAST, after every authorization
+-- function and grant has succeeded, so the server capability gate can never report enabled from a
+-- half-applied migration. Verification queries are OUTSIDE the transaction, as comments.
+--
 -- Smallest safe extension. Student, Unit Leader, Owner, Admin, and staff behavior is preserved: the
 -- student and unit_leader branches of every function below are reproduced byte-for-byte, and only an
 -- additive academic_partner branch is introduced. No table is altered; no data is backfilled.
@@ -22,13 +28,14 @@
 --     -- never a substring match);
 --   * general threads only: student_id / related_student_id / scope_student_id are NULL, so no
 --     student-linked or staff-internal conversation is ever reachable;
---   * the recipient always resolves to the ASPIRE Team shared inbox via the unchanged delivery path
---     (aspire@cshs.org); there is no recipient or participant selection.
+--   * the recipient always resolves to the ASPIRE Team shared inbox (aspire@cshs.org).
 --
 -- All functions keep SECURITY DEFINER, the repository search_path convention
 -- (SET search_path = public, pg_catalog), schema-qualified references, and least-privilege grants
 -- (service_role EXECUTE only; revoked from PUBLIC/anon/authenticated).
 -- ############################################################################
+
+BEGIN;
 
 -- ----------------------------------------------------------------------------
 -- 1. Active Academic Partner portal scope predicate (mirrors the student / unit_leader helpers)
@@ -434,10 +441,34 @@ COMMENT ON FUNCTION public.messages_start_general_team_conversation(uuid, text, 
   'Service-role-only. Idempotently starts a general portal-to-ASPIRE Team conversation with no student or unit context for an active Student, an active Unit Leader with at least one active unit scope, or an active Academic Partner with exactly one active school scope (a missing or ambiguous multi-school scope is rejected; the school is derived server-side from user_school_scopes, never from the caller). The unique request ledger is scoped to actor_profile_id + operation_kind + request_id and stores an opaque payload fingerprint plus result ids. Replays with the same fingerprint return the original result; replays with a different fingerprint raise MS409. The function also creates the first notification delivery row (ASPIRE Team shared inbox) in the same transaction.';
 
 -- ----------------------------------------------------------------------------
--- 5. Database capability sentinel. The server capability gate probes this function to confirm this
---    migration is applied before reporting Academic Partner messaging enabled. Read-only (no
---    mutation); executed by the server as service_role, so it can never be a false positive from an
---    anonymous/RLS-limited probe. Its presence is the atomic proxy for "the AP predicates above exist".
+-- 5. Grants for the authorization functions (least privilege; service_role only). CREATE OR REPLACE
+--    preserves existing grants on the replaced functions; the new helper needs an explicit grant, and
+--    all are re-affirmed to keep this migration self-contained.
+-- ----------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.message_participant_can_read(uuid, uuid)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.message_participant_can_send(uuid, uuid)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)
+  FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)
+  TO service_role;
+GRANT EXECUTE ON FUNCTION public.message_participant_can_read(uuid, uuid)
+  TO service_role;
+GRANT EXECUTE ON FUNCTION public.message_participant_can_send(uuid, uuid)
+  TO service_role;
+GRANT EXECUTE ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)
+  TO service_role;
+
+-- ----------------------------------------------------------------------------
+-- 6. Database capability sentinel. Created LAST, after every authorization function and grant above
+--    has succeeded within this transaction, so its presence proves the WHOLE migration committed. The
+--    server capability gate probes it (service_role, read-only, no mutation) before reporting Academic
+--    Partner messaging enabled; an undefined_function error means not-applied and the feature stays
+--    fail-closed. It can never be a false positive from an anonymous/RLS-limited probe.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.ap_team_messaging_capability()
 RETURNS boolean
@@ -449,37 +480,17 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.ap_team_messaging_capability() IS
-  'Capability sentinel for Academic Partner team messaging. Returns true. Its existence proves the enable_academic_partner_team_messages migration (the AP read/send predicates and start-RPC branch) is applied. Probed server-side (service_role) by the AP messaging capability gate; an undefined_function error means not-applied and the feature stays fail-closed.';
+  'Capability sentinel for Academic Partner team messaging. Returns true. Created last in the enable_academic_partner_team_messages migration, so its existence proves the AP read/send predicates and start-RPC branch committed atomically. Probed server-side (service_role) by the AP messaging capability gate.';
 
--- ----------------------------------------------------------------------------
--- 6. Grants (least privilege; service_role only). CREATE OR REPLACE preserves existing grants on the
---    three replaced functions, but the two NEW functions need explicit revoke/grant, and the three
---    replaced ones are re-affirmed to keep this migration self-contained.
--- ----------------------------------------------------------------------------
-REVOKE ALL ON FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)
-  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.ap_team_messaging_capability()
   FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.message_participant_can_read(uuid, uuid)
-  FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.message_participant_can_send(uuid, uuid)
-  FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)
-  FROM PUBLIC, anon, authenticated;
-
-GRANT EXECUTE ON FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid)
-  TO service_role;
 GRANT EXECUTE ON FUNCTION public.ap_team_messaging_capability()
   TO service_role;
-GRANT EXECUTE ON FUNCTION public.message_participant_can_read(uuid, uuid)
-  TO service_role;
-GRANT EXECUTE ON FUNCTION public.message_participant_can_send(uuid, uuid)
-  TO service_role;
-GRANT EXECUTE ON FUNCTION public.messages_start_general_team_conversation(uuid, text, uuid, text, text, text, text, jsonb)
-  TO service_role;
+
+COMMIT;
 
 -- ############################################################################
--- Verification (run AFTER applying; expect the described results)
+-- Verification (run AFTER applying; expect the described results). OUTSIDE the transaction.
 -- ############################################################################
 -- (a) All five functions exist with SECURITY DEFINER and a locked search_path:
 --   SELECT p.proname, p.prosecdef, p.proconfig
@@ -513,8 +524,8 @@ GRANT EXECUTE ON FUNCTION public.messages_start_general_team_conversation(uuid, 
 -- ############################################################################
 -- Rollback considerations
 -- ############################################################################
--- This migration is additive and idempotent (CREATE OR REPLACE + IF-style grants). No table, column,
--- or data changed, so there is no data to back out.
+-- This migration is additive and idempotent (CREATE OR REPLACE + grants). No table, column, or data
+-- changed, so there is no data to back out.
 --   * To fully revert Academic Partner messaging: re-apply the prior definitions of
 --     message_participant_can_read, message_participant_can_send, and
 --     messages_start_general_team_conversation from 20260724000001_general_team_threads_backend.sql
@@ -523,6 +534,5 @@ GRANT EXECUTE ON FUNCTION public.messages_start_general_team_conversation(uuid, 
 --     DROP FUNCTION public.message_profile_has_active_academic_partner_portal_scope(uuid).
 --   * Faster operational disable WITHOUT any SQL: unset the server env AP_MESSAGING_ENABLED (or set it
 --     to anything other than 'true') and redeploy. The capability gate then reports disabled and the
---     feature is fail-closed even while this migration remains applied. Existing academic_partner
---     threads simply become unreachable from the portal until re-enabled.
+--     feature is fail-closed even while this migration remains applied.
 -- No backfill is performed or required.
