@@ -147,6 +147,22 @@ test('the start RPC admits academic_partner, derives ONE school server-side, and
   assert.match(start, /author_role, body[\s\S]*?p_actor_kind, p_body/)
 })
 
+test('the AP path LOCKS the recipient to the ASPIRE Team, asserted before any write', () => {
+  const start = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.messages_start_general_team_conversation'))
+  // The academic_partner recipient assertion appears BEFORE the idempotency ledger insert (so a bad
+  // recipient leaves no row) and requires the exact shared inbox, shared_inbox kind, and no profile id.
+  const apCheckIdx = start.indexOf("IF p_actor_kind = 'academic_partner' THEN")
+  const ledgerIdx = start.indexOf('INSERT INTO public.message_creation_requests')
+  assert.ok(apCheckIdx > -1 && apCheckIdx < ledgerIdx, 'AP recipient check precedes the ledger insert')
+  assert.match(start, /v_ap_recipient_email\s+:= lower\(btrim\(coalesce\(p_delivery->>'recipient_email', ''\)\)\)/)
+  assert.match(start, /v_ap_recipient_email <> 'aspire@cshs\.org'/)
+  assert.match(start, /v_ap_recipient_kind <> 'shared_inbox'/)
+  assert.match(start, /v_ap_recipient_profile IS NOT NULL/)
+  assert.match(start, /RAISE EXCEPTION 'academic partner messages must be sent to the ASPIRE Team' USING ERRCODE = 'MS403'/)
+  // Defense in depth: the shared validator also runs (it forces shared_inbox kind for new_conversation).
+  assert.match(start, /message_assert_valid_delivery\(p_delivery, 'new_conversation'/)
+})
+
 test('grants are least privilege: service_role EXECUTE only; revoked from PUBLIC/anon/authenticated', () => {
   for (const fn of [
     'message_participant_can_read(uuid, uuid)',

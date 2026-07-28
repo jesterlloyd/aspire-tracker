@@ -254,6 +254,9 @@ DECLARE
   v_rate             jsonb;
   v_schools          text[];      -- ADDED: active school_keys for an academic_partner actor
   v_school_key       text;        -- ADDED: the single derived authorized school
+  v_ap_recipient_kind    text;    -- ADDED: fixed-recipient assertion (academic_partner only)
+  v_ap_recipient_email   text;
+  v_ap_recipient_profile text;
 BEGIN
   IF p_actor_kind NOT IN ('student', 'unit_leader', 'academic_partner') THEN
     RAISE EXCEPTION 'invalid actor kind' USING ERRCODE = 'MS400';
@@ -272,6 +275,24 @@ BEGIN
   END IF;
   IF char_length(btrim(coalesce(p_body, ''))) < 1 OR char_length(p_body) > 5000 THEN
     RAISE EXCEPTION 'body must be 1 to 5000 characters' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- Academic Partner: the recipient is LOCKED to the ASPIRE Team shared inbox. The shared validator
+  -- message_assert_valid_delivery already forces recipient_kind = 'shared_inbox' for new_conversation,
+  -- but does NOT pin the exact address, so the AP path additionally requires the canonical
+  -- aspire@cshs.org recipient (lib/server/messages/config.js SHARED_INBOX_EMAIL), the shared_inbox
+  -- kind, and NO recipient_profile_id (never an arbitrary staff member / recipient). Checked BEFORE any
+  -- write (before the idempotency ledger insert), so a rejected recipient leaves no row. Generic safe
+  -- error; no individual staff identity is disclosed.
+  IF p_actor_kind = 'academic_partner' THEN
+    v_ap_recipient_kind    := coalesce(p_delivery->>'recipient_kind', '');
+    v_ap_recipient_email   := lower(btrim(coalesce(p_delivery->>'recipient_email', '')));
+    v_ap_recipient_profile := nullif(btrim(coalesce(p_delivery->>'recipient_profile_id', '')), '');
+    IF v_ap_recipient_kind <> 'shared_inbox'
+       OR v_ap_recipient_email <> 'aspire@cshs.org'
+       OR v_ap_recipient_profile IS NOT NULL THEN
+      RAISE EXCEPTION 'academic partner messages must be sent to the ASPIRE Team' USING ERRCODE = 'MS403';
+    END IF;
   END IF;
 
   INSERT INTO public.message_creation_requests (
@@ -357,6 +378,9 @@ BEGIN
     RAISE EXCEPTION 'message rate limited' USING ERRCODE = 'MS429';
   END IF;
 
+  -- Shared delivery invariants (no content, shared_inbox kind for new_conversation, snapshot/CTA
+  -- fields, sender != recipient). For academic_partner the exact aspire@cshs.org recipient was already
+  -- pre-asserted above, before any write.
   PERFORM public.message_assert_valid_delivery(p_delivery, 'new_conversation', p_actor_profile_id);
 
   INSERT INTO public.conversations (
