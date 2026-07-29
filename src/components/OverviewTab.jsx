@@ -10,6 +10,7 @@ import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
+import { computeUnitResponseMetrics, formatUnitResponseSummary } from '../lib/unitResponseMetrics'
 import StudentAvatar from './StudentAvatar'
 import OnCampusNow from './oncampus/OnCampusNow'
 import StatusLegendPopover from './StatusLegendPopover'
@@ -488,7 +489,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   )
 
   // Unit Response Status - query unit_cohort_responses for current cohort
-  const { data: unitResponses = [], error: unitResponsesError, refetch: refetchUnitResponses } = useQuery({
+  const { data: unitResponses = [], error: unitResponsesError, isLoading: unitResponsesLoading, refetch: refetchUnitResponses } = useQuery({
     queryKey: ['unit_cohort_responses', cohortId],
     queryFn:  async () => {
       const { data, error } = await supabase
@@ -750,13 +751,12 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               <div className="ov-panel-title">Placement Capacity</div>
               <div className="ov-panel-sub">
                 {(() => {
-                  const hosting    = unitResponses.filter(r => r.response_status === 'submitted_hosting')
-                  const notHosting = unitResponses.filter(r => r.response_status === 'submitted_not_hosting')
-                  const pending    = unitResponses.filter(r => r.response_status === 'pending')
-                  const slots      = hosting.reduce((s, r) => s + (r.slots_offered || 0), 0)
-                  const responded  = hosting.length + notHosting.length
-                  const total      = unitResponses.length > 0 ? unitResponses.length : participating.length
-                  return `${unitResponses.length > 0 ? responded : participating.length} of ${total} units responded · ${unitResponses.length > 0 ? slots : totalSlots} slots confirmed · ${pending.length} pending`
+                  // Do not show a misleading "0 pending" before the response data has settled.
+                  if (unitResponsesError) return 'Unit responses are unavailable right now.'
+                  if (unitResponsesLoading) return 'Loading unit responses…'
+                  // Cohort-scoped, distinct-by-unit-id metric with left-join semantics from the
+                  // expected units (roster or responded) to their responses. See unitResponseMetrics.js.
+                  return formatUnitResponseSummary(computeUnitResponseMetrics({ units, responses: unitResponses }))
                 })()}
               </div>
             </div>
