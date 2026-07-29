@@ -22,12 +22,28 @@ const AUDIENCES = ['internal','all','cohort','school'];
 const RECURRENCE_VALUES = ['none','weekly','monthly','annually'];
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Runtime readiness probe for the recurrence columns (added by 20260731000000_add_aspire_event_recurrence
-// .sql, applied only by the Owner). A bounded select errors until the columns exist. Recurrence is
-// fail-closed until then: one-time events are unaffected; recurring create/update returns 503.
-async function isRecurrenceReady(db) {
-  const { error } = await db.from('aspire_events').select('recurrence').limit(1);
-  return !error;
+// Server release flag. Recurrence is enabled ONLY when this is the exact lowercase string 'true'.
+// No VITE_ prefix: it is server-only, so the browser cannot read or spoof it. Unsetting it (or any
+// other value) is the safe operational rollback - it disables recurrence WITHOUT dropping any data.
+export function recurrenceReleaseEnabled(env = process.env) {
+  return env.ASPIRE_EVENT_RECURRENCE_ENABLED === 'true';
+}
+
+// Runtime readiness for recurrence. Fail-closed and requires BOTH gates:
+//   1. the server release flag is exactly 'true', AND
+//   2. the database capability sentinel (public.aspire_event_recurrence_capability, created LAST by
+//      20260731000000_add_aspire_event_recurrence.sql and EXECUTE-able only by service_role) returns
+//      true when probed with the service-role client.
+// A missing function, a failed/throwing probe, or an unset/other flag all keep recurrence disabled.
+// One-time events are unaffected either way; a recurring create/update returns 503 while disabled.
+export async function isRecurrenceReady(db, env = process.env) {
+  if (!recurrenceReleaseEnabled(env)) return false;
+  try {
+    const { data, error } = await db.rpc('aspire_event_recurrence_capability');
+    return !error && data === true;
+  } catch {
+    return false;
+  }
 }
 
 async function verifyCaller(req) {

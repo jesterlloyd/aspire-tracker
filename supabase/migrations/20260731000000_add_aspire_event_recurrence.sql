@@ -65,6 +65,31 @@ COMMENT ON COLUMN public.aspire_events.recurrence IS
 COMMENT ON COLUMN public.aspire_events.recurrence_end IS
   'Optional inclusive last date a recurring event may occur (date-only). NULL = no end. For a one-time event (recurrence = none) it must be NULL; for a recurring event it must be NULL or >= the UTC start date. Enforced by chk_aspire_events_recurrence_end.';
 
+-- ----------------------------------------------------------------------------
+-- Recurrence capability sentinel. Created LAST inside this atomic migration, AFTER both columns, all
+-- constraints, and all comments, so its mere existence proves the full recurrence schema landed (not
+-- just one column). The API probes it with the SERVICE-ROLE client as its readiness signal; a missing
+-- function or a failed probe keeps recurrence fail-closed. It is NOT granted to PUBLIC / anon /
+-- authenticated, so the browser can neither call it nor spoof readiness.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.aspire_event_recurrence_capability()
+  RETURNS boolean
+  LANGUAGE sql
+  IMMUTABLE
+  SECURITY INVOKER
+  SET search_path = ''
+AS $$ SELECT true $$;
+
+COMMENT ON FUNCTION public.aspire_event_recurrence_capability() IS
+  'Recurrence readiness sentinel. Returns true only when this migration (columns + constraints) has been applied. Probed by api/aspire-events.js with the service-role client; EXECUTE is service_role-only.';
+
+-- Least privilege: strip the default PUBLIC grant and the Supabase client roles explicitly, then grant
+-- EXECUTE to service_role only. Idempotent (revoke/grant always converge on re-run).
+REVOKE ALL ON FUNCTION public.aspire_event_recurrence_capability() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.aspire_event_recurrence_capability() FROM anon;
+REVOKE ALL ON FUNCTION public.aspire_event_recurrence_capability() FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.aspire_event_recurrence_capability() TO service_role;
+
 COMMIT;
 
 -- ############################################################################
