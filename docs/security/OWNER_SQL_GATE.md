@@ -553,3 +553,39 @@ authorization-and-execution record inside the document itself.
 Any actual purge in the future is executed directly from that runbook, with
 its section 7 record standing in for the per-migration records used elsewhere
 in this gate.
+
+## Follow-up: Messages Phase 3A, reactions (independent of the ordered list above)
+
+Migration file (paste WHOLE into the SQL editor, one block):
+`supabase/migrations/20260801000000_messages_phase3a_reactions.sql`
+
+Verification and rollback:
+[MESSAGES_REACTIONS_VERIFICATION.md](MESSAGES_REACTIONS_VERIFICATION.md)
+
+What it adds: `message_reactions` (per-user, one reaction per user per
+message, closed allowlist acknowledge/thanks/celebrate, CASCADE from
+messages, RLS zero-policy, service-role-only grants), the service-role write
+RPC `messages_set_message_reaction`, and thread RPCs
+`messages_staff_get_thread_v3` / `messages_portal_get_thread_v3` (v2 behavior
+verbatim plus a per-message `reactions` aggregation). Both v2 thread
+functions are retained untouched for rollback and fallback.
+
+Boundary: reactions write ONLY the new table. The migration never references
+`last_message_at`, the read-pointer tables, archive visibility,
+`conversation_events`, or `message_notification_deliveries` inside the
+reaction RPC, and the delivery `event_type` CHECK is not extended, so a
+reaction can never change unread counts, resurface an archived thread, emit
+an event, or send an email. Verification section 3 proves this against the
+deployed definitions.
+
+Deployment note: ordering is safe either way. Pre-migration, the deployed
+thread endpoints fall back to v2 (PGRST202/42883 probes) and report
+`reactions_available: false`, so no reaction UI renders, and the reaction
+endpoints return `503 { error: 'reactions_not_ready' }`. Pre-deploy, the new
+functions sit unused. Once both are live the UI appears on its own.
+
+Related documentation updated in the same commit: the purge runbook
+([MESSAGES_PURGE_POSTURE.md](MESSAGES_PURGE_POSTURE.md)) now includes
+`message_reactions` in its FK web, impact preview, export, and verification
+blocks (it cascades with `messages`, so the purge transaction itself needed
+no new DELETE).

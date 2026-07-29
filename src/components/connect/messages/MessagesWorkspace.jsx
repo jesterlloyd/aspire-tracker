@@ -28,6 +28,8 @@ import {
   formatInboxTimestamp, participantAccessLabel, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
 import { appendPage } from '../../../lib/messages/inboxState'
+// MESSAGES-LIFECYCLE-PHASE3A-REACTIONS
+import { applyOptimisticReaction } from '../../../lib/messages/reactionConstants'
 import {
   ACTIVE_POLL_MS, useDocumentVisible, useStaffUnreadCount, useIsNarrow,
 } from '../../../lib/messages/messagesPolling'
@@ -225,6 +227,59 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
   )
   const conversation = pages[0]?.conversation || null
   const loadError = isError ? mapMessagesError(error?.status) : null
+  // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: fails closed, matching the
+  // archiveAvailable convention - until a page confirms the migration is
+  // applied, no reaction UI renders at all.
+  const reactionsAvailable = pages.some((p) => p?.reactions_available === true)
+
+  // One in-flight reaction request per message id, tracked in a ref for a
+  // synchronous double-fire guard and mirrored into state so the disabled chip
+  // actually re-renders.
+  const reactionBusyRef = useRef(new Set())
+  const [busyReactionIds, setBusyReactionIds] = useState(() => new Set())
+
+  const setReaction = useCallback(async (messageId, nextKey) => {
+    if (!messageId || reactionBusyRef.current.has(messageId)) return
+    const threadQueryKey = ['messages_staff_thread', conversationId]
+    reactionBusyRef.current.add(messageId)
+    setBusyReactionIds(new Set(reactionBusyRef.current))
+
+    const previous = queryClient.getQueryData(threadQueryKey)
+    const applyToMessages = (msgs, reactions) => (msgs || []).map((m) => (
+      m.id === messageId ? { ...m, reactions } : m
+    ))
+
+    // Optimistic flip first; the caller sees the change immediately.
+    queryClient.setQueryData(threadQueryKey, (old) => (old ? {
+      ...old,
+      pages: old.pages.map((page) => ({
+        ...page,
+        messages: applyToMessages(page.messages, applyOptimisticReaction(
+          page.messages?.find((m) => m.id === messageId)?.reactions, nextKey,
+        )),
+      })),
+    } : old))
+
+    try {
+      const result = await api.setMessageReaction({ messageId, reaction: nextKey })
+      // Authoritative reconciliation: the server's fresh aggregation wins over
+      // the optimistic guess.
+      queryClient.setQueryData(threadQueryKey, (old) => (old ? {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          messages: applyToMessages(page.messages, result?.reactions),
+        })),
+      } : old))
+    } catch (err) {
+      // Revert to the exact pre-optimistic snapshot rather than guessing.
+      queryClient.setQueryData(threadQueryKey, previous)
+      announce(mapMessagesError(err?.status))
+    } finally {
+      reactionBusyRef.current.delete(messageId)
+      setBusyReactionIds(new Set(reactionBusyRef.current))
+    }
+  }, [api, conversationId, queryClient, announce])
 
   // A conversation that became inaccessible clears the selection safely and
   // leaves the inbox intact.
@@ -308,7 +363,14 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
 
         <ol role="list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {messages.map((m, i) => (
-            <MessageRow key={m.id} message={m} previous={messages[i - 1]} />
+            <MessageRow
+              key={m.id}
+              message={m}
+              previous={messages[i - 1]}
+              reactionsEnabled={reactionsAvailable}
+              onSetReaction={setReaction}
+              reactionsDisabled={busyReactionIds.has(m.id)}
+            />
           ))}
         </ol>
       </div>
@@ -367,7 +429,7 @@ function ThreadHeader({ conversation: c, api, announce, onOpenStudent }) {
   )
 }
 
-function MessageRow({ message: m, previous }) {
+function MessageRow({ message: m, previous, reactionsEnabled, onSetReaction, reactionsDisabled }) {
   const showDate = !previous || !sameDay(previous.created_at, m.created_at)
   return (
     <MessageBubble
@@ -377,6 +439,9 @@ function MessageRow({ message: m, previous }) {
       showDate={showDate}
       dateLabel={formatInboxTimestamp(m.created_at)}
       timeMode="short"
+      reactionsEnabled={reactionsEnabled}
+      onSetReaction={onSetReaction}
+      reactionsDisabled={reactionsDisabled}
     />
   )
 }

@@ -467,8 +467,12 @@ test('ACL: the thread RPC grant to authenticated is explicit and intentional', (
 test('ACL: the grant is LOAD BEARING because the caller runs as the student', () => {
   // getUserScopedDb is an anon-key client carrying the caller's JWT, so the
   // statement executes as `authenticated` and auth.uid() is that student.
+  // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: v3 is attempted first (same client,
+  // same rpcArgs), with v2 as the pre-migration fallback; both run under this
+  // same caller-scoped db.
   assert.match(threadEndpoint, /const db = getUserScopedDb\(req\)/)
-  assert.match(threadEndpoint, /db\.rpc\('messages_portal_get_thread_v2', \{/)
+  assert.match(threadEndpoint, /db\.rpc\('messages_portal_get_thread_v3', rpcArgs\)/)
+  assert.match(threadEndpoint, /db\.rpc\('messages_portal_get_thread_v2', rpcArgs\)/)
   // It is NOT executed with the service-role client.
   assert.doesNotMatch(threadEndpoint, /getServiceDb\(\)[\s\S]{0,400}messages_portal_get_thread_v2/)
 })

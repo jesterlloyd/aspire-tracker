@@ -32,8 +32,11 @@ const UUID_B = '22222222-2222-4222-8222-222222222222'
 const TS = '2026-07-16T10:00:00.000Z'
 
 test('endpoint: v2 RPC integration', async (t) => {
-  await t.test('calls the v2 RPC with the real signature', () => {
-    assert.match(code, /db\.rpc\('messages_portal_get_thread_v2', \{/)
+  await t.test('calls the v2 RPC with the real signature (MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: v3-first, v2 fallback)', () => {
+    // Reactions added messages_portal_get_thread_v3 as the preferred RPC, with
+    // v2 as the pre-migration fallback; both share the same rpcArgs signature.
+    assert.match(code, /db\.rpc\('messages_portal_get_thread_v3', rpcArgs\)/)
+    assert.match(code, /db\.rpc\('messages_portal_get_thread_v2', rpcArgs\)/)
     for (const p of ['p_conversation_id', 'p_limit', 'p_cursor_ts', 'p_cursor_id']) {
       assert.ok(code.includes(p), `missing RPC parameter ${p}`)
     }
@@ -63,10 +66,11 @@ test('endpoint: v2 RPC integration', async (t) => {
 
   await t.test('the six portal endpoints are intact and only thread changed', () => {
     // MESSAGES-ARCHIVE-P1 added exactly one sanctioned new portal endpoint,
-    // messages-archive.js; the original six are otherwise untouched here.
+    // messages-archive.js; MESSAGES-LIFECYCLE-PHASE3A-REACTIONS added exactly
+    // one more, messages-react.js. The original six are otherwise untouched here.
     const files = readdirSync(join(here, '../api/portal')).filter((f) => f.startsWith('messages-')).sort()
-    assert.deepEqual(files, ['messages-archive.js', 'messages-list.js', 'messages-mark-read.js', 'messages-reply.js',
-      'messages-start.js', 'messages-thread.js', 'messages-unread-count.js'])
+    assert.deepEqual(files, ['messages-archive.js', 'messages-list.js', 'messages-mark-read.js', 'messages-react.js',
+      'messages-reply.js', 'messages-start.js', 'messages-thread.js', 'messages-unread-count.js'])
     // The other portal endpoints still call their original RPCs.
     assert.match(read('../api/portal/messages-list.js'), /messages_portal_list_conversations/)
     assert.match(read('../api/portal/messages-unread-count.js'), /messages_portal_unread_count/)

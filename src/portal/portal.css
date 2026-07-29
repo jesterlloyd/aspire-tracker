@@ -1530,6 +1530,16 @@ img.ptl-detail-photo {
   .msg-bubble { max-width: 86%; }
 }
 
+/* MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: the base chip, add-reaction, and
+   popover styling lives once in src/index.css alongside the rest of
+   .msg-bubble*, which both the portal and staff surfaces already share. This
+   is the portal-only addition: a 44px minimum touch target on narrow portal
+   layouts, matching how .ptl-msg-loadearlier and other portal controls reach
+   44px on mobile. */
+@media (max-width: 760px) {
+  .msg-reaction-chip, .msg-reaction-add { min-height: 44px; min-width: 44px; }
+}
+
 /* UL-POLISH P0: participant context line on Unit Leader inbox cards. */
 .ptl-msg-row-context {
   font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;

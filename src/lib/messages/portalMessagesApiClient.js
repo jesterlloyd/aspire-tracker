@@ -149,3 +149,22 @@ export function portalSetConversationArchived({ conversationId, archived, signal
     signal,
   });
 }
+
+// POST set, replace, or remove (reaction: null) the caller's own reaction on
+// one message.
+//
+// MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: the body carries only message_id and
+// the target reaction (one of 'acknowledge' | 'thanks' | 'celebrate', or null
+// to remove). The server derives the actor profile and kind from the verified
+// JWT, so a client-supplied actor is never trusted. May 503
+// { error: 'reactions_not_ready' } before the migration is applied, which the
+// caller maps like any other safe error.
+//
+// Returns 200 { message_id, reactions: [{ key, count, mine }] }.
+export function portalSetMessageReaction({ messageId, reaction, signal } = {}) {
+  return request('/api/portal/messages-react', {
+    method: 'POST',
+    body: { message_id: messageId, reaction: reaction ?? null },
+    signal,
+  });
+}

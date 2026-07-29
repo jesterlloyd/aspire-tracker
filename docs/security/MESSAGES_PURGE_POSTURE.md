@@ -57,6 +57,12 @@ Tables referencing `messages(id)`:
 | --- | --- | --- |
 | `message_notification_deliveries.message_id` | SET NULL | moot; rows deleted by conversation |
 | `message_creation_requests.message_id` | RESTRICT | explicit DELETE required |
+| `message_reactions.message_id` | CASCADE | removed automatically with its message |
+
+Amendment (2026-07-29, MESSAGES-P3A): `message_reactions` (migration
+20260801000000) cascades from `messages`, so the purge transaction in step 5
+needs no additional DELETE; the preview, export, and verification blocks
+below include it so its rows are counted, exported, and proven gone.
 
 Notes:
 
@@ -236,7 +242,10 @@ SELECT
   (SELECT count(*) FROM public.participant_conversation_reads pr
      WHERE pr.conversation_id IN (SELECT conversation_id FROM pinned)) AS participant_reads,
   (SELECT count(*) FROM public.message_conversation_visibility v
-     WHERE v.conversation_id IN (SELECT conversation_id FROM pinned)) AS visibility_rows;
+     WHERE v.conversation_id IN (SELECT conversation_id FROM pinned)) AS visibility_rows,
+  (SELECT count(*) FROM public.message_reactions mr
+     JOIN public.messages m ON m.id = mr.message_id
+     WHERE m.conversation_id IN (SELECT conversation_id FROM pinned)) AS reaction_rows;
 ```
 
 Record every number in section 7. If `deliveries_not_final` is greater than
@@ -284,7 +293,12 @@ SELECT 'participant_conversation_reads', to_jsonb(pr.*)
 FROM public.participant_conversation_reads pr WHERE pr.conversation_id IN (SELECT conversation_id FROM pinned)
 UNION ALL
 SELECT 'message_conversation_visibility', to_jsonb(v.*)
-FROM public.message_conversation_visibility v WHERE v.conversation_id IN (SELECT conversation_id FROM pinned);
+FROM public.message_conversation_visibility v WHERE v.conversation_id IN (SELECT conversation_id FROM pinned)
+UNION ALL
+SELECT 'message_reactions', to_jsonb(mr.*)
+FROM public.message_reactions mr
+WHERE mr.message_id IN (SELECT id FROM public.messages
+                        WHERE conversation_id IN (SELECT conversation_id FROM pinned));
 ```
 
 ### Step 5 (X1): the purge transaction
@@ -292,8 +306,10 @@ FROM public.message_conversation_visibility v WHERE v.conversation_id IN (SELECT
 Dependency order matters: the idempotency ledger and delivery rows RESTRICT
 both `messages` and `conversations`, so they go first; `conversations` goes
 last, and its deletion cascades the two read-pointer tables and the archive
-visibility table. Each DELETE returns its own count for comparison against
-the step 3 preview.
+visibility table. Deleting `messages` cascades `message_reactions`, so no
+explicit reaction DELETE appears below; reaction rows are counted in step 3
+and proven gone in step 6. Each DELETE returns its own count for comparison
+against the step 3 preview.
 
 ```sql
 BEGIN;
@@ -380,7 +396,10 @@ SELECT
   (SELECT count(*) FROM public.participant_conversation_reads pr
      WHERE pr.conversation_id IN (SELECT conversation_id FROM pinned)) AS participant_reads_remaining,
   (SELECT count(*) FROM public.message_conversation_visibility v
-     WHERE v.conversation_id IN (SELECT conversation_id FROM pinned)) AS visibility_remaining;
+     WHERE v.conversation_id IN (SELECT conversation_id FROM pinned)) AS visibility_remaining,
+  (SELECT count(*) FROM public.message_reactions mr
+     JOIN public.messages m ON m.id = mr.message_id
+     WHERE m.conversation_id IN (SELECT conversation_id FROM pinned)) AS reactions_remaining;
 ```
 
 Every column must be zero, including the three CASCADE tables. No application

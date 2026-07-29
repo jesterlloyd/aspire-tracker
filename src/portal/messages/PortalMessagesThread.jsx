@@ -7,11 +7,11 @@
 // student lands on the message they were notified about rather than the first
 // message ever sent.
 
-import { useEffect, useMemo, useRef } from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import MessageBubble from '../../components/shared/MessageBubble'
-import { getPortalThreadPage } from '../../lib/messages/portalMessagesApiClient'
+import { getPortalThreadPage, portalSetMessageReaction } from '../../lib/messages/portalMessagesApiClient'
 import {
   portalThreadQueryKey, prependOlderPage, nextThreadCursor, threadPageIsCurrent,
   PORTAL_THREAD_LIMIT_DEFAULT,
@@ -19,6 +19,8 @@ import {
 import {
   PORTAL_NO_SELECTION, UL_PORTAL_NO_SELECTION, portalStatusIsClosed, portalStatusLabel, mapPortalMessagesError,
 } from '../../lib/messages/portalMessagesConstants'
+// MESSAGES-LIFECYCLE-PHASE3A-REACTIONS
+import { applyOptimisticReaction } from '../../lib/messages/reactionConstants'
 
 export default function PortalMessagesThread({
   variant = 'student',
@@ -32,9 +34,10 @@ export default function PortalMessagesThread({
   // workspace stays mounted so drafts and selection survive a view switch, so
   // this is what stops a hidden view from marking anything read.
   active = true,
-  api = { getPortalThreadPage },
+  api = { getPortalThreadPage, portalSetMessageReaction },
 }) {
   const markedRef = useRef(null)
+  const queryClient = useQueryClient()
 
   const {
     data, isLoading, isError, error, refetch,
@@ -66,6 +69,58 @@ export default function PortalMessagesThread({
     () => pages.reduce((acc, p) => prependOlderPage(acc, p?.messages || []), []),
     [pages],
   )
+
+  // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: fails closed, matching the
+  // archiveAvailable convention elsewhere - until a page confirms the
+  // migration is applied, no reaction UI renders at all.
+  const reactionsAvailable = pages.some((p) => p?.reactions_available === true)
+  const reactionBusyRef = useRef(new Set())
+  const [busyReactionIds, setBusyReactionIds] = useState(() => new Set())
+  const [reactionError, setReactionError] = useState('')
+
+  const setReaction = useCallback(async (messageId, nextKey) => {
+    if (!messageId || reactionBusyRef.current.has(messageId)) return
+    const threadQueryKey = portalThreadQueryKey(conversationId)
+    reactionBusyRef.current.add(messageId)
+    setBusyReactionIds(new Set(reactionBusyRef.current))
+    setReactionError('')
+
+    const previous = queryClient.getQueryData(threadQueryKey)
+    const applyToMessages = (msgs, reactions) => (msgs || []).map((m) => (
+      m.id === messageId ? { ...m, reactions } : m
+    ))
+
+    // Optimistic flip first; the caller sees the change immediately.
+    queryClient.setQueryData(threadQueryKey, (old) => (old ? {
+      ...old,
+      pages: old.pages.map((page) => ({
+        ...page,
+        messages: applyToMessages(page.messages, applyOptimisticReaction(
+          page.messages?.find((m) => m.id === messageId)?.reactions, nextKey,
+        )),
+      })),
+    } : old))
+
+    try {
+      const result = await api.portalSetMessageReaction({ messageId, reaction: nextKey })
+      // Authoritative reconciliation: the server's fresh aggregation wins over
+      // the optimistic guess.
+      queryClient.setQueryData(threadQueryKey, (old) => (old ? {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          messages: applyToMessages(page.messages, result?.reactions),
+        })),
+      } : old))
+    } catch (err) {
+      // Revert to the exact pre-optimistic snapshot rather than guessing.
+      queryClient.setQueryData(threadQueryKey, previous)
+      setReactionError(mapPortalMessagesError(err?.status))
+    } finally {
+      reactionBusyRef.current.delete(messageId)
+      setBusyReactionIds(new Set(reactionBusyRef.current))
+    }
+  }, [api, conversationId, queryClient])
 
   useEffect(() => {
     if (conversation) onConversation?.(conversation)
@@ -150,8 +205,12 @@ export default function PortalMessagesThread({
             key={m.id}
             message={m}
             perspective="portal"
+            reactionsEnabled={reactionsAvailable}
+            onSetReaction={setReaction}
+            reactionsDisabled={busyReactionIds.has(m.id)}
           />
         ))}
+        {reactionError && <p className="ptl-form-error" role="alert">{reactionError}</p>}
       </div>
     </div>
   )

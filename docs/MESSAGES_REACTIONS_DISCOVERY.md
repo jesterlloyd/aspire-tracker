@@ -79,8 +79,10 @@ UI should update optimistically so their action feels instant.
 
 ### 1e. Notification pipeline implications
 
-- `message_notification_deliveries.event_type` is a CLOSED CHECK:
-  new_conversation, portal_reply, staff_reply. Emitting reaction emails would
+- `message_notification_deliveries.event_type` is a CLOSED CHECK (five types
+  in production: new_conversation, portal_reply, staff_reply,
+  unit_leader_message, student_to_unit_leader_message). Emitting reaction
+  emails would
   require a migration to that CHECK plus delivery-worker and template work,
   and would recreate exactly the noise reactions exist to remove.
 - The no-body snapshot allowlist (`deliveryLogic.js`) and rate-limit

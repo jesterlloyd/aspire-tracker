@@ -160,3 +160,15 @@ export function setConversationArchived(conversationId, archived, { signal } = {
     action: 'archive', conversation_id: conversationId, archived: !!archived,
   }, { signal });
 }
+
+// MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: set, replace, or remove (reaction:
+// null) the calling staff profile's own reaction on one message. This is the
+// 'react' action on the existing multi-action manage endpoint, so it needs no
+// new path: { action: 'react', message_id, reaction }. May 503
+// { error: 'reactions_not_ready' } before the migration is applied, which the
+// caller maps like any other safe error. Returns { action, message_id, reactions }.
+export function setMessageReaction({ messageId, reaction }, { signal } = {}) {
+  return manageStaffConversation({
+    action: 'react', message_id: messageId, reaction: reaction ?? null,
+  }, { signal });
+}

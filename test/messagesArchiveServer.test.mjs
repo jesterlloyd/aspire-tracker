@@ -413,7 +413,9 @@ test('staff-list endpoint: reports archive_available and passes through row data
 // ── Staff-manage endpoint: archive action, allowlist, 503 readiness ──────────
 
 test('staff-manage endpoint: archive is in the action allowlist', () => {
-  assert.match(staffManage, /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive'\];/)
+  // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS added 'react' alongside 'archive'; the
+  // allowlist pin is updated to match, archive's own position is unchanged.
+  assert.match(staffManage, /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react'\];/)
 })
 
 test('staff-manage endpoint: archive action validates the boolean and always targets staff kind', () => {

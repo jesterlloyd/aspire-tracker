@@ -102,6 +102,20 @@ test('post-commit verification covers the CASCADE tables too', () => {
   assert.match(verify, /staff_conversation_reads/)
   assert.match(verify, /participant_conversation_reads/)
   assert.match(verify, /message_conversation_visibility/)
+  assert.match(verify, /message_reactions/)
+})
+
+test('P3A amendment: message_reactions is previewed and exported but never explicitly deleted', () => {
+  // The reactions table cascades from messages; the purge transaction must
+  // NOT gain an explicit DELETE for it, while preview/export/verify must
+  // count, export, and re-check it.
+  assert.doesNotMatch(mutatingBlocks[0], /DELETE FROM public\.message_reactions/)
+  const preview = sqlBlocks.find((b) => /deliveries_not_final/.test(b))
+  assert.ok(preview, 'impact preview block not found')
+  assert.match(preview, /message_reactions/)
+  const exportBlock = sqlBlocks.find((b) => /to_jsonb/.test(b))
+  assert.ok(exportBlock, 'export block not found')
+  assert.match(exportBlock, /message_reactions/)
 })
 
 test('policy pins Owner-only execution and no application delete path', () => {

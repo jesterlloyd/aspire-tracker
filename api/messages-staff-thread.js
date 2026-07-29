@@ -5,6 +5,12 @@
 // access status, read-only related context, assignment, category, follow-up flag,
 // status, and a lifecycle event summary. Marking read is a separate explicit
 // action.
+//
+// MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: prefers the v3 RPC, which adds a
+// per-message reactions array. While the migration is unapplied, PGRST202/42883
+// falls back to v2 (no reactions field) and reactions_available is reported
+// false so the client never shows a reaction affordance against a page that
+// cannot carry reaction data.
 
 import { verifyStaffCaller, getUserScopedDb } from './lib/messagesAuth.js';
 import { methodGuard, notFound, logApiError } from './lib/messagesApi.js';
@@ -34,12 +40,20 @@ export default async function handler(req, res) {
     // long thread on the wrong end. v2 opens at the NEWEST bounded page and pages
     // BACKWARD. The browser never calls this RPC directly: it reaches it only
     // through this authenticated endpoint.
-    const { data, error } = await db.rpc('messages_staff_get_thread_v2', {
+    const rpcArgs = {
       p_conversation_id: conversationId,
       p_limit: limit.value,
       p_cursor_ts: cursor.value.ts,
       p_cursor_id: cursor.value.id,
-    });
+    };
+    // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: prefer v3 (adds per-message
+    // reactions); fall back to v2 while the migration has not yet been applied.
+    let { data, error } = await db.rpc('messages_staff_get_thread_v3', rpcArgs);
+    let reactionsAvailable = true;
+    if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
+      reactionsAvailable = false;
+      ;({ data, error } = await db.rpc('messages_staff_get_thread_v2', rpcArgs));
+    }
     if (error) {
       logApiError('messages-staff-thread', 'rpc_failed', error);
       // MS400 is a validation rejection from the RPC (a partial cursor);
@@ -60,6 +74,7 @@ export default async function handler(req, res) {
       // deriving a forward cursor from the returned rows.
       next_cursor: data.next_cursor ?? null,
       has_more: data.has_more === true,
+      reactions_available: reactionsAvailable,
     });
   } catch (err) {
     logApiError('messages-staff-thread', 'threw', err);

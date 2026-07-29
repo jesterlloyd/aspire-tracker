@@ -337,6 +337,94 @@ body { min-height: 100vh; }
   .msg-bubble { max-width: 86%; }
 }
 
+/* MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: the chips row and "Add reaction"
+   popover rendered inside .msg-bubble, right after .msg-bubble-body. Chips
+   stay quiet (translucent, gray-neutral) on both the light incoming/neutral
+   bubble and the dark outgoing bubble; only the caller's own reaction gets a
+   filled accent, so "which one is mine" never depends on color alone (the
+   button also carries aria-pressed). */
+.msg-reaction-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.msg-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 120, 120, 0.35);
+  background: rgba(120, 120, 120, 0.22);
+  color: inherit;
+  font-size: 11.5px;
+  line-height: 1;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.msg-reaction-chip:hover:not(:disabled) { background: rgba(120, 120, 120, 0.34); }
+.msg-reaction-chip:disabled { cursor: default; opacity: 0.6; }
+.msg-reaction-chip-mine {
+  border-color: var(--color-accent-primary, #1D2567);
+  background: var(--color-accent-primary, #1D2567);
+  color: #fff;
+}
+.msg-reaction-chip:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.msg-reaction-count { font-weight: 600; }
+.msg-reaction-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 120, 120, 0.35);
+  background: transparent;
+  color: inherit;
+  opacity: 0.72;
+  cursor: pointer;
+}
+.msg-reaction-add:hover:not(:disabled) { opacity: 1; background: rgba(120, 120, 120, 0.22); }
+.msg-reaction-add:disabled { cursor: default; opacity: 0.4; }
+.msg-reaction-add:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.msg-reaction-menu {
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.14);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.msg-reaction-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  border-radius: 7px;
+  font-size: 13px;
+  color: #191919;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.msg-reaction-option:hover { background: #f7f9ff; }
+.msg-reaction-option:focus-visible { outline: 3px solid #93c5fd; outline-offset: -2px; }
+.msg-reaction-option-checked { font-weight: 700; color: var(--color-accent-primary, #1D2567); }
+.msg-reaction-option-glyph { font-size: 15px; }
+@media (max-width: 760px) {
+  /* Same minimum hit area as .shared-row-actions-btn: padding grows the
+     touch target without changing the quiet, compact visual size. */
+  .msg-reaction-chip, .msg-reaction-add { min-height: 44px; min-width: 44px; }
+}
+
 .segmented-tabs {
   display: inline-flex;
   align-items: stretch;

@@ -455,10 +455,10 @@ test('API handlers: security and privacy posture', async (t) => {
   });
 
   await t.test('staff management actions are allowlisted and send no email', () => {
-    // MESSAGES-ARCHIVE-P1: archive joins the allowlist (per-user visibility,
-    // wired to messages_set_conversation_archived below); every prior action
-    // is unchanged.
-    assert.match(staffSrc['messages-staff-manage'], /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive'\]/);
+    // MESSAGES-ARCHIVE-P1: archive joined the allowlist (per-user visibility,
+    // wired to messages_set_conversation_archived below); MESSAGES-LIFECYCLE-
+    // PHASE3A-REACTIONS adds react alongside it. Every prior action is unchanged.
+    assert.match(staffSrc['messages-staff-manage'], /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react'\]/);
     for (const rpc of [
       'messages_set_assignment', 'messages_set_status', 'messages_set_category',
       'messages_set_follow_up', 'messages_set_conversation_archived',
@@ -498,8 +498,18 @@ test('regression: applied migrations and prior phases untouched', async (t) => {
   });
 
   await t.test('no UI, navigation, polling, or realtime was added', () => {
+    // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS legitimately names its own 'react'
+    // action and 'reaction'/'reactions' terminology in messages-staff-manage.js,
+    // which a bare /react/i would flag. The guard now looks for actual frontend
+    // React signatures (an import from 'react' or a JSX tag) instead of the
+    // bare word, so it still catches real UI code without false-positiving on
+    // our own feature name.
     for (const [name, src] of Object.entries({ ...portalSrc, ...staffSrc })) {
-      assert.doesNotMatch(src, /react|jsx|useState|useEffect|refetchInterval|realtime/i, `${name} must contain no UI code`);
+      assert.doesNotMatch(
+        src,
+        /from\s+['"]react['"]|<[A-Z]\w*[\s/>]|jsx|useState|useEffect|refetchInterval|realtime/i,
+        `${name} must contain no UI code`,
+      );
     }
   });
 });
