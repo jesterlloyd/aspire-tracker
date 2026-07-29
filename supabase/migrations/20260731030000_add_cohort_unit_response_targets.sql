@@ -63,6 +63,39 @@ CREATE TRIGGER set_updated_at_cohort_unit_response_targets
 COMMENT ON TABLE public.cohort_unit_response_targets IS
   'Explicit per-cohort outreach targets: the units asked to submit a capacity response. Denominator for the At a Glance responded/pending metric (pending = active targets minus submitted unit_cohort_responses). Read/written ONLY via the staff-authorized server endpoint; RLS denies anon/authenticated. Descriptive data only; never used for authorization.';
 
+-- Cohort-compatible unit link, ENFORCED IN THE DATABASE (not trusting the API/backfill). A composite
+-- FK (cohort_id, unit_id) -> units(cohort_id, id) cannot preserve the delete semantics: its ON DELETE
+-- SET NULL would null the NOT NULL cohort_id too. So the single-column FK stays (ON DELETE SET NULL
+-- clears only unit_id) and this trigger rejects any non-null unit_id whose units.cohort_id differs from
+-- the target's cohort_id. Fully-qualified refs; empty search_path; NULL unit_id is allowed.
+CREATE OR REPLACE FUNCTION public.curt_enforce_cohort_unit()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = ''
+AS $$
+DECLARE
+  v_unit_cohort uuid;
+BEGIN
+  IF NEW.unit_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  SELECT u.cohort_id INTO v_unit_cohort FROM public.units u WHERE u.id = NEW.unit_id;
+  IF v_unit_cohort IS NULL THEN
+    RAISE EXCEPTION 'cohort_unit_response_targets.unit_id % does not reference an existing unit', NEW.unit_id
+      USING ERRCODE = '23514';
+  END IF;
+  IF v_unit_cohort <> NEW.cohort_id THEN
+    RAISE EXCEPTION 'cohort_unit_response_targets.unit_id % belongs to a different cohort than %', NEW.unit_id, NEW.cohort_id
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_curt_enforce_cohort_unit ON public.cohort_unit_response_targets;
+CREATE TRIGGER trg_curt_enforce_cohort_unit
+  BEFORE INSERT OR UPDATE OF cohort_id, unit_id ON public.cohort_unit_response_targets
+  FOR EACH ROW EXECUTE FUNCTION public.curt_enforce_cohort_unit();
+
 -- Restrictive access: RLS on, NO anon/authenticated policy (no direct browser access); service-role only.
 ALTER TABLE public.cohort_unit_response_targets ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.cohort_unit_response_targets FROM anon;

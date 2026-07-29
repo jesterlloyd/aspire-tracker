@@ -76,6 +76,17 @@ test('migration does not guess Fall 2026 targets: no executable INSERT in the tr
   }
 })
 
+test('cohort-compatible unit_id is enforced in the database by a trigger (not app-only)', () => {
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.curt_enforce_cohort_unit\(\)/)
+  assert.match(migration, /BEFORE INSERT OR UPDATE OF cohort_id, unit_id ON public\.cohort_unit_response_targets/)
+  assert.match(migration, /SET search_path = ''/)
+  assert.match(migration, /IF NEW\.unit_id IS NULL THEN\s*RETURN NEW/)          // null link accepted
+  assert.match(migration, /belongs to a different cohort/)                       // cross-cohort rejected
+  assert.match(migration, /does not reference an existing unit/)                 // missing unit rejected
+  // ON DELETE SET NULL is preserved so deleting a unit clears only unit_id (never the target).
+  assert.match(migration, /unit_id\s+uuid REFERENCES public\.units\(id\) ON DELETE SET NULL/)
+})
+
 // ─── Authorization (10, 11, 12, 13) ─────────────────────────────────────────────
 
 test('API authorizes active owner/admin only; Students / Unit Leaders / Academic Partners are rejected', () => {
