@@ -45,8 +45,10 @@ test('schema has required fields, FKs, nonblank + active/removal checks, and aud
   assert.match(migration, /chk_curt_active_removal/)
 })
 
-test('uniqueness supports safe reactivation: one ACTIVE target per canonical unit, history kept', () => {
-  assert.match(migration, /CREATE UNIQUE INDEX IF NOT EXISTS uq_curt_active_cohort_unit\s+ON public\.cohort_unit_response_targets \(cohort_id, unit_key_canon\) WHERE is_active/)
+test('exactly one durable target row per cohort + canonical unit (full uniqueness, no partial index)', () => {
+  assert.match(migration, /CONSTRAINT uq_curt_cohort_unit UNIQUE \(cohort_id, unit_key_canon\)/)
+  // The old partial active-only unique index is gone (it permitted inactive duplicates).
+  assert.doesNotMatch(migration, /UNIQUE INDEX[\s\S]*?WHERE is_active/)
 })
 
 test('access is restrictive: RLS on, anon/authenticated revoked, service-role only, updated_at trigger', () => {

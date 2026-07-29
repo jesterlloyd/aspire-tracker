@@ -44,14 +44,13 @@ CREATE TABLE IF NOT EXISTS public.cohort_unit_response_targets (
   CONSTRAINT chk_curt_active_removal CHECK (
     (is_active = true  AND removed_at IS NULL AND removed_by_profile_id IS NULL)
     OR (is_active = false AND removed_at IS NOT NULL)
-  )
+  ),
+  -- Exactly ONE durable target row per cohort + canonical unit, regardless of active state. Add creates
+  -- it, remove marks it inactive, add/restore reactivates the SAME row; raw or service writes can never
+  -- create a second (active or inactive) row. Lifecycle history lives in the append-only events table.
+  CONSTRAINT uq_curt_cohort_unit UNIQUE (cohort_id, unit_key_canon)
 );
 
--- Uniqueness that supports safe reactivation and historical audit: at most ONE ACTIVE target per
--- canonical unit per cohort; deactivated (historical) rows are exempt so the audit trail is preserved
--- and a removed target can be recreated/reactivated.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_curt_active_cohort_unit
-  ON public.cohort_unit_response_targets (cohort_id, unit_key_canon) WHERE is_active;
 CREATE INDEX IF NOT EXISTS idx_curt_cohort_active
   ON public.cohort_unit_response_targets (cohort_id) WHERE is_active;
 
