@@ -196,15 +196,61 @@ deployed; no SQL applied.
 `supabase/migrations/20260731000000_add_aspire_event_recurrence.sql` (new, **not applied**),
 `test/aspireCalendarRecurrenceAndInteractionConvergence.test.mjs` (new).
 
-**Owner action required before recurrence goes live:** apply
-`supabase/migrations/20260731000000_add_aspire_event_recurrence.sql`. Until then the API's readiness
-probe fails closed: one-time events are unaffected, and the modal's Repeats control is hidden
-(`recurrence_enabled: false`). After applying, verify with the SQL in the migration's footer.
+**Owner action required before recurrence goes live:** see **Event recurrence activation** below —
+recurrence now requires **two** gates (apply the migration *and* set the server flag). Until both are
+satisfied the API fails closed: one-time events are unaffected, and the modal's Repeats control is
+hidden (`recurrence_enabled: false`).
 
 **Tests:** `node --test test/aspireCalendarRecurrenceAndInteractionConvergence.test.mjs` (21 cases —
 event model, recurrence expansion incl. Feb 29 / monthly-skip / no-duplicates, server allow-list +
 fail-closed gate, anchored-vs-centered interaction, converged action order + color, type-color
-regression).
+regression). Owner-gate finalization adds
+`test/aspireEventRecurrenceDataIntegrity.test.mjs` (DB constraints) and
+`test/aspireEventRecurrenceCapabilityGate.test.mjs` (sentinel + flag readiness).
 
 **Deferred:** per-occurrence exceptions (edit/skip one occurrence), a user-facing US-holiday toggle,
 and any Audience beyond `internal` (control hidden, column retained defaulting to `internal`).
+
+## Event recurrence activation
+
+Recurrence is protected by **two independent gates**. It is live only when **both** hold; failing
+either keeps the calendar in one-time-only mode with no error surface:
+
+1. **Database migration applied** — `supabase/migrations/20260731000000_add_aspire_event_recurrence.sql`
+   adds the `recurrence` / `recurrence_end` columns, the cadence and consistency constraints, and, last,
+   the capability sentinel `public.aspire_event_recurrence_capability()` (EXECUTE granted to
+   `service_role` only). The API probes this sentinel with the service-role client; a missing function
+   or a failed probe reads as not-ready.
+2. **Server release flag set** — `ASPIRE_EVENT_RECURRENCE_ENABLED` must equal the exact lowercase string
+   `true`. It is server-only (no `VITE_` prefix), so the browser can neither read nor spoof it.
+   `recurrence_enabled` is returned to the client only when the flag is `true` **and** the sentinel
+   returns `true`.
+
+**Activation step (Owner):** apply the migration, set `ASPIRE_EVENT_RECURRENCE_ENABLED=true` in the
+server environment (Vercel project env, Production), and redeploy. Verify with the SQL in the
+migration's footer and by confirming the modal's Repeats control appears.
+
+**Data-integrity guarantees (enforced in the database, not only the API):**
+- `recurrence` is constrained to `none | weekly | monthly | annually`.
+- a one-time event (`recurrence = 'none'`) cannot carry a `recurrence_end`.
+- a recurring event's `recurrence_end` is either NULL (indefinite) or on/after the event's UTC start
+  date (`(start_at AT TIME ZONE 'UTC')::date`, matching the API's `start_at` contract exactly).
+
+**Rollback behavior:**
+- **Operational (safe, preferred, no SQL):** unset `ASPIRE_EVENT_RECURRENCE_ENABLED` (or set it to
+  anything other than `true`) and redeploy. Recurrence disables immediately; **all columns and stored
+  recurrence settings are preserved**. This is the intended rollback path.
+- **Structural (DESTRUCTIVE):** dropping the `recurrence` / `recurrence_end` columns **discards every
+  event's recurrence settings** and is appropriate only before any live recurring data exists, or after
+  an explicit export. The migration footer documents the exact drop sequence with this warning.
+- Existing rows are never rewritten by the migration; the new default simply makes them read as
+  `recurrence = 'none'` with `recurrence_end = NULL`.
+- RLS policies and existing grants on `public.aspire_events` are unchanged; occurrences remain
+  read-time expansions only (no materialized occurrence rows).
+
+**Owner-gate finalization commits (in order):**
+1. `Harden event recurrence data integrity` — DB cadence + `recurrence_end` consistency constraints
+   (idempotent drop-and-add).
+2. `Gate event recurrence by server capability` — capability sentinel (created last, service_role-only),
+   the `ASPIRE_EVENT_RECURRENCE_ENABLED` server flag, and the API readiness rewrite (flag AND sentinel).
+3. `Document event recurrence activation` — this section.
