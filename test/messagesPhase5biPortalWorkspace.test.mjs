@@ -48,9 +48,12 @@ test('API client', async (t) => {
       '/api/portal/team-messages-start']) {
       assert.ok(clientCode.includes(p), `missing endpoint ${p}`)
     }
-    // No parallel or invented endpoint.
+    // No parallel or invented endpoint. MESSAGES-ARCHIVE-P1 added exactly one
+    // sanctioned endpoint (the SERVER CONTRACT's own POST /api/portal/messages-archive);
+    // nothing else joins this list.
     const paths = [...clientCode.matchAll(/'(\/api\/[^']+)'/g)].map((m) => m[1]).sort()
     assert.deepEqual([...new Set(paths)], [
+      '/api/portal/messages-archive',
       '/api/portal/messages-list', '/api/portal/messages-mark-read',
       '/api/portal/messages-reply', '/api/portal/messages-start',
       '/api/portal/messages-thread', '/api/portal/messages-unread-count',

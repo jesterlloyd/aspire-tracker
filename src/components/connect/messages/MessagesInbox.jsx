@@ -25,7 +25,7 @@
 // no Markdown, and no HTML parsing. Staff email is never displayed.
 
 import { useEffect, useMemo, useState } from 'react'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search, Filter, RotateCw, Flag, Inbox, AlertCircle } from 'lucide-react'
 import {
   MESSAGE_CATEGORIES, STAFF_STATUSES, STAFF_STATUS_LABEL,
@@ -34,9 +34,10 @@ import {
   participantAccessLabel, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
 import {
-  DEFAULT_FILTERS, filtersAreDefault, serializeInboxQuery, appendPage,
+  DEFAULT_FILTERS, DEFAULT_VIEW, filtersAreDefault, serializeInboxQuery, appendPage,
   queryIdentity, debounce,
 } from '../../../lib/messages/inboxState'
+import RowActionsMenu from '../../shared/RowActionsMenu'
 import * as defaultApi from '../../../lib/messages/messagesApiClient'
 
 const F = 'DM Sans, sans-serif'
@@ -49,6 +50,7 @@ const T = {
   muted: 'var(--text-secondary,#4A5560)',
   border: 'var(--border-input,rgba(29,37,103,0.10))',
   input: 'var(--bg-input,#fff)',
+  danger: '#B3282D',
 }
 
 export default function MessagesInbox({
@@ -56,15 +58,30 @@ export default function MessagesInbox({
   onSelect = () => {},
   refreshKey = 0,
   api = defaultApi,
+  // MESSAGES-ARCHIVE-P1: announce (the workspace's shared live region) and
+  // onSelectedRowChange (fired only when the currently OPEN conversation is
+  // archived/unarchived out of view, so the parent can move the selection
+  // without also flipping the mobile view to 'thread').
+  announce = () => {},
+  onSelectedRowChange = () => {},
 }) {
+  const queryClient = useQueryClient()
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  // MESSAGES-ARCHIVE-P1: the list scope. NOT part of filters and NOT reset by
+  // Reset filters (see inboxState's DEFAULT_VIEW comment) - it is which list you
+  // are looking at, not a narrowing predicate over one list.
+  const [view, setView] = useState(DEFAULT_VIEW)
+  const [openMenuId, setOpenMenuId] = useState(null)
+  const [busyRowId, setBusyRowId] = useState(null)
+  const [archiveError, setArchiveError] = useState(null)
 
   // Identity of the current server query. A change gives the list a new query
   // key, so pagination restarts and pages from different queries can never
-  // interleave.
-  const identity = useMemo(() => queryIdentity({ filters, search }), [filters, search])
+  // interleave. View participates too, so switching Active/Archived also
+  // resets pagination, exactly like a filter change.
+  const identity = useMemo(() => queryIdentity({ filters, search, view }), [filters, search, view])
 
   // Debounced search: never one request per keystroke.
   const applySearch = useMemo(() => debounce((v) => setSearch(v), SEARCH_DEBOUNCE_MS), [])
@@ -83,7 +100,7 @@ export default function MessagesInbox({
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) => {
       const { query } = serializeInboxQuery({
-        filters, search, cursor: pageParam, limit: PAGE_LIMIT,
+        filters, search, view, cursor: pageParam, limit: PAGE_LIMIT,
       })
       return api.listStaffConversations(query, { signal })
     },
@@ -99,6 +116,11 @@ export default function MessagesInbox({
   )
   const loadError = isError ? mapMessagesError(error?.status) : null
 
+  // MESSAGES-ARCHIVE-P1: fail closed. Until a page confirms the migration is
+  // applied, every archive affordance (the picker and every row's kebab) stays
+  // hidden, so there is no dead control that would only 503.
+  const archiveAvailable = (data?.pages || []).some((p) => p?.archive_available === true)
+
   // Assignee options: active Owner/Admin only, from the narrow lookup. Cached
   // across filter changes; a failure degrades to no options rather than blocking
   // the inbox.
@@ -111,13 +133,95 @@ export default function MessagesInbox({
   const assignees = assigneeData?.options || []
 
   const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }))
+  // MESSAGES-ARCHIVE-P1: Reset filters narrows within the current view; it never
+  // switches Active back from Archived, so view is deliberately untouched here.
   const resetFilters = () => { setFilters(DEFAULT_FILTERS); clearSearch() }
 
   const hasFilters = !filtersAreDefault(filters)
   const showReset = hasFilters || !!search
 
+  // MESSAGES-ARCHIVE-P1: archive or unarchive one row. Selection handling: if the
+  // row being toggled is the OPEN conversation, moving it out of the current view
+  // (archiving in Active, unarchiving in Archived - the only actions ever
+  // offered) must not leave a dangling selection, so the next row takes over,
+  // else the previous one, else the selection clears to the empty state. This
+  // only touches selection through onSelectedRowChange, never onSelect, so the
+  // mobile view never flips to 'thread' as a side effect of archiving from the
+  // list.
+  const handleArchiveToggle = async (row) => {
+    if (busyRowId) return
+    const nextArchived = !row.is_archived
+    setBusyRowId(row.id)
+    setArchiveError(null)
+    try {
+      await api.setConversationArchived(row.id, nextArchived)
+      if (selectedId === row.id) {
+        const idx = rows.findIndex((r) => r.id === row.id)
+        const nextId = rows[idx + 1]?.id ?? rows[idx - 1]?.id ?? null
+        onSelectedRowChange(nextId)
+      }
+      await refetch()
+      queryClient.invalidateQueries({ queryKey: ['messages_staff_unread'] })
+      announce(nextArchived ? 'Conversation archived' : 'Conversation unarchived')
+    } catch (err) {
+      const message = mapMessagesError(err?.status)
+      setArchiveError(message)
+      announce(message)
+    } finally {
+      setBusyRowId(null)
+      setOpenMenuId(null)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, fontFamily: F }}>
+
+      {/* MESSAGES-ARCHIVE-P1: the Active | Archived scope picker. Deliberately
+          binary - 'all' exists server-side but is never offered here - and
+          hidden entirely until the server confirms the migration is applied. */}
+      {archiveAvailable && (
+        <div style={{ display: 'flex', paddingBottom: 10 }}>
+          <div style={{
+            display: 'inline-flex', borderRadius: 7, border: `1px solid ${T.border}`,
+            overflow: 'hidden', flexShrink: 0,
+          }}>
+            <button
+              type="button"
+              aria-pressed={view === 'active'}
+              onClick={() => setView('active')}
+              style={{
+                height: 32, padding: '0 13px', border: 'none', cursor: 'pointer',
+                fontSize: 12, fontFamily: F, fontWeight: 500,
+                background: view === 'active' ? T.accent : T.input,
+                color: view === 'active' ? '#fff' : T.muted,
+              }}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'archived'}
+              onClick={() => setView('archived')}
+              style={{
+                height: 32, padding: '0 13px', border: 'none', cursor: 'pointer',
+                fontSize: 12, fontFamily: F, fontWeight: 500,
+                background: view === 'archived' ? T.accent : T.input,
+                color: view === 'archived' ? '#fff' : T.muted,
+              }}
+            >
+              Archived
+            </button>
+          </div>
+        </div>
+      )}
+
+      {archiveError && (
+        <div style={{ paddingBottom: 8 }}>
+          <span role="alert" style={{ fontSize: 11.5, color: T.danger, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <AlertCircle size={12} aria-hidden="true" /> {archiveError}
+          </span>
+        </div>
+      )}
 
       {/* Search */}
       <div style={{ padding: '0 0 10px' }}>
@@ -179,7 +283,7 @@ export default function MessagesInbox({
         )}
 
         {!isLoading && !loadError && rows.length === 0 && (
-          <EmptyBlock icon={<Inbox size={18} aria-hidden="true" />} title={emptyTitle({ search, hasFilters })} />
+          <EmptyBlock icon={<Inbox size={18} aria-hidden="true" />} title={emptyTitle({ search, hasFilters, view })} />
         )}
 
         {!isLoading && !loadError && rows.length > 0 && (
@@ -190,6 +294,12 @@ export default function MessagesInbox({
                 row={row}
                 selected={row.id === selectedId}
                 onSelect={() => onSelect(row.id, row)}
+                archiveAvailable={archiveAvailable}
+                busy={busyRowId === row.id}
+                menuOpen={openMenuId === row.id}
+                onToggleMenu={() => setOpenMenuId((id) => (id === row.id ? null : row.id))}
+                onCloseMenu={() => setOpenMenuId(null)}
+                onArchiveToggle={handleArchiveToggle}
               />
             ))}
           </ul>
@@ -212,28 +322,41 @@ export default function MessagesInbox({
   )
 }
 
-function emptyTitle({ search, hasFilters }) {
+function emptyTitle({ search, hasFilters, view }) {
   if (search) return 'No conversations match your search.'
   if (hasFilters) return 'No conversations match these filters.'
+  if (view === 'archived') return 'No archived conversations.'
   return 'No ASPIRE Messages yet.'
 }
 
 // One conversation row. Priority: participant identity, subject, latest
 // activity, unread, then operational status.
-export function ConversationRow({ row, selected, onSelect }) {
+//
+// MESSAGES-ARCHIVE-P1: the row is a flex wrapper around the original row
+// button (unchanged, still first in the DOM, still the sole thing aria-current
+// describes) plus the shared RowActionsMenu kebab as a sibling, exactly the
+// pattern src/portal/UnitLeaderPortal.jsx already uses for StudentActionsMenu:
+// a button cannot nest inside a button, so the kebab lives beside it, and its
+// wrapper stops click and keydown propagation so opening the menu never also
+// activates the row.
+export function ConversationRow({
+  row, selected, onSelect,
+  archiveAvailable = false, busy = false, menuOpen = false,
+  onToggleMenu = () => {}, onCloseMenu = () => {}, onArchiveToggle = () => {},
+}) {
   const unread = Number(row.unread_count) || 0
   const isUnread = unread > 0
   const accessActive = row.participant_access_active !== false
   const stamp = formatInboxTimestamp(row.last_message_at)
 
   return (
-    <li>
+    <li style={{ display: 'flex', alignItems: 'stretch' }}>
       <button
         type="button"
         onClick={onSelect}
         aria-current={selected ? 'true' : undefined}
         style={{
-          width: '100%', textAlign: 'left', cursor: 'pointer',
+          flex: 1, minWidth: 0, textAlign: 'left', cursor: 'pointer',
           display: 'block', padding: '10px 12px', minHeight: 44,
           border: 'none', borderLeft: `3px solid ${selected ? T.accent : 'transparent'}`,
           borderBottom: `1px solid ${T.border}`,
@@ -295,6 +418,34 @@ export function ConversationRow({ row, selected, onSelect }) {
           )}
         </div>
       </button>
+
+      {archiveAvailable && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          style={{
+            display: 'flex', alignItems: 'center', flexShrink: 0, padding: '0 6px',
+            borderBottom: `1px solid ${T.border}`,
+          }}
+        >
+          <RowActionsMenu
+            label={`Actions for conversation ${row.subject}`}
+            open={menuOpen}
+            onToggle={onToggleMenu}
+            onClose={onCloseMenu}
+            items={[
+              {
+                key: 'archive',
+                label: busy
+                  ? (row.is_archived ? 'Unarchiving' : 'Archiving')
+                  : (row.is_archived ? 'Unarchive conversation' : 'Archive conversation'),
+                disabled: busy,
+                onSelect: () => onArchiveToggle(row),
+              },
+            ]}
+          />
+        </div>
+      )}
     </li>
   )
 }

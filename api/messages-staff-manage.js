@@ -11,16 +11,22 @@
 //                                         sets resolved_at, leaving it clears it)
 //   category -> messages_set_category    (null or one approved category)
 //   flag     -> messages_set_follow_up   (flag or unflag)
+//   archive  -> messages_set_conversation_archived (MESSAGES-ARCHIVE-P1; archive
+//                                         or unarchive for the calling staff
+//                                         profile ONLY)
 //
-// Every action records its auditable lifecycle event inside the RPC. NONE of
-// these actions sends an email: resolution is silent, and assignment, category,
-// and follow-up changes never notify.
+// Every action records its auditable lifecycle event inside the RPC, EXCEPT
+// archive: MESSAGES-ARCHIVE-P1 per-user visibility is intentionally NOT
+// evented, exactly like the staff/participant read pointers - it is UI state,
+// not part of the append-only record. NONE of these actions sends an email:
+// resolution is silent, and assignment, category, follow-up, and archive
+// changes never notify.
 
 import { verifyStaffCaller, getServiceDb } from './lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, logApiError } from './lib/messagesApi.js';
 import { isUuid, validateStatus, validateCategory } from '../lib/server/messages/validation.js';
 
-const ACTIONS = ['assign', 'status', 'category', 'flag'];
+const ACTIONS = ['assign', 'status', 'category', 'flag', 'archive'];
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['POST'])) return;
@@ -62,15 +68,30 @@ export default async function handler(req, res) {
     if (!v.ok) return res.status(422).json({ error: v.error });
     rpc = 'messages_set_category';
     args = { p_actor_profile_id: caller.profile.id, p_conversation_id: conversationId, p_category: v.value };
-  } else {
+  } else if (action === 'flag') {
     if (typeof parsed.body.flagged !== 'boolean') return res.status(422).json({ error: 'invalid_flagged' });
     rpc = 'messages_set_follow_up';
     args = { p_actor_profile_id: caller.profile.id, p_conversation_id: conversationId, p_flagged: parsed.body.flagged };
+  } else {
+    // MESSAGES-ARCHIVE-P1: archive is always for the calling staff profile.
+    if (typeof parsed.body.archived !== 'boolean') return res.status(422).json({ error: 'invalid_archived' });
+    rpc = 'messages_set_conversation_archived';
+    args = {
+      p_actor_profile_id: caller.profile.id,
+      p_actor_kind: 'staff',
+      p_conversation_id: conversationId,
+      p_archived: parsed.body.archived,
+    };
   }
 
   try {
     const { data, error } = await db.rpc(rpc, args);
     if (error) {
+      // MESSAGES-ARCHIVE-P1: pre-migration readiness. The archive RPC does not
+      // exist yet, so report 503 rather than a generic 500.
+      if (action === 'archive' && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
+        return res.status(503).json({ error: 'archive_not_ready' });
+      }
       const mapped = mapRpcError(error);
       logApiError('messages-staff-manage', mapped.error, error);
       return res.status(mapped.status).json({ error: mapped.error });

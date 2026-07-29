@@ -455,8 +455,14 @@ test('API handlers: security and privacy posture', async (t) => {
   });
 
   await t.test('staff management actions are allowlisted and send no email', () => {
-    assert.match(staffSrc['messages-staff-manage'], /const ACTIONS = \['assign', 'status', 'category', 'flag'\]/);
-    for (const rpc of ['messages_set_assignment', 'messages_set_status', 'messages_set_category', 'messages_set_follow_up']) {
+    // MESSAGES-ARCHIVE-P1: archive joins the allowlist (per-user visibility,
+    // wired to messages_set_conversation_archived below); every prior action
+    // is unchanged.
+    assert.match(staffSrc['messages-staff-manage'], /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive'\]/);
+    for (const rpc of [
+      'messages_set_assignment', 'messages_set_status', 'messages_set_category',
+      'messages_set_follow_up', 'messages_set_conversation_archived',
+    ]) {
       assert.ok(staffSrc['messages-staff-manage'].includes(rpc), `manage must wire ${rpc}`);
     }
     assert.doesNotMatch(staffSrc['messages-staff-manage'], /Resend|resend/, 'management actions must never send email');

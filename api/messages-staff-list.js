@@ -4,12 +4,20 @@
 // Owner or Admin only (never is_staff, which includes interviewer and viewer).
 // Filters, search, and cursor pagination. Assignment and related context are
 // projections and filters only; they never grant access.
+//
+// MESSAGES-ARCHIVE-P1: also accepts ?view= (active default | archived | all)
+// and prefers the v3 RPC, which adds p_view and an is_archived flag per row.
+// While the migration is unapplied, PGRST202/42883 falls back to v2 (no
+// archive support) and archive_available is reported false so the client never
+// treats an unfiltered v2 page as an authoritative "active" view.
 
 import { verifyStaffCaller, getUserScopedDb } from './lib/messagesAuth.js';
 import { methodGuard, logApiError } from './lib/messagesApi.js';
 import {
   parseLimit, parseCursor, nextCursorFrom, isUuid, validateStatus, validateCategory,
 } from '../lib/server/messages/validation.js';
+
+const VIEWS = ['active', 'archived', 'all'];
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
@@ -21,6 +29,11 @@ export default async function handler(req, res) {
   if (!limit.ok) return res.status(422).json({ error: limit.error });
   const cursor = parseCursor({ cursorTs: req.query?.cursor_ts, cursorId: req.query?.cursor_id });
   if (!cursor.ok) return res.status(422).json({ error: cursor.error });
+
+  // MESSAGES-ARCHIVE-P1: view defaults to active; archived and all are the
+  // only other accepted values.
+  const view = req.query?.view === undefined ? 'active' : req.query.view;
+  if (!VIEWS.includes(view)) return res.status(422).json({ error: 'invalid_view' });
 
   let status = null;
   if (req.query?.status) {
@@ -74,23 +87,32 @@ export default async function handler(req, res) {
   const db = getUserScopedDb(req);
   if (!db) return res.status(401).json({ error: 'unauthenticated' });
 
+  // Phase 4B Stage A added messages_staff_list_conversations_v2 with explicit
+  // filter modes, because the original RPC treats a null assignee or category
+  // as "no filter" and cannot express IS NULL. The browser never calls this
+  // RPC directly: it reaches it only through this authenticated endpoint.
+  const rpcArgs = {
+    p_limit: limit.value,
+    p_cursor_ts: cursor.value.ts,
+    p_cursor_id: cursor.value.id,
+    p_status: status,
+    p_assignee_mode: assigneeMode,
+    p_assignee_profile_id: assigneeProfileId,
+    p_category_mode: categoryMode,
+    p_category: category,
+    p_flagged: flagged,
+    p_search: search,
+  };
+
   try {
-    // Phase 4B Stage A added messages_staff_list_conversations_v2 with explicit
-    // filter modes, because the original RPC treats a null assignee or category
-    // as "no filter" and cannot express IS NULL. The browser never calls this
-    // RPC directly: it reaches it only through this authenticated endpoint.
-    const { data, error } = await db.rpc('messages_staff_list_conversations_v2', {
-      p_limit: limit.value,
-      p_cursor_ts: cursor.value.ts,
-      p_cursor_id: cursor.value.id,
-      p_status: status,
-      p_assignee_mode: assigneeMode,
-      p_assignee_profile_id: assigneeProfileId,
-      p_category_mode: categoryMode,
-      p_category: category,
-      p_flagged: flagged,
-      p_search: search,
-    });
+    // MESSAGES-ARCHIVE-P1: prefer v3 (adds p_view and is_archived); fall back
+    // to v2 (no archive support) while the migration has not yet been applied.
+    let { data, error } = await db.rpc('messages_staff_list_conversations_v3', { ...rpcArgs, p_view: view });
+    let archiveAvailable = true;
+    if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
+      archiveAvailable = false;
+      ;({ data, error } = await db.rpc('messages_staff_list_conversations_v2', rpcArgs));
+    }
     if (error) {
       logApiError('messages-staff-list', 'rpc_failed', error);
       // MS400 is a validation rejection from the RPC (bad mode, status, or
@@ -103,6 +125,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       conversations,
       next_cursor: nextCursorFrom(conversations, limit.value, 'last_message_at'),
+      archive_available: archiveAvailable,
     });
   } catch (err) {
     logApiError('messages-staff-list', 'threw', err);

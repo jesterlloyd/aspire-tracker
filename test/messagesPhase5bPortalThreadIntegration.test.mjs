@@ -62,8 +62,10 @@ test('endpoint: v2 RPC integration', async (t) => {
   })
 
   await t.test('the six portal endpoints are intact and only thread changed', () => {
+    // MESSAGES-ARCHIVE-P1 added exactly one sanctioned new portal endpoint,
+    // messages-archive.js; the original six are otherwise untouched here.
     const files = readdirSync(join(here, '../api/portal')).filter((f) => f.startsWith('messages-')).sort()
-    assert.deepEqual(files, ['messages-list.js', 'messages-mark-read.js', 'messages-reply.js',
+    assert.deepEqual(files, ['messages-archive.js', 'messages-list.js', 'messages-mark-read.js', 'messages-reply.js',
       'messages-start.js', 'messages-thread.js', 'messages-unread-count.js'])
     // The other portal endpoints still call their original RPCs.
     assert.match(read('../api/portal/messages-list.js'), /messages_portal_list_conversations/)

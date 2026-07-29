@@ -345,7 +345,10 @@ test('staff inbox component', async (t) => {
     // The query identity is part of the React Query key, so changing filters or
     // search starts a NEW cursor chain. Pages from two queries cannot interleave.
     assert.match(inbox, /queryKey: \['messages_staff_list', identity, refreshKey\]/)
-    assert.match(inbox, /const identity = useMemo\(\(\) => queryIdentity\(\{ filters, search \}\), \[filters, search\]\)/)
+    // MESSAGES-ARCHIVE-P1: identity also folds in `view` (Active/Archived), so
+    // switching the scope picker resets pagination the same way a filter change
+    // does. The queryKey line above is untouched: view travels inside identity.
+    assert.match(inbox, /const identity = useMemo\(\(\) => queryIdentity\(\{ filters, search, view \}\), \[filters, search, view\]\)/)
     // The soft-refresh key refetches without clearing filters or search.
     assert.match(inbox, /refreshKey/)
   })

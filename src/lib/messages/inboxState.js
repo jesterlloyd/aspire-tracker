@@ -12,6 +12,16 @@ export const DEFAULT_FILTERS = Object.freeze({
   flagged: 'all',    // 'all' | 'flagged' | 'not_flagged'
 });
 
+// MESSAGES-ARCHIVE-P1: the inbox list SCOPE, not a filter. 'active' | 'archived'.
+// (The server also accepts 'all', but the client picker is deliberately binary
+// and never offers it - see the workspace components.) This is kept separate
+// from DEFAULT_FILTERS on purpose: "Reset filters" narrows within the scope you
+// are looking at, it never yanks you out of the Archived view back to Active,
+// so view is excluded from filtersAreDefault and from the reset handler. It
+// still participates in queryIdentity below, so switching it starts a fresh
+// cursor chain exactly like a filter change does.
+export const DEFAULT_VIEW = 'active';
+
 export function filtersAreDefault(filters) {
   return DEFAULT_FILTERS.status === filters.status
     && DEFAULT_FILTERS.assignee === filters.assignee
@@ -31,8 +41,16 @@ export function filtersAreDefault(filters) {
 //
 // 'me' is passed through as the sentinel string, NOT as a profile id: the server
 // resolves Me from the verified caller, so a client-supplied id is never trusted.
-export function serializeInboxQuery({ filters = DEFAULT_FILTERS, search = '', cursor = null, limit = 25 } = {}) {
+//
+// MESSAGES-ARCHIVE-P1: `view` is a separate scope parameter, not a filter (see
+// DEFAULT_VIEW above). It is omitted when it is the default 'active', the same
+// "narrowing values only" convention every filter below already follows.
+export function serializeInboxQuery({
+  filters = DEFAULT_FILTERS, search = '', view = DEFAULT_VIEW, cursor = null, limit = 25,
+} = {}) {
   const query = { limit: String(clampLimit(limit)) };
+
+  if (view && view !== DEFAULT_VIEW) query.view = view;
 
   if (filters.status !== 'all') query.status = filters.status;
   if (filters.assignee !== 'all') query.assignee = filters.assignee;
@@ -88,9 +106,11 @@ export function normalizeCursor(cursor) {
 }
 
 // A filter or search change must reset pagination, so pages never interleave
-// across different server queries.
-export function queryIdentity({ filters = DEFAULT_FILTERS, search = '' } = {}) {
-  return JSON.stringify([filters.status, filters.assignee, filters.category, filters.flagged, String(search || '').trim()]);
+// across different server queries. MESSAGES-ARCHIVE-P1: `view` is folded in
+// here too, so switching Active/Archived also starts a fresh cursor chain, even
+// though it is not itself a "filter" (see DEFAULT_VIEW).
+export function queryIdentity({ filters = DEFAULT_FILTERS, search = '', view = DEFAULT_VIEW } = {}) {
+  return JSON.stringify([filters.status, filters.assignee, filters.category, filters.flagged, String(search || '').trim(), view]);
 }
 
 // Small debounce used by the search input. Returns a cancelable function so a

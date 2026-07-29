@@ -26,12 +26,19 @@ export { MessagesApiError };
 // GET the student's conversations, newest activity first.
 // Contract: limit default 25, max 100; cursor is cursor_ts plus cursor_id.
 // Returns { conversations, next_cursor }.
-export function listPortalConversations({ limit, cursor, signal } = {}) {
+//
+// MESSAGES-ARCHIVE-P1: `view` ('active' | 'archived') is the list scope, not a
+// filter. It is passed through only when set; omitting it (the default caller
+// behavior everywhere except the Archived picker) preserves the existing
+// 'active' request shape byte for byte, so the Home preview hook and the docked
+// ASPIRE Team panel, which share this exact query, are unaffected.
+export function listPortalConversations({ limit, cursor, view, signal } = {}) {
   return request('/api/portal/messages-list', {
     params: {
       limit,
       cursor_ts: cursor?.cursor_ts,
       cursor_id: cursor?.cursor_id,
+      view,
     },
     signal,
   });
@@ -125,4 +132,20 @@ export function markPortalConversationRead({ conversationId, signal } = {}) {
 // participant's own read pointer). Returns { unread_count }.
 export function getPortalUnreadCount({ signal } = {}) {
   return request('/api/portal/messages-unread-count', { signal });
+}
+
+// POST archive or unarchive one conversation for the caller.
+//
+// MESSAGES-ARCHIVE-P1: the body carries only conversation_id and the target
+// archived boolean. The server clears this caller's unread for the thread when
+// archiving and derives everything else (a new message from another
+// participant returns the thread to Active and unread on its own); the browser
+// only refetches. May 503 { error: 'archive_not_ready' } before the migration
+// is applied, which the caller maps like any other safe error.
+export function portalSetConversationArchived({ conversationId, archived, signal } = {}) {
+  return request('/api/portal/messages-archive', {
+    method: 'POST',
+    body: { conversation_id: conversationId, archived: !!archived },
+    signal,
+  });
 }

@@ -124,13 +124,19 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, on
               </p>
             )}
           </div>
-          {/* The Phase 4A inbox, reused verbatim. */}
+          {/* The Phase 4A inbox, reused verbatim (MESSAGES-ARCHIVE-P1 additions
+              live inside MessagesInbox itself). announce shares the workspace's
+              one live region; onSelectedRowChange moves the selection when the
+              OPEN thread is archived/unarchived out of the current view,
+              WITHOUT flipping the mobile view to 'thread' the way onSelect does. */}
           <div style={{ flex: 1, minHeight: 0 }}>
             <MessagesInbox
               selectedId={selectedId}
               onSelect={onSelect}
               refreshKey={refreshKey}
               api={api}
+              announce={announce}
+              onSelectedRowChange={setSelectedId}
             />
           </div>
         </div>

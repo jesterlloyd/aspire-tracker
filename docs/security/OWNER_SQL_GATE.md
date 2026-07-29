@@ -449,3 +449,87 @@ is live it detects v2 at runtime and its pre-migration fallback goes dead.
 Rollback: v1 list function is untouched (the API falls back to it if v2 is
 dropped); `messages_post_reply` rolls back by re-running its prior definition
 from `20260720000000_unit_leader_portal_foundation.sql`.
+
+## Follow-up: Messages Lifecycle Phase 1, archive (independent of the ordered list above)
+
+**File:** `supabase/migrations/20260730000002_messages_phase1_archive.sql`
+**Gate notes:** explicitly transactional (BEGIN/COMMIT) - the new table, the
+new RPC, both new v3 list functions, and all THREE function redefinitions
+apply atomically; additive (one new table, one new RPC, two new list
+functions) plus three REDEFINED (CREATE OR REPLACE, same name) functions:
+`messages_staff_unread_count` and `messages_portal_unread_count` (one added
+`AND NOT EXISTS` clause each) and `messages_post_reply` (a race-safety fix,
+detailed below - NOT a behavior change to authorization, reopen, the message
+insert, the read pointer, or the delivery row, all of which are byte-identical
+to its live Phase 0 definition). No existing table is altered, no row is
+rewritten, no data conversion; NO UPDATE or DELETE on `public.messages` or
+`public.conversation_events` (append-only preserved); not dependent on any
+un-applied file above (requires only the already-applied Messages foundation,
+`20260716000000` through `20260730000001`).
+**Unlocks:** per-user conversation archive/unarchive for staff and portal
+Messages, with a derived (not stored) archive state so a new message
+automatically returns an archived thread to Active with no write and no race.
+
+### Race-safety fix (added after initial review)
+
+The bare derived-archive comparison (`archived_at >= last_message_at`) is not
+race-free by itself, because Postgres `now()` is TRANSACTION-START time, not
+commit time: a reply transaction that began before an archive transaction but
+commits after it could otherwise stamp its message with a `now()` captured
+before the archive, writing an OLDER `last_message_at` than the archive's
+`archived_at` and leaving a newly-replied-to thread stuck archived. The fix
+locks the SAME conversation row (`SELECT ... FOR UPDATE`) in both
+`messages_set_conversation_archived` and (now also redefined here)
+`messages_post_reply` before either derives any timestamp, serializing the two
+writers, and each then derives its timestamp with `GREATEST(...)` against the
+other side's already-committed state rather than a bare clock read. Per the
+reply-path audit in section 2 of
+[MESSAGES_ARCHIVE_VERIFICATION.md](MESSAGES_ARCHIVE_VERIFICATION.md), every
+append to an EXISTING conversation flows through `messages_post_reply`, so
+locking exactly these two functions is sufficient.
+
+### Application and verification order
+Run the numbered blocks from
+[MESSAGES_ARCHIVE_VERIFICATION.md](MESSAGES_ARCHIVE_VERIFICATION.md), in order:
+
+1. **Prechecks** (section 1; read-only) - confirm
+   `message_conversation_visibility`, `messages_set_conversation_archived`,
+   `messages_staff_list_conversations_v3`, and
+   `messages_portal_list_conversations_v3` do not exist yet; that the current
+   unread-count bodies do not reference the visibility table; and that the
+   current `messages_post_reply` is still its Phase 0 shape (no `FOR UPDATE`,
+   no reference to the visibility table).
+2. **Migration** (section 2; the WHOLE file as one block) - it is a single
+   transaction.
+3. **Postchecks** (section 3; read-only) - table RLS enabled with zero
+   policies; table grants are service_role only; the archive RPC is
+   service_role-only EXECUTE; both v3 functions carry the standard
+   authenticated + service_role read-RPC grant with anon and PUBLIC absent
+   (via `aclexplode`); v1/v2 of every list RPC and both prior unread-count
+   functions remain present and unchanged; append-only grants on `messages`
+   and `conversation_events` are unchanged; `messages_post_reply` now locks the
+   conversation row and derives `v_now` with the race-safe `GREATEST(...)`,
+   with its grant matrix unchanged (service-role only).
+4. **Behavior probe** (section 4; read-only) - spot-check the derived
+   `is_archived` rule against one real conversation/profile pair, and (section
+   4c) walk through the two-session interleaving reproduction.
+
+Deployment note: the application must ALSO deploy this code commit before the
+archive action and the `view` filter take effect - the migration alone is
+inert to the running app. Ordering is safe either way: pre-deploy, the app
+keeps calling v2/v1 exactly as it does today; pre-migration (post-deploy), the
+list endpoints detect the v3 absence and report `archive_available: false`,
+and the archive endpoints return `503 { error: 'archive_not_ready' }`. Once
+both are live, the endpoints detect v3/the archive RPC at runtime and every
+pre-migration fallback becomes dead code. The race-safety fix inside
+`messages_post_reply` takes effect the moment this migration is applied,
+independent of the code deploy - it changes only how the SQL derives a
+timestamp, never a request or response shape.
+
+Rollback: full statements (including the two prior unread-count definitions
+AND the prior `messages_post_reply` definition, all inline for copy-paste) are
+in section 5 of
+[MESSAGES_ARCHIVE_VERIFICATION.md](MESSAGES_ARCHIVE_VERIFICATION.md). Dropping
+the new table discards only archive/unarchive UI state; no message or
+conversation_events row is ever affected, and v1/v2 of every list RPC keep the
+API serving requests throughout.

@@ -56,6 +56,13 @@ export default function PortalMessagesWorkspace({
   const [conversation, setConversation] = useState(null)
   const [newOpen, setNewOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
+  // MESSAGES-ARCHIVE-P1: the Active | Archived scope lives here, not in
+  // PortalMessagesInbox, because the picker renders in this workspace's header.
+  // archiveAvailable is reported UP from the inbox (it is the one making the
+  // list request and seeing the server's archive_available flag), so the
+  // picker stays hidden until the migration is confirmed applied.
+  const [view, setView] = useState('active')
+  const [archiveAvailable, setArchiveAvailable] = useState(false)
   // Mobile is list-first: the thread is a separate view, never a squeezed
   // column. The view now derives from the URL: a thread id means thread view.
   const mobileView = threadId ? 'thread' : 'list'
@@ -109,6 +116,18 @@ export default function PortalMessagesWorkspace({
     setConversation(null)
     onSelectThread?.(id)
   }, [onSelectThread])
+
+  // MESSAGES-ARCHIVE-P1: when the archived/unarchived row was the OPEN thread,
+  // navigating back to the list is the simplest correct outcome on the portal
+  // side. The alternative (jump to a next/previous thread, mirroring the staff
+  // side) would require picking a thread across a URL-driven selection while
+  // the list itself is about to refetch out from under it; Back to the list is
+  // the same navigation the thread's own Back control already performs, so
+  // there is no new behavior to learn, and it is never wrong regardless of what
+  // the refetched list turns out to contain.
+  const handleSelectedArchived = useCallback(() => {
+    onBackToList?.()
+  }, [onBackToList])
 
   const handleSent = useCallback((out, opts) => {
     if (opts?.refreshOnly) {
@@ -168,6 +187,45 @@ export default function PortalMessagesWorkspace({
         </div>
       )}
 
+      {/* MESSAGES-ARCHIVE-P1: the Active | Archived scope picker. Deliberately
+          binary; hidden entirely until archiveAvailable confirms the migration
+          is applied, and hidden on the phone thread view along with the rest of
+          the header (showHead gates both). */}
+      {showHead && archiveAvailable && (
+        <div style={{ display: 'flex', marginBottom: 12 }}>
+          <div style={{
+            display: 'inline-flex', borderRadius: 7, border: '1px solid #e3ded4', overflow: 'hidden',
+          }}>
+            <button
+              type="button"
+              aria-pressed={view === 'active'}
+              onClick={() => setView('active')}
+              style={{
+                height: 32, padding: '0 13px', border: 'none', cursor: 'pointer',
+                fontSize: 12, fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
+                background: view === 'active' ? '#1D2567' : '#fff',
+                color: view === 'active' ? '#fff' : '#4A5560',
+              }}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'archived'}
+              onClick={() => setView('archived')}
+              style={{
+                height: 32, padding: '0 13px', border: 'none', cursor: 'pointer',
+                fontSize: 12, fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
+                background: view === 'archived' ? '#1D2567' : '#fff',
+                color: view === 'archived' ? '#fff' : '#4A5560',
+              }}
+            >
+              Archived
+            </button>
+          </div>
+        </div>
+      )}
+
       <p className="ptl-msg-guidance ptl-msg-workspace-guidance">{PORTAL_SAFETY_NOTICE}</p>
 
       <div className={`ptl-msg-split${narrow ? ' ptl-msg-split-narrow' : ''}`}>
@@ -179,6 +237,11 @@ export default function PortalMessagesWorkspace({
               onSelect={selectConversation}
               onNewMessage={() => setNewOpen(true)}
               refreshMs={active ? PORTAL_ACTIVE_POLL_MS : false}
+              view={view}
+              onArchiveAvailable={setArchiveAvailable}
+              onArchiveChanged={refreshInbox}
+              onSelectedArchived={handleSelectedArchived}
+              announce={announce}
             />
           </div>
         )}

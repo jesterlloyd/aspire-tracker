@@ -151,3 +151,12 @@ export function replyStaffConversation({ conversationId, body }, { signal } = {}
 export function manageStaffConversation(payload, { signal } = {}) {
   return request('/api/messages-staff-manage', { method: 'POST', body: payload, signal });
 }
+
+// MESSAGES-ARCHIVE-P1: archive or unarchive a conversation. This is the
+// 'archive' action on the existing multi-action manage endpoint, so it needs no
+// new path: { action: 'archive', conversation_id, archived }.
+export function setConversationArchived(conversationId, archived, { signal } = {}) {
+  return manageStaffConversation({
+    action: 'archive', conversation_id: conversationId, archived: !!archived,
+  }, { signal });
+}
