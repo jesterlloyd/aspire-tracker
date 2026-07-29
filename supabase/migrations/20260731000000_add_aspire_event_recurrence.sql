@@ -6,14 +6,22 @@
 -- at read/render time by the application (eventOnDate) -- there are NO materialized occurrence rows.
 --
 -- NOTE: public.aspire_events was created out-of-band (there is no CREATE TABLE migration in the repo),
--- so this migration only ADDs columns and is written idempotently (ADD COLUMN IF NOT EXISTS + a guarded
--- CHECK) so it is safe to apply once and harmless to re-run. It changes no existing row's behavior: the
--- default recurrence is 'none' (a one-time event, exactly as today).
+-- so this migration only ADDs columns / constraints / one function and is written idempotently
+-- (ADD COLUMN IF NOT EXISTS; DROP CONSTRAINT IF EXISTS + ADD; CREATE OR REPLACE FUNCTION) so it is safe
+-- to apply once and harmless to re-run. Existing rows are NOT rewritten: they simply read as the new
+-- column default recurrence = 'none' (a one-time event, exactly as today) with recurrence_end = NULL.
 --
--- Until the Owner applies this migration, recurrence is FAIL-CLOSED in the API: a runtime readiness
--- probe (a bounded select of the recurrence column) gates it, one-time event creation is unaffected,
--- and any attempt to create/update a RECURRING event returns 503 rather than erroring on a missing
--- column. See api/aspire-events.js (isRecurrenceReady).
+-- CANONICAL START FIELD: public.aspire_events.start_at (timestamptz). The API stores it as
+-- new Date(start_at).toISOString() (UTC) and derives the start calendar date as
+-- toISOString().slice(0,10). The recurrence_end consistency constraint below compares against
+-- (start_at AT TIME ZONE 'UTC')::date, which is IMMUTABLE and equals that exact UTC-date contract --
+-- it does NOT depend on the session TimeZone.
+--
+-- Recurrence stays FAIL-CLOSED until BOTH the Owner applies this migration (creating the capability
+-- sentinel) AND the server release flag ASPIRE_EVENT_RECURRENCE_ENABLED is set to the exact string
+-- 'true'. See api/aspire-events.js (recurrenceReleaseEnabled + isRecurrenceReady): a missing function,
+-- a failed probe, or an unset/!= 'true' flag all keep recurrence disabled. One-time event creation is
+-- unaffected in every case; a recurring create/update returns 503 while disabled.
 -- ############################################################################
 
 BEGIN;
@@ -26,24 +34,36 @@ ALTER TABLE public.aspire_events
 ALTER TABLE public.aspire_events
   ADD COLUMN IF NOT EXISTS recurrence_end date;
 
--- Constrain the cadence to the canonical set. Guarded so re-running does not error.
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'chk_aspire_events_recurrence'
-      AND conrelid = 'public.aspire_events'::regclass
-  ) THEN
-    ALTER TABLE public.aspire_events
-      ADD CONSTRAINT chk_aspire_events_recurrence
-      CHECK (recurrence IN ('none', 'weekly', 'monthly', 'annually'));
-  END IF;
-END $$;
+-- Cadence allow-list. Idempotent REPLACE (drop-if-exists + add) so re-running always converges to the
+-- expected definition rather than trusting a bare name check.
+ALTER TABLE public.aspire_events
+  DROP CONSTRAINT IF EXISTS chk_aspire_events_recurrence;
+ALTER TABLE public.aspire_events
+  ADD CONSTRAINT chk_aspire_events_recurrence
+  CHECK (recurrence IN ('none', 'weekly', 'monthly', 'annually'));
+
+-- Recurrence_end consistency, enforced at the DATABASE level (not only in the API):
+--   recurrence = 'none'  => recurrence_end IS NULL            (a one-time event cannot carry an end)
+--   recurrence <> 'none' => recurrence_end IS NULL            (indefinite series), OR
+--                           recurrence_end >= the start date  (bounded series, end on/after start)
+-- The start date is the IMMUTABLE UTC calendar date of start_at, matching the API contract exactly.
+-- Idempotent REPLACE. Existing rows (recurrence 'none', recurrence_end NULL) already satisfy this.
+ALTER TABLE public.aspire_events
+  DROP CONSTRAINT IF EXISTS chk_aspire_events_recurrence_end;
+ALTER TABLE public.aspire_events
+  ADD CONSTRAINT chk_aspire_events_recurrence_end
+  CHECK (
+    (recurrence = 'none' AND recurrence_end IS NULL)
+    OR (recurrence <> 'none' AND (
+          recurrence_end IS NULL
+          OR recurrence_end >= (start_at AT TIME ZONE 'UTC')::date
+       ))
+  );
 
 COMMENT ON COLUMN public.aspire_events.recurrence IS
   'Repeat cadence: none | weekly | monthly | annually. Occurrences are expanded at read time by the app (no materialized rows). Interval is always 1 (no custom recurrence). weekly=same weekday; monthly=same day-of-month (months lacking that day are skipped); annually=same month+day (Feb 29 -> Feb 28 in non-leap years).';
 COMMENT ON COLUMN public.aspire_events.recurrence_end IS
-  'Optional inclusive last date a recurring event may occur (date-only, local). NULL = no end. Must be >= the event start date (enforced in the API).';
+  'Optional inclusive last date a recurring event may occur (date-only). NULL = no end. For a one-time event (recurrence = none) it must be NULL; for a recurring event it must be NULL or >= the UTC start date. Enforced by chk_aspire_events_recurrence_end.';
 
 COMMIT;
 
@@ -55,16 +75,27 @@ COMMIT;
 --   WHERE table_schema='public' AND table_name='aspire_events'
 --     AND column_name IN ('recurrence','recurrence_end');
 --   -- Expect recurrence text NOT NULL default 'none'; recurrence_end date NULLABLE.
---   SELECT conname FROM pg_constraint WHERE conrelid='public.aspire_events'::regclass
---     AND conname='chk_aspire_events_recurrence';   -- expect one row.
---   -- Existing rows are unaffected (all default to 'none' = one-time).
+--   SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
+--     WHERE conrelid='public.aspire_events'::regclass
+--     AND conname IN ('chk_aspire_events_recurrence','chk_aspire_events_recurrence_end');  -- expect two rows.
+--   -- Existing rows are unaffected (all default to 'none' = one-time, recurrence_end NULL).
 
 -- ############################################################################
 -- Rollback considerations
 -- ############################################################################
--- Additive, no backfill. To revert:
+-- Additive, no backfill: existing rows are not rewritten; the new default simply makes them read as
+-- recurrence = 'none' with recurrence_end = NULL.
+--
+-- OPERATIONAL rollback (safe, non-destructive, no SQL): unset ASPIRE_EVENT_RECURRENCE_ENABLED (or set
+-- it to anything other than 'true') and redeploy. Recurrence returns to one-time-only immediately; the
+-- columns and any stored recurrence settings are PRESERVED.
+--
+-- STRUCTURAL rollback (DESTRUCTIVE): dropping the columns discards every event's recurrence settings.
+-- Do this ONLY before any live recurring data exists, or after an explicit export.
+--   ALTER TABLE public.aspire_events DROP CONSTRAINT IF EXISTS chk_aspire_events_recurrence_end;
 --   ALTER TABLE public.aspire_events DROP CONSTRAINT IF EXISTS chk_aspire_events_recurrence;
---   ALTER TABLE public.aspire_events DROP COLUMN IF EXISTS recurrence_end;
---   ALTER TABLE public.aspire_events DROP COLUMN IF EXISTS recurrence;
--- Operational disable WITHOUT SQL: the API's readiness probe fails closed if the column is absent, so
--- dropping the columns returns the feature to one-time-only automatically.
+--   ALTER TABLE public.aspire_events DROP COLUMN IF EXISTS recurrence_end;   -- loses bounded-series ends
+--   ALTER TABLE public.aspire_events DROP COLUMN IF EXISTS recurrence;       -- loses all cadences
+--
+-- RLS policies and existing grants on public.aspire_events are UNCHANGED by this migration. Occurrences
+-- remain read-time expansions only (this migration materializes no occurrence rows).
