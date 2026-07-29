@@ -11,6 +11,9 @@ import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
 import { computeUnitResponseMetrics, formatUnitResponseSummary } from '../lib/unitResponseMetrics'
+import { listCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
+import CohortResponseTargetsModal from './CohortResponseTargetsModal'
+import { useAuth } from '../contexts/AuthContext'
 import StudentAvatar from './StudentAvatar'
 import OnCampusNow from './oncampus/OnCampusNow'
 import StatusLegendPopover from './StatusLegendPopover'
@@ -419,6 +422,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // the drawer with an honest error + Retry instead of silently doing nothing.
   const [responseDrawerSchool, setResponseDrawerSchool] = useState(null)
   const [localToast,       setLocalToast]       = useState(null)
+  const [targetsModalOpen, setTargetsModalOpen] = useState(false)
+  const [pendingListOpen,  setPendingListOpen]  = useState(false)
+  const { isAdmin } = useAuth()
 
   // ASPIRE-CHART performance: the five workspace tabs stay mounted while
   // hidden, so these 60s polls used to run forever regardless of where the
@@ -504,25 +510,21 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     staleTime: 30000,
   })
 
-  // Explicit per-cohort outreach targets (the denominator for responded/pending). FAIL CLOSED: until
-  // the Owner applies 20260731030000_add_cohort_unit_response_targets.sql and configures a cohort's
-  // targets, this errors or returns empty, and the summary shows an honest "targets not set" state
-  // rather than a misleading "0 pending". Never used for authorization.
-  const { data: unitResponseTargets = [] } = useQuery({
+  // Explicit per-cohort outreach targets (the denominator for responded/pending), read ONLY through the
+  // staff-authorized server endpoint (the table's RLS denies the browser directly). FAIL CLOSED: until
+  // the Owner migration is applied AND a cohort's targets are configured, `targets` is empty and the
+  // summary shows an honest "targets not set" state rather than a misleading "0 pending".
+  const { data: targetData = { ready: false, targets: [] }, refetch: refetchTargets } = useQuery({
     queryKey: ['cohort_unit_response_targets', cohortId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('cohort_unit_response_targets')
-        .select('unit_id, unit_key, is_active')
-        .eq('cohort_id', cohortId)
-        .eq('is_active', true)
-      if (error) return []
-      return data || []
+      const { ready, targets } = await listCohortResponseTargets(cohortId)
+      return { ready, targets }
     },
     enabled: !!cohortId,
     staleTime: 30000,
     retry: false,
   })
+  const unitResponseTargets = targetData.targets || []
 
   // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: full school placement responses for the active cohort,
   // powering the read-only School Form Response drawer. DISTINCT query key from the date-only
@@ -775,13 +777,53 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 if (unitResponsesLoading) return <div className="ov-panel-sub">Loading unit responses…</div>
                 // Denominator = the cohort's explicit outreach targets (fail-closed to "not set").
                 const m = computeUnitResponseMetrics({ targets: unitResponseTargets, responses: unitResponses })
-                // When targets are configured and some are pending, surface their names (from the target
-                // list, never invented from the global catalog) as an accessible title.
-                const pendingTitle = m.configured && m.pendingUnitCount > 0 && m.pendingUnitNames.length
-                  ? `Pending: ${m.pendingUnitNames.join(', ')}`
-                  : undefined
-                return <div className="ov-panel-sub" title={pendingTitle}>{formatUnitResponseSummary(m)}</div>
+                const hasPending = m.configured && m.pendingUnitCount > 0 && m.pendingUnitNames.length > 0
+                const hasOrphans = m.orphanResponseCount > 0
+                return (
+                  <div className="ov-panel-sub">
+                    <span>{formatUnitResponseSummary(m)}</span>
+                    {isAdmin && (
+                      <button type="button" className="ov-linkish" onClick={() => setTargetsModalOpen(true)}
+                        style={{ marginLeft: 8, background: 'none', border: 'none', color: '#1D2567', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0 }}>
+                        Configure response targets
+                      </button>
+                    )}
+                    {hasPending && (
+                      <>
+                        {' · '}
+                        <button type="button" aria-expanded={pendingListOpen} aria-controls="ov-pending-units"
+                          onClick={() => setPendingListOpen(o => !o)}
+                          style={{ background: 'none', border: 'none', color: '#6b7280', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0 }}>
+                          {m.pendingUnitCount} pending{pendingListOpen ? ' ▴' : ' ▾'}
+                        </button>
+                        {pendingListOpen && (
+                          <ul id="ov-pending-units" style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 12, color: '#6b7280' }}>
+                            {m.pendingUnitNames.map((n, i) => <li key={`p${i}`}>{n}</li>)}
+                            {hasOrphans && (
+                              <li style={{ marginTop: 4, listStyle: 'none', color: '#92400e' }}>
+                                Orphan responses (no target): {m.orphanUnitNames.join(', ')}
+                              </li>
+                            )}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                    {!hasPending && hasOrphans && (
+                      <div style={{ fontSize: 12, color: '#92400e', marginTop: 4 }}>
+                        {m.orphanResponseCount} response{m.orphanResponseCount === 1 ? '' : 's'} without a target: {m.orphanUnitNames.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )
               })()}
+              {targetsModalOpen && (
+                <CohortResponseTargetsModal
+                  cohortId={cohortId}
+                  cohortName={cohort?.name}
+                  onClose={() => setTargetsModalOpen(false)}
+                  onChanged={() => refetchTargets()}
+                />
+              )}
             </div>
             {/* Filter chips + Expand/Collapse */}
             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
