@@ -1,9 +1,9 @@
-// At a Glance Placement Capacity: cohort-scoped unit response / pending / slot metrics.
+// At a Glance Placement Capacity: cohort-scoped responded / pending / slot metrics.
 //
-// Functional tests drive the pure helper (src/lib/unitResponseMetrics.js), including the reported
-// Fall 2026 defect (units with no response row were invisible, so the summary read "N of N, 0
-// pending"). Source guards prove OverviewTab uses the shared helper, dropped the row-count denominator,
-// and guards loading/error so it never flashes a false "0 pending".
+// The denominator is the EXPLICIT per-cohort outreach-target set (cohort_unit_response_targets), never
+// the response rows and never the lazily-created `units` rows. Functional tests drive the pure helper;
+// source guards prove OverviewTab reads targets fail-closed (never a false "0 pending") and the
+// Owner-gated migration adds the target model without guessing Fall 2026's list.
 //
 // Run: node --test test/unitResponseMetrics.test.mjs
 
@@ -15,148 +15,157 @@ import { dirname, join } from 'node:path'
 import { computeUnitResponseMetrics, formatUnitResponseSummary } from '../src/lib/unitResponseMetrics.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const overview = readFileSync(join(here, '..', 'src/components/OverviewTab.jsx'), 'utf8')
+const read = (p) => readFileSync(join(here, '..', p), 'utf8')
+const overview = read('src/components/OverviewTab.jsx')
+const migration = read('supabase/migrations/20260731030000_add_cohort_unit_response_targets.sql')
 
-const unit = (id, over = {}) => ({ id, unit_name: id, is_participating: true, ...over })
-const resp = (unit_id, status, slots = 0, over = {}) => ({ unit_id, response_status: status, slots_offered: slots, ...over })
+const target = (key, over = {}) => ({ unit_key: key, ...over })
+const resp = (unit_id, status, slots = 0, over = {}) => ({ unit_id, unit_name: unit_id, response_status: status, slots_offered: slots, ...over })
 
-// ─── Core defect + join semantics (1, 2, 15) ────────────────────────────────────
+// ─── Core: targets are the denominator (1, 2) ───────────────────────────────────
 
-test('13 responded + 10 rostered no-row units → responded 13, expected 23, pending 10', () => {
-  const units = []
-  for (let i = 0; i < 13; i++) units.push(unit('h' + i))
-  for (let i = 0; i < 10; i++) units.push(unit('p' + i))        // rostered, no response row
-  const responses = units.slice(0, 13).map((u, i) => resp(u.id, 'submitted_hosting', i < 4 ? 5 : 0))
-  const m = computeUnitResponseMetrics({ units, responses })
-  assert.equal(m.respondedUnitCount, 13)
+test('13 submitted + 10 targets without responses → 13 of 23, 10 pending', () => {
+  const targets = []
+  for (let i = 0; i < 23; i++) targets.push(target('U' + i))
+  const responses = []
+  for (let i = 0; i < 13; i++) responses.push(resp('U' + i, i < 10 ? 'submitted_hosting' : 'submitted_not_hosting', i < 10 ? 2 : 0))
+  const m = computeUnitResponseMetrics({ targets, responses })
+  assert.equal(m.configured, true)
   assert.equal(m.expectedUnitCount, 23)
+  assert.equal(m.respondedUnitCount, 13)
   assert.equal(m.pendingUnitCount, 10)
-  // The Fall 2026 fixture: the OLD code showed "13 of 13 ... 0 pending"; the fix shows the truth.
   assert.equal(formatUnitResponseSummary(m), '13 of 23 units responded · 20 slots confirmed · 10 pending')
 })
 
-test('a rostered unit with no response survives the join and is pending', () => {
-  const m = computeUnitResponseMetrics({ units: [unit('a'), unit('b')], responses: [resp('a', 'submitted_hosting', 3)] })
-  assert.equal(m.expectedUnitCount, 2)
-  assert.equal(m.respondedUnitCount, 1)
-  assert.deepEqual(m.pendingUnitIds, ['b'])
+test('13 response rows alone do NOT cap expected at 13 when the target set is larger', () => {
+  const responses = []
+  for (let i = 0; i < 13; i++) responses.push(resp('U' + i, 'submitted_hosting', 1))
+  const targets = []
+  for (let i = 0; i < 23; i++) targets.push(target('U' + i))
+  const m = computeUnitResponseMetrics({ targets, responses })
+  assert.equal(m.expectedUnitCount, 23)     // driven by targets, not by the 13 response rows
+  assert.equal(m.pendingUnitCount, 10)
 })
 
-// ─── Responded semantics (3, 4, 5) ──────────────────────────────────────────────
+// ─── Orphan / no-roster-row / decline (3, 4, 5, 8) ──────────────────────────────
 
-test('a zero-slot submitted (not hosting) response counts as responded, contributes 0 slots', () => {
-  const m = computeUnitResponseMetrics({ units: [unit('a')], responses: [resp('a', 'submitted_not_hosting', 0)] })
+test('a submitted response with no matching target is an orphan: slots yes, responded/pending no', () => {
+  const m = computeUnitResponseMetrics({
+    targets: [target('A')],
+    responses: [resp('A', 'submitted_hosting', 3), resp('ORPHAN', 'submitted_hosting', 9)],
+  })
+  assert.equal(m.expectedUnitCount, 1)
+  assert.equal(m.respondedUnitCount, 1)
+  assert.equal(m.pendingUnitCount, 0)
+  assert.equal(m.confirmedSlotCount, 12)     // both hosting responses count toward confirmed slots
+})
+
+test('a target with no units row (unit_key only) matches its response by name, else is pending', () => {
+  // Matched to a response by normalized name (target has no unit_id, response has unit_name).
+  const matched = computeUnitResponseMetrics({ targets: [target('6 NE')], responses: [{ unit_name: '6NE', response_status: 'submitted_hosting', slots_offered: 4 }] })
+  assert.equal(matched.respondedUnitCount, 1)
+  assert.equal(matched.confirmedSlotCount, 4)
+  // No response at all → pending, surfaced by name.
+  const pend = computeUnitResponseMetrics({ targets: [target('6 NW')], responses: [] })
+  assert.equal(pend.pendingUnitCount, 1)
+  assert.deepEqual(pend.pendingUnitNames, ['6 NW'])
+})
+
+test('an explicit decline (submitted_not_hosting) counts as responded, 0 slots', () => {
+  const m = computeUnitResponseMetrics({ targets: [target('A')], responses: [resp('A', 'submitted_not_hosting', 0)] })
   assert.equal(m.respondedUnitCount, 1)
   assert.equal(m.pendingUnitCount, 0)
   assert.equal(m.confirmedSlotCount, 0)
 })
 
-test('an explicit decline (submitted_not_hosting) counts as responded even when is_participating is false', () => {
-  const m = computeUnitResponseMetrics({ units: [unit('a', { is_participating: false })], responses: [resp('a', 'submitted_not_hosting', 0)] })
-  assert.equal(m.expectedUnitCount, 1)   // still expected: it has a response row
-  assert.equal(m.respondedUnitCount, 1)
-})
-
-test('draft / pending / incomplete states do not count as responded', () => {
+test('draft / pending / incomplete responses to a target stay pending', () => {
   for (const status of ['pending', 'draft', 'in_progress', '']) {
-    const m = computeUnitResponseMetrics({ units: [unit('a')], responses: [resp('a', status, 9)] })
-    assert.equal(m.respondedUnitCount, 0, `status "${status}" must not count as responded`)
+    const m = computeUnitResponseMetrics({ targets: [target('A')], responses: [resp('A', status, 9)] })
+    assert.equal(m.respondedUnitCount, 0, `"${status}" must not count as responded`)
     assert.equal(m.pendingUnitCount, 1)
-    assert.equal(m.confirmedSlotCount, 0)
   }
 })
 
-// ─── Duplicate / superseded (6, 7, 8) ───────────────────────────────────────────
+// ─── Metric depends only on targets+responses, not on units flags (6, 7) ────────
 
-test('duplicate response rows for one unit resolve deterministically (latest wins, counted once)', () => {
-  const responses = [
-    resp('a', 'submitted_not_hosting', 0, { last_updated_at: '2026-01-01T00:00:00Z' }),
-    resp('a', 'submitted_hosting', 7, { last_updated_at: '2026-02-01T00:00:00Z' }),  // newer
-  ]
-  const m = computeUnitResponseMetrics({ units: [unit('a')], responses })
-  assert.equal(m.respondedUnitCount, 1)          // counted once
-  assert.equal(m.confirmedSlotCount, 7)          // latest row's slots
+test('pending requires target membership; the metric ignores units.is_participating entirely', () => {
+  // A response exists but there is NO target for it → not expected, not pending (it is an orphan).
+  const m = computeUnitResponseMetrics({ targets: [], responses: [resp('X', 'submitted_hosting', 5)] })
+  assert.equal(m.configured, false)
+  assert.equal(m.pendingUnitCount, 0)        // no targets → nothing is "pending" (and we do not claim it)
 })
 
-test('duplicate unit entries (same id / alias) do not double-count', () => {
-  const units = [unit('a', { unit_name: '6 NE' }), unit('a', { unit_name: '6NE' })]  // same canonical id
-  const m = computeUnitResponseMetrics({ units, responses: [resp('a', 'submitted_hosting', 4)] })
-  assert.equal(m.expectedUnitCount, 1)
+test('a targeted unit that responded stays counted even if its units row would be deactivated', () => {
+  // The helper never reads units/is_participating; a submitted response to an active target counts.
+  const m = computeUnitResponseMetrics({ targets: [target('A', { unit_id: 'a' })], responses: [resp('a', 'submitted_not_hosting', 0)] })
   assert.equal(m.respondedUnitCount, 1)
 })
 
-// ─── Slots (9) ──────────────────────────────────────────────────────────────────
+// ─── Clamps + dedup + isolation (11) ────────────────────────────────────────────
 
-test('confirmed slots sum only hosting responses of expected units; never negative', () => {
-  const units = [unit('a'), unit('b'), unit('c')]
-  const responses = [
-    resp('a', 'submitted_hosting', 5),
-    resp('b', 'submitted_not_hosting', 0),      // decline → 0
-    resp('c', 'submitted_hosting', -3),         // malformed → clamped to 0
-  ]
-  const m = computeUnitResponseMetrics({ units, responses })
-  assert.equal(m.confirmedSlotCount, 5)
-  assert.ok(m.confirmedSlotCount >= 0)
-})
-
-// ─── Cross-cohort / orphan isolation + clamps (10, 11, 12, 13) ──────────────────
-
-test('responses for units not in the expected set are ignored (no cross-cohort/orphan leakage)', () => {
-  const m = computeUnitResponseMetrics({
-    units: [unit('a')],
-    responses: [resp('a', 'submitted_hosting', 2), resp('other-cohort-unit', 'submitted_hosting', 99)],
-  })
-  assert.equal(m.expectedUnitCount, 1)
-  assert.equal(m.respondedUnitCount, 1)
-  assert.equal(m.confirmedSlotCount, 2)          // the orphan's 99 slots are not counted
-})
-
-test('responded never exceeds expected and pending never goes negative', () => {
-  // Two expected units, three responses (one orphan) → responded capped at expected, pending >= 0.
-  const m = computeUnitResponseMetrics({
-    units: [unit('a'), unit('b')],
-    responses: [resp('a', 'submitted_hosting', 1), resp('b', 'submitted_hosting', 1), resp('z', 'submitted_hosting', 1)],
-  })
+test('responded never exceeds expected; pending never negative; duplicate targets dedup', () => {
+  const targets = [target('A'), target('A'), target('B')]   // duplicate A
+  const responses = [resp('A', 'submitted_hosting', 1), resp('B', 'submitted_hosting', 1), resp('C', 'submitted_hosting', 1)]
+  const m = computeUnitResponseMetrics({ targets, responses })
+  assert.equal(m.expectedUnitCount, 2)       // A, B (deduped)
   assert.ok(m.respondedUnitCount <= m.expectedUnitCount)
   assert.equal(m.respondedUnitCount, 2)
   assert.ok(m.pendingUnitCount >= 0)
-  assert.equal(m.pendingUnitCount, 0)
 })
 
-// ─── Empty + no-regression (14, 16, 20) ─────────────────────────────────────────
-
-test('zero expected units yields the empty state, not "0 of 0"', () => {
-  const m = computeUnitResponseMetrics({ units: [], responses: [] })
-  assert.equal(m.expectedUnitCount, 0)
-  assert.equal(formatUnitResponseSummary(m), 'No unit response requests are configured for this cohort.')
+test('duplicate response rows for one unit resolve deterministically (latest wins)', () => {
+  const responses = [
+    resp('a', 'submitted_not_hosting', 0, { last_updated_at: '2026-01-01T00:00:00Z' }),
+    resp('a', 'submitted_hosting', 7, { last_updated_at: '2026-02-01T00:00:00Z' }),
+  ]
+  const m = computeUnitResponseMetrics({ targets: [target('a', { unit_id: 'a' })], responses })
+  assert.equal(m.respondedUnitCount, 1)
+  assert.equal(m.confirmedSlotCount, 7)
 })
 
-test('the same pure logic serves any cohort fixture (fully responded → 0 pending, no regression)', () => {
-  const units = [unit('a'), unit('b'), unit('c')]
-  const responses = [resp('a', 'submitted_hosting', 2), resp('b', 'submitted_hosting', 3), resp('c', 'submitted_not_hosting', 0)]
-  const m = computeUnitResponseMetrics({ units, responses })
-  assert.equal(m.expectedUnitCount, 3)
-  assert.equal(m.respondedUnitCount, 3)
-  assert.equal(m.pendingUnitCount, 0)
-  assert.equal(formatUnitResponseSummary(m), '3 of 3 units responded · 5 slots confirmed · 0 pending')
+// ─── Empty / unconfigured (10) ──────────────────────────────────────────────────
+
+test('unconfigured cohort (no targets) reports received responses, never a false "0 pending"', () => {
+  const responses = []
+  for (let i = 0; i < 13; i++) responses.push(resp('U' + i, 'submitted_hosting', i < 10 ? 2 : 0))
+  const m = computeUnitResponseMetrics({ targets: [], responses })
+  assert.equal(m.configured, false)
+  const summary = formatUnitResponseSummary(m)
+  assert.match(summary, /response targets not set/)
+  assert.doesNotMatch(summary, /pending/)          // never claims a pending count
+  assert.doesNotMatch(summary, /of \d+ units responded/) // never claims "13 of 13"
 })
 
-// ─── OverviewTab wiring (15, 17, 18, 19) ────────────────────────────────────────
+// ─── OverviewTab wiring (12 + fail-closed) ──────────────────────────────────────
 
-test('OverviewTab uses the shared helper and dropped the response-row denominator', () => {
-  assert.match(overview, /computeUnitResponseMetrics\(\{ units, responses: unitResponses \}\)/)
-  assert.match(overview, /formatUnitResponseSummary\(/)
-  // The old buggy formula is gone.
-  assert.doesNotMatch(overview, /unitResponses\.length > 0 \? responded : participating\.length/)
-  assert.doesNotMatch(overview, /const total\s+= unitResponses\.length > 0 \? unitResponses\.length/)
+test('OverviewTab reads explicit targets fail-closed and no longer uses units/rows as the denominator', () => {
+  assert.match(overview, /from\('cohort_unit_response_targets'\)/)
+  assert.match(overview, /if \(error\) return \[\]/)                    // fail closed to "not set"
+  assert.match(overview, /computeUnitResponseMetrics\(\{ targets: unitResponseTargets, responses: unitResponses \}\)/)
+  assert.doesNotMatch(overview, /computeUnitResponseMetrics\(\{ units,/) // old units-denominator gone
+  assert.match(overview, /if \(unitResponsesError\)/)                   // load/error guard retained
+  assert.match(overview, /if \(unitResponsesLoading\)/)
 })
 
-test('OverviewTab guards loading/error so it never shows a false "0 pending"', () => {
-  assert.match(overview, /if \(unitResponsesError\) return/)
-  assert.match(overview, /if \(unitResponsesLoading\) return/)
+// ─── Owner-gated migration (9, 12) ──────────────────────────────────────────────
+
+test('migration adds the target model, unique per (cohort, unit), soft-removable, no auth derivation', () => {
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.cohort_unit_response_targets/)
+  assert.match(migration, /UNIQUE \(cohort_id, unit_key\)/)
+  assert.match(migration, /is_active\s+boolean/)
+  assert.match(migration, /removed_at/)
+  // Descriptive only: the RLS policy is plain read access, and no policy derives scope from auth tables.
+  assert.match(migration, /FOR SELECT TO authenticated/)
+  assert.doesNotMatch(migration, /CREATE POLICY[\s\S]*?user_unit_scopes/i)
 })
 
-test('the metric helper is display-only: no auth, scope, or supabase coupling', () => {
-  const helper = readFileSync(join(here, '..', 'src/lib/unitResponseMetrics.js'), 'utf8')
-  assert.doesNotMatch(helper, /supabase|user_unit_scopes|auth|POLICY|GRANT/i)
+test('migration does NOT guess Fall 2026 targets: no executable INSERT inside the transaction', () => {
+  const txn = migration.slice(migration.indexOf('BEGIN;'), migration.indexOf('COMMIT;'))
+  assert.doesNotMatch(txn, /INSERT\s+INTO/i)                            // backfill is commented, Owner-run
+  // The Fall 2026 cohort id appears only in commented backfill/verification guidance.
+  for (const line of migration.split('\n')) {
+    if (line.includes('eedd91ec-ad6f-4df8-aa20-5c06b2889011')) {
+      assert.match(line.trimStart(), /^--/, `Fall 2026 id must only appear in comments: ${line}`)
+    }
+  }
 })
