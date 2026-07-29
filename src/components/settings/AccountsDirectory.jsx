@@ -24,7 +24,7 @@ import { usePresence } from '../../contexts/PresenceContext'
 import { supabase } from '../../lib/supabase'
 import StatusBadge from '../ui/StatusBadge'
 import { FilterKPICard } from '../KPIBand'
-import { UserInitials, displayRole, formatLoginDate, ROLE_OPTIONS } from './accountsShared'
+import { UserInitials, displayRole, formatLoginDate, ROLE_OPTIONS, compareAccountsByName } from './accountsShared'
 import { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, PORTAL_STATUS_STYLES, EXPIRING_SOON_DAYS, summarizeScope } from '../../lib/portalAccessStatus'
 import InviteUserModal from './InviteUserModal'
 import GrantPortalAccessModal from './GrantPortalAccessModal'
@@ -233,6 +233,9 @@ export default function AccountsDirectory() {
   }
 
   // ── Derived collections ──────────────────────────────────────────────────
+  // SETTINGS-UNIFIED-DESIGN-1: both directories sort alphabetically by name
+  // (compareAccountsByName) - this replaces the previous implicit RPC/granted_at
+  // ordering for staff and portal accounts alike.
   const staffUsers = (() => {
     const s = search.trim().toLowerCase()
     return allUsers
@@ -241,12 +244,13 @@ export default function AccountsDirectory() {
       .filter(u => !roleFilter || (roleFilter === 'owner' ? u.is_owner : (!u.is_owner && (u.role === roleFilter))))
       .filter(u => !statusFilter || (statusFilter === 'active' ? u.is_active !== false : u.is_active === false))
       .filter(u => !s || `${u.full_name || ''} ${u.email || ''}`.toLowerCase().includes(s))
+      .sort(compareAccountsByName)
   })()
 
   const portalData = portalQuery.data || { accounts: [], counts: {} }
   // ACCOUNTS-ACCESS-DIRECTORY-2: expiringOnly is a client-side filter on
   // r.expiring_soon (server-computed flag), applied before pagination slicing.
-  const portalAccounts = (portalData.accounts || []).filter(r => !expiringOnly || r.expiring_soon === true)
+  const portalAccounts = (portalData.accounts || []).filter(r => !expiringOnly || r.expiring_soon === true).sort(compareAccountsByName)
 
   const openDrawer = (kind, record, el) => { triggerRef.current = el || null; setDrawer({ kind, record }) }
   const closeDrawer = () => setDrawer(null)

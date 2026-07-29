@@ -1,127 +1,133 @@
-// ASPIRE-GENERAL-SETTINGS-1: Settings → General is the primary Settings section (unchanged rail
-// item / route key `general`, Apple-iOS-style). It now hosts internal sub-sections:
+// SETTINGS-UNIFIED-DESIGN-1: Settings -> General is now the subsettings HUB for
+// Appearance, Email Signature, and Tours & Help - three sections that left the rail
+// (see settingsSections.js `inRail: false`) and moved here as an iPhone-Settings-style
+// grouped list. Their routes (/settings/appearance, /settings/signature, /settings/tours)
+// are unchanged and still deep-linkable; SettingsShell resolves them to this component
+// with a `subKey` prop telling it which nested panel to show, plus a back affordance to
+// return to the hub. AppearancePanel, SignaturePanel, and ToursHelpPanel are rendered
+// unmodified - no behavior, persistence, or props beyond what they already accepted.
 //
-//   • About  - real, already-safe app/deployment metadata (implemented).
-//   • Storage - DEFERRED: honest Supabase storage usage needs a new admin/service-role endpoint
-//               (none exists) - out of scope here, so it is NOT rendered.
-//   • Usage  - DEFERRED: no app-accessible source for Claude console spend/usage exists, and adding
-//               billing/API-key access is out of scope - so it is NOT rendered.
-//
-// This codebase deliberately avoids "coming soon"/placeholder sections (see settingsSections.js), so
-// Storage/Usage are SCAFFOLDED in the registry below (implemented:false) but not shown. The Apple-like
-// segmented sub-nav renders only when ≥2 sub-sections are implemented; with About alone it renders
-// About directly - no lonely single-tab control, no empty/broken sections. Flipping Storage/Usage to
-// implemented:true (once a real, safe data source exists) makes the sub-nav appear automatically.
-//
-// About reads ONLY build-time public vars via src/lib/buildInfo.js (VITE_BUILD_* - inlined at build,
-// never secret) + the canonical URL. No new API, endpoint, secret, or private env is introduced.
-import { useState } from 'react'
-import { Copy, Check, ExternalLink } from 'lucide-react'
-import {
-  APP_NAME, APP_DESCRIPTION, CANONICAL_URL,
-  BUILD_SHA, BUILD_ENV, environmentLabel, formatBuildTime,
-} from '../../lib/buildInfo'
+// The former About content (build/deployment metadata) has moved OUT of General into
+// its own AboutPanel.jsx / rail destination; this file no longer imports buildInfo or
+// renders any About UI.
+import { useNavigate } from 'react-router-dom'
+import { ChevronRight, ChevronLeft, Monitor, PenLine, Info } from 'lucide-react'
+import AppearancePanel from './AppearancePanel'
+import SignaturePanel from './SignaturePanel'
+import ToursHelpPanel from './ToursHelpPanel'
+import SurfaceCard from '../ui/SurfaceCard'
 
-// General sub-sections. Only `about` is implemented today; `storage` and `usage` are scaffolded
-// (implemented:false) so they can be enabled later without restructuring - no placeholder is rendered.
-const GENERAL_SUBSECTIONS = [
-  { key: 'about',   label: 'About',   implemented: true },
-  { key: 'storage', label: 'Storage', implemented: false },
-  { key: 'usage',   label: 'Usage',   implemented: false },
+// Grouped subsettings list, iPhone Settings-style. Icons match the ones the rail used for
+// these sections before SETTINGS-UNIFIED-DESIGN-1 (Monitor/PenLine/Info).
+const GROUPS = [
+  {
+    title: 'Preferences',
+    rows: [
+      { key: 'appearance', path: '/settings/appearance', icon: Monitor, label: 'Appearance', description: 'Theme for this device' },
+      { key: 'signature',  path: '/settings/signature',  icon: PenLine, label: 'Email Signature', description: 'Your Connect signature' },
+    ],
+  },
+  {
+    title: 'Support',
+    rows: [
+      { key: 'tours', path: '/settings/tours', icon: Info, label: 'Tours & Help', description: 'Replay the welcome tour and find help' },
+    ],
+  },
 ]
 
-const rowStyle = {
-  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16,
-  padding: '11px 0', borderTop: '1px solid var(--color-border-subtle, #f3f4f6)',
+const eyebrowStyle = {
+  margin: '0 0 6px', padding: '0 2px', fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6,
+  textTransform: 'uppercase', color: 'var(--color-text-secondary, #9ca3af)', fontFamily: 'DM Sans, sans-serif',
 }
-const labelStyle = { fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', fontWeight: 500 }
-const valueStyle = { fontSize: 13, color: 'var(--color-text-primary, #191919)', fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }
-const monoStyle = { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', letterSpacing: 0.2 }
 
-function AboutSection() {
-  const [copied, setCopied] = useState(false)
-  const buildTime = formatBuildTime()
-
-  const copySha = async () => {
-    try {
-      await navigator.clipboard.writeText(BUILD_SHA)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      /* clipboard unavailable (e.g. insecure context) - no-op, the value is still visible */
-    }
-  }
+function SubsettingsList() {
+  const navigate = useNavigate()
 
   return (
-    <div style={{
-      border: '1px solid var(--color-border-default, #e5e7eb)',
-      borderRadius: 12, padding: '6px 18px 14px',
-      background: 'var(--color-bg-surface, #ffffff)',
-    }}>
-      <div style={{ ...rowStyle, borderTop: 'none' }}>
-        <span style={labelStyle}>Application</span>
-        <span style={valueStyle}>{APP_NAME}</span>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Description</span>
-        <span style={{ ...valueStyle, fontWeight: 500, color: 'var(--color-text-secondary, #6b7280)', maxWidth: 380 }}>
-          {APP_DESCRIPTION}
-        </span>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Website</span>
-        <a href={CANONICAL_URL} target="_blank" rel="noopener noreferrer"
-          style={{
-            ...valueStyle, display: 'inline-flex', alignItems: 'center', gap: 5,
-            color: 'var(--color-accent-primary, #1D2567)', textDecoration: 'none',
-          }}>
-          {CANONICAL_URL.replace(/^https?:\/\//, '')}
-          <ExternalLink size={13} strokeWidth={2.2} style={{ flexShrink: 0 }} />
-        </a>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Environment</span>
-        <span style={valueStyle}>{environmentLabel(BUILD_ENV)}</span>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Build</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ ...valueStyle, ...monoStyle }}>{BUILD_SHA}</span>
-          <button
-            type="button" onClick={copySha}
-            aria-label={copied ? 'Build ID copied' : 'Copy build ID'} title={copied ? 'Copied' : 'Copy build ID'}
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 26, height: 26, padding: 0, borderRadius: 7, cursor: 'pointer',
-              border: '1px solid var(--color-border-default, #e5e7eb)',
-              background: 'var(--color-bg-surface, #ffffff)',
-              color: copied ? '#16a34a' : 'var(--color-text-secondary, #6b7280)',
-              transition: 'color 0.15s, border-color 0.15s',
-            }}
-          >
-            {copied ? <Check size={14} strokeWidth={2.4} /> : <Copy size={14} strokeWidth={2} />}
-          </button>
-        </span>
-      </div>
-
-      {buildTime && (
-        <div style={rowStyle}>
-          <span style={labelStyle}>Built</span>
-          <span style={{ ...valueStyle, fontWeight: 500, color: 'var(--color-text-secondary, #6b7280)' }}>{buildTime}</span>
+    <div>
+      {GROUPS.map((group, gi) => (
+        <div key={group.title} style={{ marginTop: gi === 0 ? 0 : 22 }}>
+          <div style={eyebrowStyle}>{group.title}</div>
+          <SurfaceCard radius={12} padding={0}>
+            {group.rows.map((row, ri) => {
+              const Icon = row.icon
+              return (
+                <button
+                  key={row.key}
+                  type="button"
+                  aria-label={`${row.label}: ${row.description}`}
+                  onClick={() => navigate(row.path)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+                    padding: '13px 16px', border: 'none', cursor: 'pointer', background: 'transparent',
+                    borderTop: ri === 0 ? 'none' : '1px solid var(--color-border-subtle, #f3f4f6)',
+                    fontFamily: 'DM Sans, sans-serif',
+                  }}
+                >
+                  <Icon size={17} strokeWidth={2} style={{ flexShrink: 0, color: 'var(--color-accent-primary, #1D2567)' }} />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary, #191919)' }}>
+                      {row.label}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', marginTop: 1 }}>
+                      {row.description}
+                    </span>
+                  </span>
+                  <ChevronRight size={16} strokeWidth={2} style={{ flexShrink: 0, color: 'var(--color-text-secondary, #9ca3af)' }} />
+                </button>
+              )
+            })}
+          </SurfaceCard>
         </div>
-      )}
+      ))}
     </div>
   )
 }
 
-export default function GeneralPanel() {
-  const implemented = GENERAL_SUBSECTIONS.filter(s => s.implemented)
-  const [active, setActive] = useState('about')
-  const current = implemented.some(s => s.key === active) ? active : 'about'
+function BackToGeneral() {
+  const navigate = useNavigate()
+  return (
+    <button
+      type="button"
+      onClick={() => navigate('/settings/general')}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16,
+        padding: '4px 6px 4px 2px', border: 'none', background: 'transparent', cursor: 'pointer',
+        fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600,
+        color: 'var(--color-accent-primary, #1D2567)',
+      }}
+    >
+      <ChevronLeft size={16} strokeWidth={2.4} style={{ flexShrink: 0 }} />
+      General
+    </button>
+  )
+}
+
+export default function GeneralPanel({ subKey, onRestartTour }) {
+  if (subKey === 'appearance') {
+    return (
+      <div>
+        <BackToGeneral />
+        <AppearancePanel />
+      </div>
+    )
+  }
+  if (subKey === 'signature') {
+    return (
+      <div>
+        <BackToGeneral />
+        <SignaturePanel />
+      </div>
+    )
+  }
+  if (subKey === 'tours') {
+    return (
+      <div>
+        <BackToGeneral />
+        <ToursHelpPanel onRestartTour={onRestartTour} />
+      </div>
+    )
+  }
 
   return (
     <section aria-labelledby="settings-general-heading">
@@ -132,39 +138,10 @@ export default function GeneralPanel() {
         General
       </h2>
       <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>
-        About ASPIRE Intelligence and this deployment.
+        Preferences and support for your ASPIRE Intelligence workspace.
       </p>
 
-      {/* Apple-style segmented sub-nav - rendered only when ≥2 sub-sections are implemented (avoids a
-          lonely single tab and any "coming soon" placeholder). Scaffolded for Storage/Usage. */}
-      {implemented.length > 1 && (
-        <div role="tablist" aria-label="General sub-sections" style={{
-          display: 'inline-flex', marginBottom: 18,
-          border: '1px solid rgba(29,37,103,0.14)', borderRadius: 8, overflow: 'hidden',
-        }}>
-          {implemented.map((s, i) => {
-            const on = s.key === current
-            return (
-              <button
-                key={s.key} role="tab" aria-selected={on}
-                onClick={() => setActive(s.key)}
-                style={{
-                  padding: '8px 20px', border: 'none', cursor: 'pointer',
-                  borderLeft: i === 0 ? 'none' : '1px solid rgba(29,37,103,0.14)',
-                  background: on ? '#1D2567' : 'var(--color-bg-surface, #f9fafb)',
-                  color: on ? '#fff' : 'var(--color-text-secondary, #6b7280)',
-                  fontSize: 12.5, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
-                  transition: 'background 0.12s, color 0.12s',
-                }}
-              >
-                {s.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {current === 'about' && <AboutSection />}
+      <SubsettingsList />
     </section>
   )
 }

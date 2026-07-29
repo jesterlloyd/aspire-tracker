@@ -19,12 +19,20 @@
 //
 // Nothing here changes routing, send, survey, automation, due-detection, writers, response storage,
 // digest, check-in, Keith, schema, or RLS. students.preceptor_id remains authoritative everywhere.
+//
+// SETTINGS-UNIFIED-DESIGN-1: canonical chrome, diagnostic identity stays in the copy. The local Stat
+// cards are replaced with the shared FilterKPICard primitive (now also filtering the table, not just
+// summarizing it), and the hand-rolled table markup is replaced with the canonical DataTable
+// primitive. The header paragraph and parity pill labels - where the diagnostic identity actually
+// lives - are unchanged. This surface remains strictly READ-ONLY: only .select() calls, no writes.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { resolvePreceptor } from '../../lib/preceptor'
 import SurfaceCard from '../ui/SurfaceCard'
+import DataTable from '../ui/DataTable'
+import { FilterKPICard } from '../KPIBand'
 
 const PARITY = {
   match:            { label: 'Match',                                                          short: 'Match',              color: '#2f6b34', bg: '#eef6ee', border: '#bcd9bf' },
@@ -35,114 +43,165 @@ const PARITY = {
 // Worklist ordering: surface drift first (both directions), matches last.
 const PARITY_ORDER = { mismatch_changed: 0, mismatch_cleared: 1, missing: 2, match: 3 }
 
+// SETTINGS-UNIFIED-DESIGN-1: filter-card metadata - value key into `counts`, the
+// parityFilter value each card selects ('all' for the scope card), and its accent.
+const PARITY_CARDS = [
+  { key: 'total',           parity: 'all',               label: 'In Scope',           accent: 'nightfall' },
+  { key: 'match',           parity: 'match',              label: 'Match',              accent: 'sage' },
+  { key: 'mismatchChanged', parity: 'mismatch_changed',   label: 'Mismatch changed',   accent: 'dawn' },
+  { key: 'mismatchCleared', parity: 'mismatch_cleared',   label: 'Mismatch cleared',   accent: 'chroma' },
+  { key: 'missing',         parity: 'missing',            label: 'Missing assignment', accent: 'periwinkle' },
+]
+
+const PARITY_COLUMNS = [
+  { key: 'student', label: 'Student', render: r => r.studentName },
+  {
+    key: 'current', label: 'Current primary',
+    render: r => (
+      <>
+        <div>{r.currentName}</div>
+        <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>{r.currentId || '-'}</div>
+      </>
+    ),
+  },
+  {
+    key: 'active', label: 'Active-primary',
+    render: r => (
+      <>
+        <div>{r.activeName}</div>
+        <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>{r.activeId || '-'}</div>
+      </>
+    ),
+  },
+  { key: 'roleStatus', label: 'Role / Status', cellStyle: { whiteSpace: 'nowrap' }, render: r => `${r.role} / ${r.status}` },
+  {
+    key: 'parity', label: 'Parity',
+    render: r => {
+      const p = PARITY[r.parity]
+      return (
+        <span style={{
+          display: 'inline-block', padding: '3px 9px', borderRadius: 999,
+          fontSize: 11.5, fontWeight: 600, lineHeight: 1.4,
+          color: p.color, background: p.bg, border: `1px solid ${p.border}`,
+        }}>
+          {p.label}
+        </span>
+      )
+    },
+  },
+]
+
 export default function PreceptorParityPanel() {
   const { isAdmin } = useAuth() // owner/admin; the section is registry-hidden otherwise
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [rows, setRows] = useState([])
+  const [parityFilter, setParityFilter] = useState('all')
+
+  // Extracted so the canonical error state can offer a Retry that re-runs the exact same
+  // READ-ONLY load. Still only .select() calls - no writes of any kind.
+  const loadParity = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      // READ-ONLY: SELECTs only. Students with a current canonical primary; the full preceptor
+      // roster (for resolvePreceptor + active-primary name display); the active-primary rows.
+      const [studentsRes, preceptorsRes, assignmentsRes] = await Promise.all([
+        supabase
+          .from('students')
+          .select('id, first_name, last_name, preceptor_id, cohort_id, matched_preceptor, preceptor_email')
+          .not('preceptor_id', 'is', null),
+        supabase
+          .from('preceptors')
+          .select('id, full_name, email, unit_name, shift_type'),
+        supabase
+          .from('student_preceptor_assignments')
+          .select('student_id, cohort_id, preceptor_id, role, status, created_at, updated_at')
+          .eq('role', 'primary')
+          .eq('status', 'active'),
+      ])
+
+      const firstErr = studentsRes.error || preceptorsRes.error || assignmentsRes.error
+      if (firstErr) throw firstErr
+
+      const studentsWithPrimary = studentsRes.data || []
+      const preceptors          = preceptorsRes.data || []
+      const assignments         = assignmentsRes.data || []
+
+      // UNION: also include students that have an ACTIVE-PRIMARY row but no longer have a current
+      // primary (preceptor_id cleared since the Phase-1 backfill = reverse drift). Fetch ONLY those
+      // student records not already in the current-primary set - still READ-ONLY.
+      const haveIds = new Set(studentsWithPrimary.map(s => s.id))
+      const assignmentOnlyIds = [...new Set(assignments.map(a => a.student_id))].filter(id => !haveIds.has(id))
+      let assignmentOnlyStudents = []
+      if (assignmentOnlyIds.length) {
+        const extraRes = await supabase
+          .from('students')
+          .select('id, first_name, last_name, preceptor_id, cohort_id, matched_preceptor, preceptor_email')
+          .in('id', assignmentOnlyIds)
+        if (extraRes.error) throw extraRes.error
+        assignmentOnlyStudents = extraRes.data || []
+      }
+
+      const allStudents = [...studentsWithPrimary, ...assignmentOnlyStudents]
+      const apByStudent = new Map(assignments.map(a => [a.student_id, a]))
+      const precById    = new Map(preceptors.map(p => [p.id, p]))
+
+      const computed = allStudents.map(s => {
+        // CURRENT side: identity is students.preceptor_id (authoritative; may be null for the
+        // reverse-drift case); display name via today's resolvePreceptor path.
+        const currentId   = s.preceptor_id || null
+        const currentName = resolvePreceptor(s, preceptors).name || '-'
+
+        // ACTIVE-PRIMARY side from the new table.
+        const a        = apByStudent.get(s.id) || null
+        const activeId = a ? a.preceptor_id : null
+        const activeName = activeId
+          ? (precById.get(activeId)?.full_name || '(preceptor not found)')
+          : '-'
+
+        // Parity by IDENTITY only - both directions of drift.
+        let parity
+        if (currentId && a)       parity = (activeId === currentId) ? 'match' : 'mismatch_changed'
+        else if (currentId && !a) parity = 'missing'
+        else if (!currentId && a) parity = 'mismatch_cleared'   // reverse drift: primary cleared, assignment remains
+        else                      parity = null                 // neither side - not in scope (defensive)
+
+        const last = (s.last_name || '').trim()
+        const first = (s.first_name || '').trim()
+        const studentName = (last || first) ? `${last}${last && first ? ', ' : ''}${first}` : s.id
+
+        return {
+          studentId: s.id,
+          studentName,
+          currentName,
+          currentId,
+          activeName,
+          activeId,
+          role:   a ? a.role : '-',
+          status: a ? a.status : '-',
+          updatedAt: a ? a.updated_at : null,
+          parity,
+        }
+      }).filter(r => r.parity !== null)
+
+      computed.sort((x, y) =>
+        (PARITY_ORDER[x.parity] - PARITY_ORDER[y.parity]) ||
+        x.studentName.localeCompare(y.studentName)
+      )
+
+      setRows(computed)
+    } catch (err) {
+      setLoadError(err?.message || 'Unable to load parity data.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isAdmin) return
-    let cancelled = false
-    ;(async () => {
-      setLoading(true)
-      setLoadError(null)
-      try {
-        // READ-ONLY: SELECTs only. Students with a current canonical primary; the full preceptor
-        // roster (for resolvePreceptor + active-primary name display); the active-primary rows.
-        const [studentsRes, preceptorsRes, assignmentsRes] = await Promise.all([
-          supabase
-            .from('students')
-            .select('id, first_name, last_name, preceptor_id, cohort_id, matched_preceptor, preceptor_email')
-            .not('preceptor_id', 'is', null),
-          supabase
-            .from('preceptors')
-            .select('id, full_name, email, unit_name, shift_type'),
-          supabase
-            .from('student_preceptor_assignments')
-            .select('student_id, cohort_id, preceptor_id, role, status, created_at, updated_at')
-            .eq('role', 'primary')
-            .eq('status', 'active'),
-        ])
-
-        const firstErr = studentsRes.error || preceptorsRes.error || assignmentsRes.error
-        if (firstErr) throw firstErr
-
-        const studentsWithPrimary = studentsRes.data || []
-        const preceptors          = preceptorsRes.data || []
-        const assignments         = assignmentsRes.data || []
-
-        // UNION: also include students that have an ACTIVE-PRIMARY row but no longer have a current
-        // primary (preceptor_id cleared since the Phase-1 backfill = reverse drift). Fetch ONLY those
-        // student records not already in the current-primary set - still READ-ONLY.
-        const haveIds = new Set(studentsWithPrimary.map(s => s.id))
-        const assignmentOnlyIds = [...new Set(assignments.map(a => a.student_id))].filter(id => !haveIds.has(id))
-        let assignmentOnlyStudents = []
-        if (assignmentOnlyIds.length) {
-          const extraRes = await supabase
-            .from('students')
-            .select('id, first_name, last_name, preceptor_id, cohort_id, matched_preceptor, preceptor_email')
-            .in('id', assignmentOnlyIds)
-          if (extraRes.error) throw extraRes.error
-          assignmentOnlyStudents = extraRes.data || []
-        }
-
-        const allStudents = [...studentsWithPrimary, ...assignmentOnlyStudents]
-        const apByStudent = new Map(assignments.map(a => [a.student_id, a]))
-        const precById    = new Map(preceptors.map(p => [p.id, p]))
-
-        const computed = allStudents.map(s => {
-          // CURRENT side: identity is students.preceptor_id (authoritative; may be null for the
-          // reverse-drift case); display name via today's resolvePreceptor path.
-          const currentId   = s.preceptor_id || null
-          const currentName = resolvePreceptor(s, preceptors).name || '-'
-
-          // ACTIVE-PRIMARY side from the new table.
-          const a        = apByStudent.get(s.id) || null
-          const activeId = a ? a.preceptor_id : null
-          const activeName = activeId
-            ? (precById.get(activeId)?.full_name || '(preceptor not found)')
-            : '-'
-
-          // Parity by IDENTITY only - both directions of drift.
-          let parity
-          if (currentId && a)       parity = (activeId === currentId) ? 'match' : 'mismatch_changed'
-          else if (currentId && !a) parity = 'missing'
-          else if (!currentId && a) parity = 'mismatch_cleared'   // reverse drift: primary cleared, assignment remains
-          else                      parity = null                 // neither side - not in scope (defensive)
-
-          const last = (s.last_name || '').trim()
-          const first = (s.first_name || '').trim()
-          const studentName = (last || first) ? `${last}${last && first ? ', ' : ''}${first}` : s.id
-
-          return {
-            studentId: s.id,
-            studentName,
-            currentName,
-            currentId,
-            activeName,
-            activeId,
-            role:   a ? a.role : '-',
-            status: a ? a.status : '-',
-            updatedAt: a ? a.updated_at : null,
-            parity,
-          }
-        }).filter(r => r.parity !== null)
-
-        computed.sort((x, y) =>
-          (PARITY_ORDER[x.parity] - PARITY_ORDER[y.parity]) ||
-          x.studentName.localeCompare(y.studentName)
-        )
-
-        if (!cancelled) setRows(computed)
-      } catch (err) {
-        if (!cancelled) setLoadError(err?.message || 'Unable to load parity data.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [isAdmin])
+    ;(async () => { await loadParity() })()
+  }, [isAdmin, loadParity])
 
   const counts = {
     total:           rows.length,
@@ -152,9 +211,11 @@ export default function PreceptorParityPanel() {
     missing:         rows.filter(r => r.parity === 'missing').length,
   }
 
+  // Card-driven filter: clicking a card filters the table to that parity; clicking the
+  // already-active card resets to 'all'. Filtering a pre-sorted array preserves worklist order.
+  const filteredRows = parityFilter === 'all' ? rows : rows.filter(r => r.parity === parityFilter)
+
   const F = 'DM Sans, sans-serif'
-  const th = { textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: '#6b7280', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }
-  const td = { padding: '9px 12px', fontSize: 13, color: '#191919', borderBottom: '1px solid #f1efe9', verticalAlign: 'top' }
 
   return (
     <div style={{ fontFamily: F }}>
@@ -170,85 +231,56 @@ export default function PreceptorParityPanel() {
         </p>
       </div>
 
-      {loading && <SurfaceCard padding={16}><span style={{ fontSize: 13, color: '#6b7280' }}>Loading parity…</span></SurfaceCard>}
+      {loading && (
+        <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13 }}>
+          Loading parity…
+        </div>
+      )}
 
       {!loading && loadError && (
-        <SurfaceCard padding={16}>
-          <span style={{ fontSize: 13, color: '#6b7280' }}>Unable to load parity data: {loadError}</span>
+        <SurfaceCard padding="16px 18px" style={{ color: 'var(--color-text-secondary, #6b7280)', fontSize: 13 }}>
+          <div>Unable to load parity data: {loadError}</div>
+          <button
+            type="button"
+            onClick={loadParity}
+            style={{ marginTop: 10, padding: '7px 16px', border: 'none', borderRadius: 8, background: '#1D2567', color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+          >
+            Retry
+          </button>
         </SurfaceCard>
       )}
 
       {!loading && !loadError && (
         <>
-          {/* Summary counts */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
-            <Stat label="In scope (union)" value={counts.total} color="#374151" bg="#f4f1ec" border="#e5e7eb" />
-            <Stat label="Match" value={counts.match} color={PARITY.match.color} bg={PARITY.match.bg} border={PARITY.match.border} />
-            <Stat label="Mismatch, changed" value={counts.mismatchChanged} color={PARITY.mismatch_changed.color} bg={PARITY.mismatch_changed.bg} border={PARITY.mismatch_changed.border} />
-            <Stat label="Mismatch, cleared" value={counts.mismatchCleared} color={PARITY.mismatch_cleared.color} bg={PARITY.mismatch_cleared.bg} border={PARITY.mismatch_cleared.border} />
-            <Stat label="Missing assignment" value={counts.missing} color={PARITY.missing.color} bg={PARITY.missing.bg} border={PARITY.missing.border} />
+          {/* SETTINGS-UNIFIED-DESIGN-1: FilterKPICard cards filter the table below - clicking the
+              active card resets to 'all'. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
+            {PARITY_CARDS.map(c => (
+              <FilterKPICard
+                key={c.key}
+                value={counts[c.key]}
+                label={c.label}
+                accent={c.accent}
+                active={parityFilter === c.parity}
+                onClick={() => setParityFilter(f => (f === c.parity ? 'all' : c.parity))}
+              />
+            ))}
           </div>
 
-          <SurfaceCard padding={0} radius={12} style={{ overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-                <thead>
-                  <tr>
-                    <th style={th}>Student</th>
-                    <th style={th}>Current primary (preceptor_id)</th>
-                    <th style={th}>Active-primary (assignment)</th>
-                    <th style={th}>Role / Status</th>
-                    <th style={th}>Parity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.length === 0 && (
-                    <tr><td style={{ ...td, color: '#6b7280' }} colSpan={5}>No students with a current primary or an active-primary assignment.</td></tr>
-                  )}
-                  {rows.map(r => {
-                    const p = PARITY[r.parity]
-                    return (
-                      <tr key={r.studentId}>
-                        <td style={td}>{r.studentName}</td>
-                        <td style={td}>
-                          <div>{r.currentName}</div>
-                          <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>{r.currentId || '-'}</div>
-                        </td>
-                        <td style={td}>
-                          <div>{r.activeName}</div>
-                          <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>{r.activeId || '-'}</div>
-                        </td>
-                        <td style={{ ...td, whiteSpace: 'nowrap' }}>{r.role} / {r.status}</td>
-                        <td style={td}>
-                          <span style={{
-                            display: 'inline-block', padding: '3px 9px', borderRadius: 999,
-                            fontSize: 11.5, fontWeight: 600, lineHeight: 1.4,
-                            color: p.color, background: p.bg, border: `1px solid ${p.border}`,
-                          }}>
-                            {p.label}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </SurfaceCard>
+          <DataTable
+            columns={PARITY_COLUMNS}
+            rows={filteredRows}
+            getRowKey={r => r.studentId}
+            empty={(
+              <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13, fontFamily: F }}>
+                {rows.length === 0
+                  ? 'No students with a current primary or an active-primary assignment.'
+                  : 'No students match this parity filter.'}
+              </div>
+            )}
+          />
         </>
       )}
-    </div>
-  )
-}
-
-function Stat({ label, value, color, bg, border }) {
-  return (
-    <div style={{
-      minWidth: 120, padding: '10px 14px', borderRadius: 10,
-      background: bg, border: `1px solid ${border}`,
-    }}>
-      <div style={{ fontSize: 22, fontWeight: 700, color, lineHeight: 1.1 }}>{value}</div>
-      <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>{label}</div>
     </div>
   )
 }

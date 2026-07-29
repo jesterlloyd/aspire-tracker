@@ -1,8 +1,8 @@
 // KT-3a-2a: Settings → Knowledge Center - Owner/Admin INPUT enabled.
-// Builds on the KT-3a-1 read-only shell + UI-1 primitives (SurfaceCard, MetricCard,
-// FilterChip, Toolbar, Button, DataTable, StateBadge). This phase makes the panel
-// usable for authoring: the New Entry button opens a create drawer, clicking a row
-// opens a detail drawer (read-only view), and draft entries can be edited - all via
+// Builds on the KT-3a-1 read-only shell + UI-1 primitives (SurfaceCard, Toolbar,
+// Button, DataTable, StateBadge). This phase makes the panel usable for authoring:
+// the New Entry button opens a create drawer, clicking a row opens a detail
+// drawer (read-only view), and draft entries can be edited - all via
 // KnowledgeEntryDrawer, which talks only to the existing api/knowledge-admin.js
 // actions (list_entries, get_entry, create_entry_draft, update_entry_draft). No
 // lifecycle/version-history controls here; non-draft entries remain read-only.
@@ -10,6 +10,12 @@
 // Owner/Admin only (registry-hidden otherwise + defensive guard here; the backend
 // is the real authority). All search/filtering is client-side. Only draft, active,
 // deprecated, and archived are valid lifecycle states.
+//
+// SETTINGS-UNIFIED-DESIGN-1: the passive MetricCard summary row and the redundant
+// FilterChip state-chips row are unified into a single row of clickable
+// FilterKPICard cards (the same interactive filter primitive used on Student
+// Profiles / Interview Room / Accounts & Access) - one state-filtering surface
+// instead of two that did the same job.
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { FileText, Search, Plus } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -20,14 +26,19 @@ import SettingsPageHeader from './SettingsPageHeader'
 import KnowledgeEntryDrawer from './KnowledgeEntryDrawer'
 import { KNOWLEDGE_STATES, CATEGORY_LABELS, CATEGORY_KEYS, fmtDate } from './knowledgeCategories'
 import SurfaceCard from '../ui/SurfaceCard'
-import MetricCard from '../ui/MetricCard'
-import FilterChip from '../ui/FilterChip'
 import Toolbar from '../ui/Toolbar'
 import Button from '../ui/Button'
 import DataTable from '../ui/DataTable'
+import { FilterKPICard } from '../KPIBand'
 
 const STATES = KNOWLEDGE_STATES
-const STATE_CHIPS = [{ key: 'all', label: 'All' }, ...STATES.map(s => ({ key: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))]
+// SETTINGS-UNIFIED-DESIGN-1: accent per state, plus the "All" card first.
+const STATE_CARD_ACCENTS = { draft: 'dawn', active: 'sage', deprecated: 'lavender', archived: 'marina' }
+const STATE_CARDS = [
+  { key: 'all', accent: 'nightfall' },
+  ...STATES.map(s => ({ key: s, accent: STATE_CARD_ACCENTS[s] })),
+]
+const cardLabel = (key) => key.charAt(0).toUpperCase() + key.slice(1)
 
 // Authenticated POST helper for the knowledge-admin endpoint (the backend authorizes
 // every action server-side regardless of client gating).
@@ -170,14 +181,19 @@ export default function KnowledgeCenterPanel() {
         />
       </div>
 
-      {/* Summary cards - passive metrics (MetricCard summary register) */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        {STATES.map(s => (
-          <MetricCard
-            key={s}
-            badge={<StateBadge state={s} />}
-            value={loading ? '-' : counts[s]}
-            sub={`${s.charAt(0).toUpperCase() + s.slice(1)} entries`}
+      {/* SETTINGS-UNIFIED-DESIGN-1: one state-filtering surface - clickable
+          FilterKPICard cards replace both the old passive MetricCard summary
+          row and the redundant FilterChip state-chips row. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
+        {STATE_CARDS.map(c => (
+          <FilterKPICard
+            key={c.key}
+            value={loading ? '-' : (c.key === 'all' ? entries.length : counts[c.key])}
+            label={cardLabel(c.key)}
+            sub={`${cardLabel(c.key)} entries`}
+            accent={c.accent}
+            active={stateFilter === c.key}
+            onClick={() => setStateFilter(f => (f === c.key ? 'all' : c.key))}
           />
         ))}
       </div>
@@ -229,13 +245,6 @@ export default function KnowledgeCenterPanel() {
           </Button>
         )}
       />
-
-      {/* State filter chips */}
-      <div role="group" aria-label="Filter by state" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-        {STATE_CHIPS.map(c => (
-          <FilterChip key={c.key} label={c.label} active={stateFilter === c.key} onClick={() => setStateFilter(c.key)} />
-        ))}
-      </div>
 
       {/* Content states: loading → error → empty → table (with no-match empty) */}
       {loading ? (

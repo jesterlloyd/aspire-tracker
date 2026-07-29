@@ -11,40 +11,57 @@ import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Settings, Monitor, Users, FileText, Info, Scale, PenLine } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
-import { visibleSections } from './settingsSections'
+import { visibleSections, routableSections } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
-import AppearancePanel from './AppearancePanel'
-import SignaturePanel from './SignaturePanel'
+import AboutPanel from './AboutPanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
-import ToursHelpPanel from './ToursHelpPanel'
 import KnowledgeCenterPanel from './KnowledgeCenterPanel'
 import PreceptorParityPanel from './PreceptorParityPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 
 // Rail icons (lucide-react, all already used elsewhere in the project).
+// SETTINGS-UNIFIED-DESIGN-1: appearance/signature/tours no longer appear in the rail
+// (they render inside GeneralPanel as subsettings) but keep entries here since they
+// remain routable and GeneralPanel reuses these icons for its subsettings list.
 const SECTION_ICONS = {
-  general: Settings, appearance: Monitor, signature: PenLine, accounts: Users, knowledge: FileText, preceptorParity: Scale, tours: Info,
+  general: Settings, about: Info, appearance: Monitor, signature: PenLine, accounts: Users, knowledge: FileText, preceptorParity: Scale, tours: Info,
 }
+
+// SETTINGS-UNIFIED-DESIGN-1: non-rail subsettings fold into General for the purpose of
+// rail active-state highlighting. Visiting /settings/appearance, /settings/signature, or
+// /settings/tours highlights the General rail entry instead of showing nothing selected.
+const NON_RAIL_SUBKEYS = ['appearance', 'signature', 'tours']
 
 export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At a Glance', onRestartTour }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { isOwner, isAdmin } = useAuth()
 
-  const sections = visibleSections({ isOwner, isAdmin })
+  const roleFlags = { isOwner, isAdmin }
+  const sections = visibleSections(roleFlags)
+  const routable = routableSections(roleFlags)
   const path = location.pathname
-  const knownPaths = sections.map(s => s.path)
-  const matched = sections.find(s => s.path === path)
+  const knownPaths = routable.map(s => s.path)
+  const matched = routable.find(s => s.path === path)
 
   // Normalize /settings and any unknown /settings/* subpath → /settings/general (replace).
+  // Uses `routable` (not the rail-only `sections`) so non-rail deep links like
+  // /settings/appearance are recognized as known paths and never bounced to General.
   useEffect(() => {
     if (path === '/settings' || (path.startsWith('/settings') && !knownPaths.includes(path))) {
       navigate('/settings/general', { replace: true })
     }
   }, [path]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const currentKey = matched?.key || 'general'
+  const matchedKey = matched?.key || 'general'
+  // The active panel key (drives which component renders below).
+  const currentKey = matchedKey
+  // The rail highlight key: non-rail subsettings fold into `general`.
+  const railActiveKey = NON_RAIL_SUBKEYS.includes(matchedKey) ? 'general' : matchedKey
+  // Non-rail subsettings render inside GeneralPanel with a subKey so it can show the
+  // right nested panel plus a back-to-General affordance.
+  const subKey = NON_RAIL_SUBKEYS.includes(matchedKey) ? matchedKey : undefined
 
   return (
     <div style={{ padding: '20px 32px 40px', fontFamily: 'DM Sans, sans-serif' }}>
@@ -79,7 +96,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           style={{ flex: '0 0 236px', minWidth: 212 }}>
           {sections.map((s, i) => {
             const Icon = SECTION_ICONS[s.key]
-            const active = s.key === currentKey
+            const active = s.key === railActiveKey
             const prevGroup = i > 0 ? sections[i - 1].group : null
             const showGroup = s.group && s.group !== prevGroup
             return (
@@ -119,15 +136,19 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
 
         {/* Active panel. Knowledge Center is wider (table); Accounts & Access uses the FULL workspace
             width (ACCOUNTS-ACCESS-REDESIGN-1A, no cap, bounded only by the .app-main 1580px shell);
-            all other panels keep their established max width and render unchanged. */}
+            all other panels keep their established max width and render unchanged.
+            SETTINGS-UNIFIED-DESIGN-1: appearance/signature/tours are no longer separate rail
+            destinations - they render through GeneralPanel (which owns the subsettings hub and
+            passthrough to the unchanged AppearancePanel/SignaturePanel/ToursHelpPanel components)
+            with a `subKey` telling GeneralPanel which subsetting to show. About is a new,
+            independent Workspace section holding the build/deployment metadata moved out of General. */}
         <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: currentKey === 'accounts' ? 'none' : ['knowledge', 'preceptorParity'].includes(currentKey) ? 1040 : 720 }}>
-          {currentKey === 'general'    && <GeneralPanel />}
-          {currentKey === 'appearance' && <AppearancePanel />}
-          {currentKey === 'signature'  && <SignaturePanel />}
+          {['general', 'appearance', 'signature', 'tours'].includes(currentKey) &&
+            <GeneralPanel subKey={subKey} onRestartTour={onRestartTour} />}
+          {currentKey === 'about'      && <AboutPanel />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}
           {currentKey === 'knowledge'  && <KnowledgeCenterPanel />}
           {currentKey === 'preceptorParity' && <PreceptorParityPanel />}
-          {currentKey === 'tours'      && <ToursHelpPanel onRestartTour={onRestartTour} />}
         </div>
       </div>
     </div>
