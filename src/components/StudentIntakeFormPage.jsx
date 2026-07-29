@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { signAndUploadIntakeFile } from '../lib/studentFileClient'
+import { evaluateRequiredDocuments } from '../lib/studentDocuments'
 import { groupUnitNamesByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 import { WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
 import {
@@ -94,8 +95,17 @@ export default function StudentIntakeFormPage() {
   const [unitsLoaded,    setUnitsLoaded]    = useState(false)
   const [resumeFile,     setResumeFile]     = useState(null)
   const [headshotFile,   setHeadshotFile]   = useState(null)
+  // Durable upload references (canonical storage paths). A path is set only after a SUCCESSFUL signed
+  // upload, so a selected-but-not-yet-uploaded or failed file leaves it empty. Kept across submit
+  // attempts so an already-successful upload is never restarted; cleared when the file is changed/removed.
+  const [resumeUrl,      setResumeUrl]      = useState('')
+  const [headshotUrl,    setHeadshotUrl]    = useState('')
+  const [docError,       setDocError]       = useState(null)  // Section 4 required-documents message
   const resumeInputRef   = useRef(null)
   const headshotInputRef = useRef(null)
+  const docSectionRef    = useRef(null)  // Section 4 container, for scroll-into-view + focus fallback
+  const resumeBtnRef     = useRef(null)  // visible "Choose File" button (present only when unselected)
+  const headshotBtnRef   = useRef(null)
   const [submitting,     setSubmitting]     = useState(false)
   const [submitted,      setSubmitted]      = useState(false)
   const [error,          setError]          = useState(null)
@@ -123,6 +133,17 @@ export default function StudentIntakeFormPage() {
 
   const set        = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const toggleRole = r => setForm(p => ({ ...p, exp_roles: { ...p.exp_roles, [r]: !p.exp_roles[r] } }))
+
+  // Surface a required-documents failure: show the message in Section 4, scroll it into view, and move
+  // focus to the first missing upload control (its visible button when unselected, else the section).
+  const failDocuments = (message, firstMissing) => {
+    setDocError(message)
+    setSubmitting(false)
+    docSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const btn = firstMissing === 'resume' ? resumeBtnRef.current : headshotBtnRef.current
+    if (btn) btn.focus()
+    else docSectionRef.current?.focus()
+  }
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -173,6 +194,15 @@ export default function StudentIntakeFormPage() {
     if (!form.privacy_ack_name.trim()) {
       setError('Please type your full name in the Student Information Use Acknowledgment.'); return
     }
+    // Section 4 Documents are REQUIRED. Both a resume and a headshot must be provided. A durable
+    // upload reference (from a prior successful upload) or a freshly selected file both count here;
+    // a failed upload is caught below and never treated as complete. The API re-checks server-side.
+    const missingDoc = evaluateRequiredDocuments({
+      hasResume:   !!resumeFile   || !!resumeUrl,
+      hasHeadshot: !!headshotFile || !!headshotUrl,
+    })
+    if (missingDoc) { setError(null); failDocuments(missingDoc.message, missingDoc.field); return }
+    setDocError(null)
 
     setSubmitting(true)
     setError(null)
@@ -213,21 +243,33 @@ export default function StudentIntakeFormPage() {
     // (<cohort>/<student>/<kind>.<ext>), never a public or signed URL. Reads resolve
     // this path through the server access endpoint. The compatibility resolver still
     // accepts any legacy public URL that predates this change.
-    let resume_url = ''
-    let headshot_url = ''
+    // Both documents are required, so an upload failure is now FATAL (never submit a partial
+    // application). Reuse a reference from a prior successful upload so a completed upload is not
+    // restarted; only upload a file that has not yet produced a durable reference.
+    let resume_url = resumeUrl
+    let headshot_url = headshotUrl
 
-    if (resumeFile) {
+    if (!resume_url && resumeFile) {
       try {
         const { path } = await signAndUploadIntakeFile({ schoolEmail: cleanEmail, kind: 'resume', file: resumeFile })
         resume_url = path
-      } catch { /* upload failure is non-fatal: the form still submits without the file */ }
+        setResumeUrl(path)
+      } catch {
+        failDocuments('Upload your resume before submitting.', 'resume'); return
+      }
     }
-    if (headshotFile) {
+    if (!headshot_url && headshotFile) {
       try {
         const { path } = await signAndUploadIntakeFile({ schoolEmail: cleanEmail, kind: 'headshot', file: headshotFile })
         headshot_url = path
-      } catch { /* upload failure is non-fatal */ }
+        setHeadshotUrl(path)
+      } catch {
+        failDocuments('Upload your headshot before submitting.', 'headshot'); return
+      }
     }
+    // Defense in depth: never submit unless BOTH durable references now exist.
+    if (!resume_url)   { failDocuments('Upload your resume before submitting.', 'resume'); return }
+    if (!headshot_url) { failDocuments('Upload your headshot before submitting.', 'headshot'); return }
 
     const selectedRoles = Object.entries(form.exp_roles)
       .filter(([, v]) => v)
@@ -573,26 +615,33 @@ export default function StudentIntakeFormPage() {
             )}
           </div>
 
-          {/* ── Section 4: Documents ── */}
-          <div className="uf-section">
-            <div className="sf-section-title">Section 4: Documents (Optional)</div>
+          {/* ── Section 4: Documents (required) ── */}
+          <div className="uf-section" ref={docSectionRef} tabIndex={-1}>
+            <div className="sf-section-title">Section 4: Documents *</div>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: -4, marginBottom: 10, lineHeight: 1.5 }} id="sf-doc-help">
+              Upload both documents to continue. Your headshot is required for badge creation, and your resume supports interview preparation.
+            </p>
+            {docError && (
+              <div className="error-msg" role="alert" id="sf-doc-error" style={{ marginBottom: 10 }}>{docError}</div>
+            )}
             <div className="doc-section">
 
-              {/* Resume */}
+              {/* Resume (required) */}
               <div className="doc-upload-area">
-                <div className="doc-area-label">Resume</div>
+                <div className="doc-area-label">Resume *</div>
                 <input ref={resumeInputRef} type="file" style={{ display: 'none' }}
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,.doc,.docx" aria-required="true" aria-describedby="sf-doc-help"
                   onChange={e => {
                     const f = e.target.files[0]
                     if (f && f.size > 10 * 1024 * 1024) { setError('Resume must be under 10MB.'); return }
-                    setResumeFile(f || null)
+                    // A new/removed file invalidates any prior durable upload for this slot.
+                    setResumeFile(f || null); setResumeUrl(''); if (f) setDocError(null)
                   }} />
                 {resumeFile ? (
                   <div className="doc-existing-file">
                     <span className="doc-file-link">📄 {resumeFile.name}</span>
                     <button type="button" className="doc-replace-btn"
-                      onClick={() => { setResumeFile(null); if (resumeInputRef.current) resumeInputRef.current.value = '' }}>
+                      onClick={() => { setResumeFile(null); setResumeUrl(''); if (resumeInputRef.current) resumeInputRef.current.value = '' }}>
                       Remove
                     </button>
                   </div>
@@ -600,7 +649,7 @@ export default function StudentIntakeFormPage() {
                   <div className="doc-upload-zone" onClick={() => resumeInputRef.current?.click()}>
                     <span className="doc-zone-icon">📄</span>
                     <span className="doc-zone-text">Upload Resume (PDF or Word, max 10MB)</span>
-                    <button type="button" className="doc-zone-btn"
+                    <button type="button" className="doc-zone-btn" ref={resumeBtnRef}
                       onClick={e => { e.stopPropagation(); resumeInputRef.current?.click() }}>
                       Choose File
                     </button>
@@ -608,21 +657,22 @@ export default function StudentIntakeFormPage() {
                 )}
               </div>
 
-              {/* Headshot */}
+              {/* Headshot (required) */}
               <div className="doc-upload-area">
-                <div className="doc-area-label">Headshot</div>
+                <div className="doc-area-label">Headshot *</div>
                 <input ref={headshotInputRef} type="file" style={{ display: 'none' }}
-                  accept=".jpg,.jpeg,.png"
+                  accept=".jpg,.jpeg,.png" aria-required="true" aria-describedby="sf-doc-help"
                   onChange={e => {
                     const f = e.target.files[0]
                     if (f && f.size > 5 * 1024 * 1024) { setError('Headshot must be under 5MB.'); return }
-                    setHeadshotFile(f || null)
+                    // A new/removed file invalidates any prior durable upload for this slot.
+                    setHeadshotFile(f || null); setHeadshotUrl(''); if (f) setDocError(null)
                   }} />
                 {headshotFile ? (
                   <div className="doc-existing-file">
                     <span className="doc-file-link">🖼 {headshotFile.name}</span>
                     <button type="button" className="doc-replace-btn"
-                      onClick={() => { setHeadshotFile(null); if (headshotInputRef.current) headshotInputRef.current.value = '' }}>
+                      onClick={() => { setHeadshotFile(null); setHeadshotUrl(''); if (headshotInputRef.current) headshotInputRef.current.value = '' }}>
                       Remove
                     </button>
                   </div>
@@ -630,7 +680,7 @@ export default function StudentIntakeFormPage() {
                   <div className="doc-upload-zone" onClick={() => headshotInputRef.current?.click()}>
                     <span className="doc-zone-icon">🖼</span>
                     <span className="doc-zone-text">Upload Headshot (JPG or PNG, max 5MB)</span>
-                    <button type="button" className="doc-zone-btn"
+                    <button type="button" className="doc-zone-btn" ref={headshotBtnRef}
                       onClick={e => { e.stopPropagation(); headshotInputRef.current?.click() }}>
                       Choose File
                     </button>

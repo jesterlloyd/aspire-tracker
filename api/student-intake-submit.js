@@ -65,6 +65,21 @@ function findUnexpectedKeys(object, allowedKeys) {
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
 
+// Required-documents rule, enforced server-side (the browser gate can be bypassed). A resume/headshot
+// counts when an INCOMING path is present OR one is already durably on the student's record, so a
+// returning student who already uploaded one document only needs to supply the missing one. Uses the
+// canonical stored references (resume_url / headshot_url), never display labels, and returns a safe
+// { field, message } (no storage internals) or null when satisfied. Messages MUST stay in parity with
+// src/lib/studentDocuments.js DOCUMENT_MESSAGES (api/ cannot import src/; a test guards the parity).
+export function checkDocumentsRequired(body, student) {
+  const hasResume   = !!(str(body?.resume_url)   || str(student?.resume_url))
+  const hasHeadshot = !!(str(body?.headshot_url) || str(student?.headshot_url))
+  if (!hasResume && !hasHeadshot) return { field: 'resume_url',   message: 'Upload your resume and headshot before submitting.' }
+  if (!hasResume)   return { field: 'resume_url',   message: 'Upload your resume before submitting.' }
+  if (!hasHeadshot) return { field: 'headshot_url', message: 'Upload your headshot before submitting.' }
+  return null
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -138,7 +153,9 @@ export default async function handler(req, res) {
   // fallback. Normalized (case/whitespace/zero-width); escaped ilike =
   // case-insensitive EXACT match (no % / _ wildcard broadening).
   // PHASE0B-WAVE-D: shared with student-intake-lookup.js (identical semantics).
-  const studentResult = await resolveStudentByEmail(db, cohortId, schoolEmail)
+  // Include the canonical document references so the requirement below can honor a document already
+  // durably on file (a returning student who uploaded one document only needs to supply the other).
+  const studentResult = await resolveStudentByEmail(db, cohortId, schoolEmail, 'id, cohort_id, status, cs_cedars_status, resume_url, headshot_url')
   if (studentResult.failure) {
     if (studentResult.failure.error === 'ambiguous_student') {
       console.log('[student-intake-submit] ambiguous student match', { request_id: requestId })
@@ -152,6 +169,12 @@ export default async function handler(req, res) {
   const currentStatus = student.status || 'Pending Outreach'
   if (!INTAKE_ELIGIBLE_STATUSES.includes(currentStatus)) {
     return res.status(409).json({ error: 'already_processed', message: 'Your application has already progressed. Please contact the ASPIRE team to update your details.' })
+  }
+
+  // ── Documents required: both resume and headshot must be durably referenced (server authority) ──
+  const missingDoc = checkDocumentsRequired(body, student)
+  if (missingDoc) {
+    return res.status(400).json({ error: 'documents_required', field: missingDoc.field, message: missingDoc.message })
   }
 
   // ── Build the exact intake update (allow-listed student-entered fields only) ─
