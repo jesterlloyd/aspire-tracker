@@ -160,6 +160,79 @@ REVOKE ALL ON public.cohort_unit_response_targets FROM anon;
 REVOKE ALL ON public.cohort_unit_response_targets FROM authenticated;
 GRANT  ALL ON public.cohort_unit_response_targets TO service_role;
 
+-- Atomic bulk add/reactivate (ALL-OR-NOTHING). The API verifies an active Owner/Admin, then calls this
+-- with the service-role client. It validates EVERY choice before any write, inserts or reactivates the
+-- durable rows, skips already-active ones deterministically, and returns totals. It creates NO units
+-- row and NO response/capacity row. State changes fire the audit trigger atomically.
+CREATE OR REPLACE FUNCTION public.configure_cohort_unit_response_targets(
+  p_cohort_id uuid,
+  p_units     jsonb,
+  p_actor     uuid
+) RETURNS jsonb
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = ''
+AS $$
+DECLARE
+  v_added int := 0;
+  v_reactivated int := 0;
+  v_skipped int := 0;
+  v_elem jsonb;
+  v_key text;
+  v_name text;
+  v_canon text;
+  v_id uuid;
+  v_active boolean;
+BEGIN
+  IF p_cohort_id IS NULL THEN
+    RAISE EXCEPTION 'cohort_id is required' USING ERRCODE = '22023';
+  END IF;
+  IF p_units IS NULL OR jsonb_typeof(p_units) <> 'array' THEN
+    RAISE EXCEPTION 'units must be a json array' USING ERRCODE = '22023';
+  END IF;
+
+  -- Validate ALL choices before any write (all-or-nothing).
+  FOR v_elem IN SELECT * FROM jsonb_array_elements(p_units) LOOP
+    v_key   := btrim(coalesce(v_elem->>'unit_key', ''));
+    v_name  := btrim(coalesce(v_elem->>'unit_name', ''));
+    v_canon := regexp_replace(upper(v_key), '[^A-Z0-9]', '', 'g');
+    IF v_key = '' OR v_name = '' OR v_canon = '' THEN
+      RAISE EXCEPTION 'each unit choice needs a nonblank unit_key and unit_name' USING ERRCODE = '22023';
+    END IF;
+  END LOOP;
+
+  -- Apply. Same-transaction visibility means a duplicate input canon is skipped after the first write.
+  FOR v_elem IN SELECT * FROM jsonb_array_elements(p_units) LOOP
+    v_key   := btrim(v_elem->>'unit_key');
+    v_name  := btrim(v_elem->>'unit_name');
+    v_canon := regexp_replace(upper(v_key), '[^A-Z0-9]', '', 'g');
+    SELECT id, is_active INTO v_id, v_active
+    FROM public.cohort_unit_response_targets
+    WHERE cohort_id = p_cohort_id AND unit_key_canon = v_canon;
+    IF NOT FOUND THEN
+      INSERT INTO public.cohort_unit_response_targets
+        (cohort_id, unit_key, unit_name, is_active, requested_at, requested_by_profile_id)
+        VALUES (p_cohort_id, v_key, v_name, true, now(), p_actor);
+      v_added := v_added + 1;
+    ELSIF v_active THEN
+      v_skipped := v_skipped + 1;
+    ELSE
+      UPDATE public.cohort_unit_response_targets
+        SET is_active = true, removed_at = NULL, removed_by_profile_id = NULL,
+            unit_name = v_name, requested_at = now(), requested_by_profile_id = p_actor
+        WHERE id = v_id;
+      v_reactivated := v_reactivated + 1;
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object('added', v_added, 'reactivated', v_reactivated, 'skipped', v_skipped);
+END $$;
+
+REVOKE ALL ON FUNCTION public.configure_cohort_unit_response_targets(uuid, jsonb, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.configure_cohort_unit_response_targets(uuid, jsonb, uuid) FROM anon;
+REVOKE ALL ON FUNCTION public.configure_cohort_unit_response_targets(uuid, jsonb, uuid) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.configure_cohort_unit_response_targets(uuid, jsonb, uuid) TO service_role;
+
 -- Readiness sentinel, created LAST. service_role-only EXECUTE; the API probes it to fail closed before
 -- this migration is applied. Explicit empty search_path.
 CREATE OR REPLACE FUNCTION public.cohort_unit_response_targets_ready()

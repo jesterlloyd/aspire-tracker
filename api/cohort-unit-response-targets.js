@@ -72,46 +72,23 @@ export default async function handler(req, res) {
   // ── writes require readiness ────────────────────────────────────────────────
   if (!ready) return res.status(503).json({ error: 'targets_not_enabled', code: 'TARGETS_NOT_ENABLED' })
 
-  // create: add one or more targets from canonical unit choices (dedup + reactivate + insert).
+  // create: bulk add/reactivate ATOMICALLY via the service-role RPC (all-or-nothing). Never a partial
+  // apply; validation + writes happen inside one transaction in the database.
   if (action === 'create') {
     const raw = Array.isArray(body.units) ? body.units : []
-    // Normalize + de-duplicate the incoming units by canonical key; require nonblank key and name.
-    const byCanon = new Map()
+    const units = []
     for (const u of raw) {
-      const unitKey = str(u?.unit_key || u?.unit_name)
-      const unitName = str(u?.unit_name || u?.unit_key)
-      const canon = canonicalUnitKey(unitKey)
-      if (!unitKey || !unitName || !canon) continue
-      if (!byCanon.has(canon)) byCanon.set(canon, { unit_key: unitKey, unit_name: unitName, canon })
+      const unit_key = str(u?.unit_key || u?.unit_name)
+      const unit_name = str(u?.unit_name || u?.unit_key)
+      if (unit_key && unit_name && canonicalUnitKey(unit_key)) units.push({ unit_key, unit_name })
     }
-    if (byCanon.size === 0) return res.status(400).json({ error: 'invalid_request', field: 'units' })
-
-    // Existing rows for this cohort (active + inactive) so we can skip active dupes and reactivate.
-    const { data: existing, error: exErr } = await db
-      .from('cohort_unit_response_targets').select('id, unit_key, is_active').eq('cohort_id', cohortId)
-    if (exErr) return res.status(500).json({ error: 'internal_error' })
-    const existingByCanon = new Map()
-    for (const row of existing || []) existingByCanon.set(canonicalUnitKey(row.unit_key), row)
-
-    const now = new Date().toISOString()
-    let added = 0, reactivated = 0, skipped = 0
-    for (const t of byCanon.values()) {
-      const ex = existingByCanon.get(t.canon)
-      if (ex && ex.is_active) { skipped += 1; continue }              // already an active target
-      if (ex && !ex.is_active) {
-        const { error } = await db.from('cohort_unit_response_targets')
-          .update({ is_active: true, removed_at: null, removed_by_profile_id: null, unit_name: t.unit_name, requested_at: now, requested_by_profile_id: actorId })
-          .eq('id', ex.id)
-        if (error) return res.status(500).json({ error: 'internal_error' })
-        reactivated += 1
-      } else {
-        const { error } = await db.from('cohort_unit_response_targets')
-          .insert({ cohort_id: cohortId, unit_key: t.unit_key, unit_name: t.unit_name, is_active: true, requested_at: now, requested_by_profile_id: actorId })
-        if (error) return res.status(500).json({ error: 'internal_error' })
-        added += 1
-      }
-    }
-    return res.status(200).json({ success: true, added, reactivated, skipped })
+    if (units.length === 0) return res.status(400).json({ error: 'invalid_request', field: 'units' })
+    const { data, error } = await db.rpc('configure_cohort_unit_response_targets', {
+      p_cohort_id: cohortId, p_units: units, p_actor: actorId,
+    })
+    if (error) return res.status(500).json({ error: 'internal_error' })
+    const r = data || {}
+    return res.status(200).json({ success: true, added: r.added || 0, reactivated: r.reactivated || 0, skipped: r.skipped || 0 })
   }
 
   // deactivate / reactivate a single target by id (auditable soft-remove / restore).

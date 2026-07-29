@@ -125,6 +125,24 @@ test('API fails closed until the migration is applied (readiness sentinel gate)'
   assert.match(api, /targets_not_enabled|TARGETS_NOT_ENABLED/)
 })
 
+test('bulk configuration is an atomic, service-role-only RPC that the API calls after authorization', () => {
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.configure_cohort_unit_response_targets\(/)
+  assert.match(migration, /SECURITY DEFINER/)
+  assert.match(migration, /SET search_path = ''/)
+  // Validates ALL choices before any write (all-or-nothing), returns totals.
+  assert.match(migration, /Validate ALL choices before any write/)
+  assert.match(migration, /jsonb_build_object\('added', v_added, 'reactivated', v_reactivated, 'skipped', v_skipped\)/)
+  // EXECUTE revoked from PUBLIC/anon/authenticated; granted to service_role only.
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.configure_cohort_unit_response_targets\(uuid, jsonb, uuid\) FROM PUBLIC/)
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.configure_cohort_unit_response_targets\(uuid, jsonb, uuid\) FROM authenticated/)
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.configure_cohort_unit_response_targets\(uuid, jsonb, uuid\) TO service_role/)
+  // The RPC never creates a units row or a response/capacity row.
+  assert.doesNotMatch(migration, /INSERT INTO public\.units\b/)
+  assert.doesNotMatch(migration, /INSERT INTO public\.unit_cohort_responses\b/)
+  // The API create path calls the RPC after the owner/admin gate (verify happens before getServiceDb).
+  assert.match(api, /db\.rpc\('configure_cohort_unit_response_targets', \{\s*p_cohort_id: cohortId, p_units: units, p_actor: actorId/)
+})
+
 // ─── Management workflow (14, 16, 18) ───────────────────────────────────────────
 
 test('API supports add / deactivate / reactivate with audit stamps and duplicate prevention', () => {
@@ -135,9 +153,9 @@ test('API supports add / deactivate / reactivate with audit stamps and duplicate
   assert.match(api, /requested_by_profile_id: actorId/)
   assert.match(api, /removed_by_profile_id: actorId/)
   assert.match(api, /removed_at: new Date\(\)\.toISOString\(\)/)
-  // Duplicate prevention: skip already-active, and refuse a reactivation that would duplicate.
-  assert.match(api, /already an active target/)
-  assert.match(api, /DUPLICATE_ACTIVE_TARGET/)
+  // Duplicate prevention: the RPC skips already-active rows; the full unique guarantees one durable row.
+  assert.match(migration, /v_skipped := v_skipped \+ 1/)
+  assert.match(migration, /CONSTRAINT uq_curt_cohort_unit UNIQUE \(cohort_id, unit_key_canon\)/)
 })
 
 test('targeting a unit never writes units or unit_cohort_responses (no capacity, no response)', () => {
