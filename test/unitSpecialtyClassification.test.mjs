@@ -107,32 +107,50 @@ test('spaced and compact aliases resolve to Critical Care', () => {
 
 // ─── Owner-gated migration safety (7, 8, 11) ────────────────────────────────────
 
-test('migration corrects only the two verified target rows (division only, when blank)', () => {
-  assert.match(migration, /SET division = 'Critical Care'/)
-  // The UPDATE targets the two verified ids only, and only when division is NULL/blank.
-  assert.match(migration, /c18b77d8-5863-4681-bc0f-00c35ac8ef8d/)
-  assert.match(migration, /33d22e71-859d-42fb-b28e-ff68ce4aaebe/)
-  assert.match(migration, /division IS NULL OR btrim\(division\) = ''/)
-  // Data-only: no row creation/deletion, no id mutation, exact-id/name matching (no LIKE/free-text).
+// Isolate the single UPDATE statement for scope assertions.
+const updateStmt = (() => {
+  const at = migration.search(/UPDATE\s+public\.units/i)
+  return at >= 0 ? migration.slice(at).split(';')[0] : ''
+})()
+
+test('the UPDATE targets only the two verified blank rows (division only, no broad name update)', () => {
+  assert.match(updateStmt, /SET division = 'Critical Care'/)
+  // Only the two target ids are in the UPDATE; the two already-correct ids are never updated.
+  assert.match(updateStmt, /c18b77d8-5863-4681-bc0f-00c35ac8ef8d/)
+  assert.match(updateStmt, /33d22e71-859d-42fb-b28e-ff68ce4aaebe/)
+  assert.doesNotMatch(updateStmt, /f1f60b44-6958-4ccb-913a-939482134a61/)
+  assert.doesNotMatch(updateStmt, /56a2f3e5-86ca-41e2-a836-993788e1dcd6/)
+  // Only when NULL/blank; keyed by id, never a broad name-based update.
+  assert.match(updateStmt, /division IS NULL OR btrim\(division\) = ''/)
+  assert.doesNotMatch(updateStmt, /unit_name/i)
+  // Data-only: no row creation/deletion, no id mutation, no free-text matching.
   assert.doesNotMatch(migration, /INSERT\s+INTO\s+public\.units/i)
   assert.doesNotMatch(migration, /DELETE\s+FROM\s+public\.units/i)
-  assert.doesNotMatch(migration, /\bSET\s+id\s*=|,\s*id\s*=/i)   // id is never an assignment target
+  assert.doesNotMatch(migration, /\bSET\s+id\s*=|,\s*id\s*=/i)
   assert.doesNotMatch(migration, /unit_name\s+LIKE/i)
 })
 
-test('migration preflights the exact four-row shape and documents a narrow rollback', () => {
-  assert.match(migration, /RAISE EXCEPTION/)
-  assert.match(migration, /preflight/i)
+test('migration uses canonical normalization, row locks, and in-transaction postconditions', () => {
+  // Canonical non-alphanumeric normalization (NOT whitespace-only).
+  assert.match(migration, /regexp_replace\(upper\(coalesce\(unit_name, ''\)\), '\[\^A-Z0-9\]', '', 'g'\)/)
+  assert.doesNotMatch(migration, /'\\s\+'/)                       // whitespace-only normalization is gone
+  // Row locks on the four verified rows before checks/update.
+  assert.match(migration, /FOR UPDATE/)
   assert.match(migration, /Expected exactly 4 normalized 6NE\/6NW rows/)
-  // Every one of the four verified ids is asserted in the preflight.
+  // All four verified ids are guarded.
   for (const id of [
     'f1f60b44-6958-4ccb-913a-939482134a61',
     '56a2f3e5-86ca-41e2-a836-993788e1dcd6',
     'c18b77d8-5863-4681-bc0f-00c35ac8ef8d',
     '33d22e71-859d-42fb-b28e-ff68ce4aaebe',
   ]) {
-    assert.ok(migration.includes(id), `preflight must reference ${id}`)
+    assert.ok(migration.includes(id), `migration must reference ${id}`)
   }
+  // In-transaction postconditions after the update (both re-assert the corrected shape before COMMIT).
+  assert.match(migration, /Postcondition failed: expected all 4 verified rows Critical Care/)
+  assert.match(migration, /Postcondition failed: normalized 6NE\/6NW count changed/)
+  assert.match(migration, /RAISE EXCEPTION/)
+  // Narrow, documented rollback.
   assert.match(migration, /Rollback/i)
 })
 

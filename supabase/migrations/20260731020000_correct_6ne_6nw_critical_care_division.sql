@@ -1,20 +1,29 @@
 -- ############################################################################
--- Correct the stored division for units 6 NE and 6 NW to 'Critical Care' (hardened, exact-row)
+-- Correct the stored division for units 6 NE and 6 NW to 'Critical Care' (hardened, exact-row, locked)
 --
 -- Owner-gated. NOT auto-applied by this branch. Per the Unit Specialty Resource Chart (page 3,
 -- "Directory of Critical Care Division 2022", dated 2022-12-01), 6 NE and 6 NW belong to the Critical
 -- Care Division. The Owner ran read-only queries and confirmed EXACTLY four canonical rows: two are
 -- already 'Critical Care', and two (in cohort eedd91ec-...) have a blank/NULL division. This migration
--- proves that exact four-row shape, then corrects ONLY the two blank rows by id.
+-- locks and proves that exact four-row shape, corrects ONLY the two blank rows by id, then re-asserts
+-- the corrected shape before COMMIT.
+--
+-- NORMALIZATION: unit names are compared canonically as upper-case, non-alphanumeric-stripped tokens
+--   regexp_replace(upper(coalesce(unit_name,'')), '[^A-Z0-9]', '', 'g')
+-- so every spacing, punctuation, and case variant that reduces to 6NE / 6NW is detected (this matches
+-- the Owner's production inspection). Whitespace-only normalization is intentionally NOT used.
 --
 -- SAFETY:
 --   * Data-only. Touches ONLY the `division` column, ONLY for the two verified target ids, ONLY when
 --     that row's division is currently NULL or blank/whitespace.
+--   * The four verified rows are row-locked (FOR UPDATE) before any check or write, so the verified
+--     shape cannot change between check and update.
 --   * No row is created or deleted; unit ids, unit names, cohort ids, patient_population, assignments,
 --     placements, preceptors, capacity/slots, shifts, evaluations, portal scopes, and authorization
 --     are all untouched. Division is descriptive only and never gates access.
 --   * Idempotent: a target row already 'Critical Care' is left untouched (safe to re-run).
---   * Fails closed on ANY deviation from the verified four-row shape (see preflight assertions).
+--   * Fails closed (rolls back) on ANY deviation from the verified four-row shape, including the
+--     in-transaction postconditions after the update.
 -- ############################################################################
 
 BEGIN;
@@ -28,26 +37,34 @@ DECLARE
   id_nw_fix  uuid := '33d22e71-859d-42fb-b28e-ff68ce4aaebe';  -- 6 NW, cohort_fix, blank/NULL -> correct
   cohort_ok  uuid := '7f4e0a67-ccef-498c-80f5-1e5c7c681bd1';
   cohort_fix uuid := 'eedd91ec-ad6f-4df8-aa20-5c06b2889011';
+  v_locked      integer;
   v_alias_total integer;
   v_unexpected  integer;
+  v_now_correct integer;
   rec           record;
   v_div         text;
 BEGIN
-  -- Normalized 6NE/6NW matcher (whitespace-insensitive, case-insensitive). The known canonical/alias
-  -- forms are '6 NE', '6 NW', '6NE', '6NW'; normalization also catches odd-whitespace variants.
+  -- Lock the four verified rows FIRST, so the shape verified below cannot change before the update.
+  PERFORM 1 FROM public.units
+    WHERE id IN (id_ne_ok, id_nw_ok, id_ne_fix, id_nw_fix)
+    FOR UPDATE;
+  GET DIAGNOSTICS v_locked = ROW_COUNT;
+  IF v_locked <> 4 THEN
+    RAISE EXCEPTION 'Expected to lock exactly 4 verified rows, locked %. Aborting with no changes.', v_locked;
+  END IF;
 
-  -- (1) Exactly four rows with normalized unit name 6NE or 6NW.
+  -- (1) Exactly four rows normalize to 6NE or 6NW.
   SELECT count(*) INTO v_alias_total
   FROM public.units
-  WHERE regexp_replace(upper(coalesce(unit_name, '')), '\s+', '', 'g') IN ('6NE', '6NW');
+  WHERE regexp_replace(upper(coalesce(unit_name, '')), '[^A-Z0-9]', '', 'g') IN ('6NE', '6NW');
   IF v_alias_total <> 4 THEN
     RAISE EXCEPTION 'Expected exactly 4 normalized 6NE/6NW rows, found %. Aborting with no changes.', v_alias_total;
   END IF;
 
-  -- (7) No additional 6NE/6NW alias rows beyond the four verified ids.
+  -- (7) No normalized 6NE/6NW rows beyond the four verified ids (catches any alias variant).
   SELECT count(*) INTO v_unexpected
   FROM public.units
-  WHERE regexp_replace(upper(coalesce(unit_name, '')), '\s+', '', 'g') IN ('6NE', '6NW')
+  WHERE regexp_replace(upper(coalesce(unit_name, '')), '[^A-Z0-9]', '', 'g') IN ('6NE', '6NW')
     AND id NOT IN (id_ne_ok, id_nw_ok, id_ne_fix, id_nw_fix);
   IF v_unexpected <> 0 THEN
     RAISE EXCEPTION 'Found % unexpected 6NE/6NW alias row(s) beyond the four verified ids. Aborting.', v_unexpected;
@@ -70,7 +87,6 @@ BEGIN
   END IF;
 
   -- (5)&(6) Each target row is NULL, blank/whitespace, or already Critical Care (idempotent re-run).
-  -- Any other nonblank division aborts.
   FOR rec IN SELECT id, division FROM public.units WHERE id IN (id_ne_fix, id_nw_fix) LOOP
     v_div := rec.division;
     IF v_div IS NOT NULL AND btrim(v_div) <> '' AND v_div <> 'Critical Care' THEN
@@ -78,14 +94,31 @@ BEGIN
     END IF;
   END LOOP;
 
-  RAISE NOTICE 'Hardened 6NE/6NW preflight passed: four-row shape verified; correcting the two blank target rows.';
-END $$;
+  -- Correct ONLY the two verified target rows, ONLY the division field, ONLY when NULL or blank.
+  UPDATE public.units
+    SET division = 'Critical Care'
+    WHERE id IN ('c18b77d8-5863-4681-bc0f-00c35ac8ef8d', '33d22e71-859d-42fb-b28e-ff68ce4aaebe')
+      AND (division IS NULL OR btrim(division) = '');
 
--- Correct ONLY the two verified target rows, ONLY the division field, ONLY when NULL or blank/whitespace.
-UPDATE public.units
-  SET division = 'Critical Care'
-  WHERE id IN ('c18b77d8-5863-4681-bc0f-00c35ac8ef8d', '33d22e71-859d-42fb-b28e-ff68ce4aaebe')
-    AND (division IS NULL OR btrim(division) = '');
+  -- POSTCONDITION (in-transaction): all four exact rows are now Critical Care.
+  SELECT count(*) INTO v_now_correct
+  FROM public.units
+  WHERE id IN (id_ne_ok, id_nw_ok, id_ne_fix, id_nw_fix)
+    AND division = 'Critical Care';
+  IF v_now_correct <> 4 THEN
+    RAISE EXCEPTION 'Postcondition failed: expected all 4 verified rows Critical Care, found %. Rolling back.', v_now_correct;
+  END IF;
+
+  -- POSTCONDITION (in-transaction): the normalized 6NE/6NW row count is still exactly four.
+  SELECT count(*) INTO v_alias_total
+  FROM public.units
+  WHERE regexp_replace(upper(coalesce(unit_name, '')), '[^A-Z0-9]', '', 'g') IN ('6NE', '6NW');
+  IF v_alias_total <> 4 THEN
+    RAISE EXCEPTION 'Postcondition failed: normalized 6NE/6NW count changed to %. Rolling back.', v_alias_total;
+  END IF;
+
+  RAISE NOTICE 'Hardened 6NE/6NW correction applied and verified: four rows, all Critical Care.';
+END $$;
 
 COMMIT;
 
@@ -105,7 +138,7 @@ COMMIT;
 --   -- Normalized 6NE/6NW count is still exactly four (no duplicate aliases introduced):
 --   SELECT count(*) AS normalized_6ne_6nw
 --   FROM public.units
---   WHERE regexp_replace(upper(coalesce(unit_name, '')), '\s+', '', 'g') IN ('6NE', '6NW');
+--   WHERE regexp_replace(upper(coalesce(unit_name, '')), '[^A-Z0-9]', '', 'g') IN ('6NE', '6NW');
 --   -- Expect 4.
 
 -- ############################################################################
