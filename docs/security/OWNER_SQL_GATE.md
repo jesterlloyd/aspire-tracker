@@ -410,3 +410,42 @@ ALTER TABLE public.students
    latest-submission provenance from that point.
 4. Verify with the live QC checklist in
    `docs/product/ACADEMIC_PARTNER_PLACEMENT_REQUESTS_HANDOFF.md`.
+
+## Follow-up: Messages Phase 0 correctness (independent of the ordered list above)
+
+**File:** `supabase/migrations/20260730000001_messages_phase0_correctness.sql`
+**Gate notes:** explicitly transactional (BEGIN/COMMIT) - both RPC replacements
+and every privilege statement apply atomically; function redefinitions only
+(`messages_post_reply` in place, NEW `messages_portal_list_conversations_v2`);
+no table/column changes, no data conversion, NO UPDATE or DELETE on
+`public.messages` or `public.conversation_events` (append-only preserved); not
+dependent on any un-applied file above (requires only the already-applied
+Messages foundation, 20260716000000 through 20260728000000).
+**Unlocks:** true portal reply authorship (student / unit_leader /
+academic_partner persisted verbatim) and portal row unread counts matching the
+global badge.
+
+### Application and verification order
+Run the numbered blocks from
+[MESSAGES_PHASE0_VERIFICATION.md](MESSAGES_PHASE0_VERIFICATION.md), in order:
+
+1. **Prechecks** (section 1; read-only) - confirm the live `messages_post_reply`
+   still lacks `academic_partner` and that
+   `messages_portal_list_conversations_v2` does not exist.
+2. **Migration** (the WHOLE file as one block) - it is a single transaction.
+3. **Historical audit** (section 2; read-only) - record the mislabeled-row
+   counts; per the Phase 0 decision the correction is NOT performed.
+4. **Postchecks** (section 4; read-only) - four-kind CHECK present; v2 exists
+   with EXECUTE for `authenticated` and `service_role` and NOT for `anon` or
+   PUBLIC; no UPDATE/DELETE/TRUNCATE table grants on the two append-only tables
+   in schema `public`.
+
+APPLIED IN PRODUCTION 2026-07-29 with all verification blocks passing (see the
+production record in MESSAGES_PHASE0_VERIFICATION.md; historical audit found
+ZERO mislabeled rows). Deployment note (corrected): the application must ALSO
+deploy the Phase 0 code commit before the fixes take effect - the migration
+alone is inert to the running app. Ordering is safe either way; once the code
+is live it detects v2 at runtime and its pre-migration fallback goes dead.
+Rollback: v1 list function is untouched (the API falls back to it if v2 is
+dropped); `messages_post_reply` rolls back by re-running its prior definition
+from `20260720000000_unit_leader_portal_foundation.sql`.

@@ -78,9 +78,12 @@ export default async function handler(req, res) {
       });
     }
 
+    // MESSAGES-CORRECTNESS-PHASE0-1: pass the VERIFIED actor kind so the reply is
+    // persisted with the caller's true author_role (student, unit_leader, or
+    // academic_partner). Server-derived only - never read from the request.
     const out = await replyForPortal(
       { db, resend: new Resend(process.env.RESEND_API_KEY) },
-      { profile: caller.profile, conversationId, conversation: ctx, body: body.value },
+      { profile: caller.profile, actorKind: caller.actorKind, conversationId, conversation: ctx, body: body.value },
     );
     if (out.rpcError) {
       const mapped = mapRpcError(out.rpcError);

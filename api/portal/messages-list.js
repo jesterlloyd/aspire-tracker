@@ -30,11 +30,20 @@ export default async function handler(req, res) {
   if (!db) return res.status(401).json({ error: 'unauthenticated' });
 
   try {
-    const { data, error } = await db.rpc('messages_portal_list_conversations', {
+    // MESSAGES-CORRECTNESS-PHASE0-1: prefer the v2 list RPC, whose per-row unread
+    // rule (author_profile_id <> caller) matches the global unread badge. The API
+    // switches to v2 only once the Owner-gated migration exists: until then the
+    // function is absent from the schema and we fall back to v1 (today's exact
+    // behavior). Runtime detection mirrors the repo's readiness-probe pattern.
+    const rpcArgs = {
       p_limit: limit.value,
       p_cursor_ts: cursor.value.ts,
       p_cursor_id: cursor.value.id,
-    });
+    };
+    let { data, error } = await db.rpc('messages_portal_list_conversations_v2', rpcArgs);
+    if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
+      ;({ data, error } = await db.rpc('messages_portal_list_conversations', rpcArgs));
+    }
     if (error) {
       logApiError('portal/messages-list', 'rpc_failed', error);
       return res.status(500).json({ error: 'internal_error' });
