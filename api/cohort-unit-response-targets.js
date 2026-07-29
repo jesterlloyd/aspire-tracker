@@ -103,34 +103,27 @@ export default async function handler(req, res) {
   }
 
   // deactivate / reactivate a single target by id (auditable soft-remove / restore).
+  // deactivate / reactivate a single durable target by id. Idempotent: if it is already in the
+  // requested state, return a safe state result (no-op). The full unique guarantees one durable row per
+  // canonical unit, so reactivation can never collide with a second row.
   if (action === 'deactivate' || action === 'reactivate') {
     const id = str(body.id)
     if (!id || !UUID_RE.test(id)) return res.status(400).json({ error: 'invalid_request', field: 'id' })
     const { data: row, error: rErr } = await db
-      .from('cohort_unit_response_targets').select('id, cohort_id, unit_key, is_active').eq('id', id).maybeSingle()
+      .from('cohort_unit_response_targets').select('id, cohort_id, is_active').eq('id', id).maybeSingle()
     if (rErr) return res.status(500).json({ error: 'internal_error' })
     if (!row || row.cohort_id !== cohortId) return res.status(404).json({ error: 'not_found' })
 
-    if (action === 'deactivate') {
-      const { error } = await db.from('cohort_unit_response_targets')
-        .update({ is_active: false, removed_at: new Date().toISOString(), removed_by_profile_id: actorId })
-        .eq('id', id)
-      if (error) return res.status(500).json({ error: 'internal_error' })
-      return res.status(200).json({ success: true })
+    const wantActive = action === 'reactivate'
+    if (row.is_active === wantActive) {
+      return res.status(200).json({ success: true, state: wantActive ? 'active' : 'inactive', changed: false })
     }
-    // reactivate: refuse if another ACTIVE target already holds this canonical key (unique guard).
-    const { data: dupes, error: dErr } = await db
-      .from('cohort_unit_response_targets').select('id, unit_key, is_active').eq('cohort_id', cohortId).eq('is_active', true)
-    if (dErr) return res.status(500).json({ error: 'internal_error' })
-    const canon = canonicalUnitKey(row.unit_key)
-    if ((dupes || []).some(d => d.id !== id && canonicalUnitKey(d.unit_key) === canon)) {
-      return res.status(409).json({ error: 'duplicate_active_target', code: 'DUPLICATE_ACTIVE_TARGET' })
-    }
-    const { error } = await db.from('cohort_unit_response_targets')
-      .update({ is_active: true, removed_at: null, removed_by_profile_id: null, requested_at: new Date().toISOString(), requested_by_profile_id: actorId })
-      .eq('id', id)
+    const patch = wantActive
+      ? { is_active: true, removed_at: null, removed_by_profile_id: null, requested_at: new Date().toISOString(), requested_by_profile_id: actorId }
+      : { is_active: false, removed_at: new Date().toISOString(), removed_by_profile_id: actorId }
+    const { error } = await db.from('cohort_unit_response_targets').update(patch).eq('id', id)
     if (error) return res.status(500).json({ error: 'internal_error' })
-    return res.status(200).json({ success: true })
+    return res.status(200).json({ success: true, state: wantActive ? 'active' : 'inactive', changed: true })
   }
 
   return res.status(400).json({ error: 'invalid_request', field: 'action' })

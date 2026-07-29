@@ -174,6 +174,20 @@ test('targeting a unit never writes units or unit_cohort_responses (no capacity,
   assert.doesNotMatch(api, /from\('unit_cohort_responses'\)/)
 })
 
+test('deactivate/reactivate are idempotent no-ops when already in the requested state; no dead 409', () => {
+  assert.match(api, /const wantActive = action === 'reactivate'/)
+  assert.match(api, /if \(row\.is_active === wantActive\) \{[\s\S]*?changed: false/)
+  assert.match(api, /changed: true/)
+  // With one durable row the duplicate-active 409 path is gone (it could never fire).
+  assert.doesNotMatch(api, /DUPLICATE_ACTIVE_TARGET/)
+})
+
+test('API surfaces only coded errors, never raw database text', () => {
+  // No raw supabase error object/message is ever returned to the client.
+  assert.doesNotMatch(api, /json\(\{[^}]*error\.message/)
+  assert.doesNotMatch(api, /json\(\{[^}]*error\.details/)
+})
+
 test('every target write/read is scoped to the requested cohort id', () => {
   assert.match(api, /\.eq\('cohort_id', cohortId\)/)
   assert.match(api, /row\.cohort_id !== cohortId/)   // deactivate/reactivate verify ownership

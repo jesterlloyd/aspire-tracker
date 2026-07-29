@@ -70,7 +70,7 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
       ? await reactivateCohortResponseTarget(cohortId, t.id)
       : await deactivateCohortResponseTarget(cohortId, t.id)
     setSaving(false)
-    if (!ok) { setError(json.code === 'DUPLICATE_ACTIVE_TARGET' ? 'Another active target already covers that unit.' : 'Could not update the target.'); return }
+    if (!ok) { setError(json.code === 'TARGETS_NOT_ENABLED' ? 'Response targets are not enabled yet.' : 'Could not update the target.'); return }
     await refetch(); onChanged?.()
   }
 

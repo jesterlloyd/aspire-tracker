@@ -110,7 +110,11 @@ responded/expected target counts (left-join is FROM targets TO responses).
   `unit_id`.
 - **Append-only history** in `public.cohort_unit_response_target_events` (created/deactivated/
   reactivated), written atomically by trigger, service-role only. Reactivation refreshes `requested_at`
-  /`requested_by` on the durable row while every prior transition stays in the events table.
+  /`requested_by` on the durable row while every prior transition stays in the events table. History is
+  **stored but not surfaced in the management UI in this release** (available for a future viewer).
+- Single-row **deactivate/reactivate are idempotent**: an already-inactive deactivate or already-active
+  reactivate returns a safe state result (`changed:false`), not an error. The API returns only coded
+  errors, never raw database text.
 - **Atomic bulk configuration** via the service-role-only RPC `configure_cohort_unit_response_targets`
   (validate-all-then-write; no partial apply); the API calls it after the owner/admin gate.
 
