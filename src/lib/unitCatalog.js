@@ -6,6 +6,11 @@
 
 export const UNIT_CATALOG = [
   // Critical Care
+  // 6 NE / 6 NW belong to the Critical Care Division (Unit Specialty Resource Chart, page 3, 2022-12-01).
+  // 6 NW has a mixed PCU / Medical-Surgical population but its primary division is Critical Care; those
+  // characteristics are preserved as descriptors. See docs/product/UNIT_SPECIALTY_CLASSIFICATION.md.
+  { name: '6 NE',             description: 'PCU, Heart Transplant, Lung Transplant, Mechanical Circulatory Support', division: 'Critical Care', defaultEligible: true },
+  { name: '6 NW',             description: 'PCU, Medical-Surgical, Kidney/Pancreas Transplant, Liver Transplant, Hepatobiliary, Trauma, Thoracic', division: 'Critical Care', defaultEligible: true },
   { name: '3 SCCT',           description: 'Medicine Telemetry Stepdown',                          division: 'Critical Care',   defaultEligible: true  },
   { name: '4 SCCT',           description: 'Cardiac Care ICU (CICU)',                              division: 'Critical Care',   defaultEligible: true  },
   { name: '5 SCCT',           description: 'Surgical Trauma Transplant ICU (SICU)',                division: 'Critical Care',   defaultEligible: true  },
@@ -19,8 +24,6 @@ export const UNIT_CATALOG = [
   { name: '4 South',           description: 'Medicine, Oncology, PCU, Bone Marrow Transplant',    division: 'Medical',         defaultEligible: true  },
   { name: '5 North',           description: 'PCU, Post Cardiac Cath Care',                        division: 'Medical',         defaultEligible: true  },
   { name: '5 South',           description: 'Medical, PCU, Safety Quad',                          division: 'Medical',         defaultEligible: true  },
-  { name: '6 NE',              description: 'Heart Transplant, Lung Transplant, Mechanical Circulatory Support', division: 'Medical', defaultEligible: true },
-  { name: '6 NW',              description: 'Liver/Kidney/Pancreas Transplant, Hepatobiliary, Trauma, Thoracic', division: 'Medical', defaultEligible: true },
   { name: '6 South',           description: 'Advanced Heart Failure, PCU',                        division: 'Medical',         defaultEligible: true  },
   { name: '7 South',           description: 'PCU, General Medical',                               division: 'Medical',         defaultEligible: true  },
 
