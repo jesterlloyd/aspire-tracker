@@ -100,6 +100,29 @@ responded/expected target counts (left-join is FROM targets TO responses).
 - **Backfill is Owner-gated and needs an approved unit list.** The migration does NOT guess Fall 2026
   targets; it ships a commented backfill template the Owner completes with the approved outreach set.
 
+### Hardened integrity (final model)
+
+- **One durable row** per cohort + canonical unit: `UNIQUE (cohort_id, unit_key_canon)` (a generated
+  canonical column). Add creates it, remove marks it inactive, add/restore reactivates the same row;
+  raw/service writes cannot create a second row.
+- **Cohort-compatible `unit_id`** is enforced in the database by trigger `curt_enforce_cohort_unit`
+  (rejects a non-null `unit_id` whose `units.cohort_id` differs); `ON DELETE SET NULL` clears only
+  `unit_id`.
+- **Append-only history** in `public.cohort_unit_response_target_events` (created/deactivated/
+  reactivated), written atomically by trigger, service-role only. Reactivation refreshes `requested_at`
+  /`requested_by` on the durable row while every prior transition stays in the events table.
+- **Atomic bulk configuration** via the service-role-only RPC `configure_cohort_unit_response_targets`
+  (validate-all-then-write; no partial apply); the API calls it after the owner/admin gate.
+
+### Operational gate and disable path
+
+Readiness requires **both**: the server flag `COHORT_UNIT_RESPONSE_TARGETS_ENABLED` equal to the exact
+lowercase string `true` (server-only, no `VITE_` prefix) **and** the service-role sentinel
+`cohort_unit_response_targets_ready()`. Missing/other flag or a failed probe fails closed (list returns
+`ready:false`, writes return 503). **Operational disable:** unset `COHORT_UNIT_RESPONSE_TARGETS_ENABLED`
+and redeploy: the feature disables while **target and audit data are preserved**; no need to drop the
+sentinel function. One-time unit response submission is unaffected either way.
+
 ### Cohort initialization (future cohorts)
 
 To stop this recurring, cohort setup should seed the intended target list into

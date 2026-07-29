@@ -12,6 +12,7 @@
 //     the Owner migration is applied, list returns { ready:false, targets:[] } and writes return 503.
 //   - Never trusts client identity; requested_by / removed_by are the verified caller's profile id.
 
+/* global process */
 import { verifyOwnerAdminCaller, getServiceDb } from './lib/portalAuth.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -19,7 +20,17 @@ const str = (v) => (typeof v === 'string' ? v.trim() : '')
 // One canonical normalization rule; kept in parity with src/lib/canonicalUnit.js (api cannot import src).
 export const canonicalUnitKey = (v) => String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9]/g, '')
 
-async function isTargetsReady(db) {
+// Server operational release flag. Enabled ONLY when exactly the lowercase string 'true'. No VITE_
+// prefix (server-only; the browser cannot read or spoof it). Unsetting it (or any other value) is the
+// safe operational disable: the feature fails closed WITHOUT dropping the target or audit data.
+export function targetsReleaseEnabled(env = process.env) {
+  return env.COHORT_UNIT_RESPONSE_TARGETS_ENABLED === 'true'
+}
+
+// Ready only when BOTH the server flag is 'true' AND the DB sentinel returns true. Fail closed on
+// missing/other flag, a missing sentinel, or a throwing probe.
+async function isTargetsReady(db, env = process.env) {
+  if (!targetsReleaseEnabled(env)) return false
   try {
     const { data, error } = await db.rpc('cohort_unit_response_targets_ready')
     return !error && data === true

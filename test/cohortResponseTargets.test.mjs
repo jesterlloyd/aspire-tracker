@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { canonicalUnitKey as apiCanon } from '../api/cohort-unit-response-targets.js'
+import { canonicalUnitKey as apiCanon, targetsReleaseEnabled } from '../api/cohort-unit-response-targets.js'
 import { canonicalUnitKey as libCanon } from '../src/lib/canonicalUnit.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -123,6 +123,17 @@ test('API fails closed until the migration is applied (readiness sentinel gate)'
   assert.match(api, /cohort_unit_response_targets_ready/)
   assert.match(api, /ready: false/)
   assert.match(api, /targets_not_enabled|TARGETS_NOT_ENABLED/)
+})
+
+test('operational release flag: only the exact lowercase "true" enables (server-only, no VITE_)', () => {
+  assert.equal(targetsReleaseEnabled({ COHORT_UNIT_RESPONSE_TARGETS_ENABLED: 'true' }), true)
+  assert.equal(targetsReleaseEnabled({}), false)                                              // missing
+  assert.equal(targetsReleaseEnabled({ COHORT_UNIT_RESPONSE_TARGETS_ENABLED: 'false' }), false)
+  assert.equal(targetsReleaseEnabled({ COHORT_UNIT_RESPONSE_TARGETS_ENABLED: 'TRUE' }), false) // case-sensitive
+  assert.equal(targetsReleaseEnabled({ COHORT_UNIT_RESPONSE_TARGETS_ENABLED: '1' }), false)
+  // Readiness requires the flag AND the sentinel; the flag is never exposed with a VITE_ prefix.
+  assert.match(api, /if \(!targetsReleaseEnabled\(env\)\) return false/)
+  assert.doesNotMatch(api, /VITE_COHORT_UNIT_RESPONSE_TARGETS_ENABLED/)
 })
 
 test('bulk configuration is an atomic, service-role-only RPC that the API calls after authorization', () => {
