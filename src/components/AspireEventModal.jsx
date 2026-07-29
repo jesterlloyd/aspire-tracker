@@ -8,6 +8,11 @@ import { ASPIRE_EVENT_TYPES, RECURRENCE_OPTIONS, ANNUAL_ALLDAY_TYPES, eventColor
 
 const COLOR_SWATCHES = ['#1D2567', '#0E7490', '#7C3AED', '#C2410C', '#B91C1C', '#2F7D5C']
 
+// Surface the safest server-provided message: an explicit human `message`, else a human `error` string
+// that came with a machine `code` (our safe classified responses), else the generic fallback. Never
+// shows a bare error slug (e.g. 'not_found') and never leaks raw database internals.
+const safeServerError = (json, fallback) => json?.message || (json?.code ? json.error : null) || fallback
+
 // timestamptz ISO → local 'YYYY-MM-DD' / 'HH:MM' for date/time inputs.
 function toDateInput(ts) {
   if (!ts) return ''
@@ -130,7 +135,7 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
     setSaving(true)
     const { ok, json } = await post(payload)
     setSaving(false)
-    if (!ok) { setError(json.message || 'Could not save the event. Please try again.'); return }
+    if (!ok) { setError(safeServerError(json, 'Could not save the event. Please try again.')); return }
     onSaved?.(isEdit ? 'updated' : 'created')
   }
 
@@ -138,7 +143,7 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
     setError(''); setSaving(true)
     const { ok, json } = await post({ action: 'archive', id: event.id })
     setSaving(false)
-    if (!ok) { setError(json.message || 'Could not archive the event.'); return }
+    if (!ok) { setError(safeServerError(json, 'Could not archive the event.')); return }
     onSaved?.('archived')
   }
 

@@ -231,6 +231,26 @@ function validateEventBody(body, { partial = false } = {}) {
   return { ok: true, value: out };
 }
 
+// Map a Supabase/Postgres write error to a SAFE, coded client response. Never returns the raw database
+// message, details, hint, constraint internals, SQL, or stack. CHECK violations (23514) are told apart
+// by CONSTRAINT NAME - not by the generic code - so an event-type rejection is distinct from a date
+// rejection, and recurrence-readiness is never inferred here (that stays the explicit pre-insert 503).
+export function classifyWriteError(error) {
+  const code = error?.code || '';
+  const where = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  const names = (n) => where.includes(n);
+
+  if (code === '23514') {
+    if (names('aspire_events_event_type_chk')) {
+      return { status: 422, body: { error: "That event type isn't available yet.", code: 'EVENT_TYPE_UNAVAILABLE' } };
+    }
+    if (names('aspire_events_end_after_start_chk') || names('chk_aspire_events_recurrence_end')) {
+      return { status: 422, body: { error: 'Please check the event dates.', code: 'INVALID_EVENT_DATES' } };
+    }
+  }
+  return { status: 500, body: { error: 'Could not save the event.', code: 'EVENT_SAVE_FAILED' } };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -292,7 +312,7 @@ export default async function handler(req, res) {
   // ── writes: owner/admin only ─────────────────────────────────────────────────────────────────
   if (!isOwnerAdmin(auth.role, auth.isOwner)) {
     console.log('[aspire-events] insufficient authority for write', { callerRole: auth.role, action, request_id: requestId });
-    return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to manage events.' });
+    return res.status(403).json({ error: 'forbidden', code: 'EVENT_PERMISSION_DENIED', message: "You don't have permission to do that." });
   }
 
   if (action === 'create') {
@@ -313,8 +333,9 @@ export default async function handler(req, res) {
     if (!recurrenceReady) { delete row.recurrence; delete row.recurrence_end; }
     const { data, error } = await db.from('aspire_events').insert(row).select('*').single();
     if (error || !data) {
-      console.log('[aspire-events] create failed', { request_id: requestId, errorCode: error?.code });
-      return res.status(500).json({ error: 'internal_error', message: 'Could not create the event.' });
+      const mapped = classifyWriteError(error);
+      console.log('[aspire-events] create failed', { request_id: requestId, errorCode: error?.code, mappedCode: mapped.body.code });
+      return res.status(mapped.status).json(mapped.body);
     }
     await emitAudit(db, auth, { actionType: 'aspire_event_created', eventId: data.id, title: data.title, requestId });
     return res.status(200).json({ success: true, event: data });
@@ -336,8 +357,9 @@ export default async function handler(req, res) {
     if (Object.keys(patch).length === 1) return res.status(400).json({ error: 'invalid_request', message: 'Nothing to update.' });
     const { data, error } = await db.from('aspire_events').update(patch).eq('id', id).eq('status', 'active').select('*').maybeSingle();
     if (error) {
-      console.log('[aspire-events] update failed', { request_id: requestId, errorCode: error.code });
-      return res.status(500).json({ error: 'internal_error', message: 'Could not update the event.' });
+      const mapped = classifyWriteError(error);
+      console.log('[aspire-events] update failed', { request_id: requestId, errorCode: error.code, mappedCode: mapped.body.code });
+      return res.status(mapped.status).json(mapped.body);
     }
     if (!data) return res.status(404).json({ error: 'not_found' });
     await emitAudit(db, auth, { actionType: 'aspire_event_updated', eventId: data.id, title: data.title, requestId });
