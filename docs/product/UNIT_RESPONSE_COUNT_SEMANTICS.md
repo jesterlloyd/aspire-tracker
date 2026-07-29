@@ -1,129 +1,157 @@
 # Unit Response Count Semantics (At a Glance, Placement Capacity)
 
 Source of truth for how the Main App "At a Glance" Placement Capacity summary counts unit responses,
-pending units, and confirmed slots. Written to correct a defect where the summary reported, for
-example, `13 of 13 units responded · 17 slots confirmed · 0 pending` for a cohort (including Fall 2026)
-in which roughly ten expected units had not responded.
+pending units, and confirmed slots, and for the model correction behind it.
 
-## The defect (root cause, proven)
+## The defect
 
-`src/components/OverviewTab.jsx` computed the summary from the response rows alone:
+The summary reported, for example, `13 of 13 units responded · 17 slots confirmed · 0 pending` for a
+cohort (including Fall 2026) in which roughly ten expected units had not responded.
 
-```
-total     = unitResponses.length > 0 ? unitResponses.length : participating.length
-responded = hosting.length + notHosting.length
-pending   = unitResponses.filter(r => r.response_status === 'pending').length
-"{responded} of {total} units responded · {slots} slots confirmed · {pending} pending"
-```
+## Two facts that make the count hard
 
-Because `unit_cohort_responses` rows are created only when a unit submits (the upsert writes
-`submitted_hosting` or `submitted_not_hosting`; it never writes a `pending` row), a unit that has not
-responded has NO row at all. The denominator (`unitResponses.length`) therefore counts only units that
-already responded, and `pending` counts only literal `pending`-status rows (effectively none). Units
-with no row are invisible: they inflate neither the denominator nor pending, so the summary reads
-"N of N responded, 0 pending" regardless of how many expected units are missing.
+1. **Response rows are not the denominator.** `unit_cohort_responses` rows are created only when a unit
+   submits (the upsert writes `submitted_hosting` or `submitted_not_hosting`; it never writes a
+   `pending` row). A unit that has not responded has no response row, so counting responded units
+   against `unitResponses.length` always yields "N of N, 0 pending".
+
+2. **Cohort `units` rows are not the denominator either, unless they are proven to be the full request
+   roster.** `public.units` rows are created LAZILY: on a submission (`api/lib/unitResponseUpsert.js`),
+   or when staff manually seed via `UnitSetupPanel` / `ImportUnitsCSV`. Cohort creation seeds zero
+   units, and nothing copies a roster forward between cohorts. `units.is_participating` is a
+   response/host OUTCOME (a decline sets it false), not an outreach-target flag. The Owner's Fall 2026
+   diagnostic confirmed this: cohort `eedd91ec-...` has exactly 13 `units` rows and all 13 responded, so
+   any `units`-derived denominator (including `is_participating OR has-response`) still shows 13 of 13.
+
+**Missing outreach targets cannot be reconstructed from missing response rows alone.** A unit that was
+asked but never responded, and was never manually seeded, has no row in `units` and no row in
+`unit_cohort_responses`. There is no silence to count.
 
 ## Canonical concepts
 
-### Total expected units
+### Expected units (outreach targets)
 
-The cohort's unit roster: distinct `units` rows for the selected cohort that are part of the request
-cycle. Because the schema has no explicit outreach-target table, the request cycle is derived as:
-
-- a unit is **expected** when it is currently marked `is_participating = true` (in the roster) OR it has
-  any `unit_cohort_responses` row for the cohort (it clearly was in the cycle).
-
-This deliberately:
-
-- includes units awaiting a response (rostered, no row yet) so they count as pending;
-- includes units that DECLINED (a decline sets `units.is_participating = false` but writes a
-  `submitted_not_hosting` response), so they still count as expected and responded;
-- excludes staff-deactivated units that have no response (not in the cycle);
-- never uses the global unit directory, another cohort's units, or duplicate aliases.
-
-Distinctness is by canonical `unit.id`, never by display name, so spacing/alias variants of a unit name
-resolve to one unit.
+`Pending` must mean **expected outreach targets with no valid submitted response**. Pending is never
+inferred from silence unless the unit is a known outreach target. Because no explicit target source
+exists today, the expected set is an **explicit per-cohort target list**, `cohort_unit_response_targets`
+(see below). Distinctness is by canonical unit identity (unit_id when available, else a normalized unit
+key), never by display label.
 
 ### Responded units
 
-A distinct expected unit counts as responded when its canonical response has status
-`submitted_hosting` or `submitted_not_hosting`. A zero-slot / decline (`submitted_not_hosting`) counts
-as responded (the unit answered). A `pending` row, a missing row, or any non-submitted state does not.
-The table is unique on `(cohort_id, unit_id)`, so there is one canonical response per unit; if any
-duplicate ever existed, the latest by `last_updated_at` then `submitted_at` wins deterministically.
+A distinct target counts as responded when its canonical response status is `submitted_hosting` or
+`submitted_not_hosting`. A zero-slot decline (`submitted_not_hosting`) counts as responded. `pending`,
+drafts, missing rows, and any non-submitted state do not. The response table is unique on
+`(cohort_id, unit_id)`; if any duplicate existed, the latest by `last_updated_at` then `submitted_at`
+wins.
 
 ### Pending units
 
-`pending = max(0, expected_distinct_units - responded_distinct_units)`. Pending is the expected units
-that have not submitted a valid response, including units with no row at all. It is never negative and
-is never defined as only the rows whose status literally equals `pending`.
+`pending = max(0, targets - responded_targets)`, never negative, never defined as only literal
+`pending`-status rows.
 
 ### Slots confirmed
 
-Sum of `slots_offered` from `submitted_hosting` responses of expected units only. Declines contribute
-zero. Non-expected (orphan) responses, other cohorts, and non-hosting states contribute nothing.
-Confirmed slots can never be negative.
+Sum of `slots_offered` from `submitted_hosting` responses for the cohort (target-independent; a decline
+contributes zero, negatives clamp to zero).
+
+### Orphan responses
+
+A submitted response whose unit is not a target contributes to slots confirmed but not to the
+responded/expected target counts (left-join is FROM targets TO responses).
 
 ## Shared aggregation
 
-All of the above is computed by one pure, cohort-scoped helper,
-`src/lib/unitResponseMetrics.js` -> `computeUnitResponseMetrics({ units, responses })`, returning:
+`src/lib/unitResponseMetrics.js` -> `computeUnitResponseMetrics({ targets, responses })` returns:
 
-```
-{ expectedUnitCount, respondedUnitCount, pendingUnitCount, confirmedSlotCount,
-  expectedUnitIds, respondedUnitIds, pendingUnitIds }
+```js
+{ configured, expectedUnitCount, respondedUnitCount, pendingUnitCount, confirmedSlotCount,
+  submittedResponseCount, expectedUnitIds, respondedUnitIds, pendingUnitIds, pendingUnitNames }
 ```
 
-with left-join semantics from expected units to responses, `respondedUnitCount <= expectedUnitCount`,
-`pendingUnitCount = max(0, expected - responded)`, and `confirmedSlotCount >= 0`. It changes no
-authorization or portal scope (division/response counts never gate access).
+- `configured` is true only when the cohort has at least one target. When false, the caller must NOT
+  show a "0 pending" completeness claim.
+- left-join from targets to responses; `respondedUnitCount <= expectedUnitCount`;
+  `pendingUnitCount = max(0, expected - responded)`; `confirmedSlotCount >= 0`.
+- pure and cohort-scoped (both inputs are already scoped to one cohort); no authorization or portal
+  scope is derived from it.
 
 ## Display behavior
 
-`{responded} of {expected} units responded · {slots} slots confirmed · {pending} pending`, and when
-zero units are expected, the empty state `No unit response requests are configured for this cohort.`
-instead of a misleading `0 of 0 units responded`. During load or error, the summary does not show a
-false `0 pending`.
+- **Configured cohort:** `{responded} of {expected} units responded · {slots} slots confirmed ·
+  {pending} pending`. When pending > 0, the pending unit names (from the target list, never invented
+  from the global catalog) are surfaced as an accessible title on the summary.
+- **Unconfigured cohort (no targets yet, e.g. Fall 2026 today):** an honest message that does NOT claim
+  completeness, e.g. `{n} unit responses received · {slots} slots confirmed · response targets not set`.
+  It never shows `0 pending`.
+- During load or error, the summary shows a neutral state, never a false `0 pending`.
 
-## Model gap and future source of truth
+## Data model correction (Owner-gated, not applied)
 
-There is no explicit per-cohort outreach/request-target table today; the expected set is derived from
-`units` (roster + responded). This is the smallest safe correction and needs no schema change. A future
-enhancement could add an explicit cohort request-target table (which units were sent a capacity
-request), which would make "expected" authoritative and independent of the `is_participating` flag.
-This correction does NOT add a migration; it is an aggregation fix only.
+`supabase/migrations/20260731030000_add_cohort_unit_response_targets.sql` adds
+`public.cohort_unit_response_targets`:
 
-## Read-only Owner diagnostic for Fall 2026 (do NOT run as part of this change)
+- `id`, `cohort_id` (FK), `unit_key` (canonical stable unit name), optional `unit_id` (FK to a `units`
+  row when one exists), `requested_at`, `requested_by_profile_id`, `is_active` (soft-remove; removing a
+  target is auditable via `removed_at`/`removed_by_profile_id`), `created_at`, `updated_at`.
+- UNIQUE `(cohort_id, unit_key)`; target rows exist before responses; responses stay in
+  `unit_cohort_responses`; pending = targets minus submitted responses.
+- No portal authorization is derived from target rows (they are descriptive data only).
+- **Backfill is Owner-gated and needs an approved unit list.** The migration does NOT guess Fall 2026
+  targets; it ships a commented backfill template the Owner completes with the approved outreach set.
 
-Produces the per-unit diagnostic table (unit id, name, expected, response row, state, timestamp,
-confirmed slots, counted-as-responded, counted-as-pending):
+### Cohort initialization (future cohorts)
+
+To stop this recurring, cohort setup should seed the intended target list into
+`cohort_unit_response_targets` before outreach (from the prior cohort's targets or a chosen roster).
+That workflow change is proposed here and is intentionally not implemented in this data-model pass.
+
+## Read-only Owner diagnostics for Fall 2026 (do NOT run as part of this change)
+
+Cohort id `eedd91ec-ad6f-4df8-aa20-5c06b2889011`.
 
 ```sql
-WITH fall AS (
-  SELECT id FROM public.cohorts WHERE name = 'Fall 2026'
-),
-resp AS (
-  SELECT DISTINCT ON (unit_id)
-         unit_id, id AS response_id, response_status, slots_offered, submitted_at, last_updated_at
-  FROM public.unit_cohort_responses
-  WHERE cohort_id = (SELECT id FROM fall)
-  ORDER BY unit_id, last_updated_at DESC NULLS LAST, submitted_at DESC NULLS LAST
-)
-SELECT
-  u.id                                              AS unit_id,
-  u.unit_name,
-  (u.is_participating OR r.unit_id IS NOT NULL)     AS expected_for_cohort,
-  r.response_id,
-  r.response_status,
-  r.submitted_at,
-  CASE WHEN r.response_status = 'submitted_hosting'
-       THEN COALESCE(r.slots_offered, 0) ELSE 0 END AS confirmed_slots,
-  (r.response_status IN ('submitted_hosting', 'submitted_not_hosting')) AS counted_as_responded,
-  ((u.is_participating OR r.unit_id IS NOT NULL)
-     AND COALESCE(r.response_status, '') NOT IN ('submitted_hosting', 'submitted_not_hosting'))
-                                                     AS counted_as_pending
+-- A. Current roster (known: 13 rows, all responded)
+SELECT u.id AS unit_id, u.unit_name, u.is_participating,
+       r.response_status, r.slots_offered, r.submitted_at
 FROM public.units u
-LEFT JOIN resp r ON r.unit_id = u.id
-WHERE u.cohort_id = (SELECT id FROM fall)
+LEFT JOIN public.unit_cohort_responses r
+  ON r.cohort_id = u.cohort_id AND r.unit_id = u.id
+WHERE u.cohort_id = 'eedd91ec-ad6f-4df8-aa20-5c06b2889011'
 ORDER BY u.unit_name;
+
+-- B. Prior-cohort comparison: which units the PRIOR cohort had that Fall 2026 lacks (candidate
+--    outreach targets). Replace :prior_cohort_id with the immediately preceding cohort id.
+SELECT COALESCE(pu.unit_name, fu.unit_name) AS unit_name,
+       (pu.id IS NOT NULL) AS in_prior_cohort,
+       (fu.id IS NOT NULL) AS in_fall_2026,
+       pr.response_status  AS prior_response,
+       fr.response_status  AS fall_response
+FROM public.units pu
+FULL OUTER JOIN public.units fu
+  ON regexp_replace(upper(coalesce(fu.unit_name,'')), '[^A-Z0-9]', '', 'g')
+   = regexp_replace(upper(coalesce(pu.unit_name,'')), '[^A-Z0-9]', '', 'g')
+  AND fu.cohort_id = 'eedd91ec-ad6f-4df8-aa20-5c06b2889011'
+LEFT JOIN public.unit_cohort_responses pr ON pr.unit_id = pu.id
+LEFT JOIN public.unit_cohort_responses fr ON fr.unit_id = fu.id
+WHERE pu.cohort_id = :prior_cohort_id OR fu.cohort_id = 'eedd91ec-ad6f-4df8-aa20-5c06b2889011'
+ORDER BY unit_name;
+
+-- C. Canonical catalog gap: the approved catalog names are in src/lib/unitCatalog.js (28 units, 2
+--    default-ineligible). For each, check for a Fall 2026 units row, an active unit leader, and any
+--    Fall 2026 response. (Run per name, or load the catalog names into a VALUES list.)
+SELECT n.unit_name,
+       (u.id IS NOT NULL)  AS has_fall_units_row,
+       (ul.unit_name IS NOT NULL) AS has_active_unit_leader,
+       (r.id IS NOT NULL)  AS has_fall_response
+FROM (VALUES ('6 NE'), ('6 NW') /* ...approved catalog names... */) AS n(unit_name)
+LEFT JOIN public.units u
+  ON u.cohort_id = 'eedd91ec-ad6f-4df8-aa20-5c06b2889011' AND u.unit_name = n.unit_name
+LEFT JOIN public.unit_leaders ul ON ul.unit_name = n.unit_name AND ul.is_active = true
+LEFT JOIN public.unit_cohort_responses r
+  ON r.cohort_id = 'eedd91ec-ad6f-4df8-aa20-5c06b2889011' AND r.unit_id = u.id
+ORDER BY n.unit_name;
+
+-- D. Outreach evidence: there is no per-unit-per-cohort request-dispatch record in the schema, so
+--    outreach cannot be reconstructed from data. The approved target list must come from the Owner.
 ```
