@@ -127,10 +127,10 @@ test('SettingsShell source: routing, panel dispatch, and rail-active fallback', 
 
   // Max-width rules unchanged: about/general/appearance/signature/tours share the 720
   // default; knowledge/preceptorParity are 1040; accounts has none.
-  assert.match(shell, /currentKey === 'accounts' \? 'none' : \['knowledge', 'preceptorParity'\]\.includes\(currentKey\) \? 1040 : 720/)
+  assert.match(shell, /currentKey === 'accounts' \? 'none' : 1040/)
 })
 
-test('GeneralPanel source: grouped subsettings hub, back affordance, no leftover About content', () => {
+test('GeneralPanel source: master-detail hub, narrow-only back affordance, no leftover About content', () => {
   const general = read('src/components/settings/GeneralPanel.jsx')
 
   // No About/buildInfo content remains - it moved to AboutPanel.jsx. (Prose comments may
@@ -143,7 +143,7 @@ test('GeneralPanel source: grouped subsettings hub, back affordance, no leftover
   assert.doesNotMatch(general, /role="tablist"/, 'the dead segmented sub-nav scaffold must be removed')
 
   // Updated heading copy.
-  assert.match(general, /Preferences and support for your ASPIRE Intelligence workspace\./)
+  assert.match(general, /Preferences, support, and information for your ASPIRE Intelligence workspace\./)
 
   // The three subsettings render via the unmodified existing panels.
   assert.match(general, /import AppearancePanel from '\.\/AppearancePanel'/)
@@ -209,14 +209,13 @@ test('deep-link consumers unchanged: UserMenu -> /settings/general, Interviewers
 
 // ── SETTINGS-UNIFIED-DESIGN-1B: General > Information > About ────────────────
 
-test('General hub lists About under an Information group and renders it as a subsetting', () => {
+test('General hub lists About in the flat subsettings list and renders it as a subsetting', () => {
   const general = read('src/components/settings/GeneralPanel.jsx')
-  // Information group with the About row navigating to the preserved deep link.
-  assert.match(general, /title: 'Information'/)
-  assert.match(general, /key: 'about', path: '\/settings\/about'/)
-  // AboutPanel renders unmodified inside the hub with the back affordance.
+  // Flat list entry navigating to the preserved deep link - no grouped presentation.
+  assert.match(general, /key: 'about',\s+path: '\/settings\/about'/)
+  assert.doesNotMatch(general, /title: 'Information'/)
+  // AboutPanel renders unmodified inside the hub.
   assert.match(general, /import AboutPanel from '\.\/AboutPanel'/)
-  assert.match(general, /if \(subKey === 'about'\) \{[\s\S]{0,120}<BackToGeneral \/>[\s\S]{0,60}<AboutPanel \/>/)
   // The hub still never carries the build content itself.
   assert.doesNotMatch(general, /BUILD_SHA|from ['"].*buildInfo['"]/)
 })
@@ -232,4 +231,69 @@ test('mobile: the rail stacking rule survives the About restructure', () => {
   const shell = read('src/components/settings/SettingsShell.jsx')
   // The <=768px rule that stacks the rail above the panel is still present.
   assert.match(shell, /@media \(max-width: 768px\) \{ \.settings-nav-rail \{ position: static/)
+})
+
+// ── SETTINGS-UNIFIED-DESIGN-1C: responsive three-pane master-detail ──────────
+
+test('the middle-pane subsettings list is flat and alphabetical', () => {
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  // Extract the SUBSETTINGS array labels in source order.
+  const block = general.slice(general.indexOf('const SUBSETTINGS'), general.indexOf(']', general.indexOf('const SUBSETTINGS')))
+  const labels = [...block.matchAll(/label: '([^']+)'/g)].map(m => m[1])
+  assert.deepEqual(labels, ['About', 'Appearance', 'Email Signature', 'Tours & Help'])
+  const sorted = [...labels].sort((a, b) => a.localeCompare(b))
+  assert.deepEqual(labels, sorted, 'list must be alphabetical by label')
+  // No grouped eyebrows remain anywhere in the hub.
+  assert.doesNotMatch(general, /title: 'Preferences'|title: 'Support'|title: 'Information'/)
+})
+
+test('About is the automatic desktop selection when General opens without a subKey', () => {
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  assert.match(general, /const selectedKey = subKey \|\| 'about'/)
+  // Default content resolution falls back to AboutPanel.
+  assert.match(general, /return <AboutPanel \/>/)
+})
+
+test('desktop master-detail: list and content side by side, row selection, no Back', () => {
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  // Middle pane (fixed basis) + right pane (flexible) rendered together on desktop.
+  assert.match(general, /flex: '0 0 256px'[\s\S]{0,120}<SubsettingsList activeKey=\{selectedKey\}/)
+  assert.match(general, /<SubsettingContent subKey=\{selectedKey\}/)
+  // Rows navigate to the real routes so deep links and back/forward work.
+  assert.match(general, /onClick=\{\(\) => navigate\(row\.path\)\}/)
+  // Selected row is announced (aria-current), matching the rail's language.
+  assert.match(general, /aria-current=\{active \? 'page' : undefined\}/)
+  // The Back affordance renders ONLY in the narrow drill-down branch: it must appear
+  // inside the `if (narrow)` block and nowhere after the desktop return begins.
+  const narrowIdx = general.indexOf('if (narrow)')
+  const desktopIdx = general.indexOf('Desktop master-detail: middle list + right content')
+  const backUses = [...general.matchAll(/<BackToGeneral \/>/g)].map(m => m.index)
+  assert.equal(backUses.length, 1, 'exactly one BackToGeneral usage')
+  assert.ok(backUses[0] > narrowIdx && backUses[0] < desktopIdx, 'Back renders only in the narrow branch')
+})
+
+test('deep links select the matching middle-pane row for all four subsettings', () => {
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  for (const key of ['about', 'appearance', 'signature', 'tours']) {
+    assert.match(general, new RegExp(`key: '${key}',\\s+path: '/settings/${key === 'signature' ? 'signature' : key}'`))
+  }
+  // subKey (from the route) IS the selection: activeKey={selectedKey} with selectedKey = subKey || 'about'.
+  assert.match(general, /const selectedKey = subKey \|\| 'about'/)
+})
+
+test('primary sections keep their content width; General family shares the wide cap', () => {
+  const shell = read('src/components/settings/SettingsShell.jsx')
+  assert.match(shell, /currentKey === 'accounts' \? 'none' : 1040/)
+})
+
+test('responsive fallback: narrow widths use drill-down, never three squeezed columns', () => {
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  // A viewport hook at the shell's 768 breakpoint gates the two presentations.
+  assert.match(general, /function useIsNarrow\(bp = 768\)/)
+  assert.match(general, /if \(narrow\)/)
+  // Narrow with a subsetting: Back + content; narrow without: list only.
+  assert.match(general, /<BackToGeneral \/>[\s\S]{0,120}<SubsettingContent subKey=\{subKey\}/)
+  assert.match(general, /<SubsettingsList activeKey=\{null\} \/>/)
+  // Desktop panes may wrap rather than overflow (no horizontal scroll).
+  assert.match(general, /flexWrap: 'wrap'/)
 })

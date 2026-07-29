@@ -145,7 +145,10 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
             with a `subKey` telling GeneralPanel which subsetting to show.
             SETTINGS-UNIFIED-DESIGN-1B: About is a General subsetting too (Information group),
             so /settings/about renders through GeneralPanel exactly like the other three. */}
-        <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: currentKey === 'accounts' ? 'none' : ['knowledge', 'preceptorParity'].includes(currentKey) ? 1040 : 720 }}>
+        {/* SETTINGS-UNIFIED-DESIGN-1C: the General family renders a master-detail pair
+            (middle subsettings list + right content), so it shares the wider 1040 cap
+            with Knowledge Center / Preceptor Parity. Accounts & Access stays uncapped. */}
+        <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: currentKey === 'accounts' ? 'none' : 1040 }}>
           {['general', 'appearance', 'signature', 'tours', 'about'].includes(currentKey) &&
             <GeneralPanel subKey={subKey} onRestartTour={onRestartTour} />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}
