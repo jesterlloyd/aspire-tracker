@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
+import SurfaceCard from '../ui/SurfaceCard'
 
 const NAVY = '#1D2567'
 const labelStyle = { display: 'block', fontSize: 11.5, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }
@@ -55,16 +56,15 @@ export default function SignaturePanel() {
   const affiliation = form.department.trim() || 'Brawerman Nursing Institute, Cedars-Sinai'
 
   return (
-    <section aria-labelledby="settings-signature-heading">
-      <h2 id="settings-signature-heading" style={{ margin: '0 0 4px', fontSize: 17, fontWeight: 700, color: '#191919', fontFamily: 'DM Sans, sans-serif' }}>
-        Email Signature
-      </h2>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-        This signature is used for your <strong>manual ASPIRE Connect</strong> emails only. Automated
-        program emails (reminders, notifications) are unaffected.
-      </p>
-
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 18, background: '#fff' }}>
+    <section aria-label="Email Signature">
+      {/* SETTINGS-VISUAL-DENSITY-1: heading comes from the General hub. The scope note is
+          genuinely operational (manual Connect emails only), so it moved INSIDE the card
+          rather than living as a page subtitle. Custom border card -> canonical SurfaceCard. */}
+      <SurfaceCard padding={18}>
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: 'DM Sans, sans-serif' }}>
+          This signature is used for your <strong>manual ASPIRE Connect</strong> emails only. Automated
+          program emails (reminders, notifications) are unaffected.
+        </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={labelStyle}>Display Name *</label>
@@ -131,7 +131,7 @@ export default function SignaturePanel() {
             {saving ? 'Saving…' : 'Save Signature'}
           </button>
         </div>
-      </div>
+      </SurfaceCard>
     </section>
   )
 }

@@ -11,7 +11,7 @@ import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Settings, Monitor, Users, FileText, Info, Scale, PenLine } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
-import { visibleSections, routableSections } from './settingsSections'
+import { visibleSections, routableSections, SETTINGS_HEADING_STYLE } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
 import KnowledgeCenterPanel from './KnowledgeCenterPanel'
@@ -66,7 +66,10 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
   const subKey = NON_RAIL_SUBKEYS.includes(matchedKey) ? matchedKey : undefined
 
   return (
-    <div style={{ padding: '20px 32px 40px', fontFamily: 'DM Sans, sans-serif' }}>
+    // SETTINGS-VISUAL-DENSITY-1: no extra top/side padding of its own - the back
+    // breadcrumb sits at .app-main's 20px top offset, matching the Interview Rubric's
+    // spacing, and Settings spans the same canonical workspace width as every tab.
+    <div style={{ padding: '0 0 40px', fontFamily: 'DM Sans, sans-serif' }}>
       {/* ACCOUNTS-ACCESS-REDESIGN-1B: keep the Settings nav rail visible during long panel scrolling
           (e.g. Accounts & Access → Activity Log). Sticky within the layout, offset ~120px to clear the
           global sticky .top-section (header ~64 + cohort bar ~48). max-height + overflow so a tall rail
@@ -79,23 +82,16 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
       {/* Back-to-workspace affordance - shared component (reuses MainApp's prior-workspace path) */}
       <WorkspaceBackLink path={backPath} label={backLabel} />
 
-      {/* Header - title + subtitle for a clearer, more polished page hierarchy. */}
-      <div style={{ margin: '10px 0 24px' }}>
-        <h1 style={{ margin: 0, fontSize: 25, fontWeight: 700, color: 'var(--color-text-primary, #191919)', letterSpacing: '-0.01em' }}>
-          Settings
-        </h1>
-        <p style={{ margin: '5px 0 0', fontSize: 14, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.5 }}>
-          Manage your ASPIRE Intelligence workspace, preferences, access, and resources.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' }}>
-        {/* Navigation rail - workspace-grade: icons, grouping, active/hover states.
-            Sections come from the registry (role-filtered); no placeholders.
-            UI-1: the rail surface is the shared SurfaceCard primitive (same pixels). */}
+      {/* SETTINGS-VISUAL-DENSITY-1: no page-level header block. "Settings" is the first
+          column's heading, sharing SETTINGS_HEADING_STYLE with the panel headings so
+          Settings | General | <subsetting> (and the primary section titles) sit on one
+          baseline. The generic page subtitle is gone. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start', marginTop: 18 }}>
+        {/* Column 1: the Settings heading + navigation rail. */}
+        <div style={{ flex: '0 0 236px', minWidth: 212 }}>
+        <h1 style={SETTINGS_HEADING_STYLE}>Settings</h1>
         <SurfaceCard as="nav" aria-label="Settings sections" radius={14} padding={10}
-          className="settings-nav-rail"
-          style={{ flex: '0 0 236px', minWidth: 212 }}>
+          className="settings-nav-rail">
           {sections.map((s, i) => {
             const Icon = SECTION_ICONS[s.key]
             const active = s.key === railActiveKey
@@ -135,20 +131,14 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
             )
           })}
         </SurfaceCard>
+        </div>
 
-        {/* Active panel. Knowledge Center is wider (table); Accounts & Access uses the FULL workspace
-            width (ACCOUNTS-ACCESS-REDESIGN-1A, no cap, bounded only by the .app-main 1580px shell);
-            all other panels keep their established max width and render unchanged.
-            SETTINGS-UNIFIED-DESIGN-1: appearance/signature/tours are no longer separate rail
-            destinations - they render through GeneralPanel (which owns the subsettings hub and
-            passthrough to the unchanged AppearancePanel/SignaturePanel/ToursHelpPanel components)
-            with a `subKey` telling GeneralPanel which subsetting to show.
-            SETTINGS-UNIFIED-DESIGN-1B: About is a General subsetting too (Information group),
-            so /settings/about renders through GeneralPanel exactly like the other three. */}
-        {/* SETTINGS-UNIFIED-DESIGN-1C: the General family renders a master-detail pair
-            (middle subsettings list + right content), so it shares the wider 1040 cap
-            with Knowledge Center / Preceptor Parity. Accounts & Access stays uncapped. */}
-        <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: currentKey === 'accounts' ? 'none' : 1040 }}>
+        {/* Active panel. SETTINGS-UNIFIED-DESIGN-1/1B: appearance/signature/tours/about render
+            through GeneralPanel (master-detail hub + passthrough to the unchanged panels) via
+            `subKey`. SETTINGS-VISUAL-DENSITY-1: EVERY section now uses the full canonical
+            workspace width (no 720/1040 caps) - the same width Accounts & Access already used,
+            bounded only by the .app-main 1580px shell. */}
+        <div style={{ flex: '1 1 360px', minWidth: 0 }}>
           {['general', 'appearance', 'signature', 'tours', 'about'].includes(currentKey) &&
             <GeneralPanel subKey={subKey} onRestartTour={onRestartTour} />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}

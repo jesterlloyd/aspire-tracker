@@ -51,3 +51,13 @@ export function visibleSections(roleFlags) {
 export function routableSections(roleFlags) {
   return SETTINGS_SECTIONS.filter(s => s.implemented && s.visible(roleFlags))
 }
+
+// SETTINGS-VISUAL-DENSITY-1: ONE heading spec shared by the Settings column, the
+// General master-list column, the detail pane, and the primary section panels, so
+// every top-of-column heading sits on the same baseline (pure style const; this
+// module stays non-component config).
+export const SETTINGS_HEADING_STYLE = {
+  margin: '0 0 14px', fontSize: 20, fontWeight: 700, lineHeight: '28px',
+  letterSpacing: '-0.01em',
+  color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
+}

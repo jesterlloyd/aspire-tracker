@@ -25,6 +25,7 @@ import { supabase } from '../../lib/supabase'
 import StatusBadge from '../ui/StatusBadge'
 import { FilterKPICard } from '../KPIBand'
 import { UserInitials, displayRole, formatLoginDate, ROLE_OPTIONS, compareAccountsByName } from './accountsShared'
+import { SETTINGS_HEADING_STYLE } from './settingsSections'
 import { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, PORTAL_STATUS_STYLES, EXPIRING_SOON_DAYS, summarizeScope } from '../../lib/portalAccessStatus'
 import InviteUserModal from './InviteUserModal'
 import GrantPortalAccessModal from './GrantPortalAccessModal'
@@ -294,7 +295,7 @@ export default function AccountsDirectory() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ minWidth: 0, flex: '1 1 360px' }}>
-          <h2 id="accounts-directory-heading" style={{ margin: '0 0 4px', fontSize: 17, fontWeight: 700, color: '#191919' }}>Accounts &amp; Access</h2>
+          <h2 id="accounts-directory-heading" style={{ ...SETTINGS_HEADING_STYLE, margin: '0 0 4px' }}>Accounts &amp; Access</h2>
           <p style={{ margin: 0, fontSize: 13.5, color: '#6b7280' }}>Manage staff accounts and scoped portal access.</p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>

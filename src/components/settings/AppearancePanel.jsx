@@ -4,25 +4,15 @@
 // behavior, the OS listener, and the public data-theme-lock all remain in ThemeContext.
 // No new preference storage, accent color, or user_settings write is introduced.
 import ThemeToggle from '../ThemeToggle'
+import SurfaceCard from '../ui/SurfaceCard'
 
+// SETTINGS-VISUAL-DENSITY-1: the heading is provided by the General master-detail hub
+// (one shared baseline with Settings | General); the generic subtitle is removed. The
+// operational guidance lives inside the card. Custom border card -> canonical SurfaceCard.
 export default function AppearancePanel() {
   return (
-    <section aria-labelledby="settings-appearance-heading">
-      <h2 id="settings-appearance-heading" style={{
-        margin: '0 0 4px', fontSize: 17, fontWeight: 700,
-        color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
-      }}>
-        Appearance
-      </h2>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>
-        Control how ASPIRE Intelligence looks on this device.
-      </p>
-
-      {/* Appearance */}
-      <div style={{
-        border: '1px solid var(--color-border-default, #e5e7eb)',
-        borderRadius: 12, padding: '16px 18px',
-        background: 'var(--color-bg-surface, #ffffff)',
+    <section aria-label="Appearance">
+      <SurfaceCard padding="16px 18px" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
       }}>
         <div style={{ minWidth: 0 }}>
@@ -32,7 +22,7 @@ export default function AppearancePanel() {
           </div>
         </div>
         <ThemeToggle />
-      </div>
+      </SurfaceCard>
     </section>
   )
 }

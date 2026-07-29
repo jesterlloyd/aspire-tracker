@@ -31,6 +31,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { resolvePreceptor } from '../../lib/preceptor'
 import SurfaceCard from '../ui/SurfaceCard'
+import { SETTINGS_HEADING_STYLE } from './settingsSections'
 import DataTable from '../ui/DataTable'
 import { FilterKPICard } from '../KPIBand'
 
@@ -220,7 +221,7 @@ export default function PreceptorParityPanel() {
   return (
     <div style={{ fontFamily: F }}>
       <div style={{ marginBottom: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#191919' }}>Preceptor Assignment Parity</h2>
+        <h2 style={{ ...SETTINGS_HEADING_STYLE, margin: 0 }}>Preceptor Assignment Parity</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.55 }}>
           Read-only diagnostic over the <strong>union</strong> of students with a current primary
           (<code style={{ fontSize: 12 }}>students.preceptor_id</code>, the authoritative field) and students with an

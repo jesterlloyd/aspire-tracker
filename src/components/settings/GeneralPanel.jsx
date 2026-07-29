@@ -24,6 +24,7 @@ import SignaturePanel from './SignaturePanel'
 import ToursHelpPanel from './ToursHelpPanel'
 import AboutPanel from './AboutPanel'
 import SurfaceCard from '../ui/SurfaceCard'
+import { SETTINGS_HEADING_STYLE } from './settingsSections'
 
 // One flat list, ALPHABETICAL by label: About, Appearance, Email Signature, Tours & Help.
 // (No Preferences/Support/Information grouping - the master list is short enough to scan.)
@@ -122,24 +123,18 @@ export default function GeneralPanel({ subKey, onRestartTour }) {
   // Narrow drill-down: list-only at /settings/general; content + Back on a subsetting.
   if (narrow) {
     if (subKey) {
+      const row = SUBSETTINGS.find(r => r.key === subKey)
       return (
         <div>
           <BackToGeneral />
+          <h2 style={SETTINGS_HEADING_STYLE}>{row?.label || 'General'}</h2>
           <SubsettingContent subKey={subKey} onRestartTour={onRestartTour} />
         </div>
       )
     }
     return (
       <section aria-labelledby="settings-general-heading">
-        <h2 id="settings-general-heading" style={{
-          margin: '0 0 4px', fontSize: 17, fontWeight: 700,
-          color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
-        }}>
-          General
-        </h2>
-        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>
-          Preferences, support, and information for your ASPIRE Intelligence workspace.
-        </p>
+        <h2 id="settings-general-heading" style={SETTINGS_HEADING_STYLE}>General</h2>
         <SubsettingsList activeKey={null} />
       </section>
     )
@@ -149,24 +144,20 @@ export default function GeneralPanel({ subKey, onRestartTour }) {
   // (Settings/General just opened) About is selected and displayed automatically -
   // display-only default; the URL stays /settings/general until a row is chosen.
   const selectedKey = subKey || 'about'
+  const selectedRow = SUBSETTINGS.find(r => r.key === selectedKey)
+  // SETTINGS-VISUAL-DENSITY-1: the middle-column "General" heading and the right-column
+  // subsetting heading share SETTINGS_HEADING_STYLE with the shell's "Settings" heading,
+  // so all three sit on one baseline. No generic subtitles. Both panes expand within the
+  // full canonical workspace width (the shell no longer caps this panel).
   return (
-    <section aria-labelledby="settings-general-heading">
-      <h2 id="settings-general-heading" style={{
-        margin: '0 0 4px', fontSize: 17, fontWeight: 700,
-        color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
-      }}>
-        General
-      </h2>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>
-        Preferences, support, and information for your ASPIRE Intelligence workspace.
-      </p>
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ flex: '0 0 256px', minWidth: 232 }}>
-          <SubsettingsList activeKey={selectedKey} />
-        </div>
-        <div style={{ flex: '1 1 360px', minWidth: 0 }}>
-          <SubsettingContent subKey={selectedKey} onRestartTour={onRestartTour} />
-        </div>
+    <section aria-label="General" style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 1 264px', minWidth: 240, maxWidth: 420 }}>
+        <h2 id="settings-general-heading" style={SETTINGS_HEADING_STYLE}>General</h2>
+        <SubsettingsList activeKey={selectedKey} />
+      </div>
+      <div style={{ flex: '2 1 420px', minWidth: 0 }}>
+        <h3 style={SETTINGS_HEADING_STYLE}>{selectedRow?.label || 'About'}</h3>
+        <SubsettingContent subKey={selectedKey} onRestartTour={onRestartTour} />
       </div>
     </section>
   )

@@ -92,7 +92,7 @@ test('appearance/signature/tours are implemented, visible to all, but opted out 
 test('SettingsShell source: routing, panel dispatch, and rail-active fallback', () => {
   const shell = read('src/components/settings/SettingsShell.jsx')
 
-  assert.match(shell, /import\s*\{\s*visibleSections,\s*routableSections\s*\}\s*from\s*'\.\/settingsSections'/,
+  assert.match(shell, /import\s*\{\s*visibleSections,\s*routableSections,\s*SETTINGS_HEADING_STYLE\s*\}\s*from\s*'\.\/settingsSections'/,
     'SettingsShell must import both visibleSections (rail) and routableSections (path matching)')
   assert.doesNotMatch(shell, /import AboutPanel/, 'AboutPanel is now rendered via GeneralPanel, not imported by the shell')
   assert.doesNotMatch(shell, /import AppearancePanel/, 'AppearancePanel is now rendered via GeneralPanel, not imported directly')
@@ -125,9 +125,9 @@ test('SettingsShell source: routing, panel dispatch, and rail-active fallback', 
   assert.match(shell, /general:\s*Settings/)
   assert.match(shell, /about:\s*Info/)
 
-  // Max-width rules unchanged: about/general/appearance/signature/tours share the 720
-  // default; knowledge/preceptorParity are 1040; accounts has none.
-  assert.match(shell, /currentKey === 'accounts' \? 'none' : 1040/)
+  // SETTINGS-VISUAL-DENSITY-1: no per-section max-width remains - every section spans
+  // the canonical workspace width.
+  assert.doesNotMatch(shell, /maxWidth: currentKey/)
 })
 
 test('GeneralPanel source: master-detail hub, narrow-only back affordance, no leftover About content', () => {
@@ -143,7 +143,7 @@ test('GeneralPanel source: master-detail hub, narrow-only back affordance, no le
   assert.doesNotMatch(general, /role="tablist"/, 'the dead segmented sub-nav scaffold must be removed')
 
   // Updated heading copy.
-  assert.match(general, /Preferences, support, and information for your ASPIRE Intelligence workspace\./)
+  assert.doesNotMatch(general, /Preferences, support, and information/, 'the generic General subtitle is removed')
 
   // The three subsettings render via the unmodified existing panels.
   assert.match(general, /import AppearancePanel from '\.\/AppearancePanel'/)
@@ -177,9 +177,11 @@ test('AboutPanel source: owns the buildInfo-backed content and the copy button',
   assert.match(about, /from '\.\.\/\.\.\/lib\/buildInfo'/)
   assert.match(about, /copySha/, 'the copy-to-clipboard handler must be present')
   assert.match(about, /navigator\.clipboard\.writeText\(BUILD_SHA\)/)
-  assert.match(about, /id="settings-about-heading"/)
-  assert.match(about, /About\s*<\/h2>/, 'the About heading text must be present')
-  assert.match(about, /About ASPIRE Intelligence and this deployment\./)
+  assert.match(about, /aria-label="About"/)
+  // SETTINGS-VISUAL-DENSITY-1: the heading now comes from the General hub and the
+  // generic subtitle is gone - the panel is the SurfaceCard build rows only.
+  assert.doesNotMatch(about, /About ASPIRE Intelligence and this deployment\./)
+  assert.match(about, /<SurfaceCard padding="6px 18px 14px">/)
 })
 
 test('permissions: accounts/knowledge/preceptorParity gating functions are unchanged', () => {
@@ -257,7 +259,7 @@ test('About is the automatic desktop selection when General opens without a subK
 test('desktop master-detail: list and content side by side, row selection, no Back', () => {
   const general = read('src/components/settings/GeneralPanel.jsx')
   // Middle pane (fixed basis) + right pane (flexible) rendered together on desktop.
-  assert.match(general, /flex: '0 0 256px'[\s\S]{0,120}<SubsettingsList activeKey=\{selectedKey\}/)
+  assert.match(general, /flex: '1 1 264px'[\s\S]{0,200}<SubsettingsList activeKey=\{selectedKey\}/)
   assert.match(general, /<SubsettingContent subKey=\{selectedKey\}/)
   // Rows navigate to the real routes so deep links and back/forward work.
   assert.match(general, /onClick=\{\(\) => navigate\(row\.path\)\}/)
@@ -281,9 +283,10 @@ test('deep links select the matching middle-pane row for all four subsettings', 
   assert.match(general, /const selectedKey = subKey \|\| 'about'/)
 })
 
-test('primary sections keep their content width; General family shares the wide cap', () => {
+test('every section uses the full canonical workspace width (no caps)', () => {
   const shell = read('src/components/settings/SettingsShell.jsx')
-  assert.match(shell, /currentKey === 'accounts' \? 'none' : 1040/)
+  assert.doesNotMatch(shell, /maxWidth: currentKey/, 'the per-section maxWidth rule is gone')
+  assert.doesNotMatch(shell, /maxWidth: (1040|720)/, 'no fixed width caps remain in the shell')
 })
 
 test('responsive fallback: narrow widths use drill-down, never three squeezed columns', () => {
@@ -295,5 +298,70 @@ test('responsive fallback: narrow widths use drill-down, never three squeezed co
   assert.match(general, /<BackToGeneral \/>[\s\S]{0,120}<SubsettingContent subKey=\{subKey\}/)
   assert.match(general, /<SubsettingsList activeKey=\{null\} \/>/)
   // Desktop panes may wrap rather than overflow (no horizontal scroll).
+  assert.match(general, /flexWrap: 'wrap'/)
+})
+
+// ── SETTINGS-VISUAL-DENSITY-1: hierarchy, density, and canonical surfaces ────
+
+test('the back breadcrumb sits at the workspace top offset with no extra shell padding', () => {
+  const shell = read('src/components/settings/SettingsShell.jsx')
+  // No shell-owned top/side padding: the breadcrumb inherits .app-main's 20px top,
+  // matching the Interview Rubric's spacing, and Settings spans the canonical width.
+  assert.match(shell, /padding: '0 0 40px'/)
+  assert.doesNotMatch(shell, /padding: '20px 32px 40px'/)
+})
+
+test('Settings | General | subsetting headings share one heading spec (one baseline)', () => {
+  const sections = read('src/components/settings/settingsSections.js')
+  assert.match(sections, /export const SETTINGS_HEADING_STYLE = \{/)
+  const shell = read('src/components/settings/SettingsShell.jsx')
+  assert.match(shell, /<h1 style=\{SETTINGS_HEADING_STYLE\}>Settings<\/h1>/)
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  assert.match(general, /<h2 id="settings-general-heading" style=\{SETTINGS_HEADING_STYLE\}>General<\/h2>/)
+  assert.match(general, /<h3 style=\{SETTINGS_HEADING_STYLE\}>\{selectedRow\?\.label \|\| 'About'\}<\/h3>/)
+  // Primary sections align their first heading to the same spec.
+  assert.match(read('src/components/settings/AccountsDirectory.jsx'), /\.\.\.SETTINGS_HEADING_STYLE/)
+  assert.match(read('src/components/settings/PreceptorParityPanel.jsx'), /\.\.\.SETTINGS_HEADING_STYLE/)
+  assert.match(read('src/components/settings/SettingsPageHeader.jsx'), /\.\.\.SETTINGS_HEADING_STYLE/)
+})
+
+test('generic subtitles are gone; operational guidance survives inside content', () => {
+  const shell = read('src/components/settings/SettingsShell.jsx')
+  assert.doesNotMatch(shell, /Manage your ASPIRE Intelligence workspace, preferences, access, and resources\./)
+  assert.doesNotMatch(read('src/components/settings/AppearancePanel.jsx'), /Control how ASPIRE Intelligence looks/)
+  assert.doesNotMatch(read('src/components/settings/ToursHelpPanel.jsx'), /Replay the guided tour or find your way/)
+  // Email-signature scope guidance survives INSIDE the card content.
+  const signature = read('src/components/settings/SignaturePanel.jsx')
+  assert.match(signature, /manual ASPIRE Connect<\/strong> emails only/)
+  assert.match(signature, /<SurfaceCard padding=\{18\}>[\s\S]{0,400}manual ASPIRE Connect/)
+  // Preceptor Parity methodology guidance survives in its content intro.
+  const parity = read('src/components/settings/PreceptorParityPanel.jsx')
+  assert.match(parity, /by preceptor identity \(ID\)/)
+})
+
+test('canonical SurfaceCard replaces the custom bordered containers', () => {
+  for (const f of ['AboutPanel', 'AppearancePanel', 'SignaturePanel', 'ToursHelpPanel']) {
+    const src = read(`src/components/settings/${f}.jsx`)
+    assert.match(src, /import SurfaceCard from '\.\.\/ui\/SurfaceCard'/, `${f} imports SurfaceCard`)
+    // Card-level borders only (the old container pattern paired the border with a
+    // 12px radius); small control borders like About's copy button are fine.
+    assert.doesNotMatch(src, /border: '1px solid var\(--color-border-default[\s\S]{0,80}borderRadius: 12/, `${f} has no custom bordered card`)
+  }
+  // No stray cardStyle constant remains in ToursHelpPanel.
+  assert.doesNotMatch(read('src/components/settings/ToursHelpPanel.jsx'), /const cardStyle/)
+})
+
+test('responsive: mobile drill-down and back affordance survive the density pass', () => {
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  assert.match(general, /if \(narrow\)/)
+  assert.match(general, /<BackToGeneral \/>[\s\S]{0,200}<SubsettingContent subKey=\{subKey\}/)
+  // The mobile detail view now carries the subsetting heading (panels no longer do).
+  assert.match(general, /<h2 style=\{SETTINGS_HEADING_STYLE\}>\{row\?\.label \|\| 'General'\}<\/h2>/)
+  // Desktop three-heading layout is never forced narrow: the desktop branch is
+  // unreachable when narrow (early returns above it).
+  const narrowIdx = general.indexOf('if (narrow)')
+  const desktopIdx = general.indexOf('Desktop master-detail: middle list')
+  assert.ok(narrowIdx > -1 && desktopIdx > narrowIdx)
+  // Panes wrap rather than overflow.
   assert.match(general, /flexWrap: 'wrap'/)
 })

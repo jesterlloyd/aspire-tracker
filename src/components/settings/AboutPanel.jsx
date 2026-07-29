@@ -9,6 +9,7 @@
 // introduced.
 import { useState } from 'react'
 import { Copy, Check, ExternalLink } from 'lucide-react'
+import SurfaceCard from '../ui/SurfaceCard'
 import {
   APP_NAME, APP_DESCRIPTION, CANONICAL_URL,
   BUILD_SHA, BUILD_ENV, environmentLabel, formatBuildTime,
@@ -37,11 +38,7 @@ function AboutSection() {
   }
 
   return (
-    <div style={{
-      border: '1px solid var(--color-border-default, #e5e7eb)',
-      borderRadius: 12, padding: '6px 18px 14px',
-      background: 'var(--color-bg-surface, #ffffff)',
-    }}>
+    <SurfaceCard padding="6px 18px 14px">
       <div style={{ ...rowStyle, borderTop: 'none' }}>
         <span style={labelStyle}>Application</span>
         <span style={valueStyle}>{APP_NAME}</span>
@@ -98,23 +95,16 @@ function AboutSection() {
           <span style={{ ...valueStyle, fontWeight: 500, color: 'var(--color-text-secondary, #6b7280)' }}>{buildTime}</span>
         </div>
       )}
-    </div>
+    </SurfaceCard>
   )
 }
 
+// SETTINGS-VISUAL-DENSITY-1: heading comes from the General hub (shared baseline with
+// Settings | General); the generic subtitle is removed. The build rows and copy button
+// are unchanged; the custom bordered container became the canonical SurfaceCard.
 export default function AboutPanel() {
   return (
-    <section aria-labelledby="settings-about-heading">
-      <h2 id="settings-about-heading" style={{
-        margin: '0 0 4px', fontSize: 17, fontWeight: 700,
-        color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
-      }}>
-        About
-      </h2>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>
-        About ASPIRE Intelligence and this deployment.
-      </p>
-
+    <section aria-label="About">
       <AboutSection />
     </section>
   )

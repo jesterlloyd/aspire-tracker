@@ -9,29 +9,16 @@
 // existing Feedback button. No new feedback/help/ticketing system, no API or Supabase
 // write. Visual structure mirrors GeneralPanel / AccountsAccessPanel (card on surface).
 import { RotateCcw, Sparkles, MessageSquare } from 'lucide-react'
+import SurfaceCard from '../ui/SurfaceCard'
 
-const cardStyle = {
-  border: '1px solid var(--color-border-default, #e5e7eb)',
-  borderRadius: 12,
-  background: 'var(--color-bg-surface, #ffffff)',
-}
-
+// SETTINGS-VISUAL-DENSITY-1: heading comes from the General hub (shared baseline);
+// the generic subtitle is removed - each card carries its own operational copy.
+// Custom bordered cards -> canonical SurfaceCard.
 export default function ToursHelpPanel({ onRestartTour }) {
   return (
-    <section aria-labelledby="settings-tours-heading">
-      <h2 id="settings-tours-heading" style={{
-        margin: '0 0 4px', fontSize: 17, fontWeight: 700,
-        color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
-      }}>
-        Tours & Help
-      </h2>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>
-        Replay the guided tour or find your way to in-app help.
-      </p>
-
+    <section aria-label="Tours & Help">
       {/* Welcome Tour */}
-      <div style={{
-        ...cardStyle, padding: '16px 18px',
+      <SurfaceCard padding="16px 18px" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
       }}>
         <div style={{ minWidth: 0 }}>
@@ -60,10 +47,10 @@ export default function ToursHelpPanel({ onRestartTour }) {
           <RotateCcw size={14} strokeWidth={2.2} />
           Restart Welcome Tour
         </button>
-      </div>
+      </SurfaceCard>
 
       {/* Help */}
-      <div style={{ ...cardStyle, padding: '16px 18px', marginTop: 12 }}>
+      <SurfaceCard padding="16px 18px" style={{ marginTop: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary, #191919)', marginBottom: 12 }}>Help</div>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -81,7 +68,7 @@ export default function ToursHelpPanel({ onRestartTour }) {
             Found a bug or have a suggestion? Use the Feedback button to send it directly to the program leads.
           </div>
         </div>
-      </div>
+      </SurfaceCard>
     </section>
   )
 }
