@@ -107,20 +107,32 @@ test('spaced and compact aliases resolve to Critical Care', () => {
 
 // ─── Owner-gated migration safety (7, 8, 11) ────────────────────────────────────
 
-test('migration corrects only the division field for the exact target names', () => {
+test('migration corrects only the two verified target rows (division only, when blank)', () => {
   assert.match(migration, /SET division = 'Critical Care'/)
-  assert.match(migration, /unit_name IN \('6 NE', '6 NW', '6NE', '6NW'\)/)
-  assert.match(migration, /IS DISTINCT FROM 'Critical Care'/)      // idempotent, no-op when already correct
-  // Data-only: no row creation/deletion, no id mutation, exact-name matching (no LIKE/free-text).
+  // The UPDATE targets the two verified ids only, and only when division is NULL/blank.
+  assert.match(migration, /c18b77d8-5863-4681-bc0f-00c35ac8ef8d/)
+  assert.match(migration, /33d22e71-859d-42fb-b28e-ff68ce4aaebe/)
+  assert.match(migration, /division IS NULL OR btrim\(division\) = ''/)
+  // Data-only: no row creation/deletion, no id mutation, exact-id/name matching (no LIKE/free-text).
   assert.doesNotMatch(migration, /INSERT\s+INTO\s+public\.units/i)
   assert.doesNotMatch(migration, /DELETE\s+FROM\s+public\.units/i)
   assert.doesNotMatch(migration, /\bSET\s+id\s*=|,\s*id\s*=/i)   // id is never an assignment target
   assert.doesNotMatch(migration, /unit_name\s+LIKE/i)
 })
 
-test('migration preflights, fails closed on zero rows, and documents rollback', () => {
+test('migration preflights the exact four-row shape and documents a narrow rollback', () => {
   assert.match(migration, /RAISE EXCEPTION/)
   assert.match(migration, /preflight/i)
+  assert.match(migration, /Expected exactly 4 normalized 6NE\/6NW rows/)
+  // Every one of the four verified ids is asserted in the preflight.
+  for (const id of [
+    'f1f60b44-6958-4ccb-913a-939482134a61',
+    '56a2f3e5-86ca-41e2-a836-993788e1dcd6',
+    'c18b77d8-5863-4681-bc0f-00c35ac8ef8d',
+    '33d22e71-859d-42fb-b28e-ff68ce4aaebe',
+  ]) {
+    assert.ok(migration.includes(id), `preflight must reference ${id}`)
+  }
   assert.match(migration, /Rollback/i)
 })
 
