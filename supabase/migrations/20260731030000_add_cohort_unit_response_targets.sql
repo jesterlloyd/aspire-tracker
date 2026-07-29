@@ -96,6 +96,64 @@ CREATE TRIGGER trg_curt_enforce_cohort_unit
   BEFORE INSERT OR UPDATE OF cohort_id, unit_id ON public.cohort_unit_response_targets
   FOR EACH ROW EXECUTE FUNCTION public.curt_enforce_cohort_unit();
 
+-- Append-only lifecycle audit. One durable target row carries CURRENT state; every transition is
+-- recorded here ATOMICALLY (same transaction) by an AFTER trigger, so prior removals are never lost
+-- even though reactivation clears the target's own removal stamps. Service-role only; never authorization.
+CREATE TABLE IF NOT EXISTS public.cohort_unit_response_target_events (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  target_id         uuid NOT NULL REFERENCES public.cohort_unit_response_targets(id) ON DELETE CASCADE,
+  cohort_id         uuid NOT NULL,
+  unit_key_canon    text NOT NULL,
+  unit_name         text NOT NULL,
+  action            text NOT NULL CHECK (action IN ('created', 'deactivated', 'reactivated')),
+  actor_profile_id  uuid REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+  occurred_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_curte_target ON public.cohort_unit_response_target_events (target_id);
+CREATE INDEX IF NOT EXISTS idx_curte_cohort ON public.cohort_unit_response_target_events (cohort_id, occurred_at);
+
+CREATE OR REPLACE FUNCTION public.curt_log_transition()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = ''
+AS $$
+DECLARE
+  v_action text;
+  v_actor  uuid;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    v_action := 'created';
+    v_actor  := NEW.requested_by_profile_id;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF OLD.is_active = false AND NEW.is_active = true THEN
+      v_action := 'reactivated'; v_actor := NEW.requested_by_profile_id;
+    ELSIF OLD.is_active = true AND NEW.is_active = false THEN
+      v_action := 'deactivated'; v_actor := NEW.removed_by_profile_id;
+    ELSE
+      RETURN NEW;  -- metadata-only update (no is_active change): not a lifecycle event
+    END IF;
+  ELSE
+    RETURN NEW;
+  END IF;
+  INSERT INTO public.cohort_unit_response_target_events
+    (target_id, cohort_id, unit_key_canon, unit_name, action, actor_profile_id)
+  VALUES (NEW.id, NEW.cohort_id, NEW.unit_key_canon, NEW.unit_name, v_action, v_actor);
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_curt_log_transition ON public.cohort_unit_response_targets;
+CREATE TRIGGER trg_curt_log_transition
+  AFTER INSERT OR UPDATE ON public.cohort_unit_response_targets
+  FOR EACH ROW EXECUTE FUNCTION public.curt_log_transition();
+
+COMMENT ON TABLE public.cohort_unit_response_target_events IS
+  'Append-only lifecycle audit for cohort_unit_response_targets (created/deactivated/reactivated). Written atomically by trigger; RLS denies anon/authenticated; service-role only; never used for authorization.';
+
+ALTER TABLE public.cohort_unit_response_target_events ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.cohort_unit_response_target_events FROM anon;
+REVOKE ALL ON public.cohort_unit_response_target_events FROM authenticated;
+GRANT  ALL ON public.cohort_unit_response_target_events TO service_role;
+
 -- Restrictive access: RLS on, NO anon/authenticated policy (no direct browser access); service-role only.
 ALTER TABLE public.cohort_unit_response_targets ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.cohort_unit_response_targets FROM anon;

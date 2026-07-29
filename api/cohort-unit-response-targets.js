@@ -100,7 +100,7 @@ export default async function handler(req, res) {
       if (ex && ex.is_active) { skipped += 1; continue }              // already an active target
       if (ex && !ex.is_active) {
         const { error } = await db.from('cohort_unit_response_targets')
-          .update({ is_active: true, removed_at: null, removed_by_profile_id: null, unit_name: t.unit_name, requested_by_profile_id: actorId })
+          .update({ is_active: true, removed_at: null, removed_by_profile_id: null, unit_name: t.unit_name, requested_at: now, requested_by_profile_id: actorId })
           .eq('id', ex.id)
         if (error) return res.status(500).json({ error: 'internal_error' })
         reactivated += 1
@@ -139,7 +139,7 @@ export default async function handler(req, res) {
       return res.status(409).json({ error: 'duplicate_active_target', code: 'DUPLICATE_ACTIVE_TARGET' })
     }
     const { error } = await db.from('cohort_unit_response_targets')
-      .update({ is_active: true, removed_at: null, removed_by_profile_id: null, requested_by_profile_id: actorId })
+      .update({ is_active: true, removed_at: null, removed_by_profile_id: null, requested_at: new Date().toISOString(), requested_by_profile_id: actorId })
       .eq('id', id)
     if (error) return res.status(500).json({ error: 'internal_error' })
     return res.status(200).json({ success: true })

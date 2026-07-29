@@ -68,12 +68,15 @@ test('readiness sentinel is created last and service_role-only (fail-closed pre-
   assert.ok(createFn > migration.indexOf('CREATE TABLE'))
 })
 
-test('migration does not guess Fall 2026 targets: no executable INSERT in the transaction', () => {
-  const txn = migration.slice(migration.indexOf('BEGIN;'), migration.indexOf('COMMIT;'))
-  assert.doesNotMatch(txn, /INSERT\s+INTO/i)
+test('migration does not guess/backfill Fall 2026 targets (cohort id only in comments)', () => {
+  // Trigger/RPC function bodies legitimately contain INSERTs; the guard that matters is that no
+  // Fall 2026 (or any specific cohort) data is seeded here - the id appears only in commented guidance.
   for (const line of migration.split('\n')) {
     if (line.includes('eedd91ec-ad6f-4df8-aa20-5c06b2889011')) assert.match(line.trimStart(), /^--/)
   }
+  // The backfill INSERT into the TARGETS table is commented (Owner-run), not executable at top level.
+  const txn = migration.slice(migration.indexOf('BEGIN;'), migration.indexOf('COMMIT;'))
+  assert.doesNotMatch(txn, /^INSERT\s+INTO\s+public\.cohort_unit_response_targets\b/im)
 })
 
 test('cohort-compatible unit_id is enforced in the database by a trigger (not app-only)', () => {
@@ -85,6 +88,23 @@ test('cohort-compatible unit_id is enforced in the database by a trigger (not ap
   assert.match(migration, /does not reference an existing unit/)                 // missing unit rejected
   // ON DELETE SET NULL is preserved so deleting a unit clears only unit_id (never the target).
   assert.match(migration, /unit_id\s+uuid REFERENCES public\.units\(id\) ON DELETE SET NULL/)
+})
+
+test('lifecycle transitions are recorded append-only and atomically by trigger', () => {
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.cohort_unit_response_target_events/)
+  assert.match(migration, /action\s+text NOT NULL CHECK \(action IN \('created', 'deactivated', 'reactivated'\)\)/)
+  assert.match(migration, /AFTER INSERT OR UPDATE ON public\.cohort_unit_response_targets/)
+  assert.match(migration, /v_action := 'created'/)
+  assert.match(migration, /v_action := 'reactivated'/)
+  assert.match(migration, /v_action := 'deactivated'/)
+  // A metadata-only update (no is_active change) writes no lifecycle event.
+  assert.match(migration, /metadata-only update \(no is_active change\): not a lifecycle event/)
+  // Event table is service-role only.
+  assert.match(migration, /REVOKE ALL ON public\.cohort_unit_response_target_events FROM authenticated/)
+})
+
+test('API reactivation refreshes requested_at and requested_by (append-only history keeps prior removals)', () => {
+  assert.match(api, /is_active: true, removed_at: null, removed_by_profile_id: null[\s\S]*?requested_at:[\s\S]*?requested_by_profile_id: actorId/)
 })
 
 // ─── Authorization (10, 11, 12, 13) ─────────────────────────────────────────────
