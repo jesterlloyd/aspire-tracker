@@ -504,6 +504,26 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     staleTime: 30000,
   })
 
+  // Explicit per-cohort outreach targets (the denominator for responded/pending). FAIL CLOSED: until
+  // the Owner applies 20260731030000_add_cohort_unit_response_targets.sql and configures a cohort's
+  // targets, this errors or returns empty, and the summary shows an honest "targets not set" state
+  // rather than a misleading "0 pending". Never used for authorization.
+  const { data: unitResponseTargets = [] } = useQuery({
+    queryKey: ['cohort_unit_response_targets', cohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cohort_unit_response_targets')
+        .select('unit_id, unit_key, is_active')
+        .eq('cohort_id', cohortId)
+        .eq('is_active', true)
+      if (error) return []
+      return data || []
+    },
+    enabled: !!cohortId,
+    staleTime: 30000,
+    retry: false,
+  })
+
   // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: full school placement responses for the active cohort,
   // powering the read-only School Form Response drawer. DISTINCT query key from the date-only
   // ['cohort_rotation_range', ...] consumers (CohortBar/ManageCohortModal), which must stay bounded
@@ -749,16 +769,19 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           <div className="aggregate-panel-hdr">
             <div>
               <div className="ov-panel-title">Placement Capacity</div>
-              <div className="ov-panel-sub">
-                {(() => {
-                  // Do not show a misleading "0 pending" before the response data has settled.
-                  if (unitResponsesError) return 'Unit responses are unavailable right now.'
-                  if (unitResponsesLoading) return 'Loading unit responses…'
-                  // Cohort-scoped, distinct-by-unit-id metric with left-join semantics from the
-                  // expected units (roster or responded) to their responses. See unitResponseMetrics.js.
-                  return formatUnitResponseSummary(computeUnitResponseMetrics({ units, responses: unitResponses }))
-                })()}
-              </div>
+              {(() => {
+                // Do not show a misleading "0 pending" before the response data has settled.
+                if (unitResponsesError) return <div className="ov-panel-sub">Unit responses are unavailable right now.</div>
+                if (unitResponsesLoading) return <div className="ov-panel-sub">Loading unit responses…</div>
+                // Denominator = the cohort's explicit outreach targets (fail-closed to "not set").
+                const m = computeUnitResponseMetrics({ targets: unitResponseTargets, responses: unitResponses })
+                // When targets are configured and some are pending, surface their names (from the target
+                // list, never invented from the global catalog) as an accessible title.
+                const pendingTitle = m.configured && m.pendingUnitCount > 0 && m.pendingUnitNames.length
+                  ? `Pending: ${m.pendingUnitNames.join(', ')}`
+                  : undefined
+                return <div className="ov-panel-sub" title={pendingTitle}>{formatUnitResponseSummary(m)}</div>
+              })()}
             </div>
             {/* Filter chips + Expand/Collapse */}
             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
