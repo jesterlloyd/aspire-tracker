@@ -533,3 +533,23 @@ in section 5 of
 the new table discards only archive/unarchive UI state; no message or
 conversation_events row is ever affected, and v1/v2 of every list RPC keep the
 API serving requests throughout.
+
+## Follow-up: Messages lifecycle Phase 2, purge posture (documentation only)
+
+Policy and Owner runbook:
+[MESSAGES_PURGE_POSTURE.md](MESSAGES_PURGE_POSTURE.md)
+
+There is NOTHING to apply for this entry: no migration, no code change, no
+grant change, and no data change. The document defines when a permanent purge
+of Messages conversations is justified (explicitly identified test
+conversations; separately-planned legal-erasure or security-exposure cases),
+who may authorize and execute one (the Owner only, in the SQL editor as the
+database owner; no application role holds DELETE and none is being granted),
+and the exact runbook: pinned-UUID scoping, read-only prechecks and impact
+preview, export before deletion, a single guarded transaction whose default
+outcome is ROLLBACK, post-commit zero-count verification, and a mandatory
+authorization-and-execution record inside the document itself.
+
+Any actual purge in the future is executed directly from that runbook, with
+its section 7 record standing in for the per-migration records used elsewhere
+in this gate.
