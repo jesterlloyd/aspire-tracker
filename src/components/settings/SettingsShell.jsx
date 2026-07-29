@@ -13,7 +13,6 @@ import { Settings, Monitor, Users, FileText, Info, Scale, PenLine } from 'lucide
 import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections, routableSections } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
-import AboutPanel from './AboutPanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
 import KnowledgeCenterPanel from './KnowledgeCenterPanel'
 import PreceptorParityPanel from './PreceptorParityPanel'
@@ -31,7 +30,10 @@ const SECTION_ICONS = {
 // SETTINGS-UNIFIED-DESIGN-1: non-rail subsettings fold into General for the purpose of
 // rail active-state highlighting. Visiting /settings/appearance, /settings/signature, or
 // /settings/tours highlights the General rail entry instead of showing nothing selected.
-const NON_RAIL_SUBKEYS = ['appearance', 'signature', 'tours']
+// SETTINGS-UNIFIED-DESIGN-1B: About joined the General hub (Information group),
+// matching the real iOS Settings > General > About placement. Its /settings/about
+// deep link still resolves here, with the rail folding onto General.
+const NON_RAIL_SUBKEYS = ['appearance', 'signature', 'tours', 'about']
 
 export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At a Glance', onRestartTour }) {
   const location = useLocation()
@@ -140,12 +142,12 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
             SETTINGS-UNIFIED-DESIGN-1: appearance/signature/tours are no longer separate rail
             destinations - they render through GeneralPanel (which owns the subsettings hub and
             passthrough to the unchanged AppearancePanel/SignaturePanel/ToursHelpPanel components)
-            with a `subKey` telling GeneralPanel which subsetting to show. About is a new,
-            independent Workspace section holding the build/deployment metadata moved out of General. */}
+            with a `subKey` telling GeneralPanel which subsetting to show.
+            SETTINGS-UNIFIED-DESIGN-1B: About is a General subsetting too (Information group),
+            so /settings/about renders through GeneralPanel exactly like the other three. */}
         <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: currentKey === 'accounts' ? 'none' : ['knowledge', 'preceptorParity'].includes(currentKey) ? 1040 : 720 }}>
-          {['general', 'appearance', 'signature', 'tours'].includes(currentKey) &&
+          {['general', 'appearance', 'signature', 'tours', 'about'].includes(currentKey) &&
             <GeneralPanel subKey={subKey} onRestartTour={onRestartTour} />}
-          {currentKey === 'about'      && <AboutPanel />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}
           {currentKey === 'knowledge'  && <KnowledgeCenterPanel />}
           {currentKey === 'preceptorParity' && <PreceptorParityPanel />}

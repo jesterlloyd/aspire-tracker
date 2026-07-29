@@ -7,14 +7,16 @@
 // return to the hub. AppearancePanel, SignaturePanel, and ToursHelpPanel are rendered
 // unmodified - no behavior, persistence, or props beyond what they already accepted.
 //
-// The former About content (build/deployment metadata) has moved OUT of General into
-// its own AboutPanel.jsx / rail destination; this file no longer imports buildInfo or
-// renders any About UI.
+// SETTINGS-UNIFIED-DESIGN-1B: About lives HERE as a General subsetting (Information
+// group), matching the real iOS Settings > General > About placement. The build and
+// copy behavior stays entirely in AboutPanel.jsx (rendered unmodified); this hub only
+// lists and routes to it. /settings/about remains a valid direct deep link.
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ChevronLeft, Monitor, PenLine, Info } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Monitor, PenLine, Info, BadgeInfo } from 'lucide-react'
 import AppearancePanel from './AppearancePanel'
 import SignaturePanel from './SignaturePanel'
 import ToursHelpPanel from './ToursHelpPanel'
+import AboutPanel from './AboutPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 
 // Grouped subsettings list, iPhone Settings-style. Icons match the ones the rail used for
@@ -31,6 +33,12 @@ const GROUPS = [
     title: 'Support',
     rows: [
       { key: 'tours', path: '/settings/tours', icon: Info, label: 'Tours & Help', description: 'Replay the welcome tour and find help' },
+    ],
+  },
+  {
+    title: 'Information',
+    rows: [
+      { key: 'about', path: '/settings/about', icon: BadgeInfo, label: 'About', description: 'Version, build, and deployment details' },
     ],
   },
 ]
@@ -125,6 +133,14 @@ export default function GeneralPanel({ subKey, onRestartTour }) {
       <div>
         <BackToGeneral />
         <ToursHelpPanel onRestartTour={onRestartTour} />
+      </div>
+    )
+  }
+  if (subKey === 'about') {
+    return (
+      <div>
+        <BackToGeneral />
+        <AboutPanel />
       </div>
     )
   }

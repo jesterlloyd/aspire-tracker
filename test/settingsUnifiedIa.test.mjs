@@ -21,7 +21,9 @@ import { SETTINGS_SECTIONS, visibleSections, routableSections } from '../src/com
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
-const NON_RAIL_SUBKEYS = ['appearance', 'signature', 'tours']
+// SETTINGS-UNIFIED-DESIGN-1B: About joined the General hub, so it is a non-rail
+// subsetting exactly like the other three.
+const NON_RAIL_SUBKEYS = ['appearance', 'signature', 'tours', 'about']
 
 const ROLE_COMBOS = [
   { isOwner: false, isAdmin: false },
@@ -35,7 +37,6 @@ test('visibleSections: the rail is exactly the intended destinations, never the 
 
     // Always present, for every role.
     assert.ok(rail.includes('general'), 'General must always be in the rail')
-    assert.ok(rail.includes('about'), 'About must always be in the rail')
 
     // Never present - these are General subsettings now.
     for (const key of NON_RAIL_SUBKEYS) {
@@ -74,7 +75,7 @@ test('the about section is registered correctly', () => {
   assert.equal(about.path, '/settings/about')
   assert.equal(about.group, 'Workspace')
   assert.equal(about.implemented, true)
-  assert.equal(about.inRail, true, 'about is a rail destination (default inRail:true)')
+  assert.equal(about.inRail, false, 'about is a General subsetting (Information group), not a rail destination')
   assert.equal(about.visible({ isOwner: false, isAdmin: false }), true, 'about is visible to all users')
 })
 
@@ -93,7 +94,7 @@ test('SettingsShell source: routing, panel dispatch, and rail-active fallback', 
 
   assert.match(shell, /import\s*\{\s*visibleSections,\s*routableSections\s*\}\s*from\s*'\.\/settingsSections'/,
     'SettingsShell must import both visibleSections (rail) and routableSections (path matching)')
-  assert.match(shell, /import AboutPanel from '\.\/AboutPanel'/)
+  assert.doesNotMatch(shell, /import AboutPanel/, 'AboutPanel is now rendered via GeneralPanel, not imported by the shell')
   assert.doesNotMatch(shell, /import AppearancePanel/, 'AppearancePanel is now rendered via GeneralPanel, not imported directly')
   assert.doesNotMatch(shell, /import SignaturePanel/, 'SignaturePanel is now rendered via GeneralPanel, not imported directly')
   assert.doesNotMatch(shell, /import ToursHelpPanel/, 'ToursHelpPanel is now rendered via GeneralPanel, not imported directly')
@@ -109,16 +110,16 @@ test('SettingsShell source: routing, panel dispatch, and rail-active fallback', 
   assert.match(shell, /navigate\('\/settings\/general', \{ replace: true \}\)/)
 
   // Rail highlight folds appearance/signature/tours into general.
-  assert.match(shell, /NON_RAIL_SUBKEYS\s*=\s*\[\s*'appearance',\s*'signature',\s*'tours'\s*\]/)
+  assert.match(shell, /NON_RAIL_SUBKEYS\s*=\s*\[\s*'appearance',\s*'signature',\s*'tours',\s*'about'\s*\]/)
   assert.match(shell, /railActiveKey\s*=\s*NON_RAIL_SUBKEYS\.includes\(matchedKey\)\s*\?\s*'general'\s*:\s*matchedKey/)
   assert.match(shell, /active = s\.key === railActiveKey/)
 
   // GeneralPanel receives a subKey for the three subsettings, and always gets onRestartTour
   // so it can reach ToursHelpPanel.
   assert.match(shell, /subKey\s*=\s*NON_RAIL_SUBKEYS\.includes\(matchedKey\)\s*\?\s*matchedKey\s*:\s*undefined/)
-  assert.match(shell, /\['general', 'appearance', 'signature', 'tours'\]\.includes\(currentKey\)/)
+  assert.match(shell, /\['general', 'appearance', 'signature', 'tours', 'about'\]\.includes\(currentKey\)/)
   assert.match(shell, /<GeneralPanel subKey=\{subKey\} onRestartTour=\{onRestartTour\}\s*\/>/)
-  assert.match(shell, /currentKey === 'about'\s*&&\s*<AboutPanel\s*\/>/)
+  assert.doesNotMatch(shell, /currentKey === 'about'\s*&&\s*<AboutPanel/, 'about no longer has a standalone dispatch branch')
 
   // SECTION_ICONS updated: about -> Info, general keeps Settings.
   assert.match(shell, /general:\s*Settings/)
@@ -204,4 +205,31 @@ test('deep-link consumers unchanged: UserMenu -> /settings/general, Interviewers
 
   assert.match(userMenu, /navigate\('\/settings\/general'\)/, 'UserMenu must still navigate to /settings/general')
   assert.match(interviewersModal, /navigate\('\/settings\/accounts'\)/, 'InterviewersModal must still navigate to /settings/accounts')
+})
+
+// ── SETTINGS-UNIFIED-DESIGN-1B: General > Information > About ────────────────
+
+test('General hub lists About under an Information group and renders it as a subsetting', () => {
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  // Information group with the About row navigating to the preserved deep link.
+  assert.match(general, /title: 'Information'/)
+  assert.match(general, /key: 'about', path: '\/settings\/about'/)
+  // AboutPanel renders unmodified inside the hub with the back affordance.
+  assert.match(general, /import AboutPanel from '\.\/AboutPanel'/)
+  assert.match(general, /if \(subKey === 'about'\) \{[\s\S]{0,120}<BackToGeneral \/>[\s\S]{0,60}<AboutPanel \/>/)
+  // The hub still never carries the build content itself.
+  assert.doesNotMatch(general, /BUILD_SHA|from ['"].*buildInfo['"]/)
+})
+
+test('AboutPanel is unchanged: build fields and the copy button stay in AboutPanel.jsx', () => {
+  const about = read('src/components/settings/AboutPanel.jsx')
+  for (const marker of ['BUILD_SHA', 'BUILD_ENV', 'CANONICAL_URL', 'APP_NAME', 'Copy build ID']) {
+    assert.ok(about.includes(marker), `AboutPanel keeps ${marker}`)
+  }
+})
+
+test('mobile: the rail stacking rule survives the About restructure', () => {
+  const shell = read('src/components/settings/SettingsShell.jsx')
+  // The <=768px rule that stacks the rail above the panel is still present.
+  assert.match(shell, /@media \(max-width: 768px\) \{ \.settings-nav-rail \{ position: static/)
 })
