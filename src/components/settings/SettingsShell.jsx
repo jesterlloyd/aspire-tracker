@@ -66,10 +66,14 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
   const subKey = NON_RAIL_SUBKEYS.includes(matchedKey) ? matchedKey : undefined
 
   return (
-    // SETTINGS-VISUAL-DENSITY-1: no extra top/side padding of its own - the back
-    // breadcrumb sits at .app-main's 20px top offset, matching the Interview Rubric's
-    // spacing, and Settings spans the same canonical workspace width as every tab.
-    <div style={{ padding: '0 0 40px', fontFamily: 'DM Sans, sans-serif' }}>
+    // SETTINGS-VISUAL-DENSITY-1: no extra top padding - the back breadcrumb sits at
+    // .app-main's 20px top offset, matching the Interview Rubric's spacing.
+    // SETTINGS-VISUAL-DENSITY-1B (measured): the 20px HORIZONTAL padding is the
+    // canonical card-column inset every main tab applies inside .app-main (cards at
+    // container +20/-20, verified by bounding-box measurement at 1792/2000/1280).
+    // Removing it entirely in the first density pass put Settings cards 20px wide of
+    // the A/S/I/R/E column and into the Keith launcher's protected right gutter.
+    <div style={{ padding: '0 20px 40px', fontFamily: 'DM Sans, sans-serif' }}>
       {/* ACCOUNTS-ACCESS-REDESIGN-1B: keep the Settings nav rail visible during long panel scrolling
           (e.g. Accounts & Access → Activity Log). Sticky within the layout, offset ~120px to clear the
           global sticky .top-section (header ~64 + cohort bar ~48). max-height + overflow so a tall rail

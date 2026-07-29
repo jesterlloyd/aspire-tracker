@@ -47,10 +47,14 @@ function useIsNarrow(bp = 768) {
   return narrow
 }
 
+// SETTINGS-VISUAL-DENSITY-1B: the subsettings list mirrors the primary Settings rail's
+// visual language exactly - a rounded SurfaceCard with 10px internal padding holding
+// INSET pill rows (10px radius, including the selected row), no full-bleed rows and no
+// divider lines. Alphabetical order, routing, aria-current, and descriptions unchanged.
 function SubsettingsList({ activeKey }) {
   const navigate = useNavigate()
   return (
-    <SurfaceCard as="nav" aria-label="General subsettings" radius={12} padding={0}>
+    <SurfaceCard as="nav" aria-label="General subsettings" radius={14} padding={10}>
       {SUBSETTINGS.map((row, ri) => {
         const Icon = row.icon
         const active = row.key === activeKey
@@ -63,11 +67,12 @@ function SubsettingsList({ activeKey }) {
             onClick={() => navigate(row.path)}
             style={{
               display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
-              padding: '13px 16px', border: 'none', cursor: 'pointer',
+              padding: '10px 12px', border: 'none', cursor: 'pointer',
+              borderRadius: 10, marginBottom: ri === SUBSETTINGS.length - 1 ? 0 : 4,
               background: active ? 'var(--color-accent-primary, #1D2567)' : 'transparent',
-              borderTop: ri === 0 ? 'none' : '1px solid var(--color-border-subtle, #f3f4f6)',
+              boxShadow: active ? '0 1px 3px rgba(29,37,103,0.30)' : 'none',
               fontFamily: 'DM Sans, sans-serif',
-              transition: 'background 0.12s',
+              transition: 'background 0.12s, box-shadow 0.12s',
             }}
             onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-bg-hover, #f1efe9)' }}
             onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
@@ -151,11 +156,13 @@ export default function GeneralPanel({ subKey, onRestartTour }) {
   // full canonical workspace width (the shell no longer caps this panel).
   return (
     <section aria-label="General" style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <div style={{ flex: '1 1 264px', minWidth: 240, maxWidth: 420 }}>
+      {/* SETTINGS-VISUAL-DENSITY-1B: compact navigation width, matching the primary
+          Settings rail's footprint so the detail panel gets the remaining room. */}
+      <div style={{ flex: '0 0 248px', minWidth: 220 }}>
         <h2 id="settings-general-heading" style={SETTINGS_HEADING_STYLE}>General</h2>
         <SubsettingsList activeKey={selectedKey} />
       </div>
-      <div style={{ flex: '2 1 420px', minWidth: 0 }}>
+      <div style={{ flex: '1 1 420px', minWidth: 0 }}>
         <h3 style={SETTINGS_HEADING_STYLE}>{selectedRow?.label || 'About'}</h3>
         <SubsettingContent subKey={selectedKey} onRestartTour={onRestartTour} />
       </div>

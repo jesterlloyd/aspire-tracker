@@ -259,7 +259,7 @@ test('About is the automatic desktop selection when General opens without a subK
 test('desktop master-detail: list and content side by side, row selection, no Back', () => {
   const general = read('src/components/settings/GeneralPanel.jsx')
   // Middle pane (fixed basis) + right pane (flexible) rendered together on desktop.
-  assert.match(general, /flex: '1 1 264px'[\s\S]{0,200}<SubsettingsList activeKey=\{selectedKey\}/)
+  assert.match(general, /flex: '0 0 248px'[\s\S]{0,300}<SubsettingsList activeKey=\{selectedKey\}/)
   assert.match(general, /<SubsettingContent subKey=\{selectedKey\}/)
   // Rows navigate to the real routes so deep links and back/forward work.
   assert.match(general, /onClick=\{\(\) => navigate\(row\.path\)\}/)
@@ -307,8 +307,11 @@ test('the back breadcrumb sits at the workspace top offset with no extra shell p
   const shell = read('src/components/settings/SettingsShell.jsx')
   // No shell-owned top/side padding: the breadcrumb inherits .app-main's 20px top,
   // matching the Interview Rubric's spacing, and Settings spans the canonical width.
-  assert.match(shell, /padding: '0 0 40px'/)
+  // SETTINGS-VISUAL-DENSITY-1B (measured): 20px horizontal padding is the canonical
+  // card-column inset every main tab applies inside .app-main; no extra top padding.
+  assert.match(shell, /padding: '0 20px 40px'/)
   assert.doesNotMatch(shell, /padding: '20px 32px 40px'/)
+  assert.doesNotMatch(shell, /padding: '0 0 40px'/)
 })
 
 test('Settings | General | subsetting headings share one heading spec (one baseline)', () => {
@@ -364,4 +367,23 @@ test('responsive: mobile drill-down and back affordance survive the density pass
   assert.ok(narrowIdx > -1 && desktopIdx > narrowIdx)
   // Panes wrap rather than overflow.
   assert.match(general, /flexWrap: 'wrap'/)
+})
+
+// ── SETTINGS-VISUAL-DENSITY-1B: rail-matched subsettings navigation ──────────
+
+test('the General subsettings list mirrors the primary rail: padded card, inset pills, no dividers', () => {
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  // Rounded SurfaceCard with 10px internal padding, like the rail (radius 14 / padding 10).
+  assert.match(general, /<SurfaceCard as="nav" aria-label="General subsettings" radius=\{14\} padding=\{10\}>/)
+  // Rows are inset pills with a 10px radius - including the selected one (navy pill + shadow).
+  assert.match(general, /borderRadius: 10, marginBottom: ri === SUBSETTINGS\.length - 1 \? 0 : 4/)
+  assert.match(general, /boxShadow: active \? '0 1px 3px rgba\(29,37,103,0\.30\)' : 'none'/)
+  // No full-bleed rows and no divider lines remain.
+  assert.doesNotMatch(general, /borderTop: ri === 0/)
+  assert.doesNotMatch(general, /1px solid var\(--color-border-subtle, #f3f4f6\)'/)
+  // Compact navigation column close to the rail's 236px footprint.
+  assert.match(general, /flex: '0 0 248px', minWidth: 220/)
+  // Alphabetical order, routing, and a11y unchanged (already asserted above; re-pin the essentials).
+  assert.match(general, /aria-current=\{active \? 'page' : undefined\}/)
+  assert.match(general, /onClick=\{\(\) => navigate\(row\.path\)\}/)
 })
