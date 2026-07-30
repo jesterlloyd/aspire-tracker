@@ -28,6 +28,15 @@ export const SCHOOL_SCOPE_OPTIONS = [
     aliases: ['CSULB', 'Cal State Long Beach', 'CSU Long Beach', 'Long Beach State'] },
   { value: 'California State University, Los Angeles', label: 'California State University, Los Angeles', hint: 'CSULA',
     aliases: ['CSULA', 'Cal State LA', 'Cal State Los Angeles', 'CSU Los Angeles'] },
+  // PORTAL-SCHOOL-CATALOG-DRIFT-1: CSUN and UCLA exist in the database schools
+  // catalog (migration 20260712000012) but were missing here, so the Grant
+  // Portal Access modal could neither list nor autofill them. Aliases include
+  // the DB operative_name so contact autofill (matchSchoolKeys) resolves the
+  // display form too.
+  { value: 'California State University, Northridge', label: 'California State University, Northridge', hint: 'CSUN',
+    aliases: ['CSUN', 'Cal State Northridge', 'CSU Northridge'] },
+  { value: 'University of California, Los Angeles', label: 'University of California, Los Angeles', hint: 'UCLA',
+    aliases: ['UCLA', 'UC Los Angeles'] },
   { value: 'West Coast University Anaheim', label: 'West Coast University Anaheim', hint: 'WCU Anaheim',
     aliases: ['WCU Anaheim', 'West Coast University, Anaheim'] },
   { value: 'West Coast University North Hollywood', label: 'West Coast University North Hollywood', hint: 'WCU North Hollywood',

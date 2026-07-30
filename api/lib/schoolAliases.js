@@ -16,6 +16,11 @@ const SCHOOL_ALIAS_GROUPS = [
   { canonical: 'Azusa Pacific University', aliases: ['APU', 'Azusa Pacific', 'Azusa'] },
   { canonical: 'California State University, Long Beach', aliases: ['CSULB', 'Cal State Long Beach', 'CSU Long Beach', 'Long Beach State'] },
   { canonical: 'California State University, Los Angeles', aliases: ['CSULA', 'Cal State LA', 'Cal State Los Angeles', 'CSU Los Angeles'] },
+  // PORTAL-SCHOOL-CATALOG-DRIFT-1: both schools exist in the database schools
+  // catalog (migration 20260712000012) but were missing here. Aliases mirror
+  // the DB rows plus the operative display names.
+  { canonical: 'California State University, Northridge', aliases: ['CSUN', 'Cal State Northridge', 'CSU Northridge'] },
+  { canonical: 'University of California, Los Angeles', aliases: ['UCLA', 'UC Los Angeles'] },
   { canonical: 'West Coast University', aliases: ['WCU', 'West Coast'] },
   { canonical: 'West Coast University North Hollywood', aliases: ['WCU North Hollywood', 'WCU NoHo', 'West Coast University NoHo'] },
   { canonical: 'West Coast University Anaheim', aliases: ['WCU Anaheim'] },
