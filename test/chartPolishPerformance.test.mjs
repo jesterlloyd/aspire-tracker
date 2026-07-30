@@ -53,7 +53,9 @@ test('Messages: no stale NOT MOUNTED headers remain', () => {
 
 test('performance: hidden-tab polling pauses', () => {
   const overview = read('src/components/OverviewTab.jsx')
-  assert.match(overview, /const onTodayRoute = useLocation\(\)\.pathname === '\/aggregate'/)
+  // CAPACITY-RESPONSE-OUTREACH-2 split the one-liner so `location` is shared with the Connect
+  // return-confirmation effect; the polling gate is byte-equivalent (pathname === '/aggregate').
+  assert.match(overview, /const location = useLocation\(\)\s*\n\s*const onTodayRoute = location\.pathname === '\/aggregate'/)
   assert.equal((overview.match(/refetchInterval: onTodayRoute \? 60 \* 1000 : false/g) || []).length, 2)
   const activity = read('src/components/RotationActivity.jsx')
   assert.match(activity, /const onActivityRoute = useLocation\(\)\.pathname === '\/rotation\/activity'/)

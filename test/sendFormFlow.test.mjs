@@ -70,15 +70,22 @@ test('failure + retry: only the failed students stay pending', () => {
 test('source: opening a draft never writes status; only confirmation does', async (t) => {
   const overview = read('src/components/OverviewTab.jsx')
 
-  await t.test('compose handlers only open the draft and set the pending plan', () => {
+  await t.test('launch handlers only write the launch context and navigate to Connect (no writes, no mailto)', () => {
+    // CAPACITY-RESPONSE-OUTREACH-2: the Send Form actions launch ASPIRE Connect (Send to Many) instead
+    // of a mailto draft; the confirm-gated plan is armed when the Owner RETURNS to At a Glance.
     const sendSchool = overview.slice(overview.indexOf('const handleSendSchool'), overview.indexOf('const handleSendStudent'))
     const sendStudent = overview.slice(overview.indexOf('const handleSendStudent'), overview.indexOf('const handleConfirmFormSent'))
     for (const [name, src] of [['handleSendSchool', sendSchool], ['handleSendStudent', sendStudent]]) {
       assert.doesNotMatch(src, /onStudentUpdate/, `${name} must not write`)
       assert.doesNotMatch(src, /Form Sent'/, `${name} must not set status`)
-      assert.match(src, /openMailto/, `${name} still opens the compose draft`)
-      assert.match(src, /setSendFormPlan/, `${name} arms the confirmation`)
+      assert.doesNotMatch(src, /openMailto|openOutlookCompose|mailto:/, `${name} must not open a mail client`)
+      assert.match(src, /writeLaunchContext/, `${name} records the launch context`)
+      assert.match(src, /navigate\('\/connect\/outreach\?launch=1'\)/, `${name} opens Connect Outreach`)
     }
+    // The return effect (not the launch) arms the existing confirm-gated plan from current data.
+    assert.match(overview, /setSendFormPlan\(plan\)/)
+    assert.match(overview, /buildSchoolSendPlan\(ctx\.school, affected\)/)
+    assert.match(overview, /buildStudentSendPlan\(affected\[0\]\)/)
   })
 
   await t.test('only the confirm handler writes, and cancel writes nothing', () => {
