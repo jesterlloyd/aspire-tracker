@@ -82,10 +82,11 @@ test('source: opening a draft never writes status; only confirmation does', asyn
       assert.match(src, /writeLaunchContext/, `${name} records the launch context`)
       assert.match(src, /navigate\('\/connect\/outreach\?launch=1'\)/, `${name} opens Connect Outreach`)
     }
-    // The return effect (not the launch) arms the existing confirm-gated plan from current data.
+    // The return effect (not the launch) arms the existing confirm-gated plan from current data,
+    // gated on Connect-reported successes (only successfully sent recipients are confirmable).
     assert.match(overview, /setSendFormPlan\(plan\)/)
     assert.match(overview, /buildSchoolSendPlan\(ctx\.school, affected\)/)
-    assert.match(overview, /buildStudentSendPlan\(affected\[0\]\)/)
+    assert.match(overview, /buildStudentSendPlan\(affectedSent\[0\]\)/)
   })
 
   await t.test('only the confirm handler writes, and cancel writes nothing', () => {

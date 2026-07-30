@@ -311,8 +311,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         contactEmails: (launchCtx.units || []).map(u => u?.email).filter(Boolean),
       }
     }
-    // student_form / school_form: the recipients are the affected students themselves (the school
-    // action was always a batch of that school's Pending Outreach students - see sendFormFlow.js).
+    // school_form (Owner-approved): the recipient is the school's Academic Partner coordinator; the
+    // affected student ids stay in the context for the return confirmation.
+    if (launchCtx.kind === LAUNCH_KINDS.SCHOOL_FORM) {
+      return {
+        source: 'contacts',
+        contactCategory: 'Academic Partners',
+        contactEmails: (launchCtx.contactEmails || []).filter(Boolean),
+      }
+    }
+    // student_form: the recipients are the intended students themselves.
     return { source: 'students', studentIds: launchCtx.studentIds || [] }
   })
 

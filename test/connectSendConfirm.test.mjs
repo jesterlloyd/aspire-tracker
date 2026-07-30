@@ -166,7 +166,7 @@ test('return effect is scoped: same cohort, launched context only, never while a
 
 test('student return confirmation reuses the existing confirm-gated Form Sent flow and clears context', () => {
   assert.match(overview, /buildSchoolSendPlan\(ctx\.school, affected\)/)
-  assert.match(overview, /buildStudentSendPlan\(affected\[0\]\)/)
+  assert.match(overview, /buildStudentSendPlan\(affectedSent\[0\]\)/)
   const confirm = overview.slice(overview.indexOf('const handleConfirmFormSent'), overview.indexOf('const handleCancelFormSent'))
   assert.match(confirm, /status: 'Form Sent'/)
   assert.match(confirm, /clearLaunchContext\(\)/)
@@ -174,6 +174,48 @@ test('student return confirmation reuses the existing confirm-gated Form Sent fl
   const cancel = overview.slice(cancelIdx, cancelIdx + 400)
   assert.match(cancel, /clearLaunchContext\(\)/)
   assert.doesNotMatch(cancel, /onStudentUpdate/)
+})
+
+// ─── Partial-send gating (final pre-release check, item 1) ──────────────────────
+
+test('direct student confirmation is gated on Connect-reported successes only', () => {
+  // Only students whose email is in the recorded sentEmails are confirmable.
+  assert.match(overview, /const sentSet = new Set\(\(ctx\.sentEmails \|\| \[\]\)\.map\(lowEmail\)\)/)
+  assert.match(overview, /sentSet\.has\(lowEmail\(s\.school_email\)\) \|\| sentSet\.has\(lowEmail\(s\.personal_email\)\)/)
+  // Zero successes: safe no-success result, context cleared, nothing written, no Mark as sent offered.
+  const zero = overview.slice(overview.indexOf('if (affectedSent.length === 0)'), overview.indexOf('if (affectedSent.length === 0)') + 400)
+  assert.match(zero, /clearLaunchContext\(\)/)
+  assert.match(zero, /did not report any successful student sends\. No status was changed\./)
+  assert.match(zero, /return/)
+})
+
+test('school-mediated confirmation requires the coordinator message to be reported sent', () => {
+  assert.match(overview, /const coordinatorSent = \(ctx\.contactEmails \|\| \[\]\)\.some\(e => sentSet\.has\(lowEmail\(e\)\)\)/)
+  const gate = overview.slice(overview.indexOf('if (!coordinatorSent)'), overview.indexOf('if (!coordinatorSent)') + 400)
+  assert.match(gate, /clearLaunchContext\(\)/)
+  assert.match(gate, /did not report a successful send to the school contact\. No status was changed\./)
+})
+
+test('school launch targets the Academic Partner coordinator (Owner-approved) with students retained', () => {
+  const school = overview.slice(overview.indexOf('const handleSendSchool'), overview.indexOf('const handleSendStudent'))
+  assert.match(school, /getCoordinator\(sStudents\)/)
+  assert.match(school, /No school coordinator contact on file/)   // cannot launch without a coordinator
+  assert.match(school, /contactEmails: \[coordinator\.email\]/)
+  assert.match(school, /studentIds: plan\.students\.map\(s => s\.id\)/)
+  // Connect preset: Contacts → Academic Partners with the coordinator preselected.
+  assert.match(outreach, /contactCategory: 'Academic Partners'/)
+  assert.match(outreach, /contactEmails: \(launchCtx\.contactEmails \|\| \[\]\)\.filter\(Boolean\)/)
+})
+
+test('launch context persists contactEmails for contact-mediated launches', () => {
+  store.clear()
+  writeLaunchContext({ kind: LAUNCH_KINDS.SCHOOL_FORM, cohortId: 'c1', templateKey: 'student_profile_invitation', studentIds: ['s1'], school: 'CSUN', contactEmails: ['Coord@School.edu'] })
+  const ctx = readLaunchContext()
+  assert.deepEqual(ctx.contactEmails, ['Coord@School.edu'])
+  assert.deepEqual(ctx.studentIds, ['s1'])
+  // The gate compares case-insensitively: a sent record for the coordinator matches.
+  recordLaunchSendResults('student_profile_invitation', { batch_id: 'b9', sent: [{ email: 'coord@school.edu' }] })
+  assert.deepEqual(readLaunchContext().sentEmails, ['coord@school.edu'])
 })
 
 // ─── Manual fallback (source guards) ────────────────────────────────────────────

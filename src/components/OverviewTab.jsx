@@ -648,13 +648,19 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [sendFormPlan, setSendFormPlan] = useState(null)
   const [sendFormBusy, setSendFormBusy] = useState(false)
 
-  // School-batched send. HONEST SEMANTICS: this action has always emailed the school's Pending
-  // Outreach STUDENTS directly (buildSchoolSendPlan.emails are student school emails) - it was never
-  // a send to the school coordinator. The Connect launch preserves that exact recipient intent:
-  // Students source, that school's pending students preselected. No mailto.
+  // School-mediated send (Owner-approved final semantics, pre-release check): the Student Profile
+  // Form request for a school goes to that school's ACADEMIC PARTNER coordinator through Connect
+  // (Contacts → Academic Partners, coordinator preselected), with the affected Pending Outreach
+  // students retained in the return context. Their statuses change only after the Owner confirms on
+  // return, and only if Connect reported the coordinator message as actually sent. No mailto.
   const handleSendSchool = (school, sStudents) => {
     const plan = buildSchoolSendPlan(school, sStudents)
     if (!plan) { showToast(`No Pending Outreach students at ${school}.`); return }
+    const coordinator = getCoordinator(sStudents)
+    if (!coordinator?.email) {
+      showToast(`No school coordinator contact on file for ${school}. Add the coordinator before sending.`)
+      return
+    }
     writeLaunchContext({
       kind: LAUNCH_KINDS.SCHOOL_FORM,
       cohortId,
@@ -664,6 +670,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       returnPath: '/aggregate',
       studentIds: plan.students.map(s => s.id),
       school,
+      contactEmails: [coordinator.email],
     })
     navigate('/connect/outreach?launch=1')
   }
@@ -768,14 +775,37 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         (ctx.units || []).filter(u => sent.has(String(u.email || '').toLowerCase())).map(u => u.key),
       ))
     } else if (ctx.kind === LAUNCH_KINDS.STUDENT_FORM || ctx.kind === LAUNCH_KINDS.SCHOOL_FORM) {
-      // Rebuild the confirm-gated Form Sent plan from CURRENT student data (never stale copies).
-      // The exact existing sendFormFlow semantics apply: school plans re-filter to Pending Outreach,
-      // and only a confirmed "Mark as sent" writes status.
+      // Rebuild the confirm-gated Form Sent plan from CURRENT student data (never stale copies),
+      // GATED ON REAL SEND EVIDENCE (the composer records per-recipient results into the context):
+      //   • direct student: only students whose email Connect reported as successfully sent may be
+      //     confirmed; failed/skipped/unsent students stay Pending Outreach.
+      //   • school-mediated: the affected-student group is confirmable together only if the Academic
+      //     Partner coordinator message was reported sent; otherwise no status may change.
+      // Zero successes → a safe no-success result, nothing written, context cleared (no Mark as sent).
+      const lowEmail = (e) => String(e || '').trim().toLowerCase()
+      const sentSet = new Set((ctx.sentEmails || []).map(lowEmail))
       const ids = new Set(ctx.studentIds || [])
       const affected = students.filter(s => ids.has(s.id))
-      const plan = ctx.kind === LAUNCH_KINDS.SCHOOL_FORM
-        ? buildSchoolSendPlan(ctx.school, affected)
-        : (affected.length ? buildStudentSendPlan(affected[0]) : null)
+      let plan
+      if (ctx.kind === LAUNCH_KINDS.SCHOOL_FORM) {
+        const coordinatorSent = (ctx.contactEmails || []).some(e => sentSet.has(lowEmail(e)))
+        if (!coordinatorSent) {
+          clearLaunchContext()
+          showToast('ASPIRE Connect did not report a successful send to the school contact. No status was changed.')
+          return
+        }
+        plan = buildSchoolSendPlan(ctx.school, affected)
+      } else {
+        const affectedSent = affected.filter(s =>
+          sentSet.has(lowEmail(s.school_email)) || sentSet.has(lowEmail(s.personal_email)))
+        if (affectedSent.length === 0) {
+          clearLaunchContext()
+          showToast('ASPIRE Connect did not report any successful student sends. No status was changed.')
+          return
+        }
+        // Direct launches carry a single student today; only the successfully sent one is confirmable.
+        plan = buildStudentSendPlan(affectedSent[0])
+      }
       if (!plan) { clearLaunchContext(); return }
       setSendFormPlan(plan)
     }

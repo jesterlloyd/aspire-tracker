@@ -43,19 +43,25 @@ never writes a target or status; only the return confirmation (or the manual fal
 
 - **Direct student send**: opens Connect with audience `Students`, the intended student(s)
   preselected, message type `Student Profile Form Invitation`, the `/student-form` link populated.
-- **School-batched send** (the ledger's send-to-school action): HONEST SEMANTICS NOTE - the previous
-  mailto for this action BCC'd the school's Pending Outreach STUDENTS directly
-  (`buildSchoolSendPlan.emails` are student school emails); it was never a send to the school
-  coordinator. The Connect migration preserves that real recipient intent: audience `Students`, that
-  school's Pending Outreach students preselected, the same Student Profile Form Invitation template.
-  Switching these recipients to Academic Partner coordinators would silently change who receives the
-  invitation, so it was NOT done; if the Owner wants a true coordinator-mediated variant, that is a
-  separate product decision.
-- **Return confirmation**: the existing confirm-gated pattern, opened on return instead of after a
-  mailto. Same copy source (`src/lib/sendFormFlow.js`): `Mark N students as Form Sent?`, actions
-  `Mark as sent` / `Not sent`. Mark as sent updates ONLY the affected students (Pending Outreach ->
-  Form Sent) through the existing `onStudentUpdate` transition; Not sent, closing, or canceling
-  writes nothing. Partial failures keep the existing retry behavior.
+- **School-mediated send** (Owner-approved final semantics, pre-release check): the request goes to
+  the school's ACADEMIC PARTNER coordinator - audience `Contacts`, contact group `Academic Partners`,
+  the coordinator on file preselected (from the school's student records), the same Student Profile
+  Form Invitation template - with the affected Pending Outreach student ids retained in the return
+  context. HISTORY NOTE: the retired mailto for this action BCC'd the students directly; moving the
+  recipient to the coordinator was an explicit Owner decision in the final pre-release check, not a
+  silent change. A school with no coordinator email on file cannot launch this flow (safe toast).
+- **Return confirmation, gated on real send evidence**: the existing confirm-gated pattern
+  (`src/lib/sendFormFlow.js`: `Mark N students as Form Sent?`, `Mark as sent` / `Not sent`) opens on
+  return, but ONLY for recipients ASPIRE Connect reported as successfully sent:
+  - direct student: only students whose email is in the recorded `sentEmails` are confirmable;
+    failed/skipped/unsent students stay Pending Outreach.
+  - school-mediated: the affected-student group is confirmable together only when the coordinator
+    message was reported sent; otherwise no student status may change.
+  - zero successes: a safe no-success notice, nothing written, context cleared - `Mark as sent` is
+    never offered.
+  Mark as sent updates ONLY the affected students (Pending Outreach -> Form Sent) through the
+  existing `onStudentUpdate` transition; Not sent, closing, or canceling writes nothing. Partial
+  write failures keep the existing retry behavior.
 
 ## C. Return-context contract
 
