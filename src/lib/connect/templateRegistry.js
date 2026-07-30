@@ -36,6 +36,20 @@ const ALL_AUDIENCES = [
   AUDIENCES.ACADEMIC_PARTNER, AUDIENCES.INTERVIEWER, AUDIENCES.GENERIC,
 ]
 
+// CAPACITY-RESPONSE-OUTREACH-1: metadata for the Send-to-many UNIT capacity-response request (the
+// outreach that makes a unit an expected responder). Registered here as the single source of truth,
+// but intentionally NOT added to the active bulk composer lists yet (active:false): the body/builder
+// and the live email dispatch are finalized in the separately-reviewed send change, so no real
+// capacity-request email is sent from this release. See docs/product/CAPACITY_RESPONSE_OUTREACH.md.
+export const CAPACITY_RESPONSE_TEMPLATE = {
+  key:      'unit_capacity_response_request',
+  label:    'Unit Capacity Response Request',
+  audience: AUDIENCES.UNIT_LEADER,
+  surface:  'many',
+  active:   false,
+  linkKey:  'unit_form',
+}
+
 // Canonical contact-category → audience map (categories come from lib/contactCategories.js).
 // Nursing Executives / Other / unknown all fall through to 'generic'.
 export const CATEGORY_TO_AUDIENCE = {
