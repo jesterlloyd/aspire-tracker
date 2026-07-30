@@ -39,8 +39,9 @@ export function writeLaunchContext(ctx) {
     units: Array.isArray(ctx.units) ? ctx.units : [],
     studentIds: Array.isArray(ctx.studentIds) ? ctx.studentIds : [],
     school: ctx.school || null,
-    // Contact recipients for contact-mediated launches (e.g. the school flow's Academic Partner
-    // coordinator). Used for composer preselection and for the return gate's send-evidence check.
+    // Contact recipients for contact-mediated launches. Kept in the v1 contract for any launch that
+    // preselects Contacts rows by email (the capacity flow carries its leads inside units[] instead;
+    // the school form flow now targets students directly, ASPIRE-DESIGN-CORRECTION-1).
     contactEmails: Array.isArray(ctx.contactEmails) ? ctx.contactEmails : [],
     batchId: null,
     sentEmails: [],

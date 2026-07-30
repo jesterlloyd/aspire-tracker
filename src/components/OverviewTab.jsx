@@ -10,7 +10,6 @@ import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER, getEligibleUnits } from '../lib/unitCatalog'
 import { computeUnitResponseMetrics, formatUnitResponseSummary } from '../lib/unitResponseMetrics'
 import { listCohortResponseTargets, createCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
-import CohortResponseTargetsModal from './CohortResponseTargetsModal'
 import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
 import { canonicalUnitKey } from '../lib/canonicalUnit'
 import { writeLaunchContext, readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
@@ -404,7 +403,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // the drawer with an honest error + Retry instead of silently doing nothing.
   const [responseDrawerSchool, setResponseDrawerSchool] = useState(null)
   const [localToast,       setLocalToast]       = useState(null)
-  const [targetsModalOpen, setTargetsModalOpen] = useState(false)
   const [pendingListOpen,  setPendingListOpen]  = useState(false)
   const { isAdmin } = useAuth()
 
@@ -648,19 +646,15 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [sendFormPlan, setSendFormPlan] = useState(null)
   const [sendFormBusy, setSendFormBusy] = useState(false)
 
-  // School-mediated send (Owner-approved final semantics, pre-release check): the Student Profile
-  // Form request for a school goes to that school's ACADEMIC PARTNER coordinator through Connect
-  // (Contacts → Academic Partners, coordinator preselected), with the affected Pending Outreach
-  // students retained in the return context. Their statuses change only after the Owner confirms on
-  // return, and only if Connect reported the coordinator message as actually sent. No mailto.
+  // School send (ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29, superseding the earlier
+  // coordinator-mediated decision): Send Form to School opens Connect with audience STUDENTS - the
+  // school's Pending Outreach students preselected - and the Student Profile Form Invitation
+  // template (/student-form link populated). The affected student ids ride in the return context;
+  // statuses change only after the Owner confirms on return, and only for students Connect reported
+  // as actually sent. No mailto.
   const handleSendSchool = (school, sStudents) => {
     const plan = buildSchoolSendPlan(school, sStudents)
     if (!plan) { showToast(`No Pending Outreach students at ${school}.`); return }
-    const coordinator = getCoordinator(sStudents)
-    if (!coordinator?.email) {
-      showToast(`No school coordinator contact on file for ${school}. Add the coordinator before sending.`)
-      return
-    }
     writeLaunchContext({
       kind: LAUNCH_KINDS.SCHOOL_FORM,
       cohortId,
@@ -670,7 +664,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       returnPath: '/aggregate',
       studentIds: plan.students.map(s => s.id),
       school,
-      contactEmails: [coordinator.email],
     })
     navigate('/connect/outreach?launch=1')
   }
@@ -735,8 +728,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     })
     const launchable = rows.filter(r => r.hasRecipient && !r.alreadyTarget)
     if (launchable.length === 0) {
-      showToast('No unit leader recipients could be resolved. Add unit leads or mark units as already contacted.')
-      setTargetsModalOpen(true)
+      showToast('No unit leader recipients could be resolved. Add active unit primary leads first.')
       return
     }
     writeLaunchContext({
@@ -776,36 +768,28 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       ))
     } else if (ctx.kind === LAUNCH_KINDS.STUDENT_FORM || ctx.kind === LAUNCH_KINDS.SCHOOL_FORM) {
       // Rebuild the confirm-gated Form Sent plan from CURRENT student data (never stale copies),
-      // GATED ON REAL SEND EVIDENCE (the composer records per-recipient results into the context):
-      //   • direct student: only students whose email Connect reported as successfully sent may be
-      //     confirmed; failed/skipped/unsent students stay Pending Outreach.
-      //   • school-mediated: the affected-student group is confirmable together only if the Academic
-      //     Partner coordinator message was reported sent; otherwise no status may change.
+      // GATED ON REAL SEND EVIDENCE (the composer records per-recipient results into the context).
+      // Both student flows now send to the students themselves (ASPIRE-DESIGN-CORRECTION-1 moved
+      // the school flow's audience from the Academic Partner coordinator to the intended students):
+      // only students whose email Connect reported as successfully sent may be confirmed;
+      // failed/skipped/unsent students stay Pending Outreach.
       // Zero successes → a safe no-success result, nothing written, context cleared (no Mark as sent).
       const lowEmail = (e) => String(e || '').trim().toLowerCase()
       const sentSet = new Set((ctx.sentEmails || []).map(lowEmail))
       const ids = new Set(ctx.studentIds || [])
       const affected = students.filter(s => ids.has(s.id))
-      let plan
-      if (ctx.kind === LAUNCH_KINDS.SCHOOL_FORM) {
-        const coordinatorSent = (ctx.contactEmails || []).some(e => sentSet.has(lowEmail(e)))
-        if (!coordinatorSent) {
-          clearLaunchContext()
-          showToast('ASPIRE Connect did not report a successful send to the school contact. No status was changed.')
-          return
-        }
-        plan = buildSchoolSendPlan(ctx.school, affected)
-      } else {
-        const affectedSent = affected.filter(s =>
-          sentSet.has(lowEmail(s.school_email)) || sentSet.has(lowEmail(s.personal_email)))
-        if (affectedSent.length === 0) {
-          clearLaunchContext()
-          showToast('ASPIRE Connect did not report any successful student sends. No status was changed.')
-          return
-        }
-        // Direct launches carry a single student today; only the successfully sent one is confirmable.
-        plan = buildStudentSendPlan(affectedSent[0])
+      const affectedSent = affected.filter(s =>
+        sentSet.has(lowEmail(s.school_email)) || sentSet.has(lowEmail(s.personal_email)))
+      if (affectedSent.length === 0) {
+        clearLaunchContext()
+        showToast('ASPIRE Connect did not report any successful student sends. No status was changed.')
+        return
       }
+      // School launches confirm the successfully sent group together; direct launches carry a
+      // single student today, so only the successfully sent one is confirmable.
+      const plan = ctx.kind === LAUNCH_KINDS.SCHOOL_FORM
+        ? buildSchoolSendPlan(ctx.school, affectedSent)
+        : buildStudentSendPlan(affectedSent[0])
       if (!plan) { clearLaunchContext(); return }
       setSendFormPlan(plan)
     }
@@ -877,53 +861,51 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
       )}
 
-      {/* CAPACITY-RESPONSE-OUTREACH-2: return confirmation for a launched Unit Leader Capacity
-          Request. Only a confirmed unit becomes an expected responder; Not sent / closing writes
-          nothing. Shown once - every decision clears the launch context. */}
+      {/* CAPACITY-RESPONSE-OUTREACH-2 / ASPIRE-DESIGN-CORRECTION-1: return confirmation for a
+          launched Unit Leader Capacity Request. The first step is COMPACT - title, one line of
+          supporting copy, three decisions - visually matched to the student Form Sent dialog; the
+          unit checklist appears only after Identify Units Sent. Only a confirmed unit becomes an
+          expected responder; Not Sent / closing writes nothing. Shown once - every decision clears
+          the launch context. */}
       {capacityConfirm && (
         <div role="dialog" aria-modal="true" aria-label="Were the capacity requests sent?"
           style={{ position:'fixed', inset:0, zIndex:9997, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(15,23,42,0.28)' }}>
-          <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(480px, calc(100vw - 32px))', fontFamily:'DM Sans,sans-serif' }}>
+          <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(520px, calc(100vw - 32px))', fontFamily:'DM Sans,sans-serif' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, marginBottom:8 }}>
               <div style={{ fontSize:15, fontWeight:700, color:'var(--chart-ink)' }}>Were the capacity requests sent?</div>
               <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
                 aria-label="Close without confirming"
                 style={{ background:'none', border:'none', fontSize:18, lineHeight:1, color:'var(--chart-ink-soft)', cursor:'pointer', padding:2 }}>×</button>
             </div>
-            <div style={{ fontSize:13, color:'var(--chart-ink-soft)', lineHeight:1.5, marginBottom:10 }}>
-              Confirm which units actually received the Unit Leader Capacity Request. Only confirmed units will be counted as expected to respond.
+            <div style={{ fontSize:13, color:'var(--chart-ink-soft)', lineHeight:1.5, marginBottom:14 }}>
+              Confirm whether the Unit Leader Capacity Request was sent. Only confirmed units will be counted as expected to respond.
             </div>
-            {capacityConfirm.summary && (
-              <div style={{ fontSize:12, color:'var(--chart-ink-soft)', marginBottom:10 }}>
-                Connect reported: {capacityConfirm.summary.sent ?? 0} sent · {capacityConfirm.summary.skipped ?? 0} skipped · {capacityConfirm.summary.failed ?? 0} failed.
-              </div>
-            )}
             {capacityConfirmMode === 'choice' ? (
-              <>
-                <div style={{ fontSize:12, color:'var(--chart-ink-soft)', marginBottom:14 }}>
-                  {(capacityConfirm.units || []).map(u => u.name).join(' · ')}
-                </div>
-                <div style={{ display:'flex', gap:8, justifyContent:'flex-end', flexWrap:'wrap' }}>
-                  <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
-                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                    Not sent
-                  </button>
-                  <button onClick={() => setCapacityConfirmMode('identify')} disabled={capacityBusy}
-                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                    Identify units sent
-                  </button>
-                  <button onClick={() => recordConfirmedCapacityUnits(capacityConfirm.units || [])} disabled={capacityBusy}
-                    style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                    {capacityBusy ? 'Saving…' : 'Sent to all selected units'}
-                  </button>
-                </div>
-              </>
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', flexWrap:'wrap' }}>
+                <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
+                  style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  Not Sent
+                </button>
+                <button onClick={() => setCapacityConfirmMode('identify')} disabled={capacityBusy}
+                  style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  Identify Units Sent
+                </button>
+                <button onClick={() => recordConfirmedCapacityUnits(capacityConfirm.units || [])} disabled={capacityBusy}
+                  style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  {capacityBusy ? 'Saving…' : 'Sent to All Selected Units'}
+                </button>
+              </div>
             ) : (
               <>
-                <ul style={{ listStyle:'none', margin:'0 0 14px', padding:0, maxHeight:220, overflowY:'auto', display:'flex', flexDirection:'column', gap:4 }}>
-                  {(capacityConfirm.units || []).map(u => (
-                    <li key={u.key}>
-                      <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--chart-ink)' }}>
+                {capacityConfirm.summary && (
+                  <div style={{ fontSize:12, color:'var(--chart-ink-soft)', marginBottom:8 }}>
+                    Connect reported: {capacityConfirm.summary.sent ?? 0} sent · {capacityConfirm.summary.skipped ?? 0} skipped · {capacityConfirm.summary.failed ?? 0} failed.
+                  </div>
+                )}
+                <ul style={{ listStyle:'none', margin:'0 0 14px', padding:0, maxHeight:240, overflowY:'auto', border:'1px solid var(--chart-line)', borderRadius:10 }}>
+                  {(capacityConfirm.units || []).map((u, i) => (
+                    <li key={u.key} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--chart-line)' }}>
+                      <label style={{ display:'flex', alignItems:'center', gap:10, fontSize:13, color:'var(--chart-ink)', padding:'8px 12px', cursor:'pointer' }}>
                         <input type="checkbox" checked={capacityChecked.has(u.key)}
                           onChange={() => setCapacityChecked(prev => {
                             const next = new Set(prev)
@@ -942,13 +924,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                   </button>
                   <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
                     style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                    Not sent
+                    Not Sent
                   </button>
                   <button
                     onClick={() => recordConfirmedCapacityUnits((capacityConfirm.units || []).filter(u => capacityChecked.has(u.key)))}
                     disabled={capacityBusy || capacityChecked.size === 0}
                     style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor: capacityChecked.size === 0 ? 'not-allowed' : 'pointer', opacity: capacityChecked.size === 0 ? 0.6 : 1 }}>
-                    {capacityBusy ? 'Saving…' : `Record ${capacityChecked.size} unit${capacityChecked.size === 1 ? '' : 's'} as sent`}
+                    {capacityBusy ? 'Saving…' : `Confirm ${capacityChecked.size} Unit${capacityChecked.size === 1 ? '' : 's'} Sent`}
                   </button>
                 </div>
               </>
@@ -992,25 +974,17 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 if (unitResponsesError) return <div className="ov-panel-sub">Unit responses are unavailable right now.</div>
                 if (unitResponsesLoading) return <div className="ov-panel-sub">Loading unit responses…</div>
                 // Denominator = the cohort's explicit outreach targets (fail-closed to "not set").
+                // ASPIRE-DESIGN-CORRECTION-1: the summary line stays calm - no inline orphan or
+                // unmatched-unit lists here (the response-state pills already carry the states, and
+                // orphan reconciliation stays available in computeUnitResponseMetrics for admin
+                // surfaces). The send action is a real button in the card, matching the canonical
+                // light-green Send Form to School treatment; the manual targets fallback
+                // (CohortResponseTargetsModal + staff API) is preserved but no longer surfaced here.
                 const m = computeUnitResponseMetrics({ targets: unitResponseTargets, responses: unitResponses })
                 const hasPending = m.configured && m.pendingUnitCount > 0 && m.pendingUnitNames.length > 0
-                const hasOrphans = m.orphanResponseCount > 0
                 return (
                   <div className="ov-panel-sub">
                     <span>{formatUnitResponseSummary(m)}</span>
-                    {isAdmin && (
-                      <button type="button" onClick={handleLaunchCapacityRequest}
-                        title="Open ASPIRE Connect → Outreach → Send to Many with the capacity request preselected"
-                        style={{ marginLeft: 8, background: 'none', border: 'none', color: '#1D2567', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0, fontWeight: 700 }}>
-                        Send capacity request
-                      </button>
-                    )}
-                    {isAdmin && (
-                      <button type="button" className="ov-linkish" onClick={() => setTargetsModalOpen(true)}
-                        style={{ marginLeft: 8, background: 'none', border: 'none', color: '#1D2567', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0 }}>
-                        Configure response targets
-                      </button>
-                    )}
                     {hasPending && (
                       <>
                         {' · '}
@@ -1022,31 +996,21 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                         {pendingListOpen && (
                           <ul id="ov-pending-units" style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 12, color: '#6b7280' }}>
                             {m.pendingUnitNames.map((n, i) => <li key={`p${i}`}>{n}</li>)}
-                            {hasOrphans && (
-                              <li style={{ marginTop: 4, listStyle: 'none', color: '#92400e' }}>
-                                Orphan responses (no target): {m.orphanUnitNames.join(', ')}
-                              </li>
-                            )}
                           </ul>
                         )}
                       </>
                     )}
-                    {!hasPending && hasOrphans && (
-                      <div style={{ fontSize: 12, color: '#92400e', marginTop: 4 }}>
-                        {m.orphanResponseCount} response{m.orphanResponseCount === 1 ? '' : 's'} without a target: {m.orphanUnitNames.join(', ')}
+                    {isAdmin && (
+                      <div style={{ marginTop: 8 }}>
+                        <button type="button" className="ov-send-btn" onClick={handleLaunchCapacityRequest}
+                          title="Open ASPIRE Connect → Outreach → Send to Many with the capacity request preselected">
+                          Send Capacity Request
+                        </button>
                       </div>
                     )}
                   </div>
                 )
               })()}
-              {targetsModalOpen && (
-                <CohortResponseTargetsModal
-                  cohortId={cohortId}
-                  cohortName={cohort?.name}
-                  onClose={() => setTargetsModalOpen(false)}
-                  onChanged={() => refetchTargets()}
-                />
-              )}
             </div>
             {/* Filter chips + Expand/Collapse */}
             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>

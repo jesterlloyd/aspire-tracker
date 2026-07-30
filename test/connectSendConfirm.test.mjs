@@ -137,13 +137,16 @@ test('composer: one-shot preselection, email-matched contacts, results recorded 
 
 // ─── Return confirmation (source guards) ────────────────────────────────────────
 
-test('unit confirmation modal: exact copy and the three decisions', () => {
+test('unit confirmation modal: exact copy and the three decisions (ASPIRE-DESIGN-CORRECTION-1)', () => {
   assert.match(overview, /Were the capacity requests sent\?/)
-  assert.match(overview, /Confirm which units actually received the Unit Leader Capacity Request\. Only confirmed units will be counted as expected to respond\./)
-  assert.match(overview, /Sent to all selected units/)
-  assert.match(overview, /Identify units sent/)
-  assert.match(overview, /Not sent/)
-  // Identify preselects from REAL recorded results; close/Not sent write nothing and clear the context.
+  assert.match(overview, /Confirm whether the Unit Leader Capacity Request was sent\. Only confirmed units will be counted as expected to respond\./)
+  assert.match(overview, /Sent to All Selected Units/)
+  assert.match(overview, /Identify Units Sent/)
+  assert.match(overview, /Not Sent/)
+  // The first (choice) step is COMPACT: the unit list renders ONLY in identify mode (the checklist),
+  // never as an inline joined string in the choice step.
+  assert.doesNotMatch(overview, /\.map\(u => u\.name\)\.join\(' · '\)/)
+  // Identify preselects from REAL recorded results; close/Not Sent write nothing and clear the context.
   assert.match(overview, /sent\.has\(String\(u\.email \|\| ''\)\.toLowerCase\(\)\)/)
   const close = overview.slice(overview.indexOf('const closeCapacityConfirm'), overview.indexOf('// Record the confirmed units'))
   assert.match(close, /clearLaunchContext\(\)/)
@@ -165,7 +168,7 @@ test('return effect is scoped: same cohort, launched context only, never while a
 })
 
 test('student return confirmation reuses the existing confirm-gated Form Sent flow and clears context', () => {
-  assert.match(overview, /buildSchoolSendPlan\(ctx\.school, affected\)/)
+  assert.match(overview, /buildSchoolSendPlan\(ctx\.school, affectedSent\)/)
   assert.match(overview, /buildStudentSendPlan\(affectedSent\[0\]\)/)
   const confirm = overview.slice(overview.indexOf('const handleConfirmFormSent'), overview.indexOf('const handleCancelFormSent'))
   assert.match(confirm, /status: 'Form Sent'/)
@@ -189,22 +192,22 @@ test('direct student confirmation is gated on Connect-reported successes only', 
   assert.match(zero, /return/)
 })
 
-test('school-mediated confirmation requires the coordinator message to be reported sent', () => {
-  assert.match(overview, /const coordinatorSent = \(ctx\.contactEmails \|\| \[\]\)\.some\(e => sentSet\.has\(lowEmail\(e\)\)\)/)
-  const gate = overview.slice(overview.indexOf('if (!coordinatorSent)'), overview.indexOf('if (!coordinatorSent)') + 400)
-  assert.match(gate, /clearLaunchContext\(\)/)
-  assert.match(gate, /did not report a successful send to the school contact\. No status was changed\./)
+test('school confirmation is gated per student on Connect-reported successes (design correction)', () => {
+  // ASPIRE-DESIGN-CORRECTION-1: the school flow sends to the STUDENTS themselves, so its return
+  // confirmation shares the direct flow's per-student gate - only successfully sent students are
+  // confirmable, and the coordinator-mediated gate is gone.
+  assert.doesNotMatch(overview, /coordinatorSent/)
+  assert.match(overview, /ctx\.kind === LAUNCH_KINDS\.SCHOOL_FORM\s*\n\s*\? buildSchoolSendPlan\(ctx\.school, affectedSent\)/)
 })
 
-test('school launch targets the Academic Partner coordinator (Owner-approved) with students retained', () => {
+test('school launch preselects the intended STUDENTS (Owner design correction, not a Contacts category)', () => {
   const school = overview.slice(overview.indexOf('const handleSendSchool'), overview.indexOf('const handleSendStudent'))
-  assert.match(school, /getCoordinator\(sStudents\)/)
-  assert.match(school, /No school coordinator contact on file/)   // cannot launch without a coordinator
-  assert.match(school, /contactEmails: \[coordinator\.email\]/)
   assert.match(school, /studentIds: plan\.students\.map\(s => s\.id\)/)
-  // Connect preset: Contacts → Academic Partners with the coordinator preselected.
-  assert.match(outreach, /contactCategory: 'Academic Partners'/)
-  assert.match(outreach, /contactEmails: \(launchCtx\.contactEmails \|\| \[\]\)\.filter\(Boolean\)/)
+  assert.doesNotMatch(school, /coordinator|contactEmails/)         // no coordinator mediation remains
+  // Connect preset: audience Students with the launched student ids preselected; the school flow
+  // must NOT open on Contacts → Academic Partners.
+  assert.match(outreach, /source: 'students', studentIds: launchCtx\.studentIds/)
+  assert.doesNotMatch(outreach, /contactCategory: 'Academic Partners'/)
 })
 
 test('launch context persists contactEmails for contact-mediated launches', () => {

@@ -30,6 +30,11 @@ const bUL   = (items) => `<ul>${items.map(i => `<li>${escTxt(i)}</li>`).join('')
 const bDivider = '<hr data-aspire-block="divider">'
 const bNote = ({ title = '', body }) =>
   `<div data-aspire-block="note" data-title="${escAttr(title)}" data-body="${escAttr(body)}"></div>`
+// Linked Button block (RICH-COMPOSE-2A-2). The url may be a [static link token]: the composer's
+// withStaticLinks substitution resolves it to the full public URL before the editor hydrates, and the
+// server validates the final URL (https only) at render time.
+const bButton = ({ label, url }) =>
+  `<div data-aspire-block="button" data-label="${escAttr(label)}" data-url="${escAttr(url)}"></div>`
 // (bEvent available for future date/time templates; unused here since none carry fixed event details.)
 
 // Preceptor Assignment - internal Cedars email, sent through the in-app Direct Message flow.
@@ -280,26 +285,56 @@ ${pClose}`
   return { subject, body, richBody }
 })()
 
-const BULK_STUDENT_PROFILE = {
-  subject: 'ASPIRE: Complete Your Student Profile',
-  body: `Dear [Student First Name],
+// ASPIRE-DESIGN-CORRECTION-1 (Owner-directed, 2026-07-29): exact approved copy with a full Tiptap
+// Content Block layout (heading hierarchy, Complete Your Form button, divider, What Happens Next
+// section). No greeting line by design. The plain body mirrors the same copy for non-rich composers.
+const BULK_STUDENT_PROFILE = (() => {
+  const subject = 'Cedars-Sinai | Complete Your ASPIRE Intake Form'
+  const pThanks   = "Thank you for your interest in participating in ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience, at Cedars-Sinai."
+  const pForm     = 'To help us review your information and prepare for the next steps, please complete your ASPIRE Student Profile Form using the link below:'
+  const pDeadline = 'Please complete the form by [Insert Deadline].'
+  const pDisc     = 'Completion of the form does not guarantee placement. Final placement depends on student eligibility, school approval, unit capacity, preceptor availability, and program alignment.'
+  const pNext     = 'After you submit, our team will invite you to a brief interview with Nursing Professional Development. From there, we will collaborate with unit leaders to match you with a unit and preceptor, then schedule you for orientation.'
+  const pPrivate  = 'This link is for your use only. Please do not share or forward this email.'
+  const pContact  = "If you have any questions, email aspire@cshs.org. We're here to help."
+  const pClose    = 'Thank you, and we look forward to learning more about you.'
 
-Thank you for your interest in participating in ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience, at Cedars-Sinai.
+  const body = `${pThanks}
 
-To help us review your information and prepare for the next steps, please complete your ASPIRE Student Profile Form using the link below:
+${pForm}
 
 [Insert Student Form Link]
 
-Please complete the form by [Insert Deadline].
+${pDeadline}
 
-The form will ask for important information such as your contact details, school/program information, expected graduation timeline, availability, unit interests, and other details needed for placement review.
+${pDisc}
 
-Please make sure that all information is accurate and complete. If your availability, contact information, or program status changes after submission, please notify the ASPIRE team as soon as possible.
+What Happens Next
 
-Completion of the form does not guarantee placement. Final placement depends on student eligibility, school approval, unit capacity, preceptor availability, and program alignment.
+${pNext}
 
-Thank you, and we look forward to learning more about you.`,
-}
+${pPrivate}
+
+${pContact}
+
+${pClose}`
+
+  const richBody =
+    bH2('Complete Your ASPIRE Intake Form')
+    + bP(pThanks)
+    + bP(pForm)
+    + bButton({ label: 'Complete Your Form', url: '[Insert Student Form Link]' })
+    + bP(pDeadline)
+    + bP(pDisc)
+    + bDivider
+    + bH2('What Happens Next')
+    + bP(pNext)
+    + bP(pPrivate)
+    + bP(pContact)
+    + bP(pClose)
+
+  return { subject, body, richBody }
+})()
 
 const BULK_INTERVIEW_SCHEDULING = {
   subject: 'ASPIRE: Schedule Your Interview',
@@ -407,31 +442,69 @@ Your availability will be used to coordinate the interview schedule and assign s
 Thank you for being part of the ASPIRE interview team.`,
 }
 
-// Unit Leader Capacity Request (bulk) - CAPACITY-RESPONSE-OUTREACH-2. Asks unit leaders to submit
-// the cohort capacity-response form. First name merges via [First Name]; "[Insert Unit Form Link]"
-// resolves to the public /unit-form route via the composer's static-link substitution; "[Cohort]"
-// always resolves in the composer (launch-context cohort name, else a neutral fallback), so no
-// placeholder copy reaches the editor.
-const BULK_UNIT_CAPACITY = {
-  subject: 'ASPIRE: Unit Capacity Response Request | [Cohort]',
-  body: `Dear [First Name],
+// Unit Leader Capacity Request (bulk) - CAPACITY-RESPONSE-OUTREACH-2, copy + layout corrected by
+// ASPIRE-DESIGN-CORRECTION-1 (Owner-directed, 2026-07-29): exact approved copy with a full Tiptap
+// Content Block layout (heading hierarchy, Unit Form button, why-hosting bullets). The cohort and
+// rotation-window blanks ("_____") are intentional Owner fill-ins from the approved copy. The
+// subject stays cohort-aware ("[Cohort]" resolves in the composer: launch-context cohort name, else
+// a neutral fallback) and "[Insert Unit Form Link]" resolves to the public /unit-form route via the
+// composer's static-link substitution.
+const BULK_UNIT_CAPACITY = (() => {
+  const subject = 'ASPIRE: Unit Capacity Response Request | [Cohort]'
+  const pDear    = 'Dear Unit Leaders,'
+  const pIntro   = "As we get ready for our _____ ASPIRE cohort, we'd love to know if your unit is able to host senior nursing students for their 1-on-1 bedside clinical rotation."
+  const pWindow  = 'The rotation window is:'
+  const pWindowRange = '_____ to _____'
+  const pAsk     = "Whether or not you're able to host this round, we ask that you submit your response, so we know how to plan:"
+  const pNotThisTime = 'Even a "not this time" is genuinely helpful, since it lets us match students to units that have the capacity and interest right now.'
+  const hWhy     = 'A quick word on why hosting is worth it:'
+  const whyBullets = [
+    'These are senior students in their final semester, and many of them go on to become strong new-graduate candidates for your own unit.',
+    'Precepting one gives you an early, extended look at how a potential future hire thinks, works, and fits your team, long before a formal interview ever happens.',
+    'It also strengthens your preceptors, who often tell us that teaching a student sharpens their own practice.',
+    'It keeps your unit connected to the pipeline that has become one of our most reliable sources of new graduate nurses.',
+  ]
+  const pContact = 'If you have any questions please email us directly at aspire@cshs.org.'
+  const pClose   = 'Thank you for everything you do for our students.'
 
-We are preparing for [Cohort] of ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience, at Cedars-Sinai, and we would appreciate your response for your unit.
+  const body = `${pDear}
 
-Please complete the ASPIRE Unit Capacity Response Form using the link below:
+${pIntro}
+
+${pWindow}
+
+${pWindowRange}
+
+${pAsk}
 
 [Insert Unit Form Link]
 
-The form asks whether your unit can host ASPIRE students this cohort and, if so, how many placements you can support, along with shift preference, preferred preceptors, and any considerations we should know about. If your unit is unable to host this cohort, please still submit the form and indicate zero placements; a "not hosting" response helps us plan just as much as a hosting one.
+${pNotThisTime}
 
-Your response is used to plan student placements alongside school requests, so an early reply makes a real difference for matching.
+${hWhy}
 
-To help ensure that you receive ASPIRE communications, please add ASPIRE at Cedars-Sinai (noreply@aspire-program.com) to your contacts or safe-sender list.
+${whyBullets.map(b => `• ${b}`).join('\n')}
 
-For any questions, please email Jester directly at jesterlloyd.bautista@cshs.org.
+${pContact}
 
-Thank you for supporting our senior nursing students and for your partnership.`,
-}
+${pClose}`
+
+  const richBody =
+    bH2('ASPIRE Unit Capacity Request')
+    + bP(pDear)
+    + bP(pIntro)
+    + bP(pWindow)
+    + bUL([pWindowRange])
+    + bP(pAsk)
+    + bButton({ label: 'Unit Form', url: '[Insert Unit Form Link]' })
+    + bP(pNotThisTime)
+    + bH2(hWhy)
+    + bUL(whyBullets)
+    + bP(pContact)
+    + bP(pClose)
+
+  return { subject, body, richBody }
+})()
 
 // Keyed registry for the Send-to-Many message-type selector.
 const BULK_TEMPLATES = {

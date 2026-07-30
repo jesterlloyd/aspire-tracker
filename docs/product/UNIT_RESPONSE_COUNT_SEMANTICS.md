@@ -86,7 +86,7 @@ responded/expected target counts (left-join is FROM targets TO responses).
   It never shows `0 pending`.
 - During load or error, the summary shows a neutral state, never a false `0 pending`.
 
-## Data model correction (Owner-gated, not applied)
+## Data model correction (Owner-gated; applied in production by the Owner on 2026-07-29)
 
 `supabase/migrations/20260731030000_add_cohort_unit_response_targets.sql` adds
 `public.cohort_unit_response_targets`:

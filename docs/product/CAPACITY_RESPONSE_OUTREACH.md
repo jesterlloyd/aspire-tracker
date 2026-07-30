@@ -21,42 +21,48 @@ never writes a target or status; only the return confirmation (or the manual fal
 
 ## A. Unit capacity request
 
-- **Launch** (`Send capacity request`, Placement Capacity area, Owner/Admin only): units are drawn
-  from the full canonical catalog with a resolvable ACTIVE primary lead (`unit_leaders`), excluding
-  units already active targets. Their leads become the preloaded recipients.
+- **Launch** (`Send Capacity Request`, a proper button in the Placement Capacity card using the
+  canonical light-green `.ov-send-btn` treatment shared with `Send Form to School`; Owner/Admin
+  only - ASPIRE-DESIGN-CORRECTION-1): units are drawn from the full canonical catalog with a
+  resolvable ACTIVE primary lead (`unit_leaders`), excluding units already active targets. Their
+  leads become the preloaded recipients.
 - **Connect opens with**: cohort preselected; audience source `Contacts`; contact group
   `Unit Leadership`; the matched unit-leader recipients preselected (matched to `contacts` rows by
-  normalized email); message type `Unit Leader Capacity Request`; the capacity-response template
-  loaded with the `/unit-form` link and the cohort name resolved (no placeholder copy).
-- **Return confirmation** (modal, shown once):
+  normalized email); message type `Unit Leader Capacity Request`; the Owner-approved rich template
+  (Tiptap Content Blocks: heading, Unit Form button resolving to `/unit-form`, why-hosting bullets)
+  with the cohort-aware subject resolved. The cohort and rotation-window blanks in the body are
+  intentional Owner fill-ins from the approved copy.
+- **Return confirmation** (modal, shown once; ASPIRE-DESIGN-CORRECTION-1 compact redesign):
+  - The first step is compact - title, one line of copy, three actions - and shows NO unit list.
   - Title: `Were the capacity requests sent?`
-  - Copy: `Confirm which units actually received the Unit Leader Capacity Request. Only confirmed
-    units will be counted as expected to respond.`
-  - `Sent to all selected units` marks every launched unit as an active target (atomic RPC:
+  - Copy: `Confirm whether the Unit Leader Capacity Request was sent. Only confirmed units will be
+    counted as expected to respond.`
+  - `Sent to All Selected Units` marks every launched unit as an active target (atomic RPC:
     already-active skipped, removed reactivated).
-  - `Identify units sent` lists the launched units with checkboxes, preselected from the Connect
-    per-recipient send results when available; only checked units are recorded.
-  - `Not sent` (or closing) writes nothing.
+  - `Identify Units Sent` opens the secondary checklist step: the launched units with checkboxes,
+    preselected from the Connect per-recipient send results when available; only checked units are
+    recorded.
+  - `Not Sent` (or closing) writes nothing.
 - A unit becomes expected to respond only after this confirmation or the manual fallback.
 
 ## B. Student Profile Form
 
 - **Direct student send**: opens Connect with audience `Students`, the intended student(s)
   preselected, message type `Student Profile Form Invitation`, the `/student-form` link populated.
-- **School-mediated send** (Owner-approved final semantics, pre-release check): the request goes to
-  the school's ACADEMIC PARTNER coordinator - audience `Contacts`, contact group `Academic Partners`,
-  the coordinator on file preselected (from the school's student records), the same Student Profile
-  Form Invitation template - with the affected Pending Outreach student ids retained in the return
-  context. HISTORY NOTE: the retired mailto for this action BCC'd the students directly; moving the
-  recipient to the coordinator was an explicit Owner decision in the final pre-release check, not a
-  silent change. A school with no coordinator email on file cannot launch this flow (safe toast).
+- **School send** (`Send Form to School`; ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29,
+  superseding the earlier coordinator-mediated decision): opens Connect with audience `Students`,
+  the school's Pending Outreach students preselected, the current cohort preserved, and the same
+  Student Profile Form Invitation template (Tiptap Content Blocks: Complete Your ASPIRE Intake Form
+  heading, Complete Your Form button resolving to `/student-form`, What Happens Next section). The
+  affected student ids are retained in the return context. HISTORY NOTE: the interim release routed
+  this action to the school's Academic Partner coordinator (Contacts → Academic Partners); the Owner
+  reversed that in the design correction - the audience must be the students themselves.
 - **Return confirmation, gated on real send evidence**: the existing confirm-gated pattern
   (`src/lib/sendFormFlow.js`: `Mark N students as Form Sent?`, `Mark as sent` / `Not sent`) opens on
   return, but ONLY for recipients ASPIRE Connect reported as successfully sent:
-  - direct student: only students whose email is in the recorded `sentEmails` are confirmable;
-    failed/skipped/unsent students stay Pending Outreach.
-  - school-mediated: the affected-student group is confirmable together only when the coordinator
-    message was reported sent; otherwise no student status may change.
+  - both flows share one per-student gate: only students whose email is in the recorded
+    `sentEmails` are confirmable; failed/skipped/unsent students stay Pending Outreach. The school
+    flow confirms its successfully sent group together.
   - zero successes: a safe no-success notice, nothing written, context cleared - `Mark as sent` is
     never offered.
   Mark as sent updates ONLY the affected students (Pending Outreach -> Form Sent) through the
@@ -89,17 +95,21 @@ Rules:
 
 `unit_capacity_response_request` - `Unit Leader Capacity Request` (Send to Many, Unit Leader
 audience), body in `src/lib/outreachTemplates.js`, registered in `SEND_TO_MANY_TEMPLATES` with
-`defaultSource: 'contacts'` and `defaultContactCategory: 'Unit Leadership'`. The `[Insert Unit Form
-Link]` token resolves to the public `/unit-form` route via the composer's static-link substitution,
-and the `[Cohort]` token always resolves (launch context cohort name, else a neutral fallback), so
-no placeholder copy reaches the editor.
+`defaultSource: 'contacts'` and `defaultContactCategory: 'Unit Leadership'`. Ships the
+Owner-approved copy (ASPIRE-DESIGN-CORRECTION-1) as both a rich Content Block layout (heading
+hierarchy, Unit Form button, why-hosting bullets) and a plain-body fallback. The `[Insert Unit Form
+Link]` token resolves to the public `/unit-form` route via the composer's static-link substitution;
+the `[Cohort]` token in the SUBJECT always resolves (launch context cohort name, else a neutral
+fallback); the body's cohort and rotation-window blanks are intentional Owner fill-ins.
 
 ## E. Manual fallback
 
-`Configure response targets` remains for outreach completed outside ASPIRE Connect. Its action is
-labeled `Mark units as already contacted` and requires the explicit confirmation checkbox
+The manual targets selector (`CohortResponseTargetsModal` + the staff API) is PRESERVED for
+outreach completed outside ASPIRE Connect, but ASPIRE-DESIGN-CORRECTION-1 removed its trigger from
+At a Glance so the primary surface carries only the real send action. Its action stays labeled
+`Mark units as already contacted` and requires the explicit confirmation checkbox
 `I confirm these units already received the capacity request outside ASPIRE Connect.` It is not the
-normal send path.
+normal send path and is currently not surfaced in the UI.
 
 ## F. Security and integrity
 

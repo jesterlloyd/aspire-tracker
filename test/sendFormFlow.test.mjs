@@ -85,7 +85,7 @@ test('source: opening a draft never writes status; only confirmation does', asyn
     // The return effect (not the launch) arms the existing confirm-gated plan from current data,
     // gated on Connect-reported successes (only successfully sent recipients are confirmable).
     assert.match(overview, /setSendFormPlan\(plan\)/)
-    assert.match(overview, /buildSchoolSendPlan\(ctx\.school, affected\)/)
+    assert.match(overview, /buildSchoolSendPlan\(ctx\.school, affectedSent\)/)
     assert.match(overview, /buildStudentSendPlan\(affectedSent\[0\]\)/)
   })
 

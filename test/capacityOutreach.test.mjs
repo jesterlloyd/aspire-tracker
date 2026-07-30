@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { buildCapacityOutreachRows, capacityOutreachCounts } from '../src/lib/capacityOutreach.js'
 import { getEligibleUnits, UNIT_CATALOG } from '../src/lib/unitCatalog.js'
+import { buildBulkTemplate } from '../src/lib/outreachTemplates.js'
 // templateRegistry.js uses Vite-resolved extensionless imports, so it is source-guarded (below), not imported.
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -107,24 +108,64 @@ test('the selector uses the full catalog with division + recipient readiness, re
   assert.match(modal, /rows\.filter\(r => !r\.alreadyTarget\)/)
 })
 
-test('At a Glance launches the real Connect flow (staff-only) and keeps the manual fallback', () => {
-  // The Send capacity request action LAUNCHES Connect: writes the session launch context (units with
+test('At a Glance launches the real Connect flow via a proper button (ASPIRE-DESIGN-CORRECTION-1)', () => {
+  // The Send Capacity Request action LAUNCHES Connect: writes the session launch context (units with
   // resolvable leads, not already targets) and navigates to Outreach → Send to Many with ?launch=1.
   assert.match(overview, /handleLaunchCapacityRequest/)
   assert.match(overview, /writeLaunchContext\(\{\s*\n\s*kind: LAUNCH_KINDS\.CAPACITY_REQUEST/)
   assert.match(overview, /templateKey: CAPACITY_RESPONSE_TEMPLATE_KEY/)
   assert.match(overview, /navigate\('\/connect\/outreach\?launch=1'\)/)
-  assert.match(overview, /Send capacity request/)
-  assert.match(overview, /Configure response targets/)               // manual fallback remains
-  assert.match(overview, /CohortResponseTargetsModal[\s\S]*cohortId=\{cohortId\}/)  // cohort preselected
+  // Title Case label on the canonical light-green button (same .ov-send-btn as Send Form to School),
+  // not an underlined link-style action.
+  assert.match(overview, /className="ov-send-btn" onClick=\{handleLaunchCapacityRequest\}/)
+  assert.match(overview, /Send Capacity Request/)
+  // The manual targets fallback and the inline orphan diagnostic are no longer surfaced on At a
+  // Glance (Owner design correction); the fallback component + staff API remain intact elsewhere.
+  assert.doesNotMatch(overview, /Configure response targets/)
+  assert.doesNotMatch(overview, /<CohortResponseTargetsModal|from '\.\/CohortResponseTargetsModal'/)
+  assert.doesNotMatch(overview, /orphanUnitNames/)
   // Launching writes no target/status: only the session context + navigation.
   assert.doesNotMatch(overview, /handleLaunchCapacityRequest[\s\S]{0,900}createCohortResponseTargets/)
 })
 
-test('the outreach selector is Owner/Admin gated (target writes are server-verified owner/admin)', () => {
-  // The modal only mounts under isAdmin in OverviewTab; all writes go through the staff-only API.
-  assert.match(overview, /isAdmin[\s\S]*setTargetsModalOpen\(true\)/)
+test('the capacity launch is Owner/Admin gated (target writes are server-verified owner/admin)', () => {
+  // The launch button only renders under isAdmin; all writes go through the staff-only API.
+  assert.match(overview, /isAdmin && \([\s\S]{0,300}handleLaunchCapacityRequest/)
   const api = read('api/cohort-unit-response-targets.js')
   assert.match(api, /verifyOwnerAdminCaller\(req\)/)
   assert.match(api, /code: 'STAFF_ONLY'/)
+})
+
+test('the preserved manual fallback modal is unchanged (not surfaced on At a Glance)', () => {
+  assert.match(modal, /Mark units as already contacted/)
+  assert.match(modal, /createCohortResponseTargets\(cohortId, units\)/)
+})
+
+// ─── Corrected template copy + Tiptap layout (ASPIRE-DESIGN-CORRECTION-1) ───────
+
+test('Unit Leader Capacity Request carries the approved copy in a rich Content Block layout', () => {
+  const t = buildBulkTemplate('unit_capacity_response_request')
+  assert.equal(t.subject, 'ASPIRE: Unit Capacity Response Request | [Cohort]')   // cohort-aware subject preserved
+  assert.match(t.richBody, /<h2>ASPIRE Unit Capacity Request<\/h2>/)
+  assert.match(t.richBody, /<p>Dear Unit Leaders,<\/p>/)
+  assert.match(t.richBody, /data-aspire-block="button" data-label="Unit Form" data-url="\[Insert Unit Form Link\]"/)
+  assert.match(t.richBody, /<h2>A quick word on why hosting is worth it:<\/h2>/)
+  assert.match(t.richBody, /strong new-graduate candidates for your own unit\./)
+  assert.match(t.richBody, /email us directly at aspire@cshs\.org/)
+  assert.match(t.richBody, /Thank you for everything you do for our students\./)
+  // The plain-body fallback mirrors the same copy with the editable link token.
+  assert.match(t.body, /Dear Unit Leaders,/)
+  assert.match(t.body, /\[Insert Unit Form Link\]/)
+})
+
+test('Student Profile Form Invitation carries the approved copy in a rich Content Block layout', () => {
+  const t = buildBulkTemplate('student_profile_invitation')
+  assert.equal(t.subject, 'Cedars-Sinai | Complete Your ASPIRE Intake Form')
+  assert.match(t.richBody, /<h2>Complete Your ASPIRE Intake Form<\/h2>/)
+  assert.match(t.richBody, /data-aspire-block="button" data-label="Complete Your Form" data-url="\[Insert Student Form Link\]"/)
+  assert.match(t.richBody, /Please complete the form by \[Insert Deadline\]\./)
+  assert.match(t.richBody, /<hr data-aspire-block="divider"><h2>What Happens Next<\/h2>/)
+  assert.match(t.richBody, /This link is for your use only\. Please do not share or forward this email\./)
+  assert.match(t.richBody, /email aspire@cshs\.org/)
+  assert.match(t.body, /\[Insert Student Form Link\]/)
 })
