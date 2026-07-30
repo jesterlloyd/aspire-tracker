@@ -66,8 +66,11 @@ function PlacementOverview({ studentsCount, matchedCount, unmatchedCount, prefCo
 
   return (
     <section style={{ background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:14, boxShadow:'var(--shadow-card)', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
+      {/* PLACEMENT-SECTION-HIERARCHY-1: the three board section titles (Placement at a Glance,
+          Unit Pool, Student Pool) share the canonical .ov-panel-title treatment used by the
+          At a Glance cards - one navy title system across the placement surfaces. */}
       <div style={{ padding:'11px 22px 9px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
-        <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.14em', color:'var(--text-caption,#475467)', fontWeight:600 }}>Placement at a Glance</div>
+        <div className="ov-panel-title">Placement at a Glance</div>
         <div style={{ fontSize:11, color:'var(--text-muted,#98A2B3)', fontVariantNumeric:'tabular-nums' }}>
           {cohort?.name || 'Cohort'} · {schools} school{schools !== 1 ? 's' : ''} · Updated {updatedLabel}
         </div>

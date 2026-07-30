@@ -30,41 +30,24 @@ import { buildSchoolSendPlan, buildStudentSendPlan, resolveSendResults } from '.
 import { GraduationCap, MapPin, Copy } from 'lucide-react'
 
 // ── ASPIRE-MASTHEAD: Placement Snapshot ──────────────────────────────────────
-// Program at a Glance and the Capacity Coverage gauge told one supply-and-
-// demand story in two disconnected visual languages. This card merges them:
-// the KPI row above, the capacity composition bar below, one Updated clock,
-// and one number source. Open slots derive from the LIVE placement count
-// (total_slots minus matched students), closing the last display consumer of
-// the drift-prone stored slots_remaining field per the one-capacity-source
-// contract. The bar keeps the gauge's composition math; only the shape
-// changed (and the gauge's intro animation retired with it).
+// One executive KPI row with one Updated clock and one number source. Open
+// slots derive from the LIVE placement count (total_slots minus matched
+// students), closing the last display consumer of the drift-prone stored
+// slots_remaining field per the one-capacity-source contract.
+// PLACEMENT-SECTION-HIERARCHY-1 (Owner-approved): the title now uses the same
+// canonical .ov-panel-title treatment as Placement Capacity / Placement
+// Requests, and the Capacity Coverage composition bar is retired - the KPI row
+// stands alone, with no replacement visualization by design.
 // KPICell and useUpdatedLabel are shared - imported from ./KPIBand
-
-const SEGMENT_COLORS = {
-  placed:   'var(--gauge-segment-placed,   #C8D5C0)',
-  awaiting: 'var(--gauge-segment-awaiting, #D5DCEC)',
-  over:     'var(--gauge-segment-over,     #F2D5E0)',
-}
 
 function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequesting, gap, participatingUnits, activeSchools, cohort, cohortId }) {
   const updatedLabel = useUpdatedLabel(cohortId)
-  const totalDemand = studentsRequesting
   const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
-
-  const noStudents = totalDemand === 0
-  const noCapacity = totalSlots === 0 && totalDemand > 0
-  const awaiting   = noStudents ? 0 : Math.min(Math.max(0, totalSlots - placedCount), Math.max(0, totalDemand - placedCount))
-  const unmatched  = noStudents ? 0 : Math.max(0, totalDemand - totalSlots)
-  const pctOf = n => noStudents ? 0 : (n / totalDemand) * 100
-
-  const barLabel = noStudents
-    ? 'No students yet'
-    : `${placedCount} placed, ${awaiting} awaiting placement, ${unmatched} over capacity, of ${totalDemand} student requests`
 
   return (
     <section className="snap" aria-label="Placement snapshot">
       <div className="snap-head">
-        <span className="snap-title">Placement Snapshot</span>
+        <span className="ov-panel-title">Placement Snapshot</span>
         <span className="snap-sub">
           {cohort?.name || 'Cohort'} · {studentsRequesting} students · {activeSchools} affiliated schools · {participatingUnits} hosting units · Updated {updatedLabel}
         </span>
@@ -76,36 +59,6 @@ function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequest
         <KPICell value={openSlots}          label="Open Slots" />
         <KPICell value={studentsRequesting} label="Student Requests" sub={`${activeSchools} schools`} />
         <KPICell value={Math.abs(gap)}      label={gap > 0 ? 'Placement Gap' : 'Fully Covered'} sub={gap > 0 ? 'More requests than open slots' : 'Enough slots for all'} accent={gap > 0 ? 'warning' : 'sage'} />
-      </div>
-      <div className="snap-bar-zone">
-        <div className="snap-bar-top">
-          <span className="snap-bar-label">Capacity coverage</span>
-          <span className="snap-bar-read">
-            {noStudents ? 'No students yet'
-              : noCapacity ? `${totalDemand} student${totalDemand === 1 ? '' : 's'} · no capacity confirmed`
-              : <>{placedPct}% filled <span>· {placedCount} of {totalSlots} confirmed slots</span></>}
-          </span>
-        </div>
-        <div className="snap-bar" role="img" aria-label={barLabel}>
-          {!noStudents && placedCount > 0 && (
-            <i style={{ width: `${pctOf(placedCount)}%`, background: SEGMENT_COLORS.placed }} title={`${placedCount} placed`} />
-          )}
-          {!noStudents && awaiting > 0 && (
-            <i style={{ width: `${pctOf(awaiting)}%`, background: SEGMENT_COLORS.awaiting }} title={`${awaiting} awaiting placement (within capacity)`} />
-          )}
-          {!noStudents && unmatched > 0 && (
-            <i style={{ width: `${pctOf(unmatched)}%`, background: SEGMENT_COLORS.over }} title={`${unmatched} students over capacity (no slot available)`} />
-          )}
-        </div>
-        {!noStudents && (
-          <div className="snap-legend">
-            <span><i style={{ background: SEGMENT_COLORS.placed }} /><b>{placedCount}</b> placed</span>
-            <span><i style={{ background: SEGMENT_COLORS.awaiting }} /><b>{awaiting}</b> awaiting placement</span>
-            {(unmatched > 0 || noCapacity) && (
-              <span><i style={{ background: SEGMENT_COLORS.over }} /><b>{unmatched}</b> over capacity</span>
-            )}
-          </div>
-        )}
       </div>
     </section>
   )

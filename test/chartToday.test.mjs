@@ -96,16 +96,12 @@ test('the merged Placement Snapshot', async (t) => {
     // No code reads the stored field (comments may still name it).
     assert.doesNotMatch(overview, /u\.slots_remaining|\.slots_remaining \|\|/)
   })
-  await t.test('the coverage bar keeps the gauge composition math and speaks its counts', () => {
-    assert.match(overview, /Math\.min\(Math\.max\(0, totalSlots - placedCount\), Math\.max\(0, totalDemand - placedCount\)\)/)
-    assert.match(overview, /role="img" aria-label=\{barLabel\}/)
-    assert.match(overview, /awaiting placement, \$\{unmatched\} over capacity/)
-  })
-  await t.test('segments use the theme gauge tokens (dark mode is token-level)', () => {
-    assert.match(overview, /var\(--gauge-segment-placed/)
-    assert.match(overview, /var\(--gauge-segment-awaiting/)
-    assert.match(overview, /var\(--gauge-segment-over/)
-    assert.match(css, /\.snap-bar \{[^}]*var\(--gauge-segment-base/)
+  await t.test('PLACEMENT-SECTION-HIERARCHY-1: the coverage bar is retired; the KPI row stands alone', () => {
+    // Owner decision: no composition bar and no replacement visualization under the KPI row.
+    assert.doesNotMatch(overview, /snap-bar|snap-legend|Capacity coverage|barLabel/)
+    assert.doesNotMatch(css, /\.snap-bar|\.snap-legend|\.snap-title \{/)
+    // The card title uses the canonical panel-title treatment (same as the ledger cards).
+    assert.match(overview, /className="ov-panel-title">Placement Snapshot/)
   })
   await t.test('the retired gauge and glance band are gone', () => {
     assert.doesNotMatch(overview, /CapacityCoverageGauge|ProgramAtAGlance|annularPath/)
