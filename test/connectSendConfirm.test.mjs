@@ -202,12 +202,23 @@ test('school confirmation is gated per student on Connect-reported successes (de
 
 test('school launch preselects the intended STUDENTS (Owner design correction, not a Contacts category)', () => {
   const school = overview.slice(overview.indexOf('const handleSendSchool'), overview.indexOf('const handleSendStudent'))
+  // Batch semantics: ALL of the school's applicable (Pending Outreach) students ride in the launch.
+  assert.match(school, /buildSchoolSendPlan\(school, sStudents\)/)
   assert.match(school, /studentIds: plan\.students\.map\(s => s\.id\)/)
+  assert.match(school, /templateKey: 'student_profile_invitation'/)
   assert.doesNotMatch(school, /coordinator|contactEmails/)         // no coordinator mediation remains
   // Connect preset: audience Students with the launched student ids preselected; the school flow
   // must NOT open on Contacts → Academic Partners.
   assert.match(outreach, /source: 'students', studentIds: launchCtx\.studentIds/)
   assert.doesNotMatch(outreach, /contactCategory: 'Academic Partners'/)
+})
+
+test('action labels: school-level batch is "Send Forms to Students"; per-student stays "Send Form"', () => {
+  // Owner rename (2026-07-30): the school-level batch button label, exactly.
+  assert.match(overview, /Send Forms to Students\s*<\/button>/)
+  assert.doesNotMatch(overview, /Send Form to School\s*<\/button>/)
+  // The individual student action keeps its singular label on the small button variant.
+  assert.match(overview, /className="ov-send-btn ov-send-btn-sm"[\s\S]{0,200}?Send Form\s*<\/button>/)
 })
 
 test('launch context persists contactEmails for contact-mediated launches', () => {

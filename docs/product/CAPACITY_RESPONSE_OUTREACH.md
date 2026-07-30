@@ -22,7 +22,7 @@ never writes a target or status; only the return confirmation (or the manual fal
 ## A. Unit capacity request
 
 - **Launch** (`Send Capacity Request`, a proper button in the Placement Capacity card using the
-  canonical light-green `.ov-send-btn` treatment shared with `Send Form to School`; Owner/Admin
+  canonical light-green `.ov-send-btn` treatment shared with `Send Forms to Students`; Owner/Admin
   only - ASPIRE-DESIGN-CORRECTION-1): units are drawn from the full canonical catalog with a
   resolvable ACTIVE primary lead (`unit_leaders`), excluding units already active targets. Their
   leads become the preloaded recipients.
@@ -49,8 +49,10 @@ never writes a target or status; only the return confirmation (or the manual fal
 
 - **Direct student send**: opens Connect with audience `Students`, the intended student(s)
   preselected, message type `Student Profile Form Invitation`, the `/student-form` link populated.
-- **School send** (`Send Form to School`; ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29,
-  superseding the earlier coordinator-mediated decision): opens Connect with audience `Students`,
+- **School-level batch send** (`Send Forms to Students`, Owner-renamed 2026-07-30 from `Send Form
+  to School` to reflect what it does; each student row keeps its own singular `Send Form` action;
+  ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29, superseding the earlier
+  coordinator-mediated decision): opens Connect with audience `Students`,
   the school's Pending Outreach students preselected, the current cohort preserved, and the same
   Student Profile Form Invitation template (Tiptap Content Blocks: Complete Your ASPIRE Intake Form
   heading, Complete Your Form button resolving to `/student-form`, What Happens Next section). The
@@ -102,14 +104,15 @@ Link]` token resolves to the public `/unit-form` route via the composer's static
 the `[Cohort]` token in the SUBJECT always resolves (launch context cohort name, else a neutral
 fallback); the body's cohort and rotation-window blanks are intentional Owner fill-ins.
 
-## E. Manual fallback
+## E. Manual fallback: no UI entry point (Owner decision, 2026-07-30)
 
-The manual targets selector (`CohortResponseTargetsModal` + the staff API) is PRESERVED for
-outreach completed outside ASPIRE Connect, but ASPIRE-DESIGN-CORRECTION-1 removed its trigger from
-At a Glance so the primary surface carries only the real send action. Its action stays labeled
-`Mark units as already contacted` and requires the explicit confirmation checkbox
-`I confirm these units already received the capacity request outside ASPIRE Connect.` It is not the
-normal send path and is currently not surfaced in the UI.
+There is NO visible manual fallback for historical outreach anywhere in the product, and none
+should be added. The backend target model, the staff API, and the `CohortResponseTargetsModal`
+component are preserved in code (the modal keeps its `Mark units as already contacted` label and
+outside-Connect confirmation checkbox), but the component is intentionally unmounted. Historical
+targets (e.g. Fall 2026) are handled ONCE through an Owner-applied SQL backfill after the exact
+contacted-unit list is approved - see the commented backfill template in
+`supabase/migrations/20260731030000_add_cohort_unit_response_targets.sql`.
 
 ## F. Security and integrity
 

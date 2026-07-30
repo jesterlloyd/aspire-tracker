@@ -647,8 +647,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [sendFormBusy, setSendFormBusy] = useState(false)
 
   // School send (ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29, superseding the earlier
-  // coordinator-mediated decision): Send Form to School opens Connect with audience STUDENTS - the
-  // school's Pending Outreach students preselected - and the Student Profile Form Invitation
+  // coordinator-mediated decision): Send Forms to Students (the school-level batch action) opens
+  // Connect with audience STUDENTS - the school's Pending Outreach students preselected - and the
+  // Student Profile Form Invitation
   // template (/student-form link populated). The affected student ids ride in the return context;
   // statuses change only after the Owner confirms on return, and only for students Connect reported
   // as actually sent. No mailto.
@@ -978,8 +979,10 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 // unmatched-unit lists here (the response-state pills already carry the states, and
                 // orphan reconciliation stays available in computeUnitResponseMetrics for admin
                 // surfaces). The send action is a real button in the card, matching the canonical
-                // light-green Send Form to School treatment; the manual targets fallback
-                // (CohortResponseTargetsModal + staff API) is preserved but no longer surfaced here.
+                // light-green .ov-send-btn treatment shared with Send Forms to Students; the manual
+                // targets fallback (modal component + staff API) is preserved in code but has NO UI
+                // entry point anywhere by Owner decision - historical targets are an Owner-applied
+                // SQL backfill, not a product surface.
                 const m = computeUnitResponseMetrics({ targets: unitResponseTargets, responses: unitResponses })
                 const hasPending = m.configured && m.pendingUnitCount > 0 && m.pendingUnitNames.length > 0
                 return (
@@ -1212,12 +1215,16 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
                     {open && (
                       <div className="ov-group-items">
-                        {/* Send Form to School - only when at least one student is Pending Outreach */}
+                        {/* Send Forms to Students (school-level BATCH action, Owner-renamed from
+                            "Send Form to School"): sends the Student Profile Form invitation to all
+                            Pending Outreach students in this school. Each student row keeps its own
+                            singular "Send Form" action. Shown only when at least one student is
+                            Pending Outreach. */}
                         {hasPending && (
                           <div className="ov-school-actions">
                             <button className="ov-send-btn"
                               onClick={e => { e.stopPropagation(); handleSendSchool(school, sStudents) }}>
-                              Send Form to School
+                              Send Forms to Students
                             </button>
                           </div>
                         )}

@@ -9,7 +9,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { buildCapacityOutreachRows, capacityOutreachCounts } from '../src/lib/capacityOutreach.js'
@@ -136,9 +136,27 @@ test('the capacity launch is Owner/Admin gated (target writes are server-verifie
   assert.match(api, /code: 'STAFF_ONLY'/)
 })
 
-test('the preserved manual fallback modal is unchanged (not surfaced on At a Glance)', () => {
+test('the preserved manual fallback modal is unchanged in code (backend capability intact)', () => {
   assert.match(modal, /Mark units as already contacted/)
   assert.match(modal, /createCohortResponseTargets\(cohortId, units\)/)
+})
+
+test('NO manual fallback entry point exists anywhere in the UI (Owner decision, 2026-07-30)', () => {
+  // Historical targets are an Owner-applied SQL backfill, never a product surface: no file in src/
+  // may import or mount CohortResponseTargetsModal (the component file itself is the only mention).
+  const walk = (dir) => readdirSync(dir).flatMap((name) => {
+    const full = join(dir, name)
+    return statSync(full).isDirectory() ? walk(full) : [full]
+  })
+  const offenders = walk(join(here, '..', 'src'))
+    .filter(f => /\.(jsx?|tsx?)$/.test(f) && !f.endsWith('CohortResponseTargetsModal.jsx'))
+    .filter(f => {
+      const src = readFileSync(f, 'utf8')
+      return /CohortResponseTargetsModal/.test(src)
+    })
+  assert.deepEqual(offenders, [], 'no UI file may reference the manual fallback modal')
+  // And the At a Glance card carries no configure affordance of any name.
+  assert.doesNotMatch(overview, /Configure response targets/i)
 })
 
 // ─── Corrected template copy + Tiptap layout (ASPIRE-DESIGN-CORRECTION-1) ───────

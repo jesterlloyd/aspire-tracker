@@ -312,7 +312,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       }
     }
     // student_form AND school_form: the recipients are the intended students themselves
-    // (ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29: Send Form to School preselects the
+    // (ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29: Send Forms to Students preselects the
     // school's Pending Outreach students under the Students audience, not a Contacts category).
     return { source: 'students', studentIds: launchCtx.studentIds || [] }
   })
