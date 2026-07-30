@@ -1,7 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { openOutlookCompose } from '../lib/outlookCompose'
-import { appUrl } from '../lib/appUrl'
 import Tooltip from './ui/Tooltip'
 import { useQuery } from '@tanstack/react-query'
 import { useUpdatedLabel, KPICell } from './KPIBand'
@@ -28,7 +26,7 @@ import { matchSchoolResponse } from '../lib/schoolResponseDisplay'
 import TodayMasthead from './TodayMasthead'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
-import { buildSchoolSendPlan, buildStudentSendPlan, resolveSendResults } from '../lib/sendFormFlow'
+import { buildSchoolSendPlan, resolveSendResults } from '../lib/sendFormFlow'
 import { GraduationCap, MapPin, Copy } from 'lucide-react'
 
 // ── ASPIRE-MASTHEAD: Placement Snapshot ──────────────────────────────────────
@@ -350,30 +348,10 @@ function PlacementCapacityPanel({
   )
 }
 
-const FORM_SUBJECT = 'Complete Your ASPIRE Intake Form | Cedars-Sinai'
-const buildFormBody = (recipientName = 'ASPIRE Student') =>
-`Dear ${recipientName},
-
-Welcome to ASPIRE at Cedars-Sinai. Your final semester is here, and we are excited to support your transition into practice.
-
-Please complete your ASPIRE Intake Form using the link below. This form helps us learn your goals and unit interests and is the first step in matching you with the right clinical environment and preceptor.
-
-Complete your form here: ${appUrl('/student-form')}
-
-What happens next: After you submit, our team will invite you to a brief interview with Nursing Professional Development. From there, we will collaborate with unit leaders to match you with a unit and preceptor, then schedule you for orientation.
-
-This link is for your use only. Please do not share or forward this email.
-
-If you have any questions, simply reply to this email. We are here to help.
-
-Warm regards,
-Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
-Brawerman Nursing Institute | Cedars-Sinai Medical Center`
-
-// All external navigation must use openLink helpers (src/lib/openLink.js)
-function openMailto(bcc, body) {
-  openOutlookCompose({ bcc, subject: FORM_SUBJECT, body })
-}
+// CAPACITY-RESPONSE-OUTREACH-2: the Send Form actions now launch ASPIRE Connect → Outreach →
+// Send to Many (Students + Student Profile Form Invitation preselected) instead of opening a mailto
+// draft. The confirm-gated status semantics are unchanged: the 'Form Sent' confirmation now appears
+// when the Owner RETURNS to At a Glance, and only that confirmation writes status.
 
 // ── ASPIRE-CHART: attention digest ───────────────────────────────────────────
 // Today leads with what needs a human. Counts come from the SAME canonical
@@ -670,17 +648,39 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [sendFormPlan, setSendFormPlan] = useState(null)
   const [sendFormBusy, setSendFormBusy] = useState(false)
 
+  // School-batched send. HONEST SEMANTICS: this action has always emailed the school's Pending
+  // Outreach STUDENTS directly (buildSchoolSendPlan.emails are student school emails) - it was never
+  // a send to the school coordinator. The Connect launch preserves that exact recipient intent:
+  // Students source, that school's pending students preselected. No mailto.
   const handleSendSchool = (school, sStudents) => {
     const plan = buildSchoolSendPlan(school, sStudents)
     if (!plan) { showToast(`No Pending Outreach students at ${school}.`); return }
-    openMailto(plan.emails.join(';'), buildFormBody())
-    setSendFormPlan(plan)
+    writeLaunchContext({
+      kind: LAUNCH_KINDS.SCHOOL_FORM,
+      cohortId,
+      cohortName: cohort?.name || '',
+      source: 'at_a_glance_school_outreach',
+      templateKey: 'student_profile_invitation',
+      returnPath: '/aggregate',
+      studentIds: plan.students.map(s => s.id),
+      school,
+    })
+    navigate('/connect/outreach?launch=1')
   }
 
+  // Direct single-student send: Students source, this student preselected. No mailto.
   const handleSendStudent = student => {
-    const plan = buildStudentSendPlan(student)
-    openMailto(student.school_email, buildFormBody(student.first_name || 'ASPIRE Student'))
-    setSendFormPlan(plan)
+    if (!student) return
+    writeLaunchContext({
+      kind: LAUNCH_KINDS.STUDENT_FORM,
+      cohortId,
+      cohortName: cohort?.name || '',
+      source: 'at_a_glance_student_outreach',
+      templateKey: 'student_profile_invitation',
+      returnPath: '/aggregate',
+      studentIds: [student.id],
+    })
+    navigate('/connect/outreach?launch=1')
   }
 
   const handleConfirmFormSent = async () => {
