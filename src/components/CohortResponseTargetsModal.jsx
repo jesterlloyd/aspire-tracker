@@ -21,6 +21,9 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [toAdd, setToAdd] = useState(() => new Set())   // canonical keys selected to add
+  // Manual-fallback guard: the Owner must explicitly confirm the units were already contacted OUTSIDE
+  // ASPIRE Connect before this modal will record them. The normal path is Send capacity request.
+  const [confirmContacted, setConfirmContacted] = useState(false)
 
   const refetch = useCallback(async () => {
     // All state updates happen AFTER the await so the mount effect never triggers a synchronous render.
@@ -65,13 +68,13 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
   const doAdd = async () => {
     const chosen = addableRows.filter(r => toAdd.has(r.key))
     if (!chosen.length) return
-    if (chosen.length > 5 && !window.confirm(`Add ${chosen.length} response targets to ${cohortName || 'this cohort'}? Units without a recipient are recorded as manual targets and receive no email in this release.`)) return
+    if (chosen.length > 5 && !window.confirm(`Mark ${chosen.length} units as already contacted for ${cohortName || 'this cohort'}? This records them as expected responders without sending anything.`)) return
     setSaving(true); setError('')
     const units = chosen.map(r => ({ unit_key: r.name, unit_name: r.name }))
     const { ok, json } = await createCohortResponseTargets(cohortId, units)
     setSaving(false)
     if (!ok) { setError(json.code === 'TARGETS_NOT_ENABLED' ? 'Response targets are not enabled yet.' : 'Could not add targets.'); return }
-    setToAdd(new Set()); await refetch(); onChanged?.()
+    setToAdd(new Set()); setConfirmContacted(false); await refetch(); onChanged?.()
   }
 
   const setActive = async (t, active) => {
@@ -107,11 +110,11 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
           {loading ? <p>Loading…</p> : (
             <>
               <fieldset style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }} disabled={!ready || saving}>
-                <legend style={{ fontSize: 12, fontWeight: 700 }}>Add targets (full unit catalog)</legend>
+                <legend style={{ fontSize: 12, fontWeight: 700 }}>Mark units as already contacted (manual fallback)</legend>
                 <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 8px' }}>
-                  Selected {counts.selected} · {counts.sendReady} send-ready · {counts.blocked} without a recipient.
-                  Units without a resolvable primary lead are flagged; in this release they are recorded as
-                  manual targets and no email is sent.
+                  For outreach completed outside ASPIRE Connect. The normal path is Send capacity request
+                  on At a Glance. Selected {counts.selected} · {counts.sendReady} with a resolvable lead ·
+                  {' '}{counts.blocked} without. Marking a unit sends no email and creates no capacity or response.
                 </p>
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {addableRows.length === 0 && <li style={{ fontSize: 12, color: 'var(--text-secondary)' }}>All catalog units are already active targets.</li>}
@@ -129,8 +132,14 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
                     </li>
                   ))}
                 </ul>
-                <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={doAdd} disabled={!counts.selected || saving}>
-                  {saving ? 'Saving…' : `Add ${counts.selected || ''} target${counts.selected === 1 ? '' : 's'}`.trim()}
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, marginTop: 10, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={confirmContacted} onChange={e => setConfirmContacted(e.target.checked)}
+                    style={{ marginTop: 2 }} />
+                  <span>I confirm these units already received the capacity request outside ASPIRE Connect.</span>
+                </label>
+                <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={doAdd}
+                  disabled={!counts.selected || !confirmContacted || saving}>
+                  {saving ? 'Saving…' : 'Mark units as already contacted'}
                 </button>
               </fieldset>
 

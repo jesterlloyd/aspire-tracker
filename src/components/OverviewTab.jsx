@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { openOutlookCompose } from '../lib/outlookCompose'
 import { appUrl } from '../lib/appUrl'
@@ -11,11 +11,11 @@ import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER, getEligibleUnits } from '../lib/unitCatalog'
 import { computeUnitResponseMetrics, formatUnitResponseSummary } from '../lib/unitResponseMetrics'
-import { listCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
+import { listCohortResponseTargets, createCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
 import CohortResponseTargetsModal from './CohortResponseTargetsModal'
 import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
 import { canonicalUnitKey } from '../lib/canonicalUnit'
-import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
+import { writeLaunchContext, readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { CAPACITY_RESPONSE_TEMPLATE_KEY } from '../lib/connect/templateRegistry'
 import { useAuth } from '../contexts/AuthContext'
 import StudentAvatar from './StudentAvatar'
@@ -434,7 +434,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // hidden, so these 60s polls used to run forever regardless of where the
   // user was. Polling now pauses while another route is visible; the cached
   // data stays available and refreshes on return.
-  const onTodayRoute = useLocation().pathname === '/aggregate'
+  const location = useLocation()
+  const onTodayRoute = location.pathname === '/aggregate'
   const navigate = useNavigate()
 
   // en-CA gives reliable YYYY-MM-DD in the user's local timezone
@@ -739,6 +740,58 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     navigate('/connect/outreach?launch=1')
   }
 
+  // ── Return confirmation (capacity): opens ONCE when the Owner returns to At a Glance from a
+  // launched capacity request. Every decision (all / subset / not sent / close) clears the launch
+  // context, so the modal can never reopen after a decision; a refresh before deciding re-offers the
+  // same pending confirmation without duplicating writes (the target RPC is idempotent).
+  const [capacityConfirm, setCapacityConfirm] = useState(null)          // the launch context under review
+  const [capacityConfirmMode, setCapacityConfirmMode] = useState('choice') // 'choice' | 'identify'
+  const [capacityChecked, setCapacityChecked] = useState(() => new Set())  // canonical keys (identify mode)
+  const [capacityBusy, setCapacityBusy] = useState(false)
+
+  useEffect(() => {
+    if (location.pathname !== '/aggregate') return
+    const ctx = readLaunchContext()
+    if (!ctx || ctx.kind !== LAUNCH_KINDS.CAPACITY_REQUEST || ctx.cohortId !== cohortId) return
+    /* eslint-disable react-hooks/set-state-in-effect -- intentional one-shot open on return navigation, mirrors the composer draft-hydrate precedent */
+    setCapacityConfirm(ctx)
+    setCapacityConfirmMode('choice')
+    // Preselect the identify list from the REAL per-recipient results when the composer recorded them.
+    const sent = new Set((ctx.sentEmails || []).map(e => String(e).toLowerCase()))
+    setCapacityChecked(new Set(
+      (ctx.units || []).filter(u => sent.has(String(u.email || '').toLowerCase())).map(u => u.key),
+    ))
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [location.pathname, cohortId])
+
+  const closeCapacityConfirm = (msg) => {
+    setCapacityConfirm(null)
+    setCapacityConfirmMode('choice')
+    setCapacityChecked(new Set())
+    clearLaunchContext()
+    if (msg) showToast(msg)
+  }
+
+  // Record the confirmed units as active response targets (atomic RPC: already-active skipped,
+  // removed reactivated, one durable row per unit). On failure the modal STAYS open with the context
+  // intact so the Owner can retry; nothing is partially cleared.
+  const recordConfirmedCapacityUnits = async (units) => {
+    if (!capacityConfirm) return
+    if (!units.length) { closeCapacityConfirm('No units were marked as expected.'); return }
+    setCapacityBusy(true)
+    const payload = units.map(u => ({ unit_key: u.name, unit_name: u.name }))
+    const { ok, json } = await createCohortResponseTargets(capacityConfirm.cohortId, payload)
+    setCapacityBusy(false)
+    if (!ok) {
+      showToast(json?.code === 'TARGETS_NOT_ENABLED'
+        ? 'Response targets are not enabled yet. Ask the Owner to apply the pending migration.'
+        : 'Could not record the confirmed units. Please try again.')
+      return
+    }
+    closeCapacityConfirm(`${units.length} unit${units.length === 1 ? '' : 's'} marked as expected to respond.`)
+    refetchTargets()
+  }
+
   return (
     <div className="overview-tab">
       {/* Toast - fixed, lives outside scroll containers */}
@@ -772,6 +825,86 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 {sendFormBusy ? 'Saving…' : 'Mark as sent'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CAPACITY-RESPONSE-OUTREACH-2: return confirmation for a launched Unit Leader Capacity
+          Request. Only a confirmed unit becomes an expected responder; Not sent / closing writes
+          nothing. Shown once - every decision clears the launch context. */}
+      {capacityConfirm && (
+        <div role="dialog" aria-modal="true" aria-label="Were the capacity requests sent?"
+          style={{ position:'fixed', inset:0, zIndex:9997, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(15,23,42,0.28)' }}>
+          <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(480px, calc(100vw - 32px))', fontFamily:'DM Sans,sans-serif' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, marginBottom:8 }}>
+              <div style={{ fontSize:15, fontWeight:700, color:'var(--chart-ink)' }}>Were the capacity requests sent?</div>
+              <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
+                aria-label="Close without confirming"
+                style={{ background:'none', border:'none', fontSize:18, lineHeight:1, color:'var(--chart-ink-soft)', cursor:'pointer', padding:2 }}>×</button>
+            </div>
+            <div style={{ fontSize:13, color:'var(--chart-ink-soft)', lineHeight:1.5, marginBottom:10 }}>
+              Confirm which units actually received the Unit Leader Capacity Request. Only confirmed units will be counted as expected to respond.
+            </div>
+            {capacityConfirm.summary && (
+              <div style={{ fontSize:12, color:'var(--chart-ink-soft)', marginBottom:10 }}>
+                Connect reported: {capacityConfirm.summary.sent ?? 0} sent · {capacityConfirm.summary.skipped ?? 0} skipped · {capacityConfirm.summary.failed ?? 0} failed.
+              </div>
+            )}
+            {capacityConfirmMode === 'choice' ? (
+              <>
+                <div style={{ fontSize:12, color:'var(--chart-ink-soft)', marginBottom:14 }}>
+                  {(capacityConfirm.units || []).map(u => u.name).join(' · ')}
+                </div>
+                <div style={{ display:'flex', gap:8, justifyContent:'flex-end', flexWrap:'wrap' }}>
+                  <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
+                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    Not sent
+                  </button>
+                  <button onClick={() => setCapacityConfirmMode('identify')} disabled={capacityBusy}
+                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    Identify units sent
+                  </button>
+                  <button onClick={() => recordConfirmedCapacityUnits(capacityConfirm.units || [])} disabled={capacityBusy}
+                    style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    {capacityBusy ? 'Saving…' : 'Sent to all selected units'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <ul style={{ listStyle:'none', margin:'0 0 14px', padding:0, maxHeight:220, overflowY:'auto', display:'flex', flexDirection:'column', gap:4 }}>
+                  {(capacityConfirm.units || []).map(u => (
+                    <li key={u.key}>
+                      <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--chart-ink)' }}>
+                        <input type="checkbox" checked={capacityChecked.has(u.key)}
+                          onChange={() => setCapacityChecked(prev => {
+                            const next = new Set(prev)
+                            if (next.has(u.key)) next.delete(u.key); else next.add(u.key)
+                            return next
+                          })} />
+                        {u.name}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <div style={{ display:'flex', gap:8, justifyContent:'flex-end', flexWrap:'wrap' }}>
+                  <button onClick={() => setCapacityConfirmMode('choice')} disabled={capacityBusy}
+                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    Back
+                  </button>
+                  <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
+                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    Not sent
+                  </button>
+                  <button
+                    onClick={() => recordConfirmedCapacityUnits((capacityConfirm.units || []).filter(u => capacityChecked.has(u.key)))}
+                    disabled={capacityBusy || capacityChecked.size === 0}
+                    style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor: capacityChecked.size === 0 ? 'not-allowed' : 'pointer', opacity: capacityChecked.size === 0 ? 0.6 : 1 }}>
+                    {capacityBusy ? 'Saving…' : `Record ${capacityChecked.size} unit${capacityChecked.size === 1 ? '' : 's'} as sent`}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
