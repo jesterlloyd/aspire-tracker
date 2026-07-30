@@ -4,8 +4,10 @@
 // row; that only happens when the unit submits the form. All writes go through the staff-authorized
 // server endpoint (owner/admin enforced server-side). Accessible: labelled dialog, keyboard operable.
 import { useState, useEffect, useCallback } from 'react'
-import { getCanonicalUnitNames } from '../lib/unitCatalog'
+import { getEligibleUnits } from '../lib/unitCatalog'
 import { canonicalUnitKey } from '../lib/canonicalUnit'
+import { getAllUnitLeaders } from '../lib/unitLeaders'
+import { buildCapacityOutreachRows, capacityOutreachCounts } from '../lib/capacityOutreach'
 import {
   listCohortResponseTargets, createCohortResponseTargets,
   deactivateCohortResponseTarget, reactivateCohortResponseTarget,
@@ -13,11 +15,12 @@ import {
 
 export default function CohortResponseTargetsModal({ cohortId, cohortName, onClose, onChanged }) {
   const [targets, setTargets] = useState([])
+  const [leads, setLeads] = useState([])
   const [ready, setReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [toAdd, setToAdd] = useState(() => new Set())
+  const [toAdd, setToAdd] = useState(() => new Set())   // canonical keys selected to add
 
   const refetch = useCallback(async () => {
     // All state updates happen AFTER the await so the mount effect never triggers a synchronous render.
@@ -31,9 +34,13 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { ok, ready: r, targets: rows } = await listCohortResponseTargets(cohortId, { includeInactive: true })
+      const [t, l] = await Promise.all([
+        listCohortResponseTargets(cohortId, { includeInactive: true }),
+        getAllUnitLeaders().catch(() => []),
+      ])
       if (!alive) return
-      setReady(r); setTargets(ok ? rows : []); setError(ok ? '' : 'Could not load response targets.'); setLoading(false)
+      setReady(t.ready); setTargets(t.ok ? t.targets : []); setLeads(Array.isArray(l) ? l : [])
+      setError(t.ok ? '' : 'Could not load response targets.'); setLoading(false)
     })()
     return () => { alive = false }
   }, [cohortId])
@@ -44,20 +51,23 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
   }, [onClose])
 
   const activeCanon = new Set(targets.filter(t => t.is_active).map(t => canonicalUnitKey(t.unit_key)))
-  const addable = getCanonicalUnitNames().filter(n => !activeCanon.has(canonicalUnitKey(n)))
+  // Full canonical catalog (all 28 units) with division + recipient readiness; NOT public.units.
+  const rows = buildCapacityOutreachRows({ catalog: getEligibleUnits(true), leads, activeTargetCanons: activeCanon })
+  const addableRows = rows.filter(r => !r.alreadyTarget)
+  const counts = capacityOutreachCounts(addableRows, toAdd)
 
-  const toggleAdd = (name) => setToAdd(prev => {
+  const toggleAdd = (key) => setToAdd(prev => {
     const next = new Set(prev)
-    if (next.has(name)) next.delete(name); else next.add(name)
+    if (next.has(key)) next.delete(key); else next.add(key)
     return next
   })
 
   const doAdd = async () => {
-    const names = [...toAdd]
-    if (!names.length) return
-    if (names.length > 5 && !window.confirm(`Add ${names.length} response targets to ${cohortName || 'this cohort'}?`)) return
+    const chosen = addableRows.filter(r => toAdd.has(r.key))
+    if (!chosen.length) return
+    if (chosen.length > 5 && !window.confirm(`Add ${chosen.length} response targets to ${cohortName || 'this cohort'}? Units without a recipient are recorded as manual targets and receive no email in this release.`)) return
     setSaving(true); setError('')
-    const units = names.map(n => ({ unit_key: n, unit_name: n }))
+    const units = chosen.map(r => ({ unit_key: r.name, unit_name: r.name }))
     const { ok, json } = await createCohortResponseTargets(cohortId, units)
     setSaving(false)
     if (!ok) { setError(json.code === 'TARGETS_NOT_ENABLED' ? 'Response targets are not enabled yet.' : 'Could not add targets.'); return }
@@ -97,18 +107,30 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
           {loading ? <p>Loading…</p> : (
             <>
               <fieldset style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }} disabled={!ready || saving}>
-                <legend style={{ fontSize: 12, fontWeight: 700 }}>Add targets</legend>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
-                  {addable.length === 0 && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>All catalog units are already active targets.</span>}
-                  {addable.map(n => (
-                    <label key={n} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                      <input type="checkbox" checked={toAdd.has(n)} onChange={() => toggleAdd(n)} />
-                      {n}
-                    </label>
+                <legend style={{ fontSize: 12, fontWeight: 700 }}>Add targets (full unit catalog)</legend>
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 8px' }}>
+                  Selected {counts.selected} · {counts.sendReady} send-ready · {counts.blocked} without a recipient.
+                  Units without a resolvable primary lead are flagged; in this release they are recorded as
+                  manual targets and no email is sent.
+                </p>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {addableRows.length === 0 && <li style={{ fontSize: 12, color: 'var(--text-secondary)' }}>All catalog units are already active targets.</li>}
+                  {addableRows.map(r => (
+                    <li key={r.key}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                        <input type="checkbox" checked={toAdd.has(r.key)} onChange={() => toggleAdd(r.key)}
+                          aria-label={`${r.name}${r.hasRecipient ? '' : ', no recipient'}`} />
+                        <span style={{ flex: 1 }}>{r.name}</span>
+                        <span style={{ fontSize: 10, color: '#6b7280' }}>{r.division}{r.defaultEligible ? '' : ' · default-ineligible'}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: r.hasRecipient ? '#166534' : '#92400e' }}>
+                          {r.hasRecipient ? 'Recipient ✓' : 'No recipient'}
+                        </span>
+                      </label>
+                    </li>
                   ))}
-                </div>
-                <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={doAdd} disabled={!toAdd.size || saving}>
-                  {saving ? 'Saving…' : `Add ${toAdd.size || ''} target${toAdd.size === 1 ? '' : 's'}`.trim()}
+                </ul>
+                <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={doAdd} disabled={!counts.selected || saving}>
+                  {saving ? 'Saving…' : `Add ${counts.selected || ''} target${counts.selected === 1 ? '' : 's'}`.trim()}
                 </button>
               </fieldset>
 
