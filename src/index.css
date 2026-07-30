@@ -3726,3 +3726,20 @@ button.ov-group-row {
     grid-template-columns: 1fr;
   }
 }
+
+/* MAIN-MESSAGES-HEADER-POLISH-1: the standard visually-hidden utility. Several
+   components (SegmentedTabs unread label, table/status announcements) already
+   use className="sr-only", but no rule ever defined it, so that text rendered
+   VISIBLY (e.g. "1 unread message" beside the Messages tab badge). Screen
+   readers still receive the content; sighted users no longer see it. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

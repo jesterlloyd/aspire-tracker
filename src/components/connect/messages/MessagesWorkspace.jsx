@@ -24,7 +24,7 @@ import MessagesInbox from './MessagesInbox'
 import NewMessageDialog from './NewMessageDialog'
 import { ReplyComposer, ThreadManagementControls } from './ThreadActions'
 import {
-  STAFF_STATUS_LABEL, formatUnread, unreadLabel,
+  STAFF_STATUS_LABEL,
   formatInboxTimestamp, participantAccessLabel, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
 import { appendPage } from '../../../lib/messages/inboxState'
@@ -62,7 +62,11 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, on
   // stays mounted, so its state is never torn down).
   const [mobileView, setMobileView] = useState('list')
   const narrow = useIsNarrow()
-  const unread = useStaffUnreadCount({ intervalMs: ACTIVE_POLL_MS, api })
+  // MAIN-MESSAGES-HEADER-POLISH-1: the returned count is no longer displayed
+  // here (the tab badge and row badges communicate unread), but the hook call
+  // stays: its subscription keeps the shared unread query polling at the
+  // 30-second active cadence while the workspace is open.
+  useStaffUnreadCount({ intervalMs: ACTIVE_POLL_MS, api })
 
   const onSelect = useCallback((id) => {
     setSelectedId(id)
@@ -103,28 +107,16 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, on
           padding: '0 14px',
         }}>
           <div style={{ paddingBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.text, fontFamily: F }}>
-                Messages
-              </h2>
-              <button
-                type="button"
-                ref={newBtnRef}
-                onClick={() => setNewOpen(true)}
-                style={{ ...primaryBtn, marginLeft: 'auto', minHeight: 30 }}
-              >
-                <Plus size={13} aria-hidden="true" /> New message
-              </button>
-            </div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.text, fontFamily: F }}>
+              Messages
+            </h2>
             <p style={{ margin: '3px 0 0', fontSize: 12.5, color: T.muted, lineHeight: 1.5, fontFamily: F }}>
               Communicate securely with active ASPIRE portal participants.
             </p>
-            {unread > 0 && (
-              <p style={{ margin: '6px 0 0', fontSize: 12, color: T.accent, fontWeight: 600 }}>
-                <span aria-hidden="true">{formatUnread(unread)} unread</span>
-                <span style={srOnly}>{unreadLabel(unread)}</span>
-              </p>
-            )}
+            {/* MAIN-MESSAGES-HEADER-POLISH-1: no visible unread summary here.
+                Unread is already communicated by the Messages tab badge (with
+                its visually-hidden label) and the per-row badges; a third
+                visible count was redundant. */}
           </div>
           {/* The Phase 4A inbox, reused verbatim (MESSAGES-ARCHIVE-P1 additions
               live inside MessagesInbox itself). announce shares the workspace's
@@ -139,6 +131,20 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, on
               api={api}
               announce={announce}
               onSelectedRowChange={setSelectedId}
+              toolbarAction={
+                // MAIN-MESSAGES-HEADER-POLISH-1: the ONE New message button,
+                // rendered by the inbox's toolbar row (right-aligned beside
+                // Active | Archived). Defined here so newBtnRef, dialog state,
+                // and NewMessageDialog's focus restoration are unchanged.
+                <button
+                  type="button"
+                  ref={newBtnRef}
+                  onClick={() => setNewOpen(true)}
+                  style={{ ...primaryBtn, minHeight: 30 }}
+                >
+                  <Plus size={13} aria-hidden="true" /> New message
+                </button>
+              }
             />
           </div>
         </div>

@@ -64,6 +64,11 @@ export default function MessagesInbox({
   // without also flipping the mobile view to 'thread').
   announce = () => {},
   onSelectedRowChange = () => {},
+  // MAIN-MESSAGES-HEADER-POLISH-1: an optional action node (the workspace's
+  // New message button) rendered at the far right of the toolbar row that
+  // holds the Active | Archived picker. The parent keeps the element, its
+  // ref, and its dialog wiring; this component only positions it.
+  toolbarAction = null,
 }) {
   const queryClient = useQueryClient()
   const [searchInput, setSearchInput] = useState('')
@@ -178,9 +183,14 @@ export default function MessagesInbox({
 
       {/* MESSAGES-ARCHIVE-P1: the Active | Archived scope picker. Deliberately
           binary - 'all' exists server-side but is never offered here - and
-          hidden entirely until the server confirms the migration is applied. */}
-      {archiveAvailable && (
-        <div style={{ display: 'flex', paddingBottom: 10 }}>
+          hidden entirely until the server confirms the migration is applied.
+          MAIN-MESSAGES-HEADER-POLISH-1: the same toolbar row also carries the
+          parent's action (New message) at the far right via normal flex, and
+          the row still renders for the action alone when archive support is
+          unavailable. */}
+      {(archiveAvailable || toolbarAction) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 10 }}>
+          {archiveAvailable && (
           <div style={{
             display: 'inline-flex', borderRadius: 7, border: `1px solid ${T.border}`,
             overflow: 'hidden', flexShrink: 0,
@@ -212,6 +222,10 @@ export default function MessagesInbox({
               Archived
             </button>
           </div>
+          )}
+          {toolbarAction && (
+            <div style={{ marginLeft: 'auto', flexShrink: 0 }}>{toolbarAction}</div>
+          )}
         </div>
       )}
 
