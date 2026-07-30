@@ -21,11 +21,23 @@ never writes a target or status; only the return confirmation (or the manual fal
 
 ## A. Unit capacity request
 
-- **Launch** (`Send Capacity Request`, a proper button in the Placement Capacity card using the
-  canonical light-green `.ov-send-btn` treatment shared with `Send Forms to Students`; Owner/Admin
-  only - ASPIRE-DESIGN-CORRECTION-1): units are drawn from the full canonical catalog with a
-  resolvable ACTIVE primary lead (`unit_leaders`), excluding units already active targets. Their
-  leads become the preloaded recipients.
+- **Header** (CAPACITY-FILTER-REMINDER-1): the Placement Capacity card carries no prose summary.
+  The four pills under the title (`All` / `Hosting` / `Not Hosting` / `Pending`) are the indicators
+  AND the filters; counts derive per cohort from the response rows plus synthesized pending targets,
+  so pills and the division-grouped table always agree. Pending targets with no
+  `unit_cohort_responses` row at all render as synthetic pending rows in their catalog divisions.
+  The dynamic action sits on the right of the header (canonical light-green `.ov-send-btn`,
+  Owner/Admin only): `Send Capacity Request` while `All` is active, `Send Reminder to Pending
+  Units` while `Pending` is active, and NO send action under `Hosting` / `Not Hosting`.
+- **Launch** (`Send Capacity Request`): units are drawn from the full canonical catalog, excluding
+  units already active targets. Recipients are the unit's ACTIVE leadership from `unit_leaders` by
+  role - Associate Director, Assistant Nurse Manager, Unit NPD-P (the `UNIT_LEADERSHIP_ROLES` set,
+  which also accepts the `Unit NPD Practitioner` alias) - falling back to the active primary lead
+  when no role matches, so no previously reachable unit becomes unreachable.
+- **Reminder launch** (`Send Reminder to Pending Units`): preselects ONLY the pending units'
+  leadership recipients (same role set) with the `Unit Leader Capacity Reminder` template. A
+  reminder is informational outreach only: it never changes target or response status, and
+  returning from a reminder launch never opens a confirmation (the context clears silently).
 - **Connect opens with**: cohort preselected; audience source `Contacts`; contact group
   `Unit Leadership`; the matched unit-leader recipients preselected (matched to `contacts` rows by
   normalized email); message type `Unit Leader Capacity Request`; the Owner-approved rich template
@@ -93,7 +105,7 @@ Rules:
   without duplicating writes (target writes are the idempotent atomic RPC; status writes use the
   existing transition).
 
-## D. Capacity template
+## D. Capacity templates
 
 `unit_capacity_response_request` - `Unit Leader Capacity Request` (Send to Many, Unit Leader
 audience), body in `src/lib/outreachTemplates.js`, registered in `SEND_TO_MANY_TEMPLATES` with
@@ -103,6 +115,12 @@ hierarchy, Unit Form button, why-hosting bullets) and a plain-body fallback. The
 Link]` token resolves to the public `/unit-form` route via the composer's static-link substitution;
 the `[Cohort]` token in the SUBJECT always resolves (launch context cohort name, else a neutral
 fallback); the body's cohort and rotation-window blanks are intentional Owner fill-ins.
+
+`unit_capacity_response_reminder` - `Unit Leader Capacity Reminder` (CAPACITY-FILTER-REMINDER-1):
+the pending-units follow-up, same registration shape (`Unit Leadership` contacts default) and the
+same `/unit-form` link substitution, with the Owner-approved reminder copy (heading `ASPIRE Unit
+Capacity Request Reminder`, bolded rotation window, `Complete Unit Response` button). Sending it
+never changes target or response status.
 
 ## E. Manual fallback: no UI entry point (Owner decision, 2026-07-30)
 

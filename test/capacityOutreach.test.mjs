@@ -129,11 +129,97 @@ test('At a Glance launches the real Connect flow via a proper button (ASPIRE-DES
 })
 
 test('the capacity launch is Owner/Admin gated (target writes are server-verified owner/admin)', () => {
-  // The launch button only renders under isAdmin; all writes go through the staff-only API.
-  assert.match(overview, /isAdmin && \([\s\S]{0,300}handleLaunchCapacityRequest/)
+  // The dynamic actions only render under isAdmin AND their filter; writes go through the staff API.
+  assert.match(overview, /isAdmin && unitStatusFilter === 'all' && \([\s\S]{0,300}handleLaunchCapacityRequest/)
+  assert.match(overview, /isAdmin && unitStatusFilter === 'pending' && \([\s\S]{0,300}handleLaunchPendingReminder/)
   const api = read('api/cohort-unit-response-targets.js')
   assert.match(api, /verifyOwnerAdminCaller\(req\)/)
   assert.match(api, /code: 'STAFF_ONLY'/)
+})
+
+// ─── CAPACITY-FILTER-REMINDER-1: pills-only header + dynamic action ─────────────
+
+test('the header carries pills only: no prose summary, no pending list, dynamic action per filter', () => {
+  // The responded/slots/pending prose summary and the inline pending list are gone.
+  assert.doesNotMatch(overview, /formatUnitResponseSummary/)
+  assert.doesNotMatch(overview, /pendingListOpen/)
+  assert.doesNotMatch(overview, /response targets not set/)
+  // The four pills are the indicators and the filters (Title Case Not Hosting).
+  for (const label of ["label:'All'", "label:'Hosting'", "label:'Not Hosting'", "label:'Pending'"]) {
+    assert.ok(overview.includes(label), `pill ${label} present`)
+  }
+  // Counts and the table read the SAME capacityRows source (responses + synthesized pending targets).
+  assert.match(overview, /const n = \(s\) => capacityRows\.filter\(r => r\.response_status === s\)\.length/)
+  assert.match(overview, /unitResponses=\{capacityRows\}/)
+  // Dynamic action labels; Hosting / Not Hosting expose NO send action (only two send buttons exist).
+  assert.match(overview, /Send Capacity Request\s*<\/button>/)
+  assert.match(overview, /Send Reminder to Pending Units\s*<\/button>/)
+  assert.doesNotMatch(overview, /unitStatusFilter === 'hosting' &&[\s\S]{0,200}ov-send-btn/)
+  assert.doesNotMatch(overview, /unitStatusFilter === 'not_hosting' &&[\s\S]{0,200}ov-send-btn/)
+})
+
+test('pending targets without a response row are synthesized into their catalog divisions', () => {
+  const synth = overview.slice(overview.indexOf('const capacityRows'), overview.indexOf('const capacityRows') + 900)
+  assert.match(synth, /if \(!unitMetrics\.configured\) return unitResponses/)    // unconfigured cohorts unchanged
+  assert.match(synth, /pendingUnitNames/)
+  assert.match(synth, /response_status: 'pending'/)
+  assert.match(synth, /synthetic: true/)
+  // Synthetic rows are display-only: no id collision, no unit_id, never written.
+  assert.match(synth, /unit_id: null/)
+})
+
+test('role-based recipients: every Associate Director / ANM / Unit NPD-P is collected per unit', () => {
+  const leads = [
+    lead('6 NE', { email: 'ad@x.org', role: 'Associate Director', is_primary_lead: true }),
+    lead('6 NE', { email: 'anm@x.org', role: 'Assistant Nurse Manager', is_primary_lead: false }),
+    lead('6 NE', { email: 'npd@x.org', role: 'Unit NPD-P', is_primary_lead: false }),
+    lead('6 NE', { email: 'AD@X.ORG', role: 'Associate Director', is_primary_lead: false }),   // dupe, case-insensitive
+    lead('6 NE', { email: 'clerk@x.org', role: 'Unit Clerk', is_primary_lead: false }),        // role not in set
+    lead('6 NW', { email: 'mgr@x.org', role: 'Manager', is_primary_lead: true }),              // no role match → fallback
+  ]
+  const roles = new Set(['Associate Director', 'Assistant Nurse Manager', 'Unit NPD-P', 'Unit NPD Practitioner'])
+  const rows = buildCapacityOutreachRows({ catalog: getEligibleUnits(true), leads, recipientRoles: roles })
+  const ne = rows.find(r => r.key === '6NE')
+  assert.deepEqual(ne.recipientEmails, ['ad@x.org', 'anm@x.org', 'npd@x.org'])   // primary first, deduped, clerk excluded
+  assert.equal(ne.recipientEmail, 'ad@x.org')
+  const nw = rows.find(r => r.key === '6NW')
+  assert.deepEqual(nw.recipientEmails, ['mgr@x.org'], 'no role match falls back to the active primary lead')
+  // Without recipientRoles the legacy single-lead behavior is unchanged.
+  const legacy = buildCapacityOutreachRows({ catalog: getEligibleUnits(true), leads })
+  assert.equal(legacy.find(r => r.key === '6NE').recipientEmail, 'ad@x.org')
+  // The launches use the leadership role set and carry emails[] in the context units.
+  assert.match(overview, /recipientRoles: UNIT_LEADERSHIP_ROLES/)
+  assert.match(overview, /emails: r\.recipientEmails/)
+})
+
+test('reminder template: approved copy, Content Block layout, /unit-form link, live in the registry', () => {
+  const t = buildBulkTemplate('unit_capacity_response_reminder')
+  assert.equal(t.subject, 'ASPIRE: Unit Capacity Response Reminder | [Cohort]')
+  assert.match(t.richBody, /<h2>ASPIRE Unit Capacity Request Reminder<\/h2>/)
+  assert.match(t.richBody, /<p>Dear Unit Leaders,<\/p>/)
+  assert.match(t.richBody, /friendly reminder to submit your unit's response/)
+  assert.match(t.richBody, /your response is important and helps us plan placements accurately/)
+  assert.match(t.richBody, /<strong>Rotation window:<\/strong> _____ to _____/)
+  assert.match(t.richBody, /data-aspire-block="button" data-label="Complete Unit Response" data-url="\[Insert Unit Form Link\]"/)
+  assert.match(t.richBody, /please contact us at aspire@cshs\.org/)
+  assert.match(t.richBody, /Thank you for everything you do for our students\./)
+  assert.match(t.body, /\[Insert Unit Form Link\]/)
+  assert.match(registry, /key: 'unit_capacity_response_reminder', label: 'Unit Leader Capacity Reminder'/)
+  assert.match(registry, /export const CAPACITY_REMINDER_TEMPLATE_KEY = 'unit_capacity_response_reminder'/)
+  assert.match(composer, /unit_capacity_response_reminder: \{ token: '\[Insert Unit Form Link\]',\s+path: '\/unit-form' \}/)
+})
+
+test('a reminder launch never writes and never opens a confirmation', () => {
+  const rem = overview.slice(overview.indexOf('const handleLaunchPendingReminder'), overview.indexOf('// ── Return confirmation'))
+  assert.match(rem, /kind: LAUNCH_KINDS\.CAPACITY_REMINDER/)
+  assert.match(rem, /templateKey: CAPACITY_REMINDER_TEMPLATE_KEY/)
+  assert.doesNotMatch(rem, /createCohortResponseTargets|onStudentUpdate/)
+  // The return effect clears a reminder context silently - no modal state, no writes.
+  const idx = overview.indexOf("ctx.kind === LAUNCH_KINDS.CAPACITY_REMINDER")
+  assert.ok(idx > 0)
+  const branch = overview.slice(idx, overview.indexOf('} else if', idx))     // the reminder branch only
+  assert.match(branch, /clearLaunchContext\(\)/)
+  assert.doesNotMatch(branch, /setCapacityConfirm|createCohortResponseTargets|onStudentUpdate|setSendFormPlan/)
 })
 
 test('the preserved manual fallback modal is unchanged in code (backend capability intact)', () => {

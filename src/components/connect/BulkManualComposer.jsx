@@ -161,6 +161,7 @@ const STATIC_LINK_SUBS = {
   student_profile_invitation:   { token: '[Insert Student Form Link]',      path: '/student-form' },
   student_interview_scheduling: { token: '[Insert Interview Schedule Link]', path: '/interview-schedule' },
   unit_capacity_response_request: { token: '[Insert Unit Form Link]',        path: '/unit-form' },
+  unit_capacity_response_reminder: { token: '[Insert Unit Form Link]',       path: '/unit-form' },
 }
 
 // Replace a template's link placeholder with the full public URL (if one is defined for the key).

@@ -42,6 +42,7 @@ const ALL_AUDIENCES = [
 // (single source of truth); this named export is a convenience reference for the launch flow and
 // tests. See docs/product/CAPACITY_RESPONSE_OUTREACH.md.
 export const CAPACITY_RESPONSE_TEMPLATE_KEY = 'unit_capacity_response_request'
+export const CAPACITY_REMINDER_TEMPLATE_KEY = 'unit_capacity_response_reminder'
 
 // Canonical contact-category → audience map (categories come from lib/contactCategories.js).
 // Nursing Executives / Other / unknown all fall through to 'generic'.
@@ -223,6 +224,15 @@ export const SEND_TO_MANY_TEMPLATES = [
     // Owner's return confirmation records it as a cohort response target.
     key: 'unit_capacity_response_request', label: 'Unit Leader Capacity Request',
     surface: 'many', templateKind: 'manual', builderKey: 'unit_capacity_response_request',
+    defaultSource: 'contacts', defaultContactCategory: 'Unit Leadership', audiences: [AUDIENCES.UNIT_LEADER],
+  },
+  {
+    // CAPACITY-FILTER-REMINDER-1: gentle follow-up to units still pending on the capacity request.
+    // Launched from At a Glance (Pending filter → Send Reminder to Pending Units) with the pending
+    // units' Unit Leadership recipients preselected. Sending a reminder never changes target or
+    // response status, and returning from a reminder launch never opens a confirmation.
+    key: 'unit_capacity_response_reminder', label: 'Unit Leader Capacity Reminder',
+    surface: 'many', templateKind: 'manual', builderKey: 'unit_capacity_response_reminder',
     defaultSource: 'contacts', defaultContactCategory: 'Unit Leadership', audiences: [AUDIENCES.UNIT_LEADER],
   },
   {

@@ -8,12 +8,13 @@ import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER, getEligibleUnits } from '../lib/unitCatalog'
-import { computeUnitResponseMetrics, formatUnitResponseSummary } from '../lib/unitResponseMetrics'
+import { computeUnitResponseMetrics } from '../lib/unitResponseMetrics'
 import { listCohortResponseTargets, createCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
 import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
+import { UNIT_LEADERSHIP_ROLES } from '../lib/contactCategories'
 import { canonicalUnitKey } from '../lib/canonicalUnit'
 import { writeLaunchContext, readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
-import { CAPACITY_RESPONSE_TEMPLATE_KEY } from '../lib/connect/templateRegistry'
+import { CAPACITY_RESPONSE_TEMPLATE_KEY, CAPACITY_REMINDER_TEMPLATE_KEY } from '../lib/connect/templateRegistry'
 import { useAuth } from '../contexts/AuthContext'
 import StudentAvatar from './StudentAvatar'
 import OnCampusNow from './oncampus/OnCampusNow'
@@ -403,7 +404,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // the drawer with an honest error + Retry instead of silently doing nothing.
   const [responseDrawerSchool, setResponseDrawerSchool] = useState(null)
   const [localToast,       setLocalToast]       = useState(null)
-  const [pendingListOpen,  setPendingListOpen]  = useState(false)
   const { isAdmin } = useAuth()
 
   // ASPIRE-CHART performance: the five workspace tabs stay mounted while
@@ -505,7 +505,31 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     staleTime: 30000,
     retry: false,
   })
-  const unitResponseTargets = targetData.targets || []
+  const unitResponseTargets = useMemo(() => targetData.targets || [], [targetData])
+
+  // CAPACITY-FILTER-REMINDER-1: ONE metrics source powers the header pills and pending synthesis
+  // (same computeUnitResponseMetrics({ targets: unitResponseTargets, responses: unitResponses })
+  // contract as before; the prose summary line retired by Owner decision - pills are the indicators).
+  const unitMetrics = useMemo(
+    () => computeUnitResponseMetrics({ targets: unitResponseTargets, responses: unitResponses }),
+    [unitResponseTargets, unitResponses])
+
+  // Pending targets with NO response row of any kind get a synthetic pending row so they appear in
+  // their correct catalog divisions (units are created lazily on submission, so a never-responding
+  // target has no unit_cohort_responses row at all). Synthetic rows are display-only: pending
+  // status, no slots, no unit_id, never written anywhere.
+  const capacityRows = useMemo(() => {
+    if (!unitMetrics.configured) return unitResponses
+    const seen = new Set(unitResponses.map(r => canonicalUnitKey(r.unit_name)))
+    const synthetic = (unitMetrics.pendingUnitNames || [])
+      .filter(n => !seen.has(canonicalUnitKey(n)))
+      .map(n => ({
+        id: `pending-target-${canonicalUnitKey(n)}`,
+        unit_name: n, response_status: 'pending',
+        unit_id: null, slots_offered: null, synthetic: true,
+      }))
+    return synthetic.length ? [...unitResponses, ...synthetic] : unitResponses
+  }, [unitMetrics, unitResponses])
 
   // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: full school placement responses for the active cohort,
   // powering the read-only School Form Response drawer. DISTINCT query key from the date-only
@@ -539,15 +563,16 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     staleTime: 30000,
   })
 
-  // Unit leaders - for primary lead contact in reminder affordance
+  // Unit leaders - ALL active leaders. CAPACITY-FILTER-REMINDER-1 preselects role-based recipients
+  // (Associate Director, Assistant Nurse Manager, Unit NPD-P) per unit, so the query no longer
+  // narrows to primary leads; the primary-lead map below still derives from is_primary_lead.
   const { data: unitLeadersData = [] } = useQuery({
-    queryKey: ['unit_leaders_all'],
+    queryKey: ['unit_leaders_active_all'],
     queryFn:  async () => {
       const { data, error } = await supabase
         .from('unit_leaders')
         .select('unit_name, full_name, email, role, is_primary_lead')
         .eq('is_active', true)
-        .eq('is_primary_lead', true)
       if (error) throw error
       return data || []
     },
@@ -556,7 +581,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
   // Build primary lead map: unit_name → { full_name, email }
   const primaryLeadMap = {}
-  unitLeadersData.forEach(l => { primaryLeadMap[l.unit_name] = l })
+  unitLeadersData.forEach(l => { if (l.is_primary_lead && !primaryLeadMap[l.unit_name]) primaryLeadMap[l.unit_name] = l })
 
 
   const showToast = msg => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000) }
@@ -726,10 +751,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       catalog: getEligibleUnits(true),
       leads: unitLeadersData,
       activeTargetCanons: activeCanon,
+      // CAPACITY-FILTER-REMINDER-1: preselect the unit's full leadership (Associate Director,
+      // Assistant Nurse Manager, Unit NPD-P), not just the primary lead.
+      recipientRoles: UNIT_LEADERSHIP_ROLES,
     })
     const launchable = rows.filter(r => r.hasRecipient && !r.alreadyTarget)
     if (launchable.length === 0) {
-      showToast('No unit leader recipients could be resolved. Add active unit primary leads first.')
+      showToast('No unit leader recipients could be resolved. Add active unit leaders first.')
       return
     }
     writeLaunchContext({
@@ -739,7 +767,38 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       source: 'at_a_glance_capacity',
       templateKey: CAPACITY_RESPONSE_TEMPLATE_KEY,
       returnPath: '/aggregate',
-      units: launchable.map(r => ({ key: r.key, name: r.name, email: r.recipientEmail })),
+      units: launchable.map(r => ({ key: r.key, name: r.name, email: r.recipientEmail, emails: r.recipientEmails })),
+    })
+    navigate('/connect/outreach?launch=1')
+  }
+
+  // CAPACITY-FILTER-REMINDER-1: Pending filter → Send Reminder to Pending Units. Preselects ONLY
+  // the pending units' Unit Leadership recipients with the reminder template. A reminder launch
+  // NEVER changes target or response status and NEVER opens a return confirmation (the reminder
+  // context is cleared silently on return).
+  const handleLaunchPendingReminder = () => {
+    const pendingCanon = new Set(
+      capacityRows.filter(r => r.response_status === 'pending').map(r => canonicalUnitKey(r.unit_name)))
+    if (pendingCanon.size === 0) { showToast('No pending units right now.'); return }
+    const rows = buildCapacityOutreachRows({
+      catalog: getEligibleUnits(true),
+      leads: unitLeadersData,
+      activeTargetCanons: new Set(),
+      recipientRoles: UNIT_LEADERSHIP_ROLES,
+    })
+    const launchable = rows.filter(r => pendingCanon.has(r.key) && r.hasRecipient)
+    if (launchable.length === 0) {
+      showToast('No unit leader recipients could be resolved for the pending units.')
+      return
+    }
+    writeLaunchContext({
+      kind: LAUNCH_KINDS.CAPACITY_REMINDER,
+      cohortId,
+      cohortName: cohort?.name || '',
+      source: 'at_a_glance_capacity_pending',
+      templateKey: CAPACITY_REMINDER_TEMPLATE_KEY,
+      returnPath: '/aggregate',
+      units: launchable.map(r => ({ key: r.key, name: r.name, email: r.recipientEmail, emails: r.recipientEmails })),
     })
     navigate('/connect/outreach?launch=1')
   }
@@ -759,13 +818,21 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     const ctx = readLaunchContext()
     if (!ctx || ctx.cohortId !== cohortId) return
     /* eslint-disable react-hooks/set-state-in-effect -- intentional one-shot open on return navigation, mirrors the composer draft-hydrate precedent */
-    if (ctx.kind === LAUNCH_KINDS.CAPACITY_REQUEST) {
+    if (ctx.kind === LAUNCH_KINDS.CAPACITY_REMINDER) {
+      // A reminder is informational outreach only: no confirmation, no target write, no status
+      // change. Returning simply retires the launch context.
+      clearLaunchContext()
+    } else if (ctx.kind === LAUNCH_KINDS.CAPACITY_REQUEST) {
       setCapacityConfirm(ctx)
       setCapacityConfirmMode('choice')
-      // Preselect the identify list from the REAL per-recipient results when the composer recorded them.
+      // Preselect the identify list from the REAL per-recipient results when the composer recorded
+      // them. A unit counts as sent when ANY of its leadership recipients was reported sent.
       const sent = new Set((ctx.sentEmails || []).map(e => String(e).toLowerCase()))
       setCapacityChecked(new Set(
-        (ctx.units || []).filter(u => sent.has(String(u.email || '').toLowerCase())).map(u => u.key),
+        (ctx.units || []).filter(u => {
+          const emails = (Array.isArray(u.emails) && u.emails.length ? u.emails : [u.email])
+          return emails.some(e => sent.has(String(e || '').toLowerCase()))
+        }).map(u => u.key),
       ))
     } else if (ctx.kind === LAUNCH_KINDS.STUDENT_FORM || ctx.kind === LAUNCH_KINDS.SCHOOL_FORM) {
       // Rebuild the confirm-gated Form Sent plan from CURRENT student data (never stale copies),
@@ -967,72 +1034,31 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       <div className="aggregate-sticky-header">
         {/* Frozen panel headers - two columns matching the panels below */}
         <div className="aggregate-panel-headers">
+          {/* CAPACITY-FILTER-REMINDER-1 header (Owner-approved): the prose summary retired - the
+              four pills, directly under the title, ARE the indicators AND the filters. Counts derive
+              from capacityRows (cohort responses + synthesized pending targets), so the pills and
+              the table below always agree per cohort. The dynamic light-green action sits on the
+              right: Send Capacity Request under All, Send Reminder to Pending Units under Pending,
+              and no send action under Hosting / Not Hosting (filters only). Reminders never change
+              target or response status. The manual targets fallback stays out of the UI entirely
+              (Owner decision; historical targets are an Owner-applied SQL backfill). */}
           <div className="aggregate-panel-hdr">
             <div>
               <div className="ov-panel-title">Placement Capacity</div>
-              {(() => {
-                // Do not show a misleading "0 pending" before the response data has settled.
-                if (unitResponsesError) return <div className="ov-panel-sub">Unit responses are unavailable right now.</div>
-                if (unitResponsesLoading) return <div className="ov-panel-sub">Loading unit responses…</div>
-                // Denominator = the cohort's explicit outreach targets (fail-closed to "not set").
-                // ASPIRE-DESIGN-CORRECTION-1: the summary line stays calm - no inline orphan or
-                // unmatched-unit lists here (the response-state pills already carry the states, and
-                // orphan reconciliation stays available in computeUnitResponseMetrics for admin
-                // surfaces). The send action is a real button in the card, matching the canonical
-                // light-green .ov-send-btn treatment shared with Send Forms to Students; the manual
-                // targets fallback (modal component + staff API) is preserved in code but has NO UI
-                // entry point anywhere by Owner decision - historical targets are an Owner-applied
-                // SQL backfill, not a product surface.
-                const m = computeUnitResponseMetrics({ targets: unitResponseTargets, responses: unitResponses })
-                const hasPending = m.configured && m.pendingUnitCount > 0 && m.pendingUnitNames.length > 0
-                return (
-                  <div className="ov-panel-sub">
-                    <span>{formatUnitResponseSummary(m)}</span>
-                    {hasPending && (
-                      <>
-                        {' · '}
-                        <button type="button" aria-expanded={pendingListOpen} aria-controls="ov-pending-units"
-                          onClick={() => setPendingListOpen(o => !o)}
-                          style={{ background: 'none', border: 'none', color: '#6b7280', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0 }}>
-                          {m.pendingUnitCount} pending{pendingListOpen ? ' ▴' : ' ▾'}
-                        </button>
-                        {pendingListOpen && (
-                          <ul id="ov-pending-units" style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 12, color: '#6b7280' }}>
-                            {m.pendingUnitNames.map((n, i) => <li key={`p${i}`}>{n}</li>)}
-                          </ul>
-                        )}
-                      </>
-                    )}
-                    {isAdmin && (
-                      <div style={{ marginTop: 8 }}>
-                        <button type="button" className="ov-send-btn" onClick={handleLaunchCapacityRequest}
-                          title="Open ASPIRE Connect → Outreach → Send to Many with the capacity request preselected">
-                          Send Capacity Request
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-            {/* Filter chips + Expand/Collapse */}
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
-              {/* Status filter chips */}
-              <div style={{ display:'flex', gap:4, flexWrap:'wrap', justifyContent:'flex-end' }}>
+              <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:7 }}>
                 {(() => {
-                  const hostingCount    = unitResponses.filter(r => r.response_status === 'submitted_hosting').length
-                  const notHostingCount = unitResponses.filter(r => r.response_status === 'submitted_not_hosting').length
-                  const pendingCount    = unitResponses.filter(r => r.response_status === 'pending').length
+                  const n = (s) => capacityRows.filter(r => r.response_status === s).length
                   const chips = [
-                    { key:'all',         label:'All',         count: unitResponses.length, activeBg:'#1D2567', activeTxt:'#fff'    },
-                    { key:'hosting',     label:'Hosting',     count: hostingCount,          activeBg:'#C8D5C0', activeTxt:'#2D4A2B' },
-                    { key:'not_hosting', label:'Not hosting', count: notHostingCount,       activeBg:'#E8E8E8', activeTxt:'#555'    },
-                    { key:'pending',     label:'Pending',     count: pendingCount,          activeBg:'#f3f4f6', activeTxt:'#6b7280' },
+                    { key:'all',         label:'All',         count: capacityRows.length,        activeBg:'#1D2567', activeTxt:'#fff'    },
+                    { key:'hosting',     label:'Hosting',     count: n('submitted_hosting'),     activeBg:'#C8D5C0', activeTxt:'#2D4A2B' },
+                    { key:'not_hosting', label:'Not Hosting', count: n('submitted_not_hosting'), activeBg:'#E8E8E8', activeTxt:'#555'    },
+                    { key:'pending',     label:'Pending',     count: n('pending'),               activeBg:'#f3f4f6', activeTxt:'#6b7280' },
                   ]
                   return chips.map(c => {
                     const active = unitStatusFilter === c.key
                     return (
                       <button key={c.key} onClick={() => setUnitStatusFilter(c.key)}
+                        aria-pressed={active}
                         style={{
                           padding:'2px 9px', borderRadius:20, fontSize:10.5, fontWeight: active ? 700 : 500,
                           border: active ? 'none' : '1px solid #e5e7eb',
@@ -1040,13 +1066,27 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                           color: active ? c.activeTxt : '#6b7280',
                           cursor:'pointer', whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif',
                         }}>
-                        {c.label} ({c.count})
+                        {c.label} ({unitResponsesLoading ? '…' : c.count})
                       </button>
                     )
                   })
                 })()}
               </div>
-              {/* Expand / Collapse */}
+            </div>
+            {/* Dynamic action + Expand/Collapse, right-aligned */}
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
+              {isAdmin && unitStatusFilter === 'all' && (
+                <button type="button" className="ov-send-btn" onClick={handleLaunchCapacityRequest}
+                  title="Open ASPIRE Connect → Outreach → Send to Many with the capacity request preselected">
+                  Send Capacity Request
+                </button>
+              )}
+              {isAdmin && unitStatusFilter === 'pending' && (
+                <button type="button" className="ov-send-btn" onClick={handleLaunchPendingReminder}
+                  title="Open ASPIRE Connect → Outreach → Send to Many with the reminder preselected for pending units">
+                  Send Reminder to Pending Units
+                </button>
+              )}
               <div className="ov-expand-toggle">
                 <button onClick={expandAllUnits}>Expand All</button>
                 <span style={{ color:'var(--border)' }}>·</span>
@@ -1100,9 +1140,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
           {/* ── Placement Capacity panel (body only) ── */}
           <div className="ov-panel-body">
-            {unitResponses.length > 0
+            {capacityRows.length > 0
               ? <PlacementCapacityPanel
-                  unitResponses={unitResponses}
+                  unitResponses={capacityRows}
                   filledByUnit={filledByUnit}
                   units={units}
                   unitGroupsOpen={unitGroupsOpen}

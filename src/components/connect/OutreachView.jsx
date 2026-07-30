@@ -304,11 +304,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [launchCtx] = useState(() => (searchParams.get('launch') ? readLaunchContext() : null))
   const [launchAudience] = useState(() => {
     if (!launchCtx) return null
-    if (launchCtx.kind === LAUNCH_KINDS.CAPACITY_REQUEST) {
+    if (launchCtx.kind === LAUNCH_KINDS.CAPACITY_REQUEST || launchCtx.kind === LAUNCH_KINDS.CAPACITY_REMINDER) {
+      // CAPACITY-FILTER-REMINDER-1: a unit may carry multiple leadership recipients (Associate
+      // Director, Assistant Nurse Manager, Unit NPD-P) in emails[]; legacy contexts carry email.
       return {
         source: 'contacts',
         contactCategory: 'Unit Leadership',
-        contactEmails: (launchCtx.units || []).map(u => u?.email).filter(Boolean),
+        contactEmails: (launchCtx.units || [])
+          .flatMap(u => (Array.isArray(u?.emails) && u.emails.length ? u.emails : [u?.email]))
+          .filter(Boolean),
       }
     }
     // student_form AND school_form: the recipients are the intended students themselves

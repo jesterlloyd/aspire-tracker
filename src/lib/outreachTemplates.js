@@ -506,6 +506,52 @@ ${pClose}`
   return { subject, body, richBody }
 })()
 
+// Unit Leader Capacity Reminder (bulk) - CAPACITY-FILTER-REMINDER-1, Owner-approved copy. A gentle
+// follow-up to units still pending on the cohort's capacity request. Same Content Block treatment
+// as the request (heading, bolded rotation window, Complete Unit Response button resolving to
+// /unit-form); the cohort and rotation-window blanks ("_____") are intentional Owner fill-ins, and
+// the subject stays cohort-aware. Sending a reminder never changes target or response status.
+const BULK_UNIT_CAPACITY_REMINDER = (() => {
+  const subject = 'ASPIRE: Unit Capacity Response Reminder | [Cohort]'
+  const pDear   = 'Dear Unit Leaders,'
+  const pIntro  = "This is a friendly reminder to submit your unit's response for the _____ ASPIRE cohort."
+  const pWhy    = 'Even if your unit is unable to host students during this rotation, your response is important and helps us plan placements accurately.'
+  const windowLabel = 'Rotation window:'
+  const windowRange = '_____ to _____'
+  const pThanks = 'Thank you for taking a moment to respond and for your continued support of our students.'
+  const pContact = 'If you have any questions, please contact us at aspire@cshs.org.'
+  const pClose  = 'Thank you for everything you do for our students.'
+
+  const body = `${pDear}
+
+${pIntro}
+
+${pWhy}
+
+${windowLabel} ${windowRange}
+
+[Insert Unit Form Link]
+
+${pThanks}
+
+${pContact}
+
+${pClose}`
+
+  const richBody =
+    bH2('ASPIRE Unit Capacity Request Reminder')
+    + bP(pDear)
+    + bP(pIntro)
+    + bP(pWhy)
+    + `<p><strong>${escTxt(windowLabel)}</strong> ${escTxt(windowRange)}</p>`
+    + bButton({ label: 'Complete Unit Response', url: '[Insert Unit Form Link]' })
+    + bP(pThanks)
+    + bP(pContact)
+    + bP(pClose)
+
+  return { subject, body, richBody }
+})()
+
 // Keyed registry for the Send-to-Many message-type selector.
 const BULK_TEMPLATES = {
   academic_partner_placement:           BULK_ACADEMIC_PARTNER,
@@ -515,6 +561,7 @@ const BULK_TEMPLATES = {
   interviewer_availability_bulk:        BULK_INTERVIEWER_AVAILABILITY,
   announcement_broadcast:               BULK_ANNOUNCEMENT,
   unit_capacity_response_request:       BULK_UNIT_CAPACITY,
+  unit_capacity_response_reminder:      BULK_UNIT_CAPACITY_REMINDER,
 }
 
 // Returns a fresh { subject, body } for a bulk template key, or null for an unknown key.

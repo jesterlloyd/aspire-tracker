@@ -11,6 +11,10 @@ const VERSION = 1
 
 export const LAUNCH_KINDS = Object.freeze({
   CAPACITY_REQUEST: 'capacity_request',
+  // CAPACITY-FILTER-REMINDER-1: a reminder launch preselects the composer exactly like a capacity
+  // request, but the return path NEVER opens a confirmation and NEVER writes targets or statuses -
+  // reminding a pending unit must not change its state.
+  CAPACITY_REMINDER: 'capacity_reminder',
   STUDENT_FORM: 'student_form',
   SCHOOL_FORM: 'school_form',
 })

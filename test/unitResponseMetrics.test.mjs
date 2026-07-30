@@ -110,14 +110,16 @@ test('OverviewTab reads targets via the authorized API, not direct table access'
   assert.match(overview, /computeUnitResponseMetrics\(\{ targets: unitResponseTargets, responses: unitResponses \}\)/)
 })
 
-test('OverviewTab exposes an accessible pending list and a staff-only send action', () => {
-  assert.match(overview, /aria-expanded=\{pendingListOpen\}/)
-  assert.match(overview, /aria-controls="ov-pending-units"/)
-  assert.match(overview, /isAdmin && \(/)                                   // send action is staff-only
-  // ASPIRE-DESIGN-CORRECTION-1: the card carries the real send button; the manual configure
-  // fallback and inline orphan lists are no longer surfaced on At a Glance (the orphan data stays
-  // available in computeUnitResponseMetrics for admin surfaces).
+test('OverviewTab surfaces pending through the pills and table, with staff-only send actions', () => {
+  // CAPACITY-FILTER-REMINDER-1: the prose summary and the inline pending list retired by Owner
+  // decision - the four pills are the indicators AND the filters, pending targets synthesize into
+  // the division-grouped table, and the dynamic action is filter-aware and staff-only.
+  assert.match(overview, /aria-pressed=\{active\}/)                          // pills are real toggles
+  assert.match(overview, /isAdmin && unitStatusFilter === 'all' && \(/)      // send actions staff-only
+  assert.match(overview, /isAdmin && unitStatusFilter === 'pending' && \(/)
   assert.match(overview, /Send Capacity Request/)
+  assert.match(overview, /Send Reminder to Pending Units/)
+  // ASPIRE-DESIGN-CORRECTION-1 still holds: no configure fallback, no inline orphan list.
   assert.doesNotMatch(overview, /Configure response targets/)
   assert.doesNotMatch(overview, /orphanUnitNames/)
 })

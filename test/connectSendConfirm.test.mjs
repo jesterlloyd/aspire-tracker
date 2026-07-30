@@ -146,8 +146,9 @@ test('unit confirmation modal: exact copy and the three decisions (ASPIRE-DESIGN
   // The first (choice) step is COMPACT: the unit list renders ONLY in identify mode (the checklist),
   // never as an inline joined string in the choice step.
   assert.doesNotMatch(overview, /\.map\(u => u\.name\)\.join\(' · '\)/)
-  // Identify preselects from REAL recorded results; close/Not Sent write nothing and clear the context.
-  assert.match(overview, /sent\.has\(String\(u\.email \|\| ''\)\.toLowerCase\(\)\)/)
+  // Identify preselects from REAL recorded results (a unit counts as sent when ANY of its
+  // leadership recipients was reported sent); close/Not Sent write nothing and clear the context.
+  assert.match(overview, /emails\.some\(e => sent\.has\(String\(e \|\| ''\)\.toLowerCase\(\)\)\)/)
   const close = overview.slice(overview.indexOf('const closeCapacityConfirm'), overview.indexOf('// Record the confirmed units'))
   assert.match(close, /clearLaunchContext\(\)/)
   assert.doesNotMatch(close, /createCohortResponseTargets/)
@@ -230,6 +231,26 @@ test('launch context persists contactEmails for contact-mediated launches', () =
   // The gate compares case-insensitively: a sent record for the coordinator matches.
   recordLaunchSendResults('student_profile_invitation', { batch_id: 'b9', sent: [{ email: 'coord@school.edu' }] })
   assert.deepEqual(readLaunchContext().sentEmails, ['coord@school.edu'])
+})
+
+// ─── Capacity reminder (CAPACITY-FILTER-REMINDER-1) ─────────────────────────────
+
+test('a reminder context round-trips like any launch but is a distinct kind', () => {
+  store.clear()
+  const rec = writeLaunchContext({
+    kind: LAUNCH_KINDS.CAPACITY_REMINDER, cohortId: 'c1', cohortName: 'Fall 2026',
+    templateKey: 'unit_capacity_response_reminder',
+    units: [{ key: '6NE', name: '6 NE', email: 'ad@x.org', emails: ['ad@x.org', 'anm@x.org'] }],
+  })
+  assert.equal(rec.status, 'launched')
+  const back = readLaunchContext()
+  assert.equal(back.kind, 'capacity_reminder')
+  assert.deepEqual(back.units[0].emails, ['ad@x.org', 'anm@x.org'])   // multi-recipient units persist
+})
+
+test('Connect maps a reminder launch to Unit Leadership contacts with ALL leadership emails', () => {
+  assert.match(outreach, /launchCtx\.kind === LAUNCH_KINDS\.CAPACITY_REQUEST \|\| launchCtx\.kind === LAUNCH_KINDS\.CAPACITY_REMINDER/)
+  assert.match(outreach, /Array\.isArray\(u\?\.emails\) && u\.emails\.length \? u\.emails : \[u\?\.email\]/)
 })
 
 // ─── Manual fallback (source guards) ────────────────────────────────────────────

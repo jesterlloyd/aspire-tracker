@@ -76,15 +76,21 @@ responded/expected target counts (left-join is FROM targets TO responses).
 - pure and cohort-scoped (both inputs are already scoped to one cohort); no authorization or portal
   scope is derived from it.
 
-## Display behavior
+## Display behavior (CAPACITY-FILTER-REMINDER-1: pills, not prose)
 
-- **Configured cohort:** `{responded} of {expected} units responded · {slots} slots confirmed ·
-  {pending} pending`. When pending > 0, the pending unit names (from the target list, never invented
-  from the global catalog) are surfaced as an accessible title on the summary.
-- **Unconfigured cohort (no targets yet, e.g. Fall 2026 today):** an honest message that does NOT claim
-  completeness, e.g. `{n} unit responses received · {slots} slots confirmed · response targets not set`.
-  It never shows `0 pending`.
-- During load or error, the summary shows a neutral state, never a false `0 pending`.
+The prose summary line was retired by Owner decision. The Placement Capacity header shows four
+pills - `All` / `Hosting` / `Not Hosting` / `Pending` - that are both the indicators and the
+filters for the division-grouped table:
+
+- Counts derive per cohort from the response rows PLUS synthesized pending rows for active targets
+  that have no `unit_cohort_responses` row at all, so the pills and the table always agree and a
+  never-responding target still appears in its correct catalog division.
+- **Unconfigured cohort (no targets yet):** `Pending` honestly counts only real `pending` response
+  rows (no synthesis), so a completeness claim is never invented.
+- During load the pill counts render as `…`, never a false `0`; query errors surface through the
+  existing At a Glance error banner.
+- `formatUnitResponseSummary` remains in the lib (tested) for any surface that needs the prose
+  form; the At a Glance header no longer renders it.
 
 ## Data model correction (Owner-gated; applied in production by the Owner on 2026-07-29)
 
