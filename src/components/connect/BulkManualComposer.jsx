@@ -25,6 +25,7 @@ import {
   parseRecipientText, dedupeRecipients, applyMergeFields, firstNameFromName,
 } from '../../lib/recipientParse'
 import { buildBulkTemplate } from '../../lib/outreachTemplates'
+import { readLaunchContext, recordLaunchSendResults } from '../../lib/connect/launchContext'
 import { getContactCategories } from '../../lib/contactCategories'
 import {
   BULK_DEFAULT_SOURCE as DEFAULT_SOURCE,
@@ -89,14 +90,19 @@ function bulkTemplateBody(type, rich) {
   // markers into Heading/Note blocks (same proven path as Send-to-one). Static-link tokens are still
   // substituted (a no-op when the template carries no token). Otherwise the plain body: HTML paragraphs
   // in rich mode, raw text in plain mode. Non-Owners never reach here with rich=true (Owner gate).
-  if (rich && tpl.richBody) return withStaticLinks(type, tpl.richBody)
-  const plain = withStaticLinks(type, tpl.body)
+  if (rich && tpl.richBody) return withCohortToken(withStaticLinks(type, tpl.richBody))
+  const plain = withCohortToken(withStaticLinks(type, tpl.body))
   return rich ? plainTextToHtml(plain) : plain
+}
+// The subject a fresh template load produces (cohort token resolved, matching bulkTemplateBody).
+function bulkTemplateSubject(type) {
+  const tpl = buildBulkTemplate(type)
+  return tpl ? withCohortToken(tpl.subject) : ''
 }
 function bulkDraftIsPristine(type, subject, body, rich) {
   const tpl = buildBulkTemplate(type)
   if (!tpl) return !String(subject || '').trim() && !String(body || '').trim()
-  return subject === tpl.subject && body === bulkTemplateBody(type, rich)
+  return subject === bulkTemplateSubject(type) && body === bulkTemplateBody(type, rich)
 }
 
 // A persisted draft is worth restoring if the CONTENT was edited OR an audience was selected
@@ -154,6 +160,7 @@ const STATIC_LINK_SUBS = {
   academic_partner_placement:   { token: '[Insert School Form Link]',       path: '/school-form' },
   student_profile_invitation:   { token: '[Insert Student Form Link]',      path: '/student-form' },
   student_interview_scheduling: { token: '[Insert Interview Schedule Link]', path: '/interview-schedule' },
+  unit_capacity_response_request: { token: '[Insert Unit Form Link]',        path: '/unit-form' },
 }
 
 // Replace a template's link placeholder with the full public URL (if one is defined for the key).
@@ -161,6 +168,17 @@ function withStaticLinks(key, body) {
   const sub = STATIC_LINK_SUBS[key]
   if (!sub) return body
   return String(body || '').split(sub.token).join(`${APP_ORIGIN}${sub.path}`)
+}
+
+// CAPACITY-RESPONSE-OUTREACH-2: '[Cohort]' always resolves at template-load time - the active launch
+// context's cohort name when the composer was opened through a Send-and-confirm launch, else a neutral
+// phrase - so cohort-aware templates never surface placeholder copy in the editor.
+function withCohortToken(text) {
+  const t = String(text || '')
+  if (!t.includes('[Cohort]')) return t
+  const ctx = readLaunchContext()
+  const name = (ctx?.cohortName || '').trim() || 'the upcoming ASPIRE cohort'
+  return t.split('[Cohort]').join(name)
 }
 
 // The explicit Email-source dropdown ('school' | 'personal') decides the recipient email - NOT the
@@ -197,6 +215,10 @@ export default function BulkManualComposer({
   userKey = null,
   cohortId = null,
   richEnabled = false,
+  // CAPACITY-RESPONSE-OUTREACH-2: one-shot audience preselection from a Send-and-confirm launch
+  // ({ source, contactCategory?, contactEmails?, studentIds? }). Applied ONCE on the launched
+  // template's first hydrate; manual type switches afterwards fall back to the registry defaults.
+  initialAudience = null,
 }) {
   // ── Audience state ────────────────────────────────────────────────────────
   const [source, setSource]               = useState(DEFAULT_SOURCE[bulkMsgType] || 'students')
@@ -262,17 +284,26 @@ export default function BulkManualComposer({
   // React's endorsed "adjust state while rendering" pattern (no effect, no extra commit):
   // when bulkMsgType differs from the last hydrated key, reset the draft/source to that
   // template's defaults. The user's edits persist until they switch templates again.
+  // One-shot launch preselection guards (CAPACITY-RESPONSE-OUTREACH-2). initialAudience is frozen by
+  // OutreachView for the mount; it is honored ONLY on the FIRST hydrate (the launched template).
+  // These refs are read/written exclusively inside effects (never during render).
+  const launchDraftSkippedRef     = useRef(false)
+  const launchContactsAppliedRef  = useRef(false)
+
   const [hydratedType, setHydratedType] = useState(null)
   if (hydratedType !== bulkMsgType) {
+    // A launched entry applies its one-shot audience preselection (source / category / students) on
+    // the first hydrate only; every later manual type switch uses the registry defaults.
+    const ia = hydratedType === null ? initialAudience : null
     setHydratedType(bulkMsgType)
     const tpl = buildBulkTemplate(bulkMsgType)
-    if (tpl) { setSubject(tpl.subject); setBody(bulkTemplateBody(bulkMsgType, richEnabled)) }
+    if (tpl) { setSubject(bulkTemplateSubject(bulkMsgType)); setBody(bulkTemplateBody(bulkMsgType, richEnabled)) }
     setIncludeSig(true)
-    setSource(DEFAULT_SOURCE[bulkMsgType] || 'students')
-    setContactCat(DEFAULT_CONTACT_CATEGORY[bulkMsgType] || 'All')
+    setSource(ia?.source || DEFAULT_SOURCE[bulkMsgType] || 'students')
+    setContactCat(ia?.contactCategory || DEFAULT_CONTACT_CATEGORY[bulkMsgType] || 'All')
     // Per-type isolation: clear the audience selection on a type switch so one type's recipients
     // never bleed into another. The hydrate effect below restores THIS type's saved audience (if any).
-    setStudentSel(new Set())
+    setStudentSel(new Set(Array.isArray(ia?.studentIds) ? ia.studentIds : []))
     setContactSel(new Set())
     setPicked([])
     setAcInput('')
@@ -286,6 +317,15 @@ export default function BulkManualComposer({
   useEffect(() => {
     bulkHydratedRef.current = false
     bulkRichDocRef.current = null   // reset on type/key change; restored from the draft below if saved
+    // A Send-and-confirm launch skips the saved-draft restore ONCE (the first hydrate is the launched
+    // template): the launched defaults + audience preselection must stand exactly as prepared. The
+    // draft for this type, if any, stays in storage untouched and restores normally on the next
+    // non-launch visit or type switch.
+    if (initialAudience && !launchDraftSkippedRef.current) {
+      launchDraftSkippedRef.current = true
+      bulkHydratedRef.current = true
+      return
+    }
     const d = readBulkDraft(BULK_DRAFT_KEY)
     if (bulkDraftHasContent(bulkMsgType, d, richEnabled)) {
       /* eslint-disable react-hooks/set-state-in-effect -- intentional synchronous restore, mirrors the Send-to-one hydrate */
@@ -380,6 +420,23 @@ export default function BulkManualComposer({
       .catch(() => setContacts([]))
   }, [source])
   const loadingContacts = source === 'contacts' && contacts === null
+
+  // CAPACITY-RESPONSE-OUTREACH-2: resolve a launch's preloaded recipient EMAILS to contact ids once
+  // the lazy contacts load lands (identity by normalized email, never display label). One-shot: the
+  // preselection applies exactly once whether or not every email matched; unmatched units simply stay
+  // unselected for the Owner to review (they still appear in the return confirmation list).
+  useEffect(() => {
+    const wanted = initialAudience?.contactEmails
+    if (launchContactsAppliedRef.current || !Array.isArray(wanted) || wanted.length === 0) return
+    if (!Array.isArray(contacts)) return
+    launchContactsAppliedRef.current = true
+    const wantedSet = new Set(wanted.map(e => normalizeEmailForLookup(e)).filter(Boolean))
+    const ids = contacts
+      .filter(c => c?.email && c.is_active !== false && wantedSet.has(normalizeEmailForLookup(c.email)))
+      .map(c => c.id)
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot launch preselection, applied when the lazy contacts load resolves (mirrors the draft hydrate pattern above) */
+    if (ids.length) setContactSel(new Set(ids))
+  }, [contacts, initialAudience])
 
   // ── Escape closes the review modal (never while a send is in flight) ─────────
   useEffect(() => {
@@ -610,6 +667,11 @@ export default function BulkManualComposer({
       if (res.ok && data?.success) {
         // The reset effect captures the sent-signature on the next commit; a later edit clears it.
         setSendResult(data)
+        // CAPACITY-RESPONSE-OUTREACH-2: record the REAL per-recipient outcome into the active launch
+        // context (batch id + sent emails) so the At a Glance return confirmation can preselect what
+        // was actually sent. Strictly scoped inside the lib: it no-ops unless an active launched
+        // context matches this template key, so unrelated bulk sends never touch a foreign context.
+        recordLaunchSendResults(bulkMsgType, data)
       } else {
         setSendError(data?.error || `Send failed (HTTP ${res.status}).`)
       }

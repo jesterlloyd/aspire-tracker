@@ -74,15 +74,22 @@ test('inactive leads and already-active targets are handled', () => {
   assert.equal(rows.find(r => r.key === '3SCCT').alreadyTarget, true)
 })
 
-// ─── Template registered but not live (19) ──────────────────────────────────────
+// ─── Template ACTIVE in the Send-to-Many roster (Owner correction) ──────────────
 
-test('the capacity template is registered but NOT in the live composer send lists (no real send)', () => {
-  assert.match(registry, /export const CAPACITY_RESPONSE_TEMPLATE = \{/)
-  assert.match(registry, /key:\s+'unit_capacity_response_request'/)
-  assert.match(registry, /audience: AUDIENCES\.UNIT_LEADER/)
-  assert.match(registry, /active:\s+false/)                            // not surfaced until send-wired
-  // The proven bulk composer is untouched by this release (still contact/student-keyed).
-  assert.doesNotMatch(composer, /unit_capacity_response_request/)
+test('the Unit Leader Capacity Request is a live Send-to-Many template with Unit Leadership defaults', () => {
+  assert.match(registry, /export const CAPACITY_RESPONSE_TEMPLATE_KEY = 'unit_capacity_response_request'/)
+  // Roster entry: manual bulk template, Contacts source, Unit Leadership category, UL audience.
+  assert.match(registry, /key: 'unit_capacity_response_request', label: 'Unit Leader Capacity Request'/)
+  assert.match(registry, /builderKey: 'unit_capacity_response_request',\s*\n\s*defaultSource: 'contacts', defaultContactCategory: 'Unit Leadership', audiences: \[AUDIENCES\.UNIT_LEADER\]/)
+  // Body registered in the shared bulk body registry, with the unit-form link + cohort tokens.
+  const bodies = read('src/lib/outreachTemplates.js')
+  assert.match(bodies, /unit_capacity_response_request:\s+BULK_UNIT_CAPACITY/)
+  assert.match(bodies, /\[Insert Unit Form Link\]/)
+  assert.match(bodies, /ASPIRE: Unit Capacity Response Request \| \[Cohort\]/)
+  // Composer resolves the link to the public /unit-form route and always resolves [Cohort].
+  assert.match(composer, /unit_capacity_response_request: \{ token: '\[Insert Unit Form Link\]',\s+path: '\/unit-form' \}/)
+  assert.match(composer, /function withCohortToken/)
+  assert.match(composer, /the upcoming ASPIRE cohort/)
 })
 
 // ─── Selection UI + deep-link + fallback (3, 6, 9, 11, 13, 14, 16, 17) ──────────
@@ -100,11 +107,18 @@ test('the selector uses the full catalog with division + recipient readiness, re
   assert.match(modal, /rows\.filter\(r => !r\.alreadyTarget\)/)
 })
 
-test('At a Glance shows a staff-only "Send capacity request" deep-link when unconfigured, keeps the manual fallback', () => {
-  assert.match(overview, /isAdmin && !m\.configured && \(/)
+test('At a Glance launches the real Connect flow (staff-only) and keeps the manual fallback', () => {
+  // The Send capacity request action LAUNCHES Connect: writes the session launch context (units with
+  // resolvable leads, not already targets) and navigates to Outreach → Send to Many with ?launch=1.
+  assert.match(overview, /handleLaunchCapacityRequest/)
+  assert.match(overview, /writeLaunchContext\(\{\s*\n\s*kind: LAUNCH_KINDS\.CAPACITY_REQUEST/)
+  assert.match(overview, /templateKey: CAPACITY_RESPONSE_TEMPLATE_KEY/)
+  assert.match(overview, /navigate\('\/connect\/outreach\?launch=1'\)/)
   assert.match(overview, /Send capacity request/)
   assert.match(overview, /Configure response targets/)               // manual fallback remains
   assert.match(overview, /CohortResponseTargetsModal[\s\S]*cohortId=\{cohortId\}/)  // cohort preselected
+  // Launching writes no target/status: only the session context + navigation.
+  assert.doesNotMatch(overview, /handleLaunchCapacityRequest[\s\S]{0,900}createCohortResponseTargets/)
 })
 
 test('the outreach selector is Owner/Admin gated (target writes are server-verified owner/admin)', () => {

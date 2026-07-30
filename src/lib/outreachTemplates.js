@@ -407,6 +407,32 @@ Your availability will be used to coordinate the interview schedule and assign s
 Thank you for being part of the ASPIRE interview team.`,
 }
 
+// Unit Leader Capacity Request (bulk) - CAPACITY-RESPONSE-OUTREACH-2. Asks unit leaders to submit
+// the cohort capacity-response form. First name merges via [First Name]; "[Insert Unit Form Link]"
+// resolves to the public /unit-form route via the composer's static-link substitution; "[Cohort]"
+// always resolves in the composer (launch-context cohort name, else a neutral fallback), so no
+// placeholder copy reaches the editor.
+const BULK_UNIT_CAPACITY = {
+  subject: 'ASPIRE: Unit Capacity Response Request | [Cohort]',
+  body: `Dear [First Name],
+
+We are preparing for [Cohort] of ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience, at Cedars-Sinai, and we would appreciate your response for your unit.
+
+Please complete the ASPIRE Unit Capacity Response Form using the link below:
+
+[Insert Unit Form Link]
+
+The form asks whether your unit can host ASPIRE students this cohort and, if so, how many placements you can support, along with shift preference, preferred preceptors, and any considerations we should know about. If your unit is unable to host this cohort, please still submit the form and indicate zero placements; a "not hosting" response helps us plan just as much as a hosting one.
+
+Your response is used to plan student placements alongside school requests, so an early reply makes a real difference for matching.
+
+To help ensure that you receive ASPIRE communications, please add ASPIRE at Cedars-Sinai (noreply@aspire-program.com) to your contacts or safe-sender list.
+
+For any questions, please email Jester directly at jesterlloyd.bautista@cshs.org.
+
+Thank you for supporting our senior nursing students and for your partnership.`,
+}
+
 // Keyed registry for the Send-to-Many message-type selector.
 const BULK_TEMPLATES = {
   academic_partner_placement:           BULK_ACADEMIC_PARTNER,
@@ -415,6 +441,7 @@ const BULK_TEMPLATES = {
   student_interview_scheduling:         BULK_INTERVIEW_SCHEDULING,
   interviewer_availability_bulk:        BULK_INTERVIEWER_AVAILABILITY,
   announcement_broadcast:               BULK_ANNOUNCEMENT,
+  unit_capacity_response_request:       BULK_UNIT_CAPACITY,
 }
 
 // Returns a fresh { subject, body } for a bulk template key, or null for an unknown key.

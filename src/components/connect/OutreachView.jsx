@@ -8,6 +8,7 @@ import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
 import BulkManualComposer from './BulkManualComposer'
+import { readLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
 import RichTextEditor from './RichTextEditor'
 import { isRichComposeEnabled, plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
 import ConnectPanel from './ConnectPanel'
@@ -296,9 +297,29 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                       : contactId && contactHasDisplayInfo ? 'contact'
                       : null
 
+  // ── Send-and-confirm launch (CAPACITY-RESPONSE-OUTREACH-2) ──────────────────
+  // A `?launch=1` arrival reads the session-scoped launch context written by the At a Glance action
+  // (capacity request / student form). Frozen at mount: recipient data stays in sessionStorage, never
+  // in the URL. A plain Connect visit (no flag or no context) behaves exactly as before.
+  const [launchCtx] = useState(() => (searchParams.get('launch') ? readLaunchContext() : null))
+  const [launchAudience] = useState(() => {
+    if (!launchCtx) return null
+    if (launchCtx.kind === LAUNCH_KINDS.CAPACITY_REQUEST) {
+      return {
+        source: 'contacts',
+        contactCategory: 'Unit Leadership',
+        contactEmails: (launchCtx.units || []).map(u => u?.email).filter(Boolean),
+      }
+    }
+    // student_form / school_form: the recipients are the affected students themselves (the school
+    // action was always a batch of that school's Pending Outreach students - see sendFormFlow.js).
+    return { source: 'students', studentIds: launchCtx.studentIds || [] }
+  })
+
   // ── Top-level recipient mode: 'single' | 'bulk' | 'history' ─────────────────
-  // Priority: explicit Sent History deep link > explicit recipient > localStorage.
+  // Priority: launch deep link > explicit Sent History deep link > explicit recipient > localStorage.
   const [recipientMode, setRecipientMode] = useState(() => {
+    if (launchCtx) return 'bulk'                                      // Send-and-confirm launch
     if (searchParams.get('tab') === 'sent_history') return 'history'  // Phase D.1 deep link
     if (hasExplicitRecipient || urlMode === 'message') return 'single'
     const saved = localStorage.getItem(RECIPIENT_MODE_KEY)
@@ -320,7 +341,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [activeTemplateId, setActiveTemplateId] = useState(null)
 
   // ── Bulk Operation state ──────────────────────────────────────────────────
-  const [bulkMsgType,            setBulkMsgType]            = useState('survey_invitation')
+  // A Send-and-confirm launch preselects its template (e.g. Unit Leader Capacity Request /
+  // Student Profile Form Invitation); otherwise the long-standing survey default.
+  const [bulkMsgType,            setBulkMsgType]            = useState(launchCtx?.templateKey || 'survey_invitation')
   const [bulkInstrument,         setBulkInstrument]         = useState('casey_fink_readiness_2024')
   const [bulkTimepoint,          setBulkTimepoint]          = useState('baseline')
   const [bulkExpiresAt,          setBulkExpiresAt]          = useState(defaultExpiresAt)
@@ -2727,6 +2750,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           userKey={userKey}
           cohortId={cohortId}
           richEnabled={richEnabled}
+          initialAudience={launchAudience}
         />
       )}
 

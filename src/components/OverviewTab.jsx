@@ -9,10 +9,14 @@ import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
-import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
+import { getUnit, UNIT_CATALOG, DIVISION_ORDER, getEligibleUnits } from '../lib/unitCatalog'
 import { computeUnitResponseMetrics, formatUnitResponseSummary } from '../lib/unitResponseMetrics'
 import { listCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
 import CohortResponseTargetsModal from './CohortResponseTargetsModal'
+import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
+import { canonicalUnitKey } from '../lib/canonicalUnit'
+import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
+import { CAPACITY_RESPONSE_TEMPLATE_KEY } from '../lib/connect/templateRegistry'
 import { useAuth } from '../contexts/AuthContext'
 import StudentAvatar from './StudentAvatar'
 import OnCampusNow from './oncampus/OnCampusNow'
@@ -704,6 +708,37 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     showToast('No status was changed.')
   }
 
+  // ── CAPACITY-RESPONSE-OUTREACH-2: Send capacity request (launch → Connect → confirm on return) ──
+  // Launching writes ONLY the session launch context and navigates to ASPIRE Connect → Outreach →
+  // Send to Many with the cohort, Unit Leadership recipients, and the Unit Leader Capacity Request
+  // template preselected. No email is sent here, and no unit becomes a target until the Owner
+  // confirms on return. Launched units = catalog units with a resolvable ACTIVE primary lead that
+  // are not already active targets.
+  const handleLaunchCapacityRequest = () => {
+    const activeCanon = new Set((unitResponseTargets || []).map(t => canonicalUnitKey(t.unit_key)))
+    const rows = buildCapacityOutreachRows({
+      catalog: getEligibleUnits(true),
+      leads: unitLeadersData,
+      activeTargetCanons: activeCanon,
+    })
+    const launchable = rows.filter(r => r.hasRecipient && !r.alreadyTarget)
+    if (launchable.length === 0) {
+      showToast('No unit leader recipients could be resolved. Add unit leads or mark units as already contacted.')
+      setTargetsModalOpen(true)
+      return
+    }
+    writeLaunchContext({
+      kind: LAUNCH_KINDS.CAPACITY_REQUEST,
+      cohortId,
+      cohortName: cohort?.name || '',
+      source: 'at_a_glance_capacity',
+      templateKey: CAPACITY_RESPONSE_TEMPLATE_KEY,
+      returnPath: '/aggregate',
+      units: launchable.map(r => ({ key: r.key, name: r.name, email: r.recipientEmail })),
+    })
+    navigate('/connect/outreach?launch=1')
+  }
+
   return (
     <div className="overview-tab">
       {/* Toast - fixed, lives outside scroll containers */}
@@ -782,9 +817,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 return (
                   <div className="ov-panel-sub">
                     <span>{formatUnitResponseSummary(m)}</span>
-                    {isAdmin && !m.configured && (
-                      <button type="button" onClick={() => setTargetsModalOpen(true)}
-                        title="Open ASPIRE Connect capacity outreach for this cohort"
+                    {isAdmin && (
+                      <button type="button" onClick={handleLaunchCapacityRequest}
+                        title="Open ASPIRE Connect → Outreach → Send to Many with the capacity request preselected"
                         style={{ marginLeft: 8, background: 'none', border: 'none', color: '#1D2567', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0, fontWeight: 700 }}>
                         Send capacity request
                       </button>

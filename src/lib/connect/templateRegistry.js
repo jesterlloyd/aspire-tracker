@@ -36,19 +36,12 @@ const ALL_AUDIENCES = [
   AUDIENCES.ACADEMIC_PARTNER, AUDIENCES.INTERVIEWER, AUDIENCES.GENERIC,
 ]
 
-// CAPACITY-RESPONSE-OUTREACH-1: metadata for the Send-to-many UNIT capacity-response request (the
-// outreach that makes a unit an expected responder). Registered here as the single source of truth,
-// but intentionally NOT added to the active bulk composer lists yet (active:false): the body/builder
-// and the live email dispatch are finalized in the separately-reviewed send change, so no real
-// capacity-request email is sent from this release. See docs/product/CAPACITY_RESPONSE_OUTREACH.md.
-export const CAPACITY_RESPONSE_TEMPLATE = {
-  key:      'unit_capacity_response_request',
-  label:    'Unit Capacity Response Request',
-  audience: AUDIENCES.UNIT_LEADER,
-  surface:  'many',
-  active:   false,
-  linkKey:  'unit_form',
-}
+// CAPACITY-RESPONSE-OUTREACH-2 (Owner correction): the Unit Leader Capacity Request is now a LIVE
+// Send-to-many template - the outreach that makes a unit an expected responder through the approved
+// launch -> Connect -> return -> confirm loop. The roster entry lives in SEND_TO_MANY_TEMPLATES below
+// (single source of truth); this named export is a convenience reference for the launch flow and
+// tests. See docs/product/CAPACITY_RESPONSE_OUTREACH.md.
+export const CAPACITY_RESPONSE_TEMPLATE_KEY = 'unit_capacity_response_request'
 
 // Canonical contact-category → audience map (categories come from lib/contactCategories.js).
 // Nursing Executives / Other / unknown all fall through to 'generic'.
@@ -222,6 +215,15 @@ export const SEND_TO_MANY_TEMPLATES = [
     key: 'interviewer_availability_bulk', label: 'Interviewer Availability / App Access Request',
     surface: 'many', templateKind: 'manual', builderKey: 'interviewer_availability_bulk',
     defaultSource: 'contacts', defaultContactCategory: 'BNI Team', audiences: [AUDIENCES.INTERVIEWER],
+  },
+  {
+    // CAPACITY-RESPONSE-OUTREACH-2: asks unit leaders to submit the cohort capacity-response form
+    // (/unit-form). Launched from At a Glance (Send capacity request) with the cohort, Unit Leadership
+    // recipients, and this template preselected; a unit becomes an expected responder only after the
+    // Owner's return confirmation records it as a cohort response target.
+    key: 'unit_capacity_response_request', label: 'Unit Leader Capacity Request',
+    surface: 'many', templateKind: 'manual', builderKey: 'unit_capacity_response_request',
+    defaultSource: 'contacts', defaultContactCategory: 'Unit Leadership', audiences: [AUDIENCES.UNIT_LEADER],
   },
   {
     key: 'announcement_broadcast', label: 'Announcement / Broadcast',
