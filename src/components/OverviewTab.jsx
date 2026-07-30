@@ -782,6 +782,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 return (
                   <div className="ov-panel-sub">
                     <span>{formatUnitResponseSummary(m)}</span>
+                    {isAdmin && !m.configured && (
+                      <button type="button" onClick={() => setTargetsModalOpen(true)}
+                        title="Open ASPIRE Connect capacity outreach for this cohort"
+                        style={{ marginLeft: 8, background: 'none', border: 'none', color: '#1D2567', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0, fontWeight: 700 }}>
+                        Send capacity request
+                      </button>
+                    )}
                     {isAdmin && (
                       <button type="button" className="ov-linkish" onClick={() => setTargetsModalOpen(true)}
                         style={{ marginLeft: 8, background: 'none', border: 'none', color: '#1D2567', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0 }}>
