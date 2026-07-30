@@ -199,7 +199,7 @@ test('management modal is an accessible labelled dialog reusing existing pattern
   assert.match(modal, /role="dialog"/)
   assert.match(modal, /aria-modal="true"/)
   assert.match(modal, /aria-label="Configure response targets"/)
-  assert.match(modal, /getCanonicalUnitNames\(\)/)   // choices come from the canonical catalog, not invented
+  assert.match(modal, /getEligibleUnits\(true\)/)   // choices come from the canonical catalog, not invented
 })
 
 test('the existing capacity-response submission path is unchanged (still upserts units + responses)', () => {
