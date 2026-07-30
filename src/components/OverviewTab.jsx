@@ -26,7 +26,7 @@ import { matchSchoolResponse } from '../lib/schoolResponseDisplay'
 import TodayMasthead from './TodayMasthead'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
-import { buildSchoolSendPlan, resolveSendResults } from '../lib/sendFormFlow'
+import { buildSchoolSendPlan, buildStudentSendPlan, resolveSendResults } from '../lib/sendFormFlow'
 import { GraduationCap, MapPin, Copy } from 'lucide-react'
 
 // ── ASPIRE-MASTHEAD: Placement Snapshot ──────────────────────────────────────
@@ -695,6 +695,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     setSendFormBusy(false)
     if (outcome.status === 'done') {
       setSendFormPlan(null)
+      // Decision fully executed: a Connect-launched confirmation can never reopen.
+      clearLaunchContext()
       showToast(`${outcome.succeeded.length === 1 ? displayName(outcome.succeeded[0]) : `${outcome.succeeded.length} students`} marked as Form Sent.`)
     } else {
       // Partial failure: keep only the failed students pending so Mark as
@@ -706,6 +708,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
   const handleCancelFormSent = () => {
     setSendFormPlan(null)
+    // Dismissed: clear any Connect-launched context so the confirmation never reopens; nothing was written.
+    clearLaunchContext()
     showToast('No status was changed.')
   }
 
@@ -751,18 +755,32 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
   useEffect(() => {
     if (location.pathname !== '/aggregate') return
+    if (capacityConfirm || sendFormPlan) return   // a confirmation is already under review
     const ctx = readLaunchContext()
-    if (!ctx || ctx.kind !== LAUNCH_KINDS.CAPACITY_REQUEST || ctx.cohortId !== cohortId) return
+    if (!ctx || ctx.cohortId !== cohortId) return
     /* eslint-disable react-hooks/set-state-in-effect -- intentional one-shot open on return navigation, mirrors the composer draft-hydrate precedent */
-    setCapacityConfirm(ctx)
-    setCapacityConfirmMode('choice')
-    // Preselect the identify list from the REAL per-recipient results when the composer recorded them.
-    const sent = new Set((ctx.sentEmails || []).map(e => String(e).toLowerCase()))
-    setCapacityChecked(new Set(
-      (ctx.units || []).filter(u => sent.has(String(u.email || '').toLowerCase())).map(u => u.key),
-    ))
+    if (ctx.kind === LAUNCH_KINDS.CAPACITY_REQUEST) {
+      setCapacityConfirm(ctx)
+      setCapacityConfirmMode('choice')
+      // Preselect the identify list from the REAL per-recipient results when the composer recorded them.
+      const sent = new Set((ctx.sentEmails || []).map(e => String(e).toLowerCase()))
+      setCapacityChecked(new Set(
+        (ctx.units || []).filter(u => sent.has(String(u.email || '').toLowerCase())).map(u => u.key),
+      ))
+    } else if (ctx.kind === LAUNCH_KINDS.STUDENT_FORM || ctx.kind === LAUNCH_KINDS.SCHOOL_FORM) {
+      // Rebuild the confirm-gated Form Sent plan from CURRENT student data (never stale copies).
+      // The exact existing sendFormFlow semantics apply: school plans re-filter to Pending Outreach,
+      // and only a confirmed "Mark as sent" writes status.
+      const ids = new Set(ctx.studentIds || [])
+      const affected = students.filter(s => ids.has(s.id))
+      const plan = ctx.kind === LAUNCH_KINDS.SCHOOL_FORM
+        ? buildSchoolSendPlan(ctx.school, affected)
+        : (affected.length ? buildStudentSendPlan(affected[0]) : null)
+      if (!plan) { clearLaunchContext(); return }
+      setSendFormPlan(plan)
+    }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [location.pathname, cohortId])
+  }, [location.pathname, cohortId, students, capacityConfirm, sendFormPlan])
 
   const closeCapacityConfirm = (msg) => {
     setCapacityConfirm(null)
