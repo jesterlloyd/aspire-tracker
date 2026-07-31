@@ -30,6 +30,7 @@
 import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, resolveSchoolScopedCohorts, matchSchoolCohortScope } from '../lib/schoolScope.js'
 import { getCallerScopedDb } from '../lib/portalAuth.js'
 import { performSchoolPlacementUpsert, isPlacementProvenanceReady } from '../lib/schoolPlacementUpsert.js'
+import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
 import { emailBaseUrl } from '../../lib/server/appUrl.js'
 
 // Explicit allowlist (allowlist, not denylist). Confirmed unit resolves through the reliable
@@ -208,6 +209,13 @@ async function submitPlacementRequest(req, res, auth) {
     return res.status(403).json({ error: 'forbidden' })
   }
 
+  // AP-SCHOOL-CANONICALIZATION-1: an Academic Partner submission must resolve to a known school
+  // identity (src/lib/schoolIdentity.js) - it can NEVER fall back to a free-text school name (the
+  // root cause of the duplicate CSUN grouping: the portal submitted the canonical scope name while
+  // the public form submitted the operative name, and both were persisted verbatim). Fail closed
+  // here, before any write; the shared upsert then persists the operative identity.
+  if (!resolveOperativeSchoolName(school)) return res.status(422).json({ error: 'unknown_school' })
+
   // Cohort re-derived + re-validated server-side: it must exist and be accepting submissions.
   const { data: cohort, error: cErr } = await db
     .from('cohorts').select('id, name, accepting_submissions').eq('id', cohortId).single()
@@ -270,16 +278,21 @@ async function submitPlacementRequest(req, res, auth) {
   })
   if (result.error) return res.status(500).json({ error: 'internal_error' })
 
-  // Fire-and-forget form_received notifications for each NEW student, mirroring the public endpoint.
+  // Fire-and-forget placement-request confirmations for each NEW student, mirroring the public
+  // endpoint. AP-SCHOOL-CANONICALIZATION-1: the notification speaks placement-request language to
+  // the SUBMITTING COORDINATOR (never the student - the student has not submitted anything), and it
+  // carries the canonical school display name the write persisted, never the raw submitted variant.
   const baseUrl = emailBaseUrl(req)
   for (const s of result.added) {
     fetch(`${baseUrl}/api/form-received-notification`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        studentId: s.id, cohortId,
+        studentId: s.id, cohortId, cohortName: cohort.name,
         studentName: s.name, studentFirstName: s.name.split(' ')[0],
-        studentEmail: s.email, school,
+        studentEmail: s.email, school: result.schoolName || school,
+        programType: s.programType || '',
+        coordinatorName: coordName, coordinatorEmail: coordEmail,
       }),
     }).catch(() => { /* notification failure never blocks the submission */ })
   }

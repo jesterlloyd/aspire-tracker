@@ -74,9 +74,12 @@ export default async function handler(req, res) {
   if (result.error) return res.status(500).json({ error: result.error })
   const { added, updated, skipped, rotationId } = result
 
-  // Fire-and-forget: form_received notifications for each new student. Internal
+  // Fire-and-forget: placement-request confirmations for each new student. Internal
   // same-deployment call - canonical origin in Production, forwarded host on
   // Preview so it hits the right deployment's endpoint. See lib/server/appUrl.js.
+  // AP-SCHOOL-CANONICALIZATION-1: the confirmation goes to the SUBMITTING COORDINATOR with
+  // placement-request language (never the student - a placement request is not a student
+  // application), carrying the canonical school display name the write persisted.
   const baseUrl = emailBaseUrl(req)
   for (const s of added) {
     fetch(`${baseUrl}/api/form-received-notification`, {
@@ -85,10 +88,14 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         studentId:        s.id,
         cohortId,
+        cohortName:       cohort.name || cohortName || '',
         studentName:      s.name,
         studentFirstName: s.name.split(' ')[0],
         studentEmail:     s.email,
-        school:           coordinator.school.trim(),
+        school:           result.schoolName || coordinator.school.trim(),
+        programType:      s.programType || '',
+        coordinatorName:  coordinator.name.trim(),
+        coordinatorEmail: coordinator.email.trim(),
       }),
     }).catch(e => console.warn('[school-form-submit] notification failed:', e.message))
   }

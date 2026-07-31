@@ -1,3 +1,4 @@
+import { placementRequestReceived } from './placementRequestReceived.js';
 import { formReceived } from './formReceived.js';
 import { teamsInviteReminder, teamsInviteReminderEscalation } from './teamsInviteReminder.js';
 import { unitFormReceived } from './unitFormReceived.js';
@@ -7,6 +8,12 @@ import { clockoutReminder } from './clockoutReminder.js';
 import { unitLeaderAlert } from './unitLeaderAlert.js';
 
 export const templates = {
+  // AP-SCHOOL-CANONICALIZATION-1: 'form_received' (application language) is RETIRED FOR SENDING -
+  // a coordinator placement request is not a student application; both submit paths now send
+  // placement_request_received. form_received stays registered ONLY so the notification-log archive
+  // can keep reconstructing historical previews; it can never send again (its recipient resolver
+  // was removed, so resolveRecipients returns no recipients for it).
+  placement_request_received:       placementRequestReceived,
   form_received:                    formReceived,
   teams_invite_reminder:            teamsInviteReminder,
   teams_invite_reminder_escalation: teamsInviteReminderEscalation,

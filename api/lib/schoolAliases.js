@@ -12,7 +12,9 @@ function norm(s) {
 }
 
 // Each group: a canonical full name plus its abbreviations / common variants. All matched normalized.
-const SCHOOL_ALIAS_GROUPS = [
+// Exported for the parity test against src/lib/schoolIdentity.js (AP-SCHOOL-CANONICALIZATION-1),
+// which adds the OPERATIVE write/display identity on top of the same canonical + alias vocabulary.
+export const SCHOOL_ALIAS_GROUPS = [
   { canonical: 'Azusa Pacific University', aliases: ['APU', 'Azusa Pacific', 'Azusa'] },
   { canonical: 'California State University, Long Beach', aliases: ['CSULB', 'Cal State Long Beach', 'CSU Long Beach', 'Long Beach State'] },
   { canonical: 'California State University, Los Angeles', aliases: ['CSULA', 'Cal State LA', 'Cal State Los Angeles', 'CSU Los Angeles'] },

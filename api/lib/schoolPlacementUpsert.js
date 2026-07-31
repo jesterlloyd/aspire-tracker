@@ -23,6 +23,7 @@
 
 import { normalizeEmailForLookup } from '../../src/lib/emailUtils.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull, coerceMinDaysOrNull } from '../../src/lib/availability.js'
+import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
 
 // The latest-submission provenance columns added by
 // supabase/migrations/20260727000000_add_academic_partner_placement_provenance.sql.
@@ -84,13 +85,25 @@ export async function performSchoolPlacementUpsert(db, {
     placement_request_last_submitted_at: submittedAt,
   } : {}
 
+  // AP-SCHOOL-CANONICALIZATION-1 (revised against the actual production schema: there is NO
+  // public.schools table and NO students.school_id column): resolve the submitted school string
+  // against the static identity catalog (src/lib/schoolIdentity.js) ONCE and persist a single
+  // OPERATIVE identity everywhere in this write - into students.school and
+  // cohort_school_rotations.school_name. This is what stops "Cal State Northridge" and
+  // "California State University, Northridge" from ever forming two groups or two rotation rows
+  // again. An UNKNOWN school degrades to the raw trimmed string (the public form must not hard-fail
+  // for a school not yet in the catalog); the Academic Partner endpoint separately fails closed
+  // BEFORE calling this helper, so AP submissions can never write free-text school names.
+  const canonicalSchool = resolveOperativeSchoolName(coordinator.school)
+  const schoolName = canonicalSchool?.displayName || coordinator.school.trim()
+
   // (1) Upsert the rotation row for this school + cohort.
   const { data: rotationRow, error: rotErr } = await db
     .from('cohort_school_rotations')
     .upsert(
       {
         cohort_id:           cohortId,
-        school_name:         coordinator.school.trim(),
+        school_name:         schoolName,
         rotation_start_date: rotationStartDate,
         rotation_end_date:   rotationEndDate,
         coordinator_name:    coordinator.name.trim(),
@@ -148,7 +161,7 @@ export async function performSchoolPlacementUpsert(db, {
         last_name:                 lastName,
         name:                      fullName,
         school_email:              normEmail,
-        school:                    coordinator.school.trim(),
+        school:                    schoolName,
         program_type:              s.program_type || '',
         hours_required:            parseInt(s.hours_required) || 0,
         estimated_graduation_date: s.estimated_graduation_date || null,
@@ -168,7 +181,7 @@ export async function performSchoolPlacementUpsert(db, {
         console.error('[schoolPlacementUpsert] student update error:', updErr)
         return { error: `Failed to update student ${fullName}.`, added, updated, skipped, rotationId }
       }
-      updated.push({ name: fullName, id: existing.id, email: normEmail })
+      updated.push({ name: fullName, id: existing.id, email: normEmail, programType: (s.program_type || '').trim() })
       continue
     }
 
@@ -179,7 +192,7 @@ export async function performSchoolPlacementUpsert(db, {
         last_name:                  lastName,
         school_email:               normEmail,
         phone:                      (s.phone || '').trim(),
-        school:                     coordinator.school.trim(),
+        school:                     schoolName,
         program_type:               s.program_type || '',
         hours_required:             parseInt(s.hours_required) || 0,
         hours_completed:            0,
@@ -208,7 +221,7 @@ export async function performSchoolPlacementUpsert(db, {
 
     // Index the new row so a duplicate email within THIS same submission updates, not re-inserts.
     existingByEmail.set(normEmail, { id: newStudent.id, school_email: normEmail, submitted_via: source })
-    added.push({ name: fullName, id: newStudent.id, email: normEmail })
+    added.push({ name: fullName, id: newStudent.id, email: normEmail, programType: (s.program_type || '').trim() })
   }
 
   // Log one rotation_created event for the first new student.
@@ -218,11 +231,13 @@ export async function performSchoolPlacementUpsert(db, {
       cohort_id:   cohortId,
       event_type:  'rotation_created',
       event_date:  new Date().toISOString().split('T')[0],
-      notes:       `[Auto-logged] Rotation row created/updated for ${coordinator.school.trim()}. Dates: ${rotationStartDate} to ${rotationEndDate}.`,
+      notes:       `[Auto-logged] Rotation row created/updated for ${schoolName}. Dates: ${rotationStartDate} to ${rotationEndDate}.`,
       created_by:  'system',
     })
     if (evLogErr) console.warn('[schoolPlacementUpsert] program_events log error:', evLogErr.message)
   }
 
-  return { error: null, added, updated, skipped, rotationId }
+  // schoolName is the canonical display identity this write persisted; callers use it for
+  // notifications so the email never echoes the raw submitted variant.
+  return { error: null, added, updated, skipped, rotationId, schoolName }
 }

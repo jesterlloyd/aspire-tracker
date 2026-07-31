@@ -139,8 +139,8 @@ export function getAllSchoolCoordinators() {
 
 export async function resolveRecipients(type, context) {
   switch (type) {
-    case 'form_received':
-      return resolveFormReceived(context);
+    case 'placement_request_received':
+      return resolvePlacementRequestReceived(context);
     case 'teams_invite_reminder':
     case 'teams_invite_reminder_escalation':
       return resolveTeamsInviteReminder(context);
@@ -322,53 +322,49 @@ async function resolveUnitFormReceived(context) {
   return recipients;
 }
 
-function resolveFormReceived(context) {
+// AP-SCHOOL-CANONICALIZATION-1: recipients for a COORDINATOR-SUBMITTED placement request.
+// Replaces resolveFormReceived. Two deliberate differences from the retired resolver:
+//   1. NEVER the student. A placement request is a coordinator event; the student has not
+//      submitted anything and must not receive an application-style confirmation. The student is
+//      contacted later through the staff Send Form workflow (Student Profile Form), which is a
+//      distinct event.
+//   2. The PRIMARY recipient is the coordinator who actually submitted (context.coordinatorEmail,
+//      server-derived by the endpoints), so the confirmation always reaches the real submitter.
+//      The static SCHOOL_COORDINATORS map is only a fallback for legacy payloads without one.
+function resolvePlacementRequestReceived(context) {
   const recipients = [];
 
-  // 1. Student confirmation
-  if (context.studentEmail) {
+  // 1. The submitting coordinator - the confirmation's primary recipient.
+  if (context.coordinatorEmail) {
     recipients.push({
-      email:    context.studentEmail,
-      role:     'student',
-      name:     context.studentName || null,
-      audience: 'student',
+      email:     context.coordinatorEmail,
+      role:      'school_coordinator',
+      name:      context.coordinatorName || null,
+      audience:  'school_coordinator',
+      isPrimary: true,
     });
-  }
-
-  // 2. Internal team (owner + co-lead) - operational awareness
-  for (const [role, email] of Object.entries(INTERNAL_TEAM_EMAILS)) {
-    recipients.push({ email, role, audience: 'internal_team' });
-  }
-
-  // 3. School coordinator - pipeline visibility, with program-aware routing and CC support
-  if (context.school) {
+  } else if (context.school) {
+    // Legacy fallback: route via the static coordinator map (program-aware, with CC support).
     const { primary, cc, schoolKey } = getCoordinatorsForSchool(context.school, context.programType);
-
     if (primary) {
       recipients.push({
-        email:     primary.email,
-        role:      'school_coordinator',
-        name:      primary.name,
-        title:     primary.title,
-        audience:  'school_coordinator',
-        schoolKey,
-        isPrimary: true,
+        email: primary.email, role: 'school_coordinator', name: primary.name,
+        title: primary.title, audience: 'school_coordinator', schoolKey, isPrimary: true,
       });
-
       for (const ccPerson of cc) {
         recipients.push({
-          email:     ccPerson.email,
-          role:      'school_coordinator_cc',
-          name:      ccPerson.name,
-          title:     ccPerson.title,
-          audience:  'school_coordinator',
-          schoolKey,
-          isPrimary: false,
+          email: ccPerson.email, role: 'school_coordinator_cc', name: ccPerson.name,
+          title: ccPerson.title, audience: 'school_coordinator', schoolKey, isPrimary: false,
         });
       }
     } else {
       console.warn(`[notifications/recipients] no coordinator mapped for school: "${context.school}"`);
     }
+  }
+
+  // 2. Internal team (owner + co-lead) - operational awareness.
+  for (const [role, email] of Object.entries(INTERNAL_TEAM_EMAILS)) {
+    recipients.push({ email, role, audience: 'internal_team' });
   }
 
   return recipients;

@@ -23,6 +23,7 @@ import EmptyState from './EmptyState'
 import UnitResponseDrawer from './UnitResponseDrawer'
 import SchoolResponseDrawer from './SchoolResponseDrawer'
 import { matchSchoolResponse } from '../lib/schoolResponseDisplay'
+import { schoolGroupKey } from '../lib/schoolIdentity'
 import TodayMasthead from './TodayMasthead'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
@@ -596,9 +597,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const collapseAllUnits = () => setUnitGroupsOpen({})
 
   // ── School grouping ────────────────────────────────────────
+  // AP-SCHOOL-CANONICALIZATION-1 defensive safeguard: group Placement Requests by the school's
+  // OPERATIVE identity (alias-aware), so a stored variant like "California State University,
+  // Northridge" can never split a school into a second group beside "Cal State Northridge" even if
+  // a stray variant reaches the data. Unknown school strings group by exactly what was stored.
   const schoolMap = {}
   students.forEach(s => {
-    const key = s.school || 'Unknown School'
+    const key = schoolGroupKey(s.school) || 'Unknown School'
     if (!schoolMap[key]) schoolMap[key] = []
     schoolMap[key].push(s)
   })

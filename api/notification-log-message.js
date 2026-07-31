@@ -22,6 +22,7 @@ import { redactArchiveHtml } from './lib/messageArchive.js';
 // links (logo, program domain, mailto/tel) - no context-derived/tokenized URLs.
 const RECONSTRUCTABLE = new Set([
   'form_received',
+  'placement_request_received',
   'unit_form_received',
   'teams_invite_reminder',
   'teams_invite_reminder_escalation',
