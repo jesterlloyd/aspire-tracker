@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { safeWrite } from '../../lib/safeWrite'
 import { useAuth } from '../../contexts/AuthContext'
@@ -35,6 +36,7 @@ export default function SchedulingLinkReturnConfirm({
 }) {
   const location = useLocation()
   const { userProfile } = useAuth()
+  const queryClient = useQueryClient()
   const [plan, setPlan] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -88,6 +90,9 @@ export default function SchedulingLinkReturnConfirm({
         { name: 'log scheduling link communication' },
       )
       if (data && onLogCommunication) onLogCommunication(data)
+      // The Student Profiles side panel reads its own per-student communications query, so without
+      // this its control would keep saying "Send" after a confirmed send instead of "Resend".
+      if (!error) queryClient.invalidateQueries({ queryKey: ['student_communications', s.id] })
       results.push({ student: s, error })
     }
     const outcome = resolveSchedulingLinkWrites(plan, results)

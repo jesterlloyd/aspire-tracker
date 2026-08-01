@@ -36,8 +36,12 @@ export function hasSchedulingLinkSent(communications = [], studentId) {
 
 /**
  * May this student be sent a scheduling link, and what should the action say?
- * Returns { ok, reason, label, disabledReason }.
- *   ok:false + disabledReason  -> render the control disabled with that inline explanation
+ * Returns { ok, reason, label, disabledReason, shortReason }.
+ *   ok:false + disabledReason  -> the full inline explanation, for surfaces with room to show it
+ *                                 (Interviews tooltip, Student Profiles helper line)
+ *   ok:false + shortReason     -> the compact badge wording for the Action Center row, which renders
+ *                                 a warning in place of the description AND as a pill (matching the
+ *                                 existing 'Missing preceptor email' item)
  *   alreadySent                -> an intentional resend (the Action Center item stays resolved)
  */
 export function canSendSchedulingLink(student, communications = []) {
@@ -50,9 +54,10 @@ export function canSendSchedulingLink(student, communications = []) {
       label,
       reason: 'no_school_email',
       disabledReason: 'No school email on file. The scheduling page only recognizes a school email, so add one before sending.',
+      shortReason: 'Missing school email',
     }
   }
-  return { ok: true, alreadySent, label, reason: null, disabledReason: null }
+  return { ok: true, alreadySent, label, reason: null, disabledReason: null, shortReason: null }
 }
 
 // The staff workspaces a scheduling-link launch may return to. The Action Center is a global overlay

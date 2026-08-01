@@ -69,6 +69,29 @@ test('the recipient is the school email; a personal email is never a fallback', 
   assert.match(gate.disabledReason, /school email/i)
 })
 
+test('the gate offers both a full explanation and a compact badge', () => {
+  // QC finding: the Action Center renders a warning BOTH in place of the description and as a pill,
+  // so the long sentence appeared twice in the row. Compact surfaces get the short wording, matching
+  // the existing 'Missing preceptor email' item; roomy surfaces keep the full reason.
+  const gate = canSendSchedulingLink(student({ school_email: '' }))
+  assert.equal(gate.shortReason, 'Missing school email')
+  assert.ok(gate.disabledReason.length > gate.shortReason.length)
+  assert.equal(canSendSchedulingLink(student()).shortReason, null)
+  assert.match(actionCenter, /warning:gate\.shortReason/)
+  assert.doesNotMatch(actionCenter, /warning:gate\.disabledReason/)
+  // The roomy surfaces still show the full reason.
+  assert.match(interviewsTab, /rowAction\.disabledReason/)
+  assert.match(sidePanel, /\{gate\.disabledReason\}/)
+})
+
+test('a confirmed write refreshes the per-student communications query', () => {
+  // QC finding: Student Profiles reads its own ['student_communications', id] query, so without an
+  // invalidation its control kept reading "Send" after a confirmed send.
+  assert.match(returnConfirm, /queryClient\.invalidateQueries\(\{ queryKey: \['student_communications', s\.id\] \}\)/)
+  // Only on success - a failed write must not imply the record exists.
+  assert.match(returnConfirm, /if \(!error\) queryClient\.invalidateQueries/)
+})
+
 test('a launch is impossible without a school email', () => {
   assert.equal(buildSchedulingLinkLaunch({
     student: student({ school_email: '' }), cohortId: COHORT, returnPath: '/students',
