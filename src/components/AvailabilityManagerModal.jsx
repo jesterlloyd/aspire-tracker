@@ -11,6 +11,10 @@ for (let h = 7; h <= 18; h++) {
   }
 }
 
+// /api/availability returns { error: <slug>, message?: <safe sentence> }. Surface the sentence when
+// the server sent one; never show a bare slug.
+const safeServerError = (json, fallback) => json?.message || fallback
+
 function fmtTime(t) {
   if (!t) return ''
   const [h, m] = t.split(':').map(Number)
@@ -124,7 +128,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
         }),
       })
       const data = await response.json()
-      if (!response.ok) { alert(`Could not create block: ${data.error}`); return }
+      if (!response.ok) { alert(safeServerError(data, 'Could not create the availability block.')); return }
 
       const defaultInterviewer = isAdmin ? (form.interviewer_profile_id || '') : (userProfile?.id || '')
       setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_profile_id: defaultInterviewer }))
@@ -161,7 +165,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
         body: JSON.stringify({ action: 'delete_block', block_id: blockId }),
       })
       const data = await response.json()
-      if (!response.ok) { alert(data.error); return }
+      if (!response.ok) { alert(safeServerError(data, 'Could not delete the availability block.')); return }
       await loadBlocks()
       onBlockSaved?.()
     } catch (err) {

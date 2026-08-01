@@ -20,6 +20,10 @@ import { computeLegendPlacement } from './statusLegendPlacement'
 const rectFromPoint = (x, y) => ({ top: y, bottom: y, left: x, right: x, width: 0, height: 0 })
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 
+// /api/availability returns { error: <slug>, message?: <safe sentence> }. Surface the sentence when
+// the server sent one; never show a bare slug (that is how "invalid_request" reached the screen).
+const safeServerError = (json, fallback) => json?.message || fallback
+
 // ASPIRE-EVENTS-CALENDAR-2B: local 'YYYY-MM-DD' for a Date (calendar range bounds).
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -118,21 +122,33 @@ const hexToRgba = (hex, alpha) => {
 
 // ─── Popover: Create Block ────────────────────────────────────────────────────
 function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfiles, isAdmin, cohortId, userProfile, onSave, onClose }) {
+  // WAVE F-2: the block is attributed to a linked interviewer ACCOUNT, so the form carries the
+  // profile id (not a free-text name). Owner/Admin pick an account; a self-scheduling interviewer
+  // is their own account, and the server forces that regardless of what is sent.
   const [form, setForm] = useState({
     block_date:       date || '',
     start_time:       startTime || '09:00',
     end_time:         endTime   || '12:00',
     duration_minutes: 30,
-    interviewer_name: !isAdmin && userProfile?.can_conduct_interviews
-      ? userProfile.full_name
-      : (interviewerProfiles[0]?.full_name || ''),
+    interviewer_profile_id: null,   // null = untouched, so the default below can resolve late
   })
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
 
+  // Profiles come from a cached query and may arrive after this popover mounts, so the default is
+  // derived on each render rather than frozen into initial state. An explicit choice (including the
+  // empty placeholder) is a string and always wins.
+  const defaultInterviewerId = isAdmin ? (interviewerProfiles[0]?.id || '') : (userProfile?.id || '')
+  const interviewerProfileId = form.interviewer_profile_id === null
+    ? defaultInterviewerId
+    : form.interviewer_profile_id
+
   const handleSave = async () => {
     if (!form.block_date || !form.start_time || !form.end_time) {
       setError('Please fill in all fields.'); return
+    }
+    if (!interviewerProfileId) {
+      setError('Select a linked interviewer account.'); return
     }
     const [sh, sm] = form.start_time.split(':').map(Number)
     const [eh, em] = form.end_time.split(':').map(Number)
@@ -147,18 +163,17 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
         method:  'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
-          action:             'create_block',
-          cohort_id:          cohortId,
-          interviewer_name:   form.interviewer_name,
-          block_date:         form.block_date,
-          start_time:         form.start_time,
-          end_time:           form.end_time,
-          duration_minutes:   form.duration_minutes,
-          created_by_user_id: userProfile?.id || null,
+          action:                 'create_block',
+          cohort_id:              cohortId,
+          interviewer_profile_id: interviewerProfileId,
+          block_date:             form.block_date,
+          start_time:             form.start_time,
+          end_time:               form.end_time,
+          duration_minutes:       form.duration_minutes,
         }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error); return }
+      if (!res.ok) { setError(safeServerError(data, 'Could not create the availability block.')); return }
       onSave(data)
     } catch (err) {
       setError(err.message)
@@ -284,12 +299,12 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
         <div>
           <label style={labelStyle}>Interviewer</label>
           {isAdmin ? (
-            <select value={form.interviewer_name}
-              onChange={e => setForm(p => ({ ...p, interviewer_name: e.target.value }))}
+            <select value={interviewerProfileId}
+              onChange={e => setForm(p => ({ ...p, interviewer_profile_id: e.target.value }))}
               style={inputStyle}>
               <option value="">Select interviewer...</option>
               {interviewerProfiles.map(p => (
-                <option key={p.id} value={p.full_name}>{p.full_name}</option>
+                <option key={p.id} value={p.id}>{p.full_name}</option>
               ))}
             </select>
           ) : (
@@ -1343,7 +1358,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       body: JSON.stringify({ action: 'delete_block', block_id: blockId }),
     })
     const data = await res.json()
-    if (!res.ok) { alert(data.error); return }
+    if (!res.ok) { alert(safeServerError(data, 'Could not delete the availability block.')); return }
     setBlockPopover(null)
     fetchData()
     onDataChanged?.()
@@ -1373,7 +1388,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         }),
       })
       const data = await res.json()
-      if (!res.ok) { alert(`Could not cancel: ${data.error}`); return }
+      if (!res.ok) { alert(safeServerError(data, 'Could not cancel this booking.')); return }
       setBlockPopover(null)
       fetchData()
       onDataChanged?.()
