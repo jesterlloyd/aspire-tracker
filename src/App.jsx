@@ -34,6 +34,9 @@ import ShiftLogPage from './components/ShiftLogPage'
 import ShiftLogLifecycle from './components/shift-log-lifecycle/ShiftLogLifecycle'
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
+import SchedulingLinkReturnConfirm from './components/connect/SchedulingLinkReturnConfirm'
+import { writeLaunchContext, LAUNCH_KINDS } from './lib/connect/launchContext'
+import { buildSchedulingLinkLaunch, resolveSchedulingLinkReturnPath } from './lib/schedulingLinkFlow'
 import { useSupportRequestReads } from './lib/support/useSupportRequestReads'
 import { useStaffNotifications } from './hooks/useStaffNotifications'
 import { unreadSupportBellCount } from './lib/support/supportRequests'
@@ -506,6 +509,24 @@ function MainApp({ onLogout }) {
     setFocusActivityShiftLogId(shiftLogId)
     navigate('/rotation/activity')
     setShowActionCenter(false)
+  }
+
+  // CONNECT-SCHEDULING-LINK-1: the Action Center's scheduling task uses the SAME launch as the
+  // Interviews worklist and Student Profiles. The panel is a global overlay, so the return workspace
+  // is resolved from where the Owner currently is (falling back to Interviews) rather than pinned -
+  // never a Connect route, which would pop the confirmation while they are still in the composer.
+  // Launching writes nothing; the confirmed return records the Scheduling Link Sent entry.
+  const launchSchedulingLinkFromActionCenter = (student) => {
+    const ctx = buildSchedulingLinkLaunch({
+      student,
+      cohortId: activeCohortId,
+      cohortName: activeCohort?.name || '',
+      source: 'action_center',
+      returnPath: resolveSchedulingLinkReturnPath(location.pathname),
+    })
+    if (!ctx) { toast?.error('Scheduling link', 'This student has no school email on file.'); return }
+    writeLaunchContext({ kind: LAUNCH_KINDS.INTERVIEW_SCHEDULING_LINK, ...ctx })
+    navigate('/connect/outreach?launch=1')
   }
 
   // WS2.3/WS2.4: single source of truth for the tour-restart behavior. WS2.4 removed the
@@ -1048,6 +1069,7 @@ function MainApp({ onLogout }) {
                 cohort={activeCohort}
                 sessions={ivSessions}
                 slots={ivSlots}
+                communications={communications}
                 onStudentUpdate={updateStudent}
                 onRubricsChange={() => fetchInterviews(activeCohortId)}
                 onRefreshStudents={() => fetchStudents(activeCohortId)}
@@ -1125,11 +1147,23 @@ function MainApp({ onLogout }) {
           onActionCountChange={handleActionCount}
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
           onNavigateToActivityShift={goToActivityShift}
+          onLaunchSchedulingLink={launchSchedulingLinkFromActionCenter}
           onNavigateNotificationDestination={destination => { navigate(destination); setShowActionCenter(false) }}
           notifications={staffNotifications}
           toast={toast}
         />
       )}
+      {/* CONNECT-SCHEDULING-LINK-1: one shared return confirmation for both scheduling-link launch
+          points (Interviews worklist, Student Profiles). Mounted at the shell so the two workspaces
+          use the same completion mechanism; it renders nothing unless the Owner returns to the
+          launching workspace with a scheduling-link context that Connect reported as sent. */}
+      <SchedulingLinkReturnConfirm
+        students={students}
+        cohortId={activeCohortId}
+        onLogCommunication={logCommunication}
+        onRefreshCommunications={() => fetchCommunications(activeCohortId)}
+        toast={toast}
+      />
       <Keith
         activeTab={activeTab}
         setActiveTab={switchTab}

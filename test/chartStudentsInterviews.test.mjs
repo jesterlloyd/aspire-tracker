@@ -85,7 +85,13 @@ test('Interviews worklist', async (t) => {
 
   await t.test('action labels are honest: no Send Invite that sends nothing', () => {
     assert.doesNotMatch(irt, /label:'Send Invite'/)
-    assert.match(irt, /label:'Email Scheduling Link', type:'schedule'/)
+    // CONNECT-SCHEDULING-LINK-1: the schedule action no longer composes an email itself, it launches
+    // ASPIRE Connect, so the honest label comes from the shared gate ('Send'/'Resend Scheduling
+    // Link') - the same wording Student Profiles and the Action Center already use. The old
+    // 'Email Scheduling Link' would now overclaim.
+    assert.match(irt, /const gate = canSendSchedulingLink\(s, communications\)\s*\n\s*return \{ label: gate\.label, type:'schedule'/)
+    assert.doesNotMatch(irt, /label:'Email Scheduling Link'/)
+    assert.match(irt, /navigate\('\/connect\/outreach\?launch=1'\)/)
   })
 
   await t.test('rubric deep link uses a handler, not an effect', () => {

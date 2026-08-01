@@ -315,9 +315,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           .filter(Boolean),
       }
     }
-    // student_form AND school_form: the recipients are the intended students themselves
-    // (ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29: Send Forms to Students preselects the
-    // school's Pending Outreach students under the Students audience, not a Contacts category).
+    // student_form, school_form AND interview_scheduling_link: the recipients are the intended
+    // students themselves (ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29: Send Forms to
+    // Students preselects the school's Pending Outreach students under the Students audience, not a
+    // Contacts category). CONNECT-SCHEDULING-LINK-1 launches one student the same way; the composer's
+    // Students email source already defaults to 'school', which is the only address the public
+    // scheduling page can resolve.
     return { source: 'students', studentIds: launchCtx.studentIds || [] }
   })
 

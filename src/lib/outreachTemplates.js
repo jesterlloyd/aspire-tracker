@@ -336,32 +336,53 @@ ${pClose}`
   return { subject, body, richBody }
 })()
 
-const BULK_INTERVIEW_SCHEDULING = {
-  subject: 'ASPIRE: Schedule Your Interview',
-  body: `Dear [Student First Name],
+// CONNECT-SCHEDULING-LINK-1 (Owner copy, 2026-07-31): the Interview Scheduling Link email, and the
+// template the two scheduling-link actions launch (Interviews worklist, Student Profiles). Rebuilt as
+// a Content Block layout with a prominent "Schedule Interview" button; the URL rides the existing
+// [Insert Interview Schedule Link] static-link token, which BulkManualComposer resolves to the public
+// /interview-schedule route before the editor hydrates.
+//
+// The body deliberately ends at the contact line: the closing and signature are appended server-side
+// by "Include my email signature" (see this file's header), so a literal "Kind regards," + signature
+// here would duplicate them.
+//
+// The previous longer copy (first-come-first-served note, interview-prep bullets, [Insert Deadline])
+// is retired with this rewrite - see the release notes for the Owner decision.
+const BULK_INTERVIEW_SCHEDULING = (() => {
+  const subject = 'Schedule Your ASPIRE Interview'
 
-Thank you for completing the ASPIRE student profile process.
+  const pThanks  = 'Thank you for completing your ASPIRE Student Profile. The next step is to schedule your interview with the Nursing Professional Development team.'
+  const pUse     = 'Please use the button below to view available times and select one that works for your schedule.'
+  const pPrompt  = 'When prompted, enter your school email address to access your scheduling page.'
+  const pTeams   = 'Your interview will be conducted through Microsoft Teams. The meeting link will be sent separately after you book your interview slot.'
+  const pContact = 'If you have any questions, please contact us at aspire@cshs.org.'
 
-We are now inviting you to schedule your ASPIRE interview. Please use the link below to select an available interview time:
+  const body = `Dear [Student First Name],
+
+${pThanks}
+
+${pUse}
 
 [Insert Interview Schedule Link]
 
-Interview appointments are based on the availability of our ASPIRE interviewers and may be filled on a first-come, first-served basis. Please select a time that you can attend reliably.
+${pPrompt}
 
-Before your interview, please be prepared to discuss:
+${pTeams}
 
-• Your interest in ASPIRE
-• Your clinical goals and learning objectives
-• Your preferred areas of nursing practice
-• Your readiness to participate in a senior nursing student rotation at Cedars-Sinai
-• Your interest in future transition-to-practice opportunities, including the New Graduate RN Residency Program pathway, if applicable
+${pContact}`
 
-Please complete your scheduling by [Insert Deadline].
+  const richBody =
+    bH2('Schedule Your ASPIRE Interview')
+    + bP('Dear [Student First Name],')
+    + bP(pThanks)
+    + bP(pUse)
+    + bButton({ label: 'Schedule Interview', url: '[Insert Interview Schedule Link]' })
+    + bP(pPrompt)
+    + bP(pTeams)
+    + bP(pContact)
 
-If you have a scheduling conflict or cannot find an available time that works for you, please contact the ASPIRE team as soon as possible.
-
-Thank you, and we look forward to meeting with you.`,
-}
+  return { subject, body, richBody }
+})()
 
 const BULK_ANNOUNCEMENT = {
   subject: 'ASPIRE: Acceptance and Orientation Next Steps',

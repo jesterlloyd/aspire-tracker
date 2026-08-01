@@ -6,7 +6,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
-import { appUrl } from '../lib/appUrl'
 import StudentAvatar from './StudentAvatar'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
@@ -37,6 +36,8 @@ import { generateBadgePNGs, calculateBadgeDates } from '../lib/badgeGenerator'
 import { getStudentLegalDisplayName } from '../lib/studentNameFormatters'
 import { isLegacyNonIsoDateValue, dateInputValue } from '../lib/csLinkDateUtils'
 import { usePreceptors } from '../hooks/usePreceptors'
+import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
+import { canSendSchedulingLink, buildSchedulingLinkLaunch } from '../lib/schedulingLinkFlow'
 import { resolvePreceptor } from '../lib/preceptor'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import AdditionalPreceptors from './AdditionalPreceptors'
@@ -231,6 +232,21 @@ export default function StudentSidePanel({
   const canViewPhoto  = canViewStudentPhotoInCohort(data?.cohort_id)
   const navigate    = useNavigate()
   const queryClient = useQueryClient()
+
+  // CONNECT-SCHEDULING-LINK-1: same launch as the Interviews worklist, returning to Student Profiles.
+  // Launching writes ONLY the session launch context; the Scheduling Link Sent entry is recorded on
+  // the confirmed return, never here.
+  const launchSchedulingLink = (s) => {
+    const ctx = buildSchedulingLinkLaunch({
+      student: s,
+      cohortId: s?.cohort_id,
+      source: 'student_profile',
+      returnPath: '/students',
+    })
+    if (!ctx) { toast?.error('Scheduling link', 'This student has no school email on file.'); return }
+    writeLaunchContext({ kind: LAUNCH_KINDS.INTERVIEW_SCHEDULING_LINK, ...ctx })
+    navigate('/connect/outreach?launch=1')
+  }
   const [uploadingRes,  setUploadingRes]  = useState(false)
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
@@ -1283,18 +1299,28 @@ export default function StudentSidePanel({
                 )}
               </div>
             </Field>
-            {data.status === 'Form Received' && data.school_email && (
-              <div style={{ marginTop:8 }}>
-                <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px' }}
-                  onClick={() => {
-                    const subject = 'Schedule Your ASPIRE Interview'
-                    const body = `Dear ${data.first_name || 'ASPIRE Student'},\n\nThank you for completing your ASPIRE Student Profile. The next step in the process is to schedule your interview with the Nursing Professional Development team.\n\nPlease use the link below to view available times and select one that works for your schedule:\n\n${appUrl('/interview-schedule')}\n\nWhen prompted, enter your school email address to access your scheduling page.\n\nYour interview will be conducted via Microsoft Teams. The meeting link will be sent to you separately after you book your slot.\n\nIf you have any questions, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nBrawerman Nursing Institute | Cedars-Sinai Medical Center\nJesterLloyd.Bautista@cshs.org | 310-248-8964`
-                    openOutlookCompose({ to: data.school_email, subject, body })
-                  }}>
-                  ✉ Send Scheduling Link
-                </button>
-              </div>
-            )}
+            {/* CONNECT-SCHEDULING-LINK-1: launches ASPIRE Connect with this student and the Interview
+                Scheduling template (no mailto). Nothing is recorded here - the Scheduling Link Sent
+                entry is written only after the Owner confirms on return to Student Profiles. Shown
+                without the school-email condition so a student who is missing one gets a disabled
+                control with the reason, rather than a control that silently disappears. */}
+            {data.status === 'Form Received' && canEdit && (() => {
+              const gate = canSendSchedulingLink(data, studentComms)
+              return (
+                <div style={{ marginTop:8 }}>
+                  <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px' }}
+                    disabled={!gate.ok}
+                    onClick={() => launchSchedulingLink(data)}>
+                    ✉ {gate.label}
+                  </button>
+                  {gate.disabledReason && (
+                    <div style={{ fontSize:11, color:'var(--color-text-muted,#6b7280)', marginTop:4, maxWidth:320, lineHeight:1.4 }}>
+                      {gate.disabledReason}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             <Field label="Personal Email" fieldKey="personal_email">
               <input className="sp-input" value={data.personal_email||''} onChange={e => handleText('personal_email', e.target.value)} />
             </Field>

@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { buildOutlookComposeUrl } from '../lib/outlookCompose'
-import { appUrl } from '../lib/appUrl'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
@@ -19,6 +17,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatSchoolProgram } from '../lib/displayFormatters'
 import { toLocalDateStr } from '../lib/designTokens'
 import StatusLegendPopover from './StatusLegendPopover'
+import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
+import { canSendSchedulingLink, buildSchedulingLinkLaunch } from '../lib/schedulingLinkFlow'
 
 function IrAvatar({ student }) {
   return (
@@ -75,30 +75,6 @@ const ROW_BORDER = {
   'Not Scheduled': '#d1d5db',
 }
 
-function buildSchedulingComposeUrl(student) {
-  const to = student.school_email || ''
-  const subject = 'Schedule Your ASPIRE Interview'
-  const body = `Dear ${student.first_name || 'ASPIRE Student'},
-
-Thank you for completing your ASPIRE Student Profile. The next step in the process is to schedule your interview with the Nursing Professional Development team.
-
-Please use the link below to view available times and select one that works for your schedule:
-
-${appUrl('/interview-schedule')}
-
-When prompted, enter your school email address to access your scheduling page.
-
-Your interview will be conducted via Microsoft Teams. The meeting link will be sent to you separately after you book your slot.
-
-If you have any questions, please don't hesitate to reach out.
-
-Warm regards,
-Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
-Brawerman Nursing Institute | Cedars-Sinai Medical Center
-JesterLloyd.Bautista@cshs.org | 310-248-8964`
-  return buildOutlookComposeUrl({ to, subject, body })
-}
-
 // ── Worklist helpers ──────────────────────────────────────────────────────────
 
 const COMPLETED_STATUSES = new Set(['Interviewed','Placed','Active Rotation','Completed'])
@@ -143,21 +119,32 @@ function getFlagInfo(s, studentRubs) {
 // "Needs Teams invite" pill still carries that signal, and marking the invite
 // sent stays in the calendar day drawer. Interviewed students instead get the
 // placement handoff.
-function getRowAction(s, studentRubs, sessions) { // eslint-disable-line no-unused-vars
+// CONNECT-SCHEDULING-LINK-1: the scheduling action now launches ASPIRE Connect (no mailto), so the
+// label reads as the app action it is. A student with a recorded scheduling_link communication gets
+// the intentional-resend label, and one with no school email gets a disabled control with an inline
+// reason (the public scheduling page resolves students by school email only).
+function getRowAction(s, studentRubs, sessions, communications = [], canEdit = false) {
   if (s.flagged_for_second_interview) return { label:'Review Flag', type:'flag' }
-  if (!s.interview_scheduled_date)    return { label:'Email Scheduling Link', type:'schedule' }
+  if (!s.interview_scheduled_date) {
+    // Only roles that can actually send from Connect are offered the action: /api/connect-send-bulk-message
+    // is Owner/Admin only, so showing it to anyone else would dead-end them in the composer.
+    if (!canEdit) return null
+    const gate = canSendSchedulingLink(s, communications)
+    return { label: gate.label, type:'schedule', disabled: !gate.ok, disabledReason: gate.disabledReason }
+  }
   if (s.status === 'Interviewed')     return { label:'Place →', type:'place' }
   return null  // row click already opens the rubric; no distinct action needed
 }
 
 export default function InterviewRubricTab({
   students, rubrics, cohortId, cohort,
-  sessions = [], slots = [],
+  sessions = [], slots = [], communications = [],
   onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession, onRefreshSlots,
   onNavigateToPlacement,
   toast,
 }) {
-  const { canInterview, isViewer, userProfile } = useAuth()
+  const navigate = useNavigate()
+  const { canInterview, isViewer, canEdit, userProfile } = useAuth()
   // ASPIRE-CHART URL state: ?student=<id> deep-links an open rubric and
   // survives refresh. Opaque id only; an id outside the cohort fails closed
   // to the worklist.
@@ -181,6 +168,22 @@ export default function InterviewRubricTab({
       return next
     }, { replace: true })
   }
+  // CONNECT-SCHEDULING-LINK-1: the scheduling link opens ASPIRE Connect with this student and the
+  // Interview Scheduling template preselected. Launching writes ONLY the session launch context -
+  // nothing is recorded until the Owner confirms on return to this workspace.
+  const launchSchedulingLink = (student) => {
+    const ctx = buildSchedulingLinkLaunch({
+      student,
+      cohortId,
+      cohortName: cohort?.name || '',
+      source: 'interviews_worklist',
+      returnPath: '/interviews',
+    })
+    if (!ctx) { toast?.error?.('Scheduling link', 'This student has no school email on file.'); return }
+    writeLaunchContext({ kind: LAUNCH_KINDS.INTERVIEW_SCHEDULING_LINK, ...ctx })
+    navigate('/connect/outreach?launch=1')
+  }
+
   const [refreshKey,        setRefreshKey]        = useState(0)
   const [calendarCollapsed,    setCalendarCollapsed]    = useState(false)
   const [calendarInterviewers, setCalendarInterviewers] = useState([])
@@ -609,7 +612,7 @@ export default function InterviewRubricTab({
                 : null
 
               const flagInfo     = getFlagInfo(s, studentRubs)
-              const rowAction    = getRowAction(s, studentRubs, sessions)
+              const rowAction    = getRowAction(s, studentRubs, sessions, communications, canEdit)
               const irDispType   = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null
               const statusCfg    = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
 
@@ -623,8 +626,9 @@ export default function InterviewRubricTab({
 
               const handleAction = (e) => {
                 e.stopPropagation()
+                if (rowAction.disabled) return
                 if (rowAction.type === 'schedule') {
-                  window.open(buildSchedulingComposeUrl(s), '_blank', 'noopener,noreferrer')
+                  launchSchedulingLink(s)
                 } else if (rowAction.type === 'place' && onNavigateToPlacement) {
                   onNavigateToPlacement(s.id)
                 } else {
@@ -739,21 +743,27 @@ export default function InterviewRubricTab({
                   {/* 5. Action - only shown for distinct actions; row click handles the default case */}
                   <div className="ir-wl-cell ir-wl-col-action" style={{ justifyContent:'center' }} onClick={e => e.stopPropagation()}>
                     {rowAction && (
-                      <button
-                        onClick={handleAction}
-                        style={{
-                          display:'inline-flex', alignItems:'center', gap:4,
-                          padding:'7px 14px', borderRadius:999,
-                          border:'1px solid var(--color-border-default)', background:'var(--color-bg-surface)',
-                          fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:500,
-                          color:'var(--color-text-primary)', cursor:'pointer', whiteSpace:'nowrap',
-                          transition:'background 150ms ease, border-color 150ms ease',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background='var(--color-bg-hover)'; e.currentTarget.style.borderColor='var(--color-border-strong)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background='var(--color-bg-surface)'; e.currentTarget.style.borderColor='var(--color-border-default)' }}
-                      >
-                        {rowAction.label}
-                      </button>
+                      <Tooltip label={rowAction.disabledReason || rowAction.label} placement="top">
+                        <button
+                          onClick={handleAction}
+                          disabled={!!rowAction.disabled}
+                          aria-label={rowAction.disabled ? `${rowAction.label} unavailable: ${rowAction.disabledReason}` : undefined}
+                          style={{
+                            display:'inline-flex', alignItems:'center', gap:4,
+                            padding:'7px 14px', borderRadius:999,
+                            border:'1px solid var(--color-border-default)', background:'var(--color-bg-surface)',
+                            fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:500,
+                            color:'var(--color-text-primary)', whiteSpace:'nowrap',
+                            cursor: rowAction.disabled ? 'not-allowed' : 'pointer',
+                            opacity: rowAction.disabled ? 0.55 : 1,
+                            transition:'background 150ms ease, border-color 150ms ease',
+                          }}
+                          onMouseEnter={e => { if (rowAction.disabled) return; e.currentTarget.style.background='var(--color-bg-hover)'; e.currentTarget.style.borderColor='var(--color-border-strong)' }}
+                          onMouseLeave={e => { if (rowAction.disabled) return; e.currentTarget.style.background='var(--color-bg-surface)'; e.currentTarget.style.borderColor='var(--color-border-default)' }}
+                        >
+                          {rowAction.label}
+                        </button>
+                      </Tooltip>
                     )}
                   </div>
                 </div>

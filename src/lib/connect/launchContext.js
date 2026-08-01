@@ -17,6 +17,11 @@ export const LAUNCH_KINDS = Object.freeze({
   CAPACITY_REMINDER: 'capacity_reminder',
   STUDENT_FORM: 'student_form',
   SCHOOL_FORM: 'school_form',
+  // CONNECT-SCHEDULING-LINK-1: the interview scheduling link, launched from the Interviews worklist
+  // and from Student Profiles. Same loop as the student form (Students audience, per-student send
+  // evidence, return confirmation), but the confirmed write is a 'scheduling_link' communication
+  // rather than a status change, and the return path is the launching workspace.
+  INTERVIEW_SCHEDULING_LINK: 'interview_scheduling_link',
 })
 const VALID_KINDS = new Set(Object.values(LAUNCH_KINDS))
 

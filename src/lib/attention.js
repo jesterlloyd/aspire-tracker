@@ -43,7 +43,14 @@ export function deriveEagerAttention({ students = [], matches = [], communicatio
   const t48 = fmtLocalDate(new Date(now.getTime() + 48 * 3600 * 1000))
 
   // Always-visible tasks (not role-gated in the panel)
-  const schedulingLink = students.filter(s => s.status === 'Form Received' && !s.interview_scheduled_date)
+  // CONNECT-SCHEDULING-LINK-1: the task is resolved by a logged 'scheduling_link' communication, the
+  // same hasSent() shape as interviewReminder/preceptorWelcome below. Before this, the predicate read
+  // status + interview_scheduled_date only, so the item's own "mark done" (which writes exactly this
+  // communication) could never clear it and the task persisted until the student booked a slot.
+  const schedulingLink = students.filter(s =>
+    s.status === 'Form Received' && !s.interview_scheduled_date &&
+    !hasSent(communications, s.id, 'scheduling_link')
+  )
   const interviewReminder = students.filter(s =>
     s.interview_scheduled_date >= td && s.interview_scheduled_date <= t48 &&
     !hasSent(communications, s.id, 'interview_reminder')

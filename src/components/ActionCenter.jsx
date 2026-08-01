@@ -13,6 +13,7 @@ import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import StaffNotificationsPanel from './StaffNotificationsPanel'
 import { unreadSupportShifts, buildSupportActionItem } from '../lib/support/supportRequests'
+import { canSendSchedulingLink } from '../lib/schedulingLinkFlow'
 
 function fmtIvDate(s) {
   if (!s) return ''
@@ -115,10 +116,12 @@ function getActionLabel(item) {
   if (item.actionType === 'selection_decision') return 'Open Interview Review'
   if (item.navigateToProfile && !item.canMarkDone) return 'Open Profile'
   if (item.markDoneType === 'update_field') return 'Mark Complete'
+  // CONNECT-SCHEDULING-LINK-1: the scheduling task offers its action only when the launch is
+  // available (Owner/Admin with a school email on file); otherwise the row shows its warning alone.
+  if (item.actionType === 'interview_link_not_sent') return item.launchSchedulingLink ? 'Send Scheduling Link' : null
   if (item.warning && !item.emailHref) return null
   switch (item.actionType) {
     case 'student_form':               return 'Send Form Email'
-    case 'interview_link_not_sent':    return 'Send Scheduling Link'
     case 'interview_reminder_overdue': return 'Send Reminder'
     case 'unit_notification_needed':
       return item.title === 'Preceptor Welcome Email' ? 'Open in Outlook' : 'Notify Unit Leader'
@@ -167,24 +170,10 @@ If you have any questions, please don't hesitate to reach out.
 ${SIG}`)
 }
 
-function buildSchedulingLinkEmail(s) {
-  return outlookCompose(s.school_email, 'Schedule Your ASPIRE Interview',
-`Dear ${s.first_name},
-
-Thank you for completing your ASPIRE Student Profile. The next step is to schedule your interview with our Nursing Professional Development team.
-
-Please use the link below to view available times and select one that works for your schedule:
-
-${appUrl('/interview-schedule')}
-
-When prompted, enter your school email address to access the scheduling page.
-
-Your interview will be conducted via Microsoft Teams. The meeting link will be sent to you separately after you book your slot.
-
-If you have any questions, please don't hesitate to reach out.
-
-${SIG}`)
-}
+// CONNECT-SCHEDULING-LINK-1: the scheduling-link compose builder that used to live here is gone.
+// This task now launches ASPIRE Connect through the shared flow (lib/schedulingLinkFlow.js), the same
+// one the Interviews worklist and Student Profiles use, so the link email exists in exactly one place
+// (the Interview Scheduling template) and the "sent" record is written only on confirmed evidence.
 
 function buildInterviewReminderEmail(s) {
   const to = s.personal_email || s.school_email
@@ -369,6 +358,7 @@ export default function ActionCenter({
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
   onNavigateToProfiles, onNavigateToActivityShift, onNavigateNotificationDestination,
+  onLaunchSchedulingLink,
   onActionCountChange, toast,
   notifications = {},
 }) {
@@ -548,6 +538,14 @@ export default function ActionCenter({
       setConfirmingId(item.id)
       return
     }
+    // CONNECT-SCHEDULING-LINK-1: hand off to the shared launch and close the panel. NOTHING is
+    // written here - unlike the log-on-compose branch below, which this task deliberately no longer
+    // uses. The Scheduling Link Sent entry comes from the confirmed return.
+    if (item.launchSchedulingLink) {
+      onLaunchSchedulingLink?.(item.student)
+      onClose()
+      return
+    }
     if (item.emailHref && item.markDoneType === 'log_communication') {
       setActioning(item.id)
       openHref(item.emailHref)
@@ -719,7 +717,17 @@ ${KR_SIG}`
     // Orientation special item in placement
     ...(showOrientation ? [{ id: 'orientation', isOrientation: true, category: 'placement', priority: 'high', title: 'Orientation Email', studentName: `${placedStudents.length} placed student${placedStudents.length !== 1 ? 's' : ''}`, description: 'Orientation email and pre-program survey not yet sent.', canMarkDone: false }] : []),
     // Interviews
-    ...act2.map(s => ({ id:`${s.id}-sl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Scheduling Link', description:'Form received. Scheduling link not sent.', actionType:'interview_link_not_sent', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'scheduling_link'}, emailHref:buildSchedulingLinkEmail(s) })),
+    // CONNECT-SCHEDULING-LINK-1: launches ASPIRE Connect instead of opening a draft, and writes
+    // nothing on click. The Scheduling Link Sent entry (which resolves this very task, via the
+    // 'scheduling_link' communication the predicate now reads) is recorded only after the Owner
+    // confirms on return. The item stays visible to every role so the panel and the bell badge keep
+    // counting identically; only the ACTION is limited to the roles Connect lets send.
+    // A student with no school email carries a warning instead of an action: the public scheduling
+    // page resolves students by school email alone, so there is nothing valid to send.
+    ...act2.map(s => {
+      const gate = canSendSchedulingLink(s, communications)
+      return { id:`${s.id}-sl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Scheduling Link', description:'Form received. Scheduling link not sent.', actionType:'interview_link_not_sent', canMarkDone:false, markDoneType:null, launchSchedulingLink:canEdit && gate.ok, warning:gate.disabledReason }
+    }),
     ...act3.map(s => ({ id:`${s.id}-ir`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Reminder', description:`Interview ${fmtIvDate(s.interview_scheduled_date)}. Reminder not sent.`, actionType:'interview_reminder_overdue', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'interview_reminder'}, emailHref:buildInterviewReminderEmail(s) })),
     ...(canEdit ? act18.map(s => ({ id:`${s.id}-sd`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'urgent', title:'Selection Decision Needed', description:'Rubric: Do Not Recommend · Awaiting selection decision', actionType:'selection_decision', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     ...act19.map(({ student: s, followups }) => {
