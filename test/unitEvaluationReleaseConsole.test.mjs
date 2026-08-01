@@ -93,8 +93,13 @@ test('the console calls the review API, refreshes after actions, and shows exact
 })
 test('the Review & Release tab renders the console, gated Owner/Admin, without dropping automation', () => {
   const tab = read('src/components/EvaluationTab.jsx')
-  assert.match(tab, /import UnitEvaluationReleaseConsole/)
-  assert.match(tab, /activeSubTab === 'automation' && \(isOwner \|\| isAdmin\)[\s\S]*?<UnitEvaluationReleaseConsole \/>[\s\S]*?<SurveyAutomationDashboard/)
+  // EVAL-RR-UNIFIED-NAV-1: the console is no longer stacked above the dashboard in the
+  // tab - it is a navigator section INSIDE SurveyAutomationDashboard, still behind the
+  // same Owner/Admin subtab gate.
+  const dash = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
+  assert.match(tab, /activeSubTab === 'automation' && \(isOwner \|\| isAdmin\) && \(\s*\n\s*<SurveyAutomationDashboard cohortId=\{cohortId\} \/>/)
+  assert.match(dash, /import UnitEvaluationReleaseConsole from '\.\/UnitEvaluationReleaseConsole'/)
+  assert.match(dash, /\{unitReleaseSelected && <UnitEvaluationReleaseConsole embedded \/>\}/)
   // The Responses tab and its viewer dispatch are unchanged (still present).
   assert.match(tab, /activeSubTab === 'cohort'/)
   assert.match(tab, /EvaluationResponseDetail|PreceptorResponseDetail|StudentEvalResponseDetail/)

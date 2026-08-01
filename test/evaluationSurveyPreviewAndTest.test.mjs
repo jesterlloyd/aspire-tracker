@@ -294,7 +294,10 @@ test('the survey preview is distinct from the pre-existing email preview', () =>
 
 test('production release controls are unchanged', () => {
   // The release path must not have been touched by this pass.
-  assert.match(dashCode, /resolveEffectiveWorkflow/)
+  // EVAL-RR-UNIFIED-NAV-1: the dashboard resolves over the nav-key superset now; the
+  // survey-only resolver keeps its exact semantics inside resolveEffectiveNavKey
+  // (releaseRouting.test.mjs still pins resolveEffectiveWorkflow functionally).
+  assert.match(dashCode, /resolveEffectiveNavKey/)
   for (const panel of ['PreceptorAutomationPanel', 'StudentEvalAutomationPanel',
     'CaseyFinkPostRotationAutomationPanel', 'PostRotationAutomationPanel']) {
     assert.match(dashCode, new RegExp(`<${panel}`), `${panel} must still mount`)

@@ -43,7 +43,11 @@ function Badge({ children, tint }) {
   )
 }
 
-export default function UnitEvaluationReleaseConsole() {
+// EVAL-RR-UNIFIED-NAV-1: `embedded` renders the console inside the Review & Release
+// workspace shell (which already provides the card, border, and padding), dropping only
+// this component's page-level outer padding. Queue, counts, filters, actions, legacy
+// read-only rows, eligibility, and timing rules are identical in both presentations.
+export default function UnitEvaluationReleaseConsole({ embedded = false }) {
   const [filters, setFilters] = useState({ instrument: '', unit_key: '', timepoint: '', release_state: '', moderation_state: '' })
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -112,7 +116,7 @@ export default function UnitEvaluationReleaseConsole() {
   }
 
   return (
-    <section style={{ padding: '0 20px 24px', fontFamily: F }} aria-label="Release evaluations to Unit Leaders">
+    <section style={{ padding: embedded ? 0 : '0 20px 24px', fontFamily: F }} aria-label="Release evaluations to Unit Leaders">
       <div style={{ marginBottom: 8 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0E1428' }}>Release to Unit Leaders</h3>
         <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#5b6472', maxWidth: 720 }}>

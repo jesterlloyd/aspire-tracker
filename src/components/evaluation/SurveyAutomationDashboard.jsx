@@ -8,15 +8,27 @@ import PostRotationAutomationPanel from './PostRotationAutomationPanel'
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { getEvaluationPreviewFixture } from '../../lib/evaluation/evaluationPreviewFixtures'
 import SurveyPreviewDrawer from './SurveyPreviewDrawer'
+import UnitEvaluationReleaseConsole from './UnitEvaluationReleaseConsole'
 import { SURVEY_CATALOG } from '../../lib/evaluation/surveyCatalog'
 import { supabase } from '../../lib/supabase'
-import { resolveEffectiveWorkflow, resolveInitialWorkflow, isWorkflowKey, LAST_WORKFLOW_STORAGE_KEY } from '../../lib/evaluation/workflowSelection'
+import {
+  LAST_WORKFLOW_STORAGE_KEY,
+  UNIT_LEADER_RELEASE_KEY, isReviewReleaseNavKey, resolveEffectiveNavKey, resolveInitialNavKey,
+} from '../../lib/evaluation/workflowSelection'
 
 // ASPIRE-EVALUATION-REVIEW-RELEASE-LAYOUT-1 - Review & Release as a workflow navigator with a
 // selected operational workspace (Settings-inspired left nav + right workspace). This shell runs
 // NO detection, release, or send logic: each panel still owns its own detection and reports its
 // summary up via onCounts, even when it is not the selected (visible) workspace. Business logic,
 // eligibility, release, previews, and certificate gating are unchanged; only the layout changed.
+//
+// EVAL-RR-UNIFIED-NAV-1: the navigator now has TWO sections - Survey Workflows (the four rows
+// above) and Unit Leader Release (the release console, formerly a separate surface stacked above
+// this dashboard in EvaluationTab). Selecting it swaps the right workspace to the console; the
+// survey panels stay MOUNTED (display-toggled) so their detection counts keep feeding the nav
+// status lines and the global banner. The console's queue, counts, filters, moderation/release/
+// revoke actions, legacy read-only rows, eligibility, and timing rules are unchanged - it simply
+// renders inside this shell (embedded) instead of above it.
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -41,18 +53,19 @@ const WORKFLOWS = SURVEY_CATALOG.map(s => ({
 }))
 
 const CSS = `
-/* LAYOUT-SHELL-CONSISTENCY-1: compact left navigator + flexible right workspace. The workspace
-   column is minmax(0,1fr) so it expands to fill the shared shell and its tables/notes can shrink
-   (min-width:0) without forcing horizontal overflow. */
-.rr-layout { display:grid; grid-template-columns:minmax(250px, 280px) minmax(0, 1fr); gap:18px; align-items:flex-start; }
-/* STICKY-NAV-1: the workflow navigator pins beneath the sticky app header + tab bar while the right
-   workspace scrolls with the page. The page/document remains the only scroll container; the workspace
-   is untouched (no fixed height, no overflow). align-self:start keeps the nav its own height (it must
-   not stretch to the tall workspace row, or it could not move). overflow-y:auto + max-height only
-   engage on short viewports, so on normal screens the four cards show fully with no inner scrollbar.
-   Offset uses the shared --app-chrome-height token (header + tab bar). */
+/* LAYOUT-SHELL-CONSISTENCY-1 / EVAL-RR-RAIL-C-1 (Owner-approved Option C): a 232px
+   Settings-style rail + flexible right workspace. The workspace column is minmax(0,1fr) so it
+   expands to fill the shared shell and its tables/notes can shrink (min-width:0) without forcing
+   horizontal overflow; the fixed narrow rail returns ~48px to the workspace, which lets the
+   release table fit without horizontal clipping at common widths. */
+.rr-layout { display:grid; grid-template-columns:232px minmax(0, 1fr); gap:20px; align-items:flex-start; }
+/* STICKY-NAV-1 (preserved): the navigator pins beneath the sticky app header + tab bar while the
+   right workspace scrolls with the page. EVAL-RR-RAIL-C-1: the rail is now ONE quiet card
+   containing compact rows (the Settings first-rail pattern), not a stack of bordered cards. */
 .rr-nav {
-  min-width:0; display:flex; flex-direction:column; gap:8px;
+  min-width:0; display:flex; flex-direction:column; gap:2px;
+  background:#fff; border:1px solid #e8e4dc; border-radius:14px; padding:10px;
+  box-shadow:0 1px 3px rgba(25,25,25,0.06);
   position:sticky; top:var(--app-chrome-height); align-self:start;
   max-height:calc(100dvh - var(--app-chrome-height) - 20px);
   overflow-y:auto; overscroll-behavior:contain;
@@ -62,15 +75,43 @@ const CSS = `
   min-width:0; background:#fff; border:1px solid #e8e4dc; border-radius:14px;
   box-shadow:0 1px 3px rgba(25,25,25,0.06); padding:16px 20px 20px;
 }
-/* Navigation-only workflow rows: one selection button each (no per-row preview control). Selected
-   state = subtle nightfall tint + thin nightfall left accent bar; hover is a lighter tint; focus is
-   a distinct blue outline (separate from selection). */
+/* EVAL-RR-RAIL-C-1: compact single-line navigation rows. Selected = FILLED nightfall navy with
+   white text (the Settings selected treatment); hover is a light tint; focus stays a distinct
+   blue outline (separate from selection). No borders, no shadows, no multi-line prose. */
 .rr-row-select {
-  width:100%; display:flex; align-items:center; text-align:left; padding:11px 12px; margin-bottom:8px;
-  cursor:pointer; background:#fff; border:1px solid #e8e4dc; border-radius:12px;
-  box-shadow:0 1px 3px rgba(25,25,25,0.06); font-family:${F};
+  width:100%; display:flex; align-items:center; text-align:left; padding:9px 10px; margin:0;
+  cursor:pointer; background:transparent; border:none; border-radius:9px; font-family:${F};
 }
-.rr-row-select.sel { background:#f7f9ff; box-shadow:0 1px 3px rgba(25,25,25,0.06), inset 3px 0 0 0 ${NAVY}; }
+.rr-row-select:hover { background:#f3f4fa; }
+.rr-row-select.sel { background:${NAVY}; }
+.rr-row-select.sel:hover { background:${NAVY}; }
+.rr-row-label {
+  flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:13px; font-weight:600; color:#1f2430;
+}
+.rr-row-select.sel .rr-row-label { color:#fff; }
+/* Right-aligned status affordances: navy chip = ready to release, amber chip = needs attention,
+   grey chip = paused, amber dot = certificate gate. Counts come from the same panel-reported
+   summaries as before; only the presentation is compact. On the navy selected row the chips
+   invert so they stay legible. */
+.rr-chip {
+  flex-shrink:0; min-width:20px; text-align:center; font-size:11px; font-weight:700;
+  border-radius:999px; padding:2px 7px;
+  background:#EEF1FB; color:${NAVY}; border:1px solid #d7ddf5;
+}
+.rr-chip-attn { background:#FBF5E8; color:#92400e; border-color:#f0e0bd; }
+.rr-chip-paused { background:#f3f4f6; color:#6b7280; border-color:#e5e7eb; }
+.rr-row-select.sel .rr-chip { background:rgba(255,255,255,0.22); color:#fff; border-color:transparent; }
+.rr-gate-dot { flex-shrink:0; width:7px; height:7px; border-radius:999px; background:#d97706; }
+.rr-row-select.sel .rr-gate-dot { background:#f5d9a8; }
+/* EVAL-RR-UNIFIED-NAV-1: compact uppercase group labels for the navigator's two sections
+   (Survey Workflows / Unit Leader Release), matching Settings' section rhythm; a hairline
+   separates the sections. */
+.rr-nav-group {
+  font-size:10.5px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;
+  color:#6b7280; padding:6px 10px 4px; margin:0;
+}
+.rr-nav .rr-nav-group:not(:first-child) { margin-top:8px; border-top:1px solid #f0ede6; padding-top:12px; }
 .rr-tools {
   display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; padding:10px 12px;
   background:#fbfaf7; border:1px solid #eee9df; border-radius:10px;
@@ -137,36 +178,40 @@ function statusLine(w, counts) {
   return parts.join(' · ')
 }
 
-function badgeStyle(tone) {
-  if (tone === 'gate') return { color: '#b45309', background: '#FBF5E8', border: '1px solid #f0e0bd' }
-  if (tone === 'paused') return { color: '#6b7280', background: '#f3f4f6', border: '1px solid #e5e7eb' }
-  return { color: NAVY, background: '#EEF1FB', border: '1px solid #d7ddf5' }
-}
+// (badgeStyle removed with EVAL-RR-RAIL-C-1: the rail's badge pills became the .rr-gate-dot /
+// .rr-chip classes; the mobile select still spells badges out in text via statusLine.)
 
 // Navigation-only workflow row: a single native selection button (no per-row preview control).
 // Email preview is reached from the workspace Preview Email button. Enter/Space work natively.
-// Navigation-only workflow row. The per-row eye icon was removed as redundant: the selected
-// workflow's Survey tools toolbar already carries Preview Survey, Preview Email, and Send test
-// to me, and a control nested inside this button was invalid HTML besides.
+//
+// EVAL-RR-RAIL-C-1 (Owner-approved Option C): one compact line per row. The recipient subtitle
+// is gone (the workspace title already carries the recipient badge) and the status prose is
+// compressed into right-aligned chips - navy count = ready to release, amber count = needs
+// attention, grey Paused chip, amber dot = certificate gate. Counts come from the SAME
+// panel-reported summaries as before; the full sentence survives in the row's aria-label and
+// tooltips so screen readers and hover lose nothing.
 function WorkflowNavRow({ w, counts, selected, onSelect }) {
+  const ready = counts?.due_sendable || 0
+  const needs = counts?.due_unsendable || 0
+  const srBits = [w.label]
+  if (w.badge) srBits.push(w.badge)
+  if (w.paused) srBits.push('release paused')
+  if (ready > 0) srBits.push(`${ready} ready to release`)
+  if (needs > 0) srBits.push(`${needs} needs attention`)
   return (
     <button
       type="button"
       className={`rr-row-select${selected ? ' sel' : ''}`}
       aria-current={selected ? 'true' : undefined}
+      aria-label={srBits.join(', ')}
       onClick={onSelect}
     >
-      <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13.5, fontWeight: 700, color: '#191919' }}>{w.label}</span>
-          {w.badge && (
-            <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap', ...badgeStyle(w.badgeTone) }}>
-              {w.badge}
-            </span>
-          )}
-        </span>
-        <span style={{ display: 'block', fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{w.recipient}</span>
-        <span style={{ display: 'block', fontSize: 11.5, color: '#6b7280', marginTop: 3, lineHeight: 1.35 }}>{statusLine(w, counts)}</span>
+      <span className="rr-row-label">{w.label}</span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {w.badge && <span className="rr-gate-dot" title={w.badge} aria-hidden="true" />}
+        {w.paused && <span className="rr-chip rr-chip-paused" title="Release paused" aria-hidden="true">Paused</span>}
+        {ready > 0 && <span className="rr-chip" title={`${ready} ready to release`} aria-hidden="true">{ready}</span>}
+        {needs > 0 && <span className="rr-chip rr-chip-attn" title={`${needs} needs attention`} aria-hidden="true">{needs}</span>}
       </span>
     </button>
   )
@@ -184,14 +229,18 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const urlKey = searchParams.get('workflow')
+  // EVAL-RR-UNIFIED-NAV-1: selection runs over the nav-key SUPERSET (the four survey
+  // workflows plus Release to Unit Leaders), same precedence, same storage key, same
+  // ?workflow= URL param - one deep-link mechanism for the whole navigator. Existing
+  // survey deep links and stored selections keep working unchanged.
   const [selected, setSelected] = useState(() => {
     let storedKey = null
     try { storedKey = localStorage.getItem(LAST_WORKFLOW_STORAGE_KEY) } catch { /* storage unavailable */ }
-    return resolveInitialWorkflow({ urlKey, storedKey, order: WORKFLOWS.map(w => w.key) })
+    return resolveInitialNavKey({ urlKey, storedKey, order: WORKFLOWS.map(w => w.key) })
   })
 
   const selectWorkflow = useCallback((key) => {
-    if (!isWorkflowKey(key)) return
+    if (!isReviewReleaseNavKey(key)) return
     setSelected(key)
     try { localStorage.setItem(LAST_WORKFLOW_STORAGE_KEY, key) } catch { /* storage unavailable */ }
     // replace, so switching workflows does not fill the back stack with every click
@@ -268,10 +317,14 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   // release dropped that workflow's ready count to zero). Because the navigator highlight, the active
   // panel, and the preview all derive from this one value, the visible workflow and the releasing
   // workflow can never diverge. Each nav row still shows its own ready/attention status.
-  // A valid workflow in the URL always wins, derived at render time so browser back and
-  // forward move the selection without an effect.
-  const current = isWorkflowKey(urlKey) ? urlKey : selected
-  const effective = resolveEffectiveWorkflow(current)
+  // A valid nav key in the URL always wins, derived at render time so browser back and
+  // forward move the selection without an effect. `effective` is the navigator selection
+  // (a survey workflow OR the Unit Leader Release console); the survey-only resolver
+  // semantics are preserved inside resolveEffectiveNavKey (unknown keys still fall back
+  // to the first survey workflow).
+  const current = isReviewReleaseNavKey(urlKey) ? urlKey : selected
+  const effective = resolveEffectiveNavKey(current)
+  const unitReleaseSelected = effective === UNIT_LEADER_RELEASE_KEY
 
   const attention = totals.ready > 0 || totals.needs > 0
   const bannerText = attention
@@ -311,10 +364,11 @@ export default function SurveyAutomationDashboard({ cohortId }) {
         </span>
       </div>
 
-      {/* Narrow-screen workflow selector (replaces the left nav below 900px). */}
+      {/* Narrow-screen selector (replaces the left nav below 900px); mirrors the two
+          navigator sections with optgroups. */}
       <select
         className="rr-nav-mobile"
-        aria-label="Select survey workflow"
+        aria-label="Select Review and Release tool"
         value={effective}
         onChange={(e) => selectWorkflow(e.target.value)}
         style={{
@@ -322,16 +376,22 @@ export default function SurveyAutomationDashboard({ cohortId }) {
           fontSize: 13, fontFamily: F, color: '#191919', background: '#fff',
         }}
       >
-        {WORKFLOWS.map(w => (
-          <option key={w.key} value={w.key}>
-            {w.label}{w.badge ? ` (${w.badge})` : ''} - {statusLine(w, counts[w.key])}
-          </option>
-        ))}
+        <optgroup label="Survey Workflows">
+          {WORKFLOWS.map(w => (
+            <option key={w.key} value={w.key}>
+              {w.label}{w.badge ? ` (${w.badge})` : ''} - {statusLine(w, counts[w.key])}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Unit Leader Release">
+          <option value={UNIT_LEADER_RELEASE_KEY}>Release to Unit Leaders</option>
+        </optgroup>
       </select>
 
       <div className="rr-layout">
-        {/* Left workflow navigator (desktop). */}
-        <nav className="rr-nav" aria-label="Survey workflows">
+        {/* Left navigator (desktop): Survey Workflows, then Unit Leader Release. */}
+        <nav className="rr-nav" aria-label="Review and Release tools">
+          <p className="rr-nav-group">Survey Workflows</p>
           {WORKFLOWS.map(w => (
             <WorkflowNavRow
               key={w.key}
@@ -341,11 +401,26 @@ export default function SurveyAutomationDashboard({ cohortId }) {
               onSelect={() => selectWorkflow(w.key)}
             />
           ))}
+          <p className="rr-nav-group">Unit Leader Release</p>
+          {/* EVAL-RR-RAIL-C-1: same compact single-line row; the console self-describes in the
+              workspace, so the rail carries no subtitle or prose. */}
+          <button
+            type="button"
+            className={`rr-row-select${unitReleaseSelected ? ' sel' : ''}`}
+            aria-current={unitReleaseSelected ? 'true' : undefined}
+            onClick={() => selectWorkflow(UNIT_LEADER_RELEASE_KEY)}
+          >
+            <span className="rr-row-label">Release to Unit Leaders</span>
+          </button>
         </nav>
 
-        {/* Selected workflow workspace. Panels self-describe (title/badges/description/detection/
-            metrics/queue); the toolbar adds only a labeled Preview Email action. */}
+        {/* Selected workspace. A survey workflow shows the survey tools + its panel; Release
+            to Unit Leaders shows the release console INSIDE the same shell. The survey surface
+            is display-toggled (never unmounted) so every panel keeps detecting and reporting
+            its counts to the nav rows and the banner while the console is open. */}
         <section id={WORKSPACE_ID} className="rr-workspace">
+          {unitReleaseSelected && <UnitEvaluationReleaseConsole embedded />}
+          <div style={{ display: unitReleaseSelected ? 'none' : 'block' }}>
           {/* SURVEY TOOLS: the single home for the three read-only and test actions. Preview
               Survey carries the strongest weight as the most-used action; Send test to me is
               styled distinctly so it can never be mistaken for a production Release control. */}
@@ -404,6 +479,7 @@ export default function SurveyAutomationDashboard({ cohortId }) {
           <StudentEvalAutomationPanel cohortId={cohortId} active={effective === 'student'} onCounts={reportStudent} />
           <CaseyFinkPostRotationAutomationPanel cohortId={cohortId} active={effective === 'caseyFinkPostRotation'} onCounts={reportCaseyFink} />
           <PostRotationAutomationPanel cohortId={cohortId} active={effective === 'postRotation'} onCounts={reportPostRotation} />
+          </div>
         </section>
       </div>
 

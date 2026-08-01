@@ -58,3 +58,32 @@ export function resolveInitialWorkflow({ urlKey, storedKey, order = WORKFLOW_KEY
 
 /** localStorage key for the last opened workflow. Per browser profile, not per cohort. */
 export const LAST_WORKFLOW_STORAGE_KEY = 'aspire.evaluation.lastWorkflow'
+
+// ── EVAL-RR-UNIFIED-NAV-1: the Review & Release navigator's key space ────────────────
+//
+// The navigator now carries TWO sections: the four survey workflows above, and the
+// Unit Leader Release console. The console is NOT a survey workflow - it has no
+// detection counts, no panels, and must never participate in resolveEffectiveWorkflow
+// (which the release routing regression harness pins to survey keys only). These
+// nav-key helpers are therefore a SUPERSET layered on top; the survey-only functions
+// above are untouched and keep their exact semantics.
+export const UNIT_LEADER_RELEASE_KEY = 'unitLeaderRelease'
+
+export function isReviewReleaseNavKey(key) {
+  return isWorkflowKey(key) || key === UNIT_LEADER_RELEASE_KEY
+}
+
+// The operational navigator selection: a valid nav key as-is, else the survey default.
+export function resolveEffectiveNavKey(selected) {
+  return isReviewReleaseNavKey(selected) ? selected : DEFAULT_WORKFLOW_KEY
+}
+
+// Arrival precedence identical to resolveInitialWorkflow (URL, then stored, then first
+// in order), evaluated over the nav-key superset so a deep link or a remembered visit
+// to Release to Unit Leaders restores exactly like a survey workflow. Counts are still
+// not an input.
+export function resolveInitialNavKey({ urlKey, storedKey, order = WORKFLOW_KEYS } = {}) {
+  if (isReviewReleaseNavKey(urlKey)) return urlKey
+  if (isReviewReleaseNavKey(storedKey)) return storedKey
+  return order.find(k => isReviewReleaseNavKey(k)) || DEFAULT_WORKFLOW_KEY
+}

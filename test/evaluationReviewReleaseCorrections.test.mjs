@@ -112,7 +112,9 @@ test('the dashboard persists and deep-links the selection', () => {
   assert.match(dashCode, /n\.set\('workflow', key\)/)
   assert.match(dashCode, /\{ replace: true \}/, 'switching workflows must not flood the back stack')
   // The URL wins during render, so back and forward move the selection.
-  assert.match(dashCode, /const current = isWorkflowKey\(urlKey\) \? urlKey : selected/)
+  // EVAL-RR-UNIFIED-NAV-1: the derivation now runs over the nav-key SUPERSET (survey
+  // workflows + Release to Unit Leaders); the same deterministic, counts-free rule.
+  assert.match(dashCode, /const current = isReviewReleaseNavKey\(urlKey\) \? urlKey : selected/)
   assert.equal(LAST_WORKFLOW_STORAGE_KEY, 'aspire.evaluation.lastWorkflow')
 })
 

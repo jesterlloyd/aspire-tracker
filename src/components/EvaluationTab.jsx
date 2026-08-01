@@ -9,7 +9,6 @@ import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
 import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
 import StudentEvalResponseDetail from './evaluation/StudentEvalResponseDetail'
 import SurveyAutomationDashboard from './evaluation/SurveyAutomationDashboard'
-import UnitEvaluationReleaseConsole from './evaluation/UnitEvaluationReleaseConsole'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { instrumentCompactLabel, instrumentSortIndex, timepointSortIndex, statusSortIndex, completedByLabel, INSTRUMENT_ORDER } from '../lib/evaluationLabels'
 
@@ -661,13 +660,12 @@ export default function EvaluationTab({ cohortId }) {
         <PreceptorFeedbackPanel cohortId={cohortId} />
       )}
 
-      {/* ── Review & Release (Owner/Admin only): release evaluation results to Unit
-             Leaders, then the existing survey-automation due detection below it. ── */}
+      {/* ── Review & Release (Owner/Admin only). EVAL-RR-UNIFIED-NAV-1: the Unit Leader
+             release console is no longer stacked above the dashboard as a separate
+             surface - it is a section INSIDE the dashboard's navigator (Survey Workflows /
+             Unit Leader Release), selected like any workflow. ── */}
       {activeSubTab === 'automation' && (isOwner || isAdmin) && (
-        <>
-          <UnitEvaluationReleaseConsole />
-          <SurveyAutomationDashboard cohortId={cohortId} />
-        </>
+        <SurveyAutomationDashboard cohortId={cohortId} />
       )}
 
       {/* ── Cohort View ─────────────────────────────────────────────────── */}
