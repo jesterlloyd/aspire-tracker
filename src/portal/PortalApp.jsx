@@ -27,6 +27,7 @@ import PortalShell from './PortalShell'
 import PortalUtilityLayer from './PortalUtilityLayer'
 import PortalNav from './PortalNav'
 import StudentPortal from './StudentPortal'
+import MyProfile from './MyProfile'
 import UnitLeaderPortal from './UnitLeaderPortal'
 import { UnitLeaderNav } from './unit/UnitLeaderChrome'
 import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
@@ -92,13 +93,15 @@ export default function PortalApp() {
   const navigate = useNavigate()
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
   const [loading, setLoading] = useState(true)
-  const [editOpen, setEditOpen] = useState(false) // student self-service profile drawer
   // The stage-aware mobile action (Log a Shift during Active Rotation) is
   // reported upward by StudentPortal once its summary loads, so the single
   // bottom bar can carry it without a second data fetch here.
   const [mobileAction, setMobileAction] = useState(null)
 
-  const studentView = location.pathname.startsWith('/portal/messages') ? 'messages' : 'home'
+  // STUDENT-PORTAL-PROFILE-1: /portal/profile is the My Profile destination.
+  const studentView = location.pathname.startsWith('/portal/messages') ? 'messages'
+    : location.pathname.startsWith('/portal/profile') ? 'profile'
+    : 'home'
   const threadId = threadIdFromPath(location.pathname)
   // /portal/unit/<section> -> section; /portal/messages -> messages; else home.
   const rawUnitView = unitViewFromPath(location.pathname)
@@ -153,6 +156,7 @@ export default function PortalApp() {
 
   const goHome = useCallback(() => navigate('/portal'), [navigate])
   const goMessages = useCallback(() => navigate('/portal/messages'), [navigate])
+  const goProfile = useCallback(() => navigate('/portal/profile'), [navigate])
   const openThread = useCallback((id) => navigate(`/portal/messages/${id}`), [navigate])
   const backToList = useCallback(() => navigate('/portal/messages'), [navigate])
 
@@ -254,7 +258,7 @@ export default function PortalApp() {
   if (roles.includes('student')) {
     return (
       <PortalShell title="Student Portal" userName={userProfile?.full_name}
-        onEditProfile={() => setEditOpen(true)} withTabBar
+        onEditProfile={goProfile} withTabBar
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={studentHeaderPhotoUrl}
         onRestartTour={() => setTourRunning(true)}
@@ -264,6 +268,7 @@ export default function PortalApp() {
             unread={unread}
             onHome={goHome}
             onMessages={goMessages}
+            onProfile={goProfile}
             action={mobileAction}
           />
         )}
@@ -282,9 +287,7 @@ export default function PortalApp() {
         <div style={{ display: studentView === 'home' ? 'block' : 'none' }}>
           <StudentPortal
             active={studentView === 'home'}
-            editOpen={editOpen}
-            onOpenEdit={() => setEditOpen(true)}
-            onCloseEdit={() => setEditOpen(false)}
+            onOpenProfile={goProfile}
             onMobileAction={setMobileAction}
           />
         </div>
@@ -296,6 +299,9 @@ export default function PortalApp() {
             onBackToList={backToList}
           />
         </div>
+        {/* STUDENT-PORTAL-PROFILE-1: mounted only while visited (it fetches on
+            activation), unlike the always-mounted Home/Messages pair. */}
+        {studentView === 'profile' && <MyProfile active />}
         {tourOverlay}
       </PortalShell>
     )

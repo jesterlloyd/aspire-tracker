@@ -121,6 +121,22 @@ export async function signAndUploadIntakeFile({ schoolEmail, kind, file }) {
   return { path }
 }
 
+// STUDENT-PORTAL-PROFILE-1: authenticated portal student (own linked record, enforced
+// server-side; first submission only). Returns the path. Mirrors the staff helper.
+export async function signAndUploadPortalFile({ studentId, kind, file }) {
+  const res = await fetch('/api/portal/my-profile-file-sign', {
+    method: 'POST',
+    headers: { Authorization: await authHeader(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ student_id: studentId, kind, filename: file.name, content_type: file.type, size: file.size }),
+  })
+  if (!res.ok) throw new StudentFileError(res.status, await safeCode(res))
+  const { token, path } = await res.json()
+  const { error } = await supabase.storage.from(BUCKET)
+    .uploadToSignedUrl(path, token, file, { upsert: true, contentType: file.type })
+  if (error) throw new StudentFileError(502, 'upload_failed')
+  return { path }
+}
+
 // Authenticated staff (Owner/Admin, enforced server-side). Returns the path.
 export async function signAndUploadStaffFile({ studentId, kind, file }) {
   const res = await fetch('/api/student-file-sign', {

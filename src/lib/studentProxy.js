@@ -83,6 +83,8 @@ export const updateCslink       = domainHelper('update_cslink')
 export const updateNgrp         = domainHelper('update_ngrp')
 export const updateBadge        = domainHelper('update_badge')
 export const updateNotes        = domainHelper('update_notes')
+// STUDENT-PORTAL-PROFILE-1: Owner/Admin correction of the student-sourced availability block.
+export const updateStudentAvailability = domainHelper('update_student_availability')
 
 // WS1e-A4: administrative status override (Owner/Admin), recognized enum only.
 export async function updateStatus(studentId, status, declineReason) {

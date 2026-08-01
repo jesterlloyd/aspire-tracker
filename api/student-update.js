@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { toLocalDateStr } from '../shared/dateUtils.js'
+// STUDENT-PORTAL-PROFILE-1: canonical sanitizers for the student-availability block
+// (the same encodings the intake and portal profile endpoints store).
+import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull } from '../src/lib/availability.js'
 
 // WS1e-A1: server-verified caller identity (WS1 pattern). Returns both identifier
 // domains (userId = auth.users.id, profileId = user_profiles.id). req.body never
@@ -522,6 +525,44 @@ export default async function handler(req, res) {
     if (action === 'update_notes') {
       if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: NOTES_FIELDS, label: 'notes update' })
+    }
+
+    // STUDENT-PORTAL-PROFILE-1: Owner/Admin correction of the student-sourced
+    // availability block ("Source: Student form"). Values pass through the SAME
+    // canonical sanitizers the intake and portal endpoints use, so a staff correction
+    // can never store an encoding the student paths could not. Deliberately NOT gated
+    // on the student-profile lock: staff editing is the approved correction path for a
+    // locked profile; the lock constrains only the student.
+    if (action === 'update_student_availability') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      const AVAILABILITY_FIELDS = [
+        'unavailable_weekdays', 'unavailable_weekdays_reason', 'personal_blackout_dates',
+        'weekends_available', 'nights_available', 'preferred_days', 'availability_notes',
+      ]
+      const ALLOWED = ['action', 'student_id', ...AVAILABILITY_FIELDS]
+      const unexpected = Object.keys(req.body || {}).filter(k => !ALLOWED.includes(k))
+      if (unexpected.length > 0) return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+      const { student_id } = payload
+      if (!student_id || typeof student_id !== 'string') return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      const upd = {}
+      if (payload.unavailable_weekdays !== undefined)    upd.unavailable_weekdays = sanitizeWeekdays(payload.unavailable_weekdays)
+      if (payload.preferred_days !== undefined)          upd.preferred_days = sanitizeWeekdays(payload.preferred_days)
+      if (payload.personal_blackout_dates !== undefined) upd.personal_blackout_dates = sanitizeIsoDates(payload.personal_blackout_dates)
+      if (payload.weekends_available !== undefined)      upd.weekends_available = coerceBoolOrNull(payload.weekends_available)
+      if (payload.nights_available !== undefined)        upd.nights_available = coerceBoolOrNull(payload.nights_available)
+      if (payload.unavailable_weekdays_reason !== undefined) upd.unavailable_weekdays_reason = String(payload.unavailable_weekdays_reason ?? '').trim().slice(0, 500)
+      if (payload.availability_notes !== undefined)          upd.availability_notes = String(payload.availability_notes ?? '').trim().slice(0, 1000)
+      if (Object.keys(upd).length === 0) return res.status(400).json({ error: 'invalid_request', message: 'At least one field is required.' })
+      const { data: stu, error: stuErr } = await db.from('students').select('id, cohort_id').eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+      const { error: updErr } = await db.from('students').update(upd).eq('id', student_id)
+      if (updErr) {
+        console.log('[student-update] availability update failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] availability update', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null, fields: Object.keys(upd) })
+      return res.status(200).json({ success: true })
     }
 
     // WS1e-A4: administrative status override (Owner/Admin), recognized enum only.

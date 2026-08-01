@@ -82,7 +82,9 @@ test('the Student portal registers Home refetch, gated to the active surface', (
   assert.match(student, /import \{ useRegisterPortalRefresh \} from '\.\/PortalRefresh'/)
   assert.match(student, /useRegisterPortalRefresh\(load, active\)/)
   // active is driven by the current view (Home vs Messages both stay mounted).
-  assert.match(student, /active = true, editOpen = false/)
+  // STUDENT-PORTAL-PROFILE-1: the drawer plumbing left the signature with the
+  // drawer's retirement; onOpenProfile routes to the My Profile destination.
+  assert.match(student, /active = true, onOpenProfile, onMobileAction/)
   assert.match(app, /active=\{studentView === 'home'\}/)
 })
 

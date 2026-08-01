@@ -132,11 +132,16 @@ test('upload privacy/access is unchanged: still the signed-upload client, no pub
 test('server enforces the requirement and requests the canonical document columns', () => {
   assert.match(serverApi, /checkDocumentsRequired\(body, student\)/)
   assert.match(serverApi, /error: 'documents_required'/)
-  assert.match(serverApi, /resolveStudentByEmail\(db, cohortId, schoolEmail, 'id, cohort_id, status, cs_cedars_status, resume_url, headshot_url'\)/)
+  // STUDENT-PORTAL-PROFILE-1: the resolver also loads interview_scheduled_date, the
+  // scheduling marker the shared lock reads.
+  assert.match(serverApi, /resolveStudentByEmail\(db, cohortId, schoolEmail, 'id, cohort_id, status, interview_scheduled_date, cs_cedars_status, resume_url, headshot_url'\)/)
 })
 
 test('existing-submission protection is intact (advanced records are not overwritten)', () => {
-  assert.match(serverApi, /INTAKE_ELIGIBLE_STATUSES/)
+  // STUDENT-PORTAL-PROFILE-1: the former local INTAKE_ELIGIBLE_STATUSES list became
+  // the SHARED canonical lock (same statuses, plus a booked interview failing closed),
+  // used identically by the portal profile endpoint.
+  assert.match(serverApi, /if \(isStudentProfileLocked\(student\)\)/)
   assert.match(serverApi, /error: 'already_processed'/)
   // The document check runs before the students update (never mutates an ineligible record).
   assert.ok(serverApi.indexOf('checkDocumentsRequired(body, student)') < serverApi.indexOf(".from('students').update(updates)"))

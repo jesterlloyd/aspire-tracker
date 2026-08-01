@@ -9,8 +9,9 @@
 //     /api/portal/student-summary
 //   - Shift logs / evaluation statuses / certificate: scoped definer views
 //     (empty for anyone without an active student grant)
-// Writes: only self-service presentation fields via /api/portal/update-profile
-// (EditProfileDrawer). Shift logging stays on the public /shift-log flow;
+// Writes: none from Home. Profile editing lives in the My Profile destination
+// (/portal/profile -> /api/portal/my-profile; STUDENT-PORTAL-PROFILE-1 retired the
+// EditProfileDrawer as an editor). Shift logging stays on the public /shift-log flow;
 // surveys stay on their tokenized email links. Document downloads go through
 // authenticated, server-authorized endpoints that resolve the linked student
 // from the caller's grant (never from a client-supplied id).
@@ -30,13 +31,10 @@ import { deriveCompassAction } from '../lib/portalHome'
 import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocuments'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { composePortalEmail } from '../lib/outlookCompose'
-import { usePortalHeadshotUrl } from '../lib/useStudentFile'
-import { classifyStoredFileRef } from '../lib/studentFileClient'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../lib/lastVisit'
-import EditProfileDrawer from './EditProfileDrawer'
 
 const SUPPORT = 'aspire@cshs.org'
 const CONTACT_SUBJECT = 'ASPIRE Student Support Request'
@@ -72,8 +70,12 @@ function HomeSkeleton() {
   )
 }
 
+// STUDENT-PORTAL-PROFILE-1 (Owner decision): the EditProfileDrawer is retired as an
+// editor - profile editing now lives in the My Profile destination (/portal/profile),
+// which covers the full submitted profile with the canonical lock. onOpenProfile
+// navigates there; the drawer component file is retained for rollback only.
 export default function StudentPortal({
-  active = true, editOpen = false, onOpenEdit, onCloseEdit, onMobileAction,
+  active = true, onOpenProfile, onMobileAction,
 }) {
   const { user } = useAuth()
   const loginEmail = user?.email || ''
@@ -180,11 +182,8 @@ export default function StudentPortal({
   // loading/error returns below). A stored value means a photo exists; the signed
   // URL is what renders. The Fable .ptl-avatar markup and initials fallback are
   // unchanged.
-  const portalHeadshotStored = classifyStoredFileRef(student?.headshot_url) !== 'empty'
-  const { url: ownHeadshotUrl } = usePortalHeadshotUrl({
-    enabled: portalHeadshotStored,
-    refreshKey: student?.headshot_url,
-  })
+  // (The own-headshot hook that fed the retired EditProfileDrawer was removed with
+  // it; the shell header photo comes from PortalApp's usePortalHeadshotUrl.)
   const myLogs  = student ? logs.filter(l => l.student_id === student.id) : []
   const myEvals = student ? evals.filter(e => e.student_id === student.id) : []
   const myCert  = student ? (certs.find(c => c.student_id === student.id) || null) : null
@@ -461,11 +460,11 @@ export default function StudentPortal({
               </span>
               <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
             </button>
-            <button type="button" ref={editBtnRef} className="ptl-help-action" onClick={() => onOpenEdit?.()}>
+            <button type="button" ref={editBtnRef} className="ptl-help-action" onClick={() => onOpenProfile?.()}>
               <span className="ptl-help-action-icon" aria-hidden="true"><Pencil size={16} /></span>
               <span className="ptl-help-action-text">
-                <span className="ptl-help-action-title">Edit your profile</span>
-                <span className="ptl-help-action-desc">Update your preferred name or phone, or request a correction.</span>
+                <span className="ptl-help-action-title">My Profile</span>
+                <span className="ptl-help-action-desc">Review and update the information you submitted to ASPIRE.</span>
               </span>
               <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
             </button>
@@ -486,7 +485,9 @@ export default function StudentPortal({
         </section>
       </div>
 
-      <EditProfileDrawer open={editOpen} student={student} headshotUrl={ownHeadshotUrl} loginEmail={loginEmail} returnFocusRef={editBtnRef} onClose={onCloseEdit} onSaved={() => load()} />
+      {/* STUDENT-PORTAL-PROFILE-1: the EditProfileDrawer render was removed here -
+          profile editing lives in My Profile (/portal/profile). The drawer component
+          file is retained for direct callers/rollback (UserManagement precedent). */}
     </div>
   )
 }

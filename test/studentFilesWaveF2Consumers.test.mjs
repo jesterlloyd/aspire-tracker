@@ -94,12 +94,16 @@ test('connect RecipientProfileCard resolves the student headshot through signed 
 })
 
 test('Fable StudentPortal own headshot uses the portal access endpoint', () => {
-  // The own headshot still resolves through the server-mediated portal access endpoint. It no
-  // longer renders in a hero avatar (the compass band was retired); it is handed to the Edit
-  // Profile drawer, which shows the student's identity photo.
-  assert.match(portal, /usePortalHeadshotUrl\(\{/)
-  assert.match(portal, /headshotUrl=\{ownHeadshotUrl\}/)
+  // STUDENT-PORTAL-PROFILE-1: the EditProfileDrawer (the last Home consumer of the
+  // own-headshot URL) is retired, so StudentPortal no longer resolves it at all. The
+  // student's photo now renders in the shell header, resolved by PortalApp through
+  // the same server-mediated portal access endpoint. Nothing anywhere renders the
+  // raw stored path.
+  assert.doesNotMatch(portal, /usePortalHeadshotUrl\(\{/)
   assert.doesNotMatch(portal, /<img\s+src=\{student\?\.headshot_url\}/)
+  const portalApp = read('src/portal/PortalApp.jsx')
+  assert.match(portalApp, /usePortalHeadshotUrl\(\{ enabled: isStudent \}\)/)
+  assert.match(portalApp, /profileImageUrl=\{studentHeaderPhotoUrl\}/)
 })
 
 test('student deletion: storage cleanup runs AFTER the DB delete, cohort captured first', () => {

@@ -57,10 +57,12 @@ test('actions and destinations', async (t) => {
     assert.match(portal, /const CONTACT_SUBJECT = 'ASPIRE Student Support Request'/)
   })
 
-  await t.test('Edit Profile opens the drawer and focus returns to its trigger', () => {
-    assert.match(portal, /<EditProfileDrawer open=\{editOpen\}/)
+  await t.test('the profile affordance routes to My Profile (drawer retired as an editor)', () => {
+    // STUDENT-PORTAL-PROFILE-1 (Owner decision): the Home action navigates to the
+    // My Profile destination; the drawer render (and its focus-return contract) is gone.
+    assert.match(portal, /onClick=\{\(\) => onOpenProfile\?\.\(\)\}/)
     assert.match(portal, /ref=\{editBtnRef\}/)
-    assert.match(portal, /returnFocusRef=\{editBtnRef\}/)
+    assert.doesNotMatch(portal, /<EditProfileDrawer/)
   })
 })
 

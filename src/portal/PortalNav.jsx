@@ -9,7 +9,7 @@
 // Destinations are real route changes handled by PortalApp (URL-driven), so
 // back, forward, and refresh behave like the rest of the app.
 
-import { MessageSquare, Home, CalendarPlus, Award } from 'lucide-react'
+import { MessageSquare, Home, CalendarPlus, Award, UserCircle } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
 import { PortalNavRefresh } from './PortalRefresh'
 
@@ -20,7 +20,7 @@ const srOnly = {
 
 const ACTION_ICONS = { 'shift-log': CalendarPlus, certificate: Award }
 
-export default function PortalNav({ view, unread = 0, onHome, onMessages, action = null }) {
+export default function PortalNav({ view, unread = 0, onHome, onMessages, onProfile, action = null }) {
   const ActionIcon = action ? (ACTION_ICONS[action.kind] || CalendarPlus) : null
   return (
     <nav className="ptl-nav" aria-label="Student Portal sections">
@@ -54,6 +54,20 @@ export default function PortalNav({ view, unread = 0, onHome, onMessages, action
         <span className="ptl-nav-label">Messages</span>
         <span style={srOnly}>{unread > 0 ? unreadLabel(unread) : ''}</span>
       </button>
+
+      {/* STUDENT-PORTAL-PROFILE-1: the student's canonical submitted-profile destination. */}
+      {onProfile && (
+        <button
+          type="button"
+          className={`ptl-nav-item${view === 'profile' ? ' ptl-nav-item-active' : ''}`}
+          aria-current={view === 'profile' ? 'page' : undefined}
+          data-tour="portal-nav-profile"
+          onClick={() => onProfile?.()}
+        >
+          <UserCircle size={16} aria-hidden="true" />
+          <span className="ptl-nav-label">My Profile</span>
+        </button>
+      )}
 
       {/* Stage-aware action slot: rendered ONLY in the phone bottom bar (CSS
           hides it on desktop, where the action lives in the Compass band).

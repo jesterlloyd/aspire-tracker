@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
-import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
+import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStudentAvailability, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
 import { displayName } from './lib/utils'
 import { deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal } from './lib/attention'
 import OverviewTab from './components/OverviewTab'
@@ -579,6 +579,8 @@ function MainApp({ onLogout }) {
       { keys: ['ngrp_cohort_target', 'ngrp_outcome'], helper: updateNgrp },
       { keys: ['badge_created'], helper: updateBadge },
       { keys: ['notes'], helper: updateNotes },
+      // STUDENT-PORTAL-PROFILE-1: staff correction of the student-sourced availability block.
+      { keys: ['unavailable_weekdays', 'unavailable_weekdays_reason', 'personal_blackout_dates', 'weekends_available', 'nights_available', 'preferred_days', 'availability_notes'], helper: updateStudentAvailability },
       { keys: ['matched_preceptor', 'shift_assigned', 'preceptor_email'], helper: updatePreceptorAssignment },
     ]
     try {

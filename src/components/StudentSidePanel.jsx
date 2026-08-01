@@ -21,7 +21,7 @@ import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes
 import { logEvent, eventExists } from '../lib/logEvent'
 import { updatePreceptorAssignment, updateInterviewOutcome } from '../lib/studentProxy'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
-import { formatWeekdays, formatDates, formatBooleanYesNo, formatBooleanAvailable, formatText, formatMinDays } from '../lib/availability'
+import { formatWeekdays, formatDates, formatBooleanYesNo, formatBooleanAvailable, formatText, formatMinDays, WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
 import { generateStudentSummary } from '../lib/generateSummary'
 import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
@@ -528,6 +528,61 @@ export default function StudentSidePanel({
     },
     enabled: !!student.id,
   })
+
+  // STUDENT-PORTAL-PROFILE-1: when the student last changed their own profile from
+  // the portal (the audit row api/portal/my-profile.js writes). Owner/Admin only -
+  // the activity_logs select policy is owner/admin, so others simply see no line.
+  const { data: studentSelfUpdate = null } = useQuery({
+    queryKey: ['student_profile_self_update', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('activity_logs')
+        .select('created_at')
+        .eq('entity_type', 'student').eq('entity_id', String(student.id))
+        .eq('action_type', 'student_profile_self_update')
+        .order('created_at', { ascending: false }).limit(1)
+      if (error) return null
+      return data?.[0] || null
+    },
+    enabled: !!student.id && canEdit,
+  })
+
+  // STUDENT-PORTAL-PROFILE-1: intentional Owner/Admin edit mode for the student-sourced
+  // availability block. null = reviewing (read-only, the long-standing presentation);
+  // an object = an explicit Edit session with Save/Cancel. Draft state means review
+  // never mutates anything - accidental edits during review are impossible.
+  const [availDraft, setAvailDraft] = useState(null)
+  const [availSaving, setAvailSaving] = useState(false)
+  const [availBlackoutInput, setAvailBlackoutInput] = useState('')
+  const startAvailabilityEdit = () => {
+    setAvailBlackoutInput('')
+    setAvailDraft({
+      unavailable_weekdays: Array.isArray(data.unavailable_weekdays) ? data.unavailable_weekdays : [],
+      unavailable_weekdays_reason: data.unavailable_weekdays_reason || '',
+      personal_blackout_dates: Array.isArray(data.personal_blackout_dates) ? data.personal_blackout_dates : [],
+      weekends_available: typeof data.weekends_available === 'boolean' ? data.weekends_available : null,
+      nights_available: typeof data.nights_available === 'boolean' ? data.nights_available : null,
+      preferred_days: Array.isArray(data.preferred_days) ? data.preferred_days : [],
+      availability_notes: data.availability_notes || '',
+    })
+  }
+  const setAvail = (k, v) => setAvailDraft(p => ({ ...p, [k]: v }))
+  const saveAvailabilityEdit = async () => {
+    if (!availDraft) return
+    setAvailSaving(true)
+    const err = await onUpdate(student.id, { ...availDraft })
+    setAvailSaving(false)
+    if (err) { toast?.error('Save failed', 'Unable to save availability changes. Please try again.'); return }
+    setData(p => ({ ...p, ...availDraft }))
+    // Who made the change, which fields, when - values stay out of the audit text.
+    logActivity({
+      userProfile, actionType: 'student_availability_staff_edit', entityType: 'student',
+      entityId: student.id, cohortId: student.cohort_id,
+      description: `${userProfile?.full_name} corrected student-sourced availability for ${student.first_name} ${student.last_name}`,
+      metadata: { fields: Object.keys(availDraft), source: 'student_side_panel' },
+    })
+    toast?.success('Availability updated', 'Student availability corrected.')
+    setAvailDraft(null)
+  }
 
   // Recent communications (Phase D.2) - notification_log, ALL-TIME, latest 5.
   // Reads notification_log (the Sent History source) by top-level student_id, so
@@ -1593,19 +1648,35 @@ export default function StudentSidePanel({
               <Field label="Coordinator scheduling notes"><div className="sp-readonly">{formatText(rotationRow?.scheduling_notes)}</div></Field>
             </div>
 
-            {/* Sub-block 2: Student Availability */}
+            {/* Sub-block 2: Student Availability.
+                STUDENT-PORTAL-PROFILE-1: review stays read-only (accidental edits during
+                review are impossible); Owner/Admin enter an INTENTIONAL Edit session with
+                Save/Cancel. Works on locked profiles too - staff correction is the
+                approved path once the student's own editing has locked. */}
             <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:14, marginBottom:8,
               paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
               <span style={{ fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--text-caption,#6b7280)' }}>
                 Student Availability
               </span>
               <SourceTag label="Source: Student form" tone="student" />
+              {canEdit && !availDraft && (
+                <button type="button" className="sp-copy-btn" style={{ marginLeft:'auto', fontSize:11, padding:'2px 10px' }}
+                  onClick={startAvailabilityEdit}>
+                  Edit
+                </button>
+              )}
             </div>
+            {studentSelfUpdate?.created_at && (
+              <div style={{ fontSize:11.5, color:'var(--text-caption,#6b7280)', marginBottom:8 }}>
+                Student last updated their profile {new Date(studentSelfUpdate.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })} via the Student Portal.
+              </div>
+            )}
             {data.availability_ack !== true && (
               <div style={{ fontSize:11.5, color:'#92400e', fontStyle:'italic', marginBottom:8 }}>
                 Student availability not yet confirmed
               </div>
             )}
+            {!availDraft ? (
             <div className="sp-grid-2">
               <Field label="Shift preference"><div className="sp-readonly">{formatText(data.shift_availability)}</div></Field>
               <Field label="Student unavailable weekdays"><div className="sp-readonly">{formatWeekdays(data.unavailable_weekdays)}</div></Field>
@@ -1617,6 +1688,102 @@ export default function StudentSidePanel({
               <Field label="Availability acknowledgment"><div className="sp-readonly">{data.availability_ack === true ? 'Completed' : 'Not completed'}</div></Field>
               <Field label="Student availability notes"><div className="sp-readonly">{formatText(data.availability_notes)}</div></Field>
             </div>
+            ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              <Field label="Student unavailable weekdays">
+                <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                  {WEEKDAYS.map(day => {
+                    const on = availDraft.unavailable_weekdays.includes(day)
+                    return (
+                      <button type="button" key={day}
+                        onClick={() => setAvail('unavailable_weekdays', toggleWeekday(availDraft.unavailable_weekdays, day))}
+                        style={{ padding:'3px 9px', borderRadius:7, fontSize:11.5, fontWeight:600, cursor:'pointer',
+                          background: on ? '#1D2567' : 'var(--bg-card,#fff)', color: on ? '#fff' : 'var(--text-secondary,#374151)',
+                          border:`1px solid ${on ? '#1D2567' : 'var(--border-lt,#d1d5db)'}` }}>
+                        {day.slice(0, 3)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+              <Field label="Reason / details">
+                <input className="sp-input" value={availDraft.unavailable_weekdays_reason}
+                  onChange={e => setAvail('unavailable_weekdays_reason', e.target.value)} />
+              </Field>
+              <Field label="Personal blackout dates">
+                <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                  <input className="sp-input" type="date" value={availBlackoutInput} style={{ maxWidth:170 }}
+                    onChange={e => setAvailBlackoutInput(e.target.value)} />
+                  <button type="button" className="sp-copy-btn" style={{ fontSize:11, padding:'3px 10px' }}
+                    onClick={() => {
+                      if (isValidIsoDate(availBlackoutInput) && !availDraft.personal_blackout_dates.includes(availBlackoutInput)) {
+                        setAvail('personal_blackout_dates', [...availDraft.personal_blackout_dates, availBlackoutInput])
+                      }
+                      setAvailBlackoutInput('')
+                    }}>
+                    + Add
+                  </button>
+                </div>
+                {availDraft.personal_blackout_dates.length > 0 && (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:6 }}>
+                    {availDraft.personal_blackout_dates.map(d => (
+                      <span key={d} style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'2px 8px',
+                        borderRadius:12, background:'var(--bg-subtle,#f1f5f9)', fontSize:11.5 }}>
+                        {d}
+                        <button type="button" aria-label={`Remove ${d}`}
+                          onClick={() => setAvail('personal_blackout_dates', availDraft.personal_blackout_dates.filter(x => x !== d))}
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'#6b7280', fontWeight:700, padding:0 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </Field>
+              <div className="sp-grid-2">
+                <Field label="Weekend availability">
+                  <select className="sp-select" value={availDraft.weekends_available === null ? '' : (availDraft.weekends_available ? 'yes' : 'no')}
+                    onChange={e => setAvail('weekends_available', e.target.value === '' ? null : e.target.value === 'yes')}>
+                    <option value="">Not specified</option><option value="yes">Yes</option><option value="no">No</option>
+                  </select>
+                </Field>
+                <Field label="Night availability">
+                  <select className="sp-select" value={availDraft.nights_available === null ? '' : (availDraft.nights_available ? 'yes' : 'no')}
+                    onChange={e => setAvail('nights_available', e.target.value === '' ? null : e.target.value === 'yes')}>
+                    <option value="">Not specified</option><option value="yes">Yes</option><option value="no">No</option>
+                  </select>
+                </Field>
+              </div>
+              <Field label="Preferred days">
+                <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                  {WEEKDAYS.map(day => {
+                    const on = availDraft.preferred_days.includes(day)
+                    return (
+                      <button type="button" key={day}
+                        onClick={() => setAvail('preferred_days', toggleWeekday(availDraft.preferred_days, day))}
+                        style={{ padding:'3px 9px', borderRadius:7, fontSize:11.5, fontWeight:600, cursor:'pointer',
+                          background: on ? '#16a34a' : 'var(--bg-card,#fff)', color: on ? '#fff' : 'var(--text-secondary,#374151)',
+                          border:`1px solid ${on ? '#16a34a' : 'var(--border-lt,#d1d5db)'}` }}>
+                        {day.slice(0, 3)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+              <Field label="Student availability notes">
+                <input className="sp-input" value={availDraft.availability_notes}
+                  onChange={e => setAvail('availability_notes', e.target.value)} />
+              </Field>
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                <button type="button" className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px' }}
+                  disabled={availSaving} onClick={() => setAvailDraft(null)}>
+                  Cancel
+                </button>
+                <button type="button" className="btn btn-primary" style={{ fontSize:12, padding:'5px 14px' }}
+                  disabled={availSaving} onClick={saveAvailabilityEdit}>
+                  {availSaving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+            )}
           </div>
 
           {/* 4. Background and Affiliation */}

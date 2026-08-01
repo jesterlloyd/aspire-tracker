@@ -26,6 +26,9 @@ import { toLocalDateStr } from '../shared/dateUtils.js'
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull } from '../src/lib/availability.js'
 import { STUDENT_FORM_ACK_VERSION } from '../src/lib/studentFormAck.js'
+// STUDENT-PORTAL-PROFILE-1: the intake-eligible statuses now live in the shared
+// canonical lock module, used identically by the portal profile endpoint.
+import { isStudentProfileLocked } from '../src/lib/studentProfileLock.js'
 // PHASE0B-WAVE-D: cohort and student resolution shared with student-intake-lookup.js
 import { resolveAcceptingCohort, resolveStudentByEmail } from './lib/intakeStudentLookup.js'
 
@@ -53,10 +56,6 @@ const ALLOWED_BODY_KEYS = [
   // STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT: client sends checkbox + typed name only.
   'privacy_ack', 'privacy_ack_name',
 ]
-
-// Statuses for which public intake submission is permitted. Beyond these, the
-// applicant has advanced past intake and staff-managed data must not be overwritten.
-const INTAKE_ELIGIBLE_STATUSES = ['Pending Outreach', 'Form Sent', 'Form Received']
 
 function findUnexpectedKeys(object, allowedKeys) {
   if (!object || typeof object !== 'object' || Array.isArray(object)) return []
@@ -155,7 +154,7 @@ export default async function handler(req, res) {
   // PHASE0B-WAVE-D: shared with student-intake-lookup.js (identical semantics).
   // Include the canonical document references so the requirement below can honor a document already
   // durably on file (a returning student who uploaded one document only needs to supply the other).
-  const studentResult = await resolveStudentByEmail(db, cohortId, schoolEmail, 'id, cohort_id, status, cs_cedars_status, resume_url, headshot_url')
+  const studentResult = await resolveStudentByEmail(db, cohortId, schoolEmail, 'id, cohort_id, status, interview_scheduled_date, cs_cedars_status, resume_url, headshot_url')
   if (studentResult.failure) {
     if (studentResult.failure.error === 'ambiguous_student') {
       console.log('[student-intake-submit] ambiguous student match', { request_id: requestId })
@@ -165,9 +164,11 @@ export default async function handler(req, res) {
   }
   const student = studentResult.student
 
-  // ── Submission-state protection: do not overwrite advanced/staff-managed records
-  const currentStatus = student.status || 'Pending Outreach'
-  if (!INTAKE_ELIGIBLE_STATUSES.includes(currentStatus)) {
+  // ── Submission-state protection: do not overwrite advanced/staff-managed records.
+  // STUDENT-PORTAL-PROFILE-1: the shared canonical lock (same intake-eligible statuses
+  // as before, plus interview_scheduled_date failing closed - a booked interview locks
+  // the profile even if status lags).
+  if (isStudentProfileLocked(student)) {
     return res.status(409).json({ error: 'already_processed', message: 'Your application has already progressed. Please contact the ASPIRE team to update your details.' })
   }
 

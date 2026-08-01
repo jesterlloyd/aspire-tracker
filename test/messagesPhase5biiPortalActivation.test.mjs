@@ -109,15 +109,19 @@ test('activation: view switching preserves both surfaces', async (t) => {
   })
 
   await t.test('the existing portal home still renders and keeps its props', () => {
-    assert.match(app, /<StudentPortal\s[\s\S]*?editOpen=\{editOpen\}/)
-    assert.match(app, /onOpenEdit=\{\(\) => setEditOpen\(true\)\}/)
-    assert.match(app, /onCloseEdit=\{\(\) => setEditOpen\(false\)\}/)
+    // STUDENT-PORTAL-PROFILE-1 (Owner decision): the EditProfileDrawer is retired as
+    // an editor; the drawer plumbing (editOpen/onOpenEdit/onCloseEdit) is gone and
+    // the profile affordances navigate to the My Profile destination instead.
+    assert.match(app, /<StudentPortal\s[\s\S]*?onOpenProfile=\{goProfile\}/)
+    assert.match(app, /onEditProfile=\{goProfile\}/)
+    assert.doesNotMatch(app, /editOpen|onOpenEdit|onCloseEdit/)
   })
 
   await t.test('the default view is Home', () => {
     // The view derives from the URL; any /portal path that is not
-    // /portal/messages resolves to Home.
-    assert.match(app, /const studentView = location\.pathname\.startsWith\('\/portal\/messages'\) \? 'messages' : 'home'/)
+    // /portal/messages (or /portal/profile, STUDENT-PORTAL-PROFILE-1)
+    // resolves to Home.
+    assert.match(app, /const studentView = location\.pathname\.startsWith\('\/portal\/messages'\) \? 'messages'\s*\n\s*: location\.pathname\.startsWith\('\/portal\/profile'\) \? 'profile'\s*\n\s*: 'home'/)
   })
 
   await t.test('a hidden Messages view does not poll the inbox or thread', () => {

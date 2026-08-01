@@ -49,10 +49,15 @@ test('the browser never sends a path as authority; cohort id only for post-delet
 test('auth: staff/portal reads and staff uploads carry the bearer JWT; intake does not', () => {
   assert.match(src, /async function authHeader\(\)/)
   assert.match(src, /supabase\.auth\.getSession\(\)/)
-  // Intake sign is anonymous (no Authorization header).
-  const intake = src.slice(src.indexOf('signAndUploadIntakeFile'), src.indexOf('signAndUploadStaffFile'))
+  // Intake sign is anonymous (no Authorization header). STUDENT-PORTAL-PROFILE-1
+  // added signAndUploadPortalFile between intake and staff, so the intake slice ends
+  // at the first following export rather than naming it.
+  const intakeStart = src.indexOf('signAndUploadIntakeFile')
+  const intake = src.slice(intakeStart, src.indexOf('export async function', intakeStart))
   assert.doesNotMatch(intake, /Authorization/)
-  // Staff sign carries it.
+  // Portal (student's own record) and staff signs both carry the bearer JWT.
+  const portalSign = src.slice(src.indexOf('signAndUploadPortalFile'), src.indexOf('signAndUploadStaffFile'))
+  assert.match(portalSign, /Authorization: await authHeader\(\)/)
   const staff = src.slice(src.indexOf('signAndUploadStaffFile'), src.indexOf('cleanupStudentFiles'))
   assert.match(staff, /Authorization: await authHeader\(\)/)
 })

@@ -60,8 +60,14 @@ test('Request a correction uses the centralized compose helper', async (t) => {
     assert.match(drawer, /function buildCorrectionBody/)
     assert.doesNotMatch(drawer, /buildCorrectionBody[\s\S]{0,300}student_id/)
   })
-  await t.test('the drawer is passed the login email from the portal', () => {
-    assert.match(portal, /<EditProfileDrawer open=\{editOpen\} student=\{student\} headshotUrl=\{ownHeadshotUrl\} loginEmail=\{loginEmail\}/)
+  await t.test('the retired drawer is no longer mounted; My Profile derives the login email itself', () => {
+    // STUDENT-PORTAL-PROFILE-1 (Owner decision): the drawer component file is retained
+    // for rollback, but nothing renders it; the compose-source reminder now lives in
+    // MyProfile, which reads the signed-in email from useAuth.
+    assert.doesNotMatch(portal, /<EditProfileDrawer/)
+    const myProfile = read('src/portal/MyProfile.jsx')
+    assert.match(myProfile, /const loginEmail = userProfile\?\.email \|\| ''/)
+    assert.match(myProfile, /composePortalEmail\(\{/)
   })
 })
 
