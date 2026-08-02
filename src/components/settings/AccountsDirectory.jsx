@@ -29,6 +29,8 @@ import { SETTINGS_HEADING_STYLE } from './settingsSections'
 import { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, PORTAL_STATUS_STYLES, EXPIRING_SOON_DAYS, summarizeScope } from '../../lib/portalAccessStatus'
 // ACCOUNTS-KPI-SORT-1: pure client-side sorting for the Portal Access table.
 import { PORTAL_SORT_COLUMNS, DEFAULT_PORTAL_SORT, nextPortalSort, sortPortalAccounts } from '../../lib/portalAccessSort'
+// ACCOUNTS-PERF-AVATARS-1: signed student-headshot resolution (WAVE F-2 pattern).
+import { useStudentFileUrl } from '../../lib/useStudentFile'
 import InviteUserModal from './InviteUserModal'
 import GrantPortalAccessModal from './GrantPortalAccessModal'
 import AccountDetailsDrawer from './AccountDetailsDrawer'
@@ -114,6 +116,23 @@ function PresenceAvatar({ user, size = 32, online }) {
   )
 }
 
+// ACCOUNTS-PERF-AVATARS-1: identity avatar for a PORTAL access row. Staff
+// profiles and contacts arrive with avatar_url already resolved by the
+// endpoint; student accounts usually have neither (their photo is the private
+// student headshot in WAVE F-2 storage, whose raw path the endpoint never
+// exposes). For a student row without an avatar_url, resolve a signed
+// headshot URL through the same server-mediated /api/student-file-access flow
+// the rest of the staff app uses - useStudentFileUrl dedupe-caches per
+// student, so sorting/filtering re-renders never re-sign. UserInitials keeps
+// its initials + onError fallback when there is no photo or the signed URL
+// fails to load.
+function PortalAccountAvatar({ record, size = 32, online }) {
+  const studentId = record.portal_role === 'student' ? (record.scope?.students?.[0]?.student_id || null) : null
+  const { url } = useStudentFileUrl({ studentId, kind: 'headshot', enabled: !!studentId && !record.avatar_url })
+  const user = !record.avatar_url && url ? { ...record, avatar_url: url } : record
+  return <PresenceAvatar user={user} size={size} online={online} />
+}
+
 const th = { textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#6b7280', padding: '10px 12px', position: 'sticky', top: 0, background: '#fbfbfc', borderBottom: '1px solid #eceef2', zIndex: 1 }
 const td = { padding: '11px 12px', fontSize: 13, color: '#191919', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle' }
 
@@ -194,15 +213,23 @@ export default function AccountsDirectory() {
   const refetchStaff = () => queryClient.invalidateQueries({ queryKey: ['people_access_users'] })
 
   // ── Portal data (secure endpoint; never reads authz tables in-browser) ────
+  // ACCOUNTS-PERF-AVATARS-1: the query key is STABLE across tab switches and
+  // role/status filter changes. Previously the key carried roleFilter,
+  // statusFilter, and tab, so the same unfiltered dataset was cached (and
+  // fetched) once per tab, every Staff<->Portal switch could refire the heavy
+  // endpoint, and every KPI-card or dropdown filter change was a fresh
+  // ~9-roundtrip server call. The endpoint already returns the full
+  // (search-scoped) grant set with counts over the unfiltered set, so role and
+  // status narrowing now happens client-side below - exactly like the staff
+  // tab and the existing expiring filter. The key still includes everything
+  // this queryFn reads.
   const portalQuery = useQuery({
-    queryKey: ['portal_access_list', search, roleFilter, statusFilter, tab],
+    queryKey: ['portal_access_list', search],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       const params = new URLSearchParams({ limit: '500' })
       if (search) params.set('search', search)
-      if (tab === 'portal' && roleFilter) params.set('role', roleFilter)
-      if (tab === 'portal' && statusFilter) params.set('status', statusFilter)
       const res = await fetch(`/api/list-portal-access?${params.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       if (!res.ok) throw new Error('list_failed')
       return res.json()
@@ -281,11 +308,19 @@ export default function AccountsDirectory() {
   const portalData = portalQuery.data || { accounts: [], counts: {} }
   // ACCOUNTS-ACCESS-DIRECTORY-2: expiringOnly is a client-side filter on
   // r.expiring_soon (server-computed flag), applied before pagination slicing.
-  // ACCOUNTS-KPI-SORT-1: the active sort applies AFTER search/role/status (server) and
-  // the expiring filter, so sorting composes with every filter; the pure module owns
+  // ACCOUNTS-PERF-AVATARS-1: role and status narrowing moved client-side too
+  // (same equality semantics the endpoint applied: portal_role and derived
+  // status), so KPI cards and the dropdowns filter the cached set instantly
+  // instead of refiring the endpoint. Filters reset on tab switch, so a
+  // staff-tab role value never leaks into a rendered portal list.
+  // ACCOUNTS-KPI-SORT-1: the active sort applies AFTER search (server) and the
+  // client filters, so sorting composes with every filter; the pure module owns
   // direction, null-date placement, and the deterministic name secondary sort.
   const portalAccounts = sortPortalAccounts(
-    (portalData.accounts || []).filter(r => !expiringOnly || r.expiring_soon === true),
+    (portalData.accounts || [])
+      .filter(r => !roleFilter || r.portal_role === roleFilter)
+      .filter(r => !statusFilter || r.status === statusFilter)
+      .filter(r => !expiringOnly || r.expiring_soon === true),
     portalSort.key, portalSort.dir)
 
   const openDrawer = (kind, record, el) => { triggerRef.current = el || null; setDrawer({ kind, record }) }
@@ -545,7 +580,7 @@ function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, sort, 
       {isNarrow ? (
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {page.map(r => (
-            <AccountCard key={r.grant_id} onOpen={(el) => onView(r, el)} avatar={<PresenceAvatar user={r} size={40} online={onlineProfileIds.has(r.user_profile_id)} />}
+            <AccountCard key={r.grant_id} onOpen={(el) => onView(r, el)} avatar={<PortalAccountAvatar record={r} size={40} online={onlineProfileIds.has(r.user_profile_id)} />}
               title={r.full_name} subtitle={r.email}
               badges={[<StatusBadge key="s" value={r.status} colorMap={PORTAL_STATUS_STYLES} />, <span key="r" style={{ fontSize: 11.5, fontWeight: 600, color: '#4b5563' }}>{PORTAL_ROLE_LABELS[r.portal_role]}</span>]}
               meta={`${summarizeScope(r)} · Last login: ${formatLoginDate(r.last_login_at)}`}
@@ -566,7 +601,7 @@ function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, sort, 
               {page.map(r => (
                 <tr key={r.grant_id} tabIndex={0} onClick={(e) => onView(r, e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter') onView(r, e.currentTarget) }} style={{ cursor: 'pointer' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#fafbfc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><PresenceAvatar user={r} size={32} online={onlineProfileIds.has(r.user_profile_id)} /><div style={{ minWidth: 0 }}><div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.full_name}</div><div style={{ fontSize: 11.5, color: '#9ca3af' }}>{r.email}</div></div></div></td>
+                  <td style={td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><PortalAccountAvatar record={r} size={32} online={onlineProfileIds.has(r.user_profile_id)} /><div style={{ minWidth: 0 }}><div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.full_name}</div><div style={{ fontSize: 11.5, color: '#9ca3af' }}>{r.email}</div></div></div></td>
                   <td style={td}>{PORTAL_ROLE_LABELS[r.portal_role]}</td>
                   <td style={{ ...td, color: '#4b5563', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summarizeScope(r)}</td>
                   <td style={td}><StatusBadge value={r.status} colorMap={PORTAL_STATUS_STYLES} /></td>

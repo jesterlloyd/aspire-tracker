@@ -132,8 +132,43 @@ export default async function handler(req, res) {
   const db = getServiceDb()
 
   try {
+    // ACCOUNTS-PERF-AVATARS-1: the reads below are grouped into dependency
+    // WAVES and awaited together instead of one-after-another. Same queries,
+    // same error handling, same data - only the waiting overlaps. The serial
+    // chain drops from nine sequential roundtrips to five waves, and the
+    // slowest independent call (auth.admin.listUsers) now overlaps the whole
+    // grants -> profiles -> scopes chain instead of adding to it.
+
+    // Wave 1: grants, plus the two reads that depend on nothing else.
     // 1. All role grants (active + historical), newest first. Bounded fetch:
     //    the pilot scale is tiny; we resolve, filter, then paginate in-endpoint.
+    // ACCOUNTS-ACCESS-DIRECTORY-2: portal avatars. A profile with no avatar_url
+    // falls back to an exact normalized-email match against contacts.avatar_url.
+    // Bounded read (contacts with a photo are a small subset); built once and
+    // reused for every record below.
+    // 3. Pending invitations: portal auth users invited but not yet accepted.
+    //    Computed BEFORE record building so 'pending' can be applied as a real
+    //    derived status (not only the legacy `pending` array below). Reliable
+    //    via the auth admin API (invited_at / confirmed_at / last_sign_in_at).
+    const pendingPromise = (async () => {
+      const pendingEmails = new Set()
+      const pendingInvitedAtByEmail = new Map()
+      try {
+        const { data: list, error: luErr } = await db.auth.admin.listUsers({ page: 1, perPage: 200 })
+        if (luErr) return { pendingAvailable: false, pendingEmails, pendingInvitedAtByEmail }
+        for (const u of (list?.users || [])) {
+          const email = (u.email || '').toLowerCase()
+          if (!email) continue
+          const accepted = !!(u.email_confirmed_at || u.confirmed_at || u.last_sign_in_at)
+          if (accepted) continue
+          pendingEmails.add(email)
+          pendingInvitedAtByEmail.set(email, u.invited_at || u.created_at || null)
+        }
+        return { pendingAvailable: true, pendingEmails, pendingInvitedAtByEmail }
+      } catch { return { pendingAvailable: false, pendingEmails, pendingInvitedAtByEmail } }
+    })()
+    const contactsPromise = db
+      .from('contacts').select('email, avatar_url').not('avatar_url', 'is', null).limit(2000)
     const { data: grants, error: gErr } = await db
       .from('user_role_grants')
       .select('id, user_profile_id, role, granted_at, starts_at, expires_at, revoked_at')
@@ -141,6 +176,7 @@ export default async function handler(req, res) {
       .limit(2000)
     if (gErr) { console.log('[list-portal-access] grant read failed', { errorCode: gErr.code, request_id: requestId }); return res.status(500).json({ error: 'internal_error' }) }
 
+    // Wave 2: profiles (needs the grant profileIds).
     const profileIds = [...new Set((grants || []).map(g => g.user_profile_id))]
     let profilesById = {}
     if (profileIds.length) {
@@ -150,26 +186,17 @@ export default async function handler(req, res) {
       profilesById = Object.fromEntries((profs || []).map(p => [p.id, p]))
     }
 
-    // ACCOUNTS-ACCESS-DIRECTORY-2: portal avatars. A profile with no avatar_url
-    // falls back to an exact normalized-email match against contacts.avatar_url.
-    // Bounded read (contacts with a photo are a small subset); built once and
-    // reused for every record below.
-    const { data: avatarContacts } = await db
-      .from('contacts').select('email, avatar_url').not('avatar_url', 'is', null).limit(2000)
-    const contactAvatarByEmail = new Map(
-      (avatarContacts || [])
-        .filter(c => c.email && c.avatar_url)
-        .map(c => [normalizeEmailForLookup(c.email), c.avatar_url])
-    )
-
+    // Wave 3: the three scope tables, each keyed only by profileIds.
     // 2. Active scope rows per role, resolved to display labels.
-    const { data: links } = profileIds.length ? await db
-      .from('user_student_links').select('user_profile_id, student_id, revoked_at').in('user_profile_id', profileIds) : { data: [] }
-    const { data: unitScopes } = profileIds.length ? await db
-      .from('user_unit_scopes').select('user_profile_id, unit_key, cohort_id, revoked_at, expires_at, starts_at').in('user_profile_id', profileIds) : { data: [] }
-    const { data: schoolScopes } = profileIds.length ? await db
-      .from('user_school_scopes').select('user_profile_id, school_key, cohort_id, revoked_at, expires_at, starts_at').in('user_profile_id', profileIds) : { data: [] }
+    const [{ data: links }, { data: unitScopes }, { data: schoolScopes }] = profileIds.length
+      ? await Promise.all([
+          db.from('user_student_links').select('user_profile_id, student_id, revoked_at').in('user_profile_id', profileIds),
+          db.from('user_unit_scopes').select('user_profile_id, unit_key, cohort_id, revoked_at, expires_at, starts_at').in('user_profile_id', profileIds),
+          db.from('user_school_scopes').select('user_profile_id, school_key, cohort_id, revoked_at, expires_at, starts_at').in('user_profile_id', profileIds),
+        ])
+      : [{ data: [] }, { data: [] }, { data: [] }]
 
+    // Wave 4: students (needs links).
     const studentIds = [...new Set((links || []).filter(l => !l.revoked_at).map(l => l.student_id))]
     let studentsById = {}
     if (studentIds.length) {
@@ -177,6 +204,8 @@ export default async function handler(req, res) {
         .from('students').select('id, first_name, last_name, preferred_first_name, school, cohort_id').in('id', studentIds)
       studentsById = Object.fromEntries((studs || []).map(s => [s.id, s]))
     }
+
+    // Wave 5: cohorts (needs students + unit/school scopes).
     const cohortIds = [...new Set([
       ...Object.values(studentsById).map(s => s.cohort_id),
       ...(unitScopes || []).map(u => u.cohort_id),
@@ -190,27 +219,15 @@ export default async function handler(req, res) {
 
     const studentName = (s) => s ? [s.preferred_first_name || s.first_name, s.last_name].filter(Boolean).join(' ') : null
 
-    // 3. Pending invitations: portal auth users invited but not yet accepted.
-    //    Computed BEFORE record building so 'pending' can be applied as a real
-    //    derived status (not only the legacy `pending` array below). Reliable
-    //    via the auth admin API (invited_at / confirmed_at / last_sign_in_at).
-    let pendingAvailable = true
-    const pendingEmails = new Set()
-    const pendingInvitedAtByEmail = new Map()
-    try {
-      const { data: list, error: luErr } = await db.auth.admin.listUsers({ page: 1, perPage: 200 })
-      if (luErr) { pendingAvailable = false }
-      else {
-        for (const u of (list?.users || [])) {
-          const email = (u.email || '').toLowerCase()
-          if (!email) continue
-          const accepted = !!(u.email_confirmed_at || u.confirmed_at || u.last_sign_in_at)
-          if (accepted) continue
-          pendingEmails.add(email)
-          pendingInvitedAtByEmail.set(email, u.invited_at || u.created_at || null)
-        }
-      }
-    } catch { pendingAvailable = false }
+    // Join the wave-1 side reads (both settle without throwing by construction:
+    // the supabase client returns { data, error }, and pendingPromise catches).
+    const { data: avatarContacts } = await contactsPromise
+    const contactAvatarByEmail = new Map(
+      (avatarContacts || [])
+        .filter(c => c.email && c.avatar_url)
+        .map(c => [normalizeEmailForLookup(c.email), c.avatar_url])
+    )
+    const { pendingAvailable, pendingEmails, pendingInvitedAtByEmail } = await pendingPromise
 
     // 4. Build one sanitized record per grant.
     const records = (grants || []).map(g => {

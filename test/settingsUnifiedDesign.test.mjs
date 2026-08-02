@@ -174,10 +174,13 @@ test('AccountsDirectory imports compareAccountsByName and sorts both lists deter
   assert.match(dir, /sortPortalAccounts\(/, 'the portal list sorts through the pure module')
 })
 
-test('portal sort is applied after the expiring filter and before pagination slicing', () => {
+test('portal sort is applied after the client filters and before pagination slicing', () => {
+  // ACCOUNTS-PERF-AVATARS-1: role and status narrowing joined the client-side chain
+  // (they left the query key so tab switches and KPI clicks stop refiring the
+  // endpoint); the invariant is unchanged - filter first, then sort, then slice.
   assert.match(
     dir,
-    /const portalAccounts = sortPortalAccounts\(\s*\n\s*\(portalData\.accounts \|\| \[\]\)\.filter\(r => !expiringOnly \|\| r\.expiring_soon === true\),\s*\n\s*portalSort\.key, portalSort\.dir\)/,
-    'portalAccounts must filter by expiringOnly, then sort, before any slice(0, limit)'
+    /const portalAccounts = sortPortalAccounts\(\s*\n\s*\(portalData\.accounts \|\| \[\]\)\s*\n\s*\.filter\(r => !roleFilter \|\| r\.portal_role === roleFilter\)\s*\n\s*\.filter\(r => !statusFilter \|\| r\.status === statusFilter\)\s*\n\s*\.filter\(r => !expiringOnly \|\| r\.expiring_soon === true\),\s*\n\s*portalSort\.key, portalSort\.dir\)/,
+    'portalAccounts must apply the role/status/expiring filters, then sort, before any slice(0, limit)'
   )
 })

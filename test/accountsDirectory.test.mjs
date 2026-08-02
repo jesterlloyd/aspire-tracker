@@ -108,7 +108,9 @@ test('Accounts & Access directory replaces the card board', async (t) => {
   })
 
   await t.test('the portal query key includes everything the queryFn reads', () => {
-    assert.match(dir, /queryKey: \['portal_access_list', search, roleFilter, statusFilter, tab\]/)
+    // ACCOUNTS-PERF-AVATARS-1: role/status/tab left the key when their filtering
+    // moved client-side; the queryFn now reads only `search`.
+    assert.match(dir, /queryKey: \['portal_access_list', search\]/)
   })
 
   await t.test('pagination via Load more exists', () => {

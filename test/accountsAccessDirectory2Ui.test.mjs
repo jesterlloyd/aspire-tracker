@@ -114,18 +114,24 @@ test('AccountsDirectory KPI card wiring', async (t) => {
 
 test('AccountsDirectory portal query and expiring_soon client filter', async (t) => {
   await t.test('the query key includes every value the queryFn reads', () => {
-    assert.match(dir, /queryKey: \['portal_access_list', search, roleFilter, statusFilter, tab\]/)
+    // ACCOUNTS-PERF-AVATARS-1: the key no longer carries roleFilter/statusFilter/tab -
+    // those became client-side filters, so the queryFn reads only `search` and the key
+    // stays stable across tab switches and KPI-card clicks.
+    assert.match(dir, /queryKey: \['portal_access_list', search\]/)
   })
 
-  await t.test('status=pending passes through the existing param plumbing', () => {
-    assert.match(dir, /if \(tab === 'portal' && statusFilter\) params\.set\('status', statusFilter\)/)
+  await t.test('status=pending is a client-side filter option', () => {
+    // ACCOUNTS-PERF-AVATARS-1: the tab-gated status param is gone; 'pending' filters
+    // the cached set via the same derived-status equality the endpoint applied.
+    assert.doesNotMatch(dir, /params\.set\('status'/)
     assert.match(dir, /\{ value: 'pending', label: 'Pending' \}/)
   })
 
-  await t.test('expiringOnly filters accounts client-side on the server-computed expiring_soon flag', () => {
+  await t.test('role, status, and expiringOnly filter accounts client-side over the cached set', () => {
     // ACCOUNTS-KPI-SORT-1: the active sort wraps the same filter chain (filter first,
     // then sort, then pagination slicing).
-    assert.match(dir, /const portalAccounts = sortPortalAccounts\(\s*\n\s*\(portalData\.accounts \|\| \[\]\)\.filter\(r => !expiringOnly \|\| r\.expiring_soon === true\),\s*\n\s*portalSort\.key, portalSort\.dir\)/)
+    // ACCOUNTS-PERF-AVATARS-1: role/status narrowing joined the chain client-side.
+    assert.match(dir, /const portalAccounts = sortPortalAccounts\(\s*\n\s*\(portalData\.accounts \|\| \[\]\)\s*\n\s*\.filter\(r => !roleFilter \|\| r\.portal_role === roleFilter\)\s*\n\s*\.filter\(r => !statusFilter \|\| r\.status === statusFilter\)\s*\n\s*\.filter\(r => !expiringOnly \|\| r\.expiring_soon === true\),\s*\n\s*portalSort\.key, portalSort\.dir\)/)
   })
 
   await t.test('counts.pending reads the server contract counts.pending, not a client pending array', () => {
