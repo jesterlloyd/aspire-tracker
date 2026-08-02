@@ -25,3 +25,23 @@ export function onFloatingPanelOpen(fn) {
   listeners.add(fn)
   return () => listeners.delete(fn)
 }
+
+// MESSAGES-DOCK-1: the lower-right corner is now an explicit dock shared by
+// Keith and the Messages panel, and the Messages launcher RELOCATES while
+// Keith is open (so it can never cover Keith's composer). That requires
+// knowing when a panel CLOSES too, so the registry gains a symmetric closed
+// announcement. Open announcements keep their original close-the-others
+// contract unchanged.
+const closeListeners = new Set()
+
+export function announceFloatingPanelClosed(source) {
+  closeListeners.forEach(fn => {
+    try { fn(source) } catch { /* one bad listener must not break the rest */ }
+  })
+}
+
+// Returns an unsubscribe function (use as a useEffect cleanup).
+export function onFloatingPanelClosed(fn) {
+  closeListeners.add(fn)
+  return () => closeListeners.delete(fn)
+}

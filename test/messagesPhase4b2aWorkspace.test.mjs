@@ -260,7 +260,10 @@ test('polling and visibility', async (t) => {
 
 test('mobile state model', async (t) => {
   await t.test('list-first, thread on select, and Back to messages', () => {
-    assert.match(workspace, /const \[mobileView, setMobileView\] = useState\('list'\)/)
+    // MESSAGES-DOCK-1: the initial view honors a restored docked selection
+    // (thread when initialSelectedId is set); with no prior state it remains
+    // list-first exactly as before.
+    assert.match(workspace, /const \[mobileView, setMobileView\] = useState\(initialSelectedId \? 'thread' : 'list'\)/)
     assert.match(workspace, /setMobileView\('thread'\)/)
     assert.match(workspace, /const backToList = useCallback\(\(\) => setMobileView\('list'\), \[\]\)/)
     assert.match(workspace, /Back to messages/)

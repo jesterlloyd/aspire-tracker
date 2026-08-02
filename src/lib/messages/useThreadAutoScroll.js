@@ -76,13 +76,17 @@ export function useThreadAutoScroll({ threadId, ready, newestKey }) {
   }, [pinToBottom])
 
   // Opening or switching a thread: anchor as soon as messages are rendered.
+  // The cleanup UN-anchors as well as clearing timers: under StrictMode's
+  // double-invoked effects (and any future remount with warm cache, where
+  // `ready` is true from the very first render) the cleanup cancels the settle
+  // timers before they fire, so the re-run must be allowed to anchor again.
   useEffect(() => {
     if (!ready || !threadId) return
     if (anchoredThreadRef.current === threadId) return
     anchoredThreadRef.current = threadId
     lastNewestRef.current = newestKey ?? null
     anchor()
-    return clearTimers
+    return () => { clearTimers(); anchoredThreadRef.current = null }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, ready])
 

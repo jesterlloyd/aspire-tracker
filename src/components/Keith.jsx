@@ -3,7 +3,7 @@ import Tooltip from './ui/Tooltip';
 import { useQueryClient } from '@tanstack/react-query';
 import { SUGGESTED_PROMPTS } from '../lib/keithKnowledge';
 import { useAuth } from '../contexts/AuthContext';
-import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
+import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed } from '../lib/floatingPanels';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
@@ -47,11 +47,18 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   }, [messages]);
 
   // On open: focus the input and jump straight to the latest message (no animation).
+  // MESSAGES-DOCK-1: the same effect now owns the dock edges - announcing the
+  // closed state on every close path (toggle, backdrop, action, mutual dismiss)
+  // so the Messages launcher can restore its idle position, and closing on
+  // Escape like every other corner panel.
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) { announceFloatingPanelClosed('keith'); return; }
     if (inputRef.current) inputRef.current.focus();
     nearBottomRef.current = true;
     requestAnimationFrame(() => scrollToBottom('auto'));
+    const onKey = (e) => { if (e.key === 'Escape') setIsOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [isOpen]);
 
   // UI-0.5: mutual dismiss - close this panel when another floating panel
@@ -60,6 +67,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   useEffect(() => onFloatingPanelOpen(source => {
     if (source !== 'keith') setIsOpen(false);
   }), []);
+
 
   const firstName = userProfile?.full_name?.split(' ')[0];
   const welcomeMessage = {

@@ -49,9 +49,19 @@ const T = {
 
 // ── Workspace ───────────────────────────────────────────────────────────────
 
-export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, onOpenStudent }) {
+// MESSAGES-DOCK-1: `docked` renders the SAME workspace single-pane inside the
+// main app's corner Messages panel - list-first like phone widths, regardless
+// of the window size. `initialSelectedId` restores the last conversation a
+// reopened panel was viewing (the panel unmounts on close, so the remounted
+// ThreadPanel re-anchors to the latest message through useThreadAutoScroll),
+// and `onSelectionChange` lets the dock remember that selection across
+// close/reopen. The Connect workspace passes none of these and is unchanged.
+export default function MessagesWorkspace({
+  refreshKey = 0, api = defaultApi, onOpenStudent,
+  docked = false, initialSelectedId = null, onSelectionChange,
+}) {
   const queryClient = useQueryClient()
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedId, setSelectedIdState] = useState(initialSelectedId)
   const [newOpen, setNewOpen] = useState(false)
   // Reusable announcement region. Sends announce "Message sent."; management
   // actions announce a concise result. Message content is never announced.
@@ -61,8 +71,12 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, on
   // Mobile is list-first. Selecting a conversation opens the thread view; Back
   // returns to the list with search, filters, and pagination intact (the inbox
   // stays mounted, so its state is never torn down).
-  const [mobileView, setMobileView] = useState('list')
-  const narrow = useIsNarrow()
+  const [mobileView, setMobileView] = useState(initialSelectedId ? 'thread' : 'list')
+  const narrow = useIsNarrow() || docked
+  const setSelectedId = useCallback((id) => {
+    setSelectedIdState(id)
+    onSelectionChange?.(id)
+  }, [onSelectionChange])
   // MAIN-MESSAGES-HEADER-POLISH-1: the returned count is no longer displayed
   // here (the tab badge and row badges communicate unread), but the hook call
   // stays: its subscription keeps the shared unread query polling at the
@@ -72,7 +86,7 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, on
   const onSelect = useCallback((id) => {
     setSelectedId(id)
     setMobileView('thread')
-  }, [])
+  }, [setSelectedId])
 
   const backToList = useCallback(() => setMobileView('list'), [])
 
@@ -86,7 +100,7 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, on
       setMobileView('thread')
     }
     newBtnRef.current?.focus()
-  }, [queryClient])
+  }, [queryClient, setSelectedId])
 
   const closeNew = useCallback(() => { setNewOpen(false); newBtnRef.current?.focus() }, [])
 
@@ -161,7 +175,9 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, on
             </div>
           )}
           {selectedId
-            ? <ThreadPanel conversationId={selectedId} api={api} announce={announce} onGone={() => setSelectedId(null)} onOpenStudent={onOpenStudent} />
+            ? <ThreadPanel conversationId={selectedId} api={api} announce={announce}
+                onGone={() => { setSelectedId(null); setMobileView('list') }}
+                onOpenStudent={onOpenStudent} />
             : <NoSelection />}
         </div>
       )}
