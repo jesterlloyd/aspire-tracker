@@ -69,7 +69,8 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
     // Same scenes and animations; only resized/repositioned per the approval (enlarged for presence).
     assert.match(wx, /export function WeatherMasthead\(\)/)
     assert.match(wx, /manifest\s*\?\s*<AssetScene manifest=\{manifest\} onBroken=\{\(\) => setAssetsBroken\(true\)\} \/>\s*:\s*<SceneSvg scene=\{scene\} \/>/)
-    assert.match(css, /\.wx-mast \.wx-svg \{ width: 178px; \}/)
+    // MASTHEAD-WEATHER-1: enlarged 178 -> 192.
+    assert.match(css, /\.wx-mast \.wx-svg \{ width: 192px; \}/)
   })
 
   await t.test('the Today-in-ASPIRE line renders only when it has content', () => {

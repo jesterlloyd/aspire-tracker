@@ -50,12 +50,16 @@ test('all three surfaces use the shared .mast-greet, so the fix applies once', (
 
 // ── weather artwork enlarged, reusing the existing scene ──────────────────────
 test('the masthead weather artwork is enlarged from the existing scene', () => {
-  // up from the original 110px, nudged farther up into the card headroom
-  assert.match(css, /\.wx-mast-art \{ position: relative; flex-shrink: 0; width: 178px; margin-top: -10px; \}/)
-  assert.match(css, /\.wx-mast \.wx-svg \{ width: 178px; \}/)
+  // up from the original 110px, nudged farther up into the card headroom.
+  // MASTHEAD-WEATHER-1b: margin-top -10 -> -16px pulls the whole composition to the
+  // card's top edge (the card frames it via its own overflow:hidden).
+  // MASTHEAD-WEATHER-1: 178 -> 192 (and 132 -> 142 narrow) for the modest
+  // prominence bump; the caption grew alongside (27px temp, 13px condition).
+  assert.match(css, /\.wx-mast-art \{ position: relative; flex-shrink: 0; width: 192px; margin-top: -16px; pointer-events: none; \}/)
+  assert.match(css, /\.wx-mast \.wx-svg \{ width: 192px; \}/)
   // Narrow screens keep it balanced beside the caption.
-  assert.match(css, /\.wx-mast-art \{ width: 132px; margin-top: 0; \}/)
-  assert.match(css, /\.wx-mast \.wx-svg \{ width: 132px; \}/)
+  assert.match(css, /\.wx-mast-art \{ width: 142px; margin-top: 0; \}/)
+  assert.match(css, /\.wx-mast \.wx-svg \{ width: 142px; \}/)
 })
 
 test('the evening wash is cooler and less reddish so the night sky elements read', () => {

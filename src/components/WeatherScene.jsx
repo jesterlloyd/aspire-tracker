@@ -166,7 +166,9 @@ function SceneSvg({ scene }) {
 function AssetScene({ manifest, onBroken }) {
   return (
     <div className="wx-svg wx-assetbox" aria-hidden>
-      {manifest.stars && [[14, 14, 3], [78, 10, 4], [88, 34, 3], [8, 46, 3], [64, 6, 3]].map((s, i) => (
+      {/* MASTHEAD-WEATHER-1c: stars stay in the box's upper sky - on narrow layouts the box
+          overlaps the right cluster, and a mid-box star used to land on the calendar button. */}
+      {manifest.stars && [[14, 14, 3], [78, 10, 4], [92, 20, 3], [8, 40, 3], [64, 6, 3]].map((s, i) => (
         <span key={`s${i}`} className="wx-a" style={{
           position: 'absolute', left: `${s[0]}%`, top: `${s[1]}%`, width: s[2], height: s[2],
           borderRadius: '50%', background: '#fff',
@@ -245,7 +247,11 @@ export function WeatherMasthead() {
   const manifest = assetsBroken ? null : sceneAssets(scene, night)
   const hiLo = data.hi != null && data.lo != null ? `H ${data.hi}° · L ${data.lo}°` : ''
   return (
-    <div className="wx-mast" style={{ fontFamily: F }} title={`${location.label} weather`}
+    // MASTHEAD-WEATHER-1c: wx-mast-night keys the scene-state night backdrop in
+    // index.css (a soft dark radial behind the art so the stars read); the class
+    // follows the WEATHER's is_day, not the greeting's time-of-day wash, and the
+    // backdrop cross-fades so scene changes never hard-jump.
+    <div className={`wx-mast${night ? ' wx-mast-night' : ''}`} style={{ fontFamily: F }} title={`${location.label} weather`}
       role="img" aria-label={`${label || 'Weather'}, ${data.temp} degrees${hiLo ? `, high ${data.hi}, low ${data.lo}` : ''}, ${location.label}`}>
       <style>{KEYFRAMES}</style>
       <div className="wx-mast-art" aria-hidden>

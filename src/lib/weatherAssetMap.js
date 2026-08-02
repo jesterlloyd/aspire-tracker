@@ -19,18 +19,25 @@ const DROP = (n) => `${BASE}/rain/drop-${n}.png`
 const FOG  = (n) => `${BASE}/fog/fog-${n}.png`
 const LEAF = (n) => `${BASE}/windy/leaf-${n}.png`
 
-// The sun/moon source renders are tall (2:3) with the celestial body in the top portion; the hero
-// box (19:12, overflow hidden) naturally crops the empty lower area. The sun render's glow fades to
-// WHITE (not alpha), so it multiplies onto the light day band - the white halo disappears and the
-// disc/rays tint naturally into the sky. The moon render has clean alpha and needs no blend.
+// The sun/moon source renders are tall (2:3) with the celestial body at the VERY TOP of the image
+// (solid-alpha rows start at 0); the hero box (19:12, overflow hidden) naturally crops the empty
+// lower area. The sun render's glow fades to WHITE (not alpha), so it multiplies onto the light day
+// band - the white halo disappears and the disc/rays tint naturally into the sky. The moon render
+// has clean alpha and needs no blend.
+//
+// MASTHEAD-WEATHER-1: the old negative tops (-10% / -6%) pushed the top-anchored disc ABOVE the
+// clipping box, so the sun/moon rendered partially cut off and visually small, leaving dead sky at
+// the top of the masthead. The layers now sit a couple percent INSIDE the box (small headroom so the
+// wx-pulse scale never clips at its peak) and slightly larger, so the full disc shows tight under
+// the card's top edge.
 const sunLayer  = {
-  src: SUN, left: '14%', top: '-10%', width: '68%', anim: 'wx-pulse', dur: '5s', z: 0,
+  src: SUN, left: '14%', top: '2%', width: '66%', anim: 'wx-pulse', dur: '5s', z: 0,
   blend: 'multiply',
   // Feathered radial mask centered on the sun disc - removes the residual rectangular edge left by
   // the not-quite-pure-white glow fade.
   mask: 'radial-gradient(closest-side at 50% 26%, #000 48%, transparent 74%)',
 }
-const moonLayer = { src: MOON, left: '24%', top: '-6%', width: '50%', anim: 'wx-pulse', dur: '6s', z: 0 }
+const moonLayer = { src: MOON, left: '22%', top: '3%', width: '62%', anim: 'wx-pulse', dur: '6s', z: 0 }
 
 const drops = [
   { src: DROP(1), left: '20%', top: '-10%', width: '6%', anim: 'wx-fall', dur: '1.3s', delay: '0s' },
@@ -53,7 +60,7 @@ export function sceneAssets(scene, night) {
     case 'partly_cloudy_day':
       return {
         layers: [
-          { ...sunLayer, left: '2%', width: '60%' },
+          { ...sunLayer, left: '2%', width: '58%' },
           { src: CLOUD_DAY(1), left: '32%', top: '26%', width: '62%', anim: 'wx-drift', dur: '9s', z: 1 },
           { src: CLOUD_DAY(2), left: '8%',  top: '50%', width: '46%', anim: 'wx-drift2', dur: '11s', opacity: 0.92, z: 1 },
         ],
@@ -62,7 +69,7 @@ export function sceneAssets(scene, night) {
       return {
         stars: true,
         layers: [
-          { ...moonLayer, left: '8%', width: '44%' },
+          { ...moonLayer, left: '8%', width: '48%' },
           { src: CLOUD_NIGHT(1), left: '32%', top: '26%', width: '60%', anim: 'wx-drift', dur: '9s', z: 1 },
           { src: CLOUD_NIGHT(2), left: '8%',  top: '52%', width: '42%', anim: 'wx-drift2', dur: '11s', opacity: 0.9, z: 1 },
         ],

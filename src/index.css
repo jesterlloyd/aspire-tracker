@@ -1846,12 +1846,38 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* The existing weather scene (same SVG / licensed assets, same query), enlarged so it carries real
    presence in the masthead and reaches farther up into the card's headroom. The negative top margin
    lifts the taller graphic upward while staying inside the card's top padding (18px), so it never
-   clips the border. Reused artwork only, no new assets. */
-.wx-mast-art { position: relative; flex-shrink: 0; width: 178px; margin-top: -10px; }
-.wx-mast .wx-svg { width: 178px; }
-.wx-mast-temp { font-size: 24px; font-weight: 700; color: var(--chart-ink, #191919); letter-spacing: -0.01em; line-height: 1.05; }
-.wx-mast-cond { font-size: 12px; font-weight: 600; color: var(--chart-ink, #191919); margin-top: 1px; }
-.wx-mast-hilo { font-size: 11px; color: var(--chart-ink-soft, #6b7280); margin-top: 1px; }
+   clips the border. Reused artwork only, no new assets.
+   MASTHEAD-WEATHER-1: modestly larger art + caption (weather stays subordinate to the 30px
+   greeting); the celestial layers no longer start above the clipping box (weatherAssetMap.js).
+   MASTHEAD-WEATHER-1b: the composition starts at the card's top edge - the negative margin now
+   swallows the card's 18px top padding almost entirely (the .mast card's own overflow:hidden
+   frames the scene at the border), so the visible artwork begins right under the border instead
+   of floating ~12px below it.
+   MASTHEAD-WEATHER-1c: the art is purely decorative (the accessible summary lives on the .wx-mast
+   role="img" label), so it never intercepts pointer input - on narrow layouts it overlaps the right
+   cluster and clicks must fall through to View calendar. */
+.wx-mast-art { position: relative; flex-shrink: 0; width: 192px; margin-top: -16px; pointer-events: none; }
+.wx-mast .wx-svg { width: 192px; }
+/* MASTHEAD-WEATHER-1c: scene-state night backdrop. A soft dark radial sits BEHIND the art (painted
+   under the box's children) so the white stars and moon read against it; it exists on every scene at
+   opacity 0 and fades in only when WeatherMasthead applies .wx-mast-night (weather is_day === 0), so
+   day scenes stay bright, the time-of-day washes keep their existing tones, and a scene change
+   cross-fades instead of hard-jumping. It also swallows the moon render's faint lower glow edge. */
+.wx-mast-art::before {
+  content: ''; position: absolute; inset: -20px -30px -12px; pointer-events: none;
+  /* Anchored at the TOP where the moon and stars live, falling away like deepening sky - never an
+     oval smudge mid-box. */
+  background: radial-gradient(115% 105% at 50% 0%, rgba(16,22,58,0.50), rgba(16,22,58,0.26) 52%, transparent 78%);
+  /* Feather the horizontal edges so the overlay never cuts off as a visible rectangle. */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%);
+  opacity: 0; transition: opacity 0.8s ease;
+}
+.wx-mast-night .wx-mast-art::before { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .wx-mast-art::before { transition: none; } }
+.wx-mast-temp { font-size: 27px; font-weight: 700; color: var(--chart-ink, #191919); letter-spacing: -0.01em; line-height: 1.05; }
+.wx-mast-cond { font-size: 13px; font-weight: 600; color: var(--chart-ink, #191919); margin-top: 1px; }
+.wx-mast-hilo { font-size: 11.5px; color: var(--chart-ink-soft, #6b7280); margin-top: 1px; }
 
 /* ── ASPIRE-MASTHEAD: On Campus Now live strip ────────────────────────────── */
 .mast-live { margin: 14px 20px 0; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
@@ -1973,6 +1999,20 @@ button.ov-group-row {
   .ov-hero { grid-template-columns: repeat(2, 1fr); }
   .glance-kpis { grid-template-columns: repeat(3, 1fr); }
 }
+/* MASTHEAD-WEATHER-1c: at wrap widths the .mast-row flex used to drop the weather art into flow
+   mid-card, exposing the moon render's lower glow edge against the light wash. The art now anchors
+   absolutely to the CARD's top-right (its positioned ancestors go static here so .mast is the
+   anchor; the card's overflow:hidden frames it at the border, matching the desktop composition).
+   The caption stays exactly where it was, in flow inside .mast-right. .mast-left reserves the
+   corner so a long greeting wraps beside the art instead of underneath it. */
+@media (max-width: 760px) {
+  .mast-row, .mast-right { position: static; }
+  /* Absolute offsets anchor to the CARD box (not its padding), so top:2px lands the art box at
+     the same 2px-under-the-border resting position as the desktop flow layout. */
+  .wx-mast-art { position: absolute; top: 2px; right: 4px; width: 150px; margin-top: 0; }
+  .wx-mast .wx-svg { width: 150px; }
+  .mast-left { padding-right: 132px; }
+}
 @media (max-width: 560px) {
   .glance-kpis { grid-template-columns: repeat(2, 1fr); }
   /* Five cells in two columns leave the gap KPI alone on its row - give it
@@ -1982,9 +2022,10 @@ button.ov-group-row {
   .mast-greet { font-size: 24px; white-space: normal; }
   .mast-vdiv { display: none; }
   .mast-right { width: 100%; justify-content: space-between; }
-  /* Keep the enlarged weather art balanced beside its caption on narrow screens. */
-  .wx-mast-art { width: 132px; margin-top: 0; }
-  .wx-mast .wx-svg { width: 132px; }
+  /* Keep the weather art balanced on the smallest screens (still top-anchored via the 760px
+     rules; only the size tightens here). */
+  .wx-mast-art { width: 142px; margin-top: 0; }
+  .wx-mast .wx-svg { width: 142px; }
 }
 @media (max-width: 480px) {
   .ov-hero { grid-template-columns: 1fr 1fr; gap: 10px; }
