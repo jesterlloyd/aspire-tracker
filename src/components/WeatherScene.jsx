@@ -229,6 +229,17 @@ export function useWelcomeWeather() {
   return { ...q, location }
 }
 
+// MASTHEAD-NIGHT-1: the masthead hosts (TodayMasthead + the shared portal
+// GreetingMasthead) key their whole-card night treatment on the SAME weather
+// condition the scene itself uses (is_day === 0) - never the app theme or the
+// time-of-day greeting wash. The query is shared/deduped, so this costs no
+// extra request. Returns false until weather resolves, so the card starts
+// light and cross-fades in.
+export function useMastheadNight() {
+  const { data } = useWelcomeWeather()
+  return data?.isDay === 0
+}
+
 // ASPIRE-MASTHEAD: compact in-flow variant for the At a Glance masthead card.
 // Same scenes, same animations, same shared weather query - only resized and
 // laid out horizontally (graphic beside a caption column) so it sits in the

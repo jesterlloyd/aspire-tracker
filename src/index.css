@@ -1798,6 +1798,42 @@ a.doc-file-link:hover { text-decoration: underline; }
     radial-gradient(1.5px 1.5px at 68% 70%, rgba(255,255,255,0.4), transparent 60%),
     linear-gradient(115deg, transparent 44%, rgba(107,142,255,0.10) 100%);
 }
+/* ── MASTHEAD-NIGHT-1: whole-card night treatment when the MOON SCENE is active ──
+   Keyed by .mast-night, which the masthead hosts derive from the weather's is_day (the same
+   condition the scene itself uses) - never from the app theme or the greeting wash. Only the
+   masthead card changes; the page keeps the user's theme. The night layer is an always-mounted
+   ::after (Nightfall gradient, the existing dark design language) that cross-fades under the
+   content; every ink cross-fades with it, so a scene change never hard-jumps. isolation:isolate
+   contains the negative z-index layer, which paints above the card background and below both the
+   time-of-day wash (::before) and all content. Day/dusk scenes are untouched (opacity stays 0). */
+.mast { isolation: isolate; }
+.mast::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--nightfall-gradient, linear-gradient(180deg, #1c2452 0%, #141928 100%));
+  opacity: 0; transition: opacity 0.8s ease;
+}
+.mast-night::after { opacity: 1; }
+.mast-night { border-color: rgba(255,255,255,0.10); }
+.mast-greet, .mast-sub, .mast-mile-label, .mast-mile-name, .mast-mile-when,
+.mast-today-label, .mast-evchip, .mast-vdiv, .mast-today-line,
+.wx-mast-temp, .wx-mast-cond, .wx-mast-hilo {
+  transition: color 0.8s ease, background-color 0.8s ease, border-color 0.8s ease;
+}
+.mast-night .mast-greet, .mast-night .mast-mile-name,
+.mast-night .wx-mast-temp, .mast-night .wx-mast-cond { color: #fff; }
+.mast-night .mast-sub, .mast-night .mast-mile-when, .mast-night .wx-mast-hilo { color: rgba(255,255,255,0.74); }
+.mast-night .mast-mile-label, .mast-night .mast-today-label { color: rgba(255,255,255,0.60); }
+.mast-night .mast-vdiv { background: rgba(255,255,255,0.20); }
+.mast-night .mast-today-line { border-top-color: rgba(255,255,255,0.14); }
+.mast-night .mast-evchip { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.18); color: rgba(255,255,255,0.92); }
+/* Calendar button adopts the existing dark-theme treatment (light accent, dark ink). */
+.mast-night .mast-cal-btn { background: var(--color-accent-primary-dark, #6B8EFF); color: #0F1419; }
+@media (prefers-reduced-motion: reduce) {
+  .mast::after, .mast-greet, .mast-sub, .mast-mile-label, .mast-mile-name, .mast-mile-when,
+  .mast-today-label, .mast-evchip, .mast-vdiv, .mast-today-line,
+  .wx-mast-temp, .wx-mast-cond, .wx-mast-hilo { transition: none; }
+}
+
 .mast-row { position: relative; display: flex; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
 .mast-left { min-width: 0; flex: 1 1 340px; }
 .mast-greet {

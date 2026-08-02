@@ -39,9 +39,11 @@ test('formatLastVisit produces the honest browser-scoped wording', () => {
 test('GreetingMasthead reuses greetingLine, WeatherMasthead, and the .mast* card', () => {
   const c = read('src/components/masthead/GreetingMasthead.jsx')
   assert.match(c, /import \{ greetingLine \} from '\.\.\/\.\.\/lib\/masthead'/)
-  assert.match(c, /import \{ WeatherMasthead \} from '\.\.\/WeatherScene'/)
+  // MASTHEAD-NIGHT-1: the shared masthead also imports the night-state hook.
+  assert.match(c, /import \{ WeatherMasthead, useMastheadNight \} from '\.\.\/WeatherScene'/)
   assert.match(c, /className="chart-route-title mast-greet"/)      // same heading class as staff
-  assert.match(c, /className={`mast mast-wash-\$\{wash\}`}/)        // same card + wash
+  // MASTHEAD-NIGHT-1: the card also carries mast-night when the moon scene is active.
+  assert.match(c, /className=\{`mast mast-wash-\$\{wash\}\$\{showWeather && sceneNight \? ' mast-night' : ''\}`\}/) // same card + wash + scene-night
   // No new weather artwork or parallel greeting system is defined here.
   assert.ok(!/svg|canvas|\.png|weather-icon|new Image/i.test(c), 'must not define new weather art')
   // Role-neutral slots: name, date, context, last-visit all arrive as props.
