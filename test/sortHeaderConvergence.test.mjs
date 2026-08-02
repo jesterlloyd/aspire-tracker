@@ -64,5 +64,6 @@ test('the Academic Partner roster adopts the shared header and drops its bespoke
   assert.doesNotMatch(ap, /ptl-ap-sort/)
   assert.doesNotMatch(ap, /[▲▼↕]/)
   // The status header carries the legend through the shared after= slot.
-  assert.match(ap, /after=\{<StatusLegendPopover showStaffDetail=\{false\} \/>\}/)
+  // STATUS-LEGEND-AUDIENCE-1: the slot now passes the audience prop.
+  assert.match(ap, /after=\{<StatusLegendPopover audience="academic_partner" \/>\}/)
 })

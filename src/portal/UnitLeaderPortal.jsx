@@ -943,9 +943,9 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
                 </th>
                 <th scope="col">
                   {/* Shared ASPIRE Status Legend, same trigger/position/behavior as the Academic
-                      Partner roster. Portal-safe detail mode (showStaffDetail=false): no NGRP
+                      Partner roster. Portal-safe audience mode (audience="unit_leader"): no NGRP
                       disposition reasons, interview recommendations, or staff-only readiness detail. */}
-                  <span className="am-sort-th-inner">ASPIRE status<StatusLegendPopover showStaffDetail={false} /></span>
+                  <span className="am-sort-th-inner">ASPIRE status<StatusLegendPopover audience="unit_leader" /></span>
                 </th>
                 <th scope="col">Preceptor(s)</th>
                 <th scope="col">Shift</th>

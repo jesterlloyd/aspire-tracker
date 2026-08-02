@@ -589,7 +589,10 @@ export default function InterviewRubricTab({
                 </button>
               ))}
               <div className="ir-wl-th ir-wl-col-workflow" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                Workflow Status
+                {/* STATUS-LEGEND-AUDIENCE-1: this column renders the canonical ASPIRE status
+                    pills (ASPIRE_STATUS_CONFIG + disposition substitution), not an
+                    interview-specific workflow state, so it carries the canonical name. */}
+                ASPIRE Status
                 <StatusLegendPopover position="bottom-left" />
               </div>
               <div className="ir-wl-th ir-wl-col-outcome">Outcome</div>

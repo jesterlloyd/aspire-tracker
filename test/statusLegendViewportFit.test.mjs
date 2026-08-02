@@ -155,10 +155,13 @@ test('Main App, Academic Partner, and Unit Leader all consume the SAME shared co
   assert.match(read('src/portal/UnitLeaderPortal.jsx'), /import StatusLegendPopover from '\.\.\/components\/StatusLegendPopover'/)
 })
 
-test('showStaffDetail privacy is unchanged (portal-safe callers still hide disposition/readiness)', () => {
+test('audience privacy is unchanged (portal-safe callers still hide the disposition breakdown)', () => {
+  // STATUS-LEGEND-AUDIENCE-1: the boolean became the audience prop; the staff-only
+  // disposition breakdown stays gated to audience === 'staff'.
   const c = read('src/components/StatusLegendPopover.jsx')
-  assert.match(c, /export default function StatusLegendPopover\(\{ position = 'bottom-left', dark = false, showStaffDetail = true \}\)/)
-  assert.match(c, /\{showStaffDetail && \(<>/)
-  assert.match(read('src/portal/AcademicPartnerPortal.jsx'), /showStaffDetail=\{false\}/)
-  assert.match(read('src/portal/UnitLeaderPortal.jsx'), /showStaffDetail=\{false\}/)
+  assert.match(c, /export default function StatusLegendPopover\(\{ position = 'bottom-left', dark = false, audience = 'staff' \}\)/)
+  assert.match(c, /const staffDetail = audience === 'staff'/)
+  assert.match(c, /\{staffDetail && \(/)
+  assert.match(read('src/portal/AcademicPartnerPortal.jsx'), /audience="academic_partner"/)
+  assert.match(read('src/portal/UnitLeaderPortal.jsx'), /audience="unit_leader"/)
 })

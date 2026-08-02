@@ -275,7 +275,7 @@ function StudentsView() {
                       (staff disposition detail hidden) via the shared after= slot. */}
                   <SortHeader
                     sortKey="status" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName=""
-                    after={<StatusLegendPopover showStaffDetail={false} />}
+                    after={<StatusLegendPopover audience="academic_partner" />}
                   >
                     ASPIRE status
                   </SortHeader>

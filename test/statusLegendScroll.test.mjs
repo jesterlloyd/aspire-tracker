@@ -66,10 +66,12 @@ test('focus returns to the trigger when the legend closes', () => {
 })
 
 test('main-app content and the Academic Partner privacy gate are preserved', () => {
+  // STATUS-LEGEND-AUDIENCE-1: the boolean showStaffDetail became the audience prop.
   // Default keeps the staff detail (main app unchanged); the gate still wraps it.
-  assert.match(src, /showStaffDetail = true/)
-  assert.match(src, /\{showStaffDetail && \(<>/)
-  // The Academic Partner still hides the staff disposition detail.
+  assert.match(src, /audience = 'staff'/)
+  assert.match(src, /const staffDetail = audience === 'staff'/)
+  assert.match(src, /\{staffDetail && \(/)
+  // The Academic Partner still hides the staff disposition breakdown.
   const ap = stripJs(read('src/portal/AcademicPartnerPortal.jsx'))
-  assert.match(ap, /<StatusLegendPopover showStaffDetail=\{false\} \/>/)
+  assert.match(ap, /<StatusLegendPopover audience="academic_partner" \/>/)
 })

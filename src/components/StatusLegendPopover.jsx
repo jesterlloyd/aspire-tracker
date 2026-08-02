@@ -2,79 +2,46 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 import { ASPIRE_STATUSES } from '../lib/statuses';
-import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions';
+import { ASPIRE_STATUS_CONFIG } from '../lib/constants';
+import {
+  DISPOSITION_TYPES, DISPOSITION_PILL_COLORS,
+  PRE_PLACEMENT_DISPOSITION_TYPES, POST_PLACEMENT_DISPOSITION_TYPES,
+} from '../lib/dispositions';
+import {
+  LEGEND_TITLE, LEGEND_INTRO, STATUS_DESCRIPTIONS_BY_AUDIENCE,
+  NOT_PROCEEDING_DESCRIPTION, legendColorRows,
+} from '../lib/statusLegendCopy';
 import { computeLegendPlacement } from './statusLegendPlacement';
-
-const READINESS_COLORS = [
-  {
-    color: '#f9fafb', border: '#e5e7eb', dot: '#9ca3af',
-    label: 'Neutral',
-    description: 'Student is still in the early pipeline and no action is urgently needed.',
-  },
-  {
-    color: '#fef3c7', border: '#fcd34d', dot: '#f59e0b',
-    label: 'Amber',
-    description: 'Student needs follow-up. An action item is pending in the Action Center.',
-  },
-  {
-    color: '#fee2e2', border: '#fca5a5', dot: '#dc1e34',
-    label: 'Red',
-    description: 'Student has a time-sensitive blocker or is flagged as at risk.',
-  },
-  {
-    color: '#dcfce7', border: '#86efac', dot: '#16a34a',
-    label: 'Light Green',
-    description: 'Student is placed and ready to begin their clinical rotation.',
-  },
-  {
-    color: '#d1fae5', border: '#6ee7b7', dot: '#065f46',
-    label: 'Solid Green',
-    description: 'Student is actively completing their ASPIRE clinical rotation.',
-  },
-  {
-    color: '#e0e7ff', border: '#a5b4fc', dot: '#1D2567',
-    label: 'Indigo',
-    description: 'Student has completed the ASPIRE rotation successfully.',
-  },
-  {
-    color: '#fee2e2', border: '#fca5a5', dot: '#991b1b',
-    label: 'Red (Declined)',
-    description: 'Student is no longer moving forward in the ASPIRE placement pathway.',
-  },
-];
 
 // The 8 active lifecycle statuses - excludes Declined (legacy) and Not Proceeding (terminal)
 const LIFECYCLE_STATUSES = ASPIRE_STATUSES.filter(
   s => s.value !== 'Declined' && s.value !== 'Not Proceeding'
 );
 
-const STATUS_DESCRIPTIONS = [
-  'Listed in the cohort but outreach has not yet started.',
-  'Sent the ASPIRE Student Profile form and needs to complete it.',
-  'Submitted the profile form and is ready for interview scheduling.',
-  'Has selected or been assigned an interview appointment.',
-  'Interview completed. Rubric outcome is available or pending review.',
-  'Matched to a unit and ready to begin rotation.',
-  'Currently completing the ASPIRE clinical rotation.',
-  'Finished the ASPIRE rotation. Certificate pending.',
-];
+// Legend swatches use the SAME dictionary the real pills render from
+// (ASPIRE_STATUS_CONFIG), so the legend can never drift from what tables show.
+// statuses.js keeps supplying the canonical labels and ordering.
+const swatchFor = (value) => ASPIRE_STATUS_CONFIG[value] || { bg: '#f3f4f6', text: '#374151', border: '#e5e7eb' };
 
-// Pre-placement disposition types shown in the Not Proceeding section
-const PRE_PLACEMENT_DISPOSITIONS = [
-  'not_selected', 'student_declined_offer', 'application_withdrawn', 'ineligible',
-];
-const POST_PLACEMENT_DISPOSITIONS = [
-  'placement_cancelled', 'student_withdrew_after_placement',
-  'rotation_discontinued', 'removed_from_program',
-];
-
-export default function StatusLegendPopover({ position = 'bottom-left', dark = false, showStaffDetail = true }) {
+// STATUS-LEGEND-AUDIENCE-1: one canonical legend, audience-aware copy.
+//   audience="staff"            - full detail: statuses, Not Proceeding with the
+//                                 disposition breakdown, and Status Colors.
+//   audience="academic_partner" - external copy: statuses, the general
+//   audience="unit_leader"        Not Proceeding entry (no disposition
+//                                 breakdown), and Status Colors with no
+//                                 internal terminology.
+// Status names, pill colors, and ordering are canonical for every audience;
+// only descriptions adapt (src/lib/statusLegendCopy.js).
+export default function StatusLegendPopover({ position = 'bottom-left', dark = false, audience = 'staff' }) {
   const [isOpen,        setIsOpen]        = useState(false);
   const [showTooltip,   setShowTooltip]   = useState(false);
   const [tooltipPos,    setTooltipPos]    = useState({ top: 0, left: 0 });
   const [popoverCoords, setPopoverCoords] = useState({ placement: 'below', top: 0, bottom: null, left: 0, width: 360, maxHeight: 0 });
   const popoverRef = useRef(null);
   const triggerRef = useRef(null);
+  const staffDetail = audience === 'staff';
+  const statusDescriptions = STATUS_DESCRIPTIONS_BY_AUDIENCE[audience] || STATUS_DESCRIPTIONS_BY_AUDIENCE.staff;
+  const colorRows = legendColorRows(audience);
   // Restore focus to the trigger when the popover closes (derived, not a setState-in-effect).
   const wasOpen = useRef(false);
   useEffect(() => {
@@ -218,10 +185,10 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
           }}>
             <div>
               <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
-                ASPIRE Status Legend
+                {LEGEND_TITLE}
               </div>
               <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: 'rgba(255,255,255,0.65)', marginTop: '2px' }}>
-                Track where each student is in the ASPIRE pathway.
+                {LEGEND_INTRO}
               </div>
             </div>
             <button
@@ -234,41 +201,43 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
           {/* Scrollable body: minHeight:0 lets a flex child actually overflow-scroll within the bounded
               max-height; the whole page never scrolls to reveal legend content. Touch scrolling kept. */}
           <div style={{ padding: '14px 18px', flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            {/* Lifecycle statuses */}
+            {/* Lifecycle statuses - descriptions keyed by status VALUE per audience */}
             <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
               Active Pathway Statuses
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '18px' }}>
-              {LIFECYCLE_STATUSES.map((status, i) => (
-                <div key={status.value} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <span style={{
-                    background: status.bg, color: status.color,
-                    fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
-                    padding: '3px 9px', borderRadius: '20px',
-                    whiteSpace: 'nowrap', flexShrink: 0,
-                    minWidth: '120px', textAlign: 'center',
-                  }}>
-                    {status.label}
-                  </span>
-                  <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#4b5563', lineHeight: 1.5, paddingTop: '2px' }}>
-                    {STATUS_DESCRIPTIONS[i]}
-                  </span>
-                </div>
-              ))}
+              {LIFECYCLE_STATUSES.map((status) => {
+                const swatch = swatchFor(status.value);
+                return (
+                  <div key={status.value} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <span style={{
+                      background: swatch.bg, color: swatch.text, border: `1px solid ${swatch.border}`,
+                      fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                      padding: '3px 9px', borderRadius: '20px',
+                      whiteSpace: 'nowrap', flexShrink: 0,
+                      minWidth: '120px', textAlign: 'center',
+                    }}>
+                      {status.label}
+                    </span>
+                    <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#4b5563', lineHeight: 1.5, paddingTop: '2px' }}>
+                      {statusDescriptions[status.value]}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Staff-only detail (disposition types + readiness colors). Hidden for audiences that
-                should not see disposition breakdowns, e.g. the Academic Partner roster. */}
-            {showStaffDetail && (<>
-            {/* Not Proceeding section */}
+            {/* Not Proceeding - every audience sees the general status; only staff see the
+                disposition breakdown beneath it. */}
             <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: '14px' }} />
             <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
               Not Proceeding
             </div>
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: staffDetail ? '10px' : 0 }}>
                 <span style={{
-                  background: '#fdf2f8', color: '#9d174d',
+                  background: swatchFor('Not Proceeding').bg, color: swatchFor('Not Proceeding').text,
+                  border: `1px solid ${swatchFor('Not Proceeding').border}`,
                   fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
                   padding: '3px 9px', borderRadius: '20px',
                   whiteSpace: 'nowrap', flexShrink: 0,
@@ -277,15 +246,16 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                   Not Proceeding
                 </span>
                 <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#4b5563', lineHeight: 1.5, paddingTop: '2px' }}>
-                  Student received a formal disposition and is no longer moving forward. The specific disposition type displays in place of this status on cards and rows.
+                  {NOT_PROCEEDING_DESCRIPTION}
                 </span>
               </div>
+              {staffDetail && (
               <div style={{ paddingLeft: '6px' }}>
                 <div style={{ fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
                   Pre-placement
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '10px' }}>
-                  {PRE_PLACEMENT_DISPOSITIONS.map(type => {
+                  {PRE_PLACEMENT_DISPOSITION_TYPES.map(type => {
                     const colors = DISPOSITION_PILL_COLORS[type]
                     return (
                       <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -304,7 +274,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                   Post-placement (Phase 4)
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {POST_PLACEMENT_DISPOSITIONS.map(type => {
+                  {POST_PLACEMENT_DISPOSITION_TYPES.map(type => {
                     const colors = DISPOSITION_PILL_COLORS[type]
                     return (
                       <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -320,18 +290,20 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                   })}
                 </div>
               </div>
+              )}
             </div>
 
             {/* Divider */}
             <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: '14px' }} />
 
-            {/* Readiness colors */}
+            {/* Status colors - color stays a supporting signal; every audience gets the meanings,
+                with the amber row phrased for the reader (no Action Center outside the main app). */}
             <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
-              Readiness Colors
+              Status Colors
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              {READINESS_COLORS.map((item, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              {colorRows.map((item) => (
+                <div key={item.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                   <div style={{
                     width: '28px', height: '28px', borderRadius: '50%',
                     background: item.color, border: `2px solid ${item.border}`,
@@ -350,7 +322,6 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                 </div>
               ))}
             </div>
-            </>)}
           </div>
         </div>,
         document.body

@@ -19,7 +19,8 @@ const legend = read('src/components/StatusLegendPopover.jsx')
 test('the Unit Leader roster reuses the shared StatusLegendPopover (no UL-specific legend)', () => {
   assert.match(ul, /import StatusLegendPopover from '\.\.\/components\/StatusLegendPopover'/)
   // The trigger sits in the ASPIRE status column header, on the shared inline row used by the AP roster.
-  assert.match(ul, /<th scope="col">[\s\S]*?<span className="am-sort-th-inner">ASPIRE status<StatusLegendPopover showStaffDetail=\{false\} \/><\/span>[\s\S]*?<\/th>/)
+  // STATUS-LEGEND-AUDIENCE-1: the boolean showStaffDetail became the audience prop.
+  assert.match(ul, /<th scope="col">[\s\S]*?<span className="am-sort-th-inner">ASPIRE status<StatusLegendPopover audience="unit_leader" \/><\/span>[\s\S]*?<\/th>/)
 })
 
 test('the same shared component is used by Main App, Academic Partner, and Unit Leader', () => {
@@ -30,14 +31,17 @@ test('the same shared component is used by Main App, Academic Partner, and Unit 
   assert.match(read('src/components/StudentProfilesTab.jsx'), /import StatusLegendPopover from '\.\/StatusLegendPopover'/)
 })
 
-test('the Unit Leader legend is portal-safe: showStaffDetail=false hides disposition/readiness detail', () => {
-  // UL (and AP) pass false; the shared component gates the Not Proceeding disposition breakdown and the
-  // Readiness Colors behind that prop, so no NGRP disposition reasons or staff-only detail are exposed.
-  assert.match(ul, /<StatusLegendPopover showStaffDetail=\{false\} \/>/)
-  assert.match(legend, /export default function StatusLegendPopover\(\{ position = 'bottom-left', dark = false, showStaffDetail = true \}\)/)
-  assert.match(legend, /\{showStaffDetail && \(<>/)
-  assert.match(legend, /Not Proceeding/)      // the gated section exists...
-  assert.match(legend, /Readiness Colors/)    // ...and is inside the showStaffDetail block
+test('the Unit Leader legend is portal-safe: the unit_leader audience hides the disposition breakdown', () => {
+  // STATUS-LEGEND-AUDIENCE-1: UL and AP pass their audience; the shared component gates the
+  // staff-only disposition breakdown behind audience === 'staff' (staffDetail), so no NGRP
+  // disposition reasons are exposed. External audiences DO now see the general Not Proceeding
+  // entry and the Status Colors section, with external-safe copy from statusLegendCopy.js.
+  assert.match(ul, /<StatusLegendPopover audience="unit_leader" \/>/)
+  assert.match(legend, /export default function StatusLegendPopover\(\{ position = 'bottom-left', dark = false, audience = 'staff' \}\)/)
+  assert.match(legend, /const staffDetail = audience === 'staff'/)
+  assert.match(legend, /\{staffDetail && \(/)
+  assert.match(legend, /Not Proceeding/)
+  assert.match(legend, /Status Colors/)
 })
 
 test('the approved shared behavior lives in the ONE component, so the UL roster inherits it', () => {
