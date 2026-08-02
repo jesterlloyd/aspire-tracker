@@ -112,13 +112,12 @@ test('Preceptor Parity stays strictly read-only', () => {
 
 // ── Accounts & Access directory: alphabetical sorting ──────────────────────────
 
-// compareAccountsByName is a pure function co-located in a .jsx file (it sits next to
-// UserInitials, which uses JSX), so it can't be imported directly under plain `node --test`
-// (no JSX loader is registered for this suite). Extracting its exact source and evaluating it
-// keeps the test both runnable and honest to what's actually shipped.
-const fnMatch = shared.match(/export function compareAccountsByName\(a, b\) \{[\s\S]*?\n\}/)
-assert.ok(fnMatch, 'compareAccountsByName must be defined and exported from accountsShared.jsx')
-const compareAccountsByName = Function(fnMatch[0].replace(/^export function/, 'return function'))()
+// ACCOUNTS-KPI-SORT-1: compareAccountsByName moved to the PURE sorting module
+// (src/lib/portalAccessSort.js) precisely so this suite can import the real shipped
+// function instead of regex-extracting it from the JSX file. accountsShared.jsx
+// re-exports it, so every component importer is unchanged - pinned here.
+const { compareAccountsByName } = await import('../src/lib/portalAccessSort.js')
+assert.match(shared, /export \{ compareAccountsByName \} from '\.\.\/\.\.\/lib\/portalAccessSort'/)
 
 test('compareAccountsByName sorts case-insensitively', () => {
   const a = { full_name: 'zed adams', email: 'z@x.com' }
@@ -166,17 +165,19 @@ test('compareAccountsByName is stable/pure for equal inputs', () => {
   assert.deepEqual(sortedAgain, sorted)
 })
 
-test('AccountsDirectory imports compareAccountsByName and sorts both the staff and portal lists', () => {
+test('AccountsDirectory imports compareAccountsByName and sorts both lists deterministically', () => {
   assert.match(dir, /import \{[^}]*compareAccountsByName[^}]*\} from '\.\/accountsShared'/)
-  assert.match(dir, /\.sort\(compareAccountsByName\)/, 'at least one list must be sorted')
-  const sortCount = (dir.match(/\.sort\(compareAccountsByName\)/g) || []).length
-  assert.equal(sortCount, 2, 'both the staffUsers memo and the portalAccounts array must be sorted')
+  // ACCOUNTS-KPI-SORT-1: staff stays name-sorted; the portal list now sorts through
+  // sortPortalAccounts (user-selected column), whose SECONDARY sort is this same
+  // comparator, so alphabetical determinism is preserved rather than replaced.
+  assert.match(dir, /\.sort\(compareAccountsByName\)/, 'the staffUsers memo stays name-sorted')
+  assert.match(dir, /sortPortalAccounts\(/, 'the portal list sorts through the pure module')
 })
 
 test('portal sort is applied after the expiring filter and before pagination slicing', () => {
   assert.match(
     dir,
-    /const portalAccounts = \(portalData\.accounts \|\| \[\]\)\.filter\(r => !expiringOnly \|\| r\.expiring_soon === true\)\.sort\(compareAccountsByName\)/,
+    /const portalAccounts = sortPortalAccounts\(\s*\n\s*\(portalData\.accounts \|\| \[\]\)\.filter\(r => !expiringOnly \|\| r\.expiring_soon === true\),\s*\n\s*portalSort\.key, portalSort\.dir\)/,
     'portalAccounts must filter by expiringOnly, then sort, before any slice(0, limit)'
   )
 })

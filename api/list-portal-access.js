@@ -255,12 +255,21 @@ export default async function handler(req, res) {
     })
 
     // 5. Counts across the FULL (unfiltered) set for the summary indicators.
-    const counts = { active: 0, scheduled: 0, expired: 0, revoked: 0, pending: 0, expiring_soon: 0, portal_users: 0 }
+    // ACCOUNTS-KPI-SORT-1 (additive): all_grants + by_role feed the portal KPI cards.
+    // Each role count equals the rows that role's filter reveals (all statuses), so a
+    // card's number always matches what clicking it shows. portal_users (distinct
+    // ACTIVE profiles) is retained unchanged for response compatibility.
+    const counts = {
+      active: 0, scheduled: 0, expired: 0, revoked: 0, pending: 0, expiring_soon: 0,
+      portal_users: 0, all_grants: records.length,
+      by_role: { student: 0, unit_leader: 0, academic_partner: 0 },
+    }
     const activeProfiles = new Set()
     for (const r of records) {
       counts[r.status] = (counts[r.status] || 0) + 1
       if (r.expiring_soon) counts.expiring_soon += 1
       if (r.status === 'active') activeProfiles.add(r.user_profile_id)
+      if (counts.by_role[r.portal_role] !== undefined) counts.by_role[r.portal_role] += 1
     }
     counts.portal_users = activeProfiles.size
 

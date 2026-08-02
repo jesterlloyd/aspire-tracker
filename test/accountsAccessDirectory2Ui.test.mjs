@@ -68,27 +68,47 @@ test('PORTAL_STATUS_STYLES has a labelled pending entry', async (t) => {
   })
 })
 
+// ACCOUNTS-KPI-SORT-1: the KPI row is now tab-adaptive (six portal-access cards on
+// Portal Access, four staff cards on Staff Access); cards no longer switch tabs (the
+// segmented control owns that) - they only toggle filters within the current tab.
 test('AccountsDirectory KPI card wiring', async (t) => {
-  await t.test('Staff card just switches tab, active only on the staff tab', () => {
-    assert.match(dir, /value=\{counts\.staff\}[^]*?active=\{tab === 'staff'\}[^]*?onClick=\{\(\) => switchTab\('staff'\)\}/)
+  await t.test('the portal row carries the six portal-access cards, tab-gated', () => {
+    assert.match(dir, /\{tab === 'portal' \? \(/)
+    for (const label of ['All Portal Users', 'Students', 'Unit Leaders', 'Academic Partners', 'Pending Invitations', 'Expiring Soon']) {
+      assert.match(dir, new RegExp(`label="${label}"`), label)
+    }
   })
 
-  await t.test('Portal Users card clears the pending/expiring card filters and is active only when neither is engaged', () => {
-    assert.match(dir, /value=\{counts\.portal\}[^]*?active=\{tab === 'portal' && statusFilter !== 'pending' && !expiringOnly\}[^]*?onClick=\{\(\) => switchTab\('portal'\)\}/)
+  await t.test('role cards drive the SAME roleFilter state as the dropdown (no contradictions possible)', () => {
+    assert.match(dir, /const toggleRoleCard = \(role\) => \{ setRoleFilter\(r => r === role \? '' : role\) \}/)
+    assert.match(dir, /value=\{counts\.students\}[^]*?active=\{roleFilter === 'student'\}[^]*?onClick=\{\(\) => toggleRoleCard\('student'\)\}/)
+    assert.match(dir, /value=\{counts\.unitLeaders\}[^]*?active=\{roleFilter === 'unit_leader'\}/)
+    assert.match(dir, /value=\{counts\.academicPartners\}[^]*?active=\{roleFilter === 'academic_partner'\}/)
+  })
+
+  await t.test('All Portal Users clears every card filter and is active only when none is engaged', () => {
+    assert.match(dir, /value=\{counts\.allGrants\}[^]*?active=\{!roleFilter && !statusFilter && !expiringOnly\}[^]*?onClick=\{\(\) => \{ setRoleFilter\(''\); setStatusFilter\(''\); setExpiringOnly\(false\) \}\}/)
   })
 
   await t.test('Pending card toggles statusFilter to/from pending and clears expiringOnly', () => {
-    assert.match(dir, /value=\{counts\.pending\}[^]*?active=\{tab === 'portal' && statusFilter === 'pending'\}/)
-    assert.match(dir, /onClick=\{\(\) => \{ setTab\('portal'\); setExpiringOnly\(false\); setStatusFilter\(f => f === 'pending' \? '' : 'pending'\) \}\}/)
+    assert.match(dir, /value=\{counts\.pending\}[^]*?active=\{statusFilter === 'pending'\}/)
+    assert.match(dir, /onClick=\{\(\) => \{ setExpiringOnly\(false\); setStatusFilter\(f => f === 'pending' \? '' : 'pending'\) \}\}/)
   })
 
   await t.test('Expiring Soon card toggles expiringOnly and clears statusFilter', () => {
-    assert.match(dir, /value=\{counts\.expiring\}[^]*?active=\{tab === 'portal' && expiringOnly\}/)
-    assert.match(dir, /onClick=\{\(\) => \{ setTab\('portal'\); setStatusFilter\(''\); setExpiringOnly\(e => !e\) \}\}/)
+    assert.match(dir, /value=\{counts\.expiring\}[^]*?active=\{expiringOnly\}/)
+    assert.match(dir, /onClick=\{\(\) => \{ setStatusFilter\(''\); setExpiringOnly\(e => !e\) \}\}/)
   })
 
-  await t.test('switching tabs via the segmented control resets role, status, and expiring filters', () => {
-    assert.match(dir, /const switchTab = \(t\) => \{ setTab\(t\); setRoleFilter\(''\); setStatusFilter\(''\); setExpiringOnly\(false\) \}/)
+  await t.test('the staff row carries staff-relevant KPIs; Staff never dominates the portal view', () => {
+    for (const label of ['All Staff', 'Active', 'Disabled', 'Interviewers']) {
+      assert.match(dir, new RegExp(`label="${label}"`), label)
+    }
+    assert.match(dir, /value=\{counts\.staffInterviewers\}[^]*?active=\{interviewerOnly\}/)
+  })
+
+  await t.test('switching tabs via the segmented control resets role, status, expiring, and interviewer filters', () => {
+    assert.match(dir, /const switchTab = \(t\) => \{ setTab\(t\); setRoleFilter\(''\); setStatusFilter\(''\); setExpiringOnly\(false\); setInterviewerOnly\(false\) \}/)
   })
 })
 
@@ -103,7 +123,9 @@ test('AccountsDirectory portal query and expiring_soon client filter', async (t)
   })
 
   await t.test('expiringOnly filters accounts client-side on the server-computed expiring_soon flag', () => {
-    assert.match(dir, /const portalAccounts = \(portalData\.accounts \|\| \[\]\)\.filter\(r => !expiringOnly \|\| r\.expiring_soon === true\)/)
+    // ACCOUNTS-KPI-SORT-1: the active sort wraps the same filter chain (filter first,
+    // then sort, then pagination slicing).
+    assert.match(dir, /const portalAccounts = sortPortalAccounts\(\s*\n\s*\(portalData\.accounts \|\| \[\]\)\.filter\(r => !expiringOnly \|\| r\.expiring_soon === true\),\s*\n\s*portalSort\.key, portalSort\.dir\)/)
   })
 
   await t.test('counts.pending reads the server contract counts.pending, not a client pending array', () => {

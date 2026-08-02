@@ -67,19 +67,11 @@ export function displayRole(user) {
   return r.charAt(0).toUpperCase() + r.slice(1)
 }
 
-// SETTINGS-UNIFIED-DESIGN-1: alphabetical-by-name comparator shared by both Accounts &
-// Access directories (staff and portal). Pure - no dependency on component state - so it can
-// sort either list the same way and be unit-tested directly. Falls back to email when a
-// display name is missing, then ties on email so ordering is always deterministic.
-export function compareAccountsByName(a, b) {
-  const nameA = (a.full_name || a.email || '').trim().toLocaleLowerCase()
-  const nameB = (b.full_name || b.email || '').trim().toLocaleLowerCase()
-  const nameCmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base' })
-  if (nameCmp !== 0) return nameCmp
-  const emailA = (a.email || '').toLowerCase()
-  const emailB = (b.email || '').toLowerCase()
-  return emailA.localeCompare(emailB)
-}
+// SETTINGS-UNIFIED-DESIGN-1 / ACCOUNTS-KPI-SORT-1: the alphabetical-by-name comparator
+// moved to the pure sorting module (src/lib/portalAccessSort.js) so node tests can import
+// it directly instead of regex-extracting it from this JSX file. Re-exported here so every
+// existing component importer is unchanged.
+export { compareAccountsByName } from '../../lib/portalAccessSort'
 
 export function sortUsers(users) {
   return [...users].sort((a, b) => {

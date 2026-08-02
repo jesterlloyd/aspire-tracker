@@ -27,6 +27,8 @@ import { FilterKPICard } from '../KPIBand'
 import { UserInitials, displayRole, formatLoginDate, ROLE_OPTIONS, compareAccountsByName } from './accountsShared'
 import { SETTINGS_HEADING_STYLE } from './settingsSections'
 import { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, PORTAL_STATUS_STYLES, EXPIRING_SOON_DAYS, summarizeScope } from '../../lib/portalAccessStatus'
+// ACCOUNTS-KPI-SORT-1: pure client-side sorting for the Portal Access table.
+import { PORTAL_SORT_COLUMNS, DEFAULT_PORTAL_SORT, nextPortalSort, sortPortalAccounts } from '../../lib/portalAccessSort'
 import InviteUserModal from './InviteUserModal'
 import GrantPortalAccessModal from './GrantPortalAccessModal'
 import AccountDetailsDrawer from './AccountDetailsDrawer'
@@ -115,6 +117,29 @@ function PresenceAvatar({ user, size = 32, online }) {
 const th = { textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#6b7280', padding: '10px 12px', position: 'sticky', top: 0, background: '#fbfbfc', borderBottom: '1px solid #eceef2', zIndex: 1 }
 const td = { padding: '11px 12px', fontSize: 13, color: '#191919', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle' }
 
+// ACCOUNTS-KPI-SORT-1: sortable column header for the Portal Access table. A native
+// button (Enter/Space work without handlers) inside a th carrying aria-sort; the
+// directional indicator renders only on the active column, and inactive columns show
+// a faint idle glyph on hover so sortability is discoverable.
+function SortableTh({ colKey, label, sort, onSort, align = 'left' }) {
+  const activeCol = sort.key === colKey
+  return (
+    <th style={{ ...th, textAlign: align, padding: 0 }}
+      aria-sort={activeCol ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+      <button type="button" onClick={() => onSort(colKey)}
+        aria-label={`Sort by ${label.toLowerCase()}`}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: '100%', padding: '10px 12px',
+          background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: activeCol ? '#1D2567' : 'inherit',
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', textAlign: align, fontFamily: F }}>
+        {label}
+        <span aria-hidden="true" style={{ fontSize: 9, lineHeight: 1, opacity: activeCol ? 1 : 0.35 }}>
+          {activeCol ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
+  )
+}
+
 function LoadingRows() {
   return <div style={{ padding: '36px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
     <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
@@ -143,6 +168,10 @@ export default function AccountsDirectory() {
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [expiringOnly, setExpiringOnly] = useState(false)
+  // ACCOUNTS-KPI-SORT-1: staff-tab Interviewer KPI filter (client-side predicate).
+  const [interviewerOnly, setInterviewerOnly] = useState(false)
+  // ACCOUNTS-KPI-SORT-1: the one active sort for the Portal Access table.
+  const [portalSort, setPortalSort] = useState(DEFAULT_PORTAL_SORT)
   const [staffLimit, setStaffLimit] = useState(PAGE_SIZE)
   const [portalLimit, setPortalLimit] = useState(PAGE_SIZE)
 
@@ -244,6 +273,7 @@ export default function AccountsDirectory() {
       .filter(u => u.role !== 'portal')
       .filter(u => !roleFilter || (roleFilter === 'owner' ? u.is_owner : (!u.is_owner && (u.role === roleFilter))))
       .filter(u => !statusFilter || (statusFilter === 'active' ? u.is_active !== false : u.is_active === false))
+      .filter(u => !interviewerOnly || u.can_conduct_interviews === true)
       .filter(u => !s || `${u.full_name || ''} ${u.email || ''}`.toLowerCase().includes(s))
       .sort(compareAccountsByName)
   })()
@@ -251,7 +281,12 @@ export default function AccountsDirectory() {
   const portalData = portalQuery.data || { accounts: [], counts: {} }
   // ACCOUNTS-ACCESS-DIRECTORY-2: expiringOnly is a client-side filter on
   // r.expiring_soon (server-computed flag), applied before pagination slicing.
-  const portalAccounts = (portalData.accounts || []).filter(r => !expiringOnly || r.expiring_soon === true).sort(compareAccountsByName)
+  // ACCOUNTS-KPI-SORT-1: the active sort applies AFTER search/role/status (server) and
+  // the expiring filter, so sorting composes with every filter; the pure module owns
+  // direction, null-date placement, and the deterministic name secondary sort.
+  const portalAccounts = sortPortalAccounts(
+    (portalData.accounts || []).filter(r => !expiringOnly || r.expiring_soon === true),
+    portalSort.key, portalSort.dir)
 
   const openDrawer = (kind, record, el) => { triggerRef.current = el || null; setDrawer({ kind, record }) }
   const closeDrawer = () => setDrawer(null)
@@ -260,9 +295,21 @@ export default function AccountsDirectory() {
   const callerIsOwner = userProfile?.is_owner === true
   const canReset = !!selectedStaffFresh && !selectedStaffFresh.is_owner && selectedStaffFresh.id !== userProfile?.id && selectedStaffFresh.is_active !== false && (callerIsOwner || ['interviewer', 'viewer'].includes(selectedStaffFresh.role))
 
+  // ACCOUNTS-KPI-SORT-1: the KPI row adapts to the selected tab.
+  // Staff KPIs are client-derived from the staff list; Portal KPIs come from the
+  // server's counts over the FULL unfiltered grant set, so each card's number always
+  // matches what clicking that card reveals in the table (role cards count grants of
+  // that role across every status - the same rows the role filter shows).
+  const staffAccounts = allUsers.filter(u => u.role !== 'portal')
   const counts = {
-    staff: allUsers.filter(u => u.role !== 'portal').length,
-    portal: portalData.counts?.portal_users ?? 0,
+    staff: staffAccounts.length,
+    staffActive: staffAccounts.filter(u => u.is_active !== false).length,
+    staffDisabled: staffAccounts.filter(u => u.is_active === false).length,
+    staffInterviewers: staffAccounts.filter(u => u.can_conduct_interviews === true).length,
+    allGrants: portalData.counts?.all_grants ?? 0,
+    students: portalData.counts?.by_role?.student ?? 0,
+    unitLeaders: portalData.counts?.by_role?.unit_leader ?? 0,
+    academicPartners: portalData.counts?.by_role?.academic_partner ?? 0,
     pending: portalData.counts?.pending ?? 0,
     expiring: portalData.counts?.expiring_soon ?? 0,
   }
@@ -272,7 +319,13 @@ export default function AccountsDirectory() {
   // Segmented-control tab switch: full reset, same as switching Student
   // Profiles' Profiles/CS-Link toggle - filters from one tab rarely make
   // sense in the other.
-  const switchTab = (t) => { setTab(t); setRoleFilter(''); setStatusFilter(''); setExpiringOnly(false) }
+  const switchTab = (t) => { setTab(t); setRoleFilter(''); setStatusFilter(''); setExpiringOnly(false); setInterviewerOnly(false) }
+
+  // ACCOUNTS-KPI-SORT-1: a role KPI card drives the SAME roleFilter state as the role
+  // dropdown, so the two can never contradict each other - the card toggles the filter,
+  // the dropdown reflects it, and either control can clear it. Role combines freely
+  // with status, expiring, and search.
+  const toggleRoleCard = (role) => { setRoleFilter(r => r === role ? '' : role) }
 
   if (!isAdmin) return (
     <div style={{ fontSize: 13, color: '#6b7280' }}>You don’t have access to Accounts &amp; Access.</div>
@@ -304,21 +357,49 @@ export default function AccountsDirectory() {
         </div>
       </div>
 
-      {/* Filter KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
-        <FilterKPICard value={counts.staff} label="Staff" sub="Staff accounts" accent="nightfall"
-          active={tab === 'staff'}
-          onClick={() => switchTab('staff')} />
-        <FilterKPICard value={counts.portal} label="Portal Users" sub="Active portal access" accent="marina"
-          active={tab === 'portal' && statusFilter !== 'pending' && !expiringOnly}
-          onClick={() => switchTab('portal')} />
-        <FilterKPICard value={counts.pending} label="Pending Invitations" sub="Awaiting first sign-in" accent="dawn"
-          active={tab === 'portal' && statusFilter === 'pending'}
-          onClick={() => { setTab('portal'); setExpiringOnly(false); setStatusFilter(f => f === 'pending' ? '' : 'pending') }} />
-        <FilterKPICard value={counts.expiring} label="Expiring Soon" sub={`Within ${EXPIRING_SOON_DAYS} days`} accent="chroma"
-          active={tab === 'portal' && expiringOnly}
-          onClick={() => { setTab('portal'); setStatusFilter(''); setExpiringOnly(e => !e) }} />
-      </div>
+      {/* ACCOUNTS-KPI-SORT-1: the KPI row adapts to the selected tab (the segmented
+          control below owns tab switching). Portal Access: six portal-access cards -
+          the three role cards drive the same roleFilter state as the role dropdown.
+          Staff Access: four staff cards. Every card is a toggleable quick filter that
+          combines with search and the dropdowns; counts update with the same query
+          invalidations that refresh the tables. */}
+      {tab === 'portal' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
+          <FilterKPICard value={counts.allGrants} label="All Portal Users" sub="Every portal grant" accent="nightfall"
+            active={!roleFilter && !statusFilter && !expiringOnly}
+            onClick={() => { setRoleFilter(''); setStatusFilter(''); setExpiringOnly(false) }} />
+          <FilterKPICard value={counts.students} label="Students" sub="Student portal role" accent="marina"
+            active={roleFilter === 'student'}
+            onClick={() => toggleRoleCard('student')} />
+          <FilterKPICard value={counts.unitLeaders} label="Unit Leaders" sub="Unit Leader portal role" accent="sage"
+            active={roleFilter === 'unit_leader'}
+            onClick={() => toggleRoleCard('unit_leader')} />
+          <FilterKPICard value={counts.academicPartners} label="Academic Partners" sub="Academic Partner role" accent="nightfall"
+            active={roleFilter === 'academic_partner'}
+            onClick={() => toggleRoleCard('academic_partner')} />
+          <FilterKPICard value={counts.pending} label="Pending Invitations" sub="Awaiting first sign-in" accent="dawn"
+            active={statusFilter === 'pending'}
+            onClick={() => { setExpiringOnly(false); setStatusFilter(f => f === 'pending' ? '' : 'pending') }} />
+          <FilterKPICard value={counts.expiring} label="Expiring Soon" sub={`Within ${EXPIRING_SOON_DAYS} days`} accent="chroma"
+            active={expiringOnly}
+            onClick={() => { setStatusFilter(''); setExpiringOnly(e => !e) }} />
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
+          <FilterKPICard value={counts.staff} label="All Staff" sub="Staff accounts" accent="nightfall"
+            active={!statusFilter && !interviewerOnly}
+            onClick={() => { setStatusFilter(''); setInterviewerOnly(false) }} />
+          <FilterKPICard value={counts.staffActive} label="Active" sub="Can sign in" accent="sage"
+            active={statusFilter === 'active'}
+            onClick={() => setStatusFilter(f => f === 'active' ? '' : 'active')} />
+          <FilterKPICard value={counts.staffDisabled} label="Disabled" sub="Sign-in blocked" accent="dawn"
+            active={statusFilter === 'disabled'}
+            onClick={() => setStatusFilter(f => f === 'disabled' ? '' : 'disabled')} />
+          <FilterKPICard value={counts.staffInterviewers} label="Interviewers" sub="Conduct interviews" accent="marina"
+            active={interviewerOnly}
+            onClick={() => setInterviewerOnly(v => !v)} />
+        </div>
+      )}
 
       {/* Unified toolbar: Staff/Portal segmented control + search + filters, one row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'var(--bg-card,#fff)', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 10, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -365,6 +446,7 @@ export default function AccountsDirectory() {
         {tab === 'portal' && (
           <PortalPanel isNarrow={isNarrow} loading={portalQuery.isLoading} error={portalQuery.error}
             accounts={portalAccounts} limit={portalLimit} onMore={() => setPortalLimit(l => l + PAGE_SIZE)}
+            sort={portalSort} onSort={(key) => setPortalSort(s => nextPortalSort(s, key))}
             onlineProfileIds={onlineProfileIds}
             onRetry={refetchPortal}
             onView={(r, el) => openDrawer('portal', r, el)}
@@ -443,7 +525,7 @@ function StaffPanel({ isNarrow, loading, error, users, limit, onMore, onlineProf
 }
 
 // ── Portal tab ───────────────────────────────────────────────────────────────
-function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, onlineProfileIds, onRetry, onView, onRenew, onRevoke, onGrantFirst }) {
+function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, sort, onSort, onlineProfileIds, onRetry, onView, onRenew, onRevoke, onGrantFirst }) {
   if (loading) return <LoadingRows />
   if (error) return <ErrorState onRetry={onRetry} />
   if (!accounts.length) return (
@@ -474,7 +556,12 @@ function PortalPanel({ isNarrow, loading, error, accounts, limit, onMore, online
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
-            <thead><tr><th style={th}>Name</th><th style={th}>Portal role</th><th style={th}>Assigned scope</th><th style={th}>Status</th><th style={th}>Last login</th><th style={th}>Expiration</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+            <thead><tr>
+              {Object.entries(PORTAL_SORT_COLUMNS).map(([key, col]) => (
+                <SortableTh key={key} colKey={key} label={col.label} sort={sort} onSort={onSort} />
+              ))}
+              <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+            </tr></thead>
             <tbody>
               {page.map(r => (
                 <tr key={r.grant_id} tabIndex={0} onClick={(e) => onView(r, e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter') onView(r, e.currentTarget) }} style={{ cursor: 'pointer' }}

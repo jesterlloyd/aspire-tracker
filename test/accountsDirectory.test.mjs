@@ -59,24 +59,26 @@ test('Accounts & Access directory replaces the card board', async (t) => {
     assert.match(dir, /import GrantPortalAccessModal/)
   })
 
-  await t.test('four FilterKPICard filter cards render, imported from KPIBand', () => {
+  await t.test('tab-adaptive FilterKPICard rows render, imported from KPIBand', () => {
+    // ACCOUNTS-KPI-SORT-1: six portal-access cards + four staff cards, tab-gated.
     assert.match(dir, /import \{ FilterKPICard \} from '\.\.\/KPIBand'/)
-    for (const label of ['Staff', 'Portal Users', 'Pending Invitations', 'Expiring Soon']) {
+    for (const label of ['All Portal Users', 'Students', 'Unit Leaders', 'Academic Partners', 'Pending Invitations', 'Expiring Soon', 'All Staff', 'Interviewers']) {
       assert.match(dir, new RegExp(`label="${label}"`), `missing KPI card ${label}`)
     }
     assert.match(dir, /<FilterKPICard/)
   })
 
   await t.test('KPI card wiring matches the click/active spec', () => {
-    // Staff card: switches tab only.
-    assert.match(dir, /value=\{counts\.staff\}[^]*?onClick=\{\(\) => switchTab\('staff'\)\}/)
-    // Portal Users card: switches tab, active only when no pending/expiring card filter is engaged.
-    assert.match(dir, /value=\{counts\.portal\}[^]*?active=\{tab === 'portal' && statusFilter !== 'pending' && !expiringOnly\}/)
+    // ACCOUNTS-KPI-SORT-1: the KPI row is tab-adaptive; cards only filter within the
+    // current tab (the segmented control owns tab switching). Portal row: six cards
+    // including the three role cards driving the shared roleFilter state.
+    assert.match(dir, /value=\{counts\.allGrants\}[^]*?active=\{!roleFilter && !statusFilter && !expiringOnly\}/)
+    assert.match(dir, /value=\{counts\.students\}[^]*?onClick=\{\(\) => toggleRoleCard\('student'\)\}/)
     // Pending card: toggles statusFilter to/from 'pending', clears expiringOnly.
     assert.match(dir, /value=\{counts\.pending\}[^]*?statusFilter === 'pending'/)
     assert.match(dir, /setStatusFilter\(f => f === 'pending' \? '' : 'pending'\)/)
     // Expiring card: toggles expiringOnly, clears statusFilter.
-    assert.match(dir, /value=\{counts\.expiring\}[^]*?active=\{tab === 'portal' && expiringOnly\}/)
+    assert.match(dir, /value=\{counts\.expiring\}[^]*?active=\{expiringOnly\}/)
     assert.match(dir, /setExpiringOnly\(e => !e\)/)
   })
 
@@ -100,8 +102,9 @@ test('Accounts & Access directory replaces the card board', async (t) => {
     assert.match(dir, /r\.expiring_soon === true/)
   })
 
-  await t.test('tab switching clears role, status, and expiring filters', () => {
-    assert.match(dir, /const switchTab = \(t\) => \{ setTab\(t\); setRoleFilter\(''\); setStatusFilter\(''\); setExpiringOnly\(false\) \}/)
+  await t.test('tab switching clears role, status, expiring, and interviewer filters', () => {
+    // ACCOUNTS-KPI-SORT-1: interviewerOnly (the staff Interviewers KPI) resets too.
+    assert.match(dir, /const switchTab = \(t\) => \{ setTab\(t\); setRoleFilter\(''\); setStatusFilter\(''\); setExpiringOnly\(false\); setInterviewerOnly\(false\) \}/)
   })
 
   await t.test('the portal query key includes everything the queryFn reads', () => {
