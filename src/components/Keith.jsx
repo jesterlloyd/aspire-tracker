@@ -274,12 +274,14 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
 
   return (
     <>
-      {/* Tooltip */}
+      {/* Tooltip - sits to the LEFT of the orb (MESSAGES-AUTOSCROLL-1: the
+          Messages shortcut now occupies the space directly above Keith, so the
+          tooltip no longer floats up into it). */}
       {showTooltip && !isOpen && (
         <div style={{
           position: 'fixed',
-          bottom: '92px',
-          right: '24px',
+          bottom: '38px',
+          right: '96px',
           background: '#1d2567',
           color: '#ffffff',
           fontFamily: 'DM Sans',

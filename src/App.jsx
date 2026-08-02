@@ -43,6 +43,7 @@ import { unreadSupportBellCount } from './lib/support/supportRequests'
 import CustomOnboardingTour from './components/CustomOnboardingTour'
 import { shouldAutoStartTour } from './lib/onboardingTours'
 import Keith from './components/Keith'
+import MainMessagesLauncher from './components/MainMessagesLauncher'
 import FeedbackPanel from './components/FeedbackPanel'
 import { logEvent, eventExists } from './lib/logEvent'
 import { useToast } from './hooks/useToast'
@@ -1174,6 +1175,9 @@ function MainApp({ onLogout }) {
         supabase={supabase}
         isAuthenticated={true}
       />
+      {/* MESSAGES-AUTOSCROLL-1: the canonical Messages shortcut, directly above
+          the Keith orb in the lower-right stack (self-gated to owner/admin). */}
+      <MainMessagesLauncher />
       <FeedbackPanel
         activeTab={activeTab}
         cohortName={activeCohort?.name}

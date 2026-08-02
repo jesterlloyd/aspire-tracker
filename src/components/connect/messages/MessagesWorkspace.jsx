@@ -28,6 +28,7 @@ import {
   formatInboxTimestamp, participantAccessLabel, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
 import { appendPage } from '../../../lib/messages/inboxState'
+import { useThreadAutoScroll } from '../../../lib/messages/useThreadAutoScroll'
 // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS
 import { applyOptimisticReaction } from '../../../lib/messages/reactionConstants'
 import {
@@ -233,6 +234,21 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
   )
   const conversation = pages[0]?.conversation || null
   const loadError = isError ? mapMessagesError(error?.status) : null
+
+  // MESSAGES-AUTOSCROLL-1: shared bottom-anchor management. `ready` flips once
+  // the thread has data (the container is unmounted while isLoading, so the
+  // anchor always runs against rendered messages). newestKey tracks the newest
+  // message id: the reader's own send and incoming poll results both land as a
+  // new newest id, pinning the bottom only while the reader is already there.
+  const newestId = messages.length ? messages[messages.length - 1].id : null
+  const {
+    scrollRef: threadScrollRef, onScroll: onThreadScroll,
+    showNewIndicator, jumpToLatest,
+  } = useThreadAutoScroll({
+    threadId: conversationId,
+    ready: !isLoading && pages.length > 0,
+    newestKey: newestId,
+  })
   // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: fails closed, matching the
   // archiveAvailable convention - until a page confirms the migration is
   // applied, no reaction UI renders at all.
@@ -347,7 +363,12 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <ThreadHeader conversation={conversation} api={api} announce={announce} onOpenStudent={onOpenStudent} />
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 16px' }}>
+      {/* MESSAGES-AUTOSCROLL-1: the relative wrapper hosts the floating "New
+          messages" affordance without joining the scroll flow; the inner div
+          stays the ONLY scrolling element (container-scoped scrollTop, never
+          the page). */}
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div ref={threadScrollRef} onScroll={onThreadScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 16px' }}>
         {hasNextPage && (
           <div style={{ textAlign: 'center', paddingBottom: 10 }}>
             <button
@@ -379,6 +400,21 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
             />
           ))}
         </ol>
+      </div>
+      {showNewIndicator && (
+        <button
+          type="button"
+          onClick={jumpToLatest}
+          style={{
+            position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
+            padding: '5px 14px', borderRadius: 20, border: '1px solid rgba(29,37,103,0.18)',
+            background: '#1D2567', color: '#fff', fontFamily: F, fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', boxShadow: '0 4px 14px rgba(29,37,103,0.28)', zIndex: 2,
+          }}
+        >
+          New messages ↓
+        </button>
+      )}
       </div>
 
       {/* Sending is blocked when portal access is inactive; history stays

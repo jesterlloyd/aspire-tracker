@@ -21,6 +21,7 @@ import {
 } from '../../lib/messages/portalMessagesConstants'
 // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS
 import { applyOptimisticReaction } from '../../lib/messages/reactionConstants'
+import { useThreadAutoScroll } from '../../lib/messages/useThreadAutoScroll'
 
 export default function PortalMessagesThread({
   variant = 'student',
@@ -69,6 +70,19 @@ export default function PortalMessagesThread({
     () => pages.reduce((acc, p) => prependOlderPage(acc, p?.messages || []), []),
     [pages],
   )
+
+  // MESSAGES-AUTOSCROLL-1: shared bottom-anchor management (same hook as the
+  // staff workspace). Called before the early returns below per the rules of
+  // hooks; `ready` is false until the thread has rendered data.
+  const newestId = messages.length ? messages[messages.length - 1].id : null
+  const {
+    scrollRef: threadScrollRef, onScroll: onThreadScroll,
+    showNewIndicator, jumpToLatest,
+  } = useThreadAutoScroll({
+    threadId: conversationId,
+    ready: !isLoading && pages.length > 0,
+    newestKey: newestId,
+  })
 
   // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: fails closed, matching the
   // archiveAvailable convention elsewhere - until a page confirms the
@@ -188,7 +202,13 @@ export default function PortalMessagesThread({
         </div>
       </div>
 
-      <div className="ptl-msg-scroll">
+      {/* MESSAGES-AUTOSCROLL-1: the wrapper anchors the floating "New messages"
+          affordance; .ptl-msg-scroll remains the ONLY scrolling element (the hook
+          only ever moves the container's own scrollTop, never the page - so on
+          phone widths, where this container intentionally does not scroll, the
+          hook is a natural no-op). */}
+      <div className="ptl-msg-scrollwrap">
+      <div className="ptl-msg-scroll" ref={threadScrollRef} onScroll={onThreadScroll}>
         {hasNextPage && (
           <button
             type="button"
@@ -211,6 +231,12 @@ export default function PortalMessagesThread({
           />
         ))}
         {reactionError && <p className="ptl-form-error" role="alert">{reactionError}</p>}
+      </div>
+      {showNewIndicator && (
+        <button type="button" className="ptl-msg-newer-chip" onClick={jumpToLatest}>
+          New messages ↓
+        </button>
+      )}
       </div>
     </div>
   )
