@@ -125,8 +125,10 @@ test('PortalShell: ProfileMenu renders Restart Welcome Tour only when onRestartT
 })
 
 test('PortalShell: onRestartTour is accepted and threaded through to ProfileMenu', () => {
+  // PROFILE-MENU-AVATARS-1: onChangePhoto joined the threaded props, widening
+  // the character span between the first ProfileMenu prop and onRestartTour.
   assert.match(shellCode, /export default function PortalShell\(\{[\s\S]{0,400}onRestartTour,[\s\S]{0,60}children,/)
-  assert.match(shellCode, /<ProfileMenu userName=\{userName\} profileImageUrl=\{profileImageUrl\}[\s\S]{0,120}onRestartTour=\{onRestartTour\} \/>/)
+  assert.match(shellCode, /<ProfileMenu userName=\{userName\} profileImageUrl=\{profileImageUrl\}[\s\S]{0,220}onRestartTour=\{onRestartTour\} \/>/)
 })
 
 // ── PortalApp ────────────────────────────────────────────────────────────────
@@ -177,9 +179,11 @@ test('PortalApp: auto-start effect also gates on shouldAutoStartTour(userProfile
 })
 
 test('PortalApp: onRestartTour is wired into all three PortalShell usages', () => {
-  assert.match(appCode, /title="Student Portal"[\s\S]{0,300}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
-  assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,300}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
-  assert.match(appCode, /title="Academic Partner Portal"[\s\S]{0,300}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  // PROFILE-MENU-AVATARS-1: each mount gained onChangePhoto (and the student
+  // mount the canonical publicSiteUrl), widening the span before onRestartTour.
+  assert.match(appCode, /title="Student Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  assert.match(appCode, /title="Academic Partner Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
   const wiredCount = (appCode.match(/onRestartTour=\{\(\) => setTourRunning\(true\)\}/g) || []).length
   assert.equal(wiredCount, 3)
 })

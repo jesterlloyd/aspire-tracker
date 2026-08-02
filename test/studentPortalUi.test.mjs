@@ -120,10 +120,14 @@ test('data discipline', async (t) => {
 })
 
 test('shell, navigation, and mobile', async (t) => {
-  await t.test('profile menu holds name, Edit Profile, Public site, Sign out', () => {
+  await t.test('profile menu holds name, My Profile, Change Photo, Public site, Sign out', () => {
+    // PROFILE-MENU-AVATARS-1: the student item reads "My Profile" (matching the
+    // destination page and nav tab; the old "Edit Profile" wording predated the
+    // My Profile page), and Change Photo joined every portal menu.
     assert.match(shell, /function ProfileMenu/)
     assert.match(shell, /ptl-menu-name/)
-    assert.match(shell, /Edit Profile/)
+    assert.match(shell, /> My Profile<\/button>/)
+    assert.match(shell, /> Change Photo<\/button>/)
     assert.match(shell, /Public site/)
     assert.match(shell, /Sign out/)
     assert.match(shell, /aria-haspopup="menu"/)

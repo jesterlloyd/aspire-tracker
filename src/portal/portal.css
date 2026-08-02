@@ -1838,3 +1838,36 @@ img.ptl-detail-photo {
   .ptl-stu-table td[data-label="Student"]::before { display: none; }
   .ptl-stu-actioncell { width: auto; justify-content: flex-end; }
 }
+
+/* ── PROFILE-MENU-AVATARS-1: Change Photo dialog (own classes, shared by role modes) ── */
+.ptl-photo-backdrop { position: fixed; inset: 0; background: rgba(15,20,25,0.42); z-index: 2098; }
+.ptl-photo-dialog {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(400px, calc(100vw - 32px)); background: #fff; border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(16,24,40,0.22); z-index: 2099; padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.ptl-photo-title { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #191919; }
+.ptl-photo-hint { margin: 0; font-size: 12.5px; line-height: 1.5; color: #6b7280; }
+.ptl-photo-preview {
+  width: 104px; height: 104px; border-radius: 50%; overflow: hidden; margin: 2px auto;
+  border: 2px solid #e5e7eb; background: #f6f5f1; display: flex; align-items: center; justify-content: center;
+}
+.ptl-photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ptl-photo-preview-empty { color: #b9bec7; display: flex; }
+.ptl-photo-error { font-size: 12.5px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 10px; }
+.ptl-photo-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.ptl-photo-choose {
+  padding: 8px 14px; border: 1px solid #d5d9e2; border-radius: 9px; background: #fff;
+  font: inherit; font-size: 13px; font-weight: 600; color: #1D2567; cursor: pointer;
+}
+.ptl-photo-save {
+  padding: 8px 16px; border: none; border-radius: 9px; background: #1D2567;
+  font: inherit; font-size: 13px; font-weight: 700; color: #fff; cursor: pointer;
+}
+.ptl-photo-save:disabled { opacity: 0.5; cursor: default; }
+.ptl-photo-choose:disabled { opacity: 0.6; cursor: default; }
+.ptl-photo-footrow { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ptl-photo-footrow:has(.ptl-photo-cancel:only-child) { justify-content: flex-end; }
+.ptl-photo-remove { background: none; border: none; font: inherit; font-size: 12px; color: #b91c1c; cursor: pointer; padding: 4px 0; }
+.ptl-photo-cancel { background: none; border: none; font: inherit; font-size: 12.5px; font-weight: 600; color: #6b7280; cursor: pointer; padding: 4px 0; margin-left: auto; }

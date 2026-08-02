@@ -5,7 +5,7 @@
 // mobile (the desktop header may surface a couple of them inline). Portals are
 // focused, read-mostly surfaces; the staff shell is never loaded here.
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ExternalLink, Pencil, UserRound, LogOut, RotateCcw } from 'lucide-react'
+import { ChevronDown, ExternalLink, Camera, UserRound, LogOut, RotateCcw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { PortalRefreshProvider } from './PortalRefresh'
 import { PortalHeaderSlotsContext } from './PortalHeaderSlots'
@@ -14,7 +14,7 @@ function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, publicSiteUrl = '/', onRestartTour }) {
+function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, onChangePhoto, publicSiteUrl = '/', onRestartTour }) {
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [failedImageUrl, setFailedImageUrl] = useState(null)
@@ -45,7 +45,14 @@ function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, publ
           {userName && <div className="ptl-menu-name">{userName}</div>}
           {onProfile
             ? <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onProfile() }}><UserRound size={15} /> Profile</button>
-            : onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><Pencil size={15} /> Edit Profile</button>}
+            : onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><UserRound size={15} /> My Profile</button>}
+          {/* PROFILE-MENU-AVATARS-1: self-service photo management, wired per portal.
+              The label "My Profile" above (student) matches the destination page and
+              nav-tab name; the former "Edit Profile" wording predated the My Profile
+              page. */}
+          {onChangePhoto && (
+            <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onChangePhoto() }}><Camera size={15} /> Change Photo</button>
+          )}
           <a role="menuitem" className="ptl-menu-item" href={publicSiteUrl}
              {...(publicSiteUrl !== '/' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
             <ExternalLink size={15} /> Public site
@@ -67,6 +74,7 @@ export default function PortalShell({
   userName,
   onEditProfile,
   onProfile,
+  onChangePhoto,
   publicSiteUrl,
   withTabBar = false,
   showHeaderName = false,
@@ -117,7 +125,8 @@ export default function PortalShell({
                   widths, opt-in per portal so student behavior is unchanged. */}
               {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
               <ProfileMenu userName={userName} profileImageUrl={profileImageUrl}
-                onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl}
+                onEditProfile={onEditProfile} onProfile={onProfile} onChangePhoto={onChangePhoto}
+                publicSiteUrl={publicSiteUrl}
                 onRestartTour={onRestartTour} />
             </div>
           </header>

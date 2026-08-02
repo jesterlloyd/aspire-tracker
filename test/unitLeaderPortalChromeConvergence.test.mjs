@@ -87,7 +87,9 @@ test('dark theme: the portal taskbar mirrors the main app flat solid, not a grad
 
 test('Student and Unit Leader profile photos use safe sources and keep initials fallback', () => {
   assert.match(appCode, /import \{ usePortalHeadshotUrl \} from '\.\.\/lib\/useStudentFile'/)
-  assert.match(appCode, /const \{ url: studentHeaderPhotoUrl \} = usePortalHeadshotUrl\(\{ enabled: isStudent \}\)/)
+  // PROFILE-MENU-AVATARS-1: refreshKey re-keys the portal-self cache after a
+  // self-service Change Photo save; the source and fallback contract is unchanged.
+  assert.match(appCode, /const \{ url: studentHeaderPhotoUrl \} = usePortalHeadshotUrl\(\{ enabled: isStudent, refreshKey: headshotVersion \}\)/)
   assert.match(appCode, /profileImageUrl=\{studentHeaderPhotoUrl\}/)
   assert.match(appCode, /profileImageUrl=\{userProfile\?\.avatar_url\}/)
   assert.match(shellCode, /profileImageUrl = null/)

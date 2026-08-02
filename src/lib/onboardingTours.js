@@ -374,7 +374,9 @@ function getStudentSteps(userProfile) {
     {
       target: '[data-tour="portal-profile-menu"]',
       title: 'Your Profile',
-      content: 'Edit your profile, restart this tour, or sign out.',
+      // PROFILE-MENU-AVATARS-1: the student menu now reads My Profile and adds
+      // Change Photo; the copy names exactly what the menu offers.
+      content: 'Open My Profile, change your photo, restart this tour, or sign out.',
       placement: 'bottom-end',
       spotlightPadding: 6,
       disableBeacon: true,
@@ -454,7 +456,8 @@ function getUnitLeaderSteps(userProfile) {
       title: 'Your Profile',
       // The Unit Leader menu opens a Profile SECTION (onProfile), it has no
       // inline edit action, so the copy says open, not edit.
-      content: 'Open your Profile, restart this tour, or sign out.',
+      // PROFILE-MENU-AVATARS-1: Change Photo joined the menu.
+      content: 'Open your Profile, change your photo, restart this tour, or sign out.',
       placement: 'bottom-end',
       spotlightPadding: 6,
       disableBeacon: true,
@@ -529,10 +532,11 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
     {
       target: '[data-tour="portal-profile-menu"]',
       title: 'Your Profile',
-      // The Academic Partner menu carries no profile editing at all (no
-      // onProfile / onEditProfile is wired): only the public-site link, the
-      // tour restart, and sign out. The copy matches exactly those actions.
-      content: 'Visit the ASPIRE public site, restart this tour, or sign out.',
+      // The Academic Partner menu carries no profile page (no onProfile /
+      // onEditProfile is wired): change your photo, the public-site link, the
+      // tour restart, and sign out. The copy matches exactly those actions
+      // (PROFILE-MENU-AVATARS-1 added Change Photo).
+      content: 'Change your photo, visit the ASPIRE public site, restart this tour, or sign out.',
       placement: 'bottom-end',
       spotlightPadding: 6,
       disableBeacon: true,

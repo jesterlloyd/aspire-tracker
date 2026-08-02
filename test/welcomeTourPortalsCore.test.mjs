@@ -392,9 +392,11 @@ test('profile-menu copy matches the actions each portal menu actually offers', (
   const profile = { full_name: 'Alex Rivera' }
   const profileStep = (steps) => steps.find(s => s.target === '[data-tour="portal-profile-menu"]')
 
-  // Student: the menu offers Edit Profile (onEditProfile is wired), so "edit" is honest.
+  // Student: the menu offers My Profile + Change Photo (PROFILE-MENU-AVATARS-1
+  // renamed the item to match the destination page and added photo management),
+  // so the copy names those actions.
   const student = profileStep(getTourSteps('student', { userProfile: profile }))
-  assert.match(student.content, /Edit your profile/)
+  assert.match(student.content, /Open My Profile, change your photo/)
 
   // Unit Leader: the menu opens a Profile SECTION (onProfile), no inline edit -
   // the copy must say open, never edit.

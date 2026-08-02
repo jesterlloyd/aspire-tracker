@@ -5,8 +5,9 @@ import { supabase } from '../lib/supabase';
 import { safeWrite } from '../lib/safeWrite';
 import { getAvatarUrl } from '../lib/getAvatar';
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
-import { LogOut, ChevronDown, Settings } from 'lucide-react';
+import { LogOut, ChevronDown, Settings, ExternalLink } from 'lucide-react';
 import Tooltip from './ui/Tooltip';
+import { CANONICAL_APP_URL } from '../lib/appUrl';
 
 const ROLE_LABELS = {
   owner:       { label: 'Owner',       bg: '#1D2567', color: '#ffffff' },
@@ -186,6 +187,21 @@ export default function UserMenu() {
               </div>
             </div>
 
+            {/* PROFILE-MENU-AVATARS-1: Public site, mirroring the portals' menu item.
+                Same open behavior as the Unit Leader / Academic Partner portals: the
+                canonical domain in a new tab. */}
+            <a
+              href={CANONICAL_APP_URL}
+              target="_blank" rel="noopener noreferrer"
+              onClick={() => setIsOpen(false)}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', textDecoration: 'none', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              <ExternalLink size={14} strokeWidth={2} color="#6b7280" />
+              Public site
+            </a>
+
             {/* WS2.1: Settings link (additive - navigates to Settings → General) */}
             <button
               onClick={() => { setIsOpen(false); navigate('/settings/general'); }}
@@ -200,7 +216,8 @@ export default function UserMenu() {
             {/* WS2.4: People & Access, Restart Welcome Tour, and Appearance were removed
                 from the UserMenu so each control has a single canonical home in Settings
                 (Accounts & Access / Tours & Help / Appearance). UserMenu is now identity +
-                Settings + Sign out. */}
+                Public site + Settings + Sign out (PROFILE-MENU-AVATARS-1 added Public
+                site for parity with the portal menus). */}
 
             {/* Sign out */}
             <button

@@ -33,6 +33,8 @@ import { UnitLeaderNav } from './unit/UnitLeaderChrome'
 import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
+// PROFILE-MENU-AVATARS-1: self-service photo dialog shared by all three portals.
+import ChangePhotoDialog from './ChangePhotoDialog'
 import {
   PORTAL_ACTIVE_POLL_MS, PORTAL_IDLE_UNREAD_POLL_MS, usePortalUnreadCount,
 } from '../lib/messages/portalMessagesPolling'
@@ -88,7 +90,7 @@ function apThreadIdFromPath(pathname) {
 }
 
 export default function PortalApp() {
-  const { userProfile } = useAuth()
+  const { userProfile, refreshUserProfile } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
@@ -147,7 +149,17 @@ export default function PortalApp() {
   const [tourRunning, setTourRunning] = useState(false)
   const tourArmedRef = useRef(false)
   const tourTimeoutRef = useRef(null)
-  const { url: studentHeaderPhotoUrl } = usePortalHeadshotUrl({ enabled: isStudent })
+  // PROFILE-MENU-AVATARS-1: bumping headshotVersion re-keys the portal-self
+  // photo cache after a Change Photo save, so the header re-signs the new image
+  // without a reload. UL/AP saves instead refresh userProfile (avatar_url).
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false)
+  const [headshotVersion, setHeadshotVersion] = useState(0)
+  const { url: studentHeaderPhotoUrl } = usePortalHeadshotUrl({ enabled: isStudent, refreshKey: headshotVersion })
+  const openChangePhoto = useCallback(() => setPhotoDialogOpen(true), [])
+  const onPhotoSaved = useCallback(() => {
+    if (isStudent) setHeadshotVersion(v => v + 1)
+    else refreshUserProfile?.()
+  }, [isStudent, refreshUserProfile])
   const onMessagesRoute = location.pathname.startsWith('/portal/messages') || location.pathname.startsWith('/portal/ap/messages')
   const unread = usePortalUnreadCount({
     enabled: isStudent || isUnitLeader || apMessagesEnabled,
@@ -255,12 +267,25 @@ export default function PortalApp() {
     />
   ) : null
 
+  // PROFILE-MENU-AVATARS-1: one dialog instance for whichever portal branch is
+  // active. Students replace the canonical headshot (no remove); Unit Leaders
+  // and Academic Partners manage user_profiles.avatar_url (remove offered).
+  const photoDialog = photoDialogOpen ? (
+    <ChangePhotoDialog
+      mode={isStudent ? 'headshot' : 'profile'}
+      hasPhoto={isStudent ? Boolean(studentHeaderPhotoUrl) : Boolean(userProfile?.avatar_url)}
+      onClose={() => setPhotoDialogOpen(false)}
+      onSaved={onPhotoSaved}
+    />
+  ) : null
+
   if (roles.includes('student')) {
     return (
       <PortalShell title="Student Portal" userName={userProfile?.full_name}
         onEditProfile={goProfile} withTabBar
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={studentHeaderPhotoUrl}
+        onChangePhoto={openChangePhoto} publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
         nav={(
           <PortalNav
@@ -302,6 +327,7 @@ export default function PortalApp() {
         {/* STUDENT-PORTAL-PROFILE-1: mounted only while visited (it fetches on
             activation), unlike the always-mounted Home/Messages pair. */}
         {studentView === 'profile' && <MyProfile active />}
+        {photoDialog}
         {tourOverlay}
       </PortalShell>
     )
@@ -316,7 +342,8 @@ export default function PortalApp() {
       <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={userProfile?.avatar_url}
-        onProfile={() => goUnitSection('profile')} publicSiteUrl="https://aspireintelligence.app"
+        onProfile={() => goUnitSection('profile')} onChangePhoto={openChangePhoto}
+        publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
         nav={<UnitLeaderNav view={unitView} unread={unread} onNavigate={goUnitSection} />}
         utilityLayer={(
@@ -339,6 +366,7 @@ export default function PortalApp() {
           onSelectThread={openThread}
           onBackToList={backToList}
         />
+        {photoDialog}
         {tourOverlay}
       </PortalShell>
     )
@@ -353,6 +381,7 @@ export default function PortalApp() {
       <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={userProfile?.avatar_url}
+        onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
         nav={<AcademicPartnerNav view={apView} onNavigate={goApSection} />}
@@ -372,6 +401,7 @@ export default function PortalApp() {
         <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
           messagesEnabled={apMessagesEnabled}
           threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
+        {photoDialog}
         {tourOverlay}
       </PortalShell>
     )

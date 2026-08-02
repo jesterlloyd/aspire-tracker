@@ -171,11 +171,15 @@ test('the avatar menu shows exactly Profile, Public site, Sign out for a Unit Le
   assert.ok(!shell.includes('Notification'), 'the avatar menu must not carry notification preferences')
 })
 
-test('the Student Portal avatar menu is unchanged, still Edit Profile', () => {
-  // Student mount passes neither onProfile nor a publicSiteUrl override.
+test('the Student Portal avatar menu keeps its own profile route, now labeled My Profile', () => {
+  // PROFILE-MENU-AVATARS-1: the student mount still wires onEditProfile (its own
+  // My Profile page route), never onProfile (the UL section navigator); the item
+  // label converged on "My Profile" and Change Photo + the canonical public-site
+  // URL joined the student menu for cross-portal consistency.
   const studentMount = app.slice(app.indexOf('title="Student Portal"'), app.indexOf('title="Student Portal"') + 400)
-  assert.ok(!studentMount.includes('onProfile'), 'the student menu must keep its Edit Profile drawer')
-  assert.match(shell, /Edit Profile/)
+  assert.ok(!studentMount.includes('onProfile={'), 'the student menu must keep its My Profile route, not the UL Profile section')
+  assert.ok(studentMount.includes('onEditProfile={goProfile}'))
+  assert.match(shell, /> My Profile<\/button>/)
 })
 
 // ── More ────────────────────────────────────────────────────────────────────

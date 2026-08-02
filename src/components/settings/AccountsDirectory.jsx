@@ -285,6 +285,9 @@ export default function AccountsDirectory() {
       const bodyJson = await res.json().catch(() => ({}))
       if (!res.ok) return { ok: false, error: bodyJson.message || 'Could not update the photo.' }
       showToast('Profile photo updated.'); queryClient.invalidateQueries({ queryKey: ['people_access_users'] })
+      // PROFILE-MENU-AVATARS-1: the portal directory resolves the same
+      // user_profiles.avatar_url, so refresh it too (it was left stale before).
+      queryClient.invalidateQueries({ queryKey: ['portal_access_list'] })
       return { ok: true, avatar_url: bodyJson.avatar_url }
     } catch { return { ok: false, error: 'Could not update the photo.' } }
   }
