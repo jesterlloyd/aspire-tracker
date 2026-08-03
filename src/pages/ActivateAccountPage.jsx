@@ -26,9 +26,39 @@
 // COMPLETION MARKER: on success we stamp user_metadata.password_set. That is what
 // lets a later reissue tell "never finished setup" from "has a working password"
 // without guessing, since Supabase does not expose whether a password exists.
+//
+// PORTAL-ACTIVATION-RELIABILITY-1: invitation emails now carry an ASPIRE-owned
+// URL (?token_hash=...&type=invite|recovery) instead of the raw Supabase verify
+// link. Loading this page does NOT consume the token: verification happens ONLY
+// when the recipient clicks "Activate my account" (supabase.auth.verifyOtp), so
+// email-security scanners that prefetch links can no longer burn the single-use
+// token before the human arrives. The legacy fragment flow (a session or error
+// delivered in the URL hash) is still accepted for links already in flight and
+// for Supabase-templated recovery emails. The invalid state offers self-service
+// recovery so routine expiry never needs staff SQL or a support email.
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { appUrl } from '../lib/appUrl'
+
+// Token types the ASPIRE hash URL may carry. Anything else is not ours.
+const TOKEN_TYPES = new Set(['invite', 'recovery'])
+
+// Privacy-safe diagnostics: fire-and-forget, session-authenticated, and silent
+// on every failure. Carries an event name and broad category only - never a
+// token, hash, or link.
+async function postActivationEvent(eventType, category) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) return
+    await fetch('/api/portal-activation-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ event_type: eventType, category: category || null }),
+    })
+  } catch { /* diagnostics never affect activation */ }
+}
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -71,13 +101,27 @@ function Shell({ children }) {
 export default function ActivateAccountPage() {
   const navigate = useNavigate()
 
-  // An activation link is type=invite; a reissued one is type=recovery. Read both
-  // synchronously, before detectSessionInUrl consumes and clears the hash.
+  // Scanner-safe ASPIRE link: ?token_hash=...&type=... in the query string. Its
+  // presence renders the explicit confirmation step; nothing is verified yet.
+  const initialTokenLink = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    const params = new URLSearchParams(window.location.search)
+    const tokenHash = params.get('token_hash')
+    const type = params.get('type')
+    return (tokenHash && TOKEN_TYPES.has(type)) ? { tokenHash, type } : null
+  }, [])
+
+  // LEGACY fragment flow: an activation link is type=invite; a reissued one is
+  // type=recovery. Read both synchronously, before detectSessionInUrl consumes
+  // and clears the hash. (token_hash links are handled above and never match
+  // here because their type param is read from the query with the hash intact.)
   const initialHasActivation = useMemo(() => {
     if (typeof window === 'undefined') return false
+    if (initialTokenLink) return false
     const h = window.location.hash || ''
     const q = window.location.search || ''
     return /type=(invite|recovery|signup)/.test(h) || /type=(invite|recovery|signup)/.test(q)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // A malformed or already-consumed link comes back as an error in the fragment
@@ -87,17 +131,22 @@ export default function ActivateAccountPage() {
     return /error=|error_code=|error_description=/.test(window.location.hash || window.location.search || '')
   }, [])
 
-  // 'checking' | 'form' | 'invalid' | 'success'
+  // 'checking' | 'confirm' | 'form' | 'invalid' | 'success'
   const [status, setStatus] = useState(
-    initialLinkError ? 'invalid' : (initialHasActivation ? 'form' : 'checking'))
+    initialLinkError ? 'invalid' : (initialTokenLink ? 'confirm' : (initialHasActivation ? 'form' : 'checking')))
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [activating, setActivating] = useState(false)
+  // Self-service recovery on the invalid state.
+  const [recoveryEmail, setRecoveryEmail] = useState('')
+  const [recoveryBusy, setRecoveryBusy] = useState(false)
+  const [recoverySent, setRecoverySent] = useState(false)
 
   useEffect(() => {
-    if (initialLinkError) return undefined
+    if (initialLinkError || initialTokenLink) return undefined
     let mounted = true
     // Never downgrade out of a resolved terminal/form state.
     const promote = (next) => setStatus(cur => (cur === 'success' || cur === 'form') ? cur : next)
@@ -119,7 +168,40 @@ export default function ActivateAccountPage() {
     }
 
     return () => { mounted = false; subscription?.unsubscribe() }
-  }, [initialHasActivation, initialLinkError])
+  }, [initialHasActivation, initialLinkError, initialTokenLink])
+
+  // The ONE place the token is consumed: the recipient's explicit click. A
+  // scanner GET renders the confirm screen and consumes nothing.
+  const handleActivate = async () => {
+    if (!initialTokenLink) return
+    setActivating(true)
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: initialTokenLink.tokenHash,
+        type: initialTokenLink.type,
+      })
+      if (error) { setStatus('invalid'); return }
+      setStatus('form')
+    } catch {
+      setStatus('invalid')
+    } finally {
+      setActivating(false)
+    }
+  }
+
+  // Non-enumerating self-service: both requests answer identically whether or
+  // not an account exists for the address. "New link" lands back on this
+  // activation screen; "set or reset" lands on the standard reset screen.
+  const requestRecovery = async (destinationPath) => {
+    const addr = recoveryEmail.trim()
+    if (!addr) return
+    setRecoveryBusy(true)
+    try {
+      await supabase.auth.resetPasswordForEmail(addr, { redirectTo: appUrl(destinationPath) })
+    } catch { /* identical confirmation either way; nothing to reveal */ }
+    setRecoveryBusy(false)
+    setRecoverySent(true)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -136,9 +218,11 @@ export default function ActivateAccountPage() {
         data: { password_set: true, password_set_at: new Date().toISOString() },
       })
       if (error) {
+        postActivationEvent('activation_failed', 'password_update_failed')
         setFormError('Could not create your password. This activation link may have expired or already been used. Please ask the ASPIRE team to resend your invitation.')
         return
       }
+      postActivationEvent('activation_succeeded')
       setStatus('success')
     } catch {
       setFormError('Could not create your password. This activation link may have expired or already been used. Please ask the ASPIRE team to resend your invitation.')
@@ -149,6 +233,24 @@ export default function ActivateAccountPage() {
 
   if (status === 'checking') {
     return <Shell><div style={{ textAlign: 'center', fontSize: '13px', color: '#9ca3af', padding: '8px 0' }}>Checking your activation link…</div></Shell>
+  }
+
+  if (status === 'confirm') {
+    return (
+      <Shell>
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>👋</div>
+          <div style={{ fontWeight: 700, fontSize: '15px', color: NAVY, marginBottom: '8px' }}>Activate your account</div>
+          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '20px' }}>
+            Welcome to ASPIRE. Click below to verify your invitation and create your
+            password. Activation links are time-limited and can be used once.
+          </div>
+          <button onClick={handleActivate} disabled={activating} style={primaryBtn(activating)}>
+            {activating ? 'Verifying…' : 'Activate my account'}
+          </button>
+        </div>
+      </Shell>
+    )
   }
 
   if (status === 'success') {
@@ -177,16 +279,42 @@ export default function ActivateAccountPage() {
         <div style={{ textAlign: 'center', padding: '8px 0' }}>
           <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
           <div style={{ fontWeight: 700, fontSize: '15px', color: NAVY, marginBottom: '8px' }}>
-            This activation link is invalid or has expired.
+            This activation link is no longer available.
           </div>
           {/* Deliberately says nothing about whether an account exists for any
               address. The recovery path below is the same for everyone. */}
-          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '20px' }}>
-            Activation links are time-limited and can be used once. You can request a
-            new link from the sign-in page using Forgot password, or contact the
+          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '18px' }}>
+            Activation links are time-limited and can be used once, and requesting a
+            new link makes earlier links stop working. Request a new link below, set
+            or reset your password, or return to sign in. Need help? Contact the
             ASPIRE team at <a href="mailto:aspire@cshs.org" style={{ color: NAVY }}>aspire@cshs.org</a>.
           </div>
-          <button onClick={() => navigate('/login', { replace: true })} style={primaryBtn(false)}>Go to sign in</button>
+
+          {recoverySent ? (
+            <div style={{ background: '#eef6ee', border: '1px solid #bcd9bf', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', color: '#2f6b34', lineHeight: 1.6, marginBottom: '16px', textAlign: 'left' }} role="status">
+              If an account exists for that address, a new email is on its way. Use
+              the newest email you receive; earlier links stop working.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+              <input
+                type="email" value={recoveryEmail} onChange={e => setRecoveryEmail(e.target.value)}
+                placeholder="you@school.edu" aria-label="Email address" style={inputStyle}
+                onFocus={e => e.target.style.borderColor = NAVY} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              <button onClick={() => requestRecovery('/auth/activate')} disabled={recoveryBusy || !recoveryEmail.trim()} style={primaryBtn(recoveryBusy || !recoveryEmail.trim())}>
+                {recoveryBusy ? 'Sending…' : 'Email me a new link'}
+              </button>
+              <button onClick={() => requestRecovery('/auth/reset-password')} disabled={recoveryBusy || !recoveryEmail.trim()}
+                style={{ width: '100%', padding: '12px', background: 'none', border: `1px solid ${NAVY}`, borderRadius: '10px', fontWeight: 700, fontSize: '13px', color: NAVY, cursor: (recoveryBusy || !recoveryEmail.trim()) ? 'default' : 'pointer', fontFamily: F, opacity: (recoveryBusy || !recoveryEmail.trim()) ? 0.5 : 1 }}>
+                Set or reset password
+              </button>
+            </div>
+          )}
+
+          <button onClick={() => navigate('/login', { replace: true })}
+            style={{ background: 'none', border: 'none', fontSize: '13px', fontWeight: 600, color: NAVY, cursor: 'pointer', textDecoration: 'underline', fontFamily: F, padding: 0 }}>
+            Go to sign in
+          </button>
         </div>
       </Shell>
     )

@@ -48,7 +48,12 @@ test('invite endpoint sends the branded email, not the default Supabase mailer',
   await t.test('uses generateLink (no default invite email) instead of inviteUserByEmail', () => {
     assert.match(endpoint, /admin\.generateLink\(\{\s*[\s\S]*?type: 'invite'/)
     assert.doesNotMatch(endpoint, /inviteUserByEmail/)
-    assert.match(endpoint, /action_link/)
+    // PORTAL-ACTIVATION-RELIABILITY-1: the emailed link is now built from the
+    // token HASH (scanner-safe explicit-click flow), never the consumed-on-GET
+    // action_link. The old pin asserted action_link usage; the contract is now
+    // the opposite and is pinned in test/portalActivationReliability.test.mjs.
+    assert.match(endpoint, /hashed_token/)
+    assert.doesNotMatch(endpoint, /properties\?\.action_link/)
   })
   await t.test('sends via the ASPIRE Resend helper with a support reply-to', () => {
     assert.match(endpoint, /import \{ Resend \} from 'resend'/)

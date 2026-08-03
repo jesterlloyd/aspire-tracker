@@ -65,6 +65,50 @@ async function sendPortalInvitation({ to, firstName, activationLink, expiresAt, 
 }
 const CANONICAL_UNIT_KEYS = new Set(UNIT_CATALOG.map(u => u.name))
 
+// PORTAL-ACTIVATION-RELIABILITY-1: the emailed link is an ASPIRE-owned URL built
+// from the token HASH, never the Supabase /auth/v1/verify action_link. The verify
+// URL consumes its single-use token ON GET, so email-security scanners that
+// prefetch links were consuming invitations before the recipient ever clicked.
+// The hash URL renders a page that verifies ONLY on an explicit button click
+// (supabase.auth.verifyOtp), so a scanner GET consumes nothing. Expiration and
+// single-use semantics are unchanged; the hash is never logged or stored.
+function activationUrl(hashedToken, type) {
+  if (!hashedToken) return null
+  return `${appUrl('/auth/activate')}?token_hash=${encodeURIComponent(hashedToken)}&type=${encodeURIComponent(type)}`
+}
+
+// Privacy-safe invitation ledger (portal_invitation_events). Best-effort by
+// design: the table arrives with an Owner-gated migration, and a missing table
+// or any insert failure must never break an invitation. STRICT ALLOWLIST by
+// construction: the insert row is assembled ONLY from the fixed fields below,
+// and the detail object is rebuilt key-by-key from EVENT_DETAIL_KEYS with
+// boolean values only, so a secret (of any kind) can never reach this table
+// even by a future programmer error at a call site.
+const EVENT_DETAIL_KEYS = new Set(['created_auth_user', 'reissue', 'unlinked_auth_user'])
+function sanitizeEventDetail(detail) {
+  const out = {}
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    for (const key of Object.keys(detail)) {
+      if (EVENT_DETAIL_KEYS.has(key) && typeof detail[key] === 'boolean') out[key] = detail[key]
+    }
+  }
+  return out
+}
+async function recordInviteEvent(db, { eventType, email, profileId = null, actorProfileId = null, linkType = null, requestId = null, detail = null }) {
+  try {
+    const row = {
+      event_type: String(eventType || ''),
+      target_email: String(email || '').trim().toLowerCase(),
+      target_profile_id: profileId,
+      actor_profile_id: actorProfileId,
+      link_type: linkType,
+      request_id: requestId ? String(requestId).slice(0, 128) : null,
+      detail: sanitizeEventDetail(detail),
+    }
+    await db.from('portal_invitation_events').insert(row)
+  } catch { /* diagnostics never block the invitation */ }
+}
+
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
 const strArray = (v) => (Array.isArray(v) ? v.map(str).filter(Boolean) : [])
 
@@ -282,7 +326,9 @@ export default async function handler(req, res) {
           email,
           options: { redirectTo: appUrl('/auth/activate') },
         })
-        if (!reissueErr) activationLink = reissue?.properties?.action_link || null
+        // Scanner-safe: email the ASPIRE hash URL, never the raw verify link.
+        if (!reissueErr) activationLink = activationUrl(reissue?.properties?.hashed_token, 'recovery')
+        await recordInviteEvent(db, { eventType: 'resend_requested', email, actorProfileId: auth.profileId, linkType: 'recovery', requestId })
       }
     } else {
       // generateLink creates the user and returns the activation link WITHOUT
@@ -298,10 +344,30 @@ export default async function handler(req, res) {
       })
       if (linkErr) {
         if (/already|registered|exists/i.test(linkErr.message || '')) {
-          // Auth account exists but is not linked to a profile by this email.
+          // Auth account exists but is not linked to a profile by this email
+          // (the classic post-manual-cleanup state). PORTAL-ACTIVATION-
+          // RELIABILITY-1: this branch previously provisioned access and
+          // reported success while generating NO link and sending NO email,
+          // stranding the recipient. It now behaves exactly like the reissue
+          // path: if activation never finished, mint a recovery-type hash link.
           authUserId = await findAuthUserIdByEmail(db, email)
           if (!authUserId) {
             return res.status(409).json({ error: 'conflict', message: 'A user with that email may already exist.' })
+          }
+          try {
+            const { data: foundUser } = await db.auth.admin.getUserById(authUserId)
+            needsActivation = foundUser?.user?.user_metadata?.password_set !== true
+          } catch {
+            needsActivation = true
+          }
+          if (needsActivation) {
+            const { data: relink, error: relinkErr } = await db.auth.admin.generateLink({
+              type: 'recovery',
+              email,
+              options: { redirectTo: appUrl('/auth/activate') },
+            })
+            if (!relinkErr) activationLink = activationUrl(relink?.properties?.hashed_token, 'recovery')
+            await recordInviteEvent(db, { eventType: 'resend_requested', email, actorProfileId: auth.profileId, linkType: 'recovery', requestId, detail: { unlinked_auth_user: true } })
           }
         } else {
           console.log('[invite-portal-user] activation link generation failed', { errorCode: linkErr.code, request_id: requestId })
@@ -309,7 +375,8 @@ export default async function handler(req, res) {
         }
       } else {
         authUserId = linkData.user.id
-        activationLink = linkData.properties?.action_link || null
+        // Scanner-safe: email the ASPIRE hash URL, never the raw verify link.
+        activationLink = activationUrl(linkData.properties?.hashed_token, 'invite')
         createdAuthUser = true
       }
     }
@@ -363,7 +430,13 @@ export default async function handler(req, res) {
     // account and grant are already committed, so a mail failure does not roll
     // back or compensate; it is reported (email_sent:false) for a resend.
     let emailSent = false
+    const linkType = activationLink ? (createdAuthUser ? 'invite' : 'recovery') : 'none'
+    await recordInviteEvent(db, {
+      eventType: 'link_generated', email, actorProfileId: auth.profileId,
+      linkType, requestId, detail: { created_auth_user: createdAuthUser, reissue: !createdAuthUser && needsActivation },
+    })
     if (activationLink && (createdAuthUser || needsActivation)) {
+      await recordInviteEvent(db, { eventType: 'email_send_attempted', email, actorProfileId: auth.profileId, linkType, requestId })
       emailSent = await sendPortalInvitation({
         to: email,
         firstName: (fullName.split(/\s+/)[0] || ''),
@@ -372,6 +445,7 @@ export default async function handler(req, res) {
         role: portalRole,
         requestId,
       })
+      await recordInviteEvent(db, { eventType: emailSent ? 'email_sent' : 'email_send_failed', email, actorProfileId: auth.profileId, linkType, requestId })
     }
 
     const status = createdAuthUser ? 201 : 200
