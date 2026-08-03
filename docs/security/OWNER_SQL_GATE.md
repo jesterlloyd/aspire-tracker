@@ -128,6 +128,13 @@ Until that ships, files 1 through 12 fully harden the database; file 13 waits.
 4. Pilot: invite ONE controlled account per role (guarded workflow), verify it
    sees only its own scope and that a staff account sees zero rows through the
    portal_my_* views, then decide on broader rollout.
+5. Preceptor assignment integrity: after this package, and after ANY future
+   manual SQL session that touches students, preceptors,
+   student_preceptor_assignments, or matches, run the read-only
+   `db/audit/preceptor_parity_check.sql` and confirm the summary shows match
+   rows only (zero mismatch_changed, mismatch_cleared, or missing) and the
+   duplicate-active-primary check returns zero rows. Any other result is
+   out-of-band drift; investigate before closing the session.
 
 ## Wave E residual-policy correction (Wave E-2)
 

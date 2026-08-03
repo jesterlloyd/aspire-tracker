@@ -1,21 +1,27 @@
-// PRECEPTOR-MODEL-2: Preceptor Assignment Parity - a READ-ONLY Owner/Admin diagnostic.
+// PRECEPTOR-MODEL-2, reframed by PRECEPTOR-INTEGRITY-1: Preceptor Assignment Integrity -
+// a READ-ONLY Owner-only integrity monitor.
 //
-// Proves the new student_preceptor_assignments model matches current behavior in the LIVE app and
-// surfaces drift (BOTH directions) as a neutral worklist. Over the UNION of (a) students with a
-// current canonical primary (students.preceptor_id) and (b) students with an ACTIVE-PRIMARY row
-// (role='primary' AND status='active') in student_preceptor_assignments, it compares the two sides
-// BY IDENTITY (preceptor_id vs preceptor_id) - including the reverse case where the current primary
-// was cleared but an active-primary row remains.
+// students.preceptor_id is the CANONICAL primary-preceptor identity. The ACTIVE-PRIMARY row
+// (role='primary' AND status='active') in student_preceptor_assignments is its SYNCHRONIZED
+// MIRROR: the applied Phase 2C guard routes every application primary change through the audited
+// assign_primary_preceptor RPC, and the applied Phase 2B trigger (sync_primary_preceptor_mirror)
+// maintains the mirror on every accepted write. No application path can desynchronize the two
+// sides, so this monitor exists to DETECT DRIFT from out-of-band changes: manual SQL sessions,
+// restores, or a trigger regression. Over the UNION of (a) students with a current canonical
+// primary and (b) students with an ACTIVE-PRIMARY row, it compares the two sides BY IDENTITY
+// (preceptor_id vs preceptor_id) - including the reverse case where the current primary was
+// cleared but an active-primary row remains.
 //
 // STRICT SCOPE (this surface only):
 //   • READ-ONLY: only .select() calls. Writes NOTHING to any table - no backfill/sync/repair/fix.
 //   • ID-BASED parity: names are display-only. A name-formatting difference with matching IDs is a
 //     Match, never a Mismatch. A Mismatch means genuinely DIFFERENT preceptor_ids.
-//   • DETECT-ONLY: a post-backfill reassignment legitimately shows Mismatch - that is EXPECTED drift
-//     for PRECEPTOR-MODEL-3 to cut over, NOT an error and NOT something this surface repairs.
+//   • DETECT-ONLY: any Mismatch or Missing row is a drift signal to investigate, never something
+//     this surface repairs. The companion script db/audit/preceptor_parity_check.sql runs the same
+//     identity-based check in SQL and is required after manual SQL sessions (see OWNER_SQL_GATE.md).
 //   • REUSES resolvePreceptor (src/lib/preceptor.js) UNCHANGED for the current side's display name,
 //     so the comparison reflects today's real resolution path. The parity ID is students.preceptor_id.
-//   • Owner/Admin only (registry-gated); reads the new table via its existing Owner/Admin SELECT RLS.
+//   • Owner only (registry-gated); reads the assignment table via its existing Owner/Admin SELECT RLS.
 //
 // Nothing here changes routing, send, survey, automation, due-detection, writers, response storage,
 // digest, check-in, Keith, schema, or RLS. students.preceptor_id remains authoritative everywhere.
@@ -221,14 +227,15 @@ export default function PreceptorParityPanel() {
   return (
     <div style={{ fontFamily: F }}>
       <div style={{ marginBottom: 14 }}>
-        <h2 style={{ ...SETTINGS_HEADING_STYLE, margin: 0 }}>Preceptor Assignment Parity</h2>
+        <h2 style={{ ...SETTINGS_HEADING_STYLE, margin: 0 }}>Preceptor Assignment Integrity</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.55 }}>
           Read-only diagnostic over the <strong>union</strong> of students with a current primary
-          (<code style={{ fontSize: 12 }}>students.preceptor_id</code>, the authoritative field) and students with an
-          active-primary row in the new assignment model. Parity is computed <strong>by preceptor identity (ID)</strong>,
-          both directions, names are display-only. A “Mismatch” means a genuinely different (or cleared) preceptor_id
-          since the assignment foundation; it is an expected worklist item for a later cutover, not an error. This view
-          writes nothing.
+          (<code style={{ fontSize: 12 }}>students.preceptor_id</code>, the canonical primary-preceptor identity) and
+          students with an active-primary row in the assignment model (its synchronized mirror, maintained by a
+          database trigger on every application write). Parity is computed <strong>by preceptor identity (ID)</strong>,
+          both directions, names are display-only. Because every in-app assignment routes through the audited
+          workflow, a “Mismatch” or “Missing” row signals drift from out-of-band changes, most likely a manual SQL
+          session, and warrants investigation. This view writes nothing.
         </p>
       </div>
 
