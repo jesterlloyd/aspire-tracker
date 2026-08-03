@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStudentAvailability, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
 import { displayName } from './lib/utils'
+import { clearPrimaryPreceptor } from './lib/staffPreceptorAssignmentApi'
 import { deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal } from './lib/attention'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
@@ -645,8 +646,19 @@ function MainApp({ onLogout }) {
   const deleteUnit = async unit => {
     const matchedIds = students.filter(s => s.matched_unit_id === unit.id).map(s => s.id)
     if (matchedIds.length > 0) {
+      // PHASE-2D: end every matched student's primary relationship through the
+      // canonical guarded path BEFORE any revert mutation. One failure aborts
+      // the entire unit delete so no student is left half-reverted and no
+      // canonical primary silently survives.
+      for (const sid of matchedIds) {
+        const cleared = await clearPrimaryPreceptor(sid, 'unit delete match revert')
+        if (!cleared.ok) {
+          toast.error('Unit not deleted', 'A primary preceptor could not be cleared, so no changes were made. Please try again.')
+          return
+        }
+      }
       await safeWrite(
-        () => supabase.from('students').update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' }).in('id', matchedIds),
+        () => supabase.from('students').update({ matched_unit_id: null, shift_assigned: '', interview_outcome: 'Pending Interview' }).in('id', matchedIds),
         { name: 'clear matched students on unit delete' }
       )
       await safeWrite(
@@ -660,7 +672,8 @@ function MainApp({ onLogout }) {
     )
     setStudents(prev => prev.map(s =>
       matchedIds.includes(s.id)
-        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' }
+        // Preceptor fields: local echo of the canonical server-side clear.
+        ? { ...s, matched_unit_id: null, preceptor_id: null, matched_preceptor: '', preceptor_email: '', shift_assigned: '', interview_outcome: 'Pending Interview' }
         : s
     ))
     const newMatchList = matches.filter(m => m.unit_id !== unit.id)
@@ -730,10 +743,21 @@ function MainApp({ onLogout }) {
       ? 'Not Proceeding'
       : (hasInterview ? 'Interviewed' : 'Form Received')
 
+    // PHASE-2D: end the primary preceptor relationship FIRST, through the one
+    // canonical guarded path (clear_primary_preceptor via the staff endpoint).
+    // The 2B trigger soft-ends the active-primary row and clears
+    // matched_preceptor / preceptor_email / the single same-cohort match FK
+    // server-side; already-clear students no-op. A failed clear aborts the
+    // whole revert before anything is mutated.
+    const cleared = await clearPrimaryPreceptor(student.id, 'match revert')
+    if (!cleared.ok) {
+      toast.error('Unmatch blocked', 'The primary preceptor could not be cleared, so no changes were made. Please try again.')
+      return
+    }
     const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
     if (match) await safeWrite(() => supabase.from('matches').delete().eq('id', match.id), { name: 'delete match on unmatch' })
     await safeWrite(
-      () => supabase.from('students').update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus }).eq('id', student.id),
+      () => supabase.from('students').update({ matched_unit_id: null, shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus }).eq('id', student.id),
       { name: 'update student on unmatch' }
     )
     // Derive from actual count so the field self-corrects if it was stale
@@ -747,7 +771,9 @@ function MainApp({ onLogout }) {
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
     setStudents(prev => prev.map(s =>
       s.id === student.id
-        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus }
+        // The preceptor fields are the local echo of the server-side clear (the
+        // trigger's exact result), not an independent write.
+        ? { ...s, matched_unit_id: null, preceptor_id: null, matched_preceptor: '', preceptor_email: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus }
         : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))

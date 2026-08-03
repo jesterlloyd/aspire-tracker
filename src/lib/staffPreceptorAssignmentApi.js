@@ -6,6 +6,20 @@ async function staffAuthHeader() {
   return token ? { Authorization: `Bearer ${token}` } : null
 }
 
+// PHASE-2D: end a student's primary-preceptor relationship through the one
+// canonical server path (clear_primary_preceptor RPC). Server-side the call is
+// idempotent: an already-clear student returns ok/no_change, so revert flows
+// may call this unconditionally. Each invocation is one intentional action and
+// carries its own request id.
+export async function clearPrimaryPreceptor(studentId, reason = null) {
+  return mutateStaffPreceptorAssignment({
+    action: 'clear_primary',
+    student_id: studentId,
+    reason,
+    request_id: crypto.randomUUID(),
+  })
+}
+
 export async function mutateStaffPreceptorAssignment(payload) {
   const headers = await staffAuthHeader()
   if (!headers) return { ok: false, status: 401, error: 'unauthenticated' }

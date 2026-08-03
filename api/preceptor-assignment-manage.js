@@ -68,6 +68,18 @@ export default async function handler(req, res) {
       p_confirm_override: body.confirm_override === true,
       p_request_id: requestId,
     }
+  } else if (action === 'clear_primary') {
+    // PHASE-2D: end the primary relationship through the canonical RPC. The 2B
+    // trigger performs the mirror cleanup; already-clear students no-op.
+    rpc = 'clear_primary_preceptor'
+    args = {
+      p_actor_profile_id: auth.profile.id,
+      p_student_id: body.student_id,
+      p_reason: body.reason || null,
+      p_force: body.force === true,
+      p_confirm_override: body.confirm_override === true,
+      p_request_id: requestId,
+    }
   } else if (action === 'set_secondary') {
     rpc = 'set_secondary_coverage_preceptor'
     args = {

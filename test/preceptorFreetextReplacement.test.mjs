@@ -85,16 +85,16 @@ test('already-linked students keep the canonical Change preceptor flow', () => {
   assert.match(panel, /Change preceptor/)
 })
 
-// ── Match-revert guard (decision pending; shape pinned) ──────────────────────
+// ── Match-revert guard ───────────────────────────────────────────────────────
+// PHASE-2D superseded the decision-pending shape these pins originally held:
+// the product decision (2026-08-03) is that reverting a match ENDS the primary
+// relationship, through the canonical guarded path only. The detailed contract
+// lives in test/primaryPreceptorClear.test.mjs; this guard keeps the original
+// invariant that App.jsx never writes the canonical field directly.
 
-test('match-revert still never touches the canonical identity directly', () => {
-  // App.jsx contains NO reference to preceptor_id at all: reverts clear only
-  // display fields, and no direct client write of the canonical field was
-  // invented. The surviving hidden primary after a revert is a recorded
-  // product decision (canonical primary-clear workflow does not exist yet).
-  assert.doesNotMatch(appjs, /preceptor_id/)
-  assert.match(appjs, /matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview'/)
-  assert.match(appjs, /matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null/)
+test('match-revert never writes the canonical identity directly', () => {
+  assert.doesNotMatch(appjs, /update\(\{[^}]*preceptor_id/, 'no direct client write of students.preceptor_id')
+  assert.match(appjs, /import \{ clearPrimaryPreceptor \} from '\.\/lib\/staffPreceptorAssignmentApi'/)
 })
 
 // ── Existing workflows stay pinned ───────────────────────────────────────────
