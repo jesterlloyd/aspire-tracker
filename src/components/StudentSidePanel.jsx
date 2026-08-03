@@ -799,7 +799,11 @@ export default function StudentSidePanel({
       }
       return
     }
-    if (field === 'matched_preceptor' || field === 'shift_assigned') {
+    // PRECEPTOR-FREETEXT-REPLACE-1: only the shift survives on this explicit
+    // placement action. matched_preceptor / preceptor_email are no longer
+    // editable anywhere in this panel; they are trigger-maintained display
+    // mirrors of the canonical students.preceptor_id.
+    if (field === 'shift_assigned') {
       try {
         await updatePreceptorAssignment(student.id, { [field]: value })
         setSaveStatus('saved')
@@ -2198,15 +2202,26 @@ export default function StudentSidePanel({
                     )}
                   </div>
                 ) : resolved.name || resolved.email ? (
+                  /* PRECEPTOR-FREETEXT-REPLACE-1: legacy free-text values are READ-ONLY.
+                     Primary identity changes go only through the canonical assignment modal
+                     (assign_primary_preceptor RPC); the sync trigger rewrites these display
+                     fields from the selected record on link. */
                   <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    <input className="sp-input" value={data.matched_preceptor||''} onChange={e => handleText('matched_preceptor', e.target.value)} placeholder="Preceptor name…" />
-                    <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                      <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
-                      {data.preceptor_email && <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openOutlookCompose({ to: data.preceptor_email })}>✉</button></Tooltip>}
-                    </div>
+                    <span style={{ alignSelf:'flex-start', fontSize:10.5, fontWeight:700, letterSpacing:'0.04em', textTransform:'uppercase', color:'#8B5E1A', background:'#FBF5E8', border:'1px solid #f0c9b0', borderRadius:999, padding:'2px 8px' }}>
+                      Unlinked legacy entry
+                    </span>
+                    {resolved.name && (
+                      <span style={{ fontSize:13, fontWeight:600, color:'#111' }}>{resolved.name}</span>
+                    )}
+                    {resolved.email && (
+                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#6b7280' }}>
+                        <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openOutlookCompose({ to: resolved.email })}>✉</button></Tooltip>
+                        {resolved.email}
+                      </div>
+                    )}
                     {canEdit && (
                       <button onClick={() => setAssignModalOpen(true)}
-                        style={{ alignSelf:'flex-start', fontSize:11, color:'#1D2567', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', padding:0, fontFamily:'DM Sans,sans-serif' }}>
+                        style={{ alignSelf:'flex-start', marginTop:2, fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}>
                         Link to preceptor record
                       </button>
                     )}
