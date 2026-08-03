@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const modal = readFileSync(join(here, '../src/components/settings/GrantPortalAccessModal.jsx'), 'utf8')
+const suggest = readFileSync(join(here, '../src/components/settings/ContactSuggest.jsx'), 'utf8')
 const autocomplete = readFileSync(join(here, '../src/components/connect/ContactAutocomplete.jsx'), 'utf8')
 const shared = readFileSync(join(here, '../src/lib/contactSearch.js'), 'utf8')
 
@@ -32,8 +33,13 @@ test('Grant modal identity + scope autofill', async (t) => {
   await t.test('name/email use the shared contacts search; Student uses a unified picker', () => {
     assert.match(modal, /import \{ useContactSearch[^}]*\} from '\.\.\/\.\.\/lib\/contactSearch'/)
     assert.match(modal, /function IdentityPicker/)
-    assert.match(modal, /function ContactSuggest/)
+    // STAFF-INVITE-CONTACTS-1: ContactSuggest moved VERBATIM to its own module
+    // so the staff invite shares the identical component; the Grant modal now
+    // imports it. Behavior is unchanged.
+    assert.match(modal, /import ContactSuggest from '\.\/ContactSuggest'/)
+    assert.match(suggest, /export default function ContactSuggest/)
     assert.match(modal, /useContactSearch\(value\)/)
+    assert.match(suggest, /useContactSearch\(value\)/)
   })
 
   await t.test('unit leader preselects units from the contact affiliation, editable', () => {
@@ -76,7 +82,8 @@ test('Grant modal identity + scope autofill', async (t) => {
   })
 
   await t.test('no-match state guides manual entry', () => {
-    assert.match(modal, /No matching contact found\. You can continue by entering the details manually\./)
+    // The contacts-only no-match copy now lives in the extracted component.
+    assert.match(suggest, /No matching contact found\. You can continue by entering the details manually\./)
     assert.match(modal, /No matching student or contact found\. You can continue by entering the details manually\./)
   })
 

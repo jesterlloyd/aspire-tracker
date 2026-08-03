@@ -222,10 +222,18 @@ test('the password recovery screen is untouched and still its own route', () => 
     'activation keeps the session so the user is not asked to sign in twice')
 })
 
-test('staff invitations and the staff app are not touched by this change', () => {
+test('the staff invitation now shares the same scanner-safe activation path', () => {
+  // SUPERSEDED BY STAFF-INVITE-CONTACTS-1. During PORTAL-ACTIVATION-RELIABILITY-1
+  // the staff path was deliberately left alone, and this pin recorded that.
+  // The staff invite has since been moved onto the SAME architecture (it
+  // previously used Supabase's default mailer and redirected to the app root,
+  // so a scanner could consume the link and a successful click created a
+  // session with no password). The contract is now shared, not divergent.
   const staffInvite = read('api/invite-user.js')
-  assert.ok(!staffInvite.includes('/auth/activate'),
-    'the staff invitation path is deliberately unchanged in this pass')
+  assert.ok(staffInvite.includes("appUrl('/auth/activate')"),
+    'staff invitations land on the password-creation screen')
+  assert.ok(staffInvite.includes('hashed_token'),
+    'staff invitations email the ASPIRE-owned hash link, never the verify URL')
 })
 
 test('portal role routing still decides the destination, not the activation page', () => {
