@@ -21,7 +21,16 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'cancel_booking'];
+const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'delete_slot', 'cancel_booking'];
+
+// AVAILABILITY-CALENDAR-1: breaks between interviews.
+//
+// The break is a GENERATION parameter, not new schema: it only changes the
+// stride between generated slots, and the resulting gap is already fully
+// described by the stored slot times (next slot_time minus this slot_time minus
+// duration_minutes). Readers derive it with deriveBreakMinutes below, so
+// configurable breaks ship with NO migration and NO new column.
+const ALLOWED_BREAKS = [0, 5, 10, 15, 30];
 
 async function verifyCaller(req) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
@@ -196,14 +205,23 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'internal_error' });
       }
 
-      // Generate time slots (preserved logic)
+      // Generate time slots. The only change from the original logic is the
+      // stride: an interview still occupies `dur` minutes, and the next one
+      // starts `dur + breakMinutes` later. The loop condition is unchanged, so
+      // a slot that would overflow the end time is still never created.
       const slots = [];
       const [startH, startM] = start_time.split(':').map(Number);
       const [endH, endM]     = end_time.split(':').map(Number);
       const startTotal = startH * 60 + startM;
       const endTotal   = endH * 60 + endM;
       const dur        = parseInt(duration_minutes);
-      for (let t = startTotal; t + dur <= endTotal; t += dur) {
+      const rawBreak   = body.break_minutes === undefined ? 0 : parseInt(body.break_minutes, 10);
+      if (!ALLOWED_BREAKS.includes(rawBreak)) {
+        await db.from('interview_availability_blocks').delete().eq('id', block.id);
+        return res.status(400).json({ error: 'invalid_request', field: 'break_minutes', message: 'Break must be 0, 5, 10, 15, or 30 minutes.' });
+      }
+      const stride = dur + rawBreak;
+      for (let t = startTotal; t + dur <= endTotal; t += stride) {
         const h = Math.floor(t / 60).toString().padStart(2, '0');
         const m = (t % 60).toString().padStart(2, '0');
         slots.push({
@@ -276,20 +294,103 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'forbidden', message: 'You can only manage your own availability.' });
       }
 
-      // Scheduling integrity (preserved): drop unbooked slots, refuse if booked remain.
-      const { error: slotsError } = await db.from('interview_slots').delete().eq('block_id', blockId).eq('is_booked', false);
+      // AVAILABILITY-CALENDAR-1 INTEGRITY FIX. The previous order deleted every
+      // unbooked slot FIRST and only then counted booked ones, so a refused
+      // delete (409 "cancel those bookings first") had ALREADY destroyed the
+      // block's open slots: the block stayed on screen advertising a window
+      // whose availability was silently gone. The booked count is now taken
+      // BEFORE anything is deleted, so a refusal changes nothing.
+      const { count: bookedCount, error: countError } = await db
+        .from('interview_slots').select('*', { count: 'exact', head: true })
+        .eq('block_id', blockId).eq('is_booked', true);
+      if (countError) return res.status(500).json({ error: 'internal_error' });
+      const booked = bookedCount || 0;
+
+      // A partially booked block can still have its OPEN slots released, but only
+      // on explicit consent (open_only). The block row itself is retained because
+      // the booked slots still reference it: deleting it would orphan scheduled
+      // interviews. Booked slots are never touched by this action.
+      if (booked > 0 && body.open_only !== true) {
+        return res.status(409).json({
+          error: 'conflict',
+          booked_count: booked,
+          message: `Cannot delete: ${booked} booked slot${booked !== 1 ? 's' : ''} in this block. Cancel those bookings first, or remove only the open slots.`,
+        });
+      }
+
+      const { error: slotsError, count: removedOpen } = await db
+        .from('interview_slots').delete({ count: 'exact' })
+        .eq('block_id', blockId).eq('is_booked', false);
       if (slotsError) return res.status(500).json({ error: 'internal_error' });
 
-      const { count } = await db.from('interview_slots').select('*', { count: 'exact', head: true }).eq('block_id', blockId).eq('is_booked', true);
-      if ((count || 0) > 0) {
-        return res.status(409).json({ error: 'conflict', message: `Cannot delete: ${count} booked slot${count !== 1 ? 's' : ''} in this block. Cancel those bookings first.` });
+      if (booked > 0) {
+        // Partial release: open slots gone, booked interviews and their parent
+        // block preserved, no orphaned rows.
+        console.log('[availability] open slots released; block retained for booked interviews', { callerRole: auth.role, blockId, booked, request_id: requestId });
+        return res.status(200).json({ success: true, block_retained: true, booked_count: booked, removed_open: removedOpen || 0 });
       }
 
       const { error: blockError } = await db.from('interview_availability_blocks').delete().eq('id', blockId);
       if (blockError) return res.status(500).json({ error: 'internal_error' });
 
       console.log('[availability] block deleted', { callerRole: auth.role, callerIsOwner: auth.isOwner, blockId, request_id: requestId });
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, block_retained: false, removed_open: removedOpen || 0 });
+    }
+
+    // ── DELETE ONE OPEN SLOT (parent block preserved) ─────────────────────────
+    // AVAILABILITY-CALENDAR-1: the day drawer previously deleted a single slot
+    // with a raw client-side write, so the action carried no ownership check of
+    // its own and no booked-slot guard. It now runs here, under the same
+    // ownership rule as delete_block, and refuses to touch a booked slot.
+    if (action === 'delete_slot') {
+      const slotId = typeof body.slot_id === 'string' ? body.slot_id : null;
+      if (!slotId || !UUID_REGEX.test(slotId)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'slot_id' });
+      }
+
+      const { data: slot, error: slotFetchError } = await db
+        .from('interview_slots')
+        .select('id, block_id, is_booked')
+        .eq('id', slotId)
+        .maybeSingle();
+      if (slotFetchError) return res.status(500).json({ error: 'internal_error' });
+      if (!slot) return res.status(404).json({ error: 'not_found' });
+      if (slot.is_booked) {
+        return res.status(409).json({ error: 'conflict', message: 'That slot is booked. Cancel the interview first.' });
+      }
+
+      // Ownership mirrors delete_block: Owner/Admin any, interviewer only their
+      // own block. A slot with no parent block is treated as admin-only.
+      if (!adminLevel) {
+        if (!slot.block_id) {
+          return res.status(403).json({ error: 'forbidden', message: 'You can only manage your own availability.' });
+        }
+        const { data: parent, error: parentError } = await db
+          .from('interview_availability_blocks')
+          .select('id, created_by_user_id')
+          .eq('id', slot.block_id)
+          .maybeSingle();
+        if (parentError) return res.status(500).json({ error: 'internal_error' });
+        if (!parent || parent.created_by_user_id !== auth.profileId) {
+          return res.status(403).json({ error: 'forbidden', message: 'You can only manage your own availability.' });
+        }
+      }
+
+      const { error: deleteError } = await db.from('interview_slots').delete().eq('id', slotId);
+      if (deleteError) return res.status(500).json({ error: 'internal_error' });
+
+      // Report the parent's remaining open count so the summary refreshes
+      // immediately without a second round trip.
+      let remainingOpen = null;
+      if (slot.block_id) {
+        const { count } = await db.from('interview_slots')
+          .select('*', { count: 'exact', head: true })
+          .eq('block_id', slot.block_id).eq('is_booked', false);
+        remainingOpen = count || 0;
+      }
+
+      console.log('[availability] slot deleted', { callerRole: auth.role, slotId, blockId: slot.block_id, request_id: requestId });
+      return res.status(200).json({ success: true, block_id: slot.block_id, remaining_open: remainingOpen });
     }
 
     // ── CANCEL BOOKING (reverts student) ──────────────────────────────────────

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { X, Trash2, Copy, Check } from 'lucide-react'
 import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
+import { deriveBreakMinutes } from '../lib/interviewAvailability'
 import { safeWrite } from '../lib/safeWrite'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -211,6 +212,8 @@ export default function InterviewDayDrawer({
   }, [highlightedSlotId])
   const [deletingBlock, setDeletingBlock] = useState(null)
   const [deletingSlot, setDeletingSlot] = useState(null)
+  // Per-block slot expansion in the unified Availability section.
+  const [expandedBlocks, setExpandedBlocks] = useState({})
   const [blockingSlot, setBlockingSlot] = useState(null)   // slot object for BlockTimeModal
   const [toastMsg,     setToastMsg]     = useState(null)
 
@@ -277,15 +280,74 @@ export default function InterviewDayDrawer({
     invalidateAll()
   }
 
+  // AVAILABILITY-CALENDAR-1: group open slots under their parent block so the
+  // day shows each availability once. Slots whose parent is absent are kept in
+  // an explicit null group rather than dropped.
+  // Plain derivations (not hooks): this component computes availableSlots after
+  // an early return, and a day's slot list is small enough that grouping it on
+  // each render costs nothing.
+  const availabilityGroups = (() => {
+    const byBlock = new Map()
+    for (const slot of availableSlots) {
+      const key = slot.block_id || '__unlinked__'
+      if (!byBlock.has(key)) byBlock.set(key, [])
+      byBlock.get(key).push(slot)
+    }
+    const blockById = new Map((blocks || []).map(b => [b.id, b]))
+    return [...byBlock.entries()].map(([key, groupSlots]) => ({
+      key,
+      block: key === '__unlinked__' ? null : (blockById.get(key) || null),
+      slots: [...groupSlots].sort((a, b) => String(a.slot_time).localeCompare(String(b.slot_time))),
+    })).sort((a, b) => String(a.slots[0]?.slot_time || '').localeCompare(String(b.slots[0]?.slot_time || '')))
+  })()
+
+  // Blocks with no open slots left (fully booked) still belong to the day.
+  const fullyBookedBlocks = (() => {
+    const withOpen = new Set(availableSlots.map(s => s.block_id).filter(Boolean))
+    return (blocks || []).filter(b => !withOpen.has(b.id))
+  })()
+
+  // "4 interview slots · 30 minutes each · 10-minute breaks", with the break
+  // DERIVED from the slot times (no schema stores it).
+  const summarizeGroup = (groupSlots) => {
+    const count = groupSlots.length
+    const duration = groupSlots[0]?.duration_minutes
+    const brk = deriveBreakMinutes(groupSlots.map(s => s.slot_time), duration)
+    const parts = [`${count} interview slot${count !== 1 ? 's' : ''}`]
+    if (duration) parts.push(`${duration} minutes each`)
+    if (brk != null && brk > 0) parts.push(`${brk}-minute breaks`)
+    else if (brk === 0 && count > 1) parts.push('no breaks')
+    return parts.join(' · ')
+  }
+
   const handleDeleteSlot = async (slotId) => {
     if (!window.confirm('Delete this single slot? The parent availability block stays intact.')) return
     setDeletingSlot(slotId)
-    await safeWrite(
-      () => supabase.from('interview_slots').delete().eq('id', slotId),
-      { name: 'delete interview slot' }
-    )
+    // AVAILABILITY-CALENDAR-1: routed through the availability endpoint instead
+    // of a raw client delete, so the action carries the same ownership rule as
+    // block deletion and refuses a booked slot. The parent block is untouched
+    // and its summary refreshes from the invalidation below.
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch('/api/availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ action: 'delete_slot', slot_id: slotId }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        showToast(json?.message || 'Could not delete that slot.')
+        setDeletingSlot(null)
+        return
+      }
+      showToast('Slot deleted')
+    } catch {
+      showToast('Could not delete that slot.')
+      setDeletingSlot(null)
+      return
+    }
     setDeletingSlot(null)
-    showToast('Slot deleted')
     invalidateAll()
   }
 
@@ -431,29 +493,71 @@ export default function InterviewDayDrawer({
             </section>
           )}
 
-          {/* ── Section 2: Open Availability Slots ── */}
-          {availableSlots.length > 0 && (
+          {/* ── Section 2: Availability, ONE row per parent block ──
+              AVAILABILITY-CALENDAR-1: this replaces the old pair of unrelated
+              sections ("Open Availability Slots" and a separate "Availability
+              Blocks" list) that rendered the same availability twice with no
+              linkage, so deleting from one left the other on screen. Each parent
+              block now appears once with its own summary and actions, and its
+              generated slots expand beneath it. Slots whose parent is missing
+              are still shown, under an explicit heading, so nothing is hidden. */}
+          {availabilityGroups.length > 0 && (
             <section style={{ marginBottom: 24 }}>
-              <SectionHeader title="Open Availability Slots" count={availableSlots.length} badgeBg="#D1FAE5" badgeColor="#065F46" />
-              {availableSlots.map(slot => {
-                const endTime = addMinutes(slot.slot_time, slot.duration_minutes)
+              <SectionHeader title="Availability" count={availableSlots.length} badgeBg="#D1FAE5" badgeColor="#065F46" />
+              {availabilityGroups.map(group => {
+                const { block, slots: groupSlots, key } = group
+                const open = expandedBlocks[key] !== false
                 return (
-                  <div key={slot.id} id={`slot-row-${slot.id}`} style={slotCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ fontSize: 11, color: '#6B7280' }}>
-                        {fmtTime(slot.slot_time)} – {fmtTime(endTime)} · {slot.duration_minutes} min
+                  <div key={key} style={{ ...slotCard, gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1D2567' }}>
+                          {block ? block.interviewer_name : 'Unlinked slots'}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: '#374151', marginTop: 2 }}>
+                          {block
+                            ? `${fmtTime(block.start_time)} – ${fmtTime(block.end_time)}`
+                            : 'No parent availability block'}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                          {summarizeGroup(groupSlots)}
+                        </div>
                       </div>
-                      <StatusPill status="available" />
+                      <button type="button" onClick={() => setExpandedBlocks(p => ({ ...p, [key]: !open }))}
+                        aria-expanded={open}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1D2567', fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, padding: 0, flexShrink: 0 }}>
+                        {open ? 'Hide slots' : `Show ${groupSlots.length} slot${groupSlots.length !== 1 ? 's' : ''}`}
+                      </button>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <InterviewerChip name={slot.interviewer_name} colorMap={colorMap} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <MBtn variant="outline" onClick={() => setBlockingSlot(slot)}>Block Time</MBtn>
-                      <MBtn variant="danger" disabled={deletingSlot === slot.id} onClick={() => handleDeleteSlot(slot.id)}>
-                        {deletingSlot === slot.id ? '…' : <><Trash2 size={10} /> Delete</>}
-                      </MBtn>
-                    </div>
+
+                    {block && canDelete(block) && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <MBtn variant="danger" disabled={deletingBlock === block.id} onClick={() => handleDeleteBlock(block)}>
+                          {deletingBlock === block.id ? '…' : <><Trash2 size={10} /> Delete availability</>}
+                        </MBtn>
+                      </div>
+                    )}
+
+                    {open && groupSlots.map(slot => {
+                      const endTime = addMinutes(slot.slot_time, slot.duration_minutes)
+                      return (
+                        <div key={slot.id} id={`slot-row-${slot.id}`}
+                          style={{ borderLeft: '2px solid #D1FAE5', paddingLeft: 10, marginLeft: 2, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                            <div style={{ fontSize: 11, color: '#6B7280' }}>
+                              {fmtTime(slot.slot_time)} – {fmtTime(endTime)} · {slot.duration_minutes} min
+                            </div>
+                            <StatusPill status="available" />
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <MBtn variant="outline" onClick={() => setBlockingSlot(slot)}>Block Time</MBtn>
+                            <MBtn variant="danger" disabled={deletingSlot === slot.id} onClick={() => handleDeleteSlot(slot.id)}>
+                              {deletingSlot === slot.id ? '…' : <><Trash2 size={10} /> Delete</>}
+                            </MBtn>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })}
@@ -498,21 +602,25 @@ export default function InterviewDayDrawer({
             </div>
           )}
 
-          {/* ── Block-level management (admin) ── */}
-          {isAdmin && (blocks || []).length > 0 && (
+          {/* AVAILABILITY-CALENDAR-1: the separate "Availability Blocks" list is
+              gone. Its content is the parent row of the unified Availability
+              section above, so a block is never rendered twice. A fully booked
+              block (no open slots left) still needs a home, so it appears here
+              with its booked count rather than disappearing from the day. */}
+          {isAdmin && fullyBookedBlocks.length > 0 && (
             <section style={{ marginBottom: 24 }}>
-              <SectionHeader title="Availability Blocks" count={(blocks||[]).length} badgeBg="#F4F1EC" badgeColor="#1D2567" />
-              {(blocks || []).map(block => (
+              <SectionHeader title="Fully Booked Availability" count={fullyBookedBlocks.length} badgeBg="#F4F1EC" badgeColor="#1D2567" />
+              {fullyBookedBlocks.map(block => (
                 <div key={block.id} style={{ ...slotCard, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1D2567' }}>{block.interviewer_name}</div>
                     <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>
-                      {fmtTime(block.start_time)} – {fmtTime(block.end_time)} · {block.duration_minutes} min slots
+                      {fmtTime(block.start_time)} – {fmtTime(block.end_time)} · no open slots remaining
                     </div>
                   </div>
                   {canDelete(block) && (
                     <MBtn variant="danger" disabled={deletingBlock === block.id} onClick={() => handleDeleteBlock(block)}>
-                      {deletingBlock === block.id ? '…' : <><Trash2 size={10} /> Delete</>}
+                      {deletingBlock === block.id ? '…' : <><Trash2 size={10} /> Delete availability</>}
                     </MBtn>
                   )}
                 </div>

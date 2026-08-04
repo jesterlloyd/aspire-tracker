@@ -10,6 +10,11 @@ import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 import CalendarSidebar from './CalendarSidebar'
 import { CanonicalCalendarNav, CanonicalWeekdayHeader } from './shared/CanonicalCalendarFoundation'
 import InterviewDayDrawer from './InterviewDayDrawer'
+import {
+  INTERVIEW_LENGTHS, BREAK_OPTIONS, DEFAULT_BREAK_MINUTES, interviewLengthLabel, breakLabel,
+  // Aliased: this file already defines a local week-view toMinutes helper.
+  toMinutes as minutesOf, toHHMM, formatTime12, parseTimeInput, nextHalfHourFrom, slotCountFor, describeCadence,
+} from '../lib/interviewAvailability'
 import AspireEventModal from './AspireEventModal'
 import { toLocalDateStr } from '../lib/designTokens'
 import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
@@ -125,15 +130,52 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
   // WAVE F-2: the block is attributed to a linked interviewer ACCOUNT, so the form carries the
   // profile id (not a free-text name). Owner/Admin pick an account; a self-scheduling interviewer
   // is their own account, and the server forces that regardless of what is sent.
+  // AVAILABILITY-CALENDAR-1: Start defaults to the next nearest 30-minute mark
+  // (never an arbitrary minute), End follows the default 1-hour suggestion, and
+  // the break defaults to 10 minutes.
+  const initialStart = startTime || nextHalfHourFrom()
   const [form, setForm] = useState({
-    block_date:       date || '',
-    start_time:       startTime || '09:00',
-    end_time:         endTime   || '12:00',
+    block_date:       date || new Date().toISOString().slice(0, 10),
+    start_time:       initialStart,
+    end_time:         endTime || toHHMM((minutesOf(initialStart) ?? 0) + 60),
     duration_minutes: 30,
+    break_minutes:    DEFAULT_BREAK_MINUTES,
     interviewer_profile_id: null,   // null = untouched, so the default below can resolve late
   })
+  // Raw text while typing a time; committed to form on blur/Enter so direct
+  // entry ("9", "930", "1:15pm") works without minute-by-minute stepping.
+  const [startText, setStartText] = useState(formatTime12(initialStart))
+  const [endText, setEndText] = useState(formatTime12(form.end_time))
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
+
+  const commitTime = (which, raw) => {
+    const parsed = parseTimeInput(raw)
+    if (!parsed) {
+      // Unreadable input reverts to the committed value rather than clearing it.
+      if (which === 'start') setStartText(formatTime12(form.start_time))
+      else setEndText(formatTime12(form.end_time))
+      return
+    }
+    setError('')
+    if (which === 'start') {
+      setStartText(formatTime12(parsed))
+      setForm(p => {
+        // Keep the window valid: a start at or past the end pushes the end out
+        // by the previous duration rather than leaving an impossible range.
+        const prevSpan = Math.max(30, (minutesOf(p.end_time) ?? 0) - (minutesOf(p.start_time) ?? 0))
+        const nextEnd = (minutesOf(parsed) ?? 0) + prevSpan
+        const keepEnd = (minutesOf(p.end_time) ?? 0) > (minutesOf(parsed) ?? 0)
+        const end = keepEnd ? p.end_time : toHHMM(nextEnd)
+        setEndText(formatTime12(end))
+        return { ...p, start_time: parsed, end_time: end }
+      })
+    } else {
+      setEndText(formatTime12(parsed))
+      setForm(p => ({ ...p, end_time: parsed }))
+    }
+  }
+
 
   // Profiles come from a cached query and may arrive after this popover mounts, so the default is
   // derived on each render rather than frozen into initial state. An explicit choice (including the
@@ -170,6 +212,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
           start_time:             form.start_time,
           end_time:               form.end_time,
           duration_minutes:       form.duration_minutes,
+          break_minutes:          form.break_minutes,
         }),
       })
       const data = await res.json()
@@ -194,13 +237,12 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
     textTransform: 'uppercase', letterSpacing: '0.04em',
   }
 
-  const slotCount = (() => {
-    if (!form.start_time || !form.end_time || !form.duration_minutes) return 0
-    const [sh, sm] = form.start_time.split(':').map(Number)
-    const [eh, em] = form.end_time.split(':').map(Number)
-    const total = eh * 60 + em - (sh * 60 + sm)
-    return total > 0 ? Math.floor(total / form.duration_minutes) : 0
-  })()
+  // Break-aware count from the SHARED generator, so the preview promises exactly
+  // what the server will create (and never a partial slot past the end time).
+  const slotCount = slotCountFor({
+    start: form.start_time, end: form.end_time,
+    duration: form.duration_minutes, breakMinutes: form.break_minutes,
+  })
 
   // Anchor near the trigger (a date cell or the header button) using the shared collision helper:
   // prefer below/beside, flip near a viewport edge, clamp within margins, and bound the height so the
@@ -268,32 +310,49 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
             style={inputStyle} />
         </div>
 
+        {/* Direct typing: "9", "930", "1:15pm" all commit on blur or Enter. */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <div>
-            <label style={labelStyle}>Start</label>
-            <input type="time" value={form.start_time}
-              onChange={e => setForm(p => ({ ...p, start_time: e.target.value }))}
-              style={inputStyle} />
+            <label style={labelStyle} htmlFor="avail-start">Start</label>
+            <input id="avail-start" type="text" inputMode="numeric" value={startText}
+              onChange={e => setStartText(e.target.value)}
+              onBlur={e => commitTime('start', e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitTime('start', e.currentTarget.value) } }}
+              placeholder="9:00 AM" aria-label="Start time" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>End</label>
-            <input type="time" value={form.end_time}
-              onChange={e => setForm(p => ({ ...p, end_time: e.target.value }))}
-              style={inputStyle} />
+            <label style={labelStyle} htmlFor="avail-end">End</label>
+            <input id="avail-end" type="text" inputMode="numeric" value={endText}
+              onChange={e => setEndText(e.target.value)}
+              onBlur={e => commitTime('end', e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitTime('end', e.currentTarget.value) } }}
+              placeholder="12:00 PM" aria-label="End time" style={inputStyle} />
           </div>
         </div>
 
-        <div>
-          <label style={labelStyle}>Slot Duration</label>
-          <select value={form.duration_minutes}
-            onChange={e => setForm(p => ({ ...p, duration_minutes: parseInt(e.target.value) }))}
-            style={inputStyle}>
-            <option value={15}>15 minutes</option>
-            <option value={20}>20 minutes</option>
-            <option value={30}>30 minutes</option>
-            <option value={45}>45 minutes</option>
-            <option value={60}>60 minutes</option>
-          </select>
+        {/* AVAILABILITY-CALENDAR-1B: the separate Duration chip row is gone.
+            Start and End already define the availability window, so a second
+            "duration" control described the same thing in different words and
+            read as if it competed with Interview length. The model is now one
+            idea per field: Start/End = the window, Interview length = how long
+            each interview runs, Break = the buffer between them. */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <div>
+            <label style={labelStyle} htmlFor="avail-length">Interview length</label>
+            <select id="avail-length" value={form.duration_minutes}
+              onChange={e => setForm(p => ({ ...p, duration_minutes: parseInt(e.target.value) }))}
+              style={inputStyle}>
+              {INTERVIEW_LENGTHS.map(m => <option key={m} value={m}>{interviewLengthLabel(m)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle} htmlFor="avail-break">Break between interviews</label>
+            <select id="avail-break" value={form.break_minutes}
+              onChange={e => setForm(p => ({ ...p, break_minutes: parseInt(e.target.value) }))}
+              style={inputStyle}>
+              {BREAK_OPTIONS.map(m => <option key={m} value={m}>{breakLabel(m)}</option>)}
+            </select>
+          </div>
         </div>
 
         <div>
@@ -314,14 +373,27 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
           )}
         </div>
 
+        {/* Live preview: count, cadence, and the window it covers. */}
         {slotCount > 0 && (
-          <div style={{
-            background: '#f0f3ff', borderRadius: '8px', padding: '8px 12px',
+          <div role="status" style={{
+            background: '#f0f3ff', borderRadius: '8px', padding: '9px 12px',
             fontFamily: 'DM Sans', fontSize: '12px', color: '#1D2567',
-            display: 'flex', alignItems: 'center', gap: '6px',
+            display: 'flex', alignItems: 'flex-start', gap: '7px', lineHeight: 1.5,
           }}>
-            <CheckCircle size={13} color="#1D2567" />
-            {slotCount} slot{slotCount !== 1 ? 's' : ''} will be created
+            <CheckCircle size={13} color="#1D2567" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span>
+              <strong>{slotCount} interview slot{slotCount !== 1 ? 's' : ''} will be created</strong><br />
+              {describeCadence(form.duration_minutes, form.break_minutes)}<br />
+              {formatTime12(form.start_time)} to {formatTime12(form.end_time)}
+            </span>
+          </div>
+        )}
+        {slotCount === 0 && (
+          <div role="status" style={{
+            background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: '8px', padding: '9px 12px',
+            fontFamily: 'DM Sans', fontSize: '12px', color: '#8B5E1A', lineHeight: 1.5,
+          }}>
+            No slots fit yet. Extend the end time, or shorten the interview length or break.
           </div>
         )}
 
@@ -341,7 +413,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
           fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff',
           cursor: saving ? 'default' : 'pointer',
         }}>
-          {saving ? 'Creating...' : 'Create Block'}
+          {saving ? 'Creating…' : 'Create availability'}
         </button>
       </div>
     </div>
