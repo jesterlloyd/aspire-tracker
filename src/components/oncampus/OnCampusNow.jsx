@@ -10,13 +10,13 @@
 // Each row: { key, avatar, name, subLabel, badge:{label,tone}|null, statusText, statusWarn,
 //             onClick, ariaLabel }
 
-// Passing `title={null}` omits the whole header row. That is opt-in: every
-// existing caller passes a title string and is unaffected. It exists for hosts
-// that already print their own heading (the Interviews workspace prints
-// "Interviews Today" plus a date/count summary above these cards), so the
-// shared renderer does not repeat it.
+// `flush` removes the card system's own horizontal inset for hosts that already
+// sit inside a padded page column, so the header and cards line up with the
+// surrounding content instead of being pushed in. Opt-in; the masthead callers
+// keep the inset.
 export default function OnCampusNow({
   title = 'On Campus Now',
+  flush = false,
   sub = null,
   onViewAll = null,
   rows = [],
@@ -24,17 +24,15 @@ export default function OnCampusNow({
 }) {
   if (rows.length === 0 && !emptyText) return null
   return (
-    <div className={title ? 'mast-live' : 'mast-live mast-live-headless'}>
-      {title && (
-        <div className="mast-live-head">
-          <span className="mast-live-dot" aria-hidden />
-          <span className="mast-live-title">{title}</span>
-          {sub && <span className="mast-live-sub">{sub}</span>}
-          {onViewAll && (
-            <button type="button" className="mast-live-link" onClick={onViewAll}>View all activity →</button>
-          )}
-        </div>
-      )}
+    <div className={flush ? 'mast-live mast-live-flush' : 'mast-live'}>
+      <div className="mast-live-head">
+        <span className="mast-live-dot" aria-hidden />
+        <span className="mast-live-title">{title}</span>
+        {sub && <span className="mast-live-sub">{sub}</span>}
+        {onViewAll && (
+          <button type="button" className="mast-live-link" onClick={onViewAll}>View all activity →</button>
+        )}
+      </div>
       {rows.length === 0 ? (
         <p className="mast-live-empty">{emptyText}</p>
       ) : (

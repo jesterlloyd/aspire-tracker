@@ -118,26 +118,15 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
   const todayShort = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   return (
-    <div style={{ marginBottom: 16, fontFamily: 'DM Sans, sans-serif' }}>
-      {/* Section eyebrow */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
-        <span style={{
-          fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-          letterSpacing: '0.12em', color: '#0E1428',
-        }}>
-          Interviews Today
-        </span>
-        <span style={{ fontSize: 11, color: '#9ca3af' }}>
-          {todayShort} · {rows.length} scheduled
-        </span>
-      </div>
-
-      {/* Compact cards: the SHARED OnCampusNow renderer, so this workspace and
-          the At a Glance band are visually identical by construction. */}
-      {/* title={null}: this workspace already prints its own "Interviews Today"
-          heading and date/count summary above, so the shared renderer omits its
-          header rather than repeating the title. */}
-      <OnCampusNow title={null} rows={rows} />
-    </div>
+    // INTERVIEWS-TODAY-HEADER-1: the shared green-dot section header IS the
+    // heading now. The older outer eyebrow + separate summary line is gone, so
+    // this tab and At a Glance present the identical header pattern, and `flush`
+    // aligns the header and cards with the page column.
+    <OnCampusNow
+      title="Interviews Today"
+      sub={`${todayShort} · ${rows.length} scheduled`}
+      rows={rows}
+      flush
+    />
   )
 }

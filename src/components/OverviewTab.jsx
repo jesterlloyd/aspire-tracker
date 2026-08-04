@@ -76,7 +76,7 @@ function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequest
 // system. It is role-aware by CANONICAL PROFILE ID (slot -> parent availability
 // block -> interviewer_profile_id), never by display name, and it renders
 // nothing at all when the viewer has no interviews today - no empty placeholder.
-function InterviewsTodayStrip({ cohortId, onSelectStudent }) {
+function InterviewsTodayStrip({ cohortId, onOpenInterview }) {
   const { userProfile, isAdmin } = useAuth()
   const localDate = new Date().toLocaleDateString('en-CA')
 
@@ -86,7 +86,8 @@ function InterviewsTodayStrip({ cohortId, onSelectStudent }) {
       const { data } = await supabase.from('interview_slots')
         .select(`id, slot_date, slot_time, duration_minutes, block_id, interviewer_name,
                  is_booked, booked_by_student_id,
-                 students!booked_by_student_id ( id, first_name, last_name, school, program_type, headshot_url )`)
+                 students!booked_by_student_id ( id, first_name, last_name, school, program_type, headshot_url ),
+                 interview_sessions!slot_id ( id, interview_flag )`)
         .eq('cohort_id', cohortId).eq('slot_date', localDate).eq('is_booked', true)
         .order('slot_time', { ascending: true })
       return data || []
@@ -111,9 +112,13 @@ function InterviewsTodayStrip({ cohortId, onSelectStudent }) {
   const rows = buildInterviewRows(sortInterviews(scoped), {
     avatarFor: (student) => <StudentAvatar student={student} size={34} />,
     interviewerNameFor: (slot) => blocksById[slot.block_id]?.interviewer_name || slot.interviewer_name || '',
+    // Interview cards open the EXISTING Interview Rubric workflow. They must not
+    // inherit On Campus Now's Rotation > Activity destination: the shared
+    // renderer imposes no navigation, each caller supplies its own onClick.
     onOpen: (slot) => {
       const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
-      if (student?.id) onSelectStudent?.(student.id)
+      const session = Array.isArray(slot.interview_sessions) ? slot.interview_sessions[0] : slot.interview_sessions
+      onOpenInterview?.({ slotId: slot.id, sessionId: session?.id, student, slot, cohortId })
     },
   })
   if (rows.length === 0) return null   // no empty placeholder, by design
@@ -1024,7 +1029,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       <TodayMasthead students={students} cohort={cohort} cohortId={cohortId}
         currentUserId={currentUserId} onTodayRoute={onTodayRoute} />
       <AttentionDigest attention={attention} onOpenActionCenter={onOpenActionCenter} />
-      <InterviewsTodayStrip cohortId={cohortId} onSelectStudent={onSelectStudent} />
+      <InterviewsTodayStrip cohortId={cohortId} onOpenInterview={() => navigate('/interviews')} />
       <OnCampusStrip
         mergedCampusLogs={campusLoading ? [] : mergedCampusLogs}
         students={students} units={units}

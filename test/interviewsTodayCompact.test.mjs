@@ -150,29 +150,53 @@ test('the module performs no data access and no authorization of its own', () =>
   assert.doesNotMatch(lib, /supabase|fetch\(|from\('/)
 })
 
-// ── One visible heading per surface ──────────────────────────────────────────
+// ── One shared header treatment on both surfaces ────────────────────────────
 
-test('the Interviews workspace prints ONE heading; the shared header is omitted', () => {
+test('INTERVIEWS-TODAY-HEADER-1: the Interviews tab uses the shared green-dot header', () => {
   const ws = read('src/components/TodaysInterviews.jsx')
-  // The workspace keeps its own eyebrow heading and date/count summary...
-  assert.match(ws, />\s*Interviews Today\s*</)
-  assert.match(ws, /\{todayShort\} · \{rows\.length\} scheduled/)
-  // ...and tells the shared renderer not to repeat the title.
-  assert.match(ws, /<OnCampusNow title=\{null\} rows=\{rows\} \/>/)
-  assert.doesNotMatch(ws, /<OnCampusNow title="Interviews Today"/)
+  // The shared header (dot + title + same-line summary) IS the heading now...
+  assert.match(ws, /<OnCampusNow\n\s+title="Interviews Today"\n\s+sub=\{`\$\{todayShort\} · \$\{rows\.length\} scheduled`\}/)
+  assert.match(ws, /flush\n\s+\/>/)
+  // ...and the older outer eyebrow heading + separate summary line is gone.
+  assert.doesNotMatch(ws, /textTransform: 'uppercase'/)
+  assert.doesNotMatch(ws, /title=\{null\}/)
 })
 
-test('omitting the title is opt-in and collapses the space the header held', () => {
+test('the header renders unconditionally again; flush only drops the inset', () => {
   const occ = read('src/components/oncampus/OnCampusNow.jsx')
-  assert.match(occ, /\{title && \(/, 'the header row is conditional')
-  assert.match(occ, /title \? 'mast-live' : 'mast-live mast-live-headless'/)
-  assert.match(read('src/index.css'), /\.mast-live-headless \.mast-live-grid \{ margin-top: 0; \}/)
-  // The default is unchanged, so every existing caller keeps its header.
-  assert.match(occ, /title = 'On Campus Now'/)
+  assert.match(occ, /<div className="mast-live-head">/)
+  assert.doesNotMatch(occ, /\{title && \(/, 'the header is no longer conditional')
+  assert.match(occ, /flush = false,/)
+  assert.match(occ, /flush \? 'mast-live mast-live-flush' : 'mast-live'/)
+  assert.match(read('src/index.css'), /\.mast-live-flush \{ margin-left: 0; margin-right: 0; \}/)
+  assert.doesNotMatch(read('src/index.css'), /mast-live-headless/)
 })
 
-test('At a Glance still labels BOTH sections', () => {
+test('both surfaces present the identical header pattern', () => {
   const ov = read('src/components/OverviewTab.jsx')
   assert.match(ov, /<OnCampusNow title="Interviews Today" sub=\{sub\} rows=\{rows\} \/>/)
   assert.match(ov, /<OnCampusNow title="On Campus Now" sub=\{sub\} onViewAll=\{onOpenActivity\} rows=\{rows\} \/>/)
+})
+
+// ── Each caller owns its own navigation ──────────────────────────────────────
+
+test('At a Glance interview cards open the Interview Rubric, NOT Rotation > Activity', () => {
+  const ov = read('src/components/OverviewTab.jsx')
+  assert.match(ov, /onOpenInterview\?\.\(\{ slotId: slot\.id, sessionId: session\?\.id, student, slot, cohortId \}\)/)
+  assert.match(ov, /<InterviewsTodayStrip cohortId=\{cohortId\} onOpenInterview=\{\(\) => navigate\('\/interviews'\)\} \/>/)
+  // The interview strip must not carry On Campus Now's activity destination.
+  const strip = ov.slice(ov.indexOf('function InterviewsTodayStrip'), ov.indexOf('function OnCampusStrip'))
+  assert.doesNotMatch(strip, /rotation\/activity/)
+  assert.doesNotMatch(strip, /onViewAll/)
+})
+
+test('On Campus Now still opens Rotation > Activity, unchanged', () => {
+  const ov = read('src/components/OverviewTab.jsx')
+  assert.match(ov, /onOpenActivity=\{\(\) => navigate\('\/rotation\/activity'\)\}/)
+})
+
+test('the shared renderer imposes no navigation of its own', () => {
+  const occ = read('src/components/oncampus/OnCampusNow.jsx')
+  assert.doesNotMatch(occ, /navigate|rotation|interviews/i)
+  assert.match(occ, /onClick=\{r\.onClick\}/, 'each row supplies its own handler')
 })
