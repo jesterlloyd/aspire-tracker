@@ -134,7 +134,10 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
 
       {/* Compact cards: the SHARED OnCampusNow renderer, so this workspace and
           the At a Glance band are visually identical by construction. */}
-      <OnCampusNow title="Interviews Today" rows={rows} />
+      {/* title={null}: this workspace already prints its own "Interviews Today"
+          heading and date/count summary above, so the shared renderer omits its
+          header rather than repeating the title. */}
+      <OnCampusNow title={null} rows={rows} />
     </div>
   )
 }

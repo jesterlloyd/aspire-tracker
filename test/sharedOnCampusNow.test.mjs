@@ -54,7 +54,10 @@ test('missing preceptor and missing name fall back safely', () => {
 test('OnCampusNow renders role-safe rows as buttons, with a zero-state', () => {
   const c = read('src/components/oncampus/OnCampusNow.jsx')
   assert.ok(!/fetch\(|supabase|useQuery|useEffect|useState/.test(c), 'presentational only, no data/side effects')
-  assert.match(c, /className="mast-live"/)             // reuses the canonical card system
+  // Still the canonical card system; the class is now applied conditionally so a
+  // host that prints its own heading can omit the shared header (title={null}).
+  assert.match(c, /'mast-live'/)                        // reuses the canonical card system
+  assert.match(c, /title \? 'mast-live' : 'mast-live mast-live-headless'/)
   assert.match(c, /<button[\s\S]*?className="mast-live-card"/)  // cards are buttons (keyboard-activatable)
   assert.match(c, /emptyText/)                         // zero-state supported
   assert.match(c, /mast-live-empty/)

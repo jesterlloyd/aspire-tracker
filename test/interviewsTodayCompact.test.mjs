@@ -149,3 +149,30 @@ test('each row carries an accessible label naming person, state and time', () =>
 test('the module performs no data access and no authorization of its own', () => {
   assert.doesNotMatch(lib, /supabase|fetch\(|from\('/)
 })
+
+// ── One visible heading per surface ──────────────────────────────────────────
+
+test('the Interviews workspace prints ONE heading; the shared header is omitted', () => {
+  const ws = read('src/components/TodaysInterviews.jsx')
+  // The workspace keeps its own eyebrow heading and date/count summary...
+  assert.match(ws, />\s*Interviews Today\s*</)
+  assert.match(ws, /\{todayShort\} · \{rows\.length\} scheduled/)
+  // ...and tells the shared renderer not to repeat the title.
+  assert.match(ws, /<OnCampusNow title=\{null\} rows=\{rows\} \/>/)
+  assert.doesNotMatch(ws, /<OnCampusNow title="Interviews Today"/)
+})
+
+test('omitting the title is opt-in and collapses the space the header held', () => {
+  const occ = read('src/components/oncampus/OnCampusNow.jsx')
+  assert.match(occ, /\{title && \(/, 'the header row is conditional')
+  assert.match(occ, /title \? 'mast-live' : 'mast-live mast-live-headless'/)
+  assert.match(read('src/index.css'), /\.mast-live-headless \.mast-live-grid \{ margin-top: 0; \}/)
+  // The default is unchanged, so every existing caller keeps its header.
+  assert.match(occ, /title = 'On Campus Now'/)
+})
+
+test('At a Glance still labels BOTH sections', () => {
+  const ov = read('src/components/OverviewTab.jsx')
+  assert.match(ov, /<OnCampusNow title="Interviews Today" sub=\{sub\} rows=\{rows\} \/>/)
+  assert.match(ov, /<OnCampusNow title="On Campus Now" sub=\{sub\} onViewAll=\{onOpenActivity\} rows=\{rows\} \/>/)
+})

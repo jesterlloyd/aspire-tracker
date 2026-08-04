@@ -1931,6 +1931,10 @@ a.doc-file-link:hover { text-decoration: underline; }
   font-size: 12px; font-weight: 600; padding: 2px;
 }
 .mast-live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 9px; }
+/* The 9px clears the header row. When a host prints its own heading and omits
+   the shared one (OnCampusNow title={null}), that space would be a gap where a
+   heading used to be, so it collapses. */
+.mast-live-headless .mast-live-grid { margin-top: 0; }
 .mast-live-card {
   display: flex; align-items: center; gap: 11px;
   background: var(--chart-card, #fff); border: 1px solid var(--chart-line, rgba(29,37,103,0.1));
