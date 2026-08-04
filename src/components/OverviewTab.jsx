@@ -26,6 +26,7 @@ import { matchSchoolResponse } from '../lib/schoolResponseDisplay'
 import { schoolGroupKey } from '../lib/schoolIdentity'
 import TodayMasthead from './TodayMasthead'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
+import { scopeInterviewsForViewer, sortInterviews, buildInterviewRows } from '../lib/interviewsToday'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
 import { buildSchoolSendPlan, buildStudentSendPlan, resolveSendResults } from '../lib/sendFormFlow'
 import { GraduationCap, MapPin, Copy } from 'lucide-react'
@@ -70,6 +71,58 @@ function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequest
 // digest as a compact live strip. The photo-card grid retired from this page
 // (photos remain on profiles); the honest live-window logic, shift badges,
 // and hedged overdue wording are unchanged. Renders nothing when empty.
+// INTERVIEWS-TODAY-COMPACT-1: Interviews Today sits in the same live band as On
+// Campus Now, rendered by the SAME OnCampusNow component so both read as one
+// system. It is role-aware by CANONICAL PROFILE ID (slot -> parent availability
+// block -> interviewer_profile_id), never by display name, and it renders
+// nothing at all when the viewer has no interviews today - no empty placeholder.
+function InterviewsTodayStrip({ cohortId, onSelectStudent }) {
+  const { userProfile, isAdmin } = useAuth()
+  const localDate = new Date().toLocaleDateString('en-CA')
+
+  const { data: slots = [] } = useQuery({
+    queryKey: ['todays_interviews', cohortId, localDate],
+    queryFn: async () => {
+      const { data } = await supabase.from('interview_slots')
+        .select(`id, slot_date, slot_time, duration_minutes, block_id, interviewer_name,
+                 is_booked, booked_by_student_id,
+                 students!booked_by_student_id ( id, first_name, last_name, school, program_type, headshot_url )`)
+        .eq('cohort_id', cohortId).eq('slot_date', localDate).eq('is_booked', true)
+        .order('slot_time', { ascending: true })
+      return data || []
+    },
+    enabled: !!cohortId,
+  })
+
+  const { data: blocks = [] } = useQuery({
+    queryKey: ['todays_interview_blocks', cohortId, localDate],
+    queryFn: async () => {
+      const { data } = await supabase.from('interview_availability_blocks')
+        .select('id, interviewer_profile_id, interviewer_name')
+        .eq('cohort_id', cohortId).eq('block_date', localDate)
+      return data || []
+    },
+    enabled: !!cohortId,
+    staleTime: 5 * 60 * 1000,
+  })
+  const blocksById = Object.fromEntries(blocks.map(b => [b.id, b]))
+
+  const scoped = scopeInterviewsForViewer(slots, { blocksById, viewerProfileId: userProfile?.id, isAdmin })
+  const rows = buildInterviewRows(sortInterviews(scoped), {
+    avatarFor: (student) => <StudentAvatar student={student} size={34} />,
+    interviewerNameFor: (slot) => blocksById[slot.block_id]?.interviewer_name || slot.interviewer_name || '',
+    onOpen: (slot) => {
+      const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
+      if (student?.id) onSelectStudent?.(student.id)
+    },
+  })
+  if (rows.length === 0) return null   // no empty placeholder, by design
+
+  const sub = `${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    + ` · ${rows.length} interview${rows.length !== 1 ? 's' : ''}`
+  return <OnCampusNow title="Interviews Today" sub={sub} rows={rows} />
+}
+
 function OnCampusStrip({ mergedCampusLogs, students, units, onSelectStudent, onOpenActivity }) {
   if (!mergedCampusLogs.length) return null
   // Rows are built here from staff-scoped data (+ the staff StudentAvatar) and rendered by the
@@ -971,6 +1024,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       <TodayMasthead students={students} cohort={cohort} cohortId={cohortId}
         currentUserId={currentUserId} onTodayRoute={onTodayRoute} />
       <AttentionDigest attention={attention} onOpenActionCenter={onOpenActionCenter} />
+      <InterviewsTodayStrip cohortId={cohortId} onSelectStudent={onSelectStudent} />
       <OnCampusStrip
         mergedCampusLogs={campusLoading ? [] : mergedCampusLogs}
         students={students} units={units}

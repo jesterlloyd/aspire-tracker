@@ -1,9 +1,18 @@
+// INTERVIEWS-TODAY-COMPACT-1: the large StudentCard portraits are replaced by
+// the SHARED OnCampusNow card system, so Interviews Today and On Campus Now use
+// one compact visual language with no second card component and no duplicated
+// CSS. Scoping, sorting and row mapping live in src/lib/interviewsToday.js and
+// are shared with the At a Glance band.
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import StudentCard from './StudentCard'
+import { useAuth } from '../contexts/AuthContext'
+import OnCampusNow from './oncampus/OnCampusNow'
+import StudentAvatar from './StudentAvatar'
+import { scopeInterviewsForViewer, sortInterviews, buildInterviewRows } from '../lib/interviewsToday'
 
 export default function TodaysInterviews({ cohortId, onStartRubric }) {
+  const { userProfile, isAdmin } = useAuth()
   const localDate = new Date().toLocaleDateString('en-CA')
 
   const { data: sessions = [], isLoading: loading, refetch: fetchToday } = useQuery({
@@ -12,7 +21,7 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
       const { data, error } = await supabase
         .from('interview_slots')
         .select(`
-          id, slot_date, slot_time, duration_minutes,
+          id, slot_date, slot_time, duration_minutes, block_id,
           interviewer_name, is_booked, booked_by_student_id,
           students!booked_by_student_id (
             id, first_name, last_name, school, program_type, headshot_url
@@ -55,6 +64,25 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
   for (const i of interviewerCatalog) { if (i.name) colorByName[i.name] = i.color }
   for (const p of activeInterviewerAccounts) { if (p.full_name) colorByName[p.full_name] = p.interviewer_color || '#1D2567' }
 
+  // CANONICAL SCOPING: the interviewer identity lives on the parent availability
+  // block (interviewer_profile_id), never on the slot, so the blocks for today's
+  // cohort are resolved once and keyed by id. Display names are used only as
+  // card text; they are never compared.
+  const { data: blocks = [] } = useQuery({
+    queryKey: ['todays_interview_blocks', cohortId, localDate],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('interview_availability_blocks')
+        .select('id, interviewer_profile_id, interviewer_name')
+        .eq('cohort_id', cohortId)
+        .eq('block_date', localDate)
+      return data || []
+    },
+    enabled: !!cohortId,
+    staleTime: 5 * 60 * 1000,
+  })
+  const blocksById = Object.fromEntries(blocks.map(b => [b.id, b]))
+
   // Real-time: refresh when any slot in this cohort changes
   useEffect(() => {
     if (!cohortId) return
@@ -69,8 +97,23 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
     return () => { supabase.removeChannel(channel) }
   }, [cohortId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Full collapse - zero interviews today → nothing renders
-  if (loading || sessions.length === 0) return null
+  // Scope by canonical profile id, sort by the shared rule, then map into the
+  // existing OnCampusNow row contract.
+  const scoped = scopeInterviewsForViewer(sessions, {
+    blocksById, viewerProfileId: userProfile?.id, isAdmin,
+  })
+  const rows = buildInterviewRows(sortInterviews(scoped), {
+    avatarFor: (student) => <StudentAvatar student={student} size={34} />,
+    interviewerNameFor: (slot) => blocksById[slot.block_id]?.interviewer_name || slot.interviewer_name || '',
+    onOpen: (slot) => {
+      const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
+      const session = Array.isArray(slot.interview_sessions) ? slot.interview_sessions[0] : slot.interview_sessions
+      onStartRubric?.({ slotId: slot.id, sessionId: session?.id, student, slot })
+    },
+  })
+
+  // Full collapse - zero interviews today (or none of the viewer's) → nothing renders
+  if (loading || rows.length === 0) return null
 
   const todayShort = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
@@ -85,37 +128,13 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
           Interviews Today
         </span>
         <span style={{ fontSize: 11, color: '#9ca3af' }}>
-          {todayShort} · {sessions.length} scheduled
+          {todayShort} · {rows.length} scheduled
         </span>
       </div>
 
-      {/* Card grid - single row for ≤ 6 interviews at typical content widths */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
-        gap: 10,
-      }}>
-        {sessions.map(s => {
-          const student = Array.isArray(s.students) ? s.students[0] : s.students
-          const session = Array.isArray(s.interview_sessions) ? s.interview_sessions[0] : s.interview_sessions
-          if (!student) return null
-          const interviewTime = s.slot_time
-            ? new Date(`2000-01-01T${s.slot_time}`)
-                .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-            : '-'
-          const interviewerName  = s.interviewer_name || ''
-          const interviewerColor = colorByName[interviewerName] || '#1D2567'
-          return (
-            <StudentCard
-              key={s.id}
-              variant="interview"
-              student={student}
-              onClick={() => onStartRubric?.({ slotId: s.id, sessionId: session?.id, student, slot: s })}
-              variantProps={{ interviewTime, interviewerName, interviewerColor }}
-            />
-          )
-        })}
-      </div>
+      {/* Compact cards: the SHARED OnCampusNow renderer, so this workspace and
+          the At a Glance band are visually identical by construction. */}
+      <OnCampusNow title="Interviews Today" rows={rows} />
     </div>
   )
 }
