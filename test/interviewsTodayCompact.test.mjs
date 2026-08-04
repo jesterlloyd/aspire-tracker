@@ -168,7 +168,9 @@ test('the header renders unconditionally again; flush only drops the inset', () 
   assert.doesNotMatch(occ, /\{title && \(/, 'the header is no longer conditional')
   assert.match(occ, /flush = false,/)
   assert.match(occ, /flush \? 'mast-live mast-live-flush' : 'mast-live'/)
-  assert.match(read('src/index.css'), /\.mast-live-flush \{ margin-left: 0; margin-right: 0; \}/)
+  // flush also restores the bottom breathing room the old wrapper provided, so
+  // the cards do not butt against the calendar controls below.
+  assert.match(read('src/index.css'), /\.mast-live-flush \{ margin-left: 0; margin-right: 0; margin-bottom: 16px; \}/)
   assert.doesNotMatch(read('src/index.css'), /mast-live-headless/)
 })
 
@@ -183,7 +185,10 @@ test('both surfaces present the identical header pattern', () => {
 test('At a Glance interview cards open the Interview Rubric, NOT Rotation > Activity', () => {
   const ov = read('src/components/OverviewTab.jsx')
   assert.match(ov, /onOpenInterview\?\.\(\{ slotId: slot\.id, sessionId: session\?\.id, student, slot, cohortId \}\)/)
-  assert.match(ov, /<InterviewsTodayStrip cohortId=\{cohortId\} onOpenInterview=\{\(\) => navigate\('\/interviews'\)\} \/>/)
+  // Opens THAT student's rubric, not just the tab: InterviewRubricTab seeds its
+  // selection from ?student=, the same param its own selectStudent writes.
+  assert.match(ov, /navigate\(`\/interviews\?student=\$\{encodeURIComponent\(student\.id\)\}`\)/)
+  assert.match(read('src/components/InterviewRubricTab.jsx'), /useState\(\(\) => searchParams\.get\('student'\) \|\| null\)/)
   // The interview strip must not carry On Campus Now's activity destination.
   const strip = ov.slice(ov.indexOf('function InterviewsTodayStrip'), ov.indexOf('function OnCampusStrip'))
   assert.doesNotMatch(strip, /rotation\/activity/)

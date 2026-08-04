@@ -1934,7 +1934,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* A host already inside a padded page column opts out of the card system's own
    horizontal inset (OnCampusNow flush), so its header and cards align with the
    surrounding content. */
-.mast-live-flush { margin-left: 0; margin-right: 0; }
+.mast-live-flush { margin-left: 0; margin-right: 0; margin-bottom: 16px; }
 .mast-live-card {
   display: flex; align-items: center; gap: 11px;
   background: var(--chart-card, #fff); border: 1px solid var(--chart-line, rgba(29,37,103,0.1));

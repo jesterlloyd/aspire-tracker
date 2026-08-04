@@ -1029,7 +1029,17 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       <TodayMasthead students={students} cohort={cohort} cohortId={cohortId}
         currentUserId={currentUserId} onTodayRoute={onTodayRoute} />
       <AttentionDigest attention={attention} onOpenActionCenter={onOpenActionCenter} />
-      <InterviewsTodayStrip cohortId={cohortId} onOpenInterview={() => navigate('/interviews')} />
+      {/* Opens the student's Interview Rubric directly. InterviewRubricTab seeds
+          its selection from ?student= (the same param its own selectStudent
+          writes), so this lands on the identical rubric the Interviews-tab card
+          opens - not merely the Interviews tab. */}
+      <InterviewsTodayStrip
+        cohortId={cohortId}
+        onOpenInterview={({ student }) => {
+          if (student?.id) navigate(`/interviews?student=${encodeURIComponent(student.id)}`)
+          else navigate('/interviews')
+        }}
+      />
       <OnCampusStrip
         mergedCampusLogs={campusLoading ? [] : mergedCampusLogs}
         students={students} units={units}
