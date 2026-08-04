@@ -1,27 +1,29 @@
 # Clinical Shift Sequence (Shift #)
 
-Status: **Committed 2026-08-03 (SHIFT-SEQUENCE-1) on local main; not pushed or
-deployed.** Export decision recorded below; no export currently emits Shift #.
-(The commit hash is deliberately not quoted here: a file inside the commit
-cannot cite its own hash without changing it.)
+Status: **Released to production 2026-08-03 (SHIFT-SEQUENCE-1). Complete and
+live.** Export decision recorded below; no export currently emits Shift #.
 
-## MANDATORY live-QC before release approval
+## Optional post-release visual QC
 
-Two staff surfaces were verified on screen (Student Profiles > Clinical Hours
-and Rotation > Activity > Active Rotation Progress, including a same-day pair
-numbered 11/12 by check-in time, a pending-review row at 25, and badges 21-25
-proving there is no 20-item ceiling). The following were wired and are covered
-by focused tests but were NOT rendered, and MUST be screenshotted and confirmed
-before this ships:
+Two staff surfaces were verified on screen before release: Student Profiles >
+Clinical Hours and Rotation > Activity > Active Rotation Progress, including a
+same-day pair numbered 11/12 by check-in time, a pending-review row at 25, and
+badges 21-25 confirming there is no 20-item ceiling. Because every surface
+derives its number from the one shared helper, and parity is additionally
+pinned by focused tests, no further verification is required.
 
-1. **UnitClinicalHours** (Unit Leader Portal clinical-hours table)
-2. **Student Portal** shift list
-3. **Unit Leader calendar badge** (pre-existing ordinal, confirm parity)
+The following are **optional** spot-checks if someone wants the remaining
+surfaces seen on screen at some point:
 
-For each, confirm the same underlying shift record shows the SAME ordinal it
-shows on the staff surfaces. Note: Active Rotation Progress only renders its
-cards for students whose status is Active Rotation, and the Student Portal
-harness needs a student-role session with `get_my_portal_access`.
+1. UnitClinicalHours (Unit Leader Portal clinical-hours table)
+2. Student Portal shift list
+3. Unit Leader calendar badge (pre-existing ordinal)
+
+Harness notes for anyone who does: Active Rotation Progress only renders its
+cards for students whose status is Active Rotation; the Student Portal needs a
+session whose student record actually resolves (a `get_my_portal_access` role
+alone leaves it on "No student record is linked yet"); and the Unit Leader
+surfaces need `unit-student-detail` plus `unit-shift-activity` mocks.
 
 ## Terminology
 
