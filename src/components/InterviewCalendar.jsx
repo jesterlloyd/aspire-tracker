@@ -133,15 +133,23 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
   // AVAILABILITY-CALENDAR-1: Start defaults to the next nearest 30-minute mark
   // (never an arbitrary minute), End follows the default 1-hour suggestion, and
   // the break defaults to 10 minutes.
+  // AVAILABILITY-CALENDAR-1C: End starts as exactly ONE interview after Start
+  // (9:00 AM + 30 minutes = 9:30 AM), and keeps following Interview length
+  // until the Owner edits End themselves. Once they widen the window, that
+  // window is theirs: later length changes only recalculate the slot count.
   const initialStart = startTime || nextHalfHourFrom()
+  const INITIAL_LENGTH = 30
   const [form, setForm] = useState({
     block_date:       date || new Date().toISOString().slice(0, 10),
     start_time:       initialStart,
-    end_time:         endTime || toHHMM((minutesOf(initialStart) ?? 0) + 60),
-    duration_minutes: 30,
+    end_time:         endTime || toHHMM((minutesOf(initialStart) ?? 0) + INITIAL_LENGTH),
+    duration_minutes: INITIAL_LENGTH,
     break_minutes:    DEFAULT_BREAK_MINUTES,
     interviewer_profile_id: null,   // null = untouched, so the default below can resolve late
   })
+  // False while End is auto-managed; true once the Owner types their own End
+  // (or the popover was opened with an explicit end from a drag selection).
+  const [endTouched, setEndTouched] = useState(!!endTime)
   // Raw text while typing a time; committed to form on blur/Enter so direct
   // entry ("9", "930", "1:15pm") works without minute-by-minute stepping.
   const [startText, setStartText] = useState(formatTime12(initialStart))
@@ -161,26 +169,53 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
     if (which === 'start') {
       setStartText(formatTime12(parsed))
       setForm(p => {
-        // Keep the window valid: a start at or past the end pushes the end out
-        // by the previous duration rather than leaving an impossible range.
-        const prevSpan = Math.max(30, (minutesOf(p.end_time) ?? 0) - (minutesOf(p.start_time) ?? 0))
-        const nextEnd = (minutesOf(parsed) ?? 0) + prevSpan
-        const keepEnd = (minutesOf(p.end_time) ?? 0) > (minutesOf(parsed) ?? 0)
-        const end = keepEnd ? p.end_time : toHHMM(nextEnd)
+        const startMin = minutesOf(parsed) ?? 0
+        // End is auto-managed until the Owner sets it: then it simply tracks
+        // one interview after Start. Once it is theirs, their window is kept
+        // unless the new Start would make it invalid, and only then is it
+        // pushed out minimally (End may never be at or before Start).
+        const end = !endTouched
+          ? toHHMM(startMin + p.duration_minutes)
+          : ((minutesOf(p.end_time) ?? 0) > startMin
+              ? p.end_time
+              : toHHMM(startMin + p.duration_minutes))
         setEndText(formatTime12(end))
         return { ...p, start_time: parsed, end_time: end }
       })
     } else {
+      // An explicit End is the Owner's window from here on.
+      setEndTouched(true)
       setEndText(formatTime12(parsed))
       setForm(p => ({ ...p, end_time: parsed }))
     }
+  }
+
+  // Interview length drives End only while End is auto-managed; afterwards it
+  // just changes how many interviews fit inside the Owner's window.
+  const changeLength = (minutes) => {
+    setError('')
+    setForm(p => {
+      if (endTouched) return { ...p, duration_minutes: minutes }
+      const end = toHHMM((minutesOf(p.start_time) ?? 0) + minutes)
+      setEndText(formatTime12(end))
+      return { ...p, duration_minutes: minutes, end_time: end }
+    })
   }
 
 
   // Profiles come from a cached query and may arrive after this popover mounts, so the default is
   // derived on each render rather than frozen into initial state. An explicit choice (including the
   // empty placeholder) is a string and always wins.
-  const defaultInterviewerId = isAdmin ? (interviewerProfiles[0]?.id || '') : (userProfile?.id || '')
+  //
+  // AVAILABILITY-CALENDAR-1C: the default is LOGIN-AWARE and resolved by
+  // canonical profile ID. It used to be interviewerProfiles[0], so whoever
+  // happened to sort first (Jennifer Gidaya) was pre-selected no matter who was
+  // signed in, which is how availability got attributed to the wrong person.
+  // Eligibility is membership in the active-interviewer list; when the signed-in
+  // user is not in it the field stays unselected and says why, rather than
+  // silently falling back to someone else.
+  const signedInIsEligible = !!userProfile?.id && interviewerProfiles.some(p => p.id === userProfile.id)
+  const defaultInterviewerId = signedInIsEligible ? userProfile.id : ''
   const interviewerProfileId = form.interviewer_profile_id === null
     ? defaultInterviewerId
     : form.interviewer_profile_id
@@ -340,7 +375,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
           <div>
             <label style={labelStyle} htmlFor="avail-length">Interview length</label>
             <select id="avail-length" value={form.duration_minutes}
-              onChange={e => setForm(p => ({ ...p, duration_minutes: parseInt(e.target.value) }))}
+              onChange={e => changeLength(parseInt(e.target.value))}
               style={inputStyle}>
               {INTERVIEW_LENGTHS.map(m => <option key={m} value={m}>{interviewLengthLabel(m)}</option>)}
             </select>
@@ -367,8 +402,18 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
               ))}
             </select>
           ) : (
+            // A non-admin interviewer is always themselves; the server forces
+            // this too, so the field is a read-only statement of fact.
             <div style={{ ...inputStyle, background: '#f9fafb', color: '#374151', fontWeight: 600 }}>
               {userProfile?.full_name || '-'}
+            </div>
+          )}
+          {/* Explain an empty default instead of quietly pre-selecting someone
+              else: an Owner/Admin who does not conduct interviews has no
+              eligible self to default to. */}
+          {isAdmin && !signedInIsEligible && !form.interviewer_profile_id && (
+            <div style={{ fontSize: '11px', color: '#8B5E1A', marginTop: '5px', lineHeight: 1.5 }}>
+              Your account is not set up to conduct interviews, so no interviewer is selected. Choose whose availability this is.
             </div>
           )}
         </div>
@@ -413,7 +458,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
           fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff',
           cursor: saving ? 'default' : 'pointer',
         }}>
-          {saving ? 'Creating…' : 'Create availability'}
+          {saving ? 'Adding…' : 'Add availability'}
         </button>
       </div>
     </div>

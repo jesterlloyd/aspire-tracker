@@ -114,7 +114,14 @@ test('calendar popover binds the interviewer picker to profile ids, not names', 
   assert.match(calendar, /<select value=\{interviewerProfileId\}/)
   // A self-scheduling (non-admin) interviewer still resolves to an account id, and the default is
   // derived per render so a late-arriving profiles query still populates the picker.
-  assert.match(calendar, /const defaultInterviewerId = isAdmin \? \(interviewerProfiles\[0\]\?\.id \|\| ''\) : \(userProfile\?\.id \|\| ''\)/)
+  //
+  // SUPERSEDED BY AVAILABILITY-CALENDAR-1C: the default used to be
+  // interviewerProfiles[0] for admins, which pre-selected whoever sorted first
+  // regardless of who was signed in (availability got attributed to the wrong
+  // interviewer in production). It is now LOGIN-AWARE and resolved by canonical
+  // profile id, falling back to an explained empty field rather than a stranger.
+  assert.match(calendar, /const signedInIsEligible = !!userProfile\?\.id && interviewerProfiles\.some\(p => p\.id === userProfile\.id\)/)
+  assert.match(calendar, /const defaultInterviewerId = signedInIsEligible \? userProfile\.id : ''/)
   assert.match(calendar, /const interviewerProfileId = form\.interviewer_profile_id === null\s*\n\s*\? defaultInterviewerId\s*\n\s*: form\.interviewer_profile_id/)
   // Blocked before the request when no account is resolved, instead of a server 400.
   assert.match(calendar, /if \(!interviewerProfileId\) \{\s*\n\s*setError\('Select a linked interviewer account\.'\); return/)

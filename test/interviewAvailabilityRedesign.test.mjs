@@ -138,7 +138,72 @@ test('Interview length is 30/45/60 only, labelled "1 hour" at the top', () => {
   assert.match(calendar, />Interview length</)
   assert.doesNotMatch(calendar, />Slot Duration</)
   assert.match(calendar, /interviewLengthLabel\(m\)/)
-  assert.match(calendar, /Create availability/)
+})
+
+// ── AVAILABILITY-CALENDAR-1C: End follows length until the Owner takes it ────
+
+test('the first open is a ONE-interview window: End = Start + Interview length', () => {
+  assert.match(calendar, /const INITIAL_LENGTH = 30/)
+  assert.match(calendar, /end_time:\s+endTime \|\| toHHMM\(\(minutesOf\(initialStart\) \?\? 0\) \+ INITIAL_LENGTH\)/)
+  assert.match(calendar, /duration_minutes: INITIAL_LENGTH,/)
+  // 9:00 AM + 30 minutes = 9:30 AM, the prompt's stated first-open state.
+  assert.equal(toHHMM(9 * 60 + 30), '09:30')
+})
+
+test('Interview length moves End only while End is auto-managed', () => {
+  assert.match(calendar, /const \[endTouched, setEndTouched\] = useState\(!!endTime\)/)
+  assert.match(calendar, /const changeLength = \(minutes\) => \{/)
+  assert.match(calendar, /if \(endTouched\) return \{ \.\.\.p, duration_minutes: minutes \}/)
+  assert.match(calendar, /const end = toHHMM\(\(minutesOf\(p\.start_time\) \?\? 0\) \+ minutes\)/)
+  assert.match(calendar, /onChange=\{e => changeLength\(parseInt\(e\.target\.value\)\)\}/)
+  // 9:00 + 45 = 9:45, 9:00 + 60 = 10:00, exactly as specified.
+  assert.equal(toHHMM(9 * 60 + 45), '09:45')
+  assert.equal(toHHMM(9 * 60 + 60), '10:00')
+})
+
+test('typing an End claims the window; a manual window survives length changes', () => {
+  // Committing End marks it as the Owner's.
+  assert.match(calendar, /\/\/ An explicit End is the Owner's window from here on\.\n\s+setEndTouched\(true\)/)
+  // A 9:00 AM - 4:00 PM window at 30/15 keeps generating from the FULL window:
+  // 45-minute stride, last start 15:00 ending 15:30 within the 16:00 end.
+  assert.equal(slotCountFor({ start: '09:00', end: '16:00', duration: 30, breakMinutes: 15 }), 9)
+  // ...and a later length change recalculates the count, not the window.
+  assert.equal(slotCountFor({ start: '09:00', end: '16:00', duration: 60, breakMinutes: 15 }), 5)
+})
+
+test('changing Start respects whether End is auto-managed, and never inverts', () => {
+  assert.match(calendar, /const end = !endTouched\n\s+\? toHHMM\(startMin \+ p\.duration_minutes\)/)
+  assert.match(calendar, /: \(\(minutesOf\(p\.end_time\) \?\? 0\) > startMin\n\s+\? p\.end_time\n\s+: toHHMM\(startMin \+ p\.duration_minutes\)\)/)
+  // The generator itself refuses an end at or before the start.
+  assert.deepEqual(generateSlotTimes({ start: '10:00', end: '10:00', duration: 30, breakMinutes: 0 }), [])
+  assert.deepEqual(generateSlotTimes({ start: '10:00', end: '09:00', duration: 30, breakMinutes: 0 }), [])
+})
+
+// ── Login-aware interviewer default ──────────────────────────────────────────
+
+test('the interviewer defaults to the signed-in user BY PROFILE ID, never the first row', () => {
+  assert.match(calendar, /const signedInIsEligible = !!userProfile\?\.id && interviewerProfiles\.some\(p => p\.id === userProfile\.id\)/)
+  assert.match(calendar, /const defaultInterviewerId = signedInIsEligible \? userProfile\.id : ''/)
+  // The first-item fallback that pre-selected whoever sorted first is gone.
+  // (The header comment still names it by way of explanation, so pin the
+  // absence of the EXPRESSION, not the phrase.)
+  assert.doesNotMatch(calendar, /interviewerProfiles\[0\]\?\.id/)
+  // Matching is by id, never by display name.
+  assert.doesNotMatch(calendar, /defaultInterviewerId[^\n]*full_name/)
+})
+
+test('an ineligible signed-in user gets an explained empty field, not someone else', () => {
+  assert.match(calendar, /isAdmin && !signedInIsEligible && !form\.interviewer_profile_id/)
+  assert.match(calendar, /Your account is not set up to conduct interviews/)
+  // Owner/Admin can still choose anyone; a non-admin is fixed to themselves and
+  // the server forces that regardless of what is sent.
+  assert.match(calendar, /\{isAdmin \? \(\n\s+<select value=\{interviewerProfileId\}/)
+  assert.match(api, /: auth\.profileId;/)
+})
+
+test('the final action reads Add availability', () => {
+  assert.match(calendar, /\{saving \? 'Adding…' : 'Add availability'\}/)
+  assert.doesNotMatch(calendar, /Create availability/)
 })
 
 test('the break defaults to 15 minutes; No break is retained but never default', () => {
