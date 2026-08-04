@@ -40,6 +40,67 @@ export function scopeInterviewsForViewer(slots, { blocksById, viewerProfileId, i
   return list.filter(s => slotInterviewerProfileId(s, blocksById) === viewerProfileId)
 }
 
+/** The parent availability block for a slot, or null. */
+export function slotBlock(slot, blocksById) {
+  const blockId = slot?.block_id
+  if (!blockId) return null
+  return (blocksById instanceof Map ? blocksById.get(blockId) : blocksById?.[blockId]) || null
+}
+
+/**
+ * The booked interviewer's display name for a slot, resolved CANONICALLY:
+ *   slot.block_id -> block.interviewer_profile_id -> that staff profile's name.
+ * Identity always comes from the profile id; names are only ever the OUTPUT of
+ * that lookup, never the key it is matched on.
+ *
+ * Two recorded fallbacks keep a genuinely booked interview from reading as
+ * unassigned: the block's own denormalized interviewer_name (the canonical
+ * booking row, used when the profile no longer resolves - for example an
+ * interviewer who left staff), then the slot's. Both are stored booking facts,
+ * not inference. Returns null only when nothing was ever recorded, which is the
+ * only case that should surface as "Interviewer pending".
+ */
+export function resolveSlotInterviewerName(slot, { blocksById, nameByProfileId } = {}) {
+  const profileId = slotInterviewerProfileId(slot, blocksById)
+  if (profileId) {
+    const name = nameByProfileId instanceof Map
+      ? nameByProfileId.get(profileId)
+      : nameByProfileId?.[profileId]
+    if (name) return name
+  }
+  return slotBlock(slot, blocksById)?.interviewer_name || slot?.interviewer_name || null
+}
+
+/**
+ * Map of student id -> booked interviewer name across a cohort's slots, so the
+ * interviewer appears the moment a slot is BOOKED rather than only after a
+ * rubric is submitted. A student who rebooked resolves to their latest booked
+ * slot, which is the appointment every other surface shows; ties fall back to
+ * the immutable slot id so the result is stable across renders.
+ */
+function isLaterSlot(a, b) {
+  const ta = slotStartDate(a)?.getTime() ?? 0
+  const tb = slotStartDate(b)?.getTime() ?? 0
+  if (ta !== tb) return ta > tb
+  return String(a?.id) > String(b?.id)
+}
+
+export function buildInterviewerNameByStudent(slots, { blocksById, nameByProfileId } = {}) {
+  const latest = new Map()
+  for (const slot of slots || []) {
+    const studentId = slot?.booked_by_student_id
+    if (!studentId || slot.is_booked === false) continue
+    const prev = latest.get(studentId)
+    if (!prev || isLaterSlot(slot, prev)) latest.set(studentId, slot)
+  }
+  const out = new Map()
+  for (const [studentId, slot] of latest) {
+    const name = resolveSlotInterviewerName(slot, { blocksById, nameByProfileId })
+    if (name) out.set(studentId, name)
+  }
+  return out
+}
+
 /**
  * Lifecycle state for a slot at a given moment. Only states the data model can
  * actually express are produced: a canceled/missed flag is honored when present,

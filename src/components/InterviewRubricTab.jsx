@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
@@ -19,6 +20,7 @@ import { toLocalDateStr } from '../lib/designTokens'
 import StatusLegendPopover from './StatusLegendPopover'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { canSendSchedulingLink, buildSchedulingLinkLaunch } from '../lib/schedulingLinkFlow'
+import { buildInterviewerNameByStudent } from '../lib/interviewsToday'
 
 function IrAvatar({ student }) {
   return (
@@ -144,6 +146,7 @@ export default function InterviewRubricTab({
   toast,
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { canInterview, isViewer, canEdit, userProfile } = useAuth()
   // ASPIRE-CHART URL state: ?student=<id> deep-links an open rubric and
   // survives refresh. Opaque id only; an id outside the cohort fails closed
@@ -168,6 +171,58 @@ export default function InterviewRubricTab({
       return next
     }, { replace: true })
   }
+  // URL -> state, READ ONLY. This workspace stays MOUNTED while another tab is
+  // visible, so the useState initializer above ran once at boot and never sees a
+  // ?student= written later. At a Glance opening a rubric changes the URL
+  // without remounting, so without this the deep link was ignored and the
+  // worklist stayed on screen. Guarded two ways so it can only ever open:
+  //   - only on /interviews, so Student Profiles writing its own ?student= on
+  //     /students can never select a student in here;
+  //   - only when the param is PRESENT, so tabbing away and back (switchTab
+  //     navigates to a bare path, dropping the query) never closes an open
+  //     rubric. Closing stays exclusively with the Back button's selectStudent.
+  const urlStudentId = searchParams.get('student') || null
+  const onInterviewsRoute = location.pathname === '/interviews'
+  useEffect(() => {
+    if (!onInterviewsRoute || !urlStudentId) return
+    // Mirroring an external source (the URL) into state cannot cascade here:
+    // what this sets is not a dependency, so the effect never re-triggers itself.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedStudentId(urlStudentId)
+  }, [onInterviewsRoute, urlStudentId])
+  // The Appointment column names the BOOKED interviewer, resolved canonically
+  // through slot.block_id -> block.interviewer_profile_id -> that staff profile's
+  // name. Availability blocks carry the identity; interview_slots carry only a
+  // display string, so the blocks for this cohort are fetched once and keyed by
+  // id, exactly as Interviews Today resolves them.
+  const { data: availabilityBlocks = [] } = useQuery({
+    queryKey: ['interview_blocks_by_cohort', cohortId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('interview_availability_blocks')
+        .select('id, interviewer_profile_id, interviewer_name')
+        .eq('cohort_id', cohortId)
+      return data || []
+    },
+    enabled: !!cohortId,
+    staleTime: 5 * 60 * 1000,
+  })
+  // profile id -> staff name. This is the ONLY direction names travel: out of an
+  // id lookup, never into one.
+  const { data: interviewerAccounts = [] } = useQuery({
+    queryKey: ['active_interviewer_colors'],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('get_active_interviewers')
+      return data || []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+  const blocksById = {}
+  for (const b of availabilityBlocks) blocksById[b.id] = b
+  const nameByProfileId = {}
+  for (const p of interviewerAccounts) { if (p.id && p.full_name) nameByProfileId[p.id] = p.full_name }
+  const bookedInterviewerByStudent = buildInterviewerNameByStudent(slots, { blocksById, nameByProfileId })
+
   // CONNECT-SCHEDULING-LINK-1: the scheduling link opens ASPIRE Connect with this student and the
   // Interview Scheduling template preselected. Launching writes ONLY the session launch context -
   // nothing is recorded until the Owner confirms on return to this workspace.
@@ -623,8 +678,15 @@ export default function InterviewRubricTab({
               const interviewerNames = [...new Set(
                 studentRubs.filter(r => r.interviewer_name).map(r => r.interviewer_name)
               )]
+              // A submitted rubric names who ACTUALLY conducted the interview and
+              // wins when present; otherwise the canonically resolved booked
+              // interviewer shows from the moment the slot is booked, instead of
+              // the row reading "Interviewer pending" until completion.
+              const bookedInterviewer = bookedInterviewerByStudent.get(s.id) || null
               const interviewerDisplay = interviewerNames.length > 0
                 ? interviewerNames.map(shortIntName).join(', ')
+                : bookedInterviewer
+                ? shortIntName(bookedInterviewer)
                 : null
 
               const handleAction = (e) => {

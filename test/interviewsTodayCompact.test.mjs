@@ -205,3 +205,85 @@ test('the shared renderer imposes no navigation of its own', () => {
   assert.doesNotMatch(occ, /navigate|rotation|interviews/i)
   assert.match(occ, /onClick=\{r\.onClick\}/, 'each row supplies its own handler')
 })
+
+// ── Canonical booked interviewer in the Appointment column ───────────────────
+
+import { resolveSlotInterviewerName, buildInterviewerNameByStudent } from '../src/lib/interviewsToday.js'
+
+const BLOCKS2 = {
+  'b1': { id: 'b1', interviewer_profile_id: 'p-jen', interviewer_name: 'Jen Gidaya (stale)' },
+  'b2': { id: 'b2', interviewer_profile_id: 'p-gone', interviewer_name: 'Dana Left' },
+  'b3': { id: 'b3', interviewer_profile_id: null, interviewer_name: null },
+}
+const NAMES = { 'p-jen': 'Jennifer Gidaya' }
+
+test('the interviewer name comes from the PROFILE ID, not the stored string', () => {
+  const name = resolveSlotInterviewerName(
+    { id: 's1', block_id: 'b1', interviewer_name: 'Someone Else' }, { blocksById: BLOCKS2, nameByProfileId: NAMES })
+  assert.equal(name, 'Jennifer Gidaya', 'the profile lookup wins over both stored strings')
+})
+
+test('a booked interview never reads as pending when a name was recorded', () => {
+  // Profile no longer resolves (left staff): the block is still the canonical
+  // booking row, so its recorded name is shown rather than "Interviewer pending".
+  assert.equal(resolveSlotInterviewerName({ id: 's2', block_id: 'b2' },
+    { blocksById: BLOCKS2, nameByProfileId: NAMES }), 'Dana Left')
+  // No block at all (legacy slot): the slot's own recorded name is the last resort.
+  assert.equal(resolveSlotInterviewerName({ id: 's3', interviewer_name: 'Legacy Name' },
+    { blocksById: BLOCKS2, nameByProfileId: NAMES }), 'Legacy Name')
+})
+
+test('only a truly unresolvable interviewer returns null (-> "Interviewer pending")', () => {
+  assert.equal(resolveSlotInterviewerName({ id: 's4', block_id: 'b3' },
+    { blocksById: BLOCKS2, nameByProfileId: NAMES }), null)
+  assert.equal(resolveSlotInterviewerName({ id: 's5' }, { blocksById: BLOCKS2, nameByProfileId: NAMES }), null)
+})
+
+test('the name resolves at BOOKING time, with no rubric or session required', () => {
+  const byStudent = buildInterviewerNameByStudent(
+    [{ id: 's1', block_id: 'b1', booked_by_student_id: 'stu-1', is_booked: true,
+       slot_date: '2026-08-06', slot_time: '11:00' }],
+    { blocksById: BLOCKS2, nameByProfileId: NAMES })
+  assert.equal(byStudent.get('stu-1'), 'Jennifer Gidaya')
+})
+
+test('a rebooked student resolves to their LATEST booked slot, deterministically', () => {
+  const rows = [
+    { id: 'old', block_id: 'b2', booked_by_student_id: 'stu-1', is_booked: true, slot_date: '2026-08-04', slot_time: '09:00' },
+    { id: 'new', block_id: 'b1', booked_by_student_id: 'stu-1', is_booked: true, slot_date: '2026-08-09', slot_time: '09:00' },
+  ]
+  assert.equal(buildInterviewerNameByStudent(rows, { blocksById: BLOCKS2, nameByProfileId: NAMES }).get('stu-1'), 'Jennifer Gidaya')
+  assert.equal(buildInterviewerNameByStudent([...rows].reverse(), { blocksById: BLOCKS2, nameByProfileId: NAMES }).get('stu-1'), 'Jennifer Gidaya')
+})
+
+test('unbooked and student-less slots contribute nothing', () => {
+  const rows = [
+    { id: 'free', block_id: 'b1', is_booked: false, booked_by_student_id: 'stu-1', slot_date: '2026-08-09', slot_time: '09:00' },
+    { id: 'open', block_id: 'b1', is_booked: true, booked_by_student_id: null, slot_date: '2026-08-09', slot_time: '10:00' },
+  ]
+  assert.equal(buildInterviewerNameByStudent(rows, { blocksById: BLOCKS2, nameByProfileId: NAMES }).size, 0)
+})
+
+test('the worklist shows the booked interviewer, falling back to pending only when null', () => {
+  const ir = read('src/components/InterviewRubricTab.jsx')
+  assert.match(ir, /buildInterviewerNameByStudent\(slots, \{ blocksById, nameByProfileId \}\)/)
+  assert.match(ir, /interviewer_availability_blocks|interview_availability_blocks/)
+  assert.match(ir, /: bookedInterviewer\n\s+\? shortIntName\(bookedInterviewer\)\n\s+: null/)
+  assert.match(ir, /\{interviewerDisplay \|\| 'Interviewer pending'\}/)
+  // Names are only ever the OUTPUT of an id lookup, never the key.
+  assert.match(ir, /nameByProfileId\[p\.id\] = p\.full_name/)
+  assert.doesNotMatch(ir, /interviewer_name\s*===/)
+})
+
+// ── A deep link opens the rubric even though the tab never remounts ──────────
+
+test('the interviews workspace mirrors ?student= into its selection', () => {
+  const ir = read('src/components/InterviewRubricTab.jsx')
+  assert.match(ir, /if \(!onInterviewsRoute \|\| !urlStudentId\) return/)
+  assert.match(ir, /setSelectedStudentId\(urlStudentId\)/)
+  assert.match(ir, /\}, \[onInterviewsRoute, urlStudentId\]\)/)
+  // Guarded so it can only OPEN: never fires off-route (Student Profiles owns
+  // the same param on /students) and never clears on a missing param (tab
+  // switching drops the query string).
+  assert.match(ir, /location\.pathname === '\/interviews'/)
+})
