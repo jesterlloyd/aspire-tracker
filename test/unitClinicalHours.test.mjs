@@ -47,8 +47,12 @@ test('UnitClinicalHours renders only role-safe fields and no support surfaces', 
   }
   assert.match(c, /deriveClinicalHours/)
   assert.match(c, /shiftStatusChip/)
-  // The seven required columns.
-  assert.match(c, /\['Date', 'Hrs', 'Unit', 'Preceptor', 'Type', 'Status', 'Details'\]/)
+  // The required columns. SHIFT-SEQUENCE-1 added the leading "Shift #" so this
+  // table matches the staff and student surfaces; the original seven follow it
+  // unchanged, and the sequence is derived from the shared comparator without
+  // touching any identifying field (see the role-safety loop above).
+  assert.match(c, /\['Shift #', 'Date', 'Hrs', 'Unit', 'Preceptor', 'Type', 'Status', 'Details'\]/)
+  assert.match(c, /compareShiftChronological/)
 })
 
 // ── the endpoint: server authorization + field allowlist ──────────────────────

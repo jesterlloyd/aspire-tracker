@@ -14,6 +14,8 @@
 
 import { deriveClinicalHours } from '../../lib/portalProgress'
 import { shiftStatusChip, isPendingReview } from '../../lib/shiftStatusChips'
+import { compareShiftChronological } from '../../lib/shiftOrdinals'
+import ShiftNumberBadge from '../../components/ShiftNumberBadge'
 
 const NAVY = '#1D2567'
 
@@ -41,6 +43,13 @@ export default function UnitClinicalHours({ hours, shifts, loading, error, onRet
   const remaining = d.reliable ? d.remaining : null
   const pct = d.reliable ? d.pct : 0
   const rows = Array.isArray(shifts) ? shifts : []
+  // SHIFT-SEQUENCE-1: the SAME canonical ordering rule as every other surface.
+  // This section is ROLE-SAFE BY CONSTRUCTION and must not touch identifying
+  // fields, so instead of the grouping helper (which keys by student) it uses
+  // the shared comparator directly: every row here already belongs to the one
+  // student this panel renders, so position IS the ordinal.
+  const shiftOrdinals = new Map(
+    [...rows].sort(compareShiftChronological).map((r, i) => [r.id, i + 1]))
 
   const tiles = [
     ['Required', required ?? '-'],
@@ -72,7 +81,7 @@ export default function UnitClinicalHours({ hours, shifts, loading, error, onRet
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ background: '#faf9f5' }}>
-                {['Date', 'Hrs', 'Unit', 'Preceptor', 'Type', 'Status', 'Details'].map(h => (
+                {['Shift #', 'Date', 'Hrs', 'Unit', 'Preceptor', 'Type', 'Status', 'Details'].map(h => (
                   <th key={h} style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, color: '#6b7280', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -82,6 +91,9 @@ export default function UnitClinicalHours({ hours, shifts, loading, error, onRet
                 const chip = shiftStatusChip(log.status)
                 return (
                   <tr key={log.id} style={{ borderBottom: '1px solid #eef0f2' }}>
+                    <td style={{ padding: '6px 8px' }}>
+                      <ShiftNumberBadge ordinal={shiftOrdinals.get(log.id)} />
+                    </td>
                     <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{fmtShiftDate(log.shift_date)}</td>
                     <td style={{ padding: '6px 8px', fontWeight: 600, color: NAVY }}>{log.total_hours ?? '-'}</td>
                     <td style={{ padding: '6px 8px', color: '#6b7280', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.unit_name || '-'}</td>

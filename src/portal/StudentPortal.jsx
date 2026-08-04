@@ -30,6 +30,8 @@ import { derivePortalTimeline, deriveClinicalHours } from '../lib/portalProgress
 import { deriveCompassAction } from '../lib/portalHome'
 import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocuments'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
+import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
+import ShiftNumberBadge from '../components/ShiftNumberBadge'
 import { composePortalEmail } from '../lib/outlookCompose'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope } from './PortalHeaderSlots'
@@ -232,6 +234,10 @@ export default function StudentPortal({
   const onContact = () => contactAspire({ name: fullName, school: student.school, cohort: cohortName, status: student.status })
 
   const shiftCount = myLogs.length
+  // SHIFT-SEQUENCE-1: the student sees the same shift numbers staff and their
+  // Unit Leader see, from the one shared rule.
+  const myShiftOrdinals = buildStudentShiftOrdinals(
+    (myLogs || []).map(l => ({ ...l, student_id: l.student_id ?? '__me__' })))
   const mostRecentShift = fmtDate(myLogs[0]?.shift_date)
   const waitingSurveys = myEvals.filter(e => EVAL_WAITING.has(e.status))
   const badgeRelevant = badgeStatus && badgeStatus.state !== 'not_yet'
@@ -345,7 +351,9 @@ export default function StudentPortal({
               <ul className="ptl-list">
                 {myLogs.slice(0, 4).map(l => (
                   <li key={l.id}>
-                    <span>{fmtDate(l.shift_date) || 'Date pending'}{l.unit_name ? ` · ${l.unit_name}` : ''}{l.total_hours != null ? ` · ${l.total_hours}h` : ''}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                      <ShiftNumberBadge ordinal={myShiftOrdinals.get(l.id)} size={20} />
+                      {fmtDate(l.shift_date) || 'Date pending'}{l.unit_name ? ` · ${l.unit_name}` : ''}{l.total_hours != null ? ` · ${l.total_hours}h` : ''}</span>
                     <span className={`ptl-chip ptl-chip-soft ptl-chip-${l.status === 'approved' ? 'ok' : 'wait'}`}>{l.status === 'approved' ? 'Approved' : 'Awaiting review'}</span>
                   </li>
                 ))}

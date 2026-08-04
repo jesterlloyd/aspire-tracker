@@ -13,9 +13,17 @@ import { useAuth } from '../contexts/AuthContext'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { isShiftSupportUnread } from '../lib/support/supportRequests'
 import { shiftStatusChip, isPendingReview } from '../lib/shiftStatusChips'
+import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
+import ShiftNumberBadge from './ShiftNumberBadge'
 
 export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenShiftLogId = null, onAutoOpenConsumed }) {
   const [selectedShift, setSelectedShift] = useState(null)
+  // SHIFT-SEQUENCE-1: the SAME ordinal rule the Unit Leader calendar uses
+  // (src/lib/shiftOrdinals.js): per student, chronological over their whole
+  // history, shift_date then checked_in_at then id, so the number for a given
+  // record matches on every surface. Derived, never stored, so a late-entered
+  // older shift renumbers the ones after it automatically.
+  const ordinalById = buildStudentShiftOrdinals(shiftLogs)
   const { userProfile } = useAuth()
   const profileId = userProfile?.id
   const { receipts } = useSupportRequestReads(profileId)
@@ -65,7 +73,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ background: 'var(--sand)' }}>
-                {['Date', 'Hrs', 'Unit', 'Preceptor', 'Type', 'Status', 'Details', ''].map(h => (
+                {['Shift #', 'Date', 'Hrs', 'Unit', 'Preceptor', 'Type', 'Status', 'Details', ''].map(h => (
                   <th key={h} style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, color: '#6b7280', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -73,6 +81,9 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
             <tbody>
               {shiftLogs.map(log => (
                 <tr key={log.id} style={{ borderBottom: '1px solid var(--border-lt)' }}>
+                  <td style={{ padding: '6px 8px' }}>
+                    <ShiftNumberBadge ordinal={ordinalById.get(log.id)} />
+                  </td>
                   <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
                     {log.shift_date ? new Date(log.shift_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
                   </td>
