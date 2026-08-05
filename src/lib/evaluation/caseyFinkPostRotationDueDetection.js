@@ -1,6 +1,6 @@
 // Pure, READ-ONLY status detection for the post-rotation Casey-Fink Readiness for Practice
 // Survey (slug: casey_fink_readiness_2024, timepoint: post_rotation). Recipient is the STUDENT.
-// This is the certificate-gating workflow: completing it unlocks the Certificate of Participation.
+// This is the certificate-gating workflow: completing it unlocks the Certificate of Completion.
 //
 // Parallel to postRotationCertDueDetection.js. It performs NO I/O and NEVER sends, mints tokens,
 // creates assignments, issues certificates, or writes. The caller passes ONLY the student's

@@ -2,7 +2,7 @@
 //
 // Owner/Admin per-student RELEASE for the post-rotation Casey-Fink Readiness for Practice Survey
 // (slug: casey_fink_readiness_2024, timepoint: post_rotation). This is the certificate-gating
-// workflow: completing this survey unlocks the ASPIRE Certificate of Participation (issuance
+// workflow: completing this survey unlocks the ASPIRE Certificate of Completion (issuance
 // happens at submit, inside submit_evaluation_response, NOT here). Parallel to the ASPIRE
 // Post-Rotation Evaluation release endpoint, which is not modified.
 //
@@ -196,7 +196,7 @@ async function _handler(req, res) {
     const REFUSAL_REASON = {
       readiness_released:   'The post-rotation Casey-Fink survey has already been released to this student',
       readiness_completed:  'This student has already completed the post-rotation Casey-Fink survey',
-      certificate_unlocked: 'This student already has a Certificate of Participation',
+      certificate_unlocked: 'This student already has a Certificate of Completion',
       not_eligible_hours:   'This student does not have valid required hours set',
       not_eligible:         'This student has not yet reached the required hours',
     };

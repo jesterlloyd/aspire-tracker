@@ -1,7 +1,7 @@
 // api/certificate-participation-download.js
 //
 // ASPIRE-POSTROTATION-CERT-PDF-1 - PUBLIC, token-authorized download of the ASPIRE Certificate of
-// Participation for the STUDENT who completed the post-rotation evaluation. The assignment is
+// Completion for the STUDENT who completed the post-rotation evaluation. The assignment is
 // derived entirely from the raw evaluation token hash; the client never supplies a student_id or
 // certificate_id. Generates the PDF on demand and streams it - nothing is stored.
 //
@@ -23,14 +23,14 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { hashToken, isWellFormedRawToken } from '../lib/server/evaluation/tokens.js';
 import { extractClientIp, bucketKey } from '../lib/server/evaluation/rate_limit.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
-import { generateParticipationCertificate } from '../lib/server/certificates/generateParticipationCertificate.js';
-import { getStudentPreferredFullName } from '../src/lib/studentNameFormatters.js';
+import { generateCompletionCertificate } from '../lib/server/certificates/generateCompletionCertificate.js';
+import { loadCertificateDisplayFields } from '../lib/server/certificates/loadCertificateDisplayFields.js';
 
 // Gating instruments whose completed post_rotation token authorizes a certificate download.
 // casey_fink_readiness_2024 is the current gate; post_rotation_evaluation is a compatibility
 // fallback (no certificates are issued from it, but a token is accepted if a certificate exists).
 const GATING_SLUGS = new Set(['casey_fink_readiness_2024', 'post_rotation_evaluation']);
-const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-participation.pdf';
+const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-completion.pdf';
 
 function firstOf(v) { return Array.isArray(v) ? v[0] : v; }
 
@@ -113,7 +113,7 @@ export default async function handler(req, res) {
     // create it here. Look up by student so either gating token resolves the same certificate.
     const { data: cert, error: certErr } = await supabaseAdmin
       .from('certificates')
-      .select('certificate_number')
+      .select('certificate_number, certificate_unlocked_at, student_id, evaluation_assignment_id')
       .eq('student_id', assignment.student_id)
       .maybeSingle();
     if (certErr) return res.status(500).json({ error: 'Internal error' });
@@ -121,17 +121,17 @@ export default async function handler(req, res) {
       return res.status(409).json({ error: 'The certificate is not available yet.' });
     }
 
+    // Canonical display fields (name, unit, rotation window, approved-hours snapshot,
+    // issued date) via the ONE shared resolver.
+    const fields = await loadCertificateDisplayFields(supabaseAdmin, cert);
+    if (!fields) return res.status(500).json({ error: 'Internal error' });
+
     const templateBytes = await loadTemplateBytes(req);
     if (!templateBytes) return res.status(500).json({ error: 'Internal error' });
 
-    const studentName = getStudentPreferredFullName(student);
-    const pdfBytes = await generateParticipationCertificate({
-      templateBytes,
-      studentName,
-      certificateNumber: cert.certificate_number,
-    });
+    const pdfBytes = await generateCompletionCertificate({ templateBytes, ...fields });
 
-    const filename = `ASPIRE-Certificate-of-Participation-${safeFilePart(student.last_name)}-${safeFilePart(cert.certificate_number)}.pdf`;
+    const filename = `ASPIRE-Certificate-of-Completion-${safeFilePart(fields.lastName)}-${safeFilePart(cert.certificate_number)}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     return res.status(200).send(Buffer.from(pdfBytes));

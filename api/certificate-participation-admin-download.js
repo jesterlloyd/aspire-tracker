@@ -1,6 +1,6 @@
 // api/certificate-participation-admin-download.js
 //
-// ASPIRE-POSTROTATION-CERT-PDF-1 - Owner/Admin download of the ASPIRE Certificate of Participation
+// ASPIRE-POSTROTATION-CERT-PDF-1 - Owner/Admin download of the ASPIRE Certificate of Completion
 // from the Student Profile. Authenticated Owner/Admin only. Looks up an existing certificate by
 // student_id or certificate_id, verifies it belongs to the student, generates the PDF on demand,
 // and streams it. Nothing is stored.
@@ -16,10 +16,10 @@ import { Buffer } from 'node:buffer';
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
-import { generateParticipationCertificate } from '../lib/server/certificates/generateParticipationCertificate.js';
-import { getStudentPreferredFullName } from '../src/lib/studentNameFormatters.js';
+import { generateCompletionCertificate } from '../lib/server/certificates/generateCompletionCertificate.js';
+import { loadCertificateDisplayFields } from '../lib/server/certificates/loadCertificateDisplayFields.js';
 
-const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-participation.pdf';
+const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-completion.pdf';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
 
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
 
     let certQuery = supabaseAdmin
       .from('certificates')
-      .select('certificate_number, student_id');
+      .select('certificate_number, certificate_unlocked_at, student_id, evaluation_assignment_id');
     if (isUuid(certificateId)) {
       certQuery = certQuery.eq('id', certificateId);
     } else if (isUuid(studentId)) {
@@ -94,24 +94,17 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'No certificate found for this student' });
     }
 
-    const { data: student, error: studentErr } = await supabaseAdmin
-      .from('students')
-      .select('first_name, last_name, preferred_first_name')
-      .eq('id', cert.student_id)
-      .single();
-    if (studentErr || !student) return res.status(404).json({ error: 'Student not found' });
+    // Canonical display fields (name, unit, rotation window, approved-hours snapshot,
+    // issued date) via the ONE shared resolver.
+    const fields = await loadCertificateDisplayFields(supabaseAdmin, cert);
+    if (!fields) return res.status(404).json({ error: 'Student not found' });
 
     const templateBytes = await loadTemplateBytes(req);
     if (!templateBytes) return res.status(500).json({ error: 'Internal error' });
 
-    const studentName = getStudentPreferredFullName(student);
-    const pdfBytes = await generateParticipationCertificate({
-      templateBytes,
-      studentName,
-      certificateNumber: cert.certificate_number,
-    });
+    const pdfBytes = await generateCompletionCertificate({ templateBytes, ...fields });
 
-    const filename = `ASPIRE-Certificate-of-Participation-${safeFilePart(student.last_name)}-${safeFilePart(cert.certificate_number)}.pdf`;
+    const filename = `ASPIRE-Certificate-of-Completion-${safeFilePart(fields.lastName)}-${safeFilePart(cert.certificate_number)}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     return res.status(200).send(Buffer.from(pdfBytes));

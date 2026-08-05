@@ -72,7 +72,7 @@ test('download-certificate specifics', async (t) => {
     assert.match(cert, /c\.certificate_unlocked_at && c\.certificate_number/)
   })
   await t.test('generates the PDF on demand and streams it as an attachment', () => {
-    assert.match(cert, /generateParticipationCertificate\(/)
+    assert.match(cert, /generateCompletionCertificate\(/)
     assert.match(cert, /Content-Type['"],\s*'application\/pdf'/)
     assert.match(cert, /Content-Disposition['"],\s*`attachment; filename="/)
     assert.match(cert, /Buffer\.from\(pdfBytes\)/)

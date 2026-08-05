@@ -920,7 +920,7 @@ export default function StudentSidePanel({
     setGeneratingBadge(false)
   }
 
-  // Download the Certificate of Participation (Owner/Admin). The server generates the PDF on
+  // Download the Certificate of Completion (Owner/Admin). The server generates the PDF on
   // demand from the certificates row; nothing is created or stored here.
   const handleDownloadCertificate = async () => {
     setDownloadingCert(true)
@@ -935,10 +935,10 @@ export default function StudentSidePanel({
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
       a.href     = url
-      a.download = `ASPIRE-Certificate-of-Participation-${(data.last_name || '').replace(/\s+/g, '_')}-${certState.certificate?.certificate_number || 'certificate'}.pdf`
+      a.download = `ASPIRE-Certificate-of-Completion-${(data.last_name || '').replace(/\s+/g, '_')}-${certState.certificate?.certificate_number || 'certificate'}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-      toast?.success('Certificate downloaded', 'The Certificate of Participation was saved.')
+      toast?.success('Certificate downloaded', 'The Certificate of Completion was saved.')
     } catch (err) {
       toast?.error('Certificate download failed', err.message)
     }
@@ -1923,16 +1923,16 @@ export default function StudentSidePanel({
                 {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
               </div>
 
-              {/* Download Certificate of Participation - Owner/Admin. Enabled once the certificate
+              {/* Download Certificate of Completion - Owner/Admin. Enabled once the certificate
                   is unlocked (post-rotation evaluation submitted); disabled with a tooltip otherwise. */}
               {canEdit && (
                 <div className="doc-upload-area">
-                  <div className="doc-area-label">Certificate of Participation</div>
-                  <Tooltip label={certDisabledReason || 'Download the Certificate of Participation'} placement="top">
+                  <div className="doc-area-label">Certificate of Completion</div>
+                  <Tooltip label={certDisabledReason || 'Download the Certificate of Completion'} placement="top">
                     <button
                       onClick={handleDownloadCertificate}
                       disabled={!!certDisabledReason || downloadingCert}
-                      aria-label={certDisabledReason || 'Download Certificate of Participation'}
+                      aria-label={certDisabledReason || 'Download Certificate of Completion'}
                       style={{
                         background: certDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
                         border: certDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
@@ -1941,7 +1941,7 @@ export default function StudentSidePanel({
                         cursor: (certDisabledReason || downloadingCert) ? 'not-allowed' : 'pointer',
                         fontFamily:'DM Sans,sans-serif',
                       }}>
-                      {downloadingCert ? 'Preparing…' : 'Download Certificate of Participation'}
+                      {downloadingCert ? 'Preparing…' : 'Download Certificate of Completion'}
                     </button>
                   </Tooltip>
                 </div>

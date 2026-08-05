@@ -1,7 +1,7 @@
 // api/portal/download-certificate.js
 //
 // ASPIRE-STUDENT-HOME: authenticated, student-facing download of the ASPIRE
-// Certificate of Participation for the LINKED student, from the Student Portal
+// Certificate of Completion for the LINKED student, from the Student Portal
 // Documents card.
 //
 // Authorization (all required, all server-side):
@@ -23,11 +23,11 @@
 import process from 'node:process'
 import { Buffer } from 'node:buffer'
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveStudentLinks } from '../lib/portalAuth.js'
-import { generateParticipationCertificate } from '../../lib/server/certificates/generateParticipationCertificate.js'
+import { generateCompletionCertificate } from '../../lib/server/certificates/generateCompletionCertificate.js'
+import { loadCertificateDisplayFields } from '../../lib/server/certificates/loadCertificateDisplayFields.js'
 import { emailBaseUrl } from '../../lib/server/appUrl.js'
-import { getStudentPreferredFullName } from '../../src/lib/studentNameFormatters.js'
 
-const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-participation.pdf'
+const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-completion.pdf'
 
 // Restrict a filename to a safe, predictable set of characters.
 function safeFilePart(v) {
@@ -70,31 +70,24 @@ export default async function handler(req, res) {
     // never taken from the request; the scope is the authoritative link set.
     const { data: certs, error: certErr } = await db
       .from('certificates')
-      .select('certificate_number, certificate_year, certificate_unlocked_at, student_id')
+      .select('certificate_number, certificate_year, certificate_unlocked_at, student_id, evaluation_assignment_id')
       .in('student_id', studentIds)
     if (certErr) return res.status(500).json({ error: 'internal_error' })
 
     const cert = (certs || []).find(c => c && c.certificate_unlocked_at && c.certificate_number) || null
     if (!cert) return res.status(404).json({ error: 'certificate_unavailable' })
 
-    const { data: student, error: studentErr } = await db
-      .from('students')
-      .select('first_name, last_name, preferred_first_name')
-      .eq('id', cert.student_id)
-      .single()
-    if (studentErr || !student) return res.status(404).json({ error: 'certificate_unavailable' })
+    // Canonical display fields (name, unit, rotation window, approved-hours
+    // snapshot, issued date) via the ONE shared resolver.
+    const fields = await loadCertificateDisplayFields(db, cert)
+    if (!fields) return res.status(404).json({ error: 'certificate_unavailable' })
 
     const templateBytes = await loadTemplateBytes(req)
     if (!templateBytes) return res.status(500).json({ error: 'internal_error' })
 
-    const studentName = getStudentPreferredFullName(student)
-    const pdfBytes = await generateParticipationCertificate({
-      templateBytes,
-      studentName,
-      certificateNumber: cert.certificate_number,
-    })
+    const pdfBytes = await generateCompletionCertificate({ templateBytes, ...fields })
 
-    const filename = `ASPIRE-Certificate-of-Participation-${safeFilePart(student.last_name)}-${safeFilePart(cert.certificate_number)}.pdf`
+    const filename = `ASPIRE-Certificate-of-Completion-${safeFilePart(fields.lastName)}-${safeFilePart(cert.certificate_number)}.pdf`
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     return res.status(200).send(Buffer.from(pdfBytes))

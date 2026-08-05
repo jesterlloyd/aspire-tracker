@@ -202,7 +202,7 @@ async function _handler(req, res) {
     const REFUSAL_REASON = {
       evaluation_released:  'A post-rotation evaluation has already been released to this student',
       evaluation_completed: 'This student has already completed the post-rotation evaluation',
-      certificate_unlocked: 'This student already has a Certificate of Participation',
+      certificate_unlocked: 'This student already has a Certificate of Completion',
       not_eligible_hours:   'This student does not have valid required hours set',
       not_eligible:         'This student has not yet reached the required hours',
     };

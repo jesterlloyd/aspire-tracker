@@ -86,7 +86,7 @@ export function getEvaluationPreviewFixture(workflowKey) {
 
   if (workflowKey === 'caseyFinkPostRotation') {
     // Casey-Fink post-rotation release email. This is the certificate-gating survey; the copy
-    // tells the student that completing it unlocks the Certificate of Participation.
+    // tells the student that completing it unlocks the Certificate of Completion.
     return {
       recipientType: 'Student',
       render: () => buildCaseyFinkPostRotationInvitationEmail({

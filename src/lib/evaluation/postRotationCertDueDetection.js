@@ -1,6 +1,6 @@
 // Pure, READ-ONLY status detection for the ASPIRE Post-Rotation Evaluation workflow (instrument
 // slug: post_rotation_evaluation). Recipient is the STUDENT. This is NON-GATING experience
-// feedback: it is fully decoupled from the Certificate of Participation (the Casey-Fink
+// feedback: it is fully decoupled from the Certificate of Completion (the Casey-Fink
 // post-rotation survey is the certificate gate). This module reads NO certificate data and never
 // reports a certificate status. It performs NO I/O and NEVER sends, mints tokens, creates
 // assignments, issues certificates, or generates PDFs.

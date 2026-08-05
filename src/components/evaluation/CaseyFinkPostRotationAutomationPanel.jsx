@@ -13,7 +13,7 @@ const ROUTE = RELEASE_ROUTES.caseyFinkPostRotation
 // ASPIRE-CASEYFINK-CERT-GATE-1 - eligible / in-flow queue for the post-rotation Casey-Fink
 // Readiness for Practice Survey (slug: casey_fink_readiness_2024, timepoint: post_rotation).
 // Recipient is the STUDENT. This is the CERTIFICATE-GATING workflow: completing the survey unlocks
-// the Certificate of Participation (issuance happens server-side at submit, not at release).
+// the Certificate of Completion (issuance happens server-side at submit, not at release).
 // Manual, human-approved release only; no auto-send, no bulk.
 
 const F = 'DM Sans, sans-serif'
@@ -227,7 +227,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
       </div>
       <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
         Release the post-rotation Casey-Fink Readiness for Practice Survey after rotation review.
-        Completing this survey unlocks the Certificate of Participation. Students appear here at or
+        Completing this survey unlocks the Certificate of Completion. Students appear here at or
         above their required hours, along with anyone already in the survey or certificate flow.
       </p>
 
@@ -393,7 +393,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
               </div>
               <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
                 This will send the post-rotation Casey-Fink Readiness for Practice Survey to the
-                student. Completing it unlocks the Certificate of Participation. Eligibility is
+                student. Completing it unlocks the Certificate of Completion. Eligibility is
                 re-checked on the server before sending.
               </p>
             </div>

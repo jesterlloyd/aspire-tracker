@@ -374,7 +374,7 @@ export default function EvaluationPage() {
       const body = await res.json().catch(() => ({}))
       if (res.status === 200) {
         // certificateNumber is present only for a student post_rotation Casey-Fink submission that
-        // unlocked the Certificate of Participation. Baseline submissions never return one.
+        // unlocked the Certificate of Completion. Baseline submissions never return one.
         setCertificateNumber(body.certificateNumber || null)
         setView('thank_you')
       } else if (res.status === 410) {
@@ -410,7 +410,7 @@ export default function EvaluationPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `ASPIRE-Certificate-of-Participation-${certificateNumber || 'certificate'}.pdf`
+      a.download = `ASPIRE-Certificate-of-Completion-${certificateNumber || 'certificate'}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -478,7 +478,7 @@ export default function EvaluationPage() {
                 Thank you. Your response has been recorded.
               </p>
               <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.6, margin: '0 0 18px' }}>
-                Your Certificate of Participation has been unlocked. You may download it below.
+                Your Certificate of Completion has been unlocked. You may download it below.
               </p>
               <button
                 type="button"
@@ -487,7 +487,7 @@ export default function EvaluationPage() {
                 className="eval-submit-btn"
                 style={{ maxWidth: 360, margin: '0 auto', opacity: downloading ? 0.6 : 1, cursor: downloading ? 'default' : 'pointer' }}
               >
-                {downloading ? 'Preparing…' : 'Download Certificate of Participation'}
+                {downloading ? 'Preparing…' : 'Download Certificate of Completion'}
               </button>
               {downloadError && (
                 <p style={{ fontSize: 13, color: '#991b1b', margin: '12px 0 0' }}>{downloadError}</p>
