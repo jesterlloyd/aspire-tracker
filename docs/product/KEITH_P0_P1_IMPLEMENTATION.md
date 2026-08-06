@@ -282,8 +282,17 @@ Two migrations, **neither applied**. Apply in this order:
    after all verification is **draft, disabled, version 0** — verification must
    never be what puts a confidential skill live.
 2. `supabase/migrations/20260805000002_program_events_rls_lockdown.sql`
-   Independent of this project. Closes the finding that Keith's audit trail is
+   Independent of this project. Finding R6 was that Keith's audit trail was
    deletable by any client holding the anon key.
+
+   **That anon exposure is historical, not current.** The production PRECHECK on
+   2026-08-06 found no anon policy and no anon grant — consistent with Phase 0B
+   Wave B, which drops exactly those four policies and revokes the grant. The
+   migration is correct either way (its drop loop is by enumeration, so it no-ops
+   on policies already gone), and what it is still for is: narrowing broad
+   `authenticated` access to the capability split below, fencing Keith audit rows
+   from the browser, removing UPDATE and DELETE from every client role, narrowing
+   `service_role`, and leaving an exact replayable rollback.
 
    **Post-lockdown access.** anon gets nothing at all. For `authenticated` the
    split is by capability: **every staff role including Viewer may SELECT**
@@ -293,6 +302,17 @@ Two migrations, **neither applied**. Apply in this order:
    both directions. `service_role` is narrowed to **SELECT, INSERT** — nothing on
    the server updates or deletes this table, verified by grep, so least privilege
    costs nothing. No UPDATE or DELETE policy exists for any role.
+
+   **Grant verification classifies grantees rather than counting rows.**
+   `aclexplode(relacl)` reports the table owner's own privileges too, so an
+   "exactly two grantees" expectation would fail against a correct database.
+   V5 now requires `authenticated` and `service_role` to each hold exactly
+   `INSERT, SELECT`, requires `anon` and `PUBLIC` to hold nothing, and permits
+   the table owner and platform admin roles to retain full privileges as trusted
+   owner access — the owner resolved dynamically, not hard-coded to `postgres`.
+   A separate check catches any client role holding UPDATE, DELETE, TRUNCATE,
+   REFERENCES or TRIGGER, kept apart so legitimate owner privileges cannot mask
+   one.
 
    The split lives in the policy rather than the grant because Viewer,
    Interviewer, Admin and Owner are all the same Postgres role: a grant permits

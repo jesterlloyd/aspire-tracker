@@ -57,9 +57,12 @@ FROM pg_policies
 WHERE schemaname = 'public' AND tablename = 'program_events'
 ORDER BY policyname;
 
--- 1.2 THE EXPOSURE, STATED PLAINLY. Every command role `anon` can currently
---     perform on the audit trail. Expect SELECT, INSERT, UPDATE, DELETE (or ALL)
---     before the lockdown; the same query returns ZERO rows afterwards (2.1).
+-- 1.2 THE HISTORICAL ANON EXPOSURE. Every command role `anon` can perform on the
+--     audit trail. PASS: ZERO rows. The 2026-08-06 production PRECHECK returned
+--     zero here, meaning the anon half of finding R6 was already closed by Phase
+--     0B Wave B. If this DOES return rows on some other environment, the original
+--     exposure is still live there and applying this migration matters more, not
+--     less.
 SELECT policyname, cmd, qual, with_check
 FROM pg_policies
 WHERE schemaname = 'public' AND tablename = 'program_events'
@@ -272,20 +275,71 @@ SELECT relname, relrowsecurity, relforcerowsecurity
 FROM pg_class
 WHERE oid = 'public.program_events'::regclass;
 
--- 2.5 (V5) TABLE GRANTS. PASS: exactly two rows, each reading "INSERT, SELECT".
---       authenticated : INSERT, SELECT
---       service_role  : INSERT, SELECT   (narrowed from ALL: nothing on the
---                                         server updates or deletes this table)
---     anon and PUBLIC must not appear at all, and no grantee may show UPDATE,
---     DELETE, TRUNCATE, REFERENCES or TRIGGER.
+-- 2.5 (V5) TABLE GRANTS, BY GRANTEE CLASS. PASS: every row's verdict starts with
+--     'ok', and anon/PUBLIC produce no row at all.
+--       authenticated : exactly "INSERT, SELECT"
+--       service_role  : exactly "INSERT, SELECT"  (narrowed from ALL: nothing on
+--                       the server updates or deletes this table)
+--       anon, PUBLIC  : must not appear
+--       table owner / platform admin : MAY retain full privileges. This is
+--                       deliberate trusted owner and admin access - the same
+--                       posture as the keith_* tables - and it is what lets an
+--                       Owner run these checks and take a backup at all.
+--
+--     Counting rows here would be wrong: aclexplode(relacl) reports the TABLE
+--     OWNER's own privileges too (in Supabase usually `postgres`, holding the
+--     full set), so an "exactly two grantees" expectation FAILS on a correct
+--     database. The owner is resolved dynamically rather than hard-coded, because
+--     it is not guaranteed to be `postgres`.
+WITH tbl AS (
+  SELECT c.oid, pg_get_userbyid(c.relowner) AS owner_role
+  FROM pg_class c
+  WHERE c.oid = 'public.program_events'::regclass
+),
+acl AS (
+  SELECT
+    COALESCE(pg_get_userbyid(NULLIF(a.grantee, 0)), 'PUBLIC')    AS grantee,
+    string_agg(a.privilege_type, ', ' ORDER BY a.privilege_type) AS privileges
+  FROM tbl
+  CROSS JOIN LATERAL aclexplode((SELECT relacl FROM pg_class WHERE oid = tbl.oid)) AS a
+  GROUP BY 1
+)
 SELECT
-  COALESCE(pg_get_userbyid(NULLIF(a.grantee, 0)), 'PUBLIC')     AS grantee,
-  string_agg(a.privilege_type, ', ' ORDER BY a.privilege_type)  AS privileges
+  acl.grantee,
+  acl.privileges,
+  CASE
+    WHEN acl.grantee IN ('anon', 'PUBLIC')
+      THEN 'FAIL - client role must hold NO privileges'
+    WHEN acl.grantee = 'authenticated' AND acl.privileges = 'INSERT, SELECT'
+      THEN 'ok - staff read + append (policies decide the rows)'
+    WHEN acl.grantee = 'authenticated'
+      THEN 'FAIL - authenticated must be exactly INSERT, SELECT'
+    WHEN acl.grantee = 'service_role' AND acl.privileges = 'INSERT, SELECT'
+      THEN 'ok - server read + append'
+    WHEN acl.grantee = 'service_role'
+      THEN 'FAIL - service_role must be exactly INSERT, SELECT'
+    WHEN acl.grantee = (SELECT owner_role FROM tbl)
+      THEN 'ok - table owner (trusted)'
+    WHEN acl.grantee IN ('postgres', 'supabase_admin', 'supabase_auth_admin', 'supabase_storage_admin')
+      THEN 'ok - platform admin (trusted)'
+    ELSE 'UNEXPECTED - STOP and review this grantee'
+  END AS verdict
+FROM acl
+ORDER BY acl.grantee;
+
+-- 2.5b NO CLIENT ROLE HOLDS A MUTATING PRIVILEGE. PASS: zero rows. Kept separate
+--      from 2.5 so that trusted owner privileges, which legitimately include
+--      UPDATE and DELETE, cannot mask a client role that wrongly has them.
+SELECT
+  COALESCE(pg_get_userbyid(NULLIF(a.grantee, 0)), 'PUBLIC') AS grantee,
+  a.privilege_type
 FROM pg_class c
 CROSS JOIN LATERAL aclexplode(c.relacl) AS a
 WHERE c.oid = 'public.program_events'::regclass
-GROUP BY 1
-ORDER BY 1;
+  AND COALESCE(pg_get_userbyid(NULLIF(a.grantee, 0)), 'PUBLIC')
+      IN ('anon', 'PUBLIC', 'authenticated', 'service_role')
+  AND a.privilege_type IN ('UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+ORDER BY 1, 2;
 
 -- 2.5b (V10) THE CAPTURED SNAPSHOT IS COMPLETE, ATTRIBUTABLE, AND REPLAYABLE.
 --      PASS: exactly one open run; policies_captured and grants_captured match

@@ -13,15 +13,33 @@
 --   program milestone trail (form_received, interview, placement, rotation_start,
 --   rotation_end, rubric_saved, manual_status_update, note, ...).
 --
---   Today that table is protected by nothing:
---     - migration_program_events_rls.sql grants role `anon` SELECT, INSERT,
---       UPDATE and DELETE with USING (true) / WITH CHECK (true). The anon key is
---       embedded in the public browser bundle, so anyone can read, forge, rewrite
---       or DELETE the audit trail.
---     - migration_authenticated_rls_audit_v2.sql (lines 84-86) grants
---       `authenticated` FOR ALL USING (true) WITH CHECK (true), i.e. every signed-in
---       account including future/current PORTAL accounts (students, unit leaders,
---       academic partners) has full CRUD on the same trail.
+--   HISTORICAL EXPOSURE (the origin of finding R6), NOT the current state:
+--     - migration_program_events_rls.sql granted role `anon` SELECT, INSERT,
+--       UPDATE and DELETE with USING (true) / WITH CHECK (true). Since the anon
+--       key ships in the public browser bundle, that once meant anyone could
+--       read, forge, rewrite or DELETE the audit trail.
+--     - migration_authenticated_rls_audit_v2.sql (lines 84-86) granted
+--       `authenticated` FOR ALL USING (true) WITH CHECK (true), i.e. every
+--       signed-in account, including PORTAL accounts (students, unit leaders,
+--       academic partners), had full CRUD on the same trail.
+--
+--   CURRENT STATE, per the production PRECHECK run on 2026-08-06:
+--     NO anon policy and NO anon grant remain. The anon half of R6 is already
+--     closed - consistent with Phase 0B Wave B
+--     (20260712000001_phase0b_wave_b_drop_orphan_anon_policies.sql), which drops
+--     exactly those four anon policies and revokes the anon grant. This migration
+--     is written to be correct either way: its drop loop is by enumeration, so it
+--     is a no-op for policies that are already gone.
+--
+--   WHAT THIS MIGRATION IS THEREFORE STILL FOR:
+--     1. Replace broad `authenticated` access with the narrow, capability-split
+--        pair below - every staff role may READ, only Owner/Admin/Co-Lead/
+--        Interviewer may WRITE.
+--     2. Fence Keith audit rows off from the browser in both directions.
+--     3. Remove UPDATE and DELETE from every client role, making the trail
+--        append-only from the browser.
+--     4. Narrow service_role from ALL to SELECT + INSERT.
+--     5. Leave an exact, replayable rollback artifact.
 --   Finding R6 in docs/product/KEITH_SKILLS_KNOWLEDGE_VAULT_PLAN.md; decision D12
 --   queued this lockdown as its own Owner SQL gate item.
 --
@@ -499,6 +517,9 @@ COMMIT;
 -- ============================================================================
 --
 -- V1. NO anon policy remains. Expected: ZERO rows.
+--     Note: per the 2026-08-06 PRECHECK this already returns zero BEFORE
+--     applying, because Wave B removed the anon policies. It stays in the set as
+--     a regression check, not as proof this migration did the removing.
 --
 --   SELECT policyname, cmd, roles, qual, with_check
 --   FROM pg_policies
@@ -538,9 +559,17 @@ COMMIT;
 --   FROM pg_class
 --   WHERE oid = 'public.program_events'::regclass;
 --
--- V5. Table grants. Expected EXACTLY two grantees, each with exactly
---     "INSERT, SELECT": authenticated and service_role. anon and PUBLIC must
---     appear on ZERO rows, and NO grantee may show UPDATE, DELETE, TRUNCATE,
+-- V5. Table grants, by grantee class. aclexplode(relacl) also reports the TABLE
+--     OWNER's own privileges (in Supabase usually `postgres`, which holds the
+--     full set), so an "exactly two grantees" expectation would fail on a correct
+--     database. Classify instead:
+--       authenticated : exactly "INSERT, SELECT"
+--       service_role  : exactly "INSERT, SELECT"
+--       anon, PUBLIC  : ZERO rows
+--       the table owner / platform admin roles : may retain full privileges -
+--         this is trusted owner and admin access, the same posture recorded for
+--         the keith_* tables, and it is what lets an Owner run these very checks.
+--     No CLIENT role (anon, authenticated) may show UPDATE, DELETE, TRUNCATE,
 --     REFERENCES or TRIGGER.
 --
 --   SELECT grantee, string_agg(privilege_type, ', ' ORDER BY privilege_type) AS privileges

@@ -249,3 +249,49 @@ test('the verification script matches the policy set the migration creates', () 
   assert.match(audit, /LIKE '%''viewer''%'/)
   assert.doesNotMatch(audit, /service_role_all_program_events/)
 })
+
+// ── Framing and grant verification (post-PRECHECK correction) ────────────────
+
+test('anon full CRUD is described as historical, not as the current state', () => {
+  const header = sql.slice(0, sql.indexOf('\nBEGIN;'))
+  assert.match(header, /HISTORICAL EXPOSURE/)
+  assert.match(header, /NO anon policy and NO anon grant remain/)
+  // The old present-tense claim must be gone: the production PRECHECK on
+  // 2026-08-06 found no anon policy and no anon grant.
+  assert.doesNotMatch(header, /Today that table is protected by nothing/)
+  // And the migration must still state what it is for now that anon is closed.
+  assert.match(header, /WHAT THIS MIGRATION IS THEREFORE STILL FOR/)
+  assert.match(audit, /PASS: ZERO rows\. The 2026-08-06 production PRECHECK/)
+})
+
+test('V5 classifies grantees instead of counting rows', () => {
+  // aclexplode(relacl) reports the TABLE OWNER's privileges too, so an
+  // "exactly two grantees" expectation fails on a correct database.
+  const v5 = audit.slice(audit.indexOf('-- 2.5 (V5)'), audit.indexOf('-- 2.5b'))
+  assert.doesNotMatch(v5, /PASS: exactly two rows/)
+  assert.match(v5, /pg_get_userbyid\(c\.relowner\) AS owner_role/,
+    'the owner must be resolved dynamically, not hard-coded to postgres')
+  assert.match(v5, /'FAIL - client role must hold NO privileges'/)
+  assert.match(v5, /acl\.grantee = 'authenticated' AND acl\.privileges = 'INSERT, SELECT'/)
+  assert.match(v5, /acl\.grantee = 'service_role' AND acl\.privileges = 'INSERT, SELECT'/)
+  assert.match(v5, /'FAIL - authenticated must be exactly INSERT, SELECT'/)
+  assert.match(v5, /'FAIL - service_role must be exactly INSERT, SELECT'/)
+  assert.match(v5, /'ok - table owner \(trusted\)'/)
+  assert.match(v5, /'UNEXPECTED - STOP and review this grantee'/)
+})
+
+test('a separate check catches a client role holding a mutating privilege', () => {
+  // Kept out of 2.5 so trusted owner UPDATE/DELETE cannot mask a client role
+  // that wrongly has them.
+  const v5b = audit.slice(audit.indexOf('-- 2.5b'), audit.indexOf('-- 2.6'))
+  assert.match(v5b, /IN \('anon', 'PUBLIC', 'authenticated', 'service_role'\)/)
+  assert.match(v5b, /IN \('UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'\)/)
+  assert.match(v5b, /PASS: zero rows/)
+})
+
+test('the migration V5 comment matches the audit script', () => {
+  const v5 = sql.slice(sql.indexOf('-- V5. Table grants'), sql.indexOf('-- V6.'))
+  assert.match(v5, /by grantee class/i)
+  assert.match(v5, /the table owner \/ platform admin roles : may retain full privileges/)
+  assert.doesNotMatch(v5, /EXACTLY two grantees/)
+})
