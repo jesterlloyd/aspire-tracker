@@ -252,9 +252,35 @@ Two migrations, **neither applied**. Apply in this order:
 
 1. `supabase/migrations/20260805000001_keith_p0_foundations_and_skills.sql`
    Creates the five `keith_*` tables, five functions, and seeds the skill as
-   **draft + disabled**. Transactional, aborts if any table already exists.
-   Deny-all RLS (zero policies), service-role-only grants. Verification V1–V8 at
-   the foot of the file, plus a rollback block.
+   **draft + disabled**. Transactional; aborts if any table already exists.
+   Verification V1–V8 at the foot of the file, plus a rollback block.
+
+   **Access model.** RLS is enabled on every table with zero policies, and all
+   privileges are revoked from PUBLIC, anon and authenticated — those two roles
+   are denied twice over, with no grant to act with and no policy to satisfy.
+   Two kinds of trusted caller retain access by design: **service_role**, which
+   holds the least-privilege grants and bypasses RLS, and is the path every
+   legitimate application read and write takes; and the **database owner and
+   admin roles**, covering the Supabase SQL editor, migrations, backup and
+   restore, and the cost and audit reporting an Owner runs by hand.
+
+   `FORCE ROW LEVEL SECURITY` is deliberately **not** set. It would change
+   nothing for anon or authenticated, who are already denied by both mechanisms
+   above; what it would do is subject the table owner to the zero-policy
+   deny-all and lock an Owner out of reading `keith_requests` in the SQL editor,
+   defeating the single question that table exists to answer. Trusted owner and
+   admin access is a requirement here, not an oversight.
+
+   **Grants are least privilege**, so append-only and immutable are enforced by
+   the database rather than asserted in a comment: `keith_requests`,
+   `keith_skill_invocations` and `keith_skill_versions` get `SELECT, INSERT`
+   only; `keith_skills` adds `UPDATE` but never `DELETE` (archive is terminal);
+   only `keith_rate_limit_counters` holds the full set, for upsert and prune.
+
+   **V5 and V7 mutate** and are each wrapped in a transaction that is always
+   rolled back, with a mandatory post-rollback check on V7. The required state
+   after all verification is **draft, disabled, version 0** — verification must
+   never be what puts a confidential skill live.
 2. `supabase/migrations/20260805000002_program_events_rls_lockdown.sql`
    Independent of this project. Closes the finding that Keith's audit trail is
    deletable by any client holding the anon key.
