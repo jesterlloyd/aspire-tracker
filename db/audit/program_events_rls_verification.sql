@@ -80,9 +80,71 @@ ORDER BY 1;
 
 -- 1.4 RLS FLAGS. PASS: relrowsecurity = true. If it is false, the policies above
 --     are decorative and the table is fully open regardless of them.
+--     RECORD BOTH VALUES. The migration captures them into
+--     program_events_rls_lockdown_runs and the ROLLBACK restores them exactly,
+--     rather than assuming RLS was already enabled - so if relrowsecurity is
+--     false today, a rollback will correctly turn it back off.
 SELECT relname, relrowsecurity, relforcerowsecurity
 FROM pg_class
 WHERE oid = 'public.program_events'::regclass;
+
+-- 1.4b STALE ARTIFACT PROBE. PASS: 'PASS' notices only, no WARNING.
+--      The migration refuses to run if either condition holds, because a
+--      leftover open run or an older-shape artifact makes "restore the previous
+--      state" ambiguous. An open run means this lockdown is already applied -
+--      roll it back before re-applying. An older-shape artifact must be archived
+--      (ALTER TABLE ... RENAME TO ..._legacy) before re-running.
+--
+--      Written as a DO block with dynamic SQL on purpose: on a FIRST application
+--      none of these tables exist, and a plain SELECT naming them would fail with
+--      "relation does not exist" - alarming output for what is the expected,
+--      healthy first-run state.
+DO $probe$
+DECLARE
+  v_open    integer := 0;
+  v_missing text;
+BEGIN
+  IF to_regclass('public.program_events_rls_lockdown_runs') IS NULL THEN
+    RAISE NOTICE 'PASS: no lockdown run registry yet (this is a first application).';
+  ELSE
+    EXECUTE 'SELECT count(*) FROM public.program_events_rls_lockdown_runs WHERE rolled_back_at IS NULL'
+      INTO v_open;
+    IF v_open = 0 THEN
+      RAISE NOTICE 'PASS: registry present, no open lockdown run.';
+    ELSE
+      RAISE WARNING 'STOP: % open lockdown run(s). The lockdown is already applied; roll back before re-applying.', v_open;
+    END IF;
+  END IF;
+
+  SELECT string_agg(problem, '; ' ORDER BY problem) INTO v_missing
+  FROM (
+    SELECT 'program_events_rls_policy_backup is missing run_id' AS problem
+     WHERE to_regclass('public.program_events_rls_policy_backup') IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='program_events_rls_policy_backup'
+                          AND column_name='run_id')
+    UNION ALL
+    SELECT 'program_events_rls_grant_backup is missing run_id'
+     WHERE to_regclass('public.program_events_rls_grant_backup') IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='program_events_rls_grant_backup'
+                          AND column_name='run_id')
+    UNION ALL
+    SELECT 'program_events_rls_lockdown_runs is missing ' || c.needed
+      FROM (VALUES ('run_id'), ('prior_rowsecurity'), ('prior_forcerowsecurity'), ('rolled_back_at')) AS c(needed)
+     WHERE to_regclass('public.program_events_rls_lockdown_runs') IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='program_events_rls_lockdown_runs'
+                          AND column_name=c.needed)
+  ) AS problems;
+
+  IF v_missing IS NULL THEN
+    RAISE NOTICE 'PASS: no older-shape lockdown artifacts.';
+  ELSE
+    RAISE WARNING 'STOP: older-shape lockdown artifacts present (%). Archive them before applying.', v_missing;
+  END IF;
+END
+$probe$;
 
 -- 1.5 PREREQUISITE. PASS: one row, prosecdef = true. public.is_staff() is created
 --     by supabase/migrations/20260712000000_phase0b_wave_a_is_staff_helper.sql
@@ -92,6 +154,25 @@ SELECT p.proname, p.prosecdef, pg_get_function_identity_arguments(p.oid) AS args
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'is_staff';
+
+-- 1.5b VIEWER-EXCLUDING WRITER PREDICATE. Expect ZERO rows BEFORE applying: the
+--      migration creates public.is_staff_event_writer(). After applying, section
+--      2 expects exactly one row with prosecdef = true.
+SELECT p.proname, p.prosecdef
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'is_staff_event_writer';
+
+-- 1.5c WHO WILL LOSE WRITE ACCESS. The lockdown lets every staff role READ the
+--      trail but restricts INSERT to Owner, Admin, Co-Lead and Interviewer.
+--      This lists the active Viewers who will keep read access and lose write
+--      access. Expect that to be acceptable; if a Viewer is currently relied on
+--      to change student statuses, resolve that before applying.
+SELECT role, count(*) AS active_accounts
+FROM public.user_profiles
+WHERE COALESCE(is_active, true) = true
+GROUP BY role
+ORDER BY role;
 
 -- 1.6 BASELINE ROW COUNTS. Record these. The migration touches NO row, so the
 --     same numbers must come back in 2.6.
@@ -138,12 +219,16 @@ WHERE schemaname = 'public' AND tablename = 'program_events'
   AND (COALESCE(qual, '') = 'true' OR COALESCE(with_check, '') = 'true');
 
 -- 2.3 (V3) THE EXPECTED POLICY SET, AND NOTHING ELSE.
---     PASS: exactly three rows, all with expected_shape = 'ok':
---       service_role_all_program_events | ALL    | {service_role}
---       staff_insert_program_events     | INSERT | {authenticated}
---       staff_select_program_events     | SELECT | {authenticated}
---     There must be NO row with cmd = 'UPDATE' or cmd = 'DELETE', and both staff
---     policies must reference is_staff() and 'keith_tool_call'.
+--     PASS: exactly FOUR rows, all with expected_shape = 'ok':
+--       service_role_insert_program_events | INSERT | {service_role}
+--       service_role_select_program_events | SELECT | {service_role}
+--       staff_insert_program_events        | INSERT | {authenticated}
+--       staff_select_program_events        | SELECT | {authenticated}
+--     There must be NO row with cmd = 'UPDATE' or cmd = 'DELETE', and no
+--     a FOR ALL service_role policy (the pre-revision shape).
+--     THE ONE TO READ CLOSELY: staff_insert must reference
+--     is_staff_event_writer, NOT is_staff. If it says is_staff, Viewers can write
+--     and the read/write split has been lost.
 SELECT
   policyname,
   cmd,
@@ -151,29 +236,48 @@ SELECT
   qual,
   with_check,
   CASE
-    WHEN policyname = 'service_role_all_program_events'
-      AND cmd = 'ALL' AND roles = ARRAY['service_role']::name[]                      THEN 'ok'
+    WHEN policyname = 'service_role_select_program_events'
+      AND cmd = 'SELECT' AND roles = ARRAY['service_role']::name[]                    THEN 'ok'
+    WHEN policyname = 'service_role_insert_program_events'
+      AND cmd = 'INSERT' AND roles = ARRAY['service_role']::name[]                    THEN 'ok'
     WHEN policyname = 'staff_select_program_events'
       AND cmd = 'SELECT' AND roles = ARRAY['authenticated']::name[]
-      AND qual LIKE '%is_staff%' AND qual LIKE '%keith_tool_call%'                   THEN 'ok'
+      AND qual LIKE '%is_staff()%' AND qual LIKE '%keith_tool_call%'                  THEN 'ok'
     WHEN policyname = 'staff_insert_program_events'
       AND cmd = 'INSERT' AND roles = ARRAY['authenticated']::name[]
-      AND with_check LIKE '%is_staff%' AND with_check LIKE '%keith_tool_call%'       THEN 'ok'
+      AND with_check LIKE '%is_staff_event_writer%'
+      AND with_check LIKE '%keith_tool_call%'                                         THEN 'ok'
     ELSE 'UNEXPECTED - STOP'
   END AS expected_shape
 FROM pg_policies
 WHERE schemaname = 'public' AND tablename = 'program_events'
 ORDER BY policyname;
 
+-- 2.3b THE VIEWER SPLIT, AT THE PREDICATE LEVEL. PASS: one row, prosecdef = true,
+--      lists_interviewer = true, lists_viewer = FALSE.
+--      Both tests match the QUOTED role literal, not a bare substring: the word
+--      'interviewer' contains "viewer", so a naive LIKE '%viewer%' would report
+--      the split as broken on a correct function.
+SELECT
+  p.proname,
+  p.prosecdef,
+  pg_get_functiondef(p.oid) LIKE '%''interviewer''%' AS lists_interviewer,
+  pg_get_functiondef(p.oid) LIKE '%''viewer''%'      AS lists_viewer
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'is_staff_event_writer';
+
 -- 2.4 (V4) RLS still enabled. PASS: relrowsecurity = true.
 SELECT relname, relrowsecurity, relforcerowsecurity
 FROM pg_class
 WHERE oid = 'public.program_events'::regclass;
 
--- 2.5 (V5) TABLE GRANTS. PASS: exactly two rows.
+-- 2.5 (V5) TABLE GRANTS. PASS: exactly two rows, each reading "INSERT, SELECT".
 --       authenticated : INSERT, SELECT
---       service_role  : the full privilege set
---     anon and PUBLIC must not appear at all.
+--       service_role  : INSERT, SELECT   (narrowed from ALL: nothing on the
+--                                         server updates or deletes this table)
+--     anon and PUBLIC must not appear at all, and no grantee may show UPDATE,
+--     DELETE, TRUNCATE, REFERENCES or TRIGGER.
 SELECT
   COALESCE(pg_get_userbyid(NULLIF(a.grantee, 0)), 'PUBLIC')     AS grantee,
   string_agg(a.privilege_type, ', ' ORDER BY a.privilege_type)  AS privileges
@@ -182,6 +286,27 @@ CROSS JOIN LATERAL aclexplode(c.relacl) AS a
 WHERE c.oid = 'public.program_events'::regclass
 GROUP BY 1
 ORDER BY 1;
+
+-- 2.5b (V10) THE CAPTURED SNAPSHOT IS COMPLETE, ATTRIBUTABLE, AND REPLAYABLE.
+--      PASS: exactly one open run; policies_captured and grants_captured match
+--      the counts you recorded from 1.1 and 1.3; and every captured grant that
+--      was grantable replays WITH GRANT OPTION, so a rollback cannot silently
+--      downgrade a privilege.
+SELECT r.run_id, r.captured_at, r.applied_by,
+       r.prior_rowsecurity, r.prior_forcerowsecurity, r.rolled_back_at,
+       (SELECT count(*) FROM public.program_events_rls_policy_backup b WHERE b.run_id = r.run_id) AS policies_captured,
+       (SELECT count(*) FROM public.program_events_rls_grant_backup  g WHERE g.run_id = r.run_id) AS grants_captured
+FROM public.program_events_rls_lockdown_runs r
+ORDER BY r.captured_at DESC;
+
+SELECT grantee, privilege_type, is_grantable, restore_sql,
+       CASE
+         WHEN is_grantable AND restore_sql LIKE '%WITH GRANT OPTION;' THEN 'ok'
+         WHEN NOT is_grantable AND restore_sql NOT LIKE '%WITH GRANT OPTION;' THEN 'ok'
+         ELSE 'MISMATCH - STOP'
+       END AS grant_option_replay
+FROM public.program_events_rls_grant_backup
+ORDER BY grantee, privilege_type;
 
 -- 2.6 (V6) ROW PRESERVATION. PASS: identical to 1.6 in every column. This
 --     migration changes access, never data.

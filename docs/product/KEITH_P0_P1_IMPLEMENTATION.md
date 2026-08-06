@@ -284,6 +284,30 @@ Two migrations, **neither applied**. Apply in this order:
 2. `supabase/migrations/20260805000002_program_events_rls_lockdown.sql`
    Independent of this project. Closes the finding that Keith's audit trail is
    deletable by any client holding the anon key.
+
+   **Post-lockdown access.** anon gets nothing at all. For `authenticated` the
+   split is by capability: **every staff role including Viewer may SELECT**
+   (`is_staff()`), while **INSERT is Owner, Admin, Co-Lead and Interviewer only**
+   (`is_staff_event_writer()`, a new SECURITY DEFINER helper mirroring
+   `is_staff()` minus `viewer`). Keith audit rows are fenced from the browser in
+   both directions. `service_role` is narrowed to **SELECT, INSERT** — nothing on
+   the server updates or deletes this table, verified by grep, so least privilege
+   costs nothing. No UPDATE or DELETE policy exists for any role.
+
+   The split lives in the policy rather than the grant because Viewer,
+   Interviewer, Admin and Owner are all the same Postgres role: a grant permits
+   the statement, a policy decides the rows. The helper is SECURITY DEFINER
+   because an inline subquery against `user_profiles` would be subject to that
+   table's own RLS and would deny everyone while looking correct.
+
+   **Rollback is exact.** Each apply records one `run_id` capturing a complete
+   fresh snapshot plus the prior `relrowsecurity`/`relforcerowsecurity` flags.
+   The rollback revokes the lockdown grants *before* replaying captured ones
+   (GRANT is additive, so a privilege this migration added would otherwise
+   survive), replays grant options as `WITH GRANT OPTION`, restores the prior RLS
+   flags rather than assuming RLS was on, and marks the run closed. Applying
+   refuses to stack on an open run or on a pre-`run_id` backup table, so a stale
+   snapshot can never be replayed.
    **Critical correctness note:** browser code *does* legitimately read and
    insert `program_events` — `useUnreadStudents` drives the unread-student
    badges, `logEvent.eventExists()` gates deduplicated auto-logs, and the
