@@ -643,11 +643,18 @@ COMMIT;
 --     Transaction control is NOT permitted inside a DO block, so the ROLLBACK is
 --     a top-level statement wrapping it. Run all three statements together; the
 --     ROLLBACK is what guarantees no row is left modified, whichever branch runs.
+--     array_append is used rather than the || operator: || is overloaded across
+--     anyarray||anyelement, anyarray||anyarray and text||text, so appending an
+--     UNTYPED literal leans on operator resolution to land on the branch you
+--     meant. array_append names the intent and cannot be read another way, which
+--     matters more than usual here - this statement exists to prove a CHECK
+--     constraint fires, so it must fail for the constraint's reason and no
+--     other.
 --   BEGIN;
 --   DO $v5$
 --   BEGIN
 --     UPDATE public.keith_skills
---        SET allowed_roles = allowed_roles || 'viewer'
+--        SET allowed_roles = array_append(allowed_roles, 'viewer')
 --      WHERE slug = 'resume-interview-questions';
 --     RAISE EXCEPTION 'FAIL: viewer was accepted by keith_skills_no_viewer';
 --   EXCEPTION

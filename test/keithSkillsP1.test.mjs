@@ -885,6 +885,12 @@ test('V5 and V7 mutate, so each is wrapped in a rolled-back transaction', () => 
   assert.match(v5, /\$v5\$;\n--   ROLLBACK;/, 'ROLLBACK must follow the closing dollar tag, not sit inside it')
   const doBody = v5.slice(v5.indexOf('DO $v5$'), v5.indexOf('$v5$;'))
   assert.doesNotMatch(doBody, /ROLLBACK/, 'a DO block may not contain transaction control')
+  // The probe must append unambiguously. || is overloaded, so appending an
+  // untyped literal relies on operator resolution picking the branch intended;
+  // a statement whose whole job is to prove a CHECK constraint fires must fail
+  // for the constraint's reason and no other.
+  assert.match(doBody, /SET allowed_roles = array_append\(allowed_roles, 'viewer'\)/)
+  assert.doesNotMatch(doBody, /allowed_roles \|\|/, 'use array_append, not the overloaded || operator')
 
   // V7: must not be able to leave a confidential skill activated in production.
   assert.match(v7, /--   BEGIN;/)
