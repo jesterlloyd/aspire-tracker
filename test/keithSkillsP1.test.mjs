@@ -821,3 +821,111 @@ test('the skill never writes to the rubric or the student record', () => {
     'the skill executor is read-only; the only row written is its audit row, by the caller')
   assert.doesNotMatch(src, /interview_rubrics/)
 })
+
+
+// ── Migration hardening (pre-apply review fixes) ─────────────────────────────
+
+test('grants are least privilege: append-only and immutable tables cannot be rewritten', () => {
+  const sql = read('supabase/migrations/20260805000001_keith_p0_foundations_and_skills.sql')
+  // Append-only / immutable: INSERT + SELECT only. No UPDATE, no DELETE, so
+  // "immutable" is enforced by the database rather than asserted in a comment.
+  for (const table of ['keith_requests', 'keith_skill_invocations', 'keith_skill_versions']) {
+    assert.match(sql, new RegExp(`GRANT SELECT, INSERT\\s+ON public\\.${table}\\s+TO service_role;`),
+      `${table} must be append-only`)
+    assert.doesNotMatch(sql, new RegExp(`GRANT[^;]*UPDATE[^;]*ON public\\.${table}`),
+      `${table} must never be granted UPDATE`)
+    assert.doesNotMatch(sql, new RegExp(`GRANT[^;]*DELETE[^;]*ON public\\.${table}`),
+      `${table} must never be granted DELETE`)
+  }
+  // Governed content: no DELETE (archive is terminal, no delete path exists).
+  assert.match(sql, /GRANT SELECT, INSERT, UPDATE\s+ON public\.keith_skills\s+TO service_role;/)
+  assert.doesNotMatch(sql, /GRANT[^;]*DELETE[^;]*ON public\.keith_skills\s/)
+  // Counters genuinely need the full set: upsert plus prune.
+  assert.match(sql, /GRANT SELECT, INSERT, UPDATE, DELETE ON public\.keith_rate_limit_counters TO service_role;/)
+})
+
+test('the rate-limit functions validate every input as positive', () => {
+  const sql = read('supabase/migrations/20260805000001_keith_p0_foundations_and_skills.sql')
+  // p_window_seconds = 0 would divide by zero; p_limit = NULL would make the
+  // allowed comparison NULL, which reads as "allowed" to a caller checking
+  // `!== false` - a silent fail-open in a fail-closed limiter.
+  assert.match(sql, /IF p_window_seconds IS NULL OR p_window_seconds < 1 OR p_window_seconds > 86400 THEN/)
+  assert.match(sql, /IF p_limit IS NULL OR p_limit < 1 THEN/)
+  assert.match(sql, /IF p_weight IS NULL OR p_weight < 1 THEN/)
+  assert.match(sql, /IF p_profile_id IS NULL THEN/)
+  // A negative retention would match every live counter and wipe every budget.
+  assert.match(sql, /IF p_older_than_hours IS NULL OR p_older_than_hours < 1 THEN/)
+})
+
+test('V1 checks exactly the five tables, never a LIKE pattern', () => {
+  const sql = read('supabase/migrations/20260805000001_keith_p0_foundations_and_skills.sql')
+  const v1 = sql.slice(sql.indexOf('-- V1:'), sql.indexOf('-- V2:'))
+  // Pin the QUERY construct, not the word: the comment above V1 legitimately
+  // explains why LIKE was rejected, and must not trip its own assertion.
+  assert.doesNotMatch(v1, /relname LIKE/, 'LIKE sweeps in unrelated tables, and _ is itself a wildcard')
+  assert.match(v1, /WITH expected\(relname\) AS \(/)
+  for (const table of ['keith_requests', 'keith_rate_limit_counters', 'keith_skills',
+    'keith_skill_versions', 'keith_skill_invocations']) {
+    assert.ok(v1.includes(`'${table}'`), `V1 must name ${table} explicitly`)
+  }
+  // A missing table must surface as a row, not as a shorter result set.
+  assert.match(v1, /LEFT JOIN pg_class/)
+  assert.match(v1, /table_exists/)
+  assert.match(v1, /pol\.schemaname = 'public'/, 'policy count must be schema-qualified')
+})
+
+test('V5 and V7 mutate, so each is wrapped in a rolled-back transaction', () => {
+  const sql = read('supabase/migrations/20260805000001_keith_p0_foundations_and_skills.sql')
+  const v5 = sql.slice(sql.indexOf('-- V5:'), sql.indexOf('-- V6:'))
+  const v7 = sql.slice(sql.indexOf('-- V7:'), sql.indexOf('-- V8:'))
+
+  // V5: transaction control cannot live inside a DO block, so ROLLBACK must be
+  // a top-level statement AFTER the block closes.
+  assert.match(v5, /--   BEGIN;/)
+  assert.match(v5, /\$v5\$;\n--   ROLLBACK;/, 'ROLLBACK must follow the closing dollar tag, not sit inside it')
+  const doBody = v5.slice(v5.indexOf('DO $v5$'), v5.indexOf('$v5$;'))
+  assert.doesNotMatch(doBody, /ROLLBACK/, 'a DO block may not contain transaction control')
+
+  // V7: must not be able to leave a confidential skill activated in production.
+  assert.match(v7, /--   BEGIN;/)
+  assert.match(v7, /--   ROLLBACK;/)
+  assert.ok(v7.indexOf('keith_activate_skill') > v7.indexOf('BEGIN;'), 'activation must run inside the transaction')
+  assert.ok(v7.indexOf('ROLLBACK;') > v7.indexOf('keith_activate_skill'), 'the rollback must follow activation')
+  assert.match(v7, /MANDATORY post-check, AFTER the rollback/)
+  assert.match(v7, /EXPECT: draft, false, 0/)
+  // And a stated recovery path if the client autocommitted.
+  assert.match(v7, /SET status = 'draft', enabled = false, version = 0/)
+})
+
+test('the required final state after all verification is draft and disabled', () => {
+  const sql = read('supabase/migrations/20260805000001_keith_p0_foundations_and_skills.sql')
+  assert.match(sql, /THE REQUIRED FINAL STATE AFTER ALL VERIFICATION IS\n--   status = draft, enabled = false, version = 0\./)
+  // The seed itself must still land draft + disabled.
+  assert.match(sql, /'draft',\n\s+false,/)
+})
+
+test('the access model is stated: anon/authenticated denied, trusted roles retained', () => {
+  const sql = read('supabase/migrations/20260805000001_keith_p0_foundations_and_skills.sql')
+  // FORCE stays off so the table owner keeps access for trusted operations.
+  assert.doesNotMatch(sql, /^ALTER TABLE .*FORCE ROW LEVEL SECURITY;/m,
+    'FORCE would subject the owner - which the SQL editor runs as - to the zero-policy deny-all')
+  assert.match(sql, /FORCE ROW LEVEL SECURITY is deliberately NOT set/)
+
+  // The model must be written down, because the next person to add a policy here
+  // needs to know which callers are supposed to still work.
+  const model = sql.slice(sql.indexOf('-- ACCESS MODEL'), sql.indexOf('GRANT SELECT, INSERT '))
+  assert.match(model, /DENIED: anon and authenticated/)
+  assert.match(model, /denied twice over/)
+  assert.match(model, /service_role/)
+  assert.match(model, /database owner and admin roles/)
+
+  // And the enforcement it describes must actually be present.
+  assert.doesNotMatch(sql, /CREATE POLICY/)
+  for (const table of ['keith_requests', 'keith_rate_limit_counters', 'keith_skills',
+    'keith_skill_versions', 'keith_skill_invocations']) {
+    assert.ok(new RegExp(`REVOKE ALL ON public\\.${table}\\s+FROM PUBLIC, anon, authenticated;`).test(sql),
+      `${table} must revoke from anon and authenticated`)
+    assert.ok(new RegExp(`ALTER TABLE public\\.${table}\\s+ENABLE ROW LEVEL SECURITY;`).test(sql),
+      `${table} must have RLS enabled`)
+  }
+})

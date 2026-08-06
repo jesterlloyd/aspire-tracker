@@ -17,9 +17,12 @@
 --   SEED  the resume-interview-questions skill, as DRAFT and DISABLED.
 --
 -- POSTURE (identical to the Knowledge Center chassis this extends)
---   * RLS enabled with ZERO policies on every new table: deny-all for anon and
---     authenticated. All access is service-role, through the serverless
---     endpoints, which bypass RLS.
+--   * RLS enabled with ZERO policies on every new table, plus all privileges
+--     revoked from anon and authenticated: those two roles are denied twice
+--     over. Application access is service-role, through the serverless
+--     endpoints, which bypass RLS. Trusted database owner and admin operations
+--     (SQL editor, migrations, backup/restore, Owner cost reporting) retain
+--     access by design - see the ACCESS MODEL note above the grants.
 --   * Lifecycle functions are SECURITY INVOKER, lock-then-verify, and are
 --     EXECUTE-able only by service_role. They deliberately contain no role
 --     check: authorization lives in api/keith-skills-admin.js, exactly as it
@@ -37,7 +40,10 @@
 --     enables nothing. Activation is a separate, deliberate Owner action in
 --     Settings > Keith > Skills.
 --
--- VERIFICATION: V1-V8 at the end of this file.
+-- VERIFICATION: V1-V8 at the end of this file. V5 and V7 MUTATE and are each
+--   wrapped in a transaction that is always rolled back; V7 carries a mandatory
+--   post-rollback check. THE REQUIRED FINAL STATE AFTER ALL VERIFICATION IS
+--   status = draft, enabled = false, version = 0.
 -- =====================================================================
 
 BEGIN;
@@ -127,11 +133,23 @@ DECLARE
   v_window_start timestamptz;
   v_count        integer;
 BEGIN
+  -- Positive-input validation on EVERY parameter, not just the obvious two.
+  -- Two of these are correctness bugs rather than hygiene:
+  --   p_window_seconds = 0 divides by zero in the window arithmetic below;
+  --   p_limit = NULL makes (v_count <= p_limit) evaluate to NULL, which a caller
+  --   reading "allowed IS NOT false" would treat as ALLOWED - a silent fail-open
+  --   in a limiter whose whole posture is fail-closed.
   IF p_profile_id IS NULL THEN
     RAISE EXCEPTION 'profile_id is required' USING ERRCODE = 'P0107';
   END IF;
   IF p_weight IS NULL OR p_weight < 1 THEN
-    RAISE EXCEPTION 'weight must be >= 1' USING ERRCODE = 'P0108';
+    RAISE EXCEPTION 'weight must be a positive integer' USING ERRCODE = 'P0108';
+  END IF;
+  IF p_window_seconds IS NULL OR p_window_seconds < 1 OR p_window_seconds > 86400 THEN
+    RAISE EXCEPTION 'window_seconds must be a positive integer of at most 86400' USING ERRCODE = 'P0108';
+  END IF;
+  IF p_limit IS NULL OR p_limit < 1 THEN
+    RAISE EXCEPTION 'limit must be a positive integer' USING ERRCODE = 'P0108';
   END IF;
 
   -- Fixed tumbling window: floor(now) to the window size.
@@ -162,6 +180,15 @@ SET search_path = pg_catalog, public
 AS $fn$
 DECLARE v_deleted integer;
 BEGIN
+  -- A negative or zero retention would make the predicate below
+  -- (window_start < now() + N hours) match EVERY live counter and wipe every
+  -- profile's consumed budget - handing the whole workspace a fresh allowance.
+  -- Validated rather than clamped, so a bad caller is corrected, not silently
+  -- reinterpreted.
+  IF p_older_than_hours IS NULL OR p_older_than_hours < 1 THEN
+    RAISE EXCEPTION 'older_than_hours must be a positive integer' USING ERRCODE = 'P0108';
+  END IF;
+
   DELETE FROM public.keith_rate_limit_counters
   WHERE window_start < now() - make_interval(hours => p_older_than_hours);
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
@@ -466,8 +493,29 @@ ALTER TABLE public.keith_skills               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.keith_skill_versions       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.keith_skill_invocations    ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public.keith_requests            FORCE ROW LEVEL SECURITY;
-ALTER TABLE public.keith_skill_invocations   FORCE ROW LEVEL SECURITY;
+-- ACCESS MODEL (read this before changing any GRANT or policy below).
+--
+-- DENIED: anon and authenticated. RLS is enabled on every table above with ZERO
+-- policies, and every privilege is revoked from PUBLIC, anon and authenticated.
+-- Those roles are therefore denied twice over - no grant to act with, and no
+-- policy to satisfy. Neither a browser session nor the anon key can read, write,
+-- or delete any keith_* row.
+--
+-- RETAINED, deliberately, by two kinds of trusted caller:
+--   * service_role - the serverless endpoints. It holds the explicit
+--     least-privilege grants below and bypasses RLS. This is the path every
+--     legitimate application read and write takes.
+--   * the database owner and admin roles - the Supabase SQL editor, migrations,
+--     backup and restore, and the audit and cost reporting an Owner runs by
+--     hand. A table owner is exempt from its own RLS unless FORCE is set.
+--
+-- FORCE ROW LEVEL SECURITY is deliberately NOT set, and that second bullet is
+-- why. FORCE changes nothing for anon or authenticated, who are already denied
+-- by both mechanisms above. What it would do is subject the OWNER to the
+-- zero-policy deny-all, locking an Owner out of reading keith_requests in the
+-- SQL editor - which would defeat the single question that table exists to
+-- answer: what did Keith cost last month. Trusted owner and admin access here is
+-- a requirement, not an oversight.
 
 REVOKE ALL ON public.keith_requests            FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.keith_rate_limit_counters FROM PUBLIC, anon, authenticated;
@@ -475,11 +523,27 @@ REVOKE ALL ON public.keith_skills              FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.keith_skill_versions      FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.keith_skill_invocations   FROM PUBLIC, anon, authenticated;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.keith_requests            TO service_role;
+-- LEAST PRIVILEGE. Each grant is exactly what the code performs, no more. The
+-- append-only and immutable tables hold no UPDATE or DELETE grant at all, so
+-- "immutable" and "append-only" are enforced by the database rather than merely
+-- asserted in a comment - a future endpoint that tried to rewrite audit history
+-- would fail on a privilege error instead of succeeding quietly.
+--
+--   keith_requests            append-only metering   INSERT + SELECT (reporting)
+--   keith_skill_invocations   append-only audit      INSERT + SELECT (30-day rollup)
+--   keith_skill_versions      immutable history      INSERT + SELECT (version list)
+--   keith_skills              governed content       INSERT + SELECT + UPDATE
+--   keith_rate_limit_counters mutable counters       INSERT + SELECT + UPDATE + DELETE
+--
+-- keith_skills gets no DELETE: archive is terminal, and no endpoint exposes a
+-- delete action. keith_skill_versions needs no DELETE despite its ON DELETE
+-- CASCADE, because referential actions execute with the privileges of the
+-- constraint owner, not the invoking role.
+GRANT SELECT, INSERT                 ON public.keith_requests            TO service_role;
+GRANT SELECT, INSERT                 ON public.keith_skill_invocations   TO service_role;
+GRANT SELECT, INSERT                 ON public.keith_skill_versions      TO service_role;
+GRANT SELECT, INSERT, UPDATE         ON public.keith_skills              TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.keith_rate_limit_counters TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.keith_skills              TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.keith_skill_versions      TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.keith_skill_invocations   TO service_role;
 
 REVOKE ALL ON FUNCTION public.keith_consume_rate_limit(uuid, integer, integer, integer)      FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.keith_prune_rate_limit_counters(integer)                       FROM PUBLIC, anon, authenticated;
@@ -529,13 +593,32 @@ COMMIT;
 -- =====================================================================
 -- VERIFICATION (run after COMMIT; all should PASS)
 -- =====================================================================
--- V1: all five tables exist with RLS enabled and ZERO policies.
---   SELECT c.relname, c.relrowsecurity,
---          (SELECT count(*) FROM pg_policies p WHERE p.tablename = c.relname) AS policies
---   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
---   WHERE n.nspname='public' AND c.relname LIKE 'keith_%'
+-- V1: EXACTLY the five expected tables exist, each with RLS enabled and ZERO
+--     policies. The five names are listed explicitly rather than matched with
+--     LIKE 'keith_%', for three reasons: LIKE would sweep in unrelated future
+--     keith_* tables; `_` is itself a LIKE wildcard, so the pattern also matches
+--     names like keithXrequests; and a pattern scan cannot detect a table that
+--     failed to create at all, which is the failure most worth catching. The
+--     LEFT JOIN makes a missing table show up as a row with table_exists = f
+--     rather than as a silently shorter result set.
+--   WITH expected(relname) AS (
+--     VALUES ('keith_requests'), ('keith_rate_limit_counters'),
+--            ('keith_skills'), ('keith_skill_versions'), ('keith_skill_invocations')
+--   )
+--   SELECT e.relname,
+--          (c.oid IS NOT NULL)               AS table_exists,
+--          COALESCE(c.relrowsecurity, false) AS rls_enabled,
+--          COALESCE((SELECT count(*) FROM pg_policies pol
+--                     WHERE pol.schemaname = 'public'
+--                       AND pol.tablename  = e.relname), 0) AS policies
+--   FROM expected e
+--   LEFT JOIN pg_class c
+--          ON c.relname = e.relname
+--         AND c.relnamespace = 'public'::regnamespace
+--         AND c.relkind = 'r'
 --   ORDER BY 1;
---   EXPECT: 5 rows, relrowsecurity = true, policies = 0 for every row.
+--   EXPECT: exactly 5 rows; table_exists = t, rls_enabled = t, policies = 0 on
+--           EVERY row. Any f, or any policies > 0, blocks enabling the skill.
 --
 -- V2: anon and authenticated hold no privileges on any keith_* table.
 --   SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants
@@ -557,16 +640,26 @@ COMMIT;
 --           {admin,co-lead,interviewer}.
 --
 -- V5: the no-viewer constraint actually bites.
---   DO $$ BEGIN
---     BEGIN
---       UPDATE public.keith_skills SET allowed_roles = allowed_roles || 'viewer'
---        WHERE slug='resume-interview-questions';
---       RAISE EXCEPTION 'FAIL: viewer was accepted';
---     EXCEPTION WHEN check_violation THEN RAISE NOTICE 'PASS: viewer rejected';
---     END;
---     ROLLBACK;
---   END $$;
---   (Run inside a transaction you roll back, or re-run V4 afterwards to confirm no change.)
+--     Transaction control is NOT permitted inside a DO block, so the ROLLBACK is
+--     a top-level statement wrapping it. Run all three statements together; the
+--     ROLLBACK is what guarantees no row is left modified, whichever branch runs.
+--   BEGIN;
+--   DO $v5$
+--   BEGIN
+--     UPDATE public.keith_skills
+--        SET allowed_roles = allowed_roles || 'viewer'
+--      WHERE slug = 'resume-interview-questions';
+--     RAISE EXCEPTION 'FAIL: viewer was accepted by keith_skills_no_viewer';
+--   EXCEPTION
+--     WHEN check_violation THEN
+--       RAISE NOTICE 'PASS: viewer rejected by keith_skills_no_viewer';
+--   END
+--   $v5$;
+--   ROLLBACK;
+--   EXPECT: NOTICE 'PASS: viewer rejected by keith_skills_no_viewer'.
+--           If the FAIL exception is raised instead, the CHECK constraint is
+--           missing - stop and investigate before enabling anything.
+--   THEN re-run V4 to confirm allowed_roles is unchanged.
 --
 -- V6: rate limiter counts and refuses. Substitute a REAL user_profiles.id.
 --   SELECT * FROM public.keith_consume_rate_limit('<profile-uuid>'::uuid, 1, 600, 2);  -- allowed=t count=1
@@ -574,13 +667,41 @@ COMMIT;
 --   SELECT * FROM public.keith_consume_rate_limit('<profile-uuid>'::uuid, 1, 600, 2);  -- allowed=f count=3
 --   CLEANUP: DELETE FROM public.keith_rate_limit_counters WHERE profile_id='<profile-uuid>'::uuid;
 --
--- V7: activation writes a version and flips status. Substitute a real Owner profile id.
+-- V7: activation writes a version and flips status. This is a MUTATION, so it is
+--     wrapped in a transaction that is ALWAYS rolled back. Verification must not
+--     be the thing that puts a confidential skill live in production: the final
+--     state after this block MUST remain draft + disabled, and activation stays a
+--     deliberate act taken in Settings > Keith > Skills.
+--     Substitute a real Owner profile id.
+--   BEGIN;
 --   SELECT * FROM public.keith_activate_skill(
---     (SELECT id FROM public.keith_skills WHERE slug='resume-interview-questions'),
---     '<owner-profile-uuid>'::uuid, 'initial activation');
---   EXPECT: new_version = 1; then keith_skills.status='active', version=1, enabled STILL false;
---           one keith_skill_versions row; one activity_logs row action_type='keith_skill_activate'.
---   NOTE: activation does NOT enable the skill. Enabling is done in the app.
+--     (SELECT id FROM public.keith_skills WHERE slug = 'resume-interview-questions'),
+--     '<owner-profile-uuid>'::uuid, 'verification only - rolled back');
+--   -- EXPECT: new_version = 1.
+--   SELECT slug, status, enabled, version FROM public.keith_skills
+--    WHERE slug = 'resume-interview-questions';
+--   -- EXPECT inside the transaction: active, enabled STILL false, version 1.
+--   --        Activation deliberately does not enable a skill; they are two switches.
+--   SELECT count(*) AS version_rows FROM public.keith_skill_versions;   -- EXPECT 1
+--   SELECT count(*) AS audit_rows   FROM public.activity_logs
+--    WHERE action_type = 'keith_skill_activate';                        -- EXPECT 1
+--   ROLLBACK;
+--
+--   -- MANDATORY post-check, AFTER the rollback. Do not skip it: it is the proof
+--   -- that verification left production untouched.
+--   SELECT slug, status, enabled, version FROM public.keith_skills;
+--   -- EXPECT: draft, false, 0.
+--   SELECT count(*) FROM public.keith_skill_versions;                   -- EXPECT 0
+--   SELECT count(*) FROM public.activity_logs
+--    WHERE action_type = 'keith_skill_activate';                        -- EXPECT 0
+--   -- If any of these three shows otherwise, the ROLLBACK did not take effect
+--   -- (an autocommit-per-statement client will do this). Immediately set the
+--   -- skill back with:
+--   --   UPDATE public.keith_skills
+--   --      SET status = 'draft', enabled = false, version = 0
+--   --    WHERE slug = 'resume-interview-questions';
+--   --   DELETE FROM public.keith_skill_versions;
+--   -- and confirm Settings > Keith > Skills shows Draft / not running.
 --
 -- V8: no content columns exist on either audit table.
 --   SELECT table_name, column_name FROM information_schema.columns
