@@ -48,8 +48,13 @@ test('visibleSections: the rail is exactly the intended destinations, never the 
     assert.equal(rail.includes('knowledge'), roleFlags.isAdmin, 'knowledge rail membership must match isAdmin')
     assert.equal(rail.includes('preceptorParity'), roleFlags.isOwner, 'preceptorParity rail membership must match isOwner')
 
+    // KEITH-P1: `keith` is now an IMPLEMENTED Administration destination (the
+    // Skills workspace), so it belongs in the rail on the same isAdmin rule as
+    // Accounts & Access and Knowledge Center. It moved out of the assertion
+    // below when it stopped being a scaffold.
+    assert.equal(rail.includes('keith'), roleFlags.isAdmin, 'keith rail membership must match isAdmin')
+
     // No unimplemented scaffolds leak into the rail.
-    assert.ok(!rail.includes('keith'))
     assert.ok(!rail.includes('templates'))
     assert.ok(!rail.includes('audit'))
   }

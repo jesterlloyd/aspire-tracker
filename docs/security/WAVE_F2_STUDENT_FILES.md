@@ -221,5 +221,13 @@ bucket access.
 
 Manual acceptance of Pass 1 (staff + portal file flows verified on the deployed
 build) was required before Pass 2. Pass 2 is applied and verified in production
-(0 public URLs remaining, 57 canonical paths, backup intact). Pass 3 is prepared and
-is not applied automatically.
+(0 public URLs remaining, 57 canonical paths, backup intact). Pass 3 is applied and
+verified in production: `student-files` is private with zero storage policies naming
+it. Every migration written since then asserts that state as its untouched PASS
+baseline (`bucket_public = false`, `student_files_policies = 0`, `canonical_paths = 57`,
+`remaining_http_values = 0`), in
+`db/audit/unit_leader_portal_preflight_and_verification.sql` (VERIFY 8),
+`db/audit/unit_leader_transactional_integrity_preflight_and_verification.sql`, and
+`db/audit/unit_leader_notifications_preflight_and_verification.sql`. Re-confirm it with
+the VERIFICATION section of `db/audit/wave_f2_pass3_preflight_and_verification.sql`
+before any change that touches storage.

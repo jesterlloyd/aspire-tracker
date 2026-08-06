@@ -32,10 +32,17 @@ test('the ASPIRE-CHART refactor deletions are not revived by Wave F-2', () => {
 })
 
 test('explicit active-role file capabilities exist (not the broad canEdit)', () => {
+  // ROLE MATRIX UPDATED 2026-08-05 (approved): reading a student's resume is now
+  // owner|admin|co-lead (STUDENT_READ_ROLES). MANAGING files and generating
+  // badges are mutations, not access, and stay active Owner/Admin - which is
+  // exactly the distinction this test now pins.
   const activeOwnerAdmin = /userProfile\?\.is_active !== false && \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/
-  for (const cap of ['canViewStudentResume', 'canManageStudentFiles', 'canGenerateBadge']) {
-    assert.match(auth, new RegExp(`${cap}:\\s*userProfile\\?\\.is_active !== false && \\['owner', 'admin'\\]\\.includes\\(userProfile\\?\\.role\\)`), `${cap} must be active Owner/Admin`)
+  for (const cap of ['canManageStudentFiles', 'canGenerateBadge']) {
+    assert.match(auth, new RegExp(`${cap}:\\s*userProfile\\?\\.is_active !== false && \\['owner', 'admin'\\]\\.includes\\(userProfile\\?\\.role\\)`), `${cap} must stay active Owner/Admin`)
   }
+  assert.match(auth, /canViewStudentResume:\s*userProfile\?\.is_active !== false && STUDENT_READ_ROLES\.includes\(normalizeStaffRole\(userProfile\?\.role\)\)/,
+    'canViewStudentResume must be an active member of the student-read set')
+  assert.match(auth, /const STUDENT_READ_ROLES = \['owner', 'admin', 'co-lead'\]/)
   assert.ok(activeOwnerAdmin.test(auth))
   // canInterview still includes interviewer (interview functionality preserved),
   // but it is never the file gate.

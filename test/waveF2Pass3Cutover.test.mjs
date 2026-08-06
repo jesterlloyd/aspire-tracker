@@ -176,10 +176,15 @@ test('verification proves private, no client policy, unchanged objects/reference
 
 // ── Application audit: nothing depends on public bucket access ───────────────
 test('every read is a service-role signed URL behind authorization', () => {
+  // ROLE MATRIX UPDATED 2026-08-05 (approved): a Co-Lead is near-Owner for
+  // student ACCESS and reads student files across ALL cohorts, so the
+  // unrestricted branch is now owner|admin|co-lead (`isUnrestricted`, was
+  // `isOwnerAdmin`). Interviewer stays entitlement-gated, Viewer stays
+  // headshot-only, and upload/replace/delete stay Owner/Admin elsewhere.
   assert.match(access, /createSignedUrls\(/)
   assert.match(portal, /createSignedUrl\(/)
   // Role scopes unchanged by Pass 3.
-  assert.match(access, /const isOwnerAdmin = role === 'owner' \|\| role === 'admin'/)
+  assert.match(access, /const isUnrestricted = role === 'owner' \|\| role === 'admin' \|\| role === 'co-lead'/)
   assert.match(access, /const isViewer = role === 'viewer'/)
   assert.match(access, /const isInterviewer = role === 'interviewer'/)
   assert.match(access, /activeEntitledCohortIds\(/)

@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { setStudentPhotoCacheScope, clearStudentPhotoCache } from '../lib/studentPhotoCache';
+import { normalizeStaffRole } from '../lib/permissions';
+
+// Roles that READ student files across every cohort, with no entitlement needed.
+// Co-Lead joined Owner/Admin here on 2026-08-05: near-Owner for student access.
+// Deliberately NOT the same list as file management or badge generation, which
+// stay Owner/Admin - reading a student's file is access, replacing it is not.
+const STUDENT_READ_ROLES = ['owner', 'admin', 'co-lead'];
 
 const AuthContext = createContext({});
 
@@ -201,7 +208,10 @@ export function AuthProvider({ children }) {
     //   canViewStudentResume  - see/open/download a resume (active Owner/Admin)
     //   canManageStudentFiles - upload/replace/delete student files (active Owner/Admin)
     //   canGenerateBadge      - generate a student badge (active Owner/Admin)
-    canViewStudentResume:  userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
+    // APPROVED 2026-08-05: a Co-Lead reads student resumes across ALL cohorts
+    // (near-Owner for student ACCESS). Manage and badge below stay Owner/Admin:
+    // reading a student's file is access, replacing or deleting it is not.
+    canViewStudentResume:  userProfile?.is_active !== false && STUDENT_READ_ROLES.includes(normalizeStaffRole(userProfile?.role)),
     canManageStudentFiles: userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
     canGenerateBadge:      userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
     // WAVE F-2: an active interviewer's entitled cohorts, plus two per-cohort
@@ -210,11 +220,11 @@ export function AuthProvider({ children }) {
     // the Viewer matrix). Manage/badge stay Owner/Admin-only above.
     interviewerCohortIds,
     canViewStudentResumeInCohort: (cohortId) =>
-      (userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role)) ||
+      (userProfile?.is_active !== false && STUDENT_READ_ROLES.includes(normalizeStaffRole(userProfile?.role))) ||
       (userProfile?.is_active !== false && String(userProfile?.role || '').toLowerCase() === 'interviewer'
         && !!cohortId && interviewerCohortIds.includes(cohortId)),
     canViewStudentPhotoInCohort: (cohortId) =>
-      (userProfile?.is_active !== false && ['owner', 'admin', 'viewer'].includes(userProfile?.role)) ||
+      (userProfile?.is_active !== false && [...STUDENT_READ_ROLES, 'viewer'].includes(normalizeStaffRole(userProfile?.role))) ||
       (userProfile?.is_active !== false && String(userProfile?.role || '').toLowerCase() === 'interviewer'
         && !!cohortId && interviewerCohortIds.includes(cohortId)),
     canViewActivityLog: userProfile?.is_owner === true,

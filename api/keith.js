@@ -15,6 +15,12 @@ import { formatRotationRange, canonicalRotationWindow } from '../src/lib/rotatio
 import { displayName } from '../src/lib/utils.js';
 import { classifyIntent, INTENTS, isExplicitEmailDrafting } from '../lib/server/keith/queryIntent.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
+import { resolveRoute, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
+import { consumeRateLimit, rateLimitMessage, limiterUnavailableMessage, WEIGHT_CHAT, WEIGHT_SKILL } from '../lib/server/keith/rateLimit.js';
+import { recordKeithUsage, recordSkillInvocation, OUTCOMES } from '../lib/server/keith/usageLog.js';
+import { buildContactLine, allowsFieldInDefaultContext } from '../lib/server/keith/contextMinimization.js';
+import { loadInvocableSkills, selectSkill, loadSkillInstructions, applySkillMarker } from '../lib/server/keith/skillRuntime.js';
+import { runResumeInterviewQuestions, RIQ_SLUG } from '../lib/server/keith/resumeInterviewQuestions.js';
 import { schoolMatches } from './lib/schoolAliases.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
@@ -410,7 +416,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
       case 'get_student_detail': {
         const { data: student, error } = await supabase
           .from('students')
-          .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, preceptor_id, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement, headshot_url, resume_url')
+          .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, preceptor_id, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement')
           .eq('id', input.student_id)
           .single();
         if (error || !student) return { error: 'Student not found' };
@@ -597,9 +603,14 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
       };
     }
 
+    // KEITH-P0: model + sampling come from the server-side route table, never
+    // from the request. Temperature is now explicit; it used to be unset, which
+    // meant an API default of 1.0 on a grounding-critical assistant.
+    const route = resolveRoute(DEFAULT_ROUTE_NAME);
     const payload = {
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      model: route.model,
+      max_tokens: route.maxTokens,
+      temperature: route.temperature,
       system: systemPrompt,
       messages,
     };
@@ -756,6 +767,83 @@ export default async function handler(req, res) {
   const isPersonContactRole = intent === INTENTS.PERSON_CONTACT_ROLE && !isExplicitEmailDrafting(lastUserText);
   const allowRoster = intent === INTENTS.EMAIL_DRAFTING; // unit-leadership roster: drafting only
   console.log('[keith-intent]', { request_id: requestId, intent }); // PII-free: label only
+
+  // ── KEITH-P0: weighted rate limit ───────────────────────────────────────────
+  // Runs after identity is verified (so budget is attributable) and before any
+  // context assembly or model call (so a refused request costs nothing).
+  const requestStartedAt = Date.now();
+  const meterClient = makeServiceRoleClient();
+  const skillRequested = typeof req.body?.skill_slug === 'string' ? req.body.skill_slug : null;
+  const rate = await consumeRateLimit(meterClient, {
+    profileId: auth.profileId,
+    weight: skillRequested ? WEIGHT_SKILL : WEIGHT_CHAT,
+    requestId,
+  });
+  if (!rate.allowed) {
+    // Two different facts, reported differently. `degraded` means the limiter
+    // could not be consulted and we failed CLOSED: that is a 503 with honest
+    // copy, not a 429, because the caller did not exceed anything.
+    await recordKeithUsage(meterClient, {
+      requestId, profileId: auth.profileId, role: auth.role, intent,
+      outcome: rate.degraded ? OUTCOMES.ERROR : OUTCOMES.RATE_LIMITED,
+      rateLimited: !rate.degraded,
+      durationMs: Date.now() - requestStartedAt,
+    });
+    console.log('[keith-ratelimit] refused', {
+      request_id: requestId, count: rate.count, limit: rate.limit, degraded: rate.degraded,
+    });
+    if (rate.degraded) {
+      return res.status(503).json({ response: limiterUnavailableMessage(), transient: true });
+    }
+    return res.status(429).json({
+      response: rateLimitMessage(rate.retryAfterSeconds),
+      rate_limited: true,
+      retry_after_seconds: rate.retryAfterSeconds,
+    });
+  }
+
+  // ── KEITH-P1: explicit skill invocation ─────────────────────────────────────
+  // Progressive loading: only skill METADATA is read here. An unselected skill's
+  // instructions are never loaded, and a confidential skill is only selected by
+  // an explicit act (picker slug, or an exact registered trigger phrase).
+  {
+    const invocable = await loadInvocableSkills(meterClient, auth);
+    const selected = selectSkill(invocable, { requestedSlug: skillRequested, userText: lastUserText });
+    if (selected && selected.skill.slug === RIQ_SLUG) {
+      const loaded = await loadSkillInstructions(meterClient, selected.skill.id);
+      if (loaded) {
+        const activeCohortIdForSkill = req.body?.liveData?.activeCohortId || req.body?.context?.cohortId || null;
+        const result = await runResumeInterviewQuestions({
+          db: meterClient,
+          skill: selected.skill,
+          instructionBody: loaded.instruction_body,
+          caller: auth,
+          studentName: req.body?.skill_student_name || lastUserText,
+          studentId: req.body?.skill_student_id || null,
+          cohortId: activeCohortIdForSkill,
+          requestId,
+          invocationMode: selected.mode,
+        });
+        await recordSkillInvocation(meterClient, result.audit);
+        await recordKeithUsage(meterClient, {
+          requestId, profileId: auth.profileId, role: auth.role, intent,
+          skillId: selected.skill.id, skillVersion: selected.skill.version,
+          model: result.audit.model, modelRoute: selected.skill.model_route,
+          inputTokens: result.audit.inputTokens, outputTokens: result.audit.outputTokens,
+          durationMs: result.audit.durationMs, outcome: result.audit.outcome,
+        });
+        console.log('[keith-skill]', {
+          request_id: requestId, skill: selected.skill.slug, mode: selected.mode,
+          outcome: result.audit.outcome,
+        });
+        return res.status(200).json({
+          response: result.text,
+          skill: { slug: selected.skill.slug, version: selected.skill.version, mode: selected.mode },
+          tool_calls: [],
+        });
+      }
+    }
+  }
 
   // CONTACTS-1b/1d: person/contact/role questions are answered deterministically from
   // ASPIRE Connect Contacts, BEFORE any prompt/context assembly, governed retrieval, or
@@ -956,8 +1044,8 @@ Cohort Status: ${cohort.status || 'unknown'}`
           : (s.preceptor_id && preceptorFallbackMap[s.preceptor_id]) || 'pending';
         return [
           `- ${s.last_name}, ${s.first_name}`,
-          `  School: ${s.school || 'N/A'} | Program: ${s.program_type || 'N/A'} | GPA: ${s.cumulative_gpa || 'N/A'}`,
-          `  School Email: ${s.school_email || 'N/A'} | Personal Email: ${s.personal_email || 'N/A'} | Phone: ${s.phone || 'N/A'}`,
+          `  School: ${s.school || 'N/A'} | Program: ${s.program_type || 'N/A'}`,
+          buildContactLine(s, intent),
           `  Unit: ${unit.unit_name || 'pending'}${unit.division ? ` [${unit.division}]` : ''}`,
           `  Preceptor: ${preceptorName} | Shift: ${s.shift_assigned || s.shift_availability || 'N/A'}`,
           `  Rotation Dates: ${formatRotationRange(rotationById[s.cohort_school_rotation_id], fmtRotDatePT)}`,
@@ -968,9 +1056,11 @@ Cohort Status: ${cohort.status || 'unknown'}`
       }).join('\n\n') || '(none)';
 
       // Enriched pending interview list
-      const pendingLines = pendingInterview.slice(0, 50).map(s =>
-        `- ${s.last_name}, ${s.first_name} | ${s.school || '?'} | GPA: ${s.cumulative_gpa || 'N/A'} | ${s.school_email || 'no email'} | Status: ${s.status}`
-      ).join('\n') || '(none)';
+      const pendingLines = pendingInterview.slice(0, 50).map(s => [
+        `- ${s.last_name}, ${s.first_name} | ${s.school || '?'}`,
+        allowsFieldInDefaultContext('school_email', intent) ? ` | ${s.school_email || 'no email'}` : '',
+        ` | Status: ${s.status}`,
+      ].join('')).join('\n') || '(none)';
 
       // KT-5: the static SCHOOL COORDINATOR ROSTER (a hard-coded directory) is no
       // longer injected. Current people/contact information is governed by ASPIRE
@@ -1208,7 +1298,7 @@ COMMUNICATION AWARENESS:
 - Never invent communications not in the log. If asked "did we send X?" and there's no matching record, say so.
 
 CRITICAL DATA ACCESS RULES:
-- The LIVE COHORT DATA above contains full student records including school_email, personal_email, phone, GPA, program type, term dates (rotation dates), unit, preceptor, shift, hours progress, and unit leader contacts.
+- The LIVE COHORT DATA above contains the operational record: school, program type, term dates (rotation dates), unit, preceptor, shift, hours progress, and unit leader contacts. It deliberately does NOT contain student personal email, phone, or GPA. School email appears only when the request is about drafting an email. If asked for a student's personal contact details or GPA, say they are not available to you here and point to the student's profile in ASPIRE.
 - When drafting any email (preceptor welcome, unit leader, student scheduling link, etc.), populate EVERY field from the data above. Do NOT use bracket placeholders like [student email] or [start date] when the real value appears in LIVE COHORT DATA.
 - If a field is literally null or N/A in the data, state that clearly. Never invent or bracket-substitute it.
 - Do NOT tell the user to check a specific app workspace when the answer is already available in this prompt or governed Knowledge Center context.
@@ -1291,11 +1381,17 @@ Be transparent: after forming a recommendation, briefly note which tools you use
   // grounding guardrails so it governs drafting behavior (draft first, confirm recipients
   // after). Intent-gated: never added for non-drafting questions.
   const draftingDirective = intent === INTENTS.EMAIL_DRAFTING ? '\n\n' + DRAFT_FIRST_DIRECTIVE : '';
-  const systemPrompt =
+  // No skill is active on this path (an invoked skill returned above with its
+  // own tool-free prompt), so the [[ACTIVE_SKILL]] marker is stripped rather
+  // than left as literal text. Mirrors the governed-knowledge marker contract:
+  // substitution is the only way the marker ever leaves the prompt.
+  const systemPrompt = applySkillMarker(
     baseSystemPrompt +
     '\n\n' + GROUNDING_GUARDRAILS +
     draftingDirective +
-    (toolInstruction ? '\n\n' + toolInstruction : '');
+    (toolInstruction ? '\n\n' + toolInstruction : ''),
+    null,
+  );
 
   // Set up Supabase service client for tool execution
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -1323,6 +1419,12 @@ Be transparent: after forming a recommendation, briefly note which tools you use
       requestId
     );
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
+    await recordKeithUsage(meterClient, {
+      requestId, profileId: auth.profileId, role: auth.role, intent,
+      model: resolveRoute(DEFAULT_ROUTE_NAME).model, modelRoute: DEFAULT_ROUTE_NAME,
+      rounds: toolCalls.length, outcome: OUTCOMES.COMPLETED,
+      durationMs: Date.now() - requestStartedAt,
+    });
     return res.status(200).json({ response: text, tool_calls: toolCalls });
   } catch (err) {
     console.error('[keith] all retries exhausted:', err.details || err.message);

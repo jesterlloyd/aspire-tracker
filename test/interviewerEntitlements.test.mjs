@@ -76,14 +76,19 @@ test('backfill: read-only owner/admin listing, explicit validated actor, one-coh
 
 // ── File-access authorization (Owner/Admin, Viewer photo, Interviewer, deny) ──
 test('file access: Owner/Admin both; Viewer headshot only; Interviewer entitled; others 403', () => {
+  // ROLE MATRIX UPDATED 2026-08-05 (approved): a Co-Lead is near-Owner for
+  // student ACCESS and reads student files across ALL cohorts, so the
+  // unrestricted branch is now owner|admin|co-lead (`isUnrestricted`, was
+  // `isOwnerAdmin`). Interviewer stays entitlement-gated, Viewer stays
+  // headshot-only, and upload/replace/delete stay Owner/Admin elsewhere.
   assert.match(access, /verifyPortalCaller\(req\)/)
   assert.match(access, /const isViewer = role === 'viewer'/)
-  assert.match(access, /if \(!isOwnerAdmin && !isViewer && !isInterviewer\) \{[\s\S]*?staff_role_required/)
+  assert.match(access, /if \(!isUnrestricted && !isViewer && !isInterviewer\) \{[\s\S]*?staff_role_required/)
   // Viewer role kinds = headshot only (no resume).
   assert.match(access, /isViewer\s*\n?\s*\?\s*new Set\(\['headshot'\]\)/)
   // Per-item kind gate + cohort gate (interviewer entitled; owner/admin/viewer unrestricted).
   assert.match(access, /if \(!roleKinds\.has\(n\.kind\)\) return nullResult/)
-  assert.match(access, /const cohortOk = isOwnerAdmin \|\| isViewer \|\| entitledCohorts\.has\(row\.cohort_id\)/)
+  assert.match(access, /const cohortOk = isUnrestricted \|\| isViewer \|\| entitledCohorts\.has\(row\.cohort_id\)/)
   assert.match(access, /activeEntitledCohortIds\(supabaseAdmin, caller\.profile\.id\)/)
   // Identity only; a denied item is a null url, never an error.
   assert.doesNotMatch(access, /interviewer_name|interview_assigned|\.email/)
@@ -92,7 +97,7 @@ test('file access: Owner/Admin both; Viewer headshot only; Interviewer entitled;
 
 test('file access: a Viewer requesting a resume gets nothing (headshot-only role kinds)', () => {
   // roleKinds for viewer excludes resume, so the per-item kind gate nulls a resume.
-  assert.match(access, /const roleKinds = isOwnerAdmin[\s\S]*?isViewer[\s\S]*?new Set\(\['headshot'\]\)/)
+  assert.match(access, /const roleKinds = isUnrestricted[\s\S]*?isViewer[\s\S]*?new Set\(\['headshot'\]\)/)
 })
 
 // ── Management API (no restore; history immutable) ───────────────────────────
@@ -159,11 +164,18 @@ test('scheduling: reassignment preserves the original entitlement (cancel never 
 
 // ── Staff UI ─────────────────────────────────────────────────────────────────
 test('AuthContext: split resume/photo cohort-view checks (Viewer photo included)', () => {
+  // ROLE MATRIX UPDATED 2026-08-05 (approved): the unrestricted student-READ set
+  // is now owner|admin|co-lead, named once as STUDENT_READ_ROLES instead of an
+  // inline array repeated three times. Photo view still adds Viewer on top of
+  // that set; resume view still does not. Manage/badge stay Owner/Admin.
   assert.match(auth, /canViewStudentResumeInCohort: \(cohortId\) =>/)
   assert.match(auth, /canViewStudentPhotoInCohort: \(cohortId\) =>/)
+  assert.match(auth, /const STUDENT_READ_ROLES = \['owner', 'admin', 'co-lead'\]/)
   // Photo view includes an active Viewer; resume view does not.
-  assert.match(auth, /canViewStudentPhotoInCohort: \(cohortId\) =>\s*\n\s*\(userProfile\?\.is_active !== false && \['owner', 'admin', 'viewer'\]/)
-  assert.match(auth, /canViewStudentResumeInCohort: \(cohortId\) =>\s*\n\s*\(userProfile\?\.is_active !== false && \['owner', 'admin'\]/)
+  assert.match(auth, /canViewStudentPhotoInCohort: \(cohortId\) =>\s*\n\s*\(userProfile\?\.is_active !== false && \[\.\.\.STUDENT_READ_ROLES, 'viewer'\]/)
+  assert.match(auth, /canViewStudentResumeInCohort: \(cohortId\) =>\s*\n\s*\(userProfile\?\.is_active !== false && STUDENT_READ_ROLES\.includes/)
+  // Managing files is NOT reading them: that stays Owner/Admin.
+  assert.match(auth, /canManageStudentFiles: userProfile\?\.is_active !== false && \['owner', 'admin'\]/)
 })
 
 test('StudentSidePanel: resume by canViewResume, photo by canViewPhoto, badge message, no leak', () => {

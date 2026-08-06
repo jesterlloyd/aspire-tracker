@@ -30,6 +30,7 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { verifyPortalCaller } from './lib/portalAuth.js'
 import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js'
 import { STUDENT_FILES_BUCKET, isUuid, parseStoredFileRef } from '../lib/server/studentFiles.js'
+import { normalizeStaffRole } from '../src/lib/permissions.js'
 
 const SIGNED_URL_TTL_SECONDS = 300
 const MAX_BATCH = 100
@@ -45,26 +46,33 @@ export default async function handler(req, res) {
   if (!caller.authenticated) {
     return res.status(caller.status || 401).json({ error: caller.reason || 'unauthenticated' })
   }
-  const role = String(caller.profile.role || '').toLowerCase()
-  const isOwnerAdmin = role === 'owner' || role === 'admin'
+  // co_lead and co-lead are the same persisted role; normalize before deciding.
+  const role = normalizeStaffRole(String(caller.profile.role || '').toLowerCase())
+  // APPROVED 2026-08-05: a Co-Lead is near-Owner for student-ACCESS operations and
+  // reads student files across ALL cohorts, with no entitlement requirement. This
+  // is read access only - upload, replace, delete and badge generation remain
+  // Owner/Admin (see api/student-file-sign.js and api/student-file-cleanup.js,
+  // both unchanged). Owner-only governance is untouched.
+  const isUnrestricted = role === 'owner' || role === 'admin' || role === 'co-lead'
   const isViewer = role === 'viewer'
   const isInterviewer = role === 'interviewer'
   // Only these staff roles use this endpoint; everything else is denied.
-  if (!isOwnerAdmin && !isViewer && !isInterviewer) {
+  if (!isUnrestricted && !isViewer && !isInterviewer) {
     return res.status(403).json({ error: 'staff_role_required' })
   }
 
-  // Kinds allowed by role: Owner/Admin both; Viewer headshot only; interviewer
-  // both (cohort-gated below). A disallowed kind yields a null url, never an error.
-  const roleKinds = isOwnerAdmin
+  // Kinds allowed by role: Owner/Admin/Co-Lead both; Viewer headshot only;
+  // interviewer both (cohort-gated below). A disallowed kind yields a null url,
+  // never an error.
+  const roleKinds = isUnrestricted
     ? FILE_KINDS
     : isViewer
       ? new Set(['headshot'])
       : new Set(['resume', 'headshot'])
 
   // Interviewer: resolve the cohorts they are entitled to (identity-based, active
-  // only). Fail closed on a lookup error. Owner/Admin and Viewer have no cohort
-  // restriction beyond the students they already see.
+  // only). Fail closed on a lookup error. Owner/Admin/Co-Lead and Viewer have no
+  // cohort restriction beyond the students they already see.
   let entitledCohorts = null // null = unrestricted (owner/admin, viewer)
   if (isInterviewer) {
     try {
@@ -109,7 +117,7 @@ export default async function handler(req, res) {
     // Kind must be allowed for the role (Viewer -> headshot only, no resume).
     if (!roleKinds.has(n.kind)) return nullResult
     // Owner/Admin and Viewer: any student they see. Interviewer: entitled cohorts.
-    const cohortOk = isOwnerAdmin || isViewer || entitledCohorts.has(row.cohort_id)
+    const cohortOk = isUnrestricted || isViewer || entitledCohorts.has(row.cohort_id)
     if (!cohortOk) return nullResult
     const ref = parseStoredFileRef(row[COLUMN[n.kind]])
     if (ref.kind === 'empty' || ref.kind === 'unknown') return nullResult

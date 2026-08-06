@@ -31,10 +31,10 @@ export const SETTINGS_SECTIONS = [
   { key: 'about',      label: 'About',             path: '/settings/about',      group: 'Workspace',      implemented: true,  inRail: false, visible: () => true }, // SETTINGS-UNIFIED-DESIGN-1B: General > Information > About; direct deep link preserved
   { key: 'accounts',   label: 'Accounts & Access', path: '/settings/accounts',   group: 'Administration', implemented: true,  visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
   { key: 'knowledge',  label: 'Knowledge Center',  path: '/settings/knowledge',  group: 'Administration', implemented: true,  visible: r => r.isAdmin }, // KT-3a-1: Owner/Admin only
+  { key: 'keith',      label: 'Keith',             path: '/settings/keith',      group: 'Administration', implemented: true,  visible: r => r.isAdmin }, // KEITH-SKILLS-1: Owner/Admin only (rail groups are contiguous, so this sits with the other Administration sections)
   { key: 'preceptorParity', label: 'Preceptor Parity', path: '/settings/preceptor-parity', group: 'Diagnostics', implemented: true, visible: r => r.isOwner }, // PRECEPTOR-INTEGRITY-1: read-only integrity monitor for out-of-band SQL drift, Owner only
   { key: 'tours',      label: 'Tours & Help',      path: '/settings/tours',      group: 'Support',        implemented: true,  visible: () => true, inRail: false },     // WS2.3: all authenticated users; now a General subsetting
   // Future sections (NOT rendered yet - no disabled/"coming soon" placeholders):
-  { key: 'keith',     label: 'Keith',             path: '/settings/keith',     implemented: false, visible: r => r.isAdmin },
   { key: 'templates', label: 'Templates',         path: '/settings/templates', implemented: false, visible: r => r.isAdmin },
   { key: 'audit',     label: 'Audit History',     path: '/settings/audit',     implemented: false, visible: r => r.isOwner },
 ]

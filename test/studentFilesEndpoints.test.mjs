@@ -71,15 +71,20 @@ test('staff signed upload: Owner/Admin only, cohort resolved server-side', () =>
 })
 
 test('access endpoint: the role matrix, server-mediated, short-lived signed URLs', () => {
+  // ROLE MATRIX UPDATED 2026-08-05 (approved): a Co-Lead is near-Owner for
+  // student ACCESS and reads student files across ALL cohorts, so the
+  // unrestricted branch is now owner|admin|co-lead (`isUnrestricted`, was
+  // `isOwnerAdmin`). Interviewer stays entitlement-gated, Viewer stays
+  // headshot-only, and upload/replace/delete stay Owner/Admin elsewhere.
   // Owner/Admin: both, any cohort. Viewer: headshot only, their students. Interviewer:
   // both for entitled cohorts. Anything else: 403.
   assert.match(access, /verifyPortalCaller\(req\)/)
-  assert.match(access, /const isOwnerAdmin = role === 'owner' \|\| role === 'admin'/)
+  assert.match(access, /const isUnrestricted = role === 'owner' \|\| role === 'admin' \|\| role === 'co-lead'/)
   assert.match(access, /const isViewer = role === 'viewer'/)
   assert.match(access, /const isInterviewer = role === 'interviewer'/)
-  assert.match(access, /if \(!isOwnerAdmin && !isViewer && !isInterviewer\) \{[\s\S]*?staff_role_required/)
+  assert.match(access, /if \(!isUnrestricted && !isViewer && !isInterviewer\) \{[\s\S]*?staff_role_required/)
   assert.match(access, /if \(!roleKinds\.has\(n\.kind\)\) return nullResult/)
-  assert.match(access, /const cohortOk = isOwnerAdmin \|\| isViewer \|\| entitledCohorts\.has\(row\.cohort_id\)/)
+  assert.match(access, /const cohortOk = isUnrestricted \|\| isViewer \|\| entitledCohorts\.has\(row\.cohort_id\)/)
   // Resolves stored value (legacy URL or path) then mints signed URLs.
   assert.match(access, /parseStoredFileRef\(row\[COLUMN\[n\.kind\]\]\)/)
   assert.match(access, /createSignedUrls\(toSign\.map\(\(t\) => t\.path\), SIGNED_URL_TTL_SECONDS\)/)
