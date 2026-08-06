@@ -659,12 +659,14 @@ function fakeDb({ student = STUDENT_ROW, entitled = ['coh-1'], bytes = null }) {
   return {
     from(table) {
       if (table === 'students') {
-        return {
-          select: () => ({
-            eq: () => ({ maybeSingle: async () => ({ data: student, error: null }) }),
-            limit: async () => ({ data: student ? [student] : [], error: null }),
-          }),
+        const rows = student ? [student] : []
+        const q = {
+          eq: () => q,
+          limit: () => q,
+          maybeSingle: async () => ({ data: student, error: null }),
+          then: (resolve) => resolve({ data: rows, error: null }),
         }
+        return { select: () => q }
       }
       // interviewer_cohort_entitlements
       return { select: () => ({ eq: () => ({ is: async () => ({ data: entitled.map(c => ({ cohort_id: c })), error: null }) }) }) }
@@ -705,7 +707,10 @@ test('a Viewer invoking the skill is refused before any student or file lookup',
   assert.equal(r.audit.outcome, 'denied')
   assert.equal(r.audit.denialReason, DENY.ROLE_NOT_ALLOWED)
   assert.equal(touched, false, 'a denied caller must not cause any data access')
-  assert.match(r.text, /cannot open that student's resume/i)
+  // Copy corrected 2026-08-06: a Viewer is refused for their ROLE, so they are
+  // told that, not sent to chase a cohort entitlement they could never use.
+  assert.match(r.text, /access level does not include this skill/i)
+  assert.doesNotMatch(r.text, /cohort entitlement/i)
 })
 
 test('an unentitled Interviewer is refused, and nothing is downloaded', async () => {
@@ -1032,4 +1037,166 @@ test('interviewer entitlement resolves against the profile id, and fails closed 
   })
   assert.equal(denied.ok, false)
   assert.equal(denied.reason, DENY.NOT_ENTITLED)
+})
+
+// ── PRODUCTION DEFECT 2026-08-06: explicit invocation produced nothing ───────
+//
+// Three defects compounded. (1) The caller passes the user's WHOLE MESSAGE as
+// studentName, but resolution tested `studentName.includes(message)` - backwards
+// - so a natural request resolved to no student. (2) denialMessage's default
+// branch returned the cohort-entitlement sentence for every unhandled reason,
+// including "student not found", so an Owner (never entitlement-gated) was told
+// to confirm an entitlement. (3) A selected-but-unrunnable skill fell through to
+// base Keith, which answered with GPA, unit preferences, personal email and
+// phone via get_student_detail.
+
+import { resolveStudentByName } from '../lib/server/keith/resumeInterviewQuestions.js'
+import { denialMessage } from '../lib/server/keith/skillAuthorization.js'
+
+const ROSTER = [
+  { id: 's-bri', first_name: 'Briana', last_name: 'Arevalo', school: 'CSUN', cohort_id: 'coh-1', resume_url: 'coh-1/s-bri/resume.pdf' },
+  { id: 's-ana', first_name: 'Ana', last_name: 'Reyes', school: 'APU', cohort_id: 'coh-1', resume_url: '' },
+  { id: 's-dan', first_name: 'Daniel', last_name: 'Reyes', school: 'CSULB', cohort_id: 'coh-1', resume_url: '' },
+  { id: 'joanne', first_name: 'Joanne', last_name: 'Baptiste', school: 'CSUN', cohort_id: 'coh-1', resume_url: '' },
+]
+// Chainable and thenable, because resolveStudentByName builds
+// .select(...).limit(25) and then conditionally .eq(...) before awaiting.
+const makeQuery = (data) => {
+  const q = { eq: () => q, limit: () => q, then: (resolve) => resolve({ data, error: null }) }
+  return q
+}
+const rosterDb = { from: () => ({ select: () => makeQuery(ROSTER) }) }
+
+test('a natural explicit request resolves the student it names', async () => {
+  // This is the exact production phrasing that resolved to nobody.
+  const r = await resolveStudentByName(rosterDb, {
+    name: 'What questions can I ask Briana Arevalo on her interview? Use Resume Interview Questions.',
+    cohortId: 'coh-1',
+  })
+  assert.equal(r.ok, true, 'the message names a student and must resolve')
+  assert.equal(r.student.id, 's-bri')
+})
+
+test('resolution works from surname alone, and either name order', async () => {
+  const bySurname = await resolveStudentByName(rosterDb, { name: 'use resume interview questions for Arevalo', cohortId: 'coh-1' })
+  assert.equal(bySurname.ok, true)
+  assert.equal(bySurname.student.id, 's-bri')
+
+  const reversed = await resolveStudentByName(rosterDb, { name: 'questions for Arevalo, Briana please', cohortId: 'coh-1' })
+  assert.equal(reversed.ok, true)
+  assert.equal(reversed.student.id, 's-bri')
+})
+
+test('an ambiguous surname asks rather than guessing', async () => {
+  const r = await resolveStudentByName(rosterDb, { name: 'what can I ask Reyes?', cohortId: 'coh-1' })
+  assert.equal(r.ok, false)
+  assert.equal(r.reason, DENY.STUDENT_AMBIGUOUS)
+  assert.deepEqual(r.candidates.map(c => c.name).sort(), ['Ana Reyes', 'Daniel Reyes'])
+})
+
+test('name matching respects word boundaries', async () => {
+  // "Ana" must not match inside "Joanne".
+  const r = await resolveStudentByName(rosterDb, { name: 'tell me about Joanne Baptiste', cohortId: 'coh-1' })
+  assert.equal(r.ok, true)
+  assert.equal(r.student.id, 'joanne')
+})
+
+test('an unnamed student is reported as not found, never as an entitlement problem', async () => {
+  const r = await resolveStudentByName(rosterDb, { name: 'use resume interview questions', cohortId: 'coh-1' })
+  assert.equal(r.ok, false)
+  assert.equal(r.reason, DENY.STUDENT_NOT_FOUND)
+  const msg = denialMessage(r.reason)
+  assert.match(msg, /could not find a student by that name/i)
+  assert.doesNotMatch(msg, /entitlement/i, 'this was the message that misdirected the Owner')
+})
+
+test('the entitlement sentence is reachable ONLY from a real entitlement failure', () => {
+  for (const reason of [DENY.NOT_ENTITLED, DENY.ENTITLEMENT_LOOKUP_FAILED]) {
+    assert.match(denialMessage(reason), /cohort entitlement/i)
+  }
+  for (const reason of [DENY.STUDENT_NOT_FOUND, DENY.STUDENT_AMBIGUOUS, DENY.ROLE_NOT_ALLOWED,
+    DENY.DATA_GRANT_NOT_DECLARED, DENY.SKILL_DISABLED, DENY.SKILL_NOT_ACTIVE, 'something_new']) {
+    assert.doesNotMatch(denialMessage(reason), /cohort entitlement/i,
+      `${reason} must not be reported as an entitlement problem`)
+  }
+})
+
+test('the exact trigger phrase invokes the skill; near misses do not', () => {
+  const skills = [ACTIVE_SKILL]
+  const hit = selectSkill(skills, { userText: 'What questions can I ask Briana Arevalo? Use Resume Interview Questions.' })
+  assert.equal(hit?.mode, 'trigger_phrase')
+  assert.equal(hit.skill.slug, 'resume-interview-questions')
+  assert.equal(selectSkill(skills, { userText: 'what should I ask her about her resume in the interview' }), null)
+})
+
+test('Owner, Admin and Co-Lead reach the resume with NO entitlement lookup at all', async () => {
+  let lookedUp = false
+  const db = { from: () => ({ select: () => ({ eq: () => ({ is: async () => { lookedUp = true; return { data: [], error: null } } }) }) }) }
+  for (const role of ['owner', 'admin', 'co-lead', 'co_lead']) {
+    lookedUp = false
+    const r = await authorizeStudentResumeAccess({
+      db, caller: { profileId: 'p', role, isOwner: role === 'owner' }, student: { id: 's-bri', cohort_id: 'coh-1' },
+    })
+    assert.equal(r.ok, true, `${role} must be allowed`)
+    assert.equal(r.scope, 'unrestricted')
+    assert.equal(lookedUp, false, `${role} must not trigger an entitlement lookup`)
+  }
+})
+
+test('only Interviewer is entitlement-gated, in both directions', async () => {
+  const withCohorts = (ids) => ({ from: () => ({ select: () => ({ eq: () => ({ is: async () => ({ data: ids.map(c => ({ cohort_id: c })), error: null }) }) }) }) })
+  const student = { id: 's-bri', cohort_id: 'coh-1' }
+  const entitled = await authorizeStudentResumeAccess({ db: withCohorts(['coh-1']), caller: { profileId: 'p', role: 'interviewer' }, student })
+  assert.equal(entitled.ok, true)
+  assert.equal(entitled.scope, 'entitled_cohort')
+  const not = await authorizeStudentResumeAccess({ db: withCohorts(['coh-9']), caller: { profileId: 'p', role: 'interviewer' }, student })
+  assert.equal(not.ok, false)
+  assert.equal(not.reason, DENY.NOT_ENTITLED)
+  assert.match(denialMessage(not.reason), /cohort entitlement/i, 'here the entitlement advice IS correct')
+})
+
+test('a Viewer is denied and never reaches a resume', async () => {
+  let touched = false
+  const db = { from: () => { touched = true; return {} } }
+  const r = await authorizeStudentResumeAccess({ db, caller: { profileId: 'p', role: 'viewer' }, student: { id: 's-bri', cohort_id: 'coh-1' } })
+  assert.equal(r.ok, false)
+  assert.equal(r.reason, DENY.ROLE_NOT_ALLOWED)
+  assert.equal(touched, false)
+  assert.doesNotMatch(denialMessage(r.reason), /cohort entitlement/i)
+})
+
+test('an explicitly invoked skill NEVER falls through to base Keith', () => {
+  const src = read('api/keith.js')
+  const block = src.slice(src.indexOf('// ── KEITH-P1: explicit skill invocation'), src.indexOf('// CONTACTS-1b/1d:'))
+  assert.match(block, /if \(selected\) \{/, 'selection alone must claim the turn')
+  assert.doesNotMatch(block, /if \(selected && selected\.skill\.slug === RIQ_SLUG\) \{/,
+    'gating the whole block on the slug is what let a selected skill fall through')
+  // Every path out of the block is a return.
+  assert.match(block, /I could not load the \$\{selected\.skill\.display_name\} skill just now/)
+  assert.equal((block.match(/return res\.status\(200\)\.json\(\{/g) || []).length, 2,
+    'both the success and the not-runnable path must return')
+})
+
+test('the fallback cannot disclose GPA or unit preferences', () => {
+  const src = read('api/keith.js')
+  const block = src.slice(src.indexOf('// ── KEITH-P1: explicit skill invocation'), src.indexOf('// CONTACTS-1b/1d:'))
+  // base Keith's get_student_detail is what leaked them; the skill turn must
+  // never reach it, so the block must contain no tool wiring and must end in a
+  // response the skill itself produced.
+  assert.doesNotMatch(block, /activeTools|runToolLoop|KEITH_TOOLS/)
+  assert.match(block, /tool_calls: \[\],/)
+  // And the not-runnable message says nothing about the student at all.
+  const msg = block.slice(block.indexOf('I could not load the'), block.indexOf('Please try again in a moment.'))
+  for (const leak of ['gpa', 'unit_preference', 'personal_email', 'phone', 'student']) {
+    assert.ok(!msg.toLowerCase().includes(leak), `the fallback message must not mention ${leak}`)
+  }
+})
+
+test('resume retrieval reads the stored path server-side and extracts real text', async () => {
+  const bytes = await syntheticDocx(SYNTHETIC_RESUME)
+  const r = await runResumeInterviewQuestions({ db: fakeDb({ bytes }), ...runArgs({ studentId: null, studentName: 'questions for Briana Arevalo, use resume interview questions' }) })
+  assert.equal(r.ok, true)
+  assert.equal(r.audit.dataSources.resume.extracted, true)
+  assert.equal(r.audit.dataSources.resume.format, 'docx')
+  assert.ok(r.audit.dataSources.resume.chars_extracted > 200)
 })

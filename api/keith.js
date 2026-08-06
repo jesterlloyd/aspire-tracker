@@ -815,8 +815,17 @@ export default async function handler(req, res) {
   {
     const invocable = await loadInvocableSkills(meterClient, auth);
     const selected = selectSkill(invocable, { requestedSlug: skillRequested, userText: lastUserText });
-    if (selected && selected.skill.slug === RIQ_SLUG) {
-      const loaded = await loadSkillInstructions(meterClient, selected.skill.id);
+    // EXPLICIT INVOCATION IS AUTHORITATIVE. Once a skill has been deliberately
+    // invoked, this turn belongs to it: it answers, or it says why it cannot.
+    // Falling through to base Keith was the disclosure vector behind the
+    // reported defect - base Keith answered "what can I ask this student" by
+    // calling get_student_detail and returning GPA, unit preferences, personal
+    // email and phone, none of which the caller asked for and none of which
+    // belong in an interview-preparation answer.
+    if (selected) {
+      const loaded = selected.skill.slug === RIQ_SLUG
+        ? await loadSkillInstructions(meterClient, selected.skill.id)
+        : null;
       if (loaded) {
         const activeCohortIdForSkill = req.body?.liveData?.activeCohortId || req.body?.context?.cohortId || null;
         const result = await runResumeInterviewQuestions({
@@ -848,6 +857,25 @@ export default async function handler(req, res) {
           tool_calls: [],
         });
       }
+
+      // Selected but not runnable: the skill was disabled between the catalogue
+      // read and the instruction load, or it has no implementation here. Report
+      // that plainly rather than letting base Keith answer with unrelated data.
+      await recordSkillInvocation(meterClient, {
+        skillId: selected.skill.id, skillSlug: selected.skill.slug,
+        skillVersion: selected.skill.version, requestId,
+        profileId: auth.profileId, role: auth.role,
+        invocationMode: selected.mode, outcome: OUTCOMES.ERROR,
+        denialReason: 'instructions_unavailable',
+      });
+      console.log('[keith-skill] selected but not runnable', {
+        request_id: requestId, skill: selected.skill.slug,
+      });
+      return res.status(200).json({
+        response: `I could not load the ${selected.skill.display_name} skill just now, so I have not produced anything for it. Please try again in a moment.`,
+        skill: { slug: selected.skill.slug, version: selected.skill.version, mode: selected.mode },
+        tool_calls: [],
+      });
     }
   }
 
