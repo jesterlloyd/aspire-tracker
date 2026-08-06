@@ -232,7 +232,13 @@ async function verifyCaller(req) {
     if (!profile) {
       return { authenticated: false, status: 403, error: 'forbidden', message: 'Profile not found. Contact the ASPIRE team.', reason: 'no_profile' };
     }
-    return { authenticated: true, userId: user.id, role: profile.role || '', isOwner: profile.is_owner === true, fullName: profile.full_name || '', connectSignature: profile.connect_signature || null };
+    // profileId is user_profiles.id, NOT auth.users.id. Four call sites depend on
+    // it: the rate limiter (which refuses a request it cannot attribute), usage
+    // metering, the skill-invocation audit, and the interviewer cohort
+    // entitlement lookup. It was selected here but never returned, so the
+    // limiter took its no-identity branch and every authenticated Keith request
+    // returned 503 without ever reaching the database.
+    return { authenticated: true, userId: user.id, profileId: profile.id, role: profile.role || '', isOwner: profile.is_owner === true, fullName: profile.full_name || '', connectSignature: profile.connect_signature || null };
   } catch {
     return { authenticated: false, status: 401, error: 'unauthorized', message: 'Authentication required', reason: 'profile_threw' };
   }

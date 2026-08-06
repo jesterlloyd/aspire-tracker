@@ -935,3 +935,101 @@ test('the access model is stated: anon/authenticated denied, trusted roles retai
       `${table} must have RLS enabled`)
   }
 })
+
+// ── HOTFIX: the resolved profile ID reaches every path that needs it ─────────
+//
+// api/keith.js verifyCaller SELECTED user_profiles.id but never returned it, so
+// auth.profileId was undefined. The rate limiter refuses any request it cannot
+// attribute, so it took its no-identity branch and returned 503 WITHOUT ever
+// calling the RPC - every authenticated Keith message failed, while
+// keith-skills-admin (whose own verifyCaller does return profileId) kept working.
+// These pin the fix and the three latent paths the same gap corrupted.
+
+test('verifyCaller returns the profile id it already fetches', () => {
+  const src = read('api/keith.js')
+  const verify = src.slice(src.indexOf('async function verifyCaller'), src.indexOf('// ── WS1: server-authoritative'))
+  assert.match(verify, /\.select\('id, role, is_owner, full_name, connect_signature'\)/)
+  assert.match(verify, /return \{ authenticated: true, userId: user\.id, profileId: profile\.id,/,
+    'the id must be RETURNED, not merely selected')
+  // profileId is user_profiles.id and must never be confused with auth.users.id.
+  assert.doesNotMatch(verify, /profileId: user\.id/)
+})
+
+test('an authenticated caller reaches the RPC instead of the no-identity branch', async () => {
+  const { consumeRateLimit, WEIGHT_CHAT, WEIGHT_SKILL } = await import('../lib/server/keith/rateLimit.js')
+  let calls = []
+  const db = { rpc: async (fn, args) => { calls.push({ fn, args }); return { data: [{ allowed: true, weighted_count: 1, retry_after_seconds: 0 }], error: null } } }
+
+  const r = await consumeRateLimit(db, { profileId: 'profile-uuid', weight: WEIGHT_CHAT, requestId: 'r1' })
+  assert.equal(calls.length, 1, 'the RPC must actually be invoked')
+  assert.equal(calls[0].fn, 'keith_consume_rate_limit')
+  assert.equal(calls[0].args.p_profile_id, 'profile-uuid')
+  assert.equal(calls[0].args.p_weight, WEIGHT_CHAT)
+  assert.equal(r.allowed, true)
+  assert.equal(r.degraded, false, 'a request with an identity must not be reported as degraded')
+
+  // A skill request is weighted double, still through the same call.
+  await consumeRateLimit(db, { profileId: 'profile-uuid', weight: WEIGHT_SKILL, requestId: 'r2' })
+  assert.equal(calls[1].args.p_weight, WEIGHT_SKILL)
+})
+
+test('the no-identity branch still refuses, and is the exact failure that shipped', async () => {
+  // Kept as a guard, not softened: an unattributable request must still be
+  // refused. What changed is that a real caller no longer lands here.
+  const { consumeRateLimit } = await import('../lib/server/keith/rateLimit.js')
+  let called = false
+  const db = { rpc: async () => { called = true; return { data: [{ allowed: true }], error: null } } }
+  const r = await consumeRateLimit(db, { profileId: undefined, weight: 1, requestId: 'r' })
+  assert.equal(called, false, 'no identity means no RPC is issued at all')
+  assert.equal(r.allowed, false)
+  assert.equal(r.degraded, true)
+})
+
+test('every keith.js consumer of the profile id reads the resolved value', () => {
+  const src = read('api/keith.js')
+  // The limiter.
+  assert.match(src, /const rate = await consumeRateLimit\(meterClient, \{\n\s+profileId: auth\.profileId,/)
+  // Usage metering, on the rate-limited, skill and ordinary-completion paths.
+  assert.equal((src.match(/requestId, profileId: auth\.profileId, role: auth\.role, intent,/g) || []).length, 3,
+    'all three recordKeithUsage call sites must carry the profile id')
+  // The skill runner receives the whole verified auth object.
+  assert.match(src, /caller: auth,/)
+})
+
+test('usage metering and the skill audit persist the resolved profile id', async () => {
+  const { recordKeithUsage, recordSkillInvocation } = await import('../lib/server/keith/usageLog.js')
+  const rows = []
+  const db = { from: (table) => ({ insert: async (row) => { rows.push({ table, row }); return { error: null } } }) }
+
+  await recordKeithUsage(db, { requestId: 'r', profileId: 'profile-uuid', role: 'owner', intent: 'GENERAL' })
+  await recordSkillInvocation(db, { skillId: 's', requestId: 'r', profileId: 'profile-uuid', role: 'owner' })
+
+  const usage = rows.find(r => r.table === 'keith_requests').row
+  const audit = rows.find(r => r.table === 'keith_skill_invocations').row
+  assert.equal(usage.profile_id, 'profile-uuid', 'usage rows were writing null before the fix')
+  assert.equal(audit.invoked_by, 'profile-uuid', 'audit rows were writing null before the fix')
+})
+
+test('interviewer entitlement resolves against the profile id, and fails closed without one', async () => {
+  const { authorizeStudentResumeAccess, DENY } = await import('../lib/server/keith/skillAuthorization.js')
+  const student = { id: 'stu-1', cohort_id: 'coh-1' }
+  let lookedUpWith = null
+  const db = {
+    from: () => ({ select: () => ({ eq: (_col, val) => { lookedUpWith = val; return { is: async () => ({ data: [{ cohort_id: 'coh-1' }], error: null }) } } }) }),
+  }
+
+  const ok = await authorizeStudentResumeAccess({
+    db, caller: { profileId: 'profile-uuid', role: 'interviewer', isOwner: false }, student,
+  })
+  assert.equal(ok.ok, true)
+  assert.equal(ok.scope, 'entitled_cohort')
+  assert.equal(lookedUpWith, 'profile-uuid', 'the entitlement lookup must key on the profile id')
+
+  // Before the fix an interviewer arrived with no profile id and was denied even
+  // when genuinely entitled.
+  const denied = await authorizeStudentResumeAccess({
+    db, caller: { profileId: undefined, role: 'interviewer', isOwner: false }, student,
+  })
+  assert.equal(denied.ok, false)
+  assert.equal(denied.reason, DENY.NOT_ENTITLED)
+})
