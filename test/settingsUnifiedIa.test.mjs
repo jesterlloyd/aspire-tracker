@@ -254,7 +254,11 @@ test('AboutPanel is unchanged: build fields and the copy button stay in AboutPan
 test('mobile: the rail stacking rule survives the About restructure', () => {
   const shell = read('src/components/settings/SettingsShell.jsx')
   // The <=768px rule that stacks the rail above the panel is still present.
-  assert.match(shell, /@media \(max-width: 768px\) \{ \.settings-nav-rail \{ position: static/)
+  // ANCHORED-NAV-1: that media query now ALSO resets .settings-nav-col, because
+  // the column is stretched above the breakpoint to give the sticky rail travel
+  // room. Stretching it while stacked would strand the nav in a tall empty
+  // column, so both are reset together. The stacking behavior is unchanged.
+  assert.match(shell, /@media \(max-width: 768px\) \{ \.settings-nav-col \{ align-self: auto; \} \.settings-nav-rail \{ position: static/)
 })
 
 // ── SETTINGS-UNIFIED-DESIGN-1C: responsive three-pane master-detail ──────────

@@ -253,3 +253,72 @@ test('the refinement is table-only: navigation and the breakpoint are untouched'
   // failureCount itself is unchanged shared logic.
   assert.match(read('src/components/settings/keithSkillFields.js'), /export function failureCount\(stats\)/)
 })
+
+// ── ANCHORED-NAV-1: navigation stays put while the workspace scrolls ─────────
+//
+// Root cause found by measurement, not by reading: the .settings-nav-rail sticky
+// rule had existed for some time and had NEVER worked. A sticky element travels
+// only inside its containing block, and the rail's column was sized to its own
+// content (315px) inside a 1346px row, because the row uses
+// align-items: flex-start. With ~315px of travel it unpinned almost immediately
+// and left with the page. Stretching the COLUMN is the fix; the sticky rule
+// itself was already correct.
+//
+// The model copied is Evaluation > Review and Release (.rr-nav): STICKY NAV +
+// PAGE SCROLL. Not an independently scrolling right pane, which would put two
+// vertical scrollbars on one screen.
+
+test('the Settings rail column stretches, so its sticky rule can actually work', () => {
+  assert.match(shell, /\.settings-nav-col \{ align-self: stretch; \}/)
+  assert.match(shell, /className="settings-nav-col"/)
+  assert.match(shell, /\.settings-nav-rail \{ position: sticky; top: 120px;/)
+  // Below the shell's own breakpoint the rail stacks above content, so stretching
+  // it there would strand the nav in a tall empty column.
+  assert.match(shell, /@media \(max-width: 768px\) \{ \.settings-nav-col \{ align-self: auto; \}/)
+})
+
+test('the Keith secondary nav anchors the same way, at the same offset', () => {
+  assert.match(panel, /\.keith-nav-col \{ align-self: stretch; \}/)
+  assert.match(panel, /className="keith-nav-col"/)
+  assert.match(panel, /position: sticky; top: 120px; align-self: flex-start;/)
+  assert.match(panel, /className="keith-nav-card"/)
+  // Same top offset as the primary rail, so the two pin on one line rather than
+  // at two different heights.
+  const railTop = /\.settings-nav-rail \{ position: sticky; top: (\d+)px/.exec(shell)[1]
+  const navTop = /\.keith-nav-card \{[\s\S]*?top: (\d+)px/.exec(panel)[1]
+  assert.equal(navTop, railTop, 'both navs must pin at the same offset')
+})
+
+test('the compact picker stays reachable during a long scroll', () => {
+  assert.match(panel, /\.keith-picker \{\s*\n\s*position: sticky; top: 120px;/)
+  // It needs an opaque background or scrolled rows would show through it.
+  assert.match(panel, /background: var\(--color-bg-app, #faf8f4\)/)
+  assert.match(panel, /className="keith-picker"/)
+  // The approved compact mode is preserved: no drill-down comes back.
+  assert.doesNotMatch(panel, /BackToKeith/)
+})
+
+test('anchoring adds NO second vertical scroll region', () => {
+  // The reference deliberately keeps the page as the single scroll owner. The
+  // navs carry overflow-y only as a safety valve for a nav taller than the
+  // viewport, with overscroll-behavior so it cannot chain to the page.
+  for (const src of [shell, panel]) {
+    assert.match(src, /overscroll-behavior: contain/)
+  }
+  // The workspace pane itself must NOT become a scroller - that is the thing the
+  // approved scope rules out.
+  assert.doesNotMatch(panel, /overflowY: 'auto'|overflow-y: auto;[^}]*keith-workspace/)
+  const wide = panel.slice(panel.indexOf('// Wide master-detail'))
+  assert.doesNotMatch(wide, /overflow/, 'the right workspace pane owns no scrolling of its own')
+})
+
+test('General, Accounts and Preceptor Parity are not restructured', () => {
+  // They gain the rail fix for free (it lives in the shell) and are otherwise
+  // untouched: no secondary nav to anchor, no scroll owner changed.
+  const general = read('src/components/settings/GeneralPanel.jsx')
+  const parity = read('src/components/settings/PreceptorParityPanel.jsx')
+  const accounts = read('src/components/settings/AccountsAccessPanel.jsx')
+  for (const src of [general, parity, accounts]) {
+    assert.doesNotMatch(src, /position: 'sticky'|keith-nav-col|settings-nav-col/)
+  }
+})

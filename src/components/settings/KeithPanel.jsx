@@ -56,6 +56,29 @@ const KEITH_WORKSPACES = [
   },
 ]
 
+// ANCHORED-NAV-1: the Keith secondary navigation stays put while the workspace
+// scrolls, matching Evaluation > Review and Release (.rr-nav): STICKY NAV + PAGE
+// SCROLL, never an independently scrolling right pane. That distinction matters -
+// a second scroll region would put two vertical scrollbars on one screen, which
+// the approved scope rules out. The page remains the single vertical scroll
+// owner; overflow-y here only engages if the nav itself ever outgrows the
+// viewport, and overscroll-behavior stops it chaining to the page.
+//
+// `align-self: stretch` on the COLUMN is the load-bearing part. Without it the
+// column is sized to the nav card and sticky has no travel room - the same
+// latent bug that had silently disabled the main Settings rail.
+const KEITH_STICKY_CSS = `
+  .keith-nav-col { align-self: stretch; }
+  .keith-nav-card {
+    position: sticky; top: 120px; align-self: flex-start;
+    max-height: calc(100vh - 140px); overflow-y: auto; overscroll-behavior: contain;
+  }
+  .keith-picker {
+    position: sticky; top: 120px; z-index: 4;
+    background: var(--color-bg-app, #faf8f4);
+  }
+`
+
 const KEITH_DEFAULT_WORKSPACE = 'skills'
 
 // KEITH-LOCAL breakpoint. Not shared with GeneralPanel, which keeps 768.
@@ -76,7 +99,7 @@ function useIsCompact(bp = KEITH_COMPACT_BREAKPOINT) {
 function WorkspaceList({ activeKey }) {
   const navigate = useNavigate()
   return (
-    <SurfaceCard as="nav" aria-label="Keith workspaces" radius={14} padding={10}>
+    <SurfaceCard as="nav" aria-label="Keith workspaces" radius={14} padding={10} className="keith-nav-card">
       {KEITH_WORKSPACES.map((row, ri) => {
         const Icon = row.icon
         const active = row.key === activeKey
@@ -124,7 +147,7 @@ function CompactWorkspacePicker({ activeKey }) {
   const navigate = useNavigate()
   return (
     <SurfaceCard as="nav" aria-label="Keith workspaces" radius={12} padding={6}
-      style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+      className="keith-picker" style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
       {KEITH_WORKSPACES.map(row => {
         const Icon = row.icon
         const active = row.key === activeKey
@@ -172,6 +195,7 @@ export default function KeithPanel({ subKey }) {
   if (compact) {
     return (
       <section aria-label="Keith">
+        <style>{KEITH_STICKY_CSS}</style>
         <h2 id="settings-keith-heading" style={SETTINGS_HEADING_STYLE}>Keith</h2>
         <CompactWorkspacePicker activeKey={selectedKey} />
         <WorkspaceContent subKey={selectedKey} />
@@ -183,7 +207,8 @@ export default function KeithPanel({ subKey }) {
   // column's width matches GeneralPanel's so the two hubs sit on the same grid.
   return (
     <section aria-label="Keith" style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <div style={{ flex: '0 0 248px', minWidth: 220 }}>
+      <style>{KEITH_STICKY_CSS}</style>
+      <div className="keith-nav-col" style={{ flex: '0 0 248px', minWidth: 220 }}>
         <h2 id="settings-keith-heading" style={SETTINGS_HEADING_STYLE}>Keith</h2>
         <WorkspaceList activeKey={selectedKey} />
       </div>

@@ -103,8 +103,17 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           scrolls internally. Disabled at ≤768px, where the rail stacks above content (no page lock,
           no nested-scroll friction, the panel itself keeps page-scrolling). */}
       <style>{`
-        .settings-nav-rail { position: sticky; top: 120px; align-self: flex-start; max-height: calc(100vh - 140px); overflow-y: auto; }
-        @media (max-width: 768px) { .settings-nav-rail { position: static; max-height: none; overflow: visible; } }
+        /* ANCHORED-NAV-1 root cause: this rule was already here and had never
+           worked. A position:sticky element can only travel inside its
+           CONTAINING BLOCK, and the rail's column was sized to its own content
+           (315px measured) inside a 1346px row, because the row uses
+           align-items:flex-start. With ~315px of travel the rail unpinned almost
+           immediately and left with the page - which is exactly the reported
+           "the Settings navigation disappears". Stretching the COLUMN to the row
+           height gives the sticky card the full content height to travel. */
+        .settings-nav-col { align-self: stretch; }
+        .settings-nav-rail { position: sticky; top: 120px; align-self: flex-start; max-height: calc(100vh - 140px); overflow-y: auto; overscroll-behavior: contain; }
+        @media (max-width: 768px) { .settings-nav-col { align-self: auto; } .settings-nav-rail { position: static; max-height: none; overflow: visible; } }
       `}</style>
       {/* Back-to-workspace affordance - shared component (reuses MainApp's prior-workspace path) */}
       <WorkspaceBackLink path={backPath} label={backLabel} />
@@ -115,7 +124,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           baseline. The generic page subtitle is gone. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start', marginTop: 18 }}>
         {/* Column 1: the Settings heading + navigation rail. */}
-        <div style={{ flex: '0 0 236px', minWidth: 212 }}>
+        <div className="settings-nav-col" style={{ flex: '0 0 236px', minWidth: 212 }}>
         <h1 style={SETTINGS_HEADING_STYLE}>Settings</h1>
         <SurfaceCard as="nav" aria-label="Settings sections" radius={14} padding={10}
           className="settings-nav-rail">
