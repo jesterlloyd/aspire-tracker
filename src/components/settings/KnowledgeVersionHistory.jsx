@@ -1,9 +1,18 @@
-// KT-3a-2b: read-only Version History for a Knowledge Center entry. Lists the
-// immutable versions (newest first) via the existing list_entry_versions action and
-// shows a full read-only snapshot of a selected version via get_entry_version. Both
-// Owner and Admin can read versions (this is rendered only from the gated KC drawer;
-// the backend authorizes every call regardless). No restore, no diff, and no
-// revision workflow here - those are deferred to KT-3a-2c.
+// KT-3a-2b: Version History for a Knowledge Center entry. Lists the immutable
+// versions (newest first) via list_entry_versions and shows a full read-only
+// snapshot via get_entry_version. Both Owner and Admin can read versions (this
+// renders only from the gated KC drawer; the backend authorizes every call
+// regardless).
+//
+// KNOWLEDGE-VAULT-1 closes two audit gaps that had been open since KT-3a-2b:
+//   * RESTORE. governance_restore_knowledge_version and the restore_entry_version
+//     action have both existed and been fully governed since KT-2b, with no way
+//     to reach them from the app. Owner-only, confirmed, and forward-only: it
+//     writes a NEW version carrying the old content rather than rewinding, so
+//     history is never rewritten.
+//   * EDITOR NAMES. The list showed a truncated raw UUID, which told a reviewer
+//     nothing. The endpoint now joins user_profiles; the id remains on hover for
+//     anyone who needs to correlate it.
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { CATEGORY_LABELS, fmtDate } from './knowledgeCategories'
@@ -18,10 +27,12 @@ async function postAdmin(payload) {
   })
 }
 
-// The endpoint exposes the editor only as a user_profiles id (no name). Show a short,
-// stable form with the full id available on hover.
-function shortId(id) {
-  return typeof id === 'string' && id.length > 8 ? id.slice(0, 8) : (id || '-')
+// Fall back to the truncated id only when the join found no name (a deleted
+// profile). The full id stays available on hover in both cases.
+function editorLabel(v) {
+  if (v?.editor_name) return v.editor_name
+  const id = v?.editor_id
+  return typeof id === 'string' && id.length > 8 ? `Editor ${id.slice(0, 8)}` : 'Unknown editor'
 }
 
 const sectionLabel = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #9ca3af)', marginBottom: 8 }
@@ -31,7 +42,11 @@ const quietBtn = {
   color: 'var(--color-accent-primary, #1D2567)', fontFamily: 'DM Sans, sans-serif', fontSize: 12.5, fontWeight: 600,
 }
 
-export default function KnowledgeVersionHistory({ entryId, open, reloadToken }) {
+export default function KnowledgeVersionHistory({ entryId, open, reloadToken, isOwner = false, entryState = null, onRestored }) {
+  const [restoreNum, setRestoreNum] = useState(null) // version pending confirmation
+  const [restoreNote, setRestoreNote] = useState('')
+  const [restoring, setRestoring] = useState(false)
+  const [restoreError, setRestoreError] = useState(null)
   const [versions, setVersions] = useState(null) // null = not loaded yet
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -86,6 +101,40 @@ export default function KnowledgeVersionHistory({ entryId, open, reloadToken }) 
 
   function backToList() {
     setSelNum(null); setSelected(null); setSelError(null)
+    setRestoreNum(null); setRestoreNote(''); setRestoreError(null)
+  }
+
+  // Restore is Owner-only AND only meaningful on an active entry - the RPC
+  // rejects anything else with P0104, so the affordance is hidden rather than
+  // offered and then refused.
+  const canRestore = isOwner && entryState === 'active'
+
+  async function confirmRestore() {
+    if (restoreNum == null || restoring) return
+    setRestoring(true); setRestoreError(null)
+    try {
+      const payload = { action: 'restore_entry_version', entry_id: entryId, version_number: restoreNum }
+      if (restoreNote.trim()) payload.change_note = restoreNote.trim()
+      const res = await postAdmin(payload)
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        setRestoreError(
+          res.status === 403 ? 'Only the Owner may restore a version.'
+            : res.status === 409 ? (json?.message || 'This entry cannot be restored in its current state.')
+              : res.status === 404 ? 'That version could not be found.'
+                : 'We couldn’t restore that version. Please try again.')
+        return
+      }
+      setRestoreNum(null); setRestoreNote('')
+      backToList()
+      await load()
+      // Let the drawer refetch the entry: its body and metadata just changed.
+      onRestored?.(json?.current_version)
+    } catch {
+      setRestoreError('We couldn’t restore that version. Please try again.')
+    } finally {
+      setRestoring(false)
+    }
   }
 
   const wrap = { marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--color-border-subtle, #f3f4f6)' }
@@ -110,8 +159,52 @@ export default function KnowledgeVersionHistory({ entryId, open, reloadToken }) 
               <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>·</span>
               <span>{fmtDate(selected.created_at)}</span>
               <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>·</span>
-              <span title={selected.editor_id}>Editor {shortId(selected.editor_id)}</span>
+              <span title={selected.editor_id || undefined}>{editorLabel(selected)}</span>
             </div>
+
+            {/* Restore. Forward-only: the confirmation says so, because
+                "restore" reads like a rewind and this is not one. */}
+            {canRestore && (
+              restoreNum === selNum ? (
+                <div style={{ margin: '0 0 16px', padding: '12px 14px', borderRadius: 10, background: 'var(--color-bg-elevated, #eef2fb)', border: '1px solid var(--color-border-subtle, #e5e7eb)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Restore version {selNum}?</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', marginBottom: 10 }}>
+                    This copies version {selNum}’s content onto the entry as a NEW version. Nothing in
+                    history is overwritten or removed, and Keith will answer from the restored content.
+                  </div>
+                  <textarea
+                    value={restoreNote}
+                    onChange={e => setRestoreNote(e.target.value)}
+                    maxLength={2000}
+                    placeholder="Change note (optional)"
+                    aria-label="Restore change note"
+                    style={{
+                      width: '100%', minHeight: 54, padding: '8px 10px', borderRadius: 8,
+                      border: '1px solid var(--color-border-default, #e5e7eb)', fontFamily: 'DM Sans, sans-serif',
+                      fontSize: 13, resize: 'vertical', marginBottom: 10,
+                    }}
+                  />
+                  {restoreError && (
+                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: 12.5, marginBottom: 10 }}>{restoreError}</div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" disabled={restoring} onClick={confirmRestore}
+                      style={{ padding: '7px 14px', borderRadius: 8, border: 'none', cursor: restoring ? 'default' : 'pointer', background: 'var(--color-accent-primary, #1D2567)', color: '#fff', fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600, opacity: restoring ? 0.6 : 1 }}>
+                      {restoring ? 'Restoring…' : `Restore version ${selNum}`}
+                    </button>
+                    <button type="button" disabled={restoring} onClick={() => { setRestoreNum(null); setRestoreError(null) }}
+                      style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--color-border-default, #e5e7eb)', cursor: 'pointer', background: 'transparent', fontFamily: 'DM Sans, sans-serif', fontSize: 13 }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => { setRestoreNum(selNum); setRestoreError(null) }}
+                  style={{ ...quietBtn, marginBottom: 16 }}>
+                  Restore this version
+                </button>
+              )
+            )}
 
             <div style={metaStyle}>Body</div>
             <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55, marginBottom: 16 }}>{selected.body || <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>(empty)</span>}</div>
@@ -167,7 +260,7 @@ export default function KnowledgeVersionHistory({ entryId, open, reloadToken }) 
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary, #191919)' }}>Version {v.version_number}</span>
                 <span style={{ fontSize: 12, color: 'var(--color-text-secondary, #6b7280)', whiteSpace: 'nowrap' }}>{fmtDate(v.created_at)}</span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary, #6b7280)', marginTop: 2 }} title={v.editor_id}>Editor {shortId(v.editor_id)}</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary, #6b7280)', marginTop: 2 }} title={v.editor_id || undefined}>{editorLabel(v)}</div>
               {v.change_note ? (
                 <div style={{ fontSize: 12.5, color: 'var(--color-text-primary, #374151)', marginTop: 4, whiteSpace: 'pre-wrap' }}>{v.change_note}</div>
               ) : null}

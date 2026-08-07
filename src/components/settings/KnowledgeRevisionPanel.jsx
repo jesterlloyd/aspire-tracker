@@ -12,7 +12,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import Button from '../ui/Button'
+import { TermChips, MarkdownBodyEditor, ReviewFields } from './KnowledgeVaultFields'
 import { CATEGORY_LABELS, CATEGORY_KEYS, CAPS, fmtDate } from './knowledgeCategories'
+
+const MAX_ALIASES = 12
+const MAX_TAGS = 16
 
 async function postAdmin(payload) {
   const { data: { session } } = await supabase.auth.getSession()
@@ -109,6 +113,15 @@ export default function KnowledgeRevisionPanel({ entry, onApplied }) {
       source_attribution: entry.source_attribution || '',
       precedence_rank: entry.precedence_rank != null ? String(entry.precedence_rank) : '100',
       change_note: '',
+      // KNOWLEDGE-VAULT-1: seed from the live entry so a revision starts as an
+      // exact copy of what is currently governed. Changing body_format here is
+      // how an ACTIVE legacy entry is converted to Markdown - through the
+      // normal review-and-apply workflow, never by a direct write.
+      body_format: entry.body_format || 'plain',
+      aliases: Array.isArray(entry.aliases) ? entry.aliases : [],
+      tags: Array.isArray(entry.tags) ? entry.tags : [],
+      review_date: entry.review_date || '',
+      confidence: entry.confidence || '',
     })
     setFieldErr({}); setActionErr(null); setConflict(false); setMode('editor')
   }
@@ -122,6 +135,11 @@ export default function KnowledgeRevisionPanel({ entry, onApplied }) {
       source_attribution: revision.source_attribution || '',
       precedence_rank: revision.precedence_rank != null ? String(revision.precedence_rank) : '100',
       change_note: revision.change_note || '',
+      body_format: revision.body_format || entry.body_format || 'plain',
+      aliases: Array.isArray(revision.aliases) ? revision.aliases : [],
+      tags: Array.isArray(revision.tags) ? revision.tags : [],
+      review_date: revision.review_date || '',
+      confidence: revision.confidence || '',
     })
     setFieldErr({}); setActionErr(null); setConflict(false); setMode('editor')
   }
@@ -166,6 +184,11 @@ export default function KnowledgeRevisionPanel({ entry, onApplied }) {
         source_attribution: form.source_attribution,
         precedence_rank: Number(form.precedence_rank),
         change_note: form.change_note,
+        body_format: form.body_format,
+        aliases: form.aliases,
+        tags: form.tags,
+        review_date: form.review_date !== '' ? form.review_date : null,
+        confidence: form.confidence !== '' ? form.confidence : null,
       }
       const res = await postAdmin(payload)
       const json = await res.json().catch(() => null)
@@ -248,9 +271,20 @@ export default function KnowledgeRevisionPanel({ entry, onApplied }) {
             {CATEGORY_KEYS.map(k => <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>)}
           </select>
         </Field>
-        <Field label="Body / content" error={fieldErr.body}>
-          <textarea style={{ ...inputStyle, minHeight: 200, resize: 'vertical', lineHeight: 1.5 }} value={form.body} onChange={e => set('body', e.target.value)} placeholder="Full entry content…" />
-        </Field>
+        <MarkdownBodyEditor
+          value={form.body}
+          onChange={v => set('body', v)}
+          format={form.body_format}
+          onFormatChange={v => set('body_format', v)}
+          hint={form.body_format === 'plain' ? 'tick Markdown to convert this entry' : undefined}
+        />
+        {fieldErr.body && <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: -10, marginBottom: 12 }}>{fieldErr.body}</div>}
+        <TermChips label="Aliases" hint="other names people search for" values={form.aliases}
+          onChange={v => set('aliases', v)} placeholder="CS-Link, account request…" max={MAX_ALIASES} />
+        <TermChips label="Tags" hint="grouping" values={form.tags}
+          onChange={v => set('tags', v)} placeholder="onboarding, interviews…" max={MAX_TAGS} />
+        <ReviewFields reviewDate={form.review_date} confidence={form.confidence}
+          onReviewDate={v => set('review_date', v || '')} onConfidence={v => set('confidence', v || '')} />
         <Field label="Source of truth" hint="optional" error={fieldErr.source_attribution}>
           <input style={inputStyle} value={form.source_attribution} onChange={e => set('source_attribution', e.target.value)} placeholder="e.g. ASPIRE policy, NGRP guidelines" />
         </Field>

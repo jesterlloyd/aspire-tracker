@@ -15,14 +15,19 @@
 // that structured sub-content is authored inside Body (no invented schema). New
 // entries are always created in 'draft' state (server-forced); only draft entries
 // are editable in this phase - non-draft entries are read-only with a note.
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import DetailDrawer from '../ui/DetailDrawer'
 import Button from '../ui/Button'
 import StateBadge from './StateBadge'
 import KnowledgeVersionHistory from './KnowledgeVersionHistory'
 import KnowledgeRevisionPanel from './KnowledgeRevisionPanel'
+import { TermChips, MarkdownBodyEditor, ReviewFields, EntryLinksPanel } from './KnowledgeVaultFields'
+import { renderMarkdownLite } from '../../lib/keithMarkdown'
 import { CATEGORY_LABELS, CATEGORY_KEYS, CAPS, isValidDateStr, fmtDate } from './knowledgeCategories'
+
+const MAX_ALIASES = 12
+const MAX_TAGS = 16
 
 async function postAdmin(payload) {
   const { data: { session } } = await supabase.auth.getSession()
@@ -58,7 +63,14 @@ const LIFECYCLE_ACTIONS = {
 
 const sectionLabel = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #9ca3af)', marginBottom: 8 }
 
-const EMPTY = { title: '', category: '', body: '', source_attribution: '', precedence_rank: '', effective_date: '', expires_at: '' }
+// KNOWLEDGE-VAULT-1: new pages are authored as Markdown by default. An existing
+// page keeps whatever format it already has (see the edit branch below), so
+// opening a legacy plain entry never silently reinterprets its text.
+const EMPTY = {
+  title: '', category: '', body: '', source_attribution: '', precedence_rank: '',
+  effective_date: '', expires_at: '',
+  body_format: 'markdown', aliases: [], tags: [], review_date: '', confidence: '',
+}
 
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--color-text-secondary, #6b7280)', marginBottom: 5 }
 const inputStyle = {
@@ -68,6 +80,38 @@ const inputStyle = {
   fontFamily: 'DM Sans, sans-serif', fontSize: 13, outline: 'none', boxSizing: 'border-box',
 }
 const errStyle = { fontSize: 11.5, color: '#dc2626', marginTop: 4 }
+
+// KNOWLEDGE-VAULT-1: client-side wikilink resolution for the editor's live
+// preview. Mirrors lib/server/keith/knowledgeLinks.js exactly - same
+// normalization, same slug > title > alias precedence, same "ambiguous resolves
+// to nothing" rule - so the preview never shows a link as resolved that the
+// server will record as broken. The server stays the authority and rebuilds the
+// real index on save; this only avoids a round trip per keystroke.
+const linkKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+function buildResolver(catalog) {
+  const bySlug = new Map(); const byTitle = new Map(); const byAlias = new Map()
+  const add = (m, k, e) => {
+    if (!k) return
+    if (!m.has(k)) m.set(k, e)
+    else if (m.get(k) && m.get(k).id !== e.id) m.set(k, null) // null = ambiguous
+  }
+  for (const e of catalog || []) {
+    add(bySlug, linkKey(e.slug), e)
+    add(byTitle, linkKey(e.title), e)
+    for (const a of e.aliases || []) add(byAlias, linkKey(a), e)
+  }
+  return (target) => {
+    const k = linkKey(target)
+    for (const m of [bySlug, byTitle, byAlias]) {
+      if (!m.has(k)) continue
+      const hit = m.get(k)
+      if (hit === null) return { status: 'ambiguous' }
+      return { status: 'resolved', id: hit.id, slug: hit.slug, title: hit.title, state: hit.state }
+    }
+    return { status: 'broken' }
+  }
+}
 
 function Field({ label, hint, error, children }) {
   return (
@@ -79,8 +123,17 @@ function Field({ label, hint, error, children }) {
   )
 }
 
-export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = false, onClose, onSaved, onRequestEdit }) {
+export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = false, catalog = [], onClose, onSaved, onRequestEdit, onOpenEntry }) {
   const editing = mode === 'create' || mode === 'edit'
+  // KNOWLEDGE-VAULT-1: links for this entry (view mode) and a client-side
+  // resolver for the editor's live preview. The preview resolves against the
+  // list the panel already loaded rather than round-tripping per keystroke;
+  // the server remains the authority and rebuilds the real index on save.
+  // null means "not loaded for this entry yet", which is also the loading
+  // state - so there is no second flag to keep in sync with this one.
+  const [links, setLinks] = useState(null)
+
+  const resolveWikilink = useMemo(() => buildResolver(catalog), [catalog])
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -107,6 +160,13 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
         precedence_rank: entry.precedence_rank != null ? String(entry.precedence_rank) : '',
         effective_date: entry.effective_date || '',
         expires_at: entry.expires_at || '',
+        // Preserve the entry's own format. A legacy plain page opens as plain;
+        // switching it to Markdown is an explicit, visible act by the author.
+        body_format: entry.body_format || 'plain',
+        aliases: Array.isArray(entry.aliases) ? entry.aliases : [],
+        tags: Array.isArray(entry.tags) ? entry.tags : [],
+        review_date: entry.review_date || '',
+        confidence: entry.confidence || '',
       })
     }
     setError(null); setFieldErr({})
@@ -115,6 +175,25 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
   }, [open, mode, entry?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // Load this entry's link graph whenever the drawer shows it in view mode.
+  // The stale-response guard matters here: clicking through several entries
+  // quickly can land an earlier request's links on a later entry.
+  useEffect(() => {
+    if (!open || editing || !entry?.id) return
+    let cancelled = false
+    const id = entry.id
+    ;(async () => {
+      let next = { outgoing: [], backlinks: [] }
+      try {
+        const res = await postAdmin({ action: 'get_entry_links', entry_id: id })
+        const json = await res.json().catch(() => null)
+        if (res.ok && json) next = json
+      } catch { /* keep the empty shape; links are a read-only convenience */ }
+      if (!cancelled) setLinks(next)
+    })()
+    return () => { cancelled = true; setLinks(null) }
+  }, [open, editing, entry?.id, entry?.current_version])
 
   function validate() {
     const fe = {}
@@ -168,6 +247,15 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
       //                           omit when blank (preserve). A blank-out of a
       //                           previously-set date is blocked in validate() so we
       //                           never silently preserve.
+      // KNOWLEDGE-VAULT-1 fields. These ARE clearable in both modes: the
+      // endpoint accepts an empty array and an explicit null, so a page that
+      // should no longer carry a tag or a review date can actually shed it.
+      payload.body_format = form.body_format
+      payload.aliases = form.aliases
+      payload.tags = form.tags
+      payload.review_date = form.review_date !== '' ? form.review_date : null
+      payload.confidence = form.confidence !== '' ? form.confidence : null
+
       if (isCreate) {
         if (form.source_attribution !== '') payload.source_attribution = form.source_attribution
         if (form.precedence_rank !== '') payload.precedence_rank = Number(form.precedence_rank)
@@ -280,18 +368,37 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
               {CATEGORY_KEYS.map(k => <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>)}
             </select>
           </Field>
-          <Field
-            label="Body / content"
-            hint="paste the full entry; use your own section headings for summary, tags, applies-to, timing, and Keith guidance"
-            error={fieldErr.body}
-          >
-            <textarea
-              style={{ ...inputStyle, minHeight: 220, resize: 'vertical', lineHeight: 1.5 }}
-              value={form.body}
-              onChange={e => set('body', e.target.value)}
-              placeholder="Full entry content…"
-            />
-          </Field>
+          <MarkdownBodyEditor
+            value={form.body}
+            onChange={v => set('body', v)}
+            format={form.body_format}
+            onFormatChange={v => set('body_format', v)}
+            resolveWikilink={resolveWikilink}
+          />
+          {fieldErr.body && <div style={{ ...errStyle, marginTop: -10, marginBottom: 12 }}>{fieldErr.body}</div>}
+
+          <TermChips
+            label="Aliases"
+            hint="other names people search for"
+            values={form.aliases}
+            onChange={v => set('aliases', v)}
+            placeholder="CS-Link, account request…"
+            max={MAX_ALIASES}
+          />
+          <TermChips
+            label="Tags"
+            hint="grouping"
+            values={form.tags}
+            onChange={v => set('tags', v)}
+            placeholder="onboarding, interviews…"
+            max={MAX_TAGS}
+          />
+          <ReviewFields
+            reviewDate={form.review_date}
+            confidence={form.confidence}
+            onReviewDate={v => set('review_date', v || '')}
+            onConfidence={v => set('confidence', v || '')}
+          />
           <Field label="Source of truth" hint="optional" error={fieldErr.source_attribution}>
             <input style={inputStyle} value={form.source_attribution} onChange={e => set('source_attribution', e.target.value)} placeholder="e.g. ASPIRE policy, NGRP guidelines" />
           </Field>
@@ -312,8 +419,11 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
               </Field>
             </div>
           </div>
+          {/* The old copy here promised activation, revisions and version
+              history "in a later update". All three shipped in KT-2b/KT-3a-2b,
+              so the note was telling Owners the opposite of the truth. */}
           <p style={{ fontSize: 11.5, color: 'var(--color-text-secondary, #9ca3af)', marginTop: 4 }}>
-            Saved as a <strong>Draft</strong>. Activation, revisions, and version history arrive in a later update.
+            Saved as a <strong>Draft</strong>. It reaches Keith only once an Owner activates it.
           </p>
         </>
       ) : (
@@ -338,8 +448,38 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
             </div>
           ) : null}
 
+          {/* Vault metadata, shown before the body because aliases and tags are
+              how a reviewer decides whether the page is filed correctly. */}
+          {(entry?.aliases?.length || entry?.tags?.length || entry?.confidence || entry?.review_date) ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 14 }}>
+              {(entry?.aliases || []).map(a => (
+                <span key={`a-${a}`} title="Alias" style={{ borderRadius: 999, padding: '2px 9px', fontSize: 11.5, fontWeight: 600, background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-accent-primary, #1D2567)' }}>{a}</span>
+              ))}
+              {(entry?.tags || []).map(t => (
+                <span key={`t-${t}`} title="Tag" style={{ borderRadius: 999, padding: '2px 9px', fontSize: 11.5, fontWeight: 600, background: '#f1f0ec', color: '#6b7280' }}>#{t}</span>
+              ))}
+              {entry?.confidence && (
+                <span style={{ borderRadius: 999, padding: '2px 9px', fontSize: 11.5, fontWeight: 600, background: entry.confidence === 'verified' ? '#ecfdf5' : '#fffbeb', color: entry.confidence === 'verified' ? '#047857' : '#b45309' }}>
+                  {entry.confidence === 'verified' ? 'Verified' : 'Provisional'}
+                </span>
+              )}
+              {entry?.review_date && (
+                <span style={{ fontSize: 11.5, color: 'var(--color-text-secondary, #6b7280)' }}>Review by {fmtDate(entry.review_date)}</span>
+              )}
+            </div>
+          ) : null}
+
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #9ca3af)', marginBottom: 6 }}>Body</div>
-          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55, marginBottom: 18 }}>{entry?.body || <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>(empty)</span>}</div>
+          {/* A page renders as what it DECLARES itself to be. A legacy plain
+              entry keeps its exact pre-formatted presentation; only a page an
+              author marked as Markdown goes through the renderer. */}
+          <div style={{ lineHeight: 1.55, marginBottom: 18, ...(entry?.body_format === 'markdown' ? {} : { whiteSpace: 'pre-wrap' }) }}>
+            {entry?.body
+              ? (entry?.body_format === 'markdown'
+                ? renderMarkdownLite(entry.body, { resolveWikilink, onWikilinkClick: hit => onOpenEntry?.(hit) })
+                : entry.body)
+              : <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>(empty)</span>}
+          </div>
 
           {entry?.source_attribution ? (
             <div style={{ marginBottom: 14 }}>
@@ -359,6 +499,11 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
               by role and authorship). On apply, the parent re-fetches the entry so the
               new content + version history refresh in place. */}
           <KnowledgeRevisionPanel entry={entry} onApplied={() => onSaved?.(entry?.id)} />
+
+          {/* KNOWLEDGE-VAULT-1: outgoing links, backlinks, and the per-entry
+              link checker. Read-only - fixing a link means editing the body,
+              which is why the checker names the exact text that failed. */}
+          <EntryLinksPanel links={links} loading={links === null} onOpenEntry={onOpenEntry} />
 
           {/* Lifecycle controls - Owner only; never rendered in table rows or for
               invalid transitions; archived shows a terminal notice. */}
@@ -423,13 +568,17 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
             </div>
           )}
 
-          {/* Read-only version history - Owner + Admin. reloadToken bumps on every
-              lifecycle change so v1 appears right after activation. */}
+          {/* Version history - Owner + Admin read; Owner-only restore
+              (KNOWLEDGE-VAULT-1). reloadToken bumps on every lifecycle change
+              so v1 appears right after activation. */}
           {entry?.id && (
             <KnowledgeVersionHistory
               entryId={entry.id}
               open={open}
               reloadToken={`${entry?.state}:${entry?.current_version}:${entry?.updated_at}`}
+              isOwner={isOwner}
+              entryState={entry?.state}
+              onRestored={() => onSaved?.(entry?.id)}
             />
           )}
         </div>

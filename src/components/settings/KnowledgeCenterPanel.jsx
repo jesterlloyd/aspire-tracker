@@ -16,8 +16,15 @@
 // FilterKPICard cards (the same interactive filter primitive used on Student
 // Profiles / Interview Room / Accounts & Access) - one state-filtering surface
 // instead of two that did the same job.
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { FileText, Search, Plus } from 'lucide-react'
+//
+// KNOWLEDGE-VAULT-1 evolves this panel into the vault index: a "Needs review"
+// card and column (expiry and review dates are REPORTED here, never enforced in
+// retrieval), tag filtering, alias/tag-aware search, a Markdown badge, and
+// Obsidian-compatible Markdown import/export. Every existing route, action,
+// permission and governance rule is unchanged; the plan of record is
+// docs/product/KEITH_SKILLS_KNOWLEDGE_VAULT_PLAN.md Section 2.3.
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { FileText, Search, Plus, Download, Upload } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import EmptyState from '../EmptyState'
@@ -34,11 +41,18 @@ import { FilterKPICard } from '../KPIBand'
 const STATES = KNOWLEDGE_STATES
 // SETTINGS-UNIFIED-DESIGN-1: accent per state, plus the "All" card first.
 const STATE_CARD_ACCENTS = { draft: 'dawn', active: 'sage', deprecated: 'lavender', archived: 'marina' }
+// KNOWLEDGE-VAULT-1 appends "Needs review": entries past their review_date or
+// past expires_at. This is a REVIEW SIGNAL, not a retrieval filter - an expired
+// entry still answers in Keith exactly as it did before. Surfacing it is what
+// makes a later decision to start excluding expired entries evidence-based.
 const STATE_CARDS = [
   { key: 'all', accent: 'nightfall' },
   ...STATES.map(s => ({ key: s, accent: STATE_CARD_ACCENTS[s] })),
+  { key: 'review', accent: 'dawn' },
 ]
-const cardLabel = (key) => key.charAt(0).toUpperCase() + key.slice(1)
+const CARD_LABELS = { review: 'Needs review' }
+const CARD_SUBS = { review: 'Past review or expiry' }
+const cardLabel = (key) => CARD_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1)
 
 // Authenticated POST helper for the knowledge-admin endpoint (the backend authorizes
 // every action server-side regardless of client gating).
@@ -55,21 +69,65 @@ async function postAdmin(payload) {
 
 // Entries table columns (DataTable) - identical cells to the KT-3a-1 table.
 const ENTRY_COLUMNS = [
-  { key: 'title',    label: 'Title',    cellStyle: { fontWeight: 600 }, render: e => e.title || 'Untitled' },
+  {
+    key: 'title',
+    label: 'Title',
+    render: e => (
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {e.title || 'Untitled'}
+          {/* Markdown is marked by a small text badge, not by an icon alone,
+              so the format is legible without relying on iconography. */}
+          {e.body_format === 'markdown' && (
+            <span title="Markdown" style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, padding: '1px 5px', borderRadius: 4, background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-accent-primary, #1D2567)' }}>MD</span>
+          )}
+        </div>
+        {(e.tags?.length > 0) && (
+          <div style={{ fontSize: 11, color: 'var(--color-text-secondary, #9ca3af)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+            {e.tags.map(t => `#${t}`).join(' ')}
+          </div>
+        )}
+      </div>
+    ),
+  },
   { key: 'category', label: 'Category', cellStyle: { color: 'var(--color-text-secondary, #6b7280)' }, render: e => CATEGORY_LABELS[e.category] || e.category },
   { key: 'state',    label: 'State',    render: e => <StateBadge state={e.state} /> },
+  {
+    key: 'review',
+    label: 'Review',
+    render: e => (
+      e.expired
+        ? <span style={{ fontSize: 11.5, fontWeight: 600, color: '#b45309' }} title={`Expired ${fmtDate(e.expires_at)}`}>Expired</span>
+        : e.due_for_review
+          ? <span style={{ fontSize: 11.5, fontWeight: 600, color: '#b45309' }} title={`Review due ${fmtDate(e.review_date)}`}>Due</span>
+          : <span style={{ color: 'var(--color-text-secondary, #d1d5db)' }}>–</span>
+    ),
+  },
   { key: 'version',  label: 'Version',  align: 'right', cellStyle: { fontVariantNumeric: 'tabular-nums' }, render: e => e.current_version },
   { key: 'updated',  label: 'Updated',  align: 'right', cellStyle: { color: 'var(--color-text-secondary, #6b7280)', whiteSpace: 'nowrap' }, render: e => fmtDate(e.updated_at) },
 ]
 
+const selectStyle = {
+  padding: '8px 10px', borderRadius: 9,
+  border: '1px solid var(--color-border-default, #e5e7eb)',
+  background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
+  fontFamily: 'DM Sans, sans-serif', fontSize: 13, cursor: 'pointer',
+}
+
 export default function KnowledgeCenterPanel() {
   const { isAdmin, isOwner } = useAuth() // owner/admin; registry hides this section otherwise
+  const fileRef = useRef(null)
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [stateFilter, setStateFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [tagFilter, setTagFilter] = useState('all')
+  // Import/export status line. Export is a client-side download of what the
+  // server serialized; nothing leaves the browser.
+  const [portMsg, setPortMsg] = useState(null)
+  const [porting, setPorting] = useState(false)
 
   // Detail drawer: mode 'create' | 'view' | 'edit'. selectedEntry holds the full
   // row (from get_entry, includes body) for view/edit; null in create mode.
@@ -149,19 +207,101 @@ export default function KnowledgeCenterPanel() {
   }, [loadEntries])
 
   const counts = useMemo(() => {
-    const c = { draft: 0, active: 0, deprecated: 0, archived: 0 }
-    for (const e of entries) if (c[e.state] !== undefined) c[e.state]++
+    const c = { draft: 0, active: 0, deprecated: 0, archived: 0, review: 0 }
+    for (const e of entries) {
+      if (c[e.state] !== undefined) c[e.state]++
+      if (e.expired || e.due_for_review) c.review++
+    }
     return c
   }, [entries])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return entries.filter(e =>
-      (stateFilter === 'all' || e.state === stateFilter) &&
-      (categoryFilter === 'all' || e.category === categoryFilter) &&
-      (!q || (e.title || '').toLowerCase().includes(q))
+    return entries.filter(e => {
+      // "Needs review" is a cross-cutting filter, not a state, so it sits
+      // beside the state filter rather than inside its vocabulary.
+      const stateOk = stateFilter === 'all'
+        || (stateFilter === 'review' ? (e.expired || e.due_for_review) : e.state === stateFilter)
+      if (!stateOk) return false
+      if (categoryFilter !== 'all' && e.category !== categoryFilter) return false
+      if (tagFilter !== 'all' && !(e.tags || []).includes(tagFilter)) return false
+      if (!q) return true
+      // KNOWLEDGE-VAULT-1: search now covers aliases and tags too. Searching
+      // for a name the author declared should find the page - that is the whole
+      // point of recording aliases.
+      return (e.title || '').toLowerCase().includes(q)
+        || (e.aliases || []).some(a => a.toLowerCase().includes(q))
+        || (e.tags || []).some(t => t.toLowerCase().includes(q))
+    })
+  }, [entries, search, stateFilter, categoryFilter, tagFilter])
+
+  // Every tag in use, for the filter. Alphabetical so the list is scannable.
+  const allTags = useMemo(() => {
+    const s = new Set()
+    for (const e of entries) for (const t of e.tags || []) s.add(t)
+    return [...s].sort((a, b) => a.localeCompare(b))
+  }, [entries])
+
+  // ── Obsidian-compatible portability ────────────────────────────────────────
+  // Export builds the vault in the browser from what the server serialized. A
+  // single entry downloads as one .md; several download as one .md per file so
+  // the result drops straight into a vault folder with no unzip step and no
+  // archive dependency.
+  const exportVault = useCallback(async () => {
+    setPorting(true); setPortMsg(null)
+    try {
+      const res = await postAdmin({ action: 'export_vault' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !Array.isArray(json?.files)) {
+        setPortMsg({ tone: 'error', text: 'We couldn’t export the vault. Please try again.' })
+        return
+      }
+      for (const f of json.files) {
+        const url = URL.createObjectURL(new Blob([f.content], { type: 'text/markdown;charset=utf-8' }))
+        const a = document.createElement('a')
+        a.href = url; a.download = f.filename
+        document.body.appendChild(a); a.click(); a.remove()
+        URL.revokeObjectURL(url)
+      }
+      setPortMsg({
+        tone: 'info',
+        text: `Exported ${json.count} entr${json.count === 1 ? 'y' : 'ies'} as Markdown with YAML frontmatter.${json.truncated ? ' The export hit its size limit and is partial.' : ''}`,
+      })
+    } catch {
+      setPortMsg({ tone: 'error', text: 'We couldn’t export the vault. Please try again.' })
+    } finally {
+      setPorting(false)
+    }
+  }, [])
+
+  // Import lands every file as a DRAFT, whatever its frontmatter claims about
+  // state. Nothing imported can reach Keith until an Owner activates it.
+  const importFiles = useCallback(async (event) => {
+    const files = [...(event.target.files || [])]
+    event.target.value = '' // let the same file be re-picked after a fix
+    if (!files.length) return
+    setPorting(true); setPortMsg(null)
+    let ok = 0
+    const failures = []
+    for (const file of files) {
+      try {
+        const source = await file.text()
+        const res = await postAdmin({ action: 'import_entry_file', source })
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.success) ok++
+        else failures.push(`${file.name}: ${json?.message || 'could not be imported'}`)
+      } catch {
+        failures.push(`${file.name}: could not be read`)
+      }
+    }
+    await loadEntries()
+    setPorting(false)
+    setPortMsg(
+      failures.length
+        ? { tone: 'error', text: `Imported ${ok} as draft${ok === 1 ? '' : 's'}. ${failures.length} failed — ${failures.join('; ')}` }
+        : { tone: 'info', text: `Imported ${ok} entr${ok === 1 ? 'y' : 'ies'} as draft${ok === 1 ? '' : 's'}. Review and activate each one to make it governed guidance.` },
     )
-  }, [entries, search, stateFilter, categoryFilter])
+  }, [loadEntries])
 
   if (!allowed) {
     return (
@@ -190,7 +330,7 @@ export default function KnowledgeCenterPanel() {
             key={c.key}
             value={loading ? '-' : (c.key === 'all' ? entries.length : counts[c.key])}
             label={cardLabel(c.key)}
-            sub={`${cardLabel(c.key)} entries`}
+            sub={CARD_SUBS[c.key] || `${cardLabel(c.key)} entries`}
             accent={c.accent}
             active={stateFilter === c.key}
             onClick={() => setStateFilter(f => (f === c.key ? 'all' : c.key))}
@@ -220,31 +360,71 @@ export default function KnowledgeCenterPanel() {
           </>
         )}
         filters={(
-          <select
-            value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value)}
-            aria-label="Filter by category"
-            style={{
-              padding: '8px 10px', borderRadius: 9,
-              border: '1px solid var(--color-border-default, #e5e7eb)',
-              background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 13, cursor: 'pointer',
-            }}
-          >
-            <option value="all">All categories</option>
-            {CATEGORY_KEYS.map(k => <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>)}
-          </select>
+          <>
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              aria-label="Filter by category"
+              style={selectStyle}
+            >
+              <option value="all">All categories</option>
+              {CATEGORY_KEYS.map(k => <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>)}
+            </select>
+            {/* Only offered once tags exist - an empty tag filter is noise. */}
+            {allTags.length > 0 && (
+              <select
+                value={tagFilter}
+                onChange={e => setTagFilter(e.target.value)}
+                aria-label="Filter by tag"
+                style={selectStyle}
+              >
+                <option value="all">All tags</option>
+                {allTags.map(t => <option key={t} value={t}>#{t}</option>)}
+              </select>
+            )}
+          </>
         )}
         primaryAction={(
-          <Button
-            variant="primary"
-            icon={<Plus size={14} strokeWidth={2.2} />}
-            onClick={openCreate}
-          >
-            New Entry
-          </Button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Obsidian-compatible portability. Export writes a .md file per
+                entry with YAML frontmatter; import round-trips one back as a
+                DRAFT, never as live content. */}
+            <Button variant="quiet" icon={<Download size={14} strokeWidth={2.2} />} onClick={exportVault} disabled={porting}>
+              Export
+            </Button>
+            <Button variant="quiet" icon={<Upload size={14} strokeWidth={2.2} />} onClick={() => fileRef.current?.click()} disabled={porting}>
+              Import
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".md,.markdown,text/markdown,text/plain"
+              multiple
+              onChange={importFiles}
+              style={{ display: 'none' }}
+              aria-hidden="true"
+              tabIndex={-1}
+            />
+            <Button
+              variant="primary"
+              icon={<Plus size={14} strokeWidth={2.2} />}
+              onClick={openCreate}
+            >
+              New Entry
+            </Button>
+          </div>
         )}
       />
+
+      {portMsg && (
+        <SurfaceCard padding="10px 14px" style={{
+          marginBottom: 12, fontSize: 12.5,
+          color: portMsg.tone === 'error' ? '#b91c1c' : 'var(--color-text-primary, #374151)',
+          background: portMsg.tone === 'error' ? '#fef2f2' : 'var(--color-bg-elevated, #eef2fb)',
+        }}>
+          {portMsg.text}
+        </SurfaceCard>
+      )}
 
       {/* Content states: loading → error → empty → table (with no-match empty) */}
       {loading ? (
@@ -283,6 +463,10 @@ export default function KnowledgeCenterPanel() {
         mode={drawerMode}
         entry={selectedEntry}
         isOwner={isOwner}
+        // The already-loaded list doubles as the wikilink catalog, so the
+        // editor preview resolves links without a request per keystroke.
+        catalog={entries}
+        onOpenEntry={target => target?.id && openEntry(target.id)}
         onClose={closeDrawer}
         onSaved={handleSaved}
         onRequestEdit={() => setDrawerMode('edit')}
