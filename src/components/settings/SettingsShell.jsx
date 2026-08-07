@@ -14,8 +14,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections, routableSections, SETTINGS_HEADING_STYLE } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
-import KnowledgeCenterPanel from './KnowledgeCenterPanel'
-import KeithSkillsPanel from './KeithSkillsPanel'
+import KeithPanel from './KeithPanel'
 import PreceptorParityPanel from './PreceptorParityPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
@@ -36,6 +35,11 @@ const SECTION_ICONS = {
 // deep link still resolves here, with the rail folding onto General.
 const NON_RAIL_SUBKEYS = ['appearance', 'signature', 'tours', 'about']
 
+// SETTINGS-KEITH-NESTED-1: Keith's workspaces fold onto the Keith rail entry the
+// same way General's subsettings fold onto General. The map's values are the
+// subKey KeithPanel reads.
+const KEITH_SUBKEYS = { keithSkills: 'skills', keithKnowledge: 'knowledge' }
+
 export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At a Glance', onRestartTour }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -52,6 +56,18 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
   // Uses `routable` (not the rail-only `sections`) so non-rail deep links like
   // /settings/appearance are recognized as known paths and never bounced to General.
   useEffect(() => {
+    // Keith is a parent destination with no content of its own: land on Skills.
+    if (path === '/settings/keith') {
+      navigate('/settings/keith/skills', { replace: true })
+      return
+    }
+    // Legacy top-level Knowledge Center now lives under Keith. Redirect rather
+    // than 404 or bounce to General, so old links and bookmarks still arrive
+    // where the user meant to go.
+    if (path === '/settings/knowledge') {
+      navigate('/settings/keith/knowledge', { replace: true })
+      return
+    }
     if (path === '/settings' || (path.startsWith('/settings') && !knownPaths.includes(path))) {
       navigate('/settings/general', { replace: true })
     }
@@ -60,11 +76,17 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
   const matchedKey = matched?.key || 'general'
   // The active panel key (drives which component renders below).
   const currentKey = matchedKey
-  // The rail highlight key: non-rail subsettings fold into `general`.
-  const railActiveKey = NON_RAIL_SUBKEYS.includes(matchedKey) ? 'general' : matchedKey
+  // The rail highlight key: non-rail subsettings fold into `general`, and Keith's
+  // workspaces fold into `keith`, so the rail always shows exactly one selected
+  // top-level destination.
+  const railActiveKey = NON_RAIL_SUBKEYS.includes(matchedKey)
+    ? 'general'
+    : (KEITH_SUBKEYS[matchedKey] ? 'keith' : matchedKey)
   // Non-rail subsettings render inside GeneralPanel with a subKey so it can show the
   // right nested panel plus a back-to-General affordance.
   const subKey = NON_RAIL_SUBKEYS.includes(matchedKey) ? matchedKey : undefined
+  // The Keith workspace on screen. Undefined until the redirect above lands.
+  const keithSubKey = KEITH_SUBKEYS[matchedKey]
 
   return (
     // SETTINGS-VISUAL-DENSITY-1: no extra top padding - the back breadcrumb sits at
@@ -147,8 +169,12 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           {['general', 'appearance', 'signature', 'tours', 'about'].includes(currentKey) &&
             <GeneralPanel subKey={subKey} onRestartTour={onRestartTour} />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}
-          {currentKey === 'knowledge'  && <KnowledgeCenterPanel />}
-          {currentKey === 'keith'      && <KeithSkillsPanel />}
+          {/* SETTINGS-KEITH-NESTED-1: one parent panel owns both Keith workspaces.
+              `keith` and `knowledge` are transient here - the shell redirects them
+              to a workspace route - but they render the hub rather than nothing so
+              there is no blank frame during the redirect. */}
+          {(keithSubKey || currentKey === 'keith' || currentKey === 'knowledge') &&
+            <KeithPanel subKey={keithSubKey} />}
           {currentKey === 'preceptorParity' && <PreceptorParityPanel />}
         </div>
       </div>

@@ -45,7 +45,12 @@ test('visibleSections: the rail is exactly the intended destinations, never the 
 
     // Role-gated destinations match the existing visibility rules.
     assert.equal(rail.includes('accounts'), roleFlags.isAdmin, 'accounts rail membership must match isAdmin')
-    assert.equal(rail.includes('knowledge'), roleFlags.isAdmin, 'knowledge rail membership must match isAdmin')
+    // SETTINGS-KEITH-NESTED-1: Knowledge Center is no longer a top-level rail
+    // destination. It became a workspace inside Keith, alongside Skills. Its
+    // /settings/knowledge route stays routable and redirects there.
+    assert.ok(!rail.includes('knowledge'), 'Knowledge Center now lives under Keith, not in the rail')
+    assert.ok(!rail.includes('keithSkills') && !rail.includes('keithKnowledge'),
+      "Keith's workspaces are reached through Keith, never as their own rail entries")
     assert.equal(rail.includes('preceptorParity'), roleFlags.isOwner, 'preceptorParity rail membership must match isOwner')
 
     // KEITH-P1: `keith` is now an IMPLEMENTED Administration destination (the
@@ -116,7 +121,11 @@ test('SettingsShell source: routing, panel dispatch, and rail-active fallback', 
 
   // Rail highlight folds appearance/signature/tours into general.
   assert.match(shell, /NON_RAIL_SUBKEYS\s*=\s*\[\s*'appearance',\s*'signature',\s*'tours',\s*'about'\s*\]/)
-  assert.match(shell, /railActiveKey\s*=\s*NON_RAIL_SUBKEYS\.includes\(matchedKey\)\s*\?\s*'general'\s*:\s*matchedKey/)
+  // SETTINGS-KEITH-NESTED-1: the fallback gained a second fold - Keith's
+  // workspaces highlight the Keith rail entry, so exactly one top-level
+  // destination is ever selected.
+  assert.match(shell, /railActiveKey = NON_RAIL_SUBKEYS\.includes\(matchedKey\)\s*\n\s*\? 'general'\s*\n\s*: \(KEITH_SUBKEYS\[matchedKey\] \? 'keith' : matchedKey\)/)
+  assert.match(shell, /const KEITH_SUBKEYS = \{ keithSkills: 'skills', keithKnowledge: 'knowledge' \}/)
   assert.match(shell, /active = s\.key === railActiveKey/)
 
   // GeneralPanel receives a subKey for the three subsettings, and always gets onRestartTour
@@ -202,7 +211,15 @@ test('permissions: accounts/knowledge/preceptorParity gating functions are uncha
   assert.equal(preceptorParity.visible({ isOwner: false }), false)
 
   assert.equal(accounts.group, 'Administration')
-  assert.equal(knowledge.group, 'Administration')
+  // SETTINGS-KEITH-NESTED-1: knowledge no longer carries a rail group, because it
+  // is no longer a rail destination. Its VISIBILITY gate above is unchanged, which
+  // is what this test is actually protecting.
+  assert.equal(knowledge.inRail, false)
+  assert.equal(knowledge.group, undefined)
+  const keith = SETTINGS_SECTIONS.find(s => s.key === 'keith')
+  assert.equal(keith.group, 'Administration')
+  assert.equal(keith.visible({ isAdmin: true }), true)
+  assert.equal(keith.visible({ isAdmin: false }), false)
   assert.equal(preceptorParity.group, 'Diagnostics')
 })
 

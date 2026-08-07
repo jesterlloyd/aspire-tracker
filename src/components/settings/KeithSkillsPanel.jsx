@@ -59,7 +59,21 @@ const SKILL_COLUMNS = [
     render: s => (
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 600 }}>{s.display_name || s.slug || 'Untitled skill'}</div>
-        <div style={{ fontSize: 11.5, color: secondary, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', wordBreak: 'break-all' }}>
+        {/* The slug is truncated with CSS, not with JavaScript. That matters for
+            disclosure: the FULL value stays in the DOM, so screen readers, find-
+            in-page and copy all get the whole slug - only the pixels are clipped.
+            `title` gives sighted users hover disclosure on top of that.
+            Previously this used wordBreak: 'break-all', which split slugs
+            mid-word across three lines and drove the row height. */}
+        <div
+          title={s.slug || undefined}
+          style={{
+            fontSize: 11.5, color: secondary,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            maxWidth: 190,
+          }}
+        >
           {s.slug}
         </div>
       </div>
@@ -70,15 +84,32 @@ const SKILL_COLUMNS = [
   { key: 'roles', label: 'Roles', cellStyle: { color: secondary }, render: s => formatList(s.allowed_roles) },
   { key: 'classification', label: 'Classification', render: s => (s.data_classification ? <StatusBadge value={s.data_classification} colorMap={CLASSIFICATION_STYLES} dot={false} /> : '-') },
   { key: 'version', label: 'Version', align: 'right', cellStyle: { fontVariantNumeric: 'tabular-nums' }, render: s => s.version ?? '-' },
-  { key: 'invocations', label: 'Invocations (30d)', align: 'right', cellStyle: { fontVariantNumeric: 'tabular-nums' }, render: s => Number(s.stats?.total) || 0 },
   {
-    key: 'failures',
-    label: 'Failures (30d)',
+    // Invocations and Failures were two right-aligned numeric columns whose
+    // headers ("Invocations (30d)", "Failures (30d)") were far wider than their
+    // one- or two-digit values, and together they pushed the table past its
+    // container so Failures fell off the right edge. One Activity column carries
+    // both numbers in the same space, with failures still called out in red when
+    // nonzero. No data is dropped and failureCount is unchanged.
+    key: 'activity',
+    label: 'Activity (30d)',
     align: 'right',
-    cellStyle: { fontVariantNumeric: 'tabular-nums' },
+    cellStyle: { fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' },
     render: s => {
-      const n = failureCount(s.stats)
-      return <span style={n > 0 ? { color: '#dc2626', fontWeight: 600 } : undefined}>{n}</span>
+      const total = Number(s.stats?.total) || 0
+      const fails = failureCount(s.stats)
+      return (
+        // One accessible label for the pair, so a screen reader hears
+        // "18 invocations, 0 failures" instead of two bare numbers separated by
+        // a slash that carries no meaning aloud.
+        <span aria-label={`${total} invocation${total === 1 ? '' : 's'}, ${fails} failure${fails === 1 ? '' : 's'}`}>
+          <span>{total}</span>
+          <span aria-hidden="true" style={{ color: 'var(--color-text-secondary, #9ca3af)', margin: '0 4px' }}>/</span>
+          <span style={fails > 0 ? { color: '#dc2626', fontWeight: 600 } : { color: 'var(--color-text-secondary, #6b7280)' }}>
+            {fails}
+          </span>
+        </span>
+      )
     },
   },
 ]
