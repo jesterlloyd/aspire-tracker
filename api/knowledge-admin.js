@@ -21,6 +21,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { resolveBodyLinks } from '../lib/server/keith/knowledgeLinks.js'
 import { serializeEntryFile, parseEntryFile, entryFilename } from '../lib/server/keith/knowledgeFrontmatter.js'
+import { buildKnowledgeGraph } from '../lib/server/keith/knowledgeGraph.js'
 
 // ── Constants (must match KT-1 CHECK constraints) ────────────────────────────
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -82,6 +83,11 @@ const ACTION_SCHEMAS = {
   link_report:            ['action'],
   export_vault:           ['action', 'state'],
   import_entry_file:      ['action', 'source'],
+
+  // KNOWLEDGE-GRAPH-1: the whole governed graph in one read. Edges come ONLY
+  // from resolved knowledge_links rows and superseded_by - explicit authored
+  // relationships, never inferred ones.
+  knowledge_graph:        ['action'],
 }
 
 // KT-2b: lifecycle actions are Owner-only (Admin is denied lifecycle but may read
@@ -843,6 +849,26 @@ export default async function handler(req, res) {
             .map(l => ({ source: meta.get(l.source_entry_id) || null, target_text: l.target_text }))
             .filter(b => b.source),
         })
+      }
+
+      // ── KNOWLEDGE-GRAPH-1: the governed graph ────────────────────────────
+      case 'knowledge_graph': {
+        // Two reads, both already-granted SELECTs; assembly is pure code in
+        // knowledgeGraph.js. No content leaves: titles, slugs and metadata
+        // only - never a body.
+        const { data: entries, error: eErr } = await db.from('knowledge_entries')
+          .select('id, slug, title, category, state, body_format, superseded_by, expires_at, review_date, tags')
+        if (eErr) return res.status(500).json({ error: 'internal_error' })
+        const { data: links, error: lErr } = await db.from('knowledge_links')
+          .select('source_entry_id, target_entry_id, status')
+        if (lErr) return res.status(500).json({ error: 'internal_error' })
+
+        const graph = buildKnowledgeGraph({
+          entries: entries || [],
+          links: links || [],
+          today: new Date().toISOString().slice(0, 10),
+        })
+        return res.status(200).json(graph)
       }
 
       case 'link_report': {

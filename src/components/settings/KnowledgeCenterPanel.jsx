@@ -31,6 +31,8 @@ import EmptyState from '../EmptyState'
 import StateBadge from './StateBadge'
 import SettingsPageHeader from './SettingsPageHeader'
 import KnowledgeEntryDrawer from './KnowledgeEntryDrawer'
+import KnowledgeGraphView from './KnowledgeGraphView'
+import SegmentedTabs from '../ui/SegmentedTabs'
 import { KNOWLEDGE_STATES, CATEGORY_LABELS, CATEGORY_KEYS, fmtDate } from './knowledgeCategories'
 import SurfaceCard from '../ui/SurfaceCard'
 import Toolbar from '../ui/Toolbar'
@@ -124,6 +126,13 @@ export default function KnowledgeCenterPanel() {
   const [stateFilter, setStateFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
+  // KNOWLEDGE-GRAPH-1: List | Graph projection of the SAME governed data.
+  // List remains the default and the complete accessible surface; the graph is
+  // fetched lazily the first time it is opened and refreshed after any save.
+  const [view, setView] = useState('list')
+  const [graph, setGraph] = useState(null)      // { nodes, edges } | null
+  const [graphError, setGraphError] = useState(null)
+  const [graphStale, setGraphStale] = useState(true)
   // Import/export status line. Export is a client-side download of what the
   // server serialized; nothing leaves the browser.
   const [portMsg, setPortMsg] = useState(null)
@@ -148,6 +157,7 @@ export default function KnowledgeCenterPanel() {
       if (!res.ok) throw new Error(`status_${res.status}`)
       const json = await res.json()
       setEntries(Array.isArray(json.entries) ? json.entries : [])
+      setGraphStale(true)
     } catch {
       setError('We couldn’t load knowledge entries. Please try again.')
     } finally {
@@ -242,6 +252,27 @@ export default function KnowledgeCenterPanel() {
     return [...s].sort((a, b) => a.localeCompare(b))
   }, [entries])
 
+  // Fetch the graph lazily: only when the Graph view is open and the data is
+  // stale. Metadata only - the graph payload never includes a body.
+  useEffect(() => {
+    if (view !== 'graph' || !graphStale || !allowed) return
+    let cancelled = false
+    ;(async () => {
+      setGraphError(null)
+      try {
+        const res = await postAdmin({ action: 'knowledge_graph' })
+        const json = await res.json().catch(() => null)
+        if (cancelled) return
+        if (!res.ok || !Array.isArray(json?.nodes)) throw new Error('bad_response')
+        setGraph({ nodes: json.nodes, edges: json.edges || [] })
+        setGraphStale(false)
+      } catch {
+        if (!cancelled) setGraphError('load_failed')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [view, graphStale, allowed])
+
   // ── Obsidian-compatible portability ────────────────────────────────────────
   // Export builds the vault in the browser from what the server serialized. A
   // single entry downloads as one .md; several download as one .md per file so
@@ -318,6 +349,14 @@ export default function KnowledgeCenterPanel() {
           title="Knowledge Center"
           subtitle="Governed Keith knowledge entries and revisions"
           accessNote="Owner and Admin access"
+          actions={(
+            <SegmentedTabs
+              label="Knowledge Center view"
+              items={[{ key: 'list', label: 'List' }, { key: 'graph', label: 'Graph' }]}
+              value={view}
+              onChange={setView}
+            />
+          )}
         />
       </div>
 
@@ -426,8 +465,27 @@ export default function KnowledgeCenterPanel() {
         </SurfaceCard>
       )}
 
-      {/* Content states: loading → error → empty → table (with no-match empty) */}
-      {loading ? (
+      {/* KNOWLEDGE-GRAPH-1: same data, two projections. The KPI cards, search
+          and filters above stay live in BOTH - in the graph they dim
+          non-matching nodes rather than removing them, so the layout holds. */}
+      {view === 'graph' ? (
+        <KnowledgeGraphView
+          nodes={graph?.nodes}
+          edges={graph?.edges}
+          loading={graphStale && !graphError}
+          error={graphError}
+          onRetry={() => { setGraphError(null); setGraphStale(true) }}
+          onOpenEntry={node => openEntry(node.id)}
+          stateFilter={stateFilter}
+          categoryFilter={categoryFilter}
+          tagFilter={tagFilter}
+          search={search}
+          // The selection survives closing the drawer ON PURPOSE: the drawer's
+          // backdrop blocks the graph controls while open, so Local focus is a
+          // close-the-drawer-then-focus flow. Opening another node re-anchors it.
+          selectedEntryId={selectedEntry?.id || null}
+        />
+      ) : loading ? (
         <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13 }}>
           Loading knowledge entries…
         </div>
