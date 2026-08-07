@@ -34,8 +34,12 @@ export const SETTINGS_SECTIONS = [
   // SETTINGS-KEITH-NESTED-1: Keith is now a PARENT destination with its own
   // secondary navigation, following the Settings > General master-detail pattern.
   // These two are its workspaces: routable and deep-linkable, never in the rail.
-  { key: 'keithSkills',    label: 'Skills',           path: '/settings/keith/skills',    implemented: true, inRail: false, visible: r => r.isAdmin },
+  // KEITH-USAGE-1: workspaces listed alphabetically (Knowledge Center, Skills,
+  // Usage & Cost), matching the Settings > General convention. Usage & Cost is
+  // Owner/Admin like its siblings; api/keith-usage.js is the real authority.
   { key: 'keithKnowledge', label: 'Knowledge Center', path: '/settings/keith/knowledge', implemented: true, inRail: false, visible: r => r.isAdmin },
+  { key: 'keithSkills',    label: 'Skills',           path: '/settings/keith/skills',    implemented: true, inRail: false, visible: r => r.isAdmin },
+  { key: 'keithUsage',     label: 'Usage & Cost',     path: '/settings/keith/usage',     implemented: true, inRail: false, visible: r => r.isAdmin },
   // Knowledge Center is no longer a top-level destination; it lives under Keith.
   // The old path stays ROUTABLE so existing links, bookmarks and any saved deep
   // link keep working - SettingsShell redirects it to /settings/keith/knowledge.

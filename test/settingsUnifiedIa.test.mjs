@@ -49,7 +49,8 @@ test('visibleSections: the rail is exactly the intended destinations, never the 
     // destination. It became a workspace inside Keith, alongside Skills. Its
     // /settings/knowledge route stays routable and redirects there.
     assert.ok(!rail.includes('knowledge'), 'Knowledge Center now lives under Keith, not in the rail')
-    assert.ok(!rail.includes('keithSkills') && !rail.includes('keithKnowledge'),
+    // KEITH-USAGE-1: keithUsage joined the workspace set on the same rule.
+    assert.ok(!rail.includes('keithSkills') && !rail.includes('keithKnowledge') && !rail.includes('keithUsage'),
       "Keith's workspaces are reached through Keith, never as their own rail entries")
     assert.equal(rail.includes('preceptorParity'), roleFlags.isOwner, 'preceptorParity rail membership must match isOwner')
 
@@ -125,7 +126,9 @@ test('SettingsShell source: routing, panel dispatch, and rail-active fallback', 
   // workspaces highlight the Keith rail entry, so exactly one top-level
   // destination is ever selected.
   assert.match(shell, /railActiveKey = NON_RAIL_SUBKEYS\.includes\(matchedKey\)\s*\n\s*\? 'general'\s*\n\s*: \(KEITH_SUBKEYS\[matchedKey\] \? 'keith' : matchedKey\)/)
-  assert.match(shell, /const KEITH_SUBKEYS = \{ keithSkills: 'skills', keithKnowledge: 'knowledge' \}/)
+  // KEITH-USAGE-1: pin updated - the map gained keithUsage when Usage & Cost
+  // became Keith's third workspace.
+  assert.match(shell, /const KEITH_SUBKEYS = \{ keithSkills: 'skills', keithKnowledge: 'knowledge', keithUsage: 'usage' \}/)
   assert.match(shell, /active = s\.key === railActiveKey/)
 
   // GeneralPanel receives a subKey for the three subsettings, and always gets onRestartTour

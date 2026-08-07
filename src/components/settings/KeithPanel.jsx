@@ -21,25 +21,33 @@
 // order, labelling and active state do not change with viewport width.
 //
 // Unlike General, Keith has NO display-only default: /settings/keith redirects to
-// /settings/keith/skills in SettingsShell, so a subKey is always present and the
-// URL always names the workspace on screen. That keeps refresh, back navigation
-// and link sharing honest.
+// /settings/keith/knowledge in SettingsShell, so a subKey is always present and
+// the URL always names the workspace on screen. That keeps refresh, back
+// navigation and link sharing honest.
 //
-// KeithSkillsPanel and KnowledgeCenterPanel render unmodified. This file is
-// navigation and layout only: it changes no Keith behavior, no skill state, no
-// permissions, and no API contract.
+// The workspace panels render unmodified. This file is navigation and layout
+// only: it changes no Keith behavior, no skill state, no permissions, and no
+// API contract.
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Sparkles, FileText } from 'lucide-react'
+import { ChevronRight, Sparkles, FileText, BarChart3 } from 'lucide-react'
 import KeithSkillsPanel from './KeithSkillsPanel'
 import KnowledgeCenterPanel from './KnowledgeCenterPanel'
+import KeithUsagePanel from './KeithUsagePanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import { SETTINGS_HEADING_STYLE } from './settingsSections'
 
-// Skills first: it is the default landing destination, and the ordering is
-// deliberate rather than alphabetical - the workspace an Owner opens Keith to see
-// should be the one they land on.
+// KEITH-USAGE-1: alphabetical order (Knowledge Center, Skills, Usage & Cost),
+// matching the Settings > General convention. The default landing workspace is
+// simply the first entry.
 const KEITH_WORKSPACES = [
+  {
+    key: 'knowledge',
+    path: '/settings/keith/knowledge',
+    icon: FileText,
+    label: 'Knowledge Center',
+    description: "Keith's governed knowledge and future Markdown vault",
+  },
   {
     key: 'skills',
     path: '/settings/keith/skills',
@@ -48,11 +56,11 @@ const KEITH_WORKSPACES = [
     description: 'Governed capabilities, lifecycle, and usage',
   },
   {
-    key: 'knowledge',
-    path: '/settings/keith/knowledge',
-    icon: FileText,
-    label: 'Knowledge Center',
-    description: "Keith's governed knowledge and future Markdown vault",
+    key: 'usage',
+    path: '/settings/keith/usage',
+    icon: BarChart3,
+    label: 'Usage & Cost',
+    description: 'Keith activity, model usage, estimated spend, and operational health',
   },
 ]
 
@@ -79,7 +87,7 @@ const KEITH_STICKY_CSS = `
   }
 `
 
-const KEITH_DEFAULT_WORKSPACE = 'skills'
+const KEITH_DEFAULT_WORKSPACE = 'knowledge'
 
 // KEITH-LOCAL breakpoint. Not shared with GeneralPanel, which keeps 768.
 const KEITH_COMPACT_BREAKPOINT = 1280
@@ -182,8 +190,9 @@ function CompactWorkspacePicker({ activeKey }) {
 }
 
 function WorkspaceContent({ subKey }) {
-  if (subKey === 'knowledge') return <KnowledgeCenterPanel />
-  return <KeithSkillsPanel />
+  if (subKey === 'skills') return <KeithSkillsPanel />
+  if (subKey === 'usage') return <KeithUsagePanel />
+  return <KnowledgeCenterPanel />
 }
 
 export default function KeithPanel({ subKey }) {

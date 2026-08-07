@@ -37,8 +37,8 @@ const NON_RAIL_SUBKEYS = ['appearance', 'signature', 'tours', 'about']
 
 // SETTINGS-KEITH-NESTED-1: Keith's workspaces fold onto the Keith rail entry the
 // same way General's subsettings fold onto General. The map's values are the
-// subKey KeithPanel reads.
-const KEITH_SUBKEYS = { keithSkills: 'skills', keithKnowledge: 'knowledge' }
+// subKey KeithPanel reads. KEITH-USAGE-1 adds Usage & Cost.
+const KEITH_SUBKEYS = { keithSkills: 'skills', keithKnowledge: 'knowledge', keithUsage: 'usage' }
 
 export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At a Glance', onRestartTour }) {
   const location = useLocation()
@@ -56,9 +56,11 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
   // Uses `routable` (not the rail-only `sections`) so non-rail deep links like
   // /settings/appearance are recognized as known paths and never bounced to General.
   useEffect(() => {
-    // Keith is a parent destination with no content of its own: land on Skills.
+    // Keith is a parent destination with no content of its own. KEITH-USAGE-1:
+    // it lands on Knowledge Center, the first workspace in the now-alphabetical
+    // order (Knowledge Center, Skills, Usage & Cost).
     if (path === '/settings/keith') {
-      navigate('/settings/keith/skills', { replace: true })
+      navigate('/settings/keith/knowledge', { replace: true })
       return
     }
     // Legacy top-level Knowledge Center now lives under Keith. Redirect rather

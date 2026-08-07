@@ -27,12 +27,16 @@ const sectionFor = (key) => SETTINGS_SECTIONS.find(s => s.key === key)
 
 // ── Route structure ──────────────────────────────────────────────────────────
 
-test('the four Keith routes exist with the intended rail membership', () => {
+// KEITH-USAGE-1 updated this suite: Usage & Cost became the third workspace,
+// the order went alphabetical (Knowledge Center, Skills, Usage & Cost), and the
+// parent redirect landed on the first alphabetical entry instead of Skills.
+
+test('the Keith routes exist with the intended rail membership', () => {
   const keith = sectionFor('keith')
   assert.equal(keith.path, '/settings/keith')
   assert.notEqual(keith.inRail, false, 'Keith is the top-level destination and stays in the rail')
 
-  for (const [key, path] of [['keithSkills', '/settings/keith/skills'], ['keithKnowledge', '/settings/keith/knowledge']]) {
+  for (const [key, path] of [['keithSkills', '/settings/keith/skills'], ['keithKnowledge', '/settings/keith/knowledge'], ['keithUsage', '/settings/keith/usage']]) {
     const s = sectionFor(key)
     assert.equal(s.path, path)
     assert.equal(s.implemented, true)
@@ -43,11 +47,13 @@ test('the four Keith routes exist with the intended rail membership', () => {
   assert.equal(sectionFor('knowledge').inRail, false)
 })
 
-test('/settings/keith redirects to Skills, the default landing destination', () => {
-  assert.match(shell, /if \(path === '\/settings\/keith'\) \{\s*\n\s*navigate\('\/settings\/keith\/skills', \{ replace: true \}\)/)
+test('/settings/keith redirects to Knowledge Center, the first alphabetical workspace', () => {
+  // KEITH-USAGE-1: the default landing destination moved from Skills to
+  // Knowledge Center when the workspace order went alphabetical.
+  assert.match(shell, /if \(path === '\/settings\/keith'\) \{[\s\S]*?navigate\('\/settings\/keith\/knowledge', \{ replace: true \}\)/)
   // replace, not push: the parent must not become a history entry the user can
   // land back on and be redirected from again.
-  assert.doesNotMatch(shell, /navigate\('\/settings\/keith\/skills'\)(?!, \{ replace)/)
+  assert.doesNotMatch(shell, /navigate\('\/settings\/keith\/knowledge'\)(?!, \{ replace)/)
 })
 
 test('the legacy Knowledge Center route redirects under Keith', () => {
@@ -59,10 +65,11 @@ test('the legacy Knowledge Center route redirects under Keith', () => {
     'the legacy redirect must be evaluated before the unknown-path fallback')
 })
 
-test('both workspace routes are directly reachable, not only via redirect', () => {
+test('all three workspace routes are directly reachable, not only via redirect', () => {
   const paths = routableSections(ADMIN).map(s => s.path)
   assert.ok(paths.includes('/settings/keith/skills'))
   assert.ok(paths.includes('/settings/keith/knowledge'))
+  assert.ok(paths.includes('/settings/keith/usage'))
   assert.ok(paths.includes('/settings/keith'))
   assert.ok(paths.includes('/settings/knowledge'), 'the legacy path must stay routable to be redirectable')
 })
@@ -70,7 +77,8 @@ test('both workspace routes are directly reachable, not only via redirect', () =
 // ── Selection state ──────────────────────────────────────────────────────────
 
 test('the rail highlights Keith for every Keith workspace', () => {
-  assert.match(shell, /const KEITH_SUBKEYS = \{ keithSkills: 'skills', keithKnowledge: 'knowledge' \}/)
+  // KEITH-USAGE-1: the fold map gained keithUsage.
+  assert.match(shell, /const KEITH_SUBKEYS = \{ keithSkills: 'skills', keithKnowledge: 'knowledge', keithUsage: 'usage' \}/)
   assert.match(shell, /KEITH_SUBKEYS\[matchedKey\] \? 'keith' : matchedKey/)
   assert.match(shell, /active = s\.key === railActiveKey/)
 })
@@ -82,16 +90,20 @@ test('the secondary navigation marks the selected workspace', () => {
   assert.match(panel, /<WorkspaceList activeKey=\{selectedKey\} \/>/)
 })
 
-test('Skills is the default workspace and is listed first', () => {
-  assert.match(panel, /const KEITH_DEFAULT_WORKSPACE = 'skills'/)
-  const order = [...panel.matchAll(/key: '(skills|knowledge)',/g)].map(m => m[1])
-  assert.deepEqual(order, ['skills', 'knowledge'], 'Skills leads: it is where Keith opens')
+test('the workspaces are alphabetical and Knowledge Center is the default', () => {
+  // KEITH-USAGE-1: was skills-first by deliberate choice; the approved Usage &
+  // Cost plan switched Keith to the Settings > General alphabetical convention.
+  assert.match(panel, /const KEITH_DEFAULT_WORKSPACE = 'knowledge'/)
+  const order = [...panel.matchAll(/key: '(skills|knowledge|usage)',/g)].map(m => m[1])
+  assert.deepEqual(order, ['knowledge', 'skills', 'usage'],
+    'alphabetical by label: Knowledge Center, Skills, Usage & Cost')
   assert.match(panel, /const selectedKey = subKey \|\| KEITH_DEFAULT_WORKSPACE/)
 })
 
 test('the supporting text matches the approved copy', () => {
   assert.match(panel, /description: 'Governed capabilities, lifecycle, and usage'/)
   assert.match(panel, /description: "Keith's governed knowledge and future Markdown vault"/)
+  assert.match(panel, /description: 'Keith activity, model usage, estimated spend, and operational health'/)
 })
 
 // ── Access ───────────────────────────────────────────────────────────────────
@@ -99,13 +111,13 @@ test('the supporting text matches the approved copy', () => {
 test('Owner and Admin reach Keith and both workspaces; other staff reach none', () => {
   for (const flags of [OWNER, ADMIN]) {
     const paths = routableSections(flags).map(s => s.path)
-    for (const p of ['/settings/keith', '/settings/keith/skills', '/settings/keith/knowledge']) {
+    for (const p of ['/settings/keith', '/settings/keith/skills', '/settings/keith/knowledge', '/settings/keith/usage']) {
       assert.ok(paths.includes(p), `${p} must be reachable`)
     }
     assert.ok(visibleSections(flags).some(s => s.key === 'keith'))
   }
   const staffPaths = routableSections(STAFF).map(s => s.path)
-  for (const p of ['/settings/keith', '/settings/keith/skills', '/settings/keith/knowledge', '/settings/knowledge']) {
+  for (const p of ['/settings/keith', '/settings/keith/skills', '/settings/keith/knowledge', '/settings/keith/usage', '/settings/knowledge']) {
     assert.ok(!staffPaths.includes(p), `${p} must not be reachable without admin`)
   }
   assert.ok(!visibleSections(STAFF).some(s => s.key === 'keith'))
@@ -183,11 +195,14 @@ test('the secondary navigation is labelled and keyboard-operable', () => {
 
 // ── Functional preservation ──────────────────────────────────────────────────
 
-test('both workspaces render their existing panels, unmodified', () => {
+test('every workspace renders its own panel through the hub', () => {
   assert.match(panel, /import KeithSkillsPanel from '\.\/KeithSkillsPanel'/)
   assert.match(panel, /import KnowledgeCenterPanel from '\.\/KnowledgeCenterPanel'/)
-  assert.match(panel, /if \(subKey === 'knowledge'\) return <KnowledgeCenterPanel \/>/)
-  assert.match(panel, /return <KeithSkillsPanel \/>/)
+  assert.match(panel, /import KeithUsagePanel from '\.\/KeithUsagePanel'/)
+  assert.match(panel, /if \(subKey === 'skills'\) return <KeithSkillsPanel \/>/)
+  assert.match(panel, /if \(subKey === 'usage'\) return <KeithUsagePanel \/>/)
+  // The fallthrough is the default workspace, matching KEITH_DEFAULT_WORKSPACE.
+  assert.match(panel, /return <KnowledgeCenterPanel \/>/)
   // The shell no longer mounts them directly; the hub owns both.
   assert.doesNotMatch(shell, /<KnowledgeCenterPanel \/>/)
   assert.doesNotMatch(shell, /<KeithSkillsPanel \/>/)
@@ -201,7 +216,7 @@ test('this change touches navigation only: no API, permission or skill-state edi
   assert.match(read('src/components/settings/KeithSkillsPanel.jsx'), /isAdmin/)
   assert.match(read('src/components/settings/KnowledgeCenterPanel.jsx'), /isAdmin/)
   // Visibility predicates for the Keith routes are the same isAdmin gate as before.
-  for (const key of ['keith', 'keithSkills', 'keithKnowledge', 'knowledge']) {
+  for (const key of ['keith', 'keithSkills', 'keithKnowledge', 'keithUsage', 'knowledge']) {
     assert.equal(sectionFor(key).visible({ isAdmin: true }), true)
     assert.equal(sectionFor(key).visible({ isAdmin: false }), false)
   }
