@@ -24,7 +24,7 @@
 // permission and governance rule is unchanged; the plan of record is
 // docs/product/KEITH_SKILLS_KNOWLEDGE_VAULT_PLAN.md Section 2.3.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { FileText, Search, Plus, Download, Upload } from 'lucide-react'
+import { FileText, Search, Plus, Download, Upload, Sparkles } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import EmptyState from '../EmptyState'
@@ -32,6 +32,7 @@ import StateBadge from './StateBadge'
 import SettingsPageHeader from './SettingsPageHeader'
 import KnowledgeEntryDrawer from './KnowledgeEntryDrawer'
 import KnowledgeGraphView from './KnowledgeGraphView'
+import KnowledgeEnrichmentPanel from './KnowledgeEnrichmentPanel'
 import SegmentedTabs from '../ui/SegmentedTabs'
 import { KNOWLEDGE_STATES, CATEGORY_LABELS, CATEGORY_KEYS, fmtDate } from './knowledgeCategories'
 import SurfaceCard from '../ui/SurfaceCard'
@@ -130,6 +131,9 @@ export default function KnowledgeCenterPanel() {
   // List remains the default and the complete accessible surface; the graph is
   // fetched lazily the first time it is opened and refreshed after any save.
   const [view, setView] = useState('list')
+  // KNOWLEDGE-ENRICH-1: the enrichment workspace is opt-in per visit, never
+  // auto-opened - it is a deliberate Owner workflow, not ambient UI.
+  const [enrichOpen, setEnrichOpen] = useState(false)
   const [graph, setGraph] = useState(null)      // { nodes, edges } | null
   const [graphError, setGraphError] = useState(null)
   const [graphStale, setGraphStale] = useState(true)
@@ -428,6 +432,9 @@ export default function KnowledgeCenterPanel() {
             {/* Obsidian-compatible portability. Export writes a .md file per
                 entry with YAML frontmatter; import round-trips one back as a
                 DRAFT, never as live content. */}
+            <Button variant="quiet" icon={<Sparkles size={14} strokeWidth={2.2} />} onClick={() => setEnrichOpen(v => !v)} aria-expanded={enrichOpen}>
+              Enrich
+            </Button>
             <Button variant="quiet" icon={<Download size={14} strokeWidth={2.2} />} onClick={exportVault} disabled={porting}>
               Export
             </Button>
@@ -463,6 +470,14 @@ export default function KnowledgeCenterPanel() {
         }}>
           {portMsg.text}
         </SurfaceCard>
+      )}
+
+      {enrichOpen && (
+        <KnowledgeEnrichmentPanel
+          isOwner={isOwner}
+          catalog={entries}
+          onDataChanged={loadEntries}
+        />
       )}
 
       {/* KNOWLEDGE-GRAPH-1: same data, two projections. The KPI cards, search

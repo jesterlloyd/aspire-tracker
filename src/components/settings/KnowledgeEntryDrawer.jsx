@@ -25,6 +25,7 @@ import KnowledgeRevisionPanel from './KnowledgeRevisionPanel'
 import { TermChips, MarkdownBodyEditor, ReviewFields, EntryLinksPanel } from './KnowledgeVaultFields'
 import { renderMarkdownLite } from '../../lib/keithMarkdown'
 import { CATEGORY_LABELS, CATEGORY_KEYS, CAPS, isValidDateStr, fmtDate } from './knowledgeCategories'
+import { buildResolver } from '../../lib/wikilinkResolver'
 
 const MAX_ALIASES = 12
 const MAX_TAGS = 16
@@ -81,37 +82,8 @@ const inputStyle = {
 }
 const errStyle = { fontSize: 11.5, color: '#dc2626', marginTop: 4 }
 
-// KNOWLEDGE-VAULT-1: client-side wikilink resolution for the editor's live
-// preview. Mirrors lib/server/keith/knowledgeLinks.js exactly - same
-// normalization, same slug > title > alias precedence, same "ambiguous resolves
-// to nothing" rule - so the preview never shows a link as resolved that the
-// server will record as broken. The server stays the authority and rebuilds the
-// real index on save; this only avoids a round trip per keystroke.
-const linkKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-
-function buildResolver(catalog) {
-  const bySlug = new Map(); const byTitle = new Map(); const byAlias = new Map()
-  const add = (m, k, e) => {
-    if (!k) return
-    if (!m.has(k)) m.set(k, e)
-    else if (m.get(k) && m.get(k).id !== e.id) m.set(k, null) // null = ambiguous
-  }
-  for (const e of catalog || []) {
-    add(bySlug, linkKey(e.slug), e)
-    add(byTitle, linkKey(e.title), e)
-    for (const a of e.aliases || []) add(byAlias, linkKey(a), e)
-  }
-  return (target) => {
-    const k = linkKey(target)
-    for (const m of [bySlug, byTitle, byAlias]) {
-      if (!m.has(k)) continue
-      const hit = m.get(k)
-      if (hit === null) return { status: 'ambiguous' }
-      return { status: 'resolved', id: hit.id, slug: hit.slug, title: hit.title, state: hit.state }
-    }
-    return { status: 'broken' }
-  }
-}
+// Wikilink resolution moved to src/lib/wikilinkResolver.js (KNOWLEDGE-ENRICH-1)
+// so the enrichment review shares it instead of growing a third copy.
 
 function Field({ label, hint, error, children }) {
   return (

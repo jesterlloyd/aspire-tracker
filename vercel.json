@@ -64,6 +64,7 @@
   "functions": {
     "api/connect-send-bulk-message.js":   { "maxDuration": 60 },
     "api/keith.js":                       { "maxDuration": 30 },
+    "api/knowledge-enrich.js":            { "maxDuration": 60 },
     "api/invite-user.js":                 { "maxDuration": 10 },
     "api/manage-interviewers.js":         { "maxDuration": 10 },
     "api/availability.js":                { "maxDuration": 15 },

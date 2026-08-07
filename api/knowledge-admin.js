@@ -88,6 +88,11 @@ const ACTION_SCHEMAS = {
   // from resolved knowledge_links rows and superseded_by - explicit authored
   // relationships, never inferred ones.
   knowledge_graph:        ['action'],
+
+  // KNOWLEDGE-ENRICH-1: every pending revision at once, for the batch review
+  // surface. Read-only; apply and discard remain the existing per-entry
+  // actions with their existing authorization.
+  list_pending_revisions: ['action'],
 }
 
 // KT-2b: lifecycle actions are Owner-only (Admin is denied lifecycle but may read
@@ -869,6 +874,39 @@ export default async function handler(req, res) {
           today: new Date().toISOString().slice(0, 10),
         })
         return res.status(200).json(graph)
+      }
+
+      // ── KNOWLEDGE-ENRICH-1: batch review read ────────────────────────────
+      case 'list_pending_revisions': {
+        const { data: revs, error: rErr } = await db.from('knowledge_revisions')
+          .select('id, entry_id, title, category, body, body_format, aliases, tags, change_note, author_id, submitted_at')
+          .order('submitted_at', { ascending: true })
+        if (rErr) return res.status(500).json({ error: 'internal_error' })
+        const rows = revs || []
+        const entryIds = [...new Set(rows.map(r => r.entry_id))]
+        const meta = new Map()
+        if (entryIds.length) {
+          const { data: es } = await db.from('knowledge_entries')
+            .select('id, title, slug, state, body_format, body').in('id', entryIds)
+          for (const e of es || []) meta.set(e.id, e)
+        }
+        const names = await resolveProfileNames(db, rows.map(r => r.author_id))
+        return res.status(200).json({
+          revisions: rows.map(r => {
+            const e = meta.get(r.entry_id)
+            return {
+              ...r,
+              author_name: names.get(r.author_id) || null,
+              entry: e ? {
+                id: e.id, title: e.title, slug: e.slug, state: e.state,
+                body_format: e.body_format,
+                // Current body ships too: the review surface shows before and
+                // after, and both sides are Owner/Admin-only data anyway.
+                body: e.body,
+              } : null,
+            }
+          }),
+        })
       }
 
       case 'link_report': {
