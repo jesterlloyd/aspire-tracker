@@ -192,3 +192,69 @@ test('no second catalog: the / menu and invocation still flow through the regist
   assert.match(keithHandler, /loadInvocableSkills\(makeServiceRoleClient\(\), auth\)/)
   assert.doesNotMatch(installUi, /skills_catalog/, 'the installer does not maintain its own skills list')
 })
+
+// ── KEITH-SKILL-NATIVE-1: native Claude .skill support ───────────────────────
+//
+// Inspected real Claude-exported .skill files (2026-08-08): every one is a
+// ZIP archive (PK\x03\x04, deflate) containing <slug>/SKILL.md and optional
+// references/*.md, with frontmatter of name + description only. The BYTES
+// route the file - never the extension, never the MIME type (browsers hand
+// .skill over as application/octet-stream or nothing at all).
+
+test('sniffPackageKind routes by content: zip magic, utf-8 text, binary', async () => {
+  const { sniffPackageKind } = await import('../src/lib/zipLite.js')
+  const zip = writeZip([{ name: 's/SKILL.md', text: 'x' }])
+  assert.equal(sniffPackageKind(zip), 'zip')
+  assert.equal(sniffPackageKind(new TextEncoder().encode('---\nname: a\n---\nBody')), 'text')
+  assert.equal(sniffPackageKind(new Uint8Array([0x00, 0x01, 0x02, 0xff])), 'binary')
+  assert.equal(sniffPackageKind(new Uint8Array([0xff, 0xfe, 0x00, 0x41])), 'binary', 'UTF-16 with NULs is not a package Keith reads')
+})
+
+test('a representative Claude .skill (zip: slug/SKILL.md + references) flows the archive path', async () => {
+  // Mirrors the real structure byte-for-byte at the container level.
+  const claudeMd = [
+    '---', 'name: inquiry-routing',
+    'description: ' + 'Route inquiries to the right team. '.repeat(20), // >500 chars, like real packages
+    '---', '', '# Inquiry Routing', 'Route it.',
+  ].join('\n')
+  const skillFile = writeZip([
+    { name: 'inquiry-routing/SKILL.md', text: claudeMd },
+    { name: 'inquiry-routing/references/directory.md', text: 'The directory.' },
+  ])
+  const { sniffPackageKind } = await import('../src/lib/zipLite.js')
+  assert.equal(sniffPackageKind(skillFile), 'zip')
+  const { entries } = await readZip(skillFile.buffer)
+  assert.equal(entries.length, 2)
+  const norm = normalizeExternalPackage(new TextDecoder().decode(entries[0].bytes))
+  const parsed = parseSkillPackage(norm.source)
+  assert.equal(parsed.ok, true)
+  assert.equal(parsed.skill.slug, 'inquiry-routing')
+  assert.equal(parsed.skill.status, 'draft')
+})
+
+test('a bare-markdown .skill file flows the single-file path; junk bytes are refused precisely', async () => {
+  const { sniffPackageKind } = await import('../src/lib/zipLite.js')
+  // Extension says .skill, bytes say markdown → text path, same parser.
+  const md = '---\nname: hand-rolled\ndisplay_name: Hand Rolled\ndescription: d\n---\nBody.'
+  assert.equal(sniffPackageKind(new TextEncoder().encode(md)), 'text')
+  assert.equal(parseSkillPackage(md).ok, true)
+  // The installer names what it found instead of "unsupported file type".
+  const ui = read('src/components/settings/KeithSkillInstall.jsx')
+  assert.match(ui, /neither a ZIP archive nor readable text \(binary content\)/)
+  assert.match(ui, /sniffPackageKind\(buf\)/)
+  assert.doesNotMatch(ui, /file\.type/, 'MIME type is never consulted')
+  assert.match(ui, /accept="\.md,\.markdown,\.zip,\.skill"/)
+  assert.match(ui, /Claude\/Keith Skill \(\.skill\), Markdown \(\.md\), or Skill archive \(\.zip\)/)
+})
+
+test('overlong Claude descriptions truncate WITH a warning, never silently', () => {
+  assert.match(endpoint, /description longer than \$\{CAPS\.description\} characters was truncated/)
+  assert.match(endpoint, /s\.description\.slice\(0, CAPS\.description - 1\)/)
+})
+
+test('downloads use the .skill container: same zip bytes, user-recognizable name', () => {
+  const drawer = read('src/components/settings/KeithSkillDrawer.jsx')
+  assert.match(drawer, /const filename = `\$\{skill\.slug\}\.skill`/)
+  assert.match(drawer, /writeZip\(json\.files\.map/)
+  assert.doesNotMatch(drawer, /\.skill\.zip/, 'the old double-extension is retired')
+})

@@ -178,15 +178,13 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
       const res = await postAdmin({ action: 'export_skill_package', skill_id: skill.id })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.files) return
-      let blob, filename
-      if (json.files.length === 1) {
-        blob = new Blob([json.files[0].content], { type: 'text/markdown;charset=utf-8' })
-        filename = `${skill.slug}.SKILL.md`
-      } else {
-        const { writeZip } = await import('../../lib/zipLite')
-        blob = new Blob([writeZip(json.files.map(f => ({ name: f.name, text: f.content })))], { type: 'application/zip' })
-        filename = `${skill.slug}.skill.zip`
-      }
+      // KEITH-SKILL-NATIVE-1: downloads use the .skill container - a ZIP with
+      // slug/SKILL.md (+ references/) inside, byte-compatible with what Claude
+      // exports and with Keith's own upload path. Same package format as
+      // before; only the container/extension presentation changed.
+      const { writeZip } = await import('../../lib/zipLite')
+      const blob = new Blob([writeZip(json.files.map(f => ({ name: f.name, text: f.content })))], { type: 'application/zip' })
+      const filename = `${skill.slug}.skill`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url; a.download = filename

@@ -11,6 +11,24 @@
 // This module handles BYTES only. What is allowed into a skill package (and
 // what gets quarantined) is the caller's policy, not zip logic.
 
+// KEITH-SKILL-NATIVE-1: content sniffing. A ".skill" from Claude is a ZIP
+// archive; one hand-rolled elsewhere may be bare Markdown. Browsers report
+// .skill as application/octet-stream or nothing, so MIME is useless - the
+// BYTES decide. 'zip' = the ZIP local-header magic; 'text' = decodes as UTF-8
+// with no NUL bytes; 'binary' = neither.
+export function sniffPackageKind(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  if (b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && (b[2] === 0x03 || b[2] === 0x05 || b[2] === 0x07)) return 'zip'
+  const probe = b.subarray(0, Math.min(b.length, 4096))
+  for (const byte of probe) if (byte === 0) return 'binary'
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(probe)
+    return 'text'
+  } catch {
+    return 'binary'
+  }
+}
+
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256)
   for (let n = 0; n < 256; n++) {

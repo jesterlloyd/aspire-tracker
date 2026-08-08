@@ -11,7 +11,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Upload, PackageOpen, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import Button from '../ui/Button'
 import SurfaceCard from '../ui/SurfaceCard'
-import { readZip } from '../../lib/zipLite'
+import { readZip, sniffPackageKind } from '../../lib/zipLite'
 
 const secondary = 'var(--color-text-secondary, #6b7280)'
 
@@ -64,15 +64,28 @@ export default function KeithSkillInstall({ postAdmin, onInstalled }) {
     if (!file) return
     reset(); setBusy(true)
     try {
+      // KEITH-SKILL-NATIVE-1: the BYTES decide the parser path, never the
+      // extension or MIME type (browsers report .skill as octet-stream or
+      // nothing). A .skill from Claude is a ZIP; a hand-written one may be
+      // bare Markdown; both flow through the same canonical pipeline.
+      if (!/\.(zip|skill|md|markdown|txt)$/i.test(file.name)) {
+        setProblem({ title: 'Unsupported file', details: ['Upload a Claude/Keith Skill (.skill), a SKILL.md, or a .zip skill package.'] })
+        return
+      }
+      const buf = await file.arrayBuffer()
+      const kind = sniffPackageKind(buf)
       let parsedPkg
-      if (/\.zip$/i.test(file.name)) {
-        const dissected = await dissectZip(await file.arrayBuffer())
-        if (dissected.error) { setProblem({ title: 'Not a skill package', details: [dissected.error] }); return }
+      if (kind === 'zip') {
+        const dissected = await dissectZip(buf)
+        if (dissected.error) { setProblem({ title: 'Not a skill package', details: [`${file.name} is a ZIP archive, but ${dissected.error.replace(/^The archive /, 'it ')}`] }); return }
         parsedPkg = { ...dissected, filename: file.name }
-      } else if (TEXT_RE.test(file.name)) {
-        parsedPkg = { source: await file.text(), references: [], quarantined: [], filename: file.name }
+      } else if (kind === 'text') {
+        parsedPkg = { source: new TextDecoder().decode(buf), references: [], quarantined: [], filename: file.name }
       } else {
-        setProblem({ title: 'Unsupported file', details: ['Upload a SKILL.md or a .zip skill package.'] })
+        setProblem({
+          title: 'This file is not a skill package Keith understands',
+          details: [`${file.name} is neither a ZIP archive nor readable text (binary content). A skill package is a SKILL.md, or a ZIP/.skill archive containing one.`],
+        })
         return
       }
       setPkg(parsedPkg)
@@ -150,7 +163,7 @@ export default function KeithSkillInstall({ postAdmin, onInstalled }) {
           Install Skill
         </span>
         <span style={{ fontSize: 12.5, color: secondary }}>
-          Upload a portable skill package (SKILL.md or .zip). Imported skills land as a disabled draft for your review; scripts and binaries in a package are never run.
+          Upload a Claude/Keith Skill (.skill), Markdown (.md), or Skill archive (.zip). Imported skills land as a disabled draft for your review; scripts and binaries in a package are never run.
         </span>
         <Button variant="quiet" style={{ marginLeft: 'auto' }} onClick={() => setOpen(false)}>Close</Button>
       </div>
@@ -174,9 +187,9 @@ export default function KeithSkillInstall({ postAdmin, onInstalled }) {
           }}
         >
           <Upload size={18} style={{ marginBottom: 6, color: 'var(--color-accent-primary, #1D2567)' }} />
-          <div>{busy ? 'Reading package…' : 'Drag a SKILL.md or .zip here, or click to choose a file'}</div>
+          <div>{busy ? 'Reading package…' : 'Drag a .skill, SKILL.md, or .zip here, or click to choose a file'}</div>
           <input
-            ref={fileRef} type="file" accept=".md,.markdown,.zip" style={{ display: 'none' }}
+            ref={fileRef} type="file" accept=".md,.markdown,.zip,.skill" style={{ display: 'none' }}
             aria-hidden="true" tabIndex={-1}
             onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; handleFile(f) }}
           />

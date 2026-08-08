@@ -329,6 +329,13 @@ export default async function handler(req, res) {
           references.push({ name, content: String(r?.content || '') })
         }
         const s = parsed.skill
+        // KEITH-SKILL-NATIVE-1: real Claude .skill packages carry very long
+        // descriptions (they double as trigger guidance). Keith's description
+        // cap stands; the overflow is truncated WITH a warning, never silently.
+        if (s.description.length > CAPS.description) {
+          s.description = s.description.slice(0, CAPS.description - 1).trimEnd() + '\u2026'
+          refProblems.push(`description longer than ${CAPS.description} characters was truncated`)
+        }
         const instructionBody = composeInstructionBody(s.instruction_body, references)
         if (instructionBody.length > CAPS.instruction_body) {
           return res.status(400).json({ error: 'invalid_package', details: [`instructions + references exceed ${CAPS.instruction_body} characters`] })
