@@ -333,6 +333,22 @@ test('missingGovernedContent catches deleted sections and rules, passes faithful
     { sections: [], rules: [] })
 })
 
+test('source numbering is protected: prompt rule + numeral hint in the numbers retry', () => {
+  // PRODUCTION CASE, 2026-08-08: the Email Routing Canon numbers its section
+  // headings ("## 8. Correction-send guardrail"), and digits 8-12 exist ONLY
+  // there. The model strips heading numerals when restructuring, so the
+  // numbers gate rejected it twice. Reproduced locally against the real
+  // source: the numeral-aware retry note flips the retry to PASS (verified
+  // twice, deterministic at temperature 0.2). The validator is unchanged.
+  const entries = [E('a'), E('b')]
+  const p = buildEntryPrompt(entries[0], { links: [] }, entries)
+  assert.match(p, /KEEP that numbering exactly as written/)
+  assert.match(p, /never strip, merge, or renumber the source's own numerals/)
+  const note = buildRetryNote('numbers_dropped', { missing: ['8', '12'] })
+  assert.match(note, /heading or item numeral in the source/)
+  assert.match(note, /keep\s*\n?\s*the source's numbering in your heading or list text exactly/)
+})
+
 test('materially equivalent forms satisfy a label - calibrated on judged-faithful conversions', () => {
   // "Keith Guidance" wrapper merged away but both sub-labels kept (the
   // Student Status / Navigation pattern, judged Keep in the audit).
