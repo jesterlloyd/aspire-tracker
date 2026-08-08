@@ -288,7 +288,7 @@ export default function KnowledgeCenterPanel() {
       const res = await postAdmin({ action: 'export_vault' })
       const json = await res.json().catch(() => null)
       if (!res.ok || !Array.isArray(json?.files)) {
-        setPortMsg({ tone: 'error', text: 'We couldn’t export the vault. Please try again.' })
+        setPortMsg({ tone: 'error', text: 'We couldn’t download the vault. Please try again.' })
         return
       }
       for (const f of json.files) {
@@ -300,10 +300,10 @@ export default function KnowledgeCenterPanel() {
       }
       setPortMsg({
         tone: 'info',
-        text: `Exported ${json.count} entr${json.count === 1 ? 'y' : 'ies'} as Markdown with YAML frontmatter.${json.truncated ? ' The export hit its size limit and is partial.' : ''}`,
+        text: `Downloaded ${json.count} entr${json.count === 1 ? 'y' : 'ies'} as Markdown with YAML frontmatter.${json.truncated ? ' The download hit its size limit and is partial.' : ''}`,
       })
     } catch {
-      setPortMsg({ tone: 'error', text: 'We couldn’t export the vault. Please try again.' })
+      setPortMsg({ tone: 'error', text: 'We couldn’t download the vault. Please try again.' })
     } finally {
       setPorting(false)
     }
@@ -333,8 +333,8 @@ export default function KnowledgeCenterPanel() {
     setPorting(false)
     setPortMsg(
       failures.length
-        ? { tone: 'error', text: `Imported ${ok} as draft${ok === 1 ? '' : 's'}. ${failures.length} failed — ${failures.join('; ')}` }
-        : { tone: 'info', text: `Imported ${ok} entr${ok === 1 ? 'y' : 'ies'} as draft${ok === 1 ? '' : 's'}. Review and activate each one to make it governed guidance.` },
+        ? { tone: 'error', text: `Uploaded ${ok} as draft${ok === 1 ? '' : 's'}. ${failures.length} failed — ${failures.join('; ')}` }
+        : { tone: 'info', text: `Uploaded ${ok} entr${ok === 1 ? 'y' : 'ies'} as draft${ok === 1 ? '' : 's'}. Review and activate each one to make it governed guidance.` },
     )
   }, [loadEntries])
 
@@ -429,17 +429,20 @@ export default function KnowledgeCenterPanel() {
         )}
         primaryAction={(
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {/* Obsidian-compatible portability. Export writes a .md file per
-                entry with YAML frontmatter; import round-trips one back as a
-                DRAFT, never as live content. */}
+            {/* Obsidian-compatible portability. Download writes a .md file per
+                entry with YAML frontmatter; upload round-trips one back as a
+                DRAFT, never as live content. The labels say Download/Upload
+                because that is what the browser actually does here; the
+                underlying export_vault / import_entry_file actions are
+                unchanged. */}
             <Button variant="quiet" icon={<Sparkles size={14} strokeWidth={2.2} />} onClick={() => setEnrichOpen(v => !v)} aria-expanded={enrichOpen}>
               Enrich
             </Button>
             <Button variant="quiet" icon={<Download size={14} strokeWidth={2.2} />} onClick={exportVault} disabled={porting}>
-              Export
+              Download
             </Button>
             <Button variant="quiet" icon={<Upload size={14} strokeWidth={2.2} />} onClick={() => fileRef.current?.click()} disabled={porting}>
-              Import
+              Upload
             </Button>
             <input
               ref={fileRef}

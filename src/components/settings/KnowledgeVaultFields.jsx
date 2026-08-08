@@ -280,6 +280,15 @@ export function EntryLinksPanel({ links, loading, onOpenEntry }) {
               </li>
             ))}
           </ul>
+          {/* The author meeting a false broken link is exactly who needs to
+              know the escape hatch, so it is stated here rather than buried in
+              help text elsewhere. */}
+          <div style={{ marginTop: 6 }}>
+            Showing the syntax on purpose? Wrap it in backticks
+            {' — '}
+            <code style={{ fontFamily: 'ui-monospace, monospace' }}>`[[Example]]`</code>
+            {' '}is an example, not a link.
+          </div>
         </div>
       )}
 

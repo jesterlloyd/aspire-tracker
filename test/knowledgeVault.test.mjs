@@ -127,6 +127,37 @@ test('links are extracted in order, deduped, with optional labels', () => {
   assert.equal(links[1].label, 'matching')
 })
 
+// CODE IS LITERAL. An entry that documents the vault's own syntax - "write
+// [[Page Title]] to link" - must not thereby create a relationship, and must
+// not leave a permanent broken edge in the graph pointing at a page that was
+// only ever an example. Fenced blocks and inline code spans are shown, not
+// interpreted, exactly as in Obsidian and as the client renderer already
+// behaves (its code alternative wins by leftmost match).
+
+test('wikilinks inside code are examples, not relationships', () => {
+  assert.equal(extractWikilinks('Write `[[Page Title]]` to link.').length, 0)
+  assert.equal(extractWikilinks('```\nSyntax: [[Any Page]]\n[[Second]]\n```').length, 0)
+  // Doubled-backtick spans (which legally contain a single backtick) too.
+  assert.equal(extractWikilinks('``a ` tick and [[X]]`` done').length, 0)
+  // A real link in the same body still counts, and only that one.
+  const mixed = extractWikilinks('Example: `[[Not A Link]]`, real: [[CS-Link Access]].')
+  assert.equal(mixed.length, 1)
+  assert.equal(mixed[0].target, 'CS-Link Access')
+  // A fenced block does not swallow the prose that follows it.
+  const after = extractWikilinks('```\n[[In Code]]\n```\nBut [[CS-Link Access]] counts.')
+  assert.deepEqual(after.map(l => l.target), ['CS-Link Access'])
+})
+
+test('prompt stripping leaves code examples verbatim', () => {
+  // Keith must be able to READ an entry that teaches the syntax without the
+  // example being rewritten into prose.
+  const out = stripWikilinksForPrompt(
+    'Write `[[Page Title]]` to link; see [[CS-Link Access]].', CATALOG)
+  assert.match(out, /`\[\[Page Title\]\]`/, 'the example survives as written')
+  assert.match(out, /see CS-Link Access\./, 'the real link still becomes prose')
+  assert.ok(!/\[\[CS-Link Access\]\]/.test(out))
+})
+
 test('resolution is case- and punctuation-insensitive', () => {
   const idx = buildLinkIndex(CATALOG)
   for (const written of ['CS-Link Access', 'cs link access', 'CS_LINK_ACCESS', 'cs-link-access']) {
@@ -473,4 +504,57 @@ test('the markdown renderer keeps its no-raw-HTML guarantee', () => {
   const wiki = md.slice(md.indexOf('if (m[1]) {'), md.indexOf("} else if (m[4]) {"))
   assert.match(wiki, /React\.createElement\('span'/)
   assert.doesNotMatch(wiki, /href/)
+})
+
+// ── Portability labels and the lifecycle contract ────────────────────────────
+
+test('the portability actions are labelled Upload / Download, behavior unchanged', () => {
+  // The buttons already carried Upload/Download ICONS; the labels now say what
+  // the browser actually does. The underlying governed actions are untouched.
+  const panel = read('src/components/settings/KnowledgeCenterPanel.jsx')
+  assert.match(panel, />\s*Download\s*</)
+  assert.match(panel, />\s*Upload\s*</)
+  assert.doesNotMatch(panel, />\s*Export\s*</, 'no user-facing Export label remains')
+  assert.doesNotMatch(panel, />\s*Import\s*</, 'no user-facing Import label remains')
+  // The API contract is unchanged.
+  assert.match(panel, /action: 'export_vault'/)
+  assert.match(panel, /action: 'import_entry_file'/)
+  // Status copy follows the labels.
+  assert.match(panel, /`Downloaded \$\{json\.count\}/)
+  assert.match(panel, /Uploaded \$\{ok\}/)
+  // Upload still lands drafts, never live content.
+  assert.match(panel, /as draft\$\{ok === 1 \? '' : 's'\}/)
+})
+
+test('the lifecycle UI offers exactly the transitions the RPCs support', () => {
+  // AUDIT 2026-08-08, verified live in all four states against the backend
+  // matrix in 20260610000001_kt2b_pre_governance_lifecycle_rpcs.sql:
+  //   draft      -> activate (activate_entry) | archive
+  //   active     -> deprecate
+  //   deprecated -> reactivate | archive
+  //   archived   -> terminal, no actions
+  // active -> archived is NOT a legal transition (deprecate first), so it is
+  // not offered - and is not offered as a disabled control either.
+  const drawer = read('src/components/settings/KnowledgeEntryDrawer.jsx')
+  const block = drawer.slice(drawer.indexOf('const LIFECYCLE_ACTIONS'), drawer.indexOf('const sectionLabel'))
+  const actionsFor = (state) => [...block.slice(
+    block.indexOf(`${state}: [`),
+    block.indexOf(']', block.indexOf(`${state}: [`)),
+  ).matchAll(/key: '(\w+)'/g)].map(m => m[1])
+  assert.deepEqual(actionsFor('draft'), ['activate', 'archive'])
+  assert.deepEqual(actionsFor('active'), ['deprecate'])
+  assert.deepEqual(actionsFor('deprecated'), ['reactivate', 'archive'])
+  assert.match(block, /archived: \[\],/)
+  // Owner-gated, and delegated to the existing governed actions only.
+  assert.match(drawer, /\{isOwner && \(/)
+  assert.match(drawer, /action: 'activate_entry'/)
+  assert.match(drawer, /action: 'change_entry_state'/)
+  // No disabled-control pattern was introduced for illegal transitions.
+  assert.doesNotMatch(block, /disabled/)
+})
+
+test('the link checker teaches the code escape hatch where a false link appears', () => {
+  const fields = read('src/components/settings/KnowledgeVaultFields.jsx')
+  assert.match(fields, /Showing the syntax on purpose\? Wrap it in backticks/)
+  assert.match(fields, /is an example, not a link\./)
 })
