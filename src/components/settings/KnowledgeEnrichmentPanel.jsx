@@ -64,6 +64,16 @@ const STATUS_COPY = {
   failed: 'Model call failed',
 }
 
+// Gate reason codes -> Owner-readable phrases. The dropped-content details
+// from the endpoint are appended verbatim after these.
+const GATE_REASON_COPY = {
+  numbers_dropped: 'numbers from the source went missing',
+  length_ratio: 'length drifted too far from the source',
+  governed_rails_lost: 'governed sections or rules were removed (retried, still missing)',
+  too_long: 'proposal exceeds the body size cap',
+  unparseable: 'the model response did not parse',
+}
+
 export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onDataChanged }) {
   // Resolve [[links]] in the rendered preview against the live entry list, so
   // a link the server validated as resolved never renders in the broken style.
@@ -154,7 +164,8 @@ export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onData
           } else if (json?.reason === 'pending_revision_exists') {
             setRows(rs => rs.map(r => (r.id === m.id ? { ...r, status: 'skipped_pending' } : r)))
           } else if (json?.error === 'gate_failed') {
-            setRows(rs => rs.map(r => (r.id === m.id ? { ...r, status: 'gate_failed', detail: `${json.reason}${json.detail ? `: ${json.detail}` : ''}` } : r)))
+            const reasonText = GATE_REASON_COPY[json.reason] || json.reason
+            setRows(rs => rs.map(r => (r.id === m.id ? { ...r, status: 'gate_failed', detail: `${reasonText}${json.detail ? `: ${json.detail}` : ''}` } : r)))
           } else {
             setRows(rs => rs.map(r => (r.id === m.id
               ? { ...r, status: 'failed', detail: failureText(json?.detail || json?.error || `HTTP ${res.status}`, json?.elapsed_ms) }
@@ -232,7 +243,8 @@ export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onData
             <li>Reads every <strong>Active</strong> entry as one corpus, plans a shared tag vocabulary, aliases, and intentional links, then converts entries one at a time.</li>
             <li><strong>Writes only pending revisions.</strong> Nothing is activated; the live entries and Keith's answers do not change until you apply each one below.</li>
             <li>Hard guards per entry: every number in the source must survive, length must stay near the original, links must resolve against real pages (never to itself), and anything uncertain is flagged for you instead of resolved silently.</li>
-            <li>Entries that already have a pending revision are skipped, so a re-run only fills gaps.</li>
+            <li><strong>Governed rails are preserved.</strong> Applies To, Timing / Trigger, and Keith Guidance (should say / should not say) sections, plus safety, no-guarantee, scope, and licensure rules, must survive conversion; a proposal that drops them is rejected and retried with the missing content quoted back.</li>
+            <li>Entries that already have a pending revision are skipped, so a re-run only fills gaps. To repair a bad proposal, discard it below and re-run.</li>
           </ul>
           {runError && (
             <div style={{ padding: '8px 12px', marginBottom: 10, borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: 12.5 }}>{runError}</div>
@@ -274,7 +286,10 @@ export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onData
                     : r.status === 'queued' ? '#d1d5db'
                       : r.status.startsWith('skipped') ? '#9ca3af' : '#ef4444' }} />
                 <span style={{ fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-                <span style={{ color: r.status === 'gate_failed' || r.status === 'failed' ? '#dc2626' : secondary, whiteSpace: 'nowrap' }}>
+                <span style={{ color: r.status === 'gate_failed' || r.status === 'failed' ? '#dc2626' : secondary,
+                  // Gate details can be long (the rails gate lists what went
+                  // missing); wrap them instead of forcing sideways scroll.
+                  whiteSpace: r.detail ? 'normal' : 'nowrap', overflowWrap: 'anywhere', minWidth: 0 }}>
                   {STATUS_COPY[r.status]}{r.detail ? ` · ${r.detail}` : ''}
                 </span>
                 {r.flags.length > 0 && (

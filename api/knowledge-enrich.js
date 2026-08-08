@@ -37,8 +37,8 @@ import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { resolveRoute, QUALITY_ROUTE } from '../lib/server/keith/modelRouting.js'
 import {
-  buildPlanPrompt, buildEntryPrompt, extractJson, validatePlan, validateEnrichment,
-  ENRICH_CAPS,
+  buildPlanPrompt, buildEntryPrompt, buildRetryNote, extractJson, validatePlan,
+  validateEnrichment, missingNumbers, ENRICH_CAPS,
 } from '../lib/server/keith/knowledgeEnrichment.js'
 
 // TIME BUDGETS, sized by MEASUREMENT after the first production run failed.
@@ -51,7 +51,17 @@ import {
 // OUR structured JSON error with diagnostics, never as a platform 504 the
 // client can't interpret.
 const PLAN_TIMEOUT_MS = 240000
-const ENTRY_TIMEOUT_MS = 90000
+// The first production run timed an entry conversion out at 90s: a
+// directory-sized entry produces a plan-sized generation, not a chat-sized
+// one. Entries get the same clock as the plan; the function deadline below is
+// what actually bounds an invocation.
+const ENTRY_TIMEOUT_MS = 240000
+// One invocation may hold TWO entry calls (original + one corrective retry
+// after a content-gate rejection). This deadline keeps their combined time
+// below vercel.json's maxDuration (300s) so a slow retry still dies as OUR
+// structured error, never as a platform 504.
+const FUNCTION_BUDGET_MS = 285000
+const RETRY_MIN_MS = 30000
 // Conversion output can exceed the chat route's 2048-token ceiling, so the
 // budget is overridden HERE, for this workload only. The model id is not.
 const MAX_OUTPUT_TOKENS = 8192
@@ -177,7 +187,13 @@ export default async function handler(req, res) {
         const corpus = entries || []
         if (!corpus.length) return res.status(409).json({ error: 'empty_corpus' })
 
-        const prompt = buildPlanPrompt(corpus)
+        // A re-run after a partial first run must extend the SAME architecture:
+        // the tags already carried by pending revisions are handed to the plan
+        // as the established vocabulary. Read-only; empty on a first run.
+        const { data: pendingRevs } = await db.from('knowledge_revisions').select('tags')
+        const knownTags = [...new Set((pendingRevs || []).flatMap(r => Array.isArray(r.tags) ? r.tags : []))].sort()
+
+        const prompt = buildPlanPrompt(corpus, knownTags)
         const call = await callAnthropic(prompt, PLAN_TIMEOUT_MS)
         if (!call.ok) {
           // The first production failure was invisible because this path
@@ -223,6 +239,7 @@ export default async function handler(req, res) {
       }
 
       case 'enrich_entry': {
+        const invocationStarted = Date.now()
         const entryId = String(body.entry_id || '')
         if (!/^[0-9a-f-]{36}$/i.test(entryId)) return res.status(400).json({ error: 'invalid_request', field: 'entry_id' })
 
@@ -250,7 +267,7 @@ export default async function handler(req, res) {
         const planSlice = planCheck.ok ? planCheck.plan.entries.find(p => p.id === entryId) : { aliases: [], tags: [], links: [], flags: [] }
 
         const prompt = buildEntryPrompt(entry, planSlice, catalog)
-        const call = await callAnthropic(prompt, ENTRY_TIMEOUT_MS)
+        let call = await callAnthropic(prompt, ENTRY_TIMEOUT_MS)
         if (!call.ok) {
           console.error('[knowledge-enrich] entry call failed', {
             request_id: requestId, entry_id: entryId, cause: call.error, elapsed_ms: call.elapsedMs,
@@ -258,11 +275,55 @@ export default async function handler(req, res) {
           return res.status(502).json({ error: 'model_failed', detail: call.error, elapsed_ms: call.elapsedMs })
         }
 
-        const proposal = extractJson(call.text)
-        const gate = validateEnrichment({ entry, proposal, plan: planSlice, catalog })
+        let proposal = extractJson(call.text)
+        let gate = validateEnrichment({ entry, proposal, plan: planSlice, catalog })
+        let attempts = 1
+
+        // ONE corrective retry when a CONTENT gate rejects the proposal: the
+        // model is told exactly what the mechanical check found (the full
+        // missing-number list, the measured length ratio, or the governed
+        // sections/rules it removed) and gets one more attempt. The gates
+        // themselves are unchanged and judge the retry the same way; the
+        // deadline guard keeps the invocation under Vercel's cap.
+        const RETRYABLE = ['numbers_dropped', 'length_ratio', 'governed_rails_lost']
+        if (!gate.ok && RETRYABLE.includes(gate.reason)) {
+          const remaining = FUNCTION_BUDGET_MS - (Date.now() - invocationStarted)
+          if (remaining >= RETRY_MIN_MS) {
+            const srcLen = String(entry.body || '').trim().length
+            const propLen = String(proposal?.body_markdown || '').trim().length
+            const note = buildRetryNote(gate.reason, {
+              missing: missingNumbers(entry.body, proposal?.body_markdown),
+              ratio: srcLen > 0 ? propLen / srcLen : 1,
+              // The gate already computed exactly what went missing - the
+              // retry quotes the gate's own findings, never client input.
+              sections: gate.governed?.sections,
+              rules: gate.governed?.rules,
+            })
+            console.warn('[knowledge-enrich] gate retry', {
+              request_id: requestId, entry_id: entryId, reason: gate.reason, remaining_ms: remaining,
+            })
+            const retryCall = await callAnthropic(buildEntryPrompt(entry, planSlice, catalog, note), Math.min(ENTRY_TIMEOUT_MS, remaining))
+            if (retryCall.ok) {
+              // Both calls burned tokens; the recorded usage owns up to that.
+              retryCall.usage.input += call.usage.input
+              retryCall.usage.output += call.usage.output
+              const retryProposal = extractJson(retryCall.text)
+              call = retryCall
+              proposal = retryProposal
+              gate = validateEnrichment({ entry, proposal: retryProposal, plan: planSlice, catalog })
+              attempts = 2
+            } else {
+              console.error('[knowledge-enrich] retry call failed', {
+                request_id: requestId, entry_id: entryId, cause: retryCall.error, elapsed_ms: retryCall.elapsedMs,
+              })
+              // The original gate verdict stands; fall through to the 422.
+            }
+          }
+        }
+
         if (!gate.ok) {
-          console.warn('[knowledge-enrich] gate failed', { request_id: requestId, entry_id: entryId, reason: gate.reason })
-          return res.status(422).json({ error: 'gate_failed', reason: gate.reason, detail: gate.detail })
+          console.warn('[knowledge-enrich] gate failed', { request_id: requestId, entry_id: entryId, reason: gate.reason, attempts })
+          return res.status(422).json({ error: 'gate_failed', reason: gate.reason, detail: gate.detail, attempts })
         }
 
         // The ONLY write: a pending revision, same shape and caps as the
@@ -297,7 +358,7 @@ export default async function handler(req, res) {
             action_type: 'knowledge_enrichment_proposed', entity_type: 'knowledge_entry',
             entity_id: String(entry.id), description: 'AI-assisted enrichment proposed as pending revision',
             metadata: {
-              revision_id: rev.id, model: call.model,
+              revision_id: rev.id, model: call.model, attempts,
               input_tokens: call.usage.input, output_tokens: call.usage.output,
               links: gate.links.length, unresolved_unwrapped: gate.unresolvedUnwrapped,
               flags: gate.flags.length,
@@ -310,7 +371,7 @@ export default async function handler(req, res) {
           input_tokens: call.usage.input, output_tokens: call.usage.output,
         })
         return res.status(200).json({
-          success: true, revision_id: rev.id,
+          success: true, revision_id: rev.id, attempts,
           links: gate.links, flags: gate.flags,
           unresolved_unwrapped: gate.unresolvedUnwrapped,
           usage: call.usage, model: call.model,

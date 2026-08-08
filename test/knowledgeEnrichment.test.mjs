@@ -14,8 +14,9 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import {
-  buildPlanPrompt, buildEntryPrompt, extractJson, normalizeTerms,
-  validatePlan, missingNumbers, validateEnrichment, ENRICH_CAPS, LENGTH_RATIO,
+  buildPlanPrompt, buildEntryPrompt, buildRetryNote, extractJson, normalizeTerms,
+  validatePlan, missingNumbers, missingGovernedContent, validateEnrichment,
+  ENRICH_CAPS, LENGTH_RATIO, GOVERNED_LABELS,
 } from '../lib/server/keith/knowledgeEnrichment.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -279,6 +280,126 @@ test('the trigger lives in Knowledge Center and the start button is Owner-gated'
   assert.match(panel, /Only the Owner can start an enrichment run/)
 })
 
+// ── Governed rails: the first production RUN's defect, pinned ────────────────
+//
+// PRODUCTION AUDIT, 2026-08-08. 12 of 22 first-run proposals deleted the
+// governed rails - "Applies To", "Timing / Trigger", "Keith Guidance",
+// "Keith should say / should not say" - two change notes even said so
+// ("Removed Keith-specific guidance as internal instruction material").
+// Retrieval injects entry bodies whole into Keith's prompt, so those blocks
+// are live behavior. The number/length gates cannot see prose deletion; this
+// gate can, and the entry prompt now forbids the deletion up front.
+
+const RAILED = [
+  'Students must be supervised at all times.',
+  '',
+  'Applies To:',
+  'Students; preceptors; ASPIRE admins',
+  '',
+  'Timing / Trigger:',
+  'Use this when someone asks about supervision.',
+  '',
+  'Keith Guidance:',
+  'Keith should say: “Supervision is required for every clinical activity.”',
+  'Keith should not say:',
+  '“Students can work independently.”',
+  '“Supervision is optional for experienced students.”',
+].join('\n')
+
+test('missingGovernedContent catches deleted sections and rules, passes faithful conversions', () => {
+  // Faithful: headings + bold labels, light rewording, wikilinks in prose.
+  const faithful = [
+    '# Supervision', 'Students must be supervised at all times per [[Some Policy|policy]].',
+    '## Applies To', 'Students; preceptors; ASPIRE admins',
+    '## Timing / Trigger', 'Use this when someone asks about supervision.',
+    '## Keith Guidance',
+    '**Keith should say:** "Supervision is required for every clinical activity."',
+    '**Keith should not say:**',
+    '- "Students can work independently."',
+    '- "Supervision is optional for experienced students."',
+  ].join('\n')
+  assert.deepEqual(missingGovernedContent(RAILED, faithful), { sections: [], rules: [] })
+
+  // The first-run failure mode: operational prose kept, rails stripped.
+  const stripped = '# Supervision\nStudents must be supervised at all times.'
+  const out = missingGovernedContent(RAILED, stripped)
+  assert.deepEqual(out.sections,
+    ['Applies To', 'Timing / Trigger', 'Keith Guidance', 'Keith should say', 'Keith should not say'])
+  assert.ok(out.rules.some(r => r.includes('work independently')))
+  assert.ok(out.rules.some(r => r.includes('optional for experienced')))
+
+  // A source with no rails demands nothing.
+  assert.deepEqual(missingGovernedContent('Plain fact. No rules here at all.', 'Plain fact.'),
+    { sections: [], rules: [] })
+})
+
+test('materially equivalent forms satisfy a label - calibrated on judged-faithful conversions', () => {
+  // "Keith Guidance" wrapper merged away but both sub-labels kept (the
+  // Student Status / Navigation pattern, judged Keep in the audit).
+  const merged = [
+    'Students must be supervised at all times.',
+    '## Applies To', 'Students; preceptors; ASPIRE admins',
+    '## Timing / Trigger', 'Use this when someone asks about supervision.',
+    '**Keith should say:** "Supervision is required for every clinical activity."',
+    '**Keith should not say:** "Students can work independently." "Supervision is optional for experienced students."',
+  ].join('\n')
+  assert.deepEqual(missingGovernedContent(RAILED, merged).sections, [])
+  // "Timing / Trigger" renamed to the standard when-to-use phrasing (the
+  // Program Overview / PACU pattern) still counts.
+  const renamed = merged.replace('## Timing / Trigger', '## When to Use This Information')
+  assert.deepEqual(missingGovernedContent(RAILED, renamed).sections, [])
+  // But sub-labels alone do NOT satisfy each other: dropping "should not say"
+  // while keeping "should say" is still a rejection.
+  const halfRails = merged.replace(/\*\*Keith should not say:\*\*[^\n]*/, 'Supervision expectations apply broadly to every clinical activity students perform.')
+  assert.ok(missingGovernedContent(RAILED, halfRails).sections.includes('Keith should not say'))
+})
+
+test('boundary language is guarded even outside labeled sections', () => {
+  const orig = 'The permit is not renewable and becomes void when NCLEX results are mailed. Nice weather today.'
+  const kept = 'The permit is **not renewable** and becomes void when NCLEX results are mailed.'
+  const lost = 'The permit has a limited duration. Nice weather today.'
+  assert.deepEqual(missingGovernedContent(orig, kept).rules, [])
+  assert.ok(missingGovernedContent(orig, lost).rules.some(r => r.includes('not renewable')))
+})
+
+test('validateEnrichment rejects rail deletion as governed_rails_lost, with the findings attached', () => {
+  const entry = E('a', { body: RAILED + ' Extra prose so the source clears the 200-char length-gate threshold for realism.' })
+  const proposal = { body_markdown: '# Supervision\n' + 'Students must be supervised at all times during every clinical activity on the unit. '.repeat(5) + 'Extra prose so the source clears the 200-char length-gate threshold for realism.', change_note: 'x', flags: [] }
+  const out = validateEnrichment({ entry, proposal, plan: { aliases: [], tags: [], links: [] }, catalog: [entry] })
+  assert.equal(out.ok, false)
+  assert.equal(out.reason, 'governed_rails_lost')
+  assert.ok(out.governed.sections.includes('Keith should not say'))
+  assert.match(out.detail, /sections:/)
+})
+
+test('the governed retry note demands the exact sections and rules back', () => {
+  const note = buildRetryNote('governed_rails_lost', {
+    sections: ['Keith Guidance', 'Applies To'],
+    rules: ['“Students can work independently.”'],
+  })
+  assert.match(note, /PREVIOUS ATTEMPT REJECTED - governed content removed/)
+  assert.match(note, /- Keith Guidance/)
+  assert.match(note, /- Applies To/)
+  assert.match(note, /Students can work independently/)
+  assert.match(note, /EXACT names/)
+})
+
+test('the entry prompt forbids rail deletion up front, for every governed label', () => {
+  const entries = [E('a'), E('b')]
+  const p = buildEntryPrompt(entries[0], { links: [] }, entries)
+  assert.match(p, /GOVERNED RAILS ARE BODY CONTENT, NOT METADATA/)
+  for (const label of GOVERNED_LABELS) assert.ok(p.includes(`"${label}"`), `prompt names ${label}`)
+  assert.match(p, /safety, escalation, no-guarantee, scope,\s*\n?\s*licensure/)
+  assert.match(p, /Never classify these as\s*\n?\s*system fields/)
+})
+
+test('the panel explains a rails rejection and briefs the safeguard', () => {
+  assert.match(panel, /governed_rails_lost: 'governed sections or rules were removed/)
+  assert.match(panel, /GATE_REASON_COPY\[json\.reason\] \|\| json\.reason/)
+  assert.match(panel, /Governed rails are preserved\./)
+  assert.match(panel, /discard it below and re-run/)
+})
+
 // ── Time budgets: the first production failure, pinned so it cannot return ──
 //
 // PRODUCTION INCIDENT, 2026-08-07. The first real corpus-analysis run failed
@@ -311,6 +432,92 @@ test('our abort fires BEFORE Vercel kills the function', () => {
   const maxDuration = Number(/"api\/knowledge-enrich\.js":\s*\{ "maxDuration": (\d+) \}/.exec(vercel)[1])
   assert.ok(maxDuration * 1000 > planMs + 20000,
     `maxDuration ${maxDuration}s must exceed the plan timeout ${planMs}ms plus auth/DB/response overhead, or the client gets an uninterpretable platform 504`)
+})
+
+// ── The corrective retry: gaps from the first production run, pinned ─────────
+//
+// PRODUCTION RUN, 2026-08-07: 22 of 26 entries produced pending revisions.
+// The four gaps were one entry-call timeout (a directory-sized entry against
+// the 90s chat-descended clock) and three content-gate rejections (dropped
+// numbers, over-compression). The remedy is a bigger clock plus ONE
+// server-side corrective retry that quotes the gate's own findings back to
+// the model. The validators are NOT weakened: the retry is judged by the
+// same gates, and a second failure is still a 422.
+
+test('buildRetryNote quotes the mechanical findings, and only for content gates', () => {
+  const nums = buildRetryNote('numbers_dropped', { missing: ['8', '12', '2026'] })
+  assert.match(nums, /8, 12, 2026/)
+  assert.match(nums, /VERBATIM/)
+  assert.match(nums, /Do not\s+spell numbers out in words/)
+
+  const squeezed = buildRetryNote('length_ratio', { ratio: 0.42 })
+  assert.match(squeezed, /0\.42x/)
+  assert.match(squeezed, /RETAINED, not summarized/)
+  assert.match(squeezed, new RegExp(`${LENGTH_RATIO.min}x and ${LENGTH_RATIO.max}x`))
+
+  const padded = buildRetryNote('length_ratio', { ratio: 1.9 })
+  assert.match(padded, /Do not pad/)
+
+  // Non-content failures are not retryable writing errors.
+  assert.equal(buildRetryNote('unparseable', {}), '')
+  assert.equal(buildRetryNote('too_long', {}), '')
+})
+
+test('the retry note leads the entry prompt; absent by default', () => {
+  const entries = [E('a'), E('b')]
+  const plain = buildEntryPrompt(entries[0], { links: [] }, entries)
+  assert.ok(!plain.includes('PREVIOUS ATTEMPT REJECTED'))
+  const note = buildRetryNote('numbers_dropped', { missing: ['42'] })
+  const retried = buildEntryPrompt(entries[0], { links: [] }, entries, note)
+  const idx = retried.indexOf('PREVIOUS ATTEMPT REJECTED')
+  assert.ok(idx !== -1)
+  assert.ok(idx < retried.indexOf('RULES THAT OVERRIDE'), 'the correction leads the prompt')
+})
+
+test('endpoint: one corrective retry, content gates only, deadline-guarded, honestly accounted', () => {
+  const code = stripComments(endpoint)
+  // Retry triggers only on the three content gates.
+  assert.match(code, /RETRYABLE = \['numbers_dropped', 'length_ratio', 'governed_rails_lost'\]/)
+  assert.match(code, /RETRYABLE\.includes\(gate\.reason\)/)
+  // The governed findings the retry quotes come from the gate itself.
+  assert.match(code, /sections: gate\.governed\?\.sections/)
+  assert.match(code, /rules: gate\.governed\?\.rules/)
+  // The deadline guard: no retry without real remaining budget, and the retry
+  // clock is bounded by what remains of the invocation.
+  assert.match(code, /FUNCTION_BUDGET_MS - \(Date\.now\(\) - invocationStarted\)/)
+  assert.match(code, /remaining >= RETRY_MIN_MS/)
+  assert.match(code, /Math\.min\(ENTRY_TIMEOUT_MS, remaining\)/)
+  // The note is built from the endpoint's own recomputation, never client input.
+  assert.match(code, /missingNumbers\(entry\.body, proposal\?\.body_markdown\)/)
+  // Both calls' tokens are recorded - a retried proposal costs two calls.
+  assert.match(code, /retryCall\.usage\.input \+= call\.usage\.input/)
+  // The attempt count reaches the audit trail and both response shapes.
+  assert.match(code, /attempts = 2/)
+  assert.match(code, /reason: gate\.reason, detail: gate\.detail, attempts/)
+  // Exactly one retry: the retry result is never itself retried (no loop).
+  assert.ok(!/while\s*\(/.test(code.slice(code.indexOf("case 'enrich_entry'"))), 'no retry loop')
+})
+
+test('entry clock fits a directory-sized generation; two attempts fit the function', () => {
+  const entryMs = Number(/const ENTRY_TIMEOUT_MS = (\d+)/.exec(endpoint)[1])
+  const budgetMs = Number(/const FUNCTION_BUDGET_MS = (\d+)/.exec(endpoint)[1])
+  const vercel = read('vercel.json')
+  const maxDuration = Number(/"api\/knowledge-enrich\.js":\s*\{ "maxDuration": (\d+) \}/.exec(vercel)[1])
+  assert.ok(entryMs >= 240000,
+    'the first production run proved 90s is not enough for a directory-sized entry conversion')
+  assert.ok(budgetMs < maxDuration * 1000,
+    'the two-attempt deadline must sit below Vercel maxDuration so failures stay structured')
+})
+
+test('a plan re-run extends the pending vocabulary instead of inventing a second one', () => {
+  const withKnown = buildPlanPrompt([E('a')], ['clinical-ops', 'onboarding'])
+  assert.match(withKnown, /clinical-ops, onboarding/)
+  assert.match(withKnown, /Reuse these EXACT tags/)
+  assert.ok(!buildPlanPrompt([E('a')]).includes('Reuse these EXACT tags'))
+  // The endpoint feeds it from pending revisions, read-only.
+  const code = stripComments(endpoint)
+  assert.match(code, /from\('knowledge_revisions'\)\.select\('tags'\)/)
+  assert.match(code, /buildPlanPrompt\(corpus, knownTags\)/)
 })
 
 test('a failed model call is never silent again: logged AND diagnosed to the Owner', () => {
