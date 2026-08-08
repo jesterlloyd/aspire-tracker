@@ -121,14 +121,23 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     } catch { setSkillCatalog([]); }
   };
 
-  // The slash menu is open while the input starts with "/" and skills match the
-  // typed filter. "/res" filters to slugs/names containing "res".
+  // The slash menu is a SEARCH surface: it is open while the user is still
+  // choosing a command, and closed the moment the composer holds a committed
+  // one. Committed = the token after "/" exactly names an invocable skill AND
+  // a separator follows it, which is precisely the state a selection leaves
+  // behind ("/some-skill-slug "). This is what dismisses the menu after
+  // selecting - the reported bug was the menu surviving selection and showing
+  // "No Skill matches" against the trailing space.
   const slashActive = input.startsWith('/');
-  const slashFilter = slashActive ? input.slice(1).toLowerCase() : '';
-  const slashMatches = slashActive && Array.isArray(skillCatalog)
+  const slashBody = slashActive ? input.slice(1) : '';
+  const slashToken = slashBody.split(/\s/)[0].toLowerCase();
+  const slashCommitted = slashActive && /\s/.test(slashBody)
+    && Array.isArray(skillCatalog) && skillCatalog.some(s => s.slug === slashToken);
+  const slashMenuOpen = slashActive && !slashCommitted;
+  const slashMatches = slashMenuOpen && Array.isArray(skillCatalog)
     ? skillCatalog.filter(s =>
-        s.slug.toLowerCase().includes(slashFilter)
-        || String(s.name || '').toLowerCase().includes(slashFilter))
+        s.slug.toLowerCase().includes(slashToken)
+        || String(s.name || '').toLowerCase().includes(slashToken))
     : [];
 
   const applySlashSelection = (skill) => {
@@ -770,9 +779,10 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               flexShrink: 0,
               position: 'relative',
             }}>
-              {/* KEITH-SLASH-SKILLS-1: the Skills menu. Rendered above the input
-                  while "/" is typed; ArrowUp/Down + Enter, or click, selects. */}
-              {slashActive && skillCatalog !== null && (
+              {/* KEITH-SLASH-SKILLS-1: the Skills menu. Rendered while the user
+                  is SEARCHING for a command; a committed selection closes it.
+                  ArrowUp/Down + Enter, or click, selects. */}
+              {slashMenuOpen && skillCatalog !== null && (
                 slashMatches.length > 0 ? (
                   <div role="listbox" aria-label="Skills" style={{
                     position: 'absolute', bottom: '100%', left: 16, right: 16,
@@ -821,11 +831,14 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                   if (v.startsWith('/')) ensureSkillCatalog();
                 }}
                 onKeyDown={e => {
-                  if (slashActive && slashMatches.length > 0) {
+                  // Escape dismisses the menu in EVERY open state, including
+                  // "no matches" (it previously fell through and closed the
+                  // whole panel), and never fires once the menu is closed.
+                  if (slashMenuOpen && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setInput(''); return; }
+                  if (slashMenuOpen && slashMatches.length > 0) {
                     if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIndex(i => (i + 1) % slashMatches.length); return; }
                     if (e.key === 'ArrowUp') { e.preventDefault(); setSlashIndex(i => (i - 1 + slashMatches.length) % slashMatches.length); return; }
                     if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); applySlashSelection(slashMatches[Math.min(slashIndex, slashMatches.length - 1)]); return; }
-                    if (e.key === 'Escape') { e.stopPropagation(); setInput(''); return; }
                   }
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
                 }}

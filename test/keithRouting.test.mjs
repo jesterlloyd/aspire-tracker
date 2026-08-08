@@ -218,6 +218,28 @@ test('the / menu is fed by the canonical registry through the same authorization
   assert.doesNotMatch(keithUi, /resume-interview-questions/, 'no skill slug is hardcoded in the UI')
 })
 
+test('the / menu closes on selection: a committed command never shows the palette', () => {
+  // PRODUCTION QC BUG, 2026-08-08: after selecting a skill the composer held
+  // "/resume-interview-questions " - still slash-prefixed - so the menu stayed
+  // open and matched the trailing space against nothing, showing "No Skill
+  // matches" over a perfectly valid selection. The menu is a SEARCH surface:
+  // open while choosing, closed once the token after "/" names an invocable
+  // skill with a separator after it (exactly the state a selection leaves).
+  assert.match(keithUi, /const slashCommitted = slashActive && \/\\s\/\.test\(slashBody\)/)
+  assert.match(keithUi, /skillCatalog\.some\(s => s\.slug === slashToken\)/)
+  assert.match(keithUi, /const slashMenuOpen = slashActive && !slashCommitted/)
+  // Both the listbox and the no-matches notice render only while the menu is
+  // open, so the notice can never appear after a successful selection.
+  assert.match(keithUi, /\{slashMenuOpen && skillCatalog !== null && \(/)
+  assert.equal((keithUi.match(/slashActive && skillCatalog !== null/g) || []).length, 0,
+    'no render path keys the palette off the bare slash prefix')
+  // Escape dismisses in every open state, including zero matches, and cannot
+  // fall through to the panel-level Escape that closes the whole drawer.
+  assert.match(keithUi, /if \(slashMenuOpen && e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); setInput\(''\); return; \}/)
+  // Filtering matches on the command token, not on trailing arguments.
+  assert.match(keithUi, /s\.slug\.toLowerCase\(\)\.includes\(slashToken\)/)
+})
+
 test('the / menu has keyboard and mouse selection and populates the canonical command', () => {
   assert.match(keithUi, /role="listbox"/)
   assert.match(keithUi, /ArrowDown/)
