@@ -41,7 +41,17 @@ import {
   ENRICH_CAPS,
 } from '../lib/server/keith/knowledgeEnrichment.js'
 
-const ANTHROPIC_TIMEOUT_MS = 45000
+// TIME BUDGETS, sized by MEASUREMENT after the first production run failed.
+// The corpus-analysis call generates ~4k tokens of plan JSON over a ~26-entry
+// corpus and was measured at 56s end to end - the original 45s abort was sized
+// for Keith-chat responses and killed every real plan call deterministically.
+// The plan budget is generous because the corpus only grows; entry conversions
+// produce far less output and get a smaller one. Both must stay comfortably
+// BELOW the Vercel maxDuration (300s in vercel.json), so a slow call dies as
+// OUR structured JSON error with diagnostics, never as a platform 504 the
+// client can't interpret.
+const PLAN_TIMEOUT_MS = 240000
+const ENTRY_TIMEOUT_MS = 90000
 // Conversion output can exceed the chat route's 2048-token ceiling, so the
 // budget is overridden HERE, for this workload only. The model id is not.
 const MAX_OUTPUT_TOKENS = 8192
@@ -94,10 +104,11 @@ async function verifyCaller(req) {
   }
 }
 
-async function callAnthropic(prompt) {
+async function callAnthropic(prompt, timeoutMs) {
   const route = resolveRoute(QUALITY_ROUTE)
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), ANTHROPIC_TIMEOUT_MS)
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  const started = Date.now()
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -117,7 +128,7 @@ async function callAnthropic(prompt) {
     clearTimeout(timeoutId)
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}))
-      return { ok: false, error: errorBody?.error?.type || `http_${response.status}` }
+      return { ok: false, error: errorBody?.error?.type || `http_${response.status}`, elapsedMs: Date.now() - started }
     }
     const json = await response.json()
     const text = (json?.content || []).filter(b => b.type === 'text').map(b => b.text).join('')
@@ -125,10 +136,11 @@ async function callAnthropic(prompt) {
       ok: true, text,
       usage: { input: json?.usage?.input_tokens ?? 0, output: json?.usage?.output_tokens ?? 0 },
       model: route.model,
+      elapsedMs: Date.now() - started,
     }
   } catch (err) {
     clearTimeout(timeoutId)
-    return { ok: false, error: err?.name === 'AbortError' ? 'timeout' : 'network' }
+    return { ok: false, error: err?.name === 'AbortError' ? 'timeout' : 'network', elapsedMs: Date.now() - started }
   }
 }
 
@@ -166,11 +178,30 @@ export default async function handler(req, res) {
         if (!corpus.length) return res.status(409).json({ error: 'empty_corpus' })
 
         const prompt = buildPlanPrompt(corpus)
-        const call = await callAnthropic(prompt)
-        if (!call.ok) return res.status(502).json({ error: 'model_failed', detail: call.error })
+        const call = await callAnthropic(prompt, PLAN_TIMEOUT_MS)
+        if (!call.ok) {
+          // The first production failure was invisible because this path
+          // logged nothing. Never again: the sanitized cause, the timing and
+          // the corpus size go to the server log AND (codes only) back to the
+          // Owner, so "corpus analysis failed" always has a why attached.
+          console.error('[knowledge-enrich] plan call failed', {
+            request_id: requestId, cause: call.error, elapsed_ms: call.elapsedMs,
+            corpus_entries: corpus.length, prompt_chars: prompt.length,
+          })
+          return res.status(502).json({
+            error: 'model_failed', detail: call.error,
+            elapsed_ms: call.elapsedMs, corpus_entries: corpus.length,
+          })
+        }
 
         const parsed = validatePlan(extractJson(call.text), corpus)
-        if (!parsed.ok) return res.status(502).json({ error: 'plan_unparseable' })
+        if (!parsed.ok) {
+          console.error('[knowledge-enrich] plan unparseable', {
+            request_id: requestId, corpus_entries: corpus.length,
+            output_tokens: call.usage.output, elapsed_ms: call.elapsedMs,
+          })
+          return res.status(502).json({ error: 'plan_unparseable', elapsed_ms: call.elapsedMs })
+        }
 
         console.log('[knowledge-enrich] plan', {
           request_id: requestId, entries: corpus.length,
@@ -219,8 +250,13 @@ export default async function handler(req, res) {
         const planSlice = planCheck.ok ? planCheck.plan.entries.find(p => p.id === entryId) : { aliases: [], tags: [], links: [], flags: [] }
 
         const prompt = buildEntryPrompt(entry, planSlice, catalog)
-        const call = await callAnthropic(prompt)
-        if (!call.ok) return res.status(502).json({ error: 'model_failed', detail: call.error })
+        const call = await callAnthropic(prompt, ENTRY_TIMEOUT_MS)
+        if (!call.ok) {
+          console.error('[knowledge-enrich] entry call failed', {
+            request_id: requestId, entry_id: entryId, cause: call.error, elapsed_ms: call.elapsedMs,
+          })
+          return res.status(502).json({ error: 'model_failed', detail: call.error, elapsed_ms: call.elapsedMs })
+        }
 
         const proposal = extractJson(call.text)
         const gate = validateEnrichment({ entry, proposal, plan: planSlice, catalog })

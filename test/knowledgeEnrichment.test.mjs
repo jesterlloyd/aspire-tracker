@@ -279,6 +279,52 @@ test('the trigger lives in Knowledge Center and the start button is Owner-gated'
   assert.match(panel, /Only the Owner can start an enrichment run/)
 })
 
-test('vercel grants the enrichment endpoint its 60s budget', () => {
-  assert.match(read('vercel.json'), /"api\/knowledge-enrich\.js":\s*\{ "maxDuration": 60 \}/)
+// ── Time budgets: the first production failure, pinned so it cannot return ──
+//
+// PRODUCTION INCIDENT, 2026-08-07. The first real corpus-analysis run failed
+// twice with a deterministic 502: the Anthropic call was aborted at 45s, and
+// reproduction measured a realistic 26-entry plan call at 56s end to end
+// (10.6k input + 4.2k output tokens; the plan parsed perfectly once allowed
+// to finish). The abort was sized for Keith-chat responses, not a plan-sized
+// generation. These pins encode the measured reality and the invariant that
+// OUR timeout must fire before Vercel's, so a slow call always dies as a
+// structured JSON error with diagnostics rather than a platform 504.
+
+const MEASURED_PLAN_SECONDS = 56
+
+test('the plan time budget clears the measured need with real headroom', () => {
+  const planMs = Number(/const PLAN_TIMEOUT_MS = (\d+)/.exec(endpoint)[1])
+  const entryMs = Number(/const ENTRY_TIMEOUT_MS = (\d+)/.exec(endpoint)[1])
+  assert.ok(planMs >= MEASURED_PLAN_SECONDS * 1000 * 2,
+    `plan budget ${planMs}ms must be at least 2x the measured ${MEASURED_PLAN_SECONDS}s - the corpus only grows`)
+  assert.ok(entryMs >= 60000, 'entry conversions need more than a chat-sized budget too')
+  // Both calls must pass their budget explicitly - a bare callAnthropic(prompt)
+  // would silently fall back to an undefined timeout.
+  assert.match(endpoint, /callAnthropic\(prompt, PLAN_TIMEOUT_MS\)/)
+  assert.match(endpoint, /callAnthropic\(prompt, ENTRY_TIMEOUT_MS\)/)
+  assert.doesNotMatch(endpoint, /callAnthropic\(prompt\)/)
+})
+
+test('our abort fires BEFORE Vercel kills the function', () => {
+  const planMs = Number(/const PLAN_TIMEOUT_MS = (\d+)/.exec(endpoint)[1])
+  const vercel = read('vercel.json')
+  const maxDuration = Number(/"api\/knowledge-enrich\.js":\s*\{ "maxDuration": (\d+) \}/.exec(vercel)[1])
+  assert.ok(maxDuration * 1000 > planMs + 20000,
+    `maxDuration ${maxDuration}s must exceed the plan timeout ${planMs}ms plus auth/DB/response overhead, or the client gets an uninterpretable platform 504`)
+})
+
+test('a failed model call is never silent again: logged AND diagnosed to the Owner', () => {
+  // Server: the original failure path emitted no log, which is why the first
+  // incident had to be diagnosed from access logs alone.
+  assert.match(endpoint, /console\.error\('\[knowledge-enrich\] plan call failed'/)
+  assert.match(endpoint, /console\.error\('\[knowledge-enrich\] entry call failed'/)
+  assert.match(endpoint, /console\.error\('\[knowledge-enrich\] plan unparseable'/)
+  // Response: sanitized cause + timing, never raw provider text.
+  assert.match(endpoint, /error: 'model_failed', detail: call\.error,\s*\n\s*elapsed_ms: call\.elapsedMs/)
+  // Client: the codes become Owner-readable explanations with the elapsed time.
+  assert.match(panel, /const FAILURE_COPY = \{/)
+  assert.match(panel, /timeout: 'the model ran past its time budget/)
+  assert.match(panel, /failureText\(planJson\?\.detail \|\| planJson\?\.error, planJson\?\.elapsed_ms\)/)
+  assert.doesNotMatch(panel, /'The corpus analysis failed\. Nothing was written; try again\.'/,
+    'the uninformative generic line is retired')
 })

@@ -37,6 +37,23 @@ async function post(path, payload) {
   })
 }
 
+// Sanitized failure causes -> Owner-readable explanations. The codes come
+// from the endpoint (never raw API text); anything unrecognized shows its
+// code verbatim, which is still more useful than a generic apology.
+const FAILURE_COPY = {
+  timeout: 'the model ran past its time budget. Try again; if it recurs, the corpus may have outgrown the current limits.',
+  overloaded_error: 'Anthropic is briefly overloaded. Wait a minute and try again.',
+  rate_limit_error: 'the Anthropic rate limit was hit. Wait a minute and try again.',
+  authentication_error: 'the server\u2019s model credential was rejected. This needs configuration attention, not a retry.',
+  network: 'the model could not be reached from the server. Try again.',
+  plan_unparseable: 'the model\u2019s plan did not parse. Nothing was written; try again.',
+}
+const failureText = (code, elapsedMs) => {
+  const why = FAILURE_COPY[code] || `cause: ${code || 'unknown'}.`
+  const t = elapsedMs ? ` (after ${Math.round(elapsedMs / 1000)}s)` : ''
+  return `${why}${t}`
+}
+
 const STATUS_COPY = {
   queued: 'Queued',
   running: 'Converting…',
@@ -97,9 +114,12 @@ export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onData
       const planRes = await post('/api/knowledge-enrich', { action: 'enrich_plan' })
       const planJson = await planRes.json().catch(() => null)
       if (!planRes.ok || !planJson?.plan) {
+        // A useful failure, not a shrug: the endpoint's sanitized cause and
+        // timing come through, so "failed" always says why. Codes only - raw
+        // provider text never reaches this surface.
         setRunError(planJson?.error === 'owner_required'
           ? 'Only the Owner can run enrichment.'
-          : 'The corpus analysis failed. Nothing was written; try again.')
+          : `Corpus analysis failed \u2014 ${failureText(planJson?.detail || planJson?.error, planJson?.elapsed_ms)} Nothing was written.`)
         setPhase('briefing')
         return
       }
@@ -136,7 +156,9 @@ export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onData
           } else if (json?.error === 'gate_failed') {
             setRows(rs => rs.map(r => (r.id === m.id ? { ...r, status: 'gate_failed', detail: `${json.reason}${json.detail ? `: ${json.detail}` : ''}` } : r)))
           } else {
-            setRows(rs => rs.map(r => (r.id === m.id ? { ...r, status: 'failed', detail: json?.detail || json?.error || `HTTP ${res.status}` } : r)))
+            setRows(rs => rs.map(r => (r.id === m.id
+              ? { ...r, status: 'failed', detail: failureText(json?.detail || json?.error || `HTTP ${res.status}`, json?.elapsed_ms) }
+              : r)))
           }
         } catch {
           setRows(rs => rs.map(r => (r.id === m.id ? { ...r, status: 'failed', detail: 'network error' } : r)))
