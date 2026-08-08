@@ -106,13 +106,16 @@ WHAT KEITH MUST NEVER DO:
 // KEITH-SUGGESTIONS-UI-1: a calmer, higher-value default set. Reduced from 15 chips to 6
 // so the starter area is easy to scan; every removed prompt still works if typed manually
 // (Keith's capabilities are unchanged - this only trims the default visible suggestions).
+// KEITH-REFRESH-1: the empty-state chips reflect what Keith actually does today:
+// governed Knowledge Center answers, live cohort data, Contacts lookups, and
+// routing guidance. Wording uses current product terminology only.
 export const SUGGESTED_PROMPTS = [
-  { label: 'Who needs follow-up today?', category: 'action' },
-  { label: 'Summarize this cohort.', category: 'summary' },
+  { label: 'Who is on campus now?', category: 'live' },
+  { label: 'Summarize this cohort.', category: 'live' },
+  { label: 'How does CS-Link access work?', category: 'governed' },
+  { label: 'Who handles a school placement request?', category: 'governed' },
   { label: 'Draft an ASPIRE email.', category: 'email' },
-  { label: 'Who is on campus now?', category: 'campus' },
-  { label: 'Explain the ASPIRE status journey.', category: 'info' },
-  { label: 'How does CS-Link access work?', category: 'info' },
+  { label: 'What are the eligibility requirements?', category: 'governed' },
 ];
 
 export function generateStaticResponse(userMessage, cohortName, context) {
@@ -1067,10 +1070,10 @@ GOVERNED-SOURCE RULES:
 
 SOURCE LABELING: When you answer, name your source in natural prose, for example "per Student Profiles live data", "per the [entry title] entry", or by directing the user to "ASPIRE Connect Contacts". Do not present a figure or fact without indicating where it came from.
 
-CONTACTS AND PEOPLE (no inference; live Contacts is a future capability):
-- Current people, contact, and role information lives in ASPIRE Connect Contacts. Live Contacts retrieval is not yet wired into Keith; it is a future capability.
-- Do NOT answer "who is X", "who holds role Y" (such as a unit NPD-P), "who is the contact, preceptor, or academic partner for Z", or any current person/role/contact question from the UNIT LEADERSHIP ROSTER, from remembered names, or from any other adjacent source. Never infer a person or a role from unit-level leadership data.
-- For such questions, say that live ASPIRE Connect Contacts access is not yet available to you and that current contact and role information should be verified in ASPIRE Connect Contacts. NEVER say a person "does not exist" or "is not in your context", the correct framing is that live Contacts access is a future capability.
+CONTACTS AND PEOPLE (no inference):
+- Current people, contact, and role information lives in ASPIRE Connect Contacts. Direct person and role lookups ("who is X", "find X's contact information", "the preceptors for unit Y") are answered from Contacts for authorized roles; when the user needs one, tell them to ask you that lookup directly or to open ASPIRE Connect Contacts.
+- WHERE-TO-DIRECT questions are different: when a governed entry above (for example a routing directory) covers who handles a kind of request, answer from that governed entry. It is the authoritative routing guidance; Contacts is for looking up the specific people it names.
+- Do NOT answer any current person/role/contact question from the UNIT LEADERSHIP ROSTER, from remembered names, or from any other adjacent source. Never infer a person or a role from unit-level leadership data. NEVER say a person "does not exist" or "is not in your context"; direct the user to a Contacts lookup instead.
 - The UNIT LEADERSHIP ROSTER in your live context is reference data for drafting correspondence to a known unit's leadership. It is not a directory for answering who-is or role questions.
 
 CRITICAL: Unit response and capacity data (live)

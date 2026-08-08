@@ -13,9 +13,9 @@ import { selectActiveWindowRows, mergeOnCampusNow, openShiftUnit, openShiftPrece
 import { shiftTypeOf, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../src/lib/shiftStatus.js';
 import { formatRotationRange, canonicalRotationWindow } from '../src/lib/rotationWindow.js';
 import { displayName } from '../src/lib/utils.js';
-import { classifyIntent, INTENTS, isExplicitEmailDrafting } from '../lib/server/keith/queryIntent.js';
+import { classifyIntent, INTENTS, isExplicitEmailDrafting, preferGovernedRouting } from '../lib/server/keith/queryIntent.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
-import { resolveRoute, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
+import { resolveRoute, resolveChatSelection, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
 import { consumeRateLimit, rateLimitMessage, limiterUnavailableMessage, WEIGHT_CHAT, WEIGHT_SKILL } from '../lib/server/keith/rateLimit.js';
 import { recordKeithUsage, recordSkillInvocation, OUTCOMES } from '../lib/server/keith/usageLog.js';
 import { buildContactLine, allowsFieldInDefaultContext } from '../lib/server/keith/contextMinimization.js';
@@ -594,9 +594,10 @@ function generateResultSummary(toolName, result) {
 
 // ── Tool-use conversation loop ────────────────────────────────────────────────
 
-async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activeCohortId, timeRemaining, auth, requestId) {
+async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activeCohortId, timeRemaining, auth, requestId, chatRoute = null) {
   const messages = [...initialMessages];
   const allToolCalls = [];
+  const totalUsage = { input: 0, output: 0 };
   const MAX_ROUNDS = 5;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -606,13 +607,16 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
           ? "I ran out of time before completing all research steps. Here's what I found so far, please ask again for more detail."
           : "I ran out of time before responding. Please try again.",
         toolCalls: allToolCalls,
+        usage: totalUsage,
       };
     }
 
     // KEITH-P0: model + sampling come from the server-side route table, never
     // from the request. Temperature is now explicit; it used to be unset, which
     // meant an API default of 1.0 on a grounding-critical assistant.
-    const route = resolveRoute(DEFAULT_ROUTE_NAME);
+    // KEITH-MODEL-SELECT-1: the caller's resolved chat route (already validated
+    // against the server allowlist) is honored; absent one, the default route.
+    const route = chatRoute || resolveRoute(DEFAULT_ROUTE_NAME);
     const payload = {
       model: route.model,
       max_tokens: route.maxTokens,
@@ -625,6 +629,8 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
     const response = await callAnthropicWithRetry(payload, { timeRemaining });
     // [keith-tokens]: PII-free token instrumentation from the model usage block.
     const usage = response?.usage || {};
+    totalUsage.input  += Number.isInteger(usage.input_tokens) ? usage.input_tokens : 0;
+    totalUsage.output += Number.isInteger(usage.output_tokens) ? usage.output_tokens : 0;
     console.log('[keith-tokens]', {
       request_id: requestId,
       round,
@@ -636,7 +642,7 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
 
     if (!hasTools) {
       const text = content.filter(b => b.type === 'text').map(b => b.text).join('');
-      return { text, toolCalls: allToolCalls };
+      return { text, toolCalls: allToolCalls, usage: totalUsage };
     }
 
     // Append the assistant's full content turn (may mix text and tool_use blocks)
@@ -708,6 +714,7 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
   return {
     text: 'I reached my research limit for this request. Here is what I found up to this point. Please ask again if you need more detail.',
     toolCalls: allToolCalls,
+    usage: totalUsage,
   };
 }
 
@@ -747,6 +754,18 @@ export default async function handler(req, res) {
 
   const deadline = Date.now() + KEITH_TOTAL_DEADLINE_MS;
   const timeRemaining = () => deadline - Date.now();
+
+  // KEITH-SLASH-SKILLS-1: the composer's "/" menu asks for the caller's
+  // invocable skills. Same canonical registry and the same authorization filter
+  // the runtime itself uses (loadInvocableSkills) - metadata only, never
+  // instruction bodies, and never a second catalog. Auth-gated, but exempt from
+  // the rate limiter: populating a menu is not a model request.
+  if (req.body?.mode === 'skills_catalog') {
+    const catalog = await loadInvocableSkills(makeServiceRoleClient(), auth);
+    return res.status(200).json({
+      skills: catalog.map(s => ({ slug: s.slug, name: s.display_name, description: s.description || '' })),
+    });
+  }
 
   const { messages, context, cohortName, userProfile, liveData } = req.body || {};
 
@@ -887,7 +906,23 @@ export default async function handler(req, res) {
   // CONTACTS-1d: role gate aligned with confirmed ASPIRE Connect UI access - Owner,
   // Admin, and Interviewer may use Contacts lookup; Viewer and all other/unknown roles
   // remain denied (pending separate Owner confirmation of their UI Contacts access).
-  if (isPersonContactRole) {
+  // KEITH-GOVERNED-ROUTING-1: governed knowledge is retrieved BEFORE the
+  // contacts short-circuit, so an Active vault entry that directly covers a
+  // "who should I contact for <situation>" routing question gets first refusal.
+  // The reported failure: that phrasing classified as person_contact_role,
+  // short-circuited to a Contacts search, and returned unrelated preceptors
+  // while the Active BNI routing directory was never consulted. The retrieval
+  // result is computed once here and reused by the main model path below.
+  const governed = await retrieveGovernedKnowledge(makeServiceRoleClient(), lastUserText);
+  const governedTopScore = governed.scores.length ? Math.max(...governed.scores) : 0;
+  const governedRouting = isPersonContactRole
+    && preferGovernedRouting({ question: lastUserText, topScore: governedTopScore });
+  if (governedRouting) {
+    // PII-free: the decision and the evidence level, never the question.
+    console.log('[keith-contacts]', { request_id: requestId, intent, governed_routing: true, top_score: governedTopScore });
+  }
+
+  if (isPersonContactRole && !governedRouting) {
     const normalizedRole = String(auth.role || '').toLowerCase();
     const contactsAllowed = auth.isOwner === true || ['owner', 'admin', 'interviewer'].includes(normalizedRole);
     if (!contactsAllowed) {
@@ -1370,7 +1405,8 @@ CRITICAL DATA ACCESS RULES:
   // retrieval is resilient (any failure yields a zero-coverage note so Keith still
   // answers from legacy fallback). The user's question is used only for lexical
   // scoring and is NEVER logged. (lastUserText was computed at intent classification.)
-  const governed = await retrieveGovernedKnowledge(makeServiceRoleClient(), lastUserText);
+  // KEITH-GOVERNED-ROUTING-1: `governed` was retrieved once, before the contacts
+  // short-circuit, and is reused here unchanged.
   // KT-5: inject the governed block at the explicit GOVERNED_KNOWLEDGE_MARKER slot in
   // the scaffolding prompt (no legacy block remains). If the marker is somehow absent,
   // prepend safely so the governed block is never dropped.
@@ -1441,8 +1477,16 @@ Be transparent: after forming a recommendation, briefly note which tools you use
     });
   }
 
+  // KEITH-MODEL-SELECT-1: resolve the caller's chat model selection against the
+  // server allowlist. `chat_model` is a closed abstraction (auto|haiku|sonnet);
+  // an unknown value or an unauthorized Sonnet request falls back to Auto.
+  const chatSelection = resolveChatSelection(req.body?.chat_model, { role: auth.role, isOwner: auth.isOwner });
+  if (chatSelection.downgraded) {
+    console.log('[keith-model]', { request_id: requestId, requested: String(req.body?.chat_model || ''), resolved: chatSelection.selection, downgraded: true });
+  }
+
   try {
-    const { text, toolCalls } = await runToolLoop(
+    const { text, toolCalls, usage } = await runToolLoop(
       anthropicMessages,
       systemPrompt,
       activeTools,
@@ -1450,16 +1494,21 @@ Be transparent: after forming a recommendation, briefly note which tools you use
       activeCohortId,
       timeRemaining,
       auth,
-      requestId
+      requestId,
+      chatSelection.route
     );
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
+    // Usage records what actually ran: the RESOLVED route and model, plus the
+    // real token totals across every round (previously chat tokens were logged
+    // to console only and never persisted).
     await recordKeithUsage(meterClient, {
       requestId, profileId: auth.profileId, role: auth.role, intent,
-      model: resolveRoute(DEFAULT_ROUTE_NAME).model, modelRoute: DEFAULT_ROUTE_NAME,
+      model: chatSelection.model, modelRoute: chatSelection.route.route,
+      inputTokens: usage?.input, outputTokens: usage?.output,
       rounds: toolCalls.length, outcome: OUTCOMES.COMPLETED,
       durationMs: Date.now() - requestStartedAt,
     });
-    return res.status(200).json({ response: text, tool_calls: toolCalls });
+    return res.status(200).json({ response: text, tool_calls: toolCalls, model_selection: chatSelection.selection });
   } catch (err) {
     console.error('[keith] all retries exhausted:', err.details || err.message);
     const errorType = err.details?.errorType;

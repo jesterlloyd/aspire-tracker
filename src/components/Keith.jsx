@@ -19,6 +19,28 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const [copiedId,    setCopiedId]    = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [toolExpanded, setToolExpanded] = useState({});
+  // KEITH-MODEL-SELECT-1: user model selection (auto | haiku | sonnet). The
+  // server enforces the allowlist; this control only offers what the role may
+  // use, and the choice persists per user.
+  const modelStorageKey = `keith-model-${userProfile?.id || 'anon'}`;
+  const [chatModel, setChatModel] = useState(() => {
+    try {
+      const v = localStorage.getItem(`keith-model-${userProfile?.id || 'anon'}`);
+      return ['auto', 'haiku', 'sonnet'].includes(v) ? v : 'auto';
+    } catch { return 'auto'; }
+  });
+  const sonnetAllowed = userProfile?.is_owner === true || String(userProfile?.role || '').toLowerCase() === 'admin';
+  const modelChoices = sonnetAllowed ? ['auto', 'haiku', 'sonnet'] : ['auto', 'haiku'];
+  const MODEL_LABELS = { auto: 'Auto', haiku: 'Haiku 4.5', sonnet: 'Sonnet 4.5' };
+  const pickModel = (value) => {
+    const v = modelChoices.includes(value) ? value : 'auto';
+    setChatModel(v);
+    try { localStorage.setItem(modelStorageKey, v); } catch { /* private mode */ }
+  };
+  // KEITH-SLASH-SKILLS-1: "/" opens the Skills menu, populated once per panel
+  // open from the canonical registry (server-filtered to this user's roles).
+  const [skillCatalog, setSkillCatalog] = useState(null); // null = not fetched
+  const [slashIndex, setSlashIndex] = useState(0);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);            // KEITH-CHAT-UX-1: scroll container, for near-bottom detection
@@ -70,10 +92,49 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
 
 
   const firstName = userProfile?.full_name?.split(' ')[0];
+  // KEITH-REFRESH-1: the welcome states what Keith actually is today - governed
+  // Knowledge Center answers first, live authorized data, Contacts lookups,
+  // drafting, and Skills - in current product terminology.
   const welcomeMessage = {
     id: 'welcome',
     role: 'keith',
-    text: `Hi${firstName ? `, ${firstName}` : ''}! I'm Keith, your ASPIRE assistant.\n\nI'm here to help you manage the ASPIRE workflow. I can help you:\n\n• Identify students who need follow-up\n• Summarize cohort status\n• Draft common ASPIRE emails\n• Answer questions about any part of the program\n\nWhat can I help you with today?`,
+    text: `Hi${firstName ? `, ${firstName}` : ''}! I'm Keith, your ASPIRE assistant.\n\nI answer from ASPIRE's governed Knowledge Center and your live cohort data. Ask me to:\n\n• Answer program, policy, and routing questions from governed guidance\n• Check live status, placements, and On Campus Now\n• Look up people in ASPIRE Connect Contacts\n• Draft ASPIRE emails, signed as you\n\nType / to use a Skill, or just ask.`,
+  };
+
+  // Fetch the caller's invocable skills (metadata only) the first time the
+  // slash menu is needed. Failure degrades to "no menu", never to an error.
+  const ensureSkillCatalog = async () => {
+    if (skillCatalog !== null) return;
+    try {
+      let accessToken = null;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        accessToken = session?.access_token || null;
+      } catch { /* no session */ }
+      const res = await fetch('/api/keith', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+        body: JSON.stringify({ mode: 'skills_catalog' }),
+      });
+      const json = await res.json().catch(() => null);
+      setSkillCatalog(res.ok && Array.isArray(json?.skills) ? json.skills : []);
+    } catch { setSkillCatalog([]); }
+  };
+
+  // The slash menu is open while the input starts with "/" and skills match the
+  // typed filter. "/res" filters to slugs/names containing "res".
+  const slashActive = input.startsWith('/');
+  const slashFilter = slashActive ? input.slice(1).toLowerCase() : '';
+  const slashMatches = slashActive && Array.isArray(skillCatalog)
+    ? skillCatalog.filter(s =>
+        s.slug.toLowerCase().includes(slashFilter)
+        || String(s.name || '').toLowerCase().includes(slashFilter))
+    : [];
+
+  const applySlashSelection = (skill) => {
+    setInput(`/${skill.slug} `);
+    setSlashIndex(0);
+    inputRef.current?.focus();
   };
 
   const handleSend = async (messageText) => {
@@ -81,13 +142,27 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     const text = messageText || input.trim();
     if (!text) return;
 
+    // KEITH-SLASH-SKILLS-1: a leading /slug that names an invocable skill sends
+    // that skill's canonical invocation (skill_slug) with the remaining text as
+    // the skill's input. Natural-language trigger phrases continue to work
+    // server-side exactly as before.
+    let skillSlug = null;
+    let outgoingText = text;
+    const slashMatch = /^\/([a-z0-9][a-z0-9-]*)\s*(.*)$/s.exec(text);
+    if (slashMatch && Array.isArray(skillCatalog) && skillCatalog.some(s => s.slug === slashMatch[1])) {
+      skillSlug = slashMatch[1];
+      outgoingText = slashMatch[2].trim() || text;
+    }
+
     const userMessage = { id: Date.now(), role: 'user', text };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
 
-    // Include last 10 messages for context window efficiency
-    const conversationHistory = [...messages, userMessage].slice(-10);
+    // Include last 10 messages for context window efficiency. For a slash-skill
+    // invocation, the OUTGOING text is the skill input (e.g. the student name)
+    // while the displayed message keeps what the user typed.
+    const conversationHistory = [...messages, { ...userMessage, text: outgoingText }].slice(-10);
 
     // Read live cohort data from the React Query cache
     // ON-CAMPUS-NOW-UX-1: the obsolete onCampusToday read was removed. It read the phantom
@@ -190,6 +265,8 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
             messages: conversationHistory,
             liveData,
             cohortName,
+            chat_model: chatModel,
+            ...(skillSlug ? { skill_slug: skillSlug } : {}),
             userProfile: userProfile ? {
               full_name: userProfile.full_name,
               email:     userProfile.email,
@@ -564,14 +641,11 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                           user messages stay plain text. */}
                       {msg.role === 'keith' ? renderMarkdownLite(msg.text) : formatText(msg.text)}
                     </div>
-                    {msg.role === 'keith' && (
-                      <div style={{
-                        fontSize: '9px',
-                        color: msg.isAI ? '#166534' : '#9ca3af',
-                        marginTop: '2px',
-                        paddingLeft: '2px',
-                      }}>
-                        {msg.isAI ? '✦ Keith AI' : '◦ Static'}
+                    {/* KEITH-REFRESH-1: only real Keith answers carry a badge;
+                        the prototype-era fallback label is retired. */}
+                    {msg.role === 'keith' && msg.isAI && (
+                      <div style={{ fontSize: '9px', color: '#166534', marginTop: '2px', paddingLeft: '2px' }}>
+                        ✦ Keith
                       </div>
                     )}
 
@@ -694,13 +768,68 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               display: 'flex',
               gap: '8px',
               flexShrink: 0,
+              position: 'relative',
             }}>
+              {/* KEITH-SLASH-SKILLS-1: the Skills menu. Rendered above the input
+                  while "/" is typed; ArrowUp/Down + Enter, or click, selects. */}
+              {slashActive && skillCatalog !== null && (
+                slashMatches.length > 0 ? (
+                  <div role="listbox" aria-label="Skills" style={{
+                    position: 'absolute', bottom: '100%', left: 16, right: 16,
+                    marginBottom: 4, background: '#ffffff',
+                    border: '1px solid #e0e7ff', borderRadius: 10,
+                    boxShadow: '0 6px 24px rgba(29,37,103,0.16)',
+                    maxHeight: 180, overflowY: 'auto', zIndex: 5,
+                  }}>
+                    {slashMatches.map((s, i) => (
+                      <div
+                        key={s.slug}
+                        role="option"
+                        aria-selected={i === slashIndex}
+                        onMouseDown={e => { e.preventDefault(); applySlashSelection(s); }}
+                        onMouseEnter={() => setSlashIndex(i)}
+                        style={{
+                          padding: '8px 12px', cursor: 'pointer',
+                          background: i === slashIndex ? '#eef2ff' : 'transparent',
+                        }}
+                      >
+                        <div style={{ fontFamily: 'DM Sans', fontSize: 12.5, fontWeight: 600, color: '#1d2567' }}>/{s.slug}</div>
+                        {s.description && (
+                          <div style={{ fontFamily: 'DM Sans', fontSize: 11, color: '#6b7280', marginTop: 1 }}>{s.description}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    position: 'absolute', bottom: '100%', left: 16, right: 16, marginBottom: 4,
+                    background: '#ffffff', border: '1px solid #e0e7ff', borderRadius: 10,
+                    boxShadow: '0 6px 24px rgba(29,37,103,0.16)', padding: '8px 12px',
+                    fontFamily: 'DM Sans', fontSize: 11.5, color: '#6b7280', zIndex: 5,
+                  }}>
+                    {skillCatalog.length === 0 ? 'No Skills are available to your role.' : 'No Skill matches. Keep typing or press Escape.'}
+                  </div>
+                )
+              )}
               <input
                 ref={inputRef}
                 value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder="Ask Keith anything about ASPIRE..."
+                onChange={e => {
+                  const v = e.target.value;
+                  setInput(v);
+                  setSlashIndex(0);
+                  if (v.startsWith('/')) ensureSkillCatalog();
+                }}
+                onKeyDown={e => {
+                  if (slashActive && slashMatches.length > 0) {
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIndex(i => (i + 1) % slashMatches.length); return; }
+                    if (e.key === 'ArrowUp') { e.preventDefault(); setSlashIndex(i => (i - 1 + slashMatches.length) % slashMatches.length); return; }
+                    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); applySlashSelection(slashMatches[Math.min(slashIndex, slashMatches.length - 1)]); return; }
+                    if (e.key === 'Escape') { e.stopPropagation(); setInput(''); return; }
+                  }
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                }}
+                placeholder="Ask Keith, or type / for Skills..."
                 style={{
                   flex: 1,
                   border: '1px solid #e5e7eb',
@@ -735,13 +864,30 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               </button>
             </div>
 
-            {/* Phase note */}
+            {/* Footer: current sources + the model control. */}
             <div style={{
-              padding: '6px 16px 10px',
-              fontFamily: 'DM Sans', fontSize: '10px',
-              color: '#9ca3af', textAlign: 'center',
+              padding: '4px 16px 10px',
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontFamily: 'DM Sans', fontSize: '10px', color: '#9ca3af',
             }}>
-              Keith · Live data · {cohortName || 'No cohort'} · Powered by Claude
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Knowledge Center + live data · {cohortName || 'No cohort'}
+              </span>
+              {/* KEITH-MODEL-SELECT-1: Auto keeps Keith's normal routing; the
+                  server enforces who may choose Sonnet. */}
+              <select
+                aria-label="Model"
+                value={chatModel}
+                onChange={e => pickModel(e.target.value)}
+                style={{
+                  marginLeft: 'auto', flexShrink: 0,
+                  fontFamily: 'DM Sans', fontSize: '10px', color: '#6b7280',
+                  border: '1px solid #e5e7eb', borderRadius: 6,
+                  background: '#f9fafb', padding: '2px 4px', cursor: 'pointer',
+                }}
+              >
+                {modelChoices.map(m => <option key={m} value={m}>{MODEL_LABELS[m]}</option>)}
+              </select>
             </div>
           </div>
         </>
