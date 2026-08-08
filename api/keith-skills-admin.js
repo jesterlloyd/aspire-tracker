@@ -14,7 +14,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { isKnownRoute } from '../lib/server/keith/modelRouting.js'
-import { VALID_ROLES, VALID_DATA_GRANTS, parseSkillPackage, serializeSkillPackage } from '../lib/server/keith/skillPackage.js'
+import {
+  VALID_ROLES, VALID_DATA_GRANTS, parseSkillPackage, serializeSkillPackage,
+  normalizeExternalPackage, composeInstructionBody, splitInstructionBody,
+  isValidReferenceName, MAX_REFERENCES,
+} from '../lib/server/keith/skillPackage.js'
 
 const INVOCATION_WINDOW_DAYS = 30
 
@@ -26,7 +30,8 @@ const ACTION_SCHEMAS = {
   get_skill:          ['skill_id'],
   create_skill_draft: ['slug', 'display_name', 'description', 'allowed_roles', 'required_tools', 'required_data', 'trigger_phrases', 'data_classification', 'model_route', 'instruction_body'],
   update_skill_draft: ['skill_id', 'display_name', 'description', 'allowed_roles', 'required_tools', 'required_data', 'trigger_phrases', 'data_classification', 'model_route', 'instruction_body'],
-  import_skill_package: ['source'],
+  import_skill_package: ['source', 'references', 'update_existing'],
+  preview_skill_package: ['source', 'references'],
   export_skill_package: ['skill_id'],
   list_skill_versions: ['skill_id'],
   activate_skill:      ['skill_id', 'change_note'],
@@ -50,7 +55,7 @@ const VALID_CLASSIFICATIONS = ['internal', 'confidential']
 // an undeclarable tool cannot be granted by a skill row.
 const VALID_TOOLS = ['search_students', 'get_student_detail', 'get_unit_details', 'get_cohort_summary']
 
-const LIST_COLUMNS = 'id, slug, display_name, description, version, status, enabled, allowed_roles, required_tools, required_data, trigger_phrases, data_classification, model_route, updated_at'
+const LIST_COLUMNS = 'id, slug, display_name, description, version, status, enabled, allowed_roles, required_tools, required_data, trigger_phrases, data_classification, model_route, provenance, updated_at'
 
 function serviceClient() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -300,27 +305,106 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true })
       }
 
+      // KEITH-SKILL-INSTALL-1: shared parse for preview and import. The client
+      // sends TEXT ONLY (SKILL.md source + markdown/text references extracted
+      // client-side); binaries and scripts never reach this endpoint. The
+      // external-compat pass maps what Keith understands and NAMES what it
+      // does not - an unsupported frontmatter key is a warning, never a
+      // silently honored capability.
+      case 'preview_skill_package':
       case 'import_skill_package': {
-        const parsed = parseSkillPackage(String(body.source || ''))
+        const compat = normalizeExternalPackage(String(body.source || ''))
+        const parsed = parseSkillPackage(compat.source)
         if (!parsed.ok) return res.status(400).json({ error: 'invalid_package', details: parsed.errors })
+
+        const rawRefs = Array.isArray(body.references) ? body.references : []
+        if (rawRefs.length > MAX_REFERENCES) {
+          return res.status(400).json({ error: 'invalid_package', details: [`too many reference files (max ${MAX_REFERENCES})`] })
+        }
+        const references = []
+        const refProblems = []
+        for (const r of rawRefs) {
+          const name = String(r?.name || '')
+          if (!isValidReferenceName(name)) { refProblems.push(`unsupported reference file: ${name || '(unnamed)'}`); continue }
+          references.push({ name, content: String(r?.content || '') })
+        }
         const s = parsed.skill
-        // An imported package ALWAYS lands as a disabled draft, whatever it says
-        // about itself. Activation is an act taken in the app, after review.
-        const { data, error } = await db.from('keith_skills').insert({
-          slug: s.slug, display_name: s.display_name, description: s.description,
+        const instructionBody = composeInstructionBody(s.instruction_body, references)
+        if (instructionBody.length > CAPS.instruction_body) {
+          return res.status(400).json({ error: 'invalid_package', details: [`instructions + references exceed ${CAPS.instruction_body} characters`] })
+        }
+
+        // Slug conflict inspection. A built-in skill (anything not previously
+        // imported) can NEVER be updated by a package that reuses its slug.
+        const { data: existing, error: exErr } = await db.from('keith_skills')
+          .select('id, slug, display_name, status, enabled, version, provenance')
+          .eq('slug', s.slug).maybeSingle()
+        if (exErr) return res.status(500).json({ error: 'internal_error' })
+        const existingIsImported = existing ? String(existing.provenance || '').startsWith('imported') : false
+        const conflict = existing ? {
+          slug: existing.slug, display_name: existing.display_name,
+          status: existing.status, enabled: existing.enabled, version: existing.version,
+          kind: existingIsImported ? 'imported' : 'builtin',
+          updatable: existingIsImported,
+        } : null
+
+        const warnings = [
+          ...parsed.warnings,
+          ...compat.unsupported.map(k => `unsupported frontmatter "${k}" ignored (not a Keith capability)`),
+          ...compat.mapped.map(m => `compat: ${m}`),
+          ...refProblems,
+        ]
+
+        if (action === 'preview_skill_package') {
+          return res.status(200).json({
+            ok: true,
+            preview: {
+              slug: s.slug, display_name: s.display_name, description: s.description,
+              trigger_phrases: s.trigger_phrases, allowed_roles: s.allowed_roles,
+              required_tools: s.required_tools, required_data: s.required_data,
+              data_classification: s.data_classification, model_route: s.model_route,
+              source_label: s.provenance, owner_label: s.owner_label,
+              instruction_chars: s.instruction_body.length,
+              references: references.map(r => ({ name: r.name, chars: r.content.length })),
+            },
+            warnings,
+            conflict,
+          })
+        }
+
+        // IMPORT. Update path: only an explicitly requested update, and only
+        // onto a previously IMPORTED skill - never a built-in. Every import
+        // lands as a DISABLED DRAFT (the safest existing non-live state),
+        // whatever the package or the previous row said.
+        const row = {
+          display_name: s.display_name, description: s.description,
           allowed_roles: s.allowed_roles, required_tools: s.required_tools,
           required_data: s.required_data, trigger_phrases: s.trigger_phrases,
           data_classification: s.data_classification, model_route: s.model_route,
-          instruction_body: s.instruction_body, owner_label: s.owner_label,
+          instruction_body: instructionBody, owner_label: s.owner_label,
           provenance: `imported: ${s.provenance}`,
-          status: 'draft', enabled: false, version: 0,
-          created_by: auth.profileId, updated_by: auth.profileId,
+          status: 'draft', enabled: false,
+          updated_by: auth.profileId,
+        }
+        if (existing) {
+          if (body.update_existing !== true) {
+            return res.status(409).json({ error: 'slug_taken', conflict })
+          }
+          if (!existingIsImported) {
+            return res.status(409).json({ error: 'builtin_protected', conflict })
+          }
+          const { error: upErr } = await db.from('keith_skills').update(row).eq('id', existing.id)
+          if (upErr) return res.status(500).json({ error: 'internal_error' })
+          return res.status(200).json({ ok: true, skill: { id: existing.id, slug: s.slug }, updated: true, warnings })
+        }
+        const { data, error } = await db.from('keith_skills').insert({
+          ...row, slug: s.slug, version: 0, created_by: auth.profileId,
         }).select('id, slug').maybeSingle()
         if (error) {
-          if (error.code === '23505') return res.status(409).json({ error: 'slug_taken' })
+          if (error.code === '23505') return res.status(409).json({ error: 'slug_taken', conflict })
           return res.status(500).json({ error: 'internal_error' })
         }
-        return res.status(200).json({ ok: true, skill: data, warnings: parsed.warnings })
+        return res.status(200).json({ ok: true, skill: data, updated: false, warnings })
       }
 
       case 'export_skill_package': {
@@ -330,7 +414,20 @@ export default async function handler(req, res) {
           .eq('id', body.skill_id).maybeSingle()
         if (error) return res.status(500).json({ error: 'internal_error' })
         if (!data) return res.status(404).json({ error: 'not_found' })
-        return res.status(200).json({ ok: true, filename: `${data.slug}/SKILL.md`, source: serializeSkillPackage(data) })
+        // KEITH-SKILL-INSTALL-1: references leave the same way they arrived -
+        // as files beside SKILL.md. The serialized SKILL.md carries only the
+        // instructions; splitInstructionBody reconstructs the reference files.
+        const parts = splitInstructionBody(data.instruction_body)
+        const skillMd = serializeSkillPackage({ ...data, instruction_body: parts.instructions })
+        return res.status(200).json({
+          ok: true,
+          filename: `${data.slug}/SKILL.md`,
+          source: skillMd,
+          files: [
+            { name: `${data.slug}/SKILL.md`, content: skillMd },
+            ...parts.references.map(r => ({ name: `${data.slug}/references/${r.name}`, content: r.content })),
+          ],
+        })
       }
 
       case 'list_skill_versions': {

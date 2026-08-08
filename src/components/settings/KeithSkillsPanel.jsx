@@ -17,6 +17,7 @@ import StateBadge from './StateBadge'
 import StatusBadge from '../ui/StatusBadge'
 import SettingsPageHeader from './SettingsPageHeader'
 import KeithSkillDrawer from './KeithSkillDrawer'
+import KeithSkillInstall from './KeithSkillInstall'
 import {
   KEITH_SKILL_STATES, ENABLED_STYLES, CLASSIFICATION_STYLES, failureCount, formatList,
 } from './keithSkillFields'
@@ -78,6 +79,24 @@ const SKILL_COLUMNS = [
         </div>
       </div>
     ),
+  },
+  {
+    // KEITH-SKILL-INSTALL-1: restrained provenance chip - Built-in vs Imported.
+    key: 'source',
+    label: 'Source',
+    render: s => {
+      const imported = String(s.provenance || '').startsWith('imported')
+      return (
+        <span style={{
+          display: 'inline-flex', borderRadius: 999, padding: '1px 8px', fontSize: 11, fontWeight: 600,
+          background: imported ? 'var(--color-bg-elevated, #eef2fb)' : 'transparent',
+          border: imported ? '1px solid var(--color-border-default, #dbe3f5)' : '1px solid transparent',
+          color: imported ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-text-secondary, #9ca3af)',
+        }}>
+          {imported ? 'Imported' : 'Built-in'}
+        </span>
+      )
+    },
   },
   { key: 'status', label: 'Status', render: s => <StateBadge state={s.status} /> },
   { key: 'enabled', label: 'Enabled', render: s => <StatusBadge value={s.enabled ? 'yes' : 'no'} colorMap={ENABLED_STYLES} /> },
@@ -239,7 +258,10 @@ export default function KeithSkillsPanel() {
         ))}
       </div>
 
-      {/* Toolbar: search only - there is no create/import affordance in this phase. */}
+      {/* KEITH-SKILL-INSTALL-1: Owner-facing Install Skill - upload, preview,
+          install. Lives above the toolbar so the review card has room. */}
+      {isOwner && <KeithSkillInstall postAdmin={postAdmin} onInstalled={loadSkills} />}
+
       <Toolbar
         search={(
           <>

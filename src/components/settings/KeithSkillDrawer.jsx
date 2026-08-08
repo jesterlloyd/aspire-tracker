@@ -170,7 +170,37 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
     }
   }
 
-  const footer = <Button variant="quiet" onClick={onClose} disabled={saving}>Close</Button>
+  // KEITH-SKILL-INSTALL-1: Download packages this skill in the portable format
+  // (SKILL.md; a .zip with references/ beside it when the skill carries any),
+  // so a Keith skill can be stored, shared, and re-installed faithfully.
+  const downloadSkill = async () => {
+    try {
+      const res = await postAdmin({ action: 'export_skill_package', skill_id: skill.id })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.files) return
+      let blob, filename
+      if (json.files.length === 1) {
+        blob = new Blob([json.files[0].content], { type: 'text/markdown;charset=utf-8' })
+        filename = `${skill.slug}.SKILL.md`
+      } else {
+        const { writeZip } = await import('../../lib/zipLite')
+        blob = new Blob([writeZip(json.files.map(f => ({ name: f.name, text: f.content })))], { type: 'application/zip' })
+        filename = `${skill.slug}.skill.zip`
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch { /* download is best-effort */ }
+  }
+
+  const footer = (
+    <>
+      <Button variant="quiet" onClick={downloadSkill} disabled={saving || !skill?.id}>Download</Button>
+      <Button variant="quiet" onClick={onClose} disabled={saving}>Close</Button>
+    </>
+  )
 
   return (
     <DetailDrawer open={open} title={skill?.display_name || 'Keith Skill'} onClose={onClose} footer={footer}>
@@ -182,6 +212,15 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
           {skill?.data_classification && (
             <StatusBadge value={skill.data_classification} colorMap={CLASSIFICATION_STYLES} dot={false} />
           )}
+          {/* KEITH-SKILL-INSTALL-1: provenance chip - Built-in vs Imported. */}
+          <span style={{
+            display: 'inline-flex', borderRadius: 999, padding: '1px 8px', fontSize: 11, fontWeight: 600,
+            background: String(skill?.provenance || '').startsWith('imported') ? 'var(--color-bg-elevated, #eef2fb)' : 'transparent',
+            border: '1px solid var(--color-border-default, #dbe3f5)',
+            color: String(skill?.provenance || '').startsWith('imported') ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-text-secondary, #9ca3af)',
+          }}>
+            {String(skill?.provenance || '').startsWith('imported') ? 'Imported' : 'Built-in'}
+          </span>
           <span style={{ color: 'var(--color-text-secondary, #6b7280)' }}>v{skill?.version ?? '-'}</span>
           <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>·</span>
           <span style={{ color: 'var(--color-text-secondary, #6b7280)' }}>Updated {fmtDate(skill?.updated_at)}</span>
