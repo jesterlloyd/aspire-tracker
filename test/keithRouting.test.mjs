@@ -156,12 +156,19 @@ test('the "future capability" Contacts posture is retired; routing precedence is
   assert.match(knowledge, /routing directory\) covers who handles a kind of request, answer from that governed entry/)
 })
 
-test('the welcome and empty state describe current capabilities in current terms', () => {
-  assert.match(keithUi, /governed Knowledge Center/)
-  assert.match(keithUi, /Type \/ to use a Skill/)
-  assert.doesNotMatch(keithUi, /◦ Static/, 'the prototype Static badge is retired')
-  assert.doesNotMatch(keithUi, /Powered by Claude/, 'the prototype footer is retired')
-  assert.match(knowledge, /Who handles a school placement request\?/)
+test('the welcome is computed, role-aware, and free of prototype messaging', () => {
+  // KEITH-WELCOME-1: the welcome card derives from keithWelcome.js (greeting,
+  // one capability sentence, role chips) - no static bullet wall, no recital.
+  assert.match(keithUi, /greetingFor\(new Date\(\), firstName\)/)
+  assert.match(keithUi, /capabilityLineFor\(\{ role: userProfile\?\.role/)
+  assert.match(keithUi, /chipsFor\(\{ role: userProfile\?\.role/)
+  assert.doesNotMatch(keithUi, /I'm Keith, your ASPIRE assistant/, 'the recited intro is retired')
+  assert.doesNotMatch(keithUi, /• Answer program, policy/, 'the bullet wall is retired')
+  assert.doesNotMatch(keithUi, /◦ Static/, 'the prototype Static badge stays retired')
+  assert.doesNotMatch(keithUi, /Powered by Claude/, 'the prototype footer stays retired')
+  // Returning users get the light form; the flag is written on engagement.
+  assert.match(keithUi, /hasSeenWelcome\(userProfile\?\.id\)/)
+  assert.match(keithUi, /rememberWelcomed\(\)/)
 })
 
 // ── Model selection ──────────────────────────────────────────────────────────
@@ -249,4 +256,73 @@ test('the / menu has keyboard and mouse selection and populates the canonical co
   assert.match(keithUi, /setInput\(`\/\$\{skill\.slug\} `\)/)
   // A typed /slug sends the canonical skill invocation.
   assert.match(keithUi, /skill_slug: skillSlug/)
+})
+
+// ── KEITH-WELCOME-1: welcome copy and orb, pinned ────────────────────────────
+
+test('greeting follows local time of day', async () => {
+  const { greetingFor } = await import('../src/lib/keithWelcome.js')
+  const at = (h) => greetingFor(new Date(2026, 7, 9, h), 'Jester')
+  assert.equal(at(8), 'Good morning, Jester')
+  assert.equal(at(14), 'Good afternoon, Jester')
+  assert.equal(at(19), 'Good evening, Jester')
+  assert.equal(at(1), 'Good evening, Jester')
+  assert.equal(greetingFor(new Date(2026, 7, 9, 9)), 'Good morning', 'no name, no dangling comma')
+})
+
+test('the capability line never promises what the role cannot do', async () => {
+  const { capabilityLineFor } = await import('../src/lib/keithWelcome.js')
+  const owner = capabilityLineFor({ isOwner: true, cohortName: 'Fall 2026' })
+  assert.match(owner, /Fall 2026 students/)
+  assert.match(owner, /contacts/)
+  // Co-Lead holds no keith_contacts capability - the line must not offer it.
+  const co = capabilityLineFor({ role: 'co-lead' })
+  assert.doesNotMatch(co, /contacts/)
+  assert.match(co, /placements/)
+  // Interviewer holds no placement capability.
+  const iv = capabilityLineFor({ role: 'interviewer' })
+  assert.doesNotMatch(iv, /placements/)
+  assert.match(iv, /interviews/)
+  // The underscore spelling is the same role.
+  assert.equal(capabilityLineFor({ role: 'co_lead' }), co)
+})
+
+test('chips are role-aware, action-oriented, and at most four', async () => {
+  const { chipsFor } = await import('../src/lib/keithWelcome.js')
+  const { can } = await import('../lib/server/access.js')
+  for (const caller of [{ isOwner: true }, { role: 'admin' }, { role: 'co-lead' }, { role: 'interviewer' }]) {
+    const chips = chipsFor(caller)
+    assert.ok(chips.length >= 3 && chips.length <= 4, `${JSON.stringify(caller)}: ${chips.length} chips`)
+  }
+  // No drafting or cohort chips for a role without those capabilities.
+  const iv = chipsFor({ role: 'interviewer' })
+  assert.ok(!iv.some(c => /draft/i.test(c)), 'interviewer cannot draft cohort emails')
+  assert.ok(!iv.some(c => /on campus|cohort/i.test(c)), 'interviewer sees no cohort-status chips')
+  // Viewer has no Keith at all - and gets no chips.
+  assert.deepEqual(chipsFor({ role: 'viewer' }), [])
+  assert.equal(can({ role: 'viewer' }, 'keith_chat'), false)
+})
+
+test('the launcher agrees with the resolved role model: no orb for Viewer', () => {
+  assert.match(keithUi, /userProfile\?\.role === 'viewer' && userProfile\?\.is_owner !== true\) return null/)
+})
+
+test('the orb is layered, state-bearing, and respects reduced motion', () => {
+  // Layered lens system, not the old flat swirl.
+  for (const cls of ['keith-orb-drift', 'keith-orb-core', 'keith-orb-lens']) {
+    assert.match(keithUi, new RegExp(cls))
+  }
+  assert.doesNotMatch(keithUi, /keithSpin|keithGlow|keithPulse/, 'the prototype swirl is retired')
+  // Thinking state quickens the same layers - state, not decoration.
+  assert.match(keithUi, /\.keith-orb\.thinking \.keith-orb-drift \{ animation-duration: 3\.2s/)
+  assert.match(keithUi, /orb\(60, isTyping\)/)
+  assert.match(keithUi, /orb\(36, isTyping\)/)
+  // Reduced motion freezes every animated layer.
+  assert.match(keithUi, /@media \(prefers-reduced-motion: reduce\)/)
+  const rm = keithUi.slice(keithUi.indexOf('prefers-reduced-motion'))
+  assert.match(rm, /animation: none/)
+})
+
+test('the panel adapts below 440px viewports', () => {
+  assert.match(keithUi, /width: 'min\(400px, calc\(100vw - 24px\)\)'/)
 })

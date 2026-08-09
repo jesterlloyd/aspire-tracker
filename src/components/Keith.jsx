@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Tooltip from './ui/Tooltip';
 import { useQueryClient } from '@tanstack/react-query';
-import { SUGGESTED_PROMPTS } from '../lib/keithKnowledge';
+import { greetingFor, capabilityLineFor, chipsFor, hasSeenWelcome, markWelcomeSeen } from '../lib/keithWelcome';
 import { useAuth } from '../contexts/AuthContext';
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed } from '../lib/floatingPanels';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
@@ -48,6 +48,11 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const nearBottomRef = useRef(true);      // KEITH-CHAT-UX-1: true while the user is near the latest message
 
   if (!isAuthenticated) return null;
+  // KEITH-WELCOME-1: the resolved role model gives Viewer no Keith access (the
+  // server 403s before any context is assembled). The launcher now agrees
+  // instead of offering a door that does not open. Chrome only - authorization
+  // is unchanged and remains server-side.
+  if (userProfile?.role === 'viewer' && userProfile?.is_owner !== true) return null;
 
   const scrollToBottom = (behavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -93,14 +98,21 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
 
 
   const firstName = userProfile?.full_name?.split(' ')[0];
-  // KEITH-REFRESH-1: the welcome states what Keith actually is today - governed
-  // Knowledge Center answers first, live authorized data, Contacts lookups,
-  // drafting, and Skills - in current product terminology.
-  const welcomeMessage = {
-    id: 'welcome',
-    role: 'keith',
-    text: `Hi${firstName ? `, ${firstName}` : ''}! I'm Keith, your ASPIRE assistant.\n\nI answer from ASPIRE's governed Knowledge Center and your live cohort data. Ask me to:\n\n• Answer program, policy, and routing questions from governed guidance\n• Check live status, placements, and On Campus Now\n• Look up people in ASPIRE Connect Contacts\n• Draft ASPIRE emails, signed as you\n\nType / to use a Skill, or just ask.`,
-  };
+  // KEITH-WELCOME-1: the welcome is computed, not recited. Time-of-day
+  // greeting, a single role-aware capability sentence (full version once per
+  // user; returning users get the light form), and role-aware chips - all
+  // decided in src/lib/keithWelcome.js where they are tested. No bullet wall,
+  // no tour, and nothing offered that this role cannot do.
+  // "Returning" flips only between sessions: it is read per render but only
+  // WRITTEN when the user actually engages (sends a message or closes the
+  // panel), so the fuller sentence never swaps out mid-first-session. No new
+  // hooks - this component's hook order is already fragile (see the
+  // pre-existing lint notes) and a welcome flag does not justify touching it.
+  const returning = hasSeenWelcome(userProfile?.id);
+  const rememberWelcomed = () => { if (!returning) markWelcomeSeen(userProfile?.id); };
+  const greeting = greetingFor(new Date(), firstName);
+  const capabilityLine = capabilityLineFor({ role: userProfile?.role, isOwner: userProfile?.is_owner, cohortName });
+  const chips = chipsFor({ role: userProfile?.role, isOwner: userProfile?.is_owner });
 
   // Fetch the caller's invocable skills (metadata only) the first time the
   // slash menu is needed. Failure degrades to "no menu", never to an error.
@@ -164,6 +176,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       outgoingText = slashMatch[2].trim() || text;
     }
 
+    rememberWelcomed();
     const userMessage = { id: Date.now(), role: 'user', text };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
@@ -361,6 +374,20 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // KEITH-ORB-1: one orb, two contexts. Layered luminous depth: a deep-navy
+  // lens base, a slowly drifting internal light field, a breathing core, and a
+  // static glass highlight. Idle motion is a 7s breathe + 16s drift - felt,
+  // not watched. While Keith is thinking the same layers quicken and brighten;
+  // no particles, no constant pulsing, and prefers-reduced-motion freezes
+  // every layer via the stylesheet below.
+  const orb = (size, thinking) => (
+    <div className={`keith-orb${thinking ? ' thinking' : ''}`} style={{ width: size, height: size }} aria-hidden="true">
+      <div className="keith-orb-drift" />
+      <div className="keith-orb-core" />
+      <div className="keith-orb-lens" />
+    </div>
+  );
+
   const formatText = (text) => {
     return text.split('\n').map((line, i) => (
       <span key={i}>{line}{i < text.split('\n').length - 1 && <br />}</span>
@@ -420,65 +447,15 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         onMouseEnter={e => { setShowTooltip(true); if (!isOpen) e.currentTarget.style.transform = 'scale(1.08)'; }}
         onMouseLeave={e => { setShowTooltip(false); if (!isOpen) e.currentTarget.style.transform = isOpen ? 'scale(0.95)' : 'scale(1)'; }}
       >
-        {/* Orb */}
+        {/* Orb - thinking state mirrors an in-flight reply. */}
         <div style={{
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          position: 'relative',
-          overflow: 'hidden',
-          background: 'radial-gradient(circle at 35% 35%, #1e0a5e, #060318)',
+          width: '60px', height: '60px', borderRadius: '50%',
           boxShadow: isOpen
-            ? '0 0 0 2px rgba(139,92,246,0.6), 0 0 24px rgba(99,102,241,0.7), 0 0 48px rgba(56,189,248,0.35)'
-            : '0 0 0 1.5px rgba(99,102,241,0.4), 0 0 14px rgba(99,102,241,0.35), 0 4px 20px rgba(0,0,0,0.5)',
+            ? '0 0 0 2px rgba(139,92,246,0.55), 0 0 22px rgba(99,102,241,0.55), 0 6px 20px rgba(0,0,0,0.35)'
+            : '0 0 0 1.5px rgba(99,102,241,0.35), 0 0 12px rgba(99,102,241,0.28), 0 4px 18px rgba(0,0,0,0.45)',
           transition: 'box-shadow 0.3s ease',
         }}>
-          {/* Purple swirl arm - rotates clockwise */}
-          <div style={{
-            position: 'absolute',
-            inset: '-8px',
-            borderRadius: '42% 58% 65% 35% / 38% 42% 58% 62%',
-            background: 'linear-gradient(140deg, rgba(167,139,250,0.92) 0%, rgba(109,40,217,0.55) 45%, transparent 75%)',
-            animation: `keithSpin ${isOpen ? '2.5s' : '4s'} linear infinite`,
-            filter: 'blur(2.5px)',
-          }} />
-          {/* Cyan swirl arm - rotates counter-clockwise */}
-          <div style={{
-            position: 'absolute',
-            inset: '-8px',
-            borderRadius: '58% 42% 35% 65% / 62% 58% 42% 38%',
-            background: 'linear-gradient(320deg, rgba(56,189,248,0.92) 0%, rgba(14,165,233,0.55) 45%, transparent 75%)',
-            animation: `keithSpin ${isOpen ? '2.5s' : '4s'} linear infinite reverse`,
-            filter: 'blur(2.5px)',
-          }} />
-          {/* Inner glow layer */}
-          <div style={{
-            position: 'absolute',
-            inset: '8px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle at 45% 40%, rgba(99,102,241,0.5) 0%, transparent 70%)',
-            animation: 'keithGlow 2.5s ease-in-out infinite',
-          }} />
-          {/* Bright center glow */}
-          <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '18px',
-            height: '18px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(186,230,253,0.75) 40%, transparent 100%)',
-            animation: 'keithPulse 2.5s ease-in-out infinite',
-          }} />
-          {/* Outer rim highlight */}
-          <div style={{
-            position: 'absolute',
-            inset: '0',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.12) 0%, transparent 60%)',
-            pointerEvents: 'none',
-          }} />
+          {orb(60, isTyping)}
         </div>
       </button>
 
@@ -487,7 +464,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         <>
           {/* Backdrop */}
           <div
-            onClick={() => setIsOpen(false)}
+            onClick={() => { rememberWelcomed(); setIsOpen(false); }}
             style={{
               position: 'fixed', inset: 0,
               background: 'rgba(0,0,0,0.15)',
@@ -499,8 +476,8 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           <div style={{
             position: 'fixed',
             bottom: '96px',
-            right: '24px',
-            width: '400px',
+            right: 'max(12px, min(24px, calc(100vw - 412px)))',
+            width: 'min(400px, calc(100vw - 24px))',
             // KEITH-CHAT-UX-1: taller, responsive height. Caps at 720px on large screens and shrinks
             // with the viewport, always leaving ~160px of vertical clearance (bottom offset + top gap)
             // so the panel never covers the app header. minHeight is itself capped to the same
@@ -526,18 +503,9 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               gap: '12px',
               flexShrink: 0,
             }}>
-              {/* Header orb - static, no animation */}
-              <div style={{
-                width: '36px', height: '36px', borderRadius: '50%',
-                position: 'relative', overflow: 'hidden', flexShrink: 0,
-                background: 'radial-gradient(circle at 35% 35%, #1e0a5e, #060318)',
-                boxShadow: '0 0 0 1px rgba(99,102,241,0.5), 0 0 8px rgba(99,102,241,0.3)',
-              }}>
-                <div style={{ position: 'absolute', inset: '-4px', borderRadius: '42% 58% 65% 35% / 38% 42% 58% 62%', background: 'linear-gradient(140deg, rgba(167,139,250,0.85) 0%, rgba(109,40,217,0.5) 45%, transparent 75%)', filter: 'blur(1.5px)' }} />
-                <div style={{ position: 'absolute', inset: '-4px', borderRadius: '58% 42% 35% 65% / 62% 58% 42% 38%', background: 'linear-gradient(320deg, rgba(56,189,248,0.85) 0%, rgba(14,165,233,0.5) 45%, transparent 75%)', filter: 'blur(1.5px)' }} />
-                <div style={{ position: 'absolute', inset: '5px', borderRadius: '50%', background: 'radial-gradient(circle at 45% 40%, rgba(99,102,241,0.45) 0%, transparent 70%)' }} />
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '10px', height: '10px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(186,230,253,0.7) 40%, transparent 100%)' }} />
-                <div style={{ position: 'absolute', inset: '0', borderRadius: '50%', background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.12) 0%, transparent 60%)', pointerEvents: 'none' }} />
+              {/* Header orb - same lens, thinking while a reply is in flight. */}
+              <div style={{ flexShrink: 0, borderRadius: '50%', boxShadow: '0 0 0 1px rgba(99,102,241,0.45), 0 0 8px rgba(99,102,241,0.28)' }}>
+                {orb(36, isTyping)}
               </div>
               <div>
                 <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '16px', color: '#ffffff' }}>Keith</div>
@@ -559,7 +527,8 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               >↺ New</button>
               </Tooltip>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => { rememberWelcomed(); setIsOpen(false); }}
+                aria-label="Close Keith"
                 style={{
                   background: 'none', border: 'none',
                   color: 'rgba(255,255,255,0.65)', cursor: 'pointer',
@@ -575,7 +544,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               display: 'flex', flexDirection: 'column', gap: '12px',
               minHeight: 0,
             }}>
-              {/* Welcome */}
+              {/* Welcome: greeting + one sentence, lighter on return visits. */}
               <div style={{
                 background: '#f0f4ff',
                 border: '1px solid #e0e7ff',
@@ -583,19 +552,24 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 padding: '12px 14px',
                 maxWidth: '90%',
               }}>
-                <div style={{ fontFamily: 'DM Sans', fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>
-                  {renderMarkdownLite(welcomeMessage.text)}
+                <div style={{ fontFamily: 'DM Sans', fontSize: '14px', fontWeight: 600, color: '#1d2567' }}>
+                  {greeting}
+                </div>
+                <div style={{ fontFamily: 'DM Sans', fontSize: '12.5px', color: '#374151', lineHeight: 1.55, marginTop: 3 }}>
+                  {returning
+                    ? <>Ask anything, or type <span style={{ fontFamily: 'ui-monospace, monospace' }}>/</span> to use a Skill.</>
+                    : <>{capabilityLine} Ask anything, or type <span style={{ fontFamily: 'ui-monospace, monospace' }}>/</span> to use a Skill.</>}
                 </div>
               </div>
 
-              {/* Suggested prompts - only show when no messages yet */}
-              {messages.length === 0 && (
+              {/* Suggested prompts - role-aware, at most four, empty state only */}
+              {messages.length === 0 && chips.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-                  {SUGGESTED_PROMPTS.map((prompt, i) => (
+                  {chips.map((label, i) => (
                     <button
                       key={i}
                       disabled={isTyping}
-                      onClick={() => handleSend(prompt.label)}
+                      onClick={() => handleSend(label)}
                       style={{
                         background: '#f9fafb',
                         border: '1px solid #e5e7eb',
@@ -621,7 +595,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         e.currentTarget.style.color = '#374151';
                       }}
                     >
-                      {prompt.label}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -850,7 +824,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                   }
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
                 }}
-                placeholder="Ask Keith, or type / for Skills..."
+                placeholder="Ask anything, or type / for a Skill…"
                 style={{
                   flex: 1,
                   border: '1px solid #e5e7eb',
@@ -892,7 +866,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               fontFamily: 'DM Sans', fontSize: '10px', color: '#9ca3af',
             }}>
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Knowledge Center + live data · {cohortName || 'No cohort'}
+                {cohortName || 'No cohort'}
               </span>
               {/* KEITH-MODEL-SELECT-1: Auto keeps Keith's normal routing; the
                   server enforces who may choose Sonnet. */}
@@ -914,8 +888,50 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         </>
       )}
 
-      {/* Keyframe animations */}
+      {/* Orb system + panel animation. Reduced motion freezes every layer. */}
       <style>{`
+        .keith-orb {
+          position: relative; overflow: hidden; border-radius: 50%;
+          background: radial-gradient(circle at 32% 30%, #241566 0%, #0d0836 55%, #060318 100%);
+        }
+        /* Internal light field: violet and cyan lobes drifting slowly. */
+        .keith-orb-drift {
+          position: absolute; inset: -35%;
+          background:
+            radial-gradient(circle at 68% 30%, rgba(167,139,250,0.75) 0%, transparent 42%),
+            radial-gradient(circle at 28% 72%, rgba(56,189,248,0.65) 0%, transparent 44%),
+            radial-gradient(circle at 55% 60%, rgba(99,102,241,0.5) 0%, transparent 50%);
+          filter: blur(4px);
+          animation: keithDrift 16s linear infinite;
+        }
+        /* Breathing core. */
+        .keith-orb-core {
+          position: absolute; top: 50%; left: 50%; width: 34%; height: 34%;
+          transform: translate(-50%, -50%);
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(186,230,253,0.55) 45%, transparent 75%);
+          animation: keithBreathe 7s ease-in-out infinite;
+        }
+        /* Static glass: top-left highlight + inner rim depth. No animation. */
+        .keith-orb-lens {
+          position: absolute; inset: 0; border-radius: 50%;
+          background:
+            radial-gradient(ellipse 55% 38% at 32% 22%, rgba(255,255,255,0.28) 0%, transparent 70%),
+            radial-gradient(circle at 50% 50%, transparent 62%, rgba(6,3,24,0.55) 100%);
+          box-shadow: inset 0 1px 2px rgba(255,255,255,0.18), inset 0 -3px 8px rgba(6,3,24,0.6);
+          pointer-events: none;
+        }
+        /* Thinking: the same layers, quicker and brighter - state, not decor. */
+        .keith-orb.thinking .keith-orb-drift { animation-duration: 3.2s; filter: blur(3px); opacity: 1; }
+        .keith-orb.thinking .keith-orb-core { animation-duration: 1.6s; }
+        @keyframes keithDrift {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes keithBreathe {
+          0%, 100% { opacity: 0.62; transform: translate(-50%, -50%) scale(0.94); }
+          50% { opacity: 0.92; transform: translate(-50%, -50%) scale(1.06); }
+        }
         @keyframes keithSlideIn {
           from { opacity: 0; transform: translateY(12px) scale(0.97); }
           to { opacity: 1; transform: translateY(0) scale(1); }
@@ -924,17 +940,12 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
           30% { opacity: 1; transform: scale(1); }
         }
-        @keyframes keithSpin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes keithPulse {
-          0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(0.95); }
-          50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-        }
-        @keyframes keithGlow {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
+        @media (prefers-reduced-motion: reduce) {
+          .keith-orb-drift, .keith-orb-core,
+          .keith-orb.thinking .keith-orb-drift, .keith-orb.thinking .keith-orb-core {
+            animation: none;
+          }
+          .keith-orb-core { opacity: 0.8; }
         }
       `}</style>
     </>
