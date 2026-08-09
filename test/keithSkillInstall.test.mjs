@@ -340,3 +340,93 @@ test('real Claude packages: block-scalar frontmatter parses and summarizes', () 
   assert.equal(literal.ok, true)
   assert.equal(literal.skill.description, 'Line one.\nLine two.')
 })
+
+// ── SKILL-REF-FIDELITY-1: a reference file is stored byte for byte ───────────
+//
+// Production QC, 2026-08-09: pathways.md round-tripped ONE BYTE shorter -
+// compose and split both trimmed, so a final newline vanished. A reference is
+// a FILE: it leaves through export as a file and may be diffed against its
+// source, so almost-identical is not identical. Compose writes exactly "\n\n"
+// between a reference and the next delimiter, and split removes exactly that.
+
+test('reference content survives every trailing-whitespace shape byte for byte', () => {
+  const shapes = {
+    'one final newline':        'Body text.\n',
+    'no final newline':         'Body text.',
+    'multiple final newlines':  'Body text.\n\n\n',
+    'intentional trailing spaces': 'Body text.   \n',
+    'trailing tab, no newline': 'Body text.\t',
+    'blank lines inside and out': 'A\n\n\nB\n\n',
+    'empty file':               '',
+  }
+  for (const [label, content] of Object.entries(shapes)) {
+    const body = composeInstructionBody('Instructions.', [{ name: 'ref.md', content }])
+    const back = splitInstructionBody(body)
+    assert.equal(back.references.length, 1, label)
+    assert.equal(back.references[0].content, content, `${label}: expected byte-identical content`)
+    assert.equal(back.instructions, 'Instructions.', `${label}: instructions unchanged`)
+  }
+})
+
+test('multiple reference files each keep their own exact bytes', () => {
+  const refs = [
+    { name: 'a.md', content: 'First.\n' },
+    { name: 'b.md', content: 'Second, no newline.' },
+    { name: 'c.md', content: 'Third.\n\n' },
+    { name: 'd.md', content: 'Fourth with spaces.  \n' },
+  ]
+  const back = splitInstructionBody(composeInstructionBody('Instr.', refs))
+  assert.deepEqual(back.references, refs)
+  // Order is preserved, and the delimiter never leaks into content.
+  assert.deepEqual(back.references.map(r => r.name), ['a.md', 'b.md', 'c.md', 'd.md'])
+  for (const r of back.references) assert.ok(!r.content.includes('SKILL REFERENCE:'))
+})
+
+test('bodies written by the previous trimming version still split correctly', () => {
+  // Byte layout is unchanged, so nothing stored needs migrating.
+  const legacy = [
+    'Instructions.', '',
+    '===== SKILL REFERENCE: a.md =====', 'A body', '',
+    '===== SKILL REFERENCE: b.md =====', 'B body',
+  ].join('\n')
+  const back = splitInstructionBody(legacy)
+  assert.equal(back.instructions, 'Instructions.')
+  assert.deepEqual(back.references, [
+    { name: 'a.md', content: 'A body' },
+    { name: 'b.md', content: 'B body' },
+  ])
+})
+
+test('download → re-import is byte-identical, references included', async () => {
+  // The full portable path: stored body → SKILL.md + reference files → .skill
+  // zip → upload → stored body. Nothing may shift by a byte.
+  const refs = [
+    { name: 'guide.md', content: '# Guide\n\nUse it.\n' },   // final newline
+    { name: 'notes.md', content: 'No trailing newline here.' },
+  ]
+  const skill = {
+    slug: 'round-trip-fx', display_name: 'Round Trip FX', description: 'd', version: 2,
+    status: 'active', allowed_roles: ['owner'], required_tools: [], required_data: [],
+    trigger_phrases: ['round trip'], data_classification: 'internal',
+    model_route: 'default', provenance: 'ASPIRE',
+  }
+  const stored = composeInstructionBody('Do the thing.', refs)
+
+  const parts = splitInstructionBody(stored)
+  const zip = writeZip([
+    { name: `${skill.slug}/SKILL.md`, text: serializeSkillPackage({ ...skill, instruction_body: parts.instructions }) },
+    ...parts.references.map(r => ({ name: `${skill.slug}/references/${r.name}`, text: r.content })),
+  ])
+
+  const { entries } = await readZip(zip.buffer)
+  const td = new TextDecoder()
+  const md = td.decode(entries.find(e => /SKILL\.md$/.test(e.name)).bytes)
+  const backRefs = entries.filter(e => /references\//.test(e.name))
+    .map(e => ({ name: e.name.split('/').pop(), content: td.decode(e.bytes) }))
+  assert.deepEqual(backRefs, refs, 'reference files survive the zip unchanged')
+
+  const parsed = parseSkillPackage(normalizeExternalPackage(md).source)
+  assert.equal(parsed.ok, true)
+  assert.equal(composeInstructionBody(parsed.skill.instruction_body, backRefs), stored,
+    'the re-imported stored body is byte-identical to the original')
+})
