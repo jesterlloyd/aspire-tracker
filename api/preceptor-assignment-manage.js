@@ -8,6 +8,7 @@
 /* global process */
 
 import { createClient } from '@supabase/supabase-js'
+import { can as canAccess } from '../lib/server/access.js'
 import { mapRpcStatus, mapRpcError } from './lib/unitLeaderRpcErrors.js'
 
 async function verifyStaffCaller(req) {
@@ -34,7 +35,8 @@ async function verifyStaffCaller(req) {
       return { ok: false, status: 403, error: 'forbidden' }
     }
     const role = profile.role || ''
-    if (profile.is_owner !== true && !['owner', 'admin'].includes(role)) {
+    // ROLE-MODEL-1: placement management is Owner/Admin/Co-Lead (canonical table).
+    if (!canAccess(profile, 'placement_manage')) {
       return { ok: false, status: 403, error: 'forbidden' }
     }
     return { ok: true, db: admin, profile }

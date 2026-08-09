@@ -24,6 +24,7 @@ import { usePresence } from '../../contexts/PresenceContext'
 import { supabase } from '../../lib/supabase'
 import StatusBadge from '../ui/StatusBadge'
 import { FilterKPICard } from '../KPIBand'
+import RoleGuidePanel from './RoleGuidePanel'
 import { UserInitials, displayRole, formatLoginDate, ROLE_OPTIONS, compareAccountsByName } from './accountsShared'
 import { SETTINGS_HEADING_STYLE } from './settingsSections'
 import { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, PORTAL_STATUS_STYLES, EXPIRING_SOON_DAYS, summarizeScope } from '../../lib/portalAccessStatus'
@@ -182,7 +183,7 @@ export default function AccountsDirectory() {
   const queryClient = useQueryClient()
   const isNarrow = useIsNarrow()
 
-  const [tab, setTab] = useState('staff') // staff | portal
+  const [tab, setTab] = useState('staff') // staff | portal | guide (ROLE-GUIDE-1)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -401,7 +402,9 @@ export default function AccountsDirectory() {
           Staff Access: four staff cards. Every card is a toggleable quick filter that
           combines with search and the dropdowns; counts update with the same query
           invalidations that refresh the tables. */}
-      {tab === 'portal' ? (
+      {/* ROLE-GUIDE-1: the Role Guide is a reference, not a list - it has no
+          rows to count or filter, so the KPI row is skipped for it. */}
+      {tab === 'guide' ? null : tab === 'portal' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
           <FilterKPICard value={counts.allGrants} label="All Portal Users" sub="Every portal grant" accent="nightfall"
             active={!roleFilter && !statusFilter && !expiringOnly}
@@ -448,6 +451,12 @@ export default function AccountsDirectory() {
               color: tab === 'staff' ? '#fff' : 'var(--text-secondary,#4A5560)', transition: 'all 0.12s' }}>
             Staff Access
           </button>
+          <button type="button" onClick={() => switchTab('guide')}
+            style={{ height: 32, padding: '0 13px', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: F, fontWeight: 500,
+              background: tab === 'guide' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+              color: tab === 'guide' ? '#fff' : 'var(--text-secondary,#4A5560)', transition: 'all 0.12s', order: 3 }}>
+            Role Guide
+          </button>
           <button type="button" onClick={() => switchTab('portal')}
             style={{ height: 32, padding: '0 13px', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: F, fontWeight: 500,
               background: tab === 'portal' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
@@ -456,6 +465,7 @@ export default function AccountsDirectory() {
           </button>
         </div>
 
+        {tab !== 'guide' && <>
         <div style={{ position: 'relative', flex: '1 1 260px', minWidth: 200 }}>
           <Search size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search accounts by name or email" aria-label="Search accounts"
@@ -469,6 +479,7 @@ export default function AccountsDirectory() {
           <option value="">All statuses</option>
           {statusFilterOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+        </>}
       </div>
 
       <div style={{ border: '1px solid #eceef2', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
@@ -480,6 +491,9 @@ export default function AccountsDirectory() {
             onEdit={(u) => setStaffEdit(u)}
             onToggleActive={handleToggleActive}
             onResetPw={sendPasswordReset} />
+        )}
+        {tab === 'guide' && (
+          <div style={{ padding: 16 }}><RoleGuidePanel /></div>
         )}
         {tab === 'portal' && (
           <PortalPanel isNarrow={isNarrow} loading={portalQuery.isLoading} error={portalQuery.error}

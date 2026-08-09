@@ -35,6 +35,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { can as canAccess } from '../lib/server/access.js'
 import { resolveRoute, QUALITY_ROUTE } from '../lib/server/keith/modelRouting.js'
 import {
   buildPlanPrompt, buildEntryPrompt, buildRetryNote, extractJson, validatePlan,
@@ -166,8 +167,15 @@ export default async function handler(req, res) {
   const requestId = `ke_${randomUUID().slice(0, 8)}`
   const auth = await verifyCaller(req)
   if (!auth.authenticated) return res.status(auth.status || 401).json({ error: auth.reason || 'unauthorized' })
-  // OWNER ONLY. Admins review; the Owner triggers.
-  if (!auth.isOwner) return res.status(403).json({ error: 'owner_required' })
+  // ROLE-MODEL-1: running enrichment (which writes pending revisions and
+  // spends model budget) stays OWNER-ONLY. An Admin may read the corpus plan
+  // - enrich_plan writes nothing - so the review can begin without the Owner.
+  // Every write path below remains Owner-gated.
+  const isPlanOnly = String(req.body?.action || '') === 'enrich_plan'
+  const allowed = isPlanOnly
+    ? canAccess(auth, 'enrichment_preview')
+    : canAccess(auth, 'enrichment_run')
+  if (!allowed) return res.status(403).json({ error: 'owner_required' })
 
   const body = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {}
   const action = String(body.action || '')

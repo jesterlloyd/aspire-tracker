@@ -7,6 +7,7 @@
 // Run: node --test test/keithSkillsP1.test.mjs
 
 import test from 'node:test'
+import { can as canAccess } from '../lib/server/access.js'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -291,9 +292,14 @@ test('CO-LEAD IS READ-ONLY: every student-file MUTATION path stays Owner/Admin',
   //    object - it must be gated identically.
   const update = read('api/student-update.js')
   assert.match(update, /const PROFILE_FIELDS = \[[^\]]*'resume_url', 'headshot_url'\]/)
-  assert.match(update, /const isOwnerAdmin  = auth\.isOwner \|\| auth\.role === 'admin'/)
-  assert.match(update, /if \(action === 'update_profile'\) \{\n\s+if \(!isOwnerAdmin\) return res\.status\(403\)/)
-  assert.doesNotMatch(update, /co-lead|co_lead/)
+  // ROLE-MODEL-1: the predicate now comes from the canonical table, but the
+  // PROPERTY is unchanged and still asserted - update_profile is admin-level,
+  // because it can rewrite a student file reference.
+  assert.match(update, /const isOwnerAdmin  = isAdminLevel\(auth\)/)
+  const profileAt = update.indexOf("if (action === 'update_profile') {")
+  assert.match(update.slice(profileAt, profileAt + 600), /if \(!isOwnerAdmin\) return res\.status\(403\)/)
+  // And the capability table itself keeps co-lead out of file mutation.
+  assert.equal(canAccess({ role: 'co-lead' }, 'student_files_manage'), false)
 
   // 4. Client capabilities: manage and badge stay Owner/Admin while READ widens.
   const auth = read('src/contexts/AuthContext.jsx')

@@ -20,6 +20,7 @@
 // Authorization: Bearer <session token>  (Owner/Admin)
 
 import { createClient } from '@supabase/supabase-js'
+import { can as canAccess } from '../lib/server/access.js'
 
 const ROLES_ALLOWED   = new Set(['secondary', 'coverage'])  // never 'primary'
 const END_STATUSES    = new Set(['ended', 'removed'])
@@ -61,11 +62,8 @@ async function verifyCaller(req) {
     const { data: profile, error: pErr } = await admin
       .from('user_profiles').select('id, role, is_owner').eq('auth_user_id', user.id).maybeSingle()
     if (pErr || !profile) return { ok: false, status: 403, error: 'Forbidden' }
-    // Effective Owner/Admin rule - honors is_owner, matching the canonical app convention
-    // (api/student-update.js: auth.isOwner || role === 'admin'); union with explicit roles here.
-    const role = profile.role || ''
-    const isOwnerAdmin = profile.is_owner === true || ['owner', 'admin'].includes(role)
-    if (!isOwnerAdmin) return { ok: false, status: 403, error: 'Forbidden' }
+    // ROLE-MODEL-1: placement management is Owner/Admin/Co-Lead (canonical table).
+    if (!canAccess(profile, 'placement_manage')) return { ok: false, status: 403, error: 'Forbidden' }
     return { ok: true, admin, profileId: profile.id }
   } catch {
     return { ok: false, status: 401, error: 'Unauthorized' }

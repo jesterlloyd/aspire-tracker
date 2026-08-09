@@ -128,7 +128,7 @@ test('the client reads the new counts and keeps pending/expiring from the same c
 // ── Tab isolation + card/dropdown synchronization ────────────────────────────────────
 
 test('KPI rows are tab-gated: portal cards never render on Staff, and vice versa', () => {
-  assert.match(dir, /\{tab === 'portal' \? \(/)
+  // ROLE-GUIDE-1: a third tab (Role Guide) joined the control; it has no\n  // rows, so it renders no KPI row. Gating is still asserted here.\n  assert.match(dir, /\{tab === 'guide' \? null : tab === 'portal' \? \(/)
   // Role cards and the dropdown share ONE state (roleFilter), so contradictory
   // states are structurally impossible.
   assert.match(dir, /const toggleRoleCard = \(role\) => \{ setRoleFilter\(r => r === role \? '' : role\) \}/)

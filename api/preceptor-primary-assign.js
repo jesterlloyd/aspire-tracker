@@ -13,6 +13,7 @@
 // Authorization: Bearer <session token> (Owner/Admin)
 
 import { createClient } from '@supabase/supabase-js'
+import { can as canAccess } from '../lib/server/access.js'
 import { mapRpcStatus, mapRpcError } from './lib/unitLeaderRpcErrors.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -44,8 +45,8 @@ async function verifyCaller(req) {
     if (pErr || !profile) return { ok: false, status: 403, error: 'Forbidden' }
     if (profile.is_active === false) return { ok: false, status: 403, error: 'Forbidden' }
     const role = profile.role || ''
-    const isOwnerAdmin = profile.is_owner === true || ['owner', 'admin'].includes(role)
-    if (!isOwnerAdmin) return { ok: false, status: 403, error: 'Forbidden' }
+    // ROLE-MODEL-1: placement management is Owner/Admin/Co-Lead (canonical table).
+    if (!canAccess(profile, 'placement_manage')) return { ok: false, status: 403, error: 'Forbidden' }
     return { ok: true, admin, profileId: profile.id }
   } catch {
     return { ok: false, status: 401, error: 'Unauthorized' }

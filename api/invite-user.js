@@ -85,7 +85,10 @@ async function recordStaffInviteEvent(db, { eventType, email, actorProfileId = n
   } catch { /* diagnostics never block the invitation */ }
 }
 
-const PERMITTED_INVITE_ROLES = ['admin', 'interviewer', 'viewer'];
+// ROLE-MODEL-1: Viewer is retired for new assignments (existing Viewer
+// accounts are untouched and keep working). Owner is a capability, never
+// invitable. Co-Lead is invitable now that the server honors its scope.
+const PERMITTED_INVITE_ROLES = ['admin', 'co-lead', 'interviewer'];
 
 // ── Server-verified caller identity (WS1 pattern, replicated - not extracted) ──
 async function verifyCaller(req) {
@@ -136,7 +139,10 @@ function canInvite(role, isOwner) {
 // May the caller invite this specific role? (default deny)
 function canCallerInviteRole(callerRole, callerIsOwner, requestedRole) {
   if (callerIsOwner) return PERMITTED_INVITE_ROLES.includes(requestedRole);
-  if (callerRole === 'admin') return requestedRole === 'interviewer' || requestedRole === 'viewer';
+  // ROLE-MODEL-1: an Admin may invite the operational roles below Admin.
+  // Inviting an Admin stays Owner-only; Viewer is retired and invitable by
+  // no one.
+  if (callerRole === 'admin') return requestedRole === 'co-lead' || requestedRole === 'interviewer';
   return false;
 }
 

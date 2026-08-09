@@ -263,7 +263,7 @@ test('My Profile is a real routed destination with a nav item', () => {
 // ── Owner/Admin editing (including locked profiles) ──────────────────────────────────
 
 test('staff availability correction: Owner/Admin action with canonical sanitizers, not lock-gated', () => {
-  assert.match(studentUpd, /if \(action === 'update_student_availability'\) \{\s*\n\s*if \(!isOwnerAdmin\) return res\.status\(403\)/)
+  assert.match(studentUpd, /if \(action === 'update_student_availability'\) \{\s*\n\s*if \(!canStudentManage\) return res\.status\(403\)/)
   assert.match(studentUpd, /sanitizeWeekdays\(payload\.unavailable_weekdays\)/)
   assert.match(studentUpd, /sanitizeIsoDates\(payload\.personal_blackout_dates\)/)
   assert.match(studentUpd, /coerceBoolOrNull\(payload\.weekends_available\)/)

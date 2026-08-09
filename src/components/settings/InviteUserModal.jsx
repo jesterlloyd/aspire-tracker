@@ -29,7 +29,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Mail, Loader, ChevronLeft, ShieldCheck, Contact as ContactIcon, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { ROLE_OPTIONS } from './accountsShared'
+import { ROLE_OPTIONS, OWNER_NOT_ASSIGNABLE_NOTE } from './accountsShared'
 import ContactSuggest from './ContactSuggest'
 import { searchContacts } from '../../lib/contactSearch'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
@@ -154,6 +154,13 @@ export default function InviteUserModal({ onClose, onInvited }) {
                   style={{ ...field, cursor: 'pointer' }}>
                   {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}, {r.description}</option>)}
                 </select>
+                {/* ROLE-GUIDE-1: the selected role's audited consequence, plus
+                    the reason Owner is not in the list. A grant should never be
+                    made from the label alone. */}
+                <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 5, lineHeight: 1.5 }}>
+                  {ROLE_OPTIONS.find(r => r.value === role)?.description}
+                  <div style={{ marginTop: 3 }}>{OWNER_NOT_ASSIGNABLE_NOTE}</div>
+                </div>
               </div>
 
               <div style={{ marginBottom: 12 }}>

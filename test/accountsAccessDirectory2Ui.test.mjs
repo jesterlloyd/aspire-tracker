@@ -73,7 +73,7 @@ test('PORTAL_STATUS_STYLES has a labelled pending entry', async (t) => {
 // segmented control owns that) - they only toggle filters within the current tab.
 test('AccountsDirectory KPI card wiring', async (t) => {
   await t.test('the portal row carries the six portal-access cards, tab-gated', () => {
-    assert.match(dir, /\{tab === 'portal' \? \(/)
+    // ROLE-GUIDE-1: a third tab (Role Guide) joined the control; it has no\n  // rows, so it renders no KPI row. Gating is still asserted here.\n  assert.match(dir, /\{tab === 'guide' \? null : tab === 'portal' \? \(/)
     for (const label of ['All Portal Users', 'Students', 'Unit Leaders', 'Academic Partners', 'Pending Invitations', 'Expiring Soon']) {
       assert.match(dir, new RegExp(`label="${label}"`), label)
     }

@@ -262,8 +262,16 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
                The Owner assigns roles HERE, from the canonical vocabulary,
                through the existing update_skill_draft action. */
             <span style={{ display: 'inline-flex', gap: 10, flexWrap: 'wrap' }}>
-              {['owner', 'admin', 'co-lead', 'interviewer'].map(r => (
-                <label key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12.5, cursor: 'pointer' }}>
+              {/* ROLE-GUIDE-1: what granting each role to a SKILL actually
+                  means. Viewer is absent because Keith Skills deny Viewer at
+                  the authorization layer and the endpoint refuses to store it. */}
+              {[
+                ['owner', 'always allowed, listed or not'],
+                ['admin', 'full administration'],
+                ['co-lead', 'student-record access'],
+                ['interviewer', 'entitled cohorts only'],
+              ].map(([r, meaning]) => (
+                <label key={r} title={`${r}: ${meaning}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12.5, cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={(skill.allowed_roles || []).includes(r)}
@@ -275,12 +283,15 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
                       if (res.ok) onChanged?.(skill.id)
                     }}
                   />
-                  {r}
+                  <span>{r} <span style={{ color: 'var(--color-text-secondary, #9ca3af)', fontSize: 11 }}>({meaning})</span></span>
                 </label>
               ))}
               {(skill.allowed_roles || []).length === 0 && (
                 <span style={{ color: '#b45309', fontSize: 12 }}>Assign at least one role before activating</span>
               )}
+              <span style={{ fontSize: 11, color: 'var(--color-text-secondary, #9ca3af)', flexBasis: '100%' }}>
+                Viewer cannot invoke Skills and cannot be granted here.
+              </span>
             </span>
           ) : formatList(skill?.allowed_roles)}
         </Detail>

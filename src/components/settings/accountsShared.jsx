@@ -8,12 +8,25 @@
 // config/helpers - no data/API/behavior.
 import { useState } from 'react'
 
+// ROLE-GUIDE-1: descriptions state the AUDITED consequence of the grant, so
+// whoever hands out access sees what it actually permits. Owner is absent by
+// design: it is a capability on the account (is_owner), not an assignable
+// staff role - api/invite-user.js will not grant it and no role change
+// reaches it. Full matrix: Settings > Accounts & Access > Role Guide.
 export const ROLE_OPTIONS = [
-  { value: 'admin',       label: 'Admin',       description: 'Full operational access' },
-  { value: 'co-lead',     label: 'Co-Lead',     description: 'Placement + student management' },
-  { value: 'interviewer', label: 'Interviewer',  description: 'Rubric and interview access' },
-  { value: 'viewer',      label: 'Viewer',       description: 'Read-only dashboard' },
+  { value: 'admin',       label: 'Admin',       description: 'Full day-to-day administration. Cannot activate governed content or invite Admins.' },
+  { value: 'co-lead',     label: 'Co-Lead',     description: 'Reads student records across cohorts. No placement or admin access server-side.' },
+  { value: 'interviewer', label: 'Interviewer', description: 'Interviews and rubric, plus student files for entitled cohorts only.' },
 ]
+
+// ROLE-MODEL-1: Viewer is RETIRED for new assignments. Existing Viewer
+// accounts keep working, read-only, and are never deleted - so the role stays
+// in the badge map and the directory filters below, just not in the invite
+// options. Owner is likewise absent: it is a capability, not a role.
+
+// Shown next to the role selector so the granter knows Owner is not on offer.
+export const OWNER_NOT_ASSIGNABLE_NOTE =
+  'Owner is a platform capability, not an assignable role. See the Role Guide for what each role permits.'
 
 export const ROLE_BADGE = {
   owner:       { bg: '#1D2567', text: '#ffffff' },

@@ -14,6 +14,7 @@ import { shiftTypeOf, openShiftMs, formatDuration, isClockoutMaybeOverdue } from
 import { formatRotationRange, canonicalRotationWindow } from '../src/lib/rotationWindow.js';
 import { displayName } from '../src/lib/utils.js';
 import { classifyIntent, INTENTS, isExplicitEmailDrafting, preferGovernedRouting } from '../lib/server/keith/queryIntent.js';
+import { can as canAccess, keithContextScope, allowsContextSection } from '../lib/server/access.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
 import { resolveRoute, resolveChatSelection, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
 import { consumeRateLimit, rateLimitMessage, limiterUnavailableMessage, WEIGHT_CHAT, WEIGHT_SKILL } from '../lib/server/keith/rateLimit.js';
@@ -752,6 +753,23 @@ export default async function handler(req, res) {
     return res.status(auth.status).json({ error: auth.error, message: auth.message });
   }
 
+  // ROLE-MODEL-1 SECURITY GATE. Keith access is decided from the
+  // SERVER-VERIFIED caller BEFORE any live context is assembled and before any
+  // model call. Previously every authenticated staff account reached Keith with
+  // the full LIVE COHORT DATA block composed into the system prompt; a Viewer
+  // therefore received operational cohort data it holds no capability for.
+  // Downstream tool, contacts and skill gates remain in place as defense in
+  // depth - this gate is the front door, not a replacement for them.
+  if (!canAccess(auth, 'keith_chat')) {
+    console.log('[keith] access denied', { request_id: requestId, role: auth.role, is_owner: auth.isOwner === true });
+    return res.status(403).json({
+      error: 'forbidden',
+      response: 'Keith is not available for your access level. Please contact an ASPIRE administrator if you need access.',
+    });
+  }
+  // PII-free: which context scope this caller received, for observability.
+  console.log('[keith-access]', { request_id: requestId, scope: keithContextScope(auth) });
+
   const deadline = Date.now() + KEITH_TOTAL_DEADLINE_MS;
   const timeRemaining = () => deadline - Date.now();
 
@@ -1218,12 +1236,16 @@ Cohort Status: ${cohort.status || 'unknown'}`
 
         // All four context fetches run in parallel; individual failures get unavailable placeholders
         const [commsResult, statsResult, responsesResult, leadersResult] = await Promise.allSettled([
-          getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 }),
+          // ROLE-MODEL-1: a section the caller's scope does not include is
+          // never fetched, so it cannot be assembled or leak.
+          allowsContextSection(auth, 'communications')
+            ? getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 })
+            : Promise.resolve([]),
           ctxCohortId ? getUnitResponseStats(dbkeith, ctxCohortId) : Promise.resolve(null),
           ctxCohortId ? getUnitResponses(dbkeith, ctxCohortId) : Promise.resolve([]),
           // KLD-1.1: the unit-leadership roster (person-bearing) is fetched ONLY for
           // email drafting; other intents never receive it as a people directory.
-          allowRoster ? getUnitLeadersForKeith(dbkeith) : Promise.resolve([]),
+          (allowRoster && allowsContextSection(auth, 'unit_leadership')) ? getUnitLeadersForKeith(dbkeith) : Promise.resolve([]),
         ]);
 
         // Recent communications
@@ -1322,36 +1344,36 @@ ${cohortContext}
 
 Total students in cohort: ${liveData.students.length}
 
-COHORT STATUS (canonical, per Student Profiles live data, use these exact status names and never merge buckets):
+${allowsContextSection(auth, 'status') ? `COHORT STATUS (canonical, per Student Profiles live data, use these exact status names and never merge buckets):
 Total students: ${statusCounts.total}
 Not Proceeding: ${statusCounts.notProceeding} (${STATUS_DEFINITIONS['Not Proceeding']})
 Placed: ${statusCounts.placed} (${STATUS_DEFINITIONS['Placed']})
 Active Rotation: ${statusCounts.activeRotation} (${STATUS_DEFINITIONS['Active Rotation']})
 Completed: ${statusCounts.completed} (${STATUS_DEFINITIONS['Completed']})
 Interviewed: ${statusCounts.interviewed} · Awaiting Interview: ${statusCounts.awaitingInterview} · Needs Outreach: ${statusCounts.needsOutreach}
-Placed does NOT mean rotating. When summarizing the cohort, state the total, then Not Proceeding, then Placed and Active Rotation with their definitions; never describe Placed students as rotating.
+Placed does NOT mean rotating. When summarizing the cohort, state the total, then Not Proceeding, then Placed and Active Rotation with their definitions; never describe Placed students as rotating.` : ''}
 
-On Campus Now, current open shift logs (${onCampusNowCount} student${onCampusNowCount === 1 ? '' : 's'} currently on campus):
+${allowsContextSection(auth, 'oncampus') ? `On Campus Now, current open shift logs (${onCampusNowCount} student${onCampusNowCount === 1 ? '' : 's'} currently on campus):
 This is the SAME On Campus Now / Open Shift Review list shown in the Aggregate and Rotation > Activity tabs: students with a live open/in-progress shift check-in, plus any whose logged shift window currently contains the present moment. Each row already includes the student's logged unit and logged preceptor for the open shift. When asked "who is on campus today" or "who is on campus now", answer from THIS list and cite the source as the current open shift logs (or the On Campus Now / open shift data), do NOT attribute it to "Student Profiles live data". Report each student's unit and preceptor EXACTLY as written here: if a row says "Unit: Unavailable" say the unit is unavailable for that student only (never claim all units are unrecorded when other rows have a unit); if it says "Preceptor: Not logged" say the preceptor was not logged (never substitute an assigned preceptor as logged); a preceptor shown as "Assigned: <name> (not logged)" must be described as the assigned preceptor that was not logged on this shift. If the list is empty, say no students have an open or current on-campus shift log right now; do NOT say "no shifts are scheduled" (this is about live/open shifts, not the schedule).
-${onCampusLines}
+${onCampusLines}` : ''}
 
-Pending interview / Form Received (${pendingInterview.length}):
-${pendingLines}
+${allowsContextSection(auth, 'interviews') ? `Pending interview / Form Received (${pendingInterview.length}):
+${pendingLines}` : ''}
 
-Placed, full detail (${placed.length}):
+${allowsContextSection(auth, 'roster') ? `Placed, full detail (${placed.length}):
 ${placementLines}
 
 Active Rotation (${activeRotation.length}):
-${activeList}
+${activeList}` : ''}
 
-CS-LINK ACCESS (canonical five categories, per Student Profiles → CS-Link Access live data, report ONLY these categories, never a "Needs CS-Link" count):
+${allowsContextSection(auth, 'roster') ? `CS-LINK ACCESS (canonical five categories, per Student Profiles → CS-Link Access live data, report ONLY these categories, never a "Needs CS-Link" count):
 ${csLinkSummary.map(c => `  ${c.label}: ${c.count}`).join('\n')}
 
 Needs badge (${needsBadge.length}):
-${safeList(needsBadge)}
-${commsSection}
-${unitResponseSection}
-${unitLeaderSection}
+${safeList(needsBadge)}` : ''}
+${allowsContextSection(auth, 'communications') ? commsSection : ''}
+${allowsContextSection(auth, 'capacity') ? unitResponseSection : ''}
+${allowsContextSection(auth, 'unit_leadership') ? unitLeaderSection : ''}
 === END LIVE DATA ===
 
 UNIT RESPONSE AWARENESS:

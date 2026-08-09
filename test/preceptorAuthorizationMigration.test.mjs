@@ -205,7 +205,7 @@ test('endpoints verify the caller, call RPCs with the actor id, and forward forc
   assert.match(ulEp, /p_actor_profile_id: profile\.id/)
   assert.match(ulEp, /p_force: body\.force === true/)
   assert.ok(!/\.from\('students'\)|\.insert/.test(ulEp), 'UL endpoint never writes a table directly')
-  assert.match(staffEp, /is_owner === true \|\| \['owner', 'admin'\]\.includes\(role\)/)
+  assert.match(staffEp, /canAccess\((profile|auth), 'placement_manage'\)/)
   assert.match(staffEp, /rpc\('assign_primary_preceptor'/)
   assert.match(staffEp, /p_confirm_override: body\.confirmOverride === true/)
 })

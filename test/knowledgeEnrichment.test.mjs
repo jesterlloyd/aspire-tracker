@@ -8,6 +8,7 @@
 // Run: node --test test/knowledgeEnrichment.test.mjs
 
 import test from 'node:test'
+import { can as canAccess } from '../lib/server/access.js'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -194,7 +195,13 @@ test('the ratio band itself is sane', () => {
 const endpoint = read('api/knowledge-enrich.js')
 
 test('the endpoint is OWNER-only - stricter than knowledge-admin', () => {
-  assert.match(endpoint, /if \(!auth\.isOwner\) return res\.status\(403\)\.json\(\{ error: 'owner_required' \}\)/)
+  // ROLE-MODEL-1: RUNNING enrichment (every write path) is still Owner-only;
+  // an Admin may now read a proposed plan, which writes nothing.
+  assert.match(endpoint, /canAccess\(auth, 'enrichment_run'\)/)
+  assert.match(endpoint, /canAccess\(auth, 'enrichment_preview'\)/)
+  assert.match(endpoint, /const isPlanOnly = String\(req\.body\?\.action \|\| ''\) === 'enrich_plan'/)
+  assert.equal(canAccess({ role: 'admin' }, 'enrichment_run'), false)
+  assert.equal(canAccess({ role: 'admin' }, 'enrichment_preview'), true)
   assert.doesNotMatch(stripComments(endpoint), /role === 'admin'/)
 })
 

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { can as canAccess, isAdminLevel, normalizeRole } from '../lib/server/access.js'
 import { toLocalDateStr } from '../shared/dateUtils.js'
 // STUDENT-PORTAL-PROFILE-1: canonical sanitizers for the student-availability block
 // (the same encodings the intake and portal profile endpoints store).
@@ -195,8 +196,16 @@ export default async function handler(req, res) {
     if (auth.reason === 'no_profile') return res.status(403).json({ error: 'forbidden', message: 'Access denied.' })
     return res.status(401).json({ error: 'unauthorized', message: 'Authentication required' })
   }
-  const isOwnerAdmin  = auth.isOwner || auth.role === 'admin'
-  const isInterviewer = auth.role === 'interviewer'
+  const isOwnerAdmin  = isAdminLevel(auth)
+  const isInterviewer = normalizeRole(auth.role) === 'interviewer'
+  // ROLE-MODEL-1: the resolved Co-Lead scope - placement management and
+  // student-record management, exactly what the app has always offered a
+  // Co-Lead (permissions.js ROLE_PERMS: makePlacements, studentDetailLevel
+  // 'full'). Deliberately NOT extended to badge generation, interview
+  // scheduling, or the administrative status override: none of those is
+  // student-record editing, and each is a materially wider grant.
+  const canPlacement = canAccess(auth, 'placement_manage')
+  const canStudentManage = canAccess(auth, 'student_manage')
 
   const { action, ...payload } = req.body || {}
 
@@ -205,7 +214,7 @@ export default async function handler(req, res) {
     // WS1e-A2: explicit, narrow placement operation - the ONLY student-update path
     // permitted to mutate matched_preceptor / shift_assigned. Owner/Admin only.
     if (action === 'update_preceptor_assignment') {
-      if (!isOwnerAdmin) {
+      if (!canPlacement) {
         return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to assign placement.' })
       }
       // Exact top-level schema (besides action): student_id + optional preceptor/shift/email.
@@ -453,12 +462,17 @@ export default async function handler(req, res) {
 
     // ── WS1e-A4: explicit staff-domain actions (Owner/Admin only) ─────────────
     if (action === 'update_contact') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: CONTACT_FIELDS, label: 'contact update' })
     }
     // WS1e-A4 (corr.2): name is server-composed from first_name/last_name; client
     // may not submit `name` (rejected as unexpected).
     if (action === 'update_profile') {
+      // ROLE-MODEL-1 BOUNDARY: update_profile carries resume_url and headshot_url,
+      // so it can rewrite a student FILE REFERENCE. Under the standing 2026-08-05
+      // decision (reading a student's file is access; replacing it is not) this
+      // action stays Owner/Admin even though a Co-Lead manages other student
+      // fields. Identified rather than assumed - see the release report.
       if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
       const ALLOWED = ['action', 'student_id', ...PROFILE_FIELDS]
       const unexpected = Object.keys(req.body || {}).filter(k => !ALLOWED.includes(k))
@@ -499,13 +513,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true })
     }
     if (action === 'update_requirements') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: REQUIREMENT_FIELDS, label: 'requirements update' })
     }
     // WS1e-A4 (corr.3): CS-Link dates are exact YYYY-MM-DD; pairing rejects a false
     // boolean accompanied (same request) by a non-empty paired date.
     if (action === 'update_cslink') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
       const crossValidate = (p) => {
         for (const [boolKey, dateKey] of CSLINK_PAIRS) {
           if (p[boolKey] === false && p[dateKey] !== undefined && p[dateKey] !== '' && p[dateKey] !== null) return dateKey
@@ -515,7 +529,7 @@ export default async function handler(req, res) {
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: CSLINK_FIELDS, label: 'cslink update', crossValidate })
     }
     if (action === 'update_ngrp') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: NGRP_FIELDS, label: 'ngrp update' })
     }
     if (action === 'update_badge') {
@@ -523,7 +537,7 @@ export default async function handler(req, res) {
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: BADGE_FIELDS, label: 'badge update' })
     }
     if (action === 'update_notes') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: NOTES_FIELDS, label: 'notes update' })
     }
 
@@ -534,7 +548,7 @@ export default async function handler(req, res) {
     // on the student-profile lock: staff editing is the approved correction path for a
     // locked profile; the lock constrains only the student.
     if (action === 'update_student_availability') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
       const AVAILABILITY_FIELDS = [
         'unavailable_weekdays', 'unavailable_weekdays_reason', 'personal_blackout_dates',
         'weekends_available', 'nights_available', 'preferred_days', 'availability_notes',

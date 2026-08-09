@@ -88,7 +88,11 @@ test('Access role comes first and keeps the existing staff role options', () => 
   const memberIdx = form.indexOf('>Staff member<')
   const emailIdx = form.indexOf('>Login email<')
   assert.ok(roleIdx > -1 && memberIdx > roleIdx && emailIdx > memberIdx, 'order: Access role, Staff member, Login email')
-  assert.match(modal, /import \{ ROLE_OPTIONS \} from '\.\/accountsShared'/)
+  assert.match(modal, /import \{ ROLE_OPTIONS, OWNER_NOT_ASSIGNABLE_NOTE \} from '\.\/accountsShared'/)
+  // ROLE-GUIDE-1: the selector now states the consequence of the grant and
+  // why Owner is not offered.
+  assert.match(modal, /ROLE_OPTIONS\.find\(r => r\.value === role\)\?\.description/)
+  assert.match(modal, /OWNER_NOT_ASSIGNABLE_NOTE/)
   assert.doesNotMatch(modal, /PORTAL_ROLE_OPTIONS/, 'portal roles never appear in the staff selector')
 })
 
