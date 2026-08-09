@@ -219,7 +219,12 @@ export default function KeithSkillInstall({ postAdmin, onInstalled }) {
               {p.references.length > 0 && <> · {p.references.length} reference file{p.references.length === 1 ? '' : 's'}</>}
               {p.trigger_phrases.length > 0 && <> · {p.trigger_phrases.length} trigger phrase{p.trigger_phrases.length === 1 ? '' : 's'}</>}
             </span>
-            <span style={{ color: secondary }}>Roles</span><span>{p.allowed_roles.join(', ') || 'none declared'}</span>
+            <span style={{ color: secondary }}>Roles</span>
+            <span>{p.allowed_roles.length ? p.allowed_roles.join(', ') : 'Not specified by package \u00b7 Assign before activation'}</span>
+            {p.trigger_guidance_chars > 0 && (<>
+              <span style={{ color: secondary }}>Claude trigger guidance</span>
+              <span>Full source guidance preserved with the skill ({p.trigger_guidance_chars.toLocaleString()} chars); description shortened for display</span>
+            </>)}
             {p.required_data.length > 0 && (<><span style={{ color: secondary }}>Data access</span><span>{p.required_data.join(', ')} (granted only if your roles already allow it)</span></>)}
             <span style={{ color: secondary }}>Compatibility</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

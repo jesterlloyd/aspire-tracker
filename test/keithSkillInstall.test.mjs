@@ -247,9 +247,28 @@ test('a bare-markdown .skill file flows the single-file path; junk bytes are ref
   assert.match(ui, /Claude\/Keith Skill \(\.skill\), Markdown \(\.md\), or Skill archive \(\.zip\)/)
 })
 
-test('overlong Claude descriptions truncate WITH a warning, never silently', () => {
-  assert.match(endpoint, /description longer than \$\{CAPS\.description\} characters was truncated/)
+test('overlong Claude descriptions shorten for display but preserve the FULL guidance', () => {
+  assert.match(endpoint, /description shortened for display; the full source guidance is preserved/)
+  assert.match(endpoint, /claude-trigger-guidance\.md/)
   assert.match(endpoint, /s\.description\.slice\(0, CAPS\.description - 1\)/)
+})
+
+test('quoted phrases in a Claude description become Keith trigger phrases when none are declared', async () => {
+  const { extractTriggerHints } = await import('../lib/server/keith/skillPackage.js')
+  const desc = 'Use whenever asked. Trigger on phrases like \u201cmake this sound human,\u201d \u201chumanize this,\u201d or \u201cde-AI it.\u201d'
+  assert.deepEqual(extractTriggerHints(desc), ['make this sound human', 'humanize this', 'de-ai it'])
+  assert.match(endpoint, /trigger phrases derived from the package's own description/)
+  assert.match(endpoint, /s\.trigger_phrases\.length === 0/)
+})
+
+test('role-less imports cannot activate; the Owner assigns roles deliberately', () => {
+  assert.match(endpoint, /error: 'roles_required'/)
+  assert.match(endpoint, /Assign the Keith roles allowed to invoke this skill before activating/)
+  const install = read('src/components/settings/KeithSkillInstall.jsx')
+  assert.match(install, /Not specified by package \\u00b7 Assign before activation/)
+  const drawer = read('src/components/settings/KeithSkillDrawer.jsx')
+  assert.match(drawer, /Assign at least one role before activating/)
+  assert.match(drawer, /update_skill_draft/, 'role assignment uses the existing canonical action')
 })
 
 test('downloads use the .skill container: same zip bytes, user-recognizable name', () => {

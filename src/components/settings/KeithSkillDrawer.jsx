@@ -255,7 +255,35 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
           {skill?.description || <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>(none)</span>}
         </Detail>
 
-        <Detail label="Allowed roles">{formatList(skill?.allowed_roles)}</Detail>
+        <Detail label="Allowed roles">
+          {skill?.status === 'draft' && isOwner ? (
+            /* KEITH-SKILL-NATIVE-2: an imported package carries no Keith roles,
+               and a role-less skill cannot be activated (the endpoint refuses).
+               The Owner assigns roles HERE, from the canonical vocabulary,
+               through the existing update_skill_draft action. */
+            <span style={{ display: 'inline-flex', gap: 10, flexWrap: 'wrap' }}>
+              {['owner', 'admin', 'co-lead', 'interviewer'].map(r => (
+                <label key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12.5, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={(skill.allowed_roles || []).includes(r)}
+                    onChange={async e => {
+                      const next = e.target.checked
+                        ? [...(skill.allowed_roles || []), r]
+                        : (skill.allowed_roles || []).filter(x => x !== r)
+                      const res = await postAdmin({ action: 'update_skill_draft', skill_id: skill.id, allowed_roles: next })
+                      if (res.ok) onChanged?.(skill.id)
+                    }}
+                  />
+                  {r}
+                </label>
+              ))}
+              {(skill.allowed_roles || []).length === 0 && (
+                <span style={{ color: '#b45309', fontSize: 12 }}>Assign at least one role before activating</span>
+              )}
+            </span>
+          ) : formatList(skill?.allowed_roles)}
+        </Detail>
         <Detail label="Required tools">{formatList(skill?.required_tools)}</Detail>
         <Detail label="Required data">{formatList(skill?.required_data)}</Detail>
 

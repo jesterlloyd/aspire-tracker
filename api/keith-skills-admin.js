@@ -17,7 +17,7 @@ import { isKnownRoute } from '../lib/server/keith/modelRouting.js'
 import {
   VALID_ROLES, VALID_DATA_GRANTS, parseSkillPackage, serializeSkillPackage,
   normalizeExternalPackage, composeInstructionBody, splitInstructionBody,
-  isValidReferenceName, MAX_REFERENCES,
+  isValidReferenceName, MAX_REFERENCES, extractTriggerHints,
 } from '../lib/server/keith/skillPackage.js'
 
 const INVOCATION_WINDOW_DAYS = 30
@@ -332,9 +332,26 @@ export default async function handler(req, res) {
         // KEITH-SKILL-NATIVE-1: real Claude .skill packages carry very long
         // descriptions (they double as trigger guidance). Keith's description
         // cap stands; the overflow is truncated WITH a warning, never silently.
+        // KEITH-SKILL-NATIVE-2: a long Claude description is ACTIVATION
+        // GUIDANCE, not just UI text. The display description is shortened;
+        // the COMPLETE source description is preserved as a skill-local
+        // reference (claude-trigger-guidance.md), so the model receives all
+        // of it whenever the skill is invoked. Nothing is discarded.
+        let triggerGuidance = null
         if (s.description.length > CAPS.description) {
+          triggerGuidance = s.description
+          references.push({ name: 'claude-trigger-guidance.md', content: `# Source trigger guidance (full Claude description)\n\n${s.description}` })
           s.description = s.description.slice(0, CAPS.description - 1).trimEnd() + '\u2026'
-          refProblems.push(`description longer than ${CAPS.description} characters was truncated`)
+          refProblems.push('description shortened for display; the full source guidance is preserved with the skill')
+        }
+        // A package that declares no trigger phrases but QUOTES them in its
+        // description gets those exact quoted phrases as Keith triggers.
+        if (s.trigger_phrases.length === 0) {
+          const hints = extractTriggerHints(triggerGuidance || s.description)
+          if (hints.length) {
+            s.trigger_phrases = hints
+            refProblems.push(`trigger phrases derived from the package's own description: ${hints.slice(0, 4).join('; ')}${hints.length > 4 ? '; \u2026' : ''}`)
+          }
         }
         const instructionBody = composeInstructionBody(s.instruction_body, references)
         if (instructionBody.length > CAPS.instruction_body) {
@@ -371,6 +388,7 @@ export default async function handler(req, res) {
               required_tools: s.required_tools, required_data: s.required_data,
               data_classification: s.data_classification, model_route: s.model_route,
               source_label: s.provenance, owner_label: s.owner_label,
+              trigger_guidance_chars: triggerGuidance ? triggerGuidance.length : 0,
               instruction_chars: s.instruction_body.length,
               references: references.map(r => ({ name: r.name, chars: r.content.length })),
             },
@@ -450,6 +468,17 @@ export default async function handler(req, res) {
 
       case 'activate_skill': {
         if (!body.skill_id) return res.status(400).json({ error: 'skill_id_required' })
+        // KEITH-SKILL-NATIVE-2: a skill with no Keith roles is invocable by
+        // NOBODY (authorization is fail-closed), so activating it would only
+        // create a live-but-dead skill. The Owner must assign roles first -
+        // deliberately, from the canonical vocabulary, never inferred from an
+        // external package.
+        {
+          const { data: sk } = await db.from('keith_skills').select('allowed_roles').eq('id', body.skill_id).maybeSingle()
+          if (sk && (!Array.isArray(sk.allowed_roles) || sk.allowed_roles.length === 0)) {
+            return res.status(409).json({ error: 'roles_required', message: 'Assign the Keith roles allowed to invoke this skill before activating it.' })
+          }
+        }
         const note = String(body.change_note || '').slice(0, CAPS.change_note)
         const { data, error } = await db.rpc('keith_activate_skill', {
           p_skill_id: body.skill_id, p_actor_profile_id: auth.profileId, p_change_note: note,
