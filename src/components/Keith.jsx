@@ -5,6 +5,7 @@ import { SUGGESTED_PROMPTS } from '../lib/keithKnowledge';
 import { useAuth } from '../contexts/AuthContext';
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed } from '../lib/floatingPanels';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
+import { paletteSummary } from '../lib/skillSummary';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
 const KEITH_PREFETCH_CEILING_MS = 5000;
@@ -804,8 +805,15 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         }}
                       >
                         <div style={{ fontFamily: 'DM Sans', fontSize: 12.5, fontWeight: 600, color: '#1d2567' }}>/{s.slug}</div>
-                        {s.description && (
-                          <div style={{ fontFamily: 'DM Sans', fontSize: 11, color: '#6b7280', marginTop: 1 }}>{s.description}</div>
+                        {/* SKILL-PALETTE-1: one concise line, derived at render
+                            time. The stored description, trigger guidance,
+                            instructions and references are untouched, and the
+                            detail drawer still shows the full text. */}
+                        {paletteSummary(s) && (
+                          <div style={{
+                            fontFamily: 'DM Sans', fontSize: 11, color: '#6b7280', marginTop: 1,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>{paletteSummary(s)}</div>
                         )}
                       </div>
                     ))}

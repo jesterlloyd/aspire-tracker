@@ -277,3 +277,66 @@ test('downloads use the .skill container: same zip bytes, user-recognizable name
   assert.match(drawer, /writeZip\(json\.files\.map/)
   assert.doesNotMatch(drawer, /\.skill\.zip/, 'the old double-extension is retired')
 })
+
+// ── SKILL-PALETTE-1: the "/" menu is a picker, not a document ────────────────
+//
+// Imported Claude skills carry descriptions that double as activation guidance
+// (several hundred characters). The palette shows one concise line derived at
+// RENDER TIME; nothing stored is shortened, and the drawer still shows the full
+// text. Verified against the real Claude packages on this machine.
+
+test('paletteSummary prefers a concise first sentence and never exceeds the cap', async () => {
+  const { paletteSummary, PALETTE_SUMMARY_MAX } = await import('../src/lib/skillSummary.js')
+  // Already concise: returned as the author wrote it.
+  const concise = 'Generate tailored interview questions from a student resume.'
+  assert.equal(paletteSummary({ description: `${concise} It never invents experience.` }), concise)
+  // Long guidance-style description: clipped at a word boundary, marked.
+  const long = 'Rewrite or draft any text so it reads like a real person rather than AI-generated, and apply the catalog of tells, the plain-word swaps, and the voice calibration rules for every audience.'
+  const out = paletteSummary({ description: long })
+  assert.ok(out.length <= PALETTE_SUMMARY_MAX, `${out.length} exceeds the cap`)
+  assert.ok(out.endsWith('…'))
+  assert.ok(!/\s…$/.test(out), 'no dangling space before the ellipsis')
+  // An abbreviation's period does not end the sentence.
+  assert.match(paletteSummary({ description: 'Route requests, e.g. group clinicals, to the right team. More detail follows.' }),
+    /^Route requests, e\.g\. group clinicals, to the right team\.$/)
+  // Markup is flattened, never rendered raw in the picker.
+  assert.equal(paletteSummary({ description: '**Bold** and [[Some Page|a link]] here.' }), 'Bold and a link here.')
+  // Fallbacks: name, then nothing - never undefined.
+  assert.equal(paletteSummary({ name: 'Fallback Name' }), 'Fallback Name')
+  assert.equal(paletteSummary({}), '')
+  assert.equal(paletteSummary(null), '')
+})
+
+test('the palette summary is presentation only - stored skill data is untouched', () => {
+  const ui = read('src/components/Keith.jsx')
+  assert.match(ui, /import \{ paletteSummary \} from '\.\.\/lib\/skillSummary'/)
+  assert.match(ui, /\{paletteSummary\(s\)\}<\/div>/)
+  // The catalog endpoint still returns the canonical description untouched.
+  assert.match(read('api/keith.js'), /description: s\.description \|\| ''/)
+  // And nothing in the summary module writes anywhere.
+  const mod = read('src/lib/skillSummary.js')
+  assert.doesNotMatch(mod, /fetch\(|postAdmin|supabase|insert|update/)
+})
+
+test('real Claude packages: block-scalar frontmatter parses and summarizes', () => {
+  // A YAML folded block scalar is how Claude writes long descriptions; before
+  // this it failed to import at all.
+  const claudeBlock = [
+    '---', 'name: interview-question-generator', 'description: >-',
+    '  Generate personalized, competency-based nursing interview questions from a',
+    "  candidate's resume for three residency pathways. Use this skill whenever the",
+    '  user pastes a resume and wants interview questions.',
+    '---', '', '# Generator', 'Body.',
+  ].join('\n')
+  const parsed = parseSkillPackage(normalizeExternalPackage(claudeBlock).source)
+  assert.equal(parsed.ok, true, parsed.errors?.join('; '))
+  // Folded: the block became one paragraph, fully preserved.
+  assert.match(parsed.skill.description, /^Generate personalized, competency-based nursing interview questions from a candidate's resume for three residency pathways\./)
+  assert.ok(parsed.skill.description.length > 160, 'the full description is preserved, not truncated by parsing')
+  // A literal block keeps its line breaks.
+  const literal = parseSkillPackage([
+    '---', 'name: lit', 'display_name: Lit', 'description: |', '  Line one.', '  Line two.', '---', '', 'Body.',
+  ].join('\n'))
+  assert.equal(literal.ok, true)
+  assert.equal(literal.skill.description, 'Line one.\nLine two.')
+})
