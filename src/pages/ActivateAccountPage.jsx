@@ -243,7 +243,7 @@ export default function ActivateAccountPage() {
           <div style={{ fontWeight: 700, fontSize: '15px', color: NAVY, marginBottom: '8px' }}>Activate your account</div>
           <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '20px' }}>
             Welcome to ASPIRE. Click below to verify your invitation and create your
-            password. Activation links are time-limited and can be used once.
+            password. Activation links are valid for 1 hour and can be used once.
           </div>
           <button onClick={handleActivate} disabled={activating} style={primaryBtn(activating)}>
             {activating ? 'Verifying…' : 'Activate my account'}

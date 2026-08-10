@@ -238,6 +238,53 @@ test('every invitation states the SAME activation rule, word for word', async ()
   }
 })
 
+// The 2026-08-10 refresh pinned the four EMAILS and left the PAGE unpinned, so
+// the confirm state kept shipping "Activation links are time-limited" while
+// every other surface said "valid for 1 hour". The rule is stated on the page
+// in more than one state, so the guard below is structural rather than a single
+// literal: it finds EVERY lifetime sentence and holds each to the same wording.
+// A new state that invents its own phrasing fails here.
+test('every activation-page state states the lifetime in the canonical wording', () => {
+  const CANONICAL = 'Activation links are valid for 1 hour and can be used once.'
+
+  // JSX wraps prose across lines; collapse whitespace so a sentence reads as
+  // one string regardless of how Prettier broke it. Comments are stripped
+  // first so explanatory prose can discuss retired wording without tripping
+  // the absence assertions below.
+  const prose = page
+    .split('\n').filter(l => !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*'))
+    .join('\n').replace(/\s+/g, ' ')
+
+  // Every sentence that opens with the lifetime subject must finish the
+  // canonical way. Captures the predicate so a failure names the drift.
+  const statements = [...prose.matchAll(/Activation links? (?:is|are) ([^.]*)\./g)]
+  assert.ok(statements.length >= 2,
+    `expected the lifetime to be stated in at least the confirm and invalid states, found ${statements.length}`)
+  for (const [full, predicate] of statements) {
+    assert.equal(`Activation links are ${predicate}.`, CANONICAL,
+      `an activation-page state states the lifetime as "${full.trim()}" instead of the canonical wording`)
+  }
+
+  // The vague phrasing this test exists to kill, plus the wrong durations.
+  assert.ok(!/time-limited/.test(prose),
+    'no activation-page state may describe the lifetime vaguely as "time-limited"')
+  assert.ok(!/24 hours|60 minutes/.test(prose),
+    'the TTL is 1 hour; the page may not state any other duration')
+})
+
+test('the valid-link confirm state carries the canonical lifetime sentence', () => {
+  // Slice the confirm branch specifically: it is the screen a user sees when
+  // the link WORKS, and it is the one that regressed.
+  const start = page.indexOf("status === 'confirm'")
+  assert.ok(start > -1, 'the confirm state must exist')
+  const next = page.indexOf("status === '", start + 20)
+  const confirmBranch = page.slice(start, next > -1 ? next : page.length).replace(/\s+/g, ' ')
+
+  assert.match(confirmBranch, /Activation links are valid for 1 hour and can be used once\./)
+  assert.ok(!/time-limited/.test(confirmBranch),
+    'the confirm state regressed to vague lifetime copy')
+})
+
 test('the portal grant date stays a separate statement from the link lifetime', async () => {
   const { portalInvitationEmail } = await import('../lib/server/email/portalInvitation.js')
   const withGrant = portalInvitationEmail({ firstName: 'Sam', activationLink: 'https://x/a#t', expiresAt: '2027-01-01', role: 'student' }).html
