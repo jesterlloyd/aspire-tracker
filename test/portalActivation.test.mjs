@@ -112,7 +112,8 @@ test('the invitation states that access is time limited and needs a password', (
   const out = portalInvitationEmail({
     firstName: 'Jae', role: 'unit_leader', activationLink: LINK, expiresAt: '2026-08-01T00:00:00Z',
   })
-  assert.match(out.html, /time-limited/)
+  // The link's own lifetime, stated plainly (wording refreshed 2026-08-10).
+  assert.match(out.html, /valid for 1 hour and can be used once/)
   assert.match(out.html, /create your password/)
   assert.match(out.html, /August 1, 2026/)
   assert.match(out.html, /intended only for you/)
@@ -200,7 +201,7 @@ test('the activation screen never reveals whether an account exists', () => {
     assert.ok(!page.includes(leak), `the activation screen must not say "${leak}"`)
   }
   // The invalid state offers the same generic recovery route to everyone.
-  assert.match(pageCode, /Activation links are time-limited and can be used once/)
+  assert.match(pageCode, /Activation links are valid for 1 hour and can be used once/)
 })
 
 test('no token or activation link is ever rendered or logged', () => {

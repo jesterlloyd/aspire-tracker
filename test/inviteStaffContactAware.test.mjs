@@ -143,8 +143,8 @@ test('the staff endpoint uses the scanner-safe hashed-token flow, not the defaul
 })
 
 test('the branded staff email carries the confirmed 1-hour single-use wording', () => {
-  assert.match(staffMail, /works for 1 hour and can be used once/)
-  assert.match(staffMail, /Requesting a new link makes earlier links stop working, so always use the newest email\./)
+  assert.match(staffMail, /Your activation link is valid for 1 hour and can be used once\./)
+  assert.match(staffMail, /When a new link is issued, earlier activation links stop working, so always use the most recent email\./)
   assert.match(endpoint, /import \{ staffInvitationEmail \}/)
   assert.match(endpoint, /replyTo: EMAIL_REPLY_TO/)
   // Staff access has no expiration, so the template states none.

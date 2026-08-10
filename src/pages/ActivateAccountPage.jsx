@@ -284,16 +284,16 @@ export default function ActivateAccountPage() {
           {/* Deliberately says nothing about whether an account exists for any
               address. The recovery path below is the same for everyone. */}
           <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '18px' }}>
-            Activation links are time-limited and can be used once, and requesting a
-            new link makes earlier links stop working. Request a new link below, set
-            or reset your password, or return to sign in. Need help? Contact the
+            Activation links are valid for 1 hour and can be used once. When a new
+            link is issued, earlier activation links stop working. Request a new link
+            below, set or reset your password, or return to sign in. Need help? Contact the
             ASPIRE team at <a href="mailto:aspire@cshs.org" style={{ color: NAVY }}>aspire@cshs.org</a>.
           </div>
 
           {recoverySent ? (
             <div style={{ background: '#eef6ee', border: '1px solid #bcd9bf', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', color: '#2f6b34', lineHeight: 1.6, marginBottom: '16px', textAlign: 'left' }} role="status">
-              If an account exists for that address, a new email is on its way. Use
-              the newest email you receive; earlier links stop working.
+              If an account exists for that address, a new email is on its way.
+              Always use the most recent email; earlier activation links stop working.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
