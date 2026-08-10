@@ -17,6 +17,7 @@ import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
 import { canonicalRotationWindow } from '../lib/rotationWindow'
 import { hoursProgress } from '../lib/clinicalHours'
+import { ROTATION_SORT_OPTIONS, DEFAULT_ROTATION_SORT, rotationComparator } from '../lib/rotationSort'
 
 // Compact canonical rotation range for a card: "Mon D – Mon D" from the linked
 // cohort_school_rotations row, else legacy students.term_dates, else '' (omit).
@@ -32,14 +33,6 @@ function resolveRotationRange(student, rotationRow) {
 
 const F = 'DM Sans, sans-serif'
 const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000
-
-const SORT_OPTIONS = [
-  { key: 'attention',  label: 'Needs attention' },
-  { key: 'hours_desc', label: 'Closest to completion' },
-  { key: 'hours_asc',  label: 'Least hours completed' },
-  { key: 'name',       label: 'Name A–Z' },
-  { key: 'school',     label: 'School A–Z' },
-]
 
 function SectionHeader({ title, subtitle }) {
   return (
@@ -61,7 +54,7 @@ function SortControl({ value, onChange }) {
           fontFamily: F, fontSize: 13, padding: '6px 9px', borderRadius: 8,
           border: '1px solid #e0ddd3', background: '#fff', color: '#191919', cursor: 'pointer',
         }}>
-        {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        {ROTATION_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
       </select>
     </label>
   )
@@ -230,7 +223,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // (same one-click behavior the Action Center path already had) instead of
   // only expanding the card and leaving the reader to hunt the table.
   const [localSupportOpen, setLocalSupportOpen] = useState(null) // { studentId, shiftLogId }
-  const [sortMode, setSortMode] = useState('attention')
+  const [sortMode, setSortMode] = useState(DEFAULT_ROTATION_SORT)
   const [highlightId, setHighlightId] = useState(null)
   const cardRefs = useRef({})   // { [studentId]: card element } - for scroll-into-view
   const focusTimers = useRef([]) // pending scroll/highlight cancelers - cleared on new focus / unmount
@@ -397,27 +390,11 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
     })
 
   // Sort only the Active Rotation Progress list (never On Campus Now). Expansion is keyed by
-  // student id, so re-sorting preserves the expanded card. "Needs attention" is the default.
-  const byName = (a, b) => getStudentPreferredFullName(a.s).localeCompare(getStudentPreferredFullName(b.s))
-  const comparators = {
-    // missing preceptor / no recent log → lowest progress → name (on-campus is a badge only)
-    attention: (a, b) => {
-      const ar = (a.missingPreceptor || a.noRecentLog) ? 0 : 1
-      const br = (b.missingPreceptor || b.noRecentLog) ? 0 : 1
-      if (ar !== br) return ar - br
-      if (a.pct !== b.pct) return a.pct - b.pct
-      return byName(a, b)
-    },
-    // ROTATION-PROGRESS-SORT-1: rank by percentage of required hours completed (matches the
-    // displayed progress bar / % label), not raw approved hours - so students closest to finishing
-    // rank highest even with different required-hour totals. pct already guards req<=0 → 0 and caps
-    // at 100. Tie-breakers: completion % desc → approved hours desc → preferred name asc.
-    hours_desc: (a, b) => (b.pct - a.pct) || (b.apv - a.apv) || byName(a, b),
-    hours_asc:  (a, b) => (a.apv - b.apv) || byName(a, b),
-    name:       byName,
-    school:     (a, b) => (a.school || '').localeCompare(b.school || '') || byName(a, b),
-  }
-  const sortedCards = [...cards].sort(comparators[sortMode] || comparators.attention)
+  // student id, so re-sorting preserves the expanded card. ROTATION-SORT-2: the comparators live
+  // in lib/rotationSort.js, pure and unit-tested, and every completion sort runs on the same
+  // percentage the card displays rather than raw approved hours.
+  const sortedCards = [...cards].sort(
+    rotationComparator(sortMode, c => getStudentPreferredFullName(c.s)))
 
   return (
     <div style={{ padding: '4px 20px 24px', fontFamily: F }}>
