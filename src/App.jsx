@@ -185,6 +185,7 @@ function MainApp({ onLogout }) {
   const [communications,setCommunications]= useState([])
   // ACTION-OWNERSHIP-1: interview_reminder rows from notification_log (what the
   // cron sent) plus a loaded flag, so the attention engine never guesses.
+  const [acSchoolRotations,setAcSchoolRotations]= useState([])
   const [reminderDeliveries,setReminderDeliveries]= useState([])
   const [reminderDeliveriesLoaded,setReminderDeliveriesLoaded]= useState(false)
   const [showActionCenter, setShowActionCenter] = useState(false)
@@ -313,7 +314,13 @@ function MainApp({ onLogout }) {
   const fetchLazyActionData = async (id) => {
     if (!id) return
     const reads = [
-      supabase.from('student_shift_logs').select('student_id, status, reviewed_at, submitted_at').eq('cohort_id', id),
+      // NO-SHIFT-WEEK-1: shift_date is the canon for "when did the shift
+      // happen" (submitted_at is only when the row was entered), and
+      // lifecycle_state feeds the countable-shift guard.
+      supabase.from('student_shift_logs').select('student_id, status, reviewed_at, submitted_at, shift_date, lifecycle_state').eq('cohort_id', id),
+      // Rotation windows + school blackout dates, one row per school. Small
+      // table; the weekly rule needs it to avoid flagging partial weeks.
+      supabase.from('cohort_school_rotations').select('school_name, rotation_start_date, rotation_end_date, blackout_dates').eq('cohort_id', id),
       canEdit
         ? supabase.from('student_disposition_followups').select('student_id, disposition_id').eq('cohort_id', id).eq('status', 'pending')
         : Promise.resolve({ data: [] }),
@@ -321,11 +328,12 @@ function MainApp({ onLogout }) {
         ? supabase.from('student_active_disposition').select('id').eq('cohort_id', id)
         : Promise.resolve({ data: [] }),
     ]
-    const [logsRes, fuRes, adRes] = await Promise.all(reads)
+    const [logsRes, rotRes, fuRes, adRes] = await Promise.all(reads)
     // ASPIRE-CHART: raw rows only - the shared attention engine
     // (lib/attention.js) derives the tasks, so this fetch and the Action
     // Center panel can never disagree about what counts.
     setAcShiftLogs(logsRes.data || [])
+    setAcSchoolRotations(rotRes.data || [])
     setAcPendingFollowups(fuRes.data || [])
     setAcActiveDispoIds((adRes.data || []).map(d => d.id))
     setAcLazyLoaded(true)
@@ -979,6 +987,7 @@ function MainApp({ onLogout }) {
   const lazyAttention = deriveLazyAttention({
     students,
     shiftLogs: acShiftLogs, shiftLogsLoaded: acLazyLoaded,
+    schoolRotations: acSchoolRotations,
     dispositionFollowups: acPendingFollowups, activeDispositionIds: acActiveDispoIds,
     dispositionLoaded: acLazyLoaded,
     canEdit, now: attentionNow,
@@ -1194,6 +1203,8 @@ function MainApp({ onLogout }) {
           communications={communications}
           reminderDeliveries={reminderDeliveries}
           reminderDeliveriesLoaded={reminderDeliveriesLoaded}
+          schoolRotations={acSchoolRotations}
+          onNavigateToActivityStudent={id => { goToActivityStudent(id); setShowActionCenter(false) }}
           onLogCommunication={logCommunication}
           onMatchUpdate={updateMatch}
           onStudentUpdate={updateStudent}

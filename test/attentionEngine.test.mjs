@@ -12,15 +12,21 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
   deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal, fmtLocalDate,
+  lastCompletedWeek, weekDates, isCountableShift,
 } from '../src/lib/attention.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
-const NOW = new Date('2026-07-18T12:00:00')
+const NOW = new Date('2026-07-18T12:00:00') // a Saturday; last completed week = Jul 5-11
+
+// A rotation window comfortably enclosing the July fixture weeks, keyed to the
+// default student school (student() sets none, so school_name matches undefined
+// via ROT_OPEN.school_name = undefined -> use explicit school on both sides).
+const ROT_OPEN = { school_name: 'CSUN', rotation_start_date: '2026-06-01', rotation_end_date: '2026-09-01', blackout_dates: [] }
 
 const student = (id, over = {}) => ({
-  id, cohort_id: 'co1', first_name: 'F' + id, last_name: 'L' + id,
+  id, cohort_id: 'co1', first_name: 'F' + id, last_name: 'L' + id, school: 'CSUN',
   status: 'Form Received', interview_scheduled_date: null,
   matched_unit_id: null, matched_preceptor: '', preceptor_id: null,
   badge_created: false, interview_outcome: 'Pending Interview',
@@ -102,23 +108,29 @@ test('lazy sets: loaded-flag gating prevents transient over-counts', () => {
   const notLoaded = deriveLazyAttention({ students, shiftLogsLoaded: false, canEdit: true, now: NOW })
   assert.equal(notLoaded.count, 0, 'no counting before logs load')
 
+  // Loaded but empty, with a KNOWN rotation window that began before the
+  // missed week: a student with zero shifts across a full in-rotation week
+  // is exactly who the weekly rule exists to surface.
   const loaded = deriveLazyAttention({
     students, shiftLogs: [], shiftLogsLoaded: true,
+    schoolRotations: [ROT_OPEN],
     dispositionLoaded: true, canEdit: true, now: NOW,
   })
-  assert.equal(loaded.notLoggedRecently.length, 1)
-  assert.equal(loaded.notLoggedRecently[0].daysSince, null, 'no logs yet -> null daysSince')
+  assert.equal(loaded.noShiftLastWeek.length, 1)
+  assert.equal(loaded.noShiftLastWeek[0].lastShiftDay, null, 'no logs yet -> no last-shift day')
+  assert.deepEqual(loaded.noShiftLastWeek[0].missedWeek, { start: '2026-07-05', end: '2026-07-11' })
 })
 
 test('retired task: a plain Pending Review shift log is NOT a required action', () => {
   const students = [student('x', { status: 'Active Rotation' })]
   const shiftLogs = [
-    { id: 'l1', student_id: 'x', status: 'Pending Review', reviewed_at: null, submitted_at: NOW.toISOString() },
+    { id: 'l1', student_id: 'x', status: 'Pending Review', reviewed_at: null, submitted_at: NOW.toISOString(), shift_date: '2026-07-08' },
   ]
   const lazy = deriveLazyAttention({
-    students, shiftLogs, shiftLogsLoaded: true, dispositionLoaded: true, canEdit: true, now: NOW,
+    students, shiftLogs, shiftLogsLoaded: true, schoolRotations: [ROT_OPEN],
+    dispositionLoaded: true, canEdit: true, now: NOW,
   })
-  // The recent log satisfies "logged recently"; nothing else may count it.
+  // The in-week log satisfies the weekly rule; nothing else may count it.
   assert.equal(lazy.count, 0, 'submitted logs are informational, not tasks')
 })
 
@@ -379,4 +391,135 @@ test('no literal escape sequences leak into Action Center JSX text', () => {
   }
   assert.deepEqual(offenders, [],
     'escape sequences in JSX text render literally; use the character itself')
+})
+
+// ── NO-SHIFT-WEEK-1: the missed-week canon ──────────────────────────────────
+//
+// The rule is a completed Sunday-Saturday calendar week with zero valid
+// shifts, judged by shift_date - never a rolling days-since threshold and
+// never submitted_at. 2026-08-02 is a Sunday; 2026-08-16 is the Sunday after
+// the Aug 9-15 week closes.
+
+const rotOpen = (over = {}) => ({ school_name: 'CSUN', rotation_start_date: '2026-06-01', rotation_end_date: '2026-09-01', blackout_dates: [], ...over })
+const activeStudent = (over = {}) => student('w1', { status: 'Active Rotation', ...over })
+const shiftOn = (date, over = {}) => ({ id: `sh-${date}`, student_id: 'w1', status: 'Approved', shift_date: date, submitted_at: `${date}T20:00:00Z`, lifecycle_state: 'completed', ...over })
+const weekly = ({ now, logs = [], rots = [rotOpen()], stu = activeStudent() }) => deriveLazyAttention({
+  students: [stu], shiftLogs: logs, shiftLogsLoaded: true, schoolRotations: rots,
+  dispositionLoaded: true, canEdit: true, now,
+}).noShiftLastWeek
+
+test('weekly: Sunday last shift flags only once the following week closes', () => {
+  const logs = [shiftOn('2026-08-02')] // Sunday
+  // Saturday Aug 15: the Aug 9-15 week has not closed; the last completed
+  // week (Aug 2-8) contains the Sunday shift. Not flagged.
+  assert.equal(weekly({ now: new Date('2026-08-15T12:00:00'), logs }).length, 0)
+  // Sunday Aug 16: Aug 9-15 is now the completed week and it is empty.
+  const flagged = weekly({ now: new Date('2026-08-16T09:00:00'), logs })
+  assert.equal(flagged.length, 1)
+  assert.deepEqual(flagged[0].missedWeek, { start: '2026-08-09', end: '2026-08-15' })
+  assert.equal(flagged[0].lastShiftDay, '2026-08-02')
+})
+
+test('weekly: Saturday last shift produces a different elapsed count, same rule', () => {
+  // Last shift Saturday Aug 8 - only 8 elapsed days by Aug 16, yet the Aug
+  // 9-15 week is empty, so it flags. The missing WEEK is the canon, not any
+  // encoded day count.
+  const logs = [shiftOn('2026-08-08')]
+  assert.equal(weekly({ now: new Date('2026-08-16T09:00:00'), logs }).length, 1)
+})
+
+test('weekly: a midweek shift covers its week', () => {
+  const logs = [shiftOn('2026-08-12')] // Wednesday of the Aug 9-15 week
+  assert.equal(weekly({ now: new Date('2026-08-16T09:00:00'), logs }).length, 0)
+})
+
+test('weekly: a late past-shift entry fills the week it happened in', () => {
+  // Logged through "Log a Past Shift" days later: shift_date sits in the
+  // missed week even though submitted_at is after it. The old rule read
+  // submitted_at and got this backwards in both directions.
+  const logs = [shiftOn('2026-08-11', { submitted_at: '2026-08-18T22:00:00Z' })]
+  assert.equal(weekly({ now: new Date('2026-08-20T09:00:00'), logs }).length, 0)
+})
+
+test('weekly: resumed logging clears the stale miss', () => {
+  // Missed Aug 9-15 entirely but logged Tue Aug 18. The student is back;
+  // surfacing last week would be outreach with nothing to act on.
+  const logs = [shiftOn('2026-08-02'), shiftOn('2026-08-18')]
+  assert.equal(weekly({ now: new Date('2026-08-20T09:00:00'), logs }).length, 0)
+})
+
+test('weekly: terminal statuses never flag, whatever the history says', () => {
+  for (const status of ['Completed', 'Not Proceeding', 'Declined']) {
+    const flagged = weekly({ now: new Date('2026-08-16T09:00:00'), logs: [], stu: activeStudent({ status }) })
+    assert.equal(flagged.length, 0, `${status} is not expected to log shifts`)
+  }
+})
+
+test('weekly: partial first and last rotation weeks never flag', () => {
+  // Rotation starts Wednesday inside the Aug 9-15 week: not a full week owed.
+  assert.equal(weekly({ now: new Date('2026-08-16T09:00:00'), rots: [rotOpen({ rotation_start_date: '2026-08-12' })] }).length, 0)
+  // Rotation ended Thursday inside the week: the student was finishing, not absent.
+  assert.equal(weekly({ now: new Date('2026-08-16T09:00:00'), rots: [rotOpen({ rotation_end_date: '2026-08-13' })] }).length, 0)
+  // A week fully inside the window still flags.
+  assert.equal(weekly({ now: new Date('2026-08-16T09:00:00'), rots: [rotOpen()] }).length, 1)
+})
+
+test('weekly: no shifts yet - known window flags, unknown window stays silent', () => {
+  const now = new Date('2026-08-16T09:00:00')
+  // Known window that began before the missed week: a zero-shift week is real.
+  assert.equal(weekly({ now, logs: [] }).length, 1)
+  // Sentinel window ("pending admin review") and no history: indistinguishable
+  // from "has not started yet", so no flag is invented.
+  assert.equal(weekly({ now, logs: [], rots: [rotOpen({ rotation_start_date: '1900-01-01', rotation_end_date: '1900-01-01' })] }).length, 0)
+  // No rotation row at all, but prior shifts prove the rotation is underway.
+  assert.equal(weekly({ now, logs: [shiftOn('2026-08-02')], rots: [] }).length, 1)
+  // No rotation row and no history: silent.
+  assert.equal(weekly({ now, logs: [], rots: [] }).length, 0)
+})
+
+test('weekly: rejected shifts cannot fill a week; unexpected lifecycles are ignored', () => {
+  const now = new Date('2026-08-16T09:00:00')
+  const rejected = [shiftOn('2026-08-11', { status: 'Rejected' })]
+  assert.equal(weekly({ now, logs: rejected }).length, 1, 'a rejected log is not a valid shift')
+  const weird = [shiftOn('2026-08-11', { lifecycle_state: 'discarded' })]
+  assert.equal(weekly({ now, logs: weird }).length, 1, 'unknown lifecycle states are excluded defensively')
+  const inProgress = [shiftOn('2026-08-11', { lifecycle_state: 'in_progress' })]
+  assert.equal(weekly({ now, logs: inProgress }).length, 0, 'an open shift is still a real shift')
+})
+
+test('weekly: a fully blacked-out week is an approved break, not a miss', () => {
+  const now = new Date('2026-08-16T09:00:00')
+  const allWeek = ['2026-08-09','2026-08-10','2026-08-11','2026-08-12','2026-08-13','2026-08-14','2026-08-15']
+  assert.equal(weekly({ now, rots: [rotOpen({ blackout_dates: allWeek })] }).length, 0)
+  // A partial blackout does not excuse the whole week.
+  assert.equal(weekly({ now, rots: [rotOpen({ blackout_dates: allWeek.slice(0, 3) })] }).length, 1)
+  // Personal + school blackouts combine to cover the week.
+  const flagged = weekly({
+    now,
+    rots: [rotOpen({ blackout_dates: allWeek.slice(0, 4) })],
+    stu: activeStudent({ personal_blackout_dates: allWeek.slice(4) }),
+  })
+  assert.equal(flagged.length, 0)
+})
+
+test('weekly: the completed-week helper is Sunday-Saturday in local time', () => {
+  // Sunday: the week that ended yesterday.
+  assert.deepEqual(lastCompletedWeek(new Date('2026-08-16T00:30:00')), { start: '2026-08-09', end: '2026-08-15' })
+  // Saturday: the current week has not closed; last completed ended a week ago.
+  assert.deepEqual(lastCompletedWeek(new Date('2026-08-15T23:00:00')), { start: '2026-08-02', end: '2026-08-08' })
+  assert.equal(weekDates({ start: '2026-08-09', end: '2026-08-15' }).length, 7)
+  assert.ok(isCountableShift({ status: 'Pending Review' }))
+})
+
+test('weekly: the card and navigation follow the canon', () => {
+  const panel = read('src/components/ActionCenter.jsx')
+  assert.match(panel, /title:'No Shift Logged Last Week'/)
+  assert.ok(!/Student Not Logged Recently/.test(panel), 'the vague title is retired')
+  assert.match(panel, /actionType === 'no_shift_last_week'\) return 'View Rotation Activity'/)
+  assert.match(panel, /onNavigateToActivityStudent\?\.\(item\.studentId\)/)
+  const app = read('src/App.jsx')
+  assert.match(app, /onNavigateToActivityStudent=\{id => \{ goToActivityStudent\(id\); setShowActionCenter\(false\) \}\}/)
+  // The badge fetch now reads the day the shift HAPPENED, not just when it was entered.
+  assert.match(app, /select\('student_id, status, reviewed_at, submitted_at, shift_date, lifecycle_state'\)/)
+  assert.match(app, /from\('cohort_school_rotations'\)/)
 })

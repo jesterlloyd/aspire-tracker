@@ -380,7 +380,7 @@ function AttentionDigest({ attention, onOpenActionCenter }) {
     { key: 'placement', label: 'Placement setup', count: (eager?.unitLeaderNotification?.length || 0) + (eager?.preceptorWelcome?.length || 0) + (eager?.noPreceptor?.length || 0) + (eager?.badgeNotCreated?.length || 0) + (eager?.orientationDue ? 1 : 0) },
     { key: 'cslink', label: 'CS-Link access', count: eager?.csLinkNotStarted?.length || 0 },
     { key: 'outreach', label: 'Student outreach', count: eager?.sendStudentForm?.length || 0 },
-    { key: 'rotation', label: 'Rotation follow-up', count: lazy?.notLoggedRecently?.length || 0 },
+    { key: 'rotation', label: 'Rotation follow-up', count: lazy?.noShiftLastWeek?.length || 0 },
   ].filter(g => g.count > 0)
 
   if (groups.length === 0) {

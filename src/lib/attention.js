@@ -25,7 +25,57 @@
 import { getCsLinkStatus } from './utils.js'
 import { resolveAutomationState, requiresHuman, isPassiveStatus } from './automationOwnership.js'
 
-export const NOT_LOGGED_WINDOW_DAYS = 7
+// ── Weekly shift-logging canon (NO-SHIFT-WEEK-1) ────────────────────────────
+// The operational expectation is that an Active Rotation student logs at least
+// one shift each Sunday-Saturday week. The old rule ("no log submitted in the
+// last 7 rolling days") measured the wrong things twice: it read submitted_at
+// (so a past shift entered late looked recent, and a Sunday logger drifted in
+// and out of the flag midweek), and an arbitrary rolling window is not how the
+// program actually thinks about attendance. The canon is now the completed
+// calendar week: a student is flagged when the most recently CLOSED Sun-Sat
+// week contains zero valid shifts, judged by shift_date (the day the shift
+// happened), never by when the row was submitted.
+export const WEEK_LENGTH_DAYS = 7
+
+/** The most recently completed Sunday-Saturday week, as local 'YYYY-MM-DD'. */
+export function lastCompletedWeek(now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  // getDay(): 0 = Sunday. The last completed Saturday is (weekday + 1) days back.
+  const end = new Date(today); end.setDate(today.getDate() - (today.getDay() + 1))
+  const start = new Date(end); start.setDate(end.getDate() - 6)
+  return { start: fmtLocalDate(start), end: fmtLocalDate(end) }
+}
+
+/** Every local date of a week as 'YYYY-MM-DD' (for blackout coverage checks). */
+export function weekDates(week) {
+  const [y, m, d] = week.start.split('-').map(Number)
+  return Array.from({ length: WEEK_LENGTH_DAYS }, (_, i) =>
+    fmtLocalDate(new Date(y, m - 1, d + i)))
+}
+
+// Shift rows that count as a real logged shift. ASPIRE has no canceled or
+// deleted shift rows (see lib/server/shiftOrdinals.js) - in_progress and
+// completed both count; unexpected lifecycle states are excluded defensively.
+// A Rejected approval status is the one taxonomy value meaning "this log was
+// not accepted", so it cannot fill a week.
+const VALID_LIFECYCLE = new Set(['completed', 'in_progress'])
+const REJECTED = new Set(['Rejected', 'rejected'])
+export function isCountableShift(l) {
+  if (l?.lifecycle_state != null && !VALID_LIFECYCLE.has(l.lifecycle_state)) return false
+  return !REJECTED.has(l?.status)
+}
+
+/** The local calendar day a shift happened: shift_date, else the submission day. */
+export function shiftDayOf(l) {
+  if (l?.shift_date) return l.shift_date
+  if (l?.submitted_at) return fmtLocalDate(new Date(l.submitted_at))
+  return null
+}
+
+// The '1900-01-01' sentinel in cohort_school_rotations means "window pending
+// admin review" and must read as unknown, never as a real start date.
+const ROTATION_SENTINEL = '1900-01-01'
+const knownDate = (d) => (d && d !== ROTATION_SENTINEL ? d : null)
 
 // Statuses where an interview reminder is meaningless regardless of what date
 // is still on the student record (withdrawn, declined, or already finished).
@@ -154,8 +204,8 @@ export function deriveEagerAttention({
 /**
  * Lazy attention sets - need cohort shift logs and disposition data, fetched
  * only when a consumer has them. Loaded-flags gate each set to [] so a badge
- * never briefly over-counts (e.g. "Not Logged Recently" flagging everyone
- * before logs arrive).
+ * never briefly over-counts (e.g. "No Shift Logged Last Week" flagging
+ * everyone before logs arrive).
  *
  * Retired here (approved shift-log semantics): the old act13 "Shift Log
  * Needs Review" task. Plain submitted logs are informational activity, not
@@ -163,25 +213,58 @@ export function deriveEagerAttention({
  */
 export function deriveLazyAttention({
   students = [], shiftLogs = [], shiftLogsLoaded = false,
+  schoolRotations = [],
   dispositionFollowups = [], activeDispositionIds = [], dispositionLoaded = false,
   canEdit = false, now = new Date(),
 }) {
-  const cutoffIso = new Date(now.getTime() - NOT_LOGGED_WINDOW_DAYS * 24 * 3600 * 1000).toISOString()
+  const week = lastCompletedWeek(now)
 
-  const notLoggedRecently = !shiftLogsLoaded ? [] : students
-    .filter(s => {
-      if (s.status !== 'Active Rotation') return false
-      return !shiftLogs.find(l => l.student_id === s.id && l.submitted_at >= cutoffIso)
-    })
+  // NO-SHIFT-WEEK-1. Only 'Active Rotation' students can qualify, which is
+  // also what excludes every terminal status (Completed, Not Proceeding,
+  // Declined, Withdrawn...) - a student who exited the rotation is not
+  // expected to log anything. The remaining guards prevent flagging a week
+  // the student was not genuinely expected to work:
+  //   - rotation window (cohort_school_rotations by school): the missed week
+  //     must sit fully inside [rotation_start_date, rotation_end_date];
+  //     partial first/last weeks never flag. The 1900-01-01 sentinel means
+  //     the window is unknown, in which case the student's own earliest shift
+  //     must predate the week - a student with no history and no window reads
+  //     as "not started", not as "not logging".
+  //   - blackouts: a week fully covered by school blackout_dates plus the
+  //     student's personal_blackout_dates is an approved break, not a miss.
+  //   - resolution is derived, never dismissed: a valid shift dated INSIDE
+  //     the week (including a late "Log a Past Shift" entry) clears it, and
+  //     so does any valid shift dated AFTER the week - a student who has
+  //     already resumed logging is not an operational concern.
+  const noShiftLastWeek = !shiftLogsLoaded ? [] : students
+    .filter(s => s.status === 'Active Rotation')
     .map(s => {
-      const lastLog = shiftLogs
-        .filter(l => l.student_id === s.id)
-        .sort((a, b) => (b.submitted_at || '').localeCompare(a.submitted_at || ''))[0]
-      const daysSince = lastLog
-        ? Math.floor((now.getTime() - new Date(lastLog.submitted_at).getTime()) / (24 * 3600 * 1000))
-        : null
-      return { ...s, daysSince }
+      const days = shiftLogs
+        .filter(l => l.student_id === s.id && isCountableShift(l))
+        .map(shiftDayOf).filter(Boolean).sort()
+      if (days.some(d => d >= week.start && d <= week.end)) return null // week is covered
+      if (days.some(d => d > week.end)) return null                     // already resumed
+
+      const rot = schoolRotations.find(r => r.school_name === s.school)
+      const rotStart = knownDate(rot?.rotation_start_date)
+      const rotEnd = knownDate(rot?.rotation_end_date)
+      if (rotStart) {
+        if (rotStart > week.start) return null // rotation began mid-week or later
+      } else if (!days.length || days[0] >= week.start) {
+        return null // no window and no prior history: cannot have missed a week
+      }
+      if (rotEnd && rotEnd < week.end) return null // rotation ended mid-week or earlier
+
+      const blackout = new Set([
+        ...(Array.isArray(rot?.blackout_dates) ? rot.blackout_dates : []),
+        ...(Array.isArray(s.personal_blackout_dates) ? s.personal_blackout_dates : []),
+      ])
+      if (blackout.size && weekDates(week).every(d => blackout.has(d))) return null
+
+      const lastShiftDay = days.length ? days[days.length - 1] : null
+      return { ...s, lastShiftDay, missedWeek: week }
     })
+    .filter(Boolean)
 
   // Disposition follow-ups: keep a pending row only while its disposition is
   // still active (a cleared disposition orphans rows without deleting them),
@@ -201,9 +284,9 @@ export function deriveLazyAttention({
   })()
 
   return {
-    notLoggedRecently,
+    noShiftLastWeek,
     dispositionFollowup,
-    count: notLoggedRecently.length + dispositionFollowup.length,
+    count: noShiftLastWeek.length + dispositionFollowup.length,
   }
 }
 

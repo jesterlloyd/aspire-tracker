@@ -172,6 +172,7 @@ function getActionLabel(item) {
   if (item.isOrientation) return null
   if (item.actionType === 'support_request') return 'Open Details'
   if (item.actionType === 'selection_decision') return 'Open Interview Review'
+  if (item.actionType === 'no_shift_last_week') return 'View Rotation Activity'
   if (item.navigateToProfile && !item.canMarkDone) return 'Open Profile'
   if (item.markDoneType === 'update_field') return 'Mark Complete'
   // CONNECT-SCHEDULING-LINK-1: the scheduling task offers its action only when the launch is
@@ -185,6 +186,33 @@ function getActionLabel(item) {
       return item.title === 'Preceptor Welcome Email' ? 'Open in Outlook' : 'Notify Unit Leader'
     default:                           return item.emailHref ? 'Send Email' : null
   }
+}
+
+// NO-SHIFT-WEEK-1 card context: "Last shift Aug 2 · 36 of 72 hours. No shift
+// logged Aug 9-15." Every segment renders only when its data exists.
+function fmtShortDate(d) {
+  if (!d) return null
+  const [y, m, day] = d.split('-').map(Number)
+  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+function fmtWeekRange(week) {
+  if (!week) return ''
+  const [sy, sm, sd] = week.start.split('-').map(Number)
+  const [ey, em, ed] = week.end.split('-').map(Number)
+  const s = new Date(sy, sm - 1, sd), e = new Date(ey, em - 1, ed)
+  const sTxt = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const eTxt = sm === em
+    ? String(ed)
+    : e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `${sTxt}\u2013${eTxt}`
+}
+function describeMissedWeek(s) {
+  const parts = []
+  parts.push(s.lastShiftDay ? `Last shift ${fmtShortDate(s.lastShiftDay)}` : 'No shifts logged yet')
+  const done = Number(s.approved_hours)
+  const req = Number(s.hours_required)
+  if (Number.isFinite(done) && Number.isFinite(req) && req > 0) parts.push(`${done} of ${req} hours`)
+  return `${parts.join(' \u00b7 ')}. No shift logged ${fmtWeekRange(s.missedWeek)}.`
 }
 
 // ── Email builders ────────────────────────────────────────────
@@ -416,6 +444,7 @@ export default function ActionCenter({
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
   reminderDeliveries = [], reminderDeliveriesLoaded = false,
+  schoolRotations = [], onNavigateToActivityStudent,
   onNavigateToProfiles, onNavigateToActivityShift, onNavigateNotificationDestination,
   onLaunchSchedulingLink,
   onActionCountChange, toast,
@@ -592,6 +621,13 @@ export default function ActionCenter({
       onClose()
       return
     }
+    if (item.navigateToActivityStudent) {
+      // NO-SHIFT-WEEK-1: straight to Rotation Activity focused on the student,
+      // where logged shifts, hours, and the most recent shift are all visible.
+      onNavigateToActivityStudent?.(item.studentId)
+      onClose()
+      return
+    }
     if (item.navigateToProfile) {
       onNavigateToProfiles?.(item.studentId)
       onClose()
@@ -753,6 +789,7 @@ ${KR_SIG}`
   })
   const lazy = deriveLazyAttention({
     students, shiftLogs, shiftLogsLoaded,
+    schoolRotations,
     dispositionFollowups, activeDispositionIds,
     dispositionLoaded: dispositionFollowupsLoaded,
     canEdit, now,
@@ -764,7 +801,7 @@ ${KR_SIG}`
   const act4  = eager.unitLeaderNotification
   const act5  = eager.preceptorWelcome
   const act6  = eager.csLinkNotStarted
-  const act15 = lazy.notLoggedRecently
+  const act15 = lazy.noShiftLastWeek
   const act16 = eager.badgeNotCreated
   const act17 = eager.noPreceptor
   const act18 = eager.selectionDecision
@@ -821,7 +858,10 @@ ${KR_SIG}`
     // Badge
     ...(canEdit ? act16.map(s => ({ id:`${s.id}-badge`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'badge', priority:'routine', title:'Badge Not Created', description:'Student placed. CS badge not yet created.', actionType:'badge_needed', canMarkDone:true, markDoneType:'update_field', markDonePayload:{fields:{badge_created:true}}, navigateToProfile:false })) : []),
     // Hours (plain submitted logs are informational in Rotation Activity, not tasks)
-    ...act15.map(s => ({ id:`${s.id}-nl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'hours', priority:'routine', title:'Student Not Logged Recently', description:s.daysSince===null?'No shifts logged yet.':`${s.daysSince} days since last log.`, actionType:'shift_log_submitted', canMarkDone:false, navigateToProfile:true })),
+    // NO-SHIFT-WEEK-1: flagged by the weekly canon (zero valid shifts in the
+    // most recently completed Sun-Sat week), so the card names the exact week
+    // and leads to Rotation Activity where the shift history answers it.
+    ...act15.map(s => ({ id:`${s.id}-nl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'hours', priority:'routine', title:'No Shift Logged Last Week', description:describeMissedWeek(s), actionType:'no_shift_last_week', canMarkDone:false, navigateToActivityStudent:true })),
     // Communications
     ...(canEdit ? act1.map(s => ({ id:`${s.id}-sf`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Send Student Form', description:'Pending outreach, form not yet sent.', actionType:'student_form', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'student_form'}, emailHref:buildStudentFormEmail(s) })) : []),
     // SUPPORT-REQUEST-ACTION-CENTER-2: one item per UNREAD support-request shift for the current user
