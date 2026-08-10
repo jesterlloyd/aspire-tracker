@@ -41,6 +41,10 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
 
   // PS-3b release state
   const [confirm, setConfirm] = useState(null)        // row pending release confirmation
+  // PRECEPTOR-ROUTE-1: canonical redirect candidates for the confirm modal.
+  // '' = the resolved primary (default); a preceptors.id = an ACTIVE alternate.
+  const [alternates, setAlternates] = useState([])
+  const [redirectId, setRedirectId] = useState('')
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
 
@@ -107,6 +111,37 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
   // fires only when detection actually changes.
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
 
+  // PRECEPTOR-ROUTE-1: when a release confirmation opens, load the student's ACTIVE
+  // secondary/coverage assignments so the Owner can redirect this send to one of them.
+  // Canonical rows only - the server re-validates the selection before sending.
+  // (redirect state is reset in the Release button's open handler, not here - the
+  // effect only performs the async load, so no synchronous setState in an effect.)
+  useEffect(() => {
+    if (!confirm?.studentId) return
+    let cancelled = false
+    ;(async () => {
+      const { data: spa } = await supabase
+        .from('student_preceptor_assignments')
+        .select('preceptor_id, role')
+        .eq('student_id', confirm.studentId)
+        .eq('status', 'active')
+        .in('role', ['secondary', 'coverage'])
+      if (cancelled || !spa?.length) return
+      const ids = spa.map(r => r.preceptor_id)
+      const { data: precs } = await supabase
+        .from('preceptors')
+        .select('id, full_name, email, is_active')
+        .in('id', ids)
+      if (cancelled) return
+      const byId = new Map((precs || []).map(p => [p.id, p]))
+      setAlternates(spa
+        .map(r => ({ ...r, prec: byId.get(r.preceptor_id) }))
+        .filter(r => r.prec && r.prec.is_active !== false && (r.prec.email || '').trim())
+        .map(r => ({ id: r.preceptor_id, role: r.role, name: r.prec.full_name, email: r.prec.email })))
+    })()
+    return () => { cancelled = true }
+  }, [confirm?.studentId])
+
   // PS-3b: release one due_sendable item. Sends only { student_id, period } - the server
   // re-validates and resolves the recipient. No recipient is ever sent from the client.
   const doRelease = useCallback(async (row) => {
@@ -125,7 +160,10 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
         body: JSON.stringify({
           student_id: row.studentId,
           period: row.period,
+          // The mismatch check still guards the PRIMARY the Owner saw; a redirect is a
+          // separate canonical selection validated server-side.
           ...(row.preceptorEmail ? { expected_preceptor_email: row.preceptorEmail } : {}),
+          ...(redirectId ? { redirect_preceptor_id: redirectId } : {}),
         }),
       })
       const body = await res.json().catch(() => ({}))
@@ -141,7 +179,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
       setConfirm(null)
       await load() // refresh detection - a released item moves to suppressed_existing
     }
-  }, [load])
+  }, [load, redirectId])
 
   // SURVEY-UX-3 - render the full-width detail body only when this is the selected workflow.
   // Detection + count reporting hooks above still run regardless, so the summary card and
@@ -272,7 +310,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
                             {g.releasable && (
                               <td style={{ padding: '9px 13px', textAlign: 'right' }}>
                                 <button
-                                  onClick={() => { setReleaseMsg(null); setConfirm(r) }}
+                                  onClick={() => { setReleaseMsg(null); setRedirectId(''); setAlternates([]); setConfirm(r) }}
                                   disabled={releasing}
                                   style={{
                                     padding: '6px 14px', background: '#166534', color: '#fff', border: 'none',
@@ -303,7 +341,9 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
       )}
       </div>
 
-      {/* Release confirmation - no editable recipient field. */}
+      {/* Release confirmation. PRECEPTOR-ROUTE-1: still no free-form recipient field - the
+          Owner may only SELECT among the student's active canonical assignments (Primary by
+          default); the server re-validates the selection against those same rows. */}
       {confirm && (
         <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
           <div
@@ -323,10 +363,33 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Student</span><span style={{ fontWeight: 600, color: '#191919' }}>{confirm.studentName}</span>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Period</span><span>{PERIOD_LABELS[confirm.period]}</span>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Hours</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>
-                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Preceptor</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Send to</span>
                 <span>
-                  {confirm.preceptorName || '-'}
-                  {confirm.preceptorEmail && <div style={{ fontSize: 12, color: '#6b7280' }}>{confirm.preceptorEmail}</div>}
+                  {alternates.length === 0 ? (
+                    <>
+                      {confirm.preceptorName || '-'}
+                      {confirm.preceptorEmail && <div style={{ fontSize: 12, color: '#6b7280' }}>{confirm.preceptorEmail}</div>}
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        value={redirectId}
+                        onChange={e => setRedirectId(e.target.value)}
+                        aria-label="Assessment recipient"
+                        style={{ fontFamily: F, fontSize: 13, padding: '6px 9px', borderRadius: 8, border: '1px solid #d7dae3', background: '#fff', maxWidth: 260 }}
+                      >
+                        <option value="">{`${confirm.preceptorName || '-'} — Primary`}</option>
+                        {alternates.map(a => (
+                          <option key={a.id} value={a.id}>{`${a.name} — ${a.role === 'coverage' ? 'Coverage' : 'Secondary'}`}</option>
+                        ))}
+                      </select>
+                      <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>
+                        {redirectId
+                          ? alternates.find(a => a.id === redirectId)?.email
+                          : confirm.preceptorEmail}
+                      </div>
+                    </>
+                  )}
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>

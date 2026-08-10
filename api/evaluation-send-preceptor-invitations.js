@@ -153,6 +153,12 @@ async function _handler(req, res, startMs) {
     if (!isUuid(items[i]?.student_id)) {
       return res.status(400).json({ success: false, error: `items[${i}].student_id must be a valid UUID` });
     }
+    // PRECEPTOR-ROUTE-1: optional per-item redirect to one of the student's ACTIVE
+    // canonical assignments (a preceptors.id; validated in the shared send core).
+    const rp = items[i]?.redirect_preceptor_id;
+    if (rp != null && !isUuid(rp)) {
+      return res.status(400).json({ success: false, error: `items[${i}].redirect_preceptor_id must be a valid UUID` });
+    }
   }
 
   // ── 3. Resolve + authorize instrument ──────────────────────────────────────────
@@ -198,6 +204,7 @@ async function _handler(req, res, startMs) {
       senderUserId, senderEmail,
       source:     'preceptor_feedback_send',
       notesValue: `preceptor_progress:${period}`,
+      redirectPreceptorId: item.redirect_preceptor_id ?? null,
     });
     if (r.status === 'sent') sent.push(r);
     else if (r.status === 'skipped') skipped.push(r);

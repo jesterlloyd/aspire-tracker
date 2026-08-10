@@ -58,6 +58,11 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [confirmPhrase, setConfirmPhrase] = useState('')
   const [sending, setSending] = useState(false)
+  // PRECEPTOR-ROUTE-1: active secondary/coverage assignments for the cohort's students
+  // (studentId -> [{ id, role, name, email }]) and the Owner's per-student selection
+  // ('' / absent = primary). Canonical rows only; the server re-validates every selection.
+  const [alternatesByStudent, setAlternatesByStudent] = useState(new Map())
+  const [redirects, setRedirects] = useState(new Map())
   const [result, setResult] = useState(null)
   const [sendError, setSendError] = useState(null)
 
@@ -74,18 +79,35 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
       supabase
         .from('preceptors')
         .select('id, full_name, email, unit_name, shift_type, is_active'),
-    ]).then(([sRes, pRes]) => {
+      supabase
+        .from('student_preceptor_assignments')
+        .select('student_id, preceptor_id, role')
+        .eq('cohort_id', cohortId)
+        .eq('status', 'active')
+        .in('role', ['secondary', 'coverage']),
+    ]).then(([sRes, pRes, aRes]) => {
       if (cancelled) return
       if (sRes.error) setLoadError(sRes.error)
       setStudents(sRes.data || [])
       setPreceptors(pRes.data || [])
+      // PRECEPTOR-ROUTE-1: sendable canonical alternates per student (active
+      // secondary/coverage with a live preceptor record and an email on file).
+      const precById = new Map((pRes.data || []).map(pr => [pr.id, pr]))
+      const alts = new Map()
+      for (const row of aRes.data || []) {
+        const prec = precById.get(row.preceptor_id)
+        if (!prec || prec.is_active === false || !(prec.email || '').trim()) continue
+        if (!alts.has(row.student_id)) alts.set(row.student_id, [])
+        alts.get(row.student_id).push({ id: row.preceptor_id, role: row.role, name: prec.full_name, email: prec.email })
+      }
+      setAlternatesByStudent(alts)
       setLoading(false)
     }).catch(e => { if (!cancelled) { setLoadError(e); setLoading(false) } })
     return () => { cancelled = true }
   }, [cohortId, canSend])
 
   // Reset transient state when the period changes.
-  useEffect(() => { setResult(null); setSendError(null); setConfirmPhrase('') }, [period])
+  useEffect(() => { setResult(null); setSendError(null); setConfirmPhrase(''); setRedirects(new Map()) }, [period])
 
   const rows = useMemo(() => students.map(s => {
     const resolved = resolvePreceptor(s, preceptors)
@@ -115,7 +137,10 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) { setSendError('Your session expired. Please sign in again.'); setSending(false); return }
-      const items = selectedRows.map(r => ({ student_id: r.student.id }))
+      const items = selectedRows.map(r => {
+        const redirect = redirects.get(r.student.id)
+        return { student_id: r.student.id, ...(redirect ? { redirect_preceptor_id: redirect } : {}) }
+      })
       const res = await fetch('/api/evaluation-send-preceptor-invitations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -134,7 +159,7 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
     } finally {
       setSending(false)
     }
-  }, [canSubmit, selectedRows, period])
+  }, [canSubmit, selectedRows, period, redirects])
 
   if (!canSend) {
     return (
@@ -239,6 +264,46 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
             <strong>{sendableCount}</strong> preceptor{sendableCount === 1 ? '' : 's'}.
             {blockedCount > 0 && <> {blockedCount} selected student{blockedCount === 1 ? '' : 's'} will be skipped (missing/inactive/invalid preceptor).</>}
           </div>
+
+          {/* PRECEPTOR-ROUTE-1: recipient selection for students with active canonical
+              alternates. Primary is always the default; the server re-validates every
+              selection against the same active-assignment rows before sending. */}
+          {selectedRows.some(r => r.state.ok && (alternatesByStudent.get(r.student.id) || []).length > 0) && (
+            <div style={{ margin: '0 0 12px', padding: '10px 12px', background: '#f8f9fc', borderRadius: 10, border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                Recipient per student
+              </div>
+              {selectedRows.filter(r => r.state.ok && (alternatesByStudent.get(r.student.id) || []).length > 0).map(r => {
+                const alts = alternatesByStudent.get(r.student.id) || []
+                const chosen = redirects.get(r.student.id) || ''
+                return (
+                  <div key={r.student.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12.5, color: '#191919', fontWeight: 600, minWidth: 160 }}>
+                      {r.student.last_name}, {r.student.first_name}
+                    </span>
+                    <select
+                      value={chosen}
+                      onChange={e => {
+                        const v = e.target.value
+                        setRedirects(prev => {
+                          const next = new Map(prev)
+                          if (v) next.set(r.student.id, v); else next.delete(r.student.id)
+                          return next
+                        })
+                      }}
+                      aria-label={`Assessment recipient for ${r.student.first_name} ${r.student.last_name}`}
+                      style={{ ...sel, minWidth: 240 }}
+                    >
+                      <option value="">{`${r.resolved.name || '-'} — Primary`}</option>
+                      {alts.map(a => (
+                        <option key={a.id} value={a.id}>{`${a.name} — ${a.role === 'coverage' ? 'Coverage' : 'Secondary'}`}</option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              })}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12.5, color: '#6b7280' }}>Type <strong>{CONFIRMATION}</strong> to confirm:</span>
             <input

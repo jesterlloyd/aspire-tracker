@@ -109,14 +109,21 @@ async function _handler(req, res) {
   // saw in the confirmation view. It is NEVER used as the send recipient - the recipient is
   // always resolved server-side from the student. It exists solely so the server can refuse
   // if the resolved preceptor changed between the Owner's view and the release click.
-  const ALLOWED = new Set(['student_id', 'period', 'expected_preceptor_email']);
+  // PRECEPTOR-ROUTE-1: redirect_preceptor_id is a preceptors.id selecting one of the
+  // student's ACTIVE canonical assignments (validated in the shared send core). It is
+  // NOT a recipient override - email-shaped fields remain rejected.
+  const ALLOWED = new Set(['student_id', 'period', 'expected_preceptor_email', 'redirect_preceptor_id']);
   const extraKeys = Object.keys(body).filter(k => !ALLOWED.has(k));
   if (extraKeys.length > 0) {
-    return res.status(400).json({ success: false, error: `Unexpected field(s): ${extraKeys.join(', ')}. Allowed: student_id, period, expected_preceptor_email.` });
+    return res.status(400).json({ success: false, error: `Unexpected field(s): ${extraKeys.join(', ')}. Allowed: student_id, period, expected_preceptor_email, redirect_preceptor_id.` });
   }
 
   const studentId = body.student_id;
   const period    = body.period;
+  const redirectPreceptorId = body.redirect_preceptor_id ?? null;
+  if (redirectPreceptorId !== null && !isUuid(redirectPreceptorId)) {
+    return res.status(400).json({ success: false, error: 'redirect_preceptor_id must be a valid UUID' });
+  }
   const expectedPreceptorEmail =
     typeof body.expected_preceptor_email === 'string' ? body.expected_preceptor_email.trim() : null;
   if (!isUuid(studentId)) {
@@ -242,6 +249,7 @@ async function _handler(req, res) {
     senderUserId, senderEmail,
     source:     'preceptor_feedback_queue_release',
     notesValue: `preceptor_progress:${period}:queue_release`,
+    redirectPreceptorId,
     logPrefix:  '[preceptor-release]',
   });
 
