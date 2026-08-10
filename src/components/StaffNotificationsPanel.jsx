@@ -51,7 +51,7 @@ export default function StaffNotificationsPanel({
   onNavigateDestination,
 }) {
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0 18px', fontFamily: 'DM Sans, sans-serif' }}>
+    <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 0 calc(18px + env(safe-area-inset-bottom))', fontFamily: 'DM Sans, sans-serif' }}>
       {unreadCount > 0 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 16px 6px' }}>
           <button

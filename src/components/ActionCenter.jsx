@@ -56,6 +56,13 @@ function sectionFor(item) {
   return 'needs_followup'
 }
 
+// How many cards a section shows before offering "Show all" in the All view.
+// The full-height drawer fits ~8 cards above the fold on a 1080p display, so
+// the cap now matches what the viewport can actually show; it exists only to
+// keep LOWER sections reachable when several sections are long at once. A
+// section filter always shows everything - the reader asked for that section.
+const SECTION_CAP = 8
+
 const SECTION_ORDER = [
   { key: 'urgent',         label: 'Urgent',          color: '#dc2626', hint: 'Needs a decision or compliance action' },
   { key: 'due_soon',       label: 'Due soon',        color: '#d97706', hint: 'Time-bound, coming due' },
@@ -67,7 +74,10 @@ const SECTION_ORDER = [
 // out the header/bell). Crisp cards and pills consistent with other app panels.
 const AC_GLASS_STYLES = `
 .ac-scrim {
-  position: fixed; inset: 0; z-index: 499;
+  /* Above the floating Keith/Messages launchers (z 998-1001): a full-height
+     drawer must be allowed to cover them, standard modal layering. Toasts
+     (z 9998) still render above everything here. */
+  position: fixed; inset: 0; z-index: 1002;
   background: rgba(15,23,42,0.06);
 }
 .ac-panel {
@@ -106,6 +116,8 @@ const AC_GLASS_STYLES = `
 @media (prefers-reduced-motion: reduce) {
   .ac-anim-panel, .ac-anim-scrim { animation: none; }
 }
+.ac-sechead { position: sticky; top: 0; z-index: 2; background: rgba(255,255,255,0.97); }
+[data-theme="dark"] .ac-sechead { background: rgba(22,27,46,0.985); }
 [data-theme="dark"] .ac-scrim { background: rgba(0,0,0,0.22); }
 [data-theme="dark"] .ac-panel { background: rgba(22,27,46,0.985); border-color: rgba(255,255,255,0.10); box-shadow: 0 12px 40px rgba(0,0,0,0.42), 0 2px 8px rgba(0,0,0,0.30); }
 [data-theme="dark"] .ac-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.08); box-shadow: none; }
@@ -523,11 +535,12 @@ export default function ActionCenter({
     const bellBottom = rect ? rect.bottom + 8 : 64
     const top = Math.min(Math.max(bellBottom, 56), 76)
     if (mobile) {
-      // Near-full-width sheet with comfortable side margins.
-      setPos({ top, right: 10, width: vw - 20, mobile: true })
+      // Full-screen sheet: on a phone the drawer IS the screen. Safe-area
+      // padding is applied to the scroll bodies, not here.
+      setPos({ top: 0, right: 0, width: vw, mobile: true })
       return
     }
-    const width = Math.min(432, vw - 48) // compact, aligned with the header icon area
+    const width = Math.min(464, vw - 48)
     setPos({ top, right: 18, width, mobile: false })
   }, [anchorEl, isOpen])
 
@@ -894,14 +907,16 @@ ${KR_SIG}`
         top: pos.top,
         right: pos.right,
         width: pos.width,
-        // Stop well above the Keith AI launcher (fixed bottom:24px, 60px tall) so the
-        // sheet never collides with it; cap the column height too so it stays compact on
-        // tall screens. The body scrolls internally past either limit.
-        maxHeight: `min(600px, calc(100vh - ${pos.top + 116}px))`,
-        borderRadius: pos.mobile ? 16 : 16,
+        // A true right drawer: header-to-bottom with a small intentional margin.
+        // The old sheet capped at 600px and reserved 116px for the floating
+        // launchers it could not layer above; now that the drawer sits above
+        // them (see .ac-scrim), the list gets the full remaining viewport and
+        // scrolls internally. 100dvh on mobile tracks the real visual viewport.
+        height: pos.mobile ? '100dvh' : `calc(100vh - ${pos.top + 16}px)`,
+        borderRadius: pos.mobile ? 0 : 16,
         display: 'flex',
         flexDirection: 'column',
-        zIndex: 500,
+        zIndex: 1003,
         fontFamily: 'DM Sans, sans-serif',
         overflow: 'hidden',
       }}
@@ -1006,14 +1021,21 @@ ${KR_SIG}`
         </div>
       )}
 
-      {/* Triage sections body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0 18px' }}>
+      {/* Triage sections body. flex column: when the list is empty the caught-up
+          state takes flex:1 and centers in the tall drawer, which pushes the
+          passive Handled-automatically/Recently-completed sections to the bottom
+          edge - covered vs. needs-me stays legible even with nothing to do. */}
+      <div style={{
+        flex: 1, overflowY: 'auto', overscrollBehavior: 'contain',
+        display: 'flex', flexDirection: 'column',
+        padding: pos.mobile ? '8px 0 calc(18px + env(safe-area-inset-bottom))' : '8px 0 18px',
+      }}>
         {totalCount === 0 && !hasFetchError && (shiftLogsLoading || dispositionFollowupsLoading) ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 24px' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 24px' }}>
             <span style={{ fontSize: 13, color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>Loading action items…</span>
           </div>
         ) : totalCount === 0 && !hasFetchError ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 28px', gap: 12 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 28px', gap: 12 }}>
             <div style={{
               width: 60, height: 60, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: 'rgba(123,168,107,0.14)', border: '1px solid rgba(123,168,107,0.30)',
@@ -1030,14 +1052,14 @@ ${KR_SIG}`
           visibleSections.map(section => {
             const items = grouped[section.key]
             if (!items.length) return null
-            const isExpanded   = !!expandedStacks[section.key]
-            const visibleItems = isExpanded ? items : items.slice(0, 3)
-            const hiddenCount  = items.length - 3
+            const isExpanded   = !!expandedStacks[section.key] || !!activeFilter
+            const visibleItems = isExpanded ? items : items.slice(0, SECTION_CAP)
+            const hiddenCount  = isExpanded ? 0 : items.length - SECTION_CAP
 
             return (
               <div key={section.key} style={{ marginBottom: 11 }}>
-                {/* Section header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 8px' }}>
+                {/* Section header - sticky so long lists keep their context */}
+                <div className="ac-sechead" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 8px' }}>
                   <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: section.color, flexShrink: 0 }} />
                   <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: section.color }}>
                     {section.label}
