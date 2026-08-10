@@ -147,7 +147,7 @@ function AutomationStatusSection({ rows, expanded, onToggle }) {
         <div key={`${a.id}-ir-auto`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 16px 8px 36px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Interview reminder</div>
-            <div style={{ fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.last_name}, {a.first_name} \u00b7 Interview {fmtIvDate(a.interview_scheduled_date)}</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.last_name}, {a.first_name} · Interview {fmtIvDate(a.interview_scheduled_date)}</div>
           </div>
           <span style={{ fontSize: 10, fontWeight: 600, color: '#3730a3', background: '#eef2ff', border: '1px solid #c7d2fe', padding: '2px 7px', borderRadius: 20, flexShrink: 0 }}>Scheduled</span>
         </div>

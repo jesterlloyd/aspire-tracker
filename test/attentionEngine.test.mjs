@@ -363,3 +363,20 @@ test('audit: interview_reminder is the ONLY cron-owned Action Center task type',
     'that task must move onto the ownership model in lib/automationOwnership.js ' +
     'instead of staying a manual Action Center card')
 })
+
+test('no literal escape sequences leak into Action Center JSX text', () => {
+  // Shipped and caught in production QC: `·` written as JSX TEXT renders
+  // as the six characters rather than a middot. Inside a JS string literal the
+  // same sequence is fine, which is why it survived review - so this checks
+  // text positions only: after a `}` or `>`, before a `{` or `<`.
+  const src = read('src/components/ActionCenter.jsx')
+  const offenders = []
+  for (const line of src.split('\n')) {
+    if (!/\\u[0-9a-fA-F]{4}/.test(line)) continue
+    // Strip quoted strings, where an escape is legitimate.
+    const unquoted = line.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""').replace(/`[^`]*`/g, '``')
+    if (/\\u[0-9a-fA-F]{4}/.test(unquoted)) offenders.push(line.trim().slice(0, 110))
+  }
+  assert.deepEqual(offenders, [],
+    'escape sequences in JSX text render literally; use the character itself')
+})
