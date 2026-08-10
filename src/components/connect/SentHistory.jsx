@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Clock, Check, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Inbox, AlertCircle, Repeat, Eye } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import OutreachAnalytics from './OutreachAnalytics'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -291,6 +292,11 @@ export default function SentHistory() {
   const [error, setError]     = useState(null)
   const [page, setPage]       = useState(1)
   const [total, setTotal]     = useState(0)
+  // OUTREACH-ANALYTICS-1: aggregates for the band above the list. Fetched
+  // through the SAME filter state, so the KPI total and the "N communications"
+  // figure below can never disagree.
+  const [analytics, setAnalytics] = useState(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
   const [totalPages, setTotalPages] = useState(1)
   const [expandedRowIds, setExpandedRowIds] = useState(() => new Set())
 
@@ -374,6 +380,42 @@ export default function SentHistory() {
     return params.toString()
   }, [dateRange, customStartDate, customEndDate, pseudoFolder, failedOnly, page, constrainedStudentId, constrainedContactId])
 
+  // The analytics query is the list query minus pagination, plus the viewer's
+  // timezone so daily buckets line up with the local-day date filters.
+  // Built from the list query with paging stripped, so the filter chain can
+  // never diverge - but deliberately NOT keyed on buildQueryString, whose
+  // identity changes with `page`. Paginating the list must not re-run the
+  // aggregate: the analytics describe the whole filtered period, not the page.
+  const buildAnalyticsQuery = useCallback(() => {
+    const params = new URLSearchParams(buildQueryString())
+    params.delete('page')
+    params.delete('per_page')
+    params.set('aggregate', '1')
+    params.set('tz_offset_minutes', String(new Date().getTimezoneOffset()))
+    return params.toString()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange, customStartDate, customEndDate, pseudoFolder, failedOnly, constrainedStudentId, constrainedContactId])
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      // Set AFTER the first await: a synchronous setState in an effect body
+      // triggers a cascading render (and the repo's lint rule for it).
+      setAnalyticsLoading(true)
+      if (!session?.access_token) return
+      const res = await fetch(`/api/notification-log-query?${buildAnalyticsQuery()}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) throw new Error('analytics_failed')
+      setAnalytics(await res.json())
+    } catch {
+      // Analytics are supplementary: the audit trail below still stands.
+      setAnalytics(null)
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }, [buildAnalyticsQuery])
+
   const fetchHistory = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -396,6 +438,7 @@ export default function SentHistory() {
   }, [buildQueryString])
 
   useEffect(() => { fetchHistory() }, [fetchHistory])
+  useEffect(() => { fetchAnalytics() }, [fetchAnalytics])
 
   // Resolve the pill name from the first resolved row; stays stable across
   // sub-filters that may empty the result set. Falls back to "Selected contact".
@@ -645,6 +688,12 @@ export default function SentHistory() {
       </div>
 
       {FilterBar}
+
+      {/* OUTREACH-ANALYTICS-1: the analytics sit between the filters and the
+          record. They answer the summary questions; the list below remains the
+          detailed audit trail and is unchanged. */}
+      <OutreachAnalytics data={analytics} loading={analyticsLoading} error={error} failedOnly={failedOnly} />
+
       {body}
 
       {viewId && <MessageDrawer detail={detail} onClose={closeMessage} onRetry={() => openMessage(viewId)} />}

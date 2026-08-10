@@ -27,6 +27,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
+import { aggregateOutreach } from '../lib/server/outreachAnalytics.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
@@ -126,6 +127,66 @@ export default async function handler(req, res) {
       : null;
     const recipientTypeFilter = q.recipient_type_filter || 'all';
     const statusFilter        = q.status_filter || 'all';
+
+    // ── 4a. OUTREACH-ANALYTICS-1: aggregate mode ─────────────────────────────
+    // Same authorization, same window, same filter chain as the list below -
+    // built by applyFilters so the KPI total is by construction the number the
+    // list reports. Selects four small columns and NEVER a message body or
+    // subject; pages through in chunks so a wide range does not depend on
+    // PostgREST's default row ceiling.
+    const applyFilters = (qb) => {
+      let x = qb
+        .gte('sent_at', startInstant.toISOString())
+        .lt('sent_at', endInstant.toISOString());
+      if (q.contact_id) x = x.eq('contact_id', q.contact_id);
+      if (q.student_id) x = x.eq('student_id', q.student_id);
+      if (notificationTypes && notificationTypes.length > 0) x = x.in('notification_type', notificationTypes);
+      if (recipientTypeFilter === 'student')      x = x.eq('recipient_type', 'student');
+      else if (recipientTypeFilter === 'contact') x = x.eq('recipient_type', 'contact');
+      else if (recipientTypeFilter === 'null')    x = x.is('recipient_type', null);
+      if (statusFilter === 'failed') x = x.in('status', ['failed', 'bounced', 'complained']);
+      return x;
+    };
+
+    if (q.aggregate === '1' || q.aggregate === 'true') {
+      const CHUNK = 1000;
+      const MAX_ROWS = 25000;        // safety ceiling; reported honestly below
+      const minimal = [];
+      let truncated = false;
+      for (let offset = 0; offset < MAX_ROWS; offset += CHUNK) {
+        const { data, error: aggErr } = await applyFilters(
+          supabaseAdmin.from('notification_log').select('sent_at, recipient_type, contact_id, status')
+        ).order('sent_at', { ascending: false }).range(offset, offset + CHUNK - 1);
+        if (aggErr) {
+          console.error('[notification-log-query] aggregate error:', aggErr.message);
+          return res.status(500).json({ error: 'Failed to load communication analytics' });
+        }
+        const batch = data || [];
+        minimal.push(...batch);
+        if (batch.length < CHUNK) break;
+        if (minimal.length >= MAX_ROWS) { truncated = true; break; }
+      }
+
+      // Contact categories: ONE lookup of the small contacts table, ids only.
+      const contactCategories = new Map();
+      const neededIds = [...new Set(minimal.map(r => r.contact_id).filter(Boolean))];
+      if (neededIds.length) {
+        for (let i = 0; i < neededIds.length; i += 500) {
+          const { data: cats } = await supabaseAdmin
+            .from('contacts').select('id, category').in('id', neededIds.slice(i, i + 500));
+          for (const c of cats || []) contactCategories.set(c.id, c.category);
+        }
+      }
+
+      const tzOffsetMinutes = Number.isFinite(Number(q.tz_offset_minutes)) ? Number(q.tz_offset_minutes) : 0;
+      const agg = aggregateOutreach(minimal, {
+        contactCategories,
+        startIso: startInstant.toISOString(),
+        endIso: endInstant.toISOString(),
+        tzOffsetMinutes,
+      });
+      return res.status(200).json({ ...agg, truncated });
+    }
 
     // ── 4. Query notification_log (data + exact total in one call) ────────────
     const from = (page - 1) * perPage;
