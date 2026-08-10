@@ -18,6 +18,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { ACTIVATION_LIFETIME_SENTENCE } from '../lib/server/activationLifetime.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -142,13 +143,22 @@ test('the staff endpoint uses the scanner-safe hashed-token flow, not the defaul
   assert.doesNotMatch(endpoint, /redirectTo: appUrl\(\),/)
 })
 
-test('the branded staff email carries the confirmed 1-hour single-use wording', () => {
-  assert.match(staffMail, /Your activation link is valid for 1 hour and can be used once\./)
-  assert.match(staffMail, /When a new link is issued, earlier activation links stop working, so always use the most recent email\./)
+test('the branded staff email carries the canonical single-use wording', async () => {
+  // Rendered, not read from source: the sentence lives in the shared copy
+  // module now, so a source grep would silently stop checking the real email.
+  // Asserted through the shared constant because the duration moved from
+  // 1 hour to 24 hours on 2026-08-10 and this test must track it, not restate it.
+  const mod = await import('../lib/server/email/staffInvitation.js')
+  const fn = mod.staffInvitationEmail || mod.default
+  const html = fn({ firstName: 'Ada', activationLink: 'https://x/auth/activate#t', role: 'admin' }).html
+  assert.ok(html.includes(ACTIVATION_LIFETIME_SENTENCE))
+  assert.match(html, /When a new link is issued, earlier activation links stop working, so always use the most recent email\./)
   assert.match(endpoint, /import \{ staffInvitationEmail \}/)
   assert.match(endpoint, /replyTo: EMAIL_REPLY_TO/)
-  // Staff access has no expiration, so the template states none.
-  assert.doesNotMatch(staffMail, /portal access itself is available through/)
+  // Staff access has no expiration, so the rendered email states none.
+  assert.doesNotMatch(html, /portal access itself is available through/)
+  assert.ok(!/\b\d+\s*(hour|hours|minute|minutes)\b/.test(staffMail),
+    'the staff template must render the shared sentence, never a hardcoded duration')
 })
 
 // ── Duplicate and existing-identity handling ─────────────────────────────────

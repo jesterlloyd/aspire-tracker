@@ -17,6 +17,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { ACTIVATION_LIFETIME_SENTENCE, ACTIVATION_PAGE_SENTENCE } from '../lib/server/activationLifetime.js'
 import { portalInvitationEmail, inviteCopyForRole, PORTAL_INVITE_SUBJECT } from '../lib/server/email/portalInvitation.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -112,8 +113,9 @@ test('the invitation states that access is time limited and needs a password', (
   const out = portalInvitationEmail({
     firstName: 'Jae', role: 'unit_leader', activationLink: LINK, expiresAt: '2026-08-01T00:00:00Z',
   })
-  // The link's own lifetime, stated plainly (wording refreshed 2026-08-10).
-  assert.match(out.html, /valid for 1 hour and can be used once/)
+  // The link's own lifetime, stated plainly. Asserted through the shared
+  // constant so the TTL change of 2026-08-10 cannot leave this test behind.
+  assert.ok(out.html.includes(ACTIVATION_LIFETIME_SENTENCE))
   assert.match(out.html, /create your password/)
   assert.match(out.html, /August 1, 2026/)
   assert.match(out.html, /intended only for you/)
@@ -201,7 +203,7 @@ test('the activation screen never reveals whether an account exists', () => {
     assert.ok(!page.includes(leak), `the activation screen must not say "${leak}"`)
   }
   // The invalid state offers the same generic recovery route to everyone.
-  assert.match(pageCode, /Activation links are valid for 1 hour and can be used once/)
+  assert.match(pageCode, /\{ACTIVATION_PAGE_SENTENCE\}/)
 })
 
 test('no token or activation link is ever rendered or logged', () => {

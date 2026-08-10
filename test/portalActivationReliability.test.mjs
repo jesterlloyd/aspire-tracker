@@ -19,6 +19,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { ACTIVATION_LIFETIME_SENTENCE, ACTIVATION_PAGE_SENTENCE } from '../lib/server/activationLifetime.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -99,22 +100,31 @@ test('the invalid state offers new-link, set-or-reset, and sign-in, non-enumerat
   assert.match(page, /requestRecovery\('\/auth\/reset-password'\)/)
 })
 
-test('supersession is explained to the user and in the email', () => {
+test('supersession is explained to the user and in the email', async () => {
   // The page now uses the SAME sentence as the emails (aligned 2026-08-10).
   assert.match(page, /When a new\n?\s*link is issued, earlier activation links stop working/i)
-  assert.match(email, /When a new link is issued, earlier activation links stop working, so always use the most recent email\./)
+  // Rendered, not read from source: since the copy was centralized the
+  // template file no longer contains the sentence literally, and asserting
+  // against source would silently stop checking the delivered email.
+  const { portalInvitationEmail } = await import('../lib/server/email/portalInvitation.js')
+  const html = portalInvitationEmail({ firstName: 'Sam', activationLink: 'https://x/a#t', role: 'student' }).html
+  assert.match(html, /When a new link is issued, earlier activation links stop working, so always use the most recent email\./)
 })
 
 // ── Corrected email copy ─────────────────────────────────────────────────────
 
-test('the email separates link lifetime from portal-access expiration', () => {
-  // The stated lifetime matches the confirmed production Email OTP expiration
-  // (3600 seconds): 1 hour, not the earlier estimated 24 hours. Re-confirmed
-  // canonical 2026-08-10; only the WORDING changed, never the duration.
-  assert.match(email, /Your activation link is valid for 1 hour and can be used once\./)
-  assert.match(email, /Your portal access itself is available through <strong>/)
+test('the email separates link lifetime from portal-access expiration', async () => {
+  // The stated lifetime tracks the production Email OTP expiration, which the
+  // Owner set to 86400 seconds (24 hours) on 2026-08-10, superseding the
+  // 3600-second value confirmed on 2026-08-03. Asserted through the shared
+  // constant, against RENDERED output, so this cannot disagree with what is
+  // actually delivered.
+  const { portalInvitationEmail } = await import('../lib/server/email/portalInvitation.js')
+  const html = portalInvitationEmail({ firstName: 'Sam', activationLink: 'https://x/a#t', expiresAt: '2027-01-01', role: 'student' }).html
+  assert.ok(html.includes(ACTIVATION_LIFETIME_SENTENCE))
+  assert.match(html, /Your portal access itself is available through <strong>/)
   // The old copy that presented the grant date as the activation deadline is gone.
-  assert.doesNotMatch(email, /activate your access and create your password by/)
+  assert.doesNotMatch(html, /activate your access and create your password by/)
 })
 
 // ── Redirects and landing ────────────────────────────────────────────────────
@@ -206,19 +216,49 @@ test('no token, hash, or activation link is ever logged or returned', () => {
   assert.doesNotMatch(eventApi, /console\.log/)
 })
 
-// ── COPY-REFRESH 2026-08-10: one rule, one sentence, four templates ──────────
+// ── TTL CANON 2026-08-10: one duration, one sentence, four surfaces ──────────
 //
-// The activation-link TTL is a Supabase Auth project setting (mailer_otp_exp),
-// confirmed at 3600 seconds and NOT changed by this work. Only the wording was
-// refreshed. These pins keep the four invitation surfaces from drifting apart
-// and keep the link's lifetime distinct from the portal-access grant date.
+// The activation-link TTL is a Supabase Auth project setting (mailer_otp_exp)
+// that no code in this repository controls. The Owner set it to 86400 seconds
+// (24 hours) in the production dashboard on 2026-08-10, superseding the
+// 3600-second (1 hour) value confirmed on 2026-08-03.
+//
+// These tests assert THROUGH the shared constant rather than restating the
+// duration, because restating it is precisely how the surfaces drifted apart
+// before. The single test below is the one place the literal value is pinned.
+
+test('the canonical lifetime matches the production Supabase setting', async () => {
+  const { ACTIVATION_LIFETIME_LABEL } = await import('../lib/server/activationLifetime.js')
+  // THE VALUE PIN. Production mailer_otp_exp = 86400 seconds, set by the Owner
+  // on 2026-08-10. If the dashboard changes again, re-verify it there FIRST,
+  // then change the module, then this line - in that order. This assertion
+  // exists so the duration can never drift silently; it is not the authority.
+  assert.equal(ACTIVATION_LIFETIME_LABEL, '24 hours')
+})
+
+test('the copy module is descriptive only and sets no authentication TTL', () => {
+  // Supabase remains the runtime authority. This module must never grow into
+  // an application-side TTL setting that code reads to decide link lifetime.
+  const mod = read('lib/server/activationLifetime.js')
+  // Strip line comments AND JSDoc blocks: the module's prose legitimately names
+  // mailer_otp_exp and both configuration values, so only executable text may
+  // be asserted against. (Missing the `/*` opener here is exactly the kind of
+  // comment-leak that has bitten these source-guard tests before.)
+  const code = mod.split('\n')
+    .filter(l => !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*'))
+    .join('\n')
+  assert.ok(!/mailer_otp_exp\s*[:=]/.test(code), 'must not define a TTL setting')
+  assert.ok(!/86400|3600/.test(code), 'must not express the lifetime as seconds in executable code')
+  assert.ok(!/expiresIn|ttl|otp_exp/i.test(code), 'must not expose a lifetime knob')
+  // It is copy: strings only, no imports, no functions with side effects.
+  assert.ok(!/^import /m.test(code), 'copy needs no dependencies')
+})
 
 test('every invitation states the SAME activation rule, word for word', async () => {
   const { portalInvitationEmail } = await import('../lib/server/email/portalInvitation.js')
   const staffMod = await import('../lib/server/email/staffInvitation.js')
   const staffFn = staffMod.staffInvitationEmail || staffMod.default
 
-  const SENTENCE = 'Your activation link is valid for 1 hour and can be used once.'
   const RECOVERY = 'request a new link from the activation page or use Forgot Password on the sign-in page'
   const SUPERSESSION = 'When a new link is issued, earlier activation links stop working, so always use the most recent email.'
 
@@ -227,62 +267,75 @@ test('every invitation states the SAME activation rule, word for word', async ()
   rendered.push(staffFn({ firstName: 'Ada', activationLink: 'https://x/auth/activate#t', role: 'admin' }).html)
 
   for (const html of rendered) {
-    assert.ok(html.includes(SENTENCE), 'the lifetime sentence must be identical everywhere')
+    assert.ok(html.includes(ACTIVATION_LIFETIME_SENTENCE), 'the lifetime sentence must be identical everywhere')
     assert.ok(html.includes(RECOVERY), 'self-service recovery must be offered')
     assert.ok(html.includes(SUPERSESSION), 'supersession must be explained')
-    // The retired wording must not survive anywhere.
+    // Retired wording must not survive anywhere, including the superseded
+    // 1-hour duration this release replaced.
     assert.ok(!/activation button is time-limited/.test(html))
     assert.ok(!/always use the newest email/.test(html))
-    // The duration itself is unchanged - no template may claim 24 hours.
-    assert.ok(!/24 hours/.test(html), 'the TTL is 1 hour; no template may say otherwise')
+    assert.ok(!/valid for 1 hour|1 hour and can be used once/.test(html),
+      'the 1-hour TTL was superseded on 2026-08-10; no template may still claim it')
+    assert.ok(!/60 minutes/.test(html))
   }
 })
 
-// The 2026-08-10 refresh pinned the four EMAILS and left the PAGE unpinned, so
-// the confirm state kept shipping "Activation links are time-limited" while
-// every other surface said "valid for 1 hour". The rule is stated on the page
-// in more than one state, so the guard below is structural rather than a single
-// literal: it finds EVERY lifetime sentence and holds each to the same wording.
-// A new state that invents its own phrasing fails here.
-test('every activation-page state states the lifetime in the canonical wording', () => {
-  const CANONICAL = 'Activation links are valid for 1 hour and can be used once.'
-
-  // JSX wraps prose across lines; collapse whitespace so a sentence reads as
-  // one string regardless of how Prettier broke it. Comments are stripped
-  // first so explanatory prose can discuss retired wording without tripping
-  // the absence assertions below.
+// HOW THE PAGE DRIFTED, AND WHY THESE GUARDS CHANGED SHAPE
+// On 2026-08-10 four surfaces were corrected to new wording and the confirm
+// state - the screen a user reaches when their link WORKS - silently kept the
+// old phrasing. The first fix pinned each state to a literal sentence. The
+// duration then changed again the same day, which would have meant editing
+// every literal a second time. So the copy now lives in one module and these
+// guards assert STRUCTURE instead: no state may hardcode a duration at all,
+// and every state that states the rule must render the shared constant.
+test('no activation-page state hardcodes a duration', () => {
+  // Comments are stripped first so the file's own prose can discuss the
+  // retired 1-hour wording without tripping the absence checks.
   const prose = page
     .split('\n').filter(l => !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*'))
     .join('\n').replace(/\s+/g, ' ')
 
-  // Every sentence that opens with the lifetime subject must finish the
-  // canonical way. Captures the predicate so a failure names the drift.
-  const statements = [...prose.matchAll(/Activation links? (?:is|are) ([^.]*)\./g)]
-  assert.ok(statements.length >= 2,
-    `expected the lifetime to be stated in at least the confirm and invalid states, found ${statements.length}`)
-  for (const [full, predicate] of statements) {
-    assert.equal(`Activation links are ${predicate}.`, CANONICAL,
-      `an activation-page state states the lifetime as "${full.trim()}" instead of the canonical wording`)
-  }
-
-  // The vague phrasing this test exists to kill, plus the wrong durations.
+  // Any literal duration in the page's own JSX is drift waiting to happen.
+  assert.ok(!/\b\d+\s*(hour|hours|minute|minutes)\b/.test(prose),
+    'the page must render the shared constant, never a hardcoded duration')
   assert.ok(!/time-limited/.test(prose),
     'no activation-page state may describe the lifetime vaguely as "time-limited"')
-  assert.ok(!/24 hours|60 minutes/.test(prose),
-    'the TTL is 1 hour; the page may not state any other duration')
+  // The superseded value must not reappear in any form.
+  assert.ok(!/valid for 1 hour/.test(prose),
+    'the 1-hour TTL was superseded on 2026-08-10')
+
+  // The rule is stated in more than one state, and each must come from the
+  // one constant. Two references: the confirm state and the invalid state.
+  const refs = [...prose.matchAll(/ACTIVATION_PAGE_SENTENCE/g)]
+  assert.ok(refs.length >= 3,
+    `expected the shared sentence to be imported and rendered in at least the confirm and invalid states, found ${refs.length} references`)
 })
 
-test('the valid-link confirm state carries the canonical lifetime sentence', () => {
+test('the valid-link confirm state renders the canonical lifetime sentence', () => {
   // Slice the confirm branch specifically: it is the screen a user sees when
-  // the link WORKS, and it is the one that regressed.
+  // the link WORKS, and it is the one that regressed on 2026-08-10.
   const start = page.indexOf("status === 'confirm'")
   assert.ok(start > -1, 'the confirm state must exist')
   const next = page.indexOf("status === '", start + 20)
   const confirmBranch = page.slice(start, next > -1 ? next : page.length).replace(/\s+/g, ' ')
 
-  assert.match(confirmBranch, /Activation links are valid for 1 hour and can be used once\./)
-  assert.ok(!/time-limited/.test(confirmBranch),
-    'the confirm state regressed to vague lifetime copy')
+  assert.match(confirmBranch, /\{ACTIVATION_PAGE_SENTENCE\}/,
+    'the confirm state must render the shared sentence')
+  assert.ok(!/\b\d+\s*(hour|hours|minute|minutes)\b|time-limited/.test(confirmBranch),
+    'the confirm state regressed to hardcoded or vague lifetime copy')
+})
+
+test('the invalid/expired state renders the same canonical sentence', () => {
+  const start = page.indexOf("status === 'invalid'")
+  assert.ok(start > -1, 'the invalid state must exist')
+  const next = page.indexOf("status === '", start + 20)
+  const branch = page.slice(start, next > -1 ? next : page.length).replace(/\s+/g, ' ')
+
+  assert.match(branch, /\{ACTIVATION_PAGE_SENTENCE\}/)
+  assert.ok(!/\b\d+\s*(hour|hours|minute|minutes)\b/.test(branch),
+    'the expired screen must not restate the duration independently')
+  // Recovery guidance states no duration of its own, so it cannot go stale.
+  assert.match(page, /Always use the most recent email; earlier activation links stop working\./)
 })
 
 test('the portal grant date stays a separate statement from the link lifetime', async () => {
@@ -291,11 +344,15 @@ test('the portal grant date stays a separate statement from the link lifetime', 
   assert.match(withGrant, /Your portal access itself is available through <strong>/)
   assert.match(withGrant, /January 1, 2027/)
   // Two different ideas, two different sentences - the defect this guards.
-  assert.ok(withGrant.indexOf('valid for 1 hour') < withGrant.indexOf('portal access itself'))
+  // The link lifetime comes first, the months-away grant date second, so the
+  // grant date can never be read as the activation deadline.
+  assert.ok(withGrant.indexOf(ACTIVATION_LIFETIME_SENTENCE) < withGrant.indexOf('portal access itself'))
+  // The grant date survives the TTL change untouched: it is a different fact.
+  assert.match(withGrant, /January 1, 2027/)
   // No grant date, no access line - and the lifetime sentence still stands.
   const noGrant = portalInvitationEmail({ firstName: 'Sam', activationLink: 'https://x/a#t', role: 'student' }).html
   assert.ok(!/portal access itself is available through/.test(noGrant))
-  assert.match(noGrant, /valid for 1 hour and can be used once/)
+  assert.ok(noGrant.includes(ACTIVATION_LIFETIME_SENTENCE))
 })
 
 test('the copy refresh changed no authentication behavior', () => {
@@ -307,7 +364,13 @@ test('the copy refresh changed no authentication behavior', () => {
   const code = tmpl.split('\n').filter(l => !l.trim().startsWith('//')).join('\n')
   assert.ok(!/generateLink\(|verifyOtp\(|createClient\(|from '@supabase/.test(code),
     'the template performs no auth work')
-  assert.match(tmpl, /mailer_otp_exp/, 'the provenance of the 1-hour figure is recorded')
+  // Provenance now lives with the copy itself, and must name the runtime
+  // authority plus the configuration history that supersedes the old value.
+  const lifetime = read('lib/server/activationLifetime.js')
+  assert.match(lifetime, /mailer_otp_exp/, 'the provenance of the figure is recorded')
+  assert.match(lifetime, /86400/, 'the current canonical value is recorded')
+  assert.match(lifetime, /3600/, 'the superseded value is retained as history')
+  assert.match(lifetime, /2026-08-10/, 'the supersession date is recorded')
   // The endpoint still mints links exactly as before.
   const endpoint = read('api/invite-portal-user.js')
   assert.match(endpoint, /type: 'invite'/)

@@ -40,6 +40,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { appUrl } from '../lib/appUrl'
+// One duration, stated once. See the module header for why this is imported
+// rather than written here: this page states the rule in two states, and the
+// invitation emails state it in two more.
+import { ACTIVATION_PAGE_SENTENCE } from '../../lib/server/activationLifetime.js'
 
 // Token types the ASPIRE hash URL may carry. Anything else is not ours.
 const TOKEN_TYPES = new Set(['invite', 'recovery'])
@@ -243,7 +247,7 @@ export default function ActivateAccountPage() {
           <div style={{ fontWeight: 700, fontSize: '15px', color: NAVY, marginBottom: '8px' }}>Activate your account</div>
           <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '20px' }}>
             Welcome to ASPIRE. Click below to verify your invitation and create your
-            password. Activation links are valid for 1 hour and can be used once.
+            password. {ACTIVATION_PAGE_SENTENCE}
           </div>
           <button onClick={handleActivate} disabled={activating} style={primaryBtn(activating)}>
             {activating ? 'Verifying…' : 'Activate my account'}
@@ -284,7 +288,7 @@ export default function ActivateAccountPage() {
           {/* Deliberately says nothing about whether an account exists for any
               address. The recovery path below is the same for everyone. */}
           <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '18px' }}>
-            Activation links are valid for 1 hour and can be used once. When a new
+            {ACTIVATION_PAGE_SENTENCE} When a new
             link is issued, earlier activation links stop working. Request a new link
             below, set or reset your password, or return to sign in. Need help? Contact the
             ASPIRE team at <a href="mailto:aspire@cshs.org" style={{ color: NAVY }}>aspire@cshs.org</a>.

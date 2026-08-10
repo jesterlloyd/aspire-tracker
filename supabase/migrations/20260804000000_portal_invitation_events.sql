@@ -6,9 +6,15 @@
 -- *** The PRECHECK below aborted-on-existing by design and passed (the       ***
 -- *** table did not previously exist); it remains for the historical record. ***
 -- *** Related production confirmations recorded the same day: the Email OTP  ***
--- *** expiration is 3600 seconds (activation links live 1 hour), and the     ***
+-- *** expiration WAS 3600 seconds (activation links lived 1 hour), and the   ***
 -- *** redirect allow-list entry https://aspireintelligence.app/** covers     ***
 -- *** both /auth/activate and /auth/reset-password.                          ***
+-- ***                                                                        ***
+-- *** SUPERSEDED 2026-08-10: the Owner set the Email OTP expiration to       ***
+-- *** 86400 seconds (24 hours). The 3600-second figure above is the record   ***
+-- *** of 2026-08-03 and is NOT current configuration. This migration's DDL   ***
+-- *** is unaffected - the TTL is a Supabase Auth project setting, not schema ***
+-- *** - and nothing below was changed. See lib/server/activationLifetime.js. ***
 --
 -- PORTAL-ACTIVATION-RELIABILITY-1: a privacy-safe diagnostics ledger for the
 -- portal invitation and activation lifecycle, so the next "my activation link
