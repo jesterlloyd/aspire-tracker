@@ -80,3 +80,14 @@ test('the empty state centers and passive sections pin to the drawer bottom', ()
   const emptyBlocks = panel.match(/flex: 1, display: 'flex', (alignItems|flexDirection)/g) || []
   assert.ok(emptyBlocks.length >= 2, 'both the loading and caught-up states absorb the free height')
 })
+
+test('Show less stays reachable after Show all', () => {
+  // Caught in production QC: the expand/collapse row was derived from the
+  // post-expansion hidden count, so expanding a section removed the only way
+  // to collapse it again. The row must key on section OVERFLOW instead.
+  const src = read('src/components/ActionCenter.jsx')
+  assert.match(src, /const overflow\s+= activeFilter \? 0 : items\.length - SECTION_CAP/)
+  assert.match(src, /\{overflow > 0 && \(/, 'the row renders on overflow, not on hiddenCount')
+  assert.match(src, /Showing all \$\{items\.length\}/, 'the expanded row says what it shows')
+  assert.ok(!/\{hiddenCount > 0 && \(/.test(src), 'the old hiddenCount-gated row must not return')
+})

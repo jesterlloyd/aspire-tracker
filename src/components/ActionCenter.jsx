@@ -1054,7 +1054,13 @@ ${KR_SIG}`
             if (!items.length) return null
             const isExpanded   = !!expandedStacks[section.key] || !!activeFilter
             const visibleItems = isExpanded ? items : items.slice(0, SECTION_CAP)
-            const hiddenCount  = isExpanded ? 0 : items.length - SECTION_CAP
+            // The expand/collapse row lives on section OVERFLOW, not on the
+            // current expansion state - collapsing must stay reachable after
+            // Show all (caught in production QC: deriving the row from the
+            // post-expansion hidden count made "Show less" unreachable). A
+            // filter shows everything with no row at all.
+            const overflow     = activeFilter ? 0 : items.length - SECTION_CAP
+            const hiddenCount  = isExpanded ? 0 : overflow
 
             return (
               <div key={section.key} style={{ marginBottom: 11 }}>
@@ -1095,10 +1101,12 @@ ${KR_SIG}`
                 ))}
 
                 {/* Expand / collapse */}
-                {hiddenCount > 0 && (
+                {overflow > 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 16px 0' }}>
                     <span style={{ fontSize: 11, color: '#8a93a3' }}>
-                      +{hiddenCount} more {section.label.toLowerCase()} item{hiddenCount !== 1 ? 's' : ''}
+                      {isExpanded
+                        ? `Showing all ${items.length} ${section.label.toLowerCase()} items`
+                        : `+${hiddenCount} more ${section.label.toLowerCase()} item${hiddenCount !== 1 ? 's' : ''}`}
                     </span>
                     <button
                       onClick={() => setExpandedStacks(p => ({ ...p, [section.key]: !p[section.key] }))}
