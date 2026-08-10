@@ -183,6 +183,10 @@ function MainApp({ onLogout }) {
   const [ivSessions,    setIvSessions]    = useState([])
   const [ivSlots,       setIvSlots]       = useState([])
   const [communications,setCommunications]= useState([])
+  // ACTION-OWNERSHIP-1: interview_reminder rows from notification_log (what the
+  // cron sent) plus a loaded flag, so the attention engine never guesses.
+  const [reminderDeliveries,setReminderDeliveries]= useState([])
+  const [reminderDeliveriesLoaded,setReminderDeliveriesLoaded]= useState(false)
   const [showActionCenter, setShowActionCenter] = useState(false)
   // Live count reported by the open Action Center panel (includes lazy-loaded tasks).
   // null when the panel is closed → badge falls back to the eager + lazy count below.
@@ -330,7 +334,7 @@ function MainApp({ onLogout }) {
   useEffect(() => {
     if (!activeCohortId) return
     // Clear stale data from previous cohort immediately so no cross-cohort bleed
-    setStudents([]); setUnits([]); setMatches([]); setInterviews([]); setIvSessions([]); setIvSlots([]); setCommunications([])
+    setStudents([]); setUnits([]); setMatches([]); setInterviews([]); setIvSessions([]); setIvSlots([]); setCommunications([]); setReminderDeliveries([]); setReminderDeliveriesLoaded(false)
     setAcShiftLogs([]); setAcLazyLoaded(false)
     setLoading(true); setDbError(null)
     Promise.all([
@@ -338,6 +342,7 @@ function MainApp({ onLogout }) {
       fetchMatches(activeCohortId),  fetchInterviews(activeCohortId),
       fetchIvSessions(activeCohortId), fetchIvSlots(activeCohortId),
       fetchCommunications(activeCohortId), fetchLazyActionData(activeCohortId),
+      fetchReminderDeliveries(activeCohortId),
     ]).finally(() => setLoading(false))
   }, [activeCohortId])
 
@@ -386,6 +391,22 @@ function MainApp({ onLogout }) {
   const fetchCommunications = async id => {
     const { data } = await supabase.from('communications').select('*').eq('cohort_id', id).order('sent_at', { ascending: false })
     setCommunications(data || [])
+  }
+  // ACTION-OWNERSHIP-1: what the interview-reminder cron actually sent.
+  // The cron records into notification_log, never into communications, so this
+  // is the only source that can tell a delivered reminder from a missing one.
+  // Scoped to the one notification type the attention engine reasons about.
+  const fetchReminderDeliveries = async id => {
+    const { data, error } = await supabase
+      .from('notification_log')
+      .select('student_id, notification_type, status, sent_at')
+      .eq('cohort_id', id)
+      .eq('notification_type', 'interview_reminder')
+    // On error leave the loaded flag false: the engine then reports UNKNOWN and
+    // raises no action, rather than claiming every reminder went unsent.
+    if (error) { setReminderDeliveriesLoaded(false); return }
+    setReminderDeliveries(data || [])
+    setReminderDeliveriesLoaded(true)
   }
   const logCommunication = comm => {
     setCommunications(prev => [comm, ...prev])
@@ -953,6 +974,7 @@ function MainApp({ onLogout }) {
   const attentionNow = new Date()
   const eagerAttention = deriveEagerAttention({
     students, matches, communications, activeCohort, canEdit, now: attentionNow,
+    reminderDeliveries, deliveriesLoaded: reminderDeliveriesLoaded,
   })
   const lazyAttention = deriveLazyAttention({
     students,
@@ -1170,6 +1192,8 @@ function MainApp({ onLogout }) {
           cohortId={activeCohortId}
           activeCohort={activeCohort}
           communications={communications}
+          reminderDeliveries={reminderDeliveries}
+          reminderDeliveriesLoaded={reminderDeliveriesLoaded}
           onLogCommunication={logCommunication}
           onMatchUpdate={updateMatch}
           onStudentUpdate={updateStudent}

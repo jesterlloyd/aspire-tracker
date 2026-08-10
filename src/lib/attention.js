@@ -23,8 +23,13 @@
 // `now`), so both consumers and the tests exercise identical logic.
 
 import { getCsLinkStatus } from './utils.js'
+import { resolveAutomationState, requiresHuman, isPassiveStatus } from './automationOwnership.js'
 
 export const NOT_LOGGED_WINDOW_DAYS = 7
+
+// Statuses where an interview reminder is meaningless regardless of what date
+// is still on the student record (withdrawn, declined, or already finished).
+const REMINDER_TERMINAL_STATUSES = new Set(['Not Proceeding', 'Declined', 'Completed'])
 
 export function fmtLocalDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -38,9 +43,15 @@ const hasSent = (communications, sid, type) =>
  * (students, matches, communications, activeCohort). Returns the raw student
  * lists per task so the panel can render items and the badge can count them.
  */
-export function deriveEagerAttention({ students = [], matches = [], communications = [], activeCohort = null, canEdit = false, now = new Date() }) {
+export function deriveEagerAttention({
+  students = [], matches = [], communications = [], activeCohort = null, canEdit = false, now = new Date(),
+  // ACTION-OWNERSHIP-1: automation-backed state. `reminderDeliveries` are
+  // notification_log rows (where the cron actually records its sends);
+  // `deliveriesLoaded` gates them exactly like shiftLogsLoaded gates the lazy
+  // sets, so a slow query can never manufacture a false "not sent" action.
+  reminderDeliveries = [], deliveriesLoaded = false, interviewRemindersEnabled = true,
+}) {
   const td = fmtLocalDate(now)
-  const t48 = fmtLocalDate(new Date(now.getTime() + 48 * 3600 * 1000))
 
   // Always-visible tasks (not role-gated in the panel)
   // CONNECT-SCHEDULING-LINK-1: the task is resolved by a logged 'scheduling_link' communication, the
@@ -51,10 +62,44 @@ export function deriveEagerAttention({ students = [], matches = [], communicatio
     s.status === 'Form Received' && !s.interview_scheduled_date &&
     !hasSent(communications, s.id, 'scheduling_link')
   )
-  const interviewReminder = students.filter(s =>
-    s.interview_scheduled_date >= td && s.interview_scheduled_date <= t48 &&
-    !hasSent(communications, s.id, 'interview_reminder')
-  )
+  // ACTION-OWNERSHIP-1: interview reminders are owned by
+  // api/cron/interview-reminders.js. This no longer asks "is an interview
+  // near and is there no communications row?" - that question produced an
+  // unresolvable card, because the cron writes to notification_log and never
+  // to communications, so an automated send could not clear it and the item
+  // outlived the interview.
+  //
+  // It now asks who owns the work. Only exceptions (send failed, window
+  // passed unsent, automation off) are actions; a scheduled or delivered
+  // reminder is status, and a past interview is nothing at all.
+  const reminderStates = students
+    // A student who has withdrawn, declined, or finished does not need an
+    // interview reminder, even if a stale interview date is still on the
+    // record. Excluding terminal statuses rather than whitelisting the active
+    // ones keeps a legitimately-booked student visible whatever their stage.
+    .filter(s => s.interview_scheduled_date && !REMINDER_TERMINAL_STATUSES.has(s.status))
+    .map(s => ({
+      student: s,
+      ...resolveAutomationState({
+        actionKey: 'interview_reminder',
+        eventDate: s.interview_scheduled_date,
+        todayDate: td,
+        now,
+        deliveries: reminderDeliveries.filter(d => d.student_id === s.id),
+        manualLogs: communications.filter(c => c.student_id === s.id),
+        deliveriesLoaded,
+        automationEnabled: interviewRemindersEnabled,
+      }),
+    }))
+
+  // Counted: a person must act.
+  const interviewReminder = reminderStates
+    .filter(r => requiresHuman(r.state))
+    .map(r => ({ ...r.student, automationState: r.state, automationSpec: r.spec }))
+  // Never counted: shown as passive status only.
+  const interviewReminderScheduled = reminderStates
+    .filter(r => isPassiveStatus(r.state))
+    .map(r => ({ ...r.student, automationState: r.state, scheduledFor: r.scheduledFor }))
   const preceptorWelcome = students.filter(s =>
     s.status === 'Placed' && s.matched_preceptor && !hasSent(communications, s.id, 'preceptor_welcome')
   )
@@ -99,6 +144,9 @@ export function deriveEagerAttention({ students = [], matches = [], communicatio
     sendStudentForm, unitLeaderNotification, csLinkNotStarted,
     badgeNotCreated, noPreceptor, selectionDecision,
     orientationDue, placedStudents, orientationComplete,
+    // Passive automation status. Deliberately outside `count`: it is
+    // visibility, not work. Keep it out of any badge total.
+    interviewReminderScheduled,
     count,
   }
 }

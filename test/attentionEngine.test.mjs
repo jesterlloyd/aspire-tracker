@@ -7,7 +7,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
@@ -43,6 +43,10 @@ test('eager sets: each predicate fires on its exact condition', () => {
   const eager = deriveEagerAttention({
     students, matches, communications: [], activeCohort: { id: 'co1', orientation_sent_at: null },
     canEdit: true, now: NOW,
+    // ACTION-OWNERSHIP-1: student b's interview is TODAY, so the cron's send
+    // window (yesterday) has passed with nothing delivered. That is a genuine
+    // MISSED exception and still a human action.
+    reminderDeliveries: [], deliveriesLoaded: true,
   })
   assert.deepEqual(eager.schedulingLink.map(s => s.id), ['a'])
   assert.deepEqual(eager.interviewReminder.map(s => s.id), ['b'])
@@ -75,18 +79,21 @@ test('eager sets: sent communications and role gating suppress correctly', () =>
   ]
   const eager = deriveEagerAttention({
     students, matches: [], communications, activeCohort: { id: 'co1' }, canEdit: true, now: NOW,
+    reminderDeliveries: [], deliveriesLoaded: true,
   })
-  assert.equal(eager.interviewReminder.length, 0, 'reminder already sent')
+  assert.equal(eager.interviewReminder.length, 0, 'reminder already sent (manual communications row)')
   assert.equal(eager.preceptorWelcome.length, 0, 'welcome already sent')
   assert.equal(eager.orientationDue, false, 'orientation logged in communications')
 
   const viewer = deriveEagerAttention({
     students, matches: [], communications: [], activeCohort: { id: 'co1' }, canEdit: false, now: NOW,
+    reminderDeliveries: [], deliveriesLoaded: true,
   })
   assert.equal(viewer.sendStudentForm.length, 0, 'canEdit-gated set empty for non-editors')
   assert.equal(viewer.csLinkNotStarted.length, 0)
   assert.equal(viewer.orientationDue, false)
-  // Always-visible sets still count for non-editors (matches the panel).
+  // Always-visible sets still count for non-editors (matches the panel). The
+  // interview is today with no delivery, so it is a MISSED exception.
   assert.equal(viewer.interviewReminder.length, 1)
 })
 
@@ -186,4 +193,173 @@ test('Connect icon honors its badge (approved destination behavior)', () => {
   assert.match(ha, /: \['contacts', 'outreach', 'broadcasts'\]/)
   // The bell's accessible name carries the true count.
   assert.match(ha, /Action Center, \$\{actionBadgeCount\} open action/)
+})
+
+// ── ACTION-OWNERSHIP-1: automation-owned vs human-owned work ────────────────
+//
+// The defect: "Send Interview Reminder" was shown as an unresolved manual task
+// for work api/cron/interview-reminders.js performs. It was unresolvable, not
+// merely noisy - the cron records sends in notification_log while the predicate
+// only read communications, so an automated send could never clear the card and
+// it outlived the interview itself.
+//
+// The cron sends at 17:00 UTC on the day BEFORE an interview, and only ever
+// targets "tomorrow", so a student it misses is never retried. These tests fix
+// `now` and walk one interview through every state.
+
+const IV_DATE = '2026-07-20'                       // interview date under test
+const beforeCronRun = new Date('2026-07-19T12:00:00Z') // 19th, before 17:00 UTC
+const afterCronRun  = new Date('2026-07-19T21:00:00Z') // 19th, past send + grace
+const dayOfIv       = new Date('2026-07-20T15:00:00Z') // interview day
+const afterIv       = new Date('2026-07-22T15:00:00Z') // interview has passed
+
+const ivStudent = () => student('r1', {
+  interview_scheduled_date: IV_DATE, status: 'Interview Scheduled',
+})
+const reminderRow = (over = {}) => ({
+  student_id: 'r1', notification_type: 'interview_reminder', status: 'sent',
+  sent_at: '2026-07-19T17:00:05Z', ...over,
+})
+// canEdit:false deliberately: it empties every canEdit-gated set (CS-Link,
+// badge, preceptor, ...) so `count` isolates the reminder's contribution.
+// The reminder set is not role-gated, so it is unaffected.
+const derive = (over = {}) => deriveEagerAttention({
+  students: [ivStudent()], matches: [], communications: [],
+  activeCohort: { id: 'co1' }, canEdit: false,
+  reminderDeliveries: [], deliveriesLoaded: true,
+  ...over,
+})
+
+test('ownership: upcoming interview, reminder not yet due, cron healthy', () => {
+  // Two days out: the cron has not reached this interview's send moment.
+  const e = derive({ now: new Date('2026-07-18T12:00:00Z') })
+  assert.equal(e.interviewReminder.length, 0, 'automation owns it - not a task')
+  assert.equal(e.interviewReminderScheduled.length, 1, 'shown as passive status')
+  assert.equal(e.interviewReminderScheduled[0].automationState, 'not_due')
+})
+
+test('ownership: reminder due and cron scheduled to send', () => {
+  const e = derive({ now: beforeCronRun })
+  assert.equal(e.interviewReminder.length, 0, 'still automation-owned')
+  assert.equal(e.interviewReminderScheduled[0].automationState, 'scheduled')
+})
+
+test('ownership: reminder successfully sent by the cron', () => {
+  // The exact case the old predicate could not see: delivery recorded in
+  // notification_log, nothing in communications.
+  const e = derive({ now: dayOfIv, reminderDeliveries: [reminderRow()] })
+  assert.equal(e.interviewReminder.length, 0, 'no action remains once sent')
+  assert.equal(e.interviewReminderScheduled.length, 0, 'sent is not passive status either')
+})
+
+test('ownership: reminder send FAILED - a real human action with fallback', () => {
+  const e = derive({ now: dayOfIv, reminderDeliveries: [reminderRow({ status: 'failed' })] })
+  assert.equal(e.interviewReminder.length, 1, 'a failed send needs a person')
+  assert.equal(e.interviewReminder[0].automationState, 'failed')
+})
+
+test('ownership: reminder OVERDUE - window passed with no send, no retry', () => {
+  const e = derive({ now: afterCronRun })
+  assert.equal(e.interviewReminder.length, 1, 'missed sends need a person')
+  assert.equal(e.interviewReminder[0].automationState, 'missed')
+  assert.equal(e.interviewReminderScheduled.length, 0)
+})
+
+test('ownership: a past interview raises nothing at all', () => {
+  // The screenshot defect: completed interviews still read "Reminder not sent."
+  const e = derive({ now: afterIv })
+  assert.equal(e.interviewReminder.length, 0, 'a past interview needs no reminder')
+  assert.equal(e.interviewReminderScheduled.length, 0)
+  assert.equal(e.count, 0, 'and contributes nothing to the badge')
+})
+
+test('ownership: a legitimate manual resend resolves the item', () => {
+  const e = derive({
+    now: afterCronRun,
+    communications: [{ student_id: 'r1', type: 'interview_reminder' }],
+  })
+  assert.equal(e.interviewReminder.length, 0, 'manual send clears the exception')
+})
+
+test('ownership: automation switched OFF makes it human-owned again', () => {
+  const e = derive({ now: beforeCronRun, interviewRemindersEnabled: false })
+  assert.equal(e.interviewReminder.length, 1, 'nobody but a person will send it')
+  assert.equal(e.interviewReminder[0].automationState, 'disabled')
+})
+
+test('ownership: unloaded deliveries never manufacture an action', () => {
+  // Mirrors the shiftLogsLoaded gate: missing data must not read as "not sent".
+  const e = derive({ now: afterCronRun, deliveriesLoaded: false })
+  assert.equal(e.interviewReminder.length, 0, 'no work invented from missing data')
+  assert.equal(e.interviewReminderScheduled.length, 0)
+  assert.equal(e.count, 0)
+})
+
+test('ownership: healthy automation is excluded from the Action Needed count', () => {
+  const scheduled = derive({ now: beforeCronRun })
+  assert.equal(scheduled.count, 0, 'passive status must not inflate the badge')
+  assert.equal(scheduled.interviewReminderScheduled.length, 1, 'but is still visible')
+
+  // Only the exception contributes.
+  const missed = derive({ now: afterCronRun })
+  assert.equal(missed.count, 1)
+
+  // And the badge total agrees with the panel.
+  assert.equal(attentionBadgeTotal({ eager: scheduled, lazy: { count: 0 } }), 0)
+  assert.equal(attentionBadgeTotal({ eager: missed, lazy: { count: 0 } }), 1)
+})
+
+test('ownership: the sent state comes from notification_log, not communications', () => {
+  // Source guard for the root cause. If the engine ever goes back to reading
+  // only communications for this task, the cron can never clear it again.
+  const engine = read('src/lib/attention.js')
+  const code = engine.split('\n').filter(l => !l.trim().startsWith('//')).join('\n')
+  assert.match(code, /resolveAutomationState/, 'ownership is resolved, not guessed')
+  assert.ok(!/hasSent\(communications, s\.id, 'interview_reminder'\)/.test(code),
+    'the communications-only reminder predicate must not return')
+  assert.match(code, /reminderDeliveries/, 'notification_log deliveries feed the engine')
+})
+
+test('ownership: withdrawn and completed students raise no reminder work', () => {
+  // A stale interview date on a student who is no longer proceeding is not a
+  // reason to ask the Owner to send anything.
+  for (const status of ['Not Proceeding', 'Declined', 'Completed']) {
+    const e = deriveEagerAttention({
+      students: [student('r1', { interview_scheduled_date: IV_DATE, status })],
+      matches: [], communications: [], activeCohort: { id: 'co1' }, canEdit: false,
+      reminderDeliveries: [], deliveriesLoaded: true, now: afterCronRun,
+    })
+    assert.equal(e.interviewReminder.length, 0, `${status} needs no reminder action`)
+    assert.equal(e.interviewReminderScheduled.length, 0, `${status} needs no reminder status`)
+  }
+  // A booked student at any live stage is still covered.
+  const live = derive({ now: afterCronRun })
+  assert.equal(live.interviewReminder.length, 1)
+})
+
+test('audit: interview_reminder is the ONLY cron-owned Action Center task type', () => {
+  // The audit this work is built on, pinned so a future automation cannot
+  // quietly take over a task the Action Center still presents as manual.
+  // Every markDone type in the panel is cross-checked against every type any
+  // cron actually sends; the intersection must be exactly interview_reminder.
+  const panel = read('src/components/ActionCenter.jsx')
+  const panelTypes = new Set(
+    [...panel.matchAll(/markDonePayload:\{type:'([a-z_]+)'/g)].map(m => m[1])
+  )
+  assert.ok(panelTypes.size >= 4, 'sanity: the panel still declares task types')
+
+  const cronDir = join(here, '..', 'api', 'cron')
+  const cronSent = new Set()
+  for (const f of readdirSync(cronDir)) {
+    if (!f.endsWith('.js')) continue
+    const src = readFileSync(join(cronDir, f), 'utf8')
+    for (const m of src.matchAll(/sendNotification\('([a-z_]+)'/g)) cronSent.add(m[1])
+  }
+  assert.ok(cronSent.has('interview_reminder'), 'sanity: a cron still sends reminders')
+
+  const overlap = [...panelTypes].filter(t => cronSent.has(t)).sort()
+  assert.deepEqual(overlap, ['interview_reminder'],
+    `a cron now also sends ${overlap.filter(t => t !== 'interview_reminder').join(', ')} - ` +
+    'that task must move onto the ownership model in lib/automationOwnership.js ' +
+    'instead of staying a manual Action Center card')
 })

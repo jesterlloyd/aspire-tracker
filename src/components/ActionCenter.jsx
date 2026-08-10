@@ -9,6 +9,7 @@ export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { useAuth } from '../contexts/AuthContext'
 import { DISPOSITION_TYPES, FOLLOWUP_TYPES } from '../lib/dispositions'
 import { deriveEagerAttention, deriveLazyAttention } from '../lib/attention'
+import { describeAutomationState } from '../lib/automationOwnership'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import StaffNotificationsPanel from './StaffNotificationsPanel'
@@ -41,7 +42,10 @@ const PRIORITY_RANK = { urgent: 0, high: 1, routine: 2, fyi: 3 }
 
 // Time-bound milestones that read as "coming due" rather than persistent gaps.
 const DUE_SOON_TYPES = new Set([
-  'interview_reminder_overdue', // reminder inside the 48h interview window
+  // ACTION-OWNERSHIP-1: this type now only ever carries an automation
+  // EXCEPTION (send failed, window passed unsent, or automation off). A
+  // reminder the cron still owns never becomes an item at all.
+  'interview_reminder_overdue',
 ])
 
 // Map one action item to its triage section. Pure function of existing fields.
@@ -109,6 +113,48 @@ const AC_GLASS_STYLES = `
 [data-theme="dark"] .ac-pill { background: rgba(255,255,255,0.07); color: #cdd3e6; }
 [data-theme="dark"] .ac-pill.on { background: rgba(99,110,210,0.92); border-color: rgba(99,110,210,0.92); color: #fff; }
 `
+
+// ACTION-OWNERSHIP-1: "Handled automatically" - passive status, never a task.
+//
+// Rows here are deliberately OUTSIDE totalCount: a reminder the cron owns is
+// visibility, not work. The section exists so the Owner can see the reminder is
+// covered rather than wonder why it disappeared from the list.
+//
+// It lives in its own component on purpose. Mapping an eager-derived array to
+// JSX inside ActionCenter stopped the React Compiler from preserving the
+// existing useMemo over actionItems, which silently skipped optimizing the
+// whole panel; the boundary keeps that optimization intact.
+function AutomationStatusSection({ rows, expanded, onToggle }) {
+  if (!rows.length) return null
+  return (
+    <div style={{ marginTop: 6, paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.30)' }}>
+      <button
+        onClick={onToggle}
+        aria-expanded={expanded}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>
+        </svg>
+        <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4b5563' }}>
+          Handled automatically
+        </span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#4b5563', background: 'rgba(75,85,99,0.12)', padding: '1px 7px', borderRadius: 20 }}>
+          {rows.length}
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a93a3' }}>{expanded ? '\u25b4' : '\u25be'}</span>
+      </button>
+      {expanded && rows.map(a => (
+        <div key={`${a.id}-ir-auto`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 16px 8px 36px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Interview reminder</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.last_name}, {a.first_name} \u00b7 Interview {fmtIvDate(a.interview_scheduled_date)}</div>
+          </div>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#3730a3', background: '#eef2ff', border: '1px solid #c7d2fe', padding: '2px 7px', borderRadius: 20, flexShrink: 0 }}>Scheduled</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function getActionLabel(item) {
   if (item.isOrientation) return null
@@ -357,6 +403,7 @@ export default function ActionCenter({
   isOpen, onClose, anchorEl,
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
+  reminderDeliveries = [], reminderDeliveriesLoaded = false,
   onNavigateToProfiles, onNavigateToActivityShift, onNavigateNotificationDestination,
   onLaunchSchedulingLink,
   onActionCountChange, toast,
@@ -378,6 +425,9 @@ export default function ActionCenter({
   const [confirmingId,   setConfirmingId]   = useState(null)
   const [actioning,      setActioning]      = useState(null)
   const [showCompleted,  setShowCompleted]  = useState(false)
+  // ACTION-OWNERSHIP-1: the passive "Handled automatically" list, collapsed by
+  // default so automation status never competes with real work.
+  const [showAutomated,  setShowAutomated]  = useState(false)
   // "Recently completed": only tasks the user actually resolved in THIS session.
   // No durable store - derived from real actions taken, never invented.
   const [completedLog,   setCompletedLog]   = useState([])
@@ -684,7 +734,10 @@ ${KR_SIG}`
   // attention engine shared with App.jsx's closed-badge count. Do not add
   // task logic here - add it to the module so both surfaces stay identical.
   const now = new Date()
-  const eager = deriveEagerAttention({ students, matches, communications, activeCohort, canEdit, now })
+  const eager = deriveEagerAttention({
+    students, matches, communications, activeCohort, canEdit, now,
+    reminderDeliveries, deliveriesLoaded: reminderDeliveriesLoaded,
+  })
   const lazy = deriveLazyAttention({
     students, shiftLogs, shiftLogsLoaded,
     dispositionFollowups, activeDispositionIds,
@@ -703,6 +756,9 @@ ${KR_SIG}`
   const act17 = eager.noPreceptor
   const act18 = eager.selectionDecision
   const act19 = lazy.dispositionFollowup
+  // ACTION-OWNERSHIP-1: reminders the cron owns - passive STATUS, not a task.
+  // Never spread into actionItems and never counted.
+  const actAuto = eager.interviewReminderScheduled || []
   // The former act13 "Shift Log Needs Review" task is retired (approved
   // shift-log semantics): a plain submitted log is informational activity in
   // Rotation Activity, not a required action - the staff app deliberately
@@ -728,7 +784,7 @@ ${KR_SIG}`
       const gate = canSendSchedulingLink(s, communications)
       return { id:`${s.id}-sl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Scheduling Link', description:'Form received. Scheduling link not sent.', actionType:'interview_link_not_sent', canMarkDone:false, markDoneType:null, launchSchedulingLink:canEdit && gate.ok, warning:gate.shortReason }
     }),
-    ...act3.map(s => ({ id:`${s.id}-ir`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Reminder', description:`Interview ${fmtIvDate(s.interview_scheduled_date)}. Reminder not sent.`, actionType:'interview_reminder_overdue', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'interview_reminder'}, emailHref:buildInterviewReminderEmail(s) })),
+    ...act3.map(s => ({ id:`${s.id}-ir`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Reminder', description:`Interview ${fmtIvDate(s.interview_scheduled_date)}. ${describeAutomationState(s.automationState, s.automationSpec)}`, actionType:'interview_reminder_overdue', automationState:s.automationState, canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'interview_reminder'}, emailHref:buildInterviewReminderEmail(s) })),
     ...(canEdit ? act18.map(s => ({ id:`${s.id}-sd`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'urgent', title:'Selection Decision Needed', description:'Rubric: Do Not Recommend · Awaiting selection decision', actionType:'selection_decision', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     ...act19.map(({ student: s, followups }) => {
       const dispLabel = DISPOSITION_TYPES[s.active_disposition?.disposition_type] || 'Disposition'
@@ -1034,6 +1090,9 @@ ${KR_SIG}`
             )
           })
         )}
+
+        <AutomationStatusSection
+          rows={actAuto} expanded={showAutomated} onToggle={() => setShowAutomated(v => !v)} />
 
         {/* Recently completed - only tasks resolved in this session; collapsed; omitted when empty */}
         {completedLog.length > 0 && (
