@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { DISPOSITION_TYPES, FOLLOWUP_TYPES } from '../lib/dispositions'
 import { deriveEagerAttention, deriveLazyAttention } from '../lib/attention'
 import { describeAutomationState } from '../lib/automationOwnership'
+import { hoursProgress } from '../lib/clinicalHours'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import StaffNotificationsPanel from './StaffNotificationsPanel'
@@ -209,9 +210,10 @@ function fmtWeekRange(week) {
 function describeMissedWeek(s) {
   const parts = []
   parts.push(s.lastShiftDay ? `Last shift ${fmtShortDate(s.lastShiftDay)}` : 'No shifts logged yet')
-  const done = Number(s.approved_hours)
-  const req = Number(s.hours_required)
-  if (Number.isFinite(done) && Number.isFinite(req) && req > 0) parts.push(`${done} of ${req} hours`)
+  // Same source as the Rotation Activity badge (HOURS-COMPLETE-1), so the
+  // card's hours line can never disagree with the page it links to.
+  const h = hoursProgress(s)
+  if (h.known) parts.push(`${h.approved} of ${h.required} hours`)
   return `${parts.join(' \u00b7 ')}. No shift logged ${fmtWeekRange(s.missedWeek)}.`
 }
 

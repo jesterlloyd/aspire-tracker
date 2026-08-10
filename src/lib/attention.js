@@ -24,6 +24,7 @@
 
 import { getCsLinkStatus } from './utils.js'
 import { resolveAutomationState, requiresHuman, isPassiveStatus } from './automationOwnership.js'
+import { hasCompletedRequiredHours } from './clinicalHours.js'
 
 // ── Weekly shift-logging canon (NO-SHIFT-WEEK-1) ────────────────────────────
 // The operational expectation is that an Active Rotation student logs at least
@@ -237,7 +238,19 @@ export function deriveLazyAttention({
   //     so does any valid shift dated AFTER the week - a student who has
   //     already resumed logging is not an operational concern.
   const noShiftLastWeek = !shiftLogsLoaded ? [] : students
-    .filter(s => s.status === 'Active Rotation')
+    // Monitoring eligibility, checked BEFORE the weekly rule runs:
+    //   - 'Active Rotation' excludes every terminal status (Completed, Not
+    //     Proceeding, Declined) - a student who exited is not expected to log.
+    //   - HOURS-COMPLETE-1: a student who has met their required hours is
+    //     equally not expected to log, even while their administrative status
+    //     still reads Active Rotation. Production showed five such students
+    //     (132/132, 108/108) carrying the green Complete badge in Rotation
+    //     Activity while the Action Center still asked about last week. The
+    //     answer comes from hasCompletedRequiredHours, the SAME determination
+    //     behind that badge, so the two surfaces cannot disagree. An unknown
+    //     requirement (hours_required 0 or missing) is not completion and
+    //     keeps the student monitored.
+    .filter(s => s.status === 'Active Rotation' && !hasCompletedRequiredHours(s))
     .map(s => {
       const days = shiftLogs
         .filter(l => l.student_id === s.id && isCountableShift(l))

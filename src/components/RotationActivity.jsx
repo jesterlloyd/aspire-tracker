@@ -16,6 +16,7 @@ import { unreadCountByStudent, unreadSupportShifts } from '../lib/support/suppor
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
 import { canonicalRotationWindow } from '../lib/rotationWindow'
+import { hoursProgress } from '../lib/clinicalHours'
 
 // Compact canonical rotation range for a card: "Mon D – Mon D" from the linked
 // cohort_school_rotations row, else legacy students.term_dates, else '' (omit).
@@ -31,7 +32,6 @@ function resolveRotationRange(student, rotationRow) {
 
 const F = 'DM Sans, sans-serif'
 const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000
-const NEARING_PCT = 85 // matches priorities.js "nearing completion" (>= 85% of required hours)
 
 const SORT_OPTIONS = [
   { key: 'attention',  label: 'Needs attention' },
@@ -371,9 +371,10 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   const cards = students
     .filter(s => s.status === 'Active Rotation')
     .map(s => {
-      const req = parseFloat(s.hours_required || 0)
-      const apv = parseFloat(s.approved_hours || 0)
-      const pct = req > 0 ? Math.min(100, (apv / req) * 100) : 0
+      // HOURS-COMPLETE-1: the badge's own arithmetic, now named and shared so
+      // the Action Center's weekly-logging monitor consumes the SAME
+      // determination instead of a second formula.
+      const { required: req, approved: apv, pct, complete, nearComplete } = hoursProgress(s)
       const log = logSummary.summary?.[s.id] || null
       const prec = resolvePreceptor(s)
       const unit = units.find(u => u.id === s.matched_unit_id)
@@ -389,8 +390,8 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         shift: s.shift_assigned || '',
         school: s.school || '',
         range: resolveRotationRange(s, rotationById[s.cohort_school_rotation_id]),
-        complete: pct >= 100,
-        nearComplete: pct >= NEARING_PCT && pct < 100,
+        complete,
+        nearComplete,
         supportNeeded: unreadSupportByStudent[s.id] || 0,
       }
     })

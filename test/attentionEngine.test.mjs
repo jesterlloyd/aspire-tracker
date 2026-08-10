@@ -523,3 +523,95 @@ test('weekly: the card and navigation follow the canon', () => {
   assert.match(app, /select\('student_id, status, reviewed_at, submitted_at, shift_date, lifecycle_state'\)/)
   assert.match(app, /from\('cohort_school_rotations'\)/)
 })
+
+// ── HOURS-COMPLETE-1: monitoring stops when the hours are done ───────────────
+//
+// Production 2026-08-10 showed five students carrying the green "Complete"
+// badge in Rotation Activity (132/132, 108/108) while the Action Center still
+// asked why they had not logged last week. Their administrative status was
+// still 'Active Rotation', which is normal - it is the HOURS that say they are
+// finished. The guard consumes hasCompletedRequiredHours, the same
+// determination behind that badge, rather than a second formula.
+
+const hoursStudent = (approved, required) => student('h1', {
+  status: 'Active Rotation', approved_hours: approved, hours_required: required,
+})
+// A completed week with nothing logged, so only the hours guard can suppress.
+const missedWeekFor = (stu) => deriveLazyAttention({
+  students: [stu], shiftLogs: [], shiftLogsLoaded: true,
+  schoolRotations: [rotOpen()], dispositionLoaded: true, canEdit: true,
+  now: new Date('2026-08-16T09:00:00'),
+})
+
+test('hours: the exact production cases stop being monitored', () => {
+  // Curd / Fuerte / De Leon / Tcheumani
+  assert.equal(missedWeekFor(hoursStudent(132, 132)).noShiftLastWeek.length, 0, '132/132 is finished')
+  // Peralta-Topete
+  assert.equal(missedWeekFor(hoursStudent(108, 108)).noShiftLastWeek.length, 0, '108/108 is finished')
+  // Mason - the contrasting case that must keep its item
+  assert.equal(missedWeekFor(hoursStudent(96, 132)).noShiftLastWeek.length, 1, '96/132 still owes hours')
+})
+
+test('hours: the boundary is exact, and overage still suppresses', () => {
+  assert.equal(missedWeekFor(hoursStudent(71, 72)).noShiftLastWeek.length, 1, 'one hour short is still monitored')
+  assert.equal(missedWeekFor(hoursStudent(72, 72)).noShiftLastWeek.length, 0, 'exactly met is complete')
+  assert.equal(missedWeekFor(hoursStudent(80, 72)).noShiftLastWeek.length, 0, 'over the requirement is complete')
+})
+
+test('hours: an unknown requirement never counts as completion', () => {
+  // 0 / null / missing hours_required means the requirement is unknown, not
+  // met. Suppression has to be earned by real data.
+  assert.equal(missedWeekFor(hoursStudent(0, 0)).noShiftLastWeek.length, 1, 'zero required is unknown, not done')
+  assert.equal(missedWeekFor(hoursStudent(12, null)).noShiftLastWeek.length, 1, 'null required stays monitored')
+  const noFields = student('h1', { status: 'Active Rotation' })
+  assert.equal(missedWeekFor(noFields).noShiftLastWeek.length, 1, 'missing fields stay monitored')
+})
+
+test('hours: the guard reuses the Rotation Activity badge determination', () => {
+  // Not a second formula: the badge and the guard call the same function, and
+  // the badge's own inline arithmetic is gone.
+  const rot = read('src/components/RotationActivity.jsx')
+  assert.match(rot, /import \{ hoursProgress \} from '\.\.\/lib\/clinicalHours'/)
+  assert.match(rot, /hoursProgress\(s\)/)
+  assert.ok(!/const pct = req > 0 \? Math\.min\(100, \(apv \/ req\) \* 100\) : 0/.test(rot),
+    'the inline badge formula must not survive alongside the helper')
+  assert.ok(!/complete: pct >= 100/.test(rot), 'complete comes from the helper')
+
+  const engine = read('src/lib/attention.js')
+  assert.match(engine, /import \{ hasCompletedRequiredHours \} from '\.\/clinicalHours\.js'/)
+  assert.match(engine, /!hasCompletedRequiredHours\(s\)/)
+  // The Action Center must not carry its own hours arithmetic either.
+  const panel = read('src/components/ActionCenter.jsx')
+  assert.ok(!/Number\(s\.approved_hours\)/.test(panel), 'the card reads the shared helper')
+  assert.match(panel, /hoursProgress\(s\)/)
+})
+
+test('hours: badge determination matches complete/near/remaining semantics', async () => {
+  const { hoursProgress, hasCompletedRequiredHours, NEARING_PCT } =
+    await import('../src/lib/clinicalHours.js')
+  const p = hoursProgress({ approved_hours: 96, hours_required: 132 })
+  assert.equal(p.remaining, 36)
+  assert.equal(p.complete, false)
+  assert.equal(Math.round(p.pct), 73)
+  // Over-requirement caps at 100% (the badge never read 110%).
+  assert.equal(hoursProgress({ approved_hours: 80, hours_required: 72 }).pct, 100)
+  assert.equal(hasCompletedRequiredHours({ approved_hours: 80, hours_required: 72 }), true)
+  // Nearing band is preserved for the amber badge.
+  assert.equal(NEARING_PCT, 85)
+  assert.equal(hoursProgress({ approved_hours: 62, hours_required: 72 }).nearComplete, true)
+  assert.equal(hoursProgress({ approved_hours: 72, hours_required: 72 }).nearComplete, false)
+})
+
+test('hours: the weekly canon is otherwise untouched for monitored students', () => {
+  // A student who still owes hours keeps every existing resolution path.
+  const stu = hoursStudent(96, 132)
+  const withInWeekShift = deriveLazyAttention({
+    students: [stu], shiftLogs: [{ ...shiftOn('2026-08-11'), student_id: 'h1' }], shiftLogsLoaded: true,
+    schoolRotations: [rotOpen()], dispositionLoaded: true, canEdit: true,
+    now: new Date('2026-08-16T09:00:00'),
+  })
+  assert.equal(withInWeekShift.noShiftLastWeek.length, 0, 'in-week shift still resolves')
+  const flagged = missedWeekFor(stu).noShiftLastWeek
+  assert.equal(flagged.length, 1)
+  assert.deepEqual(flagged[0].missedWeek, { start: '2026-08-09', end: '2026-08-15' })
+})
