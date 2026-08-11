@@ -21,7 +21,7 @@ import { consumeRateLimit, rateLimitMessage, limiterUnavailableMessage, WEIGHT_C
 import { recordKeithUsage, recordSkillInvocation, OUTCOMES } from '../lib/server/keith/usageLog.js';
 import { buildContactLine, allowsFieldInDefaultContext } from '../lib/server/keith/contextMinimization.js';
 import { loadInvocableSkills, selectSkill, loadSkillInstructions, applySkillMarker } from '../lib/server/keith/skillRuntime.js';
-import { detectSkillHelp, buildSkillHelpResponse, buildSkillUnavailableResponse } from '../lib/server/keith/skillHelp.js';
+import { detectSkillHelp, buildSkillHelpResponse, buildSkillUnavailableResponse, buildSkillAmbiguousResponse } from '../lib/server/keith/skillHelp.js';
 import { runResumeInterviewQuestions, RIQ_SLUG } from '../lib/server/keith/resumeInterviewQuestions.js';
 import { schoolMatches } from './lib/schoolAliases.js';
 import { createClient } from '@supabase/supabase-js';
@@ -864,9 +864,11 @@ export default async function handler(req, res) {
     if (!skillRequested) {
       const help = detectSkillHelp(lastUserText, invocable);
       if (help) {
-        const response = help.skill
-          ? buildSkillHelpResponse(help.skill)
-          : buildSkillUnavailableResponse(help.ref, invocable);
+        const response = help.ambiguous
+          ? buildSkillAmbiguousResponse(help.ref)
+          : help.skill
+            ? buildSkillHelpResponse(help.skill)
+            : buildSkillUnavailableResponse(help.ref, invocable);
         console.log('[keith-skill-help]', {
           request_id: requestId, ref: help.ref, matched_by: help.matchedBy,
           resolved: !!help.skill, role: auth?.role || null,

@@ -16,8 +16,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
-  detectSkillHelp, hasHelpIntent, extractSlashSlugs,
-  buildSkillHelpResponse, buildSkillUnavailableResponse,
+  detectSkillHelp, hasHelpIntent, hasRunIntent, extractSlashSlugs,
+  buildSkillHelpResponse, buildSkillUnavailableResponse, buildSkillAmbiguousResponse,
 } from '../lib/server/keith/skillHelp.js'
 import { selectSkill } from '../lib/server/keith/skillRuntime.js'
 import { authorizeSkillForCaller } from '../lib/server/keith/skillAuthorization.js'
@@ -239,4 +239,127 @@ test('the Vault entry keeps the registry authoritative, not a stale list', () =>
   assert.match(doc, /deliberately does not list them/)
   const body = doc.split('---').slice(1).join('---')
   assert.ok(!/^\s*[-*]\s*`\/[a-z-]+`\s*—/m.test(body), 'no hardcoded skill directory to go stale')
+})
+
+// ── KEITH-SLASH-ANYWHERE-1: a /slug is a command wherever it appears ─────────
+//
+// The composer only converts a LEADING /slug into skill_slug (Keith.jsx uses
+// /^\/(...)/), and selectSkill had no slug resolution at all - only the picker
+// and trigger phrases. So "use /some-skill for this student" reached neither
+// path. Recognition is now registry-driven and position-independent, while the
+// help/run distinction decides whether it documents or executes.
+
+const MID = 'Please use /resume-interview-questions for this student.'
+
+test('mid-sentence slug INVOKES when the caller is telling Keith to run it', () => {
+  const skills = invocableFor(INTERVIEWER)
+  assert.equal(detectSkillHelp(MID, skills), null, 'run intent must not be captured as help')
+  const sel = selectSkill(skills, { requestedSlug: null, userText: MID })
+  assert.equal(sel?.skill?.slug, 'resume-interview-questions')
+  assert.equal(sel.mode, 'slash_slug')
+})
+
+test('"run /x and explain the result" executes rather than documenting', () => {
+  const skills = invocableFor(INTERVIEWER)
+  const q = 'Can you run /resume-interview-questions and explain the result?'
+  assert.ok(hasRunIntent(q), 'an imperative run outranks the trailing "explain"')
+  assert.equal(detectSkillHelp(q, skills), null)
+  assert.equal(selectSkill(skills, { requestedSlug: null, userText: q })?.mode, 'slash_slug')
+})
+
+test('mid-sentence slug DOCUMENTS when the caller is asking about it', () => {
+  const skills = invocableFor(INTERVIEWER)
+  for (const q of [
+    'How do I use /resume-interview-questions?',
+    'What does /resume-interview-questions do?',
+    'When should I use /resume-interview-questions?',
+    'Before I start, what is /resume-interview-questions exactly?',
+  ]) {
+    const h = detectSkillHelp(q, skills)
+    assert.equal(h?.skill?.slug, 'resume-interview-questions', `should document: ${q}`)
+  }
+})
+
+test('leading-slash behavior is unchanged, client and server', () => {
+  // Client still converts a LEADING slug into an explicit picker invocation.
+  const client = read('src/components/Keith.jsx')
+  assert.match(client, /\/\^\\\/\(\[a-z0-9\]\[a-z0-9-\]\*\)\\s\*\(\.\*\)\$\/s/)
+  // And an explicit slug always executes, never documents.
+  const skills = invocableFor(INTERVIEWER)
+  assert.equal(selectSkill(skills, { requestedSlug: 'resume-interview-questions', userText: '' })?.mode, 'picker')
+  // A bare leading slug reaching the server as text still selects.
+  const sel = selectSkill(skills, { requestedSlug: null, userText: '/resume-interview-questions for Sam Rivera' })
+  assert.equal(sel?.skill?.slug, 'resume-interview-questions')
+})
+
+test('imported skills resolve mid-sentence with no special handling', () => {
+  const skills = invocableFor(INTERVIEWER)
+  assert.equal(
+    selectSkill(skills, { requestedSlug: null, userText: 'run /cohort-summary please' })?.skill?.slug,
+    'cohort-summary')
+  assert.equal(detectSkillHelp('what does /cohort-summary do?', skills)?.skill?.slug, 'cohort-summary')
+  // No slug appears in EXECUTABLE logic. Comments legitimately name the skill
+  // from the reported defect, so strip them before asserting - the property is
+  // "nothing branches on a slug", not "the word never appears".
+  for (const f of ['lib/server/keith/skillRuntime.js', 'lib/server/keith/skillHelp.js']) {
+    const code = read(f).split('\n')
+      .filter(l => !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*'))
+      .join('\n')
+    assert.ok(!/resume-interview-questions|cohort-summary|brawerman/i.test(code),
+      `${f} must not hardcode a slug in logic`)
+  }
+})
+
+test('an unauthorized role mentioning the slug mid-sentence fails closed', () => {
+  const viewerSkills = invocableFor(VIEWER)
+  // Neither documents nor executes.
+  assert.equal(selectSkill(viewerSkills, { requestedSlug: null, userText: MID }), null)
+  const h = detectSkillHelp('How do I use /resume-interview-questions?', viewerSkills)
+  assert.equal(h?.skill, null)
+  const answer = buildSkillUnavailableResponse(h.ref, viewerSkills)
+  assert.ok(!/Resume Interview Questions|Clinical Judgment|canonically resolved/.test(answer))
+})
+
+test('a draft slug mid-sentence neither runs nor is described as available', () => {
+  const skills = invocableFor(INTERVIEWER)
+  assert.equal(selectSkill(skills, { requestedSlug: null, userText: 'run /draft-only now' }), null)
+  assert.equal(detectSkillHelp('what does /draft-only do?', skills)?.skill, null)
+})
+
+test('two different slugs in one message resolve to neither', () => {
+  const skills = invocableFor(INTERVIEWER)
+  const q = 'What do /resume-interview-questions and /cohort-summary do?'
+  // Execution declines rather than guessing.
+  assert.equal(selectSkill(skills, { requestedSlug: null, userText: 'run /resume-interview-questions and /cohort-summary' }), null)
+  // Help says so plainly, naming only skills this caller can already see.
+  const h = detectSkillHelp(q, skills)
+  assert.equal(h.ambiguous, true)
+  const msg = buildSkillAmbiguousResponse(h.ref)
+  assert.match(msg, /names more than one skill/)
+  assert.match(msg, /have not run or described either one/)
+  // Long real-world slugs must reach the same answer - an earlier version of
+  // the help regex had a character gap too short for two long slugs, so this
+  // case silently fell through to base Keith instead.
+  const longA = { ...IMPORTED, slug: 'brawerman-nursing-institute', display_name: 'BNI' }
+  const two = invocableFor(INTERVIEWER, [RIQ, longA])
+  const hLong = detectSkillHelp('What do /resume-interview-questions and /brawerman-nursing-institute do?', two)
+  assert.equal(hLong?.ambiguous, true, 'two long slugs must still be recognized as ambiguous')
+
+  // The same slug twice is NOT ambiguous.
+  const dup = detectSkillHelp('what does /resume-interview-questions do, /resume-interview-questions?', skills)
+  assert.equal(dup?.skill?.slug, 'resume-interview-questions')
+})
+
+test('mid-sentence recognition still records no invocation on the help path', () => {
+  const api = read('api/keith.js')
+  const block = api.slice(api.indexOf('KEITH-SKILL-HELP-1: documentation'), api.indexOf('const selected = selectSkill'))
+  assert.ok(!/recordSkillInvocation/.test(block))
+  assert.ok(!/loadSkillInstructions/.test(block))
+})
+
+test('ordinary sentences containing a slash are not commands', () => {
+  const skills = invocableFor(INTERVIEWER)
+  for (const q of ['see the 50/50 split', 'the ratio is 3/4 today', 'check http://x/y']) {
+    assert.equal(selectSkill(skills, { requestedSlug: null, userText: q }), null, `must not select: ${q}`)
+  }
 })
