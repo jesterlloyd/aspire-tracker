@@ -21,6 +21,7 @@ import { consumeRateLimit, rateLimitMessage, limiterUnavailableMessage, WEIGHT_C
 import { recordKeithUsage, recordSkillInvocation, OUTCOMES } from '../lib/server/keith/usageLog.js';
 import { buildContactLine, allowsFieldInDefaultContext } from '../lib/server/keith/contextMinimization.js';
 import { loadInvocableSkills, selectSkill, loadSkillInstructions, applySkillMarker } from '../lib/server/keith/skillRuntime.js';
+import { detectSkillHelp, buildSkillHelpResponse, buildSkillUnavailableResponse } from '../lib/server/keith/skillHelp.js';
 import { runResumeInterviewQuestions, RIQ_SLUG } from '../lib/server/keith/resumeInterviewQuestions.js';
 import { schoolMatches } from './lib/schoolAliases.js';
 import { createClient } from '@supabase/supabase-js';
@@ -851,6 +852,32 @@ export default async function handler(req, res) {
   // an explicit act (picker slug, or an exact registered trigger phrase).
   {
     const invocable = await loadInvocableSkills(meterClient, auth);
+
+    // ── KEITH-SKILL-HELP-1: documentation, not execution ─────────────────────
+    // A turn that ASKS ABOUT a skill is answered from the canonical registry
+    // and returns here, before any execution path. This runs first for a
+    // reason: a help question phrased with a registered trigger phrase would
+    // otherwise RUN the skill. Skipped entirely when the picker sent a slug -
+    // an explicit invocation is always an invocation.
+    // No model call, no instruction body, no skill invocation recorded: asking
+    // how something works is not using it, and must not read as usage.
+    if (!skillRequested) {
+      const help = detectSkillHelp(lastUserText, invocable);
+      if (help) {
+        const response = help.skill
+          ? buildSkillHelpResponse(help.skill)
+          : buildSkillUnavailableResponse(help.ref, invocable);
+        console.log('[keith-skill-help]', {
+          request_id: requestId, ref: help.ref, matched_by: help.matchedBy,
+          resolved: !!help.skill, role: auth?.role || null,
+        });
+        return res.status(200).json({
+          response,
+          skill_help: { ref: help.ref, resolved: !!help.skill, slug: help.skill?.slug || null },
+        });
+      }
+    }
+
     const selected = selectSkill(invocable, { requestedSlug: skillRequested, userText: lastUserText });
     // EXPLICIT INVOCATION IS AUTHORITATIVE. Once a skill has been deliberately
     // invoked, this turn belongs to it: it answers, or it says why it cannot.

@@ -1173,7 +1173,12 @@ test('a Viewer is denied and never reaches a resume', async () => {
 
 test('an explicitly invoked skill NEVER falls through to base Keith', () => {
   const src = read('api/keith.js')
-  const block = src.slice(src.indexOf('// ── KEITH-P1: explicit skill invocation'), src.indexOf('// CONTACTS-1b/1d:'))
+  // Scoped to the SELECTION block. KEITH-SKILL-HELP-1 later added a
+  // documentation branch ahead of selection, which returns legitimately on its
+  // own path; counting returns across both blocks would fail for the wrong
+  // reason. The property under test is unchanged: once a skill is SELECTED,
+  // every exit is a return.
+  const block = src.slice(src.indexOf('const selected = selectSkill'), src.indexOf('// CONTACTS-1b/1d:'))
   assert.match(block, /if \(selected\) \{/, 'selection alone must claim the turn')
   assert.doesNotMatch(block, /if \(selected && selected\.skill\.slug === RIQ_SLUG\) \{/,
     'gating the whole block on the slug is what let a selected skill fall through')
