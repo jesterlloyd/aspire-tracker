@@ -24,7 +24,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
-import { generateToken, hashToken } from '../lib/server/evaluation/tokens.js';
+import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { unlockPreceptorCertificate } from '../lib/server/certificates/unlockPreceptorCertificate.js';
 
@@ -110,11 +110,22 @@ export default async function handler(req, res) {
       // Notification link: a fresh single-use token on the qualifying
       // assignment. Minted only when issuance or a notification may still be
       // owed; unused tokens simply expire.
-      const rawToken = generateToken();
+      //
+      // generateToken() returns { raw, hash, hashPrefix } - an OBJECT. Treating
+      // its return as a raw string (and re-hashing it) threw inside crypto and
+      // 500'd the whole run in production. Destructured exactly as the proven
+      // send path does (lib/server/evaluation/preceptorSend.js), so the raw
+      // token is what goes in the link and the hash is what goes at rest.
+      const { raw: rawToken, hash: tokenHash, hashPrefix: tokenHashPrefix } = generateToken();
       const expires = new Date(Date.now() + RECONCILE_TOKEN_DAYS * 24 * 3600 * 1000);
       const { error: tokenErr } = await supabaseAdmin
         .from('evaluation_assignment_tokens')
-        .insert({ assignment_id: a.id, token_hash: hashToken(rawToken), expires_at: expires.toISOString() });
+        .insert({
+          assignment_id:     a.id,
+          token_hash:        tokenHash,
+          token_hash_prefix: tokenHashPrefix,
+          expires_at:        expires.toISOString(),
+        });
       if (tokenErr) {
         exceptions.push({ assignment_id: a.id, reason: 'token_mint_failed' });
         continue;

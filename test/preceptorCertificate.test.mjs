@@ -186,8 +186,13 @@ test('reconciliation: idempotent, exception-reporting, never guessing', () => {
   assert.match(rec, /no_canonical_respondent/)
   // Settled rows are skipped without minting a token.
   assert.match(rec, /settledByAssignment/)
-  // Tokens minted here are hashed at rest and time-bounded.
-  assert.match(rec, /token_hash: hashToken\(rawToken\)/)
+  // Tokens minted here are hashed at rest and time-bounded. NOTE: this pin
+  // originally asserted `hashToken(rawToken)` - which was the production bug
+  // (generateToken returns an object, so that re-hashed an object and threw).
+  // The behavioral proof now lives in preceptorCertificateReconcile.test.mjs;
+  // this only holds the corrected shape.
+  assert.match(rec, /token_hash:\s+tokenHash/)
+  assert.match(rec, /const \{ raw: rawToken, hash: tokenHash/)
   assert.match(rec, /RECONCILE_TOKEN_DAYS/)
 })
 
@@ -241,4 +246,24 @@ test('the issued date sits on the artwork baseline as one footer unit', () => {
   // slate with baseline 31pt; the date joins it at the same size and baseline.
   assert.match(gen, /const base = 6\.5/)
   assert.match(gen, /y: 31, size, font: helv/)
+})
+
+test('the certificate gate is advertised and explicitly scoped to End of Rotation', () => {
+  const panel = read('src/components/evaluation/PreceptorAutomationPanel.jsx')
+  // Same amber treatment as the Casey-Fink gate...
+  const casey = read('src/components/evaluation/CaseyFinkPostRotationAutomationPanel.jsx')
+  assert.match(casey, /Certificate gate/)
+  assert.match(panel, /color: '#b45309', background: '#FBF5E8'/)
+  // ...but scoped, because this workflow carries two timepoints.
+  assert.match(panel, /Certificate gate · End of Rotation/)
+  // Supporting copy names what unlocks it, and says Midpoint does not.
+  assert.match(panel, /unlocks that preceptor&rsquo;s Certificate of Appreciation/)
+  assert.match(panel, /the Midpoint\s*\n?\s*assessment does not/)
+})
+
+test('the gate copy keeps its space after the bolded timepoint', () => {
+  // JSX strips a newline adjacent to a closing tag, which rendered
+  // "End of Rotationassessment" in the first pass. The explicit {' '} holds it.
+  const panel = read('src/components/evaluation/PreceptorAutomationPanel.jsx')
+  assert.match(panel, /<strong>End of Rotation<\/strong>\{' '\}/)
 })

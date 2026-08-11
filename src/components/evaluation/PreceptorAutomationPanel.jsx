@@ -243,11 +243,23 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
         }}>
           Recipient: Preceptor
         </span>
+        {/* PRECEPTOR-CERT-1: same amber treatment as the Casey-Fink certificate
+            gate, but SCOPED - this workflow carries two timepoints and only End
+            of Rotation unlocks a certificate. The scope is in the chip itself so
+            the Midpoint row can never be read as certificate-earning. */}
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: '#b45309', background: '#FBF5E8',
+          border: '1px solid #f0e0bd', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
+        }}>
+          Certificate gate · End of Rotation
+        </span>
       </div>
       <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
         Live-computed queue of students due for an automated preceptor survey. Midpoint is
         due at ≥ 50% of required hours; End of Rotation at ≥ 100%. Release is per-item and
-        human-approved, there is no auto-send.
+        human-approved, there is no auto-send. Completing the <strong>End of Rotation</strong>{' '}
+        assessment unlocks that preceptor&rsquo;s Certificate of Appreciation; the Midpoint
+        assessment does not.
       </p>
 
       {/* Banner - no cron / no auto-send / no recipient override */}
