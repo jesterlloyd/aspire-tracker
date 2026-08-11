@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed } from '../lib/floatingPanels';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
 import { paletteSummary } from '../lib/skillSummary';
+import { findSlashToken, filterSkills, applySlashSelection } from '../lib/slashPalette';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
 const KEITH_PREFETCH_CEILING_MS = 5000;
@@ -42,10 +43,28 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   // open from the canonical registry (server-filtered to this user's roles).
   const [skillCatalog, setSkillCatalog] = useState(null); // null = not fetched
   const [slashIndex, setSlashIndex] = useState(0);
+  // KEITH-SLASH-ANYWHERE-CLIENT-1: the palette is anchored to the caret, not to
+  // position 0, so these two follow the cursor rather than the string.
+  const [caretPos, setCaretPos] = useState(0);
+  const [slashDismissedAt, setSlashDismissedAt] = useState(null); // token start Escape closed
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const pendingCaretRef = useRef(null);    // caret to restore after a selection rewrites the input
   const listRef = useRef(null);            // KEITH-CHAT-UX-1: scroll container, for near-bottom detection
   const nearBottomRef = useRef(true);      // KEITH-CHAT-UX-1: true while the user is near the latest message
+
+  // KEITH-SLASH-ANYWHERE-CLIENT-1: put the caret back where a palette
+  // selection left it. React owns the input's value, so the DOM selection has
+  // to be restored after the re-render that applies the new text; caretPos is
+  // set alongside the value, so this effect only touches the DOM. It sits
+  // above the early returns below to keep hook order unconditional.
+  useEffect(() => {
+    const want = pendingCaretRef.current;
+    if (want == null) return;
+    pendingCaretRef.current = null;
+    const el = inputRef.current;
+    if (el) el.setSelectionRange(want, want);
+  }, [input]);
 
   if (!isAuthenticated) return null;
   // KEITH-WELCOME-1: the resolved role model gives Viewer no Keith access (the
@@ -134,27 +153,21 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     } catch { setSkillCatalog([]); }
   };
 
-  // The slash menu is a SEARCH surface: it is open while the user is still
-  // choosing a command, and closed the moment the composer holds a committed
-  // one. Committed = the token after "/" exactly names an invocable skill AND
-  // a separator follows it, which is precisely the state a selection leaves
-  // behind ("/some-skill-slug "). This is what dismisses the menu after
-  // selecting - the reported bug was the menu surviving selection and showing
-  // "No Skill matches" against the trailing space.
-  const slashActive = input.startsWith('/');
-  const slashBody = slashActive ? input.slice(1) : '';
-  const slashToken = slashBody.split(/\s/)[0].toLowerCase();
-  const slashCommitted = slashActive && /\s/.test(slashBody)
-    && Array.isArray(skillCatalog) && skillCatalog.some(s => s.slug === slashToken);
-  const slashMenuOpen = slashActive && !slashCommitted;
-  const slashMatches = slashMenuOpen && Array.isArray(skillCatalog)
-    ? skillCatalog.filter(s =>
-        s.slug.toLowerCase().includes(slashToken)
-        || String(s.name || '').toLowerCase().includes(slashToken))
-    : [];
+  // The slash menu is a SEARCH surface, anchored to the CARET. It is open while
+  // the caret sits inside a command token - "/" starting a word, anywhere in
+  // the message - and closes as soon as the caret leaves it. That is what
+  // dismisses the menu after a selection: the caret lands past the command, not
+  // inside it. (The reported bug was the menu surviving selection; before that
+  // it was the menu never appearing unless "/" was the first character.)
+  const slashToken = findSlashToken(input, caretPos);
+  const slashMenuOpen = !!slashToken && slashDismissedAt !== slashToken.start;
+  const slashMatches = slashMenuOpen ? filterSkills(skillCatalog, slashToken.query) : [];
 
-  const applySlashSelection = (skill) => {
-    setInput(`/${skill.slug} `);
+  const chooseSkill = (skill) => {
+    const next = applySlashSelection(input, slashToken, skill.slug);
+    pendingCaretRef.current = next.caret;
+    setInput(next.value);
+    setCaretPos(next.caret);
     setSlashIndex(0);
     inputRef.current?.focus();
   };
@@ -180,6 +193,8 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     const userMessage = { id: Date.now(), role: 'user', text };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setCaretPos(0);
+    setSlashDismissedAt(null);   // a dismissal belongs to one message, not the next
     setIsTyping(true);
 
     // Include last 10 messages for context window efficiency. For a slash-skill
@@ -771,7 +786,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         key={s.slug}
                         role="option"
                         aria-selected={i === slashIndex}
-                        onMouseDown={e => { e.preventDefault(); applySlashSelection(s); }}
+                        onMouseDown={e => { e.preventDefault(); chooseSkill(s); }}
                         onMouseEnter={() => setSlashIndex(i)}
                         style={{
                           padding: '8px 12px', cursor: 'pointer',
@@ -808,19 +823,33 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 value={input}
                 onChange={e => {
                   const v = e.target.value;
+                  const c = e.target.selectionStart ?? v.length;
                   setInput(v);
+                  setCaretPos(c);
                   setSlashIndex(0);
-                  if (v.startsWith('/')) ensureSkillCatalog();
+                  // A token starting anywhere in the message needs the
+                  // catalogue, not only one at position 0.
+                  const tok = findSlashToken(v, c);
+                  if (tok) ensureSkillCatalog();
+                  // An Escape dismissal lasts as long as the token it closed;
+                  // once that token is gone, the next "/" opens the menu again.
+                  else setSlashDismissedAt(null);
                 }}
+                // Clicking or arrowing through the text moves the palette with
+                // the caret, so the menu tracks the token being edited.
+                onSelect={e => setCaretPos(e.target.selectionStart ?? 0)}
+                onKeyUp={e => setCaretPos(e.target.selectionStart ?? 0)}
                 onKeyDown={e => {
                   // Escape dismisses the menu in EVERY open state, including
                   // "no matches" (it previously fell through and closed the
-                  // whole panel), and never fires once the menu is closed.
-                  if (slashMenuOpen && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setInput(''); return; }
+                  // whole panel), and never fires once the menu is closed. It
+                  // dismisses ONLY the menu: it used to clear the composer,
+                  // which mid-sentence would delete the caller's message.
+                  if (slashMenuOpen && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSlashDismissedAt(slashToken.start); return; }
                   if (slashMenuOpen && slashMatches.length > 0) {
                     if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIndex(i => (i + 1) % slashMatches.length); return; }
                     if (e.key === 'ArrowUp') { e.preventDefault(); setSlashIndex(i => (i - 1 + slashMatches.length) % slashMatches.length); return; }
-                    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); applySlashSelection(slashMatches[Math.min(slashIndex, slashMatches.length - 1)]); return; }
+                    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); chooseSkill(slashMatches[Math.min(slashIndex, slashMatches.length - 1)]); return; }
                   }
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
                 }}

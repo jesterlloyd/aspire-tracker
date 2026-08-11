@@ -225,35 +225,60 @@ test('the / menu is fed by the canonical registry through the same authorization
   assert.doesNotMatch(keithUi, /resume-interview-questions/, 'no skill slug is hardcoded in the UI')
 })
 
-test('the / menu closes on selection: a committed command never shows the palette', () => {
+test('the / menu closes on selection: a committed command never shows the palette', async () => {
   // PRODUCTION QC BUG, 2026-08-08: after selecting a skill the composer held
   // "/resume-interview-questions " - still slash-prefixed - so the menu stayed
   // open and matched the trailing space against nothing, showing "No Skill
   // matches" over a perfectly valid selection. The menu is a SEARCH surface:
   // open while choosing, closed once the token after "/" names an invocable
   // skill with a separator after it (exactly the state a selection leaves).
-  assert.match(keithUi, /const slashCommitted = slashActive && \/\\s\/\.test\(slashBody\)/)
-  assert.match(keithUi, /skillCatalog\.some\(s => s\.slug === slashToken\)/)
-  assert.match(keithUi, /const slashMenuOpen = slashActive && !slashCommitted/)
+  //
+  // KEITH-SLASH-ANYWHERE-CLIENT-1 rewrote this from a set of source pins into
+  // a behavioral check. The pins asserted the exact text of the old position-0
+  // implementation, which meant they held the "/" must start the message
+  // assumption in place and would have had to be deleted to fix it. The
+  // GUARANTEE is what matters, so that is what is asserted now.
+  const { findSlashToken, filterSkills, applySlashSelection } = await import('../src/lib/slashPalette.js')
+  const catalog = [{ slug: 'fixture-command', name: 'Fixture', description: '' }]
+  const open = (text, caret) => !!findSlashToken(text, caret)
+
+  for (const typed of ['/fix', 'Please use /fix']) {
+    const token = findSlashToken(typed, typed.length)
+    assert.equal(open(typed, typed.length), true, `menu open while choosing: ${typed}`)
+    assert.deepEqual(filterSkills(catalog, token.query).map(s => s.slug), ['fixture-command'],
+      'filtering matches on the command token, not on trailing arguments')
+    const after = applySlashSelection(typed, token, 'fixture-command')
+    assert.equal(open(after.value, after.caret), false,
+      `the menu must not survive a selection: ${typed}`)
+  }
+
   // Both the listbox and the no-matches notice render only while the menu is
   // open, so the notice can never appear after a successful selection.
   assert.match(keithUi, /\{slashMenuOpen && skillCatalog !== null && \(/)
   assert.equal((keithUi.match(/slashActive && skillCatalog !== null/g) || []).length, 0,
     'no render path keys the palette off the bare slash prefix')
   // Escape dismisses in every open state, including zero matches, and cannot
-  // fall through to the panel-level Escape that closes the whole drawer.
-  assert.match(keithUi, /if \(slashMenuOpen && e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); setInput\(''\); return; \}/)
-  // Filtering matches on the command token, not on trailing arguments.
-  assert.match(keithUi, /s\.slug\.toLowerCase\(\)\.includes\(slashToken\)/)
+  // fall through to the panel-level Escape that closes the whole drawer. It
+  // dismisses the MENU only - clearing the composer would delete a
+  // mid-sentence message.
+  const escapeLine = keithUi.split('\n').find(l => l.includes("e.key === 'Escape'") && l.includes('slashMenuOpen'))
+  assert.ok(escapeLine, 'the slash-menu Escape branch must exist')
+  assert.match(escapeLine, /e\.preventDefault\(\); e\.stopPropagation\(\);/)
+  assert.ok(!escapeLine.includes("setInput('')"), 'Escape must not clear the composer')
 })
 
-test('the / menu has keyboard and mouse selection and populates the canonical command', () => {
+test('the / menu has keyboard and mouse selection and populates the canonical command', async () => {
   assert.match(keithUi, /role="listbox"/)
   assert.match(keithUi, /ArrowDown/)
   assert.match(keithUi, /ArrowUp/)
-  assert.match(keithUi, /applySlashSelection\(slashMatches\[/)
-  assert.match(keithUi, /onMouseDown=\{e => \{ e\.preventDefault\(\); applySlashSelection\(s\); \}\}/)
-  assert.match(keithUi, /setInput\(`\/\$\{skill\.slug\} `\)/)
+  assert.match(keithUi, /chooseSkill\(slashMatches\[/)
+  assert.match(keithUi, /onMouseDown=\{e => \{ e\.preventDefault\(\); chooseSkill\(s\); \}\}/)
+  // Selection writes the canonical "/slug " command. Asserted through the
+  // module rather than by pinning the setInput literal, which previously
+  // encoded the whole-composer overwrite that discarded surrounding text.
+  const { findSlashToken, applySlashSelection } = await import('../src/lib/slashPalette.js')
+  const first = applySlashSelection('/', findSlashToken('/', 1), 'fixture-command')
+  assert.equal(first.value, '/fixture-command ')
   // A typed /slug sends the canonical skill invocation.
   assert.match(keithUi, /skill_slug: skillSlug/)
 })
