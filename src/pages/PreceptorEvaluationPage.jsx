@@ -99,6 +99,12 @@ function TextareaField({ id, label, prompt, required, value, onChange, examples 
 
 export default function PreceptorEvaluationPage() {
   const [view, setView] = useState('loading')
+  // PRECEPTOR-CERT-1: a completed End-of-Rotation assessment earns the
+  // Certificate of Appreciation; the download streams from the token-authorized
+  // endpoint using the same raw token this page already holds.
+  const [certReady, setCertReady] = useState(false)
+  const [certBusy, setCertBusy] = useState(false)
+  const [certError, setCertError] = useState(null)
   const [errorMessage, setErrorMessage] = useState(null)
   const [meta, setMeta] = useState(null)
   const [rawToken, setRawToken] = useState(null)
@@ -142,7 +148,7 @@ export default function PreceptorEvaluationPage() {
       .then(async res => {
         const body = await res.json().catch(() => ({}))
         if (res.status === 200) {
-          if (body.completed === true) { setView('completed') }
+          if (body.completed === true) { setCertReady(body.certificateAvailable === true); setView('completed') }
           else if (body.content) {
             setMeta(body)
             setFeedbackPeriod(body.periodValue || '')
@@ -224,7 +230,7 @@ export default function PreceptorEvaluationPage() {
         body: JSON.stringify({ token: rawToken, responses }),
       })
       const body = await res.json().catch(() => ({}))
-      if (res.status === 200) { setView('thank_you') }
+      if (res.status === 200) { setCertReady(body.certificateReady === true); setView('thank_you') }
       else if (res.status === 410) { setErrorMessage(body.error || 'This feedback link is no longer valid.'); setView('invalid') }
       else if (res.status === 422) { setView('rejected') }
       else if (res.status === 429) { setView('rate_limited') }
@@ -275,6 +281,53 @@ export default function PreceptorEvaluationPage() {
             : view === 'rejected'     ? 'Please review the required fields and try again.'
             :                           'Something went wrong. Please try again later.'}
           </p>
+
+          {/* PRECEPTOR-CERT-1: earned-certificate access on both completed states. */}
+          {(view === 'thank_you' || view === 'completed') && certReady && (
+            <div style={{ textAlign: 'center', marginTop: 28 }}>
+              <p style={{ fontSize: 14, color: '#374151', margin: '0 0 14px', lineHeight: 1.6 }}>
+                Your <strong>Certificate of Appreciation</strong> has been earned and is ready.
+              </p>
+              <button
+                onClick={async () => {
+                  if (!rawToken || certBusy) return
+                  setCertBusy(true); setCertError(null)
+                  try {
+                    const res = await fetch('/api/certificate-preceptor-download', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ token: rawToken }),
+                    })
+                    if (!res.ok) {
+                      const b = await res.json().catch(() => ({}))
+                      throw new Error(b.error || 'Download failed. Please try again.')
+                    }
+                    const blob = await res.blob()
+                    const dispo = res.headers.get('Content-Disposition') || ''
+                    const m = dispo.match(/filename="([^"]+)"/)
+                    const a = document.createElement('a')
+                    a.href = URL.createObjectURL(blob)
+                    a.download = m ? m[1] : 'ASPIRE_Certificate_of_Appreciation.pdf'
+                    document.body.appendChild(a); a.click(); a.remove()
+                    setTimeout(() => URL.revokeObjectURL(a.href), 30000)
+                  } catch (e) {
+                    setCertError(e.message)
+                  } finally {
+                    setCertBusy(false)
+                  }
+                }}
+                disabled={certBusy}
+                style={{
+                  padding: '11px 26px', background: '#1D2567', color: '#fff', border: 'none',
+                  borderRadius: 9, fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans, system-ui, sans-serif',
+                  cursor: certBusy ? 'default' : 'pointer', opacity: certBusy ? 0.65 : 1,
+                }}
+              >
+                {certBusy ? 'Preparing…' : 'Download Certificate'}
+              </button>
+              {certError && <p style={{ fontSize: 12.5, color: '#dc2626', marginTop: 10 }}>{certError}</p>}
+            </div>
+          )}
         </div>
       )}
 

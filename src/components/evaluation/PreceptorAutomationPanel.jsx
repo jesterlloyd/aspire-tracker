@@ -45,6 +45,11 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
   // '' = the resolved primary (default); a preceptors.id = an ACTIVE alternate.
   const [alternates, setAlternates] = useState([])
   const [redirectId, setRedirectId] = useState('')
+  // PRECEPTOR-CERT-1: reconciliation backstop state - a summary line plus one
+  // button. No new dashboard; certificate status lives where the assessments
+  // already live.
+  const [certBusy, setCertBusy] = useState(false)
+  const [certMsg, setCertMsg] = useState(null)
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
 
@@ -110,6 +115,38 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
   // band (presentational rollup only; no detection change). summary is memoized, so this
   // fires only when detection actually changes.
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
+
+  // PRECEPTOR-CERT-1: run the certificate reconciliation backstop for this
+  // cohort. Idempotent end to end (DB uniques, idempotent RPC, notified_at
+  // claim), so re-running is always safe.
+  const runCertReconcile = useCallback(async () => {
+    if (!cohortId) return
+    setCertBusy(true); setCertMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { setCertMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' }); return }
+      const res = await fetch('/api/certificate-preceptor-reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ cohort_id: cohortId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.success) {
+        const s = body.summary
+        const exc = s.exceptions?.length
+          ? ` · ${s.exceptions.length} exception${s.exceptions.length === 1 ? '' : 's'} (${s.exceptions.map(e => e.reason).join(', ')})`
+          : ''
+        setCertMsg({ tone: s.exceptions?.length ? 'err' : 'ok',
+          text: `Certificates: ${s.certificates_total} issued (${s.newly_issued} new) · ${s.notifications_sent} notification${s.notifications_sent === 1 ? '' : 's'} sent · ${s.certificates_unnotified} awaiting notification${exc}` })
+      } else {
+        setCertMsg({ tone: 'err', text: body.error || 'Reconciliation failed.' })
+      }
+    } catch {
+      setCertMsg({ tone: 'err', text: 'Network error. Please try again.' })
+    } finally {
+      setCertBusy(false)
+    }
+  }, [cohortId])
 
   // PRECEPTOR-ROUTE-1: when a release confirmation opens, load the student's ACTIVE
   // secondary/coverage assignments so the Owner can redirect this send to one of them.
@@ -237,7 +274,30 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
         <span style={{ fontSize: 12, color: '#9ca3af' }}>
           {detectedAtMs ? `Detected ${new Date(detectedAtMs).toLocaleString('en-US')}` : ''}
         </span>
+        {/* PRECEPTOR-CERT-1: reconciliation backstop - safe to re-run any time. */}
+        <button
+          onClick={runCertReconcile}
+          disabled={certBusy || loading}
+          style={{
+            marginLeft: 'auto', padding: '7px 14px', background: '#fff', color: NAVY,
+            border: '1px solid #c7cbe4', borderRadius: 7, fontSize: 12.5, fontWeight: 600,
+            fontFamily: F, cursor: (certBusy || loading) ? 'default' : 'pointer', opacity: (certBusy || loading) ? 0.6 : 1,
+          }}
+        >
+          {certBusy ? 'Reconciling…' : 'Reconcile certificates'}
+        </button>
       </div>
+
+      {certMsg && (
+        <div style={{
+          fontSize: 13, borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.5,
+          background: certMsg.tone === 'ok' ? '#EDF7F0' : '#FEECEC',
+          color: certMsg.tone === 'ok' ? '#166534' : '#991b1b',
+          border: `1px solid ${certMsg.tone === 'ok' ? '#c6e7d0' : '#f3c6c6'}`,
+        }}>
+          {certMsg.text}
+        </div>
+      )}
 
       {releaseMsg && (
         <div style={{

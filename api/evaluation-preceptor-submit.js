@@ -14,6 +14,8 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { hashToken, isWellFormedRawToken } from '../lib/server/evaluation/tokens.js';
 import { extractClientIp, bucketKey } from '../lib/server/evaluation/rate_limit.js';
 import { validateResponses } from '../lib/server/evaluation/preceptor_progress_validation.js';
+import { unlockPreceptorCertificate } from '../lib/server/certificates/unlockPreceptorCertificate.js';
+import { emailBaseUrl } from '../lib/server/appUrl.js';
 
 const PRECEPTOR_SLUG = 'preceptor_progress';
 
@@ -115,7 +117,35 @@ export default async function handler(req, res) {
     }
 
     if (submitResult.status === 'success') {
-      return res.status(200).json({ success: true, submittedAt: submitResult.submitted_at });
+      // PRECEPTOR-CERT-1: immediate unlock after VERIFIED completion, End of
+      // Rotation only. Strictly non-fatal: the submission is already accepted
+      // and locked - a certificate or email hiccup is recovered by the
+      // Owner/Admin reconciliation backstop, never surfaced as a submit error.
+      // The download link reuses the raw token already in hand (the same
+      // tokenized page the preceptor is on); it is embedded in the outbound
+      // email exactly like the invitation link and never persisted.
+      let certificateReady = false;
+      try {
+        const { data: aRow } = await supabaseAdmin
+          .from('evaluation_assignment_tokens')
+          .select('assignment_id, evaluation_assignments!inner ( timepoint )')
+          .eq('token_hash', tokenHash)
+          .maybeSingle();
+        const tp = (Array.isArray(aRow?.evaluation_assignments)
+          ? aRow.evaluation_assignments[0] : aRow?.evaluation_assignments)?.timepoint;
+        if (aRow?.assignment_id && tp === 'post_rotation') {
+          const unlock = await unlockPreceptorCertificate({
+            supabaseAdmin,
+            assignmentId: aRow.assignment_id,
+            downloadUrl: `${emailBaseUrl(req)}/evaluation/feedback#t=${token}`,
+            source: 'submit_immediate',
+          });
+          certificateReady = unlock.status === 'issued' || unlock.status === 'already_issued';
+        }
+      } catch (e) {
+        console.error('[preceptor-cert] unlock_after_submit_failed:', e?.message);
+      }
+      return res.status(200).json({ success: true, submittedAt: submitResult.submitted_at, certificateReady });
     }
     if (submitResult.status === 'token_invalid' ||
         submitResult.status === 'assignment_state_invalid') {

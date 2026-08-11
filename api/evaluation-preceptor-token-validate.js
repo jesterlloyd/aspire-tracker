@@ -118,7 +118,38 @@ export default async function handler(req, res) {
     }
 
     if (rpcResult.status === 'completed') {
-      return res.status(200).json({ completed: true });
+      // PRECEPTOR-CERT-1: tell the completed view whether a Certificate of
+      // Appreciation exists for this assessment so it can offer the download.
+      // Read-only service-role existence check; never creates anything, and a
+      // lookup failure degrades to "no CTA", never to an error.
+      let certificateAvailable = false;
+      try {
+        const { data: tokRow } = await supabaseAdmin
+          .from('evaluation_assignment_tokens')
+          .select('assignment_id, evaluation_assignments!inner ( cohort_id, respondent_preceptor_id, timepoint )')
+          .eq('token_hash', tokenHash)
+          .maybeSingle();
+        const asmtRow = Array.isArray(tokRow?.evaluation_assignments)
+          ? tokRow.evaluation_assignments[0] : tokRow?.evaluation_assignments;
+        if (tokRow?.assignment_id && asmtRow?.timepoint === 'post_rotation') {
+          const { data: cert } = await supabaseAdmin
+            .from('preceptor_certificates')
+            .select('id')
+            .eq('qualifying_assignment_id', tokRow.assignment_id)
+            .maybeSingle();
+          if (cert) certificateAvailable = true;
+          else if (asmtRow.respondent_preceptor_id) {
+            const { data: alt } = await supabaseAdmin
+              .from('preceptor_certificates')
+              .select('id')
+              .eq('preceptor_id', asmtRow.respondent_preceptor_id)
+              .eq('cohort_id', asmtRow.cohort_id)
+              .maybeSingle();
+            certificateAvailable = !!alt;
+          }
+        }
+      } catch { /* no CTA on lookup failure */ }
+      return res.status(200).json({ completed: true, certificateAvailable });
     }
     if (rpcResult.status === 'window_closed') {
       return res.status(410).json({ error: 'The window for this feedback request has closed.' });
