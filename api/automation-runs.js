@@ -11,6 +11,7 @@
 // Strictly read-only: SELECT only. No writes, no cron changes, no schema.
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
+import { MONITORED_CRON_NAMES } from '../src/lib/automationCatalog.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -46,9 +47,15 @@ export default async function handler(req, res) {
   // ── Read-only data ──────────────────────────────────────────────────────────
   // cron_runs powers Automation Health. PostgREST returns {data,error} rather than throwing.
   try {
+    // AUTOMATION-MONITORING-1: scope to the crons the dashboard actually shows.
+    // Unfiltered, this returned the 150 newest rows across every cron, and three
+    // */10 delivery workers plus an hourly sweep write ~460 rows a day - so the
+    // window was about eight hours and any older automation read "Never run".
+    // Filtered, 150 rows spans weeks of card-relevant history.
     const runsRes = await supabaseAdmin
       .from('cron_runs')
       .select('id, cron_name, started_at, finished_at, status, details, error_text')
+      .in('cron_name', MONITORED_CRON_NAMES)
       .order('started_at', { ascending: false })
       .limit(150);
 

@@ -18,6 +18,7 @@ import { supabase } from '../../lib/supabase'
 import Toggle from '../ui/Toggle'
 import AutomationEmailPreviewDrawer from './AutomationEmailPreviewDrawer'
 import { getPreviewFixture } from '../../lib/notifications/previewFixtures'
+import { automationById, isRunStale } from '../../lib/automationCatalog'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -86,7 +87,7 @@ function fmtDuration(startIso, endIso) {
 
 // ── Resolve one job's latest run into a health display state. `nowIso` is the server clock (avoids
 // an impure render-time Date and keeps "stale running" honest across client clock skew). ──
-function resolveHealth(run, nowIso, paused) {
+function resolveHealth(run, nowIso, paused, cadence) {
   // Paused is authoritative (setting disabled, or fallback skipped_disabled evidence) and wins over
   // run-derived status - a paused automation must never read as failed or stale.
   if (paused) return { tone: 'paused', label: 'Paused', caption: 'Automatic sends are paused.' }
@@ -100,6 +101,16 @@ function resolveHealth(run, nowIso, paused) {
     return { tone: 'running', label: 'Running', caption: 'In progress…' }
   }
   if (status === 'error') return { tone: 'error', label: 'Error', caption: null }
+  // AUTOMATION-MONITORING-1: a successful run does not stay reassuring forever.
+  // An automation that silently stopped executing used to read Healthy
+  // indefinitely off a weeks-old run. Each automation carries its own freshness
+  // budget, so an hourly job and a weekly one are not judged by one timeout.
+  if (cadence && isRunStale({ lastRunIso: started_at, maxAgeHours: cadence.maxAgeHours, nowIso })) {
+    return {
+      tone: 'warn', label: 'No recent runs',
+      caption: 'Last run is older than this automation\u2019s normal schedule.',
+    }
+  }
   // success
   const sent = SENT_KEYS.map(k => details?.[k]).find(v => typeof v === 'number')
   if (typeof sent === 'number' && sent === 0) {
@@ -121,6 +132,9 @@ const HEALTH_TONES = {
   success: { dot: '#2F7D5C', bg: '#eef6ee', color: '#2F7D5C', border: '#cfe6d6' },
   error:   { dot: '#b91c1c', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
   running: { dot: '#b45309', bg: '#fff7ed', color: '#b45309', border: '#fed7aa' },
+  // AUTOMATION-MONITORING-1: "No recent runs" - a monitoring concern, not a
+  // failure, so amber rather than the error red.
+  warn:    { dot: '#92400e', bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
   neutral: { dot: '#9ca3af', bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' },
   paused:  { dot: '#94a3b8', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' },
 }
@@ -245,8 +259,17 @@ function AutomationCard({ card, run, health, ctrl, onPreview, canPreview }) {
         {ctrl.updatedAt && <span>Updated: <strong style={strong}>{new Date(ctrl.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong></span>}
       </div>
 
+      {/* AUTOMATION-MONITORING-1: these counters describe the LATEST RUN only,
+          never a running total. Unlabelled, "Sent: 0" read as "this automation
+          has never sent anything" when it means "the most recent run sent
+          zero" - two very different facts about a healthy automation. */}
       {chips.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em',
+            textTransform: 'uppercase', color: '#9ca3af', marginBottom: 5 }}>
+            Last run metrics
+          </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {chips.map(c => (
             <span key={c.key} style={{
               fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 7,
@@ -255,6 +278,7 @@ function AutomationCard({ card, run, health, ctrl, onPreview, canPreview }) {
               border: `1px solid ${c.alarm ? '#fecaca' : '#e5e7eb'}`,
             }}>{c.label}: {c.value}</span>
           ))}
+        </div>
         </div>
       )}
 
@@ -405,10 +429,11 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
 
   const healthFor = (card) => {
     const run = latestByName[card.cron_name]
-    if (isCardPaused(card)) return resolveHealth(run, nowIso, true) // authoritative even while runs load
+    const cadence = automationById(card.id)
+    if (isCardPaused(card)) return resolveHealth(run, nowIso, true, cadence) // authoritative even while runs load
     if (isLoading) return { tone: 'neutral', label: 'Loading…', caption: null, loading: true }
     if (isError) return { tone: 'neutral', label: 'Status unavailable', caption: null }
-    return resolveHealth(run, nowIso, false)
+    return resolveHealth(run, nowIso, false, cadence)
   }
 
   // Normalize each card's control (toggle) state from the right source.
