@@ -152,6 +152,8 @@ export async function resolveRecipients(type, context) {
       return resolveMidpointCheckin(context);
     case 'clockout_reminder':
       return resolveClockoutReminder(context);
+    case 'birthday_greeting':
+      return resolveBirthdayGreeting(context);
     case 'unit_leader_alert':
       return resolveUnitLeaderAlert(context);
     default:
@@ -208,6 +210,22 @@ function resolveInterviewReminder(context) {
 function resolveMidpointCheckin(context) {
   if (!context.studentEmail) {
     console.warn('[notifications/recipients] midpoint_checkin: no studentEmail in context');
+    return [];
+  }
+  return [{
+    email:    context.studentEmail,
+    role:     'student',
+    name:     context.firstName || null,
+    audience: 'student',
+  }];
+}
+
+// STUDENT-BIRTHDAY-GREETING-1: the cron resolves school_email->personal_email and passes the
+// chosen address as context.studentEmail. One student recipient, exactly like the midpoint and
+// clockout resolvers. The context deliberately carries no date of birth.
+function resolveBirthdayGreeting(context) {
+  if (!context.studentEmail) {
+    console.warn('[notifications/recipients] birthday_greeting: no studentEmail in context');
     return [];
   }
   return [{
