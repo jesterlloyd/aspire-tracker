@@ -169,7 +169,7 @@ function useMidpointSetting(cohortId, toast) {
 }
 
 // ── One unified card: control (toggle + On/Off/Saving) AND health (badge + last run + chips). ──
-function AutomationCard({ card, run, health, ctrl, onPreview }) {
+function AutomationCard({ card, run, health, ctrl, onPreview, canPreview }) {
   const tone = HEALTH_TONES[health.tone] || HEALTH_TONES.neutral
   const chips = chipsFromDetails(run?.details)
   const duration = run && fmtDuration(run.started_at, run.finished_at)
@@ -187,6 +187,11 @@ function AutomationCard({ card, run, health, ctrl, onPreview }) {
         </div>
         {/* Right cluster: Preview eye + health badge (badge stays the rightmost status anchor). */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          {/* The eye is CAPABILITY-DRIVEN: a card with no registered preview
+              fixture must not advertise one. Student Birthday Greetings shipped
+              without a fixture and the icon opened "No preview available",
+              which is an affordance promising something that does not exist. */}
+          {canPreview && (
           <button
             onClick={onPreview}
             title="Preview email"
@@ -199,6 +204,7 @@ function AutomationCard({ card, run, health, ctrl, onPreview }) {
           >
             <Eye size={16} />
           </button>
+          )}
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11,
             fontWeight: 700, padding: '3px 9px', borderRadius: 20,
@@ -478,6 +484,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
             health={healthFor(card)}
             ctrl={ctrlFor(card)}
             onPreview={() => setPreviewCard(card)}
+            canPreview={!!getPreviewFixture(card.id)}
           />
         ))}
       </div>

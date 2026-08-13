@@ -16,6 +16,7 @@
 import { teamsInviteReminder, teamsInviteReminderEscalation } from './templates/teamsInviteReminder.js';
 import { buildInterviewReminderEmail } from './templates/interviewReminder.js';
 import { buildMidpointCheckinEmail } from './templates/midpointCheckin.js';
+import { buildBirthdayGreetingEmail } from './templates/birthdayGreeting.js';
 import { buildCoordinatorWeeklyDigestEmail } from './templates/coordinatorWeeklyDigest.js';
 import { buildClockoutReminderEmail } from './templates/clockoutReminder.js';
 
@@ -111,6 +112,15 @@ export const AUTOMATION_PREVIEW_FIXTURES = {
   clockout_reminders: {
     recipientType: 'Student',
     render: () => buildClockoutReminderEmail({ firstName: MOCK.firstName }),
+  },
+
+  // STUDENT-BIRTHDAY-GREETING-1. The real template, so the preview is the email.
+  // firstName is the ONLY input the birthday template takes, which is also why
+  // there is nothing here that could leak a date of birth, an age, or a student
+  // id: the send path does not pass them either.
+  student_birthday_greetings: {
+    recipientType: 'Student',
+    render: () => buildBirthdayGreetingEmail({ firstName: MOCK.firstName }),
   },
 };
 
