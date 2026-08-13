@@ -446,6 +446,7 @@ export default function ActionCenter({
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
   reminderDeliveries = [], reminderDeliveriesLoaded = false,
+  ivSessions = [], ivSlots = [],
   schoolRotations = [], onNavigateToActivityStudent,
   onNavigateToProfiles, onNavigateToActivityShift, onNavigateNotificationDestination,
   onLaunchSchedulingLink,
@@ -788,6 +789,7 @@ ${KR_SIG}`
   const eager = deriveEagerAttention({
     students, matches, communications, activeCohort, canEdit, now,
     reminderDeliveries, deliveriesLoaded: reminderDeliveriesLoaded,
+    ivSessions, ivSlots,
   })
   const lazy = deriveLazyAttention({
     students, shiftLogs, shiftLogsLoaded,

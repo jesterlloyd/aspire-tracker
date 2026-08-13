@@ -408,8 +408,12 @@ function MainApp({ onLogout }) {
     const { data, error } = await supabase
       .from('notification_log')
       .select('student_id, notification_type, status, sent_at')
-      .eq('cohort_id', id)
       .eq('notification_type', 'interview_reminder')
+      // notification_log.cohort_id is stamped from interview_sessions.cohort_id,
+      // not from the student, so a session missing it would hide a genuine send
+      // behind a plain .eq and the engine would report a false miss. Rows are
+      // still narrowed to the student in the engine.
+      .or(`cohort_id.eq.${id},cohort_id.is.null`)
     // On error leave the loaded flag false: the engine then reports UNKNOWN and
     // raises no action, rather than claiming every reminder went unsent.
     if (error) { setReminderDeliveriesLoaded(false); return }
@@ -426,6 +430,10 @@ function MainApp({ onLogout }) {
     fetchIvSessions(activeCohortId); fetchIvSlots(activeCohortId)
     fetchCommunications(activeCohortId)
     fetchLazyActionData(activeCohortId)
+    // ACTION-OWNERSHIP-2: without this the delivery set went stale on every
+    // refresh, so a reminder the cron sent after page load kept reading as
+    // "not sent" until the cohort was switched or the app reloaded.
+    fetchReminderDeliveries(activeCohortId)
   }
 
   // Stable handler for the Action Center's count report. When the panel reports null
@@ -983,6 +991,7 @@ function MainApp({ onLogout }) {
   const eagerAttention = deriveEagerAttention({
     students, matches, communications, activeCohort, canEdit, now: attentionNow,
     reminderDeliveries, deliveriesLoaded: reminderDeliveriesLoaded,
+    ivSessions, ivSlots,
   })
   const lazyAttention = deriveLazyAttention({
     students,
@@ -1203,6 +1212,8 @@ function MainApp({ onLogout }) {
           communications={communications}
           reminderDeliveries={reminderDeliveries}
           reminderDeliveriesLoaded={reminderDeliveriesLoaded}
+          ivSessions={ivSessions}
+          ivSlots={ivSlots}
           schoolRotations={acSchoolRotations}
           onNavigateToActivityStudent={id => { goToActivityStudent(id); setShowActionCenter(false) }}
           onLogCommunication={logCommunication}

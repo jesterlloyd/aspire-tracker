@@ -232,6 +232,14 @@ const reminderRow = (over = {}) => ({
   student_id: 'r1', notification_type: 'interview_reminder', status: 'sent',
   sent_at: '2026-07-19T17:00:05Z', ...over,
 })
+// ACTION-OWNERSHIP-2: these tests walk an AUTOMATION-OWNED reminder through its
+// lifecycle, so the fixture must be one the cron can actually see: an
+// interview_sessions row carrying a slot whose slot_date is the interview.
+// (The cron never reads students.interview_scheduled_date. A staff-typed
+// interview with no slot is a different case entirely and is covered in
+// test/interviewReminderOwnership.test.mjs.)
+const ivSessions = [{ id: 'sess-r1', student_id: 'r1', slot_id: 'slot-r1', cohort_id: 'co1' }]
+const ivSlots    = [{ id: 'slot-r1', slot_date: IV_DATE, cohort_id: 'co1' }]
 // canEdit:false deliberately: it empties every canEdit-gated set (CS-Link,
 // badge, preceptor, ...) so `count` isolates the reminder's contribution.
 // The reminder set is not role-gated, so it is unaffected.
@@ -239,6 +247,7 @@ const derive = (over = {}) => deriveEagerAttention({
   students: [ivStudent()], matches: [], communications: [],
   activeCohort: { id: 'co1' }, canEdit: false,
   reminderDeliveries: [], deliveriesLoaded: true,
+  ivSessions, ivSlots,
   ...over,
 })
 

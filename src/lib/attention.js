@@ -101,8 +101,25 @@ export function deriveEagerAttention({
   // `deliveriesLoaded` gates them exactly like shiftLogsLoaded gates the lazy
   // sets, so a slow query can never manufacture a false "not sent" action.
   reminderDeliveries = [], deliveriesLoaded = false, interviewRemindersEnabled = true,
+  // ACTION-OWNERSHIP-2: the rows the interview-reminder cron actually reads. It
+  // selects interview_sessions with a non-null slot_id and targets
+  // interview_slots.slot_date - it never looks at students.interview_scheduled_date.
+  // Passing them here lets ownership be judged against the automation's OWN
+  // view of the world instead of a column it cannot see.
+  ivSessions = [], ivSlots = [],
 }) {
   const td = fmtLocalDate(now)
+
+  // studentId -> the slot date the cron would target for them. Absent means the
+  // interview was never booked through the scheduler, so the cron has no send
+  // scheduled for that student at all.
+  const slotDateById = new Map(ivSlots.map(sl => [sl.id, sl.slot_date]))
+  const bookedInterviewDate = new Map()
+  for (const sess of ivSessions) {
+    if (!sess?.student_id || !sess?.slot_id) continue
+    const d = slotDateById.get(sess.slot_id)
+    if (d) bookedInterviewDate.set(sess.student_id, d)
+  }
 
   // Always-visible tasks (not role-gated in the panel)
   // CONNECT-SCHEDULING-LINK-1: the task is resolved by a logged 'scheduling_link' communication, the
@@ -129,11 +146,18 @@ export function deriveEagerAttention({
     // record. Excluding terminal statuses rather than whitelisting the active
     // ones keeps a legitimately-booked student visible whatever their stage.
     .filter(s => s.interview_scheduled_date && !REMINDER_TERMINAL_STATUSES.has(s.status))
-    .map(s => ({
+    .map(s => {
+      // The automation's event date is the BOOKED slot date, because that is
+      // what the cron matches on. Fall back to the student record only so a
+      // staff-typed interview still has a sensible reminder moment; that case
+      // is flagged automationScheduled:false so it is never reported as a miss.
+      const booked = bookedInterviewDate.get(s.id) || null
+      return {
       student: s,
       ...resolveAutomationState({
         actionKey: 'interview_reminder',
-        eventDate: s.interview_scheduled_date,
+        eventDate: booked || s.interview_scheduled_date,
+        automationScheduled: !!booked,
         todayDate: td,
         now,
         deliveries: reminderDeliveries.filter(d => d.student_id === s.id),
@@ -141,15 +165,19 @@ export function deriveEagerAttention({
         deliveriesLoaded,
         automationEnabled: interviewRemindersEnabled,
       }),
-    }))
+      }
+    })
 
   // Counted: a person must act.
   const interviewReminder = reminderStates
     .filter(r => requiresHuman(r.state))
     .map(r => ({ ...r.student, automationState: r.state, automationSpec: r.spec }))
   // Never counted: shown as passive status only.
+  // Only genuinely automated reminders belong in the passive "handled
+  // automatically" list. A staff-typed interview is not automated, so listing
+  // it there would claim a send that is never coming.
   const interviewReminderScheduled = reminderStates
-    .filter(r => isPassiveStatus(r.state))
+    .filter(r => isPassiveStatus(r.state) && r.automationScheduled !== false)
     .map(r => ({ ...r.student, automationState: r.state, scheduledFor: r.scheduledFor }))
   const preceptorWelcome = students.filter(s =>
     s.status === 'Placed' && s.matched_preceptor && !hasSent(communications, s.id, 'preceptor_welcome')

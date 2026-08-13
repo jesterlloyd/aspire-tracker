@@ -39,10 +39,14 @@ export const STATE = Object.freeze({
   FAILED: 'failed',         // a send was attempted and failed
   MISSED: 'missed',         // the window passed with no send and no retry
   DISABLED: 'disabled',     // automation switched off, so a person owns it
+  // The automation has no send scheduled for this subject at all, so it was
+  // never going to act. Distinct from MISSED, which accuses a healthy
+  // automation of dropping work it actually owned.
+  UNSCHEDULED: 'unscheduled',
   UNKNOWN: 'unknown',       // delivery state not loaded yet - never invent work
 })
 
-const EXCEPTION_STATES = new Set([STATE.FAILED, STATE.MISSED, STATE.DISABLED])
+const EXCEPTION_STATES = new Set([STATE.FAILED, STATE.MISSED, STATE.DISABLED, STATE.UNSCHEDULED])
 const PASSIVE_STATES = new Set([STATE.SCHEDULED, STATE.NOT_DUE])
 
 /** True only when a person genuinely has to do something. */
@@ -103,6 +107,7 @@ function scheduledSendUtc(eventDate, { leadDays, runHourUtc }) {
  * @param {Array}   o.manualLogs       communications rows for this subject
  * @param {boolean} o.deliveriesLoaded false until the delivery query resolves
  * @param {boolean} o.automationEnabled automation_settings toggle
+ * @param {boolean} o.automationScheduled is this subject in the cron's scope?
  */
 export function resolveAutomationState({
   actionKey,
@@ -113,6 +118,12 @@ export function resolveAutomationState({
   manualLogs = [],
   deliveriesLoaded = true,
   automationEnabled = true,
+  // ACTION-OWNERSHIP-2: does the automation actually have THIS subject
+  // scheduled? The interview-reminder cron only ever sees interviews booked
+  // through the scheduler (an interview_sessions row with a slot); an
+  // interview typed straight onto the student record is invisible to it. The
+  // caller resolves that from the same rows the cron reads.
+  automationScheduled = true,
 }) {
   const spec = AUTOMATED_ACTIONS[actionKey]
   if (!spec) return { state: STATE.UNKNOWN, owner: OWNER_HUMAN, spec: null }
@@ -162,10 +173,24 @@ export function resolveAutomationState({
     // Automation still owns it. Distinguish "its moment is near" from "not due
     // for a while" purely for how it reads as status.
     return result(now.getTime() >= sendAt - 24 * 3600 * 1000 ? STATE.SCHEDULED : STATE.NOT_DUE,
-      { scheduledFor: new Date(sendAt).toISOString() })
+      { scheduledFor: new Date(sendAt).toISOString(), automationScheduled })
   }
 
-  // The window has passed with no send and this cron will not revisit it.
+  // ACTION-OWNERSHIP-2: the window has passed with no send. WHY nothing was
+  // sent decides whose fault it is, and the two answers are not the same:
+  //
+  //   automationScheduled true  - the cron had this subject and did not send.
+  //                               That is a genuine miss and it will not retry.
+  //   automationScheduled false - the cron never had this subject, so nothing
+  //                               was missed. A person owns the reminder and
+  //                               always did.
+  //
+  // Conflating them is what produced "was not sent automatically and will not
+  // retry" for interviews the automation could not see, which sent people to
+  // investigate a healthy cron.
+  if (!automationScheduled) {
+    return result(STATE.UNSCHEDULED, { scheduledFor: new Date(sendAt).toISOString() })
+  }
   return result(STATE.MISSED, { scheduledFor: new Date(sendAt).toISOString() })
 }
 
@@ -179,6 +204,8 @@ export function describeAutomationState(state, spec) {
     case STATE.FAILED:  return `${label} failed to send. Send it manually.`
     case STATE.MISSED:  return `${label} was not sent automatically and will not retry.`
     case STATE.DISABLED:return `${label} automation is off. Send it manually.`
+    case STATE.UNSCHEDULED:
+      return `${label} is not automated for this interview because it was not booked through the scheduler. Send it manually.`
     default:            return `${label} status unavailable.`
   }
 }
