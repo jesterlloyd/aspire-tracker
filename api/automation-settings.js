@@ -30,6 +30,14 @@ const KNOWN_AUTOMATIONS = [
   { key: 'clockout_reminders', label: 'Clock-Out Reminders',
     description: 'Hourly nudge for students with an open shift that may be overdue to clock out.',
     defaultEnabled: true },
+  // STUDENT-BIRTHDAY-GREETING-1. A card whose key is missing here is not a
+  // cosmetic problem: GET omits it entirely, so the client's `loaded: !!s` stays
+  // false and the control reads "Loading…" forever, AND PATCH rejects the key as
+  // unknown - so the automation cannot be turned off from the product at all,
+  // while its cron keeps sending (isAutomationEnabled is default-on).
+  { key: 'student_birthday_greetings', label: 'Student Birthday Greetings',
+    description: 'Sends a birthday greeting to students who are on an active rotation, once per year.',
+    defaultEnabled: true },
 ];
 const META_BY_KEY = new Map(KNOWN_AUTOMATIONS.map(a => [a.key, a]));
 
