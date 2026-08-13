@@ -10,6 +10,7 @@ import StatusBadge from '../ui/StatusBadge'
 import { UserInitials, displayRole, formatLoginDate } from './accountsShared'
 import { PORTAL_ROLE_LABELS, PORTAL_STATUS_STYLES } from '../../lib/portalAccessStatus'
 import { supabase } from '../../lib/supabase'
+import { useInterviewerEntitlements } from '../../lib/useInterviewerEntitlements'
 
 const F = 'DM Sans, sans-serif'
 const sectionTitle = { margin: '0 0 8px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#6b7280' }
@@ -24,6 +25,18 @@ function Section({ title, children }) {
       {children}
     </div>
   )
+}
+
+// INTERVIEWER-ENTITLEMENTS-UI-1: one line naming the cohorts this interviewer
+// can actually open files for. "None" is the answer that matters most - it is
+// why headshots render as initials and why Keith declines - so it is stated
+// plainly rather than left blank.
+function CohortAccessSummary({ profileId }) {
+  const { active, isLoading, isError } = useInterviewerEntitlements(profileId)
+  if (isLoading) return <span style={{ color: '#9ca3af' }}>Loading…</span>
+  if (isError) return <span style={{ color: '#9ca3af' }}>Unavailable</span>
+  if (!active.length) return <span style={{ color: '#b45309', fontWeight: 600 }}>None</span>
+  return <>{active.map(e => e.cohortName).join(', ')}</>
 }
 
 export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onClose, onEditStaff, onRenewPortal, onRevoked }) {
@@ -122,6 +135,16 @@ export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onC
                 <dt style={dt}>Interviewer</dt><dd style={dd}>{record.can_conduct_interviews ? 'Enabled' : 'Not enabled'}</dd>
                 <dt style={dt}>Status</dt><dd style={dd}>{record.is_active === false ? 'Disabled' : 'Active'}</dd>
                 <dt style={dt}>Last login</dt><dd style={dd}>{formatLoginDate(record.last_login_at)}</dd>
+                {/* INTERVIEWER-ENTITLEMENTS-UI-1: read-only here on purpose. An
+                    interviewer's cohort access decides resume, headshot, and
+                    Keith skill availability, so it belongs in the at-a-glance
+                    view; granting and revoking live in Edit staff access. */}
+                {(record.role || '') === 'interviewer' && !record.is_owner && (
+                  <>
+                    <dt style={dt}>Cohort access</dt>
+                    <dd style={dd}><CohortAccessSummary profileId={record.id} /></dd>
+                  </>
+                )}
               </dl>
             </Section>
           )}

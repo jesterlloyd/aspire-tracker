@@ -521,7 +521,7 @@ export default function AccountsDirectory() {
       {selectedStaffFresh && (
         <AccountProfileModal user={selectedStaffFresh} isCurrentUser={selectedStaffFresh.id === userProfile?.id}
           online={onlineProfileIds.has(selectedStaffFresh.id)} onSaveAccess={saveAccess} onToggleActive={handleToggleActive} onUploadPhoto={uploadPhoto}
-          canSendPasswordReset={canReset} onSendPasswordReset={sendPasswordReset} onClose={() => setStaffEdit(null)} />
+          canSendPasswordReset={canReset} onSendPasswordReset={sendPasswordReset} onToast={showToast} onClose={() => setStaffEdit(null)} />
       )}
     </section>
   )

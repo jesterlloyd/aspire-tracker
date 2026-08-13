@@ -6,6 +6,10 @@
 //      + payloads as the old Manage Access (onSaveAccess → /api/admin-users update_role /
 //      toggle_interviewer / update_interviewer_color). Owner-protected + self-mutation guards preserved
 //      (client here; server authoritative).
+//   B2. Cohort Access - INTERVIEWER-ENTITLEMENTS-UI-1, rendered only for accounts whose persisted
+//      role is interviewer. Grant/revoke through /api/interviewer-entitlements (active Owner/Admin
+//      only, server-authoritative). Kept OUT of the access dirty-save bar: each grant and revoke is
+//      a discrete, immediately-applied server action, like the photo upload.
 //   C. Recent Activity - READ-ONLY per-user query (activity_logs, last 30 days by user_name), 5 first +
 //      Show more. No schema/endpoint change.
 //   D. Account Actions - ONLY the actually-supported actions (Deactivate / Reactivate via onToggleActive).
@@ -14,6 +18,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, Camera } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import InterviewerEntitlementsSection from './InterviewerEntitlementsSection'
 import {
   ROLE_OPTIONS, ROLE_BADGE, INTERVIEWER_COLORS,
   displayRole, formatLoginDate, formatRelativeTime, UserInitials, HERO_AVATAR_RING,
@@ -26,7 +31,7 @@ const DEFAULT_COLOR = '#1D2567'
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PHOTO_MAX_BYTES = 2 * 1024 * 1024
 
-export default function AccountProfileModal({ user, isCurrentUser, online, onSaveAccess, onToggleActive, onUploadPhoto, canSendPasswordReset, onSendPasswordReset, onClose }) {
+export default function AccountProfileModal({ user, isCurrentUser, online, onSaveAccess, onToggleActive, onUploadPhoto, canSendPasswordReset, onSendPasswordReset, onToast, onClose }) {
   const isOwner = !!user.is_owner
   const isInactive = user.is_active === false
 
@@ -275,6 +280,16 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
                 </div>
               )}
             </div>
+
+            {/* B2. Cohort Access - INTERVIEWER-ENTITLEMENTS-UI-1. Shown only for
+                accounts whose PERSISTED role is interviewer, because they are
+                the only role whose file access is entitlement-scoped: every
+                other staff role either reads all cohorts or none. Reads the
+                saved role, not the unsaved draft, so the section cannot appear
+                against an account the server would still reject. */}
+            {(user.role || '') === 'interviewer' && !isOwner && (
+              <InterviewerEntitlementsSection user={user} sectionTitle={sectionTitle} onToast={onToast} />
+            )}
 
             {/* C. Recent Activity */}
             <div style={{ marginBottom: 22 }}>
