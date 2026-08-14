@@ -692,7 +692,7 @@ export default function SentHistory() {
       {/* OUTREACH-ANALYTICS-1: the analytics sit between the filters and the
           record. They answer the summary questions; the list below remains the
           detailed audit trail and is unchanged. */}
-      <OutreachAnalytics data={analytics} loading={analyticsLoading} error={error} failedOnly={failedOnly} />
+      <OutreachAnalytics data={analytics} loading={analyticsLoading} error={error} failedOnly={failedOnly} onToggleFailed={changeFailed} />
 
       {body}
 

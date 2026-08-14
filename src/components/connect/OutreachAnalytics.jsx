@@ -10,6 +10,7 @@
 // KPI total always equals the "N communications" figure underneath.
 import { useState } from 'react'
 import { AUDIENCES, AUDIENCE_LABELS } from '../../../lib/server/outreachAnalytics.js'
+import { FilterKPICard } from '../KPIBand'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -122,7 +123,7 @@ function ActivityChart({ daily }) {
   )
 }
 
-export default function OutreachAnalytics({ data, loading, error, failedOnly }) {
+export default function OutreachAnalytics({ data, loading, error, failedOnly, onToggleFailed }) {
   if (error) return null                       // the list still stands on its own
   if (loading && !data) {
     return (
@@ -145,11 +146,36 @@ export default function OutreachAnalytics({ data, loading, error, failedOnly }) 
         display: 'grid', gap: 10, marginBottom: 12,
         gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))',
       }}>
-        <KpiCard
-          label={failedOnly ? 'Failed communications' : 'Communications sent'}
-          value={fmtInt(totals.total)}
-          sub="one per recipient"
-        />
+        {/* SENT-HISTORY-KPI-1: the ONLY KPI here with an exact existing filter.
+            It is already the Failed indicator - the label flips to "Failed
+            communications" when `failedOnly` is on - so binding it to that same
+            filter makes the card do what it already reports. Canonical
+            FilterKPICard, not a local imitation, so hover lift, halo, selected
+            fill, focus ring, Enter/Space and aria-pressed all come from the one
+            primitive. Non-interactive when no handler is supplied. */}
+        {onToggleFailed ? (
+          <FilterKPICard
+            label={failedOnly ? 'Failed communications' : 'Communications sent'}
+            value={fmtInt(totals.total)}
+            sub="one per recipient"
+            accent="chroma"
+            active={!!failedOnly}
+            ariaLabel={failedOnly ? 'Showing failed only. Clear the failed filter.' : 'Show failed only'}
+            onClick={() => onToggleFailed(!failedOnly)}
+          />
+        ) : (
+          <KpiCard
+            label={failedOnly ? 'Failed communications' : 'Communications sent'}
+            value={fmtInt(totals.total)}
+            sub="one per recipient"
+          />
+        )}
+        {/* The audience split is a BREAKDOWN, not a filter set. Sent History
+            filters by notification type (pseudo-folders) or recipient_type=null,
+            never by audience, and "Other" is a residual bucket that no filter
+            could express. These cards therefore carry no click, pointer, hover
+            or keyboard affordance, and keep their colour dot so each still ties
+            to its band in the chart legend below. */}
         {AUDIENCES.map(a => (
           <KpiCard
             key={a}

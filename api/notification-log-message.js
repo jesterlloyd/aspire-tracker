@@ -20,7 +20,7 @@ import { redactArchiveHtml } from './lib/messageArchive.js';
 
 // Template-backed types renderable from stored context. All verified to contain only static program
 // links (logo, program domain, mailto/tel) - no context-derived/tokenized URLs.
-const RECONSTRUCTABLE = new Set([
+export const RECONSTRUCTABLE = new Set([
   'form_received',
   'placement_request_received',
   'unit_form_received',
@@ -29,15 +29,49 @@ const RECONSTRUCTABLE = new Set([
   'interview_reminder',
   'midpoint_checkin',
   'clockout_reminder',
+  // SENT-HISTORY-PREVIEW-1: both are template-backed and sent through
+  // sendNotification, so metadata.context holds exactly the inputs their
+  // builder takes. They were simply never added here.
+  'unit_leader_alert',
+  'birthday_greeting',
 ]);
 // Operator-composed emails whose body was intentionally not stored.
-const MANUAL_TYPES = new Set(['direct_message_sent']);
+// bulk_message_sent belongs here, not in the generic unsupported bucket: it is a
+// manual composition whose body was deliberately never archived (the
+// message_archive content_kind CHECK does not permit bulk manual email), so
+// "the body was not stored" is the accurate explanation rather than "this
+// message type cannot be reconstructed".
+export const MANUAL_TYPES = new Set(['direct_message_sent', 'bulk_message_sent']);
 
-const NOTICE = {
+// SENT-HISTORY-PREVIEW-1: types we deliberately do NOT reconstruct, each with
+// the reason. Being explicit matters twice over: the reader is told why rather
+// than being handed a generic shrug, and a NEW send type that nobody classified
+// is detectable (a structural test asserts every known type appears in exactly
+// one bucket) instead of silently landing in "unsupported" forever.
+export const UNSUPPORTED_REASONS = Object.freeze({
+  // The digest's own log row stores only window bounds, school, and a
+  // transition COUNT - never the transition rows the template renders. Rebuilding
+  // from that would invent a digest that was never sent.
+  coordinator_weekly_digest:      'digest_contents_not_stored',
+  coordinator_weekly_digest_test: 'digest_contents_not_stored',
+  // These carry a per-recipient secure link. Re-rendering either fabricates a
+  // link that was never in the original or omits the email's entire purpose;
+  // neither is a truthful preview, and minting a token to preview a past email
+  // is not something a preview should ever do.
+  evaluation_invitation_sent:     'secure_link_email',
+  evaluation_invitation_test:     'secure_link_email',
+  evaluation_survey_test_sent:    'secure_link_email',
+  preceptor_feedback_request_sent:'secure_link_email',
+  preceptor_certificate_ready:    'secure_link_email',
+});
+
+export const NOTICE = {
   reconstructed: 'Reconstructed preview. Secure links and attachments are removed.',
   archived_redacted: 'Archived preview. Secure links and sensitive content may be removed.',
   manual_body_not_stored: 'Full message preview is not available for this historical manual email because the body was not stored.',
   reconstruction_unsupported: 'A safe preview could not be reconstructed for this message type.',
+  digest_contents_not_stored: 'The weekly digest listed activity that was not stored with this record, so its body cannot be shown without inventing content. The subject and delivery details above are the real ones.',
+  secure_link_email: 'This email contained a secure personal link, which is never reproduced in a preview. The subject and delivery details above are the real ones.',
   reconstruction_failed: 'A safe preview could not be reconstructed for this message.',
 };
 
@@ -137,6 +171,9 @@ export default async function handler(req, res) {
       console.error('[notification-log-message] reconstruction failed:', e?.message);
       preview = unavailable('reconstruction_failed');
     }
+  } else if (UNSUPPORTED_REASONS[type]) {
+    // Intentionally not reconstructed, and the reader is told which reason.
+    preview = unavailable(UNSUPPORTED_REASONS[type]);
   } else {
     preview = unavailable('reconstruction_unsupported');
   }

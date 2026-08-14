@@ -106,13 +106,18 @@ const ACCENT_PALETTE = {
   },
 }
 
-export function FilterKPICard({ value, label, sub, accent = 'nightfall', active, onClick }) {
+export function FilterKPICard({ value, label, sub, accent = 'nightfall', active, onClick, ariaLabel }) {
   const p = ACCENT_PALETTE[accent] || ACCENT_PALETTE.nightfall
 
   return (
+    // SENT-HISTORY-KPI-1: ariaLabel is optional and additive - it names cards
+    // whose VISIBLE label changes with state (Sent History's total card
+    // relabels itself when the Failed filter is on), so the action stays
+    // announced either way. Existing callers omit it and are unaffected.
     <button
       onClick={onClick}
       aria-pressed={active}
+      aria-label={ariaLabel || undefined}
       style={{
         background:   active ? p.solid    : p.tint,
         border:       `1px solid ${active ? p.solid : 'rgba(29,37,103,0.06)'}`,

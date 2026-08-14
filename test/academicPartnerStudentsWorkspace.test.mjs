@@ -107,7 +107,14 @@ test('the KPI band is the canonical 8-up grid stepping 8 -> 4 -> 2, like the mai
   assert.match(css, /@media \(max-width: 560px\)  \{ \.ptl-ap-kpis \{ grid-template-columns: repeat\(2, 1fr\); \} \}/)
   // The canonical FilterKPICard: native button, built-in aria-pressed (selection not color-only), hover.
   const kpi = read('src/components/KPIBand.jsx')
-  assert.match(kpi, /export function FilterKPICard\(\{ value, label, sub, accent = 'nightfall', active, onClick \}\)/)
+  // Every canonical prop must still be present. Asserted individually rather
+  // than as a frozen signature: the shared primitive may gain ADDITIVE optional
+  // props (e.g. ariaLabel for a card whose visible label changes with state),
+  // and a whole-signature pin would fail on a change that breaks nothing.
+  const sig = kpi.slice(kpi.indexOf('export function FilterKPICard('), kpi.indexOf(')', kpi.indexOf('export function FilterKPICard(')) + 1)
+  for (const prop of ['value', 'label', 'sub', "accent = 'nightfall'", 'active', 'onClick']) {
+    assert.ok(sig.includes(prop), `FilterKPICard must still take ${prop}`)
+  }
   assert.match(kpi, /aria-pressed=\{active\}/)
   assert.match(kpi, /translateY\(-2px\)/)
 })
