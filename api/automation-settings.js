@@ -38,6 +38,14 @@ const KNOWN_AUTOMATIONS = [
   { key: 'student_birthday_greetings', label: 'Student Birthday Greetings',
     description: 'Sends a birthday greeting to students who are on an active rotation, once per year.',
     defaultEnabled: true },
+  // EVALUATION-REMINDERS-1. The ONLY default-OFF automation. Its cron mints a new
+  // survey token per reminder, so it must not be able to start sending merely
+  // because a settings row is missing - api/cron/evaluation-reminders.js asks the
+  // shared gate for defaultEnabled:false, which also makes a settings read
+  // failure mean "send nothing".
+  { key: 'evaluation_reminders', label: 'Evaluation & Survey Reminders',
+    description: 'Reminds students and preceptors about incomplete evaluations and surveys at 7, 14, and 21 days. Stops as soon as the survey is completed.',
+    defaultEnabled: false },
 ];
 const META_BY_KEY = new Map(KNOWN_AUTOMATIONS.map(a => [a.key, a]));
 

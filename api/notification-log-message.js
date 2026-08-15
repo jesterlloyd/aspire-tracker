@@ -68,6 +68,7 @@ export const UNSUPPORTED_REASONS = Object.freeze({
   student_preceptor_eval_request_sent: 'secure_link_email',
   preceptor_feedback_request_sent:'secure_link_email',
   preceptor_certificate_ready:    'secure_link_email',
+  evaluation_reminder_sent:       'secure_link_email',
 });
 
 export const NOTICE = {

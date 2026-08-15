@@ -17,6 +17,8 @@ import { teamsInviteReminder, teamsInviteReminderEscalation } from './templates/
 import { buildInterviewReminderEmail } from './templates/interviewReminder.js';
 import { buildMidpointCheckinEmail } from './templates/midpointCheckin.js';
 import { buildBirthdayGreetingEmail } from './templates/birthdayGreeting.js';
+import { buildEvaluationReminderEmail } from '../../../lib/server/evaluation/reminderEmailTemplates.js';
+import { CERTIFICATE_KINDS } from '../evaluation/reminderSchedule.js';
 import { buildCoordinatorWeeklyDigestEmail } from './templates/coordinatorWeeklyDigest.js';
 import { buildClockoutReminderEmail } from './templates/clockoutReminder.js';
 
@@ -121,6 +123,34 @@ export const AUTOMATION_PREVIEW_FIXTURES = {
   student_birthday_greetings: {
     recipientType: 'Student',
     render: () => buildBirthdayGreetingEmail({ firstName: MOCK.firstName }),
+  },
+
+  // EVALUATION-REMINDERS-1. One variant per survey workflow, because the copy
+  // genuinely differs per workflow - and because the preview is where an Owner
+  // can see for themselves which reminders mention a certificate. Only the two
+  // that actually gate one (Casey-Fink post-rotation, preceptor end-of-rotation)
+  // pass a certificateKind. The sample URL is an obvious placeholder: a preview
+  // must never mint a real token.
+  evaluation_reminders: {
+    recipientType: 'Student or Preceptor',
+    variants: [
+      { key: 'casey_fink_readiness',     label: 'Casey-Fink (certificate)' },
+      { key: 'post_rotation_evaluation', label: 'Post-Rotation Evaluation' },
+      { key: 'student_preceptor_eval',   label: 'Preceptor & Unit Feedback' },
+      { key: 'preceptor_progress',       label: 'Preceptor (certificate)' },
+    ],
+    render: (variant = 'casey_fink_readiness') => buildEvaluationReminderEmail({
+      workflowKey: variant,
+      reminderNumber: variant === 'preceptor_progress' ? 3 : 1,
+      recipientName: variant === 'preceptor_progress' ? 'Dana Whitfield' : MOCK.firstName,
+      studentName: variant === 'preceptor_progress' ? `${MOCK.firstName} Rivera` : null,
+      surveyUrl: 'https://aspireintelligence.app/evaluation/example#t=SAMPLE-PREVIEW-LINK',
+      expiresAtHuman: 'September 12, 2026',
+      certificateKind:
+        variant === 'casey_fink_readiness' ? CERTIFICATE_KINDS.STUDENT_COMPLETION
+        : variant === 'preceptor_progress' ? CERTIFICATE_KINDS.PRECEPTOR_APPRECIATION
+        : null,
+    }),
   },
 };
 

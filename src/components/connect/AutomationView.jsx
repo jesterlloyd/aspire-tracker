@@ -40,6 +40,10 @@ const AUTOMATION_CARDS = [
     cron_name: 'student-birthday-greetings', automation_key: 'student_birthday_greetings',
     scope: 'All cohorts', schedule: 'Daily · 9:00 AM PT', hasGlobalSetting: true,
     desc: 'Sends a birthday greeting to students who are on an active rotation, once per year.' },
+  { id: 'evaluation_reminders', title: 'Evaluation & Survey Reminders',
+    cron_name: 'evaluation-reminders', automation_key: 'evaluation_reminders',
+    scope: 'All cohorts', schedule: 'Weekly · Tuesdays 9:00 AM PT', hasGlobalSetting: true,
+    desc: 'Reminds students and preceptors about incomplete evaluations and surveys at 7, 14, and 21 days. Stops as soon as the survey is completed.' },
   { id: 'midpoint_checkin', title: 'Midpoint Check-In Auto-send',
     cron_name: 'midpoint-checkin', automation_key: null,
     scope: 'Active cohort only', schedule: 'Daily · 8:00 AM PT', hasMidpointSetting: true,
@@ -64,6 +68,12 @@ const COUNT_LABELS = {
   event_count: 'Events', coordinators_resolved: 'Coordinators',
   cohort_count: 'Cohorts', overdue_count: 'Overdue', open_checked: 'Open shifts',
   would_send_count: 'Would send',
+  // EVALUATION-REMINDERS-1 counts.
+  claimed_count: 'Claimed', deliverable_count: 'Deliverable',
+  completed_suppressed_count: 'Completed', expired_suppressed_count: 'Window closed',
+  missing_email_count: 'No usable email', duplicate_suppressed_count: 'Already reminded',
+  send_suppressed_count: 'Suppressed at send', capped_count: 'Deferred to next run',
+  scanned_count: 'Scanned',
 }
 const ALARM_KEYS = new Set(['failed_count', 'error_count'])
 const SENT_KEYS = ['sent_count', 'fired_count']

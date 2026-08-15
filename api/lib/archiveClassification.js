@@ -37,6 +37,10 @@ export const SECURE_LINK_TYPES = Object.freeze([
   'student_preceptor_eval_request_sent',
   'preceptor_feedback_request_sent',
   'preceptor_certificate_ready',
+  // EVALUATION-REMINDERS-1. One type for all four reminder workflows: every
+  // reminder mints a fresh token, so it is secure-link content no matter which
+  // survey it is about.
+  'evaluation_reminder_sent',
 ]);
 
 /** Already archived by their own sender. The shared path must not touch them. */

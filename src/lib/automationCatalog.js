@@ -43,6 +43,13 @@ export const AUTOMATION_CATALOG = Object.freeze([
     maxAgeHours: 30,
   },
   {
+    id: 'evaluation_reminders',
+    cronName: 'evaluation-reminders',
+    automationKey: 'evaluation_reminders',
+    // Weekly. Eight days leaves a full cycle plus slack, matching the digest.
+    maxAgeHours: 192,
+  },
+  {
     id: 'midpoint_checkin',
     cronName: 'midpoint-checkin',
     automationKey: null,          // cohort-scoped setting, not a global key

@@ -21,6 +21,7 @@ const SENDERS = [
   ['api/evaluation-release-student-eval-survey.js', 'student_preceptor_eval_request_sent', 'html'],
   ['lib/server/evaluation/preceptorSend.js', 'preceptor_feedback_request_sent', 'html'],
   ['lib/server/certificates/unlockPreceptorCertificate.js', 'preceptor_certificate_ready', 'html'],
+  ['lib/server/evaluation/reminderSend.js', 'evaluation_reminder_sent', 'html'],
 ]
 
 const stripComments = (s) => s
