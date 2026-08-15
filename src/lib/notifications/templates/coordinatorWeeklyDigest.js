@@ -26,6 +26,7 @@ const CATEGORIES = [
   { key: 'interview',        label: 'Interviews Completed' },
   { key: 'placement',        label: 'Unit Placements'      },
   { key: 'rotation',         label: 'Began Active Rotation' },
+  { key: 'not_proceeding',   label: 'Not Proceeding'       },
 ];
 
 // Defensive display sanitizer: line items are built upstream (cron); strip any em/en dash used as

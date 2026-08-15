@@ -12,6 +12,7 @@
 //   interview_booked → "Interviews Scheduled"
 //   interview        → "Interviews Completed"   (rubric submitted)
 //   placement        → "Unit Placements"
+//   terminal status  → "Not Proceeding"         (current status overrides prior milestones)
 //
 // Recipient routing is attribute-based on the contacts table (role is display-only):
 // a contact is eligible when is_active = true and its school_name matches the student's
@@ -29,19 +30,15 @@ import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/li
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
 import { archiveSentMessage } from '../lib/messageArchive.js';
-
-// ARCHIVE-SNAPSHOT-1: recorded in archive metadata so a stored digest can be
-// matched to the renderer that produced it. Bump when the template changes shape.
-const COORDINATOR_DIGEST_TEMPLATE_VERSION = 1;
+import {
+  COORDINATOR_DIGEST_EVENT_TYPES,
+  COORDINATOR_DIGEST_TEMPLATE_VERSION,
+  addCoordinatorDigestEvent,
+  createCoordinatorDigestTransitions,
+} from '../lib/coordinatorDigestTransitions.js';
 
 const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
-
-// Event types to include; maps to digest section keys. rotation_start and
-// status_change_active_rotation are two events for the same milestone (a student beginning
-// active rotation); both collapse into the single 'rotation' digest category below and a
-// student is shown once even if both events occur in the window.
-const DIGEST_EVENT_TYPES = ['form_received', 'interview_booked', 'interview', 'placement', 'rotation_start', 'status_change_active_rotation'];
 
 // Alert if more than this share of eligible coordinators fail to receive the digest
 const ALERT_THRESHOLD = 0.2;
@@ -124,11 +121,11 @@ export default async function handler(req, res) {
       .from('program_events')
       .select(`
         id, event_type, event_date, created_at, notes,
-        students!inner(id, first_name, last_name, school, program_type)
+        students!inner(id, first_name, last_name, school, program_type, status)
       `)
       .gte('created_at', windowStart.toISOString())
       .lt('created_at', windowEnd.toISOString())
-      .in('event_type', DIGEST_EVENT_TYPES);
+      .in('event_type', COORDINATOR_DIGEST_EVENT_TYPES);
 
     if (eventsErr) {
       console.error('[coordinator-digest] events query error:', eventsErr);
@@ -226,65 +223,16 @@ export default async function handler(req, res) {
         continue;
       }
 
-      const studentName = `${student.first_name} ${student.last_name}`;
-
       for (const coordinator of matchedCoordinators) {
         if (!grouped[coordinator.id]) {
           grouped[coordinator.id] = {
             coordinator,
-            transitions: {
-              form_received:    [],
-              interview_booked: [],
-              interview:        [],
-              placement:        [],
-              rotation:         [],
-            },
+            transitions: createCoordinatorDigestTransitions(),
           };
         }
 
         const bucket = grouped[coordinator.id].transitions;
-
-        switch (event.event_type) {
-          case 'form_received':
-            bucket.form_received.push({ line: studentName });
-            break;
-
-          case 'interview_booked': {
-            // notes = "Interview self-scheduled for DATE at TIME with INTERVIEWER"
-            const timeMatch = event.notes?.match(/for (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2}) with (.+?)(?:\s*\(\d+)/);
-            const datePart = timeMatch?.[1] || event.event_date;
-            const timePart = timeMatch?.[2];
-            const intName  = timeMatch?.[3]?.trim();
-            const when = [datePart && formatShortDate(datePart), timePart && formatTime(timePart)].filter(Boolean).join(' at ');
-            const with_ = intName ? ` with ${intName}` : '';
-            bucket.interview_booked.push({ line: `${studentName}${when ? ', ' + when : ''}${with_}` });
-            break;
-          }
-
-          case 'interview': {
-            const scoreMatch = event.notes?.match(/Score:\s*([\d.]+)\/15/);
-            const score = scoreMatch?.[1];
-            bucket.interview.push({ line: `${studentName}${score ? ` (${score}/15)` : ''}` });
-            break;
-          }
-
-          case 'placement': {
-            const unitMatch = event.notes?.match(/Placed in (.+)$/);
-            const unit = unitMatch?.[1]?.trim();
-            bucket.placement.push({ line: `${studentName}${unit ? `, ${unit}` : ''}` });
-            break;
-          }
-
-          // rotation_start and status_change_active_rotation are the same milestone - collapse
-          // both into one 'rotation' line and show the student once (dedup by student id).
-          case 'rotation_start':
-          case 'status_change_active_rotation': {
-            if (!bucket.rotation.some(r => r.studentId === student.id)) {
-              bucket.rotation.push({ line: studentName, studentId: student.id });
-            }
-            break;
-          }
-        }
+        addCoordinatorDigestEvent(bucket, event);
       }
     }
 
@@ -754,17 +702,4 @@ function resolveCoordinators(student, contacts) {
       (student.program_type != null && c.program_type === student.program_type)
     )
   );
-}
-
-function formatShortDate(dateStr) {
-  if (!dateStr) return '';
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric',
-  });
-}
-
-function formatTime(timeStr) {
-  if (!timeStr) return '';
-  const [h, m] = timeStr.split(':').map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 }

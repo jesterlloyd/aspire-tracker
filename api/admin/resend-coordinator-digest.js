@@ -27,13 +27,15 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
 import { archiveSentMessage } from '../lib/messageArchive.js';
+import {
+  COORDINATOR_DIGEST_EVENT_TYPES,
+  COORDINATOR_DIGEST_TEMPLATE_VERSION,
+  addCoordinatorDigestEvent,
+  createCoordinatorDigestTransitions,
+} from '../lib/coordinatorDigestTransitions.js';
 
 const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
-// Must match api/cron/coordinator-weekly-digest.js so manual resends render the same digest.
-// rotation_start + status_change_active_rotation collapse into one 'rotation' category below.
-const DIGEST_EVENT_TYPES = ['form_received', 'interview_booked', 'interview', 'placement', 'rotation_start', 'status_change_active_rotation'];
-
 function getServiceClient() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -80,11 +82,11 @@ export default async function handler(req, res) {
       .from('program_events')
       .select(`
         id, event_type, event_date, created_at, notes,
-        students!inner(id, first_name, last_name, school, program_type)
+        students!inner(id, first_name, last_name, school, program_type, status)
       `)
       .gte('created_at', windowStart.toISOString())
       .lt('created_at', windowEnd.toISOString())
-      .in('event_type', DIGEST_EVENT_TYPES);
+      .in('event_type', COORDINATOR_DIGEST_EVENT_TYPES);
 
     if (eventsErr) return res.status(500).json({ error: eventsErr.message });
 
@@ -123,53 +125,18 @@ export default async function handler(req, res) {
       const matchedCoordinators = resolveCoordinators(student, allCoordinators || []);
       if (matchedCoordinators.length === 0) continue;
 
-      const studentName = `${student.first_name} ${student.last_name}`;
-
       for (const coordinator of matchedCoordinators) {
         if (contact_ids?.length && !contact_ids.includes(coordinator.id)) continue;
 
         if (!grouped[coordinator.id]) {
           grouped[coordinator.id] = {
             coordinator,
-            transitions: { form_received: [], interview_booked: [], interview: [], placement: [], rotation: [] },
+            transitions: createCoordinatorDigestTransitions(),
           };
         }
 
         const bucket = grouped[coordinator.id].transitions;
-
-        switch (event.event_type) {
-          case 'form_received':
-            bucket.form_received.push({ line: studentName });
-            break;
-          case 'interview_booked': {
-            const timeMatch = event.notes?.match(/for (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2}) with (.+?)(?:\s*\(\d+)/);
-            const datePart  = timeMatch?.[1] || event.event_date;
-            const timePart  = timeMatch?.[2];
-            const intName   = timeMatch?.[3]?.trim();
-            const when      = [datePart && formatShortDate(datePart), timePart && formatTime(timePart)].filter(Boolean).join(' at ');
-            bucket.interview_booked.push({ line: `${studentName}${when ? ', ' + when : ''}${intName ? ' with ' + intName : ''}` });
-            break;
-          }
-          case 'interview': {
-            const scoreMatch = event.notes?.match(/Score:\s*([\d.]+)\/15/);
-            bucket.interview.push({ line: `${studentName}${scoreMatch?.[1] ? ` (${scoreMatch[1]}/15)` : ''}` });
-            break;
-          }
-          case 'placement': {
-            const unitMatch = event.notes?.match(/Placed in (.+)$/);
-            bucket.placement.push({ line: `${studentName}${unitMatch?.[1] ? `, ${unitMatch[1].trim()}` : ''}` });
-            break;
-          }
-          // rotation_start + status_change_active_rotation collapse into one rotation line;
-          // student shown once (dedup by student id). Mirrors the cron handler.
-          case 'rotation_start':
-          case 'status_change_active_rotation': {
-            if (!bucket.rotation.some(r => r.studentId === student.id)) {
-              bucket.rotation.push({ line: studentName, studentId: student.id });
-            }
-            break;
-          }
-        }
+        addCoordinatorDigestEvent(bucket, event);
       }
     }
 
@@ -279,7 +246,7 @@ export default async function handler(req, res) {
           bodyFormat: 'html',
           source: 'admin_test',
           templateKey: 'coordinatorWeeklyDigest',
-          templateVersion: 1,
+          templateVersion: COORDINATOR_DIGEST_TEMPLATE_VERSION,
         });
       }
 
@@ -369,7 +336,7 @@ export default async function handler(req, res) {
             bodyFormat: 'html',
             source: 'admin_manual',
             templateKey: 'coordinatorWeeklyDigest',
-            templateVersion: 1,
+            templateVersion: COORDINATOR_DIGEST_TEMPLATE_VERSION,
           })
         }
 
@@ -451,16 +418,4 @@ function resolveCoordinators(student, contacts) {
       (student.program_type != null && c.program_type === student.program_type)
     )
   );
-}
-
-function formatShortDate(dateStr) {
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric',
-  });
-}
-
-function formatTime(timeStr) {
-  if (!timeStr) return '';
-  const [h, m] = timeStr.split(':').map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 }
