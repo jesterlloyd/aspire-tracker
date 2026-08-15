@@ -26,6 +26,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
+import { archiveSentMessage } from '../lib/messageArchive.js';
 
 const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
@@ -241,8 +242,9 @@ export default async function handler(req, res) {
       // Log with a distinct notification_type so the real dedup query
       // (eq('notification_type', 'coordinator_weekly_digest')) cannot match this row.
       // contact_id intentionally null - this is not a real send to the coordinator.
+      let testNotificationLogId = null;
       try {
-        await db.from('notification_log').insert({
+        const { data: logRow } = await db.from('notification_log').insert({
           notification_type: 'coordinator_weekly_digest_test',
           audience:          'school_coordinator',
           contact_id:        null,
@@ -262,9 +264,23 @@ export default async function handler(req, res) {
             simulated_coordinator_school: sim.school_name,
             transition_count:            simTotalItems,
           },
-        });
+        }).select('id').single();
+        testNotificationLogId = logRow?.id || null;
       } catch (logErr) {
         console.warn('[resend-coordinator-digest] test notification_log write failed (non-fatal):', logErr.message);
+      }
+
+      if (testNotificationLogId) {
+        await archiveSentMessage({
+          db,
+          notificationLogId: testNotificationLogId,
+          contentKind: 'coordinator_weekly_digest',
+          html: simHtml,
+          bodyFormat: 'html',
+          source: 'admin_test',
+          templateKey: 'coordinatorWeeklyDigest',
+          templateVersion: 1,
+        });
       }
 
       console.log(`[resend-coordinator-digest] test mode → ${testRecipientEmail} (simulated: ${sim.full_name})`);
@@ -325,7 +341,7 @@ export default async function handler(req, res) {
 
         if (emailErr) throw new Error(emailErr.message || JSON.stringify(emailErr));
 
-        const { error: logErr2 } = await db.from('notification_log').insert({
+        const { data: logRow, error: logErr2 } = await db.from('notification_log').insert({
           notification_type: 'coordinator_weekly_digest',
           audience:          'school_coordinator',
           contact_id:        coordinatorId,
@@ -340,8 +356,22 @@ export default async function handler(req, res) {
             window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(),
             source: 'admin_manual', transition_count: totalItems,
           },
-        })
+        }).select('id').single()
         if (logErr2) console.warn('[resend-coordinator-digest] log write error:', logErr2.message)
+
+        const notificationLogId = logRow?.id || null
+        if (notificationLogId) {
+          await archiveSentMessage({
+            db,
+            notificationLogId,
+            contentKind: 'coordinator_weekly_digest',
+            html,
+            bodyFormat: 'html',
+            source: 'admin_manual',
+            templateKey: 'coordinatorWeeklyDigest',
+            templateVersion: 1,
+          })
+        }
 
         try {
           const { error: crmErr } = await db.from('contacts').update({

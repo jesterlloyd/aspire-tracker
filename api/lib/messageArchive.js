@@ -12,6 +12,18 @@
 // returns a status the caller surfaces as archive_status without ever failing an already-sent email.
 
 import { appUrl } from '../../src/lib/appUrl.js';
+import { buildSecureLinkSnapshot } from './secureLinkSnapshot.js';
+
+// ARCHIVE-SNAPSHOT-1: the five kinds the widened CHECK permits. The writer is
+// the last place this is enforced before the database, so an unknown kind is
+// refused here rather than allowed to become a constraint violation.
+export const ARCHIVE_CONTENT_KINDS = Object.freeze([
+  'manual_direct_email',
+  'manual_bulk_email',
+  'coordinator_weekly_digest',
+  'template_notification',
+  'secure_link_email',
+]);
 
 const UNSAFE_URL_MARKERS = /\?|token|magic|survey|resume|headshot|packet|signature|expires|access_token|refresh_token|jwt/i;
 
@@ -57,10 +69,58 @@ export function redactArchiveHtml(html) {
 //   { status: 'skipped',  reason }        - nothing to store (no id / empty redaction)
 //   { status: 'failed',   reason }        - insert errored or threw (sanitized; never exposes raw error)
 export async function archiveManualMessage({ db, notificationLogId, html, bodyFormat, createdBy }) {
-  if (!notificationLogId) return { status: 'skipped', reason: 'no_notification_log_id' };
+  return archiveSentMessage({
+    db, notificationLogId, html, bodyFormat, createdBy,
+    contentKind: 'manual_direct_email', source: 'connect_send_direct_email',
+  });
+}
 
-  const redacted = redactArchiveHtml(html);
-  if (!redacted || redacted.trim() === '') {
+/**
+ * ARCHIVE-SNAPSHOT-1: the general sent-time snapshot writer.
+ *
+ * The caller passes the EXACT payload it handed the provider - never a body
+ * rebuilt afterwards from mutable records, which is the whole point of an
+ * immutable snapshot.
+ *
+ * Best-effort by contract. It never throws and never signals anything the caller
+ * could mistake for a send failure: archiving is bookkeeping that happens after
+ * delivery, so a storage problem must not resend, re-target, duplicate, or
+ * change eligibility. Callers surface the returned status as archive_status.
+ *
+ * secure_link_email goes through the redaction gate and is SKIPPED unless the
+ * snapshot is provably secret-free.
+ *
+ * @param {string} o.contentKind    one of ARCHIVE_CONTENT_KINDS
+ * @param {string} o.html           the html handed to the provider
+ * @param {string} [o.text]         the text alternative handed to the provider
+ * @param {string} [o.templateKey]  stored in metadata, not a column
+ * @param {number|string} [o.templateVersion]
+ */
+export async function archiveSentMessage({
+  db, notificationLogId, contentKind, html, text, bodyFormat, createdBy,
+  source, templateKey, templateVersion,
+}) {
+  if (!notificationLogId) return { status: 'skipped', reason: 'no_notification_log_id' };
+  if (!ARCHIVE_CONTENT_KINDS.includes(contentKind)) {
+    return { status: 'skipped', reason: 'unknown_content_kind' };
+  }
+
+  let redacted;
+  let redactionVersion = 1;
+  let redactedText = typeof text === 'string' && text.trim() !== '' ? text : null;
+
+  if (contentKind === 'secure_link_email') {
+    // FAIL CLOSED ON STORAGE: no proof, no row. Delivery already happened.
+    const snap = buildSecureLinkSnapshot({ html, text });
+    if (!snap.safe) return { status: 'skipped', reason: `secure_link_${snap.reason}` };
+    redacted = redactArchiveHtml(snap.html || '');
+    redactedText = snap.text;
+    redactionVersion = snap.redactionVersion;
+  } else {
+    redacted = redactArchiveHtml(html);
+  }
+
+  if ((!redacted || redacted.trim() === '') && !redactedText) {
     // Empty redaction would violate chk_message_archive_has_body - skip rather than insert.
     return { status: 'skipped', reason: 'empty_after_redaction' };
   }
@@ -71,14 +131,20 @@ export async function archiveManualMessage({ db, notificationLogId, html, bodyFo
       .upsert(
         {
           notification_log_id: notificationLogId,
-          content_kind:        'manual_direct_email',
-          html_redacted:       redacted,
-          text_redacted:       null,
-          redaction_version:   1,
+          content_kind:        contentKind,
+          html_redacted:       redacted && redacted.trim() !== '' ? redacted : null,
+          text_redacted:       redactedText,
+          redaction_version:   redactionVersion,
           created_by:          createdBy || null,
+          // Template identity lives in metadata, NOT in new columns: the jsonb
+          // column already exists with an object CHECK and already carries
+          // per-write keys. Subject, recipient, resend id and sent_at are all a
+          // join away on notification_log and are deliberately not copied here.
           metadata: {
-            source:      'connect_send_direct_email',
-            body_format: bodyFormat || null,
+            source:           source || 'unknown',
+            body_format:      bodyFormat || null,
+            template_key:     templateKey || null,
+            template_version: templateVersion != null ? String(templateVersion) : null,
           },
         },
         { onConflict: 'notification_log_id', ignoreDuplicates: true },

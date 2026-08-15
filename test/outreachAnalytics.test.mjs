@@ -237,7 +237,7 @@ test('the analytics query is the list query minus paging, plus timezone', () => 
   assert.match(list, /useEffect\(\(\) => \{ fetchAnalytics\(\) \}, \[fetchAnalytics\]\)/)
   // The existing list, its rows and expansion are untouched.
   assert.match(list, /communication\{total === 1 \? '' : 's'\}/)
-  assert.match(list, /<OutreachAnalytics data=\{analytics\}/)
+  assert.match(list, /<OutreachAnalytics[\s\S]{0,180}data=\{analytics\}/)
 })
 
 test('paginating the list does not re-run the aggregate', () => {

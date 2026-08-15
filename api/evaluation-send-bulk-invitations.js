@@ -41,6 +41,7 @@ import {
   validateDraftOverrides,
 } from '../lib/server/evaluation/emailTemplates.js';
 import { getStudentPreferredGreetingName } from '../src/lib/studentNameFormatters.js';
+import { archiveSentMessage } from './lib/messageArchive.js';
 
 const FROM          = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO      = 'JesterLloyd.Bautista@cshs.org';
@@ -328,8 +329,9 @@ async function _handler(req, res, startMs) {
 
       // 5f. Audit log - survey_url and token are NOT included in metadata
       const sentAt = new Date().toISOString();
+      let notificationLogId = null;
       try {
-        await supabaseAdmin.from('notification_log').insert({
+        const { data: logRow } = await supabaseAdmin.from('notification_log').insert({
           notification_type: 'evaluation_invitation_sent',
           audience:          'student',
           recipient_email:   recipientEmail,
@@ -351,10 +353,24 @@ async function _handler(req, res, startMs) {
             sent_by_email:   senderEmail,
             // survey_url intentionally omitted - token must not be persisted
           },
-        });
+        }).select('id').single();
+        notificationLogId = logRow?.id || null;
       } catch (logErr) {
         // Non-fatal - email was already sent; log the failure
         console.error('[bulk-send] log_write_failed:', { assignment_id, student_id, error: logErr.message });
+      }
+
+      if (notificationLogId) {
+        await archiveSentMessage({
+          db: supabaseAdmin,
+          notificationLogId,
+          contentKind: 'secure_link_email',
+          html,
+          bodyFormat: 'html',
+          source: 'evaluation_send_bulk_invitations',
+          templateKey: 'evaluation_invitation_sent',
+          templateVersion: 1,
+        });
       }
 
       sent.push({ assignment_id, student_id, student_name: studentName, sent_at: sentAt });

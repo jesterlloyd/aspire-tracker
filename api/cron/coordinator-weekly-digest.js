@@ -28,6 +28,11 @@ import { Resend } from 'resend';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
+import { archiveSentMessage } from '../lib/messageArchive.js';
+
+// ARCHIVE-SNAPSHOT-1: recorded in archive metadata so a stored digest can be
+// matched to the renderer that produced it. Bump when the template changes shape.
+const COORDINATOR_DIGEST_TEMPLATE_VERSION = 1;
 
 const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
@@ -525,8 +530,9 @@ export default async function handler(req, res) {
       }
 
       // Log to notification_log
+      let notificationLogId = null;
       try {
-        await db.from('notification_log').insert({
+        const { data: logRow } = await db.from('notification_log').insert({
           notification_type: 'coordinator_weekly_digest',
           audience:          'school_coordinator',
           contact_id:        coordinatorId,
@@ -545,9 +551,42 @@ export default async function handler(req, res) {
             program_type:     coordinator.program_type || null,
             transition_count: totalItems,
           },
-        });
+        }).select('id').single();
+        notificationLogId = logRow?.id || null;
       } catch (logErr) {
         console.error(`[coordinator-digest] log write failed for ${coordinator.full_name}:`, logErr.message);
+      }
+
+      // ARCHIVE-SNAPSHOT-1: snapshot THIS coordinator's digest exactly as sent.
+      // `subject`/`html` are the same bindings handed to resend.emails.send()
+      // above - the builder is not called again and no activity is re-queried,
+      // so the row is a record of that send rather than a later reconstruction
+      // (which is precisely why historical digests cannot be shown).
+      //
+      // Three conditions, all required: Resend reported success, the
+      // notification_log row was created, and its id came back. A failed or
+      // unsent digest therefore leaves no archive at all.
+      //
+      // Best-effort and isolated: archiveSentMessage never throws, its result is
+      // recorded and never acted on, and it sits inside this coordinator's loop
+      // iteration - so one coordinator's storage problem cannot resend, block, or
+      // alter any other coordinator's digest.
+      if (sendStatus === 'sent' && notificationLogId) {
+        const archive = await archiveSentMessage({
+          db,
+          notificationLogId,
+          contentKind: 'coordinator_weekly_digest',
+          html,
+          bodyFormat: 'html',
+          source: 'cron_coordinator_weekly_digest',
+          templateKey: 'coordinatorWeeklyDigest',
+          templateVersion: COORDINATOR_DIGEST_TEMPLATE_VERSION,
+        });
+        if (archive.status !== 'archived') {
+          console.error(`[coordinator-digest] archive_not_stored for ${coordinator.full_name}:`, {
+            status: archive.status, reason: archive.reason,
+          });
+        }
       }
 
       // Update contact's CRM fields on successful send

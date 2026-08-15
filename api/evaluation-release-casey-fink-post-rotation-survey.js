@@ -19,6 +19,7 @@
 /* global process */
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { archiveSentMessage } from './lib/messageArchive.js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { buildCaseyFinkPostRotationInvitationEmail, formatExpiresAt } from '../lib/server/evaluation/caseyFinkPostRotationEmailTemplates.js';
@@ -330,8 +331,9 @@ async function _handler(req, res) {
 
   // ── 12. Audit log - survey_url and token are NOT included. ───────────────────────
   const sentAtIso = new Date().toISOString();
+  let notificationLogId = null;
   try {
-    await supabaseAdmin.from('notification_log').insert({
+    const { data: logRow } = await supabaseAdmin.from('notification_log').insert({
       notification_type: NOTIF_TYPE,
       audience:          'student',
       recipient_email:   studentEmail,
@@ -352,9 +354,23 @@ async function _handler(req, res) {
         sent_by_user_id: senderUserId,
         sent_by_email:   senderEmail,
       },
-    });
+    }).select('id').single();
+    notificationLogId = logRow?.id || null;
   } catch (logWriteErr) {
     console.error('[casey-fink-post-rotation-release] log_write_failed:', { assignment_id: assignment.id, error: logWriteErr.message });
+  }
+
+  if (notificationLogId) {
+    await archiveSentMessage({
+      db: supabaseAdmin,
+      notificationLogId,
+      contentKind: 'secure_link_email',
+      html,
+      bodyFormat: 'html',
+      source: SOURCE,
+      templateKey: NOTIF_TYPE,
+      templateVersion: 1,
+    });
   }
 
   console.log('[casey-fink-post-rotation-release] sent:', {

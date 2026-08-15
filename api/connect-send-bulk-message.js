@@ -22,7 +22,9 @@
 //       - Recipient email is the CLIENT-SELECTED email, verified to belong to the student/contact.
 //         NO school-vs-personal routing override (resolveStudentCorrespondenceRecipient is NOT used).
 //       - One notification_log row per successful recipient (notification_type='bulk_message_sent').
-//       - NO message_archive write (content_kind CHECK does not permit bulk manual email).
+//       - ARCHIVE-SNAPSHOT-1: each SENT recipient now archives the exact subject/body it was
+//         given, as content_kind 'manual_bulk_email'. The old note here said bulk bodies could
+//         not be archived; that was true only while the content_kind CHECK was a one-value set.
 //
 // POST /api/connect-send-bulk-message
 // Authorization: Bearer <session-token>
@@ -36,6 +38,7 @@ import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { applyMergeFields } from '../src/lib/recipientParse.js';
 import { escapeHtml } from '../src/lib/htmlEscape.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
+import { archiveSentMessage } from './lib/messageArchive.js';
 
 // Seeded fallback signatures for the two known leads (mirrors api/connect-send-direct-email.js).
 const SIGNATURE_SEED = {
@@ -484,8 +487,9 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
         sent_by_email:        senderEmail,
         signature_source:     senderSig.source,
       };
+      let notificationLogId = null;
       try {
-        await supabaseAdmin.from('notification_log').insert({
+        const { data: logRow } = await supabaseAdmin.from('notification_log').insert({
           notification_type: 'bulk_message_sent',
           audience:          source,
           recipient_email:   rawEmail,
@@ -499,10 +503,36 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
           student_id:        source === 'student' ? recipientId : null,
           contact_id:        source === 'contact' ? recipientId : null,
           metadata,
-        });
+        }).select('id').single();
+        notificationLogId = logRow?.id || null;
       } catch (logErr) {
         // Non-fatal - the email already sent. Record the audit-log failure for diagnostics.
         console.error('[connect-send-bulk-message] log_write_failed:', { batch_id: batchId, index: i, error: logErr?.message });
+      }
+
+      // ARCHIVE-SNAPSHOT-1: snapshot THIS recipient's message, exactly as sent.
+      // `mergedSubject`/`html` are the same values handed to Resend above, so the
+      // archive is per-recipient personalized rather than a re-render. It runs
+      // only after a successful send AND a notification_log row, so an archive
+      // can never exist for a recipient who was not actually mailed.
+      // Best-effort by contract: archiveSentMessage never throws and its result
+      // is recorded, never acted on - a storage problem must not resend, change
+      // the delivery result, or affect any other recipient in the batch.
+      if (notificationLogId) {
+        const archive = await archiveSentMessage({
+          db: supabaseAdmin,
+          notificationLogId,
+          contentKind: 'manual_bulk_email',
+          html,
+          bodyFormat: resolvedBodyFormat,
+          createdBy: senderUserId || null,
+          source: 'connect_send_bulk_message',
+        });
+        if (archive.status !== 'archived') {
+          console.error('[connect-send-bulk-message] archive_not_stored:', {
+            batch_id: batchId, index: i, status: archive.status, reason: archive.reason,
+          });
+        }
       }
 
       sent.push({ index: i, source, email: rawEmail, recipient_id: recipientId, sent_at: sentAt });

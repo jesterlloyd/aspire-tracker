@@ -17,6 +17,7 @@ const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 const PER_PAGE = 50
 const FILTER_STORAGE_KEY = 'aspire_sent_history_filters'
+const AUDIENCE_FILTERS = new Set(['students', 'academic_partners', 'unit_leaders', 'other'])
 
 // Presentation labels live in the frontend (per Owner direction): the API returns
 // raw notification_type so wording changes don't touch the endpoint.
@@ -344,6 +345,7 @@ export default function SentHistory() {
   const stored = readStoredFilters()
   const [pseudoFolder,    setPseudoFolder]    = useState(stored.pseudoFolder || 'all')
   const [failedOnly,      setFailedOnly]      = useState(stored.failedOnly || false)
+  const [audienceFilter,  setAudienceFilter]  = useState(AUDIENCE_FILTERS.has(stored.audienceFilter) ? stored.audienceFilter : 'all')
   const [dateRange,       setDateRange]       = useState(stored.dateRange || 'last_30_days')
   const [customStartDate, setCustomStartDate] = useState(stored.customStartDate || '')
   const [customEndDate,   setCustomEndDate]   = useState(stored.customEndDate || '')
@@ -351,13 +353,14 @@ export default function SentHistory() {
   // Persist filters.
   useEffect(() => {
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({
-      pseudoFolder, failedOnly, dateRange, customStartDate, customEndDate,
+      pseudoFolder, failedOnly, audienceFilter, dateRange, customStartDate, customEndDate,
     }))
-  }, [pseudoFolder, failedOnly, dateRange, customStartDate, customEndDate])
+  }, [pseudoFolder, failedOnly, audienceFilter, dateRange, customStartDate, customEndDate])
 
   // Filter setters reset page to 1 (batched with the filter change → single fetch).
   const changeFolder = (f) => { setPage(1); setPseudoFolder(f) }
   const changeFailed = (v) => { setPage(1); setFailedOnly(v) }
+  const changeAudience = (v) => { setPage(1); setAudienceFilter(v) }
   const changeRange  = (r) => { setPage(1); setDateRange(r) }
   const changeCustomStart = (v) => { setPage(1); setCustomStartDate(v) }
   const changeCustomEnd   = (v) => { setPage(1); setCustomEndDate(v) }
@@ -373,12 +376,13 @@ export default function SentHistory() {
     else if (folder?.types) params.set('notification_types', folder.types.join(','))
 
     if (failedOnly) params.set('status_filter', 'failed')
+    if (audienceFilter !== 'all') params.set('audience_filter', audienceFilter)
     if (activeConstraint?.type === 'student') params.set('student_id', activeConstraint.id)
     else if (activeConstraint?.type === 'contact') params.set('contact_id', activeConstraint.id)
     params.set('page', String(page))
     params.set('per_page', String(PER_PAGE))
     return params.toString()
-  }, [dateRange, customStartDate, customEndDate, pseudoFolder, failedOnly, page, constrainedStudentId, constrainedContactId])
+  }, [dateRange, customStartDate, customEndDate, pseudoFolder, failedOnly, audienceFilter, page, constrainedStudentId, constrainedContactId])
 
   // The analytics query is the list query minus pagination, plus the viewer's
   // timezone so daily buckets line up with the local-day date filters.
@@ -390,11 +394,15 @@ export default function SentHistory() {
     const params = new URLSearchParams(buildQueryString())
     params.delete('page')
     params.delete('per_page')
+    // KPI values describe the full audience breakdown under the surrounding
+    // date/folder/status filters. Selecting one KPI filters the table without
+    // collapsing every other KPI to zero.
+    params.delete('audience_filter')
     params.set('aggregate', '1')
     params.set('tz_offset_minutes', String(new Date().getTimezoneOffset()))
     return params.toString()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange, customStartDate, customEndDate, pseudoFolder, failedOnly, constrainedStudentId, constrainedContactId])
+  }, [dateRange, customStartDate, customEndDate, pseudoFolder, failedOnly, audienceFilter, constrainedStudentId, constrainedContactId])
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -692,7 +700,13 @@ export default function SentHistory() {
       {/* OUTREACH-ANALYTICS-1: the analytics sit between the filters and the
           record. They answer the summary questions; the list below remains the
           detailed audit trail and is unchanged. */}
-      <OutreachAnalytics data={analytics} loading={analyticsLoading} error={error} failedOnly={failedOnly} onToggleFailed={changeFailed} />
+      <OutreachAnalytics
+        data={analytics}
+        loading={analyticsLoading}
+        error={error}
+        audienceFilter={audienceFilter}
+        onChangeAudience={changeAudience}
+      />
 
       {body}
 

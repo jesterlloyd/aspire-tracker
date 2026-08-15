@@ -22,6 +22,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { archiveSentMessage } from './lib/messageArchive.js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { buildStudentEvalInvitationEmail, formatExpiresAt } from '../lib/server/evaluation/studentEvalEmailTemplates.js';
@@ -334,8 +335,9 @@ async function _handler(req, res) {
 
   // ── 12. Audit log - survey_url and token are NOT included. ───────────────────────
   const sentAtIso = new Date().toISOString();
+  let notificationLogId = null;
   try {
-    await supabaseAdmin.from('notification_log').insert({
+    const { data: logRow } = await supabaseAdmin.from('notification_log').insert({
       notification_type: NOTIF_TYPE,
       audience:          'student',
       recipient_email:   studentEmail,
@@ -357,9 +359,23 @@ async function _handler(req, res) {
         sent_by_email:   senderEmail,
         // survey_url / token intentionally omitted - must not be persisted.
       },
-    });
+    }).select('id').single();
+    notificationLogId = logRow?.id || null;
   } catch (logWriteErr) {
     console.error('[student-eval-release] log_write_failed:', { assignment_id: assignment.id, error: logWriteErr.message });
+  }
+
+  if (notificationLogId) {
+    await archiveSentMessage({
+      db: supabaseAdmin,
+      notificationLogId,
+      contentKind: 'secure_link_email',
+      html,
+      bodyFormat: 'html',
+      source: SOURCE,
+      templateKey: NOTIF_TYPE,
+      templateVersion: 1,
+    });
   }
 
   console.log('[student-eval-release] sent:', {

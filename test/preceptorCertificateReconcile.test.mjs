@@ -104,12 +104,15 @@ function buildHarness(fake) {
     `export const emailBaseUrl = () => 'https://aspireintelligence.app';\n`)
   writeFileSync(join(dir, 'fake-resend.mjs'),
     `export class Resend { constructor() {} get emails() { return { send: async (m) => { globalThis.__FAKE__._sends.push(m); return { data: { id: 'mock-email' }, error: null } } } } }\n`)
+  writeFileSync(join(dir, 'fake-message-archive.mjs'),
+    `export const archiveSentMessage = async () => ({ status: 'archived' });\n`)
 
   // unlockPreceptorCertificate: real logic, faked Resend + email template path.
   let unlockSrc = readFileSync(join(repo, 'lib/server/certificates/unlockPreceptorCertificate.js'), 'utf8')
   unlockSrc = unlockSrc.replace("from 'resend'", "from './fake-resend.mjs'")
     .replace("from '../evaluation/preceptorCertificateEmail.js'",
              `from ${JSON.stringify(pathToFileURL(join(repo, 'lib/server/evaluation/preceptorCertificateEmail.js')).href)}`)
+    .replace("from '../../../api/lib/messageArchive.js'", "from './fake-message-archive.mjs'")
   writeFileSync(join(dir, 'unlock.mjs'), unlockSrc)
 
   // The endpoint under test: real source, substituted imports. tokens.js stays REAL.

@@ -17,9 +17,9 @@
 //      secure-link emails, where re-rendering would either fabricate a link that
 //      was never sent or omit the email's whole purpose.
 //
-// So the fix is a classification, not a bigger renderer. This file proves every
-// known type lands in exactly one bucket, which is also what makes a NEW,
-// unclassified send type detectable instead of silently unsupported forever.
+// New sends now capture an immutable redacted snapshot. Historical rows first
+// try a read-only retrieval of the exact provider body; classification is the
+// truthful fallback when neither exact source exists.
 //
 // Nothing here sends: the module under test renders and classifies only.
 //
@@ -38,6 +38,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-key-not-a-secret'
 const { RECONSTRUCTABLE, MANUAL_TYPES, UNSUPPORTED_REASONS, NOTICE } =
   await import('../api/notification-log-message.js')
 const { templates } = await import('../src/lib/notifications/templates/index.js')
+const { SECURE_LINK_TYPES } = await import('../api/lib/archiveClassification.js')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -62,7 +63,9 @@ function discoveredTypes() {
   for (const t of ['unit_leader_alert', 'unit_form_received', 'placement_request_received',
     'clockout_reminder', 'teams_invite_reminder', 'teams_invite_reminder_escalation',
     'form_received', 'evaluation_invitation_sent', 'evaluation_invitation_test',
-    'evaluation_survey_test_sent', 'preceptor_feedback_request_sent']) found.add(t)
+    'evaluation_survey_test_sent', 'casey_fink_post_rotation_request_sent',
+    'post_rotation_evaluation_request_sent', 'student_preceptor_eval_request_sent',
+    'preceptor_feedback_request_sent', 'preceptor_certificate_ready']) found.add(t)
   return [...found].filter(t => t !== 'notification_type')
 }
 
@@ -112,9 +115,12 @@ test('birthday_greeting is reconstructable before its first send lands', () => {
 test('bulk_message_sent is manual, not generically unsupported', () => {
   assert.ok(MANUAL_TYPES.has('bulk_message_sent'))
   assert.ok(!UNSUPPORTED_REASONS.bulk_message_sent)
-  // The archive is deliberately not written for bulk, so the honest fallback is
-  // "body not stored" rather than "type cannot be reconstructed".
-  assert.match(read('api/connect-send-bulk-message.js'), /NO message_archive write/)
+  // ARCHIVE-SNAPSHOT-1 changed the second half of this: bulk sends now DO write
+  // an archive, so the manual path serves a real body going forward and the
+  // "body was not stored" fallback applies only to historical rows sent before
+  // the snapshot wiring. The classification itself is unchanged - bulk is a
+  // manual composition, not a reconstructable template.
+  assert.match(read('api/connect-send-bulk-message.js'), /contentKind: 'manual_bulk_email'/)
 })
 
 test('the weekly digest stays unsupported because its contents were never stored', () => {
@@ -126,7 +132,7 @@ test('the weekly digest stays unsupported because its contents were never stored
 })
 
 test('secure-link emails are never re-rendered', () => {
-  for (const t of ['evaluation_invitation_sent', 'preceptor_certificate_ready', 'preceptor_feedback_request_sent']) {
+  for (const t of SECURE_LINK_TYPES) {
     assert.equal(UNSUPPORTED_REASONS[t], 'secure_link_email')
     assert.ok(!RECONSTRUCTABLE.has(t), `${t} must not be reconstructed`)
   }
@@ -148,7 +154,32 @@ test('a reconstructable type renders from stored context, not current data', () 
 test('reconstructed HTML is redacted before it reaches the client', () => {
   const src = read('api/notification-log-message.js')
   assert.match(src, /redactArchiveHtml\(out\.html\)/, 'reconstructed bodies are sanitized')
-  assert.match(src, /redactArchiveHtml\(archive\.html_redacted\)/, 'archived bodies are sanitized too')
+  assert.match(src, /function bodyPreview[\s\S]{0,260}redactArchiveHtml\(html\)/, 'all HTML bodies are sanitized')
+})
+
+test('preview precedence is archive, exact provider body, then reconstruction', () => {
+  const src = read('api/notification-log-message.js')
+  const archive = src.indexOf('let preview = await archivedPreview(row.id)')
+  const provider = src.indexOf('providerPreview(row.resend_email_id)')
+  const reconstruct = src.indexOf('RECONSTRUCTABLE.has(type)', provider)
+  assert.ok(archive > 0 && provider > archive && reconstruct > provider)
+})
+
+test('provider recovery is read-only, redacted, verified, and never cached', () => {
+  const src = read('api/notification-log-message.js')
+  const fn = src.slice(src.indexOf('async function providerPreview'), src.indexOf('export default async function handler'))
+  assert.match(fn, /emails\.get\(resendEmailId\)/)
+  assert.match(fn, /buildSecureLinkSnapshot\(\{ html: data\.html, text: data\.text \}\)/)
+  assert.match(fn, /if \(!safe\.safe\) return null/)
+  assert.doesNotMatch(fn, /insert|update|upsert|delete|archiveSentMessage|emails\.send/)
+  assert.match(NOTICE.provider_redacted, /delivery provider/)
+})
+
+test('historical manual and digest explanations remain the final honest fallback', () => {
+  const src = read('api/notification-log-message.js')
+  const provider = src.indexOf('providerPreview(row.resend_email_id)')
+  assert.ok(src.indexOf('MANUAL_TYPES.has(type)', provider) > provider)
+  assert.ok(src.indexOf('UNSUPPORTED_REASONS[type]', provider) > provider)
 })
 
 test('an incomplete record degrades to unavailable rather than a broken render', () => {
@@ -171,7 +202,8 @@ test('the preview endpoint has no send path at all', () => {
   const code = read('api/notification-log-message.js')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '')
-  assert.doesNotMatch(code, /sendNotification\(|new Resend|resend\.emails|\.insert\(|\.update\(/,
+  assert.match(code, /emails\.get\(/, 'historical recovery may only read the provider record')
+  assert.doesNotMatch(code, /sendNotification\(|emails\.send\(|\.insert\(|\.update\(|\.upsert\(|\.delete\(/,
     'a preview must read only: no send, no tracking write, no log write')
   assert.match(code, /req\.method !== 'GET'/, 'and it is GET-only')
 })

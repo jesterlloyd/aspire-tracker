@@ -6,6 +6,12 @@ import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 import { templates } from './templates/index.js';
 import { resolveRecipients } from './recipients.js';
+import { sharedSenderMayArchive } from '../../../api/lib/archiveClassification.js';
+import { archiveSentMessage } from '../../../api/lib/messageArchive.js';
+
+// ARCHIVE-SNAPSHOT-1: recorded in archive metadata so a stored body can be tied
+// to the renderer that produced it. Bump when a template's shape changes.
+const TEMPLATE_NOTIFICATION_VERSION = 1;
 
 const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
@@ -100,8 +106,9 @@ export async function sendNotification(type, context = {}) {
       console.error(`[notifications] ${type} threw for ${recipient.email}:`, err);
     }
 
+    let notificationLogId = null;
     try {
-      await db.from('notification_log').insert({
+      const { data: logRow } = await db.from('notification_log').insert({
         notification_type: type,
         audience:          recipient.audience,
         recipient_email:   recipient.email,
@@ -120,9 +127,43 @@ export async function sendNotification(type, context = {}) {
         status,
         error_message:     errorMessage,
         metadata:          { context: sanitizeContext(context) },
-      });
+      }).select('id').single();
+      notificationLogId = logRow?.id || null;
     } catch (logErr) {
       console.error(`[notifications] log write failed for ${type}/${recipient.email}:`, logErr);
+    }
+
+    // ARCHIVE-SNAPSHOT-1 FAMILY 3B: snapshot ordinary template sends.
+    //
+    // Four conditions, all required. The registry is consulted rather than
+    // defaulted, so a secure-link type (Family 4's gate), a specialised sender
+    // that already archives, a retired type, or an unrecognised type all take
+    // the false branch and write nothing - the shared path can never become a
+    // generic catch-all that archives a token by accident.
+    //
+    // `subject`/`html` are the SAME bindings handed to resend.emails.send()
+    // above; no builder is called again and nothing is re-queried, so the row
+    // records this send rather than a later reconstruction.
+    //
+    // Best-effort: archiveSentMessage never throws and its result is recorded,
+    // never acted on. A storage problem cannot re-send, retry, change `status`,
+    // or alter what this function returns.
+    if (status === 'sent' && notificationLogId && sharedSenderMayArchive(type)) {
+      const archive = await archiveSentMessage({
+        db,
+        notificationLogId,
+        contentKind: 'template_notification',
+        html,
+        bodyFormat: 'html',
+        source: 'notifications_shared_sender',
+        templateKey: type,
+        templateVersion: TEMPLATE_NOTIFICATION_VERSION,
+      });
+      if (archive.status !== 'archived') {
+        console.error(`[notifications] archive_not_stored for ${type}:`, {
+          status: archive.status, reason: archive.reason,
+        });
+      }
     }
 
     results.push({

@@ -28,6 +28,8 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { appUrl } from '../lib/server/appUrl.js'
 import { aspireEmailShell } from '../lib/server/email/aspireShell.js'
+import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
+import { archiveSentMessage } from './lib/messageArchive.js'
 
 const FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
 const REPLY_TO = 'aspire@cshs.org'
@@ -132,6 +134,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, email_sent: false, test_url: testUrl })
   }
 
+  let sentSubject = null
+  let sentHtml = null
   const emailSent = await (async () => {
     try {
       const { subject, html } = testEmail({
@@ -139,6 +143,8 @@ export default async function handler(req, res) {
         workflowTitle,
         testUrl,
       })
+      sentSubject = subject
+      sentHtml = html
       const resend = new Resend(process.env.RESEND_API_KEY)
       const { error } = await resend.emails.send({
         from: FROM, to: auth.email, replyTo: REPLY_TO, subject, html,
@@ -152,14 +158,15 @@ export default async function handler(req, res) {
   // Audit the test as a test. notification_log is the existing audit surface; this row
   // carries a distinct notification_type so it can never be mistaken for a release, and
   // no assignment_id because no assignment exists.
+  let notificationLogId = null
   try {
-    await auth.db.from('notification_log').insert({
+    const { data: logRow } = await auth.db.from('notification_log').insert({
       notification_type: 'evaluation_survey_test_sent',
       audience: 'staff',
       recipient_email: auth.email,
       recipient_name: auth.profile.full_name || null,
       recipient_role: 'Owner/Admin',
-      subject: `[TEST] ASPIRE survey preview: ${workflowTitle}`,
+      subject: sentSubject || `[TEST] ASPIRE survey preview: ${workflowTitle}`,
       status: emailSent ? 'sent' : 'failed',
       sent_at: new Date().toISOString(),
       metadata: {
@@ -168,10 +175,24 @@ export default async function handler(req, res) {
         released: false,
         sent_by_user_id: auth.profile.id,
       },
-    })
+    }).select('id').single()
+    notificationLogId = logRow?.id || null
   } catch {
     // An audit failure must not imply a release happened; the send is already done.
     console.warn('[evaluation-send-survey-test] audit write failed')
+  }
+
+  if (emailSent && notificationLogId && sentHtml) {
+    await archiveSentMessage({
+      db: supabaseAdmin,
+      notificationLogId,
+      contentKind: 'secure_link_email',
+      html: sentHtml,
+      bodyFormat: 'html',
+      source: 'evaluation_send_survey_test',
+      templateKey: 'evaluation_survey_test_sent',
+      templateVersion: 1,
+    })
   }
 
   // The test URL is returned so the UI can offer "Open test now" without waiting for mail.

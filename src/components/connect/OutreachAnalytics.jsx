@@ -13,7 +13,6 @@ import { AUDIENCES, AUDIENCE_LABELS } from '../../../lib/server/outreachAnalytic
 import { FilterKPICard } from '../KPIBand'
 
 const F = 'DM Sans, sans-serif'
-const NAVY = '#1D2567'
 
 // One restrained hue per audience, drawn from the app's accent family. Stacked
 // bars need to be distinguishable at 6px wide, so these are separated by value
@@ -25,27 +24,14 @@ const AUDIENCE_COLORS = {
   other: '#B6BCCB',
 }
 
-const fmtInt = (n) => Number(n || 0).toLocaleString()
-
-function KpiCard({ label, value, sub, accent }) {
-  return (
-    <div style={{
-      background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 10,
-      padding: '12px 14px', minWidth: 0,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-        {accent && <span style={{ width: 8, height: 8, borderRadius: 2, background: accent, flexShrink: 0 }} />}
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {label}
-        </div>
-      </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: NAVY, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{sub}</div>}
-    </div>
-  )
+const AUDIENCE_ACCENTS = {
+  students: 'nightfall',
+  academic_partners: 'sage',
+  unit_leaders: 'dawn',
+  other: 'periwinkle',
 }
+
+const fmtInt = (n) => Number(n || 0).toLocaleString()
 
 /** Stacked daily bars. Hover gives the date, the total, and the split. */
 function ActivityChart({ daily }) {
@@ -123,7 +109,7 @@ function ActivityChart({ daily }) {
   )
 }
 
-export default function OutreachAnalytics({ data, loading, error, failedOnly, onToggleFailed }) {
+export default function OutreachAnalytics({ data, loading, error, audienceFilter = 'all', onChangeAudience }) {
   if (error) return null                       // the list still stands on its own
   if (loading && !data) {
     return (
@@ -146,43 +132,28 @@ export default function OutreachAnalytics({ data, loading, error, failedOnly, on
         display: 'grid', gap: 10, marginBottom: 12,
         gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))',
       }}>
-        {/* SENT-HISTORY-KPI-1: the ONLY KPI here with an exact existing filter.
-            It is already the Failed indicator - the label flips to "Failed
-            communications" when `failedOnly` is on - so binding it to that same
-            filter makes the card do what it already reports. Canonical
-            FilterKPICard, not a local imitation, so hover lift, halo, selected
-            fill, focus ring, Enter/Space and aria-pressed all come from the one
-            primitive. Non-interactive when no handler is supplied. */}
-        {onToggleFailed ? (
-          <FilterKPICard
-            label={failedOnly ? 'Failed communications' : 'Communications sent'}
-            value={fmtInt(totals.total)}
-            sub="one per recipient"
-            accent="chroma"
-            active={!!failedOnly}
-            ariaLabel={failedOnly ? 'Showing failed only. Clear the failed filter.' : 'Show failed only'}
-            onClick={() => onToggleFailed(!failedOnly)}
-          />
-        ) : (
-          <KpiCard
-            label={failedOnly ? 'Failed communications' : 'Communications sent'}
-            value={fmtInt(totals.total)}
-            sub="one per recipient"
-          />
-        )}
-        {/* The audience split is a BREAKDOWN, not a filter set. Sent History
-            filters by notification type (pseudo-folders) or recipient_type=null,
-            never by audience, and "Other" is a residual bucket that no filter
-            could express. These cards therefore carry no click, pointer, hover
-            or keyboard affordance, and keep their colour dot so each still ties
-            to its band in the chart legend below. */}
+        {/* All five cards use the app's canonical filter primitive. The total
+            card restores the unfiltered audience view; each audience card
+            applies the exact shared classification used to calculate it. */}
+        <FilterKPICard
+          label="Communications sent"
+          value={fmtInt(totals.total)}
+          sub="one per recipient"
+          accent="chroma"
+          active={audienceFilter === 'all'}
+          ariaLabel="Show communications for all audiences"
+          onClick={() => onChangeAudience?.('all')}
+        />
         {AUDIENCES.map(a => (
-          <KpiCard
+          <FilterKPICard
             key={a}
             label={AUDIENCE_LABELS[a]}
             value={fmtInt(totals[a])}
-            accent={AUDIENCE_COLORS[a]}
+            accent={AUDIENCE_ACCENTS[a]}
             sub={totals.total ? `${Math.round((totals[a] / totals.total) * 100)}%` : null}
+            active={audienceFilter === a}
+            ariaLabel={`${audienceFilter === a ? 'Clear' : 'Show'} ${AUDIENCE_LABELS[a]} audience filter`}
+            onClick={() => onChangeAudience?.(audienceFilter === a ? 'all' : a)}
           />
         ))}
       </div>

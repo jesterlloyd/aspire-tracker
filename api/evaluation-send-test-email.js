@@ -43,6 +43,7 @@ import {
   formatExpiresAt,
   validateDraftOverrides,
 } from '../lib/server/evaluation/emailTemplates.js';
+import { archiveSentMessage } from './lib/messageArchive.js';
 
 // Sender: use the confirmed working domain pattern.
 // aspire@aspire-program.com is not confirmed as a verified Resend sender in this
@@ -305,6 +306,19 @@ async function _handler(req, res, startMs) {
     }
   } catch (logException) {
     console.error('[evaluation-send-test] log write threw (non-fatal):', logException.message);
+  }
+
+  if (sendStatus === 'sent' && notificationLogId) {
+    await archiveSentMessage({
+      db: supabaseAdmin,
+      notificationLogId,
+      contentKind: 'secure_link_email',
+      html,
+      bodyFormat: 'html',
+      source: 'evaluation_send_test_email',
+      templateKey: 'evaluation_invitation_test',
+      templateVersion: 1,
+    });
   }
 
   const durationMs = Date.now() - startMs;

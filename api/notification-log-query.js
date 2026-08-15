@@ -27,7 +27,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
-import { aggregateOutreach } from '../lib/server/outreachAnalytics.js';
+import { AUDIENCES, aggregateOutreach, classifyAudience } from '../lib/server/outreachAnalytics.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
@@ -127,6 +127,10 @@ export default async function handler(req, res) {
       : null;
     const recipientTypeFilter = q.recipient_type_filter || 'all';
     const statusFilter        = q.status_filter || 'all';
+    const audienceFilter      = q.audience_filter || 'all';
+    if (audienceFilter !== 'all' && !AUDIENCES.includes(audienceFilter)) {
+      return res.status(400).json({ error: 'Invalid audience_filter' });
+    }
 
     // ── 4a. OUTREACH-ANALYTICS-1: aggregate mode ─────────────────────────────
     // Same authorization, same window, same filter chain as the list below -
@@ -146,6 +150,18 @@ export default async function handler(req, res) {
       else if (recipientTypeFilter === 'null')    x = x.is('recipient_type', null);
       if (statusFilter === 'failed') x = x.in('status', ['failed', 'bounced', 'complained']);
       return x;
+    };
+
+    const loadContactCategories = async (rows) => {
+      const contactCategories = new Map();
+      const neededIds = [...new Set((rows || []).map(r => r.contact_id).filter(Boolean))];
+      for (let i = 0; i < neededIds.length; i += 500) {
+        const { data: cats, error: categoryError } = await supabaseAdmin
+          .from('contacts').select('id, category').in('id', neededIds.slice(i, i + 500));
+        if (categoryError) throw categoryError;
+        for (const c of cats || []) contactCategories.set(c.id, c.category);
+      }
+      return contactCategories;
     };
 
     if (q.aggregate === '1' || q.aggregate === 'true') {
@@ -168,15 +184,7 @@ export default async function handler(req, res) {
       }
 
       // Contact categories: ONE lookup of the small contacts table, ids only.
-      const contactCategories = new Map();
-      const neededIds = [...new Set(minimal.map(r => r.contact_id).filter(Boolean))];
-      if (neededIds.length) {
-        for (let i = 0; i < neededIds.length; i += 500) {
-          const { data: cats } = await supabaseAdmin
-            .from('contacts').select('id, category').in('id', neededIds.slice(i, i + 500));
-          for (const c of cats || []) contactCategories.set(c.id, c.category);
-        }
-      }
+      const contactCategories = await loadContactCategories(minimal);
 
       const tzOffsetMinutes = Number.isFinite(Number(q.tz_offset_minutes)) ? Number(q.tz_offset_minutes) : 0;
       const agg = aggregateOutreach(minimal, {
@@ -188,42 +196,58 @@ export default async function handler(req, res) {
       return res.status(200).json({ ...agg, truncated });
     }
 
-    // ── 4. Query notification_log (data + exact total in one call) ────────────
+    // ── 4. Query notification_log ─────────────────────────────────────────────
     const from = (page - 1) * perPage;
     const to   = from + perPage - 1;
+    const LIST_COLUMNS = 'id, notification_type, recipient_type, contact_id, student_id, recipient_email, recipient_name, subject, status, sent_at, metadata';
+    let pageRows;
+    let total;
 
-    let query = supabaseAdmin
-      .from('notification_log')
-      .select(
-        'id, notification_type, recipient_type, contact_id, student_id, recipient_email, recipient_name, subject, status, sent_at, metadata',
-        { count: 'exact' }
-      )
-      .gte('sent_at', startInstant.toISOString())
-      .lt('sent_at', endInstant.toISOString());   // exclusive upper bound
+    if (audienceFilter === 'all') {
+      // The unfiltered path keeps PostgREST's exact-count pagination and its
+      // existing performance characteristics.
+      const { data: rows, count, error } = await applyFilters(
+        supabaseAdmin.from('notification_log').select(LIST_COLUMNS, { count: 'exact' })
+      ).order('sent_at', { ascending: false }).range(from, to);
 
-    if (q.contact_id) query = query.eq('contact_id', q.contact_id);
-    if (q.student_id) query = query.eq('student_id', q.student_id);
+      if (error) {
+        console.error('[notification-log-query] query error:', error.message);
+        return res.status(500).json({ error: 'Failed to load communication history' });
+      }
+      pageRows = rows || [];
+      total = count || 0;
+    } else {
+      // Audience is a derived classification: Students comes from
+      // recipient_type, the two partner buckets come from contacts.category,
+      // and Other is the residual. Fetch the filtered candidate set first,
+      // classify it with the SAME pure function used by analytics, then page.
+      // This is intentionally server-side and applies to the full result set,
+      // never just the currently visible page.
+      const CHUNK = 1000;
+      const MAX_AUDIENCE_ROWS = 100000;
+      const candidates = [];
+      let complete = false;
+      for (let offset = 0; offset < MAX_AUDIENCE_ROWS; offset += CHUNK) {
+        const { data, error } = await applyFilters(
+          supabaseAdmin.from('notification_log').select(LIST_COLUMNS)
+        ).order('sent_at', { ascending: false }).range(offset, offset + CHUNK - 1);
+        if (error) {
+          console.error('[notification-log-query] audience query error:', error.message);
+          return res.status(500).json({ error: 'Failed to load communication history' });
+        }
+        const batch = data || [];
+        candidates.push(...batch);
+        if (batch.length < CHUNK) { complete = true; break; }
+      }
+      if (!complete) {
+        return res.status(422).json({ error: 'Too many communications for an audience filter; narrow the date range' });
+      }
 
-    // Pseudo-folder / recipient-type / status filters
-    if (notificationTypes && notificationTypes.length > 0) {
-      query = query.in('notification_type', notificationTypes);
+      const contactCategories = await loadContactCategories(candidates);
+      const matching = candidates.filter(row => classifyAudience(row, contactCategories) === audienceFilter);
+      total = matching.length;
+      pageRows = matching.slice(from, to + 1);
     }
-    if (recipientTypeFilter === 'student')      query = query.eq('recipient_type', 'student');
-    else if (recipientTypeFilter === 'contact') query = query.eq('recipient_type', 'contact');
-    else if (recipientTypeFilter === 'null')    query = query.is('recipient_type', null);
-
-    if (statusFilter === 'failed') query = query.in('status', ['failed', 'bounced', 'complained']);
-
-    const { data: rows, count, error } = await query
-      .order('sent_at', { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      console.error('[notification-log-query] query error:', error.message);
-      return res.status(500).json({ error: 'Failed to load communication history' });
-    }
-
-    const pageRows = rows || [];
 
     // ── 5. Resolve recipient names via separate lookup queries (no DB joins) ──
     const contactIds = [...new Set(pageRows.map(r => r.contact_id).filter(Boolean))];
@@ -276,7 +300,6 @@ export default async function handler(req, res) {
       };
     });
 
-    const total = count || 0;
     return res.status(200).json({
       results,
       total,
