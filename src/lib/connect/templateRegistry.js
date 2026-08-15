@@ -158,12 +158,12 @@ export const SEND_TO_ONE_TEMPLATES = [
     surface: 'one', templateKind: 'survey', composerMode: 'survey', audiences: [AUDIENCES.STUDENT],
   },
   {
-    key: 'preceptor_assignment', label: 'Preceptor Assignment', active: true, kind: 'hydrate',
-    surface: 'one', templateKind: 'manual', builderKey: 'preceptor_assignment', audiences: [AUDIENCES.PRECEPTOR],
+    key: 'student_acceptance_orientation', label: 'ASPIRE Acceptance & Orientation', active: true, kind: 'hydrate',
+    surface: 'one', templateKind: 'manual', builderKey: 'student_acceptance_orientation', audiences: [AUDIENCES.STUDENT],
   },
   {
-    key: 'preceptor_details_request', label: 'Preceptor Details Request', active: true, kind: 'hydrate',
-    surface: 'one', templateKind: 'manual', builderKey: 'preceptor_details_request', audiences: [AUDIENCES.PRECEPTOR],
+    key: 'preceptor_assignment', label: 'Preceptor Assignment & Details', active: true, kind: 'hydrate',
+    surface: 'one', templateKind: 'manual', builderKey: 'preceptor_assignment', audiences: [AUDIENCES.PRECEPTOR],
   },
   {
     // CONNECT-MANUAL-TEMPLATES-3: relabeled "Coordinator Acceptance Update" → "Academic Partner Update".
@@ -210,6 +210,11 @@ export const SEND_TO_MANY_TEMPLATES = [
   {
     key: 'student_interview_scheduling', label: 'Student Interview Scheduling Invitation',
     surface: 'many', templateKind: 'manual', builderKey: 'student_interview_scheduling',
+    defaultSource: 'students', audiences: [AUDIENCES.STUDENT],
+  },
+  {
+    key: 'student_acceptance_orientation', label: 'ASPIRE Acceptance & Orientation',
+    surface: 'many', templateKind: 'manual', builderKey: 'student_acceptance_orientation',
     defaultSource: 'students', audiences: [AUDIENCES.STUDENT],
   },
   {

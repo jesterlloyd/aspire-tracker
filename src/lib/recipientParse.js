@@ -97,6 +97,9 @@ export function applyMergeFields(text, recipient) {
   let out = String(text || '')
   const fn = recipient?.firstName || ''
   const school = recipient?.school || ''
+  // Student acceptance/orientation uses a whole-greeting token so a recipient with no usable
+  // first name still receives finished copy rather than a leaked bracket placeholder.
+  out = out.split('[Student Greeting]').join(fn ? `Dear ${fn},` : 'Dear ASPIRE Student,')
   // Greeting token ALWAYS resolves (never leaves a raw bracket in a sent email), whether or not a
   // first name is known: "Good morning {name}," with a name, or a plain "Good morning," without one.
   // Uses the same escaped/raw `fn` as the first-name tokens below (html mode escapes it upstream).

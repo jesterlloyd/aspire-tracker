@@ -17,7 +17,7 @@ import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   buildPreceptorAssignmentDraft, buildAcademicPartnerUpdateDraft,
-  buildPreceptorDetailsRequestDraft, buildUnitLeaderSupportRequestDraft,
+  buildStudentAcceptanceOrientationDraft, buildUnitLeaderSupportRequestDraft,
   buildInterviewerAvailabilityRequestDraft,
 } from '../../lib/outreachTemplates'
 import {
@@ -843,20 +843,18 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     return parts.find(p => !TITLES.has(p.toLowerCase())) || ''
   }
   const buildTemplateDraft = useCallback((key) => {
-    // Salutation first name comes from the contact recipient (the recipient IS the preceptor / unit
-    // leader / academic partner / interviewer for these templates); blank for student/no recipient so
-    // the builder's fallback ("Preceptor"/"Colleague") is used. Student/unit/preceptor body fields
-    // stay bracketed placeholders. Each hydrate key maps to its own builder (CONNECT-MANUAL-TEMPLATES-3).
-    const firstName = recipientType === 'contact' ? firstNameOf(dmRecipientName) : ''
+    // Salutation first name comes from the selected recipient. Student/unit/preceptor body fields
+    // that describe someone other than the recipient stay bracketed editable placeholders.
+    const firstName = firstNameOf(dmRecipientName)
     switch (key) {
       case 'preceptor_assignment':         return buildPreceptorAssignmentDraft({ firstName })
-      case 'preceptor_details_request':    return buildPreceptorDetailsRequestDraft({ firstName })
+      case 'student_acceptance_orientation': return buildStudentAcceptanceOrientationDraft({ firstName })
       case 'unit_leader_support_request':  return buildUnitLeaderSupportRequestDraft({ firstName })
       case 'interviewer_availability_request': return buildInterviewerAvailabilityRequestDraft({ firstName })
       case 'coordinator_acceptance':       return buildAcademicPartnerUpdateDraft({ firstName })
       default:                             return buildAcademicPartnerUpdateDraft({ firstName })
     }
-  }, [recipientType, dmRecipientName])
+  }, [dmRecipientName])
 
   const applyTemplate = useCallback((key) => {
     const { subject, body, richBody } = buildTemplateDraft(key)

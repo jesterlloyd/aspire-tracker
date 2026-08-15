@@ -35,14 +35,14 @@ const bNote = ({ title = '', body }) =>
 // server validates the final URL (https only) at render time.
 const bButton = ({ label, url }) =>
   `<div data-aspire-block="button" data-label="${escAttr(label)}" data-url="${escAttr(url)}"></div>`
-// (bEvent available for future date/time templates; unused here since none carry fixed event details.)
+const bEvent = ({ title = '', dateTime = '', location = '', format = '', respondBy = '' }) =>
+  `<div data-aspire-block="event" data-title="${escAttr(title)}" data-datetime="${escAttr(dateTime)}" data-location="${escAttr(location)}" data-format="${escAttr(format)}" data-respondby="${escAttr(respondBy)}"></div>`
 
-// Preceptor Assignment - internal Cedars email, sent through the in-app Direct Message flow.
-// Salutation uses the recipient's (preceptor's) first name when available, else "Preceptor".
-// All assignment fields stay bracketed editable placeholders (the student is not reliably the
-// current recipient, so we do not auto-fill them). No attachments are claimed as included.
+// Preceptor Assignment & Details - one internal Cedars email replacing the former split assignment
+// and details-request drafts. The assignment fields stay editable placeholders because the student is
+// not the current recipient. No attachments are claimed as included.
 export function buildPreceptorAssignmentDraft({ firstName } = {}) {
-  const subject = 'Thank You for Precepting an ASPIRE Student Nurse'
+  const subject = 'ASPIRE: Student preceptor assignment and introduction details'
   const body = `Dear ${fb(firstName, 'Preceptor')},
 
 Thank you for agreeing to precept one of our senior nursing students through ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience. Your willingness to teach, mentor, and support our students makes such a meaningful difference in their professional growth and transition into practice.
@@ -56,6 +56,18 @@ Rotation Dates / Schedule: [Rotation Dates / Schedule]
 Required Hours: [Required Hours, if applicable]
 Additional Notes: [Insert any relevant notes, if applicable]
 
+To help me introduce you to [Student Name] and make the first day as smooth as possible, please reply with the following details when you have a moment:
+
+• Your preferred name and title
+• Best contact email and phone, if appropriate
+• Typical schedule or upcoming shifts
+• Unit and shift confirmation
+• Preferred method of communication
+• Optional photo to share with the student
+• Any expectations or instructions for the student's first day
+
+The photo is completely optional. Please share one only if you are comfortable.
+
 The student is encouraged to reach out to you directly by email to introduce themselves, coordinate scheduling, and share their individual learning objectives to help guide the experience.
 
 A few quick reminders:
@@ -68,7 +80,132 @@ A few quick reminders:
 Again, we truly appreciate your time, effort, and heart in mentoring our students. Many ASPIRE students go on to become strong candidates for our New-Graduate RN Residency Program, and your guidance plays a meaningful role in helping them build confidence, competence, and readiness for practice.
 
 Please don't hesitate to reach out if you have any questions.`
-  return { subject, body }
+  const richBody =
+    bH2('Preceptor Assignment & Details')
+    + bP(`Dear ${fb(firstName, 'Preceptor')}, thank you for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice.`)
+    + bH2('Student assignment summary')
+    + bUL([
+      'Student: [Student Name]',
+      'School: [School]',
+      'Unit / Assignment: [Unit / Assignment]',
+      'Rotation Dates / Schedule: [Rotation Dates / Schedule]',
+      'Required Hours: [Required Hours, if applicable]',
+      'Additional Notes: [Insert any relevant notes, if applicable]',
+    ])
+    + bH2('Details requested for the introduction')
+    + bNote({ title: 'When you have a moment', body: 'Please reply with the details below so I can introduce you to [Student Name] and help make the first day as smooth as possible. A photo is completely optional.' })
+    + bUL([
+      'Preferred name and title',
+      'Best contact email and phone, if appropriate',
+      'Typical schedule or upcoming shifts',
+      'Unit and shift confirmation',
+      'Preferred method of communication',
+      'Optional photo to share with the student',
+      "Any expectations or instructions for the student's first day",
+    ])
+    + bP('The student is encouraged to contact you directly to introduce themselves, coordinate scheduling, and share their individual learning objectives.')
+    + bH2('A few quick reminders')
+    + bUL([
+      'Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.',
+      'Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.',
+      'Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.',
+      'Scope of practice: The ASPIRE brochure and Pre-Licensure Student General Guidelines can be added before sending or shared separately for reference.',
+    ])
+    + bP("We truly appreciate your time, effort, and heart in mentoring our students. Your guidance helps them build confidence, competence, and readiness for practice. Please don't hesitate to reach out if you have any questions.")
+  return { subject, body, richBody }
+}
+
+const STUDENT_ORIENTATION_SUBJECT = "Welcome to ASPIRE! You're Invited: ASPIRE Orientation – Monday, August 17, 2026"
+const STUDENT_ORIENTATION_DATE = 'Monday, August 17, 2026, 2:00 PM'
+const STUDENT_ORIENTATION_LOCATION = '8700 Beverly Blvd., Los Angeles, CA 90048'
+
+// One student acceptance/orientation factory for Send-to-one and Send-to-many. Bulk mode uses an
+// always-resolving greeting token; single mode resolves the selected student's first name now. The
+// event card is editable in the rich composer, and the body intentionally omits a closing/signature
+// because Connect appends the selected sender's signature at preview/send time.
+export function buildStudentAcceptanceOrientationDraft({ mode = 'one', firstName } = {}) {
+  const greeting = mode === 'many'
+    ? '[Student Greeting]'
+    : `Dear ${fb(firstName, 'ASPIRE Student')},`
+  const pWelcome = "Congratulations and welcome to ASPIRE, the Affiliate Students' Pathway from Internship to Residency Experience! We're thrilled to have you join us at Cedars-Sinai for your senior rotation. This is a pivotal moment in your nursing journey, and we're committed to supporting you every step of the way as you build confidence, sharpen your clinical skills, and prepare for practice."
+  const pInvite = 'You are invited to attend an in-person orientation on campus to launch your rotation on the right foot.'
+  const pArrival = 'Please arrive by 1:45 PM and meet me at Starbucks, South Tower, Plaza Level.'
+  const pPurpose = "We'll cover everything you need to feel prepared and confident as you step onto your unit, answer your questions, and give you a chance to connect with your team."
+  const pQuestions = "If you have questions before orientation, reach out to us at aspire@cshs.org. We can't wait to meet you and help you launch your ASPIRE experience!"
+  const pConfirm = "Please confirm your attendance. If you're unable to attend, let us know as soon as possible."
+
+  const body = `${greeting}
+
+${pWelcome}
+
+${pInvite}
+
+ASPIRE Orientation
+
+Date / Time: ${STUDENT_ORIENTATION_DATE}
+Location: ${STUDENT_ORIENTATION_LOCATION}
+Format: In-Person
+
+${pArrival}
+
+${pPurpose}
+
+What to Bring
+
+• Your school uniform
+• Student ID badge
+• $20 cash for parking (this covers your entire rotation; no additional fees)
+
+Parking Information
+
+Park at P4 Visitor Parking
+127 S. Sherbourne Dr., Los Angeles, CA 90048
+
+If you are a Cedars-Sinai employee or volunteer, use your usual assigned parking area.
+
+What to Expect
+
+• Orientation session covering policies, expectations, and practical tips for success
+• Time to ask questions and connect with the team
+• Optional unit tours with your preceptor, if available
+
+${pQuestions}
+
+${pConfirm}`
+
+  const richBody =
+    bH2('Welcome to ASPIRE')
+    + bP(greeting)
+    + bP(pWelcome)
+    + bP(pInvite)
+    + bEvent({
+      title: 'ASPIRE Orientation',
+      dateTime: STUDENT_ORIENTATION_DATE,
+      location: STUDENT_ORIENTATION_LOCATION,
+      format: 'In-Person',
+      respondBy: 'Please confirm your attendance',
+    })
+    + bNote({ title: 'Arrival instructions', body: pArrival })
+    + bP(pPurpose)
+    + bH2('What to Bring')
+    + bUL([
+      'Your school uniform',
+      'Student ID badge',
+      '$20 cash for parking (this covers your entire rotation; no additional fees)',
+    ])
+    + bH2('Parking Information')
+    + bP('Park at P4 Visitor Parking, 127 S. Sherbourne Dr., Los Angeles, CA 90048.')
+    + bP('If you are a Cedars-Sinai employee or volunteer, use your usual assigned parking area.')
+    + bH2('What to Expect')
+    + bUL([
+      'Orientation session covering policies, expectations, and practical tips for success',
+      'Time to ask questions and connect with the team',
+      'Optional unit tours with your preceptor, if available',
+    ])
+    + bP(pQuestions)
+    + bNote({ title: 'Please confirm', body: pConfirm })
+
+  return { subject: STUDENT_ORIENTATION_SUBJECT, body, richBody }
 }
 
 // ── Academic Partner Acceptance / Orientation - ONE shared factory for Send-to-one AND Send-to-many.
@@ -137,36 +274,6 @@ ${pClose}`
 // compatibility). Salutation uses the recipient's first name when available, else a plain greeting.
 export function buildAcademicPartnerUpdateDraft({ firstName } = {}) {
   return buildAcademicPartnerAcceptanceOrientation({ mode: 'one', firstName })
-}
-
-// Preceptor Details Request - internal Cedars email asking the preceptor for the information needed
-// to introduce them to the student. Salutation uses the preceptor's first name when available.
-// The photo is explicitly optional. No tokens, secure links, or attachments.
-export function buildPreceptorDetailsRequestDraft({ firstName } = {}) {
-  const subject = 'ASPIRE: Preceptor details for student introduction'
-  const body = `Dear ${fb(firstName, 'Preceptor')},
-
-Thank you again for supporting ASPIRE and for agreeing to precept one of our senior nursing students. I'm getting ready to introduce you to [Student Name] and want to make that introduction as smooth as possible.
-
-When you have a moment, could you please send me the following:
-
-• Your preferred name and title (how you'd like to be introduced)
-• The best contact information for the student to reach you
-• Your preferred schedule or upcoming shifts
-• Your preferred method of communication (email, phone, or in person)
-• A photo we can share with the student, if you're comfortable, this is completely optional
-• Any specific expectations or instructions for the student's first day
-
-The photo is entirely optional, so please only share one if you'd like to. Once I have these details, I'll introduce you and [Student Name] so you can connect before the rotation begins.
-
-Thank you so much for your time and for helping our students get off to a great start.`
-  const richBody =
-    bH2('Preceptor Details Request')
-    + bP(`Dear ${fb(firstName, 'Preceptor')}, thank you again for supporting ASPIRE and for agreeing to precept one of our senior nursing students. I'm getting ready to introduce you to [Student Name] and want to make that introduction as smooth as possible.`)
-    + bNote({ title: 'A few details, when you have a moment', body: "Please share your preferred name and title, the best contact information for the student, your preferred schedule, your preferred communication method, and any instructions for the first day. A photo to share with the student is welcome but completely optional." })
-    + bUL(['Preferred name and title', 'Best contact email (and phone, if appropriate)', 'Typical schedule or upcoming shifts', 'Unit and shift confirmation', 'Optional photo to share with the student'])
-    + bP("Once I have these details, I'll introduce you and [Student Name] so you can connect before the rotation begins. Thank you so much for your time and for helping our students get off to a great start.")
-  return { subject, body, richBody }
 }
 
 // Unit Leader Support Request - internal Cedars email asking the unit leader for a preceptor name
@@ -444,6 +551,7 @@ We are excited to support your growth, learning, and transition into professiona
 // the always-resolving [Clinical Coordinator Greeting] token (no raw first-name token can leak); no
 // "[Insert ...]" placeholder; includes the save-the-contact reminder in the plain body.
 const BULK_ACADEMIC_PARTNER_ACCEPTANCE = buildAcademicPartnerAcceptanceOrientation({ mode: 'many' })
+const BULK_STUDENT_ACCEPTANCE_ORIENTATION = buildStudentAcceptanceOrientationDraft({ mode: 'many' })
 
 // Interviewer Availability / App Access Request (bulk) - CONNECT-MANUAL-TEMPLATES-3. Asks BNI /
 // interviewer colleagues to access ASPIRE Intelligence and enter availability. First name merges via
@@ -579,6 +687,7 @@ const BULK_TEMPLATES = {
   academic_partner_acceptance_orientation: BULK_ACADEMIC_PARTNER_ACCEPTANCE,
   student_profile_invitation:           BULK_STUDENT_PROFILE,
   student_interview_scheduling:         BULK_INTERVIEW_SCHEDULING,
+  student_acceptance_orientation:       BULK_STUDENT_ACCEPTANCE_ORIENTATION,
   interviewer_availability_bulk:        BULK_INTERVIEWER_AVAILABILITY,
   announcement_broadcast:               BULK_ANNOUNCEMENT,
   unit_capacity_response_request:       BULK_UNIT_CAPACITY,
