@@ -25,6 +25,12 @@
 //       - ARCHIVE-SNAPSHOT-1: each SENT recipient now archives the exact subject/body it was
 //         given, as content_kind 'manual_bulk_email'. The old note here said bulk bodies could
 //         not be archived; that was true only while the content_kind CHECK was a one-value set.
+//       - BULK-EXACT-RECIPIENTS-1 (P0): the entire recipient allowlist is validated BEFORE the
+//         first provider call (api/lib/bulkRecipientAllowlist.js). Malformed, mismatched, stale,
+//         duplicate, or out-of-scope entries are rejected up front; 'Not Proceeding' students
+//         require an explicit per-entry status_ack from the Review screen. Validation can only
+//         REMOVE entries - the server never expands an audience by school, cohort, status,
+//         category, or any previous selection.
 //
 // POST /api/connect-send-bulk-message
 // Authorization: Bearer <session-token>
@@ -34,11 +40,11 @@ import { Resend } from 'resend';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
 import { isValidEmail } from '../src/lib/notifications/studentRecipient.js';
-import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { applyMergeFields } from '../src/lib/recipientParse.js';
 import { escapeHtml } from '../src/lib/htmlEscape.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
 import { archiveSentMessage } from './lib/messageArchive.js';
+import { validateBulkRecipients } from './lib/bulkRecipientAllowlist.js';
 
 // Seeded fallback signatures for the two known leads (mirrors api/connect-send-direct-email.js).
 const SIGNATURE_SEED = {
@@ -340,88 +346,46 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
     batch_id: batchId, count: recipients.length, by: senderUserId,
   });
 
-  const resend  = new Resend(process.env.RESEND_API_KEY);
+  // ── S6 (BULK-EXACT-RECIPIENTS-1). Resolve the ENTIRE reviewed allowlist BEFORE any provider
+  // call. Every entry is shape-checked, ownership-verified against the current database row,
+  // deduplicated deterministically (first valid occurrence wins), status-guarded ('Not Proceeding'
+  // requires the entry's explicit status_ack from the Review screen), and idempotency-checked.
+  // The provider client is not even constructed until validation is complete, so a malformed,
+  // mismatched, stale, duplicate, or out-of-scope entry can never reach Resend. Validation can
+  // only REMOVE entries - there is no code path that adds a recipient the client did not send.
+  const { cleared, rejected } = await validateBulkRecipients({
+    db: supabaseAdmin, recipients, batchId,
+  });
+
   const sent    = [];
-  const skipped = [];
+  const skipped = [...rejected];
   const failed  = [];
-  const seenNorm = new Set();   // within-request duplicate detection
+
+  if (rejected.length > 0) {
+    console.warn('[connect-send-bulk-message] preflight_rejected:', {
+      batch_id: batchId, rejected: rejected.map(({ index, reason }) => ({ index, reason })),
+    });
+  }
+
+  const resend  = new Resend(process.env.RESEND_API_KEY);
   let attemptedSend = false;    // gate pacing so we only delay around real Resend calls
 
-  for (let i = 0; i < recipients.length; i++) {
-    const r = recipients[i] || {};
-    const source = r.source;
-    const rawEmail = String(r.email || '').trim();
-    const normEmail = normalizeEmailForLookup(rawEmail);
-    const label = { index: i, source: source || null, email: rawEmail || null };
+  // ── S7. Send loop - runs ONLY over the validated allowlist. ──
+  for (let i = 0; i < cleared.length; i++) {
+    const c = cleared[i];
+    const { source, rawEmail, normEmail, recipientId, recipientName, emailSource } = c;
+    const label = { index: c.index, source, email: rawEmail };
 
     try {
-      // S6a. Shape + email validity.
-      if (!ALLOWED_SOURCES.has(source)) { skipped.push({ ...label, reason: 'invalid_source' }); continue; }
-      if (!rawEmail)                    { skipped.push({ ...label, reason: 'missing_email' }); continue; }
-      if (!isValidEmail(rawEmail))      { skipped.push({ ...label, reason: 'invalid_email' }); continue; }
-
-      // S6b. Within-request duplicate (first valid occurrence wins).
-      if (seenNorm.has(normEmail)) { skipped.push({ ...label, reason: 'duplicate' }); continue; }
-      seenNorm.add(normEmail);
-
-      // S6c. Ownership verification - send to the CHOSEN email, verified to belong to the recipient.
-      //      NO school-vs-personal routing override is ever invoked.
-      let emailSource = null;     // students only: 'school' | 'personal'
-      let recipientId = null;
-      let recipientName = String(r.name || '').trim() || null;
-
-      if (source === 'student') {
-        if (!isUuid(r.studentId)) { skipped.push({ ...label, reason: 'invalid_student_id' }); continue; }
-        const { data: student, error: sErr } = await supabaseAdmin
-          .from('students')
-          .select('id, first_name, last_name, personal_email, school_email')
-          .eq('id', r.studentId)
-          .single();
-        if (sErr || !student) { skipped.push({ ...label, reason: 'student_not_found' }); continue; }
-        emailSource = r.emailType === 'personal' ? 'personal' : 'school';
-        const ownedEmail = emailSource === 'personal' ? student.personal_email : student.school_email;
-        if (!ownedEmail || normalizeEmailForLookup(String(ownedEmail).trim()) !== normEmail) {
-          skipped.push({ ...label, reason: 'email_mismatch' }); continue;
-        }
-        recipientId = student.id;
-        recipientName = recipientName || `${student.first_name || ''} ${student.last_name || ''}`.trim() || null;
-
-      } else if (source === 'contact') {
-        if (!isUuid(r.contactId)) { skipped.push({ ...label, reason: 'invalid_contact_id' }); continue; }
-        const { data: contact, error: cErr } = await supabaseAdmin
-          .from('contacts')
-          .select('id, full_name, email, is_active')
-          .eq('id', r.contactId)
-          .single();
-        if (cErr || !contact) { skipped.push({ ...label, reason: 'contact_not_found' }); continue; }
-        if (contact.is_active === false) { skipped.push({ ...label, reason: 'contact_inactive' }); continue; }
-        if (!contact.email || normalizeEmailForLookup(String(contact.email).trim()) !== normEmail) {
-          skipped.push({ ...label, reason: 'email_mismatch' }); continue;
-        }
-        recipientId = contact.id;
-        recipientName = recipientName || contact.full_name || null;
-      }
-      // source === 'manual': no id, no ownership row; email already validated.
-
-      // S6d. Within-batch idempotency - skip a recipient already logged sent under this batch_id.
-      const { data: dup } = await supabaseAdmin
-        .from('notification_log')
-        .select('id')
-        .eq('notification_type', 'bulk_message_sent')
-        .filter('metadata->>batch_id', 'eq', batchId)
-        .filter('metadata->>recipient_email_norm', 'eq', normEmail)
-        .limit(1);
-      if (dup && dup.length > 0) { skipped.push({ ...label, reason: 'already_sent_in_batch' }); continue; }
-
-      // S6e. Merge (first name + school with graceful fallback; all other placeholders left literal).
-      const mergeCtx = { firstName: sendFirstName(source, r.firstName), school: sendSchool(r.school) };
+      // S7a. Merge (first name + school with graceful fallback; all other placeholders left literal).
+      const mergeCtx = { firstName: sendFirstName(source, c.firstName), school: sendSchool(c.school) };
       // html mode: escape merge values before insertion (builder re-sanitizes); subject stays raw text.
       const esc = resolvedBodyFormat === 'html' ? escapeHtml : (v => v);
       const bodyMergeCtx  = { firstName: esc(mergeCtx.firstName), school: esc(mergeCtx.school) };
       const mergedSubject = applyMergeFields(subjectRaw.trim(), mergeCtx);
       const mergedBody    = applyMergeFields(bodyRaw.trim(), bodyMergeCtx);
 
-      // S6f. Render branded HTML (same renderer + server-resolved signature as Direct Message).
+      // S7b. Render branded HTML (same renderer + server-resolved signature as Direct Message).
       const { html } = buildDirectMessageEmail({
         body:             mergedBody,
         bodyFormat:       resolvedBodyFormat,
@@ -429,7 +393,7 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
         signature:        senderSig.signature,
       });
 
-      // S6g. Send via Resend (pace + single 429 retry). Per-recipient failure never aborts the batch.
+      // S7c. Send via Resend (pace + single 429 retry). Per-recipient failure never aborts the batch.
       if (attemptedSend) await sleep(SEND_DELAY_MS);
       attemptedSend = true;
 
@@ -463,12 +427,12 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
       }
 
       if (sendError) {
-        console.error('[connect-send-bulk-message] send_failed:', { batch_id: batchId, index: i, error: sendError });
+        console.error('[connect-send-bulk-message] send_failed:', { batch_id: batchId, index: c.index, error: sendError });
         failed.push({ ...label, reason: `send_error: ${sendError}` });
         continue;
       }
 
-      // S6h. Audit log - ONE row per successful recipient. Body content is NOT stored.
+      // S7d. Audit log - ONE row per successful recipient. Body content is NOT stored.
       const sentAt = new Date().toISOString();
       const metadata = {
         batch_id:             batchId,
@@ -507,7 +471,7 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
         notificationLogId = logRow?.id || null;
       } catch (logErr) {
         // Non-fatal - the email already sent. Record the audit-log failure for diagnostics.
-        console.error('[connect-send-bulk-message] log_write_failed:', { batch_id: batchId, index: i, error: logErr?.message });
+        console.error('[connect-send-bulk-message] log_write_failed:', { batch_id: batchId, index: c.index, error: logErr?.message });
       }
 
       // ARCHIVE-SNAPSHOT-1: snapshot THIS recipient's message, exactly as sent.
@@ -530,15 +494,15 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
         });
         if (archive.status !== 'archived') {
           console.error('[connect-send-bulk-message] archive_not_stored:', {
-            batch_id: batchId, index: i, status: archive.status, reason: archive.reason,
+            batch_id: batchId, index: c.index, status: archive.status, reason: archive.reason,
           });
         }
       }
 
-      sent.push({ index: i, source, email: rawEmail, recipient_id: recipientId, sent_at: sentAt });
+      sent.push({ index: c.index, source, email: rawEmail, recipient_id: recipientId, sent_at: sentAt });
 
     } catch (itemErr) {
-      console.error('[connect-send-bulk-message] item_error:', { batch_id: batchId, index: i, error: itemErr?.message });
+      console.error('[connect-send-bulk-message] item_error:', { batch_id: batchId, index: c.index, error: itemErr?.message });
       failed.push({ ...label, reason: `unexpected_error: ${itemErr?.message || 'unknown'}` });
     }
   }

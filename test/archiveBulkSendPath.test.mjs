@@ -75,8 +75,9 @@ test('an archive problem cannot resend or change the delivery result', () => {
   assert.match(after, /archive\.status !== 'archived'/)
   assert.doesNotMatch(after, /resend\.emails\.send|throw |return res\./,
     'the archive result must not alter the send outcome')
-  // sent.push still happens regardless of archive status.
-  const sentPushAt = code.indexOf('sent.push({ index: i')
+  // sent.push still happens regardless of archive status. (BULK-EXACT-RECIPIENTS-1 renamed the
+  // loop variable, so this pins the call, not the identifier.)
+  const sentPushAt = code.indexOf('sent.push({ index:')
   assert.ok(sentPushAt > archiveAt, 'the recipient is still recorded as sent')
 })
 

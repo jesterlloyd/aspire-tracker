@@ -22,8 +22,12 @@ import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { getStudentPreferredFirstName } from '../../lib/studentNameFormatters'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import {
-  parseRecipientText, dedupeRecipients, applyMergeFields, firstNameFromName,
+  parseRecipientText, applyMergeFields, firstNameFromName,
 } from '../../lib/recipientParse'
+import {
+  buildCombinedRecipients, selectableShownStudentIds, visibleSelectionSplit,
+  notProceedingRecipients, buildPayloadRecipients, NOT_PROCEEDING_STATUS,
+} from '../../lib/connect/bulkAudience'
 import { buildBulkTemplate } from '../../lib/outreachTemplates'
 import { readLaunchContext, recordLaunchSendResults } from '../../lib/connect/launchContext'
 import { getContactCategories } from '../../lib/contactCategories'
@@ -182,31 +186,9 @@ function withCohortToken(text) {
   return t.split('[Cohort]').join(name)
 }
 
-// The explicit Email-source dropdown ('school' | 'personal') decides the recipient email - NOT the
-// routing helper. A student without an email for that source is excluded.
-function studentToRecipient(s, source) {
-  if (!s) return null
-  const email = studentEmailForSource(s, source)
-  if (!email) return null
-  // Greeting/merge + recipient-facing display honor the student's preferred first name.
-  const preferredFirst = getStudentPreferredFirstName(s)
-  const name = `${preferredFirst} ${s.last_name || ''}`.trim()
-  return {
-    email, normEmail: normalizeEmailForLookup(email), name,
-    firstName: preferredFirst, school: s.school || null,
-    source: 'student', studentId: s.id, contactId: null,
-    emailType: source,
-  }
-}
-function contactToRecipient(c) {
-  if (!c || !isValidEmail(c.email)) return null
-  const name = c.preferred_name || c.full_name || ''
-  return {
-    email: c.email.trim(), normEmail: normalizeEmailForLookup(c.email), name,
-    firstName: firstNameFromName(name), school: c.school_name || null,
-    source: 'contact', studentId: null, contactId: c.id,
-  }
-}
+// BULK-EXACT-RECIPIENTS-1: studentToRecipient/contactToRecipient and every other audience rule
+// moved to src/lib/connect/bulkAudience.js so the model is pure, tested, and cannot drift from
+// what this composer renders.
 
 export default function BulkManualComposer({
   bulkMsgType,
@@ -267,6 +249,18 @@ export default function BulkManualComposer({
     draftStatusTimerRef.current = setTimeout(() => setDraftStatus(null), 2200)
   }, [])
 
+  // BULK-EXACT-RECIPIENTS-1 audience-visibility state.
+  // restoredAudience: how many recipients the last draft restore brought back. Drives a PERSISTENT
+  // notice (not a 2-second flash) until the operator dismisses it, reviews, or clears - a restored
+  // audience silently reaching a send is the exact mechanism of the 12-recipient incident.
+  const [restoredAudience, setRestoredAudience] = useState(0)
+  // trayOpen: the persistent selected-recipients tray, so every selection is inspectable from any
+  // tab/filter view - hidden selections must never be invisible.
+  const [trayOpen, setTrayOpen] = useState(false)
+  // ackNotProceeding: Review-screen acknowledgment for individually included Not Proceeding
+  // students. Reset whenever the review closes or the audience changes.
+  const [ackNotProceeding, setAckNotProceeding] = useState(false)
+
   // Preview / Review
   const [reviewOpen, setReviewOpen]       = useState(false)
   // Branded "Preview as sent" - { html, loading, error } from the existing DM preview endpoint
@@ -309,6 +303,25 @@ export default function BulkManualComposer({
     setPicked([])
     setAcInput('')
     setManualInvalids([])
+    setRestoredAudience(0)
+    setAckNotProceeding(false)
+  }
+
+  // BULK-EXACT-RECIPIENTS-1: changing cohorts clears the audience. The students prop swaps to the
+  // new cohort's roster, so any carried-over selection would be a mix of silently-dropped stale ids
+  // and cohort-independent contacts/chips - never a reviewed audience. Same render-phase adjust
+  // pattern as the type hydrate above. (The per-cohort draft for the NEW cohort may then restore
+  // its own saved audience in the hydrate effect - announced via the restored-audience notice.)
+  const [hydratedCohort, setHydratedCohort] = useState(cohortId)
+  if (hydratedCohort !== cohortId) {
+    setHydratedCohort(cohortId)
+    setStudentSel(new Set())
+    setContactSel(new Set())
+    setPicked([])
+    setAcInput('')
+    setManualInvalids([])
+    setRestoredAudience(0)
+    setAckNotProceeding(false)
   }
 
   // ── Draft hydrate (mirrors Send-to-one) ─────────────────────────────────────
@@ -350,6 +363,13 @@ export default function BulkManualComposer({
       if (Array.isArray(d.studentSel)) setStudentSel(new Set(d.studentSel))
       if (Array.isArray(d.contactSel)) setContactSel(new Set(d.contactSel))
       if (Array.isArray(d.picked))     setPicked(d.picked)
+      // BULK-EXACT-RECIPIENTS-1: a restored audience is never silent. The count feeds a persistent
+      // notice in the Audience panel until the operator dismisses, reviews, or clears it.
+      const restoredCount =
+        (Array.isArray(d.studentSel) ? d.studentSel.length : 0) +
+        (Array.isArray(d.contactSel) ? d.contactSel.length : 0) +
+        (Array.isArray(d.picked)     ? d.picked.length     : 0)
+      setRestoredAudience(restoredCount)
       flashDraftStatus('restored')
       /* eslint-enable react-hooks/set-state-in-effect */
     }
@@ -404,22 +424,28 @@ export default function BulkManualComposer({
     setPicked([])
     setAcInput('')
     setManualInvalids([])
+    setRestoredAudience(0)
+    setAckNotProceeding(false)
+    setTrayOpen(false)
     try { if (BULK_DRAFT_KEY) localStorage.removeItem(BULK_DRAFT_KEY) } catch { /* ignore */ }
     flashDraftStatus('discarded')
   }, [bulkMsgType, BULK_DRAFT_KEY, richEnabled, flashDraftStatus])
 
-  // ── Load contacts once the Contacts source is first opened ──────────────────
+  // ── Load contacts when the Contacts source is opened OR any contact is selected ──
   // All setState lives in the async resolution (the endorsed effect pattern); loading is derived.
+  // BULK-EXACT-RECIPIENTS-1: a restored draft can carry contactSel while the Contacts tab was never
+  // opened. Without this eager load those selections resolve to nothing until the tab is opened -
+  // and then the recipient count silently jumps. Selected contacts now always resolve immediately.
   const contactsRequested = useRef(false)
   useEffect(() => {
-    if (source !== 'contacts' || contactsRequested.current) return
+    if ((source !== 'contacts' && contactSel.size === 0) || contactsRequested.current) return
     contactsRequested.current = true
     supabase.from('contacts')
       .select('id, full_name, preferred_name, email, role, category, school_name, organization, unit_name, is_active')
       .order('full_name')
       .then(({ data }) => setContacts(data || []))
       .catch(() => setContacts([]))
-  }, [source])
+  }, [source, contactSel])
   const loadingContacts = source === 'contacts' && contacts === null
 
   // CAPACITY-RESPONSE-OUTREACH-2: resolve a launch's preloaded recipient EMAILS to contact ids once
@@ -485,17 +511,24 @@ export default function BulkManualComposer({
     })
   }, [contacts, contactSearch, contactCat, showInactive])
 
-  // ── Derived: combined deduped recipients ────────────────────────────────────
-  const combined = useMemo(() => {
-    const fromStudents = [...studentSel].map(id => studentToRecipient(students.find(s => s.id === id), studentEmailSrc)).filter(Boolean)
-    const fromContacts = [...contactSel].map(id => contactToRecipient((contacts || []).find(c => c.id === id))).filter(Boolean)
-    // Order matters for the dedupe rule: Students → Contacts → Paste · Type (chips).
-    return dedupeRecipients([...fromStudents, ...fromContacts, ...picked])
-  }, [studentSel, contactSel, picked, students, contacts, studentEmailSrc])
+  // ── Derived: combined deduped recipients (single source of truth in bulkAudience.js) ──
+  const combined = useMemo(
+    () => buildCombinedRecipients({ studentSel, contactSel, picked, students, contacts, emailSource: studentEmailSrc }),
+    [studentSel, contactSel, picked, students, contacts, studentEmailSrc],
+  )
 
   const recipients     = combined.recipients
   const dupCount       = combined.duplicateCount
   const invalidEntries = manualInvalids
+
+  // BULK-EXACT-RECIPIENTS-1 derived visibility: how many selected recipients the CURRENT tab/filter
+  // view is not showing, and which audience members need the Not Proceeding acknowledgment.
+  const selectionSplit = useMemo(
+    () => visibleSelectionSplit({ recipients, source, filteredStudents, filteredContacts, picked }),
+    [recipients, source, filteredStudents, filteredContacts, picked],
+  )
+  const hiddenSelected = selectionSplit.hidden
+  const notProceeding  = useMemo(() => notProceedingRecipients(recipients), [recipients])
 
   // Set of all chosen normalized emails - hides already-added rows from the typeahead.
   const excludeEmails = useMemo(() => new Set(recipients.map(r => r.normEmail)), [recipients])
@@ -529,6 +562,7 @@ export default function BulkManualComposer({
   const overLimit       = recipients.length > MAX_RECIPIENTS
   const batchCompleted  = sendResult !== null
   const confirmOk       = confirmText === CONFIRM_PHRASE
+  const needsNpAck = notProceeding.length > 0 && !ackNotProceeding
   const canSend = (
     recipients.length > 0 &&
     !overLimit &&
@@ -536,9 +570,20 @@ export default function BulkManualComposer({
     body.trim().length > 0 &&
     reviewOpen &&            // final review must be open
     confirmOk &&             // typed confirmation exact
+    !needsNpAck &&           // Not Proceeding students require an explicit acknowledgment
     !sending &&              // not already sending
     !batchCompleted          // completed batch cannot be re-sent
   )
+
+  // The acknowledgment never outlives its context: opening/closing the review or changing the
+  // draft/audience resets it, so a checkbox ticked for one audience can never authorize a
+  // different one. Render-phase adjust (same endorsed pattern as the type/cohort hydrates).
+  const ackContext = `${reviewOpen}|${draftSig}`
+  const [ackSeenContext, setAckSeenContext] = useState(ackContext)
+  if (ackSeenContext !== ackContext) {
+    setAckSeenContext(ackContext)
+    if (ackNotProceeding) setAckNotProceeding(false)
+  }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const toggleStudent = useCallback((id) => {
@@ -549,9 +594,11 @@ export default function BulkManualComposer({
   }, [])
   const selectAllStudents = useCallback(() => {
     // Every filtered student already has an email for the chosen source.
+    // BULK-EXACT-RECIPIENTS-1: 'Select all shown' selects only currently displayed records and
+    // never a Not Proceeding student (they stay individually selectable, acknowledged at Review).
     setStudentSel(prev => {
       const n = new Set(prev)
-      filteredStudents.forEach(s => n.add(s.id))
+      selectableShownStudentIds(filteredStudents).forEach(id => n.add(id))
       return n
     })
   }, [filteredStudents])
@@ -564,6 +611,16 @@ export default function BulkManualComposer({
   }, [filteredContacts])
   const clearAll = useCallback(() => {
     setStudentSel(new Set()); setContactSel(new Set()); setPicked([]); setManualInvalids([]); setAcInput('')
+    setRestoredAudience(0); setAckNotProceeding(false); setTrayOpen(false)
+  }, [])
+
+  // Remove ONE recipient from wherever it is selected (tray/review). A recipient can exist in more
+  // than one store (e.g. a typeahead-picked student chip AND a checkbox selection dedupe into one
+  // row), so all three stores are cleaned by identity and normalized email.
+  const removeRecipient = useCallback((r) => {
+    if (r?.studentId) setStudentSel(prev => { const n = new Set(prev); n.delete(r.studentId); return n })
+    if (r?.contactId) setContactSel(prev => { const n = new Set(prev); n.delete(r.contactId); return n })
+    if (r?.normEmail) setPicked(prev => prev.filter(p => p.normEmail !== r.normEmail))
   }, [])
 
   const onTypeaheadSelect = useCallback((r) => {
@@ -579,6 +636,9 @@ export default function BulkManualComposer({
     const rec = {
       email: r.email.trim(), normEmail, name: r.name || '',
       firstName, school: r.raw?.school || null,
+      // Students carry their ASPIRE status so the Review screen can flag Not Proceeding
+      // recipients no matter which source path added them.
+      ...(sourceKind === 'student' ? { status: r.raw?.status || null } : {}),
       source: sourceKind, studentId, contactId,
     }
     setPicked(prev => prev.some(p => p.normEmail === normEmail) ? prev : [...prev, rec])
@@ -626,6 +686,7 @@ export default function BulkManualComposer({
     if (recipients.length === 0 || recipients.length > MAX_RECIPIENTS) return
     if (!subject.trim() || !body.trim()) return
     if (confirmText !== CONFIRM_PHRASE) return
+    if (notProceedingRecipients(recipients).length > 0 && !ackNotProceeding) return
 
     sendInFlightRef.current = true
     setSending(true)
@@ -638,17 +699,11 @@ export default function BulkManualComposer({
         setSendError('Session expired, refresh and try again.')
         return
       }
-      // Preserve the chosen email source: emailType is included ONLY for students.
-      const payloadRecipients = recipients.map(r => ({
-        source:    r.source,
-        email:     r.email,
-        name:      r.name,
-        firstName: r.firstName,
-        school:    r.school,
-        studentId: r.studentId,
-        contactId: r.contactId,
-        ...(r.source === 'student' ? { emailType: r.emailType } : {}),
-      }))
+      // BULK-EXACT-RECIPIENTS-1: the payload is a pure projection of the reviewed audience -
+      // exactly one entry per reviewed recipient, nothing added. emailType travels only for
+      // students; status_ack only for Review-acknowledged Not Proceeding students (the server
+      // rejects them without it).
+      const payloadRecipients = buildPayloadRecipients(recipients, { ackNotProceeding })
       const res = await fetch(SEND_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -673,6 +728,10 @@ export default function BulkManualComposer({
         // was actually sent. Strictly scoped inside the lib: it no-ops unless an active launched
         // context matches this template key, so unrelated bulk sends never touch a foreign context.
         recordLaunchSendResults(bulkMsgType, data)
+        // BULK-EXACT-RECIPIENTS-1: a completed batch clears ALL recipient-selection state in the
+        // same commit, so a finished audience can never leak into the next send. The results panel
+        // reads sendResult (not the live selection), so the outcome stays fully visible.
+        clearAll()
       } else {
         setSendError(data?.error || `Send failed (HTTP ${res.status}).`)
       }
@@ -682,7 +741,7 @@ export default function BulkManualComposer({
       setSending(false)
       sendInFlightRef.current = false
     }
-  }, [recipients, subject, body, confirmText, sendResult, includeSignature, bulkMsgType, richEnabled])
+  }, [recipients, subject, body, confirmText, sendResult, includeSignature, bulkMsgType, richEnabled, ackNotProceeding, clearAll])
 
   // ── Preview as sent ─────────────────────────────────────────────────────────
   // Merge fields (first name + school) for the selected sample recipient, then render the EXACT
@@ -805,6 +864,78 @@ export default function BulkManualComposer({
           <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 10, lineHeight: 1.5 }}>
             {dupCount > 0 && <span>{dupCount} duplicate{dupCount === 1 ? '' : 's'} removed. </span>}
             {invalidEntries.length > 0 && <span style={{ color: '#dc2626' }}>{invalidEntries.length} invalid entr{invalidEntries.length === 1 ? 'y' : 'ies'} ignored.</span>}
+          </div>
+        )}
+
+        {/* BULK-EXACT-RECIPIENTS-1: a restored audience is never silent. Persistent until the
+            operator dismisses, reviews, or clears - this is the incident's root mechanism. */}
+        {restoredAudience > 0 && recipients.length > 0 && (
+          <div data-testid="restored-audience-notice" style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', marginBottom: 8,
+            background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8,
+          }}>
+            <div style={{ flex: 1, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5 }}>
+              <strong>{restoredAudience} recipient{restoredAudience === 1 ? '' : 's'} restored</strong> from
+              your saved draft. Review the full list before sending.
+            </div>
+            <button onClick={() => { setTrayOpen(true); setRestoredAudience(0) }} style={{
+              padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600, flexShrink: 0,
+              border: '1px solid #8B5E1A', background: '#fff', color: '#8B5E1A', fontFamily: F, cursor: 'pointer',
+            }}>View all</button>
+            <button onClick={clearAll} style={{
+              padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600, flexShrink: 0,
+              border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontFamily: F, cursor: 'pointer',
+            }}>Clear all</button>
+          </div>
+        )}
+
+        {/* BULK-EXACT-RECIPIENTS-1: hidden selections are always counted, never silent. */}
+        {hiddenSelected > 0 && (
+          <div data-testid="hidden-selection-warning" style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', marginBottom: 8,
+            background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8,
+          }}>
+            <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: '#8B5E1A', fontFamily: F, lineHeight: 1.4 }}>
+              {hiddenSelected} selected recipient{hiddenSelected === 1 ? ' is' : 's are'} not shown by the current view or filters.
+            </span>
+            <button onClick={() => setTrayOpen(o => !o)} style={{
+              padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600, flexShrink: 0,
+              border: '1px solid #8B5E1A', background: trayOpen ? '#8B5E1A' : '#fff',
+              color: trayOpen ? '#fff' : '#8B5E1A', fontFamily: F, cursor: 'pointer',
+            }}>{trayOpen ? 'Hide all selected' : 'Show all selected'}</button>
+          </div>
+        )}
+
+        {/* Persistent selected-recipients tray: every selection inspectable and removable from any
+            tab/filter view. */}
+        {trayOpen && recipients.length > 0 && (
+          <div data-testid="selected-recipient-tray" style={{
+            marginBottom: 8, padding: '8px 10px', background: '#fff',
+            border: '1px solid #c3cdf0', borderRadius: 8, maxHeight: 220, overflowY: 'auto',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: NAVY, fontFamily: F, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              All selected ({recipients.length})
+            </div>
+            {recipients.map(r => {
+              const b = SOURCE_BADGE[r.source] || SOURCE_BADGE.manual
+              const np = r.source === 'student' && String(r.status || '') === NOT_PROCEEDING_STATUS
+              return (
+                <div key={r.normEmail} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0', borderBottom: '1px solid #f9fafb' }}>
+                  <span style={{ fontSize: 8.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: b.bg, color: b.color, border: `1px solid ${b.border}`, textTransform: 'uppercase', flexShrink: 0 }}>{b.label}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#191919', fontFamily: F }}>{r.name || r.email}</span>
+                    <span style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginLeft: 5 }}>{r.email}</span>
+                    <div style={{ fontSize: 9, color: np ? '#9d174d' : '#9ca3af', fontFamily: F, fontWeight: np ? 700 : 400 }}>
+                      {[r.school || r.organization, r.status].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <button onClick={() => removeRecipient(r)} aria-label={`Remove ${r.email}`} style={{
+                    border: 'none', background: 'transparent', color: '#9ca3af', cursor: 'pointer',
+                    fontSize: 14, lineHeight: 1, padding: '0 2px', flexShrink: 0,
+                  }}>×</button>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -1142,9 +1273,16 @@ export default function BulkManualComposer({
                 {sendResult ? 'Send results' : 'Review & send'}
               </h2>
               <div style={{ fontSize: 12, color: '#6b7280', fontFamily: F, marginTop: 4 }}>
-                {recipients.length} recipient{recipients.length === 1 ? '' : 's'} (deduped)
-                {dupCount > 0 && ` · ${dupCount} duplicate${dupCount === 1 ? '' : 's'} removed`}
-                {invalidEntries.length > 0 && ` · ${invalidEntries.length} invalid ignored`}
+                {sendResult ? (
+                  `${sendResult.summary?.total ?? 0} recipient${(sendResult.summary?.total ?? 0) === 1 ? '' : 's'} in this batch`
+                ) : (
+                  <>
+                    {recipients.length} recipient{recipients.length === 1 ? '' : 's'} total (deduped)
+                    {dupCount > 0 && ` · ${dupCount} duplicate${dupCount === 1 ? '' : 's'} removed`}
+                    {invalidEntries.length > 0 && ` · ${invalidEntries.length} invalid ignored`}
+                    {hiddenSelected > 0 && ` · ${hiddenSelected} not visible in the current audience view`}
+                  </>
+                )}
               </div>
             </div>
 
@@ -1202,14 +1340,41 @@ export default function BulkManualComposer({
                     <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto', marginTop: 2 }}>{body}</div>
                     <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>First name and school merge per recipient at send.</div>
                   </div>
+                  {/* BULK-EXACT-RECIPIENTS-1: Not Proceeding students never send silently - each is
+                      flagged on its row AND the send stays locked until explicitly acknowledged. */}
+                  {notProceeding.length > 0 && (
+                    <div data-testid="not-proceeding-warning" style={{ marginBottom: 12, padding: '10px 12px', background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: 8 }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9d174d', fontFamily: F, marginBottom: 4 }}>
+                        {notProceeding.length} recipient{notProceeding.length === 1 ? '' : 's'} with status Not Proceeding
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9d174d', fontFamily: F, lineHeight: 1.5, marginBottom: 8 }}>
+                        {notProceeding.map(r => r.name || r.email).join(', ')}
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 11.5, color: '#9d174d', fontFamily: F, cursor: 'pointer', fontWeight: 600 }}>
+                        <input
+                          type="checkbox"
+                          checked={ackNotProceeding}
+                          onChange={e => setAckNotProceeding(e.target.checked)}
+                          style={{ marginTop: 1, accentColor: '#9d174d' }}
+                        />
+                        I intend to include {notProceeding.length === 1 ? 'this Not Proceeding student' : 'these Not Proceeding students'} in this send.
+                      </label>
+                    </div>
+                  )}
                   {recipients.map(r => {
                     const b = SOURCE_BADGE[r.source] || SOURCE_BADGE.manual
+                    const np = r.source === 'student' && String(r.status || '') === NOT_PROCEEDING_STATUS
                     return (
-                      <div key={r.normEmail} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #f9fafb' }}>
+                      <div key={r.normEmail} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 6px', borderBottom: '1px solid #f9fafb', borderRadius: 6, background: np ? '#fdf2f8' : 'transparent' }}>
                         <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: b.bg, color: b.color, border: `1px solid ${b.border}`, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{b.label}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F }}>{r.name || <span style={{ color: '#9ca3af', fontWeight: 400 }}>-</span>}</div>
                           <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email}</div>
+                          {(r.school || r.organization || r.status) && (
+                            <div style={{ fontSize: 10, color: np ? '#9d174d' : '#9ca3af', fontFamily: F, fontWeight: np ? 700 : 400, marginTop: 1 }}>
+                              {[r.school || r.organization, r.status].filter(Boolean).join(' · ')}
+                            </div>
+                          )}
                         </div>
                         <span style={{ fontSize: 10, color: '#6b7280', fontFamily: F, flexShrink: 0 }}>{recipientSourceLabel(r)}</span>
                       </div>
@@ -1252,7 +1417,9 @@ export default function BulkManualComposer({
                     <button
                       onClick={handleBulkSend}
                       disabled={!canSend}
-                      title={overLimit ? `Over the ${MAX_RECIPIENTS}-recipient limit` : !confirmOk ? `Type ${CONFIRM_PHRASE} to enable` : undefined}
+                      title={overLimit ? `Over the ${MAX_RECIPIENTS}-recipient limit`
+                        : needsNpAck ? 'Acknowledge the Not Proceeding recipients above to enable'
+                        : !confirmOk ? `Type ${CONFIRM_PHRASE} to enable` : undefined}
                       style={{
                         padding: '8px 18px', borderRadius: 8, border: 'none',
                         background: canSend ? '#B42318' : '#e5e7eb', color: canSend ? '#fff' : '#9ca3af',
