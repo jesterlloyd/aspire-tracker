@@ -40,6 +40,7 @@ import { usePreceptors } from '../hooks/usePreceptors'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { canSendSchedulingLink, buildSchedulingLinkLaunch } from '../lib/schedulingLinkFlow'
 import { resolvePreceptor } from '../lib/preceptor'
+import { preceptorProjection } from '../lib/preceptorProjection'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import AdditionalPreceptors from './AdditionalPreceptors'
 import DispositionModal from './DispositionModal'
@@ -215,7 +216,7 @@ function Field({ label, children, fieldKey }) {
 
 export default function StudentSidePanel({
   student, sortedStudents, onSelectStudent, onClose,
-  onUpdate, onDelete, onReviewDecided, units, toast,
+  onUpdate, onDelete, onReviewDecided, onPreceptorAssigned, units, toast,
 }) {
   const [data,             setData]             = useState({ ...student })
   const [saveStatus,       setSaveStatus]       = useState('idle')
@@ -2741,12 +2742,12 @@ export default function StudentSidePanel({
         onClose={() => setAssignModalOpen(false)}
         student={data}
         onAssigned={(preceptor) => {
-          setData(prev => ({
-            ...prev,
-            preceptor_id:      preceptor.id,
-            matched_preceptor: preceptor.full_name,
-            preceptor_email:   preceptor.email,
-          }))
+          // PRECEPTOR-ASSIGNMENT-PROJECTION-1: the shift comes from the same
+          // canonical preceptor record, and the SAME projection is pushed to
+          // App's students state so the Placement Board and every other
+          // consumer update at the same moment - not on the next refresh.
+          setData(prev => ({ ...prev, ...preceptorProjection(preceptor) }))
+          onPreceptorAssigned?.(student.id, preceptor)
           toast?.success('Preceptor assigned', `${preceptor.full_name} linked to ${student.first_name}.`)
           setAssignModalOpen(false)
         }}

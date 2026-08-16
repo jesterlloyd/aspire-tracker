@@ -82,7 +82,25 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
           <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#B45309', marginTop: 1 }}>
             {'⚠'} Preceptor needed
           </div>
-        ) : null}
+        ) : (
+          /* PRECEPTOR-ASSIGNMENT-PROJECTION-1: an assigned preceptor used to
+             render NOTHING here, so the board could not show who was assigned.
+             matched_preceptor is the trigger-maintained projection of the
+             canonical preceptors row, so the name is available without the
+             board loading the preceptor roster. Clicking re-opens the same
+             assignment modal to change it. */
+          <button
+            data-testid="placement-preceptor-name"
+            onClick={e => { e.stopPropagation(); onAssignPreceptor?.(student) }}
+            disabled={!onAssignPreceptor}
+            title={onAssignPreceptor ? 'Change preceptor' : undefined}
+            style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#4b5563', background: 'none',
+              border: 'none', padding: 0, marginTop: 1, textAlign: 'left',
+              cursor: onAssignPreceptor ? 'pointer' : 'default' }}
+          >
+            {'\u{1F464}'} {student.matched_preceptor || 'Preceptor assigned'}
+          </button>
+        )}
       </div>
 
       {/* Notify + unmatch controls */}
@@ -151,7 +169,7 @@ function CompactOpenSlot({ selectedStudent, compat, onClick }) {
 export default function EmbedUnitCard({
   unit, matchedStudents, matches, studentMap, selectedStudent,
   onSlotClick, onUnmatch, onUpdateMatch, onDelete, isHighlighted,
-  isFocusedUnit, onFocusUnit,
+  isFocusedUnit, onFocusUnit, onPreceptorAssigned,
 }) {
   const [confirmUnmatch,  setConfirmUnmatch]  = useState(null)
   const [confirmDelete,   setConfirmDelete]   = useState(false)
@@ -488,7 +506,14 @@ export default function EmbedUnitCard({
         isOpen={!!assignStudent}
         onClose={() => setAssignStudent(null)}
         student={assignStudent}
-        onAssigned={() => setAssignStudent(null)}
+        /* PRECEPTOR-ASSIGNMENT-PROJECTION-1: the assigned preceptor was
+           previously discarded here, so the board stayed stale until a manual
+           refresh. It now flows to App's canonical students state, which is
+           what this board renders from. */
+        onAssigned={(preceptor) => {
+          if (assignStudent?.id) onPreceptorAssigned?.(assignStudent.id, preceptor)
+          setAssignStudent(null)
+        }}
       />
     </>
   )

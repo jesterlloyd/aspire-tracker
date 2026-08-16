@@ -246,7 +246,14 @@ export default async function handler(req, res) {
         upd.matched_preceptor = v
       }
       if (hasShift) {
-        const SHIFTS = ['Day', 'Night', 'Midshift', 'Either', ''] // '' clears
+        // PRECEPTOR-ASSIGNMENT-PROJECTION-1: the canonical vocabulary is
+        // preceptors.shift_type's CHECK domain (Day|Night|Mid|Variable), which
+        // is what the Student Profile dropdown already offers, what the
+        // Placement Board renders, and what the projection now writes.
+        // 'Mid' and 'Variable' were previously REJECTED here, so two of the
+        // four options in that dropdown returned 400. The two legacy spellings
+        // stay accepted so any older caller keeps working.
+        const SHIFTS = ['Day', 'Night', 'Mid', 'Variable', 'Midshift', 'Either', ''] // '' clears
         if (typeof shift_assigned !== 'string' || !SHIFTS.includes(shift_assigned)) {
           return res.status(400).json({ error: 'invalid_request', field: 'shift_assigned' })
         }

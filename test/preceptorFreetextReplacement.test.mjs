@@ -68,7 +68,17 @@ test('no free-text preceptor save path remains in the panel', () => {
 test('the panel still mirrors a successful link locally exactly as the trigger writes it', () => {
   // onAssigned merges the canonical record's identity + display fields; this is
   // a local-state echo of the server-side sync, not a write path.
-  assert.match(panel, /preceptor_id:\s+preceptor\.id,\n\s+matched_preceptor: preceptor\.full_name,\n\s+preceptor_email:\s+preceptor\.email,/)
+  //
+  // PRECEPTOR-ASSIGNMENT-PROJECTION-1: the three inline fields became the
+  // shared preceptorProjection(), which mirrors the SAME identity and display
+  // fields PLUS the shift - matching the trigger, which now projects the shift
+  // too. The echo is still an echo; it just covers everything the trigger writes.
+  assert.match(panel, /setData\(prev => \(\{ \.\.\.prev, \.\.\.preceptorProjection\(preceptor\) \}\)\)/)
+  assert.match(panel, /import \{ preceptorProjection \} from '\.\.\/lib\/preceptorProjection'/)
+  const proj = readFileSync(join(here, '..', 'src/lib/preceptorProjection.js'), 'utf8')
+  for (const field of ['preceptor_id', 'matched_preceptor', 'preceptor_email', 'shift_assigned']) {
+    assert.ok(proj.includes(field), `the echo still covers ${field}`)
+  }
 })
 
 // ── Canonical modal and RPC ──────────────────────────────────────────────────

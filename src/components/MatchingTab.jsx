@@ -127,6 +127,7 @@ export default function MatchingTab({
   students, units, matches, cohortId, cohort,
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit, highlightUnitId,
   focusMatchStudentId, onFocusMatchConsumed,
+  onPreceptorAssigned,
   toast,
 }) {
   const [selectedStudent,   setSelectedStudent]   = useState(null)
@@ -472,6 +473,7 @@ export default function MatchingTab({
                       key={unit.id}
                       unit={unit}
                       matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
+              onPreceptorAssigned={onPreceptorAssigned}
                       matches={matches}
                       studentMap={studentMap}
                       selectedStudent={selectedStudent}
@@ -498,6 +500,7 @@ export default function MatchingTab({
                       key={unit.id}
                       unit={unit}
                       matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
+              onPreceptorAssigned={onPreceptorAssigned}
                       matches={matches}
                       studentMap={studentMap}
                       selectedStudent={selectedStudent}

@@ -29,6 +29,7 @@ import StudentEvaluationPage from './pages/StudentEvaluationPage'
 import PostRotationEvaluationPage from './pages/PostRotationEvaluationPage'
 import UnitFormPage from './components/UnitFormPage'
 import { applyReviewTotals } from './lib/studentTotals'
+import { applyPreceptorProjection } from './lib/preceptorProjection'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import InterviewSchedulePage from './components/InterviewSchedulePage'
@@ -618,6 +619,16 @@ function MainApp({ onLogout }) {
     setStudents(prev => applyReviewTotals(prev, result))
   }, [setStudents])
 
+  // PRECEPTOR-ASSIGNMENT-PROJECTION-1: the assignment RPC + trigger have already
+  // written the canonical projection server-side. Canonical students live HERE
+  // (useState, not React Query - the modal's ['students', cohortId]
+  // invalidation matches no query), so the same projection is applied to this
+  // state from the preceptor record the modal already holds. Placement Board
+  // and Student Profiles both update immediately, with no refetch.
+  const applyPreceptorAssignment = useCallback((studentId, preceptor) => {
+    setStudents(prev => applyPreceptorProjection(prev, studentId, preceptor))
+  }, [setStudents])
+
   const updateStudent = useCallback(async (id, updates, _loadedUpdatedAt) => {
     const DOMAINS = [
       { keys: ['personal_email', 'phone'], helper: updateContact },
@@ -1134,6 +1145,7 @@ function MainApp({ onLogout }) {
                 onExportCSV={exportCSV}
                 onAddStudent={() => setShowAddModal(true)}
                 onReviewDecided={applyStudentReviewTotals}
+                onPreceptorAssigned={applyPreceptorAssignment}
                 focusStudentId={focusStudentId}
                 onClearFocusStudent={() => setFocusStudentId(null)}
                 toast={toast}
@@ -1170,6 +1182,7 @@ function MainApp({ onLogout }) {
                 highlightUnitId={highlightUnitId}
                 onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
                 onReviewDecided={applyStudentReviewTotals}
+                onPreceptorAssigned={applyPreceptorAssignment}
                 focusActivityStudentId={focusActivityStudentId}
                 onFocusActivityConsumed={() => setFocusActivityStudentId(null)}
                 focusActivityShiftLogId={focusActivityShiftLogId}

@@ -60,7 +60,7 @@ function sortStudentsList(students, sortBy) {
 
 export default function StudentProfilesTab({
   students, units, cohortId,
-  onUpdate, onDelete, onRefresh, onSwitchToAccess, onReviewDecided,
+  onUpdate, onDelete, onRefresh, onSwitchToAccess, onReviewDecided, onPreceptorAssigned,
   view, onViewChange,
   accessFocusId,
   onExportCSV, onAddStudent,
@@ -366,6 +366,7 @@ export default function StudentProfilesTab({
                 onUpdate={onUpdate}
                 onDelete={onDelete}
                 onReviewDecided={onReviewDecided}
+                onPreceptorAssigned={onPreceptorAssigned}
                 units={units}
                 toast={toast}
               />
