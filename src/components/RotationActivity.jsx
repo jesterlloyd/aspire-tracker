@@ -17,6 +17,7 @@ import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
 import { canonicalRotationWindow } from '../lib/rotationWindow'
 import { hoursProgress } from '../lib/clinicalHours'
+import { shiftDrivesState } from '../lib/shiftLifecycle'
 import { ROTATION_SORT_OPTIONS, DEFAULT_ROTATION_SORT, rotationComparator } from '../lib/rotationSort'
 
 // Compact canonical rotation range for a card: "Mon D – Mon D" from the linked
@@ -311,6 +312,9 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       const supportLogs = []
       const pendingByStudent = {}
       for (const l of (data || [])) {
+        // STUDENT-SHIFT-LOG-MANAGEMENT-1: a withdrawn entry drives nothing -
+        // no support alert, and it can never be someone's latest shift.
+        if (!shiftDrivesState(l)) continue
         // A support entry exists when the textbox is non-empty after trimming (null/blank = none).
         if ((l.support_needed || '').trim()) supportLogs.push({ id: l.id, student_id: l.student_id, support_needed: l.support_needed })
         // Only COMPLETED pending-review shifts hold stranded hours (open shifts

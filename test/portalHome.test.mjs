@@ -50,11 +50,30 @@ test('deriveAttentionItems', async (t) => {
     assert.equal(items.length, 1)
     assert.equal(items[0].count, 3)
   })
-  await t.test('non-approved shift logs count as awaiting review', () => {
-    const logs = [{ status: 'approved' }, { status: 'submitted' }, { status: 'pending' }, { status: null }]
+  // STUDENT-SHIFT-LOG-MANAGEMENT-1: this previously asserted the output of a
+  // comparison against the lowercase literal 'approved' using invented status
+  // values ('submitted', 'pending') that the database never stores - so it
+  // encoded the bug, in which EVERY real shift counted as awaiting review.
+  // The count is now canonical: only Pending Review (and its legacy spelling)
+  // awaits anything, and a withdrawn entry awaits nothing.
+  await t.test('only canonical Pending Review shifts count as awaiting review', () => {
+    const logs = [
+      { status: 'Approved' },
+      { status: 'Auto-Accepted' },
+      { status: 'Pending Review' },
+      { status: 'needs_review' },
+      { status: 'Rejected' },
+      { status: 'Pending Review', lifecycle_state: 'voided' },
+      { status: null },
+    ]
     const items = deriveAttentionItems({ shiftLogs: logs })
     assert.equal(items.length, 1)
-    assert.equal(items[0].count, 2)
+    assert.equal(items[0].count, 2, 'Pending Review + needs_review; withdrawn excluded')
     assert.match(items[0].label, /2 shifts awaiting review/)
+  })
+
+  await t.test('accepted-only history produces no awaiting-review item', () => {
+    const items = deriveAttentionItems({ shiftLogs: [{ status: 'Auto-Accepted' }, { status: 'Approved' }] })
+    assert.equal(items.filter(i => i.key === 'shifts').length, 0)
   })
 })

@@ -1,3 +1,4 @@
+import { countAwaitingReview } from './portalShiftStatus.js'
 // ASPIRE-COMPASS: pure, null-safe derivations for the Student Portal Compass
 // home (the stage-aware primary action and the attention items). No React, no
 // I/O, so the portal and the tests share one source.
@@ -48,7 +49,11 @@ export function deriveAttentionItems({ unreadMessages = 0, evaluations = [], shi
     })
   }
 
-  const pendingShifts = (shiftLogs || []).filter(l => l && l.status && l.status !== 'approved').length
+  // STUDENT-SHIFT-LOG-MANAGEMENT-1: canonical statuses, and withdrawn entries
+  // await nothing. The previous test compared against the lowercase literal
+  // 'approved', which no stored status equals - so EVERY shift counted as
+  // awaiting review.
+  const pendingShifts = countAwaitingReview(shiftLogs)
   if (pendingShifts > 0) {
     items.push({
       key: 'shifts', count: pendingShifts, target: 'shifts',

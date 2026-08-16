@@ -116,6 +116,8 @@ export default async function handler(req, res) {
     .from('student_shift_logs')
     .select(SAFE_COLUMNS)
     .in('student_id', [...byId.keys()])
+    // STUDENT-SHIFT-LOG-MANAGEMENT-1: a withdrawn entry is not unit activity.
+    .neq('lifecycle_state', 'voided')
     .gte('shift_date', from)
     .lte('shift_date', to)
     .order('shift_date', { ascending: false })
@@ -131,6 +133,7 @@ export default async function handler(req, res) {
     .from('student_shift_logs')
     .select('id, student_id, shift_date, checked_in_at, lifecycle_state')
     .in('student_id', [...byId.keys()])
+    .neq('lifecycle_state', 'voided')
     .limit(ORDINAL_HISTORY_MAX)
   if (histErr) return res.status(500).json({ error: 'internal_error' })
   const ordinalById = buildStudentShiftOrdinals(historyRows || [])

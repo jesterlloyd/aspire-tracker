@@ -32,6 +32,9 @@ import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocumen
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
 import ShiftNumberBadge from '../components/ShiftNumberBadge'
+import ShiftLogHistoryDrawer from './ShiftLogHistoryDrawer'
+import { portalShiftStatus } from '../lib/portalShiftStatus'
+import { shiftDrivesState } from '../lib/shiftLifecycle'
 import { composePortalEmail } from '../lib/outlookCompose'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope } from './PortalHeaderSlots'
@@ -83,6 +86,7 @@ export default function StudentPortal({
   const loginEmail = user?.email || ''
   const [summary, setSummary]   = useState(null)
   const [logs, setLogs]         = useState([])
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [evals, setEvals]       = useState([])
   const [certs, setCerts]       = useState([])
   const [error, setError]       = useState(null)
@@ -218,7 +222,7 @@ export default function StudentPortal({
     )
   }
 
-  const supportItems = myLogs.filter(l => (l.support_needed || '').trim().length > 0)
+  const supportItems = myLogs.filter(l => shiftDrivesState(l) && (l.support_needed || '').trim().length > 0)
 
   const hours = deriveClinicalHours(student.hours)
   const timeline = derivePortalTimeline({ status: student.status, certificateUnlocked: !!myCert?.certificate_unlocked_at })
@@ -360,7 +364,14 @@ export default function StudentPortal({
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                       <ShiftNumberBadge ordinal={myShiftOrdinals.get(l.id)} size={20} />
                       {fmtDate(l.shift_date) || 'Date pending'}{l.unit_name ? ` · ${l.unit_name}` : ''}{l.total_hours != null ? ` · ${l.total_hours}h` : ''}</span>
-                    <span className={`ptl-chip ptl-chip-soft ptl-chip-${l.status === 'approved' ? 'ok' : 'wait'}`}>{l.status === 'approved' ? 'Approved' : 'Awaiting review'}</span>
+                    {(() => {
+                      // STUDENT-SHIFT-LOG-MANAGEMENT-1: canonical vocabulary. The
+                      // previous comparison tested the lowercase literal 'approved',
+                      // which no stored status ever equals, so every entry read as
+                      // "Awaiting review" - including approved ones.
+                      const st = portalShiftStatus(l)
+                      return <span className={`ptl-chip ptl-chip-soft ptl-chip-${st.tone}`}>{st.label}</span>
+                    })()}
                   </li>
                 ))}
               </ul>
@@ -369,9 +380,23 @@ export default function StudentPortal({
           {activeRotation && shiftCount === 0 && (
             <div className="ptl-empty" style={{ marginTop: 12 }}>No shifts logged yet. Record your first shift to start building your approved hours.</div>
           )}
-          {activeRotation && (
-            <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>
-          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {activeRotation && (
+              <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>
+            )}
+            {/* STUDENT-SHIFT-LOG-MANAGEMENT-1: the card lists only the four most
+                recent entries; the full history (and the correct/withdraw
+                controls) lives in the drawer. */}
+            {shiftCount > 0 && (
+              <button
+                className="ptl-slh-ghost"
+                data-testid="open-shift-history"
+                onClick={() => setHistoryOpen(true)}
+              >
+                {shiftCount > 4 ? `View all ${shiftCount} shifts` : 'View & manage shifts'}
+              </button>
+            )}
+          </div>
         </section>
 
         {/* ── Surveys (prominent only when one is waiting) ──────────────────── */}
@@ -502,6 +527,18 @@ export default function StudentPortal({
       {/* STUDENT-PORTAL-PROFILE-1: the EditProfileDrawer render was removed here -
           profile editing lives in My Profile (/portal/profile). The drawer component
           file is retained for direct callers/rollback (UserManagement precedent). */}
+
+      {/* STUDENT-SHIFT-LOG-MANAGEMENT-1: full history + self-service. A change
+          returns the authoritative recomputed totals, so the portal reloads its
+          own data immediately rather than waiting for a refresh or Realtime. */}
+      <ShiftLogHistoryDrawer
+        open={historyOpen}
+        logs={myLogs}
+        student={student}
+        loginEmail={loginEmail}
+        onClose={() => setHistoryOpen(false)}
+        onChanged={() => { load() }}
+      />
     </div>
   )
 }

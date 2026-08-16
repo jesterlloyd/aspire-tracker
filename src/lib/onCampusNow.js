@@ -13,12 +13,16 @@
 //      midnight are caught). A student already shown via lifecycle is not duplicated here.
 
 import { isShiftCurrentlyActive } from './shiftWindows.js'
+import { shiftDrivesState } from './shiftLifecycle.js'
 
 // Filter time-window fallback rows to those currently active, then deduplicate by student
 // (keep the most recently submitted log). Mirrors the Aggregate on_campus_now queryFn.
 export function selectActiveWindowRows(rows, now = new Date()) {
+  // STUDENT-SHIFT-LOG-MANAGEMENT-1: a withdrawn entry keeps its old status
+  // (Auto-Accepted/Approved), so status alone would still put the student on
+  // campus. Lifecycle decides.
   const active = (rows || []).filter(log =>
-    isShiftCurrentlyActive(log.shift_date, log.shift_type, now)
+    shiftDrivesState(log) && isShiftCurrentlyActive(log.shift_date, log.shift_type, now)
   )
   const byStudent = new Map()
   for (const log of active) {

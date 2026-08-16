@@ -55,6 +55,9 @@ export default async function handler(req, res) {
     .from('student_shift_logs')
     .select(SAFE_COLUMNS)
     .eq('student_id', studentId)
+    // STUDENT-SHIFT-LOG-MANAGEMENT-1: withdrawn entries count toward nothing
+    // and are not shown on this role-scoped surface.
+    .neq('lifecycle_state', 'voided')
     .order('shift_date', { ascending: false })
     .limit(MAX_ROWS)
   if (error) return res.status(500).json({ error: 'internal_error' })

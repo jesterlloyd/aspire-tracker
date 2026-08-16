@@ -20,6 +20,12 @@ export const EVENT_TYPES = [
   { value: 'disposition_removed_from_program',             label: 'Disposition: Removed from Program',             color: '#991b1b', manual: false },
   // STUDENT-PROFILE-CANON-1E - logged via clear_student_disposition() DB function, not entered manually
   { value: 'disposition_cleared',                          label: 'Disposition: Cleared',                          color: '#6b7280', manual: false },
+  // STUDENT-SHIFT-LOG-MANAGEMENT-1 - appended by the shift-log self-service
+  // path when a student's own correction or withdrawal drops approved hours
+  // back below the requirement AFTER a rotation_end was already recorded. It
+  // is system-generated (manual: false), so it is never offered in the staff
+  // "add event" picker; amber marks it as a correction rather than a failure.
+  { value: 'rotation_hours_correction',                    label: 'Clinical Hours Corrected',                      color: '#92400e', manual: false },
 ];
 
 export const EVENT_TYPE_LABELS = Object.fromEntries(

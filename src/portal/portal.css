@@ -1882,3 +1882,25 @@ img.ptl-detail-photo {
   background: #1D2567; color: #fff; font: inherit; font-size: 12px; font-weight: 600;
   cursor: pointer; box-shadow: 0 4px 14px rgba(29,37,103,0.28); z-index: 2;
 }
+
+/* ── STUDENT-SHIFT-LOG-MANAGEMENT-1: shift log history drawer ──────────────
+   Scoped to the drawer so nothing here can reach StudentPortal's cards.
+   .ptl-btn bakes in margin-top:10px and is inline-block (see the portal CSS
+   notes), so every button inside this drawer undoes that explicitly. */
+.ptl-slh-row .ptl-btn,
+.ptl-slh-actions .ptl-btn { margin-top: 0; }
+.ptl-slh-ghost {
+  margin-top: 0;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #d8d3c7;
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ptl-slh-ghost:hover { background: #faf8f4; }
+.ptl-slh-ghost:disabled,
+.ptl-slh-row .ptl-btn:disabled { opacity: 0.55; cursor: not-allowed; }

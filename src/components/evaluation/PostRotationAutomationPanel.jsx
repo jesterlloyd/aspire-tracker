@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { classifyPostRotationCohort } from '../../lib/evaluation/postRotationCertDueDetection'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
+import { shiftDrivesState } from '../../lib/shiftLifecycle'
 
 // READ-ONLY eligible / in-flow queue for the ASPIRE Post-Rotation Evaluation workflow (slug:
 // post_rotation_evaluation). Recipient is the STUDENT. This is NON-GATING experience feedback and
@@ -90,10 +91,13 @@ async function loadPostRotationQueue(cohortId) {
   try {
     const shRes = await supabase
       .from('student_shift_logs')
-      .select('student_id, shift_date, support_needed')
+      .select('student_id, shift_date, support_needed, lifecycle_state')
       .eq('cohort_id', cohortId)
     if (shRes.error) throw shRes.error
     for (const log of (shRes.data || [])) {
+      // STUDENT-SHIFT-LOG-MANAGEMENT-1: a withdrawn entry is not the student's
+      // last shift and raises no support flag.
+      if (!shiftDrivesState(log)) continue
       const cur = shiftMeta.get(log.student_id) || { lastShiftDate: null, supportNeeded: false }
       if (log.shift_date && (!cur.lastShiftDate || new Date(log.shift_date) > new Date(cur.lastShiftDate))) {
         cur.lastShiftDate = log.shift_date

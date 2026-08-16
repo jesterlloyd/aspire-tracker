@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { classifyCaseyFinkPostRotationCohort } from '../../lib/evaluation/caseyFinkPostRotationDueDetection'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
+import { shiftDrivesState } from '../../lib/shiftLifecycle'
 
 // ROUTING-HOTFIX-1: this panel releases ONLY the Casey-Fink post-rotation workflow, via its own
 // explicit route entry. It can never call another workflow's endpoint.
@@ -105,10 +106,13 @@ async function loadCaseyFinkQueue(cohortId) {
   try {
     const shRes = await supabase
       .from('student_shift_logs')
-      .select('student_id, shift_date, support_needed')
+      .select('student_id, shift_date, support_needed, lifecycle_state')
       .eq('cohort_id', cohortId)
     if (shRes.error) throw shRes.error
     for (const log of (shRes.data || [])) {
+      // STUDENT-SHIFT-LOG-MANAGEMENT-1: a withdrawn entry is not the student's
+      // last shift and raises no support flag.
+      if (!shiftDrivesState(log)) continue
       const cur = shiftMeta.get(log.student_id) || { lastShiftDate: null, supportNeeded: false }
       if (log.shift_date && (!cur.lastShiftDate || new Date(log.shift_date) > new Date(cur.lastShiftDate))) {
         cur.lastShiftDate = log.shift_date

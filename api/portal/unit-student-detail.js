@@ -184,6 +184,7 @@ async function loadAttendance(db, studentId) {
     .from('student_shift_logs')
     .select('shift_date')
     .eq('student_id', studentId)
+    .neq('lifecycle_state', 'voided')
     .order('shift_date', { ascending: false })
     .limit(500)
   if (error || !data) return { shifts_recorded: 0, most_recent_shift: null }
