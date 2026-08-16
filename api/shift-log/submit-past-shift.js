@@ -18,9 +18,13 @@
 //      auto-accepted shift) - never client-supplied
 //   7. return the created shift + recomputed totals
 //
-// NOT transactional: the insert and the recompute/update are separate statements
-// (A0b adds no RPC/transaction). The shift rows are authoritative; any later
-// authoritative recompute corrects aggregate drift. Never computes totals from
+// TRANSACTIONAL when 20260818000000 is applied: the insert and the totals
+// recompute run inside public.submit_past_shift_log under the SAME per-student
+// FOR UPDATE lock as shift_log_check_out and review_shift_log, so a past-shift
+// submission can never interleave with a review decision (or a check-out) into
+// stale approved_hours/pending_hours. Until that migration exists the endpoint
+// FALLS BACK to the legacy lockless insert + recompute (a student-facing flow
+// must not break while the migration is gated). Never computes totals from
 // client-supplied previous totals.
 //
 // Does not touch a live in_progress shift (completed insert is unaffected by the
@@ -131,6 +135,40 @@ async function recomputeTotals(db, studentId) {
   const pending  = (pendingRows  || []).reduce((s, r) => s + (parseFloat(r.total_hours) || 0), 0)
   await db.from('students').update({ approved_hours: approved, pending_hours: pending }).eq('id', studentId)
   return { approved_hours: approved, pending_hours: pending }
+}
+
+// SHIFT-LOG-REVIEW-1: exact-replay resolution for a REVIEWED submission id.
+// A review may have ADJUSTED total_hours, so the stored row no longer equals
+// the original payload on hours alone. The replay is idempotent ONLY when the
+// incoming hours equal the IMMUTABLE original preserved in shift_log_reviews
+// (original_total_hours, keyed by original_shift_log_id) - never for an
+// arbitrary new value. Resolved entirely server-side; the browser never reads
+// the ledger. Exported for tests.
+export async function reviewedReplayMatches(db, { submissionId, incomingHours, matchesWithHours }) {
+  const { data: audit, error } = await db
+    .from('shift_log_reviews')
+    .select('original_total_hours')
+    .eq('original_shift_log_id', submissionId)
+    .maybeSingle()
+  if (error || !audit) return false // no audit row -> nothing vouches for the difference
+  const original = parseFloat(audit.original_total_hours)
+  if (!Number.isFinite(original) || original !== incomingHours) return false
+  return matchesWithHours === true
+}
+
+// SHIFT-LOG-REVIEW-1: the atomic path. Insert + totals recompute in ONE
+// transaction behind the shared per-student FOR UPDATE lock. Classification
+// contract (behaviorally tested): PGRST202 (function absent - migration not
+// applied) is the ONLY outcome that may select the legacy lockless path;
+// every other error fails the request safely; success returns the RPC result.
+// Exported for tests.
+export async function atomicSubmit(db, payload) {
+  const { data, error } = await db.rpc('submit_past_shift_log', payload)
+  if (error) {
+    if (error.code === 'PGRST202') return { missing: true }
+    return { error }
+  }
+  return { result: data }
 }
 
 export default async function handler(req, res) {
@@ -257,11 +295,45 @@ export default async function handler(req, res) {
     .eq('id', submissionId)
     .maybeSingle()
   if (existingShift) {
-    if (existingShift.student_id !== student.id || !samePayload(existingShift)) {
+    // A row whose review ADJUSTED the hours no longer equals the original
+    // payload on total_hours alone. That difference is acceptable ONLY when
+    // the incoming hours equal the IMMUTABLE original recorded in the review
+    // ledger - an arbitrary new hours value on a reused id is a conflict, and
+    // a replay never changes the reviewed status or the adjusted hours.
+    const reviewed = ['Approved', 'Rejected'].includes(existingShift.status || '')
+    const replayMatches = samePayload(existingShift)
+      || (reviewed && await reviewedReplayMatches(db, {
+        submissionId,
+        incomingHours: totalHours,
+        matchesWithHours: samePayload({ ...existingShift, total_hours: totalHours }),
+      }))
+    if (existingShift.student_id !== student.id || !replayMatches) {
       console.log('[submit-past-shift] submission_id reuse mismatch', { request_id: requestId })
       return res.status(409).json({ error: 'conflict', message: 'This submission could not be processed. Please refresh and try again.' })
     }
-    const totals = await recomputeTotals(db, student.id) // re-affirm authoritative totals
+    // Re-affirm authoritative totals UNDER the shared student lock: the RPC is
+    // exists-first, so a row that has since been REVIEWED (Approved/Rejected)
+    // replays idempotently - no insert, no status change, locked recompute.
+    // ONLY PGRST202 (migration absent) may fall back to the legacy lockless
+    // recompute; any other RPC error fails the request - it never silently
+    // downgrades to an unserialized totals write.
+    const atomic = await atomicSubmit(db, {
+      p_id: submissionId, p_student_id: student.id, p_cohort_id: student.cohort_id,
+      p_school_email: student.school_email, p_shift_date: existingShift.shift_date,
+      p_total_hours: existingShift.total_hours, p_unit_name: existingShift.unit_name,
+      p_is_assigned_unit: existingShift.is_assigned_unit, p_unit_override_reason: existingShift.unit_override_reason,
+      p_preceptor_name: existingShift.preceptor_name, p_is_assigned_preceptor: existingShift.is_assigned_preceptor,
+      p_preceptor_override_note: existingShift.preceptor_override_note, p_shift_type: existingShift.shift_type,
+      p_learning_highlight: existingShift.learning_highlight, p_support_needed: existingShift.support_needed,
+      p_status: existingShift.status, p_exception_flags: [], p_review_reason: existingShift.review_reason,
+    })
+    if (atomic.error) {
+      console.log('[submit-past-shift] idempotent totals refresh failed', { request_id: requestId, errorCode: atomic.error.code })
+      return res.status(500).json({ error: 'internal_error' })
+    }
+    const totals = atomic.missing
+      ? await recomputeTotals(db, student.id) // pre-migration behavior, unchanged
+      : { approved_hours: parseFloat(atomic.result?.approved_hours) || 0, pending_hours: parseFloat(atomic.result?.pending_hours) || 0 }
     return res.status(200).json({ success: true, idempotent: true, shift: existingShift, totals })
   }
 
@@ -270,50 +342,96 @@ export default async function handler(req, res) {
   const status = flags.length > 0 ? 'Pending Review' : 'Auto-Accepted'
   const reviewReason = flags.length > 0 ? flags.join('; ') : null
 
-  // ── Insert ONE completed shift row (id = submission_id) ─────────────────────
-  const { data: inserted, error: insertErr } = await db
-    .from('student_shift_logs')
-    .insert({
-      id: submissionId,
-      student_id: student.id,
-      cohort_id: student.cohort_id,
-      school_email: student.school_email,
-      shift_date: shiftDate,
-      total_hours: totalHours,
-      unit_name: unitName,
-      is_assigned_unit: isAssignedUnit,
-      unit_override_reason: unitOverrideReason,
-      preceptor_name: preceptorName,
-      is_assigned_preceptor: body.is_assigned_preceptor,
-      preceptor_override_note: preceptorOverrideNote,
-      shift_type: shiftType,
-      learning_highlight: learningHighlight,
-      support_needed: supportNeeded,
-      attestation: true,
-      lifecycle_state: 'completed',
-      status,
-      exception_flags: flags,
-      review_reason: reviewReason,
-      submitted_at: new Date().toISOString(),
-    })
-    .select('id, status, review_reason, shift_date, total_hours, unit_name')
-    .single()
-
-  if (insertErr) {
-    // Race: another retry inserted this submission_id between our check and insert.
-    if (insertErr.code === '23505') {
-      const { data: raceRow } = await db
-        .from('student_shift_logs').select(COMPARE_SELECT)
-        .eq('id', submissionId).maybeSingle()
+  // ── Record the shift + recompute totals ATOMICALLY (shared student lock) ────
+  // public.submit_past_shift_log (20260818000000) inserts the completed row and
+  // recomputes BOTH totals inside one transaction, serialized on the same
+  // per-student FOR UPDATE as review_shift_log and shift_log_check_out. A retry
+  // race collapses inside the RPC (ON CONFLICT DO NOTHING + inserted=false).
+  // If the migration is not applied yet, fall back to the legacy path below.
+  let shift
+  let totals
+  const atomic = await atomicSubmit(db, {
+    p_id: submissionId, p_student_id: student.id, p_cohort_id: student.cohort_id,
+    p_school_email: student.school_email, p_shift_date: shiftDate,
+    p_total_hours: totalHours, p_unit_name: unitName,
+    p_is_assigned_unit: isAssignedUnit, p_unit_override_reason: unitOverrideReason,
+    p_preceptor_name: preceptorName, p_is_assigned_preceptor: body.is_assigned_preceptor,
+    p_preceptor_override_note: preceptorOverrideNote, p_shift_type: shiftType,
+    p_learning_highlight: learningHighlight, p_support_needed: supportNeeded,
+    p_status: status, p_exception_flags: flags, p_review_reason: reviewReason,
+  })
+  if (atomic.error) {
+    console.log('[submit-past-shift] atomic submit failed', { request_id: requestId, errorCode: atomic.error.code })
+    return res.status(500).json({ error: 'internal_error' })
+  }
+  if (!atomic.missing) {
+    const r = atomic.result || {}
+    if (r.inserted === false) {
+      // Race: a concurrent retry landed this submission_id first. Same contract
+      // as the legacy 23505 branch: equal payload -> idempotent, else conflict.
+      const raceRow = r.shift || null
       if (raceRow && raceRow.student_id === student.id && samePayload(raceRow)) {
-        const totals = await recomputeTotals(db, student.id)
-        return res.status(200).json({ success: true, idempotent: true, shift: raceRow, totals })
+        return res.status(200).json({
+          success: true, idempotent: true, shift: raceRow,
+          totals: { approved_hours: r.approved_hours, pending_hours: r.pending_hours },
+        })
       }
       console.log('[submit-past-shift] race submission_id reuse mismatch', { request_id: requestId })
       return res.status(409).json({ error: 'conflict', message: 'This submission could not be processed. Please refresh and try again.' })
     }
-    console.log('[submit-past-shift] insert failed', { request_id: requestId, errorCode: insertErr.code })
-    return res.status(500).json({ error: 'internal_error' })
+    const row = r.shift || {}
+    shift = { id: row.id, status: row.status, review_reason: row.review_reason, shift_date: row.shift_date, total_hours: row.total_hours, unit_name: row.unit_name }
+    totals = { approved_hours: parseFloat(r.approved_hours) || 0, pending_hours: parseFloat(r.pending_hours) || 0 }
+  } else {
+    // ── LEGACY fallback (migration 20260818000000 not applied): lockless
+    //    insert + client-side recompute, byte-for-byte the pre-atomic behavior.
+    // ── Insert ONE completed shift row (id = submission_id) ─────────────────────
+    const { data: inserted, error: insertErr } = await db
+      .from('student_shift_logs')
+      .insert({
+        id: submissionId,
+        student_id: student.id,
+        cohort_id: student.cohort_id,
+        school_email: student.school_email,
+        shift_date: shiftDate,
+        total_hours: totalHours,
+        unit_name: unitName,
+        is_assigned_unit: isAssignedUnit,
+        unit_override_reason: unitOverrideReason,
+        preceptor_name: preceptorName,
+        is_assigned_preceptor: body.is_assigned_preceptor,
+        preceptor_override_note: preceptorOverrideNote,
+        shift_type: shiftType,
+        learning_highlight: learningHighlight,
+        support_needed: supportNeeded,
+        attestation: true,
+        lifecycle_state: 'completed',
+        status,
+        exception_flags: flags,
+        review_reason: reviewReason,
+        submitted_at: new Date().toISOString(),
+      })
+      .select('id, status, review_reason, shift_date, total_hours, unit_name')
+      .single()
+
+    if (insertErr) {
+      // Race: another retry inserted this submission_id between our check and insert.
+      if (insertErr.code === '23505') {
+        const { data: raceRow } = await db
+          .from('student_shift_logs').select(COMPARE_SELECT)
+          .eq('id', submissionId).maybeSingle()
+        if (raceRow && raceRow.student_id === student.id && samePayload(raceRow)) {
+          const totals = await recomputeTotals(db, student.id)
+          return res.status(200).json({ success: true, idempotent: true, shift: raceRow, totals })
+        }
+        console.log('[submit-past-shift] race submission_id reuse mismatch', { request_id: requestId })
+        return res.status(409).json({ error: 'conflict', message: 'This submission could not be processed. Please refresh and try again.' })
+      }
+      console.log('[submit-past-shift] insert failed', { request_id: requestId, errorCode: insertErr.code })
+      return res.status(500).json({ error: 'internal_error' })
+    }
+    shift = inserted
+    // totals stay unset here - recomputed below, after the events, exactly as before
   }
 
   // ── Server-controlled status promotion + rotation events (auto-accepted only)
@@ -333,8 +451,9 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── Recompute authoritative totals from completed rows ──────────────────────
-  const totals = await recomputeTotals(db, student.id)
+  // ── Authoritative totals: already recomputed under the lock by the atomic
+  //    RPC; the legacy fallback recomputes here, exactly as before ────────────
+  if (!totals) totals = await recomputeTotals(db, student.id)
 
   // rotation_end when required hours met (after recompute)
   if (status === 'Auto-Accepted') {
@@ -345,7 +464,7 @@ export default async function handler(req, res) {
   }
 
   console.log('[submit-past-shift] shift recorded', { request_id: requestId, cohortId: student.cohort_id, shiftStatus: status })
-  return res.status(200).json({ success: true, shift: inserted, totals })
+  return res.status(200).json({ success: true, shift, totals })
 }
 
 // Insert a program_events row once (deduped by student + cohort + type). Server

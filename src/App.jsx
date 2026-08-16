@@ -28,6 +28,7 @@ import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
 import StudentEvaluationPage from './pages/StudentEvaluationPage'
 import PostRotationEvaluationPage from './pages/PostRotationEvaluationPage'
 import UnitFormPage from './components/UnitFormPage'
+import { applyReviewTotals } from './lib/studentTotals'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import InterviewSchedulePage from './components/InterviewSchedulePage'
@@ -609,6 +610,14 @@ function MainApp({ onLogout }) {
   // fallback - an unmapped field throws. The local students-state merge is preserved.
   // (Preceptor/shift/interview_outcome are routed at the component level (A2/A3b);
   // this router covers the remaining staff domains.)
+  // SHIFT-LOG-REVIEW-1: a review decision recomputed approved/pending totals
+  // server-side. Canonical students live HERE (useState, not React Query), so
+  // the decision result is applied deterministically to this state - both
+  // review surfaces update immediately, no refetch or Realtime needed.
+  const applyStudentReviewTotals = useCallback((result) => {
+    setStudents(prev => applyReviewTotals(prev, result))
+  }, [setStudents])
+
   const updateStudent = useCallback(async (id, updates, _loadedUpdatedAt) => {
     const DOMAINS = [
       { keys: ['personal_email', 'phone'], helper: updateContact },
@@ -1124,6 +1133,7 @@ function MainApp({ onLogout }) {
                 accessFocusId={accessFocusId}
                 onExportCSV={exportCSV}
                 onAddStudent={() => setShowAddModal(true)}
+                onReviewDecided={applyStudentReviewTotals}
                 focusStudentId={focusStudentId}
                 onClearFocusStudent={() => setFocusStudentId(null)}
                 toast={toast}
@@ -1159,6 +1169,7 @@ function MainApp({ onLogout }) {
                 onDeleteUnit={deleteUnit}
                 highlightUnitId={highlightUnitId}
                 onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+                onReviewDecided={applyStudentReviewTotals}
                 focusActivityStudentId={focusActivityStudentId}
                 onFocusActivityConsumed={() => setFocusActivityStudentId(null)}
                 focusActivityShiftLogId={focusActivityShiftLogId}

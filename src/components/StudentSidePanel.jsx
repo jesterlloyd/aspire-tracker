@@ -215,7 +215,7 @@ function Field({ label, children, fieldKey }) {
 
 export default function StudentSidePanel({
   student, sortedStudents, onSelectStudent, onClose,
-  onUpdate, onDelete, units, toast,
+  onUpdate, onDelete, onReviewDecided, units, toast,
 }) {
   const [data,             setData]             = useState({ ...student })
   const [saveStatus,       setSaveStatus]       = useState('idle')
@@ -2572,7 +2572,21 @@ export default function StudentSidePanel({
             {/* ROTATION-ACTIVITY-CLINICAL-HOURS-DETAILS: extracted to the shared ClinicalHoursPanel
                 (totals + shift-log table + Shift Details modal). Same component now also powers
                 Rotation > Activity > Active Rotation Progress. */}
-            <ClinicalHoursPanel student={data} shiftLogs={shiftLogs} />
+            <ClinicalHoursPanel
+                  student={data}
+                  shiftLogs={shiftLogs}
+                  /* SHIFT-LOG-REVIEW-1: a decision's authoritative totals land in
+                     the panel's LOCAL copy immediately AND in App's canonical
+                     students state (the callback threaded from App). */
+                  onReviewDecided={(result) => {
+                    const approved = parseFloat(result?.approved_hours)
+                    const pending = parseFloat(result?.pending_hours)
+                    if (Number.isFinite(approved) && Number.isFinite(pending)) {
+                      setData(d => ({ ...d, approved_hours: approved, pending_hours: pending }))
+                    }
+                    onReviewDecided?.(result)
+                  }}
+                />
           </div>
 
           {/* 10. Notes */}

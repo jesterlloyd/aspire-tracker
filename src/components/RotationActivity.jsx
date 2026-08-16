@@ -88,7 +88,7 @@ function Badge({ label, tone }) {
 // Expanded clinical-hours detail for one student. Fetches the SAME per-student shift-log
 // query as the Student Profile (shared React Query cache key) and renders the shared
 // ClinicalHoursPanel - same totals, table, and Shift Details modal.
-function ActiveRotationHours({ student, autoOpenShiftLogId, onAutoOpenConsumed }) {
+function ActiveRotationHours({ student, autoOpenShiftLogId, onAutoOpenConsumed, onReviewDecided }) {
   const { data: shiftLogs = [], isLoading } = useQuery({
     queryKey: ['student_shift_logs', student.id],
     queryFn: async () => {
@@ -107,14 +107,15 @@ function ActiveRotationHours({ student, autoOpenShiftLogId, onAutoOpenConsumed }
       </div>
       {isLoading
         ? <div style={{ fontSize: 12.5, color: '#9ca3af', fontFamily: F }}>Loading hours…</div>
-        : <ClinicalHoursPanel student={student} shiftLogs={shiftLogs} autoOpenShiftLogId={autoOpenShiftLogId} onAutoOpenConsumed={onAutoOpenConsumed} />}
+        : <ClinicalHoursPanel student={student} shiftLogs={shiftLogs} autoOpenShiftLogId={autoOpenShiftLogId} onAutoOpenConsumed={onAutoOpenConsumed} onReviewDecided={onReviewDecided} />}
     </div>
   )
 }
 
-function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted, autoOpenShiftLogId, onAutoOpenConsumed, onSupportOpen }) {
+function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted, autoOpenShiftLogId, onAutoOpenConsumed, onSupportOpen, onReviewDecided }) {
   const { s, req, apv, pct, lastLog, daysSince, noRecentLog, missingPreceptor, onCampus,
-          precName, unitName, complete, nearComplete, shift, school, range, supportNeeded } = card
+          precName, unitName, complete, nearComplete, shift, school, range, supportNeeded,
+          pendingReview } = card
   const name = getStudentPreferredFullName(s)
   const barColor = pct >= 80 ? '#166534' : '#1D2567'
   const lastLogText = lastLog
@@ -143,6 +144,10 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlight
           {onCampus && <Badge label="On campus now" tone="sage" />}
           {missingPreceptor && <Badge label="No preceptor" tone="rose" />}
           {noRecentLog && <Badge label="No recent log" tone="amber" />}
+          {/* SHIFT-LOG-REVIEW-1: stranded hours are invisible until someone looks -
+              this badge is the per-student queue entry. Expanding the card shows
+              the Review action on each Pending Review row. */}
+          {pendingReview > 0 && <Badge label={`Needs review · ${pendingReview}`} tone="amber" />}
           {complete ? <Badge label="Complete" tone="green" />
             : nearComplete ? <Badge label="Near complete" tone="amber" /> : null}
           {/* SUPPORT-NEEDED-VISIBILITY-1: clickable badge when this student has ≥1 shift log with a
@@ -206,12 +211,12 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlight
      </div>
 
       {/* Expanded clinical-hours detail (shared ClinicalHoursPanel) */}
-      {expanded && <ActiveRotationHours student={s} autoOpenShiftLogId={autoOpenShiftLogId} onAutoOpenConsumed={onAutoOpenConsumed} />}
+      {expanded && <ActiveRotationHours student={s} autoOpenShiftLogId={autoOpenShiftLogId} onAutoOpenConsumed={onAutoOpenConsumed} onReviewDecided={onReviewDecided} />}
     </div>
   )
 }
 
-export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent, focusStudentId, onFocusConsumed, focusShiftLogId = null, onFocusShiftConsumed }) {
+export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent, onReviewDecided, focusStudentId, onFocusConsumed, focusShiftLogId = null, onFocusShiftConsumed }) {
   const { canEdit, userProfile } = useAuth()
   const profileId = userProfile?.id
   const { receipts: supportReceipts } = useSupportRequestReads(profileId)
@@ -224,6 +229,8 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // only expanding the card and leaving the reader to hunt the table.
   const [localSupportOpen, setLocalSupportOpen] = useState(null) // { studentId, shiftLogId }
   const [sortMode, setSortMode] = useState(DEFAULT_ROTATION_SORT)
+  // SHIFT-LOG-REVIEW-1: the Pending Review queue filter.
+  const [pendingOnly, setPendingOnly] = useState(false)
   const [highlightId, setHighlightId] = useState(null)
   const cardRefs = useRef({})   // { [studentId]: card element } - for scroll-into-view
   const focusTimers = useRef([]) // pending scroll/highlight cancelers - cleared on new focus / unmount
@@ -285,23 +292,32 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // Per-student last-log summary for the Active Rotation Progress section. Computed in the
   // async query (not during render) so the board stays free of impure render-time Date calls.
   // "No recent log" = no submitted shift in the last 7 days (mirrors Action Center act15).
-  const { data: logSummary = { summary: {}, supportLogs: [] } } = useQuery({
+  const { data: logSummary = { summary: {}, supportLogs: [], pendingByStudent: {} } } = useQuery({
     queryKey: ['rotation_log_summary', cohortId],
     queryFn: async () => {
       // SUPPORT-REQUEST-ACTION-CENTER-2: also read support_needed WITH the shift id (same table/rows,
       // no schema/RLS change) so the per-student badge can count UNREAD requests (derived in render
       // against the current user's receipts). id is required to match receipts per exact shift.
+      // SHIFT-LOG-REVIEW-1: status + lifecycle_state added to the SAME read (no
+      // new query, no RLS change) so the queue can count stranded Pending
+      // Review shifts per student across the whole cohort.
       const { data, error } = await supabase
         .from('student_shift_logs')
-        .select('id, student_id, submitted_at, support_needed')
+        .select('id, student_id, submitted_at, support_needed, status, lifecycle_state')
         .eq('cohort_id', cohortId)
       if (error) throw error
       const now = Date.now()
       const latest = {}
       const supportLogs = []
+      const pendingByStudent = {}
       for (const l of (data || [])) {
         // A support entry exists when the textbox is non-empty after trimming (null/blank = none).
         if ((l.support_needed || '').trim()) supportLogs.push({ id: l.id, student_id: l.student_id, support_needed: l.support_needed })
+        // Only COMPLETED pending-review shifts hold stranded hours (open shifts
+        // have null status; 'needs_review' is the legacy spelling).
+        if (l.lifecycle_state === 'completed' && (l.status === 'Pending Review' || l.status === 'needs_review')) {
+          pendingByStudent[l.student_id] = (pendingByStudent[l.student_id] || 0) + 1
+        }
         if (!l.submitted_at) continue
         const t = new Date(l.submitted_at).getTime()
         if (!latest[l.student_id] || t > latest[l.student_id].t) latest[l.student_id] = { t, iso: l.submitted_at }
@@ -315,7 +331,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
           noRecentLog: (now - v.t) > SEVEN_DAYS_MS,
         }
       }
-      return { summary, supportLogs }
+      return { summary, supportLogs, pendingByStudent }
     },
     enabled: !!cohortId && canEdit,
     refetchInterval: onActivityRoute ? 60 * 1000 : false,
@@ -386,6 +402,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         complete,
         nearComplete,
         supportNeeded: unreadSupportByStudent[s.id] || 0,
+        pendingReview: (logSummary.pendingByStudent || {})[s.id] || 0,
       }
     })
 
@@ -395,6 +412,20 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // percentage the card displays rather than raw approved hours.
   const sortedCards = [...cards].sort(
     rotationComparator(sortMode, c => getStudentPreferredFullName(c.s)))
+
+  // SHIFT-LOG-REVIEW-1: the Pending Review queue. The filter narrows the
+  // progress list to students with stranded shifts; the ledger of students who
+  // hold pending shifts but are NOT in the Active Rotation list (Placed,
+  // Completed, …) is named explicitly - a queue that silently drops them
+  // would recreate the original stranding.
+  const pendingByStudent = logSummary.pendingByStudent || {}
+  const totalPendingShifts = Object.values(pendingByStudent).reduce((a, b) => a + b, 0)
+  const visiblePendingIds = new Set(cards.filter(c => c.pendingReview > 0).map(c => c.s.id))
+  const offListPending = Object.keys(pendingByStudent)
+    .filter(sid => !visiblePendingIds.has(sid))
+    .map(sid => ({ student: students.find(s => s.id === sid), count: pendingByStudent[sid] }))
+    .filter(x => x.student)
+  const shownCards = pendingOnly ? sortedCards.filter(c => c.pendingReview > 0) : sortedCards
 
   return (
     <div style={{ padding: '4px 20px 24px', fontFamily: F }}>
@@ -413,15 +444,52 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
           subtitle="All students currently in active rotation, including those not on campus today."
         />
         {cards.length > 0 && (
-          <div style={{ margin: '0 2px 8px' }}>
+          <div style={{ margin: '0 2px 8px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {totalPendingShifts > 0 && (
+              <button
+                data-testid="pending-review-filter"
+                onClick={() => setPendingOnly(v => !v)}
+                aria-pressed={pendingOnly}
+                title="Show only students with shifts awaiting an Owner/Admin review decision"
+                style={{
+                  fontSize: 12, fontWeight: 700, fontFamily: F, padding: '6px 11px', borderRadius: 8,
+                  border: `1.5px solid ${pendingOnly ? '#78350F' : '#f0c9b0'}`, cursor: 'pointer',
+                  background: pendingOnly ? '#78350F' : '#FEF3C7', color: pendingOnly ? '#fff' : '#78350F',
+                }}>
+                Pending review · {totalPendingShifts}
+              </button>
+            )}
             <SortControl value={sortMode} onChange={setSortMode} />
           </div>
         )}
       </div>
-      {sortedCards.length === 0 ? (
-        <EmptyCard>No students are in active rotation right now.</EmptyCard>
+
+      {/* Students holding pending shifts who are NOT in the list below (not in
+          Active Rotation). Named so no stranded shift hides behind the filter. */}
+      {offListPending.length > 0 && (
+        <div data-testid="pending-offlist" style={{
+          margin: '0 0 8px', padding: '9px 12px', borderRadius: 10, fontFamily: F,
+          background: '#FBF5E8', border: '1px solid #f0c9b0', fontSize: 12.5, color: '#8B5E1A',
+        }}>
+          Also awaiting review (not in active rotation):{' '}
+          {offListPending.map(({ student: s, count }, i) => (
+            <span key={s.id}>
+              {i > 0 && ', '}
+              <button onClick={() => onNavigateToStudent?.(s.id)} style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                fontSize: 12.5, fontWeight: 700, color: '#78350F', fontFamily: F, textDecoration: 'underline',
+              }}>
+                {getStudentPreferredFullName(s)}
+              </button>
+              {` (${count})`}
+            </span>
+          ))}
+        </div>
+      )}
+      {shownCards.length === 0 ? (
+        <EmptyCard>{pendingOnly ? 'No active-rotation students have shifts pending review.' : 'No students are in active rotation right now.'}</EmptyCard>
       ) : (
-        sortedCards.map(card => (
+        shownCards.map(card => (
           <ProgressRowCard
             key={card.s.id}
             card={card}
@@ -437,6 +505,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
               : null}
             onAutoOpenConsumed={() => { onFocusShiftConsumed?.(); setLocalSupportOpen(null) }}
             onSupportOpen={openSupportShift}
+            onReviewDecided={onReviewDecided}
           />
         ))
       )}

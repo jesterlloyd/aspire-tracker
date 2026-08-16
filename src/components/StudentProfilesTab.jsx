@@ -60,7 +60,7 @@ function sortStudentsList(students, sortBy) {
 
 export default function StudentProfilesTab({
   students, units, cohortId,
-  onUpdate, onDelete, onRefresh, onSwitchToAccess,
+  onUpdate, onDelete, onRefresh, onSwitchToAccess, onReviewDecided,
   view, onViewChange,
   accessFocusId,
   onExportCSV, onAddStudent,
@@ -365,6 +365,7 @@ export default function StudentProfilesTab({
                 onClose={() => {}} // no-op; drawer is always open
                 onUpdate={onUpdate}
                 onDelete={onDelete}
+                onReviewDecided={onReviewDecided}
                 units={units}
                 toast={toast}
               />

@@ -8,7 +8,9 @@
 // ['student_shift_logs', student.id]) so each surface controls its own fetch + side effects.
 import { useState, useEffect } from 'react'
 import { Info } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import ShiftDetailsModal from './ShiftDetailsModal'
+import ShiftReviewModal from './ShiftReviewModal'
 import { useAuth } from '../contexts/AuthContext'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { isShiftSupportUnread } from '../lib/support/supportRequests'
@@ -16,8 +18,10 @@ import { shiftStatusChip, isPendingReview } from '../lib/shiftStatusChips'
 import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
 import ShiftNumberBadge from './ShiftNumberBadge'
 
-export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenShiftLogId = null, onAutoOpenConsumed }) {
+export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenShiftLogId = null, onAutoOpenConsumed, onReviewDecided }) {
   const [selectedShift, setSelectedShift] = useState(null)
+  const [reviewShift, setReviewShift] = useState(null)
+  const queryClient = useQueryClient()
   // SHIFT-SEQUENCE-1: the SAME ordinal rule the Unit Leader calendar uses
   // (src/lib/shiftOrdinals.js): per student, chronological over their whole
   // history, shift_date then checked_in_at then id, so the number for a given
@@ -127,14 +131,28 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
                     </button>
                   </td>
                   <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
-                    {/* WS1e-A4: per-shift approve/adjust/reject controls disabled - approved
-                        and pending hours are calculated from submitted shift logs and cannot
-                        be edited directly. Read-only status only. */}
+                    {/* SHIFT-LOG-REVIEW-1: the WS1e-A4 rule stands - aggregate hours are never
+                        edited directly. What replaced the disabled controls is a full review
+                        workflow: an Owner/Admin decision (approve / adjust / reject) through a
+                        service-role transactional RPC that recomputes both totals from the
+                        authoritative completed rows. Other staff roles still see read-only text. */}
                     {isPendingReview(log.status) && (
-                      <span style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic' }}
-                        title="Approved and pending hours are calculated from submitted shift logs and cannot be edited directly.">
-                        Pending review
-                      </span>
+                      ['owner', 'admin'].includes(userProfile?.role || '') ? (
+                        <button
+                          data-testid="review-shift-button"
+                          onClick={() => setReviewShift(log)}
+                          title="Review this shift: approve, adjust, or reject"
+                          style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                            border: '1px solid #78350F', background: '#FEF3C7', color: '#78350F',
+                            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                          Review
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic' }}
+                          title="Awaiting an Owner/Admin review decision.">
+                          Pending review
+                        </span>
+                      )
                     )}
                   </td>
                 </tr>
@@ -146,6 +164,27 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
 
       {/* Read-only Shift Details modal (shared component) */}
       <ShiftDetailsModal shift={selectedShift} onClose={() => setSelectedShift(null)} />
+
+      {/* SHIFT-LOG-REVIEW-1: Owner/Admin decision surface. After a decision:
+          the shift list and the pending-review queue re-read via their React
+          Query keys, and the student's new AUTHORITATIVE totals go up through
+          onReviewDecided to the ACTUAL owners of student state (App useState +
+          the side panel's local copy). Invalidating a ['students'] query key
+          would refresh nothing - no query holds that key; the canonical
+          students collection is App state. */}
+      {reviewShift && (
+        <ShiftReviewModal
+          shift={reviewShift}
+          student={data}
+          allLogs={shiftLogs}
+          onClose={() => setReviewShift(null)}
+          onDecided={(result) => {
+            queryClient.invalidateQueries({ queryKey: ['student_shift_logs', data.id] })
+            queryClient.invalidateQueries({ queryKey: ['rotation_log_summary'] })
+            onReviewDecided?.(result)
+          }}
+        />
+      )}
     </>
   )
 }

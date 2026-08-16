@@ -86,6 +86,7 @@ export default function RotationTab(props) {
             units={props.units}
             cohortId={props.cohortId || props.activeCohort?.id}
             onNavigateToStudent={props.onNavigateToStudent}
+            onReviewDecided={props.onReviewDecided}
             focusStudentId={props.focusActivityStudentId}
             onFocusConsumed={props.onFocusActivityConsumed}
             focusShiftLogId={props.focusActivityShiftLogId}
