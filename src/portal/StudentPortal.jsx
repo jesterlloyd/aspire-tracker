@@ -293,7 +293,13 @@ export default function StudentPortal({
             <p className="ptl-moment-line">Your placement is confirmed. Welcome to {student.unit_name || 'your unit'}.</p>
           )}
           <dl className="ptl-dl ptl-dl-lg">
-            <div><dt>Unit</dt><dd>{student.unit_name || TBC}</dd></div>
+            {/* MULTI-UNIT-STUDENT-PLACEMENTS-2: unit_name is the live primary
+                assignment; extra live units (rare) are listed alongside it. */}
+            <div><dt>Unit</dt><dd>{
+              (student.unit_names && student.unit_names.length > 1)
+                ? student.unit_names.join(' · ')
+                : (student.unit_name || TBC)
+            }</dd></div>
             <div><dt>Preceptor</dt><dd>{student.preceptor_name || TBC}</dd></div>
             <div><dt>Rotation window</dt><dd>{rotationWindow}</dd></div>
             <div><dt>School</dt><dd>{student.school || TBC}</dd></div>

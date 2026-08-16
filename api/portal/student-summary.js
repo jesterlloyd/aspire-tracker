@@ -90,6 +90,26 @@ export default async function handler(req, res) {
     }
   }
 
+  // MULTI-UNIT-STUDENT-PLACEMENTS-2: the student's units come from LIVE
+  // student_unit_assignments rows - primary first, additional after. The old
+  // source, students.unit, is a legacy column no writer ever populated, which
+  // is why every student's portal read "TBC" until now.
+  let unitsByStudent = {}
+  {
+    const { data: unitRows, error: uErr } = await db
+      .from('student_unit_assignments')
+      .select('student_id, unit_key, role, status')
+      .in('student_id', studentIds)
+      .in('status', ['planned', 'active'])
+    if (!uErr && unitRows) {
+      for (const u of unitRows) {
+        const list = (unitsByStudent[u.student_id] ||= [])
+        if (u.role === 'primary') list.unshift(u.unit_key)
+        else list.push(u.unit_key)
+      }
+    }
+  }
+
   const payload = (students || []).map(s => ({
     id: s.id,
     first_name: s.first_name,
@@ -100,7 +120,8 @@ export default async function handler(req, res) {
     headshot_url: s.headshot_url || null,
     phone: s.phone || null,
     badge_created: s.badge_created === true,
-    unit_name: s.unit || null,
+    unit_name: unitsByStudent[s.id]?.[0] || s.unit || null,
+    unit_names: unitsByStudent[s.id] || [],
     preceptor_name: assignmentsByStudent[s.id]?.preceptor_name || s.preceptor_name || null,
     term_dates: s.term_dates || null,
     cohort: cohortsById[s.cohort_id]

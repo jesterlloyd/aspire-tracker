@@ -30,6 +30,7 @@ import { createClient } from '@supabase/supabase-js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
 import { isOutsideRotationWindow } from '../../src/lib/rotationWindow.js'
+import { shiftMatchesAssignments, loadShiftAssignments } from '../lib/shiftUnitAssignments.js'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid']
@@ -91,16 +92,27 @@ async function buildExceptionFlags(db, ctx) {
   if (!preceptorName.trim()) flags.push('missing_preceptor')
   if (!['Placed', 'Active Rotation'].includes(student?.status)) flags.push('pre_placement_log')
 
-  // unit_and_preceptor_mismatch: different unit AND different preceptor.
+  // unit_and_preceptor_mismatch: unrecognized unit AND different preceptor.
+  // MULTI-UNIT-STUDENT-PLACEMENTS-2: "recognized" means ANY assignment whose
+  // dated window covers THIS shift's date, canonically named ('6NE' is '6 NE') -
+  // which is exactly what lets Emi's ended 6 NE assignment (Jul 8 - Aug 6)
+  // still validate her past shifts from that window. Students with no
+  // assignment rows keep the pre-existing single-unit compare.
   if (!isAssignedUnit) {
-    let assignedUnitName = ''
-    if (student.matched_unit_id) {
-      const { data: unit } = await db.from('units').select('unit_name').eq('id', student.matched_unit_id).maybeSingle()
-      assignedUnitName = unit?.unit_name || ''
+    const assignments = await loadShiftAssignments(db, student.id)
+    let unitRecognized
+    if (Array.isArray(assignments) && assignments.length > 0) {
+      unitRecognized = shiftMatchesAssignments(assignments, { shiftDate, unitName })
+    } else {
+      let assignedUnitName = ''
+      if (student.matched_unit_id) {
+        const { data: unit } = await db.from('units').select('unit_name').eq('id', student.matched_unit_id).maybeSingle()
+        assignedUnitName = unit?.unit_name || ''
+      }
+      unitRecognized = unitName.trim() === String(assignedUnitName || '').trim()
     }
-    const finalUnitDiffers = unitName.trim() !== String(assignedUnitName || '').trim()
     const preceptorDiffers = preceptorName.trim() !== String(student.matched_preceptor || '').trim()
-    if (finalUnitDiffers && preceptorDiffers) flags.push('unit_and_preceptor_mismatch')
+    if (!unitRecognized && preceptorDiffers) flags.push('unit_and_preceptor_mismatch')
   }
   return flags
 }

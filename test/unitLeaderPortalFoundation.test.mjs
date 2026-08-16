@@ -156,11 +156,18 @@ test('clearance and health attributes are absent from the onboarding rollup', ()
 })
 
 // ── The roster scope correction ──────────────────────────────────────────────
-test('the roster scopes through matched_unit_id, never the legacy unit column', () => {
-  assert.match(scope, /\.in\('matched_unit_id'/)
-  // The dead legacy filter is gone.
+test('the roster scopes through LIVE unit assignments, never the legacy unit column', () => {
+  // MULTI-UNIT-STUDENT-PLACEMENTS-2: the roster authorizes via live
+  // student_unit_assignments rows (planned/active only), replacing the single
+  // matched_unit_id join so multi-unit students appear under every live unit
+  // and historical assignments never grant access.
+  assert.match(scope, /\.from\('student_unit_assignments'\)/)
+  assert.match(scope, /\.in\('status', LIVE_ASSIGNMENT_STATUSES\)/)
+  assert.match(scope, /LIVE_ASSIGNMENT_STATUSES = Object\.freeze\(\['planned', 'active'\]\)/)
+  // The dead legacy filter is gone, and matched_unit_id no longer keys access.
   assert.doesNotMatch(roster, /\.in\('unit', unitKeys\)/)
   assert.doesNotMatch(scope, /\.in\('unit', /)
+  assert.doesNotMatch(scope, /\.in\('matched_unit_id'/)
 })
 
 test('the roster authorizes through the single source of truth', () => {

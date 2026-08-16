@@ -28,6 +28,7 @@ import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { lookupStudentByEmail } from '../lib/shiftLogLookup.js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
 import { isOutsideRotationWindow } from '../../src/lib/rotationWindow.js'
+import { shiftMatchesAssignments, loadShiftAssignments } from '../lib/shiftUnitAssignments.js'
 
 const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid']
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -302,15 +303,22 @@ function buildExceptionFlags(ctx) {
 
   if (!['Placed', 'Active Rotation'].includes(studentContext?.status)) flags.push('pre_placement_log')
 
-  // unit_and_preceptor_mismatch - reproduces the live form's full three-part rule:
+  // unit_and_preceptor_mismatch - the live form's compound rule, with the unit
+  // half now MULTI-UNIT AWARE (MULTI-UNIT-STUDENT-PLACEMENTS-2):
   //   (1) student worked a different unit (is_assigned_unit === false),
-  //   (2) the final unit_name actually differs from the assigned unit, AND
+  //   (2) the unit is NOT one ASPIRE assigned for THIS SHIFT'S DATE - any
+  //       planned/active/ended assignment whose window covers the date counts,
+  //       with canonical name matching ('6NE' is '6 NE'), AND
   //   (3) the preceptor differs from matched_preceptor.
-  // Trimmed, case-sensitive comparisons; null/blank assigned values coerce to ''.
+  // Students with no assignment rows keep the exact pre-existing single-unit
+  // string compare, so single-unit behavior is unchanged.
   if (!isAssignedUnit) {
-    const finalUnitDiffers = unitName.trim() !== String(studentContext?.assigned_unit_name || '').trim()
+    const assignments = studentContext?.unit_assignments
+    const unitRecognized = Array.isArray(assignments) && assignments.length > 0
+      ? shiftMatchesAssignments(assignments, { shiftDate, unitName })
+      : unitName.trim() === String(studentContext?.assigned_unit_name || '').trim()
     const preceptorDiffers = preceptorName.trim() !== String(studentContext?.matched_preceptor || '').trim()
-    if (finalUnitDiffers && preceptorDiffers) flags.push('unit_and_preceptor_mismatch')
+    if (!unitRecognized && preceptorDiffers) flags.push('unit_and_preceptor_mismatch')
   }
 
   return flags
@@ -383,7 +391,14 @@ async function fetchStudentContext(studentId) {
     if (unitError) return null
     assignedUnitName = unit?.unit_name || null
   }
-  return { ...data, assigned_unit_name: assignedUnitName }
+
+  // MULTI-UNIT-STUDENT-PLACEMENTS-2: every assignment row, so the mismatch flag
+  // can recognize any unit ASPIRE assigned for the shift's date. A load failure
+  // returns null and the flag falls back to the single assigned-unit compare -
+  // failing toward pre-existing behavior, never toward a false flag.
+  const unitAssignments = await loadShiftAssignments(supabaseAdmin, studentId)
+
+  return { ...data, assigned_unit_name: assignedUnitName, unit_assignments: unitAssignments }
 }
 
 // Same-day accepted/approved completed shifts, excluding the current shift.

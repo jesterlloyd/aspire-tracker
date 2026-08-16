@@ -12,6 +12,7 @@ import {
   SHIFT_OPTIONS, COHORTS,
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import StudentUnitAssignments from './StudentUnitAssignments'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { buildStudentFilename } from '../lib/fileUtils'
 import { signAndUploadStaffFile, cleanupStudentFiles, classifyStoredFileRef, fetchStudentFileUrl } from '../lib/studentFileClient'
@@ -2174,6 +2175,18 @@ export default function StudentSidePanel({
                 </div>
               </Field>
               <Field label="Matched Unit"><div className="sp-readonly">{matchedUnitName}</div></Field>
+              {/* MULTI-UNIT-STUDENT-PLACEMENTS-2: the full assignment picture -
+                  primary + additional, planned/active/ended, with Owner/Admin
+                  management. Matched Unit above stays as the at-a-glance
+                  primary projection. */}
+              <div className="sp-field" style={{ gridColumn: '1 / -1' }}>
+                <StudentUnitAssignments
+                  studentId={student.id}
+                  units={units}
+                  canManage={['owner', 'admin'].includes(userProfile?.role || '')}
+                  onChanged={() => queryClient?.invalidateQueries?.({ queryKey: ['students'] })}
+                />
+              </div>
               {/* Preceptor - shows normalized record when linked, free-text fields otherwise */}
               <div className="sp-field" style={{ gridColumn: '1 / -1' }}>
                 <label className="sp-field-lbl">Preceptor</label>

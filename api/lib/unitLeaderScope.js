@@ -15,7 +15,13 @@
 //   1. verified JWT                          -> user_profiles row (active only)
 //   2. ACTIVE user_role_grants 'unit_leader'  -> otherwise 403
 //   3. ACTIVE user_unit_scopes rows           -> the authorized unit_key set
-//   4. student -> unit via students.matched_unit_id -> units.unit_name
+//   4. student -> unit via LIVE student_unit_assignments rows
+//      (status planned/active, same cohort). MULTI-UNIT-STUDENT-PLACEMENTS-2:
+//      this replaced the single students.matched_unit_id join, so a student
+//      rotating in two units is visible to BOTH units' leaders. Only LIVE
+//      assignments authorize: ended and removed rows are never queried, so a
+//      historical assignment can never grant access - Emi's ended 6 NE row
+//      makes her visible to no 6 NE leader today.
 //   5. lifecycle bucket, with the 90-day completed window
 //
 // Deactivation, grant revocation, and scope revocation all take effect on the very
@@ -23,7 +29,9 @@
 //
 // UNIT IDENTITY: the canonical unit NAME string, matching user_unit_scopes.unit_key.
 // Established by 20260712000007: the units table is per cohort, so unit_name is the
-// stable identity. The link is students.matched_unit_id -> units.id -> units.unit_name.
+// stable identity. student_unit_assignments.unit_key carries that same identity
+// directly (snapshotted and trigger-verified against units.unit_name), so the
+// roster no longer joins through the deletable units row at all.
 // students.unit is a legacy column that no writer ever populates and is never used
 // here for authorization.
 
@@ -88,12 +96,19 @@ export async function verifyPortalUnitLeaderCaller(req) {
   }
 }
 
+/** Assignment statuses that AUTHORIZE roster access. Historical rows never do. */
+export const LIVE_ASSIGNMENT_STATUSES = Object.freeze(['planned', 'active'])
+
 /**
  * THE authorization query. Resolves every student the given scopes authorize.
  *
- * Scoping runs server side against students.matched_unit_id joined to
- * units.unit_name, restricted to the active scope's unit keys and cohort rules,
- * then filtered to visible lifecycle buckets.
+ * Scoping runs server side against LIVE student_unit_assignments rows
+ * (status planned/active), restricted to the active scope's unit keys and each
+ * assignment's own cohort, then filtered to visible lifecycle buckets.
+ *
+ * A student with live assignments in two scoped units appears ONCE PER UNIT -
+ * one entry per (student, unit_key) - with the primary assignment first, so a
+ * single-unit consumer that takes the first entry gets the primary context.
  *
  * Returns { students: [{ ...cols, unit_key, bucket }], unitKeys } or throws.
  */
@@ -103,35 +118,46 @@ export async function resolveUnitScopedStudents(db, scopes, { unitKey = null, no
 
   const unitKeys = [...new Set(effective.map(s => s.unit_key))]
 
-  // Resolve the authorized unit rows first. A unit_key that matches no units row
-  // simply yields nothing, which is the correct fail-closed outcome.
-  const { data: unitRows, error: uErr } = await db
-    .from('units')
-    .select('id, unit_name, cohort_id')
-    .in('unit_name', unitKeys)
-  if (uErr) throw new Error('unit_lookup_failed')
+  // LIVE assignments only. Ended/removed rows are excluded in the query itself,
+  // so a historical assignment is never even considered for access.
+  const { data: assignmentRows, error: aErr } = await db
+    .from('student_unit_assignments')
+    .select('student_id, cohort_id, unit_key, role, status')
+    .in('unit_key', unitKeys)
+    .in('status', LIVE_ASSIGNMENT_STATUSES)
+  if (aErr) throw new Error('assignment_lookup_failed')
 
-  // Keep only unit rows whose cohort the scope actually covers.
-  const allowedUnits = (unitRows || []).filter(u =>
-    effective.some(s => s.unit_key === u.unit_name && scopeCoversCohort(s, u.cohort_id)))
-  if (allowedUnits.length === 0) return { students: [], unitKeys }
+  // Keep only assignments whose OWN cohort the scope actually covers (the
+  // foundation guarantees assignment cohort = student cohort).
+  const authorized = (assignmentRows || []).filter(a =>
+    effective.some(s => s.unit_key === a.unit_key && scopeCoversCohort(s, a.cohort_id)))
+  if (authorized.length === 0) return { students: [], unitKeys }
 
-  const unitNameById = new Map(allowedUnits.map(u => [u.id, u.unit_name]))
-
+  const studentIds = [...new Set(authorized.map(a => a.student_id))]
   const { data: students, error: sErr } = await db
     .from('students')
     .select(UL_STUDENT_COLUMNS)
-    .in('matched_unit_id', [...unitNameById.keys()])
+    .in('id', studentIds)
     .in('status', ROSTER_STATUSES)
   if (sErr) throw new Error('student_lookup_failed')
 
+  const studentById = new Map((students || []).map(s => [s.id, s]))
+
+  // One entry per (student, unit_key), primary before additional so first-entry
+  // consumers keep the primary context; dedupe defensively on the pair.
+  const ordered = [...authorized].sort((a, b) =>
+    (a.role === 'primary' ? 0 : 1) - (b.role === 'primary' ? 0 : 1))
+  const seen = new Set()
   const visible = []
-  for (const s of students || []) {
-    const key = unitNameById.get(s.matched_unit_id)
-    if (!key) continue
+  for (const a of ordered) {
+    const s = studentById.get(a.student_id)
+    if (!s) continue
+    const pair = `${a.student_id}:${a.unit_key}`
+    if (seen.has(pair)) continue
+    seen.add(pair)
     const bucket = lifecycleBucket(s, now)
     if (!bucket) continue
-    visible.push({ ...s, unit_key: key, bucket })
+    visible.push({ ...s, unit_key: a.unit_key, bucket })
   }
   return { students: visible, unitKeys }
 }
