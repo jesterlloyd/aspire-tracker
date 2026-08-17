@@ -66,6 +66,7 @@ export default function RotationTab(props) {
         <div style={{ display: precView === 'directory' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
           <PreceptorsTable
             students={props.students}
+            units={props.units}
             cohortId={props.cohortId || props.activeCohort?.id}
             toast={props.toast}
           />

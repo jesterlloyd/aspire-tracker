@@ -16,7 +16,7 @@ function fmtDate(d) {
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function PreceptorsTable({ students = [], cohortId, toast }) {
+export default function PreceptorsTable({ students = [], units = [], cohortId, toast }) {
   const { data: preceptors = [], isLoading, error } = usePreceptors()
 
   // Fetch avatar_url from contacts by email for display-only avatar resolution.
@@ -296,6 +296,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
         onClose={() => setAddOpen(false)}
         onSaved={handleSaved}
         cohortId={cohortId}
+        units={units}
       />
 
       <PreceptorFormModal
@@ -304,6 +305,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
         onSaved={p => { handleSaved(p); setEditTarget(null) }}
         initialData={editTarget}
         cohortId={cohortId}
+        units={units}
       />
 
       {deleteTarget && (

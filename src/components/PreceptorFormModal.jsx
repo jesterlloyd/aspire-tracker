@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
+import { buildUnitOptions, optionLabel, resolveUnitName } from '../lib/preceptorUnitOptions'
 
 // Ensures a Contact record exists for this preceptor in ASPIRE Connect.
 // Called after every successful preceptor create/update.
@@ -35,29 +36,51 @@ async function ensurePreceptorContact(preceptor) {
   }
 }
 
-export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialData = null, cohortId }) {
+export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialData = null, cohortId, units: unitsProp }) {
   const [form, setForm]   = useState({ full_name: '', email: '', unit_id: '', shift_type: 'Variable', phone: '', notes: '' })
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
   const [syncNote, setSyncNote] = useState(null)  // non-blocking contact sync feedback
-  const [units, setUnits]     = useState([])
+  const [fetchedUnits, setFetchedUnits] = useState([])
   const queryClient = useQueryClient()
+
+  // PRECEPTOR-UNIT-DROPDOWN-1: prefer the active cohort's units already loaded
+  // by App - no second query at all on that path.
+  const usingProvidedUnits = Array.isArray(unitsProp)
 
   useEffect(() => {
     if (!isOpen) return
+    if (usingProvidedUnits) return   // nothing to fetch
 
     async function loadUnits() {
       try {
-        const { data, error } = await supabase.from('units').select('id, unit_name').order('unit_name')
+        // The leak was here: this query had no cohort filter, so it returned
+        // the same physical unit once per cohort. Callers that cannot pass
+        // units still get a correctly scoped list. Without a cohort there is
+        // nothing safe to offer, so we ask for nothing.
+        if (!cohortId) { setFetchedUnits([]); return }
+        const { data, error } = await supabase
+          .from('units')
+          .select('id, unit_name, cohort_id')
+          .eq('cohort_id', cohortId)
+          .order('unit_name')
         if (error) { console.error('[PreceptorFormModal] units query failed:', error); return }
-        setUnits(data || [])
+        setFetchedUnits(data || [])
       } catch (err) {
         console.error('[PreceptorFormModal] units query threw:', err)
       }
     }
 
     loadUnits()
-  }, [isOpen])
+  }, [isOpen, cohortId, usingProvidedUnits])
+
+  // Options are rebuilt whenever the cohort or the edited preceptor changes, so
+  // a cohort switch can never leave the previous cohort's units on screen.
+  const { options: unitOptions, selectedId: resolvedUnitId, resolution } = buildUnitOptions(
+    usingProvidedUnits ? unitsProp : fetchedUnits,
+    cohortId,
+    { unit_id: initialData?.unit_id, unit_name: initialData?.unit_name },
+  )
 
   useEffect(() => {
     if (!isOpen) return
@@ -65,7 +88,7 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
       setForm({
         full_name:  initialData.full_name  || '',
         email:      initialData.email      || '',
-        unit_id:    initialData.unit_id    || '',
+        unit_id:    resolvedUnitId          || '',
         shift_type: initialData.shift_type || 'Variable',
         phone:      initialData.phone      || '',
         notes:      initialData.notes      || '',
@@ -75,7 +98,23 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
     }
     setError(null)
     setSyncNote(null)
-  }, [isOpen, initialData])
+  }, [isOpen, initialData]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On the fetch path the units arrive AFTER the form has initialised, so the
+  // resolved unit has to be adopted once they land. Done during render (React's
+  // documented way to adjust state when inputs change) rather than in an
+  // effect, and only while the field still holds the stored value, so a choice
+  // the user just made is never overwritten.
+  const [adoptedUnitKey, setAdoptedUnitKey] = useState(null)
+  const adoptKey = initialData ? `${initialData.id}:${resolvedUnitId}` : null
+  if (
+    isOpen && adoptKey && adoptedUnitKey !== adoptKey &&
+    resolvedUnitId && resolvedUnitId !== form.unit_id &&
+    form.unit_id === (initialData.unit_id || '')
+  ) {
+    setAdoptedUnitKey(adoptKey)
+    setForm(p => ({ ...p, unit_id: resolvedUnitId }))
+  }
 
   if (!isOpen) return null
 
@@ -89,12 +128,11 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
     setSaving(true); setError(null)
 
     try {
-      const unit    = units.find(u => u.id === form.unit_id)
       const payload = {
         full_name:  form.full_name.trim(),
         email:      form.email.trim().toLowerCase(),
         unit_id:    form.unit_id  || null,
-        unit_name:  unit?.unit_name || null,
+        unit_name:  resolveUnitName(unitOptions, form.unit_id),
         shift_type: form.shift_type,
         phone:      form.phone.trim() || null,
         notes:      form.notes.trim() || null,
@@ -229,10 +267,20 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
             <div className="form-grid form-grid-2">
               <div className="form-field">
                 <label className="form-label">Unit</label>
-                <select className="form-select" value={form.unit_id} onChange={e => set('unit_id', e.target.value)}>
+                <select className="form-select" data-testid="preceptor-unit-select" value={form.unit_id} onChange={e => set('unit_id', e.target.value)}>
                   <option value="">Select unit…</option>
-                  {units.map(u => <option key={u.id} value={u.id}>{u.unit_name}</option>)}
+                  {unitOptions.map(u => <option key={u.id} value={u.id}>{optionLabel(u)}</option>)}
                 </select>
+                {/* The stored unit is not one of this cohort's units. It is kept
+                    exactly as saved so changing another field cannot alter it. */}
+                {(resolution === 'legacy' || resolution === 'ambiguous') && (
+                  <div data-testid="preceptor-unit-legacy-note"
+                    style={{ marginTop: 6, fontSize: 11, lineHeight: 1.45, color: '#92400e' }}>
+                    {resolution === 'ambiguous'
+                      ? 'This preceptor’s saved unit is from another cohort, and more than one unit here shares its name. It is kept as saved rather than guessing which one to use.'
+                      : 'This preceptor’s saved unit is not part of the active cohort. It is kept as saved unless you pick a different one.'}
+                  </div>
+                )}
               </div>
               <div className="form-field">
                 <label className="form-label">Shift Type</label>
