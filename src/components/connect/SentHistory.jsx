@@ -65,6 +65,36 @@ const FAILED_STATUSES     = new Set(['failed', 'bounced', 'complained'])
 // 00:00 of the day AFTER the last day (next-day-exclusive). The API uses
 // `sent_at >= start` and `sent_at < end`, so the entire local end day is covered
 // and no same-day message is dropped by a UTC boundary.
+
+// OUTREACH-ATTACHMENTS-1: what was attached, recorded as METADATA only.
+//
+// Deliberately NOT a download link. The bytes were emailed at send time and are
+// not retained by this record; the ASPIRE Catalog file they came from can be renamed,
+// replaced, deactivated or removed afterwards, so a link here would promise
+// something the record cannot guarantee. Staff who need the current file open it
+// in ASPIRE Catalog, where access is checked at that moment.
+function AttachmentsRow({ attachments }) {
+  const list = Array.isArray(attachments) ? attachments : []
+  if (list.length === 0) return null
+  return (
+    <div data-testid="sent-attachments" style={{ display: 'flex', gap: 8, padding: '3px 0', fontSize: 12 }}>
+      <span style={{ color: '#6b7280', minWidth: 120, flexShrink: 0 }}>Attachments</span>
+      <span style={{ color: '#191919', wordBreak: 'break-word' }}>
+        {list.map((a, i) => (
+          <span key={a.slug || i}>
+            {i > 0 && ', '}
+            {a.filename || a.title}
+            {a.size_label ? ` (${a.size_label})` : ''}
+          </span>
+        ))}
+        <span style={{ display: 'block', color: '#6b7280', fontSize: 11, marginTop: 2 }}>
+          Sent with this email. Open the current version in ASPIRE Catalog.
+        </span>
+      </span>
+    </div>
+  )
+}
+
 function startOfLocalDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
 }
@@ -157,6 +187,7 @@ function RowMetadata({ row }) {
       <MetaRow k="Recipient type" v={row.recipient_type || 'internal/system'} />
       <MetaRow k="Status" v={row.status} />
       <MetaRow k="Sent at" v={formatSentAt(row.sent_at)} />
+      <AttachmentsRow attachments={m.attachments} />
     </>
   )
 

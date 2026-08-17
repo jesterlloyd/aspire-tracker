@@ -155,7 +155,12 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
           <ContactsView refreshKey={refreshKey} />
         </div>
         <div style={{ display: activeSubTab === 'outreach' ? 'block' : 'none' }}>
-          <OutreachView cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} toast={toast} refreshKey={refreshKey} />
+          {/* OUTREACH-ATTACHMENTS-1: cohort is a HARD draft boundary. Keying the
+              composer by cohort remounts it on a switch, so no subject, body, CC
+              or attachment can survive into another cohort - and no in-flight
+              autosave can flush the old cohort's content into the new cohort's
+              key. Recipient-scoped restore inside one cohort is unchanged. */}
+          <OutreachView key={cohortId || 'no-cohort'} cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} toast={toast} refreshKey={refreshKey} />
         </div>
         {/* Messages mounts only for an authorized active Owner/Admin. Like the
             other sub-tabs it stays mounted while hidden, so search, filters,

@@ -45,6 +45,7 @@ import { Resend } from 'resend';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
 import { archiveManualMessage } from './lib/messageArchive.js';
+import { resolveAttachments } from './lib/outreachAttachments.js';
 import { resolveStudentCorrespondenceRecipient, isValidEmail } from '../src/lib/notifications/studentRecipient.js';
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
@@ -371,10 +372,18 @@ async function _handler(req, res, startMs) {
   });
 
   // ── 5b. PREVIEW: return exact HTML + resolved recipient/CC/signature. No send, no log. ──
+  // OUTREACH-ATTACHMENTS-1: preview reports the attachment list it WOULD send by
+  // resolving the same slugs through the same server path, so what Review shows
+  // is what Send uses. It still writes nothing and emails no one.
   if (isPreview) {
+    const pv = await resolveAttachments({ db: supabaseAdmin, slugs: body.attachment_slugs });
+    if (!pv.ok) {
+      return res.status(pv.status || 400).json({ success: false, error: pv.error });
+    }
     return res.status(200).json({
       success: true,
       html,
+      attachments: pv.summary,
       recipient: {
         email:   recipientEmail,
         type:    recipientSource,
@@ -398,6 +407,15 @@ async function _handler(req, res, startMs) {
     return res.status(hardError.status).json({ success: false, error: hardError.error });
   }
 
+  // ── 5c. Resolve attachments BEFORE any provider client exists ────────────────
+  // OUTREACH-ATTACHMENTS-1: an invalid, missing, inactive, unauthorized or
+  // oversized attachment fails HERE - before new Resend(...) and before the
+  // recipient is emailed. Slugs in, validated bytes out.
+  const att = await resolveAttachments({ db: supabaseAdmin, slugs: body.attachment_slugs });
+  if (!att.ok) {
+    return res.status(att.status || 400).json({ success: false, error: att.error });
+  }
+
   // ── 6. Send via Resend ────────────────────────────────────────────────────────
   const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -414,6 +432,7 @@ async function _handler(req, res, startMs) {
       ...(ccList.length ? { cc: ccList } : {}),
       subject:  trimmedSubject,
       html,
+      ...(att.attachments.length ? { attachments: att.attachments } : {}),
       tags: [
         { name: 'type',           value: 'direct_message' },
         { name: 'recipient_type', value: recipientType },
@@ -466,6 +485,10 @@ async function _handler(req, res, startMs) {
     cc_auto_suggested:     ccAutoSuggested,
     body_format:           resolvedBodyFormat,
     body_length:           trimmedBody.length,
+    // OUTREACH-ATTACHMENTS-1: metadata ONLY (slug, title, filename, type, size).
+    // Never bytes, storage paths, signed URLs, or upload tokens.
+    attachments:           att.summary,
+    attachment_count:      att.summary.length,
   };
   const logMetadata = recipientType === 'contact'
     ? { recipient_type: 'contact', contact_id: recipientId,  ...sharedMeta }

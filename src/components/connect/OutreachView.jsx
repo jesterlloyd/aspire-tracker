@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import AttachmentPicker from './AttachmentPicker'
+import { toSlugs, toDraftAttachments, fromDraftAttachments, sendBlockedReason } from '../../lib/connect/outreachAttachments'
 import Tooltip from '../ui/Tooltip'
 import { downloadCSV } from '../../lib/utils'
 import RecipientProfileCard from './RecipientProfileCard'
@@ -86,7 +88,11 @@ function readDirectDraft(key) {
   } catch { try { localStorage.removeItem(key) } catch { /* ignore */ } return null }
 }
 function directDraftIsEmpty(d) {
-  return !d || (!String(d.subject || '').trim() && !String(d.body || '').trim())
+  if (!d) return true
+  // OUTREACH-ATTACHMENTS-1: an attachment is real draft content, so a message
+  // carrying only attachments must still be saved and restored.
+  if (Array.isArray(d.attachments) && d.attachments.length > 0) return false
+  return !String(d.subject || '').trim() && !String(d.body || '').trim()
 }
 function readDraftPointer(userKey, cohortId) {
   const key = lastDraftPointerKey(userKey, cohortId)
@@ -407,7 +413,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
   // CONNECT-COMMS-1B: true "Preview as sent" - the exact branded HTML + server-resolved recipient,
   // fetched (debounced) from the same endpoint/renderer used to send. { html, recipient, loading, error }
-  const [dmPreview,         setDmPreview]          = useState({ html: '', recipient: null, cc: [], signature: null, loading: false, error: null })
+  const [dmPreview,         setDmPreview]          = useState({ html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
+  // OUTREACH-ATTACHMENTS-1: slugs + display text only. Never bytes or paths.
+  const [dmAttachments,     setDmAttachments]      = useState([])
   // CONNECT-COMMS-1D: CC support (Direct Message only). ccList = confirmed chips; ccInput = in-progress typing.
   // ccAutoSuggested flags that the coordinator chip was pre-filled (vs. manually added) for metadata/telemetry.
   const [ccList,            setCcList]             = useState([])
@@ -438,6 +446,22 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const draftTimerRef       = useRef(null)
   const draftStatusTimerRef = useRef(null)
   const draftHydratedRef    = useRef(false)
+  // OUTREACH-ATTACHMENTS-1 - the draft-persistence invariant.
+  //
+  // Mounting, hydrating, switching cohorts and unmounting must NEVER delete a
+  // draft. Only three things may: a successful send, an explicit Discard, or the
+  // user editing a fully hydrated draft until it is empty. Those first two call
+  // removeItem directly; the third is what these two refs make possible.
+  //
+  //   hydratedKeyRef - WHICH key the on-screen content was loaded for. The
+  //     boolean above only says "a restore ran", never "for this draft", so an
+  //     empty composer could persist against a key it had not loaded.
+  //   draftDirtyRef  - has the USER changed anything since that hydration? Set
+  //     only from real edit handlers, never from a restore. An untouched,
+  //     newly-mounted composer is therefore never dirty, so automatic
+  //     persistence writes nothing and deletes nothing.
+  const hydratedKeyRef      = useRef(null)
+  const draftDirtyRef       = useRef(false)
   const lastRecipientRef    = useRef(null)   // detects an actual recipient change vs. identity load
   const latestDraftRef      = useRef(null)   // latest values for the flush-on-hide/unmount writes
   // RICH-COMPOSE-2A-0: additive richDoc (TipTap JSON). When rich ON the editor updates it on edit;
@@ -749,6 +773,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // a reset cleared msgSubject/msgBody AFTER the restore set them). Restores this
   // recipient's saved draft if present; otherwise clears - but ONLY when the recipient
   // actually changed, so in-progress typing during auth (userKey) hydration is preserved.
+  //
+  // COHORT is deliberately NOT handled here. Connect.jsx keys this component by
+  // cohort, so a cohort switch remounts it with fresh state - a hard boundary no
+  // in-flight autosave can cross. This effect only has to handle a recipient
+  // change WITHIN one cohort.
   useEffect(() => {
     const recipientChanged = lastRecipientRef.current !== draftRecipientId
     lastRecipientRef.current = draftRecipientId
@@ -770,14 +799,28 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         : (isHtmlDraft ? htmlToPlainText(rawBody) : rawBody)
       setMsgBody(restoredBody)
       if (typeof d.includeSignature === 'boolean') setIncludeSignature(d.includeSignature)
+      // Only THIS recipient's attachments. A draft written before this feature
+      // has no attachments key and restores as an empty list.
+      setDmAttachments(fromDraftAttachments(d))
       flashDraftStatus('restored')
     } else if (recipientChanged) {
       setMsgSubject('')
       setMsgBody('')
       richDocRef.current = null
+      // No draft for the new recipient: never carry the previous one's files.
+      setDmAttachments([])
     }
     draftHydratedRef.current = true
+    hydratedKeyRef.current = DRAFT_KEY
+    draftDirtyRef.current = false   // a restore is not an edit
   }, [DRAFT_KEY, draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // OUTREACH-ATTACHMENTS-1: Send stays disabled until the server has resolved
+  // EXACTLY the current selection. A pending, stale, failed or oversized
+  // resolution blocks the send rather than falling back to the client's list.
+  const dmAttachmentBlock = sendBlockedReason(dmAttachments, dmPreview.attachments, {
+    previewError: dmPreview.error, previewLoading: dmPreview.loading,
+  })
 
   // ── Derived values ────────────────────────────────────────────────────────
   // effectiveStudent and studentHasDisplayInfo are declared earlier (before effects) to avoid TDZ.
@@ -867,8 +910,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     // raw plain text (flag OFF). Placeholders are preserved verbatim either way.
     if (richEnabled && richBody) {
       richDocRef.current = null
+      draftDirtyRef.current = true
       setMsgBody(richBody)
     } else {
+      draftDirtyRef.current = true
       setMsgBody(richEnabled ? plainTextToHtml(body) : body)
     }
     setIncludeSignature(true)  // template body has no signature - app appends the closing + sender block
@@ -1395,6 +1440,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           include_signature: includeSignature,
           cc:                ccToSend,
           cc_auto_suggested: ccAutoSuggested,
+          attachment_slugs:  toSlugs(dmAttachments),
         }),
       })
       let payload = null
@@ -1410,6 +1456,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         setCcInputError(null)
         setDmBodyExpanded(false)
         // Clear saved draft + resume pointer - sent content should not restore on next visit
+        setDmAttachments([])
+        draftDirtyRef.current = false   // sent: the cleared composer must not re-save
         if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
         try {
           const sentRecipId = recipientType === 'student' ? studentId : contactId
@@ -1435,7 +1483,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     } finally {
       setDmSendInFlight(false)
     }
-  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent, richEnabled])
+  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent, richEnabled, dmAttachments])
 
   // ── CONNECT-COMMS-1B: debounced true-preview fetch ────────────────────────
   // Calls the send endpoint in preview:true mode (no send, no log) so the inline preview and the
@@ -1443,21 +1491,23 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // school-first resolved recipient. Debounced so it does not fire per keystroke.
   useEffect(() => {
     if (outreachMode !== 'message' || !recipientType) {
-      setDmPreview({ html: '', recipient: null, cc: [], signature: null, loading: false, error: null })
+      setDmPreview({ html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
       return
     }
     const rid = recipientType === 'contact' ? contactId : studentId
     if (!rid || !msgBody.trim()) {
-      setDmPreview(p => ({ ...p, html: '', loading: false, error: null }))
+      setDmPreview(p => ({ ...p, html: '', attachments: [], loading: false, error: null }))
       return
     }
     let cancelled = false
-    setDmPreview(p => ({ ...p, loading: true, error: null }))
+    // Drop the previous run's resolved list immediately, so a stale size or
+    // filename can never be shown next to a changed selection.
+    setDmPreview(p => ({ ...p, attachments: [], loading: true, error: null }))
     const timer = setTimeout(async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) {
-          if (!cancelled) setDmPreview(p => ({ ...p, loading: false, error: 'Session expired, refresh to preview.' }))
+          if (!cancelled) setDmPreview(p => ({ ...p, attachments: [], loading: false, error: 'Session expired, refresh to preview.' }))
           return
         }
         const res = await fetch('/api/connect-send-direct-email', {
@@ -1473,21 +1523,24 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             include_signature: includeSignature,
             cc:                ccList,
             cc_auto_suggested: ccAutoSuggested,
+            attachment_slugs:  toSlugs(dmAttachments),
           }),
         })
         const data = await res.json().catch(() => null)
         if (cancelled) return
         if (res.ok && data?.success) {
-          setDmPreview({ html: data.html || '', recipient: data.recipient || null, cc: Array.isArray(data.cc) ? data.cc : [], signature: data.signature || null, loading: false, error: null })
+          // Server-resolved attachment list: the exact files that will be sent.
+          setDmPreview({ html: data.html || '', recipient: data.recipient || null, cc: Array.isArray(data.cc) ? data.cc : [], signature: data.signature || null, attachments: Array.isArray(data.attachments) ? data.attachments : [], loading: false, error: null })
         } else {
-          setDmPreview(p => ({ ...p, loading: false, error: data?.error || 'Preview unavailable.' }))
+          // Never leave a previous run's attachment list behind on failure.
+          setDmPreview(p => ({ ...p, attachments: [], loading: false, error: data?.error || 'Preview unavailable.' }))
         }
       } catch {
-        if (!cancelled) setDmPreview(p => ({ ...p, loading: false, error: 'Preview unavailable.' }))
+        if (!cancelled) setDmPreview(p => ({ ...p, attachments: [], loading: false, error: 'Preview unavailable.' }))
       }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, richEnabled])
+  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, richEnabled, dmAttachments])
 
   // ── CONNECT-COMMS-1D: coordinator CC suggestion (removable, never forced) ──
   // The clinical coordinator's email is sourced from fetchedStudent (the navigation state in
@@ -1568,16 +1621,29 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       recipId: recipientType === 'student' ? studentId : contactId,
       kind: recipientType === 'student' ? 'student' : 'contact',
       subject: msgSubject, body: msgBody, includeSignature, richDoc: richDocRef.current,
+      attachments: dmAttachments,
       name: dmRecipientName, email: resolvedToEmail || '', school: dmRecipientSchool || null,
     }
-  }, [DRAFT_KEY, userKey, cohortId, recipientType, studentId, contactId, msgSubject, msgBody, includeSignature, dmRecipientName, resolvedToEmail, dmRecipientSchool])
+  // dmAttachments IS a dependency: without it an attachment-only edit leaves this
+  // ref stale and persistDraftNow writes the PREVIOUS attachment list.
+  }, [DRAFT_KEY, userKey, cohortId, recipientType, studentId, contactId, msgSubject, msgBody, includeSignature, dmRecipientName, resolvedToEmail, dmRecipientSchool, dmAttachments])
+  // Marks the draft dirty. Called ONLY from real user-edit handlers, so a
+  // restore, a remount or a cohort switch can never look like an edit.
+  const markDraftDirty = useCallback(() => { draftDirtyRef.current = true }, [])
+
   const persistDraftNow = useCallback(() => {
     if (!draftHydratedRef.current) return
     const l = latestDraftRef.current
     if (!l || !l.DRAFT_KEY) return
+    // Only ever touch the draft this composer actually loaded...
+    if (l.DRAFT_KEY !== hydratedKeyRef.current) return
+    // ...and only once the user has actually changed something. Without this a
+    // freshly mounted, untouched composer would "save" its empty state over a
+    // real draft - which is a delete.
+    if (!draftDirtyRef.current) return
     // richDoc is additive: persisted only when present (omitted for legacy/text-only drafts), and the
     // OFF path carries the restored richDoc forward (richDocRef holds it) so it is never destroyed.
-    const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: l.subject, body: l.body, includeSignature: l.includeSignature, bodyFormat: richEnabled ? 'html' : 'text' }
+    const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: l.subject, body: l.body, includeSignature: l.includeSignature, bodyFormat: richEnabled ? 'html' : 'text', attachments: toDraftAttachments(l.attachments) }
     if (l.richDoc) payload.richDoc = l.richDoc
     try {
       if (directDraftIsEmpty(payload)) {
@@ -1599,10 +1665,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   useEffect(() => {
     if (!DRAFT_KEY || !draftHydratedRef.current) return
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
-    const nonEmpty = !directDraftIsEmpty({ subject: msgSubject, body: msgBody })
+    const nonEmpty = !directDraftIsEmpty({ subject: msgSubject, body: msgBody, attachments: dmAttachments })
     draftTimerRef.current = setTimeout(() => { persistDraftNow(); if (nonEmpty) flashDraftStatus('saved') }, DRAFT_DEBOUNCE_MS)
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current) }
-  }, [msgSubject, msgBody, includeSignature, DRAFT_KEY, persistDraftNow, flashDraftStatus])
+  }, [msgSubject, msgBody, includeSignature, dmAttachments, DRAFT_KEY, persistDraftNow, flashDraftStatus])
 
   // Flush immediately on tab-hide, browser close/refresh, AND SPA unmount (navigating away
   // from Connect) so a draft typed within the debounce window is never lost.
@@ -1659,6 +1725,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setCcList([])
     setCcInput('')
     setCcInputError(null)
+    setDmAttachments([])
     try {
       if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
       const recipId = recipientType === 'student' ? studentId : contactId
@@ -1666,6 +1733,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       const ptrKey = lastDraftPointerKey(userKey, cohortId)
       if (ptr && ptr.id === recipId && ptrKey) localStorage.removeItem(ptrKey)
     } catch { /* ignore */ }
+    draftDirtyRef.current = false   // discarded: nothing left to persist
     flashDraftStatus('discarded')
   }, [DRAFT_KEY, recipientType, studentId, contactId, cohortId, userKey, flashDraftStatus])
 
@@ -2247,7 +2315,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 <input
                   type="text"
                   value={msgSubject}
-                  onChange={e => setMsgSubject(e.target.value)}
+                  onChange={e => { markDraftDirty(); setMsgSubject(e.target.value) }}
                   placeholder="Email subject"
                   style={inputBase}
                   disabled={!dmHasAnyRecipient}
@@ -2261,7 +2329,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   <RichTextEditor
                     html={msgBody}
                     richDocRef={richDocRef}
-                    onChange={(html, json) => { setMsgBody(html); richDocRef.current = json || null }}
+                    onChange={(html, json) => { markDraftDirty(); setMsgBody(html); richDocRef.current = json || null }}
                     disabled={!dmHasAnyRecipient}
                     ariaLabel="Message"
                     minHeight={160}
@@ -2269,7 +2337,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 ) : (
                   <textarea
                     value={msgBody}
-                    onChange={e => setMsgBody(e.target.value)}
+                    onChange={e => { markDraftDirty(); setMsgBody(e.target.value) }}
                     placeholder={
                       dmHasAnyRecipient
                         ? 'Compose your message…'
@@ -2357,13 +2425,23 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 )}
               </div>
 
+              {/* OUTREACH-ATTACHMENTS-1: attach approved Library files */}
+              <div style={{ marginBottom: 12 }}>
+                <AttachmentPicker
+                  value={dmAttachments}
+                  onChange={next => { markDraftDirty(); setDmAttachments(next) }}
+                  disabled={dmSendInFlight}
+                  resolvedSizes={Object.fromEntries((dmPreview.attachments || []).map(a => [a.slug, a.size_bytes]))}
+                />
+              </div>
+
               {/* Signature toggle */}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
                   <input
                     type="checkbox"
                     checked={includeSignature}
-                    onChange={e => setIncludeSignature(e.target.checked)}
+                    onChange={e => { markDraftDirty(); setIncludeSignature(e.target.checked) }}
                     style={{ width: 14, height: 14, accentColor: '#1D2567' }}
                   />
                   Include my email signature
@@ -2460,6 +2538,21 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 })()}
 
                 {/* CC + signature source (CONNECT-COMMS-1D) */}
+                {dmPreview.attachments?.length > 0 && (
+                  <div data-testid="dm-preview-attachments"
+                    style={{ fontSize: 11.5, color: '#374151', fontFamily: F, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                    <span aria-hidden="true">📎</span>
+                    <span>Attachments ({dmPreview.attachments.length}):</span>
+                    {dmPreview.attachments.map(a => (
+                      <span key={a.slug} style={{
+                        fontSize: 11, padding: '2px 7px', borderRadius: 5,
+                        background: '#F1F5F9', border: '1px solid rgba(29,37,103,0.10)', color: '#1D2567',
+                      }}>
+                        {a.filename} · {a.size_label}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {dmPreview.cc?.length > 0 && (
                   <div style={{ fontSize: 12, color: '#374151', fontFamily: F, margin: '0 0 8px' }}>
                     CC: <strong>{dmPreview.cc.join(', ')}</strong>
@@ -3668,6 +3761,30 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               </div>
             </div>
 
+            {/* OUTREACH-ATTACHMENTS-1: the exact files the server resolved for
+                THIS send. Never the client's unverified selection. */}
+            {dmAttachments.length > 0 && (
+              <div data-testid="dm-confirm-attachments" style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>
+                  Attachments ({dmPreview.attachments.length})
+                </div>
+                {dmAttachmentBlock ? (
+                  <div data-testid="dm-confirm-attachments-blocked"
+                    style={{ fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
+                    {dmAttachmentBlock}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {dmPreview.attachments.map(a => (
+                      <div key={a.slug} style={{ fontSize: 12, color: '#374151', fontFamily: F }}>
+                        📎 {a.filename} · {a.content_type} · {a.size_label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* CONNECT-COMMS-1B: block send if no valid recipient email resolved. */}
             {dmPreview.recipient?.type === 'missing' && (
               <div style={{ fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontFamily: F }}>
@@ -3684,7 +3801,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
             {/* Footer */}
             {(() => {
-              const sendBlocked = !dmConfirmReady || dmSendInFlight || dmPreview.recipient?.type === 'missing'
+              const sendBlocked = !dmConfirmReady || dmSendInFlight || dmPreview.recipient?.type === 'missing' || !!dmAttachmentBlock
               return (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                   <button type="button" onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }}

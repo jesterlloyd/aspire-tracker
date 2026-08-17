@@ -298,7 +298,7 @@ test('regression: nothing else moved', async (t) => {
     assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
     assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
-    assert.match(connect, /<OutreachView cohortId=\{cohortId\}/)
+    assert.match(connect, /<OutreachView[^>]*cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)
     assert.match(read('../api/messages-staff-list.js'), /messages_staff_list_conversations_v2/)
     assert.match(read('../api/messages-staff-thread.js'), /messages_staff_get_thread_v2/)

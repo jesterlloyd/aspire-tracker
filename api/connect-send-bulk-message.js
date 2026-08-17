@@ -44,6 +44,7 @@ import { applyMergeFields } from '../src/lib/recipientParse.js';
 import { escapeHtml } from '../src/lib/htmlEscape.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
 import { archiveSentMessage } from './lib/messageArchive.js';
+import { resolveAttachments } from './lib/outreachAttachments.js';
 import { validateBulkRecipients } from './lib/bulkRecipientAllowlist.js';
 
 // Seeded fallback signatures for the two known leads (mirrors api/connect-send-direct-email.js).
@@ -266,9 +267,16 @@ async function _handler(req, res) {
     });
 
     // ── 8. Return preview - NO send, NO notification_log, NO message_archive ──
+    // OUTREACH-ATTACHMENTS-1: the same server resolver the send path uses, so
+    // Review & Send lists exactly the files every recipient will receive.
+    const pv = await resolveAttachments({ db: supabaseAdmin, slugs: body.attachment_slugs });
+    if (!pv.ok) {
+      return res.status(pv.status || 400).json({ success: false, error: pv.error });
+    }
     return res.status(200).json({
       success: true,
       html,
+      attachments: pv.summary,
       subject: mergedSubject,
       recipient: {
         email: recipientEmail,
@@ -367,6 +375,16 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
     });
   }
 
+  // ── S6b (OUTREACH-ATTACHMENTS-1). Resolve attachments ONCE, before the provider
+  // client exists. A bad attachment aborts the WHOLE batch here, so no recipient
+  // receives a partial or wrong-attachment email. The resulting bytes are reused
+  // verbatim for every send below - never re-resolved per recipient.
+  const att = await resolveAttachments({ db: supabaseAdmin, slugs: body.attachment_slugs });
+  if (!att.ok) {
+    console.warn('[connect-send-bulk-message] attachment_rejected:', { batch_id: batchId, error: att.error });
+    return res.status(att.status || 400).json({ success: false, error: att.error });
+  }
+
   const resend  = new Resend(process.env.RESEND_API_KEY);
   let attemptedSend = false;    // gate pacing so we only delay around real Resend calls
 
@@ -405,6 +423,8 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
         reply_to: replyTo,
         subject:  mergedSubject,
         html,
+        // The SAME resolved bytes for every recipient in the batch.
+        ...(att.attachments.length ? { attachments: att.attachments } : {}),
         tags: [
           { name: 'type',             value: 'bulk_message_sent' },
           { name: 'batch_id',         value: batchId },
@@ -450,6 +470,11 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
         sent_by_user_id:      senderUserId,
         sent_by_email:        senderEmail,
         signature_source:     senderSig.source,
+        // OUTREACH-ATTACHMENTS-1: identical metadata on every recipient's row,
+        // because every recipient received the identical resolved files. Names,
+        // types and sizes only - never bytes, paths, signed URLs or tokens.
+        attachments:          att.summary,
+        attachment_count:     att.summary.length,
       };
       let notificationLogId = null;
       try {

@@ -360,7 +360,7 @@ test('scope: the portal foundation stays out of the staff app', async (t) => {
     assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
     // The other Connect tabs are untouched.
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
-    assert.match(connect, /<OutreachView cohortId=\{cohortId\}/)
+    assert.match(connect, /<OutreachView[^>]*cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)
   })
 })

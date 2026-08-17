@@ -17,6 +17,8 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import AttachmentPicker from './AttachmentPicker'
+import { toSlugs, toDraftAttachments, fromDraftAttachments, sendBlockedReason } from '../../lib/connect/outreachAttachments'
 import { CANONICAL_APP_URL } from '../../lib/appUrl'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { getStudentPreferredFirstName } from '../../lib/studentNameFormatters'
@@ -119,7 +121,10 @@ function bulkDraftHasContent(type, d, rich) {
     (Array.isArray(d.studentSel) && d.studentSel.length > 0) ||
     (Array.isArray(d.contactSel) && d.contactSel.length > 0) ||
     (Array.isArray(d.picked)     && d.picked.length     > 0)
-  return contentEdited || audiencePicked
+  // OUTREACH-ATTACHMENTS-1: an attached file is a real edit, so a draft that
+  // only adds attachments is still saved and restored.
+  const hasAttachments = Array.isArray(d.attachments) && d.attachments.length > 0
+  return contentEdited || audiencePicked || hasAttachments
 }
 
 const CONTACT_CATEGORIES = ['All', 'Academic Partners', 'Unit Leadership', 'Preceptors', 'BNI Team', 'Nursing Executives', 'Other']
@@ -233,6 +238,10 @@ export default function BulkManualComposer({
   const [subject, setSubject]             = useState('')
   const [body, setBody]                   = useState('')
   const [includeSignature, setIncludeSig] = useState(true)
+  // OUTREACH-ATTACHMENTS-1: slugs + display text only.
+  const [attachments, setAttachments] = useState([])
+  // What actually went out, kept for the results panel after the composer clears.
+  const [sentAttachments, setSentAttachments] = useState([])
 
   // Draft autosave UX (mirrors Send-to-one): draftStatus drives the small inline indicator
   // ('saved' | 'restored' | 'discarded' | null). Scoped per user + cohort + message-type.
@@ -265,7 +274,7 @@ export default function BulkManualComposer({
   const [reviewOpen, setReviewOpen]       = useState(false)
   // Branded "Preview as sent" - { html, loading, error } from the existing DM preview endpoint
   // (preview:true → no send, no log, no archive). Only for id-bearing sample recipients.
-  const [preview, setPreview]             = useState({ html: '', loading: false, error: null })
+  const [preview, setPreview]             = useState({ html: '', attachments: [], loading: false, error: null })
 
   // ── Phase 2B-3 live send state ──────────────────────────────────────────────
   const [confirmText, setConfirmText]     = useState('')      // must equal CONFIRM_PHRASE exactly
@@ -305,6 +314,9 @@ export default function BulkManualComposer({
     setManualInvalids([])
     setRestoredAudience(0)
     setAckNotProceeding(false)
+    // OUTREACH-ATTACHMENTS-1: attachments are per message type. The hydrate
+    // effect below restores THIS type's saved list, if it has one.
+    setAttachments([])
   }
 
   // BULK-EXACT-RECIPIENTS-1: changing cohorts clears the audience. The students prop swaps to the
@@ -322,6 +334,7 @@ export default function BulkManualComposer({
     setManualInvalids([])
     setRestoredAudience(0)
     setAckNotProceeding(false)
+    setAttachments([])
   }
 
   // ── Draft hydrate (mirrors Send-to-one) ─────────────────────────────────────
@@ -363,6 +376,9 @@ export default function BulkManualComposer({
       if (Array.isArray(d.studentSel)) setStudentSel(new Set(d.studentSel))
       if (Array.isArray(d.contactSel)) setContactSel(new Set(d.contactSel))
       if (Array.isArray(d.picked))     setPicked(d.picked)
+      // Only THIS cohort+type's attachments. Legacy drafts have no attachments
+      // key and restore as an empty list.
+      setAttachments(fromDraftAttachments(d))
       // BULK-EXACT-RECIPIENTS-1: a restored audience is never silent. The count feeds a persistent
       // notice in the Audience panel until the operator dismisses, reviews, or clears it.
       const restoredCount =
@@ -385,7 +401,9 @@ export default function BulkManualComposer({
     // A draft is meaningful (worth persisting) if the content was edited OR an audience was chosen.
     // Selecting recipients counts; merely switching source/filters with no selection does not.
     const audienceEmpty = studentSel.size === 0 && contactSel.size === 0 && picked.length === 0
-    const pristine = bulkDraftIsPristine(bulkMsgType, subject, body, richEnabled) && audienceEmpty
+    // An attached file is a real edit: an otherwise untouched template WITH an
+    // attachment must be saved, and removing the last one returns to pristine.
+    const pristine = bulkDraftIsPristine(bulkMsgType, subject, body, richEnabled) && audienceEmpty && attachments.length === 0
     draftTimerRef.current = setTimeout(() => {
       try {
         if (pristine) {
@@ -400,13 +418,14 @@ export default function BulkManualComposer({
             studentSel: [...studentSel],
             contactSel: [...contactSel],
             picked,
+            attachments: toDraftAttachments(attachments),
           }))
           flashDraftStatus('saved')
         }
       } catch { /* ignore quota / serialization errors */ }
     }, BULK_DRAFT_DEBOUNCE_MS)
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current) }
-  }, [subject, body, includeSignature, source, studentEmailSrc, studentSel, contactSel, picked, BULK_DRAFT_KEY, bulkMsgType, richEnabled, flashDraftStatus])
+  }, [subject, body, includeSignature, source, studentEmailSrc, studentSel, contactSel, picked, attachments, BULK_DRAFT_KEY, bulkMsgType, richEnabled, flashDraftStatus])
 
   // Explicit discard: reset this message-type to its template default and clear the saved bulk draft
   // (this key only - Send-to-one drafts live under a different namespace and are untouched).
@@ -427,6 +446,7 @@ export default function BulkManualComposer({
     setRestoredAudience(0)
     setAckNotProceeding(false)
     setTrayOpen(false)
+    setAttachments([])
     try { if (BULK_DRAFT_KEY) localStorage.removeItem(BULK_DRAFT_KEY) } catch { /* ignore */ }
     flashDraftStatus('discarded')
   }, [bulkMsgType, BULK_DRAFT_KEY, richEnabled, flashDraftStatus])
@@ -539,7 +559,13 @@ export default function BulkManualComposer({
 
   // Order-independent signature of the current draft + audience (emails sorted) so harmless
   // recipient re-ordering from a refreshed `students` prop is not mistaken for an edit.
-  const draftSig = `${subject} ${body} ${recipients.map(r => r.normEmail).sort().join('|')}`
+  // OUTREACH-ATTACHMENTS-1: the attachment set is part of what was reviewed, so
+  // it belongs in the signature. Slugs stay in ORDER (unlike emails, which sort)
+  // because order is what the recipient sees and what the server resolves. A
+  // change here invalidates the completed-send context, the typed confirmation
+  // and the Not Proceeding acknowledgment, so the next send needs a fresh,
+  // intentional review - and the preview must re-resolve before Send re-enables.
+  const draftSig = `${subject} ${body} ${recipients.map(r => r.normEmail).sort().join('|')} @${toSlugs(attachments).join('>')}`
 
   // ── Reset a COMPLETED batch once the draft or audience genuinely changes ─────
   // Runs in an effect (refs are safe here): on the first commit after a successful send it captures
@@ -563,6 +589,12 @@ export default function BulkManualComposer({
   const batchCompleted  = sendResult !== null
   const confirmOk       = confirmText === CONFIRM_PHRASE
   const needsNpAck = notProceeding.length > 0 && !ackNotProceeding
+  // OUTREACH-ATTACHMENTS-1: with attachments selected, Send stays disabled until
+  // the server has resolved EXACTLY that selection. A pending, stale, failed or
+  // oversized resolution blocks the batch rather than sending an unverified list.
+  const attachmentBlock = sendBlockedReason(attachments, preview.attachments, {
+    previewError: preview.error, previewLoading: preview.loading,
+  })
   const canSend = (
     recipients.length > 0 &&
     !overLimit &&
@@ -572,7 +604,8 @@ export default function BulkManualComposer({
     confirmOk &&             // typed confirmation exact
     !needsNpAck &&           // Not Proceeding students require an explicit acknowledgment
     !sending &&              // not already sending
-    !batchCompleted          // completed batch cannot be re-sent
+    !batchCompleted &&       // completed batch cannot be re-sent
+    !attachmentBlock         // attachments must be server-resolved for THIS selection
   )
 
   // The acknowledgment never outlives its context: opening/closing the review or changing the
@@ -583,6 +616,11 @@ export default function BulkManualComposer({
   if (ackSeenContext !== ackContext) {
     setAckSeenContext(ackContext)
     if (ackNotProceeding) setAckNotProceeding(false)
+    // OUTREACH-ATTACHMENTS-1: the typed confirmation authorises ONE reviewed
+    // batch. draftSig now includes the ordered attachments, so changing them
+    // while the review is open retracts the confirmation - the operator must
+    // read the newly resolved attachment list and type it again.
+    if (confirmText) setConfirmText('')
   }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -716,6 +754,7 @@ export default function BulkManualComposer({
           body,
           body_format:       richEnabled ? 'html' : 'text',
           include_signature: includeSignature,
+          attachment_slugs:  toSlugs(attachments),
           recipients:        payloadRecipients,
         }),
       })
@@ -731,7 +770,12 @@ export default function BulkManualComposer({
         // BULK-EXACT-RECIPIENTS-1: a completed batch clears ALL recipient-selection state in the
         // same commit, so a finished audience can never leak into the next send. The results panel
         // reads sendResult (not the live selection), so the outcome stays fully visible.
+        // OUTREACH-ATTACHMENTS-1: snapshot the SERVER-RESOLVED attachments that
+        // rode along BEFORE the composer is cleared, so the results panel keeps
+        // telling the truth after the reset.
+        setSentAttachments(preview.attachments?.length ? preview.attachments : [])
         clearAll()
+        setAttachments([])
       } else {
         setSendError(data?.error || `Send failed (HTTP ${res.status}).`)
       }
@@ -757,11 +801,11 @@ export default function BulkManualComposer({
     let cancelled = false
     const timer = setTimeout(async () => {
       // id-bearing (student/contact) → direct-email preview; manual/raw → bulk-message preview endpoint.
-      if ((!previewRid && !isManualPreview) || !body.trim()) { if (!cancelled) setPreview({ html: '', loading: false, error: null }); return }
+      if ((!previewRid && !isManualPreview) || !body.trim()) { if (!cancelled) setPreview({ html: '', attachments: [], loading: false, error: null }); return }
       setPreview(p => ({ ...p, loading: true, error: null }))
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.access_token) { if (!cancelled) setPreview({ html: '', loading: false, error: 'Session expired, refresh to preview.' }); return }
+        if (!session?.access_token) { if (!cancelled) setPreview({ html: '', attachments: [], loading: false, error: 'Session expired, refresh to preview.' }); return }
         const url = previewRid ? '/api/connect-send-direct-email' : '/api/connect-send-bulk-message'
         // Direct-email renders the body as-given, so it gets the client-merged body. The bulk endpoint
         // performs its own canonical merge (with fallback), so it gets the RAW body + recipient.
@@ -774,6 +818,7 @@ export default function BulkManualComposer({
               body:              previewBody,
               body_format:       richEnabled ? 'html' : 'text',
               include_signature: includeSignature,
+              attachment_slugs:  toSlugs(attachments),
             }
           : {
               preview:           true,
@@ -782,6 +827,7 @@ export default function BulkManualComposer({
               body,
               body_format:       richEnabled ? 'html' : 'text',
               include_signature: includeSignature,
+              attachment_slugs:  toSlugs(attachments),
               recipient: {
                 email:     previewRecipient.email,
                 name:      previewRecipient.name,
@@ -797,12 +843,12 @@ export default function BulkManualComposer({
         })
         const data = await res.json().catch(() => null)
         if (cancelled) return
-        if (res.ok && data?.success) setPreview({ html: data.html || '', loading: false, error: null })
-        else setPreview({ html: '', loading: false, error: data?.error || 'Preview unavailable.' })
-      } catch { if (!cancelled) setPreview({ html: '', loading: false, error: 'Preview unavailable.' }) }
+        if (res.ok && data?.success) setPreview({ html: data.html || '', attachments: Array.isArray(data.attachments) ? data.attachments : [], loading: false, error: null })
+        else setPreview({ html: '', attachments: [], loading: false, error: data?.error || 'Preview unavailable.' })
+      } catch { if (!cancelled) setPreview({ html: '', attachments: [], loading: false, error: 'Preview unavailable.' }) }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewRid, isManualPreview, previewRecipient, previewSubject, previewBody, subject, body, includeSignature, bulkMsgType, richEnabled])
+  }, [previewRid, isManualPreview, previewRecipient, previewSubject, previewBody, subject, body, includeSignature, bulkMsgType, richEnabled, attachments])
 
   // ── Render helpers ──────────────────────────────────────────────────────────
   const sourceTab = (key, label) => (
@@ -1164,6 +1210,15 @@ export default function BulkManualComposer({
               )}
             </div>
           </div>
+          {/* OUTREACH-ATTACHMENTS-1: the same files go to every recipient. */}
+          <div style={{ marginBottom: 10 }}>
+            <AttachmentPicker
+              value={attachments}
+              onChange={setAttachments}
+              disabled={sending}
+              resolvedSizes={Object.fromEntries((preview.attachments || []).map(a => [a.slug, a.size_bytes]))}
+            />
+          </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#374151', fontFamily: F, cursor: 'pointer', marginBottom: 6 }}>
             <input type="checkbox" checked={includeSignature} onChange={e => setIncludeSig(e.target.checked)} style={{ accentColor: NAVY }} />
             Include my email signature
@@ -1274,13 +1329,44 @@ export default function BulkManualComposer({
               </h2>
               <div style={{ fontSize: 12, color: '#6b7280', fontFamily: F, marginTop: 4 }}>
                 {sendResult ? (
-                  `${sendResult.summary?.total ?? 0} recipient${(sendResult.summary?.total ?? 0) === 1 ? '' : 's'} in this batch`
+                  <>
+                    {`${sendResult.summary?.total ?? 0} recipient${(sendResult.summary?.total ?? 0) === 1 ? '' : 's'} in this batch`}
+                    {/* Snapshot of what actually went out - survives the composer reset. */}
+                    {sentAttachments.length > 0 && (
+                      <div data-testid="sent-result-attachments" style={{ marginTop: 6, color: '#374151' }}>
+                        📎 Sent with {sentAttachments.length} attachment{sentAttachments.length === 1 ? '' : 's'}:{' '}
+                        {sentAttachments.map(a => `${a.filename} (${a.size_label})`).join(', ')}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <>
                     {recipients.length} recipient{recipients.length === 1 ? '' : 's'} total (deduped)
                     {dupCount > 0 && ` · ${dupCount} duplicate${dupCount === 1 ? '' : 's'} removed`}
                     {invalidEntries.length > 0 && ` · ${invalidEntries.length} invalid ignored`}
                     {hiddenSelected > 0 && ` · ${hiddenSelected} not visible in the current audience view`}
+                    {attachments.length > 0 && (
+                      <div data-testid="review-attachments" style={{ marginTop: 8, color: '#374151' }}>
+                        {attachmentBlock ? (
+                          <div data-testid="review-attachments-blocked"
+                            style={{ color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 10px' }}>
+                            {attachmentBlock}
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ fontWeight: 600 }}>
+                              📎 Every recipient also receives {preview.attachments.length} attachment
+                              {preview.attachments.length === 1 ? '' : 's'}
+                            </div>
+                            {preview.attachments.map(a => (
+                              <div key={a.slug} style={{ marginTop: 2 }}>
+                                {a.filename} · {a.content_type} · {a.size_label}
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

@@ -104,7 +104,7 @@ test('Connect routing', async (t) => {
     }
     assert.match(connect, /<SegmentedTabs/)
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
-    assert.match(connect, /<OutreachView cohortId=\{cohortId\}/)
+    assert.match(connect, /<OutreachView[^>]*cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)
     assert.match(connect, /aspire\.connect\.lastTab/)
     // Mounted-but-hidden preservation is unchanged for every tab.

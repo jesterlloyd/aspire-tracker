@@ -116,6 +116,9 @@ function instrument(guardHref) {
     .replace(/from '\.\.\/src\/lib\/htmlEscape\.js'/, `from ${abs('src/lib/htmlEscape.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/templates\/signatures\.js'/, `from ${abs('src/lib/notifications/templates/signatures.js')}`)
     .replace(/from '\.\/lib\/messageArchive\.js'/, `from ${abs('api/lib/messageArchive.js')}`)
+    // OUTREACH-ATTACHMENTS-1: point at the real resolver so the payload test
+    // keeps exercising the shipped attachment path rather than a stub.
+    .replace(/from '\.\/lib\/outreachAttachments\.js'/, `from ${abs('api/lib/outreachAttachments.js')}`)
     .replace(/from '\.\/lib\/bulkRecipientAllowlist\.js'/, `from ${guardHref}`)
     // No pacing in tests: the 300ms inter-send sleep would slow nothing but the runner.
     .replace(/const SEND_DELAY_MS\s*=\s*300;/, 'const SEND_DELAY_MS = 0;')
