@@ -740,13 +740,24 @@ function MainApp({ onLogout }) {
   }
 
   // ── Matching ─────────────────────────────────────────────────
-  const createMatch = async (student, unit) => {
+  const createMatch = async (student, unit, options = {}) => {
     if (!activeCohortId) return
-    // Guard: only place students who have completed an interview
-    if (!['Interviewed', 'Placed'].includes(student.status)) {
+    // Guard: only place students who have completed an interview.
+    //
+    // PLACEMENT-POOL-READINESS-1: the ONE exception is an approved
+    // pre-interview placement, and it is only ever reachable after the staff
+    // member explicitly confirmed it in the Placement Board dialog. The flag
+    // is never derived from a preference, an open slot, or employment - it is
+    // a human decision, recorded below in the activity log.
+    const needsException = !['Interviewed', 'Placed'].includes(student.status)
+    const isApprovedException = needsException && options.placementException === true
+    if (needsException && !isApprovedException) {
       toast.warning('Interview required', `${student.first_name} has not completed an interview yet. Complete the interview before placing.`)
       return
     }
+    // The original values are read BEFORE any write, so the audit below reports
+    // the state at the moment of the decision even though it is written later.
+    const statusAtPlacement = student.status || null
     const match_quality = unit.unit_name === student.unit_preference_1 ? 'top_choice'
       : unit.unit_name === student.unit_preference_2 ? 'second_choice'
       : 'other'
@@ -755,6 +766,26 @@ function MainApp({ onLogout }) {
       { name: 'create match' }
     )
     if (error) { console.error(error); return }
+    // PLACEMENT-POOL-READINESS-1: the exception audit is written ONLY here,
+    // after the match row actually exists. Written any earlier, a failed insert
+    // (the early return above) would leave an activity entry claiming a
+    // placement that never happened.
+    if (isApprovedException) {
+      logActivity({
+        userProfile: currentUserProfile,
+        actionType: 'placement_exception_confirmed',
+        entityType: 'student',
+        entityId: student.id,
+        cohortId: activeCohortId,
+        description: `${currentUserProfile?.full_name || 'A staff member'} placed ${student.first_name} ${student.last_name} into ${unit.unit_name} as an approved exception (status was ${statusAtPlacement || 'not set'}, not Interviewed).`,
+        metadata: {
+          unit_id: unit.id,
+          unit_name: unit.unit_name,
+          status_at_placement: statusAtPlacement,
+          match_id: m?.id ?? null,
+        },
+      })
+    }
     // Derive slots_remaining from actual match count so the field self-corrects
     // even if it was previously initialised incorrectly (e.g., stuck at 0).
     const currentMatchCount = matches.filter(m => m.unit_id === unit.id).length  // before new match
@@ -762,8 +793,19 @@ function MainApp({ onLogout }) {
     // Phase 2A.1 (May 26, 2026): renamed from 'Accepted' to 'Recommend' as part of
     // interview_outcome vocabulary cleanup. This handler still overwrites whatever
     // the rubric set, which is a design smell flagged for Phase 2B disposition work.
+    //
+    // PLACEMENT-POOL-READINESS-1: an approved PRE-interview exception has no
+    // interview, so writing 'Recommend' would fabricate an interview outcome
+    // that no one ever recorded. Only the normal Interviewed path writes it.
+    // Omitting the key leaves the stored value untouched.
+    const studentPatch = {
+      matched_unit_id: unit.id,
+      match_quality,
+      status: 'Placed',
+      ...(isApprovedException ? {} : { interview_outcome: 'Recommend' }),
+    }
     await safeWrite(
-      () => supabase.from('students').update({ matched_unit_id: unit.id, interview_outcome: 'Recommend', match_quality, status: 'Placed' }).eq('id', student.id),
+      () => supabase.from('students').update(studentPatch).eq('id', student.id),
       { name: 'update student on match' }
     )
     await safeWrite(
@@ -772,8 +814,11 @@ function MainApp({ onLogout }) {
     )
     updateCohortMatchSummary([...matches, m])
     setMatches(prev => [...prev, m])
+    // Same patch as the canonical write above, so the local projection cannot
+    // drift from the database (an exception placement keeps its existing
+    // interview_outcome in both places).
     setStudents(prev => prev.map(s =>
-      s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Recommend', match_quality, status: 'Placed' } : s
+      s.id === student.id ? { ...s, ...studentPatch } : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
     const alreadyPlaced = await eventExists(supabase, student.id, 'placement')

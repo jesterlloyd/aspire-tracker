@@ -66,6 +66,7 @@ function getOpenCount(unitName, units, matches) {
 export default function StudentMatchingCard({
   student, isSelected, onSelect, isReadOnly,
   isFading, isFadingIn, units, matches, focusedUnit, rotation,
+  needsException = false,
 }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -152,6 +153,27 @@ export default function StudentMatchingCard({
         position:     'relative',
       }}
     >
+      {/* PLACEMENT-POOL-READINESS-1: shown in the broader "All eligible
+          students" mode, where a not-yet-interviewed student is visible and
+          placing them is an approved exception. Deliberately OUTSIDE the
+          focusedUnit block below: the warning must not depend on whether a
+          unit happens to be selected. */}
+      {needsException && (
+        <div
+          data-testid="card-not-interviewed"
+          title="Placing this student requires an approved exception"
+          style={{
+            alignSelf: 'flex-start',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            fontSize: 10, fontWeight: 700, fontFamily: F,
+            padding: '3px 9px', borderRadius: 20,
+            background: '#FEF3C7', color: '#92400e', border: '1px solid #fde68a',
+          }}
+        >
+          Not interviewed · exception required
+        </div>
+      )}
+
       {/* ── Tier header chip + shift compatibility cue - shown when a unit filter is active ── */}
       {focusedUnit && (() => {
         const chipStyle = choiceTier === 1

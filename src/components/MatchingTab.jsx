@@ -16,6 +16,10 @@ import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { canPerformMatching } from '../lib/permissions'
 import { KPICell, useUpdatedLabel } from './KPIBand'
 import { unitOpenSlots, totalOpenSlots, derivePrefCounts } from '../lib/placementDisplay'
+import {
+  READINESS_MODES, DEFAULT_READINESS_MODE, filterPoolByReadiness,
+  needsPlacementException, exceptionCount, isPoolEligible,
+} from '../lib/placementReadiness'
 // ── Unified Placement Overview - single panel replacing Placement at a Glance + Preference Match Ring ──
 
 const PREF_SEGMENTS = [
@@ -117,11 +121,9 @@ export const getInterviewStatus = (s) => {
 // (MATCH_QUALITY_CONFIG removed: match-rank display now comes from the
 // stored-rank config in lib/placementDisplay.js - one source, no duplicate.)
 
-// Blacklist: exclude students who are already placed or finished
-// (whitelist approach was too strict and excluded students with edge-case statuses)
-const POOL_INELIGIBLE_STATUSES = new Set([
-  'Placed', 'Active Rotation', 'Completed', 'Declined', 'Not Proceeding',
-])
+// PLACEMENT-POOL-READINESS-1: pool membership and readiness now live in
+// src/lib/placementReadiness.js so they are unit-testable against every status
+// and cannot drift from the createMatch guard.
 
 export default function MatchingTab({
   students, units, matches, cohortId, cohort,
@@ -140,7 +142,9 @@ export default function MatchingTab({
   useEffect(() => {
     if (!focusMatchStudentId) return
     const s = students.find(x => x.id === focusMatchStudentId)
-    if (s) setSelectedStudent(s)
+    // Interviews only routes 'Interviewed' students here, so they are visible
+    // in the default mode; anything else fails closed to no selection.
+    if (s && isPoolEligible(s)) setSelectedStudent(s)
     onFocusMatchConsumed?.()
   }, [focusMatchStudentId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [showUnitSetup,     setShowUnitSetup]     = useState(false)
@@ -148,6 +152,25 @@ export default function MatchingTab({
   const [poolSearch,        setPoolSearch]        = useState('')
   const [poolSchool,        setPoolSchool]        = useState('')
   const [poolSort,          setPoolSort]          = useState('last_name_asc')
+  // Readiness is a FILTER, deliberately separate from the sort above.
+  const [readiness,         setReadiness]         = useState(DEFAULT_READINESS_MODE)
+  // Pending approved-exception placement: { student, unit } awaiting confirmation.
+  const [exceptionPlacement, setExceptionPlacement] = useState(null)
+
+  // PLACEMENT-POOL-READINESS-1: a cohort switch returns the pool to the safe
+  // default. The broader exception view is a deliberate, per-cohort choice and
+  // must never silently persist into a different cohort's placement work; any
+  // half-finished exception confirmation is dropped with it.
+  //
+  // Adjusted during render (React's documented pattern for resetting state when
+  // a prop changes) rather than in an effect, so the pool never paints one
+  // frame of the previous cohort's mode.
+  const [readinessCohort, setReadinessCohort] = useState(cohortId)
+  if (cohortId !== readinessCohort) {
+    setReadinessCohort(cohortId)
+    setReadiness(DEFAULT_READINESS_MODE)
+    setExceptionPlacement(null)
+  }
   const [divFilter,         setDivFilter]         = useState('')
   const [sortMode,          setSortMode]          = useState('alpha')
   const [fadingStudentIds,  setFadingStudentIds]  = useState(new Set())
@@ -189,9 +212,13 @@ export default function MatchingTab({
   }, [rotationRows])
 
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
-  // Pool only shows students who are unmatched AND have an eligible ASPIRE status
-  // (excludes Placed, Active Rotation, Completed, Declined)
-  const unmatchedAll    = students.filter(s => !s.matched_unit_id && !POOL_INELIGIBLE_STATUSES.has(s.status))
+  // PLACEMENT-POOL-READINESS-1: 'Ready to place' (the default) is exactly the
+  // set createMatch accepts; 'All eligible students' restores the previous
+  // contents for approved pre-interview exceptions. Neither mode can include a
+  // Not Proceeding, Placed, Active Rotation, Completed, or Declined student.
+  const unmatchedAll    = filterPoolByReadiness(students, readiness)
+  const eligibleAll     = students.filter(isPoolEligible)
+  const hiddenExceptions = readiness === 'ready' ? exceptionCount(students) : 0
   const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
   // ASPIRE-CHART: counts come from STORED match ranks (shared module), never
@@ -321,6 +348,18 @@ export default function MatchingTab({
 
   const handleStudentSelect = s => setSelectedStudent(prev => prev?.id === s.id ? null : s)
 
+  // The single placement commit path, shared by the normal and exception flows.
+  const commitPlacement = (student, unit, isException) => {
+    const id = student.id
+    // Start exit animation
+    setFadingStudentIds(prev => new Set([...prev, id]))
+    setTimeout(() => {
+      setFadingStudentIds(prev => { const n = new Set(prev); n.delete(id); return n })
+    }, 280)
+    onMatch(student, unit, { placementException: isException })
+    setSelectedStudent(null)
+  }
+
   const handleSlotClick = unit => {
     if (!selectedStudent || !canMatch) return
     // Use actual match count as the canonical capacity check so the guard
@@ -338,15 +377,16 @@ export default function MatchingTab({
       toast?.warning('No slots available', 'This unit has no remaining open slots.')
       return
     }
-    const id = selectedStudent.id
-    // Start exit animation
-    setFadingStudentIds(prev => new Set([...prev, id]))
-    setTimeout(() => {
-      setFadingStudentIds(prev => { const n = new Set(prev); n.delete(id); return n })
-    }, 280)
-    onMatch(selectedStudent, unit)
-    setSelectedStudent(null)
+    // PLACEMENT-POOL-READINESS-1: placing a student who has not been
+    // interviewed is an approved EXCEPTION, never a routine action. Ask first;
+    // commitPlacement runs only after an explicit confirmation.
+    if (needsPlacementException(selectedStudent)) {
+      setExceptionPlacement({ student: selectedStudent, unit })
+      return
+    }
+    commitPlacement(selectedStudent, unit, false)
   }
+
 
   const handleUnmatch = (student, unit) => {
     onUnmatch(student, unit)
@@ -533,6 +573,17 @@ export default function MatchingTab({
                 <option value="">All Schools</option>
                 {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              <Tooltip label="Which students to show" placement="bottom">
+              <select
+                value={readiness}
+                onChange={e => setReadiness(e.target.value)}
+                className="embed-light-select"
+                aria-label="Placement readiness"
+                data-testid="pool-readiness"
+              >
+                {READINESS_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+              </Tooltip>
               <Tooltip label="Sort students" placement="bottom">
               <select value={poolSort} onChange={e => setPoolSort(e.target.value)} className="embed-light-select" aria-label="Sort students">
                 <option value="last_name_asc">Last Name A–Z</option>
@@ -548,6 +599,11 @@ export default function MatchingTab({
                 {selectedStudent
                   ? `${selectedIndex + 1} of ${sortedPool.length}`
                   : `${sortedPool.length} student${sortedPool.length !== 1 ? 's' : ''}`}
+                {!selectedStudent && hiddenExceptions > 0 && (
+                  <span data-testid="pool-hidden-note" style={{ marginLeft: 6, color: '#92400e' }}>
+                    · {hiddenExceptions} not yet interviewed
+                  </span>
+                )}
               </span>
               <StatusLegendPopover position="bottom-right" dark={false} />
               {sortedPool.length > 0 && (
@@ -611,19 +667,30 @@ export default function MatchingTab({
               )}
 
               {filteredPool.length === 0 ? (
-                unmatchedAll.length === 0
+                /* "All students matched" must mean genuinely NOBODY is left to
+                   place - measured against every eligible student, not just the
+                   ones the current readiness mode shows. */
+                eligibleAll.length === 0
                   ? <EmptyState icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
                       heading="All students matched"
                       subtext="Every available student has been placed. Check the Student Profiles tab to review placements." />
                   : <EmptyState icon={<Users />}
-                      heading="No students ready for matching"
-                      subtext="Students appear here after completing their interview and being recommended for placement." />
+                      heading={readiness === 'ready' ? 'No students ready to place' : 'No students match this search'}
+                      subtext={readiness === 'ready'
+                        ? (hiddenExceptions > 0
+                            ? `Students appear here after completing their interview. ${hiddenExceptions} eligible student${hiddenExceptions !== 1 ? 's have' : ' has'} not been interviewed yet - switch to "All eligible students" to place one as an approved exception.`
+                            : 'Students appear here after completing their interview and being recommended for placement.')
+                        : 'No eligible students match the current search or school filter.'} />
               ) : (
                 <div className="embed-student-grid">
                   {sortedPool.map(s => (
                     <div key={s.id} ref={el => { cardRefs.current[s.id] = el }}>
                       <StudentMatchingCard
                         student={s}
+                        /* PLACEMENT-POOL-READINESS-1: in the broader mode a
+                           student who has not been interviewed is labelled, so
+                           an exception is never made by accident. */
+                        needsException={needsPlacementException(s)}
                         isSelected={selectedStudent?.id === s.id}
                         onSelect={handleStudentSelect}
                         isFading={fadingStudentIds.has(s.id)}
@@ -649,6 +716,53 @@ export default function MatchingTab({
       {showImportUnits && (
         <ImportUnitsCSV cohortId={cohortId} onImported={onRefreshUnits}
           onClose={() => setShowImportUnits(false)} />
+      )}
+
+      {/* PLACEMENT-POOL-READINESS-1: approved pre-interview placement exception.
+          Nothing is written until this is explicitly confirmed. */}
+      {exceptionPlacement && (
+        <div className="modal-overlay" onMouseDown={() => setExceptionPlacement(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div role="dialog" aria-modal="true" aria-label="Confirm placement exception"
+            data-testid="placement-exception-dialog"
+            onMouseDown={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 12, maxWidth: 520, width: '92vw', padding: 20,
+              fontFamily: 'DM Sans, sans-serif' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, color: '#1D2567' }}>
+              Placement exception: not yet interviewed
+            </h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#4b5563', margin: '0 0 10px' }}>
+              <b>{[exceptionPlacement.student.first_name, exceptionPlacement.student.last_name].filter(Boolean).join(' ') || exceptionPlacement.student.name}</b>
+              {' '}has the ASPIRE status <b>{exceptionPlacement.student.status || 'not set'}</b>, not
+              {' '}<b>Interviewed</b>. Placing them into <b>{exceptionPlacement.unit.unit_name}</b> is
+              an exception to the normal interview-first rule.
+            </p>
+            <p style={{ fontSize: 13, lineHeight: 1.55, color: '#4b5563', margin: '0 0 14px' }}>
+              Continue only if this placement has been approved. The student will be set to
+              <b> Placed</b>, and the exception will be recorded in the activity log with your name.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setExceptionPlacement(null)}
+                style={{ padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                data-testid="placement-exception-confirm"
+                onClick={() => {
+                  const { student, unit } = exceptionPlacement
+                  setExceptionPlacement(null)
+                  commitPlacement(student, unit, true)
+                }}
+                style={{ padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  border: 'none', background: '#92400e', color: '#fff', cursor: 'pointer' }}>
+                Confirm approved exception
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

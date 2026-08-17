@@ -124,7 +124,10 @@ test('interview-to-placement handoff', async (t) => {
 
   await t.test('the board pre-selects through the existing mechanic and fails closed', () => {
     assert.match(matching, /if \(!focusMatchStudentId\) return/)
-    assert.match(matching, /if \(s\) setSelectedStudent\(s\)/)
+    // PLACEMENT-POOL-READINESS-1: this now fails closed HARDER - the student
+    // must also still be pool-eligible (unmatched, not terminal), so a stale
+    // route cannot select somebody the Placement Board does not list.
+    assert.match(matching, /if \(s && isPoolEligible\(s\)\) setSelectedStudent\(s\)/)
     assert.match(matching, /onFocusMatchConsumed\?\.\(\)/)
     // No new placement path: selection only, the click-to-place flow is untouched.
     assert.doesNotMatch(matching, /focusMatchStudentId[\s\S]{0,300}onMatch\(/)
