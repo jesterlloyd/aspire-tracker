@@ -1,9 +1,22 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Tooltip from './ui/Tooltip'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
-import { buildUnitLeaderEmail } from '../lib/emailUtils'
+import {
+  buildUnitLeaderPlacementMessage, normalizeEmailForLookup, escapeLikePattern,
+} from '../lib/emailUtils'
 import { openMailtoLink } from '../lib/openLink'
+import { supabase } from '../lib/supabase'
+import {
+  buildPlacementFacts, missingSummary, resolveUnitLeaderGreetingName, toNoticeStudent,
+} from '../lib/placementCommunication'
+import {
+  NOTIFY_CONFIRM, notifiedPatch, pendingNotifyTargets, notifyConfirmHeadline,
+  notifyRecordedMessage, notifyFailedMessage,
+} from '../lib/placementNotification'
+import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
+import { resolveRequiredAttachments } from '../lib/connect/catalogAttachments'
 import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
 import { CARD } from '../lib/designTokens'
@@ -30,11 +43,19 @@ const resolveMatchedStudent = (match, studentMap) => {
 
 // ── Compact placement row ─────────────────────────────────────────────────────
 
-function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssignPreceptor }) {
+function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssignPreceptor, placement, onEmailPreceptor }) {
   const [rowHovered, setRowHovered] = useState(false)
   const qCfg       = MATCH_RANK_CONFIG[matchRankOf(student, match)]
   const isNotified = !!match?.notification_sent
-  const hasPreceptor = !!(student.preceptor_id || student.matched_preceptor)
+  // PLACEMENT-COMMUNICATION-HANDOFF-1: presence comes ONLY from the PLACEMENT's
+  // resolved preceptor (this student, in THIS unit). The student-level fields are
+  // deliberately not consulted here: for a multi-unit student they name whoever
+  // was assigned on a DIFFERENT unit, so reading them would show - and offer to
+  // email - the wrong person about this rotation. A placement that names nobody
+  // shows the existing Assign preceptor action and no envelope.
+  const preceptorName = placement?.preceptorName || ''
+  const preceptorEmail = placement?.preceptorEmail || ''
+  const hasPreceptor = !!preceptorName
 
   return (
     <div
@@ -89,17 +110,45 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
              canonical preceptors row, so the name is available without the
              board loading the preceptor roster. Clicking re-opens the same
              assignment modal to change it. */
-          <button
-            data-testid="placement-preceptor-name"
-            onClick={e => { e.stopPropagation(); onAssignPreceptor?.(student) }}
-            disabled={!onAssignPreceptor}
-            title={onAssignPreceptor ? 'Change preceptor' : undefined}
-            style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#4b5563', background: 'none',
-              border: 'none', padding: 0, marginTop: 1, textAlign: 'left',
-              cursor: onAssignPreceptor ? 'pointer' : 'default' }}
-          >
-            {'\u{1F464}'} {student.matched_preceptor || 'Preceptor assigned'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+            <button
+              data-testid="placement-preceptor-name"
+              onClick={e => { e.stopPropagation(); onAssignPreceptor?.(student) }}
+              disabled={!onAssignPreceptor}
+              title={onAssignPreceptor ? 'Change preceptor' : undefined}
+              style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#4b5563', background: 'none',
+                border: 'none', padding: 0, textAlign: 'left',
+                cursor: onAssignPreceptor ? 'pointer' : 'default' }}
+            >
+              {'\u{1F464}'} {preceptorName}
+            </button>
+            {/* PLACEMENT-COMMUNICATION-HANDOFF-1: the preceptor envelope. It never
+                opens a mailto - it hands this exact placement to ASPIRE Connect →
+                Outreach as an editable draft. Disabled, with the reason stated,
+                when the preceptor has no usable address to send to. */}
+            {onEmailPreceptor && (
+              <Tooltip
+                label={preceptorEmail
+                  ? `Email ${preceptorName || 'the preceptor'} in ASPIRE Connect`
+                  : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
+                placement="top">
+                <button
+                  data-testid="placement-preceptor-email"
+                  aria-label={preceptorEmail
+                    ? `Email ${preceptorName || 'the preceptor'} in ASPIRE Connect`
+                    : `Cannot email ${preceptorName || 'this preceptor'}: no email address on file`}
+                  aria-disabled={!preceptorEmail}
+                  disabled={!preceptorEmail}
+                  onClick={e => { e.stopPropagation(); onEmailPreceptor(student, match, placement) }}
+                  style={{ background: 'none', border: 'none', fontSize: 11, lineHeight: 1, padding: '0 2px',
+                    color: preceptorEmail ? '#6b7280' : '#d1d5db',
+                    cursor: preceptorEmail ? 'pointer' : 'not-allowed' }}
+                >
+                  ✉
+                </button>
+              </Tooltip>
+            )}
+          </div>
         )}
       </div>
 
@@ -170,13 +219,28 @@ export default function EmbedUnitCard({
   unit, matchedStudents, matches, studentMap, selectedStudent,
   onSlotClick, onUnmatch, onUpdateMatch, onDelete, isHighlighted,
   isFocusedUnit, onFocusUnit, onPreceptorAssigned,
+  // PLACEMENT-COMMUNICATION-HANDOFF-1 canonical inputs. All optional: without
+  // them the card still renders, the notice simply reports the values it could
+  // not resolve instead of inventing them.
+  rotationRows = [], preceptorsById = null, unitLeaders = [],
+  cohortId = null, cohortName = '',
 }) {
+  const navigate = useNavigate()
   const [confirmUnmatch,  setConfirmUnmatch]  = useState(null)
   const [confirmDelete,   setConfirmDelete]   = useState(false)
   const [toast,           setToast]           = useState(null)
   const [cardHovered,     setCardHovered]     = useState(false)
   const [notifiedAt,      setNotifiedAt]      = useState(null)  // persists Zone-2 notify confirmation
   const [assignStudent,   setAssignStudent]   = useState(null)
+  // The unit-leader notice awaiting confirmation, when the placement is missing
+  // canonical values. { students, missing, message, onConfirm } - see handleNotify*.
+  const [notifyPreview,   setNotifyPreview]   = useState(null)
+  // Students whose draft has been opened and whose notified state is therefore
+  // awaiting an explicit human confirmation. { studentIds, multi } - ids only, so
+  // the pending set is always re-derived from live match rows.
+  const [notifyConfirm,   setNotifyConfirm]   = useState(null)
+  const [notifyBusy,      setNotifyBusy]      = useState(false)
+  const [preceptorHandoff, setPreceptorHandoff] = useState(null)  // 'busy' | { error }
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 4000) }
 
@@ -217,55 +281,221 @@ export default function EmbedUnitCard({
     return `Notify unit leader about ${unnotifiedStudents.length} students →`
   })()
 
-  // ── Email helpers (logic unchanged) ──────────────────────────────────────
+  // ── Canonical placement facts (PLACEMENT-COMMUNICATION-HANDOFF-1) ─────────
+  //
+  // One resolved record per (student, THIS unit). Keyed by student id so a row,
+  // an email, and the preceptor handoff can never read a different student's
+  // values, and so two students on the same unit cannot cross-populate.
+  const recipientEmails = String(unit.contact_email || '')
+    .split(/[;,]/).map(e => e.trim()).filter(Boolean)
+  const leaderGreeting = resolveUnitLeaderGreetingName({ unit, leaders: unitLeaders, recipientEmails })
 
-  const toEmailStudent = (s, m) => ({
-    firstName:         s.first_name  || '',
-    lastName:          s.last_name   || s.name || '',
-    school:            s.school      || '',
-    programType:       s.program_type     || '',
-    termDates:         s.term_dates       || '',
-    hoursRequired:     s.hours_required   || '',
-    shiftPreference:   s.shift_availability || '',
-    preceptorAssigned: m?.preceptor_assigned || '',
-  })
+  const factsFor = useCallback((student) => {
+    const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id) || null
+    // Every placement this student holds in the cohort. It is the evidence that
+    // decides whether a student-level preceptor may stand in for a placement that
+    // names nobody - never assumed, always counted.
+    const studentMatches = matches.filter(m => m.student_id === student.id)
+    return buildPlacementFacts({ student, unit, match, rotationRows, preceptorsById, studentMatches })
+  }, [matches, unit, rotationRows, preceptorsById])
 
-  const handleNotifyOne = async (student, match) => {
-    const emailStudent = toEmailStudent(student, match)
-    openMailtoLink(buildUnitLeaderEmail({
-      contactPersons: unit.contact_person || 'Unit Leader',
-      contactEmails:  unit.contact_email  || '',
+  const placementByStudent = {}
+  for (const s of matchedStudents) placementByStudent[s.id] = factsFor(s)
+
+  // Open the compose window. THAT IS ALL IT DOES.
+  //
+  // WHY NOTHING IS WRITTEN HERE. Opening a compose deeplink proves only that a
+  // draft was handed to Outlook. It does not prove the draft was sent - the
+  // sender may edit it, close it, or abandon it - so recording "unit leader
+  // notified" at this moment records something nobody has verified. The unit
+  // then reads as informed when it has not been, and every downstream reader
+  // (the card's own count, the Action Center task, the attention engine) inherits
+  // that false claim. So this function performs ZERO database writes: the notified
+  // state is set only by the explicit confirmation below, after a human says the
+  // email actually went.
+  const openUnitLeaderNotice = (studentRows, { multi }) => {
+    const message = buildUnitLeaderPlacementMessage({
+      contactEmails:  unit.contact_email || '',
       unitName:       unit.unit_name,
-      students:       [emailStudent],
-      isMultiStudent: false,
-    }))
-    if (match) await onUpdateMatch(match.id, student.id, { notification_sent: true, notified_at: new Date().toISOString() })
-    showToast(!unit.contact_email
-      ? `No contact email on file for ${unit.unit_name}. Match marked as notified.`
-      : `Email opened for ${displayName(student)}. Marked as notified.`)
+      greetingName:   leaderGreeting.name,
+      students:       studentRows.map(r => toNoticeStudent(r.facts)),
+      isMultiStudent: multi,
+    })
+    openMailtoLink(message.url)
+    // The confirmation is offered for exactly the students in this draft, by id,
+    // so it is re-resolved against live match rows when it is acted on.
+    setNotifyConfirm({ studentIds: studentRows.map(r => r.student.id), multi })
+
+    const who = multi
+      ? `${unit.unit_name} (${studentRows.length} student${studentRows.length !== 1 ? 's' : ''})`
+      : displayName(studentRows[0].student)
+    if (!unit.contact_email) {
+      showToast(`No contact email on file for ${unit.unit_name}. The draft opened without a recipient, and nothing was recorded.`)
+    } else if (message.tooLong) {
+      // Honest about a real limit rather than pretending the draft opened whole.
+      showToast(`Draft opened for ${who}. It is unusually long (${message.urlLength} characters) - check that Outlook kept all of it. Nothing has been recorded yet.`)
+    } else {
+      showToast(`Draft opened for ${who}. Nothing has been recorded yet.`)
+    }
   }
 
-  const handleNotifyAll = async () => {
-    const studs = unnotifiedStudents.map(s => {
-      const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
-      return toEmailStudent(s, m)
-    })
-    openMailtoLink(buildUnitLeaderEmail({
-      contactPersons: unit.contact_person || 'Unit Leader',
-      contactEmails:  unit.contact_email  || '',
-      unitName:       unit.unit_name,
-      students:       studs,
-      isMultiStudent: true,
-    }))
-    const now = new Date().toISOString()
-    for (const s of unnotifiedStudents) {
-      const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
-      if (m) await onUpdateMatch(m.id, s.id, { notification_sent: true, notified_at: now })
+  // ── The explicit confirmation ─────────────────────────────────────────────
+  //
+  // The ONLY writer of notified state on this board. It re-resolves the pending
+  // rows from the LIVE matches prop at click time, which is what makes it
+  // idempotent: once a row is recorded, it is no longer pending, so confirming
+  // again writes nothing. Rows already notified by any other surface are skipped
+  // for the same reason, so the card's counts cannot be double-counted.
+  const pendingConfirmRows = pendingNotifyTargets(
+    (notifyConfirm?.studentIds || []).map(id => ({
+      studentId: id,
+      unitId: unit.id,
+      label: displayName(matchedStudents.find(s => s.id === id) || {}),
+    })),
+    matches,
+  )
+
+  const confirmNotified = async () => {
+    if (notifyBusy) return
+    if (pendingConfirmRows.length === 0) { setNotifyConfirm(null); return }
+    setNotifyBusy(true)
+    const patch = notifiedPatch()
+    let failed = 0
+    for (const r of pendingConfirmRows) {
+      const err = await onUpdateMatch(r.match.id, r.studentId, patch)
+      if (err) failed += 1
     }
-    setNotifiedAt(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))
-    showToast(!unit.contact_email
-      ? `No contact email on file for ${unit.unit_name}. ${unnotifiedStudents.length} match${unnotifiedStudents.length !== 1 ? 'es' : ''} marked as notified.`
-      : `Email opened for ${unit.unit_name}. ${unnotifiedStudents.length} student${unnotifiedStudents.length !== 1 ? 's' : ''} marked as notified.`)
+    setNotifyBusy(false)
+    const recorded = pendingConfirmRows.length - failed
+    if (recorded > 0) setNotifiedAt(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))
+    showToast(failed > 0 ? notifyFailedMessage(failed) : notifyRecordedMessage(unit.unit_name, recorded))
+    // Deliberately NOT cleared here. The strip's visibility is derived from the
+    // live match rows, so it disappears when the writes landed and STAYS - still
+    // actionable - if one did not. A failed write can therefore never look like a
+    // recorded one.
+  }
+
+  // A notice is only opened once the Owner has SEEN what is missing. With every
+  // canonical value resolved it opens immediately (no extra click); with a gap it
+  // names each one first.
+  const reviewThenNotify = (studentRows, { multi }) => {
+    const missing = []
+    const seen = new Set()
+    for (const r of studentRows) {
+      for (const m of r.facts.missing) {
+        const key = multi ? `${r.student.id}:${m.key}` : m.key
+        if (seen.has(key)) continue
+        seen.add(key)
+        missing.push(multi ? { ...m, label: `${r.facts.studentName || displayName(r.student)}: ${m.label}` } : m)
+      }
+    }
+    if (missing.length === 0) { openUnitLeaderNotice(studentRows, { multi }); return }
+    setNotifyPreview({ studentRows, multi, missing })
+  }
+
+  const rowsFor = (list) => list.map(student => ({
+    student,
+    match: matches.find(m => m.student_id === student.id && m.unit_id === unit.id) || null,
+    facts: placementByStudent[student.id] || factsFor(student),
+  }))
+
+  const handleNotifyOne = (student) => reviewThenNotify(rowsFor([student]), { multi: false })
+  const handleNotifyAll = () => reviewThenNotify(rowsFor(unnotifiedStudents), { multi: true })
+
+  // ── Preceptor envelope → ASPIRE Connect (never a mailto) ─────────────────
+  //
+  // Opening Connect SENDS NOTHING. It writes a session-scoped launch context and
+  // navigates; no email leaves, no notification is written, nobody is marked
+  // notified. The context carries this exact (cohort, student, unit, preceptor),
+  // so a second row - or another cohort - can never inherit it.
+  const handleEmailPreceptor = async (student, match, facts) => {
+    const placement = facts || factsFor(student)
+    const email = placement.preceptorEmail
+    if (!email) {
+      showToast(`No email address on file for ${placement.preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`)
+      return
+    }
+    setPreceptorHandoff('busy')
+    // The Outreach composer addresses a CONTACT (its send endpoint resolves the
+    // address server-side from contact_id), so the preceptor has to exist as an
+    // active contact. Preceptors sync to Contacts on save; when one predates that,
+    // say so and point at the repair tool instead of opening an unsendable draft.
+    const norm = normalizeEmailForLookup(email)
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('id, full_name, preferred_name, email')
+      .eq('is_active', true)
+      .ilike('email', escapeLikePattern(norm))
+    setPreceptorHandoff(null)
+    if (error) {
+      showToast('Contacts could not be checked just now. Nothing was sent; please try again.')
+      return
+    }
+    const contact = (data || []).find(c => normalizeEmailForLookup(c.email) === norm) || null
+    if (!contact) {
+      showToast(`${placement.preceptorName || 'This preceptor'} is not in Connect → Contacts yet, so a draft cannot be addressed to them. Use Contacts → Sync preceptors, then try again.`)
+      return
+    }
+
+    // The documents this template promises, resolved BEFORE the draft is written,
+    // through the same endpoint and the same resolver the attachment picker uses.
+    // Resolving here rather than in the composer means the merged copy is written
+    // once, already knowing whether it may say "attached" - there is no moment in
+    // which the draft claims a document it has not checked for.
+    // A Catalog that could not be READ is reported as unavailable, never as
+    // "the documents are missing" - those are different facts, and only one of
+    // them is the Owner's to fix.
+    const catalogOptions = await (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) return null
+        const res = await fetch('/api/outreach-attachment-options', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (!res.ok) return null
+        const payload = await res.json()
+        return Array.isArray(payload?.options) ? payload.options : null
+      } catch { return null }
+    })()
+    const attachments = resolveRequiredAttachments(catalogOptions)
+
+    const written = writeLaunchContext({
+      kind: LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT,
+      cohortId,
+      cohortName,
+      source: 'placement_board_unit_pool',
+      templateKey: 'preceptor_assignment',
+      returnPath: '/rotation',
+      recipient: {
+        contactId: contact.id,
+        preceptorId: placement.preceptorId || null,
+        name: contact.full_name || placement.preceptorName || '',
+        email: contact.email || email,
+      },
+      placementRef: { studentId: student.id, unitId: unit.id, matchId: match?.id || null },
+      attachments,
+      placement: {
+        // Natural reading order here: the preceptor is being written TO about
+        // this student, not handed a roster line.
+        studentName:   placement.studentNaturalName || placement.studentName,
+        school:        placement.school,
+        unit:          unit.unit_name,
+        schedule:      placement.termDates,
+        hoursRequired: placement.hoursRequired,
+        // Additional Notes stays empty unless there is a real, appropriate note.
+        // The shift the placement actually carries is the only one that qualifies.
+        notes:         placement.assignedShift ? `${placement.assignedShift} shift` : '',
+        preceptorFirstName: (contact.preferred_name || contact.full_name || placement.preceptorName || '')
+          .trim().split(/\s+/)[0] || '',
+      },
+    })
+    if (!written) {
+      showToast('This browser blocked session storage, so the placement details could not be carried over.')
+      return
+    }
+    navigate('/connect/outreach?launch=1', {
+      state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } },
+    })
   }
 
   // ── Card border / shadow / opacity ────────────────────────────────────────
@@ -434,12 +664,52 @@ export default function EmbedUnitCard({
                   student={student}
                   match={match}
                   unit={unit}
+                  placement={placementByStudent[student.id] || factsFor(student)}
                   onUnmatch={() => setConfirmUnmatch(student)}
                   onNotify={handleNotifyOne}
                   onAssignPreceptor={s => setAssignStudent(s)}
+                  onEmailPreceptor={preceptorHandoff === 'busy' ? undefined : handleEmailPreceptor}
                 />
               )
             })}
+            {/* PLACEMENT-COMMUNICATION-HANDOFF-1: the explicit notification
+                confirmation. It appears only after a draft has been opened, and
+                only while a row is genuinely still unrecorded - so it vanishes on
+                success and stays put if a write did not land. Nothing was written
+                when the draft opened; this control is the only writer. */}
+            {notifyConfirm && pendingConfirmRows.length > 0 && (
+              <div
+                data-testid="notify-confirm-strip"
+                onClick={e => e.stopPropagation()}
+                style={{ margin: '4px 2px 2px', padding: '8px 10px', borderRadius: 8,
+                  background: '#fdf6ec', border: '1px solid #f0c9b0', display: 'flex',
+                  flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 11.5, color: '#583733', lineHeight: 1.5 }}>
+                  {notifyConfirmHeadline(pendingConfirmRows)}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button
+                    data-testid="notify-confirm-yes"
+                    disabled={notifyBusy}
+                    onClick={e => { e.stopPropagation(); confirmNotified() }}
+                    style={{ padding: '4px 10px', borderRadius: 6, border: 'none',
+                      background: notifyBusy ? '#9ca3af' : '#1D2567', color: '#fff',
+                      fontFamily: 'DM Sans,sans-serif', fontSize: 11.5, fontWeight: 600,
+                      cursor: notifyBusy ? 'not-allowed' : 'pointer' }}>
+                    {notifyBusy ? NOTIFY_CONFIRM.busyLabel : NOTIFY_CONFIRM.confirmLabel}
+                  </button>
+                  <button
+                    data-testid="notify-confirm-no"
+                    disabled={notifyBusy}
+                    onClick={e => { e.stopPropagation(); setNotifyConfirm(null) }}
+                    style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #e0d3c4',
+                      background: '#fff', color: '#583733', fontFamily: 'DM Sans,sans-serif',
+                      fontSize: 11.5, fontWeight: 600, cursor: notifyBusy ? 'not-allowed' : 'pointer' }}>
+                    {NOTIFY_CONFIRM.dismissLabel}
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Notify summary for non-full units */}
             {!isFull && filledCount > 0 && !allNotified && (
               <div style={{ fontSize: 11, color: '#9ca3af', padding: '2px 4px' }}>
@@ -457,6 +727,42 @@ export default function EmbedUnitCard({
           </div>
         )}
       </div>
+
+      {/* PLACEMENT-COMMUNICATION-HANDOFF-1: gaps are shown BEFORE the draft opens.
+          The message will print "To be confirmed" for each of these, so the Owner
+          decides knowingly - nothing is guessed, and nothing is silently omitted. */}
+      {notifyPreview && (
+        <div className="modal-overlay" onClick={() => setNotifyPreview(null)}>
+          <div className="modal confirm-delete-modal" data-testid="notify-missing-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Some placement details are not on file</h2>
+              <button className="modal-close" onClick={() => setNotifyPreview(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 10px' }}>
+                {missingSummary(notifyPreview.missing)} The notice to {unit.unit_name} will say
+                {' '}<strong>To be confirmed</strong> for {notifyPreview.missing.length === 1 ? 'it' : 'them'}.
+              </p>
+              <ul data-testid="notify-missing-list" style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#4b5563', lineHeight: 1.7, margin: 0, paddingLeft: 20 }}>
+                {notifyPreview.missing.map(m => <li key={`${m.key}-${m.label}`}>{m.label}</li>)}
+              </ul>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline-modal" onClick={() => setNotifyPreview(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                data-testid="notify-open-anyway"
+                onClick={() => {
+                  const p = notifyPreview
+                  setNotifyPreview(null)
+                  openUnitLeaderNotice(p.studentRows, { multi: p.multi })
+                }}>
+                Open the email anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Unmatch confirmation modal */}
       {confirmUnmatch && (

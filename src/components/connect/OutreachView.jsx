@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import {
+  attachmentWarningText, attachmentClaimBlockReason, PRECEPTOR_ASSIGNMENT_DOCUMENTS,
+} from '../../lib/connect/catalogAttachments'
 import AttachmentPicker from './AttachmentPicker'
 import { toSlugs, toDraftAttachments, fromDraftAttachments, sendBlockedReason } from '../../lib/connect/outreachAttachments'
 import Tooltip from '../ui/Tooltip'
@@ -308,8 +311,56 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // (capacity request / student form). Frozen at mount: recipient data stays in sessionStorage, never
   // in the URL. A plain Connect visit (no flag or no context) behaves exactly as before.
   const [launchCtx] = useState(() => (searchParams.get('launch') ? readLaunchContext() : null))
+
+  // PLACEMENT-COMMUNICATION-HANDOFF-1: the ONE single-recipient launch. It is
+  // scoped hard - it applies only while the composer is addressed to the very
+  // contact the Placement Board resolved, and only for the cohort it was written
+  // in. Anything else (a different recipient, a cohort switch, an unrelated
+  // Connect visit) leaves it inert, so a handoff cannot leak across placements.
+  const preceptorLaunch = (launchCtx && launchCtx.kind === LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT)
+    ? launchCtx
+    : null
+  const preceptorLaunchForCohort = (preceptorLaunch && cohortId && preceptorLaunch.cohortId === cohortId)
+    ? preceptorLaunch
+    : null
+
+  // ── Placement handoff: is this launch for the recipient on screen? ─────────
+  //
+  // The merge applies ONLY when the composer is addressed to exactly the contact
+  // the Placement Board resolved. Two students in one unit, two units for one
+  // student, or a stale context from an earlier row therefore cannot populate the
+  // wrong draft: a mismatch simply yields the ordinary placeholder template.
+  const activePlacement = (preceptorLaunchForCohort
+    && recipientType === 'contact'
+    && contactId
+    && String(preceptorLaunchForCohort.recipient?.contactId || '') === String(contactId))
+    ? preceptorLaunchForCohort
+    : null
+
+  // The ASPIRE Catalog answer travels WITH the handoff. The Placement Board asks
+  // /api/outreach-attachment-options (the same endpoint and the same resolver the
+  // picker uses) before it navigates, so the composer opens already knowing which
+  // promised documents exist - no second async gate, and no window in which the
+  // draft claims an attachment it has not yet checked for.
+  const requiredDocs = useMemo(() => {
+    const carried = activePlacement?.attachments
+    if (!carried) return { resolved: [], problems: [], ok: false }
+    return {
+      resolved: Array.isArray(carried.resolved) ? carried.resolved : [],
+      problems: Array.isArray(carried.problems) ? carried.problems : [],
+      ok: carried.ok === true,
+    }
+  }, [activePlacement])
+  const requiredDocSlugs = useMemo(() => requiredDocs.resolved.map(a => a.slug), [requiredDocs])
+  // Guards the handoff to ONE application per draft key: a re-render, a refetch,
+  // or an auth-key change re-runs the restore, and none of them may re-stamp the
+  // template over edits the Owner has already made.
+  const placementAppliedRef = useRef(null)
+
   const [launchAudience] = useState(() => {
     if (!launchCtx) return null
+    // A single-recipient launch has no bulk audience at all.
+    if (launchCtx.kind === LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT) return null
     if (launchCtx.kind === LAUNCH_KINDS.CAPACITY_REQUEST || launchCtx.kind === LAUNCH_KINDS.CAPACITY_REMINDER) {
       // CAPACITY-FILTER-REMINDER-1: a unit may carry multiple leadership recipients (Associate
       // Director, Assistant Nurse Manager, Unit NPD-P) in emails[]; legacy contexts carry email.
@@ -333,6 +384,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Top-level recipient mode: 'single' | 'bulk' | 'history' ─────────────────
   // Priority: launch deep link > explicit Sent History deep link > explicit recipient > localStorage.
   const [recipientMode, setRecipientMode] = useState(() => {
+    if (launchCtx?.kind === LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT) return 'single'
     if (launchCtx) return 'bulk'                                      // Send-and-confirm launch
     if (searchParams.get('tab') === 'sent_history') return 'history'  // Phase D.1 deep link
     if (hasExplicitRecipient || urlMode === 'message') return 'single'
@@ -343,6 +395,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Inner message type within Single Recipient ────────────────────────────
   // Priority: URL param > explicit router state > localStorage > default ──
   const [outreachMode, setOutreachMode] = useState(() => {
+    if (launchCtx?.kind === LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT) return 'message'
     if (urlMode === 'message' || urlMode === 'survey') return urlMode
     if (hasExplicitRecipient) return 'message'
     const saved = localStorage.getItem(LAST_MODE_KEY)
@@ -404,6 +457,41 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const studentHasDisplayInfo = !!(effectiveStudent?.name || effectiveStudent?.email ||
     (fetchedStudent && fetchedStudent.id === studentId))
 
+  const { user, isOwner } = useAuth()
+  // RICH-COMPOSE-1: rich editor only when the Owner has opted in (default OFF). Non-flagged users keep
+  // the plain-text textarea and body_format:'text' exactly as before.
+  const richEnabled = isRichComposeEnabled(isOwner)
+
+  // ── The handoff draft, computed BEFORE the composer's state exists ─────────
+  //
+  // WHY IT IS SEEDED RATHER THAN SET IN AN EFFECT. The rich editor emits its own
+  // (empty) document as it initializes. A body written during the first commit
+  // therefore loses a race it cannot see: the editor's emission lands last and
+  // silently blanks it, which is exactly the empty draft this shipped with
+  // before the fixture QC caught it. Seeding the INITIAL state means the editor
+  // is created with the merged content already in hand, so its first emission
+  // carries the merged document instead of erasing it.
+  //
+  // A saved draft still wins: the restore effect below overwrites this seed with
+  // the stored draft and opens the branded Replace draft? confirmation.
+  const handoffSeed = useMemo(() => {
+    if (!activePlacement) return null
+    const merged = buildPreceptorAssignmentDraft({
+      firstName: activePlacement.placement?.preceptorFirstName || '',
+      placement: activePlacement.placement || null,
+      attachmentsAttached: requiredDocs.ok,
+    })
+    return {
+      subject: merged.subject,
+      body: richEnabled && merged.richBody
+        ? merged.richBody
+        : (richEnabled ? plainTextToHtml(merged.body) : merged.body),
+      attachments: requiredDocs.resolved.map(a => ({
+        slug: a.slug, title: a.title, type_label: a.type_label, size_bytes: null,
+      })),
+    }
+  }, [activePlacement, requiredDocs, richEnabled])
+
   // ── Direct Message send state ─────────────────────────────────────────────
   const [includeSignature,  setIncludeSignature]  = useState(true)
   const [dmConfirmOpen,     setDmConfirmOpen]      = useState(false)
@@ -415,7 +503,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // fetched (debounced) from the same endpoint/renderer used to send. { html, recipient, loading, error }
   const [dmPreview,         setDmPreview]          = useState({ html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
   // OUTREACH-ATTACHMENTS-1: slugs + display text only. Never bytes or paths.
-  const [dmAttachments,     setDmAttachments]      = useState([])
+  const [dmAttachments,     setDmAttachments]      = useState(() => handoffSeed?.attachments || [])
   // CONNECT-COMMS-1D: CC support (Direct Message only). ccList = confirmed chips; ccInput = in-progress typing.
   // ccAutoSuggested flags that the coordinator chip was pre-filled (vs. manually added) for metadata/telemetry.
   const [ccList,            setCcList]             = useState([])
@@ -427,18 +515,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // userKey: auth user id → normalized email → null. When null, autosave is DISABLED
   // (DRAFT_KEY is null), so no draft is read or written. Stores ONLY { subject, body,
   // includeSignature }. Tokens and URLs are NEVER stored.
-  const { user, isOwner } = useAuth()
-  // RICH-COMPOSE-1: rich editor only when the Owner has opted in (default OFF). Non-flagged users keep
-  // the plain-text textarea and body_format:'text' exactly as before.
-  const richEnabled = isRichComposeEnabled(isOwner)
+
   const userKey = user?.id || (user?.email ? normalizeEmailForLookup(user.email) : '') || null
   const draftRecipientId = studentId ? `student:${studentId}`
                          : contactId ? `contact:${contactId}`
                          : null
   const DRAFT_KEY = directDraftKey(userKey, cohortId, draftRecipientId)
 
-  const [msgSubject, setMsgSubject] = useState('')
-  const [msgBody,    setMsgBody]    = useState('')
+  const [msgSubject, setMsgSubject] = useState(() => handoffSeed?.subject || '')
+  const [msgBody,    setMsgBody]    = useState(() => handoffSeed?.body || '')
   // Draft autosave UX state. draftStatus drives the small inline indicator;
   // resumeInfo backs the non-blocking "Resume draft" link when no recipient is selected.
   const [draftStatus, setDraftStatus] = useState(null) // 'saved' | 'restored' | 'discarded' | null
@@ -813,6 +898,35 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     draftHydratedRef.current = true
     hydratedKeyRef.current = DRAFT_KEY
     draftDirtyRef.current = false   // a restore is not an edit
+
+    // ── PLACEMENT-COMMUNICATION-HANDOFF-1: settle the handoff, here ────────
+    //
+    // The merged draft is already the composer's INITIAL state (see handoffSeed
+    // above), so this tail only has to decide between the seed and a real saved
+    // draft - and re-assert the seed when the clear branch above just wiped it
+    // for a first-time recipient.
+    //
+    // An existing draft is NEVER overwritten. The branded "Replace draft?"
+    // confirmation opens instead - the same one picking the template by hand
+    // shows - so returning to the board can never corrupt unrelated work.
+    if (handoffSeed && DRAFT_KEY && placementAppliedRef.current !== DRAFT_KEY) {
+      placementAppliedRef.current = DRAFT_KEY
+      if (d && !directDraftIsEmpty(d)) {
+        setReplaceTemplateKey('preceptor_assignment')
+      } else {
+        setOutreachMode('message')
+        setMsgSubject(handoffSeed.subject)
+        richDocRef.current = null
+        setMsgBody(handoffSeed.body)
+        setIncludeSignature(true)
+        setActiveTemplateId('preceptor_assignment')
+        // Only the documents that actually resolved. An unresolved one is not
+        // quietly substituted; the warning names it and the send guard blocks
+        // any claim the message would then be making falsely.
+        setDmAttachments(handoffSeed.attachments)
+        draftDirtyRef.current = true
+      }
+    }
   }, [DRAFT_KEY, draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // OUTREACH-ATTACHMENTS-1: Send stays disabled until the server has resolved
@@ -885,24 +999,60 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     const parts = String(full || '').trim().split(/\s+/).filter(Boolean)
     return parts.find(p => !TITLES.has(p.toLowerCase())) || ''
   }
+  // The promise this draft makes about documents, checked against what the SERVER
+  // resolved. Scoped to the Preceptor Assignment draft so ordinary Outreach copy
+  // is never second-guessed. While it returns a reason, Send is refused - the
+  // message can be edited to drop the claim, or the files re-attached.
+  const attachmentClaimBlock = activeTemplateId === 'preceptor_assignment'
+    ? attachmentClaimBlockReason({
+      body: msgBody,
+      selected: dmAttachments,
+      serverResolved: dmPreview.attachments,
+      required: PRECEPTOR_ASSIGNMENT_DOCUMENTS,
+      requiredSlugs: requiredDocSlugs,
+    })
+    : null
+
+  // What to say when a promised Catalog document could not be resolved. Shown in
+  // the composer, before anything can be sent.
+  const requiredDocWarning = activePlacement && requiredDocs.problems.length
+    ? attachmentWarningText(requiredDocs.problems)
+    : ''
+
   const buildTemplateDraft = useCallback((key) => {
     // Salutation first name comes from the selected recipient. Student/unit/preceptor body fields
     // that describe someone other than the recipient stay bracketed editable placeholders.
     const firstName = firstNameOf(dmRecipientName)
     switch (key) {
-      case 'preceptor_assignment':         return buildPreceptorAssignmentDraft({ firstName })
+      case 'preceptor_assignment':
+        // PLACEMENT-COMMUNICATION-HANDOFF-1: real placement values when a handoff
+        // owns this recipient; otherwise the unchanged placeholder draft. The
+        // "attached" wording is claimed ONLY when both Catalog documents resolved.
+        return buildPreceptorAssignmentDraft({
+          firstName: activePlacement?.placement?.preceptorFirstName || firstName,
+          placement: activePlacement?.placement || null,
+          attachmentsAttached: !!activePlacement && requiredDocs.ok,
+        })
       case 'student_acceptance_orientation': return buildStudentAcceptanceOrientationDraft({ firstName })
       case 'unit_leader_support_request':  return buildUnitLeaderSupportRequestDraft({ firstName })
       case 'interviewer_availability_request': return buildInterviewerAvailabilityRequestDraft({ firstName })
       case 'coordinator_acceptance':       return buildAcademicPartnerUpdateDraft({ firstName })
       default:                             return buildAcademicPartnerUpdateDraft({ firstName })
     }
-  }, [dmRecipientName])
+  }, [dmRecipientName, activePlacement, requiredDocs.ok])
 
   const applyTemplate = useCallback((key) => {
     const { subject, body, richBody } = buildTemplateDraft(key)
     setOutreachMode('message')
     setMsgSubject(subject)
+    // Preselect the promised documents alongside the copy that promises them, so
+    // the two can never be applied separately. Anything unresolved is simply not
+    // added - the warning below says so, and the send guard refuses the claim.
+    if (key === 'preceptor_assignment' && activePlacement) {
+      setDmAttachments(requiredDocs.resolved.map(a => ({
+        slug: a.slug, title: a.title, type_label: a.type_label, size_bytes: null,
+      })))
+    }
     // EMAIL-MANUAL-TEMPLATE-BLOCKS-1: when rich compose is ON and this template ships a block layout
     // (richBody = HTML with Content Block markers), hydrate the editor from it - clearing richDocRef
     // first so the editor parses the markers into blocks fresh (RICH-COMPOSE-2A-1) rather than reusing
@@ -918,7 +1068,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     }
     setIncludeSignature(true)  // template body has no signature - app appends the closing + sender block
     setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
-  }, [buildTemplateDraft, richEnabled])
+  }, [buildTemplateDraft, richEnabled, activePlacement, requiredDocs.resolved])
 
   const handleSelectSingleTemplate = useCallback((t) => {
     // Picking a composer mode (Direct Message / Survey Invitation) clears the template indicator.
@@ -2433,6 +2583,21 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   disabled={dmSendInFlight}
                   resolvedSizes={Object.fromEntries((dmPreview.attachments || []).map(a => [a.slug, a.size_bytes]))}
                 />
+                {/* PLACEMENT-COMMUNICATION-HANDOFF-1: a promised ASPIRE Catalog
+                    document that could not be resolved is stated here, before the
+                    message can go anywhere. */}
+                {requiredDocWarning && (
+                  <div data-testid="required-attachment-warning" role="alert"
+                    style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#7c2d12', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
+                    {requiredDocWarning}
+                  </div>
+                )}
+                {attachmentClaimBlock && (
+                  <div data-testid="attachment-claim-warning" role="alert"
+                    style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
+                    {attachmentClaimBlock}
+                  </div>
+                )}
               </div>
 
               {/* Signature toggle */}
@@ -3792,6 +3957,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               </div>
             )}
 
+            {/* PLACEMENT-COMMUNICATION-HANDOFF-1: never send a message that says
+                documents are attached without them. */}
+            {attachmentClaimBlock && (
+              <div data-testid="dm-confirm-claim-blocked"
+                style={{ fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontFamily: F }}>
+                {attachmentClaimBlock}
+              </div>
+            )}
+
             {/* Safety delay note */}
             {!dmConfirmReady && (
               <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginBottom: 10, textAlign: 'center' }}>
@@ -3801,7 +3975,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
             {/* Footer */}
             {(() => {
-              const sendBlocked = !dmConfirmReady || dmSendInFlight || dmPreview.recipient?.type === 'missing' || !!dmAttachmentBlock
+              const sendBlocked = !dmConfirmReady || dmSendInFlight || dmPreview.recipient?.type === 'missing' || !!dmAttachmentBlock || !!attachmentClaimBlock
               return (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                   <button type="button" onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }}

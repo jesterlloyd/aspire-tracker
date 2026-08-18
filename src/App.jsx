@@ -322,7 +322,7 @@ function MainApp({ onLogout }) {
       supabase.from('student_shift_logs').select('student_id, status, reviewed_at, submitted_at, shift_date, lifecycle_state').eq('cohort_id', id),
       // Rotation windows + school blackout dates, one row per school. Small
       // table; the weekly rule needs it to avoid flagging partial weeks.
-      supabase.from('cohort_school_rotations').select('school_name, rotation_start_date, rotation_end_date, blackout_dates').eq('cohort_id', id),
+      supabase.from('cohort_school_rotations').select('id, school_name, rotation_start_date, rotation_end_date, blackout_dates').eq('cohort_id', id),
       canEdit
         ? supabase.from('student_disposition_followups').select('student_id, disposition_id').eq('cohort_id', id).eq('status', 'pending')
         : Promise.resolve({ data: [] }),
@@ -883,6 +883,10 @@ function MainApp({ onLogout }) {
     logActivity({ userProfile: currentUserProfile, actionType:'match_removed', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} removed ${student.first_name} ${student.last_name} from ${unit.unit_name}` })
   }
 
+  // Returns the error (or null). PLACEMENT-COMMUNICATION-HANDOFF-1: the notified
+  // confirmations need to know whether the write actually landed, so they can
+  // leave the task visible and actionable instead of claiming a success that did
+  // not happen. Existing callers ignore the return value and are unaffected.
   const updateMatch = async (matchId, studentId, updates) => {
     const { error } = await safeWrite(
       () => supabase.from('matches').update(updates).eq('id', matchId),
@@ -899,6 +903,7 @@ function MainApp({ onLogout }) {
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...su } : s))
       }
     }
+    return error || null
   }
 
   // ── CSV export ───────────────────────────────────────────────

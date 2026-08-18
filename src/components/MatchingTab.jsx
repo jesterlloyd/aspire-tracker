@@ -191,12 +191,18 @@ export default function MatchingTab({
   // AVAILABILITY-CANON-1D: read-only coordinator availability for the readiness badge.
   // Only the fields the badge/readiness helper needs; mapped by rotation id and passed to each
   // StudentMatchingCard. Skips safely when there is no cohort. No writes.
+  //
+  // PLACEMENT-COMMUNICATION-HANDOFF-1 additionally selects school_name and the
+  // coordinator-owned rotation_start_date / rotation_end_date. These are the
+  // AUTHORITATIVE placement window (see src/lib/placementCommunication.js for the
+  // full source audit); the unit-leader notice used to quote the retired free-text
+  // students.term_dates instead, which is the term-date defect this closes.
   const { data: rotationRows = [] } = useQuery({
     queryKey: ['cohort_rotation_avail', cohortId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cohort_school_rotations')
-        .select('id, unavailable_weekdays, min_days_per_week, weekends_allowed, nights_allowed, blackout_dates')
+        .select('id, school_name, rotation_start_date, rotation_end_date, unavailable_weekdays, min_days_per_week, weekends_allowed, nights_allowed, blackout_dates')
         .eq('cohort_id', cohortId)
       if (error) throw error
       return data || []
@@ -210,6 +216,44 @@ export default function MatchingTab({
     for (const r of rotationRows) m[r.id] = r
     return m
   }, [rotationRows])
+
+  // Read-only preceptor roster (global, not cohort-scoped; RLS authenticated read).
+  // Supplies the canonical NAME, EMAIL and SHIFT for whichever preceptor a
+  // placement row resolves to - the board itself only carries projected free text.
+  const { data: preceptorRows = [] } = useQuery({
+    queryKey: ['placement_preceptor_directory'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('preceptors')
+        .select('id, full_name, email, shift_type, unit_name, is_active')
+      if (error) throw error
+      return data || []
+    },
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  })
+  const preceptorsById = useMemo(() => {
+    const m = new Map()
+    for (const p of preceptorRows) if (p?.id) m.set(String(p.id), p)
+    return m
+  }, [preceptorRows])
+
+  // Active unit leaders, for the ONE thing the placement notice needs from them:
+  // a reliable greeting name (preferred_name first). Recipient addressing is
+  // unchanged - the notice still bccs units.contact_email.
+  const { data: unitLeaderRows = [] } = useQuery({
+    queryKey: ['placement_unit_leaders'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('unit_leaders')
+        .select('unit_name, full_name, preferred_name, email, is_primary_lead, is_active')
+        .eq('is_active', true)
+      if (error) throw error
+      return data || []
+    },
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  })
 
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
   // PLACEMENT-POOL-READINESS-1: 'Ready to place' (the default) is exactly the
@@ -516,6 +560,11 @@ export default function MatchingTab({
               onPreceptorAssigned={onPreceptorAssigned}
                       matches={matches}
                       studentMap={studentMap}
+                      rotationRows={rotationRows}
+                      preceptorsById={preceptorsById}
+                      unitLeaders={unitLeaderRows}
+                      cohortId={cohortId}
+                      cohortName={cohort?.name || ''}
                       selectedStudent={selectedStudent}
                       onSlotClick={() => handleSlotClick(unit)}
                       onUnmatch={student => handleUnmatch(student, unit)}
@@ -543,6 +592,11 @@ export default function MatchingTab({
               onPreceptorAssigned={onPreceptorAssigned}
                       matches={matches}
                       studentMap={studentMap}
+                      rotationRows={rotationRows}
+                      preceptorsById={preceptorsById}
+                      unitLeaders={unitLeaderRows}
+                      cohortId={cohortId}
+                      cohortName={cohort?.name || ''}
                       selectedStudent={selectedStudent}
                       onSlotClick={() => handleSlotClick(unit)}
                       onUnmatch={student => handleUnmatch(student, unit)}

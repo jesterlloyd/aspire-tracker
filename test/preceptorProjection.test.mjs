@@ -204,7 +204,12 @@ test('the migration is gated and ships verification + rollback', () => {
 test('the Placement Board RENDERS the assigned preceptor name (it previously rendered nothing)', () => {
   const board = read('src/components/EmbedUnitCard.jsx')
   assert.match(board, /data-testid="placement-preceptor-name"/)
-  assert.match(board, /student\.matched_preceptor \|\| 'Preceptor assigned'/)
+  // PLACEMENT-COMMUNICATION-HANDOFF-1 (correction): the name now comes from the
+  // PLACEMENT-resolved preceptor rather than the student-level projection, so a
+  // multi-unit student's row cannot show another unit's preceptor. The intent of
+  // this assertion is unchanged - the row renders a name instead of nothing.
+  assert.match(board, /\{'\\u\{1F464\}'\} \{preceptorName\}/)
+  assert.match(board, /const preceptorName = placement\?\.preceptorName \|\| ''/)
   // NEGATIVE CONTROL: the old `: null` dead branch must be gone.
   assert.doesNotMatch(board, /\{'⚠'\} Preceptor needed\s*\n\s*<\/div>\s*\n\s*\) : null\}/,
     'the assigned case no longer renders null')

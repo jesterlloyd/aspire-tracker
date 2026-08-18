@@ -25,6 +25,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { toDraftAttachments, fromDraftAttachments, toSlugs } from '../src/lib/connect/outreachAttachments.js'
+import { buildPreceptorAssignmentDraft } from '../src/lib/outreachTemplates.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = f => fs.readFileSync(path.join(root, f), 'utf8')
@@ -120,7 +121,23 @@ function loadRestoreEffect() {
 
 // ── A faithful Direct composer, wired from the extracted production logic ───
 
-function directComposer({ userKey = 'u1', richEnabled = false } = {}) {
+function directComposer({ userKey = 'u1', richEnabled = false, activePlacement = null, requiredDocs = null } = {}) {
+  // PLACEMENT-COMMUNICATION-HANDOFF-1: the merged draft the component computes
+  // BEFORE its state exists. Built from the same production builder, so the
+  // harness cannot drift from what the composer really seeds.
+  const docs = requiredDocs || { resolved: [], problems: [], ok: false }
+  const handoffSeed = activePlacement ? (() => {
+    const merged = buildPreceptorAssignmentDraft({
+      firstName: activePlacement.placement?.preceptorFirstName || '',
+      placement: activePlacement.placement || null,
+      attachmentsAttached: docs.ok,
+    })
+    return {
+      subject: merged.subject,
+      body: richEnabled && merged.richBody ? merged.richBody : merged.body,
+      attachments: docs.resolved.map(a => ({ slug: a.slug, title: a.title, type_label: a.type_label, size_bytes: null })),
+    }
+  })() : null
   const localStorage = makeStorage()
   const H = loadDirectHelpers(localStorage)
   const effect = loadLatestDraftEffect()
@@ -129,7 +146,9 @@ function directComposer({ userKey = 'u1', richEnabled = false } = {}) {
 
   const state = {
     cohortId: 'cohortA', recipientType: 'contact', contactId: 'c1', studentId: null,
-    msgSubject: '', msgBody: '', includeSignature: true, dmAttachments: [],
+    msgSubject: handoffSeed?.subject || '', msgBody: handoffSeed?.body || '',
+    includeSignature: true, dmAttachments: handoffSeed?.attachments || [],
+    activeTemplateId: null, outreachMode: 'message', replaceTemplateKey: null,
     ccList: [], ccInput: '', ccInputError: null,
     dmRecipientName: 'Contact One', resolvedToEmail: 'c1@example.org', dmRecipientSchool: null,
   }
@@ -141,6 +160,8 @@ function directComposer({ userKey = 'u1', richEnabled = false } = {}) {
     // The invariant's two pieces of state, exactly as the component holds them.
     hydratedKeyRef: { current: null },
     draftDirtyRef: { current: false },
+    // PLACEMENT-COMMUNICATION-HANDOFF-1: the handoff's one-shot guard.
+    placementAppliedRef: { current: null },
   }
 
   const scope = {
@@ -149,7 +170,16 @@ function directComposer({ userKey = 'u1', richEnabled = false } = {}) {
     plainTextToHtml: t => `<p>${t}</p>`,
     htmlToPlainText: h => String(h).replace(/<[^>]+>/g, ''),
     flashDraftStatus: () => {},
-    setDmSendStatus: () => {}, setDmConfirmOpen: () => {}, setActiveTemplateId: () => {},
+    setDmSendStatus: () => {}, setDmConfirmOpen: () => {},
+    // PLACEMENT-COMMUNICATION-HANDOFF-1: everything the handoff tail of the real
+    // effect touches. Defaulting activePlacement to null keeps every pre-existing
+    // case on exactly the path it tested before.
+    activePlacement, handoffSeed,
+    requiredDocs: docs,
+    buildPreceptorAssignmentDraft,
+    setActiveTemplateId: v => { state.activeTemplateId = v },
+    setOutreachMode: v => { state.outreachMode = v },
+    setReplaceTemplateKey: v => { state.replaceTemplateKey = v },
     setMsgSubject: v => { state.msgSubject = v },
     setMsgBody: v => { state.msgBody = v },
     setIncludeSignature: v => { state.includeSignature = v },
@@ -542,4 +572,82 @@ test('the typed confirmation and NP acknowledgment are retracted with the signat
   const reset = slice(BULK, 'if (!sendResult) return', '}, [draftSig, sendResult])')
   assert.match(reset, /setSendResult\(null\)/)
   assert.match(reset, /setConfirmText\(''\)/)
+})
+
+// ── PLACEMENT-COMMUNICATION-HANDOFF-1, through the REAL restore effect ───────
+//
+// These run the same extracted production effect the tests above use, with the
+// handoff switched on. Nothing is re-implemented here.
+
+const HANDOFF = {
+  cohortId: 'cohortA',
+  templateKey: 'preceptor_assignment',
+  recipient: { contactId: 'c1', name: 'Dana Reyes', email: 'dana@cshs.org' },
+  placement: {
+    studentName: 'Ana Cruz', school: 'California State University, Northridge',
+    unit: '5 SCCT', schedule: 'August 24–October 20, 2026', hoursRequired: '144 hours',
+    notes: '', preceptorFirstName: 'Dana',
+  },
+}
+const DOCS_OK = {
+  ok: true, problems: [],
+  resolved: [
+    { slug: 'aspire-brochure', title: 'ASPIRE Brochure', type_label: 'PDF' },
+    { slug: 'prelicensure-guidelines', title: 'Pre-licensure Student General Guidelines', type_label: 'PDF' },
+  ],
+}
+
+test('the handoff merges the placement and preselects both documents', () => {
+  const c = directComposer({ activePlacement: HANDOFF, requiredDocs: DOCS_OK })
+  assert.equal(c.state.activeTemplateId, 'preceptor_assignment')
+  assert.match(c.state.msgSubject, /preceptor assignment and introduction details/)
+  assert.match(c.state.msgBody, /Student: Ana Cruz/)
+  assert.match(c.state.msgBody, /Rotation Dates \/ Schedule: August 24–October 20, 2026/)
+  assert.match(c.state.msgBody, /Please see the attached ASPIRE brochure/)
+  assert.deepEqual(c.state.dmAttachments.map(a => a.slug),
+    ['aspire-brochure', 'prelicensure-guidelines'])
+  assert.equal(c.state.replaceTemplateKey, null, 'an empty composer needs no confirmation')
+})
+
+test('an unresolved Catalog leaves the draft honest and unattached', () => {
+  const c = directComposer({
+    activePlacement: HANDOFF,
+    requiredDocs: { ok: false, resolved: [], problems: [{ key: 'aspire_brochure', label: 'ASPIRE Brochure', code: 'missing' }] },
+  })
+  assert.deepEqual(c.state.dmAttachments, [])
+  assert.ok(!/see the attached/i.test(c.state.msgBody),
+    'the draft must not claim attachments it does not carry')
+})
+
+test('an existing draft is never overwritten by a handoff', () => {
+  const c = directComposer()
+  c.edit({ msgSubject: 'Half-written note', msgBody: 'Do not lose me' })
+  const saved = c.localStorage.getItem(c.scope.DRAFT_KEY)
+  assert.ok(saved, 'precondition: a real draft exists for this recipient')
+
+  // Arrive again for the SAME recipient, now carrying a handoff.
+  const c2 = directComposer({ activePlacement: HANDOFF, requiredDocs: DOCS_OK })
+  c2.localStorage.setItem(c2.scope.DRAFT_KEY, saved)
+  c2.refs.placementAppliedRef.current = null
+  c2.goTo({ contactId: 'c9' })      // leave
+  c2.goTo({ contactId: 'c1' })      // and return with the handoff live
+  assert.equal(c2.state.replaceTemplateKey, 'preceptor_assignment',
+    'the branded Replace draft? confirmation must open instead')
+  assert.equal(c2.state.msgSubject, 'Half-written note', 'the existing draft survives untouched')
+  assert.equal(c2.state.msgBody, 'Do not lose me')
+})
+
+test('the handoff applies once, not on every re-render of the same draft', () => {
+  const c = directComposer({ activePlacement: HANDOFF, requiredDocs: DOCS_OK })
+  c.edit({ msgBody: 'Owner edited this after the merge' })
+  c.goTo({ contactId: 'c1' })       // same recipient, effect re-runs
+  assert.equal(c.state.msgBody, 'Owner edited this after the merge',
+    're-stamping the template would discard the Owner’s edits')
+})
+
+test('NEGATIVE CONTROL: no handoff leaves the composer completely untouched', () => {
+  const c = directComposer()
+  assert.equal(c.state.activeTemplateId, null)
+  assert.equal(c.state.msgSubject, '')
+  assert.deepEqual(c.state.dmAttachments, [])
 })

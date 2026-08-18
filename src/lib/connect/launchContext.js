@@ -22,6 +22,17 @@ export const LAUNCH_KINDS = Object.freeze({
   // evidence, return confirmation), but the confirmed write is a 'scheduling_link' communication
   // rather than a status change, and the return path is the launching workspace.
   INTERVIEW_SCHEDULING_LINK: 'interview_scheduling_link',
+  // PLACEMENT-COMMUNICATION-HANDOFF-1: the preceptor envelope on a Placement Board
+  // row. Unlike every kind above it targets ONE recipient (the placement's
+  // preceptor, as a Contacts row) rather than a bulk audience, so it carries
+  // `recipient` and the resolved `placement` values the template merges. It opens
+  // an editable draft and nothing else: no send, no notification, no delivery log.
+  //
+  // WHY THE VALUES TRAVEL. sessionStorage, never a URL - so no student name,
+  // school, rotation window or message content is ever exposed in a shareable or
+  // bookmarkable link, and the whole handoff dies with the browser session. They
+  // are values the same Owner/Admin is already looking at on the board.
+  PRECEPTOR_ASSIGNMENT: 'preceptor_assignment_handoff',
 })
 const VALID_KINDS = new Set(Object.values(LAUNCH_KINDS))
 
@@ -52,6 +63,18 @@ export function writeLaunchContext(ctx) {
     // preselects Contacts rows by email (the capacity flow carries its leads inside units[] instead;
     // the school form flow now targets students directly, ASPIRE-DESIGN-CORRECTION-1).
     contactEmails: Array.isArray(ctx.contactEmails) ? ctx.contactEmails : [],
+    // Single-recipient launches (PRECEPTOR_ASSIGNMENT). `recipient` identifies the
+    // Contacts row the composer must address; `placement` carries the resolved
+    // values the template merges, and `placementRef` the exact board row they came
+    // from, so a stale context can be recognized rather than trusted.
+    recipient: ctx.recipient && typeof ctx.recipient === 'object' ? { ...ctx.recipient } : null,
+    placement: ctx.placement && typeof ctx.placement === 'object' ? { ...ctx.placement } : null,
+    placementRef: ctx.placementRef && typeof ctx.placementRef === 'object' ? { ...ctx.placementRef } : null,
+    // The ASPIRE Catalog documents the template promises, already resolved:
+    // { resolved: [{slug,title,type_label}], problems: [{key,label,code}], ok }.
+    // Slugs and display text only - the same identifiers the composer is allowed
+    // to hold. Never a storage path, a signed URL, or file bytes.
+    attachments: ctx.attachments && typeof ctx.attachments === 'object' ? { ...ctx.attachments } : null,
     batchId: null,
     sentEmails: [],
     summary: null,

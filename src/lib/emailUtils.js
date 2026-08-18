@@ -27,56 +27,118 @@ export function escapeLikePattern(value) {
   return String(value || '').replace(/[\\%_]/g, m => `\\${m}`)
 }
 
-export function buildUnitLeaderEmail({
-  contactPersons,
-  contactEmails,
-  unitName,
-  students,
-  isMultiStudent = false
+// ── Unit-leader placement notice (PLACEMENT-COMMUNICATION-HANDOFF-1) ─────────
+//
+// The message a unit leader actually receives when a student is placed on their
+// unit. RECIPIENT AND CC RULES ARE UNCHANGED: the same Outlook Web compose
+// deeplink, the same bcc list built from the unit's contact_email. Only the
+// subject and body changed.
+//
+// NO SIGNATURE IS APPENDED. The body ends at "Kind regards," because Outlook
+// inserts the sender's own signature on compose; appending one here produced two.
+// Nothing about typography is set - the message is plain text and inherits
+// whatever the sender's Outlook uses.
+//
+// EVERY VALUE IS SUPPLIED ALREADY RESOLVED. This builder does no lookups and has
+// no fallback of its own beyond "To be confirmed": it cannot reach a legacy
+// column, so it cannot quote one. src/lib/placementCommunication.js is where the
+// resolution (and the date audit behind it) lives.
+
+const UNIT_LEADER_COMPOSE_BASE = 'https://outlook.office.com/mail/deeplink/compose'
+
+// The https compose deeplink is not a mailto:, so it is bounded by URL limits
+// rather than by an OS mail handler. 8000 is the conservative ceiling common
+// server/proxy stacks accept; past it the caller warns instead of silently
+// opening a truncated draft.
+export const MAX_COMPOSE_URL_LENGTH = 8000
+
+const orTBC = (v) => {
+  const s = typeof v === 'string' ? v.trim() : (v == null ? '' : String(v).trim())
+  return s || 'To be confirmed'
+}
+
+/**
+ * Build the subject, body and compose URL for a unit-leader placement notice.
+ *
+ * @param greetingName  the leader's preferred/first name, or null/'' when none is
+ *                      reliable - the greeting then addresses the unit's team.
+ * @param students      [{ name, school, program, termDates, hoursRequired,
+ *                         shiftPreference, preceptorName, availability }]
+ *                      Values are used verbatim; blanks become "To be confirmed".
+ */
+export function buildUnitLeaderPlacementMessage({
+  contactEmails = '',
+  unitName = '',
+  greetingName = null,
+  students = [],
+  isMultiStudent = false,
 }) {
-  const emailList = contactEmails
+  const emailList = String(contactEmails || '')
     .split(/[;,]/)
     .map(e => e.trim())
     .filter(Boolean)
     .join(',')
 
-  const subject = isMultiStudent
-    ? `ASPIRE Student Placements – ${unitName}`
-    : `ASPIRE Student Placement – ${students[0].lastName}, ${students[0].firstName} | ${unitName}`
+  const list = Array.isArray(students) ? students : []
+  const many = isMultiStudent || list.length > 1
+  const unit = String(unitName || '').trim() || 'the unit'
 
-  const studentBlock = students.map(s => `
-Student: ${s.lastName}, ${s.firstName}
-School: ${s.school}
-Program: ${s.programType || 'N/A'}
-Term Dates: ${s.termDates || 'TBD'}
-Hours Required: ${s.hoursRequired ? s.hoursRequired + ' hours' : 'TBD'}
-Shift Preference: ${s.shiftPreference || 'TBD'}
-${s.preceptorAssigned ? `Assigned Preceptor: ${s.preceptorAssigned}` : 'Preceptor: To be confirmed'}
-`).join('\n---\n')
+  const subject = many
+    ? `ASPIRE placements: ${list.length} students — ${unit}`
+    : `ASPIRE placement: ${orTBC(list[0]?.name)} — ${unit}`
 
-  const greeting = contactPersons.includes(',')
-    ? `Dear ${contactPersons.split(',')[0].trim().split(' ')[0]} and team,`
-    : `Dear ${contactPersons.split(' ')[0]},`
+  const greeting = greetingName && String(greetingName).trim()
+    ? `Dear ${String(greetingName).trim()} and team,`
+    : `Dear ${unit} team,`
+
+  const studentBlock = list.map(s => [
+    `Student: ${orTBC(s?.name)}`,
+    `School: ${orTBC(s?.school)}`,
+    `Program: ${orTBC(s?.program)}`,
+    `Term Dates: ${orTBC(s?.termDates)}`,
+    `Hours Required: ${orTBC(s?.hoursRequired)}`,
+    `Shift Preference: ${orTBC(s?.shiftPreference)}`,
+    `Preceptor: ${orTBC(s?.preceptorName)}`,
+  ].join('\n')).join('\n\n---\n\n')
+
+  // One availability paragraph per student when there is more than one, so the
+  // sentence can never attach a student's availability to the wrong name.
+  const availabilityLines = list.map(s => {
+    const shared = String(s?.availability || '').trim()
+    const who = many ? `${orTBC(s?.name)}` : 'the student'
+    return shared
+      ? `If it helps in preceptor selection, ${who} shared the following availability for shifts: ${shared}.`
+      : `${many ? who : 'The student'} has not shared shift availability yet; we will follow up as soon as they do.`
+  }).join('\n\n')
 
   const body = `${greeting}
 
 Thank you for your continued support of ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai. We are grateful for your unit's commitment to hosting senior nursing students this cycle.
 
-We are pleased to share the following placement${students.length > 1 ? 's' : ''} for your unit:
+We are pleased to share the following placement${many ? 's' : ''} for your unit:
 
 ${studentBlock}
 
-To complete this placement, please confirm with your team which preceptor will be working with this student and reply to this email so we can coordinate next steps. Once confirmed, we will send the preceptor a separate onboarding email with full details and guidelines.
+To complete ${many ? 'these placements' : 'this placement'}, kindly confirm with your team which preceptor will be working with ${many ? 'each student' : 'this student'} so we can coordinate the next steps. Once identified, we will send the preceptor a separate onboarding email with full details and guidelines.
 
-If you have any questions or concerns about this placement, please do not hesitate to reach out.
+${availabilityLines}
+
+If you have any questions or concerns about ${many ? 'these placements' : 'this placement'}, please do not hesitate to reach out.
 
 Thank you again for your support of clinical nursing education at Cedars-Sinai.
 
-Warm regards,
-Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
-Nursing Professional Development Practitioner
-Geri and Richard Brawerman Nursing Institute
-JesterLloyd.Bautista@cshs.org | 310-248-8964`
+Kind regards,`
 
-  return `https://outlook.office.com/mail/deeplink/compose?bcc=${encodeURIComponent(emailList)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  const params = []
+  if (emailList) params.push(`bcc=${encodeURIComponent(emailList)}`)
+  params.push(`subject=${encodeURIComponent(subject)}`)
+  params.push(`body=${encodeURIComponent(body)}`)
+  const url = `${UNIT_LEADER_COMPOSE_BASE}?${params.join('&')}`
+
+  return { subject, body, url, urlLength: url.length, tooLong: url.length > MAX_COMPOSE_URL_LENGTH }
+}
+
+/** Backward-compatible URL-only form. */
+export function buildUnitLeaderEmail(args) {
+  return buildUnitLeaderPlacementMessage(args).url
 }

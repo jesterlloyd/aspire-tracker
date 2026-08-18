@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
+import { buildPlacementFacts, resolveUnitLeaderGreetingName, toNoticeStudent } from '../lib/placementCommunication'
+import {
+  NOTIFY_CONFIRM, notifiedPatch, pendingNotifyTargets,
+  notifyRecordedMessage, notifyFailedMessage,
+} from '../lib/placementNotification'
 import { buildOutlookComposeUrl } from '../lib/outlookCompose'
 import { appUrl } from '../lib/appUrl'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
@@ -322,6 +327,9 @@ function ItemCard({
   item,
   isConfirming, isActioning,
   onAction, onConfirm, onCancelConfirm,
+  // PLACEMENT-COMMUNICATION-HANDOFF-1: the confirmed-send state for a unit
+  // notification whose draft has been opened but not yet confirmed as sent.
+  isAwaitingNotifyConfirm, onConfirmNotified, onDismissNotifyConfirm,
   // Orientation-specific props
   oriExpanded, onOriExpand,
   oriFields, onOriFieldChange,
@@ -406,7 +414,26 @@ function ItemCard({
           </div>
         </div>
         <div style={{ flexShrink: 0, minWidth: 0 }}>
-          {isConfirming ? (
+          {isAwaitingNotifyConfirm ? (
+            /* The same words, the same rule, and the same two choices the
+               Placement Board shows - both read them from lib/placementNotification.
+               Opening the draft recorded nothing; only the first button writes. */
+            <div data-testid="ac-notify-confirm" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', maxWidth: 230 }}>
+              <span style={{ fontSize: 10.5, color: '#583733', fontWeight: 500, textAlign: 'right', lineHeight: 1.45 }}>
+                {NOTIFY_CONFIRM.shortHeadline}
+              </span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button data-testid="ac-notify-dismiss" onClick={onDismissNotifyConfirm} disabled={isActioning}
+                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f3f4f6', border: 'none', borderRadius: 6, cursor: isActioning ? 'not-allowed' : 'pointer', color: '#6b7280', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
+                  {NOTIFY_CONFIRM.dismissLabel}
+                </button>
+                <button data-testid="ac-notify-confirm-yes" onClick={onConfirmNotified} disabled={isActioning}
+                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, cursor: isActioning ? 'not-allowed' : 'pointer', color: '#166534', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
+                  {isActioning ? NOTIFY_CONFIRM.busyLabel : NOTIFY_CONFIRM.confirmLabel}
+                </button>
+              </div>
+            </div>
+          ) : isConfirming ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
               <span style={{ fontSize: 11, color: '#374151', fontWeight: 500, whiteSpace: 'nowrap' }}>Mark complete?</span>
               <div style={{ display: 'flex', gap: 4 }}>
@@ -467,6 +494,9 @@ export default function ActionCenter({
   const [acTab,          setAcTab]          = useState('actions')  // 'actions' | 'notifications'
   const [expandedStacks, setExpandedStacks] = useState({})
   const [confirmingId,   setConfirmingId]   = useState(null)
+  // The unit-notification task whose draft has been opened and whose notified
+  // state is awaiting an explicit confirmation. Never more than one at a time.
+  const [notifyConfirmId, setNotifyConfirmId] = useState(null)
   const [actioning,      setActioning]      = useState(null)
   const [showCompleted,  setShowCompleted]  = useState(false)
   // ACTION-OWNERSHIP-1: the passive "Handled automatically" list, collapsed by
@@ -648,6 +678,19 @@ export default function ActionCenter({
       onClose()
       return
     }
+    // PLACEMENT-COMMUNICATION-HANDOFF-1: the Unit Leader Placement Notification
+    // follows the SAME confirmed-send workflow as the Placement Board envelope.
+    //
+    // Opening the draft writes NOTHING - not the match row, not a communication
+    // log entry - and does not clear the task, because handing a draft to Outlook
+    // is not evidence that it was sent. The task keeps its predicate
+    // (matches.notification_sent, via lib/attention.js), so it clears only once
+    // the canonical row actually says the unit was notified.
+    if (item.actionType === 'unit_notification_needed' && item.matchId && item.emailHref) {
+      openHref(item.emailHref)
+      setNotifyConfirmId(item.id)
+      return
+    }
     if (item.emailHref && item.markDoneType === 'log_communication') {
       setActioning(item.id)
       openHref(item.emailHref)
@@ -658,19 +701,49 @@ export default function ActionCenter({
         sentToEmail: item.student?.school_email || item.student?.personal_email || item.student?.preceptor_email || '',
         sentToName: item.studentName,
       })
-      // Unit Leader Placement Notification self-clears on matches.notification_sent (the
-      // predicate source, written by the Rotations unit card) - not on the comm log. Set
-      // it here too, with the same fields/pattern, so the task clears and the two surfaces
-      // stay consistent.
-      if (type === 'unit_notification') {
-        if (item.matchId && onMatchUpdate) {
-          await onMatchUpdate(item.matchId, item.studentId, { notification_sent: true, notified_at: new Date().toISOString() })
-        }
-        toast?.success('Notified', 'Unit leader email marked as sent.')
-      }
       logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
       setActioning(null)
     }
+  }
+
+  // ── Confirmed-send: the ONLY writer of notified state on this surface ──────
+  //
+  // Pending work is re-derived from the LIVE match rows through the shared
+  // pendingNotifyTargets, so this is idempotent by construction: a row already
+  // recorded - by this panel, by the Placement Board, or by an earlier click -
+  // is no longer pending and nothing is written for it.
+  const handleConfirmNotified = async (item) => {
+    if (actioning === item.id) return
+    const pending = pendingNotifyTargets(
+      [{ studentId: item.studentId, unitId: item.unitId, label: item.studentName }],
+      matches,
+    )
+    if (pending.length === 0) {
+      // Already recorded somewhere. Nothing to write, and nothing to claim.
+      setNotifyConfirmId(null)
+      return
+    }
+    setActioning(item.id)
+    const err = await onMatchUpdate?.(pending[0].match.id, item.studentId, notifiedPatch())
+    if (err) {
+      // The task stays visible and actionable: its predicate still reads
+      // un-notified, and the confirmation is left open so it can be retried.
+      setActioning(null)
+      toast?.error('Not recorded', notifyFailedMessage(1))
+      return
+    }
+    // The confirmed send is what earns the communication entry, so it is logged
+    // here rather than when the draft opened.
+    await logComm({
+      type: 'unit_notification',
+      student: item.student,
+      sentToEmail: item.student?.school_email || item.student?.personal_email || '',
+      sentToName: item.studentName,
+    })
+    setActioning(null)
+    setNotifyConfirmId(null)
+    logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
+    toast?.success('Notified', notifyRecordedMessage(item.unitName || 'the unit', 1))
   }
 
   // ── Mark Complete confirmation ──────────────────────────────
@@ -848,9 +921,29 @@ ${KR_SIG}`
     // Placement
     ...(canEdit ? act4.map(s => {
       const unit = units.find(u => u.id === s.matched_unit_id)
-      const m    = matches.find(m => m.student_id === s.id)
-      const href = unit ? buildUnitLeaderEmail({ contactPersons:unit.contact_person||'Unit Leader', contactEmails:unit.contact_email||'', unitName:unit.unit_name, students:[{ firstName:s.first_name, lastName:s.last_name||s.name, school:s.school||'', programType:s.program_type||'', termDates:s.term_dates||'', hoursRequired:s.hours_required||'', shiftPreference:s.shift_availability||'', preceptorAssigned:s.matched_preceptor||'' }], isMultiStudent:false }) : null
-      return { id:`${s.id}-un`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Unit Leader Placement Notification', description:`Placed in ${unit?.unit_name||'unit'}. Leader not yet notified.`, actionType:'unit_notification_needed', canMarkDone:!!href, markDoneType:'log_communication', markDonePayload:{type:'unit_notification'}, emailHref:href, matchId:m?.id }
+      // Scoped to the unit this task is ABOUT. Taking the student's first match
+      // would pick an arbitrary placement for a multi-unit student, and the
+      // notice would then describe a rotation this task is not about.
+      const m    = matches.find(mm => mm.student_id === s.id && mm.unit_id === s.matched_unit_id)
+                || matches.find(mm => mm.student_id === s.id)
+      // PLACEMENT-COMMUNICATION-HANDOFF-1: the same canonical resolution the
+      // Placement Board uses, so this shortcut and the Unit Pool envelope can
+      // never send two different versions of one placement. Term dates come from
+      // the coordinator-owned rotation rows the panel already receives; the
+      // retired students.term_dates column is no longer read anywhere.
+      // studentMatches is the multi-placement evidence: without it the resolver
+      // refuses any student-level preceptor fallback, so this shortcut can never
+      // name one unit's preceptor on another unit's notice.
+      const sMatches = matches.filter(mm => mm.student_id === s.id)
+      const facts = unit ? buildPlacementFacts({ student:s, unit, match:m, rotationRows:schoolRotations, studentMatches:sMatches }) : null
+      const href = unit ? buildUnitLeaderEmail({
+        contactEmails: unit.contact_email || '',
+        unitName:      unit.unit_name,
+        greetingName:  resolveUnitLeaderGreetingName({ unit }).name,
+        students:      [toNoticeStudent(facts)],
+        isMultiStudent: false,
+      }) : null
+      return { id:`${s.id}-un`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Unit Leader Placement Notification', description:`Placed in ${unit?.unit_name||'unit'}. Leader not yet notified.`, actionType:'unit_notification_needed', canMarkDone:!!href, markDoneType:'log_communication', markDonePayload:{type:'unit_notification'}, emailHref:href, matchId:m?.id, unitId:unit?.id || null, unitName:unit?.unit_name || 'the unit' }
     }) : []),
     ...act5.map(s => {
       const unit = units.find(u => u.id === s.matched_unit_id)
@@ -1132,6 +1225,9 @@ ${KR_SIG}`
                     onAction={() => handleAction(item)}
                     onConfirm={() => handleConfirmComplete(item)}
                     onCancelConfirm={() => setConfirmingId(null)}
+                    isAwaitingNotifyConfirm={notifyConfirmId === item.id}
+                    onConfirmNotified={() => handleConfirmNotified(item)}
+                    onDismissNotifyConfirm={() => setNotifyConfirmId(null)}
                     oriExpanded={oriExpanded}
                     onOriExpand={() => setOriExpanded(p => !p)}
                     oriFields={oriFields}

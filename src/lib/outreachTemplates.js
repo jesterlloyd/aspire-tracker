@@ -39,24 +39,72 @@ const bEvent = ({ title = '', dateTime = '', location = '', format = '', respond
   `<div data-aspire-block="event" data-title="${escAttr(title)}" data-datetime="${escAttr(dateTime)}" data-location="${escAttr(location)}" data-format="${escAttr(format)}" data-respondby="${escAttr(respondBy)}"></div>`
 
 // Preceptor Assignment & Details - one internal Cedars email replacing the former split assignment
-// and details-request drafts. The assignment fields stay editable placeholders because the student is
-// not the current recipient. No attachments are claimed as included.
-export function buildPreceptorAssignmentDraft({ firstName } = {}) {
+// and details-request drafts.
+//
+// PLACEMENT-COMMUNICATION-HANDOFF-1. The assignment fields are no longer always
+// placeholders. When the Placement Board hands this template a `placement`, every
+// field it resolved is merged in and only the ones it could NOT resolve stay as
+// bracketed, editable placeholders - so an unresolved value is visible as a gap
+// rather than silently reading as fact. Opened from the template sidebar with no
+// placement (the pre-existing path), the copy behaves exactly as before.
+//
+// SECTION HEADINGS ARE TITLE CASE, matching the document title itself:
+//   Preceptor Assignment & Details / Student Assignment Summary /
+//   Details Requested for the Introduction / A Few Quick Reminders.
+//
+// THE ATTACHMENT SENTENCE IS CONDITIONAL. It says the documents are attached only
+// when the caller confirms both resolved (`attachmentsAttached: true`). Otherwise
+// it keeps the older, honest wording. No typography or font styling is set here;
+// the app's existing email rendering is untouched.
+
+// A merged value, or the template's own editable placeholder when nothing was
+// resolved. The placeholder is what makes an unresolved field obvious in the draft.
+const merged = (value, placeholder) => {
+  const v = (value == null ? '' : String(value)).trim()
+  return v || placeholder
+}
+
+const ATTACHED_REMINDER =
+  'Scope of practice: Please see the attached ASPIRE brochure and Pre-Licensure Student General Guidelines for your reference.'
+const UNATTACHED_REMINDER =
+  'Scope of practice: The ASPIRE brochure and Pre-Licensure Student General Guidelines can be added before sending or shared separately for your reference.'
+
+export function buildPreceptorAssignmentDraft({ firstName, placement, attachmentsAttached = false } = {}) {
+  const p = placement || {}
+  // The salutation prefers the name the handoff resolved for THIS preceptor over
+  // whatever the composer inferred from the recipient card.
+  const greetName = (p.preceptorFirstName || firstName || '')
+  const studentName = merged(p.studentName, '[Student Name]')
+  const school      = merged(p.school, '[School]')
+  const unit        = merged(p.unit, '[Unit / Assignment]')
+  const schedule    = merged(p.schedule, '[Rotation Dates / Schedule]')
+  const hours       = merged(p.hoursRequired, '[Required Hours, if applicable]')
+  // Additional Notes is OMITTED entirely when there is no appropriate note, rather
+  // than shipping a placeholder the sender has to remember to delete.
+  const notes       = (p.notes == null ? '' : String(p.notes)).trim()
+  const reminder    = attachmentsAttached ? ATTACHED_REMINDER : UNATTACHED_REMINDER
+
+  const summaryLines = [
+    `Student: ${studentName}`,
+    `School: ${school}`,
+    `Unit / Assignment: ${unit}`,
+    `Rotation Dates / Schedule: ${schedule}`,
+    `Required Hours: ${hours}`,
+  ]
+  if (notes) summaryLines.push(`Additional Notes: ${notes}`)
+
   const subject = 'ASPIRE: Student preceptor assignment and introduction details'
-  const body = `Dear ${fb(firstName, 'Preceptor')},
+  const body = `Dear ${fb(greetName, 'Preceptor')},
 
 Thank you for agreeing to precept one of our senior nursing students through ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience. Your willingness to teach, mentor, and support our students makes such a meaningful difference in their professional growth and transition into practice.
 
-Below is a summary of your student assignment:
+Student Assignment Summary
 
-Student: [Student Name]
-School: [School]
-Unit / Assignment: [Unit / Assignment]
-Rotation Dates / Schedule: [Rotation Dates / Schedule]
-Required Hours: [Required Hours, if applicable]
-Additional Notes: [Insert any relevant notes, if applicable]
+${summaryLines.join('\n')}
 
-To help me introduce you to [Student Name] and make the first day as smooth as possible, please reply with the following details when you have a moment:
+Details Requested for the Introduction
+
+To help me introduce you to ${studentName} and make the first day as smooth as possible, please reply with the following details when you have a moment:
 
 • Your preferred name and title
 • Best contact email and phone, if appropriate
@@ -70,30 +118,23 @@ The photo is completely optional. Please share one only if you are comfortable.
 
 The student is encouraged to reach out to you directly by email to introduce themselves, coordinate scheduling, and share their individual learning objectives to help guide the experience.
 
-A few quick reminders:
+A Few Quick Reminders
 
 • Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.
 • Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.
 • Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.
-• Scope of practice: The ASPIRE brochure and Pre-Licensure Student General Guidelines can be added before sending or shared separately for your reference.
+• ${reminder}
 
 Again, we truly appreciate your time, effort, and heart in mentoring our students. Many ASPIRE students go on to become strong candidates for our New-Graduate RN Residency Program, and your guidance plays a meaningful role in helping them build confidence, competence, and readiness for practice.
 
 Please don't hesitate to reach out if you have any questions.`
   const richBody =
     bH2('Preceptor Assignment & Details')
-    + bP(`Dear ${fb(firstName, 'Preceptor')}, thank you for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice.`)
-    + bH2('Student assignment summary')
-    + bUL([
-      'Student: [Student Name]',
-      'School: [School]',
-      'Unit / Assignment: [Unit / Assignment]',
-      'Rotation Dates / Schedule: [Rotation Dates / Schedule]',
-      'Required Hours: [Required Hours, if applicable]',
-      'Additional Notes: [Insert any relevant notes, if applicable]',
-    ])
-    + bH2('Details requested for the introduction')
-    + bNote({ title: 'When you have a moment', body: 'Please reply with the details below so I can introduce you to [Student Name] and help make the first day as smooth as possible. A photo is completely optional.' })
+    + bP(`Dear ${fb(greetName, 'Preceptor')}, thank you for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice.`)
+    + bH2('Student Assignment Summary')
+    + bUL(summaryLines)
+    + bH2('Details Requested for the Introduction')
+    + bNote({ title: 'When you have a moment', body: `Please reply with the details below so I can introduce you to ${studentName} and help make the first day as smooth as possible. A photo is completely optional.` })
     + bUL([
       'Preferred name and title',
       'Best contact email and phone, if appropriate',
@@ -104,12 +145,12 @@ Please don't hesitate to reach out if you have any questions.`
       "Any expectations or instructions for the student's first day",
     ])
     + bP('The student is encouraged to contact you directly to introduce themselves, coordinate scheduling, and share their individual learning objectives.')
-    + bH2('A few quick reminders')
+    + bH2('A Few Quick Reminders')
     + bUL([
       'Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.',
       'Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.',
       'Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.',
-      'Scope of practice: The ASPIRE brochure and Pre-Licensure Student General Guidelines can be added before sending or shared separately for reference.',
+      reminder,
     ])
     + bP("We truly appreciate your time, effort, and heart in mentoring our students. Your guidance helps them build confidence, competence, and readiness for practice. Please don't hesitate to reach out if you have any questions.")
   return { subject, body, richBody }
