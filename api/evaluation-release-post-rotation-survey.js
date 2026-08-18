@@ -28,6 +28,7 @@ import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { buildPostRotationInvitationEmail, formatExpiresAt } from '../lib/server/evaluation/postRotationEmailTemplates.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { classifyPostRotationCohort } from '../src/lib/evaluation/postRotationCertDueDetection.js';
+import { aspirePrerequisites, REQUIRED_ACTIVITY_KEYS } from '../src/lib/evaluation/postRotationSequence.js';
 import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.js';
 
 const INSTRUMENT_SLUG  = 'post_rotation_evaluation';
@@ -178,6 +179,51 @@ async function _handler(req, res) {
     return i?.slug;
   };
   const assignments = (rawAssignments || []).filter(a => slugFor(a) === INSTRUMENT_SLUG);
+
+  // ── 4b. POST-ROTATION-SEQUENCED-RELEASE-1: independent prerequisite recheck. ────
+  // This is the LAST step of the sequence, so it re-derives every earlier one from
+  // the student's own rows: Student Feedback completed, Casey-Fink post-rotation
+  // completed, and every required program activity recorded complete. The UI gate
+  // is not trusted and is not consulted. This runs BEFORE the classifier, the
+  // dedup, the assignment insert, the token mint and the send, so a blocked call
+  // writes nothing and sends nothing.
+  //
+  // The activity ledger is a separate table because no student-level evidence for
+  // these activities exists anywhere else (aspire_events is cohort-scoped with no
+  // student_id; a resume FILE is not a resume REVIEW). Until the Owner applies
+  // 20260822000000 the read below fails, and this endpoint FAILS CLOSED rather
+  // than releasing as if the checklist were satisfied.
+  let activityRows;
+  {
+    const { data: acts, error: actErr } = await supabaseAdmin
+      .from('student_activity_completions')
+      .select('activity_key, completed_at')
+      .eq('student_id', studentId);
+    if (actErr) {
+      return res.status(200).json({
+        success: true, released: false,
+        classification: 'blocked_prerequisite',
+        reason: 'Required-activity tracking is not switched on yet, so the activity prerequisites cannot be verified. Nothing was sent.',
+        prerequisite: { code: 'activity_ledger_unavailable', required: REQUIRED_ACTIVITY_KEYS },
+      });
+    }
+    activityRows = acts || [];
+  }
+
+  const prereq = aspirePrerequisites(rawAssignments || [], activityRows);
+  if (!prereq.ok) {
+    return res.status(200).json({
+      success: true, released: false,
+      classification: 'blocked_prerequisite',
+      reason: prereq.reason,
+      prerequisite: {
+        unmet: prereq.unmet.map(u => ({ code: u.code, label: u.label, reason: u.reason })),
+        feedback_completed: prereq.feedback.completed,
+        casey_fink_completed: prereq.caseyFink.completed,
+        activities: prereq.activities.map(a => ({ key: a.key, label: a.label, completed: a.completed })),
+      },
+    });
+  }
 
   // Existing certificate for this student (service-role read).
   const { data: certificates, error: certErr } = await supabaseAdmin

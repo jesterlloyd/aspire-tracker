@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { classifyPostRotationCohort } from '../../lib/evaluation/postRotationCertDueDetection'
+import { aspirePrerequisites } from '../../lib/evaluation/postRotationSequence'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 import { shiftDrivesState } from '../../lib/shiftLifecycle'
 
@@ -27,7 +28,7 @@ const STATUS_STYLE = {
   evaluation_completed: { label: 'Evaluation Completed', fg: '#7c3aed', bg: '#F3EEFC' },
 }
 
-const COLS = ['Student', 'School', 'Unit', 'Approved', 'Required', 'Last Shift', 'Evaluation Status', 'Warnings', 'Action']
+const COLS = ['Student', 'School', 'Unit', 'Approved', 'Required', 'Last Shift', 'Prerequisites', 'Evaluation Status', 'Warnings', 'Action']
 
 function fmtHours(n) {
   if (n == null) return '-'
@@ -84,6 +85,15 @@ async function loadPostRotationQueue(cohortId) {
     return i?.slug
   }
   const assignments = (aRes.data || []).filter(a => slugFor(a) === 'post_rotation_evaluation')
+  // POST-ROTATION-SEQUENCED-RELEASE-1: the cohort-wide rows already fetched above
+  // also carry Student Feedback and Casey-Fink, so the earlier steps cost no extra
+  // query. Grouped per student for the per-row prerequisite check.
+  const allAssignmentsByStudent = new Map()
+  for (const a of (aRes.data || [])) {
+    if (!a?.student_id) continue
+    if (!allAssignmentsByStudent.has(a.student_id)) allAssignmentsByStudent.set(a.student_id, [])
+    allAssignmentsByStudent.get(a.student_id).push(a)
+  }
 
   // Last shift date + support-needed flag (non-fatal). Optional; degrades to '-'.
   const shiftMeta = new Map()
@@ -109,7 +119,27 @@ async function loadPostRotationQueue(cohortId) {
     shiftNote = 'Last shift dates and support-needed flags are unavailable right now.'
   }
 
-  return { students, assignments, shiftMeta, shiftNote, detectedAtMs: Date.now() }
+  // The required-activity ledger. Until 20260822000000 is applied this read
+  // fails; the panel then shows the checklist as UNVERIFIED rather than pretending
+  // it is satisfied, and the endpoint refuses independently.
+  let activityByStudent = new Map()
+  let activityNote = null
+  try {
+    const actRes = await supabase
+      .from('student_activity_completions')
+      .select('id, student_id, activity_key, action, completed_at, created_at, recorded_by_name')
+      .in('student_id', students.map(s => s.id))
+    if (actRes.error) throw actRes.error
+    for (const row of (actRes.data || [])) {
+      if (!activityByStudent.has(row.student_id)) activityByStudent.set(row.student_id, [])
+      activityByStudent.get(row.student_id).push(row)
+    }
+  } catch {
+    activityByStudent = new Map()
+    activityNote = 'Required-activity tracking is not switched on yet, so activity prerequisites cannot be verified. Release stays blocked.'
+  }
+
+  return { students, assignments, allAssignmentsByStudent, activityByStudent, activityNote, shiftMeta, shiftNote, detectedAtMs: Date.now() }
 }
 
 export default function PostRotationAutomationPanel({ cohortId, onCounts, active }) {
@@ -129,13 +159,28 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
   const { rows, summary } = useMemo(
     () => {
       if (!data) return { rows: [], summary: EMPTY_SUMMARY }
-      return classifyPostRotationCohort({
+      const classified = classifyPostRotationCohort({
         students: data.students,
         assignments: data.assignments,
         shiftMeta: data.shiftMeta,
         displayName: getStudentPreferredFullName,
         nowMs: data.detectedAtMs,
       })
+      // POST-ROTATION-SEQUENCED-RELEASE-1: attach the full prerequisite verdict
+      // (Student Feedback, Casey-Fink, required activities) to each row. Display
+      // and button gating only - the endpoint re-derives all of it and refuses on
+      // its own, so this is convenience, never the guard.
+      const byStudent = data.allAssignmentsByStudent || new Map()
+      const actByStudent = data.activityByStudent || new Map()
+      const ledgerDown = !!data.activityNote
+      return {
+        ...classified,
+        rows: (classified.rows || []).map(r => {
+          const pre = aspirePrerequisites(byStudent.get(r.studentId) || [], actByStudent.get(r.studentId) || [])
+          // An unavailable ledger can never read as "activities complete".
+          return { ...r, prereq: ledgerDown ? { ...pre, ok: false, ledgerUnavailable: true } : pre }
+        }),
+      }
     },
     [data]
   )
@@ -149,6 +194,59 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
   const [confirm, setConfirm] = useState(null)
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)
+  // POST-ROTATION-SEQUENCED-RELEASE-1 activity management.
+  const [activityConfirm, setActivityConfirm] = useState(null)
+  const [activitySaving, setActivitySaving] = useState(false)
+  const [activityMsg, setActivityMsg] = useState(null)
+  const [correctionReason, setCorrectionReason] = useState('')
+
+  // Records or corrects ONE activity for ONE student. This never releases or
+  // sends anything: it writes to the ledger and refetches so the pathway updates
+  // immediately. The server re-verifies Owner/Admin and cohort membership.
+  const submitActivity = useCallback(async () => {
+    if (!activityConfirm) return
+    const { row, activity } = activityConfirm
+    const correcting = activity.completed
+    if (correcting && !correctionReason.trim()) {
+      setActivityMsg({ tone: 'err', text: 'A correction needs a reason.' })
+      return
+    }
+    setActivitySaving(true); setActivityMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Session expired, refresh and try again.')
+      const res = await fetch('/api/student-activity-completion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        // The acting identity is NEVER sent: the server takes it from the session.
+        body: JSON.stringify({
+          student_id: row.studentId,
+          activity_key: activity.key,
+          action: correcting ? 'reverse' : 'complete',
+          ...(correcting ? { reason: correctionReason.trim() } : {}),
+        }),
+      })
+      const payload = await res.json().catch(() => null)
+      if (!res.ok || !payload?.success) {
+        throw new Error(payload?.error || 'Could not record the activity.')
+      }
+      setActivityMsg({
+        tone: 'ok',
+        text: payload.recorded
+          ? `${activity.label} ${correcting ? 'correction recorded' : 'marked complete'} for ${row.studentName}.`
+          : (payload.message || 'No change was needed.'),
+      })
+      setActivityConfirm(null)
+      setCorrectionReason('')
+      // Immediate UI update: refetch so the pathway and the release gate reflect
+      // the new state without the operator reloading.
+      await refetch()
+    } catch (err) {
+      setActivityMsg({ tone: 'err', text: err.message || 'Could not record the activity.' })
+    } finally {
+      setActivitySaving(false)
+    }
+  }, [activityConfirm, correctionReason, refetch])
   const [identityHold, setIdentityHold] = useState(false)
 
   const doRelease = useCallback(async (row) => {
@@ -302,6 +400,53 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
                         <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>{fmtHours(r.approvedHours)}</td>
                         <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>{fmtHours(r.hoursRequired)}</td>
                         <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151', whiteSpace: 'nowrap' }}>{fmtDate(r.lastShiftDate)}</td>
+                        <td data-testid="pr-prereq-cell" style={{ padding: '9px 13px', fontSize: 11.5, lineHeight: 1.55, minWidth: 190 }}>
+                          {(() => {
+                            const P = r.prereq
+                            if (!P) return <span style={{ color: '#9ca3af' }}>-</span>
+                            const item = (label, done, at, key) => (
+                              <div key={key || label} style={{ whiteSpace: 'nowrap', color: done ? '#166534' : '#92400e' }}>
+                                {done ? '✓' : '○'} {label}
+                                {done && at ? <span style={{ color: '#6b7280' }}>{` ${new Date(at).toLocaleDateString('en-US')}`}</span> : null}
+                              </div>
+                            )
+                            return (
+                              <>
+                                {item('Student Feedback', P.feedback?.completed, P.feedback?.completedAt, 'fb')}
+                                {item('Casey-Fink', P.caseyFink?.completed, P.caseyFink?.completedAt, 'cf')}
+                                {P.ledgerUnavailable
+                                  ? <div style={{ color: '#92400e', whiteSpace: 'normal' }}>○ Activities not verifiable yet</div>
+                                  : (P.activities || []).map(a => (
+                                      <div key={a.key} data-testid="pr-activity-row"
+                                        style={{ display: 'flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap' }}>
+                                        <span style={{ color: a.completed ? '#166534' : '#92400e' }}>
+                                          {a.completed ? '✓' : '○'} {a.label}
+                                          {a.completed && a.completedAt
+                                            ? <span style={{ color: '#6b7280' }}>{` ${new Date(a.completedAt).toLocaleDateString('en-US')}`}</span>
+                                            : null}
+                                          {a.completed && a.recordedByName
+                                            ? <span style={{ color: '#9ca3af' }}>{` · ${a.recordedByName}`}</span>
+                                            : null}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          data-testid={a.completed ? 'pr-activity-correct' : 'pr-activity-mark'}
+                                          onClick={() => setActivityConfirm({ row: r, activity: a })}
+                                          disabled={activitySaving}
+                                          style={{
+                                            border: 'none', background: 'none', padding: 0, cursor: activitySaving ? 'default' : 'pointer',
+                                            color: '#1D2567', fontSize: 10.5, fontWeight: 600, textDecoration: 'underline',
+                                            fontFamily: F, opacity: activitySaving ? 0.5 : 1,
+                                          }}
+                                        >
+                                          {a.completed ? 'Correct' : 'Mark complete'}
+                                        </button>
+                                      </div>
+                                    ))}
+                              </>
+                            )
+                          })()}
+                        </td>
                         <td style={{ padding: '9px 13px' }}>
                           <span style={{
                             fontSize: 11, fontWeight: 700, color: st.fg, background: st.bg,
@@ -313,6 +458,17 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
                         </td>
                         <td style={{ padding: '9px 13px', textAlign: 'right' }}>
                           {r.status === 'eligible_for_review' ? (
+                            r.prereq && !r.prereq.ok ? (
+                              <span data-testid="pr-blocked-reason"
+                                title={r.prereq.ledgerUnavailable
+                                  ? 'Required-activity tracking is not switched on yet.'
+                                  : (r.prereq.reason || '')}
+                                style={{ color: '#92400e', fontSize: 11.5, lineHeight: 1.4, display: 'inline-block', maxWidth: 260, whiteSpace: 'normal', textAlign: 'right' }}>
+                                Blocked: {r.prereq.ledgerUnavailable
+                                  ? 'required-activity tracking is not switched on yet, so activity completion cannot be verified.'
+                                  : r.prereq.reason}
+                              </span>
+                            ) : (
                             <button
                               type="button"
                               onClick={() => { setReleaseMsg(null); setConfirm(r) }}
@@ -326,6 +482,7 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
                             >
                               Release Survey
                             </button>
+                            )
                           ) : (
                             <span style={{ color: '#9ca3af', fontSize: 12 }}>-</span>
                           )}
@@ -341,6 +498,65 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
       )}
       {/* Human approval. Shows the SERVER-RESOLVED recipient with no editable field, so an
           operator can confirm who receives it but cannot redirect it. */}
+      {/* POST-ROTATION-SEQUENCED-RELEASE-1: record or correct one activity.
+          Confirmation is required before anything is written. */}
+      {activityConfirm && (
+        <div onClick={() => { if (!activitySaving) { setActivityConfirm(null); setCorrectionReason('') } }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true"
+            data-testid="pr-activity-dialog"
+            style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 500, padding: 22, fontFamily: F, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1D2567' }}>
+              {activityConfirm.activity.completed ? 'Correct this activity record' : 'Mark this activity complete'}
+            </h2>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, marginTop: 10 }}>
+              <strong>{activityConfirm.activity.label}</strong> for <strong>{activityConfirm.row.studentName}</strong>.
+              {activityConfirm.activity.completed ? (
+                <div style={{ marginTop: 8, color: '#92400e' }}>
+                  This records a correction. The original entry
+                  {activityConfirm.activity.recordedByName ? ` by ${activityConfirm.activity.recordedByName}` : ''}
+                  {activityConfirm.activity.completedAt ? ` on ${new Date(activityConfirm.activity.completedAt).toLocaleDateString('en-US')}` : ''}
+                  {' '}is kept in the history, not deleted.
+                </div>
+              ) : (
+                <div style={{ marginTop: 8, color: '#6b7280' }}>
+                  This records completion under your name and today&rsquo;s date. It does not send
+                  any email and does not release an evaluation.
+                </div>
+              )}
+            </div>
+            {activityConfirm.activity.completed && (
+              <textarea
+                data-testid="pr-activity-reason"
+                value={correctionReason}
+                onChange={e => setCorrectionReason(e.target.value)}
+                placeholder="Why is this being corrected?"
+                rows={3}
+                style={{ width: '100%', boxSizing: 'border-box', marginTop: 12, padding: '8px 10px', fontFamily: F, fontSize: 12.5, borderRadius: 8, border: '1px solid #d1d5db' }}
+              />
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+              <button type="button" className="btn-outline-modal" disabled={activitySaving}
+                onClick={() => { setActivityConfirm(null); setCorrectionReason('') }}>Cancel</button>
+              <button type="button" data-testid="pr-activity-submit" disabled={activitySaving}
+                onClick={submitActivity}
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#166534', color: '#fff', fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: activitySaving ? 'default' : 'pointer', opacity: activitySaving ? 0.6 : 1 }}>
+                {activitySaving ? 'Saving…' : (activityConfirm.activity.completed ? 'Record correction' : 'Mark complete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activityMsg && (
+        <div data-testid="pr-activity-msg" style={{
+          margin: '10px 0', padding: '8px 12px', borderRadius: 8, fontSize: 12.5, fontFamily: F,
+          background: activityMsg.tone === 'ok' ? '#ecfdf5' : '#fef2f2',
+          color: activityMsg.tone === 'ok' ? '#065f46' : '#991b1b',
+          border: `1px solid ${activityMsg.tone === 'ok' ? '#a7f3d0' : '#fecaca'}`,
+        }}>{activityMsg.text}</div>
+      )}
+
       {confirm && (
         <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
           <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 480, fontFamily: F }} onMouseDown={e => e.stopPropagation()}>

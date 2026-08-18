@@ -25,6 +25,7 @@ import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { buildCaseyFinkPostRotationInvitationEmail, formatExpiresAt } from '../lib/server/evaluation/caseyFinkPostRotationEmailTemplates.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { classifyCaseyFinkPostRotationCohort } from '../src/lib/evaluation/caseyFinkPostRotationDueDetection.js';
+import { caseyFinkPrerequisite, STEP_SLUGS } from '../src/lib/evaluation/postRotationSequence.js';
 import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.js';
 
 const INSTRUMENT_SLUG  = 'casey_fink_readiness_2024';
@@ -175,6 +176,29 @@ async function _handler(req, res) {
     return i?.slug;
   };
   const assignments = (rawAssignments || []).filter(a => slugFor(a) === INSTRUMENT_SLUG && a.timepoint === TIMEPOINT);
+
+  // ── 4b. POST-ROTATION-SEQUENCED-RELEASE-1: independent prerequisite recheck. ────
+  // Step 1 (Student Feedback: Preceptor & Unit) must be COMPLETED before this
+  // survey may be released. This is re-derived here from the student's own
+  // assignment rows - the UI gate is not trusted and is not consulted. It runs
+  // BEFORE the classifier, the notification_log dedup, the assignment insert,
+  // the token mint and the email send, so a blocked call writes nothing and
+  // sends nothing. Completion means the canonical evidence only (completed_at /
+  // status='completed', with revoked excluded); a released-but-unfinished, an
+  // expired, or a missing feedback assignment all fail closed.
+  const prereq = caseyFinkPrerequisite(rawAssignments || []);
+  if (!prereq.ok) {
+    return res.status(200).json({
+      success: true, released: false,
+      classification: 'blocked_prerequisite',
+      prerequisite: {
+        step: STEP_SLUGS.feedback,
+        code: prereq.code,
+        completed: false,
+      },
+      reason: prereq.reason,
+    });
+  }
 
   const { data: certificates, error: certErr } = await supabaseAdmin
     .from('certificates')

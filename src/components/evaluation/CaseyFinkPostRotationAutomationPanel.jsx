@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyCaseyFinkPostRotationCohort } from '../../lib/evaluation/caseyFinkPostRotationDueDetection'
+import { caseyFinkPrerequisite } from '../../lib/evaluation/postRotationSequence'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { shiftDrivesState } from '../../lib/shiftLifecycle'
@@ -33,7 +34,7 @@ const STATUS_STYLE = {
   not_eligible:         { label: 'Blocked · below hours',      fg: '#8B5E1A', bg: '#FBF3E0' },
 }
 
-const COLS = ['Student', 'School', 'Unit', 'Approved', 'Required', 'Last Shift', 'Readiness Survey', 'Certificate', 'Warnings', 'Action']
+const COLS = ['Student', 'School', 'Unit', 'Approved', 'Required', 'Last Shift', 'Student Feedback', 'Readiness Survey', 'Certificate', 'Warnings', 'Action']
 
 function fmtHours(n) {
   if (n == null) return '-'
@@ -89,6 +90,15 @@ async function loadCaseyFinkQueue(cohortId) {
   }
   // Casey-Fink assignments at timepoint post_rotation ONLY (baseline Casey-Fink is separate).
   const assignments = (aRes.data || []).filter(a => slugFor(a) === 'casey_fink_readiness_2024' && a.timepoint === 'post_rotation')
+  // POST-ROTATION-SEQUENCED-RELEASE-1: the SAME cohort-wide rows already fetched
+  // above also carry the Student Feedback assignments, so the prerequisite costs
+  // no extra query. Grouped per student for the per-row check below.
+  const allByStudent = new Map()
+  for (const a of (aRes.data || [])) {
+    if (!a?.student_id) continue
+    if (!allByStudent.has(a.student_id)) allByStudent.set(a.student_id, [])
+    allByStudent.get(a.student_id).push(a)
+  }
   const studentIds = students.map(s => s.id)
 
   let certificates = []
@@ -100,6 +110,8 @@ async function loadCaseyFinkQueue(cohortId) {
     if (cRes.error) throw cRes.error
     certificates = cRes.data || []
   }
+
+  const allAssignmentsByStudent = allByStudent
 
   const shiftMeta = new Map()
   let shiftNote = null
@@ -124,7 +136,7 @@ async function loadCaseyFinkQueue(cohortId) {
     shiftNote = 'Last shift dates and support-needed flags are unavailable right now.'
   }
 
-  return { students, assignments, certificates, shiftMeta, shiftNote, detectedAtMs: Date.now() }
+  return { students, assignments, allAssignmentsByStudent, certificates, shiftMeta, shiftNote, detectedAtMs: Date.now() }
 }
 
 export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCounts, active }) {
@@ -141,10 +153,10 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
   const students = data?.students || []
   const detectedAtMs = data?.detectedAtMs || 0
 
-  const { rows, summary } = useMemo(
+  const { rows: allRows, summary } = useMemo(
     () => {
       if (!data) return { rows: [], summary: EMPTY_SUMMARY }
-      return classifyCaseyFinkPostRotationCohort({
+      const classified = classifyCaseyFinkPostRotationCohort({
         students: data.students,
         assignments: data.assignments,
         certificates: data.certificates,
@@ -152,11 +164,39 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
         displayName: getStudentPreferredFullName,
         nowMs: data.detectedAtMs,
       })
+      // POST-ROTATION-SEQUENCED-RELEASE-1: attach the Student Feedback verdict to
+      // each row. Display + button gating only - the endpoint re-derives this
+      // itself and refuses independently, so this is convenience, not the guard.
+      const byStudent = data.allAssignmentsByStudent || new Map()
+      return {
+        ...classified,
+        rows: (classified.rows || []).map(r => ({
+          ...r,
+          prereq: caseyFinkPrerequisite(byStudent.get(r.studentId) || []),
+        })),
+      }
     },
     [data]
   )
 
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
+
+  // POST-ROTATION-SEQUENCED-RELEASE-1: the practical filter staff asked for -
+  // "who is ready for the next step right now". Feedback completed AND Casey-Fink
+  // neither released nor completed, which is exactly eligible_for_review with a
+  // satisfied prerequisite. Display-only: it narrows the visible rows and changes
+  // no state, no counts, and no release behavior.
+  const [readyOnly, setReadyOnly] = useState(false)
+  const rows = useMemo(
+    () => (readyOnly
+      ? (allRows || []).filter(r => r.status === 'eligible_for_review' && r.prereq?.ok)
+      : (allRows || [])),
+    [allRows, readyOnly],
+  )
+  const readyCount = useMemo(
+    () => (allRows || []).filter(r => r.status === 'eligible_for_review' && r.prereq?.ok).length,
+    [allRows],
+  )
 
   const [confirm, setConfirm] = useState(null)
   const [releasing, setReleasing] = useState(false)
@@ -259,6 +299,20 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
         <span style={{ fontSize: 12, color: '#9ca3af' }}>
           {detectedAtMs ? `Detected ${new Date(detectedAtMs).toLocaleString('en-US')}` : ''}
         </span>
+        {/* POST-ROTATION-SEQUENCED-RELEASE-1: jump straight to the students whose
+            Student Feedback is complete and whose Casey-Fink is not yet released
+            or completed - i.e. exactly who can be released next. */}
+        <label data-testid="cf-ready-filter"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#374151', fontFamily: F, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={readyOnly}
+            onChange={e => setReadyOnly(e.target.checked)}
+            style={{ accentColor: '#1D2567' }}
+          />
+          Feedback completed, Casey-Fink not released
+          <span data-testid="cf-ready-count" style={{ color: '#6b7280' }}>{` (${readyCount})`}</span>
+        </label>
         <span style={{
           fontSize: 12, fontWeight: 600, color: '#166534', background: '#EDF7F0',
           border: '1px solid #c6e7d0', borderRadius: 999, padding: '3px 10px',
@@ -333,6 +387,20 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
                         <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>{fmtHours(r.approvedHours)}</td>
                         <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>{fmtHours(r.hoursRequired)}</td>
                         <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151', whiteSpace: 'nowrap' }}>{fmtDate(r.lastShiftDate)}</td>
+                        <td data-testid="cf-feedback-cell" style={{ padding: '9px 13px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                          {r.prereq?.feedback?.completed ? (
+                            <span style={{ color: '#166534', fontWeight: 600 }}>
+                              ✓ Completed
+                              {r.prereq.feedback.completedAt
+                                ? <span style={{ color: '#6b7280', fontWeight: 400 }}>{` ${new Date(r.prereq.feedback.completedAt).toLocaleDateString('en-US')}`}</span>
+                                : null}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#92400e' }}>
+                              {r.prereq?.code === 'feedback_missing' ? 'Not released' : 'Awaiting student'}
+                            </span>
+                          )}
+                        </td>
                         <td style={{ padding: '9px 13px' }}>
                           <span style={{
                             fontSize: 11, fontWeight: 700, color: st.fg, background: st.bg,
@@ -347,6 +415,13 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
                         </td>
                         <td style={{ padding: '9px 13px', textAlign: 'right' }}>
                           {r.status === 'eligible_for_review' ? (
+                            r.prereq && !r.prereq.ok ? (
+                              <span data-testid="cf-blocked-reason"
+                                title={r.prereq.reason}
+                                style={{ color: '#92400e', fontSize: 11.5, lineHeight: 1.4, display: 'inline-block', maxWidth: 260, whiteSpace: 'normal', textAlign: 'right' }}>
+                                Blocked: {r.prereq.reason}
+                              </span>
+                            ) : (
                             <button
                               type="button"
                               onClick={() => { setReleaseMsg(null); setConfirm(r) }}
@@ -359,6 +434,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
                             >
                               Release Survey
                             </button>
+                            )
                           ) : (
                             <span style={{ color: '#9ca3af', fontSize: 12 }}>-</span>
                           )}
