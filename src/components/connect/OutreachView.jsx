@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import {
   attachmentWarningText, attachmentClaimBlockReason, PRECEPTOR_ASSIGNMENT_DOCUMENTS,
+  resolveRequiredAttachments,
 } from '../../lib/connect/catalogAttachments'
 import AttachmentPicker from './AttachmentPicker'
 import { toSlugs, toDraftAttachments, fromDraftAttachments, sendBlockedReason } from '../../lib/connect/outreachAttachments'
@@ -351,7 +353,45 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       ok: carried.ok === true,
     }
   }, [activePlacement])
-  const requiredDocSlugs = useMemo(() => requiredDocs.resolved.map(a => a.slug), [requiredDocs])
+  // PLACEMENT-COMMUNICATION-HANDOFF-1A: the MANUALLY selected template resolves
+  // the same two Catalog documents the Placement Board handoff carries, so both
+  // paths attach the same files and therefore print the same scope-of-practice
+  // sentence. Without this the manual draft could never honestly claim an
+  // attachment, and the two entry points would read differently.
+  const [manualDocs, setManualDocs] = useState(null)
+  const queryClient = useQueryClient()
+  const fetchRequiredDocs = useCallback(async () => {
+    try {
+      // Shares AttachmentPicker's cache entry, so the picker and the preselect
+      // can never describe a different Catalog.
+      const options = await queryClient.fetchQuery({
+        queryKey: ['outreach_attachment_options'],
+        staleTime: 5 * 60 * 1000,
+        queryFn: async () => {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session?.access_token) throw new Error('no session')
+          const res = await fetch('/api/outreach-attachment-options', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          })
+          if (!res.ok) throw new Error('options failed')
+          const payload = await res.json()
+          return Array.isArray(payload?.options) ? payload.options : []
+        },
+      })
+      return resolveRequiredAttachments(options)
+    } catch {
+      // Unreadable Catalog is UNAVAILABLE, never "the documents are missing".
+      return resolveRequiredAttachments(null)
+    }
+  }, [queryClient])
+
+  // Whichever path owns the current draft, one answer about the promised files.
+  const effectiveDocs = useMemo(
+    () => (activePlacement ? requiredDocs : (manualDocs || { resolved: [], problems: [], ok: false })),
+    [activePlacement, requiredDocs, manualDocs],
+  )
+  const requiredDocSlugs = useMemo(() => effectiveDocs.resolved.map(a => a.slug), [effectiveDocs])
+
   // Guards the handoff to ONE application per draft key: a re-render, a refetch,
   // or an auth-key change re-runs the restore, and none of them may re-stamp the
   // template over edits the Owner has already made.
@@ -1013,13 +1053,40 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     })
     : null
 
+  // The placement a successful send should be attributed to. Requires an active
+  // handoff for THIS recipient AND that the draft is still the preceptor
+  // assignment template - so editing the draft into something else, or picking a
+  // different template, detaches the attribution rather than mislabelling it.
+  // Every part is required, the MATCH ID included: it is the identity the board
+  // reads back, and the server refuses a claim without it. An older or partial
+  // context therefore attributes nothing rather than attributing it loosely - the
+  // send still goes, it simply does not claim to be about a placement.
+  const placementSendRef = (activePlacement && activeTemplateId === 'preceptor_assignment'
+    && activePlacement.placementRef?.matchId && activePlacement.placementRef?.studentId
+    && activePlacement.placementRef?.unitId && activePlacement.recipient?.preceptorId
+    && activePlacement.cohortId)
+    ? {
+      match_id:     activePlacement.placementRef.matchId,
+      student_id:   activePlacement.placementRef.studentId,
+      unit_id:      activePlacement.placementRef.unitId,
+      preceptor_id: activePlacement.recipient.preceptorId,
+      cohort_id:    activePlacement.cohortId,
+    }
+    : null
+
   // What to say when a promised Catalog document could not be resolved. Shown in
   // the composer, before anything can be sent.
-  const requiredDocWarning = activePlacement && requiredDocs.problems.length
-    ? attachmentWarningText(requiredDocs.problems)
+  const requiredDocWarning = activeTemplateId === 'preceptor_assignment' && effectiveDocs.problems.length
+    ? attachmentWarningText(effectiveDocs.problems)
     : ''
 
-  const buildTemplateDraft = useCallback((key) => {
+  // `docsOverride` exists because the manual path resolves its documents inside an
+  // async click handler: setState is not synchronous, so the freshly resolved set
+  // has to travel by argument. Without it the first application would read the
+  // previous (empty) state and silently drop both the attachments and the
+  // sentence that promises them.
+  const buildTemplateDraft = useCallback((key, docsOverride = null) => {
+    const docs = docsOverride || effectiveDocs
     // Salutation first name comes from the selected recipient. Student/unit/preceptor body fields
     // that describe someone other than the recipient stay bracketed editable placeholders.
     const firstName = firstNameOf(dmRecipientName)
@@ -1031,7 +1098,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         return buildPreceptorAssignmentDraft({
           firstName: activePlacement?.placement?.preceptorFirstName || firstName,
           placement: activePlacement?.placement || null,
-          attachmentsAttached: !!activePlacement && requiredDocs.ok,
+          attachmentsAttached: docs.ok,
         })
       case 'student_acceptance_orientation': return buildStudentAcceptanceOrientationDraft({ firstName })
       case 'unit_leader_support_request':  return buildUnitLeaderSupportRequestDraft({ firstName })
@@ -1039,17 +1106,18 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       case 'coordinator_acceptance':       return buildAcademicPartnerUpdateDraft({ firstName })
       default:                             return buildAcademicPartnerUpdateDraft({ firstName })
     }
-  }, [dmRecipientName, activePlacement, requiredDocs.ok])
+  }, [dmRecipientName, activePlacement, effectiveDocs])
 
-  const applyTemplate = useCallback((key) => {
-    const { subject, body, richBody } = buildTemplateDraft(key)
+  const applyTemplate = useCallback((key, docsOverride = null) => {
+    const docs = docsOverride || effectiveDocs
+    const { subject, body, richBody } = buildTemplateDraft(key, docsOverride)
     setOutreachMode('message')
     setMsgSubject(subject)
     // Preselect the promised documents alongside the copy that promises them, so
     // the two can never be applied separately. Anything unresolved is simply not
     // added - the warning below says so, and the send guard refuses the claim.
-    if (key === 'preceptor_assignment' && activePlacement) {
-      setDmAttachments(requiredDocs.resolved.map(a => ({
+    if (key === 'preceptor_assignment') {
+      setDmAttachments(docs.resolved.map(a => ({
         slug: a.slug, title: a.title, type_label: a.type_label, size_bytes: null,
       })))
     }
@@ -1068,18 +1136,26 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     }
     setIncludeSignature(true)  // template body has no signature - app appends the closing + sender block
     setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
-  }, [buildTemplateDraft, richEnabled, activePlacement, requiredDocs.resolved])
+  }, [buildTemplateDraft, richEnabled, effectiveDocs])
 
-  const handleSelectSingleTemplate = useCallback((t) => {
+  const handleSelectSingleTemplate = useCallback(async (t) => {
     // Picking a composer mode (Direct Message / Survey Invitation) clears the template indicator.
     if (t.kind === 'mode') { setActiveTemplateId(null); setOutreachMode(t.key); return }
+    // The Preceptor Assignment template resolves its promised documents BEFORE the
+    // draft is written, so the copy and the attachments are decided together and
+    // the body never has to be rewritten to match what got attached.
+    let docs = null
+    if (t.key === 'preceptor_assignment' && !activePlacement) {
+      docs = await fetchRequiredDocs()
+      setManualDocs(docs)
+    }
     // 'hydrate' templates (Preceptor Assignment, Coordinator Acceptance Update)
     if (msgSubject.trim() || msgBody.trim()) {
       setReplaceTemplateKey(t.key) // existing draft → confirm via branded modal
-      return
+      return                        // manualDocs is set by then, so the confirm path reads it
     }
-    applyTemplate(t.key)
-  }, [msgSubject, msgBody, applyTemplate])
+    applyTemplate(t.key, docs)
+  }, [msgSubject, msgBody, applyTemplate, activePlacement, fetchRequiredDocs])
 
   // Sidebar selected-state. A hydrate template is "selected" while it owns the current draft;
   // Direct Message is selected only for a plain message draft (no active template).
@@ -1591,6 +1667,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           cc:                ccToSend,
           cc_auto_suggested: ccAutoSuggested,
           attachment_slugs:  toSlugs(dmAttachments),
+          // PLACEMENT-COMMUNICATION-HANDOFF-1A: which placement this message is
+          // about. Sent ONLY when the Placement Board handed off THIS recipient
+          // and the draft is still that template, so a later unrelated message to
+          // the same preceptor is never attributed to the placement. It is
+          // descriptive only: the server ignores it for routing and records it
+          // solely on a confirmed successful send.
+          ...(placementSendRef ? { placement_ref: placementSendRef } : {}),
         }),
       })
       let payload = null
@@ -1615,6 +1698,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           const ptrKey = lastDraftPointerKey(userKey, cohortId)
           if (ptr && ptr.id === sentRecipId && ptrKey) localStorage.removeItem(ptrKey)
         } catch { /* ignore */ }
+        // The send succeeded, so the Placement Board's "Sent" state for this
+        // placement is now true in the log. Invalidating makes it visible the
+        // moment the Owner returns, without a manual refresh.
+        if (placementSendRef) {
+          queryClient.invalidateQueries({ queryKey: ['placement_preceptor_sent'] })
+        }
         const recipientDisplayName = recipientType === 'contact' ? fromContact?.name
           : (effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim())
         const successMsg = payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.`

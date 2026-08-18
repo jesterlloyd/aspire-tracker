@@ -64,10 +64,18 @@ const merged = (value, placeholder) => {
   return v || placeholder
 }
 
+// The scope-of-practice line, and the ONLY form of it. It states that the
+// documents are attached, so it is written only when they actually are.
+//
+// THERE IS NO SECOND WORDING. The earlier "can be added before sending or shared
+// separately" variant is gone: it existed to describe a draft that was not
+// carrying the files, and the honest answer in that state is to say nothing at
+// all rather than to describe what the reader has not been given. When the
+// documents cannot be resolved the bullet is OMITTED entirely, the composer
+// shows an actionable warning, and the send is blocked - so a reader never sees
+// a claim that is untrue, and the sender is never left wondering why.
 const ATTACHED_REMINDER =
   'Scope of practice: Please see the attached ASPIRE brochure and Pre-Licensure Student General Guidelines for your reference.'
-const UNATTACHED_REMINDER =
-  'Scope of practice: The ASPIRE brochure and Pre-Licensure Student General Guidelines can be added before sending or shared separately for your reference.'
 
 export function buildPreceptorAssignmentDraft({ firstName, placement, attachmentsAttached = false } = {}) {
   const p = placement || {}
@@ -82,7 +90,13 @@ export function buildPreceptorAssignmentDraft({ firstName, placement, attachment
   // Additional Notes is OMITTED entirely when there is no appropriate note, rather
   // than shipping a placeholder the sender has to remember to delete.
   const notes       = (p.notes == null ? '' : String(p.notes)).trim()
-  const reminder    = attachmentsAttached ? ATTACHED_REMINDER : UNATTACHED_REMINDER
+
+  const reminders = [
+    'Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.',
+    'Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.',
+    'Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.',
+  ]
+  if (attachmentsAttached) reminders.push(ATTACHED_REMINDER)
 
   const summaryLines = [
     `Student: ${studentName}`,
@@ -120,10 +134,7 @@ The student is encouraged to reach out to you directly by email to introduce the
 
 A Few Quick Reminders
 
-• Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.
-• Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.
-• Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.
-• ${reminder}
+${reminders.map(r => `• ${r}`).join('\n')}
 
 Again, we truly appreciate your time, effort, and heart in mentoring our students. Many ASPIRE students go on to become strong candidates for our New-Graduate RN Residency Program, and your guidance plays a meaningful role in helping them build confidence, competence, and readiness for practice.
 
@@ -146,12 +157,7 @@ Please don't hesitate to reach out if you have any questions.`
     ])
     + bP('The student is encouraged to contact you directly to introduce themselves, coordinate scheduling, and share their individual learning objectives.')
     + bH2('A Few Quick Reminders')
-    + bUL([
-      'Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.',
-      'Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.',
-      'Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.',
-      reminder,
-    ])
+    + bUL(reminders)
     + bP("We truly appreciate your time, effort, and heart in mentoring our students. Your guidance helps them build confidence, competence, and readiness for practice. Please don't hesitate to reach out if you have any questions.")
   return { subject, body, richBody }
 }

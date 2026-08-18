@@ -17,6 +17,9 @@ import {
 } from '../lib/placementNotification'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { resolveRequiredAttachments } from '../lib/connect/catalogAttachments'
+import {
+  preceptorSentState, preceptorSentLabel, preceptorSentTooltip,
+} from '../lib/placementPreceptorSent'
 import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
 import { CARD } from '../lib/designTokens'
@@ -43,7 +46,7 @@ const resolveMatchedStudent = (match, studentMap) => {
 
 // ── Compact placement row ─────────────────────────────────────────────────────
 
-function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssignPreceptor, placement, onEmailPreceptor }) {
+function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssignPreceptor, placement, onEmailPreceptor, sentState }) {
   const [rowHovered, setRowHovered] = useState(false)
   const qCfg       = MATCH_RANK_CONFIG[matchRankOf(student, match)]
   const isNotified = !!match?.notification_sent
@@ -122,6 +125,22 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
             >
               {'\u{1F464}'} {preceptorName}
             </button>
+            {/* PLACEMENT-COMMUNICATION-HANDOFF-1A: whether THIS preceptor has been
+                sent the assignment email for THIS placement. Deliberately worded
+                and coloured differently from the unit-leader ✓ beside it: this is
+                one preceptor's email, not the unit-leader notification the card's
+                "N of M notified" count is about. */}
+            {sentState?.sent && (
+              <Tooltip label={preceptorSentTooltip(sentState, preceptorName)} placement="top">
+                <span
+                  data-testid="placement-preceptor-sent"
+                  style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 9.5, fontWeight: 700,
+                    color: '#0e4e6e', background: '#E1F3FB', border: '1px solid #89CEEA',
+                    borderRadius: 4, padding: '0 5px', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>
+                  ✓ {preceptorSentLabel(sentState)}
+                </span>
+              </Tooltip>
+            )}
             {/* PLACEMENT-COMMUNICATION-HANDOFF-1: the preceptor envelope. It never
                 opens a mailto - it hands this exact placement to ASPIRE Connect →
                 Outreach as an editable draft. Disabled, with the reason stated,
@@ -223,7 +242,7 @@ export default function EmbedUnitCard({
   // them the card still renders, the notice simply reports the values it could
   // not resolve instead of inventing them.
   rotationRows = [], preceptorsById = null, unitLeaders = [],
-  cohortId = null, cohortName = '',
+  cohortId = null, cohortName = '', preceptorSent = null,
 }) {
   const navigate = useNavigate()
   const [confirmUnmatch,  setConfirmUnmatch]  = useState(null)
@@ -669,6 +688,14 @@ export default function EmbedUnitCard({
                   onNotify={handleNotifyOne}
                   onAssignPreceptor={s => setAssignStudent(s)}
                   onEmailPreceptor={preceptorHandoff === 'busy' ? undefined : handleEmailPreceptor}
+                  /* Judged against the placement as it stands NOW: this match
+                     row's id and the preceptor currently resolved for it. A
+                     recreated match or a replaced preceptor therefore starts
+                     unsent, because neither can match an older record. */
+                  sentState={preceptorSentState(preceptorSent, {
+                    matchId: match?.id,
+                    preceptorId: (placementByStudent[student.id] || factsFor(student)).preceptorId,
+                  })}
                 />
               )
             })}

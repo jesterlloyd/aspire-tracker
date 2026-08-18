@@ -48,6 +48,7 @@ import { archiveManualMessage } from './lib/messageArchive.js';
 import { resolveAttachments } from './lib/outreachAttachments.js';
 import { resolveStudentCorrespondenceRecipient, isValidEmail } from '../src/lib/notifications/studentRecipient.js';
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
+import { verifyPlacementSend } from './lib/placementSendGuard.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
 
 // CONNECT-COMMS-1D: seeded fallback signatures for the two known leads (by email), used when a
@@ -224,6 +225,25 @@ async function _handler(req, res, startMs) {
       });
     }
   }
+
+  // PLACEMENT-COMMUNICATION-HANDOFF-1A: the OPTIONAL placement this message is
+  // about. It never changes the recipient, the body, or the attachments - those
+  // stay server-resolved exactly as before. What it does is make a SUCCESSFUL
+  // send attributable to one exact placement, so the Placement Board can show
+  // that preceptor as sent.
+  //
+  // NOTHING IN IT IS TRUSTED. It is a CLAIM, verified row by row against the
+  // database before the mail provider is contacted (step 5d), and a claim that
+  // does not survive that check fails the send outright - no email, no log row.
+  // Its presence also makes the send STRICTER, never looser: a message with no
+  // placement reference is unaffected and behaves exactly as it always has.
+  const placementRefRaw = body.placement_ref && typeof body.placement_ref === 'object' && !Array.isArray(body.placement_ref)
+    ? body.placement_ref
+    : null;
+  // The metadata is NOT built here. It is produced by verifyPlacementSend below,
+  // from rows this server read itself, only after every claim in the reference has
+  // been proved against the database - see api/lib/placementSendGuard.js.
+  let placementMeta = null;
 
   // Normalize legacy contact_id to unified shape for backward compatibility.
   // Phase 3B.2A.0 UI sends contact_id; Phase 3B.2A.1 UI sends recipient_type + recipient_id.
@@ -416,6 +436,26 @@ async function _handler(req, res, startMs) {
     return res.status(att.status || 400).json({ success: false, error: att.error });
   }
 
+  // ── 5d. Prove the placement BEFORE any provider client exists ────────────────
+  // A stale, altered, cross-cohort, cross-unit, wrong-preceptor or wrong-recipient
+  // handoff fails HERE: no email is sent and no notification_log row is written,
+  // so the Placement Board can never show a Sent chip that is not true. The
+  // metadata that will be stamped is returned by the guard, built from the rows it
+  // verified rather than from the request body.
+  if (placementRefRaw) {
+    const verdict = await verifyPlacementSend({
+      db: supabaseAdmin,
+      ref: placementRefRaw,
+      recipientType,
+      recipientEmail,
+    });
+    if (!verdict.ok) {
+      console.warn('[connect-send-direct] placement rejected:', { code: verdict.code, match_id: placementRefRaw.match_id });
+      return res.status(verdict.status).json({ success: false, error: verdict.error, placement_error: verdict.code });
+    }
+    placementMeta = verdict.metadata;
+  }
+
   // ── 6. Send via Resend ────────────────────────────────────────────────────────
   const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -489,6 +529,9 @@ async function _handler(req, res, startMs) {
     // Never bytes, storage paths, signed URLs, or upload tokens.
     attachments:           att.summary,
     attachment_count:      att.summary.length,
+    // Present only for a placement-scoped send, and only on this success path -
+    // a failed send returned 500 above, so no row exists to carry it.
+    ...(placementMeta || {}),
   };
   const logMetadata = recipientType === 'contact'
     ? { recipient_type: 'contact', contact_id: recipientId,  ...sharedMeta }

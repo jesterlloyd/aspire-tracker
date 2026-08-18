@@ -34,9 +34,11 @@ export function escapeLikePattern(value) {
 // deeplink, the same bcc list built from the unit's contact_email. Only the
 // subject and body changed.
 //
-// NO SIGNATURE IS APPENDED. The body ends at "Kind regards," because Outlook
-// inserts the sender's own signature on compose; appending one here produced two.
-// Nothing about typography is set - the message is plain text and inherits
+// NO CLOSING AND NO SIGNATURE ARE APPENDED. The body ends at the final thank-you
+// sentence. Outlook inserts the sender's configured signature on compose, and
+// that signature already carries the closing - so writing one here produced
+// either a duplicate closing or a stranded "Kind regards," above it. Nothing
+// about typography is set either; the message is plain text and inherits
 // whatever the sender's Outlook uses.
 //
 // EVERY VALUE IS SUPPLIED ALREADY RESOLVED. This builder does no lookups and has
@@ -125,9 +127,7 @@ ${availabilityLines}
 
 If you have any questions or concerns about ${many ? 'these placements' : 'this placement'}, please do not hesitate to reach out.
 
-Thank you again for your support of clinical nursing education at Cedars-Sinai.
-
-Kind regards,`
+Thank you again for your support of clinical nursing education at Cedars-Sinai.`
 
   const params = []
   if (emailList) params.push(`bcc=${encodeURIComponent(emailList)}`)

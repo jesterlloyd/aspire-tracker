@@ -14,7 +14,10 @@ const registry = read('src/lib/connect/templateRegistry.js')
 const outreach = read('src/components/connect/OutreachView.jsx')
 
 test('the preceptor assignment draft contains the assignment, requested details, and reminders in one message', () => {
-  const draft = buildPreceptorAssignmentDraft({ firstName: 'Kelly' })
+  // PLACEMENT-COMMUNICATION-HANDOFF-1A: the scope-of-practice bullet now says the
+  // documents are attached, so it appears only when they actually are. Built here
+  // in the attached state, which is what every real send is.
+  const draft = buildPreceptorAssignmentDraft({ firstName: 'Kelly', attachmentsAttached: true })
 
   assert.equal(draft.subject, 'ASPIRE: Student preceptor assignment and introduction details')
   assert.match(draft.body, /^Dear Kelly,/)

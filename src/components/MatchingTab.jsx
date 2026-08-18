@@ -20,6 +20,7 @@ import {
   READINESS_MODES, DEFAULT_READINESS_MODE, filterPoolByReadiness,
   needsPlacementException, exceptionCount, isPoolEligible,
 } from '../lib/placementReadiness'
+import { preceptorSentIndex } from '../lib/placementPreceptorSent'
 // ── Unified Placement Overview - single panel replacing Placement at a Glance + Preference Match Ring ──
 
 const PREF_SEGMENTS = [
@@ -237,6 +238,38 @@ export default function MatchingTab({
     for (const p of preceptorRows) if (p?.id) m.set(String(p.id), p)
     return m
   }, [preceptorRows])
+
+  // PLACEMENT-COMMUNICATION-HANDOFF-1A: confirmed preceptor-assignment sends.
+  //
+  // notification_log rows are written by api/connect-send-direct-email ONLY after
+  // Resend accepts the message, so a row here IS evidence of a successful send -
+  // there is no separate flag to keep in step, and nothing to write when a draft
+  // is merely opened. The placement identity lives in the metadata jsonb the
+  // endpoint already populates, so this needed no schema change.
+  //
+  // Read-only, under the table's existing owners_admins_read policy.
+  const { data: preceptorSentRows = [] } = useQuery({
+    queryKey: ['placement_preceptor_sent', cohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_log')
+        .select('id, status, sent_at, metadata')
+        .eq('notification_type', 'direct_message_sent')
+        .eq('status', 'sent')
+        .eq('metadata->>placement_cohort_id', cohortId)
+        .eq('metadata->>placement_template_key', 'preceptor_assignment')
+        .order('sent_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!cohortId,
+    staleTime: 30_000,
+    // Returning from ASPIRE Connect must show the send immediately; Connect also
+    // invalidates this key on a successful send, so both paths refresh it.
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  })
+  const preceptorSent = useMemo(() => preceptorSentIndex(preceptorSentRows), [preceptorSentRows])
 
   // Active unit leaders, for the ONE thing the placement notice needs from them:
   // a reliable greeting name (preferred_name first). Recipient addressing is
@@ -563,6 +596,7 @@ export default function MatchingTab({
                       rotationRows={rotationRows}
                       preceptorsById={preceptorsById}
                       unitLeaders={unitLeaderRows}
+                      preceptorSent={preceptorSent}
                       cohortId={cohortId}
                       cohortName={cohort?.name || ''}
                       selectedStudent={selectedStudent}
@@ -595,6 +629,7 @@ export default function MatchingTab({
                       rotationRows={rotationRows}
                       preceptorsById={preceptorsById}
                       unitLeaders={unitLeaderRows}
+                      preceptorSent={preceptorSent}
                       cohortId={cohortId}
                       cohortName={cohort?.name || ''}
                       selectedStudent={selectedStudent}

@@ -41,6 +41,11 @@ const { buildPreceptorAssignmentDraft } = await import('../src/lib/outreachTempl
 const { NOTIFY_CONFIRM, notifiedPatch, pendingNotifyTargets, notifyRecordedMessage, notifyFailedMessage } =
   await import('../src/lib/placementNotification.js')
 
+const {
+  preceptorSentIndex, preceptorSentState, preceptorSentLabel, preceptorSentTooltip,
+  placementSentKey, placementSendMetadata,
+} = await import('../src/lib/placementPreceptorSent.js')
+
 // ── 1. The date audit, enforced ─────────────────────────────────────────────
 
 const ROTATION = {
@@ -364,14 +369,36 @@ test('the notice carries the requested wording and the canonical values', () => 
   assert.match(m.body, /If it helps in preceptor selection, the student shared the following availability for shifts: Preferred days: Wed, Thu; Nights: not available\./)
 })
 
-test('the body ends at "Kind regards," with no signature block', () => {
+test('the body ends at the final thank-you, with no closing and no signature', () => {
   const m = messageFor(buildFor(FULL_STUDENT))
-  assert.ok(m.body.trimEnd().endsWith('Kind regards,'),
-    `body must end at the closing, ended with: ${JSON.stringify(m.body.slice(-60))}`)
-  // NEGATIVE CONTROL: the exact signature the previous builder appended.
-  for (const fragment of ['Jester Lloyd Bautista', 'Brawerman', 'cshs.org | 310', 'Warm regards']) {
-    assert.ok(!m.body.includes(fragment), `signature fragment leaked: ${fragment}`)
+  assert.ok(m.body.trimEnd().endsWith(
+    'Thank you again for your support of clinical nursing education at Cedars-Sinai.'),
+  `body must end at the thank-you, ended with: ${JSON.stringify(m.body.slice(-70))}`)
+  // NEGATIVE CONTROL: Outlook supplies the closing inside the sender's signature,
+  // so writing one here produced a stranded or duplicated sign-off.
+  for (const fragment of ['Kind regards', 'Warm regards', 'Jester Lloyd Bautista', 'Brawerman', 'cshs.org | 310']) {
+    assert.ok(!m.body.includes(fragment), `closing or signature fragment leaked: ${fragment}`)
   }
+  // And nothing trailing it - no blank placeholder line waiting for a name.
+  assert.equal(m.body, m.body.trimEnd(), 'no trailing blank signature placeholder')
+})
+
+test('BOTH unit-leader entry points end the same way, from one builder', () => {
+  // Neither surface composes the unit-leader body itself, so neither can append a
+  // closing to it. (ActionCenter's KR_SIG belongs to its OTHER mailtos - the
+  // preceptor welcome and orientation notes - which this task does not touch.)
+  const board = strip(read('src/components/EmbedUnitCard.jsx'))
+  const ac = strip(read('src/components/ActionCenter.jsx'))
+  assert.ok(!/Kind regards/.test(board), 'the board must not add a closing of its own')
+  const acUnitBlock = ac.slice(ac.indexOf('const href = unit ? buildUnitLeaderEmail'),
+    ac.indexOf('return { id:`${s.id}-un`'))
+  assert.ok(!/KR_SIG|Kind regards/.test(acUnitBlock),
+    'the Action Center unit-leader notice must not append a signature')
+  assert.match(board, /buildUnitLeaderPlacementMessage\(/)
+  assert.match(strip(read('src/components/ActionCenter.jsx')), /buildUnitLeaderEmail\(/)
+  // buildUnitLeaderEmail delegates, so the two cannot produce different bodies.
+  assert.match(strip(read('src/lib/emailUtils.js')),
+    /export function buildUnitLeaderEmail\(args\) \{\s*return buildUnitLeaderPlacementMessage\(args\)\.url/)
 })
 
 test('the greeting falls back to the unit team when no name is reliable', () => {
@@ -603,14 +630,60 @@ test('every true section heading is Title Case', () => {
   }
 })
 
-test('the draft claims an attachment ONLY when both documents resolved', () => {
-  const attached = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true })
-  assert.match(attached.body, /Please see the attached ASPIRE brochure and Pre-Licensure Student General Guidelines/)
+test('the scope-of-practice sentence is EXACTLY the requested wording', () => {
+  const EXPECTED = 'Scope of practice: Please see the attached ASPIRE brochure and Pre-Licensure Student General Guidelines for your reference.'
+  for (const d of [
+    buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true }),
+    buildPreceptorAssignmentDraft({ firstName: 'Dana', attachmentsAttached: true }),   // manual path
+  ]) {
+    assert.ok(d.body.includes(EXPECTED), 'plain body must carry the exact sentence')
+    assert.ok(d.richBody.includes(EXPECTED), 'rich body must carry the exact sentence')
+  }
+})
 
+test('the OLD attachment wording has zero active occurrences anywhere', () => {
+  const OLD = 'can be added before sending or shared separately'
+  const files = [
+    'src/lib/outreachTemplates.js', 'src/lib/connect/catalogAttachments.js',
+    'src/components/connect/OutreachView.jsx', 'src/components/EmbedUnitCard.jsx',
+    'src/lib/keithKnowledge.js', 'src/components/ActionCenter.jsx',
+  ]
+  for (const f of files) {
+    assert.ok(!strip(read(f)).includes(OLD), `the retired wording is still active in ${f}`)
+  }
+  // And it is not reachable from the builder in ANY state.
+  for (const attachmentsAttached of [true, false]) {
+    const d = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached })
+    assert.ok(!d.body.includes(OLD) && !d.richBody.includes(OLD))
+  }
+})
+
+test('an unattached draft says NOTHING about the documents rather than lying', () => {
   const notAttached = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: false })
-  assert.ok(!/see the attached/i.test(notAttached.body), 'an unattached draft must not claim attachments')
+  assert.ok(!/see the attached/i.test(notAttached.body), 'it must not claim attachments')
   assert.ok(!/see the attached/i.test(notAttached.richBody))
-  assert.match(notAttached.body, /can be added before sending or shared separately/)
+  assert.ok(!/Scope of practice/.test(notAttached.body), 'the bullet is omitted entirely')
+  assert.ok(!/Scope of practice/.test(notAttached.richBody))
+  // The other three reminders survive - only the attachment claim is withheld.
+  for (const kept of ['Preceptor pay:', 'Coverage:', 'Floating:']) {
+    assert.match(notAttached.body, new RegExp(kept.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+})
+
+test('the manual template path resolves and attaches the SAME two documents', () => {
+  const src = strip(read('src/components/connect/OutreachView.jsx'))
+  assert.match(src, /if \(t\.key === 'preceptor_assignment' && !activePlacement\) \{\s*docs = await fetchRequiredDocs\(\)\s*setManualDocs\(docs\)/,
+    'picking the template by hand must resolve the Catalog before the draft is written')
+  assert.match(src, /applyTemplate\(t\.key, docs\)/,
+    'and hand the freshly resolved set straight to the application - setState is not synchronous, so reading it back from state would drop it')
+  assert.match(src, /queryKey: \['outreach_attachment_options'\]/,
+    'and share the attachment picker’s cache, so both describe one Catalog')
+  assert.match(src, /if \(key === 'preceptor_assignment'\) \{\s*setDmAttachments\(docs\.resolved/,
+    'both paths preselect from the same resolved set')
+  assert.match(src, /attachmentsAttached: docs\.ok/,
+    'and the wording follows the SAME resolution, not the launch')
+  assert.match(src, /const docs = docsOverride \|\| effectiveDocs/,
+    'with the launch path falling back to its carried resolution')
 })
 
 test('the template with no placement is the unchanged placeholder draft', () => {
@@ -896,4 +969,192 @@ test('the notified COUNT still reads from the stored match rows', () => {
 test('the required-document list is a single source of truth', () => {
   assert.deepEqual(PRECEPTOR_ASSIGNMENT_DOCUMENTS.map(d => d.label),
     ['ASPIRE Brochure', 'Pre-Licensure Student General Guidelines'])
+})
+
+// ── 12. Preceptor sent tracking: identity and authorization ─────────────────
+//
+// The state is the EXISTING notification_log row, written by
+// api/connect-send-direct-email only after Resend accepts the message AND only
+// after api/lib/placementSendGuard proves the placement. These cover the
+// reduction over those rows, and the guard that decides which rows exist at all.
+
+const S = { A: 'stu-a', B: 'stu-b' }
+const U = { ONE: 'unit-1', TWO: 'unit-2' }
+const P = { DANA: 'prec-dana', SAM: 'prec-sam' }
+const M = { A1: 'match-a1', A2: 'match-a2', REBUILT: 'match-a1-rebuilt' }
+
+const sentRow = ({ match, student = S.A, unit = U.ONE, preceptor = P.DANA, at = '2026-08-18T10:00:00Z',
+  status = 'sent', template = 'preceptor_assignment', type = 'direct_message_sent', cohort = 'coh-1' }) => ({
+  notification_type: type,
+  status,
+  sent_at: at,
+  metadata: {
+    placement_template_key: template,
+    placement_student_id: student,
+    placement_unit_id: unit,
+    placement_preceptor_id: preceptor,
+    placement_cohort_id: cohort,
+    placement_match_id: match,
+  },
+})
+
+test('a confirmed send marks exactly that match and preceptor', () => {
+  const index = preceptorSentIndex([sentRow({ match: M.A1 })])
+  assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA }).sent, true)
+  assert.equal(preceptorSentState(index, { matchId: M.A2, preceptorId: P.DANA }).sent, false)
+  assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.SAM }).sent, false)
+})
+
+test('NEGATIVE CONTROL: a DELETED AND RECREATED placement starts unsent', () => {
+  // The same student, the same unit, the same preceptor - but the placement was
+  // unmatched and rematched, so it is a NEW match row.
+  const index = preceptorSentIndex([sentRow({ match: M.A1 })])
+  assert.equal(preceptorSentState(index, { matchId: M.REBUILT, preceptorId: P.DANA }).sent, false,
+    'a recreated placement must not inherit the deleted one’s Sent state')
+  // And the pre-correction key would have inherited it: the student/unit/preceptor
+  // triple is byte-identical across the two rows.
+  const old = sentRow({ match: M.A1 }).metadata
+  const rebuilt = sentRow({ match: M.REBUILT }).metadata
+  assert.equal(old.placement_student_id, rebuilt.placement_student_id)
+  assert.equal(old.placement_unit_id, rebuilt.placement_unit_id)
+  assert.equal(old.placement_preceptor_id, rebuilt.placement_preceptor_id)
+  assert.notEqual(old.placement_match_id, rebuilt.placement_match_id,
+    'only the match id distinguishes them, which is why it is the identity')
+})
+
+test('a multi-unit student’s send never appears on the other placement', () => {
+  const index = preceptorSentIndex([sentRow({ match: M.A1, unit: U.ONE, preceptor: P.DANA })])
+  assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA }).sent, true)
+  assert.equal(preceptorSentState(index, { matchId: M.A2, preceptorId: P.SAM }).sent, false)
+  assert.notEqual(placementSentKey({ matchId: M.A1, preceptorId: P.DANA }),
+    placementSentKey({ matchId: M.A2, preceptorId: P.DANA }))
+})
+
+test('a preceptor removed and reassigned does not inherit a superseded send', () => {
+  const index = preceptorSentIndex([sentRow({ match: M.A1, preceptor: P.DANA })])
+  // Same still-current placement, now assigned to Sam: unsent.
+  assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.SAM }).sent, false)
+  // Dana re-assigned to the SAME still-current match keeps her own record, which
+  // does belong to this placement.
+  assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA }).sent, true)
+  // But not on a different placement record.
+  assert.equal(preceptorSentState(index, { matchId: M.REBUILT, preceptorId: P.DANA }).sent, false)
+})
+
+test('a FAILED or unfinished send records nothing that reads as sent', () => {
+  const index = preceptorSentIndex([
+    sentRow({ match: M.A1, status: 'failed' }),
+    sentRow({ match: M.A2, status: 'queued' }),
+  ])
+  assert.equal(index.size, 0)
+})
+
+test('only the direct-message send path and this template count', () => {
+  const index = preceptorSentIndex([
+    sentRow({ match: M.A1, template: 'coordinator_acceptance' }),
+    sentRow({ match: M.A2, type: 'bulk_message_sent' }),
+    { notification_type: 'direct_message_sent', status: 'sent', metadata: { recipient_type: 'contact' } },
+    { notification_type: 'direct_message_sent', status: 'sent', metadata: null },
+  ])
+  assert.equal(index.size, 0, 'wrong template, wrong source, or no placement at all')
+})
+
+test('a row missing the match id is not usable evidence', () => {
+  const orphan = sentRow({ match: M.A1 })
+  delete orphan.metadata.placement_match_id
+  assert.equal(preceptorSentIndex([orphan]).size, 0)
+})
+
+test('repeated sends re-confirm one fact rather than creating duplicate state', () => {
+  const index = preceptorSentIndex([
+    sentRow({ match: M.A1, at: '2026-08-18T10:00:00Z' }),
+    sentRow({ match: M.A1, at: '2026-08-19T09:00:00Z' }),
+    sentRow({ match: M.A1, at: '2026-08-17T09:00:00Z' }),
+  ])
+  assert.equal(index.size, 1, 'one placement, one state')
+  const state = preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA })
+  assert.equal(state.count, 3)
+  assert.equal(state.sentAt, '2026-08-19T09:00:00Z', 'the newest send is what is shown')
+  assert.match(preceptorSentTooltip(state, 'Dana Reyes'), /Sent 3 times\./)
+})
+
+test('an incomplete placement reference is NOT recorded at all', () => {
+  const full = { studentId: S.A, unitId: U.ONE, preceptorId: P.DANA, cohortId: 'c', matchId: M.A1 }
+  assert.ok(placementSendMetadata(full))
+  for (const missing of ['studentId', 'unitId', 'preceptorId', 'cohortId', 'matchId']) {
+    const partial = { ...full, [missing]: '' }
+    assert.equal(placementSendMetadata(partial), null, `a missing ${missing} must not produce a record`)
+  }
+  assert.equal(placementSendMetadata(null), null)
+})
+
+test('the display never confuses itself with the unit-leader notification', () => {
+  const state = preceptorSentState(preceptorSentIndex([sentRow({ match: M.A1 })]),
+    { matchId: M.A1, preceptorId: P.DANA })
+  assert.match(preceptorSentLabel(state), /^Sent /)
+  assert.match(preceptorSentTooltip(state, 'Dana Reyes'), /Dana Reyes was sent the assignment email for this placement/)
+  assert.equal(preceptorSentLabel({ sent: false }), '')
+  const board = read('src/components/EmbedUnitCard.jsx')
+  assert.match(board, /data-testid="placement-preceptor-sent"/)
+  assert.match(board, /const notifiedCount = matchedStudents/,
+    'the unit-leader count is still computed from match rows alone')
+  assert.match(board, /matchId: match\?\.id/, 'the chip is judged against the CURRENT match row')
+})
+
+test('the guard runs BEFORE the mail provider, and the log write after the send', () => {
+  const api = strip(read('api/connect-send-direct-email.js'))
+  const guardIdx = api.indexOf('await verifyPlacementSend({')
+  const resendIdx = api.indexOf('const resend = new Resend(')
+  const failIdx = api.indexOf('if (sendError) {')
+  const logIdx = api.indexOf("from('notification_log')")
+  assert.ok(guardIdx > 0 && resendIdx > guardIdx,
+    'a rejected placement must fail before any provider client exists')
+  assert.ok(failIdx > resendIdx && logIdx > failIdx,
+    'and a failed send must return before the log write')
+  assert.match(api, /\.\.\.\(placementMeta \|\| \{\}\),/, 'the metadata rides the success-only log row')
+})
+
+test('the endpoint never builds the metadata from the request body', () => {
+  const api = strip(read('api/connect-send-direct-email.js'))
+  assert.ok(!/placementSendMetadata\(/.test(api),
+    'the endpoint must not stamp metadata itself - the guard returns it, built from verified rows')
+  assert.match(api, /let placementMeta = null;/)
+  assert.match(api, /placementMeta = verdict\.metadata;/,
+    'the ONLY assignment comes from the guard’s verdict')
+  // The reference reaches the guard untouched and is not used for routing.
+  const parse = api.slice(api.indexOf('const placementRefRaw'), api.indexOf('let recipientType'))
+  assert.ok(!/recipientEmail|recipientId =/.test(parse), 'the reference must not touch recipient resolution')
+})
+
+test('a rejected placement returns a reason and sends nothing', () => {
+  const api = strip(read('api/connect-send-direct-email.js'))
+  const gate = api.slice(api.indexOf('if (placementRefRaw) {'), api.indexOf('const resend = new Resend('))
+  assert.match(gate, /if \(!verdict\.ok\) \{[\s\S]{0,300}?return res\.status\(verdict\.status\)/,
+    'the rejection must return, not continue')
+  assert.match(gate, /placement_error: verdict\.code/, 'and name what disagreed')
+})
+
+test('the composer attributes a send only while the draft is still that template', () => {
+  const src = strip(read('src/components/connect/OutreachView.jsx'))
+  assert.match(src, /const placementSendRef = \(activePlacement && activeTemplateId === 'preceptor_assignment'/,
+    'switching templates must detach the attribution rather than mislabel it')
+  assert.match(src, /activePlacement\.placementRef\?\.matchId && activePlacement\.placementRef\?\.studentId/,
+    'and an incomplete context - no match id - must attribute nothing at all')
+  assert.match(src, /\.\.\.\(placementSendRef \? \{ placement_ref: placementSendRef \} : \{\}\)/)
+  // Sent only on the real send - the preview body must not carry it.
+  const preview = src.slice(src.indexOf('preview:           true'), src.indexOf('preview:           true') + 700)
+  assert.ok(!preview.includes('placement_ref'), 'the preview must not claim a placement send')
+  assert.match(src, /queryClient\.invalidateQueries\(\{ queryKey: \['placement_preceptor_sent'\] \}\)/,
+    'a successful send refreshes the board immediately')
+})
+
+test('the board reads the evidence, scoped and read-only', () => {
+  const src = strip(read('src/components/MatchingTab.jsx'))
+  assert.match(src, /from\('notification_log'\)/)
+  assert.match(src, /\.eq\('status', 'sent'\)/)
+  assert.match(src, /\.eq\('metadata->>placement_template_key', 'preceptor_assignment'\)/)
+  assert.match(src, /\.eq\('metadata->>placement_cohort_id', cohortId\)/, 'scoped to the active cohort')
+  const q = src.slice(src.indexOf("queryKey: ['placement_preceptor_sent'"), src.indexOf('const preceptorSent ='))
+  assert.ok(!/insert|update|delete|upsert/i.test(q), 'the board only reads')
+  assert.match(q, /refetchOnMount: 'always'/, 'returning from Connect shows the send without a manual refresh')
 })

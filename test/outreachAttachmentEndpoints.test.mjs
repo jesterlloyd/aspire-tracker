@@ -135,6 +135,36 @@ writeFileSync(join(dir, 'fake.mjs'), `
   };
   const PROFILE = { id: 'staff-1', role: 'owner', email: 'owner@example.org', full_name: 'Test Owner', connect_signature: null, is_owner: true };
 
+  // PLACEMENT-COMMUNICATION-HANDOFF-1A: a real placement world, so the send
+  // endpoint's placement guard runs against rows rather than being skipped.
+  export const PLACEMENT = {
+    cohort:    'cccccccc-0000-4000-8000-00000000000c',
+    otherCohort:'cccccccc-0000-4000-8000-00000000000d',
+    student:   'aaaaaaaa-0000-4000-8000-000000000001',
+    unit:      'dddddddd-0000-4000-8000-000000000001',
+    otherUnit: 'dddddddd-0000-4000-8000-000000000002',
+    preceptor: 'eeeeeeee-0000-4000-8000-000000000001',
+    other:     'eeeeeeee-0000-4000-8000-000000000002',
+    match:     'ffffffff-0000-4000-8000-000000000001',
+  };
+  const MATCHES = {
+    [PLACEMENT.match]: {
+      id: PLACEMENT.match, student_id: PLACEMENT.student, unit_id: PLACEMENT.unit,
+      cohort_id: PLACEMENT.cohort, preceptor_id: PLACEMENT.preceptor, preceptor_assigned: 'Placement Preceptor',
+    },
+  };
+  const UNITS = {
+    [PLACEMENT.unit]:      { id: PLACEMENT.unit, cohort_id: PLACEMENT.cohort, unit_name: 'QC Unit' },
+    [PLACEMENT.otherUnit]: { id: PLACEMENT.otherUnit, cohort_id: PLACEMENT.cohort, unit_name: 'QC Unit Two' },
+  };
+  const PRECEPTORS = {
+    [PLACEMENT.preceptor]: { id: PLACEMENT.preceptor, full_name: 'Placement Preceptor', email: 'coordinator1@example.org', shift_type: 'Day', is_active: true },
+    [PLACEMENT.other]:     { id: PLACEMENT.other, full_name: 'Other Preceptor', email: 'other@example.org', shift_type: 'Day', is_active: true },
+  };
+  // The student row the guard reads carries the placement's cohort.
+  STUDENTS[PLACEMENT.student].cohort_id = PLACEMENT.cohort;
+  STUDENTS[PLACEMENT.student].preceptor_id = PLACEMENT.preceptor;
+
   const admin = {
     from(table) {
       const q = { table, filters: [] };
@@ -146,7 +176,20 @@ writeFileSync(join(dir, 'fake.mjs'), `
           if (q.table === 'catalog_resources') {
             return Promise.resolve({ data: CATALOG.filter(r => vals.includes(r.slug)), error: null });
           }
+          if (q.table === 'preceptors') {
+            return Promise.resolve({ data: vals.map(v => PRECEPTORS[v]).filter(Boolean), error: null });
+          }
           return Promise.resolve({ data: [], error: null });
+        },
+        // Awaiting the builder returns ROWS, the way supabase-js does - the guard
+        // reads a student's sibling placements this way.
+        then(resolve, reject) {
+          let rows = [];
+          if (q.table === 'matches') {
+            rows = Object.values(MATCHES).filter(m =>
+              q.filters.every(([f, v]) => String(m[f] ?? '') === String(v)));
+          }
+          return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
         },
         limit() { return Promise.resolve({ data: [], error: null }) },
         insert(row) {
@@ -163,7 +206,12 @@ writeFileSync(join(dir, 'fake.mjs'), `
         },
         maybeSingle() {
           if (q.table === 'user_profiles') return Promise.resolve({ data: PROFILE, error: null });
-          return Promise.resolve({ data: null, error: null });
+          const id = (q.filters.find(([f]) => f === 'id') || [])[1];
+          const row = q.table === 'matches'  ? MATCHES[id]
+            : q.table === 'units'    ? UNITS[id]
+            : q.table === 'students' ? STUDENTS[id]
+            : null;
+          return Promise.resolve({ data: row || null, error: null });
         },
       };
       return api;
@@ -194,6 +242,11 @@ function swap(src) {
     .replace(/from '\.\.\/lib\/server\/connect\/emailTemplates\.js'/, `from ${abs('lib/server/connect/emailTemplates.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/studentRecipient\.js'/, `from ${abs('src/lib/notifications/studentRecipient.js')}`)
     .replace(/from '\.\.\/src\/lib\/emailUtils\.js'/, `from ${abs('src/lib/emailUtils.js')}`)
+    // PLACEMENT-COMMUNICATION-HANDOFF-1A: the placement metadata builder and the
+    // authorization guard that decides whether a placement send may proceed. The
+    // guard is loaded REAL, so these tests exercise the shipped verification.
+    .replace(/from '\.\.\/src\/lib\/placementPreceptorSent\.js'/, `from ${abs('src/lib/placementPreceptorSent.js')}`)
+    .replace(/from '\.\/lib\/placementSendGuard\.js'/, `from ${abs('api/lib/placementSendGuard.js')}`)
     .replace(/from '\.\.\/src\/lib\/recipientParse\.js'/, `from ${abs('src/lib/recipientParse.js')}`)
     .replace(/from '\.\.\/src\/lib\/htmlEscape\.js'/, `from ${abs('src/lib/htmlEscape.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/templates\/signatures\.js'/, `from ${abs('src/lib/notifications/templates/signatures.js')}`)
@@ -388,4 +441,151 @@ test('a bad attachment fails the PREVIEW too, so review can never show a lie', a
   const res = await runDirect({ ...DIRECT_BASE, preview: true, attachment_slugs: ['macro'] })
   assert.ok(res.statusCode >= 400)
   assert.equal(fakes.sends.length, 0)
+})
+
+// ── PLACEMENT-COMMUNICATION-HANDOFF-1A: placement identity, end to end ───────
+//
+// These run the REAL send endpoint with the REAL placement guard. What they
+// prove is not that the guard has rules, but that the endpoint applies them
+// before Resend is reached and stamps the log from verified rows.
+
+const P = fakes.PLACEMENT
+const CONTACT_ID = 'bbbbbbbb-0000-4000-8000-000000000001'   // email: coordinator1@example.org
+const PLACEMENT_BASE = {
+  recipient_type: 'contact',
+  recipient_id: CONTACT_ID,
+  subject: 'ASPIRE: Student preceptor assignment and introduction details',
+  body: 'QC body',
+  body_format: 'text',
+}
+const trueRef = () => ({
+  match_id: P.match, student_id: P.student, unit_id: P.unit,
+  cohort_id: P.cohort, preceptor_id: P.preceptor,
+})
+const placementMeta = () => (fakes.logInserts[0]?.metadata) || {}
+
+test('PLACEMENT: a truthful handoff sends and stamps the verified placement', async () => {
+  const res = await runDirect({ ...PLACEMENT_BASE, placement_ref: trueRef() })
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body))
+  assert.equal(fakes.sends.length, 1, 'the email was sent')
+  assert.equal(fakes.logInserts.length, 1)
+  const m = placementMeta()
+  assert.equal(m.placement_template_key, 'preceptor_assignment')
+  assert.equal(m.placement_match_id, P.match)
+  assert.equal(m.placement_student_id, P.student)
+  assert.equal(m.placement_unit_id, P.unit)
+  assert.equal(m.placement_cohort_id, P.cohort)
+  assert.equal(m.placement_preceptor_id, P.preceptor)
+})
+
+test('PLACEMENT: the stamp comes from the DATABASE, not the payload', async () => {
+  // Every claim is truthful EXCEPT that the payload also carries junk fields and
+  // a differently-cased id. What lands on the row is the server's own value.
+  const res = await runDirect({
+    ...PLACEMENT_BASE,
+    placement_ref: { ...trueRef(), placement_template_key: 'forged', extra: 'ignored' },
+  })
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body))
+  const m = placementMeta()
+  assert.equal(m.placement_template_key, 'preceptor_assignment', 'a forged template key cannot ride along')
+  assert.equal(m.extra, undefined, 'and no unknown field is copied onto the record')
+})
+
+test('PLACEMENT NEGATIVE CONTROL: a tampered student id is refused before Resend', async () => {
+  const res = await runDirect({
+    ...PLACEMENT_BASE,
+    placement_ref: { ...trueRef(), student_id: 'aaaaaaaa-0000-4000-8000-000000000002' },
+  })
+  assert.equal(res.statusCode, 409)
+  assert.equal(res.body.placement_error, 'student_mismatch')
+  assert.equal(fakes.sends.length, 0, 'NO email may be sent')
+  assert.equal(fakes.logInserts.length, 0, 'and NO notification row may be written')
+})
+
+test('PLACEMENT NEGATIVE CONTROL: a cross-cohort claim is refused before Resend', async () => {
+  const res = await runDirect({
+    ...PLACEMENT_BASE,
+    placement_ref: { ...trueRef(), cohort_id: P.otherCohort },
+  })
+  assert.equal(res.statusCode, 409)
+  assert.equal(res.body.placement_error, 'cohort_mismatch')
+  assert.equal(fakes.sends.length, 0)
+  assert.equal(fakes.logInserts.length, 0)
+})
+
+test('PLACEMENT NEGATIVE CONTROL: a cross-unit claim is refused before Resend', async () => {
+  const res = await runDirect({
+    ...PLACEMENT_BASE,
+    placement_ref: { ...trueRef(), unit_id: P.otherUnit },
+  })
+  assert.equal(res.statusCode, 409)
+  assert.equal(res.body.placement_error, 'unit_mismatch')
+  assert.equal(fakes.sends.length, 0)
+})
+
+test('PLACEMENT NEGATIVE CONTROL: a wrong preceptor is refused before Resend', async () => {
+  const res = await runDirect({
+    ...PLACEMENT_BASE,
+    placement_ref: { ...trueRef(), preceptor_id: P.other },
+  })
+  assert.equal(res.statusCode, 409)
+  assert.equal(res.body.placement_error, 'preceptor_changed')
+  assert.equal(fakes.sends.length, 0)
+})
+
+test('PLACEMENT NEGATIVE CONTROL: a deleted/stale match is refused before Resend', async () => {
+  const res = await runDirect({
+    ...PLACEMENT_BASE,
+    placement_ref: { ...trueRef(), match_id: 'ffffffff-0000-4000-8000-00000000dead' },
+  })
+  assert.equal(res.statusCode, 409)
+  assert.equal(res.body.placement_error, 'match_missing')
+  assert.match(res.body.error, /no longer exists/)
+  assert.equal(fakes.sends.length, 0)
+  assert.equal(fakes.logInserts.length, 0)
+})
+
+test('PLACEMENT NEGATIVE CONTROL: the WRONG RECIPIENT is refused even with a true placement', async () => {
+  // Every id is correct, but the message is addressed to a student rather than
+  // the preceptor's contact.
+  const res = await runDirect({
+    recipient_type: 'student',
+    recipient_id: 'aaaaaaaa-0000-4000-8000-000000000002',
+    subject: 'QC', body: 'QC', body_format: 'text',
+    placement_ref: trueRef(),
+  })
+  assert.equal(res.statusCode, 400)
+  assert.equal(res.body.placement_error, 'recipient_type')
+  assert.equal(fakes.sends.length, 0)
+})
+
+test('PLACEMENT NEGATIVE CONTROL: an incomplete handoff fails closed', async () => {
+  for (const key of ['match_id', 'student_id', 'unit_id', 'cohort_id', 'preceptor_id']) {
+    const ref = { ...trueRef() }
+    delete ref[key]
+    const res = await runDirect({ ...PLACEMENT_BASE, placement_ref: ref })
+    assert.equal(res.statusCode, 400, `${key} missing must refuse`)
+    assert.equal(fakes.sends.length, 0, `${key} missing must not send`)
+    assert.equal(fakes.logInserts.length, 0)
+  }
+})
+
+test('ORDINARY SEND: no placement handoff still works, and creates no placement state', async () => {
+  const res = await runDirect({ ...DIRECT_BASE })
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body))
+  assert.equal(fakes.sends.length, 1, 'an ordinary Connect email is unaffected')
+  assert.equal(fakes.logInserts.length, 1)
+  const m = placementMeta()
+  for (const k of Object.keys(m)) {
+    assert.ok(!k.startsWith('placement_'), `an ordinary send must not stamp ${k}`)
+  }
+})
+
+test('ORDINARY SEND: a manual-template send to a contact creates no Sent chip', async () => {
+  const res = await runDirect({ ...PLACEMENT_BASE })   // same recipient, NO placement_ref
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body))
+  assert.equal(fakes.sends.length, 1)
+  const m = placementMeta()
+  assert.equal(m.placement_match_id, undefined,
+    'choosing the template by hand must not attribute the send to a placement')
 })
