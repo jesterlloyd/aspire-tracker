@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { computeUnitResponseMetrics, formatUnitResponseSummary } from '../src/lib/unitResponseMetrics.js'
 import { canonicalUnitKey } from '../src/lib/canonicalUnit.js'
+import { DIVISION_ORDER, getUnit } from '../src/lib/unitCatalog.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const overview = readFileSync(join(here, '..', 'src/components/OverviewTab.jsx'), 'utf8')
@@ -122,4 +123,12 @@ test('OverviewTab surfaces pending through the pills and table, with staff-only 
   // ASPIRE-DESIGN-CORRECTION-1 still holds: no configure fallback, no inline orphan list.
   assert.doesNotMatch(overview, /Configure response targets/)
   assert.doesNotMatch(overview, /orphanUnitNames/)
+})
+
+test('Placement Capacity defaults to hosting units and does not hide Emergency responses', () => {
+  assert.match(overview, /const \[unitStatusFilter, setUnitStatusFilter\] = useState\('hosting'\)/)
+  assert.doesNotMatch(overview, /div === ['"]Emergency['"] && !showAll/)
+  assert.match(overview, /getUnit\(r\.unit_name\)\?\.division \|\| ['"]Other['"]/)
+  assert.equal(getUnit('Emergency Department')?.division, 'Emergency')
+  assert.ok(DIVISION_ORDER.includes('Emergency'))
 })

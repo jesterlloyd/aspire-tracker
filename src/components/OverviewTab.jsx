@@ -298,7 +298,6 @@ function PlacementCapacityPanel({
   })
 
   const divisionsToShow = DIVISION_ORDER.filter(div => {
-    if (div === 'Emergency' && !showAll) return false
     if ((byDiv[div]?.length || 0) > 0) return true
     // Always show divisions that have catalog units when filter=all (for uninvited state)
     return statusFilter === 'all' && (catalogByDiv[div]?.length || 0) > 0
@@ -415,7 +414,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [showUnitSetup, setShowUnitSetup] = useState(false)
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
-  const [unitStatusFilter, setUnitStatusFilter] = useState('all')
+  const [unitStatusFilter, setUnitStatusFilter] = useState('hosting')
   // UNIT-FORM-RESPONSE-VISIBILITY: the unit_cohort_responses row open in the read-only detail drawer.
   const [selectedUnitResponse, setSelectedUnitResponse] = useState(null)
   // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: the school (group key) open in the read-only School Form
