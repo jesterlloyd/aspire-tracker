@@ -82,7 +82,12 @@ function loadBulkHelpers(localStorage) {
  * author forgot produces exactly the staleness React would produce.
  */
 function loadLatestDraftEffect() {
-  const body = slice(OUTREACH, 'latestDraftRef.current = {', '  const persistDraftNow')
+  // Anchored past the restore effect: PRECEPTOR-DRAFT-CONTINUITY-1 added a
+  // coherence assignment to latestDraftRef inside the handoff tail, so the bare
+  // 'latestDraftRef.current = {' string now matches twice. The snapshot EFFECT
+  // is the one that follows the autosave banner comment.
+  const region = OUTREACH.slice(OUTREACH.indexOf('Direct Message draft: autosave (CONNECT-DRAFT-AUTOSAVE)'))
+  const body = slice(region, 'latestDraftRef.current = {', '  const persistDraftNow')
   const assignEnd = body.indexOf('  }, [')
   const assign = body.slice(0, assignEnd)
   const depsSrc = body.slice(body.indexOf('  }, [') + 5)
@@ -148,6 +153,7 @@ function directComposer({ userKey = 'u1', richEnabled = false, activePlacement =
     cohortId: 'cohortA', recipientType: 'contact', contactId: 'c1', studentId: null,
     msgSubject: handoffSeed?.subject || '', msgBody: handoffSeed?.body || '',
     includeSignature: true, dmAttachments: handoffSeed?.attachments || [],
+    placementLink: null, placementDetachInfo: null,
     activeTemplateId: null, outreachMode: 'message', replaceTemplateKey: null,
     ccList: [], ccInput: '', ccInputError: null,
     dmRecipientName: 'Contact One', resolvedToEmail: 'c1@example.org', dmRecipientSchool: null,
@@ -162,6 +168,7 @@ function directComposer({ userKey = 'u1', richEnabled = false, activePlacement =
     draftDirtyRef: { current: false },
     // PLACEMENT-COMMUNICATION-HANDOFF-1: the handoff's one-shot guard.
     placementAppliedRef: { current: null },
+    restoredCcKeyRef: { current: null },
   }
 
   const scope = {
@@ -177,6 +184,14 @@ function directComposer({ userKey = 'u1', richEnabled = false, activePlacement =
     activePlacement, handoffSeed,
     requiredDocs: docs,
     buildPreceptorAssignmentDraft,
+    // PRECEPTOR-DRAFT-CONTINUITY-1: the persisted placement connection.
+    linkFromActivePlacement: (ap) => (ap?.placementRef?.matchId && ap.recipient?.preceptorId && ap.cohortId
+      ? { matchId: ap.placementRef.matchId, studentId: ap.placementRef.studentId, unitId: ap.placementRef.unitId,
+        preceptorId: ap.recipient.preceptorId, cohortId: ap.cohortId, templateKey: 'preceptor_assignment',
+        preceptorName: ap.recipient?.name || '', studentName: ap.placement?.studentName || '', unitName: ap.placement?.unit || '' }
+      : null),
+    setPlacementLink: v => { state.placementLink = v },
+    setPlacementDetachInfo: v => { state.placementDetachInfo = v },
     setActiveTemplateId: v => { state.activeTemplateId = v },
     setOutreachMode: v => { state.outreachMode = v },
     setReplaceTemplateKey: v => { state.replaceTemplateKey = v },
@@ -260,7 +275,8 @@ test('NEGATIVE CONTROL: dropping dmAttachments from the deps reproduces the bug'
     'the shipped effect declares dmAttachments as a dependency')
 
   let lastDeps = null
-  const body = slice(OUTREACH, 'latestDraftRef.current = {', '  }, [')
+  const region = OUTREACH.slice(OUTREACH.indexOf('Direct Message draft: autosave (CONNECT-DRAFT-AUTOSAVE)'))
+  const body = slice(region, 'latestDraftRef.current = {', '  }, [')
   // eslint-disable-next-line no-new-func
   const apply = new Function('scope', `with (scope) { ${body} }`)
   const brokenRun = (scope) => {
@@ -600,10 +616,10 @@ const DOCS_OK = {
 test('the handoff merges the placement and preselects both documents', () => {
   const c = directComposer({ activePlacement: HANDOFF, requiredDocs: DOCS_OK })
   assert.equal(c.state.activeTemplateId, 'preceptor_assignment')
-  assert.match(c.state.msgSubject, /preceptor assignment and introduction details/)
+  assert.match(c.state.msgSubject, /Student Assignment and Introduction Details/)
   assert.match(c.state.msgBody, /Student: Ana Cruz/)
   assert.match(c.state.msgBody, /Rotation Dates \/ Schedule: August 24–October 20, 2026/)
-  assert.match(c.state.msgBody, /Please see the attached ASPIRE brochure/)
+  assert.match(c.state.msgBody, /Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference./)
   assert.deepEqual(c.state.dmAttachments.map(a => a.slug),
     ['aspire-brochure', 'prelicensure-guidelines'])
   assert.equal(c.state.replaceTemplateKey, null, 'an empty composer needs no confirmation')

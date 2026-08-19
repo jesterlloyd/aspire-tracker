@@ -1,8 +1,17 @@
 // src/components/ui/Tooltip.jsx
 //
 // Reusable Nightfall/navy tooltip following the house style established by
-// Keith.jsx and StatusLegendPopover.jsx. Uses position:fixed so it escapes
-// overflow:hidden parents without a portal.
+// Keith.jsx and StatusLegendPopover.jsx.
+//
+// PLACEMENT-DRAFT-CONTINUITY-1: the tooltip is now PORTALED to document.body.
+// position:fixed alone was not enough: a transformed ancestor becomes the
+// containing block for fixed descendants, so any tooltip inside the Placement
+// Board's unit cards - which translateY on hover, exactly when a tooltip is
+// wanted - was positioned relative to the card, landed hundreds of pixels away,
+// and was clipped by the card's overflow:hidden. It existed in the DOM and
+// passed every source-level check while being invisible to every user. The
+// portal removes it from any transformed subtree, so the viewport coordinates
+// mean what they say.
 //
 // Usage:
 //   <Tooltip label="Action Center">
@@ -19,6 +28,7 @@
 //   children     React element (required)
 
 import { useState, useRef, useCallback, cloneElement, useEffect, Children } from 'react'
+import { createPortal } from 'react-dom'
 
 // Detect reduced-motion preference once at module load.
 const REDUCED_MOTION =
@@ -159,6 +169,11 @@ export default function Tooltip({
   const child = Children.only(children)
   const isDomEl = typeof child.type === 'string'
 
+  // Portaled so no ancestor transform/overflow can capture or clip it.
+  const portaledTooltip = tooltipEl && typeof document !== 'undefined'
+    ? createPortal(tooltipEl, document.body)
+    : null
+
   if (isDomEl) {
     // For native DOM elements: inject handlers via cloneElement
     const extraProps = {
@@ -173,7 +188,7 @@ export default function Tooltip({
     return (
       <>
         {cloneElement(child, extraProps)}
-        {tooltipEl}
+        {portaledTooltip}
       </>
     )
   }
@@ -189,7 +204,7 @@ export default function Tooltip({
       onBlur={hide}
     >
       {child}
-      {tooltipEl}
+      {portaledTooltip}
     </span>
   )
 }

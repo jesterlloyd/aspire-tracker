@@ -19,7 +19,7 @@ test('the preceptor assignment draft contains the assignment, requested details,
   // in the attached state, which is what every real send is.
   const draft = buildPreceptorAssignmentDraft({ firstName: 'Kelly', attachmentsAttached: true })
 
-  assert.equal(draft.subject, 'ASPIRE: Student preceptor assignment and introduction details')
+  assert.equal(draft.subject, 'ASPIRE: Student Assignment and Introduction Details')
   assert.match(draft.body, /^Dear Kelly,/)
   for (const required of [
     'Student: [Student Name]',

@@ -172,12 +172,17 @@ writeFileSync(join(dir, 'fake.mjs'), `
         select() { return api },
         eq(f, v) { q.filters.push([f, v]); return api },
         filter(f, _op, v) { q.filters.push([f, v]); return api },
-        in(_col, vals) {
+        in(col, vals) {
           if (q.table === 'catalog_resources') {
             return Promise.resolve({ data: CATALOG.filter(r => vals.includes(r.slug)), error: null });
           }
           if (q.table === 'preceptors') {
             return Promise.resolve({ data: vals.map(v => PRECEPTORS[v]).filter(Boolean), error: null });
+          }
+          if (q.table === 'notification_log') {
+            // The confirm endpoint chains .in().eq().eq().eq() then awaits.
+            q.inFilter = [col, vals];
+            return api;
           }
           return Promise.resolve({ data: [], error: null });
         },
@@ -185,9 +190,19 @@ writeFileSync(join(dir, 'fake.mjs'), `
         // reads a student's sibling placements this way.
         then(resolve, reject) {
           let rows = [];
+          const readField = (row, key) => {
+            const j = /^metadata->>(.+)$/.exec(key);
+            return j ? row?.metadata?.[j[1]] : row?.[key];
+          };
           if (q.table === 'matches') {
             rows = Object.values(MATCHES).filter(m =>
               q.filters.every(([f, v]) => String(m[f] ?? '') === String(v)));
+          } else if (q.table === 'notification_log') {
+            // Serve existing evidence FROM the rows this run has inserted, so
+            // idempotency is exercised against real writes, not a canned answer.
+            rows = logInserts.filter(r =>
+              (!q.inFilter || q.inFilter[1].includes(readField(r, q.inFilter[0])))
+              && q.filters.every(([f, v]) => String(readField(r, f) ?? '') === String(v)));
           }
           return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
         },
@@ -260,7 +275,9 @@ writeFileSync(join(dir, 'direct.mjs'), swap(read('api/connect-send-direct-email.
 writeFileSync(join(dir, 'bulk.mjs'), swap(read('api/connect-send-bulk-message.js')))
 
 const fakes = await import(pathToFileURL(join(dir, 'fake.mjs')).href)
+writeFileSync(join(dir, 'confirm.mjs'), swap(read('api/placement-preceptor-confirm.js')))
 const directHandler = (await import(pathToFileURL(join(dir, 'direct.mjs')).href)).default
+const confirmHandler = (await import(pathToFileURL(join(dir, 'confirm.mjs')).href)).default
 const bulkHandler = (await import(pathToFileURL(join(dir, 'bulk.mjs')).href)).default
 
 function makeRes() {
@@ -454,7 +471,7 @@ const CONTACT_ID = 'bbbbbbbb-0000-4000-8000-000000000001'   // email: coordinato
 const PLACEMENT_BASE = {
   recipient_type: 'contact',
   recipient_id: CONTACT_ID,
-  subject: 'ASPIRE: Student preceptor assignment and introduction details',
+  subject: 'ASPIRE: Student Assignment and Introduction Details',
   body: 'QC body',
   body_format: 'text',
 }
@@ -588,4 +605,86 @@ test('ORDINARY SEND: a manual-template send to a contact creates no Sent chip', 
   const m = placementMeta()
   assert.equal(m.placement_match_id, undefined,
     'choosing the template by hand must not attribute the send to a placement')
+})
+
+// ── PRECEPTOR-DRAFT-CONTINUITY-1: the manual confirmation endpoint ───────────
+//
+// The real handler runs against the same placement world. What these prove:
+// the guard runs, the record is a CONFIRMATION (never a provider send), and
+// repeated or redundant confirmation writes nothing.
+
+async function runConfirm(body, { reset = true } = {}) {
+  if (reset) fakes.__reset()
+  const res = makeRes()
+  await confirmHandler({ method: 'POST', headers: REQ_HEADERS, body }, res)
+  return res
+}
+const CONFIRM_REF = {
+  match_id: 'PLACEHOLDER', student_id: 'PLACEHOLDER', unit_id: 'PLACEHOLDER',
+  cohort_id: 'PLACEHOLDER', preceptor_id: 'PLACEHOLDER',
+}
+const confirmRef = () => ({
+  match_id: P.match, student_id: P.student, unit_id: P.unit,
+  cohort_id: P.cohort, preceptor_id: P.preceptor,
+})
+void CONFIRM_REF
+
+test('CONFIRM: a truthful confirmation records a manual row, never a provider send', async () => {
+  const res = await runConfirm(confirmRef())
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body))
+  assert.equal(res.body.recorded, true)
+  assert.equal(res.body.sent_email, false)
+  assert.equal(fakes.sends.length, 0, 'NO email leaves this endpoint')
+  assert.equal(fakes.logInserts.length, 1)
+  const row = fakes.logInserts[0]
+  assert.equal(row.notification_type, 'placement_manual_confirmation')
+  assert.equal(row.status, 'confirmed')
+  assert.equal(row.metadata.source, 'manual_confirmation')
+  assert.equal(row.metadata.confirmed_by, 'staff-1', 'the acting user comes from the session')
+  assert.equal(row.metadata.placement_match_id, P.match)
+  assert.equal(row.metadata.placement_preceptor_id, P.preceptor)
+})
+
+test('CONFIRM: repeating the confirmation is idempotent', async () => {
+  await runConfirm(confirmRef())
+  const second = await runConfirm(confirmRef(), { reset: false })
+  assert.equal(second.statusCode, 200)
+  assert.equal(second.body.already, true)
+  assert.equal(fakes.logInserts.length, 1, 'the second Yes wrote nothing')
+})
+
+test('CONFIRM: existing PROVIDER evidence also answers already', async () => {
+  fakes.__reset()
+  // A real send already recorded this placement (delivered by now).
+  fakes.logInserts.push({
+    notification_type: 'direct_message_sent', status: 'delivered',
+    metadata: {
+      placement_template_key: 'preceptor_assignment',
+      placement_match_id: P.match, placement_preceptor_id: P.preceptor,
+    },
+  })
+  const res = await runConfirm(confirmRef(), { reset: false })
+  assert.equal(res.body.already, true)
+  assert.equal(fakes.logInserts.length, 1, 'no duplicate state on top of the provider row')
+})
+
+test('CONFIRM NEGATIVE CONTROL: a tampered placement is refused with nothing written', async () => {
+  const res = await runConfirm({ ...confirmRef(), student_id: 'aaaaaaaa-0000-4000-8000-000000000002' })
+  assert.equal(res.statusCode, 409)
+  assert.equal(res.body.placement_error, 'student_mismatch')
+  assert.equal(fakes.logInserts.length, 0)
+})
+
+test('CONFIRM NEGATIVE CONTROL: a stale match is refused', async () => {
+  const res = await runConfirm({ ...confirmRef(), match_id: 'ffffffff-0000-4000-8000-00000000dead' })
+  assert.equal(res.statusCode, 409)
+  assert.equal(res.body.placement_error, 'match_missing')
+  assert.equal(fakes.logInserts.length, 0)
+})
+
+test('CONFIRM NEGATIVE CONTROL: a body-supplied identity is refused outright', async () => {
+  const res = await runConfirm({ ...confirmRef(), confirmed_by: 'someone-else' })
+  assert.equal(res.statusCode, 400)
+  assert.match(res.body.error, /taken from your session/)
+  assert.equal(fakes.logInserts.length, 0)
 })

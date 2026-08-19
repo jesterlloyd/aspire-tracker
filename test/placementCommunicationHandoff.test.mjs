@@ -526,7 +526,7 @@ const asItems = (slugs) => slugs.map(slug => ({ slug }))
 
 test('a body with both documents attached and server-verified may send', () => {
   const reason = attachmentClaimBlockReason({
-    body: 'Scope of practice: Please see the attached ASPIRE brochure and Pre-Licensure Student General Guidelines for your reference.',
+    body: 'Scope of practice: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.',
     selected: asItems(RESOLVED_SLUGS),
     serverResolved: asItems(RESOLVED_SLUGS),
     requiredSlugs: RESOLVED_SLUGS,
@@ -536,7 +536,7 @@ test('a body with both documents attached and server-verified may send', () => {
 
 test('removing an attachment while the claim remains blocks the send', () => {
   const reason = attachmentClaimBlockReason({
-    body: 'Please see the attached ASPIRE brochure and Pre-Licensure Student General Guidelines.',
+    body: 'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference..',
     selected: asItems(['aspire-brochure']),
     serverResolved: asItems(['aspire-brochure']),
     requiredSlugs: RESOLVED_SLUGS,
@@ -556,7 +556,7 @@ test('a selection the SERVER has not verified blocks the send', () => {
 
 test('an unresolvable Catalog blocks any claim at all', () => {
   const reason = attachmentClaimBlockReason({
-    body: 'Please see the attached ASPIRE brochure.',
+    body: 'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference..',
     selected: [], serverResolved: [], requiredSlugs: [],
   })
   assert.match(reason, /could not be identified in the ASPIRE Catalog/)
@@ -589,7 +589,7 @@ const PLACEMENT = {
 
 test('the merged draft carries the real placement, not placeholders', () => {
   const d = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true })
-  assert.equal(d.subject, 'ASPIRE: Student preceptor assignment and introduction details')
+  assert.equal(d.subject, 'ASPIRE: Student Assignment and Introduction Details')
   assert.match(d.body, /^Dear Dana,/)
   assert.match(d.body, /Student: Cruz, Anamaria “Ana”/)
   assert.match(d.body, /School: California State University, Northridge/)
@@ -631,7 +631,7 @@ test('every true section heading is Title Case', () => {
 })
 
 test('the scope-of-practice sentence is EXACTLY the requested wording', () => {
-  const EXPECTED = 'Scope of practice: Please see the attached ASPIRE brochure and Pre-Licensure Student General Guidelines for your reference.'
+  const EXPECTED = 'Scope of practice: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
   for (const d of [
     buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true }),
     buildPreceptorAssignmentDraft({ firstName: 'Dana', attachmentsAttached: true }),   // manual path
@@ -758,10 +758,11 @@ test('the composer applies the handoff only for the matching recipient and cohor
 
 test('the composer never overwrites an existing draft without asking', () => {
   const src = strip(read('src/components/connect/OutreachView.jsx'))
-  const i = src.indexOf('if (handoffSeed && DRAFT_KEY')
+  const i = src.indexOf("if (handoffSeed && DRAFT_KEY && placementAppliedRef.current !== DRAFT_KEY)")
   assert.ok(i > 0, 'handoff application not found in the restore effect')
-  const block = src.slice(i, i + 1400)
-  assert.match(block, /if \(d && !directDraftIsEmpty\(d\)\) \{\s*setReplaceTemplateKey\('preceptor_assignment'\)/)
+  const block = src.slice(i, i + 1700)
+  assert.match(block, /if \(d && !directDraftIsEmpty\(d\) && !isOwnDraft\) \{\s*setReplaceTemplateKey\('preceptor_assignment'\)/,
+    'an existing UNRELATED draft still gets the branded confirmation - only the handoff’s OWN restored draft skips it')
 })
 
 test('the send is blocked while the draft makes an unbacked attachment claim', () => {
@@ -970,7 +971,7 @@ test('the notified COUNT still reads from the stored match rows', () => {
 
 test('the composer states whether a placement send will be recorded', () => {
   const src = strip(read('src/components/connect/OutreachView.jsx'))
-  assert.match(src, /const placementTracking = activePlacement/)
+  assert.match(src, /const placementTracking = placementSendRef/)
   assert.match(src, /data-testid="placement-tracking-on"/)
   assert.match(src, /data-testid="placement-tracking-warning"/)
   assert.match(src, /will NOT mark the preceptor as notified/,
@@ -986,7 +987,7 @@ test('the composer states whether a placement send will be recorded', () => {
 
 test('the notice derives from the SAME ref the payload sends', () => {
   const src = strip(read('src/components/connect/OutreachView.jsx'))
-  const i = src.indexOf('const placementTracking = activePlacement')
+  const i = src.indexOf('const placementTracking = placementSendRef')
   const block = src.slice(i, i + 700)
   assert.match(block, /placementSendRef\s*\?/,
     'tracked-vs-not is judged by placementSendRef itself - the notice can never disagree with the payload')
@@ -1256,10 +1257,12 @@ test('a rejected placement returns a reason and sends nothing', () => {
 
 test('the composer attributes a send only while the draft is still that template', () => {
   const src = strip(read('src/components/connect/OutreachView.jsx'))
-  assert.match(src, /const placementSendRef = \(activePlacement && activeTemplateId === 'preceptor_assignment'/,
-    'switching templates must detach the attribution rather than mislabel it')
-  assert.match(src, /activePlacement\.placementRef\?\.matchId && activePlacement\.placementRef\?\.studentId/,
-    'and an incomplete context - no match id - must attribute nothing at all')
+  assert.match(src, /const placementSendRef = \(placementLink && activeTemplateId === 'preceptor_assignment'/,
+    'the attribution derives from the PERSISTED link - what survives navigation - and template selection still gates it')
+  assert.match(src, /placementLink\.matchId && placementLink\.studentId/,
+    'and an incomplete link - no match id - must attribute nothing at all')
+  assert.match(src, /placementLink\.cohortId === cohortId/,
+    'a link from another cohort attributes nothing')
   assert.match(src, /\.\.\.\(placementSendRef \? \{ placement_ref: placementSendRef \} : \{\}\)/)
   // Sent only on the real send - the preview body must not carry it.
   const preview = src.slice(src.indexOf('preview:           true'), src.indexOf('preview:           true') + 700)
@@ -1271,11 +1274,187 @@ test('the composer attributes a send only while the draft is still that template
 test('the board reads the evidence, scoped and read-only', () => {
   const src = strip(read('src/components/MatchingTab.jsx'))
   assert.match(src, /from\('notification_log'\)/)
-  assert.match(src, /\.in\('status', \[\.\.\.SENT_EVIDENCE_STATUSES\]\)/,
+  assert.match(src, /\.in\('notification_type', \[DIRECT_MESSAGE_TYPE, MANUAL_CONFIRMATION_TYPE\]\)/,
+    'both provider sends and guarded manual confirmations are evidence')
+  assert.match(src, /\.in\('status', \[\.\.\.SENT_EVIDENCE_STATUSES, MANUAL_CONFIRMATION_STATUS\]\)/,
     'the query must accept the whole delivery lifecycle, not only the transient initial state')
   assert.match(src, /\.eq\('metadata->>placement_template_key', 'preceptor_assignment'\)/)
   assert.match(src, /\.eq\('metadata->>placement_cohort_id', cohortId\)/, 'scoped to the active cohort')
   const q = src.slice(src.indexOf("queryKey: ['placement_preceptor_sent'"), src.indexOf('const preceptorSent ='))
   assert.ok(!/insert|update|delete|upsert/i.test(q), 'the board only reads')
   assert.match(q, /refetchOnMount: 'always'/, 'returning from Connect shows the send without a manual refresh')
+})
+
+// ── 14. PRECEPTOR-DRAFT-CONTINUITY-1 ────────────────────────────────────────
+
+test('the corrected subject is Title Case, and the old subject is gone', () => {
+  const d = buildPreceptorAssignmentDraft({ firstName: 'Romelyn', attachmentsAttached: true })
+  assert.equal(d.subject, 'ASPIRE: Student Assignment and Introduction Details')
+  for (const f of ['src/lib/outreachTemplates.js', 'src/components/connect/OutreachView.jsx', 'src/components/EmbedUnitCard.jsx']) {
+    assert.ok(!read(f).includes('Student preceptor assignment and introduction details'),
+      `the old subject survives in ${f}`)
+  }
+})
+
+test('the greeting is its own paragraph, in BOTH bodies', () => {
+  const d = buildPreceptorAssignmentDraft({ firstName: 'Romelyn', attachmentsAttached: true })
+  assert.match(d.body, /^Dear Romelyn,\n\nThank you for agreeing to precept one of our senior nursing students through ASPIRE\. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice\.\n/,
+    'plain text: greeting, blank paragraph break, then the exact thanks paragraph')
+  assert.ok(d.richBody.includes('<p>Dear Romelyn,</p><p>Thank you for agreeing to precept'),
+    'rich body: the greeting stands alone as its own paragraph element')
+  // NEGATIVE CONTROL: the old fused single-paragraph greeting is gone.
+  assert.ok(!d.richBody.includes('Dear Romelyn, thank you'), 'the fused greeting paragraph is gone')
+})
+
+test('the scope-of-practice bullet is the exact requested sentence', () => {
+  const EXPECTED = 'Scope of practice: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  const d = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true })
+  assert.ok(d.body.includes(EXPECTED))
+  assert.ok(d.richBody.includes(EXPECTED))
+  // Old wording has zero active occurrences anywhere in the sources.
+  for (const f of ['src/lib/outreachTemplates.js', 'src/lib/connect/catalogAttachments.js']) {
+    assert.ok(!strip(read(f)).includes('can be added before sending'), f)
+    assert.ok(!strip(read(f)).includes('Please see the attached ASPIRE brochure'), f)
+  }
+  // The claim guard recognizes BOTH the new wording and old saved drafts.
+  assert.equal(claimsAttachments('Please see attached ASPIRE Brochure'), true)
+  assert.equal(claimsAttachments('Please see the attached ASPIRE brochure'), true)
+  assert.equal(claimsAttachments('The brochure can be shared separately.'), false)
+})
+
+test('the Catalog identities are matched by their CANONICAL titles, wording aside', () => {
+  const options = [
+    { slug: 'aspire-brochure', title: 'ASPIRE Brochure', type_label: 'PDF' },
+    { slug: 'prelicensure-guidelines', title: 'General Guidelines for Pre-Licensure Students', type_label: 'PDF' },
+  ]
+  const r = resolveRequiredAttachments(options)
+  assert.equal(r.ok, true, 'the bullet’s own wording is an accepted alias, not a new identity')
+})
+
+test('the placement connection is DRAFT DATA: persisted, restored, cohort-checked', () => {
+  const src = strip(read('src/components/connect/OutreachView.jsx'))
+  assert.match(src, /if \(l\.placementLink\) payload\.placement = l\.placementLink/,
+    'the link is saved with the draft')
+  assert.match(src, /if \(Array\.isArray\(l\.ccList\) && l\.ccList\.length\) payload\.cc = l\.ccList/,
+    'and so is the CC list')
+  assert.match(src, /link\.cohortId === cohortId && link\.templateKey === 'preceptor_assignment'/,
+    'restore validates the cohort and template before reviving the connection')
+  assert.match(src, /setPlacementLink\(link\)\s*\n\s*setActiveTemplateId\('preceptor_assignment'\)/,
+    'a restored link restores its template selection - the link IS that statement')
+})
+
+test('the recipient survives Connect navigation and refresh', () => {
+  const src = strip(read('src/components/connect/OutreachView.jsx'))
+  assert.match(src, /const \[stickyRecipient, setStickyRecipient\] = useState\(null\)/,
+    'the last explicit recipient is kept for the life of the mount')
+  assert.match(src, /const \[adoptedRecipient, setAdoptedRecipient\] = useState\(null\)/,
+    'and after refresh the most recent draft pointer is adopted')
+  assert.match(src, /readDraftPointer\(userKey, cohortId\)/,
+    'adoption reads the same pointer the Resume link used')
+  assert.match(src, /const blockingLaunch = launchCtx && launchCtx\.kind !== LAUNCH_KINDS\.PRECEPTOR_ASSIGNMENT/,
+    'bulk launches block adoption; the preceptor handoff allows it, because a refresh strips its router-state recipient')
+  assert.match(src, /if \(adoptedRecipient \|\| stickyRecipient \|\| blockingLaunch\) return/)
+})
+
+test('detachment is deliberate and names its cause', () => {
+  const src = strip(read('src/components/connect/OutreachView.jsx'))
+  assert.match(src, /const detachPlacement = useCallback\(\(cause\)/,
+    'one severing path, which requires a cause')
+  assert.match(src, /detachPlacement\(`you switched to \$\{t\.label\}`\)/,
+    'switching composer mode names itself')
+  assert.match(src, /detachPlacement\(`you switched to the \$\{t\.label\} template`\)/,
+    'switching template names itself')
+  assert.match(src, /Placement tracking was disconnected because \$\{placementDetachInfo\.cause\}/,
+    'and the banner repeats the cause verbatim - never a silent detach')
+})
+
+// ── 15. Manual confirmation evidence ────────────────────────────────────────
+
+const manualRow = ({ match = M.A1, preceptor = P.DANA, at = '2026-08-19T10:00:00Z', status = 'confirmed' }) => ({
+  notification_type: 'placement_manual_confirmation',
+  status,
+  sent_at: at,
+  metadata: {
+    placement_template_key: 'preceptor_assignment',
+    placement_student_id: S.A, placement_unit_id: U.ONE,
+    placement_preceptor_id: preceptor, placement_cohort_id: 'coh-1',
+    placement_match_id: match,
+    source: 'manual_confirmation', confirmed_by_name: 'QC Owner',
+  },
+})
+
+test('a guarded manual confirmation reads as sent, labelled as manual', () => {
+  const index = preceptorSentIndex([manualRow({})])
+  const state = preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA })
+  assert.equal(state.sent, true)
+  assert.equal(state.manualOnly, true)
+  assert.match(preceptorSentTooltip(state, 'Romelyn Martha Sanchez'), /Confirmed manually\./,
+    'a manual answer never masquerades as a provider receipt')
+})
+
+test('provider evidence outranks the manual label, and neither double-counts', () => {
+  const index = preceptorSentIndex([manualRow({}), sentRow({ match: M.A1, status: 'delivered' })])
+  assert.equal(index.size, 1, 'one placement, ONE state - two evidence kinds cannot double-count')
+  const state = preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA })
+  assert.equal(state.manualOnly, false)
+  assert.ok(!/Confirmed manually/.test(preceptorSentTooltip(state, 'X')))
+})
+
+test('a manual row with the wrong status or a foreign type is not evidence', () => {
+  assert.equal(preceptorSentIndex([manualRow({ status: 'queued' })]).size, 0)
+  const foreign = manualRow({})
+  foreign.notification_type = 'someone_elses_type'
+  assert.equal(preceptorSentIndex([foreign]).size, 0)
+})
+
+test('manual evidence is placement-specific: replaced preceptor and recreated match stay clean', () => {
+  const index = preceptorSentIndex([manualRow({})])
+  assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.SAM }).sent, false)
+  assert.equal(preceptorSentState(index, { matchId: M.REBUILT, preceptorId: P.DANA }).sent, false)
+})
+
+test('the board asks - it never marks on return', () => {
+  const src = strip(read('src/components/MatchingTab.jsx'))
+  assert.match(src, /Were you able to send the Preceptor Assignment &amp; Details email to/,
+    'the exact question')
+  assert.match(src, /Yes, Mark Preceptor as Notified/)
+  assert.match(src, /Not Yet/)
+  assert.match(src, /data-testid="preceptor-handoff-prompt"/)
+  // Not Yet only clears the marker - the ONLY write path is the guarded endpoint.
+  const notYet = src.slice(src.indexOf('const clearHandoffMarker'), src.indexOf('const confirmHandoffSent'))
+  assert.ok(!notYet.includes('fetch('), 'Not Yet performs no request')
+  const confirm = src.slice(src.indexOf('const confirmHandoffSent'), src.indexOf('const confirmHandoffSent') + 2200)
+  assert.match(confirm, /\/api\/placement-preceptor-confirm/)
+  assert.ok(!confirm.includes("from('notification_log')"), 'the client never writes evidence directly')
+  // The prompt keys to the CURRENT world: stale markers are discarded, not asked.
+  const gate = src.slice(src.indexOf('const pendingHandoff = useMemo'), src.indexOf('const clearHandoffMarker'))
+  assert.match(gate, /matches\.find\(m => m\.id === marker\.matchId\)/)
+  assert.match(gate, /String\(current\.id \|\| ''\) !== String\(marker\.preceptorId\)/)
+  assert.match(gate, /preceptorSentState\(preceptorSent, marker\)\.sent/,
+    'evidence resolves the marker without asking')
+})
+
+test('the confirm endpoint refuses fabrication and stays idempotent', () => {
+  const src = strip(read('api/placement-preceptor-confirm.js'))
+  assert.match(src, /skipRecipientCheck: true/,
+    'the manual path waives ONLY the recipient-address tie; every placement check runs')
+  assert.match(src, /notification_type: MANUAL_CONFIRMATION_TYPE/,
+    'recorded as a confirmation, never as a provider send')
+  assert.ok(!/DIRECT_MESSAGE_TYPE,\s*\n\s*audience/.test(src), 'never writes direct_message_sent')
+  assert.match(src, /already = \(existing \|\| \[\]\)\.some/,
+    'ANY existing evidence answers already:true and writes nothing')
+  assert.match(src, /confirmed_by: actorId/,
+    'the acting user is recorded, from the session')
+  assert.match(src, /The confirming user is taken from your session, never from the request/,
+    'a body-supplied identity is refused outright')
+})
+
+test('the canonical tooltip is portaled, so transformed cards cannot clip it', () => {
+  const src = strip(read('src/components/ui/Tooltip.jsx'))
+  assert.match(src, /import \{ createPortal \} from 'react-dom'/)
+  assert.match(src, /createPortal\(tooltipEl, document\.body\)/,
+    'the tooltip renders at the body, outside any transform containing block')
+  // NEGATIVE CONTROL: the un-portaled inline rendering is gone from both branches.
+  assert.ok(!/\{cloneElement\(child, extraProps\)\}\s*\{tooltipEl\}/.test(src))
+  assert.ok(!/\{child\}\s*\{tooltipEl\}\s*<\/span>/.test(src))
 })

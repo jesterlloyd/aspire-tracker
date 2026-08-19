@@ -70,8 +70,20 @@ export const PLACEMENT_META = Object.freeze({
 /** The one template whose sends this module tracks. */
 export const PRECEPTOR_ASSIGNMENT_TEMPLATE = 'preceptor_assignment'
 
-/** The one notification source this evidence may come from. */
+/** The provider-send source of this evidence. */
 export const DIRECT_MESSAGE_TYPE = 'direct_message_sent'
+
+/**
+ * The MANUAL source (PRECEPTOR-DRAFT-CONTINUITY-1): an Owner/Admin answering the
+ * board's follow-up question - "Were you able to send the assignment email?" -
+ * with Yes. It is deliberately a DIFFERENT notification_type with a different
+ * status, so it can never masquerade as a provider-confirmed send: the row says
+ * a human confirmed it, and the tooltip says so too. Written only by
+ * api/placement-preceptor-confirm.js, which re-proves the placement against the
+ * database (same guard as a real send) before recording anything.
+ */
+export const MANUAL_CONFIRMATION_TYPE = 'placement_manual_confirmation'
+export const MANUAL_CONFIRMATION_STATUS = 'confirmed'
 
 /**
  * The statuses that count as "this email was sent".
@@ -164,16 +176,23 @@ export function preceptorSentIndex(rows) {
   const index = new Map()
   for (const row of Array.isArray(rows) ? rows : []) {
     if (!row) continue
-    // A row that is not an accepted-or-better send is not evidence of one.
-    // The webhook ADVANCES status after acceptance, so equality with 'sent'
-    // would (and did) lose every row the moment delivery confirmed.
-    if (!SENT_EVIDENCE_STATUSES.includes(trim(row.status))) continue
+    // Two admissible sources, each with its own status contract:
+    //   provider send  - direct_message_sent, at an accepted-or-better status
+    //                    (the webhook ADVANCES status after acceptance, so
+    //                    equality with 'sent' would - and did - lose every row
+    //                    the moment delivery confirmed);
+    //   manual confirm - placement_manual_confirmation at 'confirmed', written
+    //                    by the guarded confirm endpoint after a human said the
+    //                    email went.
+    // Anything else - bounced, failed, queued, a foreign type - is not evidence.
+    const type = trim(row.notification_type)
+    const status = trim(row.status)
+    const isProviderSend = type === DIRECT_MESSAGE_TYPE && SENT_EVIDENCE_STATUSES.includes(status)
+    const isManualConfirm = type === MANUAL_CONFIRMATION_TYPE && status === MANUAL_CONFIRMATION_STATUS
+    if (!isProviderSend && !isManualConfirm) continue
     const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : null
     if (!meta) continue
     if (trim(meta[PLACEMENT_META.template]) !== PRECEPTOR_ASSIGNMENT_TEMPLATE) continue
-    // The source must also be the direct-message send path. A future writer with a
-    // different notification_type is not this evidence and must not be read as it.
-    if (trim(row.notification_type) !== DIRECT_MESSAGE_TYPE) continue
     const key = placementSentKey({
       matchId: meta[PLACEMENT_META.match],
       preceptorId: meta[PLACEMENT_META.preceptor],
@@ -182,13 +201,15 @@ export function preceptorSentIndex(rows) {
     const sentAt = trim(row.sent_at) || null
     const prev = index.get(key)
     if (!prev) {
-      index.set(key, { sentAt, count: 1 })
+      index.set(key, { sentAt, count: 1, manualOnly: isManualConfirm })
       continue
     }
-    // Repeated sends re-confirm the same fact; they never create a second state.
+    // Repeated sends and confirmations re-confirm ONE fact; they never create a
+    // second state, and provider evidence outranks a manual answer for display.
     index.set(key, {
       sentAt: newerOf(prev.sentAt, sentAt),
       count: prev.count + 1,
+      manualOnly: prev.manualOnly && isManualConfirm,
     })
   }
   return index
@@ -208,7 +229,9 @@ function newerOf(a, b) {
 export function preceptorSentState(index, ref) {
   const key = placementSentKey(ref)
   const hit = key && index instanceof Map ? index.get(key) : null
-  return hit ? { sent: true, sentAt: hit.sentAt, count: hit.count } : { sent: false, sentAt: null, count: 0 }
+  return hit
+    ? { sent: true, sentAt: hit.sentAt, count: hit.count, manualOnly: !!hit.manualOnly }
+    : { sent: false, sentAt: null, count: 0, manualOnly: false }
 }
 
 /** "Sent Aug 18" - short enough for a placement row, specific enough to trust. */
@@ -232,5 +255,7 @@ export function preceptorSentTooltip(state, preceptorName) {
     })
     : 'an earlier date'
   const again = state.count > 1 ? ` Sent ${state.count} times.` : ''
-  return `${who} was sent the assignment email for this placement on ${when}.${again}`
+  // A manual answer is honest about being one: nobody's provider receipt is invented.
+  const how = state.manualOnly ? ' Confirmed manually.' : ''
+  return `${who} was sent the assignment email for this placement on ${when}.${again}${how}`
 }

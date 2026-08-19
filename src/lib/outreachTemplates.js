@@ -75,7 +75,7 @@ const merged = (value, placeholder) => {
 // shows an actionable warning, and the send is blocked - so a reader never sees
 // a claim that is untrue, and the sender is never left wondering why.
 const ATTACHED_REMINDER =
-  'Scope of practice: Please see the attached ASPIRE brochure and Pre-Licensure Student General Guidelines for your reference.'
+  'Scope of practice: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
 
 export function buildPreceptorAssignmentDraft({ firstName, placement, attachmentsAttached = false } = {}) {
   const p = placement || {}
@@ -107,10 +107,10 @@ export function buildPreceptorAssignmentDraft({ firstName, placement, attachment
   ]
   if (notes) summaryLines.push(`Additional Notes: ${notes}`)
 
-  const subject = 'ASPIRE: Student preceptor assignment and introduction details'
+  const subject = 'ASPIRE: Student Assignment and Introduction Details'
   const body = `Dear ${fb(greetName, 'Preceptor')},
 
-Thank you for agreeing to precept one of our senior nursing students through ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience. Your willingness to teach, mentor, and support our students makes such a meaningful difference in their professional growth and transition into practice.
+Thank you for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice.
 
 Student Assignment Summary
 
@@ -141,7 +141,10 @@ Again, we truly appreciate your time, effort, and heart in mentoring our student
 Please don't hesitate to reach out if you have any questions.`
   const richBody =
     bH2('Preceptor Assignment & Details')
-    + bP(`Dear ${fb(greetName, 'Preceptor')}, thank you for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice.`)
+    // The greeting stands alone; the thanks is its own paragraph beneath it,
+    // exactly as the plain-text body and the requested letter shape read.
+    + bP(`Dear ${fb(greetName, 'Preceptor')},`)
+    + bP('Thank you for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice.')
     + bH2('Student Assignment Summary')
     + bUL(summaryLines)
     + bH2('Details Requested for the Introduction')

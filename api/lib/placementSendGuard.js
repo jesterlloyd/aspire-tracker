@@ -47,7 +47,7 @@ const fail = (status, error, code) => ({ ok: false, status, error, code, metadat
  * @param recipientEmail the address the send will ACTUALLY use (server-resolved)
  * @returns {{ok: true, metadata: object}} | {{ok: false, status, error, code}}
  */
-export async function verifyPlacementSend({ db, ref, recipientType, recipientEmail } = {}) {
+export async function verifyPlacementSend({ db, ref, recipientType, recipientEmail, skipRecipientCheck = false } = {}) {
   if (!ref) return fail(400, 'Placement reference missing.', 'ref_missing');
 
   // The handle. Everything else below is a claim, not an input.
@@ -62,7 +62,10 @@ export async function verifyPlacementSend({ db, ref, recipientType, recipientEma
 
   // A preceptor email is addressed to a CONTACT. A student recipient could never
   // be the preceptor, so the pairing is refused rather than reinterpreted.
-  if (recipientType !== 'contact') {
+  // skipRecipientCheck (PRECEPTOR-DRAFT-CONTINUITY-1) exists for the MANUAL
+  // confirmation, where no message is being addressed to anyone - every
+  // placement check below still runs; only the recipient-address tie is waived.
+  if (!skipRecipientCheck && recipientType !== 'contact') {
     return fail(400, 'A placement preceptor email must be addressed to a contact.', 'recipient_type');
   }
 
@@ -176,12 +179,14 @@ export async function verifyPlacementSend({ db, ref, recipientType, recipientEma
   // The recipient email is the SERVER's resolution of the chosen contact, so this
   // ties the contact actually being written to back to the placement's preceptor.
   const preceptorEmail = normalizeEmailForLookup(preceptorRow.email);
-  const sendingTo = normalizeEmailForLookup(recipientEmail);
-  if (!preceptorEmail) {
-    return fail(409, 'The assigned preceptor has no email on file. Nothing was sent.', 'preceptor_no_email');
-  }
-  if (!sendingTo || sendingTo !== preceptorEmail) {
-    return fail(409, 'This message is addressed to someone other than the placement’s assigned preceptor. Nothing was sent.', 'recipient_mismatch');
+  if (!skipRecipientCheck) {
+    const sendingTo = normalizeEmailForLookup(recipientEmail);
+    if (!preceptorEmail) {
+      return fail(409, 'The assigned preceptor has no email on file. Nothing was sent.', 'preceptor_no_email');
+    }
+    if (!sendingTo || sendingTo !== preceptorEmail) {
+      return fail(409, 'This message is addressed to someone other than the placement’s assigned preceptor. Nothing was sent.', 'recipient_mismatch');
+    }
   }
 
   // ── 7. Stamp from the VERIFIED rows, never from the request ────────────────
@@ -195,5 +200,14 @@ export async function verifyPlacementSend({ db, ref, recipientType, recipientEma
   if (!metadata) {
     return fail(500, 'The placement could not be recorded, so nothing was sent.', 'metadata_incomplete');
   }
-  return { ok: true, metadata, verified: { matchId: match.id, unitName: unit.unit_name, preceptorName: preceptorRow.full_name } };
+  return {
+    ok: true,
+    metadata,
+    verified: {
+      matchId: match.id,
+      unitName: unit.unit_name,
+      preceptorName: preceptorRow.full_name,
+      preceptorEmail: preceptorRow.email || '',
+    },
+  };
 }

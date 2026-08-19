@@ -556,6 +556,28 @@ export default function EmbedUnitCard({
       showToast('This browser blocked session storage, so the placement details could not be carried over.')
       return
     }
+    // PRECEPTOR-DRAFT-CONTINUITY-1: remember that this handoff is OPEN. If the
+    // user comes back to Rotation without either the automatic send evidence or
+    // an answer, the board asks whether the email went - instead of silently
+    // showing nothing for a send that may well have happened. Session-scoped,
+    // ids only for identity plus display names for the question itself, and
+    // written only for a placement the confirm endpoint could actually verify.
+    if (match?.id && placement.preceptorId) {
+      try {
+        sessionStorage.setItem('aspire.placement.pendingPreceptorHandoff.v1', JSON.stringify({
+          v: 1,
+          cohortId,
+          matchId: match.id,
+          studentId: student.id,
+          unitId: unit.id,
+          preceptorId: placement.preceptorId,
+          preceptorName: placement.preceptorName || '',
+          studentName: displayName(student),
+          unitName: unit.unit_name,
+          at: Date.now(),
+        }))
+      } catch { /* storage blocked - the prompt simply never appears */ }
+    }
     navigate('/connect/outreach?launch=1', {
       state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } },
     })

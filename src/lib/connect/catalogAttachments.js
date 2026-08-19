@@ -46,6 +46,8 @@ export const PRECEPTOR_ASSIGNMENT_DOCUMENTS = Object.freeze([
       'Pre-Licensure Student General Guidelines',
       'Prelicensure Student General Guidelines',
       'Pre-Licensure Nursing Student General Guidelines',
+      // The template bullet words it this way; the Catalog title may too someday.
+      'General Guidelines for Pre-Licensure Students',
     ]),
   }),
 ])
@@ -145,10 +147,12 @@ export function attachmentWarningText(problems) {
 
 // ── The "do not claim what you are not carrying" guard ───────────────────────
 
-// The exact sentence the merged template writes when both documents resolved.
-// Kept as a normalized fragment so an edited body still matches while genuinely
-// rewritten copy does not.
-export const ATTACHMENT_CLAIM_FRAGMENT = 'see the attached'
+// The claim fragments the guard recognizes. The current template says
+// "Please see attached ..."; drafts saved before PRECEPTOR-DRAFT-CONTINUITY-1
+// say "Please see the attached ...". Neither phrase contains the other, so BOTH
+// are checked - an old restored draft must stay guarded, not slip through on a
+// wording change.
+export const ATTACHMENT_CLAIM_FRAGMENTS = Object.freeze(['see attached', 'see the attached'])
 
 /** Strip HTML so the guard reads the rich editor's body the same as plain text. */
 export function bodyText(body) {
@@ -162,7 +166,8 @@ export function bodyText(body) {
 
 /** Does this body tell the reader that documents are attached? */
 export function claimsAttachments(body) {
-  return bodyText(body).includes(ATTACHMENT_CLAIM_FRAGMENT)
+  const text = bodyText(body)
+  return ATTACHMENT_CLAIM_FRAGMENTS.some(f => text.includes(f))
 }
 
 /**

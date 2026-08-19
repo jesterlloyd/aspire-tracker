@@ -115,6 +115,26 @@ function readDraftPointer(userKey, cohortId) {
 // selected recipients into chunks of this size and sends them sequentially -
 // invisibly to the owner, who simply selects any group size and sends once.
 // Keep aligned with the backend per-request limit.
+// PRECEPTOR-DRAFT-CONTINUITY-1: one shape for the persisted placement link,
+// built from a live Placement Board handoff. Names ride along for the tracking
+// banner and the board's follow-up question; identity is the ids, which the
+// server guard re-proves before any send is attributed.
+function linkFromActivePlacement(ap) {
+  if (!ap?.placementRef?.matchId || !ap.placementRef.studentId || !ap.placementRef.unitId
+    || !ap.recipient?.preceptorId || !ap.cohortId) return null
+  return {
+    matchId: ap.placementRef.matchId,
+    studentId: ap.placementRef.studentId,
+    unitId: ap.placementRef.unitId,
+    preceptorId: ap.recipient.preceptorId,
+    cohortId: ap.cohortId,
+    templateKey: 'preceptor_assignment',
+    preceptorName: ap.recipient?.name || '',
+    studentName: ap.placement?.studentName || '',
+    unitName: ap.placement?.unit || '',
+  }
+}
+
 const SEND_CHUNK_SIZE = 5
 function chunkArray(arr, size) {
   const out = []
@@ -288,16 +308,69 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const urlContactId = urlRecipientType === 'contact' ? urlRecipientId : searchParams.get('contactId')
 
   // Router state carries display info passed by the navigating component
-  const fromContact = location.state?.fromContact || null  // { id, name, email }
-  const fromStudent = location.state?.fromStudent || null  // { id, name, email, school }
+  const routeFromContact = location.state?.fromContact || null  // { id, name, email }
+  const routeFromStudent = location.state?.fromStudent || null  // { id, name, email, school }
 
   // An explicit recipient is present when the URL or router state carries one.
   // Explicit routing wins over any localStorage-restored memory.
-  const hasExplicitRecipient = !!(urlStudentId || urlContactId || fromStudent || fromContact)
+  const hasExplicitRecipient = !!(urlStudentId || urlContactId || routeFromStudent || routeFromContact)
+
+  // ── PRECEPTOR-DRAFT-CONTINUITY-1: the recipient survives Connect navigation ──
+  //
+  // THE PRODUCTION DEFECT. The recipient used to live ONLY in the URL and router
+  // state. Clicking Contacts (to copy a CC address) and clicking back to
+  // Outreach navigates to bare /connect/outreach - no params, no state - so the
+  // recipient vanished, the composer reset, and with it went the placement
+  // connection the Placement Board had handed over. The user re-opened the
+  // draft, sent it, and nothing was recorded.
+  //
+  // Two layers replace that fragility:
+  //   sticky  - the last explicitly-established recipient, held in a ref for
+  //             the life of this mount. Ordinary sub-tab round trips inside
+  //             Connect never unmount this component, so the composer simply
+  //             does not reset: recipient, subject, body, CC and the placement
+  //             connection all stay exactly as they were.
+  //   adopted - after a REFRESH (fresh mount, no explicit recipient, no
+  //             launch), the most recent draft pointer for this user+cohort is
+  //             adopted automatically, so reload restores the recipient and the
+  //             draft rather than an empty picker with a "Resume" link.
+  // Route-explicit sources always win, so deep links and the picker behave
+  // exactly as before; changing cohorts remounts and clears both layers.
+  const [stickyRecipient, setStickyRecipient] = useState(null)
+  const [adoptedRecipient, setAdoptedRecipient] = useState(null)
+
+  const explicitContactId = routeFromContact?.id || urlContactId || null
+  const explicitStudentId = routeFromStudent?.id || urlStudentId || null
+  // Adjusted during render (React's documented reset-state-from-props pattern,
+  // already used by MatchingTab's cohort reset) so the sticky copy exists before
+  // anything downstream derives from it. Guarded to material change only.
+  if (explicitContactId || explicitStudentId) {
+    const same = stickyRecipient
+      && stickyRecipient.contactId === explicitContactId
+      && stickyRecipient.studentId === explicitStudentId
+    const gainsInfo = (routeFromContact && stickyRecipient?.fromContact !== routeFromContact)
+      || (routeFromStudent && stickyRecipient?.fromStudent !== routeFromStudent)
+    if (!same || gainsInfo) {
+      setStickyRecipient({
+        contactId: explicitContactId,
+        studentId: explicitStudentId,
+        // Keep display info once seen: a later URL-only arrival for the same
+        // recipient must not discard the name and email already known.
+        fromContact: routeFromContact || (same ? stickyRecipient.fromContact : null),
+        fromStudent: routeFromStudent || (same ? stickyRecipient.fromStudent : null),
+      })
+    }
+  }
+  const effRecipient = (explicitContactId || explicitStudentId)
+    ? { contactId: explicitContactId, studentId: explicitStudentId, fromContact: routeFromContact, fromStudent: routeFromStudent }
+    : (stickyRecipient || adoptedRecipient || { contactId: null, studentId: null, fromContact: null, fromStudent: null })
+
+  const fromContact = effRecipient.fromContact
+  const fromStudent = effRecipient.fromStudent
 
   // Resolved IDs - explicit URL/state sources take precedence
-  const contactId = fromContact?.id || urlContactId || null
-  const studentId = fromStudent?.id || urlStudentId || null
+  const contactId = effRecipient.contactId
+  const studentId = effRecipient.studentId
 
   // Display info availability - router state preferred, fetched record as fallback
   const contactHasDisplayInfo = !!(fromContact?.name || fromContact?.email)
@@ -547,6 +620,18 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // CONNECT-COMMS-1D: CC support (Direct Message only). ccList = confirmed chips; ccInput = in-progress typing.
   // ccAutoSuggested flags that the coordinator chip was pre-filled (vs. manually added) for metadata/telemetry.
   const [ccList,            setCcList]             = useState([])
+  // ── PRECEPTOR-DRAFT-CONTINUITY-1: the placement connection, AS DRAFT DATA ──
+  //
+  // The connection between this draft and its Placement Board row used to be
+  // reconstructed each render from ephemeral state (the frozen launch context +
+  // the URL recipient + activeTemplateId), so ordinary navigation destroyed it
+  // and the send quietly lost its tracking. It is now a first-class piece of
+  // the draft: written when the handoff applies, SAVED WITH THE DRAFT, restored
+  // with it, and severed only by a deliberate act - with the cause shown.
+  // Everything in it remains an untrusted claim: the server guard re-validates
+  // the whole reference against the database before any send is attributed.
+  const [placementLink,       setPlacementLink]       = useState(null)
+  const [placementDetachInfo, setPlacementDetachInfo] = useState(null) // { cause }
   const [ccInput,           setCcInput]            = useState('')
   const [ccInputError,      setCcInputError]       = useState(null)
   const [ccAutoSuggested,   setCcAutoSuggested]    = useState(false)
@@ -561,6 +646,36 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                          : contactId ? `contact:${contactId}`
                          : null
   const DRAFT_KEY = directDraftKey(userKey, cohortId, draftRecipientId)
+
+  // After a refresh there is no route recipient and no sticky copy, so adopt the
+  // most recent non-empty draft for this user+cohort - reload then restores the
+  // recipient, subject, body, CC, attachments AND the placement connection in
+  // one motion instead of parking the user at an empty picker. Deferred a tick
+  // (setTimeout) because pointer reads use Date.now and setState-in-effect is
+  // banned synchronously; a launch arrival or explicit recipient wins outright.
+  useEffect(() => {
+    // Bulk launches bring their own audience, so adoption would fight them. The
+    // PRECEPTOR handoff is the exception: its recipient rides on router state,
+    // which a refresh strips - the pointer (this very draft's recipient) is then
+    // exactly the right thing to adopt.
+    const blockingLaunch = launchCtx && launchCtx.kind !== LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT
+    if (adoptedRecipient || stickyRecipient || blockingLaunch) return
+    if (explicitContactId || explicitStudentId) return
+    if (!userKey || recipientMode !== 'single') return
+    const t = setTimeout(() => {
+      const ptr = readDraftPointer(userKey, cohortId)
+      if (!ptr) return
+      const draft = readDirectDraft(directDraftKey(userKey, cohortId, `${ptr.kind}:${ptr.id}`))
+      if (!draft || directDraftIsEmpty(draft)) return
+      setAdoptedRecipient({
+        contactId: ptr.kind === 'contact' ? ptr.id : null,
+        studentId: ptr.kind === 'student' ? ptr.id : null,
+        fromContact: ptr.kind === 'contact' ? { id: ptr.id, name: ptr.name, email: ptr.email } : null,
+        fromStudent: ptr.kind === 'student' ? { id: ptr.id, name: ptr.name, email: ptr.email, school: ptr.school } : null,
+      })
+    }, 0)
+    return () => clearTimeout(t)
+  }, [adoptedRecipient, stickyRecipient, launchCtx, explicitContactId, explicitStudentId, userKey, cohortId, recipientMode])
 
   const [msgSubject, setMsgSubject] = useState(() => handoffSeed?.subject || '')
   const [msgBody,    setMsgBody]    = useState(() => handoffSeed?.body || '')
@@ -587,7 +702,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   //     persistence writes nothing and deletes nothing.
   const hydratedKeyRef      = useRef(null)
   const draftDirtyRef       = useRef(false)
+  // Marks the draft dirty. Called ONLY from real user-edit handlers, so a
+  // restore, a remount or a cohort switch can never look like an edit.
+  // Declared HERE, beside the ref it writes: handlers as early as the CC chip
+  // editor consume it, and a later declaration is a TDZ crash.
+  const markDraftDirty = useCallback(() => { draftDirtyRef.current = true }, [])
   const lastRecipientRef    = useRef(null)   // detects an actual recipient change vs. identity load
+  const restoredCcKeyRef    = useRef(null)   // the draft key whose RESTORED cc list owns the CC state
   const latestDraftRef      = useRef(null)   // latest values for the flush-on-hide/unmount writes
   // RICH-COMPOSE-2A-0: additive richDoc (TipTap JSON). When rich ON the editor updates it on edit;
   // when OFF it carries the restored draft's richDoc forward so toggling the flag never destroys it.
@@ -927,17 +1048,65 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       // Only THIS recipient's attachments. A draft written before this feature
       // has no attachments key and restores as an empty list.
       setDmAttachments(fromDraftAttachments(d))
+      // PRECEPTOR-DRAFT-CONTINUITY-1: CC survives the draft round trip too -
+      // "Refresh restores recipient, CC, subject, body, attachments" is only
+      // true if CC is actually part of what a draft is.
+      const restoredCc = Array.isArray(d.cc) ? d.cc.filter(v => typeof v === 'string' && v.trim()) : []
+      setCcList(restoredCc)
+      // The coordinator-suggestion effect resets CC whenever the recipient
+      // (re)establishes - which is exactly what an adopted recipient does on
+      // refresh. A cc list restored from the draft must survive that reset, so
+      // the restore claims ownership of this key's CC.
+      restoredCcKeyRef.current = restoredCc.length ? DRAFT_KEY : null
+      // And the placement connection rides with its draft. Restored ONLY when
+      // it names this cohort and is complete; the template selection is restored
+      // with it, because the link IS the statement that this draft is that
+      // template applied to that placement.
+      const link = d.placement
+      if (link && link.matchId && link.preceptorId && link.studentId && link.unitId
+        && link.cohortId === cohortId && link.templateKey === 'preceptor_assignment') {
+        setPlacementLink(link)
+        setActiveTemplateId('preceptor_assignment')
+      } else {
+        setPlacementLink(null)
+      }
       flashDraftStatus('restored')
     } else if (recipientChanged) {
       setMsgSubject('')
       setMsgBody('')
       richDocRef.current = null
-      // No draft for the new recipient: never carry the previous one's files.
+      // No draft for the new recipient: never carry the previous one's files,
+      // CC list, or placement connection. The previous draft keeps its own link
+      // in storage - nothing is lost, it is simply not THIS draft's claim.
       setDmAttachments([])
+      setCcList([])
+      setPlacementLink(null)
+      restoredCcKeyRef.current = null
     }
+    if (recipientChanged) setPlacementDetachInfo(null)
     draftHydratedRef.current = true
     hydratedKeyRef.current = DRAFT_KEY
     draftDirtyRef.current = false   // a restore is not an edit
+
+    // ── PRECEPTOR-DRAFT-CONTINUITY-1: heal a half-applied handoff draft ────
+    //
+    // A draft with no stored link is normally an unconnected draft. But when
+    // THIS mount already stamped this handoff onto this very key, the stored
+    // copy is the flush of the application itself, persisted before the link
+    // state reached the snapshot ref (StrictMode's simulated unmount does
+    // exactly this). The live handoff is that draft's origin, so it heals the
+    // connection - and marks the draft dirty so the healed link actually
+    // PERSISTS, surviving a later refresh on a bare URL.
+    if (handoffSeed && DRAFT_KEY && placementAppliedRef.current === DRAFT_KEY
+      && d && !directDraftIsEmpty(d) && !d.placement) {
+      const healed = linkFromActivePlacement(activePlacement)
+      if (healed) {
+        setPlacementLink(healed)
+        setActiveTemplateId('preceptor_assignment')
+        draftDirtyRef.current = true
+        latestDraftRef.current = { ...latestDraftRef.current, placementLink: healed }
+      }
+    }
 
     // ── PLACEMENT-COMMUNICATION-HANDOFF-1: settle the handoff, here ────────
     //
@@ -951,8 +1120,17 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     // shows - so returning to the board can never corrupt unrelated work.
     if (handoffSeed && DRAFT_KEY && placementAppliedRef.current !== DRAFT_KEY) {
       placementAppliedRef.current = DRAFT_KEY
-      if (d && !directDraftIsEmpty(d)) {
+      // A saved draft that already carries THIS handoff's own link is not
+      // somebody's unrelated work - it IS this handoff, restored (the refresh
+      // case). Asking to replace it would offer to overwrite the draft with
+      // itself; skip the prompt and keep what was restored.
+      const isOwnDraft = d?.placement
+        && d.placement.matchId === activePlacement?.placementRef?.matchId
+        && d.placement.preceptorId === activePlacement?.recipient?.preceptorId
+      if (d && !directDraftIsEmpty(d) && !isOwnDraft) {
         setReplaceTemplateKey('preceptor_assignment')
+      } else if (d && !directDraftIsEmpty(d) && isOwnDraft) {
+        // Restored above; nothing to do.
       } else {
         setOutreachMode('message')
         setMsgSubject(handoffSeed.subject)
@@ -964,7 +1142,23 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         // quietly substituted; the warning names it and the send guard blocks
         // any claim the message would then be making falsely.
         setDmAttachments(handoffSeed.attachments)
+        // The connection this draft was born with, persisted from here on.
+        const bornLink = linkFromActivePlacement(activePlacement)
+        setPlacementLink(bornLink)
+        setPlacementDetachInfo(null)
         draftDirtyRef.current = true
+        // Snapshot coherence: a flush can fire before React re-renders with the
+        // states just set (StrictMode's unmount does exactly that), and a draft
+        // persisted WITHOUT its link restores as a disconnected draft. The
+        // snapshot ref is updated in the same breath as the states, so whatever
+        // persists is the whole application.
+        latestDraftRef.current = {
+          ...latestDraftRef.current,
+          subject: handoffSeed.subject,
+          body: handoffSeed.body,
+          attachments: handoffSeed.attachments,
+          placementLink: bornLink,
+        }
       }
     }
   }, [DRAFT_KEY, draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1039,6 +1233,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     const parts = String(full || '').trim().split(/\s+/).filter(Boolean)
     return parts.find(p => !TITLES.has(p.toLowerCase())) || ''
   }
+  // A RESTORED preceptor draft has no live launch to carry the Catalog answer
+  // (the launch context dies with its URL), so it re-resolves the promised
+  // documents through the same fetch the manually-selected template uses.
+  // Without this, a restored connected draft could never prove its own
+  // attachment claim and Send stayed blocked forever.
+  useEffect(() => {
+    if (activeTemplateId !== 'preceptor_assignment') return
+    if (activePlacement?.attachments || manualDocs) return
+    let cancelled = false
+    fetchRequiredDocs().then(docs => { if (!cancelled) setManualDocs(docs) })
+    return () => { cancelled = true }
+  }, [activeTemplateId, activePlacement, manualDocs, fetchRequiredDocs])
+
   // The promise this draft makes about documents, checked against what the SERVER
   // resolved. Scoped to the Preceptor Assignment draft so ordinary Outreach copy
   // is never second-guessed. While it returns a reason, Send is refused - the
@@ -1057,20 +1264,23 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // handoff for THIS recipient AND that the draft is still the preceptor
   // assignment template - so editing the draft into something else, or picking a
   // different template, detaches the attribution rather than mislabelling it.
-  // Every part is required, the MATCH ID included: it is the identity the board
-  // reads back, and the server refuses a claim without it. An older or partial
-  // context therefore attributes nothing rather than attributing it loosely - the
+  // PRECEPTOR-DRAFT-CONTINUITY-1: the send attribution now derives from the
+  // PERSISTED link - the thing that survives navigation and refresh - not from
+  // the ephemeral launch context that used to evaporate on a Contacts round
+  // trip. Every part is required, the MATCH ID included: it is the identity the
+  // board reads back, and the server refuses a claim without it. An older or
+  // partial link attributes nothing rather than attributing it loosely - the
   // send still goes, it simply does not claim to be about a placement.
-  const placementSendRef = (activePlacement && activeTemplateId === 'preceptor_assignment'
-    && activePlacement.placementRef?.matchId && activePlacement.placementRef?.studentId
-    && activePlacement.placementRef?.unitId && activePlacement.recipient?.preceptorId
-    && activePlacement.cohortId)
+  const placementSendRef = (placementLink && activeTemplateId === 'preceptor_assignment'
+    && placementLink.cohortId === cohortId
+    && placementLink.matchId && placementLink.studentId
+    && placementLink.unitId && placementLink.preceptorId)
     ? {
-      match_id:     activePlacement.placementRef.matchId,
-      student_id:   activePlacement.placementRef.studentId,
-      unit_id:      activePlacement.placementRef.unitId,
-      preceptor_id: activePlacement.recipient.preceptorId,
-      cohort_id:    activePlacement.cohortId,
+      match_id:     placementLink.matchId,
+      student_id:   placementLink.studentId,
+      unit_id:      placementLink.unitId,
+      preceptor_id: placementLink.preceptorId,
+      cohort_id:    placementLink.cohortId,
     }
     : null
 
@@ -1085,17 +1295,22 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // So whenever a handoff owns this recipient, the composer now SAYS which of
   // the two things sending will do - and the same line appears in the send
   // confirmation, so nobody can reach Send without having been told.
-  const placementTracking = activePlacement
-    ? (placementSendRef
+  const placementTracking = placementSendRef
+    ? {
+      tracked: true,
+      text: `Sending will mark ${placementLink.preceptorName || 'this preceptor'} as notified for ${placementLink.studentName || 'this student'}${placementLink.unitName ? ` on ${placementLink.unitName}` : ''}.`,
+    }
+    : placementDetachInfo
       ? {
-        tracked: true,
-        text: 'Sending will mark this preceptor as notified on the Placement Board.',
-      }
-      : {
         tracked: false,
-        text: 'This draft is no longer connected to the placement it was opened for, so sending will NOT mark the preceptor as notified on the Placement Board. To keep tracking, reselect the Preceptor Assignment & Details template - or reopen the envelope from the Placement Board.',
-      })
-    : null
+        text: `Placement tracking was disconnected because ${placementDetachInfo.cause}. Sending will NOT mark the preceptor as notified on the Placement Board. Reselect the Preceptor Assignment & Details template, or reopen the envelope from the Placement Board, to reconnect.`,
+      }
+      : (activePlacement || placementLink)
+        ? {
+          tracked: false,
+          text: 'This draft is no longer connected to the placement it was opened for, so sending will NOT mark the preceptor as notified on the Placement Board. To keep tracking, reselect the Preceptor Assignment & Details template - or reopen the envelope from the Placement Board.',
+        }
+        : null
 
   // What to say when a promised Catalog document could not be resolved. Shown in
   // the composer, before anything can be sent.
@@ -1143,6 +1358,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       setDmAttachments(docs.resolved.map(a => ({
         slug: a.slug, title: a.title, type_label: a.type_label, size_bytes: null,
       })))
+      // Applying the template under a live handoff (first application, or the
+      // Replace-draft confirmation) re-establishes the connection.
+      const link = linkFromActivePlacement(activePlacement)
+      if (link) { setPlacementLink(link); setPlacementDetachInfo(null) }
     }
     // EMAIL-MANUAL-TEMPLATE-BLOCKS-1: when rich compose is ON and this template ships a block layout
     // (richBody = HTML with Content Block markers), hydrate the editor from it - clearing richDocRef
@@ -1159,11 +1378,25 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     }
     setIncludeSignature(true)  // template body has no signature - app appends the closing + sender block
     setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
-  }, [buildTemplateDraft, richEnabled, effectiveDocs])
+  }, [buildTemplateDraft, richEnabled, effectiveDocs, activePlacement])
+
+  // A deliberate act that severs a live placement connection must SAY so - the
+  // silent version of this is exactly how a real send lost its tracking.
+  const detachPlacement = useCallback((cause) => {
+    setPlacementLink(null)
+    setPlacementDetachInfo({ cause })
+    draftDirtyRef.current = true   // the dropped link must persist as dropped
+  }, [])
 
   const handleSelectSingleTemplate = useCallback(async (t) => {
     // Picking a composer mode (Direct Message / Survey Invitation) clears the template indicator.
-    if (t.kind === 'mode') { setActiveTemplateId(null); setOutreachMode(t.key); return }
+    if (t.kind === 'mode') {
+      if (placementLink) detachPlacement(`you switched to ${t.label}`)
+      setActiveTemplateId(null); setOutreachMode(t.key); return
+    }
+    if (placementLink && t.key !== 'preceptor_assignment') {
+      detachPlacement(`you switched to the ${t.label} template`)
+    }
     // The Preceptor Assignment template resolves its promised documents BEFORE the
     // draft is written, so the copy and the attachments are decided together and
     // the body never has to be rewritten to match what got attached.
@@ -1178,7 +1411,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       return                        // manualDocs is set by then, so the confirm path reads it
     }
     applyTemplate(t.key, docs)
-  }, [msgSubject, msgBody, applyTemplate, activePlacement, fetchRequiredDocs])
+  }, [msgSubject, msgBody, applyTemplate, activePlacement, fetchRequiredDocs, placementLink, detachPlacement])
 
   // Sidebar selected-state. A hydrate template is "selected" while it owns the current draft;
   // Direct Message is selected only for a plain message draft (no active template).
@@ -1813,6 +2046,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const coordEmail = (fetchedStudent?.id === studentId ? (fetchedStudent?.school_coordinator_email || '') : '').trim()
   const coordName  = (fetchedStudent?.id === studentId ? (fetchedStudent?.school_coordinator_name  || '') : '').trim()
   useEffect(() => {
+    // A cc list just restored from this recipient's own draft outranks the
+    // recipient-change reset: restoring is not a recipient change the user made.
+    if (restoredCcKeyRef.current && restoredCcKeyRef.current === DRAFT_KEY) return
     setCcInput('')
     setCcInputError(null)
     if (recipientType === 'student' && coordEmail && isValidEmail(coordEmail)) {
@@ -1859,11 +2095,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     })
     if (!added && ccList.length >= 5) { setCcInputError('Maximum of 5 CC recipients.'); return false }
     setCcInputError(null)
+    // PRECEPTOR-DRAFT-CONTINUITY-1: CC is draft content now - persisted and
+    // restored - so changing it is a draft edit like any other.
+    if (added) markDraftDirty()
     return true
-  }, [resolvedToEmail, ccList])
+  }, [resolvedToEmail, ccList, markDraftDirty])
   const removeCcChip = useCallback((e) => {
     setCcList(prev => prev.filter(x => x !== e))
-  }, [])
+    markDraftDirty()
+  }, [markDraftDirty])
   // Normalized set of addresses the autocomplete should NOT suggest (already-added CC + the To).
   const ccExcludeSet = useMemo(() => {
     const s = new Set(ccList.map(normalizeEmailForLookup))
@@ -1884,14 +2124,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       kind: recipientType === 'student' ? 'student' : 'contact',
       subject: msgSubject, body: msgBody, includeSignature, richDoc: richDocRef.current,
       attachments: dmAttachments,
+      ccList, placementLink,
       name: dmRecipientName, email: resolvedToEmail || '', school: dmRecipientSchool || null,
     }
   // dmAttachments IS a dependency: without it an attachment-only edit leaves this
-  // ref stale and persistDraftNow writes the PREVIOUS attachment list.
-  }, [DRAFT_KEY, userKey, cohortId, recipientType, studentId, contactId, msgSubject, msgBody, includeSignature, dmRecipientName, resolvedToEmail, dmRecipientSchool, dmAttachments])
-  // Marks the draft dirty. Called ONLY from real user-edit handlers, so a
-  // restore, a remount or a cohort switch can never look like an edit.
-  const markDraftDirty = useCallback(() => { draftDirtyRef.current = true }, [])
+  // ref stale and persistDraftNow writes the PREVIOUS attachment list. ccList and
+  // placementLink ride the same rule.
+  }, [DRAFT_KEY, userKey, cohortId, recipientType, studentId, contactId, msgSubject, msgBody, includeSignature, dmRecipientName, resolvedToEmail, dmRecipientSchool, dmAttachments, ccList, placementLink])
 
   const persistDraftNow = useCallback(() => {
     if (!draftHydratedRef.current) return
@@ -1907,6 +2146,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     // OFF path carries the restored richDoc forward (richDocRef holds it) so it is never destroyed.
     const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: l.subject, body: l.body, includeSignature: l.includeSignature, bodyFormat: richEnabled ? 'html' : 'text', attachments: toDraftAttachments(l.attachments) }
     if (l.richDoc) payload.richDoc = l.richDoc
+    // PRECEPTOR-DRAFT-CONTINUITY-1: CC and the placement connection are draft
+    // content. Persisting them is what lets a refresh restore the whole working
+    // state, and what keeps a Board handoff attached to its draft across any
+    // amount of Connect navigation.
+    if (Array.isArray(l.ccList) && l.ccList.length) payload.cc = l.ccList
+    if (l.placementLink) payload.placement = l.placementLink
     try {
       if (directDraftIsEmpty(payload)) {
         localStorage.removeItem(l.DRAFT_KEY)
@@ -1930,7 +2175,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     const nonEmpty = !directDraftIsEmpty({ subject: msgSubject, body: msgBody, attachments: dmAttachments })
     draftTimerRef.current = setTimeout(() => { persistDraftNow(); if (nonEmpty) flashDraftStatus('saved') }, DRAFT_DEBOUNCE_MS)
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current) }
-  }, [msgSubject, msgBody, includeSignature, dmAttachments, DRAFT_KEY, persistDraftNow, flashDraftStatus])
+  }, [msgSubject, msgBody, includeSignature, dmAttachments, ccList, placementLink, DRAFT_KEY, persistDraftNow, flashDraftStatus])
 
   // Flush immediately on tab-hide, browser close/refresh, AND SPA unmount (navigating away
   // from Connect) so a draft typed within the debounce window is never lost.
@@ -1983,6 +2228,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setMsgBody('')
     richDocRef.current = null
     setActiveTemplateId(null)
+    // Discarding the draft discards its placement connection - the user's own
+    // explicit act, so no warning banner lingers afterwards.
+    setPlacementLink(null)
+    setPlacementDetachInfo(null)
     setIncludeSignature(true)
     setCcList([])
     setCcInput('')
