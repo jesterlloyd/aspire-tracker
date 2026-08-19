@@ -4,6 +4,7 @@ import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import {
   attachmentWarningText, attachmentClaimBlockReason, PRECEPTOR_ASSIGNMENT_DOCUMENTS,
+  templateRefreshReason,
   resolveRequiredAttachments,
 } from '../../lib/connect/catalogAttachments'
 import AttachmentPicker from './AttachmentPicker'
@@ -24,6 +25,7 @@ import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   buildPreceptorAssignmentDraft, buildAcademicPartnerUpdateDraft,
+  PRECEPTOR_ATTACHMENT_REMINDER, STUDENT_NAME_PLACEHOLDER,
   buildStudentAcceptanceOrientationDraft, buildUnitLeaderSupportRequestDraft,
   buildInterviewerAvailabilityRequestDraft,
 } from '../../lib/outreachTemplates'
@@ -419,7 +421,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // draft claims an attachment it has not yet checked for.
   const requiredDocs = useMemo(() => {
     const carried = activePlacement?.attachments
-    if (!carried) return { resolved: [], problems: [], ok: false }
+    // PRECEPTOR-ATTACHMENT-REMINDER-1: a context with no attachments object at
+    // all (one written by an older build, or storage that refused the write) is
+    // a Catalog answer we DO NOT HAVE - which is exactly what
+    // resolveRequiredAttachments(null) means. Returning a bare ok:false with an
+    // empty problems list was the one path that dropped the attachment bullet
+    // with nothing said: no problems means no warning renders.
+    if (!carried) return resolveRequiredAttachments(null)
     return {
       resolved: Array.isArray(carried.resolved) ? carried.resolved : [],
       problems: Array.isArray(carried.problems) ? carried.problems : [],
@@ -459,9 +467,17 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   }, [queryClient])
 
   // Whichever path owns the current draft, one answer about the promised files.
+  //
+  // A handoff's CARRIED answer wins - it is what the draft was written from. But
+  // a stale context carries nothing, and preferring `requiredDocs` there pinned
+  // the composer to "unavailable" forever: the recovery fetch below would set
+  // manualDocs and nothing would ever read it, so no documents resolved, no
+  // chips appeared, and the refresh offer stayed suppressed because it has
+  // nothing better to offer. The fetched answer is used in that case.
+  const carriedDocs = activePlacement?.attachments ? requiredDocs : null
   const effectiveDocs = useMemo(
-    () => (activePlacement ? requiredDocs : (manualDocs || { resolved: [], problems: [], ok: false })),
-    [activePlacement, requiredDocs, manualDocs],
+    () => carriedDocs || manualDocs || resolveRequiredAttachments(null),
+    [carriedDocs, manualDocs],
   )
   const requiredDocSlugs = useMemo(() => effectiveDocs.resolved.map(a => a.slug), [effectiveDocs])
 
@@ -1062,6 +1078,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       // it names this cohort and is complete; the template selection is restored
       // with it, because the link IS the statement that this draft is that
       // template applied to that placement.
+      // The template comes back with its draft, link or no link - so a manually
+      // selected preceptor draft is still a preceptor draft after a refresh, and
+      // its guards keep guarding. (Drafts saved before this carry no templateKey
+      // and restore exactly as they did.)
+      if (d.templateKey) setActiveTemplateId(d.templateKey)
       const link = d.placement
       if (link && link.matchId && link.preceptorId && link.studentId && link.unitId
         && link.cohortId === cohortId && link.templateKey === 'preceptor_assignment') {
@@ -1316,6 +1337,27 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // the composer, before anything can be sent.
   const requiredDocWarning = activeTemplateId === 'preceptor_assignment' && effectiveDocs.problems.length
     ? attachmentWarningText(effectiveDocs.problems)
+    : ''
+
+  // An obsolete draft - one written while resolution was broken - is RECOGNIZED
+  // and a refresh is OFFERED. Never applied: the offer routes through the same
+  // Replace-draft confirmation as every other template application, so edits
+  // worth keeping are never replaced without a decision.
+  const staleTemplateOffer = activeTemplateId === 'preceptor_assignment'
+    ? templateRefreshReason({
+      body: msgBody,
+      selected: dmAttachments,
+      docs: effectiveDocs,
+      requiredBullet: PRECEPTOR_ATTACHMENT_REMINDER,
+    })
+    : null
+
+  // The template keeps [Student Name] when no placement resolved one, which is
+  // honest but sendable. Say so before it goes: this draft describes a real
+  // student to a real preceptor, and the recipient is NOT that student.
+  const unresolvedStudentWarning = activeTemplateId === 'preceptor_assignment'
+    && String(msgBody || '').includes(STUDENT_NAME_PLACEHOLDER)
+    ? `This draft still says ${STUDENT_NAME_PLACEHOLDER}. Type the student's name, or open the draft from the Placement Board so the placement fills it in. Nothing is filled in automatically from the recipient.`
     : ''
 
   // `docsOverride` exists because the manual path resolves its documents inside an
@@ -2125,12 +2167,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       subject: msgSubject, body: msgBody, includeSignature, richDoc: richDocRef.current,
       attachments: dmAttachments,
       ccList, placementLink,
+      // PRECEPTOR-ATTACHMENT-REMINDER-1: which template wrote this draft. Only a
+      // draft carrying a full placement link used to restore it, so a MANUALLY
+      // selected preceptor draft came back untyped - and every guard scoped to
+      // the template (the unresolved-student warning, the unresolved-document
+      // warning, the attachment-claim block, the refresh offer) silently went
+      // quiet after any navigation or refresh.
+      templateKey: activeTemplateId || null,
       name: dmRecipientName, email: resolvedToEmail || '', school: dmRecipientSchool || null,
     }
   // dmAttachments IS a dependency: without it an attachment-only edit leaves this
   // ref stale and persistDraftNow writes the PREVIOUS attachment list. ccList and
   // placementLink ride the same rule.
-  }, [DRAFT_KEY, userKey, cohortId, recipientType, studentId, contactId, msgSubject, msgBody, includeSignature, dmRecipientName, resolvedToEmail, dmRecipientSchool, dmAttachments, ccList, placementLink])
+  }, [DRAFT_KEY, userKey, cohortId, recipientType, studentId, contactId, msgSubject, msgBody, includeSignature, dmRecipientName, resolvedToEmail, dmRecipientSchool, dmAttachments, ccList, placementLink, activeTemplateId])
 
   const persistDraftNow = useCallback(() => {
     if (!draftHydratedRef.current) return
@@ -2152,6 +2201,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     // amount of Connect navigation.
     if (Array.isArray(l.ccList) && l.ccList.length) payload.cc = l.ccList
     if (l.placementLink) payload.placement = l.placementLink
+    if (l.templateKey) payload.templateKey = l.templateKey
     try {
       if (directDraftIsEmpty(payload)) {
         localStorage.removeItem(l.DRAFT_KEY)
@@ -2957,6 +3007,26 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   <div data-testid="attachment-claim-warning" role="alert"
                     style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
                     {attachmentClaimBlock}
+                  </div>
+                )}
+                {/* PRECEPTOR-ATTACHMENT-REMINDER-1: a draft written while the
+                    Catalog documents could not be resolved. Offered, never applied. */}
+                {staleTemplateOffer && (
+                  <div data-testid="stale-template-offer" role="status"
+                    style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#1e3a5f', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', fontFamily: F, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ flex: '1 1 240px' }}>{staleTemplateOffer}</span>
+                    <button
+                      type="button"
+                      data-testid="stale-template-refresh"
+                      onClick={() => setReplaceTemplateKey('preceptor_assignment')}
+                      style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #1D2567', background: '#1D2567', color: '#fff', fontSize: 12, fontWeight: 600, fontFamily: F, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >Refresh from template</button>
+                  </div>
+                )}
+                {unresolvedStudentWarning && (
+                  <div data-testid="unresolved-student-warning" role="alert"
+                    style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#7c2d12', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
+                    {unresolvedStudentWarning}
                   </div>
                 )}
                 {/* PLACEMENT-NOTIFICATION-STATE-1: what this send will (or will
@@ -4305,7 +4375,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             {dmAttachments.length > 0 && (
               <div data-testid="dm-confirm-attachments" style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>
-                  Attachments ({dmPreview.attachments.length})
+                  {/* The count is the SERVER's. Until it answers, say so rather
+                      than printing (0) over a selection that is not yet checked. */}
+                  Attachments ({dmPreview.loading || dmPreview.error ? 'checking…' : dmPreview.attachments.length})
                 </div>
                 {dmAttachmentBlock ? (
                   <div data-testid="dm-confirm-attachments-blocked"
@@ -4321,6 +4393,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* PRECEPTOR-ATTACHMENT-REMINDER-1: an unmerged [Student Name] is
+                stated at the last possible moment too, not only in the composer. */}
+            {unresolvedStudentWarning && (
+              <div data-testid="dm-confirm-unresolved-student" role="alert"
+                style={{ fontSize: 12, color: '#7c2d12', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontFamily: F, lineHeight: 1.5 }}>
+                {unresolvedStudentWarning}
               </div>
             )}
 

@@ -1,8 +1,8 @@
 // src/components/connect/blocks/NoteBlock.js
 //
 // RICH-COMPOSE-2A-3 - TipTap atom node for the ASPIRE Content Block "Note" (branded callout).
-// Scalar attributes (title, body - plain text) only. Serializes to the canonical marker
-//   <div data-aspire-block="note" data-title="..." data-body="..."></div>
+// Scalar attributes (title, body - plain text; optional mailto) only. Serializes to the marker
+//   <div data-aspire-block="note" data-title="..." data-body="..." [data-mailto="..."]></div>
 // which the server (renderContentBlocks.js) extracts, VALIDATES + ESCAPES, and replaces with a
 // branded, email-safe callout table. parseHTML round-trips the marker; richDoc (TipTap JSON)
 // rehydrates the node faithfully with its title/body (RICH-COMPOSE-2A-1 hydration gate).
@@ -37,6 +37,16 @@ export const NoteBlock = Node.create({
         parseHTML: el => el.getAttribute('data-body') || '',
         renderHTML: attrs => ({ 'data-body': attrs.body || '' }),
       },
+      // PRECEPTOR-ATTACHMENT-REMINDER-1: one optional address the SERVER turns
+      // into a mailto: link inside the escaped note body. It round-trips here
+      // so editing the draft - or the editor re-serializing its own document -
+      // cannot quietly drop the link. Absent on every hand-authored note, whose
+      // marker is then byte-identical to before.
+      mailto: {
+        default: '',
+        parseHTML: el => el.getAttribute('data-mailto') || '',
+        renderHTML: attrs => (attrs.mailto ? { 'data-mailto': attrs.mailto } : {}),
+      },
     }
   },
 
@@ -57,7 +67,7 @@ export const NoteBlock = Node.create({
       insertAspireNote:
         (attrs) =>
         ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { title: attrs?.title || '', body: attrs?.body || '' } }),
+          commands.insertContent({ type: this.name, attrs: { title: attrs?.title || '', body: attrs?.body || '', mailto: attrs?.mailto || '' } }),
     }
   },
 })

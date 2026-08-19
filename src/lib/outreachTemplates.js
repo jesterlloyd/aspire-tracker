@@ -28,8 +28,14 @@ const bH2   = (t) => `<h2>${escTxt(t)}</h2>`
 const bP    = (t) => `<p>${escTxt(t)}</p>`
 const bUL   = (items) => `<ul>${items.map(i => `<li>${escTxt(i)}</li>`).join('')}</ul>`
 const bDivider = '<hr data-aspire-block="divider">'
-const bNote = ({ title = '', body }) =>
-  `<div data-aspire-block="note" data-title="${escAttr(title)}" data-body="${escAttr(body)}"></div>`
+// `mailto` is optional and OPT-IN. When present, the server's trusted Note
+// renderer turns that exact address - and only that address - into a real
+// mailto: link inside the escaped note body. Notes that pass nothing render
+// byte-identically to before.
+const bNote = ({ title = '', body, mailto = '' }) =>
+  `<div data-aspire-block="note" data-title="${escAttr(title)}" data-body="${escAttr(body)}"`
+  + (mailto ? ` data-mailto="${escAttr(mailto)}"` : '')
+  + `></div>`
 // Linked Button block (RICH-COMPOSE-2A-2). The url may be a [static link token]: the composer's
 // withStaticLinks substitution resolves it to the full public URL before the editor hydrates, and the
 // server validates the final URL (https only) at render time.
@@ -59,6 +65,8 @@ const bEvent = ({ title = '', dateTime = '', location = '', format = '', respond
 
 // A merged value, or the template's own editable placeholder when nothing was
 // resolved. The placeholder is what makes an unresolved field obvious in the draft.
+export const STUDENT_NAME_PLACEHOLDER = '[Student Name]'
+
 const merged = (value, placeholder) => {
   const v = (value == null ? '' : String(value)).trim()
   return v || placeholder
@@ -74,20 +82,52 @@ const merged = (value, placeholder) => {
 // documents cannot be resolved the bullet is OMITTED entirely, the composer
 // shows an actionable warning, and the send is blocked - so a reader never sees
 // a claim that is untrue, and the sender is never left wondering why.
-// PLACEMENT-NOTIFICATION-CONTROL-1: the exact sentence, and the whole bullet.
-// The earlier text carried a "Scope of practice: " label that the other three
-// reminders do not have, and read "see attached" where the sentence needs "see
-// the attached". This string IS the requirement, so it is asserted verbatim by
-// test/placementNotificationControl.test.mjs rather than described.
-const ATTACHED_REMINDER =
-  'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+// PRECEPTOR-ATTACHMENT-REMINDER-1: THE canonical sentence. This exact string is
+// the requirement, asserted verbatim rather than described.
+//
+// It supersedes both earlier wordings: the original carried a "Scope of
+// practice: " label the other three reminders do not have, and the interim
+// PLACEMENT-NOTIFICATION-CONTROL-1 version read "see the attached". Only the
+// form below is current; the other two must have zero active occurrences.
+// (catalogAttachments.js still RECOGNIZES the older phrasing, because a draft
+// saved under it is still making an attachment claim that has to stay guarded.)
+export const PRECEPTOR_ATTACHMENT_REMINDER =
+  'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+
+// ── Details Requested for the Introduction ──────────────────────────────────
+//
+// PRECEPTOR-ATTACHMENT-REMINDER-1. The section used to ask the preceptor to
+// "reply with the following details". A reply does reach somebody - Connect sets
+// Reply-To to the individual sender - but it reaches the wrong place: these
+// details belong to the shared ASPIRE inbox, where whoever is coordinating the
+// placement can act on them, not to one sender's personal mail. The ask now
+// names that destination, aspire@cshs.org - a mailto: link in HTML, the full
+// address in plain text - and no wording anywhere tells the reader to reply.
+//
+// ONE list, in ONE order, used by BOTH bodies. The plain-text and rich bullets
+// used to be worded differently ("Preferred name and title" vs "Your preferred
+// name and title"), so the same message read differently depending on which
+// representation a mail client showed.
+const ASPIRE_INBOX = 'aspire@cshs.org'
+const DETAILS_NOTE_TITLE = 'When you have a moment'
+const DETAIL_REQUESTS = Object.freeze([
+  'Your preferred name and title',
+  'Preferred method of communication',
+  'Best contact email and phone',
+  'Unit and shift confirmation',
+  'Typical schedule or upcoming shifts',
+  'Optional photo to share with the student',
+  "Any expectations or instructions for the student's first day",
+])
+const DETAILS_CLOSING =
+  'The student is encouraged to contact you directly to introduce themselves, coordinate scheduling, and share their individual learning objectives.'
 
 export function buildPreceptorAssignmentDraft({ firstName, placement, attachmentsAttached = false } = {}) {
   const p = placement || {}
   // The salutation prefers the name the handoff resolved for THIS preceptor over
   // whatever the composer inferred from the recipient card.
   const greetName = (p.preceptorFirstName || firstName || '')
-  const studentName = merged(p.studentName, '[Student Name]')
+  const studentName = merged(p.studentName, STUDENT_NAME_PLACEHOLDER)
   const school      = merged(p.school, '[School]')
   const unit        = merged(p.unit, '[Unit / Assignment]')
   const schedule    = merged(p.schedule, '[Rotation Dates / Schedule]')
@@ -101,7 +141,7 @@ export function buildPreceptorAssignmentDraft({ firstName, placement, attachment
     'Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.',
     'Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.',
   ]
-  if (attachmentsAttached) reminders.push(ATTACHED_REMINDER)
+  if (attachmentsAttached) reminders.push(PRECEPTOR_ATTACHMENT_REMINDER)
 
   const summaryLines = [
     `Student: ${studentName}`,
@@ -111,6 +151,12 @@ export function buildPreceptorAssignmentDraft({ firstName, placement, attachment
     `Required Hours: ${hours}`,
   ]
   if (notes) summaryLines.push(`Additional Notes: ${notes}`)
+
+  // The introduction ask names the student the PLACEMENT resolved - never the
+  // recipient, never another student. With no placement, `studentName` is the
+  // literal [Student Name] placeholder, which is what makes the gap visible.
+  const detailsNote =
+    `Please email us the details below so I can introduce you to ${studentName} and help make the first day as smooth as possible. Send to ${ASPIRE_INBOX}.`
 
   const subject = 'ASPIRE: Student Assignment and Introduction Details'
   // PLACEMENT-NOTIFICATION-CONTROL-1: the block title opens BOTH bodies.
@@ -133,19 +179,13 @@ ${summaryLines.join('\n')}
 
 Details Requested for the Introduction
 
-To help me introduce you to ${studentName} and make the first day as smooth as possible, please reply with the following details when you have a moment:
+${DETAILS_NOTE_TITLE}
 
-• Your preferred name and title
-• Best contact email and phone, if appropriate
-• Typical schedule or upcoming shifts
-• Unit and shift confirmation
-• Preferred method of communication
-• Optional photo to share with the student
-• Any expectations or instructions for the student's first day
+${detailsNote}
 
-The photo is completely optional. Please share one only if you are comfortable.
+${DETAIL_REQUESTS.map(d => `• ${d}`).join('\n')}
 
-The student is encouraged to reach out to you directly by email to introduce themselves, coordinate scheduling, and share their individual learning objectives to help guide the experience.
+${DETAILS_CLOSING}
 
 A Few Quick Reminders
 
@@ -163,17 +203,9 @@ Please don't hesitate to reach out if you have any questions.`
     + bH2('Student Assignment Summary')
     + bUL(summaryLines)
     + bH2('Details Requested for the Introduction')
-    + bNote({ title: 'When you have a moment', body: `Please reply with the details below so I can introduce you to ${studentName} and help make the first day as smooth as possible. A photo is completely optional.` })
-    + bUL([
-      'Preferred name and title',
-      'Best contact email and phone, if appropriate',
-      'Typical schedule or upcoming shifts',
-      'Unit and shift confirmation',
-      'Preferred method of communication',
-      'Optional photo to share with the student',
-      "Any expectations or instructions for the student's first day",
-    ])
-    + bP('The student is encouraged to contact you directly to introduce themselves, coordinate scheduling, and share their individual learning objectives.')
+    + bNote({ title: DETAILS_NOTE_TITLE, body: detailsNote, mailto: ASPIRE_INBOX })
+    + bUL(DETAIL_REQUESTS)
+    + bP(DETAILS_CLOSING)
     + bH2('A Few Quick Reminders')
     + bUL(reminders)
     + bP("We truly appreciate your time, effort, and heart in mentoring our students. Your guidance helps them build confidence, competence, and readiness for practice. Please don't hesitate to reach out if you have any questions.")

@@ -110,8 +110,13 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
           setButtonModal({ open: true, mode: 'edit', pos, label: attrs.label || '', url: attrs.url || '' })
       }
       if (editor.storage.aspireNote) {
+        // `mailto` is carried through the modal untouched. It is template-owned
+        // (PRECEPTOR-ATTACHMENT-REMINDER-1), not editable here - but setNodeMarkup
+        // replaces the WHOLE attribute set, so an attribute the modal does not
+        // carry is reset to its default. Opening the note and pressing Save with
+        // no changes would otherwise delete the address's mailto: link.
         editor.storage.aspireNote.requestEdit = (pos, attrs) =>
-          setNoteModal({ open: true, mode: 'edit', pos, title: attrs.title || '', body: attrs.body || '' })
+          setNoteModal({ open: true, mode: 'edit', pos, title: attrs.title || '', body: attrs.body || '', mailto: attrs.mailto || '' })
       }
       if (editor.storage.aspireEvent) {
         editor.storage.aspireEvent.requestEdit = (pos, attrs) =>
@@ -158,13 +163,15 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
 
   const handleNoteSave = useCallback(({ title, body }) => {
     if (!editor) return
+    // The note's own mailto rides along unchanged; a hand-inserted note has none.
+    const mailto = noteModal.mailto || ''
     if (noteModal.mode === 'edit' && noteModal.pos != null) {
-      editor.chain().focus().command(({ tr }) => { tr.setNodeMarkup(noteModal.pos, undefined, { title, body }); return true }).run()
+      editor.chain().focus().command(({ tr }) => { tr.setNodeMarkup(noteModal.pos, undefined, { title, body, mailto }); return true }).run()
     } else {
       editor.chain().focus().insertAspireNote({ title, body }).run()
     }
     setNoteModal(m => ({ ...m, open: false }))
-  }, [editor, noteModal.mode, noteModal.pos])
+  }, [editor, noteModal.mode, noteModal.pos, noteModal.mailto])
 
   const handleEventSave = useCallback((attrs) => {
     if (!editor) return

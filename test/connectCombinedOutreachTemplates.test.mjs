@@ -30,16 +30,19 @@ test('the preceptor assignment draft contains the assignment, requested details,
     'Rotation Dates / Schedule: [Rotation Dates / Schedule]',
     'Required Hours: [Required Hours, if applicable]',
     'Your preferred name and title',
-    'Typical schedule or upcoming shifts',
+    'Preferred method of communication',
+    'Best contact email and phone',
     'Unit and shift confirmation',
+    'Typical schedule or upcoming shifts',
     'Optional photo to share with the student',
+    "Any expectations or instructions for the student's first day",
+    // PRECEPTOR-ATTACHMENT-REMINDER-1: the ask names the real destination.
+    'Send to aspire@cshs.org.',
     'Preceptor pay:',
     'Coverage:',
     'Floating:',
-    // PLACEMENT-NOTIFICATION-CONTROL-1 dropped the "Scope of practice: " label -
-    // no other reminder carries one - and the sentence now reads "see the
-    // attached". The bullet itself is still required.
-    'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.',
+    // PRECEPTOR-ATTACHMENT-REMINDER-1: the canonical sentence, without "the".
+    'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.',
   ]) assert.match(draft.body, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 
   assert.match(draft.richBody, /data-aspire-block="note"/)

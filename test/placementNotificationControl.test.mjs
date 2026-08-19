@@ -552,7 +552,7 @@ test('PROOF 25: the exact subject appears on BOTH template entry paths', () => {
 })
 
 test('PROOF 26: the attachment bullet is exact, and sits under A Few Quick Reminders', () => {
-  const EXPECTED = 'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  const EXPECTED = 'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
   for (const d of [
     buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true }),
     buildPreceptorAssignmentDraft({ firstName: 'Romelyn', attachmentsAttached: true }),
@@ -568,6 +568,9 @@ test('PROOF 26: the attachment bullet is exact, and sits under A Few Quick Remin
     // NEGATIVE CONTROLS: the two superseded wordings.
     assert.ok(!d.body.includes('Scope of practice: Please see attached'))
     assert.ok(!d.body.includes('can be added before sending or shared separately'))
+    // PRECEPTOR-ATTACHMENT-REMINDER-1: the interim "see the attached" too.
+    assert.ok(!d.body.includes('Please see the attached'))
+    assert.ok(!d.richBody.includes('Please see the attached'))
   }
 })
 
@@ -585,7 +588,7 @@ test('PROOF 27: the bullet survives the rich-text seed the composer actually use
   assert.match(view, /handoffSeed/, 'the merged body is seeded, not written after mount')
   const d = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true })
   // The rich body is a real list item, so an editor round trip keeps it as one.
-  assert.match(d.richBody, /<li>Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference\.<\/li>/)
+  assert.match(d.richBody, /<li>Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference\.<\/li>/)
 })
 
 test('PROOF 28: the already-correct greeting stays two paragraphs (regression)', () => {
@@ -601,32 +604,44 @@ test('PROOF 28: the already-correct greeting stays two paragraphs (regression)',
 
 test('PROOF 29+30: both documents resolve canonically, or are NAMED as missing', () => {
   assert.equal(PRECEPTOR_ASSIGNMENT_DOCUMENTS.length, 2)
-  // The Catalog titles the second document differently from the way the bullet
-  // words it, so identity is by canonical key plus aliases - not by one fragile
-  // display spelling.
+  // PRECEPTOR-ATTACHMENT-REMINDER-1: identity is the SLUG. This fixture is the
+  // production Catalog verbatim - the brochure is titled "ASPIRE Digital
+  // Brochure", which no alias of the title-only resolver ever matched.
   const catalog = [
-    { slug: 'brochure', title: 'ASPIRE Brochure' },
-    { slug: 'guidelines', title: 'General Guidelines for Pre-Licensure Students' },
+    { slug: 'aspire-digital-brochure', title: 'ASPIRE Digital Brochure' },
+    { slug: 'general-guidelines-for-pre-licensure-students', title: 'General Guidelines for Pre-Licensure Students' },
   ]
   const ok = resolveRequiredAttachments(catalog)
   assert.equal(ok.ok, true)
-  assert.deepEqual(ok.resolved.map(r => r.slug).sort(), ['brochure', 'guidelines'])
+  assert.deepEqual(ok.resolved.map(r => r.slug).sort(),
+    ['aspire-digital-brochure', 'general-guidelines-for-pre-licensure-students'])
   assert.deepEqual(ok.resolved.map(r => r.requiredKey).sort(), ['aspire_brochure', 'prelicensure_guidelines'])
+  assert.deepEqual(ok.resolved.map(r => r.matchedBy), ['slug', 'slug'])
   assert.equal(ok.problems.length, 0)
 
-  // The other spelling resolves to the SAME document.
+  // Backward compatibility: a row under a DIFFERENT slug still resolves on its
+  // title, including the older spellings the Catalog used to carry.
   const alt = resolveRequiredAttachments([
-    { slug: 'brochure', title: 'ASPIRE Program Brochure' },
-    { slug: 'guidelines', title: 'Pre-Licensure Student General Guidelines' },
+    { slug: 'legacy-brochure', title: 'ASPIRE Program Brochure' },
+    { slug: 'legacy-guidelines', title: 'Pre-Licensure Student General Guidelines' },
   ])
   assert.equal(alt.ok, true)
+  assert.deepEqual(alt.resolved.map(r => r.matchedBy), ['title', 'title'])
 
-  // One missing: it is NAMED, and it is never described as attached.
+  // A retitled Catalog row still resolves, because the slug is the identity.
+  const renamed = resolveRequiredAttachments([
+    { slug: 'aspire-digital-brochure', title: 'Brochure (2027 revision)' },
+    catalog[1],
+  ])
+  assert.equal(renamed.ok, true, 'a rename must not break resolution')
+
+  // One missing: it is NAMED - by the title the Catalog actually uses - and it
+  // is never described as attached.
   const partial = resolveRequiredAttachments([catalog[0]])
   assert.equal(partial.ok, false)
   assert.equal(partial.problems.length, 1)
   assert.equal(partial.problems[0].code, 'missing')
-  assert.match(attachmentProblemText(partial.problems[0]), /Pre-Licensure Student General Guidelines/)
+  assert.match(attachmentProblemText(partial.problems[0]), /General Guidelines for Pre-Licensure Students/)
   assert.match(attachmentWarningText(partial.problems), /does not promise a document it does not carry/)
 
   // A Catalog that could not be READ is unavailable, not missing - different
@@ -669,7 +684,10 @@ test('PROOF 30b: the claim is BLOCKED whenever the files are not both carried', 
 
 test('PROOF 25b: the obsolete subject and wording have zero ACTIVE occurrences', () => {
   const OBSOLETE_BULLETS = [
-    'Please see attached ASPIRE Brochure',
+    // PRECEPTOR-ATTACHMENT-REMINDER-1: 'Please see attached ASPIRE Brochure' is
+    // now the CANONICAL sentence, so it left this list; the interim wording it
+    // replaced took its place.
+    'Please see the attached ASPIRE Brochure',
     'Scope of practice: Please see attached',
     'can be added before sending or shared separately',
   ]

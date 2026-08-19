@@ -15,11 +15,19 @@ const F = 'DM Sans, sans-serif'
 export function NoteNodeView({ node, editor, getPos, deleteNode, selected }) {
   const title = node.attrs.title || ''
   const body = node.attrs.body || ''
+  // The address the server will render as a real mailto: link. Shown underlined
+  // here so the composer reads the way the sent email does. Deliberately NOT an
+  // <a>: this preview is one click-to-edit control, and nesting an interactive
+  // element inside it would break both the keyboard model and the edit affordance.
+  const mailto = node.attrs.mailto || ''
+  const bodyParts = mailto && body.includes(mailto) ? body.split(mailto) : null
 
   const openEdit = () => {
     const bridge = editor?.storage?.aspireNote
     if (bridge && typeof bridge.requestEdit === 'function') {
-      bridge.requestEdit(getPos(), { title, body })
+      // `mailto` travels with title/body: setNodeMarkup replaces the whole
+      // attribute set on save, so anything not handed over here is deleted.
+      bridge.requestEdit(getPos(), { title, body, mailto })
     }
   }
 
@@ -42,7 +50,18 @@ export function NoteNodeView({ node, editor, getPos, deleteNode, selected }) {
         }}
       >
         {title && <div style={{ fontSize: 13.5, fontWeight: 700, color: NAVY, marginBottom: 4, lineHeight: 1.4 }}>{title}</div>}
-        <div style={{ fontSize: 13, color: RAVEN, lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden' }}>{body || 'Note'}</div>
+        <div style={{ fontSize: 13, color: RAVEN, lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden' }}>
+          {bodyParts
+            ? bodyParts.map((part, i) => (
+              <span key={i}>
+                {part}
+                {i < bodyParts.length - 1 && (
+                  <span data-aspire-note-mailto={mailto} style={{ color: NAVY, textDecoration: 'underline' }}>{mailto}</span>
+                )}
+              </span>
+            ))
+            : (body || 'Note')}
+        </div>
         <span aria-hidden="true" style={{ position: 'absolute', top: 8, right: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, border: '1px solid rgba(29,37,103,0.14)', borderRadius: 6, background: '#fff', color: '#6b7280' }}>
           <Pencil size={13} />
         </span>

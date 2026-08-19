@@ -607,9 +607,12 @@ const HANDOFF = {
 }
 const DOCS_OK = {
   ok: true, problems: [],
+  // PRECEPTOR-ATTACHMENT-REMINDER-1: the REAL production Catalog identities.
+  // The old fixture invented titles that happened to equal the resolver's own
+  // aliases, which is precisely why it never caught the production failure.
   resolved: [
-    { slug: 'aspire-brochure', title: 'ASPIRE Brochure', type_label: 'PDF' },
-    { slug: 'prelicensure-guidelines', title: 'Pre-licensure Student General Guidelines', type_label: 'PDF' },
+    { slug: 'aspire-digital-brochure', title: 'ASPIRE Digital Brochure', type_label: 'PDF' },
+    { slug: 'general-guidelines-for-pre-licensure-students', title: 'General Guidelines for Pre-Licensure Students', type_label: 'PDF' },
   ],
 }
 
@@ -619,20 +622,60 @@ test('the handoff merges the placement and preselects both documents', () => {
   assert.match(c.state.msgSubject, /Student Assignment and Introduction Details/)
   assert.match(c.state.msgBody, /Student: Ana Cruz/)
   assert.match(c.state.msgBody, /Rotation Dates \/ Schedule: August 24–October 20, 2026/)
-  assert.match(c.state.msgBody, /Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference\./)
+  assert.match(c.state.msgBody, /Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference\./)
   assert.deepEqual(c.state.dmAttachments.map(a => a.slug),
-    ['aspire-brochure', 'prelicensure-guidelines'])
+    ['aspire-digital-brochure', 'general-guidelines-for-pre-licensure-students'])
   assert.equal(c.state.replaceTemplateKey, null, 'an empty composer needs no confirmation')
 })
 
 test('an unresolved Catalog leaves the draft honest and unattached', () => {
   const c = directComposer({
     activePlacement: HANDOFF,
-    requiredDocs: { ok: false, resolved: [], problems: [{ key: 'aspire_brochure', label: 'ASPIRE Brochure', code: 'missing' }] },
+    requiredDocs: { ok: false, resolved: [], problems: [{ key: 'aspire_brochure', label: 'ASPIRE Digital Brochure', code: 'missing' }] },
   })
   assert.deepEqual(c.state.dmAttachments, [])
-  assert.ok(!/see the attached/i.test(c.state.msgBody),
+  assert.ok(!/see (the )?attached/i.test(c.state.msgBody),
     'the draft must not claim attachments it does not carry')
+})
+
+test('a manually-selected preceptor draft is still a preceptor draft after a round trip', () => {
+  // PRECEPTOR-ATTACHMENT-REMINDER-1. Only a draft carrying a COMPLETE placement
+  // link used to restore its template, so a manually selected preceptor draft
+  // came back untyped - and every guard scoped to that template (the
+  // unresolved-student warning, the unresolved-document warning, the
+  // attachment-claim block, the obsolete-draft refresh offer) went quiet after
+  // any navigation or refresh, on a draft that could still say [Student Name].
+  const c = directComposer()
+  const draft = buildPreceptorAssignmentDraft({ firstName: 'Dana', attachmentsAttached: true })
+  c.edit({
+    activeTemplateId: 'preceptor_assignment',
+    msgSubject: draft.subject,
+    msgBody: draft.body,
+    dmAttachments: DOCS_OK.resolved.map(a => ({ slug: a.slug, title: a.title, type_label: a.type_label, size_bytes: null })),
+  })
+  const saved = JSON.parse(c.localStorage.getItem(c.scope.DRAFT_KEY))
+  assert.equal(saved.templateKey, 'preceptor_assignment', 'the template travels WITH the draft')
+  assert.equal(saved.placement, undefined, 'precondition: a manual draft has no placement link')
+
+  // Leave and come back - the round trip a refresh or a Contacts detour makes.
+  c.goTo({ contactId: 'c9' })
+  c.goTo({ contactId: 'c1' })
+  assert.equal(c.state.activeTemplateId, 'preceptor_assignment',
+    'the restored draft must still be typed, or its guards stop guarding')
+  assert.ok(c.state.msgBody.includes('[Student Name]'), 'and it still carries the unresolved student')
+  assert.deepEqual(c.state.dmAttachments.map(a => a.slug),
+    ['aspire-digital-brochure', 'general-guidelines-for-pre-licensure-students'])
+
+  // NEGATIVE CONTROL: a draft written before this carries no templateKey and
+  // restores exactly as it always did.
+  const legacy = { ...saved }
+  delete legacy.templateKey
+  const c2 = directComposer()
+  c2.localStorage.setItem(c2.scope.DRAFT_KEY, JSON.stringify(legacy))
+  c2.goTo({ contactId: 'c9' })
+  c2.goTo({ contactId: 'c1' })
+  assert.equal(c2.state.activeTemplateId, null, 'a legacy draft is unchanged by this')
+  assert.ok(c2.state.msgBody.includes('[Student Name]'), 'and still restores its content')
 })
 
 test('an existing draft is never overwritten by a handoff', () => {

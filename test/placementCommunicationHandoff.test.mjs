@@ -630,21 +630,23 @@ test('every true section heading is Title Case', () => {
   }
 })
 
-// PLACEMENT-NOTIFICATION-CONTROL-1 supersedes the wording this test previously
-// pinned: the "Scope of practice: " label is dropped (no other reminder carries
-// one) and the sentence reads "see the attached". The negative control below
-// keeps the superseded text from creeping back.
+// PRECEPTOR-ATTACHMENT-REMINDER-1 supersedes BOTH earlier wordings: the original
+// carried a "Scope of practice: " label no other reminder has, and the interim
+// version read "see the attached". The negative controls below keep either from
+// creeping back.
 test('the attachment reminder is EXACTLY the requested wording', () => {
-  const EXPECTED = 'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
-  const SUPERSEDED = 'Scope of practice: Please see attached ASPIRE Brochure'
+  const EXPECTED = 'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  const SUPERSEDED = ['Scope of practice: Please see attached ASPIRE Brochure', 'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.']
   for (const d of [
     buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true }),
     buildPreceptorAssignmentDraft({ firstName: 'Dana', attachmentsAttached: true }),   // manual path
   ]) {
     assert.ok(d.body.includes(EXPECTED), 'plain body must carry the exact sentence')
     assert.ok(d.richBody.includes(EXPECTED), 'rich body must carry the exact sentence')
-    assert.ok(!d.body.includes(SUPERSEDED), 'the superseded wording must not survive')
-    assert.ok(!d.richBody.includes(SUPERSEDED), 'the superseded wording must not survive')
+    for (const old of SUPERSEDED) {
+      assert.ok(!d.body.includes(old), `the superseded wording must not survive: ${old}`)
+      assert.ok(!d.richBody.includes(old), `the superseded wording must not survive: ${old}`)
+    }
   }
 })
 
@@ -854,8 +856,13 @@ test('the notice derives from the SAME ref the payload sends', () => {
 // ── 13. The two envelope controls (PLACEMENT-NOTIFICATION-STATE-1) ───────────
 
 test('the required-document list is a single source of truth', () => {
+  // PRECEPTOR-ATTACHMENT-REMINDER-1: the labels ARE the canonical Catalog
+  // titles, because they are what an unresolved-document warning prints. The
+  // old 'ASPIRE Brochure' label named a file the Catalog has never carried.
   assert.deepEqual(PRECEPTOR_ASSIGNMENT_DOCUMENTS.map(d => d.label),
-    ['ASPIRE Brochure', 'Pre-Licensure Student General Guidelines'])
+    ['ASPIRE Digital Brochure', 'General Guidelines for Pre-Licensure Students'])
+  assert.deepEqual(PRECEPTOR_ASSIGNMENT_DOCUMENTS.map(d => d.slugs[0]),
+    ['aspire-digital-brochure', 'general-guidelines-for-pre-licensure-students'])
 })
 
 // ── 12. Preceptor sent tracking: identity and authorization ─────────────────
