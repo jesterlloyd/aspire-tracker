@@ -103,8 +103,7 @@ export default function PreceptorEvaluationPage() {
   // Certificate of Appreciation; the download streams from the token-authorized
   // endpoint using the same raw token this page already holds.
   const [certReady, setCertReady] = useState(false)
-  const [certBusy, setCertBusy] = useState(false)
-  const [certError, setCertError] = useState(null)
+  const [certLinkCopied, setCertLinkCopied] = useState(false)
   const [errorMessage, setErrorMessage] = useState(null)
   const [meta, setMeta] = useState(null)
   const [rawToken, setRawToken] = useState(null)
@@ -169,6 +168,21 @@ export default function PreceptorEvaluationPage() {
   const content = meta?.content || null
   const competencyItems = meta?.competencyItems || []
   const ratingScale = meta?.ratingScale || []
+  const certificateAccessUrl = useMemo(() => {
+    if (!rawToken || typeof window === 'undefined') return ''
+    return `${window.location.origin}${window.location.pathname}#t=${rawToken}`
+  }, [rawToken])
+
+  const copyCertificateAccessUrl = useCallback(async () => {
+    if (!certificateAccessUrl) return
+    try {
+      await navigator.clipboard.writeText(certificateAccessUrl)
+      setCertLinkCopied(true)
+      window.setTimeout(() => setCertLinkCopied(false), 2500)
+    } catch {
+      setCertLinkCopied(false)
+    }
+  }, [certificateAccessUrl])
 
   const allComplete = useMemo(() => {
     if (!content) return false
@@ -288,44 +302,50 @@ export default function PreceptorEvaluationPage() {
               <p style={{ fontSize: 14, color: '#374151', margin: '0 0 14px', lineHeight: 1.6 }}>
                 Your <strong>Certificate of Appreciation</strong> has been earned and is ready.
               </p>
-              <button
-                onClick={async () => {
-                  if (!rawToken || certBusy) return
-                  setCertBusy(true); setCertError(null)
-                  try {
-                    const res = await fetch('/api/certificate-preceptor-download', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ token: rawToken }),
-                    })
-                    if (!res.ok) {
-                      const b = await res.json().catch(() => ({}))
-                      throw new Error(b.error || 'Download failed. Please try again.')
-                    }
-                    const blob = await res.blob()
-                    const dispo = res.headers.get('Content-Disposition') || ''
-                    const m = dispo.match(/filename="([^"]+)"/)
-                    const a = document.createElement('a')
-                    a.href = URL.createObjectURL(blob)
-                    a.download = m ? m[1] : 'ASPIRE_Certificate_of_Appreciation.pdf'
-                    document.body.appendChild(a); a.click(); a.remove()
-                    setTimeout(() => URL.revokeObjectURL(a.href), 30000)
-                  } catch (e) {
-                    setCertError(e.message)
-                  } finally {
-                    setCertBusy(false)
-                  }
-                }}
-                disabled={certBusy}
-                style={{
-                  padding: '11px 26px', background: '#1D2567', color: '#fff', border: 'none',
-                  borderRadius: 9, fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans, system-ui, sans-serif',
-                  cursor: certBusy ? 'default' : 'pointer', opacity: certBusy ? 0.65 : 1,
-                }}
-              >
-                {certBusy ? 'Preparing…' : 'Download Certificate'}
-              </button>
-              {certError && <p style={{ fontSize: 12.5, color: '#dc2626', marginTop: 10 }}>{certError}</p>}
+              {/* A native POST keeps the token out of the URL while letting the
+                  browser receive the PDF from an ordinary HTTPS endpoint. Do
+                  not replace this with a blob: URL; Cedars-Sinai Island blocks
+                  browser-generated blob downloads as suspicious. */}
+              <form method="post" action="/api/certificate-preceptor-download" target="_blank" style={{ margin: 0 }}>
+                <input type="hidden" name="token" value={rawToken || ''} />
+                <button
+                  type="submit"
+                  disabled={!rawToken}
+                  style={{
+                    padding: '11px 26px', background: '#1D2567', color: '#fff', border: 'none',
+                    borderRadius: 9, fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans, system-ui, sans-serif',
+                    cursor: rawToken ? 'pointer' : 'default', opacity: rawToken ? 1 : 0.65,
+                  }}
+                >
+                  Download Certificate
+                </button>
+              </form>
+
+              {certificateAccessUrl && (
+                <div style={{ maxWidth: 680, margin: '22px auto 0', padding: '16px', textAlign: 'left', background: '#f8f9fc', border: '1px solid #dfe3ef', borderRadius: 10 }}>
+                  <p style={{ fontSize: 13.5, fontWeight: 700, color: '#1D2567', margin: '0 0 6px' }}>
+                    Having trouble downloading at Cedars-Sinai?
+                  </p>
+                  <p style={{ fontSize: 12.5, color: '#4b5563', margin: '0 0 10px', lineHeight: 1.55 }}>
+                    Copy this secure link and open it in Safari or Chrome outside the Cedars-Sinai Island browser.
+                    This link is unique to you. Please do not share it.
+                  </p>
+                  <input
+                    aria-label="Secure certificate link"
+                    readOnly
+                    value={certificateAccessUrl}
+                    onFocus={e => e.currentTarget.select()}
+                    style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #cbd2e3', borderRadius: 7, padding: '9px 10px', fontSize: 12, color: '#374151', background: '#fff' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={copyCertificateAccessUrl}
+                    style={{ marginTop: 9, padding: '8px 12px', border: '1px solid #1D2567', borderRadius: 7, background: '#fff', color: '#1D2567', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {certLinkCopied ? 'Link Copied' : 'Copy Secure Link'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

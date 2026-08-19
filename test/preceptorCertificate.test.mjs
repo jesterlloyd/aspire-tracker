@@ -44,6 +44,9 @@ test('flattened presentation PDF: values drawn, no form controls survive', async
   let fieldCount = 0
   try { fieldCount = doc.getForm().getFields().length } catch { fieldCount = 0 }
   assert.equal(fieldCount, 0, 'the presentation PDF must expose no editable controls')
+  const serialized = Buffer.from(out).toString('latin1')
+  assert.doesNotMatch(serialized, /\/JavaScript|\/JS\b|\/Launch\b|\/EmbeddedFile\b/,
+    'the presentation PDF must contain no active or embedded content')
   // The values are painted into the page content. Streams are FLATE-compressed,
   // so inflate every content stream and search the drawn (hex-encoded) text.
   const zlib = await import('node:zlib')
@@ -170,6 +173,19 @@ test('tokenized download: gated, read-only, safe filename', () => {
   assert.ok(!/issue_preceptor_certificate|\.insert\(/.test(dl))
   // No assessment answers are read anywhere in the download path.
   assert.ok(!/responses|form_type|evaluation_responses/.test(dl))
+  // The HTTPS-native form path remains POST-only and accepts its urlencoded
+  // token body without moving that reusable token into a query string.
+  assert.match(dl, /parseCertificateDownloadBody\(req\.body\)/)
+})
+
+test('certificate request parser accepts JSON and native form POSTs without a URL token', async () => {
+  const { parseCertificateDownloadBody } = await import('../lib/server/certificates/certificateDownloadRequest.js')
+  const token = 'A'.repeat(43)
+  assert.deepEqual(parseCertificateDownloadBody({ token }), { token })
+  assert.deepEqual(parseCertificateDownloadBody(JSON.stringify({ token })), { token })
+  assert.deepEqual(parseCertificateDownloadBody(`token=${token}`), { token })
+  assert.throws(() => parseCertificateDownloadBody(null), /invalid_body/)
+  assert.throws(() => parseCertificateDownloadBody([]), /invalid_body/)
 })
 
 test('admin download: Owner/Admin only, editable variant supported', () => {
@@ -216,6 +232,10 @@ test('certificate-ready email carries the approved copy and CTA', async () => {
   assert.match(html, /Certificate of Appreciation is now available/)
   assert.match(html, /Download Certificate/)
   assert.match(html, /ASPIRE-2026-055/)
+  assert.match(html, /Having trouble downloading at Cedars-Sinai\?/)
+  assert.match(html, /Safari or Chrome outside the Cedars-Sinai Island browser/)
+  assert.match(html, /Secure certificate link:/)
+  assert.match(html, /https:\/\/x\/evaluation\/feedback#t=abc/)
 })
 
 // ── Survey page CTA ──────────────────────────────────────────────────────────
@@ -224,6 +244,13 @@ test('the thank-you and completed views offer the earned certificate', () => {
   const page = read('src/pages/PreceptorEvaluationPage.jsx')
   assert.match(page, /\(view === 'thank_you' \|\| view === 'completed'\) && certReady/)
   assert.match(page, /certificate-preceptor-download/)
+  assert.match(page, /method="post" action="\/api\/certificate-preceptor-download" target="_blank"/)
+  assert.match(page, /type="hidden" name="token"/)
+  assert.doesNotMatch(page, /URL\.createObjectURL\(blob\)/,
+    'preceptor certificate downloads must never use an Island-blocked blob URL')
+  assert.match(page, /Copy Secure Link/)
+  assert.match(page, /Safari or Chrome outside the Cedars-Sinai Island browser/)
+  assert.match(page, /#t=\$\{rawToken\}/)
   assert.match(page, /setCertReady\(body\.certificateReady === true\)/)
   assert.match(page, /setCertReady\(body\.certificateAvailable === true\)/)
   // The validate endpoint only advertises availability for post_rotation.

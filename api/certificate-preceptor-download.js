@@ -30,6 +30,7 @@ import { extractClientIp, bucketKey } from '../lib/server/evaluation/rate_limit.
 import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { generatePreceptorCertificate } from '../lib/server/certificates/generatePreceptorCertificate.js';
 import { loadPreceptorCertificateDisplayFields } from '../lib/server/certificates/loadPreceptorCertificateDisplayFields.js';
+import { parseCertificateDownloadBody } from '../lib/server/certificates/certificateDownloadRequest.js';
 
 const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-preceptor-appreciation.pdf';
 
@@ -57,8 +58,7 @@ export default async function handler(req, res) {
 
     let body;
     try {
-      const raw = req.body;
-      body = (raw && typeof raw === 'object') ? raw : JSON.parse(raw);
+      body = parseCertificateDownloadBody(req.body);
     } catch {
       return res.status(400).json({ error: 'Invalid request body' });
     }
