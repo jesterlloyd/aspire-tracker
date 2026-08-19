@@ -42,8 +42,8 @@ test.after(() => rmSync(dir, { recursive: true, force: true }))
 writeFileSync(join(dir, 'fake.mjs'), `
   import { deflateRawSync, crc32 } from 'node:zlib';
 
-  export let sends = [], logInserts = [], archives = [], downloads = [];
-  export function __reset() { sends = []; logInserts = []; archives = []; downloads = []; }
+  export let sends = [], logInserts = [], archives = [], downloads = [], matchUpdates = [];
+  export function __reset() { sends = []; logInserts = []; archives = []; downloads = []; matchUpdates = []; }
 
   export class Resend {
     constructor() {
@@ -212,7 +212,9 @@ writeFileSync(join(dir, 'fake.mjs'), `
           return { select: () => ({ single: async () => ({ data: { id: 'log-' + logInserts.length }, error: null }) }) };
         },
         upsert: async (row) => { archives.push(row); return { error: null }; },
-        update() { return { eq: async () => ({ data: null, error: null }) } },
+        update(patch) {
+          return { eq: async (col, val) => { matchUpdates.push({ table: q.table, patch, [col]: val }); return { data: null, error: null }; } };
+        },
         single() {
           if (q.table === 'user_profiles') return Promise.resolve({ data: PROFILE, error: null });
           const id = (q.filters.find(([f]) => f === 'id') || [])[1];
@@ -261,6 +263,7 @@ function swap(src) {
     // authorization guard that decides whether a placement send may proceed. The
     // guard is loaded REAL, so these tests exercise the shipped verification.
     .replace(/from '\.\.\/src\/lib\/placementPreceptorSent\.js'/, `from ${abs('src/lib/placementPreceptorSent.js')}`)
+    .replace(/from '\.\.\/src\/lib\/placementNotificationState\.js'/, `from ${abs('src/lib/placementNotificationState.js')}`)
     .replace(/from '\.\/lib\/placementSendGuard\.js'/, `from ${abs('api/lib/placementSendGuard.js')}`)
     .replace(/from '\.\.\/src\/lib\/recipientParse\.js'/, `from ${abs('src/lib/recipientParse.js')}`)
     .replace(/from '\.\.\/src\/lib\/htmlEscape\.js'/, `from ${abs('src/lib/htmlEscape.js')}`)
@@ -275,7 +278,7 @@ writeFileSync(join(dir, 'direct.mjs'), swap(read('api/connect-send-direct-email.
 writeFileSync(join(dir, 'bulk.mjs'), swap(read('api/connect-send-bulk-message.js')))
 
 const fakes = await import(pathToFileURL(join(dir, 'fake.mjs')).href)
-writeFileSync(join(dir, 'confirm.mjs'), swap(read('api/placement-preceptor-confirm.js')))
+writeFileSync(join(dir, 'confirm.mjs'), swap(read('api/placement-notification-confirm.js')))
 const directHandler = (await import(pathToFileURL(join(dir, 'direct.mjs')).href)).default
 const confirmHandler = (await import(pathToFileURL(join(dir, 'confirm.mjs')).href)).default
 const bulkHandler = (await import(pathToFileURL(join(dir, 'bulk.mjs')).href)).default
@@ -607,11 +610,13 @@ test('ORDINARY SEND: a manual-template send to a contact creates no Sent chip', 
     'choosing the template by hand must not attribute the send to a placement')
 })
 
-// ── PRECEPTOR-DRAFT-CONTINUITY-1: the manual confirmation endpoint ───────────
+// ── PLACEMENT-NOTIFICATION-CONTROL-1: the one notification endpoint ─────────
 //
-// The real handler runs against the same placement world. What these prove:
-// the guard runs, the record is a CONFIRMATION (never a provider send), and
-// repeated or redundant confirmation writes nothing.
+// The real handler runs against the same placement world, for BOTH targets and
+// BOTH directions. What these prove: the placement is re-verified before
+// anything is written, the record is a CONFIRMATION and never a provider send,
+// no email leaves the endpoint, a correction appends rather than rewriting, and
+// nothing that changes no state writes a row.
 
 async function runConfirm(body, { reset = true } = {}) {
   if (reset) fakes.__reset()
@@ -619,43 +624,67 @@ async function runConfirm(body, { reset = true } = {}) {
   await confirmHandler({ method: 'POST', headers: REQ_HEADERS, body }, res)
   return res
 }
-const CONFIRM_REF = {
-  match_id: 'PLACEHOLDER', student_id: 'PLACEHOLDER', unit_id: 'PLACEHOLDER',
-  cohort_id: 'PLACEHOLDER', preceptor_id: 'PLACEHOLDER',
-}
-const confirmRef = () => ({
+const precRef = (over = {}) => ({
+  target: 'preceptor', action: 'confirm',
   match_id: P.match, student_id: P.student, unit_id: P.unit,
-  cohort_id: P.cohort, preceptor_id: P.preceptor,
+  cohort_id: P.cohort, preceptor_id: P.preceptor, ...over,
 })
-void CONFIRM_REF
+const leaderRef = (over = {}) => ({
+  target: 'unit_leader', action: 'confirm',
+  match_id: P.match, student_id: P.student, unit_id: P.unit,
+  cohort_id: P.cohort, ...over,
+})
 
-test('CONFIRM: a truthful confirmation records a manual row, never a provider send', async () => {
-  const res = await runConfirm(confirmRef())
+test('CONFIRM: a preceptor confirmation records a confirmation, never a send', async () => {
+  const res = await runConfirm(precRef())
   assert.equal(res.statusCode, 200, JSON.stringify(res.body))
   assert.equal(res.body.recorded, true)
   assert.equal(res.body.sent_email, false)
   assert.equal(fakes.sends.length, 0, 'NO email leaves this endpoint')
   assert.equal(fakes.logInserts.length, 1)
   const row = fakes.logInserts[0]
-  assert.equal(row.notification_type, 'placement_manual_confirmation')
+  assert.equal(row.notification_type, 'placement_notification_confirmed')
   assert.equal(row.status, 'confirmed')
-  assert.equal(row.metadata.source, 'manual_confirmation')
+  assert.equal(row.metadata.notification_target, 'preceptor')
+  assert.equal(row.metadata.source, 'staff_confirmation')
   assert.equal(row.metadata.confirmed_by, 'staff-1', 'the acting user comes from the session')
   assert.equal(row.metadata.placement_match_id, P.match)
   assert.equal(row.metadata.placement_preceptor_id, P.preceptor)
+  // A preceptor confirmation must not touch the unit-leader projection.
+  assert.equal(fakes.matchUpdates.length, 0, 'no match row is written for a preceptor confirmation')
 })
 
-test('CONFIRM: repeating the confirmation is idempotent', async () => {
-  await runConfirm(confirmRef())
-  const second = await runConfirm(confirmRef(), { reset: false })
+test('CONFIRM: a unit-leader confirmation also mirrors the legacy projection', async () => {
+  const res = await runConfirm(leaderRef())
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body))
+  const row = fakes.logInserts[0]
+  assert.equal(row.metadata.notification_target, 'unit_leader')
+  assert.equal(row.metadata.placement_preceptor_id, undefined,
+    'a unit-leader confirmation carries no preceptor identity')
+  assert.deepEqual(Object.keys(fakes.matchUpdates[0].patch).sort(), ['notification_sent', 'notified_at'])
+  assert.equal(fakes.matchUpdates[0].patch.notification_sent, true)
+  assert.equal(fakes.matchUpdates[0].id, P.match, 'exactly that placement')
+})
+
+test('CONFIRM: the two targets are separate state on the same placement', async () => {
+  await runConfirm(precRef())
+  const leader = await runConfirm(leaderRef(), { reset: false })
+  assert.equal(leader.body.recorded, true,
+    'a confirmed preceptor must not make the unit leader look confirmed')
+  assert.equal(fakes.logInserts.length, 2)
+})
+
+test('CONFIRM: repeating a confirmation is idempotent by EFFECT', async () => {
+  await runConfirm(precRef())
+  const second = await runConfirm(precRef(), { reset: false })
   assert.equal(second.statusCode, 200)
   assert.equal(second.body.already, true)
-  assert.equal(fakes.logInserts.length, 1, 'the second Yes wrote nothing')
+  assert.equal(fakes.logInserts.length, 1, 'the second confirmation wrote nothing')
 })
 
-test('CONFIRM: existing PROVIDER evidence also answers already', async () => {
+test('CONFIRM: PROVIDER delivery history is NOT a confirmation', async () => {
   fakes.__reset()
-  // A real send already recorded this placement (delivered by now).
+  // A real, delivered send for exactly this placement.
   fakes.logInserts.push({
     notification_type: 'direct_message_sent', status: 'delivered',
     metadata: {
@@ -663,28 +692,93 @@ test('CONFIRM: existing PROVIDER evidence also answers already', async () => {
       placement_match_id: P.match, placement_preceptor_id: P.preceptor,
     },
   })
-  const res = await runConfirm(confirmRef(), { reset: false })
-  assert.equal(res.body.already, true)
-  assert.equal(fakes.logInserts.length, 1, 'no duplicate state on top of the provider row')
+  const res = await runConfirm(precRef(), { reset: false })
+  assert.equal(res.body.recorded, true,
+    'an email having been delivered is history, not a claim that staff confirmed it')
+  assert.equal(fakes.logInserts.length, 2)
+  assert.equal(fakes.logInserts[1].notification_type, 'placement_notification_confirmed')
 })
 
-test('CONFIRM NEGATIVE CONTROL: a tampered placement is refused with nothing written', async () => {
-  const res = await runConfirm({ ...confirmRef(), student_id: 'aaaaaaaa-0000-4000-8000-000000000002' })
-  assert.equal(res.statusCode, 409)
-  assert.equal(res.body.placement_error, 'student_mismatch')
+test('CORRECT: a correction APPENDS, carries its reason, and points at the original', async () => {
+  await runConfirm(precRef())
+  const original = fakes.logInserts[0]
+  const res = await runConfirm(precRef({ action: 'correct', reason: 'sent to the wrong preceptor' }), { reset: false })
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body))
+  assert.equal(res.body.recorded, true)
+  assert.equal(fakes.logInserts.length, 2, 'the correction is a NEW row')
+  const corr = fakes.logInserts[1]
+  assert.equal(corr.notification_type, 'placement_notification_corrected')
+  assert.equal(corr.status, 'corrected')
+  assert.equal(corr.metadata.correction_reason, 'sent to the wrong preceptor')
+  assert.equal(corr.metadata.confirmed_by, 'staff-1')
+  // The original is preserved, byte for byte.
+  assert.equal(fakes.logInserts[0], original)
+  assert.equal(original.notification_type, 'placement_notification_confirmed')
+  assert.equal(original.status, 'confirmed')
+})
+
+test('CORRECT: a unit-leader correction restores the projection to un-notified', async () => {
+  await runConfirm(leaderRef())
+  await runConfirm(leaderRef({ action: 'correct', reason: 'marked by mistake' }), { reset: false })
+  const last = fakes.matchUpdates[fakes.matchUpdates.length - 1]
+  assert.equal(last.patch.notification_sent, false)
+  assert.equal(last.patch.notified_at, null)
+  assert.equal(Object.keys(last.patch).length, 2,
+    'the correction touches the notification projection and nothing else')
+})
+
+test('CORRECT NEGATIVE CONTROL: correcting what was never confirmed writes nothing', async () => {
+  const res = await runConfirm(precRef({ action: 'correct', reason: 'nothing to undo' }))
+  assert.equal(res.body.already, true)
+  assert.equal(res.body.recorded, false)
   assert.equal(fakes.logInserts.length, 0)
 })
 
-test('CONFIRM NEGATIVE CONTROL: a stale match is refused', async () => {
-  const res = await runConfirm({ ...confirmRef(), match_id: 'ffffffff-0000-4000-8000-00000000dead' })
+test('CORRECT NEGATIVE CONTROL: a correction without a reason is refused', async () => {
+  await runConfirm(precRef())
+  const res = await runConfirm(precRef({ action: 'correct', reason: 'no' }), { reset: false })
+  assert.equal(res.statusCode, 400)
+  assert.match(res.body.error, /requires a reason/)
+  assert.equal(fakes.logInserts.length, 1, 'nothing was appended')
+})
+
+test('CONFIRM NEGATIVE CONTROL: a tampered placement is refused with nothing written', async () => {
+  for (const ref of [precRef, leaderRef]) {
+    const res = await runConfirm(ref({ student_id: 'aaaaaaaa-0000-4000-8000-000000000002' }))
+    assert.equal(res.statusCode, 409)
+    assert.equal(res.body.placement_error, 'student_mismatch')
+    assert.equal(fakes.logInserts.length, 0)
+    assert.equal(fakes.matchUpdates.length, 0)
+  }
+})
+
+test('CONFIRM NEGATIVE CONTROL: a stale match is refused, for both targets', async () => {
+  for (const ref of [precRef, leaderRef]) {
+    const res = await runConfirm(ref({ match_id: 'ffffffff-0000-4000-8000-00000000dead' }))
+    assert.equal(res.statusCode, 409)
+    assert.equal(res.body.placement_error, 'match_missing')
+    assert.equal(fakes.logInserts.length, 0)
+  }
+})
+
+test('CONFIRM NEGATIVE CONTROL: a replaced preceptor is refused', async () => {
+  const res = await runConfirm(precRef({ preceptor_id: P.other }))
   assert.equal(res.statusCode, 409)
-  assert.equal(res.body.placement_error, 'match_missing')
+  assert.equal(res.body.placement_error, 'preceptor_changed')
   assert.equal(fakes.logInserts.length, 0)
 })
 
 test('CONFIRM NEGATIVE CONTROL: a body-supplied identity is refused outright', async () => {
-  const res = await runConfirm({ ...confirmRef(), confirmed_by: 'someone-else' })
+  const res = await runConfirm({ ...precRef(), confirmed_by: 'someone-else' })
   assert.equal(res.statusCode, 400)
   assert.match(res.body.error, /taken from your session/)
   assert.equal(fakes.logInserts.length, 0)
+})
+
+test('CONFIRM NEGATIVE CONTROL: an unknown target or action is refused', async () => {
+  for (const bad of [{ target: 'student' }, { action: 'delete' }, { target: '' }]) {
+    const res = await runConfirm({ ...precRef(), ...bad })
+    assert.equal(res.statusCode, 400)
+    assert.equal(fakes.logInserts.length, 0)
+  }
 })

@@ -590,7 +590,7 @@ const PLACEMENT = {
 test('the merged draft carries the real placement, not placeholders', () => {
   const d = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true })
   assert.equal(d.subject, 'ASPIRE: Student Assignment and Introduction Details')
-  assert.match(d.body, /^Dear Dana,/)
+  assert.match(d.body, /^Preceptor Assignment & Details\n\nDear Dana,/)
   assert.match(d.body, /Student: Cruz, Anamaria “Ana”/)
   assert.match(d.body, /School: California State University, Northridge/)
   assert.match(d.body, /Unit \/ Assignment: 5 SCCT/)
@@ -630,14 +630,21 @@ test('every true section heading is Title Case', () => {
   }
 })
 
-test('the scope-of-practice sentence is EXACTLY the requested wording', () => {
-  const EXPECTED = 'Scope of practice: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+// PLACEMENT-NOTIFICATION-CONTROL-1 supersedes the wording this test previously
+// pinned: the "Scope of practice: " label is dropped (no other reminder carries
+// one) and the sentence reads "see the attached". The negative control below
+// keeps the superseded text from creeping back.
+test('the attachment reminder is EXACTLY the requested wording', () => {
+  const EXPECTED = 'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  const SUPERSEDED = 'Scope of practice: Please see attached ASPIRE Brochure'
   for (const d of [
     buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true }),
     buildPreceptorAssignmentDraft({ firstName: 'Dana', attachmentsAttached: true }),   // manual path
   ]) {
     assert.ok(d.body.includes(EXPECTED), 'plain body must carry the exact sentence')
     assert.ok(d.richBody.includes(EXPECTED), 'rich body must carry the exact sentence')
+    assert.ok(!d.body.includes(SUPERSEDED), 'the superseded wording must not survive')
+    assert.ok(!d.richBody.includes(SUPERSEDED), 'the superseded wording must not survive')
   }
 })
 
@@ -741,13 +748,6 @@ test('opening Connect writes nothing and notifies nobody', () => {
   assert.match(handler, /\.from\('contacts'\)[\s\S]*?\.select\(/)
 })
 
-test('the envelope is disabled, with a reason, when there is no address', () => {
-  const src = strip(read('src/components/EmbedUnitCard.jsx'))
-  assert.match(src, /data-testid="placement-preceptor-email"/)
-  assert.match(src, /disabled=\{!preceptorEmail\}/)
-  assert.match(src, /No email address on file for/)
-})
-
 test('the composer applies the handoff only for the matching recipient and cohort', () => {
   const src = strip(read('src/components/connect/OutreachView.jsx'))
   assert.match(src, /preceptorLaunch\.cohortId === cohortId/,
@@ -808,61 +808,6 @@ test('the Action Center shortcut resolves the same canonical facts', () => {
 
 // ── 11. Opening a draft is not evidence that it was sent ────────────────────
 
-test('opening the unit-leader draft performs NO database write', () => {
-  const src = strip(read('src/components/EmbedUnitCard.jsx'))
-  const start = src.indexOf('const openUnitLeaderNotice')
-  assert.ok(start > 0, 'opener not found')
-  // Bounded at the NEXT declaration, so the confirmation machinery below is not
-  // mistaken for part of the opener.
-  const opener = src.slice(start, src.indexOf('const pendingConfirmRows', start))
-  assert.ok(!opener.includes('onUpdateMatch'),
-    'opening a compose window must not write notified state')
-  assert.ok(!opener.includes('notification_sent'))
-  assert.ok(!opener.includes('notified_at'))
-  assert.match(opener, /openMailtoLink\(message\.url\)/, 'it still opens the draft')
-  assert.match(opener, /setNotifyConfirm\(\{ studentIds: studentRows\.map\(r => r\.student\.id\), multi \}\)/,
-    'it offers the confirmation instead of assuming the outcome')
-  // NEGATIVE CONTROL: the exact pre-correction line must be gone from the file.
-  assert.ok(!/openMailtoLink\(message\.url\)[\s\S]{0,400}?notification_sent: true/.test(src),
-    'no notified write may follow the compose call')
-})
-
-test('the notified patch is written from ONE shared definition', () => {
-  assert.deepEqual(Object.keys(notifiedPatch('2026-08-18T00:00:00.000Z')).sort(),
-    ['notification_sent', 'notified_at'])
-  assert.equal(notifiedPatch('2026-08-18T00:00:00.000Z').notification_sent, true)
-  // Neither surface may hand-roll the patch.
-  for (const f of ['src/components/EmbedUnitCard.jsx', 'src/components/ActionCenter.jsx']) {
-    const src = strip(read(f))
-    assert.ok(!/notification_sent:\s*true/.test(src),
-      `${f} must write the shared notifiedPatch(), not its own literal`)
-    assert.match(src, /notifiedPatch\(\)/, `${f} must use the shared patch`)
-  }
-})
-
-test('BOTH surfaces write notified state only from their confirmation handler', () => {
-  const board = strip(read('src/components/EmbedUnitCard.jsx'))
-  const boardOpener = board.slice(board.indexOf('const openUnitLeaderNotice'),
-    board.indexOf('const pendingConfirmRows'))
-  assert.ok(!boardOpener.includes('onUpdateMatch'), 'the board opener must not write')
-  assert.match(board.slice(board.indexOf('const confirmNotified')), /onUpdateMatch\(/,
-    'the board writes from confirmNotified')
-
-  const ac = strip(read('src/components/ActionCenter.jsx'))
-  // The unit-notification branch of handleAction opens and returns - nothing else.
-  const branch = ac.slice(ac.indexOf("if (item.actionType === 'unit_notification_needed'"),
-    ac.indexOf("if (item.emailHref && item.markDoneType === 'log_communication')"))
-  assert.match(branch, /openHref\(item\.emailHref\)/)
-  assert.match(branch, /setNotifyConfirmId\(item\.id\)/)
-  assert.ok(!branch.includes('onMatchUpdate'), 'opening must not write the match row')
-  assert.ok(!branch.includes('logComm'), 'opening must not write a communication either')
-  assert.ok(!branch.includes('logCompleted'), 'opening must not clear the task')
-
-  const confirm = ac.slice(ac.indexOf('const handleConfirmNotified'), ac.indexOf('\n  // ── Mark Complete'))
-  assert.match(confirm, /onMatchUpdate\?\.\(pending\[0\]\.match\.id/,
-    'the Action Center writes only from its confirmation handler')
-})
-
 test('the generic log-on-compose path no longer touches notified state', () => {
   const ac = strip(read('src/components/ActionCenter.jsx'))
   const generic = ac.slice(ac.indexOf("if (item.emailHref && item.markDoneType === 'log_communication')"),
@@ -873,98 +818,11 @@ test('the generic log-on-compose path no longer touches notified state', () => {
     'the unit notification no longer rides the log-on-compose branch at all')
 })
 
-test('BOTH confirmations are idempotent through the SAME shared derivation', () => {
-  for (const f of ['src/components/EmbedUnitCard.jsx', 'src/components/ActionCenter.jsx']) {
-    assert.match(strip(read(f)), /pendingNotifyTargets\(/,
-      `${f} must derive its pending work from the shared rule`)
-  }
-  // And the rule itself: an already-notified row is never pending.
-  const matches = [
-    { id: 'm1', student_id: 's1', unit_id: 'u1', notification_sent: false },
-    { id: 'm2', student_id: 's2', unit_id: 'u1', notification_sent: true },
-  ]
-  const targets = [
-    { studentId: 's1', unitId: 'u1', label: 'One' },
-    { studentId: 's2', unitId: 'u1', label: 'Two' },
-    { studentId: 's3', unitId: 'u1', label: 'Missing' },
-  ]
-  const pending = pendingNotifyTargets(targets, matches)
-  assert.deepEqual(pending.map(p => p.studentId), ['s1'],
-    'only the un-notified, existing row is pending')
-
-  // The second confirmation: the same call against the post-write rows.
-  const after = matches.map(m => (m.id === 'm1' ? { ...m, notification_sent: true } : m))
-  assert.deepEqual(pendingNotifyTargets(targets, after), [],
-    'a repeated confirmation has nothing to write')
-  // A row notified by the OTHER surface is skipped for free.
-  assert.deepEqual(pendingNotifyTargets([targets[1]], matches), [])
-})
-
-test('both confirmations short-circuit before writing when nothing is pending', () => {
-  const board = strip(read('src/components/EmbedUnitCard.jsx'))
-  const bFn = board.slice(board.indexOf('const confirmNotified'), board.indexOf('\n  const ', board.indexOf('const confirmNotified') + 10))
-  assert.match(bFn, /if \(pendingConfirmRows\.length === 0\) \{ setNotifyConfirm\(null\); return \}/)
-  const ac = strip(read('src/components/ActionCenter.jsx'))
-  const aFn = ac.slice(ac.indexOf('const handleConfirmNotified'), ac.indexOf('\n  // ── Mark Complete'))
-  assert.match(aFn, /if \(pending\.length === 0\) \{[\s\S]{0,200}?setNotifyConfirmId\(null\)[\s\S]{0,60}?return/)
-})
-
-test('BOTH surfaces show the SAME words, from one source', () => {
-  assert.equal(NOTIFY_CONFIRM.confirmLabel, 'Mark unit as notified')
-  assert.equal(NOTIFY_CONFIRM.dismissLabel, 'Not sent yet')
-  assert.match(NOTIFY_CONFIRM.shortHeadline,
-    /Nothing is recorded yet\. Confirm only after you have actually sent the email\./)
-  assert.match(NOTIFY_CONFIRM.headline('Cruz, Ana'),
-    /^Draft opened for Cruz, Ana\. Nothing is recorded yet\. Confirm only after you have actually sent the email\.$/)
-  // Neither surface may hard-code its own wording.
-  for (const f of ['src/components/EmbedUnitCard.jsx', 'src/components/ActionCenter.jsx']) {
-    const src = read(f)
-    assert.match(src, /NOTIFY_CONFIRM\.confirmLabel/, `${f} must use the shared confirm label`)
-    assert.match(src, /NOTIFY_CONFIRM\.dismissLabel/, `${f} must use the shared dismiss label`)
-    assert.ok(!/Mark unit as notified'/.test(strip(src).replace(/NOTIFY_CONFIRM[^\n]*/g, '')),
-      `${f} must not restate the label`)
-  }
-  assert.match(read('src/components/EmbedUnitCard.jsx'), /notifyConfirmHeadline\(pendingConfirmRows\)/)
-  assert.match(read('src/components/ActionCenter.jsx'), /NOTIFY_CONFIRM\.shortHeadline/)
-})
-
-test('a failed confirmation is reported and leaves the work to do', () => {
-  // App now returns the write error, which is what makes an honest report possible.
-  // Read raw: App.jsx contains regex/string literals that a naive comment
-  // stripper mangles, and this assertion only needs the function body.
-  const app = read('src/App.jsx')
-  const upd = app.slice(app.indexOf('const updateMatch = async'))
-  assert.match(upd.slice(0, upd.indexOf('\n  }\n') + 5), /return error \|\| null/,
-    'updateMatch must report whether the write landed')
-  const board = strip(read('src/components/EmbedUnitCard.jsx'))
-  assert.match(board, /const err = await onUpdateMatch\(r\.match\.id, r\.studentId, patch\)/)
-  assert.match(board, /if \(err\) failed \+= 1/)
-  assert.match(board, /failed > 0 \? notifyFailedMessage\(failed\)/)
-  const ac = strip(read('src/components/ActionCenter.jsx'))
-  const fn = ac.slice(ac.indexOf('const handleConfirmNotified'), ac.indexOf('\n  // ── Mark Complete'))
-  assert.match(fn, /if \(err\) \{[\s\S]{0,320}?notifyFailedMessage\(1\)[\s\S]{0,60}?return/)
-  assert.ok(fn.indexOf('logCompleted') > fn.indexOf('if (err)'),
-    'a failed write must not be logged as completed')
-})
-
 test('the confirmed send is what earns the communication entry', () => {
   const ac = strip(read('src/components/ActionCenter.jsx'))
   const fn = ac.slice(ac.indexOf('const handleConfirmNotified'), ac.indexOf('\n  // ── Mark Complete'))
   assert.match(fn, /await logComm\(\{\s*type: 'unit_notification'/,
     'the communication log follows the confirmation, not the compose click')
-})
-
-test('a dismissed confirmation writes nothing', () => {
-  const src = read('src/components/EmbedUnitCard.jsx')
-  assert.match(src, /data-testid="notify-confirm-no"[\s\S]{0,300}?onClick=\{e => \{ e\.stopPropagation\(\); setNotifyConfirm\(null\) \}\}/,
-    'Not sent yet must only close the strip')
-})
-
-test('the notified COUNT still reads from the stored match rows', () => {
-  const src = strip(read('src/components/EmbedUnitCard.jsx'))
-  assert.match(src, /const notifiedCount = matchedStudents\.filter\(s => \{[\s\S]{0,200}?notification_sent/,
-    'counts must come from data, never from a local "we opened it" flag')
-  assert.match(src, /const isNotified = !!match\?\.notification_sent/)
 })
 
 // ── 12b. The tracking promise is visible before sending ─────────────────────
@@ -994,60 +852,6 @@ test('the notice derives from the SAME ref the payload sends', () => {
 })
 
 // ── 13. The two envelope controls (PLACEMENT-NOTIFICATION-STATE-1) ───────────
-
-test('both envelopes carry the EXACT pre-notification labels', () => {
-  const board = read('src/components/EmbedUnitCard.jsx')
-  assert.match(board, /isNotified \? 'Unit Leader Notified' : 'Notify Unit Leader'/,
-    'the unit-leader tooltip and aria-label switch between the two exact phrases')
-  assert.match(board, /\? 'Preceptor Notified'\s*:\s*preceptorEmail\s*\?\s*'Notify Preceptor'/,
-    'the preceptor tooltip and aria-label likewise')
-  // NEGATIVE CONTROL: the old lowercase / verbose labels are gone.
-  assert.ok(!/label="Notify unit leader"/.test(board))
-  assert.ok(!/in ASPIRE Connect`/.test(board), 'the verbose Connect label was replaced')
-})
-
-test('a notified envelope stays visible but cannot be activated', () => {
-  const board = strip(read('src/components/EmbedUnitCard.jsx'))
-  // Unit leader: aria-disabled (still focusable, still tooltipped), handler guard.
-  assert.match(board, /data-testid="notify-unit-leader"/)
-  assert.match(board, /aria-disabled=\{isNotified\}/)
-  assert.match(board, /if \(isNotified\) return\s*\n\s*onNotify\(student, match\)/,
-    'the guard blocks mouse, Enter and Space alike - keyboard activation of a button IS a click')
-  // Preceptor: same pattern, keyed on its own sent state.
-  assert.match(board, /aria-disabled=\{!preceptorEmail \|\| !!sentState\?\.sent\}/)
-  assert.match(board, /if \(!preceptorEmail \|\| sentState\?\.sent\) return/)
-  // And neither notified state uses NATIVE disabled, which would kill the tooltip.
-  assert.match(board, /disabled=\{!preceptorEmail\}/,
-    'native disabled remains ONLY for the no-email case, where it always was')
-  assert.ok(!/[^-]disabled=\{isNotified\}/.test(board),
-    'aria-disabled only - native disabled would make the notified control unfocusable and tooltip-less')
-})
-
-test('the check mark appears beside the envelope, not instead of it', () => {
-  const board = strip(read('src/components/EmbedUnitCard.jsx'))
-  assert.match(board, /data-testid="unit-leader-notified-check"/)
-  const i = board.indexOf('data-testid="notify-unit-leader"')
-  const j = board.indexOf('data-testid="unit-leader-notified-check"')
-  assert.ok(i > 0 && j > i, 'envelope first, check beside it')
-  // NEGATIVE CONTROL: the old replace-with-a-bare-✓ branch is gone.
-  assert.ok(!/isNotified\s*\?\s*<span/.test(board),
-    'notification must not swap the envelope away')
-  // The preceptor check is the dated chip, rendered after its envelope.
-  const pe = board.indexOf('data-testid="placement-preceptor-email"')
-  const pc = board.indexOf('data-testid="placement-preceptor-sent"')
-  assert.ok(pe > 0 && pc > pe, 'preceptor envelope first, dated check beside it')
-})
-
-test('both envelopes share one icon-button token with a real hit target', () => {
-  const board = strip(read('src/components/EmbedUnitCard.jsx'))
-  assert.match(board, /const ENVELOPE_BTN = \{/)
-  assert.match(board, /width: 26, height: 26/)
-  assert.equal((board.match(/\.\.\.ENVELOPE_BTN/g) || []).length, 2,
-    'exactly the two envelope controls consume it')
-  assert.match(board, /import \{ Mail, Check \} from 'lucide-react'/,
-    'the app’s icon set, not a text glyph')
-  assert.ok(!/>\s*✉\s*</.test(board), 'the ✉ text glyph is gone')
-})
 
 test('the required-document list is a single source of truth', () => {
   assert.deepEqual(PRECEPTOR_ASSIGNMENT_DOCUMENTS.map(d => d.label),
@@ -1209,19 +1013,6 @@ test('an incomplete placement reference is NOT recorded at all', () => {
   assert.equal(placementSendMetadata(null), null)
 })
 
-test('the display never confuses itself with the unit-leader notification', () => {
-  const state = preceptorSentState(preceptorSentIndex([sentRow({ match: M.A1 })]),
-    { matchId: M.A1, preceptorId: P.DANA })
-  assert.match(preceptorSentLabel(state), /^Sent /)
-  assert.match(preceptorSentTooltip(state, 'Dana Reyes'), /Dana Reyes was sent the assignment email for this placement/)
-  assert.equal(preceptorSentLabel({ sent: false }), '')
-  const board = read('src/components/EmbedUnitCard.jsx')
-  assert.match(board, /data-testid="placement-preceptor-sent"/)
-  assert.match(board, /const notifiedCount = matchedStudents/,
-    'the unit-leader count is still computed from match rows alone')
-  assert.match(board, /matchId: match\?\.id/, 'the chip is judged against the CURRENT match row')
-})
-
 test('the guard runs BEFORE the mail provider, and the log write after the send', () => {
   const api = strip(read('api/connect-send-direct-email.js'))
   const guardIdx = api.indexOf('await verifyPlacementSend({')
@@ -1271,20 +1062,6 @@ test('the composer attributes a send only while the draft is still that template
     'a successful send refreshes the board immediately')
 })
 
-test('the board reads the evidence, scoped and read-only', () => {
-  const src = strip(read('src/components/MatchingTab.jsx'))
-  assert.match(src, /from\('notification_log'\)/)
-  assert.match(src, /\.in\('notification_type', \[DIRECT_MESSAGE_TYPE, MANUAL_CONFIRMATION_TYPE\]\)/,
-    'both provider sends and guarded manual confirmations are evidence')
-  assert.match(src, /\.in\('status', \[\.\.\.SENT_EVIDENCE_STATUSES, MANUAL_CONFIRMATION_STATUS\]\)/,
-    'the query must accept the whole delivery lifecycle, not only the transient initial state')
-  assert.match(src, /\.eq\('metadata->>placement_template_key', 'preceptor_assignment'\)/)
-  assert.match(src, /\.eq\('metadata->>placement_cohort_id', cohortId\)/, 'scoped to the active cohort')
-  const q = src.slice(src.indexOf("queryKey: ['placement_preceptor_sent'"), src.indexOf('const preceptorSent ='))
-  assert.ok(!/insert|update|delete|upsert/i.test(q), 'the board only reads')
-  assert.match(q, /refetchOnMount: 'always'/, 'returning from Connect shows the send without a manual refresh')
-})
-
 // ── 14. PRECEPTOR-DRAFT-CONTINUITY-1 ────────────────────────────────────────
 
 test('the corrected subject is Title Case, and the old subject is gone', () => {
@@ -1298,28 +1075,12 @@ test('the corrected subject is Title Case, and the old subject is gone', () => {
 
 test('the greeting is its own paragraph, in BOTH bodies', () => {
   const d = buildPreceptorAssignmentDraft({ firstName: 'Romelyn', attachmentsAttached: true })
-  assert.match(d.body, /^Dear Romelyn,\n\nThank you for agreeing to precept one of our senior nursing students through ASPIRE\. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice\.\n/,
-    'plain text: greeting, blank paragraph break, then the exact thanks paragraph')
+  assert.match(d.body, /^Preceptor Assignment & Details\n\nDear Romelyn,\n\nThank you for agreeing to precept one of our senior nursing students through ASPIRE\. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice\.\n/,
+    'plain text: heading, greeting, blank paragraph break, then the exact thanks paragraph')
   assert.ok(d.richBody.includes('<p>Dear Romelyn,</p><p>Thank you for agreeing to precept'),
     'rich body: the greeting stands alone as its own paragraph element')
   // NEGATIVE CONTROL: the old fused single-paragraph greeting is gone.
   assert.ok(!d.richBody.includes('Dear Romelyn, thank you'), 'the fused greeting paragraph is gone')
-})
-
-test('the scope-of-practice bullet is the exact requested sentence', () => {
-  const EXPECTED = 'Scope of practice: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
-  const d = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true })
-  assert.ok(d.body.includes(EXPECTED))
-  assert.ok(d.richBody.includes(EXPECTED))
-  // Old wording has zero active occurrences anywhere in the sources.
-  for (const f of ['src/lib/outreachTemplates.js', 'src/lib/connect/catalogAttachments.js']) {
-    assert.ok(!strip(read(f)).includes('can be added before sending'), f)
-    assert.ok(!strip(read(f)).includes('Please see the attached ASPIRE brochure'), f)
-  }
-  // The claim guard recognizes BOTH the new wording and old saved drafts.
-  assert.equal(claimsAttachments('Please see attached ASPIRE Brochure'), true)
-  assert.equal(claimsAttachments('Please see the attached ASPIRE brochure'), true)
-  assert.equal(claimsAttachments('The brochure can be shared separately.'), false)
 })
 
 test('the Catalog identities are matched by their CANONICAL titles, wording aside', () => {
@@ -1413,41 +1174,12 @@ test('manual evidence is placement-specific: replaced preceptor and recreated ma
   assert.equal(preceptorSentState(index, { matchId: M.REBUILT, preceptorId: P.DANA }).sent, false)
 })
 
-test('the board asks - it never marks on return', () => {
-  const src = strip(read('src/components/MatchingTab.jsx'))
-  assert.match(src, /Were you able to send the Preceptor Assignment &amp; Details email to/,
-    'the exact question')
-  assert.match(src, /Yes, Mark Preceptor as Notified/)
-  assert.match(src, /Not Yet/)
-  assert.match(src, /data-testid="preceptor-handoff-prompt"/)
-  // Not Yet only clears the marker - the ONLY write path is the guarded endpoint.
-  const notYet = src.slice(src.indexOf('const clearHandoffMarker'), src.indexOf('const confirmHandoffSent'))
-  assert.ok(!notYet.includes('fetch('), 'Not Yet performs no request')
-  const confirm = src.slice(src.indexOf('const confirmHandoffSent'), src.indexOf('const confirmHandoffSent') + 2200)
-  assert.match(confirm, /\/api\/placement-preceptor-confirm/)
-  assert.ok(!confirm.includes("from('notification_log')"), 'the client never writes evidence directly')
-  // The prompt keys to the CURRENT world: stale markers are discarded, not asked.
-  const gate = src.slice(src.indexOf('const pendingHandoff = useMemo'), src.indexOf('const clearHandoffMarker'))
-  assert.match(gate, /matches\.find\(m => m\.id === marker\.matchId\)/)
-  assert.match(gate, /String\(current\.id \|\| ''\) !== String\(marker\.preceptorId\)/)
-  assert.match(gate, /preceptorSentState\(preceptorSent, marker\)\.sent/,
-    'evidence resolves the marker without asking')
-})
+// PLACEMENT-NOTIFICATION-CONTROL-1 retired api/placement-preceptor-confirm.js.
+// Its successor, api/placement-notification-confirm.js, is EXECUTED against a
+// fake database in test/outreachAttachmentEndpoints.test.mjs (the CONFIRM and
+// CORRECT tests), which proves the same guarantees for both targets and both
+// directions rather than reading them off the source.
 
-test('the confirm endpoint refuses fabrication and stays idempotent', () => {
-  const src = strip(read('api/placement-preceptor-confirm.js'))
-  assert.match(src, /skipRecipientCheck: true/,
-    'the manual path waives ONLY the recipient-address tie; every placement check runs')
-  assert.match(src, /notification_type: MANUAL_CONFIRMATION_TYPE/,
-    'recorded as a confirmation, never as a provider send')
-  assert.ok(!/DIRECT_MESSAGE_TYPE,\s*\n\s*audience/.test(src), 'never writes direct_message_sent')
-  assert.match(src, /already = \(existing \|\| \[\]\)\.some/,
-    'ANY existing evidence answers already:true and writes nothing')
-  assert.match(src, /confirmed_by: actorId/,
-    'the acting user is recorded, from the session')
-  assert.match(src, /The confirming user is taken from your session, never from the request/,
-    'a body-supplied identity is refused outright')
-})
 
 test('the canonical tooltip is portaled, so transformed cards cannot clip it', () => {
   const src = strip(read('src/components/ui/Tooltip.jsx'))

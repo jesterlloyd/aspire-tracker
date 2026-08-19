@@ -906,6 +906,17 @@ function MainApp({ onLogout }) {
     return error || null
   }
 
+  // PLACEMENT-NOTIFICATION-CONTROL-1: bring the in-memory match projection into
+  // step AFTER the notification endpoint has already written. This performs no
+  // database write of its own - the server is the writer, and the endpoint has
+  // proved the placement before touching anything. Without this the panel and
+  // the board would keep showing a task the database no longer agrees with
+  // until the next full load.
+  const syncMatchLocal = (matchId, patch) => {
+    if (!matchId || !patch) return
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, ...patch } : m))
+  }
+
   // ── CSV export ───────────────────────────────────────────────
   const exportCSV = () => {
     const headers = ['Name','School Email','Personal Email','Phone','School','ASPIRE Cohort',
@@ -1227,6 +1238,7 @@ function MainApp({ onLogout }) {
                 students={students} units={units} matches={matches}
                 cohortId={activeCohortId} cohort={activeCohort}
                 onMatch={createMatch} onUnmatch={unmatch} onUpdateMatch={updateMatch}
+                onMatchLocalSync={syncMatchLocal}
                 onRefreshUnits={() => fetchUnits(activeCohortId)}
                 onDeleteUnit={deleteUnit}
                 highlightUnitId={highlightUnitId}
@@ -1291,7 +1303,7 @@ function MainApp({ onLogout }) {
           schoolRotations={acSchoolRotations}
           onNavigateToActivityStudent={id => { goToActivityStudent(id); setShowActionCenter(false) }}
           onLogCommunication={logCommunication}
-          onMatchUpdate={updateMatch}
+          onMatchLocalSync={syncMatchLocal}
           onStudentUpdate={updateStudent}
           onActionCountChange={handleActionCount}
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}

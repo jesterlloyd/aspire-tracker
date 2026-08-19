@@ -10,33 +10,17 @@ import { openMailtoLink } from '../lib/openLink'
 import { supabase } from '../lib/supabase'
 import {
   buildPlacementFacts, missingSummary, resolveUnitLeaderGreetingName, toNoticeStudent,
+  studentNaturalName,
 } from '../lib/placementCommunication'
-import {
-  NOTIFY_CONFIRM, notifiedPatch, pendingNotifyTargets, notifyConfirmHeadline,
-  notifyRecordedMessage, notifyFailedMessage,
-} from '../lib/placementNotification'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { resolveRequiredAttachments } from '../lib/connect/catalogAttachments'
-import {
-  preceptorSentState, preceptorSentLabel, preceptorSentTooltip,
-} from '../lib/placementPreceptorSent'
 import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
 import { CARD } from '../lib/designTokens'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import { MATCH_RANK_CONFIG, matchRankOf } from '../lib/placementDisplay'
-import { Mail, Check } from 'lucide-react'
-
-// PLACEMENT-NOTIFICATION-STATE-1: the notification envelopes, unified. The board
-// follows the app's icon idiom (lucide glyph + shared Tooltip); the earlier ✉
-// text glyph was ~12px with a sliver of padding - a target nobody could hit
-// reliably and a symbol easy to miss. One token so the unit-leader and
-// preceptor controls can never drift apart in size or affordance again.
-const ENVELOPE_BTN = {
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  width: 26, height: 26, borderRadius: 6, border: '1px solid transparent',
-  background: 'none', padding: 0, lineHeight: 1, flexShrink: 0,
-}
+import NotificationControl from './placement/NotificationControl'
+import { NOTIFICATION_TARGETS, notificationStateFor } from '../lib/placementNotificationState'
 
 // ── Choice / match-quality config ────────────────────────────────────────────
 
@@ -58,10 +42,13 @@ const resolveMatchedStudent = (match, studentMap) => {
 
 // ── Compact placement row ─────────────────────────────────────────────────────
 
-function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssignPreceptor, placement, onEmailPreceptor, sentState }) {
+function CompactPlacementRow({
+  student, match, unit, onUnmatch, onNotify, onAssignPreceptor, placement, onEmailPreceptor,
+  unitLeaderNotifyState, preceptorNotifyState, unitLeaderName, canCorrect,
+  onConfirmNotified, onCorrectNotified,
+}) {
   const [rowHovered, setRowHovered] = useState(false)
   const qCfg       = MATCH_RANK_CONFIG[matchRankOf(student, match)]
-  const isNotified = !!match?.notification_sent
   // PLACEMENT-COMMUNICATION-HANDOFF-1: presence comes ONLY from the PLACEMENT's
   // resolved preceptor (this student, in THIS unit). The student-level fields are
   // deliberately not consulted here: for a multi-unit student they name whoever
@@ -137,63 +124,26 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
             >
               {'\u{1F464}'} {preceptorName}
             </button>
-            {/* PLACEMENT-COMMUNICATION-HANDOFF-1 / -STATE-1: the preceptor
-                envelope. It never opens a mailto - it hands this exact placement
-                to ASPIRE Connect → Outreach as an editable draft.
-                THREE STATES, ONE CONTROL:
-                  no email  → natively disabled, the reason in the label
-                  unsent    → clickable, "Notify Preceptor"
-                  notified  → visible but inert, "Preceptor Notified"
-                The notified state is aria-disabled rather than disabled because a
-                natively disabled button is unfocusable and shows no tooltip - the
-                explanation would vanish exactly when it matters. Activation is
-                blocked in the handler, which covers mouse, Enter and Space alike
-                (keyboard activation of a button IS a click). */}
+            {/* PLACEMENT-NOTIFICATION-CONTROL-1: one shared control, identical
+                to the unit-leader row's. The envelope opens the ASPIRE Connect
+                handoff and writes nothing; the check is the only path to
+                notified state, and it always asks first. */}
             {onEmailPreceptor && (
-              <Tooltip
-                label={sentState?.sent
-                  ? 'Preceptor Notified'
-                  : preceptorEmail
-                    ? 'Notify Preceptor'
-                    : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
-                placement="top">
-                <button
-                  data-testid="placement-preceptor-email"
-                  aria-label={sentState?.sent
-                    ? 'Preceptor Notified'
-                    : preceptorEmail
-                      ? 'Notify Preceptor'
-                      : `Cannot email ${preceptorName || 'this preceptor'}: no email address on file`}
-                  aria-disabled={!preceptorEmail || !!sentState?.sent}
-                  disabled={!preceptorEmail}
-                  onClick={e => {
-                    e.stopPropagation()
-                    if (!preceptorEmail || sentState?.sent) return
-                    onEmailPreceptor(student, match, placement)
-                  }}
-                  style={{ ...ENVELOPE_BTN,
-                    color: sentState?.sent ? '#9ca3af' : preceptorEmail ? '#475467' : '#d1d5db',
-                    cursor: sentState?.sent ? 'default' : preceptorEmail ? 'pointer' : 'not-allowed' }}
-                >
-                  <Mail size={14} strokeWidth={2} aria-hidden="true" />
-                </button>
-              </Tooltip>
-            )}
-            {/* The check mark beside the inert envelope: this preceptor's OWN
-                send, with its date - deliberately coloured apart from the
-                unit-leader ✓ so it can never be read as the unit-leader
-                notification or the card's "N of M notified" count. */}
-            {sentState?.sent && (
-              <Tooltip label={preceptorSentTooltip(sentState, preceptorName)} placement="top">
-                <span
-                  data-testid="placement-preceptor-sent"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 2,
-                    fontFamily: 'DM Sans,sans-serif', fontSize: 9.5, fontWeight: 700,
-                    color: '#0e4e6e', background: '#E1F3FB', border: '1px solid #89CEEA',
-                    borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>
-                  <Check size={10} strokeWidth={3.5} aria-hidden="true" /> {preceptorSentLabel(sentState)}
-                </span>
-              </Tooltip>
+              <NotificationControl
+                target={NOTIFICATION_TARGETS.PRECEPTOR}
+                state={preceptorNotifyState}
+                personName={preceptorName}
+                studentName={studentNaturalName(student)}
+                unitName={unit.unit_name}
+                disabledReason={preceptorEmail ? '' : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
+                onOpenDraft={() => onEmailPreceptor(student, match, placement)}
+                onConfirm={() => onConfirmNotified?.({
+                  target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement,
+                })}
+                onCorrect={canCorrect ? (reason) => onCorrectNotified?.({
+                  target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement, reason,
+                }) : null}
+              />
             )}
           </div>
         )}
@@ -201,33 +151,22 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
 
       {/* Notify + unmatch controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-        {/* PLACEMENT-NOTIFICATION-STATE-1: the envelope no longer vanishes into
-            a bare ✓ on notification - it stays, inert, so the control keeps its
-            identity, with the check beside it. State comes from the stored match
-            row (notification_sent), written ONLY by the explicit confirmation. */}
-        <Tooltip label={isNotified ? 'Unit Leader Notified' : 'Notify Unit Leader'} placement="top">
-          <button
-            data-testid="notify-unit-leader"
-            aria-label={isNotified ? 'Unit Leader Notified' : 'Notify Unit Leader'}
-            aria-disabled={isNotified}
-            onClick={e => {
-              e.stopPropagation()
-              if (isNotified) return
-              onNotify(student, match)
-            }}
-            style={{ ...ENVELOPE_BTN,
-              color: isNotified ? '#9ca3af' : '#475467',
-              cursor: isNotified ? 'default' : 'pointer' }}
-          >
-            <Mail size={14} strokeWidth={2} aria-hidden="true" />
-          </button>
-        </Tooltip>
-        {isNotified && (
-          <span data-testid="unit-leader-notified-check" aria-hidden="true"
-            style={{ display: 'inline-flex', color: '#16a34a', flexShrink: 0 }}>
-            <Check size={13} strokeWidth={3} />
-          </span>
-        )}
+        {/* The SAME shared control for the unit leader, so the two rows cannot
+            drift in shape, size, wording or meaning again. */}
+        <NotificationControl
+          target={NOTIFICATION_TARGETS.UNIT_LEADER}
+          state={unitLeaderNotifyState}
+          personName={unitLeaderName}
+          studentName={studentNaturalName(student)}
+          unitName={unit.unit_name}
+          onOpenDraft={() => onNotify(student, match)}
+          onConfirm={() => onConfirmNotified?.({
+            target: NOTIFICATION_TARGETS.UNIT_LEADER, student, match, placement,
+          })}
+          onCorrect={canCorrect ? (reason) => onCorrectNotified?.({
+            target: NOTIFICATION_TARGETS.UNIT_LEADER, student, match, placement, reason,
+          }) : null}
+        />
         <Tooltip label="Unmatch student" placement="top">
         <button
           aria-label="Unmatch student"
@@ -280,29 +219,27 @@ function CompactOpenSlot({ selectedStudent, compat, onClick }) {
 
 export default function EmbedUnitCard({
   unit, matchedStudents, matches, studentMap, selectedStudent,
-  onSlotClick, onUnmatch, onUpdateMatch, onDelete, isHighlighted,
+  onSlotClick, onUnmatch, onDelete, isHighlighted,
   isFocusedUnit, onFocusUnit, onPreceptorAssigned,
   // PLACEMENT-COMMUNICATION-HANDOFF-1 canonical inputs. All optional: without
   // them the card still renders, the notice simply reports the values it could
   // not resolve instead of inventing them.
   rotationRows = [], preceptorsById = null, unitLeaders = [],
-  cohortId = null, cohortName = '', preceptorSent = null,
+  cohortId = null, cohortName = '',
+  // PLACEMENT-NOTIFICATION-CONTROL-1: the shared confirmation ledger index and
+  // the two writers. Both rows read the same index and call the same handlers.
+  notificationIndex = null, canCorrectNotifications = false,
+  onConfirmNotified = null, onCorrectNotified = null,
 }) {
   const navigate = useNavigate()
   const [confirmUnmatch,  setConfirmUnmatch]  = useState(null)
   const [confirmDelete,   setConfirmDelete]   = useState(false)
   const [toast,           setToast]           = useState(null)
   const [cardHovered,     setCardHovered]     = useState(false)
-  const [notifiedAt,      setNotifiedAt]      = useState(null)  // persists Zone-2 notify confirmation
   const [assignStudent,   setAssignStudent]   = useState(null)
   // The unit-leader notice awaiting confirmation, when the placement is missing
   // canonical values. { students, missing, message, onConfirm } - see handleNotify*.
   const [notifyPreview,   setNotifyPreview]   = useState(null)
-  // Students whose draft has been opened and whose notified state is therefore
-  // awaiting an explicit human confirmation. { studentIds, multi } - ids only, so
-  // the pending set is always re-derived from live match rows.
-  const [notifyConfirm,   setNotifyConfirm]   = useState(null)
-  const [notifyBusy,      setNotifyBusy]      = useState(false)
   const [preceptorHandoff, setPreceptorHandoff] = useState(null)  // 'busy' | { error }
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 4000) }
@@ -324,19 +261,21 @@ export default function EmbedUnitCard({
     : null
   const choiceStyle = compat ? CHOICE_STYLES[compat] : null
 
-  // Notification state
-  const notifiedCount = matchedStudents.filter(s => {
-    const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
-    return !!m?.notification_sent
-  }).length
+  // Notification state - derived from the SAME confirmation ledger the rows
+  // render, so the count can never disagree with the statuses beside it.
+  const unitLeaderConfirmed = (student) => {
+    const m = matches.find(mm => mm.student_id === student.id && mm.unit_id === unit.id)
+    if (!m) return false
+    return notificationStateFor(notificationIndex,
+      { target: NOTIFICATION_TARGETS.UNIT_LEADER, matchId: m.id },
+      { legacyNotified: !!m.notification_sent }).confirmed
+  }
+  const notifiedCount = matchedStudents.filter(unitLeaderConfirmed).length
   const allNotified  = filledCount > 0 && notifiedCount === filledCount
   const someNotified = notifiedCount > 0 && notifiedCount < filledCount
 
   // Build unnotified list for Zone-2 button label
-  const unnotifiedStudents = matchedStudents.filter(s => {
-    const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
-    return !m?.notification_sent
-  })
+  const unnotifiedStudents = matchedStudents.filter(s => !unitLeaderConfirmed(s))
 
   const notifyButtonLabel = (() => {
     if (unnotifiedStudents.length === 1) return `Notify unit leader about ${unnotifiedStudents[0].first_name} →`
@@ -385,9 +324,8 @@ export default function EmbedUnitCard({
       isMultiStudent: multi,
     })
     openMailtoLink(message.url)
-    // The confirmation is offered for exactly the students in this draft, by id,
-    // so it is re-resolved against live match rows when it is acted on.
-    setNotifyConfirm({ studentIds: studentRows.map(r => r.student.id), multi })
+    // Nothing else. The check control beside each name is the only path to
+    // notified state, and it asks before it records.
 
     const who = multi
       ? `${unit.unit_name} (${studentRows.length} student${studentRows.length !== 1 ? 's' : ''})`
@@ -398,44 +336,8 @@ export default function EmbedUnitCard({
       // Honest about a real limit rather than pretending the draft opened whole.
       showToast(`Draft opened for ${who}. It is unusually long (${message.urlLength} characters) - check that Outlook kept all of it. Nothing has been recorded yet.`)
     } else {
-      showToast(`Draft opened for ${who}. Nothing has been recorded yet.`)
+      showToast(`Draft opened for ${who}. Use the check beside the name once it has actually been sent.`)
     }
-  }
-
-  // ── The explicit confirmation ─────────────────────────────────────────────
-  //
-  // The ONLY writer of notified state on this board. It re-resolves the pending
-  // rows from the LIVE matches prop at click time, which is what makes it
-  // idempotent: once a row is recorded, it is no longer pending, so confirming
-  // again writes nothing. Rows already notified by any other surface are skipped
-  // for the same reason, so the card's counts cannot be double-counted.
-  const pendingConfirmRows = pendingNotifyTargets(
-    (notifyConfirm?.studentIds || []).map(id => ({
-      studentId: id,
-      unitId: unit.id,
-      label: displayName(matchedStudents.find(s => s.id === id) || {}),
-    })),
-    matches,
-  )
-
-  const confirmNotified = async () => {
-    if (notifyBusy) return
-    if (pendingConfirmRows.length === 0) { setNotifyConfirm(null); return }
-    setNotifyBusy(true)
-    const patch = notifiedPatch()
-    let failed = 0
-    for (const r of pendingConfirmRows) {
-      const err = await onUpdateMatch(r.match.id, r.studentId, patch)
-      if (err) failed += 1
-    }
-    setNotifyBusy(false)
-    const recorded = pendingConfirmRows.length - failed
-    if (recorded > 0) setNotifiedAt(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))
-    showToast(failed > 0 ? notifyFailedMessage(failed) : notifyRecordedMessage(unit.unit_name, recorded))
-    // Deliberately NOT cleared here. The strip's visibility is derived from the
-    // live match rows, so it disappears when the writes landed and STAYS - still
-    // actionable - if one did not. A failed write can therefore never look like a
-    // recorded one.
   }
 
   // A notice is only opened once the Owner has SEEN what is missing. With every
@@ -556,28 +458,12 @@ export default function EmbedUnitCard({
       showToast('This browser blocked session storage, so the placement details could not be carried over.')
       return
     }
-    // PRECEPTOR-DRAFT-CONTINUITY-1: remember that this handoff is OPEN. If the
-    // user comes back to Rotation without either the automatic send evidence or
-    // an answer, the board asks whether the email went - instead of silently
-    // showing nothing for a send that may well have happened. Session-scoped,
-    // ids only for identity plus display names for the question itself, and
-    // written only for a placement the confirm endpoint could actually verify.
-    if (match?.id && placement.preceptorId) {
-      try {
-        sessionStorage.setItem('aspire.placement.pendingPreceptorHandoff.v1', JSON.stringify({
-          v: 1,
-          cohortId,
-          matchId: match.id,
-          studentId: student.id,
-          unitId: unit.id,
-          preceptorId: placement.preceptorId,
-          preceptorName: placement.preceptorName || '',
-          studentName: displayName(student),
-          unitName: unit.unit_name,
-          at: Date.now(),
-        }))
-      } catch { /* storage blocked - the prompt simply never appears */ }
-    }
+    // PLACEMENT-NOTIFICATION-CONTROL-1: no marker is written here, and no
+    // question is asked afterwards. Opening a draft says nothing about whether
+    // anyone was notified, so the board no longer records that it happened. The
+    // check beside this envelope is the only way to claim a notification, and
+    // it is available whenever staff actually know - not only on the one return
+    // trip that a session-scoped marker happened to survive.
     navigate('/connect/outreach?launch=1', {
       state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } },
     })
@@ -710,13 +596,11 @@ export default function EmbedUnitCard({
           </div>
 
           {/* Notify Zone-2 button - only when full and unnotified placements exist */}
+          {/* The transient "notified at HH:MM" line is gone: the row statuses and
+              the count beside them come from the ledger, so they already say
+              this - accurately, and after a refresh. */}
           {isFull && filledCount > 0 && !allNotified && (
             <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
-              {notifiedAt ? (
-                <div style={{ fontSize: 12, color: '#9ca3af' }}>
-                  {'✓'} Unit leader notified {notifiedAt}
-                </div>
-              ) : (
                 <button
                   onClick={handleNotifyAll}
                   style={{
@@ -732,7 +616,6 @@ export default function EmbedUnitCard({
                 >
                   {notifyButtonLabel}
                 </button>
-              )}
             </div>
           )}
         </div>
@@ -754,55 +637,25 @@ export default function EmbedUnitCard({
                   onNotify={handleNotifyOne}
                   onAssignPreceptor={s => setAssignStudent(s)}
                   onEmailPreceptor={preceptorHandoff === 'busy' ? undefined : handleEmailPreceptor}
-                  /* Judged against the placement as it stands NOW: this match
-                     row's id and the preceptor currently resolved for it. A
-                     recreated match or a replaced preceptor therefore starts
-                     unsent, because neither can match an older record. */
-                  sentState={preceptorSentState(preceptorSent, {
-                    matchId: match?.id,
+                  /* Both states are judged against the placement as it stands
+                     NOW: this match row's id, and for the preceptor the person
+                     currently resolved for it. A recreated match or a replaced
+                     preceptor therefore starts unnotified, because neither can
+                     match an older confirmation. */
+                  unitLeaderNotifyState={notificationStateFor(notificationIndex, {
+                    target: NOTIFICATION_TARGETS.UNIT_LEADER, matchId: match?.id,
+                  }, { legacyNotified: !!match?.notification_sent })}
+                  preceptorNotifyState={notificationStateFor(notificationIndex, {
+                    target: NOTIFICATION_TARGETS.PRECEPTOR, matchId: match?.id,
                     preceptorId: (placementByStudent[student.id] || factsFor(student)).preceptorId,
                   })}
+                  unitLeaderName={leaderGreeting.name || unit.contact_person || ''}
+                  canCorrect={canCorrectNotifications}
+                  onConfirmNotified={onConfirmNotified}
+                  onCorrectNotified={onCorrectNotified}
                 />
               )
             })}
-            {/* PLACEMENT-COMMUNICATION-HANDOFF-1: the explicit notification
-                confirmation. It appears only after a draft has been opened, and
-                only while a row is genuinely still unrecorded - so it vanishes on
-                success and stays put if a write did not land. Nothing was written
-                when the draft opened; this control is the only writer. */}
-            {notifyConfirm && pendingConfirmRows.length > 0 && (
-              <div
-                data-testid="notify-confirm-strip"
-                onClick={e => e.stopPropagation()}
-                style={{ margin: '4px 2px 2px', padding: '8px 10px', borderRadius: 8,
-                  background: '#fdf6ec', border: '1px solid #f0c9b0', display: 'flex',
-                  flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontSize: 11.5, color: '#583733', lineHeight: 1.5 }}>
-                  {notifyConfirmHeadline(pendingConfirmRows)}
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button
-                    data-testid="notify-confirm-yes"
-                    disabled={notifyBusy}
-                    onClick={e => { e.stopPropagation(); confirmNotified() }}
-                    style={{ padding: '4px 10px', borderRadius: 6, border: 'none',
-                      background: notifyBusy ? '#9ca3af' : '#1D2567', color: '#fff',
-                      fontFamily: 'DM Sans,sans-serif', fontSize: 11.5, fontWeight: 600,
-                      cursor: notifyBusy ? 'not-allowed' : 'pointer' }}>
-                    {notifyBusy ? NOTIFY_CONFIRM.busyLabel : NOTIFY_CONFIRM.confirmLabel}
-                  </button>
-                  <button
-                    data-testid="notify-confirm-no"
-                    disabled={notifyBusy}
-                    onClick={e => { e.stopPropagation(); setNotifyConfirm(null) }}
-                    style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #e0d3c4',
-                      background: '#fff', color: '#583733', fontFamily: 'DM Sans,sans-serif',
-                      fontSize: 11.5, fontWeight: 600, cursor: notifyBusy ? 'not-allowed' : 'pointer' }}>
-                    {NOTIFY_CONFIRM.dismissLabel}
-                  </button>
-                </div>
-              </div>
-            )}
             {/* Notify summary for non-full units */}
             {!isFull && filledCount > 0 && !allNotified && (
               <div style={{ fontSize: 11, color: '#9ca3af', padding: '2px 4px' }}>

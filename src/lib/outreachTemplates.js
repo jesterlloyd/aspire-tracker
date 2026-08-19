@@ -74,8 +74,13 @@ const merged = (value, placeholder) => {
 // documents cannot be resolved the bullet is OMITTED entirely, the composer
 // shows an actionable warning, and the send is blocked - so a reader never sees
 // a claim that is untrue, and the sender is never left wondering why.
+// PLACEMENT-NOTIFICATION-CONTROL-1: the exact sentence, and the whole bullet.
+// The earlier text carried a "Scope of practice: " label that the other three
+// reminders do not have, and read "see attached" where the sentence needs "see
+// the attached". This string IS the requirement, so it is asserted verbatim by
+// test/placementNotificationControl.test.mjs rather than described.
 const ATTACHED_REMINDER =
-  'Scope of practice: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
 
 export function buildPreceptorAssignmentDraft({ firstName, placement, attachmentsAttached = false } = {}) {
   const p = placement || {}
@@ -108,7 +113,17 @@ export function buildPreceptorAssignmentDraft({ firstName, placement, attachment
   if (notes) summaryLines.push(`Additional Notes: ${notes}`)
 
   const subject = 'ASPIRE: Student Assignment and Introduction Details'
-  const body = `Dear ${fb(greetName, 'Preceptor')},
+  // PLACEMENT-NOTIFICATION-CONTROL-1: the block title opens BOTH bodies.
+  //
+  // The rich body has always opened with the "Preceptor Assignment & Details"
+  // heading; the plain body began at the greeting, so the same message read
+  // differently depending on which representation a recipient's mail client
+  // showed. The heading is intentional and stays - the plain text now carries
+  // it too, as its own line followed by a blank line, which is what a heading
+  // looks like in plain text.
+  const body = `Preceptor Assignment & Details
+
+Dear ${fb(greetName, 'Preceptor')},
 
 Thank you for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice.
 

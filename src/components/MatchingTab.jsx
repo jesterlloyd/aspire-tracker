@@ -21,10 +21,9 @@ import {
   needsPlacementException, exceptionCount, isPoolEligible,
 } from '../lib/placementReadiness'
 import {
-  preceptorSentIndex, preceptorSentState, SENT_EVIDENCE_STATUSES,
-  DIRECT_MESSAGE_TYPE, MANUAL_CONFIRMATION_TYPE, MANUAL_CONFIRMATION_STATUS,
-} from '../lib/placementPreceptorSent'
-import { resolvePlacementPreceptor } from '../lib/placementCommunication'
+  notificationStateIndex, NOTIFICATION_TARGETS,
+  CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE,
+} from '../lib/placementNotificationState'
 import { supabase as supabaseClient } from '../lib/supabase'
 // ── Unified Placement Overview - single panel replacing Placement at a Glance + Preference Match Ring ──
 
@@ -136,9 +135,17 @@ export default function MatchingTab({
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit, highlightUnitId,
   focusMatchStudentId, onFocusMatchConsumed,
   onPreceptorAssigned,
+  onMatchLocalSync,
   toast,
 }) {
   const queryClient = useQueryClient()
+  // PLACEMENT-NOTIFICATION-CONTROL-1: correcting a recorded notification rewrites
+  // what the board says about a real person, so the affordance is Owner/Admin
+  // only. The endpoint enforces the same rule - this decides visibility, not
+  // authority, and hiding it is not what makes it safe.
+  const { userProfile: notifyActor } = useAuth()
+  const canCorrectNotifications = notifyActor?.is_owner === true
+    || ['owner', 'admin'].includes(notifyActor?.role)
   const [selectedStudent,   setSelectedStudent]   = useState(null)
   const cardRefs = useRef({})
 
@@ -245,120 +252,101 @@ export default function MatchingTab({
     return m
   }, [preceptorRows])
 
-  // PLACEMENT-COMMUNICATION-HANDOFF-1A: confirmed preceptor-assignment sends.
+  // PLACEMENT-NOTIFICATION-CONTROL-1: the human-confirmation ledger.
   //
-  // notification_log rows are written by api/connect-send-direct-email ONLY after
-  // Resend accepts the message, so a row here IS evidence of a successful send -
-  // there is no separate flag to keep in step, and nothing to write when a draft
-  // is merely opened. The placement identity lives in the metadata jsonb the
-  // endpoint already populates, so this needed no schema change.
+  // NOT provider delivery history. Every row here exists because a member of
+  // staff confirmed, in a dialog, that a unit leader or a preceptor was notified
+  // about one specific placement - or corrected such a confirmation, with a
+  // stated reason. Delivery history keeps its own rows and never lands here, so
+  // an email that was sent, edited, misaddressed or bounced cannot quietly
+  // become a claim that somebody was notified.
   //
-  // Read-only, under the table's existing owners_admins_read policy.
-  const { data: preceptorSentRows = [] } = useQuery({
-    queryKey: ['placement_preceptor_sent', cohortId],
+  // Read-only, under notification_log's existing owners_admins_read policy, and
+  // scoped to the open cohort. No schema change: the endpoint stamps the
+  // placement identity into the metadata jsonb this filters on.
+  const { data: notificationRows = [] } = useQuery({
+    queryKey: ['placement_notification_state', cohortId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notification_log')
-        .select('id, notification_type, status, sent_at, metadata')
-        // Two evidence sources: provider-confirmed sends and guarded manual
-        // confirmations. The reducer arbitrates each type's status contract.
-        .in('notification_type', [DIRECT_MESSAGE_TYPE, MANUAL_CONFIRMATION_TYPE])
-        // status ADVANCES after acceptance (webhook: sent -> delivered -> opened
-        // -> clicked). Filtering on 'sent' alone lost every row the moment a
-        // real email was delivered - the earlier missing-chip defect.
-        .in('status', [...SENT_EVIDENCE_STATUSES, MANUAL_CONFIRMATION_STATUS])
+        .select('id, notification_type, status, sent_at, created_at, metadata')
+        .in('notification_type', [CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE])
         .eq('metadata->>placement_cohort_id', cohortId)
-        .eq('metadata->>placement_template_key', 'preceptor_assignment')
-        .order('sent_at', { ascending: false })
+        .order('sent_at', { ascending: true })
       if (error) throw error
       return data || []
     },
     enabled: !!cohortId,
     staleTime: 30_000,
-    // Returning from ASPIRE Connect must show the send immediately; Connect also
-    // invalidates this key on a successful send, so both paths refresh it.
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   })
-  const preceptorSent = useMemo(() => preceptorSentIndex(preceptorSentRows), [preceptorSentRows])
+  const notificationIndex = useMemo(() => notificationStateIndex(notificationRows), [notificationRows])
 
-  // ── PRECEPTOR-DRAFT-CONTINUITY-1: the follow-up question ──────────────────
+  // ── PLACEMENT-NOTIFICATION-CONTROL-1: the two writers ─────────────────────
   //
-  // The board wrote a marker when the preceptor handoff was opened. If the user
-  // is back here and the placement STILL has no send evidence, something is
-  // unresolved: maybe they sent it from a detached draft, maybe they did not
-  // send it at all. Nobody is marked automatically - the board ASKS, once, for
-  // exactly that placement, and only while the marker's match and preceptor are
-  // still the current ones (a replaced preceptor or recreated match discards
-  // the marker rather than inheriting the question).
-  const [handoffPromptDismissed, setHandoffPromptDismissed] = useState(false)
-  const [handoffConfirmBusy, setHandoffConfirmBusy] = useState(false)
-  const pendingHandoff = useMemo(() => {
-    if (handoffPromptDismissed) return null
-    let marker = null
-    try {
-      marker = JSON.parse(sessionStorage.getItem('aspire.placement.pendingPreceptorHandoff.v1') || 'null')
-    } catch { return null }
-    if (!marker || marker.v !== 1 || marker.cohortId !== cohortId) return null
-    if (!marker.matchId || !marker.preceptorId || !marker.studentId || !marker.unitId) return null
-    // Resolved already? Then there is nothing to ask.
-    if (preceptorSentState(preceptorSent, marker).sent) {
-      try { sessionStorage.removeItem('aspire.placement.pendingPreceptorHandoff.v1') } catch { /* ignore */ }
-      return null
-    }
-    // Still the same placement? The marker must describe the CURRENT world.
-    const match = matches.find(m => m.id === marker.matchId) || null
-    if (!match) return null                    // deleted or recreated - not this question
-    const student = students.find(st => st.id === marker.studentId) || null
-    if (!student || match.student_id !== marker.studentId || match.unit_id !== marker.unitId) return null
-    const current = resolvePlacementPreceptor({
-      student, match, preceptorsById,
-      studentMatches: matches.filter(m => m.student_id === marker.studentId),
+  // One path in, for both targets and both directions. Every call is a person
+  // acting on a dialog they have just read; nothing here can be triggered by
+  // opening, sending, or abandoning an email. The server re-proves the whole
+  // placement before recording, so a stale tab or a replaced preceptor is
+  // refused rather than mis-recorded - and on any failure the board keeps
+  // saying exactly what it said before.
+  const writeNotification = async ({ target, action, student, match, placement, reason }) => {
+    if (!match?.id || !student?.id) throw new Error('This placement is incomplete. Reopen it from the Placement Board.')
+    const { data: { session } } = await supabaseClient.auth.getSession()
+    if (!session?.access_token) throw new Error('Your session has expired. Please refresh and try again.')
+    const res = await fetch('/api/placement-notification-confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        target,
+        action,
+        match_id: match.id,
+        student_id: student.id,
+        unit_id: match.unit_id,
+        cohort_id: cohortId,
+        ...(target === 'preceptor' ? { preceptor_id: placement?.preceptorId || '' } : {}),
+        ...(reason ? { reason } : {}),
+      }),
     })
-    if (!current || String(current.id || '') !== String(marker.preceptorId)) return null
-    return marker
-  }, [handoffPromptDismissed, cohortId, preceptorSent, matches, students, preceptorsById])
-
-  const clearHandoffMarker = () => {
-    try { sessionStorage.removeItem('aspire.placement.pendingPreceptorHandoff.v1') } catch { /* ignore */ }
-    setHandoffPromptDismissed(true)
+    const payload = await res.json().catch(() => null)
+    if (!res.ok || !payload?.success) throw new Error(payload?.error || 'Nothing was recorded. Please try again.')
+    // The ledger is the single source for the board AND for the Action Center's
+    // outstanding-task predicate, so both refresh from this one signal.
+    queryClient.invalidateQueries({ queryKey: ['placement_notification_state'] })
+    // matches live in App state, not in a query. The server has already written
+    // the projection; this only stops the Action Center's task and the board's
+    // counters disagreeing until the next full load.
+    if (target === NOTIFICATION_TARGETS.UNIT_LEADER) {
+      onMatchLocalSync?.(match.id, action === 'confirm'
+        ? { notification_sent: true, notified_at: new Date().toISOString() }
+        : { notification_sent: false, notified_at: null })
+    }
+    return payload
   }
 
-  // "Yes, Mark Preceptor as Notified" - the guarded manual confirmation. The
-  // server re-proves the placement before recording anything; "Not Yet" writes
-  // nothing and leaves the draft exactly where it is.
-  const confirmHandoffSent = async () => {
-    if (!pendingHandoff || handoffConfirmBusy) return
-    setHandoffConfirmBusy(true)
+  const handleConfirmNotified = async (args) => {
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      if (!session?.access_token) throw new Error('Session expired')
-      const res = await fetch('/api/placement-preceptor-confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          match_id: pendingHandoff.matchId,
-          student_id: pendingHandoff.studentId,
-          unit_id: pendingHandoff.unitId,
-          cohort_id: pendingHandoff.cohortId,
-          preceptor_id: pendingHandoff.preceptorId,
-        }),
-      })
-      const payload = await res.json().catch(() => null)
-      if (!res.ok || !payload?.success) {
-        throw new Error(payload?.error || 'The confirmation could not be recorded.')
-      }
-      clearHandoffMarker()
-      queryClient.invalidateQueries({ queryKey: ['placement_preceptor_sent'] })
-      toast?.success?.('Recorded', `${pendingHandoff.preceptorName || 'The preceptor'} marked as notified.`)
+      const r = await writeNotification({ ...args, action: 'confirm' })
+      toast?.success?.('Recorded', r?.already
+        ? 'This was already recorded as notified.'
+        : 'Marked as notified.')
     } catch (e) {
-      // The marker stays, the prompt stays actionable - a failed write must
-      // never look like a recorded one.
       toast?.error?.('Not recorded', e.message || 'Nothing was changed. You can try again.')
-    } finally {
-      setHandoffConfirmBusy(false)
+      throw e
     }
   }
+
+  const handleCorrectNotified = async (args) => {
+    try {
+      await writeNotification({ ...args, action: 'correct' })
+      toast?.success?.('Correction recorded', 'The original confirmation is kept as history.')
+    } catch (e) {
+      toast?.error?.('Not corrected', e.message || 'Nothing was changed. You can try again.')
+      throw e
+    }
+  }
+
 
   // Active unit leaders, for the ONE thing the placement notice needs from them:
   // a reliable greeting name (preferred_name first). Recipient addressing is
@@ -685,7 +673,10 @@ export default function MatchingTab({
                       rotationRows={rotationRows}
                       preceptorsById={preceptorsById}
                       unitLeaders={unitLeaderRows}
-                      preceptorSent={preceptorSent}
+                      notificationIndex={notificationIndex}
+                      canCorrectNotifications={canCorrectNotifications}
+                      onConfirmNotified={handleConfirmNotified}
+                      onCorrectNotified={handleCorrectNotified}
                       cohortId={cohortId}
                       cohortName={cohort?.name || ''}
                       selectedStudent={selectedStudent}
@@ -718,7 +709,10 @@ export default function MatchingTab({
                       rotationRows={rotationRows}
                       preceptorsById={preceptorsById}
                       unitLeaders={unitLeaderRows}
-                      preceptorSent={preceptorSent}
+                      notificationIndex={notificationIndex}
+                      canCorrectNotifications={canCorrectNotifications}
+                      onConfirmNotified={handleConfirmNotified}
+                      onCorrectNotified={handleCorrectNotified}
                       cohortId={cohortId}
                       cohortName={cohort?.name || ''}
                       selectedStudent={selectedStudent}
@@ -896,50 +890,11 @@ export default function MatchingTab({
           onClose={() => setShowImportUnits(false)} />
       )}
 
-      {/* PRECEPTOR-DRAFT-CONTINUITY-1: the follow-up question for an unresolved
-          preceptor handoff. Asking is free; only the explicit Yes writes, and it
-          writes through the guarded confirm endpoint - never a fabricated
-          provider row. Not Yet records nothing and preserves the draft. */}
-      {pendingHandoff && (
-        <div className="modal-overlay" data-testid="preceptor-handoff-prompt"
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div role="dialog" aria-modal="true" aria-label="Confirm preceptor notification"
-            onMouseDown={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 480, width: '92%',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.25)', fontFamily: 'DM Sans, sans-serif' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#1D2567', marginBottom: 8 }}>
-              Preceptor email follow-up
-            </div>
-            <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.6, margin: '0 0 16px' }}>
-              Were you able to send the Preceptor Assignment &amp; Details email to{' '}
-              <strong>{pendingHandoff.preceptorName || 'the preceptor'}</strong> for{' '}
-              <strong>{pendingHandoff.studentName || 'the student'}</strong> on{' '}
-              <strong>{pendingHandoff.unitName || 'the unit'}</strong>?
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button
-                data-testid="handoff-not-yet"
-                disabled={handoffConfirmBusy}
-                onClick={clearHandoffMarker}
-                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff',
-                  fontSize: 12.5, fontWeight: 600, color: '#374151', fontFamily: 'DM Sans, sans-serif',
-                  cursor: handoffConfirmBusy ? 'not-allowed' : 'pointer' }}>
-                Not Yet
-              </button>
-              <button
-                data-testid="handoff-confirm-yes"
-                disabled={handoffConfirmBusy}
-                onClick={confirmHandoffSent}
-                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: handoffConfirmBusy ? '#9ca3af' : '#1D2567',
-                  fontSize: 12.5, fontWeight: 600, color: '#fff', fontFamily: 'DM Sans, sans-serif',
-                  cursor: handoffConfirmBusy ? 'not-allowed' : 'pointer' }}>
-                {handoffConfirmBusy ? 'Recording…' : 'Yes, Mark Preceptor as Notified'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* PRECEPTOR-DRAFT-CONTINUITY-1's post-draft prompt is GONE.
+          It asked "were you able to send it?" after a draft was opened, which
+          tied a confirmation to the act of opening a draft and could only ever
+          ask about the preceptor. Both targets now confirm the same way, from
+          the row itself, whenever staff actually know: see NotificationControl. */}
 
       {/* PLACEMENT-POOL-READINESS-1: approved pre-interview placement exception.
           Nothing is written until this is explicitly confirmed. */}

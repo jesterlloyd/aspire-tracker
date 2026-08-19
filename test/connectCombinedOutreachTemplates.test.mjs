@@ -20,7 +20,9 @@ test('the preceptor assignment draft contains the assignment, requested details,
   const draft = buildPreceptorAssignmentDraft({ firstName: 'Kelly', attachmentsAttached: true })
 
   assert.equal(draft.subject, 'ASPIRE: Student Assignment and Introduction Details')
-  assert.match(draft.body, /^Dear Kelly,/)
+  // PLACEMENT-NOTIFICATION-CONTROL-1: both bodies now open with the block
+  // heading, then the greeting - the rich body always did.
+  assert.match(draft.body, /^Preceptor Assignment & Details\n\nDear Kelly,/)
   for (const required of [
     'Student: [Student Name]',
     'School: [School]',
@@ -34,7 +36,10 @@ test('the preceptor assignment draft contains the assignment, requested details,
     'Preceptor pay:',
     'Coverage:',
     'Floating:',
-    'Scope of practice:',
+    // PLACEMENT-NOTIFICATION-CONTROL-1 dropped the "Scope of practice: " label -
+    // no other reminder carries one - and the sentence now reads "see the
+    // attached". The bullet itself is still required.
+    'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.',
   ]) assert.match(draft.body, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 
   assert.match(draft.richBody, /data-aspire-block="note"/)

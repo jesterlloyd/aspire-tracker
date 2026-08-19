@@ -3,10 +3,9 @@ import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 import { buildPlacementFacts, resolveUnitLeaderGreetingName, toNoticeStudent } from '../lib/placementCommunication'
-import {
-  NOTIFY_CONFIRM, notifiedPatch, pendingNotifyTargets,
-  notifyRecordedMessage, notifyFailedMessage,
-} from '../lib/placementNotification'
+import { notifyRecordedMessage, notifyFailedMessage } from '../lib/placementNotification'
+import NotificationControl from './placement/NotificationControl'
+import { NOTIFICATION_TARGETS } from '../lib/placementNotificationState'
 import { buildOutlookComposeUrl } from '../lib/outlookCompose'
 import { appUrl } from '../lib/appUrl'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
@@ -327,9 +326,10 @@ function ItemCard({
   item,
   isConfirming, isActioning,
   onAction, onConfirm, onCancelConfirm,
-  // PLACEMENT-COMMUNICATION-HANDOFF-1: the confirmed-send state for a unit
-  // notification whose draft has been opened but not yet confirmed as sent.
-  isAwaitingNotifyConfirm, onConfirmNotified, onDismissNotifyConfirm,
+  // PLACEMENT-NOTIFICATION-CONTROL-1: the two acts, kept separate. Opening the
+  // draft writes nothing; confirming is the only thing that records a
+  // notification, and it always asks first.
+  onConfirmNotified, onOpenNotifyDraft,
   // Orientation-specific props
   oriExpanded, onOriExpand,
   oriFields, onOriFieldChange,
@@ -339,6 +339,12 @@ function ItemCard({
 }) {
   const pCfg = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.routine
   const actionLabel = getActionLabel(item)
+  // The unit-leader placement notification, and only that. The Preceptor
+  // Welcome Email shares this actionType but is a different piece of work with
+  // no placement notification state, so it keeps its ordinary action button.
+  const isPlacementNotify = item.actionType === 'unit_notification_needed'
+    && item.title === 'Unit Leader Placement Notification'
+    && !!item.matchId
 
   // Special orientation card
   if (item.isOrientation) {
@@ -414,25 +420,27 @@ function ItemCard({
           </div>
         </div>
         <div style={{ flexShrink: 0, minWidth: 0 }}>
-          {isAwaitingNotifyConfirm ? (
-            /* The same words, the same rule, and the same two choices the
-               Placement Board shows - both read them from lib/placementNotification.
-               Opening the draft recorded nothing; only the first button writes. */
-            <div data-testid="ac-notify-confirm" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', maxWidth: 230 }}>
-              <span style={{ fontSize: 10.5, color: '#583733', fontWeight: 500, textAlign: 'right', lineHeight: 1.45 }}>
-                {NOTIFY_CONFIRM.shortHeadline}
-              </span>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button data-testid="ac-notify-dismiss" onClick={onDismissNotifyConfirm} disabled={isActioning}
-                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f3f4f6', border: 'none', borderRadius: 6, cursor: isActioning ? 'not-allowed' : 'pointer', color: '#6b7280', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
-                  {NOTIFY_CONFIRM.dismissLabel}
-                </button>
-                <button data-testid="ac-notify-confirm-yes" onClick={onConfirmNotified} disabled={isActioning}
-                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, cursor: isActioning ? 'not-allowed' : 'pointer', color: '#166534', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
-                  {isActioning ? NOTIFY_CONFIRM.busyLabel : NOTIFY_CONFIRM.confirmLabel}
-                </button>
-              </div>
-            </div>
+          {/* PLACEMENT-NOTIFICATION-CONTROL-1: the SAME control the Placement
+              Board renders, not a second design that means the same thing.
+              This surface used to show a bespoke two-button strip after the
+              draft opened, with its own wording and its own writer; the two
+              could drift, and only this one could be reached by accident (it
+              appeared because a draft had been opened). Now both surfaces
+              render NotificationControl, so the envelope, the check, the
+              tooltips and the confirmation sentence are one implementation.
+              The task itself is the unnotified state, so no confirmed branch
+              can appear here - confirming resolves the task and it leaves. */}
+          {isPlacementNotify ? (
+            <NotificationControl
+              target={NOTIFICATION_TARGETS.UNIT_LEADER}
+              state={null}
+              personName={item.unitLeaderName || ''}
+              studentName={item.studentName}
+              unitName={item.unitName}
+              disabledReason={item.emailHref ? '' : 'This unit has no leader email on file.'}
+              onOpenDraft={onOpenNotifyDraft}
+              onConfirm={onConfirmNotified}
+            />
           ) : isConfirming ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
               <span style={{ fontSize: 11, color: '#374151', fontWeight: 500, whiteSpace: 'nowrap' }}>Mark complete?</span>
@@ -471,7 +479,7 @@ function ItemCard({
 export default function ActionCenter({
   isOpen, onClose, anchorEl,
   students, units, matches, cohortId, activeCohort,
-  communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
+  communications, onLogCommunication, onStudentUpdate, onMatchLocalSync,
   reminderDeliveries = [], reminderDeliveriesLoaded = false,
   ivSessions = [], ivSlots = [],
   schoolRotations = [], onNavigateToActivityStudent,
@@ -496,7 +504,6 @@ export default function ActionCenter({
   const [confirmingId,   setConfirmingId]   = useState(null)
   // The unit-notification task whose draft has been opened and whose notified
   // state is awaiting an explicit confirmation. Never more than one at a time.
-  const [notifyConfirmId, setNotifyConfirmId] = useState(null)
   const [actioning,      setActioning]      = useState(null)
   const [showCompleted,  setShowCompleted]  = useState(false)
   // ACTION-OWNERSHIP-1: the passive "Handled automatically" list, collapsed by
@@ -687,8 +694,9 @@ export default function ActionCenter({
     // (matches.notification_sent, via lib/attention.js), so it clears only once
     // the canonical row actually says the unit was notified.
     if (item.actionType === 'unit_notification_needed' && item.matchId && item.emailHref) {
+      // The envelope on the card handles this now; nothing is armed or recorded
+      // by opening a draft. Kept for the keyboard path into the same act.
       openHref(item.emailHref)
-      setNotifyConfirmId(item.id)
       return
     }
     if (item.emailHref && item.markDoneType === 'log_communication') {
@@ -706,34 +714,49 @@ export default function ActionCenter({
     }
   }
 
-  // ── Confirmed-send: the ONLY writer of notified state on this surface ──────
+  // ── Confirming a notification: the SAME writer the Placement Board uses ────
   //
-  // Pending work is re-derived from the LIVE match rows through the shared
-  // pendingNotifyTargets, so this is idempotent by construction: a row already
-  // recorded - by this panel, by the Placement Board, or by an earlier click -
-  // is no longer pending and nothing is written for it.
+  // This surface no longer UPDATEs the match row itself. It posts to the shared
+  // endpoint, which re-proves the placement against the database, appends one
+  // confirmation to the ledger, and keeps matches.notification_sent in step for
+  // the readers that still project from it (lib/attention.js, which is what
+  // makes this very task appear). So a confirmation made here and one made on
+  // the board are the same record, and an audited correction on the board
+  // brings this task back rather than leaving a task nobody can see.
+  //
+  // Idempotent at the server: a placement already confirmed answers already:true
+  // and writes nothing, so a double click cannot double-record.
   const handleConfirmNotified = async (item) => {
     if (actioning === item.id) return
-    const pending = pendingNotifyTargets(
-      [{ studentId: item.studentId, unitId: item.unitId, label: item.studentName }],
-      matches,
-    )
-    if (pending.length === 0) {
-      // Already recorded somewhere. Nothing to write, and nothing to claim.
-      setNotifyConfirmId(null)
-      return
-    }
     setActioning(item.id)
-    const err = await onMatchUpdate?.(pending[0].match.id, item.studentId, notifiedPatch())
-    if (err) {
-      // The task stays visible and actionable: its predicate still reads
-      // un-notified, and the confirmation is left open so it can be retried.
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('session')
+      const res = await fetch('/api/placement-notification-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          target: NOTIFICATION_TARGETS.UNIT_LEADER,
+          action: 'confirm',
+          match_id: item.matchId,
+          student_id: item.studentId,
+          unit_id: item.unitId,
+          cohort_id: item.cohortId,
+        }),
+      })
+      const payload = await res.json().catch(() => null)
+      if (!res.ok || !payload?.success) throw new Error(payload?.error || 'failed')
+    } catch (e) {
+      // The task stays visible and actionable: nothing was recorded, so nothing
+      // should look recorded.
       setActioning(null)
-      toast?.error('Not recorded', notifyFailedMessage(1))
-      return
+      toast?.error('Not recorded', e?.message && e.message !== 'session' && e.message !== 'failed'
+        ? e.message
+        : notifyFailedMessage(1))
+      throw e   // keeps the dialog open so it can be retried
     }
-    // The confirmed send is what earns the communication entry, so it is logged
-    // here rather than when the draft opened.
+    // The confirmed notification is what earns the communication entry, so it is
+    // logged here rather than when the draft opened.
     await logComm({
       type: 'unit_notification',
       student: item.student,
@@ -741,9 +764,11 @@ export default function ActionCenter({
       sentToName: item.studentName,
     })
     setActioning(null)
-    setNotifyConfirmId(null)
     logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
     toast?.success('Notified', notifyRecordedMessage(item.unitName || 'the unit', 1))
+    // The panel derives its tasks from the match rows it is given, so the
+    // projection is brought into step and the card leaves on the next render.
+    onMatchLocalSync?.(item.matchId, { notification_sent: true, notified_at: new Date().toISOString() })
   }
 
   // ── Mark Complete confirmation ──────────────────────────────
@@ -1225,9 +1250,8 @@ ${KR_SIG}`
                     onAction={() => handleAction(item)}
                     onConfirm={() => handleConfirmComplete(item)}
                     onCancelConfirm={() => setConfirmingId(null)}
-                    isAwaitingNotifyConfirm={notifyConfirmId === item.id}
                     onConfirmNotified={() => handleConfirmNotified(item)}
-                    onDismissNotifyConfirm={() => setNotifyConfirmId(null)}
+                    onOpenNotifyDraft={() => openHref(item.emailHref)}
                     oriExpanded={oriExpanded}
                     onOriExpand={() => setOriExpanded(p => !p)}
                     oriFields={oriFields}

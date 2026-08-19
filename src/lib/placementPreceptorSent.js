@@ -79,7 +79,7 @@ export const DIRECT_MESSAGE_TYPE = 'direct_message_sent'
  * with Yes. It is deliberately a DIFFERENT notification_type with a different
  * status, so it can never masquerade as a provider-confirmed send: the row says
  * a human confirmed it, and the tooltip says so too. Written only by
- * api/placement-preceptor-confirm.js, which re-proves the placement against the
+ * api/placement-notification-confirm.js, which re-proves the placement against the
  * database (same guard as a real send) before recording anything.
  */
 export const MANUAL_CONFIRMATION_TYPE = 'placement_manual_confirmation'
