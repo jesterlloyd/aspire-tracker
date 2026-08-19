@@ -187,7 +187,10 @@ export function deriveEagerAttention({
   const sendStudentForm = !canEdit ? [] : students.filter(s => s.status === 'Pending Outreach')
   const unitLeaderNotification = !canEdit ? [] : students.filter(s => {
     if (s.status !== 'Placed' || !s.matched_unit_id) return false
-    const m = matches.find(m => m.student_id === s.id)
+    // UNIT-POOL-REFINEMENT-1: the task is about the student's PRIMARY unit, so
+    // its notified state must read that unit's match - the first match by
+    // student alone could be a multi-unit student's other placement.
+    const m = matches.find(m => m.student_id === s.id && m.unit_id === s.matched_unit_id)
     return m && !m.notification_sent
   })
   // CS-Link "not started": canonical derivation (utils.getCsLinkStatus), the

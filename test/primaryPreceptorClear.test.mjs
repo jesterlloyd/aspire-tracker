@@ -140,10 +140,24 @@ test('the client helper carries one request id per intentional clear', () => {
 
 test('single revert clears through the canonical path first and fails safely', () => {
   assert.match(appjs, /const cleared = await clearPrimaryPreceptor\(student\.id, 'match revert'\)\n\s+if \(!cleared\.ok\) \{\n\s+toast\.error\('Unmatch blocked'[\s\S]{0,120}\n\s+return\n\s+\}/)
-  // The clear precedes the match deletion and the student update.
+  // The clear precedes the REVERT path's match deletion and student update.
+  // (UNIT-POOL-REFINEMENT-1: removing an ADDITIONAL placement is not a revert -
+  // the primary relationship belongs to the surviving placement and is
+  // deliberately not cleared. That branch has its own write name below.)
   const clearIdx = appjs.indexOf("clearPrimaryPreceptor(student.id, 'match revert')")
   const deleteIdx = appjs.indexOf("'delete match on unmatch'")
   assert.ok(clearIdx > -1 && deleteIdx > clearIdx, 'clear runs before any revert mutation')
+  // And the additional branch performs NO clear and NO student write: from the
+  // branch guard to its early return there is no clearPrimaryPreceptor call and
+  // no students update.
+  const addStart = appjs.indexOf("if (plan.kind === 'additional') {")
+  const addEnd = appjs.indexOf('return', appjs.indexOf("'delete additional match on unmatch'"))
+  assert.ok(addStart > -1 && addEnd > addStart, 'the additional branch exists')
+  const addBranch = appjs.slice(addStart, addEnd)
+  assert.ok(!addBranch.includes('clearPrimaryPreceptor'),
+    'removing an additional placement must not end the surviving primary relationship')
+  assert.ok(!addBranch.includes("from('students')"),
+    'removing an additional placement must not write the student row')
 })
 
 test('bulk revert clears every matched student first; one failure aborts the unit delete', () => {

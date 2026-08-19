@@ -14,6 +14,39 @@
 // missing value renders as an explicit "not recorded" state instead of a
 // false "Other". No schema changes.
 
+// UNIT-POOL-REFINEMENT-1 (multi-unit correction): a unit card's rows come from
+// the MATCH ROWS for that unit and cohort - the placement records themselves.
+//
+// THE DEFECT THIS FIXES. The board previously listed a card's students by
+// students.matched_unit_id, a single pointer that can only ever name one unit.
+// A student placed on two units therefore appeared on one card and was
+// invisible on the other: no row, no notification control, no inclusion in the
+// consolidated notice, and a filled count that disagreed with the capacity
+// guard (which has always counted match rows). Deriving from matches makes the
+// rows, the counts, and the guard read the same records.
+//
+// Cohort isolation is enforced HERE, not assumed from the caller's student
+// list: a match row stamped with another cohort never yields a row, whatever
+// unit id it claims. Deduped by student per unit (defensively - one match per
+// (student, unit) pair is the data model), ordered by the match list so the
+// card is stable across renders.
+export function studentsMatchedToUnit(unit, matches, studentsById, cohortId) {
+  if (!unit?.id) return []
+  const byId = studentsById || {}
+  const seen = new Set()
+  const out = []
+  for (const m of Array.isArray(matches) ? matches : []) {
+    if (!m || String(m.unit_id || '') !== String(unit.id)) continue
+    if (cohortId != null && String(m.cohort_id || '') !== String(cohortId)) continue
+    const sid = m.student_id
+    if (!sid || seen.has(sid)) continue
+    seen.add(sid)
+    const student = byId[sid]
+    if (student) out.push(student)
+  }
+  return out
+}
+
 export function unitFilledCount(unitId, matches) {
   if (!unitId) return 0
   return (matches || []).filter(m => m.unit_id === unitId).length

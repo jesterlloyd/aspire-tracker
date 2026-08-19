@@ -5,6 +5,7 @@ import { supabase } from './lib/supabase'
 import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStudentAvailability, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
 import { displayName } from './lib/utils'
 import { clearPrimaryPreceptor } from './lib/staffPreceptorAssignmentApi'
+import { planUnmatch, unmatchStudentPatch } from './lib/unmatchPlan'
 import { deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal } from './lib/attention'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
@@ -830,20 +831,70 @@ function MainApp({ onLogout }) {
   }
 
   const unmatch = async (student, unit) => {
-    // Check for existing interview rubrics to determine correct revert status
-    const { data: rubrics } = await supabase
-      .from('interview_rubrics')
-      .select('id')
-      .eq('student_id', student.id)
-      .limit(1)
-    const hasInterview = rubrics && rubrics.length > 0
-    // Phase 2B.2e: disposition is the source of truth for program status.
-    // Unmatching releases the unit slot but must NOT undo a documented program
-    // decision - preserve 'Not Proceeding' when the student has an active
-    // disposition; otherwise revert as before.
-    const revertStatus = student.active_disposition?.disposition_type
-      ? 'Not Proceeding'
-      : (hasInterview ? 'Interviewed' : 'Form Received')
+    // UNIT-POOL-REFINEMENT-1 (unmatch correction): what this removal may touch
+    // depends on what SURVIVES. planUnmatch (src/lib/unmatchPlan.js) decides:
+    //   'additional'            - another placement survives and the pointer
+    //                             names a different unit. ONLY the match row and
+    //                             the unit's slots change; the student row, the
+    //                             primary preceptor, and the status are not
+    //                             touched at all.
+    //   'primary_with_survivor' - the pointer named this unit and another
+    //                             placement survives. The pointer moves to the
+    //                             successor; the applied sync trigger mirrors
+    //                             that write into student_unit_assignments
+    //                             (end removed primary -> promote successor)
+    //                             atomically - the canonical transition, owned
+    //                             by the database, not re-implemented here.
+    //                             Status is untouched: a placed student stays
+    //                             placed, an Active Rotation student stays on
+    //                             rotation.
+    //   'final'                 - nothing survives. The existing disposition-
+    //                             and rubric-aware revert applies, unchanged.
+    const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
+    const plan = planUnmatch({ student, match, matches })
+
+    if (plan.kind === 'additional') {
+      // The removed placement was not the primary: the student-level record
+      // describes the SURVIVING primary placement, so none of it may change -
+      // no pointer write, no status change, and NO primary-preceptor clear
+      // (that relationship belongs to the placement that survives). The
+      // removed placement's own preceptor lives on its match row and ends with
+      // the row; its notification evidence stays in the ledger as history that
+      // no longer applies, keyed to a match id that no longer exists.
+      if (match) await safeWrite(() => supabase.from('matches').delete().eq('id', match.id), { name: 'delete additional match on unmatch' })
+      const additionalCount = matches.filter(m => m.unit_id === unit.id).length  // before removal
+      const additionalRemaining = Math.min(unit.total_slots, unit.total_slots - Math.max(0, additionalCount - 1))
+      await safeWrite(
+        () => supabase.from('units').update({ slots_remaining: additionalRemaining }).eq('id', unit.id),
+        { name: 'update unit slots on unmatch' }
+      )
+      updateCohortMatchSummary(match ? matches.filter(m => m.id !== match.id) : matches)
+      if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
+      setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: additionalRemaining } : u))
+      toast.info('Placement removed', `${student.first_name} no longer has a ${unit.unit_name} placement. Their primary placement is unchanged.`)
+      logActivity({ userProfile: currentUserProfile, actionType:'match_removed', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} removed ${student.first_name} ${student.last_name} from ${unit.unit_name} (additional placement; primary unchanged)` })
+      return
+    }
+
+    // The rubric lookup only matters when the student is actually leaving
+    // placed state - a survivor case never reverts status.
+    let revertStatus = null
+    if (plan.kind === 'final') {
+      // Check for existing interview rubrics to determine correct revert status
+      const { data: rubrics } = await supabase
+        .from('interview_rubrics')
+        .select('id')
+        .eq('student_id', student.id)
+        .limit(1)
+      const hasInterview = rubrics && rubrics.length > 0
+      // Phase 2B.2e: disposition is the source of truth for program status.
+      // Unmatching releases the unit slot but must NOT undo a documented program
+      // decision - preserve 'Not Proceeding' when the student has an active
+      // disposition; otherwise revert as before.
+      revertStatus = student.active_disposition?.disposition_type
+        ? 'Not Proceeding'
+        : (hasInterview ? 'Interviewed' : 'Form Received')
+    }
 
     // PHASE-2D: end the primary preceptor relationship FIRST, through the one
     // canonical guarded path (clear_primary_preceptor via the staff endpoint).
@@ -851,15 +902,25 @@ function MainApp({ onLogout }) {
     // matched_preceptor / preceptor_email / the single same-cohort match FK
     // server-side; already-clear students no-op. A failed clear aborts the
     // whole revert before anything is mutated.
+    //
+    // Reached only for 'final' and 'primary_with_survivor': in both, the
+    // student-level primary relationship described the placement being removed.
+    // It is ENDED, never transferred - the survivor's preceptor stays on the
+    // survivor's own match row, and promoting anyone to the student-level
+    // primary is an explicit staff act on the assignment surface.
     const cleared = await clearPrimaryPreceptor(student.id, 'match revert')
     if (!cleared.ok) {
       toast.error('Unmatch blocked', 'The primary preceptor could not be cleared, so no changes were made. Please try again.')
       return
     }
-    const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
     if (match) await safeWrite(() => supabase.from('matches').delete().eq('id', match.id), { name: 'delete match on unmatch' })
+    // The one student write either case is allowed: the successor projection,
+    // or the full revert. unmatchStudentPatch is the tested single source of
+    // what each kind may contain - a survivor patch NEVER carries status or
+    // interview_outcome.
+    const studentPatch = unmatchStudentPatch(plan, { revertStatus })
     await safeWrite(
-      () => supabase.from('students').update({ matched_unit_id: null, shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus }).eq('id', student.id),
+      () => supabase.from('students').update(studentPatch).eq('id', student.id),
       { name: 'update student on unmatch' }
     )
     // Derive from actual count so the field self-corrects if it was stale
@@ -875,12 +936,17 @@ function MainApp({ onLogout }) {
       s.id === student.id
         // The preceptor fields are the local echo of the server-side clear (the
         // trigger's exact result), not an independent write.
-        ? { ...s, matched_unit_id: null, preceptor_id: null, matched_preceptor: '', preceptor_email: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus }
+        ? { ...s, ...studentPatch, preceptor_id: null, matched_preceptor: '', preceptor_email: '' }
         : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
-    toast.info('Student unmatched', `${student.first_name} moved back to ${revertStatus}.`)
-    logActivity({ userProfile: currentUserProfile, actionType:'match_removed', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} removed ${student.first_name} ${student.last_name} from ${unit.unit_name}` })
+    if (plan.kind === 'primary_with_survivor') {
+      const successorUnit = units.find(u => u.id === plan.successor?.unit_id)
+      toast.info('Placement removed', `${student.first_name} no longer has a ${unit.unit_name} placement. ${successorUnit?.unit_name || 'Their remaining unit'} is now their primary placement.`)
+    } else {
+      toast.info('Student unmatched', `${student.first_name} moved back to ${revertStatus}.`)
+    }
+    logActivity({ userProfile: currentUserProfile, actionType:'match_removed', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} removed ${student.first_name} ${student.last_name} from ${unit.unit_name}${plan.kind === 'primary_with_survivor' ? ' (primary moved to the surviving placement)' : ''}` })
   }
 
   // Returns the error (or null). PLACEMENT-COMMUNICATION-HANDOFF-1: the notified
@@ -1186,6 +1252,7 @@ function MainApp({ onLogout }) {
           <>
             <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
               <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast}
+                onRefreshUnits={() => fetchUnits(activeCohortId)}
                 onSelectStudent={goToActivityStudent}
                 /* ASPIRE-CHART: Today's digest reads the SAME attention sets as
                    the bell badge, so the two can never disagree. */

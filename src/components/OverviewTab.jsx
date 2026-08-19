@@ -12,6 +12,8 @@ import { computeUnitResponseMetrics } from '../lib/unitResponseMetrics'
 import { listCohortResponseTargets, createCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
 import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
 import { UNIT_LEADERSHIP_ROLES } from '../lib/contactCategories'
+import UnitSetupPanel from './UnitSetupPanel'
+import { canPerformMatching } from '../lib/permissions'
 import { canonicalUnitKey } from '../lib/canonicalUnit'
 import { writeLaunchContext, readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { CAPACITY_RESPONSE_TEMPLATE_KEY, CAPACITY_REMINDER_TEMPLATE_KEY } from '../lib/connect/templateRegistry'
@@ -405,7 +407,12 @@ function AttentionDigest({ attention, onOpenActionCenter }) {
   )
 }
 
-export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent, attention, onOpenActionCenter, currentUserId }) {
+export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent, attention, onOpenActionCenter, currentUserId, onRefreshUnits }) {
+  // UNIT-POOL-REFINEMENT-1: unit setup moved here from the Placement Board. The
+  // hosting decisions this panel tracks are what decide which units participate,
+  // so the form that records that decision now lives beside them - and the
+  // operational board can no longer add, remove, or reconfigure hosting units.
+  const [showUnitSetup, setShowUnitSetup] = useState(false)
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [unitStatusFilter, setUnitStatusFilter] = useState('all')
@@ -416,7 +423,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // the drawer with an honest error + Retry instead of silently doing nothing.
   const [responseDrawerSchool, setResponseDrawerSchool] = useState(null)
   const [localToast,       setLocalToast]       = useState(null)
-  const { isAdmin } = useAuth()
+  const { userProfile, isAdmin } = useAuth()
 
   // ASPIRE-CHART performance: the five workspace tabs stay mounted while
   // hidden, so these 60s polls used to run forever regardless of where the
@@ -1114,6 +1121,16 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                   Send Reminder to Pending Units
                 </button>
               )}
+              {/* Gated by the SAME authority the Placement Board button had
+                  (owner, admin, AND co-lead) - relocating the entry point must
+                  not quietly narrow who can use it. */}
+              {canPerformMatching(userProfile) && (
+                <button type="button" className="ov-send-btn" data-testid="overview-set-up-units"
+                  onClick={() => setShowUnitSetup(true)}
+                  title="Choose which units participate this cohort and how many slots each offers">
+                  ⚙ Set Up Units
+                </button>
+              )}
               <div className="ov-expand-toggle">
                 <button onClick={expandAllUnits}>Expand All</button>
                 <span style={{ color:'var(--border)' }}>·</span>
@@ -1377,6 +1394,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
       </div>
+
+      {showUnitSetup && (
+        <UnitSetupPanel cohortId={cohortId} currentUnits={units} students={students}
+          onSaved={async () => { await onRefreshUnits?.() }} onClose={() => setShowUnitSetup(false)} />
+      )}
 
       {/* UNIT-FORM-RESPONSE-VISIBILITY: read-only unit-form response detail (no fetch/edit). */}
       <UnitResponseDrawer

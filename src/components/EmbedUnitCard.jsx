@@ -14,6 +14,8 @@ import {
 } from '../lib/placementCommunication'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { resolveRequiredAttachments } from '../lib/connect/catalogAttachments'
+import { XCircle, Mail } from 'lucide-react'
+import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
 import { CARD } from '../lib/designTokens'
@@ -21,6 +23,7 @@ import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import { MATCH_RANK_CONFIG, matchRankOf } from '../lib/placementDisplay'
 import NotificationControl from './placement/NotificationControl'
 import { NOTIFICATION_TARGETS, notificationStateFor } from '../lib/placementNotificationState'
+import { planUnmatch } from '../lib/unmatchPlan'
 
 // ── Choice / match-quality config ────────────────────────────────────────────
 
@@ -41,6 +44,19 @@ const resolveMatchedStudent = (match, studentMap) => {
 }
 
 // ── Compact placement row ─────────────────────────────────────────────────────
+//
+// UNIT-POOL-REFINEMENT-1: one grid, two lines, one action column.
+//
+// The row is a 2×2 grid. The left column holds identity (the student, then the
+// preceptor indented beneath them); the right column holds actions. Each action
+// cell is itself a fixed two-slot grid - [notification control][28px slot] -
+// where the student line's slot carries the Unmatch control and the preceptor
+// line's slot is an empty spacer of the same width. That is what keeps the two
+// notification controls on one vertical line instead of drifting with whatever
+// happens to sit beside them: alignment is a property of the grid, not of how
+// wide each neighbour rendered today.
+
+const ACTION_SLOT = 28   // the fixed right slot: unmatch on line 1, spacer on line 2
 
 function CompactPlacementRow({
   student, match, unit, onUnmatch, onNotify, onAssignPreceptor, placement, onEmailPreceptor,
@@ -63,96 +79,42 @@ function CompactPlacementRow({
     <div
       onMouseEnter={() => setRowHovered(true)}
       onMouseLeave={() => setRowHovered(false)}
+      data-testid="placement-row"
+      data-match-id={match?.id || ''}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '5px 4px',
-        borderRadius: 6,
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto',
+        columnGap: 8, rowGap: 2,
+        alignItems: 'center',
+        padding: '6px 4px 6px 6px',
+        borderRadius: 8,
         background: rowHovered ? '#F4F1EC' : 'transparent',
         transition: 'background 120ms ease',
-        minHeight: 36,
       }}
     >
-      <StudentAvatar student={student} size={24} style={{ flexShrink: 0 }} />
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Name · shift */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>
-            {student.first_name} {student.last_name}
+      {/* ── Line 1, left: the student. flexWrap lets the chips drop under the
+          name on a narrow card instead of running under the action column. ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap', overflow: 'hidden' }}>
+        <StudentAvatar student={student} size={24} style={{ flexShrink: 0 }} />
+        <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 500, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+          {student.first_name} {student.last_name}
+        </span>
+        {student.shift_assigned && (
+          <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 10.5, fontWeight: 500, color: '#9CA3AF', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {student.shift_assigned === 'Day'       ? '☀ Day'
+            : student.shift_assigned === 'Night'    ? '☾ Night'
+            : student.shift_assigned === 'Mid'      ? '◐ Mid'
+            : student.shift_assigned === 'Variable' ? '☀ / ☾ Variable'
+            : student.shift_assigned}
           </span>
-          {student.shift_assigned && (
-            <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, fontWeight: 500, color: '#9CA3AF', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap' }}>
-              {student.shift_assigned === 'Day'       ? '☀ Day'
-              : student.shift_assigned === 'Night'    ? '☾ Night'
-              : student.shift_assigned === 'Mid'      ? '◐ Mid'
-              : student.shift_assigned === 'Variable' ? '☀ / ☾ Variable'
-              : student.shift_assigned}
-            </span>
-          )}
-          <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: qCfg.bg, color: qCfg.color, border: `1px solid ${qCfg.border}`, whiteSpace: 'nowrap' }}>
-            {qCfg.label}
-          </span>
-        </div>
-        {/* Preceptor status */}
-        {!hasPreceptor && onAssignPreceptor ? (
-          <button
-            onClick={e => { e.stopPropagation(); onAssignPreceptor(student) }}
-            style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 1, textDecoration: 'underline', textAlign: 'left' }}
-          >
-            + Assign preceptor
-          </button>
-        ) : !hasPreceptor ? (
-          <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#B45309', marginTop: 1 }}>
-            {'⚠'} Preceptor needed
-          </div>
-        ) : (
-          /* PRECEPTOR-ASSIGNMENT-PROJECTION-1: an assigned preceptor used to
-             render NOTHING here, so the board could not show who was assigned.
-             matched_preceptor is the trigger-maintained projection of the
-             canonical preceptors row, so the name is available without the
-             board loading the preceptor roster. Clicking re-opens the same
-             assignment modal to change it. */
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-            <button
-              data-testid="placement-preceptor-name"
-              onClick={e => { e.stopPropagation(); onAssignPreceptor?.(student) }}
-              disabled={!onAssignPreceptor}
-              title={onAssignPreceptor ? 'Change preceptor' : undefined}
-              style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#4b5563', background: 'none',
-                border: 'none', padding: 0, textAlign: 'left',
-                cursor: onAssignPreceptor ? 'pointer' : 'default' }}
-            >
-              {'\u{1F464}'} {preceptorName}
-            </button>
-            {/* PLACEMENT-NOTIFICATION-CONTROL-1: one shared control, identical
-                to the unit-leader row's. The envelope opens the ASPIRE Connect
-                handoff and writes nothing; the check is the only path to
-                notified state, and it always asks first. */}
-            {onEmailPreceptor && (
-              <NotificationControl
-                target={NOTIFICATION_TARGETS.PRECEPTOR}
-                state={preceptorNotifyState}
-                personName={preceptorName}
-                studentName={studentNaturalName(student)}
-                unitName={unit.unit_name}
-                disabledReason={preceptorEmail ? '' : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
-                onOpenDraft={() => onEmailPreceptor(student, match, placement)}
-                onConfirm={() => onConfirmNotified?.({
-                  target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement,
-                })}
-                onCorrect={canCorrect ? (reason) => onCorrectNotified?.({
-                  target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement, reason,
-                }) : null}
-              />
-            )}
-          </div>
         )}
+        <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: qCfg.bg, color: qCfg.color, border: `1px solid ${qCfg.border}`, whiteSpace: 'nowrap', flexShrink: 0 }}>
+          {qCfg.label}
+        </span>
       </div>
 
-      {/* Notify + unmatch controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-        {/* The SAME shared control for the unit leader, so the two rows cannot
-            drift in shape, size, wording or meaning again. */}
+      {/* ── Line 1, right: unit-leader notification, then Unmatch in the fixed slot ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: `auto ${ACTION_SLOT}px`, alignItems: 'center', justifyItems: 'end' }}>
         <NotificationControl
           target={NOTIFICATION_TARGETS.UNIT_LEADER}
           state={unitLeaderNotifyState}
@@ -167,17 +129,89 @@ function CompactPlacementRow({
             target: NOTIFICATION_TARGETS.UNIT_LEADER, student, match, placement, reason,
           }) : null}
         />
-        <Tooltip label="Unmatch student" placement="top">
-        <button
-          aria-label="Unmatch student"
-          onClick={e => { e.stopPropagation(); onUnmatch(student) }}
-          style={{ background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: '#d1d5db', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
-          onMouseEnter={e => e.currentTarget.style.color = '#dc1e34'}
-          onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}
-        >
-          ×
-        </button>
+        {/* UNIT-POOL-REFINEMENT-1: Unmatch is a real, visible control now. The
+            old ✕ was 14px of pale grey that looked like the (since removed)
+            unit-delete ✕ one row up. A circled X in its own slot, separated
+            from the notification cluster, destructive only on hover - and it
+            only ever OPENS the confirmation dialog below. */}
+        <Tooltip label="Unmatch Student" placement="top">
+          <button
+            type="button"
+            data-testid="unmatch-student"
+            aria-label="Unmatch Student"
+            onClick={e => { e.stopPropagation(); onUnmatch(student) }}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 26, height: 26, borderRadius: 6, border: '1px solid transparent',
+              background: 'none', padding: 0, lineHeight: 1, cursor: 'pointer', color: '#b9bec7' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#dc1e34'; e.currentTarget.style.background = '#FEF2F2' }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#b9bec7'; e.currentTarget.style.background = 'none' }}
+            onFocus={e => { e.currentTarget.style.color = '#dc1e34' }}
+            onBlur={e => { e.currentTarget.style.color = '#b9bec7' }}
+          >
+            <XCircle size={15} strokeWidth={2} aria-hidden="true" />
+          </button>
         </Tooltip>
+      </div>
+
+      {/* ── Line 2, left: the preceptor, indented under the student's name ── */}
+      <div style={{ paddingLeft: 30, minWidth: 0 }}>
+        {!hasPreceptor && onAssignPreceptor ? (
+          <button
+            onClick={e => { e.stopPropagation(); onAssignPreceptor(student) }}
+            style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textAlign: 'left' }}
+          >
+            + Assign preceptor
+          </button>
+        ) : !hasPreceptor ? (
+          <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#B45309' }}>
+            {'⚠'} Preceptor needed
+          </div>
+        ) : (
+          /* PRECEPTOR-ASSIGNMENT-PROJECTION-1: matched_preceptor is the
+             trigger-maintained projection of the canonical preceptors row, so
+             the name is available without the board loading the roster.
+             Clicking re-opens the same assignment modal to change it. */
+          <button
+            data-testid="placement-preceptor-name"
+            onClick={e => { e.stopPropagation(); onAssignPreceptor?.(student) }}
+            disabled={!onAssignPreceptor}
+            title={onAssignPreceptor ? 'Change preceptor' : undefined}
+            style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#4b5563', background: 'none',
+              border: 'none', padding: 0, textAlign: 'left', maxWidth: '100%',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              cursor: onAssignPreceptor ? 'pointer' : 'default' }}
+          >
+            {'\u{1F464}'} {preceptorName}
+          </button>
+        )}
+      </div>
+
+      {/* ── Line 2, right: preceptor notification in the SAME action column ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: `auto ${ACTION_SLOT}px`, alignItems: 'center', justifyItems: 'end' }}>
+        {hasPreceptor && onEmailPreceptor ? (
+          /* PLACEMENT-NOTIFICATION-CONTROL-1: one shared control, identical to
+             the unit-leader line's. The envelope opens the ASPIRE Connect
+             handoff and writes nothing; the check is the only path to notified
+             state, and it always asks first. */
+          <NotificationControl
+            target={NOTIFICATION_TARGETS.PRECEPTOR}
+            state={preceptorNotifyState}
+            personName={preceptorName}
+            studentName={studentNaturalName(student)}
+            unitName={unit.unit_name}
+            disabledReason={preceptorEmail ? '' : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
+            onOpenDraft={() => onEmailPreceptor(student, match, placement)}
+            onConfirm={() => onConfirmNotified?.({
+              target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement,
+            })}
+            onCorrect={canCorrect ? (reason) => onCorrectNotified?.({
+              target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement, reason,
+            }) : null}
+          />
+        ) : <span />}
+        {/* The empty spacer that keeps this control on the unit-leader
+            control's vertical line. Same width as the Unmatch slot above. */}
+        <span aria-hidden="true" />
       </div>
     </div>
   )
@@ -219,7 +253,7 @@ function CompactOpenSlot({ selectedStudent, compat, onClick }) {
 
 export default function EmbedUnitCard({
   unit, matchedStudents, matches, studentMap, selectedStudent,
-  onSlotClick, onUnmatch, onDelete, isHighlighted,
+  onSlotClick, onUnmatch, isHighlighted,
   isFocusedUnit, onFocusUnit, onPreceptorAssigned,
   // PLACEMENT-COMMUNICATION-HANDOFF-1 canonical inputs. All optional: without
   // them the card still renders, the notice simply reports the values it could
@@ -228,18 +262,32 @@ export default function EmbedUnitCard({
   cohortId = null, cohortName = '',
   // PLACEMENT-NOTIFICATION-CONTROL-1: the shared confirmation ledger index and
   // the two writers. Both rows read the same index and call the same handlers.
+  // UNIT-POOL-REFINEMENT-1: unit names for the branched unmatch dialog (the
+  // successor's name when a primary removal promotes a surviving placement).
+  unitNameById = null,
   notificationIndex = null, canCorrectNotifications = false,
   onConfirmNotified = null, onCorrectNotified = null,
+  // UNIT-POOL-REFINEMENT-1: the batch writer for the consolidated confirmation.
+  // Same endpoint, same semantics as the per-row confirm - just N of them, with
+  // an honest {ok, failed} summary instead of a per-call toast.
+  onBatchConfirmNotified = null,
 }) {
   const navigate = useNavigate()
   const [confirmUnmatch,  setConfirmUnmatch]  = useState(null)
-  const [confirmDelete,   setConfirmDelete]   = useState(false)
   const [toast,           setToast]           = useState(null)
   const [cardHovered,     setCardHovered]     = useState(false)
   const [assignStudent,   setAssignStudent]   = useState(null)
   // The unit-leader notice awaiting confirmation, when the placement is missing
   // canonical values. { students, missing, message, onConfirm } - see handleNotify*.
   const [notifyPreview,   setNotifyPreview]   = useState(null)
+  // UNIT-POOL-REFINEMENT-1: the consolidated unit-leader flow.
+  //   { step: 'review',  rows, missing }  - who WILL be included, before any draft opens
+  //   { step: 'confirm', rows, matchIds } - the exact set the opened draft named,
+  //                                          frozen at open time so a match created
+  //                                          or replaced afterwards can never join
+  const [notifyFlow, setNotifyFlow] = useState(null)
+  const [notifyBusy, setNotifyBusy] = useState(false)
+  const [notifyErrors, setNotifyErrors] = useState(null)
   const [preceptorHandoff, setPreceptorHandoff] = useState(null)  // 'busy' | { error }
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 4000) }
@@ -272,16 +320,17 @@ export default function EmbedUnitCard({
   }
   const notifiedCount = matchedStudents.filter(unitLeaderConfirmed).length
   const allNotified  = filledCount > 0 && notifiedCount === filledCount
-  const someNotified = notifiedCount > 0 && notifiedCount < filledCount
 
   // Build unnotified list for Zone-2 button label
   const unnotifiedStudents = matchedStudents.filter(s => !unitLeaderConfirmed(s))
 
-  const notifyButtonLabel = (() => {
-    if (unnotifiedStudents.length === 1) return `Notify unit leader about ${unnotifiedStudents[0].first_name} →`
-    if (unnotifiedStudents.length === 2) return `Notify unit leader about ${unnotifiedStudents[0].first_name} + ${unnotifiedStudents[1].first_name} →`
-    return `Notify unit leader about ${unnotifiedStudents.length} students →`
-  })()
+  // UNIT-POOL-REFINEMENT-1 (group envelope): the consolidated action exists
+  // ONLY when it consolidates - two or more unnotified placements. With exactly
+  // one, the student row's own envelope and check are the action, and a
+  // card-level duplicate would just be a second way to do the same thing. The
+  // count is the number of placements the notice will include (the unnotified
+  // ones), never the filled-slot total.
+  const groupNotifyLabel = `Notify Unit Leader About ${unnotifiedStudents.length} Students`
 
   // ── Canonical placement facts (PLACEMENT-COMMUNICATION-HANDOFF-1) ─────────
   //
@@ -365,7 +414,63 @@ export default function EmbedUnitCard({
   }))
 
   const handleNotifyOne = (student) => reviewThenNotify(rowsFor([student]), { multi: false })
-  const handleNotifyAll = () => reviewThenNotify(rowsFor(unnotifiedStudents), { multi: true })
+
+  // ── UNIT-POOL-REFINEMENT-1: the consolidated action ALWAYS reviews first ──
+  //
+  // The single-student envelope keeps its existing behavior (open immediately,
+  // gaps named when they exist) - it names one person the user just looked at.
+  // The consolidated action is different: it decides WHO is included, so the
+  // exact list is shown before any draft opens. Included: this unit's current
+  // matched placements whose unit-leader notification is not yet confirmed.
+  const handleNotifyAll = () => {
+    const rows = rowsFor(unnotifiedStudents)
+    const missing = []
+    for (const r of rows) {
+      for (const m of r.facts.missing) {
+        missing.push({ ...m, label: `${r.facts.studentName || displayName(r.student)}: ${m.label}` })
+      }
+    }
+    setNotifyErrors(null)
+    setNotifyFlow({ step: 'review', rows, missing })
+  }
+
+  // Open the ONE draft for the reviewed set, then hold the exact match ids it
+  // named. Opening records nothing; the confirm step below is the only writer,
+  // and it can only ever write for these ids.
+  const openConsolidatedDraft = () => {
+    const rows = notifyFlow?.rows || []
+    if (!rows.length) { setNotifyFlow(null); return }
+    openUnitLeaderNotice(rows, { multi: rows.length > 1 })
+    setNotifyFlow({
+      step: 'confirm',
+      rows,
+      matchIds: rows.map(r => r.match?.id).filter(Boolean),
+    })
+  }
+
+  // The batch confirmation: one human act, N ledger writes through the SAME
+  // endpoint every individual check uses. The endpoint re-proves each placement
+  // and is idempotent by effect, so a retry after partial failure re-records
+  // nothing that already succeeded. Never atomic - the endpoint is per-match -
+  // so partial failure is REPORTED, never papered over: rows that succeeded
+  // show confirmed (their writes landed), rows that failed stay actionable.
+  const confirmConsolidated = async () => {
+    if (!onBatchConfirmNotified || notifyBusy || !notifyFlow?.rows?.length) return
+    setNotifyBusy(true)
+    setNotifyErrors(null)
+    try {
+      const result = await onBatchConfirmNotified(
+        notifyFlow.rows.map(r => ({ student: r.student, match: r.match })),
+      )
+      if (result?.failed?.length) {
+        setNotifyErrors(result.failed)
+      } else {
+        setNotifyFlow(null)
+      }
+    } finally {
+      setNotifyBusy(false)
+    }
+  }
 
   // ── Preceptor envelope → ASPIRE Connect (never a mailto) ─────────────────
   //
@@ -559,17 +664,12 @@ export default function EmbedUnitCard({
                 Filtering
               </span>
             )}
-            <Tooltip label="Delete unit" placement="top">
-            <button
-              onClick={e => { e.stopPropagation(); setConfirmDelete(true) }}
-              aria-label="Delete unit"
-              style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#d1d5db', cursor: 'pointer', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
-              onMouseEnter={e => e.currentTarget.style.color = '#9ca3af'}
-              onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}
-            >
-              ✕
-            </button>
-            </Tooltip>
+            {/* UNIT-POOL-REFINEMENT-1: the delete-unit ✕ is GONE from this card.
+                A hosting unit is a cohort-level decision managed from At a
+                Glance → Placement Capacity → Set Up Units; the operational board
+                where placements are worked must not be able to destroy one, and
+                the tiny ✕ up here was one hover away from the unmatch control
+                below it. No alternate action on this surface deletes a unit. */}
           </div>
         </div>
 
@@ -590,32 +690,51 @@ export default function EmbedUnitCard({
             )}
           </div>
 
-          {/* Text descriptor */}
-          <div style={{ fontSize: 12, color: '#9ca3af' }}>
-            {filledCount} of {unit.total_slots} filled{isFull ? ' · Full' : ` · ${emptyCount} open`}
+          {/* Text descriptor + the group envelope, one line. The icon adds no
+              row and no height: it sits in the capacity summary, 26px, with the
+              house count badge. Clicking it opens the SAME review-then-draft-
+              then-confirm flow as before - only the trigger shrank. */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 26 }}>
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>
+              {filledCount} of {unit.total_slots} filled{isFull ? ' · Full' : ` · ${emptyCount} open`}
+            </div>
+            {unnotifiedStudents.length >= 2 && (
+              <span onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
+                <Tooltip label={groupNotifyLabel} placement="top">
+                  <button
+                    type="button"
+                    data-testid="notify-unit-leader-consolidated"
+                    aria-label={groupNotifyLabel}
+                    onClick={handleNotifyAll}
+                    style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 26, height: 26, borderRadius: 6, border: '1px solid transparent',
+                      background: 'none', padding: 0, lineHeight: 1, cursor: 'pointer', color: '#475467' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#eef0f7' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                  >
+                    <Mail size={15} strokeWidth={2} aria-hidden="true" />
+                    <span
+                      data-testid="notify-consolidated-count"
+                      aria-hidden="true"
+                      style={{ position: 'absolute', top: -4, right: -5, minWidth: 13, height: 13,
+                        borderRadius: 8, padding: '0 3px', background: BADGE_COUNT_BG, color: BADGE_COUNT_FG,
+                        fontFamily: 'DM Sans,sans-serif', fontSize: 9, fontWeight: 700, lineHeight: '13px',
+                        textAlign: 'center', pointerEvents: 'none' }}>
+                      {unnotifiedStudents.length}
+                    </span>
+                  </button>
+                </Tooltip>
+              </span>
+            )}
           </div>
 
-          {/* Notify Zone-2 button - only when full and unnotified placements exist */}
-          {/* The transient "notified at HH:MM" line is gone: the row statuses and
-              the count beside them come from the ledger, so they already say
-              this - accurately, and after a refresh. */}
-          {isFull && filledCount > 0 && !allNotified && (
-            <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
-                <button
-                  onClick={handleNotifyAll}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '6px 12px', borderRadius: 8,
-                    background: '#1D2567', border: 'none',
-                    fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 600,
-                    color: '#ffffff', cursor: 'pointer',
-                    transition: 'background 150ms ease',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#141928'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#1D2567'}
-                >
-                  {notifyButtonLabel}
-                </button>
+          {filledCount > 0 && allNotified && (
+            <div
+              data-testid="unit-leader-all-notified"
+              title={`The unit leader has been notified for ${filledCount === 1 ? 'this placement' : `all ${filledCount} placements`}. Preceptor notification is tracked per row.`}
+              style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontFamily: 'DM Sans,sans-serif', fontSize: 11.5, fontWeight: 600, color: '#166534' }}>
+              ✓ Unit Leader Notified · {notifiedCount} of {filledCount}
             </div>
           )}
         </div>
@@ -656,12 +775,6 @@ export default function EmbedUnitCard({
                 />
               )
             })}
-            {/* Notify summary for non-full units */}
-            {!isFull && filledCount > 0 && !allNotified && (
-              <div style={{ fontSize: 11, color: '#9ca3af', padding: '2px 4px' }}>
-                {notifiedCount} of {filledCount} notified
-              </div>
-            )}
             {Array.from({ length: emptyCount }).map((_, i) => (
               <CompactOpenSlot
                 key={i}
@@ -710,49 +823,183 @@ export default function EmbedUnitCard({
         </div>
       )}
 
-      {/* Unmatch confirmation modal */}
-      {confirmUnmatch && (
-        <div className="modal-overlay" onClick={() => setConfirmUnmatch(null)}>
-          <div className="modal confirm-delete-modal" onClick={e => e.stopPropagation()}>
+      {/* ── UNIT-POOL-REFINEMENT-1: the consolidated review + confirmation ── */}
+      {/* STEP 1 - review. Exactly who will be included, with the canonical
+          facts the notice will print, BEFORE any draft opens. Gaps are named
+          inline ("To be confirmed"), so the missing-details modal's honesty
+          survives inside this richer surface. Cancel records nothing. */}
+      {notifyFlow?.step === 'review' && (
+        <div className="modal-overlay" onClick={() => setNotifyFlow(null)}>
+          <div className="modal confirm-delete-modal" data-testid="notify-review-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
             <div className="modal-header">
-              <h2>Unmatch Student</h2>
-              <button className="modal-close" onClick={() => setConfirmUnmatch(null)}>×</button>
+              <h2>Notify {unit.unit_name}&rsquo;s Unit Leader</h2>
+              <button className="modal-close" onClick={() => setNotifyFlow(null)}>×</button>
             </div>
             <div className="modal-body">
-              <p className="confirm-delete-warning">
-                Unmatch <strong>{displayName(confirmUnmatch)}</strong> from <strong>{unit.unit_name}</strong>? Their preceptor and shift assignment will also be cleared.
+              <p style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 10px' }}>
+                One email to {leaderGreeting.name || 'the unit leader'} will describe{' '}
+                {notifyFlow.rows.length === 1 ? 'this placement' : `these ${notifyFlow.rows.length} placements`}.
+                Placements already confirmed as notified are not included.
               </p>
+              <div data-testid="notify-review-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+                {notifyFlow.rows.map(r => {
+                  const f = r.facts
+                  const fact = (label, value) => (
+                    <span style={{ whiteSpace: 'nowrap' }}>
+                      <span style={{ color: '#9ca3af' }}>{label} </span>
+                      {value || 'To be confirmed'}
+                    </span>
+                  )
+                  return (
+                    <div key={r.student.id} style={{ border: '1px solid #eef0f4', borderRadius: 8, padding: '8px 11px', fontFamily: 'DM Sans,sans-serif' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1D2567' }}>{f.studentName || displayName(r.student)}</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 14px', fontSize: 11.5, color: '#4b5563', marginTop: 3 }}>
+                        {fact('School', f.school)}
+                        {fact('Program', f.program)}
+                        {fact('Rotation', f.termDates)}
+                        {fact('Hours', f.hoursRequired)}
+                        {fact('Shift', f.assignedShift || f.shiftPreference)}
+                        {fact('Availability', f.availability)}
+                        {fact('Preceptor', f.preceptorName)}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {notifyFlow.missing.length > 0 && (
+                <p data-testid="notify-review-gaps" style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11.5, color: '#92400e', lineHeight: 1.6, margin: '10px 0 0' }}>
+                  The notice will say <strong>To be confirmed</strong> for:{' '}
+                  {notifyFlow.missing.map(m => m.label).join(' · ')}
+                </p>
+              )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline-modal" onClick={() => setConfirmUnmatch(null)}>Cancel</button>
-              <button className="btn btn-destructive-filled" onClick={() => { onUnmatch(confirmUnmatch); setConfirmUnmatch(null) }}>
-                Yes, Unmatch
+              <button className="btn btn-outline-modal" onClick={() => setNotifyFlow(null)}>Cancel</button>
+              <button className="btn btn-primary" data-testid="notify-review-open" onClick={openConsolidatedDraft}>
+                Open Email Draft
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete confirmation modal */}
-      {confirmDelete && (
-        <div className="modal-overlay" onClick={() => setConfirmDelete(false)}>
-          <div className="modal confirm-delete-modal" onClick={e => e.stopPropagation()}>
+      {/* STEP 2 - after the draft opened. Opening recorded NOTHING; this is
+          where a person says the email actually went, for exactly the set the
+          draft named. "Not Yet" closes with zero writes; the rows'own controls
+          remain. The confirm writes through the same endpoint as every
+          individual check - idempotent per placement, partial failure named. */}
+      {notifyFlow?.step === 'confirm' && (
+        <div className="modal-overlay" onClick={() => !notifyBusy && setNotifyFlow(null)}>
+          <div className="modal confirm-delete-modal" data-testid="notify-batch-confirm-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
             <div className="modal-header">
-              <h2>Delete {unit.unit_name}?</h2>
-              <button className="modal-close" onClick={() => setConfirmDelete(false)}>×</button>
+              <h2>Was the Email Sent?</h2>
+              <button className="modal-close" onClick={() => !notifyBusy && setNotifyFlow(null)}>×</button>
             </div>
             <div className="modal-body">
-              <p className="confirm-delete-warning">
-                This action cannot be undone. Any students matched to this unit will be returned to unmatched.
+              <p style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 8px' }}>
+                The draft to <strong>{leaderGreeting.name || `${unit.unit_name}'s unit leader`}</strong> named{' '}
+                {notifyFlow.rows.length === 1 ? 'this placement' : `these ${notifyFlow.rows.length} placements`}:
               </p>
+              <ul data-testid="notify-batch-students" style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 12.5, color: '#4b5563', lineHeight: 1.7, margin: '0 0 8px', paddingLeft: 18 }}>
+                {notifyFlow.rows.map(r => <li key={r.student.id}>{studentNaturalName(r.student)}</li>)}
+              </ul>
+              <p style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 12, color: '#6b7280', lineHeight: 1.6, margin: 0 }}>
+                Confirming marks {notifyFlow.rows.length === 1 ? 'that placement' : `all ${notifyFlow.rows.length} placements`}{' '}
+                as unit-leader notified on the Placement Board. Preceptors are not affected.
+              </p>
+              {notifyErrors && (
+                <div data-testid="notify-batch-errors" role="alert" style={{ marginTop: 10, background: '#FEF2F2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 11px', fontFamily: 'DM Sans,sans-serif', fontSize: 12, color: '#991b1b', lineHeight: 1.6 }}>
+                  {notifyErrors.length === notifyFlow.rows.length
+                    ? 'Nothing was recorded.'
+                    : 'Some placements were recorded; these were not:'}
+                  <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
+                    {notifyErrors.map(f => <li key={f.name}>{f.name}: {f.reason}</li>)}
+                  </ul>
+                  You can retry - placements already recorded are never double-counted.
+                </div>
+              )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline-modal" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              <button className="btn btn-destructive-filled" onClick={() => { setConfirmDelete(false); onDelete?.() }}>Delete</button>
+              <button className="btn btn-outline-modal" data-testid="notify-batch-notyet" disabled={notifyBusy} onClick={() => setNotifyFlow(null)}>
+                Not Yet
+              </button>
+              <button className="btn btn-primary" data-testid="notify-batch-confirm" disabled={notifyBusy} onClick={confirmConsolidated}>
+                {notifyBusy
+                  ? 'Recording…'
+                  : notifyFlow.rows.length === 1
+                    ? 'Mark the Unit Leader as Notified for This Placement'
+                    : `Mark the Unit Leader as Notified for These ${notifyFlow.rows.length} Placements`}
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* UNIT-POOL-REFINEMENT-1: the unmatch confirmation names the student,
+          the unit, and the consequences OF THE BRANCH THAT WILL ACTUALLY RUN -
+          the same planUnmatch the removal itself consumes, so the dialog can
+          never promise one behavior while the code performs another. Nothing
+          changes before "Unmatch Student" is pressed; Cancel closes with zero
+          writes. */}
+      {confirmUnmatch && (() => {
+        const unmatchMatch = matches.find(m => m.student_id === confirmUnmatch.id && m.unit_id === unit.id)
+        const unmatchPlanned = planUnmatch({ student: confirmUnmatch, match: unmatchMatch, matches })
+        const successorName = unmatchPlanned.kind === 'primary_with_survivor'
+          ? (unitNameById?.[unmatchPlanned.successor?.unit_id] || 'their remaining placement')
+          : null
+        return (
+        <div className="modal-overlay" onClick={() => setConfirmUnmatch(null)}>
+          <div className="modal confirm-delete-modal" data-testid="unmatch-confirm-modal" data-plan-kind={unmatchPlanned.kind} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Unmatch Student</h2>
+              <button className="modal-close" onClick={() => setConfirmUnmatch(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="confirm-delete-warning" style={{ marginBottom: 8 }}>
+                Remove <strong>{studentNaturalName(confirmUnmatch)}</strong> from{' '}
+                <strong>{unit.unit_name}</strong>?
+              </p>
+              <ul style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 12.5, color: '#4b5563', lineHeight: 1.7, margin: 0, paddingLeft: 18 }}>
+                {unmatchPlanned.kind === 'additional' && (<>
+                  <li>This {unit.unit_name} placement ends and its slot reopens.</li>
+                  <li>Their primary placement is unchanged - the student stays placed,
+                      and their status does not change.</li>
+                  <li>The primary preceptor relationship is not touched; this
+                      placement&rsquo;s own preceptor ends with it.</li>
+                  <li>Notification records for this placement stay in the audit
+                      history but no longer apply.</li>
+                </>)}
+                {unmatchPlanned.kind === 'primary_with_survivor' && (<>
+                  <li>This {unit.unit_name} placement ends and its slot reopens.</li>
+                  <li><strong>{successorName}</strong> becomes their primary placement -
+                      the student stays placed, and their status does not change.</li>
+                  <li>The primary preceptor relationship, which described this
+                      placement, is ended - never transferred. The surviving
+                      placement&rsquo;s own preceptor is untouched.</li>
+                  <li>Notification records for this placement stay in the audit
+                      history but no longer apply. The surviving placement&rsquo;s
+                      records are unaffected.</li>
+                </>)}
+                {unmatchPlanned.kind === 'final' && (<>
+                  <li>The placement ends and the slot reopens.</li>
+                  <li>The student returns to the pool with their pre-match status.</li>
+                  <li>The preceptor assignment for this placement is cleared.</li>
+                  <li>Unit-leader and preceptor notification records for this placement
+                      stay in the audit history but no longer apply, because the
+                      placement they describe ends.</li>
+                </>)}
+              </ul>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline-modal" data-testid="unmatch-cancel" onClick={() => setConfirmUnmatch(null)}>Cancel</button>
+              <button className="btn btn-destructive-filled" data-testid="unmatch-confirm" onClick={() => { onUnmatch(confirmUnmatch); setConfirmUnmatch(null) }}>
+                Unmatch Student
+              </button>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
 
       <PreceptorAssignmentModal
         isOpen={!!assignStudent}

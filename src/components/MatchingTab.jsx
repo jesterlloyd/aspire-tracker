@@ -4,8 +4,6 @@ import { supabase } from '../lib/supabase'
 import Tooltip from './ui/Tooltip'
 import EmbedUnitCard from './EmbedUnitCard'
 import StudentMatchingCard from './StudentMatchingCard'
-import UnitSetupPanel from './UnitSetupPanel'
-import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 import MatchingBanner from './MatchingBanner'
 import StatusLegendPopover from './StatusLegendPopover'
@@ -15,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { canPerformMatching } from '../lib/permissions'
 import { KPICell, useUpdatedLabel } from './KPIBand'
-import { unitOpenSlots, totalOpenSlots, derivePrefCounts } from '../lib/placementDisplay'
+import { unitOpenSlots, totalOpenSlots, derivePrefCounts, studentsMatchedToUnit } from '../lib/placementDisplay'
 import {
   READINESS_MODES, DEFAULT_READINESS_MODE, filterPoolByReadiness,
   needsPlacementException, exceptionCount, isPoolEligible,
@@ -132,7 +130,7 @@ export const getInterviewStatus = (s) => {
 
 export default function MatchingTab({
   students, units, matches, cohortId, cohort,
-  onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit, highlightUnitId,
+  onMatch, onUnmatch, onUpdateMatch, highlightUnitId,
   focusMatchStudentId, onFocusMatchConsumed,
   onPreceptorAssigned,
   onMatchLocalSync,
@@ -161,8 +159,6 @@ export default function MatchingTab({
     if (s && isPoolEligible(s)) setSelectedStudent(s)
     onFocusMatchConsumed?.()
   }, [focusMatchStudentId]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [showUnitSetup,     setShowUnitSetup]     = useState(false)
-  const [showImportUnits,   setShowImportUnits]   = useState(false)
   const [poolSearch,        setPoolSearch]        = useState('')
   const [poolSchool,        setPoolSchool]        = useState('')
   const [poolSort,          setPoolSort]          = useState('last_name_asc')
@@ -325,6 +321,8 @@ export default function MatchingTab({
     return payload
   }
 
+  const studentNameOf = (s) => [s?.first_name, s?.last_name].filter(Boolean).join(' ') || 'this student'
+
   const handleConfirmNotified = async (args) => {
     try {
       const r = await writeNotification({ ...args, action: 'confirm' })
@@ -335,6 +333,40 @@ export default function MatchingTab({
       toast?.error?.('Not recorded', e.message || 'Nothing was changed. You can try again.')
       throw e
     }
+  }
+
+  // UNIT-POOL-REFINEMENT-1: the batch writer behind the consolidated unit-leader
+  // confirmation. The SAME writeNotification per placement - same endpoint, same
+  // server re-proof, same idempotency-by-effect - just N of them with ONE
+  // summary instead of N toasts. Sequential, never atomic (the endpoint is
+  // per-match), so the summary is honest: ok lists what was recorded, failed
+  // names each placement that was not, with the server's reason. A retry posts
+  // the same set; already-recorded placements answer already:true and are
+  // counted as ok without a second row.
+  const handleBatchConfirmNotified = async (rows) => {
+    const ok = []
+    const failed = []
+    for (const { student, match } of rows) {
+      try {
+        await writeNotification({
+          target: NOTIFICATION_TARGETS.UNIT_LEADER, action: 'confirm', student, match,
+        })
+        ok.push(studentNameOf(student))
+      } catch (e) {
+        failed.push({ name: studentNameOf(student), reason: e.message || 'Nothing was recorded.' })
+      }
+    }
+    if (failed.length === 0) {
+      toast?.success?.('Recorded', ok.length === 1
+        ? 'The placement is marked as unit-leader notified.'
+        : `All ${ok.length} placements are marked as unit-leader notified.`)
+    } else if (ok.length === 0) {
+      toast?.error?.('Not recorded', `No placement could be recorded. ${failed[0].reason}`)
+    } else {
+      toast?.error?.('Partially recorded',
+        `${ok.length} of ${rows.length} placements were recorded. Not recorded: ${failed.map(f => f.name).join(', ')}.`)
+    }
+    return { ok, failed }
   }
 
   const handleCorrectNotified = async (args) => {
@@ -579,6 +611,13 @@ export default function MatchingTab({
     return map
   }, [students])
 
+  // Unit names for the branched unmatch dialog (naming the successor placement).
+  const unitNameById = useMemo(() => {
+    const map = {}
+    ;(units || []).forEach(u => { map[u.id] = u.unit_name })
+    return map
+  }, [units])
+
   const studentsCount  = students.length
   const matchedCount   = matchedStudents.length
   const unmatchedCount = unmatchedAll.length
@@ -633,7 +672,10 @@ export default function MatchingTab({
                 </span>
               )}
               <div style={{ flex:1 }} />
-              <button className="embed-light-btn" onClick={() => setShowUnitSetup(true)}>⚙ Set Up Units</button>
+              {/* UNIT-POOL-REFINEMENT-1: unit setup left this surface. The board
+                  is where placements are worked, not where hosting units are
+                  configured - Set Up Units now lives beside the hosting
+                  decisions it belongs to, in At a Glance → Placement Capacity. */}
               <button className="embed-light-btn" onClick={exportCSV}>↓ Export CSV</button>
             </div>
             <div className="embed-units-body">
@@ -659,17 +701,18 @@ export default function MatchingTab({
               {participating.length === 0 ? (
                 <EmptyState icon={<MapPin />}
                   heading="No units in the pool"
-                  subtext="Use Set Up Units to add participating units and their available slots." />
+                  subtext="Add participating units and their slots from At a Glance → Placement Capacity → Set Up Units." />
               ) : (
                 <div className="embed-unit-grid">
                   {getDisplayUnits.preferred.map(unit => (
                     <EmbedUnitCard
                       key={unit.id}
                       unit={unit}
-                      matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
+                      matchedStudents={studentsMatchedToUnit(unit, matches, studentMap, cohortId)}
               onPreceptorAssigned={onPreceptorAssigned}
                       matches={matches}
                       studentMap={studentMap}
+                      unitNameById={unitNameById}
                       rotationRows={rotationRows}
                       preceptorsById={preceptorsById}
                       unitLeaders={unitLeaderRows}
@@ -677,13 +720,13 @@ export default function MatchingTab({
                       canCorrectNotifications={canCorrectNotifications}
                       onConfirmNotified={handleConfirmNotified}
                       onCorrectNotified={handleCorrectNotified}
+                      onBatchConfirmNotified={handleBatchConfirmNotified}
                       cohortId={cohortId}
                       cohortName={cohort?.name || ''}
                       selectedStudent={selectedStudent}
                       onSlotClick={() => handleSlotClick(unit)}
                       onUnmatch={student => handleUnmatch(student, unit)}
                       onUpdateMatch={onUpdateMatch}
-                      onDelete={() => onDeleteUnit(unit)}
                       isHighlighted={highlightUnitId === unit.id}
                       isFocusedUnit={focusedUnit?.id === unit.id}
                       onFocusUnit={() => handleUnitFocus(unit)}
@@ -702,10 +745,11 @@ export default function MatchingTab({
                     <EmbedUnitCard
                       key={unit.id}
                       unit={unit}
-                      matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
+                      matchedStudents={studentsMatchedToUnit(unit, matches, studentMap, cohortId)}
               onPreceptorAssigned={onPreceptorAssigned}
                       matches={matches}
                       studentMap={studentMap}
+                      unitNameById={unitNameById}
                       rotationRows={rotationRows}
                       preceptorsById={preceptorsById}
                       unitLeaders={unitLeaderRows}
@@ -713,13 +757,13 @@ export default function MatchingTab({
                       canCorrectNotifications={canCorrectNotifications}
                       onConfirmNotified={handleConfirmNotified}
                       onCorrectNotified={handleCorrectNotified}
+                      onBatchConfirmNotified={handleBatchConfirmNotified}
                       cohortId={cohortId}
                       cohortName={cohort?.name || ''}
                       selectedStudent={selectedStudent}
                       onSlotClick={() => handleSlotClick(unit)}
                       onUnmatch={student => handleUnmatch(student, unit)}
                       onUpdateMatch={onUpdateMatch}
-                      onDelete={() => onDeleteUnit(unit)}
                       isHighlighted={highlightUnitId === unit.id}
                       isFocusedUnit={focusedUnit?.id === unit.id}
                       onFocusUnit={() => handleUnitFocus(unit)}
@@ -881,14 +925,6 @@ export default function MatchingTab({
 
       </div>{/* end matching board */}
 
-      {showUnitSetup && (
-        <UnitSetupPanel cohortId={cohortId} currentUnits={units} students={students}
-          onSaved={onRefreshUnits} onClose={() => setShowUnitSetup(false)} />
-      )}
-      {showImportUnits && (
-        <ImportUnitsCSV cohortId={cohortId} onImported={onRefreshUnits}
-          onClose={() => setShowImportUnits(false)} />
-      )}
 
       {/* PRECEPTOR-DRAFT-CONTINUITY-1's post-draft prompt is GONE.
           It asked "were you able to send it?" after a draft was opened, which

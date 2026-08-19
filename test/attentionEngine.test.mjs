@@ -35,6 +35,31 @@ const student = (id, over = {}) => ({
   ...over,
 })
 
+test('unit-leader notification reads the PRIMARY unit\'s match, not the first by student', () => {
+  // A multi-unit student: the OTHER placement's match is already notified, the
+  // primary's is not. Ordering the notified row first would have satisfied the
+  // old first-match-by-student lookup and silently hidden the task.
+  const students = [student('k', { status: 'Placed', matched_unit_id: 'u-primary' })]
+  const matches = [
+    { id: 'm-other',   student_id: 'k', unit_id: 'u-other',   notification_sent: true },
+    { id: 'm-primary', student_id: 'k', unit_id: 'u-primary', notification_sent: false },
+  ]
+  const eager = deriveEagerAttention({
+    students, matches, communications: [], activeCohort: { id: 'co1', orientation_sent_at: null },
+    canEdit: true, now: NOW, reminderDeliveries: [], deliveriesLoaded: true,
+  })
+  assert.deepEqual(eager.unitLeaderNotification.map(s => s.id), ['k'],
+    'the task derives from the primary unit\'s own match row')
+  // NEGATIVE CONTROL: once the PRIMARY match is notified, the task clears even
+  // though an unnotified match exists on the other placement.
+  const flipped = matches.map(m => ({ ...m, notification_sent: m.id === 'm-primary' }))
+  const eager2 = deriveEagerAttention({
+    students, matches: flipped, communications: [], activeCohort: { id: 'co1', orientation_sent_at: null },
+    canEdit: true, now: NOW, reminderDeliveries: [], deliveriesLoaded: true,
+  })
+  assert.deepEqual(eager2.unitLeaderNotification, [])
+})
+
 test('eager sets: each predicate fires on its exact condition', () => {
   const students = [
     student('a'),                                                            // scheduling link
@@ -45,7 +70,10 @@ test('eager sets: each predicate fires on its exact condition', () => {
     student('f', { status: 'Interviewed', interview_outcome: 'Do Not Recommend' }), // selection decision
     student('g', { status: 'Completed' }),                                   // nothing
   ]
-  const matches = [{ id: 'm1', student_id: 'd', notification_sent: false }]
+  // UNIT-POOL-REFINEMENT-1: the predicate reads the match for the student's
+  // PRIMARY unit (a multi-unit student's first match by student alone could be
+  // another placement), so the fixture carries the unit_id a real row has.
+  const matches = [{ id: 'm1', student_id: 'd', unit_id: 'u1', notification_sent: false }]
   const eager = deriveEagerAttention({
     students, matches, communications: [], activeCohort: { id: 'co1', orientation_sent_at: null },
     canEdit: true, now: NOW,
