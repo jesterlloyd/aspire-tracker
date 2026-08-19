@@ -73,6 +73,33 @@ export const PRECEPTOR_ASSIGNMENT_TEMPLATE = 'preceptor_assignment'
 /** The one notification source this evidence may come from. */
 export const DIRECT_MESSAGE_TYPE = 'direct_message_sent'
 
+/**
+ * The statuses that count as "this email was sent".
+ *
+ * THE DEFECT THIS FIXES. status is not a constant - it is a LIFECYCLE.
+ * api/webhooks/resend.js advances it monotonically as Resend reports delivery:
+ * sent -> delivered -> opened -> clicked (or delayed). The first version of this
+ * module accepted only 'sent', so the moment a real email was DELIVERED - usually
+ * seconds after sending - the row stopped matching and the board's Sent state
+ * silently vanished. The fixture QC never saw it because the harness writes
+ * 'sent' and no webhook ever advances it; production always advances it.
+ *
+ * Every later state in this list is STRONGER evidence than 'sent', not weaker:
+ * delivered means the inbox accepted it, opened/clicked mean the preceptor read
+ * it. 'delayed' means Resend is still trying after accepting it.
+ *
+ * DELIBERATELY EXCLUDED: 'bounced' and 'complained'. The message was dispatched
+ * but did NOT reach the preceptor, so showing "Sent" would hide exactly the
+ * situation where staff need to fix the address and send again - and clearing
+ * the state leaves the envelope clickable for that retry. 'queued' and 'failed'
+ * were never success. (The evaluation endpoints' ALREADY_SENT_STATUSES list
+ * includes bounces because it answers a different question - "should we
+ * auto-send AGAIN?" - where a bounce still means don't.)
+ */
+export const SENT_EVIDENCE_STATUSES = Object.freeze([
+  'sent', 'delivered', 'opened', 'clicked', 'delayed',
+])
+
 const trim = (v) => (typeof v === 'string' ? v.trim() : (v == null ? '' : String(v).trim()))
 
 /**
@@ -137,8 +164,10 @@ export function preceptorSentIndex(rows) {
   const index = new Map()
   for (const row of Array.isArray(rows) ? rows : []) {
     if (!row) continue
-    // A row that is not an accepted send is not evidence of one.
-    if (trim(row.status) !== 'sent') continue
+    // A row that is not an accepted-or-better send is not evidence of one.
+    // The webhook ADVANCES status after acceptance, so equality with 'sent'
+    // would (and did) lose every row the moment delivery confirmed.
+    if (!SENT_EVIDENCE_STATUSES.includes(trim(row.status))) continue
     const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : null
     if (!meta) continue
     if (trim(meta[PLACEMENT_META.template]) !== PRECEPTOR_ASSIGNMENT_TEMPLATE) continue

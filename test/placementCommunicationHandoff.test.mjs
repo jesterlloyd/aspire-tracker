@@ -966,6 +966,88 @@ test('the notified COUNT still reads from the stored match rows', () => {
   assert.match(src, /const isNotified = !!match\?\.notification_sent/)
 })
 
+// ── 12b. The tracking promise is visible before sending ─────────────────────
+
+test('the composer states whether a placement send will be recorded', () => {
+  const src = strip(read('src/components/connect/OutreachView.jsx'))
+  assert.match(src, /const placementTracking = activePlacement/)
+  assert.match(src, /data-testid="placement-tracking-on"/)
+  assert.match(src, /data-testid="placement-tracking-warning"/)
+  assert.match(src, /will NOT mark the preceptor as notified/,
+    'the broken-link case is stated, never silent')
+  // And the same line sits in the send confirmation, before the footer.
+  const modal = src.slice(src.indexOf('data-testid="dm-confirm-placement-tracking"'))
+  assert.ok(modal.length > 0, 'the confirmation modal carries the notice')
+  const confirmIdx = src.indexOf('data-testid="dm-confirm-placement-tracking"')
+  const footerIdx = src.indexOf('const sendBlocked =')
+  assert.ok(confirmIdx > 0 && confirmIdx < footerIdx,
+    'nobody can reach Send without passing the notice')
+})
+
+test('the notice derives from the SAME ref the payload sends', () => {
+  const src = strip(read('src/components/connect/OutreachView.jsx'))
+  const i = src.indexOf('const placementTracking = activePlacement')
+  const block = src.slice(i, i + 700)
+  assert.match(block, /placementSendRef\s*\?/,
+    'tracked-vs-not is judged by placementSendRef itself - the notice can never disagree with the payload')
+})
+
+// ── 13. The two envelope controls (PLACEMENT-NOTIFICATION-STATE-1) ───────────
+
+test('both envelopes carry the EXACT pre-notification labels', () => {
+  const board = read('src/components/EmbedUnitCard.jsx')
+  assert.match(board, /isNotified \? 'Unit Leader Notified' : 'Notify Unit Leader'/,
+    'the unit-leader tooltip and aria-label switch between the two exact phrases')
+  assert.match(board, /\? 'Preceptor Notified'\s*:\s*preceptorEmail\s*\?\s*'Notify Preceptor'/,
+    'the preceptor tooltip and aria-label likewise')
+  // NEGATIVE CONTROL: the old lowercase / verbose labels are gone.
+  assert.ok(!/label="Notify unit leader"/.test(board))
+  assert.ok(!/in ASPIRE Connect`/.test(board), 'the verbose Connect label was replaced')
+})
+
+test('a notified envelope stays visible but cannot be activated', () => {
+  const board = strip(read('src/components/EmbedUnitCard.jsx'))
+  // Unit leader: aria-disabled (still focusable, still tooltipped), handler guard.
+  assert.match(board, /data-testid="notify-unit-leader"/)
+  assert.match(board, /aria-disabled=\{isNotified\}/)
+  assert.match(board, /if \(isNotified\) return\s*\n\s*onNotify\(student, match\)/,
+    'the guard blocks mouse, Enter and Space alike - keyboard activation of a button IS a click')
+  // Preceptor: same pattern, keyed on its own sent state.
+  assert.match(board, /aria-disabled=\{!preceptorEmail \|\| !!sentState\?\.sent\}/)
+  assert.match(board, /if \(!preceptorEmail \|\| sentState\?\.sent\) return/)
+  // And neither notified state uses NATIVE disabled, which would kill the tooltip.
+  assert.match(board, /disabled=\{!preceptorEmail\}/,
+    'native disabled remains ONLY for the no-email case, where it always was')
+  assert.ok(!/[^-]disabled=\{isNotified\}/.test(board),
+    'aria-disabled only - native disabled would make the notified control unfocusable and tooltip-less')
+})
+
+test('the check mark appears beside the envelope, not instead of it', () => {
+  const board = strip(read('src/components/EmbedUnitCard.jsx'))
+  assert.match(board, /data-testid="unit-leader-notified-check"/)
+  const i = board.indexOf('data-testid="notify-unit-leader"')
+  const j = board.indexOf('data-testid="unit-leader-notified-check"')
+  assert.ok(i > 0 && j > i, 'envelope first, check beside it')
+  // NEGATIVE CONTROL: the old replace-with-a-bare-✓ branch is gone.
+  assert.ok(!/isNotified\s*\?\s*<span/.test(board),
+    'notification must not swap the envelope away')
+  // The preceptor check is the dated chip, rendered after its envelope.
+  const pe = board.indexOf('data-testid="placement-preceptor-email"')
+  const pc = board.indexOf('data-testid="placement-preceptor-sent"')
+  assert.ok(pe > 0 && pc > pe, 'preceptor envelope first, dated check beside it')
+})
+
+test('both envelopes share one icon-button token with a real hit target', () => {
+  const board = strip(read('src/components/EmbedUnitCard.jsx'))
+  assert.match(board, /const ENVELOPE_BTN = \{/)
+  assert.match(board, /width: 26, height: 26/)
+  assert.equal((board.match(/\.\.\.ENVELOPE_BTN/g) || []).length, 2,
+    'exactly the two envelope controls consume it')
+  assert.match(board, /import \{ Mail, Check \} from 'lucide-react'/,
+    'the app’s icon set, not a text glyph')
+  assert.ok(!/>\s*✉\s*</.test(board), 'the ✉ text glyph is gone')
+})
+
 test('the required-document list is a single source of truth', () => {
   assert.deepEqual(PRECEPTOR_ASSIGNMENT_DOCUMENTS.map(d => d.label),
     ['ASPIRE Brochure', 'Pre-Licensure Student General Guidelines'])
@@ -1039,6 +1121,44 @@ test('a preceptor removed and reassigned does not inherit a superseded send', ()
   assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA }).sent, true)
   // But not on a different placement record.
   assert.equal(preceptorSentState(index, { matchId: M.REBUILT, preceptorId: P.DANA }).sent, false)
+})
+
+// ── THE REPORTED DEFECT (PLACEMENT-NOTIFICATION-STATE-1) ────────────────────
+//
+// A real assignment email was sent and no chip appeared. Root cause:
+// api/webhooks/resend.js advances notification_log.status after acceptance
+// (sent -> delivered -> opened -> clicked), and the first reducer accepted only
+// the transient 'sent'. The moment delivery confirmed - seconds, in practice -
+// the row stopped matching and the evidence vanished.
+
+test('DEFECT REPRODUCED: the pre-fix filter lost a row once delivery confirmed', () => {
+  // The exact production shape: the send was written 'sent', then the webhook
+  // advanced it to 'delivered' before the Owner returned to the board.
+  const rows = [sentRow({ match: M.A1, status: 'delivered' })]
+  // The pre-fix predicate, verbatim: status must EQUAL 'sent'.
+  const preFix = rows.filter(r => String(r.status || '') === 'sent')
+  assert.equal(preFix.length, 0,
+    'this is the defect: a delivered email produced zero matching rows, so no chip')
+  // The shipped reducer now keeps it.
+  const index = preceptorSentIndex(rows)
+  assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA }).sent, true,
+    'delivered is STRONGER evidence than sent, and now counts as such')
+})
+
+test('every lifecycle stage after acceptance still reads as sent', () => {
+  for (const status of ['sent', 'delivered', 'opened', 'clicked', 'delayed']) {
+    const index = preceptorSentIndex([sentRow({ match: M.A1, status })])
+    assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA }).sent, true,
+      `${status} must count - the webhook advances rows there routinely`)
+  }
+})
+
+test('a bounce or complaint clears the way for a retry instead of claiming Sent', () => {
+  for (const status of ['bounced', 'complained', 'failed', 'queued']) {
+    const index = preceptorSentIndex([sentRow({ match: M.A1, status })])
+    assert.equal(preceptorSentState(index, { matchId: M.A1, preceptorId: P.DANA }).sent, false,
+      `${status} means the preceptor did NOT get the email - showing Sent would hide that`)
+  }
 })
 
 test('a FAILED or unfinished send records nothing that reads as sent', () => {
@@ -1151,7 +1271,8 @@ test('the composer attributes a send only while the draft is still that template
 test('the board reads the evidence, scoped and read-only', () => {
   const src = strip(read('src/components/MatchingTab.jsx'))
   assert.match(src, /from\('notification_log'\)/)
-  assert.match(src, /\.eq\('status', 'sent'\)/)
+  assert.match(src, /\.in\('status', \[\.\.\.SENT_EVIDENCE_STATUSES\]\)/,
+    'the query must accept the whole delivery lifecycle, not only the transient initial state')
   assert.match(src, /\.eq\('metadata->>placement_template_key', 'preceptor_assignment'\)/)
   assert.match(src, /\.eq\('metadata->>placement_cohort_id', cohortId\)/, 'scoped to the active cohort')
   const q = src.slice(src.indexOf("queryKey: ['placement_preceptor_sent'"), src.indexOf('const preceptorSent ='))

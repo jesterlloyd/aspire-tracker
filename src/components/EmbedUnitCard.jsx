@@ -25,6 +25,18 @@ import { getUnit } from '../lib/unitCatalog'
 import { CARD } from '../lib/designTokens'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import { MATCH_RANK_CONFIG, matchRankOf } from '../lib/placementDisplay'
+import { Mail, Check } from 'lucide-react'
+
+// PLACEMENT-NOTIFICATION-STATE-1: the notification envelopes, unified. The board
+// follows the app's icon idiom (lucide glyph + shared Tooltip); the earlier ✉
+// text glyph was ~12px with a sliver of padding - a target nobody could hit
+// reliably and a symbol easy to miss. One token so the unit-leader and
+// preceptor controls can never drift apart in size or affordance again.
+const ENVELOPE_BTN = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  width: 26, height: 26, borderRadius: 6, border: '1px solid transparent',
+  background: 'none', padding: 0, lineHeight: 1, flexShrink: 0,
+}
 
 // ── Choice / match-quality config ────────────────────────────────────────────
 
@@ -125,46 +137,62 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
             >
               {'\u{1F464}'} {preceptorName}
             </button>
-            {/* PLACEMENT-COMMUNICATION-HANDOFF-1A: whether THIS preceptor has been
-                sent the assignment email for THIS placement. Deliberately worded
-                and coloured differently from the unit-leader ✓ beside it: this is
-                one preceptor's email, not the unit-leader notification the card's
-                "N of M notified" count is about. */}
+            {/* PLACEMENT-COMMUNICATION-HANDOFF-1 / -STATE-1: the preceptor
+                envelope. It never opens a mailto - it hands this exact placement
+                to ASPIRE Connect → Outreach as an editable draft.
+                THREE STATES, ONE CONTROL:
+                  no email  → natively disabled, the reason in the label
+                  unsent    → clickable, "Notify Preceptor"
+                  notified  → visible but inert, "Preceptor Notified"
+                The notified state is aria-disabled rather than disabled because a
+                natively disabled button is unfocusable and shows no tooltip - the
+                explanation would vanish exactly when it matters. Activation is
+                blocked in the handler, which covers mouse, Enter and Space alike
+                (keyboard activation of a button IS a click). */}
+            {onEmailPreceptor && (
+              <Tooltip
+                label={sentState?.sent
+                  ? 'Preceptor Notified'
+                  : preceptorEmail
+                    ? 'Notify Preceptor'
+                    : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
+                placement="top">
+                <button
+                  data-testid="placement-preceptor-email"
+                  aria-label={sentState?.sent
+                    ? 'Preceptor Notified'
+                    : preceptorEmail
+                      ? 'Notify Preceptor'
+                      : `Cannot email ${preceptorName || 'this preceptor'}: no email address on file`}
+                  aria-disabled={!preceptorEmail || !!sentState?.sent}
+                  disabled={!preceptorEmail}
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (!preceptorEmail || sentState?.sent) return
+                    onEmailPreceptor(student, match, placement)
+                  }}
+                  style={{ ...ENVELOPE_BTN,
+                    color: sentState?.sent ? '#9ca3af' : preceptorEmail ? '#475467' : '#d1d5db',
+                    cursor: sentState?.sent ? 'default' : preceptorEmail ? 'pointer' : 'not-allowed' }}
+                >
+                  <Mail size={14} strokeWidth={2} aria-hidden="true" />
+                </button>
+              </Tooltip>
+            )}
+            {/* The check mark beside the inert envelope: this preceptor's OWN
+                send, with its date - deliberately coloured apart from the
+                unit-leader ✓ so it can never be read as the unit-leader
+                notification or the card's "N of M notified" count. */}
             {sentState?.sent && (
               <Tooltip label={preceptorSentTooltip(sentState, preceptorName)} placement="top">
                 <span
                   data-testid="placement-preceptor-sent"
-                  style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 9.5, fontWeight: 700,
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 2,
+                    fontFamily: 'DM Sans,sans-serif', fontSize: 9.5, fontWeight: 700,
                     color: '#0e4e6e', background: '#E1F3FB', border: '1px solid #89CEEA',
-                    borderRadius: 4, padding: '0 5px', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>
-                  ✓ {preceptorSentLabel(sentState)}
+                    borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>
+                  <Check size={10} strokeWidth={3.5} aria-hidden="true" /> {preceptorSentLabel(sentState)}
                 </span>
-              </Tooltip>
-            )}
-            {/* PLACEMENT-COMMUNICATION-HANDOFF-1: the preceptor envelope. It never
-                opens a mailto - it hands this exact placement to ASPIRE Connect →
-                Outreach as an editable draft. Disabled, with the reason stated,
-                when the preceptor has no usable address to send to. */}
-            {onEmailPreceptor && (
-              <Tooltip
-                label={preceptorEmail
-                  ? `Email ${preceptorName || 'the preceptor'} in ASPIRE Connect`
-                  : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
-                placement="top">
-                <button
-                  data-testid="placement-preceptor-email"
-                  aria-label={preceptorEmail
-                    ? `Email ${preceptorName || 'the preceptor'} in ASPIRE Connect`
-                    : `Cannot email ${preceptorName || 'this preceptor'}: no email address on file`}
-                  aria-disabled={!preceptorEmail}
-                  disabled={!preceptorEmail}
-                  onClick={e => { e.stopPropagation(); onEmailPreceptor(student, match, placement) }}
-                  style={{ background: 'none', border: 'none', fontSize: 11, lineHeight: 1, padding: '0 2px',
-                    color: preceptorEmail ? '#6b7280' : '#d1d5db',
-                    cursor: preceptorEmail ? 'pointer' : 'not-allowed' }}
-                >
-                  ✉
-                </button>
               </Tooltip>
             )}
           </div>
@@ -173,17 +201,33 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
 
       {/* Notify + unmatch controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-        {isNotified
-          ? <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>✓</span>
-          : <Tooltip label="Notify unit leader" placement="top">
-              <button
-              aria-label="Notify unit leader"
-              onClick={e => { e.stopPropagation(); onNotify(student, match) }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#6b7280', padding: '0 2px', lineHeight: 1 }}>
-              ✉
-            </button>
-            </Tooltip>
-        }
+        {/* PLACEMENT-NOTIFICATION-STATE-1: the envelope no longer vanishes into
+            a bare ✓ on notification - it stays, inert, so the control keeps its
+            identity, with the check beside it. State comes from the stored match
+            row (notification_sent), written ONLY by the explicit confirmation. */}
+        <Tooltip label={isNotified ? 'Unit Leader Notified' : 'Notify Unit Leader'} placement="top">
+          <button
+            data-testid="notify-unit-leader"
+            aria-label={isNotified ? 'Unit Leader Notified' : 'Notify Unit Leader'}
+            aria-disabled={isNotified}
+            onClick={e => {
+              e.stopPropagation()
+              if (isNotified) return
+              onNotify(student, match)
+            }}
+            style={{ ...ENVELOPE_BTN,
+              color: isNotified ? '#9ca3af' : '#475467',
+              cursor: isNotified ? 'default' : 'pointer' }}
+          >
+            <Mail size={14} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </Tooltip>
+        {isNotified && (
+          <span data-testid="unit-leader-notified-check" aria-hidden="true"
+            style={{ display: 'inline-flex', color: '#16a34a', flexShrink: 0 }}>
+            <Check size={13} strokeWidth={3} />
+          </span>
+        )}
         <Tooltip label="Unmatch student" placement="top">
         <button
           aria-label="Unmatch student"

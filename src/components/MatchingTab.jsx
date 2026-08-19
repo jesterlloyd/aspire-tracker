@@ -20,7 +20,7 @@ import {
   READINESS_MODES, DEFAULT_READINESS_MODE, filterPoolByReadiness,
   needsPlacementException, exceptionCount, isPoolEligible,
 } from '../lib/placementReadiness'
-import { preceptorSentIndex } from '../lib/placementPreceptorSent'
+import { preceptorSentIndex, SENT_EVIDENCE_STATUSES } from '../lib/placementPreceptorSent'
 // ── Unified Placement Overview - single panel replacing Placement at a Glance + Preference Match Ring ──
 
 const PREF_SEGMENTS = [
@@ -255,7 +255,10 @@ export default function MatchingTab({
         .from('notification_log')
         .select('id, status, sent_at, metadata')
         .eq('notification_type', 'direct_message_sent')
-        .eq('status', 'sent')
+        // status ADVANCES after acceptance (webhook: sent -> delivered -> opened
+        // -> clicked). Filtering on 'sent' alone lost every row the moment a
+        // real email was delivered - the reported missing-chip defect.
+        .in('status', [...SENT_EVIDENCE_STATUSES])
         .eq('metadata->>placement_cohort_id', cohortId)
         .eq('metadata->>placement_template_key', 'preceptor_assignment')
         .order('sent_at', { ascending: false })

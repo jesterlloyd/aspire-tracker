@@ -1074,6 +1074,29 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     }
     : null
 
+  // ── PLACEMENT-NOTIFICATION-STATE-1: the promise, made visible ──────────────
+  //
+  // The board's envelope implies "sending this will mark the preceptor
+  // notified." That promise silently broke whenever placementSendRef came up
+  // null while a handoff was still live - keeping a saved draft at the Replace
+  // prompt, switching to another template, or a placement whose preceptor has
+  // no canonical record. The send still went; the tracking quietly did not.
+  //
+  // So whenever a handoff owns this recipient, the composer now SAYS which of
+  // the two things sending will do - and the same line appears in the send
+  // confirmation, so nobody can reach Send without having been told.
+  const placementTracking = activePlacement
+    ? (placementSendRef
+      ? {
+        tracked: true,
+        text: 'Sending will mark this preceptor as notified on the Placement Board.',
+      }
+      : {
+        tracked: false,
+        text: 'This draft is no longer connected to the placement it was opened for, so sending will NOT mark the preceptor as notified on the Placement Board. To keep tracking, reselect the Preceptor Assignment & Details template - or reopen the envelope from the Placement Board.',
+      })
+    : null
+
   // What to say when a promised Catalog document could not be resolved. Shown in
   // the composer, before anything can be sent.
   const requiredDocWarning = activeTemplateId === 'preceptor_assignment' && effectiveDocs.problems.length
@@ -2687,6 +2710,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     {attachmentClaimBlock}
                   </div>
                 )}
+                {/* PLACEMENT-NOTIFICATION-STATE-1: what this send will (or will
+                    not) record. Rendered only during a placement handoff. */}
+                {placementTracking && (placementTracking.tracked ? (
+                  <div data-testid="placement-tracking-on"
+                    style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#0e4e6e', background: '#E1F3FB', border: '1px solid #89CEEA', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
+                    {placementTracking.text}
+                  </div>
+                ) : (
+                  <div data-testid="placement-tracking-warning" role="alert"
+                    style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#7c2d12', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
+                    {placementTracking.text}
+                  </div>
+                ))}
               </div>
 
               {/* Signature toggle */}
@@ -4052,6 +4088,18 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               <div data-testid="dm-confirm-claim-blocked"
                 style={{ fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontFamily: F }}>
                 {attachmentClaimBlock}
+              </div>
+            )}
+
+            {/* PLACEMENT-NOTIFICATION-STATE-1: the last thing read before Send
+                says whether this send will be recorded on the Placement Board. */}
+            {placementTracking && (
+              <div data-testid="dm-confirm-placement-tracking"
+                style={{ fontSize: 12, lineHeight: 1.5, marginBottom: 10, fontFamily: F, borderRadius: 8, padding: '8px 12px',
+                  color: placementTracking.tracked ? '#0e4e6e' : '#7c2d12',
+                  background: placementTracking.tracked ? '#E1F3FB' : '#fff7ed',
+                  border: placementTracking.tracked ? '1px solid #89CEEA' : '1px solid #fed7aa' }}>
+                {placementTracking.text}
               </div>
             )}
 
