@@ -583,7 +583,7 @@ const PLACEMENT = {
   unit: '5 SCCT',
   schedule: 'August 24–October 20, 2026',
   hoursRequired: '144 hours',
-  notes: 'Night shift',
+  shift: 'Night shift',
   preceptorFirstName: 'Dana',
 }
 
@@ -593,21 +593,21 @@ test('the merged draft carries the real placement, not placeholders', () => {
   assert.match(d.body, /^Preceptor Assignment & Details\n\nDear Dana,/)
   assert.match(d.body, /Student: Cruz, Anamaria “Ana”/)
   assert.match(d.body, /School: California State University, Northridge/)
-  assert.match(d.body, /Unit \/ Assignment: 5 SCCT/)
-  assert.match(d.body, /Rotation Dates \/ Schedule: August 24–October 20, 2026/)
+  assert.match(d.body, /Unit: 5 SCCT/)
+  assert.match(d.body, /Rotation Dates: August 24–October 20, 2026/)
   assert.match(d.body, /Required Hours: 144 hours/)
-  assert.match(d.body, /Additional Notes: Night shift/)
-  for (const ph of ['[Student Name]', '[School]', '[Unit / Assignment]', '[Rotation Dates / Schedule]', '[Required Hours']) {
+  assert.match(d.body, /Shift: Night shift/)
+  for (const ph of ['[Student Name]', '[School]', '[Unit]', '[Rotation Dates]', '[Required Hours]', '[Shift]']) {
     assert.ok(!d.body.includes(ph), `placeholder survived the merge: ${ph}`)
   }
   assert.ok(!d.richBody.includes('[Student Name]'), 'the rich body must merge too')
 })
 
-test('Additional Notes is omitted rather than left as placeholder text', () => {
-  const d = buildPreceptorAssignmentDraft({ placement: { ...PLACEMENT, notes: '' }, attachmentsAttached: true })
+test('the retired Additional Notes label is gone and a missing shift stays visible', () => {
+  const d = buildPreceptorAssignmentDraft({ placement: { ...PLACEMENT, shift: '' }, attachmentsAttached: true })
   assert.ok(!d.body.includes('Additional Notes'))
   assert.ok(!d.richBody.includes('Additional Notes'))
-  assert.ok(!d.body.includes('[Insert any relevant notes'))
+  assert.ok(d.body.includes('Shift: [Shift]'))
 })
 
 test('every true section heading is Title Case', () => {
@@ -635,14 +635,15 @@ test('every true section heading is Title Case', () => {
 // version read "see the attached". The negative controls below keep either from
 // creeping back.
 test('the attachment reminder is EXACTLY the requested wording', () => {
-  const EXPECTED = 'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  const EXPECTED = 'Resources: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
   const SUPERSEDED = ['Scope of practice: Please see attached ASPIRE Brochure', 'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.']
   for (const d of [
     buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true }),
     buildPreceptorAssignmentDraft({ firstName: 'Dana', attachmentsAttached: true }),   // manual path
   ]) {
     assert.ok(d.body.includes(EXPECTED), 'plain body must carry the exact sentence')
-    assert.ok(d.richBody.includes(EXPECTED), 'rich body must carry the exact sentence')
+    assert.ok(d.richBody.includes('<strong>Resources:</strong> Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'),
+      'rich body must carry the exact sentence with the requested bold label')
     for (const old of SUPERSEDED) {
       assert.ok(!d.body.includes(old), `the superseded wording must not survive: ${old}`)
       assert.ok(!d.richBody.includes(old), `the superseded wording must not survive: ${old}`)

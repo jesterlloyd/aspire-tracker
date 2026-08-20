@@ -602,7 +602,7 @@ const HANDOFF = {
   placement: {
     studentName: 'Ana Cruz', school: 'California State University, Northridge',
     unit: '5 SCCT', schedule: 'August 24–October 20, 2026', hoursRequired: '144 hours',
-    notes: '', preceptorFirstName: 'Dana',
+    shift: 'Day shift', preceptorFirstName: 'Dana',
   },
 }
 const DOCS_OK = {
@@ -621,8 +621,9 @@ test('the handoff merges the placement and preselects both documents', () => {
   assert.equal(c.state.activeTemplateId, 'preceptor_assignment')
   assert.match(c.state.msgSubject, /Student Assignment and Introduction Details/)
   assert.match(c.state.msgBody, /Student: Ana Cruz/)
-  assert.match(c.state.msgBody, /Rotation Dates \/ Schedule: August 24–October 20, 2026/)
-  assert.match(c.state.msgBody, /Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference\./)
+  assert.match(c.state.msgBody, /Rotation Dates: August 24–October 20, 2026/)
+  assert.match(c.state.msgBody, /Shift: Day shift/)
+  assert.match(c.state.msgBody, /Resources: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference\./)
   assert.deepEqual(c.state.dmAttachments.map(a => a.slug),
     ['aspire-digital-brochure', 'general-guidelines-for-pre-licensure-students'])
   assert.equal(c.state.replaceTemplateKey, null, 'an empty composer needs no confirmation')

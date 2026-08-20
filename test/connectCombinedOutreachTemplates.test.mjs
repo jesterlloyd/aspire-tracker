@@ -26,9 +26,10 @@ test('the preceptor assignment draft contains the assignment, requested details,
   for (const required of [
     'Student: [Student Name]',
     'School: [School]',
-    'Unit / Assignment: [Unit / Assignment]',
-    'Rotation Dates / Schedule: [Rotation Dates / Schedule]',
-    'Required Hours: [Required Hours, if applicable]',
+    'Unit: [Unit]',
+    'Rotation Dates: [Rotation Dates]',
+    'Required Hours: [Required Hours]',
+    'Shift: [Shift]',
     'Your preferred name and title',
     'Preferred method of communication',
     'Best contact email and phone',
@@ -36,18 +37,51 @@ test('the preceptor assignment draft contains the assignment, requested details,
     'Typical schedule or upcoming shifts',
     'Optional photo to share with the student',
     "Any expectations or instructions for the student's first day",
-    // PRECEPTOR-ATTACHMENT-REMINDER-1: the ask names the real destination.
-    'Send to aspire@cshs.org.',
     'Preceptor pay:',
     'Coverage:',
     'Floating:',
     // PRECEPTOR-ATTACHMENT-REMINDER-1: the canonical sentence, without "the".
-    'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.',
+    'Resources: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.',
   ]) assert.match(draft.body, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 
-  assert.match(draft.richBody, /data-aspire-block="note"/)
   assert.match(draft.richBody, /Preceptor Assignment &amp; Details|Preceptor Assignment & Details/)
   assert.doesNotMatch(draft.body, /Kind regards|Jester Lloyd Bautista/)
+})
+
+test('the preceptor assignment email matches the approved field labels, copy, and rich emphasis', () => {
+  const draft = buildPreceptorAssignmentDraft({
+    placement: {
+      studentName: 'Nathalie Imamoto',
+      school: 'California State University, Long Beach',
+      unit: '7 SCCT',
+      schedule: 'August 25–December 11, 2026',
+      hoursRequired: '135 hours',
+      shift: 'Day shift',
+      preceptorFirstName: 'Isaac',
+    },
+    attachmentsAttached: true,
+  })
+
+  assert.equal(draft.subject, 'ASPIRE: Student Assignment and Introduction Details')
+  assert.match(draft.body, /^Preceptor Assignment & Details\n\nDear Isaac,\n\nThank you for agreeing/)
+  for (const line of [
+    'Student: Nathalie Imamoto',
+    'School: California State University, Long Beach',
+    'Unit: 7 SCCT',
+    'Rotation Dates: August 25–December 11, 2026',
+    'Required Hours: 135 hours',
+    'Shift: Day shift',
+  ]) assert.ok(draft.body.includes(line), line)
+
+  for (const label of ['Student:', 'School:', 'Unit:', 'Rotation Dates:', 'Required Hours:', 'Shift:',
+    'Preceptor pay:', 'Coverage:', 'Floating:', 'Resources:']) {
+    assert.ok(draft.richBody.includes(`<strong>${label}</strong>`), `${label} must be bold in rich email`)
+  }
+  assert.ok(draft.body.includes('Preceptor pay: You may be eligible, please reach out to Dr. Krystal Rodriguez with any questions.'))
+  assert.ok(draft.body.endsWith("We truly appreciate your time, effort, and heart in mentoring our students. Your guidance helps them build confidence, competence, and readiness for practice. Please don't hesitate to reach out if you have any questions."))
+  for (const retired of ['Unit / Assignment:', 'Rotation Dates / Schedule:', 'Additional Notes:', 'If eligible']) {
+    assert.ok(!draft.body.includes(retired), `retired wording survived: ${retired}`)
+  }
 })
 
 test('the student acceptance draft carries the complete August 17 orientation invitation', () => {

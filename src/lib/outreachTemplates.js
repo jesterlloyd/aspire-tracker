@@ -27,6 +27,17 @@ const escAttr = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace
 const bH2   = (t) => `<h2>${escTxt(t)}</h2>`
 const bP    = (t) => `<p>${escTxt(t)}</p>`
 const bUL   = (items) => `<ul>${items.map(i => `<li>${escTxt(i)}</li>`).join('')}</ul>`
+// Summary and reminder bullets use a bold lead label in the rich email while
+// the plain-text alternative stays clean and readable. Only the first colon is
+// structural; everything after it remains ordinary escaped text.
+const bLabeledUL = (items) => `<ul>${items.map(item => {
+  const text = String(item == null ? '' : item)
+  const colon = text.indexOf(':')
+  if (colon < 0) return `<li>${escTxt(text)}</li>`
+  const label = text.slice(0, colon + 1)
+  const rest = text.slice(colon + 1).trimStart()
+  return `<li><strong>${escTxt(label)}</strong>${rest ? ` ${escTxt(rest)}` : ''}</li>`
+}).join('')}</ul>`
 const bDivider = '<hr data-aspire-block="divider">'
 // `mailto` is optional and OPT-IN. When present, the server's trusted Note
 // renderer turns that exact address - and only that address - into a real
@@ -58,10 +69,10 @@ const bEvent = ({ title = '', dateTime = '', location = '', format = '', respond
 //   Preceptor Assignment & Details / Student Assignment Summary /
 //   Details Requested for the Introduction / A Few Quick Reminders.
 //
-// THE ATTACHMENT SENTENCE IS CONDITIONAL. It says the documents are attached only
+// THE ATTACHMENT REMINDER IS CONDITIONAL. It says the documents are attached only
 // when the caller confirms both resolved (`attachmentsAttached: true`). Otherwise
-// it keeps the older, honest wording. No typography or font styling is set here;
-// the app's existing email rendering is untouched.
+// it is omitted. The rich body bolds the requested lead labels; it does not set
+// fonts, sizes, colors, or other presentation styles.
 
 // A merged value, or the template's own editable placeholder when nothing was
 // resolved. The placeholder is what makes an unresolved field obvious in the draft.
@@ -82,7 +93,7 @@ const merged = (value, placeholder) => {
 // documents cannot be resolved the bullet is OMITTED entirely, the composer
 // shows an actionable warning, and the send is blocked - so a reader never sees
 // a claim that is untrue, and the sender is never left wondering why.
-// PRECEPTOR-ATTACHMENT-REMINDER-1: THE canonical sentence. This exact string is
+// PRECEPTOR-ATTACHMENT-REMINDER-1: THE canonical reminder. This exact string is
 // the requirement, asserted verbatim rather than described.
 //
 // It supersedes both earlier wordings: the original carried a "Scope of
@@ -92,24 +103,14 @@ const merged = (value, placeholder) => {
 // (catalogAttachments.js still RECOGNIZES the older phrasing, because a draft
 // saved under it is still making an attachment claim that has to stay guarded.)
 export const PRECEPTOR_ATTACHMENT_REMINDER =
-  'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  'Resources: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
 
 // ── Details Requested for the Introduction ──────────────────────────────────
-//
-// PRECEPTOR-ATTACHMENT-REMINDER-1. The section used to ask the preceptor to
-// "reply with the following details". A reply does reach somebody - Connect sets
-// Reply-To to the individual sender - but it reaches the wrong place: these
-// details belong to the shared ASPIRE inbox, where whoever is coordinating the
-// placement can act on them, not to one sender's personal mail. The ask now
-// names that destination, aspire@cshs.org - a mailto: link in HTML, the full
-// address in plain text - and no wording anywhere tells the reader to reply.
 //
 // ONE list, in ONE order, used by BOTH bodies. The plain-text and rich bullets
 // used to be worded differently ("Preferred name and title" vs "Your preferred
 // name and title"), so the same message read differently depending on which
 // representation a mail client showed.
-const ASPIRE_INBOX = 'aspire@cshs.org'
-const DETAILS_NOTE_TITLE = 'When you have a moment'
 const DETAIL_REQUESTS = Object.freeze([
   'Your preferred name and title',
   'Preferred method of communication',
@@ -129,15 +130,16 @@ export function buildPreceptorAssignmentDraft({ firstName, placement, attachment
   const greetName = (p.preceptorFirstName || firstName || '')
   const studentName = merged(p.studentName, STUDENT_NAME_PLACEHOLDER)
   const school      = merged(p.school, '[School]')
-  const unit        = merged(p.unit, '[Unit / Assignment]')
-  const schedule    = merged(p.schedule, '[Rotation Dates / Schedule]')
-  const hours       = merged(p.hoursRequired, '[Required Hours, if applicable]')
-  // Additional Notes is OMITTED entirely when there is no appropriate note, rather
-  // than shipping a placeholder the sender has to remember to delete.
-  const notes       = (p.notes == null ? '' : String(p.notes)).trim()
+  const unit        = merged(p.unit, '[Unit]')
+  const schedule    = merged(p.schedule, '[Rotation Dates]')
+  const hours       = merged(p.hoursRequired, '[Required Hours]')
+  // `notes` is a compatibility fallback for handoffs opened before Shift became
+  // an explicit field. Unit Pool now writes `shift`; either shape renders under
+  // the truthful Shift label, never as generic Additional Notes.
+  const shift       = merged(p.shift ?? p.notes, '[Shift]')
 
   const reminders = [
-    'Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.',
+    'Preceptor pay: You may be eligible, please reach out to Dr. Krystal Rodriguez with any questions.',
     'Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.',
     'Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.',
   ]
@@ -146,17 +148,11 @@ export function buildPreceptorAssignmentDraft({ firstName, placement, attachment
   const summaryLines = [
     `Student: ${studentName}`,
     `School: ${school}`,
-    `Unit / Assignment: ${unit}`,
-    `Rotation Dates / Schedule: ${schedule}`,
+    `Unit: ${unit}`,
+    `Rotation Dates: ${schedule}`,
     `Required Hours: ${hours}`,
+    `Shift: ${shift}`,
   ]
-  if (notes) summaryLines.push(`Additional Notes: ${notes}`)
-
-  // The introduction ask names the student the PLACEMENT resolved - never the
-  // recipient, never another student. With no placement, `studentName` is the
-  // literal [Student Name] placeholder, which is what makes the gap visible.
-  const detailsNote =
-    `Please email us the details below so I can introduce you to ${studentName} and help make the first day as smooth as possible. Send to ${ASPIRE_INBOX}.`
 
   const subject = 'ASPIRE: Student Assignment and Introduction Details'
   // PLACEMENT-NOTIFICATION-CONTROL-1: the block title opens BOTH bodies.
@@ -179,10 +175,6 @@ ${summaryLines.join('\n')}
 
 Details Requested for the Introduction
 
-${DETAILS_NOTE_TITLE}
-
-${detailsNote}
-
 ${DETAIL_REQUESTS.map(d => `• ${d}`).join('\n')}
 
 ${DETAILS_CLOSING}
@@ -191,9 +183,7 @@ A Few Quick Reminders
 
 ${reminders.map(r => `• ${r}`).join('\n')}
 
-Again, we truly appreciate your time, effort, and heart in mentoring our students. Many ASPIRE students go on to become strong candidates for our New-Graduate RN Residency Program, and your guidance plays a meaningful role in helping them build confidence, competence, and readiness for practice.
-
-Please don't hesitate to reach out if you have any questions.`
+We truly appreciate your time, effort, and heart in mentoring our students. Your guidance helps them build confidence, competence, and readiness for practice. Please don't hesitate to reach out if you have any questions.`
   const richBody =
     bH2('Preceptor Assignment & Details')
     // The greeting stands alone; the thanks is its own paragraph beneath it,
@@ -201,13 +191,12 @@ Please don't hesitate to reach out if you have any questions.`
     + bP(`Dear ${fb(greetName, 'Preceptor')},`)
     + bP('Thank you for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students makes a meaningful difference in their professional growth and transition into practice.')
     + bH2('Student Assignment Summary')
-    + bUL(summaryLines)
+    + bLabeledUL(summaryLines)
     + bH2('Details Requested for the Introduction')
-    + bNote({ title: DETAILS_NOTE_TITLE, body: detailsNote, mailto: ASPIRE_INBOX })
     + bUL(DETAIL_REQUESTS)
     + bP(DETAILS_CLOSING)
     + bH2('A Few Quick Reminders')
-    + bUL(reminders)
+    + bLabeledUL(reminders)
     + bP("We truly appreciate your time, effort, and heart in mentoring our students. Your guidance helps them build confidence, competence, and readiness for practice. Please don't hesitate to reach out if you have any questions.")
   return { subject, body, richBody }
 }

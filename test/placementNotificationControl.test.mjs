@@ -566,19 +566,20 @@ test('PROOF 25: the exact subject appears on BOTH template entry paths', () => {
 })
 
 test('PROOF 26: the attachment bullet is exact, and sits under A Few Quick Reminders', () => {
-  const EXPECTED = 'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  const EXPECTED = 'Resources: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
   for (const d of [
     buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true }),
     buildPreceptorAssignmentDraft({ firstName: 'Romelyn', attachmentsAttached: true }),
   ]) {
     assert.ok(d.body.includes(EXPECTED), 'plain text carries the exact sentence')
-    assert.ok(d.richBody.includes(EXPECTED), 'the rich body carries it too')
+    assert.ok(d.richBody.includes('<strong>Resources:</strong> Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'),
+      'the rich body carries it with the requested bold label')
     // It is inside the reminders section, not floating somewhere else.
     const heading = d.body.indexOf('A Few Quick Reminders')
     assert.ok(heading > 0 && d.body.indexOf(EXPECTED) > heading,
       'the bullet must follow the A Few Quick Reminders heading')
     const richHeading = d.richBody.indexOf('A Few Quick Reminders')
-    assert.ok(richHeading > 0 && d.richBody.indexOf(EXPECTED) > richHeading)
+    assert.ok(richHeading > 0 && d.richBody.indexOf('<strong>Resources:</strong>') > richHeading)
     // NEGATIVE CONTROLS: the two superseded wordings.
     assert.ok(!d.body.includes('Scope of practice: Please see attached'))
     assert.ok(!d.body.includes('can be added before sending or shared separately'))
@@ -602,7 +603,7 @@ test('PROOF 27: the bullet survives the rich-text seed the composer actually use
   assert.match(view, /handoffSeed/, 'the merged body is seeded, not written after mount')
   const d = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true })
   // The rich body is a real list item, so an editor round trip keeps it as one.
-  assert.match(d.richBody, /<li>Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference\.<\/li>/)
+  assert.match(d.richBody, /<li><strong>Resources:<\/strong> Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference\.<\/li>/)
 })
 
 test('PROOF 28: the already-correct greeting stays two paragraphs (regression)', () => {

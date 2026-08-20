@@ -552,9 +552,8 @@ export default function EmbedUnitCard({
         unit:          unit.unit_name,
         schedule:      placement.termDates,
         hoursRequired: placement.hoursRequired,
-        // Additional Notes stays empty unless there is a real, appropriate note.
-        // The shift the placement actually carries is the only one that qualifies.
-        notes:         placement.assignedShift ? `${placement.assignedShift} shift` : '',
+        // Shift is a first-class assignment field in the email summary.
+        shift:         placement.assignedShift ? `${placement.assignedShift} shift` : '',
         preceptorFirstName: (contact.preferred_name || contact.full_name || placement.preceptorName || '')
           .trim().split(/\s+/)[0] || '',
       },

@@ -56,7 +56,9 @@ const BROCHURE = 'aspire-digital-brochure'
 const GUIDELINES = 'general-guidelines-for-pre-licensure-students'
 
 const CANONICAL_BULLET =
-  'Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+  'Resources: Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
+const CANONICAL_RICH_BULLET =
+  '<strong>Resources:</strong> Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.'
 const OBSOLETE_BULLETS = [
   'Please see the attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.',
   'Scope of practice: Please see attached ASPIRE Brochure',
@@ -144,7 +146,7 @@ test('PROOF 3: the canonical bullet appears exactly once, under A Few Quick Remi
     'the exported constant IS the requirement')
   for (const [label, d] of bothPaths()) {
     const inPlain = d.body.split(CANONICAL_BULLET).length - 1
-    const inRich = d.richBody.split(CANONICAL_BULLET).length - 1
+    const inRich = d.richBody.split(CANONICAL_RICH_BULLET).length - 1
     assert.equal(inPlain, 1, `${label}: plain text must carry the bullet exactly once`)
     assert.equal(inRich, 1, `${label}: the rich body must carry it exactly once`)
 
@@ -152,9 +154,9 @@ test('PROOF 3: the canonical bullet appears exactly once, under A Few Quick Remi
     assert.ok(heading > 0 && d.body.indexOf(CANONICAL_BULLET) > heading,
       `${label}: the bullet must sit under the reminders heading`)
     const richHeading = d.richBody.indexOf('A Few Quick Reminders')
-    assert.ok(richHeading > 0 && d.richBody.indexOf(CANONICAL_BULLET) > richHeading)
+    assert.ok(richHeading > 0 && d.richBody.indexOf(CANONICAL_RICH_BULLET) > richHeading)
     // It is a real list item, so an editor round trip keeps it as one.
-    assert.ok(d.richBody.includes(`<li>${CANONICAL_BULLET}</li>`))
+    assert.ok(d.richBody.includes('<li><strong>Resources:</strong> Please see attached ASPIRE Brochure and General Guidelines for Pre-Licensure Students for your reference.</li>'))
   }
 })
 
@@ -190,10 +192,9 @@ test('PROOF 14: nothing tells the preceptor to reply to a no-reply address', () 
     for (const [kind, text] of [['plain', d.body], ['rich', d.richBody]]) {
       assert.ok(!/\breply\b/i.test(text), `${label}/${kind}: still asks the reader to reply`)
     }
-    // The ask names the real destination instead - a link in HTML, the full
-    // address in plain text.
-    assert.match(d.body, /Send to aspire@cshs\.org\./)
-    assert.match(d.richBody, /data-mailto="aspire@cshs\.org"/)
+    // The approved copy contains no stale destination note or hidden mailto.
+    assert.ok(!d.body.includes('Send to aspire@cshs.org.'))
+    assert.ok(!d.richBody.includes('data-mailto="aspire@cshs.org"'))
   }
 })
 
@@ -201,26 +202,25 @@ test('PROOF 9: the corrected Details Requested section is identical on both path
   for (const [label, d] of bothPaths()) {
     assert.match(d.body, /\nDetails Requested for the Introduction\n/, `${label}: heading`)
     assert.ok(d.richBody.includes('<h2>Details Requested for the Introduction</h2>'))
-    assert.match(d.body, /\nWhen you have a moment\n/, `${label}: note title in plain text`)
-    assert.match(d.richBody, /data-title="When you have a moment"/)
+    assert.ok(!d.body.includes('When you have a moment'), `${label}: retired note title is gone`)
+    assert.ok(!d.richBody.includes('data-title="When you have a moment"'))
     assert.ok(d.body.includes(DETAILS_CLOSING), `${label}: closing sentence in plain text`)
     assert.ok(d.richBody.includes(`<p>${DETAILS_CLOSING}</p>`))
     // The closing sentence follows the bullets, not the other way round.
     assert.ok(d.body.indexOf(DETAILS_CLOSING) > d.body.indexOf(DETAIL_BULLETS[6]))
   }
-  // The two representations carry the SAME note body.
+  // The heading leads directly into the requested bullets in both bodies.
   const d = attached()
-  const noteBody = d.richBody.match(/data-body="([^"]*)"/)[1].replace(/&amp;/g, '&')
-  assert.ok(d.body.includes(noteBody), 'plain text and the rich note must say the same thing')
+  assert.ok(d.body.indexOf(DETAIL_BULLETS[0]) > d.body.indexOf('Details Requested for the Introduction'))
+  assert.ok(d.richBody.indexOf(DETAIL_BULLETS[0]) > d.richBody.indexOf('Details Requested for the Introduction'))
 })
 
 // ── PROOF 10 + 11 + 12: whose student is named ─────────────────────────────
 
 test('PROOF 10: the merged student is the placement’s own student', () => {
   const d = attached()
-  assert.ok(d.body.includes('introduce you to Chloe Tergalstanian'), 'the note names the placement student')
-  assert.ok(d.richBody.includes('introduce you to Chloe Tergalstanian'))
   assert.ok(d.body.includes('Student: Chloe Tergalstanian'))
+  assert.ok(d.richBody.includes('<strong>Student:</strong> Chloe Tergalstanian'))
   // And the producer really does send the natural-order name.
   const producer = strip(read('src/components/EmbedUnitCard.jsx'))
   assert.match(producer, /studentName:\s*placement\.studentNaturalName \|\| placement\.studentName/,
@@ -233,7 +233,7 @@ test('PROOF 11: two placements cannot cross-populate each other’s student', ()
   const b = buildPreceptorAssignmentDraft({ placement: PLACEMENT_2, attachmentsAttached: true })
   assert.ok(a.body.includes('Chloe Tergalstanian') && !a.body.includes('Tam Nguyen'))
   assert.ok(b.body.includes('Tam Nguyen') && !b.body.includes('Chloe Tergalstanian'))
-  assert.ok(a.body.includes('Unit / Assignment: 5 SCCT') && b.body.includes('Unit / Assignment: 3 South'))
+  assert.ok(a.body.includes('Unit: 5 SCCT') && b.body.includes('Unit: 3 South'))
   // The builder is pure: nothing is carried between calls.
   const again = buildPreceptorAssignmentDraft({ placement: PLACEMENT, attachmentsAttached: true })
   assert.equal(again.body, a.body)
@@ -242,10 +242,8 @@ test('PROOF 11: two placements cannot cross-populate each other’s student', ()
 test('PROOF 12: manual selection never invents a student', () => {
   // The recipient is the PRECEPTOR. Their name must not become the student.
   const d = buildPreceptorAssignmentDraft({ firstName: 'Dana', attachmentsAttached: true })
-  assert.ok(d.body.includes(`introduce you to ${STUDENT_NAME_PLACEHOLDER}`),
-    'the placeholder is retained, which is what makes the gap visible')
   assert.ok(d.body.includes(`Student: ${STUDENT_NAME_PLACEHOLDER}`))
-  assert.ok(!d.body.includes('introduce you to Dana'), 'the recipient never becomes the student')
+  assert.ok(!d.body.includes('Student: Dana'), 'the recipient never becomes the student')
   assert.match(d.body, /^Preceptor Assignment & Details\n\nDear Dana,/, 'Dana is the salutation, and only that')
 
   // And the composer warns about it before the send, from the SAME constant.
@@ -409,30 +407,25 @@ test('PROOF 16: the sent HTML, the plain-text alternative and the archive all ke
 
   // The exact payload the endpoint builds from the rich composer body.
   const { html } = buildDirectMessageEmail({ body: d.richBody, bodyFormat: 'html', includeSignature: true })
-  assert.ok(html.includes(CANONICAL_BULLET), 'the bullet survives the server render')
+  assert.ok(html.includes(CANONICAL_RICH_BULLET), 'the bullet and bold label survive the server render')
   assert.ok(html.includes('Details Requested for the Introduction'))
-  assert.ok(html.includes('When you have a moment'))
-  assert.ok(html.includes('introduce you to Chloe Tergalstanian'))
+  assert.ok(html.includes('<strong>Student:</strong> Chloe Tergalstanian'))
   for (const b of DETAIL_BULLETS) assert.ok(html.includes(b), `bullet lost in render: ${b}`)
   assert.ok(html.includes(DETAILS_CLOSING))
-  // The address is a real, accessible mailto link whose text IS the address.
-  assert.match(html, /<a href="mailto:aspire@cshs\.org"[^>]*>aspire@cshs\.org<\/a>/)
   assert.ok(!/\breply\b/i.test(html.replace(/<[^>]*>/g, ' ').replace(/Reply-To/gi, '')),
     'no rendered wording asks the reader to reply')
 
   // The plain-text alternative (rich compose OFF) carries the same content.
   const { html: textLane } = buildDirectMessageEmail({ body: d.body, bodyFormat: 'text', includeSignature: true })
   assert.ok(textLane.includes(CANONICAL_BULLET))
-  assert.ok(textLane.includes('Send to aspire@cshs.org.'))
-  assert.ok(d.body.includes('Send to aspire@cshs.org.'), 'plain text keeps the FULL address')
+  assert.ok(textLane.includes('Student: Chloe Tergalstanian'))
 
   // The archive stores the very same bytes, redacted. Nothing corrected is lost,
   // and the mailto link is not neutralized (it carries no query or token).
   const archived = redactArchiveHtml(html)
-  assert.ok(archived.includes(CANONICAL_BULLET), 'the archived preview keeps the bullet')
-  assert.ok(archived.includes('introduce you to Chloe Tergalstanian'))
+  assert.ok(archived.includes(CANONICAL_RICH_BULLET), 'the archived preview keeps the bullet and bold label')
+  assert.ok(archived.includes('<strong>Student:</strong> Chloe Tergalstanian'))
   for (const b of DETAIL_BULLETS) assert.ok(archived.includes(b))
-  assert.match(archived, /<a href="mailto:aspire@cshs\.org"/, 'the mailto link survives redaction')
 })
 
 test('PROOF 16b: a note without a mailto renders exactly as it always did', () => {
