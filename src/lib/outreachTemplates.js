@@ -107,6 +107,14 @@ export const PRECEPTOR_ATTACHMENT_REMINDER =
 
 // ── Details Requested for the Introduction ──────────────────────────────────
 //
+// The Note tells the preceptor where to send the requested details. `mailto` is
+// explicit because Connect emails are sent from a no-reply address; the trusted
+// Note renderer links only this exact inbox address.
+const ASPIRE_INBOX = 'aspire@cshs.org'
+const DETAILS_NOTE_TITLE = 'When you have a moment'
+const DETAILS_NOTE_BODY =
+  'Please email us the details below so I can introduce you to your student and help make the first day as smooth as possible. Send to aspire@cshs.org, do not reply to this email.'
+
 // ONE list, in ONE order, used by BOTH bodies. The plain-text and rich bullets
 // used to be worded differently ("Preferred name and title" vs "Your preferred
 // name and title"), so the same message read differently depending on which
@@ -175,6 +183,10 @@ ${summaryLines.join('\n')}
 
 Details Requested for the Introduction
 
+${DETAILS_NOTE_TITLE}
+
+${DETAILS_NOTE_BODY}
+
 ${DETAIL_REQUESTS.map(d => `• ${d}`).join('\n')}
 
 ${DETAILS_CLOSING}
@@ -193,6 +205,7 @@ We truly appreciate your time, effort, and heart in mentoring our students. Your
     + bH2('Student Assignment Summary')
     + bLabeledUL(summaryLines)
     + bH2('Details Requested for the Introduction')
+    + bNote({ title: DETAILS_NOTE_TITLE, body: DETAILS_NOTE_BODY, mailto: ASPIRE_INBOX })
     + bUL(DETAIL_REQUESTS)
     + bP(DETAILS_CLOSING)
     + bH2('A Few Quick Reminders')

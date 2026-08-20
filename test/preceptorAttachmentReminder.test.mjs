@@ -75,6 +75,9 @@ const DETAIL_BULLETS = [
 ]
 const DETAILS_CLOSING =
   'The student is encouraged to contact you directly to introduce themselves, coordinate scheduling, and share their individual learning objectives.'
+const DETAILS_NOTE_TITLE = 'When you have a moment'
+const DETAILS_NOTE_BODY =
+  'Please email us the details below so I can introduce you to your student and help make the first day as smooth as possible. Send to aspire@cshs.org, do not reply to this email.'
 
 // The verified placement. `studentName` is the placement's own student - never
 // the recipient, who is the preceptor.
@@ -187,14 +190,12 @@ test('PROOF 13: the seven detail bullets appear once each, in the requested orde
   }
 })
 
-test('PROOF 14: nothing tells the preceptor to reply to a no-reply address', () => {
+test('PROOF 14: the Note directs the preceptor to the shared inbox, not a reply', () => {
   for (const [label, d] of bothPaths()) {
-    for (const [kind, text] of [['plain', d.body], ['rich', d.richBody]]) {
-      assert.ok(!/\breply\b/i.test(text), `${label}/${kind}: still asks the reader to reply`)
-    }
-    // The approved copy contains no stale destination note or hidden mailto.
-    assert.ok(!d.body.includes('Send to aspire@cshs.org.'))
-    assert.ok(!d.richBody.includes('data-mailto="aspire@cshs.org"'))
+    assert.ok(d.body.includes(DETAILS_NOTE_BODY), `${label}: exact Note body missing from plain text`)
+    assert.match(d.richBody, /data-aspire-block="note"[^>]+data-title="When you have a moment"/)
+    assert.ok(d.richBody.includes(`data-body="${DETAILS_NOTE_BODY}"`), `${label}: exact Note body missing from rich text`)
+    assert.ok(d.richBody.includes('data-mailto="aspire@cshs.org"'), `${label}: trusted inbox link missing`)
   }
 })
 
@@ -202,17 +203,19 @@ test('PROOF 9: the corrected Details Requested section is identical on both path
   for (const [label, d] of bothPaths()) {
     assert.match(d.body, /\nDetails Requested for the Introduction\n/, `${label}: heading`)
     assert.ok(d.richBody.includes('<h2>Details Requested for the Introduction</h2>'))
-    assert.ok(!d.body.includes('When you have a moment'), `${label}: retired note title is gone`)
-    assert.ok(!d.richBody.includes('data-title="When you have a moment"'))
+    assert.match(d.body, /\nWhen you have a moment\n/, `${label}: note title in plain text`)
+    assert.ok(d.richBody.includes(`data-title="${DETAILS_NOTE_TITLE}"`))
     assert.ok(d.body.includes(DETAILS_CLOSING), `${label}: closing sentence in plain text`)
     assert.ok(d.richBody.includes(`<p>${DETAILS_CLOSING}</p>`))
     // The closing sentence follows the bullets, not the other way round.
     assert.ok(d.body.indexOf(DETAILS_CLOSING) > d.body.indexOf(DETAIL_BULLETS[6]))
   }
-  // The heading leads directly into the requested bullets in both bodies.
+  // The Note sits between the section heading and the requested bullets in both bodies.
   const d = attached()
-  assert.ok(d.body.indexOf(DETAIL_BULLETS[0]) > d.body.indexOf('Details Requested for the Introduction'))
-  assert.ok(d.richBody.indexOf(DETAIL_BULLETS[0]) > d.richBody.indexOf('Details Requested for the Introduction'))
+  for (const text of [d.body, d.richBody]) {
+    assert.ok(text.indexOf(DETAILS_NOTE_TITLE) > text.indexOf('Details Requested for the Introduction'))
+    assert.ok(text.indexOf(DETAIL_BULLETS[0]) > text.indexOf(DETAILS_NOTE_TITLE))
+  }
 })
 
 // ── PROOF 10 + 11 + 12: whose student is named ─────────────────────────────
@@ -412,19 +415,23 @@ test('PROOF 16: the sent HTML, the plain-text alternative and the archive all ke
   assert.ok(html.includes('<strong>Student:</strong> Chloe Tergalstanian'))
   for (const b of DETAIL_BULLETS) assert.ok(html.includes(b), `bullet lost in render: ${b}`)
   assert.ok(html.includes(DETAILS_CLOSING))
-  assert.ok(!/\breply\b/i.test(html.replace(/<[^>]*>/g, ' ').replace(/Reply-To/gi, '')),
-    'no rendered wording asks the reader to reply')
+  assert.ok(html.includes(DETAILS_NOTE_TITLE), 'the Note title survives the server render')
+  assert.ok(html.includes('href="mailto:aspire@cshs.org"'), 'the Note links the approved shared inbox')
+  assert.ok(html.includes('do not reply to this email.'), 'the no-reply instruction survives the server render')
 
   // The plain-text alternative (rich compose OFF) carries the same content.
   const { html: textLane } = buildDirectMessageEmail({ body: d.body, bodyFormat: 'text', includeSignature: true })
   assert.ok(textLane.includes(CANONICAL_BULLET))
   assert.ok(textLane.includes('Student: Chloe Tergalstanian'))
+  assert.ok(textLane.includes(DETAILS_NOTE_BODY))
 
   // The archive stores the very same bytes, redacted. Nothing corrected is lost,
   // and the mailto link is not neutralized (it carries no query or token).
   const archived = redactArchiveHtml(html)
   assert.ok(archived.includes(CANONICAL_RICH_BULLET), 'the archived preview keeps the bullet and bold label')
   assert.ok(archived.includes('<strong>Student:</strong> Chloe Tergalstanian'))
+  assert.ok(archived.includes('href="mailto:aspire@cshs.org"'))
+  assert.ok(archived.includes('do not reply to this email.'))
   for (const b of DETAIL_BULLETS) assert.ok(archived.includes(b))
 })
 

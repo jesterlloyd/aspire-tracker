@@ -37,6 +37,8 @@ test('the preceptor assignment draft contains the assignment, requested details,
     'Typical schedule or upcoming shifts',
     'Optional photo to share with the student',
     "Any expectations or instructions for the student's first day",
+    'When you have a moment',
+    'Please email us the details below so I can introduce you to your student and help make the first day as smooth as possible. Send to aspire@cshs.org, do not reply to this email.',
     'Preceptor pay:',
     'Coverage:',
     'Floating:',
@@ -45,6 +47,7 @@ test('the preceptor assignment draft contains the assignment, requested details,
   ]) assert.match(draft.body, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 
   assert.match(draft.richBody, /Preceptor Assignment &amp; Details|Preceptor Assignment & Details/)
+  assert.match(draft.richBody, /data-aspire-block="note"[^>]+data-title="When you have a moment"[^>]+data-mailto="aspire@cshs.org"/)
   assert.doesNotMatch(draft.body, /Kind regards|Jester Lloyd Bautista/)
 })
 
