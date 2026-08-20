@@ -22,6 +22,7 @@ import { isRichComposeEnabled, plainTextToHtml, htmlToPlainText } from '../../li
 import ConnectPanel from './ConnectPanel'
 import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
+import { mergeCcRecipientText, parseRecipientText } from '../../lib/recipientParse'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   buildPreceptorAssignmentDraft, buildAcademicPartnerUpdateDraft,
@@ -1932,6 +1933,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     }
   }, [singleSendInFlight, surveyResult, surveyDraftSubject, surveyDraftBody])
 
+  // CONNECT-COMMS-1F: the server-resolved primary To (preferred), falling back to the school-first
+  // client approximation, then a contact's email. Used to drop CC==To and to exclude it from
+  // autocomplete suggestions. The server still enforces this authoritatively.
+  const resolvedToEmail = (
+    dmPreview.recipient?.email ||
+    effectiveStudent?.school_email || fetchedStudent?.school_email ||
+    effectiveStudent?.personal_email || fetchedStudent?.personal_email ||
+    (recipientType === 'contact' ? (fromContact?.email || fetchedContact?.email) : '') || ''
+  )
+
   // ── Direct Message send handler ───────────────────────────────────────────
   const handleDmSend = useCallback(async () => {
     if (!dmConfirmReady || dmSendInFlight) return
@@ -1945,12 +1956,14 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         setDmConfirmOpen(false)
         return
       }
-      // Flush any pending (un-chipped) CC text so a typed-but-not-Entered address still sends.
-      const ccToSend = [...ccList]
-      const pendingCc = ccInput.trim().replace(/[,;]+$/, '').trim()
-      if (pendingCc && isValidEmail(pendingCc) && !ccToSend.some(x => x.toLowerCase() === pendingCc.toLowerCase())) {
-        ccToSend.push(pendingCc)
-      }
+      // Flush pending CC text through the same bulk-aware parser used by the chip control. This
+      // covers a paste followed immediately by Send without weakening the server's final checks.
+      const ccToSend = mergeCcRecipientText({
+        text: ccInput,
+        current: ccList,
+        toEmail: resolvedToEmail,
+        max: 5,
+      }).cc
       // Use unified recipient_type + recipient_id shape for both contacts and students
       const res = await fetch('/api/connect-send-direct-email', {
         method:  'POST',
@@ -2020,7 +2033,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     } finally {
       setDmSendInFlight(false)
     }
-  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent, richEnabled, dmAttachments])
+  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent, richEnabled, dmAttachments, resolvedToEmail])
 
   // ── CONNECT-COMMS-1B: debounced true-preview fetch ────────────────────────
   // Calls the send endpoint in preview:true mode (no send, no log) so the inline preview and the
@@ -2108,40 +2121,40 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setCcAutoSuggested(false)
   }, [recipientType, studentId, contactId, coordEmail]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // CONNECT-COMMS-1F: the server-resolved primary To (preferred), falling back to the school-first
-  // client approximation, then a contact's email. Used to drop CC==To and to exclude it from
-  // autocomplete suggestions. The server still enforces this authoritatively.
-  const resolvedToEmail = (
-    dmPreview.recipient?.email ||
-    effectiveStudent?.school_email || fetchedStudent?.school_email ||
-    effectiveStudent?.personal_email || fetchedStudent?.personal_email ||
-    (recipientType === 'contact' ? (fromContact?.email || fetchedContact?.email) : '') || ''
-  )
-
-  // Add/remove CC chips. Validation mirrors the server (isValidEmail + case-insensitive dedupe,
-  // drop CC==To, cap 5); the server remains the source of truth and re-validates on send.
-  const addCcChip = useCallback((raw) => {
-    const e = (raw || '').trim().replace(/[,;]+$/, '').trim()
-    if (!e) return true
-    if (!isValidEmail(e)) { setCcInputError(`"${e}" is not a valid email.`); return false }
-    const norm = normalizeEmailForLookup(e)
-    if (resolvedToEmail && norm === normalizeEmailForLookup(resolvedToEmail)) {
-      setCcInputError('That address is already the To recipient.'); return false
+  // Add one or many CC chips. Paste, Enter, delimiter commit, and blur all use this same path.
+  // Validation mirrors the server (case-insensitive dedupe, drop CC==To, cap 5); the endpoint
+  // remains authoritative and repeats every check before sending.
+  const addCcRecipients = useCallback((raw) => {
+    const result = mergeCcRecipientText({ text: raw, current: ccList, toEmail: resolvedToEmail, max: 5 })
+    if (result.added.length) {
+      setCcList(result.cc)
+      // PRECEPTOR-DRAFT-CONTINUITY-1: CC is draft content now - persisted and
+      // restored - so changing it is a draft edit like any other.
+      markDraftDirty()
     }
-    let added = false
-    setCcList(prev => {
-      if (prev.some(x => normalizeEmailForLookup(x) === norm)) return prev   // duplicate
-      if (prev.length >= 5) { return prev }                                  // cap 5
-      added = true
-      return [...prev, e]
-    })
-    if (!added && ccList.length >= 5) { setCcInputError('Maximum of 5 CC recipients.'); return false }
-    setCcInputError(null)
-    // PRECEPTOR-DRAFT-CONTINUITY-1: CC is draft content now - persisted and
-    // restored - so changing it is a draft edit like any other.
-    if (added) markDraftDirty()
-    return true
+
+    const errors = []
+    if (result.invalid.length) {
+      const label = result.invalid.length === 1 ? 'address' : 'addresses'
+      errors.push(`Invalid ${label}: ${result.invalid.join(', ')}`)
+    }
+    if (result.cappedCount) {
+      errors.push(`Maximum of 5 CC recipients. ${result.cappedCount} ${result.cappedCount === 1 ? 'address was' : 'addresses were'} not added.`)
+    }
+    if (result.sameAsToCount) errors.push('The To address was not added to CC.')
+    setCcInputError(errors.length ? errors.join(' ') : null)
+    return result.validCount > 0
   }, [resolvedToEmail, ccList, markDraftDirty])
+
+  const handleCcPaste = useCallback((event) => {
+    const text = event.clipboardData?.getData('text') || ''
+    const parsed = parseRecipientText(text)
+    const looksLikeList = /[,;\n]/.test(text) || parsed.valid.length > 1
+    if (!looksLikeList) return
+    event.preventDefault()
+    addCcRecipients(text)
+    setCcInput('')
+  }, [addCcRecipients])
   const removeCcChip = useCallback((e) => {
     setCcList(prev => prev.filter(x => x !== e))
     markDraftDirty()
@@ -2971,9 +2984,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     students={students}
                     coordinator={recipientType === 'student' && coordEmail && isValidEmail(coordEmail) ? { email: coordEmail, name: coordName } : null}
                     excludeEmails={ccExcludeSet}
-                    onSelect={(r) => { if (addCcChip(r.email)) setCcInput('') }}
-                    onCommitManual={(text) => { if (addCcChip(text)) setCcInput('') }}
+                    onSelect={(r) => { if (addCcRecipients(r.email)) setCcInput('') }}
+                    onCommitManual={(text) => { if (addCcRecipients(text)) setCcInput('') }}
                     onBackspaceEmpty={() => { if (ccList.length) removeCcChip(ccList[ccList.length - 1]) }}
+                    onPaste={handleCcPaste}
                   />
                 </div>
                 {ccInputError && (

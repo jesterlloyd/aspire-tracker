@@ -7,8 +7,22 @@
 import { isValidEmail } from './notifications/studentRecipient.js'
 import { normalizeEmailForLookup } from './emailUtils.js'
 
-// Delimiters mirror the server CC parser (resolveCcList): comma / semicolon / newline.
+// Primary delimiters mirror the server CC parser (resolveCcList): comma / semicolon / newline.
+// A copied table column can also arrive as whitespace-separated bare addresses, so each primary
+// token is expanded on whitespace only when EVERY resulting value is itself a valid email. This
+// preserves display-name forms such as "First Last <a@b.com>" as one token.
 const SPLIT_RE = /[,;\n]+/
+
+function splitRecipientTokens(text) {
+  return String(text || '').split(SPLIT_RE).flatMap(raw => {
+    const token = String(raw || '').trim()
+    if (!token) return []
+    const whitespaceParts = token.split(/\s+/).filter(Boolean)
+    return whitespaceParts.length > 1 && whitespaceParts.every(isValidEmail)
+      ? whitespaceParts
+      : [token]
+  })
+}
 
 // First word of a full name (used for the [First Name] merge token). Empty string when unknown.
 export function firstNameFromName(name) {
@@ -35,7 +49,7 @@ export function parseRecipientToken(tokenRaw) {
 // Returns { valid: NormalizedRecipient[], invalid: string[], duplicateCount }.
 // `valid` entries are source:'manual' with no IDs; dedup is by normalized lowercase email.
 export function parseRecipientText(text) {
-  const tokens = String(text || '').split(SPLIT_RE)
+  const tokens = splitRecipientTokens(text)
   const valid = []
   const invalid = []
   const seen = new Set()
@@ -60,6 +74,49 @@ export function parseRecipientText(text) {
     })
   }
   return { valid, invalid, duplicateCount }
+}
+
+// Merge pasted/typed CC text into the current chip list. This is a client convenience only; the
+// direct-email endpoint remains authoritative and repeats validation, dedupe, To exclusion, and
+// the five-address cap before sending.
+export function mergeCcRecipientText({ text, current = [], toEmail = '', max = 5 } = {}) {
+  const parsed = parseRecipientText(text)
+  const limit = Number.isInteger(max) && max >= 0 ? max : 5
+  const toNorm = normalizeEmailForLookup(toEmail)
+  const cc = []
+  const seen = new Set()
+
+  for (const raw of Array.isArray(current) ? current : []) {
+    const email = String(raw || '').trim()
+    if (!isValidEmail(email)) continue
+    const norm = normalizeEmailForLookup(email)
+    if (!norm || norm === toNorm || seen.has(norm) || cc.length >= limit) continue
+    seen.add(norm)
+    cc.push(email)
+  }
+
+  const added = []
+  let duplicateCount = parsed.duplicateCount
+  let sameAsToCount = 0
+  let cappedCount = 0
+  for (const recipient of parsed.valid) {
+    if (recipient.normEmail === toNorm) { sameAsToCount++; continue }
+    if (seen.has(recipient.normEmail)) { duplicateCount++; continue }
+    if (cc.length >= limit) { cappedCount++; continue }
+    seen.add(recipient.normEmail)
+    cc.push(recipient.email)
+    added.push(recipient.email)
+  }
+
+  return {
+    cc,
+    added,
+    invalid: parsed.invalid,
+    validCount: parsed.valid.length,
+    duplicateCount,
+    sameAsToCount,
+    cappedCount,
+  }
 }
 
 // Combine recipients from all sources and dedupe by normalized email.
