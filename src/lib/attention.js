@@ -25,6 +25,9 @@
 import { getCsLinkStatus } from './utils.js'
 import { resolveAutomationState, requiresHuman, isPassiveStatus } from './automationOwnership.js'
 import { hasCompletedRequiredHours } from './clinicalHours.js'
+import {
+  notificationStateFor, notificationStateIndex, NOTIFICATION_TARGETS,
+} from './placementNotificationState.js'
 
 // ── Weekly shift-logging canon (NO-SHIFT-WEEK-1) ────────────────────────────
 // The operational expectation is that an Active Rotation student logs at least
@@ -96,6 +99,11 @@ const hasSent = (communications, sid, type) =>
  */
 export function deriveEagerAttention({
   students = [], matches = [], communications = [], activeCohort = null, canEdit = false, now = new Date(),
+  // PRECEPTOR-NOTIFICATION-ACTION-CENTER-1: Unit Pool owns the durable,
+  // placement-specific answer to "has this preceptor been notified?". Until
+  // that ledger has loaded, omit this task instead of briefly manufacturing a
+  // false reminder from an empty array.
+  placementNotifications = [], placementNotificationsLoaded = false,
   // ACTION-OWNERSHIP-1: automation-backed state. `reminderDeliveries` are
   // notification_log rows (where the cron actually records its sends);
   // `deliveriesLoaded` gates them exactly like shiftLogsLoaded gates the lazy
@@ -123,7 +131,7 @@ export function deriveEagerAttention({
 
   // Always-visible tasks (not role-gated in the panel)
   // CONNECT-SCHEDULING-LINK-1: the task is resolved by a logged 'scheduling_link' communication, the
-  // same hasSent() shape as interviewReminder/preceptorWelcome below. Before this, the predicate read
+  // same hasSent() shape as the legacy preceptor fallback below. Before this, the predicate read
   // status + interview_scheduled_date only, so the item's own "mark done" (which writes exactly this
   // communication) could never clear it and the task persisted until the student booked a slot.
   const schedulingLink = students.filter(s =>
@@ -179,9 +187,51 @@ export function deriveEagerAttention({
   const interviewReminderScheduled = reminderStates
     .filter(r => isPassiveStatus(r.state) && r.automationScheduled !== false)
     .map(r => ({ ...r.student, automationState: r.state, scheduledFor: r.scheduledFor }))
-  const preceptorWelcome = students.filter(s =>
-    s.status === 'Placed' && s.matched_preceptor && !hasSent(communications, s.id, 'preceptor_welcome')
-  )
+  const placementNotificationIndex = notificationStateIndex(placementNotifications)
+  const preceptorWelcome = !placementNotificationsLoaded ? [] : students.flatMap(s => {
+    if (s.status !== 'Placed' || hasSent(communications, s.id, 'preceptor_welcome')) return []
+
+    const studentMatches = matches.filter(m => m.student_id === s.id)
+    // A pre-ledger student with no match row cannot be checked against Unit
+    // Pool's placement ledger. Keep the legacy reminder visible until the
+    // placement is repaired or its old communication record exists.
+    if (studentMatches.length === 0) {
+      return s.matched_preceptor ? [{
+        ...s,
+        attentionMatchId: null,
+        attentionUnitId: s.matched_unit_id || null,
+        attentionPreceptorId: s.preceptor_id || null,
+        attentionPreceptorName: s.matched_preceptor,
+      }] : []
+    }
+
+    return studentMatches.flatMap(match => {
+      // Match-level assignment is authoritative. Student-level fields are safe
+      // only when this student has exactly one placement; otherwise they could
+      // name a different unit's preceptor.
+      const singlePlacement = studentMatches.length === 1
+      const preceptorId = match.preceptor_id || (singlePlacement ? s.preceptor_id : null)
+      const preceptorName = match.preceptor_assigned || (singlePlacement ? s.matched_preceptor : '')
+      if (!preceptorId && !preceptorName) return []
+
+      const state = preceptorId
+        ? notificationStateFor(placementNotificationIndex, {
+            target: NOTIFICATION_TARGETS.PRECEPTOR,
+            matchId: match.id,
+            preceptorId,
+          })
+        : null
+      if (state?.confirmed) return []
+
+      return [{
+        ...s,
+        attentionMatchId: match.id,
+        attentionUnitId: match.unit_id,
+        attentionPreceptorId: preceptorId || null,
+        attentionPreceptorName: preceptorName || 'Assigned preceptor',
+      }]
+    })
+  })
 
   // canEdit-gated tasks (empty for non-editors so counting is uniform)
   const sendStudentForm = !canEdit ? [] : students.filter(s => s.status === 'Pending Outreach')

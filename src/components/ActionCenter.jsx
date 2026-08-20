@@ -178,6 +178,7 @@ function getActionLabel(item) {
   if (item.actionType === 'support_request') return 'Open Details'
   if (item.actionType === 'selection_decision') return 'Open Interview Review'
   if (item.actionType === 'no_shift_last_week') return 'View Rotation Activity'
+  if (item.navigateToUnitPool) return 'Open Unit Pool'
   if (item.navigateToProfile && !item.canMarkDone) return 'Open Profile'
   if (item.markDoneType === 'update_field') return 'Mark Complete'
   // CONNECT-SCHEDULING-LINK-1: the scheduling task offers its action only when the launch is
@@ -187,8 +188,7 @@ function getActionLabel(item) {
   switch (item.actionType) {
     case 'student_form':               return 'Send Form Email'
     case 'interview_reminder_overdue': return 'Send Reminder'
-    case 'unit_notification_needed':
-      return item.title === 'Preceptor Welcome Email' ? 'Open in Outlook' : 'Notify Unit Leader'
+    case 'unit_notification_needed':  return 'Notify Unit Leader'
     default:                           return item.emailHref ? 'Send Email' : null
   }
 }
@@ -286,41 +286,6 @@ We look forward to speaking with you!
 ${SIG}`)
 }
 
-function buildPreceptorWelcomeEmail(s, unitContactEmail) {
-  const prec = s.matched_preceptor || 'Preceptor'
-  const precFirst = prec.split(' ')[0]
-  const cc = unitContactEmail || ''
-  return outlookCompose(s.preceptor_email, 'ASPIRE – Student Preceptor Assignment',
-`Dear ${precFirst},
-
-Thank you so much for agreeing to precept one of our senior nursing students through ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience). Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai.
-
-Below is your student assignment for this rotation:
-
-Student: ${s.last_name}, ${s.first_name}
-School: ${s.school||'N/A'}
-Program: ${s.program_type||'N/A'}
-Rotation Dates: ${s.term_dates||'TBD'}
-Shifts to Complete: ${s.hours_required||'TBD'}
-Student Email: ${s.personal_email||'N/A'}
-Student Phone: ${s.phone||'N/A'}
-
-${s.first_name} will reach out to you directly to introduce themselves so you can coordinate your schedules together. They can begin their shifts at any time after orientation. They may also share their individual learning objectives with you to help guide their experience.
-
-Please remember to attach before sending:
-- ASPIRE Brochure
-- Pre-licensure Student General Guidelines
-
-A few quick reminders:
-- Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.
-- Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching.
-- Floating: Students may float with you if you are comfortable and it is appropriate for safety and learning.
-
-We truly appreciate the time, effort, and heart you invest in mentoring our students. If you have any questions, please don't hesitate to reach out.
-
-${KR_SIG}`, cc)
-}
-
 // ── Item card ──────────────────────────────────────────────────
 function ItemCard({
   item,
@@ -339,9 +304,9 @@ function ItemCard({
 }) {
   const pCfg = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.routine
   const actionLabel = getActionLabel(item)
-  // The unit-leader placement notification, and only that. The Preceptor
-  // Welcome Email shares this actionType but is a different piece of work with
-  // no placement notification state, so it keeps its ordinary action button.
+  // The unit-leader placement notification renders the inline confirmation
+  // control. Preceptor outreach now has its own actionType and returns to Unit
+  // Pool, where its placement-specific confirmation is owned.
   const isPlacementNotify = item.actionType === 'unit_notification_needed'
     && item.title === 'Unit Leader Placement Notification'
     && !!item.matchId
@@ -480,9 +445,11 @@ export default function ActionCenter({
   isOpen, onClose, anchorEl,
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchLocalSync,
+  placementNotifications = [], placementNotificationsLoaded = false,
   reminderDeliveries = [], reminderDeliveriesLoaded = false,
   ivSessions = [], ivSlots = [],
   schoolRotations = [], onNavigateToActivityStudent,
+  onNavigateToUnitPool,
   onNavigateToProfiles, onNavigateToActivityShift, onNavigateNotificationDestination,
   onLaunchSchedulingLink,
   onActionCountChange, toast,
@@ -665,6 +632,14 @@ export default function ActionCenter({
       // NO-SHIFT-WEEK-1: straight to Rotation Activity focused on the student,
       // where logged shifts, hours, and the most recent shift are all visible.
       onNavigateToActivityStudent?.(item.studentId)
+      onClose()
+      return
+    }
+    if (item.navigateToUnitPool) {
+      // Unit Pool owns both the preceptor outreach and its explicit completion
+      // confirmation. Action Center is an index into that work, not a second
+      // compose-and-log workflow.
+      onNavigateToUnitPool?.(item.unitId)
       onClose()
       return
     }
@@ -888,6 +863,7 @@ ${KR_SIG}`
     students, matches, communications, activeCohort, canEdit, now,
     reminderDeliveries, deliveriesLoaded: reminderDeliveriesLoaded,
     ivSessions, ivSlots,
+    placementNotifications, placementNotificationsLoaded,
   })
   const lazy = deriveLazyAttention({
     students, shiftLogs, shiftLogsLoaded,
@@ -971,8 +947,8 @@ ${KR_SIG}`
       return { id:`${s.id}-un`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Unit Leader Placement Notification', description:`Placed in ${unit?.unit_name||'unit'}. Leader not yet notified.`, actionType:'unit_notification_needed', canMarkDone:!!href, markDoneType:'log_communication', markDonePayload:{type:'unit_notification'}, emailHref:href, matchId:m?.id, unitId:unit?.id || null, unitName:unit?.unit_name || 'the unit' }
     }) : []),
     ...act5.map(s => {
-      const unit = units.find(u => u.id === s.matched_unit_id)
-      return { id:`${s.id}-pw`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Preceptor Welcome Email', description:s.preceptor_email?`Preceptor: ${s.matched_preceptor}. Welcome email not sent.`:'Preceptor email missing, add it in the student profile.', actionType:'unit_notification_needed', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'preceptor_welcome'}, emailHref:s.preceptor_email?buildPreceptorWelcomeEmail(s,unit?.contact_email):null, warning:!s.preceptor_email?'Missing preceptor email':null }
+      const unit = units.find(u => u.id === (s.attentionUnitId || s.matched_unit_id))
+      return { id:`${s.attentionMatchId || s.id}-pw`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Preceptor Welcome Email', description:`${s.attentionPreceptorName || s.matched_preceptor || 'Assigned preceptor'} · ${unit?.unit_name || 'Unit Pool'} · notification not confirmed.`, actionType:'preceptor_notification_needed', canMarkDone:false, markDoneType:null, navigateToUnitPool:true, matchId:s.attentionMatchId, unitId:s.attentionUnitId || s.matched_unit_id || null, preceptorId:s.attentionPreceptorId || null }
     }),
     ...(canEdit ? act17.map(s => ({ id:`${s.id}-prec`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:(s.status === 'Active Rotation' ? 'urgent' : 'high'), title:'No Preceptor Assigned', description:`${s.status}, no preceptor linked yet.`, actionType:'preceptor_needed', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     // CS-Link

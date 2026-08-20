@@ -14,6 +14,9 @@ import {
   deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal, fmtLocalDate,
   lastCompletedWeek, weekDates, isCountableShift,
 } from '../src/lib/attention.js'
+import {
+  CONFIRMED_TYPE, CONFIRMED_STATUS, NOTIFICATION_TARGETS, NOTIFY_META,
+} from '../src/lib/placementNotificationState.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -73,7 +76,10 @@ test('eager sets: each predicate fires on its exact condition', () => {
   // UNIT-POOL-REFINEMENT-1: the predicate reads the match for the student's
   // PRIMARY unit (a multi-unit student's first match by student alone could be
   // another placement), so the fixture carries the unit_id a real row has.
-  const matches = [{ id: 'm1', student_id: 'd', unit_id: 'u1', notification_sent: false }]
+  const matches = [
+    { id: 'mc', student_id: 'c', unit_id: 'uc', preceptor_id: 'pc', preceptor_assigned: 'P, RN' },
+    { id: 'm1', student_id: 'd', unit_id: 'u1', notification_sent: false },
+  ]
   const eager = deriveEagerAttention({
     students, matches, communications: [], activeCohort: { id: 'co1', orientation_sent_at: null },
     canEdit: true, now: NOW,
@@ -81,6 +87,7 @@ test('eager sets: each predicate fires on its exact condition', () => {
     // window (yesterday) has passed with nothing delivered. That is a genuine
     // MISSED exception and still a human action.
     reminderDeliveries: [], deliveriesLoaded: true,
+    placementNotifications: [], placementNotificationsLoaded: true,
   })
   assert.deepEqual(eager.schedulingLink.map(s => s.id), ['a'])
   assert.deepEqual(eager.interviewReminder.map(s => s.id), ['b'])
@@ -114,6 +121,7 @@ test('eager sets: sent communications and role gating suppress correctly', () =>
   const eager = deriveEagerAttention({
     students, matches: [], communications, activeCohort: { id: 'co1' }, canEdit: true, now: NOW,
     reminderDeliveries: [], deliveriesLoaded: true,
+    placementNotifications: [], placementNotificationsLoaded: true,
   })
   assert.equal(eager.interviewReminder.length, 0, 'reminder already sent (manual communications row)')
   assert.equal(eager.preceptorWelcome.length, 0, 'welcome already sent')
@@ -129,6 +137,76 @@ test('eager sets: sent communications and role gating suppress correctly', () =>
   // Always-visible sets still count for non-editors (matches the panel). The
   // interview is today with no delivery, so it is a MISSED exception.
   assert.equal(viewer.interviewReminder.length, 1)
+})
+
+test('preceptor reminders use the same placement confirmation as Unit Pool', () => {
+  const placed = student('p', {
+    status: 'Placed', matched_unit_id: 'unit-a', matched_preceptor: 'Pat Preceptor', preceptor_id: 'prec-a',
+  })
+  const matches = [{
+    id: 'match-a', student_id: 'p', unit_id: 'unit-a',
+    preceptor_id: 'prec-a', preceptor_assigned: 'Pat Preceptor',
+  }]
+  const confirmed = [{
+    id: 'notify-a', notification_type: CONFIRMED_TYPE, status: CONFIRMED_STATUS,
+    sent_at: '2026-07-17T12:00:00.000Z',
+    metadata: {
+      [NOTIFY_META.target]: NOTIFICATION_TARGETS.PRECEPTOR,
+      [NOTIFY_META.match]: 'match-a',
+      [NOTIFY_META.student]: 'p',
+      [NOTIFY_META.unit]: 'unit-a',
+      [NOTIFY_META.preceptor]: 'prec-a',
+      [NOTIFY_META.cohort]: 'co1',
+    },
+  }]
+
+  const pending = deriveEagerAttention({
+    students: [placed], matches, communications: [], activeCohort: { id: 'co1' }, canEdit: true,
+    reminderDeliveries: [], deliveriesLoaded: true, now: NOW,
+    placementNotifications: [], placementNotificationsLoaded: true,
+  })
+  assert.deepEqual(pending.preceptorWelcome.map(s => s.attentionMatchId), ['match-a'])
+
+  const done = deriveEagerAttention({
+    students: [placed], matches, communications: [], activeCohort: { id: 'co1' }, canEdit: true,
+    reminderDeliveries: [], deliveriesLoaded: true, now: NOW,
+    placementNotifications: confirmed, placementNotificationsLoaded: true,
+  })
+  assert.equal(done.preceptorWelcome.length, 0,
+    'a Unit Pool Preceptor Notified confirmation retires the Action Center reminder')
+  assert.equal(done.count, pending.count - 1, 'the closed bell count loses the same completed task')
+
+  const loading = deriveEagerAttention({
+    students: [placed], matches, communications: [], activeCohort: { id: 'co1' }, canEdit: true,
+    reminderDeliveries: [], deliveriesLoaded: true, now: NOW,
+    placementNotifications: [], placementNotificationsLoaded: false,
+  })
+  assert.equal(loading.preceptorWelcome.length, 0,
+    'an unloaded ledger must not create a false reminder flash')
+})
+
+test('preceptor reminders stay placement-specific for multi-unit students', () => {
+  const placed = student('multi', { status: 'Placed', matched_preceptor: 'Legacy Primary' })
+  const matches = [
+    { id: 'match-a', student_id: 'multi', unit_id: 'unit-a', preceptor_id: 'prec-a', preceptor_assigned: 'Pat A' },
+    { id: 'match-b', student_id: 'multi', unit_id: 'unit-b', preceptor_id: 'prec-b', preceptor_assigned: 'Pat B' },
+  ]
+  const rows = [{
+    id: 'notify-a', notification_type: CONFIRMED_TYPE, status: CONFIRMED_STATUS,
+    sent_at: '2026-07-17T12:00:00.000Z',
+    metadata: {
+      [NOTIFY_META.target]: NOTIFICATION_TARGETS.PRECEPTOR,
+      [NOTIFY_META.match]: 'match-a',
+      [NOTIFY_META.preceptor]: 'prec-a',
+    },
+  }]
+  const eager = deriveEagerAttention({
+    students: [placed], matches, communications: [], activeCohort: { id: 'co1' }, canEdit: true,
+    reminderDeliveries: [], deliveriesLoaded: true, now: NOW,
+    placementNotifications: rows, placementNotificationsLoaded: true,
+  })
+  assert.deepEqual(eager.preceptorWelcome.map(s => s.attentionMatchId), ['match-b'],
+    'confirming one placement must not hide a different unit preceptor')
 })
 
 test('lazy sets: loaded-flag gating prevents transient over-counts', () => {
@@ -395,7 +473,7 @@ test('audit: interview_reminder is the ONLY cron-owned Action Center task type',
   const panelTypes = new Set(
     [...panel.matchAll(/markDonePayload:\{type:'([a-z_]+)'/g)].map(m => m[1])
   )
-  assert.ok(panelTypes.size >= 4, 'sanity: the panel still declares task types')
+  assert.ok(panelTypes.size >= 3, 'sanity: the panel still declares task types')
 
   const cronDir = join(here, '..', 'api', 'cron')
   const cronSent = new Set()

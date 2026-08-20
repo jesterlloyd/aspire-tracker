@@ -7,6 +7,9 @@ import { displayName } from './lib/utils'
 import { clearPrimaryPreceptor } from './lib/staffPreceptorAssignmentApi'
 import { planUnmatch, unmatchStudentPatch } from './lib/unmatchPlan'
 import { deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal } from './lib/attention'
+import {
+  CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE,
+} from './lib/placementNotificationState'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
 import InterviewRubricTab from './components/InterviewRubricTab'
@@ -1029,6 +1032,31 @@ function MainApp({ onLogout }) {
 
   const activeCohort = cohorts.find(c => c.id === activeCohortId)
 
+  // PRECEPTOR-NOTIFICATION-ACTION-CENTER-1: the closed bell and open Action
+  // Center read the same placement-confirmation ledger as Rotation > Unit Pool.
+  // React Query shares this exact key with MatchingTab, so navigating between
+  // the two surfaces does not create a second source of state.
+  const {
+    data: placementNotificationRows = [],
+    isSuccess: placementNotificationsLoaded,
+  } = useQuery({
+    queryKey: ['placement_notification_state', activeCohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_log')
+        .select('id, notification_type, status, sent_at, created_at, metadata')
+        .in('notification_type', [CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE])
+        .eq('metadata->>placement_cohort_id', activeCohortId)
+        .order('sent_at', { ascending: true })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!activeCohortId && canEdit,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  })
+
   // ── Action Center badge count - must be after activeCohort ───
   // ── Header: click-outside for cohort + search ────────────────────────────────
   useEffect(() => {
@@ -1139,6 +1167,8 @@ function MainApp({ onLogout }) {
     students, matches, communications, activeCohort, canEdit, now: attentionNow,
     reminderDeliveries, deliveriesLoaded: reminderDeliveriesLoaded,
     ivSessions, ivSlots,
+    placementNotifications: placementNotificationRows,
+    placementNotificationsLoaded,
   })
   const lazyAttention = deriveLazyAttention({
     students,
@@ -1363,12 +1393,20 @@ function MainApp({ onLogout }) {
           cohortId={activeCohortId}
           activeCohort={activeCohort}
           communications={communications}
+          placementNotifications={placementNotificationRows}
+          placementNotificationsLoaded={placementNotificationsLoaded}
           reminderDeliveries={reminderDeliveries}
           reminderDeliveriesLoaded={reminderDeliveriesLoaded}
           ivSessions={ivSessions}
           ivSlots={ivSlots}
           schoolRotations={acSchoolRotations}
           onNavigateToActivityStudent={id => { goToActivityStudent(id); setShowActionCenter(false) }}
+          onNavigateToUnitPool={unitId => {
+            setHighlightUnitId(unitId || null)
+            navigate('/rotation/matrix')
+            if (unitId) setTimeout(() => setHighlightUnitId(null), 2500)
+            setShowActionCenter(false)
+          }}
           onLogCommunication={logCommunication}
           onMatchLocalSync={syncMatchLocal}
           onStudentUpdate={updateStudent}

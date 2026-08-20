@@ -480,6 +480,20 @@ test('PROOF 22: the Action Center uses the same state, writer and semantics', ()
   assert.ok(confirm.indexOf('logCompleted') > confirm.indexOf('await fetch'),
     'the task is cleared only after the write succeeds')
   assert.match(confirm, /setActioning\(null\)[\s\S]{0,200}throw e/, 'a failure leaves the work to do')
+
+  // PRECEPTOR-NOTIFICATION-ACTION-CENTER-1: the preceptor reminder is no
+  // longer a second compose-and-log workflow. It consumes the same cached
+  // ledger as Unit Pool and returns the user there for any genuinely open row.
+  assert.match(ac, /placementNotifications, placementNotificationsLoaded/)
+  assert.match(ac, /navigateToUnitPool:true/)
+  assert.match(ac, /onNavigateToUnitPool\?\.\(item\.unitId\)/)
+  assert.ok(!ac.includes('buildPreceptorWelcomeEmail'), 'the duplicate preceptor email builder is retired')
+  assert.ok(!ac.includes("markDonePayload:{type:'preceptor_welcome'}"),
+    'opening Action Center can no longer create a competing completion record')
+
+  const app = read('src/App.jsx')
+  assert.match(app, /queryKey: \['placement_notification_state', activeCohortId\]/)
+  assert.match(app, /placementNotifications=\{placementNotificationRows\}/)
 })
 
 test('PROOF 22b: an audited correction restores the task', () => {
