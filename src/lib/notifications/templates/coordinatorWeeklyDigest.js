@@ -75,8 +75,11 @@ export function buildCoordinatorWeeklyDigestEmail({
   const totalCount = CATEGORIES.reduce((sum, cat) =>
     sum + (transitions[cat.key]?.length || 0), 0);
 
+  // Subject is plain text and stays raw. S-06 TEMPLATE ESCAPING: the preheader is NOT plain text,
+  // because the shared shell renders it into a hidden HTML div, so the school name is escaped here
+  // exactly as it already is in the body below.
   const subject   = `ASPIRE Weekly Update: ${schoolDisplayName}`;
-  const preheader = `${totalCount} ASPIRE update${totalCount === 1 ? '' : 's'} for ${schoolDisplayName} (${dateRange}).`;
+  const preheader = `${totalCount} ASPIRE update${totalCount === 1 ? '' : 's'} for ${escHtml(schoolDisplayName)} (${dateRange}).`;
 
   // Personalized greeting: use the coordinator's first name when present; fall back to a plain
   // "Good morning," when it is missing (never render a literal placeholder or "undefined"/"null").

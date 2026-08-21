@@ -33,7 +33,7 @@ export const placementRequestReceived = {
     return {
       subject: `ASPIRE Placement Request Received: ${studentName}`,
       html: aspireEmailShell({
-        preheader: `We received your placement request for ${studentName}.`,
+        preheader: `We received your placement request for ${escapeHtml(studentName)}.`,
         body: `
           <p style="margin:0 0 16px;">Hi ${escapeHtml(coordFirst)},</p>
           <p style="margin:0 0 16px;">Thank you for submitting a placement request for <strong>${escapeHtml(studentName)}</strong> from <strong>${escapeHtml(ctx.school || 'your school')}</strong>. We have received the request and will review it with ${cohortPhrase}.</p>
@@ -56,7 +56,7 @@ export const placementRequestReceived = {
   internal_team: (ctx) => ({
     subject: `New ASPIRE Placement Request: ${ctx.studentName} (${ctx.school || 'unknown school'})`,
     html: aspireEmailShell({
-      preheader: `New placement request for ${ctx.studentName} from ${ctx.coordinatorName || 'a coordinator'}.`,
+      preheader: `New placement request for ${escapeHtml(ctx.studentName)} from ${escapeHtml(ctx.coordinatorName || 'a coordinator')}.`,
       body: `
         <h2 style="color:${NAVY};font-weight:600;margin:0 0 12px;">New ASPIRE Placement Request</h2>
 

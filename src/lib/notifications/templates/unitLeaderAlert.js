@@ -14,6 +14,12 @@
 // The unsubscribe line names the exact place to change the setting, so a Unit
 // Leader always has a way out that does not require contacting anyone.
 
+// S-06 TEMPLATE ESCAPING: unit_name originates from the public unit participation form, and the
+// greeting name from a profile record, so both are attacker-influenced free text interpolated into
+// raw HTML. alert_label comes from a fixed server map and summary is server-composed today, but
+// both are escaped as well so a future caller cannot reintroduce the defect. The CTA is built by
+// appUrl() from a server-chosen path and is escaped for its attribute context.
+import { escapeHtml } from '../../htmlEscape.js'
 import { getGreetingName } from '../greetings.js'
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js'
 import { aspireHandwrittenSignature } from '../handwrittenSignature.js'
@@ -24,16 +30,16 @@ const SAND = '#F4F1EC'
 
 /** A short preheader, with no student information, mirroring the subject. */
 function preheaderFor(ctx) {
-  const unit = ctx.unit_name ? ` for ${ctx.unit_name}` : ''
-  return `${ctx.alert_label || 'ASPIRE update'}${unit}`
+  const unit = ctx.unit_name ? ` for ${escapeHtml(ctx.unit_name)}` : ''
+  return `${escapeHtml(ctx.alert_label || 'ASPIRE update')}${unit}`
 }
 
 function body(ctx) {
-  const greeting = getGreetingName({ full_name: ctx.recipient?.name })
-  const label = ctx.alert_label || 'ASPIRE update'
-  const unit = ctx.unit_name || ''
-  const summary = ctx.summary || ''
-  const cta = appUrl(ctx.cta_path || '/portal/unit/home')
+  const greeting = escapeHtml(getGreetingName({ full_name: ctx.recipient?.name }))
+  const label = escapeHtml(ctx.alert_label || 'ASPIRE update')
+  const unit = escapeHtml(ctx.unit_name || '')
+  const summary = escapeHtml(ctx.summary || '')
+  const cta = escapeHtml(appUrl(ctx.cta_path || '/portal/unit/home'))
 
   return `
     <p style="margin:0 0 16px;">Hello ${greeting},</p>
