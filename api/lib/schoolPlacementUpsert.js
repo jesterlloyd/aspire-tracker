@@ -24,6 +24,7 @@
 import { normalizeEmailForLookup } from '../../src/lib/emailUtils.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull, coerceMinDaysOrNull } from '../../src/lib/availability.js'
 import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
+import { checkLength, checkLengths, LIMITS, MAX_STUDENTS_PER_PLACEMENT_REQUEST } from './fieldLimits.js'
 
 // The latest-submission provenance columns added by
 // supabase/migrations/20260727000000_add_academic_partner_placement_provenance.sql.
@@ -41,6 +42,56 @@ export const PLACEMENT_PROVENANCE_COLUMNS = [
 export async function isPlacementProvenanceReady(db) {
   const { error } = await db.from('students').select(PLACEMENT_PROVENANCE_COLUMNS.join(', ')).limit(1)
   return !error
+}
+
+// S-06 LENGTH CAPS: validates the coordinator-owned fields and the student roster a placement
+// request carries. Shared by BOTH submit paths (public /school-form and the Academic Partner
+// portal) so the two cannot drift, exactly like the write below.
+//
+// Returns null when everything fits, or { field, label, max, message } for the FIRST problem, so
+// the submitter is pointed at one specific field. Over-length input is rejected, never truncated.
+// Callers shape their own error response around it.
+export function validatePlacementRequestInput({ coordinator = {}, students = [], availability = {} } = {}) {
+  const roster = Array.isArray(students) ? students : [];
+  if (roster.length > MAX_STUDENTS_PER_PLACEMENT_REQUEST) {
+    return {
+      field: 'students',
+      label: 'Students',
+      max: MAX_STUDENTS_PER_PLACEMENT_REQUEST,
+      message: `This submission lists ${roster.length} students. Please submit at most ${MAX_STUDENTS_PER_PLACEMENT_REQUEST} at a time.`,
+    };
+  }
+
+  const coordinatorProblem = checkLengths([
+    ['coordinator.school', 'School name',       coordinator.school, LIMITS.IDENTITY],
+    ['coordinator.name',   'Coordinator name',  coordinator.name,   LIMITS.NAME],
+    ['coordinator.email',  'Coordinator email', coordinator.email,  LIMITS.EMAIL],
+    ['coordinator.notes',  'Coordinator notes', coordinator.notes,  LIMITS.NARRATIVE],
+  ]);
+  if (coordinatorProblem) return coordinatorProblem;
+
+  const notesProblem = checkLength(
+    'availability.scheduling_notes', 'Scheduling notes',
+    (availability || {}).scheduling_notes, LIMITS.NARRATIVE,
+  );
+  if (notesProblem) return notesProblem;
+
+  for (let i = 0; i < roster.length; i += 1) {
+    const s = roster[i] || {};
+    // Row number is 1-based so the message matches what the coordinator sees on the form.
+    const row = i + 1;
+    const problem = checkLengths([
+      [`students[${i}].first_name`, `Student ${row} first name`, s.first_name, LIMITS.NAME],
+      [`students[${i}].last_name`,  `Student ${row} last name`,  s.last_name,  LIMITS.NAME],
+      [`students[${i}].email`,      `Student ${row} email`,      s.email,      LIMITS.EMAIL],
+      [`students[${i}].program_type`, `Student ${row} program`,  s.program_type, LIMITS.IDENTITY],
+      [`students[${i}].phone`,      `Student ${row} phone`,      s.phone,      LIMITS.PHONE],
+      [`students[${i}].estimated_graduation_date`, `Student ${row} graduation date`, s.estimated_graduation_date, LIMITS.DATE],
+    ]);
+    if (problem) return problem;
+  }
+
+  return null;
 }
 
 // Sanitize coordinator-owned, school-wide availability to canonical encodings (weekdays Mon-Sun, ISO

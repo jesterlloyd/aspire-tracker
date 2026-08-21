@@ -14,7 +14,7 @@
 // prevents spoofed submissions against closed cohorts.
 
 import { createClient } from '@supabase/supabase-js'
-import { performSchoolPlacementUpsert, isPlacementProvenanceReady } from './lib/schoolPlacementUpsert.js'
+import { performSchoolPlacementUpsert, isPlacementProvenanceReady, validatePlacementRequestInput } from './lib/schoolPlacementUpsert.js'
 import { sendPlacementRequestNotifications } from '../lib/server/notifications/placementRequestNotifications.js'
 
 function getDb() {
@@ -49,6 +49,12 @@ export default async function handler(req, res) {
   if (rotationEndDate <= rotationStartDate)
     return res.status(400).json({ error: 'Rotation end date must be after start date' })
   if (!students.length) return res.status(400).json({ error: 'At least one student is required' })
+
+  // S-06 LENGTH CAPS: coordinator fields, per-student fields, and the size of the roster itself
+  // were unbounded. Shared with the Academic Partner portal path so the two cannot drift. The
+  // message names the specific field and is safe to show a coordinator verbatim.
+  const tooLong = validatePlacementRequestInput({ coordinator, students, availability })
+  if (tooLong) return res.status(400).json({ error: tooLong.message, field: tooLong.field })
 
   const db = getDb()
 

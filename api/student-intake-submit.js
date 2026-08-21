@@ -31,6 +31,7 @@ import { STUDENT_FORM_ACK_VERSION } from '../src/lib/studentFormAck.js'
 import { isStudentProfileLocked } from '../src/lib/studentProfileLock.js'
 // PHASE0B-WAVE-D: cohort and student resolution shared with student-intake-lookup.js
 import { resolveAcceptingCohort, resolveStudentByEmail } from './lib/intakeStudentLookup.js'
+import { checkLengths, LIMITS } from './lib/fieldLimits.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -120,6 +121,37 @@ export default async function handler(req, res) {
     }
   }
 
+  // S-06 LENGTH CAPS: most student-entered fields were unbounded. Rejected with a message naming
+  // the field, never truncated. unavailable_weekdays_reason and availability_notes previously used
+  // a silent .slice(); the SAME limits are kept, but an over-length value is now reported instead
+  // of quietly losing the tail the student wrote.
+  const tooLong = checkLengths([
+    ['school_email',                'School email',                body.school_email,                LIMITS.EMAIL],
+    ['first_name',                  'First name',                  body.first_name,                  LIMITS.NAME],
+    ['last_name',                   'Last name',                   body.last_name,                   LIMITS.NAME],
+    ['preferred_first_name',        'Preferred first name',        body.preferred_first_name,        LIMITS.NAME],
+    ['personal_email',              'Personal email',              body.personal_email,              LIMITS.EMAIL],
+    ['phone',                       'Phone number',                body.phone,                       LIMITS.PHONE],
+    ['date_of_birth',               'Date of birth',               body.date_of_birth,               LIMITS.DATE],
+    ['gender',                      'Gender',                      body.gender,                      LIMITS.ROLE],
+    ['cs_affiliation',              'Cedars-Sinai affiliation',    body.cs_affiliation,              LIMITS.IDENTITY],
+    ['cs_department',               'Cedars-Sinai department',     body.cs_department,               LIMITS.IDENTITY],
+    ['cs_role',                     'Cedars-Sinai role',           body.cs_role,                     LIMITS.IDENTITY],
+    ['prior_healthcare_experience', 'Prior healthcare experience', body.prior_healthcare_experience, LIMITS.NARRATIVE],
+    ['unit_preference_1',           'First unit preference',       body.unit_preference_1,           LIMITS.IDENTITY],
+    ['unit_preference_2',           'Second unit preference',      body.unit_preference_2,           LIMITS.IDENTITY],
+    ['unit_preference_3',           'Third unit preference',       body.unit_preference_3,           LIMITS.IDENTITY],
+    ['shift_availability',          'Shift availability',          body.shift_availability,          LIMITS.SHORT],
+    ['interest_statement',          'Interest statement',          body.interest_statement,          LIMITS.LONG_NARRATIVE],
+    ['unavailable_weekdays_reason', 'Reason for unavailability',   body.unavailable_weekdays_reason, LIMITS.SHORT],
+    ['availability_notes',          'Availability notes',          body.availability_notes,          LIMITS.NOTES],
+    ['resume_url',                  'Resume',                      body.resume_url,                  LIMITS.SHORT],
+    ['headshot_url',                'Headshot',                    body.headshot_url,                LIMITS.SHORT],
+  ])
+  if (tooLong) {
+    return res.status(400).json({ error: 'invalid_request', field: tooLong.field, message: tooLong.message })
+  }
+
   // AVAILABILITY-CANON-1B: the availability acknowledgment is REQUIRED to submit.
   if (body.availability_ack !== true) {
     return res.status(400).json({ error: 'invalid_request', field: 'availability_ack', message: 'Please acknowledge the availability statement to submit.' })
@@ -204,12 +236,12 @@ export default async function handler(req, res) {
     // AVAILABILITY-CANON-1B: student-owned availability, sanitized to canonical encodings.
     // (Written ONLY to students; coordinator-owned rotation availability is never touched here.)
     unavailable_weekdays:        sanitizeWeekdays(body.unavailable_weekdays),
-    unavailable_weekdays_reason: str(body.unavailable_weekdays_reason).slice(0, 500),
+    unavailable_weekdays_reason: str(body.unavailable_weekdays_reason),
     personal_blackout_dates:     sanitizeIsoDates(body.personal_blackout_dates),
     weekends_available:          coerceBoolOrNull(body.weekends_available),
     nights_available:            coerceBoolOrNull(body.nights_available),
     preferred_days:              sanitizeWeekdays(body.preferred_days),
-    availability_notes:          str(body.availability_notes).slice(0, 1000),
+    availability_notes:          str(body.availability_notes),
     availability_ack:            true,
     // STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT: store the typed name; server owns version + timestamp.
     student_form_privacy_ack_name:    privacyAckName,

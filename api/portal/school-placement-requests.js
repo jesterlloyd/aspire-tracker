@@ -29,7 +29,7 @@
 
 import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, resolveSchoolScopedCohorts, matchSchoolCohortScope } from '../lib/schoolScope.js'
 import { getCallerScopedDb } from '../lib/portalAuth.js'
-import { performSchoolPlacementUpsert, isPlacementProvenanceReady } from '../lib/schoolPlacementUpsert.js'
+import { performSchoolPlacementUpsert, isPlacementProvenanceReady, validatePlacementRequestInput } from '../lib/schoolPlacementUpsert.js'
 import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
 import { sendPlacementRequestNotifications } from '../../lib/server/notifications/placementRequestNotifications.js'
 
@@ -202,6 +202,11 @@ async function submitPlacementRequest(req, res, auth) {
       || rotationEndDate <= rotationStartDate || students.length === 0) {
     return res.status(400).json({ error: 'invalid_request' })
   }
+
+  // S-06 LENGTH CAPS: shared with the public /school-form path so the two cannot drift. The field
+  // name is returned for the form to highlight; the endpoint's error vocabulary is unchanged.
+  const tooLong = validatePlacementRequestInput({ coordinator, students, availability })
+  if (tooLong) return res.status(400).json({ error: 'invalid_request', field: tooLong.field, message: tooLong.message })
 
   // School + cohort authorization: the submitted school/cohort MUST be within the caller's active
   // scopes. The browser-supplied school is NEVER trusted for authorization; it is validated here.

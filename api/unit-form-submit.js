@@ -26,6 +26,7 @@ import { resolveAcceptingCohort } from './lib/intakeStudentLookup.js'
 // PHASE3-UNIT-PORTAL: the write sequence is shared with the authenticated
 // portal endpoint (api/portal/unit-participation-submit.js).
 import { performUnitResponseUpsert } from './lib/unitResponseUpsert.js'
+import { checkLengths, LIMITS } from './lib/fieldLimits.js'
 // S-06 ENDPOINT CLOSURE: the confirmation send moved here from the retired PUBLIC
 // api/unit-form-notification.js route (see the module header for why a secret was not an option).
 import { sendUnitFormReceivedNotification } from '../lib/server/notifications/unitFormNotifications.js'
@@ -93,6 +94,24 @@ export default async function handler(req, res) {
   }
   if (body.hiring_ngrp !== true && body.hiring_ngrp !== false) {
     return res.status(400).json({ error: 'invalid_request', field: 'hiring_ngrp', message: 'Please answer the NGRP hiring question.' })
+  }
+
+  // S-06 LENGTH CAPS: the free-text fields were unbounded. Rejected, never truncated, so a
+  // submitter always learns their text did not fit. The identity fields above keep their existing
+  // 200/254/100 caps; these are the ones that had none.
+  const tooLong = checkLengths([
+    ['shift_preference',     'Shift preference',      body.shift_preference,     LIMITS.SHORT],
+    ['preferred_preceptors', 'Preferred preceptors',  body.preferred_preceptors, LIMITS.NARRATIVE],
+    ['reason_for_zero',      'Reason for not hosting', body.reason_for_zero,     LIMITS.NARRATIVE],
+    ['hiring_ngrp_reason',   'NGRP hiring reason',    body.hiring_ngrp_reason,   LIMITS.NARRATIVE],
+    ['has_fired_alumni',     'Hired ASPIRE alumni',   body.has_fired_alumni,     LIMITS.SHORT],
+    ['alumni_outcome',       'Alumni outcome',        body.alumni_outcome,       LIMITS.SHORT],
+    ['alumni_notes',         'Alumni notes',          body.alumni_notes,         LIMITS.NARRATIVE],
+    ['would_consider_alumni', 'Would consider alumni', body.would_consider_alumni, LIMITS.SHORT],
+    ['considerations',       'Considerations',        body.considerations,       LIMITS.LONG_NARRATIVE],
+  ])
+  if (tooLong) {
+    return res.status(400).json({ error: 'invalid_request', field: tooLong.field, message: tooLong.message })
   }
 
   const db = getDb()
