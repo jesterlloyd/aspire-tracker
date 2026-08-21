@@ -1,4 +1,15 @@
+/* global process */
 import { createClient } from '@supabase/supabase-js'
+import { Resend } from 'resend'
+// S-06 ENDPOINT CLOSURE: the booking notice is rendered here and sent from this endpoint. It used
+// to be a fire-off HTTP call to the PUBLIC api/notify-interview-booked.js route, which accepted its
+// recipients and its whole body from the request, so anyone could send ASPIRE-branded mail to an
+// arbitrary address. Recipients and content are now derived from server state only.
+import { interviewBookedEmail, shouldSkipDuplicateBookingNotice } from '../lib/server/email/interviewBooked.js'
+
+const BOOKING_NOTICE_FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
+const BOOKING_NOTICE_REPLY_TO = 'JesterLloyd.Bautista@cshs.org'
+const BOOKING_NOTICE_OWNER    = 'JesterLloyd.Bautista@cshs.org'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -92,16 +103,20 @@ export default async function handler(req, res) {
       interviewerEmail = iv?.email?.trim() || null
     }
 
-    // 7. Delegate notification email to /api/notify-interview-booked - single send path
+    // 7. Booking notice - single send path, in-process. Recipients are the ASPIRE owner address and
+    // the interviewer email resolved in step 6, never a value from the request. Non-fatal: the
+    // booking is already committed and an email problem must never fail it.
     try {
-      const protocol = req.headers['x-forwarded-proto'] || 'https'
-      const host = req.headers.host
-      await fetch(`${protocol}://${host}/api/notify-interview-booked`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slotId:          slot.id,
-          studentName:     student ? `${student.first_name} ${student.last_name}` : `Student ${studentId}`,
+      const studentName = student ? `${student.first_name} ${student.last_name}` : `Student ${studentId}`
+      const dedupeKey = slot.id || `${student?.school_email || 'unknown'}-${slot.slot_date}-${slot.slot_time}`
+      if (shouldSkipDuplicateBookingNotice(dedupeKey)) {
+        console.log('[interview-book] duplicate booking notice within 60s window, skipping:', dedupeKey)
+      } else if (!process.env.RESEND_API_KEY) {
+        console.error('[interview-book] RESEND_API_KEY not set, booking notice not sent')
+      } else {
+        const recipients = [...new Set([BOOKING_NOTICE_OWNER, interviewerEmail].filter(Boolean))]
+        const { subject, html } = interviewBookedEmail({
+          studentName,
           studentSchool:   student?.school,
           studentProgram:  student?.program_type,
           studentEmail:    student?.school_email,
@@ -109,19 +124,26 @@ export default async function handler(req, res) {
           interviewTime:   slot.slot_time,
           duration:        slot.duration_minutes,
           interviewerName: slot.interviewer_name,
-          interviewerEmail,
-          ownerEmail: 'JesterLloyd.Bautista@cshs.org',
-        }),
-      })
+        })
+        const { data, error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+          from:     BOOKING_NOTICE_FROM,
+          reply_to: BOOKING_NOTICE_REPLY_TO,
+          to:       recipients,
+          subject,
+          html,
+        })
+        if (error) console.error('[interview-book] booking notice send error:', JSON.stringify(error))
+        else console.log('[interview-book] booking notice sent:', data?.id)
+      }
     } catch (notifyErr) {
-      console.error('[interview-book] notify call failed (non-fatal):', notifyErr.message)
+      console.error('[interview-book] booking notice failed (non-fatal):', notifyErr.message)
     }
 
     return res.status(200).json({
       success: true,
       slot,
       interviewerEmail,
-      ownerEmail: 'JesterLloyd.Bautista@cshs.org',
+      ownerEmail: BOOKING_NOTICE_OWNER,
     })
 
   } catch (err) {

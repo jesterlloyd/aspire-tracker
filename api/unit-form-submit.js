@@ -1,3 +1,4 @@
+/* global process */
 // api/unit-form-submit.js
 //
 // PHASE0B-WAVE-D: dedicated PUBLIC submission endpoint for /unit-form.
@@ -16,13 +17,18 @@
 //   - submission_count, submitted_at, and last_updated_at are SERVER-managed.
 //   - Field mapping and conditional-null behavior mirror the previous client
 //     logic exactly (single writer preserved: this endpoint replaces the
-//     client, the notification stays on api/unit-form-notification.js).
+//     client). S-06 ENDPOINT CLOSURE: the confirmation email is now sent from
+//     here too, so the recipient and the content come from what this endpoint
+//     validated and persisted rather than from a second unauthenticated request.
 
 import { createClient } from '@supabase/supabase-js'
 import { resolveAcceptingCohort } from './lib/intakeStudentLookup.js'
 // PHASE3-UNIT-PORTAL: the write sequence is shared with the authenticated
 // portal endpoint (api/portal/unit-participation-submit.js).
 import { performUnitResponseUpsert } from './lib/unitResponseUpsert.js'
+// S-06 ENDPOINT CLOSURE: the confirmation send moved here from the retired PUBLIC
+// api/unit-form-notification.js route (see the module header for why a secret was not an option).
+import { sendUnitFormReceivedNotification } from '../lib/server/notifications/unitFormNotifications.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -121,6 +127,19 @@ export default async function handler(req, res) {
     console.log('[unit-form-submit] write failed', { request_id: requestId, code: result.error.code })
     return res.status(result.error.status).json({ error: 'internal_error' })
   }
+
+  // S-06 ENDPOINT CLOSURE: the confirmation and internal alert are sent HERE, from the values this
+  // endpoint validated and persisted. They used to be a second, fire-and-forget browser request to
+  // the PUBLIC api/unit-form-notification.js route, which took the recipient address and every free
+  // text field from that request body - so anyone could send ASPIRE-branded mail to any address.
+  // A shared secret was not an option for a route the public form itself had to call; moving the
+  // send server-side removes the surface instead of guarding it. Non-fatal by construction: the
+  // sender never throws, so the already-written response is always reported as accepted.
+  await sendUnitFormReceivedNotification({
+    cohortId,
+    cohortName: cohortResult.cohortName,
+    ...result.notification,
+  })
 
   console.log('[unit-form-submit] submission accepted', { request_id: requestId, cohortId })
   return res.status(200).json({ success: true })

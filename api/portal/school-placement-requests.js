@@ -31,7 +31,7 @@ import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, resolve
 import { getCallerScopedDb } from '../lib/portalAuth.js'
 import { performSchoolPlacementUpsert, isPlacementProvenanceReady } from '../lib/schoolPlacementUpsert.js'
 import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
-import { emailBaseUrl } from '../../lib/server/appUrl.js'
+import { sendPlacementRequestNotifications } from '../../lib/server/notifications/placementRequestNotifications.js'
 
 // Explicit allowlist (allowlist, not denylist). Confirmed unit resolves through the reliable
 // normalized matched_unit_id -> units, not the legacy free-text students.unit. created_at is the
@@ -278,24 +278,21 @@ async function submitPlacementRequest(req, res, auth) {
   })
   if (result.error) return res.status(500).json({ error: 'internal_error' })
 
-  // Fire-and-forget placement-request confirmations for each NEW student, mirroring the public
-  // endpoint. AP-SCHOOL-CANONICALIZATION-1: the notification speaks placement-request language to
+  // Placement-request confirmations for each NEW student, sent in-process through the shared
+  // sender, mirroring the public endpoint. S-06 ENDPOINT CLOSURE: this used to be a
+  // fire-and-forget POST to the PUBLIC api/form-received-notification.js route, which accepted the
+  // recipient and every display value from its request body. The sender never throws, so a
+  // notification failure still never blocks the submission.
+  // AP-SCHOOL-CANONICALIZATION-1: the notification speaks placement-request language to
   // the SUBMITTING COORDINATOR (never the student - the student has not submitted anything), and it
   // carries the canonical school display name the write persisted, never the raw submitted variant.
-  const baseUrl = emailBaseUrl(req)
-  for (const s of result.added) {
-    fetch(`${baseUrl}/api/form-received-notification`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        studentId: s.id, cohortId, cohortName: cohort.name,
-        studentName: s.name, studentFirstName: s.name.split(' ')[0],
-        studentEmail: s.email, school: result.schoolName || school,
-        programType: s.programType || '',
-        coordinatorName: coordName, coordinatorEmail: coordEmail,
-      }),
-    }).catch(() => { /* notification failure never blocks the submission */ })
-  }
+  await sendPlacementRequestNotifications(result.added.map(s => ({
+    studentId: s.id, cohortId, cohortName: cohort.name,
+    studentName: s.name, studentFirstName: s.name.split(' ')[0],
+    studentEmail: s.email, school: result.schoolName || school,
+    programType: s.programType || '',
+    coordinatorName: coordName, coordinatorEmail: coordEmail,
+  })))
 
   return res.status(200).json({
     success: true,

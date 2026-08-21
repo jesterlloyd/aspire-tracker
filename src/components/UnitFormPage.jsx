@@ -156,31 +156,10 @@ export default function UnitFormPage() {
         return
       }
 
-      // 3. Fire-and-forget notification
-      fetch('/api/unit-form-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cohortId,
-          cohortName,
-          unitName:            form.unit_name.trim(),
-          submitterName:       form.submitter_name.trim(),
-          submitterEmail:      form.submitter_email.trim(),
-          submitterRole:       form.submitter_role,
-          slotsOffered:        isHosting ? slotsNum : 0,
-          shiftPreference:     form.shift_preference || null,
-          preferredPreceptors: form.preferred_preceptors.trim() || null,
-          considerations:      form.considerations.trim() || null,
-          reasonForZero:       !isHosting ? (form.reason_for_zero.trim() || null) : null,
-          hiringNgrp:          form.hiring_ngrp,
-          hiringNgrpReason:    form.hiring_ngrp === false ? (form.hiring_ngrp_reason.trim() || null) : null,
-          hasFiredAlumni:      form.has_fired_alumni || null,
-          alumniOutcome:       form.alumni_outcome || null,
-          alumniNotes:         form.alumni_notes.trim() || null,
-          wouldConsiderAlumni: form.would_consider_alumni || null,
-        }),
-      }).catch(err => console.warn('[UnitForm] notification failed (non-fatal):', err))
-
+      // 3. Notification: none from here. S-06 ENDPOINT CLOSURE retired the public
+      // /api/unit-form-notification route this used to call, because it accepted the recipient
+      // address and every free text field from THIS request body. /api/unit-form-submit now sends
+      // the confirmation and the internal alert itself, from the values it validated and persisted.
       setSubmitted(true)
     } catch (err) {
       clearTimeout(timeoutId)

@@ -14,8 +14,8 @@
 // prevents spoofed submissions against closed cohorts.
 
 import { createClient } from '@supabase/supabase-js'
-import { emailBaseUrl } from '../lib/server/appUrl.js'
 import { performSchoolPlacementUpsert, isPlacementProvenanceReady } from './lib/schoolPlacementUpsert.js'
+import { sendPlacementRequestNotifications } from '../lib/server/notifications/placementRequestNotifications.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -74,31 +74,26 @@ export default async function handler(req, res) {
   if (result.error) return res.status(500).json({ error: result.error })
   const { added, updated, skipped, rotationId } = result
 
-  // Fire-and-forget: placement-request confirmations for each new student. Internal
-  // same-deployment call - canonical origin in Production, forwarded host on
-  // Preview so it hits the right deployment's endpoint. See lib/server/appUrl.js.
+  // Placement-request confirmations for each new student, sent in-process through the shared
+  // sender. S-06 ENDPOINT CLOSURE: this used to be a fire-and-forget POST to the PUBLIC
+  // api/form-received-notification.js route, which accepted the recipient and every display value
+  // from its request body. The route is gone; the sender never throws, so a notification problem
+  // still cannot fail a placement request that is already written.
   // AP-SCHOOL-CANONICALIZATION-1: the confirmation goes to the SUBMITTING COORDINATOR with
   // placement-request language (never the student - a placement request is not a student
   // application), carrying the canonical school display name the write persisted.
-  const baseUrl = emailBaseUrl(req)
-  for (const s of added) {
-    fetch(`${baseUrl}/api/form-received-notification`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        studentId:        s.id,
-        cohortId,
-        cohortName:       cohort.name || cohortName || '',
-        studentName:      s.name,
-        studentFirstName: s.name.split(' ')[0],
-        studentEmail:     s.email,
-        school:           result.schoolName || coordinator.school.trim(),
-        programType:      s.programType || '',
-        coordinatorName:  coordinator.name.trim(),
-        coordinatorEmail: coordinator.email.trim(),
-      }),
-    }).catch(e => console.warn('[school-form-submit] notification failed:', e.message))
-  }
+  await sendPlacementRequestNotifications(added.map(s => ({
+    studentId:        s.id,
+    cohortId,
+    cohortName:       cohort.name || cohortName || '',
+    studentName:      s.name,
+    studentFirstName: s.name.split(' ')[0],
+    studentEmail:     s.email,
+    school:           result.schoolName || coordinator.school.trim(),
+    programType:      s.programType || '',
+    coordinatorName:  coordinator.name.trim(),
+    coordinatorEmail: coordinator.email.trim(),
+  })))
 
   return res.status(200).json({
     success: true,

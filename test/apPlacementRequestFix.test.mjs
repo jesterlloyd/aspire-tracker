@@ -183,10 +183,14 @@ test('both submit paths notify with the canonical school and the submitting coor
     assert.match(src, /school:\s+result\.schoolName \|\| /, `${p} sends the persisted operative name`)
     assert.match(src, /coordinatorEmail:/, `${p} carries the submitting coordinator`)
     assert.match(src, /cohortName/, `${p} carries the cohort name for the email copy`)
+    // S-06 ENDPOINT CLOSURE: sent in-process through the shared sender, never by posting to a
+    // public route that would accept the recipient from its own request body.
+    assert.match(src, /sendPlacementRequestNotifications\(/, `${p} uses the shared sender`)
+    assert.doesNotMatch(src, /form-received-notification'/, `${p} does not POST to the retired route`)
   }
-  const endpoint = read('api/form-received-notification.js')
-  assert.match(endpoint, /sendNotification\('placement_request_received'/)
-  assert.doesNotMatch(endpoint, /sendNotification\('form_received'/)
+  const sender = read('lib/server/notifications/placementRequestNotifications.js')
+  assert.match(sender, /sendNotification\('placement_request_received'/)
+  assert.doesNotMatch(sender, /sendNotification\('form_received'/)
 })
 
 test('archive reconstruction keeps history AND supports the new type', () => {

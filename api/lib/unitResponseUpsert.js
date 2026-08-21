@@ -101,5 +101,27 @@ export async function performUnitResponseUpsert(db, cohortId, values) {
     .upsert(upsertData, { onConflict: 'cohort_id,unit_id' })
   if (upsertErr) return { error: { status: 500, code: 'response_upsert_failed' } }
 
-  return { ok: true }
+  // S-06 ENDPOINT CLOSURE: the confirmation email is now sent by the submit endpoints rather than
+  // by a separate public route that took its content from a second browser request. These are the
+  // values this function actually PERSISTED, so the email and the stored record can never disagree.
+  return {
+    ok: true,
+    notification: {
+      unitName:            values.unitName,
+      submitterName:       values.submitterName,
+      submitterEmail:      values.submitterEmail,
+      submitterRole:       values.submitterRole,
+      slotsOffered:        upsertData.slots_offered,
+      shiftPreference:     upsertData.shift_preference,
+      preferredPreceptors: upsertData.preferred_preceptors,
+      considerations:      upsertData.considerations,
+      reasonForZero:       upsertData.reason_for_zero,
+      hiringNgrp:          upsertData.hiring_new_grads_ngrp,
+      hiringNgrpReason:    upsertData.hiring_new_grads_reason,
+      hasFiredAlumni:      upsertData.has_hired_aspire_alumni,
+      alumniOutcome:       upsertData.aspire_alumni_outcome,
+      alumniNotes:         upsertData.aspire_alumni_notes,
+      wouldConsiderAlumni: upsertData.would_consider_aspire_alumni,
+    },
+  }
 }

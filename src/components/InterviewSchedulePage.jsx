@@ -242,7 +242,7 @@ export default function InterviewSchedulePage() {
       // Build student-friendly mailto (opt-in only - no auto-trigger)
       setMailtoUrl(buildStudentMailtoUrl(student, data.slot))
 
-      // Server-side notification is handled by /api/interview-book → /api/notify-interview-booked
+      // Server-side notification is sent in-process by /api/interview-book
     } catch (err) { console.error('Booking error:', err) }
     setBooking(false)
   }

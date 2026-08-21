@@ -17,9 +17,12 @@ import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailU
 // Resolves the single accepting cohort.
 // Returns { cohortId } or { failure: { status, error, message } }.
 export async function resolveAcceptingCohort(db) {
+  // `name` is selected alongside `id` so a caller that needs the cohort's display name for email
+  // copy does not have to re-query. Callers that only destructure { cohortId, failure } are
+  // unaffected.
   const { data: acceptingCohorts, error } = await db
     .from('cohorts')
-    .select('id')
+    .select('id, name')
     .eq('accepting_submissions', true)
   if (error) return { failure: { status: 500, error: 'internal_error' } }
   if (!acceptingCohorts || acceptingCohorts.length === 0) {
@@ -28,7 +31,7 @@ export async function resolveAcceptingCohort(db) {
   if (acceptingCohorts.length > 1) {
     return { failure: { status: 409, error: 'ambiguous_cohort', message: 'Submissions are temporarily unavailable. Please contact the ASPIRE team.' } }
   }
-  return { cohortId: acceptingCohorts[0].id }
+  return { cohortId: acceptingCohorts[0].id, cohortName: acceptingCohorts[0].name || '' }
 }
 
 // Resolves the single student matching the email within the cohort.
