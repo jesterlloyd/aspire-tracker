@@ -525,9 +525,11 @@ test('BOTH CRON ENTRIES REGISTER, on distinct paths with no query string', () =>
   assert.match(weekly.schedule, /^\d+ \d+ \* \* \d$/, 'reminders run once a week')
   assert.match(sweep.schedule, /^\d+ \* \* \* \*$/, 'reconciliation runs hourly, inside the 24h provider window')
 
-  // Both endpoints exist on disk and are given a duration budget.
-  assert.ok(vercel.functions['api/cron/evaluation-reminders.js'])
-  assert.ok(vercel.functions['api/cron/evaluation-reminders-recovery.js'])
+  // The first production run processed 27 of 35 reminders before Vercel killed
+  // it at the old 60-second ceiling. Both the weekly worker and the recovery
+  // worker need enough room for the full crash-safe batch.
+  assert.equal(vercel.functions['api/cron/evaluation-reminders.js']?.maxDuration, 300)
+  assert.equal(vercel.functions['api/cron/evaluation-reminders-recovery.js']?.maxDuration, 300)
   const recovery = read('api/cron/evaluation-reminders-recovery.js')
   assert.match(recovery, /runEvaluationReminders\(req, res, \{ sweep: true \}\)/,
     'the recovery path fixes the mode in code, not in a query string')
@@ -591,4 +593,13 @@ test('the dry-run branch returns before the claim call in source order', () => {
   const claim = code.indexOf('claim_evaluation_reminders')
   assert.ok(dryReturn > 0 && claim > dryReturn,
     'the dry run must be structurally incapable of reaching the claim')
+})
+
+test('batch progress logs counts only, never reminder or recipient identifiers', () => {
+  const sender = read('lib/server/evaluation/reminderSend.js')
+  assert.match(sender, /progress processed=\$\{processedCount\} total=\$\{totalCount\}/)
+  const progressLine = sender.split('\n').find(line => line.includes('progress processed=')) || ''
+  for (const forbidden of ['assignment', 'recipient', 'email', 'token', 'surveyUrl', 'ledgerRow']) {
+    assert.ok(!progressLine.includes(forbidden), `progress log leaked ${forbidden}`)
+  }
 })
