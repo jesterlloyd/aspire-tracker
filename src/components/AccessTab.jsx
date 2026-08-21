@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ASPIRE_STATUSES } from '../lib/constants'
-import { displayName, downloadCSV, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
+import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { isIsoDateString, isLegacyNonIsoDateValue, dateInputValue } from '../lib/csLinkDateUtils'
 import StudentAvatar from './StudentAvatar'
 
@@ -27,19 +26,11 @@ const CEDARS_STATUS_OPTIONS = [
 export default function AccessTab({ students, onUpdate, focusStudentId }) {
   const [sortBy,       setSortBy]       = useState('last_name')
   const [sortDir,      setSortDir]      = useState('asc')
-  const [filterSchool, setFilterSchool] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
-
-  const schools = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
   const statusCounts = { not_started:0, stage1_pending:0, account_active:0, cslink_pending:0, complete:0 }
   students.forEach(s => { statusCounts[getCsLinkStatus(s)]++ })
 
-  let filtered = students
-  if (filterSchool) filtered = filtered.filter(s => s.school === filterSchool)
-  if (filterStatus) filtered = filtered.filter(s => s.status === filterStatus)
-
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = [...students].sort((a, b) => {
     const av = (sortBy === 'last_name' ? (a.last_name || a.name || '') : (a.school || '')).toLowerCase()
     const bv = (sortBy === 'last_name' ? (b.last_name || b.name || '') : (b.school || '')).toLowerCase()
     const cmp = av < bv ? -1 : av > bv ? 1 : 0
@@ -49,29 +40,6 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
   const toggleSort = field => {
     if (sortBy === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortBy(field); setSortDir('asc') }
-  }
-
-  const exportCSV = () => {
-    const headers = [
-      'Student Name', 'School', 'Cedars-Sinai Status', 'Step 2 Action',
-      'Step 2 Submitted Date', 'Step 3 Complete Date',
-      'CS-Link Requested Date', 'CS-Link Complete Date',
-      'CS Access Notes', 'Workflow Status',
-    ]
-    const rows = sorted.map(s => [
-      displayName(s), s.school || '',
-      CEDARS_STATUS_OPTIONS.find(o => o.value === s.cs_cedars_status)?.label || s.cs_cedars_status || '',
-      STAGE1_ACTION_LABELS[s.cs_stage1_action] || s.cs_stage1_action || '',
-      s.cs_stage1_submitted_date || '',
-      s.cs_stage1_complete_date  || '',
-      s.cs_link_requested_date   || '',
-      s.cs_link_complete_date    || '',
-      s.cs_access_notes          || '',
-      CS_LINK_STATUS_CONFIG[getCsLinkStatus(s)]?.label || '',
-    ])
-    const csv = [headers, ...rows]
-      .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
-    downloadCSV(csv, `aspire-cslink-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   return (
@@ -85,21 +53,6 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
             {cfg.label}: <strong>{statusCounts[key]}</strong>
           </span>
         ))}
-      </div>
-
-      {/* Filter row */}
-      <div className="am-filter-row">
-        <select className="filter-select" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}>
-          <option value="">All Schools</option>
-          {schools.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">All ASPIRE Statuses</option>
-          {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={exportCSV}>
-          ↓ Export Access Log CSV
-        </button>
       </div>
 
       {/* Table */}

@@ -384,7 +384,9 @@ export default function StudentProfilesTab({
       {/* ── CS-Link Access ── */}
       {view === 'access' && (
         <div className="profiles-scroll-area">
-          <AccessTab students={students} onUpdate={onUpdate} focusStudentId={accessFocusId} />
+          {/* Profiles and CS-Link are two views of the same roster. Keep the shared search and
+              pathway KPI filter active when switching views instead of bypassing them here. */}
+          <AccessTab students={displayedStudents} onUpdate={onUpdate} focusStudentId={accessFocusId} />
         </div>
       )}
 

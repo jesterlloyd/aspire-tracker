@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const spt = read('src/components/StudentProfilesTab.jsx')
+const access = read('src/components/AccessTab.jsx')
 const listPanel = read('src/components/StudentListPanel.jsx')
 const irt = read('src/components/InterviewRubricTab.jsx')
 const matching = read('src/components/MatchingTab.jsx')
@@ -56,6 +57,25 @@ test('Students rows are keyboard targets', () => {
   assert.match(listPanel, /tabIndex=\{0\}/)
   assert.match(listPanel, /aria-current=\{sel \? 'true' : undefined\}/)
   assert.match(listPanel, /e\.key === 'Enter' \|\| e\.key === ' '/)
+})
+
+test('Students KPI and search filters apply to both Profiles and CS-Link Access', () => {
+  assert.match(spt, /const displayedStudents = useMemo\(\(\) => \{[\s\S]*?if \(activeStatusFilter\)[\s\S]*?return sortStudentsList\(list, sortBy\)/)
+  assert.match(spt, /<StudentListPanel\s*\n\s*students=\{displayedStudents\}/,
+    'Profiles must receive the shared filtered roster')
+  assert.match(spt, /<AccessTab students=\{displayedStudents\}/,
+    'CS-Link Access must receive the same shared filtered roster')
+  assert.doesNotMatch(spt, /<AccessTab students=\{students\}/,
+    'CS-Link Access must never bypass the active KPI or search filter')
+})
+
+test('CS-Link Access has one filtering surface and no redundant export row', () => {
+  for (const retired of ['am-filter-row', 'All Schools', 'All ASPIRE Statuses', 'Export Access Log CSV']) {
+    assert.ok(!access.includes(retired), `retired CS-Link control survived: ${retired}`)
+  }
+  assert.doesNotMatch(access, /filterSchool|filterStatus|downloadCSV/)
+  assert.match(access, /const sorted = \[\.\.\.students\]\.sort/,
+    'AccessTab consumes the roster already filtered by Student Profiles')
 })
 
 test('Students responsive reflow', () => {
