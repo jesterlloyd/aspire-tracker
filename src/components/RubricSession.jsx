@@ -83,7 +83,9 @@ function hasRubricContent(draft) {
   if (!draft?.formState) return false
   const f = draft.formState
   const userTypedFields = [
-    'interviewer_name', 'interview_time', 'unit_preferences_rationale',
+    // interviewer_name is intentionally excluded because interviewer accounts
+    // receive it automatically; identity alone is not an in-progress draft.
+    'interview_time', 'unit_preferences_rationale',
     'cj_question_asked', 'cj_notes',
     'pp_question_asked', 'pp_notes',
     'ga_question_asked', 'ga_notes',
@@ -615,6 +617,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       { name: 'reset rubric' }
     )
     setForm(blank)
+    try {
+      if (student?.id && userId) localStorage.removeItem(`aspire.rubric.draft.${student.id}.${userId}`)
+    } catch (_) { /* non-critical */ }
     if (onRubricsChange) onRubricsChange()
   }
 
@@ -720,6 +725,8 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // and submit logic remain unchanged.
 
   const userId = userProfile?.id
+  const restoredDraftKeyRef = useRef(null)
+  const draftHydratedKeyRef = useRef(null)
 
   // Always-current snapshot of form state, used by event-driven saves that fire
   // outside the React render cycle (visibilitychange, beforeunload).
@@ -734,8 +741,16 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     if (readOnly) return
     if (!student?.id || !userId) return
     const key = `aspire.rubric.draft.${student.id}.${userId}`
+    // The save effect runs before the restore effect on first mount. Wait until
+    // storage has been inspected so server state cannot overwrite a newer
+    // browser draft or manufacture a fresh draft and false restore notice.
+    if (draftHydratedKeyRef.current !== key) return
     try {
       const { form: f, prefs: p, flagNote: fn, isFlagged: fi, otherClicked: oc } = formStateRef.current
+      if (f.status === 'Completed') {
+        localStorage.removeItem(key)
+        return
+      }
       const draft = { formState: f, prefs: p, flagNote: fn, isFlagged: fi, otherClicked: oc, savedAt: new Date().toISOString() }
       if (!hasRubricContent(draft)) return
       localStorage.setItem(key, JSON.stringify(draft))
@@ -767,11 +782,19 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     if (readOnly) return
     if (!student?.id || !userId) return
     const key = `aspire.rubric.draft.${student.id}.${userId}`
+    if (restoredDraftKeyRef.current === key) return
     try {
       const raw = localStorage.getItem(key)
       if (!raw) return
       const draft = JSON.parse(raw)
       if (!draft?.savedAt) return
+
+      // Completed rubrics are authoritative on the server and must never be
+      // resurrected as browser drafts after submission.
+      if (draft.formState?.status === 'Completed') {
+        localStorage.removeItem(key)
+        return
+      }
 
       // Skip restore if the server has newer data (the server is authoritative)
       const serverUpdatedAt = rubrics?.find?.(r => r.student_id === student.id)?.updated_at
@@ -779,7 +802,14 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       if (serverUpdatedAt && new Date(draft.savedAt) <= new Date(serverUpdatedAt)) return
 
       // Skip restore if the draft has no real user-entered content - avoids false-positive toasts
-      if (!hasRubricContent(draft)) return
+      if (!hasRubricContent(draft)) {
+        localStorage.removeItem(key)
+        return
+      }
+
+      // Mark before updating state or showing the toast. Either operation can
+      // rerender the tree, but a stored draft is restored only once per student.
+      restoredDraftKeyRef.current = key
 
       // Restore every tracked field
       if (draft.formState) {
@@ -799,6 +829,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       console.info('[RubricSession] restored localStorage draft for student', student.id)
     } catch (err) {
       console.warn('[RubricSession] localStorage restore failed:', err)
+    } finally {
+      // Whether storage was empty, stale, invalid, completed, or restored, the
+      // current student is now safe to back up after their next real edit.
+      draftHydratedKeyRef.current = key
     }
   }, [isInterviewerOnly, readOnly, rubrics, student?.id, student?.updated_at, toast, userId, userProfile?.full_name, userProfile?.id])
 
