@@ -1,3 +1,4 @@
+/* global process */
 // api/availability.js
 //
 // WS1d-B: secure interview availability + booking administration.
@@ -19,6 +20,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+// S-02: the canonical identity-based entitlement predicate, reused rather than re-queried so the
+// "does this interviewer hold this cohort" question has one answer everywhere.
+import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'delete_slot', 'cancel_booking'];
@@ -184,6 +188,47 @@ export default async function handler(req, res) {
       const interviewerName = (interviewerAcct.full_name || '').trim();
       if (!interviewerName) return res.status(500).json({ error: 'internal_error' });
 
+      // S-02: cohort_id was previously taken from the body with no validation at all and used
+      // directly in the block insert AND in the entitlement insert. Validate the shape and confirm
+      // the cohort exists before either write, so a malformed or unknown id is refused here rather
+      // than surfacing as a foreign-key failure part way through.
+      if (typeof cohort_id !== 'string' || !UUID_REGEX.test(cohort_id)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'cohort_id', message: 'Select a valid cohort.' });
+      }
+      const { data: cohortRow, error: cohortErr } = await db
+        .from('cohorts').select('id').eq('id', cohort_id).maybeSingle();
+      if (cohortErr) return res.status(500).json({ error: 'internal_error' });
+      if (!cohortRow) {
+        return res.status(400).json({ error: 'invalid_request', field: 'cohort_id', message: 'Select a valid cohort.' });
+      }
+
+      // S-02: an interviewer must not be able to cause an entitlement to be created for
+      // THEMSELVES. A non-admin caller is forced to their own profile id above, so this branch is
+      // exactly the self-scheduling case, and the auto-ensure below would have inserted a row with
+      // granted_by_profile_id set to the same person it grants. That contradicts
+      // api/interviewer-entitlements.js ("Interviewers cannot grant or revoke their own
+      // entitlement") and the entitlement UI ("access follows a decision, not a role").
+      //
+      // Cohort access must therefore already exist before an interviewer may schedule into that
+      // cohort. Owner/Admin grant it in Settings, or by scheduling the interviewer themselves,
+      // which is the admin-initiated path preserved unchanged below. Checked BEFORE any write, so
+      // a refusal leaves nothing to compensate for. Fails closed on a lookup error.
+      if (!adminLevel) {
+        let entitled = false;
+        try {
+          entitled = (await activeEntitledCohortIds(db, interviewerProfileId)).has(cohort_id);
+        } catch {
+          return res.status(500).json({ error: 'internal_error' });
+        }
+        if (!entitled) {
+          console.log('[availability] self-schedule refused, no active cohort entitlement', { interviewerProfileId, request_id: requestId });
+          return res.status(403).json({
+            error: 'forbidden',
+            message: 'You do not have access to this cohort yet. Ask the ASPIRE team to add it to your account, then schedule your availability.',
+          });
+        }
+      }
+
       const { data: block, error: blockError } = await db
         .from('interview_availability_blocks')
         .insert({
@@ -256,7 +301,12 @@ export default async function handler(req, res) {
       // flow already lives in this serverless handler with service-role compensating
       // deletes (see the slot-failure rollback above), so entitlement is confirmed
       // under the same model rather than moving the whole flow into PL/pgSQL.
-      if (String(interviewerAcct.role || '').toLowerCase() === 'interviewer') {
+      // S-02: this auto-ensure is now the ADMIN-INITIATED path only. An Owner/Admin scheduling an
+      // interviewer IS the decision that grants the cohort, and granted_by_profile_id records the
+      // admin who made it, which is what the schema comment on
+      // interview_availability_blocks.interviewer_profile_id describes. A self-scheduling
+      // interviewer never reaches here: they were required to hold the entitlement already, above.
+      if (adminLevel && String(interviewerAcct.role || '').toLowerCase() === 'interviewer') {
         const ensured = await ensureCohortEntitlement(db, interviewerProfileId, cohort_id, auth.profileId);
         if (!ensured.ok) {
           // Fail closed: roll back the block and its slots so no schedule exists
