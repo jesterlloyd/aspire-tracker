@@ -13,13 +13,10 @@ import ImportStudentsCSV from './ImportStudentsCSV'
 import { Search, X, LayoutGrid, List, Info } from 'lucide-react'
 import Tooltip from './ui/Tooltip'
 import StatusLegendPopover from './StatusLegendPopover'
-import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { getCsLinkStatus } from '../lib/utils'
-import { ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
-const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
 
 // ── ASPIRE-CHART: URL state (approved) ────────────────────────────────────────
-// /students?student=<id>&sort=<key>&filter=<bucket> is shareable and survives
+// /students?student=<id>&filter=<bucket> is shareable and survives
 // refresh. Values are opaque ids and fixed vocabulary keys only - never names,
 // emails, or free-typed search text (the filter input stays out of the URL so
 // typed PII can never land in one). A URL grants nothing: an id that is not in
@@ -37,24 +34,12 @@ const filterToKey = (filterValue) => {
   const target = JSON.stringify(filterValue)
   return Object.keys(FILTER_KEYS).find(k => JSON.stringify(FILTER_KEYS[k]) === target) || null
 }
-const SORT_KEYS = new Set(['last_name_asc', 'last_name_desc', 'school_asc', 'status',
-  'completion_desc', 'completion_asc', 'gpa_desc', 'gpa_asc'])
-
 // ── Sorting ───────────────────────────────────────────────────────────────────
-function sortStudentsList(students, sortBy) {
+function sortStudentsByLastName(students) {
   return [...students].sort((a, b) => {
     const la = (a.last_name || a.name || '').toLowerCase()
     const lb = (b.last_name || b.name || '').toLowerCase()
-    switch (sortBy) {
-      case 'last_name_desc': return lb.localeCompare(la)
-      case 'school_asc': { const sc=(a.school||'').localeCompare(b.school||''); return sc!==0?sc:la.localeCompare(lb) }
-      case 'gpa_desc': { const ga=parseFloat(a.cumulative_gpa)||0,gb=parseFloat(b.cumulative_gpa)||0; return gb-ga||la.localeCompare(lb) }
-      case 'gpa_asc':  { const ga=parseFloat(a.cumulative_gpa)||0,gb=parseFloat(b.cumulative_gpa)||0; return ga-gb||la.localeCompare(lb) }
-      case 'status': { const ia=ASPIRE_ORDER.indexOf(a.status),ib=ASPIRE_ORDER.indexOf(b.status); return (ia<0?99:ia)-(ib<0?99:ib)||la.localeCompare(lb) }
-      case 'completion_desc': { const pa=calculateProfileCompletion(a).percentage,pb=calculateProfileCompletion(b).percentage; return pb-pa||la.localeCompare(lb) }
-      case 'completion_asc':  { const pa=calculateProfileCompletion(a).percentage,pb=calculateProfileCompletion(b).percentage; return pa-pb||la.localeCompare(lb) }
-      default: return la.localeCompare(lb)
-    }
+    return la.localeCompare(lb)
   })
 }
 
@@ -69,7 +54,7 @@ export default function StudentProfilesTab({
 }) {
   const { userProfile, canEdit } = useAuth()
   const queryClient = useQueryClient()
-  // ASPIRE-CHART URL state: selection, sort, and the KPI filter initialize
+  // ASPIRE-CHART URL state: selection and the KPI filter initialize
   // from the querystring (refresh-persistent, shareable) and write back on
   // change with replace (no history spam; back/forward still work at the
   // route level). Unknown values fail closed to the defaults.
@@ -77,10 +62,7 @@ export default function StudentProfilesTab({
   const [selectedStudentId, setSelectedStudentId] = useState(() => searchParams.get('student') || null)
   const [viewMode, setViewMode] = useState('list') // 'list' | 'grid'
   const [unifiedSearch, setUnifiedSearch] = useState('')
-  const [sortBy, setSortBy] = useState(() => {
-    const s = searchParams.get('sort')
-    return SORT_KEYS.has(s) ? s : 'last_name_asc'
-  })
+  const [schoolFilter, setSchoolFilter] = useState('')
   const [activeStatusFilter, setActiveStatusFilter] = useState(() => FILTER_KEYS[searchParams.get('filter')] ?? null)
   const [showImport, setShowImport] = useState(false)
   const prevFilterKey = useRef(null)
@@ -99,7 +81,6 @@ export default function StudentProfilesTab({
     }, { replace: true })
   }
   const selectStudent = (id) => { setSelectedStudentId(id); updateUrl({ student: id }) }
-  const changeSort = (v) => { setSortBy(v); updateUrl({ sort: v === 'last_name_asc' ? null : v }) }
   const changeFilter = (v) => { setActiveStatusFilter(v); updateUrl({ filter: filterToKey(v) }) }
   const changeView = (v) => { onViewChange(v); updateUrl({ mode: v === 'access' ? 'access' : null }) }
 
@@ -138,7 +119,15 @@ export default function StudentProfilesTab({
   // KPI strip share exactly one source of truth.
   const pipelineCounts = useMemo(() => computeStatusCounts(students), [students])
 
-  // Filtered + sorted students
+  // School choices come from the active cohort. If a cohort switch removes the
+  // selected school, fall back to All Schools without a state-setting effect.
+  const schoolOptions = useMemo(() => (
+    [...new Set(students.map(s => String(s.school || '').trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b))
+  ), [students])
+  const activeSchoolFilter = schoolOptions.includes(schoolFilter) ? schoolFilter : ''
+
+  // Shared filtered roster for Profiles List, Profiles Grid, and CS-Link Access.
   const displayedStudents = useMemo(() => {
     let list = students
     if (unifiedSearch.trim()) {
@@ -160,6 +149,9 @@ export default function StudentProfilesTab({
         )
       })
     }
+    if (activeSchoolFilter) {
+      list = list.filter(s => String(s.school || '').trim() === activeSchoolFilter)
+    }
     if (activeStatusFilter) {
       list = list.filter(s =>
         Array.isArray(activeStatusFilter)
@@ -167,8 +159,8 @@ export default function StudentProfilesTab({
           : s.status === activeStatusFilter
       )
     }
-    return sortStudentsList(list, sortBy)
-  }, [students, unifiedSearch, activeStatusFilter, sortBy]) // eslint-disable-line
+    return sortStudentsByLastName(list)
+  }, [students, unifiedSearch, activeSchoolFilter, activeStatusFilter]) // eslint-disable-line
 
   // Auto-select first student when filter changes and current selection drops out
   useEffect(() => {
@@ -236,7 +228,8 @@ export default function StudentProfilesTab({
             <input
               value={unifiedSearch}
               onChange={e => setUnifiedSearch(e.target.value)}
-              placeholder="Filter students…"
+              placeholder="Search student"
+              aria-label="Search student"
               style={{ width:'100%', paddingLeft:30, paddingRight:unifiedSearch?28:10, paddingTop:7, paddingBottom:7,
                 border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7,
                 fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)',
@@ -250,17 +243,14 @@ export default function StudentProfilesTab({
             )}
           </div>
 
-          {/* Sort */}
-          <select value={sortBy} onChange={e => changeSort(e.target.value)}
+          {/* School filter */}
+          <select value={activeSchoolFilter} onChange={e => setSchoolFilter(e.target.value)}
+            aria-label="Filter students by school"
             style={{ height:32, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, padding:'0 8px', fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', outline:'none', cursor:'pointer', flexShrink:0 }}>
-            <option value="last_name_asc">Last Name A–Z</option>
-            <option value="last_name_desc">Last Name Z–A</option>
-            <option value="school_asc">School A–Z</option>
-            <option value="status">ASPIRE Status</option>
-            <option value="completion_desc">Profile Complete ↓</option>
-            <option value="completion_asc">Profile Complete ↑</option>
-            <option value="gpa_desc">GPA High–Low</option>
-            <option value="gpa_asc">GPA Low–High</option>
+            <option value="">All Schools</option>
+            {schoolOptions.map(school => (
+              <option key={school} value={school}>{school}</option>
+            ))}
           </select>
 
           {/* Active KPI filter clear */}

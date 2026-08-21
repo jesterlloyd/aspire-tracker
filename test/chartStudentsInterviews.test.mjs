@@ -23,8 +23,8 @@ const css = read('src/index.css')
 test('Students URL state', async (t) => {
   await t.test('initializes from the querystring and fails closed', () => {
     assert.match(spt, /useState\(\(\) => searchParams\.get\('student'\) \|\| null\)/)
-    assert.match(spt, /SORT_KEYS\.has\(s\) \? s : 'last_name_asc'/)
     assert.match(spt, /FILTER_KEYS\[searchParams\.get\('filter'\)\] \?\? null/)
+    assert.doesNotMatch(spt, /SORT_KEYS|searchParams\.get\('sort'\)|updateUrl\(\{ sort:/)
   })
 
   await t.test('URL writes live in user-action handlers, never effects', () => {
@@ -43,11 +43,11 @@ test('Students URL state', async (t) => {
     assert.match(spt, /never names,\s*\n\s*\/\/ emails, or free-typed search text/)
     // The free-text filter input writes component state only.
     assert.match(spt, /onChange=\{e => setUnifiedSearch\(e\.target\.value\)\}/)
-    // Every URL write uses one of the four fixed keys.
+    // Every URL write uses one of the three fixed keys.
     const writes = [...spt.matchAll(/updateUrl\(\{ (\w+):/g)].map(m => m[1])
-    assert.ok(writes.length >= 4, 'updateUrl call sites found')
+    assert.ok(writes.length >= 3, 'updateUrl call sites found')
     for (const key of writes) {
-      assert.ok(['student', 'sort', 'filter', 'mode'].includes(key), `unexpected URL key: ${key}`)
+      assert.ok(['student', 'filter', 'mode'].includes(key), `unexpected URL key: ${key}`)
     }
   })
 })
@@ -59,14 +59,24 @@ test('Students rows are keyboard targets', () => {
   assert.match(listPanel, /e\.key === 'Enter' \|\| e\.key === ' '/)
 })
 
-test('Students KPI and search filters apply to both Profiles and CS-Link Access', () => {
-  assert.match(spt, /const displayedStudents = useMemo\(\(\) => \{[\s\S]*?if \(activeStatusFilter\)[\s\S]*?return sortStudentsList\(list, sortBy\)/)
+test('Student search, school, and KPI filters apply to List, Grid, and CS-Link Access', () => {
+  assert.match(spt, /const displayedStudents = useMemo\(\(\) => \{[\s\S]*?if \(activeSchoolFilter\)[\s\S]*?if \(activeStatusFilter\)[\s\S]*?return sortStudentsByLastName\(list\)/)
   assert.match(spt, /<StudentListPanel\s*\n\s*students=\{displayedStudents\}/,
-    'Profiles must receive the shared filtered roster')
+    'Profiles List and Grid must receive the shared filtered roster')
   assert.match(spt, /<AccessTab students=\{displayedStudents\}/,
     'CS-Link Access must receive the same shared filtered roster')
   assert.doesNotMatch(spt, /<AccessTab students=\{students\}/,
     'CS-Link Access must never bypass the active KPI or search filter')
+})
+
+test('Students toolbar uses cohort schools instead of a redundant sort menu', () => {
+  assert.match(spt, /placeholder="Search student"/)
+  assert.match(spt, /aria-label="Search student"/)
+  assert.match(spt, /aria-label="Filter students by school"/)
+  assert.match(spt, /<option value="">All Schools<\/option>/)
+  assert.match(spt, /schoolOptions\.map\(school =>/)
+  assert.match(spt, /new Set\(students\.map\(s => String\(s\.school \|\| ''\)\.trim\(\)\)/)
+  assert.doesNotMatch(spt, /Last Name A–Z|Last Name Z–A|School A–Z|sortBy|changeSort/)
 })
 
 test('CS-Link Access has one filtering surface and no redundant export row', () => {
