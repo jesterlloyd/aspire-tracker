@@ -83,3 +83,41 @@ export function rotationComparator(mode, nameOf) {
   const set = buildRotationComparators(nameOf)
   return set[mode] || set[DEFAULT_ROTATION_SORT]
 }
+
+/**
+ * Explain a truthful no-op. Some cohorts, especially at term end, have every
+ * active-rotation student at the same completion percentage and nobody on
+ * campus. In that state several valid sort modes resolve to the same A-Z
+ * tie-break order. Without feedback the control looks broken even though the
+ * selected comparator ran.
+ */
+export function rotationSortFeedback(mode, cards) {
+  if (!Array.isArray(cards) || cards.length < 2) return ''
+
+  if (mode === 'completed_first') {
+    const completionStates = new Set(cards.map(card => !!card.complete))
+    if (completionStates.size === 1) {
+      const label = cards[0]?.complete ? 'completed' : 'still in progress'
+      return `All students shown are ${label}; ties are listed by name.`
+    }
+  }
+
+  if (mode === 'most_complete' || mode === 'least_complete') {
+    const percentages = new Set(cards.map(card => card.pct))
+    if (percentages.size === 1) {
+      const pct = Math.round(Number(cards[0]?.pct) || 0)
+      return `All students shown are at ${pct}%; ties are listed by name.`
+    }
+  }
+
+  if (mode === 'on_campus_first') {
+    const campusStates = new Set(cards.map(card => !!card.onCampus))
+    if (campusStates.size === 1) {
+      return cards[0]?.onCampus
+        ? 'All students shown are on campus; ties are listed by name.'
+        : 'No students shown are on campus; ties are listed by name.'
+    }
+  }
+
+  return ''
+}

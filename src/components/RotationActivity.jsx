@@ -18,7 +18,9 @@ import { resolvePreceptor } from '../lib/preceptor'
 import { canonicalRotationWindow } from '../lib/rotationWindow'
 import { hoursProgress } from '../lib/clinicalHours'
 import { shiftDrivesState } from '../lib/shiftLifecycle'
-import { ROTATION_SORT_OPTIONS, DEFAULT_ROTATION_SORT, rotationComparator } from '../lib/rotationSort'
+import {
+  ROTATION_SORT_OPTIONS, DEFAULT_ROTATION_SORT, rotationComparator, rotationSortFeedback,
+} from '../lib/rotationSort'
 
 // Compact canonical rotation range for a card: "Mon D – Mon D" from the linked
 // cohort_school_rotations row, else legacy students.term_dates, else '' (omit).
@@ -44,20 +46,33 @@ function SectionHeader({ title, subtitle }) {
   )
 }
 
-function SortControl({ value, onChange }) {
+function SortControl({ value, onChange, feedback }) {
+  // React's change event is the primary path. input is retained as a fallback
+  // for embedded Chromium shells that open the native picker but do not always
+  // deliver a change event when the menu closes.
+  const commitSelection = e => onChange(e.currentTarget.value)
   return (
-    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', fontFamily: F, whiteSpace: 'nowrap' }}>
-      Sort by
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{
-          fontFamily: F, fontSize: 13, padding: '6px 9px', borderRadius: 8,
-          border: '1px solid #e0ddd3', background: '#fff', color: '#191919', cursor: 'pointer',
-        }}>
-        {ROTATION_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-      </select>
-    </label>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', fontFamily: F, whiteSpace: 'nowrap' }}>
+        Sort by
+        <select
+          aria-label="Sort active rotation progress"
+          value={value}
+          onInput={commitSelection}
+          onChange={commitSelection}
+          style={{
+            fontFamily: F, fontSize: 13, padding: '6px 9px', borderRadius: 8,
+            border: '1px solid #e0ddd3', background: '#fff', color: '#191919', cursor: 'pointer',
+          }}>
+          {ROTATION_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+      </label>
+      {feedback && (
+        <span role="status" aria-live="polite" style={{ fontSize: 10.5, color: '#6b7280', fontFamily: F }}>
+          {feedback}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -414,8 +429,10 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // student id, so re-sorting preserves the expanded card. ROTATION-SORT-2: the comparators live
   // in lib/rotationSort.js, pure and unit-tested, and every completion sort runs on the same
   // percentage the card displays rather than raw approved hours.
-  const sortedCards = [...cards].sort(
+  const visibleCards = pendingOnly ? cards.filter(c => c.pendingReview > 0) : cards
+  const sortedCards = [...visibleCards].sort(
     rotationComparator(sortMode, c => getStudentPreferredFullName(c.s)))
+  const sortFeedback = rotationSortFeedback(sortMode, visibleCards)
 
   // SHIFT-LOG-REVIEW-1: the Pending Review queue. The filter narrows the
   // progress list to students with stranded shifts; the ledger of students who
@@ -429,7 +446,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
     .filter(sid => !visiblePendingIds.has(sid))
     .map(sid => ({ student: students.find(s => s.id === sid), count: pendingByStudent[sid] }))
     .filter(x => x.student)
-  const shownCards = pendingOnly ? sortedCards.filter(c => c.pendingReview > 0) : sortedCards
+  const shownCards = sortedCards
 
   return (
     <div style={{ padding: '4px 20px 24px', fontFamily: F }}>
@@ -463,7 +480,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
                 Pending review · {totalPendingShifts}
               </button>
             )}
-            <SortControl value={sortMode} onChange={setSortMode} />
+            <SortControl value={sortMode} onChange={setSortMode} feedback={sortFeedback} />
           </div>
         )}
       </div>

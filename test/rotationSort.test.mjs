@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
-  ROTATION_SORT_OPTIONS, DEFAULT_ROTATION_SORT, rotationComparator,
+  ROTATION_SORT_OPTIONS, DEFAULT_ROTATION_SORT, rotationComparator, rotationSortFeedback,
 } from '../src/lib/rotationSort.js'
 import { hoursProgress } from '../src/lib/clinicalHours.js'
 
@@ -196,11 +196,38 @@ test('an unknown sort key falls back to the default, never crashes', () => {
   assert.deepEqual(order(undefined, MIX), order(DEFAULT_ROTATION_SORT, MIX))
 })
 
+test('a tied cohort explains why a valid sort leaves the visible order unchanged', () => {
+  const tied = [card('Zed', 96, 96), card('Abe', 132, 132)]
+  assert.equal(rotationSortFeedback('completed_first', tied),
+    'All students shown are completed; ties are listed by name.')
+  assert.equal(rotationSortFeedback('most_complete', tied),
+    'All students shown are at 100%; ties are listed by name.')
+  assert.equal(rotationSortFeedback('least_complete', tied),
+    'All students shown are at 100%; ties are listed by name.')
+  assert.equal(rotationSortFeedback('on_campus_first', tied),
+    'No students shown are on campus; ties are listed by name.')
+  assert.equal(rotationSortFeedback('name', tied), '')
+  assert.equal(rotationSortFeedback('school', tied), '')
+})
+
+test('tie feedback disappears as soon as the selected criterion can differentiate cards', () => {
+  assert.equal(rotationSortFeedback('completed_first', [A, B]), '')
+  assert.equal(rotationSortFeedback('most_complete', [A, B]), '')
+  assert.equal(rotationSortFeedback('least_complete', [A, B]), '')
+  assert.equal(rotationSortFeedback('on_campus_first', [A, { ...B, onCampus: true }]), '')
+  assert.equal(rotationSortFeedback('most_complete', [A]), '')
+  assert.equal(rotationSortFeedback('most_complete', []), '')
+})
+
 test('the component consumes the shared comparators and canonical hours', () => {
   const comp = read('src/components/RotationActivity.jsx')
-  assert.match(comp, /import \{ ROTATION_SORT_OPTIONS, DEFAULT_ROTATION_SORT, rotationComparator \} from '\.\.\/lib\/rotationSort'/)
+  assert.match(comp, /ROTATION_SORT_OPTIONS, DEFAULT_ROTATION_SORT, rotationComparator, rotationSortFeedback/)
   assert.match(comp, /rotationComparator\(sortMode, c => getStudentPreferredFullName\(c\.s\)\)/)
+  assert.match(comp, /rotationSortFeedback\(sortMode, visibleCards\)/)
   assert.match(comp, /useState\(DEFAULT_ROTATION_SORT\)/)
+  assert.match(comp, /aria-label="Sort active rotation progress"/)
+  assert.match(comp, /onInput=\{commitSelection\}/)
+  assert.match(comp, /onChange=\{commitSelection\}/)
   // The completion values still come from the canonical hours helper.
   assert.match(comp, /hoursProgress\(s\)/)
   // On Campus Now membership is reused, not recomputed.
