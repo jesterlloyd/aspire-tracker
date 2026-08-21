@@ -1289,7 +1289,7 @@ export default function StudentSidePanel({
                       ivChip,
                       plChip,
                       { label:csAcc?.label||'CS-Link Unknown', bg:csAcc?.bg||'#f3f4f6', color:csAcc?.text||'#6b7280' },
-                      data.hours_required>0 ? { label:`${data.hours_completed||0}/${data.hours_required} hrs`, bg:'#f0f6fa', color:'#1e3a5f' } : null,
+                      data.hours_required>0 ? { label:`${data.approved_hours||0}/${data.hours_required} hrs`, bg:'#f0f6fa', color:'#1e3a5f' } : null,
                     ].filter(Boolean)
 
                     return chips.map((c,i) => (

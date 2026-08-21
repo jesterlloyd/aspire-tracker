@@ -58,13 +58,15 @@ function ApHoursCell({ hours }) {
   if (!h.reliable) return <span className="ptl-muted ptl-small">Not set</span>
   const pending = Number(hours.pending) > 0 ? Number(hours.pending) : 0
   const pendingText = pending > 0 ? `, ${pending} pending review` : ''
+  const complete = h.completed >= h.required
   return (
     <span className="ptl-hours-cell">
       <span className="ptl-mini-progress" role="img"
-        aria-label={`${h.completed} of ${h.required} required hours approved${pendingText}`}>
+        aria-label={`${h.completed} of ${h.required} required hours approved${complete ? '. Hours complete' : ''}${pendingText}`}>
         <i style={{ width: `${h.pct}%` }} />
       </span>
       <span className="ptl-hours-text">{h.completed} of {h.required}{pending > 0 ? ` (+${pending})` : ''}</span>
+      {complete && <span className="ptl-hours-complete">Hours complete</span>}
     </span>
   )
 }

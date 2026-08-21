@@ -996,7 +996,7 @@ function MainApp({ onLogout }) {
       'Composite Score','Overall Recommendation','Interviewer Suggested Unit','Summary Comments']
     const rows = students.map(s => [
       displayName(s),s.school_email,s.personal_email,s.phone,s.school,s.aspire_cohort,
-      s.term_dates,s.hours_required,s.hours_completed,s.unit,s.preceptor_name,
+      s.term_dates,s.hours_required,s.approved_hours,s.unit,s.preceptor_name,
       s.status,s.ngrp_cohort_target,s.ngrp_outcome,
       s.gpa_verified?'Yes':'No',s.bls_current?'Yes':'No',
       s.health_cleared?'Yes':'No',s.background_check?'Yes':'No',

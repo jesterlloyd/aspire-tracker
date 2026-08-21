@@ -91,7 +91,7 @@ PLATFORM NAME AND IDENTITY:
 The platform is called ASPIRE Intelligence (formerly ASPIRE Tracker). Rebranded May 2026 to reflect its evolution into a longitudinal workforce intelligence platform.
 
 ASPIRE STATUS JOURNEY (9 canonical stages):
-Pending Outreach → Form Sent → Form Received → Interview Scheduled → Interviewed → Placed → Active Rotation → Completed → Declined. "Accepted" is retired. Declined can occur at any stage and requires a decline reason. Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match, Completion fires when status set to Completed.
+Pending Outreach → Form Sent → Form Received → Interview Scheduled → Interviewed → Placed → Active Rotation → Completed → Declined. "Accepted" is retired. Declined can occur at any stage and requires a decline reason. Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match, and Active Rotation becomes Completed only after the linked school-form rotation end date has fully passed and approved hours meet a positive configured requirement. Owner/Admin can still make a manual status correction.
 
 CS-LINK: Stage 1 for new students is Add Non-Employee. Former students need Assignment Change, Extend End Date, or Reactivate. Cedars employees skip Stage 1. Stage 2 is Add CS-Link for everyone.
 

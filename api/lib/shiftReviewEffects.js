@@ -16,8 +16,9 @@
 //                         hours_required (required > 0). Exceeding the
 //                         requirement is expected and never blocks anything.
 //
-//   There is NO automatic status 'Completed' - completion is a manual
-//   Owner/Admin action, deliberately not reproduced here.
+//   This approval effect does NOT itself set status 'Completed'. The canonical
+//   database reconciliation owns that transition after both the official end
+//   date and approved-hours requirement are satisfied.
 //
 // All effects are best-effort (like the originals): the review decision itself
 // was already committed atomically by the review_shift_log RPC; a failed event

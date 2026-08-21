@@ -71,8 +71,10 @@ test('the hours column uses the canonical progress bar with an accessible text e
   assert.match(portal, /const h = deriveClinicalHours\(\{ required: hours\.required, approved: hours\.approved, pending: hours\.pending \}\)/)
   assert.match(portal, /if \(!h\.reliable\) return <span className="ptl-muted ptl-small">Not set<\/span>/)
   assert.match(portal, /<span className="ptl-mini-progress" role="img"/)
-  assert.match(portal, /aria-label=\{`\$\{h\.completed\} of \$\{h\.required\} required hours approved\$\{pendingText\}`\}/)
+  assert.match(portal, /const complete = h\.completed >= h\.required/)
+  assert.match(portal, /aria-label=\{`\$\{h\.completed\} of \$\{h\.required\} required hours approved\$\{complete \? '\. Hours complete' : ''\}\$\{pendingText\}`\}/)
   assert.match(portal, /<i style=\{\{ width: `\$\{h\.pct\}%` \}\} \/>/)          // width from the capped pct
+  assert.match(portal, /\{complete && <span className="ptl-hours-complete">Hours complete<\/span>\}/)
   assert.match(portal, /<ApHoursCell hours=\{s\.hours\} \/>/)
 })
 

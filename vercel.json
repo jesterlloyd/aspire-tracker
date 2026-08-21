@@ -57,6 +57,10 @@
       "schedule": "0 15 * * *"
     },
     {
+      "path": "/api/cron/student-completion-reconciliation",
+      "schedule": "5 13 * * *"
+    },
+    {
       "path": "/api/cron/clockout-reminders-scheduled",
       "schedule": "0 * * * *"
     },
@@ -96,6 +100,7 @@
     "api/portal/school-placement-requests.js":     { "maxDuration": 30 },
     "api/update-rotation-dates.js":                { "maxDuration": 15 },
     "api/cron/midpoint-checkin.js":                { "maxDuration": 60 },
+    "api/cron/student-completion-reconciliation.js": { "maxDuration": 60 },
     "api/cron/clockout-reminders-scheduled.js":    { "maxDuration": 60 },
     "api/cron/messages-delivery-worker.js":        { "maxDuration": 60 },
     "api/cron/staff-notification-worker.js":       { "maxDuration": 60 },
