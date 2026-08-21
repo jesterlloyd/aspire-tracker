@@ -29,7 +29,7 @@
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { verifyPortalCaller } from './lib/portalAuth.js'
 import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js'
-import { STUDENT_FILES_BUCKET, isUuid, parseStoredFileRef } from '../lib/server/studentFiles.js'
+import { STUDENT_FILES_BUCKET, isUuid, parseStoredFileRef, refBelongsToStudent } from '../lib/server/studentFiles.js'
 import { normalizeStaffRole } from '../src/lib/permissions.js'
 
 const SIGNED_URL_TTL_SECONDS = 300
@@ -121,6 +121,9 @@ export default async function handler(req, res) {
     if (!cohortOk) return nullResult
     const ref = parseStoredFileRef(row[COLUMN[n.kind]])
     if (ref.kind === 'empty' || ref.kind === 'unknown') return nullResult
+    // S-03 read-side binding: never sign a path that names a different student, whatever is
+    // stored on the row. Fails closed as a null signed_url, like every other denial here.
+    if (!refBelongsToStudent(ref.path, row.id)) return nullResult
     toSign.push({ index, path: ref.path })
     return nullResult
   })

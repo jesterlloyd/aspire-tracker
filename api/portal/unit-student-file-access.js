@@ -25,7 +25,7 @@
 // reachable through this endpoint.
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
-import { STUDENT_FILES_BUCKET, parseStoredFileRef } from '../../lib/server/studentFiles.js'
+import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent } from '../../lib/server/studentFiles.js'
 import {
   verifyPortalUnitLeaderCaller,
   resolveUnitScopedStudents,
@@ -89,6 +89,11 @@ export default async function handler(req, res) {
     const stored = kind === 'resume' ? student.resume_url : student.headshot_url
     const ref = parseStoredFileRef(stored)
     if (ref.kind === 'empty' || ref.kind === 'unknown') {
+      results.push(nullResult(studentId, kind))
+      continue
+    }
+    // S-03 read-side binding: never sign a path that names a different student.
+    if (!refBelongsToStudent(ref.path, studentId)) {
       results.push(nullResult(studentId, kind))
       continue
     }

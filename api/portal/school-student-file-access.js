@@ -24,7 +24,7 @@
 // is no resume, no onboarding document, and no upload, replace, rename, or delete path here.
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
-import { STUDENT_FILES_BUCKET, parseStoredFileRef } from '../../lib/server/studentFiles.js'
+import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent } from '../../lib/server/studentFiles.js'
 import {
   verifyPortalAcademicPartnerCaller,
   resolveSchoolScopedStudents,
@@ -88,6 +88,11 @@ export default async function handler(req, res) {
     // The stored reference is the ONLY source of the object path; the browser never supplies it.
     const ref = parseStoredFileRef(student.headshot_url)
     if (ref.kind === 'empty' || ref.kind === 'unknown') {
+      results.push(nullResult(studentId, kind))
+      continue
+    }
+    // S-03 read-side binding: never sign a path that names a different student.
+    if (!refBelongsToStudent(ref.path, studentId)) {
       results.push(nullResult(studentId, kind))
       continue
     }

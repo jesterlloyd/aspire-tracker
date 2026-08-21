@@ -11,7 +11,7 @@
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { verifyPortalStudentCaller } from '../lib/messagesAuth.js'
-import { STUDENT_FILES_BUCKET, parseStoredFileRef } from '../../lib/server/studentFiles.js'
+import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent } from '../../lib/server/studentFiles.js'
 
 const SIGNED_URL_TTL_SECONDS = 300
 
@@ -33,6 +33,10 @@ export default async function handler(req, res) {
 
   const ref = parseStoredFileRef(student?.headshot_url)
   if (ref.kind === 'empty' || ref.kind === 'unknown') {
+    return res.status(200).json({ signed_url: null })
+  }
+  // S-03 read-side binding: a stored value naming another student is never signed.
+  if (!refBelongsToStudent(ref.path, student.id)) {
     return res.status(200).json({ signed_url: null })
   }
 
