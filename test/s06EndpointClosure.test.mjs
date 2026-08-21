@@ -71,7 +71,11 @@ test('S-06: the booking notice is rendered by a shared module and sent from inte
   // The retired route accepted ownerEmail and interviewerEmail from its body. Neither may be read
   // from the request here.
   assert.doesNotMatch(endpoint, /req\.body[^\n]*(ownerEmail|interviewerEmail)/)
-  assert.match(endpoint, /const \{ studentId, cohortId, slotId \} = req\.body/, 'body still carries only the three ids')
+  // The S-06 property this line guards is that the body carries NO recipient and NO notification
+  // content, only the minimum needed to identify what is being booked. S-07 later narrowed that
+  // body further still, from three trusted ids to an email plus a slot id, so the shape asserted
+  // here is the S-07 one; the S-06 guarantee is unchanged and is the line above.
+  assert.match(endpoint, /const \{ email, slotId \} = req\.body/, 'the body carries no recipient or content')
 })
 
 test('S-06: the booking notice keeps its subject, recipients contract, and dedupe window', () => {

@@ -229,10 +229,13 @@ export default function InterviewSchedulePage() {
       const sorted = [...selectedCard.slots].sort((a,b) => (a.created_at||'').localeCompare(b.created_at||''))
       const chosen = sorted[0]
 
+      // S-07: the server re-resolves the student from the school email and derives the cohort
+      // itself, so it no longer accepts a student id or a cohort id from here. Sending them would
+      // be pointless: they are not read.
       const res = await fetch('/api/interview-book', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ studentId: student.id, cohortId, slotId: chosen.id }),
+        body:    JSON.stringify({ email: student.school_email, slotId: chosen.id }),
       })
       const data = await res.json()
       if (!res.ok) { alert(data.error || 'Booking failed. Please try again.'); setBooking(false); return }
