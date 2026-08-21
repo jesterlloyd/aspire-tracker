@@ -1,5 +1,9 @@
+/* global process */
 import { createClient } from '@supabase/supabase-js'
 import { can as canAccess, isAdminLevel, normalizeRole } from '../lib/server/access.js'
+// S-14: the canonical identity-based entitlement predicate, the same one api/student-file-access.js
+// uses, so an interviewer's read scope and their outcome-write scope are one boundary.
+import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js'
 import { toLocalDateStr } from '../shared/dateUtils.js'
 // STUDENT-PORTAL-PROFILE-1: canonical sanitizers for the student-availability block
 // (the same encodings the intake and portal profile endpoints store).
@@ -419,7 +423,40 @@ export default async function handler(req, res) {
       const { data: stu, error: stuErr } = await db.from('students')
         .select(['id', 'cohort_id', ...supplied].join(', ')).eq('id', student_id).maybeSingle()
       if (stuErr) return res.status(500).json({ error: 'internal_error' })
-      if (!stu) return res.status(404).json({ error: 'not_found' })
+      if (!stu && isOwnerAdmin) return res.status(404).json({ error: 'not_found' })
+
+      // S-14: role alone used to be the whole gate here, so ANY interviewer could write status,
+      // interview_outcome, the average score fields, and flagged_for_second_interview for ANY
+      // student_id, in any cohort. The client gate in RubricSession.jsx compares interviewer_name
+      // to the profile's full name, which is presentation and is not authority.
+      //
+      // An interviewer's reach over students is bounded by their ACTIVE cohort entitlements, which
+      // is the model lib/server/access.js already states for student_read_entitled: "for an
+      // Interviewer it is the ONLY student access there is". This applies that same identity-based
+      // boundary to the write. It is deliberately not narrowed further to "sessions I am assigned
+      // to", because no identity link from a student to an interviewer account exists outside
+      // availability blocks (interview_sessions, interview_slots, and interview_rubrics all carry
+      // interviewer_name TEXT only), and the codebase refuses name matching as an authorization
+      // boundary. Tightening that further needs schema work and is reported as a follow-up.
+      //
+      // Non-existent student and out-of-scope student return the IDENTICAL refusal for an
+      // interviewer, so this cannot be used to test which student ids exist. Owner/Admin keep the
+      // distinct 404 above, which they legitimately need.
+      if (!isOwnerAdmin) {
+        let entitled = false
+        try {
+          entitled = !!stu && (await activeEntitledCohortIds(db, auth.profileId)).has(stu.cohort_id)
+        } catch {
+          return res.status(500).json({ error: 'internal_error' })
+        }
+        if (!entitled) {
+          console.log('[student-update] outcome write refused, cohort not entitled', { request_id: requestId, callerRole: auth.role })
+          return res.status(403).json({
+            error: 'forbidden',
+            message: 'You do not have permission to save an interview outcome for this student.',
+          })
+        }
+      }
 
       const noChange = supplied.every(k => (stu[k] ?? null) === (upd[k] ?? null))
       if (noChange) return res.status(200).json({ success: true, no_change: true })
