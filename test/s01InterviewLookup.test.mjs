@@ -285,6 +285,20 @@ test('S-01: every field the scheduling page reads is still provided', () => {
   assert.doesNotMatch(page, /existingBooking\?\.(id|interviewer_name|duration_minutes)/)
 })
 
+test('S-01: the no-slots state routes students to the ASPIRE Team, not a placement coordinator', () => {
+  const page = read('src/components/InterviewSchedulePage.jsx')
+  const noSlots = page.slice(page.indexOf("screen === 'no_slots'"), page.indexOf("screen === 'error'"))
+  const teamEmail = ['aspire', 'cshs.org'].join('@')
+
+  assert.ok(noSlots.length > 0, 'the no-slots branch must exist')
+  assert.match(noSlots, /Please check back soon\. If you have questions, contact the ASPIRE Team at/)
+  assert.ok(page.includes(`const ASPIRE_TEAM_EMAIL = '${teamEmail}'`), 'the shared ASPIRE inbox must be configured')
+  assert.match(noSlots, /mailto:\$\{ASPIRE_TEAM_EMAIL\}/)
+  assert.match(noSlots, /\{ASPIRE_TEAM_EMAIL\}/)
+  assert.doesNotMatch(noSlots, /placement coordinator/i)
+  assert.doesNotMatch(noSlots, /JESTER_EMAIL/)
+})
+
 // ── No live student data in this file ────────────────────────────────────────────────────────────
 
 test('S-01: this test file contains no real student data', () => {

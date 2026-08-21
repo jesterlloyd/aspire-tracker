@@ -42,6 +42,7 @@ function getMonthGrid(year, month) {
 }
 
 const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
+const ASPIRE_TEAM_EMAIL = 'aspire@cshs.org'
 
 // Student-friendly mailto - addressed to JESTER_EMAIL, composed as if from the student
 function buildStudentMailtoUrl(student, slot) {
@@ -523,9 +524,9 @@ export default function InterviewSchedulePage() {
             </div>
             <div style={{ fontSize:'13px', color:'#6b7280', lineHeight:1.6 }}>
               Interview slots have not been posted yet for your cohort.
-              Please check back soon or contact your placement coordinator at{' '}
-              <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>
-                {JESTER_EMAIL}
+              Please check back soon. If you have questions, contact the ASPIRE Team at{' '}
+              <a href={`mailto:${ASPIRE_TEAM_EMAIL}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>
+                {ASPIRE_TEAM_EMAIL}
               </a>.
             </div>
           </div>
