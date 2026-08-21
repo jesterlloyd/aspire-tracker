@@ -4,6 +4,9 @@ import { can as canAccess, isAdminLevel, normalizeRole } from '../lib/server/acc
 // S-14: the canonical identity-based entitlement predicate, the same one api/student-file-access.js
 // uses, so an interviewer's read scope and their outcome-write scope are one boundary.
 import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js'
+// S-03: a stored file reference must be the canonical path for THIS student, even when an
+// Owner/Admin is the one writing it.
+import { validateStoredFileRefForStudent, FILE_REF_COLUMNS } from '../lib/server/studentFiles.js'
 import { toLocalDateStr } from '../shared/dateUtils.js'
 // STUDENT-PORTAL-PROFILE-1: canonical sanitizers for the student-availability block
 // (the same encodings the intake and portal profile endpoints store).
@@ -168,6 +171,25 @@ async function handleDomainUpdate({ res, db, requestId, auth, body, payload, dom
   if (!stu) return res.status(404).json({ error: 'not_found' })
   const upd = {}
   for (const k of supplied) upd[k] = payload[k]
+
+  // S-03: update_profile is the one domain that carries resume_url / headshot_url, so a file
+  // reference written here is bound to the student it is stored on exactly as the public intake
+  // and portal paths are. A non-empty value must equal the canonical path for THIS student; ''
+  // still clears the reference. Rejected, never rewritten.
+  for (const k of supplied) {
+    if (!FILE_REF_COLUMNS[k]) continue
+    const raw = typeof upd[k] === 'string' ? upd[k].trim() : ''
+    if (!raw) continue
+    const ref = validateStoredFileRefForStudent({
+      value: raw, column: k, cohortId: stu.cohort_id, studentId: stu.id,
+    })
+    if (!ref.ok) {
+      console.log('[student-update] file reference rejected', { request_id: requestId, column: k, reason: ref.error })
+      return res.status(400).json({ error: 'invalid_request', field: k, message: ref.message })
+    }
+    upd[k] = ref.path
+  }
+
   const noChange = supplied.every(k => (stu[k] ?? null) === (upd[k] ?? null))
   if (noChange) return res.status(200).json({ success: true, no_change: true })
   const { error: updErr } = await db.from('students').update(upd).eq('id', student_id)

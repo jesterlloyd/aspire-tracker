@@ -1,3 +1,4 @@
+/* global process */
 // api/student-intake-submit.js
 //
 // WS1e-A0: dedicated PUBLIC student-intake submission endpoint for /student-form.
@@ -32,6 +33,9 @@ import { isStudentProfileLocked } from '../src/lib/studentProfileLock.js'
 // PHASE0B-WAVE-D: cohort and student resolution shared with student-intake-lookup.js
 import { resolveAcceptingCohort, resolveStudentByEmail } from './lib/intakeStudentLookup.js'
 import { checkLengths, LIMITS } from './lib/fieldLimits.js'
+// S-03: a stored file reference must be the canonical path for THIS student, not any string the
+// browser sends. See lib/server/studentFiles.js validateStoredFileRefForStudent.
+import { validateStoredFileRefForStudent } from '../lib/server/studentFiles.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -250,8 +254,21 @@ export default async function handler(req, res) {
     submitted_via: 'student_form',
     status: 'Form Received',
   }
-  if (str(body.resume_url))   updates.resume_url   = str(body.resume_url)
-  if (str(body.headshot_url)) updates.headshot_url = str(body.headshot_url)
+  // S-03: bind each supplied file reference to this student. The value must equal the canonical
+  // path this server issued for them, so a path naming another student or another cohort is
+  // refused rather than persisted. Rejected, never rewritten: silently correcting a mismatch would
+  // mask a client defect and could claim an object this submitter never uploaded.
+  for (const column of ['resume_url', 'headshot_url']) {
+    if (!str(body[column])) continue
+    const ref = validateStoredFileRefForStudent({
+      value: body[column], column, cohortId: student.cohort_id, studentId: student.id,
+    })
+    if (!ref.ok) {
+      console.log('[student-intake-submit] file reference rejected', { request_id: requestId, column, reason: ref.error })
+      return res.status(400).json({ error: 'invalid_request', field: column, message: ref.message })
+    }
+    updates[column] = ref.path
+  }
 
   // ── STUDENT-FORM-CEDARS-STATUS-AUTO-MAP (forward fix) ───────────────────────────
   // Derive the CS-Link "Cedars-Sinai Status" (cs_cedars_status) from the student's affiliation.

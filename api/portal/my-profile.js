@@ -41,6 +41,8 @@ import { STUDENT_FORM_ACK_VERSION } from '../../src/lib/studentFormAck.js'
 // The SAME documents rule the public intake endpoint enforces (its named export).
 import { checkDocumentsRequired } from '../student-intake-submit.js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
+// S-03: a stored file reference must be the canonical path for THIS student.
+import { validateStoredFileRefForStudent } from '../../lib/server/studentFiles.js'
 
 // Everything GET returns about the student. The editable set, plus read-only context
 // the profile view needs (identity binding, lock inputs, provenance, documents-on-file,
@@ -335,8 +337,20 @@ export default async function handler(req, res) {
     patch.student_form_privacy_ack_name = privacyAckName
     patch.student_form_privacy_ack_version = STUDENT_FORM_ACK_VERSION
     patch.student_form_privacy_ack_at = new Date().toISOString()
-    if (str(body.resume_url))   patch.resume_url = str(body.resume_url)
-    if (str(body.headshot_url)) patch.headshot_url = str(body.headshot_url)
+    // S-03: bind each supplied file reference to this student, so a portal student cannot point
+    // their own record at another student's object. The value must equal the canonical path this
+    // server issued for them. Rejected, never rewritten.
+    for (const column of ['resume_url', 'headshot_url']) {
+      if (!str(body[column])) continue
+      const ref = validateStoredFileRefForStudent({
+        value: body[column], column, cohortId: student.cohort_id, studentId: student.id,
+      })
+      if (!ref.ok) {
+        console.log('[portal/my-profile] file reference rejected', { column, reason: ref.error })
+        return res.status(400).json({ error: 'invalid_request', field: column, message: ref.message })
+      }
+      patch[column] = ref.path
+    }
     patch.submitted_via = 'student_form'
     patch.status = 'Form Received'
     // STUDENT-FORM-CEDARS-STATUS-AUTO-MAP, mirrored from student-intake-submit.js:
