@@ -16,6 +16,7 @@ import { openStudentFile } from '../lib/useStudentFile'
 // WS1e-A3b: rubric outcomes persist through the explicit save_interview_outcome
 // action (Owner/Admin/Interviewer) instead of the generic onStudentUpdate path.
 import { saveInterviewOutcome } from '../lib/studentProxy'
+import { normalizeStaffRole } from '../lib/permissions'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -114,12 +115,14 @@ function fmtSaveTime(dt) {
 }
 
 // ── Recalculate student averages from fresh DB fetch ─────────
-async function recalculateStudentAverages(studentId, supabase) {
-  const { data: rubrics, error } = await supabase
-    .from('interview_rubrics')
-    .select('cj_score, pp_score, ga_score, composite_score, individual_recommendation')
-    .eq('student_id', studentId)
-    .eq('status', 'Completed')
+async function recalculateStudentAverages(studentId, cohortId, supabase) {
+  // The summary RPC includes every completed rubric while redacting another
+  // interviewer's answer-bearing fields. Direct table reads are intentionally
+  // restricted to the caller's own rows and would produce a false N=1 average.
+  const { data, error } = await supabase.rpc('list_interview_rubrics_for_cohort', {
+    p_cohort_id: cohortId,
+  })
+  const rubrics = (data || []).filter(r => r.student_id === studentId && r.status === 'Completed')
 
   if (error || !rubrics || rubrics.length === 0) return null
 
@@ -189,7 +192,7 @@ async function recalculateStudentAverages(studentId, supabase) {
 }
 
 // ── Editable rubric card in the consolidated view ────────────
-function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
+function RubricCard({ r, interviewers, onSave, canEdit, canView, canChangeInterviewer, onView }) {
   const [editing, setEditing] = useState(false)
   const [saving,  setSaving]  = useState(false)
   const [editForm, setEditForm] = useState({
@@ -231,9 +234,9 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
 
   const handleSave = async () => {
     setSaving(true)
-    await onSave(r.id, editForm)
+    const saved = await onSave(r.id, editForm)
     setSaving(false)
-    setEditing(false)
+    if (saved !== false) setEditing(false)
   }
 
   const handleCancel = () => {
@@ -257,12 +260,17 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
           <span className="rub-rc-score">{comp}/15</span>
           {rec && recColor && <span style={{ fontSize:11, fontWeight:600, padding:'1px 7px', borderRadius:4, background:recBg, color:recColor }}>{rec}</span>}
           <div style={{ marginLeft:'auto', display:'flex', gap:6, flexShrink:0 }}>
-            {onView && (
-              <button className="btn btn-outline-modal" style={{ fontSize:11, padding:'2px 10px' }}
-                onClick={() => onView(r)}>
-                View
-              </button>
-            )}
+            <Tooltip label={canView ? 'View rubric' : 'Rubric view restricted'} placement="top">
+              <span style={{ display:'inline-flex' }}>
+                <button className="btn btn-outline-modal"
+                  style={{ fontSize:11, padding:'2px 10px', opacity:canView ? 1 : 0.45, cursor:canView ? 'pointer' : 'not-allowed' }}
+                  disabled={!canView}
+                  aria-disabled={!canView}
+                  onClick={canView ? () => onView(r) : undefined}>
+                  View
+                </button>
+              </span>
+            </Tooltip>
             {canEdit && (
               <button className="btn btn-outline-modal" style={{ fontSize:11, padding:'2px 10px' }}
                 onClick={() => setEditing(true)}>
@@ -291,12 +299,14 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
         <div>
           <div style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:4 }}>Interviewer</div>
-          <select className="iv-input" style={{ fontSize:12, padding:'4px 8px', width:'100%' }}
-            value={editForm.interviewer_name}
-            onChange={e => setEditForm(p => ({ ...p, interviewer_name: e.target.value }))}>
-            <option value="">-</option>
-            {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
+          {canChangeInterviewer ? (
+            <select className="iv-input" style={{ fontSize:12, padding:'4px 8px', width:'100%' }}
+              value={editForm.interviewer_name}
+              onChange={e => setEditForm(p => ({ ...p, interviewer_name: e.target.value }))}>
+              <option value="">-</option>
+              {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          ) : <div className="iv-readonly">{r.interviewer_name || 'Unknown'}</div>}
         </div>
         <div>
           <div style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:4 }}>Recommendation</div>
@@ -336,8 +346,21 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
 
 export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
   const { userProfile, canViewStudentResumeInCohort } = useAuth()
-  const [form,           setForm]           = useState(initialRubric || initForm())
-  const [rubricId,       setRubricId]       = useState(initialRubric?.id || null)
+  const normalizedRole = normalizeStaffRole(userProfile?.role)
+  const canManageAllRubrics = userProfile?.is_owner === true
+    || ['owner', 'admin', 'co-lead'].includes(normalizedRole)
+  const isInterviewerOnly = normalizedRole === 'interviewer' && !canManageAllRubrics
+  const ownRubrics = isInterviewerOnly
+    ? rubrics.filter(r => r.student_id === student.id && r.is_own === true)
+    : []
+  const initialOwnRubric = ownRubrics.find(r => r.status !== 'Completed')
+    || ownRubrics.find(r => r.status === 'Completed')
+  const initialForm = initialRubric || initialOwnRubric || {
+    ...initForm(),
+    interviewer_name: isInterviewerOnly ? (userProfile?.full_name || '') : '',
+  }
+  const [form,           setForm]           = useState(initialForm)
+  const [rubricId,       setRubricId]       = useState(initialForm?.id || null)
   const [saveStatus,     setSaveStatus]     = useState('idle')
   const [confirmComplete,setConfirmComplete]= useState(false)
   const [confirmReset,   setConfirmReset]   = useState(false)
@@ -388,7 +411,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         supabase.from('interviewers').select('name').order('name'),  // InterviewersModal catalog
         // Direct fallback: invited users with role='interviewer' whose can_conduct_interviews
         // may be NULL (e.g., invited before the invite flow was patched).
-        supabase.from('user_profiles').select('full_name').eq('role', 'interviewer').eq('is_active', true),
+        supabase.from('user_profiles').select('id, full_name').eq('role', 'interviewer').eq('is_active', true),
       ])
       const rpcNames    = (profilesRes.data         || []).map(p => p.full_name).filter(Boolean)
       const catalogNames= (catalogRes.data          || []).map(i => i.name).filter(Boolean)
@@ -397,6 +420,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       const merged = [...new Set([...rpcNames, ...catalogNames, ...roleNames])].sort((a, b) => a.localeCompare(b))
       return {
         interviewers: merged,
+        interviewerProfilesByName: Object.fromEntries(
+          [...(profilesRes.data || []), ...(roleInterviewersRes.data || [])]
+            .filter(p => p.id && p.full_name)
+            .map(p => [p.full_name, p.id])
+        ),
         availUnits:   (unitsRes.data || []).map(u => u.unit_name),
       }
     },
@@ -404,6 +432,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     staleTime: 0,  // always refetch on mount so new interviewers appear immediately
   })
   const interviewers = interviewer_unit_data?.interviewers || []
+  const interviewerProfilesByName = interviewer_unit_data?.interviewerProfilesByName || {}
   const availUnits   = interviewer_unit_data?.availUnits   || []
 
   // Unit availability snapshot for the student's 3 preferences - cached per student+cohort+prefs
@@ -432,16 +461,22 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   // When interviewer_name changes, try to load their existing rubric
   const handleInterviewerChange = async (name) => {
+    if (isInterviewerOnly) return
     if (name) {
-      const existing = studentRubrics.find(r => r.interviewer_name === name && r.status !== 'Completed')
+      const selectedProfileId = interviewerProfilesByName[name] || null
+      const existing = studentRubrics.find(r => (
+        (selectedProfileId && r.interviewer_profile_id === selectedProfileId)
+        || (!selectedProfileId && r.interviewer_name === name)
+      ) && r.status !== 'Completed')
       if (existing) {
         setForm(existing); setRubricId(existing.id); return
       }
     }
-    setForm(p => ({ ...p, interviewer_name: name }))
+    const interviewerProfileId = interviewerProfilesByName[name] || null
+    setForm(p => ({ ...p, interviewer_name: name, interviewer_profile_id: interviewerProfileId }))
     setRubricId(null)
     // Selecting an interviewer is a meaningful action - create record immediately
-    if (name) persist({ interviewer_name: name }, true)
+    if (name) persist({ interviewer_name: name, interviewer_profile_id: interviewerProfileId }, true)
   }
 
   const composite = (form.cj_score || 0) + (form.pp_score || 0) + (form.ga_score || 0)
@@ -452,14 +487,20 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const persist = async (updates, createIfNeeded = false) => {
     if (readOnly) return false
     setSaveStatus('saving')
+    const identityUpdates = isInterviewerOnly ? {
+      interviewer_profile_id: userProfile?.id || null,
+      interviewer_name: userProfile?.full_name || '',
+    } : {}
+    const scopedUpdates = { ...updates, ...identityUpdates }
     const payload = {
-      ...updates,
-      composite_score: (updates.cj_score ?? (form.cj_score || 0)) + (updates.pp_score ?? (form.pp_score || 0)) + (updates.ga_score ?? (form.ga_score || 0)),
+      ...scopedUpdates,
+      composite_score: (scopedUpdates.cj_score ?? (form.cj_score || 0)) + (scopedUpdates.pp_score ?? (form.pp_score || 0)) + (scopedUpdates.ga_score ?? (form.ga_score || 0)),
       updated_at: new Date().toISOString(),
     }
     let id = rubricId
     if (!id) {
-      if (!createIfNeeded || !form.interviewer_name) { setSaveStatus('idle'); return false }
+      const effectiveInterviewerName = payload.interviewer_name || form.interviewer_name
+      if (!createIfNeeded || !effectiveInterviewerName) { setSaveStatus('idle'); return false }
       const { data, error } = await safeWrite(
         () => supabase.from('interview_rubrics').insert({ student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload }).select().single(),
         { name: 'create rubric' }
@@ -470,7 +511,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         logEvent(supabase, {
           studentId: student.id, cohortId,
           eventType: 'rubric_save_failed',
-          notes: `Interviewer: ${form.interviewer_name}. Error: ${error.message}`,
+          notes: `Interviewer: ${effectiveInterviewerName}. Error: ${error.message}`,
           auto: true,
         })
         return false
@@ -480,7 +521,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       logEvent(supabase, {
         studentId: student.id, cohortId,
         eventType: 'rubric_saved',
-        notes: `Interviewer: ${form.interviewer_name}. Rubric created (id: ${id}).`,
+        notes: `Interviewer: ${effectiveInterviewerName}. Rubric created (id: ${id}).`,
         auto: true,
       })
     } else {
@@ -545,7 +586,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     }
     setForm(p => ({ ...p, status:'Completed', composite_score: composite }))
     // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
-    const recalc = await recalculateStudentAverages(student.id, supabase)
+    const recalc = await recalculateStudentAverages(student.id, cohortId, supabase)
     if (recalc) await saveInterviewOutcome(student.id, recalc)
     // Auto-log interview event on first rubric completion
     const already = await eventExists(supabase, student.id, 'interview')
@@ -597,16 +638,29 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   }
 
   const handleRubricEdit = async (rubricId, updates) => {
-    const composite = (updates.cj_score||0) + (updates.pp_score||0) + (updates.ga_score||0)
-    await supabase.from('interview_rubrics')
-      .update({ ...updates, composite_score: composite, updated_at: new Date().toISOString() })
+    const targetRubric = studentRubrics.find(r => r.id === rubricId)
+    if (!targetRubric?.can_edit) {
+      toast?.error('Rubric view restricted', 'You can edit only rubrics submitted from your account.')
+      return false
+    }
+    const safeUpdates = isInterviewerOnly
+      ? { ...updates, interviewer_name: userProfile?.full_name || targetRubric.interviewer_name }
+      : updates
+    const composite = (safeUpdates.cj_score||0) + (safeUpdates.pp_score||0) + (safeUpdates.ga_score||0)
+    const { error } = await supabase.from('interview_rubrics')
+      .update({ ...safeUpdates, composite_score: composite, updated_at: new Date().toISOString() })
       .eq('id', rubricId)
+    if (error) {
+      toast?.error('Save failed', error.message || 'Could not update rubric.')
+      return false
+    }
     if (onRubricsChange) onRubricsChange()
     // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
-    const recalc = await recalculateStudentAverages(student.id, supabase)
+    const recalc = await recalculateStudentAverages(student.id, cohortId, supabase)
     if (recalc) {
       await saveInterviewOutcome(student.id, recalc)
     }
+    return true
   }
 
   const locked = readOnly || form.status === 'Completed'
@@ -728,7 +782,13 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       if (!hasRubricContent(draft)) return
 
       // Restore every tracked field
-      if (draft.formState)                   setForm(draft.formState)
+      if (draft.formState) {
+        setForm(isInterviewerOnly ? {
+          ...draft.formState,
+          interviewer_profile_id: userProfile?.id || null,
+          interviewer_name: userProfile?.full_name || '',
+        } : draft.formState)
+      }
       if (draft.prefs)                       setPrefs(draft.prefs)
       if (draft.flagNote   !== undefined)    setFlagNote(draft.flagNote)
       if (draft.isFlagged  !== undefined)    setIsFlagged(draft.isFlagged)
@@ -740,7 +800,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     } catch (err) {
       console.warn('[RubricSession] localStorage restore failed:', err)
     }
-  }, [student?.id, userId])
+  }, [isInterviewerOnly, readOnly, rubrics, student?.id, student?.updated_at, toast, userId, userProfile?.full_name, userProfile?.id])
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1156,7 +1216,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 </div>
                 <div className="iv-field">
                   <label className="iv-label">Interviewer Name</label>
-                  {locked ? <div className="iv-readonly">{form.interviewer_name}</div>
+                  {locked || isInterviewerOnly ? <div className="iv-readonly">{form.interviewer_name || userProfile?.full_name || '-'}</div>
                     : <select className="iv-input" value={form.interviewer_name} onChange={e => handleInterviewerChange(e.target.value)}>
                         <option value="">Select interviewer…</option>
                         {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
@@ -1424,11 +1484,14 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               <div className="rub-all-section">
                 <div className="rub-all-title">All Rubrics for This Student ({completedRubrics.length})</div>
                 {completedRubrics.map(r => {
-                  const isOwnerOrAdmin = userProfile?.is_owner || ['admin', 'co-lead', 'co_lead'].includes(userProfile?.role)
+                  const canViewRubric = canManageAllRubrics || r.can_view_details === true
+                  const canEditRubric = canManageAllRubrics || r.can_edit === true
                   return (
                     <RubricCard key={r.id} r={r} interviewers={interviewers} onSave={handleRubricEdit}
-                      canEdit={isOwnerOrAdmin || r.interviewer_name === userProfile?.full_name}
-                      onView={() => setViewingRubric(r)} />
+                      canView={canViewRubric}
+                      canEdit={canEditRubric}
+                      canChangeInterviewer={canManageAllRubrics}
+                      onView={() => { if (canViewRubric) setViewingRubric(r) }} />
                   )
                 })}
                 <div className="rub-avg-display">
@@ -1503,7 +1566,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       )}
 
       {/* Read-only rubric view modal */}
-      {viewingRubric && (
+      {viewingRubric && (canManageAllRubrics || viewingRubric.can_view_details === true) && (
         <div className="modal-overlay" onMouseDown={() => setViewingRubric(null)}>
           <div className="modal-rubric-view" onMouseDown={e => e.stopPropagation()}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid var(--color-border-subtle, #f3f4f6)', flexShrink:0 }}>

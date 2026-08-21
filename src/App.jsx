@@ -384,7 +384,14 @@ function MainApp({ onLogout }) {
     setMatches(data || [])
   }
   const fetchInterviews = async id => {
-    const { data } = await supabase.from('interview_rubrics').select('*').eq('cohort_id', id)
+    const { data, error } = await supabase.rpc('list_interview_rubrics_for_cohort', {
+      p_cohort_id: id,
+    })
+    if (error) {
+      setInterviews([])
+      setDbError(error.message)
+      return
+    }
     setInterviews(data || [])
   }
   const fetchIvSessions = async id => {

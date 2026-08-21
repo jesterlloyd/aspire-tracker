@@ -148,12 +148,12 @@ test('S-14: the same predicate governs file reads, so read and write scope canno
   assert.match(SRC, /import \{ activeEntitledCohortIds \} from '\.\.\/lib\/server\/interviewerEntitlements\.js'/)
 })
 
-// ── The client gate stays presentation only ──────────────────────────────────────────────────────
+// ── The client consumes server-derived rubric authorization ──────────────────────────────────────
 
-test('S-14: the RubricSession name comparison is presentation, and the server no longer relies on it', () => {
+test('S-14: RubricSession no longer treats a display-name match as rubric authority', () => {
   const rubric = read('src/components/RubricSession.jsx')
-  // The client check still exists for UI affordance.
-  assert.match(rubric, /canEdit=\{isOwnerOrAdmin \|\| r\.interviewer_name === userProfile\?\.full_name\}/)
-  // But the server path contains no equivalent, which is the point of this fix.
+  assert.match(rubric, /canEditRubric = canManageAllRubrics \|\| r\.can_edit === true/)
+  assert.doesNotMatch(rubric, /r\.interviewer_name === userProfile\?\.full_name/)
+  // The separate outcome-write endpoint also remains free of display-name authorization.
   assert.doesNotMatch(OUTCOME_CODE, /interviewer_name/)
 })
