@@ -28,12 +28,19 @@ const preflight = read('db/audit/wave_e_write_split_preflight_and_verification.s
 // The executable body: everything outside the inert rollback comment block.
 const live = migration.replace(/\/\*[\s\S]*?\*\//g, '')
 
-// The eleven tables that still carried a Wave E FOR ALL policy.
+// The eight Wave E FOR ALL tables this migration splits. Restricting each of these is
+// operationally free: every browser write to them is already behind canEdit or
+// canPerformMatching, or there is no browser write at all.
 const FOR_ALL_TABLES = [
-  'cohorts', 'communications', 'units', 'matches', 'interview_sessions',
-  'interviewers', 'interviews', 'interview_availability_blocks',
-  'interview_slots', 'ngrp_outcomes', 'cohort_snapshots',
+  'cohorts', 'communications', 'units', 'matches',
+  'interviewers', 'interviews', 'ngrp_outcomes', 'cohort_snapshots',
 ]
+
+// The three SELF-SERVICE tables that must NOT be split. Interviewers manage their own interview
+// day through them (pause/resume a block, block/unblock a slot, mark a Teams invite sent), which
+// is the reason interviewer access exists. Restricting them would send every interviewer back to
+// emailing the program leads for routine day management.
+const SELF_SERVICE_TABLES = ['interview_availability_blocks', 'interview_slots', 'interview_sessions']
 
 // ── The helper ───────────────────────────────────────────────────────────────────────────────────
 
@@ -85,7 +92,7 @@ test('S-04: every Wave E FOR ALL policy is dropped by its exact name', () => {
   }
   // Named explicitly rather than discovered, so a policy some later migration added cannot be
   // dropped by accident.
-  assert.match(live, /'staff_all_availability_blocks'/, 'the odd policy name must be exact')
+  assert.match(live, /'staff_all_cohort_snapshots'/, 'policy names must be exact')
   assert.match(live, /DROP POLICY IF EXISTS %I ON public\.%I', t\.old_policy, t\.tbl/)
 })
 
@@ -139,6 +146,19 @@ test('S-04: the already-narrowed tables are not touched at all', () => {
     assert.doesNotMatch(live, new RegExp(`CREATE POLICY[^;]*ON public\\.${t}\\b`), `${t} must not get a new policy`)
     assert.doesNotMatch(live, new RegExp(`DROP POLICY[^;]*ON public\\.${t}\\b`), `${t} must not lose a policy`)
   }
+})
+
+test('S-04: the three self-service tables are left entirely alone', () => {
+  // The test for each table is not "which role should write this" but "does restricting it remove
+  // a capability someone legitimately uses". For these three the answer is yes, so they stay out.
+  for (const t of SELF_SERVICE_TABLES) {
+    assert.doesNotMatch(live, new RegExp(`'${t}',`), `${t} must not be in the split list`)
+    assert.doesNotMatch(live, new RegExp(`CREATE POLICY[^;]*ON public\\.${t}\\b`), `${t} must not get a new policy`)
+    assert.doesNotMatch(live, new RegExp(`DROP POLICY[^;]*ON public\\.${t}\\b`), `${t} must not lose a policy`)
+  }
+  // And the migration says why, so the next person does not "fix" it.
+  assert.match(migration, /SELF-SERVICE\. These three carry the work an/)
+  assert.match(migration, /OWNERSHIP \(any interviewer can touch any interviewer's row\)/)
 })
 
 test('S-04: activity_logs is deliberately out of scope', () => {
@@ -236,16 +256,25 @@ test('S-04: the interviewer directory delete goes through the server endpoint', 
   assert.doesNotMatch(modal, /deferred to ACCOUNTS-ACCESS-DELETE-HARDEN-2/, 'the deferral note must be retired')
 })
 
-test('S-04: controls the database would now refuse are hidden for restricted roles', () => {
-  // Each of these was reachable by a Viewer or an Interviewer and would have failed opaquely.
+test('S-04: interviewer day and availability controls are NOT gated by role', () => {
+  // These write the three self-service tables, which stay open. Hiding or disabling them would
+  // take away the work interviewer access exists for. They must read exactly as they did before.
   const drawer = read('src/components/InterviewDayDrawer.jsx')
-  assert.match(drawer, /\{isAdmin && session\?\.id && \(/, 'mark Teams invite sent')
-  assert.match(drawer, /\{isAdmin && <MBtn variant="outline" onClick=\{\(\) => setBlockingSlot\(slot\)\}/, 'block time')
-  assert.match(drawer, /\{isAdmin && <MBtn variant="outline" onClick=\{\(\) => handleUnblockSlot\(slot\.id\)\}/, 'unblock')
+  assert.match(drawer, /\{session\?\.id && \(\s*\n\s*<MBtn variant="outline" disabled=\{markingTeams === session\.id\}/, 'mark Teams invite sent stays available')
+  assert.doesNotMatch(drawer, /\{isAdmin && session\?\.id/, 'mark sent must not be admin-gated')
+  assert.match(drawer, /<MBtn variant="outline" onClick=\{\(\) => setBlockingSlot\(slot\)\}>Block Time<\/MBtn>/)
+  assert.doesNotMatch(drawer, /\{isAdmin && <MBtn variant="outline" onClick=\{\(\) => setBlockingSlot/, 'block time must not be admin-gated')
+  assert.match(drawer, /<MBtn variant="outline" onClick=\{\(\) => handleUnblockSlot\(slot\.id\)\}>Unblock<\/MBtn>/)
+  assert.doesNotMatch(drawer, /\{isAdmin && <MBtn variant="outline" onClick=\{\(\) => handleUnblockSlot/, 'unblock must not be admin-gated')
 
   const availability = read('src/components/AvailabilityManagerModal.jsx')
-  assert.match(availability, /checked=\{b\.is_active\} disabled=\{!isAdmin\}/, 'pause/resume toggle')
+  assert.match(availability, /<input type="checkbox" checked=\{b\.is_active\} onChange=\{\(\) => toggleActive\(b\)\} \/>/)
+  assert.doesNotMatch(availability, /disabled=\{!isAdmin\}/, 'the pause/resume toggle must not be disabled by role')
+})
 
+test('S-04: controls the database will refuse, for roles with no legitimate use, are hidden', () => {
+  // Only the two that pass the self-service test: neither a Viewer nor an Interviewer ever has
+  // a reason to delete a student or to create the first cohort.
   const app = read('src/App.jsx')
   assert.match(app, /\{canEdit && <button className="btn btn-primary" onClick=\{\(\) => setShowNewCohort\(true\)\}/, 'create first cohort')
 

@@ -43,6 +43,21 @@
 --   DELETE             therefore narrower than this migration's helper. Left
 --                      alone rather than widened back.
 --
+--   interview_availability_blocks,  SELF-SERVICE. These three carry the work an
+--   interview_slots,                Interviewer does on their OWN interview day:
+--   interview_sessions              pausing and resuming an availability block,
+--                      blocking and unblocking a slot, and marking a Teams invite
+--                      sent (an interview_sessions UPDATE). ASPIRE exists to push
+--                      that work to the person who owns it, so restricting these
+--                      by role would send every interviewer back to emailing the
+--                      program leads for routine day management. That is a
+--                      regression, not a hardening. Their current FOR ALL policies
+--                      stay in place. The real gap on these tables is not role but
+--                      OWNERSHIP (any interviewer can touch any interviewer's row),
+--                      which a policy cannot express and a scoped server endpoint
+--                      can; that is endpoint work, tracked separately, following
+--                      the ownership checks api/availability.js already performs.
+--
 -- This migration changes POLICIES ONLY. It writes no row in any application
 -- table, and it drops no data.
 -- ============================================================================
@@ -98,9 +113,10 @@ GRANT EXECUTE ON FUNCTION public.is_active_staff_writer() TO service_role;
 
 -- ── 2. Split the FOR ALL policies ────────────────────────────────────────────
 -- One SELECT policy on is_staff() (read unchanged) plus separate INSERT, UPDATE
--- and DELETE policies on the new helper, for each table that still carries a
--- Wave E FOR ALL policy. The old policy name is named explicitly rather than
--- discovered, so this cannot drop a policy some later migration introduced.
+-- and DELETE policies on the new helper, for each of the eight tables that still
+-- carries a Wave E FOR ALL policy and is not self-service (see the header). The
+-- old policy name is named explicitly rather than discovered, so this cannot drop
+-- a policy some later migration introduced.
 DO $split$
 DECLARE
   t record;
@@ -111,11 +127,8 @@ BEGIN
       ('communications',                'staff_all_communications'),
       ('units',                         'staff_all_units'),
       ('matches',                       'staff_all_matches'),
-      ('interview_sessions',            'staff_all_interview_sessions'),
       ('interviewers',                  'staff_all_interviewers'),
       ('interviews',                    'staff_all_interviews'),
-      ('interview_availability_blocks', 'staff_all_availability_blocks'),
-      ('interview_slots',               'staff_all_interview_slots'),
       ('ngrp_outcomes',                 'staff_all_ngrp_outcomes'),
       ('cohort_snapshots',              'staff_all_cohort_snapshots')
     ) AS v(tbl, old_policy)
@@ -337,11 +350,8 @@ BEGIN
       ('communications',                'staff_all_communications'),
       ('units',                         'staff_all_units'),
       ('matches',                       'staff_all_matches'),
-      ('interview_sessions',            'staff_all_interview_sessions'),
       ('interviewers',                  'staff_all_interviewers'),
       ('interviews',                    'staff_all_interviews'),
-      ('interview_availability_blocks', 'staff_all_availability_blocks'),
-      ('interview_slots',               'staff_all_interview_slots'),
       ('ngrp_outcomes',                 'staff_all_ngrp_outcomes'),
       ('cohort_snapshots',              'staff_all_cohort_snapshots')
     ) AS v(tbl, old_policy)

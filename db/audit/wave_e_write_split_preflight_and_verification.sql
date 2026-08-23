@@ -22,9 +22,9 @@
 -- ── PRE 1: the current policy set on every table in scope ───────────────────
 -- The authoritative "before" picture. SAVE THIS RESULT SET: POST 1 is compared
 -- against it, and the rollback restores exactly what appears here.
--- Expected NOW: one FOR ALL row (cmd = 'ALL') per table for the eleven tables
--- carrying a Wave E policy, plus the per-command rows for contacts, students and
--- student_shift_logs. Run alone.
+-- Expected NOW: one FOR ALL row (cmd = 'ALL') per table for the eight tables
+-- carrying a Wave E policy that this migration splits, plus the per-command
+-- rows for contacts, students and student_shift_logs. Run alone.
 SELECT
   p.tablename,
   p.policyname,
@@ -35,10 +35,9 @@ SELECT
 FROM pg_policies p
 WHERE p.schemaname = 'public'
   AND p.tablename IN (
-    'cohorts', 'communications', 'units', 'matches', 'interview_sessions',
-    'interviewers', 'interviews', 'interview_availability_blocks',
-    'interview_slots', 'ngrp_outcomes', 'cohort_snapshots', 'contacts',
-    'students', 'student_shift_logs'
+    'cohorts', 'communications', 'units', 'matches',
+    'interviewers', 'interviews', 'ngrp_outcomes', 'cohort_snapshots',
+    'contacts', 'students', 'student_shift_logs'
   )
 ORDER BY p.tablename, p.cmd, p.policyname;
 
@@ -55,17 +54,23 @@ WHERE schemaname = 'public'
   AND (COALESCE(qual, '') LIKE '%is_staff%' OR COALESCE(with_check, '') LIKE '%is_staff%')
 ORDER BY tablename, cmd, policyname;
 
--- ── PRE 3: confirm the tables already narrowed are NOT about to be widened ───
--- These four are deliberately excluded from the migration. Expected: rubric
--- policies keyed on can_manage_all_interview_rubrics, program_events INSERT on
--- is_staff_event_writer with no UPDATE or DELETE row at all, preceptors and
--- preceptor_cohort_participation writes on an is_owner subquery, and the two
--- DELETE policies on is_active_owner_or_admin. Run alone.
+-- ── PRE 3: confirm the tables deliberately left alone are NOT about to change ─
+-- Two groups are excluded from the migration on purpose. SAVE THIS RESULT SET:
+-- POST 6 must be identical to it.
+--   Already narrower: interview_rubrics (can_manage_all_interview_rubrics),
+--     program_events (is_staff_event_writer INSERT, no UPDATE or DELETE row),
+--     preceptors and preceptor_cohort_participation (is_owner subquery), and the
+--     two DELETE policies on is_active_owner_or_admin.
+--   Self-service: interview_availability_blocks, interview_slots and
+--     interview_sessions keep their FOR ALL on is_staff(), because Interviewers
+--     manage their own day through them. Expected: one cmd = 'ALL' row each.
+-- Run alone.
 SELECT tablename, policyname, cmd, qual, with_check
 FROM pg_policies
 WHERE schemaname = 'public'
   AND (
-    tablename IN ('interview_rubrics', 'program_events', 'preceptors', 'preceptor_cohort_participation')
+    tablename IN ('interview_rubrics', 'program_events', 'preceptors', 'preceptor_cohort_participation',
+                  'interview_availability_blocks', 'interview_slots', 'interview_sessions')
     OR policyname IN ('students_owner_admin_delete', 'student_shift_logs_owner_admin_delete')
   )
 ORDER BY tablename, cmd, policyname;
@@ -147,10 +152,9 @@ FROM pg_policies
 WHERE schemaname = 'public'
   AND cmd = 'ALL'
   AND tablename IN (
-    'cohorts', 'communications', 'units', 'matches', 'interview_sessions',
-    'interviewers', 'interviews', 'interview_availability_blocks',
-    'interview_slots', 'ngrp_outcomes', 'cohort_snapshots', 'contacts',
-    'students', 'student_shift_logs'
+    'cohorts', 'communications', 'units', 'matches',
+    'interviewers', 'interviews', 'ngrp_outcomes', 'cohort_snapshots',
+    'contacts', 'students', 'student_shift_logs'
   )
 ORDER BY tablename, policyname;
 
@@ -172,17 +176,18 @@ SELECT
 FROM pg_policies
 WHERE schemaname = 'public'
   AND tablename IN (
-    'cohorts', 'communications', 'units', 'matches', 'interview_sessions',
-    'interviewers', 'interviews', 'interview_availability_blocks',
-    'interview_slots', 'ngrp_outcomes', 'cohort_snapshots', 'contacts',
-    'students', 'student_shift_logs'
+    'cohorts', 'communications', 'units', 'matches',
+    'interviewers', 'interviews', 'ngrp_outcomes', 'cohort_snapshots',
+    'contacts', 'students', 'student_shift_logs'
   )
 ORDER BY tablename, cmd, policyname;
 
 -- ── POST 3: no is_staff() write policy remains in scope ────────────────────
--- PASS: rows for activity_logs and program_events ONLY. Both are deliberately
--- out of scope: an Interviewer legitimately writes both when saving a rubric.
--- Any other table appearing here is a miss. Run alone.
+-- PASS: rows ONLY for activity_logs, program_events, interview_availability_blocks,
+-- interview_slots and interview_sessions. All five are deliberately out of scope:
+-- the first two because an Interviewer writes them when saving a rubric, the
+-- last three because an Interviewer manages their own interview day through
+-- them. Any other table appearing here is a miss. Run alone.
 SELECT tablename, policyname, cmd, qual, with_check
 FROM pg_policies
 WHERE schemaname = 'public'
@@ -218,12 +223,14 @@ FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'is_active_staff_writer';
 
 -- ── POST 6: the tables deliberately left alone are unchanged ───────────────
--- PASS: identical to PRE 3. Run alone.
+-- PASS: identical to PRE 3. In particular the three self-service tables still
+-- show their single cmd = 'ALL' row on is_staff(). Run alone.
 SELECT tablename, policyname, cmd, qual, with_check
 FROM pg_policies
 WHERE schemaname = 'public'
   AND (
-    tablename IN ('interview_rubrics', 'program_events', 'preceptors', 'preceptor_cohort_participation')
+    tablename IN ('interview_rubrics', 'program_events', 'preceptors', 'preceptor_cohort_participation',
+                  'interview_availability_blocks', 'interview_slots', 'interview_sessions')
     OR policyname IN ('students_owner_admin_delete', 'student_shift_logs_owner_admin_delete')
   )
 ORDER BY tablename, cmd, policyname;
@@ -255,17 +262,16 @@ FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'message_assert_participant_limit';
 
 -- ── POST 10: no unexpected policy appeared on any table in scope ───────────
--- PASS: exactly four rows per FOR ALL table (SELECT, INSERT, UPDATE, DELETE),
+-- PASS: exactly four rows per split table (SELECT, INSERT, UPDATE, DELETE),
 -- four for contacts, and four each for students and student_shift_logs. Any
 -- other count is a miss. Run alone.
 SELECT tablename, count(*) AS policies, array_agg(cmd ORDER BY cmd) AS commands
 FROM pg_policies
 WHERE schemaname = 'public'
   AND tablename IN (
-    'cohorts', 'communications', 'units', 'matches', 'interview_sessions',
-    'interviewers', 'interviews', 'interview_availability_blocks',
-    'interview_slots', 'ngrp_outcomes', 'cohort_snapshots', 'contacts',
-    'students', 'student_shift_logs'
+    'cohorts', 'communications', 'units', 'matches',
+    'interviewers', 'interviews', 'ngrp_outcomes', 'cohort_snapshots',
+    'contacts', 'students', 'student_shift_logs'
   )
 GROUP BY tablename
 ORDER BY tablename;
