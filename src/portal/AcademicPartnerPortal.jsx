@@ -33,6 +33,7 @@ import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLe
 import { cohortOptions, inCohortScope, sortRoster } from './ap/academicPartnerRoster'
 import { computeStatusCounts } from '../lib/derivations/cohortStatus'
 import { useSchoolStudentPhotos } from './ap/useSchoolStudentPhotos'
+import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
 // A stable empty roster reference so the photo-prefetch effect does not re-run every render while
 // the roster is still loading (a fresh [] each render would look like a new dependency).
@@ -123,6 +124,7 @@ function StudentsView() {
   const lastVisitLine = useLastVisitLabel(userProfile?.id ? `aspire:lastVisit:portal:ap:${userProfile.id}` : null)
 
   const reload = useCallback(() => setReloadKey(k => k + 1), [])
+  const reportFailure = useReportPortalFailure()
 
   // The shared portal Refresh re-fetches the school roster (and, through has_photo, re-primes secure
   // photos). StudentsView is mounted only for the Students section, so registering on mount is enough.
@@ -141,9 +143,23 @@ function StudentsView() {
         }
         const res = await fetch('/api/portal/school-students', { headers: { Authorization: `Bearer ${token}` } })
         if (cancelled) return
-        const data = res.ok ? await res.json() : null
-        if (!data) { setError('We could not load your students right now. Please try again shortly.'); setLoading(false); return }
-        setSchools(data.schools || [])
+        let payload = null
+        try { payload = await res.json() } catch { payload = null }
+        if (!res.ok) {
+          // A refusal because this person's access ended is not a failure to load.
+          // The shell owns that answer, so hand it up and stop: it replaces this
+          // whole view with the no-access card rather than offering a Try again
+          // that could never succeed.
+          const kind = reportFailure({ status: res.status, error: payload?.error })
+          if (kind === ACCESS_FAILURE.ACCESS_ENDED) { setLoading(false); return }
+          if (kind === ACCESS_FAILURE.SIGNED_OUT) {
+            setError('Your session expired. Please sign in again.'); setLoading(false); return
+          }
+          setError('We could not load your students right now. Please try again shortly.')
+          setLoading(false); return
+        }
+        if (!payload) { setError('We could not load your students right now. Please try again shortly.'); setLoading(false); return }
+        setSchools(payload.schools || [])
       } catch {
         if (!cancelled) setError('We could not load your students right now. Please try again shortly.')
       }
@@ -151,7 +167,7 @@ function StudentsView() {
     }
     load()
     return () => { cancelled = true }
-  }, [reloadKey])
+  }, [reloadKey, reportFailure])
 
   // The roster in view, derived defensively so the photo hook can run unconditionally (rules of
   // hooks) before the loading/error/denied early returns below.

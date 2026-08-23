@@ -24,6 +24,9 @@ import {
   mapPortalMessagesError, UL_THREAD_ASPIRE_LABEL, ulDirectThreadLabel,
 } from '../../lib/messages/portalMessagesConstants'
 import RowActionsMenu from '../../components/shared/RowActionsMenu'
+// A refused load because access ended is handed to the shell, which shows the
+// no-access card instead of this view's Try again.
+import { useReportAccessFailureEffect } from '../portalAccessSignal'
 
 // One page size shared with the Home preview hook: both observers use the
 // SAME query key, so the query function must be identical or the cache would
@@ -86,6 +89,7 @@ export default function PortalMessagesInbox({
     refetchInterval: refreshMs || false,
     staleTime: 10 * 1000,
   })
+  useReportAccessFailureEffect(isError, { status: error?.status, error: error?.code })
 
   const rows = (data?.pages || []).reduce(
     (acc, page) => appendPage(acc, page?.conversations || []), [],

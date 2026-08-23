@@ -40,6 +40,7 @@ import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../lib/lastVisit'
+import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
 const SUPPORT = 'aspire@cshs.org'
 const CONTACT_SUBJECT = 'ASPIRE Student Support Request'
@@ -91,6 +92,7 @@ export default function StudentPortal({
   const [certs, setCerts]       = useState([])
   const [error, setError]       = useState(null)
   const [loading, setLoading]   = useState(true)
+  const reportFailure           = useReportPortalFailure()
   const [activeId, setActiveId] = useState(null)
   const [compose, setCompose]   = useState(null) // { kind: 'outlook'|'sent'|'blocked', loginEmail?, body? }
   const [certBusy, setCertBusy] = useState(false)
@@ -159,7 +161,25 @@ export default function StudentPortal({
         supabase.from('portal_my_evaluation_assignments').select('*').order('sent_at', { ascending: false }),
         supabase.from('portal_my_certificates').select('*'),
       ])
-      const summaryData = summaryRes.ok ? await summaryRes.json() : { students: [] }
+      // A refused summary used to become `{ students: [] }`, which rendered a
+      // complete but blank portal with no explanation at all: worse than the
+      // Academic Partner view's wrong error, because it said nothing. An access
+      // refusal now goes to the shell, which replaces this view with the
+      // no-access card.
+      let summaryData
+      if (summaryRes.ok) {
+        summaryData = await summaryRes.json()
+      } else {
+        let payload = null
+        try { payload = await summaryRes.json() } catch { payload = null }
+        const kind = reportFailure({ status: summaryRes.status, error: payload?.error })
+        if (kind === ACCESS_FAILURE.ACCESS_ENDED) { setLoading(false); return }
+        if (kind === ACCESS_FAILURE.SIGNED_OUT) {
+          setError('Your session expired. Please sign in again.'); setLoading(false); return
+        }
+        setError('We could not load your portal right now. Please try again shortly.')
+        setLoading(false); return
+      }
       setSummary(summaryData)
       setActiveId(prev => prev || summaryData.students?.[0]?.id || null)
       setLogs(logsRes.data || [])

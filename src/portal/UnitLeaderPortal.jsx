@@ -51,6 +51,7 @@ import {
   emptyParticipation, isHostingParticipation, validateParticipation,
   participationReady, buildParticipationBody,
 } from '../lib/unitParticipationForm'
+import { useReportPortalFailure } from './portalAccessSignal'
 
 const UnitRotationCalendar = lazy(() => import('./unit/UnitRotationCalendar'))
 const UnitPreceptorsWorkspace = lazy(() => import('./unit/UnitPreceptorsWorkspace'))
@@ -75,11 +76,19 @@ function useEndpoint(loader, deps) {
   const [state, setState] = useState({ error: null, data: null, resolved: -1, at: 0 })
   const [nonce, setNonce] = useState(0)
   const refreshWaiters = useRef([])
+  // Every Unit Leader surface loads through this hook, so classifying here covers
+  // all of them at once: the unit roster, placement requests, capacity,
+  // milestones, notifications, shift activity, and the preceptor workspaces. A
+  // refusal because this person's unit scope or role grant ended is reported to
+  // the shell, which replaces the whole portal with the no-access card instead of
+  // each surface offering its own Try again for something retrying cannot fix.
+  const reportFailure = useReportPortalFailure()
   useEffect(() => {
     const ac = new AbortController()
     let live = true
     loader(ac.signal).then(res => {
       if (!live || res.error === 'aborted') return
+      if (!res.ok) reportFailure({ status: res.status, error: res.error })
       // loadedAt is stamped HERE, in the resolver, not during render: reading
       // the clock while rendering is impure and makes output unstable.
       setState(current => res.ok

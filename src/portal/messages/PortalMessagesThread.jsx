@@ -22,6 +22,9 @@ import {
 // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS
 import { applyOptimisticReaction } from '../../lib/messages/reactionConstants'
 import { useThreadAutoScroll } from '../../lib/messages/useThreadAutoScroll'
+// A refused load because access ended is handed to the shell, which shows the
+// no-access card instead of this view's Try again.
+import { useReportAccessFailureEffect } from '../portalAccessSignal'
 
 export default function PortalMessagesThread({
   variant = 'student',
@@ -58,6 +61,7 @@ export default function PortalMessagesThread({
     refetchInterval: refreshMs || false,
     staleTime: 5 * 1000,
   })
+  useReportAccessFailureEffect(isError, { status: error?.status, error: error?.code })
 
   const pages = useMemo(() => data?.pages || [], [data])
   const newestPage = pages[0] || null

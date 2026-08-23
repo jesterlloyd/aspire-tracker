@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { composePortalEmail } from '../lib/outlookCompose'
 import StudentIntakeFormPage from '../components/StudentIntakeFormPage'
+import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
 const SUPPORT = 'aspire@cshs.org'
 
@@ -35,6 +36,7 @@ export default function MyProfile({ active = true }) {
   const { userProfile } = useAuth()
   const loginEmail = userProfile?.email || ''
   const [state, setState] = useState({ loading: true, error: null, data: null })
+  const reportFailure = useReportPortalFailure()
   const [savedAt, setSavedAt] = useState(null)     // flash confirmation after a save
   const [staleNotice, setStaleNotice] = useState(false)
 
@@ -48,7 +50,15 @@ export default function MyProfile({ active = true }) {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (!res.ok) {
-        setState({ loading: false, error: res.status === 401 || res.status === 403 ? 'auth' : 'load', data: null })
+        // A revoked person IS signed in, so "please sign in again" was the wrong
+        // instruction: signing in again would land them right back here. The
+        // reason string separates the two, and an access refusal is handed to the
+        // shell, which shows the no-access card instead of this view.
+        let payload = null
+        try { payload = await res.clone().json() } catch { payload = null }
+        const kind = reportFailure({ status: res.status, error: payload?.error })
+        if (kind === ACCESS_FAILURE.ACCESS_ENDED) { setState({ loading: false, error: 'access_ended', data: null }); return }
+        setState({ loading: false, error: kind === ACCESS_FAILURE.SIGNED_OUT ? 'auth' : 'load', data: null })
         return
       }
       const json = await res.json()
@@ -78,6 +88,9 @@ export default function MyProfile({ active = true }) {
   if (state.error === 'auth') {
     return <div className="ptl-card" style={{ padding: 28 }}>Please sign in again to view your profile.</div>
   }
+  // The shell is already replacing this view with the no-access card; render
+  // nothing rather than flashing a second, contradictory message on the way out.
+  if (state.error === 'access_ended') return null
   if (state.error || !state.data?.student) {
     return (
       <div className="ptl-card" style={{ padding: 28 }}>
