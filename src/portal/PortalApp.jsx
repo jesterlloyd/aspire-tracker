@@ -43,6 +43,9 @@ import { usePortalHeadshotUrl } from '../lib/useStudentFile'
 // for the three portal experiences (student, unit_leader, academic_partner).
 import CustomOnboardingTour from '../components/CustomOnboardingTour'
 import { shouldAutoStartTour } from '../lib/onboardingTours'
+// PORTAL-ACCESS-STATE: one honest message per access state, instead of one
+// "being prepared" card standing in for every reason a portal is not there.
+import { resolveAccessState, accessCopy, ACCESS_STATES, SUPPORT_EMAIL } from '../lib/portalAccessState'
 import '../styles/aspireBrand.css'
 import './portal.css'
 
@@ -95,6 +98,14 @@ export default function PortalApp() {
   const navigate = useNavigate()
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
   const [loading, setLoading] = useState(true)
+  // PORTAL-ACCESS-STATE: the access lookup failing is its own state, kept apart
+  // from "no grants" so a dropped request is never reported as good news.
+  const [accessFailed, setAccessFailed] = useState(false)
+  // Why there is no portal, when the account is active and simply has no role:
+  // 'revoked' | 'expired' | 'pending' | 'not_provisioned', or null before the
+  // question has been asked. The RPC above cannot tell these apart.
+  const [grantState, setGrantState] = useState(null)
+  const [accessAttempt, setAccessAttempt] = useState(0)
   // The stage-aware mobile action (Log a Shift during Active Rotation) is
   // reported upward by StudentPortal once its summary loads, so the single
   // bottom bar can carry it without a second data fetch here.
@@ -146,6 +157,11 @@ export default function PortalApp() {
   // WELCOME-TOUR-PORTALS-1: the Welcome Tour experience for the resolved portal role, derived
   // from the same role booleans the rest of this component already uses.
   const experience = isStudent ? 'student' : isUnitLeader ? 'unit_leader' : isAcademicPartner ? 'academic_partner' : null
+  // PORTAL-ACCESS-STATE: a deactivated account is the one answer that outranks
+  // everything else. It is read from the profile the app already holds, so no
+  // extra request is needed and the answer is available even when every portal
+  // endpoint is refusing this caller.
+  const deactivated = userProfile?.is_active === false
   const [tourRunning, setTourRunning] = useState(false)
   const tourArmedRef = useRef(false)
   const tourTimeoutRef = useRef(null)
@@ -174,10 +190,15 @@ export default function PortalApp() {
 
   useEffect(() => {
     let cancelled = false
+    // No reset here: retryAccessCheck clears accessFailed before bumping
+    // accessAttempt, so this effect never starts from a stale failure.
     supabase.rpc('get_my_portal_access')
       .then(({ data, error }) => {
         if (cancelled) return
-        if (error || !data) setAccess({ roles: [] })
+        // A failed or empty RPC is recorded AS a failure. It used to be flattened
+        // into { roles: [] }, which rendered the same reassuring card as a person
+        // who genuinely has no portal yet.
+        if (error || !data) { setAccess({ roles: [] }); setAccessFailed(true) }
         else setAccess({
           roles: Array.isArray(data.roles) ? data.roles : [],
           student_ids: Array.isArray(data.student_ids) ? data.student_ids : [],
@@ -186,9 +207,9 @@ export default function PortalApp() {
         })
         setLoading(false)
       })
-      .catch(() => { if (!cancelled) { setAccess({ roles: [] }); setLoading(false) } })
+      .catch(() => { if (!cancelled) { setAccess({ roles: [] }); setAccessFailed(true); setLoading(false) } })
     return () => { cancelled = true }
-  }, [])
+  }, [accessAttempt])
 
   // AP-PORTAL: read the ONE canonical server capability (env flag AND applied DB migration) for
   // Academic Partner messaging, only for an Academic Partner. Fails closed on any error; the Messages
@@ -222,6 +243,38 @@ export default function PortalApp() {
   // WELCOME-TOUR-PORTALS-1: unmount-only cleanup for the auto-start timer below. Kept in its own
   // effect (empty deps) so a dependency change never cancels an already-armed timer; only real
   // unmount does.
+  // PORTAL-ACCESS-STATE: ask WHY there is no portal. Only asked when the answer
+  // is not already known: a deactivated account, a failed access lookup, and an
+  // account that HAS a portal all skip it, so this adds no request to any normal
+  // sign-in. The endpoint reports one state string about the caller's own
+  // account and nothing else.
+  useEffect(() => {
+    if (loading || deactivated || accessFailed || experience) return undefined
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData?.session?.access_token
+        if (!token) { if (!cancelled) setAccessFailed(true); return }
+        const res = await fetch('/api/portal/my-access-state', { headers: { Authorization: `Bearer ${token}` } })
+        if (cancelled) return
+        if (!res.ok) { setAccessFailed(true); return }
+        const body = await res.json()
+        if (!cancelled) setGrantState(body?.state || null)
+      } catch {
+        if (!cancelled) setAccessFailed(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [loading, deactivated, accessFailed, experience, accessAttempt])
+
+  const retryAccessCheck = useCallback(() => {
+    setGrantState(null)
+    setAccessFailed(false)
+    setLoading(true)
+    setAccessAttempt(n => n + 1)
+  }, [])
+
   useEffect(() => () => { if (tourTimeoutRef.current) clearTimeout(tourTimeoutRef.current) }, [])
 
   // WELCOME-TOUR-PORTALS-1: auto-start once, after portal access AND role resolution. Student and
@@ -247,10 +300,23 @@ export default function PortalApp() {
           <div className="ptl-skel ptl-skel-card" />
           <div className="ptl-skel ptl-skel-card" />
         </div>
-        <p className="ptl-visually-hidden" role="status">Loading your ASPIRE portal</p>
+          <p className="ptl-visually-hidden" role="status">Loading your ASPIRE portal</p>
       </div>
     )
   }
+
+  // PORTAL-ACCESS-STATE: a deactivated account is answered HERE, ahead of every
+  // portal branch, and this placement is the point of it.
+  //
+  // Deactivation does not remove a portal role grant, and get_my_portal_access()
+  // reports grants without consulting user_profiles.is_active, so a deactivated
+  // person can still resolve to a full portal experience. They would then land in
+  // StudentPortal, whose summary fetch treats the refusal as an empty result
+  // (`summaryRes.ok ? ... : { students: [] }`), and be shown a complete, blank
+  // portal with no explanation at all. Answering before the branch is what stops
+  // that. The endpoints were already refusing this caller; only the screen was
+  // lying about why.
+  if (deactivated) return <PortalAccessNotice state={ACCESS_STATES.DEACTIVATED} />
 
   const roles = access?.roles || []
 
@@ -407,23 +473,41 @@ export default function PortalApp() {
     )
   }
 
-  return <BeingPrepared />
+  return (
+    <PortalAccessNotice
+      state={resolveAccessState({ profileActive: userProfile?.is_active, checkFailed: accessFailed, grantState })}
+      onRetry={retryAccessCheck}
+    />
+  )
 }
 
-function BeingPrepared() {
+// PORTAL-ACCESS-STATE: one card, wording chosen by state. The artwork and the
+// Sign out control are unchanged; only what the card says varies, plus a Try
+// again control for the one state where trying again can actually help.
+function PortalAccessNotice({ state, onRetry }) {
   const { signOut } = useAuth()
+  const copy = accessCopy(state)
   return (
     <div className="ptl-page ptl-center">
-      <div className="ptl-card ptl-center-card ptl-prepared">
+      <div className="ptl-card ptl-center-card ptl-prepared" data-access-state={state}>
         <div className="ptl-prepared-art" aria-hidden="true">
           <img src="/public-site/illustrations/hero.png" alt="" loading="lazy" decoding="async" />
         </div>
-        <h1 className="ptl-card-title">Your ASPIRE portal is being prepared</h1>
+        <h1 className="ptl-card-title">{copy.title}</h1>
         <p className="ptl-muted">
-          Your account is active, but your portal experience is not available yet.
-          The ASPIRE team will let you know as soon as it opens.
+          {copy.body}
+          {copy.showSupport && (
+            <>
+              {' '}Email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+            </>
+          )}
         </p>
-        <button className="ptl-btn-outline" onClick={signOut}>Sign out</button>
+        <div className="ptl-prepared-actions">
+          {copy.canRetry && onRetry && (
+            <button className="ptl-btn-outline" onClick={onRetry}>Try again</button>
+          )}
+          <button className="ptl-btn-outline" onClick={signOut}>Sign out</button>
+        </div>
       </div>
     </div>
   )

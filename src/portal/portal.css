@@ -554,6 +554,10 @@
 .ptl-prepared-art { margin: 0 -24px 18px; height: 120px; overflow: hidden; display: flex; align-items: center; }
 .ptl-prepared-art img { width: 100%; height: auto; display: block; opacity: 0.9; }
 .ptl-prepared h1 { font-size: 15px; }
+/* PORTAL-ACCESS-STATE: the card can now carry two controls (Try again alongside
+   Sign out) for the one state where retrying helps. One control is the common
+   case and still centres exactly as before. */
+.ptl-prepared-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
 /* Edit Profile drawer */
 .ptl-drawer-backdrop { position: fixed; inset: 0; background: rgba(15,20,25,0.42); z-index: 1998; }

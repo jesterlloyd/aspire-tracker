@@ -51,7 +51,12 @@ test('activation: the workspace is mounted inside the portal boundary', async (t
   })
 
   await t.test('no other portal role mounts Messages', () => {
-    const unit = app.slice(app.indexOf("if (roles.includes('unit_leader'))"), app.indexOf('return <BeingPrepared />'))
+    // PORTAL-ACCESS-STATE: the fallback is now <PortalAccessNotice>, which
+    // reports WHY there is no portal instead of one catch-all card. The slice
+    // landmark moved with it; the property under test is unchanged.
+    const end = app.indexOf('<PortalAccessNotice')
+    assert.ok(end > 0, 'the portal fallback landmark must exist')
+    const unit = app.slice(app.indexOf("if (roles.includes('unit_leader'))"), end)
     assert.doesNotMatch(unit, /PortalMessagesWorkspace|PortalNav/)
   })
 
@@ -69,7 +74,13 @@ test('activation: the workspace is mounted inside the portal boundary', async (t
       assert.doesNotMatch(s, /is_staff/)
       assert.doesNotMatch(s, /\.rpc\('messages_/)
       assert.doesNotMatch(s, /service_role|SERVICE_ROLE/)
-      assert.doesNotMatch(s, /email/i)
+      // No student, staff, or recipient email is handled in the browser. The one
+      // permitted appearance is the fixed ASPIRE support address on the
+      // no-access card: a mailto link and its visible label, which identify
+      // nobody. Those lines are set aside by name and everything else must
+      // still be free of any email reference.
+      const withoutSupport = s.split('\n').filter(l => !/SUPPORT_EMAIL/.test(l)).join('\n')
+      assert.doesNotMatch(withoutSupport, /email/i)
     }
     // Client visibility is not the boundary: every call is an authenticated API.
     assert.match(read('../src/lib/messages/portalMessagesApiClient.js'), /\/api\/portal\/messages-list/)
