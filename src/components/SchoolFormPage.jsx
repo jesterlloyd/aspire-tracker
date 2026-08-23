@@ -96,9 +96,16 @@ export default function SchoolFormPage() {
       const res = await fetch('/api/school-form-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildPlacementBody({
-          cohortId, cohortName, coordinator: coord, rotation, availability: avail, students: rows,
-        })),
+        // S-08: the password is now verified SERVER-side before anything is written.
+        // The coordinator already typed it to reach this form, so this simply sends
+        // what the page is holding; nothing new is asked of them. An empty string is
+        // correct and harmless for a cohort that has no password set.
+        body: JSON.stringify({
+          ...buildPlacementBody({
+            cohortId, cohortName, coordinator: coord, rotation, availability: avail, students: rows,
+          }),
+          password: pwdInput.trim(),
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
