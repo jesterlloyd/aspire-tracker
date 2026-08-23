@@ -18,13 +18,16 @@
 //   8 operation-specific (role-transition matrix / admin target restriction)
 //   9 idempotency (no-op short-circuit)
 //
-// Account-state model: profile boolean `is_active` (no Supabase Auth ban). All
-// mutations use target.id (profile PK) resolved from the fetched record.
+// Account-state model: profile boolean `is_active`, PLUS a Supabase Auth ban applied
+// on deactivation and lifted on reactivation (S-05). The profile flag is what every
+// endpoint checks per request; the ban is what stops the account renewing its
+// session. All mutations use target.id (profile PK) resolved from the fetched record.
 
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { appUrl } from '../lib/server/appUrl.js';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { endAuthAccess, restoreAuthAccess } from './lib/accountSession.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PERMITTED_ROLES_FOR_UPDATE = ['admin', 'interviewer', 'viewer'];
@@ -284,6 +287,34 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'internal_error' });
   }
 
+  // ── S-05: carry the state change into Supabase Auth ─────────────────────────
+  // Deactivating sets a permanent ban, so the account cannot refresh its token or
+  // sign in again; reactivating lifts it. The profile write above is already
+  // committed and is deliberately NOT rolled back if this fails: the per-request
+  // active checks on every endpoint already refuse a deactivated caller, so the
+  // flag alone secures the account. A failure here means the account keeps a
+  // renewable session it can no longer use, which is worth reporting, not hiding.
+  let authAccess = null;
+  if (operation === 'toggle_active') {
+    authAccess = newActive
+      ? await restoreAuthAccess(db, target.auth_user_id)
+      : await endAuthAccess(db, target.auth_user_id);
+    if (!authAccess.ok) {
+      console.error('[admin-users] auth access change failed', { operation, action: authAccess.action, targetProfileId: target.id, targetAuthUserId: target.auth_user_id, reason: authAccess.reason, request_id: requestId });
+    }
+    await emitAudit(db, auth, {
+      actionType: newActive ? 'admin_account_reactivated' : 'admin_account_deactivated',
+      targetProfileId: target.id, targetAuthUserId: target.auth_user_id, targetName: target.full_name,
+      description: `${newActive ? 'Reactivated' : 'Deactivated'} ${target.full_name || 'a user'}${authAccess.ok ? '' : ' (session termination failed)'}`,
+      requestId,
+    });
+  }
+
   console.log('[admin-users] mutation applied', { callerRole: auth.role, callerIsOwner: auth.isOwner, operation, targetProfileId: target.id, targetAuthUserId: target.auth_user_id, request_id: requestId });
-  return res.status(200).json({ success: true });
+  return res.status(200).json({
+    success: true,
+    // Surfaced so the caller learns the account state changed but its existing
+    // session was not revoked. Absent on every successful path.
+    ...(authAccess && !authAccess.ok ? { session_warning: 'The account state was saved, but its existing sign-in session could not be ended. Contact the ASPIRE team.' } : {}),
+  });
 }

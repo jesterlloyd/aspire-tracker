@@ -33,6 +33,7 @@ import { appUrl } from '../lib/server/appUrl.js';
 import { staffInvitationEmail } from '../lib/server/email/staffInvitation.js';
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { restoreAuthAccess } from './lib/accountSession.js';
 
 // STAFF-INVITE-CONTACTS-1 / PORTAL-ACTIVATION-RELIABILITY-1 parity.
 //
@@ -332,6 +333,17 @@ export default async function handler(req, res) {
     if (profileError) {
       console.log('[invite-user] profile write failed after auth invite', { newUserId, callerRole: auth.role, callerIsOwner: auth.isOwner, requestedRole, errorCode: profileError.code, request_id: requestId });
       return res.status(500).json({ error: 'internal_error', message: 'Invitation partially processed. The ASPIRE team will follow up.' });
+    }
+
+    // S-05: both branches above set is_active: true, so a previously deactivated
+    // person can be re-invited. Deactivation bans the auth identity, so the ban
+    // has to be lifted here too or the re-invited account would still be unable
+    // to sign in. Harmless on an identity that was never banned. Logged rather
+    // than fatal: the profile is already active and the activation email still
+    // matters more than this call.
+    const restored = await restoreAuthAccess(supabaseAdmin, newUserId);
+    if (!restored.ok) {
+      console.error('[invite-user] could not lift auth ban on re-invite', { newUserId, requestedRole, reason: restored.reason, request_id: requestId });
     }
 
     // Send the branded, scanner-safe invitation. The account and role are already
