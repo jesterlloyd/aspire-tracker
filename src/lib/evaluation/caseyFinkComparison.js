@@ -119,11 +119,11 @@ export function buildCaseyFinkComparison(assignments = []) {
     const changeCounts = pairs.reduce((counts, pair) => {
       const preValue = Number(responseFor(pair.pre)[section.scoreKey])
       const postValue = Number(responseFor(pair.post)[section.scoreKey])
-      if (postValue > preValue) counts.improved += 1
-      else if (postValue < preValue) counts.declined += 1
-      else counts.unchanged += 1
+      if (postValue > preValue) counts.higherPost += 1
+      else if (postValue < preValue) counts.lowerPost += 1
+      else counts.same += 1
       return counts
-    }, { improved: 0, unchanged: 0, declined: 0 })
+    }, { higherPost: 0, same: 0, lowerPost: 0 })
     return {
       ...section,
       preMean,
@@ -143,11 +143,35 @@ export function buildCaseyFinkComparison(assignments = []) {
     })),
   )
 
+  const pairedStudents = pairs
+    .map(pair => {
+      const student = pair.pre?.students || pair.post?.students || {}
+      const firstName = student.preferred_first_name || student.first_name || ''
+      const lastName = student.last_name || ''
+      const studentName = [firstName, lastName].filter(Boolean).join(' ') || 'Student'
+
+      return {
+        studentId: pair.studentId,
+        studentName,
+        baselineTimepoint: pair.pre.timepoint,
+        baselineSubmittedAt: responseFor(pair.pre)?.submitted_at || pair.pre?.completed_at || null,
+        postSubmittedAt: responseFor(pair.post)?.submitted_at || pair.post?.completed_at || null,
+        scores: CASEY_FINK_SECTION_GROUPS.reduce((scores, section) => {
+          const pre = Number(responseFor(pair.pre)[section.scoreKey])
+          const post = Number(responseFor(pair.post)[section.scoreKey])
+          scores[section.key] = { pre, post, delta: post - pre }
+          return scores
+        }, {}),
+      }
+    })
+    .sort((a, b) => a.studentName.localeCompare(b.studentName, undefined, { sensitivity: 'base' }))
+
   return {
     matchedCount: pairs.length,
     baselineOnlyCount,
     postOnlyCount,
     metrics,
     itemDistributions,
+    pairedStudents,
   }
 }

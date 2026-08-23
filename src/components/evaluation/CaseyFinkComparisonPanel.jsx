@@ -18,7 +18,7 @@ function ScoreRow({ metric }) {
     : isNoNetChange
       ? 'No net change'
       : `${metric.delta >= 0 ? '+' : ''}${metric.delta.toFixed(2)}`
-  const changeCounts = metric.changeCounts || { improved: 0, unchanged: 0, declined: 0 }
+  const changeCounts = metric.changeCounts || { higherPost: 0, same: 0, lowerPost: 0 }
 
   return (
     <div className="casey-compare-row">
@@ -59,17 +59,84 @@ function ScoreRow({ metric }) {
         </div>
         <div
           className="casey-compare-change-counts"
-          aria-label={`${changeCounts.improved} students improved, ${changeCounts.unchanged} unchanged, ${changeCounts.declined} declined`}
+          aria-label={`${changeCounts.higherPost} students with a higher post score, ${changeCounts.same} with the same score, ${changeCounts.lowerPost} with a lower post score`}
         >
-          <span className="is-improved"><i />{changeCounts.improved} improved</span>
-          <span className="is-unchanged"><i />{changeCounts.unchanged} unchanged</span>
-          <span className="is-declined"><i />{changeCounts.declined} declined</span>
+          <span className="is-higher"><i />{changeCounts.higherPost} higher post score</span>
+          <span className="is-same"><i />{changeCounts.same} no change</span>
+          <span className="is-lower"><i />{changeCounts.lowerPost} lower post score</span>
         </div>
       </div>
 
       <div className={`casey-compare-delta ${metric.delta < 0 ? 'is-negative' : ''} ${isNoNetChange ? 'is-neutral' : ''}`}>
         {deltaLabel}
       </div>
+    </div>
+  )
+}
+
+function formatDate(value) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function baselineLabel(timepoint) {
+  return timepoint === 'baseline' ? 'Baseline' : 'Early-rotation baseline'
+}
+
+function ScoreChange({ score }) {
+  if (!score) return <span>-</span>
+  const isSame = Math.abs(score.delta) < 0.0005
+  const delta = isSame ? 'No change' : `${score.delta > 0 ? '+' : ''}${score.delta.toFixed(2)}`
+  const direction = isSame ? 'is-same' : score.delta > 0 ? 'is-higher' : 'is-lower'
+  return (
+    <span className="casey-paired-score">
+      <span>{score.pre.toFixed(2)} → {score.post.toFixed(2)}</span>
+      <small className={direction}>{delta}</small>
+    </span>
+  )
+}
+
+function PairedScoreDetails({ students }) {
+  return (
+    <div className="casey-paired-details">
+      <div className="casey-paired-heading">
+        <strong>Matched student score details</strong>
+        <span>Each row shows the exact baseline and post-rotation subscale means used in the chart.</span>
+      </div>
+      <div className="casey-paired-table-wrap">
+        <table className="casey-paired-table">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Matched surveys</th>
+              <th>Clinical Problem-Solving</th>
+              <th>Learning Activities</th>
+              <th>Practice Readiness</th>
+            </tr>
+          </thead>
+          <tbody>
+            {students.map(student => (
+              <tr key={student.studentId}>
+                <td><strong>{student.studentName}</strong></td>
+                <td>
+                  <span className="casey-paired-surveys">
+                    <span>{baselineLabel(student.baselineTimepoint)} · {formatDate(student.baselineSubmittedAt)}</span>
+                    <span>Post-rotation · {formatDate(student.postSubmittedAt)}</span>
+                  </span>
+                </td>
+                <td><ScoreChange score={student.scores.clinical_problem_solving} /></td>
+                <td><ScoreChange score={student.scores.learning_activities} /></td>
+                <td><ScoreChange score={student.scores.practice_readiness} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="casey-paired-note">
+        Higher and lower refer only to the direction of the student-reported post score. They are not survey acceptance or refusal statuses.
+      </p>
     </div>
   )
 }
@@ -131,6 +198,7 @@ function QuestionLevelDetails({ distributions }) {
 
 export default function CaseyFinkComparisonPanel({ comparison }) {
   const [showDetails, setShowDetails] = useState(false)
+  const [showPairedScores, setShowPairedScores] = useState(false)
   const hasPairs = comparison.matchedCount > 0
 
   return (
@@ -178,17 +246,32 @@ export default function CaseyFinkComparisonPanel({ comparison }) {
           Observed change in student-reported readiness. This does not independently measure retention, objective competence, or financial savings.
         </p>
         {hasPairs && (
-          <button
-            type="button"
-            className="casey-compare-detail-button"
-            aria-expanded={showDetails}
-            onClick={() => setShowDetails(value => !value)}
-          >
-            {showDetails ? 'Hide question-level changes' : 'View question-level changes'}
-            {showDetails ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-          </button>
+          <div className="casey-compare-detail-actions">
+            <button
+              type="button"
+              className="casey-compare-detail-button"
+              aria-expanded={showPairedScores}
+              onClick={() => setShowPairedScores(value => !value)}
+            >
+              {showPairedScores ? 'Hide paired scores' : 'View paired scores'}
+              {showPairedScores ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+            <button
+              type="button"
+              className="casey-compare-detail-button"
+              aria-expanded={showDetails}
+              onClick={() => setShowDetails(value => !value)}
+            >
+              {showDetails ? 'Hide question-level changes' : 'View question-level changes'}
+              {showDetails ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+          </div>
         )}
       </footer>
+
+      {hasPairs && showPairedScores && (
+        <PairedScoreDetails students={comparison.pairedStudents || []} />
+      )}
 
       {hasPairs && showDetails && (
         <QuestionLevelDetails distributions={comparison.itemDistributions} />
