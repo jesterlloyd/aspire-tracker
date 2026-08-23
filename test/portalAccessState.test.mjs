@@ -162,17 +162,55 @@ test('portal: the notice renders state-driven copy and keeps Sign out', () => {
   assert.match(portalApp, /data-access-state=\{state\}/)
 })
 
-// ── The illustration is shown whole ──────────────────────────────────────────
+// ── The access card carries no illustration ──────────────────────────────────
 
-test('artwork: nothing forces a height, an aspect ratio, or a crop', () => {
-  const rule = portalCss.slice(portalCss.indexOf('.ptl-prepared-art {'))
-    .slice(0, portalCss.slice(portalCss.indexOf('.ptl-prepared-art {')).indexOf('}') + 1)
-  assert.doesNotMatch(rule, /height:/, 'a fixed height is what severed the figures')
-  assert.doesNotMatch(rule, /overflow:/, 'the strip must not clip the image')
-  assert.doesNotMatch(rule, /aspect-ratio:/)
-  assert.doesNotMatch(rule, /object-fit:/)
-  // The image keeps its own proportions.
+test('artwork: the no-access card has no image at all', () => {
+  const notice = portalApp.slice(portalApp.indexOf('function PortalAccessNotice'))
+  assert.doesNotMatch(notice, /<img/, 'five students smiling is the wrong picture for "you have no access"')
+  assert.doesNotMatch(notice, /hero\.png|ptl-prepared/)
+})
+
+test('artwork: the illustration stays where arriving is the subject', () => {
+  // Sign-in keeps it. Removing it everywhere would have been a different, larger
+  // decision than the one asked for.
+  assert.match(read('src/pages/Login.jsx'), /illustrations\/hero\.png/)
+})
+
+test('artwork: the plain card is composed, not just emptied', () => {
+  // Its own measure, a title with weight, and a ruled footer, so it reads as
+  // designed rather than as a picture that failed to load.
+  assert.match(portalCss, /\.ptl-access-card \{ max-width: 408px; padding: 30px 30px 22px; text-align: center; \}/)
+  assert.match(portalCss, /\.ptl-access-title \{[\s\S]*?font-weight: 700;/)
+  assert.match(portalCss, /\.ptl-access-actions \{[\s\S]*?border-top: 1px solid/)
+  assert.match(portalCss, /@media \(max-width: 760px\) \{\n  \.ptl-access-card \{ padding: 26px 22px 20px; \}/)
+  assert.match(portalApp, /className="ptl-card ptl-center-card ptl-access-card"/)
+})
+
+test('artwork: the shared no-record strip keeps its uncrop', () => {
+  // StudentPortal still uses .ptl-prepared-art, so the fix from cd70dc6 must hold.
+  const start = portalCss.indexOf('.ptl-prepared-art {')
+  const rule = portalCss.slice(start, start + portalCss.slice(start).indexOf('}') + 1)
+  assert.doesNotMatch(rule, /height:|overflow:|aspect-ratio:|object-fit:/)
   assert.match(portalCss, /\.ptl-prepared-art img \{ width: 100%; height: auto;/)
+})
+
+// ── The student no-record card makes no promise either ───────────────────────
+
+test('no-record card: plain, with no "yet" and no implied arrival', () => {
+  const studentPortal = read('src/portal/StudentPortal.jsx')
+  // Comment-stripped: the note above the copy legitimately quotes the old
+  // wording ("...connected to it yet") while explaining why it changed, so the
+  // no-promise rules are asserted against rendered text only.
+  const card = studentPortal.slice(studentPortal.indexOf('if (students.length === 0)'))
+    .slice(0, 1600)
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+  assert.match(card, /No student record on this account/)
+  assert.match(card, /There is no ASPIRE student record connected to this account/)
+  assert.doesNotMatch(card, /\byet\b/i, 'must not imply a record is on its way')
+  assert.doesNotMatch(card, /Your account is active/i)
+  assert.doesNotMatch(card, /will be|soon|shortly|being (set up|prepared)/i)
+  // Points at the same people, the same way.
+  assert.match(card, /mailto:\$\{SUPPORT\}/)
 })
 
 test('artwork: the bleed cancels the card padding at every breakpoint', () => {

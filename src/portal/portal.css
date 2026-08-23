@@ -568,6 +568,29 @@
 .ptl-prepared-art { margin: 0 calc(var(--ptl-card-pad-x, 24px) * -1) 18px; display: flex; }
 .ptl-prepared-art img { width: 100%; height: auto; display: block; opacity: 0.9; }
 .ptl-prepared h1 { font-size: 15px; }
+
+/* PORTAL-ACCESS-STATE: the no-access card, which carries no illustration.
+   It is a plain notice by design, so it has to look composed on its own: a
+   narrower measure than a working card, symmetric padding, a title with enough
+   weight to hold the top edge, and a ruled footer so the controls sit on
+   structure rather than floating under a paragraph. */
+.ptl-access-card { max-width: 408px; padding: 30px 30px 22px; text-align: center; }
+.ptl-access-title {
+  font-size: 17px; font-weight: 700; color: #1D2567;
+  line-height: 1.35; margin-bottom: 10px;
+}
+.ptl-access-body {
+  color: #6b7280; font-size: 13.5px; line-height: 1.65;
+  margin: 0 0 20px; text-wrap: pretty;
+}
+.ptl-access-body a { color: #1D2567; font-weight: 600; }
+.ptl-access-actions {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  border-top: 1px solid var(--ptl-line, #e3ded4); padding-top: 18px;
+}
+@media (max-width: 760px) {
+  .ptl-access-card { padding: 26px 22px 20px; }
+}
 /* PORTAL-ACCESS-STATE: the card can now carry two controls (Try again alongside
    Sign out) for the one state where retrying helps. One control is the common
    case and still centres exactly as before. */
