@@ -179,11 +179,26 @@ test('artwork: the illustration stays where arriving is the subject', () => {
 test('artwork: the plain card is composed, not just emptied', () => {
   // Its own measure, a title with weight, and a ruled footer, so it reads as
   // designed rather than as a picture that failed to load.
-  assert.match(portalCss, /\.ptl-access-card \{ max-width: 408px; padding: 30px 30px 22px; text-align: center; \}/)
+  assert.match(portalCss, /\.ptl-access-card \{ --ptl-card-measure: 408px; padding: 30px 30px 22px; text-align: center; \}/)
   assert.match(portalCss, /\.ptl-access-title \{[\s\S]*?font-weight: 700;/)
   assert.match(portalCss, /\.ptl-access-actions \{[\s\S]*?border-top: 1px solid/)
   assert.match(portalCss, /@media \(max-width: 760px\) \{\n  \.ptl-access-card \{ padding: 26px 22px 20px; \}/)
   assert.match(portalApp, /className="ptl-card ptl-center-card ptl-access-card"/)
+})
+
+test('layout: a centred card never touches the screen edge', () => {
+  // The gutter rule lives once, on .ptl-center-card, so every centred notice
+  // inherits it. A variant changes only its own measure; if one overrode
+  // max-width outright it would escape the gutter, which is exactly what
+  // .ptl-access-card did before this.
+  assert.match(portalCss, /\.ptl-center-card \{\n  --ptl-card-measure: 460px;\n  max-width: min\(var\(--ptl-card-measure\), 100vw - 32px\);/)
+  const variants = [...portalCss.matchAll(/\.ptl-(access|prepared)-card[^{]*\{([^}]*)\}/g)]
+  for (const v of variants) {
+    assert.doesNotMatch(v[2], /max-width:/, 'a centred-card variant must set --ptl-card-measure, not max-width')
+  }
+  // Measured against the VIEWPORT, not the container: the two cards sit in
+  // containers with different padding, and 100% would double-inset the padded one.
+  assert.doesNotMatch(portalCss, /max-width: min\(var\(--ptl-card-measure\), 100% - /)
 })
 
 test('artwork: the shared no-record strip keeps its uncrop', () => {

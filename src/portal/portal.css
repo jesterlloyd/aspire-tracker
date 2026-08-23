@@ -125,7 +125,24 @@
      negative margin matched only one of them. */
   --ptl-card-pad-x: 24px;
 }
-.ptl-center-card { max-width: 460px; margin: 40px auto; text-align: center; }
+/* A centred notice never touches the screen edge. The cap is the smaller of its
+   own measure and the viewport less a 32px gutter, so on a phone there is always
+   at least 16px of background either side.
+
+   Deliberately 100vw and not 100%: these cards sit in two different containers.
+   The no-access card is a flex child of .ptl-page, which has no padding, so it
+   ran edge to edge. StudentPortal's no-record card sits in .ptl-main, which
+   already pads 14px on phones. Measuring against the container would have
+   double-inset the second card for a problem it never had; measuring against the
+   viewport guarantees the gutter once, wherever the card lives.
+
+   Above 492px viewport the 460px measure wins and nothing changes, so this is
+   inert on desktop. */
+.ptl-center-card {
+  --ptl-card-measure: 460px;
+  max-width: min(var(--ptl-card-measure), 100vw - 32px);
+  margin: 40px auto; text-align: center;
+}
 .ptl-card-title { font-size: 15px; font-weight: 700; color: #1D2567; margin-bottom: 12px; }
 .ptl-error { border-color: #fca5a5; color: #991b1b; }
 
@@ -574,7 +591,7 @@
    narrower measure than a working card, symmetric padding, a title with enough
    weight to hold the top edge, and a ruled footer so the controls sit on
    structure rather than floating under a paragraph. */
-.ptl-access-card { max-width: 408px; padding: 30px 30px 22px; text-align: center; }
+.ptl-access-card { --ptl-card-measure: 408px; padding: 30px 30px 22px; text-align: center; }
 .ptl-access-title {
   font-size: 17px; font-weight: 700; color: #1D2567;
   line-height: 1.35; margin-bottom: 10px;
