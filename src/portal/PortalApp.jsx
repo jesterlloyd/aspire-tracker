@@ -101,10 +101,6 @@ export default function PortalApp() {
   // PORTAL-ACCESS-STATE: the access lookup failing is its own state, kept apart
   // from "no grants" so a dropped request is never reported as good news.
   const [accessFailed, setAccessFailed] = useState(false)
-  // Why there is no portal, when the account is active and simply has no role:
-  // 'revoked' | 'expired' | 'pending' | 'not_provisioned', or null before the
-  // question has been asked. The RPC above cannot tell these apart.
-  const [grantState, setGrantState] = useState(null)
   const [accessAttempt, setAccessAttempt] = useState(0)
   // The stage-aware mobile action (Log a Shift during Active Rotation) is
   // reported upward by StudentPortal once its summary loads, so the single
@@ -243,33 +239,7 @@ export default function PortalApp() {
   // WELCOME-TOUR-PORTALS-1: unmount-only cleanup for the auto-start timer below. Kept in its own
   // effect (empty deps) so a dependency change never cancels an already-armed timer; only real
   // unmount does.
-  // PORTAL-ACCESS-STATE: ask WHY there is no portal. Only asked when the answer
-  // is not already known: a deactivated account, a failed access lookup, and an
-  // account that HAS a portal all skip it, so this adds no request to any normal
-  // sign-in. The endpoint reports one state string about the caller's own
-  // account and nothing else.
-  useEffect(() => {
-    if (loading || deactivated || accessFailed || experience) return undefined
-    let cancelled = false
-    ;(async () => {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const token = sessionData?.session?.access_token
-        if (!token) { if (!cancelled) setAccessFailed(true); return }
-        const res = await fetch('/api/portal/my-access-state', { headers: { Authorization: `Bearer ${token}` } })
-        if (cancelled) return
-        if (!res.ok) { setAccessFailed(true); return }
-        const body = await res.json()
-        if (!cancelled) setGrantState(body?.state || null)
-      } catch {
-        if (!cancelled) setAccessFailed(true)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [loading, deactivated, accessFailed, experience, accessAttempt])
-
   const retryAccessCheck = useCallback(() => {
-    setGrantState(null)
     setAccessFailed(false)
     setLoading(true)
     setAccessAttempt(n => n + 1)
@@ -306,7 +276,9 @@ export default function PortalApp() {
   }
 
   // PORTAL-ACCESS-STATE: a deactivated account is answered HERE, ahead of every
-  // portal branch, and this placement is the point of it.
+  // portal branch, and this placement is the point of it. It shows the SAME
+  // no-access card everyone else sees: a switched-off account and a finished
+  // rotation are the same fact to the person reading it.
   //
   // Deactivation does not remove a portal role grant, and get_my_portal_access()
   // reports grants without consulting user_profiles.is_active, so a deactivated
@@ -316,7 +288,7 @@ export default function PortalApp() {
   // portal with no explanation at all. Answering before the branch is what stops
   // that. The endpoints were already refusing this caller; only the screen was
   // lying about why.
-  if (deactivated) return <PortalAccessNotice state={ACCESS_STATES.DEACTIVATED} />
+  if (deactivated) return <PortalAccessNotice state={ACCESS_STATES.NO_ACCESS} />
 
   const roles = access?.roles || []
 
@@ -475,7 +447,7 @@ export default function PortalApp() {
 
   return (
     <PortalAccessNotice
-      state={resolveAccessState({ profileActive: userProfile?.is_active, checkFailed: accessFailed, grantState })}
+      state={resolveAccessState({ checkFailed: accessFailed })}
       onRetry={retryAccessCheck}
     />
   )

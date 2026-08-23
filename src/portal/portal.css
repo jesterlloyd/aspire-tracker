@@ -120,6 +120,10 @@
   background: var(--ptl-card, #fff); border: 1px solid var(--ptl-line, #e3ded4);
   border-radius: var(--ptl-radius, 16px);
   padding: 22px 24px;
+  /* The card's own horizontal padding, published so a full-bleed child can
+     cancel it exactly. Card padding changes at two breakpoints; a hardcoded
+     negative margin matched only one of them. */
+  --ptl-card-pad-x: 24px;
 }
 .ptl-center-card { max-width: 460px; margin: 40px auto; text-align: center; }
 .ptl-card-title { font-size: 15px; font-weight: 700; color: #1D2567; margin-bottom: 12px; }
@@ -491,7 +495,7 @@
    reads as hierarchy and breathing room, not stretched text. */
 @media (min-width: 1280px) {
   .ptl-grid { gap: 22px; }
-  .ptl-card { padding: 24px 26px; }
+  .ptl-card { padding: 24px 26px; --ptl-card-pad-x: 26px; }
 }
 
 /* ── ASPIRE-COMPASS: stage-aware surface treatments ─────────────────────────── */
@@ -548,10 +552,20 @@
   @keyframes ptl-shimmer { to { transform: translateX(100%); } }
 }
 
-/* "Being prepared" and no-record states: a narrow cropped strip of the
-   approved hero illustration; never inside dense working surfaces. */
+/* No-access and no-record states: the approved hero illustration, shown whole.
+   It used to be forced into a 120px strip with overflow hidden, which hid 53%
+   of a 1120x631 image and severed the figures at both ends. Nothing here sets a
+   height or an aspect ratio now: the image keeps its own proportions and the
+   card grows to fit it.
+
+   The bleed cancels the card's padding through --ptl-card-pad-x rather than a
+   fixed -24px, which matched only the middle of three padding breakpoints: at
+   1280px and up it left a 2px sliver of card either side, and at 760px and
+   below it overhung by 8px per side and was clipped horizontally by
+   .ptl-prepared's overflow. That overflow stays, and now does only the job it
+   was for: rounding the image to the card's top corners. */
 .ptl-prepared { padding-top: 0; overflow: hidden; }
-.ptl-prepared-art { margin: 0 -24px 18px; height: 120px; overflow: hidden; display: flex; align-items: center; }
+.ptl-prepared-art { margin: 0 calc(var(--ptl-card-pad-x, 24px) * -1) 18px; display: flex; }
 .ptl-prepared-art img { width: 100%; height: auto; display: block; opacity: 0.9; }
 .ptl-prepared h1 { font-size: 15px; }
 /* PORTAL-ACCESS-STATE: the card can now carry two controls (Try again alongside
@@ -615,7 +629,7 @@
   .ptl-header-nightfall .ptl-header-aspire { font-size: 16px; }
   .ptl-header-sub { display: none; }
   .ptl-help-grid { grid-template-columns: 1fr; }
-  .ptl-card { padding: 18px 16px; }
+  .ptl-card { padding: 18px 16px; --ptl-card-pad-x: 16px; }
   .ptl-drawer { max-width: 100%; }
 }
 
