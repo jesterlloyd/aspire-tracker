@@ -40,10 +40,13 @@ export default function UnitFormPage() {
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  // Pre-fill from unit_cohort_responses when unit is selected
-  const handleUnitChange = useCallback(async (unitName) => {
-    set('unit_name', unitName)
-    setExistingRow(null)
+  // S-10: the pre-fill comes back in two halves. Structured answers (slots, shift
+  // preference, the yes/no questions) arrive as soon as a unit is chosen. The
+  // submitter's name, role, and every free-text answer arrive only once the caller
+  // has supplied the email address they were filed under, which a returning
+  // coordinator types anyway. `submitterEmail` is empty on the first call and
+  // present on the re-check that runs when they finish typing it.
+  const runPrefill = useCallback(async (unitName, submitterEmail) => {
     if (!unitName || !cohortId) return
 
     setLookingUp(true)
@@ -55,36 +58,51 @@ export default function UnitFormPage() {
       const lookupRes = await fetch('/api/unit-form-lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ unit_name: unitName }),
+        body: JSON.stringify({ unit_name: unitName, submitter_email: submitterEmail || '' }),
       })
       const lookupData = await lookupRes.json().catch(() => ({}))
       const responseRow = (lookupRes.ok && lookupData.found) ? lookupData.response : null
 
       if (responseRow) {
         setExistingRow(responseRow)
-        setForm({
-          unit_name:             unitName,
-          submitter_name:        responseRow.submitted_by_name  || '',
-          submitter_email:       responseRow.submitted_by_email || '',
-          submitter_role:        responseRow.submitted_by_role  || '',
-          slots_offered:         responseRow.slots_offered != null ? String(responseRow.slots_offered) : '',
-          shift_preference:      responseRow.shift_preference   || '',
-          preferred_preceptors:  responseRow.preferred_preceptors || '',
-          considerations:        responseRow.considerations     || '',
-          reason_for_zero:       responseRow.reason_for_zero   || '',
-          hiring_ngrp:           responseRow.hiring_new_grads_ngrp ?? null,
-          hiring_ngrp_reason:    responseRow.hiring_new_grads_reason || '',
-          has_fired_alumni:      responseRow.has_hired_aspire_alumni || '',
-          alumni_outcome:        responseRow.aspire_alumni_outcome || '',
-          alumni_notes:          responseRow.aspire_alumni_notes || '',
-          would_consider_alumni: responseRow.would_consider_aspire_alumni || '',
+        // MERGE, never replace. The open half can safely overwrite a blank form on
+        // unit selection, but the guarded half arrives on a second call by which
+        // time the coordinator is mid-typing, so anything they have already entered
+        // wins over a stored value.
+        setForm(prev => {
+          const next = {
+            ...prev,
+            unit_name:             unitName,
+            slots_offered:         responseRow.slots_offered != null ? String(responseRow.slots_offered) : '',
+            shift_preference:      responseRow.shift_preference   || '',
+            hiring_ngrp:           responseRow.hiring_new_grads_ngrp ?? null,
+            has_fired_alumni:      responseRow.has_hired_aspire_alumni || '',
+            alumni_outcome:        responseRow.aspire_alumni_outcome || '',
+            would_consider_alumni: responseRow.would_consider_aspire_alumni || '',
+          }
+          if (lookupData.identifying_included) {
+            next.submitter_name       = prev.submitter_name       || responseRow.submitted_by_name  || ''
+            next.submitter_role       = prev.submitter_role       || responseRow.submitted_by_role  || ''
+            next.preferred_preceptors = prev.preferred_preceptors || responseRow.preferred_preceptors || ''
+            next.considerations       = prev.considerations       || responseRow.considerations     || ''
+            next.reason_for_zero      = prev.reason_for_zero      || responseRow.reason_for_zero    || ''
+            next.hiring_ngrp_reason   = prev.hiring_ngrp_reason   || responseRow.hiring_new_grads_reason || ''
+            next.alumni_notes         = prev.alumni_notes         || responseRow.aspire_alumni_notes || ''
+          }
+          return next
         })
       }
-    } catch (err) {
-      console.error('[UnitForm] prefill error:', err)
+    } catch {
+      // A pre-fill failure is never fatal: the coordinator fills the form manually.
     }
     setLookingUp(false)
   }, [cohortId])
+
+  const handleUnitChange = useCallback(async (unitName) => {
+    set('unit_name', unitName)
+    setExistingRow(null)
+    await runPrefill(unitName, '')
+  }, [runPrefill])
 
   const slotsNum = participationSlots(form)
   const isHosting = isHostingParticipation(form)
@@ -282,6 +300,11 @@ export default function UnitFormPage() {
               <label className="uf-label">{PARTICIPATION_TEXT.emailLabel} *</label>
               <input className="uf-input" type="email" value={form.submitter_email}
                 onChange={e => set('submitter_email', e.target.value)}
+                // S-10: the guarded half of a prior submission is released only to a
+                // caller who supplies the address it was filed under. This is the
+                // re-check, on blur, so a returning coordinator gets their own
+                // previous answers back without anyone else being able to.
+                onBlur={e => { const v = e.target.value.trim(); if (v && form.unit_name) runPrefill(form.unit_name, v) }}
                 placeholder="you@cshs.org" />
             </div>
 
