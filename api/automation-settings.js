@@ -14,6 +14,7 @@
 // no secrets/tokens/metadata returned.
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // Known automations for this phase. The SERVER owns this list (the table intentionally does not
 // constrain automation_key), so adding a future automation is a code change, not a schema change.
@@ -103,11 +104,14 @@ export default async function handler(req, res) {
 
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role, is_owner')
+    .select('id, role, is_owner, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
   const isOwnerAdmin = !!profile && (profile.is_owner === true || ['owner', 'admin'].includes(profile.role));
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) return res.status(403).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
   if (!isOwnerAdmin) return res.status(403).json({ error: 'Forbidden' });
   const actorId = profile.id; // user_profiles.id - recorded as created_by / updated_by
 

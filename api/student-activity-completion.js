@@ -3,6 +3,7 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import {
   REQUIRED_ACTIVITY_KEYS, ACTIVITY_LABELS, currentActivityState,
 } from '../src/lib/evaluation/postRotationSequence.js';
+import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // POST-ROTATION-SEQUENCED-RELEASE-1 - record / correct required activity completion.
 //
@@ -54,11 +55,14 @@ async function verifyCaller(req) {
 
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role, is_owner, full_name, email')
+    .select('id, role, is_owner, full_name, email, is_active')
     .eq('auth_user_id', user.id)
     .maybeSingle();
 
   if (!profile) return { ok: false, status: 403 };
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (!isActiveProfile(profile)) return { ok: false, status: INACTIVE_STATUS, reason: INACTIVE_REASON };
   // Recording program-activity completion is an Owner/Admin action, matching the
   // release endpoints this feeds.
   if (!['owner', 'admin'].includes(profile.role)) return { ok: false, status: 403 };
@@ -72,6 +76,7 @@ export default async function handler(req, res) {
 
   // ── 1. Authorize on the SERVER. UI gating is not a gate. ────────────────────
   const auth = await verifyCaller(req);
+  if (auth.reason === INACTIVE_REASON) return res.status(INACTIVE_STATUS).json({ success: false, error: 'Forbidden', message: INACTIVE_MESSAGE });
   if (!auth.ok) {
     return res.status(auth.status).json({ success: false, error: auth.status === 403 ? 'Forbidden' : 'Unauthorized' });
   }

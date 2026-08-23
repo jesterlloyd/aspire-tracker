@@ -12,6 +12,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { MONITORED_CRON_NAMES } from '../src/lib/automationCatalog.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -37,11 +38,14 @@ export default async function handler(req, res) {
 
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('role, is_owner')
+    .select('role, is_owner, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
   const isOwnerAdmin = !!profile && (profile.is_owner === true || ['owner', 'admin'].includes(profile.role));
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) return res.status(403).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
   if (!isOwnerAdmin) return res.status(403).json({ error: 'Forbidden' });
 
   // ── Read-only data ──────────────────────────────────────────────────────────

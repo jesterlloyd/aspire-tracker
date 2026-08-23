@@ -28,6 +28,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { AUDIENCES, aggregateOutreach, classifyAudience } from '../lib/server/outreachAnalytics.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
@@ -69,10 +70,15 @@ export default async function handler(req, res) {
     // ── 2. Role check (owner/admin) ───────────────────────────────────────────
     const { data: profile } = await supabaseAdmin
       .from('user_profiles')
-      .select('id, role')
+      .select('id, role, is_active')
       .eq('auth_user_id', user.id)
       .single();
 
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (profile && profile.is_active === false) {
+      return res.status(403).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
+    }
     if (!profile || !['owner', 'admin'].includes(profile.role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }

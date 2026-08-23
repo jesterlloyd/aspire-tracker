@@ -21,6 +21,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { can as canAccess } from '../lib/server/access.js'
+import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js'
 
 const ROLES_ALLOWED   = new Set(['secondary', 'coverage'])  // never 'primary'
 const END_STATUSES    = new Set(['ended', 'removed'])
@@ -60,8 +61,11 @@ async function verifyCaller(req) {
   try {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
     const { data: profile, error: pErr } = await admin
-      .from('user_profiles').select('id, role, is_owner').eq('auth_user_id', user.id).maybeSingle()
+      .from('user_profiles').select('id, role, is_owner, is_active').eq('auth_user_id', user.id).maybeSingle()
     if (pErr || !profile) return { ok: false, status: 403, error: 'Forbidden' }
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (!isActiveProfile(profile)) return { ok: false, status: INACTIVE_STATUS, error: 'Forbidden', reason: INACTIVE_REASON }
     // ROLE-MODEL-1: placement management is Owner/Admin/Co-Lead (canonical table).
     if (!canAccess(profile, 'placement_manage')) return { ok: false, status: 403, error: 'Forbidden' }
     return { ok: true, admin, profileId: profile.id }
@@ -79,6 +83,7 @@ export default async function handler(req, res) {
 
   try {
     const caller = await verifyCaller(req)
+    if (caller.reason === INACTIVE_REASON) return res.status(INACTIVE_STATUS).json({ error: 'Forbidden', message: INACTIVE_MESSAGE })
     if (!caller.ok) return res.status(caller.status).json({ error: caller.error })
     const admin = caller.admin
 

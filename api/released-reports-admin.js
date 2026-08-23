@@ -15,6 +15,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js'
 
 const AUDIENCES = ['unit', 'school', 'public']
 
@@ -38,10 +39,13 @@ async function verifyCaller(req) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner')
+      .select('id, role, is_owner, is_active')
       .eq('auth_user_id', data.user.id)
       .maybeSingle()
     if (pErr || !profile) return { authenticated: false, status: pErr ? 401 : 403 }
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (!isActiveProfile(profile)) return { authenticated: false, status: INACTIVE_STATUS, reason: INACTIVE_REASON }
     if (!(profile.is_owner === true || profile.role === 'admin')) {
       return { authenticated: false, status: 403 }
     }
@@ -66,6 +70,7 @@ export default async function handler(req, res) {
 
   const requestId = `req_${randomUUID().slice(0, 8)}`
   const auth = await verifyCaller(req)
+  if (auth.reason === INACTIVE_REASON) return res.status(INACTIVE_STATUS).json({ error: 'forbidden', message: INACTIVE_MESSAGE })
   if (!auth.authenticated) {
     return res.status(auth.status).json({ error: auth.status === 403 ? 'forbidden' : 'unauthorized' })
   }

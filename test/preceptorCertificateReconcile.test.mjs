@@ -121,6 +121,8 @@ function buildHarness(fake) {
     .replace("from '../lib/server/evaluation/supabase_admin.js'", "from './fake-supabase.mjs'")
     .replace("from '../lib/server/appUrl.js'", "from './fake-appurl.mjs'")
     .replace("from '../lib/server/certificates/unlockPreceptorCertificate.js'", "from './unlock.mjs'")
+    .replace("from './lib/activeAccount.js'",
+             `from ${JSON.stringify(pathToFileURL(join(repo, 'api/lib/activeAccount.js')).href)}`)
     .replace("from '../lib/server/evaluation/tokens.js'",
              `from ${JSON.stringify(pathToFileURL(join(repo, 'lib/server/evaluation/tokens.js')).href)}`)
   writeFileSync(join(dir, 'handler.mjs'), src)

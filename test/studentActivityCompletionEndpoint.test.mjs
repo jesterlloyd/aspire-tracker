@@ -89,6 +89,7 @@ const src = read('api/student-activity-completion.js')
   .replace(/from '@supabase\/supabase-js'/, `from ${FAKE}`)
   .replace(/from '\.\.\/lib\/server\/evaluation\/supabase_admin\.js'/, `from ${FAKE}`)
   .replace(/from '\.\.\/src\/lib\/evaluation\/postRotationSequence\.js'/, `from ${abs('src/lib/evaluation/postRotationSequence.js')}`)
+  .replace(/from '\.\/lib\/activeAccount\.js'/, `from ${abs('api/lib/activeAccount.js')}`)
 writeFileSync(join(dir, 'handler.mjs'), src)
 
 const fakes = await import(pathToFileURL(join(dir, 'fake.mjs')).href)

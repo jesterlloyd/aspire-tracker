@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 function allowedInstrumentSlugs() {
   // Owner/Admin-authenticated content loader. preceptor_progress is included so the
@@ -47,10 +48,15 @@ export default async function handler(req, res) {
   // Role check: owner or admin only (mirrors send-midpoint-checkin.js pattern)
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('role')
+    .select('role, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) {
+    return res.status(403).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
+  }
   if (!profile || !['owner', 'admin'].includes(profile.role)) {
     return res.status(403).json({ error: 'Forbidden' });
   }

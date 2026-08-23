@@ -46,6 +46,7 @@ import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/te
 import { archiveSentMessage } from './lib/messageArchive.js';
 import { resolveAttachments } from './lib/outreachAttachments.js';
 import { validateBulkRecipients } from './lib/bulkRecipientAllowlist.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // Seeded fallback signatures for the two known leads (mirrors api/connect-send-direct-email.js).
 const SIGNATURE_SEED = {
@@ -190,10 +191,15 @@ async function _handler(req, res) {
   // ── 2. Role check + resolve sender identity/signature ──
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role, email, full_name, connect_signature, is_owner')
+    .select('id, role, email, full_name, connect_signature, is_owner, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) {
+    return res.status(403).json({ success: false, error: 'Forbidden', message: INACTIVE_MESSAGE });
+  }
   if (!profile || !['owner', 'admin'].includes(profile.role)) {
     return res.status(403).json({ success: false, error: 'Forbidden' });
   }

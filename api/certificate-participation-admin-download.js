@@ -18,6 +18,7 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { generateCompletionCertificate } from '../lib/server/certificates/generateCompletionCertificate.js';
 import { loadCertificateDisplayFields } from '../lib/server/certificates/loadCertificateDisplayFields.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-completion.pdf';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -62,9 +63,14 @@ export default async function handler(req, res) {
 
     const { data: profile } = await supabaseAdmin
       .from('user_profiles')
-      .select('role')
+      .select('role, is_active')
       .eq('auth_user_id', user.id)
       .single();
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (profile && profile.is_active === false) {
+      return res.status(403).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
+    }
     if (!profile || !['owner', 'admin'].includes(profile.role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }

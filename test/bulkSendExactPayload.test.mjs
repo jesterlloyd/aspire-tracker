@@ -113,6 +113,7 @@ function instrument(guardHref) {
     .replace(/from '\.\.\/lib\/server\/connect\/emailTemplates\.js'/, `from ${abs('lib/server/connect/emailTemplates.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/studentRecipient\.js'/, `from ${abs('src/lib/notifications/studentRecipient.js')}`)
     .replace(/from '\.\.\/src\/lib\/recipientParse\.js'/, `from ${abs('src/lib/recipientParse.js')}`)
+    .replace(/from '\.\/lib\/activeAccount\.js'/, `from ${abs('api/lib/activeAccount.js')}`)
     .replace(/from '\.\.\/src\/lib\/htmlEscape\.js'/, `from ${abs('src/lib/htmlEscape.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/templates\/signatures\.js'/, `from ${abs('src/lib/notifications/templates/signatures.js')}`)
     .replace(/from '\.\/lib\/messageArchive\.js'/, `from ${abs('api/lib/messageArchive.js')}`)

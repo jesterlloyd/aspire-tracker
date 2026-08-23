@@ -13,6 +13,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sendNotification } from '../src/lib/notifications/index.js';
 import { buildMidpointCheckinEmail } from '../src/lib/notifications/templates/midpointCheckin.js';
 import { getStudentPreferredGreetingName } from '../src/lib/studentNameFormatters.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -44,10 +45,15 @@ export default async function handler(req, res) {
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('role')
+    .select('role, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) {
+    return res.status(403).json({ error: 'Insufficient role', message: INACTIVE_MESSAGE });
+  }
   if (!profile || !['owner', 'admin'].includes(profile.role)) {
     return res.status(403).json({ error: 'Insufficient role' });
   }

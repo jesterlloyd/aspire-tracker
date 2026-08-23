@@ -26,6 +26,7 @@ import { runResumeInterviewQuestions, RIQ_SLUG } from '../lib/server/keith/resum
 import { schoolMatches } from './lib/schoolAliases.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const KEITH_TOTAL_DEADLINE_MS          = 25000;
 const KEITH_CONTEXT_TIMEOUT_MS         = 5000;
@@ -225,7 +226,7 @@ async function verifyCaller(req) {
     const admin = makeServiceRoleClient();
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner, full_name, connect_signature')
+      .select('id, role, is_owner, full_name, connect_signature, is_active')
       .eq('auth_user_id', user.id)
       .maybeSingle();
     if (pErr) {
@@ -233,6 +234,11 @@ async function verifyCaller(req) {
     }
     if (!profile) {
       return { authenticated: false, status: 403, error: 'forbidden', message: 'Profile not found. Contact the ASPIRE team.', reason: 'no_profile' };
+    }
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (!isActiveProfile(profile)) {
+      return { authenticated: false, status: INACTIVE_STATUS, error: 'forbidden', message: INACTIVE_MESSAGE, reason: INACTIVE_REASON };
     }
     // profileId is user_profiles.id, NOT auth.users.id. Four call sites depend on
     // it: the rate limiter (which refuses a request it cannot attribute), usage

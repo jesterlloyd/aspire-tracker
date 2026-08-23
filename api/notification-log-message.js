@@ -19,6 +19,7 @@ import { templates } from '../src/lib/notifications/templates/index.js';
 import { redactArchiveHtml } from './lib/messageArchive.js';
 import { buildSecureLinkSnapshot } from './lib/secureLinkSnapshot.js';
 import { Resend } from 'resend';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // Template-backed types renderable from stored context. All verified to contain only static program
 // links (logo, program domain, mailto/tel) - no context-derived/tokenized URLs.
@@ -176,11 +177,14 @@ export default async function handler(req, res) {
 
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('role, is_owner')
+    .select('role, is_owner, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
   const isOwnerAdmin = !!profile && (profile.is_owner === true || ['owner', 'admin'].includes(profile.role));
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) return res.status(403).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
   if (!isOwnerAdmin) return res.status(403).json({ error: 'Forbidden' });
 
   const id = req.query?.id;

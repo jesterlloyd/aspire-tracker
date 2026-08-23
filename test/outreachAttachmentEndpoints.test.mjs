@@ -259,6 +259,7 @@ function swap(src) {
     .replace(/from '\.\.\/lib\/server\/connect\/emailTemplates\.js'/, `from ${abs('lib/server/connect/emailTemplates.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/studentRecipient\.js'/, `from ${abs('src/lib/notifications/studentRecipient.js')}`)
     .replace(/from '\.\.\/src\/lib\/emailUtils\.js'/, `from ${abs('src/lib/emailUtils.js')}`)
+    .replace(/from '\.\/lib\/activeAccount\.js'/, `from ${abs('api/lib/activeAccount.js')}`)
     // PLACEMENT-COMMUNICATION-HANDOFF-1A: the placement metadata builder and the
     // authorization guard that decides whether a placement send may proceed. The
     // guard is loaded REAL, so these tests exercise the shipped verification.

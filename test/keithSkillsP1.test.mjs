@@ -959,7 +959,9 @@ test('the access model is stated: anon/authenticated denied, trusted roles retai
 test('verifyCaller returns the profile id it already fetches', () => {
   const src = read('api/keith.js')
   const verify = src.slice(src.indexOf('async function verifyCaller'), src.indexOf('// ── WS1: server-authoritative'))
-  assert.match(verify, /\.select\('id, role, is_owner, full_name, connect_signature'\)/)
+  // S-05 added is_active to the same select, so the caller's standing is known
+  // without a second round trip.
+  assert.match(verify, /\.select\('id, role, is_owner, full_name, connect_signature, is_active'\)/)
   assert.match(verify, /return \{ authenticated: true, userId: user\.id, profileId: profile\.id,/,
     'the id must be RETURNED, not merely selected')
   // profileId is user_profiles.id and must never be confused with auth.users.id.

@@ -183,6 +183,7 @@ function buildHandler(profileKey, { mutate = (s) => s, tag = profileKey, authent
     .replace(/from '\.\.\/lib\/server\/evaluation\/supabase_admin\.js'/, `from ${FAKE}`)
     .replace(/from '\.\/lib\/placementSendGuard\.js'/, `from ${abs('api/lib/placementSendGuard.js')}`)
     .replace(/from '\.\.\/src\/lib\/placementNotificationState\.js'/, `from ${abs('src/lib/placementNotificationState.js')}`)
+    .replace(/from '\.\/lib\/activeAccount\.js'/, `from ${abs('api/lib/activeAccount.js')}`)
   const modPath = join(dir, `handler-${tag}.mjs`)
   writeFileSync(modPath, src)
   return Promise.all([

@@ -27,6 +27,7 @@ import { processPreceptorSend } from '../lib/server/evaluation/preceptorSend.js'
 import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { PERIOD_TO_TIMEPOINT, PERIOD_LABELS } from '../lib/server/evaluation/preceptor_progress_validation.js';
 import { classifyCohort, AUTO_PERIODS } from '../src/lib/evaluation/preceptorDueDetection.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const INSTRUMENT_SLUG = 'preceptor_progress';
 const WINDOW_DAYS      = 28;
@@ -79,10 +80,15 @@ async function _handler(req, res) {
 
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role, email')
+    .select('id, role, email, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) {
+    return res.status(403).json({ success: false, error: 'Forbidden', message: INACTIVE_MESSAGE });
+  }
   if (!profile || !['owner', 'admin'].includes(profile.role)) {
     return res.status(403).json({ success: false, error: 'Forbidden' });
   }

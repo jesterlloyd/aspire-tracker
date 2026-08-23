@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
+import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // CATALOG-2C - Owner/Admin METADATA-ONLY edit of an existing catalog_resources row.
 //
@@ -43,11 +44,14 @@ async function verifyCaller(req) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner')
+      .select('id, role, is_owner, is_active')
       .eq('auth_user_id', user.id)
       .maybeSingle();
     if (pErr) return { authenticated: false, status: 401 };
     if (!profile) return { authenticated: false, status: 403 };
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (!isActiveProfile(profile)) return { authenticated: false, status: INACTIVE_STATUS, reason: INACTIVE_REASON };
     return { authenticated: true, profileId: profile.id, role: profile.role || '', isOwner: profile.is_owner === true };
   } catch {
     return { authenticated: false, status: 401 };
@@ -77,6 +81,7 @@ export default async function handler(req, res) {
 
   // Server-side authentication + Owner/Admin authorization
   const auth = await verifyCaller(req);
+  if (auth.reason === INACTIVE_REASON) return res.status(INACTIVE_STATUS).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
   if (!auth.authenticated) return res.status(auth.status || 401).json({ error: 'Unauthorized' });
   if (!isOwnerAdmin(auth.role, auth.isOwner)) return res.status(403).json({ error: 'Forbidden' });
 

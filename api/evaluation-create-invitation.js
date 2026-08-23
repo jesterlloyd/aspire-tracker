@@ -40,6 +40,7 @@ import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // ── Reissue classifier (INLINED) ────────────────────────────────────────────────────────────────
 // SURVEY-REISSUE-1 HOTFIX-4: inlined from the former api/lib/server/evaluation/assignment_reissue.js
@@ -148,10 +149,15 @@ async function _handler(req, res) {
   // IMPORTANT: assigned_by must store user_profiles.id, NOT auth.users.id.
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role')
+    .select('id, role, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) {
+    return res.status(403).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
+  }
   if (!profile || !['owner', 'admin'].includes(profile.role)) {
     return res.status(403).json({ error: 'Forbidden' });
   }

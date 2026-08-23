@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { extensionOf, ALLOWED_TYPES } from './lib/outreachAttachments.js';
+import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // OUTREACH-ATTACHMENTS-1 - the ASPIRE Catalog files that may be emailed.
 //
@@ -47,10 +48,13 @@ async function verifyCaller(req) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: profile } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner')
+      .select('id, role, is_owner, is_active')
       .eq('auth_user_id', user.id)
       .maybeSingle();
     if (!profile) return { authenticated: false, status: 403 };
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (!isActiveProfile(profile)) return { authenticated: false, status: INACTIVE_STATUS, reason: INACTIVE_REASON };
     return { authenticated: true, role: profile.role || '', isOwner: profile.is_owner === true };
   } catch {
     return { authenticated: false, status: 401 };
@@ -103,6 +107,7 @@ export default async function handler(req, res) {
   }
 
   const auth = await verifyCaller(req);
+  if (auth.reason === INACTIVE_REASON) return res.status(INACTIVE_STATUS).json({ error: 'Forbidden', message: INACTIVE_MESSAGE });
   if (!auth.authenticated) return res.status(auth.status || 401).json({ error: 'Unauthorized' });
   if (!canAttach(auth.role, auth.isOwner)) return res.status(403).json({ error: 'Forbidden' });
 

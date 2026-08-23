@@ -11,6 +11,7 @@ import { toLocalDateStr } from '../shared/dateUtils.js'
 // STUDENT-PORTAL-PROFILE-1: canonical sanitizers for the student-availability block
 // (the same encodings the intake and portal profile endpoints store).
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull } from '../src/lib/availability.js'
+import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js'
 
 // WS1e-A1: server-verified caller identity (WS1 pattern). Returns both identifier
 // domains (userId = auth.users.id, profileId = user_profiles.id). req.body never
@@ -37,9 +38,12 @@ async function verifyCaller(req) {
   try {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
     const { data: profile, error: pErr } = await admin
-      .from('user_profiles').select('id, role, is_owner').eq('auth_user_id', user.id).maybeSingle()
+      .from('user_profiles').select('id, role, is_owner, is_active').eq('auth_user_id', user.id).maybeSingle()
     if (pErr) return { authenticated: false, status: 401, reason: 'profile_lookup_failed' }
     if (!profile) return { authenticated: false, status: 403, reason: 'no_profile' }
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (!isActiveProfile(profile)) return { authenticated: false, status: INACTIVE_STATUS, reason: INACTIVE_REASON }
     return { authenticated: true, userId: user.id, profileId: profile.id, role: profile.role || '', isOwner: profile.is_owner === true }
   } catch {
     return { authenticated: false, status: 401, reason: 'profile_threw' }
@@ -219,6 +223,7 @@ export default async function handler(req, res) {
   const auth = await verifyCaller(req)
   if (!auth.authenticated) {
     console.log('[student-update] auth rejected', { reason: auth.reason, request_id: requestId })
+    if (auth.reason === INACTIVE_REASON) return res.status(INACTIVE_STATUS).json({ error: 'forbidden', message: INACTIVE_MESSAGE })
     if (auth.reason === 'no_profile') return res.status(403).json({ error: 'forbidden', message: 'Access denied.' })
     return res.status(401).json({ error: 'unauthorized', message: 'Authentication required' })
   }

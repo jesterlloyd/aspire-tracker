@@ -159,6 +159,7 @@ let callSettings
   const rewritten = settingsSrc
     .replace(/from '@supabase\/supabase-js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
     .replace(/from '\.\.\/lib\/server\/evaluation\/supabase_admin\.js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
+    .replace(/from '\.\/lib\/activeAccount\.js'/, `from ${JSON.stringify(pathToFileURL(join(here, '..', 'api/lib/activeAccount.js')).href)}`)
   writeFileSync(join(dir, 'handler.mjs'), rewritten)
   const mod = await import(pathToFileURL(join(dir, 'handler.mjs')).href)
   const fake = await import(pathToFileURL(join(dir, 'fake.mjs')).href)

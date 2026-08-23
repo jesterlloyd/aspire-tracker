@@ -44,6 +44,7 @@ import {
   validateDraftOverrides,
 } from '../lib/server/evaluation/emailTemplates.js';
 import { archiveSentMessage } from './lib/messageArchive.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // Sender: use the confirmed working domain pattern.
 // aspire@aspire-program.com is not confirmed as a verified Resend sender in this
@@ -109,10 +110,15 @@ async function _handler(req, res, startMs) {
   // ── 2. Role check + resolve Owner email ───────────────────────────────────
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role, email')
+    .select('id, role, email, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) {
+    return res.status(403).json({ success: false, error: 'Forbidden', message: INACTIVE_MESSAGE });
+  }
   if (!profile || !['owner', 'admin'].includes(profile.role)) {
     return res.status(403).json({ success: false, error: 'Forbidden' });
   }

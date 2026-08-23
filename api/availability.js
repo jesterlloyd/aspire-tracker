@@ -23,6 +23,7 @@ import { randomUUID } from 'crypto';
 // S-02: the canonical identity-based entitlement predicate, reused rather than re-queried so the
 // "does this interviewer hold this cohort" question has one answer everywhere.
 import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js';
+import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'delete_slot', 'cancel_booking'];
@@ -62,11 +63,14 @@ async function verifyCaller(req) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner, full_name')
+      .select('id, role, is_owner, full_name, is_active')
       .eq('auth_user_id', user.id)
       .maybeSingle();
     if (pErr) return { authenticated: false, status: 401, reason: 'profile_lookup_failed' };
     if (!profile) return { authenticated: false, status: 403, reason: 'no_profile' };
+    // S-05: a deactivated account keeps a valid access token until it expires.
+    // Refuse it before any work is performed, so deactivation ends access at once.
+    if (!isActiveProfile(profile)) return { authenticated: false, status: INACTIVE_STATUS, reason: INACTIVE_REASON };
     return { authenticated: true, userId: user.id, profileId: profile.id, fullName: profile.full_name || '', role: profile.role || '', isOwner: profile.is_owner === true };
   } catch {
     return { authenticated: false, status: 401, reason: 'profile_threw' };
@@ -129,6 +133,7 @@ export default async function handler(req, res) {
   const auth = await verifyCaller(req);
   if (!auth.authenticated) {
     console.log('[availability] auth rejected', { reason: auth.reason, request_id: requestId });
+    if (auth.reason === INACTIVE_REASON) return res.status(INACTIVE_STATUS).json({ error: 'forbidden', message: INACTIVE_MESSAGE });
     if (auth.reason === 'no_profile') return res.status(403).json({ error: 'forbidden', message: 'Access denied.' });
     return res.status(401).json({ error: 'unauthorized', message: 'Authentication required' });
   }

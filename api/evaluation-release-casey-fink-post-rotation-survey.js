@@ -27,6 +27,7 @@ import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { classifyCaseyFinkPostRotationCohort } from '../src/lib/evaluation/caseyFinkPostRotationDueDetection.js';
 import { caseyFinkPrerequisite, STEP_SLUGS } from '../src/lib/evaluation/postRotationSequence.js';
 import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.js';
+import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const INSTRUMENT_SLUG  = 'casey_fink_readiness_2024';
 const TIMEPOINT        = 'post_rotation';
@@ -86,10 +87,15 @@ async function _handler(req, res) {
 
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role, email')
+    .select('id, role, email, is_active')
     .eq('auth_user_id', user.id)
     .single();
 
+  // S-05: a deactivated account keeps a valid access token until it expires.
+  // Refuse it before any work is performed, so deactivation ends access at once.
+  if (profile && profile.is_active === false) {
+    return res.status(403).json({ success: false, error: 'Forbidden', message: INACTIVE_MESSAGE });
+  }
   if (!profile || !['owner', 'admin'].includes(profile.role)) {
     return res.status(403).json({ success: false, error: 'Forbidden' });
   }
