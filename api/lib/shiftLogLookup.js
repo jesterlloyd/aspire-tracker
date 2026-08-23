@@ -13,7 +13,8 @@
 //     'Placed' (logging their first shift) or 'Active Rotation' (continuing). A
 //     student's first successfully-logged shift promotes Placed → Active Rotation
 //     (handled at submit-past-shift / check-out, not here).
-//   - Ineligible students return only minimal safe fields and NO open-shift query.
+//   - S-09: ineligible students return ONLY the reason. No student fields, no
+//     identifier, and no open-shift query.
 //
 // Read-only. No writes. No PII returned beyond the student's own safe fields.
 
@@ -34,7 +35,7 @@ const SHIFT_LOG_ELIGIBLE_STATUSES = ['Placed', 'Active Rotation']
  *   { found:false }
  *   { found:false, error:'invalid_email' }
  *   { found:false, error:'ambiguous_student_email' }
- *   { found:true, eligible:false, ineligible_reason:'cohort_archived'|'not_active_rotation', student:{id,full_name,school_email} }
+ *   { found:true, eligible:false, ineligible_reason:'cohort_archived'|'not_active_rotation' }
  *   { found:true, eligible:true, student:{...safe...}, open_shift:{...}|null }
  */
 export async function lookupStudentByEmail(schoolEmail) {
@@ -87,21 +88,19 @@ export async function lookupStudentByEmail(schoolEmail) {
   const cohort = student.cohorts || null
 
   // ── Eligibility: cohort not archived AND status Placed OR Active Rotation ───
+  // S-09. An INELIGIBLE answer carries no student object.
+  //
+  // It used to return { id, full_name, school_email }, which handed an anonymous
+  // caller a real person's name and primary key in exchange for guessing an
+  // address. Nothing rendered it: LifecycleResultView's three ineligible variants
+  // show a banner, a contact block, and a button, and ShiftLogPage collapses all
+  // three into one message of its own. The reason string stays, because the three
+  // messages are genuinely different advice and a student needs the right one.
   if (cohort?.status === 'Archived') {
-    return {
-      found: true,
-      eligible: false,
-      ineligible_reason: 'cohort_archived',
-      student: { id: student.id, full_name: fullName, school_email: student.school_email },
-    }
+    return { found: true, eligible: false, ineligible_reason: 'cohort_archived' }
   }
   if (!SHIFT_LOG_ELIGIBLE_STATUSES.includes(student.status)) {
-    return {
-      found: true,
-      eligible: false,
-      ineligible_reason: 'not_active_rotation',
-      student: { id: student.id, full_name: fullName, school_email: student.school_email },
-    }
+    return { found: true, eligible: false, ineligible_reason: 'not_active_rotation' }
   }
 
   // ── Eligible: resolve assigned unit name, then any open shift ───────────────
@@ -147,6 +146,9 @@ export async function lookupStudentByEmail(schoolEmail) {
 
   const openShift = openShifts && openShifts.length > 0 ? openShifts[0] : null
 
+  // Every field below is named explicitly, so a column added to students later
+  // cannot reach an anonymous caller by default. All of these are read by the
+  // shift-log screens (greeting, assignment summary, hours progress).
   return {
     found: true,
     eligible: true,

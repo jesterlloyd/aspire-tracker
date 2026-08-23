@@ -8,11 +8,15 @@
 // 'Active Rotation'), and returns safe student fields plus any open in_progress
 // shift. Read-only.
 //
-// Phase S.2.B1: DORMANT - no frontend caller. Testable via direct HTTP (curl).
+// NOT dormant: ShiftLogPage and the shift-log lifecycle both call this, and the
+// signed-in Student Portal links students here (StudentPortal 'Log a Shift'), so
+// this is the only path by which any student creates a shift log.
 // Logging never includes the plain email or student name.
 
 import { randomUUID } from 'crypto'
 import { lookupStudentByEmail } from '../lib/shiftLogLookup.js'
+import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
+import { consumePublicRateLimit, SHIFT_LOOKUP_LIMITS, TOO_MANY_REQUESTS } from '../lib/publicRateLimit.js'
 
 export default async function handler(req, res) {
   const requestId = `req_${randomUUID().slice(0, 8)}`
@@ -37,6 +41,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'invalid_request', message: 'school_email is required' })
   }
 
+
+  // S-09 / S-11: this endpoint identifies a student by school email alone, with no
+  // token, so the throttle is the control that stops an anonymous caller walking a
+  // school's address space. Fails closed, and runs before any lookup so a refused
+  // caller learns nothing about the address they tried.
+  if (!(await consumePublicRateLimit(supabaseAdmin, req, SHIFT_LOOKUP_LIMITS))) {
+    return res.status(429).json({ error: 'rate_limited', message: TOO_MANY_REQUESTS })
+  }
   try {
     const result = await lookupStudentByEmail(schoolEmail)
 

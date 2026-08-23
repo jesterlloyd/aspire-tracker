@@ -38,7 +38,10 @@ export default function ShiftLogLifecycle() {
     if (r._networkError) { setErrorInfo({ type: 'network', retryTo: 'lookup' }); setPhase('network_error'); return }
     if (!r.found && r.error === 'ambiguous_student_email') { setPhase('ambiguous'); return }
     if (!r.found) { setErrorInfo({ type: 'not_found' }); setPhase('ineligible'); return }
-    if (!r.eligible) { setErrorInfo({ type: r.ineligible_reason }); setStudentData(r.student); setPhase('ineligible'); return }
+    // S-09: an ineligible answer no longer carries a student object, and never needed
+    // to: all three ineligible screens render a banner and a contact block, nothing
+    // about the person. Only the reason is kept, which is what picks the right screen.
+    if (!r.eligible) { setErrorInfo({ type: r.ineligible_reason }); setPhase('ineligible'); return }
     setStudentData({ ...r.student, open_shift: r.open_shift || null })
     setPhase(r.open_shift ? 'check_out' : 'check_in')
   }, [])

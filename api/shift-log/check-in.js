@@ -25,6 +25,7 @@
 import { randomUUID } from 'crypto'
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { lookupStudentByEmail } from '../lib/shiftLogLookup.js'
+import { consumePublicRateLimit, SHIFT_WRITE_LIMITS, TOO_MANY_REQUESTS } from '../lib/publicRateLimit.js'
 
 const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid', 'Variable']
 
@@ -39,6 +40,13 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     logRequest(requestId, 'method_not_allowed', null, null, Date.now() - startTime)
     return res.status(405).json({ error: 'method_not_allowed' })
+  }
+
+  // S-09 / S-11: identity here is a school email with no token, so the throttle is
+  // what stops an anonymous caller probing addresses or flooding writes. Fails
+  // closed, and runs before the body is even parsed.
+  if (!(await consumePublicRateLimit(supabaseAdmin, req, SHIFT_WRITE_LIMITS))) {
+    return res.status(429).json({ error: 'rate_limited', message: TOO_MANY_REQUESTS })
   }
 
   let body

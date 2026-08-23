@@ -35,6 +35,7 @@ import { toLocalDateStr } from '../../shared/dateUtils.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
 import { isOutsideRotationWindow } from '../../src/lib/rotationWindow.js'
 import { shiftMatchesAssignments, loadShiftAssignments } from '../lib/shiftUnitAssignments.js'
+import { consumePublicRateLimit, SHIFT_WRITE_LIMITS, TOO_MANY_REQUESTS } from '../lib/publicRateLimit.js'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid']
@@ -182,6 +183,16 @@ export default async function handler(req, res) {
   }
 
   const requestId = `req_${Math.random().toString(36).slice(2, 10)}`
+
+  // S-09 / S-11: identity here is a school email with no token, so the throttle is
+  // what stops an anonymous caller probing addresses or flooding writes. Fails
+  // closed, and runs before the body is even parsed.
+  // Uses this file's own lazy client, not the shared module-level one: the env
+  // check above has already run, and importing the shared client would make this
+  // module unloadable without credentials.
+  if (!(await consumePublicRateLimit(getDb(), req, SHIFT_WRITE_LIMITS))) {
+    return res.status(429).json({ error: 'rate_limited', message: TOO_MANY_REQUESTS })
+  }
   const body = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {}
 
   // ── Exact-schema enforcement ────────────────────────────────────────────────
