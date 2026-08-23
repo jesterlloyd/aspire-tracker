@@ -453,20 +453,26 @@ export default function PortalApp() {
   )
 }
 
-// PORTAL-ACCESS-STATE: one card, wording chosen by state. The artwork and the
-// Sign out control are unchanged; only what the card says varies, plus a Try
-// again control for the one state where trying again can actually help.
+// PORTAL-ACCESS-STATE: one card, wording chosen by state.
+//
+// NO ILLUSTRATION HERE, deliberately. This card carried the hero image of five
+// students walking in smiling, which read as a welcome above a sentence telling
+// someone they have no access. Showing the artwork whole (rather than cropped to
+// a strip) only made the mismatch louder. The image stays where arriving is
+// actually the subject: the sign-in page.
+//
+// What replaces it is composition rather than absence, so the card reads as
+// designed and not as a picture that failed to load: its own narrower measure, a
+// heavier title carrying the top of the card, and a ruled footer holding the
+// controls.
 function PortalAccessNotice({ state, onRetry }) {
   const { signOut } = useAuth()
   const copy = accessCopy(state)
   return (
     <div className="ptl-page ptl-center">
-      <div className="ptl-card ptl-center-card ptl-prepared" data-access-state={state}>
-        <div className="ptl-prepared-art" aria-hidden="true">
-          <img src="/public-site/illustrations/hero.png" alt="" loading="lazy" decoding="async" />
-        </div>
-        <h1 className="ptl-card-title">{copy.title}</h1>
-        <p className="ptl-muted">
+      <div className="ptl-card ptl-center-card ptl-access-card" data-access-state={state}>
+        <h1 className="ptl-access-title">{copy.title}</h1>
+        <p className="ptl-access-body">
           {copy.body}
           {copy.showSupport && (
             <>
@@ -474,7 +480,7 @@ function PortalAccessNotice({ state, onRetry }) {
             </>
           )}
         </p>
-        <div className="ptl-prepared-actions">
+        <div className="ptl-access-actions">
           {copy.canRetry && onRetry && (
             <button className="ptl-btn-outline" onClick={onRetry}>Try again</button>
           )}
