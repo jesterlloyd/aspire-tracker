@@ -135,4 +135,13 @@ test('evaluation: blockers visible, verbs unified, export, reflow', async (t) =>
     assert.match(evalTab, /<CaseyFinkComparisonPanel comparison=\{caseyFinkComparison\}/)
     assert.doesNotMatch(evalTab, /SECTION I AVERAGES/)
   })
+
+  await t.test('the status KPI filters stay below the comparison and next to the response table', () => {
+    const comparisonIndex = evalTab.indexOf('<CaseyFinkComparisonPanel comparison={caseyFinkComparison}')
+    const kpiIndex = evalTab.indexOf('className="eval-kpis"')
+    const filterIndex = evalTab.indexOf('value={filterInstrument}')
+    const tableIndex = evalTab.indexOf("<table style={{ width: '100%', minWidth: 720")
+    assert.ok(comparisonIndex >= 0 && comparisonIndex < kpiIndex)
+    assert.ok(kpiIndex < filterIndex && filterIndex < tableIndex)
+  })
 })

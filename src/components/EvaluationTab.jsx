@@ -703,11 +703,16 @@ export default function EvaluationTab({ cohortId }) {
                 </div>
               )}
 
-              {/* Status KPI band (secondary) - column count lives in CSS (.eval-kpis) so it reflows */}
+              {showCaseyFinkComparison && (
+                <CaseyFinkComparisonPanel comparison={caseyFinkComparison} />
+              )}
+
+              {/* Status KPI band (secondary) - kept immediately above the response
+                  controls and table because these cards filter that worklist. */}
               <div className="eval-kpis" style={{
                 display: 'grid',
                 gap: 10,
-                marginBottom: 20,
+                marginBottom: 14,
               }}>
                 {KPI_CARD_DEFS.map(card => (
                   <EvalKPICard
@@ -725,10 +730,6 @@ export default function EvaluationTab({ cohortId }) {
                 ))}
 
               </div>
-
-              {showCaseyFinkComparison && (
-                <CaseyFinkComparisonPanel comparison={caseyFinkComparison} />
-              )}
 
               {/* Filter strip - instrument and timepoint dropdowns only */}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
