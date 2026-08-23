@@ -9,8 +9,10 @@ import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
 import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
 import StudentEvalResponseDetail from './evaluation/StudentEvalResponseDetail'
 import SurveyAutomationDashboard from './evaluation/SurveyAutomationDashboard'
+import CaseyFinkComparisonPanel from './evaluation/CaseyFinkComparisonPanel'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { instrumentCompactLabel, instrumentSortIndex, timepointSortIndex, statusSortIndex, completedByLabel, INSTRUMENT_ORDER } from '../lib/evaluationLabels'
+import { buildCaseyFinkComparison } from '../lib/evaluation/caseyFinkComparison'
 
 // Composite Section I mean (CPS/LA/PR) for a row, or null when not all three are present.
 function sectionIMean(assignment) {
@@ -167,38 +169,6 @@ function EvalKPICard({ value, label, sub, restBg, restNum, activeBg, isActive, o
     </button>
   )
   return card
-}
-
-// Read-only informational card for Section I averages.
-// No onClick, no hover lift - absence of hover affordance is the informational cue.
-function EvalInfoCard({ label, sub, children }) {
-  return (
-    <div style={{
-      background:   '#F4F3F1',
-      border:       '1px solid rgba(29,37,103,0.06)',
-      borderRadius: 14,
-      padding:      '14px 18px',
-      cursor:       'default',
-      fontFamily:   F,
-      boxShadow:    SH.s1,
-      display:      'flex', flexDirection: 'column', gap: 4,
-      width:        '100%',
-      minWidth:     0,
-    }}>
-      {children}
-      <div style={{
-        fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em',
-        color: '#475467', fontWeight: 600, marginTop: 8, fontFamily: F,
-      }}>
-        {label}
-      </div>
-      {sub && (
-        <div style={{ fontSize: 11.5, color: '#98A2B3', marginTop: 2, fontFamily: F }}>
-          {sub}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function StatusBadge({ status }) {
@@ -413,7 +383,7 @@ export default function EvaluationTab({ cohortId }) {
   }
 
   // Full filtered set - adds active KPI status filter on top of instrument/timepoint.
-  // Used for the table and Section I averages.
+  // Used for the response table.
   const filtered = instrumentTimeFiltered.filter(a => {
     if (activeKpiFilter !== null && effectiveStatus(a) !== activeKpiFilter) return false
     return true
@@ -497,25 +467,12 @@ export default function EvaluationTab({ cohortId }) {
     return { slug, displayName, label: instrumentCompactLabel(slug, displayName), assigned: rows.length, completed }
   }).filter(Boolean)
 
-  // Section I averages - instrument and timepoint filters only; independent of the
-  // active status KPI card. Completed responses are always shown regardless of which
-  // status card the user has clicked.
-  const completedFiltered = instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'completed')
-  const scoredRows = completedFiltered.filter(a => {
-    const r = extractResponse(a)
-    return r?.score_s1_clinical_problem_solving != null
-      && r?.score_s1_learning_activities != null
-      && r?.score_s1_practice_readiness != null
-  })
-  const avgCPS = scoredRows.length > 0
-    ? scoredRows.reduce((s, a) => s + Number(extractResponse(a).score_s1_clinical_problem_solving), 0) / scoredRows.length
-    : null
-  const avgLA = scoredRows.length > 0
-    ? scoredRows.reduce((s, a) => s + Number(extractResponse(a).score_s1_learning_activities), 0) / scoredRows.length
-    : null
-  const avgPR = scoredRows.length > 0
-    ? scoredRows.reduce((s, a) => s + Number(extractResponse(a).score_s1_practice_readiness), 0) / scoredRows.length
-    : null
+  // The comparison intentionally ignores the table's timepoint and status filters: it
+  // must see both completed baseline and post-rotation Casey-Fink responses to form
+  // honest student-level pairs. The cohort is already enforced by the database query.
+  const caseyFinkComparison = buildCaseyFinkComparison(assignments)
+  const selectedInstrumentSlug = filterInstrument === 'All' ? null : slugByDisplayName[filterInstrument]
+  const showCaseyFinkComparison = selectedInstrumentSlug == null || selectedInstrumentSlug === 'casey_fink_readiness_2024'
 
   // ── Event handlers ────────────────────────────────────────────────────────
 
@@ -767,46 +724,11 @@ export default function EvaluationTab({ cohortId }) {
                   />
                 ))}
 
-                {/* Section I Averages - informational, non-interactive.
-                    Scoped to instrument + timepoint only; independent of active status card.
-                    Scale: S1 items are 1–4 integers; bar fill = (mean - 1) / 3. */}
-                <EvalInfoCard label="SECTION I AVERAGES" sub="From completed responses">
-                  {scoredRows.length === 0 ? (
-                    <div style={{
-                      fontSize: 32, fontWeight: 700, lineHeight: 1,
-                      letterSpacing: '-0.025em', color: '#D0D5DD', fontFamily: F,
-                    }}>
-                      -
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                      {[['CPS', avgCPS], ['LA', avgLA], ['PR', avgPR]].map(([lbl, val]) => (
-                        <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#98A2B3', width: 24, flexShrink: 0, fontFamily: F }}>
-                            {lbl}
-                          </span>
-                          <span style={{
-                            fontSize: 14, fontWeight: 700, color: '#0E1428', width: 34, flexShrink: 0,
-                            fontFamily: F, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.025em',
-                          }}>
-                            {val != null ? val.toFixed(2) : '-'}
-                          </span>
-                          {val != null && (
-                            <div style={{ flex: 1, height: 3, background: 'rgba(29,37,103,0.08)', borderRadius: 2, overflow: 'hidden', minWidth: 0 }}>
-                              <div style={{
-                                height: '100%',
-                                width: `${Math.min(100, Math.max(0, Math.round(((val - 1) / 3) * 100)))}%`,
-                                background: 'rgba(29,37,103,0.28)',
-                                borderRadius: 2,
-                              }} />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </EvalInfoCard>
               </div>
+
+              {showCaseyFinkComparison && (
+                <CaseyFinkComparisonPanel comparison={caseyFinkComparison} />
+              )}
 
               {/* Filter strip - instrument and timepoint dropdowns only */}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>

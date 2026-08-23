@@ -126,7 +126,13 @@ test('evaluation: blockers visible, verbs unified, export, reflow', async (t) =>
 
   await t.test('the KPI band and table finally reflow', () => {
     assert.match(evalTab, /className="eval-kpis"/)
-    assert.match(css, /\.eval-kpis \{ grid-template-columns: repeat\(7, 1fr\); \}/)
+    assert.match(css, /\.eval-kpis \{ grid-template-columns: repeat\(6, 1fr\); \}/)
     assert.match(evalTab, /overflowX: 'auto' \}\}>\s*\n\s*<table style=\{\{ width: '100%', minWidth: 720/)
+  })
+
+  await t.test('Casey-Fink uses matched pre/post comparison outside the status KPI band', () => {
+    assert.match(evalTab, /buildCaseyFinkComparison\(assignments\)/)
+    assert.match(evalTab, /<CaseyFinkComparisonPanel comparison=\{caseyFinkComparison\}/)
+    assert.doesNotMatch(evalTab, /SECTION I AVERAGES/)
   })
 })
