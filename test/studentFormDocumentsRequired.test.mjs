@@ -14,8 +14,16 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+
+// S-11: these endpoints now import lib/server/evaluation/rate_limit.js, which throws at
+// import when EVALUATION_RATE_LIMIT_PEPPER is unset. That is the intended fail-closed
+// behavior (same convention as test/s01InterviewLookup.test.mjs), so a dummy pepper is
+// set before importing. No real value is used and no network call is made.
+process.env.EVALUATION_RATE_LIMIT_PEPPER ||= 'test-pepper-not-a-real-value'
 import { evaluateRequiredDocuments, DOCUMENT_MESSAGES } from '../src/lib/studentDocuments.js'
-import { checkDocumentsRequired } from '../api/student-intake-submit.js'
+// Dynamic, so the pepper above is set BEFORE the module graph loads: a static
+// import would hoist above the assignment and trip the fail-closed throw.
+const { checkDocumentsRequired } = await import('../api/student-intake-submit.js')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')

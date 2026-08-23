@@ -11,6 +11,14 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
+// S-11: these endpoints now import lib/server/evaluation/rate_limit.js, which throws at
+// import when EVALUATION_RATE_LIMIT_PEPPER is unset. That is the intended fail-closed
+// behavior (same convention as test/s01InterviewLookup.test.mjs), so a dummy pepper is
+// set before importing. No real value is used and no network call is made.
+process.env.EVALUATION_RATE_LIMIT_PEPPER ||= 'test-pepper-not-a-real-value'
+process.env.SUPABASE_URL ||= 'https://test.invalid'
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-key-not-a-real-value'
+
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')

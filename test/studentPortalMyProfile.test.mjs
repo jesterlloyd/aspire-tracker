@@ -15,11 +15,19 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
+// S-11: these endpoints now import lib/server/evaluation/rate_limit.js, which throws at
+// import when EVALUATION_RATE_LIMIT_PEPPER is unset. That is the intended fail-closed
+// behavior (same convention as test/s01InterviewLookup.test.mjs), so a dummy pepper is
+// set before importing. No real value is used and no network call is made.
+process.env.EVALUATION_RATE_LIMIT_PEPPER ||= 'test-pepper-not-a-real-value'
+
 import { isStudentProfileLocked, PROFILE_EDITABLE_STATUSES, PROFILE_LOCKED_MESSAGE } from '../src/lib/studentProfileLock.js'
 import {
   STUDENT_EDITABLE_FIELDS, REQUIRED_ON_SAVE, parsePriorExperience, buildFormValuesFromStudent,
 } from '../src/lib/studentProfileFields.js'
-import { normalizeField } from '../api/portal/my-profile.js'
+// Dynamic, so the pepper above is set BEFORE the module graph loads (my-profile.js
+// pulls in student-intake-submit, which now imports the rate limiter).
+const { normalizeField } = await import('../api/portal/my-profile.js')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
