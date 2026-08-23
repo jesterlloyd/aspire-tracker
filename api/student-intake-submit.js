@@ -36,6 +36,7 @@ import { checkLengths, LIMITS } from './lib/fieldLimits.js'
 // S-03: a stored file reference must be the canonical path for THIS student, not any string the
 // browser sends. See lib/server/studentFiles.js validateStoredFileRefForStudent.
 import { validateStoredFileRefForStudent } from '../lib/server/studentFiles.js'
+import { consumePublicRateLimit, INTAKE_SUBMIT_LIMITS, TOO_MANY_REQUESTS } from './lib/publicRateLimit.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -169,6 +170,11 @@ export default async function handler(req, res) {
   }
 
   const db = getDb()
+
+  // S-11: throttle before any write or any lookup. Fails closed.
+  if (!(await consumePublicRateLimit(db, req, INTAKE_SUBMIT_LIMITS))) {
+    return res.status(429).json({ error: 'rate_limited', message: TOO_MANY_REQUESTS })
+  }
 
   // ── Eligibility 1: exactly one cohort must be accepting submissions ─────────
   // 0 → 403 not_accepting; 1 → proceed; >1 → 409 ambiguous_cohort (never pick a row).

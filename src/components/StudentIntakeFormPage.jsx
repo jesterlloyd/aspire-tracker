@@ -456,11 +456,14 @@ export default function StudentIntakeFormPage({ portal = null }) {
       const lookupRes = await fetch('/api/student-intake-lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ school_email: cleanEmail }),
+        // S-11: the surname is a second factor. It is already required above, so
+        // this costs the applicant nothing and stops the endpoint being usable to
+        // test whether an address belongs to an ASPIRE student.
+        body: JSON.stringify({ school_email: cleanEmail, last_name: form.last_name.trim() }),
       })
       if (!lookupRes.ok) {
         const lookupData = await lookupRes.json().catch(() => ({}))
-        setError(lookupData.message || 'We could not find your information in our system for the current cycle. Please contact the ASPIRE team to confirm your school email on file.')
+        setError(lookupData.message || 'We could not verify your details for the current cycle. Please check your school email and last name, then contact the ASPIRE team if they are correct.')
         setSubmitting(false)
         return
       }

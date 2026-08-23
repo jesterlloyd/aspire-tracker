@@ -30,6 +30,7 @@ import { checkLengths, LIMITS } from './lib/fieldLimits.js'
 // S-06 ENDPOINT CLOSURE: the confirmation send moved here from the retired PUBLIC
 // api/unit-form-notification.js route (see the module header for why a secret was not an option).
 import { sendUnitFormReceivedNotification } from '../lib/server/notifications/unitFormNotifications.js'
+import { consumePublicRateLimit, UNIT_SUBMIT_LIMITS, TOO_MANY_REQUESTS } from './lib/publicRateLimit.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -115,6 +116,11 @@ export default async function handler(req, res) {
   }
 
   const db = getDb()
+
+  // S-11: throttle before any write or any lookup. Fails closed.
+  if (!(await consumePublicRateLimit(db, req, UNIT_SUBMIT_LIMITS))) {
+    return res.status(429).json({ error: 'rate_limited', message: TOO_MANY_REQUESTS })
+  }
 
   // ── Cohort resolved server-side: exactly one accepting cohort ──────────────
   const cohortResult = await resolveAcceptingCohort(db)
