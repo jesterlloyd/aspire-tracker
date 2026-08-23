@@ -214,8 +214,13 @@ export default function StudentPortal({
         <div className="ptl-prepared-art" aria-hidden="true">
           <img src="/public-site/illustrations/hero.png" alt="" loading="lazy" decoding="async" />
         </div>
-        <h1 className="ptl-card-title">No student record is linked yet</h1>
-        <p className="ptl-muted">Your account is active, but no student record is connected to it yet. Please contact the ASPIRE team.</p>
+        <h1 className="ptl-card-title">No student record on this account</h1>
+        {/* PORTAL-ACCESS-STATE: plain, and no promise. This said "no student
+            record is connected to it yet", which implied one was on its way and
+            that someone was handling it. Neither is something this screen can
+            know. It states the situation and names the people who can change it,
+            matching the no-access card in PortalApp. */}
+        <p className="ptl-muted">There is no ASPIRE student record connected to this account. If you think this is a mistake, the ASPIRE team can help. Email <a href={`mailto:${SUPPORT}`}>{SUPPORT}</a>.</p>
         <button type="button" className="ptl-btn ptl-btn-sm" onClick={() => contactAspire({})} aria-label="Contact ASPIRE (opens an email compose in a new tab)"><Mail size={15} /> Contact ASPIRE</button>
         <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
       </div>

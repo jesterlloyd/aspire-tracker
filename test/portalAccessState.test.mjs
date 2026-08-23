@@ -194,6 +194,24 @@ test('artwork: the shared no-record strip keeps its uncrop', () => {
   assert.match(portalCss, /\.ptl-prepared-art img \{ width: 100%; height: auto;/)
 })
 
+// ── The student no-record card makes no promise either ───────────────────────
+
+test('no-record card: plain, with no "yet" and no implied arrival', () => {
+  const studentPortal = read('src/portal/StudentPortal.jsx')
+  // Comment-stripped: the note above the copy legitimately quotes the old
+  // wording ("...connected to it yet") while explaining why it changed, so the
+  // no-promise rules are asserted against rendered text only.
+  const card = studentPortal.slice(studentPortal.indexOf('if (students.length === 0)'))
+    .slice(0, 1600)
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+  assert.match(card, /No student record on this account/)
+  assert.match(card, /There is no ASPIRE student record connected to this account/)
+  assert.doesNotMatch(card, /\byet\b/i, 'must not imply a record is on its way')
+  assert.doesNotMatch(card, /Your account is active/i)
+  assert.doesNotMatch(card, /will be|soon|shortly|being (set up|prepared)/i)
+  // Points at the same people, the same way.
+  assert.match(card, /mailto:\$\{SUPPORT\}/)
+})
 
 test('artwork: the bleed cancels the card padding at every breakpoint', () => {
   // A hardcoded -24px matched only the middle of three padding regimes: it left
