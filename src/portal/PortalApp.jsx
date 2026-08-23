@@ -46,6 +46,9 @@ import { shouldAutoStartTour } from '../lib/onboardingTours'
 // PORTAL-ACCESS-STATE: one honest message per access state, instead of one
 // "being prepared" card standing in for every reason a portal is not there.
 import { resolveAccessState, accessCopy, ACCESS_STATES, SUPPORT_EMAIL } from '../lib/portalAccessState'
+// A data surface that is refused for an access reason reports it here rather than
+// showing its own "something went wrong" card.
+import { PortalAccessSignalContext } from './portalAccessSignal'
 import '../styles/aspireBrand.css'
 import './portal.css'
 
@@ -102,6 +105,11 @@ export default function PortalApp() {
   // from "no grants" so a dropped request is never reported as good news.
   const [accessFailed, setAccessFailed] = useState(false)
   const [accessAttempt, setAccessAttempt] = useState(0)
+  // Set when a portal data surface is refused because this person's standing
+  // ended, rather than because a request failed. Sticky on purpose: once the
+  // server has said the access is gone, no later view may quietly render as if
+  // it were not, and Try again is not offered for something retrying cannot fix.
+  const [accessEnded, setAccessEnded] = useState(false)
   // The stage-aware mobile action (Log a Shift during Active Rotation) is
   // reported upward by StudentPortal once its summary loads, so the single
   // bottom bar can carry it without a second data fetch here.
@@ -239,6 +247,20 @@ export default function PortalApp() {
   // WELCOME-TOUR-PORTALS-1: unmount-only cleanup for the auto-start timer below. Kept in its own
   // effect (empty deps) so a dependency change never cancels an already-armed timer; only real
   // unmount does.
+  // Re-resolve on the way in, so the card is drawn from current truth rather than
+  // from the stale snapshot this session started with: an account deactivated
+  // mid-session should be read as deactivated. The card shows either way, because
+  // a portal endpoint has already answered authoritatively for this caller.
+  const handleAccessEnded = useCallback(() => {
+    setAccessEnded(prev => {
+      if (!prev) {
+        setAccessAttempt(n => n + 1)
+        try { refreshUserProfile?.() } catch { /* the card does not depend on it */ }
+      }
+      return true
+    })
+  }, [refreshUserProfile])
+
   const retryAccessCheck = useCallback(() => {
     setAccessFailed(false)
     setLoading(true)
@@ -288,7 +310,10 @@ export default function PortalApp() {
   // portal with no explanation at all. Answering before the branch is what stops
   // that. The endpoints were already refusing this caller; only the screen was
   // lying about why.
-  if (deactivated) return <PortalAccessNotice state={ACCESS_STATES.NO_ACCESS} />
+  // Same answer, same placement, for the two ways we can learn it: the profile
+  // says the account is off, or a portal endpoint refused this caller for an
+  // access reason while they were already inside.
+  if (deactivated || accessEnded) return <PortalAccessNotice state={ACCESS_STATES.NO_ACCESS} />
 
   const roles = access?.roles || []
 
@@ -318,7 +343,9 @@ export default function PortalApp() {
   ) : null
 
   if (roles.includes('student')) {
+    // Every fetching child can hand an access refusal up to the shell.
     return (
+      <PortalAccessSignalContext.Provider value={handleAccessEnded}>
       <PortalShell title="Student Portal" userName={userProfile?.full_name}
         onEditProfile={goProfile} withTabBar
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
@@ -368,6 +395,7 @@ export default function PortalApp() {
         {photoDialog}
         {tourOverlay}
       </PortalShell>
+      </PortalAccessSignalContext.Provider>
     )
   }
 
@@ -376,7 +404,9 @@ export default function PortalApp() {
     // refresh, and a pasted deep link all behave like the rest of the app. The
     // Messages section reuses the same /portal/messages thread URL the Student
     // Portal already uses, so one thread link works for either kind.
+    // Every fetching child can hand an access refusal up to the shell.
     return (
+      <PortalAccessSignalContext.Provider value={handleAccessEnded}>
       <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={userProfile?.avatar_url}
@@ -407,6 +437,7 @@ export default function PortalApp() {
         {photoDialog}
         {tourOverlay}
       </PortalShell>
+      </PortalAccessSignalContext.Provider>
     )
   }
 
@@ -415,7 +446,9 @@ export default function PortalApp() {
     // portals. Messages reuses the canonical workspace + lower-right launcher, gated on the SERVER
     // capability (apMessagesEnabled): until the server reports enabled it is fail-closed
     // (messagesAuthorized false => Feedback only, no floating Messages launcher, no unread polling).
+    // Every fetching child can hand an access refusal up to the shell.
     return (
+      <PortalAccessSignalContext.Provider value={handleAccessEnded}>
       <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={userProfile?.avatar_url}
@@ -442,6 +475,7 @@ export default function PortalApp() {
         {photoDialog}
         {tourOverlay}
       </PortalShell>
+      </PortalAccessSignalContext.Provider>
     )
   }
 

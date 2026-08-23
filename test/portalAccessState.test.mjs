@@ -50,7 +50,9 @@ test('access state: the states that used to exist are gone, not renamed', () => 
 test('access state: deactivation is not an input to the wording', () => {
   // It decides WHICH screen, not which words. Same card either way.
   assert.equal(resolveAccessState({ profileActive: false }), ACCESS_STATES.NO_ACCESS)
-  assert.match(portalApp, /if \(deactivated\) return <PortalAccessNotice state=\{ACCESS_STATES\.NO_ACCESS\} \/>/)
+  // The gate now also fires when a portal endpoint refuses this caller mid-session
+  // for an access reason. Same card either way, which is the point.
+  assert.match(portalApp, /if \(deactivated \|\| accessEnded\) return <PortalAccessNotice state=\{ACCESS_STATES\.NO_ACCESS\} \/>/)
 })
 
 // ── The copy makes no promise ────────────────────────────────────────────────
@@ -141,7 +143,7 @@ test('portal: the deactivated answer is given BEFORE any portal branch', () => {
   // Deactivation leaves a role grant intact, so without this gate a deactivated
   // person resolves to a real portal and is shown a blank one with no
   // explanation (StudentPortal turns the refusal into an empty list).
-  const gate = portalApp.indexOf('if (deactivated) return <PortalAccessNotice')
+  const gate = portalApp.indexOf('if (deactivated || accessEnded) return <PortalAccessNotice')
   assert.ok(gate > 0, 'the deactivated gate must exist')
   assert.ok(gate < portalApp.indexOf('const roles = access?.roles || []'))
   for (const portal of ['<StudentPortal', '<UnitLeaderPortal', '<AcademicPartnerPortal']) {

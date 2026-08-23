@@ -76,6 +76,67 @@ export function resolveAccessState({ checkFailed } = {}) {
   return checkFailed ? ACCESS_STATES.UNKNOWN : ACCESS_STATES.NO_ACCESS
 }
 
+// ── Classifying a failed portal request ──────────────────────────────────────
+//
+// A portal data fetch can fail for three different reasons, and they need three
+// different screens. Treating them as one is what produced "Something went wrong.
+// We could not load your students right now. Please try again shortly." for a
+// person whose access had just been revoked: nothing had gone wrong, and Try
+// again could never succeed.
+//
+// The signal is the REASON the server sent, not the bare status code. That
+// distinction matters: a 403 or 404 can equally mean "not you, for this one
+// student", which is a correct and local refusal that must NOT tip the whole
+// portal into a no-access screen. Only the reasons the portal's own verifiers
+// emit when a person's standing has changed count as access ending.
+export const ACCESS_FAILURE = {
+  // Their standing ended. Retrying cannot help. Show the no-access card.
+  ACCESS_ENDED: 'access_ended',
+  // The session itself is missing or unreadable. Signing in again can help.
+  SIGNED_OUT: 'signed_out',
+  // Something really did go wrong. Try again is honest.
+  TRANSIENT: 'transient',
+}
+
+// Emitted by verifyPortalCaller and the role/scope verifiers when the caller no
+// longer holds what the endpoint requires: deactivated account, missing profile,
+// revoked or expired role grant, or a scope that no longer covers anything.
+const ACCESS_ENDED_REASONS = new Set([
+  'deactivated',
+  'no_profile',
+  'no_active_student_grant',
+  'no_active_student_link',
+  'unit_leader_role_required',
+  'staff_role_required',
+  'inactive_staff',
+  'owner_or_admin_required',
+  // The generic denial from unitLeaderScope and schoolScope, reached when a
+  // caller holds the role but no longer has any unit or school in scope.
+  'forbidden',
+])
+
+// The token is absent or will not verify. Distinct from access ending: the person
+// may still have access, they just are not currently signed in.
+const SIGNED_OUT_REASONS = new Set(['missing_token', 'invalid_token', 'verify_threw', 'unauthenticated'])
+
+// Everything else is transient by default, INCLUDING the *_lookup_failed reasons.
+// Those mean the server could not read the authorization tables, not that the
+// answer was no, so telling someone their access ended would be a guess.
+export function classifyPortalFailure({ status, error } = {}) {
+  const reason = typeof error === 'string' ? error : ''
+  if (ACCESS_ENDED_REASONS.has(reason)) return ACCESS_FAILURE.ACCESS_ENDED
+  if (SIGNED_OUT_REASONS.has(reason)) return ACCESS_FAILURE.SIGNED_OUT
+  // A 401 with no reason we recognise still means the session did not verify.
+  if (status === 401 && !reason) return ACCESS_FAILURE.SIGNED_OUT
+  return ACCESS_FAILURE.TRANSIENT
+}
+
+// True when a failed request means this person no longer has portal access, so
+// the caller should hand off to the no-access card instead of its own error state.
+export function isAccessEnded(failure) {
+  return classifyPortalFailure(failure) === ACCESS_FAILURE.ACCESS_ENDED
+}
+
 export function accessCopy(state) {
   return ACCESS_COPY[state] || ACCESS_COPY[ACCESS_STATES.NO_ACCESS]
 }
