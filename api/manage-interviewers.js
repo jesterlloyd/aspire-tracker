@@ -18,7 +18,9 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_ACTIONS = ['add', 'update_email', 'update_color'];
+// S-04 / ACCOUNTS-ACCESS-DELETE-HARDEN-2: 'delete' closes the last directory action that
+// still ran as a direct browser write. Every action here is Owner/Admin only.
+const ALLOWED_ACTIONS = ['add', 'update_email', 'update_color', 'delete'];
 
 async function verifyCaller(req) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
@@ -151,6 +153,16 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'internal_error' });
       }
       console.log('[manage-interviewers] color updated', { callerRole: auth.role, callerIsOwner: auth.isOwner, interviewerId: id, request_id: requestId });
+      return res.status(200).json({ success: true });
+    }
+
+    if (action === 'delete') {
+      const { error } = await db.from('interviewers').delete().eq('id', id);
+      if (error) {
+        console.log('[manage-interviewers] delete failed', { callerRole: auth.role, interviewerId: id, request_id: requestId, errorCode: error.code });
+        return res.status(500).json({ error: 'internal_error' });
+      }
+      console.log('[manage-interviewers] interviewer deleted', { callerRole: auth.role, callerIsOwner: auth.isOwner, interviewerId: id, request_id: requestId });
       return res.status(200).json({ success: true });
     }
 

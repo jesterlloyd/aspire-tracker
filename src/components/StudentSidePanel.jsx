@@ -2708,10 +2708,15 @@ export default function StudentSidePanel({
 
           {/* Delete - STUDENT-PROFILE-UX-1B: intentional, labeled danger zone, visually separated
               from the Prev/Next footer. Button behavior + confirm modal unchanged. */}
-          <div className="sp-danger-zone">
-            <div className="sp-danger-zone-label">Danger Zone</div>
-            <button className="btn btn-destructive" onClick={() => setConfirmDelete(true)}>Delete Student</button>
-          </div>
+          {/* S-04: students DELETE is active Owner/Admin only (20260818000000), so this button
+              was already refused by the database for every other role, opaquely. It is now hidden
+              for them instead. Owner and Admin are unaffected. */}
+          {canEdit && (
+            <div className="sp-danger-zone">
+              <div className="sp-danger-zone-label">Danger Zone</div>
+              <button className="btn btn-destructive" onClick={() => setConfirmDelete(true)}>Delete Student</button>
+            </div>
+          )}
 
           {/* Prev / Next */}
           {/* Download error toast */}

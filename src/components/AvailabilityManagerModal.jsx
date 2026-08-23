@@ -296,7 +296,11 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
                     </td>
                     <td style={{ padding:'8px 10px' }}>{b.duration_minutes} min</td>
                     <td style={{ padding:'8px 10px' }}>
-                      <input type="checkbox" checked={b.is_active} onChange={() => toggleActive(b)} />
+                      {/* S-04: interview_availability_blocks writes are now active
+                          Owner/Admin/Co-Lead only. An Interviewer still creates and deletes their
+                          own blocks through /api/availability (service role), which is unaffected;
+                          only this direct pause/resume toggle is restricted. */}
+                      <input type="checkbox" checked={b.is_active} disabled={!isAdmin} onChange={() => toggleActive(b)} />
                     </td>
                     <td style={{ padding:'8px 10px' }}>
                       {canDeleteBlock(b) && (

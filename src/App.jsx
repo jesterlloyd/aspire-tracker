@@ -1266,7 +1266,10 @@ function MainApp({ onLogout }) {
           <div className="state-box" style={{ marginTop: 40 }}>
             <p style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Welcome to ASPIRE Intelligence</p>
             <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Get started by creating your first cohort.</p>
-            <button className="btn btn-primary" onClick={() => setShowNewCohort(true)}>+ Create First Cohort</button>
+            {/* S-04: every other cohort control is behind canEdit (see CohortPicker); this
+                empty-state button was the one that was not. cohorts writes are now active
+                Owner/Admin/Co-Lead only, so an ungated button here would fail opaquely. */}
+            {canEdit && <button className="btn btn-primary" onClick={() => setShowNewCohort(true)}>+ Create First Cohort</button>}
           </div>
         )}
         {loading && cohorts.length > 0 && <div className="state-box"><div className="spinner" /><p>Loading…</p></div>}

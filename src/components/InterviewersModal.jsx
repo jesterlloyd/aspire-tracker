@@ -26,10 +26,10 @@ const initialsOf = (name) => (name || '?').split(' ').map(n => n[0]).join('').sl
 //
 // Phase-1 UI redesign: read-only directory cards + an Add/Edit DetailDrawer replace the old dark
 // header and always-on inline email inputs. All data behavior is preserved - same /api/manage-
-// interviewers actions (add / update_email / update_color) with the same payloads, the same
-// aspire_interviewers_v1 cache key, the same rubric_support_data invalidations, and the same delete
-// call. NOTE: delete still uses the existing direct-Supabase path; its authorization inconsistency
-// is intentionally NOT changed here and is deferred to ACCOUNTS-ACCESS-DELETE-HARDEN-2.
+// interviewers actions with the same payloads, the same aspire_interviewers_v1 cache key, and the
+// same rubric_support_data invalidations. S-04 closed the last gap here: delete now uses the
+// 'delete' action on that same endpoint rather than a direct Supabase write, so every directory
+// action is authorized server-side as Owner/Admin.
 export function InterviewersContent({ onRequestClose }) {
   const queryClient = useQueryClient()
   const [interviewers, setInterviewers] = useState([])
@@ -152,16 +152,15 @@ export function InterviewersContent({ onRequestClose }) {
   }
 
   // The exact previous delete behavior, minus the window.confirm wrapper (the confirmation is now the
-  // dialog below). Still a direct Supabase delete + rubric_support_data invalidation, called once.
-  // Authorization hardening is deferred to ACCOUNTS-ACCESS-DELETE-HARDEN-2.
+  // dialog below), then rubric_support_data invalidation. Called once.
+  // S-04 / ACCOUNTS-ACCESS-DELETE-HARDEN-2: this was the last directory action running as a
+  // direct browser write, which the Wave E FOR ALL policy left open to every staff role
+  // including Viewer. It now goes through /api/manage-interviewers like add and update, so the
+  // caller is verified and authorized server-side (Owner/Admin only).
   const performDelete = async (interviewer) => {
     setDeleting(true)
     try {
-      const { error } = await supabase
-        .from('interviewers')
-        .delete()
-        .eq('id', interviewer.id)
-      if (error) { alert(`Could not delete: ${error.message}`); return }
+      await callProxy({ action: 'delete', id: interviewer.id })
       const updated = interviewers.filter(i => i.id !== interviewer.id)
       setInterviewers(updated)
       saveCache(updated)

@@ -474,7 +474,9 @@ export default function InterviewDayDrawer({
                           <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: '#FBF5E8', color: '#C08A2A' }}>
                             ● Teams invite pending
                           </span>
-                          {session?.id && (
+                          {/* S-04: interview_sessions writes are now active Owner/Admin/Co-Lead only,
+                              so this is hidden for the roles the database would refuse. */}
+                          {isAdmin && session?.id && (
                             <MBtn variant="outline" disabled={markingTeams === session.id} onClick={() => handleMarkTeamsInviteSent(session.id)}>
                               {markingTeams === session.id ? '…' : 'Mark sent'}
                             </MBtn>
@@ -550,7 +552,8 @@ export default function InterviewDayDrawer({
                             <StatusPill status="available" />
                           </div>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <MBtn variant="outline" onClick={() => setBlockingSlot(slot)}>Block Time</MBtn>
+                            {/* S-04: interview_slots writes are now active Owner/Admin/Co-Lead only. */}
+                            {isAdmin && <MBtn variant="outline" onClick={() => setBlockingSlot(slot)}>Block Time</MBtn>}
                             <MBtn variant="danger" disabled={deletingSlot === slot.id} onClick={() => handleDeleteSlot(slot.id)}>
                               {deletingSlot === slot.id ? '…' : <><Trash2 size={10} /> Delete</>}
                             </MBtn>
@@ -587,7 +590,8 @@ export default function InterviewDayDrawer({
                       <InterviewerChip name={slot.interviewer_name} colorMap={colorMap} />
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <MBtn variant="outline" onClick={() => handleUnblockSlot(slot.id)}>Unblock</MBtn>
+                      {/* S-04: interview_slots writes are now active Owner/Admin/Co-Lead only. */}
+                      {isAdmin && <MBtn variant="outline" onClick={() => handleUnblockSlot(slot.id)}>Unblock</MBtn>}
                     </div>
                   </div>
                 )
