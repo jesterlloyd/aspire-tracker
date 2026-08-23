@@ -2844,7 +2844,7 @@ button.ov-group-row {
 .casey-legend-post { background: var(--cf-green); }
 .casey-compare-axis {
   display: grid;
-  grid-template-columns: 195px repeat(4, 1fr) 60px;
+  grid-template-columns: 195px repeat(4, 1fr) 110px;
   color: var(--cf-muted);
   font-size: 10.5px;
   padding: 18px 26px 0;
@@ -2863,10 +2863,10 @@ button.ov-group-row {
 .casey-compare-chart { padding: 2px 26px 0; }
 .casey-compare-row {
   display: grid;
-  grid-template-columns: 180px minmax(280px, 1fr) 60px;
+  grid-template-columns: 180px minmax(280px, 1fr) 110px;
   gap: 15px;
   align-items: center;
-  min-height: 78px;
+  min-height: 96px;
   border-bottom: 1px solid var(--cf-border);
 }
 .casey-compare-label strong {
@@ -2881,6 +2881,7 @@ button.ov-group-row {
   font-size: 11px;
   margin-top: 4px;
 }
+.casey-compare-plot { min-width: 0; }
 .casey-compare-track { position: relative; height: 38px; }
 .casey-compare-gridlines {
   position: absolute;
@@ -2931,6 +2932,26 @@ button.ov-group-row {
   border: 3px solid #fff;
   box-shadow: 0 0 0 1px var(--cf-green);
 }
+.casey-compare-marker-combined {
+  background: linear-gradient(90deg, #fff 0 50%, var(--cf-green) 50% 100%);
+  border: 3px solid var(--cf-navy);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--cf-green);
+}
+.casey-compare-marker-combined span { color: var(--cf-navy); }
+.casey-compare-change-counts {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  color: var(--cf-muted);
+  font-size: 10px;
+  line-height: 1;
+  margin-top: 5px;
+}
+.casey-compare-change-counts span { display: inline-flex; align-items: center; gap: 5px; }
+.casey-compare-change-counts i { width: 6px; height: 6px; border-radius: 50%; }
+.casey-compare-change-counts .is-improved i { background: var(--cf-green); }
+.casey-compare-change-counts .is-unchanged i { background: #98A2B3; }
+.casey-compare-change-counts .is-declined i { background: var(--cf-red); }
 .casey-compare-delta {
   justify-self: end;
   color: #166534;
@@ -2942,11 +2963,12 @@ button.ov-group-row {
   font-variant-numeric: tabular-nums;
 }
 .casey-compare-delta.is-negative { color: var(--cf-red); background: var(--cf-red-soft); }
+.casey-compare-delta.is-neutral { color: #475467; background: #F2F4F7; }
 .casey-compare-scale-label {
   color: var(--cf-muted);
   font-size: 10.5px;
   text-align: center;
-  padding: 9px 82px 13px 217px;
+  padding: 9px 151px 13px 221px;
 }
 .casey-compare-empty {
   color: var(--cf-muted);
@@ -3066,14 +3088,14 @@ button.ov-group-row {
   .casey-compare-axis { display: none; }
   .casey-compare-chart { padding-top: 12px; }
   .casey-compare-row {
-    grid-template-columns: minmax(0, 1fr) 55px;
+    grid-template-columns: minmax(0, 1fr) 108px;
     gap: 10px;
     padding: 13px 0 16px;
   }
   .casey-compare-label { grid-column: 1 / -1; }
-  .casey-compare-track { grid-column: 1; }
+  .casey-compare-plot { grid-column: 1; }
   .casey-compare-delta { grid-column: 2; grid-row: 2; }
-  .casey-compare-scale-label { padding: 9px 72px 13px 22px; }
+  .casey-compare-scale-label { padding: 9px 125px 13px 22px; }
   .casey-compare-detail-button { align-self: flex-start; }
   .casey-question-heading { flex-direction: column; }
 }

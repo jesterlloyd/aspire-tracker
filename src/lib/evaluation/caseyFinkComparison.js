@@ -116,11 +116,20 @@ export function buildCaseyFinkComparison(assignments = []) {
     const postValues = pairs.map(pair => Number(responseFor(pair.post)[section.scoreKey]))
     const preMean = mean(preValues)
     const postMean = mean(postValues)
+    const changeCounts = pairs.reduce((counts, pair) => {
+      const preValue = Number(responseFor(pair.pre)[section.scoreKey])
+      const postValue = Number(responseFor(pair.post)[section.scoreKey])
+      if (postValue > preValue) counts.improved += 1
+      else if (postValue < preValue) counts.declined += 1
+      else counts.unchanged += 1
+      return counts
+    }, { improved: 0, unchanged: 0, declined: 0 })
     return {
       ...section,
       preMean,
       postMean,
       delta: preMean == null || postMean == null ? null : postMean - preMean,
+      changeCounts,
     }
   })
 

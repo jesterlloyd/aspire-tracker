@@ -12,9 +12,13 @@ function ScoreRow({ metric }) {
   const postPosition = scorePosition(metric.postMean)
   const connectorLeft = Math.min(prePosition, postPosition)
   const connectorWidth = Math.abs(postPosition - prePosition)
+  const isNoNetChange = metric.delta != null && Math.abs(metric.delta) < 0.005
   const deltaLabel = metric.delta == null
     ? '-'
-    : `${metric.delta >= 0 ? '+' : ''}${metric.delta.toFixed(2)}`
+    : isNoNetChange
+      ? 'No net change'
+      : `${metric.delta >= 0 ? '+' : ''}${metric.delta.toFixed(2)}`
+  const changeCounts = metric.changeCounts || { improved: 0, unchanged: 0, declined: 0 }
 
   return (
     <div className="casey-compare-row">
@@ -23,25 +27,47 @@ function ScoreRow({ metric }) {
         <span>{metric.itemCodes.length}-item subscale</span>
       </div>
 
-      <div className="casey-compare-track" aria-label={`${metric.label}: pre-rotation ${metric.preMean.toFixed(2)}, post-rotation ${metric.postMean.toFixed(2)}, change ${deltaLabel}`}>
-        <div className="casey-compare-gridlines" aria-hidden="true">
-          <i /><i /><i /><i />
+      <div className="casey-compare-plot">
+        <div className="casey-compare-track" aria-label={`${metric.label}: pre-rotation ${metric.preMean.toFixed(2)}, post-rotation ${metric.postMean.toFixed(2)}, ${deltaLabel.toLowerCase()}`}>
+          <div className="casey-compare-gridlines" aria-hidden="true">
+            <i /><i /><i /><i />
+          </div>
+          <div className="casey-compare-axis-line" aria-hidden="true" />
+          {isNoNetChange ? (
+            <div
+              className="casey-compare-marker casey-compare-marker-combined"
+              style={{ left: `${prePosition}%` }}
+              aria-hidden="true"
+            >
+              <span>Pre/Post {metric.preMean.toFixed(2)}</span>
+            </div>
+          ) : (
+            <>
+              <div
+                className={`casey-compare-connector ${metric.delta < 0 ? 'is-negative' : ''}`}
+                style={{ left: `${connectorLeft}%`, width: `${connectorWidth}%` }}
+                aria-hidden="true"
+              />
+              <div className="casey-compare-marker casey-compare-marker-pre" style={{ left: `${prePosition}%` }}>
+                <span>{metric.preMean.toFixed(2)}</span>
+              </div>
+              <div className="casey-compare-marker casey-compare-marker-post" style={{ left: `${postPosition}%` }}>
+                <span>{metric.postMean.toFixed(2)}</span>
+              </div>
+            </>
+          )}
         </div>
-        <div className="casey-compare-axis-line" aria-hidden="true" />
         <div
-          className={`casey-compare-connector ${metric.delta < 0 ? 'is-negative' : ''}`}
-          style={{ left: `${connectorLeft}%`, width: `${connectorWidth}%` }}
-          aria-hidden="true"
-        />
-        <div className="casey-compare-marker casey-compare-marker-pre" style={{ left: `${prePosition}%` }}>
-          <span>{metric.preMean.toFixed(2)}</span>
-        </div>
-        <div className="casey-compare-marker casey-compare-marker-post" style={{ left: `${postPosition}%` }}>
-          <span>{metric.postMean.toFixed(2)}</span>
+          className="casey-compare-change-counts"
+          aria-label={`${changeCounts.improved} students improved, ${changeCounts.unchanged} unchanged, ${changeCounts.declined} declined`}
+        >
+          <span className="is-improved"><i />{changeCounts.improved} improved</span>
+          <span className="is-unchanged"><i />{changeCounts.unchanged} unchanged</span>
+          <span className="is-declined"><i />{changeCounts.declined} declined</span>
         </div>
       </div>
 
-      <div className={`casey-compare-delta ${metric.delta < 0 ? 'is-negative' : ''}`}>
+      <div className={`casey-compare-delta ${metric.delta < 0 ? 'is-negative' : ''} ${isNoNetChange ? 'is-neutral' : ''}`}>
         {deltaLabel}
       </div>
     </div>

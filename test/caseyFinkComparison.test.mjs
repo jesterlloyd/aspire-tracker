@@ -66,12 +66,32 @@ test('pairs only the same student baseline and post-rotation responses', () => {
   assert.equal(cps.preMean, 2.5)
   assert.equal(cps.postMean, 3.5)
   assert.equal(cps.delta, 1)
+  assert.deepEqual(cps.changeCounts, { improved: 2, unchanged: 0, declined: 0 })
   assert.equal(la.preMean, 3)
   assert.equal(la.postMean, 3.25)
   assert.equal(la.delta, 0.25)
+  assert.deepEqual(la.changeCounts, { improved: 1, unchanged: 1, declined: 0 })
   assert.equal(pr.preMean, 2.5)
   assert.equal(pr.postMean, 3.5)
   assert.equal(pr.delta, 1)
+  assert.deepEqual(pr.changeCounts, { improved: 2, unchanged: 0, declined: 0 })
+})
+
+test('student-level changes expose cancellation hidden by an unchanged aggregate mean', () => {
+  const comparison = buildCaseyFinkComparison([
+    assignment({ studentId: 'improved', timepoint: 'baseline', cps: 3, la: 3.4, pr: 3 }),
+    assignment({ studentId: 'improved', timepoint: 'post_rotation', cps: 3, la: 3.8, pr: 3 }),
+    assignment({ studentId: 'declined', timepoint: 'baseline', cps: 3, la: 3.8, pr: 3 }),
+    assignment({ studentId: 'declined', timepoint: 'post_rotation', cps: 3, la: 3.4, pr: 3 }),
+    assignment({ studentId: 'unchanged', timepoint: 'baseline', cps: 3, la: 3.6, pr: 3 }),
+    assignment({ studentId: 'unchanged', timepoint: 'post_rotation', cps: 3, la: 3.6, pr: 3 }),
+  ])
+
+  const learningActivities = comparison.metrics.find(metric => metric.key === 'learning_activities')
+  assert.ok(Math.abs(learningActivities.preMean - 3.6) < 1e-12)
+  assert.ok(Math.abs(learningActivities.postMean - 3.6) < 1e-12)
+  assert.ok(Math.abs(learningActivities.delta) < 1e-12)
+  assert.deepEqual(learningActivities.changeCounts, { improved: 1, unchanged: 1, declined: 1 })
 })
 
 test('question-level distributions use matched students only', () => {
