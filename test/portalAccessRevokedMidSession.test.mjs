@@ -125,6 +125,19 @@ test('shell: reporting outside a portal is a no-op, not a crash', () => {
   assert.match(signal, /createContext\(null\)/)
 })
 
+test('shell: the failure reporter is stable so roster requests can finish', () => {
+  const signal = read('src/portal/portalAccessSignal.js')
+  assert.match(signal, /return useCallback\(\(failure\) => \{/)
+  assert.match(signal, /\}, \[onAccessEnded\]\)/)
+  assert.match(signal, /\[failed, status, error, reportFailure\]/)
+
+  // StudentsView intentionally depends on the reporter. If the reporter changes on every render,
+  // setLoading(true) triggers a render that cancels the request before it can settle, then starts
+  // the same cycle again. Keeping both assertions guards the actual production failure mode.
+  const ap = read('src/portal/AcademicPartnerPortal.jsx')
+  assert.match(ap, /\}, \[reloadKey, reportFailure\]\)/)
+})
+
 // ── The surfaces ─────────────────────────────────────────────────────────────
 
 test('surface: the Academic Partner students view no longer lies', () => {

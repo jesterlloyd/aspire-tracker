@@ -66,7 +66,7 @@ export default function MyProfile({ active = true }) {
     } catch {
       setState({ loading: false, error: 'load', data: null })
     }
-  }, [])
+  }, [reportFailure])
 
   // Fetch-on-activation; every setState inside load happens after an await (async
   // response handling), mirroring the portal's other endpoint-backed views.
