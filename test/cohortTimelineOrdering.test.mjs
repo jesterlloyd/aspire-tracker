@@ -1,7 +1,7 @@
 // Portal cohort polish, Commit 1: the canonical cohort timeline ordering helper, shared by the
-// Academic Partner and Unit Leader portals. Proves Summer 2026 precedes Fall 2026 by timeline, active
-// precedes upcoming, upcoming ascends by start date, historical descends, aggregate options come after
-// real cohorts, and there is no alphabetical regression. Also proves AP + UL consume the shared helper.
+// Academic Partner and Unit Leader portals. Proves Summer 2026 precedes Fall 2026 by timeline, every
+// lifecycle shares one ascending timeline, the newest Active cohort remains the login default, and
+// there is no alphabetical regression. Also proves AP + UL consume the shared helper.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -25,11 +25,12 @@ test('Summer 2026 sorts before Fall 2026 by timeline, not alphabetically', () =>
   assert.deepEqual(ordered.map(c => c.id), ['summer', 'fall'])
 })
 
-test('active cohorts precede upcoming cohorts', () => {
+test('lifecycle status does not override chronological placement', () => {
   const ordered = orderCohortsByTimeline([FALL, SUMMER, FALL25])
-  assert.equal(ordered[0].id, 'summer')            // Active first
-  assert.equal(cohortLifecycle(ordered[0]), 'current')
-  assert.equal(cohortLifecycle(ordered[1]), 'upcoming')
+  assert.deepEqual(ordered.map(c => c.id), ['fall25', 'summer', 'fall'])
+  assert.equal(cohortLifecycle(ordered[0]), 'historical')
+  assert.equal(cohortLifecycle(ordered[1]), 'current')
+  assert.equal(cohortLifecycle(ordered[2]), 'upcoming')
 })
 
 test('upcoming cohorts are ordered by ASCENDING start date (soonest first)', () => {
@@ -39,14 +40,14 @@ test('upcoming cohorts are ordered by ASCENDING start date (soonest first)', () 
   assert.deepEqual(ordered.map(c => c.id), ['e', 'l'])   // by date, not by name ('A late' would win alpha)
 })
 
-test('historical cohorts are ordered by DESCENDING start date (most recent first)', () => {
+test('historical cohorts follow the same ASCENDING start-date timeline', () => {
   const ordered = orderCohortsByTimeline([SPRING25, FALL25])
-  assert.deepEqual(ordered.map(c => c.id), ['fall25', 'spring25'])
+  assert.deepEqual(ordered.map(c => c.id), ['spring25', 'fall25'])
 })
 
-test('full timeline: current -> upcoming -> historical(desc)', () => {
+test('full timeline is start-date ascending regardless of status', () => {
   const ordered = orderCohortsByTimeline([FALL25, FALL, SPRING25, SUMMER])
-  assert.deepEqual(ordered.map(c => c.id), ['summer', 'fall', 'fall25', 'spring25'])
+  assert.deepEqual(ordered.map(c => c.id), ['spring25', 'fall25', 'summer', 'fall'])
 })
 
 test('missing start dates sort last within their group, deterministically', () => {
@@ -67,7 +68,7 @@ test('AP Students options: aggregates come after real cohorts; default is the ne
   const { options, defaultId } = cohortOptions([FALL, SUMMER, active2, FALL25])
   // With >1 Active, "All Current Cohorts" leads; real cohorts in timeline order; "All Cohorts" last.
   assert.equal(options[0].id, AP_ALL_CURRENT)
-  assert.deepEqual(options.slice(1).map(o => o.id), ['summer', 'a2', 'fall', 'fall25', AP_ALL])
+  assert.deepEqual(options.slice(1).map(o => o.id), ['fall25', 'summer', 'a2', 'fall', AP_ALL])
   // Newest Active by start date is 'a2' (2026-07 > 2026-06), even though it appears second in the list.
   assert.equal(defaultId, 'a2')
 })
@@ -77,6 +78,14 @@ test('AP Students options with a single Active cohort: no All-Current aggregate,
   assert.ok(!options.some(o => o.id === AP_ALL_CURRENT))
   assert.equal(defaultId, 'summer')
   assert.equal(options[options.length - 1].id, AP_ALL)
+})
+
+test('completed Summer stays before Fall in the list while Active Fall becomes the login default', () => {
+  const completedSummer = { ...SUMMER, status: 'Completed' }
+  const activeFall = { ...FALL, status: 'Active' }
+  const { options, defaultId } = cohortOptions([activeFall, completedSummer])
+  assert.deepEqual(options.map(o => o.id), ['summer', 'fall', AP_ALL])
+  assert.equal(defaultId, 'fall')
 })
 
 test('AP submission options are accepting-only, timeline-ordered, and never include an All target', () => {

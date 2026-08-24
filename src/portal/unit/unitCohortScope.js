@@ -2,8 +2,8 @@
 // cohorts, so a browser cohort choice narrows the already server-authorized set; it never widens it.
 // Cohorts are derived from the authorized roster students (each carries s.cohort = { id, name, status,
 // start_date, end_date }), ordered by the canonical timeline helper (src/lib/derivations/cohortOrder)
-// so the dropdown reads current -> upcoming -> historical, matching the Academic Partner and main-app
-// cohort presentation. No React and no data fetching here, so this is unit-testable in isolation.
+// so the dropdown reads as one start-date timeline, matching the Academic Partner and main-app cohort
+// presentation. No React and no data fetching here, so this is unit-testable in isolation.
 
 import { orderCohortsByTimeline, cohortLifecycle, newestByStart } from '../../lib/derivations/cohortOrder.js'
 
@@ -25,7 +25,7 @@ export function rosterCohorts(students) {
 // id set, and the count of REAL cohorts present so the caller can hide the control when there is
 // nothing to choose between (a single-cohort unit gets no cosmetic picker).
 //   - "All Current Cohorts" only when more than one cohort is currently Active
-//   - each cohort in timeline order (current -> upcoming -> historical)
+//   - each cohort in canonical start-date order
 //   - "All Cohorts" (the whole authorized 90-day window), always last
 // Default: the newest Active cohort; if none is Active, "All Cohorts".
 export function unitCohortOptions(students) {

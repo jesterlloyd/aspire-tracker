@@ -250,7 +250,7 @@ function StudentsView() {
             </select>
           </span>
         )}
-        <span className="ptl-header-ctl">
+        <span className="ptl-header-ctl" data-portal-cohort-picker="true">
           <span className="ptl-header-ctl-label">Cohort</span>
           <select aria-label="Cohort" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
             {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}

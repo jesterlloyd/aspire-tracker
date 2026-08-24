@@ -1,17 +1,11 @@
-// Canonical cohort timeline ordering, shared by the portals (Academic Partner + Unit Leader) so a
-// cohort dropdown reads like a timeline instead of by creation order or alphabetically. This is the
-// single ordering helper the portals consume; the main app's own header switcher keeps its existing
-// start-date-ascending order (src/App.jsx sortedCohorts) and is intentionally NOT rewired, so the main
-// app's visible order never changes.
+// Canonical cohort timeline ordering, shared by the Academic Partner and Unit Leader portals. It
+// mirrors the main app's header switcher: every real cohort is ordered by start_date ASC, regardless
+// of lifecycle status. That produces one continuous sequence such as Summer 2026, Fall 2026, Winter
+// 2027, Spring 2027 instead of alphabetically or in current/upcoming/historical groups.
 //
-// Order (real cohorts):
-//   1. current    (status === 'Active'),                by start_date ASC (earliest first)
-//   2. upcoming   (Planning / any non-terminal status), by start_date ASC (earliest first)
-//   3. historical (Completed / Archived),               by start_date DESC (most recent first)
-//
-// Missing start dates sort last within their group; ties fall back to created_at ASC, then name, then
-// id, so the order is stable and deterministic without disturbing valid timeline ordering. The status
-// vocabulary is the canonical COHORT_STATUSES = ['Planning','Active','Completed','Archived'].
+// Missing start dates sort last. Ties fall back to created_at ASC, then name, then id, so the order is
+// stable and deterministic without disturbing valid timeline ordering. Lifecycle remains separate
+// from display order and is used only to identify Active cohorts and choose the login default.
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
 
@@ -24,8 +18,8 @@ export function cohortLifecycle(cohort) {
   return 'upcoming'
 }
 
-// Comparator for one group. Present start dates always precede missing ones; among present dates the
-// direction applies; ties fall back to created_at ASC, then name, then id (all deterministic).
+// Timeline comparator. Present start dates always precede missing ones; ties fall back to created_at
+// ASC, then name, then id (all deterministic).
 function byStart(direction) {
   const dir = direction === 'desc' ? -1 : 1
   return (a, b) => {
@@ -45,10 +39,7 @@ function byStart(direction) {
 // Order a set of canonical cohort rows by timeline. Returns a new array (never mutates the input).
 export function orderCohortsByTimeline(cohorts) {
   const list = Array.isArray(cohorts) ? cohorts.slice() : []
-  const current = list.filter(c => cohortLifecycle(c) === 'current').sort(byStart('asc'))
-  const upcoming = list.filter(c => cohortLifecycle(c) === 'upcoming').sort(byStart('asc'))
-  const historical = list.filter(c => cohortLifecycle(c) === 'historical').sort(byStart('desc'))
-  return [...current, ...upcoming, ...historical]
+  return list.sort(byStart('asc'))
 }
 
 // The currently-Active cohorts, in timeline order. Used for the "All Current Cohorts" aggregate and

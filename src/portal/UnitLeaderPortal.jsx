@@ -210,7 +210,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
             </span>
           )}
           {showCohortPicker && (
-            <span className="ptl-header-ctl">
+            <span className="ptl-header-ctl" data-portal-cohort-picker="true">
               <span className="ptl-header-ctl-label">Cohort</span>
               <select aria-label="Cohort" value={cohortId} onChange={e => setCohortSel(e.target.value)}>
                 {cohortOpts.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}

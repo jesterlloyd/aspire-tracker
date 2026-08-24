@@ -40,8 +40,7 @@ const students = [
 
 test('canonical cohorts are consumed directly (not inferred from students) and split by Active status', () => {
   const { cohorts, current } = splitCohorts(canonicalCohorts)
-  // Timeline order now: current (start ASC) -> upcoming -> historical (start DESC).
-  assert.deepEqual(cohorts.map(c => c.id), ['c-2026a', 'c-2026b', 'c-fall-2026', 'c-2025'])
+  assert.deepEqual(cohorts.map(c => c.id), ['c-2025', 'c-2026a', 'c-2026b', 'c-fall-2026'])
   assert.deepEqual(current.map(c => c.id), ['c-2026a', 'c-2026b'])                            // only Active, start ASC
   assert.ok(compareCohortNewest(c2026b, c2025) < 0)  // start_date newest-first comparator still exported
 })
@@ -53,7 +52,7 @@ test('a Planning + Accepting cohort with ZERO student rows still appears as an o
 
 test('cohort options: All Current only with >1 current, cohorts in timeline order, All Cohorts last', () => {
   const { options, defaultId } = cohortOptions(canonicalCohorts)
-  assert.deepEqual(options.map(o => o.id), [AP_ALL_CURRENT, 'c-2026a', 'c-2026b', 'c-fall-2026', 'c-2025', AP_ALL])
+  assert.deepEqual(options.map(o => o.id), [AP_ALL_CURRENT, 'c-2025', 'c-2026a', 'c-2026b', 'c-fall-2026', AP_ALL])
   assert.equal(options[0].label, 'All Current Cohorts')
   assert.equal(options.at(-1).label, 'All Cohorts')
   // Default is the NEWEST current (Active) cohort by start date (Summer 2026 > Spring 2026), not the
@@ -64,7 +63,7 @@ test('cohort options: All Current only with >1 current, cohorts in timeline orde
 test('with a single current cohort there is no All Current option, and it is the default', () => {
   const one = [c2026a, c2025]
   const { options, defaultId } = cohortOptions(one)
-  assert.deepEqual(options.map(o => o.id), ['c-2026a', 'c-2025', AP_ALL])   // no all-current
+  assert.deepEqual(options.map(o => o.id), ['c-2025', 'c-2026a', AP_ALL])   // no all-current
   assert.equal(defaultId, 'c-2026a')
 })
 
@@ -137,6 +136,7 @@ test('the school scope is in the header (selector only for multiple schools); sc
   // The roster fetch carries only the JWT; no school/cohort/scope query parameter is ever sent.
   assert.match(portal, /fetch\('\/api\/portal\/school-students', \{ headers: \{ Authorization: `Bearer \$\{token\}` \} \}\)/)
   assert.doesNotMatch(portalCode, /school-students\?|school_key=|cohort_id=|[?&]school=/)
+  assert.match(portal, /data-portal-cohort-picker="true"/)
 })
 
 test('the full canonical 8-card pathway band renders in order, with privacy-safe Not Proceeding copy', () => {

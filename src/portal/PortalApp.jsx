@@ -32,6 +32,7 @@ import UnitLeaderPortal from './UnitLeaderPortal'
 import { UnitLeaderNav } from './unit/UnitLeaderChrome'
 import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
+import PortalCohortLoginHint from './PortalCohortLoginHint'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 // PROFILE-MENU-AVATARS-1: self-service photo dialog shared by all three portals.
 import ChangePhotoDialog from './ChangePhotoDialog'
@@ -43,6 +44,7 @@ import { usePortalHeadshotUrl } from '../lib/useStudentFile'
 // for the three portal experiences (student, unit_leader, academic_partner).
 import CustomOnboardingTour from '../components/CustomOnboardingTour'
 import { shouldAutoStartTour } from '../lib/onboardingTours'
+import { markPortalCohortHintSeen } from '../lib/portalCohortHint'
 // PORTAL-ACCESS-STATE: one honest message per access state, instead of one
 // "being prepared" card standing in for every reason a portal is not there.
 import { resolveAccessState, accessCopy, ACCESS_STATES, SUPPORT_EMAIL } from '../lib/portalAccessState'
@@ -169,6 +171,16 @@ export default function PortalApp() {
   const [tourRunning, setTourRunning] = useState(false)
   const tourArmedRef = useRef(false)
   const tourTimeoutRef = useRef(null)
+  const portalTourDecisionReady = Boolean(
+    experience
+    && userProfile
+    && userProfile.onboarding_tour_completed !== undefined
+    && (experience !== 'academic_partner' || apCapabilityResolved)
+  )
+  // A first-login Welcome Tour already explains the portal controls. Keep the smaller cohort hint
+  // out of that login entirely; it begins on later logins after the tour has been acknowledged.
+  const welcomeTourWillAutoStart = portalTourDecisionReady
+    && shouldAutoStartTour(userProfile, experience)
   // PROFILE-MENU-AVATARS-1: bumping headshotVersion re-keys the portal-self
   // photo cache after a Change Photo save, so the header re-signs the new image
   // without a reload. UL/AP saves instead refresh userProfile (avatar_url).
@@ -281,6 +293,11 @@ export default function PortalApp() {
     if (experience === 'academic_partner' && !apCapabilityResolved) return
     if (!shouldAutoStartTour(userProfile, experience)) return
     tourArmedRef.current = true
+    // The automatic Welcome Tour is the guidance for this first login. Mark the smaller cohort hint
+    // as handled for this signed-in session so it does not appear as soon as the tour closes.
+    if (experience === 'unit_leader' || experience === 'academic_partner') {
+      markPortalCohortHintSeen(userProfile.id, experience)
+    }
     tourTimeoutRef.current = setTimeout(() => setTourRunning(true), 700)
   }, [experience, userProfile, apCapabilityResolved])
 
@@ -327,6 +344,14 @@ export default function PortalApp() {
       onClose={() => setTourRunning(false)}
       experience={experience}
       context={{ apMessagesEnabled }}
+    />
+  ) : null
+
+  const cohortLoginHint = (isUnitLeader || isAcademicPartner) ? (
+    <PortalCohortLoginHint
+      enabled={portalTourDecisionReady && !welcomeTourWillAutoStart && !tourRunning}
+      userId={userProfile?.id}
+      experience={experience}
     />
   ) : null
 
@@ -435,6 +460,7 @@ export default function PortalApp() {
           onBackToList={backToList}
         />
         {photoDialog}
+        {cohortLoginHint}
         {tourOverlay}
       </PortalShell>
       </PortalAccessSignalContext.Provider>
@@ -473,6 +499,7 @@ export default function PortalApp() {
           messagesEnabled={apMessagesEnabled}
           threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
         {photoDialog}
+        {cohortLoginHint}
         {tourOverlay}
       </PortalShell>
       </PortalAccessSignalContext.Provider>

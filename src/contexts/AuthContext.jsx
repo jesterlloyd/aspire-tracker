@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useMemo,
 import { supabase } from '../lib/supabase';
 import { setStudentPhotoCacheScope, clearStudentPhotoCache } from '../lib/studentPhotoCache';
 import { normalizeStaffRole } from '../lib/permissions';
+import { clearPortalCohortHintSession } from '../lib/portalCohortHint';
 
 // Roles that READ student files across every cohort, with no entitlement needed.
 // Co-Lead joined Owner/Admin here on 2026-08-05: near-Owner for student access.
@@ -115,6 +116,7 @@ export function AuthProvider({ children }) {
           // https://supabase.com/docs/guides/troubleshooting/why-is-my-supabase-api-call-not-returning-PGzXw0
           setTimeout(() => { void loadUserProfile() }, 0)
         } else if (event === 'SIGNED_OUT') {
+          clearPortalCohortHintSession();
           setUser(null);
           setUserProfile(null);
           setLoading(false);
@@ -136,6 +138,7 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     clearStudentPhotoCache(); // drop every signed photo URL immediately on sign-out
+    clearPortalCohortHintSession(); // show the cohort switch hint on the next portal login
     await supabase.auth.signOut();
   }, []);
 

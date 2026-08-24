@@ -23,9 +23,8 @@ export function compareCohortNewest(a, b) {
 }
 
 // Split the CANONICAL, server-provided cohorts (school-scoped, independent of the roster) into the
-// Active subset, in canonical timeline order (orderCohortsByTimeline). This keeps open-but-empty
-// cohorts visible (a Planning + Accepting cohort with zero students still appears) AND presents them
-// in timeline order (current → upcoming → historical) rather than by creation order.
+// Active subset, in canonical start-date order (orderCohortsByTimeline). This keeps open-but-empty
+// cohorts visible and presents one continuous timeline rather than creation or alphabetical order.
 export function splitCohorts(cohorts) {
   const list = orderCohortsByTimeline(cohorts)
   return { cohorts: list, current: list.filter(c => c.status === 'Active') }
@@ -34,7 +33,7 @@ export function splitCohorts(cohorts) {
 // The Students cohort picker: options in order, the default option id, and the set of current cohort
 // ids. Consumes the canonical cohort list (school.cohorts from the endpoint), NOT the students.
 //   - "All Current Cohorts" only when more than one cohort is currently Active
-//   - each cohort in canonical timeline order (current → upcoming → historical)
+//   - each cohort in canonical start-date order, matching the main app
 //   - "All Cohorts" (includes historical), always last
 // Default: the newest Active cohort (start_date DESC); if none is Active, "All Cohorts".
 export function cohortOptions(cohorts) {
@@ -50,8 +49,7 @@ export function cohortOptions(cohorts) {
 // The Placement Requests SUBMISSION cohort picker: only cohorts currently accepting_submissions are
 // valid targets (no "All" pseudo-option), in canonical timeline order. The intake model keeps exactly
 // one cohort accepting at a time (api resolveAcceptingCohort), so the default is that cohort; if
-// several were ever open, current precedes upcoming and each group is ordered soonest-start first, so
-// the default is the nearest submission cohort.
+// several were ever open, start-date order makes the default the earliest accepting cohort.
 export function submissionCohortOptions(cohorts) {
   const accepting = orderCohortsByTimeline(cohorts).filter(c => c.accepting_submissions)
   const options = accepting.map(c => ({ id: c.id, label: c.name || 'Cohort' }))
