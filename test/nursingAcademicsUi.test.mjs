@@ -160,7 +160,7 @@ test('Community Benefit uses program KPI filters, compact labels, and table cont
   for (const value of ['ELMN', 'ABSN', 'BSN \\(Semester\\)', 'BSN \\(Trimester\\)', 'BSN \\(Quarter\\)']) assert.match(labels, new RegExp(value))
 })
 
-test('Contacts is a read-only server-backed directory with no outreach actions', () => {
+test('Contacts is a read-only server-backed directory with local contact actions', () => {
   assert.match(contacts, /fetchAcademicsContacts/)
   assert.match(contacts, /Read-only access/)
   assert.match(contacts, /ptl-na-contact-kpis/)
@@ -168,8 +168,26 @@ test('Contacts is a read-only server-backed directory with no outreach actions',
   assert.match(contacts, /CONTACT_CATEGORY_ORDER/)
   assert.match(contacts, /contact\.avatar_url/)
   assert.match(contacts, /ptl-na-contact-detail-hero/)
+  assert.match(contacts, /displayListName/)
+  assert.match(contacts, /ptl-na-contact-row-role/)
+  assert.match(contacts, /contactRoleChipColors/)
+  assert.match(contacts, />Affiliation</)
+  assert.match(contacts, /mailto:/)
+  assert.match(contacts, /tel:/)
+  assert.match(contacts, /Copy visible emails/)
+  assert.match(contacts, /visibleEmails\.join\(','\)/)
+  assert.match(contacts, /navigator\.clipboard\.writeText/)
   assert.doesNotMatch(contacts, /<select[^>]+na-contact-category|All Categories/)
-  assert.doesNotMatch(contacts, /mailto:|contacts-upsert|downloadCSV|Send email|Copy email|Delete contact|Edit contact/)
+  assert.doesNotMatch(contacts, /contacts-upsert|downloadCSV|Delete contact|Edit contact|notification_history|contact\.notes/)
+})
+
+test('Contacts shares the main directory role-pill colors', () => {
+  const categories = read('src/lib/contactCategories.js')
+  const mainContacts = read('src/components/connect/ContactsView.jsx')
+  assert.match(categories, /CONTACT_ROLE_CHIP_STYLES/)
+  assert.match(categories, /contactRoleChipColors/)
+  assert.match(mainContacts, /contactRoleChipColors/)
+  assert.doesNotMatch(mainContacts, /const ROLE_COLORS/)
 })
 
 // ── Settings panel ───────────────────────────────────────────────────────────

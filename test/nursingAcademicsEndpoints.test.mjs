@@ -191,6 +191,8 @@ test('Contacts returns only its allowlisted read-only fields', async () => {
   assert.equal(res.statusCode, 200)
   assert.equal(res.body.contacts.length, 1)
   assert.equal(res.body.contacts[0].full_name, 'Arturo Academic')
+  assert.equal(res.body.contacts[0].email, 'arturo@example.org')
+  assert.equal(res.body.contacts[0].phone, '310-555-0100')
   assert.equal(res.body.contacts[0].avatar_url, 'https://example.org/arturo.jpg')
   assert.ok(!('notes' in res.body.contacts[0]))
   assert.ok(!('notification_history' in res.body.contacts[0]))

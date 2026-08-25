@@ -1,17 +1,48 @@
 // Read-only contact directory for Nursing Education & Leadership portal users.
-// It intentionally exposes no mutation, export, copy, or messaging actions.
+// It exposes local email, call, and clipboard actions, but no mutation,
+// outreach history, notes, export, or in-app messaging capability.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Search, UserRound } from 'lucide-react'
+import { Copy, Mail, Phone, Search, UserRound } from 'lucide-react'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
-import { CONTACT_CATEGORY_ORDER, categoryChipColors, getContactCategories } from '../../lib/contactCategories'
+import { isValidEmail } from '../../lib/notifications/studentRecipient'
+import { normalizeEmailForLookup } from '../../lib/emailUtils'
+import {
+  CONTACT_CATEGORY_ORDER, categoryChipColors, contactRoleChipColors,
+  getContactCategories, getPrimaryCategory,
+} from '../../lib/contactCategories'
 import { fetchAcademicsContacts } from './nursingAcademicsApi'
 
 const clean = value => String(value || '').trim()
 const initials = name => clean(name).split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() || '').join('') || '?'
 const displayName = contact => clean(contact.preferred_name) || clean(contact.full_name) || 'Unnamed contact'
+const displayListName = contact => {
+  const full = clean(contact.full_name)
+  const preferred = clean(contact.preferred_name)
+  if (!preferred) return full || 'Unnamed contact'
+  if (full.toLowerCase() === preferred.toLowerCase() || full.toLowerCase().startsWith(`${preferred.toLowerCase()} `)) return full
+  return [preferred, full.split(/\s+/).slice(1).join(' ')].filter(Boolean).join(' ')
+}
+const affiliationLine = contact => clean(contact.unit_name) || clean(contact.school_name) || clean(contact.organization) || 'Contact information'
+const primaryCategory = contact => getPrimaryCategory(contact) || 'Other'
+const rolePillStyle = contact => {
+  const colors = contactRoleChipColors(contact.role, primaryCategory(contact))
+  return {
+    '--ptl-na-role-color': colors.color,
+    '--ptl-na-role-bg': colors.bg,
+    '--ptl-na-role-border': colors.border,
+  }
+}
+const categoryPillStyle = contact => {
+  const colors = categoryChipColors(primaryCategory(contact))
+  return {
+    '--ptl-na-category-color': colors.color,
+    '--ptl-na-category-bg': colors.bg,
+    '--ptl-na-category-border': colors.border,
+  }
+}
 const contactMatches = (contact, category, query) => {
   if (category !== 'All' && !getContactCategories(contact).includes(category)) return false
   if (!query) return true
@@ -33,6 +64,21 @@ function ContactAvatar({ contact, large = false }) {
   )
 }
 
+function ContactAction({ href, icon: Icon, label }) {
+  if (!href) {
+    return (
+      <span className="ptl-na-contact-action ptl-na-contact-action-disabled" aria-disabled="true" title={`No ${label.toLowerCase()} on file`}>
+        <Icon size={15} aria-hidden="true" /> {label}
+      </span>
+    )
+  }
+  return (
+    <a className="ptl-na-contact-action" href={href}>
+      <Icon size={15} aria-hidden="true" /> {label}
+    </a>
+  )
+}
+
 export default function AcademicsContactsView({ active = true }) {
   const [contacts, setContacts] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -41,6 +87,7 @@ export default function AcademicsContactsView({ active = true }) {
   const [loading, setLoading] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
+  const [copyStatus, setCopyStatus] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const reportFailure = useReportPortalFailure()
 
@@ -90,17 +137,47 @@ export default function AcademicsContactsView({ active = true }) {
       ...[...available].filter(value => !CONTACT_CATEGORY_ORDER.includes(value)).sort((a, b) => a.localeCompare(b)),
     ]
   }, [categoryCounts])
-  const filtered = useMemo(() => contacts.filter(contact => contactMatches(contact, category, query)), [contacts, category, query])
+  const filtered = useMemo(() => contacts
+    .filter(contact => contactMatches(contact, category, query))
+    .sort((a, b) => displayListName(a).localeCompare(displayListName(b), undefined, { sensitivity: 'base', numeric: true })), [contacts, category, query])
+  const visibleEmails = useMemo(() => {
+    const seen = new Set()
+    return filtered.reduce((emails, contact) => {
+      if (!isValidEmail(contact.email)) return emails
+      const normalized = normalizeEmailForLookup(contact.email)
+      if (!normalized || seen.has(normalized)) return emails
+      seen.add(normalized)
+      emails.push(clean(contact.email))
+      return emails
+    }, [])
+  }, [filtered])
   const selected = contacts.find(contact => contact.id === selectedId) || null
   const chooseCategory = value => {
     setCategory(value)
+    setCopyStatus('')
     setSelectedId(contacts.find(contact => contactMatches(contact, value, query))?.id || null)
   }
   const updateSearch = event => {
     const value = event.target.value
     const nextQuery = value.trim().toLowerCase()
     setSearch(value)
+    setCopyStatus('')
     setSelectedId(contacts.find(contact => contactMatches(contact, category, nextQuery))?.id || null)
+  }
+  const copyVisibleEmails = async () => {
+    if (visibleEmails.length === 0 || !navigator.clipboard?.writeText) {
+      setCopyStatus(visibleEmails.length === 0 ? 'No visible emails to copy' : 'Copy failed')
+      window.setTimeout(() => setCopyStatus(''), 2500)
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(visibleEmails.join(','))
+      setCopyStatus(`Copied ${visibleEmails.length} email${visibleEmails.length === 1 ? '' : 's'}`)
+      window.setTimeout(() => setCopyStatus(''), 2500)
+    } catch {
+      setCopyStatus('Copy failed')
+      window.setTimeout(() => setCopyStatus(''), 2500)
+    }
   }
 
   if (loading && !loaded) return <LoadingState label="Loading Contacts" />
@@ -143,12 +220,22 @@ export default function AcademicsContactsView({ active = true }) {
         })}
       </div>
 
-      <div className="ptl-na-contact-controls" role="group" aria-label="Search contacts">
+      <div className="ptl-na-contact-controls" role="group" aria-label="Search and copy contacts">
         <label className="ptl-na-contact-search" htmlFor="na-contact-search">
           <Search size={17} aria-hidden="true" />
           <span className="ptl-visually-hidden">Search contacts</span>
           <input id="na-contact-search" type="search" value={search} onChange={updateSearch} placeholder="Search contacts" />
         </label>
+        <button
+          type="button"
+          className="ptl-na-copy-emails"
+          onClick={copyVisibleEmails}
+          disabled={visibleEmails.length === 0}
+          title="Copy the visible contacts' emails as a comma-separated list"
+          aria-live="polite"
+        >
+          <Copy size={15} aria-hidden="true" /> {copyStatus || 'Copy visible emails'}
+        </button>
       </div>
 
       <div className="ptl-card ptl-na-contact-directory">
@@ -164,8 +251,9 @@ export default function AcademicsContactsView({ active = true }) {
             >
               <ContactAvatar contact={contact} />
               <span className="ptl-na-contact-row-copy">
-                <strong>{displayName(contact)}</strong>
-                <span>{[contact.role, contact.organization].filter(Boolean).join(' · ') || 'Contact information'}</span>
+                <strong>{displayListName(contact)}</strong>
+                <span className="ptl-na-contact-affiliation-line">{affiliationLine(contact)}</span>
+                {contact.role && <span className="ptl-na-contact-row-role" style={rolePillStyle(contact)}>{contact.role}</span>}
               </span>
             </button>
           ))}
@@ -181,20 +269,36 @@ export default function AcademicsContactsView({ active = true }) {
                   <h3>{displayName(selected)}</h3>
                   {selected.preferred_name && selected.full_name !== selected.preferred_name && <p>{selected.full_name}</p>}
                   <div className="ptl-na-contact-badges">
-                    <span className="ptl-na-contact-category">{selected.category || 'Contact'}</span>
-                    {selected.role && <span className="ptl-na-contact-role">{selected.role}</span>}
+                    <span className="ptl-na-contact-category" style={categoryPillStyle(selected)}>{primaryCategory(selected)}</span>
+                    {selected.role && <span className="ptl-na-contact-role" style={rolePillStyle(selected)}>{selected.role}</span>}
                   </div>
+                </div>
+                <div className="ptl-na-contact-actions" aria-label={`Contact ${displayListName(selected)}`}>
+                  <ContactAction href={isValidEmail(selected.email) ? `mailto:${clean(selected.email)}` : null} icon={Mail} label="Email" />
+                  <ContactAction href={clean(selected.phone) ? `tel:${clean(selected.phone)}` : null} icon={Phone} label="Call" />
                 </div>
               </div>
               <div className="ptl-na-contact-detail-body">
-                <dl className="ptl-na-contact-fields">
-                  <div><dt>Email</dt><dd>{selected.email || 'Not provided'}</dd></div>
-                  <div><dt>Phone</dt><dd>{selected.phone || 'Not provided'}</dd></div>
-                  <div><dt>Organization</dt><dd>{selected.organization || 'Not provided'}</dd></div>
-                  <div><dt>School</dt><dd>{selected.school_name || 'Not provided'}</dd></div>
-                  <div><dt>Unit</dt><dd>{selected.unit_name || 'Not provided'}</dd></div>
-                  <div><dt>Preferred contact method</dt><dd>{clean(selected.preferred_contact_method).replace(/_/g, ' ') || 'Not provided'}</dd></div>
-                </dl>
+                <div className="ptl-na-contact-sections">
+                  <section className="ptl-na-contact-section" aria-labelledby="na-contact-methods-heading">
+                    <h4 id="na-contact-methods-heading">Contact</h4>
+                    <dl>
+                      <div><dt>Email</dt><dd>{selected.email || 'Not provided'}</dd></div>
+                      <div><dt>Phone</dt><dd>{selected.phone || 'Not provided'}</dd></div>
+                      {selected.preferred_contact_method && <div><dt>Preferred method</dt><dd>{clean(selected.preferred_contact_method).replace(/_/g, ' ')}</dd></div>}
+                    </dl>
+                  </section>
+                  {(selected.organization || selected.school_name || selected.unit_name) && (
+                    <section className="ptl-na-contact-section" aria-labelledby="na-contact-affiliation-heading">
+                      <h4 id="na-contact-affiliation-heading">Affiliation</h4>
+                      <dl>
+                        {selected.organization && <div><dt>Organization</dt><dd>{selected.organization}</dd></div>}
+                        {selected.school_name && <div><dt>School</dt><dd>{selected.school_name}</dd></div>}
+                        {selected.unit_name && <div><dt>Unit</dt><dd>{selected.unit_name}</dd></div>}
+                      </dl>
+                    </section>
+                  )}
+                </div>
                 <p className="ptl-na-readonly-note"><UserRound size={15} aria-hidden="true" /> View only</p>
               </div>
             </>

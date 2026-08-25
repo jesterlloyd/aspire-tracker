@@ -56,9 +56,46 @@ export const CATEGORY_CHIP_STYLES = {
   'Other':              { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
 }
 
+// Canonical role-pill colors used in the Contacts list and profile. Roles not
+// listed here inherit their category color through contactRoleChipColors().
+export const CONTACT_ROLE_CHIP_STYLES = {
+  // Academic Partners
+  'School Coordinator':             { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Clinical Placement Coordinator': { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Program Coordinator':            { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Program Assistant':              { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Manager':                        { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Manager, Clinical Operations':   { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Manager, Clinical Faculty':      { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Manager Clinical Faculty':       { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Clinical Faculty':               { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Associate Professor':            { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  // Unit Leadership
+  'Associate Director':             { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
+  'Assistant Nurse Manager':        { color: '#166534', bg: '#EEF7F0', border: '#c6d9a8' },
+  'Unit NPD-P':                     { color: '#065f46', bg: '#D1FAE5', border: '#6ee7b7' },
+  'Unit NPD Practitioner':          { color: '#065f46', bg: '#D1FAE5', border: '#6ee7b7' },
+  // Preceptors
+  'Preceptor':                      { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
+  'Clinical Preceptor':             { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
+  // BNI Team
+  'NPD Practitioner':               { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  'BNI Administration':             { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
+  'BNI Team':                       { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
+  // Nursing Executives
+  'Nursing Leadership':             { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  'Nursing Executive':              { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  'Executive Director':             { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  'Chief Nursing Officer':          { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+}
+
 // Returns the canonical chip colors for a category (falls back to 'Other').
 export function categoryChipColors(category) {
   return CATEGORY_CHIP_STYLES[category] || CATEGORY_CHIP_STYLES['Other']
+}
+
+export function contactRoleChipColors(role, category) {
+  return CONTACT_ROLE_CHIP_STYLES[role] || categoryChipColors(category)
 }
 
 // Returns the inferred primary category from role only (no stored category consulted).
