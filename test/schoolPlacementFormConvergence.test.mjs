@@ -103,6 +103,8 @@ test('the request body is canonical: trimmed coordinator, nested availability, m
   assert.deepEqual(body.availability.unavailable_weekdays, ['Mon'])
   assert.equal(body.students[0].first_name, 'Ann')
   assert.equal(body.students[0].estimated_graduation_date, null)   // empty -> null
+  // NURSING-ACADEMICS-1: course_type always travels in the canonical body ('' when unselected).
+  assert.equal(body.students[0].course_type, '')
 })
 
 test('submit label pluralizes correctly', () => {
@@ -147,6 +149,9 @@ test('the public form and the Academic Partner form share the canonical definiti
     assert.ok(src.includes('placementSubmitLabel'), 'uses shared submit label')
     assert.ok(src.includes('newStudentRow'), 'uses shared student-row factory')
     assert.ok(src.includes('PROGRAM_TYPES'), 'uses canonical program types')
+    // NURSING-ACADEMICS-1: both surfaces render the structured course-type select.
+    assert.ok(src.includes('COURSE_TYPES'), 'uses canonical course types')
+    assert.ok(src.includes('T.courseTypeLabel'), 'renders the shared course-type label')
   }
   // The Academic Partner form renders labels from the shared text, exactly like the public form.
   assert.match(apForm, /\{T\.schoolLabel\}/)

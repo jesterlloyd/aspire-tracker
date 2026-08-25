@@ -9,13 +9,14 @@
 // data fetching, API calls, theme persistence, or cohort/operational state.
 import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Settings, Monitor, Users, FileText, Info, Scale, PenLine, Sparkles } from 'lucide-react'
+import { Settings, Monitor, Users, FileText, Info, Scale, PenLine, Sparkles, HandCoins } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections, routableSections, SETTINGS_HEADING_STYLE } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
 import KeithPanel from './KeithPanel'
 import PreceptorParityPanel from './PreceptorParityPanel'
+import CommunityBenefitPanel from './CommunityBenefitPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 
@@ -24,7 +25,7 @@ import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 // (they render inside GeneralPanel as subsettings) but keep entries here since they
 // remain routable and GeneralPanel reuses these icons for its subsettings list.
 const SECTION_ICONS = {
-  general: Settings, about: Info, appearance: Monitor, signature: PenLine, accounts: Users, knowledge: FileText, keith: Sparkles, preceptorParity: Scale, tours: Info,
+  general: Settings, about: Info, appearance: Monitor, signature: PenLine, accounts: Users, knowledge: FileText, keith: Sparkles, communityBenefit: HandCoins, preceptorParity: Scale, tours: Info,
 }
 
 // SETTINGS-UNIFIED-DESIGN-1: non-rail subsettings fold into General for the purpose of
@@ -186,6 +187,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
               there is no blank frame during the redirect. */}
           {(keithSubKey || currentKey === 'keith' || currentKey === 'knowledge') &&
             <KeithPanel subKey={keithSubKey} />}
+          {currentKey === 'communityBenefit' && <CommunityBenefitPanel />}
           {currentKey === 'preceptorParity' && <PreceptorParityPanel />}
         </div>
       </div>

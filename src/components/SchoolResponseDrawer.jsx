@@ -135,6 +135,7 @@ export default function SchoolResponseDrawer({
                 <Row label="School email" value={s.school_email} />
                 <Row label="Phone" value={s.phone} />
                 <Row label="Program type" value={s.program_type} />
+                <Row label="Course type" value={s.course_type || 'Unclassified'} />
                 <Row label="Hours required" value={s.hours_required ? String(s.hours_required) : null} />
                 <Row label="Estimated graduation" value={fmtDateLong(s.estimated_graduation_date) || formatText(s.estimated_graduation_date)} />
               </div>

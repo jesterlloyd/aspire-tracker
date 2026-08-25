@@ -139,7 +139,7 @@ test('PortalApp imports CustomOnboardingTour and shouldAutoStartTour from the co
 })
 
 test('PortalApp derives one experience string from the resolved role booleans', () => {
-  assert.match(appCode, /const experience = isStudent \? 'student' : isUnitLeader \? 'unit_leader' : isAcademicPartner \? 'academic_partner' : null/)
+  assert.match(appCode, /const experience = isStudent \? 'student' : isUnitLeader \? 'unit_leader' : isAcademicPartner \? 'academic_partner' : isNursingAcademic \? 'nursing_academic' : null/)
 })
 
 test('PortalApp mounts CustomOnboardingTour with experience and context.apMessagesEnabled', () => {
@@ -148,7 +148,7 @@ test('PortalApp mounts CustomOnboardingTour with experience and context.apMessag
   const tagCount = (appCode.match(/<CustomOnboardingTour\b/g) || []).length
   assert.equal(tagCount, 1)
   const overlayUsages = (appCode.match(/\{tourOverlay\}/g) || []).length
-  assert.equal(overlayUsages, 3, 'tourOverlay must be included in all three PortalShell branches (student, unit_leader, academic_partner)')
+  assert.equal(overlayUsages, 4, 'tourOverlay must be included in all four PortalShell branches (student, unit_leader, academic_partner, nursing_academic)')
 })
 
 test('PortalApp: auto-start is armed exactly once via a ref guard', () => {
@@ -184,8 +184,9 @@ test('PortalApp: onRestartTour is wired into all three PortalShell usages', () =
   assert.match(appCode, /title="Student Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
   assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
   assert.match(appCode, /title="Academic Partner Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  assert.match(appCode, /title="Nursing Academics Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
   const wiredCount = (appCode.match(/onRestartTour=\{\(\) => setTourRunning\(true\)\}/g) || []).length
-  assert.equal(wiredCount, 3)
+  assert.equal(wiredCount, 4)
 })
 
 // ── No new third-party tour dependency ────────────────────────────────────────

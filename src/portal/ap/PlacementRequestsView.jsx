@@ -24,7 +24,7 @@ import { getSchoolPlacementRequests, submitSchoolPlacementRequest } from './acad
 import { submissionCohortOptions } from './academicPartnerRoster'
 import { toggleWeekday, isValidIsoDate } from '../../lib/availability'
 import {
-  PROGRAM_TYPES, WEEKDAYS, SCHOOL_PLACEMENT_TEXT,
+  PROGRAM_TYPES, COURSE_TYPES, WEEKDAYS, SCHOOL_PLACEMENT_TEXT,
   newStudentRow, emptyCoordinator, emptyRotation, emptyAvailability,
   validatePlacementForm, buildPlacementBody, placementSubmitLabel,
 } from '../../lib/schoolPlacementForm'
@@ -464,6 +464,14 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
                       onChange={e => updRow(row._key, 'program_type', e.target.value)}>
                       <option value="">{T.programTypePlaceholder}</option>
                       {PROGRAM_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div className="ptl-ap-field">
+                    <label className="ptl-label">{T.courseTypeLabel}</label>
+                    <select className="ptl-select ptl-input-full" value={row.course_type || ''}
+                      onChange={e => updRow(row._key, 'course_type', e.target.value)}>
+                      <option value="">{T.courseTypePlaceholder}</option>
+                      {COURSE_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div className="ptl-ap-field">

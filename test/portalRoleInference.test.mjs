@@ -64,7 +64,9 @@ test('Grant modal role inference and active-role validation', async (t) => {
   await t.test('validation evaluates ONLY the active role scope + a valid email', () => {
     assert.match(modal, /role === 'student' \? !!student :/)
     assert.match(modal, /role === 'unit_leader' \? unitKeys\.length > 0 :/)
-    assert.match(modal, /role === 'academic_partner' \? schoolKeys\.length > 0 : false/)
+    assert.match(modal, /role === 'academic_partner' \? schoolKeys\.length > 0 :/)
+    // NURSING-ACADEMICS-1: the org-wide role is valid with no scope selection.
+    assert.match(modal, /role === 'nursing_academic' \? true : false/)
     assert.match(modal, /const emailValid = isValidEmail\(email\)/)
     assert.match(modal, /const formValid = !!fullName\.trim\(\) && emailValid && !!role && scopeValid/)
   })

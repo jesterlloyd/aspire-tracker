@@ -262,7 +262,7 @@ test('every invitation states the SAME activation rule, word for word', async ()
   const RECOVERY = 'request a new link from the activation page or use Forgot Password on the sign-in page'
   const SUPERSESSION = 'When a new link is issued, earlier activation links stop working, so always use the most recent email.'
 
-  const rendered = ['student', 'unit_leader', 'academic_partner'].map(role =>
+  const rendered = ['student', 'unit_leader', 'academic_partner', 'nursing_academic'].map(role =>
     portalInvitationEmail({ firstName: 'Sam', activationLink: 'https://x/auth/activate#t', expiresAt: '2027-01-01', role }).html)
   rendered.push(staffFn({ firstName: 'Ada', activationLink: 'https://x/auth/activate#t', role: 'admin' }).html)
 

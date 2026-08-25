@@ -1,6 +1,7 @@
 // WELCOME-TOUR-PORTALS-1: the tour system now serves five surfaces (staff plus
-// four portal experiences: student, unit_leader, academic_partner), sharing this
-// one module for step content and acknowledgement bookkeeping.
+// four portal experiences: student, unit_leader, academic_partner,
+// nursing_academic), sharing this one module for step content and
+// acknowledgement bookkeeping.
 //
 // NO SCHEMA MIGRATION: user_profiles.onboarding_tour_version already stores free
 // text, and Wave E already grants any authenticated user permission to update
@@ -30,6 +31,9 @@ export const TOUR_EXPERIENCES = {
   // v2 -> v3: corrected Students / Placement Requests role boundary copy
   // (Placement Requests submits only; tracking lives on Students).
   academic_partner: 'v3',
+  // NURSING-ACADEMICS-1: the organization-wide, view-only academics portal
+  // (Academic Calendar + Community Benefit).
+  nursing_academic: 'v1',
 };
 
 // Legacy alias. Nothing outside this module should need it (use TOUR_EXPERIENCES
@@ -553,6 +557,49 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
   return steps;
 }
 
+// ── Nursing Academics Portal step definitions ────────────────────────────────
+// NURSING-ACADEMICS-1: two sections, view-only, no messaging/feedback
+// launchers (those capabilities are intentionally not enabled for this role),
+// so the tour is short: the two nav destinations and the profile menu.
+
+function getNursingAcademicSteps(userProfile) {
+  const firstName = userProfile?.full_name?.split(' ')[0] || 'there';
+  return [
+    {
+      target: 'body',
+      placement: 'center',
+      disableBeacon: true,
+      title: `Welcome, ${firstName}!`,
+      content: 'This is the Nursing Academics Portal, your organization-wide view of ASPIRE. This short tour walks you through its two sections.',
+    },
+    {
+      target: '[data-tour="portal-nav-calendar"]',
+      title: 'Academic Calendar',
+      content: 'School rotation windows across every cohort, color-coded by school, with month navigation and filters for fiscal year, cohort, school, and program.',
+    },
+    {
+      target: '[data-tour="portal-nav-community-benefit"]',
+      title: 'Community Benefit',
+      content: 'Fiscal-year ASPIRE student activity and the estimated nursing community benefit, with a privacy-safe aggregate CSV export for fiscal reporting.',
+    },
+    {
+      target: '[data-tour="portal-profile-menu"]',
+      title: 'Your Profile',
+      content: 'Change your photo, visit the ASPIRE public site, restart this tour, or sign out.',
+      placement: 'bottom-end',
+      spotlightPadding: 6,
+      disableBeacon: true,
+    },
+    {
+      target: 'body',
+      placement: 'center',
+      disableBeacon: true,
+      title: "You're all set!",
+      content: 'You can restart this tour anytime from the profile menu. Welcome to ASPIRE.',
+    },
+  ];
+}
+
 /**
  * The step array for one tour experience. `context` carries whatever that
  * experience's step set needs beyond the profile itself:
@@ -570,6 +617,8 @@ export function getTourSteps(experience, context = {}) {
       return getUnitLeaderSteps(userProfile);
     case 'academic_partner':
       return getAcademicPartnerSteps(userProfile, apMessagesEnabled);
+    case 'nursing_academic':
+      return getNursingAcademicSteps(userProfile);
     case 'staff':
     default:
       return getStaffSteps(userProfile);

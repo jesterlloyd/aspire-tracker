@@ -107,6 +107,7 @@ const ACCESS_ENDED_REASONS = new Set([
   'no_active_student_grant',
   'no_active_student_link',
   'unit_leader_role_required',
+  'nursing_academic_role_required',
   'staff_role_required',
   'inactive_staff',
   'owner_or_admin_required',

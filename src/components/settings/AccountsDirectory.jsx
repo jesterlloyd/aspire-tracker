@@ -349,6 +349,7 @@ export default function AccountsDirectory() {
     students: portalData.counts?.by_role?.student ?? 0,
     unitLeaders: portalData.counts?.by_role?.unit_leader ?? 0,
     academicPartners: portalData.counts?.by_role?.academic_partner ?? 0,
+    nursingAcademics: portalData.counts?.by_role?.nursing_academic ?? 0,
     pending: portalData.counts?.pending ?? 0,
     expiring: portalData.counts?.expiring_soon ?? 0,
   }
@@ -418,6 +419,9 @@ export default function AccountsDirectory() {
           <FilterKPICard value={counts.academicPartners} label="Academic Partners" sub="Academic Partner role" accent="nightfall"
             active={roleFilter === 'academic_partner'}
             onClick={() => toggleRoleCard('academic_partner')} />
+          <FilterKPICard value={counts.nursingAcademics} label="Nursing Academics" sub="ASPIRE-wide view role" accent="periwinkle"
+            active={roleFilter === 'nursing_academic'}
+            onClick={() => toggleRoleCard('nursing_academic')} />
           <FilterKPICard value={counts.pending} label="Pending Invitations" sub="Awaiting first sign-in" accent="dawn"
             active={statusFilter === 'pending'}
             onClick={() => { setExpiringOnly(false); setStatusFilter(f => f === 'pending' ? '' : 'pending') }} />

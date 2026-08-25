@@ -104,7 +104,7 @@ test('click semantics: new column opens on its recommended direction; active col
 
 test('the endpoint adds all_grants and by_role over the UNFILTERED set, additively', () => {
   assert.match(api, /all_grants: records\.length/)
-  assert.match(api, /by_role: \{ student: 0, unit_leader: 0, academic_partner: 0 \}/)
+  assert.match(api, /by_role: \{ student: 0, unit_leader: 0, academic_partner: 0, nursing_academic: 0 \}/)
   assert.match(api, /if \(counts\.by_role\[r\.portal_role\] !== undefined\) counts\.by_role\[r\.portal_role\] \+= 1/)
   // Counts are computed from `records` (built before filters are applied), and the
   // existing keys (portal_users, pending, expiring_soon) are retained.

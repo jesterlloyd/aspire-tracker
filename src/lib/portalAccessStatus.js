@@ -10,12 +10,14 @@ export const PORTAL_ROLE_LABELS = {
   student: 'Student',
   unit_leader: 'Unit Leader',
   academic_partner: 'Academic Partner',
+  nursing_academic: 'Nursing Academics',
 }
 
 export const PORTAL_ROLE_OPTIONS = [
   { value: 'student', label: 'Student' },
   { value: 'unit_leader', label: 'Unit Leader' },
   { value: 'academic_partner', label: 'Academic Partner' },
+  { value: 'nursing_academic', label: 'Nursing Academics' },
 ]
 
 // Text-labelled, accessible status styles (never color alone: each carries a label).
@@ -73,6 +75,10 @@ export function summarizeScope(record) {
     if (!schools.length) return 'No schools assigned'
     const head = schools.slice(0, 2).join(', ')
     return schools.length > 2 ? `${head} +${schools.length - 2} more` : head
+  }
+  if (record.portal_role === 'nursing_academic') {
+    // Organization-wide by design: the role has no scope rows.
+    return 'ASPIRE-wide (view only)'
   }
   return ''
 }

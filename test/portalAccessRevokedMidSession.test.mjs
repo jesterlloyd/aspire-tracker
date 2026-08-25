@@ -115,8 +115,9 @@ test('shell: it re-resolves access on the way in, and only once', () => {
 })
 
 test('shell: every portal branch can be reported to', () => {
-  assert.equal((portalApp.match(/<PortalAccessSignalContext\.Provider value=\{handleAccessEnded\}>/g) || []).length, 3)
-  assert.equal((portalApp.match(/<\/PortalAccessSignalContext\.Provider>/g) || []).length, 3)
+  // NURSING-ACADEMICS-1: four portal branches now report through the shell.
+  assert.equal((portalApp.match(/<PortalAccessSignalContext\.Provider value=\{handleAccessEnded\}>/g) || []).length, 4)
+  assert.equal((portalApp.match(/<\/PortalAccessSignalContext\.Provider>/g) || []).length, 4)
 })
 
 test('shell: reporting outside a portal is a no-op, not a crash', () => {

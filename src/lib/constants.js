@@ -254,6 +254,22 @@ export const PROGRAM_TYPES = [
   'ELMN',
 ]
 
+// NURSING-ACADEMICS-1: structured course/subject type for a placement. NEW
+// submissions pick one here; historical students stay unclassified (NULL)
+// until Jester maps them through the staff editor, and reporting renders
+// those as "Unclassified". Never inferred from notes.
+export const COURSE_TYPES = [
+  'Capstone / Preceptorship',
+  'Medical-Surgical',
+  'Critical Care',
+  'Pediatrics',
+  'Maternal-Newborn',
+  'Psychiatric-Mental Health',
+  'Community / Public Health',
+  'Leadership / Management',
+  'Other',
+]
+
 // Clinical area groupings for yellow (same-area) compatibility
 export const UNIT_AREAS = {
   'Labor & Delivery': 'OB / Women\'s Health',

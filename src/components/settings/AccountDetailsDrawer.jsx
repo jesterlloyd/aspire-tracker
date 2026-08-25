@@ -82,6 +82,7 @@ export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onC
       if (record.portal_role === 'student') body.student_id = record.scope?.students?.[0]?.student_id
       if (record.portal_role === 'unit_leader') body.unit_keys = (record.scope?.units || []).map(u => u.unit_key)
       if (record.portal_role === 'academic_partner') body.school_keys = (record.scope?.schools || []).map(s => s.school_key)
+      // nursing_academic owns no scope rows: the grant itself is the whole revocation.
       const res = await fetch('/api/revoke-portal-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -165,6 +166,9 @@ export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onC
                 )}
                 {record.portal_role === 'academic_partner' && (
                   <><dt style={dt}>Assigned schools</dt><dd style={dd}>{(record.scope?.schools || []).map(s => s.school_key).join(', ') || 'None'}</dd></>
+                )}
+                {record.portal_role === 'nursing_academic' && (
+                  <><dt style={dt}>Access scope</dt><dd style={dd}>ASPIRE-wide (view only)</dd></>
                 )}
                 <dt style={dt}>Starts</dt><dd style={dd}>{record.starts_at ? new Date(record.starts_at).toLocaleDateString() : 'Now'}</dd>
                 <dt style={dt}>Expires</dt><dd style={dd}>{record.expires_at ? new Date(record.expires_at).toLocaleDateString() : 'No expiration'}</dd>

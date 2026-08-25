@@ -4,7 +4,7 @@ import CohortAccessCard from './CohortAccessCard'
 import { toLocalDateStr } from '../lib/designTokens'
 import { toggleWeekday, isValidIsoDate } from '../lib/availability'
 import {
-  PROGRAM_TYPES, SCHOOLS, WEEKDAYS,
+  PROGRAM_TYPES, COURSE_TYPES, SCHOOLS, WEEKDAYS,
   PLACEMENT_PAGE_TITLE, SCHOOL_PLACEMENT_TEXT,
   newStudentRow, validatePlacementForm, collectPlacementSoftWarnings,
   buildPlacementBody, placementSubmitLabel,
@@ -498,6 +498,14 @@ export default function SchoolFormPage() {
                       onChange={e => updRow(row._key, 'program_type', e.target.value)}>
                       <option value="">{T.programTypePlaceholder}</option>
                       {PROGRAM_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div className="uf-field">
+                    <label className="uf-label">{T.courseTypeLabel}</label>
+                    <select className="uf-input" value={row.course_type || ''}
+                      onChange={e => updRow(row._key, 'course_type', e.target.value)}>
+                      <option value="">{T.courseTypePlaceholder}</option>
+                      {COURSE_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div className="uf-field">

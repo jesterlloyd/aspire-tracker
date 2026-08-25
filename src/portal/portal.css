@@ -1979,3 +1979,105 @@ img.ptl-detail-photo {
 .ptl-slh-ghost:hover { background: #faf8f4; }
 .ptl-slh-ghost:disabled,
 .ptl-slh-row .ptl-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── NURSING-ACADEMICS-1 ──────────────────────────────────────────────────────
+   The Nursing Academics portal (Academic Calendar + Community Benefit).
+   Additive only. Every rule below is namespaced .ptl-na-*, so no existing
+   portal selector changes behavior. */
+
+.ptl-na-page { display: flex; flex-direction: column; gap: 16px; }
+
+/* Filter toolbar (shared by both sections). */
+.ptl-na-filters {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+}
+.ptl-na-filter { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+.ptl-na-filter > span { font-size: 11.5px; font-weight: 600; color: var(--ptl-muted, #6b7280); }
+.ptl-na-filter select {
+  padding: 7px 10px; border: 1px solid var(--ptl-line); border-radius: 8px;
+  background: var(--ptl-card); color: var(--ptl-ink); font: inherit; font-size: 13px;
+}
+
+/* Legend (calendar sidebar + reused dot elsewhere). */
+.ptl-na-legend h3 { margin: 0 0 8px; font-size: 12.5px; font-weight: 700; color: var(--ptl-ink); }
+.ptl-na-legend ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ptl-na-legend li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ptl-ink); }
+.ptl-na-legend-empty { margin: 0; font-size: 12px; color: var(--ptl-muted, #6b7280); }
+.ptl-na-legend-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0; margin-right: 6px; vertical-align: baseline;
+}
+
+/* Timeline: one school rotation per row against the visible month. */
+.ptl-na-timeline { display: flex; flex-direction: column; gap: 14px; }
+.ptl-na-axis { position: relative; height: 18px; border-bottom: 1px solid var(--ptl-line); }
+.ptl-na-axis-tick {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-size: 10.5px; color: var(--ptl-muted, #6b7280);
+}
+.ptl-na-axis-tick:first-child { transform: none; }
+.ptl-na-row { display: flex; flex-direction: column; gap: 6px; }
+.ptl-na-row-label { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.ptl-na-row-school { font-size: 13px; font-weight: 700; color: var(--ptl-ink); }
+.ptl-na-row-meta { font-size: 12px; color: var(--ptl-muted, #6b7280); }
+.ptl-na-row-dates { font-size: 12px; color: var(--ptl-ink); margin-left: auto; white-space: nowrap; }
+.ptl-na-track {
+  position: relative; height: 14px; border-radius: 7px;
+  background: color-mix(in srgb, var(--ptl-line) 45%, transparent);
+}
+.ptl-na-bar { position: absolute; top: 0; bottom: 0; border-radius: 7px; min-width: 8px; }
+.ptl-na-bar-before { border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
+.ptl-na-bar-after { border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
+.ptl-na-today {
+  position: absolute; top: -4px; bottom: -4px; width: 2px;
+  background: var(--aspire-gold, #d08700); border-radius: 1px;
+}
+
+/* Data-quality panels (Needs dates / Needs reporting data / Records for review). */
+.ptl-na-quality h2 { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--ptl-ink); }
+.ptl-na-quality p { margin: 0 0 10px; font-size: 12.5px; color: var(--ptl-muted, #6b7280); line-height: 1.5; }
+.ptl-na-quality ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ptl-na-quality li { font-size: 12.5px; color: var(--ptl-ink); }
+
+/* Community Benefit. */
+.ptl-na-benefit { display: flex; flex-direction: column; gap: 16px; }
+.ptl-na-benefit-toolbar { align-items: flex-end; }
+.ptl-na-export { margin-left: auto; }
+.ptl-na-export-note { margin: -8px 0 0; font-size: 11.5px; color: var(--ptl-muted, #6b7280); line-height: 1.5; }
+.ptl-na-error-note { margin: 0; font-size: 12px; color: #991b1b; }
+.ptl-na-rate-note {
+  padding: 10px 14px; border-radius: 10px; font-size: 12.5px; line-height: 1.5;
+  background: #fcefd4; border: 1px solid #f3ddae; color: #7c5a1f;
+}
+.ptl-na-kpis { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* Hand-rolled horizontal bar charts (no chart library; values always in text). */
+.ptl-na-chart h2 { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--ptl-ink); }
+.ptl-na-chart-rows { display: flex; flex-direction: column; gap: 12px; }
+.ptl-na-chart-row { display: flex; flex-direction: column; gap: 4px; }
+.ptl-na-chart-label { display: flex; align-items: center; font-size: 12.5px; font-weight: 600; color: var(--ptl-ink); }
+.ptl-na-chart-bars { display: flex; flex-direction: column; gap: 3px; }
+.ptl-na-chart-barline { display: flex; align-items: center; gap: 8px; min-height: 12px; }
+.ptl-na-chart-bar { display: inline-block; height: 10px; border-radius: 5px; flex-shrink: 0; }
+.ptl-na-chart-value { font-size: 11.5px; color: var(--ptl-muted, #6b7280); white-space: nowrap; }
+
+/* Detail table: horizontal scroll inside its own container on narrow screens. */
+.ptl-na-table-card h2 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--ptl-ink); }
+.ptl-na-table-note { margin: 0 0 10px; font-size: 11.5px; color: var(--ptl-muted, #6b7280); }
+.ptl-na-table-scroll { overflow-x: auto; }
+.ptl-na-table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 900px; }
+.ptl-na-table th, .ptl-na-table td {
+  text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--ptl-line);
+  color: var(--ptl-ink); white-space: nowrap;
+}
+.ptl-na-table th { font-size: 11.5px; font-weight: 700; color: var(--ptl-muted, #6b7280); }
+.ptl-na-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ptl-na-flag { color: #d08700; font-weight: 700; cursor: help; }
+.ptl-na-muted { color: var(--ptl-muted, #6b7280); font-size: 11.5px; }
+
+@media (max-width: 760px) {
+  .ptl-na-filter { min-width: calc(50% - 6px); flex: 1 1 calc(50% - 6px); }
+  .ptl-na-row-dates { margin-left: 0; }
+  .ptl-na-export { margin-left: 0; width: 100%; }
+  .ptl-na-table { min-width: 760px; }
+}

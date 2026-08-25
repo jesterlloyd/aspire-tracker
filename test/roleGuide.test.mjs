@@ -73,7 +73,8 @@ test('Owner holds every capability; Viewer holds none', () => {
 
 test('the Owner/Admin distinction is exactly the governance set', () => {
   const ownerOnly = CAPABILITY_KEYS.filter(c => can(CALLERS.owner, c) && !can(CALLERS.admin, c))
-  assert.deepEqual(ownerOnly.sort(), ['enrichment_run', 'governance'])
+  // NURSING-ACADEMICS-1 added community_benefit_admin (rates + capstone hours).
+  assert.deepEqual(ownerOnly.sort(), ['community_benefit_admin', 'enrichment_run', 'governance'])
   // Admin holds everything else, including the read-only enrichment preview.
   assert.equal(can(CALLERS.admin, 'enrichment_preview'), true)
   assert.equal(can(CALLERS.admin, 'enrichment_run'), false)

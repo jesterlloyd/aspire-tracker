@@ -127,7 +127,7 @@ test('student branch writes the ONE canonical headshot record, replace only, no 
   assert.match(api, /from\('students'\)\.update\(\{ headshot_url: cp\.path \}\)\.eq\('id', student\.id\)/)
   // Students never gain a second image record and cannot remove the headshot.
   assert.match(api, /error: 'remove_unsupported'/)
-  const studentBranch = api.slice(api.indexOf('Student branch'), api.indexOf('Unit Leader / Academic Partner branch'))
+  const studentBranch = api.slice(api.indexOf('Student branch'), api.indexOf('Unit Leader / Academic Partner / Nursing Academics branch'))
   assert.doesNotMatch(studentBranch, /user_profiles.*avatar_url/, 'the student branch must not write user_profiles.avatar_url')
   assert.match(studentBranch, /json\(\{ success: true, kind: 'headshot' \}\)/, 'no storage path in the student response')
 })

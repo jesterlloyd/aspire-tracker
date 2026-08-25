@@ -32,6 +32,9 @@ import UnitLeaderPortal from './UnitLeaderPortal'
 import { UnitLeaderNav } from './unit/UnitLeaderChrome'
 import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
+// NURSING-ACADEMICS-1: the fourth portal experience (organization-wide, view only).
+import { NursingAcademicsNav } from './na/NursingAcademicsChrome'
+import NursingAcademicsPortal from './na/NursingAcademicsPortal'
 import PortalCohortLoginHint from './PortalCohortLoginHint'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 // PROFILE-MENU-AVATARS-1: self-service photo dialog shared by all three portals.
@@ -97,6 +100,16 @@ function apThreadIdFromPath(pathname) {
   return m ? m[1] : null
 }
 
+// NURSING-ACADEMICS-1: sections are real routes under /portal/academics, so
+// back, forward, refresh, and a pasted deep link all work. /portal (no
+// section) resolves to the Academic Calendar, the default.
+const NA_SECTIONS = new Set(['calendar', 'community-benefit'])
+function naViewFromPath(pathname) {
+  const m = /^\/portal\/academics\/([^/]+)\/?$/.exec(pathname)
+  if (m && NA_SECTIONS.has(m[1])) return m[1]
+  return 'calendar'
+}
+
 export default function PortalApp() {
   const { userProfile, refreshUserProfile } = useAuth()
   const location = useLocation()
@@ -142,6 +155,11 @@ export default function PortalApp() {
   const goApSection = useCallback((key) => {
     navigate(`/portal/ap/${key}`)
   }, [navigate])
+  // NURSING-ACADEMICS-1 section routing.
+  const naView = naViewFromPath(location.pathname)
+  const goNaSection = useCallback((key) => {
+    navigate(`/portal/academics/${key}`)
+  }, [navigate])
   const openApThread = useCallback((id) => navigate(`/portal/ap/messages/${id}`), [navigate])
   const apBackToList = useCallback(() => navigate('/portal/ap/messages'), [navigate])
 
@@ -154,6 +172,10 @@ export default function PortalApp() {
   // migration), fetched below. The client never decides it from a constant. Fail-closed (false) until
   // the server reports it, so the unread poll and launcher stay off until then.
   const isAcademicPartner = !isStudent && !isUnitLeader && (access?.roles || []).includes('academic_partner')
+  // NURSING-ACADEMICS-1: appended LAST in the precedence chain so no existing
+  // user's resolved experience changes. Organization-wide, view-only; no
+  // messages, no feedback, no scope arrays.
+  const isNursingAcademic = !isStudent && !isUnitLeader && !isAcademicPartner && (access?.roles || []).includes('nursing_academic')
   const [apMessagingCapable, setApMessagingCapable] = useState(false)
   // WELCOME-TOUR-PORTALS-1: whether the AP capability fetch below has settled (succeeded or
   // failed), so the Academic Partner tour waits to decide the Messages step before it starts.
@@ -162,7 +184,7 @@ export default function PortalApp() {
   const apMessagesEnabled = isAcademicPartner && apMessagingCapable
   // WELCOME-TOUR-PORTALS-1: the Welcome Tour experience for the resolved portal role, derived
   // from the same role booleans the rest of this component already uses.
-  const experience = isStudent ? 'student' : isUnitLeader ? 'unit_leader' : isAcademicPartner ? 'academic_partner' : null
+  const experience = isStudent ? 'student' : isUnitLeader ? 'unit_leader' : isAcademicPartner ? 'academic_partner' : isNursingAcademic ? 'nursing_academic' : null
   // PORTAL-ACCESS-STATE: a deactivated account is the one answer that outranks
   // everything else. It is read from the profile the app already holds, so no
   // extra request is needed and the answer is available even when every portal
@@ -500,6 +522,30 @@ export default function PortalApp() {
           threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
         {photoDialog}
         {cohortLoginHint}
+        {tourOverlay}
+      </PortalShell>
+      </PortalAccessSignalContext.Provider>
+    )
+  }
+
+  if (roles.includes('nursing_academic')) {
+    // NURSING-ACADEMICS-1: the same shared shell and Nightfall chrome as the
+    // other portals. VIEW-ONLY by design: no PortalUtilityLayer (the Messages
+    // and Feedback capabilities are intentionally not enabled for this role,
+    // so no launcher is mounted and no feedback/messages request is ever
+    // made), no unread polling, no scope pickers.
+    // Every fetching child can hand an access refusal up to the shell.
+    return (
+      <PortalAccessSignalContext.Provider value={handleAccessEnded}>
+      <PortalShell title="Nursing Academics Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+        headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        profileImageUrl={userProfile?.avatar_url}
+        onChangePhoto={openChangePhoto}
+        publicSiteUrl="https://aspireintelligence.app"
+        onRestartTour={() => setTourRunning(true)}
+        nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} />}>
+        <NursingAcademicsPortal view={naView} />
+        {photoDialog}
         {tourOverlay}
       </PortalShell>
       </PortalAccessSignalContext.Provider>

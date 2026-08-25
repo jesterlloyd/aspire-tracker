@@ -17,10 +17,10 @@
 //     name/email stay as form data in both (they are contact info, never the authorization identity).
 // Those differences live in the two components and their endpoints, not here.
 
-import { PROGRAM_TYPES, SCHOOLS } from './constants.js'
+import { PROGRAM_TYPES, COURSE_TYPES, SCHOOLS } from './constants.js'
 import { WEEKDAYS } from './availability.js'
 
-export { PROGRAM_TYPES, SCHOOLS, WEEKDAYS }
+export { PROGRAM_TYPES, COURSE_TYPES, SCHOOLS, WEEKDAYS }
 
 export const PLACEMENT_PAGE_TITLE = 'ASPIRE Student Placement Request Form'
 
@@ -72,6 +72,8 @@ export const SCHOOL_PLACEMENT_TEXT = {
   phonePlaceholder: '(555) 000-0000',
   programTypeLabel: 'Program Type',
   programTypePlaceholder: 'Select...',
+  courseTypeLabel: 'Course Type',
+  courseTypePlaceholder: 'Select...',
   hoursRequiredLabel: 'Hours Required',
   hoursRequiredPlaceholder: 'e.g. 144',
   estimatedGraduationLabel: 'Estimated Graduation Date',
@@ -97,7 +99,7 @@ export function newStudentRow() {
   return {
     _key: `${Date.now()}-${Math.random()}`,
     first_name: '', last_name: '', email: '', phone: '',
-    program_type: '', hours_required: '', estimated_graduation_date: '',
+    program_type: '', course_type: '', hours_required: '', estimated_graduation_date: '',
   }
 }
 
@@ -207,6 +209,7 @@ export function buildPlacementBody({ cohortId, cohortName, coordinator, rotation
       email: String(r.email || '').trim(),
       phone: String(r.phone || '').trim(),
       program_type: r.program_type,
+      course_type: r.course_type || '',
       hours_required: r.hours_required,
       estimated_graduation_date: r.estimated_graduation_date || null,
     })),

@@ -21,7 +21,7 @@ test('revoke-portal-access endpoint', async (t) => {
 
   await t.test('validates the target profile and role', () => {
     assert.match(src, /A valid user_profile_id is required/, 'requires a valid user_profile_id')
-    assert.match(src, /const PORTAL_ROLES = \['student', 'unit_leader', 'academic_partner'\]/)
+    assert.match(src, /const PORTAL_ROLES = \['student', 'unit_leader', 'academic_partner', 'nursing_academic'\]/)
     assert.match(src, /Role is not permitted/, 'validates the role against the allow-list')
   })
 

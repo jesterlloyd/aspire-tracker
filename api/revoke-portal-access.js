@@ -26,7 +26,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 
-const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner']
+const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner', 'nursing_academic']
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '')

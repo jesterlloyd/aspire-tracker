@@ -24,6 +24,7 @@
 import { normalizeEmailForLookup } from '../../src/lib/emailUtils.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull, coerceMinDaysOrNull } from '../../src/lib/availability.js'
 import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
+import { COURSE_TYPES } from '../../src/lib/constants.js'
 import { checkLength, checkLengths, LIMITS, MAX_STUDENTS_PER_PLACEMENT_REQUEST } from './fieldLimits.js'
 
 // The latest-submission provenance columns added by
@@ -42,6 +43,24 @@ export const PLACEMENT_PROVENANCE_COLUMNS = [
 export async function isPlacementProvenanceReady(db) {
   const { error } = await db.from('students').select(PLACEMENT_PROVENANCE_COLUMNS.join(', ')).limit(1)
   return !error
+}
+
+// NURSING-ACADEMICS-1: same runtime readiness probe for students.course_type
+// (added by 20260824000000_nursing_academics_portal_foundation.sql). Until
+// the Owner applies that migration, submissions simply omit the column, so
+// the LIVE placement forms keep working; once it exists, the same code path
+// starts writing it with no redeploy.
+export async function isCourseTypeReady(db) {
+  const { error } = await db.from('students').select('course_type').limit(1)
+  return !error
+}
+
+// A submitted course type is either empty (unclassified) or a catalog value.
+// Anything else is dropped to '' rather than persisted as free text - the
+// whole point of the column is that it is structured.
+export function sanitizeCourseType(value) {
+  const v = typeof value === 'string' ? value.trim() : ''
+  return COURSE_TYPES.includes(v) ? v : ''
 }
 
 // S-06 LENGTH CAPS: validates the coordinator-owned fields and the student roster a placement
@@ -85,6 +104,7 @@ export function validatePlacementRequestInput({ coordinator = {}, students = [],
       [`students[${i}].last_name`,  `Student ${row} last name`,  s.last_name,  LIMITS.NAME],
       [`students[${i}].email`,      `Student ${row} email`,      s.email,      LIMITS.EMAIL],
       [`students[${i}].program_type`, `Student ${row} program`,  s.program_type, LIMITS.IDENTITY],
+      [`students[${i}].course_type`, `Student ${row} course type`, s.course_type, LIMITS.IDENTITY],
       [`students[${i}].phone`,      `Student ${row} phone`,      s.phone,      LIMITS.PHONE],
       [`students[${i}].estimated_graduation_date`, `Student ${row} graduation date`, s.estimated_graduation_date, LIMITS.DATE],
     ]);
@@ -147,6 +167,21 @@ export async function performSchoolPlacementUpsert(db, {
   // BEFORE calling this helper, so AP submissions can never write free-text school names.
   const canonicalSchool = resolveOperativeSchoolName(coordinator.school)
   const schoolName = canonicalSchool?.displayName || coordinator.school.trim()
+
+  // NURSING-ACADEMICS-1: probe course_type readiness here (not at the
+  // endpoints) so both submit paths keep working before the migration is
+  // applied and start writing the column the moment it exists.
+  let courseTypeReady = false
+  try { courseTypeReady = await isCourseTypeReady(db) } catch { courseTypeReady = false }
+  // On UPDATE, a non-empty catalog value refreshes the classification; an
+  // empty submission NEVER wipes one (historical mapping is owner-entered and
+  // must survive a coordinator resubmission that left the field blank).
+  const courseTypeColsFor = (s, { isUpdate }) => {
+    if (!courseTypeReady) return {}
+    const v = sanitizeCourseType(s.course_type)
+    if (isUpdate && !v) return {}
+    return { course_type: v || null }
+  }
 
   // (1) Upsert the rotation row for this school + cohort.
   const { data: rotationRow, error: rotErr } = await db
@@ -214,6 +249,7 @@ export async function performSchoolPlacementUpsert(db, {
         school_email:              normEmail,
         school:                    schoolName,
         program_type:              s.program_type || '',
+        ...courseTypeColsFor(s, { isUpdate: true }),
         hours_required:            parseInt(s.hours_required) || 0,
         estimated_graduation_date: s.estimated_graduation_date || null,
         estimated_graduation:      s.estimated_graduation_date || '',
@@ -245,6 +281,7 @@ export async function performSchoolPlacementUpsert(db, {
         phone:                      (s.phone || '').trim(),
         school:                     schoolName,
         program_type:               s.program_type || '',
+        ...courseTypeColsFor(s, { isUpdate: false }),
         hours_required:             parseInt(s.hours_required) || 0,
         hours_completed:            0,
         estimated_graduation_date:  s.estimated_graduation_date || null,

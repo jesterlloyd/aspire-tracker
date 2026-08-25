@@ -53,7 +53,7 @@ test('Phase 2 portal role enablement', async (t) => {
     assert.deepEqual(new Set(roles), new Set(['owner', 'admin', 'interviewer', 'viewer', 'portal']),
       `unexpected roles in CHECK: ${roles.join(', ')}`)
     // Explicitly forbid portal SUB-roles or staff co-lead creeping into the CHECK.
-    for (const forbidden of ['student', 'unit_leader', 'academic_partner', 'co_lead', 'co-lead']) {
+    for (const forbidden of ['student', 'unit_leader', 'academic_partner', 'nursing_academic', 'co_lead', 'co-lead']) {
       assert.doesNotMatch(block, new RegExp(`'${forbidden}'`), `CHECK must not list ${forbidden}`)
     }
   })

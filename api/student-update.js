@@ -97,7 +97,7 @@ const STAGE1_ACTIONS  = ['add_non_employee', 'assignment_change', 'extend_end_da
 const CONTACT_FIELDS = ['personal_email', 'phone']
 // WS1e-A4 (corr.2): `name` is NOT client-writable - server composes it from
 // first_name/last_name. Client may submit first_name and/or last_name only.
-const PROFILE_FIELDS = ['first_name', 'last_name', 'preferred_first_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url']
+const PROFILE_FIELDS = ['first_name', 'last_name', 'preferred_first_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'course_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url']
 const REQUIREMENT_FIELDS = ['hours_required']
 const CSLINK_FIELDS  = ['cs_cedars_status', 'cs_stage1_action', 'cs_stage1_submitted', 'cs_stage1_submitted_date', 'cs_stage1_complete', 'cs_stage1_complete_date', 'cs_link_requested', 'cs_link_requested_date', 'cs_link_complete', 'cs_link_complete_date', 'cs_access_notes']
 const CSLINK_PAIRS = [['cs_stage1_submitted', 'cs_stage1_submitted_date'], ['cs_stage1_complete', 'cs_stage1_complete_date'], ['cs_link_requested', 'cs_link_requested_date'], ['cs_link_complete', 'cs_link_complete_date']]
@@ -124,6 +124,7 @@ function validateA4Field(k, v) {
     case 'gender':                    return typeof v === 'string' && v.length <= 50
     case 'cumulative_gpa':            return v === null || v === '' || (typeof v === 'number' && v >= 0 && v <= 4.5)
     case 'program_type':
+    case 'course_type':               // NURSING-ACADEMICS-1: owner/staff correction path for historical mapping
     case 'shift_availability':
     case 'cs_affiliation':
     case 'cs_department':

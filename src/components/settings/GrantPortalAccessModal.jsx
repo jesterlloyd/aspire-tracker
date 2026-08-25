@@ -267,11 +267,13 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     if (em) setEmail(em) // else leave as-is; the manual-entry prompt shows below
   }, [])
 
-  // Validation evaluates ONLY the active role's scope.
+  // Validation evaluates ONLY the active role's scope. nursing_academic is
+  // organization-wide by design and needs no scope selection.
   const scopeValid =
     role === 'student' ? !!student :
     role === 'unit_leader' ? unitKeys.length > 0 :
-    role === 'academic_partner' ? schoolKeys.length > 0 : false
+    role === 'academic_partner' ? schoolKeys.length > 0 :
+    role === 'nursing_academic' ? true : false
   const emailValid = isValidEmail(email)
   const formValid = !!fullName.trim() && emailValid && !!role && scopeValid && !loading
   const showStudentEmailPrompt = role === 'student' && !!student && !email.trim()
@@ -324,6 +326,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const scopeSummary =
     role === 'student' ? (student ? `${studentName(student)}${student.school ? ` · ${student.school}` : ''}` : 'No student selected') :
     role === 'unit_leader' ? (unitKeys.join(', ') || 'No units selected') :
+    role === 'nursing_academic' ? 'ASPIRE-wide (view only)' :
     (schoolKeys.join(', ') || 'No schools selected')
 
   return (
@@ -406,6 +409,11 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                 <div style={{ marginBottom: 14 }}>
                   <label style={label} htmlFor="gpa-schools">Assigned schools (at least one)</label>
                   <MultiScopePicker id="gpa-schools" options={SCHOOL_SCOPE_OPTIONS} selected={schoolKeys} onChange={(next) => { setSchoolTouched(true); setSchoolKeys(next) }} placeholder="Search schools" />
+                </div>
+              )}
+              {role === 'nursing_academic' && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#f5f7ff', border: '1px solid #dbe3fb', borderRadius: 8, padding: '9px 12px', marginBottom: 14, fontSize: 12, color: '#1D2567' }}>
+                  Nursing Academics access is ASPIRE-wide and view only: the academic calendar and the community-benefit report. No unit, school, or student selection applies.
                 </div>
               )}
               {(role === 'unit_leader' || role === 'academic_partner') && (

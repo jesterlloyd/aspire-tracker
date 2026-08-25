@@ -21,7 +21,7 @@ test('invite-portal-user failure-safe lifecycle', async (t) => {
   })
 
   await t.test('portal role is allow-listed and student requires a student_id', () => {
-    assert.match(src, /const PORTAL_ROLES = \['student', 'unit_leader', 'academic_partner'\]/)
+    assert.match(src, /const PORTAL_ROLES = \['student', 'unit_leader', 'academic_partner', 'nursing_academic'\]/)
     assert.match(src, /student_id is required for a student invitation/, 'student_id required for student role')
   })
 

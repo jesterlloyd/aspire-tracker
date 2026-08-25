@@ -135,6 +135,12 @@ export const CAPABILITY_MATRIX = Object.freeze([
     note: 'Admin invites and manages Co-Lead and Interviewer accounts. Inviting or promoting an Admin is Owner-only.',
   },
   {
+    key: 'communityBenefit', capability: 'community_benefit_admin', readCapabilities: ['community_benefit_view'],
+    label: 'Community-benefit rates and capstone hours',
+    levels: { owner: 'Full', admin: 'Read', 'co-lead': 'No access', interviewer: 'No access', viewer: 'No access' },
+    note: 'Admin may view the entries in Settings; entering or changing rates and capstone hours is Owner-only.',
+  },
+  {
     key: 'governance', capability: 'governance',
     label: 'Governance actions',
     levels: { owner: 'Full', admin: 'No access', 'co-lead': 'No access', interviewer: 'No access', viewer: 'No access' },

@@ -9,7 +9,7 @@ import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/util
 import StudentAvatar from './StudentAvatar'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
-  SHIFT_OPTIONS, COHORTS,
+  SHIFT_OPTIONS, COHORTS, COURSE_TYPES,
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import StudentUnitAssignments from './StudentUnitAssignments'
@@ -1479,6 +1479,18 @@ export default function StudentSidePanel({
                   {PROGRAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   {data.program_type && !PROGRAM_TYPES.includes(data.program_type) && (
                     <option value={data.program_type}>{data.program_type}</option>
+                  )}
+                </select>
+              </Field>
+              {/* NURSING-ACADEMICS-1: structured course type. Empty means
+                  Unclassified (historical, awaiting owner mapping); this select
+                  is the correction path for those records. */}
+              <Field label="Course Type" fieldKey="course_type">
+                <select className="sp-select" value={data.course_type||''} onChange={e => handleSelect('course_type', e.target.value)}>
+                  <option value="">Unclassified</option>
+                  {COURSE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {data.course_type && !COURSE_TYPES.includes(data.course_type) && (
+                    <option value={data.course_type}>{data.course_type}</option>
                   )}
                 </select>
               </Field>

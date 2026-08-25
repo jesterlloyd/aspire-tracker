@@ -20,7 +20,7 @@ import { randomUUID } from 'crypto'
 // or a zero-width character still resolves.
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js'
 
-const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner']
+const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner', 'nursing_academic']
 // ACCOUNTS-ACCESS-DIRECTORY-2: 'pending' is a real derived status (a portal
 // auth user who has not yet accepted their invitation), not only the legacy
 // `pending` array. It overrides 'active'/'scheduled' only, see step 3 below.
@@ -279,7 +279,7 @@ export default async function handler(req, res) {
     const counts = {
       active: 0, scheduled: 0, expired: 0, revoked: 0, pending: 0, expiring_soon: 0,
       portal_users: 0, all_grants: records.length,
-      by_role: { student: 0, unit_leader: 0, academic_partner: 0 },
+      by_role: { student: 0, unit_leader: 0, academic_partner: 0, nursing_academic: 0 },
     }
     const activeProfiles = new Set()
     for (const r of records) {

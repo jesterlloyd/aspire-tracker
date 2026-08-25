@@ -78,7 +78,7 @@ test('the Academic Partner invitation uses its own copy', () => {
 })
 
 test('every role gets a distinct subject, heading, and body', () => {
-  const roles = ['student', 'unit_leader', 'academic_partner']
+  const roles = ['student', 'unit_leader', 'academic_partner', 'nursing_academic']
   const subjects = roles.map(r => build(r).subject)
   const bodies = roles.map(r => build(r).html)
   assert.equal(new Set(subjects).size, roles.length, 'subjects must differ per role')
@@ -98,7 +98,7 @@ test('an unknown role falls back to neutral copy, never to student copy', () => 
 })
 
 test('every role keeps the same shell, sender identity, and support address', () => {
-  for (const role of ['student', 'unit_leader', 'academic_partner']) {
+  for (const role of ['student', 'unit_leader', 'academic_partner', 'nursing_academic']) {
     const out = build(role)
     assert.match(out.html, /Cedars-Sinai/)
     assert.match(out.html, /aspire@cshs\.org/)

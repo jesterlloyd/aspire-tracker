@@ -163,10 +163,12 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, kind: 'headshot' })
   }
 
-  // ── Unit Leader / Academic Partner branch: user_profiles.avatar_url ────────
+  // ── Unit Leader / Academic Partner / Nursing Academics branch:
+  //    user_profiles.avatar_url (the caller's OWN profile image only) ─────────
   const isUnitLeader = await hasActiveRoleGrant(db, auth.profile.id, 'unit_leader')
   const isPartner = isUnitLeader ? false : await hasActiveRoleGrant(db, auth.profile.id, 'academic_partner')
-  if (!isUnitLeader && !isPartner) return res.status(403).json({ error: 'forbidden' })
+  const isNursingAcademic = (isUnitLeader || isPartner) ? false : await hasActiveRoleGrant(db, auth.profile.id, 'nursing_academic')
+  if (!isUnitLeader && !isPartner && !isNursingAcademic) return res.status(403).json({ error: 'forbidden' })
 
   const mirrorContactAvatar = async (value, { onlyIfCurrently } = {}) => {
     // Mirror to the matching Connect contact (exact case-insensitive email
