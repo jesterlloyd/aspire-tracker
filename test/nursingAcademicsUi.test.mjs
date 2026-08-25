@@ -134,6 +134,7 @@ test('the experience owns its own .ptl-na-* namespace and no new shared-class co
   // The NA block adapts at the house phone breakpoint.
   const naBlock = css.slice(css.indexOf('NURSING-ACADEMICS-1'))
   assert.match(naBlock, /@media \(max-width: 760px\)/)
+  assert.doesNotMatch(css, /ptl-main-wide|1800px/)
 })
 
 test('the API client follows the house contract: bearer token, never throws on denial', () => {
@@ -162,6 +163,12 @@ test('Community Benefit uses program KPI filters, compact labels, and table cont
 test('Contacts is a read-only server-backed directory with no outreach actions', () => {
   assert.match(contacts, /fetchAcademicsContacts/)
   assert.match(contacts, /Read-only access/)
+  assert.match(contacts, /ptl-na-contact-kpis/)
+  assert.match(contacts, /All Contacts/)
+  assert.match(contacts, /CONTACT_CATEGORY_ORDER/)
+  assert.match(contacts, /contact\.avatar_url/)
+  assert.match(contacts, /ptl-na-contact-detail-hero/)
+  assert.doesNotMatch(contacts, /<select[^>]+na-contact-category|All Categories/)
   assert.doesNotMatch(contacts, /mailto:|contacts-upsert|downloadCSV|Send email|Copy email|Delete contact|Edit contact/)
 })
 

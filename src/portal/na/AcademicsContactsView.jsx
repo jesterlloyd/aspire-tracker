@@ -6,17 +6,38 @@ import { Search, UserRound } from 'lucide-react'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
+import { CONTACT_CATEGORY_ORDER, categoryChipColors, getContactCategories } from '../../lib/contactCategories'
 import { fetchAcademicsContacts } from './nursingAcademicsApi'
 
 const clean = value => String(value || '').trim()
 const initials = name => clean(name).split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() || '').join('') || '?'
 const displayName = contact => clean(contact.preferred_name) || clean(contact.full_name) || 'Unnamed contact'
+const contactMatches = (contact, category, query) => {
+  if (category !== 'All' && !getContactCategories(contact).includes(category)) return false
+  if (!query) return true
+  return [contact.full_name, contact.preferred_name, contact.email, contact.role,
+    contact.category, contact.organization, contact.school_name, contact.unit_name]
+    .some(value => clean(value).toLowerCase().includes(query))
+}
+
+function ContactAvatar({ contact, large = false }) {
+  const src = clean(contact.avatar_url)
+  const [failedUrl, setFailedUrl] = useState(null)
+  const showPhoto = Boolean(src && failedUrl !== src)
+  return (
+    <span className={`ptl-na-contact-avatar${large ? ' ptl-na-contact-avatar-lg' : ''}`} aria-hidden="true">
+      {showPhoto
+        ? <img src={src} alt="" onError={() => setFailedUrl(src)} />
+        : initials(contact.full_name)}
+    </span>
+  )
+}
 
 export default function AcademicsContactsView({ active = true }) {
   const [contacts, setContacts] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('')
+  const [category, setCategory] = useState('All')
   const [loading, setLoading] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
@@ -56,17 +77,31 @@ export default function AcademicsContactsView({ active = true }) {
     return () => { cancelled = true; controller.abort() }
   }, [active, reloadKey, reportFailure])
 
-  const categories = useMemo(() => [...new Set(contacts.map(contact => clean(contact.category)).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b)), [contacts])
   const query = search.trim().toLowerCase()
-  const filtered = useMemo(() => contacts.filter(contact => {
-    if (category && clean(contact.category) !== category) return false
-    if (!query) return true
-    return [contact.full_name, contact.preferred_name, contact.email, contact.role,
-      contact.category, contact.organization, contact.school_name, contact.unit_name]
-      .some(value => clean(value).toLowerCase().includes(query))
-  }), [contacts, category, query])
+  const categoryCounts = useMemo(() => {
+    const counts = new Map()
+    contacts.forEach(contact => getContactCategories(contact).forEach(value => counts.set(value, (counts.get(value) || 0) + 1)))
+    return counts
+  }, [contacts])
+  const categories = useMemo(() => {
+    const available = new Set(categoryCounts.keys())
+    return [
+      ...CONTACT_CATEGORY_ORDER.filter(value => available.has(value)),
+      ...[...available].filter(value => !CONTACT_CATEGORY_ORDER.includes(value)).sort((a, b) => a.localeCompare(b)),
+    ]
+  }, [categoryCounts])
+  const filtered = useMemo(() => contacts.filter(contact => contactMatches(contact, category, query)), [contacts, category, query])
   const selected = contacts.find(contact => contact.id === selectedId) || null
+  const chooseCategory = value => {
+    setCategory(value)
+    setSelectedId(contacts.find(contact => contactMatches(contact, value, query))?.id || null)
+  }
+  const updateSearch = event => {
+    const value = event.target.value
+    const nextQuery = value.trim().toLowerCase()
+    setSearch(value)
+    setSelectedId(contacts.find(contact => contactMatches(contact, category, nextQuery))?.id || null)
+  }
 
   if (loading && !loaded) return <LoadingState label="Loading Contacts" />
   if (error) return <ErrorState detail={error} onRetry={reload} />
@@ -82,18 +117,37 @@ export default function AcademicsContactsView({ active = true }) {
         <span className="ptl-na-result-count">{filtered.length} of {contacts.length} contacts</span>
       </div>
 
-      <div className="ptl-na-contact-controls" role="group" aria-label="Contact directory controls">
+      <div className="ptl-na-contact-kpis" role="group" aria-label="Filter contacts by category">
+        {['All', ...categories].map(value => {
+          const selected = category === value
+          const colors = value === 'All'
+            ? { color: '#1D2567', bg: '#eef2fb', border: '#c3cdf0' }
+            : categoryChipColors(value)
+          return (
+            <button
+              key={value}
+              type="button"
+              className={`ptl-na-contact-kpi${selected ? ' ptl-na-contact-kpi-active' : ''}`}
+              style={{
+                '--ptl-na-contact-accent': colors.color,
+                '--ptl-na-contact-bg': colors.bg,
+                '--ptl-na-contact-border': colors.border,
+              }}
+              onClick={() => chooseCategory(value)}
+              aria-pressed={selected}
+            >
+              <strong>{value === 'All' ? contacts.length : categoryCounts.get(value) || 0}</strong>
+              <span>{value === 'All' ? 'All Contacts' : value}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="ptl-na-contact-controls" role="group" aria-label="Search contacts">
         <label className="ptl-na-contact-search" htmlFor="na-contact-search">
           <Search size={17} aria-hidden="true" />
           <span className="ptl-visually-hidden">Search contacts</span>
-          <input id="na-contact-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search contacts" />
-        </label>
-        <label className="ptl-na-control" htmlFor="na-contact-category">
-          <span className="ptl-visually-hidden">Filter by category</span>
-          <select id="na-contact-category" value={category} onChange={event => setCategory(event.target.value)}>
-            <option value="">All Categories</option>
-            {categories.map(value => <option key={value} value={value}>{value}</option>)}
-          </select>
+          <input id="na-contact-search" type="search" value={search} onChange={updateSearch} placeholder="Search contacts" />
         </label>
       </div>
 
@@ -108,7 +162,7 @@ export default function AcademicsContactsView({ active = true }) {
               onClick={() => setSelectedId(contact.id)}
               aria-pressed={selectedId === contact.id}
             >
-              <span className="ptl-na-contact-avatar" aria-hidden="true">{initials(contact.full_name)}</span>
+              <ContactAvatar contact={contact} />
               <span className="ptl-na-contact-row-copy">
                 <strong>{displayName(contact)}</strong>
                 <span>{[contact.role, contact.organization].filter(Boolean).join(' · ') || 'Contact information'}</span>
@@ -121,24 +175,28 @@ export default function AcademicsContactsView({ active = true }) {
         <aside className="ptl-na-contact-detail" aria-live="polite">
           {selected ? (
             <>
-              <div className="ptl-na-contact-detail-head">
-                <span className="ptl-na-contact-avatar ptl-na-contact-avatar-lg" aria-hidden="true">{initials(selected.full_name)}</span>
-                <div>
+              <div className="ptl-na-contact-detail-hero">
+                <ContactAvatar contact={selected} large />
+                <div className="ptl-na-contact-detail-title">
                   <h3>{displayName(selected)}</h3>
                   {selected.preferred_name && selected.full_name !== selected.preferred_name && <p>{selected.full_name}</p>}
-                  <span className="ptl-na-contact-category">{selected.category || 'Contact'}</span>
+                  <div className="ptl-na-contact-badges">
+                    <span className="ptl-na-contact-category">{selected.category || 'Contact'}</span>
+                    {selected.role && <span className="ptl-na-contact-role">{selected.role}</span>}
+                  </div>
                 </div>
               </div>
-              <dl className="ptl-na-contact-fields">
-                <div><dt>Email</dt><dd>{selected.email || 'Not provided'}</dd></div>
-                <div><dt>Phone</dt><dd>{selected.phone || 'Not provided'}</dd></div>
-                <div><dt>Role</dt><dd>{selected.role || 'Not provided'}</dd></div>
-                <div><dt>Organization</dt><dd>{selected.organization || 'Not provided'}</dd></div>
-                <div><dt>School</dt><dd>{selected.school_name || 'Not provided'}</dd></div>
-                <div><dt>Unit</dt><dd>{selected.unit_name || 'Not provided'}</dd></div>
-                <div><dt>Preferred contact method</dt><dd>{clean(selected.preferred_contact_method).replace(/_/g, ' ') || 'Not provided'}</dd></div>
-              </dl>
-              <p className="ptl-na-readonly-note"><UserRound size={15} aria-hidden="true" /> View only</p>
+              <div className="ptl-na-contact-detail-body">
+                <dl className="ptl-na-contact-fields">
+                  <div><dt>Email</dt><dd>{selected.email || 'Not provided'}</dd></div>
+                  <div><dt>Phone</dt><dd>{selected.phone || 'Not provided'}</dd></div>
+                  <div><dt>Organization</dt><dd>{selected.organization || 'Not provided'}</dd></div>
+                  <div><dt>School</dt><dd>{selected.school_name || 'Not provided'}</dd></div>
+                  <div><dt>Unit</dt><dd>{selected.unit_name || 'Not provided'}</dd></div>
+                  <div><dt>Preferred contact method</dt><dd>{clean(selected.preferred_contact_method).replace(/_/g, ' ') || 'Not provided'}</dd></div>
+                </dl>
+                <p className="ptl-na-readonly-note"><UserRound size={15} aria-hidden="true" /> View only</p>
+              </div>
             </>
           ) : <p className="ptl-na-contact-empty">Select a contact to view details.</p>}
         </aside>

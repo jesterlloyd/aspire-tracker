@@ -54,7 +54,7 @@ test('the button shows busy/disabled state and the provider guards concurrent ru
 
 test('PortalShell provides the refresh context around the nav and children', () => {
   assert.match(shell, /import \{ PortalRefreshProvider \} from '\.\/PortalRefresh'/)
-  assert.match(shell, /<PortalRefreshProvider>[\s\S]*\{nav\}[\s\S]*<main className=\{`ptl-main\$\{contentClassName[\s\S]*\}>\{children\}<\/main>[\s\S]*<\/PortalRefreshProvider>/)
+  assert.match(shell, /<PortalRefreshProvider>[\s\S]*\{nav\}[\s\S]*<main className="ptl-main">\{children\}<\/main>[\s\S]*<\/PortalRefreshProvider>/)
 })
 
 test('the Refresh action appears in all three portal navs', () => {

@@ -10,7 +10,7 @@ import { fetchAllRows } from '../lib/fetchAllRows.js'
 
 const ALLOWED_FIELDS = Object.freeze([
   'id', 'full_name', 'preferred_name', 'email', 'phone', 'role', 'category',
-  'organization', 'school_name', 'unit_name', 'preferred_contact_method',
+  'organization', 'school_name', 'unit_name', 'preferred_contact_method', 'avatar_url',
 ])
 
 function allowlistContact(row) {

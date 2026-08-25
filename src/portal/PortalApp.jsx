@@ -543,7 +543,6 @@ export default function PortalApp() {
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
-        contentClassName="ptl-main-wide"
         nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} />}>
         <NursingAcademicsPortal view={naView} />
         {photoDialog}
