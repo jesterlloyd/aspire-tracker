@@ -46,6 +46,7 @@ import { portalInvitationEmail } from '../lib/server/email/portalInvitation.js'
 // payload (Gate 7 has no branch for it) and provisions with all scope
 // params null.
 const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner', 'nursing_academic']
+const CONTACTS_ACCESS_LEVELS = ['view', 'manage']
 // Verified ASPIRE Resend sender (cshs.org is not a verified Resend domain, so
 // aspire@cshs.org is used as the reply-to / support address, not the from).
 const EMAIL_FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
@@ -216,6 +217,14 @@ export default async function handler(req, res) {
   const portalRole = str(body.role)
   if (!PORTAL_ROLES.includes(portalRole)) {
     return res.status(400).json({ error: 'invalid_request', field: 'role', message: 'Role is not permitted.' })
+  }
+
+  // Contacts editing is a narrow capability on nursing_academic grants, not a
+  // new staff role and not a general portal edit level. Every other role is
+  // fixed to view so this field cannot widen unrelated access.
+  const contactsAccess = str(body.contacts_access) || 'view'
+  if (!CONTACTS_ACCESS_LEVELS.includes(contactsAccess) || (portalRole !== 'nursing_academic' && contactsAccess !== 'view')) {
+    return res.status(400).json({ error: 'invalid_request', field: 'contacts_access', message: 'Contacts Editor access is only available to Nursing Education & Leadership.' })
   }
 
   // ── Gate 6: identity fields ───────────────────────────────────────────────
@@ -429,6 +438,25 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'internal_error', message: 'The invitation could not be completed.' })
     }
 
+    // The lifecycle RPC intentionally stays role/scope focused. Store the
+    // Contacts capability on the exact grant it returned. The column defaults
+    // to view, so a failed update cannot accidentally elevate access.
+    if (portalRole === 'nursing_academic') {
+      const grantId = result?.grant?.id
+      if (!grantId) {
+        console.log('[invite-portal-user] contacts access grant id missing', { request_id: requestId })
+        return res.status(500).json({ error: 'internal_error', message: 'Portal access was granted as view only, but the Contacts permission could not be saved.' })
+      }
+      const { error: accessErr } = await db.from('user_role_grants')
+        .update({ contacts_access: contactsAccess })
+        .eq('id', grantId)
+        .eq('role', 'nursing_academic')
+      if (accessErr) {
+        console.log('[invite-portal-user] contacts access update failed', { errorCode: accessErr.code, request_id: requestId })
+        return res.status(500).json({ error: 'internal_error', message: 'Portal access was granted as view only, but the Contacts permission could not be saved.' })
+      }
+    }
+
     // Send the branded ASPIRE invitation for a newly created account. The
     // account and grant are already committed, so a mail failure does not roll
     // back or compensate; it is reported (email_sent:false) for a resend.
@@ -465,6 +493,7 @@ export default async function handler(req, res) {
       email_sent: invited ? emailSent : undefined,
       provisioned: {
         role: result?.role,
+        contacts_access: portalRole === 'nursing_academic' ? contactsAccess : 'view',
         grant_action: result?.grant?.action,
         starts_at: result?.grant?.starts_at,
         expires_at: result?.grant?.expires_at,

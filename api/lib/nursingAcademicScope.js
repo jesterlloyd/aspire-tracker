@@ -3,11 +3,10 @@
 // NURSING-ACADEMICS-1: the single server-side authorization check for the
 // Nursing Academics portal (BNI nursing academics and leadership).
 //
-// The role is ORGANIZATION-WIDE and VIEW-ONLY by design: an active
-// nursing_academic grant authorizes the aggregate/report read surface with no
-// school, unit, or student scope rows. There is deliberately no scope
-// resolver here; the endpoints this guard protects expose only allowlisted,
-// reporting-shaped data and no write path of any kind.
+// The role is ORGANIZATION-WIDE. Reporting surfaces remain view-only. A grant
+// may separately carry contacts_access='manage', which authorizes only the
+// allowlisted Contacts create/update/status endpoint. It never widens access
+// to reporting inputs, school/program data, outreach, messaging, or deletion.
 //
 // Authorization chain, fail closed at every link:
 //   1. verified JWT              -> user_profiles row (active only, S-05)
@@ -17,7 +16,7 @@
 // names: the grant row is re-read on every request, so revocation and
 // expiration take effect on the very next call.
 
-import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant } from './portalAuth.js'
+import { verifyPortalCaller, getServiceDb, getActiveRoleGrant } from './portalAuth.js'
 
 export { getServiceDb }
 
@@ -34,13 +33,21 @@ export async function verifyPortalNursingAcademicCaller(req) {
   let db
   try { db = getServiceDb() } catch { return { ok: false, status: 500, reason: 'server_misconfigured' } }
 
-  let isNursingAcademic
+  let grant
   try {
-    isNursingAcademic = await hasActiveRoleGrant(db, caller.profile.id, 'nursing_academic')
+    grant = await getActiveRoleGrant(db, caller.profile.id, 'nursing_academic')
   } catch {
     return { ok: false, status: 500, reason: 'grant_lookup_failed' }
   }
-  if (!isNursingAcademic) return { ok: false, status: 403, reason: 'nursing_academic_role_required' }
+  if (!grant) return { ok: false, status: 403, reason: 'nursing_academic_role_required' }
 
-  return { ok: true, db, profile: caller.profile }
+  const contactsAccess = grant.contacts_access === 'manage' ? 'manage' : 'view'
+  return {
+    ok: true,
+    db,
+    profile: caller.profile,
+    grant,
+    contactsAccess,
+    canManageContacts: contactsAccess === 'manage',
+  }
 }

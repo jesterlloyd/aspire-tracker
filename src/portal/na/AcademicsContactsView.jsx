@@ -1,9 +1,9 @@
-// Read-only contact directory for Nursing Education & Leadership portal users.
-// It exposes local email, call, and clipboard actions, but no mutation,
-// outreach history, notes, export, or in-app messaging capability.
+// Contact directory for Nursing Education & Leadership portal users. Most
+// grants are view-only. The narrowly scoped Contacts Editor grant adds create,
+// update, deactivate, and reactivate controls, but no permanent deletion.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Copy, Mail, Phone, Search, UserRound } from 'lucide-react'
+import { Copy, Mail, Pencil, Phone, Plus, Power, PowerOff, Search, UserRound, X } from 'lucide-react'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
@@ -13,7 +13,13 @@ import {
   CONTACT_CATEGORY_ORDER, categoryChipColors, contactRoleChipColors,
   getContactCategories, getPrimaryCategory,
 } from '../../lib/contactCategories'
-import { fetchAcademicsContacts } from './nursingAcademicsApi'
+import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact } from './nursingAcademicsApi'
+
+const CONTACT_CATEGORIES = ['Academic Partners', 'Unit Leadership', 'Preceptors', 'BNI Team', 'Nursing Executives', 'Other']
+const CONTACT_METHODS = [
+  ['no_preference', 'No preference'], ['email', 'Email'], ['phone', 'Phone'],
+  ['text', 'Text'], ['teams', 'Teams'],
+]
 
 const clean = value => String(value || '').trim()
 const initials = name => clean(name).split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() || '').join('') || '?'
@@ -79,6 +85,54 @@ function ContactAction({ href, icon: Icon, label }) {
   )
 }
 
+function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
+  const [form, setForm] = useState(() => ({
+    full_name: clean(contact?.full_name),
+    preferred_name: clean(contact?.preferred_name),
+    email: clean(contact?.email),
+    phone: clean(contact?.phone),
+    role: clean(contact?.role),
+    category: clean(contact?.category) || 'Other',
+    organization: clean(contact?.organization),
+    school_name: clean(contact?.school_name),
+    unit_name: clean(contact?.unit_name),
+    preferred_contact_method: clean(contact?.preferred_contact_method) || 'no_preference',
+  }))
+  const set = (field, value) => setForm(current => ({ ...current, [field]: value }))
+  const valid = Boolean(form.full_name.trim() && (!form.email.trim() || isValidEmail(form.email)))
+  const submit = event => {
+    event.preventDefault()
+    if (valid && !saving) onSave(form)
+  }
+  return (
+    <div className="ptl-na-contact-modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !saving && onClose()}>
+      <form className="ptl-na-contact-modal" role="dialog" aria-modal="true" aria-labelledby="na-contact-editor-title" onSubmit={submit}>
+        <div className="ptl-na-contact-modal-header">
+          <div><h3 id="na-contact-editor-title">{contact ? 'Edit contact' : 'Add contact'}</h3><p>Contact directory fields only</p></div>
+          <button type="button" onClick={onClose} disabled={saving} aria-label="Close"><X size={18} /></button>
+        </div>
+        <div className="ptl-na-contact-form-grid">
+          <label className="ptl-na-contact-form-wide"><span>Full name *</span><input value={form.full_name} onChange={e => set('full_name', e.target.value)} required autoFocus /></label>
+          <label><span>Preferred name</span><input value={form.preferred_name} onChange={e => set('preferred_name', e.target.value)} /></label>
+          <label><span>Category</span><select value={form.category} onChange={e => set('category', e.target.value)}>{CONTACT_CATEGORIES.map(value => <option key={value}>{value}</option>)}</select></label>
+          <label><span>Role or title</span><input value={form.role} onChange={e => set('role', e.target.value)} /></label>
+          <label><span>Organization</span><input value={form.organization} onChange={e => set('organization', e.target.value)} /></label>
+          <label><span>Email</span><input type="email" value={form.email} onChange={e => set('email', e.target.value)} /></label>
+          <label><span>Phone</span><input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} /></label>
+          <label><span>School affiliation</span><input value={form.school_name} onChange={e => set('school_name', e.target.value)} /></label>
+          <label><span>Unit affiliation</span><input value={form.unit_name} onChange={e => set('unit_name', e.target.value)} /></label>
+          <label><span>Preferred contact method</span><select value={form.preferred_contact_method} onChange={e => set('preferred_contact_method', e.target.value)}>{CONTACT_METHODS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        </div>
+        {error && <p className="ptl-na-contact-form-error" role="alert">{error}</p>}
+        <div className="ptl-na-contact-modal-actions">
+          <button type="button" className="ptl-na-contact-editor-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="submit" className="ptl-na-contact-editor-primary" disabled={!valid || saving}>{saving ? 'Saving…' : (contact ? 'Save changes' : 'Add contact')}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function AcademicsContactsView({ active = true }) {
   const [contacts, setContacts] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -88,6 +142,12 @@ export default function AcademicsContactsView({ active = true }) {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
   const [copyStatus, setCopyStatus] = useState('')
+  const [canManageContacts, setCanManageContacts] = useState(false)
+  const [showInactive, setShowInactive] = useState(false)
+  const [editorContact, setEditorContact] = useState(undefined)
+  const [saving, setSaving] = useState(false)
+  const [mutationError, setMutationError] = useState('')
+  const [mutationStatus, setMutationStatus] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const reportFailure = useReportPortalFailure()
 
@@ -116,7 +176,9 @@ export default function AcademicsContactsView({ active = true }) {
       }
       const next = Array.isArray(res.data?.contacts) ? res.data.contacts : []
       setContacts(next)
-      setSelectedId(current => current && next.some(contact => contact.id === current) ? current : (next[0]?.id || null))
+      setCanManageContacts(res.data?.can_manage_contacts === true)
+      const firstActive = next.find(contact => contact.is_active !== false)
+      setSelectedId(current => current && next.some(contact => contact.id === current) ? current : (firstActive?.id || next[0]?.id || null))
       setLoaded(true)
       setError(null)
       setLoading(false)
@@ -125,11 +187,12 @@ export default function AcademicsContactsView({ active = true }) {
   }, [active, reloadKey, reportFailure])
 
   const query = search.trim().toLowerCase()
+  const directoryContacts = useMemo(() => contacts.filter(contact => showInactive || contact.is_active !== false), [contacts, showInactive])
   const categoryCounts = useMemo(() => {
     const counts = new Map()
-    contacts.forEach(contact => getContactCategories(contact).forEach(value => counts.set(value, (counts.get(value) || 0) + 1)))
+    directoryContacts.forEach(contact => getContactCategories(contact).forEach(value => counts.set(value, (counts.get(value) || 0) + 1)))
     return counts
-  }, [contacts])
+  }, [directoryContacts])
   const categories = useMemo(() => {
     const available = new Set(categoryCounts.keys())
     return [
@@ -137,9 +200,9 @@ export default function AcademicsContactsView({ active = true }) {
       ...[...available].filter(value => !CONTACT_CATEGORY_ORDER.includes(value)).sort((a, b) => a.localeCompare(b)),
     ]
   }, [categoryCounts])
-  const filtered = useMemo(() => contacts
+  const filtered = useMemo(() => directoryContacts
     .filter(contact => contactMatches(contact, category, query))
-    .sort((a, b) => displayListName(a).localeCompare(displayListName(b), undefined, { sensitivity: 'base', numeric: true })), [contacts, category, query])
+    .sort((a, b) => displayListName(a).localeCompare(displayListName(b), undefined, { sensitivity: 'base', numeric: true })), [directoryContacts, category, query])
   const visibleEmails = useMemo(() => {
     const seen = new Set()
     return filtered.reduce((emails, contact) => {
@@ -155,14 +218,14 @@ export default function AcademicsContactsView({ active = true }) {
   const chooseCategory = value => {
     setCategory(value)
     setCopyStatus('')
-    setSelectedId(contacts.find(contact => contactMatches(contact, value, query))?.id || null)
+    setSelectedId(directoryContacts.find(contact => contactMatches(contact, value, query))?.id || null)
   }
   const updateSearch = event => {
     const value = event.target.value
     const nextQuery = value.trim().toLowerCase()
     setSearch(value)
     setCopyStatus('')
-    setSelectedId(contacts.find(contact => contactMatches(contact, category, nextQuery))?.id || null)
+    setSelectedId(directoryContacts.find(contact => contactMatches(contact, category, nextQuery))?.id || null)
   }
   const copyVisibleEmails = async () => {
     if (visibleEmails.length === 0 || !navigator.clipboard?.writeText) {
@@ -180,6 +243,48 @@ export default function AcademicsContactsView({ active = true }) {
     }
   }
 
+  const applySavedContact = contact => {
+    setContacts(current => {
+      const exists = current.some(row => row.id === contact.id)
+      return exists ? current.map(row => row.id === contact.id ? contact : row) : [...current, contact]
+    })
+    setSelectedId(contact.id)
+  }
+  const saveContact = async payload => {
+    setSaving(true); setMutationError('')
+    const res = editorContact
+      ? await updateAcademicsContact(editorContact.id, payload)
+      : await createAcademicsContact(payload)
+    setSaving(false)
+    if (!res.ok) {
+      setMutationError(res.status === 409 ? 'A contact with these details already exists.' : 'The contact could not be saved. Please review the fields and try again.')
+      return
+    }
+    applySavedContact(res.data.contact)
+    setEditorContact(undefined)
+    setMutationStatus(editorContact ? 'Contact updated' : 'Contact added')
+    window.setTimeout(() => setMutationStatus(''), 2500)
+  }
+  const changeContactStatus = async contact => {
+    const activate = contact.is_active === false
+    if (!activate && !window.confirm(`Deactivate ${displayListName(contact)}? The contact will remain available to Contacts Editors and can be reactivated later.`)) return
+    setSaving(true); setMutationError('')
+    const res = await updateAcademicsContact(contact.id, { is_active: activate })
+    setSaving(false)
+    if (!res.ok) {
+      setMutationStatus('Status change failed')
+      window.setTimeout(() => setMutationStatus(''), 2500)
+      return
+    }
+    applySavedContact(res.data.contact)
+    if (!activate && !showInactive) {
+      const next = contacts.find(row => row.id !== contact.id && row.is_active !== false)
+      setSelectedId(next?.id || null)
+    }
+    setMutationStatus(activate ? 'Contact reactivated' : 'Contact deactivated')
+    window.setTimeout(() => setMutationStatus(''), 2500)
+  }
+
   if (loading && !loaded) return <LoadingState label="Loading Contacts" />
   if (error) return <ErrorState detail={error} onRetry={reload} />
   if (loaded && contacts.length === 0) return <EmptyState title="No active contacts" detail="Active ASPIRE contacts will appear here." />
@@ -189,9 +294,13 @@ export default function AcademicsContactsView({ active = true }) {
       <div className="ptl-na-section-heading">
         <div>
           <h2 id="na-contacts-heading">Contacts</h2>
-          <p>Read-only access to the active ASPIRE contact directory.</p>
+          <p>{canManageContacts ? 'Manage the ASPIRE contact directory. Permanent removal is not available.' : 'Read-only access to the active ASPIRE contact directory.'}</p>
         </div>
-        <span className="ptl-na-result-count">{filtered.length} of {contacts.length} contacts</span>
+        <div className="ptl-na-contact-heading-actions">
+          {mutationStatus && <span className="ptl-na-contact-save-status" role="status">{mutationStatus}</span>}
+          {canManageContacts && <button type="button" className="ptl-na-contact-editor-primary" onClick={() => { setMutationError(''); setEditorContact(null) }}><Plus size={15} /> Add contact</button>}
+          <span className="ptl-na-result-count">{filtered.length} of {directoryContacts.length} contacts</span>
+        </div>
       </div>
 
       <div className="ptl-na-contact-kpis" role="group" aria-label="Filter contacts by category">
@@ -213,7 +322,7 @@ export default function AcademicsContactsView({ active = true }) {
               onClick={() => chooseCategory(value)}
               aria-pressed={selected}
             >
-              <strong>{value === 'All' ? contacts.length : categoryCounts.get(value) || 0}</strong>
+              <strong>{value === 'All' ? directoryContacts.length : categoryCounts.get(value) || 0}</strong>
               <span>{value === 'All' ? 'All Contacts' : value}</span>
             </button>
           )
@@ -226,6 +335,7 @@ export default function AcademicsContactsView({ active = true }) {
           <span className="ptl-visually-hidden">Search contacts</span>
           <input id="na-contact-search" type="search" value={search} onChange={updateSearch} placeholder="Search contacts" />
         </label>
+        {canManageContacts && <label className="ptl-na-show-inactive"><input type="checkbox" checked={showInactive} onChange={event => setShowInactive(event.target.checked)} /> Show inactive</label>}
         <button
           type="button"
           className="ptl-na-copy-emails"
@@ -245,13 +355,14 @@ export default function AcademicsContactsView({ active = true }) {
               key={contact.id}
               type="button"
               role="listitem"
-              className={`ptl-na-contact-row${selectedId === contact.id ? ' ptl-na-contact-row-active' : ''}`}
+              className={`ptl-na-contact-row${selectedId === contact.id ? ' ptl-na-contact-row-active' : ''}${contact.is_active === false ? ' ptl-na-contact-row-inactive' : ''}`}
               onClick={() => setSelectedId(contact.id)}
               aria-pressed={selectedId === contact.id}
             >
               <ContactAvatar contact={contact} />
               <span className="ptl-na-contact-row-copy">
                 <strong>{displayListName(contact)}</strong>
+                {contact.is_active === false && <span className="ptl-na-contact-inactive-badge">Inactive</span>}
                 <span className="ptl-na-contact-affiliation-line">{affiliationLine(contact)}</span>
                 {contact.role && <span className="ptl-na-contact-row-role" style={rolePillStyle(contact)}>{contact.role}</span>}
               </span>
@@ -271,11 +382,14 @@ export default function AcademicsContactsView({ active = true }) {
                   <div className="ptl-na-contact-badges">
                     <span className="ptl-na-contact-category" style={categoryPillStyle(selected)}>{primaryCategory(selected)}</span>
                     {selected.role && <span className="ptl-na-contact-role" style={rolePillStyle(selected)}>{selected.role}</span>}
+                    {selected.is_active === false && <span className="ptl-na-contact-inactive-badge">Inactive</span>}
                   </div>
                 </div>
                 <div className="ptl-na-contact-actions" aria-label={`Contact ${displayListName(selected)}`}>
                   <ContactAction href={isValidEmail(selected.email) ? `mailto:${clean(selected.email)}` : null} icon={Mail} label="Email" />
                   <ContactAction href={clean(selected.phone) ? `tel:${clean(selected.phone)}` : null} icon={Phone} label="Call" />
+                  {canManageContacts && <button type="button" className="ptl-na-contact-action ptl-na-contact-action-edit" onClick={() => { setMutationError(''); setEditorContact(selected) }}><Pencil size={15} /> Edit</button>}
+                  {canManageContacts && <button type="button" className={`ptl-na-contact-action ${selected.is_active === false ? 'ptl-na-contact-action-activate' : 'ptl-na-contact-action-deactivate'}`} onClick={() => changeContactStatus(selected)} disabled={saving}>{selected.is_active === false ? <><Power size={15} /> Reactivate</> : <><PowerOff size={15} /> Deactivate</>}</button>}
                 </div>
               </div>
               <div className="ptl-na-contact-detail-body">
@@ -299,12 +413,13 @@ export default function AcademicsContactsView({ active = true }) {
                     </section>
                   )}
                 </div>
-                <p className="ptl-na-readonly-note"><UserRound size={15} aria-hidden="true" /> View only</p>
+                <p className="ptl-na-readonly-note"><UserRound size={15} aria-hidden="true" /> {canManageContacts ? 'Contacts Editor' : 'View only'}</p>
               </div>
             </>
           ) : <p className="ptl-na-contact-empty">Select a contact to view details.</p>}
         </aside>
       </div>
+      {editorContact !== undefined && <ContactEditorModal contact={editorContact} saving={saving} error={mutationError} onClose={() => !saving && setEditorContact(undefined)} onSave={saveContact} />}
     </section>
   )
 }

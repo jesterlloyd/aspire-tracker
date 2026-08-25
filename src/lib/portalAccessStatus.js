@@ -78,7 +78,9 @@ export function summarizeScope(record) {
   }
   if (record.portal_role === 'nursing_academic') {
     // Organization-wide by design: the role has no scope rows.
-    return 'ASPIRE-wide (view only)'
+    return record.contacts_access === 'manage'
+      ? 'ASPIRE-wide · Contacts Editor'
+      : 'ASPIRE-wide (view only)'
   }
   return ''
 }

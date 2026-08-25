@@ -168,7 +168,10 @@ export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onC
                   <><dt style={dt}>Assigned schools</dt><dd style={dd}>{(record.scope?.schools || []).map(s => s.school_key).join(', ') || 'None'}</dd></>
                 )}
                 {record.portal_role === 'nursing_academic' && (
-                  <><dt style={dt}>Access scope</dt><dd style={dd}>ASPIRE-wide (view only)</dd></>
+                  <>
+                    <dt style={dt}>Access scope</dt><dd style={dd}>ASPIRE-wide</dd>
+                    <dt style={dt}>Contacts</dt><dd style={dd}>{record.contacts_access === 'manage' ? 'Contacts Editor' : 'View only'}</dd>
+                  </>
                 )}
                 <dt style={dt}>Starts</dt><dd style={dd}>{record.starts_at ? new Date(record.starts_at).toLocaleDateString() : 'Now'}</dd>
                 <dt style={dt}>Expires</dt><dd style={dd}>{record.expires_at ? new Date(record.expires_at).toLocaleDateString() : 'No expiration'}</dd>

@@ -160,9 +160,17 @@ test('Community Benefit uses program KPI filters, compact labels, and table cont
   for (const value of ['ELMN', 'ABSN', 'BSN \\(Semester\\)', 'BSN \\(Trimester\\)', 'BSN \\(Quarter\\)']) assert.match(labels, new RegExp(value))
 })
 
-test('Contacts is a read-only server-backed directory with local contact actions', () => {
+test('Contacts preserves view-only access and conditionally exposes the narrow Contacts Editor controls', () => {
   assert.match(contacts, /fetchAcademicsContacts/)
   assert.match(contacts, /Read-only access/)
+  assert.match(contacts, /canManageContacts/)
+  assert.match(contacts, /createAcademicsContact/)
+  assert.match(contacts, /updateAcademicsContact/)
+  assert.match(contacts, /Add contact/)
+  assert.match(contacts, /Edit contact/)
+  assert.match(contacts, /Deactivate/)
+  assert.match(contacts, /Reactivate/)
+  assert.match(contacts, /Show inactive/)
   assert.match(contacts, /ptl-na-contact-kpis/)
   assert.match(contacts, /All Contacts/)
   assert.match(contacts, /CONTACT_CATEGORY_ORDER/)
@@ -178,7 +186,7 @@ test('Contacts is a read-only server-backed directory with local contact actions
   assert.match(contacts, /visibleEmails\.join\(','\)/)
   assert.match(contacts, /navigator\.clipboard\.writeText/)
   assert.doesNotMatch(contacts, /<select[^>]+na-contact-category|All Categories/)
-  assert.doesNotMatch(contacts, /contacts-upsert|downloadCSV|Delete contact|Edit contact|notification_history|contact\.notes/)
+  assert.doesNotMatch(contacts, /contacts-upsert|downloadCSV|Delete contact|notification_history|contact\.notes/)
 })
 
 test('Contacts shares the main directory role-pill colors', () => {

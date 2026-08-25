@@ -25,6 +25,13 @@ test('invite-portal-user failure-safe lifecycle', async (t) => {
     assert.match(src, /student_id is required for a student invitation/, 'student_id required for student role')
   })
 
+  await t.test('Contacts Editor is restricted to nursing_academic and defaults to view', () => {
+    assert.match(src, /const CONTACTS_ACCESS_LEVELS = \['view', 'manage'\]/)
+    assert.match(src, /portalRole !== 'nursing_academic' && contactsAccess !== 'view'/)
+    assert.match(src, /str\(body\.contacts_access\) \|\| 'view'/)
+    assert.match(src, /update\(\{ contacts_access: contactsAccess \}\)/)
+  })
+
   await t.test('a conflict is checked BEFORE any auth work (clean 409, not a partial 500)', () => {
     const conflictIdx = src.indexOf('already linked to a portal account')
     // The auth account is now created via generateLink (branded email), not inviteUserByEmail.

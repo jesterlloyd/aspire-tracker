@@ -34,7 +34,8 @@ function makeRes() {
   return res
 }
 
-const okAuth = { ok: true, db: {}, profile: { id: 'p1', full_name: 'Arturo Academic' } }
+const okAuth = { ok: true, db: {}, profile: { id: 'p1', full_name: 'Arturo Academic' }, canManageContacts: false }
+const editorAuth = { ...okAuth, canManageContacts: true, contactsAccess: 'manage' }
 const deniedAuth = { ok: false, status: 403, reason: 'nursing_academic_role_required' }
 
 const INPUTS = {
@@ -54,10 +55,11 @@ const INPUTS = {
 
 // ── The authorization guard (source assertions: no scope rows, fail closed) ──
 
-test('verifyPortalNursingAcademicCaller checks the nursing_academic grant and nothing widens it', () => {
+test('verifyPortalNursingAcademicCaller checks the active nursing_academic grant and reads its narrow Contacts capability', () => {
   const src = read('api/lib/nursingAcademicScope.js')
-  assert.match(src, /hasActiveRoleGrant\(db, caller\.profile\.id, 'nursing_academic'\)/)
+  assert.match(src, /getActiveRoleGrant\(db, caller\.profile\.id, 'nursing_academic'\)/)
   assert.match(src, /nursing_academic_role_required/)
+  assert.match(src, /canManageContacts: contactsAccess === 'manage'/)
   // Organization-wide by design: no scope resolution exists in this module.
   assert.doesNotMatch(src, /user_unit_scopes|user_school_scopes|user_student_links/)
   // The refusal reason is classified client-side as access ended.
@@ -161,7 +163,7 @@ test('the export refuses an unauthorized caller before touching any data', async
   assert.equal(res.statusCode, 403)
 })
 
-// ── Read-only Contacts endpoint ──────────────────────────────────────────────
+// ── Contacts endpoint ────────────────────────────────────────────────────────
 
 test('Contacts refuses an unauthorized caller before reading data', async () => {
   const handler = createAcademicsContactsHandler({
@@ -174,7 +176,7 @@ test('Contacts refuses an unauthorized caller before reading data', async () => 
   assert.deepEqual(res.body, { error: 'nursing_academic_role_required' })
 })
 
-test('Contacts returns only its allowlisted read-only fields', async () => {
+test('Contacts returns only its allowlisted fields and a view-only capability', async () => {
   const handler = createAcademicsContactsHandler({
     verifyCaller: async () => okAuth,
     fetchContacts: async () => [{
@@ -196,15 +198,76 @@ test('Contacts returns only its allowlisted read-only fields', async () => {
   assert.equal(res.body.contacts[0].avatar_url, 'https://example.org/arturo.jpg')
   assert.ok(!('notes' in res.body.contacts[0]))
   assert.ok(!('notification_history' in res.body.contacts[0]))
-  assert.ok(!('is_active' in res.body.contacts[0]))
+  assert.equal(res.body.contacts[0].is_active, true)
+  assert.equal(res.body.can_manage_contacts, false)
+  assert.equal(res.body.contacts_access, 'view')
 })
 
-test('Contacts is GET-only', async () => {
+test('view-only Contacts grants cannot create or update contacts', async () => {
   const handler = createAcademicsContactsHandler({ verifyCaller: async () => okAuth })
+  for (const method of ['POST', 'PATCH']) {
+    const res = makeRes()
+    await handler({ method, body: {} }, res)
+    assert.equal(res.statusCode, 403)
+    assert.deepEqual(res.body, { error: 'contacts_editor_required' })
+  }
+})
+
+test('Contacts Editor can create an allowlisted active contact', async () => {
+  let received = null
+  const handler = createAcademicsContactsHandler({
+    verifyCaller: async () => editorAuth,
+    createContact: async (_db, payload) => {
+      received = payload
+      return { id: 'f0041189-5f95-4f5c-88fd-d0d008c037db', ...payload, is_active: true, notes: 'never returned' }
+    },
+    audit: async () => {},
+  })
   const res = makeRes()
-  await handler({ method: 'POST' }, res)
-  assert.equal(res.statusCode, 405)
-  assert.equal(res.headers.allow, 'GET')
+  await handler({ method: 'POST', body: {
+    full_name: 'Michael Balot', email: 'michael@example.org', category: 'BNI Team',
+    notes: 'must be ignored', is_active: false,
+  } }, res)
+  assert.equal(res.statusCode, 201)
+  assert.deepEqual(received, { full_name: 'Michael Balot', email: 'michael@example.org', category: 'BNI Team' })
+  assert.equal(res.body.contact.is_active, true)
+  assert.ok(!('notes' in res.body.contact))
+})
+
+test('Contacts Editor can edit, deactivate, and reactivate without a delete path', async () => {
+  const updates = []
+  const handler = createAcademicsContactsHandler({
+    verifyCaller: async () => editorAuth,
+    updateContact: async (_db, id, payload) => {
+      updates.push({ id, payload })
+      return { id, full_name: 'Michael Balot', category: 'BNI Team', is_active: payload.is_active ?? true }
+    },
+    audit: async () => {},
+  })
+  const id = 'f0041189-5f95-4f5c-88fd-d0d008c037db'
+  for (const is_active of [false, true]) {
+    const res = makeRes()
+    await handler({ method: 'PATCH', body: { id, is_active } }, res)
+    assert.equal(res.statusCode, 200)
+    assert.equal(res.body.contact.is_active, is_active)
+  }
+  assert.deepEqual(updates.map(row => row.payload), [{ is_active: false }, { is_active: true }])
+  const refused = makeRes()
+  await handler({ method: 'DELETE', body: { id } }, refused)
+  assert.equal(refused.statusCode, 405)
+  assert.equal(refused.headers.allow, 'GET, POST, PATCH')
+})
+
+test('Contacts Editor sees inactive rows while a view grant requests active rows only', async () => {
+  const includeInactive = []
+  const fetchContacts = async (_db, include) => { includeInactive.push(include); return [] }
+  for (const auth of [okAuth, editorAuth]) {
+    const handler = createAcademicsContactsHandler({ verifyCaller: async () => auth, fetchContacts })
+    const res = makeRes()
+    await handler({ method: 'GET' }, res)
+    assert.equal(res.statusCode, 200)
+  }
+  assert.deepEqual(includeInactive, [false, true])
 })
 
 // ── Calendar endpoint ────────────────────────────────────────────────────────

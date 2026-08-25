@@ -171,7 +171,7 @@ export default async function handler(req, res) {
       .from('contacts').select('email, avatar_url').not('avatar_url', 'is', null).limit(2000)
     const { data: grants, error: gErr } = await db
       .from('user_role_grants')
-      .select('id, user_profile_id, role, granted_at, starts_at, expires_at, revoked_at')
+      .select('id, user_profile_id, role, granted_at, starts_at, expires_at, revoked_at, contacts_access')
       .order('granted_at', { ascending: false })
       .limit(2000)
     if (gErr) { console.log('[list-portal-access] grant read failed', { errorCode: gErr.code, request_id: requestId }); return res.status(500).json({ error: 'internal_error' }) }
@@ -261,6 +261,7 @@ export default async function handler(req, res) {
         full_name: p.full_name || null,
         email: p.email || null,
         portal_role: g.role,
+        contacts_access: g.role === 'nursing_academic' && g.contacts_access === 'manage' ? 'manage' : 'view',
         status,
         starts_at: g.starts_at || null,
         expires_at: g.expires_at || null,
@@ -322,6 +323,7 @@ export default async function handler(req, res) {
         full_name: r.full_name,
         email: r.email,
         portal_role: r.portal_role,
+        contacts_access: r.contacts_access,
         scope: r.scope,
         invited_at: pendingInvitedAtByEmail.get((r.email || '').toLowerCase()) || null,
         expires_at: r.expires_at,

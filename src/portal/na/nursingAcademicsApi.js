@@ -14,11 +14,16 @@ async function authHeader() {
   return token ? { Authorization: `Bearer ${token}` } : null
 }
 
-async function apiFetch(path, { signal } = {}) {
+async function apiFetch(path, { signal, method = 'GET', body } = {}) {
   const headers = await authHeader()
   if (!headers) return { ok: false, status: 401, data: null, error: 'unauthenticated' }
   try {
-    const res = await fetch(path, { headers, signal })
+    const res = await fetch(path, {
+      method,
+      headers: body === undefined ? headers : { ...headers, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    })
     let data = null
     try { data = await res.json() } catch { data = null }
     return { ok: res.ok, status: res.status, data, error: res.ok ? null : (data?.error || 'request_failed') }
@@ -39,6 +44,14 @@ export function fetchCommunityBenefit(fiscalYear, opts) {
 
 export function fetchAcademicsContacts(opts) {
   return apiFetch('/api/portal/academics-contacts', opts)
+}
+
+export function createAcademicsContact(payload, opts = {}) {
+  return apiFetch('/api/portal/academics-contacts', { ...opts, method: 'POST', body: payload })
+}
+
+export function updateAcademicsContact(id, changes, opts = {}) {
+  return apiFetch('/api/portal/academics-contacts', { ...opts, method: 'PATCH', body: { id, ...changes } })
 }
 
 // The aggregate CSV is generated server-side (privacy contract); this fetches

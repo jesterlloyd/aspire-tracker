@@ -107,6 +107,20 @@ export async function hasActiveRoleGrant(db, profileId, role) {
   return data.some(nowActive)
 }
 
+// Resolve the active grant row when an endpoint needs a capability stored on
+// the grant itself. Returns null when no active row exists and throws on a
+// lookup failure so callers can distinguish a server problem from no access.
+export async function getActiveRoleGrant(db, profileId, role) {
+  const { data, error } = await db
+    .from('user_role_grants')
+    .select('id, role, starts_at, expires_at, revoked_at, contacts_access')
+    .eq('user_profile_id', profileId)
+    .eq('role', role)
+  if (error) throw error
+  if (!data) return null
+  return data.find(nowActive) || null
+}
+
 // Active student links for this profile (empty array when none).
 export async function getActiveStudentLinks(db, profileId) {
   const { data, error } = await db

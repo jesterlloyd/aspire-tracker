@@ -15,6 +15,7 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
 const MIGRATION = 'supabase/migrations/20260824000000_nursing_academics_portal_foundation.sql'
 const migration = read(MIGRATION)
+const CONTACTS_EDITOR_MIGRATION = read('supabase/migrations/20260825000000_nursing_academic_contacts_editor.sql')
 
 // ── The migration ────────────────────────────────────────────────────────────
 
@@ -79,6 +80,14 @@ test('the migration touches NO messaging, feedback, or conversation role constra
   }
 })
 
+test('Contacts Editor is a narrow, default-view grant capability with no delete privilege', () => {
+  assert.match(CONTACTS_EDITOR_MIGRATION, /ADD COLUMN IF NOT EXISTS contacts_access text NOT NULL DEFAULT 'view'/)
+  assert.match(CONTACTS_EDITOR_MIGRATION, /contacts_access IN \('view', 'manage'\)/)
+  assert.match(CONTACTS_EDITOR_MIGRATION, /role = 'nursing_academic' OR contacts_access = 'view'/)
+  assert.match(CONTACTS_EDITOR_MIGRATION, /REVOKE INSERT, UPDATE, DELETE ON public\.user_role_grants FROM anon, authenticated/)
+  assert.doesNotMatch(CONTACTS_EDITOR_MIGRATION, /GRANT DELETE ON public\.contacts/)
+})
+
 // ── Lifecycle surfaces ───────────────────────────────────────────────────────
 
 test('the three access endpoints allow-list the fourth role', () => {
@@ -92,7 +101,8 @@ test('the three access endpoints allow-list the fourth role', () => {
 test('invite requires NO scope for nursing_academic and passes null scopes to the RPC', () => {
   const src = read('api/invite-portal-user.js')
   // Gate 7 has no nursing_academic branch (no scope requirement) ...
-  assert.doesNotMatch(src, /portalRole === 'nursing_academic'\) \{/)
+  const scopeValidation = src.slice(src.indexOf('Gate 7:'), src.indexOf('Locate any existing profile'))
+  assert.doesNotMatch(scopeValidation, /portalRole === 'nursing_academic'\) \{/)
   // ... and the RPC scope params are role-conditional, so they resolve to null for it.
   assert.match(src, /p_student_id: portalRole === 'student' \? studentId : null/)
   assert.match(src, /p_unit_keys: portalRole === 'unit_leader' \? unitKeys : null/)
@@ -106,6 +116,10 @@ test('client role vocabulary: labels, options, and the org-wide scope summary', 
   assert.equal(
     summarizeScope({ portal_role: 'nursing_academic', scope: { students: [], units: [], schools: [] } }),
     'ASPIRE-wide (view only)',
+  )
+  assert.equal(
+    summarizeScope({ portal_role: 'nursing_academic', contacts_access: 'manage', scope: { students: [], units: [], schools: [] } }),
+    'ASPIRE-wide · Contacts Editor',
   )
 })
 
@@ -124,6 +138,8 @@ test('the grant modal treats nursing_academic as valid with no scope pickers', (
   const modal = read('src/components/settings/GrantPortalAccessModal.jsx')
   assert.match(modal, /role === 'nursing_academic' \? true : false/)
   assert.match(modal, /ASPIRE-wide \(view only\)/)
+  assert.match(modal, /Contacts Editor/)
+  assert.match(modal, /add, edit, deactivate, and reactivate contacts/i)
 })
 
 test('the invitation email carries dedicated Nursing Education & Leadership copy', async () => {

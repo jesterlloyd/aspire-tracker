@@ -189,6 +189,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const [student, setStudent] = useState(null)
   const [unitKeys, setUnitKeys] = useState(initial?.scope?.units?.map(u => u.unit_key) || [])
   const [schoolKeys, setSchoolKeys] = useState(initial?.scope?.schools?.map(s => s.school_key) || [])
+  const [contactsAccess, setContactsAccess] = useState(initial?.contacts_access === 'manage' ? 'manage' : 'view')
   const [cohortId, setCohortId] = useState('')
   const [cohorts, setCohorts] = useState([])
   const [loading, setLoading] = useState(false)
@@ -252,6 +253,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   // and offer the selected contact's scope only where untouched.
   const onRoleChange = (next) => {
     setRole(next); setResult(null)
+    if (next !== 'nursing_academic') setContactsAccess('view')
     if (next !== 'student') setStudent(null) // deactivate internal student_id off the Student role
     if (selectedContact) suggestUntouchedScope(selectedContact, next)
   }
@@ -285,6 +287,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     if (role === 'student') base.student_id = student?.id
     if (role === 'unit_leader') { base.unit_keys = unitKeys; if (cohortId) base.cohort_id = cohortId }
     if (role === 'academic_partner') { base.school_keys = schoolKeys; if (cohortId) base.cohort_id = cohortId }
+    if (role === 'nursing_academic') base.contacts_access = contactsAccess
     return base
   }
 
@@ -326,7 +329,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const scopeSummary =
     role === 'student' ? (student ? `${studentName(student)}${student.school ? ` · ${student.school}` : ''}` : 'No student selected') :
     role === 'unit_leader' ? (unitKeys.join(', ') || 'No units selected') :
-    role === 'nursing_academic' ? 'ASPIRE-wide (view only)' :
+    role === 'nursing_academic' ? (contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)') :
     (schoolKeys.join(', ') || 'No schools selected')
 
   return (
@@ -412,8 +415,18 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                 </div>
               )}
               {role === 'nursing_academic' && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#f5f7ff', border: '1px solid #dbe3fb', borderRadius: 8, padding: '9px 12px', marginBottom: 14, fontSize: 12, color: '#1D2567' }}>
-                  Nursing Education &amp; Leadership access is ASPIRE-wide and view only: At A Glance, Community Benefit, and Contacts. No unit, school, or student selection applies.
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#f5f7ff', border: '1px solid #dbe3fb', borderRadius: 8, padding: '9px 12px', marginBottom: 10, fontSize: 12, color: '#1D2567' }}>
+                    Nursing Education &amp; Leadership access is ASPIRE-wide. At A Glance and Community Benefit always remain view only. No unit, school, or student selection applies.
+                  </div>
+                  <label style={label} htmlFor="gpa-contacts-access">Contacts permission</label>
+                  <select id="gpa-contacts-access" value={contactsAccess} onChange={e => setContactsAccess(e.target.value)} style={field}>
+                    <option value="view">View only</option>
+                    <option value="manage">Contacts Editor</option>
+                  </select>
+                  <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280', lineHeight: 1.45 }}>
+                    Contacts Editors may add, edit, deactivate, and reactivate contacts. They cannot permanently delete contacts or edit any other portal data.
+                  </p>
                 </div>
               )}
               {(role === 'unit_leader' || role === 'academic_partner') && (
