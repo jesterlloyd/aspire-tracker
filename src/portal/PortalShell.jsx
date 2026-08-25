@@ -84,6 +84,7 @@ export default function PortalShell({
   nav = null,
   utilityLayer = null,
   onRestartTour,
+  contentClassName = '',
   children,
 }) {
   const nightfall = headerVariant === 'nightfall'
@@ -133,7 +134,7 @@ export default function PortalShell({
           {nav}
         </div>
         {utilityLayer}
-        <main className="ptl-main">{children}</main>
+        <main className={`ptl-main${contentClassName ? ` ${contentClassName}` : ''}`}>{children}</main>
         <footer className="ptl-footer">
           ASPIRE, Geri and Richard Brawerman Nursing Institute, Cedars-Sinai
         </footer>

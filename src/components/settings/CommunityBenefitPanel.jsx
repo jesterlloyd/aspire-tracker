@@ -1,8 +1,8 @@
 // NURSING-ACADEMICS-1: Settings > Community Benefit.
 //
-// Owner-entered inputs for the Nursing Academics community-benefit report:
-// hourly rates (RN Preceptor / Management) per fiscal year, and aggregate
-// UCLA capstone project hours per fiscal year + school.
+// Owner-entered inputs for the Nursing Education & Leadership community-benefit
+// report: hourly rates (RN / Leadership) per fiscal year, and aggregate
+// additional non-clinical hours per fiscal year + school.
 //
 // AUTHORIZATION IS SERVER-SIDE. Admins see this panel read-only for
 // visibility; every write goes through api/community-benefit-admin.js, which
@@ -12,7 +12,8 @@
 // succeeds.
 //
 // STORAGE IS APPEND-ONLY. Setting a rate supersedes the previous one (history
-// preserved); a capstone entry is voided, never deleted.
+// preserved); an additional-hours entry is voided, never deleted. The legacy
+// database/API name remains "capstone" so this wording change needs no migration.
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -21,7 +22,7 @@ import { SETTINGS_HEADING_STYLE } from './settingsSections'
 import SurfaceCard from '../ui/SurfaceCard'
 
 const F = 'DM Sans, sans-serif'
-const CATEGORY_LABELS = { rn_preceptor: 'RN Preceptor', management: 'Management (UCLA capstone)' }
+const CATEGORY_LABELS = { rn_preceptor: 'RN', management: 'Leadership' }
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 async function callAdmin(body) {
@@ -103,12 +104,12 @@ export default function CommunityBenefitPanel() {
     const hours = Number(capForm.hours)
     if (!Number.isInteger(fy) || fy < 2020 || fy > 2100) return notify(false, 'Enter a fiscal year between 2020 and 2100.')
     if (!capForm.school_name.trim()) return notify(false, 'A school is required.')
-    if (!Number.isFinite(hours) || hours < 0) return notify(false, 'Capstone hours must be a nonnegative number.')
+    if (!Number.isFinite(hours) || hours < 0) return notify(false, 'Additional non-clinical hours must be a nonnegative number.')
     setBusy(true)
     const res = await callAdmin({ action: 'add_capstone', fiscal_year: fy, school_name: capForm.school_name.trim(), hours, note: capForm.note || null, cohort_id: null })
     setBusy(false)
-    if (!res.ok) return notify(false, res.data?.message || 'The capstone entry could not be saved.')
-    notify(true, `Capstone hours recorded for FY ${fy}.`)
+    if (!res.ok) return notify(false, res.data?.message || 'The additional-hours entry could not be saved.')
+    notify(true, `Additional non-clinical hours recorded for FY ${fy}.`)
     setCapForm(f => ({ ...f, hours: '', note: '' }))
     load()
   }
@@ -139,7 +140,7 @@ export default function CommunityBenefitPanel() {
       )}
       <h2 id="community-benefit-heading" style={{ ...SETTINGS_HEADING_STYLE, margin: '0 0 4px' }}>Community Benefit</h2>
       <p style={{ margin: '0 0 16px', fontSize: 13.5, color: '#6b7280', fontFamily: F }}>
-        Hourly rates and UCLA capstone hours behind the Nursing Academics community-benefit report.
+        Hourly rates and additional non-clinical hours behind the Nursing Education &amp; Leadership community-benefit report.
         {canEdit ? ' Only the Owner can enter or change these values.' : ' You are viewing read-only; only the Owner can enter or change these values.'}
       </p>
 
@@ -187,8 +188,8 @@ export default function CommunityBenefitPanel() {
               <label style={label} htmlFor="cb-rate-cat">Category</label>
               <select id="cb-rate-cat" style={{ ...field, cursor: 'pointer' }} value={rateForm.category}
                 onChange={e => setRateForm(f => ({ ...f, category: e.target.value }))}>
-                <option value="rn_preceptor">RN Preceptor</option>
-                <option value="management">Management (UCLA capstone)</option>
+                <option value="rn_preceptor">RN</option>
+                <option value="management">Leadership</option>
               </select>
             </div>
             <div>
@@ -212,11 +213,11 @@ export default function CommunityBenefitPanel() {
         </p>
       </SurfaceCard>
 
-      {/* Capstone hours */}
+      {/* Additional non-clinical hours (legacy API action name: capstone). */}
       <SurfaceCard padding="16px 18px">
-        <h3 style={{ margin: '0 0 6px', fontSize: 14.5, fontWeight: 700, color: '#1D2567', fontFamily: F }}>UCLA capstone hours</h3>
+        <h3 style={{ margin: '0 0 6px', fontSize: 14.5, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Additional non-clinical hours</h3>
         <div role="note" style={{ margin: '0 0 12px', padding: '9px 12px', borderRadius: 8, background: '#FEF3C7', border: '1px solid #fde68a', fontSize: 12.5, color: '#78350F', fontFamily: F }}>
-          Enter only capstone project hours that are NOT already recorded as clinical shift hours.
+          Enter only project, leadership, or other non-clinical hours that are NOT already recorded as clinical shift hours.
           Hours logged through student shift logs are counted automatically; entering them here would
           double-count the benefit.
         </div>
@@ -225,7 +226,7 @@ export default function CommunityBenefitPanel() {
             <thead><tr><th style={th}>Fiscal year</th><th style={th}>School</th><th style={th}>Hours</th><th style={th}>Note</th><th style={th}>Entered</th>{canEdit && <th style={th} aria-label="Actions" />}</tr></thead>
             <tbody>
               {capstone.length === 0 && (
-                <tr><td style={td} colSpan={canEdit ? 6 : 5}>No capstone hours recorded yet.</td></tr>
+                <tr><td style={td} colSpan={canEdit ? 6 : 5}>No additional non-clinical hours recorded yet.</td></tr>
               )}
               {capstone.map(c => (
                 <tr key={c.id} style={c.voided_at ? { opacity: 0.55 } : undefined}>
@@ -266,7 +267,7 @@ export default function CommunityBenefitPanel() {
               </select>
             </div>
             <div>
-              <label style={label} htmlFor="cb-cap-hours">Additional capstone hours</label>
+              <label style={label} htmlFor="cb-cap-hours">Additional non-clinical hours</label>
               <input id="cb-cap-hours" type="number" min="0" step="0.25" style={field} value={capForm.hours}
                 onChange={e => setCapForm(f => ({ ...f, hours: e.target.value }))} placeholder="e.g. 120" />
             </div>

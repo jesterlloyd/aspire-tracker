@@ -16,13 +16,14 @@ const chrome = read('src/portal/na/NursingAcademicsChrome.jsx')
 const portal = read('src/portal/na/NursingAcademicsPortal.jsx')
 const calendar = read('src/portal/na/AcademicsCalendarView.jsx')
 const benefit = read('src/portal/na/CommunityBenefitView.jsx')
+const contacts = read('src/portal/na/AcademicsContactsView.jsx')
 const css = read('src/portal/portal.css')
 const app = read('src/portal/PortalApp.jsx')
 
 // ── Routing and shell ────────────────────────────────────────────────────────
 
-test('the route namespace is /portal/academics with two sections, calendar default', () => {
-  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit'\]\)/)
+test('the route namespace is /portal/academics with three sections, At A Glance default', () => {
+  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'contacts'\]\)/)
   assert.match(app, /\/portal\\\/academics\\\//)
   assert.match(app, /navigate\(`\/portal\/academics\/\$\{key\}`\)/)
   assert.match(app, /return 'calendar'/)
@@ -33,13 +34,15 @@ test('the nav uses the shared .ptl-nav language with stable tour anchors and ari
   assert.match(chrome, /data-tour=\{`portal-nav-\$\{key\}`\}/)
   assert.match(chrome, /aria-current=\{view === key \? 'page' : undefined\}/)
   assert.match(chrome, /PortalNavRefresh/)
-  assert.match(chrome, /'calendar'[\s\S]{0,80}Academic Calendar/)
+  assert.match(chrome, /'calendar'[\s\S]{0,80}At A Glance/)
   assert.match(chrome, /'community-benefit'[\s\S]{0,80}Community Benefit/)
+  assert.match(chrome, /'contacts'[\s\S]{0,80}Contacts/)
 })
 
 test('sections stay mounted and hide with display, matching the other portals', () => {
   assert.match(portal, /display: view === 'calendar' \? 'block' : 'none'/)
   assert.match(portal, /display: view === 'community-benefit' \? 'block' : 'none'/)
+  assert.match(portal, /display: view === 'contacts' \? 'block' : 'none'/)
   assert.match(portal, /GreetingMasthead/)
 })
 
@@ -114,7 +117,7 @@ test('the CSV download calls the dedicated server export and never assembles row
 })
 
 test('both views hand access refusals up to the shell instead of rendering a dead retry', () => {
-  for (const src of [calendar, benefit]) {
+  for (const src of [calendar, benefit, contacts]) {
     assert.match(src, /useReportPortalFailure/)
     assert.match(src, /ACCESS_FAILURE\.ACCESS_ENDED/)
   }
@@ -126,7 +129,8 @@ test('the experience owns its own .ptl-na-* namespace and no new shared-class co
   assert.match(css, /NURSING-ACADEMICS-1/)
   assert.match(css, /\.ptl-na-page/)
   assert.match(css, /\.ptl-na-timeline/)
-  assert.match(css, /\.ptl-na-table-scroll \{ overflow-x: auto; \}/)
+  assert.match(css, /\.ptl-na-table-scroll \{ overflow: auto;/)
+  assert.match(css, /\.ptl-na-table th \{[\s\S]{0,100}position: sticky/)
   // The NA block adapts at the house phone breakpoint.
   const naBlock = css.slice(css.indexOf('NURSING-ACADEMICS-1'))
   assert.match(naBlock, /@media \(max-width: 760px\)/)
@@ -140,17 +144,37 @@ test('the API client follows the house contract: bearer token, never throws on d
   assert.match(api, /academics-community-benefit/)
   assert.match(api, /academics-calendar/)
   assert.match(api, /academics-benefit-export/)
+  assert.match(api, /academics-contacts/)
+})
+
+test('Community Benefit uses program KPI filters, compact labels, and table controls', () => {
+  assert.match(benefit, /All Programs.*ABSN.*BSN.*ELMN.*MECN/)
+  assert.match(benefit, /placeholder="Search student"/)
+  assert.match(benefit, /All Schools/)
+  assert.match(benefit, /All Cohorts/)
+  assert.match(benefit, /Student A–Z/)
+  assert.match(benefit, /Cohort timeline/)
+  const labels = read('src/portal/na/naDisplayLabels.js')
+  for (const value of ['APU', 'CSULA', 'CSULB', 'CSUN', 'WCU-Anaheim', 'WCU-NoHo', 'UCLA']) assert.match(labels, new RegExp(value))
+  for (const value of ['ELMN', 'ABSN', 'BSN \\(Semester\\)', 'BSN \\(Trimester\\)', 'BSN \\(Quarter\\)']) assert.match(labels, new RegExp(value))
+})
+
+test('Contacts is a read-only server-backed directory with no outreach actions', () => {
+  assert.match(contacts, /fetchAcademicsContacts/)
+  assert.match(contacts, /Read-only access/)
+  assert.doesNotMatch(contacts, /mailto:|contacts-upsert|downloadCSV|Send email|Copy email|Delete contact|Edit contact/)
 })
 
 // ── Settings panel ───────────────────────────────────────────────────────────
 
-test('the Settings panel warns about capstone double-counting and defers all authority to the server', () => {
+test('the Settings panel warns about non-clinical-hour double-counting and defers all authority to the server', () => {
   const panel = read('src/components/settings/CommunityBenefitPanel.jsx')
   assert.match(panel, /NOT already recorded as clinical shift hours/)
   assert.match(panel, /can_edit/)
   assert.match(panel, /api\/community-benefit-admin/)
   assert.match(panel, /SCHOOLS\.map/)
   assert.match(panel, /<select id="cb-cap-school"/)
+  assert.match(panel, /Additional non-clinical hours/)
   const sections = read('src/components/settings/settingsSections.js')
   assert.match(sections, /communityBenefit/)
   assert.match(sections, /\/settings\/community-benefit/)

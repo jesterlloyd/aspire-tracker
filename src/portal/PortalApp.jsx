@@ -103,7 +103,7 @@ function apThreadIdFromPath(pathname) {
 // NURSING-ACADEMICS-1: sections are real routes under /portal/academics, so
 // back, forward, refresh, and a pasted deep link all work. /portal (no
 // section) resolves to the Academic Calendar, the default.
-const NA_SECTIONS = new Set(['calendar', 'community-benefit'])
+const NA_SECTIONS = new Set(['calendar', 'community-benefit', 'contacts'])
 function naViewFromPath(pathname) {
   const m = /^\/portal\/academics\/([^/]+)\/?$/.exec(pathname)
   if (m && NA_SECTIONS.has(m[1])) return m[1]
@@ -537,12 +537,13 @@ export default function PortalApp() {
     // Every fetching child can hand an access refusal up to the shell.
     return (
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
-      <PortalShell title="Nursing Academics Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+      <PortalShell title="Nursing Education & Leadership Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={userProfile?.avatar_url}
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
+        contentClassName="ptl-main-wide"
         nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} />}>
         <NursingAcademicsPortal view={naView} />
         {photoDialog}

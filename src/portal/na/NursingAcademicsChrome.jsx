@@ -1,19 +1,20 @@
 // NURSING-ACADEMICS-1: Nursing Academics portal chrome.
 //
-// The two-tab section navigation, reusing the shared .ptl-nav language (the
+// The three-tab section navigation, reusing the shared .ptl-nav language (the
 // same attached Nightfall taskbar row every portal uses). Two tabs means no
 // mobile overflow. The non-content states (loading, empty, error, denied) are
 // reused from the Unit Leader chrome exactly as the Academic Partner portal
 // already does; no ptl-* class is shared component-to-component beyond that
 // established primitive set.
 
-import { CalendarDays, HandCoins } from 'lucide-react'
+import { LayoutDashboard, HandCoins, ContactRound } from 'lucide-react'
 import { PortalNavRefresh } from '../PortalRefresh'
 
 // Product order. Module-local, consumed only by NursingAcademicsNav.
 const SECTIONS = [
-  { key: 'calendar', label: 'Academic Calendar', Icon: CalendarDays },
+  { key: 'calendar', label: 'At A Glance', Icon: LayoutDashboard },
   { key: 'community-benefit', label: 'Community Benefit', Icon: HandCoins },
+  { key: 'contacts', label: 'Contacts', Icon: ContactRound },
 ]
 
 /**
@@ -22,7 +23,7 @@ const SECTIONS = [
  */
 export function NursingAcademicsNav({ view, onNavigate }) {
   return (
-    <nav className="ptl-nav" aria-label="Nursing Academics Portal sections">
+    <nav className="ptl-nav" aria-label="Nursing Education and Leadership Portal sections">
       {SECTIONS.map(({ key, label, Icon }) => (
         <button
           key={key}

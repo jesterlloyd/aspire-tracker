@@ -31,9 +31,9 @@ export const TOUR_EXPERIENCES = {
   // v2 -> v3: corrected Students / Placement Requests role boundary copy
   // (Placement Requests submits only; tracking lives on Students).
   academic_partner: 'v3',
-  // NURSING-ACADEMICS-1: the organization-wide, view-only academics portal
-  // (Academic Calendar + Community Benefit).
-  nursing_academic: 'v1',
+  // v1 -> v2: renamed the portal and At A Glance section, then added the
+  // read-only Contacts directory.
+  nursing_academic: 'v2',
 };
 
 // Legacy alias. Nothing outside this module should need it (use TOUR_EXPERIENCES
@@ -558,9 +558,9 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
 }
 
 // ── Nursing Academics Portal step definitions ────────────────────────────────
-// NURSING-ACADEMICS-1: two sections, view-only, no messaging/feedback
+// NURSING-ACADEMICS-1: three sections, view-only, no messaging/feedback
 // launchers (those capabilities are intentionally not enabled for this role),
-// so the tour is short: the two nav destinations and the profile menu.
+// so the tour is short: the three nav destinations and the profile menu.
 
 function getNursingAcademicSteps(userProfile) {
   const firstName = userProfile?.full_name?.split(' ')[0] || 'there';
@@ -570,17 +570,22 @@ function getNursingAcademicSteps(userProfile) {
       placement: 'center',
       disableBeacon: true,
       title: `Welcome, ${firstName}!`,
-      content: 'This is the Nursing Academics Portal, your organization-wide view of ASPIRE. This short tour walks you through its two sections.',
+      content: 'This is the Nursing Education & Leadership Portal, your organization-wide view of ASPIRE. This short tour walks you through its three sections.',
     },
     {
       target: '[data-tour="portal-nav-calendar"]',
-      title: 'Academic Calendar',
-      content: 'School rotation windows across every cohort, color-coded by school, with month navigation and filters for fiscal year, cohort, school, and program.',
+      title: 'At A Glance',
+      content: 'See fiscal-year impact totals and school rotation windows across every cohort, color-coded by school.',
     },
     {
       target: '[data-tour="portal-nav-community-benefit"]',
       title: 'Community Benefit',
       content: 'Fiscal-year ASPIRE student activity and the estimated nursing community benefit, with a privacy-safe aggregate CSV export for fiscal reporting.',
+    },
+    {
+      target: '[data-tour="portal-nav-contacts"]',
+      title: 'Contacts',
+      content: 'Search and view active ASPIRE contacts. This directory is read-only and does not include outreach or messaging tools.',
     },
     {
       target: '[data-tour="portal-profile-menu"]',

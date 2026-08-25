@@ -184,7 +184,7 @@ test('PortalApp: onRestartTour is wired into all three PortalShell usages', () =
   assert.match(appCode, /title="Student Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
   assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
   assert.match(appCode, /title="Academic Partner Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
-  assert.match(appCode, /title="Nursing Academics Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  assert.match(appCode, /title="Nursing Education & Leadership Portal"[\s\S]{0,500}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
   const wiredCount = (appCode.match(/onRestartTour=\{\(\) => setTourRunning\(true\)\}/g) || []).length
   assert.equal(wiredCount, 4)
 })

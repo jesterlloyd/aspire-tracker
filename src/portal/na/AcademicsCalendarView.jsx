@@ -1,4 +1,4 @@
-// NURSING-ACADEMICS-1: the Academic Calendar section.
+// NURSING-ACADEMICS-1: the At A Glance section.
 //
 // A TIMELINE presentation (one school rotation per row) inside the shared
 // CanonicalCalendarLayout shell, with the canonical month navigation. Each
@@ -17,6 +17,7 @@
 // Community Benefit charts.
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import MetricCard from '../../components/ui/MetricCard'
 import {
   CanonicalCalendarLayout,
   CanonicalCalendarSidebar,
@@ -27,8 +28,12 @@ import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
 import { orderCohortsByTimeline } from '../../lib/derivations/cohortOrder'
-import { fetchAcademicsCalendar } from './nursingAcademicsApi'
+import { fetchAcademicsCalendar, fetchCommunityBenefit } from './nursingAcademicsApi'
 import { schoolColor } from './naSchoolColors'
+import { academicsProgramLabel, academicsSchoolLabel } from './naDisplayLabels'
+
+const money0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const num = new Intl.NumberFormat('en-US')
 
 const parseYmd = (s) => {
   if (!s) return null
@@ -44,8 +49,9 @@ const fmtDate = (s) => {
 
 const monthStartOf = (d) => new Date(d.getFullYear(), d.getMonth(), 1)
 
-export default function AcademicsCalendarView() {
+export default function AcademicsCalendarView({ active = true }) {
   const [payload, setPayload] = useState(null)
+  const [benefit, setBenefit] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -59,25 +65,28 @@ export default function AcademicsCalendarView() {
   // so the effect body performs no synchronous setState.
   const reload = useCallback(() => { setLoading(true); setError(null); setReloadKey(k => k + 1) }, [])
   const reportFailure = useReportPortalFailure()
-  useRegisterPortalRefresh(reload)
+  useRegisterPortalRefresh(reload, active)
 
   useEffect(() => {
+    if (!active) return undefined
     let cancelled = false
-    fetchAcademicsCalendar().then(res => {
+    Promise.all([fetchAcademicsCalendar(), fetchCommunityBenefit()]).then(([res, benefitRes]) => {
       if (cancelled) return
-      if (!res.ok) {
-        const kind = reportFailure({ status: res.status, error: res.error })
+      const failed = !res.ok ? res : (!benefitRes.ok ? benefitRes : null)
+      if (failed) {
+        const kind = reportFailure({ status: failed.status, error: failed.error })
         if (kind === ACCESS_FAILURE.ACCESS_ENDED) { setLoading(false); return }
         setError(kind === ACCESS_FAILURE.SIGNED_OUT
           ? 'Your session expired. Please sign in again.'
-          : 'We could not load the academic calendar right now. Please try again shortly.')
+          : 'We could not load At A Glance right now. Please try again shortly.')
         setLoading(false); return
       }
       setPayload(res.data)
+      setBenefit(benefitRes.data)
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [reloadKey, reportFailure])
+  }, [active, reloadKey, reportFailure])
 
   const rotations = useMemo(() => payload?.rotations || [], [payload])
   const cohorts = useMemo(
@@ -114,8 +123,13 @@ export default function AcademicsCalendarView() {
     rotations.filter(r => !r.has_dates && matchesShared(r)),
   [rotations, matchesShared])
 
-  if (loading) return <LoadingState label="Loading the academic calendar" />
+  if (loading) return <LoadingState label="Loading At A Glance" />
   if (error) return <ErrorState detail={error} onRetry={reload} />
+
+  const benefitTotals = benefit?.totals || {}
+  const estimatedBenefit = benefitTotals.total_benefit == null
+    ? 'Rate not set'
+    : money0.format(benefitTotals.total_benefit)
 
   const monthStart = monthCursor
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
@@ -151,13 +165,39 @@ export default function AcademicsCalendarView() {
     { id: 'na-cal-cohort', label: 'Cohort', value: cohortFilter, onChange: setCohortFilter,
       options: cohorts.map(c => ({ value: c.id, label: c.name })) },
     { id: 'na-cal-school', label: 'School', value: schoolFilter, onChange: setSchoolFilter,
-      options: schools.map(s => ({ value: s, label: s })) },
+      options: schools.map(s => ({ value: s, label: academicsSchoolLabel(s) })) },
     { id: 'na-cal-program', label: 'Program', value: programFilter, onChange: setProgramFilter,
-      options: programs.map(p => ({ value: p, label: p })) },
+      options: programs.map(p => ({ value: p, label: academicsProgramLabel(p) })) },
   ]
 
   return (
     <div className="ptl-na-calendar">
+      <section aria-labelledby="na-fy-summary-heading">
+        <div className="ptl-na-section-heading">
+          <div>
+            <h2 id="na-fy-summary-heading">Fiscal-year impact</h2>
+            <p>{benefit?.fiscal_year_label} · July {benefit?.fiscal_year - 1} through June {benefit?.fiscal_year}</p>
+          </div>
+        </div>
+        <div className="ptl-na-overview-kpis">
+          <MetricCard
+            label="Students served"
+            value={num.format(benefitTotals.students_served || 0)}
+            sub="Students with completed hours"
+          />
+          <MetricCard
+            label="Completed hours"
+            value={num.format(benefitTotals.approved_hours || 0)}
+            sub="Clinical hours recorded to date"
+          />
+          <MetricCard
+            label="Estimated benefit"
+            value={estimatedBenefit}
+            sub="Clinical + additional non-clinical hours"
+          />
+        </div>
+      </section>
+
       <div className="ptl-na-filters" role="group" aria-label="Calendar filters">
         {filterSelects.map(f => (
           <label key={f.id} className="ptl-na-filter" htmlFor={f.id}>
@@ -171,7 +211,7 @@ export default function AcademicsCalendarView() {
       </div>
 
       <CanonicalCalendarLayout
-        title="Academic Calendar"
+        title="Rotation Calendar"
         description="School rotation windows from every ASPIRE cohort, one rotation per row."
         sidebar={(
           <CanonicalCalendarSidebar>
@@ -182,7 +222,7 @@ export default function AcademicsCalendarView() {
                 {legendSchools.map(s => (
                   <li key={s}>
                     <span className="ptl-na-legend-dot" style={{ background: schoolColor(s).fill }} aria-hidden="true" />
-                    {s}
+                    {academicsSchoolLabel(s)}
                   </li>
                 ))}
               </ul>
@@ -222,10 +262,10 @@ export default function AcademicsCalendarView() {
               <div key={r.id} className="ptl-na-row">
                 <div className="ptl-na-row-label">
                   <span className="ptl-na-legend-dot" style={{ background: color.fill }} aria-hidden="true" />
-                  <span className="ptl-na-row-school">{r.school}</span>
+                  <span className="ptl-na-row-school">{academicsSchoolLabel(r.school)}</span>
                   <span className="ptl-na-row-meta">
                     {r.cohort_name}{r.student_count > 0 ? ` · ${r.student_count} student${r.student_count === 1 ? '' : 's'}` : ''}
-                    {r.programs.length > 0 ? ` · ${r.programs.join(', ')}` : ''}
+                    {r.programs.length > 0 ? ` · ${r.programs.map(academicsProgramLabel).join(', ')}` : ''}
                   </span>
                   <span className="ptl-na-row-dates">{rangeText}</span>
                 </div>
@@ -258,7 +298,7 @@ export default function AcademicsCalendarView() {
             {needsDates.map(r => (
               <li key={r.id}>
                 <span className="ptl-na-legend-dot" style={{ background: schoolColor(r.school).fill }} aria-hidden="true" />
-                <strong>{r.school}</strong> · {r.cohort_name}
+                <strong>{academicsSchoolLabel(r.school)}</strong> · {r.cohort_name}
                 {r.student_count > 0 ? ` · ${r.student_count} student${r.student_count === 1 ? '' : 's'}` : ''}
               </li>
             ))}

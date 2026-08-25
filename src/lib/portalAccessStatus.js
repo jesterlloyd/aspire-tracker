@@ -10,14 +10,14 @@ export const PORTAL_ROLE_LABELS = {
   student: 'Student',
   unit_leader: 'Unit Leader',
   academic_partner: 'Academic Partner',
-  nursing_academic: 'Nursing Academics',
+  nursing_academic: 'Nursing Education & Leadership',
 }
 
 export const PORTAL_ROLE_OPTIONS = [
   { value: 'student', label: 'Student' },
   { value: 'unit_leader', label: 'Unit Leader' },
   { value: 'academic_partner', label: 'Academic Partner' },
-  { value: 'nursing_academic', label: 'Nursing Academics' },
+  { value: 'nursing_academic', label: 'Nursing Education & Leadership' },
 ]
 
 // Text-labelled, accessible status styles (never color alone: each carries a label).

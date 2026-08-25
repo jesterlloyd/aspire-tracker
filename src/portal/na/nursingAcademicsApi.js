@@ -37,6 +37,10 @@ export function fetchCommunityBenefit(fiscalYear, opts) {
   return apiFetch(`/api/portal/academics-community-benefit${q}`, opts)
 }
 
+export function fetchAcademicsContacts(opts) {
+  return apiFetch('/api/portal/academics-contacts', opts)
+}
+
 // The aggregate CSV is generated server-side (privacy contract); this fetches
 // the finished text for a client-side download. Returns
 // { ok, status, csv, error }.

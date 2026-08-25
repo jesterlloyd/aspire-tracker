@@ -138,6 +138,7 @@ test('the rotation is assigned WHOLE to the fiscal year containing rotation_end_
 
 test('standard and capstone benefits compute independently and never mix hours', () => {
   const report = buildFixture()
+  assert.equal(report.totals.students_served, 1)
   assert.equal(report.totals.approved_hours, 60)
   assert.equal(report.totals.standard_benefit, 3900)      // 60 x $65
   assert.equal(report.totals.capstone_hours, 100)
@@ -286,7 +287,7 @@ test('legacy preceptor text is a labeled fallback, never silently blended', () =
 
 // ── Aggregate CSV privacy contract ───────────────────────────────────────────
 
-test('aggregate rows: one per school+program+course type per category, with Management capstone rows', () => {
+test('aggregate rows: one per school+program+course type per category, with Leadership non-clinical rows', () => {
   const report = buildFixture({
     students: [
       student(),
@@ -300,15 +301,15 @@ test('aggregate rows: one per school+program+course type per category, with Mana
     ]),
   })
   const rows = buildAggregateRows(report)
-  const rn = rows.filter(r => r.benefit_category === 'RN Preceptor')
-  const mgmt = rows.filter(r => r.benefit_category === 'Management')
+  const rn = rows.filter(r => r.benefit_category === 'RN')
+  const mgmt = rows.filter(r => r.benefit_category === 'Leadership')
   assert.equal(rn.length, 2)   // Unclassified group (2 students) + Capstone group (1 student)
   assert.equal(mgmt.length, 1) // one capstone school
   const unclassified = rn.find(r => r.course_type === 'Unclassified')
   assert.equal(unclassified.student_count, 2)
   assert.equal(unclassified.approved_hours, 70)
   assert.equal(unclassified.benefit, 4550) // 70 x 65
-  assert.equal(mgmt[0].preceptor_type, 'Management')
+  assert.equal(mgmt[0].preceptor_type, 'Leadership')
   assert.equal(mgmt[0].student_count, 0)
   assert.equal(mgmt[0].capstone_hours, 100)
   assert.equal(mgmt[0].benefit, 9000)
@@ -324,7 +325,7 @@ test('the CSV carries exactly the recommended headers and NO identifying data', 
   assert.equal(lines[0], AGGREGATE_CSV_HEADERS.join(','))
   assert.deepEqual(AGGREGATE_CSV_HEADERS, [
     'Fiscal Year', 'School', 'Program', 'Course Type', 'Benefit Category', 'Preceptor Type',
-    'Student Count', 'Required Hours', 'Approved Actual Hours', 'Additional Capstone Hours',
+    'Student Count', 'Required Hours', 'Completed Hours', 'Additional Non-Clinical Hours',
     'Applied Hourly Rate', 'Estimated Nursing Benefit',
   ])
   // No student name, no preceptor name, no emails, no uuids, no shift rows.
@@ -334,7 +335,7 @@ test('the CSV carries exactly the recommended headers and NO identifying data', 
   assert.ok(!csv.includes('@'))
   assert.doesNotMatch(csv, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
   assert.ok(!/shift/i.test(csv))
-  // One RN Preceptor row for the single school/program/course group + 1 Management row.
+  // One RN row for the single school/program/course group + 1 Leadership row.
   assert.equal(lines.length, 3)
 })
 

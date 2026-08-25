@@ -1,8 +1,8 @@
 // NURSING-ACADEMICS-1: the Nursing Academics portal experience.
 //
-// Organization-wide, VIEW-ONLY portal for authorized BNI nursing academics
-// and leadership: the shared greeting masthead plus two URL-driven sections
-// (Academic Calendar and Community Benefit). Sections stay mounted and hide
+// Organization-wide, VIEW-ONLY portal for authorized BNI nursing education
+// and leadership users: the shared greeting masthead plus three URL-driven
+// sections (At A Glance, Community Benefit, and Contacts). Sections stay mounted and hide
 // with display, matching the other portals, so month position, filters, and
 // the loaded report survive navigation.
 //
@@ -16,6 +16,7 @@ import GreetingMasthead from '../../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../../lib/lastVisit'
 import AcademicsCalendarView from './AcademicsCalendarView'
 import CommunityBenefitView from './CommunityBenefitView'
+import AcademicsContactsView from './AcademicsContactsView'
 
 export default function NursingAcademicsPortal({ view = 'calendar' }) {
   const { userProfile } = useAuth()
@@ -29,18 +30,21 @@ export default function NursingAcademicsPortal({ view = 'calendar' }) {
 
   return (
     <div className="ptl-page ptl-na-page">
-      <h1 className="ptl-visually-hidden">Nursing Academics Portal</h1>
+      <h1 className="ptl-visually-hidden">Nursing Education &amp; Leadership Portal</h1>
       <GreetingMasthead
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}
-        contextLabel="Nursing Academics"
+        contextLabel="Nursing Education & Leadership"
         lastVisitLine={lastVisitLine}
       />
       <div style={{ display: view === 'calendar' ? 'block' : 'none' }}>
-        <AcademicsCalendarView />
+        <AcademicsCalendarView active={view === 'calendar'} />
       </div>
       <div style={{ display: view === 'community-benefit' ? 'block' : 'none' }}>
-        <CommunityBenefitView />
+        <CommunityBenefitView active={view === 'community-benefit'} />
+      </div>
+      <div style={{ display: view === 'contacts' ? 'block' : 'none' }}>
+        <AcademicsContactsView active={view === 'contacts'} />
       </div>
     </div>
   )

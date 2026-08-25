@@ -22,6 +22,7 @@ import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
 import { downloadCSV } from '../../lib/utils'
 import { fetchCommunityBenefit, fetchBenefitExportCsv } from './nursingAcademicsApi'
 import { schoolColor } from './naSchoolColors'
+import { academicsProgramGroup, academicsProgramLabel, academicsSchoolLabel } from './naDisplayLabels'
 
 const money0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const money2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -47,7 +48,7 @@ function BarChart({ title, rows, ariaLabel }) {
           <div key={r.label} className="ptl-na-chart-row">
             <span className="ptl-na-chart-label">
               <span className="ptl-na-legend-dot" style={{ background: schoolColor(r.label).fill }} aria-hidden="true" />
-              {r.label}
+              {r.displayLabel || r.label}
             </span>
             <div className="ptl-na-chart-bars">
               {r.bars.map(b => (
@@ -68,7 +69,9 @@ function BarChart({ title, rows, ariaLabel }) {
   )
 }
 
-export default function CommunityBenefitView() {
+const PROGRAM_FILTERS = Object.freeze(['All Programs', 'ABSN', 'BSN', 'ELMN', 'MECN'])
+
+export default function CommunityBenefitView({ active = true }) {
   const [fy, setFy] = useState(null) // null = server default (current FY)
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -76,15 +79,21 @@ export default function CommunityBenefitView() {
   const [reloadKey, setReloadKey] = useState(0)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
+  const [programFilter, setProgramFilter] = useState('All Programs')
+  const [search, setSearch] = useState('')
+  const [schoolFilter, setSchoolFilter] = useState('')
+  const [cohortFilter, setCohortFilter] = useState('')
+  const [sortBy, setSortBy] = useState('student-az')
 
   // Loading starts true and every trigger (reload, FY change) flips it in its
   // HANDLER, so the effect body performs no synchronous setState.
   const reload = useCallback(() => { setLoading(true); setError(null); setReloadKey(k => k + 1) }, [])
   const changeFy = useCallback((next) => { setLoading(true); setError(null); setFy(next) }, [])
   const reportFailure = useReportPortalFailure()
-  useRegisterPortalRefresh(reload)
+  useRegisterPortalRefresh(reload, active)
 
   useEffect(() => {
+    if (!active) return undefined
     let cancelled = false
     fetchCommunityBenefit(fy).then(res => {
       if (cancelled) return
@@ -100,7 +109,7 @@ export default function CommunityBenefitView() {
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [fy, reloadKey, reportFailure])
+  }, [active, fy, reloadKey, reportFailure])
 
   const fiscalYears = useMemo(() => report?.available_fiscal_years || [], [report])
 
@@ -125,16 +134,6 @@ export default function CommunityBenefitView() {
   const t = report.totals
   const benefitText = (v) => (v == null ? 'Rate not set' : money0.format(v))
 
-  const hoursChartRows = report.by_school
-    .filter(s => s.students > 0)
-    .map(s => ({
-      label: s.school,
-      bars: [
-        { key: 'required', value: s.required_hours, color: schoolColor(s.school).soft, text: `${num.format(s.required_hours)} required` },
-        { key: 'approved', value: s.approved_hours, color: schoolColor(s.school).fill, text: `${num.format(s.approved_hours)} approved` },
-      ],
-    }))
-
   const benefitChartRows = (rnRate != null || mgmtRate != null)
     ? report.by_school
       .map(s => {
@@ -142,15 +141,46 @@ export default function CommunityBenefitView() {
         const capstone = s.capstone_benefit || 0
         return {
           label: s.school,
+          displayLabel: academicsSchoolLabel(s.school),
           total: standard + capstone,
           bars: [{
             key: 'benefit', value: standard + capstone, color: schoolColor(s.school).fill,
-            text: `${money0.format(standard + capstone)}${capstone > 0 ? ` (incl. ${money0.format(capstone)} capstone)` : ''}`,
+            text: `${money0.format(standard + capstone)}${capstone > 0 ? ` (incl. ${money0.format(capstone)} non-clinical)` : ''}`,
           }],
         }
       })
       .filter(r => r.total > 0)
     : []
+
+  const detailRows = report.detail_rows || []
+  const schools = [...new Set(detailRows.map(r => r.school).filter(Boolean))]
+    .sort((a, b) => academicsSchoolLabel(a).localeCompare(academicsSchoolLabel(b)))
+  const cohorts = [...new Set(detailRows.map(r => r.cohort).filter(Boolean))]
+    .sort((a, b) => {
+      const aStart = detailRows.find(r => r.cohort === a)?.rotation_start || ''
+      const bStart = detailRows.find(r => r.cohort === b)?.rotation_start || ''
+      return aStart.localeCompare(bStart) || a.localeCompare(b)
+    })
+  const programCounts = Object.fromEntries(PROGRAM_FILTERS.map(key => [key, 0]))
+  programCounts['All Programs'] = detailRows.length
+  for (const row of detailRows) {
+    const group = academicsProgramGroup(row.program)
+    if (group in programCounts) programCounts[group] += 1
+  }
+  const query = search.trim().toLowerCase()
+  const filteredRows = detailRows
+    .filter(r => programFilter === 'All Programs' || academicsProgramGroup(r.program) === programFilter)
+    .filter(r => !schoolFilter || r.school === schoolFilter)
+    .filter(r => !cohortFilter || r.cohort === cohortFilter)
+    .filter(r => !query || r.student_name.toLowerCase().includes(query))
+    .sort((a, b) => {
+      if (sortBy === 'student-za') return b.student_name.localeCompare(a.student_name)
+      if (sortBy === 'cohort') {
+        const cohortOrder = cohorts.indexOf(a.cohort) - cohorts.indexOf(b.cohort)
+        return cohortOrder || a.student_name.localeCompare(b.student_name)
+      }
+      return a.student_name.localeCompare(b.student_name)
+    })
 
   return (
     <div className="ptl-na-benefit">
@@ -169,6 +199,11 @@ export default function CommunityBenefitView() {
         <button type="button" className="ptl-btn-outline ptl-na-export" onClick={onExport} disabled={exporting}>
           {exporting ? 'Preparing CSV…' : 'Download aggregate CSV'}
         </button>
+        {report.can_manage_reporting_inputs && (
+          <a className="ptl-btn-outline ptl-na-settings-link" href="/settings/community-benefit">
+            Manage reporting inputs
+          </a>
+        )}
       </div>
       <p className="ptl-na-export-note">
         The CSV is aggregate-only for fiscal reporting: one row per school, program,
@@ -180,23 +215,23 @@ export default function CommunityBenefitView() {
       {(rnRate == null || mgmtRate == null) && (
         <div className="ptl-na-rate-note" role="status">
           {rnRate == null && mgmtRate == null
-            ? `Hourly rates for ${report.fiscal_year_label} have not been entered yet, so benefit estimates are not shown. The ASPIRE team enters rates in ASPIRE Intelligence Settings.`
+            ? `Hourly rates for ${report.fiscal_year_label} have not been entered yet, so benefit estimates are not shown. Rates are managed in ASPIRE Intelligence Settings.`
             : rnRate == null
-              ? `The RN Preceptor hourly rate for ${report.fiscal_year_label} has not been entered yet, so standard benefit estimates are not shown.`
-              : `The Management hourly rate for ${report.fiscal_year_label} has not been entered yet, so capstone benefit estimates are not shown.`}
+              ? `The RN hourly rate for ${report.fiscal_year_label} has not been entered yet, so clinical benefit estimates are not shown.`
+              : `The Leadership hourly rate for ${report.fiscal_year_label} has not been entered yet, so non-clinical benefit estimates are not shown.`}
         </div>
       )}
 
       <div className="ptl-na-kpis">
-        <MetricCard label="ASPIRE students" value={num.format(t.students)} sub={report.fiscal_year_label} />
+        <MetricCard label="Students served" value={num.format(t.students_served || 0)} sub="Students with completed hours" />
         <MetricCard label="Required clinical hours" value={num.format(t.required_hours)} sub="Sum of student requirements" />
-        <MetricCard label="Approved actual hours" value={num.format(t.approved_hours)} sub="Auto-Accepted + Approved shifts" />
-        <MetricCard label="UCLA capstone hours" value={num.format(t.capstone_hours)} sub="Owner-entered project hours" />
+        <MetricCard label="Completed clinical hours" value={num.format(t.approved_hours)} sub="Completed shifts counted for reporting" />
+        <MetricCard label="Additional non-clinical hours" value={num.format(t.capstone_hours)} sub="Owner-entered project or leadership hours" />
         <MetricCard
           label="Estimated nursing benefit"
           value={benefitText(t.total_benefit)}
           sub={t.total_benefit != null
-            ? `${benefitText(t.standard_benefit)} clinical${t.capstone_benefit ? ` + ${benefitText(t.capstone_benefit)} capstone` : ''}`
+            ? `${benefitText(t.standard_benefit)} clinical${t.capstone_benefit ? ` + ${benefitText(t.capstone_benefit)} non-clinical` : ''}`
             : 'Awaiting hourly rates'}
         />
       </div>
@@ -208,13 +243,6 @@ export default function CommunityBenefitView() {
         />
       ) : (
         <>
-          {hoursChartRows.length > 0 && (
-            <BarChart
-              title="Required versus approved hours by school"
-              ariaLabel="Required versus approved clinical hours by school"
-              rows={hoursChartRows}
-            />
-          )}
           {benefitChartRows.length > 0 && (
             <BarChart
               title="Benefit contribution by school"
@@ -224,11 +252,70 @@ export default function CommunityBenefitView() {
           )}
 
           <section className="ptl-card ptl-na-table-card" aria-labelledby="na-detail-heading">
-            <h2 id="na-detail-heading">Student detail ({report.fiscal_year_label})</h2>
-            <p className="ptl-na-table-note">
-              Protected view for authorized Nursing Academics users. The downloadable
-              CSV never includes this level of detail.
-            </p>
+            <div className="ptl-na-table-heading">
+              <div>
+                <h2 id="na-detail-heading">Student detail ({report.fiscal_year_label})</h2>
+                <p className="ptl-na-table-note">
+                  Protected view for authorized Nursing Education and Leadership users.
+                  The downloadable CSV never includes this level of detail.
+                </p>
+              </div>
+              <span className="ptl-na-result-count">{filteredRows.length} of {detailRows.length} students</span>
+            </div>
+
+            <div className="ptl-na-program-kpis" role="group" aria-label="Filter student detail by program">
+              {PROGRAM_FILTERS.map(key => {
+                const selected = programFilter === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`ptl-na-program-card${selected ? ' ptl-na-program-card-active' : ''}`}
+                    aria-pressed={selected}
+                    onClick={() => setProgramFilter(key)}
+                  >
+                    <strong>{num.format(programCounts[key] || 0)}</strong>
+                    <span>{key}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="ptl-na-table-controls" role="group" aria-label="Student detail controls">
+              <label className="ptl-na-search" htmlFor="na-detail-search">
+                <span className="ptl-visually-hidden">Search students</span>
+                <input
+                  id="na-detail-search"
+                  type="search"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search student"
+                />
+              </label>
+              <label className="ptl-na-control" htmlFor="na-detail-school">
+                <span className="ptl-visually-hidden">Filter by school</span>
+                <select id="na-detail-school" value={schoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
+                  <option value="">All Schools</option>
+                  {schools.map(s => <option key={s} value={s}>{academicsSchoolLabel(s)}</option>)}
+                </select>
+              </label>
+              <label className="ptl-na-control" htmlFor="na-detail-cohort">
+                <span className="ptl-visually-hidden">Filter by cohort</span>
+                <select id="na-detail-cohort" value={cohortFilter} onChange={e => setCohortFilter(e.target.value)}>
+                  <option value="">All Cohorts</option>
+                  {cohorts.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label className="ptl-na-control" htmlFor="na-detail-sort">
+                <span className="ptl-visually-hidden">Sort students</span>
+                <select id="na-detail-sort" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                  <option value="student-az">Student A–Z</option>
+                  <option value="student-za">Student Z–A</option>
+                  <option value="cohort">Cohort timeline</option>
+                </select>
+              </label>
+            </div>
+
             <div className="ptl-na-table-scroll">
               <table className="ptl-na-table">
                 <thead>
@@ -241,21 +328,21 @@ export default function CommunityBenefitView() {
                     <th scope="col">ASPIRE status</th>
                     <th scope="col">Rotation</th>
                     <th scope="col" className="ptl-na-num">Required</th>
-                    <th scope="col" className="ptl-na-num">Approved</th>
+                    <th scope="col" className="ptl-na-num">Completed</th>
                     <th scope="col">Primary preceptor</th>
                     <th scope="col">Category</th>
                     <th scope="col" className="ptl-na-num">Est. benefit</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {report.detail_rows.map((r, i) => (
+                  {filteredRows.map((r, i) => (
                     <tr key={`${r.student_name}-${i}`}>
                       <td>{r.student_name}</td>
                       <td>
                         <span className="ptl-na-legend-dot" style={{ background: schoolColor(r.school).fill }} aria-hidden="true" />
-                        {r.school}
+                        {academicsSchoolLabel(r.school)}
                       </td>
-                      <td>{r.program || '-'}</td>
+                      <td>{academicsProgramLabel(r.program)}</td>
                       <td>{r.course_type}</td>
                       <td>{r.cohort || '-'}</td>
                       <td>{r.status}</td>
@@ -275,6 +362,11 @@ export default function CommunityBenefitView() {
                       <td className="ptl-na-num">{r.estimated_benefit == null ? 'Rate not set' : money2.format(r.estimated_benefit)}</td>
                     </tr>
                   ))}
+                  {filteredRows.length === 0 && (
+                    <tr>
+                      <td colSpan={12} className="ptl-na-table-empty">No students match these filters.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -310,7 +402,7 @@ export default function CommunityBenefitView() {
           <h2 id="na-review-heading">Records for review</h2>
           <p>
             These students have previously recorded hours that were later rejected or
-            voided. Approved totals above already exclude them; they are surfaced
+            voided. Completed totals above already exclude them; they are surfaced
             here so worked hours never disappear without review.
           </p>
           <ul>

@@ -18,6 +18,7 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const { createAcademicsCommunityBenefitHandler } = await import('../api/portal/academics-community-benefit.js')
 const { createAcademicsBenefitExportHandler } = await import('../api/portal/academics-benefit-export.js')
 const { createAcademicsCalendarHandler } = await import('../api/portal/academics-calendar.js')
+const { createAcademicsContactsHandler } = await import('../api/portal/academics-contacts.js')
 const { createCommunityBenefitAdminHandler } = await import('../api/community-benefit-admin.js')
 const { fetchAllRows } = await import('../api/lib/fetchAllRows.js')
 
@@ -63,8 +64,8 @@ test('verifyPortalNursingAcademicCaller checks the nursing_academic grant and no
   assert.match(read('src/lib/portalAccessState.js'), /'nursing_academic_role_required'/)
 })
 
-test('all three portal endpoints authorize through the dedicated guard and never reuse staff endpoints', () => {
-  for (const p of ['api/portal/academics-community-benefit.js', 'api/portal/academics-benefit-export.js', 'api/portal/academics-calendar.js']) {
+test('all four portal endpoints authorize through the dedicated guard and never reuse staff endpoints', () => {
+  for (const p of ['api/portal/academics-community-benefit.js', 'api/portal/academics-benefit-export.js', 'api/portal/academics-calendar.js', 'api/portal/academics-contacts.js']) {
     const src = read(p)
     assert.match(src, /verifyPortalNursingAcademicCaller/, `${p} uses the guard`)
     assert.match(src, /no-store, private/, `${p} is never shared-cached`)
@@ -94,7 +95,19 @@ test('an authorized caller gets the organization-wide report with no scope narro
   assert.equal(res.statusCode, 200)
   assert.equal(res.body.fiscal_year, 2027)
   assert.equal(res.body.totals.students, 1)
+  assert.equal(res.body.totals.students_served, 1)
   assert.equal(res.body.totals.standard_benefit, 3900)
+  assert.equal(res.body.can_manage_reporting_inputs, false)
+})
+
+test('only the Owner receives the reporting-input shortcut flag', async () => {
+  const handler = createAcademicsCommunityBenefitHandler({
+    verifyCaller: async () => ({ ...okAuth, profile: { ...okAuth.profile, is_owner: true } }),
+    fetchInputs: async () => INPUTS,
+  })
+  const res = makeRes()
+  await handler({ method: 'GET', query: { fiscal_year: '2027' } }, res)
+  assert.equal(res.body.can_manage_reporting_inputs, true)
 })
 
 test('an invalid fiscal year is a 400; a missing one defaults to the current fiscal year', async () => {
@@ -133,7 +146,7 @@ test('the export is server-aggregated text/csv with no names, emails, or ids', a
   assert.ok(res.body.startsWith('Fiscal Year,School,Program,Course Type'))
   assert.ok(!res.body.includes('Ann'))
   assert.ok(!res.body.includes('Lee'))
-  assert.ok(!res.body.includes('Pat Preceptor')) // preceptor NAME absent ("RN Preceptor" category label remains)
+  assert.ok(!res.body.includes('Pat Preceptor')) // preceptor name absent; only the RN category remains
   assert.ok(!res.body.includes('@'))
   assert.doesNotMatch(res.body, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
 })
@@ -146,6 +159,48 @@ test('the export refuses an unauthorized caller before touching any data', async
   const res = makeRes()
   await handler({ method: 'GET', query: {} }, res)
   assert.equal(res.statusCode, 403)
+})
+
+// ── Read-only Contacts endpoint ──────────────────────────────────────────────
+
+test('Contacts refuses an unauthorized caller before reading data', async () => {
+  const handler = createAcademicsContactsHandler({
+    verifyCaller: async () => deniedAuth,
+    fetchContacts: async () => { throw new Error('must not be called') },
+  })
+  const res = makeRes()
+  await handler({ method: 'GET' }, res)
+  assert.equal(res.statusCode, 403)
+  assert.deepEqual(res.body, { error: 'nursing_academic_role_required' })
+})
+
+test('Contacts returns only its allowlisted read-only fields', async () => {
+  const handler = createAcademicsContactsHandler({
+    verifyCaller: async () => okAuth,
+    fetchContacts: async () => [{
+      id: 'contact-1', full_name: 'Arturo Academic', preferred_name: 'Arturo',
+      email: 'arturo@example.org', phone: '310-555-0100', role: 'Nursing leader',
+      category: 'BNI Team', organization: 'Cedars-Sinai', school_name: null,
+      unit_name: 'Nursing Education', preferred_contact_method: 'email',
+      notes: 'private note', notification_history: ['private'], is_active: true,
+    }],
+  })
+  const res = makeRes()
+  await handler({ method: 'GET' }, res)
+  assert.equal(res.statusCode, 200)
+  assert.equal(res.body.contacts.length, 1)
+  assert.equal(res.body.contacts[0].full_name, 'Arturo Academic')
+  assert.ok(!('notes' in res.body.contacts[0]))
+  assert.ok(!('notification_history' in res.body.contacts[0]))
+  assert.ok(!('is_active' in res.body.contacts[0]))
+})
+
+test('Contacts is GET-only', async () => {
+  const handler = createAcademicsContactsHandler({ verifyCaller: async () => okAuth })
+  const res = makeRes()
+  await handler({ method: 'POST' }, res)
+  assert.equal(res.statusCode, 405)
+  assert.equal(res.headers.allow, 'GET')
 })
 
 // ── Calendar endpoint ────────────────────────────────────────────────────────

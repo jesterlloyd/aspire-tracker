@@ -68,6 +68,11 @@ export function createAcademicsCommunityBenefitHandler({
       return res.status(500).json({ error: 'internal_error' })
     }
 
+    // This flag controls only whether the portal renders a shortcut to the
+    // existing Owner-only settings surface. The settings endpoint remains the
+    // write authorization boundary.
+    report.can_manage_reporting_inputs = auth.profile?.is_owner === true
+
     // Always offer the current FY in the selector even before it has data.
     const current = currentFiscalYear(now())
     if (current != null && !report.available_fiscal_years.includes(current)) {

@@ -413,7 +413,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
               )}
               {role === 'nursing_academic' && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#f5f7ff', border: '1px solid #dbe3fb', borderRadius: 8, padding: '9px 12px', marginBottom: 14, fontSize: 12, color: '#1D2567' }}>
-                  Nursing Academics access is ASPIRE-wide and view only: the academic calendar and the community-benefit report. No unit, school, or student selection applies.
+                  Nursing Education &amp; Leadership access is ASPIRE-wide and view only: At A Glance, Community Benefit, and Contacts. No unit, school, or student selection applies.
                 </div>
               )}
               {(role === 'unit_leader' || role === 'academic_partner') && (

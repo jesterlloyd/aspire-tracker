@@ -101,8 +101,8 @@ test('invite requires NO scope for nursing_academic and passes null scopes to th
 
 test('client role vocabulary: labels, options, and the org-wide scope summary', async () => {
   const { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, summarizeScope } = await import('../src/lib/portalAccessStatus.js')
-  assert.equal(PORTAL_ROLE_LABELS.nursing_academic, 'Nursing Academics')
-  assert.ok(PORTAL_ROLE_OPTIONS.some(o => o.value === 'nursing_academic' && o.label === 'Nursing Academics'))
+  assert.equal(PORTAL_ROLE_LABELS.nursing_academic, 'Nursing Education & Leadership')
+  assert.ok(PORTAL_ROLE_OPTIONS.some(o => o.value === 'nursing_academic' && o.label === 'Nursing Education & Leadership'))
   assert.equal(
     summarizeScope({ portal_role: 'nursing_academic', scope: { students: [], units: [], schools: [] } }),
     'ASPIRE-wide (view only)',
@@ -126,12 +126,12 @@ test('the grant modal treats nursing_academic as valid with no scope pickers', (
   assert.match(modal, /ASPIRE-wide \(view only\)/)
 })
 
-test('the invitation email carries dedicated Nursing Academics copy', async () => {
+test('the invitation email carries dedicated Nursing Education & Leadership copy', async () => {
   const { inviteCopyForRole, portalInvitationEmail } = await import('../lib/server/email/portalInvitation.js')
   const copy = inviteCopyForRole('nursing_academic')
-  assert.equal(copy.portalName, 'ASPIRE Nursing Academics Portal')
+  assert.equal(copy.portalName, 'ASPIRE Nursing Education & Leadership Portal')
   const out = portalInvitationEmail({ firstName: 'Margo', role: 'nursing_academic', activationLink: 'https://x/auth/activate?token=T' })
-  assert.match(out.subject, /Nursing Academics Portal/)
+  assert.match(out.subject, /Nursing Education & Leadership Portal/)
   assert.ok(!out.html.includes('log shifts'), 'must not receive student copy')
 })
 
@@ -156,7 +156,7 @@ test('feedback and messaging deliberately DO NOT recognize the role', async () =
 
 test('the tour registry serves the new experience', async () => {
   const { TOUR_EXPERIENCES, getTourSteps } = await import('../src/lib/onboardingTours.js')
-  assert.equal(TOUR_EXPERIENCES.nursing_academic, 'v1')
+  assert.equal(TOUR_EXPERIENCES.nursing_academic, 'v2')
   const steps = getTourSteps('nursing_academic', { userProfile: { full_name: 'Michael M' } })
   assert.ok(steps.length >= 4)
   assert.ok(steps.some(s => s.target === '[data-tour="portal-nav-calendar"]'))
