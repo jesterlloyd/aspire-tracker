@@ -3,7 +3,7 @@
 // update, deactivate, and reactivate controls, but no permanent deletion.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Copy, Mail, Pencil, Phone, Plus, Power, PowerOff, Search, UserRound, X } from 'lucide-react'
+import { Check, Copy, Mail, Pencil, Phone, Plus, Power, PowerOff, Search, UserRound, X } from 'lucide-react'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
@@ -20,6 +20,7 @@ import {
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../../components/shared/MultiScopePicker'
+import Tooltip from '../../components/ui/Tooltip'
 import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact } from './nursingAcademicsApi'
 
 // CONTACTS-CANON-1: category, title, affiliation, and units come from the
@@ -112,6 +113,31 @@ function ContactAction({ href, icon: Icon, label }) {
     <a className="ptl-na-contact-action" href={href}>
       <Icon size={15} aria-hidden="true" /> {label}
     </a>
+  )
+}
+
+// NA-CONTACTS-POLISH-4: per-value copy affordance, ported from the staff
+// Connect profile's CopyButton (same shared Tooltip, same copied feedback).
+function ContactCopyButton({ value, label }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard unavailable */ }
+  }
+  return (
+    <Tooltip label={copied ? 'Copied!' : `Copy ${label}`} placement="top">
+      <button
+        type="button"
+        className={`ptl-na-copy-value${copied ? ' ptl-na-copy-value-copied' : ''}`}
+        onClick={copy}
+        aria-label={`Copy ${label}`}
+      >
+        {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+      </button>
+    </Tooltip>
   )
 }
 
@@ -590,8 +616,8 @@ export default function AcademicsContactsView({ active = true }) {
                   <section className="ptl-na-contact-section" aria-labelledby="na-contact-methods-heading">
                     <h4 id="na-contact-methods-heading">Contact</h4>
                     <dl>
-                      <div><dt>Email</dt><dd>{selected.email || 'Not provided'}</dd></div>
-                      <div><dt>Phone</dt><dd>{selected.phone || 'Not provided'}</dd></div>
+                      <div><dt>Email</dt><dd>{clean(selected.email) ? <>{selected.email}<ContactCopyButton value={clean(selected.email)} label="email" /></> : 'Not provided'}</dd></div>
+                      <div><dt>Phone</dt><dd>{clean(selected.phone) ? <>{selected.phone}<ContactCopyButton value={clean(selected.phone)} label="phone" /></> : 'Not provided'}</dd></div>
                     </dl>
                   </section>
                   {(selected.organization || selected.school_name || contactUnitList(selected).length > 0 || selected.services) && (

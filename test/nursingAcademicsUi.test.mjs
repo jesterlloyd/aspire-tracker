@@ -348,3 +348,15 @@ test('the Contacts chrome is consolidated: no heading block, controls in one row
   assert.match(contacts, /reactivated from ASPIRE Connect/)
   assert.doesNotMatch(css, /ptl-na-show-inactive|ptl-na-contact-heading-actions/)
 })
+
+// ── NA-CONTACTS-POLISH-4: copy buttons on the contact card ──────────────────
+
+test('email and phone carry Connect-parity copy buttons with the shared Tooltip', () => {
+  assert.match(contacts, /import Tooltip from '\.\.\/\.\.\/components\/ui\/Tooltip'/)
+  assert.match(contacts, /function ContactCopyButton\(\{ value, label \}\)/)
+  assert.match(contacts, /navigator\.clipboard\.writeText\(value\)/)
+  assert.match(contacts, /label=\{copied \? 'Copied!' : `Copy \$\{label\}`\}/)
+  assert.match(contacts, /ContactCopyButton value=\{clean\(selected\.email\)\} label="email"/)
+  assert.match(contacts, /ContactCopyButton value=\{clean\(selected\.phone\)\} label="phone"/)
+  assert.match(css, /\.ptl-na-copy-value \{/)
+})
