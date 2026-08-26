@@ -12,14 +12,19 @@ import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import {
   CONTACT_CATEGORY_ORDER, categoryChipColors, contactRoleChipColors,
   getContactCategories, getPrimaryCategory,
+  canonicalCategory, titleOptionsFor, titleAllowsFreeText,
+  affiliationKind, showsUnitAffiliation, showsServicesField,
+  contactUnitList, splitUnitList, CSMC_AFFILIATION,
 } from '../../lib/contactCategories'
+import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
+import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
+import MultiScopePicker from '../../components/shared/MultiScopePicker'
 import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact } from './nursingAcademicsApi'
 
-const CONTACT_CATEGORIES = ['Academic Partners', 'Unit Leadership', 'Preceptors', 'BNI Team', 'Nursing Executives', 'Other']
-const CONTACT_METHODS = [
-  ['no_preference', 'No preference'], ['email', 'Email'], ['phone', 'Phone'],
-  ['text', 'Text'], ['teams', 'Teams'],
-]
+// CONTACTS-CANON-1: category, title, affiliation, and units come from the
+// shared canonical vocabulary; Preferred Contact Method is retired.
+const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_IDENTITY_GROUPS.map(g => g.operative)
+const CUSTOM_TITLE = '__custom__'
 
 const clean = value => String(value || '').trim()
 const initials = name => clean(name).split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() || '').join('') || '?'
@@ -31,7 +36,7 @@ const displayListName = contact => {
   if (full.toLowerCase() === preferred.toLowerCase() || full.toLowerCase().startsWith(`${preferred.toLowerCase()} `)) return full
   return [preferred, full.split(/\s+/).slice(1).join(' ')].filter(Boolean).join(' ')
 }
-const affiliationLine = contact => clean(contact.unit_name) || clean(contact.school_name) || clean(contact.organization) || 'Contact information'
+const affiliationLine = contact => contactUnitList(contact).join(', ') || clean(contact.school_name) || clean(contact.organization) || 'Contact information'
 const primaryCategory = contact => getPrimaryCategory(contact) || 'Other'
 const rolePillStyle = contact => {
   const colors = contactRoleChipColors(contact.role, primaryCategory(contact))
@@ -53,7 +58,8 @@ const contactMatches = (contact, category, query) => {
   if (category !== 'All' && !getContactCategories(contact).includes(category)) return false
   if (!query) return true
   return [contact.full_name, contact.preferred_name, contact.email, contact.role,
-    contact.category, contact.organization, contact.school_name, contact.unit_name]
+    contact.category, contact.organization, contact.school_name, contact.unit_name,
+    contact.services, ...(Array.isArray(contact.related_units) ? contact.related_units : [])]
     .some(value => clean(value).toLowerCase().includes(query))
 }
 
@@ -86,24 +92,91 @@ function ContactAction({ href, icon: Icon, label }) {
 }
 
 function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
-  const [form, setForm] = useState(() => ({
-    full_name: clean(contact?.full_name),
-    preferred_name: clean(contact?.preferred_name),
-    email: clean(contact?.email),
-    phone: clean(contact?.phone),
-    role: clean(contact?.role),
-    category: clean(contact?.category) || 'Other',
-    organization: clean(contact?.organization),
-    school_name: clean(contact?.school_name),
-    unit_name: clean(contact?.unit_name),
-    preferred_contact_method: clean(contact?.preferred_contact_method) || 'no_preference',
-  }))
+  const [form, setForm] = useState(() => {
+    const storedCat = canonicalCategory(contact?.category) || 'Other'
+    const storedRole = clean(contact?.role)
+    return {
+      full_name: clean(contact?.full_name),
+      preferred_name: clean(contact?.preferred_name),
+      email: clean(contact?.email),
+      phone: clean(contact?.phone),
+      role: storedRole,
+      role_custom: Boolean(storedRole)
+        && !titleOptionsFor(storedCat).includes(storedRole)
+        && titleAllowsFreeText(storedCat),
+      category: storedCat,
+      organization: clean(contact?.organization),
+      school_name: clean(contact?.school_name),
+      units: contactUnitList(contact || {}),
+      services: clean(contact?.services),
+      affiliation_mode: clean(contact?.school_name)
+        ? 'school'
+        : (!clean(contact?.organization) || clean(contact?.organization) === CSMC_AFFILIATION ? 'csmc' : 'custom'),
+    }
+  })
   const set = (field, value) => setForm(current => ({ ...current, [field]: value }))
-  const valid = Boolean(form.full_name.trim() && (!form.email.trim() || isValidEmail(form.email)))
+
+  const cat = form.category
+  const titles = titleOptionsFor(cat)
+  const roleListed = titles.includes(form.role)
+  const showCustomTitle = titleAllowsFreeText(cat) && form.role_custom === true
+  const affKind = affiliationKind(cat)
+  const showUnits = showsUnitAffiliation(cat)
+  const showServices = showsServicesField(cat, form.role)
+
+  const changeCategory = value => setForm(current => ({
+    ...current,
+    category: value,
+    role: current.role && (titleOptionsFor(value).includes(current.role) || current.role === clean(contact?.role)) ? current.role : '',
+    role_custom: false,
+  }))
+  const changeTitle = value => {
+    if (value === CUSTOM_TITLE) setForm(current => ({ ...current, role_custom: true, role: '' }))
+    else setForm(current => ({ ...current, role_custom: false, role: value }))
+  }
+
+  const affiliationValid =
+    affKind === 'school' ? Boolean(form.school_name.trim()) :
+    affKind === 'choice' ? (
+      form.affiliation_mode === 'school' ? Boolean(form.school_name.trim()) :
+      form.affiliation_mode === 'custom' ? Boolean(form.organization.trim()) :
+      true
+    ) : true
+  const valid = Boolean(form.full_name.trim() && affiliationValid && (!form.email.trim() || isValidEmail(form.email)))
+
   const submit = event => {
     event.preventDefault()
-    if (valid && !saving) onSave(form)
+    if (!valid || saving) return
+    const affiliation =
+      affKind === 'school' ? { school_name: form.school_name } :
+      affKind === 'csmc' ? {} :
+      form.affiliation_mode === 'school' ? { school_name: form.school_name, organization: '' } :
+      form.affiliation_mode === 'custom' ? { school_name: '', organization: form.organization } :
+      { school_name: '', organization: CSMC_AFFILIATION }
+    const unitCols = showUnits ? splitUnitList(form.units) : {}
+    onSave({
+      full_name: form.full_name,
+      preferred_name: form.preferred_name,
+      email: form.email,
+      phone: form.phone,
+      role: form.role,
+      category: form.category,
+      ...affiliation,
+      ...(showUnits ? { unit_name: unitCols.unit_name || '', related_units: unitCols.related_units } : {}),
+      ...(showServices || clean(contact?.services)
+        ? { services: showServices ? form.services : '' }
+        : {}),
+    })
   }
+  const schoolSelect = (id) => (
+    <select id={id} value={form.school_name} onChange={e => set('school_name', e.target.value)} aria-label="School">
+      <option value="">Select school…</option>
+      {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+      {form.school_name && !SCHOOL_AFFILIATION_OPTIONS.includes(form.school_name) && (
+        <option value={form.school_name}>{form.school_name} (legacy)</option>
+      )}
+    </select>
+  )
   return (
     <div className="ptl-na-contact-modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !saving && onClose()}>
       <form className="ptl-na-contact-modal" role="dialog" aria-modal="true" aria-labelledby="na-contact-editor-title" onSubmit={submit}>
@@ -114,14 +187,63 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
         <div className="ptl-na-contact-form-grid">
           <label className="ptl-na-contact-form-wide"><span>Full name *</span><input value={form.full_name} onChange={e => set('full_name', e.target.value)} required autoFocus /></label>
           <label><span>Preferred name</span><input value={form.preferred_name} onChange={e => set('preferred_name', e.target.value)} /></label>
-          <label><span>Category</span><select value={form.category} onChange={e => set('category', e.target.value)}>{CONTACT_CATEGORIES.map(value => <option key={value}>{value}</option>)}</select></label>
-          <label><span>Role or title</span><input value={form.role} onChange={e => set('role', e.target.value)} /></label>
-          <label><span>Organization</span><input value={form.organization} onChange={e => set('organization', e.target.value)} /></label>
+          <label>
+            <span>Category</span>
+            <select value={form.category} onChange={e => changeCategory(e.target.value)}>
+              {CONTACT_CATEGORY_ORDER.map(value => <option key={value}>{value}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Role or title</span>
+            <select value={showCustomTitle ? CUSTOM_TITLE : form.role} onChange={e => changeTitle(e.target.value)}>
+              <option value="">Select…</option>
+              {titles.map(t => <option key={t} value={t}>{t}</option>)}
+              {form.role && !roleListed && !showCustomTitle && <option value={form.role}>{form.role} (legacy)</option>}
+              {titleAllowsFreeText(cat) && <option value={CUSTOM_TITLE}>Other (free text)</option>}
+            </select>
+          </label>
+          {showCustomTitle && (
+            <label className="ptl-na-contact-form-wide"><span>Custom role or title</span><input value={form.role} onChange={e => set('role', e.target.value)} /></label>
+          )}
+          {affKind === 'school' && (
+            <label><span>Affiliation (school) *</span>{schoolSelect('na-contact-school')}</label>
+          )}
+          {affKind === 'csmc' && (
+            <label><span>Affiliation</span><input value={CSMC_AFFILIATION} readOnly aria-readonly="true" /></label>
+          )}
+          {affKind === 'choice' && (
+            <label>
+              <span>Affiliation *</span>
+              <select value={form.affiliation_mode} onChange={e => set('affiliation_mode', e.target.value)}>
+                <option value="csmc">{CSMC_AFFILIATION}</option>
+                <option value="school">School</option>
+                <option value="custom">Other organization</option>
+              </select>
+            </label>
+          )}
+          {affKind === 'choice' && form.affiliation_mode === 'school' && (
+            <label><span>School</span>{schoolSelect('na-contact-school-choice')}</label>
+          )}
+          {affKind === 'choice' && form.affiliation_mode === 'custom' && (
+            <label><span>Organization</span><input value={form.organization} onChange={e => set('organization', e.target.value)} /></label>
+          )}
           <label><span>Email</span><input type="email" value={form.email} onChange={e => set('email', e.target.value)} /></label>
           <label><span>Phone</span><input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} /></label>
-          <label><span>School affiliation</span><input value={form.school_name} onChange={e => set('school_name', e.target.value)} /></label>
-          <label><span>Unit affiliation</span><input value={form.unit_name} onChange={e => set('unit_name', e.target.value)} /></label>
-          <label><span>Preferred contact method</span><select value={form.preferred_contact_method} onChange={e => set('preferred_contact_method', e.target.value)}>{CONTACT_METHODS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {showUnits && (
+            <div className="ptl-na-contact-form-wide ptl-na-contact-units">
+              <span>Unit affiliation (one or more units)</span>
+              <MultiScopePicker
+                id="na-contact-units"
+                options={UNIT_SCOPE_OPTIONS}
+                selected={form.units}
+                onChange={next => set('units', next)}
+                placeholder="Search units"
+              />
+            </div>
+          )}
+          {showServices && (
+            <label className="ptl-na-contact-form-wide"><span>Services</span><input value={form.services} onChange={e => set('services', e.target.value)} placeholder="e.g. BNI, Surgical Services, OLAR" /></label>
+          )}
         </div>
         {error && <p className="ptl-na-contact-form-error" role="alert">{error}</p>}
         <div className="ptl-na-contact-modal-actions">
@@ -399,16 +521,18 @@ export default function AcademicsContactsView({ active = true }) {
                     <dl>
                       <div><dt>Email</dt><dd>{selected.email || 'Not provided'}</dd></div>
                       <div><dt>Phone</dt><dd>{selected.phone || 'Not provided'}</dd></div>
-                      {selected.preferred_contact_method && <div><dt>Preferred method</dt><dd>{clean(selected.preferred_contact_method).replace(/_/g, ' ')}</dd></div>}
                     </dl>
                   </section>
-                  {(selected.organization || selected.school_name || selected.unit_name) && (
+                  {(selected.organization || selected.school_name || contactUnitList(selected).length > 0 || selected.services) && (
                     <section className="ptl-na-contact-section" aria-labelledby="na-contact-affiliation-heading">
                       <h4 id="na-contact-affiliation-heading">Affiliation</h4>
                       <dl>
                         {selected.organization && <div><dt>Organization</dt><dd>{selected.organization}</dd></div>}
                         {selected.school_name && <div><dt>School</dt><dd>{selected.school_name}</dd></div>}
-                        {selected.unit_name && <div><dt>Unit</dt><dd>{selected.unit_name}</dd></div>}
+                        {contactUnitList(selected).length > 0 && (
+                          <div><dt>{contactUnitList(selected).length === 1 ? 'Unit' : 'Units'}</dt><dd>{contactUnitList(selected).join(', ')}</dd></div>
+                        )}
+                        {selected.services && <div><dt>Services</dt><dd>{selected.services}</dd></div>}
                       </dl>
                     </section>
                   )}

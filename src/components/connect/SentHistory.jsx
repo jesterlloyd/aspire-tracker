@@ -8,6 +8,7 @@
 // and subtle Weekly Digest / Internal-System / Failed visual treatments.
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { categoryChipColors } from '../../lib/contactCategories'
 import { useSearchParams } from 'react-router-dom'
 import { Clock, Check, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Inbox, AlertCircle, Repeat, Eye } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -141,17 +142,9 @@ function formatSentAt(iso) {
   })
 }
 
-// Category chip colors - mirror ContactsView's CATEGORY_CHIP_STYLES for parity.
-const CATEGORY_CHIP_STYLES = {
-  'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
-  'Unit Leadership':    { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
-  'Preceptors':         { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
-  'BNI Team':           { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
-  'Nursing Executives': { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
-  'Other':              { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
-}
+// CONTACTS-CANON-1: the category palette is the shared canonical module.
 function catChipStyle(category) {
-  const cfg = CATEGORY_CHIP_STYLES[category] || CATEGORY_CHIP_STYLES['Other']
+  const cfg = categoryChipColors(category)
   return {
     display: 'inline-block', fontSize: 9, fontWeight: 700, padding: '1px 6px',
     borderRadius: 4, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,

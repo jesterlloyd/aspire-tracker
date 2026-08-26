@@ -17,8 +17,9 @@ import { X, Mail, Loader, ChevronLeft, ShieldCheck, Contact as ContactIcon, Grad
 import { supabase } from '../../lib/supabase'
 import { PORTAL_ROLE_OPTIONS, PORTAL_ROLE_LABELS } from '../../lib/portalAccessStatus'
 import { UNIT_SCOPE_OPTIONS, SCHOOL_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
-import { useContactSearch, contactSubtitle, matchCatalogKeys, matchSchoolKeys, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail } from '../../lib/contactSearch'
+import { useContactSearch, contactSubtitle, contactUnitValues, matchCatalogKeys, matchSchoolKeys, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail } from '../../lib/contactSearch'
 import ContactSuggest from './ContactSuggest'
+import MultiScopePicker from '../shared/MultiScopePicker'
 
 const F = 'DM Sans, sans-serif'
 const field = { width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', boxSizing: 'border-box' }
@@ -129,47 +130,8 @@ function IdentityPicker({ id, value, onChange, onPickStudent, onPickContact, inc
 // STAFF-INVITE-CONTACTS-1: the contacts-only typeahead (Unit Leader / Academic
 // Partner name field) moved VERBATIM to ./ContactSuggest.jsx so the staff invite
 // shares this exact component. Behavior here is unchanged.
-
-// Accessible multi-select chip picker over a static catalog.
-function MultiScopePicker({ id, options, selected, onChange, placeholder }) {
-  const [term, setTerm] = useState('')
-  const filtered = useMemo(() => {
-    const t = term.trim().toLowerCase()
-    return options.filter(o => !selected.includes(o.value) && (!t || o.label.toLowerCase().includes(t) || (o.hint || '').toLowerCase().includes(t))).slice(0, 8)
-  }, [options, selected, term])
-  return (
-    <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: selected.length ? 8 : 0 }}>
-        {selected.map(v => {
-          const o = options.find(x => x.value === v)
-          return (
-            <span key={v} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eef2fb', color: '#1D2567', fontSize: 12, fontWeight: 600, padding: '3px 8px', borderRadius: 16 }}>
-              {o?.label || v}
-              <button type="button" aria-label={`Remove ${o?.label || v}`} onClick={() => onChange(selected.filter(s => s !== v))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1D2567', display: 'flex', padding: 0 }}><X size={12} /></button>
-            </span>
-          )
-        })}
-      </div>
-      <input id={id} value={term} onChange={e => setTerm(e.target.value)} placeholder={placeholder}
-        role="combobox" aria-expanded={filtered.length > 0} aria-controls={`${id}-list`} aria-autocomplete="list" style={field} />
-      {term.trim() && filtered.length > 0 && (
-        <ul id={`${id}-list`} role="listbox" style={{ listStyle: 'none', margin: '6px 0 0', padding: 4, border: '1px solid #e5e7eb', borderRadius: 8, maxHeight: 180, overflowY: 'auto' }}>
-          {filtered.map(o => (
-            <li key={o.value} role="option" aria-selected={false} tabIndex={0}
-              onClick={() => { onChange([...selected, o.value]); setTerm('') }}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onChange([...selected, o.value]); setTerm('') } }}
-              style={{ padding: '7px 9px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <span style={{ fontWeight: 600, color: '#1D2567' }}>{o.label}</span>
-              {o.hint && <span style={{ color: '#9ca3af', marginLeft: 6, fontSize: 12 }}>{o.hint}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
+// CONTACTS-CANON-1: the multi-select chip picker followed the same extraction
+// to ../shared/MultiScopePicker.jsx so the contacts editors reuse it too.
 
 const OUTCOME_200 = {
   reused: 'Portal access already active. No changes were needed.',
@@ -225,7 +187,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
 
     if (targetRole === 'unit_leader') {
       setStudent(null)
-      setUnitKeys(matchCatalogKeys(c.unit_name, UNIT_VALUES))
+      setUnitKeys(matchCatalogKeys(contactUnitValues(c), UNIT_VALUES))
     } else if (targetRole === 'academic_partner') {
       setStudent(null)
       // Alias-aware, normalized matching over ALL affiliation fields.
@@ -245,7 +207,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
 
   const suggestUntouchedScope = useCallback((c, roleArg) => {
     if (!c) return
-    if (roleArg === 'unit_leader' && !unitTouched) { const k = matchCatalogKeys(c.unit_name, UNIT_VALUES); if (k.length) setUnitKeys(k) }
+    if (roleArg === 'unit_leader' && !unitTouched) { const k = matchCatalogKeys(contactUnitValues(c), UNIT_VALUES); if (k.length) setUnitKeys(k) }
     else if (roleArg === 'academic_partner' && !schoolTouched) { const k = matchSchoolKeys([c.school_name, c.organization], SCHOOL_SCOPE_OPTIONS); if (k.length) setSchoolKeys(k) }
   }, [unitTouched, schoolTouched])
 
@@ -405,13 +367,13 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
               {role === 'unit_leader' && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={label} htmlFor="gpa-units">Assigned units (at least one)</label>
-                  <MultiScopePicker id="gpa-units" options={UNIT_SCOPE_OPTIONS} selected={unitKeys} onChange={(next) => { setUnitTouched(true); setUnitKeys(next) }} placeholder="Search units" />
+                  <MultiScopePicker id="gpa-units" inputStyle={field} options={UNIT_SCOPE_OPTIONS} selected={unitKeys} onChange={(next) => { setUnitTouched(true); setUnitKeys(next) }} placeholder="Search units" />
                 </div>
               )}
               {role === 'academic_partner' && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={label} htmlFor="gpa-schools">Assigned schools (at least one)</label>
-                  <MultiScopePicker id="gpa-schools" options={SCHOOL_SCOPE_OPTIONS} selected={schoolKeys} onChange={(next) => { setSchoolTouched(true); setSchoolKeys(next) }} placeholder="Search schools" />
+                  <MultiScopePicker id="gpa-schools" inputStyle={field} options={SCHOOL_SCOPE_OPTIONS} selected={schoolKeys} onChange={(next) => { setSchoolTouched(true); setSchoolKeys(next) }} placeholder="Search schools" />
                 </div>
               )}
               {role === 'nursing_academic' && (

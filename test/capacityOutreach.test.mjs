@@ -81,7 +81,7 @@ test('the Unit Leader Capacity Request is a live Send-to-Many template with Unit
   assert.match(registry, /export const CAPACITY_RESPONSE_TEMPLATE_KEY = 'unit_capacity_response_request'/)
   // Roster entry: manual bulk template, Contacts source, Unit Leadership category, UL audience.
   assert.match(registry, /key: 'unit_capacity_response_request', label: 'Unit Leader Capacity Request'/)
-  assert.match(registry, /builderKey: 'unit_capacity_response_request',\s*\n\s*defaultSource: 'contacts', defaultContactCategory: 'Unit Leadership', audiences: \[AUDIENCES\.UNIT_LEADER\]/)
+  assert.match(registry, /builderKey: 'unit_capacity_response_request',\s*\n\s*defaultSource: 'contacts', defaultContactCategory: 'Unit Leader', audiences: \[AUDIENCES\.UNIT_LEADER\]/)
   // Body registered in the shared bulk body registry, with the unit-form link + cohort tokens.
   const bodies = read('src/lib/outreachTemplates.js')
   assert.match(bodies, /unit_capacity_response_request:\s+BULK_UNIT_CAPACITY/)

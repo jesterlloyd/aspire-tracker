@@ -13,6 +13,7 @@
 //   • No multi-select, no group/category selection, no saved audiences.
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { categoryChipColors } from '../../lib/contactCategories'
 import { supabase } from '../../lib/supabase'
 import StudentAvatar from '../StudentAvatar'
 import { ASPIRE_STATUS_CONFIG } from '../../lib/constants'
@@ -20,19 +21,10 @@ import { ASPIRE_STATUS_CONFIG } from '../../lib/constants'
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
-// Category chip colors - mirrors ContactsView's CATEGORY_CHIP_STYLES for visual
-// parity. Kept local (not imported) so ContactsView stays untouched in Phase 1.
-const CATEGORY_CHIP_STYLES = {
-  'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
-  'Unit Leadership':    { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
-  'Preceptors':         { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
-  'BNI Team':           { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
-  'Nursing Executives': { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
-  'Other':              { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
-}
-
+// CONTACTS-CANON-1: the category palette is the shared canonical module
+// (legacy stored values resolve through canonicalCategory inside it).
 function catChipStyle(category) {
-  const cfg = CATEGORY_CHIP_STYLES[category] || CATEGORY_CHIP_STYLES['Other']
+  const cfg = categoryChipColors(category)
   return {
     display: 'inline-block', fontSize: 9, fontWeight: 700, padding: '1px 6px',
     borderRadius: 4, background: cfg.bg, color: cfg.color,

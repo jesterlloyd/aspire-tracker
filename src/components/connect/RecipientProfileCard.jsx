@@ -4,21 +4,13 @@
 // Visual style mirrors ContactProfile in ContactsView (gradient header, avatar ring, role chip).
 
 import { useState, useEffect } from 'react'
+import { categoryChipColors } from '../../lib/contactCategories'
 import { useStudentFileUrl } from '../../lib/useStudentFile'
 import { classifyStoredFileRef } from '../../lib/studentFileClient'
 
 const F    = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
-// Category chip colors match CATEGORY_CHIP_STYLES in ContactsView.jsx
-const CATEGORY_CHIP = {
-  'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
-  'Unit Leadership':    { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
-  'Preceptors':         { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
-  'BNI Team':           { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
-  'Nursing Executives': { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
-  'Other':              { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
-}
 
 function initials(name) {
   if (!name) return '?'
@@ -27,7 +19,7 @@ function initials(name) {
 
 function RoleChip({ role, category }) {
   if (!role) return null
-  const cfg = CATEGORY_CHIP[category] || CATEGORY_CHIP['Other']
+  const cfg = categoryChipColors(category)
   return (
     <span style={{
       fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
@@ -194,9 +186,9 @@ export default function RecipientProfileCard({
     const unitName       = contact?.unit_name
     const schoolName     = contact?.school_name
     const linkedinUrl    = contact?.linkedin_url
-    const preferred      = contact?.preferred_contact_method
+    const services       = contact?.services
 
-    const hasBody = !!(email || phone || organization || unitName || schoolName || linkedinUrl || preferred)
+    const hasBody = !!(email || phone || organization || unitName || schoolName || linkedinUrl || services)
 
     return (
       <div style={cardStyle}>
@@ -241,8 +233,8 @@ export default function RecipientProfileCard({
               : <InfoRow label="Email" error="No email on file" />
             }
             {phone && <InfoRow label="Phone" value={phone} />}
-            {preferred && preferred !== 'no_preference' && (
-              <InfoRow label="Prefers" value={preferred.replace(/_/g, ' ')} />
+            {services && (
+              <InfoRow label="Services" value={services} />
             )}
             {organization && <InfoRow label="Org" value={organization} />}
             {schoolName && <InfoRow label="School" value={schoolName} />}

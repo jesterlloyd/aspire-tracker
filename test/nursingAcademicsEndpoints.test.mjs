@@ -221,6 +221,7 @@ test('Contacts Editor can create an allowlisted active contact', async () => {
       received = payload
       return { id: 'f0041189-5f95-4f5c-88fd-d0d008c037db', ...payload, is_active: true, notes: 'never returned' }
     },
+    probeServices: async () => true,
     audit: async () => {},
   })
   const res = makeRes()
@@ -229,7 +230,11 @@ test('Contacts Editor can create an allowlisted active contact', async () => {
     notes: 'must be ignored', is_active: false,
   } }, res)
   assert.equal(res.statusCode, 201)
-  assert.deepEqual(received, { full_name: 'Michael Balot', email: 'michael@example.org', category: 'BNI Team' })
+  // CONTACTS-CANON-1: a BNI Team contact's affiliation is DERIVED server-side.
+  assert.deepEqual(received, {
+    full_name: 'Michael Balot', email: 'michael@example.org', category: 'BNI Team',
+    organization: 'Cedars-Sinai Medical Center', school_name: null, role: '',
+  })
   assert.equal(res.body.contact.is_active, true)
   assert.ok(!('notes' in res.body.contact))
 })
@@ -238,10 +243,12 @@ test('Contacts Editor can edit, deactivate, and reactivate without a delete path
   const updates = []
   const handler = createAcademicsContactsHandler({
     verifyCaller: async () => editorAuth,
+    fetchContact: async (_db, id) => ({ id, category: 'BNI Team', role: 'Executive Director', unit_name: null, related_units: [], school_name: null, organization: 'Cedars-Sinai Medical Center' }),
     updateContact: async (_db, id, payload) => {
       updates.push({ id, payload })
       return { id, full_name: 'Michael Balot', category: 'BNI Team', is_active: payload.is_active ?? true }
     },
+    probeServices: async () => true,
     audit: async () => {},
   })
   const id = 'f0041189-5f95-4f5c-88fd-d0d008c037db'

@@ -32,7 +32,7 @@ import {
 } from '../../lib/connect/bulkAudience'
 import { buildBulkTemplate } from '../../lib/outreachTemplates'
 import { readLaunchContext, recordLaunchSendResults } from '../../lib/connect/launchContext'
-import { getContactCategories } from '../../lib/contactCategories'
+import { getContactCategories, CONTACT_CATEGORY_ORDER } from '../../lib/contactCategories'
 import {
   BULK_DEFAULT_SOURCE as DEFAULT_SOURCE,
   BULK_DEFAULT_CONTACT_CATEGORY as DEFAULT_CONTACT_CATEGORY,
@@ -127,7 +127,8 @@ function bulkDraftHasContent(type, d, rich) {
   return contentEdited || audiencePicked || hasAttachments
 }
 
-const CONTACT_CATEGORIES = ['All', 'Academic Partners', 'Unit Leadership', 'Preceptors', 'BNI Team', 'Nursing Executives', 'Other']
+// CONTACTS-CANON-1: derived from the shared canonical order.
+const CONTACT_CATEGORIES = ['All', ...CONTACT_CATEGORY_ORDER]
 
 // DEFAULT_SOURCE (per-template audience source) and DEFAULT_CONTACT_CATEGORY (per-template default
 // category filter) now come from the shared template registry (CONNECT-TEMPLATE-REGISTRY-1) so the

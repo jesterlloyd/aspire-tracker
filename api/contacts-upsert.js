@@ -2,6 +2,23 @@
 //
 // Owner/admin-authenticated endpoint to create or update a contact record.
 //
+// CONTACTS-CANON-1: the canonical contacts vocabulary (categories, titles,
+// affiliation rules) is enforced HERE, from the shared module
+// src/lib/contactCategories.js, never only in the UI:
+//   - category is normalized to the singular canonical form (legacy plural
+//     values are accepted and rewritten, so pre-migration rows converge);
+//   - the title must fit the category's dropdown, be free text where the
+//     canon allows it (Academic Partner, Other), or be the row's UNCHANGED
+//     legacy value (passthrough until corrected by hand);
+//   - the affiliation is DERIVED: Academic Partner -> a school written to
+//     both school_name and organization; Unit Leader / Preceptor / BNI Team /
+//     Nursing Executive -> Cedars-Sinai Medical Center; Other -> school,
+//     Cedars-Sinai, or free text;
+//   - units (unit_name = primary + related_units = rest) are validated
+//     against the unit catalog, with existing stored values passing through;
+//   - services (Nursing Executive + Executive Director only) fails closed
+//     with 503 until the 20260826 migration adds the column.
+//
 // POST /api/contacts-upsert
 // Authorization: Bearer <session_access_token>
 //
@@ -10,8 +27,8 @@
 //   full_name     - required, non-empty string
 //   preferred_name, email, phone, organization, role, role_qualifier,
 //   school_name, program_type, unit_name, related_units, is_active,
-//   notification_preferences, notes, linkedin_url,
-//   preferred_contact_method, avatar_url, category  - all optional
+//   notification_preferences, notes, linkedin_url, services,
+//   avatar_url, category  - all optional
 //
 // Success response:
 //   200 { contact: { id, full_name, email, ... } }
@@ -23,9 +40,20 @@
 //   405 - wrong HTTP method
 //   409 - duplicate email
 //   500 - database error
+//   503 - services column not yet in the live schema (Owner SQL gate)
 
 import { createClient } from '@supabase/supabase-js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import {
+  canonicalCategory,
+  isTitleAllowed,
+  titleOptionsFor,
+  affiliationKind,
+  showsServicesField,
+  CSMC_AFFILIATION,
+} from '../src/lib/contactCategories.js';
+import { getCanonicalUnitNames } from '../src/lib/unitCatalog.js';
+import { resolveOperativeSchoolName } from '../src/lib/schoolIdentity.js';
 
 const ALLOWED_FIELDS = new Set([
   'full_name',
@@ -43,27 +71,12 @@ const ALLOWED_FIELDS = new Set([
   'notification_preferences',
   'notes',
   'linkedin_url',
-  'preferred_contact_method',
+  'services',
   'avatar_url',
   'category',
 ]);
 
-const VALID_PREFERRED_CONTACT_METHODS = new Set([
-  'email',
-  'phone',
-  'text',
-  'teams',
-  'no_preference',
-]);
-
-const VALID_CATEGORIES = new Set([
-  'Academic Partners',
-  'Unit Leadership',
-  'Preceptors',
-  'BNI Team',
-  'Nursing Executives',
-  'Other',
-]);
+const CANONICAL_UNIT_NAMES = new Set(getCanonicalUnitNames());
 
 const EMAIL_PATTERN = /^[^@]+@[^@]+\.[^@]+$/;
 const UUID_PATTERN  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -204,26 +217,53 @@ async function _handler(req, res) {
     }
   }
 
-  // 10. Validate preferred_contact_method (optional)
-  if (payload.preferred_contact_method !== undefined && payload.preferred_contact_method !== null) {
-    if (!VALID_PREFERRED_CONTACT_METHODS.has(payload.preferred_contact_method)) {
-      return res.status(400).json({
-        error: `preferred_contact_method must be one of: ${[...VALID_PREFERRED_CONTACT_METHODS].join(', ')}`,
-      });
+  // 10. Load the existing row on UPDATE. The canon allows a row's UNCHANGED
+  //     legacy title, units, and school to pass through until corrected by
+  //     hand, which requires knowing what is currently stored.
+  let existing = null;
+  if (isUpdate) {
+    const { data: existingRow, error: exErr } = await supabaseAdmin
+      .from('contacts')
+      .select('id, category, role, unit_name, related_units, school_name, organization')
+      .eq('id', body.id)
+      .maybeSingle();
+    if (exErr) {
+      console.error('[contacts-upsert] existing-row fetch error:', exErr.message);
+      return res.status(500).json({ error: 'Failed to load the contact' });
     }
+    if (!existingRow) {
+      return res.status(400).json({ error: 'No contact with that id' });
+    }
+    existing = existingRow;
   }
 
-  // 11. Validate category (optional enum)
-  // Absent and null are accepted (nullable column). Empty string is already null after step 6.
+  // 11. Category: normalize to the canonical singular form. Legacy plural
+  //     values are accepted and REWRITTEN, so pre-migration rows converge on
+  //     every save; anything else is refused.
   if (payload.category !== undefined && payload.category !== null) {
-    if (!VALID_CATEGORIES.has(payload.category)) {
+    const canon = canonicalCategory(payload.category);
+    if (!canon) {
+      return res.status(400).json({ error: 'Invalid category.' });
+    }
+    payload.category = canon;
+  }
+  const effectiveCategory = canonicalCategory(
+    payload.category !== undefined ? payload.category : existing?.category,
+  );
+
+  // 12. Title per the category canon: the category's dropdown, free text only
+  //     where the canon allows it, or the row's unchanged stored value.
+  if (payload.role !== undefined && payload.role !== null && effectiveCategory) {
+    if (!isTitleAllowed(effectiveCategory, payload.role, existing?.role)) {
       return res.status(400).json({
-        error: `Invalid category. Must be one of: ${[...VALID_CATEGORIES].join(', ')}`,
+        error: `Role must be one of: ${titleOptionsFor(effectiveCategory).join(', ')} for ${effectiveCategory}.`,
       });
     }
   }
 
-  // 12. Validate and normalize related_units (optional)
+  // 13. Validate and normalize related_units (optional), then validate every
+  //     submitted unit against the canonical unit catalog. A unit the row
+  //     ALREADY stores passes through; a new unknown unit is refused.
   if (payload.related_units !== undefined && payload.related_units !== null) {
     if (typeof payload.related_units === 'string') {
       // Accept comma-separated string and split to array
@@ -239,8 +279,85 @@ async function _handler(req, res) {
       return res.status(400).json({ error: 'related_units must contain only strings' });
     }
   }
+  {
+    const storedUnits = new Set(
+      [existing?.unit_name, ...(existing?.related_units || [])].filter(Boolean),
+    );
+    const submitted = [];
+    if (payload.unit_name !== undefined && payload.unit_name !== null) submitted.push(payload.unit_name);
+    if (Array.isArray(payload.related_units)) submitted.push(...payload.related_units);
+    const unknown = submitted.find(u => !CANONICAL_UNIT_NAMES.has(u) && !storedUnits.has(u));
+    if (unknown) {
+      return res.status(400).json({ error: `Unknown unit: ${unknown}` });
+    }
+  }
 
-  // 13. Validate is_active (boolean, default true on create)
+  // 14. Derived affiliation, whenever the request touches it. Academic
+  //     Partner -> a catalog school on BOTH school_name and organization;
+  //     Unit Leader / Preceptor / BNI Team / Nursing Executive -> Cedars-Sinai
+  //     Medical Center; Other -> school, Cedars-Sinai, or free text.
+  const touchesAffiliation = ['category', 'school_name', 'organization']
+    .some(k => payload[k] !== undefined);
+  if (effectiveCategory && touchesAffiliation) {
+    const kind = affiliationKind(effectiveCategory);
+    if (kind === 'school') {
+      const raw = payload.school_name !== undefined ? payload.school_name : existing?.school_name;
+      if (!raw) {
+        return res.status(400).json({ error: 'A school is required for an Academic Partner contact.' });
+      }
+      const resolved = resolveOperativeSchoolName(raw);
+      const school = resolved?.displayName
+        || (existing?.school_name && raw === existing.school_name ? raw : null);
+      if (!school) {
+        return res.status(400).json({ error: `Unknown school: ${raw}` });
+      }
+      payload.school_name = school;
+      payload.organization = school;
+    } else if (kind === 'csmc') {
+      payload.organization = CSMC_AFFILIATION;
+      payload.school_name = null;
+    } else {
+      // 'Other': a school (resolved when known), Cedars-Sinai, or free text.
+      if (payload.school_name) {
+        const resolved = resolveOperativeSchoolName(payload.school_name);
+        if (resolved) payload.school_name = resolved.displayName;
+        if (payload.organization === undefined || payload.organization === null) {
+          payload.organization = payload.school_name;
+        }
+      }
+      const orgFinal = payload.organization !== undefined ? payload.organization : existing?.organization;
+      if (!orgFinal) {
+        return res.status(400).json({ error: 'An affiliation (school, Cedars-Sinai, or organization) is required.' });
+      }
+    }
+  }
+
+  // 15. Services: Nursing Executive with the Executive Director title only.
+  //     Fails closed with 503 until the 20260826 migration adds the column.
+  if (payload.services !== undefined && payload.services !== null) {
+    if (typeof payload.services !== 'string' || payload.services.length > 200) {
+      return res.status(400).json({ error: 'services must be a string of 200 characters or fewer' });
+    }
+    const effRole = payload.role !== undefined ? payload.role : existing?.role;
+    if (!showsServicesField(effectiveCategory, effRole)) {
+      return res.status(400).json({
+        error: 'services applies only to a Nursing Executive contact with the Executive Director title.',
+      });
+    }
+    const { error: probeErr } = await supabaseAdmin.from('contacts').select('services').limit(1);
+    if (probeErr) {
+      return res.status(503).json({
+        error: 'The services field is not available until the contacts canonicalization migration is applied.',
+      });
+    }
+  } else if (Object.prototype.hasOwnProperty.call(payload, 'services')) {
+    // Clearing services (null) against a pre-migration schema is a no-op:
+    // drop the key rather than write to a column that may not exist yet.
+    const { error: probeErr } = await supabaseAdmin.from('contacts').select('services').limit(1);
+    if (probeErr) delete payload.services;
+  }
+
+  // 16. Validate is_active (boolean, default true on create)
   if (!isUpdate && payload.is_active === undefined) {
     payload.is_active = true;
   }
@@ -250,7 +367,7 @@ async function _handler(req, res) {
     }
   }
 
-  // 14. Duplicate email check
+  // 17. Duplicate email check
   if (payload.email) {
     const emailLower = payload.email.toLowerCase();
     let dupQuery = supabaseAdmin
@@ -273,7 +390,15 @@ async function _handler(req, res) {
     }
   }
 
-  // 15. Perform INSERT or UPDATE
+  // Pre-migration compatibility: contacts.role is NOT NULL until the
+  // 20260826 migration relaxes it, and the canonical model allows "no title"
+  // (auto-synced preceptors). An INSERT without a title writes '' so it
+  // succeeds either way; the migration itself normalizes stored placeholders.
+  if (!isUpdate && (payload.role === undefined || payload.role === null)) {
+    payload.role = '';
+  }
+
+  // 18. Perform INSERT or UPDATE
   let contact;
   const operation = isUpdate ? 'updated' : 'created';
 

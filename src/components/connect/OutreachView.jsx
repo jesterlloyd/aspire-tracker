@@ -496,7 +496,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       // Director, Assistant Nurse Manager, Unit NPD-P) in emails[]; legacy contexts carry email.
       return {
         source: 'contacts',
-        contactCategory: 'Unit Leadership',
+        contactCategory: 'Unit Leader',
         contactEmails: (launchCtx.units || [])
           .flatMap(u => (Array.isArray(u?.emails) && u.emails.length ? u.emails : [u?.email]))
           .filter(Boolean),

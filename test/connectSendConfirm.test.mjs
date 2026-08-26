@@ -118,7 +118,7 @@ test('Connect opens launched: bulk mode, launched template, audience preselectio
   assert.match(outreach, /searchParams\.get\('launch'\) \? readLaunchContext\(\) : null/)
   assert.match(outreach, /if \(launchCtx\) return 'bulk'/)
   assert.match(outreach, /useState\(launchCtx\?\.templateKey \|\| 'survey_invitation'\)/)
-  assert.match(outreach, /contactCategory: 'Unit Leadership'/)
+  assert.match(outreach, /contactCategory: 'Unit Leader'/)
   assert.match(outreach, /source: 'students', studentIds: launchCtx\.studentIds/)
   assert.match(outreach, /initialAudience=\{launchAudience\}/)
 })

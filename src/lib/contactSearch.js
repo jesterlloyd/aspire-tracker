@@ -9,9 +9,9 @@
 // re-exported here so components have one import site.
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
-import { CONTACT_SEARCH_COLUMNS, sanitizeContactTerm, contactSubtitle, matchCatalogKeys, matchSchoolKeys, normalizeSchoolTerm, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail } from './contactSearchCore'
+import { CONTACT_SEARCH_COLUMNS, sanitizeContactTerm, contactSubtitle, contactUnitValues, matchCatalogKeys, matchSchoolKeys, normalizeSchoolTerm, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail } from './contactSearchCore'
 
-export { CONTACT_SEARCH_COLUMNS, sanitizeContactTerm, contactSubtitle, matchCatalogKeys, matchSchoolKeys, normalizeSchoolTerm, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail }
+export { CONTACT_SEARCH_COLUMNS, sanitizeContactTerm, contactSubtitle, contactUnitValues, matchCatalogKeys, matchSchoolKeys, normalizeSchoolTerm, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail }
 
 // The one contacts query. Returns [] for terms under 2 chars. Same .or(ilike)
 // field set and is_active filter that Outreach's ContactAutocomplete uses.

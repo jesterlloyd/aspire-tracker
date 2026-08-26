@@ -12,7 +12,14 @@ import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import {
   PRECEPTOR_ROLES, contactRoleChipColors,
   getPrimaryCategory, getContactCategories,
+  CONTACT_CATEGORY_ORDER, canonicalCategory,
+  titleOptionsFor, titleAllowsFreeText,
+  affiliationKind, showsUnitAffiliation, showsServicesField,
+  contactUnitList, splitUnitList, CSMC_AFFILIATION,
 } from '../../lib/contactCategories'
+import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
+import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
+import MultiScopePicker from '../shared/MultiScopePicker'
 import { toneGradient } from '../../lib/connectTones'
 import ConnectPanel, { ConnectPanelIcon } from './ConnectPanel'
 
@@ -26,23 +33,19 @@ const NAVY = '#1D2567'
 // the shared src/lib/contactCategories.js module (imported above) so the Contacts page and the
 // Send-to-Many Contacts source share one source of truth. Behavior is unchanged.
 
-// Role rank within Unit Leadership for sorting
+// Role rank within Unit Leader for sorting (canonical titles + legacy passthrough)
 const UNIT_ROLE_RANK = {
-  'Associate Director':      1,
-  'Assistant Nurse Manager': 2,
-  'Unit NPD-P':              3,
-  'Unit NPD Practitioner':   3,
+  'Associate Director':         1,
+  'Interim Associate Director': 1,
+  'Assistant Nurse Manager':    2,
+  'NPD Practitioner':           3,
+  'Unit NPD-P':                 3,
+  'Unit NPD Practitioner':      3,
+  'Clinical Nurse Specialist':  4,
 }
 
-const CATEGORY_ORDER = [
-  'All',
-  'Academic Partners',
-  'Unit Leadership',
-  'Preceptors',
-  'BNI Team',
-  'Nursing Executives',
-  'Other',
-]
+// CONTACTS-CANON-1: the chip row derives from the shared canonical order.
+const CATEGORY_ORDER = ['All', ...CONTACT_CATEGORY_ORDER]
 
 // Category-level chip fallback - used when the contact's role string isn't in the shared role map.
 // Ensures contacts with non-standard role titles (e.g., "Professor & Assistant Director")
@@ -62,12 +65,12 @@ function roleChip(role, category) {
 // ── Category pill accent colors ───────────────────────────────────────────────
 
 const CATEGORY_ACCENT = {
-  'Academic Partners':  { active: '#1D2567', activeText: '#fff', restText: '#6b7280' },
-  'Unit Leadership':    { active: '#0d7a8a', activeText: '#fff', restText: '#6b7280' },
-  'Preceptors':         { active: '#0e4e6e', activeText: '#fff', restText: '#6b7280' },
-  'BNI Team':           { active: '#7C3AED', activeText: '#fff', restText: '#6b7280' },
-  'Nursing Executives': { active: '#92400e', activeText: '#fff', restText: '#6b7280' },
-  'Other':              { active: '#374151', activeText: '#fff', restText: '#6b7280' },
+  'Academic Partner':  { active: '#1D2567', activeText: '#fff', restText: '#6b7280' },
+  'Unit Leader':       { active: '#0d7a8a', activeText: '#fff', restText: '#6b7280' },
+  'Preceptor':         { active: '#0e4e6e', activeText: '#fff', restText: '#6b7280' },
+  'BNI Team':          { active: '#7C3AED', activeText: '#fff', restText: '#6b7280' },
+  'Nursing Executive': { active: '#92400e', activeText: '#fff', restText: '#6b7280' },
+  'Other':             { active: '#374151', activeText: '#fff', restText: '#6b7280' },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -266,7 +269,7 @@ function ContactRow({ contact, isSelected, onClick }) {
 
 function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
   const relatedUnits = Array.isArray(contact.related_units) ? contact.related_units.filter(Boolean) : []
-  const showAffiliation = contact.school_name || contact.program_type || contact.unit_name || relatedUnits.length > 0
+  const showAffiliation = contact.school_name || contact.program_type || contact.unit_name || relatedUnits.length > 0 || contact.services
   const hasWeeklyDigest = contact.notification_preferences?.weekly_digest !== false
 
   return (
@@ -421,18 +424,6 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
               No email on file
             </div>
           )}
-          {contact.preferred_contact_method && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: contact.phone ? 8 : 0 }}>
-              <span style={{ fontSize: 11, color: '#9ca3af', width: 44, fontFamily: F, flexShrink: 0 }}>Prefers</span>
-              <span style={{
-                fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
-                background: '#EEF2FB', color: NAVY, border: '1px solid #c3cdf0',
-                fontFamily: F, textTransform: 'capitalize',
-              }}>
-                {contact.preferred_contact_method.replace(/_/g, ' ')}
-              </span>
-            </div>
-          )}
           {contact.phone && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11, color: '#9ca3af', width: 44, fontFamily: F, flexShrink: 0 }}>Phone</span>
@@ -477,6 +468,12 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
                   {contact.school_name}
                   {contact.program_type && <span style={{ color: '#9ca3af' }}> · {contact.program_type}</span>}
                 </span>
+              </div>
+            )}
+            {contact.services && (
+              <div style={{ display: 'flex', gap: 8, marginTop: contact.school_name ? 6 : 0 }}>
+                <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>Services</span>
+                <span style={{ fontSize: 13, color: '#374151', fontFamily: F }}>{contact.services}</span>
               </div>
             )}
           </div>
@@ -751,9 +748,12 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
         const body = {
           full_name:    p.full_name,
           email:        p.email.toLowerCase().trim(),
-          role:         'Preceptor',
-          category:     'Preceptors',
-          organization: 'Cedars-Sinai Medical Center',
+          // CONTACTS-CANON-1: the CN level is unknown for an auto-synced
+          // preceptor, so the canonical state is "no title" (CN II / CN III
+          // are set by hand); the category is the singular canonical key and
+          // the Cedars-Sinai affiliation is derived server-side.
+          role:         '',
+          category:     'Preceptor',
           is_active:    true,
           notes:        'Imported from Rotations > Preceptors.',
           ...(p.unit_name ? { unit_name: p.unit_name } : {}),
@@ -971,15 +971,16 @@ function DeactivateModal({ contact, action, onConfirm, onClose, saving }) {
 }
 
 // ── Add / Edit Contact Modal ──────────────────────────────────────────────────
+// CONTACTS-CANON-1: category, title, affiliation, and units all come from the
+// shared canonical vocabulary (src/lib/contactCategories.js). Preferred
+// Contact Method is retired (decision 2026-08-25).
 
-const PREFERRED_METHOD_OPTIONS = [
-  { value: '',             label: 'No preference' },
-  { value: 'email',       label: 'Email' },
-  { value: 'phone',       label: 'Phone' },
-  { value: 'text',        label: 'Text' },
-  { value: 'teams',       label: 'Microsoft Teams' },
-  { value: 'no_preference', label: 'No preference (explicit)' },
-]
+// School options for the affiliation dropdown: the operative identities the
+// rest of the app persists (students.school, digest matching).
+const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_IDENTITY_GROUPS.map(g => g.operative)
+
+// Sentinel select value for "type a custom title" where the canon allows it.
+const CUSTOM_TITLE = '__custom__'
 
 const inputStyle = {
   width: '100%', boxSizing: 'border-box',
@@ -996,12 +997,26 @@ const labelStyle = {
 function ContactModal({ mode, initialData, onClose, onSaved }) {
   const isEdit = mode === 'edit'
   const [formData, setFormData] = useState(() => {
-    if (!isEdit || !initialData) return { is_active: true }
+    if (!isEdit || !initialData) {
+      return { is_active: true, units: [], affiliation_mode: 'csmc' }
+    }
+    const storedCat = canonicalCategory(initialData.category) || ''
+    const storedRole = initialData.role || ''
+    // Other's affiliation escape: derive the mode from what is stored.
+    const affiliationMode = initialData.school_name
+      ? 'school'
+      : (!initialData.organization || initialData.organization === CSMC_AFFILIATION ? 'csmc' : 'custom')
     return {
       ...initialData,
-      related_units: Array.isArray(initialData.related_units)
-        ? initialData.related_units.join(', ')
-        : (initialData.related_units || ''),
+      category: storedCat,
+      // The multi-unit model: [primary unit_name, ...related_units].
+      units: contactUnitList(initialData),
+      // A stored title outside the dropdown in a free-text category opens the
+      // custom input; in a fixed category it stays as a passthrough option.
+      role_custom: Boolean(storedRole)
+        && !titleOptionsFor(storedCat).includes(storedRole)
+        && titleAllowsFreeText(storedCat),
+      affiliation_mode: affiliationMode,
       weekly_digest: initialData.notification_preferences?.weekly_digest !== false,
     }
   })
@@ -1012,48 +1027,73 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   const [showAdvanced,   setShowAdvanced]   = useState(() => {
     // Open Advanced Details automatically if the contact has data in non-primary fields
     if (!isEdit || !initialData) return false
-    return !!(initialData.avatar_url || initialData.school_name || initialData.program_type
-           || initialData.unit_name || initialData.related_units)
+    return !!initialData.avatar_url
   })
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }))
 
-  // Category drives which sections appear in the main form (Phase C.3.B)
+  // Category drives the title dropdown, the derived affiliation, the unit
+  // picker, and the Services field.
   const cat = formData.category || ''
+  const titles = titleOptionsFor(cat)
+  const roleValue = formData.role || ''
+  const roleIsListed = titles.includes(roleValue)
+  const showCustomTitleInput = titleAllowsFreeText(cat) && (formData.role_custom === true)
+  const affKind = cat ? affiliationKind(cat) : null
+  const showUnits = cat ? showsUnitAffiliation(cat) : false
+  const showServices = showsServicesField(cat, roleValue)
 
-  // Auto-default Organization for new contacts in categories that imply Cedars-Sinai
   const handleCategoryChange = (newCat) => {
-    const updates = { category: newCat }
-    if (!isEdit && ['Unit Leadership', 'Preceptors', 'BNI Team'].includes(newCat) && !formData.organization) {
-      updates.organization = 'Cedars-Sinai Medical Center'
-    }
-    setFormData(prev => ({ ...prev, ...updates }))
+    setFormData(prev => {
+      const keepRole = prev.role
+        && (titleOptionsFor(newCat).includes(prev.role) || prev.role === (initialData?.role || ''))
+      return {
+        ...prev,
+        category: newCat,
+        role: keepRole ? prev.role : '',
+        role_custom: false,
+      }
+    })
   }
 
-  // Warn when the selected category would hide currently-populated fields.
-  // 'Other' is the flexible catch-all - it shows all fields, so nothing is hidden by it.
+  const handleTitleSelect = (value) => {
+    if (value === CUSTOM_TITLE) {
+      setFormData(prev => ({ ...prev, role_custom: true, role: '' }))
+    } else {
+      setFormData(prev => ({ ...prev, role_custom: false, role: value }))
+    }
+  }
+
+  // Warn when the selected category would drop currently-populated fields
+  // from the form (their data is preserved unless the save touches them).
   const hiddenPopulatedFields = []
   if (cat) {
-    if (cat !== 'Academic Partners' && cat !== 'Other') {
-      if (formData.school_name) hiddenPopulatedFields.push('School Name')
-      if (formData.program_type) hiddenPopulatedFields.push('Program Type')
+    if (affKind !== 'school' && affKind !== 'choice' && formData.school_name) {
+      hiddenPopulatedFields.push('School')
     }
-    if (!['Unit Leadership', 'Preceptors', 'Other'].includes(cat)) {
-      if (formData.unit_name) hiddenPopulatedFields.push('Unit Name')
+    if (cat !== 'Academic Partner' && cat !== 'Other' && formData.program_type) {
+      hiddenPopulatedFields.push('Program Type')
     }
-    if (cat !== 'Unit Leadership' && cat !== 'Other') {
-      if (formData.related_units) hiddenPopulatedFields.push('Related Units')
+    if (!showUnits && (formData.units || []).length > 0) {
+      hiddenPopulatedFields.push('Unit Affiliation')
     }
-    if (['Unit Leadership', 'Preceptors'].includes(cat)) {
-      if (formData.role_qualifier) hiddenPopulatedFields.push('Role Qualifier')
+    if (!showServices && formData.services) {
+      hiddenPopulatedFields.push('Services')
     }
   }
 
-  // Save is enabled when name, category, and (for Academic Partners) school_name are set
+  // Save needs a name, a category, and a valid affiliation for its kind.
+  const affiliationValid =
+    affKind === 'school' ? !!formData.school_name?.trim() :
+    affKind === 'choice' ? (
+      formData.affiliation_mode === 'school' ? !!formData.school_name?.trim() :
+      formData.affiliation_mode === 'custom' ? !!formData.organization?.trim() :
+      true
+    ) : true
   const canSave = !saving &&
     !!formData.full_name?.trim() &&
     !!formData.category &&
-    (formData.category !== 'Academic Partners' || !!formData.school_name?.trim())
+    affiliationValid
 
   async function handlePhotoUpload(e) {
     const file = e.target.files?.[0]
@@ -1107,23 +1147,33 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
         setErrMsg('Session expired. Please refresh and try again.')
         return
       }
+      // The affiliation the server derives (Academic Partner -> school on both
+      // columns; fixed Cedars-Sinai; Other -> the chosen escape).
+      const affiliation =
+        affKind === 'school' ? { school_name: formData.school_name || '' } :
+        affKind === 'csmc' ? {} :
+        formData.affiliation_mode === 'school' ? { school_name: formData.school_name || '', organization: '' } :
+        formData.affiliation_mode === 'custom' ? { school_name: '', organization: formData.organization || '' } :
+        { school_name: '', organization: CSMC_AFFILIATION }
+      // Multi-unit model: primary + rest, only when the category carries units.
+      const unitCols = showUnits ? splitUnitList(formData.units || []) : {}
       const body = {
         ...(isEdit && initialData?.id ? { id: initialData.id } : {}),
         full_name:                formData.full_name || '',
         preferred_name:           formData.preferred_name || '',
         email:                    formData.email || '',
         phone:                    formData.phone || '',
-        organization:             formData.organization || '',
         role:                     formData.role || '',
         category:                 formData.category || '',
         role_qualifier:           formData.role_qualifier || '',
-        school_name:              formData.school_name || '',
         program_type:             formData.program_type || '',
-        unit_name:                formData.unit_name || '',
-        related_units:            formData.related_units || '',
+        ...affiliation,
+        ...(showUnits ? { unit_name: unitCols.unit_name || '', related_units: unitCols.related_units } : {}),
+        ...(showServices || (isEdit && initialData?.services)
+          ? { services: showServices ? (formData.services || '') : '' }
+          : {}),
         linkedin_url:             formData.linkedin_url || '',
         avatar_url:               formData.avatar_url || '',
-        preferred_contact_method: formData.preferred_contact_method || '',
         is_active:                formData.is_active !== false,
         notes:                    formData.notes || '',
         notification_preferences: { weekly_digest: formData.weekly_digest !== false },
@@ -1249,12 +1299,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
               style={inputStyle}
             >
               <option value="">Select category…</option>
-              <option value="Academic Partners">Academic Partners</option>
-              <option value="Unit Leadership">Unit Leadership</option>
-              <option value="Preceptors">Preceptors</option>
-              <option value="BNI Team">BNI Team</option>
-              <option value="Nursing Executives">Nursing Executives</option>
-              <option value="Other">Other</option>
+              {CONTACT_CATEGORY_ORDER.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>
               Category determines how this contact is organized and which fields appear below.
@@ -1290,75 +1335,136 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
               <input value={formData.phone || ''} onChange={e => set('phone', e.target.value)} placeholder="e.g. 310-555-0100" style={inputStyle} />
             </div>
           </div>
-          <div style={{ marginBottom: 20 }}>
-            <label style={labelStyle}>Preferred Contact Method</label>
-            <select value={formData.preferred_contact_method || ''} onChange={e => set('preferred_contact_method', e.target.value)} style={inputStyle}>
-              {PREFERRED_METHOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-
           {/* ── Role and Affiliation ── */}
           <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Role and Affiliation</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Organization</label>
-              <input value={formData.organization || ''} onChange={e => set('organization', e.target.value)} placeholder="e.g. Azusa Pacific University" style={inputStyle} />
-              <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>Display only; not used for linked student or weekly digest matching.</div>
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Role</label>
-              <input value={formData.role || ''} onChange={e => set('role', e.target.value)} placeholder="e.g. School Coordinator" style={inputStyle} />
-            </div>
-          </div>
-          {/* Role Qualifier - label and visibility driven by category */}
-          {(cat === 'Academic Partners' || cat === 'BNI Team' || cat === 'Nursing Executives' || cat === 'Other' || !!formData.role_qualifier) && (
-            <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>{cat === 'Academic Partners' ? 'Program Focus' : 'Title Detail'}</label>
+
+          {/* Role/Title: the category's canonical dropdown. A stored legacy
+              title stays selectable (passthrough) until corrected; free text
+              exists only where the canon allows it. */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Role / Title</label>
+            <select
+              value={showCustomTitleInput ? CUSTOM_TITLE : (roleValue || '')}
+              onChange={e => handleTitleSelect(e.target.value)}
+              style={inputStyle}
+              disabled={!cat}
+            >
+              <option value="">{cat ? 'Select…' : 'Select a category first'}</option>
+              {titles.map(t => <option key={t} value={t}>{t}</option>)}
+              {roleValue && !roleIsListed && !showCustomTitleInput && (
+                <option value={roleValue}>{roleValue} (legacy)</option>
+              )}
+              {titleAllowsFreeText(cat) && <option value={CUSTOM_TITLE}>Other (free text)</option>}
+            </select>
+            {showCustomTitleInput && (
               <input
-                value={formData.role_qualifier || ''}
-                onChange={e => set('role_qualifier', e.target.value)}
-                placeholder={cat === 'Academic Partners' ? 'e.g. BSN Programs' : 'e.g. Additional title or specialization'}
+                value={roleValue}
+                onChange={e => set('role', e.target.value)}
+                placeholder="Type the role or title"
+                style={{ ...inputStyle, marginTop: 8 }}
+                aria-label="Custom role or title"
+              />
+            )}
+          </div>
+
+          {/* Affiliation: derived per category. */}
+          {affKind === 'school' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Affiliation (School) <span style={{ color: '#dc2626' }}>*</span></label>
+              <select value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} style={inputStyle}>
+                <option value="">Select school…</option>
+                {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                {formData.school_name && !SCHOOL_AFFILIATION_OPTIONS.includes(formData.school_name) && (
+                  <option value={formData.school_name}>{formData.school_name} (legacy)</option>
+                )}
+              </select>
+              <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>Used for linked students and weekly digest matching.</div>
+            </div>
+          )}
+          {affKind === 'csmc' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Affiliation</label>
+              <div style={{ ...inputStyle, background: '#f9fafb', color: '#374151' }}>{CSMC_AFFILIATION}</div>
+            </div>
+          )}
+          {affKind === 'choice' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Affiliation <span style={{ color: '#dc2626' }}>*</span></label>
+              <select value={formData.affiliation_mode || 'csmc'} onChange={e => set('affiliation_mode', e.target.value)} style={inputStyle}>
+                <option value="csmc">{CSMC_AFFILIATION}</option>
+                <option value="school">School</option>
+                <option value="custom">Other organization (free text)</option>
+              </select>
+              {formData.affiliation_mode === 'school' && (
+                <select value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} style={{ ...inputStyle, marginTop: 8 }} aria-label="School">
+                  <option value="">Select school…</option>
+                  {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {formData.school_name && !SCHOOL_AFFILIATION_OPTIONS.includes(formData.school_name) && (
+                    <option value={formData.school_name}>{formData.school_name} (legacy)</option>
+                  )}
+                </select>
+              )}
+              {formData.affiliation_mode === 'custom' && (
+                <input
+                  value={formData.organization || ''}
+                  onChange={e => set('organization', e.target.value)}
+                  placeholder="e.g. Los Angeles County DHS"
+                  style={{ ...inputStyle, marginTop: 8 }}
+                  aria-label="Organization"
+                />
+              )}
+            </div>
+          )}
+
+          {/* Unit affiliation: Unit Leader and Preceptor only; multi-unit. */}
+          {showUnits && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle} htmlFor="contact-units">Unit Affiliation <span style={{ fontWeight: 400, color: '#9ca3af' }}>(one or more units)</span></label>
+              <MultiScopePicker
+                id="contact-units"
+                inputStyle={inputStyle}
+                options={UNIT_SCOPE_OPTIONS}
+                selected={formData.units || []}
+                onChange={next => set('units', next)}
+                placeholder="Search units"
+              />
+            </div>
+          )}
+
+          {/* Services: Nursing Executive with the Executive Director title. */}
+          {showServices && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Services</label>
+              <input
+                value={formData.services || ''}
+                onChange={e => set('services', e.target.value)}
+                placeholder="e.g. BNI, Surgical Services, OLAR"
                 style={inputStyle}
               />
             </div>
           )}
 
-          {/* ── Program / Unit Details (conditional by category) ── */}
-          {(cat === 'Academic Partners' || cat === 'Unit Leadership' || cat === 'Preceptors' || cat === 'Other'
-            || !!(formData.school_name || formData.unit_name || formData.related_units || formData.program_type)) && (
+          {/* Role Qualifier - label and visibility driven by category */}
+          {(cat === 'Academic Partner' || cat === 'BNI Team' || cat === 'Nursing Executive' || cat === 'Other' || !!formData.role_qualifier) && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={labelStyle}>{cat === 'Academic Partner' ? 'Program Focus' : 'Title Detail'}</label>
+              <input
+                value={formData.role_qualifier || ''}
+                onChange={e => set('role_qualifier', e.target.value)}
+                placeholder={cat === 'Academic Partner' ? 'e.g. BSN Programs' : 'e.g. Additional title or specialization'}
+                style={inputStyle}
+              />
+            </div>
+          )}
+
+          {/* ── Program Details (Academic Partner and Other) ── */}
+          {(cat === 'Academic Partner' || cat === 'Other' || !!formData.program_type) && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Program / Unit Details</div>
-              {/* School Name: required for Academic Partners, shown for Other; visible if populated for remaining */}
-              {(cat === 'Academic Partners' || cat === 'Other' || !!formData.school_name) && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={labelStyle}>
-                    School Name{cat === 'Academic Partners' && <span style={{ color: '#dc2626' }}> *</span>}
-                  </label>
-                  <input value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} placeholder="e.g. APU" style={inputStyle} />
-                  <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>Used for linked students and weekly digest matching.</div>
-                </div>
-              )}
-              {/* Program Type: shown for Academic Partners and Other; visible if populated for remaining */}
-              {(cat === 'Academic Partners' || cat === 'Other' || !!formData.program_type) && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={labelStyle}>Program Type</label>
-                  <input value={formData.program_type || ''} onChange={e => set('program_type', e.target.value)} placeholder="e.g. BSN, ABSN" style={inputStyle} />
-                </div>
-              )}
-              {/* Unit Name: shown for Unit Leadership, Preceptors, and Other; visible if populated for remaining */}
-              {(cat === 'Unit Leadership' || cat === 'Preceptors' || cat === 'Other' || !!formData.unit_name) && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={labelStyle}>Unit Name</label>
-                  <input value={formData.unit_name || ''} onChange={e => set('unit_name', e.target.value)} placeholder="e.g. 5 SCCT" style={inputStyle} />
-                </div>
-              )}
-              {/* Related Units: shown for Unit Leadership and Other; visible if populated for remaining */}
-              {(cat === 'Unit Leadership' || cat === 'Other' || !!formData.related_units) && (
-                <div style={{ marginBottom: 20 }}>
-                  <label style={labelStyle}>Related Units <span style={{ fontWeight: 400, color: '#9ca3af' }}>(comma-separated)</span></label>
-                  <input value={formData.related_units || ''} onChange={e => set('related_units', e.target.value)} placeholder="e.g. 5 SCCT, 4 South, 7 North" style={inputStyle} />
-                </div>
-              )}
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Program Details</div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Program Type</label>
+                <input value={formData.program_type || ''} onChange={e => set('program_type', e.target.value)} placeholder="e.g. BSN, ABSN" style={inputStyle} />
+              </div>
             </>
           )}
 
@@ -1438,7 +1544,9 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
               title={
                 !formData.full_name?.trim() ? 'Enter a name to continue' :
                 !formData.category ? 'Select a category to continue' :
-                (formData.category === 'Academic Partners' && !formData.school_name?.trim()) ? 'School Name is required for Academic Partners' :
+                !affiliationValid ? (affKind === 'school'
+                  ? 'A school is required for an Academic Partner contact'
+                  : 'Choose or enter an affiliation to continue') :
                 undefined
               }
               style={{
@@ -1716,9 +1824,9 @@ export default function ContactsView({ refreshKey = 0 }) {
     return (a.id || '').localeCompare(b.id || '')
   })
 
-  // Unit Leadership keeps its intentional unit_name → role rank → full_name
+  // Unit Leader keeps its intentional unit_name → role rank → full_name
   // grouping (overrides the alphabetical base for that category only).
-  if (categoryFilter === 'Unit Leadership') {
+  if (categoryFilter === 'Unit Leader') {
     sortedFiltered = [...filtered].sort((a, b) => {
       const uA = a.unit_name || (Array.isArray(a.related_units) ? a.related_units[0] : '') || ''
       const uB = b.unit_name || (Array.isArray(b.related_units) ? b.related_units[0] : '') || ''

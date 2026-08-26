@@ -18,7 +18,7 @@
 // read `.key` / `.label` / `.active` / `.kind` keep working unchanged. Only one label changed in
 // Phase 1: Send-to-one "Direct Message" → "Custom Message" (same key 'message', same behavior).
 
-import { getPrimaryCategory } from '../contactCategories'
+import { getPrimaryCategory, canonicalCategory } from '../contactCategories'
 
 // ── Audience model (prepared for later phases; not yet used for filtering) ───────────────────────
 export const AUDIENCES = {
@@ -44,20 +44,23 @@ const ALL_AUDIENCES = [
 export const CAPACITY_RESPONSE_TEMPLATE_KEY = 'unit_capacity_response_request'
 export const CAPACITY_REMINDER_TEMPLATE_KEY = 'unit_capacity_response_reminder'
 
-// Canonical contact-category → audience map (categories come from lib/contactCategories.js).
-// Nursing Executives / Other / unknown all fall through to 'generic'.
+// Canonical contact-category → audience map (categories come from lib/contactCategories.js;
+// CONTACTS-CANON-1 renamed the stored values to the singular canonical keys).
+// Nursing Executive / Other / unknown all fall through to 'generic'.
 export const CATEGORY_TO_AUDIENCE = {
-  'Academic Partners':  AUDIENCES.ACADEMIC_PARTNER,
-  'Unit Leadership':    AUDIENCES.UNIT_LEADER,
-  'Preceptors':         AUDIENCES.PRECEPTOR,
-  'BNI Team':           AUDIENCES.INTERVIEWER,
-  'Nursing Executives': AUDIENCES.GENERIC,
-  'Other':              AUDIENCES.GENERIC,
+  'Academic Partner':  AUDIENCES.ACADEMIC_PARTNER,
+  'Unit Leader':       AUDIENCES.UNIT_LEADER,
+  'Preceptor':         AUDIENCES.PRECEPTOR,
+  'BNI Team':          AUDIENCES.INTERVIEWER,
+  'Nursing Executive': AUDIENCES.GENERIC,
+  'Other':             AUDIENCES.GENERIC,
 }
 
-// Map a contact category string to an audience. Unknown/null → 'generic'.
+// Map a contact category string to an audience. Legacy stored values resolve
+// through canonicalCategory; unknown/null → 'generic'.
 export function audienceFromCategory(category) {
-  return CATEGORY_TO_AUDIENCE[category] || AUDIENCES.GENERIC
+  const canon = canonicalCategory(category) || category
+  return CATEGORY_TO_AUDIENCE[canon] || AUDIENCES.GENERIC
 }
 
 // Infer the audience for a contact row (uses the canonical primary-category resolver, which
@@ -195,12 +198,12 @@ export const SEND_TO_MANY_TEMPLATES = [
   {
     key: 'academic_partner_placement', label: 'Academic Partner Placement Request',
     surface: 'many', templateKind: 'manual', builderKey: 'academic_partner_placement',
-    defaultSource: 'contacts', defaultContactCategory: 'Academic Partners', audiences: [AUDIENCES.ACADEMIC_PARTNER],
+    defaultSource: 'contacts', defaultContactCategory: 'Academic Partner', audiences: [AUDIENCES.ACADEMIC_PARTNER],
   },
   {
     key: 'academic_partner_acceptance_orientation', label: 'Academic Partner Acceptance / Orientation Update',
     surface: 'many', templateKind: 'manual', builderKey: 'academic_partner_acceptance_orientation',
-    defaultSource: 'contacts', defaultContactCategory: 'Academic Partners', audiences: [AUDIENCES.ACADEMIC_PARTNER],
+    defaultSource: 'contacts', defaultContactCategory: 'Academic Partner', audiences: [AUDIENCES.ACADEMIC_PARTNER],
   },
   {
     key: 'student_profile_invitation', label: 'Student Profile Form Invitation',
@@ -229,7 +232,7 @@ export const SEND_TO_MANY_TEMPLATES = [
     // Owner's return confirmation records it as a cohort response target.
     key: 'unit_capacity_response_request', label: 'Unit Leader Capacity Request',
     surface: 'many', templateKind: 'manual', builderKey: 'unit_capacity_response_request',
-    defaultSource: 'contacts', defaultContactCategory: 'Unit Leadership', audiences: [AUDIENCES.UNIT_LEADER],
+    defaultSource: 'contacts', defaultContactCategory: 'Unit Leader', audiences: [AUDIENCES.UNIT_LEADER],
   },
   {
     // CAPACITY-FILTER-REMINDER-1: gentle follow-up to units still pending on the capacity request.
@@ -238,7 +241,7 @@ export const SEND_TO_MANY_TEMPLATES = [
     // response status, and returning from a reminder launch never opens a confirmation.
     key: 'unit_capacity_response_reminder', label: 'Unit Leader Capacity Reminder',
     surface: 'many', templateKind: 'manual', builderKey: 'unit_capacity_response_reminder',
-    defaultSource: 'contacts', defaultContactCategory: 'Unit Leadership', audiences: [AUDIENCES.UNIT_LEADER],
+    defaultSource: 'contacts', defaultContactCategory: 'Unit Leader', audiences: [AUDIENCES.UNIT_LEADER],
   },
   {
     key: 'announcement_broadcast', label: 'Announcement / Broadcast',

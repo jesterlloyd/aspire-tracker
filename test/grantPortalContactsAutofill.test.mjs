@@ -43,7 +43,8 @@ test('Grant modal identity + scope autofill', async (t) => {
   })
 
   await t.test('unit leader preselects units from the contact affiliation, editable', () => {
-    assert.match(modal, /matchCatalogKeys\(c\.unit_name, UNIT_VALUES\)/)
+    // CONTACTS-CANON-1: the autofill matches the contact's FULL unit list.
+    assert.match(modal, /matchCatalogKeys\(contactUnitValues\(c\), UNIT_VALUES\)/)
     assert.match(modal, /roleArg === 'unit_leader' && !unitTouched/)
     assert.match(modal, /onChange=\{\(next\) => \{ setUnitTouched\(true\); setUnitKeys\(next\) \}\}/)
   })

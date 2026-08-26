@@ -2,6 +2,7 @@
 // change. State/handlers/refs remain owned by App.jsx and arrive as props. Header-only
 // helpers (search icon, contact category colors) moved here with the JSX.
 import StudentAvatar from '../StudentAvatar'
+import { categoryChipColors } from '../../lib/contactCategories'
 import { displayName } from '../../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../../lib/constants'
 
@@ -9,16 +10,12 @@ function HeaderSearchIcon() {
   return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 }
 
-// Contact category badge colors for universal search results
-// Matches CATEGORY_CHIP_STYLES in ContactsView.jsx
-const CONTACT_CAT_COLORS = {
-  'Academic Partners':  { bg:'#EEF2FB', text:'#1D2567',  border:'#c3cdf0' },
-  'Unit Leadership':    { bg:'#E0F7FA', text:'#0d7a8a',  border:'#9dd6f2' },
-  'Preceptors':         { bg:'#E1F3FB', text:'#0e4e6e',  border:'#89CEEA' },
-  'BNI Team':           { bg:'#EDE9FE', text:'#5B21B6',  border:'#C4B5FD' },
-  'Nursing Executives': { bg:'#FEF3C7', text:'#92400e',  border:'#fde68a' },
+// CONTACTS-CANON-1: contact category badge colors come from the shared
+// canonical palette (legacy stored values resolve inside it).
+const getContactCatStyle = cat => {
+  const cfg = categoryChipColors(cat)
+  return { bg: cfg.bg, text: cfg.color, border: cfg.border }
 }
-const getContactCatStyle = cat => CONTACT_CAT_COLORS[cat] || { bg:'#f3f4f6', text:'#6b7280', border:'#e5e7eb' }
 
 export default function UniversalSearch({
   searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading,

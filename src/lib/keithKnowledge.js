@@ -832,23 +832,23 @@ ASPIRE Connect is the communication hub for ASPIRE. It includes three sections: 
 CONTACTS:
 A centralized contact directory for external and internal program contacts. Contacts are not student records; students remain in Student Profiles as the source of truth and are not imported into Contacts.
 
-Contact categories (multi-category, a contact may belong to more than one):
-- Academic Partners: school coordinators, clinical placement coordinators, program coordinators, program assistants, clinical faculty, managers, associate professors, and related school partners.
-- Unit Leadership: Associate Directors, Assistant Nurse Managers, Unit NPD Practitioners.
-- Preceptors: contacts imported from Rotation > Preceptors. Preceptor contacts can show linked assigned students in the right context rail.
-- BNI Team: NPD Practitioners, BNI Administration, and Brawerman Nursing Institute contacts.
-- Nursing Executives: Nursing Leadership, Executive Directors, Chief Nursing Officers.
-- Other: anything unmapped.
-A BNI executive (like the BNI Executive Director) may belong to both BNI Team and Nursing Executives.
+Contact categories (canonical singular values since CONTACTS-CANON-1; multi-category, a contact may belong to more than one):
+- Academic Partner: program coordinators, assistant professors, clinical placement coordinators, managers, clinical faculty, and related school partners. Affiliation is the school.
+- Unit Leader: Associate Directors, Interim Associate Directors, Assistant Nurse Managers, NPD Practitioners, Clinical Nurse Specialists. Affiliation is Cedars-Sinai Medical Center with one or more unit affiliations.
+- Preceptor: CN II / CN III contacts imported from Rotation > Preceptors. Preceptor contacts can show linked assigned students in the right context rail.
+- BNI Team: Executive Director, NPD Practitioners, Program/Project Coordinators, Lead Administrative Assistants.
+- Nursing Executive: SVP Chief Nursing Executive, VP of Nursing and Therapies, Executive Directors (with a Services line such as BNI or Surgical Services), Managers.
+- Other: Talent Acquisition and anything unmapped, with a flexible affiliation (school, Cedars-Sinai, or free text).
+A BNI executive (like the BNI Executive Director) may belong to both BNI Team and Nursing Executive.
 
 Contacts capabilities (as of June 2026):
 - Add/Edit Contact via owner/admin-gated API endpoint.
-- Category is explicitly stored per contact. When adding or editing a contact, the Owner selects the category from a dropdown. The six available categories are Academic Partners, Unit Leadership, Preceptors, BNI Team, Nursing Executives, and Other.
-- The Category dropdown controls which form fields are shown. Academic Partners require a School Name field, because that field is used to link students and route weekly digest emails to the correct coordinator. Other categories show different relevant fields.
+- Category is explicitly stored per contact. When adding or editing a contact, the Owner selects the category from a dropdown. The six available categories are Academic Partner, Unit Leader, Preceptor, BNI Team, Nursing Executive, and Other.
+- The Category dropdown controls which form fields are shown. The Role/Title is a per-category dropdown (free text only for Academic Partner and Other). Academic Partner requires a School affiliation, because that field is used to link students and route weekly digest emails to the correct coordinator. Unit Leader and Preceptor carry a multi-unit affiliation; a Nursing Executive with the Executive Director title carries a free-text Services line instead.
 - Contact avatar/profile photo upload and display.
 - LinkedIn profile links.
-- Preferred contact method, role qualifier, affiliation fields.
-- Preceptors imported from Rotation > Preceptors appear in the Preceptors category.
+- Role qualifier and derived affiliation fields (the Preferred Contact Method field was retired in CONTACTS-CANON-1).
+- Preceptors imported from Rotation > Preceptors appear in the Preceptor category.
 - Rotations > Preceptors table shows uploaded Contact avatars by email match (read-only display; upload happens through Contacts).
 - Contact last-contact fields (last_contacted_at, last_contact_type, last_contact_summary) are updated after each direct email send.
 - Contacts can be deactivated. A deactivated contact is hidden from the active contact list, from outreach workflows, and from universal search by default. Deactivation is reversible: data is fully preserved and the contact can be reactivated at any time.

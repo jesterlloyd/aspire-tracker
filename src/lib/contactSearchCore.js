@@ -4,10 +4,25 @@
 // alongside the query + hook that need the Supabase client.
 import { getPrimaryCategory } from './contactCategories.js'
 
-// Columns needed for both the CC picker and portal autofill (adds unit_name for
-// unit-leader scope suggestions; harmless to the CC picker, which ignores it).
+// Columns needed for both the CC picker and portal autofill (adds unit_name +
+// related_units for unit-leader scope suggestions; harmless to the CC picker,
+// which ignores them). CONTACTS-CANON-1: related_units completes the contact's
+// multi-unit list [unit_name, ...related_units].
 export const CONTACT_SEARCH_COLUMNS =
-  'id, full_name, preferred_name, email, role, category, avatar_url, organization, school_name, unit_name'
+  'id, full_name, preferred_name, email, role, category, avatar_url, organization, school_name, unit_name, related_units'
+
+// The contact's full unit list under the canonical multi-unit model:
+// unit_name is the primary, related_units carries the rest.
+export function contactUnitValues(contact) {
+  const out = []
+  const primary = String(contact?.unit_name || '').trim()
+  if (primary) out.push(primary)
+  for (const u of (Array.isArray(contact?.related_units) ? contact.related_units : [])) {
+    const v = String(u || '').trim()
+    if (v && !out.includes(v)) out.push(v)
+  }
+  return out
+}
 
 // PostgREST .or() splits on top-level commas/parens; ilike treats % and _ as
 // wildcards. Strip those so a free-typed term matches literally and cannot break
@@ -23,14 +38,19 @@ export function contactSubtitle(c) {
 }
 
 // Map a free-text affiliation string (e.g. contact.unit_name / school_name,
-// possibly comma-, semicolon-, or slash-separated) to the catalog keys that
-// exist in `optionValues`. Case-insensitive exact match per token; unknown
-// tokens are dropped so we never submit an invented scope key. Convenience only.
+// possibly comma-, semicolon-, or slash-separated) OR an array of values to
+// the catalog keys that exist in `optionValues`. Case-insensitive exact match
+// per token; unknown tokens are dropped so we never submit an invented scope
+// key. An ARRAY input (the canonical multi-unit list) is matched value-by-
+// value WITHOUT splitting, so catalog names containing '/' (ACU/CDU) resolve.
 export function matchCatalogKeys(text, optionValues) {
-  if (!text) return []
+  if (!text || (Array.isArray(text) && text.length === 0)) return []
   const set = new Map(optionValues.map(v => [v.toLowerCase(), v]))
+  const tokens = Array.isArray(text)
+    ? text.map(s => String(s).trim()).filter(Boolean)
+    : String(text).split(/[,;/]/).map(s => s.trim()).filter(Boolean)
   const out = []
-  for (const tok of String(text).split(/[,;/]/).map(s => s.trim()).filter(Boolean)) {
+  for (const tok of tokens) {
     const hit = set.get(tok.toLowerCase())
     if (hit && !out.includes(hit)) out.push(hit)
   }
@@ -88,10 +108,12 @@ export function pickReliableStudent(email, students) {
 }
 
 // Map a saved contact's CANONICAL category (getPrimaryCategory, which honors the
-// stored contacts.category and falls back to role inference) to a supported
-// portal role. Returns null for unsupported or ambiguous categories (Preceptors,
-// BNI Team, Nursing Executives, Other) so the caller preserves the current role
-// and requires explicit selection. Never infers from a loose name match.
+// stored contacts.category, maps legacy plural values, and falls back to role
+// inference) to a supported portal role. Returns null for unsupported or
+// ambiguous categories (Preceptor, BNI Team, Nursing Executive, Other) so the
+// caller preserves the current role and requires explicit selection. Never
+// infers from a loose name match. The map keeps both singular (canonical since
+// CONTACTS-CANON-1) and legacy plural keys.
 const CATEGORY_TO_PORTAL_ROLE = new Map([
   ['unit leadership', 'unit_leader'],
   ['unit leader', 'unit_leader'],
@@ -103,6 +125,12 @@ const CATEGORY_TO_PORTAL_ROLE = new Map([
 ])
 export function inferPortalRoleFromContact(contact) {
   if (!contact) return null
+  // The RAW stored category first: values outside the contacts canon (a
+  // stored 'Student') are meaningful HERE even though getPrimaryCategory
+  // normalizes them away. Then the canonical primary category (which maps
+  // legacy plural values and falls back to role inference).
+  const raw = String(contact.category || '').toLowerCase().trim()
+  if (raw && CATEGORY_TO_PORTAL_ROLE.has(raw)) return CATEGORY_TO_PORTAL_ROLE.get(raw)
   const cat = getPrimaryCategory(contact)
   if (!cat) return null
   return CATEGORY_TO_PORTAL_ROLE.get(String(cat).toLowerCase().trim()) || null

@@ -15,9 +15,11 @@ async function ensurePreceptorContact(preceptor) {
     const body = {
       full_name:    preceptor.full_name,
       email:        preceptor.email.toLowerCase().trim(),
-      role:         'Preceptor',
-      category:     'Preceptors',
-      organization: 'Cedars-Sinai Medical Center',
+      // CONTACTS-CANON-1: singular canonical category; no invented title (the
+      // CN level is unknown here; CN II / CN III are set by hand). The
+      // Cedars-Sinai affiliation is derived server-side from the category.
+      role:         '',
+      category:     'Preceptor',
       is_active:    true,
       notes:        'Imported from Rotations > Preceptors.',
       ...(preceptor.unit_name ? { unit_name: preceptor.unit_name } : {}),
