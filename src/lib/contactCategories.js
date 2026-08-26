@@ -261,6 +261,9 @@ export function contactListSubline(contact) {
 // sort last within their category.
 
 const UL_TITLE_TIER = {
+  // An EXECUTIVE acting over a unit (e.g. the acting Associate Director of
+  // Float Pool) outranks the unit's own leadership chain.
+  'Executive Director': 0,
   'Associate Director': 1, 'Interim Associate Director': 1,
   'Assistant Nurse Manager': 2,
   'NPD Practitioner': 3, 'Clinical Nurse Specialist': 3,
@@ -281,8 +284,20 @@ const NE_TITLE_TIER = {
 
 const SORT_LAST = '￿'
 const cmpText = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
-const contactName = (c) => String(c?.full_name || c?.preferred_name || '')
 const tierOf = (table, c) => table[String(c?.role || '').trim()] ?? 99
+
+// The DISPLAYED name (preferred first name substituted into the full name,
+// the same rule both list rows render), so alphabetization follows what the
+// reader actually sees: Jun Bagunu files under J, not under Adolfo's A.
+export function contactDisplayName(c) {
+  const full = String(c?.full_name || '').trim()
+  const preferred = String(c?.preferred_name || '').trim()
+  if (!preferred) return full
+  const fl = full.toLowerCase()
+  const pl = preferred.toLowerCase()
+  if (fl === pl || fl.startsWith(`${pl} `)) return full
+  return [preferred, full.split(/\s+/).slice(1).join(' ')].filter(Boolean).join(' ')
+}
 
 export function compareContactsForCategory(category) {
   const c = canonicalCategory(category)
@@ -290,29 +305,50 @@ export function compareContactsForCategory(category) {
     return (a, b) =>
       cmpText(contactUnitList(a)[0] || SORT_LAST, contactUnitList(b)[0] || SORT_LAST)
       || (tierOf(UL_TITLE_TIER, a) - tierOf(UL_TITLE_TIER, b))
-      || cmpText(contactName(a), contactName(b))
+      || cmpText(contactDisplayName(a), contactDisplayName(b))
   }
   if (c === 'BNI Team') {
     return (a, b) =>
       (tierOf(BNI_TITLE_TIER, a) - tierOf(BNI_TITLE_TIER, b))
-      || cmpText(contactName(a), contactName(b))
+      || cmpText(contactDisplayName(a), contactDisplayName(b))
   }
   if (c === 'Nursing Executive') {
     return (a, b) =>
       (tierOf(NE_TITLE_TIER, a) - tierOf(NE_TITLE_TIER, b))
-      || cmpText(contactName(a), contactName(b))
+      || cmpText(contactDisplayName(a), contactDisplayName(b))
   }
   if (c === 'Academic Partner') {
     return (a, b) =>
       cmpText(String(a?.school_name || '').trim() || SORT_LAST, String(b?.school_name || '').trim() || SORT_LAST)
-      || cmpText(contactName(a), contactName(b))
+      || cmpText(contactDisplayName(a), contactDisplayName(b))
   }
-  return (a, b) => cmpText(contactName(a), contactName(b))
+  return (a, b) => cmpText(contactDisplayName(a), contactDisplayName(b))
 }
 
 // Non-mutating convenience over the comparator.
 export function sortContactsForCategory(contacts, category) {
   return [...(contacts || [])].sort(compareContactsForCategory(category))
+}
+
+// Search-results ordering (the flat All view while a query is typed). When
+// the query names a UNIT, that unit's leadership chain leads the results
+// (acting executive > AD/Interim AD > ANM > NPD-P/CNS, then everyone else by
+// displayed name), so searching "Float Pool" surfaces its acting Associate
+// Director first. A query that matches no unit is plain displayed-name order.
+export function sortContactsForSearch(contacts, query) {
+  const q = String(query || '').trim().toLowerCase()
+  const unitHit = (c) => q
+    ? contactUnitList(c).some(u => u.toLowerCase().includes(q))
+    : false
+  return [...(contacts || [])].sort((a, b) => {
+    const ha = unitHit(a), hb = unitHit(b)
+    if (ha !== hb) return ha ? -1 : 1
+    if (ha && hb) {
+      const t = tierOf(UL_TITLE_TIER, a) - tierOf(UL_TITLE_TIER, b)
+      if (t !== 0) return t
+    }
+    return cmpText(contactDisplayName(a), contactDisplayName(b))
+  })
 }
 
 // ── Role inference (read-time, for rows predating the stored category) ───────
@@ -453,6 +489,20 @@ export function getContactCategories(contact) {
 
   if ((contact.role || '') === 'NPD Practitioner' && contactUnitList(contact).length > 0) {
     cats.add('Unit Leader')
+  }
+
+  // An executive ACTING over a unit (stored units on an Executive Director,
+  // e.g. Charina Emerson / Float Pool) also appears under Unit Leader; the
+  // UL sort ranks the acting executive above the unit's own chain.
+  if ((contact.role || '') === 'Executive Director' && contactUnitList(contact).length > 0) {
+    cats.add('Unit Leader')
+  }
+
+  // The BNI Executive Director is also a Nursing Executive (deterministic
+  // reverse of the org-heuristic below, which post-canon affiliations no
+  // longer trigger).
+  if (primary === 'BNI Team' && (contact.role || '') === 'Executive Director') {
+    cats.add('Nursing Executive')
   }
 
   if (NURSING_EXEC_ROLES.has(contact.role || '')) {

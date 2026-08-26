@@ -15,7 +15,7 @@ import {
   canonicalCategory, titleOptionsFor, titleAllowsFreeText,
   affiliationKind, showsUnitAffiliation, contactServicesMeta,
   contactUnitList, splitUnitList, CSMC_AFFILIATION,
-  categoryPluralLabel, contactListSubline, sortContactsForCategory,
+  categoryPluralLabel, contactListSubline, sortContactsForCategory, sortContactsForSearch,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
@@ -331,11 +331,34 @@ export default function AcademicsContactsView({ active = true }) {
     ]
   }, [categoryCounts])
   // CONTACTS-CANON-1 ordering: the approved per-category sort from the ONE
-  // shared comparator; the All view stays name-sorted.
+  // shared comparator; the flat All view while searching is unit-aware (a
+  // query naming a unit surfaces its leadership chain, acting executive on
+  // top), otherwise displayed-name order.
   const filtered = useMemo(() => {
     const matched = directoryContacts.filter(contact => contactMatches(contact, category, query))
-    return sortContactsForCategory(matched, category === 'All' ? 'Other' : category)
+    if (category === 'All') return sortContactsForSearch(matched, query)
+    return sortContactsForCategory(matched, category)
   }, [directoryContacts, category, query])
+  // All Contacts with no query groups by primary category with dividers,
+  // exactly like the staff ASPIRE Connect list; each group carries its own
+  // category's approved sort.
+  const listItems = useMemo(() => {
+    if (category !== 'All' || query) return filtered.map(contact => ({ type: 'row', contact }))
+    const grouped = {}
+    filtered.forEach(contact => {
+      const cat = getPrimaryCategory(contact) || 'Other'
+      if (!grouped[cat]) grouped[cat] = []
+      grouped[cat].push(contact)
+    })
+    const items = []
+    CONTACT_CATEGORY_ORDER.forEach(cat => {
+      const group = grouped[cat]
+      if (!group || group.length === 0) return
+      items.push({ type: 'divider', key: `divider-${cat}`, label: categoryPluralLabel(cat), count: group.length })
+      sortContactsForCategory(group, cat).forEach(contact => items.push({ type: 'row', contact }))
+    })
+    return items
+  }, [filtered, category, query])
   const visibleEmails = useMemo(() => {
     const seen = new Set()
     return filtered.reduce((emails, contact) => {
@@ -483,24 +506,35 @@ export default function AcademicsContactsView({ active = true }) {
 
       <div className="ptl-card ptl-na-contact-directory">
         <div className="ptl-na-contact-list" role="list" aria-label="Contact results">
-          {filtered.map(contact => (
-            <button
-              key={contact.id}
-              type="button"
-              role="listitem"
-              className={`ptl-na-contact-row${selectedId === contact.id ? ' ptl-na-contact-row-active' : ''}${contact.is_active === false ? ' ptl-na-contact-row-inactive' : ''}`}
-              onClick={() => setSelectedId(contact.id)}
-              aria-pressed={selectedId === contact.id}
-            >
-              <ContactAvatar contact={contact} />
-              <span className="ptl-na-contact-row-copy">
-                <strong>{displayListName(contact)}</strong>
-                {contact.is_active === false && <span className="ptl-na-contact-inactive-badge">Inactive</span>}
-                {contact.role && <span className="ptl-na-contact-row-role" style={rolePillStyle(contact)}>{contact.role}</span>}
-                {affiliationLine(contact) && <span className="ptl-na-contact-affiliation-line">{affiliationLine(contact)}</span>}
-              </span>
-            </button>
-          ))}
+          {listItems.map(item => {
+            if (item.type === 'divider') {
+              return (
+                <div key={item.key} className="ptl-na-contact-divider" role="presentation">
+                  <span>{item.label}</span>
+                  <span className="ptl-na-contact-divider-count">{item.count}</span>
+                </div>
+              )
+            }
+            const contact = item.contact
+            return (
+              <button
+                key={contact.id}
+                type="button"
+                role="listitem"
+                className={`ptl-na-contact-row${selectedId === contact.id ? ' ptl-na-contact-row-active' : ''}${contact.is_active === false ? ' ptl-na-contact-row-inactive' : ''}`}
+                onClick={() => setSelectedId(contact.id)}
+                aria-pressed={selectedId === contact.id}
+              >
+                <ContactAvatar contact={contact} />
+                <span className="ptl-na-contact-row-copy">
+                  <strong>{displayListName(contact)}</strong>
+                  {contact.is_active === false && <span className="ptl-na-contact-inactive-badge">Inactive</span>}
+                  {contact.role && <span className="ptl-na-contact-row-role" style={rolePillStyle(contact)}>{contact.role}</span>}
+                  {affiliationLine(contact) && <span className="ptl-na-contact-affiliation-line">{affiliationLine(contact)}</span>}
+                </span>
+              </button>
+            )
+          })}
           {filtered.length === 0 && <p className="ptl-na-contact-empty">No contacts match these filters.</p>}
         </div>
 

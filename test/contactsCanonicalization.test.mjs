@@ -212,6 +212,68 @@ test('the category sort engine follows the approved tiers in both directories', 
   assert.deepEqual(pre, ['Al', 'Beth'])
 })
 
+test('alphabetization follows the DISPLAYED name: Jun Bagunu files under J, not A', async () => {
+  const { contactDisplayName } = await import('../src/lib/contactCategories.js')
+  assert.equal(contactDisplayName({ full_name: 'Adolfo Bagunu', preferred_name: 'Jun' }), 'Jun Bagunu')
+  assert.equal(contactDisplayName({ full_name: 'Susan Hunter' }), 'Susan Hunter')
+  assert.equal(contactDisplayName({ full_name: 'Sue Hunter', preferred_name: 'Sue' }), 'Sue Hunter')
+  const sorted = sortContactsForCategory([
+    { full_name: 'Adolfo Bagunu', preferred_name: 'Jun', category: 'Preceptor' },
+    { full_name: 'Beth Cruz', category: 'Preceptor' },
+  ], 'Preceptor').map(c => c.full_name)
+  // Jun (displayed) sorts after Beth, even though Adolfo would sort before.
+  assert.deepEqual(sorted, ['Beth Cruz', 'Adolfo Bagunu'])
+})
+
+test('an acting executive over a unit joins Unit Leaders and tops that unit', async () => {
+  const { getContactCategories: cats, sortContactsForCategory: sortCat } = await import('../src/lib/contactCategories.js')
+  const charina = { full_name: 'Charina Emerson', category: 'Nursing Executive', role: 'Executive Director', unit_name: null, related_units: ['Float Pool'] }
+  assert.ok(cats(charina).includes('Unit Leader'))
+  assert.ok(cats(charina).includes('Nursing Executive'))
+  // Within the Float Pool group, the acting executive outranks the AD.
+  const sorted = sortCat([
+    { full_name: 'Ada Dee', category: 'Unit Leader', role: 'Associate Director', unit_name: 'Float Pool' },
+    charina,
+    { full_name: 'Ann Em', category: 'Unit Leader', role: 'Assistant Nurse Manager', unit_name: 'Float Pool' },
+  ], 'Unit Leader').map(c => c.full_name)
+  assert.deepEqual(sorted, ['Charina Emerson', 'Ada Dee', 'Ann Em'])
+})
+
+test('the BNI Executive Director is also a Nursing Executive (deterministic, not org-text)', async () => {
+  const { getContactCategories: cats } = await import('../src/lib/contactCategories.js')
+  const margo = { full_name: 'Margo Minissian', category: 'BNI Team', role: 'Executive Director', organization: CSMC_AFFILIATION }
+  const c = cats(margo)
+  assert.ok(c.includes('BNI Team'))
+  assert.ok(c.includes('Nursing Executive'))
+  // A BNI NPD Practitioner is NOT a Nursing Executive.
+  assert.ok(!cats({ category: 'BNI Team', role: 'NPD Practitioner' }).includes('Nursing Executive'))
+})
+
+test('a unit-named search surfaces that unit leadership chain first, acting executive on top', async () => {
+  const { sortContactsForSearch } = await import('../src/lib/contactCategories.js')
+  const rows = [
+    { full_name: 'Aaron Aardvark', category: 'Other', organization: 'X' },
+    { full_name: 'Pia Preceptor', category: 'Preceptor', unit_name: 'Float Pool' },
+    { full_name: 'Nina NPD', category: 'Unit Leader', role: 'NPD Practitioner', unit_name: 'Float Pool' },
+    { full_name: 'Charina Emerson', category: 'Nursing Executive', role: 'Executive Director', related_units: ['Float Pool'] },
+  ]
+  const sorted = sortContactsForSearch(rows, 'float pool').map(c => c.full_name)
+  assert.deepEqual(sorted, ['Charina Emerson', 'Nina NPD', 'Pia Preceptor', 'Aaron Aardvark'])
+  // A query matching no unit: plain displayed-name order.
+  const plain = sortContactsForSearch(rows, 'emerson').map(c => c.full_name)
+  assert.deepEqual(plain, ['Aaron Aardvark', 'Charina Emerson', 'Nina NPD', 'Pia Preceptor'])
+})
+
+test('the portal All Contacts view groups by category with dividers, like the staff list', () => {
+  const portal = read('src/portal/na/AcademicsContactsView.jsx')
+  assert.match(portal, /ptl-na-contact-divider/)
+  assert.match(portal, /categoryPluralLabel\(cat\)/)
+  assert.match(portal, /sortContactsForCategory\(group, cat\)/)
+  assert.match(portal, /sortContactsForSearch/)
+  assert.match(read('src/components/connect/ContactsView.jsx'), /sortContactsForSearch\(filtered, search\)/)
+  assert.match(read('src/portal/portal.css'), /\.ptl-na-contact-divider/)
+})
+
 test('both directories consume the shared row/sort/label helpers', () => {
   const staff = read('src/components/connect/ContactsView.jsx')
   const portal = read('src/portal/na/AcademicsContactsView.jsx')

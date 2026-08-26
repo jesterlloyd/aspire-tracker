@@ -16,7 +16,7 @@ import {
   titleOptionsFor, titleAllowsFreeText,
   affiliationKind, showsUnitAffiliation, contactServicesMeta,
   contactUnitList, splitUnitList, CSMC_AFFILIATION,
-  categoryPluralLabel, contactListSubline, sortContactsForCategory,
+  categoryPluralLabel, contactListSubline, sortContactsForCategory, sortContactsForSearch,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
@@ -1820,8 +1820,11 @@ export default function ContactsView({ refreshKey = 0 }) {
   // > Project Coordinator; Nursing Executives by SVP > VP > EDs > Managers;
   // Academic Partners by school; Preceptors and Others by name), from the ONE
   // shared comparator. The flat All view (search active) stays name-sorted.
+  // The flat All view while searching is unit-aware: a query naming a unit
+  // (e.g. "Float Pool") surfaces that unit's leadership chain first, acting
+  // executive on top; otherwise displayed-name order.
   const sortedFiltered = categoryFilter === 'All'
-    ? sortContactsForCategory(filtered, 'Other') // name order
+    ? sortContactsForSearch(filtered, search)
     : sortContactsForCategory(filtered, categoryFilter)
 
   const showGrouped = categoryFilter === 'All' && !search.trim()
