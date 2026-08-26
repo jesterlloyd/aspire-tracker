@@ -1,33 +1,32 @@
-// NURSING-ACADEMICS-1: Settings > Community Benefit.
+// Settings > Community Benefit.
 //
-// Owner-entered inputs for the Nursing Education & Leadership community-benefit
-// report: hourly rates (RN / Leadership) per fiscal year, and aggregate
-// additional non-clinical hours per fiscal year + school.
-//
-// AUTHORIZATION IS SERVER-SIDE. Admins see this panel read-only for
-// visibility; every write goes through api/community-benefit-admin.js, which
-// gates on the community_benefit_admin capability (empty allowlist =
-// Owner-only by construction). The `can_edit` flag in the list response only
-// decides whether the entry forms RENDER; it never decides whether a write
-// succeeds.
-//
-// STORAGE IS APPEND-ONLY. Setting a rate supersedes the previous one (history
-// preserved); an additional-hours entry is voided, never deleted. The legacy
-// database/API name remains "capstone" so this wording change needs no migration.
+// The report is the same canonical Community Benefit view used by the Nursing
+// Education and Leadership portal. Settings uses staff-only read endpoints;
+// the portal continues to use its nursing_academic grant boundary. Reporting
+// inputs remain Owner-only and append-only through community-benefit-admin.js.
 
 import { useState, useEffect, useCallback } from 'react'
+import { Download, DollarSign, Plus, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { SCHOOLS } from '../../lib/constants'
+import { downloadCSV } from '../../lib/utils'
 import { SETTINGS_HEADING_STYLE } from './settingsSections'
 import SurfaceCard from '../ui/SurfaceCard'
+import CommunityBenefitView from '../../portal/na/CommunityBenefitView'
+import '../../portal/portal.css'
+import './CommunityBenefitPanel.css'
 
-const F = 'DM Sans, sans-serif'
 const CATEGORY_LABELS = { rn_preceptor: 'RN', management: 'Leadership' }
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+const num = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
+
+async function authToken() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token || null
+}
 
 async function callAdmin(body) {
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
+  const token = await authToken()
   const res = await fetch('/api/community-benefit-admin', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -38,14 +37,64 @@ async function callAdmin(body) {
   return { ok: res.ok, status: res.status, data: json }
 }
 
-const label = { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, fontFamily: F }
-const field = { width: '100%', padding: '8px 10px', border: '1px solid #d5d9e2', borderRadius: 8, fontFamily: F, fontSize: 13, boxSizing: 'border-box' }
-const th = { textAlign: 'left', padding: '7px 10px', fontSize: 11.5, fontWeight: 700, color: '#6b7280', borderBottom: '1px solid #e5e7eb', fontFamily: F, whiteSpace: 'nowrap' }
-const td = { padding: '7px 10px', fontSize: 12.5, color: '#191919', borderBottom: '1px solid #f3f4f6', fontFamily: F }
+async function fetchStaffReport(fiscalYear, { signal } = {}) {
+  const token = await authToken()
+  if (!token) return { ok: false, status: 401, data: null, error: 'unauthenticated' }
+  const q = fiscalYear ? `?fiscal_year=${encodeURIComponent(fiscalYear)}` : ''
+  try {
+    const res = await fetch(`/api/community-benefit-report${q}`, {
+      headers: { Authorization: `Bearer ${token}` }, signal,
+    })
+    let data = null
+    try { data = await res.json() } catch { data = null }
+    return { ok: res.ok, status: res.status, data, error: res.ok ? null : (data?.error || 'request_failed') }
+  } catch (err) {
+    if (err?.name === 'AbortError') return { ok: false, status: 0, data: null, error: 'aborted' }
+    return { ok: false, status: 0, data: null, error: 'network_error' }
+  }
+}
+
+async function fetchStaffCsv(fiscalYear) {
+  const token = await authToken()
+  if (!token) return { ok: false, status: 401, csv: null, error: 'unauthenticated' }
+  try {
+    const q = fiscalYear ? `?fiscal_year=${encodeURIComponent(fiscalYear)}` : ''
+    const res = await fetch(`/api/community-benefit-export${q}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return { ok: false, status: res.status, csv: null, error: 'request_failed' }
+    return { ok: true, status: res.status, csv: await res.text(), error: null }
+  } catch {
+    return { ok: false, status: 0, csv: null, error: 'network_error' }
+  }
+}
 
 const currentFy = () => {
   const now = new Date()
   return now.getMonth() + 1 >= 7 ? now.getFullYear() + 1 : now.getFullYear()
+}
+
+function ReportingModal({ title, description, children, onClose }) {
+  useEffect(() => {
+    const onKeyDown = (event) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  return (
+    <div className="cb-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+      <section className="cb-modal" role="dialog" aria-modal="true" aria-labelledby="cb-modal-title">
+        <header className="cb-modal-header">
+          <div>
+            <h3 id="cb-modal-title">{title}</h3>
+            {description && <p>{description}</p>}
+          </div>
+          <button type="button" className="cb-icon-button" onClick={onClose} aria-label="Close dialog"><X size={18} /></button>
+        </header>
+        {children}
+      </section>
+    </div>
+  )
 }
 
 export default function CommunityBenefitPanel() {
@@ -54,13 +103,13 @@ export default function CommunityBenefitPanel() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
-
+  const [modal, setModal] = useState(null)
+  const [selectedFy, setSelectedFy] = useState(currentFy())
+  const [reportMeta, setReportMeta] = useState(null)
+  const [reportRefreshKey, setReportRefreshKey] = useState(0)
+  const [exporting, setExporting] = useState(false)
   const [rateForm, setRateForm] = useState({ fiscal_year: String(currentFy()), category: 'rn_preceptor', hourly_rate: '', note: '' })
   const [capForm, setCapForm] = useState({ fiscal_year: String(currentFy()), school_name: '', hours: '', note: '' })
-
-  // Loading starts true; the effect performs no synchronous setState (state
-  // settles in the fetch callback). Post-write refreshes bump the tick and
-  // update in place silently.
   const [loadTick, setLoadTick] = useState(0)
   const load = useCallback(() => setLoadTick(t => t + 1), [])
 
@@ -72,7 +121,8 @@ export default function CommunityBenefitPanel() {
         setError(res.status === 403
           ? 'You do not have permission to view community-benefit settings.'
           : 'Could not load community-benefit settings. Please try again.')
-        setLoading(false); return
+        setLoading(false)
+        return
       }
       setError(null)
       setData(res.data)
@@ -81,9 +131,56 @@ export default function CommunityBenefitPanel() {
     return () => { cancelled = true }
   }, [loadTick])
 
-  const notify = (ok, msg) => { setToast({ ok, msg }); setTimeout(() => setToast(null), 3500) }
+  const notify = (ok, msg) => {
+    setToast({ ok, msg })
+    window.setTimeout(() => setToast(null), 3500)
+  }
 
-  const submitRate = async () => {
+  const rates = data?.rates || []
+  const capstone = data?.capstone_hours || []
+  const activeRates = rates.filter(rate => !rate.superseded_at)
+  const supersededRates = rates.filter(rate => rate.superseded_at)
+  const canEdit = data?.can_edit === true
+  const selectedRates = Object.fromEntries(
+    activeRates.filter(rate => Number(rate.fiscal_year) === selectedFy).map(rate => [rate.category, rate]),
+  )
+  const selectedHours = capstone
+    .filter(entry => Number(entry.fiscal_year) === selectedFy && !entry.voided_at)
+    .reduce((sum, entry) => sum + Number(entry.hours || 0), 0)
+
+  const fiscalYears = (() => {
+    const years = new Set([selectedFy, currentFy(), ...(reportMeta?.available_fiscal_years || [])])
+    activeRates.forEach(rate => years.add(Number(rate.fiscal_year)))
+    capstone.forEach(entry => years.add(Number(entry.fiscal_year)))
+    return [...years].filter(Number.isInteger).sort((a, b) => b - a)
+  })()
+
+  const handleReportLoaded = useCallback((report) => setReportMeta(report), [])
+
+  const openRateModal = () => {
+    const existing = selectedRates.rn_preceptor
+    setRateForm({ fiscal_year: String(selectedFy), category: 'rn_preceptor', hourly_rate: existing ? String(existing.hourly_rate) : '', note: '' })
+    setModal('rate')
+  }
+
+  const changeRateCategory = (category) => {
+    const existing = selectedRates[category]
+    setRateForm(form => ({ ...form, category, hourly_rate: existing ? String(existing.hourly_rate) : '' }))
+  }
+
+  const openHoursModal = () => {
+    setCapForm({ fiscal_year: String(selectedFy), school_name: '', hours: '', note: '' })
+    setModal('hours')
+  }
+
+  const refreshAfterWrite = () => {
+    load()
+    setReportRefreshKey(key => key + 1)
+    setModal(null)
+  }
+
+  const submitRate = async (event) => {
+    event?.preventDefault()
     if (busy) return
     const fy = Number(rateForm.fiscal_year)
     const rate = Number(rateForm.hourly_rate)
@@ -94,11 +191,11 @@ export default function CommunityBenefitPanel() {
     setBusy(false)
     if (!res.ok) return notify(false, res.data?.message || 'The rate could not be saved.')
     notify(true, `Rate saved for FY ${fy}.`)
-    setRateForm(f => ({ ...f, hourly_rate: '', note: '' }))
-    load()
+    refreshAfterWrite()
   }
 
-  const submitCapstone = async () => {
+  const submitCapstone = async (event) => {
+    event?.preventDefault()
     if (busy) return
     const fy = Number(capForm.fiscal_year)
     const hours = Number(capForm.hours)
@@ -110,8 +207,7 @@ export default function CommunityBenefitPanel() {
     setBusy(false)
     if (!res.ok) return notify(false, res.data?.message || 'The additional-hours entry could not be saved.')
     notify(true, `Additional non-clinical hours recorded for FY ${fy}.`)
-    setCapForm(f => ({ ...f, hours: '', note: '' }))
-    load()
+    refreshAfterWrite()
   }
 
   const voidCapstone = async (id) => {
@@ -122,167 +218,103 @@ export default function CommunityBenefitPanel() {
     if (!res.ok) return notify(false, 'The entry could not be voided.')
     notify(true, 'Entry voided. History preserved.')
     load()
+    setReportRefreshKey(key => key + 1)
   }
 
-  if (loading) return <div style={{ fontSize: 13, color: '#6b7280', fontFamily: F }}>Loading community-benefit settings…</div>
-  if (error) return <div style={{ fontSize: 13, color: '#991b1b', fontFamily: F }}>{error}</div>
+  const onExport = async () => {
+    if (exporting) return
+    setExporting(true)
+    const res = await fetchStaffCsv(selectedFy)
+    if (res.ok && res.csv) downloadCSV(res.csv, `aspire-community-benefit-fy${selectedFy}.csv`)
+    else notify(false, 'The CSV could not be generated right now.')
+    setExporting(false)
+  }
 
-  const canEdit = data?.can_edit === true
-  const rates = data?.rates || []
-  const capstone = data?.capstone_hours || []
-  const activeRates = rates.filter(r => !r.superseded_at)
-  const supersededRates = rates.filter(r => r.superseded_at)
+  if (loading) return <div className="cb-inline-state">Loading community-benefit settings…</div>
+  if (error) return <div className="cb-inline-state cb-inline-error">{error}</div>
 
   return (
-    <section aria-labelledby="community-benefit-heading">
-      {toast && (
-        <div role="status" style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2600, padding: '10px 18px', borderRadius: 10, fontFamily: F, fontSize: 13, fontWeight: 600, background: toast.ok ? '#f0fdf4' : '#fee2e2', color: toast.ok ? '#166534' : '#991b1b', border: `1px solid ${toast.ok ? '#86efac' : '#fca5a5'}` }}>{toast.msg}</div>
-      )}
-      <h2 id="community-benefit-heading" style={{ ...SETTINGS_HEADING_STYLE, margin: '0 0 4px' }}>Community Benefit</h2>
-      <p style={{ margin: '0 0 16px', fontSize: 13.5, color: '#6b7280', fontFamily: F }}>
-        Hourly rates and additional non-clinical hours behind the Nursing Education &amp; Leadership community-benefit report.
-        {canEdit ? ' Only the Owner can enter or change these values.' : ' You are viewing read-only; only the Owner can enter or change these values.'}
-      </p>
-
-      {/* Rates */}
-      <SurfaceCard padding="16px 18px" style={{ marginBottom: 16 }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: 14.5, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Hourly rates</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={th}>Fiscal year</th><th style={th}>Category</th><th style={th}>Rate</th><th style={th}>Note</th><th style={th}>Entered</th></tr></thead>
-            <tbody>
-              {activeRates.length === 0 && (
-                <tr><td style={td} colSpan={5}>No active rates entered yet.</td></tr>
-              )}
-              {activeRates.map(r => (
-                <tr key={r.id}>
-                  <td style={td}>FY {r.fiscal_year}</td>
-                  <td style={td}>{CATEGORY_LABELS[r.category] || r.category}</td>
-                  <td style={td}>{money.format(Number(r.hourly_rate))}/hr</td>
-                  <td style={td}>{r.note || '-'}</td>
-                  <td style={td}>{r.created_at ? new Date(r.created_at).toLocaleDateString() : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <section className="cb-settings" aria-labelledby="community-benefit-heading">
+      {toast && <div role="status" className={`cb-toast ${toast.ok ? 'cb-toast-success' : 'cb-toast-error'}`}>{toast.msg}</div>}
+      <div className="cb-page-header">
+        <div>
+          <h2 id="community-benefit-heading" style={{ ...SETTINGS_HEADING_STYLE, margin: '0 0 4px' }}>Community Benefit</h2>
+          <p>
+            Review fiscal-year impact and manage the reporting inputs behind the Nursing Education and Leadership report.
+            {!canEdit && ' You have read-only access; only the Owner can change reporting inputs.'}
+          </p>
         </div>
-        {supersededRates.length > 0 && (
-          <details style={{ marginTop: 10, fontFamily: F, fontSize: 12.5, color: '#6b7280' }}>
-            <summary style={{ cursor: 'pointer' }}>Rate history ({supersededRates.length} superseded)</summary>
-            <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-              {supersededRates.map(r => (
-                <li key={r.id}>FY {r.fiscal_year} · {CATEGORY_LABELS[r.category] || r.category} · {money.format(Number(r.hourly_rate))}/hr · superseded {new Date(r.superseded_at).toLocaleDateString()}</li>
-              ))}
-            </ul>
-          </details>
-        )}
+        <div className="cb-page-actions" role="group" aria-label="Community Benefit actions">
+          <label className="cb-fy-control" htmlFor="cb-settings-fy">
+            <span>Fiscal year</span>
+            <select id="cb-settings-fy" value={selectedFy} onChange={event => setSelectedFy(Number(event.target.value))}>
+              {fiscalYears.map(year => <option key={year} value={year}>FY {year} (Jul {year - 1} to Jun {year})</option>)}
+            </select>
+          </label>
+          {canEdit && <><button type="button" className="cb-button cb-button-secondary" onClick={openRateModal}><DollarSign size={16} />Set hourly rate</button><button type="button" className="cb-button cb-button-secondary" onClick={openHoursModal}><Plus size={16} />Add non-clinical hours</button></>}
+          <button type="button" className="cb-button cb-button-primary" onClick={onExport} disabled={exporting}><Download size={16} />{exporting ? 'Preparing CSV…' : 'Download CSV'}</button>
+        </div>
+      </div>
 
-        {canEdit && (
-          <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, alignItems: 'end' }}>
-            <div>
-              <label style={label} htmlFor="cb-rate-fy">Fiscal year (ending)</label>
-              <input id="cb-rate-fy" type="number" min="2020" max="2100" style={field} value={rateForm.fiscal_year}
-                onChange={e => setRateForm(f => ({ ...f, fiscal_year: e.target.value }))} />
-            </div>
-            <div>
-              <label style={label} htmlFor="cb-rate-cat">Category</label>
-              <select id="cb-rate-cat" style={{ ...field, cursor: 'pointer' }} value={rateForm.category}
-                onChange={e => setRateForm(f => ({ ...f, category: e.target.value }))}>
-                <option value="rn_preceptor">RN</option>
-                <option value="management">Leadership</option>
-              </select>
-            </div>
-            <div>
-              <label style={label} htmlFor="cb-rate-amt">Hourly rate (USD)</label>
-              <input id="cb-rate-amt" type="number" min="0" step="0.01" style={field} value={rateForm.hourly_rate}
-                onChange={e => setRateForm(f => ({ ...f, hourly_rate: e.target.value }))} placeholder="e.g. 65" />
-            </div>
-            <div>
-              <label style={label} htmlFor="cb-rate-note">Note (optional)</label>
-              <input id="cb-rate-note" style={field} value={rateForm.note}
-                onChange={e => setRateForm(f => ({ ...f, note: e.target.value }))} placeholder="Source or context" />
-            </div>
-            <button type="button" onClick={submitRate} disabled={busy}
-              style={{ padding: '9px 14px', border: 'none', borderRadius: 8, background: '#1D2567', color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: busy ? 'default' : 'pointer' }}>
-              Save rate
-            </button>
-          </div>
-        )}
-        <p style={{ margin: '10px 0 0', fontSize: 11.5, color: '#6b7280', fontFamily: F }}>
-          Saving a rate for a fiscal year and category supersedes the previous rate; history is preserved above.
-        </p>
+      <SurfaceCard padding="14px 16px" className="cb-inputs-card">
+        <div className="cb-inputs-heading">
+          <div><h3>Reporting inputs</h3><p>Current values applied to FY {selectedFy}.</p></div>
+          <span>Benefit estimates update when these inputs change.</span>
+        </div>
+        <div className="cb-inputs-grid">
+          <div className="cb-input-summary"><span>RN hourly rate</span><strong>{selectedRates.rn_preceptor ? `${money.format(Number(selectedRates.rn_preceptor.hourly_rate))}/hr` : 'Not set'}</strong></div>
+          <div className="cb-input-summary"><span>Leadership hourly rate</span><strong>{selectedRates.management ? `${money.format(Number(selectedRates.management.hourly_rate))}/hr` : 'Not set'}</strong></div>
+          <div className="cb-input-summary"><span>Additional non-clinical hours</span><strong>{num.format(selectedHours)} hours</strong></div>
+        </div>
+        <p className="cb-double-count-note">Enter only project, leadership, or other non-clinical hours that are NOT already recorded as clinical shift hours.</p>
       </SurfaceCard>
 
-      {/* Additional non-clinical hours (legacy API action name: capstone). */}
-      <SurfaceCard padding="16px 18px">
-        <h3 style={{ margin: '0 0 6px', fontSize: 14.5, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Additional non-clinical hours</h3>
-        <div role="note" style={{ margin: '0 0 12px', padding: '9px 12px', borderRadius: 8, background: '#FEF3C7', border: '1px solid #fde68a', fontSize: 12.5, color: '#78350F', fontFamily: F }}>
-          Enter only project, leadership, or other non-clinical hours that are NOT already recorded as clinical shift hours.
-          Hours logged through student shift logs are counted automatically; entering them here would
-          double-count the benefit.
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={th}>Fiscal year</th><th style={th}>School</th><th style={th}>Hours</th><th style={th}>Note</th><th style={th}>Entered</th>{canEdit && <th style={th} aria-label="Actions" />}</tr></thead>
-            <tbody>
-              {capstone.length === 0 && (
-                <tr><td style={td} colSpan={canEdit ? 6 : 5}>No additional non-clinical hours recorded yet.</td></tr>
-              )}
-              {capstone.map(c => (
-                <tr key={c.id} style={c.voided_at ? { opacity: 0.55 } : undefined}>
-                  <td style={td}>FY {c.fiscal_year}</td>
-                  <td style={td}>{c.school_name}</td>
-                  <td style={td}>{Number(c.hours)}{c.voided_at ? ' (voided)' : ''}</td>
-                  <td style={td}>{c.note || '-'}</td>
-                  <td style={td}>{c.created_at ? new Date(c.created_at).toLocaleDateString() : '-'}</td>
-                  {canEdit && (
-                    <td style={td}>
-                      {!c.voided_at && (
-                        <button type="button" onClick={() => voidCapstone(c.id)} disabled={busy}
-                          style={{ padding: '4px 10px', border: '1px solid #d5d9e2', borderRadius: 6, background: '#fff', color: '#991b1b', fontFamily: F, fontSize: 12, cursor: busy ? 'default' : 'pointer' }}>
-                          Void
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="ptl-page cb-report-embed" aria-label={`Community Benefit report for FY ${selectedFy}`}>
+        <CommunityBenefitView active fiscalYear={selectedFy} onFiscalYearChange={setSelectedFy} onReportLoaded={handleReportLoaded} reportFetcher={fetchStaffReport} refreshKey={reportRefreshKey} showToolbar={false} showSettingsLink={false} reportPortalFailures={false} embedded />
+      </div>
 
-        {canEdit && (
-          <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, alignItems: 'end' }}>
-            <div>
-              <label style={label} htmlFor="cb-cap-fy">Fiscal year (ending)</label>
-              <input id="cb-cap-fy" type="number" min="2020" max="2100" style={field} value={capForm.fiscal_year}
-                onChange={e => setCapForm(f => ({ ...f, fiscal_year: e.target.value }))} />
-            </div>
-            <div>
-              <label style={label} htmlFor="cb-cap-school">School</label>
-              <select id="cb-cap-school" style={{ ...field, cursor: 'pointer' }} value={capForm.school_name}
-                onChange={e => setCapForm(f => ({ ...f, school_name: e.target.value }))}>
-                <option value="">Select school</option>
-                {SCHOOLS.map(school => <option key={school} value={school}>{school}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={label} htmlFor="cb-cap-hours">Additional non-clinical hours</label>
-              <input id="cb-cap-hours" type="number" min="0" step="0.25" style={field} value={capForm.hours}
-                onChange={e => setCapForm(f => ({ ...f, hours: e.target.value }))} placeholder="e.g. 120" />
-            </div>
-            <div>
-              <label style={label} htmlFor="cb-cap-note">Reporting note (optional)</label>
-              <input id="cb-cap-note" style={field} value={capForm.note}
-                onChange={e => setCapForm(f => ({ ...f, note: e.target.value }))} placeholder="Context for the entry" />
-            </div>
-            <button type="button" onClick={submitCapstone} disabled={busy}
-              style={{ padding: '9px 14px', border: 'none', borderRadius: 8, background: '#1D2567', color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: busy ? 'default' : 'pointer' }}>
-              Add hours
-            </button>
-          </div>
-        )}
-      </SurfaceCard>
+      <details className="cb-history">
+        <summary><span>Reporting history</span><small>{rates.length} rate entries · {capstone.length} non-clinical entries</small></summary>
+        <div className="cb-history-body">
+          <section>
+            <h3>Hourly rate history</h3>
+            <div className="cb-table-scroll"><table><thead><tr><th>Fiscal year</th><th>Category</th><th>Rate</th><th>Status</th><th>Entered</th></tr></thead><tbody>
+              {rates.length === 0 && <tr><td colSpan={5}>No rates entered yet.</td></tr>}
+              {rates.map(rate => <tr key={rate.id}><td>FY {rate.fiscal_year}</td><td>{CATEGORY_LABELS[rate.category] || rate.category}</td><td>{money.format(Number(rate.hourly_rate))}/hr</td><td>{rate.superseded_at ? 'Superseded' : 'Current'}</td><td>{rate.created_at ? new Date(rate.created_at).toLocaleDateString() : '-'}</td></tr>)}
+            </tbody></table></div>
+            {supersededRates.length > 0 && <p>{supersededRates.length} superseded rate {supersededRates.length === 1 ? 'is' : 'are'} retained for audit history.</p>}
+          </section>
+          <section>
+            <h3>Non-clinical hour entries</h3>
+            <div className="cb-table-scroll"><table><thead><tr><th>Fiscal year</th><th>School</th><th>Hours</th><th>Note</th><th>Entered</th>{canEdit && <th aria-label="Actions" />}</tr></thead><tbody>
+              {capstone.length === 0 && <tr><td colSpan={canEdit ? 6 : 5}>No additional non-clinical hours recorded yet.</td></tr>}
+              {capstone.map(entry => <tr key={entry.id} className={entry.voided_at ? 'cb-row-voided' : ''}><td>FY {entry.fiscal_year}</td><td>{entry.school_name}</td><td>{num.format(Number(entry.hours))}{entry.voided_at ? ' (voided)' : ''}</td><td>{entry.note || '-'}</td><td>{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '-'}</td>{canEdit && <td>{!entry.voided_at && <button type="button" className="cb-void-button" onClick={() => voidCapstone(entry.id)} disabled={busy}>Void</button>}</td>}</tr>)}
+            </tbody></table></div>
+          </section>
+        </div>
+      </details>
+
+      {modal === 'rate' && <ReportingModal title="Set hourly rate" description={`Update the rate used for FY ${selectedFy} benefit calculations.`} onClose={() => setModal(null)}>
+        <form className="cb-modal-form" onSubmit={submitRate}>
+          <label htmlFor="cb-rate-fy">Fiscal year (ending)<input id="cb-rate-fy" type="number" min="2020" max="2100" value={rateForm.fiscal_year} onChange={event => setRateForm(form => ({ ...form, fiscal_year: event.target.value }))} /></label>
+          <label htmlFor="cb-rate-cat">Category<select id="cb-rate-cat" value={rateForm.category} onChange={event => changeRateCategory(event.target.value)}><option value="rn_preceptor">RN</option><option value="management">Leadership</option></select></label>
+          <label htmlFor="cb-rate-amt">Hourly rate (USD)<input id="cb-rate-amt" type="number" min="0" step="0.01" value={rateForm.hourly_rate} onChange={event => setRateForm(form => ({ ...form, hourly_rate: event.target.value }))} placeholder="e.g. 65" autoFocus /></label>
+          <label htmlFor="cb-rate-note">Note (optional)<input id="cb-rate-note" value={rateForm.note} onChange={event => setRateForm(form => ({ ...form, note: event.target.value }))} placeholder="Source or context" /></label>
+          <p className="cb-modal-help">Saving a rate supersedes the previous rate for this fiscal year and category. History is preserved.</p>
+          <div className="cb-modal-actions"><button type="button" className="cb-button cb-button-secondary" onClick={() => setModal(null)}>Cancel</button><button type="submit" className="cb-button cb-button-primary" disabled={busy}>{busy ? 'Saving…' : 'Save rate'}</button></div>
+        </form>
+      </ReportingModal>}
+
+      {modal === 'hours' && <ReportingModal title="Add non-clinical hours" description="Record project, leadership, or other hours that are not in student shift logs." onClose={() => setModal(null)}>
+        <form className="cb-modal-form" onSubmit={submitCapstone}>
+          <div className="cb-modal-warning">Do not enter hours already recorded as clinical shifts. That would double-count the benefit.</div>
+          <label htmlFor="cb-cap-fy">Fiscal year (ending)<input id="cb-cap-fy" type="number" min="2020" max="2100" value={capForm.fiscal_year} onChange={event => setCapForm(form => ({ ...form, fiscal_year: event.target.value }))} /></label>
+          <label htmlFor="cb-cap-school">School<select id="cb-cap-school" value={capForm.school_name} onChange={event => setCapForm(form => ({ ...form, school_name: event.target.value }))} autoFocus><option value="">Select school</option>{SCHOOLS.map(school => <option key={school} value={school}>{school}</option>)}</select></label>
+          <label htmlFor="cb-cap-hours">Additional non-clinical hours<input id="cb-cap-hours" type="number" min="0" step="0.25" value={capForm.hours} onChange={event => setCapForm(form => ({ ...form, hours: event.target.value }))} placeholder="e.g. 120" /></label>
+          <label htmlFor="cb-cap-note">Reporting note (optional)<input id="cb-cap-note" value={capForm.note} onChange={event => setCapForm(form => ({ ...form, note: event.target.value }))} placeholder="Context for the entry" /></label>
+          <div className="cb-modal-actions"><button type="button" className="cb-button cb-button-secondary" onClick={() => setModal(null)}>Cancel</button><button type="submit" className="cb-button cb-button-primary" disabled={busy}>{busy ? 'Adding…' : 'Add hours'}</button></div>
+        </form>
+      </ReportingModal>}
     </section>
   )
 }

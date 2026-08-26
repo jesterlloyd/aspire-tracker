@@ -71,7 +71,19 @@ function BarChart({ title, rows, ariaLabel }) {
 
 const PROGRAM_FILTERS = Object.freeze(['All Programs', 'ABSN', 'BSN', 'ELMN', 'MECN'])
 
-export default function CommunityBenefitView({ active = true }) {
+export default function CommunityBenefitView({
+  active = true,
+  fiscalYear: controlledFiscalYear,
+  onFiscalYearChange,
+  onReportLoaded,
+  reportFetcher = fetchCommunityBenefit,
+  exportFetcher = fetchBenefitExportCsv,
+  refreshKey = 0,
+  showToolbar = true,
+  showSettingsLink = true,
+  reportPortalFailures = true,
+  embedded = false,
+}) {
   const [fy, setFy] = useState(null) // null = server default (current FY)
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -88,17 +100,25 @@ export default function CommunityBenefitView({ active = true }) {
   // Loading starts true and every trigger (reload, FY change) flips it in its
   // HANDLER, so the effect body performs no synchronous setState.
   const reload = useCallback(() => { setLoading(true); setError(null); setReloadKey(k => k + 1) }, [])
-  const changeFy = useCallback((next) => { setLoading(true); setError(null); setFy(next) }, [])
+  const requestedFy = Number.isInteger(controlledFiscalYear) ? controlledFiscalYear : fy
+  const changeFy = useCallback((next) => {
+    setLoading(true)
+    setError(null)
+    if (Number.isInteger(controlledFiscalYear)) onFiscalYearChange?.(next)
+    else setFy(next)
+  }, [controlledFiscalYear, onFiscalYearChange])
   const reportFailure = useReportPortalFailure()
   useRegisterPortalRefresh(reload, active)
 
   useEffect(() => {
     if (!active) return undefined
     let cancelled = false
-    fetchCommunityBenefit(fy).then(res => {
+    reportFetcher(requestedFy).then(res => {
       if (cancelled) return
       if (!res.ok) {
-        const kind = reportFailure({ status: res.status, error: res.error })
+        const kind = reportPortalFailures
+          ? reportFailure({ status: res.status, error: res.error })
+          : null
         if (kind === ACCESS_FAILURE.ACCESS_ENDED) { setLoading(false); return }
         setError(kind === ACCESS_FAILURE.SIGNED_OUT
           ? 'Your session expired. Please sign in again.'
@@ -106,17 +126,18 @@ export default function CommunityBenefitView({ active = true }) {
         setLoading(false); return
       }
       setReport(res.data)
+      onReportLoaded?.(res.data)
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [active, fy, reloadKey, reportFailure])
+  }, [active, requestedFy, reloadKey, refreshKey, reportFailure, reportFetcher, reportPortalFailures, onReportLoaded])
 
   const fiscalYears = useMemo(() => report?.available_fiscal_years || [], [report])
 
   const onExport = async () => {
     if (!report || exporting) return
     setExporting(true); setExportError(null)
-    const res = await fetchBenefitExportCsv(report.fiscal_year)
+    const res = await exportFetcher(report.fiscal_year)
     if (res.ok && res.csv) {
       downloadCSV(res.csv, `aspire-community-benefit-fy${report.fiscal_year}.csv`)
     } else {
@@ -184,38 +205,44 @@ export default function CommunityBenefitView({ active = true }) {
 
   return (
     <div className="ptl-na-benefit">
-      <div className="ptl-na-filters ptl-na-benefit-toolbar" role="group" aria-label="Report controls">
-        <label className="ptl-na-filter" htmlFor="na-benefit-fy">
-          <span>Fiscal year</span>
-          <select
-            id="na-benefit-fy"
-            value={report.fiscal_year}
-            onChange={e => changeFy(Number(e.target.value))}
-          >
-            {(fiscalYears.includes(report.fiscal_year) ? fiscalYears : [report.fiscal_year, ...fiscalYears])
-              .map(y => <option key={y} value={y}>FY {y} (Jul {y - 1} to Jun {y})</option>)}
-          </select>
-        </label>
-        <button type="button" className="ptl-btn-outline ptl-na-export" onClick={onExport} disabled={exporting}>
-          {exporting ? 'Preparing CSV…' : 'Download aggregate CSV'}
-        </button>
-        {report.can_manage_reporting_inputs && (
-          <a className="ptl-btn-outline ptl-na-settings-link" href="/settings/community-benefit">
-            Manage reporting inputs
-          </a>
-        )}
-      </div>
-      <p className="ptl-na-export-note">
-        The CSV is aggregate-only for fiscal reporting: one row per school, program,
-        course type, and benefit category. It contains no names, contact details, or
-        record identifiers.
-      </p>
-      {exportError && <p role="alert" className="ptl-na-error-note">{exportError}</p>}
+      {showToolbar && (
+        <>
+          <div className="ptl-na-filters ptl-na-benefit-toolbar" role="group" aria-label="Report controls">
+            <label className="ptl-na-filter" htmlFor="na-benefit-fy">
+              <span>Fiscal year</span>
+              <select
+                id="na-benefit-fy"
+                value={report.fiscal_year}
+                onChange={e => changeFy(Number(e.target.value))}
+              >
+                {(fiscalYears.includes(report.fiscal_year) ? fiscalYears : [report.fiscal_year, ...fiscalYears])
+                  .map(y => <option key={y} value={y}>FY {y} (Jul {y - 1} to Jun {y})</option>)}
+              </select>
+            </label>
+            <button type="button" className="ptl-btn-outline ptl-na-export" onClick={onExport} disabled={exporting}>
+              {exporting ? 'Preparing CSV…' : 'Download aggregate CSV'}
+            </button>
+            {showSettingsLink && report.can_manage_reporting_inputs && (
+              <a className="ptl-btn-outline ptl-na-settings-link" href="/settings/community-benefit">
+                Manage reporting inputs
+              </a>
+            )}
+          </div>
+          <p className="ptl-na-export-note">
+            The CSV is aggregate-only for fiscal reporting: one row per school, program,
+            course type, and benefit category. It contains no names, contact details, or
+            record identifiers.
+          </p>
+          {exportError && <p role="alert" className="ptl-na-error-note">{exportError}</p>}
+        </>
+      )}
 
       {(rnRate == null || mgmtRate == null) && (
         <div className="ptl-na-rate-note" role="status">
           {rnRate == null && mgmtRate == null
-            ? `Hourly rates for ${report.fiscal_year_label} have not been entered yet, so benefit estimates are not shown. Rates are managed in ASPIRE Intelligence Settings.`
+            ? embedded
+              ? `Hourly rates for ${report.fiscal_year_label} have not been entered. Use Set hourly rate above to calculate benefit estimates.`
+              : `Hourly rates for ${report.fiscal_year_label} have not been entered yet, so benefit estimates are not shown. Rates are managed in ASPIRE Intelligence Settings.`
             : rnRate == null
               ? `The RN hourly rate for ${report.fiscal_year_label} has not been entered yet, so clinical benefit estimates are not shown.`
               : `The Leadership hourly rate for ${report.fiscal_year_label} has not been entered yet, so non-clinical benefit estimates are not shown.`}
