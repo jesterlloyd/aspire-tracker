@@ -11,9 +11,11 @@
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { verifyPortalStudentCaller } from '../lib/messagesAuth.js'
-import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent } from '../../lib/server/studentFiles.js'
+import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent, signedUrlTtlSeconds } from '../../lib/server/studentFiles.js'
 
-const SIGNED_URL_TTL_SECONDS = 300
+// STUDENT-PHOTO-PERF-1: headshots share the long per-kind lifetime so the
+// student's own photo stays browser-cacheable across the portal session.
+const SIGNED_URL_TTL_SECONDS = signedUrlTtlSeconds('headshot')
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')

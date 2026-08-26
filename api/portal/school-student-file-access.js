@@ -24,13 +24,15 @@
 // is no resume, no onboarding document, and no upload, replace, rename, or delete path here.
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
-import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent } from '../../lib/server/studentFiles.js'
+import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent, signedUrlTtlSeconds } from '../../lib/server/studentFiles.js'
 import {
   verifyPortalAcademicPartnerCaller,
   resolveSchoolScopedStudents,
 } from '../lib/schoolScope.js'
 
-const SIGNED_URL_TTL_SECONDS = 300
+// STUDENT-PHOTO-PERF-1: this endpoint is headshot-only, so every URL it mints
+// gets the long per-kind lifetime (browser-cacheable roster photos).
+const SIGNED_URL_TTL_SECONDS = signedUrlTtlSeconds('headshot')
 // The only kind an Academic Partner may ever request. Resumes and onboarding documents are absent
 // by construction, so a request for anything else is a safe null, never a wider read.
 const ALLOWED_KINDS = new Set(['headshot'])

@@ -21,8 +21,11 @@
 //   - Entries expire BEFORE the server signed-URL TTL, so a served URL is always
 //     still valid.
 
-// Server signed-URL TTL is 300s; expire cache entries well before that.
-const TTL_MS = 240 * 1000
+// STUDENT-PHOTO-PERF-1: only headshot URLs ever enter this cache (resumes are
+// minted fresh per click and never cached), and every headshot-signing endpoint
+// signs with the shared 3600s headshot lifetime (lib/server/studentFiles.js).
+// Expire cache entries well before that, so a served URL is always still valid.
+const TTL_MS = 3300 * 1000
 
 const cache = new Map()    // key -> { url, expiresAt }
 const inflight = new Map() // key -> Promise<string|null>

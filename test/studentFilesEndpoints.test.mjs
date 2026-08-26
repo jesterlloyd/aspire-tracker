@@ -87,8 +87,9 @@ test('access endpoint: the role matrix, server-mediated, short-lived signed URLs
   assert.match(access, /const cohortOk = isUnrestricted \|\| isViewer \|\| entitledCohorts\.has\(row\.cohort_id\)/)
   // Resolves stored value (legacy URL or path) then mints signed URLs.
   assert.match(access, /parseStoredFileRef\(row\[COLUMN\[n\.kind\]\]\)/)
-  assert.match(access, /createSignedUrls\(toSign\.map\(\(t\) => t\.path\), SIGNED_URL_TTL_SECONDS\)/)
-  assert.match(access, /const SIGNED_URL_TTL_SECONDS = 300/)
+  // STUDENT-PHOTO-PERF-1: signing is grouped per kind so each kind gets its own
+  // lifetime from the shared table (headshots long, resumes short).
+  assert.match(access, /createSignedUrls\(group\.map\(\(t\) => t\.path\), signedUrlTtlSeconds\(kind\)\)/)
   // Batch supported for list views.
   assert.match(access, /Array\.isArray\(body\.items\)/)
   // Never returns a bucket/path in errors; unauthorized/empty -> null url.
@@ -110,6 +111,7 @@ test('portal access: own headshot only, server-resolved, no resume', () => {
   assert.match(portalAccess, /select\('id, headshot_url'\)/)
   // No resume column, no student_id from the client.
   assert.doesNotMatch(portalAccess, /resume_url|body\.student_id/)
+  assert.match(portalAccess, /const SIGNED_URL_TTL_SECONDS = signedUrlTtlSeconds\('headshot'\)/)
   assert.match(portalAccess, /createSignedUrl\(ref\.path, SIGNED_URL_TTL_SECONDS\)/)
 })
 

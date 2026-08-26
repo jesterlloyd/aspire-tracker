@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { fetchStudentFileUrl, fetchPortalHeadshotUrl } from './studentFileClient'
+import { queueStudentFileUrl } from './studentPhotoBatch'
 import { resolveStudentPhotoUrl, peekStudentPhotoUrl } from './studentPhotoCache'
 import { downloadFile } from './fileUtils'
 
@@ -33,8 +34,11 @@ export function useStudentFileUrl({ studentId, kind, enabled = true, refreshKey 
   })
   useEffect(() => {
     let cancelled = false
+    // STUDENT-PHOTO-PERF-1: mount-time resolution goes through the coalescer, so
+    // every avatar mounted in the same commit shares ONE batch request instead of
+    // each firing its own POST. Imperative open/download below stay single-shot.
     const p = active
-      ? resolveStudentPhotoUrl(key, () => fetchStudentFileUrl({ studentId, kind }))
+      ? resolveStudentPhotoUrl(key, () => queueStudentFileUrl({ studentId, kind }))
       : Promise.resolve(null)
     p.then((url) => { if (!cancelled) setState({ url: url || null, loading: false, error: false }) })
       .catch(() => { if (!cancelled) setState({ url: null, loading: false, error: true }) })

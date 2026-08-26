@@ -25,13 +25,14 @@
 // reachable through this endpoint.
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
-import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent } from '../../lib/server/studentFiles.js'
+import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent, signedUrlTtlSeconds } from '../../lib/server/studentFiles.js'
 import {
   verifyPortalUnitLeaderCaller,
   resolveUnitScopedStudents,
 } from '../lib/unitLeaderScope.js'
 
-const SIGNED_URL_TTL_SECONDS = 300
+// STUDENT-PHOTO-PERF-1: lifetimes are per kind (headshots long for
+// cacheability, resumes short), resolved at the signing call below.
 // The only kinds a Unit Leader may ever request. Onboarding documents and
 // certificates are absent by construction.
 const ALLOWED_KINDS = new Set(['headshot', 'resume'])
@@ -100,7 +101,7 @@ export default async function handler(req, res) {
 
     const { data: signed, error: signErr } = await supabaseAdmin.storage
       .from(STUDENT_FILES_BUCKET)
-      .createSignedUrl(ref.path, SIGNED_URL_TTL_SECONDS)
+      .createSignedUrl(ref.path, signedUrlTtlSeconds(kind))
 
     if (signErr || !signed?.signedUrl) {
       results.push(nullResult(studentId, kind))

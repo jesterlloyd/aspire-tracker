@@ -149,7 +149,9 @@ test('the photo path is derived server-side; the browser never supplies a path o
 })
 
 test('the photo endpoint returns only a short-lived signed URL, never a raw or public path', () => {
-  assert.match(photo, /const SIGNED_URL_TTL_SECONDS = 300/)
+  // STUDENT-PHOTO-PERF-1: the lifetime comes from the shared per-kind table
+  // (headshot-only endpoint, so the long cacheable headshot TTL).
+  assert.match(photo, /const SIGNED_URL_TTL_SECONDS = signedUrlTtlSeconds\('headshot'\)/)
   assert.match(photo, /STUDENT_FILES_BUCKET/)
   assert.match(photo, /createSignedUrl\(ref\.path, SIGNED_URL_TTL_SECONDS\)/)
   assert.match(photo, /signed_url: signed\.signedUrl/)

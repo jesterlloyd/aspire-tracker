@@ -29,10 +29,9 @@
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { verifyPortalCaller } from './lib/portalAuth.js'
 import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js'
-import { STUDENT_FILES_BUCKET, isUuid, parseStoredFileRef, refBelongsToStudent } from '../lib/server/studentFiles.js'
+import { STUDENT_FILES_BUCKET, isUuid, parseStoredFileRef, refBelongsToStudent, signedUrlTtlSeconds } from '../lib/server/studentFiles.js'
 import { normalizeStaffRole } from '../src/lib/permissions.js'
 
-const SIGNED_URL_TTL_SECONDS = 300
 const MAX_BATCH = 100
 const FILE_KINDS = new Set(['resume', 'headshot'])
 const COLUMN = { resume: 'resume_url', headshot: 'headshot_url' }
@@ -124,20 +123,29 @@ export default async function handler(req, res) {
     // S-03 read-side binding: never sign a path that names a different student, whatever is
     // stored on the row. Fails closed as a null signed_url, like every other denial here.
     if (!refBelongsToStudent(ref.path, row.id)) return nullResult
-    toSign.push({ index, path: ref.path })
+    toSign.push({ index, path: ref.path, kind: n.kind })
     return nullResult
   })
 
-  // Mint short-lived signed URLs in one call, then map them back by index.
+  // Mint signed URLs in one call PER KIND (kinds carry different lifetimes:
+  // headshots sign long for cacheability, resumes stay short), then map them
+  // back by index.
   if (toSign.length) {
-    const { data: signedList, error: signErr } = await supabaseAdmin.storage
-      .from(STUDENT_FILES_BUCKET)
-      .createSignedUrls(toSign.map((t) => t.path), SIGNED_URL_TTL_SECONDS)
-    if (signErr) return res.status(502).json({ error: 'access_unavailable' })
-    toSign.forEach((t, i) => {
-      const signed = signedList?.[i]
-      if (signed && !signed.error && signed.signedUrl) results[t.index].signed_url = signed.signedUrl
-    })
+    const byKind = new Map()
+    for (const t of toSign) {
+      if (!byKind.has(t.kind)) byKind.set(t.kind, [])
+      byKind.get(t.kind).push(t)
+    }
+    for (const [kind, group] of byKind) {
+      const { data: signedList, error: signErr } = await supabaseAdmin.storage
+        .from(STUDENT_FILES_BUCKET)
+        .createSignedUrls(group.map((t) => t.path), signedUrlTtlSeconds(kind))
+      if (signErr) return res.status(502).json({ error: 'access_unavailable' })
+      group.forEach((t, i) => {
+        const signed = signedList?.[i]
+        if (signed && !signed.error && signed.signedUrl) results[t.index].signed_url = signed.signedUrl
+      })
+    }
   }
 
   if (batch) return res.status(200).json({ results })

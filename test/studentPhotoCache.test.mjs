@@ -81,11 +81,13 @@ test('a null (denied) result is not cached', async () => {
 })
 
 test('cache entries expire BEFORE the server signed-URL TTL', () => {
+  // STUDENT-PHOTO-PERF-1: only headshots enter this cache, so the cache TTL is
+  // bounded by the shared HEADSHOT lifetime, one source of truth on the server.
   const cacheSrc = read('src/lib/studentPhotoCache.js')
-  assert.match(cacheSrc, /const TTL_MS = 240 \* 1000/)
-  const server = read('api/student-file-access.js')
-  assert.match(server, /const SIGNED_URL_TTL_SECONDS = 300/)
-  assert.ok(240 < 300, 'cache TTL is strictly less than the server signed-URL TTL')
+  assert.match(cacheSrc, /const TTL_MS = 3300 \* 1000/)
+  const kinds = read('lib/server/studentFiles.js')
+  assert.match(kinds, /SIGNED_URL_TTL_BY_KIND = \{ headshot: 3600, resume: 300 \}/)
+  assert.ok(3300 < 3600, 'cache TTL is strictly less than the headshot signed-URL TTL')
 })
 
 test('cache is memory-only (no persistent browser storage) and holds no service-role secret', () => {
@@ -97,7 +99,8 @@ test('cache is memory-only (no persistent browser storage) and holds no service-
 
 test('the read hooks resolve through the shared cache and warm-render from it', () => {
   const hook = read('src/lib/useStudentFile.js')
-  assert.match(hook, /resolveStudentPhotoUrl\(key, \(\) => fetchStudentFileUrl\(\{ studentId, kind \}\)\)/)
+  // STUDENT-PHOTO-PERF-1: mount-time staff fetches go through the coalescer.
+  assert.match(hook, /resolveStudentPhotoUrl\(key, \(\) => queueStudentFileUrl\(\{ studentId, kind \}\)\)/)
   assert.match(hook, /resolveStudentPhotoUrl\(key, \(\) => fetchPortalHeadshotUrl\(\)\)/)
   assert.match(hook, /peekStudentPhotoUrl\(key\)/)               // instant warm render
   // key includes the stored ref so a replacement re-signs, and the same student reuses.

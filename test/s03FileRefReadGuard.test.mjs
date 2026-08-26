@@ -169,10 +169,11 @@ test('S-03 read: the resolver, TTL, and role matrix are unchanged', () => {
   // The compatibility resolver still accepts both stored forms.
   assert.match(files, /kind: 'legacyPublicUrl'/)
   assert.match(files, /kind: 'path'/)
-  // Signed URL lifetime untouched on every endpoint that has one.
+  // Every endpoint still signs with a bounded lifetime (STUDENT-PHOTO-PERF-1:
+  // the value now comes from the shared per-kind table in studentFiles.js).
   for (const f of ['api/student-file-access.js', 'api/portal/student-file-access.js',
                    'api/portal/unit-student-file-access.js', 'api/portal/school-student-file-access.js']) {
-    assert.match(read(f), /SIGNED_URL_TTL_SECONDS/, `${f} keeps its TTL constant`)
+    assert.match(read(f), /signedUrlTtlSeconds/, `${f} signs with the shared per-kind lifetime`)
   }
   // The staff role matrix still decides which kinds a role may request, before the new guard.
   const staff = read('api/student-file-access.js')
