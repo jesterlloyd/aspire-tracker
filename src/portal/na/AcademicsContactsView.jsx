@@ -65,6 +65,27 @@ const contactMatches = (contact, category, query) => {
     contact.services, ...(Array.isArray(contact.related_units) ? contact.related_units : [])]
     .some(value => clean(value).toLowerCase().includes(query))
 }
+// NA-CONTACTS-POLISH-1: the ONE ordering pipeline, in exactly the order the
+// list renders. Every auto-selection (category click, search, initial load)
+// takes its first element, so the selected profile is always the first row the
+// reader sees - not the first match in fetch order, which drifted from the
+// display after the canonical sort pass.
+const orderContacts = (list, category, query) => {
+  const matched = list.filter(contact => contactMatches(contact, category, query))
+  if (category !== 'All') return sortContactsForCategory(matched, category)
+  if (query) return sortContactsForSearch(matched, query)
+  const grouped = {}
+  matched.forEach(contact => {
+    const cat = getPrimaryCategory(contact) || 'Other'
+    if (!grouped[cat]) grouped[cat] = []
+    grouped[cat].push(contact)
+  })
+  const ordered = []
+  CONTACT_CATEGORY_ORDER.forEach(cat => {
+    if (grouped[cat]) ordered.push(...sortContactsForCategory(grouped[cat], cat))
+  })
+  return ordered
+}
 
 function ContactAvatar({ contact, large = false }) {
   const src = clean(contact.avatar_url)
@@ -307,8 +328,10 @@ export default function AcademicsContactsView({ active = true }) {
       const next = Array.isArray(res.data?.contacts) ? res.data.contacts : []
       setContacts(next)
       setCanManageContacts(res.data?.can_manage_contacts === true)
-      const firstActive = next.find(contact => contact.is_active !== false)
-      setSelectedId(current => current && next.some(contact => contact.id === current) ? current : (firstActive?.id || next[0]?.id || null))
+      // First selection follows display order (the first row of the grouped
+      // All view), not fetch order.
+      const firstDisplayed = orderContacts(next.filter(contact => contact.is_active !== false), 'All', '')[0]
+      setSelectedId(current => current && next.some(contact => contact.id === current) ? current : (firstDisplayed?.id || next[0]?.id || null))
       setLoaded(true)
       setError(null)
       setLoading(false)
@@ -334,28 +357,28 @@ export default function AcademicsContactsView({ active = true }) {
   // shared comparator; the flat All view while searching is unit-aware (a
   // query naming a unit surfaces its leadership chain, acting executive on
   // top), otherwise displayed-name order.
-  const filtered = useMemo(() => {
-    const matched = directoryContacts.filter(contact => contactMatches(contact, category, query))
-    if (category === 'All') return sortContactsForSearch(matched, query)
-    return sortContactsForCategory(matched, category)
-  }, [directoryContacts, category, query])
+  const filtered = useMemo(() => orderContacts(directoryContacts, category, query), [directoryContacts, category, query])
   // All Contacts with no query groups by primary category with dividers,
-  // exactly like the staff ASPIRE Connect list; each group carries its own
-  // category's approved sort.
+  // exactly like the staff ASPIRE Connect list. `filtered` is ALREADY in
+  // grouped display order (orderContacts), so the dividers are derived from
+  // it directly - render order and auto-selection order are one list by
+  // construction.
   const listItems = useMemo(() => {
     if (category !== 'All' || query) return filtered.map(contact => ({ type: 'row', contact }))
-    const grouped = {}
+    const counts = {}
     filtered.forEach(contact => {
       const cat = getPrimaryCategory(contact) || 'Other'
-      if (!grouped[cat]) grouped[cat] = []
-      grouped[cat].push(contact)
+      counts[cat] = (counts[cat] || 0) + 1
     })
     const items = []
-    CONTACT_CATEGORY_ORDER.forEach(cat => {
-      const group = grouped[cat]
-      if (!group || group.length === 0) return
-      items.push({ type: 'divider', key: `divider-${cat}`, label: categoryPluralLabel(cat), count: group.length })
-      sortContactsForCategory(group, cat).forEach(contact => items.push({ type: 'row', contact }))
+    let currentCat = null
+    filtered.forEach(contact => {
+      const cat = getPrimaryCategory(contact) || 'Other'
+      if (cat !== currentCat) {
+        currentCat = cat
+        items.push({ type: 'divider', key: `divider-${cat}`, label: categoryPluralLabel(cat), count: counts[cat] })
+      }
+      items.push({ type: 'row', contact })
     })
     return items
   }, [filtered, category, query])
@@ -374,14 +397,14 @@ export default function AcademicsContactsView({ active = true }) {
   const chooseCategory = value => {
     setCategory(value)
     setCopyStatus('')
-    setSelectedId(directoryContacts.find(contact => contactMatches(contact, value, query))?.id || null)
+    setSelectedId(orderContacts(directoryContacts, value, query)[0]?.id || null)
   }
   const updateSearch = event => {
     const value = event.target.value
     const nextQuery = value.trim().toLowerCase()
     setSearch(value)
     setCopyStatus('')
-    setSelectedId(directoryContacts.find(contact => contactMatches(contact, category, nextQuery))?.id || null)
+    setSelectedId(orderContacts(directoryContacts, category, nextQuery)[0]?.id || null)
   }
   const copyVisibleEmails = async () => {
     if (visibleEmails.length === 0 || !navigator.clipboard?.writeText) {
@@ -434,8 +457,8 @@ export default function AcademicsContactsView({ active = true }) {
     }
     applySavedContact(res.data.contact)
     if (!activate && !showInactive) {
-      const next = contacts.find(row => row.id !== contact.id && row.is_active !== false)
-      setSelectedId(next?.id || null)
+      const remaining = contacts.filter(row => row.id !== contact.id && row.is_active !== false)
+      setSelectedId(orderContacts(remaining, category, query)[0]?.id || null)
     }
     setMutationStatus(activate ? 'Contact reactivated' : 'Contact deactivated')
     window.setTimeout(() => setMutationStatus(''), 2500)
@@ -504,7 +527,7 @@ export default function AcademicsContactsView({ active = true }) {
         </button>
       </div>
 
-      <div className="ptl-card ptl-na-contact-directory">
+      <div className="ptl-na-contact-directory">
         <div className="ptl-na-contact-list" role="list" aria-label="Contact results">
           {listItems.map(item => {
             if (item.type === 'divider') {

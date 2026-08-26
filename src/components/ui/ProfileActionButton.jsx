@@ -1,7 +1,12 @@
 // src/components/ui/ProfileActionButton.jsx
 //
 // Shared action button for Contact Profile and Student Profile heroes.
-// Supports primary (navy fill), secondary (outline), and linkedin variants.
+// PROFILE-ACTIONS-CONSISTENCY-1: the approved look is the NEL portal's contact
+// actions (.ptl-na-contact-action in portal.css) - every AVAILABLE action is a
+// solid nightfall button; only an unavailable one is a grey ghost. The old
+// primary/secondary distinction is therefore visual history: both variants
+// render the same solid style (the prop is kept so callers never change).
+// linkedin keeps its brand treatment.
 // Accepts either a button (onClick) or anchor (href) rendering mode.
 // Uses the existing Tooltip component for disabled reasons and icon-only labels.
 
@@ -10,23 +15,23 @@ import Tooltip from './Tooltip'
 const F    = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
+const SOLID = {
+  background: NAVY, color: '#fff', border: `1px solid ${NAVY}`,
+  hoverBg: '#151c55',
+}
+
 const VARIANT_STYLES = {
-  primary: {
-    background: NAVY, color: '#fff', border: 'none',
-    hoverBg: 'rgba(29,37,103,0.85)',
-  },
-  secondary: {
-    background: '#fff', color: NAVY, border: '1px solid rgba(29,37,103,0.20)',
-    hoverBg: '#EEF2FB',
-  },
+  primary:   SOLID,
+  secondary: SOLID,
   linkedin: {
     background: '#fff', color: '#0A66C2', border: '1px solid rgba(10,102,194,0.25)',
     hoverBg: '#EFF6FF',
   },
 }
 
+// Mirrors .ptl-na-contact-action-disabled.
 const DISABLED_STYLE = {
-  background: '#e5e7eb', color: '#9ca3af', border: '1px solid transparent',
+  background: '#eef0f4', color: '#9ca3af', border: '1px solid #d7dae4',
 }
 
 // Props:
@@ -56,20 +61,23 @@ export default function ProfileActionButton({
 }) {
   const v = disabled ? DISABLED_STYLE : (VARIANT_STYLES[variant] || VARIANT_STYLES.secondary)
 
+  // Metrics mirror .ptl-na-contact-action: min-height 36, min-width 82, gap 7,
+  // 12px/700 text, radius 8.
   const baseStyle = {
     display:        'inline-flex',
     alignItems:     'center',
     justifyContent: 'center',
-    gap:            5,
-    padding:        iconOnly ? '7px 10px' : '7px 14px',
-    height:         34,
+    gap:            7,
+    padding:        iconOnly ? '7px 10px' : '7px 13px',
+    minHeight:      36,
+    minWidth:       iconOnly ? undefined : 82,
     borderRadius:   8,
     background:     v.background,
     color:          v.color,
     border:         v.border || 'none',
     fontFamily:     F,
     fontSize:       12,
-    fontWeight:     600,
+    fontWeight:     700,
     cursor:         disabled ? 'not-allowed' : 'pointer',
     textDecoration: 'none',
     transition:     'background 0.12s, opacity 0.12s',

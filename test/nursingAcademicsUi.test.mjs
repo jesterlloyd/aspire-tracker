@@ -212,3 +212,61 @@ test('the Settings panel warns about non-clinical-hour double-counting and defer
   assert.match(sections, /communityBenefit/)
   assert.match(sections, /\/settings\/community-benefit/)
 })
+
+// ── NA-CONTACTS-POLISH-1: consistency + selection-order pass ────────────────
+
+test('contact KPI filter cards follow the canonical FilterKPICard treatment (no colored outline)', () => {
+  // Rest state: near-invisible border + 14px radius + s1 shadow, exactly the
+  // values FilterKPICard uses in src/components/KPIBand.jsx.
+  assert.match(css, /\.ptl-na-contact-kpi \{[\s\S]*?border: 1px solid rgba\(29, 37, 103, 0\.06\); border-radius: 14px;/)
+  assert.doesNotMatch(css, /\.ptl-na-contact-kpi \{[\s\S]{0,400}?var\(--ptl-na-contact-border/)
+})
+
+test('the list and the detail pane are separate rounded cards, mirroring Student Profiles', () => {
+  // The container is a plain grid with a gap, not one joined .ptl-card sheet.
+  assert.doesNotMatch(contacts, /ptl-card ptl-na-contact-directory/)
+  assert.match(css, /\.ptl-na-contact-directory \{ display: grid;[^}]*gap: 16px;/)
+  assert.match(css, /\.ptl-na-contact-list \{[\s\S]{0,300}?border-radius: 14px;/)
+  assert.match(css, /\.ptl-na-contact-detail \{[\s\S]{0,300}?border-radius: 16px;/)
+  // The old joined-sheet seams are gone (column divider, stacked divider).
+  assert.doesNotMatch(css, /\.ptl-na-contact-list \{[^}]*border-right: 1px solid/)
+  assert.doesNotMatch(css, /\.ptl-na-contact-list \{[^}]*border-bottom: 1px solid/)
+})
+
+test('the search field keeps a visible focus treatment on the wrapper, not a raw outline ring', () => {
+  assert.match(css, /\.ptl-na-contact-search:focus-within \{ border-color: var\(--nightfall/)
+  assert.match(css, /\.ptl-na-contact-search input:focus-visible \{ outline: none; \}/)
+})
+
+test('auto-selection always takes the FIRST DISPLAYED row (orderContacts), never fetch order', () => {
+  // One ordering pipeline...
+  assert.match(contacts, /const orderContacts = \(list, category, query\) =>/)
+  // ...feeding the visible list...
+  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(directoryContacts, category, query\)/)
+  // ...and every selection site: category click, search, initial load, deactivation fallback.
+  assert.match(contacts, /setSelectedId\(orderContacts\(directoryContacts, value, query\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(directoryContacts, category, nextQuery\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /orderContacts\(next\.filter\(contact => contact\.is_active !== false\), 'All', ''\)\[0\]/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(remaining, category, query\)\[0\]\?\.id \|\| null\)/)
+  // No selection site reads raw fetch order any more.
+  assert.doesNotMatch(contacts, /setSelectedId\(directoryContacts\.find/)
+})
+
+test('profile action buttons share the approved portal look across all three surfaces', () => {
+  const btn = read('src/components/ui/ProfileActionButton.jsx')
+  // Enabled actions are solid nightfall (primary AND secondary), disabled is the grey ghost.
+  assert.match(btn, /primary:\s+SOLID/)
+  assert.match(btn, /secondary: SOLID/)
+  assert.match(btn, /hoverBg: '#151c55'/)
+  assert.match(btn, /background: '#eef0f4', color: '#9ca3af', border: '1px solid #d7dae4'/)
+  assert.match(btn, /minHeight:\s+36/)
+  assert.match(btn, /fontWeight:\s+700/)
+  // Both staff surfaces use the shared button with the portal's lucide icons.
+  const sidePanel = read('src/components/StudentSidePanel.jsx')
+  const connect = read('src/components/connect/ContactsView.jsx')
+  for (const src of [sidePanel, connect]) {
+    assert.match(src, /icon=\{<Mail size=\{15\}/)
+    assert.match(src, /icon=\{<Phone size=\{15\}/)
+    assert.match(src, /icon=\{<Pencil size=\{15\}/)
+  }
+})

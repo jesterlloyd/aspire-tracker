@@ -24,7 +24,7 @@ import { updatePreceptorAssignment, updateInterviewOutcome } from '../lib/studen
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { formatWeekdays, formatDates, formatBooleanYesNo, formatBooleanAvailable, formatText, formatMinDays, WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
 import { generateStudentSummary } from '../lib/generateSummary'
-import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
+import { Copy, Check, Mail, Pencil, Phone, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { openOutlookCompose } from '../lib/outlookCompose'
@@ -1197,7 +1197,7 @@ export default function StudentSidePanel({
                   <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', marginBottom:10 }}>
                     <ProfileActionButton
                       variant="primary"
-                      icon="✉"
+                      icon={<Mail size={15} aria-hidden="true" />}
                       label="Email"
                       onClick={() => navigate(
                         `/connect/outreach?mode=message&recipientType=student&recipientId=${data.id}`,
@@ -1214,7 +1214,7 @@ export default function StudentSidePanel({
                     />
                     <ProfileActionButton
                       variant="secondary"
-                      icon="📞"
+                      icon={<Phone size={15} aria-hidden="true" />}
                       label="Call"
                       href={data.phone ? `tel:${data.phone}` : undefined}
                       disabled={!data.phone}
@@ -1223,7 +1223,7 @@ export default function StudentSidePanel({
                     {canEdit && (
                       <ProfileActionButton
                         variant="secondary"
-                        icon="✏"
+                        icon={<Pencil size={15} aria-hidden="true" />}
                         label="Edit"
                         onClick={() => {
                           const inp = document.querySelector('.sp-content .sp-input')

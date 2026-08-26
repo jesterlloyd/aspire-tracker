@@ -168,10 +168,18 @@ test('shell, navigation, and mobile', async (t) => {
   // UL-POLISH: an outline may be suppressed ONLY for non-keyboard focus, i.e.
     // :focus:not(:focus-visible) or the [data-programmatic-focus] marker set by
     // the focus-on-navigation effect. Every keyboard focus ring must survive.
+    // NA-CONTACTS-POLISH-1: one named exception - a text input inside a styled
+    // search wrapper moves its ring to the wrapper's :focus-within treatment
+    // (text inputs match :focus-visible on EVERY focus, so the raw global ring
+    // double-boxed the wrapper for mouse users). Keyboard focus stays visible
+    // via the wrapper ring, asserted below.
     const isProgrammaticFocusRule = (line) =>
       line.includes(':focus:not(:focus-visible)') || line.includes('[data-programmatic-focus]')
+      || line.includes('.ptl-na-contact-search input:focus-visible')
     const keyboardRules = css.split('\n').filter(l => !isProgrammaticFocusRule(l)).join('\n')
     assert.doesNotMatch(keyboardRules, /outline: none/)
+    // The excepted search input's replacement ring actually exists.
+    assert.match(css, /\.ptl-na-contact-search:focus-within \{ border-color: var\(--nightfall/)
   })
 })
 

@@ -268,7 +268,9 @@ test('the portal All Contacts view groups by category with dividers, like the st
   const portal = read('src/portal/na/AcademicsContactsView.jsx')
   assert.match(portal, /ptl-na-contact-divider/)
   assert.match(portal, /categoryPluralLabel\(cat\)/)
-  assert.match(portal, /sortContactsForCategory\(group, cat\)/)
+  // NA-CONTACTS-POLISH-1: grouping + per-category sort moved into the single
+  // orderContacts pipeline; dividers are derived from its already-ordered output.
+  assert.match(portal, /sortContactsForCategory\(grouped\[cat\], cat\)/)
   assert.match(portal, /sortContactsForSearch/)
   assert.match(read('src/components/connect/ContactsView.jsx'), /sortContactsForSearch\(filtered, search\)/)
   assert.match(read('src/portal/portal.css'), /\.ptl-na-contact-divider/)

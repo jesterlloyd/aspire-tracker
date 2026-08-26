@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { Mail, Pencil, Phone } from 'lucide-react'
 import ProfileActionButton from '../ui/ProfileActionButton'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer } from '../Toast'
@@ -352,7 +353,7 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
           <ProfileActionButton
             variant="primary"
-            icon="✉"
+            icon={<Mail size={15} aria-hidden="true" />}
             label="Email"
             onClick={() => navigate(
               `/connect/outreach?mode=message&contactId=${contact.id}`,
@@ -364,7 +365,7 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
 
           <ProfileActionButton
             variant="secondary"
-            icon="📞"
+            icon={<Phone size={15} aria-hidden="true" />}
             label="Call"
             href={contact.phone ? `tel:${contact.phone}` : undefined}
             disabled={!contact.phone}
@@ -373,7 +374,7 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
 
           <ProfileActionButton
             variant="secondary"
-            icon="✎"
+            icon={<Pencil size={15} aria-hidden="true" />}
             label="Edit"
             onClick={() => onEdit && onEdit(contact)}
           />
