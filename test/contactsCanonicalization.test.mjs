@@ -10,8 +10,13 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
   CONTACT_CATEGORY_ORDER,
+  CONTACT_CATEGORY_PLURAL_LABELS,
+  categoryPluralLabel,
   LEGACY_CATEGORY_MAP,
   canonicalCategory,
+  contactServicesMeta,
+  contactListSubline,
+  sortContactsForCategory,
   CONTACT_ROLE_TITLES,
   TITLE_FREE_TEXT_CATEGORIES,
   titleOptionsFor,
@@ -128,6 +133,98 @@ test('Services appears only for a Nursing Executive with the Executive Director 
   assert.equal(showsServicesField('Nursing Executives', 'Executive Director'), true) // legacy category input
 })
 
+test('the services meta labels the ONE stored field per category: NE Services, BNI Programs', () => {
+  assert.deepEqual(contactServicesMeta('Nursing Executive', 'Executive Director'), { label: 'Services' })
+  assert.equal(contactServicesMeta('Nursing Executive', 'Manager'), null)
+  assert.deepEqual(contactServicesMeta('BNI Team', 'NPD Practitioner'), { label: 'Programs' })
+  assert.deepEqual(contactServicesMeta('BNI Team', ''), { label: 'Programs' })
+  assert.equal(contactServicesMeta('Unit Leader', 'Associate Director'), null)
+})
+
+test('display labels are plural (Others with the s); stored values stay singular', () => {
+  assert.deepEqual(CONTACT_CATEGORY_PLURAL_LABELS, {
+    'Academic Partner': 'Academic Partners',
+    'Unit Leader': 'Unit Leaders',
+    'Preceptor': 'Preceptors',
+    'BNI Team': 'BNI Team',
+    'Nursing Executive': 'Nursing Executives',
+    'Other': 'Others',
+  })
+  assert.equal(categoryPluralLabel('Unit Leadership'), 'Unit Leaders') // legacy input resolves
+  assert.deepEqual(CONTACT_CATEGORY_ORDER, [
+    'Academic Partner', 'Unit Leader', 'Preceptor', 'BNI Team', 'Nursing Executive', 'Other',
+  ])
+})
+
+test('the row subline is per-category: school / units / Programs / Services / affiliation', () => {
+  assert.equal(contactListSubline({ category: 'Academic Partner', school_name: 'UCLA', organization: 'UCLA' }), 'UCLA')
+  assert.equal(contactListSubline({ category: 'Unit Leader', unit_name: '6 NE', related_units: ['6 NW'] }), '6 NE, 6 NW')
+  assert.equal(contactListSubline({ category: 'Preceptor', unit_name: '3 SCCT' }), '3 SCCT')
+  assert.equal(contactListSubline({ category: 'BNI Team', services: 'ASPIRE, NGRP' }), 'ASPIRE, NGRP')
+  // Nursing Executive: Services, with stored units as the fallback (the
+  // acting-AD exception is data, never a name-keyed rule).
+  assert.equal(contactListSubline({ category: 'Nursing Executive', services: 'Critical Care Services', unit_name: '3 SCCT' }), 'Critical Care Services')
+  assert.equal(contactListSubline({ category: 'Nursing Executive', unit_name: 'Float Pool' }), 'Float Pool')
+  assert.equal(contactListSubline({ category: 'Other', organization: 'LA County DHS' }), 'LA County DHS')
+})
+
+test('the category sort engine follows the approved tiers in both directories', () => {
+  // Unit Leaders: unit ascending, then AD/Interim AD > ANM > NPD-P/CNS, then name.
+  const ul = sortContactsForCategory([
+    { full_name: 'Zoe', category: 'Unit Leader', role: 'Assistant Nurse Manager', unit_name: '3 North' },
+    { full_name: 'Amy', category: 'Unit Leader', role: 'NPD Practitioner', unit_name: '3 North' },
+    { full_name: 'Bea', category: 'Unit Leader', role: 'Associate Director', unit_name: '3 SCCT' },
+    { full_name: 'Cam', category: 'Unit Leader', role: 'Interim Associate Director', unit_name: '3 North' },
+    { full_name: 'Dee', category: 'Unit Leader', role: 'Clinical Nurse Specialist', unit_name: '3 North' },
+  ], 'Unit Leader').map(c => c.full_name)
+  assert.deepEqual(ul, ['Cam', 'Zoe', 'Amy', 'Dee', 'Bea'])
+
+  // BNI: ED > Lead Administrative Assistant > NPD-P (A-Z) > Project Coordinator (A-Z).
+  const bni = sortContactsForCategory([
+    { full_name: 'Nia', category: 'BNI Team', role: 'NPD Practitioner' },
+    { full_name: 'Pat', category: 'BNI Team', role: 'Program/Project Coordinator' },
+    { full_name: 'Margo', category: 'BNI Team', role: 'Executive Director' },
+    { full_name: 'Abe', category: 'BNI Team', role: 'Lead Administrative Assistant' },
+    { full_name: 'Ana', category: 'BNI Team', role: 'NPD Practitioner' },
+  ], 'BNI Team').map(c => c.full_name)
+  assert.deepEqual(bni, ['Margo', 'Abe', 'Ana', 'Nia', 'Pat'])
+
+  // Nursing Executives: SVP > VP > Executive Directors (A-Z) > Managers.
+  const ne = sortContactsForCategory([
+    { full_name: 'Mia', category: 'Nursing Executive', role: 'Manager' },
+    { full_name: 'Carol', category: 'Nursing Executive', role: 'Executive Director' },
+    { full_name: 'David', category: 'Nursing Executive', role: 'SVP, Chief Nursing Executive' },
+    { full_name: 'Ann', category: 'Nursing Executive', role: 'Executive Director' },
+    { full_name: 'Vera', category: 'Nursing Executive', role: 'VP of Nursing and Therapies' },
+  ], 'Nursing Executive').map(c => c.full_name)
+  assert.deepEqual(ne, ['David', 'Vera', 'Ann', 'Carol', 'Mia'])
+
+  // Academic Partners: school then name; Preceptors/Others: name.
+  const ap = sortContactsForCategory([
+    { full_name: 'Zed', category: 'Academic Partner', school_name: 'Cal State LA' },
+    { full_name: 'Amy', category: 'Academic Partner', school_name: 'UCLA' },
+    { full_name: 'Bob', category: 'Academic Partner', school_name: 'Cal State LA' },
+  ], 'Academic Partner').map(c => c.full_name)
+  assert.deepEqual(ap, ['Bob', 'Zed', 'Amy'])
+  const pre = sortContactsForCategory([
+    { full_name: 'Beth', category: 'Preceptor' }, { full_name: 'Al', category: 'Preceptor' },
+  ], 'Preceptor').map(c => c.full_name)
+  assert.deepEqual(pre, ['Al', 'Beth'])
+})
+
+test('both directories consume the shared row/sort/label helpers', () => {
+  const staff = read('src/components/connect/ContactsView.jsx')
+  const portal = read('src/portal/na/AcademicsContactsView.jsx')
+  for (const src of [staff, portal]) {
+    assert.match(src, /contactListSubline/)
+    assert.match(src, /sortContactsForCategory/)
+    assert.match(src, /categoryPluralLabel/)
+    assert.match(src, /contactServicesMeta/)
+  }
+  // The staff view's old local Unit Leader rank table is gone.
+  assert.doesNotMatch(staff, /UNIT_ROLE_RANK/)
+})
+
 test('the multi-unit model maps [primary, ...rest] onto unit_name + related_units, both directions', () => {
   assert.deepEqual(contactUnitList({ unit_name: '6 NE', related_units: ['6 NW', '6 NE', ' '] }), ['6 NE', '6 NW'])
   assert.deepEqual(contactUnitList({ unit_name: '', related_units: null }), [])
@@ -187,7 +284,7 @@ test('contacts-upsert enforces the canon server-side and retired the preferred m
   assert.match(src, /affiliationKind\(effectiveCategory\)/)
   assert.match(src, /payload\.organization = CSMC_AFFILIATION/)
   assert.match(src, /resolveOperativeSchoolName/)
-  assert.match(src, /showsServicesField\(effectiveCategory, effRole\)/)
+  assert.match(src, /contactServicesMeta\(effectiveCategory, effRole\)/)
   assert.match(src, /503/)
   assert.doesNotMatch(src, /preferred_contact_method/)
   assert.doesNotMatch(src, /VALID_CATEGORIES/)
@@ -333,7 +430,7 @@ test('both editors drive category, title, affiliation, units, and services from 
     assert.match(src, /titleAllowsFreeText/)
     assert.match(src, /affiliationKind/)
     assert.match(src, /showsUnitAffiliation|showUnits/)
-    assert.match(src, /showsServicesField/)
+    assert.match(src, /contactServicesMeta/)
     assert.match(src, /splitUnitList/)
     assert.match(src, /MultiScopePicker/)
     assert.doesNotMatch(src, /preferred_contact_method/)

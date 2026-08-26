@@ -20,7 +20,7 @@ import {
   canonicalCategory,
   isTitleAllowed,
   affiliationKind,
-  showsServicesField,
+  contactServicesMeta,
   CSMC_AFFILIATION,
 } from '../../src/lib/contactCategories.js'
 import { getCanonicalUnitNames } from '../../src/lib/unitCatalog.js'
@@ -118,11 +118,11 @@ function parseContactPayload(body, { create = false, existing = null } = {}) {
     }
   }
 
-  // Services: Nursing Executive + Executive Director only.
+  // Services: BNI Team (Programs) or Nursing Executive + Executive Director.
   if (payload.services) {
     if (payload.services.length > 200) return { error: 'invalid_services' }
     const effRole = payload.role !== undefined ? payload.role : existing?.role
-    if (!showsServicesField(effCat, effRole)) return { error: 'invalid_services' }
+    if (!contactServicesMeta(effCat, effRole)) return { error: 'invalid_services' }
   }
 
   if (!create && typeof body.is_active === 'boolean') payload.is_active = body.is_active

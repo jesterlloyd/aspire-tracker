@@ -14,8 +14,9 @@ import {
   getPrimaryCategory, getContactCategories,
   CONTACT_CATEGORY_ORDER, canonicalCategory,
   titleOptionsFor, titleAllowsFreeText,
-  affiliationKind, showsUnitAffiliation, showsServicesField,
+  affiliationKind, showsUnitAffiliation, contactServicesMeta,
   contactUnitList, splitUnitList, CSMC_AFFILIATION,
+  categoryPluralLabel, contactListSubline, sortContactsForCategory,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
@@ -33,18 +34,8 @@ const NAVY = '#1D2567'
 // the shared src/lib/contactCategories.js module (imported above) so the Contacts page and the
 // Send-to-Many Contacts source share one source of truth. Behavior is unchanged.
 
-// Role rank within Unit Leader for sorting (canonical titles + legacy passthrough)
-const UNIT_ROLE_RANK = {
-  'Associate Director':         1,
-  'Interim Associate Director': 1,
-  'Assistant Nurse Manager':    2,
-  'NPD Practitioner':           3,
-  'Unit NPD-P':                 3,
-  'Unit NPD Practitioner':      3,
-  'Clinical Nurse Specialist':  4,
-}
-
-// CONTACTS-CANON-1: the chip row derives from the shared canonical order.
+// CONTACTS-CANON-1: the chip row derives from the shared canonical order, and
+// per-category sorting lives in the shared sortContactsForCategory comparator.
 const CATEGORY_ORDER = ['All', ...CONTACT_CATEGORY_ORDER]
 
 // Category-level chip fallback - used when the contact's role string isn't in the shared role map.
@@ -198,7 +189,9 @@ function CategoryDivider({ label, count }) {
 // ── Contact list row ──────────────────────────────────────────────────────────
 
 function ContactRow({ contact, isSelected, onClick }) {
-  const contextLine = contact.unit_name || contact.organization
+  // CONTACTS-CANON-1 row shape: name, then the Role/Title pill, then the
+  // per-category subline (school / unit(s) / Programs / Services / affiliation).
+  const contextLine = contactListSubline(contact)
   return (
     <div
       onClick={onClick}
@@ -242,23 +235,25 @@ function ContactRow({ contact, isSelected, onClick }) {
               : contact.full_name
             }
           </div>
-          <div style={{
-            fontSize: 10.5, color: '#6b7280', fontFamily: F, lineHeight: 1.3,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {contextLine}
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <span style={roleChip(contact.role, getPrimaryCategory(contact))}>{contact.role}</span>
+          <div style={{ marginTop: 2 }}>
+            {contact.role && <span style={roleChip(contact.role, getPrimaryCategory(contact))}>{contact.role}</span>}
             {contact.is_active === false && (
               <span style={{
-                marginLeft: 4, fontSize: 9, fontWeight: 700, padding: '1px 5px',
+                marginLeft: contact.role ? 4 : 0, fontSize: 9, fontWeight: 700, padding: '1px 5px',
                 borderRadius: 4, background: '#f3f4f6', color: '#9ca3af',
                 border: '1px solid #e5e7eb', fontFamily: F,
                 textTransform: 'uppercase', letterSpacing: '0.06em',
               }}>Inactive</span>
             )}
           </div>
+          {contextLine && (
+            <div style={{
+              fontSize: 10.5, color: '#6b7280', fontFamily: F, lineHeight: 1.3, marginTop: 3,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {contextLine}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -472,7 +467,9 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
             )}
             {contact.services && (
               <div style={{ display: 'flex', gap: 8, marginTop: contact.school_name ? 6 : 0 }}>
-                <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>Services</span>
+                <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>
+                  {contactServicesMeta(getPrimaryCategory(contact), contact.role)?.label || 'Services'}
+                </span>
                 <span style={{ fontSize: 13, color: '#374151', fontFamily: F }}>{contact.services}</span>
               </div>
             )}
@@ -1040,8 +1037,17 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   const roleIsListed = titles.includes(roleValue)
   const showCustomTitleInput = titleAllowsFreeText(cat) && (formData.role_custom === true)
   const affKind = cat ? affiliationKind(cat) : null
-  const showUnits = cat ? showsUnitAffiliation(cat) : false
-  const showServices = showsServicesField(cat, roleValue)
+  // Unit picker: Unit Leader and Preceptor by canon; a Nursing Executive sees
+  // it ONLY when units were already stored when the modal opened (the
+  // acting-AD passthrough, e.g. Charina Emerson / Float Pool), so units can
+  // be edited or CLEARED (the clear still saves) but never newly added to an
+  // executive.
+  const hadUnitsAtOpen = isEdit && contactUnitList(initialData || {}).length > 0
+  const showUnits = cat
+    ? (showsUnitAffiliation(cat) || (cat === 'Nursing Executive' && hadUnitsAtOpen))
+    : false
+  const servicesMeta = contactServicesMeta(cat, roleValue)
+  const showServices = Boolean(servicesMeta)
 
   const handleCategoryChange = (newCat) => {
     setFormData(prev => {
@@ -1078,7 +1084,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
       hiddenPopulatedFields.push('Unit Affiliation')
     }
     if (!showServices && formData.services) {
-      hiddenPopulatedFields.push('Services')
+      hiddenPopulatedFields.push('Services / Programs')
     }
   }
 
@@ -1431,14 +1437,17 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
             </div>
           )}
 
-          {/* Services: Nursing Executive with the Executive Director title. */}
+          {/* Services (Nursing Executive + Executive Director) or Programs
+              (every BNI Team contact); one stored field, per-category label. */}
           {showServices && (
             <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Services</label>
+              <label style={labelStyle}>{servicesMeta.label}</label>
               <input
                 value={formData.services || ''}
                 onChange={e => set('services', e.target.value)}
-                placeholder="e.g. BNI, Surgical Services, OLAR"
+                placeholder={servicesMeta.label === 'Programs'
+                  ? 'e.g. ASPIRE, NGRP, Preceptor Program'
+                  : 'e.g. BNI, Surgical Services, OLAR'}
                 style={inputStyle}
               />
             </div>
@@ -1806,44 +1815,21 @@ export default function ContactsView({ refreshKey = 0 }) {
     return true
   })
 
-  // Stable alphabetical order by the EXACT displayed name (preferred name when
-  // shown, else full_name), case-insensitive + numeric, with full_name then id
-  // as deterministic tie-breakers. Replaces the prior server org-grouped order
-  // (`.order('organization').order('full_name')`), which made the list look
-  // unsorted. Both the grouped and flat render paths consume sortedFiltered.
-  const contactDisplayName = c => {
-    const full = c.full_name || ''
-    if (c.preferred_name) return `${c.preferred_name} ${full.split(' ').slice(1).join(' ')}`.trim()
-    return full
-  }
-  let sortedFiltered = [...filtered].sort((a, b) => {
-    const cmp = contactDisplayName(a).localeCompare(contactDisplayName(b), undefined, { sensitivity: 'base', numeric: true })
-    if (cmp !== 0) return cmp
-    const fc = (a.full_name || '').localeCompare(b.full_name || '', undefined, { sensitivity: 'base', numeric: true })
-    if (fc !== 0) return fc
-    return (a.id || '').localeCompare(b.id || '')
-  })
-
-  // Unit Leader keeps its intentional unit_name → role rank → full_name
-  // grouping (overrides the alphabetical base for that category only).
-  if (categoryFilter === 'Unit Leader') {
-    sortedFiltered = [...filtered].sort((a, b) => {
-      const uA = a.unit_name || (Array.isArray(a.related_units) ? a.related_units[0] : '') || ''
-      const uB = b.unit_name || (Array.isArray(b.related_units) ? b.related_units[0] : '') || ''
-      const unitCmp = uA.localeCompare(uB)
-      if (unitCmp !== 0) return unitCmp
-      const rA = UNIT_ROLE_RANK[a.role] || 99
-      const rB = UNIT_ROLE_RANK[b.role] || 99
-      if (rA !== rB) return rA - rB
-      return (a.full_name || '').localeCompare(b.full_name || '')
-    })
-  }
+  // CONTACTS-CANON-1 ordering: each category has an approved sort (Unit
+  // Leaders by unit then AD > ANM > NPD-P/CNS; BNI by ED > Lead Admin > NPD-P
+  // > Project Coordinator; Nursing Executives by SVP > VP > EDs > Managers;
+  // Academic Partners by school; Preceptors and Others by name), from the ONE
+  // shared comparator. The flat All view (search active) stays name-sorted.
+  const sortedFiltered = categoryFilter === 'All'
+    ? sortContactsForCategory(filtered, 'Other') // name order
+    : sortContactsForCategory(filtered, categoryFilter)
 
   const showGrouped = categoryFilter === 'All' && !search.trim()
 
   const listItems = []
   if (showGrouped) {
-    // Group by primary category - each contact appears exactly once
+    // Group by primary category - each contact appears exactly once, and each
+    // group is ordered by its own category's approved sort.
     const grouped = {}
     sortedFiltered.forEach(c => {
       const cat = getPrimaryCategory(c)
@@ -1853,8 +1839,8 @@ export default function ContactsView({ refreshKey = 0 }) {
     CATEGORY_ORDER.filter(cat => cat !== 'All').forEach(cat => {
       const group = grouped[cat]
       if (!group || group.length === 0) return
-      listItems.push({ type: 'divider', label: cat, count: group.length })
-      group.forEach(c => listItems.push({ type: 'row', contact: c }))
+      listItems.push({ type: 'divider', label: categoryPluralLabel(cat), count: group.length })
+      sortContactsForCategory(group, cat).forEach(c => listItems.push({ type: 'row', contact: c }))
     })
   } else {
     sortedFiltered.forEach(c => listItems.push({ type: 'row', contact: c }))
@@ -1992,7 +1978,7 @@ export default function ContactsView({ refreshKey = 0 }) {
                   transition: 'background 0.12s, color 0.12s',
                 }}
               >
-                <span>{cat}</span>
+                <span>{cat === 'All' ? 'All Contacts' : categoryPluralLabel(cat)}</span>
                 <span style={{
                   fontSize: 9, fontWeight: 700,
                   padding: '0 4px', borderRadius: 3,

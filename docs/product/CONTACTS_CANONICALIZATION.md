@@ -1,10 +1,11 @@
 # Contacts Canonicalization (CONTACTS-CANON-1)
 
 Date: 2026-08-25
-Status: Built, NOT committed, NOT pushed. Migration
-`supabase/migrations/20260826000000_contacts_canonicalization.sql` is NOT
-applied (Owner SQL gate). Full suite 5,702/5,702 green; `npx vite build`
-passes; touched files at or below their pre-existing lint baselines.
+Status: SHIPPED and APPLIED. Pushed as b2dee20 + 84e45c2 (ordering fix);
+migration `20260826000000_contacts_canonicalization.sql` applied to
+production 2026-08-25 with all verifications green and an EMPTY V4
+manual-correction worklist. The presentation pass (addendum below) followed
+the same day. Full suite green; `npx vite build` passes.
 
 ## The approved canon (locked 2026-08-25)
 
@@ -84,3 +85,30 @@ working as "(legacy)" dropdown passthrough options until corrected.
 - Digest recipient matching still keys on contacts.school_name equality with
   students.school; the Academic Partner school dropdown writes exactly those
   operative identities, which tightens (not changes) that contract.
+
+## Addendum: presentation pass (2026-08-25, approved)
+
+- Display labels for chips/KPI cards are PLURAL in both apps ("All Contacts,
+  Academic Partners, Unit Leaders, Preceptors, BNI Team, Nursing Executives,
+  Others"); stored values stay the singular canon
+  (CONTACT_CATEGORY_PLURAL_LABELS / categoryPluralLabel).
+- Row shape in BOTH directories: name, then the Role/Title pill, then a
+  per-category subline (contactListSubline): Academic Partner school, Unit
+  Leader and Preceptor unit(s), BNI Team Programs, Nursing Executive
+  Services (units only as fallback when stored), Other affiliation.
+- Per-category sort engine (sortContactsForCategory), applied on category
+  filters in both apps and inside the staff grouped All view: Unit Leaders
+  by unit then AD/Interim AD > ANM > NPD-P/CNS; BNI by ED > Lead Admin
+  Assistant > NPD-P > Program/Project Coordinator; Nursing Executives by
+  SVP > VP > EDs > Managers; Academic Partners by school; Preceptors and
+  Others by name. Flat All views stay name-sorted.
+- BNI Team gained a "Programs" line: the SAME contacts.services column with
+  a per-category label (contactServicesMeta: NE+ED "Services", any BNI
+  "Programs"); the field appears in both editors for BNI contacts. No new
+  SQL.
+- Nursing Executive units are data-driven display (shown only when stored)
+  plus a one-time cleanup clearing units from every NE contact except
+  Charina Emerson (acting Associate Director of Float Pool; title stays
+  Executive Director). The editors show the NE unit picker only when units
+  were stored at open, so the exception stays editable and clearable but
+  units can never be newly added to an executive.

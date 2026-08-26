@@ -49,7 +49,7 @@ import {
   isTitleAllowed,
   titleOptionsFor,
   affiliationKind,
-  showsServicesField,
+  contactServicesMeta,
   CSMC_AFFILIATION,
 } from '../src/lib/contactCategories.js';
 import { getCanonicalUnitNames } from '../src/lib/unitCatalog.js';
@@ -339,9 +339,9 @@ async function _handler(req, res) {
       return res.status(400).json({ error: 'services must be a string of 200 characters or fewer' });
     }
     const effRole = payload.role !== undefined ? payload.role : existing?.role;
-    if (!showsServicesField(effectiveCategory, effRole)) {
+    if (!contactServicesMeta(effectiveCategory, effRole)) {
       return res.status(400).json({
-        error: 'services applies only to a Nursing Executive contact with the Executive Director title.',
+        error: 'services applies only to BNI Team contacts (Programs) and Nursing Executive contacts with the Executive Director title (Services).',
       });
     }
     const { error: probeErr } = await supabaseAdmin.from('contacts').select('services').limit(1);

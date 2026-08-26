@@ -63,6 +63,22 @@ export function canonicalCategory(raw) {
   return LEGACY_CATEGORY_MAP[v] || null
 }
 
+// DISPLAY labels for chips/KPI cards are PLURAL (decision 2026-08-25);
+// stored values stay the singular canon. 'Others' with the s is deliberate.
+export const CONTACT_CATEGORY_PLURAL_LABELS = {
+  'Academic Partner': 'Academic Partners',
+  'Unit Leader': 'Unit Leaders',
+  'Preceptor': 'Preceptors',
+  'BNI Team': 'BNI Team',
+  'Nursing Executive': 'Nursing Executives',
+  'Other': 'Others',
+}
+
+export function categoryPluralLabel(category) {
+  const c = canonicalCategory(category)
+  return CONTACT_CATEGORY_PLURAL_LABELS[c] || String(category || '')
+}
+
 // ── Titles (Role/Title per category) ─────────────────────────────────────────
 
 export const CONTACT_ROLE_TITLES = {
@@ -166,6 +182,18 @@ export function showsServicesField(category, title) {
     && String(title || '').trim() === 'Executive Director'
 }
 
+// The free-text focus line stored in contacts.services, with its per-category
+// display label (decision 2026-08-25): Nursing Executive + Executive Director
+// shows "Services"; EVERY BNI Team contact shows "Programs" (ASPIRE, NGRP,
+// Preceptor Program, ...). Returns { label } when the field applies, else
+// null. Endpoints and both editors consult THIS, never the raw rule.
+export function contactServicesMeta(category, title) {
+  const c = canonicalCategory(category)
+  if (c === 'BNI Team') return { label: 'Programs' }
+  if (showsServicesField(c, title)) return { label: 'Services' }
+  return null
+}
+
 // ── Units (multi-unit model over the existing columns) ───────────────────────
 //
 // The canonical unit list for a contact is [unit_name, ...related_units]:
@@ -191,6 +219,100 @@ export function splitUnitList(units) {
     if (v && !list.includes(v)) list.push(v)
   }
   return { unit_name: list[0] || null, related_units: list.slice(1) }
+}
+
+// ── List presentation (rows in BOTH contact directories) ─────────────────────
+//
+// Row shape (decision 2026-08-25): name, then the Role/Title pill, then a
+// per-category third line:
+//   Academic Partner  -> school
+//   Unit Leader       -> unit(s)
+//   Preceptor         -> unit(s)
+//   BNI Team          -> Programs (contacts.services)
+//   Nursing Executive -> Services (contacts.services); units only when stored
+//                        (the Charina Emerson acting-AD exception is data,
+//                        not a name-keyed rule)
+//   Other             -> affiliation (organization, else school)
+
+export function contactListSubline(contact) {
+  const c = getPrimaryCategory(contact) || 'Other'
+  const units = contactUnitList(contact)
+  const services = String(contact?.services || '').trim()
+  if (c === 'Academic Partner') return String(contact?.school_name || '').trim()
+  if (c === 'Unit Leader' || c === 'Preceptor') return units.join(', ')
+  if (c === 'BNI Team') return services
+  if (c === 'Nursing Executive') return services || units.join(', ')
+  return String(contact?.organization || '').trim() || String(contact?.school_name || '').trim()
+}
+
+// ── Category sort engine (BOTH contact directories) ──────────────────────────
+//
+// Approved ordering (2026-08-25), applied when a category filter is active
+// and inside the staff app's grouped All view:
+//   Unit Leader:       unit ascending, then AD/Interim AD > ANM > NPD-P/CNS,
+//                      then name
+//   BNI Team:          ED > Lead Administrative Assistant > NPD-P >
+//                      Program/Project Coordinator, then name
+//   Nursing Executive: SVP Chief Nursing Executive > VP of Nursing and
+//                      Therapies > Executive Directors > Managers, then name
+//   Academic Partner:  school, then name
+//   Preceptor / Other: name
+// Unknown/legacy titles sort after every ranked tier; missing units/schools
+// sort last within their category.
+
+const UL_TITLE_TIER = {
+  'Associate Director': 1, 'Interim Associate Director': 1,
+  'Assistant Nurse Manager': 2,
+  'NPD Practitioner': 3, 'Clinical Nurse Specialist': 3,
+  'Unit NPD-P': 3, 'Unit NPD Practitioner': 3,
+}
+const BNI_TITLE_TIER = {
+  'Executive Director': 1,
+  'Lead Administrative Assistant': 2,
+  'NPD Practitioner': 3,
+  'Program/Project Coordinator': 4,
+}
+const NE_TITLE_TIER = {
+  'SVP, Chief Nursing Executive': 1,
+  'VP of Nursing and Therapies': 2,
+  'Executive Director': 3,
+  'Manager': 4,
+}
+
+const SORT_LAST = '￿'
+const cmpText = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
+const contactName = (c) => String(c?.full_name || c?.preferred_name || '')
+const tierOf = (table, c) => table[String(c?.role || '').trim()] ?? 99
+
+export function compareContactsForCategory(category) {
+  const c = canonicalCategory(category)
+  if (c === 'Unit Leader') {
+    return (a, b) =>
+      cmpText(contactUnitList(a)[0] || SORT_LAST, contactUnitList(b)[0] || SORT_LAST)
+      || (tierOf(UL_TITLE_TIER, a) - tierOf(UL_TITLE_TIER, b))
+      || cmpText(contactName(a), contactName(b))
+  }
+  if (c === 'BNI Team') {
+    return (a, b) =>
+      (tierOf(BNI_TITLE_TIER, a) - tierOf(BNI_TITLE_TIER, b))
+      || cmpText(contactName(a), contactName(b))
+  }
+  if (c === 'Nursing Executive') {
+    return (a, b) =>
+      (tierOf(NE_TITLE_TIER, a) - tierOf(NE_TITLE_TIER, b))
+      || cmpText(contactName(a), contactName(b))
+  }
+  if (c === 'Academic Partner') {
+    return (a, b) =>
+      cmpText(String(a?.school_name || '').trim() || SORT_LAST, String(b?.school_name || '').trim() || SORT_LAST)
+      || cmpText(contactName(a), contactName(b))
+  }
+  return (a, b) => cmpText(contactName(a), contactName(b))
+}
+
+// Non-mutating convenience over the comparator.
+export function sortContactsForCategory(contacts, category) {
+  return [...(contacts || [])].sort(compareContactsForCategory(category))
 }
 
 // ── Role inference (read-time, for rows predating the stored category) ───────

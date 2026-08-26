@@ -13,8 +13,9 @@ import {
   CONTACT_CATEGORY_ORDER, categoryChipColors, contactRoleChipColors,
   getContactCategories, getPrimaryCategory,
   canonicalCategory, titleOptionsFor, titleAllowsFreeText,
-  affiliationKind, showsUnitAffiliation, showsServicesField,
+  affiliationKind, showsUnitAffiliation, contactServicesMeta,
   contactUnitList, splitUnitList, CSMC_AFFILIATION,
+  categoryPluralLabel, contactListSubline, sortContactsForCategory,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
@@ -36,7 +37,9 @@ const displayListName = contact => {
   if (full.toLowerCase() === preferred.toLowerCase() || full.toLowerCase().startsWith(`${preferred.toLowerCase()} `)) return full
   return [preferred, full.split(/\s+/).slice(1).join(' ')].filter(Boolean).join(' ')
 }
-const affiliationLine = contact => contactUnitList(contact).join(', ') || clean(contact.school_name) || clean(contact.organization) || 'Contact information'
+// CONTACTS-CANON-1 row shape: name, then the Role/Title pill, then the
+// per-category subline (school / unit(s) / Programs / Services / affiliation).
+const affiliationLine = contact => contactListSubline(contact)
 const primaryCategory = contact => getPrimaryCategory(contact) || 'Other'
 const rolePillStyle = contact => {
   const colors = contactRoleChipColors(contact.role, primaryCategory(contact))
@@ -121,8 +124,13 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
   const roleListed = titles.includes(form.role)
   const showCustomTitle = titleAllowsFreeText(cat) && form.role_custom === true
   const affKind = affiliationKind(cat)
+  // NE unit passthrough: the picker appears for an executive only when units
+  // were stored at open (acting-AD exception), so a clear still saves.
+  const hadUnitsAtOpen = Boolean(contact) && contactUnitList(contact).length > 0
   const showUnits = showsUnitAffiliation(cat)
-  const showServices = showsServicesField(cat, form.role)
+    || (canonicalCategory(cat) === 'Nursing Executive' && hadUnitsAtOpen)
+  const servicesMeta = contactServicesMeta(cat, form.role)
+  const showServices = Boolean(servicesMeta)
 
   const changeCategory = value => setForm(current => ({
     ...current,
@@ -242,7 +250,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
             </div>
           )}
           {showServices && (
-            <label className="ptl-na-contact-form-wide"><span>Services</span><input value={form.services} onChange={e => set('services', e.target.value)} placeholder="e.g. BNI, Surgical Services, OLAR" /></label>
+            <label className="ptl-na-contact-form-wide"><span>{servicesMeta.label}</span><input value={form.services} onChange={e => set('services', e.target.value)} placeholder={servicesMeta.label === 'Programs' ? 'e.g. ASPIRE, NGRP, Preceptor Program' : 'e.g. BNI, Surgical Services, OLAR'} /></label>
           )}
         </div>
         {error && <p className="ptl-na-contact-form-error" role="alert">{error}</p>}
@@ -322,9 +330,12 @@ export default function AcademicsContactsView({ active = true }) {
       ...[...available].filter(value => !CONTACT_CATEGORY_ORDER.includes(value)).sort((a, b) => a.localeCompare(b)),
     ]
   }, [categoryCounts])
-  const filtered = useMemo(() => directoryContacts
-    .filter(contact => contactMatches(contact, category, query))
-    .sort((a, b) => displayListName(a).localeCompare(displayListName(b), undefined, { sensitivity: 'base', numeric: true })), [directoryContacts, category, query])
+  // CONTACTS-CANON-1 ordering: the approved per-category sort from the ONE
+  // shared comparator; the All view stays name-sorted.
+  const filtered = useMemo(() => {
+    const matched = directoryContacts.filter(contact => contactMatches(contact, category, query))
+    return sortContactsForCategory(matched, category === 'All' ? 'Other' : category)
+  }, [directoryContacts, category, query])
   const visibleEmails = useMemo(() => {
     const seen = new Set()
     return filtered.reduce((emails, contact) => {
@@ -445,7 +456,7 @@ export default function AcademicsContactsView({ active = true }) {
               aria-pressed={selected}
             >
               <strong>{value === 'All' ? directoryContacts.length : categoryCounts.get(value) || 0}</strong>
-              <span>{value === 'All' ? 'All Contacts' : value}</span>
+              <span>{value === 'All' ? 'All Contacts' : categoryPluralLabel(value)}</span>
             </button>
           )
         })}
@@ -485,8 +496,8 @@ export default function AcademicsContactsView({ active = true }) {
               <span className="ptl-na-contact-row-copy">
                 <strong>{displayListName(contact)}</strong>
                 {contact.is_active === false && <span className="ptl-na-contact-inactive-badge">Inactive</span>}
-                <span className="ptl-na-contact-affiliation-line">{affiliationLine(contact)}</span>
                 {contact.role && <span className="ptl-na-contact-row-role" style={rolePillStyle(contact)}>{contact.role}</span>}
+                {affiliationLine(contact) && <span className="ptl-na-contact-affiliation-line">{affiliationLine(contact)}</span>}
               </span>
             </button>
           ))}
@@ -532,7 +543,7 @@ export default function AcademicsContactsView({ active = true }) {
                         {contactUnitList(selected).length > 0 && (
                           <div><dt>{contactUnitList(selected).length === 1 ? 'Unit' : 'Units'}</dt><dd>{contactUnitList(selected).join(', ')}</dd></div>
                         )}
-                        {selected.services && <div><dt>Services</dt><dd>{selected.services}</dd></div>}
+                        {selected.services && <div><dt>{contactServicesMeta(getPrimaryCategory(selected), selected.role)?.label || 'Services'}</dt><dd>{selected.services}</dd></div>}
                       </dl>
                     </section>
                   )}
