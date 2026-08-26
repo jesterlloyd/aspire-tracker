@@ -179,7 +179,7 @@ test('shell, navigation, and mobile', async (t) => {
     const keyboardRules = css.split('\n').filter(l => !isProgrammaticFocusRule(l)).join('\n')
     assert.doesNotMatch(keyboardRules, /outline: none/)
     // The excepted search input's replacement ring actually exists.
-    assert.match(css, /\.ptl-na-contact-search:focus-within \{ border-color: var\(--nightfall/)
+    assert.match(css, /\.ptl-na-contact-search:focus-within \{ border-color: var\(--nova/)
   })
 })
 

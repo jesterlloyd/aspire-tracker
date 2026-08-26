@@ -301,7 +301,6 @@ export default function AcademicsContactsView({ active = true }) {
   const [error, setError] = useState(null)
   const [copyStatus, setCopyStatus] = useState('')
   const [canManageContacts, setCanManageContacts] = useState(false)
-  const [showInactive, setShowInactive] = useState(false)
   const [editorContact, setEditorContact] = useState(undefined)
   const [saving, setSaving] = useState(false)
   const [mutationError, setMutationError] = useState('')
@@ -347,7 +346,9 @@ export default function AcademicsContactsView({ active = true }) {
   }, [active, reloadKey, reportFailure])
 
   const query = search.trim().toLowerCase()
-  const directoryContacts = useMemo(() => contacts.filter(contact => showInactive || contact.is_active !== false), [contacts, showInactive])
+  // NA-CONTACTS-POLISH-3: the directory lists active contacts only; a
+  // deactivated contact is reactivated from staff ASPIRE Connect.
+  const directoryContacts = useMemo(() => contacts.filter(contact => contact.is_active !== false), [contacts])
   const categoryCounts = useMemo(() => {
     const counts = new Map()
     directoryContacts.forEach(contact => getContactCategories(contact).forEach(value => counts.set(value, (counts.get(value) || 0) + 1)))
@@ -453,7 +454,7 @@ export default function AcademicsContactsView({ active = true }) {
   }
   const changeContactStatus = async contact => {
     const activate = contact.is_active === false
-    if (!activate && !window.confirm(`Deactivate ${displayListName(contact)}? The contact will remain available to Contacts Editors and can be reactivated later.`)) return
+    if (!activate && !window.confirm(`Deactivate ${displayListName(contact)}? The contact will be hidden here and can be reactivated from ASPIRE Connect.`)) return
     setSaving(true); setMutationError('')
     const res = await updateAcademicsContact(contact.id, { is_active: activate })
     setSaving(false)
@@ -463,7 +464,7 @@ export default function AcademicsContactsView({ active = true }) {
       return
     }
     applySavedContact(res.data.contact)
-    if (!activate && !showInactive) {
+    if (!activate) {
       const remaining = contacts.filter(row => row.id !== contact.id && row.is_active !== false)
       setSelectedId(orderContacts(remaining, category, query)[0]?.id || null)
     }
@@ -476,19 +477,9 @@ export default function AcademicsContactsView({ active = true }) {
   if (loaded && contacts.length === 0) return <EmptyState title="No active contacts" detail="Active ASPIRE contacts will appear here." />
 
   return (
-    <section className="ptl-na-contacts" aria-labelledby="na-contacts-heading">
-      <div className="ptl-na-section-heading">
-        <div>
-          <h2 id="na-contacts-heading">Contacts</h2>
-          <p>{canManageContacts ? 'Manage the ASPIRE contact directory. Permanent removal is not available.' : 'Read-only access to the active ASPIRE contact directory.'}</p>
-        </div>
-        <div className="ptl-na-contact-heading-actions">
-          {mutationStatus && <span className="ptl-na-contact-save-status" role="status">{mutationStatus}</span>}
-          {canManageContacts && <button type="button" className="ptl-na-contact-editor-primary" onClick={() => { setMutationError(''); setEditorContact(null) }}><Plus size={15} /> Add contact</button>}
-          <span className="ptl-na-result-count">{filtered.length} of {directoryContacts.length} contacts</span>
-        </div>
-      </div>
-
+    // NA-CONTACTS-POLISH-3: no heading block - the tab already says Contacts,
+    // and Add contact lives in the controls row next to the search.
+    <section className="ptl-na-contacts" aria-label="Contacts">
       <div className="ptl-na-contact-kpis" role="group" aria-label="Filter contacts by category">
         {['All', ...categories].map(value => {
           const selected = category === value
@@ -515,13 +506,13 @@ export default function AcademicsContactsView({ active = true }) {
         })}
       </div>
 
-      <div className="ptl-na-contact-controls" role="group" aria-label="Search and copy contacts">
+      <div className="ptl-na-contact-controls" role="group" aria-label="Search and manage contacts">
         <label className="ptl-na-contact-search" htmlFor="na-contact-search">
           <Search size={17} aria-hidden="true" />
           <span className="ptl-visually-hidden">Search contacts</span>
           <input id="na-contact-search" type="search" value={search} onChange={updateSearch} placeholder="Search contacts" />
         </label>
-        {canManageContacts && <label className="ptl-na-show-inactive"><input type="checkbox" checked={showInactive} onChange={event => setShowInactive(event.target.checked)} /> Show inactive</label>}
+        {canManageContacts && <button type="button" className="ptl-na-contact-editor-primary" onClick={() => { setMutationError(''); setEditorContact(null) }}><Plus size={15} /> Add contact</button>}
         <button
           type="button"
           className="ptl-na-copy-emails"
@@ -532,6 +523,7 @@ export default function AcademicsContactsView({ active = true }) {
         >
           <Copy size={15} aria-hidden="true" /> {copyStatus || 'Copy visible emails'}
         </button>
+        {mutationStatus && <span className="ptl-na-contact-save-status" role="status">{mutationStatus}</span>}
       </div>
 
       <div className="ptl-na-contact-directory">

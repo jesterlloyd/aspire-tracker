@@ -2068,7 +2068,11 @@ img.ptl-detail-photo {
 .ptl-na-chart-label { display: flex; align-items: center; font-size: 12.5px; font-weight: 600; color: var(--ptl-ink); }
 .ptl-na-chart-bars { display: flex; flex-direction: column; gap: 3px; }
 .ptl-na-chart-barline { display: flex; align-items: center; gap: 8px; min-height: 12px; }
-.ptl-na-chart-bar { display: inline-block; height: 10px; border-radius: 5px; flex-shrink: 0; }
+/* NA-CONTACTS-POLISH-3: flex-shrink 1 (was 0) lets a 100%-width bar give up
+   exactly the room its value label needs, so the label never spills past the
+   card edge. Only the overflowing bar shrinks; every other bar keeps its
+   exact proportional width, and the label stays adjacent to its bar. */
+.ptl-na-chart-bar { display: inline-block; height: 10px; border-radius: 5px; flex-shrink: 1; }
 .ptl-na-chart-value { font-size: 11.5px; color: var(--ptl-muted, #6b7280); white-space: nowrap; }
 
 /* Program quick filters and detail table. */
@@ -2076,17 +2080,26 @@ img.ptl-detail-photo {
 .ptl-na-table-note { margin: 0; font-size: 11.5px; color: var(--ptl-muted, #6b7280); }
 .ptl-na-result-count { flex: none; font-size: 12px; font-weight: 600; color: var(--ptl-muted, #6b7280); }
 .ptl-na-program-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 14px 0 12px; }
+/* NA-CONTACTS-POLISH-3: the program quick filters follow the canonical
+   FilterKPICard treatment (src/components/KPIBand.jsx): accent tint at rest
+   with a near-invisible border, solid accent fill when active. */
 .ptl-na-program-card {
-  min-height: 82px; padding: 12px 14px; border: 1px solid var(--ptl-line); border-radius: 12px;
-  background: #f7f8fc; color: var(--ptl-ink); text-align: left; cursor: pointer;
+  min-height: 82px; padding: 12px 14px; border: 1px solid rgba(29, 37, 103, 0.06); border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04);
+  background: var(--ptl-na-program-tint, #f7f8fc); color: var(--ptl-na-program-solid, var(--ptl-ink)); text-align: left; cursor: pointer;
   display: flex; flex-direction: column; justify-content: center; gap: 5px;
   transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
 }
 .ptl-na-program-card:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(29, 37, 103, 0.10); }
 .ptl-na-program-card:focus-visible { outline: 2px solid var(--nightfall, #1D2567); outline-offset: 2px; }
 .ptl-na-program-card strong { font-size: 24px; line-height: 1; }
-.ptl-na-program-card span { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.ptl-na-program-card-active { background: var(--nightfall, #1D2567); color: #fff; border-color: var(--nightfall, #1D2567); }
+.ptl-na-program-card span { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ptl-muted, #6b7280); }
+.ptl-na-program-card-active {
+  background: var(--ptl-na-program-solid, var(--nightfall, #1D2567)); color: #fff;
+  border-color: var(--ptl-na-program-solid, var(--nightfall, #1D2567));
+  box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 4px 12px rgba(29, 37, 103, 0.05);
+}
+.ptl-na-program-card-active span { color: rgba(255, 255, 255, 0.88); }
 .ptl-na-table-controls { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(150px, .7fr)); gap: 10px; margin-bottom: 12px; }
 .ptl-na-search input,
 .ptl-na-control select,
@@ -2141,14 +2154,19 @@ img.ptl-detail-photo {
 .ptl-na-contact-kpi strong { font-size: 24px; line-height: 1; }
 .ptl-na-contact-kpi span { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .ptl-na-contact-kpi-active { background: var(--ptl-na-contact-accent, var(--nightfall, #1D2567)); color: #fff; border-color: var(--ptl-na-contact-accent, var(--nightfall, #1D2567)); box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 4px 12px rgba(29, 37, 103, 0.05); }
-.ptl-na-contact-controls { display: grid; grid-template-columns: minmax(260px, 1fr) auto auto; gap: 10px; align-items: center; }
+/* NA-CONTACTS-POLISH-3: one flex row - search, Add contact (editor grant),
+   Copy visible emails, transient save status. Wraps on narrow screens. */
+.ptl-na-contact-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ptl-na-contact-controls .ptl-na-contact-search { flex: 1 1 260px; }
+.ptl-na-contact-controls .ptl-na-contact-editor-primary { min-height: 40px; }
 .ptl-na-contact-search { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 11px; border: 1px solid var(--ptl-line); border-radius: 9px; background: #fff; color: var(--ptl-muted, #6b7280); }
 .ptl-na-contact-search input { min-height: 38px; padding: 7px 0; border: 0; outline: 0; }
 /* NA-CONTACTS-POLISH-1: text inputs match :focus-visible on EVERY focus, so the
    portal's global 2px navy outline ringed the inner input like a black box.
    Focus is NOT removed - it moves to the wrapper as the app-standard input
-   treatment (border-color + soft ring, same as the staff .search-input). */
-.ptl-na-contact-search:focus-within { border-color: var(--nightfall, #1D2567); box-shadow: 0 0 0 2px rgba(29, 37, 103, 0.15); }
+   treatment (POLISH-3: the exact .search-input:focus recipe from index.css,
+   nova border + soft tint, so it reads like every other search bar). */
+.ptl-na-contact-search:focus-within { border-color: var(--nova, #9faff8); box-shadow: 0 0 0 2px var(--nova-tint, rgba(159, 175, 248, 0.30)); }
 .ptl-na-contact-search input:focus-visible { outline: none; }
 .ptl-na-copy-emails { min-width: 168px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 13px; border: 1px solid var(--nightfall, #1D2567); border-radius: 9px; background: #fff; color: var(--nightfall, #1D2567); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .ptl-na-copy-emails:hover:not(:disabled) { background: var(--nightfall, #1D2567); color: #fff; }
@@ -2236,15 +2254,12 @@ img.ptl-detail-photo {
 .ptl-na-contact-section dd { margin: 0; font-size: 13px; color: var(--ptl-ink); overflow-wrap: anywhere; text-transform: none; }
 .ptl-na-readonly-note { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 7px 10px; border-radius: 8px; background: #f3f4f6; color: #6b7280; font-size: 11.5px; font-weight: 700; }
 .ptl-na-contact-empty { margin: 0; padding: 28px; text-align: center; font-size: 12.5px; color: var(--ptl-muted, #6b7280); }
-.ptl-na-contact-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .ptl-na-contact-editor-primary, .ptl-na-contact-editor-secondary { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .ptl-na-contact-editor-primary { border: 1px solid var(--nightfall, #1D2567); background: var(--nightfall, #1D2567); color: #fff; }
 .ptl-na-contact-editor-primary:hover { background: #151c55; }
 .ptl-na-contact-editor-secondary { border: 1px solid #d7dae4; background: #fff; color: var(--nightfall, #1D2567); }
 .ptl-na-contact-editor-primary:disabled, .ptl-na-contact-editor-secondary:disabled { opacity: .55; cursor: not-allowed; }
 .ptl-na-contact-save-status { font-size: 12px; font-weight: 700; color: #166534; }
-.ptl-na-show-inactive { min-height: 40px; display: inline-flex; align-items: center; gap: 7px; padding: 0 11px; border: 1px solid var(--ptl-line); border-radius: 9px; background: #fff; font-size: 12px; font-weight: 700; color: var(--ptl-ink); white-space: nowrap; }
-.ptl-na-show-inactive input { accent-color: var(--nightfall, #1D2567); }
 .ptl-na-contact-inactive-badge { display: inline-flex; padding: 2px 7px; border-radius: 999px; background: #eceef2; color: #626b79; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .ptl-na-contact-modal-backdrop { position: fixed; inset: 0; z-index: 2400; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(12, 18, 47, .54); }
 .ptl-na-contact-modal { width: min(680px, 100%); max-height: 92vh; overflow-y: auto; padding: 0; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 22px 60px rgba(13, 22, 63, .28); }
@@ -2288,7 +2303,7 @@ img.ptl-detail-photo {
   .ptl-na-overview-kpis, .ptl-na-kpis { grid-template-columns: 1fr; }
   .ptl-na-program-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ptl-na-contact-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ptl-na-table-controls, .ptl-na-contact-controls { grid-template-columns: 1fr; }
+  .ptl-na-table-controls { grid-template-columns: 1fr; }
   .ptl-na-table { min-width: 1080px; table-layout: auto; }
   .ptl-na-contact-directory { grid-template-columns: 1fr; }
   .ptl-na-contact-list { max-height: 360px; }

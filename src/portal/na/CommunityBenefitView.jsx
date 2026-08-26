@@ -70,6 +70,16 @@ function BarChart({ title, rows, ariaLabel }) {
 }
 
 const PROGRAM_FILTERS = Object.freeze(['All Programs', 'ABSN', 'BSN', 'ELMN', 'MECN'])
+// NA-CONTACTS-POLISH-3: the program quick filters are clickable KPI cards, so
+// they carry the canonical FilterKPICard accents (src/components/KPIBand.jsx
+// ACCENT_PALETTE): tinted rest, solid active fill.
+const PROGRAM_ACCENTS = Object.freeze({
+  'All Programs': { tint: '#EDEEF4', solid: '#1D2567' },
+  ABSN: { tint: '#EEF7F0', solid: '#2F7D5C' },
+  BSN: { tint: '#EDF0F7', solid: '#4A5D8F' },
+  ELMN: { tint: '#F0EDF5', solid: '#6B4F8F' },
+  MECN: { tint: '#FBF5E8', solid: '#8B5E1A' },
+})
 
 export default function CommunityBenefitView({
   active = true,
@@ -293,11 +303,13 @@ export default function CommunityBenefitView({
             <div className="ptl-na-program-kpis" role="group" aria-label="Filter student detail by program">
               {PROGRAM_FILTERS.map(key => {
                 const selected = programFilter === key
+                const accent = PROGRAM_ACCENTS[key] || PROGRAM_ACCENTS['All Programs']
                 return (
                   <button
                     key={key}
                     type="button"
                     className={`ptl-na-program-card${selected ? ' ptl-na-program-card-active' : ''}`}
+                    style={{ '--ptl-na-program-tint': accent.tint, '--ptl-na-program-solid': accent.solid }}
                     aria-pressed={selected}
                     onClick={() => setProgramFilter(key)}
                   >

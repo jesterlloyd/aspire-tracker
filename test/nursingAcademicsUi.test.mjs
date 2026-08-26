@@ -162,7 +162,6 @@ test('Community Benefit uses program KPI filters, compact labels, and table cont
 
 test('Contacts preserves view-only access and conditionally exposes the narrow Contacts Editor controls', () => {
   assert.match(contacts, /fetchAcademicsContacts/)
-  assert.match(contacts, /Read-only access/)
   assert.match(contacts, /canManageContacts/)
   assert.match(contacts, /createAcademicsContact/)
   assert.match(contacts, /updateAcademicsContact/)
@@ -170,7 +169,6 @@ test('Contacts preserves view-only access and conditionally exposes the narrow C
   assert.match(contacts, /Edit contact/)
   assert.match(contacts, /Deactivate/)
   assert.match(contacts, /Reactivate/)
-  assert.match(contacts, /Show inactive/)
   assert.match(contacts, /ptl-na-contact-kpis/)
   assert.match(contacts, /All Contacts/)
   assert.match(contacts, /CONTACT_CATEGORY_ORDER/)
@@ -234,7 +232,8 @@ test('the list and the detail pane are separate rounded cards, mirroring Student
 })
 
 test('the search field keeps a visible focus treatment on the wrapper, not a raw outline ring', () => {
-  assert.match(css, /\.ptl-na-contact-search:focus-within \{ border-color: var\(--nightfall/)
+  // POLISH-3: the ring is the app-standard .search-input:focus recipe (nova).
+  assert.match(css, /\.ptl-na-contact-search:focus-within \{ border-color: var\(--nova/)
   assert.match(css, /\.ptl-na-contact-search input:focus-visible \{ outline: none; \}/)
 })
 
@@ -316,4 +315,36 @@ test('LinkedIn: hero chip when stored, editor field, server-allowlisted', () => 
   const endpoint = read('api/portal/academics-contacts.js')
   assert.match(endpoint, /'linkedin_url', 'avatar_url', 'is_active',/)
   assert.match(endpoint, /invalid_linkedin_url/)
+})
+
+// ── NA-CONTACTS-POLISH-3: program cards, chart labels, contacts chrome ──────
+
+test('the Community Benefit program filters follow the canonical FilterKPICard treatment', () => {
+  // Accents from the canonical palette, applied per card via CSS vars.
+  assert.match(benefit, /const PROGRAM_ACCENTS = Object\.freeze\(\{/)
+  assert.match(benefit, /'--ptl-na-program-tint': accent\.tint, '--ptl-na-program-solid': accent\.solid/)
+  assert.match(css, /\.ptl-na-program-card \{[\s\S]{0,200}?border: 1px solid rgba\(29, 37, 103, 0\.06\); border-radius: 14px;/)
+  assert.match(css, /background: var\(--ptl-na-program-tint, #f7f8fc\)/)
+  assert.match(css, /\.ptl-na-program-card-active \{\s*\n\s*background: var\(--ptl-na-program-solid/)
+})
+
+test('a full-width chart bar yields room to its value label instead of overflowing', () => {
+  assert.match(css, /\.ptl-na-chart-bar \{[^}]*flex-shrink: 1; \}/)
+})
+
+test('the Contacts chrome is consolidated: no heading block, controls in one row', () => {
+  // The redundant heading (title + management copy + count) is gone; the
+  // section keeps an accessible name.
+  assert.doesNotMatch(contacts, /ptl-na-section-heading/)
+  assert.doesNotMatch(contacts, /Manage the ASPIRE contact directory/)
+  assert.doesNotMatch(contacts, /of \{directoryContacts\.length\} contacts/)
+  assert.match(contacts, /<section className="ptl-na-contacts" aria-label="Contacts">/)
+  // Add contact sits in the controls row between search and Copy visible emails.
+  assert.match(contacts, /ptl-na-contact-search[\s\S]{0,700}?Add contact[\s\S]{0,700}?Copy visible emails/)
+  // Show inactive is retired: the portal lists active contacts only, and the
+  // deactivation copy points reactivation at staff Connect.
+  assert.doesNotMatch(contacts, /Show inactive|showInactive/)
+  assert.match(contacts, /contacts\.filter\(contact => contact\.is_active !== false\)/)
+  assert.match(contacts, /reactivated from ASPIRE Connect/)
+  assert.doesNotMatch(css, /ptl-na-show-inactive|ptl-na-contact-heading-actions/)
 })
