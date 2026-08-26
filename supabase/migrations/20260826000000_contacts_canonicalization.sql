@@ -106,7 +106,14 @@ ALTER TABLE public.contacts
   ADD CONSTRAINT chk_contacts_category
   CHECK (category IN ('Academic Partner', 'Unit Leader', 'Preceptor', 'BNI Team', 'Nursing Executive', 'Other'));
 
--- ── 3. Title mapping (certain mappings only; category-scoped) ───────────────
+-- ── 3. Title becomes optional ───────────────────────────────────────────────
+-- MUST precede the title mapping: step 4 sets Preceptor titles to NULL, which
+-- 23502s while the base table's NOT NULL is still in force (found on the
+-- first live apply attempt; the transaction rolled back cleanly).
+
+ALTER TABLE public.contacts ALTER COLUMN role DROP NOT NULL;
+
+-- ── 4. Title mapping (certain mappings only; category-scoped) ───────────────
 
 UPDATE public.contacts SET role = 'NPD Practitioner'
 WHERE category = 'Unit Leader' AND role IN ('Unit NPD-P', 'Unit NPD Practitioner');
@@ -119,16 +126,13 @@ WHERE category = 'Preceptor' AND role IN ('Preceptor', 'Clinical Preceptor');
 -- CANDIDATE mappings, deliberately commented: review the P2 worksheet and
 -- uncomment (or hand-correct in the editor) only what is actually right.
 -- Everything left unmapped passes through as a legacy dropdown option.
+-- (2026-08-25 live P2 review: none of the three apply to current data.)
 -- UPDATE public.contacts SET role = 'SVP, Chief Nursing Executive'
 --   WHERE category = 'Nursing Executive' AND role = 'Chief Nursing Officer';
 -- UPDATE public.contacts SET role = 'Program/Project Coordinator'
 --   WHERE category = 'BNI Team' AND role = 'BNI Administration';
 -- UPDATE public.contacts SET role = 'Clinical Placement Coordinator'
 --   WHERE category = 'Academic Partner' AND role = 'School Coordinator';
-
--- ── 4. Title becomes optional ───────────────────────────────────────────────
-
-ALTER TABLE public.contacts ALTER COLUMN role DROP NOT NULL;
 
 -- ── 5. Services (Nursing Executive / Executive Director) ────────────────────
 
