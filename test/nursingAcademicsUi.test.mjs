@@ -383,3 +383,22 @@ test('dragging the list scrollbar floats a group indicator over the list center'
   assert.match(css, /\.ptl-na-scrub-indicator \{[\s\S]{0,300}?background: rgba\(107, 114, 128, 0\.55\)/)
   assert.match(css, /\.ptl-na-scrub-indicator \{[\s\S]{0,400}?pointer-events: none/)
 })
+
+// ── NA-BENEFIT-POLISH-1: export button + rate advisory placement ────────────
+
+test('the portal export is the Settings Download CSV button, nightfall filled', () => {
+  assert.match(benefit, /import \{ Download \} from 'lucide-react'/)
+  assert.match(benefit, /className="ptl-na-export"[\s\S]{0,200}?<Download size=\{16\}/)
+  assert.match(benefit, /'Download CSV'/)
+  assert.doesNotMatch(benefit, /Download aggregate CSV/)
+  // Nightfall fill mirroring .cb-button-primary.
+  assert.match(css, /\.ptl-na-export \{[\s\S]{0,400}?background: var\(--nightfall, #1D2567\);/)
+})
+
+test('the missing-rate advisory sits at the BOTTOM of the report, after the quality sections', () => {
+  const noteAt = benefit.indexOf('ptl-na-rate-note')
+  assert.ok(noteAt > -1)
+  assert.ok(noteAt > benefit.indexOf('na-review-heading'), 'note renders after Records for review')
+  assert.ok(noteAt > benefit.indexOf('na-needs-data-heading'), 'note renders after Needs reporting data')
+  assert.ok(noteAt > benefit.indexOf('ptl-na-kpis'), 'note no longer leads the page')
+})

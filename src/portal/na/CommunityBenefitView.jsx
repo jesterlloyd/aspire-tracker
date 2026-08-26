@@ -15,6 +15,7 @@
 // hours never just vanish.
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Download } from 'lucide-react'
 import MetricCard from '../../components/ui/MetricCard'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
@@ -229,8 +230,11 @@ export default function CommunityBenefitView({
                   .map(y => <option key={y} value={y}>FY {y} (Jul {y - 1} to Jun {y})</option>)}
               </select>
             </label>
-            <button type="button" className="ptl-btn-outline ptl-na-export" onClick={onExport} disabled={exporting}>
-              {exporting ? 'Preparing CSV…' : 'Download aggregate CSV'}
+            {/* NA-BENEFIT-POLISH-1: the approved Settings button, carried over -
+                Download icon + "Download CSV", nightfall filled. */}
+            <button type="button" className="ptl-na-export" onClick={onExport} disabled={exporting}>
+              <Download size={16} aria-hidden="true" />
+              {exporting ? 'Preparing CSV…' : 'Download CSV'}
             </button>
             {showSettingsLink && report.can_manage_reporting_inputs && (
               <a className="ptl-btn-outline ptl-na-settings-link" href="/settings/community-benefit">
@@ -245,18 +249,6 @@ export default function CommunityBenefitView({
           </p>
           {exportError && <p role="alert" className="ptl-na-error-note">{exportError}</p>}
         </>
-      )}
-
-      {(rnRate == null || mgmtRate == null) && (
-        <div className="ptl-na-rate-note" role="status">
-          {rnRate == null && mgmtRate == null
-            ? embedded
-              ? `Hourly rates for ${report.fiscal_year_label} have not been entered. Use Set hourly rate above to calculate benefit estimates.`
-              : `Hourly rates for ${report.fiscal_year_label} have not been entered yet, so benefit estimates are not shown. Rates are managed in ASPIRE Intelligence Settings.`
-            : rnRate == null
-              ? `The RN hourly rate for ${report.fiscal_year_label} has not been entered yet, so clinical benefit estimates are not shown.`
-              : `The Leadership hourly rate for ${report.fiscal_year_label} has not been entered yet, so non-clinical benefit estimates are not shown.`}
-        </div>
       )}
 
       <div className="ptl-na-kpis">
@@ -455,6 +447,21 @@ export default function CommunityBenefitView({
             ))}
           </ul>
         </section>
+      )}
+
+      {/* NA-BENEFIT-POLISH-1: the missing-rate advisory moved from the top of
+          the report to the bottom, after the data-quality sections, so it
+          informs without leading the page. */}
+      {(rnRate == null || mgmtRate == null) && (
+        <div className="ptl-na-rate-note" role="status">
+          {rnRate == null && mgmtRate == null
+            ? embedded
+              ? `Hourly rates for ${report.fiscal_year_label} have not been entered. Use Set hourly rate above to calculate benefit estimates.`
+              : `Hourly rates for ${report.fiscal_year_label} have not been entered yet, so benefit estimates are not shown. Rates are managed in ASPIRE Intelligence Settings.`
+            : rnRate == null
+              ? `The RN hourly rate for ${report.fiscal_year_label} has not been entered yet, so clinical benefit estimates are not shown.`
+              : `The Leadership hourly rate for ${report.fiscal_year_label} has not been entered yet, so non-clinical benefit estimates are not shown.`}
+        </div>
       )}
     </div>
   )
