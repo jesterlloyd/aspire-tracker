@@ -224,7 +224,8 @@ test('the list and the detail pane are separate rounded cards, mirroring Student
   // The container is a plain grid with a gap, not one joined .ptl-card sheet.
   assert.doesNotMatch(contacts, /ptl-card ptl-na-contact-directory/)
   assert.match(css, /\.ptl-na-contact-directory \{ display: grid;[^}]*gap: 16px;/)
-  assert.match(css, /\.ptl-na-contact-list \{[\s\S]{0,300}?border-radius: 14px;/)
+  // POLISH-5: the card chrome lives on the shell; the list inside scrolls.
+  assert.match(css, /\.ptl-na-contact-list-shell \{[\s\S]{0,300}?border-radius: 14px;/)
   assert.match(css, /\.ptl-na-contact-detail \{[\s\S]{0,300}?border-radius: 16px;/)
   // The old joined-sheet seams are gone (column divider, stacked divider).
   assert.doesNotMatch(css, /\.ptl-na-contact-list \{[^}]*border-right: 1px solid/)
@@ -359,4 +360,26 @@ test('email and phone carry Connect-parity copy buttons with the shared Tooltip'
   assert.match(contacts, /ContactCopyButton value=\{clean\(selected\.email\)\} label="email"/)
   assert.match(contacts, /ContactCopyButton value=\{clean\(selected\.phone\)\} label="phone"/)
   assert.match(css, /\.ptl-na-copy-value \{/)
+})
+
+// ── NA-CONTACTS-POLISH-5: scrollbar scrub indicator ─────────────────────────
+
+test('dragging the list scrollbar floats a group indicator over the list center', () => {
+  // Armed only by a press on the scrollbar gutter; cleared on mouseup.
+  assert.match(contacts, /const SCRUB_EDGE_PX = 22/)
+  assert.match(contacts, /event\.clientX < list\.getBoundingClientRect\(\)\.right - SCRUB_EDGE_PX/)
+  assert.match(contacts, /window\.addEventListener\('mouseup', endScrub, \{ once: true \}\)/)
+  // While armed, scroll reads the row at the list's vertical center.
+  assert.match(contacts, /document\.elementFromPoint\(rect\.left \+ rect\.width \/ 2, rect\.top \+ rect\.height \/ 2\)/)
+  assert.match(contacts, /closest\?\.\('\[data-scrub\]'\)/)
+  // Every row and divider carries its group label.
+  assert.match(contacts, /data-scrub=\{scrubGroupLabel\(contact, category, query\)\}/)
+  assert.match(contacts, /data-scrub=\{item\.label\}/)
+  // The label names what the active sort walks through.
+  assert.match(contacts, /if \(category === 'Unit Leader'\) return contactUnitList\(contact\)\[0\] \|\| letter/)
+  assert.match(contacts, /if \(category === 'All'\) return categoryPluralLabel\(primaryCategory\(contact\)\)/)
+  // The indicator overlay: centered, thumb-gray, ignores the pointer.
+  assert.match(contacts, /ptl-na-scrub-indicator/)
+  assert.match(css, /\.ptl-na-scrub-indicator \{[\s\S]{0,300}?background: rgba\(107, 114, 128, 0\.55\)/)
+  assert.match(css, /\.ptl-na-scrub-indicator \{[\s\S]{0,400}?pointer-events: none/)
 })

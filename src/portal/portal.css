@@ -2181,10 +2181,24 @@ img.ptl-detail-photo {
    the taller card's natural height, both capped at 68vh; whichever card's
    content exceeds that scrolls internally. */
 .ptl-na-contact-directory { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(420px, 1.35fr); gap: 16px; align-items: stretch; min-height: 520px; }
-.ptl-na-contact-list {
-  max-height: 68vh; overflow-y: auto; background: #fff;
+/* NA-CONTACTS-POLISH-5: the shell carries the card chrome and anchors the
+   scrub indicator; the list inside it is the scroller. */
+.ptl-na-contact-list-shell {
+  position: relative; max-height: 68vh; background: #fff;
   border: 1px solid rgba(29, 37, 103, 0.08); border-radius: 14px;
   box-shadow: 0 2px 10px rgba(29, 37, 103, 0.06);
+  overflow: hidden;
+}
+.ptl-na-contact-list { height: 100%; max-height: 68vh; overflow-y: auto; }
+/* Scrollbar-drag position indicator: same translucent gray as the overlay
+   scrollbar thumb, floating at the list's center while scrubbing. */
+.ptl-na-scrub-indicator {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  max-width: calc(100% - 48px); padding: 8px 16px; border-radius: 10px;
+  background: rgba(107, 114, 128, 0.55); color: #fff;
+  font-size: 13px; font-weight: 700; letter-spacing: .02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  pointer-events: none; z-index: 3;
 }
 .ptl-na-contact-row { width: 100%; display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px; border: 0; border-bottom: 1px solid var(--ptl-line); background: #fff; color: var(--ptl-ink); text-align: left; cursor: pointer; }
 /* The list is a rounded card now; no divider line against its bottom edge. */
@@ -2314,7 +2328,7 @@ img.ptl-detail-photo {
   .ptl-na-table-controls { grid-template-columns: 1fr; }
   .ptl-na-table { min-width: 1080px; table-layout: auto; }
   .ptl-na-contact-directory { grid-template-columns: 1fr; }
-  .ptl-na-contact-list { max-height: 360px; }
+  .ptl-na-contact-list-shell, .ptl-na-contact-list { max-height: 360px; }
   /* Stacked mode: the detail grows with its content and the page scrolls -
      no nested scroll trap inside a phone-height card. */
   .ptl-na-contact-detail { max-height: none; min-height: 0; }

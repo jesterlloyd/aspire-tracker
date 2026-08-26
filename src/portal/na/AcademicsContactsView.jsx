@@ -2,7 +2,7 @@
 // grants are view-only. The narrowly scoped Contacts Editor grant adds create,
 // update, deactivate, and reactivate controls, but no permanent deletion.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Copy, Mail, Pencil, Phone, Plus, Power, PowerOff, Search, UserRound, X } from 'lucide-react'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
@@ -114,6 +114,22 @@ function ContactAction({ href, icon: Icon, label }) {
       <Icon size={15} aria-hidden="true" /> {label}
     </a>
   )
+}
+
+// NA-CONTACTS-POLISH-5: the scrubbing indicator names the group the active
+// sort is walking through - unit for Unit Leaders, school for Academic
+// Partners, title tier for BNI Team / Nursing Executives, the category
+// divider in the grouped All view, and the display-name letter for
+// alphabetical lists (Preceptor, Other, search results), where a unit label
+// would jump arbitrarily.
+const scrubGroupLabel = (contact, category, query) => {
+  const letter = (displayListName(contact)[0] || '').toUpperCase()
+  if (query) return letter
+  if (category === 'All') return categoryPluralLabel(primaryCategory(contact))
+  if (category === 'Unit Leader') return contactUnitList(contact)[0] || letter
+  if (category === 'Academic Partner') return clean(contact.school_name) || clean(contact.organization) || letter
+  if (category === 'BNI Team' || category === 'Nursing Executive') return clean(contact.role) || letter
+  return letter
 }
 
 // NA-CONTACTS-POLISH-4: per-value copy affordance, ported from the staff
@@ -334,6 +350,35 @@ export default function AcademicsContactsView({ active = true }) {
   const [reloadKey, setReloadKey] = useState(0)
   const reportFailure = useReportPortalFailure()
 
+  // NA-CONTACTS-POLISH-5: scrollbar scrubbing. A mousedown on the list's
+  // scrollbar edge arms scrubbing; while armed, every scroll reads the row at
+  // the list's vertical center and floats its group label over the list. The
+  // indicator disappears on mouseup. Wheel/keyboard scrolling never shows it.
+  const listRef = useRef(null)
+  const scrubbingRef = useRef(false)
+  const [scrubLabel, setScrubLabel] = useState(null)
+  const SCRUB_EDGE_PX = 22
+  const endScrub = useCallback(() => {
+    scrubbingRef.current = false
+    setScrubLabel(null)
+  }, [])
+  const beginScrub = useCallback(event => {
+    const list = listRef.current
+    if (!list) return
+    // Only a press on the scrollbar gutter arms scrubbing; row clicks are untouched.
+    if (event.clientX < list.getBoundingClientRect().right - SCRUB_EDGE_PX) return
+    scrubbingRef.current = true
+    window.addEventListener('mouseup', endScrub, { once: true })
+  }, [endScrub])
+  const updateScrub = useCallback(() => {
+    if (!scrubbingRef.current) return
+    const list = listRef.current
+    if (!list) return
+    const rect = list.getBoundingClientRect()
+    const probe = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    setScrubLabel(probe?.closest?.('[data-scrub]')?.getAttribute('data-scrub') || null)
+  }, [])
+
   const reload = useCallback(() => {
     if (!active) return
     setLoading(true)
@@ -553,37 +598,48 @@ export default function AcademicsContactsView({ active = true }) {
       </div>
 
       <div className="ptl-na-contact-directory">
-        <div className="ptl-na-contact-list" role="list" aria-label="Contact results">
-          {listItems.map(item => {
-            if (item.type === 'divider') {
+        <div className="ptl-na-contact-list-shell">
+          <div
+            ref={listRef}
+            className="ptl-na-contact-list"
+            role="list"
+            aria-label="Contact results"
+            onScroll={updateScrub}
+            onMouseDown={beginScrub}
+          >
+            {listItems.map(item => {
+              if (item.type === 'divider') {
+                return (
+                  <div key={item.key} className="ptl-na-contact-divider" role="presentation" data-scrub={item.label}>
+                    <span>{item.label}</span>
+                    <span className="ptl-na-contact-divider-count">{item.count}</span>
+                  </div>
+                )
+              }
+              const contact = item.contact
               return (
-                <div key={item.key} className="ptl-na-contact-divider" role="presentation">
-                  <span>{item.label}</span>
-                  <span className="ptl-na-contact-divider-count">{item.count}</span>
-                </div>
+                <button
+                  key={contact.id}
+                  type="button"
+                  role="listitem"
+                  className={`ptl-na-contact-row${selectedId === contact.id ? ' ptl-na-contact-row-active' : ''}${contact.is_active === false ? ' ptl-na-contact-row-inactive' : ''}`}
+                  onClick={() => setSelectedId(contact.id)}
+                  aria-pressed={selectedId === contact.id}
+                  data-scrub={scrubGroupLabel(contact, category, query)}
+                >
+                  <ContactAvatar contact={contact} />
+                  <span className="ptl-na-contact-row-copy">
+                    <strong>{displayListName(contact)}</strong>
+                    {contact.is_active === false && <span className="ptl-na-contact-inactive-badge">Inactive</span>}
+                    {contact.role && <span className="ptl-na-contact-row-role" style={rolePillStyle(contact)}>{contact.role}</span>}
+                    {affiliationLine(contact) && <span className="ptl-na-contact-affiliation-line">{affiliationLine(contact)}</span>}
+                  </span>
+                </button>
               )
-            }
-            const contact = item.contact
-            return (
-              <button
-                key={contact.id}
-                type="button"
-                role="listitem"
-                className={`ptl-na-contact-row${selectedId === contact.id ? ' ptl-na-contact-row-active' : ''}${contact.is_active === false ? ' ptl-na-contact-row-inactive' : ''}`}
-                onClick={() => setSelectedId(contact.id)}
-                aria-pressed={selectedId === contact.id}
-              >
-                <ContactAvatar contact={contact} />
-                <span className="ptl-na-contact-row-copy">
-                  <strong>{displayListName(contact)}</strong>
-                  {contact.is_active === false && <span className="ptl-na-contact-inactive-badge">Inactive</span>}
-                  {contact.role && <span className="ptl-na-contact-row-role" style={rolePillStyle(contact)}>{contact.role}</span>}
-                  {affiliationLine(contact) && <span className="ptl-na-contact-affiliation-line">{affiliationLine(contact)}</span>}
-                </span>
-              </button>
-            )
-          })}
-          {filtered.length === 0 && <p className="ptl-na-contact-empty">No contacts match these filters.</p>}
+            })}
+            {filtered.length === 0 && <p className="ptl-na-contact-empty">No contacts match these filters.</p>}
+          </div>
+          {scrubLabel && <div className="ptl-na-scrub-indicator" aria-hidden="true">{scrubLabel}</div>}
         </div>
 
         <aside className="ptl-na-contact-detail" aria-live="polite">
