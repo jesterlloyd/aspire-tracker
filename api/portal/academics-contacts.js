@@ -29,11 +29,12 @@ import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
 const CONTACT_FIELDS = Object.freeze([
   'id', 'full_name', 'preferred_name', 'email', 'phone', 'role', 'category',
   'organization', 'school_name', 'unit_name', 'related_units', 'services',
-  'avatar_url', 'is_active',
+  'linkedin_url', 'avatar_url', 'is_active',
 ])
 const WRITABLE_FIELDS = Object.freeze([
   'full_name', 'preferred_name', 'email', 'phone', 'role', 'category',
   'organization', 'school_name', 'unit_name', 'related_units', 'services',
+  'linkedin_url',
 ])
 const CANONICAL_UNIT_NAMES = new Set(getCanonicalUnitNames())
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -62,6 +63,15 @@ function parseContactPayload(body, { create = false, existing = null } = {}) {
   if (create && !clean(payload.full_name)) return { error: 'full_name_required' }
   if (Object.prototype.hasOwnProperty.call(payload, 'full_name') && !clean(payload.full_name)) return { error: 'full_name_required' }
   if (payload.email && !EMAIL_RE.test(payload.email)) return { error: 'invalid_email' }
+
+  // LinkedIn URL: same rule as the staff upsert (api/contacts-upsert.js) -
+  // http(s) scheme and a linkedin.com host. Empty clears the field.
+  if (payload.linkedin_url) {
+    const url = payload.linkedin_url
+    if (!(url.startsWith('http://') || url.startsWith('https://')) || !url.includes('linkedin.com')) {
+      return { error: 'invalid_linkedin_url' }
+    }
+  }
 
   // Category: canonical singular, legacy accepted and rewritten.
   if (payload.category) {

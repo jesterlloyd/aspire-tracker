@@ -2159,7 +2159,10 @@ img.ptl-detail-photo {
    (.profiles-list-narrow / .profiles-panel-slide in index.css): list 14px
    radius + s-light shadow, detail 16px radius + deeper shadow. Each card
    takes its own height. */
-.ptl-na-contact-directory { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(420px, 1.35fr); gap: 16px; align-items: start; min-height: 520px; }
+/* NA-CONTACTS-POLISH-2: the two cards stretch to the SAME height. The row is
+   the taller card's natural height, both capped at 68vh; whichever card's
+   content exceeds that scrolls internally. */
+.ptl-na-contact-directory { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(420px, 1.35fr); gap: 16px; align-items: stretch; min-height: 520px; }
 .ptl-na-contact-list {
   max-height: 68vh; overflow-y: auto; background: #fff;
   border: 1px solid rgba(29, 37, 103, 0.08); border-radius: 14px;
@@ -2179,7 +2182,8 @@ img.ptl-detail-photo {
 .ptl-na-contact-affiliation-line { max-width: 100%; font-size: 11.5px; color: var(--ptl-muted, #6b7280); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ptl-na-contact-row-role { display: inline-flex; max-width: 100%; padding: 2px 7px; border: 1px solid var(--ptl-na-role-border, #e5e7eb); border-radius: 4px; background: var(--ptl-na-role-bg, #f3f4f6); color: var(--ptl-na-role-color, #6b7280); font-size: 9px; font-weight: 700; letter-spacing: .055em; line-height: 1.35; text-transform: uppercase; white-space: normal; }
 .ptl-na-contact-detail {
-  padding: 0; background: #fff; min-height: 520px;
+  padding: 0; background: #fff; min-height: 520px; max-height: 68vh;
+  display: flex; flex-direction: column;
   border: 1px solid rgba(29, 37, 103, 0.08); border-radius: 16px;
   box-shadow: 0 4px 24px rgba(29, 37, 103, 0.10);
   overflow: hidden; /* clips the hero gradient to the rounded corners */
@@ -2197,12 +2201,32 @@ img.ptl-detail-photo {
 .ptl-na-contact-action-disabled { border-color: #d7dae4; background: #eef0f4; color: #9ca3af; cursor: not-allowed; }
 .ptl-na-contact-action-disabled:hover { background: #eef0f4; color: #9ca3af; }
 .ptl-na-contact-action-edit { cursor: pointer; font-family: inherit; }
-.ptl-na-contact-action-deactivate { min-width: 105px; border-color: #f2b8b5; background: #fff5f5; color: #a61b1b; cursor: pointer; font-family: inherit; }
-.ptl-na-contact-action-deactivate:hover { background: #fee2e2; color: #8b1111; }
-.ptl-na-contact-action-activate { min-width: 105px; border-color: #86d4a1; background: #effaf3; color: #166534; cursor: pointer; font-family: inherit; }
-.ptl-na-contact-action-activate:hover { background: #dcfce7; color: #14532d; }
 .ptl-na-contact-action:disabled { opacity: .6; cursor: wait; }
-.ptl-na-contact-detail-body { padding: 24px 28px 28px; }
+/* NA-CONTACTS-POLISH-2: LinkedIn chip ported from the staff Connect profile
+   (white, brand-blue border, logo image). Shown only when a URL is stored. */
+.ptl-na-contact-linkedin {
+  min-height: 36px; display: inline-flex; align-items: center; justify-content: center;
+  padding: 7px 14px; border: 1px solid rgba(10, 102, 194, 0.25); border-radius: 8px;
+  background: #fff; text-decoration: none; transition: background 0.12s;
+}
+.ptl-na-contact-linkedin:hover { background: #eff6ff; }
+.ptl-na-contact-linkedin img { display: block; }
+/* NA-CONTACTS-POLISH-2: Deactivate/Reactivate moved out of the hero action row
+   to a full-width bar at the bottom of the card, styled exactly like the staff
+   Connect profile's: resting muted, red on hover; the reactivate state carries
+   the navy emphasis. */
+.ptl-na-contact-status-bar { margin-top: 16px; padding-top: 14px; border-top: 1px solid #f3f4f6; }
+.ptl-na-contact-status-wide {
+  display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
+  padding: 8px 14px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;
+  font-family: inherit; font-size: 11px; font-weight: 600; color: #9ca3af;
+  cursor: pointer; transition: border-color 0.12s, color 0.12s;
+}
+.ptl-na-contact-status-wide:hover:not(:disabled) { border-color: #dc2626; color: #dc2626; }
+.ptl-na-contact-status-wide-reactivate { border: 1.5px solid var(--nightfall, #1D2567); color: var(--nightfall, #1D2567); }
+.ptl-na-contact-status-wide-reactivate:hover:not(:disabled) { border-color: var(--nightfall, #1D2567); color: var(--nightfall, #1D2567); background: #eef2fb; }
+.ptl-na-contact-status-wide:disabled { opacity: .6; cursor: wait; }
+.ptl-na-contact-detail-body { padding: 24px 28px 28px; flex: 1; overflow-y: auto; }
 .ptl-na-contact-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
 .ptl-na-contact-section { min-width: 0; padding: 15px 16px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb; }
 .ptl-na-contact-section h4 { margin: 0 0 11px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ptl-muted, #6b7280); }
@@ -2268,6 +2292,10 @@ img.ptl-detail-photo {
   .ptl-na-table { min-width: 1080px; table-layout: auto; }
   .ptl-na-contact-directory { grid-template-columns: 1fr; }
   .ptl-na-contact-list { max-height: 360px; }
+  /* Stacked mode: the detail grows with its content and the page scrolls -
+     no nested scroll trap inside a phone-height card. */
+  .ptl-na-contact-detail { max-height: none; min-height: 0; }
+  .ptl-na-contact-detail-body { overflow-y: visible; }
   .ptl-na-contact-detail-hero { min-height: 190px; padding: 28px 18px 24px; }
   .ptl-na-contact-detail-body { padding: 20px 16px 24px; }
   .ptl-na-contact-sections { grid-template-columns: 1fr; gap: 14px; }

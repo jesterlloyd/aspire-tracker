@@ -133,6 +133,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
       school_name: clean(contact?.school_name),
       units: contactUnitList(contact || {}),
       services: clean(contact?.services),
+      linkedin_url: clean(contact?.linkedin_url),
       affiliation_mode: clean(contact?.school_name)
         ? 'school'
         : (!clean(contact?.organization) || clean(contact?.organization) === CSMC_AFFILIATION ? 'csmc' : 'custom'),
@@ -171,7 +172,11 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
       form.affiliation_mode === 'custom' ? Boolean(form.organization.trim()) :
       true
     ) : true
-  const valid = Boolean(form.full_name.trim() && affiliationValid && (!form.email.trim() || isValidEmail(form.email)))
+  // Mirrors the server rule: http(s) scheme and a linkedin.com host.
+  const linkedinTrimmed = form.linkedin_url.trim()
+  const linkedinValid = !linkedinTrimmed
+    || (/^https?:\/\//.test(linkedinTrimmed) && linkedinTrimmed.includes('linkedin.com'))
+  const valid = Boolean(form.full_name.trim() && affiliationValid && linkedinValid && (!form.email.trim() || isValidEmail(form.email)))
 
   const submit = event => {
     event.preventDefault()
@@ -190,6 +195,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
       phone: form.phone,
       role: form.role,
       category: form.category,
+      linkedin_url: linkedinTrimmed,
       ...affiliation,
       ...(showUnits ? { unit_name: unitCols.unit_name || '', related_units: unitCols.related_units } : {}),
       ...(showServices || clean(contact?.services)
@@ -258,6 +264,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
           )}
           <label><span>Email</span><input type="email" value={form.email} onChange={e => set('email', e.target.value)} /></label>
           <label><span>Phone</span><input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} /></label>
+          <label className="ptl-na-contact-form-wide"><span>LinkedIn URL</span><input type="url" value={form.linkedin_url} onChange={e => set('linkedin_url', e.target.value)} placeholder="https://www.linkedin.com/in/…" /></label>
           {showUnits && (
             <div className="ptl-na-contact-form-wide ptl-na-contact-units">
               <span>Unit affiliation (one or more units)</span>
@@ -579,7 +586,11 @@ export default function AcademicsContactsView({ active = true }) {
                   <ContactAction href={isValidEmail(selected.email) ? `mailto:${clean(selected.email)}` : null} icon={Mail} label="Email" />
                   <ContactAction href={clean(selected.phone) ? `tel:${clean(selected.phone)}` : null} icon={Phone} label="Call" />
                   {canManageContacts && <button type="button" className="ptl-na-contact-action ptl-na-contact-action-edit" onClick={() => { setMutationError(''); setEditorContact(selected) }}><Pencil size={15} /> Edit</button>}
-                  {canManageContacts && <button type="button" className={`ptl-na-contact-action ${selected.is_active === false ? 'ptl-na-contact-action-activate' : 'ptl-na-contact-action-deactivate'}`} onClick={() => changeContactStatus(selected)} disabled={saving}>{selected.is_active === false ? <><Power size={15} /> Reactivate</> : <><PowerOff size={15} /> Deactivate</>}</button>}
+                  {clean(selected.linkedin_url) && (
+                    <a className="ptl-na-contact-linkedin" href={clean(selected.linkedin_url)} target="_blank" rel="noreferrer" aria-label="LinkedIn profile">
+                      <img src="/linkedin-logo.svg" alt="LinkedIn" height={17} />
+                    </a>
+                  )}
                 </div>
               </div>
               <div className="ptl-na-contact-detail-body">
@@ -606,6 +617,18 @@ export default function AcademicsContactsView({ active = true }) {
                   )}
                 </div>
                 <p className="ptl-na-readonly-note"><UserRound size={15} aria-hidden="true" /> {canManageContacts ? 'Contacts Editor' : 'View only'}</p>
+                {canManageContacts && (
+                  <div className="ptl-na-contact-status-bar">
+                    <button
+                      type="button"
+                      className={`ptl-na-contact-status-wide${selected.is_active === false ? ' ptl-na-contact-status-wide-reactivate' : ''}`}
+                      onClick={() => changeContactStatus(selected)}
+                      disabled={saving}
+                    >
+                      {selected.is_active === false ? <><Power size={15} aria-hidden="true" /> Reactivate Contact</> : <><PowerOff size={15} aria-hidden="true" /> Deactivate Contact</>}
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           ) : <p className="ptl-na-contact-empty">Select a contact to view details.</p>}

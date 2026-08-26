@@ -270,3 +270,50 @@ test('profile action buttons share the approved portal look across all three sur
     assert.match(src, /icon=\{<Pencil size=\{15\}/)
   }
 })
+
+// ── NA-CONTACTS-POLISH-2: status bar, equal heights, LinkedIn ───────────────
+
+test('Deactivate/Reactivate lives in a full-width bar at the card bottom, Connect-styled', () => {
+  // Out of the hero action row...
+  assert.doesNotMatch(contacts, /ptl-na-contact-action-deactivate/)
+  assert.doesNotMatch(contacts, /ptl-na-contact-action-activate/)
+  // ...into the bottom status bar, editor grant only, confirm flow kept.
+  assert.match(contacts, /ptl-na-contact-status-bar/)
+  assert.match(contacts, /ptl-na-contact-status-wide/)
+  assert.match(contacts, /Deactivate Contact/)
+  assert.match(contacts, /Reactivate Contact/)
+  assert.match(contacts, /changeContactStatus\(selected\)/)
+  // The Connect port: full width, resting muted, red on hover, navy reactivate.
+  assert.match(css, /\.ptl-na-contact-status-wide \{[\s\S]{0,300}?width: 100%;/)
+  assert.match(css, /\.ptl-na-contact-status-wide:hover:not\(:disabled\) \{ border-color: #dc2626; color: #dc2626; \}/)
+  assert.match(css, /\.ptl-na-contact-status-wide-reactivate \{ border: 1\.5px solid var\(--nightfall/)
+  // The old hero deactivate styles are gone from the stylesheet.
+  assert.doesNotMatch(css, /ptl-na-contact-action-deactivate/)
+  assert.doesNotMatch(css, /ptl-na-contact-action-activate/)
+})
+
+test('the list and detail cards stretch to the same height, scrolling internally', () => {
+  assert.match(css, /\.ptl-na-contact-directory \{ display: grid;[^}]*align-items: stretch;/)
+  assert.match(css, /\.ptl-na-contact-detail \{[\s\S]{0,200}?max-height: 68vh;/)
+  assert.match(css, /\.ptl-na-contact-detail-body \{[^}]*flex: 1; overflow-y: auto;/)
+  // Stacked mode releases the cap so the page scrolls naturally.
+  assert.match(css, /\.ptl-na-contact-detail \{ max-height: none; min-height: 0; \}/)
+})
+
+test('LinkedIn: hero chip when stored, editor field, server-allowlisted', () => {
+  // The chip mirrors the staff Connect profile (logo image, brand border, new tab).
+  assert.match(contacts, /ptl-na-contact-linkedin/)
+  assert.match(contacts, /linkedin-logo\.svg/)
+  assert.match(contacts, /clean\(selected\.linkedin_url\)/)
+  assert.match(contacts, /target="_blank" rel="noreferrer"/)
+  assert.match(css, /\.ptl-na-contact-linkedin \{/)
+  // The editor collects and validates it client-side, mirroring the server rule.
+  assert.match(contacts, /LinkedIn URL/)
+  assert.match(contacts, /linkedin_url: clean\(contact\?\.linkedin_url\)/)
+  assert.match(contacts, /linkedinTrimmed\.includes\('linkedin\.com'\)/)
+  assert.match(contacts, /linkedin_url: linkedinTrimmed/)
+  // The portal endpoint reads and writes it.
+  const endpoint = read('api/portal/academics-contacts.js')
+  assert.match(endpoint, /'linkedin_url', 'avatar_url', 'is_active',/)
+  assert.match(endpoint, /invalid_linkedin_url/)
+})

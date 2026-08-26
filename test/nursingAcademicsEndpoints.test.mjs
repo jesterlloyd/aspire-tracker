@@ -496,3 +496,34 @@ test('the capability is registered Owner-only (empty allowlist) in the canonical
   assert.equal(can({ role: 'viewer', is_owner: true }, 'community_benefit_admin'), true, 'only the is_owner capability grants it')
   assert.equal(can({ role: 'admin', is_owner: false }, 'community_benefit_view'), true)
 })
+
+// ── NA-CONTACTS-POLISH-2: LinkedIn in the portal editor ─────────────────────
+
+test('LinkedIn URL is writable through the editor grant, with the staff validation rule', async () => {
+  let received = null
+  const handler = createAcademicsContactsHandler({
+    verifyCaller: async () => editorAuth,
+    createContact: async (_db, payload) => {
+      received = payload
+      return { id: 'f0041189-5f95-4f5c-88fd-d0d008c037db', ...payload, is_active: true }
+    },
+    probeServices: async () => true,
+    audit: async () => {},
+  })
+  const ok = makeRes()
+  await handler({ method: 'POST', body: {
+    full_name: 'Michael Balot', category: 'BNI Team',
+    linkedin_url: 'https://www.linkedin.com/in/michael-balot',
+  } }, ok)
+  assert.equal(ok.statusCode, 201)
+  assert.equal(received.linkedin_url, 'https://www.linkedin.com/in/michael-balot')
+  assert.equal(ok.body.contact.linkedin_url, 'https://www.linkedin.com/in/michael-balot')
+
+  // Same rule as api/contacts-upsert.js: http(s) scheme + linkedin.com host.
+  for (const bad of ['linkedin.com/in/x', 'https://example.org/in/x', 'javascript:alert(1)']) {
+    const res = makeRes()
+    await handler({ method: 'POST', body: { full_name: 'X', category: 'BNI Team', linkedin_url: bad } }, res)
+    assert.equal(res.statusCode, 400)
+    assert.deepEqual(res.body, { error: 'invalid_linkedin_url' })
+  }
+})
