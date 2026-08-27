@@ -2163,11 +2163,29 @@ img.ptl-detail-photo {
 .ptl-na-contact-kpi strong { font-size: 24px; line-height: 1; }
 .ptl-na-contact-kpi span { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .ptl-na-contact-kpi-active { background: var(--ptl-na-contact-accent, var(--nightfall, #1D2567)); color: #fff; border-color: var(--ptl-na-contact-accent, var(--nightfall, #1D2567)); box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 4px 12px rgba(29, 37, 103, 0.05); }
-/* NA-CONTACTS-POLISH-3: one flex row - search, Add contact (editor grant),
-   Copy visible emails, transient save status. Wraps on narrow screens. */
+/* NA-CONTACTS-POLISH-3: one flex row - search, scope filter, Add contact
+   (editor grant), Copy visible emails, Download CSV, transient save status.
+   Wraps on narrow screens. */
 .ptl-na-contact-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.ptl-na-contact-controls .ptl-na-contact-search { flex: 1 1 260px; }
+.ptl-na-contact-controls .ptl-na-contact-search { flex: 1 1 220px; }
 .ptl-na-contact-controls .ptl-na-contact-editor-primary { min-height: 40px; }
+/* NA-CONTACTS-SCOPE-1: the School / Division / Unit scope dropdown. */
+.ptl-na-scope-filter select {
+  min-height: 40px; max-width: 230px; padding: 8px 11px; border: 1px solid var(--ptl-line);
+  border-radius: 9px; background: #fff; color: var(--ptl-ink); font-family: inherit;
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.ptl-na-scope-filter select:focus-visible { outline: 2px solid var(--nightfall, #1D2567); outline-offset: 2px; }
+/* NA-CONTACTS-SCOPE-1: the contacts CSV export, the same nightfall Download
+   button the Community Benefit report carries. */
+.ptl-na-contacts-export {
+  min-height: 40px; display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px; padding: 8px 14px; border-radius: 8px;
+  border: 1px solid var(--nightfall, #1D2567); background: var(--nightfall, #1D2567);
+  color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.ptl-na-contacts-export:hover:not(:disabled) { background: #151b52; }
+.ptl-na-contacts-export:disabled { opacity: .6; cursor: default; }
 .ptl-na-contact-search { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 11px; border: 1px solid var(--ptl-line); border-radius: 9px; background: #fff; color: var(--ptl-muted, #6b7280); }
 .ptl-na-contact-search input { min-height: 38px; padding: 7px 0; border: 0; outline: 0; }
 /* NA-CONTACTS-POLISH-1: text inputs match :focus-visible on EVERY focus, so the

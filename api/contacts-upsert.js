@@ -305,11 +305,12 @@ async function _handler(req, res) {
       if (!raw) {
         return res.status(400).json({ error: 'A school is required for an Academic Partner contact.' });
       }
+      // NA-CONTACTS-SCOPE-1: schools outside the ASPIRE catalog are accepted
+      // as typed (the editor's Other option), canonicalized when known.
       const resolved = resolveOperativeSchoolName(raw);
-      const school = resolved?.displayName
-        || (existing?.school_name && raw === existing.school_name ? raw : null);
-      if (!school) {
-        return res.status(400).json({ error: `Unknown school: ${raw}` });
+      const school = resolved?.displayName || String(raw).trim();
+      if (!school || school.length > 160) {
+        return res.status(400).json({ error: `Invalid school: ${raw}` });
       }
       payload.school_name = school;
       payload.organization = school;

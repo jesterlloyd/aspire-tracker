@@ -124,10 +124,12 @@ function parseContactPayload(body, { create = false, existing = null } = {}) {
     if (kind === 'school') {
       const raw = payload.school_name !== undefined ? payload.school_name : existing?.school_name
       if (!raw) return { error: 'school_required' }
+      // NA-CONTACTS-SCOPE-1: schools outside the ASPIRE catalog are accepted
+      // as typed (the editor's Other option), canonicalized when known. A
+      // school that later joins the catalog canonicalizes on its next save.
       const resolved = resolveOperativeSchoolName(raw)
-      const school = resolved?.displayName
-        || (existing?.school_name && raw === existing.school_name ? raw : null)
-      if (!school) return { error: 'invalid_school' }
+      const school = resolved?.displayName || String(raw).trim()
+      if (school.length > 160) return { error: 'invalid_school' }
       payload.school_name = school
       payload.organization = school
     } else if (kind === 'csmc') {

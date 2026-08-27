@@ -3,7 +3,7 @@
 // update, deactivate, and reactivate controls, but no permanent deletion.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Copy, Mail, Pencil, Phone, Plus, Power, PowerOff, Search, UserRound, X } from 'lucide-react'
+import { Check, Copy, Download, Mail, Pencil, Phone, Plus, Power, PowerOff, Search, UserRound, X } from 'lucide-react'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
@@ -20,6 +20,9 @@ import {
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../../components/shared/MultiScopePicker'
+import { CONTACT_SCOPE_GROUPS, contactMatchesScope } from '../../lib/contactScopeFilter'
+import { buildContactsCsv } from '../../lib/contactsCsv'
+import { downloadCSV } from '../../lib/utils'
 import Tooltip from '../../components/ui/Tooltip'
 import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact, uploadAcademicsContactAvatar } from './nursingAcademicsApi'
 
@@ -27,6 +30,7 @@ import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact,
 // shared canonical vocabulary; Preferred Contact Method is retired.
 const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_IDENTITY_GROUPS.map(g => g.operative)
 const CUSTOM_TITLE = '__custom__'
+const CUSTOM_SCHOOL = '__other_school__'
 
 const clean = value => String(value || '').trim()
 const initials = name => clean(name).split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() || '').join('') || '?'
@@ -170,6 +174,10 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
       category: storedCat,
       organization: clean(contact?.organization),
       school_name: clean(contact?.school_name),
+      // NA-CONTACTS-SCOPE-1: a stored school outside the catalog opens in the
+      // Other (free text) state instead of dangling as a "(legacy)" option.
+      school_custom: Boolean(clean(contact?.school_name))
+        && !SCHOOL_AFFILIATION_OPTIONS.includes(clean(contact?.school_name)),
       units: contactUnitList(contact || {}),
       services: clean(contact?.services),
       linkedin_url: clean(contact?.linkedin_url),
@@ -275,14 +283,30 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
         : {}),
     })
   }
+  const changeSchool = value => {
+    if (value === CUSTOM_SCHOOL) setForm(current => ({ ...current, school_custom: true, school_name: '' }))
+    else setForm(current => ({ ...current, school_custom: false, school_name: value }))
+  }
+  // NA-CONTACTS-SCOPE-1: schools outside the ASPIRE catalog are welcome - the
+  // Other option opens a free-text school name (stored as typed; it
+  // canonicalizes automatically if the school later joins the catalog).
   const schoolSelect = (id) => (
-    <select id={id} value={form.school_name} onChange={e => set('school_name', e.target.value)} aria-label="School">
-      <option value="">Select school…</option>
-      {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-      {form.school_name && !SCHOOL_AFFILIATION_OPTIONS.includes(form.school_name) && (
-        <option value={form.school_name}>{form.school_name} (legacy)</option>
+    <>
+      <select id={id} value={form.school_custom ? CUSTOM_SCHOOL : form.school_name} onChange={e => changeSchool(e.target.value)} aria-label="School">
+        <option value="">Select school…</option>
+        {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+        <option value={CUSTOM_SCHOOL}>Other</option>
+      </select>
+      {form.school_custom && (
+        <input
+          value={form.school_name}
+          onChange={e => set('school_name', e.target.value)}
+          placeholder="Type the school name"
+          aria-label="Other school name"
+          style={{ marginTop: 8 }}
+        />
       )}
-    </select>
+    </>
   )
   return (
     <div className="ptl-na-contact-modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !saving && onClose()}>
@@ -346,7 +370,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
                 <option value="">{cat ? 'Select…' : 'Select a category first'}</option>
                 {titles.map(t => <option key={t} value={t}>{t}</option>)}
                 {form.role && !roleListed && !showCustomTitle && <option value={form.role}>{form.role} (legacy)</option>}
-                {titleAllowsFreeText(cat) && <option value={CUSTOM_TITLE}>Other (free text)</option>}
+                {titleAllowsFreeText(cat) && <option value={CUSTOM_TITLE}>Other</option>}
               </select>
             </label>
             {showCustomTitle && (
@@ -418,6 +442,10 @@ export default function AcademicsContactsView({ active = true }) {
   const [selectedId, setSelectedId] = useState(null)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
+  // NA-CONTACTS-SCOPE-1: the School / Division / Unit scope. It narrows the
+  // WHOLE directory (KPI counts, list, copy, CSV); the KPI category filter and
+  // search then compose within it.
+  const [scope, setScope] = useState('')
   const [loading, setLoading] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
@@ -500,11 +528,12 @@ export default function AcademicsContactsView({ active = true }) {
   // NA-CONTACTS-POLISH-3: the directory lists active contacts only; a
   // deactivated contact is reactivated from staff ASPIRE Connect.
   const directoryContacts = useMemo(() => contacts.filter(contact => contact.is_active !== false), [contacts])
+  const scopedContacts = useMemo(() => directoryContacts.filter(contact => contactMatchesScope(contact, scope)), [directoryContacts, scope])
   const categoryCounts = useMemo(() => {
     const counts = new Map()
-    directoryContacts.forEach(contact => getContactCategories(contact).forEach(value => counts.set(value, (counts.get(value) || 0) + 1)))
+    scopedContacts.forEach(contact => getContactCategories(contact).forEach(value => counts.set(value, (counts.get(value) || 0) + 1)))
     return counts
-  }, [directoryContacts])
+  }, [scopedContacts])
   const categories = useMemo(() => {
     const available = new Set(categoryCounts.keys())
     return [
@@ -516,7 +545,7 @@ export default function AcademicsContactsView({ active = true }) {
   // shared comparator; the flat All view while searching is unit-aware (a
   // query naming a unit surfaces its leadership chain, acting executive on
   // top), otherwise displayed-name order.
-  const filtered = useMemo(() => orderContacts(directoryContacts, category, query), [directoryContacts, category, query])
+  const filtered = useMemo(() => orderContacts(scopedContacts, category, query), [scopedContacts, category, query])
   // All Contacts with no query groups by primary category with dividers,
   // exactly like the staff ASPIRE Connect list. `filtered` is ALREADY in
   // grouped display order (orderContacts), so the dividers are derived from
@@ -556,14 +585,20 @@ export default function AcademicsContactsView({ active = true }) {
   const chooseCategory = value => {
     setCategory(value)
     setCopyStatus('')
-    setSelectedId(orderContacts(directoryContacts, value, query)[0]?.id || null)
+    setSelectedId(orderContacts(scopedContacts, value, query)[0]?.id || null)
+  }
+  const chooseScope = value => {
+    setScope(value)
+    setCopyStatus('')
+    const nextScoped = directoryContacts.filter(contact => contactMatchesScope(contact, value))
+    setSelectedId(orderContacts(nextScoped, category, query)[0]?.id || null)
   }
   const updateSearch = event => {
     const value = event.target.value
     const nextQuery = value.trim().toLowerCase()
     setSearch(value)
     setCopyStatus('')
-    setSelectedId(orderContacts(directoryContacts, category, nextQuery)[0]?.id || null)
+    setSelectedId(orderContacts(scopedContacts, category, nextQuery)[0]?.id || null)
   }
   const copyVisibleEmails = async () => {
     if (visibleEmails.length === 0 || !navigator.clipboard?.writeText) {
@@ -616,7 +651,7 @@ export default function AcademicsContactsView({ active = true }) {
     }
     applySavedContact(res.data.contact)
     if (!activate) {
-      const remaining = contacts.filter(row => row.id !== contact.id && row.is_active !== false)
+      const remaining = contacts.filter(row => row.id !== contact.id && row.is_active !== false && contactMatchesScope(row, scope))
       setSelectedId(orderContacts(remaining, category, query)[0]?.id || null)
     }
     setMutationStatus(activate ? 'Contact reactivated' : 'Contact deactivated')
@@ -650,7 +685,7 @@ export default function AcademicsContactsView({ active = true }) {
               onClick={() => chooseCategory(value)}
               aria-pressed={selected}
             >
-              <strong>{value === 'All' ? directoryContacts.length : categoryCounts.get(value) || 0}</strong>
+              <strong>{value === 'All' ? scopedContacts.length : categoryCounts.get(value) || 0}</strong>
               <span>{value === 'All' ? 'All Contacts' : categoryPluralLabel(value)}</span>
             </button>
           )
@@ -663,6 +698,17 @@ export default function AcademicsContactsView({ active = true }) {
           <span className="ptl-visually-hidden">Search contacts</span>
           <input id="na-contact-search" type="search" value={search} onChange={updateSearch} placeholder="Search contacts" />
         </label>
+        <label className="ptl-na-scope-filter" htmlFor="na-contact-scope">
+          <span className="ptl-visually-hidden">Filter by school, division, or unit</span>
+          <select id="na-contact-scope" value={scope} onChange={e => chooseScope(e.target.value)}>
+            <option value="">All schools &amp; units</option>
+            {CONTACT_SCOPE_GROUPS.map(group => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map(option => <option key={option} value={option}>{option}</option>)}
+              </optgroup>
+            ))}
+          </select>
+        </label>
         {canManageContacts && <button type="button" className="ptl-na-contact-editor-primary" onClick={() => { setMutationError(''); setEditorContact(null) }}><Plus size={15} /> Add contact</button>}
         <button
           type="button"
@@ -673,6 +719,15 @@ export default function AcademicsContactsView({ active = true }) {
           aria-live="polite"
         >
           <Copy size={15} aria-hidden="true" /> {copyStatus || 'Copy visible emails'}
+        </button>
+        <button
+          type="button"
+          className="ptl-na-contacts-export"
+          onClick={() => downloadCSV(buildContactsCsv(filtered), 'aspire-contacts.csv')}
+          disabled={filtered.length === 0}
+          title="Download the visible contacts as a CSV, organized by category"
+        >
+          <Download size={16} aria-hidden="true" /> Download CSV
         </button>
         {mutationStatus && <span className="ptl-na-contact-save-status" role="status">{mutationStatus}</span>}
       </div>

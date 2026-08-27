@@ -979,6 +979,7 @@ const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_IDENTITY_GROUPS.map(g => g.operative)
 
 // Sentinel select value for "type a custom title" where the canon allows it.
 const CUSTOM_TITLE = '__custom__'
+const CUSTOM_SCHOOL = '__other_school__'
 
 const inputStyle = {
   width: '100%', boxSizing: 'border-box',
@@ -1014,6 +1015,10 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
       role_custom: Boolean(storedRole)
         && !titleOptionsFor(storedCat).includes(storedRole)
         && titleAllowsFreeText(storedCat),
+      // NA-CONTACTS-SCOPE-1: a stored school outside the catalog opens in the
+      // Other free-text state instead of dangling as a "(legacy)" option.
+      school_custom: Boolean(initialData.school_name)
+        && !SCHOOL_AFFILIATION_OPTIONS.includes(initialData.school_name),
       affiliation_mode: affiliationMode,
       weekly_digest: initialData.notification_preferences?.weekly_digest !== false,
     }
@@ -1038,6 +1043,12 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   const roleIsListed = titles.includes(roleValue)
   const showCustomTitleInput = titleAllowsFreeText(cat) && (formData.role_custom === true)
   const affKind = cat ? affiliationKind(cat) : null
+  // NA-CONTACTS-SCOPE-1: the Other free-text school state and its select handler.
+  const schoolIsCustom = formData.school_custom === true
+  const handleSchoolSelect = (value) => {
+    if (value === CUSTOM_SCHOOL) setFormData(prev => ({ ...prev, school_custom: true, school_name: '' }))
+    else setFormData(prev => ({ ...prev, school_custom: false, school_name: value }))
+  }
   // Unit picker: Unit Leader and Preceptor by canon; a Nursing Executive sees
   // it ONLY when units were already stored when the modal opened (the
   // acting-AD passthrough, e.g. Charina Emerson / Float Pool), so units can
@@ -1361,7 +1372,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
               {roleValue && !roleIsListed && !showCustomTitleInput && (
                 <option value={roleValue}>{roleValue} (legacy)</option>
               )}
-              {titleAllowsFreeText(cat) && <option value={CUSTOM_TITLE}>Other (free text)</option>}
+              {titleAllowsFreeText(cat) && <option value={CUSTOM_TITLE}>Other</option>}
             </select>
             {showCustomTitleInput && (
               <input
@@ -1378,13 +1389,27 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
           {affKind === 'school' && (
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Affiliation (School) <span style={{ color: '#dc2626' }}>*</span></label>
-              <select value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} style={inputStyle}>
+              {/* NA-CONTACTS-SCOPE-1: schools outside the ASPIRE catalog are welcome -
+                  Other opens a free-text school name (stored as typed; it canonicalizes
+                  automatically if the school later joins the catalog). */}
+              <select
+                value={schoolIsCustom ? CUSTOM_SCHOOL : (formData.school_name || '')}
+                onChange={e => handleSchoolSelect(e.target.value)}
+                style={inputStyle}
+              >
                 <option value="">Select school…</option>
                 {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                {formData.school_name && !SCHOOL_AFFILIATION_OPTIONS.includes(formData.school_name) && (
-                  <option value={formData.school_name}>{formData.school_name} (legacy)</option>
-                )}
+                <option value={CUSTOM_SCHOOL}>Other</option>
               </select>
+              {schoolIsCustom && (
+                <input
+                  value={formData.school_name || ''}
+                  onChange={e => set('school_name', e.target.value)}
+                  placeholder="Type the school name"
+                  style={{ ...inputStyle, marginTop: 8 }}
+                  aria-label="Other school name"
+                />
+              )}
               <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>Used for linked students and weekly digest matching.</div>
             </div>
           )}
@@ -1403,13 +1428,22 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
                 <option value="custom">Other organization (free text)</option>
               </select>
               {formData.affiliation_mode === 'school' && (
-                <select value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} style={{ ...inputStyle, marginTop: 8 }} aria-label="School">
-                  <option value="">Select school…</option>
-                  {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                  {formData.school_name && !SCHOOL_AFFILIATION_OPTIONS.includes(formData.school_name) && (
-                    <option value={formData.school_name}>{formData.school_name} (legacy)</option>
+                <>
+                  <select value={schoolIsCustom ? CUSTOM_SCHOOL : (formData.school_name || '')} onChange={e => handleSchoolSelect(e.target.value)} style={{ ...inputStyle, marginTop: 8 }} aria-label="School">
+                    <option value="">Select school…</option>
+                    {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value={CUSTOM_SCHOOL}>Other</option>
+                  </select>
+                  {schoolIsCustom && (
+                    <input
+                      value={formData.school_name || ''}
+                      onChange={e => set('school_name', e.target.value)}
+                      placeholder="Type the school name"
+                      style={{ ...inputStyle, marginTop: 8 }}
+                      aria-label="Other school name"
+                    />
                   )}
-                </select>
+                </>
               )}
               {formData.affiliation_mode === 'custom' && (
                 <input

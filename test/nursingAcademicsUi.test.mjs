@@ -184,7 +184,9 @@ test('Contacts preserves view-only access and conditionally exposes the narrow C
   assert.match(contacts, /visibleEmails\.join\(','\)/)
   assert.match(contacts, /navigator\.clipboard\.writeText/)
   assert.doesNotMatch(contacts, /<select[^>]+na-contact-category|All Categories/)
-  assert.doesNotMatch(contacts, /contacts-upsert|downloadCSV|Delete contact|notification_history|contact\.notes/)
+  // NA-CONTACTS-SCOPE-1: downloadCSV joined legitimately (the approved Download
+  // CSV button); contact.notes joined via CONTACTS-EDITOR-PARITY-1.
+  assert.doesNotMatch(contacts, /contacts-upsert|Delete contact|notification_history/)
 })
 
 test('Contacts shares the main directory role-pill colors', () => {
@@ -242,10 +244,10 @@ test('auto-selection always takes the FIRST DISPLAYED row (orderContacts), never
   // One ordering pipeline...
   assert.match(contacts, /const orderContacts = \(list, category, query\) =>/)
   // ...feeding the visible list...
-  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(directoryContacts, category, query\)/)
+  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(scopedContacts, category, query\)/)
   // ...and every selection site: category click, search, initial load, deactivation fallback.
-  assert.match(contacts, /setSelectedId\(orderContacts\(directoryContacts, value, query\)\[0\]\?\.id \|\| null\)/)
-  assert.match(contacts, /setSelectedId\(orderContacts\(directoryContacts, category, nextQuery\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, value, query\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, category, nextQuery\)\[0\]\?\.id \|\| null\)/)
   assert.match(contacts, /orderContacts\(next\.filter\(contact => contact\.is_active !== false\), 'All', ''\)\[0\]/)
   assert.match(contacts, /setSelectedId\(orderContacts\(remaining, category, query\)\[0\]\?\.id \|\| null\)/)
   // No selection site reads raw fetch order any more.
@@ -341,7 +343,7 @@ test('the Contacts chrome is consolidated: no heading block, controls in one row
   assert.doesNotMatch(contacts, /of \{directoryContacts\.length\} contacts/)
   assert.match(contacts, /<section className="ptl-na-contacts" aria-label="Contacts">/)
   // Add contact sits in the controls row between search and Copy visible emails.
-  assert.match(contacts, /ptl-na-contact-search[\s\S]{0,700}?Add contact[\s\S]{0,700}?Copy visible emails/)
+  assert.match(contacts, /ptl-na-contact-search[\s\S]{0,1400}?ptl-na-scope-filter[\s\S]{0,1400}?Add contact[\s\S]{0,1400}?Copy visible emails/)
   // Show inactive is retired: the portal lists active contacts only, and the
   // deactivation copy points reactivation at staff Connect.
   assert.doesNotMatch(contacts, /Show inactive|showInactive/)
