@@ -117,8 +117,12 @@ export const CONTACT_ROLE_TITLES = {
   ],
 }
 
-// Categories whose Role/Title also accepts free text (per the canon decision).
-export const TITLE_FREE_TEXT_CATEGORIES = ['Academic Partner', 'Other']
+// Categories whose Role/Title also accepts free text. CONTACTS-EDITOR-PARITY-1
+// (approved 2026-08-27): every category offers "Other (free text)" - the
+// original Academic Partner + Other allowance grew to the full catalog so an
+// uncataloged title never blocks a save. The per-category dropdowns remain the
+// canonical first choice; free text is the labeled escape hatch.
+export const TITLE_FREE_TEXT_CATEGORIES = [...CONTACT_CATEGORY_ORDER]
 
 export function titleOptionsFor(category) {
   return CONTACT_ROLE_TITLES[canonicalCategory(category)] || []

@@ -21,7 +21,7 @@ import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../../components/shared/MultiScopePicker'
 import Tooltip from '../../components/ui/Tooltip'
-import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact } from './nursingAcademicsApi'
+import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact, uploadAcademicsContactAvatar } from './nursingAcademicsApi'
 
 // CONTACTS-CANON-1: category, title, affiliation, and units come from the
 // shared canonical vocabulary; Preferred Contact Method is retired.
@@ -48,14 +48,6 @@ const rolePillStyle = contact => {
     '--ptl-na-role-color': colors.color,
     '--ptl-na-role-bg': colors.bg,
     '--ptl-na-role-border': colors.border,
-  }
-}
-const categoryPillStyle = contact => {
-  const colors = categoryChipColors(primaryCategory(contact))
-  return {
-    '--ptl-na-category-color': colors.color,
-    '--ptl-na-category-bg': colors.bg,
-    '--ptl-na-category-border': colors.border,
   }
 }
 const contactMatches = (contact, category, query) => {
@@ -158,8 +150,13 @@ function ContactCopyButton({ value, label }) {
 }
 
 function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
+  // CONTACTS-EDITOR-PARITY-1: the staff Connect modal's structure - photo on
+  // top, Category FIRST (required, with its organizing helper), then Identity,
+  // Contact Information, Role and Affiliation, Online Profile, and Notes.
   const [form, setForm] = useState(() => {
-    const storedCat = canonicalCategory(contact?.category) || 'Other'
+    // A NEW contact starts with no category: it is a required choice, not a
+    // silent 'Other' default (parity with the staff modal).
+    const storedCat = canonicalCategory(contact?.category) || (contact ? 'Other' : '')
     const storedRole = clean(contact?.role)
     return {
       full_name: clean(contact?.full_name),
@@ -176,12 +173,43 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
       units: contactUnitList(contact || {}),
       services: clean(contact?.services),
       linkedin_url: clean(contact?.linkedin_url),
+      notes: clean(contact?.notes),
+      avatar_url: clean(contact?.avatar_url),
       affiliation_mode: clean(contact?.school_name)
         ? 'school'
         : (!clean(contact?.organization) || clean(contact?.organization) === CSMC_AFFILIATION ? 'csmc' : 'custom'),
     }
   })
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadErr, setUploadErr] = useState('')
   const set = (field, value) => setForm(current => ({ ...current, [field]: value }))
+
+  // Photo upload goes through the server-mediated portal endpoint (the portal
+  // role cannot write the staff bucket directly). For an EXISTING contact the
+  // server also persists avatar_url; for a new one the returned URL rides the
+  // create payload.
+  const handlePhotoUpload = async event => {
+    const file = event.target.files?.[0]
+    if (event.target) event.target.value = ''
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setUploadErr('Only JPEG, PNG, and WebP images are supported.')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadErr('Image must be under 2 MB.')
+      return
+    }
+    setUploadErr('')
+    setUploadingPhoto(true)
+    const res = await uploadAcademicsContactAvatar({ contactId: contact?.id || null, file })
+    setUploadingPhoto(false)
+    if (!res.ok || !res.data?.avatar_url) {
+      setUploadErr('Upload failed. Please try again.')
+      return
+    }
+    set('avatar_url', res.data.avatar_url)
+  }
 
   const cat = form.category
   const titles = titleOptionsFor(cat)
@@ -218,7 +246,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
   const linkedinTrimmed = form.linkedin_url.trim()
   const linkedinValid = !linkedinTrimmed
     || (/^https?:\/\//.test(linkedinTrimmed) && linkedinTrimmed.includes('linkedin.com'))
-  const valid = Boolean(form.full_name.trim() && affiliationValid && linkedinValid && (!form.email.trim() || isValidEmail(form.email)))
+  const valid = Boolean(form.full_name.trim() && form.category && affiliationValid && linkedinValid && (!form.email.trim() || isValidEmail(form.email)))
 
   const submit = event => {
     event.preventDefault()
@@ -238,6 +266,8 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
       role: form.role,
       category: form.category,
       linkedin_url: linkedinTrimmed,
+      notes: form.notes,
+      avatar_url: form.avatar_url,
       ...affiliation,
       ...(showUnits ? { unit_name: unitCols.unit_name || '', related_units: unitCols.related_units } : {}),
       ...(showServices || clean(contact?.services)
@@ -261,67 +291,117 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
           <div><h3 id="na-contact-editor-title">{contact ? 'Edit contact' : 'Add contact'}</h3><p>Contact directory fields only</p></div>
           <button type="button" onClick={onClose} disabled={saving} aria-label="Close"><X size={18} /></button>
         </div>
-        <div className="ptl-na-contact-form-grid">
-          <label className="ptl-na-contact-form-wide"><span>Full name *</span><input value={form.full_name} onChange={e => set('full_name', e.target.value)} required autoFocus /></label>
-          <label><span>Preferred name</span><input value={form.preferred_name} onChange={e => set('preferred_name', e.target.value)} /></label>
-          <label>
-            <span>Category</span>
-            <select value={form.category} onChange={e => changeCategory(e.target.value)}>
-              {CONTACT_CATEGORY_ORDER.map(value => <option key={value}>{value}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Role or title</span>
-            <select value={showCustomTitle ? CUSTOM_TITLE : form.role} onChange={e => changeTitle(e.target.value)}>
-              <option value="">Select…</option>
-              {titles.map(t => <option key={t} value={t}>{t}</option>)}
-              {form.role && !roleListed && !showCustomTitle && <option value={form.role}>{form.role} (legacy)</option>}
-              {titleAllowsFreeText(cat) && <option value={CUSTOM_TITLE}>Other (free text)</option>}
-            </select>
-          </label>
-          {showCustomTitle && (
-            <label className="ptl-na-contact-form-wide"><span>Custom role or title</span><input value={form.role} onChange={e => set('role', e.target.value)} /></label>
-          )}
-          {affKind === 'school' && (
-            <label><span>Affiliation (school) *</span>{schoolSelect('na-contact-school')}</label>
-          )}
-          {affKind === 'csmc' && (
-            <label><span>Affiliation</span><input value={CSMC_AFFILIATION} readOnly aria-readonly="true" /></label>
-          )}
-          {affKind === 'choice' && (
-            <label>
-              <span>Affiliation *</span>
-              <select value={form.affiliation_mode} onChange={e => set('affiliation_mode', e.target.value)}>
-                <option value="csmc">{CSMC_AFFILIATION}</option>
-                <option value="school">School</option>
-                <option value="custom">Other organization</option>
+        <div className="ptl-na-contact-form-body">
+          {/* ── Photo ── */}
+          <div className="ptl-na-contact-photo">
+            <span className="ptl-na-contact-avatar ptl-na-contact-avatar-lg" aria-hidden="true">
+              {form.avatar_url ? <img src={form.avatar_url} alt="" /> : initials(form.full_name)}
+            </span>
+            <div className="ptl-na-contact-photo-actions">
+              <label className={`ptl-na-contact-photo-upload${uploadingPhoto ? ' ptl-na-contact-photo-busy' : ''}`}>
+                {uploadingPhoto ? 'Uploading…' : '↑ Upload Photo'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploadingPhoto} onChange={handlePhotoUpload} />
+              </label>
+              {form.avatar_url && !uploadingPhoto && (
+                <button type="button" className="ptl-na-contact-photo-remove" onClick={() => { set('avatar_url', ''); setUploadErr('') }}>Remove Photo</button>
+              )}
+            </div>
+            {uploadErr && <p className="ptl-na-contact-form-error" role="alert">{uploadErr}</p>}
+            <p className="ptl-na-contact-photo-hint">JPEG, PNG, or WebP · max 2 MB</p>
+          </div>
+
+          {/* ── Category ── */}
+          <div className="ptl-na-contact-form-section">Category</div>
+          <div className="ptl-na-contact-form-grid">
+            <label className="ptl-na-contact-form-wide">
+              <span>Category <span className="ptl-na-contact-required" aria-hidden="true">*</span></span>
+              <select value={form.category} onChange={e => changeCategory(e.target.value)} required>
+                <option value="">Select category…</option>
+                {CONTACT_CATEGORY_ORDER.map(value => <option key={value}>{value}</option>)}
+              </select>
+              <span className="ptl-na-contact-form-hint">Category determines how this contact is organized and which fields appear below.</span>
+            </label>
+          </div>
+
+          {/* ── Identity ── */}
+          <div className="ptl-na-contact-form-section">Identity</div>
+          <div className="ptl-na-contact-form-grid">
+            <label className="ptl-na-contact-form-wide"><span>Full Name <span className="ptl-na-contact-required" aria-hidden="true">*</span></span><input value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="e.g. Susan Hunter" required autoFocus /></label>
+            <label className="ptl-na-contact-form-wide"><span>Preferred Name</span><input value={form.preferred_name} onChange={e => set('preferred_name', e.target.value)} placeholder="e.g. Sue" /></label>
+          </div>
+
+          {/* ── Contact Information ── */}
+          <div className="ptl-na-contact-form-section">Contact Information</div>
+          <div className="ptl-na-contact-form-grid">
+            <label><span>Email</span><input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="name@example.com" /></label>
+            <label><span>Phone</span><input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="e.g. 310-555-0100" /></label>
+          </div>
+
+          {/* ── Role and Affiliation ── */}
+          <div className="ptl-na-contact-form-section">Role and Affiliation</div>
+          <div className="ptl-na-contact-form-grid">
+            <label className="ptl-na-contact-form-wide">
+              <span>Role / Title</span>
+              <select value={showCustomTitle ? CUSTOM_TITLE : form.role} onChange={e => changeTitle(e.target.value)} disabled={!cat}>
+                <option value="">{cat ? 'Select…' : 'Select a category first'}</option>
+                {titles.map(t => <option key={t} value={t}>{t}</option>)}
+                {form.role && !roleListed && !showCustomTitle && <option value={form.role}>{form.role} (legacy)</option>}
+                {titleAllowsFreeText(cat) && <option value={CUSTOM_TITLE}>Other (free text)</option>}
               </select>
             </label>
-          )}
-          {affKind === 'choice' && form.affiliation_mode === 'school' && (
-            <label><span>School</span>{schoolSelect('na-contact-school-choice')}</label>
-          )}
-          {affKind === 'choice' && form.affiliation_mode === 'custom' && (
-            <label><span>Organization</span><input value={form.organization} onChange={e => set('organization', e.target.value)} /></label>
-          )}
-          <label><span>Email</span><input type="email" value={form.email} onChange={e => set('email', e.target.value)} /></label>
-          <label><span>Phone</span><input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} /></label>
-          <label className="ptl-na-contact-form-wide"><span>LinkedIn URL</span><input type="url" value={form.linkedin_url} onChange={e => set('linkedin_url', e.target.value)} placeholder="https://www.linkedin.com/in/…" /></label>
-          {showUnits && (
-            <div className="ptl-na-contact-form-wide ptl-na-contact-units">
-              <span>Unit affiliation (one or more units)</span>
-              <MultiScopePicker
-                id="na-contact-units"
-                options={UNIT_SCOPE_OPTIONS}
-                selected={form.units}
-                onChange={next => set('units', next)}
-                placeholder="Search units"
-              />
-            </div>
-          )}
-          {showServices && (
-            <label className="ptl-na-contact-form-wide"><span>{servicesMeta.label}</span><input value={form.services} onChange={e => set('services', e.target.value)} placeholder={servicesMeta.label === 'Programs' ? 'e.g. ASPIRE, NGRP, Preceptor Program' : 'e.g. BNI, Surgical Services, OLAR'} /></label>
-          )}
+            {showCustomTitle && (
+              <label className="ptl-na-contact-form-wide"><span>Custom role or title</span><input value={form.role} onChange={e => set('role', e.target.value)} placeholder="Type the role or title" /></label>
+            )}
+            {affKind === 'school' && (
+              <label className="ptl-na-contact-form-wide"><span>Affiliation (School) <span className="ptl-na-contact-required" aria-hidden="true">*</span></span>{schoolSelect('na-contact-school')}</label>
+            )}
+            {affKind === 'csmc' && (
+              <label className="ptl-na-contact-form-wide"><span>Affiliation</span><input value={CSMC_AFFILIATION} readOnly aria-readonly="true" /></label>
+            )}
+            {affKind === 'choice' && (
+              <label>
+                <span>Affiliation <span className="ptl-na-contact-required" aria-hidden="true">*</span></span>
+                <select value={form.affiliation_mode} onChange={e => set('affiliation_mode', e.target.value)}>
+                  <option value="csmc">{CSMC_AFFILIATION}</option>
+                  <option value="school">School</option>
+                  <option value="custom">Other organization</option>
+                </select>
+              </label>
+            )}
+            {affKind === 'choice' && form.affiliation_mode === 'school' && (
+              <label><span>School</span>{schoolSelect('na-contact-school-choice')}</label>
+            )}
+            {affKind === 'choice' && form.affiliation_mode === 'custom' && (
+              <label><span>Organization</span><input value={form.organization} onChange={e => set('organization', e.target.value)} /></label>
+            )}
+            {showUnits && (
+              <div className="ptl-na-contact-form-wide ptl-na-contact-units">
+                <span>Unit Affiliation (one or more units)</span>
+                <MultiScopePicker
+                  id="na-contact-units"
+                  options={UNIT_SCOPE_OPTIONS}
+                  selected={form.units}
+                  onChange={next => set('units', next)}
+                  placeholder="Search units"
+                />
+              </div>
+            )}
+            {showServices && (
+              <label className="ptl-na-contact-form-wide"><span>{servicesMeta.label}</span><input value={form.services} onChange={e => set('services', e.target.value)} placeholder={servicesMeta.label === 'Programs' ? 'e.g. ASPIRE, NGRP, Preceptor Program' : 'e.g. BNI, Surgical Services, OLAR'} /></label>
+            )}
+          </div>
+
+          {/* ── Online Profile ── */}
+          <div className="ptl-na-contact-form-section">Online Profile</div>
+          <div className="ptl-na-contact-form-grid">
+            <label className="ptl-na-contact-form-wide"><span>LinkedIn URL</span><input type="url" value={form.linkedin_url} onChange={e => set('linkedin_url', e.target.value)} placeholder="https://www.linkedin.com/in/…" /></label>
+          </div>
+
+          {/* ── Notes ── */}
+          <div className="ptl-na-contact-form-section">Notes</div>
+          <div className="ptl-na-contact-form-grid">
+            <label className="ptl-na-contact-form-wide"><span>Notes</span><textarea rows={3} maxLength={2000} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. Unit: Pediatrics. Title: Assistant Nurse Manager" /></label>
+          </div>
         </div>
         {error && <p className="ptl-na-contact-form-error" role="alert">{error}</p>}
         <div className="ptl-na-contact-modal-actions">
@@ -648,13 +728,19 @@ export default function AcademicsContactsView({ active = true }) {
               <div className="ptl-na-contact-detail-hero">
                 <ContactAvatar contact={selected} large />
                 <div className="ptl-na-contact-detail-title">
-                  <h3>{displayName(selected)}</h3>
-                  {selected.preferred_name && selected.full_name !== selected.preferred_name && <p>{selected.full_name}</p>}
+                  {/* CONTACTS-EDITOR-PARITY-1: the Connect card shape - full
+                      name, "goes by" line, the role pill WITHOUT a category
+                      pill, then the per-category subline (organization, school,
+                      or unit(s) for unit-affiliated contacts). */}
+                  <h3>{clean(selected.full_name) || displayName(selected)}</h3>
+                  {clean(selected.preferred_name) && clean(selected.preferred_name).toLowerCase() !== clean(selected.full_name).toLowerCase() && (
+                    <p className="ptl-na-contact-goes-by">goes by <strong>{selected.preferred_name}</strong></p>
+                  )}
                   <div className="ptl-na-contact-badges">
-                    <span className="ptl-na-contact-category" style={categoryPillStyle(selected)}>{primaryCategory(selected)}</span>
                     {selected.role && <span className="ptl-na-contact-role" style={rolePillStyle(selected)}>{selected.role}</span>}
                     {selected.is_active === false && <span className="ptl-na-contact-inactive-badge">Inactive</span>}
                   </div>
+                  {affiliationLine(selected) && <p className="ptl-na-contact-hero-affiliation">{affiliationLine(selected)}</p>}
                 </div>
                 <div className="ptl-na-contact-actions" aria-label={`Contact ${displayListName(selected)}`}>
                   <ContactAction href={isValidEmail(selected.email) ? `mailto:${clean(selected.email)}` : null} icon={Mail} label="Email" />
@@ -690,6 +776,12 @@ export default function AcademicsContactsView({ active = true }) {
                     </section>
                   )}
                 </div>
+                {canManageContacts && clean(selected.notes) && (
+                  <section className="ptl-na-contact-section ptl-na-contact-notes" aria-labelledby="na-contact-notes-heading">
+                    <h4 id="na-contact-notes-heading">Notes</h4>
+                    <p>{selected.notes}</p>
+                  </section>
+                )}
                 <p className="ptl-na-readonly-note"><UserRound size={15} aria-hidden="true" /> {canManageContacts ? 'Contacts Editor' : 'View only'}</p>
                 {canManageContacts && (
                   <div className="ptl-na-contact-status-bar">

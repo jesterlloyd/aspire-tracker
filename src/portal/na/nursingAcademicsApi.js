@@ -54,6 +54,26 @@ export function updateAcademicsContact(id, changes, opts = {}) {
   return apiFetch('/api/portal/academics-contacts', { ...opts, method: 'PATCH', body: { id, ...changes } })
 }
 
+// CONTACTS-EDITOR-PARITY-1: server-mediated contact photo upload (the portal
+// role cannot use the staff app's direct bucket path; the server verifies the
+// manage grant and uploads with the service role). `file` is a File/Blob;
+// contactId null = upload for a not-yet-created contact (URL returned for the
+// create payload). Returns { ok, status, data: { avatar_url }, error }.
+export async function uploadAcademicsContactAvatar({ contactId = null, file }, opts = {}) {
+  const dataBase64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '')
+    reader.onerror = () => reject(new Error('read_failed'))
+    reader.readAsDataURL(file)
+  }).catch(() => null)
+  if (!dataBase64) return { ok: false, status: 0, data: null, error: 'read_failed' }
+  return apiFetch('/api/portal/academics-contact-avatar', {
+    ...opts,
+    method: 'POST',
+    body: { ...(contactId ? { contact_id: contactId } : {}), content_type: file.type, data_base64: dataBase64 },
+  })
+}
+
 // The aggregate CSV is generated server-side (privacy contract); this fetches
 // the finished text for a client-side download. Returns
 // { ok, status, csv, error }.

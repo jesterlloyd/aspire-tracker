@@ -402,3 +402,50 @@ test('the missing-rate advisory sits at the BOTTOM of the report, after the qual
   assert.ok(noteAt > benefit.indexOf('na-needs-data-heading'), 'note renders after Needs reporting data')
   assert.ok(noteAt > benefit.indexOf('ptl-na-kpis'), 'note no longer leads the page')
 })
+
+// ── CONTACTS-EDITOR-PARITY-1: Connect-parity card + sectioned editor ────────
+
+test('the contact card mirrors Connect: full name, goes by, no category pill, subline', () => {
+  // Full name leads; "goes by" appears when a distinct preferred name exists.
+  assert.match(contacts, /<h3>\{clean\(selected\.full_name\) \|\| displayName\(selected\)\}<\/h3>/)
+  assert.match(contacts, /goes by <strong>\{selected\.preferred_name\}<\/strong>/)
+  // The category pill is gone from the hero; the role pill stays.
+  assert.doesNotMatch(contacts, /ptl-na-contact-category/)
+  assert.doesNotMatch(css, /\.ptl-na-contact-category/)
+  assert.match(contacts, /ptl-na-contact-role/)
+  // The per-category subline (organization / school / unit) sits under the pills.
+  assert.match(contacts, /\{affiliationLine\(selected\) && <p className="ptl-na-contact-hero-affiliation">/)
+  // Notes render on the card for editors only.
+  assert.match(contacts, /\{canManageContacts && clean\(selected\.notes\) && \(/)
+})
+
+test('the editor follows the staff modal: photo, Category first and required, sections', () => {
+  // Photo upload block on top, server-mediated (never a direct bucket write).
+  assert.match(contacts, /ptl-na-contact-photo-upload/)
+  assert.match(contacts, /uploadAcademicsContactAvatar\(\{ contactId: contact\?\.id \|\| null, file \}\)/)
+  assert.doesNotMatch(contacts, /storage\s*\.from\(/)
+  assert.match(contacts, /JPEG, PNG, or WebP · max 2 MB/)
+  // Category is the first section, required, with the organizing helper.
+  const catAt = contacts.indexOf('Category determines how this contact is organized')
+  assert.ok(catAt > -1)
+  assert.ok(catAt < contacts.indexOf('>Identity<'), 'Category section precedes Identity')
+  assert.match(contacts, /<span>Category <span className="ptl-na-contact-required"/)
+  assert.match(contacts, /option value="">Select category…<\/option>/)
+  // The staff modal's section order.
+  for (const [a, b] of [['>Identity<', '>Contact Information<'], ['>Contact Information<', '>Role and Affiliation<'], ['>Role and Affiliation<', '>Online Profile<'], ['>Online Profile<', '>Notes<']]) {
+    assert.ok(contacts.indexOf(a) < contacts.indexOf(b), `${a} precedes ${b}`)
+  }
+  // Free text is a labeled option for every category (shared canon).
+  assert.match(contacts, /Other \(free text\)/)
+  // Notes ride the save payload; category is required for validity.
+  assert.match(contacts, /notes: form\.notes,/)
+  assert.match(contacts, /form\.full_name\.trim\(\) && form\.category/)
+})
+
+test('the portal endpoint gates notes to editors and accepts avatar_url writes', () => {
+  const endpoint = read('api/portal/academics-contacts.js')
+  assert.match(endpoint, /EDITOR_ONLY_FIELDS = Object\.freeze\(\['notes'\]\)/)
+  assert.match(endpoint, /includeEditorFields: auth\.canManageContacts === true/)
+  assert.match(endpoint, /'linkedin_url', 'avatar_url', 'notes',/)
+  assert.match(endpoint, /invalid_avatar_url/)
+})

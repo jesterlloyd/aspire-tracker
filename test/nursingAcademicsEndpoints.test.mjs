@@ -219,7 +219,7 @@ test('Contacts Editor can create an allowlisted active contact', async () => {
     verifyCaller: async () => editorAuth,
     createContact: async (_db, payload) => {
       received = payload
-      return { id: 'f0041189-5f95-4f5c-88fd-d0d008c037db', ...payload, is_active: true, notes: 'never returned' }
+      return { id: 'f0041189-5f95-4f5c-88fd-d0d008c037db', ...payload, is_active: true }
     },
     probeServices: async () => true,
     audit: async () => {},
@@ -227,16 +227,18 @@ test('Contacts Editor can create an allowlisted active contact', async () => {
   const res = makeRes()
   await handler({ method: 'POST', body: {
     full_name: 'Michael Balot', email: 'michael@example.org', category: 'BNI Team',
-    notes: 'must be ignored', is_active: false,
+    notes: 'Program coordinator note', is_active: false,
   } }, res)
   assert.equal(res.statusCode, 201)
   // CONTACTS-CANON-1: a BNI Team contact's affiliation is DERIVED server-side.
+  // CONTACTS-EDITOR-PARITY-1: notes are editor-writable and returned to editors.
   assert.deepEqual(received, {
     full_name: 'Michael Balot', email: 'michael@example.org', category: 'BNI Team',
+    notes: 'Program coordinator note',
     organization: 'Cedars-Sinai Medical Center', school_name: null, role: '',
   })
   assert.equal(res.body.contact.is_active, true)
-  assert.ok(!('notes' in res.body.contact))
+  assert.equal(res.body.contact.notes, 'Program coordinator note')
 })
 
 test('Contacts Editor can edit, deactivate, and reactivate without a delete path', async () => {

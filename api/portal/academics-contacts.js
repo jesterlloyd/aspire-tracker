@@ -29,20 +29,27 @@ import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
 const CONTACT_FIELDS = Object.freeze([
   'id', 'full_name', 'preferred_name', 'email', 'phone', 'role', 'category',
   'organization', 'school_name', 'unit_name', 'related_units', 'services',
-  'linkedin_url', 'avatar_url', 'is_active',
+  'linkedin_url', 'avatar_url', 'is_active', 'notes',
 ])
+// CONTACTS-EDITOR-PARITY-1: notes are EDITOR-ONLY on read (allowlistContact
+// strips them for view grants); avatar_url is writable so the editor's photo
+// upload and Remove Photo can persist.
+const EDITOR_ONLY_FIELDS = Object.freeze(['notes'])
 const WRITABLE_FIELDS = Object.freeze([
   'full_name', 'preferred_name', 'email', 'phone', 'role', 'category',
   'organization', 'school_name', 'unit_name', 'related_units', 'services',
-  'linkedin_url',
+  'linkedin_url', 'avatar_url', 'notes',
 ])
 const CANONICAL_UNIT_NAMES = new Set(getCanonicalUnitNames())
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const clean = value => typeof value === 'string' ? value.trim() : ''
 
-function allowlistContact(row) {
-  return Object.fromEntries(CONTACT_FIELDS.map(field => [field, row?.[field] ?? null]))
+function allowlistContact(row, { includeEditorFields = false } = {}) {
+  const fields = includeEditorFields
+    ? CONTACT_FIELDS
+    : CONTACT_FIELDS.filter(f => !EDITOR_ONLY_FIELDS.includes(f))
+  return Object.fromEntries(fields.map(field => [field, row?.[field] ?? null]))
 }
 
 function parseContactPayload(body, { create = false, existing = null } = {}) {
@@ -71,6 +78,15 @@ function parseContactPayload(body, { create = false, existing = null } = {}) {
     if (!(url.startsWith('http://') || url.startsWith('https://')) || !url.includes('linkedin.com')) {
       return { error: 'invalid_linkedin_url' }
     }
+  }
+
+  // Notes: bounded free text (mirrors the staff editor's Notes field).
+  if (payload.notes && payload.notes.length > 2000) return { error: 'invalid_notes' }
+
+  // Avatar URL: written by the portal photo-upload endpoint (or cleared by
+  // Remove Photo). Anything set must be an http(s) URL.
+  if (payload.avatar_url && !/^https?:\/\//.test(payload.avatar_url)) {
+    return { error: 'invalid_avatar_url' }
   }
 
   // Category: canonical singular, legacy accepted and rewritten.
@@ -248,7 +264,7 @@ export function createAcademicsContactsHandler({
       try {
         const rows = await fetchContacts(auth.db, auth.canManageContacts === true, servicesReady)
         return res.status(200).json({
-          contacts: (rows || []).map(allowlistContact),
+          contacts: (rows || []).map(row => allowlistContact(row, { includeEditorFields: auth.canManageContacts === true })),
           contacts_access: auth.canManageContacts === true ? 'manage' : 'view',
           can_manage_contacts: auth.canManageContacts === true,
         })
@@ -282,7 +298,7 @@ export function createAcademicsContactsHandler({
         if (parsed.payload.role == null) parsed.payload.role = ''
         const contact = await createContact(auth.db, parsed.payload, servicesReady)
         await audit(auth.db, auth.profile, 'contact_created', contact, parsed.payload)
-        return res.status(201).json({ contact: allowlistContact(contact) })
+        return res.status(201).json({ contact: allowlistContact(contact, { includeEditorFields: true }) })
       } catch (err) {
         return mutationError(res, err)
       }
@@ -312,7 +328,7 @@ export function createAcademicsContactsHandler({
         ? (parsed.payload.is_active ? 'contact_reactivated' : 'contact_deactivated')
         : 'contact_updated'
       await audit(auth.db, auth.profile, action, contact, parsed.payload)
-      return res.status(200).json({ contact: allowlistContact(contact) })
+      return res.status(200).json({ contact: allowlistContact(contact, { includeEditorFields: true }) })
     } catch (err) {
       return mutationError(res, err)
     }

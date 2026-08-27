@@ -2234,7 +2234,13 @@ img.ptl-detail-photo {
 .ptl-na-contact-detail h3 { margin: 0 0 4px; font-size: 22px; color: var(--ptl-ink); }
 .ptl-na-contact-detail-title p { margin: 0 0 9px; font-size: 12px; color: var(--ptl-muted, #6b7280); }
 .ptl-na-contact-badges { display: flex; justify-content: center; align-items: center; gap: 7px; flex-wrap: wrap; }
-.ptl-na-contact-category { display: inline-flex; padding: 3px 8px; border: 1px solid var(--ptl-na-category-border, #e5e7eb); border-radius: 999px; background: var(--ptl-na-category-bg, #f3f4f6); color: var(--ptl-na-category-color, #6b7280); font-size: 11px; font-weight: 700; }
+/* CONTACTS-EDITOR-PARITY-1: the Connect card shape - "goes by" line under the
+   full name, no category pill, and the per-category subline under the pills. */
+.ptl-na-contact-detail-title .ptl-na-contact-goes-by { margin: 0 0 9px; font-size: 12px; color: var(--ptl-muted, #6b7280); }
+.ptl-na-contact-goes-by strong { color: #374151; }
+.ptl-na-contact-detail-title .ptl-na-contact-hero-affiliation { margin: 8px 0 0; font-size: 13px; color: var(--ptl-muted, #6b7280); }
+.ptl-na-contact-notes { margin-top: 12px; }
+.ptl-na-contact-notes p { margin: 0; font-size: 13px; color: var(--ptl-ink); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ptl-na-contact-role { display: inline-flex; padding: 3px 8px; border: 1px solid var(--ptl-na-role-border, #c3cdf0); border-radius: 6px; background: var(--ptl-na-role-bg, #eef2fb); color: var(--ptl-na-role-color, var(--nightfall, #1D2567)); font-size: 10.5px; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
 .ptl-na-contact-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .ptl-na-contact-action { min-width: 82px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 13px; border: 1px solid var(--nightfall, #1D2567); border-radius: 8px; background: var(--nightfall, #1D2567); color: #fff; font-size: 12px; font-weight: 700; text-decoration: none; }
@@ -2298,12 +2304,35 @@ img.ptl-detail-photo {
 .ptl-na-contact-modal-header h3 { margin: 0 0 3px; font-size: 17px; color: var(--nightfall, #1D2567); }
 .ptl-na-contact-modal-header p { margin: 0; font-size: 11.5px; color: var(--ptl-muted, #6b7280); }
 .ptl-na-contact-modal-header button { display: inline-flex; padding: 5px; border: 0; background: transparent; color: #6b7280; cursor: pointer; }
+/* CONTACTS-EDITOR-PARITY-1: the sectioned form body (the staff modal's
+   structure). The body carries the padding; each section's grid is flush. */
+.ptl-na-contact-form-body { padding: 20px; }
+.ptl-na-contact-form-body .ptl-na-contact-form-grid { padding: 0; margin-bottom: 14px; }
+.ptl-na-contact-form-section { font-size: 10px; font-weight: 700; color: #9ca3af; letter-spacing: .1em; text-transform: uppercase; margin: 4px 0 10px; }
+.ptl-na-contact-required { color: #dc2626; }
+.ptl-na-contact-form-grid .ptl-na-contact-form-hint { font-size: 11px; font-weight: 400; color: var(--ptl-muted, #6b7280); line-height: 1.4; }
 .ptl-na-contact-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; padding: 20px; }
 .ptl-na-contact-form-grid label { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .ptl-na-contact-form-grid label > span { font-size: 11.5px; font-weight: 700; color: #374151; }
-.ptl-na-contact-form-grid input, .ptl-na-contact-form-grid select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #d7dae4; border-radius: 8px; background: #fff; color: var(--ptl-ink); font-family: inherit; font-size: 13px; box-sizing: border-box; }
-.ptl-na-contact-form-grid input:focus, .ptl-na-contact-form-grid select:focus { outline: 2px solid rgba(29, 37, 103, .16); border-color: var(--nightfall, #1D2567); }
+.ptl-na-contact-form-grid input, .ptl-na-contact-form-grid select, .ptl-na-contact-form-grid textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #d7dae4; border-radius: 8px; background: #fff; color: var(--ptl-ink); font-family: inherit; font-size: 13px; box-sizing: border-box; }
+.ptl-na-contact-form-grid textarea { resize: vertical; }
+.ptl-na-contact-form-grid input:focus, .ptl-na-contact-form-grid select:focus, .ptl-na-contact-form-grid textarea:focus { outline: 2px solid rgba(29, 37, 103, .16); border-color: var(--nightfall, #1D2567); }
 .ptl-na-contact-form-wide { grid-column: 1 / -1; }
+/* The photo block at the top of the editor (Connect parity). */
+.ptl-na-contact-photo { display: flex; flex-direction: column; align-items: center; margin-bottom: 16px; text-align: center; }
+.ptl-na-contact-photo-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.ptl-na-contact-photo-upload {
+  display: inline-flex; align-items: center; gap: 5px; padding: 6px 13px; border-radius: 7px;
+  border: 1px solid var(--nightfall, #1D2567); background: #fff; color: var(--nightfall, #1D2567);
+  font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.ptl-na-contact-photo-upload input { display: none; }
+.ptl-na-contact-photo-busy { border-color: #e5e7eb; background: #f9fafb; color: #9ca3af; cursor: not-allowed; }
+.ptl-na-contact-photo-remove {
+  padding: 6px 13px; border-radius: 7px; border: 1px solid #e5e7eb; background: #fff;
+  color: #6b7280; font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.ptl-na-contact-photo-hint { margin: 4px 0 0; font-size: 10px; color: #9ca3af; }
 /* CONTACTS-CANON-1: the multi-unit picker block mirrors the grid's label styling. */
 .ptl-na-contact-units { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .ptl-na-contact-units > span { font-size: 11.5px; font-weight: 700; color: #374151; }

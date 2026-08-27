@@ -85,21 +85,23 @@ test('the per-category title lists are exactly the approved canon', () => {
   ])
   assert.deepEqual(CONTACT_ROLE_TITLES['Preceptor'], ['CN II', 'CN III'])
   assert.deepEqual(CONTACT_ROLE_TITLES['Other'], ['Talent Acquisition'])
-  // Free text ONLY where the canon allows it.
-  assert.deepEqual(TITLE_FREE_TEXT_CATEGORIES, ['Academic Partner', 'Other'])
-  assert.equal(titleAllowsFreeText('Unit Leader'), false)
+  // CONTACTS-EDITOR-PARITY-1 (2026-08-27): every category offers free text -
+  // the labeled escape hatch so an uncataloged title never blocks a save.
+  assert.deepEqual(TITLE_FREE_TEXT_CATEGORIES, CONTACT_CATEGORY_ORDER)
+  assert.equal(titleAllowsFreeText('Unit Leader'), true)
   assert.equal(titleAllowsFreeText('Academic Partners'), true) // legacy input resolves first
 })
 
-test('title validation: dropdown, free text where allowed, unchanged legacy passthrough, empty ok', () => {
+test('title validation: dropdowns stay canonical first, free text accepted everywhere', () => {
   assert.equal(isTitleAllowed('Unit Leader', 'NPD Practitioner'), true)
-  assert.equal(isTitleAllowed('Unit Leader', 'Wizard'), false)
   assert.equal(isTitleAllowed('Unit Leader', 'Unit NPD-P', 'Unit NPD-P'), true)   // unchanged legacy
-  assert.equal(isTitleAllowed('Unit Leader', 'Unit NPD-P', 'Associate Director'), false) // NEW legacy refused
-  assert.equal(isTitleAllowed('Academic Partner', 'Dean of Nursing'), true)       // free text allowed
+  assert.equal(isTitleAllowed('Academic Partner', 'Dean of Nursing'), true)       // free text
   assert.equal(isTitleAllowed('Other', 'Anything At All'), true)
   assert.equal(isTitleAllowed('Preceptor', ''), true)                             // no title is valid
-  assert.equal(isTitleAllowed('Preceptor', 'CN IV'), false)
+  // CONTACTS-EDITOR-PARITY-1: free text is accepted for every category (the
+  // editor offers it as a labeled "Other (free text)" option).
+  assert.equal(isTitleAllowed('Unit Leader', 'Wizard'), true)
+  assert.equal(isTitleAllowed('Preceptor', 'CN IV'), true)
 })
 
 test('the certain legacy title mappings are the JS mirror of the SQL pass', () => {
@@ -408,12 +410,15 @@ test('portal create normalizes a legacy category to canonical and derives the Ce
   assert.equal(created[0].school_name, null)
 })
 
-test('portal create refuses a non-canonical title for a fixed category', async () => {
-  const { handler } = makeHandler()
+test('portal create accepts a free-text title for any category (labeled escape hatch)', async () => {
+  // CONTACTS-EDITOR-PARITY-1: the canonical dropdowns remain the first choice,
+  // but "Other (free text)" exists for every category, so an uncataloged title
+  // saves instead of 400ing.
+  const { handler, created } = makeHandler()
   const res = makeRes()
-  await handler({ method: 'POST', body: { full_name: 'X', category: 'Unit Leader', role: 'Grand Vizier' } }, res)
-  assert.equal(res.statusCode, 400)
-  assert.equal(res.body.error, 'invalid_role')
+  await handler({ method: 'POST', body: { full_name: 'X', category: 'Unit Leader', role: 'Grand Vizier', unit_name: 'Float Pool' } }, res)
+  assert.equal(res.statusCode, 201)
+  assert.equal(created[0].role, 'Grand Vizier')
 })
 
 test('portal update lets an UNCHANGED legacy title pass through', async () => {
