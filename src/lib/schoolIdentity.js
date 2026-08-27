@@ -24,10 +24,13 @@ export function normSchoolName(s) {
   return String(s || '').toLowerCase().replace(/[.,&/-]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-// canonical: the formal institutional name (portal scope keys use this).
-// operative: the display/write identity (students.school, cohort_school_rotations.school_name,
-//            SCHOOL_COORDINATORS routing keys, the app's dropdowns).
-// aliases:   search/display variants only; never persisted.
+// canonical:   the formal institutional name (portal scope keys use this).
+// operative:   the display/write identity (students.school, cohort_school_rotations.school_name,
+//              SCHOOL_COORDINATORS routing keys, the app's dropdowns).
+// aliases:     search/display variants only; never persisted.
+// pickerLabel: NA-CONTACTS-SCOPE-3, DISPLAY ONLY. The short text a dropdown shows
+//              for this group. The value a picker WRITES is always the operative
+//              name, so no stored row changes. Omitted = the operative name.
 export const SCHOOL_IDENTITY_GROUPS = [
   { canonical: 'Azusa Pacific University', operative: 'Azusa Pacific University',
     aliases: ['APU', 'Azusa Pacific', 'Azusa'] },
@@ -45,16 +48,35 @@ export const SCHOOL_IDENTITY_GROUPS = [
   { canonical: 'West Coast University', operative: 'West Coast University',
     aliases: ['WCU', 'West Coast'], legacyOnly: true },
   { canonical: 'West Coast University North Hollywood', operative: 'West Coast University North Hollywood',
-    aliases: ['WCU North Hollywood', 'WCU NoHo', 'West Coast University NoHo'] },
+    pickerLabel: 'WCU - North Hollywood',
+    aliases: ['WCU North Hollywood', 'WCU NoHo', 'West Coast University NoHo', 'WCU - North Hollywood'] },
   { canonical: 'West Coast University Anaheim', operative: 'West Coast University Anaheim',
-    aliases: ['WCU Anaheim'] },
+    pickerLabel: 'WCU - Anaheim',
+    aliases: ['WCU Anaheim', 'WCU - Anaheim'] },
 ]
+
+// NA-CONTACTS-SCOPE-3: one collator for every ordered list this module and the
+// scope filter expose - numeric-aware ("3 SCCT" before "10 SCCT") and
+// case/accent-insensitive.
+export const SCOPE_COLLATOR = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
+
+// The picker rows: value is ALWAYS the operative (what gets written), label is
+// display-only. Sorted alphabetically by the label the user actually reads, so
+// the order can never drift from how the list looks.
+export const SCHOOL_PICKER_ITEMS = SCHOOL_IDENTITY_GROUPS
+  .filter(g => g.legacyOnly !== true)
+  .map(g => ({ value: g.operative, label: g.pickerLabel || g.operative }))
+  .sort((a, b) => SCOPE_COLLATOR.compare(a.label, b.label))
 
 // The operatives pickers OFFER (school dropdowns, scope filters): every group
 // except legacy-only resolution umbrellas. Resolution still accepts them all.
-export const SCHOOL_PICKER_OPTIONS = SCHOOL_IDENTITY_GROUPS
-  .filter(g => g.legacyOnly !== true)
-  .map(g => g.operative)
+export const SCHOOL_PICKER_OPTIONS = SCHOOL_PICKER_ITEMS.map(i => i.value)
+
+// Display text for an operative school name in a picker. Never persisted.
+export function schoolPickerLabel(operativeName) {
+  const group = SCHOOL_IDENTITY_GROUPS.find(g => g.operative === operativeName)
+  return group?.pickerLabel || operativeName
+}
 
 // Resolve any known variant (canonical, operative, or alias; exact-normalized) to its identity.
 // Returns { canonicalName, displayName } or null for unknown strings.

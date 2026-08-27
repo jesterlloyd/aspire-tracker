@@ -18,7 +18,7 @@ import {
   categoryPluralLabel, contactListSubline, sortContactsForCategory, sortContactsForSearch,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
-import { SCHOOL_PICKER_OPTIONS } from '../../lib/schoolIdentity'
+import { SCHOOL_PICKER_OPTIONS, schoolPickerLabel } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../../components/shared/MultiScopePicker'
 import { CONTACT_SCOPE_GROUPS, contactMatchesScope, scopedCategoryOrder } from '../../lib/contactScopeFilter'
 import { buildContactsCsv } from '../../lib/contactsCsv'
@@ -294,7 +294,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
     <>
       <select id={id} value={form.school_custom ? CUSTOM_SCHOOL : form.school_name} onChange={e => changeSchool(e.target.value)} aria-label="School">
         <option value="">Select school…</option>
-        {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+        {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{schoolPickerLabel(s)}</option>)}
         <option value={CUSTOM_SCHOOL}>Other</option>
       </select>
       {form.school_custom && (
@@ -708,7 +708,7 @@ export default function AcademicsContactsView({ active = true }) {
             <option value="">All schools &amp; units</option>
             {CONTACT_SCOPE_GROUPS.map(group => (
               <optgroup key={group.label} label={group.label}>
-                {group.options.map(option => <option key={option} value={option}>{option}</option>)}
+                {group.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </optgroup>
             ))}
           </select>

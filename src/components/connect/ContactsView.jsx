@@ -20,7 +20,7 @@ import {
   categoryPluralLabel, contactListSubline, sortContactsForCategory, sortContactsForSearch,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
-import { SCHOOL_PICKER_OPTIONS } from '../../lib/schoolIdentity'
+import { SCHOOL_PICKER_OPTIONS, schoolPickerLabel } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../shared/MultiScopePicker'
 import { toneGradient } from '../../lib/connectTones'
 import ConnectPanel, { ConnectPanelIcon } from './ConnectPanel'
@@ -1398,7 +1398,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
                 style={inputStyle}
               >
                 <option value="">Select school…</option>
-                {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{schoolPickerLabel(s)}</option>)}
                 <option value={CUSTOM_SCHOOL}>Other</option>
               </select>
               {schoolIsCustom && (
@@ -1431,7 +1431,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
                 <>
                   <select value={schoolIsCustom ? CUSTOM_SCHOOL : (formData.school_name || '')} onChange={e => handleSchoolSelect(e.target.value)} style={{ ...inputStyle, marginTop: 8 }} aria-label="School">
                     <option value="">Select school…</option>
-                    {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {SCHOOL_AFFILIATION_OPTIONS.map(s => <option key={s} value={s}>{schoolPickerLabel(s)}</option>)}
                     <option value={CUSTOM_SCHOOL}>Other</option>
                   </select>
                   {schoolIsCustom && (

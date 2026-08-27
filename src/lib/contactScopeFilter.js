@@ -15,13 +15,30 @@
 //              Services text mentions the division (Carol Mention's
 //              "Critical Care Services" matches the Critical Care division).
 
-import { UNIT_CATALOG } from './unitCatalog.js'
-import { SCHOOL_PICKER_OPTIONS, resolveOperativeSchoolName } from './schoolIdentity.js'
+import { UNIT_CATALOG, DIVISION_ORDER } from './unitCatalog.js'
+import {
+  SCHOOL_PICKER_ITEMS, SCHOOL_PICKER_OPTIONS, SCOPE_COLLATOR, resolveOperativeSchoolName,
+} from './schoolIdentity.js'
 import { contactUnitList } from './contactCategories.js'
 
 const SCHOOL_OPTIONS = SCHOOL_PICKER_OPTIONS
-const DIVISIONS = [...new Set(UNIT_CATALOG.map(u => u.division).filter(Boolean))]
-const UNIT_OPTIONS = UNIT_CATALOG.map(u => u.name)
+
+// NA-CONTACTS-SCOPE-3 ordering rules, one per group:
+//   Schools   - alphabetical by the label shown (see SCHOOL_PICKER_ITEMS).
+//   Divisions - the app-wide DIVISION_ORDER, so this dropdown agrees with every
+//               other division-grouped unit picker. Any catalog division missing
+//               from that list is appended rather than silently dropped.
+//   Units     - straight alphanumeric across the whole catalog, ignoring
+//               division, so floors read together (3 North, 3 SCCT, 3 South
+//               Short Stay ...). The Divisions group above already covers
+//               division-shaped filtering, so repeating it here bought nothing
+//               and only made the sequence look arbitrary.
+const CATALOG_DIVISIONS = [...new Set(UNIT_CATALOG.map(u => u.division).filter(Boolean))]
+const DIVISIONS = [
+  ...DIVISION_ORDER.filter(d => CATALOG_DIVISIONS.includes(d)),
+  ...CATALOG_DIVISIONS.filter(d => !DIVISION_ORDER.includes(d)),
+]
+const UNIT_OPTIONS = UNIT_CATALOG.map(u => u.name).sort(SCOPE_COLLATOR.compare)
 const UNITS_BY_DIVISION = new Map(DIVISIONS.map(d => [
   d, new Set(UNIT_CATALOG.filter(u => u.division === d).map(u => u.name)),
 ]))
@@ -29,11 +46,14 @@ const SCHOOL_SET = new Set(SCHOOL_OPTIONS)
 const UNIT_SET = new Set(UNIT_OPTIONS)
 const DIVISION_SET = new Set(DIVISIONS)
 
-// The grouped options for the dropdown, in reading order.
+// The grouped options for the dropdown, in reading order. Every option is
+// { value, label }: the value is what the filter stores and matches on, the
+// label is display-only (the WCU campuses read short).
+const plain = names => Object.freeze(names.map(n => Object.freeze({ value: n, label: n })))
 export const CONTACT_SCOPE_GROUPS = Object.freeze([
-  { label: 'Schools', options: SCHOOL_OPTIONS },
-  { label: 'Divisions', options: DIVISIONS },
-  { label: 'Units', options: UNIT_OPTIONS },
+  { label: 'Schools', options: Object.freeze(SCHOOL_PICKER_ITEMS.map(i => Object.freeze({ ...i }))) },
+  { label: 'Divisions', options: plain(DIVISIONS) },
+  { label: 'Units', options: plain(UNIT_OPTIONS) },
 ])
 
 export function contactScopeKind(scope) {

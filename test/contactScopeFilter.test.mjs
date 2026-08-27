@@ -13,7 +13,8 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 
 test('the dropdown groups come from the catalogs: Schools, Divisions, Units', () => {
   assert.deepEqual(CONTACT_SCOPE_GROUPS.map(g => g.label), ['Schools', 'Divisions', 'Units'])
-  const [schools, divisions, units] = CONTACT_SCOPE_GROUPS.map(g => g.options)
+  // NA-CONTACTS-SCOPE-3: options are { value, label } now (labels are display-only).
+  const [schools, divisions, units] = CONTACT_SCOPE_GROUPS.map(g => g.options.map(o => o.value))
   assert.ok(schools.includes('Azusa Pacific University'))
   assert.ok(divisions.includes('Critical Care'))
   assert.ok(units.includes('8 SCCT'))
@@ -131,8 +132,57 @@ test('the West Coast University umbrella is hidden from pickers but still resolv
   assert.equal(resolveOperativeSchoolName('WCU')?.displayName, 'West Coast University')
   assert.ok(SCHOOL_IDENTITY_GROUPS.some(g => g.operative === 'West Coast University' && g.legacyOnly === true))
   // The scope dropdown and BOTH editors consume the picker list.
-  const schools = CONTACT_SCOPE_GROUPS.find(g => g.label === 'Schools').options
+  const schools = CONTACT_SCOPE_GROUPS.find(g => g.label === 'Schools').options.map(o => o.value)
   assert.ok(!schools.includes('West Coast University'))
   assert.match(read('src/portal/na/AcademicsContactsView.jsx'), /SCHOOL_AFFILIATION_OPTIONS = SCHOOL_PICKER_OPTIONS/)
   assert.match(read('src/components/connect/ContactsView.jsx'), /SCHOOL_AFFILIATION_OPTIONS = SCHOOL_PICKER_OPTIONS/)
+})
+
+// ── NA-CONTACTS-SCOPE-3: the three ordering rules, and the WCU display label ──
+
+test('Units are straight alphanumeric across the catalog, so floors read together', () => {
+  const units = CONTACT_SCOPE_GROUPS.find(g => g.label === 'Units').options.map(o => o.value)
+  // The reported complaint: 3 North / 3 SCCT / 3 South Short Stay were split
+  // across three division blocks, and 6 NE / 6 NW led the SCCTs.
+  assert.deepEqual(units.slice(0, 6), [
+    '3 North', '3 SCCT', '3 South Short Stay', '4 North', '4 SCCT', '4 South',
+  ])
+  assert.deepEqual(units.slice(9, 13), ['6 NE', '6 NW', '6 SCCT', '6 South'])
+  // Numbered units sort ahead of named ones; named ones are alphabetical.
+  assert.deepEqual(units.slice(-9), [
+    'ACU/CDU', 'Emergency Department', 'Float Pool', 'Labor & Delivery', 'NICU',
+    'Operating Room', 'PACU', 'Pediatrics', 'PICU',
+  ])
+  // Numeric-aware, not lexicographic: a hypothetical 10 would follow 9, not 1.
+  assert.ok(units.indexOf('8 SCCT') > units.indexOf('7 SCCT'))
+})
+
+test('Divisions follow the app-wide DIVISION_ORDER (Procedural before Support)', async () => {
+  const { DIVISION_ORDER } = await import('../src/lib/unitCatalog.js')
+  const divisions = CONTACT_SCOPE_GROUPS.find(g => g.label === 'Divisions').options.map(o => o.value)
+  assert.deepEqual(divisions, DIVISION_ORDER.filter(d => divisions.includes(d)))
+  assert.ok(divisions.indexOf('Procedural') < divisions.indexOf('Support'))
+})
+
+test('Schools sort alphabetically by their DISPLAY label; WCU reads short but writes long', async () => {
+  const { SCHOOL_PICKER_ITEMS, schoolPickerLabel } = await import('../src/lib/schoolIdentity.js')
+  assert.deepEqual(SCHOOL_PICKER_ITEMS.map(i => i.label), [
+    'Azusa Pacific University', 'Cal State LA', 'Cal State Long Beach',
+    'Cal State Northridge', 'UCLA', 'WCU - Anaheim', 'WCU - North Hollywood',
+  ])
+  // The VALUE is untouched: nothing stored changes, no migration.
+  assert.equal(SCHOOL_PICKER_ITEMS.find(i => i.label === 'WCU - Anaheim').value, 'West Coast University Anaheim')
+  assert.equal(schoolPickerLabel('West Coast University North Hollywood'), 'WCU - North Hollywood')
+  assert.equal(schoolPickerLabel('UCLA'), 'UCLA', 'no pickerLabel = the operative name')
+  assert.equal(schoolPickerLabel('Some Unknown School'), 'Some Unknown School')
+  // Both editors render the label while still writing the operative value.
+  for (const p of ['src/portal/na/AcademicsContactsView.jsx', 'src/components/connect/ContactsView.jsx']) {
+    assert.match(read(p), /SCHOOL_AFFILIATION_OPTIONS\.map\(s => <option key=\{s\} value=\{s\}>\{schoolPickerLabel\(s\)\}<\/option>\)/)
+  }
+})
+
+test('the short WCU labels also resolve, so a pasted "WCU - Anaheim" is not a new school', async () => {
+  const { resolveOperativeSchoolName } = await import('../src/lib/schoolIdentity.js')
+  assert.equal(resolveOperativeSchoolName('WCU - Anaheim')?.displayName, 'West Coast University Anaheim')
+  assert.equal(resolveOperativeSchoolName('WCU - North Hollywood')?.displayName, 'West Coast University North Hollywood')
 })
