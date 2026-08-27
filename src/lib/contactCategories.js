@@ -103,6 +103,7 @@ export const CONTACT_ROLE_TITLES = {
   'BNI Team': [
     'Executive Director',
     'NPD Practitioner',
+    'Nurse Practitioner',
     'Program/Project Coordinator',
     'Lead Administrative Assistant',
   ],
@@ -276,7 +277,10 @@ const UL_TITLE_TIER = {
 const BNI_TITLE_TIER = {
   'Executive Director': 1,
   'Lead Administrative Assistant': 2,
+  // Approved 2026-08-27: Nurse Practitioners sit level with NPD Practitioners
+  // (alphabetical by displayed name within the shared tier).
   'NPD Practitioner': 3,
+  'Nurse Practitioner': 3,
   'Program/Project Coordinator': 4,
 }
 const NE_TITLE_TIER = {

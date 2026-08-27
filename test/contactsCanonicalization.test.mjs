@@ -77,8 +77,8 @@ test('the per-category title lists are exactly the approved canon', () => {
     'Manager', 'Clinical Faculty',
   ])
   assert.deepEqual(CONTACT_ROLE_TITLES['BNI Team'], [
-    'Executive Director', 'NPD Practitioner', 'Program/Project Coordinator',
-    'Lead Administrative Assistant',
+    'Executive Director', 'NPD Practitioner', 'Nurse Practitioner',
+    'Program/Project Coordinator', 'Lead Administrative Assistant',
   ])
   assert.deepEqual(CONTACT_ROLE_TITLES['Nursing Executive'], [
     'SVP, Chief Nursing Executive', 'VP of Nursing and Therapies', 'Executive Director', 'Manager',
@@ -537,4 +537,16 @@ test('the five palette copies are consolidated onto the shared module', () => {
     assert.match(src, /categoryChipColors/, `${p} uses the shared palette`)
     assert.doesNotMatch(src, /'Academic Partners':\s*\{/, `${p} carries no local palette`)
   }
+})
+
+test('BNI sort: Nurse Practitioner is level with NPD Practitioner, alphabetical within the tier', () => {
+  const rows = [
+    { full_name: 'Zoe Coordinator', category: 'BNI Team', role: 'Program/Project Coordinator' },
+    { full_name: 'Jennifer Elad', category: 'BNI Team', role: 'Nurse Practitioner' },
+    { full_name: 'Aaron NPD', category: 'BNI Team', role: 'NPD Practitioner' },
+    { full_name: 'Margo Minissian', category: 'BNI Team', role: 'Executive Director' },
+    { full_name: 'Karen NPD', category: 'BNI Team', role: 'NPD Practitioner' },
+  ]
+  const sorted = sortContactsForCategory(rows, 'BNI Team').map(c => c.full_name)
+  assert.deepEqual(sorted, ['Margo Minissian', 'Aaron NPD', 'Jennifer Elad', 'Karen NPD', 'Zoe Coordinator'])
 })
