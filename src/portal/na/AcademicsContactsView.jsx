@@ -18,9 +18,9 @@ import {
   categoryPluralLabel, contactListSubline, sortContactsForCategory, sortContactsForSearch,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
-import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
+import { SCHOOL_PICKER_OPTIONS } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../../components/shared/MultiScopePicker'
-import { CONTACT_SCOPE_GROUPS, contactMatchesScope } from '../../lib/contactScopeFilter'
+import { CONTACT_SCOPE_GROUPS, contactMatchesScope, scopedCategoryOrder } from '../../lib/contactScopeFilter'
 import { buildContactsCsv } from '../../lib/contactsCsv'
 import { downloadCSV } from '../../lib/utils'
 import Tooltip from '../../components/ui/Tooltip'
@@ -28,7 +28,7 @@ import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact,
 
 // CONTACTS-CANON-1: category, title, affiliation, and units come from the
 // shared canonical vocabulary; Preferred Contact Method is retired.
-const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_IDENTITY_GROUPS.map(g => g.operative)
+const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_PICKER_OPTIONS
 const CUSTOM_TITLE = '__custom__'
 const CUSTOM_SCHOOL = '__other_school__'
 
@@ -67,7 +67,7 @@ const contactMatches = (contact, category, query) => {
 // takes its first element, so the selected profile is always the first row the
 // reader sees - not the first match in fetch order, which drifted from the
 // display after the canonical sort pass.
-const orderContacts = (list, category, query) => {
+const orderContacts = (list, category, query, categoryOrder = CONTACT_CATEGORY_ORDER) => {
   const matched = list.filter(contact => contactMatches(contact, category, query))
   if (category !== 'All') return sortContactsForCategory(matched, category)
   if (query) return sortContactsForSearch(matched, query)
@@ -78,7 +78,7 @@ const orderContacts = (list, category, query) => {
     grouped[cat].push(contact)
   })
   const ordered = []
-  CONTACT_CATEGORY_ORDER.forEach(cat => {
+  categoryOrder.forEach(cat => {
     if (grouped[cat]) ordered.push(...sortContactsForCategory(grouped[cat], cat))
   })
   return ordered
@@ -545,7 +545,10 @@ export default function AcademicsContactsView({ active = true }) {
   // shared comparator; the flat All view while searching is unit-aware (a
   // query naming a unit surfaces its leadership chain, acting executive on
   // top), otherwise displayed-name order.
-  const filtered = useMemo(() => orderContacts(scopedContacts, category, query), [scopedContacts, category, query])
+  // NA-CONTACTS-SCOPE-2: a unit/division scope leads with the chain of command
+  // (Nursing Executives, Unit Leaders, Preceptors) in the grouped view.
+  const groupOrder = useMemo(() => scopedCategoryOrder(scope, CONTACT_CATEGORY_ORDER), [scope])
+  const filtered = useMemo(() => orderContacts(scopedContacts, category, query, groupOrder), [scopedContacts, category, query, groupOrder])
   // All Contacts with no query groups by primary category with dividers,
   // exactly like the staff ASPIRE Connect list. `filtered` is ALREADY in
   // grouped display order (orderContacts), so the dividers are derived from
@@ -585,20 +588,20 @@ export default function AcademicsContactsView({ active = true }) {
   const chooseCategory = value => {
     setCategory(value)
     setCopyStatus('')
-    setSelectedId(orderContacts(scopedContacts, value, query)[0]?.id || null)
+    setSelectedId(orderContacts(scopedContacts, value, query, groupOrder)[0]?.id || null)
   }
   const chooseScope = value => {
     setScope(value)
     setCopyStatus('')
     const nextScoped = directoryContacts.filter(contact => contactMatchesScope(contact, value))
-    setSelectedId(orderContacts(nextScoped, category, query)[0]?.id || null)
+    setSelectedId(orderContacts(nextScoped, category, query, scopedCategoryOrder(value, CONTACT_CATEGORY_ORDER))[0]?.id || null)
   }
   const updateSearch = event => {
     const value = event.target.value
     const nextQuery = value.trim().toLowerCase()
     setSearch(value)
     setCopyStatus('')
-    setSelectedId(orderContacts(scopedContacts, category, nextQuery)[0]?.id || null)
+    setSelectedId(orderContacts(scopedContacts, category, nextQuery, groupOrder)[0]?.id || null)
   }
   const copyVisibleEmails = async () => {
     if (visibleEmails.length === 0 || !navigator.clipboard?.writeText) {
@@ -652,7 +655,7 @@ export default function AcademicsContactsView({ active = true }) {
     applySavedContact(res.data.contact)
     if (!activate) {
       const remaining = contacts.filter(row => row.id !== contact.id && row.is_active !== false && contactMatchesScope(row, scope))
-      setSelectedId(orderContacts(remaining, category, query)[0]?.id || null)
+      setSelectedId(orderContacts(remaining, category, query, groupOrder)[0]?.id || null)
     }
     setMutationStatus(activate ? 'Contact reactivated' : 'Contact deactivated')
     window.setTimeout(() => setMutationStatus(''), 2500)
@@ -693,6 +696,7 @@ export default function AcademicsContactsView({ active = true }) {
       </div>
 
       <div className="ptl-na-contact-controls" role="group" aria-label="Search and manage contacts">
+        {canManageContacts && <button type="button" className="ptl-na-contact-editor-primary" onClick={() => { setMutationError(''); setEditorContact(null) }}><Plus size={15} /> Add contact</button>}
         <label className="ptl-na-contact-search" htmlFor="na-contact-search">
           <Search size={17} aria-hidden="true" />
           <span className="ptl-visually-hidden">Search contacts</span>
@@ -709,7 +713,6 @@ export default function AcademicsContactsView({ active = true }) {
             ))}
           </select>
         </label>
-        {canManageContacts && <button type="button" className="ptl-na-contact-editor-primary" onClick={() => { setMutationError(''); setEditorContact(null) }}><Plus size={15} /> Add contact</button>}
         <button
           type="button"
           className="ptl-na-copy-emails"

@@ -16,10 +16,10 @@
 //              "Critical Care Services" matches the Critical Care division).
 
 import { UNIT_CATALOG } from './unitCatalog.js'
-import { SCHOOL_IDENTITY_GROUPS, resolveOperativeSchoolName } from './schoolIdentity.js'
+import { SCHOOL_PICKER_OPTIONS, resolveOperativeSchoolName } from './schoolIdentity.js'
 import { contactUnitList } from './contactCategories.js'
 
-const SCHOOL_OPTIONS = SCHOOL_IDENTITY_GROUPS.map(g => g.operative)
+const SCHOOL_OPTIONS = SCHOOL_PICKER_OPTIONS
 const DIVISIONS = [...new Set(UNIT_CATALOG.map(u => u.division).filter(Boolean))]
 const UNIT_OPTIONS = UNIT_CATALOG.map(u => u.name)
 const UNITS_BY_DIVISION = new Map(DIVISIONS.map(d => [
@@ -53,11 +53,28 @@ function matchesSchool(contact, school) {
   return stored === school
 }
 
+// NA-CONTACTS-SCOPE-2: word-bounded service aliases per division, so an
+// executive whose Services text names the division by another name still
+// matches (Dan Sabin's "OR Operations" -> Procedural). All-caps aliases match
+// case-sensitively (a lowercase word "or" must never match); the rest are
+// case-insensitive.
+const DIVISION_SERVICE_ALIASES = {
+  Procedural: ['OR', 'Operating Room', 'Perioperative', 'PACU'],
+}
+const escapeRe = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+function serviceAliasMatches(services, alias) {
+  const caseSensitive = alias === alias.toUpperCase()
+  const re = new RegExp(`(^|[^A-Za-z])${escapeRe(alias)}([^A-Za-z]|$)`, caseSensitive ? '' : 'i')
+  return re.test(services)
+}
+
 function matchesDivision(contact, division) {
   const units = UNITS_BY_DIVISION.get(division)
   if (contactUnitList(contact || {}).some(u => units?.has(u))) return true
   // Services-text match: "Critical Care Services" mentions "Critical Care".
-  return clean(contact?.services).toLowerCase().includes(division.toLowerCase())
+  const services = clean(contact?.services)
+  if (services.toLowerCase().includes(division.toLowerCase())) return true
+  return (DIVISION_SERVICE_ALIASES[division] || []).some(alias => serviceAliasMatches(services, alias))
 }
 
 // True when the contact belongs to the selected scope (empty scope = everyone).
@@ -67,4 +84,15 @@ export function contactMatchesScope(contact, scope) {
   if (kind === 'school') return matchesSchool(contact, scope)
   if (kind === 'unit') return contactUnitList(contact || {}).includes(scope)
   return matchesDivision(contact, scope)
+}
+
+// NA-CONTACTS-SCOPE-2 (approved): under a UNIT or DIVISION scope, the grouped
+// directory leads with the chain of command - Nursing Executives, then Unit
+// Leaders, then Preceptors - before the remaining categories. School scopes
+// and the unscoped view keep the base order.
+export function scopedCategoryOrder(scope, baseOrder) {
+  const kind = contactScopeKind(scope)
+  if (kind !== 'unit' && kind !== 'division') return baseOrder
+  const lead = ['Nursing Executive', 'Unit Leader', 'Preceptor']
+  return [...lead, ...baseOrder.filter(c => !lead.includes(c))]
 }

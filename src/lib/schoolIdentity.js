@@ -39,13 +39,22 @@ export const SCHOOL_IDENTITY_GROUPS = [
     aliases: ['CSUN', 'Cal State Northridge', 'CSU Northridge'] },
   { canonical: 'University of California, Los Angeles', operative: 'UCLA',
     aliases: ['UCLA', 'UC Los Angeles'] },
+  // NA-CONTACTS-SCOPE-2: the umbrella group exists ONLY to resolve ambiguous
+  // legacy strings (a bare 'WCU' cannot be guessed into a campus). It is
+  // legacyOnly: pickers hide it; resolution keeps working.
   { canonical: 'West Coast University', operative: 'West Coast University',
-    aliases: ['WCU', 'West Coast'] },
+    aliases: ['WCU', 'West Coast'], legacyOnly: true },
   { canonical: 'West Coast University North Hollywood', operative: 'West Coast University North Hollywood',
     aliases: ['WCU North Hollywood', 'WCU NoHo', 'West Coast University NoHo'] },
   { canonical: 'West Coast University Anaheim', operative: 'West Coast University Anaheim',
     aliases: ['WCU Anaheim'] },
 ]
+
+// The operatives pickers OFFER (school dropdowns, scope filters): every group
+// except legacy-only resolution umbrellas. Resolution still accepts them all.
+export const SCHOOL_PICKER_OPTIONS = SCHOOL_IDENTITY_GROUPS
+  .filter(g => g.legacyOnly !== true)
+  .map(g => g.operative)
 
 // Resolve any known variant (canonical, operative, or alias; exact-normalized) to its identity.
 // Returns { canonicalName, displayName } or null for unknown strings.

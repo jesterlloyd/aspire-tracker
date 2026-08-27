@@ -102,3 +102,37 @@ test('Other school: both editors offer it; both servers accept unknown schools a
   assert.match(staffApi, /resolved\?\.displayName \|\| String\(raw\)\.trim\(\)/)
   assert.doesNotMatch(staffApi, /Unknown school:/)
 })
+
+// ── NA-CONTACTS-SCOPE-2: scoped chain-of-command order, aliases, umbrella ───
+
+test('a unit or division scope leads with NE, UL, Preceptor; school scopes do not', async () => {
+  const { scopedCategoryOrder } = await import('../src/lib/contactScopeFilter.js')
+  const base = ['Academic Partner', 'Unit Leader', 'Preceptor', 'BNI Team', 'Nursing Executive', 'Other']
+  assert.deepEqual(scopedCategoryOrder('8 SCCT', base).slice(0, 3), ['Nursing Executive', 'Unit Leader', 'Preceptor'])
+  assert.deepEqual(scopedCategoryOrder('Medical', base).slice(0, 3), ['Nursing Executive', 'Unit Leader', 'Preceptor'])
+  assert.deepEqual(scopedCategoryOrder('Azusa Pacific University', base), base)
+  assert.deepEqual(scopedCategoryOrder('', base), base)
+})
+
+test('division service aliases: Dan Sabin\'s "OR Operations" matches Procedural, word-bounded', () => {
+  assert.equal(contactMatchesScope({ services: 'OR Operations' }, 'Procedural'), true)
+  assert.equal(contactMatchesScope({ services: 'Perioperative Services' }, 'Procedural'), true)
+  // A lowercase word "or" must never match the OR alias.
+  assert.equal(contactMatchesScope({ services: 'Medicine or Surgery' }, 'Procedural'), false)
+  assert.equal(contactMatchesScope({ services: 'Doctor of Nursing' }, 'Procedural'), false)
+})
+
+test('the West Coast University umbrella is hidden from pickers but still resolves', async () => {
+  const { SCHOOL_PICKER_OPTIONS, resolveOperativeSchoolName, SCHOOL_IDENTITY_GROUPS } = await import('../src/lib/schoolIdentity.js')
+  assert.ok(!SCHOOL_PICKER_OPTIONS.includes('West Coast University'), 'umbrella hidden from pickers')
+  assert.ok(SCHOOL_PICKER_OPTIONS.includes('West Coast University North Hollywood'))
+  assert.ok(SCHOOL_PICKER_OPTIONS.includes('West Coast University Anaheim'))
+  // Legacy resolution keeps working: a stored bare WCU still resolves.
+  assert.equal(resolveOperativeSchoolName('WCU')?.displayName, 'West Coast University')
+  assert.ok(SCHOOL_IDENTITY_GROUPS.some(g => g.operative === 'West Coast University' && g.legacyOnly === true))
+  // The scope dropdown and BOTH editors consume the picker list.
+  const schools = CONTACT_SCOPE_GROUPS.find(g => g.label === 'Schools').options
+  assert.ok(!schools.includes('West Coast University'))
+  assert.match(read('src/portal/na/AcademicsContactsView.jsx'), /SCHOOL_AFFILIATION_OPTIONS = SCHOOL_PICKER_OPTIONS/)
+  assert.match(read('src/components/connect/ContactsView.jsx'), /SCHOOL_AFFILIATION_OPTIONS = SCHOOL_PICKER_OPTIONS/)
+})

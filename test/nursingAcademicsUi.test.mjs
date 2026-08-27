@@ -242,14 +242,15 @@ test('the search field keeps a visible focus treatment on the wrapper, not a raw
 
 test('auto-selection always takes the FIRST DISPLAYED row (orderContacts), never fetch order', () => {
   // One ordering pipeline...
-  assert.match(contacts, /const orderContacts = \(list, category, query\) =>/)
+  // NA-CONTACTS-SCOPE-2: the pipeline gained a scope-aware category order.
+  assert.match(contacts, /const orderContacts = \(list, category, query, categoryOrder = CONTACT_CATEGORY_ORDER\) =>/)
   // ...feeding the visible list...
-  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(scopedContacts, category, query\)/)
+  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(scopedContacts, category, query, groupOrder\)/)
   // ...and every selection site: category click, search, initial load, deactivation fallback.
-  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, value, query\)\[0\]\?\.id \|\| null\)/)
-  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, category, nextQuery\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, value, query, groupOrder\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, category, nextQuery, groupOrder\)\[0\]\?\.id \|\| null\)/)
   assert.match(contacts, /orderContacts\(next\.filter\(contact => contact\.is_active !== false\), 'All', ''\)\[0\]/)
-  assert.match(contacts, /setSelectedId\(orderContacts\(remaining, category, query\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(remaining, category, query, groupOrder\)\[0\]\?\.id \|\| null\)/)
   // No selection site reads raw fetch order any more.
   assert.doesNotMatch(contacts, /setSelectedId\(directoryContacts\.find/)
 })
@@ -343,7 +344,8 @@ test('the Contacts chrome is consolidated: no heading block, controls in one row
   assert.doesNotMatch(contacts, /of \{directoryContacts\.length\} contacts/)
   assert.match(contacts, /<section className="ptl-na-contacts" aria-label="Contacts">/)
   // Add contact sits in the controls row between search and Copy visible emails.
-  assert.match(contacts, /ptl-na-contact-search[\s\S]{0,1400}?ptl-na-scope-filter[\s\S]{0,1400}?Add contact[\s\S]{0,1400}?Copy visible emails/)
+  // NA-CONTACTS-SCOPE-2 order: Add contact, search, scope filter, copy, CSV.
+  assert.match(contacts, /Add contact[\s\S]{0,1400}?ptl-na-contact-search[\s\S]{0,1400}?ptl-na-scope-filter[\s\S]{0,1400}?Copy visible emails[\s\S]{0,1400}?Download CSV/)
   // Show inactive is retired: the portal lists active contacts only, and the
   // deactivation copy points reactivation at staff Connect.
   assert.doesNotMatch(contacts, /Show inactive|showInactive/)

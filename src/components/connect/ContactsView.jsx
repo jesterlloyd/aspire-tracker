@@ -20,7 +20,7 @@ import {
   categoryPluralLabel, contactListSubline, sortContactsForCategory, sortContactsForSearch,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
-import { SCHOOL_IDENTITY_GROUPS } from '../../lib/schoolIdentity'
+import { SCHOOL_PICKER_OPTIONS } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../shared/MultiScopePicker'
 import { toneGradient } from '../../lib/connectTones'
 import ConnectPanel, { ConnectPanelIcon } from './ConnectPanel'
@@ -975,7 +975,7 @@ function DeactivateModal({ contact, action, onConfirm, onClose, saving }) {
 
 // School options for the affiliation dropdown: the operative identities the
 // rest of the app persists (students.school, digest matching).
-const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_IDENTITY_GROUPS.map(g => g.operative)
+const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_PICKER_OPTIONS
 
 // Sentinel select value for "type a custom title" where the canon allows it.
 const CUSTOM_TITLE = '__custom__'
