@@ -25,6 +25,7 @@ import { methodGuard, readJsonBody, mapRpcError, logApiError } from '../lib/mess
 import { validateBody, isUuid } from '../../lib/server/messages/validation.js';
 import { startGeneralTeamConversationForPortal } from '../../lib/server/messages/conversationService.js';
 import { resolveApMessagingCapability } from '../lib/apMessagingCapability.js';
+import { resolveNaMessagingCapability } from '../lib/naPortalUtilitiesCapability.js';
 
 // school_key is accepted only to carry an Academic Partner's selected school; it is ignored for
 // student / unit_leader callers (verified and consumed only on the academic_partner path below).
@@ -48,6 +49,15 @@ export default async function handler(req, res) {
     const apCapable = await resolveApMessagingCapability(getServiceDb());
     if (!apCapable) {
       return res.status(503).json({ error: 'messaging_not_enabled', reason: 'ap_messaging_capability_unavailable' });
+    }
+  }
+  // NA-PORTAL-UTILITIES-1: the same fail-closed server gate for Nursing Education & Leadership
+  // (env flag NA_MESSAGING_ENABLED AND the applied enable_nursing_academic_portal_utilities
+  // migration). The RPC independently re-authorizes when enabled.
+  if (caller.actorKind === 'nursing_academic') {
+    const naCapable = await resolveNaMessagingCapability(getServiceDb());
+    if (!naCapable) {
+      return res.status(503).json({ error: 'messaging_not_enabled', reason: 'na_messaging_capability_unavailable' });
     }
   }
 

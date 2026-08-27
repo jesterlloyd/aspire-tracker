@@ -26,7 +26,7 @@ import {
 } from '../../lib/messages/portalMessagesPolling'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 import {
-  PORTAL_SUBTITLE, UL_PORTAL_SUBTITLE, AP_PORTAL_SUBTITLE, PORTAL_SAFETY_NOTICE, portalStatusIsClosed,
+  PORTAL_SUBTITLE, UL_PORTAL_SUBTITLE, AP_PORTAL_SUBTITLE, NA_PORTAL_SUBTITLE, PORTAL_SAFETY_NOTICE, portalStatusIsClosed,
 } from '../../lib/messages/portalMessagesConstants'
 
 const srOnly = {
@@ -166,7 +166,7 @@ export default function PortalMessagesWorkspace({
         <div className="ptl-section-head ptl-msg-head">
           <div className="ptl-msg-head-text">
             <h1 className="ptl-section-title">Messages</h1>
-            <p className="ptl-muted ptl-msg-subtitle">{variant === 'unit_leader' ? UL_PORTAL_SUBTITLE : variant === 'academic_partner' ? AP_PORTAL_SUBTITLE : PORTAL_SUBTITLE}</p>
+            <p className="ptl-muted ptl-msg-subtitle">{variant === 'unit_leader' ? UL_PORTAL_SUBTITLE : variant === 'academic_partner' ? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' ? NA_PORTAL_SUBTITLE : PORTAL_SUBTITLE}</p>
           </div>
           <div className="ptl-msg-head-actions">
             {unread > 0 && (

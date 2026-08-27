@@ -23,7 +23,7 @@ const app = read('src/portal/PortalApp.jsx')
 // ── Routing and shell ────────────────────────────────────────────────────────
 
 test('the route namespace is /portal/academics with three sections, At A Glance default', () => {
-  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'contacts'\]\)/)
+  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'contacts', 'messages'\]\)/)
   assert.match(app, /\/portal\\\/academics\\\//)
   assert.match(app, /navigate\(`\/portal\/academics\/\$\{key\}`\)/)
   assert.match(app, /return 'calendar'/)

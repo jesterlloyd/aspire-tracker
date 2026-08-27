@@ -166,7 +166,7 @@ test('PortalApp: the Academic Partner auto-start waits for the capability fetch 
   // response, success, and the catch block.
   assert.match(appCode, /if \(!token\) \{ if \(!cancelled\) setApCapabilityResolved\(true\); return \}/)
   assert.match(appCode, /if \(!res\.ok\) \{ setApCapabilityResolved\(true\); return \}/)
-  assert.match(appCode, /setApMessagingCapable\(data\?\.ap_messaging === true\)[\s\S]{0,120}setApCapabilityResolved\(true\)/)
+  assert.match(appCode, /setApMessagingCapable\(data\?\.ap_messaging === true\)[\s\S]{0,320}setApCapabilityResolved\(true\)/)
   assert.match(appCode, /catch \{[\s\S]{0,120}if \(!cancelled\) setApCapabilityResolved\(true\)/)
   // The auto-start guard itself blocks on this flag for academic_partner only.
   assert.match(appCode, /if \(experience === 'academic_partner' && !apCapabilityResolved\) return/)

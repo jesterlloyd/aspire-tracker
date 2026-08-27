@@ -38,8 +38,8 @@ test('shared feedback copy and Student durable feedback activation are canonical
   assert.match(portalFeedback, /portalType === 'academic_partner' \? 'Academic Partner Portal'/)
   assert.match(portalFeedback, /: 'Unit Leader Portal'/)
   // Feedback (not Messages) is enabled for the Academic Partner too.
-  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal/)
-  assert.match(layer, /portalType=\{isStudentPortal \? 'student' : isAcademicPartnerPortal \? 'academic_partner' : 'unit_leader'\}/)
+  assert.match(layer, /feedbackEnabled = feedbackAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
+  assert.match(layer, /portalType=\{isStudentPortal \? 'student' : isAcademicPartnerPortal \? 'academic_partner' : isNursingAcademicPortal \? 'nursing_academic' : 'unit_leader'\}/)
   const studentBranch = app.slice(app.indexOf("roles.includes('student')"), app.indexOf("roles.includes('unit_leader')"))
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
   assert.match(studentBranch, /PortalUtilityLayer/)
@@ -109,7 +109,7 @@ test('one shared message bubble presenter drives portal and staff perspectives',
 test('Unit Leader full Messages workspace uses available width without role regression', () => {
   assert.match(css, /\.ptl-msg-workspace \{ width: 100%; max-width: none;/)
   assert.match(css, /\.ptl-msg-split \{ display: grid; grid-template-columns: 360px 1fr/)
-  assert.match(portalWorkspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
+  assert.match(portalWorkspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' \? NA_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
   assert.match(read('src/portal/messages/PortalMessagesInbox.jsx'), /direct_student_name/)
   assert.doesNotMatch(strip(app), /academic_partner[\s\S]{0,200}PortalMessagesWorkspace/)
 })

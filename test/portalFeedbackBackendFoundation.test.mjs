@@ -82,7 +82,7 @@ test('migration creates purpose-specific, least-privilege feedback storage', asy
     ]) {
       assert.match(migration, new RegExp(`\\b${token}\\b`));
     }
-    assert.deepEqual(PORTAL_FEEDBACK_ROLES, ['student', 'unit_leader', 'academic_partner']);
+    assert.deepEqual(PORTAL_FEEDBACK_ROLES, ['student', 'unit_leader', 'academic_partner', 'nursing_academic']);
   });
 
   await t.test('idempotency, rate limit, and delivery state are durable and scoped', () => {

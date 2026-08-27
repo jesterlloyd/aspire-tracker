@@ -37,7 +37,7 @@ test('enablement is a server capability (env flag AND applied DB migration), nev
   assert.match(capability, /return data === true/)
   // The endpoint requires an authenticated portal caller and returns the single canonical flag.
   assert.match(capabilityEndpoint, /verifyPortalCaller\(req\)/)
-  assert.match(capabilityEndpoint, /resolveApMessagingCapability\(getServiceDb\(\)\)/)
+  assert.match(capabilityEndpoint, /resolveApMessagingCapability\(db\)/)
   assert.match(capabilityEndpoint, /ap_messaging: apMessaging === true/)
 })
 
@@ -84,8 +84,8 @@ test('the AP Messages tab reuses the canonical workspace with the academic_partn
 test('the lower-right launcher + unread wiring is shared and AP-gated (no duplicate store)', () => {
   // The launcher mounts for AP only when the server capability is reported; the panel uses the
   // academic_partner variant. This is the SAME PortalTeamMessagesPanel + shared React-Query keys.
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal\)/)
-  assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : isAcademicPartnerPortal \? 'academic_partner' : 'student'\}/)
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
+  assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : isAcademicPartnerPortal \? 'academic_partner' : isNursingAcademicPortal \? 'nursing_academic' : 'student'\}/)
   // The unread badge uses the canonical Cedars red token (shared with student/UL), not a new color.
   const css = read('src/portal/portal.css')
   assert.match(css, /\.ptl-team-message-badge[\s\S]*?background: var\(--cs-red, #DC1E34\)/)

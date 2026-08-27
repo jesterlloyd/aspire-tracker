@@ -16,6 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 import { verifyPortalCaller, getServiceDb } from './portalAuth.js';
 import { verifyPortalUnitLeaderCaller } from './unitLeaderScope.js';
 import { verifyPortalAcademicPartnerCaller } from './schoolScope.js';
+import { verifyPortalNursingAcademicCaller } from './nursingAcademicScope.js';
 
 export { getServiceDb };
 
@@ -109,7 +110,23 @@ export async function verifyPortalMessagesCaller(req) {
     };
   }
 
-  // Neither student, unit leader, nor academic partner: keep the unit-leader denial (prior behavior).
+  // NA-PORTAL-UTILITIES-1: Nursing Education & Leadership is admitted LAST, only when the caller is
+  // none of the other kinds, so no existing behavior changes. The grant is org-wide by design, so no
+  // scope keys accompany it. The DB predicates stay fail-closed until the Owner SQL gate is applied:
+  // reads return an empty inbox and general-thread creation is refused.
+  const asNursingAcademic = await verifyPortalNursingAcademicCaller(req);
+  if (asNursingAcademic.ok) {
+    return {
+      ok: true,
+      profile: asNursingAcademic.profile,
+      actorKind: 'nursing_academic',
+      studentIds: [],
+      unitKeys: [],
+      schoolKeys: [],
+    };
+  }
+
+  // No supported kind: keep the unit-leader denial (prior behavior).
   return { ok: false, status: asUnitLeader.status, reason: asUnitLeader.reason };
 }
 

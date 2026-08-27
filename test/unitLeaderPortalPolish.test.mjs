@@ -83,7 +83,7 @@ test('P0-5: Messages is role-aware', async (t) => {
   })
   await t.test('the workspace selects copy by variant and threads it down', () => {
     assert.match(workspace, /variant = 'student'/)
-    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
+    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' \? NA_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
     assert.match(workspace, /<PortalMessagesInbox\s+variant=\{variant\}/)
     assert.match(workspace, /<PortalMessagesThread\s+variant=\{variant\}/)
   })

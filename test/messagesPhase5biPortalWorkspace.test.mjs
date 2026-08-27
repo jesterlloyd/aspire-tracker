@@ -689,7 +689,7 @@ test('accessibility foundation', async (t) => {
     // stay byte-identical and remain the default branch.
     assert.match(thread, /variant === 'unit_leader' \? UL_PORTAL_NO_SELECTION : PORTAL_NO_SELECTION/)
     // The Academic Partner variant adds its own subtitle; the student string stays the default branch.
-    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
+    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' \? NA_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
     // No response-time promise and no continuous-monitoring implication.
     for (const s of [PORTAL_SUBTITLE, PORTAL_NO_SELECTION, PORTAL_EMPTY_BODY]) {
       assert.doesNotMatch(s, /respond within|response time|24\/7|monitored|immediately/i)

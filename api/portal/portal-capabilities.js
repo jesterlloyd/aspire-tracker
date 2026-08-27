@@ -12,6 +12,7 @@
 
 import { verifyPortalCaller, getServiceDb } from '../lib/portalAuth.js'
 import { resolveApMessagingCapability } from '../lib/apMessagingCapability.js'
+import { resolveNaMessagingCapability, resolveNaFeedbackCapability } from '../lib/naPortalUtilitiesCapability.js'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -29,11 +30,22 @@ export default async function handler(req, res) {
   // Fail closed: any resolver error (e.g. the DB probe throwing) yields a disabled capability rather
   // than a 500, so the client stays in its truthful prepared/disabled state.
   let apMessaging
+  let naMessaging
+  let naFeedback
   try {
-    apMessaging = await resolveApMessagingCapability(getServiceDb())
+    const db = getServiceDb()
+    apMessaging = await resolveApMessagingCapability(db)
+    naMessaging = await resolveNaMessagingCapability(db)
+    naFeedback = await resolveNaFeedbackCapability(db)
   } catch {
     apMessaging = false
+    naMessaging = false
+    naFeedback = false
   }
 
-  return res.status(200).json({ ap_messaging: apMessaging === true })
+  return res.status(200).json({
+    ap_messaging: apMessaging === true,
+    na_messaging: naMessaging === true,
+    na_feedback: naFeedback === true,
+  })
 }

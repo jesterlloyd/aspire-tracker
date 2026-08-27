@@ -103,11 +103,18 @@ function apThreadIdFromPath(pathname) {
 // NURSING-ACADEMICS-1: sections are real routes under /portal/academics, so
 // back, forward, refresh, and a pasted deep link all work. /portal (no
 // section) resolves to the Academic Calendar, the default.
-const NA_SECTIONS = new Set(['calendar', 'community-benefit', 'contacts'])
+// NA-PORTAL-UTILITIES-1: Messages owns a thread sub-route
+// (/portal/academics/messages/:threadId), mirroring the AP space.
+const NA_SECTIONS = new Set(['calendar', 'community-benefit', 'contacts', 'messages'])
 function naViewFromPath(pathname) {
+  if (/^\/portal\/academics\/messages(\/|$)/.test(pathname)) return 'messages'
   const m = /^\/portal\/academics\/([^/]+)\/?$/.exec(pathname)
   if (m && NA_SECTIONS.has(m[1])) return m[1]
   return 'calendar'
+}
+function naThreadIdFromPath(pathname) {
+  const m = /^\/portal\/academics\/messages\/([^/]+)\/?$/.exec(pathname)
+  return m ? m[1] : null
 }
 
 export default function PortalApp() {
@@ -157,11 +164,14 @@ export default function PortalApp() {
   }, [navigate])
   // NURSING-ACADEMICS-1 section routing.
   const naView = naViewFromPath(location.pathname)
+  const naThreadId = naThreadIdFromPath(location.pathname)
   const goNaSection = useCallback((key) => {
     navigate(`/portal/academics/${key}`)
   }, [navigate])
   const openApThread = useCallback((id) => navigate(`/portal/ap/messages/${id}`), [navigate])
   const apBackToList = useCallback(() => navigate('/portal/ap/messages'), [navigate])
+  const openNaThread = useCallback((id) => navigate(`/portal/academics/messages/${id}`), [navigate])
+  const naBackToList = useCallback(() => navigate('/portal/academics/messages'), [navigate])
 
   const isStudent = (access?.roles || []).includes('student')
   // UL-POLISH P0: the idle unread poll runs for Unit Leaders too, so the
@@ -177,11 +187,17 @@ export default function PortalApp() {
   // messages, no feedback, no scope arrays.
   const isNursingAcademic = !isStudent && !isUnitLeader && !isAcademicPartner && (access?.roles || []).includes('nursing_academic')
   const [apMessagingCapable, setApMessagingCapable] = useState(false)
+  // NA-PORTAL-UTILITIES-1: the Nursing Education & Leadership capabilities, from the SAME canonical
+  // server endpoint. Fail-closed (false) until the server reports them.
+  const [naMessagingCapable, setNaMessagingCapable] = useState(false)
+  const [naFeedbackCapable, setNaFeedbackCapable] = useState(false)
   // WELCOME-TOUR-PORTALS-1: whether the AP capability fetch below has settled (succeeded or
   // failed), so the Academic Partner tour waits to decide the Messages step before it starts.
   // Student and Unit Leader have no such fetch to wait on.
   const [apCapabilityResolved, setApCapabilityResolved] = useState(false)
   const apMessagesEnabled = isAcademicPartner && apMessagingCapable
+  const naMessagesEnabled = isNursingAcademic && naMessagingCapable
+  const naFeedbackEnabled = isNursingAcademic && naFeedbackCapable
   // WELCOME-TOUR-PORTALS-1: the Welcome Tour experience for the resolved portal role, derived
   // from the same role booleans the rest of this component already uses.
   const experience = isStudent ? 'student' : isUnitLeader ? 'unit_leader' : isAcademicPartner ? 'academic_partner' : isNursingAcademic ? 'nursing_academic' : null
@@ -214,9 +230,11 @@ export default function PortalApp() {
     if (isStudent) setHeadshotVersion(v => v + 1)
     else refreshUserProfile?.()
   }, [isStudent, refreshUserProfile])
-  const onMessagesRoute = location.pathname.startsWith('/portal/messages') || location.pathname.startsWith('/portal/ap/messages')
+  const onMessagesRoute = location.pathname.startsWith('/portal/messages')
+    || location.pathname.startsWith('/portal/ap/messages')
+    || location.pathname.startsWith('/portal/academics/messages')
   const unread = usePortalUnreadCount({
-    enabled: isStudent || isUnitLeader || apMessagesEnabled,
+    enabled: isStudent || isUnitLeader || apMessagesEnabled || naMessagesEnabled,
     intervalMs: onMessagesRoute ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,
   })
 
@@ -253,7 +271,9 @@ export default function PortalApp() {
   // Academic Partner messaging, only for an Academic Partner. Fails closed on any error; the Messages
   // tab and the lower-right launcher both derive from this single value.
   useEffect(() => {
-    if (!isAcademicPartner) return undefined
+    // NA-PORTAL-UTILITIES-1: the same single capability fetch also serves the Nursing Education &
+    // Leadership portal (na_messaging, na_feedback), so both roles read one canonical result.
+    if (!isAcademicPartner && !isNursingAcademic) return undefined
     let cancelled = false
     ;(async () => {
       try {
@@ -266,6 +286,8 @@ export default function PortalApp() {
         const data = await res.json()
         if (!cancelled) {
           setApMessagingCapable(data?.ap_messaging === true)
+          setNaMessagingCapable(data?.na_messaging === true)
+          setNaFeedbackCapable(data?.na_feedback === true)
           // WELCOME-TOUR-PORTALS-1: the fetch settled, so the Academic Partner tour is now free to
           // decide whether its Messages step belongs in the sequence.
           setApCapabilityResolved(true)
@@ -276,7 +298,7 @@ export default function PortalApp() {
       }
     })()
     return () => { cancelled = true }
-  }, [isAcademicPartner])
+  }, [isAcademicPartner, isNursingAcademic])
 
   // WELCOME-TOUR-PORTALS-1: unmount-only cleanup for the auto-start timer below. Kept in its own
   // effect (empty deps) so a dependency change never cancels an already-armed timer; only real
@@ -529,11 +551,10 @@ export default function PortalApp() {
   }
 
   if (roles.includes('nursing_academic')) {
-    // NURSING-ACADEMICS-1: the same shared shell and Nightfall chrome as the
-    // other portals. VIEW-ONLY by design: no PortalUtilityLayer (the Messages
-    // and Feedback capabilities are intentionally not enabled for this role,
-    // so no launcher is mounted and no feedback/messages request is ever
-    // made), no unread polling, no scope pickers.
+    // NA-PORTAL-UTILITIES-1: the last portal without Messages and Send Feedback gets both, exactly
+    // like the others - the shared PortalMessagesWorkspace behind /portal/academics/messages, the
+    // lower-right launcher pair, and the unread poll. Everything is gated on the SERVER capabilities
+    // (fail-closed until the Owner SQL gate is applied: no launcher, no polling, no tab).
     // Every fetching child can hand an access refusal up to the shell.
     return (
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
@@ -543,8 +564,23 @@ export default function PortalApp() {
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
-        nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} />}>
-        <NursingAcademicsPortal view={naView} />
+        nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} messagesEnabled={naMessagesEnabled} unread={unread} />}
+        utilityLayer={(
+          <PortalUtilityLayer
+            enabled
+            portalRole="nursing_academic"
+            portalType="nursing_academic"
+            profileId={userProfile?.id}
+            pathname={location.pathname}
+            unread={unread}
+            messagesAuthorized={naMessagesEnabled}
+            feedbackAuthorized={naFeedbackEnabled}
+            onOpenMessages={() => goNaSection('messages')}
+          />
+        )}>
+        <NursingAcademicsPortal view={naView}
+          messagesEnabled={naMessagesEnabled}
+          threadId={naThreadId} onSelectThread={openNaThread} onBackToList={naBackToList} />
         {photoDialog}
         {tourOverlay}
       </PortalShell>

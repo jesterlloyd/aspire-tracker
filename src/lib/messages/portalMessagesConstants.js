@@ -28,6 +28,11 @@ export const UL_PORTAL_NO_SELECTION = 'Select a conversation to review your mess
 export const AP_PORTAL_SUBTITLE =
   "Contact the ASPIRE Team about your school's ASPIRE placements and students.";
 
+// NA-PORTAL-UTILITIES-1: a Nursing Education & Leadership inbox holds only general ASPIRE Team
+// threads. Additive; student/UL/AP copy is unchanged.
+export const NA_PORTAL_SUBTITLE =
+  'Contact the ASPIRE Team about the program, reporting, or anything on this portal.';
+
 // The visible participant labels on a Unit Leader inbox card. Direct student
 // threads and ASPIRE Team threads are semantically separate flows and must
 // never look interchangeable.

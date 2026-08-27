@@ -99,11 +99,11 @@ test('the Academic Partner top-chrome profile control uses avatar_url with an in
 
 test('the utility layer enables Feedback for the Academic Partner, and Messages only when authorized', () => {
   assert.match(layer, /isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'/)
-  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal/)
+  assert.match(layer, /feedbackEnabled = feedbackAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
   // Messages is gated on messagesAuthorized (AP is fail-closed behind AP_MESSAGING_ENABLED), so with
   // the flag off the AP launcher never mounts, exactly as before.
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal\)/)
-  assert.match(layer, /if \(!enabled \|\| \(!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal\)\) return null/)
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
+  assert.match(layer, /if \(!enabled \|\| \(!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal && !isNursingAcademicPortal\)\) return null/)
   // The docked Messages panel mounts only where Messages is enabled, so AP never instantiates it.
   assert.match(layer, /\{messagesEnabled && \(\s*\n\s*<PortalTeamMessagesPanel/)
   // The feedback endpoint authorizes an active academic_partner grant (wired to the DB + RPC that

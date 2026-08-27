@@ -88,6 +88,10 @@ export default function PortalUtilityLayer({
   pathname,
   unread = 0,
   messagesAuthorized = false,
+  // NA-PORTAL-UTILITIES-1: feedback is server-authorized unconditionally for the first three portal
+  // kinds (default true keeps them unchanged); the Nursing Education & Leadership portal drives it
+  // from the na_feedback capability so the launcher stays off until the Owner SQL gate is applied.
+  feedbackAuthorized = true,
   onOpenMessages,
   schools = [],
 }) {
@@ -113,8 +117,10 @@ export default function PortalUtilityLayer({
   // messagesAuthorized, which the caller drives per kind (Academic Partner is fail-closed behind
   // AP_MESSAGING_ENABLED until the Owner SQL gate lands).
   const isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'
-  const feedbackEnabled = isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal
-  const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal)
+  // NA-PORTAL-UTILITIES-1: the fourth portal kind, capability-gated on both launchers.
+  const isNursingAcademicPortal = portalRole === 'nursing_academic' && portalType === 'nursing_academic'
+  const feedbackEnabled = feedbackAuthorized && (isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal || isNursingAcademicPortal)
+  const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal || isNursingAcademicPortal)
   const noticeVisible = enabled && isUnitLeaderPortal && narrow && !onMessagesRoute && !storedDismissed && !sessionDismissed
 
   const dismissNotice = () => {
@@ -135,7 +141,7 @@ export default function PortalUtilityLayer({
     onOpenMessages?.()
   }, [onOpenMessages])
 
-  if (!enabled || (!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal)) return null
+  if (!enabled || (!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal && !isNursingAcademicPortal)) return null
 
   const utilitiesHidden = suppressed
   const visiblePanel = suppressed ? null : activePanel
@@ -157,7 +163,7 @@ export default function PortalUtilityLayer({
           launcherRef={feedbackRef}
           pathname={pathname}
           section={section}
-          portalType={isStudentPortal ? 'student' : isAcademicPartnerPortal ? 'academic_partner' : 'unit_leader'}
+          portalType={isStudentPortal ? 'student' : isAcademicPartnerPortal ? 'academic_partner' : isNursingAcademicPortal ? 'nursing_academic' : 'unit_leader'}
         />
       )}
 
@@ -190,7 +196,7 @@ export default function PortalUtilityLayer({
           launcherRef={messagesRef}
           unread={unread}
           onOpenFullMessages={openFullMessages}
-          variant={isUnitLeaderPortal ? 'unit_leader' : isAcademicPartnerPortal ? 'academic_partner' : 'student'}
+          variant={isUnitLeaderPortal ? 'unit_leader' : isAcademicPartnerPortal ? 'academic_partner' : isNursingAcademicPortal ? 'nursing_academic' : 'student'}
           schools={isAcademicPartnerPortal ? schools : []}
         />
       )}

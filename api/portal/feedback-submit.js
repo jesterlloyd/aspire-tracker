@@ -38,6 +38,16 @@ function reporterContextFromAcademicPartner(auth) {
   };
 }
 
+function reporterContextFromNursingAcademic(auth) {
+  return {
+    profileId: auth.profile.id,
+    displayName: auth.profile.full_name || null,
+    email: auth.profile.email || null,
+    portalRole: 'nursing_academic',
+    portalType: 'nursing_academic',
+  };
+}
+
 async function verifyPortalFeedbackCaller(req) {
   const asStudent = await verifyPortalStudentCaller(req);
   if (asStudent.ok) {
@@ -65,6 +75,14 @@ async function verifyPortalFeedbackCaller(req) {
     try { db = getServiceDb(); } catch { return { ok: false, status: 500, reason: 'server_misconfigured' }; }
     if (await hasActiveRoleGrant(db, asPartner.profile.id, 'academic_partner')) {
       return { ok: true, profile: asPartner.profile, db, actorKind: 'academic_partner', scopes: [] };
+    }
+    // NA-PORTAL-UTILITIES-1: Nursing Education & Leadership feedback is authorized by an ACTIVE
+    // nursing_academic grant alone (the role is org-wide by design). Before the Owner SQL gate is
+    // applied, the submit RPC's role list and the table CHECK refuse the row, so this stays
+    // fail-closed server-side; the client additionally hides the launcher until the capability
+    // endpoint reports na_feedback.
+    if (await hasActiveRoleGrant(db, asPartner.profile.id, 'nursing_academic')) {
+      return { ok: true, profile: asPartner.profile, db, actorKind: 'nursing_academic', scopes: [] };
     }
   }
   return asUnitLeader;
@@ -104,7 +122,9 @@ export function createPortalFeedbackSubmitHandler({
             ? reporterContextFromStudent(auth)
             : auth.actorKind === 'academic_partner'
               ? reporterContextFromAcademicPartner(auth)
-              : reporterContextFromUnitLeader(auth),
+              : auth.actorKind === 'nursing_academic'
+                ? reporterContextFromNursingAcademic(auth)
+                : reporterContextFromUnitLeader(auth),
           payload: validated.value,
           payloadFingerprint: validated.payloadFingerprint,
         },

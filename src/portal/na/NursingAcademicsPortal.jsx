@@ -14,11 +14,17 @@ import { useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import GreetingMasthead from '../../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../../lib/lastVisit'
+import { EmptyState } from '../unit/UnitLeaderChrome'
+import PortalMessagesWorkspace from '../messages/PortalMessagesWorkspace'
 import AcademicsCalendarView from './AcademicsCalendarView'
 import CommunityBenefitView from './CommunityBenefitView'
 import AcademicsContactsView from './AcademicsContactsView'
 
-export default function NursingAcademicsPortal({ view = 'calendar' }) {
+// NA-PORTAL-UTILITIES-1: Messages reuses the SAME canonical PortalMessagesWorkspace the other
+// portals use (variant='nursing_academic'). Enablement is the SERVER capability passed as
+// messagesEnabled (env flag AND applied DB migration), never a client constant; until the server
+// reports enabled, a pasted /portal/academics/messages link shows an honest prepared state.
+export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, threadId, onSelectThread, onBackToList }) {
   const { userProfile } = useAuth()
   const dateLabel = useMemo(
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
@@ -46,6 +52,22 @@ export default function NursingAcademicsPortal({ view = 'calendar' }) {
       <div style={{ display: view === 'contacts' ? 'block' : 'none' }}>
         <AcademicsContactsView active={view === 'contacts'} />
       </div>
+      {view === 'messages' && (
+        messagesEnabled ? (
+          <PortalMessagesWorkspace
+            active
+            variant="nursing_academic"
+            threadId={threadId}
+            onSelectThread={onSelectThread}
+            onBackToList={onBackToList}
+          />
+        ) : (
+          <EmptyState
+            title="Messages"
+            detail="Secure messaging with the ASPIRE Team will live here. This section is being prepared and is not active yet."
+          />
+        )
+      )}
     </div>
   )
 }

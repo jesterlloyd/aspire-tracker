@@ -77,6 +77,7 @@ export default function PortalFeedbackPanel({
 
   const portalLabel = portalType === 'student' ? 'Student Portal'
     : portalType === 'academic_partner' ? 'Academic Partner Portal'
+    : portalType === 'nursing_academic' ? 'Nursing Education & Leadership Portal'
     : 'Unit Leader Portal'
 
   return (

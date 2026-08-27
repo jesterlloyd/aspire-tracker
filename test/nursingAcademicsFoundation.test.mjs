@@ -151,23 +151,35 @@ test('the invitation email carries dedicated Nursing Education & Leadership copy
   assert.ok(!out.html.includes('log shifts'), 'must not receive student copy')
 })
 
-test('PortalApp appends the experience LAST in precedence and renders no utility layer for it', () => {
+test('PortalApp appends the experience LAST in precedence and mounts the capability-gated utilities', () => {
+  // NA-PORTAL-UTILITIES-1 reversed the original no-utilities decision: the
+  // Nursing Education & Leadership portal now mounts the same utility layer as
+  // every other portal, gated on the SERVER capabilities (fail-closed until the
+  // Owner SQL gate is applied).
   const app = read('src/portal/PortalApp.jsx')
   assert.match(app, /const isNursingAcademic = !isStudent && !isUnitLeader && !isAcademicPartner && \(access\?\.roles \|\| \[\]\)\.includes\('nursing_academic'\)/)
   assert.match(app, /roles\.includes\('nursing_academic'\)/)
   const branch = app.slice(app.indexOf("roles.includes('nursing_academic')"))
   const branchEnd = branch.indexOf('PortalAccessNotice')
   const naBranch = branch.slice(0, branchEnd)
-  assert.ok(!naBranch.includes('<PortalUtilityLayer'), 'no feedback/messages launcher for the view-only role')
-  assert.ok(!naBranch.includes('usePortalUnreadCount'), 'no unread polling')
+  assert.match(naBranch, /<PortalUtilityLayer/)
+  assert.match(naBranch, /messagesAuthorized=\{naMessagesEnabled\}/)
+  assert.match(naBranch, /feedbackAuthorized=\{naFeedbackEnabled\}/)
+  assert.match(naBranch, /onOpenMessages=\{\(\) => goNaSection\('messages'\)\}/)
   assert.match(naBranch, /NursingAcademicsNav/)
   assert.match(naBranch, /NursingAcademicsPortal/)
+  // The unread poll includes the capability-gated NA flag.
+  assert.match(app, /enabled: isStudent \|\| isUnitLeader \|\| apMessagesEnabled \|\| naMessagesEnabled/)
 })
 
-test('feedback and messaging deliberately DO NOT recognize the role', async () => {
+test('feedback and messaging recognize the role, fail-closed behind the Owner SQL gate', async () => {
   const { PORTAL_FEEDBACK_ROLES } = await import('../lib/server/portalFeedback/config.js')
-  assert.ok(!PORTAL_FEEDBACK_ROLES.includes('nursing_academic'), 'feedback stays three-role until intentionally enabled')
-  assert.ok(!read('api/lib/messagesAuth.js').includes('nursing_academic'), 'messages auth stays untouched')
+  assert.ok(PORTAL_FEEDBACK_ROLES.includes('nursing_academic'), 'feedback covers the fourth portal role')
+  const auth = read('api/lib/messagesAuth.js')
+  // NA is admitted LAST, with empty scope arrays, so no existing kind's behavior changes.
+  assert.match(auth, /verifyPortalNursingAcademicCaller/)
+  const fn = auth.slice(auth.indexOf('export async function verifyPortalMessagesCaller'))
+  assert.ok(fn.indexOf("actorKind: 'academic_partner'") < fn.indexOf("actorKind: 'nursing_academic'"))
 })
 
 test('the tour registry serves the new experience', async () => {
