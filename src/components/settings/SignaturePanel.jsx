@@ -7,8 +7,11 @@ import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import SurfaceCard from '../ui/SurfaceCard'
+import { connectSignatureImagePath, CONNECT_SIGNATURE_DEFAULT_AFFILIATION } from '../../lib/connectSignatureAssets'
 
 const NAVY = '#1D2567'
+const CS_RED = '#dc1e34'
+const RAVEN = '#191919'
 const labelStyle = { display: 'block', fontSize: 11.5, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }
 const inputStyle = { width: '100%', padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, fontFamily: 'DM Sans, sans-serif', color: '#191919', background: '#fff', boxSizing: 'border-box' }
 
@@ -53,7 +56,11 @@ export default function SignaturePanel() {
     setSaving(false)
   }
 
-  const affiliation = form.department.trim() || 'Brawerman Nursing Institute, Cedars-Sinai'
+  // SIGNATURE-PREVIEW-PARITY-1: exactly the renderer's fallback (an unset
+  // Department renders the institute line every Connect email has carried).
+  const affiliation = form.department.trim() || CONNECT_SIGNATURE_DEFAULT_AFFILIATION
+  // Sender-scoped handwritten image, from the SAME map the renderer reads.
+  const sigImagePath = connectSignatureImagePath(email)
 
   return (
     <section aria-label="Email Signature">
@@ -80,7 +87,7 @@ export default function SignaturePanel() {
           </div>
           <div>
             <label style={labelStyle}>Department</label>
-            <input style={inputStyle} value={form.department} onChange={e => set('department', e.target.value)} placeholder="Brawerman Nursing Institute, Cedars-Sinai" maxLength={160} />
+            <input style={inputStyle} value={form.department} onChange={e => set('department', e.target.value)} placeholder={CONNECT_SIGNATURE_DEFAULT_AFFILIATION} maxLength={160} />
           </div>
           <div>
             <label style={labelStyle}>Email (read-only)</label>
@@ -97,19 +104,26 @@ export default function SignaturePanel() {
           Include my signature on manual ASPIRE Connect emails
         </label>
 
-        {/* Live signature preview (representative styling; the true email shell is shown in the
-            ASPIRE Connect compose "Preview as sent"). */}
+        {/* SIGNATURE-PREVIEW-PARITY-1: the preview mirrors the SENT block from
+            lib/server/connect/emailTemplates.js signatureBlock - "Kind regards,",
+            the sender-scoped handwritten image (same shared map), the CS-Red
+            bold name + credentials, title, affiliation (Department, or the
+            institute default), and the nightfall email | Office: phone line. */}
         <div style={{ marginTop: 16 }}>
           <div style={labelStyle}>Preview</div>
-          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px 16px', background: '#fafafa', fontSize: 14, color: '#191919', lineHeight: 1.6, fontFamily: 'DM Sans, sans-serif' }}>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px 16px', background: '#fff', fontSize: 14, color: RAVEN, lineHeight: 1.6, fontFamily: 'DM Sans, sans-serif' }}>
             {form.signature_enabled ? (
               <>
-                <div style={{ marginBottom: 6 }}>Warm regards,</div>
-                <div><strong>{form.display_name || '-'}{form.credentials ? `, ${form.credentials}` : ''}</strong></div>
+                <div style={{ marginBottom: 6 }}>Kind regards,</div>
+                {sigImagePath && (
+                  <img src={sigImagePath} alt={form.display_name || 'Signature'} width={160} height={60}
+                    style={{ display: 'block', width: 160, maxWidth: 160, height: 'auto', border: 0, margin: '6px 0 0' }} />
+                )}
+                <div><strong style={{ color: CS_RED }}>{form.display_name || '-'}{form.credentials ? `, ${form.credentials}` : ''}</strong></div>
                 {form.title && <div>{form.title}</div>}
                 <div>{affiliation}</div>
                 {email && (
-                  <div><a href={`mailto:${email}`} style={{ color: NAVY }}>{email}</a>{form.phone ? ` | Office: ${form.phone}` : ''}</div>
+                  <div style={{ marginTop: 2 }}><a href={`mailto:${email}`} style={{ color: NAVY, textDecoration: 'none' }}>{email}</a>{form.phone ? ` | Office: ${form.phone}` : ''}</div>
                 )}
               </>
             ) : (

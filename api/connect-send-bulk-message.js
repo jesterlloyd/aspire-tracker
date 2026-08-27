@@ -94,7 +94,10 @@ function resolveSenderSignature(profile) {
         displayName,
         credentials: String(cs.credentials || '').trim(),
         title:       String(cs.title || '').trim(),
-        affiliation: String(cs.department || '').trim() || 'Brawerman Nursing Institute, Cedars-Sinai',
+        // SIGNATURE-PREVIEW-PARITY-1: pass the department through EMPTY when unset -
+        // the renderer's default is the institute line every email printed before
+        // the affiliation became personalizable, so unset departments render unchanged.
+        affiliation: String(cs.department || '').trim(),
         email,
         phone:       String(cs.phone || '').trim(),
       },
@@ -105,7 +108,7 @@ function resolveSenderSignature(profile) {
     return {
       source: 'seeded',
       displayName: seed.fullName,
-      signature: { displayName: seed.fullName, credentials: '', title: seed.title || '', affiliation: seed.affiliation, email: seed.email, phone: seed.phone || '' },
+      signature: { displayName: seed.fullName, credentials: '', title: seed.title || '', affiliation: '', email: seed.email, phone: seed.phone || '' },
     };
   }
   if (String(profile?.full_name || '').trim()) {
@@ -113,7 +116,7 @@ function resolveSenderSignature(profile) {
     return {
       source: 'fallback',
       displayName,
-      signature: { displayName, credentials: '', title: profile?.role ? String(profile.role) : '', affiliation: 'ASPIRE · Brawerman Nursing Institute, Cedars-Sinai', email, phone: '' },
+      signature: { displayName, credentials: '', title: profile?.role ? String(profile.role) : '', affiliation: '', email, phone: '' },
     };
   }
   return { source: 'static', displayName: JESTER_SIGNATURE.fullName, signature: null };
