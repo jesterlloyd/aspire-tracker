@@ -154,6 +154,8 @@ export async function resolveRecipients(type, context) {
       return resolveClockoutReminder(context);
     case 'birthday_greeting':
       return resolveBirthdayGreeting(context);
+    case 'cohort_access_retirement':
+      return resolveCohortAccessRetirement(context);
     case 'unit_leader_alert':
       return resolveUnitLeaderAlert(context);
     default:
@@ -233,6 +235,24 @@ function resolveBirthdayGreeting(context) {
     role:     'student',
     name:     context.firstName || null,
     audience: 'student',
+  }];
+}
+
+// COHORT-ACCESS-RETIREMENT-1: the cron resolves the Nursing Academics recipient
+// from the active BNI Team contact record and passes the chosen address as
+// context.recipientEmail (with optional ccEmails). One internal-team recipient;
+// no student address is ever a recipient of this notice.
+function resolveCohortAccessRetirement(context) {
+  if (!context.recipientEmail) {
+    console.warn('[notifications/recipients] cohort_access_retirement: no recipientEmail in context');
+    return [];
+  }
+  return [{
+    email:    context.recipientEmail,
+    role:     'nursing_academics',
+    name:     context.recipientName || null,
+    audience: 'internal_team',
+    cc:       Array.isArray(context.ccEmails) ? context.ccEmails : [],
   }];
 }
 

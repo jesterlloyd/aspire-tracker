@@ -25,6 +25,9 @@ export const TEMPLATE_NOTIFICATION_TYPES = Object.freeze([
   'clockout_reminder',
   'unit_leader_alert',
   'birthday_greeting',
+  // COHORT-ACCESS-RETIREMENT-1: an ordinary internal-team notice (no
+  // per-recipient secret), rendered and sent by the shared path.
+  'cohort_access_retirement',
 ]);
 
 /** Carry a per-recipient secret. Archived only by their specialized, gated senders. */

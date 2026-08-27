@@ -39,6 +39,9 @@ const KNOWN_AUTOMATIONS = [
   { key: 'student_birthday_greetings', label: 'Student Birthday Greetings',
     description: 'Sends a birthday greeting to students who are on an active rotation, once per year.',
     defaultEnabled: true },
+  { key: 'cohort_access_retirement', label: 'CS-Link Access Retirement',
+    description: 'When a cohort is marked Completed, notifies Nursing Academics which students\u2019 Hybrid Student Nurse CS-Link accesses are ready to retire, on the next business day at 9:00 AM PT.',
+    defaultEnabled: true },
   // EVALUATION-REMINDERS-1. The ONLY default-OFF automation. Its cron mints a new
   // survey token per reminder, so it must not be able to start sending merely
   // because a settings row is missing - api/cron/evaluation-reminders.js asks the

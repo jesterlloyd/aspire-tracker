@@ -17,6 +17,7 @@ import { teamsInviteReminder, teamsInviteReminderEscalation } from './templates/
 import { buildInterviewReminderEmail } from './templates/interviewReminder.js';
 import { buildMidpointCheckinEmail } from './templates/midpointCheckin.js';
 import { buildBirthdayGreetingEmail } from './templates/birthdayGreeting.js';
+import { buildAccessRetirementEmail } from './templates/accessRetirement.js';
 import { buildEvaluationReminderEmail } from '../../../lib/server/evaluation/reminderEmailTemplates.js';
 import { CERTIFICATE_KINDS } from '../evaluation/reminderSchedule.js';
 import { buildCoordinatorWeeklyDigestEmail } from './templates/coordinatorWeeklyDigest.js';
@@ -123,6 +124,20 @@ export const AUTOMATION_PREVIEW_FIXTURES = {
   student_birthday_greetings: {
     recipientType: 'Student',
     render: () => buildBirthdayGreetingEmail({ firstName: MOCK.firstName }),
+  },
+
+  // COHORT-ACCESS-RETIREMENT-1. The real template with fixture rows, so the
+  // preview is the email Arturo receives.
+  cohort_access_retirement: {
+    recipientType: 'Internal team',
+    render: () => buildAccessRetirementEmail({
+      cohortName: 'Fall 2026',
+      recipientName: 'Arturo',
+      students: [
+        { name: 'Jordan Sample', school: 'Cal State LA', status: 'Completed' },
+        { name: 'Riley Example', school: 'West Coast University North Hollywood', status: 'Not Proceeding' },
+      ],
+    }),
   },
 
   // EVALUATION-REMINDERS-1. One variant per survey workflow, because the copy

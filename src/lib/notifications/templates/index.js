@@ -7,6 +7,7 @@ import { midpointCheckin } from './midpointCheckin.js';
 import { clockoutReminder } from './clockoutReminder.js';
 import { unitLeaderAlert } from './unitLeaderAlert.js';
 import { birthdayGreeting } from './birthdayGreeting.js';
+import { accessRetirement } from './accessRetirement.js';
 
 export const templates = {
   // AP-SCHOOL-CANONICALIZATION-1: 'form_received' (application language) is RETIRED FOR SENDING -
@@ -24,4 +25,5 @@ export const templates = {
   clockout_reminder:                clockoutReminder,
   unit_leader_alert:                unitLeaderAlert,
   birthday_greeting:                birthdayGreeting,
+  cohort_access_retirement:         accessRetirement,
 };

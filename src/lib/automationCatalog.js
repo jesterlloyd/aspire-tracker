@@ -43,6 +43,12 @@ export const AUTOMATION_CATALOG = Object.freeze([
     maxAgeHours: 30,
   },
   {
+    id: 'cohort_access_retirement',
+    cronName: 'cohort-access-retirement',
+    automationKey: 'cohort_access_retirement',
+    maxAgeHours: 30,
+  },
+  {
     id: 'evaluation_reminders',
     cronName: 'evaluation-reminders',
     automationKey: 'evaluation_reminders',
