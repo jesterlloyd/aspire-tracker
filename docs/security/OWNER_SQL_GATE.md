@@ -8,6 +8,15 @@ Run each file WHOLE, as one block, in the Supabase SQL editor. Per-file detail
 is in [PHASE_0B_RLS_HARDENING.md](PHASE_0B_RLS_HARDENING.md); audit context in
 [PHASE_0A_ACCESS_AUDIT.md](PHASE_0A_ACCESS_AUDIT.md).
 
+> **LEDGER UPDATE, 2026-08-27.** This document stopped being updated on
+> 2026-08-02 and the sections below reflect that date. Twenty-four migrations
+> have been added since; none of them appear in the ordered lists below. See
+> the dated section "Migrations added since 2026-08-02" at the END of this
+> file for the complete list with applied-state status, and
+> [FINDINGS_REGISTER.md](FINDINGS_REGISTER.md) for the security remediation
+> register. When a migration in that section is confirmed applied, record it
+> THERE, in the same sitting.
+
 ## Live-state audit: COMPLETE
 
 The read-only audit (`db/audit/phase0a_live_state_audit.sql`) has been run and
@@ -596,3 +605,54 @@ Related documentation updated in the same commit: the purge runbook
 `message_reactions` in its FK web, impact preview, export, and verification
 blocks (it cascades with `messages`, so the purge transaction itself needed
 no new DELETE).
+
+---
+
+## Migrations added since 2026-08-02 (ledger update, 2026-08-27)
+
+This section was reconstructed from `git log` during the 2026-08-27 security
+remediation status audit, because the ledger above had gone stale and the
+continuity record had already been wrong once about applied state (Wave F-2
+Pass 3 was reviewed for application a month after it had run). Rules for this
+section:
+
+- Applied state is NOT knowable from the repository. Every row below is
+  UNKNOWN until the Owner confirms it against production and edits this file.
+- Confirm applied state with each migration's own verification queries (most
+  carry them inline or in a companion `db/audit/` file), not by memory.
+- When confirmed, replace UNKNOWN with APPLIED YYYY-MM-DD or NOT APPLIED, in
+  the same sitting as the confirmation.
+
+| Migration | Added (commit, date) | Applied state |
+|---|---|---|
+| 20260803000000_phase2d_clear_primary_preceptor.sql | b74e4c6, 2026-08-03 | UNKNOWN pending confirmation |
+| 20260804000000_portal_invitation_events.sql | 3cec9c6, 2026-08-03 | UNKNOWN pending confirmation |
+| 20260805000001_keith_p0_foundations_and_skills.sql | 589ea10, 2026-08-05 | UNKNOWN pending confirmation |
+| 20260805000002_program_events_rls_lockdown.sql | 589ea10, 2026-08-05 | UNKNOWN pending confirmation |
+| 20260807000001_knowledge_vault_markdown.sql | 9974e56, 2026-08-07 | UNKNOWN pending confirmation |
+| 20260811000000_preceptor_certificate_foundation.sql | bf3a9a8, 2026-08-10 | UNKNOWN pending confirmation |
+| 20260814000000_message_archive_content_kinds.sql | fd08ed5, 2026-08-14 | UNKNOWN pending confirmation |
+| 20260815000000_evaluation_reminder_deliveries.sql | 1f0987d, 2026-08-15 | UNKNOWN pending confirmation |
+| 20260816000000_student_unit_assignments.sql | bb5e83c, 2026-08-15 | UNKNOWN pending confirmation |
+| 20260817000000_student_unit_assignment_sync.sql | a8a216c, 2026-08-15 | UNKNOWN pending confirmation |
+| 20260818000000_shift_log_review.sql | 8014c5e, 2026-08-15 | UNKNOWN pending confirmation |
+| 20260819000000_student_shift_log_self_service.sql | 4f641ef, 2026-08-16 | UNKNOWN pending confirmation |
+| 20260820000000_preceptor_shift_projection.sql | 6803b43, 2026-08-16 | UNKNOWN pending confirmation |
+| 20260821000000_outreach_attachment_uploads.sql | UNTRACKED, never committed | UNKNOWN; the file sits uncommitted in the working tree. Commit or discard it as part of confirming its state |
+| 20260821130000_automatic_student_completion.sql | 2a0eed2, 2026-08-21 | UNKNOWN pending confirmation |
+| 20260822000000_student_activity_completions.sql | ee9e175, 2026-08-17 | UNKNOWN pending confirmation |
+| 20260822010000_interview_rubric_authorization.sql | bc77cdb, 2026-08-21 | UNKNOWN pending confirmation |
+| 20260822020000_wave_e_write_policy_split.sql | 8494615, 2026-08-22 | UNKNOWN pending confirmation. PRE 1 to 8 first (PRE 6 and 7 blocking); its POST 1 is what surfaced the out-of-band interviewers policy |
+| 20260822030000_drop_interviewers_full_access_policy.sql | 2571974, 2026-08-22 | UNKNOWN pending confirmation. Until applied, the dashboard-created FOR ALL TO public policy nullifies every other policy on interviewers, including the Wave E split's |
+| 20260824000000_nursing_academics_portal_foundation.sql | 8cf628f, 2026-08-24 | UNKNOWN pending confirmation |
+| 20260825000000_nursing_academic_contacts_editor.sql | 374f113, 2026-08-25 | UNKNOWN pending confirmation |
+| 20260826000000_contacts_canonicalization.sql | b2dee20, 2026-08-25 | UNKNOWN pending confirmation |
+| 20260827000000_cohort_completed_at.sql | 5c27f60, 2026-08-26 | UNKNOWN pending confirmation |
+| 20260828000000_enable_nursing_academic_portal_utilities.sql | 15e45b7, 2026-08-27 | UNKNOWN pending confirmation |
+
+One additional confirmation is owed that is not a migration: section 1 of
+`db/audit/public_endpoint_hardening_checks.sql` (the rate-limit function
+exists). The public-surface throttle added 2026-08-23 FAILS CLOSED, so if
+`consume_evaluation_rate_limit` were absent, every public submission (student
+intake, unit form, school form, shift log) would be refused. It is
+dashboard-created and appears in no repository migration.
