@@ -188,3 +188,22 @@ test('the template renders the table and the empty-cohort variant', async () => 
   })
   assert.doesNotMatch(hostile.html, /<img src=x>/)
 })
+
+// ── SIGNATURE-PARITY-1: every shared-path template signs with the GIF ───────
+
+test('every notification template uses the handwritten signature (no typed holdouts)', async () => {
+  const { readdirSync } = await import('node:fs')
+  const dir = new URL('../src/lib/notifications/templates/', import.meta.url)
+  const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith('.js') || file === 'index.js' || file === 'signatures.js') continue
+    const src = stripComments(read(`src/lib/notifications/templates/${file}`))
+    // midpointCheckin renders its own inline GIF block; every other template
+    // imports the shared helper. Either way, none may use the typed-only
+    // aspireSystemSignature (that belongs to invitations/messages, not crons).
+    assert.doesNotMatch(src, /aspireSystemSignature/, `${file} must not use the typed signature`)
+    if (file !== 'midpointCheckin.js') {
+      assert.match(src, /aspireHandwrittenSignature/, `${file} must use the handwritten signature`)
+    }
+  }
+})

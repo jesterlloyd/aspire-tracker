@@ -9,7 +9,8 @@
 // ASPIRE status only - no emails, no phone numbers, no record identifiers.
 
 import { escapeHtml } from '../../htmlEscape.js';
-import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
+import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 const NAVY = '#1D2567';
 
@@ -52,7 +53,7 @@ ${rows}
 <p style="margin:0 0 16px;">${lead}</p>
 ${table}
 ${count > 0 ? '<p style="margin:0 0 16px;">Students still on an active rotation are not listed; they keep their access until their rotation ends.</p>' : ''}
-${aspireSystemSignature('Kind regards,')}
+${aspireHandwrittenSignature('Kind regards,')}
 `.trim();
 
   return { subject, preheader, html: aspireEmailShell({ body, preheader }) };

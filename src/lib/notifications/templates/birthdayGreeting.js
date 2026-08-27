@@ -4,8 +4,10 @@
 //
 // Built on the shared ASPIRE system shell (lib/server/email/aspireShell.js), the
 // same Nightfall header / white card / no-reply footer every automated ASPIRE
-// email uses, with the typed system signature. No handwritten GIF: that is an
-// explicit midpoint-check-in-only exception and this is not that email.
+// email uses, with the handwritten GIF signature (SIGNATURE-PARITY-1: the GIF
+// long ago outgrew its original midpoint-only exception and is now the standard
+// cron signature; this template and access retirement were the last two typed
+// holdouts).
 //
 // PRIVACY. The only personal value that reaches this template is the first
 // name. No age, no date of birth, no year, no cohort, no rotation detail, and
@@ -14,7 +16,8 @@
 // rendered HTML or into notification_log metadata.
 
 import { escapeHtml } from '../../htmlEscape.js';
-import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
+import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 export const BIRTHDAY_GREETING_SUBJECT = 'Happy Birthday from ASPIRE';
 
@@ -40,7 +43,7 @@ export function buildBirthdayGreetingEmail({ firstName } = {}) {
   const body = `
 <p style="margin:0 0 16px;font-size:16px;font-weight:600;">Happy Birthday, ${name}!</p>
 <p style="margin:0 0 16px;">Wishing you a wonderful birthday from all of us at ASPIRE. We hope your day is filled with joy, and we appreciate the energy and commitment you bring to your clinical experience.</p>
-${aspireSystemSignature('Warm wishes,')}
+${aspireHandwrittenSignature('Warm wishes,')}
 `.trim();
 
   return {
