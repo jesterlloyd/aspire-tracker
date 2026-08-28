@@ -13,16 +13,20 @@ ratings and a prioritized remediation sequence. That report was never written to
 a file. The only finding identifiers recoverable from the repository are the
 ones the remediation commits left as code comments: S-01 through S-11 and S-14.
 
+RECOVERY UPDATE, 2026-08-27: the original findings for S-12, S-13, S-15
+through S-33, and D-01 through D-04 were recovered and are restored below with
+their original severities. Nothing was marked closed on recollection; each was
+re-checked against the code.
+
 Consequences, stated plainly:
 
 - S-01 through S-11 and S-14 below are reconstructed from the code, the
   remediation commits, and the audit SQL files. Their titles and evidence are
   verified. Their SEVERITY ratings are assessed from the code evidence during
   reconstruction, not recovered from the original report, and are labeled so.
-- S-12, S-13, S-15 through S-33, and D-01 through D-04 are UNRECOVERABLE from
-  the repository. Their entries below are placeholders. Do not infer from the
-  placeholder that a finding was minor, open, or closed; the repository simply
-  does not say what it was.
+- S-12, S-13, S-15 through S-33, and D-01 through D-04 carry their ORIGINAL
+  severities, recovered and restored 2026-08-27, with every status re-verified
+  against code at HEAD `556d8a4` before it was recorded.
 - Nothing here should be marked closed on the strength of a commit message.
   Every "Closed" entry cites code that was verified present at `d2f2719`, and
   the security test files (152 tests) were run green at that commit.
@@ -32,6 +36,16 @@ Verification snapshot: `node --test` over `deactivationEnforcement`,
 `portalAccessRevokedMidSession`, `s01InterviewLookup`, `s07InterviewBook`,
 `s04WaveEWriteSplit`, `interviewersFullAccessDrop` = 152 pass, 0 fail
 (2026-08-27, HEAD `d2f2719`).
+
+## Rule: closing a finding updates this file in the same commit
+
+Updating this register is PART OF closing a finding, not a follow-up to it.
+The commit that closes, partially closes, or reopens a finding edits that
+finding's entry here in the SAME commit: status, closing commit, and evidence.
+A closure whose commit does not touch this file is not done. The same applies
+to OWNER_SQL_GATE.md when a migration is involved. This rule exists because
+every continuity failure this project has had came from recording status
+afterward, from memory.
 
 ## Status vocabulary
 
@@ -264,14 +278,33 @@ Verification snapshot: `node --test` over `deactivationEnforcement`,
   repository migration. CONFIRMED present in production 2026-08-27 via section
   1 of `db/audit/public_endpoint_hardening_checks.sql`.
 
-## S-12. UNRECOVERABLE (defined in chat only)
+## S-12. Cron handlers fail open when CRON_SECRET is unset
 
-No identifier, commit, code marker, or document for S-12 exists in the
-repository. Status unknown. Do not infer it was closed or minor.
+- **Severity (original)**: Medium.
+- **Status**: OPEN, and WORSE than at audit time.
+- **Risk**: the comparison is against the literal string "Bearer undefined"
+  when the variable is unset, so a caller sending that exact header passes and
+  can trigger reminder and digest sends.
+- **Verified at HEAD**: THIRTEEN handlers now carry the fail-open pattern, up
+  from eleven at audit: the original eleven plus
+  `api/cron/student-completion-reconciliation.js` (2026-08-21) and
+  `api/cron/cohort-access-retirement.js` (2026-08-26), both copied from the
+  vulnerable form. `api/cron/staff-notification-worker.js` is the hardened
+  reference; it refuses an unset or empty secret explicitly.
 
-## S-13. UNRECOVERABLE (defined in chat only)
+## S-13. Admin notification endpoint gated on a static shared token
 
-Same as S-12.
+- **Severity (original)**: Medium.
+- **Status**: OPEN (one component not locatable at HEAD).
+- **Risk**: `api/send-notification.js` accepts any `type` and arbitrary
+  `context`, recipient included, against a single static
+  `ADMIN_NOTIFICATION_TOKEN`, records no actor, and returns raw `err.message`.
+  Anyone holding the token sends arbitrary program email with no attribution.
+- **Verified at HEAD**: the static-token gate, arbitrary context, and missing
+  actor are present; it does fail closed on an unset token. The
+  force-flag-bypassing-dedup component was NOT found at HEAD in this or any
+  surviving endpoint; it may have lived in a route since deleted (S-06 removed
+  four). Treat that component as unlocatable rather than fixed.
 
 ## S-14. Interviewer outcome writes unscoped by cohort
 
@@ -284,17 +317,135 @@ Same as S-12.
   `api/student-file-access.js`, with the model stated in the S-14 comments at
   lines 456 to 462.
 
-## S-15 through S-33. UNRECOVERABLE (defined in chat only)
+## S-15. Unit Leader retains thread read access after losing unit scope
 
-Nineteen findings whose definitions exist only in the original in-chat report.
-Nothing in the repository names, closes, or references any of them. If the
-original report text can be recovered from conversation history, transcribe it
-here; otherwise these remain permanently unknown and any future audit should
-treat the S-numbering as historical rather than authoritative.
+- **Severity (original)**: Medium. **Status**: OPEN.
+- **Risk**: revoking a unit scope does not remove conversation membership, so a former Unit Leader keeps reading unit threads.
+- **Verified at HEAD**: no writer of `conversation_participants.removed_at` exists anywhere in api/, lib/, src/, or the migrations; the only references are a partial index and a different table's column.
 
-## D-01 through D-04. UNRECOVERABLE (defined in chat only)
+## S-16. Avatar uploads bypass the server; avatar_url accepted as arbitrary string
 
-Dependency items from the original report. Same situation as S-15 through S-33.
+- **Severity (original)**: Medium. **Status**: OPEN.
+- **Risk**: content-type and path discipline enforced nowhere, and a staff admin can point another user's avatar at any URL.
+- **Verified at HEAD**: `src/components/UserMenu.jsx` still uploads directly to the public `avatars` bucket with a client-chosen extension and stores `getPublicUrl`; `api/admin-users.js` `update_avatar` still accepts any string into `avatar_url`.
+
+## S-17. Client caches survive sign-out and account switch
+
+- **Severity (original)**: Medium. **Status**: OPEN.
+- **Risk**: React Query data, drafts, and recipient lists from one account are readable in the next session on a shared machine.
+- **Verified at HEAD**: no `queryClient.clear()` exists anywhere in src/.
+
+## S-18. anon USING (true) read policy on unit_leaders
+
+- **Severity (original)**: Medium. **Status**: OPEN (live state unconfirmed).
+- **Risk**: the full unit leader roster including emails readable with the publishable anon key.
+- **Verified at HEAD**: `anon_read_unit_leaders` appears in NO repository migration (dashboard-created out-of-band, same class as the interviewers catch-all closed by 20260822030000), and no migration REVOKEs anon on unit_leaders. Confirming and dropping it needs a live read plus a migration.
+
+## S-19. Raw provider and database error text returned on public routes
+
+- **Severity (original)**: Low. **Status**: PARTIALLY CLOSED.
+- **Risk**: internal table, constraint, and provider detail disclosed to anonymous callers.
+- **Verified at HEAD**: the S-01/S-06/S-07 and S-08 through S-11 hardening made the interview, intake, unit-form, and shift-log surfaces generic. ONE named residual remains: `api/school-form-submit.js:141` still returns `{ error: result.error }` raw from the placement upsert helper on a public route.
+
+## S-20. Recipient names and emails written to function logs in three crons
+
+- **Severity (original)**: Low. **Status**: OPEN.
+- **Risk**: student and coordinator PII accumulates in Vercel log retention.
+- **Verified at HEAD**: `interview-reminders.js:153`, `coordinator-weekly-digest.js:459`, and `midpoint-checkin.js:148` each log recipient email and name on every send.
+
+## S-21. Resend webhook allows same-rank lateral writes, no replay dedup
+
+- **Severity (original)**: Low. **Status**: OPEN.
+- **Risk**: a replayed or reordered event of equal rank rewrites delivery status and timestamps.
+- **Verified at HEAD**: `api/webhooks/resend.js` verifies the Svix signature, but the guard is `newRank >= currentRank` (same-rank writes pass) and no svix-id is stored or checked for replay.
+
+## S-22. is_owner_or_admin() ignores is_active
+
+- **Severity (original)**: Low. **Status**: OPEN.
+- **Risk**: a deactivated admin's session passes RLS on the tables and RPCs this predicate still gates (S-05 closed the ENDPOINT layer; this is the database layer).
+- **Verified at HEAD**: the function's definition in 20260712000004 contains no is_active check; `is_active_owner_or_admin()` exists separately but has not replaced it.
+
+## S-23. Append-only event tables have no enforcement
+
+- **Severity (original)**: Low. **Status**: OPEN.
+- **Risk**: documented-append-only history (e.g. preceptor_assignment_events) is silently rewritable by any service-role code path or compromised key.
+- **Verified at HEAD**: GRANT ALL to service_role, no UPDATE/DELETE-blocking trigger in any migration.
+
+## S-24. cohort_school_rotations readable by anon and any authenticated
+
+- **Severity (original)**: Low. **Status**: OPEN.
+- **Risk**: rotation and coordinator detail readable with the anon key.
+- **Verified at HEAD**: `cohort_school_rotations_anon_select` USING (true) in 20260522000000; Wave E2 cleanup EXPLICITLY excluded this table (noted in 20260712000005), so the exclusion was deliberate but the exposure stands.
+
+## S-25. Suspected legacy USING (true) policies on archived submission tables
+
+- **Severity (original)**: Low, suspected. **Status**: OPEN, unconfirmed.
+- **Risk**: if the three archived tables still exist live, their legacy authenticated policies are fully open.
+- **Verified at HEAD**: not verifiable read-only; needs one live catalog query. Nothing in the repo has touched them since the audit.
+
+## S-26. PostgREST .or() filter strings built from raw search input
+
+- **Severity (original)**: Low. **Status**: OPEN.
+- **Risk**: commas and parentheses in a search term alter filter semantics client-side (bounded by RLS, so integrity of the query, not access).
+- **Verified at HEAD**: six template sites, including the universal search in `src/App.jsx:1095-1103` and `PreceptorAssignmentModal.jsx:40`.
+
+## S-27. Unescaped ilike wildcards on service-role queries
+
+- **Severity (original)**: Low. **Status**: OPEN.
+- **Risk**: % and _ in caller input broaden service-role matches (the public intake and shift-log paths escape; these do not).
+- **Verified at HEAD**: `api/interview-book.js:251`, `api/messages-staff-options.js:120`, `api/keith.js:417` and `:502` pass unescaped values to ilike.
+
+## S-28. interview_slots lacked database-level double-booking protection
+
+- **Severity (original)**: Low. **Status**: PARTIALLY CLOSED.
+- **Risk**: concurrent bookings race the application check.
+- **Verified at HEAD**: 20260822020000 (confirmed APPLIED 2026-08-27) added `uq_interview_slots_one_booking_per_student`, so one student holding two bookings is now impossible at the database. The slot side (two students on one slot) still has no constraint and relies on the atomic conditional claim (`.eq('is_booked', false)`) plus the post-claim re-check in api/interview-book.js. Remaining: a partial unique index on slot id WHERE is_booked, if desired.
+
+## S-29. evaluation_assignment_tokens has no one-active-token constraint
+
+- **Severity (original)**: Low. **Status**: OPEN.
+- **Risk**: multiple live tokens per assignment can accumulate; revocation by token id (the house rule) mitigates but nothing enforces singularity.
+- **Verified at HEAD**: no unique index or constraint on the table in any migration.
+
+## S-30. Keith GET reveals hasApiKey unauthenticated
+
+- **Severity (original)**: Informational. **Status**: OPEN.
+- **Risk**: configuration reconnaissance without a token.
+- **Verified at HEAD**: `api/keith.js:741` returns `hasApiKey: !!process.env.ANTHROPIC_API_KEY` on GET before any auth.
+
+## S-31. Activation token_hash remains in the address bar after verifyOtp
+
+- **Severity (original)**: Informational. **Status**: OPEN.
+- **Risk**: a consumed single-use token hash lingers in browser history.
+- **Verified at HEAD**: no `history.replaceState` in `src/pages/ActivateAccountPage.jsx`.
+
+## S-32. Student PII hardcoded in a dormant cron
+
+- **Severity (original)**: Informational. **Status**: OPEN.
+- **Risk**: two students' names and schools live in source control.
+- **Verified at HEAD**: `api/cron/clockout-reminders-resend.js:42-43`, the APPROVED_SHIFT_LOG_IDS comments. The endpoint is CRON_SECRET-gated (and fail-open per S-12); the run it existed for is long complete, so the whole file is retirable.
+
+## S-33. Policies without ENABLE ROW LEVEL SECURITY in repo SQL
+
+- **Severity (original)**: Informational. **Status**: OPEN, not verifiable read-only.
+- **Risk**: if RLS is not enabled live on user_profiles, activity_logs, or aspire_events, their policies are decorative.
+- **Verified at HEAD**: confirmed that no repository migration contains ENABLE ROW LEVEL SECURITY for any of the three (all three are dashboard-managed). Live state needs one catalog query (pg_class.relrowsecurity).
+
+## D-01. react-router-dom 7.15.1 advisories
+
+- **Severity (original)**: Low. **Status**: OPEN (upgrade housekeeping). Open redirect and DoS advisories, judged not reachable by the audit. Still at ^7.15.1 in package.json.
+
+## D-02. ws 8.20.0 via @supabase/realtime-js
+
+- **Severity (original)**: Low. **Status**: OPEN (upgrade housekeeping). Client-side only. supabase-js still at ^2.105.1.
+
+## D-03. postcss and nanoid via sanitize-html
+
+- **Severity (original)**: Low. **Status**: OPEN (upgrade housekeeping). Server runtime path. sanitize-html still present (^2.17.5).
+
+## D-04. vite 8.0.10, brace-expansion, @babel/core
+
+- **Severity (original)**: Informational. **Status**: OPEN (dev-only). Build-time only; vite still at ^8.0.10.
 
 ---
 
