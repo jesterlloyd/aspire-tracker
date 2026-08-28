@@ -78,9 +78,14 @@ test('S-22: the header explains why redefinition beats rewriting call sites', ()
   assert.match(migration, /fail-safe direction/)
 })
 
-test('S-22: the header names BOTH differences between the two helpers', () => {
-  // The task asked whether they differ in anything besides the is_active check.
-  // They do: the EXECUTE grant. Recording only one of the two would be wrong.
+test('S-22: the header records what discovery believed about the two helpers', () => {
+  // PINS THE FROZEN MIGRATION, NOT A CURRENT TRUTH CLAIM. Discovery reported two
+  // differences: the is_active check and the EXECUTE grant. PRE 4 against
+  // production later showed is_owner_or_admin ALREADY held service_role EXECUTE,
+  // so only the first was real and the grant step was a no-op. The applied
+  // migration was deliberately left unedited as a record of what ran; the
+  // correction of record lives in docs/security/FINDINGS_REGISTER.md under S-22.
+  // These assertions therefore verify the file's historical text, nothing more.
   assert.match(migration, /Only two things/)
   assert.match(migration, /EXECUTE grants/)
   assert.match(migration, /superset and cannot remove access/)

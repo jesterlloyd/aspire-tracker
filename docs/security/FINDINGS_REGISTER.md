@@ -384,10 +384,13 @@ afterward, from memory.
 
 - **Severity (original)**: Low. Assessed higher in practice: the exposure below
   is a live browser path, not a theoretical one.
-- **Status**: CODE COMPLETE, SQL PENDING. The migration is written and awaits
-  manual application; the finding is NOT closed until it is applied and the
-  POST checks pass.
-- **Closing commit**: this commit (migration + audit + tests).
+- **Status**: CLOSED.
+- **Closing commit**: `8762010` (migration, audit file, and tests). Applied to
+  production 2026-08-29 and confirmed via POST 1 to 5 of the audit file: the
+  predicate delegates to is_active_owner_or_admin with its hardened attributes
+  intact, both helpers agree for the session, every dependency is unchanged
+  from the PRE 2 inventory, grants exclude anon and PUBLIC, and no second
+  overload exists.
 - **Migration**: supabase/migrations/20260829000000_s22_is_owner_or_admin_requires_active.sql
 - **Risk**: the predicate checks role only, so a deactivated Owner or Admin
   holding a still-valid access token passes every policy and RPC guard built on
@@ -415,11 +418,19 @@ afterward, from memory.
   (the Full-access-on-interviewers policy and the anon read on unit_leaders,
   both created out-of-band). Redefinition fixes every reference at once, with
   no policy churn.
-- **The two helpers differed in TWO ways**, both handled: the is_active check,
-  and the EXECUTE grant (is_owner_or_admin had authenticated only;
-  is_active_owner_or_admin has authenticated and service_role). The migration
-  brings the grant to parity, which is a superset and removes access from
-  nobody. Everything else was already identical.
+- **CORRECTION, recorded 2026-08-29**: the discovery report claimed the two
+  helpers differed in TWO ways, the is_active check and the EXECUTE grant. Only
+  the FIRST was real. PRE 4 against production showed is_owner_or_admin ALREADY
+  held service_role EXECUTE, so the grant-parity step in the migration was a
+  no-op. The claim came from reading the legacy CREATE statement in
+  migrations/migration_track_b_v1a_secure_completion_rpc.sql, which grants to
+  authenticated only, and assuming the live grants still matched it; a grant
+  added later out-of-band is invisible in repository SQL, which is the same
+  blind spot this finding's whole approach was designed around. The applied
+  migration's header still carries the original claim and was deliberately not
+  edited, since it is a record of what ran; this entry is the correction of
+  record. The one real difference, the is_active check, is what the migration
+  fixed.
 - **Nothing legitimate breaks**: an ACTIVE Owner or Admin evaluates identically
   before and after, and service_role bypasses RLS entirely, so no server
   endpoint depends on these policies. No caller depends on the
