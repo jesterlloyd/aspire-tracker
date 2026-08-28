@@ -382,9 +382,58 @@ afterward, from memory.
 
 ## S-22. is_owner_or_admin() ignores is_active
 
-- **Severity (original)**: Low. **Status**: OPEN.
-- **Risk**: a deactivated admin's session passes RLS on the tables and RPCs this predicate still gates (S-05 closed the ENDPOINT layer; this is the database layer).
-- **Verified at HEAD**: the function's definition in 20260712000004 contains no is_active check; `is_active_owner_or_admin()` exists separately but has not replaced it.
+- **Severity (original)**: Low. Assessed higher in practice: the exposure below
+  is a live browser path, not a theoretical one.
+- **Status**: CODE COMPLETE, SQL PENDING. The migration is written and awaits
+  manual application; the finding is NOT closed until it is applied and the
+  POST checks pass.
+- **Closing commit**: this commit (migration + audit + tests).
+- **Migration**: supabase/migrations/20260829000000_s22_is_owner_or_admin_requires_active.sql
+- **Risk**: the predicate checks role only, so a deactivated Owner or Admin
+  holding a still-valid access token passes every policy and RPC guard built on
+  it. S-05 closed the endpoint layer; this is the database layer.
+- **Exposure is real, not theoretical**: src/App.jsx routes a staff profile to
+  /aggregate regardless of is_active, so the staff application renders for a
+  deactivated admin and issues its normal browser reads. Of the gated tables,
+  the browser reads activity_logs, evaluation_assignments, certificates, and
+  support_request_reads directly, and calls get_all_user_profiles() and
+  complete_disposition_followup() as RPCs.
+- **Scope found**: 15 policies across 14 tables (user_role_grants,
+  user_student_links, user_unit_scopes, user_school_scopes, released_reports,
+  student_dispositions, activity_logs, certificates,
+  student_disposition_followups, evaluation_instruments, evaluation_assignments,
+  evaluation_responses, evaluation_reminders, and support_request_reads with
+  two), plus 5 functions (get_all_user_profiles, add_interviewer,
+  update_interviewer_color, update_interviewer_email,
+  complete_disposition_followup). The original audit counted SEVEN RPCs, so at
+  least two references exist only in the dashboard and cannot be seen from this
+  repository.
+- **Approach, and why**: the fix REDEFINES the predicate to delegate to
+  is_active_owner_or_admin() rather than rewriting call sites. Rewriting what
+  the repository can see would leave the invisible references still trusting a
+  deactivated account, and this project has been bitten twice by exactly that
+  (the Full-access-on-interviewers policy and the anon read on unit_leaders,
+  both created out-of-band). Redefinition fixes every reference at once, with
+  no policy churn.
+- **The two helpers differed in TWO ways**, both handled: the is_active check,
+  and the EXECUTE grant (is_owner_or_admin had authenticated only;
+  is_active_owner_or_admin has authenticated and service_role). The migration
+  brings the grant to parity, which is a superset and removes access from
+  nobody. Everything else was already identical.
+- **Nothing legitimate breaks**: an ACTIVE Owner or Admin evaluates identically
+  before and after, and service_role bypasses RLS entirely, so no server
+  endpoint depends on these policies. No caller depends on the
+  deactivated-still-passes behaviour; every application path already refuses
+  such an account.
+- **Alias kept, not dropped**, deliberately. Dropping it would fix only the
+  references this repository knows about, and Postgres would refuse the drop
+  while any policy depends on it. It is now a documented deprecated alias with
+  one implementation behind it. Retiring it is optional follow-up, recorded at
+  the end of the audit file, to be done from the live PRE 2 and PRE 3 inventory
+  rather than from the repository.
+- **Regression guard**: test/s22ActiveOwnerOrAdmin.test.mjs (17 tests) pins the
+  delegation, the hardened attributes, the untouched-policy property, the inert
+  rollback, and that the audit file stays read-only and PII-free.
 
 ## S-23. Append-only event tables have no enforcement
 

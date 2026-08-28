@@ -649,6 +649,7 @@ section:
 | 20260826000000_contacts_canonicalization.sql | b2dee20, 2026-08-25 | UNKNOWN pending confirmation |
 | 20260827000000_cohort_completed_at.sql | 5c27f60, 2026-08-26 | UNKNOWN pending confirmation |
 | 20260828000000_enable_nursing_academic_portal_utilities.sql | 15e45b7, 2026-08-27 | UNKNOWN pending confirmation |
+| 20260829000000_s22_is_owner_or_admin_requires_active.sql | this commit, 2026-08-27 | NOT APPLIED. S-22: makes is_owner_or_admin() require an active profile by delegating to is_active_owner_or_admin(). Run PRE 1 to 5 of db/audit/s22_is_owner_or_admin_preflight_and_verification.sql first. PRE 2 and PRE 3 are the important ones: they enumerate LIVE dependencies including dashboard-created references this repository cannot see, and PRE 5 is a stop condition (active_staff must be non-zero) |
 
 CONFIRMED 2026-08-27: `consume_evaluation_rate_limit` is present in
 production, verified via section 1 of
