@@ -31,6 +31,7 @@ import { sendNotification } from '../../src/lib/notifications/index.js';
 import { CLOCKOUT_REMINDER_SUBJECT, clockoutReminderText } from '../../src/lib/notifications/templates/clockoutReminder.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { getStudentPreferredGreetingName } from '../../src/lib/studentNameFormatters.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -61,7 +62,7 @@ function rowSummary(log, stu, nowMs) {
 }
 
 export default async function handler(req, res) {
-  if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

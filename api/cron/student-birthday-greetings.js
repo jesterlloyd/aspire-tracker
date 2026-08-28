@@ -37,13 +37,14 @@ import {
   selectBirthdayRecipients, withinSendWindow, pacificDateString, pacificHour,
   ACTIVE_ROTATION_STATUS, ALREADY_SENT_STATUSES, parseYmd,
 } from '../../src/lib/birthdayEligibility.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 export const AUTOMATION_KEY = 'student_birthday_greetings';
 export const CRON_NAME = 'student-birthday-greetings';
 export const NOTIFICATION_TYPE = 'birthday_greeting';
 
 export default async function handler(req, res) {
-  if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

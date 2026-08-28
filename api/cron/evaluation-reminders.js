@@ -38,6 +38,7 @@ import {
 } from '../../src/lib/evaluation/reminderSchedule.js';
 import { resolveReminderRecipient, RECIPIENT_REASONS } from '../../lib/server/evaluation/reminderRecipient.js';
 import { sendClaimedReminders } from '../../lib/server/evaluation/reminderSend.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 export const AUTOMATION_KEY = 'evaluation_reminders';
 
@@ -121,7 +122,7 @@ async function loadContext(db, now) {
  * sweep therefore has its OWN endpoint file, and this flag is an argument.
  */
 export async function runEvaluationReminders(req, res, { sweep = false } = {}) {
-  if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

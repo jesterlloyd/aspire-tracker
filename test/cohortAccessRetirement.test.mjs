@@ -144,7 +144,9 @@ test('the migration stamps on the transition, clears on revert, and never backfi
 
 test('the cron fails closed and resolves its recipient from the contact record', () => {
   const cron = read('api/cron/cohort-access-retirement.js')
-  assert.match(cron, /Bearer \$\{process\.env\.CRON_SECRET\}/)
+  // S-12: the inline `Bearer ${process.env.CRON_SECRET}` comparison was replaced
+  // by the shared fail-closed helper. Same property, one implementation.
+  assert.match(cron, /isAuthorizedCronRequest\(req\)/)
   assert.match(cron, /withinSendWindow\(now\)/)
   assert.match(cron, /reason: 'schema_not_ready'/)
   // Ledger failure is a run error (duplicate-prevention cannot be skipped).

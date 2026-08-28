@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -23,7 +24,7 @@ const MAX_REMINDERS = 2;
 
 export default async function handler(req, res) {
   // Vercel Cron attaches CRON_SECRET in the Authorization header automatically
-  if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

@@ -67,7 +67,9 @@ test('cohort close, hours/date changes, and the migration backfill all invoke th
 })
 
 test('a protected daily sweep handles date passage without a database write', () => {
-  assert.match(cron, /Bearer \$\{process\.env\.CRON_SECRET\}/)
+  // S-12: the inline `Bearer ${process.env.CRON_SECRET}` comparison was replaced
+  // by the shared fail-closed helper. Same property, one implementation.
+  assert.match(cron, /isAuthorizedCronRequest\(req\)/)
   assert.match(cron, /\.rpc\('reconcile_student_completions'/)
   assert.match(cron, /startCronRun\(db, CRON_NAME\)/)
   assert.match(cron, /finishCronRunSuccess\(db, runId, \{ completed_count: completed \}\)/)

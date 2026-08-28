@@ -351,7 +351,8 @@ test('static wiring and dormant frontend boundary', async (t) => {
   });
 
   await t.test('worker is protected and sends through purpose-specific service', () => {
-    assert.match(workerSrc, /Bearer \$\{process\.env\.CRON_SECRET\}/);
+    // S-12: replaced by the shared fail-closed helper; same property.
+    assert.match(workerSrc, /isAuthorizedCronRequest\(req\)/);
     assert.match(workerSrc, /runPortalFeedbackDeliveryWorker/);
     assert.doesNotMatch(workerSrc, /message_notification_deliveries|conversations|messages/);
   });

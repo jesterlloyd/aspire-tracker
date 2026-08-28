@@ -7,11 +7,12 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js'
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js'
 
 const CRON_NAME = 'student-completion-reconciliation'
 
 export default async function handler(req, res) {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 

@@ -17,6 +17,7 @@ import { Resend } from 'resend';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { runDeliveryWorker } from '../../lib/server/messages/deliveryService.js';
 import { CLAIM_BATCH_LIMIT, CLAIM_STALE_SECONDS } from '../../lib/server/messages/config.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -27,7 +28,7 @@ const supabase = createClient(
 const CRON_NAME = 'messages-delivery-worker';
 
 export default async function handler(req, res) {
-  if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

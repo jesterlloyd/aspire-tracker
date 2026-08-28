@@ -8,6 +8,7 @@ import {
   PORTAL_FEEDBACK_CLAIM_BATCH_LIMIT,
   PORTAL_FEEDBACK_CLAIM_STALE_SECONDS,
 } from '../../lib/server/portalFeedback/config.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -18,7 +19,7 @@ const supabase = createClient(
 const CRON_NAME = 'portal-feedback-delivery-worker';
 
 export default async function handler(req, res) {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

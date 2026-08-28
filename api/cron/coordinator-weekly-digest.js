@@ -36,6 +36,7 @@ import {
   addCoordinatorDigestEvent,
   createCoordinatorDigestTransitions,
 } from '../lib/coordinatorDigestTransitions.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
@@ -51,7 +52,7 @@ function getServiceClient() {
 }
 
 export default async function handler(req, res) {
-  if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     // Log auth failure BEFORE the 401 return - this fires even if console output
     // later in the handler would be absent, making auth failures visible in Vercel logs.
     console.warn('[coordinator-digest] auth_failed:', {

@@ -13,6 +13,7 @@ import { Resend } from 'resend'
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js'
 import { runStaffNotificationWorker } from '../../lib/server/staffNotifications/deliveryService.js'
 import { CLAIM_BATCH_LIMIT, CLAIM_STALE_SECONDS } from '../../lib/server/staffNotifications/config.js'
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js'
 
 const CRON_NAME = 'staff-notification-worker'
 
@@ -37,9 +38,11 @@ export function createStaffNotificationWorkerHandler({
   runWorker = runStaffNotificationWorker,
 } = {}) {
   return async function handler(req, res) {
-    const configuredSecret = env.CRON_SECRET
-    if (typeof configuredSecret !== 'string' || configuredSecret.trim() === '' ||
-        req.headers['authorization'] !== `Bearer ${configuredSecret}`) {
+    // S-12: this handler's inline guard was the correct one and became the
+    // shared helper. It now CALLS that helper rather than keeping a second
+    // copy, so there is exactly one implementation to audit. env stays
+    // injected, which is how this route's tests supply a secret.
+    if (!isAuthorizedCronRequest(req, env)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 

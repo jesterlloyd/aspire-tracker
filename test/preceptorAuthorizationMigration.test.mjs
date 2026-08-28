@@ -307,10 +307,16 @@ test('the email worker claims via the RPC, sends, and is idempotent per recipien
 })
 
 test('the cron endpoint is CRON_SECRET-gated and registered in vercel.json', () => {
-  assert.match(cron, /const configuredSecret = env\.CRON_SECRET/)
-  assert.match(cron, /typeof configuredSecret !== 'string' \|\| configuredSecret\.trim\(\) === ''/)
-  assert.match(cron, /req\.headers\['authorization'\] !== `Bearer \$\{configuredSecret\}`/)
-  assert.ok(cron.indexOf('configuredSecret.trim()') < cron.indexOf('const supabase = getDb()'),
+  // S-12: this handler's inline guard WAS the correct one and became
+  // api/lib/cronAuth.js. It now calls that helper, passing its injected env.
+  assert.match(cron, /isAuthorizedCronRequest\(req, env\)/)
+  // The fail-closed property moved WITH the guard. It is asserted at its new
+  // home rather than restated here, and test/cronSecretFailClosed.test.mjs
+  // proves the behaviour (unset, empty, whitespace, and non-string secrets all
+  // refuse) rather than just its shape.
+  const cronAuth = readFileSync(join(here, '..', 'api/lib/cronAuth.js'), 'utf8')
+  assert.match(cronAuth, /typeof configured !== 'string' \|\| configured\.trim\(\) === ''/)
+  assert.ok(cron.indexOf('isAuthorizedCronRequest(req, env)') < cron.indexOf('const supabase = getDb()'),
     'authorization fails before database construction')
   assert.match(cron, /runStaffNotificationWorker/)
   assert.match(vercel, /\/api\/cron\/staff-notification-worker/)

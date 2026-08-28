@@ -35,6 +35,7 @@ import { sendNotification } from '../../src/lib/notifications/index.js';
 import { withinSendWindow, pacificDateString, pacificHour, ALREADY_SENT_STATUSES } from '../../src/lib/birthdayEligibility.js';
 import { selectDueCohorts, selectRetirementStudents } from '../../src/lib/accessRetirement.js';
 import { isValidEmail } from '../../src/lib/notifications/studentRecipient.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 export const AUTOMATION_KEY = 'cohort_access_retirement';
 export const CRON_NAME = 'cohort-access-retirement';
@@ -64,7 +65,7 @@ export async function resolveRecipientContact(supabase) {
 }
 
 export default async function handler(req, res) {
-  if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

@@ -218,7 +218,8 @@ test('server service, worker, and webhook wiring', async (t) => {
     assert.match(deliveryServiceSrc, /claim_due_message_notification_deliveries/);
   });
   await t.test('worker authenticates the cron and records cron_runs', () => {
-    assert.match(workerSrc, /Bearer \$\{process\.env\.CRON_SECRET\}/);
+    // S-12: replaced by the shared fail-closed helper; same property.
+    assert.match(workerSrc, /isAuthorizedCronRequest\(req\)/);
     assert.match(workerSrc, /startCronRun/);
     assert.match(workerSrc, /finishCronRunSuccess/);
     assert.match(workerSrc, /finishCronRunError/);

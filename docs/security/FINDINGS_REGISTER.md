@@ -281,16 +281,37 @@ afterward, from memory.
 ## S-12. Cron handlers fail open when CRON_SECRET is unset
 
 - **Severity (original)**: Medium.
-- **Status**: OPEN, and WORSE than at audit time.
-- **Risk**: the comparison is against the literal string "Bearer undefined"
-  when the variable is unset, so a caller sending that exact header passes and
-  can trigger reminder and digest sends.
-- **Verified at HEAD**: THIRTEEN handlers now carry the fail-open pattern, up
-  from eleven at audit: the original eleven plus
+- **Status**: CLOSED.
+- **Closing commit**: this commit.
+- **Risk (historical)**: the comparison was against the literal string
+  "Bearer undefined" when the variable is unset, so a caller sending that exact
+  header passed and could trigger reminder and digest sends.
+- **Scope found**: THIRTEEN handlers carried the fail-open pattern, up from
+  eleven at audit. The two added since,
   `api/cron/student-completion-reconciliation.js` (2026-08-21) and
-  `api/cron/cohort-access-retirement.js` (2026-08-26), both copied from the
-  vulnerable form. `api/cron/staff-notification-worker.js` is the hardened
-  reference; it refuses an unset or empty secret explicitly.
+  `api/cron/cohort-access-retirement.js` (2026-08-26), were copied from a
+  vulnerable neighbour rather than from the one handler that had it right.
+  That spread is why the fix is a shared helper plus a sweep test, not
+  thirteen edits.
+- **Fix**: `api/lib/cronAuth.js` is now the single implementation, with three
+  properties the old form lacked. It FAILS CLOSED (unset, empty,
+  whitespace-only, or non-string secret refuses everything). It BUILDS NO
+  STRING FROM AN UNDEFINED VALUE (the expected credential is constructed only
+  after the secret is proven a non-empty string, so "Bearer undefined" cannot
+  exist). It COMPARES IN CONSTANT TIME over fixed-width SHA-256 digests, which
+  leaks neither the secret's length nor a first-differing-byte timing signal,
+  and avoids timingSafeEqual's throw on unequal lengths.
+- **Evidence**: all 14 authenticating cron routes call the helper;
+  `api/cron/evaluation-reminders-recovery.js` delegates its whole request to a
+  guarded handler and needs no guard of its own.
+  `api/cron/staff-notification-worker.js`, whose inline guard was the correct
+  one and became the helper, now CALLS it rather than keeping a second copy.
+  No file under `api/cron/` reads CRON_SECRET any more.
+- **Regression guard**: `test/cronSecretFailClosed.test.mjs` sweeps the whole
+  directory and fails if any file builds a Bearer string from an environment
+  value, compares the authorization header directly, reads CRON_SECRET, or has
+  no authorization at all. A fourteenth handler cannot copy the vulnerable
+  form without failing the suite.
 
 ## S-13. Admin notification endpoint gated on a static shared token
 

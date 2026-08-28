@@ -23,6 +23,7 @@ import { createClient } from '@supabase/supabase-js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
+import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -34,7 +35,7 @@ const supabase = createClient(
 const ALERT_THRESHOLD = 0.8;
 
 export default async function handler(req, res) {
-  if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

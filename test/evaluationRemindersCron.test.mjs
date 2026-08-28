@@ -142,6 +142,8 @@ const src = read('api/cron/evaluation-reminders.js')
   .replace(/from '@supabase\/supabase-js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
   .replace(/from 'resend'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
   .replace(/from '\.\.\/lib\/cronRuns\.js'/, `from ${abs('api/lib/cronRuns.js')}`)
+  // S-12: the cron auth guard now lives in a shared helper.
+  .replace(/from '\.\.\/lib\/cronAuth\.js'/, `from ${abs('api/lib/cronAuth.js')}`)
   .replace(/from '\.\.\/lib\/automationSettings\.js'/, `from ${abs('api/lib/automationSettings.js')}`)
   .replace(/from '\.\.\/\.\.\/lib\/server\/appUrl\.js'/, `from ${abs('lib/server/appUrl.js')}`)
   .replace(/from '\.\.\/\.\.\/src\/lib\/evaluation\/reminderSchedule\.js'/, `from ${abs('src/lib/evaluation/reminderSchedule.js')}`)
