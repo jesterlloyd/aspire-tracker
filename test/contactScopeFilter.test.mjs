@@ -301,3 +301,26 @@ test('both write endpoints validate divisions against the catalog and fail close
   assert.match(sql, /ADD COLUMN IF NOT EXISTS divisions text\[\] NOT NULL DEFAULT '\{\}'::text\[\]/)
   assert.match(sql, /DROP COLUMN IF EXISTS divisions/, 'rollback documented')
 })
+
+test('a unit Director outranks the unit\'s own leadership chain, not the unranked tier', async () => {
+  const { sortContactsForCategory } = await import('../src/lib/contactCategories.js')
+  const { scopeUnitSet } = await import('../src/lib/contactScopeFilter.js')
+  // Reported 2026-08-27: "Director" was free text, so it fell to tier 99 and
+  // sorted below everyone on its own unit.
+  const jeremy = { full_name: 'Jeremy Miller', category: 'Unit Leader', role: 'Director', unit_name: 'Transfer Center' }
+  const tom = { full_name: 'Tom Christen', category: 'Unit Leader', role: 'Assistant Nurse Manager', unit_name: 'Transfer Center' }
+  for (const scope of ['Transfer Center', 'Capacity Management']) {
+    assert.deepEqual(
+      sortContactsForCategory([tom, jeremy], 'Unit Leader', { scopeUnits: scopeUnitSet(scope) }).map(c => c.full_name),
+      ['Jeremy Miller', 'Tom Christen'], `under the ${scope} scope`,
+    )
+  }
+  // Director sits BELOW an acting Executive Director and ABOVE Associate Director.
+  const ranked = sortContactsForCategory([
+    { full_name: 'AD', category: 'Unit Leader', role: 'Associate Director', unit_name: 'Transfer Center' },
+    { full_name: 'Dir', category: 'Unit Leader', role: 'Director', unit_name: 'Transfer Center' },
+    { full_name: 'Exec', category: 'Unit Leader', role: 'Executive Director', unit_name: 'Transfer Center' },
+    { full_name: 'Unranked', category: 'Unit Leader', role: 'Coordinator', unit_name: 'Transfer Center' },
+  ], 'Unit Leader').map(c => c.full_name)
+  assert.deepEqual(ranked, ['Exec', 'Dir', 'AD', 'Unranked'])
+})

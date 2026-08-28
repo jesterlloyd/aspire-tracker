@@ -69,8 +69,8 @@ test('legacy stored values resolve to canonical; junk resolves to null', () => {
 
 test('the per-category title lists are exactly the approved canon', () => {
   assert.deepEqual(CONTACT_ROLE_TITLES['Unit Leader'], [
-    'Associate Director', 'Interim Associate Director', 'Assistant Nurse Manager',
-    'NPD Practitioner', 'Clinical Nurse Specialist',
+    'Director', 'Associate Director', 'Interim Associate Director',
+    'Assistant Nurse Manager', 'NPD Practitioner', 'Clinical Nurse Specialist',
   ])
   assert.deepEqual(CONTACT_ROLE_TITLES['Academic Partner'], [
     'Program Coordinator', 'Assistant Professor', 'Clinical Placement Coordinator',
@@ -171,15 +171,17 @@ test('the row subline is per-category: school / units / Programs / Services / af
 })
 
 test('the category sort engine follows the approved tiers in both directories', () => {
-  // Unit Leaders: unit ascending, then AD/Interim AD > ANM > NPD-P/CNS, then name.
+  // Unit Leaders: unit ascending, then Director > AD/Interim AD > ANM >
+  // NPD-P/CNS, then name.
   const ul = sortContactsForCategory([
     { full_name: 'Zoe', category: 'Unit Leader', role: 'Assistant Nurse Manager', unit_name: '3 North' },
     { full_name: 'Amy', category: 'Unit Leader', role: 'NPD Practitioner', unit_name: '3 North' },
     { full_name: 'Bea', category: 'Unit Leader', role: 'Associate Director', unit_name: '3 SCCT' },
     { full_name: 'Cam', category: 'Unit Leader', role: 'Interim Associate Director', unit_name: '3 North' },
     { full_name: 'Dee', category: 'Unit Leader', role: 'Clinical Nurse Specialist', unit_name: '3 North' },
+    { full_name: 'Eli', category: 'Unit Leader', role: 'Director', unit_name: '3 North' },
   ], 'Unit Leader').map(c => c.full_name)
-  assert.deepEqual(ul, ['Cam', 'Zoe', 'Amy', 'Dee', 'Bea'])
+  assert.deepEqual(ul, ['Eli', 'Cam', 'Zoe', 'Amy', 'Dee', 'Bea'])
 
   // BNI: ED > Lead Administrative Assistant > NPD-P (A-Z) > Project Coordinator (A-Z).
   const bni = sortContactsForCategory([

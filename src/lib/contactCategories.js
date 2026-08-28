@@ -92,6 +92,7 @@ export const CONTACT_ROLE_TITLES = {
     'Clinical Faculty',
   ],
   'Unit Leader': [
+    'Director',
     'Associate Director',
     'Interim Associate Director',
     'Assistant Nurse Manager',
@@ -279,8 +280,8 @@ export function contactListSubline(contact) {
 //
 // Approved ordering (2026-08-25), applied when a category filter is active
 // and inside the staff app's grouped All view:
-//   Unit Leader:       unit ascending, then AD/Interim AD > ANM > NPD-P/CNS,
-//                      then name. "Unit" means the contact's first unit inside
+//   Unit Leader:       unit ascending, then Director > AD/Interim AD > ANM >
+//                      NPD-P/CNS, then name. "Unit" means the contact's first unit inside
 //                      the active scope when one is set, else their primary
 //                      unit (see sortUnitFor).
 //   BNI Team:          ED > Lead Administrative Assistant > NPD-P >
@@ -296,10 +297,14 @@ const UL_TITLE_TIER = {
   // An EXECUTIVE acting over a unit (e.g. the acting Associate Director of
   // Float Pool) outranks the unit's own leadership chain.
   'Executive Director': 0,
-  'Associate Director': 1, 'Interim Associate Director': 1,
-  'Assistant Nurse Manager': 2,
-  'NPD Practitioner': 3, 'Clinical Nurse Specialist': 3,
-  'Unit NPD-P': 3, 'Unit NPD Practitioner': 3,
+  // A unit Director outranks an Associate Director. Ranked 2026-08-27 after
+  // Jeremy Miller (Director, Transfer Center) fell to the unranked tier and
+  // sorted below his own unit's staff.
+  'Director': 1,
+  'Associate Director': 2, 'Interim Associate Director': 2,
+  'Assistant Nurse Manager': 3,
+  'NPD Practitioner': 4, 'Clinical Nurse Specialist': 4,
+  'Unit NPD-P': 4, 'Unit NPD Practitioner': 4,
 }
 const BNI_TITLE_TIER = {
   'Executive Director': 1,
