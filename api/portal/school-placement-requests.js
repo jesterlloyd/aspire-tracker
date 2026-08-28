@@ -30,6 +30,7 @@
 import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, resolveSchoolScopedCohorts, matchSchoolCohortScope } from '../lib/schoolScope.js'
 import { getCallerScopedDb } from '../lib/portalAuth.js'
 import { performSchoolPlacementUpsert, isPlacementProvenanceReady, validatePlacementRequestInput } from '../lib/schoolPlacementUpsert.js'
+import { sanitizeSubmitMode } from '../../src/lib/placementResubmission.js'
 import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
 import { sendPlacementRequestNotifications } from '../../lib/server/notifications/placementRequestNotifications.js'
 
@@ -195,11 +196,17 @@ async function submitPlacementRequest(req, res, auth) {
   const rotationEndDate = typeof body.rotationEndDate === 'string' ? body.rotationEndDate : ''
   const availability = body.availability
   const students = Array.isArray(body.students) ? body.students : []
+  // PLACEMENT-RESUBMIT-1: 'add_students' attaches a roster to the existing
+  // rotation row and never writes its dates, so it does not carry any.
+  const mode = sanitizeSubmitMode(body.mode)
+  const addOnly = mode === 'add_students'
 
   // Essential server-side validation (the shared client validation also runs, but the server never
   // trusts it). Generic message; pre-submit field guidance is the client's job.
-  if (!cohortId || !school || !coordName || !coordEmail || !rotationStartDate || !rotationEndDate
-      || rotationEndDate <= rotationStartDate || students.length === 0) {
+  if (!cohortId || !school || !coordName || !coordEmail || students.length === 0) {
+    return res.status(400).json({ error: 'invalid_request' })
+  }
+  if (!addOnly && (!rotationStartDate || !rotationEndDate || rotationEndDate <= rotationStartDate)) {
     return res.status(400).json({ error: 'invalid_request' })
   }
 
@@ -280,7 +287,13 @@ async function submitPlacementRequest(req, res, auth) {
       submittedAt: new Date().toISOString(),
     },
     provenanceReady: true,
+    mode,
   })
+  // An add_students request against a school with no existing rotation row is
+  // the caller's mistake, not a server fault: name it rather than 500ing.
+  if (result.error && addOnly && !result.rotationId) {
+    return res.status(409).json({ error: 'no_existing_request', message: result.error })
+  }
   if (result.error) return res.status(500).json({ error: 'internal_error' })
 
   // Placement-request confirmations for each NEW student, sent in-process through the shared

@@ -123,18 +123,22 @@ export function emptyAvailability() {
 // Shared HARD validation. Returns { scope, message } or null when valid. Rules, order, and messages
 // are identical for the public form and the portal; the only edge difference (where the school comes
 // from) does not change the rule that a school is required.
-export function validatePlacementForm({ coordinator, rotation, students, cohortId }) {
+// PLACEMENT-RESUBMIT-1: in 'add_students' mode the rotation window belongs to
+// the existing request and the form does not collect it, so the date rules are
+// skipped. Every other rule is unchanged and still applies.
+export function validatePlacementForm({ coordinator, rotation, students, cohortId, mode = 'full' }) {
   const coord = coordinator || {}
   const rot = rotation || {}
   const rows = students || []
+  const addOnly = mode === 'add_students'
 
   if (!String(coord.school || '').trim() || !String(coord.name || '').trim() || !String(coord.email || '').trim()) {
     return { scope: 'coordinator', message: PLACEMENT_MESSAGES.coordinator }
   }
-  if (!rot.start_date || !rot.end_date) {
+  if (!addOnly && (!rot.start_date || !rot.end_date)) {
     return { scope: 'rotation', message: PLACEMENT_MESSAGES.rotationRequired }
   }
-  if (rot.end_date <= rot.start_date) {
+  if (!addOnly && rot.end_date <= rot.start_date) {
     return { scope: 'rotation', message: PLACEMENT_MESSAGES.rotationOrder }
   }
   const invalid = rows.find(r => !String(r.first_name || '').trim() || !String(r.last_name || '').trim() || !String(r.email || '').trim())
@@ -182,11 +186,15 @@ export function collectPlacementSoftWarnings({ rotation, students }, today) {
 // The canonical request body. Identical shape for both surfaces. Coordinator name/email/notes are
 // carried as form data (contact info). The authenticated endpoint re-derives and re-validates the
 // school and cohort SERVER-SIDE and never trusts these values for authorization.
-export function buildPlacementBody({ cohortId, cohortName, coordinator, rotation, availability, students }) {
+// PLACEMENT-RESUBMIT-1: `mode` is 'full' (the normal submission) or
+// 'add_students' (a roster added to an existing request; the server ignores
+// the dates and availability entirely and never writes the rotation row).
+export function buildPlacementBody({ cohortId, cohortName, coordinator, rotation, availability, students, mode = 'full' }) {
   const av = availability || {}
   return {
     cohortId,
     cohortName,
+    mode,
     coordinator: {
       school: String(coordinator?.school || '').trim(),
       name: String(coordinator?.name || '').trim(),

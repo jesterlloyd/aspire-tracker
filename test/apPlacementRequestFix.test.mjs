@@ -160,7 +160,8 @@ test('the shared upsert persists ONE operative identity and never touches absent
   // Production schema truth: no public.schools reads, no students.school_id writes anywhere.
   assert.doesNotMatch(upsert, /from\('schools'\)/)
   assert.doesNotMatch(upsert, /school_id:/)
-  assert.match(upsert, /return \{ error: null, added, updated, skipped, rotationId, schoolName \}/)
+  // PLACEMENT-RESUBMIT-1 added the submit mode and the preserved-field report.
+  assert.match(upsert, /return \{ error: null, added, updated, skipped, rotationId, schoolName, mode: submitMode, preservedFields \}/)
 })
 
 test('the AP endpoint fails closed on unknown schools: no free-text fallback', () => {

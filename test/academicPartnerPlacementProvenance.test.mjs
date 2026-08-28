@@ -54,7 +54,7 @@ test('a not-ready write performs no insert/update at all (helper omits columns a
         upsert(p) { state.op = 'upsert'; state.p = p; return b },
         insert(p) { state.op = 'insert'; if (table === 'students') inserts.push(p); return b },
         update() { state.op = 'update'; return b },
-        select() { return b }, single() { return b }, eq() { return b }, limit() { return b },
+        select() { return b }, single() { return b }, maybeSingle() { return b }, eq() { return b }, limit() { return b },
         then(r) { r(table === 'cohort_school_rotations' ? { data: { id: 'rot1' }, error: null } : (state.op === 'insert' ? { data: { id: 'n1' }, error: null } : { data: [], error: null })) },
       }
       return b
@@ -82,7 +82,7 @@ test('a written request carries the fields At a Glance groups by (school + cohor
         upsert() { state.op = 'upsert'; return b },
         insert(p) { state.op = 'insert'; inserts.push(p); return b },
         update() { state.op = 'update'; return b },
-        select() { return b }, single() { return b }, eq() { return b }, limit() { return b },
+        select() { return b }, single() { return b }, maybeSingle() { return b }, eq() { return b }, limit() { return b },
         then(r) { r(table === 'cohort_school_rotations' ? { data: { id: 'rot1' }, error: null } : (state.op === 'insert' ? { data: { id: 'n1' }, error: null } : { data: [], error: null })) },
       }
       return b

@@ -12,7 +12,7 @@ const AP_PROVENANCE = { source: 'academic_partner_portal', submittedByProfileId:
 
 // A minimal mock of the chained Supabase client used by the helper. It records inserts/updates and
 // resolves each terminal chain based on (table, operation).
-function makeDb({ existing = [], provenanceColumnsMissing = false } = {}) {
+function makeDb({ existing = [], provenanceColumnsMissing = false, existingRotation = null } = {}) {
   const inserts = []
   const updates = []
   const events = []
@@ -25,12 +25,16 @@ function makeDb({ existing = [], provenanceColumnsMissing = false } = {}) {
       update(p) { state.op = 'update'; state.payload = p; return builder },
       select() { state.select = true; return builder },
       single() { state.single = true; return builder },
+      // PLACEMENT-RESUBMIT-1: the helper now READS the stored rotation row
+      // before writing, so a blank submission cannot erase stored availability.
+      maybeSingle() { state.maybeSingle = true; return builder },
       eq() { state.eqd = true; return builder },
       limit() { state.limited = true; return builder },
       then(resolve) { resolve(result()); },
     }
     function result() {
       if (table === 'cohort_school_rotations' && state.op === 'upsert') return { data: { id: 'rot1' }, error: null }
+      if (table === 'cohort_school_rotations' && state.op === null) return { data: existingRotation, error: null }
       // Readiness probe: select ... limit, no eq. Errors when the columns are "missing".
       if (table === 'students' && state.op === null && state.limited && !state.eqd) {
         return provenanceColumnsMissing

@@ -1576,6 +1576,25 @@ body { min-height: 100vh; }
 .sf-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .sf-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .sf-student-block { border: 1px solid var(--border-lt); border-radius: 6px; padding: 16px; background: var(--sand); display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+
+/* PLACEMENT-RESUBMIT-1: the "this school already submitted" banner on the
+   public placement form. Amber, not red: this is a decision point, not an
+   error. Scoped to .sf-resubmit-* so it shares nothing with .sf-student-*. */
+.sf-resubmit-warning { margin-top: 14px; border: 1px solid #fcd34d; background: #fffbeb; border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.sf-resubmit-title { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 14px; color: #92400e; line-height: 1.4; }
+.sf-resubmit-detail { font-family: 'DM Sans', sans-serif; font-size: 13px; color: #78350f; line-height: 1.6; margin: 0; }
+.sf-resubmit-modes { display: flex; flex-direction: column; gap: 8px; }
+.sf-resubmit-mode { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #fde68a; border-radius: 6px; background: #fff; cursor: pointer; }
+.sf-resubmit-mode.is-selected { border-color: #d97706; box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.15); }
+.sf-resubmit-mode input { margin-top: 3px; flex-shrink: 0; }
+.sf-resubmit-mode span { display: flex; flex-direction: column; gap: 3px; }
+.sf-resubmit-mode strong { font-family: 'DM Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: var(--nightfall); }
+.sf-resubmit-mode em { font-family: 'DM Sans', sans-serif; font-size: 12.5px; font-style: normal; color: #6b7280; line-height: 1.5; }
+.sf-resubmit-ack { display: flex; gap: 10px; align-items: flex-start; font-family: 'DM Sans', sans-serif; font-size: 13px; color: #78350f; line-height: 1.5; cursor: pointer; }
+.sf-resubmit-ack input { margin-top: 2px; flex-shrink: 0; }
+.sf-resubmit-inherited p { font-family: 'DM Sans', sans-serif; font-size: 13px; color: #6b7280; line-height: 1.6; margin: 8px 0 0; }
+.sf-resubmit-inherited strong { color: var(--nightfall); }
+.sf-resubmit-inherited a { color: var(--nightfall); text-decoration: underline; }
 .sf-student-header { display: flex; align-items: center; justify-content: space-between; }
 .sf-student-num { font-size: 13px; font-weight: 700; color: var(--raven); }
 .sf-remove-btn { background: none; border: none; color: var(--cs-red); font-size: 12px; font-weight: 600; cursor: pointer; padding: 2px 6px; }

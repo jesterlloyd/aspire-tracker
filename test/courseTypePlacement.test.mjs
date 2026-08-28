@@ -32,6 +32,7 @@ function makeDb({ existing = [], probesFail = false } = {}) {
       update(p) { state.op = 'update'; state.payload = p; return builder },
       select(cols) { state.select = cols; return builder },
       single() { return builder },
+      maybeSingle() { state.maybeSingle = true; return builder },
       eq() { state.eqd = true; return builder },
       limit() { state.limited = true; return builder },
       then(resolve) { resolve(result()) },

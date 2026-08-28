@@ -34,6 +34,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { performSchoolPlacementUpsert, isPlacementProvenanceReady, validatePlacementRequestInput } from './lib/schoolPlacementUpsert.js'
+import { sanitizeSubmitMode } from '../src/lib/placementResubmission.js'
 import { sendPlacementRequestNotifications } from '../lib/server/notifications/placementRequestNotifications.js'
 import { consumePublicRateLimit, SCHOOL_SUBMIT_LIMITS, TOO_MANY_REQUESTS } from './lib/publicRateLimit.js'
 
@@ -64,10 +65,16 @@ export default async function handler(req, res) {
   if (!coordinator?.school?.trim()) return res.status(400).json({ error: 'School name is required' })
   if (!coordinator?.name?.trim() || !coordinator?.email?.trim())
     return res.status(400).json({ error: 'Coordinator name and email are required' })
-  if (!rotationStartDate || !rotationEndDate)
-    return res.status(400).json({ error: 'Rotation start and end dates are required' })
-  if (rotationEndDate <= rotationStartDate)
-    return res.status(400).json({ error: 'Rotation end date must be after start date' })
+  // PLACEMENT-RESUBMIT-1: 'add_students' attaches a roster to the EXISTING
+  // rotation row without writing its dates, so it does not carry any.
+  const mode = sanitizeSubmitMode(req.body?.mode)
+  const addOnly = mode === 'add_students'
+  if (!addOnly) {
+    if (!rotationStartDate || !rotationEndDate)
+      return res.status(400).json({ error: 'Rotation start and end dates are required' })
+    if (rotationEndDate <= rotationStartDate)
+      return res.status(400).json({ error: 'Rotation end date must be after start date' })
+  }
   if (!students.length) return res.status(400).json({ error: 'At least one student is required' })
 
   // S-06 LENGTH CAPS: coordinator fields, per-student fields, and the size of the roster itself
@@ -137,6 +144,7 @@ export default async function handler(req, res) {
     rotationStartDate, rotationEndDate, availability, students,
     provenance: { source: 'school_form', submittedByProfileId: null, submittedAt: new Date().toISOString() },
     provenanceReady,
+    mode,
   })
   if (result.error) return res.status(500).json({ error: result.error })
   const { added, updated, skipped, rotationId } = result

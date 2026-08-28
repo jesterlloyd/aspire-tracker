@@ -4,6 +4,13 @@
 // (api/school-form-submit.js) and the authenticated Academic Partner endpoint
 // (api/portal/school-placement-requests.js) can never drift. Mirrors api/lib/unitResponseUpsert.js.
 //
+// PLACEMENT-RESUBMIT-1: `mode` selects what this write touches. 'full' is the normal submission.
+// 'add_students' attaches a roster to the EXISTING rotation row and writes NOTHING on it - no dates,
+// no coordinator, no availability - and fails closed when no such row exists. In either mode a
+// submitted BLANK availability value never clears a stored one (mergeAvailabilityCols); the fields
+// that were preserved come back as `preservedFields`. See src/lib/placementResubmission.js for the
+// incident this answers.
+//
 // It performs the two-part write a placement request IS: (1) upsert the coordinator-owned
 // cohort_school_rotations row for (cohort, school) with the sanitized school-wide availability, then
 // (2) duplicate-safe insert/update of each students row linked to that rotation. On a duplicate
@@ -26,6 +33,40 @@ import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull, coerceMinDaysOrNu
 import { resolveOperativeSchoolName } from '../../src/lib/schoolIdentity.js'
 import { COURSE_TYPES } from '../../src/lib/constants.js'
 import { checkLength, checkLengths, LIMITS, MAX_STUDENTS_PER_PLACEMENT_REQUEST } from './fieldLimits.js'
+import {
+  sanitizeSubmitMode, mergeAvailabilityCols, preservedAvailabilityFields,
+  describeExistingRequest, AVAILABILITY_COLUMNS,
+} from '../../src/lib/placementResubmission.js'
+
+// PLACEMENT-RESUBMIT-1: the stored rotation row for (cohort, school), or null.
+// Both submit paths read it BEFORE writing so a blank cannot erase a stored
+// value, and both lookup endpoints read it to warn the coordinator up front.
+// `schoolName` must already be the canonical operative identity.
+export async function readExistingRotation(db, { cohortId, schoolName }) {
+  const { data, error } = await db
+    .from('cohort_school_rotations')
+    .select(`id, school_name, rotation_start_date, rotation_end_date, coordinator_name, coordinator_email, updated_at, ${AVAILABILITY_COLUMNS.join(', ')}`)
+    .eq('cohort_id', cohortId)
+    .eq('school_name', schoolName)
+    .maybeSingle()
+  if (error) throw error
+  return data || null
+}
+
+// The public-safe summary a form shows before submitting. Counts the students
+// on the rotation row without ever returning who they are.
+export async function lookupExistingPlacementRequest(db, { cohortId, school }) {
+  const resolved = resolveOperativeSchoolName(school)
+  const schoolName = resolved?.displayName || String(school || '').trim()
+  if (!cohortId || !schoolName) return { exists: false }
+  const row = await readExistingRotation(db, { cohortId, schoolName })
+  if (!row) return { exists: false }
+  const { count } = await db
+    .from('students')
+    .select('id', { count: 'exact', head: true })
+    .eq('cohort_school_rotation_id', row.id)
+  return describeExistingRequest(row, count || 0)
+}
 
 // The latest-submission provenance columns added by
 // supabase/migrations/20260727000000_add_academic_partner_placement_provenance.sql.
@@ -139,8 +180,10 @@ export async function performSchoolPlacementUpsert(db, {
   cohortId, cohortName, coordinator, rotationStartDate, rotationEndDate, availability, students = [],
   provenance = { source: 'school_form', submittedByProfileId: null, submittedAt: null },
   provenanceReady = false,
+  mode = 'full',
 }) {
-  const availabilityCols = sanitizeAvailabilityCols(availability)
+  const submitMode = sanitizeSubmitMode(mode)
+  const submittedAvailability = sanitizeAvailabilityCols(availability)
 
   // TRUSTED provenance. The caller selects the source and profile id SERVER-SIDE and generates the
   // timestamp server-side; nothing here comes from the browser payload. `source` is also the original
@@ -183,28 +226,61 @@ export async function performSchoolPlacementUpsert(db, {
     return { course_type: v || null }
   }
 
-  // (1) Upsert the rotation row for this school + cohort.
-  const { data: rotationRow, error: rotErr } = await db
-    .from('cohort_school_rotations')
-    .upsert(
-      {
-        cohort_id:           cohortId,
-        school_name:         schoolName,
-        rotation_start_date: rotationStartDate,
-        rotation_end_date:   rotationEndDate,
-        coordinator_name:    coordinator.name.trim(),
-        coordinator_email:   coordinator.email.trim(),
-        ...availabilityCols,
-        updated_at:          new Date().toISOString(),
-      },
-      { onConflict: 'cohort_id,school_name' },
-    )
-    .select('id').single()
-  if (rotErr) {
-    console.error('[schoolPlacementUpsert] rotation upsert error:', rotErr)
-    return { error: 'Failed to save rotation dates.', added: [], updated: [], skipped: [], rotationId: null }
+  // (1) The rotation row for this school + cohort. PLACEMENT-RESUBMIT-1: read
+  // the stored row FIRST. The unique key is (cohort_id, school_name), so a
+  // second submission from the same school lands on the SAME row - the upsert
+  // is a replace, not an insert, and that is how a Fall II request overwrote a
+  // Fall I rotation window and erased its blackout dates.
+  let existingRotation
+  try {
+    existingRotation = await readExistingRotation(db, { cohortId, schoolName })
+  } catch (readErr) {
+    console.error('[schoolPlacementUpsert] rotation read error:', readErr)
+    return { error: 'Failed to load the existing rotation for this school.', added: [], updated: [], skipped: [], rotationId: null }
   }
-  const rotationId = rotationRow.id
+
+  // 'add_students' attaches a roster to an EXISTING request and writes nothing
+  // on the rotation row: no dates, no coordinator, no availability. It is only
+  // meaningful when that row exists, so it fails closed rather than silently
+  // degrading into the full write that would overwrite.
+  if (submitMode === 'add_students' && !existingRotation) {
+    return {
+      error: 'There is no existing placement request for this school and cohort to add students to.',
+      added: [], updated: [], skipped: [], rotationId: null,
+    }
+  }
+
+  // A blank NEVER clears a stored value (see mergeAvailabilityCols). The
+  // backstop that holds even when the resubmission warning is dismissed.
+  const availabilityCols = mergeAvailabilityCols(submittedAvailability, existingRotation)
+  const preservedFields = preservedAvailabilityFields(submittedAvailability, existingRotation)
+
+  let rotationId
+  if (submitMode === 'add_students') {
+    rotationId = existingRotation.id
+  } else {
+    const { data: rotationRow, error: rotErr } = await db
+      .from('cohort_school_rotations')
+      .upsert(
+        {
+          cohort_id:           cohortId,
+          school_name:         schoolName,
+          rotation_start_date: rotationStartDate,
+          rotation_end_date:   rotationEndDate,
+          coordinator_name:    coordinator.name.trim(),
+          coordinator_email:   coordinator.email.trim(),
+          ...availabilityCols,
+          updated_at:          new Date().toISOString(),
+        },
+        { onConflict: 'cohort_id,school_name' },
+      )
+      .select('id').single()
+    if (rotErr) {
+      console.error('[schoolPlacementUpsert] rotation upsert error:', rotErr)
+      return { error: 'Failed to save rotation dates.', added: [], updated: [], skipped: [], rotationId: null }
+    }
+    rotationId = rotationRow.id
+  }
 
   const added = []
   const updated = []
@@ -327,5 +403,5 @@ export async function performSchoolPlacementUpsert(db, {
 
   // schoolName is the canonical display identity this write persisted; callers use it for
   // notifications so the email never echoes the raw submitted variant.
-  return { error: null, added, updated, skipped, rotationId, schoolName }
+  return { error: null, added, updated, skipped, rotationId, schoolName, mode: submitMode, preservedFields }
 }

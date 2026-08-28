@@ -9,6 +9,7 @@ import {
   newStudentRow, validatePlacementForm, collectPlacementSoftWarnings,
   buildPlacementBody, placementSubmitLabel,
 } from '../lib/schoolPlacementForm'
+import { resubmissionWarning } from '../lib/placementResubmission'
 
 const PAGE_TITLE = PLACEMENT_PAGE_TITLE
 const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
@@ -50,6 +51,15 @@ export default function SchoolFormPage() {
   // Student rows
   const [rows, setRows] = useState([newStudent()])
 
+  // PLACEMENT-RESUBMIT-1: an existing request for this school + cohort, looked
+  // up as soon as the school is chosen, so the coordinator is warned BEFORE
+  // submitting rather than after overwriting a live rotation. The result is
+  // KEYED by the school it describes, so a lookup still in flight for the
+  // previous school can never be read as an answer about the current one.
+  const [lookup,     setLookup]     = useState({ school: '', summary: null })
+  const [submitMode, setSubmitMode] = useState('full')
+  const [ackOverwrite, setAckOverwrite] = useState(false)
+
   const [submitting,  setSubmitting]  = useState(false)
   const [result,      setResult]      = useState(null)
   const [error,       setError]       = useState(null)
@@ -82,7 +92,46 @@ export default function SchoolFormPage() {
     init()
   }, [])
 
-  const setC    = (k, v) => setCoord(p => ({ ...p, [k]: v }))
+  // Look up the existing request whenever the chosen school changes. Aborted
+  // and re-run on every change; the answer is stored under the school it is
+  // about, so a late reply for a previous school is simply never read.
+  useEffect(() => {
+    const school = coord.school.trim()
+    if (pageState !== 'verified' || !cohortId || !school) return undefined
+    const controller = new AbortController()
+    let cancelled = false
+    ;(async () => {
+      let summary = null
+      try {
+        const res = await fetch('/api/school-form-existing-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cohortId, school, password: pwdInput.trim() }),
+          signal: controller.signal,
+        })
+        const data = await res.json()
+        if (res.ok && data.existing?.exists) summary = data.existing
+      } catch {
+        // A failed lookup must never block a legitimate submission. The
+        // server-side merge is the backstop that still protects stored data.
+        summary = null
+      }
+      if (!cancelled) setLookup({ school, summary })
+    })()
+    return () => { cancelled = true; controller.abort() }
+  }, [cohortId, pageState, coord.school, pwdInput])
+
+  // Only an answer ABOUT the currently chosen school counts.
+  const existing = lookup.school === coord.school.trim() ? lookup.summary : null
+  const warning = resubmissionWarning(existing)
+  const addOnly = submitMode === 'add_students' && Boolean(existing)
+
+  // Changing the school invalidates the mode and the acknowledgement: they were
+  // decisions about a different school's existing request.
+  const setC = (k, v) => {
+    if (k === 'school') { setSubmitMode('full'); setAckOverwrite(false) }
+    setCoord(p => ({ ...p, [k]: v }))
+  }
   const updRow  = (key, field, val) => setRows(prev => prev.map(r => r._key === key ? { ...r, [field]: val } : r))
   const addRow  = () => setRows(prev => [...prev, newStudent()])
   const removeRow = key => setRows(prev => prev.filter(r => r._key !== key))
@@ -103,6 +152,7 @@ export default function SchoolFormPage() {
         body: JSON.stringify({
           ...buildPlacementBody({
             cohortId, cohortName, coordinator: coord, rotation, availability: avail, students: rows,
+            mode: submitMode,
           }),
           password: pwdInput.trim(),
         }),
@@ -127,10 +177,18 @@ export default function SchoolFormPage() {
 
     // Hard validation (canonical, shared with the authenticated portal surface). Rotation errors
     // render inline on the date fields; every other scope shows at the top of the form.
-    const invalid = validatePlacementForm({ coordinator: coord, rotation, students: rows, cohortId })
+    const invalid = validatePlacementForm({ coordinator: coord, rotation, students: rows, cohortId, mode: submitMode })
     if (invalid) {
       if (invalid.scope === 'rotation') setRotError(invalid.message)
       else setError(invalid.message)
+      return
+    }
+
+    // PLACEMENT-RESUBMIT-1: a FULL resubmission over an existing request
+    // replaces that school's rotation window for every student already on it.
+    // It stays possible, but only deliberately.
+    if (warning && !addOnly && !ackOverwrite) {
+      setError('Please confirm you understand this will replace the existing rotation dates for this school, or choose "Add students to the existing request" above.')
       return
     }
 
@@ -308,6 +366,42 @@ export default function SchoolFormPage() {
                 {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
+
+            {/* PLACEMENT-RESUBMIT-1: this school already has a request in this
+                cohort. Submitting a full one REPLACES its rotation window for
+                every student already on it, so say so before it happens and
+                offer the roster-only path instead. */}
+            {warning && (
+              <div className="sf-resubmit-warning" role="status">
+                <div className="sf-resubmit-title">{warning.title}</div>
+                <p className="sf-resubmit-detail">{warning.detail}</p>
+                <div className="sf-resubmit-modes">
+                  <label className={`sf-resubmit-mode${addOnly ? ' is-selected' : ''}`}>
+                    <input type="radio" name="sf-submit-mode" checked={addOnly}
+                      onChange={() => { setSubmitMode('add_students'); setAckOverwrite(false); setRotError(null) }} />
+                    <span>
+                      <strong>Add students to the existing request</strong>
+                      <em>{warning.addPrompt}</em>
+                    </span>
+                  </label>
+                  <label className={`sf-resubmit-mode${addOnly ? '' : ' is-selected'}`}>
+                    <input type="radio" name="sf-submit-mode" checked={!addOnly}
+                      onChange={() => setSubmitMode('full')} />
+                    <span>
+                      <strong>Submit a new request for this school</strong>
+                      <em>{warning.overwriteWarning}</em>
+                    </span>
+                  </label>
+                </div>
+                {!addOnly && (
+                  <label className="sf-resubmit-ack">
+                    <input type="checkbox" checked={ackOverwrite}
+                      onChange={e => { setAckOverwrite(e.target.checked); setError(null) }} />
+                    <span>{warning.acknowledgement}</span>
+                  </label>
+                )}
+              </div>
+            )}
             <div className="sf-row-2">
               <div className="uf-field">
                 <label className="uf-label">{T.coordinatorNameLabel}</label>
@@ -322,6 +416,22 @@ export default function SchoolFormPage() {
             </div>
           </div>
 
+          {/* Sections 2 and 2b belong to the ROTATION, not to the roster. In
+              add-students mode the existing request owns them and this
+              submission writes neither, so asking again would be misleading. */}
+          {addOnly ? (
+            <div className="uf-section sf-resubmit-inherited">
+              <div className="sf-section-title">{T.rotationSectionTitle}</div>
+              <p>
+                These students join the existing request for {existing.schoolName}:{' '}
+                <strong>{existing.rotationWindow}</strong>, with its rotation availability,
+                blackout dates, and scheduling notes unchanged. To change any of that, contact
+                the ASPIRE team at{' '}
+                <a href={`mailto:${JESTER_EMAIL}`}>{JESTER_EMAIL}</a>.
+              </p>
+            </div>
+          ) : (
+          <>
           {/* Section 2: Rotation Dates (new) */}
           <div className="uf-section">
             <div className="sf-section-title">{T.rotationSectionTitle}</div>
@@ -448,6 +558,9 @@ export default function SchoolFormPage() {
                 placeholder={T.schedulingNotesPlaceholder} />
             </div>
           </div>
+
+          </>
+          )}
 
           {/* Section 3: Students */}
           <div className="uf-section">
