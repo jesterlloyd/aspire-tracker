@@ -9,11 +9,12 @@
 
 import {
   CONTACT_CATEGORY_ORDER, getPrimaryCategory, sortContactsForCategory, contactUnitList,
+  contactDivisionList,
 } from './contactCategories.js'
 
 const CSV_HEADERS = Object.freeze([
   'Category', 'Name', 'Preferred Name', 'Role / Title', 'School / Organization',
-  'Units', 'Services / Programs', 'Email', 'Phone',
+  'Units', 'Divisions', 'Services / Programs', 'Email', 'Phone',
 ])
 
 const clean = v => String(v || '').trim()
@@ -46,6 +47,7 @@ export function buildContactsCsv(contacts = []) {
         clean(c.role),
         clean(c.school_name) || clean(c.organization),
         contactUnitList(c).join('; '),
+        contactDivisionList(c).join('; '),
         clean(c.services),
         clean(c.email),
         clean(c.phone),

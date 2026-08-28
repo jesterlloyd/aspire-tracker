@@ -242,15 +242,20 @@ test('the search field keeps a visible focus treatment on the wrapper, not a raw
 
 test('auto-selection always takes the FIRST DISPLAYED row (orderContacts), never fetch order', () => {
   // One ordering pipeline...
-  // NA-CONTACTS-SCOPE-2: the pipeline gained a scope-aware category order.
-  assert.match(contacts, /const orderContacts = \(list, category, query, categoryOrder = CONTACT_CATEGORY_ORDER\) =>/)
+  // NA-CONTACTS-SCOPE-4: the pipeline's 4th argument is now ONE derived
+  // ordering object carrying both scope-dependent facts (category order and
+  // the in-scope units the Unit Leader sort keys on).
+  assert.match(contacts, /const orderContacts = \(list, category, query, ordering = DEFAULT_ORDERING\) =>/)
+  assert.match(contacts, /const scopeOrdering = \(activeScope\) => \(\{\s*\n\s*categoryOrder: scopedCategoryOrder\(activeScope, CONTACT_CATEGORY_ORDER\),\s*\n\s*scopeUnits: scopeUnitSet\(activeScope\),/)
   // ...feeding the visible list...
-  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(scopedContacts, category, query, groupOrder\)/)
+  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(scopedContacts, category, query, ordering\)/)
   // ...and every selection site: category click, search, initial load, deactivation fallback.
-  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, value, query, groupOrder\)\[0\]\?\.id \|\| null\)/)
-  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, category, nextQuery, groupOrder\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, value, query, ordering\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, category, nextQuery, ordering\)\[0\]\?\.id \|\| null\)/)
   assert.match(contacts, /orderContacts\(next\.filter\(contact => contact\.is_active !== false\), 'All', ''\)\[0\]/)
-  assert.match(contacts, /setSelectedId\(orderContacts\(remaining, category, query, groupOrder\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(remaining, category, query, ordering\)\[0\]\?\.id \|\| null\)/)
+  // The scope-change site derives its ordering from the INCOMING scope.
+  assert.match(contacts, /orderContacts\(nextScoped, category, query, scopeOrdering\(value\)\)/)
   // No selection site reads raw fetch order any more.
   assert.doesNotMatch(contacts, /setSelectedId\(directoryContacts\.find/)
 })

@@ -16,6 +16,8 @@
 //     Cedars-Sinai, or free text;
 //   - units (unit_name = primary + related_units = rest) are validated
 //     against the unit catalog, with existing stored values passing through;
+//   - divisions (Nursing Executive + Executive Director only) is validated
+//     against the unit catalog and fails closed until 20260829 is applied
 //   - services (Nursing Executive + Executive Director only) fails closed
 //     with 503 until the 20260826 migration adds the column.
 //
@@ -27,7 +29,7 @@
 //   full_name     - required, non-empty string
 //   preferred_name, email, phone, organization, role, role_qualifier,
 //   school_name, program_type, unit_name, related_units, is_active,
-//   notification_preferences, notes, linkedin_url, services,
+//   notification_preferences, notes, linkedin_url, services, divisions,
 //   avatar_url, category  - all optional
 //
 // Success response:
@@ -40,7 +42,7 @@
 //   405 - wrong HTTP method
 //   409 - duplicate email
 //   500 - database error
-//   503 - services column not yet in the live schema (Owner SQL gate)
+//   503 - services or divisions column not yet in the live schema (Owner SQL gate)
 
 import { createClient } from '@supabase/supabase-js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
@@ -50,9 +52,11 @@ import {
   titleOptionsFor,
   affiliationKind,
   contactServicesMeta,
+  showsDivisionsField,
   CSMC_AFFILIATION,
 } from '../src/lib/contactCategories.js';
 import { getCanonicalUnitNames } from '../src/lib/unitCatalog.js';
+import { CONTACT_DIVISION_OPTIONS } from '../src/lib/contactScopeFilter.js';
 import { resolveOperativeSchoolName } from '../src/lib/schoolIdentity.js';
 
 const ALLOWED_FIELDS = new Set([
@@ -72,11 +76,13 @@ const ALLOWED_FIELDS = new Set([
   'notes',
   'linkedin_url',
   'services',
+  'divisions',
   'avatar_url',
   'category',
 ]);
 
 const CANONICAL_UNIT_NAMES = new Set(getCanonicalUnitNames());
+const CANONICAL_DIVISIONS = new Set(CONTACT_DIVISION_OPTIONS);
 
 const EMAIL_PATTERN = /^[^@]+@[^@]+\.[^@]+$/;
 const UUID_PATTERN  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -186,7 +192,7 @@ async function _handler(req, res) {
 
   // 6. Normalize string fields: trim and convert empty strings to null
   for (const [key, value] of Object.entries(payload)) {
-    if (key === 'related_units' || key === 'notification_preferences') continue; // handle separately
+    if (key === 'related_units' || key === 'divisions' || key === 'notification_preferences') continue; // handle separately
     if (key === 'is_active') continue; // boolean
     if (typeof value === 'string') {
       const trimmed = value.trim();
@@ -356,6 +362,44 @@ async function _handler(req, res) {
     // drop the key rather than write to a column that may not exist yet.
     const { error: probeErr } = await supabaseAdmin.from('contacts').select('services').limit(1);
     if (probeErr) delete payload.services;
+  }
+
+  // 15b. Divisions: the explicit division list for a Nursing Executive with
+  //      the Executive Director title, validated against the unit catalog.
+  //      Fails closed with 503 until the 20260829 migration adds the column.
+  //      Clearing to [] against a pre-migration schema is a no-op.
+  if (payload.divisions !== undefined && payload.divisions !== null) {
+    if (typeof payload.divisions === 'string') {
+      payload.divisions = payload.divisions.split(',').map(v => v.trim()).filter(Boolean);
+    }
+    if (!Array.isArray(payload.divisions) || !payload.divisions.every(v => typeof v === 'string')) {
+      return res.status(400).json({ error: 'divisions must be an array of strings or a comma-separated string' });
+    }
+    payload.divisions = [...new Set(payload.divisions.map(v => v.trim()).filter(Boolean))];
+    if (payload.divisions.length > 0) {
+      const effRole = payload.role !== undefined ? payload.role : existing?.role;
+      if (!showsDivisionsField(effectiveCategory, effRole)) {
+        return res.status(400).json({
+          error: 'divisions applies only to Nursing Executive contacts with the Executive Director title.',
+        });
+      }
+      const unknown = payload.divisions.filter(d => !CANONICAL_DIVISIONS.has(d));
+      if (unknown.length > 0) {
+        return res.status(400).json({ error: `Unknown division(s): ${unknown.join(', ')}` });
+      }
+    }
+    const { error: probeErr } = await supabaseAdmin.from('contacts').select('divisions').limit(1);
+    if (probeErr) {
+      if (payload.divisions.length > 0) {
+        return res.status(503).json({
+          error: 'The divisions field is not available until the contacts divisions migration is applied.',
+        });
+      }
+      delete payload.divisions;
+    }
+  } else if (Object.prototype.hasOwnProperty.call(payload, 'divisions')) {
+    const { error: probeErr } = await supabaseAdmin.from('contacts').select('divisions').limit(1);
+    if (probeErr) delete payload.divisions;
   }
 
   // 16. Validate is_active (boolean, default true on create)

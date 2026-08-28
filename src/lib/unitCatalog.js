@@ -1,5 +1,5 @@
 // src/lib/unitCatalog.js
-// Canonical unit catalog - 28 units with descriptive subtitles, division, and ASPIRE eligibility.
+// Canonical unit catalog - 29 units with descriptive subtitles, division, and ASPIRE eligibility.
 // This is the code-level source of truth for unit dropdowns and labeling across the app.
 // Per-cohort instance data (slot counts, is_participating, etc.) lives in the `units` DB table.
 // Static metadata (canonical name, description, division) lives here.
@@ -44,9 +44,12 @@ export const UNIT_CATALOG = [
   { name: 'Float Pool',        description: 'Cross-unit nursing support',                          division: 'Support',         defaultEligible: true  },
   { name: 'PACU',              description: 'Post-Anesthesia Care Unit (Phase I, II, Extended)',  division: 'Procedural',      defaultEligible: true  },
 
-  // Default-hidden (show with ?showAll=true in form URLs)
+  // Default-hidden: real units for the contact directory, portal access scopes,
+  // and division filtering, but NOT ASPIRE student placement units.
+  // (show with ?showAll=true in form URLs)
   { name: 'Operating Room',    description: 'Operating Room and Perioperative Services',           division: 'Procedural',      defaultEligible: false },
   { name: 'Emergency Department', description: 'Emergency Department',                            division: 'Emergency',       defaultEligible: false },
+  { name: 'Transfer Center',   description: 'Patient Transfer Center, Capacity and Throughput',    division: 'Capacity Management', defaultEligible: false },
 ];
 
 // Division display order for dropdowns
@@ -57,6 +60,7 @@ export const DIVISION_ORDER = [
   'Women & Children',
   'Procedural',
   'Support',
+  'Capacity Management',
   'Emergency',
 ];
 

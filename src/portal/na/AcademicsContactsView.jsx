@@ -13,14 +13,15 @@ import {
   CONTACT_CATEGORY_ORDER, categoryChipColors, contactRoleChipColors,
   getContactCategories, getPrimaryCategory,
   canonicalCategory, titleOptionsFor, titleAllowsFreeText,
-  affiliationKind, showsUnitAffiliation, contactServicesMeta,
+  affiliationKind, showsUnitAffiliation, contactServicesMeta, showsDivisionsField,
+  contactDivisionList,
   contactUnitList, splitUnitList, CSMC_AFFILIATION,
   categoryPluralLabel, contactListSubline, sortContactsForCategory, sortContactsForSearch,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_PICKER_OPTIONS, schoolPickerLabel } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../../components/shared/MultiScopePicker'
-import { CONTACT_SCOPE_GROUPS, contactMatchesScope, scopedCategoryOrder } from '../../lib/contactScopeFilter'
+import { CONTACT_SCOPE_GROUPS, CONTACT_DIVISION_OPTIONS, contactMatchesScope, scopedCategoryOrder, scopeUnitSet } from '../../lib/contactScopeFilter'
 import { buildContactsCsv } from '../../lib/contactsCsv'
 import { downloadCSV } from '../../lib/utils'
 import Tooltip from '../../components/ui/Tooltip'
@@ -29,6 +30,7 @@ import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact,
 // CONTACTS-CANON-1: category, title, affiliation, and units come from the
 // shared canonical vocabulary; Preferred Contact Method is retired.
 const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_PICKER_OPTIONS
+const DIVISION_PICKER_OPTIONS = CONTACT_DIVISION_OPTIONS.map(d => ({ value: d, label: d }))
 const CUSTOM_TITLE = '__custom__'
 const CUSTOM_SCHOOL = '__other_school__'
 
@@ -67,9 +69,24 @@ const contactMatches = (contact, category, query) => {
 // takes its first element, so the selected profile is always the first row the
 // reader sees - not the first match in fetch order, which drifted from the
 // display after the canonical sort pass.
-const orderContacts = (list, category, query, categoryOrder = CONTACT_CATEGORY_ORDER) => {
+// NA-CONTACTS-SCOPE-4: everything the active scope contributes to ORDER,
+// derived once and threaded through every call site, so the list and every
+// auto-selection can never disagree about the ordering (the SCOPE-1 lesson).
+//   categoryOrder - which category groups lead (chain of command under a
+//                   unit or division scope)
+//   scopeUnits    - the units in scope, so a Unit Leader sorts on a unit the
+//                   reader can actually see rather than on their primary
+const scopeOrdering = (activeScope) => ({
+  categoryOrder: scopedCategoryOrder(activeScope, CONTACT_CATEGORY_ORDER),
+  scopeUnits: scopeUnitSet(activeScope),
+})
+const DEFAULT_ORDERING = { categoryOrder: CONTACT_CATEGORY_ORDER, scopeUnits: null }
+
+const orderContacts = (list, category, query, ordering = DEFAULT_ORDERING) => {
+  const { categoryOrder = CONTACT_CATEGORY_ORDER, scopeUnits = null } = ordering || {}
+  const sortOptions = { scopeUnits }
   const matched = list.filter(contact => contactMatches(contact, category, query))
-  if (category !== 'All') return sortContactsForCategory(matched, category)
+  if (category !== 'All') return sortContactsForCategory(matched, category, sortOptions)
   if (query) return sortContactsForSearch(matched, query)
   const grouped = {}
   matched.forEach(contact => {
@@ -79,7 +96,7 @@ const orderContacts = (list, category, query, categoryOrder = CONTACT_CATEGORY_O
   })
   const ordered = []
   categoryOrder.forEach(cat => {
-    if (grouped[cat]) ordered.push(...sortContactsForCategory(grouped[cat], cat))
+    if (grouped[cat]) ordered.push(...sortContactsForCategory(grouped[cat], cat, sortOptions))
   })
   return ordered
 }
@@ -180,6 +197,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
         && !SCHOOL_AFFILIATION_OPTIONS.includes(clean(contact?.school_name)),
       units: contactUnitList(contact || {}),
       services: clean(contact?.services),
+      divisions: contactDivisionList(contact || {}),
       linkedin_url: clean(contact?.linkedin_url),
       notes: clean(contact?.notes),
       avatar_url: clean(contact?.avatar_url),
@@ -231,6 +249,9 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
     || (canonicalCategory(cat) === 'Nursing Executive' && hadUnitsAtOpen)
   const servicesMeta = contactServicesMeta(cat, form.role)
   const showServices = Boolean(servicesMeta)
+  // NA-CONTACTS-SCOPE-4: the explicit divisions an executive covers, so the
+  // division filter finds them even when Services names something else.
+  const showDivisions = showsDivisionsField(cat, form.role)
 
   const changeCategory = value => setForm(current => ({
     ...current,
@@ -280,6 +301,9 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
       ...(showUnits ? { unit_name: unitCols.unit_name || '', related_units: unitCols.related_units } : {}),
       ...(showServices || clean(contact?.services)
         ? { services: showServices ? form.services : '' }
+        : {}),
+      ...(showDivisions || contactDivisionList(contact || {}).length > 0
+        ? { divisions: showDivisions ? form.divisions : [] }
         : {}),
     })
   }
@@ -412,6 +436,19 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
             )}
             {showServices && (
               <label className="ptl-na-contact-form-wide"><span>{servicesMeta.label}</span><input value={form.services} onChange={e => set('services', e.target.value)} placeholder={servicesMeta.label === 'Programs' ? 'e.g. ASPIRE, NGRP, Preceptor Program' : 'e.g. BNI, Surgical Services, OLAR'} /></label>
+            )}
+            {showDivisions && (
+              <div className="ptl-na-contact-form-wide ptl-na-contact-units">
+                <span>Divisions (one or more)</span>
+                <span className="ptl-na-contact-form-hint">Which divisions this executive covers. Drives the Contacts filter; the Services line above stays free text.</span>
+                <MultiScopePicker
+                  id="na-contact-divisions"
+                  options={DIVISION_PICKER_OPTIONS}
+                  selected={form.divisions}
+                  onChange={next => set('divisions', next)}
+                  placeholder="Search divisions"
+                />
+              </div>
             )}
           </div>
 
@@ -547,8 +584,8 @@ export default function AcademicsContactsView({ active = true }) {
   // top), otherwise displayed-name order.
   // NA-CONTACTS-SCOPE-2: a unit/division scope leads with the chain of command
   // (Nursing Executives, Unit Leaders, Preceptors) in the grouped view.
-  const groupOrder = useMemo(() => scopedCategoryOrder(scope, CONTACT_CATEGORY_ORDER), [scope])
-  const filtered = useMemo(() => orderContacts(scopedContacts, category, query, groupOrder), [scopedContacts, category, query, groupOrder])
+  const ordering = useMemo(() => scopeOrdering(scope), [scope])
+  const filtered = useMemo(() => orderContacts(scopedContacts, category, query, ordering), [scopedContacts, category, query, ordering])
   // All Contacts with no query groups by primary category with dividers,
   // exactly like the staff ASPIRE Connect list. `filtered` is ALREADY in
   // grouped display order (orderContacts), so the dividers are derived from
@@ -588,20 +625,20 @@ export default function AcademicsContactsView({ active = true }) {
   const chooseCategory = value => {
     setCategory(value)
     setCopyStatus('')
-    setSelectedId(orderContacts(scopedContacts, value, query, groupOrder)[0]?.id || null)
+    setSelectedId(orderContacts(scopedContacts, value, query, ordering)[0]?.id || null)
   }
   const chooseScope = value => {
     setScope(value)
     setCopyStatus('')
     const nextScoped = directoryContacts.filter(contact => contactMatchesScope(contact, value))
-    setSelectedId(orderContacts(nextScoped, category, query, scopedCategoryOrder(value, CONTACT_CATEGORY_ORDER))[0]?.id || null)
+    setSelectedId(orderContacts(nextScoped, category, query, scopeOrdering(value))[0]?.id || null)
   }
   const updateSearch = event => {
     const value = event.target.value
     const nextQuery = value.trim().toLowerCase()
     setSearch(value)
     setCopyStatus('')
-    setSelectedId(orderContacts(scopedContacts, category, nextQuery, groupOrder)[0]?.id || null)
+    setSelectedId(orderContacts(scopedContacts, category, nextQuery, ordering)[0]?.id || null)
   }
   const copyVisibleEmails = async () => {
     if (visibleEmails.length === 0 || !navigator.clipboard?.writeText) {
@@ -655,7 +692,7 @@ export default function AcademicsContactsView({ active = true }) {
     applySavedContact(res.data.contact)
     if (!activate) {
       const remaining = contacts.filter(row => row.id !== contact.id && row.is_active !== false && contactMatchesScope(row, scope))
-      setSelectedId(orderContacts(remaining, category, query, groupOrder)[0]?.id || null)
+      setSelectedId(orderContacts(remaining, category, query, ordering)[0]?.id || null)
     }
     setMutationStatus(activate ? 'Contact reactivated' : 'Contact deactivated')
     window.setTimeout(() => setMutationStatus(''), 2500)
@@ -830,6 +867,7 @@ export default function AcademicsContactsView({ active = true }) {
                           <div><dt>{contactUnitList(selected).length === 1 ? 'Unit' : 'Units'}</dt><dd>{contactUnitList(selected).join(', ')}</dd></div>
                         )}
                         {selected.services && <div><dt>{contactServicesMeta(getPrimaryCategory(selected), selected.role)?.label || 'Services'}</dt><dd>{selected.services}</dd></div>}
+                        {contactDivisionList(selected).length > 0 && <div><dt>Divisions</dt><dd>{contactDivisionList(selected).join(', ')}</dd></div>}
                       </dl>
                     </section>
                   )}

@@ -27,7 +27,9 @@
 //   Other                       -> school, Cedars-Sinai, or free text
 // Unit affiliation (multi-unit, unit catalog) exists ONLY for Unit Leader
 // and Preceptor. Nursing Executive with the Executive Director title gets a
-// free-text Services field instead (BNI, Surgical Services, OLAR, ...).
+// free-text Services field instead (BNI, Surgical Services, OLAR, ...), plus
+// an explicit catalog-validated Divisions list (contacts.divisions) that the
+// division filter matches on.
 //
 // A contact may still belong to more than one category at READ time:
 //   getContactCategories() → all categories a contact belongs to (>= 1).
@@ -187,6 +189,29 @@ export function showsServicesField(category, title) {
     && String(title || '').trim() === 'Executive Director'
 }
 
+// NA-CONTACTS-SCOPE-4: Nursing Executive + Executive Director ALSO carries an
+// explicit list of the divisions they cover, stored in contacts.divisions.
+// This is structured data sitting beside the free-text Services line, not a
+// replacement for it: Claude Stang's Services reads "Clinical Operations"
+// (which is what his card should say) while his divisions say Emergency, so
+// the division filter can find him without the display text having to name
+// every division he covers. Same field, same rule, for Heidi High over
+// Capacity Management.
+export function showsDivisionsField(category, title) {
+  return showsServicesField(category, title)
+}
+
+// The stored divisions, cleaned and de-duplicated. Callers validate the names
+// against the unit catalog; this helper only normalizes shape.
+export function contactDivisionList(contact) {
+  const list = []
+  for (const d of (Array.isArray(contact?.divisions) ? contact.divisions : [])) {
+    const v = String(d || '').trim()
+    if (v && !list.includes(v)) list.push(v)
+  }
+  return list
+}
+
 // The free-text focus line stored in contacts.services, with its per-category
 // display label (decision 2026-08-25): Nursing Executive + Executive Director
 // shows "Services"; EVERY BNI Team contact shows "Programs" (ASPIRE, NGRP,
@@ -255,7 +280,9 @@ export function contactListSubline(contact) {
 // Approved ordering (2026-08-25), applied when a category filter is active
 // and inside the staff app's grouped All view:
 //   Unit Leader:       unit ascending, then AD/Interim AD > ANM > NPD-P/CNS,
-//                      then name
+//                      then name. "Unit" means the contact's first unit inside
+//                      the active scope when one is set, else their primary
+//                      unit (see sortUnitFor).
 //   BNI Team:          ED > Lead Administrative Assistant > NPD-P >
 //                      Program/Project Coordinator, then name
 //   Nursing Executive: SVP Chief Nursing Executive > VP of Nursing and
@@ -307,11 +334,30 @@ export function contactDisplayName(c) {
   return [preferred, full.split(/\s+/).slice(1).join(' ')].filter(Boolean).join(' ')
 }
 
-export function compareContactsForCategory(category) {
+// NA-CONTACTS-SCOPE-4: the unit a Unit Leader SORTS on. Without an active
+// scope this is their primary unit, as before. With one, it is the first unit
+// they hold that is actually IN the scope, because a multi-unit NPD
+// Practitioner's primary unit is frequently not the unit you filtered to -
+// and sorting Weiting Chan (primary 3 SCCT) above Jake Cornett (6 SCCT) under
+// a 6 SCCT filter let the unit key shadow the title tier entirely. Under a
+// single-unit scope every match yields the same key, so the comparison
+// collapses to tier-then-name on its own; no separate rule is needed.
+function sortUnitFor(contact, scopeUnits) {
+  const units = contactUnitList(contact)
+  if (scopeUnits) {
+    const inScope = units.find(u => scopeUnits.has(u))
+    if (inScope) return inScope
+  }
+  return units[0] || SORT_LAST
+}
+
+// `options.scopeUnits` is a Set of the unit names the active School/Division/
+// Unit filter covers, or null/undefined when nothing is filtered.
+export function compareContactsForCategory(category, { scopeUnits = null } = {}) {
   const c = canonicalCategory(category)
   if (c === 'Unit Leader') {
     return (a, b) =>
-      cmpText(contactUnitList(a)[0] || SORT_LAST, contactUnitList(b)[0] || SORT_LAST)
+      cmpText(sortUnitFor(a, scopeUnits), sortUnitFor(b, scopeUnits))
       || (tierOf(UL_TITLE_TIER, a) - tierOf(UL_TITLE_TIER, b))
       || cmpText(contactDisplayName(a), contactDisplayName(b))
   }
@@ -334,8 +380,8 @@ export function compareContactsForCategory(category) {
 }
 
 // Non-mutating convenience over the comparator.
-export function sortContactsForCategory(contacts, category) {
-  return [...(contacts || [])].sort(compareContactsForCategory(category))
+export function sortContactsForCategory(contacts, category, options) {
+  return [...(contacts || [])].sort(compareContactsForCategory(category, options))
 }
 
 // Search-results ordering (the flat All view while a query is typed). When

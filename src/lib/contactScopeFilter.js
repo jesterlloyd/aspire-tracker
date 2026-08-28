@@ -10,16 +10,17 @@
 //              operative school identity (exact-normalized, never fuzzy).
 //   Unit     - the contact's unit list (unit_name + related_units) contains
 //              the unit (acting executives with stored units match too).
-//   Division - the contact's units include ANY unit of that catalog division
-//              (3 SCCT is Critical Care, per the catalog), OR the contact's
-//              Services text mentions the division (Carol Mention's
-//              "Critical Care Services" matches the Critical Care division).
+//   Division - the contact's stored contacts.divisions names it (the explicit
+//              answer, added NA-CONTACTS-SCOPE-4), OR their units include ANY
+//              unit of that catalog division (3 SCCT is Critical Care, per the
+//              catalog), OR their Services text mentions the division (Carol
+//              Mention's "Critical Care Services" matches Critical Care).
 
 import { UNIT_CATALOG, DIVISION_ORDER } from './unitCatalog.js'
 import {
   SCHOOL_PICKER_ITEMS, SCHOOL_PICKER_OPTIONS, SCOPE_COLLATOR, resolveOperativeSchoolName,
 } from './schoolIdentity.js'
-import { contactUnitList } from './contactCategories.js'
+import { contactUnitList, contactDivisionList } from './contactCategories.js'
 
 const SCHOOL_OPTIONS = SCHOOL_PICKER_OPTIONS
 
@@ -89,6 +90,10 @@ function serviceAliasMatches(services, alias) {
 }
 
 function matchesDivision(contact, division) {
+  // NA-CONTACTS-SCOPE-4: an explicit stored division wins. An executive whose
+  // Services text names something other than a division (Claude Stang,
+  // "Clinical Operations") is found only through this list.
+  if (contactDivisionList(contact || {}).includes(division)) return true
   const units = UNITS_BY_DIVISION.get(division)
   if (contactUnitList(contact || {}).some(u => units?.has(u))) return true
   // Services-text match: "Critical Care Services" mentions "Critical Care".
@@ -96,6 +101,21 @@ function matchesDivision(contact, division) {
   if (services.toLowerCase().includes(division.toLowerCase())) return true
   return (DIVISION_SERVICE_ALIASES[division] || []).some(alias => serviceAliasMatches(services, alias))
 }
+
+// The unit names an active scope covers, or null when the scope is empty or a
+// school (a school scope says nothing about units). The Unit Leader sort uses
+// this to key on a unit the reader can actually see - see sortUnitFor in
+// contactCategories.js.
+export function scopeUnitSet(scope) {
+  const kind = contactScopeKind(scope)
+  if (kind === 'unit') return new Set([scope])
+  if (kind === 'division') return UNITS_BY_DIVISION.get(scope) || new Set()
+  return null
+}
+
+// The catalog divisions, in display order. The one list both editors' Divisions
+// pickers and both write endpoints validate against.
+export const CONTACT_DIVISION_OPTIONS = Object.freeze([...DIVISIONS])
 
 // True when the contact belongs to the selected scope (empty scope = everyone).
 export function contactMatchesScope(contact, scope) {

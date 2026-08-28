@@ -61,7 +61,7 @@ test('the CSV is organized by category in canonical order, with escaping', () =>
     { full_name: 'Lorraine Sheffield', category: 'Unit Leader', role: 'Associate Director', unit_name: '7 SCCT', related_units: ['8 SCCT'] },
   ])
   const lines = csv.split('\n')
-  assert.match(lines[0], /"Category","Name","Preferred Name","Role \/ Title","School \/ Organization","Units","Services \/ Programs","Email","Phone"/)
+  assert.match(lines[0], /"Category","Name","Preferred Name","Role \/ Title","School \/ Organization","Units","Divisions","Services \/ Programs","Email","Phone"/)
   // Canonical category order: Academic Partner, then Unit Leader, then BNI Team.
   assert.ok(lines[1].startsWith('"Academic Partner","Gary Mittelberg"'))
   assert.ok(lines[2].startsWith('"Unit Leader","Lorraine Sheffield"'))
@@ -149,9 +149,9 @@ test('Units are straight alphanumeric across the catalog, so floors read togethe
   ])
   assert.deepEqual(units.slice(9, 13), ['6 NE', '6 NW', '6 SCCT', '6 South'])
   // Numbered units sort ahead of named ones; named ones are alphabetical.
-  assert.deepEqual(units.slice(-9), [
+  assert.deepEqual(units.slice(-10), [
     'ACU/CDU', 'Emergency Department', 'Float Pool', 'Labor & Delivery', 'NICU',
-    'Operating Room', 'PACU', 'Pediatrics', 'PICU',
+    'Operating Room', 'PACU', 'Pediatrics', 'PICU', 'Transfer Center',
   ])
   // Numeric-aware, not lexicographic: a hypothetical 10 would follow 9, not 1.
   assert.ok(units.indexOf('8 SCCT') > units.indexOf('7 SCCT'))
@@ -185,4 +185,119 @@ test('the short WCU labels also resolve, so a pasted "WCU - Anaheim" is not a ne
   const { resolveOperativeSchoolName } = await import('../src/lib/schoolIdentity.js')
   assert.equal(resolveOperativeSchoolName('WCU - Anaheim')?.displayName, 'West Coast University Anaheim')
   assert.equal(resolveOperativeSchoolName('WCU - North Hollywood')?.displayName, 'West Coast University North Hollywood')
+})
+
+// ── NA-CONTACTS-SCOPE-4: scoped sort key, explicit divisions, new division ──
+
+test('a Unit Leader sorts on the unit IN SCOPE, so the title tier is not shadowed', async () => {
+  const { sortContactsForCategory } = await import('../src/lib/contactCategories.js')
+  const { scopeUnitSet } = await import('../src/lib/contactScopeFilter.js')
+  // The reported case: a multi-unit NPD Practitioner whose PRIMARY unit sorts
+  // before the filtered unit was jumping the unit's own Assistant Nurse Manager.
+  const weiting = {
+    full_name: 'Weiting Chan', category: 'Unit Leader', role: 'NPD Practitioner',
+    unit_name: '3 SCCT', related_units: ['4 SCCT', '6 SCCT'],
+  }
+  const jake = { full_name: 'Jake Cornett', category: 'Unit Leader', role: 'Assistant Nurse Manager', unit_name: '6 SCCT' }
+
+  const unscoped = sortContactsForCategory([jake, weiting], 'Unit Leader').map(c => c.full_name)
+  assert.deepEqual(unscoped, ['Weiting Chan', 'Jake Cornett'], 'unfiltered still sorts by primary unit: 3 SCCT before 6 SCCT')
+
+  const scoped = sortContactsForCategory([weiting, jake], 'Unit Leader', { scopeUnits: scopeUnitSet('6 SCCT') })
+  assert.deepEqual(scoped.map(c => c.full_name), ['Jake Cornett', 'Weiting Chan'], 'ANM (tier 2) leads NPD-P (tier 3)')
+
+  // 6 NW, the second reported case.
+  const omar = { full_name: 'Omar Tinio', category: 'Unit Leader', role: 'NPD Practitioner', unit_name: '6 NE', related_units: ['6 NW'] }
+  const joyce = { full_name: 'Joyce Serpas', category: 'Unit Leader', role: 'Assistant Nurse Manager', unit_name: '6 NW' }
+  assert.deepEqual(
+    sortContactsForCategory([omar, joyce], 'Unit Leader', { scopeUnits: scopeUnitSet('6 NW') }).map(c => c.full_name),
+    ['Joyce Serpas', 'Omar Tinio'],
+  )
+})
+
+test('a division scope keys on a unit inside that division, still grouping by unit', async () => {
+  const { sortContactsForCategory } = await import('../src/lib/contactCategories.js')
+  const { scopeUnitSet } = await import('../src/lib/contactScopeFilter.js')
+  const surgicalUnits = scopeUnitSet('Surgical')
+  // Primary unit is Critical Care; the Surgical unit they also cover is what
+  // the reader sees under a Surgical filter, so that is the sort key.
+  const roving = { full_name: 'Rover NPD', category: 'Unit Leader', role: 'NPD Practitioner', unit_name: '3 SCCT', related_units: ['8 South'] }
+  const sevenNorth = { full_name: 'Seven North ANM', category: 'Unit Leader', role: 'Assistant Nurse Manager', unit_name: '7 North' }
+  assert.deepEqual(
+    sortContactsForCategory([roving, sevenNorth], 'Unit Leader', { scopeUnits: surgicalUnits }).map(c => c.full_name),
+    ['Seven North ANM', 'Rover NPD'], '7 North before 8 South, by unit as usual',
+  )
+  // A school scope contributes no units, so nothing changes.
+  assert.equal(scopeUnitSet('UCLA'), null)
+  assert.equal(scopeUnitSet(''), null)
+})
+
+test('an executive matches a division by the explicit divisions list, not just Services text', () => {
+  // Claude Stang: his Services line names his remit, not a division.
+  const stang = {
+    full_name: 'Claude Stang', category: 'Nursing Executive', role: 'Executive Director',
+    services: 'Clinical Operations', divisions: ['Emergency'],
+  }
+  assert.equal(contactMatchesScope(stang, 'Emergency'), true)
+  assert.equal(contactMatchesScope(stang, 'Critical Care'), false, 'only the divisions he actually covers')
+  // Nothing that resolved before stops: units and Services text still match.
+  assert.equal(contactMatchesScope({ services: 'Critical Care Services' }, 'Critical Care'), true)
+  assert.equal(contactMatchesScope({ unit_name: '8 SCCT' }, 'Critical Care'), true)
+  // An absent or malformed list is simply no match, never a throw.
+  assert.equal(contactMatchesScope({ divisions: null }, 'Emergency'), false)
+  assert.equal(contactMatchesScope({ divisions: ['  ', 'Emergency'] }, 'Emergency'), true)
+})
+
+test('Capacity Management is a real division with Transfer Center in it', async () => {
+  const { CONTACT_DIVISION_OPTIONS, scopeUnitSet } = await import('../src/lib/contactScopeFilter.js')
+  const { getUnit, DIVISION_ORDER } = await import('../src/lib/unitCatalog.js')
+  assert.ok(CONTACT_DIVISION_OPTIONS.includes('Capacity Management'))
+  // Approved slot: after Support, before Emergency.
+  assert.equal(DIVISION_ORDER.indexOf('Capacity Management'), DIVISION_ORDER.indexOf('Support') + 1)
+  assert.ok(DIVISION_ORDER.indexOf('Capacity Management') < DIVISION_ORDER.indexOf('Emergency'))
+  assert.equal(getUnit('Transfer Center')?.division, 'Capacity Management')
+  // Directory-only: never offered as an ASPIRE student placement unit.
+  assert.equal(getUnit('Transfer Center')?.defaultEligible, false)
+  assert.deepEqual([...scopeUnitSet('Capacity Management')], ['Transfer Center'])
+  // Heidi High, ED over Capacity Management, resolves through the divisions list.
+  const heidi = { category: 'Nursing Executive', role: 'Executive Director', divisions: ['Capacity Management'] }
+  assert.equal(contactMatchesScope(heidi, 'Capacity Management'), true)
+})
+
+test('the Divisions field is Nursing Executive + Executive Director only, in both editors', async () => {
+  const { showsDivisionsField, contactDivisionList } = await import('../src/lib/contactCategories.js')
+  assert.equal(showsDivisionsField('Nursing Executive', 'Executive Director'), true)
+  assert.equal(showsDivisionsField('Nursing Executive', 'Manager'), false)
+  assert.equal(showsDivisionsField('Unit Leader', 'Executive Director'), false)
+  assert.equal(showsDivisionsField('BNI Team', 'Executive Director'), false)
+  // Shape normalization: trims, de-duplicates, tolerates junk.
+  assert.deepEqual(contactDivisionList({ divisions: [' Emergency ', 'Emergency', '', null] }), ['Emergency'])
+  assert.deepEqual(contactDivisionList({}), [])
+  assert.deepEqual(contactDivisionList({ divisions: 'Emergency' }), [], 'a bare string is not a list')
+
+  for (const p of ['src/portal/na/AcademicsContactsView.jsx', 'src/components/connect/ContactsView.jsx']) {
+    const src = read(p)
+    assert.match(src, /showDivisions = showsDivisionsField\(cat, /)
+    assert.match(src, /DIVISION_PICKER_OPTIONS = CONTACT_DIVISION_OPTIONS\.map/)
+    assert.match(src, /selected=\{form(Data)?\.divisions( \|\| \[\])?\}/)
+    // Hiding the field clears it rather than leaving a stale division behind.
+    assert.match(src, /divisions: showDivisions \? /)
+  }
+})
+
+test('both write endpoints validate divisions against the catalog and fail closed pre-migration', () => {
+  const portalApi = read('api/portal/academics-contacts.js')
+  assert.match(portalApi, /GATED_FIELDS = Object\.freeze\(\['services', 'divisions'\]\)/)
+  assert.match(portalApi, /if \(payload\.divisions\.some\(d => !CANONICAL_DIVISIONS\.has\(d\)\)\) return \{ error: 'invalid_divisions' \}/)
+  assert.match(portalApi, /if \(!showsDivisionsField\(effCat, effRole\)\) return \{ error: 'invalid_divisions' \}/)
+  // The readiness guard is generic over the gated columns now.
+  assert.match(portalApi, /return `\$\{field\}_unavailable`/)
+  const staffApi = read('api/contacts-upsert.js')
+  assert.match(staffApi, /Unknown division\(s\)/)
+  assert.match(staffApi, /divisions applies only to Nursing Executive contacts with the Executive Director title/)
+  assert.match(staffApi, /The divisions field is not available until the contacts divisions migration is applied/)
+  // The migration is authored but Owner-gated, and additive only.
+  const sql = read('supabase/migrations/20260829000000_contacts_divisions.sql')
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS divisions text\[\] NOT NULL DEFAULT '\{\}'::text\[\]/)
+  assert.match(sql, /DROP COLUMN IF EXISTS divisions/, 'rollback documented')
 })

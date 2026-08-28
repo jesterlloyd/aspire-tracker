@@ -15,11 +15,13 @@ import {
   getPrimaryCategory, getContactCategories,
   CONTACT_CATEGORY_ORDER, canonicalCategory,
   titleOptionsFor, titleAllowsFreeText,
-  affiliationKind, showsUnitAffiliation, contactServicesMeta,
+  affiliationKind, showsUnitAffiliation, contactServicesMeta, showsDivisionsField,
+  contactDivisionList,
   contactUnitList, splitUnitList, CSMC_AFFILIATION,
   categoryPluralLabel, contactListSubline, sortContactsForCategory, sortContactsForSearch,
 } from '../../lib/contactCategories'
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
+import { CONTACT_DIVISION_OPTIONS } from '../../lib/contactScopeFilter'
 import { SCHOOL_PICKER_OPTIONS, schoolPickerLabel } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../shared/MultiScopePicker'
 import { toneGradient } from '../../lib/connectTones'
@@ -472,6 +474,12 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
                   {contactServicesMeta(getPrimaryCategory(contact), contact.role)?.label || 'Services'}
                 </span>
                 <span style={{ fontSize: 13, color: '#374151', fontFamily: F }}>{contact.services}</span>
+              </div>
+            )}
+            {contactDivisionList(contact).length > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginTop: (contact.school_name || contact.services) ? 6 : 0 }}>
+                <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>Divisions</span>
+                <span style={{ fontSize: 13, color: '#374151', fontFamily: F }}>{contactDivisionList(contact).join(', ')}</span>
               </div>
             )}
           </div>
@@ -976,6 +984,7 @@ function DeactivateModal({ contact, action, onConfirm, onClose, saving }) {
 // School options for the affiliation dropdown: the operative identities the
 // rest of the app persists (students.school, digest matching).
 const SCHOOL_AFFILIATION_OPTIONS = SCHOOL_PICKER_OPTIONS
+const DIVISION_PICKER_OPTIONS = CONTACT_DIVISION_OPTIONS.map(d => ({ value: d, label: d }))
 
 // Sentinel select value for "type a custom title" where the canon allows it.
 const CUSTOM_TITLE = '__custom__'
@@ -997,7 +1006,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   const isEdit = mode === 'edit'
   const [formData, setFormData] = useState(() => {
     if (!isEdit || !initialData) {
-      return { is_active: true, units: [], affiliation_mode: 'csmc' }
+      return { is_active: true, units: [], divisions: [], affiliation_mode: 'csmc' }
     }
     const storedCat = canonicalCategory(initialData.category) || ''
     const storedRole = initialData.role || ''
@@ -1010,6 +1019,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
       category: storedCat,
       // The multi-unit model: [primary unit_name, ...related_units].
       units: contactUnitList(initialData),
+      divisions: contactDivisionList(initialData),
       // A stored title outside the dropdown in a free-text category opens the
       // custom input; in a fixed category it stays as a passthrough option.
       role_custom: Boolean(storedRole)
@@ -1060,6 +1070,10 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
     : false
   const servicesMeta = contactServicesMeta(cat, roleValue)
   const showServices = Boolean(servicesMeta)
+  // NA-CONTACTS-SCOPE-4: the explicit divisions an executive covers, so the
+  // portal Contacts division filter finds them even when their Services line
+  // names something that is not a division ("Clinical Operations").
+  const showDivisions = showsDivisionsField(cat, roleValue)
 
   const handleCategoryChange = (newCat) => {
     setFormData(prev => {
@@ -1097,6 +1111,9 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
     }
     if (!showServices && formData.services) {
       hiddenPopulatedFields.push('Services / Programs')
+    }
+    if (!showDivisions && (formData.divisions || []).length > 0) {
+      hiddenPopulatedFields.push('Divisions')
     }
   }
 
@@ -1187,6 +1204,9 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
         program_type:             formData.program_type || '',
         ...affiliation,
         ...(showUnits ? { unit_name: unitCols.unit_name || '', related_units: unitCols.related_units } : {}),
+        ...(showDivisions || (isEdit && contactDivisionList(initialData || {}).length > 0)
+          ? { divisions: showDivisions ? (formData.divisions || []) : [] }
+          : {}),
         ...(showServices || (isEdit && initialData?.services)
           ? { services: showServices ? (formData.services || '') : '' }
           : {}),
@@ -1484,6 +1504,23 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
                   ? 'e.g. ASPIRE, NGRP, Preceptor Program'
                   : 'e.g. BNI, Surgical Services, OLAR'}
                 style={inputStyle}
+              />
+            </div>
+          )}
+
+          {/* Divisions (Nursing Executive + Executive Director): the explicit
+              answer the Contacts division filter matches on, beside the
+              free-text Services line above. */}
+          {showDivisions && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle} htmlFor="contact-divisions">Divisions <span style={{ fontWeight: 400, color: '#9ca3af' }}>(one or more)</span></label>
+              <MultiScopePicker
+                id="contact-divisions"
+                inputStyle={inputStyle}
+                options={DIVISION_PICKER_OPTIONS}
+                selected={formData.divisions || []}
+                onChange={next => set('divisions', next)}
+                placeholder="Search divisions"
               />
             </div>
           )}

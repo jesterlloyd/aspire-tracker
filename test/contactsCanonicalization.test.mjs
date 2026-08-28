@@ -272,7 +272,8 @@ test('the portal All Contacts view groups by category with dividers, like the st
   assert.match(portal, /categoryPluralLabel\(cat\)/)
   // NA-CONTACTS-POLISH-1: grouping + per-category sort moved into the single
   // orderContacts pipeline; dividers are derived from its already-ordered output.
-  assert.match(portal, /sortContactsForCategory\(grouped\[cat\], cat\)/)
+  // NA-CONTACTS-SCOPE-4: the per-group sort carries the scope's units.
+  assert.match(portal, /sortContactsForCategory\(grouped\[cat\], cat, sortOptions\)/)
   assert.match(portal, /sortContactsForSearch/)
   assert.match(read('src/components/connect/ContactsView.jsx'), /sortContactsForSearch\(filtered, search\)/)
   assert.match(read('src/portal/portal.css'), /\.ptl-na-contact-divider/)
