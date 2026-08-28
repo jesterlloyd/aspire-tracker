@@ -114,10 +114,12 @@ Verification snapshot: `node --test` over `deactivationEnforcement`,
   student_shift_logs get scoped write policies. Preflight and POST checks in
   `db/audit/wave_e_write_split_preflight_and_verification.sql`.
   `test/s04WaveEWriteSplit.test.mjs` green at HEAD.
+- **Update 2026-08-27**: the migration is APPLIED, confirmed via its POST 1
+  to 10 (see the OWNER_SQL_GATE ledger). The interviewers catch-all policy its
+  POST 1 surfaced is also confirmed dropped, so the split's writer policies are
+  in effect.
 - **What remains**:
-  1. Applied state of the migration is unknown from the repository (see the
-     OWNER_SQL_GATE ledger).
-  2. `interview_availability_blocks`, `interview_slots`, and
+  1. `interview_availability_blocks`, `interview_slots`, and
      `interview_sessions` were EXCLUDED by explicit decision: interviewers
      legitimately write them, and restricting by role without asking what a
      role legitimately does was judged the wrong test (Owner correction,
@@ -127,6 +129,7 @@ Verification snapshot: `node --test` over `deactivationEnforcement`,
      endpoints for block activation, slot block/unblock, and Teams-invite
      marking, has not been built; `api/availability.js` ALLOWED_ACTIONS covers
      only create_block, delete_block, delete_slot, cancel_booking.
+  This is now the ONLY remaining part of S-04.
 
 ## S-05. Account deactivation revoked nothing
 
@@ -258,9 +261,8 @@ Verification snapshot: `node --test` over `deactivationEnforcement`,
   unrecognized.
 - **Operational note**: the limiter FAILS CLOSED and depends on
   `consume_evaluation_rate_limit`, which is dashboard-created and not in any
-  repository migration. Section 1 of
-  `db/audit/public_endpoint_hardening_checks.sql` confirms it exists; that
-  query has not been confirmed run.
+  repository migration. CONFIRMED present in production 2026-08-27 via section
+  1 of `db/audit/public_endpoint_hardening_checks.sql`.
 
 ## S-12. UNRECOVERABLE (defined in chat only)
 
@@ -300,11 +302,11 @@ Dependency items from the original report. Same situation as S-15 through S-33.
 
 - `bc77cdb` + `supabase/migrations/20260822010000_interview_rubric_authorization.sql`:
   interview rubric details restricted by author
-  (`can_manage_all_interview_rubrics()`).
+  (`can_manage_all_interview_rubrics()`). Confirmed APPLIED 2026-08-27.
 - `2571974` + `supabase/migrations/20260822030000_drop_interviewers_full_access_policy.sql`:
   drops the dashboard-created `"Full access on interviewers"` FOR ALL TO public
-  USING (true) policy, discovered by POST 1 of the Wave E verification. Until
-  applied, that policy nullifies every other policy on the table.
+  USING (true) policy, discovered by POST 1 of the Wave E verification.
+  Confirmed APPLIED 2026-08-27; the nullification it caused is over.
 - `b8db8a4`: mid-session revocation on five portal surfaces routed to the
   no-access card via reason-classified failures
   (`src/lib/portalAccessState.js` `classifyPortalFailure`), replacing false
@@ -327,4 +329,6 @@ Dependency items from the original report. Same situation as S-15 through S-33.
 2. Banned account's existing access token: immediate rejection vs expiry.
 3. Every rate-limit ceiling (no live request has exercised one).
 4. S-08 server-side password path and S-10 guarded prefill, live.
-5. Applied state of migrations 20260822010000, 20260822020000, 20260822030000.
+5. RESOLVED 2026-08-27: migrations 20260822010000, 20260822020000, and
+   20260822030000 are confirmed APPLIED (see the OWNER_SQL_GATE ledger for the
+   verification each ran).

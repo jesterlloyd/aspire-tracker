@@ -638,21 +638,23 @@ section:
 | 20260818000000_shift_log_review.sql | 8014c5e, 2026-08-15 | UNKNOWN pending confirmation |
 | 20260819000000_student_shift_log_self_service.sql | 4f641ef, 2026-08-16 | UNKNOWN pending confirmation |
 | 20260820000000_preceptor_shift_projection.sql | 6803b43, 2026-08-16 | UNKNOWN pending confirmation |
-| 20260821000000_outreach_attachment_uploads.sql | UNTRACKED, never committed | UNKNOWN; the file sits uncommitted in the working tree. Commit or discard it as part of confirming its state |
+| 20260821000000_outreach_attachment_uploads.sql | committed 2026-08-27 (this ledger sitting) | NOT APPLIED, and correct so: DESIGN ONLY for the Phase 2 ad-hoc attachment feature, which was never built. No code references the outreach_attachments table or bucket. Apply only if that feature is ever taken up; its verification block is inline |
 | 20260821130000_automatic_student_completion.sql | 2a0eed2, 2026-08-21 | UNKNOWN pending confirmation |
 | 20260822000000_student_activity_completions.sql | ee9e175, 2026-08-17 | UNKNOWN pending confirmation |
-| 20260822010000_interview_rubric_authorization.sql | bc77cdb, 2026-08-21 | UNKNOWN pending confirmation |
-| 20260822020000_wave_e_write_policy_split.sql | 8494615, 2026-08-22 | UNKNOWN pending confirmation. PRE 1 to 8 first (PRE 6 and 7 blocking); its POST 1 is what surfaced the out-of-band interviewers policy |
-| 20260822030000_drop_interviewers_full_access_policy.sql | 2571974, 2026-08-22 | UNKNOWN pending confirmation. Until applied, the dashboard-created FOR ALL TO public policy nullifies every other policy on interviewers, including the Wave E split's |
+| 20260822010000_interview_rubric_authorization.sql | bc77cdb, 2026-08-21 | APPLIED, confirmed 2026-08-27. Verified by the seven read-only sections printed in the 2026-08-27 status sitting: interviewer_profile_id column + idx_interview_rubrics_profile_cohort present, all four functions SECURITY DEFINER with pinned search_path, EXECUTE held by authenticated/service_role only (no anon/PUBLIC), RLS enabled, no legacy or catch-all policy remaining, exactly the four _own_or_privileged policies |
+| 20260822020000_wave_e_write_policy_split.sql | 8494615, 2026-08-22 | APPLIED, confirmed 2026-08-27 via POST 1 to 10 of db/audit/wave_e_write_split_preflight_and_verification.sql (is_active_staff_writer present with correct grants, each split table showing SELECT + writer policies and no FOR ALL, the three self-service tables untouched, trigger and unique index present). Its POST 1 is what surfaced the out-of-band interviewers policy, closed by 20260822030000 below |
+| 20260822030000_drop_interviewers_full_access_policy.sql | 2571974, 2026-08-22 | APPLIED, confirmed 2026-08-27 via POST 1 to 5 of db/audit/interviewers_full_access_preflight_and_verification.sql (policy gone, no USING (true) or TO public policy remains on interviewers, expected policy set only, grants and row count unchanged). The Wave E writer policies on interviewers are therefore now in effect |
 | 20260824000000_nursing_academics_portal_foundation.sql | 8cf628f, 2026-08-24 | UNKNOWN pending confirmation |
 | 20260825000000_nursing_academic_contacts_editor.sql | 374f113, 2026-08-25 | UNKNOWN pending confirmation |
 | 20260826000000_contacts_canonicalization.sql | b2dee20, 2026-08-25 | UNKNOWN pending confirmation |
 | 20260827000000_cohort_completed_at.sql | 5c27f60, 2026-08-26 | UNKNOWN pending confirmation |
 | 20260828000000_enable_nursing_academic_portal_utilities.sql | 15e45b7, 2026-08-27 | UNKNOWN pending confirmation |
 
-One additional confirmation is owed that is not a migration: section 1 of
-`db/audit/public_endpoint_hardening_checks.sql` (the rate-limit function
-exists). The public-surface throttle added 2026-08-23 FAILS CLOSED, so if
-`consume_evaluation_rate_limit` were absent, every public submission (student
-intake, unit form, school form, shift log) would be refused. It is
-dashboard-created and appears in no repository migration.
+CONFIRMED 2026-08-27: `consume_evaluation_rate_limit` is present in
+production, verified via section 1 of
+`db/audit/public_endpoint_hardening_checks.sql` (one row: the function exists
+with its expected signature). This mattered because the public-surface
+throttle added 2026-08-23 FAILS CLOSED; had the function been absent, every
+public submission (student intake, unit form, school form, shift log) would
+have been refused. It remains dashboard-created and appears in no repository
+migration, so treat any future change to it as out-of-band.
