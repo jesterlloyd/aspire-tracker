@@ -179,10 +179,10 @@ BEGIN
     RAISE EXCEPTION 'A student id appears in both the move and stay lists.';
   END IF;
 
-  -- ── 4a. The movers carry no dependent records anywhere
-  -- Every BASE TABLE in public with a student_id column is checked, so this
-  -- cannot miss a table by being out of date with the schema. program_events is
-  -- excluded because step 4c deliberately repoints it.
+  -- ── 4a. Nothing unclassified hangs off the movers
+  -- Every BASE TABLE in public with a student_id column is examined, so this
+  -- cannot miss one by being out of date with the schema. Classified tables are
+  -- handled (follow) or provably irrelevant (inert); anything else aborts.
   FOR t IN
     SELECT c.table_name
       FROM information_schema.columns c
@@ -254,11 +254,10 @@ BEGIN
          aspire_cohort             = v_winter_name
    WHERE id = ANY(movers);
 
-  -- Their existing timeline and outreach history follow them (including the
+  -- Their timeline and outreach history follow them, including the
   -- rotation_created event the overwriting submission logged against Brandon
-  -- Torres).
-  -- Records that belong with the student follow them. Guarded by to_regclass so
-  -- a table that does not exist in this database is skipped, not an error.
+  -- Torres. Guarded by to_regclass so a table absent from this database is
+  -- skipped rather than raising.
   FOREACH v_tbl IN ARRAY follow_tables LOOP
     IF to_regclass('public.' || quote_ident(v_tbl)) IS NOT NULL THEN
       EXECUTE format(
