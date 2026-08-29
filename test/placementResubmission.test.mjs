@@ -303,3 +303,31 @@ test('the repair script is exact-row, locked, fails closed, and is reversible', 
   // Data-only: no schema change hides in an incident repair.
   assert.doesNotMatch(sql, /\n\s*(ALTER TABLE|CREATE TABLE|DROP TABLE|CREATE POLICY)/)
 })
+
+test('the Anaheim move repoints the row rather than copying it, and is reversible', () => {
+  const sql = read('supabase/migrations/20260831000000_wcu_anaheim_move_to_winter_2027.sql')
+  assert.ok(sql.includes('4dbf6d13-d5cd-4c63-8cec-0c61b6e2400e'), 'the Anaheim rotation row is named')
+  assert.ok(sql.includes('52933615-cf6e-441f-ac68-130bdb6a0491'), 'Winter 2027 is named')
+  // Locked before any check or write.
+  assert.match(sql, /SELECT \* INTO v_row FROM cohort_school_rotations WHERE id = r_anah FOR UPDATE/)
+  assert.match(sql, /PERFORM 1 FROM students WHERE cohort_school_rotation_id = r_anah FOR UPDATE/)
+  // The ROW moves. Nothing is copied, so the window and blackout dates cannot be
+  // mistyped, and cohort_school_rotation_id on the students never changes.
+  assert.match(sql, /UPDATE cohort_school_rotations\s*\n\s*SET cohort_id = c_winter/)
+  assert.doesNotMatch(sql, /INSERT INTO cohort_school_rotations/, 'no new rotation row is created')
+  assert.doesNotMatch(sql, /cohort_school_rotation_id\s*=\s*r_winter/, 'students keep their rotation id')
+  // Proves it is still in Fall 2026 first, so a second run cannot re-run the writes.
+  assert.match(sql, /is already in cohort %, not Fall 2026/)
+  // The roster is captured from the row at runtime, then proven, not hardcoded.
+  assert.match(sql, /SELECT array_agg\(id ORDER BY id\), count\(\*\) INTO v_ids, v_n/)
+  assert.match(sql, /students on rotation % are in Fall 2026/)
+  // Postconditions run before COMMIT, including "nothing left behind".
+  assert.match(sql, /POSTCONDITION: % Anaheim student\(s\) remain in Fall 2026/)
+  assert.match(sql, /POSTCONDITION: the Anaheim blackout dates were lost/)
+  assert.ok(sql.lastIndexOf('POSTCONDITION') < sql.indexOf('COMMIT;'), 'postconditions precede COMMIT')
+  assert.match(sql, /── Rollback ─/)
+  // Data-only, and a separate transaction from the North Hollywood repair so an
+  // abort here cannot roll that back.
+  assert.doesNotMatch(sql, /\n\s*(ALTER TABLE|CREATE TABLE|DROP TABLE|CREATE POLICY)/)
+  assert.equal(sql.match(/^BEGIN;/gm)?.length, 1, 'one transaction')
+})
