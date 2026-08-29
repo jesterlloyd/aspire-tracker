@@ -25,7 +25,7 @@
 -- The Owner's discovery (2026-08-29) verified total_slots - matched_students =
 -- slots_remaining for every participating Fall unit, so slots_remaining is the
 -- trustworthy carry number. This script re-proves that consistency in-lock
--- before writing, and pins the exact 18-unit, 22-slot expected shape.
+-- before writing, and pins the exact 18-unit, 24-slot expected shape.
 --
 -- Rows are cloned via to_jsonb -> jsonb_populate_record with explicit
 -- overrides, so EVERY column the live schema actually has is carried
@@ -51,7 +51,7 @@
 -- SAFETY
 --   * All qualifying Fall unit rows are locked FOR UPDATE before any check.
 --   * The expected carry set is PINNED (18 unit ids with their exact remaining
---     counts, summing to 22); any deviation aborts.
+--     counts, summing to 24); any deviation aborts.
 --   * Winter 2027 must have ZERO units rows and ZERO response rows: this is a
 --     first population, never a merge.
 --   * Fails closed and rolls back on ANY deviation, including postconditions.
@@ -68,7 +68,7 @@ DECLARE
   v_school text := 'West Coast University North Hollywood';
 
   -- The pinned carry set (Owner discovery 2026-08-29): Fall unit id -> the
-  -- unused slots that carry. 18 units, 22 slots.
+  -- unused slots that carry. 18 units, 24 slots.
   v_expected jsonb := '{
     "dbdbe02a-c7b1-4808-ae64-e928812d1016": 1,
     "a034d6fa-ffd3-4a47-9608-5bbfb672d448": 1,
@@ -120,9 +120,9 @@ BEGIN
   SELECT count(*), coalesce(sum(slots_remaining), 0) INTO v_n, v_slots
     FROM units
    WHERE cohort_id = c_fall AND is_participating = true AND slots_remaining > 0;
-  IF v_n <> 18 OR v_slots <> 22 THEN
+  IF v_n <> 18 OR v_slots <> 24 THEN
     RAISE EXCEPTION
-      'Expected 18 qualifying Fall units carrying 22 slots, found % carrying %. Slots have moved since discovery; stop and re-run it.',
+      'Expected 18 qualifying Fall units carrying 24 slots, found % carrying %. Slots have moved since discovery; stop and re-run it.',
       v_n, v_slots;
   END IF;
 
@@ -250,8 +250,8 @@ BEGIN
   -- ── 6. Postconditions: prove the final shape before COMMIT ────────────────
   SELECT count(*), coalesce(sum(total_slots), 0) INTO v_n, v_slots
     FROM units WHERE cohort_id = c_winter;
-  IF v_n <> 18 OR v_slots <> 22 THEN
-    RAISE EXCEPTION 'POSTCONDITION: Winter 2027 has % units carrying %, expected 18 carrying 22.', v_n, v_slots;
+  IF v_n <> 18 OR v_slots <> 24 THEN
+    RAISE EXCEPTION 'POSTCONDITION: Winter 2027 has % units carrying %, expected 18 carrying 24.', v_n, v_slots;
   END IF;
   SELECT count(*) INTO v_n FROM units
    WHERE cohort_id = c_winter AND (total_slots <> slots_remaining OR is_participating IS DISTINCT FROM true);
@@ -274,7 +274,7 @@ BEGIN
   SELECT count(*), coalesce(sum(slots_remaining), 0) INTO v_n, v_slots
     FROM units
    WHERE cohort_id = c_fall AND is_participating = true AND slots_remaining > 0;
-  IF v_n <> 18 OR v_slots <> 22 THEN
+  IF v_n <> 18 OR v_slots <> 24 THEN
     RAISE EXCEPTION 'POSTCONDITION: Fall 2026 changed (% units, % remaining). It must not have.', v_n, v_slots;
   END IF;
   -- Juliana: exactly one fresh Winter row; the Fall row exactly as it was.
@@ -291,14 +291,14 @@ BEGIN
     RAISE EXCEPTION 'POSTCONDITION: Juliana''s Fall 2026 row changed. It must not have.';
   END IF;
 
-  RAISE NOTICE 'OK. 18 units carried to Winter 2027 (22 slots), 18 responses copied, Juliana Pilla duplicated fresh.';
+  RAISE NOTICE 'OK. 18 units carried to Winter 2027 (24 slots), 18 responses copied, Juliana Pilla duplicated fresh.';
 END $$;
 
 COMMIT;
 
 -- ── Verification (run AFTER the commit; each returns rows) ───────────────────
 --
--- V1  the Winter 2027 unit pool: 18 rows, total = remaining everywhere, 22 in
+-- V1  the Winter 2027 unit pool: 18 rows, total = remaining everywhere, 24 in
 --     all, contacts and shift preferences carried:
 --     SELECT u.unit_name, u.total_slots, u.slots_remaining, u.contact_person,
 --            u.shift_preference, r.slots_offered, r.submitted_by_name, r.submitted_at

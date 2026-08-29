@@ -13,10 +13,10 @@ const sql = readFileSync(new URL(
   '../supabase/migrations/20260901000000_winter_2027_unit_carryover_and_juliana.sql',
   import.meta.url), 'utf8')
 
-test('the carry set is pinned: 18 units, 22 slots, unused capacity only', () => {
+test('the carry set is pinned: 18 units, 24 slots, unused capacity only', () => {
   // The qualifying rule is participation AND leftover slots.
   assert.match(sql, /is_participating = true AND slots_remaining > 0/)
-  assert.match(sql, /IF v_n <> 18 OR v_slots <> 22 THEN/)
+  assert.match(sql, /IF v_n <> 18 OR v_slots <> 24 THEN/)
   // Every pinned id from the Owner's discovery, with its exact remaining count.
   assert.match(sql, /"c18b77d8-5863-4681-bc0f-00c35ac8ef8d": 2/, '6 NE carries 2')
   assert.match(sql, /"6b655d1b-5a1e-45ad-92e9-f1c2d45da3b1": 3/, '7 South carries 3')
