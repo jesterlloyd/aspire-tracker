@@ -217,3 +217,89 @@ test('the public form warns, offers the roster-only path, and gates the overwrit
   assert.match(page, /sf-resubmit-inherited/)
   assert.match(read('src/index.css'), /\.sf-resubmit-warning \{/)
 })
+
+// ── The Academic Partner portal: the path the incident actually came through ──
+
+test('the AP portal derives the same summary from the requests already on the page', async () => {
+  const { describeExistingRequestFromPortalRequests } = await import('../src/lib/placementResubmission.js')
+  // Shape of api/portal/school-placement-requests.js GET entries.
+  const requests = [
+    { id: 's1', cohort: { id: 'fall26' }, rotation: { start_date: '2026-08-17', end_date: '2026-10-25' } },
+    { id: 's2', cohort: { id: 'fall26' }, rotation: { start_date: '2026-08-17', end_date: '2026-10-25' } },
+    { id: 's3', cohort: { id: 'summer26' }, rotation: { start_date: '2026-05-04', end_date: '2026-08-18' } },
+  ]
+  const summary = describeExistingRequestFromPortalRequests('West Coast University North Hollywood', requests, 'fall26')
+  assert.equal(summary.exists, true)
+  assert.equal(summary.studentCount, 2, 'only the requests in THIS cohort count')
+  assert.equal(summary.rotationWindow, 'August 17, 2026 to October 25, 2026')
+  assert.equal(summary.coordinatorName, '', 'the portal payload carries no coordinator name')
+  // A cohort with no prior requests is not a resubmission.
+  assert.deepEqual(describeExistingRequestFromPortalRequests('X', requests, 'winter27'), { exists: false })
+  assert.deepEqual(describeExistingRequestFromPortalRequests('X', [], 'fall26'), { exists: false })
+  assert.deepEqual(describeExistingRequestFromPortalRequests('X', null, 'fall26'), { exists: false })
+  // No cohort selected must never look like an existing request.
+  assert.deepEqual(describeExistingRequestFromPortalRequests('X', requests, null), { exists: false })
+  // A request with no rotation dates still counts, and reads as pending.
+  const undated = [{ id: 's4', cohort: { id: 'c9' }, rotation: null }]
+  assert.equal(describeExistingRequestFromPortalRequests('X', undated, 'c9').rotationWindow, 'dates pending review')
+})
+
+test('the AP portal warns, offers the roster-only path, and gates the overwrite', () => {
+  const view = read('src/portal/ap/PlacementRequestsView.jsx')
+  // The warning is derived, not fetched: no new endpoint on this surface.
+  assert.match(view, /describeExistingRequestFromPortalRequests\(schoolKey, existingRequests, cohortId\)/)
+  assert.match(view, /existingRequests=\{school\.requests\}/)
+  // Same gate as the public form, same shared copy.
+  assert.match(view, /if \(warning && !addOnly && !ackOverwrite\)/)
+  assert.match(view, /mode: submitMode/)
+  assert.match(view, /ptl-plr-resubmit/)
+  // Switching cohort invalidates a decision made about a different cohort.
+  assert.match(view, /setPrevCohortId\(cohortId\)\s*\n\s*setSubmitMode\('full'\)\s*\n\s*setAckOverwrite\(false\)/)
+  // The 409 from an add_students request with no existing row is named, not generic.
+  assert.match(view, /no_existing_request/)
+  assert.match(read('src/portal/portal.css'), /\.ptl-plr-resubmit \{/)
+})
+
+test('both surfaces warn in the SAME words, from the one copy module', () => {
+  for (const p of ['src/components/SchoolFormPage.jsx', 'src/portal/ap/PlacementRequestsView.jsx']) {
+    const src = read(p)
+    assert.match(src, /resubmissionWarning/, `${p} uses the shared copy`)
+    assert.match(src, /warning\.addPrompt/)
+    assert.match(src, /warning\.overwriteWarning/)
+    assert.match(src, /warning\.acknowledgement/)
+    // Neither surface hardcodes its own wording.
+    assert.doesNotMatch(src, /already has a placement request for this cohort/,
+      `${p} must not restate the copy`)
+  }
+})
+
+// ── The incident repair script ──────────────────────────────────────────────
+
+test('the repair script is exact-row, locked, fails closed, and is reversible', () => {
+  const sql = read('supabase/migrations/20260830000000_wcu_noho_fall2_split_repair.sql')
+  // Exactly the five movers, and the four stayers named separately.
+  for (const id of ['4901f694-8a46-4d50-b900-7583231d4bc2', 'da1d51c6-514a-4291-892b-900b42891eb9',
+    'ea42bb7e-a906-4b8d-8b7f-e47cfb09c01b', 'a7240031-da1e-4f1e-8f7c-714874ad1577',
+    'b4abd33a-81fe-4227-a35e-6472084c90ba']) {
+    assert.ok(sql.includes(id), `mover ${id} is named`)
+  }
+  assert.ok(sql.includes('d6ff6ac4-94c0-4818-935a-e5bde2c07c00'), 'Juliana Pilla is named as a STAYER')
+  // Locked before any check or write.
+  assert.match(sql, /SELECT \* INTO v_row FROM cohort_school_rotations WHERE id = r_fall FOR UPDATE/)
+  assert.match(sql, /PERFORM 1 FROM students WHERE cohort_school_rotation_id = r_fall FOR UPDATE/)
+  // Proves the overwritten state before repairing it, so a second run cannot re-run the writes.
+  assert.match(sql, /not the overwritten % to %/)
+  // Restores the window quoted from program_events, never invented.
+  assert.match(sql, /d_f1_start date := DATE '2026-08-17'/)
+  assert.match(sql, /d_f1_end\s+date := DATE '2026-10-25'/)
+  // Availability copies column-to-column (type-agnostic) and clears via DEFAULT.
+  assert.match(sql, /r\.unavailable_weekdays, r\.min_days_per_week, r\.weekends_allowed, r\.nights_allowed/)
+  assert.match(sql, /unavailable_weekdays = DEFAULT/)
+  // Postconditions run before COMMIT, and a rollback is documented.
+  assert.match(sql, /POSTCONDITION: expected 5 students moved to Winter 2027/)
+  assert.match(sql, /POSTCONDITION: a staying student was moved/)
+  assert.ok(sql.lastIndexOf('POSTCONDITION') < sql.indexOf('COMMIT;'), 'postconditions precede COMMIT')
+  assert.match(sql, /── Rollback ─/)
+  // Data-only: no schema change hides in an incident repair.
+  assert.doesNotMatch(sql, /\n\s*(ALTER TABLE|CREATE TABLE|DROP TABLE|CREATE POLICY)/)
+})

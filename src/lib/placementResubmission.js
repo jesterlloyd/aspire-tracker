@@ -127,6 +127,25 @@ export function describeExistingRequest(row, studentCount = 0) {
   }
 }
 
+// The SAME summary, derived from what the Academic Partner portal already
+// holds. Its GET returns each submitted request with { cohort: {id}, rotation:
+// { start_date, end_date } }, so the portal needs no extra lookup and no new
+// endpoint: the answer is already on the page. Coordinator name is absent from
+// that payload, which resubmissionWarning handles by omitting the attribution.
+export function describeExistingRequestFromPortalRequests(schoolName, requests, cohortId) {
+  const inCohort = (Array.isArray(requests) ? requests : [])
+    .filter(r => r?.cohort?.id && cohortId && r.cohort.id === cohortId)
+  if (inCohort.length === 0) return { exists: false }
+  const dated = inCohort.find(r => r?.rotation?.start_date) || null
+  return describeExistingRequest({
+    school_name: schoolName,
+    rotation_start_date: dated?.rotation?.start_date || null,
+    rotation_end_date: dated?.rotation?.end_date || null,
+    coordinator_name: '',
+    updated_at: null,
+  }, inCohort.length)
+}
+
 // ONE copy module for both forms, so the public page and the Academic Partner
 // portal warn in the same words. `summary` is a describeExistingRequest result.
 export function resubmissionWarning(summary) {

@@ -1039,6 +1039,24 @@
 }
 .ptl-plr-form { display: flex; flex-direction: column; gap: 22px; margin-top: 12px; }
 .ptl-plr-section { display: flex; flex-direction: column; gap: 12px; }
+
+/* PLACEMENT-RESUBMIT-1: the "this school already submitted" banner in the
+   Academic Partner placement form. Amber, not red: a decision point, not an
+   error. Its own .ptl-plr-resubmit-* namespace, shared with no other
+   component, matching the public form's .sf-resubmit-* block in shape. */
+.ptl-plr-resubmit { border: 1px solid #fcd34d; background: #fffbeb; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.ptl-plr-resubmit-title { font-weight: 700; font-size: 14px; color: #92400e; line-height: 1.4; }
+.ptl-plr-resubmit-detail { font-size: 13px; color: #78350f; line-height: 1.6; margin: 0; }
+.ptl-plr-resubmit-modes { display: flex; flex-direction: column; gap: 8px; }
+.ptl-plr-resubmit-mode { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #fde68a; border-radius: 8px; background: #fff; cursor: pointer; }
+.ptl-plr-resubmit-mode.is-selected { border-color: #d97706; box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.15); }
+.ptl-plr-resubmit-mode input { margin-top: 3px; flex-shrink: 0; }
+.ptl-plr-resubmit-mode span { display: flex; flex-direction: column; gap: 3px; }
+.ptl-plr-resubmit-mode strong { font-size: 13.5px; font-weight: 600; color: var(--nightfall, #1D2567); }
+.ptl-plr-resubmit-mode em { font-size: 12.5px; font-style: normal; color: var(--ptl-muted, #6b7280); line-height: 1.5; }
+.ptl-plr-resubmit-ack { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #78350f; line-height: 1.5; cursor: pointer; }
+.ptl-plr-resubmit-ack input { margin-top: 2px; flex-shrink: 0; }
+.ptl-plr-resubmit-inherited strong { color: var(--nightfall, #1D2567); }
 .ptl-plr-section-title {
   font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.04em;
   text-transform: uppercase; color: #6b7280; border-bottom: 1px solid var(--ptl-line, #e3ded4);

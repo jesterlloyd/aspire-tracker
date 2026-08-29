@@ -28,6 +28,7 @@ import {
   newStudentRow, emptyCoordinator, emptyRotation, emptyAvailability,
   validatePlacementForm, buildPlacementBody, placementSubmitLabel,
 } from '../../lib/schoolPlacementForm'
+import { describeExistingRequestFromPortalRequests, resubmissionWarning } from '../../lib/placementResubmission'
 
 const T = SCHOOL_PLACEMENT_TEXT
 
@@ -126,6 +127,7 @@ export default function PlacementRequestsView({ onNavigate }) {
       {submissionCohort ? (
         <NewPlacementRequest
           schoolKey={school.school_key}
+          existingRequests={school.requests}
           cohortId={submissionCohort.id}
           cohortName={submissionCohort.name}
           submissionEnabled={submissionEnabled}
@@ -146,7 +148,7 @@ export default function PlacementRequestsView({ onNavigate }) {
 // verification when required, then renders the shared-definition form. The final submit is enabled
 // from the server's submission_enabled signal; the server independently re-authorizes and re-verifies
 // regardless. Success shows added/updated/skipped counts; recoverable errors keep the form intact.
-function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnabled, onViewStudents }) {
+function NewPlacementRequest({ schoolKey, existingRequests, cohortId, cohortName, submissionEnabled, onViewStudents }) {
   const [gate, setGate] = useState('checking')  // 'checking' | 'password' | 'open'
   const [pwdInput, setPwdInput]     = useState('')
   const [pwdError, setPwdError]     = useState(null)
@@ -162,6 +164,12 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
   const [blackoutInput, setBlackoutInput] = useState('')
   const [rows, setRows] = useState([newStudentRow()])
   const [formError, setFormError] = useState(null)
+  // PLACEMENT-RESUBMIT-1: this is the path that overwrote WCU North Hollywood's
+  // Fall I rotation on 2026-08-27. The answer needs no lookup - the requests
+  // this school already has for this cohort are on the page.
+  const [submitMode, setSubmitMode] = useState('full')
+  const [ackOverwrite, setAckOverwrite] = useState(false)
+
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState(null)  // { added, updated, skipped } on success
 
@@ -178,6 +186,8 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
   const [prevCohortId, setPrevCohortId] = useState(cohortId)
   if (cohortId !== prevCohortId) {
     setPrevCohortId(cohortId)
+    setSubmitMode('full')
+    setAckOverwrite(false)
     setGate('checking'); setVerifiedPassword(''); setPwdInput(''); setPwdError(null)
   }
 
@@ -210,9 +220,16 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
     setPwdChecking(false)
   }
 
+  const existing = useMemo(
+    () => describeExistingRequestFromPortalRequests(schoolKey, existingRequests, cohortId),
+    [schoolKey, existingRequests, cohortId],
+  )
+  const warning = resubmissionWarning(existing)
+  const addOnly = submitMode === 'add_students' && Boolean(warning)
+
   const validation = useMemo(
-    () => validatePlacementForm({ coordinator: coord, rotation, students: rows, cohortId }),
-    [coord, rotation, rows, cohortId],
+    () => validatePlacementForm({ coordinator: coord, rotation, students: rows, cohortId, mode: submitMode }),
+    [coord, rotation, rows, cohortId, submitMode],
   )
 
   // Final submission. Validates client-side (shared rules), then POSTs the canonical body plus the
@@ -222,8 +239,14 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
     if (submitting) return
     setFormError(null)
     if (validation) { setFormError(validation.message); return }
+    // A full resubmission replaces this school's rotation window for every
+    // student already on it. It stays possible, but only deliberately.
+    if (warning && !addOnly && !ackOverwrite) {
+      setFormError('Please confirm you understand this will replace the existing rotation dates for this school, or choose "Add students to the existing request" above.')
+      return
+    }
     setSubmitting(true)
-    const payload = buildPlacementBody({ cohortId, cohortName, coordinator: coord, rotation, availability: avail, students: rows })
+    const payload = buildPlacementBody({ cohortId, cohortName, coordinator: coord, rotation, availability: avail, students: rows, mode: submitMode })
     if (verifiedPassword) payload.password = verifiedPassword
     const res = await submitSchoolPlacementRequest(payload)
     setSubmitting(false)
@@ -236,6 +259,7 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
     // Truthful, non-technical messages by failure kind; the form values are kept intact.
     if (res.status === 503) setFormError('Online submission is not enabled yet. The ASPIRE team is finalizing it; please try again later.')
     else if (res.error === 'password_required' || res.error === 'password_invalid') { setFormError('The cohort password could not be verified. Please reopen the form and re-enter it.'); setGate('password'); setVerifiedPassword('') }
+    else if (res.error === 'no_existing_request') setFormError('There is no existing request for this school and cohort to add students to. Choose "Submit a new request" instead.')
     else if (res.status === 403) setFormError('This school or cohort is not in your access scope.')
     else setFormError('That request could not be submitted right now. Your entries are preserved; please try again.')
   }
@@ -325,6 +349,52 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
             </div>
           </div>
 
+          {/* PLACEMENT-RESUBMIT-1: this school already has a request in this
+              cohort. A full submission REPLACES its rotation window for every
+              student already on it, so say so before it happens. */}
+          {warning && (
+            <div className="ptl-plr-resubmit" role="status">
+              <div className="ptl-plr-resubmit-title">{warning.title}</div>
+              <p className="ptl-plr-resubmit-detail">{warning.detail}</p>
+              <div className="ptl-plr-resubmit-modes">
+                <label className={`ptl-plr-resubmit-mode${addOnly ? ' is-selected' : ''}`}>
+                  <input type="radio" name="ptl-plr-submit-mode" checked={addOnly}
+                    onChange={() => { setSubmitMode('add_students'); setAckOverwrite(false); setFormError(null) }} />
+                  <span>
+                    <strong>Add students to the existing request</strong>
+                    <em>{warning.addPrompt}</em>
+                  </span>
+                </label>
+                <label className={`ptl-plr-resubmit-mode${addOnly ? '' : ' is-selected'}`}>
+                  <input type="radio" name="ptl-plr-submit-mode" checked={!addOnly}
+                    onChange={() => { setSubmitMode('full'); setFormError(null) }} />
+                  <span>
+                    <strong>Submit a new request for this school</strong>
+                    <em>{warning.overwriteWarning}</em>
+                  </span>
+                </label>
+              </div>
+              {!addOnly && (
+                <label className="ptl-plr-resubmit-ack">
+                  <input type="checkbox" checked={ackOverwrite}
+                    onChange={e => { setAckOverwrite(e.target.checked); setFormError(null) }} />
+                  <span>{warning.acknowledgement}</span>
+                </label>
+              )}
+            </div>
+          )}
+
+          {addOnly ? (
+            <div className="ptl-plr-section ptl-plr-resubmit-inherited">
+              <div className="ptl-plr-section-title">{T.rotationSectionTitle}</div>
+              <p className="ptl-muted ptl-small">
+                These students join the existing request for {existing.schoolName}:{' '}
+                <strong>{existing.rotationWindow}</strong>, with its rotation availability,
+                blackout dates, and scheduling notes unchanged. Contact the ASPIRE team to change any of that.
+              </p>
+            </div>
+          ) : (
+          <>
           {/* Rotation Dates */}
           <div className="ptl-plr-section">
             <div className="ptl-plr-section-title">{T.rotationSectionTitle}</div>
@@ -421,6 +491,9 @@ function NewPlacementRequest({ schoolKey, cohortId, cohortName, submissionEnable
                 onChange={e => setA('scheduling_notes', e.target.value)} placeholder={T.schedulingNotesPlaceholder} />
             </div>
           </div>
+
+          </>
+          )}
 
           {/* Students */}
           <div className="ptl-plr-section">
