@@ -39,8 +39,8 @@
 --   3. Restores the Fall 2026 row to 2026-08-17..2026-10-25 and clears its six
 --      availability columns to their schema DEFAULT.
 --   4. Moves the FIVE new students to Winter 2027 (cohort_id,
---      cohort_school_rotation_id, aspire_cohort) and repoints their existing
---      program_events, then logs one rotation_updated event each.
+--      cohort_school_rotation_id, aspire_cohort), repoints the cohort_id of the
+--      records that belong with them, then logs one rotation_updated event each.
 --   5. Re-asserts the whole final shape before COMMIT.
 --
 -- WHO MOVES / WHO STAYS (decided 2026-08-28)
@@ -65,10 +65,13 @@
 --     interview_outcome, ngrp_outcome, disposition, matched_unit_id,
 --     preceptor_id, hours, CS-Link, badge, and notes are all left alone. The
 --     four staying students are never written to at all.
---   * Step 4a aborts if any moving student already has a row in ANY public
---     table with a student_id column. They were created yesterday and are
---     Pending Outreach, so this should be silent; if it fires, stop and read
---     what it names rather than working around it.
+--   * Step 4a aborts if any moving student has a row in a public base table with
+--     a student_id column that is not explicitly classified (see follow_tables
+--     and inert_tables). The 2026-08-29 preflight found program_events and
+--     communications carry cohort_id and are repointed; notification_log and
+--     student_reads have no cohort dimension and are left alone. If it fires on
+--     anything else, stop and read what it names: whether that record should
+--     follow the student is a judgement, not something to work around.
 -- ############################################################################
 
 BEGIN;
@@ -101,6 +104,20 @@ DECLARE
     '2bde78c7-a6aa-4066-a446-2636034cdf8a',  -- Chloe Tergalstanian, Placed
     'd6ff6ac4-94c0-4818-935a-e5bde2c07c00'   -- Juliana Pilla, Not Proceeding
   ]::uuid[];
+
+  -- PLACEMENT-RESUBMIT-1 / incident repair: student-keyed tables are CLASSIFIED,
+  -- not blanket-blocked. Anything not named here still blocks, so a table added
+  -- later fails closed rather than being silently skipped.
+  --   follow_tables  carry cohort_id AND are per-student timeline or outreach
+  --                  records that belong with the student. Their cohort_id is
+  --                  repointed in step 4.
+  --   inert_tables   have no cohort dimension at all, so they already follow the
+  --                  student through student_id and need no write. Each is
+  --                  ASSERTED to have no cohort_id column, so if that ever
+  --                  changes this script stops instead of quietly under-writing.
+  follow_tables text[] := ARRAY['program_events', 'communications'];
+  inert_tables  text[] := ARRAY['notification_log', 'student_reads'];
+  v_tbl         text;
 
   r_winter      uuid;
   v_winter_name text;
@@ -174,9 +191,19 @@ BEGIN
      WHERE c.table_schema = 'public'
        AND c.column_name = 'student_id'
        AND tb.table_type = 'BASE TABLE'
-       AND c.table_name <> 'program_events'
      ORDER BY c.table_name
   LOOP
+    IF t.table_name = ANY(follow_tables) THEN CONTINUE; END IF;
+    IF t.table_name = ANY(inert_tables) THEN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = t.table_name
+                    AND column_name = 'cohort_id') THEN
+        RAISE EXCEPTION
+          'public.% now has a cohort_id column, so it is no longer inert. Reclassify it before running this.',
+          t.table_name;
+      END IF;
+      CONTINUE;
+    END IF;
     EXECUTE format(
       'SELECT count(*) FROM public.%I WHERE student_id::text = ANY($1)', t.table_name)
       INTO v_n USING movers::text[];
@@ -227,11 +254,18 @@ BEGIN
          aspire_cohort             = v_winter_name
    WHERE id = ANY(movers);
 
-  -- Their existing timeline follows them (the rotation_created event the
-  -- overwriting submission logged against Brandon Torres).
-  UPDATE program_events
-     SET cohort_id = c_winter
-   WHERE student_id = ANY(movers) AND cohort_id = c_fall;
+  -- Their existing timeline and outreach history follow them (including the
+  -- rotation_created event the overwriting submission logged against Brandon
+  -- Torres).
+  -- Records that belong with the student follow them. Guarded by to_regclass so
+  -- a table that does not exist in this database is skipped, not an error.
+  FOREACH v_tbl IN ARRAY follow_tables LOOP
+    IF to_regclass('public.' || quote_ident(v_tbl)) IS NOT NULL THEN
+      EXECUTE format(
+        'UPDATE public.%I SET cohort_id = $1 WHERE student_id::text = ANY($2) AND cohort_id = $3', v_tbl)
+        USING c_winter, movers::text[], c_fall;
+    END IF;
+  END LOOP;
 
   -- And the move itself is recorded, so this is not an invisible edit.
   INSERT INTO program_events (student_id, cohort_id, event_type, event_date, notes, created_by)

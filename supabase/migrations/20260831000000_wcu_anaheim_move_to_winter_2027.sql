@@ -36,11 +36,14 @@
 --   * NOTHING student-owned or ASPIRE-owned is touched: status,
 --     interview_outcome, ngrp_outcome, disposition, matched_unit_id,
 --     preceptor_id, hours, CS-Link, badge, and notes are all left alone.
---   * Step 3 aborts if any moving student has a row in ANY public base table
---     with a student_id column. Run the discovery query in the header of the
---     handoff first so this is not a surprise. If it fires, STOP and read what
---     it names: an interview or unit assignment may need to follow the student,
---     and that is a decision, not something to work around.
+--   * Step 3 aborts if any moving student has a row in a public base table with
+--     a student_id column that is not explicitly classified (see follow_tables
+--     and inert_tables). The 2026-08-29 preflight found exactly four:
+--     program_events and communications carry cohort_id and are repointed;
+--     notification_log and student_reads have no cohort dimension and are left
+--     alone. If it fires on anything else, STOP and read what it names: an
+--     interview or unit assignment may need to follow the student, and that is
+--     a decision, not something to work around.
 -- ############################################################################
 
 BEGIN;
@@ -54,6 +57,20 @@ DECLARE
 
   d_start  date := DATE '2026-10-26';
   d_end    date := DATE '2027-01-10';
+
+  -- PLACEMENT-RESUBMIT-1 / incident repair: student-keyed tables are CLASSIFIED,
+  -- not blanket-blocked. Anything not named here still blocks, so a table added
+  -- later fails closed rather than being silently skipped.
+  --   follow_tables  carry cohort_id AND are per-student timeline or outreach
+  --                  records that belong with the student. Their cohort_id is
+  --                  repointed in step 4.
+  --   inert_tables   have no cohort dimension at all, so they already follow the
+  --                  student through student_id and need no write. Each is
+  --                  ASSERTED to have no cohort_id column, so if that ever
+  --                  changes this script stops instead of quietly under-writing.
+  follow_tables text[] := ARRAY['program_events', 'communications'];
+  inert_tables  text[] := ARRAY['notification_log', 'student_reads'];
+  v_tbl         text;
 
   v_winter_name text;
   v_row    cohort_school_rotations%ROWTYPE;
@@ -118,9 +135,9 @@ BEGIN
       v_moved, v_n, r_anah;
   END IF;
 
-  -- No dependent records anywhere. Every public BASE TABLE with a student_id
-  -- column is checked, so this cannot miss one by being out of date with the
-  -- schema. program_events is excluded because step 4 repoints it deliberately.
+  -- Every public BASE TABLE with a student_id column is examined, so this cannot
+  -- miss one by being out of date with the schema. Classified tables are handled
+  -- (follow) or provably irrelevant (inert); anything else aborts.
   FOR t IN
     SELECT c.table_name
       FROM information_schema.columns c
@@ -129,9 +146,19 @@ BEGIN
      WHERE c.table_schema = 'public'
        AND c.column_name = 'student_id'
        AND tb.table_type = 'BASE TABLE'
-       AND c.table_name <> 'program_events'
      ORDER BY c.table_name
   LOOP
+    IF t.table_name = ANY(follow_tables) THEN CONTINUE; END IF;
+    IF t.table_name = ANY(inert_tables) THEN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = t.table_name
+                    AND column_name = 'cohort_id') THEN
+        RAISE EXCEPTION
+          'public.% now has a cohort_id column, so it is no longer inert. Reclassify it before running this.',
+          t.table_name;
+      END IF;
+      CONTINUE;
+    END IF;
     EXECUTE format(
       'SELECT count(*) FROM public.%I WHERE student_id::text = ANY($1)', t.table_name)
       INTO v_n USING v_ids::text[];
@@ -151,9 +178,15 @@ BEGIN
      SET cohort_id = c_winter, aspire_cohort = v_winter_name
    WHERE cohort_school_rotation_id = r_anah;
 
-  UPDATE program_events
-     SET cohort_id = c_winter
-   WHERE student_id = ANY(v_ids) AND cohort_id = c_fall;
+  -- Records that belong with the student follow them. Guarded by to_regclass so
+  -- a table that does not exist in this database is skipped, not an error.
+  FOREACH v_tbl IN ARRAY follow_tables LOOP
+    IF to_regclass('public.' || quote_ident(v_tbl)) IS NOT NULL THEN
+      EXECUTE format(
+        'UPDATE public.%I SET cohort_id = $1 WHERE student_id::text = ANY($2) AND cohort_id = $3', v_tbl)
+        USING c_winter, v_ids::text[], c_fall;
+    END IF;
+  END LOOP;
 
   INSERT INTO program_events (student_id, cohort_id, event_type, event_date, notes, created_by)
   SELECT s.id, c_winter, 'rotation_updated', CURRENT_DATE,

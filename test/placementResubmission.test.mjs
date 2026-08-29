@@ -297,6 +297,10 @@ test('the repair script is exact-row, locked, fails closed, and is reversible', 
   assert.match(sql, /unavailable_weekdays = DEFAULT/)
   // Postconditions run before COMMIT, and a rollback is documented.
   assert.match(sql, /POSTCONDITION: expected 5 students moved to Winter 2027/)
+  // Student-keyed tables are classified, and anything unclassified still aborts.
+  assert.match(sql, /follow_tables text\[\] := ARRAY\['program_events', 'communications'\]/)
+  assert.match(sql, /inert_tables  text\[\] := ARRAY\['notification_log', 'student_reads'\]/)
+  assert.match(sql, /no longer inert\. Reclassify it/)
   assert.match(sql, /POSTCONDITION: a staying student was moved/)
   assert.ok(sql.lastIndexOf('POSTCONDITION') < sql.indexOf('COMMIT;'), 'postconditions precede COMMIT')
   assert.match(sql, /── Rollback ─/)
@@ -324,6 +328,8 @@ test('the Anaheim move repoints the row rather than copying it, and is reversibl
   // Postconditions run before COMMIT, including "nothing left behind".
   assert.match(sql, /POSTCONDITION: % Anaheim student\(s\) remain in Fall 2026/)
   assert.match(sql, /POSTCONDITION: the Anaheim blackout dates were lost/)
+  assert.match(sql, /follow_tables text\[\] := ARRAY\['program_events', 'communications'\]/)
+  assert.match(sql, /inert_tables  text\[\] := ARRAY\['notification_log', 'student_reads'\]/)
   assert.ok(sql.lastIndexOf('POSTCONDITION') < sql.indexOf('COMMIT;'), 'postconditions precede COMMIT')
   assert.match(sql, /── Rollback ─/)
   // Data-only, and a separate transaction from the North Hollywood repair so an
