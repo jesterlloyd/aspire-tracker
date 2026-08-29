@@ -38,10 +38,10 @@
 --     preceptor_id, hours, CS-Link, badge, and notes are all left alone.
 --   * Step 3 aborts if any moving student has a row in a public base table with
 --     a student_id column that is not explicitly classified (see follow_tables
---     and inert_tables). The 2026-08-29 preflight found exactly four:
---     program_events and communications carry cohort_id and are repointed;
---     notification_log and student_reads have no cohort dimension and are left
---     alone. If it fires on anything else, STOP and read what it names: an
+--     and the derived no-cohort_id rule). The 2026-08-29 preflight found four:
+--     program_events, communications, and notification_log carry cohort_id and
+--     are repointed; student_reads has no cohort column and is skipped
+--     structurally. If it fires on anything else, STOP and read what it names: an
 --     interview or unit assignment may need to follow the student, and that is
 --     a decision, not something to work around.
 -- ############################################################################
@@ -58,18 +58,27 @@ DECLARE
   d_start  date := DATE '2026-10-26';
   d_end    date := DATE '2027-01-10';
 
-  -- PLACEMENT-RESUBMIT-1 / incident repair: student-keyed tables are CLASSIFIED,
-  -- not blanket-blocked. Anything not named here still blocks, so a table added
-  -- later fails closed rather than being silently skipped.
-  --   follow_tables  carry cohort_id AND are per-student timeline or outreach
-  --                  records that belong with the student. Their cohort_id is
-  --                  repointed in step 4.
-  --   inert_tables   have no cohort dimension at all, so they already follow the
-  --                  student through student_id and need no write. Each is
-  --                  ASSERTED to have no cohort_id column, so if that ever
-  --                  changes this script stops instead of quietly under-writing.
-  follow_tables text[] := ARRAY['program_events', 'communications'];
-  inert_tables  text[] := ARRAY['notification_log', 'student_reads'];
+  -- PLACEMENT-RESUBMIT-1 / incident repair: this script's job is to keep COHORT
+  -- references consistent, so student-keyed tables are handled by that rule:
+  --   follow_tables       carry cohort_id AND are per-student timeline, outreach,
+  --                       or delivery records that belong with the student. Their
+  --                       cohort_id is repointed in step 4.
+  --   no cohort_id column a table with no cohort reference cannot BECOME
+  --                       inconsistent, so it is skipped. This is derived from
+  --                       the live schema, never from a hand-kept list, so it
+  --                       cannot be wrong about which tables those are.
+  --   anything else       has a cohort_id and is NOT classified -> abort.
+  --                       Whether such a record should follow a student across
+  --                       cohorts is a judgement (a certificate issued for Fall
+  --                       2026 must keep saying Fall 2026), so it wants a human.
+  --
+  -- notification_log is a follow table, not an inert one: the attention engine
+  -- decides whether an interview reminder was delivered by filtering it on
+  -- cohort_id (src/App.jsx fetchReminderDeliveries), so a row left behind would
+  -- read as a genuine missed send. The cohort-level access-retirement ledger in
+  -- the same table is untouched, because those rows have a NULL student_id and
+  -- every write below is scoped to the moving students.
+  follow_tables text[] := ARRAY['program_events', 'communications', 'notification_log'];
   v_tbl         text;
 
   v_winter_name text;
@@ -149,14 +158,10 @@ BEGIN
      ORDER BY c.table_name
   LOOP
     IF t.table_name = ANY(follow_tables) THEN CONTINUE; END IF;
-    IF t.table_name = ANY(inert_tables) THEN
-      IF EXISTS (SELECT 1 FROM information_schema.columns
-                  WHERE table_schema = 'public' AND table_name = t.table_name
-                    AND column_name = 'cohort_id') THEN
-        RAISE EXCEPTION
-          'public.% now has a cohort_id column, so it is no longer inert. Reclassify it before running this.',
-          t.table_name;
-      END IF;
+    -- No cohort_id column means no cohort reference to leave stale.
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = t.table_name
+                      AND column_name = 'cohort_id') THEN
       CONTINUE;
     END IF;
     EXECUTE format(
@@ -164,7 +169,7 @@ BEGIN
       INTO v_n USING v_ids::text[];
     IF v_n > 0 THEN
       RAISE EXCEPTION
-        'Anaheim students have % row(s) in public.%. Stop and decide whether those should follow them to Winter 2027.',
+        'Anaheim students have % cohort-scoped row(s) in public.%, which is not classified. Stop and decide whether its cohort_id should follow them to Winter 2027.',
         v_n, t.table_name;
     END IF;
   END LOOP;
