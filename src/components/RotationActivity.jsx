@@ -1,15 +1,34 @@
-// ROTATION-ACTIVITY-OVERSIGHT - Rotation > Activity is a two-section oversight board:
-//   1. On Campus Now      - live presence (the EXISTING read-only OpenShiftReview, unchanged).
-//   2. Active Rotation     - every student with status 'Active Rotation', incl. those not on
-//      Progress              campus today, with rotation progress + follow-up indicators.
-// Read-only. Owner/Admin-only (canEdit). No writes/email/cron/RPC. Progress math mirrors the
-// Student Profile (approved_hours / hours_required); no-recent-log mirrors Action Center act15.
+// ROTATION-ACTIVITY-OVERSIGHT - Rotation > Activity is a three-section oversight board:
+//   1. On Campus Now      - live presence, as the shared StaffOnCampusStrip cards. Clicking a
+//                           card opens that student's profile drawer.
+//   2. Rotation activity  - a month calendar of shifts students have ACTUALLY LOGGED, with a
+//                           unit filter. Selecting a day lists it; selecting a shift there
+//                           opens its details, where a staff reader reviews it.
+//   3. Rotation Progress  - every student who is Placed or in Active Rotation, with hours
+//                           progress, follow-up indicators, and View Hours.
+//
+// Read-only. Owner/Admin-only (canEdit). No writes/email/cron/RPC of its own; the only writes
+// reachable from here are the review decisions inside ClinicalHoursPanel. Progress math mirrors
+// the Student Profile (approved_hours / hours_required); no-recent-log mirrors Action Center act15.
+//
+// ROTATION-ACTIVITY-CALENDAR-1 changed all three sections:
+//   - On Campus Now was the OpenShiftReview detector (overdue / emailable / no-email
+//     classification). That component is now UNMOUNTED at the Owner's direction, not deleted:
+//     it is the standing spec for a future CLOCKOUT-NUDGE-1 cron, and src/components/
+//     OpenShiftReview.jsx is where that spec lives. Nothing else in the app renders it.
+//   - The calendar is new.
+//   - The progress list widened from Active Rotation only to Placed AND Active Rotation, so a
+//     student who was placed but has never logged a shift is visible rather than absent, and
+//     became a table (RotationStudentTable) instead of stacked cards.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import OpenShiftReview from './OpenShiftReview'
+import StaffOnCampusStrip from './oncampus/StaffOnCampusStrip'
+import RotationActivityCalendar from './rotation/RotationActivityCalendar'
+import RotationStudentTable from './rotation/RotationStudentTable'
+import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { unreadCountByStudent, unreadSupportShifts } from '../lib/support/supportRequests'
@@ -36,6 +55,15 @@ function resolveRotationRange(student, rotationRow) {
 
 const F = 'DM Sans, sans-serif'
 const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000
+
+// Who appears in the Rotation Progress list. 'Placed' is included so a student who has been
+// placed but has never logged a shift is VISIBLE with zero hours, rather than absent from the
+// one board meant to show rotation progress. Order matters only for readability; sorting is
+// the SortControl's job.
+const PROGRESS_STATUSES = ['Placed', 'Active Rotation']
+
+// Sentinel for "no unit filter". A real unit is identified by NAME here; see calendarUnit.
+const UNIT_ALL = '__all__'
 
 function SectionHeader({ title, subtitle }) {
   return (
@@ -86,21 +114,6 @@ function EmptyCard({ children }) {
   )
 }
 
-function Badge({ label, tone }) {
-  const tones = {
-    sage:  { bg: '#eef6ee', color: '#2F7D5C', border: '#cfe6d6' },
-    amber: { bg: '#fdf6ec', color: '#92400e', border: '#f0c9b0' },
-    rose:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
-    green: { bg: '#ecfdf3', color: '#166534', border: '#bbf7d0' },
-  }[tone] || { bg: '#f3f4f6', color: '#4b5563', border: '#e5e7eb' }
-  return (
-    <span style={{
-      fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap',
-      background: tones.bg, color: tones.color, border: `1px solid ${tones.border}`, fontFamily: F,
-    }}>{label}</span>
-  )
-}
-
 // Expanded clinical-hours detail for one student. Fetches the SAME per-student shift-log
 // query as the Student Profile (shared React Query cache key) and renders the shared
 // ClinicalHoursPanel - same totals, table, and Shift Details modal.
@@ -128,110 +141,6 @@ function ActiveRotationHours({ student, autoOpenShiftLogId, onAutoOpenConsumed, 
   )
 }
 
-function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted, autoOpenShiftLogId, onAutoOpenConsumed, onSupportOpen, onReviewDecided }) {
-  const { s, req, apv, pct, lastLog, daysSince, noRecentLog, missingPreceptor, onCampus,
-          precName, unitName, complete, nearComplete, shift, school, range, supportNeeded,
-          pendingReview } = card
-  const name = getStudentPreferredFullName(s)
-  const barColor = pct >= 80 ? '#166534' : '#1D2567'
-  const lastLogText = lastLog
-    ? `Last log ${new Date(lastLog).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` +
-      (daysSince != null ? ` · ${daysSince === 0 ? 'today' : `${daysSince}d ago`}` : '')
-    : 'No shifts logged yet'
-
-  const metaLine = [school, unitName, shift].filter(Boolean).join(' · ') || '-'
-
-  return (
-    <div ref={innerRef} style={{
-      padding: '13px 16px', marginBottom: 8,
-      background: highlighted ? '#f7f9ff' : '#fff',
-      border: `1px solid ${highlighted ? '#1D2567' : '#e8e4dc'}`,
-      boxShadow: highlighted ? '0 0 0 2px rgba(29,37,103,0.25)' : 'none',
-      borderRadius: 12, fontFamily: F,
-      // Clear the sticky top nav + Rotation tab header if scrollIntoView nudges the window.
-      scrollMarginTop: 88,
-      transition: 'box-shadow 0.4s ease, border-color 0.4s ease, background 0.4s ease',
-    }}>
-     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
-      {/* Identity + meta */}
-      <div style={{ flex: '1 1 240px', minWidth: 200 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1D2567' }}>{name}</span>
-          {onCampus && <Badge label="On campus now" tone="sage" />}
-          {missingPreceptor && <Badge label="No preceptor" tone="rose" />}
-          {noRecentLog && <Badge label="No recent log" tone="amber" />}
-          {/* SHIFT-LOG-REVIEW-1: stranded hours are invisible until someone looks -
-              this badge is the per-student queue entry. Expanding the card shows
-              the Review action on each Pending Review row. */}
-          {pendingReview > 0 && <Badge label={`Needs review · ${pendingReview}`} tone="amber" />}
-          {complete ? <Badge label="Complete" tone="green" />
-            : nearComplete ? <Badge label="Near complete" tone="amber" /> : null}
-          {/* SUPPORT-NEEDED-VISIBILITY-1: clickable badge when this student has ≥1 shift log with a
-              non-empty support-needed note. Clicking opens View Hours (details) so the ASPIRE team can
-              read the request without hunting through every shift. Support amber matches the
-              "Support requested" callout in the shift-details modal. */}
-          {supportNeeded > 0 && (
-            <button
-              type="button"
-              onClick={() => onSupportOpen ? onSupportOpen(s.id) : (!expanded && onToggle())}
-              title="Open the flagged shift's support request"
-              aria-label={`Support needed${supportNeeded > 1 ? ` (${supportNeeded} entries)` : ''}. Open the flagged shift.`}
-              style={{
-                fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap',
-                background: '#FBF5E8', color: '#8B5E1A', border: '1px solid #f0c9b0', fontFamily: F,
-                cursor: 'pointer',
-              }}
-            >
-              {supportNeeded > 1 ? `Support needed · ${supportNeeded}` : 'Support needed'}
-            </button>
-          )}
-        </div>
-        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>{metaLine}</div>
-        <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
-          Preceptor: {precName || '-'}{range ? ` · ${range}` : ''}
-        </div>
-      </div>
-
-      {/* Progress */}
-      <div style={{ flex: '1 1 200px', minWidth: 180, maxWidth: 280 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#374151', marginBottom: 4 }}>
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{apv} / {req || '-'} hrs</span>
-          <span style={{ fontWeight: 700, color: barColor }}>{Math.round(pct)}%</span>
-        </div>
-        <div style={{ height: 8, borderRadius: 12, background: '#f3f4f6', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, borderRadius: 12, background: barColor, transition: 'width 400ms ease' }} />
-        </div>
-        <div style={{ fontSize: 11, color: noRecentLog ? '#92400e' : '#9ca3af', marginTop: 4 }}>{lastLogText}</div>
-      </div>
-
-      {/* Actions: View Hours (primary, inline expand) + secondary Profile link */}
-      <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-        <button
-          onClick={onToggle}
-          aria-expanded={expanded}
-          style={{
-            fontSize: 12, fontWeight: 600, color: '#1D2567', background: 'rgba(29,37,103,0.07)',
-            border: '1px solid rgba(29,37,103,0.15)', borderRadius: 8, padding: '7px 12px',
-            cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap',
-          }}>
-          {expanded ? 'Hide Hours ▴' : 'View Hours ▾'}
-        </button>
-        {onOpen && (
-          <button
-            onClick={() => onOpen(s.id)}
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: F, fontSize: 11, fontWeight: 600, color: '#9ca3af' }}>
-            Profile →
-          </button>
-        )}
-      </div>
-     </div>
-
-      {/* Expanded clinical-hours detail (shared ClinicalHoursPanel) */}
-      {expanded && <ActiveRotationHours student={s} autoOpenShiftLogId={autoOpenShiftLogId} onAutoOpenConsumed={onAutoOpenConsumed} onReviewDecided={onReviewDecided} />}
-    </div>
-  )
-}
-
 export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent, onReviewDecided, focusStudentId, onFocusConsumed, focusShiftLogId = null, onFocusShiftConsumed }) {
   const { canEdit, userProfile } = useAuth()
   const profileId = userProfile?.id
@@ -243,24 +152,33 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // ASPIRE-CHART: the in-page Support badge now opens the EXACT flagged shift
   // (same one-click behavior the Action Center path already had) instead of
   // only expanding the card and leaving the reader to hunt the table.
-  const [localSupportOpen, setLocalSupportOpen] = useState(null) // { studentId, shiftLogId }
+  // ROTATION-ACTIVITY-CALENDAR-1: renamed from localSupportOpen. It is no longer only the
+  // support path: selecting a shift in the calendar's day panel targets that exact shift the
+  // same way, so one piece of state now serves both entry points.
+  const [localShiftOpen, setLocalShiftOpen] = useState(null) // { studentId, shiftLogId }
   const [sortMode, setSortMode] = useState(DEFAULT_ROTATION_SORT)
   // SHIFT-LOG-REVIEW-1: the Pending Review queue filter.
   const [pendingOnly, setPendingOnly] = useState(false)
+  // The calendar's unit filter. UNIT_ALL means every unit in the cohort; otherwise a unit
+  // NAME, because a shift log records unit_name as text and may name a unit the student is
+  // not formally assigned to (a float shift). Filtering on the id would silently drop those.
+  const [calendarUnit, setCalendarUnit] = useState(UNIT_ALL)
   const [highlightId, setHighlightId] = useState(null)
-  const cardRefs = useRef({})   // { [studentId]: card element } - for scroll-into-view
+  const cardRefs = useRef({})   // { [studentId]: row element } - for scroll-into-view
   const focusTimers = useRef([]) // pending scroll/highlight cancelers - cleared on new focus / unmount
 
-  // Expand + scroll + highlight the matching Active Rotation Progress card. Shared by the
-  // Aggregate handoff (focusStudentId prop) AND the in-page On Campus Now row click. No-op if
-  // the student is not in active rotation. The scroll is deferred past the route/subtab
-  // (display:none→block) AND the expanded-card layout pass - a short timeout + double rAF - so
-  // it lands on the card's final position. Pending handles are tracked in a ref so a NEW focus
-  // cancels the previous, and the unmount effect clears any pending.
+  // Expand + scroll + highlight the matching Rotation Progress row. Shared by the Aggregate
+  // handoff (focusStudentId prop), the in-page On Campus Now card click, and the calendar's
+  // day panel. No-op if the student is not in the list below. The scroll is deferred past the
+  // route/subtab (display:none→block) AND the expanded-row layout pass - a short timeout +
+  // double rAF - so it lands on the row's final position. Pending handles are tracked in a ref
+  // so a NEW focus cancels the previous, and the unmount effect clears any pending.
   const focusOnStudent = useCallback((id) => {
     if (!id) return
-    const inActive = students.some(s => s.id === id && s.status === 'Active Rotation')
-    if (!inActive) return // safe no-op fallback
+    // Widened with the list itself: it used to require 'Active Rotation', which silently
+    // no-opped for a Placed student even though the handoff had a real target.
+    const listed = students.some(s => s.id === id && PROGRESS_STATUSES.includes(s.status))
+    if (!listed) return // safe no-op fallback
     focusTimers.current.forEach(fn => fn()); focusTimers.current = []
     setExpandedId(id)
     const t = setTimeout(() => {
@@ -308,7 +226,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // Per-student last-log summary for the Active Rotation Progress section. Computed in the
   // async query (not during render) so the board stays free of impure render-time Date calls.
   // "No recent log" = no submitted shift in the last 7 days (mirrors Action Center act15).
-  const { data: logSummary = { summary: {}, supportLogs: [], pendingByStudent: {} } } = useQuery({
+  const { data: logSummary = { summary: {}, supportLogs: [], pendingByStudent: {}, shiftRows: [] } } = useQuery({
     queryKey: ['rotation_log_summary', cohortId],
     queryFn: async () => {
       // SUPPORT-REQUEST-ACTION-CENTER-2: also read support_needed WITH the shift id (same table/rows,
@@ -317,19 +235,31 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       // SHIFT-LOG-REVIEW-1: status + lifecycle_state added to the SAME read (no
       // new query, no RLS change) so the queue can count stranded Pending
       // Review shifts per student across the whole cohort.
+      // ROTATION-ACTIVITY-CALENDAR-1: the calendar's columns join this SAME read rather than
+      // adding a second query. This one already returns every shift row in the cohort, which is
+      // also exactly what the ordinal needs: a student's shift number is counted from their FULL
+      // history, so computing it from a windowed subset would renumber shifts as months change.
       const { data, error } = await supabase
         .from('student_shift_logs')
-        .select('id, student_id, submitted_at, support_needed, status, lifecycle_state')
+        .select([
+          'id', 'student_id', 'submitted_at', 'support_needed', 'status', 'lifecycle_state',
+          'shift_date', 'checked_in_at', 'unit_name', 'preceptor_name',
+          'planned_unit_name', 'planned_preceptor_name',
+        ].join(', '))
         .eq('cohort_id', cohortId)
       if (error) throw error
       const now = Date.now()
       const latest = {}
       const supportLogs = []
       const pendingByStudent = {}
+      const shiftRows = []
       for (const l of (data || [])) {
         // STUDENT-SHIFT-LOG-MANAGEMENT-1: a withdrawn entry drives nothing -
-        // no support alert, and it can never be someone's latest shift.
+        // no support alert, it can never be someone's latest shift, and it must not
+        // appear on the calendar as a shift that happened.
         if (!shiftDrivesState(l)) continue
+        // A row with no shift_date cannot be placed on a day, so it is not calendar data.
+        if (l.shift_date) shiftRows.push(l)
         // A support entry exists when the textbox is non-empty after trimming (null/blank = none).
         if ((l.support_needed || '').trim()) supportLogs.push({ id: l.id, student_id: l.student_id, support_needed: l.support_needed })
         // Only COMPLETED pending-review shifts hold stranded hours (open shifts
@@ -350,7 +280,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
           noRecentLog: (now - v.t) > SEVEN_DAYS_MS,
         }
       }
-      return { summary, supportLogs, pendingByStudent }
+      return { summary, supportLogs, pendingByStudent, shiftRows }
     },
     enabled: !!cohortId && canEdit,
     refetchInterval: onActivityRoute ? 60 * 1000 : false,
@@ -380,24 +310,89 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
     [logSummary, profileId, supportReceipts]
   )
 
+  // ── Calendar rows ───────────────────────────────────────────────────────────
+  // Built from the cohort-wide shift rows the summary query already fetched. The shape
+  // matches what the Unit Leader calendar consumes, so both render through identical logic:
+  //   { id, shift_date, student_name, preceptor_name, unit_key, state, ordinal, checked_in_at }
+  //
+  // An in-progress shift has not recorded its final unit or preceptor yet, so it reads the
+  // PLANNED values; a completed one reads the actual. This mirrors api/portal/unit-shift-
+  // activity.js exactly, so a shift does not appear to change unit when it closes.
+  const calendarShifts = useMemo(() => {
+    const rows = logSummary.shiftRows || []
+    // Ordinals come from the shared rule (src/lib/shiftOrdinals.js) over the student's FULL
+    // history, which is what these rows are: every shift in the cohort, unwindowed.
+    const ordinalById = buildStudentShiftOrdinals(rows)
+    const nameById = new Map(students.map(s => [s.id, getStudentPreferredFullName(s)]))
+    return rows.map(l => {
+      const inProgress = l.lifecycle_state === 'in_progress'
+      return {
+        id: l.id,
+        student_id: l.student_id,
+        shift_date: l.shift_date,
+        student_name: nameById.get(l.student_id) || null,
+        preceptor_name: (inProgress ? l.planned_preceptor_name : l.preceptor_name) || null,
+        unit_key: (inProgress ? l.planned_unit_name : l.unit_name) || null,
+        state: inProgress ? 'in_progress' : 'completed',
+        ordinal: ordinalById.get(l.id) ?? null,
+        checked_in_at: l.checked_in_at || null,
+      }
+    })
+  }, [logSummary, students])
+
+  // Every unit that actually appears in this cohort's logged shifts, plus any unit a listed
+  // student is assigned to. Derived from the DATA rather than from the full units table, so
+  // the filter never offers a unit with nothing behind it. A float shift to an unassigned
+  // unit still shows up, because unit_key comes from the shift row itself.
+  const calendarUnitOptions = useMemo(() => {
+    const names = new Set()
+    for (const s of calendarShifts) if (s.unit_key) names.add(s.unit_key)
+    return [...names].sort((a, b) => a.localeCompare(b))
+  }, [calendarShifts])
+
+  const visibleCalendarShifts = useMemo(
+    () => (calendarUnit === UNIT_ALL
+      ? calendarShifts
+      : calendarShifts.filter(s => s.unit_key === calendarUnit)),
+    [calendarShifts, calendarUnit]
+  )
+
   if (!canEdit) return null // Owner/Admin-only, carried over from CLOCKOUT-DETECT-1.
 
-  // Expand the student's card and target their first unread support shift
-  // (falls back to the first support shift when all are read). The receipt is
-  // still written only by the Details modal after the text renders.
+  // Expand the student's row and target one exact shift, so its Details modal opens instead
+  // of leaving the reader to find it in the table. Shared by the Support badge and by the
+  // calendar's day panel.
+  const openShiftForStudent = (studentId, shiftLogId) => {
+    setExpandedId(studentId)
+    setLocalShiftOpen({ studentId, shiftLogId })
+  }
+
+  // The Support badge's target: the first UNREAD support shift, falling back to the first
+  // when all are read. The receipt is still written only by the Details modal after the
+  // text renders.
   const openSupportShift = (studentId) => {
     const mine = (logSummary.supportLogs || []).filter(l => l.student_id === studentId)
     const unread = unreadSupportShifts(mine, profileId, supportReceipts)
     const target = unread[0] || mine[0]
     if (!target) return
-    setExpandedId(studentId)
-    setLocalSupportOpen({ studentId, shiftLogId: target.id })
+    openShiftForStudent(studentId, target.id)
+  }
+
+  // Selecting a shift in the calendar's day panel. The student must be in the list below for
+  // the expansion to have somewhere to happen; when they are not (a Completed student's older
+  // shift), fall back to their profile rather than doing nothing silently.
+  const openCalendarShift = (shift) => {
+    if (!shift?.student_id) return
+    const listed = students.some(s => s.id === shift.student_id && PROGRESS_STATUSES.includes(s.status))
+    if (!listed) { onNavigateToStudent?.(shift.student_id); return }
+    openShiftForStudent(shift.student_id, shift.id)
+    focusOnStudent(shift.student_id)
   }
 
   const onCampusIds = new Set(openLogs.map(l => l.student_id))
 
   const cards = students
-    .filter(s => s.status === 'Active Rotation')
+    .filter(s => PROGRESS_STATUSES.includes(s.status))
     .map(s => {
       // HOURS-COMPLETE-1: the badge's own arithmetic, now named and shared so
       // the Action Center's weekly-logging monitor consumes the SAME
@@ -436,9 +431,10 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
 
   // SHIFT-LOG-REVIEW-1: the Pending Review queue. The filter narrows the
   // progress list to students with stranded shifts; the ledger of students who
-  // hold pending shifts but are NOT in the Active Rotation list (Placed,
-  // Completed, …) is named explicitly - a queue that silently drops them
-  // would recreate the original stranding.
+  // hold pending shifts but are NOT in the list (Completed, Not Proceeding, …)
+  // is named explicitly - a queue that silently drops them would recreate the
+  // original stranding. Widening the list to include Placed shrank this ledger
+  // rather than removing the need for it.
   const pendingByStudent = logSummary.pendingByStudent || {}
   const totalPendingShifts = Object.values(pendingByStudent).reduce((a, b) => a + b, 0)
   const visiblePendingIds = new Set(cards.filter(c => c.pendingReview > 0).map(c => c.s.id))
@@ -450,19 +446,54 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
 
   return (
     <div style={{ padding: '4px 20px 24px', fontFamily: F }}>
-      {/* ── Section 1: On Campus Now (existing review, unchanged) ── */}
+      {/* ── Section 1: On Campus Now ──────────────────────────────────────────
+          The SAME StaffOnCampusStrip the At a Glance dashboard renders, so the two
+          staff surfaces cannot disagree on badge, duration, or the hedged overdue
+          wording. Clicking a card opens that student's profile drawer, which is what
+          the Unit Leader portal's equivalent card does. */}
       <SectionHeader title="On Campus Now" subtitle="Students checked in or active on campus right now." />
-      {openLogs.length === 0 ? (
-        <EmptyCard>No open shifts right now.</EmptyCard>
-      ) : (
-        <OpenShiftReview openLogs={openLogs} students={students} units={units} defaultOpen onSelectStudent={focusOnStudent} />
-      )}
+      <StaffOnCampusStrip
+        logs={openLogs}
+        students={students}
+        units={units}
+        onSelectStudent={onNavigateToStudent}
+        emptyText="No students are on shift right now."
+        flush
+      />
 
-      {/* ── Section 2: Active Rotation Progress (new) ── */}
+      {/* ── Section 2: Rotation activity calendar ─────────────────────────────
+          A record of shifts already logged, never a forward schedule. The unit filter
+          sits where the portal leaves an empty toolbar slot. */}
+      <SectionHeader
+        title="Rotation activity"
+        subtitle="Shifts students have logged, by day. Select a day to list it, then a shift to open its details."
+      />
+      <RotationActivityCalendar
+        shifts={visibleCalendarShifts}
+        onSelectShift={openCalendarShift}
+        toolbarRight={calendarUnitOptions.length > 1 ? (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', fontFamily: F, whiteSpace: 'nowrap' }}>
+            Unit
+            <select
+              aria-label="Filter rotation activity by unit"
+              value={calendarUnit}
+              onChange={e => setCalendarUnit(e.currentTarget.value)}
+              style={{
+                fontFamily: F, fontSize: 13, padding: '6px 9px', borderRadius: 8,
+                border: '1px solid #e0ddd3', background: '#fff', color: '#191919', cursor: 'pointer',
+              }}>
+              <option value={UNIT_ALL}>All units</option>
+              {calendarUnitOptions.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+        ) : null}
+      />
+
+      {/* ── Section 3: Rotation Progress ── */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <SectionHeader
-          title="Active Rotation Progress"
-          subtitle="All students currently in active rotation, including those not on campus today."
+          title="Rotation Progress"
+          subtitle="Students placed or in active rotation, including those not on campus today."
         />
         {cards.length > 0 && (
           <div style={{ margin: '0 2px 8px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -485,8 +516,8 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         )}
       </div>
 
-      {/* Students holding pending shifts who are NOT in the list below (not in
-          Active Rotation). Named so no stranded shift hides behind the filter. */}
+      {/* Students holding pending shifts who are NOT in the list below (neither
+          Placed nor Active Rotation). Named so no stranded shift hides behind the filter. */}
       {offListPending.length > 0 && (
         <div data-testid="pending-offlist" style={{
           margin: '0 0 8px', padding: '9px 12px', borderRadius: 10, fontFamily: F,
@@ -508,27 +539,34 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         </div>
       )}
       {shownCards.length === 0 ? (
-        <EmptyCard>{pendingOnly ? 'No active-rotation students have shifts pending review.' : 'No students are in active rotation right now.'}</EmptyCard>
+        <EmptyCard>
+          {pendingOnly
+            ? 'No students in this list have shifts pending review.'
+            : 'No students are placed or in active rotation right now.'}
+        </EmptyCard>
       ) : (
-        shownCards.map(card => (
-          <ProgressRowCard
-            key={card.s.id}
-            card={card}
-            innerRef={el => { if (el) cardRefs.current[card.s.id] = el; else delete cardRefs.current[card.s.id] }}
-            highlighted={highlightId === card.s.id}
-            expanded={expandedId === card.s.id}
-            onToggle={() => setExpandedId(prev => (prev === card.s.id ? null : card.s.id))}
-            onOpen={onNavigateToStudent}
-            /* SUPPORT-REQUEST-ACTION-CENTER-2: only the focused, expanded card receives the exact
-               shift id so its ClinicalHoursPanel auto-opens that shift's Details modal. */
-            autoOpenShiftLogId={expandedId === card.s.id
-              ? (focusShiftLogId || (localSupportOpen?.studentId === card.s.id ? localSupportOpen.shiftLogId : null))
-              : null}
-            onAutoOpenConsumed={() => { onFocusShiftConsumed?.(); setLocalSupportOpen(null) }}
-            onSupportOpen={openSupportShift}
-            onReviewDecided={onReviewDecided}
-          />
-        ))
+        <RotationStudentTable
+          cards={shownCards}
+          expandedId={expandedId}
+          highlightId={highlightId}
+          onToggle={id => setExpandedId(prev => (prev === id ? null : id))}
+          onOpenProfile={onNavigateToStudent}
+          onSupportOpen={openSupportShift}
+          rowRef={(id, el) => { if (el) cardRefs.current[id] = el; else delete cardRefs.current[id] }}
+          renderHours={card => (
+            <ActiveRotationHours
+              student={card.s}
+              /* SUPPORT-REQUEST-ACTION-CENTER-2: only the expanded row receives the exact shift
+                 id, so its ClinicalHoursPanel auto-opens that shift's Details modal. Three
+                 entry points feed it: the Action Center deep link (focusShiftLogId), the
+                 Support badge, and the calendar's day panel. */
+              autoOpenShiftLogId={focusShiftLogId
+                || (localShiftOpen?.studentId === card.s.id ? localShiftOpen.shiftLogId : null)}
+              onAutoOpenConsumed={() => { onFocusShiftConsumed?.(); setLocalShiftOpen(null) }}
+              onReviewDecided={onReviewDecided}
+            />
+          )}
+        />
       )}
     </div>
   )

@@ -16,7 +16,7 @@ const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/g
 const foundation = read('src/components/shared/CanonicalCalendarFoundation.jsx')
 const staffCalendar = read('src/components/InterviewCalendar.jsx')
 const unitCalendar = read('src/portal/unit/UnitRotationCalendar.jsx')
-const dates = read('src/portal/unit/rotationCalendarDates.js')
+const dates = read('src/lib/rotationCalendarDates.js')
 const unitCode = stripJs(unitCalendar)
 const staffCode = stripJs(staffCalendar)
 

@@ -83,9 +83,17 @@ test('OverviewTab campus strip renders headshots only through signed access', ()
   // retired; the live strip's only headshot path is the shared StudentAvatar,
   // which resolves through useStudentFileUrl (asserted above). No raw
   // headshot_url may bind into an <img> in this file.
-  assert.match(overview, /<StudentAvatar student=\{stu\} size=\{38\} \/>/)
-  assert.doesNotMatch(overview, /<img[^>]*headshot_url/)
-  assert.doesNotMatch(overview, /<img src=\{student\.headshot_url\}/)
+  // ROTATION-ACTIVITY-CALENDAR-1: the strip's rows moved to the shared
+  // StaffOnCampusStrip. The avatar is still the shared StudentAvatar, which is the
+  // whole point of this assertion, so it is checked where the markup now lives. The
+  // no-raw-<img> guards stay on OverviewTab AND extend to the new file, because a raw
+  // headshot_url binding would be a leak in either.
+  const strip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
+  assert.match(strip, /<StudentAvatar student=\{stu\} size=\{38\} \/>/)
+  for (const src of [overview, strip]) {
+    assert.doesNotMatch(src, /<img[^>]*headshot_url/)
+    assert.doesNotMatch(src, /<img src=\{student\.headshot_url\}/)
+  }
 })
 
 test('RubricSession: resume gated by cohort entitlement, opens via the endpoint', () => {

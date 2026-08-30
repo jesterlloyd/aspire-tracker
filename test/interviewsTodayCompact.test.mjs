@@ -177,7 +177,14 @@ test('the header renders unconditionally again; flush only drops the inset', () 
 test('both surfaces present the identical header pattern', () => {
   const ov = read('src/components/OverviewTab.jsx')
   assert.match(ov, /<OnCampusNow title="Interviews Today" sub=\{sub\} rows=\{rows\} \/>/)
-  assert.match(ov, /<OnCampusNow title="On Campus Now" sub=\{sub\} onViewAll=\{onOpenActivity\} rows=\{rows\} \/>/)
+  // ROTATION-ACTIVITY-CALENDAR-1: the campus strip's rows moved into the shared
+  // StaffOnCampusStrip (so Rotation > Activity renders the identical strip), which
+  // renders the same OnCampusNow underneath with the same title and the same
+  // date-plus-count sub. The header pattern is unchanged; only its owner moved.
+  assert.match(ov, /<StaffOnCampusStrip[\s\S]{0,240}onViewAll=\{onOpenActivity\}/)
+  const strip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
+  assert.match(strip, /title = 'On Campus Now'/)
+  assert.match(strip, /<OnCampusNow[\s\S]{0,200}sub=\{resolvedSub\}/)
 })
 
 // ── Each caller owns its own navigation ──────────────────────────────────────

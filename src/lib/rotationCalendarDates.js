@@ -1,10 +1,17 @@
-// src/portal/unit/rotationCalendarDates.js
+// src/lib/rotationCalendarDates.js
 //
 // UL-PHASE1: pure date helpers for the Rotation Activity Calendar.
 //
 // Separate from the component for two reasons: exporting non-components from a
 // component file breaks fast refresh, and these are the only part of the calendar
 // with logic worth testing directly.
+//
+// MOVED here from src/portal/unit/ by ROTATION-ACTIVITY-CALENDAR-1, when the staff
+// Rotation > Activity tab gained a calendar over the same shift rows. Both callers
+// must agree on what day a shift falls on, and the alternative was the staff app
+// importing out of src/portal/, which inverts the layering: the portal is a consumer
+// of shared code, never a source of it. Pure functions only, so nothing about the
+// Unit Leader calendar's behavior changes by moving them.
 //
 // EVERYTHING HERE IS STRING-BASED. student_shift_logs.shift_date is TEXT in
 // YYYY-MM-DD, written in Pacific time at check-in. Comparing those strings is

@@ -69,10 +69,24 @@ test('the staff At a Glance strip delegates to the shared card, keeping its guar
   const ov = read('src/components/OverviewTab.jsx')
   assert.match(ov, /import OnCampusNow from '\.\/oncampus\/OnCampusNow'/)
   assert.match(ov, /return <OnCampusNow /)
-  // The guarded strings still live in OverviewTab (chartToday.test.mjs relies on them).
-  assert.match(ov, /if \(!mergedCampusLogs\.length\) return null/)
-  assert.match(ov, /Clock-out may be overdue/)
-  assert.match(ov, /shiftBadge\(shiftTypeOf\(log\)\)/)
+  // ROTATION-ACTIVITY-CALENDAR-1: the campus strip's row builder moved one level down,
+  // into StaffOnCampusStrip, so Rotation > Activity renders the IDENTICAL strip instead
+  // of a second one that could drift. The guards did not change, so they are asserted
+  // where they now live; chartToday.test.mjs reads the same file for the same reason.
+  const strip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
+  assert.match(ov, /import StaffOnCampusStrip from '\.\/oncampus\/StaffOnCampusStrip'/)
+  assert.match(strip, /return <OnCampusNow|<OnCampusNow$/m)
+  assert.match(strip, /if \(logs\.length === 0 && !emptyText\) return null/)
+  assert.match(strip, /Clock-out may be overdue/)
+  assert.match(strip, /shiftBadge\(shiftTypeOf\(log\)\)/)
+})
+
+// Both staff surfaces must go through that one builder, or the drift it was extracted
+// to prevent comes straight back.
+test('every staff On Campus strip is the shared one', () => {
+  for (const f of ['src/components/OverviewTab.jsx', 'src/components/RotationActivity.jsx']) {
+    assert.match(read(f), /StaffOnCampusStrip/, f)
+  }
 })
 
 // ── the UL endpoint exposes a photo BOOLEAN only, never a path ────────────────

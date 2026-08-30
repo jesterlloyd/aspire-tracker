@@ -23,6 +23,7 @@ const smc = read('src/components/StudentMatchingCard.jsx')
 const embed = read('src/components/EmbedUnitCard.jsx')
 const coverage = read('src/components/StudentCoverage.jsx')
 const activity = read('src/components/RotationActivity.jsx')
+const rotationTable = read('src/components/rotation/RotationStudentTable.jsx')
 const evalTab = read('src/components/EvaluationTab.jsx')
 const cfPanel = read('src/components/evaluation/CaseyFinkPostRotationAutomationPanel.jsx')
 const cfDetect = read('src/lib/evaluation/caseyFinkPostRotationDueDetection.js')
@@ -91,9 +92,12 @@ test('preceptor assignment is reachable from the Preceptors route', () => {
 test('support badge opens the exact flagged shift', () => {
   assert.match(activity, /const openSupportShift = \(studentId\) => \{/)
   assert.match(activity, /unreadSupportShifts\(mine, profileId, supportReceipts\)/)
-  assert.match(activity, /onClick=\{\(\) => onSupportOpen \? onSupportOpen\(s\.id\)/)
+  // ROTATION-ACTIVITY-CALENDAR-1: the progress cards became a table, so the badge that
+  // triggers this now lives in RotationStudentTable. Same click, same fallback of
+  // expanding the row when no handler is supplied.
+  assert.match(rotationTable, /onClick=\{\(\) => onSupportOpen \? onSupportOpen\(s\.id\)/)
   // Receipt discipline unchanged: the modal writes it, never the click.
-  assert.match(activity, /receipt is\s*\n\s*\/\/ still written only by the Details modal after the text renders/)
+  assert.match(activity, /receipt is still written only by the Details modal after the\s*\n\s*\/\/ text renders/)
 })
 
 test('evaluation: blockers visible, verbs unified, export, reflow', async (t) => {

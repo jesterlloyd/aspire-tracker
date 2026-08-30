@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const overview = read('src/components/OverviewTab.jsx')
+const campusStrip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
 const masthead = read('src/components/TodayMasthead.jsx')
 const app = read('src/App.jsx')
 const css = read('src/index.css')
@@ -79,13 +80,21 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
   })
 })
 
+// ROTATION-ACTIVITY-CALENDAR-1: the row builder moved out of OverviewTab into the
+// shared StaffOnCampusStrip so Rotation > Activity renders the identical strip. The
+// properties below did not change, only the file that holds them, so these assertions
+// follow the code rather than being dropped.
 test('the promoted live strip', async (t) => {
   await t.test('renders nothing when no one is on campus', () => {
-    assert.match(overview, /if \(!mergedCampusLogs\.length\) return null/)
+    // At a Glance still passes no emptyText, so an empty strip renders nothing at all
+    // rather than an empty-state card, and the shared component enforces that.
+    assert.match(overview, /<StaffOnCampusStrip[\s\S]{0,240}logs=\{mergedCampusLogs\}/)
+    assert.doesNotMatch(overview, /<StaffOnCampusStrip[\s\S]{0,240}emptyText/)
+    assert.match(campusStrip, /if \(logs\.length === 0 && !emptyText\) return null/)
   })
   await t.test('keeps the hedged overdue wording and honest shift badges', () => {
-    assert.match(overview, /Clock-out may be overdue/)
-    assert.match(overview, /shiftBadge\(shiftTypeOf\(log\)\)/)
+    assert.match(campusStrip, /Clock-out may be overdue/)
+    assert.match(campusStrip, /shiftBadge\(shiftTypeOf\(log\)\)/)
   })
   await t.test('the pulse dot freezes under reduced motion', () => {
     assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.mast-live-dot \{ animation: none; \} \}/)

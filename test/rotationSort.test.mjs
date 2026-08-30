@@ -61,10 +61,13 @@ test('the retired sorts are gone from the component and the module', () => {
   // The raw-hours comparator and the attention ranking are both retired.
   assert.ok(!/\(a\.apv - b\.apv\) \|\| byName/.test(comp), 'raw-hours sort must not survive')
   assert.ok(!/missingPreceptor \|\| a\.noRecentLog/.test(comp), 'attention ranking must not survive')
-  // ...but the badges those flags drive are preserved.
-  assert.match(comp, /label="No preceptor"/)
-  assert.match(comp, /label="No recent log"/)
-  assert.match(comp, /label="Complete"/)
+  // ...but the badges those flags drive are preserved. ROTATION-ACTIVITY-CALENDAR-1
+  // moved them from the progress cards into RotationStudentTable when the cards became
+  // a table; the flags and their labels are unchanged.
+  const table = read('src/components/rotation/RotationStudentTable.jsx')
+  assert.match(table, /label="No preceptor"/)
+  assert.match(table, /label="No recent log"/)
+  assert.match(table, /label="Complete"/)
 })
 
 test('Most complete ranks by percentage, not raw hours', () => {
