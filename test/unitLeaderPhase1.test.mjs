@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
   pacificToday, addDays, monthGrid, monthLabel, groupByDay,
-} from '../src/portal/unit/rotationCalendarDates.js'
+} from '../src/lib/rotationCalendarDates.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -379,7 +379,7 @@ test('no em dash in the phase 1 sources', () => {
   const EM_DASH = String.fromCharCode(0x2014)
   for (const [name, src] of [['endpoint', endpoint], ['calendar', calendar],
     ['day drawer', dayDrawer], ['evaluations', evals], ['chrome', chrome],
-    ['dates', read('src/portal/unit/rotationCalendarDates.js')]]) {
+    ['dates', read('src/lib/rotationCalendarDates.js')]]) {
     assert.ok(!src.includes(EM_DASH), `${name} must not contain an em dash`)
   }
 })

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { monthGrid, monthLabel } from '../src/portal/unit/rotationCalendarDates.js'
+import { monthGrid, monthLabel } from '../src/lib/rotationCalendarDates.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')

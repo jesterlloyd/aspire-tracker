@@ -575,9 +575,14 @@ test('the Pending Review queue: per-student badge, cohort filter, and off-list s
   assert.match(rotation, /l\.status === 'Pending Review' \|\| l\.status === 'needs_review'/,
     'legacy spelling counted too')
   assert.match(rotation, /lifecycle_state === 'completed'/, 'open shifts are not stranded hours')
-  assert.match(rotation, /Needs review · \$\{pendingReview\}/)
+  // ROTATION-ACTIVITY-CALENDAR-1: the per-student badge moved into RotationStudentTable
+  // with the rest of the row; the counting and both filters stay in RotationActivity.
+  assert.match(read('src/components/rotation/RotationStudentTable.jsx'), /Needs review · \$\{pendingReview\}/)
   assert.match(rotation, /data-testid="pending-review-filter"/)
-  assert.match(rotation, /data-testid="pending-offlist"/, 'pending shifts outside Active Rotation stay visible')
+  // The list now includes Placed as well as Active Rotation, which SHRINKS this ledger
+  // rather than removing the need for it: a Completed student holding a stranded shift
+  // still has to be named somewhere.
+  assert.match(rotation, /data-testid="pending-offlist"/, 'pending shifts outside the list stay visible')
 })
 
 // ── Canonical UI state refresh (finding 3) ──────────────────────────────────
@@ -609,8 +614,15 @@ test('the decision result reaches the ACTUAL owners of student state on both sur
   assert.match(read('src/components/StudentProfilesTab.jsx'), /onReviewDecided=\{onReviewDecided\}/)
   assert.match(read('src/components/RotationTab.jsx'), /onReviewDecided=\{props\.onReviewDecided\}/)
   const rot = read('src/components/RotationActivity.jsx')
-  assert.match(rot, /ProgressRowCard\(\{[^}]*onReviewDecided/)
-  assert.match(rot, /<ActiveRotationHours[^/]*onReviewDecided=\{onReviewDecided\}/)
+  // ROTATION-ACTIVITY-CALENDAR-1: ProgressRowCard is gone. The hours panel is now
+  // supplied by RotationActivity through RotationStudentTable's renderHours, so the
+  // chain is one link shorter and the callback is threaded at the render site itself.
+  assert.match(rot, /renderHours=\{card => \(/)
+  // Asserted inside the element itself rather than with a character budget, which a
+  // comment between the props would otherwise silently blow past.
+  const hoursEl = rot.slice(rot.indexOf('<ActiveRotationHours'), rot.indexOf('/>', rot.indexOf('<ActiveRotationHours')))
+  assert.ok(hoursEl.length > 0, '<ActiveRotationHours> not found')
+  assert.match(hoursEl, /onReviewDecided=\{onReviewDecided\}/)
   assert.match(rot, /<ClinicalHoursPanel[^/]*onReviewDecided=\{onReviewDecided\}/)
   // ...and the side panel updates its LOCAL copy too, then forwards:
   const sidePanel = read('src/components/StudentSidePanel.jsx')

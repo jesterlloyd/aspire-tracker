@@ -28,8 +28,8 @@ import { matchSchoolResponse } from '../lib/schoolResponseDisplay'
 import { schoolGroupKey } from '../lib/schoolIdentity'
 import TodayMasthead from './TodayMasthead'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
+import StaffOnCampusStrip from './oncampus/StaffOnCampusStrip'
 import { scopeInterviewsForViewer, sortInterviews, buildInterviewRows } from '../lib/interviewsToday'
-import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
 import { buildSchoolSendPlan, buildStudentSendPlan, resolveSendResults } from '../lib/sendFormFlow'
 import { GraduationCap, MapPin, Copy } from 'lucide-react'
 
@@ -130,39 +130,21 @@ function InterviewsTodayStrip({ cohortId, onOpenInterview }) {
   return <OnCampusNow title="Interviews Today" sub={sub} rows={rows} />
 }
 
+// ROTATION-ACTIVITY-CALENDAR-1: the row builder moved to
+// src/components/oncampus/StaffOnCampusStrip.jsx so Rotation > Activity renders the
+// IDENTICAL strip rather than a second one that could drift on badge, duration, or
+// the hedged overdue wording. Output here is unchanged: same rows, same
+// .mast-live-* classes, same text.
 function OnCampusStrip({ mergedCampusLogs, students, units, onSelectStudent, onOpenActivity }) {
-  if (!mergedCampusLogs.length) return null
-  // Rows are built here from staff-scoped data (+ the staff StudentAvatar) and rendered by the
-  // shared OnCampusNow card, so the At a Glance dashboard and the Unit Leader portal render the
-  // identical card. The output is unchanged: same .mast-live-* classes, same data, same text.
-  const rows = mergedCampusLogs.map(log => {
-    const stu = students.find(s => s.id === log.student_id)
-    if (!stu) return null
-    // ON-CAMPUS-NOW-UX-1: prefer the current shift log / lifecycle row's unit;
-    // fall back to the student's matched/assigned unit when the row has none.
-    const unitName = log.unit_name
-      || units?.find(u => u.id === stu.matched_unit_id)?.unit_name
-      || null
-    const { label: shiftLabel, tone } = shiftBadge(shiftTypeOf(log))
-    const open = isOpenShift(log)
-    const overdue = open && isClockoutMaybeOverdue(log)
-    return {
-      key: log.id,
-      avatar: <StudentAvatar student={stu} size={38} />,
-      name: displayName(stu),
-      subLabel: `${unitName || 'Unit not set'}${stu.matched_preceptor ? ` · with ${stu.matched_preceptor}` : ''}`,
-      badge: { label: shiftLabel, tone },
-      statusText: open
-        ? (overdue ? 'Clock-out may be overdue' : `Open ${formatDuration(openShiftMs(log))}`)
-        : (log.total_hours != null ? `${log.total_hours} hrs logged` : null),
-      statusWarn: overdue,
-      onClick: () => onSelectStudent?.(stu.id),
-      ariaLabel: `Open profile for ${displayName(stu)}`,
-    }
-  }).filter(Boolean)
-  const sub = `${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-    + ` · ${mergedCampusLogs.length} student${mergedCampusLogs.length !== 1 ? 's' : ''}`
-  return <OnCampusNow title="On Campus Now" sub={sub} onViewAll={onOpenActivity} rows={rows} />
+  return (
+    <StaffOnCampusStrip
+      logs={mergedCampusLogs}
+      students={students}
+      units={units}
+      onSelectStudent={onSelectStudent}
+      onViewAll={onOpenActivity}
+    />
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

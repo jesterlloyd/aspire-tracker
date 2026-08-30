@@ -31,7 +31,7 @@ import {
   CanonicalMonthCell,
   CanonicalActivityChip,
 } from '../../components/shared/CanonicalCalendarFoundation'
-import { pacificToday, monthGrid, monthLabel, groupByDay } from './rotationCalendarDates'
+import { pacificToday, monthGrid, monthLabel, groupByDay } from '../../lib/rotationCalendarDates'
 import { firstNameOf } from '../../lib/masthead'
 import { ordinalWord } from '../../lib/ordinalWord'
 
