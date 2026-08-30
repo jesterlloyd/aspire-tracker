@@ -92,7 +92,7 @@ test('the lower-right launcher + unread wiring is shared and AP-gated (no duplic
   // AP messages route + thread deep link reuse the same PortalApp routing pattern (one URL space).
   assert.match(app, /function apThreadIdFromPath\(pathname\)/)
   assert.match(app, /const apMessagesEnabled = isAcademicPartner && apMessagingCapable/)
-  assert.match(app, /enabled: isStudent \|\| isUnitLeader \|\| apMessagesEnabled/)
+  assert.match(app, /enabled: !staffPreview && \(isStudent \|\| isUnitLeader \|\| apMessagesEnabled/)
 })
 
 test('no parallel messaging surface: AP introduces no new message endpoints or tables', () => {

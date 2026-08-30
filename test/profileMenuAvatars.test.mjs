@@ -75,7 +75,7 @@ test('a Change Photo save refreshes the right identity without a reload', () => 
   // Student: bump the headshot cache key; UL/AP: refresh the auth profile
   // (avatar_url), which the portal header reads.
   assert.match(app, /const \[headshotVersion, setHeadshotVersion\] = useState\(0\)/)
-  assert.match(app, /usePortalHeadshotUrl\(\{ enabled: isStudent, refreshKey: headshotVersion \}\)/)
+  assert.match(app, /usePortalHeadshotUrl\(\{ enabled: isStudent && !staffPreview, refreshKey: headshotVersion \}\)/)
   assert.match(app, /if \(isStudent\) setHeadshotVersion\(v => v \+ 1\)/)
   assert.match(app, /else refreshUserProfile\?\.\(\)/)
   assert.doesNotMatch(app, /window\.location\.reload/)

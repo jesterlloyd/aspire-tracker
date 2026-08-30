@@ -59,6 +59,7 @@ test('scoped portals provide Owner/Admin server scope without weakening portal g
   assert.match(unitScope, /const scopes = unitKeys\.map\(unit_key => \(\{ unit_key, cohort_id: null \}\)\)/)
   assert.match(schoolScope, /isOwnerAdminProfile\(auth\.profile\)/)
   assert.match(schoolScope, /from\('schools'\)/)
+  assert.match(schoolScope, /catalogError[\s\S]*from\('students'\)[\s\S]*select\('school'\)/)
   assert.match(nursingScope, /isOwnerAdminProfile\(caller\.profile\)/)
   assert.match(nursingScope, /staffPreview: true/)
   for (const source of [unitScope, schoolScope, nursingScope]) {
@@ -76,9 +77,13 @@ test('Student preview is selected inside the portal and remains read-only', () =
   assert.doesNotMatch(studentPreview, /\.insert\(|\.update\(|\.delete\(|student_edit_shift_log|student_void_shift_log/)
 })
 
-test('portal-only identity actions are suppressed during staff preview', () => {
-  assert.match(portalApp, /messagesEnabled=\{!staffPreview\}/)
-  assert.match(portalApp, /enabled=\{!staffPreview\}/)
+test('portal-only identity actions stay suppressed while staff preview uses staff utilities', () => {
+  assert.match(portalApp, /function StaffPreviewUtilities/)
+  assert.match(portalApp, /<MainMessagesLauncher \/>/)
+  assert.match(portalApp, /<FeedbackPanel activeTab=\{section\}/)
+  assert.match(portalApp, /staffPreview \? '\/connect\/messages' : '\/portal\/messages'/)
+  assert.match(portalApp, /staffPreview && key === 'messages'[\s\S]{0,120}navigate\('\/connect\/messages'\)/)
+  assert.match(portalApp, /messagesEnabled=\{staffPreview \|\| naMessagesEnabled\}/)
   assert.match(portalApp, /portalUserActionsEnabled=\{!staffPreview\}/)
   assert.match(portalApp, /\{!staffPreview && photoDialog\}/)
   assert.match(portalApp, /usePortalHeadshotUrl\(\{ enabled: isStudent && !staffPreview/)

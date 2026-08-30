@@ -120,7 +120,7 @@ test('Fable StudentPortal own headshot uses the portal access endpoint', () => {
   // PROFILE-MENU-AVATARS-1: the hook call gained refreshKey (bumped after a
   // Change Photo save so the header re-signs without a reload); the endpoint
   // and no-raw-path guarantees are unchanged.
-  assert.match(portalApp, /usePortalHeadshotUrl\(\{ enabled: isStudent, refreshKey: headshotVersion \}\)/)
+  assert.match(portalApp, /usePortalHeadshotUrl\(\{ enabled: isStudent && !staffPreview, refreshKey: headshotVersion \}\)/)
   assert.match(portalApp, /profileImageUrl=\{studentHeaderPhotoUrl\}/)
 })
 

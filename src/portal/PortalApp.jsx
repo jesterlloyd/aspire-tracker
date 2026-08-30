@@ -25,6 +25,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import PortalShell from './PortalShell'
 import PortalUtilityLayer from './PortalUtilityLayer'
+import FeedbackPanel from '../components/FeedbackPanel'
+import MainMessagesLauncher from '../components/MainMessagesLauncher'
 import PortalNav from './PortalNav'
 import StudentPortal from './StudentPortal'
 import MyProfile from './MyProfile'
@@ -126,6 +128,18 @@ function staffPreviewRole(pathname) {
   return null
 }
 
+// Owner/Admin preview keeps the portal chrome but uses the staff utilities.
+// Messages therefore opens the real staff inbox, and Feedback keeps the
+// existing staff delivery path. Neither action impersonates a portal user.
+function StaffPreviewUtilities({ portalName, section }) {
+  return (
+    <>
+      <MainMessagesLauncher />
+      <FeedbackPanel activeTab={section} cohortName={`${portalName} preview`} isAuthenticated />
+    </>
+  )
+}
+
 export default function PortalApp() {
   const { userProfile, refreshUserProfile } = useAuth()
   const location = useLocation()
@@ -168,7 +182,7 @@ export default function PortalApp() {
     // Staff preview stays inside its explicit preview route. A real Unit Leader
     // keeps the shared /portal/messages route used by existing deep links.
     if (staffPreview && key === 'messages') {
-      navigate('/portal/unit/messages')
+      navigate('/connect/messages')
       return
     }
     navigate(key === 'messages' ? '/portal/messages' : `/portal/unit/${key}`)
@@ -180,14 +194,22 @@ export default function PortalApp() {
   const apView = apViewFromPath(location.pathname)
   const apThreadId = apThreadIdFromPath(location.pathname)
   const goApSection = useCallback((key) => {
+    if (staffPreview && key === 'messages') {
+      navigate('/connect/messages')
+      return
+    }
     navigate(`/portal/ap/${key}`)
-  }, [navigate])
+  }, [navigate, staffPreview])
   // NURSING-ACADEMICS-1 section routing.
   const naView = naViewFromPath(location.pathname)
   const naThreadId = naThreadIdFromPath(location.pathname)
   const goNaSection = useCallback((key) => {
+    if (staffPreview && key === 'messages') {
+      navigate('/connect/messages')
+      return
+    }
     navigate(`/portal/academics/${key}`)
-  }, [navigate])
+  }, [navigate, staffPreview])
   const openApThread = useCallback((id) => navigate(`/portal/ap/messages/${id}`), [navigate])
   const apBackToList = useCallback(() => navigate('/portal/ap/messages'), [navigate])
   const openNaThread = useCallback((id) => navigate(`/portal/academics/messages/${id}`), [navigate])
@@ -266,7 +288,7 @@ export default function PortalApp() {
   })
 
   const goHome = useCallback(() => navigate(staffPreview ? '/portal/student' : '/portal'), [navigate, staffPreview])
-  const goMessages = useCallback(() => navigate('/portal/messages'), [navigate])
+  const goMessages = useCallback(() => navigate(staffPreview ? '/connect/messages' : '/portal/messages'), [navigate, staffPreview])
   const goProfile = useCallback(() => navigate('/portal/profile'), [navigate])
   const openThread = useCallback((id) => navigate(`/portal/messages/${id}`), [navigate])
   const backToList = useCallback(() => navigate('/portal/messages'), [navigate])
@@ -491,13 +513,15 @@ export default function PortalApp() {
             onMessages={goMessages}
             onProfile={goProfile}
             action={mobileAction}
-            messagesEnabled={!staffPreview}
+            messagesEnabled
             profileEnabled={!staffPreview}
           />
         )}
         utilityLayer={(
-          <PortalUtilityLayer
-            enabled={!staffPreview}
+          staffPreview ? (
+            <StaffPreviewUtilities portalName="Student Portal" section={studentView} />
+          ) : <PortalUtilityLayer
+            enabled
             portalRole="student"
             portalType="student"
             profileId={userProfile?.id}
@@ -554,8 +578,10 @@ export default function PortalApp() {
         portalUserActionsEnabled={!staffPreview}
         nav={<UnitLeaderNav view={unitView} unread={unread} onNavigate={goUnitSection} />}
         utilityLayer={(
-          <PortalUtilityLayer
-            enabled={!staffPreview}
+          staffPreview ? (
+            <StaffPreviewUtilities portalName="Unit Leader Portal" section={unitView} />
+          ) : <PortalUtilityLayer
+            enabled
             portalRole="unit_leader"
             portalType="unit_leader"
             profileId={userProfile?.id}
@@ -601,8 +627,10 @@ export default function PortalApp() {
         portalUserActionsEnabled={!staffPreview}
         nav={<AcademicPartnerNav view={apView} onNavigate={goApSection} />}
         utilityLayer={(
-          <PortalUtilityLayer
-            enabled={!staffPreview}
+          staffPreview ? (
+            <StaffPreviewUtilities portalName="Academic Partner Portal" section={apView} />
+          ) : <PortalUtilityLayer
+            enabled
             portalRole="academic_partner"
             portalType="academic_partner"
             profileId={userProfile?.id}
@@ -640,10 +668,12 @@ export default function PortalApp() {
         onRestartTour={() => setTourRunning(true)}
         mainAppUrl={staffPreview ? '/aggregate' : undefined}
         portalUserActionsEnabled={!staffPreview}
-        nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} messagesEnabled={naMessagesEnabled} unread={unread} />}
+        nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} messagesEnabled={staffPreview || naMessagesEnabled} unread={unread} />}
         utilityLayer={(
-          <PortalUtilityLayer
-            enabled={!staffPreview}
+          staffPreview ? (
+            <StaffPreviewUtilities portalName="Nursing Education & Leadership Portal" section={naView} />
+          ) : <PortalUtilityLayer
+            enabled
             portalRole="nursing_academic"
             portalType="nursing_academic"
             profileId={userProfile?.id}

@@ -31,14 +31,30 @@ export async function verifyPortalAcademicPartnerCaller(req) {
   // The authenticated staff profile remains the actor; no partner grant is
   // synthesized or persisted.
   if (isOwnerAdminProfile(auth.profile)) {
-    const { data, error } = await db
+    const { data: catalogRows, error: catalogError } = await db
       .from('schools')
       .select('canonical_name, is_active')
       .eq('is_active', true)
-    if (error) return { ok: false, status: 500, reason: 'internal_error' }
-    const scopes = (data || [])
-      .map(row => String(row.canonical_name || '').trim())
-      .filter(Boolean)
+
+    // Some environments predate the canonical schools catalog. Staff preview
+    // can still derive the same read-only boundary from the schools already
+    // present on student records, which are the roster's operative identities.
+    // A real Academic Partner continues to require explicit user_school_scopes.
+    let schoolKeys
+    if (!catalogError) {
+      schoolKeys = (catalogRows || []).map(row => row.canonical_name)
+    } else {
+      const { data: studentRows, error: studentError } = await db
+        .from('students')
+        .select('school')
+        .not('school', 'is', null)
+      if (studentError) return { ok: false, status: 500, reason: 'internal_error' }
+      schoolKeys = (studentRows || []).map(row => row.school)
+    }
+
+    const scopes = [...new Set(schoolKeys
+      .map(value => String(value || '').trim())
+      .filter(Boolean))]
       .sort()
       .map(school_key => ({ school_key, cohort_id: null }))
     return { ok: true, db, profile: auth.profile, scopes, staffPreview: true }

@@ -33,7 +33,8 @@ test('the three sections are stable URL routes; /portal resolves to Students', (
   // apViewFromPath: a valid /portal/ap/<section> resolves to that section, else Students (default).
   assert.match(app, /function apViewFromPath\(pathname\) \{[\s\S]*?return 'students'\s*\n\}/)
   assert.match(app, /const apView = apViewFromPath\(location\.pathname\)/)
-  assert.match(app, /const goApSection = useCallback\(\(key\) => \{\s*\n\s*navigate\(`\/portal\/ap\/\$\{key\}`\)/)
+  assert.match(app, /const goApSection = useCallback\(\(key\) => \{[\s\S]*?navigate\(`\/portal\/ap\/\$\{key\}`\)/)
+  assert.match(app, /staffPreview && key === 'messages'[\s\S]{0,120}navigate\('\/connect\/messages'\)/)
   // Student and Unit Leader routing is untouched (their parsers still exist).
   assert.match(app, /function unitViewFromPath/)
   assert.match(app, /function threadIdFromPath/)

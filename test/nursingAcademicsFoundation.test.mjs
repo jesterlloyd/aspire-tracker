@@ -169,7 +169,7 @@ test('PortalApp appends the experience LAST in precedence and mounts the capabil
   assert.match(naBranch, /NursingAcademicsNav/)
   assert.match(naBranch, /NursingAcademicsPortal/)
   // The unread poll includes the capability-gated NA flag.
-  assert.match(app, /enabled: isStudent \|\| isUnitLeader \|\| apMessagesEnabled \|\| naMessagesEnabled/)
+  assert.match(app, /enabled: !staffPreview && \(isStudent \|\| isUnitLeader \|\| apMessagesEnabled \|\| naMessagesEnabled\)/)
 })
 
 test('feedback and messaging recognize the role, fail-closed behind the Owner SQL gate', async () => {

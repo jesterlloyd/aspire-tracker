@@ -105,7 +105,7 @@ test('P0-5: Messages is role-aware', async (t) => {
 
 test('P0-6: unread polling runs for the unit-leader branch', () => {
   assert.match(app, /const isUnitLeader = !isStudent && \(access\?\.roles \|\| \[\]\)\.includes\('unit_leader'\)/)
-  assert.match(app, /enabled: isStudent \|\| isUnitLeader/)
+  assert.match(app, /enabled: !staffPreview && \(isStudent \|\| isUnitLeader/)
   assert.match(app, /intervalMs: onMessagesRoute \? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS/)
 })
 
