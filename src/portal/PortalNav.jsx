@@ -20,7 +20,7 @@ const srOnly = {
 
 const ACTION_ICONS = { 'shift-log': CalendarPlus, certificate: Award }
 
-export default function PortalNav({ view, unread = 0, onHome, onMessages, onProfile, action = null }) {
+export default function PortalNav({ view, unread = 0, onHome, onMessages, onProfile, action = null, messagesEnabled = true, profileEnabled = true }) {
   const ActionIcon = action ? (ACTION_ICONS[action.kind] || CalendarPlus) : null
   return (
     <nav className="ptl-nav" aria-label="Student Portal sections">
@@ -36,27 +36,29 @@ export default function PortalNav({ view, unread = 0, onHome, onMessages, onProf
         <span className="ptl-nav-label">Home</span>
       </button>
 
-      <button
-        type="button"
-        className={`ptl-nav-item${view === 'messages' ? ' ptl-nav-item-active' : ''}`}
-        aria-current={view === 'messages' ? 'page' : undefined}
-        data-tour="portal-nav-messages"
-        onClick={() => onMessages?.()}
-      >
-        <span className="ptl-nav-iconwrap">
-          <MessageSquare size={16} aria-hidden="true" />
-          {/* The count itself carries the meaning, and screen-reader text spells
-              it out, so unread is never conveyed by color alone. Hidden at 0. */}
-          {unread > 0 && (
-            <span className="ptl-nav-badge" aria-hidden="true">{formatUnread(unread)}</span>
-          )}
-        </span>
-        <span className="ptl-nav-label">Messages</span>
-        <span style={srOnly}>{unread > 0 ? unreadLabel(unread) : ''}</span>
-      </button>
+      {messagesEnabled && (
+        <button
+          type="button"
+          className={`ptl-nav-item${view === 'messages' ? ' ptl-nav-item-active' : ''}`}
+          aria-current={view === 'messages' ? 'page' : undefined}
+          data-tour="portal-nav-messages"
+          onClick={() => onMessages?.()}
+        >
+          <span className="ptl-nav-iconwrap">
+            <MessageSquare size={16} aria-hidden="true" />
+            {/* The count itself carries the meaning, and screen-reader text spells
+                it out, so unread is never conveyed by color alone. Hidden at 0. */}
+            {unread > 0 && (
+              <span className="ptl-nav-badge" aria-hidden="true">{formatUnread(unread)}</span>
+            )}
+          </span>
+          <span className="ptl-nav-label">Messages</span>
+          <span style={srOnly}>{unread > 0 ? unreadLabel(unread) : ''}</span>
+        </button>
+      )}
 
       {/* STUDENT-PORTAL-PROFILE-1: the student's canonical submitted-profile destination. */}
-      {onProfile && (
+      {profileEnabled && onProfile && (
         <button
           type="button"
           className={`ptl-nav-item${view === 'profile' ? ' ptl-nav-item-active' : ''}`}

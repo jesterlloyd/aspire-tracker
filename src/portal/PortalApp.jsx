@@ -43,6 +43,7 @@ import {
   PORTAL_ACTIVE_POLL_MS, PORTAL_IDLE_UNREAD_POLL_MS, usePortalUnreadCount,
 } from '../lib/messages/portalMessagesPolling'
 import { usePortalHeadshotUrl } from '../lib/useStudentFile'
+import { useStudentFileUrl } from '../lib/useStudentFile'
 // WELCOME-TOUR-PORTALS-1: the same Welcome Tour engine the staff app uses, mounted here
 // for the three portal experiences (student, unit_leader, academic_partner).
 import CustomOnboardingTour from '../components/CustomOnboardingTour'
@@ -117,10 +118,21 @@ function naThreadIdFromPath(pathname) {
   return m ? m[1] : null
 }
 
+function staffPreviewRole(pathname) {
+  if (pathname === '/portal/student') return 'student'
+  if (pathname.startsWith('/portal/unit/')) return 'unit_leader'
+  if (pathname.startsWith('/portal/ap/')) return 'academic_partner'
+  if (pathname.startsWith('/portal/academics/')) return 'nursing_academic'
+  return null
+}
+
 export default function PortalApp() {
   const { userProfile, refreshUserProfile } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const ownerAdmin = userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role)
+  const previewRole = ownerAdmin ? staffPreviewRole(location.pathname) : null
+  const staffPreview = Boolean(previewRole)
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
   const [loading, setLoading] = useState(true)
   // PORTAL-ACCESS-STATE: the access lookup failing is its own state, kept apart
@@ -136,6 +148,8 @@ export default function PortalApp() {
   // reported upward by StudentPortal once its summary loads, so the single
   // bottom bar can carry it without a second data fetch here.
   const [mobileAction, setMobileAction] = useState(null)
+  const [previewStudents, setPreviewStudents] = useState([])
+  const [previewStudentId, setPreviewStudentId] = useState(null)
 
   // STUDENT-PORTAL-PROFILE-1: /portal/profile is the My Profile destination.
   const studentView = location.pathname.startsWith('/portal/messages') ? 'messages'
@@ -151,8 +165,14 @@ export default function PortalApp() {
 
   // A section change is a real navigation, so the URL is the source of truth.
   const goUnitSection = useCallback((key) => {
+    // Staff preview stays inside its explicit preview route. A real Unit Leader
+    // keeps the shared /portal/messages route used by existing deep links.
+    if (staffPreview && key === 'messages') {
+      navigate('/portal/unit/messages')
+      return
+    }
     navigate(key === 'messages' ? '/portal/messages' : `/portal/unit/${key}`)
-  }, [navigate])
+  }, [navigate, staffPreview])
 
   // Academic Partner sections are their own URL space (/portal/ap/<section>); /portal
   // resolves to Students. Messages and Placement Requests are stable routes now, showing
@@ -210,7 +230,8 @@ export default function PortalApp() {
   const tourArmedRef = useRef(false)
   const tourTimeoutRef = useRef(null)
   const portalTourDecisionReady = Boolean(
-    experience
+    !staffPreview
+    && experience
     && userProfile
     && userProfile.onboarding_tour_completed !== undefined
     && (experience !== 'academic_partner' || apCapabilityResolved)
@@ -224,7 +245,13 @@ export default function PortalApp() {
   // without a reload. UL/AP saves instead refresh userProfile (avatar_url).
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false)
   const [headshotVersion, setHeadshotVersion] = useState(0)
-  const { url: studentHeaderPhotoUrl } = usePortalHeadshotUrl({ enabled: isStudent, refreshKey: headshotVersion })
+  const { url: studentHeaderPhotoUrl } = usePortalHeadshotUrl({ enabled: isStudent && !staffPreview, refreshKey: headshotVersion })
+  const { url: previewStudentHeaderPhotoUrl } = useStudentFileUrl({
+    studentId: previewStudentId,
+    kind: 'headshot',
+    enabled: isStudent && staffPreview && Boolean(previewStudentId),
+    refreshKey: previewStudentId,
+  })
   const openChangePhoto = useCallback(() => setPhotoDialogOpen(true), [])
   const onPhotoSaved = useCallback(() => {
     if (isStudent) setHeadshotVersion(v => v + 1)
@@ -234,11 +261,11 @@ export default function PortalApp() {
     || location.pathname.startsWith('/portal/ap/messages')
     || location.pathname.startsWith('/portal/academics/messages')
   const unread = usePortalUnreadCount({
-    enabled: isStudent || isUnitLeader || apMessagesEnabled || naMessagesEnabled,
+    enabled: !staffPreview && (isStudent || isUnitLeader || apMessagesEnabled || naMessagesEnabled),
     intervalMs: onMessagesRoute ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,
   })
 
-  const goHome = useCallback(() => navigate('/portal'), [navigate])
+  const goHome = useCallback(() => navigate(staffPreview ? '/portal/student' : '/portal'), [navigate, staffPreview])
   const goMessages = useCallback(() => navigate('/portal/messages'), [navigate])
   const goProfile = useCallback(() => navigate('/portal/profile'), [navigate])
   const openThread = useCallback((id) => navigate(`/portal/messages/${id}`), [navigate])
@@ -246,6 +273,37 @@ export default function PortalApp() {
 
   useEffect(() => {
     let cancelled = false
+    if (staffPreview) {
+      ;(async () => {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession()
+          const token = sessionData?.session?.access_token
+          if (!token) throw new Error('unauthenticated')
+          const response = await fetch('/api/portal/admin-preview-access', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (!response.ok) throw new Error('preview_access_failed')
+          const data = await response.json()
+          if (cancelled) return
+          const students = Array.isArray(data.students) ? data.students : []
+          setPreviewStudents(students)
+          setPreviewStudentId(current => students.some(student => student.id === current)
+            ? current
+            : (students[0]?.id || null))
+          setAccess({
+            roles: [previewRole],
+            student_ids: students.map(student => student.id),
+            unit_keys: Array.isArray(data.unit_keys) ? data.unit_keys : [],
+            school_keys: Array.isArray(data.school_keys) ? data.school_keys : [],
+          })
+          setAccessFailed(false)
+          setLoading(false)
+        } catch {
+          if (!cancelled) { setAccess({ roles: [] }); setAccessFailed(true); setLoading(false) }
+        }
+      })()
+      return () => { cancelled = true }
+    }
     // No reset here: retryAccessCheck clears accessFailed before bumping
     // accessAttempt, so this effect never starts from a stale failure.
     supabase.rpc('get_my_portal_access')
@@ -265,7 +323,7 @@ export default function PortalApp() {
       })
       .catch(() => { if (!cancelled) { setAccess({ roles: [] }); setAccessFailed(true); setLoading(false) } })
     return () => { cancelled = true }
-  }, [accessAttempt])
+  }, [accessAttempt, previewRole, staffPreview])
 
   // AP-PORTAL: read the ONE canonical server capability (env flag AND applied DB migration) for
   // Academic Partner messaging, only for an Academic Partner. Fails closed on any error; the Messages
@@ -273,7 +331,7 @@ export default function PortalApp() {
   useEffect(() => {
     // NA-PORTAL-UTILITIES-1: the same single capability fetch also serves the Nursing Education &
     // Leadership portal (na_messaging, na_feedback), so both roles read one canonical result.
-    if (!isAcademicPartner && !isNursingAcademic) return undefined
+    if (staffPreview || (!isAcademicPartner && !isNursingAcademic)) return undefined
     let cancelled = false
     ;(async () => {
       try {
@@ -298,7 +356,7 @@ export default function PortalApp() {
       }
     })()
     return () => { cancelled = true }
-  }, [isAcademicPartner, isNursingAcademic])
+  }, [isAcademicPartner, isNursingAcademic, staffPreview])
 
   // WELCOME-TOUR-PORTALS-1: unmount-only cleanup for the auto-start timer below. Kept in its own
   // effect (empty deps) so a dependency change never cancels an already-armed timer; only real
@@ -332,6 +390,7 @@ export default function PortalApp() {
   // AuthContext) never re-arm or re-schedule the timeout.
   useEffect(() => {
     if (tourArmedRef.current) return
+    if (staffPreview) return
     if (!experience) return
     if (!userProfile || userProfile.onboarding_tour_completed === undefined) return
     if (experience === 'academic_partner' && !apCapabilityResolved) return
@@ -343,7 +402,7 @@ export default function PortalApp() {
       markPortalCohortHintSeen(userProfile.id, experience)
     }
     tourTimeoutRef.current = setTimeout(() => setTourRunning(true), 700)
-  }, [experience, userProfile, apCapabilityResolved])
+  }, [experience, userProfile, apCapabilityResolved, staffPreview])
 
   if (loading) {
     return (
@@ -382,7 +441,7 @@ export default function PortalApp() {
   // active. It renders null while not running, so this is safe to include unconditionally per
   // branch. context.apMessagesEnabled lets the engine include or skip the capability-gated AP
   // messaging step for the experiences that need it.
-  const tourOverlay = experience ? (
+  const tourOverlay = !staffPreview && experience ? (
     <CustomOnboardingTour
       run={tourRunning}
       onClose={() => setTourRunning(false)}
@@ -419,8 +478,11 @@ export default function PortalApp() {
         onEditProfile={goProfile} withTabBar
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={studentHeaderPhotoUrl}
+        previewProfileImageUrl={staffPreview ? previewStudentHeaderPhotoUrl : null}
         onChangePhoto={openChangePhoto} publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
+        mainAppUrl={staffPreview ? '/aggregate' : undefined}
+        portalUserActionsEnabled={!staffPreview}
         nav={(
           <PortalNav
             view={studentView}
@@ -429,11 +491,13 @@ export default function PortalApp() {
             onMessages={goMessages}
             onProfile={goProfile}
             action={mobileAction}
+            messagesEnabled={!staffPreview}
+            profileEnabled={!staffPreview}
           />
         )}
         utilityLayer={(
           <PortalUtilityLayer
-            enabled
+            enabled={!staffPreview}
             portalRole="student"
             portalType="student"
             profileId={userProfile?.id}
@@ -448,20 +512,24 @@ export default function PortalApp() {
             active={studentView === 'home'}
             onOpenProfile={goProfile}
             onMobileAction={setMobileAction}
+            previewStudentId={previewStudentId}
+            previewStudents={previewStudents}
+            onPreviewStudentChange={setPreviewStudentId}
+            readOnlyPreview={staffPreview}
           />
         </div>
-        <div style={{ display: studentView === 'messages' ? 'block' : 'none' }}>
+        {!staffPreview && <div style={{ display: studentView === 'messages' ? 'block' : 'none' }}>
           <PortalMessagesWorkspace
             active={studentView === 'messages'}
             threadId={threadId}
             onSelectThread={openThread}
             onBackToList={backToList}
           />
-        </div>
+        </div>}
         {/* STUDENT-PORTAL-PROFILE-1: mounted only while visited (it fetches on
             activation), unlike the always-mounted Home/Messages pair. */}
-        {studentView === 'profile' && <MyProfile active />}
-        {photoDialog}
+        {!staffPreview && studentView === 'profile' && <MyProfile active />}
+        {!staffPreview && photoDialog}
         {tourOverlay}
       </PortalShell>
       </PortalAccessSignalContext.Provider>
@@ -482,10 +550,12 @@ export default function PortalApp() {
         onProfile={() => goUnitSection('profile')} onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
+        mainAppUrl={staffPreview ? '/aggregate' : undefined}
+        portalUserActionsEnabled={!staffPreview}
         nav={<UnitLeaderNav view={unitView} unread={unread} onNavigate={goUnitSection} />}
         utilityLayer={(
           <PortalUtilityLayer
-            enabled
+            enabled={!staffPreview}
             portalRole="unit_leader"
             portalType="unit_leader"
             profileId={userProfile?.id}
@@ -502,9 +572,11 @@ export default function PortalApp() {
           threadId={threadId}
           onSelectThread={openThread}
           onBackToList={backToList}
+          messagesEnabled={!staffPreview}
+          staffPreview={staffPreview}
         />
-        {photoDialog}
-        {cohortLoginHint}
+        {!staffPreview && photoDialog}
+        {!staffPreview && cohortLoginHint}
         {tourOverlay}
       </PortalShell>
       </PortalAccessSignalContext.Provider>
@@ -525,10 +597,12 @@ export default function PortalApp() {
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
+        mainAppUrl={staffPreview ? '/aggregate' : undefined}
+        portalUserActionsEnabled={!staffPreview}
         nav={<AcademicPartnerNav view={apView} onNavigate={goApSection} />}
         utilityLayer={(
           <PortalUtilityLayer
-            enabled
+            enabled={!staffPreview}
             portalRole="academic_partner"
             portalType="academic_partner"
             profileId={userProfile?.id}
@@ -542,8 +616,8 @@ export default function PortalApp() {
         <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
           messagesEnabled={apMessagesEnabled}
           threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
-        {photoDialog}
-        {cohortLoginHint}
+        {!staffPreview && photoDialog}
+        {!staffPreview && cohortLoginHint}
         {tourOverlay}
       </PortalShell>
       </PortalAccessSignalContext.Provider>
@@ -564,10 +638,12 @@ export default function PortalApp() {
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
+        mainAppUrl={staffPreview ? '/aggregate' : undefined}
+        portalUserActionsEnabled={!staffPreview}
         nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} messagesEnabled={naMessagesEnabled} unread={unread} />}
         utilityLayer={(
           <PortalUtilityLayer
-            enabled
+            enabled={!staffPreview}
             portalRole="nursing_academic"
             portalType="nursing_academic"
             profileId={userProfile?.id}
@@ -581,7 +657,7 @@ export default function PortalApp() {
         <NursingAcademicsPortal view={naView}
           messagesEnabled={naMessagesEnabled}
           threadId={naThreadId} onSelectThread={openNaThread} onBackToList={naBackToList} />
-        {photoDialog}
+        {!staffPreview && photoDialog}
         {tourOverlay}
       </PortalShell>
       </PortalAccessSignalContext.Provider>

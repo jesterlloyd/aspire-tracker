@@ -37,7 +37,7 @@ import { portalShiftStatus } from '../lib/portalShiftStatus'
 import { shiftDrivesState } from '../lib/shiftLifecycle'
 import { composePortalEmail } from '../lib/outlookCompose'
 import { useRegisterPortalRefresh } from './PortalRefresh'
-import { PortalHeaderScope } from './PortalHeaderSlots'
+import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import { useLastVisitLabel } from '../lib/lastVisit'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
@@ -82,6 +82,7 @@ function HomeSkeleton() {
 // navigates there; the drawer component file is retained for rollback only.
 export default function StudentPortal({
   active = true, onOpenProfile, onMobileAction,
+  previewStudentId = null, previewStudents = [], onPreviewStudentChange, readOnlyPreview = false,
 }) {
   const { user } = useAuth()
   const loginEmail = user?.email || ''
@@ -141,6 +142,7 @@ export default function StudentPortal({
   // the certificate variant needs an in-page activation, wrapped here.
   const reportMobileAction = (studentObj, evalsData, certsData) => {
     if (!onMobileAction) return
+    if (readOnlyPreview) { onMobileAction(null); return }
     if (!studentObj) { onMobileAction(null); return }
     const cert = (certsData || []).find(c => c.student_id === studentObj.id) || null
     const evalRows = (evalsData || []).filter(e => e.student_id === studentObj.id)
@@ -151,10 +153,35 @@ export default function StudentPortal({
   }
 
   async function load() {
+    // Keep the effect subscription itself free of synchronous state updates.
+    await Promise.resolve()
+    setLoading(true)
+    setError(null)
     try {
       const { data: sessionData } = await supabase.auth.getSession()
       const token = sessionData?.session?.access_token
       if (!token) { setError('Your session expired. Please sign in again.'); setLoading(false); return }
+      if (readOnlyPreview) {
+        if (!previewStudentId) {
+          setSummary({ students: [] }); setLogs([]); setEvals([]); setCerts([]); setLoading(false); return
+        }
+        const previewRes = await fetch(`/api/portal/admin-student-preview?student_id=${encodeURIComponent(previewStudentId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!previewRes.ok) {
+          setError('We could not load this student preview right now. Please try again shortly.')
+          setLoading(false); return
+        }
+        const preview = await previewRes.json()
+        const previewSummary = preview.summary || { students: [] }
+        setSummary(previewSummary)
+        setActiveId(previewStudentId)
+        setLogs(preview.shift_logs || [])
+        setEvals(preview.evaluations || [])
+        setCerts(preview.certificates || [])
+        setLoading(false)
+        return
+      }
       const [summaryRes, logsRes, evalsRes, certsRes] = await Promise.all([
         fetch('/api/portal/student-summary', { headers: { Authorization: `Bearer ${token}` } }),
         supabase.from('portal_my_shift_logs').select('*').order('shift_date', { ascending: false }),
@@ -194,7 +221,11 @@ export default function StudentPortal({
     setLoading(false)
   }
 
-  useEffect(() => { let c = false; load().then(() => { if (c) return }); return () => { c = true } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    let cancelled = false
+    Promise.resolve().then(() => { if (!cancelled) return load() })
+    return () => { cancelled = true }
+  }, [previewStudentId, readOnlyPreview]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The shared portal Refresh re-fetches Home's data. Registered only while Home is the active
   // surface, since the Student portal keeps Home and Messages mounted (display-toggled).
@@ -278,6 +309,21 @@ export default function StudentPortal({
       {/* Role scope in the persistent header subtitle: the student's school. No cohort switcher for
           students (they remain in one cohort); school context is not repeated below the masthead. */}
       {student.school && <PortalHeaderScope> · {student.school}</PortalHeaderScope>}
+      {readOnlyPreview && previewStudents.length > 0 && (
+        <PortalHeaderControls>
+          <span className="ptl-header-ctl">
+            <span className="ptl-header-ctl-label">Viewing student</span>
+            <select aria-label="Viewing student" value={previewStudentId || ''}
+              onChange={e => onPreviewStudentChange?.(e.target.value)}>
+              {previewStudents.map(option => (
+                <option key={option.id} value={option.id}>
+                  {option.label}{option.cohort ? ` · ${option.cohort}` : ''}
+                </option>
+              ))}
+            </select>
+          </span>
+        </PortalHeaderControls>
+      )}
       {students.length > 1 && (
         <div className="ptl-rotation-switch">
           <label className="ptl-label" htmlFor="ptl-rotation-pick">Rotation</label>
@@ -406,7 +452,7 @@ export default function StudentPortal({
             <div className="ptl-empty" style={{ marginTop: 12 }}>No shifts logged yet. Record your first shift to start building your approved hours.</div>
           )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {activeRotation && (
+            {activeRotation && !readOnlyPreview && (
               <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>
             )}
             {/* STUDENT-SHIFT-LOG-MANAGEMENT-1: the card lists only the four most
@@ -496,10 +542,10 @@ export default function StudentPortal({
                       fmtDate(certStatus.unlockedAt) ? `Unlocked ${fmtDate(certStatus.unlockedAt)}` : null,
                     ].filter(Boolean).join(' · ')}
                   </div>
-                  <button type="button" className="ptl-btn ptl-btn-sm" onClick={downloadCertificate} disabled={certBusy}
+                  {!readOnlyPreview && <button type="button" className="ptl-btn ptl-btn-sm" onClick={downloadCertificate} disabled={certBusy}
                     aria-label="Download your Certificate of Completion (PDF)">
                     <Download size={15} /> {certBusy ? 'Preparing...' : 'Download Certificate'}
-                  </button>
+                  </button>}
                   {certMsg && <div className={certMsg.ok ? 'ptl-form-ok' : 'ptl-form-error'} role="status">{certMsg.text}</div>}
                 </>
               ) : (
@@ -524,14 +570,14 @@ export default function StudentPortal({
               </span>
               <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
             </button>
-            <button type="button" ref={editBtnRef} className="ptl-help-action" onClick={() => onOpenProfile?.()}>
+            {!readOnlyPreview && <button type="button" ref={editBtnRef} className="ptl-help-action" onClick={() => onOpenProfile?.()}>
               <span className="ptl-help-action-icon" aria-hidden="true"><Pencil size={16} /></span>
               <span className="ptl-help-action-text">
                 <span className="ptl-help-action-title">My Profile</span>
                 <span className="ptl-help-action-desc">Review and update the information you submitted to ASPIRE.</span>
               </span>
               <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
-            </button>
+            </button>}
           </div>
           <div className="ptl-help-email">
             <span className="ptl-muted ptl-small">{SUPPORT}</span>
@@ -563,6 +609,7 @@ export default function StudentPortal({
         loginEmail={loginEmail}
         onClose={() => setHistoryOpen(false)}
         onChanged={() => { load() }}
+        readOnly={readOnlyPreview}
       />
     </div>
   )

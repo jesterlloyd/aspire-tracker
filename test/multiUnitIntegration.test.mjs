@@ -279,11 +279,12 @@ test('the side panel mounts the section and gates management to Owner/Admin', ()
 // ── The Student portal fix ──────────────────────────────────────────────────
 
 test('the student portal unit comes from LIVE assignments, dead students.unit only as last resort', () => {
-  const summary = strip(read('api/portal/student-summary.js'))
+  // Both the student's own endpoint and Owner/Admin preview use this shared builder.
+  const summary = strip(read('api/lib/studentPortalSummary.js'))
   assert.match(summary, /from\('student_unit_assignments'\)/)
   assert.match(summary, /\.in\('status', \['planned', 'active'\]\)/)
-  assert.match(summary, /unit_name: unitsByStudent\[s\.id\]\?\.\[0\] \|\| s\.unit \|\| null/)
-  assert.match(summary, /unit_names: unitsByStudent\[s\.id\] \|\| \[\]/)
+  assert.match(summary, /unit_name: unitsByStudent\[student\.id\]\?\.\[0\] \|\| student\.unit \|\| null/)
+  assert.match(summary, /unit_names: unitsByStudent\[student\.id\] \|\| \[\]/)
   const portal = read('src/portal/StudentPortal.jsx')
   assert.match(portal, /student\.unit_names/)
 })

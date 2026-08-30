@@ -91,6 +91,12 @@ export async function verifyOwnerAdminCaller(req) {
   return { ok: true, profile: caller.profile }
 }
 
+// Owner/Admin portal access is an explicit staff preview, never impersonation.
+// The verified staff profile remains the actor for every request and audit row.
+export function isOwnerAdminProfile(profile) {
+  return profile?.is_active !== false && ['owner', 'admin'].includes(profile?.role)
+}
+
 const nowActive = (row) =>
   row.revoked_at === null &&
   new Date(row.starts_at ?? row.linked_at ?? 0) <= new Date() &&

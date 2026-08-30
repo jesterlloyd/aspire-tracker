@@ -39,7 +39,7 @@ function correctionBody({ name, log }) {
 }
 
 export default function ShiftLogHistoryDrawer({
-  open, logs = [], student, loginEmail = '', onClose, onChanged, returnFocusRef,
+  open, logs = [], student, loginEmail = '', onClose, onChanged, returnFocusRef, readOnly = false,
 }) {
   const panelRef = useRef(null)
   const [editingId, setEditingId] = useState(null)
@@ -61,17 +61,18 @@ export default function ShiftLogHistoryDrawer({
 
   useEffect(() => {
     if (!open) return undefined
+    const returnFocus = returnFocusRef?.current || null
     const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
     window.addEventListener('keydown', onKey)
     panelRef.current?.focus()
     return () => {
       window.removeEventListener('keydown', onKey)
-      returnFocusRef?.current?.focus?.()
+      returnFocus?.focus?.()
     }
   }, [open, onClose, returnFocusRef])
 
   useEffect(() => {
-    if (!open) return undefined
+    if (!open || readOnly) return undefined
     let cancelled = false
     const candidates = (logs || []).filter(l => (l.lifecycle_state || 'completed') !== 'voided')
     Promise.all(candidates.map(l =>
@@ -82,7 +83,7 @@ export default function ShiftLogHistoryDrawer({
       setVerdicts(Object.fromEntries(rows.map(([id, v]) => [id, v])))
     })
     return () => { cancelled = true }
-  }, [open, logs])
+  }, [open, logs, readOnly])
 
   if (!open) return null
 
@@ -215,6 +216,10 @@ export default function ShiftLogHistoryDrawer({
             </div>
           )}
 
+          {readOnly && (
+            <div className="ptl-preview-note" role="status">Owner/Admin preview is read-only. Shift changes remain available in the Main App.</div>
+          )}
+
           {logs.length === 0 && (
             <p style={{ fontSize: 14, color: '#6b7280' }}>You have not logged any shifts yet.</p>
           )}
@@ -255,10 +260,10 @@ export default function ShiftLogHistoryDrawer({
                 )}
 
                 {/* Actions */}
-                {!voided && !can.ready && (
+                {!readOnly && !voided && !can.ready && (
                   <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 9 }}>Checking…</div>
                 )}
-                {!voided && can.ready && can.ok && editingId !== log.id && confirmVoidId !== log.id && (
+                {!readOnly && !voided && can.ready && can.ok && editingId !== log.id && confirmVoidId !== log.id && (
                   <div className="ptl-slh-actions" style={{ display: 'flex', gap: 8, marginTop: 9 }}>
                     <button className="ptl-btn ptl-btn-sm" data-testid="shift-edit-btn"
                       onClick={() => startEdit(log)}>Edit</button>
@@ -269,7 +274,7 @@ export default function ShiftLogHistoryDrawer({
                   </div>
                 )}
 
-                {!voided && can.ready && !can.ok && (
+                {!readOnly && !voided && can.ready && !can.ok && (
                   <div data-testid="shift-locked-note" style={{ marginTop: 9 }}>
                     {!featureOff && (
                       <div style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.5 }}>
@@ -287,7 +292,7 @@ export default function ShiftLogHistoryDrawer({
                 )}
 
                 {/* Withdraw confirmation - explicit, with the hours consequence */}
-                {confirmVoidId === log.id && (
+                {!readOnly && confirmVoidId === log.id && (
                   <div data-testid="shift-void-confirm" style={{
                     marginTop: 10, padding: '11px 12px', borderRadius: 10,
                     border: '1px solid #f0c9b0', background: '#fdf6ec',
@@ -320,7 +325,7 @@ export default function ShiftLogHistoryDrawer({
                 )}
 
                 {/* Edit form */}
-                {editingId === log.id && form && (
+                {!readOnly && editingId === log.id && form && (
                   <div data-testid="shift-edit-form" style={{
                     marginTop: 10, padding: '11px 12px', borderRadius: 10,
                     border: '1px solid #c3cdf0', background: '#f8faff',

@@ -16,7 +16,7 @@
 // names: the grant row is re-read on every request, so revocation and
 // expiration take effect on the very next call.
 
-import { verifyPortalCaller, getServiceDb, getActiveRoleGrant } from './portalAuth.js'
+import { verifyPortalCaller, getServiceDb, getActiveRoleGrant, isOwnerAdminProfile } from './portalAuth.js'
 
 export { getServiceDb }
 
@@ -32,6 +32,20 @@ export async function verifyPortalNursingAcademicCaller(req) {
 
   let db
   try { db = getServiceDb() } catch { return { ok: false, status: 500, reason: 'server_misconfigured' } }
+
+  // Owner/Admin may open this organization-wide portal with their existing
+  // staff identity. Contacts management remains attributable to that profile.
+  if (isOwnerAdminProfile(caller.profile)) {
+    return {
+      ok: true,
+      db,
+      profile: caller.profile,
+      grant: null,
+      contactsAccess: 'manage',
+      canManageContacts: true,
+      staffPreview: true,
+    }
+  }
 
   let grant
   try {

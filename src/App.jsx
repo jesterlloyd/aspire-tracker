@@ -1680,12 +1680,19 @@ function PortalRoute() {
   // round trip so deep links (e.g. /portal/messages/:id) are restored.
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
 
-  // Staff (or profile still resolving): enter the staff app at the last-used
-  // tab, mirroring the pre-existing "/" restore behavior. AuthedShell keeps
-  // handling deactivated accounts and missing profiles as it always has.
+  // Owner/Admin can deliberately enter one of the four portal preview routes
+  // from their profile menu. Every other staff visit to /portal keeps the
+  // existing behavior and returns to the staff app.
   const isStaff = !userProfile || userProfile.is_owner === true ||
     PORTAL_STAFF_ROLES.includes(userProfile.role)
-  if (isStaff) {
+  const isOwnerAdmin = userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role)
+  const isStaffPreviewRoute = isOwnerAdmin && (
+    location.pathname === '/portal/student' ||
+    location.pathname.startsWith('/portal/unit/') ||
+    location.pathname.startsWith('/portal/ap/') ||
+    location.pathname.startsWith('/portal/academics/')
+  )
+  if (isStaff && !isStaffPreviewRoute) {
     let target = '/aggregate'
     try {
       const savedTab = localStorage.getItem(lastTabKey(user.id))
@@ -1694,7 +1701,8 @@ function PortalRoute() {
     return <Navigate to={target} replace />
   }
 
-  // PHASE2-PORTAL: non-staff accounts enter the portal app (lazy chunk). It
+  // PHASE2-PORTAL: non-staff accounts and explicit Owner/Admin preview routes
+  // enter the portal app (lazy chunk). It
   // resolves the caller's active role grants via get_my_portal_access() and
   // renders the matching portal (student now; unit leader and academic
   // partner in Phases 3 and 4).

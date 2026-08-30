@@ -56,10 +56,12 @@ test('the Placement Requests view also carries school scope + cohort in the head
 })
 
 test('the Student portal shows its school in the header subtitle and has no cohort switcher', () => {
-  assert.match(student, /import \{ PortalHeaderScope \} from '\.\/PortalHeaderSlots'/)
+  assert.match(student, /import \{ PortalHeaderScope, PortalHeaderControls \} from '\.\/PortalHeaderSlots'/)
   assert.match(student, /<PortalHeaderScope> · \{student\.school\}<\/PortalHeaderScope>/)
-  // Students remain in one cohort: no header controls (no cohort picker) are rendered for them.
-  assert.doesNotMatch(student, /PortalHeaderControls/)
+  // A normal student remains in one cohort. The only Student Portal header control is
+  // the Owner/Admin preview selector, and it is explicitly gated to read-only preview.
+  assert.match(student, /readOnlyPreview && previewStudents\.length > 0 && \([\s\S]{0,80}<PortalHeaderControls>/)
+  assert.match(student, /aria-label="Viewing student"/)
   assert.doesNotMatch(stripJs(student), /htmlFor="[^"]*cohort"/)
 })
 

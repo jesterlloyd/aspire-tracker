@@ -116,7 +116,7 @@ test('PortalShell: the shared header controls wrapper carries portal-scope-selec
 
 test('PortalShell: ProfileMenu renders Restart Welcome Tour only when onRestartTour is provided, before Sign out', () => {
   assert.match(shellCode, /function ProfileMenu\(\{[^)]*onRestartTour[^)]*\}\)/)
-  assert.match(shellCode, /\{onRestartTour && \([\s\S]{0,200}Restart Welcome Tour[\s\S]{0,40}\)\}/)
+  assert.match(shellCode, /\{portalUserActionsEnabled && onRestartTour && \([\s\S]{0,200}Restart Welcome Tour[\s\S]{0,40}\)\}/)
   const publicSiteIdx = shellCode.indexOf('Public site')
   const restartIdx = shellCode.indexOf('Restart Welcome Tour')
   const signOutIdx = shellCode.indexOf('<LogOut size={15} /> Sign out')
@@ -127,8 +127,8 @@ test('PortalShell: ProfileMenu renders Restart Welcome Tour only when onRestartT
 test('PortalShell: onRestartTour is accepted and threaded through to ProfileMenu', () => {
   // PROFILE-MENU-AVATARS-1: onChangePhoto joined the threaded props, widening
   // the character span between the first ProfileMenu prop and onRestartTour.
-  assert.match(shellCode, /export default function PortalShell\(\{[\s\S]{0,400}onRestartTour,[\s\S]{0,60}children,/)
-  assert.match(shellCode, /<ProfileMenu userName=\{userName\} profileImageUrl=\{profileImageUrl\}[\s\S]{0,220}onRestartTour=\{onRestartTour\} \/>/)
+  assert.match(shellCode, /export default function PortalShell\(\{[\s\S]{0,500}onRestartTour,[\s\S]{0,60}children,/)
+  assert.match(shellCode, /<ProfileMenu userName=\{userName\} profileImageUrl=\{resolvedProfileImageUrl\}[\s\S]{0,320}onRestartTour=\{onRestartTour\} \/>/)
 })
 
 // ── PortalApp ────────────────────────────────────────────────────────────────

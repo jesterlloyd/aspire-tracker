@@ -11,7 +11,7 @@
 // authorization input. Matching is alias-aware but uses EXACT normalized term membership (never a
 // substring), so the WCU campuses (Anaheim vs North Hollywood) cannot cross.
 
-import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant } from './portalAuth.js'
+import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, isOwnerAdminProfile } from './portalAuth.js'
 import { resolveSchoolAliases } from './schoolAliases.js'
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[.,&/-]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -26,6 +26,23 @@ export async function verifyPortalAcademicPartnerCaller(req) {
   }
   let db
   try { db = getServiceDb() } catch { return { ok: false, status: 500, reason: 'internal_error' } }
+
+  // Owner/Admin preview uses the active canonical school catalog as its scope.
+  // The authenticated staff profile remains the actor; no partner grant is
+  // synthesized or persisted.
+  if (isOwnerAdminProfile(auth.profile)) {
+    const { data, error } = await db
+      .from('schools')
+      .select('canonical_name, is_active')
+      .eq('is_active', true)
+    if (error) return { ok: false, status: 500, reason: 'internal_error' }
+    const scopes = (data || [])
+      .map(row => String(row.canonical_name || '').trim())
+      .filter(Boolean)
+      .sort()
+      .map(school_key => ({ school_key, cohort_id: null }))
+    return { ok: true, db, profile: auth.profile, scopes, staffPreview: true }
+  }
 
   const isPartner = await hasActiveRoleGrant(db, auth.profile.id, 'academic_partner')
   if (!isPartner) return { ok: false, status: 403, reason: 'forbidden' }

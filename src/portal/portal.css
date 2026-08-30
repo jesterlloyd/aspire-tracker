@@ -367,6 +367,16 @@
 }
 
 /* Profile menu */
+.ptl-preview-note {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #c3cdf0;
+  border-radius: 10px;
+  background: #eef0f8;
+  color: #1d2567;
+  font-size: 13px;
+  line-height: 1.45;
+}
 .ptl-menu-wrap { position: relative; }
 .ptl-avatar-btn {
   display: inline-flex; align-items: center; gap: 5px; background: #fff;

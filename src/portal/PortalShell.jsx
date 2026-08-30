@@ -5,7 +5,7 @@
 // mobile (the desktop header may surface a couple of them inline). Portals are
 // focused, read-mostly surfaces; the staff shell is never loaded here.
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ExternalLink, Camera, UserRound, LogOut, RotateCcw } from 'lucide-react'
+import { ChevronDown, ExternalLink, Camera, UserRound, LogOut, RotateCcw, House } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { PortalRefreshProvider } from './PortalRefresh'
 import { PortalHeaderSlotsContext } from './PortalHeaderSlots'
@@ -14,7 +14,7 @@ function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, onChangePhoto, publicSiteUrl = '/', onRestartTour }) {
+function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, onChangePhoto, publicSiteUrl = '/', mainAppUrl, onRestartTour, portalUserActionsEnabled = true }) {
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [failedImageUrl, setFailedImageUrl] = useState(null)
@@ -43,23 +43,28 @@ function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, onCh
       {open && (
         <div ref={menuRef} className="ptl-menu" role="menu" aria-label="Profile menu">
           {userName && <div className="ptl-menu-name">{userName}</div>}
-          {onProfile
+          {portalUserActionsEnabled && (onProfile
             ? <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onProfile() }}><UserRound size={15} /> Profile</button>
-            : onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><UserRound size={15} /> My Profile</button>}
+            : onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><UserRound size={15} /> My Profile</button>)}
           {/* PROFILE-MENU-AVATARS-1: self-service photo management, wired per portal.
               The label "My Profile" above (student) matches the destination page and
               nav-tab name; the former "Edit Profile" wording predated the My Profile
               page. */}
-          {onChangePhoto && (
+          {portalUserActionsEnabled && onChangePhoto && (
             <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onChangePhoto() }}><Camera size={15} /> Change Photo</button>
           )}
           <a role="menuitem" className="ptl-menu-item" href={publicSiteUrl}
              {...(publicSiteUrl !== '/' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
             <ExternalLink size={15} /> Public site
           </a>
+          {mainAppUrl && (
+            <a role="menuitem" className="ptl-menu-item" href={mainAppUrl}>
+              <House size={15} /> Main App
+            </a>
+          )}
           {/* WELCOME-TOUR-PORTALS-1: only rendered when the caller wires a restart handler, so
               a portal that has not adopted the tour yet keeps its existing menu unchanged. */}
-          {onRestartTour && (
+          {portalUserActionsEnabled && onRestartTour && (
             <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onRestartTour() }}><RotateCcw size={15} /> Restart Welcome Tour</button>
           )}
           <button role="menuitem" type="button" className="ptl-menu-item ptl-menu-danger" onClick={() => { setOpen(false); signOut() }}><LogOut size={15} /> Sign out</button>
@@ -76,11 +81,14 @@ export default function PortalShell({
   onProfile,
   onChangePhoto,
   publicSiteUrl,
+  mainAppUrl,
+  portalUserActionsEnabled = true,
   withTabBar = false,
   showHeaderName = false,
   headerVariant = 'light',
   logoSrc = '/Cedars-Sinai.png',
   profileImageUrl = null,
+  previewProfileImageUrl = null,
   nav = null,
   utilityLayer = null,
   onRestartTour,
@@ -88,6 +96,7 @@ export default function PortalShell({
 }) {
   const nightfall = headerVariant === 'nightfall'
   const headerClass = `ptl-header${nightfall ? ' ptl-header-nightfall' : ''}`
+  const resolvedProfileImageUrl = previewProfileImageUrl || profileImageUrl
   // The Nightfall header and the primary section nav form ONE sticky chrome block, mirroring the
   // main app's .top-section (which wraps .app-header + .chart-nav). The dark bar carries no shadow of
   // its own; the Nightfall shadow sits on this wrapper, beneath the combined header + nav, exactly
@@ -124,10 +133,10 @@ export default function PortalShell({
               {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
                   widths, opt-in per portal so student behavior is unchanged. */}
               {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
-              <ProfileMenu userName={userName} profileImageUrl={profileImageUrl}
+              <ProfileMenu userName={userName} profileImageUrl={resolvedProfileImageUrl}
                 onEditProfile={onEditProfile} onProfile={onProfile} onChangePhoto={onChangePhoto}
-                publicSiteUrl={publicSiteUrl}
-                onRestartTour={onRestartTour} />
+                publicSiteUrl={publicSiteUrl} mainAppUrl={mainAppUrl}
+                portalUserActionsEnabled={portalUserActionsEnabled} onRestartTour={onRestartTour} />
             </div>
           </header>
           {nav}

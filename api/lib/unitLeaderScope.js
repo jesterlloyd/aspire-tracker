@@ -35,7 +35,7 @@
 // students.unit is a legacy column that no writer ever populates and is never used
 // here for authorization.
 
-import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveUnitScopes } from './portalAuth.js'
+import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveUnitScopes, isOwnerAdminProfile } from './portalAuth.js'
 import {
   UL_STUDENT_COLUMNS,
   ROSTER_STATUSES,
@@ -71,6 +71,17 @@ export async function verifyPortalUnitLeaderCaller(req) {
 
   let db
   try { db = getServiceDb() } catch { return { ok: false, status: 500, reason: 'server_misconfigured' } }
+
+  // Owner/Admin preview is organization-wide but still server-derived. The
+  // browser receives the same unit-safe payload as a Unit Leader and can only
+  // narrow this list. No portal role grant or temporary account is created.
+  if (isOwnerAdminProfile(caller.profile)) {
+    const { data, error } = await db.from('units').select('unit_name').not('unit_name', 'is', null)
+    if (error) return { ok: false, status: 500, reason: 'scope_lookup_failed' }
+    const unitKeys = [...new Set((data || []).map(row => String(row.unit_name || '').trim()).filter(Boolean))].sort()
+    const scopes = unitKeys.map(unit_key => ({ unit_key, cohort_id: null }))
+    return { ok: true, db, profile: caller.profile, scopes, unitKeys, staffPreview: true }
+  }
 
   let isUnitLeader
   try {

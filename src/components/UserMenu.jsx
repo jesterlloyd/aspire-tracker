@@ -1,11 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { safeWrite } from '../lib/safeWrite';
 import { getAvatarUrl } from '../lib/getAvatar';
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
-import { LogOut, ChevronDown, Settings, ExternalLink } from 'lucide-react';
+import {
+  LogOut, ChevronDown, Settings, ExternalLink, GraduationCap,
+  Building2, School, HeartHandshake,
+} from 'lucide-react';
 import Tooltip from './ui/Tooltip';
 import { CANONICAL_APP_URL } from '../lib/appUrl';
 
@@ -15,6 +18,13 @@ const ROLE_LABELS = {
   interviewer: { label: 'Interviewer', bg: '#92400e', color: '#ffffff' },
   viewer:      { label: 'Viewer',      bg: '#6b7280', color: '#ffffff' },
 };
+
+const PORTAL_LINKS = [
+  { label: 'Student Portal', path: '/portal/student', Icon: GraduationCap },
+  { label: 'Unit Leader Portal', path: '/portal/unit/home', Icon: Building2 },
+  { label: 'Academic Partner Portal', path: '/portal/ap/students', Icon: School },
+  { label: 'Nursing Education & Leadership Portal', path: '/portal/academics/calendar', Icon: HeartHandshake },
+];
 
 export default function UserMenu() {
   const { userProfile, signOut } = useAuth();
@@ -137,7 +147,7 @@ export default function UserMenu() {
             background: 'var(--color-bg-surface, #ffffff)', borderRadius: '12px',
             boxShadow: 'var(--shadow-elevated, 0 8px 32px rgba(29,37,103,0.18))',
             border: '1px solid var(--color-border-default, transparent)',
-            minWidth: '200px', zIndex: 999, overflow: 'hidden',
+            minWidth: ['owner', 'admin'].includes(userProfile.role) ? '280px' : '200px', zIndex: 999, overflow: 'hidden',
           }}>
             {/* Profile info */}
             <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--color-border-subtle,#f3f4f6)', display:'flex', alignItems:'center', gap:'12px' }}>
@@ -201,6 +211,29 @@ export default function UserMenu() {
               <ExternalLink size={14} strokeWidth={2} color="#6b7280" />
               Public site
             </a>
+
+            {/* PORTAL-OWNER-SWITCHER: Owner/Admin use their existing staff
+                identity to enter an explicitly scoped portal preview. NGRP is
+                intentionally absent until that portal has a real route. */}
+            {['owner', 'admin'].includes(userProfile.role) && (
+              <div style={{ borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', padding: '8px 0' }}>
+                <div style={{ padding: '2px 16px 6px', fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-muted,#9ca3af)' }}>
+                  Portals
+                </div>
+                {PORTAL_LINKS.map(({ label, path, Icon }) => (
+                  <button
+                    key={path}
+                    onClick={() => { setIsOpen(false); navigate(path); }}
+                    style={{ width: '100%', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  >
+                    <Icon size={14} strokeWidth={2} color="#6b7280" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* WS2.1: Settings link (additive - navigates to Settings → General) */}
             <button

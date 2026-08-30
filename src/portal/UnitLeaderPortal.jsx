@@ -112,7 +112,7 @@ function useEndpoint(loader, deps) {
   }
 }
 
-export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null }) {
+export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null, messagesEnabled = true, staffPreview = false }) {
   const { userProfile } = useAuth()
   const [unitKey, setUnitKey] = useState(ALL_UNITS)
   const [cohortSel, setCohortSel] = useState(null)   // null => the resolved default (newest active)
@@ -204,7 +204,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
             <span className="ptl-header-ctl">
               <span className="ptl-header-ctl-label">Viewing</span>
               <select aria-label="Viewing units" value={unitKey} onChange={e => setUnitKey(e.target.value)}>
-                <option value={ALL_UNITS}>All Assigned Units</option>
+                <option value={ALL_UNITS}>{staffPreview ? 'All Units' : 'All Assigned Units'}</option>
                 {unitKeys.map(k => <option key={k} value={k}>{k}</option>)}
               </select>
             </span>
@@ -238,7 +238,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
             onNavigate={onNavigate}
           />
         )}
-        {view === 'messages'   && (
+        {view === 'messages' && (messagesEnabled ? (
           <PortalMessagesWorkspace
             active
             variant="unit_leader"
@@ -246,7 +246,9 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
             onSelectThread={onSelectThread}
             onBackToList={onBackToList}
           />
-        )}
+        ) : (
+          <EmptyState title="Messages" detail="Portal messaging is unavailable in Owner/Admin preview. Use ASPIRE Connect in the Main App." />
+        ))}
       </div>
   )
 }
