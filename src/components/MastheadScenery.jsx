@@ -2,6 +2,13 @@
 // San Gabriel-style mountain ridges, a barely-visible LA skyline, sparse city
 // lights, and palm silhouettes, all original inline SVG plus CSS-gradient
 // skies. Subtle and atmospheric by design, never photographic.
+// MASTHEAD-SCENE-2 layers city scene packs (prepared images) on top; the SVG
+// below is the always-available fallback.
+//
+import { useMemo, useState } from 'react'
+import { useWelcomeWeather } from './WeatherScene'
+import { SCENES } from '../lib/mastheadScene'
+import { parseSceneFiles, choosePack, injectedSceneFiles } from '../lib/mastheadCityScenes'
 //
 // The component is purely presentational and state-free: the host card carries
 // .mast-scene-{dawn|day|sunset|night} (from useMastheadScene) and index.css
@@ -45,14 +52,54 @@ M1069,102 C1078,90 1092,84 1106,86 C1092,90 1080,96 1072,105 Z
 M1069,104 C1082,98 1098,98 1110,104 C1096,102 1082,104 1072,108 Z
 M1066,104 C1052,100 1038,102 1028,108 C1040,104 1054,106 1064,108 Z`
 
+// MASTHEAD-SCENE-2: preferred rendering is a CITY SCENE PACK - prepared
+// artwork from public/masthead/ (see scripts/prepare-masthead-scenes.mjs),
+// chosen for the viewer's resolved weather location (granted geolocation
+// city, else LA) so the scenery follows the person the way the temperature
+// already does. All of the pack's scene images stay mounted and cross-fade
+// via the same .mast-scene-* classes. The hand-built SVG scenery below
+// remains the fallback: no pack for this location, a scene missing from the
+// pack, or any image failing to load (one broken image drops the whole pack
+// for the session - the AssetScene pattern - so a half-loaded card never
+// shows) all land back on the SVG.
 export default function MastheadScenery() {
+  const { location } = useWelcomeWeather()
+  const [imagesBroken, setImagesBroken] = useState(false)
+  const pack = useMemo(
+    () => choosePack(parseSceneFiles(injectedSceneFiles()), location),
+    [location],
+  )
+  const scenes = pack && !imagesBroken ? pack.scenes : null
+  const complete = scenes && SCENES.every(s => scenes[s])
   return (
     <div className="mast-scenery" aria-hidden>
+      {/* The state-keyed sky gradients always render: in city mode the
+          right-anchored art fades leftward into them. */}
       <div className="mast-sky mast-sky-dawn" />
       <div className="mast-sky mast-sky-day" />
       <div className="mast-sky mast-sky-sunset" />
       <div className="mast-sky mast-sky-night" />
-      <svg className="mast-scenery-art" viewBox="0 0 1200 150" preserveAspectRatio="none">
+      {/* The SVG ridge art renders beneath a PARTIAL pack so a missing scene
+          still shows artwork; a complete pack replaces it. */}
+      {!complete && <SvgScenery />}
+      {scenes && SCENES.map(s => scenes[s] && (
+        <img
+          key={s}
+          className={`mast-scn-img mast-scn-img-${s}`}
+          src={scenes[s]}
+          alt=""
+          draggable={false}
+          decoding="async"
+          onError={() => setImagesBroken(true)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function SvgScenery() {
+  return (
+    <svg className="mast-scenery-art" viewBox="0 0 1200 150" preserveAspectRatio="none">
         <defs>
           <path id="scnPalm" d={PALM} />
         </defs>
@@ -88,6 +135,5 @@ export default function MastheadScenery() {
           <use href="#scnPalm" transform="translate(374,42) scale(0.72)" />
         </g>
       </svg>
-    </div>
   )
 }
