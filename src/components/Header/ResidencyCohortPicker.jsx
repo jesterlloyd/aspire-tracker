@@ -44,12 +44,17 @@ function HeaderChevron() {
 export default function ResidencyCohortPicker({ status, cycles, activeCycle, onSelectCycle }) {
   const [open, setOpen] = useState(false)
   const areaRef = useRef(null)
+  const triggerRef = useRef(null)
 
   useEffect(() => {
     const handler = e => { if (areaRef.current && !areaRef.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  // Keyboard completion: closing the dropdown (Escape, or a selection made by
+  // Enter/Space/click) hands focus back to the trigger pill.
+  const closeAndRefocus = () => { setOpen(false); triggerRef.current?.focus() }
 
   // The value line never fabricates a cohort and never presents a failure as
   // an empty list: unavailable ≠ unconfigured ≠ loading.
@@ -61,9 +66,14 @@ export default function ResidencyCohortPicker({ status, cycles, activeCycle, onS
   const isLive = Boolean(activeCycle) && OPEN_STATUSES.has(activeCycle.status)
 
   return (
-    <div ref={areaRef} className="chart-cohort-area">
+    <div
+      ref={areaRef}
+      className="chart-cohort-area"
+      onKeyDown={e => { if (e.key === 'Escape' && open) { e.stopPropagation(); closeAndRefocus() } }}
+    >
       <Tooltip label="Switch cohort" placement="bottom">
         <button
+          ref={triggerRef}
           data-tour="residency-cohort-switcher"
           aria-label="Switch residency cohort"
           aria-expanded={open}
@@ -107,14 +117,22 @@ export default function ResidencyCohortPicker({ status, cycles, activeCycle, onS
               c.residency_start_date && `Starts ${fmtDate(c.residency_start_date)}`,
             ].filter(Boolean).join(' · ')
             return (
-              <div
+              // Native button: Enter/Space activation for free, no synthetic
+              // key handling. Styling matches the previous rows exactly.
+              <button
                 key={c.id}
+                type="button"
                 role="option"
                 aria-selected={isSel}
-                tabIndex={0}
-                onClick={() => { onSelectCycle(c.id); setOpen(false) }}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectCycle(c.id); setOpen(false) } }}
-                style={{ padding: '14px 16px', cursor: 'pointer', opacity: done ? 0.75 : 1, background: isSel ? '#e8edf8' : 'transparent', borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent', transition: 'background 0.1s' }}
+                onClick={() => { onSelectCycle(c.id); closeAndRefocus() }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left', border: 'none',
+                  fontFamily: 'DM Sans, sans-serif',
+                  padding: '14px 16px', cursor: 'pointer', opacity: done ? 0.75 : 1,
+                  background: isSel ? '#e8edf8' : 'transparent',
+                  borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent',
+                  transition: 'background 0.1s',
+                }}
                 onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'var(--sand)' }}
                 onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent' }}
               >
@@ -125,7 +143,7 @@ export default function ResidencyCohortPicker({ status, cycles, activeCycle, onS
                     {c.status && <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.color }}>{c.status}</span>}
                   </div>
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>

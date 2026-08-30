@@ -25,6 +25,7 @@ function HeaderChevron() {
 export default function ExperiencePicker({ active, onSwitch }) {
   const [open, setOpen] = useState(false)
   const areaRef = useRef(null)
+  const triggerRef = useRef(null)
 
   useEffect(() => {
     const handler = e => { if (areaRef.current && !areaRef.current.contains(e.target)) setOpen(false) }
@@ -32,12 +33,21 @@ export default function ExperiencePicker({ active, onSwitch }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Keyboard completion: closing the dropdown (Escape, or a selection made by
+  // Enter/Space/click) hands focus back to the trigger pill.
+  const closeAndRefocus = () => { setOpen(false); triggerRef.current?.focus() }
+
   const current = EXPERIENCES.find(x => x.id === active) || EXPERIENCES[0]
 
   return (
-    <div ref={areaRef} className="chart-cohort-area">
+    <div
+      ref={areaRef}
+      className="chart-cohort-area"
+      onKeyDown={e => { if (e.key === 'Escape' && open) { e.stopPropagation(); closeAndRefocus() } }}
+    >
       <Tooltip label="Switch experience" placement="bottom">
         <button
+          ref={triggerRef}
           data-tour="experience-switcher"
           aria-label="Switch experience"
           aria-expanded={open}
@@ -66,20 +76,28 @@ export default function ExperiencePicker({ active, onSwitch }) {
           {EXPERIENCES.map(x => {
             const isSel = x.id === active
             return (
-              <div
+              // Native button: Enter/Space activation for free, no synthetic
+              // key handling. Styling matches the previous rows exactly.
+              <button
                 key={x.id}
+                type="button"
                 role="option"
                 aria-selected={isSel}
-                tabIndex={0}
-                onClick={() => { if (!isSel) onSwitch(x.id); setOpen(false) }}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!isSel) onSwitch(x.id); setOpen(false) } }}
-                style={{ padding: '14px 16px', cursor: 'pointer', background: isSel ? '#e8edf8' : 'transparent', borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent', transition: 'background 0.1s' }}
+                onClick={() => { if (!isSel) onSwitch(x.id); closeAndRefocus() }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left', border: 'none',
+                  fontFamily: 'DM Sans, sans-serif',
+                  padding: '14px 16px', cursor: 'pointer',
+                  background: isSel ? '#e8edf8' : 'transparent',
+                  borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent',
+                  transition: 'background 0.1s',
+                }}
                 onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'var(--sand)' }}
                 onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent' }}
               >
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>{x.label}</div>
                 <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>{x.sub}</div>
-              </div>
+              </button>
             )
           })}
         </div>

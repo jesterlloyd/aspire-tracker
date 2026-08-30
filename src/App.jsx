@@ -69,7 +69,7 @@ import CatalogPage from './components/catalog/CatalogPage'
 // import keeps the entry at its baseline.
 import NgrpNav from './components/ngrp/NgrpNav'
 import NgrpWorkspace from './components/ngrp/NgrpWorkspace'
-import { NGRP_TABS } from './lib/ngrp/ngrpTabs'
+import { ngrpTabFromPath, resolveNgrpEntryTab } from './lib/ngrp/ngrpTabs'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from './lib/ngrp/ngrpAccess'
 import { orderCyclesForSelector, resolveSelectedCycle } from './lib/ngrp/ngrpStates'
 import { useNgrpCycles } from './lib/ngrp/useNgrpData'
@@ -589,8 +589,7 @@ function MainApp({ onLogout }) {
     if (exp === 'residency') {
       let savedNgrp = null
       try { savedNgrp = user?.id ? localStorage.getItem(lastNgrpTabKey(user.id)) : null } catch { /* storage unavailable */ }
-      const tab = NGRP_TABS.some(t => t.id === savedNgrp) ? savedNgrp : 'applicants'
-      navigate(`/ngrp/${tab}`)
+      navigate(`/ngrp/${resolveNgrpEntryTab(savedNgrp)}`)
       return
     }
     const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null
@@ -598,15 +597,19 @@ function MainApp({ onLogout }) {
     navigate(TAB_TO_PATH[resolved] || '/aggregate')
   }
   // Active NGRP sub-tab for the nav, derived from the URL like activeTab is.
-  const ngrpSubTab = (() => {
-    const seg = location.pathname.split('/')[2] || ''
-    return NGRP_TABS.some(t => t.id === seg) ? seg : 'applicants'
-  })()
-  // Persist the sub-tab per user (event handler, not an effect).
-  const switchNgrpTab = id => {
-    try { if (user?.id) localStorage.setItem(lastNgrpTabKey(user.id), id) } catch { /* storage unavailable */ }
-    navigate(`/ngrp/${id}`)
-  }
+  const ngrpSubTab = ngrpTabFromPath(location.pathname) || 'applicants'
+  const switchNgrpTab = id => navigate(`/ngrp/${id}`)
+  // Persist the last VALID NGRP sub-tab actually visited, however the route
+  // was reached - nav click, direct URL, browser Back/Forward, or
+  // programmatic navigation. Synchronizing external storage with resolved
+  // route state is exactly what an effect is for; an unknown /ngrp/* segment
+  // yields null and never overwrites the saved value.
+  useEffect(() => {
+    if (activeTab !== 'ngrp' || !user?.id) return
+    const tab = ngrpTabFromPath(location.pathname)
+    if (!tab) return
+    try { localStorage.setItem(lastNgrpTabKey(user.id), tab) } catch { /* storage unavailable */ }
+  }, [activeTab, location.pathname, user?.id])
 
   // ── NGRP access + cycle scope (correction pass) ─────────────────────────────
   // Access is the ONE capability definition (lib/server/access.js via

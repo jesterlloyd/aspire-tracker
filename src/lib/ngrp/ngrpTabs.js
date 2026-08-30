@@ -10,3 +10,20 @@ export const NGRP_TABS = [
   { id: 'residency',  label: 'Residency',  chip: 'R' },
   { id: 'evaluation', label: 'Evaluation', chip: 'E' },
 ]
+
+export function isNgrpTabId(id) {
+  return NGRP_TABS.some(t => t.id === id)
+}
+
+// The valid NGRP sub-tab named by a pathname, or null for anything else
+// (an unknown segment must never be treated - or persisted - as a tab).
+export function ngrpTabFromPath(pathname) {
+  const seg = String(pathname || '').split('/')[2] || ''
+  return isNgrpTabId(seg) ? seg : null
+}
+
+// Where the Residency experience enters: the saved last-used tab when it is
+// still a valid tab id, else the Applicants front door.
+export function resolveNgrpEntryTab(saved) {
+  return isNgrpTabId(saved) ? saved : 'applicants'
+}

@@ -29,6 +29,7 @@ import {
   deriveApplicantRows, sortApplicantRows, operationalRank, KPI_DEFS, effectiveEligibility,
   orderCyclesForSelector, resolveSelectedCycle,
 } from '../src/lib/ngrp/ngrpStates.js'
+import { ngrpTabFromPath, resolveNgrpEntryTab } from '../src/lib/ngrp/ngrpTabs.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -260,6 +261,48 @@ test('outcomes: excludePriorHires and sanitizeStudent are pure and least-privile
   assert.equal(sanitizeStudent(stu('z', A, 'Completed', { school_email: '', personal_email: ' ' })).has_email, false)
 })
 
+test('outcomes: a missing ngrp_residency_outcomes relation is UNPROVISIONED, never a silently incomplete roster', async () => {
+  const db = scenarioDb()
+  const missing = { error: { code: 'PGRST205', message: "Could not find the table 'public.ngrp_residency_outcomes' in the schema cache" } }
+  const dbMissing = mockDb({
+    ngrp_cycles: { rows: CYCLE_ROWS },
+    ngrp_cycle_source_cohorts: { rows: [{ cycle_id: CYCLE, cohort_id: A, cohorts: { id: A, name: 'Summer 2026', start_date: '2026-05-01' } }] },
+    students: { rows: [stu('s1', A, 'Completed')] },
+    ngrp_candidates: { rows: [] },
+    ngrp_residency_outcomes: missing,
+  })
+  const payload = await loadApplicantsPayload(dbMissing, CYCLE)
+  assert.equal(payload.state, 'unprovisioned', 'must not return provisioned:true with the exclusion skipped')
+  assert.ok(!('students' in payload))
+  void db
+})
+
+test('outcomes: an ordinary outcomes query failure is an error, not unprovisioned and not an empty roster', async () => {
+  const dbErr = mockDb({
+    ngrp_cycles: { rows: CYCLE_ROWS },
+    ngrp_cycle_source_cohorts: { rows: [{ cycle_id: CYCLE, cohort_id: A, cohorts: { id: A, name: 'Summer 2026', start_date: '2026-05-01' } }] },
+    students: { rows: [stu('s1', A, 'Completed')] },
+    ngrp_candidates: { rows: [] },
+    ngrp_residency_outcomes: { error: { code: '57014', message: 'canceling statement' } },
+  })
+  const payload = await loadApplicantsPayload(dbErr, CYCLE)
+  assert.equal(payload.state, 'error')
+})
+
+test('outcomes: a successful EMPTY outcomes query yields a valid roster with zero exclusions', async () => {
+  const dbEmpty = mockDb({
+    ngrp_cycles: { rows: CYCLE_ROWS },
+    ngrp_cycle_source_cohorts: { rows: [{ cycle_id: CYCLE, cohort_id: A, cohorts: { id: A, name: 'Summer 2026', start_date: '2026-05-01' } }] },
+    students: { rows: [stu('s1', A, 'Completed')] },
+    ngrp_candidates: { rows: [] },
+    ngrp_residency_outcomes: { rows: [] },
+  })
+  const payload = await loadApplicantsPayload(dbEmpty, CYCLE)
+  assert.equal(payload.state, 'ok')
+  assert.deepEqual(payload.students.map(s => s.id), ['s1'])
+  assert.equal(payload.excludedPriorHires, 0)
+})
+
 test('outcomes: legacy student NGRP fields are not selected and never reach the browser payload', async () => {
   // The select list itself carries no legacy field…
   const fieldsLiteral = [...serverCore
@@ -485,11 +528,55 @@ test('header: each experience restores its own last operational tab; residency c
   const wsSwitch = appJsx.slice(appJsx.indexOf('const switchExperience'), appJsx.indexOf('const ngrpSubTab'))
   assert.match(wsSwitch, /lastNgrpTabKey\(user\.id\)/)
   assert.match(wsSwitch, /lastTabKey\(user\.id\)/)
-  assert.match(appJsx, /const switchNgrpTab = id => \{\s*try \{ if \(user\?\.id\) localStorage\.setItem\(lastNgrpTabKey\(user\.id\), id\)/)
+  assert.match(wsSwitch, /resolveNgrpEntryTab\(savedNgrp\)/)
   assert.equal(ngrpCycleStorageKey('user-a'), 'aspire:ngrpCycle:user-a')
   assert.notEqual(ngrpCycleStorageKey('user-a'), ngrpCycleStorageKey('user-b'))
   assert.equal(ngrpCycleStorageKey(null), null)
   assert.match(appJsx, /ngrpCycleStorageKey\(user\?\.id\)/)
+})
+
+test('tabs: any VALID location-derived NGRP subtab is persisted; unknown routes never overwrite', () => {
+  // The pure model the App effect and entry restore are built on. Simulated
+  // per-user store:
+  const store = {}
+  const visit = (pathname) => {
+    const tab = ngrpTabFromPath(pathname)
+    if (tab) store['aspire:lastNgrpTab:u1'] = tab   // exactly the effect's guard
+  }
+  // Direct visit to /ngrp/support → switch to Internship → back to Residency
+  // lands on /ngrp/support.
+  visit('/ngrp/support')
+  assert.equal(resolveNgrpEntryTab(store['aspire:lastNgrpTab:u1']), 'support')
+  // Browser navigation (Back/Forward or link) to another valid tab updates
+  // the saved tab.
+  visit('/ngrp/planning')
+  assert.equal(resolveNgrpEntryTab(store['aspire:lastNgrpTab:u1']), 'planning')
+  // An unknown /ngrp/* route yields null and does NOT overwrite the saved
+  // value - and it is never itself restorable.
+  assert.equal(ngrpTabFromPath('/ngrp/bogus'), null)
+  visit('/ngrp/bogus')
+  assert.equal(resolveNgrpEntryTab(store['aspire:lastNgrpTab:u1']), 'planning')
+  assert.equal(resolveNgrpEntryTab('bogus'), 'applicants')
+  assert.equal(resolveNgrpEntryTab(null), 'applicants')
+  // App.jsx wires exactly this model: an effect persists the location-derived
+  // tab (covering nav clicks, direct URLs, Back/Forward, and programmatic
+  // navigation) with the null guard, and the nav handler only navigates.
+  assert.match(appJsx, /const tab = ngrpTabFromPath\(location\.pathname\)\s*if \(!tab\) return\s*try \{ localStorage\.setItem\(lastNgrpTabKey\(user\.id\), tab\)/)
+  assert.match(appJsx, /const switchNgrpTab = id => navigate\(`\/ngrp\/\$\{id\}`\)/)
+  assert.match(appJsx, /const ngrpSubTab = ngrpTabFromPath\(location\.pathname\) \|\| 'applicants'/)
+})
+
+test('pickers: Escape closes and refocuses the trigger; options are native buttons with Enter/Space for free', () => {
+  for (const src of [expPicker, resPicker]) {
+    assert.match(src, /e\.key === 'Escape' && open/)
+    assert.match(src, /const closeAndRefocus = \(\) => \{ setOpen\(false\); triggerRef\.current\?\.focus\(\) \}/)
+    assert.match(src, /ref=\{triggerRef\}/)
+    // Choices are real <button type="button"> options; selection closes and
+    // refocuses the trigger; no synthetic Enter/Space handler remains.
+    assert.match(src, /<button\s+key=\{[cx]\.id\}\s+type="button"\s+role="option"/)
+    assert.match(src, /closeAndRefocus\(\) \}/)
+    assert.doesNotMatch(src, /e\.key === 'Enter' \|\| e\.key === ' '/)
+  }
 })
 
 // ── Bundle and reliability ───────────────────────────────────────────────────
