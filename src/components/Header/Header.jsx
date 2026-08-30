@@ -5,32 +5,32 @@
 // (chartTokens.css) so the band wraps into rows below 980px instead of clipping.
 import HeaderBrand from './HeaderBrand'
 import CohortPicker from './CohortPicker'
-import NgrpCyclePicker from './NgrpCyclePicker'
+import ResidencyCohortPicker from './ResidencyCohortPicker'
+import ExperiencePicker from './ExperiencePicker'
 import UniversalSearch from './UniversalSearch'
 import HeaderActions from './HeaderActions'
-import WorkspaceSwitcher from './WorkspaceSwitcher'
 
-export default function Header({ cohort, search, actions, workspace, ngrpCycle }) {
-  const inNgrp = workspace?.active === 'ngrp'
+export default function Header({ cohort, search, actions, experience, residencyCohort }) {
+  const inResidency = experience?.active === 'residency'
   return (
     <header className="chart-header">
       {/* Zone 1: Brand */}
       <HeaderBrand />
 
-      {/* NGRP-WORKSPACE-1: explicit ASPIRE | NGRP switcher, brand-adjacent so
-          the active workspace is legible before any content. The prop is
-          passed ONLY for callers whose profile holds the ngrp_access
-          capability - absent, the header renders exactly as before. */}
-      {workspace && <WorkspaceSwitcher active={workspace.active} onSwitch={workspace.onSwitch} />}
-
       <div className="chart-header-spacer" />
 
-      {/* Zone 2: the workspace's PRIMARY scope selector. ASPIRE keeps its
-          cohort picker unchanged; NGRP swaps in the residency-cycle picker
-          (a cycle is not a cohort - the two selections are separate state,
-          and switching workspaces never changes the other side's pick). */}
-      {inNgrp && ngrpCycle
-        ? <NgrpCyclePicker {...ngrpCycle} />
+      {/* Zone 2: the Experience picker (Internship | Residency) beside the
+          Cohort picker - two adjacent pills in the same treatment, before
+          search. The experience prop is passed ONLY for callers whose profile
+          holds the ngrp_access capability; absent, the header renders exactly
+          as before NGRP existed. Internship keeps the ASPIRE cohort picker
+          unchanged; Residency swaps in the residency COHORT picker (each row
+          is an ngrp_cycles record internally - presentation language only).
+          The two cohort selections are separate state, and switching
+          experiences never changes the other side's pick. */}
+      {experience && <ExperiencePicker active={experience.active} onSwitch={experience.onSwitch} />}
+      {inResidency && residencyCohort
+        ? <ResidencyCohortPicker {...residencyCohort} />
         : <CohortPicker {...cohort} />}
 
       {/* Zone 3: Search */}

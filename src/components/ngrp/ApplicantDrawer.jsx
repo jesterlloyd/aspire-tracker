@@ -259,15 +259,9 @@ export default function ApplicantDrawer({
         {row.interviewer_name && <Row label="Interviewer">{row.interviewer_name}</Row>}
       </Section>
 
-      <Section title="Student Profile · NGRP Fields" tint="rgba(120,124,134,0.05)">
-        <Row label="NGRP cohort target"><span style={{ fontWeight: 400 }}>{s.ngrp_cohort_target || '—'}</span></Row>
-        <Row label="NGRP outcome"><span style={{ fontWeight: 400 }}>{s.ngrp_outcome || 'Pending'}</span></Row>
-        <p style={{ margin: '4px 0 0', fontSize: 11, color: '#9CA3AF' }}>
-          Existing fields on the ASPIRE student record (editable in Student Profiles). The
-          cycle-specific workflow above will supersede them once NGRP persistence is applied.
-        </p>
-      </Section>
-
+      {/* The legacy students.ngrp_cohort_target / ngrp_outcome fields are
+          deliberately NOT shown: the cycle/candidate/outcome tables are the
+          NGRP source of truth and the endpoint no longer returns them. */}
       <Section title="Activity" tint="rgba(120,124,134,0.05)">
         {row.candidate ? (
           <>

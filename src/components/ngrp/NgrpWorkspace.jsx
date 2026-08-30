@@ -114,8 +114,8 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
     return (
       <div className="ngrp-main">
         <StateCard
-          heading="No residency cycles configured"
-          body="NGRP is provisioned but no cycle exists yet. Cycles (and their source ASPIRE cohorts) are created in NGRP → Planning; until then there is nothing to scope the Applicants roster to."
+          heading="No residency cohorts configured"
+          body="NGRP is provisioned but no residency cohort exists yet. Cohorts (and their source ASPIRE cohorts) are created in Residency → Planning; until then there is nothing to scope the Applicants roster to."
         />
       </div>
     )
@@ -124,10 +124,11 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
   return (
     <div className="ngrp-workspace">
       <div className="ngrp-main">
-        {/* Compact cycle metadata - the selector itself is the header pill. */}
+        {/* Compact cohort metadata - the selector itself is the header's
+            COHORT pill (ResidencyCohortPicker). */}
         {cycle && (
           <div className="ngrp-cycle-strip" data-testid="ngrp-cycle-meta">
-            <span className="ngrp-cycle-eyebrow">NGRP Residency Cycle</span>
+            <span className="ngrp-cycle-eyebrow">Residency Cohort</span>
             <span className="ngrp-cycle-name">{cycle.name}</span>
             {cycle.status && <span className="ngrp-cycle-meta">{cycle.status}</span>}
             {cycle.application_open_date && (

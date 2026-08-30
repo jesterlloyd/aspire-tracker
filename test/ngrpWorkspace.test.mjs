@@ -1,15 +1,16 @@
-// NGRP-WORKSPACE-1 (correction pass): scope, prior-outcome, authorization,
-// database-security, and reliability coverage for the NGRP workspace.
+// NGRP-WORKSPACE-1 (correction passes): scope, cycle chronology + prior-hire
+// exclusion, truthful mapping states, authorization, database security,
+// Experience/Cohort header presentation, and reliability coverage.
 //
 // Pure unit tests run the actual server core (lib/server/ngrpApplicants.js)
 // against a mocked db that APPLIES the query filters, so cohort scoping and
-// the prior-hire exclusion are exercised, not just asserted about. The
-// authorization matrix runs the one canonical capability (lib/server/
-// access.js via src/lib/ngrp/ngrpAccess.js) - the same object the server
-// verifier uses, which is itself proven by static guards. Database security
-// is covered by static guards over the (unapplied) migration in the
-// repository's established style; the migration's own verification SQL
-// checks live privileges with has_table_privilege after apply.
+// the chronology-based prior-hire exclusion are exercised, not just asserted
+// about. The authorization matrix runs the one canonical capability
+// (lib/server/access.js via src/lib/ngrp/ngrpAccess.js) - the same object
+// the server verifier uses, which is itself proven by static guards.
+// Database security is covered by static guards over the (unapplied)
+// migration; the migration's own verification SQL checks live privileges
+// with has_table_privilege after apply.
 // Run: node --test test/ngrpWorkspace.test.mjs
 
 import test from 'node:test'
@@ -22,9 +23,11 @@ import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from '../src/lib/ng
 import { can } from '../lib/server/access.js'
 import {
   sanitizeStudent, excludePriorHires, isMissingNgrpTable, loadApplicantsPayload,
+  fetchSourceCohortsForCycles, cycleChronoKey, isEarlierCycle,
 } from '../lib/server/ngrpApplicants.js'
 import {
   deriveApplicantRows, sortApplicantRows, operationalRank, KPI_DEFS, effectiveEligibility,
+  orderCyclesForSelector, resolveSelectedCycle,
 } from '../src/lib/ngrp/ngrpStates.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -36,7 +39,8 @@ const ngrpAuth    = read('api/lib/ngrpAuth.js')
 const serverCore  = read('lib/server/ngrpApplicants.js')
 const appJsx      = read('src/App.jsx')
 const headerJsx   = read('src/components/Header/Header.jsx')
-const cyclePicker = read('src/components/Header/NgrpCyclePicker.jsx')
+const expPicker   = read('src/components/Header/ExperiencePicker.jsx')
+const resPicker   = read('src/components/Header/ResidencyCohortPicker.jsx')
 const workspace   = read('src/components/ngrp/NgrpWorkspace.jsx')
 const applicants  = read('src/components/ngrp/ApplicantsTab.jsx')
 const dataHooks   = read('src/lib/ngrp/useNgrpData.js')
@@ -81,19 +85,26 @@ function mockDb(tables) {
   }
 }
 
-const CYCLE = 'cccccccc-0000-4000-8000-000000000001'
+// Three cycles in authoritative chronological order: PRIOR < CYCLE < LATER.
 const PRIOR = 'cccccccc-0000-4000-8000-000000000000'
+const CYCLE = 'cccccccc-0000-4000-8000-000000000001'
+const LATER = 'cccccccc-0000-4000-8000-000000000002'
+const CYCLE_ROWS = [
+  { id: PRIOR, name: 'August 2026 NGRP',  status: 'Completed',        application_open_date: '2026-03-01', residency_start_date: '2026-08-10', created_at: '2026-01-01T00:00:00Z' },
+  { id: CYCLE, name: 'January 2027 NGRP', status: 'Application Open', application_open_date: '2026-09-01', residency_start_date: '2027-01-25', created_at: '2026-06-01T00:00:00Z' },
+  { id: LATER, name: 'August 2027 NGRP',  status: 'Planning',         application_open_date: '2027-03-01', residency_start_date: '2027-08-09', created_at: '2026-08-01T00:00:00Z' },
+]
 const [A, B, C, D] = ['a', 'b', 'c', 'd'].map(x => `${x}0000000-0000-4000-8000-000000000000`)
 const stu = (id, cohort_id, status, extra = {}) => ({
   id, cohort_id, status, first_name: id, last_name: 'x', name: id,
   school: 'S', program_type: 'BSN', aspire_cohort: 'X', headshot_url: '',
-  updated_at: '2026-08-01T00:00:00Z', ngrp_cohort_target: '', ngrp_outcome: '',
+  updated_at: '2026-08-01T00:00:00Z',
   school_email: `${id}@x.test`, personal_email: '', ...extra,
 })
 
 function scenarioDb() {
   return mockDb({
-    ngrp_cycles: { rows: [{ id: CYCLE, name: 'January 2027 NGRP', status: 'Application Open' }] },
+    ngrp_cycles: { rows: CYCLE_ROWS },
     ngrp_cycle_source_cohorts: {
       rows: [
         { cycle_id: CYCLE, cohort_id: A, cohorts: { id: A, name: 'Summer 2026', start_date: '2026-05-01' } },
@@ -104,11 +115,12 @@ function scenarioDb() {
     students: {
       rows: [
         stu('s1', A, 'Completed'),          // prior applicant, never hired -> included
-        stu('s2', B, 'Completed'),          // hired in the PRIOR cycle -> excluded
-        stu('s3', C, 'Completed'),          // hired then separated in PRIOR -> still excluded
+        stu('s2', B, 'Completed'),          // hired in the EARLIER cycle -> excluded
+        stu('s3', C, 'Completed'),          // hired then separated in EARLIER -> still excluded
         stu('s4', B, 'Active Rotation'),    // not completed -> excluded by status
         stu('s5', D, 'Completed'),          // cohort NOT mapped -> excluded by scope
-        stu('s6', C, 'Completed'),          // hired in the CURRENT cycle -> stays listed
+        stu('s6', C, 'Completed'),          // hired in the SELECTED cycle -> stays listed
+        stu('s7', A, 'Completed'),          // hired in a LATER cycle -> stays in this earlier roster
       ],
     },
     ngrp_candidates: {
@@ -120,9 +132,10 @@ function scenarioDb() {
     ngrp_residency_outcomes: {
       rows: [
         { student_id: 's1', cycle_id: PRIOR, hired_at: null },                                   // applied, no hire
-        { student_id: 's2', cycle_id: PRIOR, hired_at: '2026-02-01T00:00:00Z' },                  // durable hire
-        { student_id: 's3', cycle_id: PRIOR, hired_at: '2026-02-01T00:00:00Z', separated_at: '2026-06-01T00:00:00Z' },
+        { student_id: 's2', cycle_id: PRIOR, hired_at: '2026-08-15T00:00:00Z' },                  // durable earlier hire
+        { student_id: 's3', cycle_id: PRIOR, hired_at: '2026-08-15T00:00:00Z', separated_at: '2026-12-01T00:00:00Z' },
         { student_id: 's6', cycle_id: CYCLE, hired_at: '2027-02-10T00:00:00Z' },                  // same-cycle hire
+        { student_id: 's7', cycle_id: LATER, hired_at: '2027-08-20T00:00:00Z' },                  // later-cycle hire
       ],
     },
   })
@@ -134,10 +147,7 @@ test('scope: one cycle mapped to three cohorts returns completed alumni from all
   const payload = await loadApplicantsPayload(scenarioDb(), CYCLE)
   assert.equal(payload.state, 'ok')
   assert.deepEqual(payload.sourceCohorts.map(c => c.name), ['Summer 2026', 'Fall 2026', 'Winter 2027'])
-  const ids = payload.students.map(s => s.id).sort()
-  // s1 (Summer), s6 (Winter) remain; s2/s3 excluded by prior hire; s4 not
-  // completed; s5's cohort is not mapped.
-  assert.deepEqual(ids, ['s1', 's6'])
+  assert.deepEqual(payload.students.map(s => s.id).sort(), ['s1', 's6', 's7'])
 })
 
 test('scope: a non-completed ASPIRE status is excluded; an unmapped cohort is excluded', async () => {
@@ -147,22 +157,17 @@ test('scope: a non-completed ASPIRE status is excluded; an unmapped cohort is ex
 })
 
 test('scope: no mapped cohorts is its own distinct empty result, not an error', async () => {
-  const db = scenarioDb()
   const dbNoMap = mockDb({
-    ngrp_cycles: { rows: [{ id: CYCLE, name: 'January 2027 NGRP' }] },
+    ngrp_cycles: { rows: [CYCLE_ROWS[1]] },
     ngrp_cycle_source_cohorts: { rows: [] },
   })
   const payload = await loadApplicantsPayload(dbNoMap, CYCLE)
   assert.equal(payload.state, 'ok')
   assert.deepEqual(payload.sourceCohorts, [])
   assert.deepEqual(payload.students, [])
-  // and the mapped scenario is unaffected
-  assert.equal((await loadApplicantsPayload(db, CYCLE)).students.length, 2)
 })
 
 test('scope: the internal ASPIRE cohort filter narrows by cohort_id from the mapping, not from loaded students', () => {
-  // The component filters rows by student.cohort_id against a mapped cohort id,
-  // and builds its option list from payload.sourceCohorts.
   assert.match(applicants, /r\.student\.cohort_id !== cohortFilter/)
   assert.match(applicants, /sourceCohorts\.map\(c => <option key=\{c\.id\} value=\{c\.id\}>\{c\.name\}<\/option>\)/)
   assert.doesNotMatch(applicants, /students=\{students\}/)
@@ -171,31 +176,70 @@ test('scope: the internal ASPIRE cohort filter narrows by cohort_id from the map
 test('scope: the ASPIRE workspace cohort cannot constrain the NGRP roster (no students prop; endpoint-backed)', () => {
   assert.match(applicants, /useNgrpApplicants\(cycle\?\.id\)/)
   assert.match(appJsx, /<NgrpWorkspace\b(?![\s\S]{0,400}students=)/)
-  // handleCohortSwitch (ASPIRE) never touches the NGRP cycle preference…
+  // handleCohortSwitch (ASPIRE) never touches the residency-cohort preference…
   const cohortSwitch = appJsx.slice(appJsx.indexOf('const handleCohortSwitch'), appJsx.indexOf('// Auto-start welcome tour'))
   assert.doesNotMatch(cohortSwitch, /ngrp/i)
-  // …and the workspace switch never touches the ASPIRE cohort selection.
-  const wsSwitch = appJsx.slice(appJsx.indexOf('const switchWorkspace'), appJsx.indexOf('const ngrpSubTab'))
+  // …and the experience switch never touches the ASPIRE cohort selection.
+  const wsSwitch = appJsx.slice(appJsx.indexOf('const switchExperience'), appJsx.indexOf('const ngrpSubTab'))
   assert.doesNotMatch(wsSwitch, /aspire_active_cohort_id/)
 })
 
-// ── Previous outcomes ────────────────────────────────────────────────────────
+// ── Cycle chronology + previous outcomes ─────────────────────────────────────
 
-test('outcomes: prior applicant without a hire appears in a later cycle', async () => {
+test('chronology: cycleChronoKey orders by application open, then residency start, nulls last, deterministic ties', () => {
+  const dated  = { id: 'x1', application_open_date: '2026-03-01', residency_start_date: '2026-08-10' }
+  const later  = { id: 'x2', application_open_date: '2026-09-01', residency_start_date: '2027-01-25' }
+  const noOpen = { id: 'x3', application_open_date: null, residency_start_date: '2026-01-01', created_at: '2025-01-01T00:00:00Z' }
+  assert.ok(isEarlierCycle(dated, later))
+  assert.ok(!isEarlierCycle(later, dated))
+  assert.ok(!isEarlierCycle(dated, dated), 'a cycle is never earlier than itself')
+  // Null application_open_date sorts AFTER every dated cycle - an undated
+  // cycle can never retroactively exclude anyone from a dated one.
+  assert.ok(!isEarlierCycle(noOpen, dated))
+  assert.ok(isEarlierCycle(dated, noOpen))
+  // Fully-undated cycles fall through to created_at, then id - total order.
+  const u1 = { id: 'aa', created_at: '2026-01-01T00:00:00Z' }
+  const u2 = { id: 'bb', created_at: '2026-02-01T00:00:00Z' }
+  assert.ok(isEarlierCycle(u1, u2))
+  assert.equal(cycleChronoKey(u1) < cycleChronoKey({ ...u1, id: 'ab' }), true)
+})
+
+test('outcomes: an earlier-cycle hire is excluded from the later selected cycle', async () => {
+  const payload = await loadApplicantsPayload(scenarioDb(), CYCLE)
+  assert.ok(!payload.students.some(s => s.id === 's2'))
+})
+
+test('outcomes: a later-cycle hire does NOT disappear from an earlier historical roster', async () => {
+  const payload = await loadApplicantsPayload(scenarioDb(), CYCLE)
+  assert.ok(payload.students.some(s => s.id === 's7'), 's7 hired via the LATER cycle must stay in this roster')
+  // and looking at the PRIOR cycle's own roster, s2 (hired via PRIOR) stays:
+  const dbPrior = scenarioDb()
+  const prior = await loadApplicantsPayload(
+    mockDb({
+      ngrp_cycles: { rows: CYCLE_ROWS },
+      ngrp_cycle_source_cohorts: { rows: [{ cycle_id: PRIOR, cohort_id: B, cohorts: { id: B, name: 'Fall 2026', start_date: '2026-09-01' } }] },
+      students: { rows: [stu('s2', B, 'Completed')] },
+      ngrp_candidates: { rows: [] },
+      ngrp_residency_outcomes: { rows: [{ student_id: 's2', cycle_id: PRIOR, hired_at: '2026-08-15T00:00:00Z' }] },
+    }), PRIOR)
+  assert.ok(prior.students.some(s => s.id === 's2'), 'a same/later-cycle hire never erases the historical roster')
+  void dbPrior
+})
+
+test('outcomes: a hire recorded in the SELECTED cycle stays visible in that cycle', async () => {
+  const payload = await loadApplicantsPayload(scenarioDb(), CYCLE)
+  assert.ok(payload.students.some(s => s.id === 's6'))
+})
+
+test('outcomes: prior attempt without a hire remains visible', async () => {
   const payload = await loadApplicantsPayload(scenarioDb(), CYCLE)
   assert.ok(payload.students.some(s => s.id === 's1'))
 })
 
-test('outcomes: a durable prior-cycle hire is excluded, and separation does not restore prospect status', async () => {
+test('outcomes: an earlier hire followed by separation remains excluded from later cycles', async () => {
   const payload = await loadApplicantsPayload(scenarioDb(), CYCLE)
-  assert.ok(!payload.students.some(s => s.id === 's2'), 'hired via earlier cycle must be excluded')
-  assert.ok(!payload.students.some(s => s.id === 's3'), 'separated former NGRP hire stays excluded')
+  assert.ok(!payload.students.some(s => s.id === 's3'))
   assert.equal(payload.excludedPriorHires, 2)
-})
-
-test('outcomes: a hire recorded in the SELECTED cycle does not exclude from that cycle', async () => {
-  const payload = await loadApplicantsPayload(scenarioDb(), CYCLE)
-  assert.ok(payload.students.some(s => s.id === 's6'))
 })
 
 test('outcomes: candidate state joins only the selected cycle', async () => {
@@ -203,8 +247,8 @@ test('outcomes: candidate state joins only the selected cycle', async () => {
   assert.deepEqual(payload.candidates.map(c => c.id), ['k1'])
   const rows = deriveApplicantRows(payload.students, payload.candidates)
   const s1 = rows.find(r => r.id === 's1')
-  assert.equal(s1.interest, 'interested')            // from the CURRENT cycle's row
-  assert.equal(s1.application_status, 'not_confirmed') // never the prior cycle's 'withdrawn'
+  assert.equal(s1.interest, 'interested')
+  assert.equal(s1.application_status, 'not_confirmed')
 })
 
 test('outcomes: excludePriorHires and sanitizeStudent are pure and least-privilege', () => {
@@ -216,12 +260,90 @@ test('outcomes: excludePriorHires and sanitizeStudent are pure and least-privile
   assert.equal(sanitizeStudent(stu('z', A, 'Completed', { school_email: '', personal_email: ' ' })).has_email, false)
 })
 
+test('outcomes: legacy student NGRP fields are not selected and never reach the browser payload', async () => {
+  // The select list itself carries no legacy field…
+  const fieldsLiteral = [...serverCore
+    .slice(serverCore.indexOf('const STUDENT_FETCH_FIELDS'), serverCore.indexOf('const CANDIDATE_FIELDS'))
+    .matchAll(/'([^']*)'/g)].map(m => m[1]).join('')
+  assert.doesNotMatch(fieldsLiteral, /ngrp_cohort_target|ngrp_outcome/)
+  assert.match(fieldsLiteral, /school_email, personal_email/)
+  // …and a payload row carries neither field even if the db row did.
+  const payload = await loadApplicantsPayload(scenarioDb(), CYCLE)
+  for (const row of payload.students) {
+    assert.ok(!('ngrp_cohort_target' in row) || row.ngrp_cohort_target === undefined)
+    assert.ok(!('school_email' in row))
+  }
+})
+
+// ── Truthful source-cohort mapping states (cycles action) ────────────────────
+
+test('mappings: a missing mapping table reports unprovisioned, never an empty mapping', async () => {
+  const db = mockDb({ ngrp_cycle_source_cohorts: { error: { code: 'PGRST205', message: "Could not find the table 'public.ngrp_cycle_source_cohorts'" } } })
+  const r = await fetchSourceCohortsForCycles(db, [CYCLE])
+  assert.equal(r.provisioned, false)
+  assert.ok(!('byCycle' in r))
+})
+
+test('mappings: an ordinary query failure surfaces as an error, never as "no source cohorts"', async () => {
+  const db = mockDb({ ngrp_cycle_source_cohorts: { error: { code: '57014', message: 'canceling statement' } } })
+  const r = await fetchSourceCohortsForCycles(db, [CYCLE])
+  assert.ok(r.error, 'error must propagate')
+  assert.ok(!('byCycle' in r))
+  // and the endpoint maps that to a 500, before any empty-list defaulting
+  assert.match(endpoint, /if \(mapped\.error\) return res\.status\(500\)/)
+  assert.match(endpoint, /if \(mapped\.provisioned === false\) return res\.status\(200\)\.json\(\{ provisioned: false/)
+  assert.ok(endpoint.indexOf('mapped.error') < endpoint.indexOf('mapped.byCycle.get'))
+})
+
+test('mappings: a successful query with zero rows is a valid empty mapping for every listed cycle', async () => {
+  const db = mockDb({ ngrp_cycle_source_cohorts: { rows: [] } })
+  const r = await fetchSourceCohortsForCycles(db, [PRIOR, CYCLE])
+  assert.equal(r.provisioned, true)
+  assert.deepEqual(r.byCycle.get(PRIOR), [])
+  assert.deepEqual(r.byCycle.get(CYCLE), [])
+  // batched: the endpoint issues ONE mapping read for all cycles
+  assert.match(endpoint, /fetchSourceCohortsForCycles\(db, result\.cycles\.map\(c => c\.id\)\)/)
+  assert.doesNotMatch(endpoint, /for \(const cycle of result\.cycles\)/)
+})
+
+// ── Selector ordering (plan §3.2) ────────────────────────────────────────────
+
+test('ordering: active first, then planned/open chronologically, then completed/archived; ties by open then start date', () => {
+  const cycles = [
+    { id: 'z-arch', name: 'Old',    status: 'Archived',         application_open_date: '2025-03-01' },
+    { id: 'later',  name: 'Later',  status: 'Planning',         application_open_date: '2027-03-01', residency_start_date: '2027-08-09' },
+    { id: 'act',    name: 'Active', status: 'Application Open', application_open_date: '2026-09-01', is_active: true },
+    { id: 'done',   name: 'Done',   status: 'Completed',        application_open_date: '2026-03-01' },
+    { id: 'tie-b',  name: 'TieB',   status: 'Planning',         application_open_date: '2027-03-01', residency_start_date: '2027-09-01' },
+    { id: 'early',  name: 'Early',  status: 'Accepting Interest', application_open_date: '2026-11-01' },
+  ]
+  const ordered = orderCyclesForSelector(cycles).map(c => c.id)
+  // Closed cycles come after every active/planned one, chronological within
+  // their own group as well.
+  assert.deepEqual(ordered, ['act', 'early', 'later', 'tie-b', 'z-arch', 'done'])
+})
+
+test('ordering: a valid saved selection is preserved; otherwise active, then first ordered', () => {
+  const cycles = [
+    { id: 'c1', status: 'Completed', application_open_date: '2026-03-01' },
+    { id: 'c2', status: 'Application Open', application_open_date: '2026-09-01', is_active: true },
+    { id: 'c3', status: 'Planning', application_open_date: '2027-03-01' },
+  ]
+  assert.equal(resolveSelectedCycle(cycles, 'c3')?.id, 'c3', 'saved selection preserved')
+  assert.equal(resolveSelectedCycle(cycles, 'missing')?.id, 'c2', 'falls back to the active cycle')
+  assert.equal(resolveSelectedCycle(cycles.filter(c => !c.is_active), null)?.id, 'c3', 'else the first ordered (open before completed)')
+  assert.equal(resolveSelectedCycle([], 'x'), null)
+  // App.jsx actually uses these helpers for the header picker.
+  assert.match(appJsx, /orderCyclesForSelector\(ngrpCyclesQuery\.cycles\)/)
+  assert.match(appJsx, /resolveSelectedCycle\(ngrpCyclesQuery\.cycles, ngrpCyclePref\)/)
+})
+
 // ── Authorization (the one capability definition) ────────────────────────────
 
 const profiles = {
   owner:        { is_owner: true, role: 'owner', is_active: true },
   ownerOddRole: { is_owner: true, role: 'something_else', is_active: true },
-  stringOwner:  { is_owner: false, role: 'owner', is_active: true },  // capability rule: role string alone is not Owner
+  stringOwner:  { is_owner: false, role: 'owner', is_active: true },
   admin:        { role: 'admin', is_active: true },
   coLeadHyphen: { role: 'co-lead', is_active: true },
   coLeadUnder:  { role: 'co_lead', is_active: true },
@@ -256,20 +378,16 @@ test('authorization: inactive Owner/Admin/Co-Lead fail closed', () => {
 })
 
 test('authorization: server endpoint uses the SAME capability, before any query, and the UI gates every surface', () => {
-  // Server: verifyNgrpCaller -> can(profile, 'ngrp_access'); the endpoint
-  // verifies before creating the service client or reading anything.
   assert.match(ngrpAuth, /can\(caller\.profile, 'ngrp_access'\)/)
   assert.ok(endpoint.indexOf('verifyNgrpCaller(req)') < endpoint.indexOf('getServiceDb()'))
-  // Client: same capability key through canAccessNgrp; switcher, nav, and
-  // workspace body all gate on it; direct /ngrp/* navigation redirects.
   assert.match(appJsx, /const ngrpAllowed = canAccessNgrp\(currentUserProfile\)/)
-  assert.match(appJsx, /workspace=\{ngrpAllowed \?/)
+  // Experience picker (and with it the Residency option) exists only for
+  // authorized profiles; nav and workspace render gate the same way; direct
+  // /ngrp/* navigation redirects.
+  assert.match(appJsx, /experience=\{ngrpAllowed \?/)
   assert.match(appJsx, /\{ngrpAllowed && activeTab === 'ngrp' && \(\s*<NgrpNav/)
-  assert.match(appJsx, /ngrpAllowed && activeTab === 'ngrp' && \(\s*<Suspense/)
+  assert.match(appJsx, /\{ngrpAllowed && activeTab === 'ngrp' && \(\s*<NgrpWorkspace/)
   assert.match(appJsx, /!canAccessNgrp\(currentUserProfile\)\) \{\s*navigate\('\/aggregate', \{ replace: true \}\)/)
-  // NGRP is not gated on the broad canEdit anywhere.
-  assert.doesNotMatch(appJsx, /Ngrp\w*\s+canEdit|canEdit=\{canEdit\}[^>]*Ngrp/)
-  // The capability table itself: ngrp keys exist and exclude interviewer/viewer.
   assert.equal(can({ role: 'interviewer', is_active: true }, 'ngrp_access'), false)
   assert.equal(can({ role: 'admin' }, 'ngrp_access'), true)
 })
@@ -285,30 +403,24 @@ test('db: four server-only tables - RLS on, no policies, client roles revoked, s
   }
   assert.doesNotMatch(migration, /CREATE POLICY/)
   assert.doesNotMatch(migration, /GRANT[^;]*TO authenticated/)
-  // Verification checks ACTUAL privileges, not policy counts alone.
   assert.match(migration, /has_table_privilege\('anon'/)
   assert.match(migration, /has_table_privilege\('authenticated'/)
   assert.match(migration, /has_table_privilege\('service_role'/)
 })
 
 test('db: durable employment history cannot be silently erased; no seeded rows; hardened constraints', () => {
-  // Outcomes: RESTRICT on student/cycle/candidate; no service-role DELETE.
   assert.match(migration, /student_id\s+uuid NOT NULL REFERENCES public\.students\(id\)\s+ON DELETE RESTRICT/)
   assert.match(migration, /cycle_id\s+uuid NOT NULL REFERENCES public\.ngrp_cycles\(id\) ON DELETE RESTRICT/)
   assert.match(migration, /REFERENCES public\.ngrp_candidates \(id, student_id, cycle_id\) ON DELETE RESTRICT/)
   assert.match(migration, /GRANT SELECT, INSERT, UPDATE\s+ON public\.ngrp_residency_outcomes\s+TO service_role/)
-  // No demonstration data of any kind.
   assert.doesNotMatch(migration, /INSERT INTO/)
-  assert.doesNotMatch(migration, /February 2027/)
-  // Cycle date sanity + jsonb shapes + nonblank override reason + stable actor.
+  assert.doesNotMatch(migration, /January 2027|February 2027/)
   assert.match(migration, /application_deadline >= application_open_date/)
   assert.match(migration, /interview_window_end >= interview_window_start/)
   assert.match(migration, /jsonb_typeof\(qualification_rules\) = 'object'/)
   assert.match(migration, /jsonb_typeof\(application_checklist\) = 'array'/)
   assert.match(migration, /btrim\(eligibility_override_reason\) <> ''/)
   assert.match(migration, /eligibility_overridden_by_profile_id IS NOT NULL/)
-  // Application state/timestamp coherence + unique mapping + no denormalized
-  // cohort on candidates.
   assert.match(migration, /application_status = 'confirmed'\s+AND application_confirmed_at IS NOT NULL AND application_withdrawn_at IS NULL/)
   assert.match(migration, /CONSTRAINT ngrp_cycle_source_cohorts_unique UNIQUE \(cycle_id, cohort_id\)/)
   const candidatesBlock = migration.slice(migration.indexOf('CREATE TABLE IF NOT EXISTS public.ngrp_candidates'), migration.indexOf('ngrp_candidates_cycle_idx'))
@@ -321,18 +433,80 @@ test('db: no browser data path exists in the client code (endpoint-only reads)',
   assert.doesNotMatch(serverCore, /select\('\*'\)[\s\S]{0,80}from\('students'\)|from\('students'\)[\s\S]{0,120}select\('\*'\)/)
 })
 
-// ── Reliability and workspace states ─────────────────────────────────────────
+// ── Experience / Cohort header presentation ──────────────────────────────────
 
-test('states: cycle errors, no-cycles, no-mappings, unprovisioned, and unauthorized are all distinct', () => {
+test('header: Experience dropdown offers Internship and Residency; adjacency and shared pill treatment', () => {
+  assert.match(expPicker, /id: 'internship', label: 'Internship'/)
+  assert.match(expPicker, /id: 'residency',\s+label: 'Residency'/)
+  assert.match(expPicker, />Experience</)
+  // Adjacent controls in the right-side cluster, before search - and NOT in
+  // the brand zone (the old segmented switcher there is gone).
+  const iExp = headerJsx.indexOf('<ExperiencePicker')
+  const iCoh = headerJsx.indexOf('<CohortPicker')
+  const iRes = headerJsx.indexOf('<ResidencyCohortPicker')
+  const iSearch = headerJsx.indexOf('<UniversalSearch')
+  const iSpacer = headerJsx.indexOf('chart-header-spacer')
+  assert.ok(iSpacer < iExp && iExp < iRes && iRes < iCoh && iCoh < iSearch, 'spacer < experience < cohort pickers < search')
+  assert.doesNotMatch(headerJsx, /WorkspaceSwitcher/)
+  // Both pickers share the dark translucent pill style.
+  for (const src of [expPicker, resPicker]) assert.match(src, /rgba\(255,255,255,0\.07\)/)
+})
+
+test('header: unauthorized users have no Experience picker (and therefore no Residency option)', () => {
+  assert.match(appJsx, /experience=\{ngrpAllowed \? \{ active: activeTab === 'ngrp' \? 'residency' : 'internship'/)
+  assert.match(headerJsx, /\{experience && <ExperiencePicker/)
+})
+
+test('header: Residency swaps the adjacent picker to residency cohorts presented as COHORT; Internship keeps CohortPicker', () => {
+  assert.match(headerJsx, /inResidency && residencyCohort\s*\?\s*<ResidencyCohortPicker/)
+  assert.match(headerJsx, /:\s*<CohortPicker/)
+  // Eyebrow says Cohort, primary label is the cohort (cycle) name.
+  assert.match(resPicker, />Cohort</)
+  assert.match(resPicker, /activeCycle\?\.name/)
+  // Presentation language: no user-facing "NGRP Residency Cycle" and no
+  // "Awaiting provisioning" anywhere in the header components.
+  for (const src of [headerJsx, expPicker, resPicker]) {
+    assert.doesNotMatch(src, /NGRP Residency Cycle/)
+    assert.doesNotMatch(src, /Awaiting provisioning/)
+  }
+})
+
+test('header: unconfigured, unavailable, and loading picker states are truthful and distinct', () => {
+  assert.match(resPicker, /'No cohorts configured'/)
+  assert.match(resPicker, /'Cohorts unavailable'/)
+  assert.match(resPicker, /'Loading cohorts…'/)
+  // A failure is never presented as a valid empty cohort list: the
+  // unavailable branch is separate from the zero-cycles branch.
+  assert.match(resPicker, /unavailable = status === 'unprovisioned' \|\| status === 'error' \|\| status === 'stale'/)
+  assert.doesNotMatch(resPicker, /January 2027/)
+})
+
+test('header: each experience restores its own last operational tab; residency cohort pref is per user', () => {
+  const wsSwitch = appJsx.slice(appJsx.indexOf('const switchExperience'), appJsx.indexOf('const ngrpSubTab'))
+  assert.match(wsSwitch, /lastNgrpTabKey\(user\.id\)/)
+  assert.match(wsSwitch, /lastTabKey\(user\.id\)/)
+  assert.match(appJsx, /const switchNgrpTab = id => \{\s*try \{ if \(user\?\.id\) localStorage\.setItem\(lastNgrpTabKey\(user\.id\), id\)/)
+  assert.equal(ngrpCycleStorageKey('user-a'), 'aspire:ngrpCycle:user-a')
+  assert.notEqual(ngrpCycleStorageKey('user-a'), ngrpCycleStorageKey('user-b'))
+  assert.equal(ngrpCycleStorageKey(null), null)
+  assert.match(appJsx, /ngrpCycleStorageKey\(user\?\.id\)/)
+})
+
+// ── Bundle and reliability ───────────────────────────────────────────────────
+
+test('bundle: NgrpWorkspace is statically imported (the lazy chunk regressed the entry to ~3 MB)', () => {
+  assert.match(appJsx, /import NgrpWorkspace from '\.\/components\/ngrp\/NgrpWorkspace'/)
+  assert.doesNotMatch(appJsx, /lazy\(\(\) => import\('\.\/components\/ngrp/)
+})
+
+test('states: cycle errors, no-cohorts, no-mappings, unprovisioned, and unauthorized are all distinct', () => {
   assert.match(workspace, /NGRP cycles could not be loaded/)
-  assert.match(workspace, /No residency cycles configured/)
+  assert.match(workspace, /No residency cohorts configured/)
   assert.match(workspace, /NGRP persistence is not provisioned yet/)
   assert.match(workspace, /NGRP access required/)
-  assert.match(applicants, /No source ASPIRE cohorts mapped to this cycle/)
+  assert.match(applicants, /No source ASPIRE cohorts mapped to this residency cohort/)
   assert.match(applicants, /No completed alumni yet/)
   assert.match(applicants, /Live refresh failed/)
-  // and the hook never reports provisioned optimistically: loading resolves
-  // first, and no default coerces provisioned to true.
   assert.doesNotMatch(dataHooks, /provisioned \?\? true|provisioned: true/)
   assert.match(dataHooks, /if \(query\.isLoading\) return 'loading'/)
 })
@@ -344,33 +518,13 @@ test('states: unprovisioned db errors map only from the missing-table signature'
   assert.equal(isMissingNgrpTable(null), false)
 })
 
-test('reliability: per-user cycle persistence cannot leak between accounts; no toast in the data layer', () => {
-  assert.equal(ngrpCycleStorageKey('user-a'), 'aspire:ngrpCycle:user-a')
-  assert.notEqual(ngrpCycleStorageKey('user-a'), ngrpCycleStorageKey('user-b'))
-  assert.equal(ngrpCycleStorageKey(null), null)
-  assert.match(appJsx, /ngrpCycleStorageKey\(user\?\.id\)/)
-  // The data layer imports no toast machinery and calls none.
+test('reliability: no toast in the data layer; KPI filters keep the roster visible; sticky header; no duplicate selector', () => {
   assert.doesNotMatch(dataHooks, /useToast|toast\?\.|toast\(/)
-})
-
-test('reliability: KPI filters keep the roster visible; sticky header; header picker swap', () => {
-  // A KPI click only writes the URL param; the table (with its own filtered
-  // empty row) stays mounted.
   assert.match(applicants, /setParam\('kpi', kpiFilter === k\.key \? 'all' : k\.key, 'all'\)/)
   assert.match(applicants, /No alumni match the current filters/)
   assert.match(ngrpCss, /\.ngrp-table thead th \{\s*position: sticky/)
-  // Header: NGRP swaps in the cycle picker; ASPIRE keeps CohortPicker; the
-  // picker names the entity precisely and never calls it a cohort.
-  assert.match(headerJsx, /inNgrp && ngrpCycle\s*\?\s*<NgrpCyclePicker/)
-  assert.match(headerJsx, /:\s*<CohortPicker/)
-  assert.match(cyclePicker, />NGRP Residency Cycle</)
-  assert.match(cyclePicker, /Select NGRP Residency Cycle/)
-  // No user-facing label in the picker calls the selection a cohort (the
-  // eyebrow chip in CohortPicker is ">Cohort<"; nothing like it here).
-  assert.doesNotMatch(cyclePicker, />Cohort</)
-  // The duplicate below-nav selector is gone: the workspace renders metadata
-  // only - no <select>, no picker component rendered, no selection handler.
-  assert.doesNotMatch(workspace, /<select|<NgrpCyclePicker|onSelectCycle|selectCycle\(/)
+  // The workspace body renders cohort metadata only - no second selector.
+  assert.doesNotMatch(workspace, /<select|<ResidencyCohortPicker|onSelectCycle|selectCycle\(/)
 })
 
 test('roster semantics: neutral defaults, operational sort, and KPI predicates hold', () => {

@@ -21,7 +21,7 @@
 // conflated with "no cycles configured" or an ordinary error.
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
-import { fetchCycles, fetchSourceCohorts, loadApplicantsPayload } from '../lib/server/ngrpApplicants.js'
+import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload } from '../lib/server/ngrpApplicants.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ACTIONS = new Set(['cycles', 'applicants'])
@@ -43,15 +43,15 @@ export default async function handler(req, res) {
     const result = await fetchCycles(db)
     if (result.error) return res.status(500).json({ error: 'internal_error' })
     if (result.provisioned === false) return res.status(200).json({ provisioned: false, cycles: [] })
-    // Attach each cycle's mapped source cohorts so the client can show the
-    // mapping without a second round trip. A missing mapping table (partial
-    // provisioning) degrades that one cycle's list to empty rather than
-    // failing the whole action.
-    const cycles = []
-    for (const cycle of result.cycles) {
-      const mapped = await fetchSourceCohorts(db, cycle.id)
-      cycles.push({ ...cycle, source_cohorts: mapped.cohorts || [] })
-    }
+    // ONE batched mapping read for every listed cycle, with truthful states:
+    // a missing mapping table (partial provisioning) reports the whole action
+    // as unprovisioned, an ordinary query failure is a server error, and only
+    // a successful query may present an empty source_cohorts list. An error
+    // is never dressed up as "no source cohorts mapped".
+    const mapped = await fetchSourceCohortsForCycles(db, result.cycles.map(c => c.id))
+    if (mapped.error) return res.status(500).json({ error: 'internal_error' })
+    if (mapped.provisioned === false) return res.status(200).json({ provisioned: false, cycles: [] })
+    const cycles = result.cycles.map(c => ({ ...c, source_cohorts: mapped.byCycle.get(c.id) || [] }))
     return res.status(200).json({ provisioned: true, cycles })
   }
 

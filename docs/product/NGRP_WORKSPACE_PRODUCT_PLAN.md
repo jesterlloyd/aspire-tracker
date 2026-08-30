@@ -44,7 +44,14 @@ The first release serves the ASPIRE team. It uses existing ASPIRE alumni records
 
 ### 3.1 Workspace switcher
 
-Add an explicit header switcher:
+(Presentation revised 2026-08-30: the switcher ships as an **Experience**
+picker - a pill + dropdown beside the Cohort picker offering **Internship**
+(the existing ASPIRE workspace) and **Residency** (the NGRP workspace). In
+the Residency experience the adjacent picker lists NGRP residency cycles
+presented to users as **cohorts**; internally the entity remains
+`ngrp_cycles`. The Residency option exists only for roles with NGRP access.)
+
+Original direction:
 
 - **ASPIRE** opens the existing A-SP-I-R-E student-placement workspace.
 - **NGRP** opens the new alumni-to-residency workspace.

@@ -63,13 +63,16 @@ import CatalogPage from './components/catalog/CatalogPage'
 // NGRP-WORKSPACE-1 (correction): the NGRP workspace. Its Applicants roster is
 // served by /api/ngrp-workspace (cycle-scoped, multi-cohort), NOT by the
 // cohort-scoped students state below - the ASPIRE cohort never constrains the
-// NGRP roster. The workspace body is a lazy chunk: only the small staff
-// subset holding the ngrp_access capability ever downloads it.
+// NGRP roster. Imported STATICALLY on purpose: a lazy() chunk here made the
+// bundler hoist the shared dependency graph (incl. Connect/TipTap) into the
+// main entry (~585 KB → ~3 MB); the workspace itself is small, so a static
+// import keeps the entry at its baseline.
 import NgrpNav from './components/ngrp/NgrpNav'
+import NgrpWorkspace from './components/ngrp/NgrpWorkspace'
 import { NGRP_TABS } from './lib/ngrp/ngrpTabs'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from './lib/ngrp/ngrpAccess'
+import { orderCyclesForSelector, resolveSelectedCycle } from './lib/ngrp/ngrpStates'
 import { useNgrpCycles } from './lib/ngrp/useNgrpData'
-const NgrpWorkspace = lazy(() => import('./components/ngrp/NgrpWorkspace'))
 
 // PHASE1-PUBLIC-SITE: the public marketing site is a lazy chunk so the staff
 // bundle does not grow and public visitors do not download the staff app UI
@@ -130,6 +133,10 @@ const PATH_TO_TAB = {
 // inheriting the previous user's tab. The prior global 'aspire_active_tab' key is no longer
 // read for restore (left untouched in storage; not wiped).
 const lastTabKey = (userId) => `aspire:lastActiveTab:${userId}`
+// NGRP-WORKSPACE-1: the last-used NGRP sub-tab, per authenticated user, so the
+// Residency experience restores where the user left off (same rule as the
+// ASPIRE lastTabKey above).
+const lastNgrpTabKey = (userId) => `aspire:lastNgrpTab:${userId}`
 // AUTH-UX-1B: remembers which authenticated user was last active in THIS browser so a
 // different account logging in (while the browser is still on a prior route like /connect)
 // is reset to Aggregate once, instead of inheriting the previous user's visible route.
@@ -572,14 +579,20 @@ function MainApp({ onLogout }) {
     activeCohortId,
   ])
 
-  // NGRP-WORKSPACE-1: explicit workspace switch from the header's segmented
-  // ASPIRE | NGRP control - plain navigation, never a scroll or swipe. NGRP
-  // always enters through Applicants (its front door); ASPIRE returns to the
-  // user's last-used operational tab, same restore rule as "/". Neither
-  // direction touches the OTHER workspace's scope: the ASPIRE cohort pick and
-  // the per-user NGRP cycle pref are separate state.
-  const switchWorkspace = ws => {
-    if (ws === 'ngrp') { navigate('/ngrp/applicants'); return }
+  // NGRP-WORKSPACE-1: Experience switch from the header picker (Internship =
+  // the ASPIRE workspace, Residency = the NGRP workspace) - plain navigation,
+  // never a scroll or swipe. EACH experience restores the user's last-used
+  // operational tab (lastTabKey / lastNgrpTabKey), and neither direction
+  // touches the OTHER experience's scope: the ASPIRE cohort pick and the
+  // per-user residency-cohort pref are separate state.
+  const switchExperience = exp => {
+    if (exp === 'residency') {
+      let savedNgrp = null
+      try { savedNgrp = user?.id ? localStorage.getItem(lastNgrpTabKey(user.id)) : null } catch { /* storage unavailable */ }
+      const tab = NGRP_TABS.some(t => t.id === savedNgrp) ? savedNgrp : 'applicants'
+      navigate(`/ngrp/${tab}`)
+      return
+    }
     const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null
     const resolved = saved === 'matching' ? 'rotation' : saved
     navigate(TAB_TO_PATH[resolved] || '/aggregate')
@@ -589,6 +602,11 @@ function MainApp({ onLogout }) {
     const seg = location.pathname.split('/')[2] || ''
     return NGRP_TABS.some(t => t.id === seg) ? seg : 'applicants'
   })()
+  // Persist the sub-tab per user (event handler, not an effect).
+  const switchNgrpTab = id => {
+    try { if (user?.id) localStorage.setItem(lastNgrpTabKey(user.id), id) } catch { /* storage unavailable */ }
+    navigate(`/ngrp/${id}`)
+  }
 
   // ── NGRP access + cycle scope (correction pass) ─────────────────────────────
   // Access is the ONE capability definition (lib/server/access.js via
@@ -614,10 +632,10 @@ function MainApp({ onLogout }) {
       return k ? localStorage.getItem(k) : null
     } catch { return null }
   })
-  const activeNgrpCycle =
-    ngrpCyclesQuery.cycles.find(c => c.id === ngrpCyclePref) ||
-    ngrpCyclesQuery.cycles.find(c => c.is_active) ||
-    ngrpCyclesQuery.cycles[0] || null
+  // Plan §3.2 selector order: active first, then planned/open chronologically,
+  // then Completed/Archived; a still-valid saved selection is preserved.
+  const orderedNgrpCycles = orderCyclesForSelector(ngrpCyclesQuery.cycles)
+  const activeNgrpCycle = resolveSelectedCycle(ngrpCyclesQuery.cycles, ngrpCyclePref)
   const selectNgrpCycle = id => {
     setNgrpCyclePref(id)
     try {
@@ -1317,13 +1335,15 @@ function MainApp({ onLogout }) {
           cohort={{ cohorts, cohortPickerRef, cohortOpen, setCohortOpen, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread }}
-          /* The switcher renders ONLY for profiles holding ngrp_access; every
-             other role sees the pre-NGRP header, unchanged. In NGRP the Zone-2
-             picker becomes the residency-cycle picker (Header.jsx). */
-          workspace={ngrpAllowed ? { active: activeTab === 'ngrp' ? 'ngrp' : 'aspire', onSwitch: switchWorkspace } : null}
-          ngrpCycle={ngrpAllowed && activeTab === 'ngrp' ? {
+          /* The Experience picker (Internship | Residency) renders ONLY for
+             profiles holding ngrp_access; every other role sees the pre-NGRP
+             header, unchanged - so the Residency option simply does not exist
+             for them. In Residency the adjacent COHORT picker lists NGRP
+             residency cohorts (Header.jsx). */
+          experience={ngrpAllowed ? { active: activeTab === 'ngrp' ? 'residency' : 'internship', onSwitch: switchExperience } : null}
+          residencyCohort={ngrpAllowed && activeTab === 'ngrp' ? {
             status: ngrpCyclesQuery.status,
-            cycles: ngrpCyclesQuery.cycles,
+            cycles: orderedNgrpCycles,
             activeCycle: activeNgrpCycle,
             onSelectCycle: selectNgrpCycle,
           } : null}
@@ -1332,7 +1352,7 @@ function MainApp({ onLogout }) {
         {/* NGRP-WORKSPACE-1: the NGRP workspace has its own six-tab nav in the
             same sticky band; the ASPIRE nav is untouched for every other tab. */}
         {ngrpAllowed && activeTab === 'ngrp' && (
-          <NgrpNav activeTab={ngrpSubTab} onSwitchTab={id => navigate(`/ngrp/${id}`)} />
+          <NgrpNav activeTab={ngrpSubTab} onSwitchTab={switchNgrpTab} />
         )}
         {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && activeTab !== 'ngrp' && (
           <UnifiedNav
@@ -1484,21 +1504,19 @@ function MainApp({ onLogout }) {
               <CatalogPage backPath={backPath} backLabel={backLabel} />
             )}
 
-            {/* NGRP-WORKSPACE-1 (correction): the NGRP workspace, lazily
-                loaded and rendered ONLY for authorized profiles. It receives
-                the cycle scope resolved above - never the cohort-scoped
-                students state, which would silently shrink "All ASPIRE
-                Cohorts" to one cohort. */}
+            {/* NGRP-WORKSPACE-1 (correction): the NGRP workspace, rendered
+                ONLY for authorized profiles. Statically imported (see the
+                import note) and receiving the residency-cohort scope resolved
+                above - never the cohort-scoped students state, which would
+                silently shrink "All ASPIRE Cohorts" to one cohort. */}
             {ngrpAllowed && activeTab === 'ngrp' && (
-              <Suspense fallback={<div className="state-box"><div className="spinner" /><p>Loading NGRP…</p></div>}>
-                <NgrpWorkspace
-                  cyclesStatus={ngrpCyclesQuery.status}
-                  cyclesCount={ngrpCyclesQuery.cycles.length}
-                  cycle={activeNgrpCycle}
-                  canManage={canManageNgrp(currentUserProfile)}
-                  toast={toast}
-                />
-              </Suspense>
+              <NgrpWorkspace
+                cyclesStatus={ngrpCyclesQuery.status}
+                cyclesCount={ngrpCyclesQuery.cycles.length}
+                cycle={activeNgrpCycle}
+                canManage={canManageNgrp(currentUserProfile)}
+                toast={toast}
+              />
             )}
           </>
         )}

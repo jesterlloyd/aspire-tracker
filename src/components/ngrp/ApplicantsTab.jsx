@@ -187,8 +187,8 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
       <div className="snap" style={{ margin: '14px 0' }}>
         <EmptyState
           icon={<GraduationCap />}
-          heading="No source ASPIRE cohorts mapped to this cycle"
-          subtext={`${cycle.name} has no ASPIRE cohorts linked yet, so there is no student scope to draw applicants from. Source cohorts are managed in NGRP → Planning.`}
+          heading="No source ASPIRE cohorts mapped to this residency cohort"
+          subtext={`${cycle.name} has no ASPIRE cohorts linked yet, so there is no student scope to draw applicants from. Source cohorts are managed in Residency → Planning.`}
         />
       </div>
     )

@@ -16,6 +16,7 @@
 //   err  (red alert)    - not eligible, failed delivery, no show
 //   mute (gray dash)    - no action yet, no response, not confirmed (NEUTRAL)
 // Color is never the only signal: every pill renders an icon + text label.
+import { cycleChronoKey } from '../../../lib/server/ngrpApplicants.js'
 
 // ── Color families (hexes shared with ASPIRE_STATUS_CONFIG families) ─────────
 export const PILL_FAMILIES = {
@@ -80,6 +81,33 @@ export const CYCLE_STATUSES = [
   'Planning', 'Accepting Interest', 'Application Open', 'Application Closed',
   'Interviews', 'Offers', 'Residency Active', 'Completed', 'Archived',
 ]
+
+// ── Selector ordering (plan §3.2) ────────────────────────────────────────────
+// Current active cycle first; other planned/open/in-progress cycles next in
+// chronological order; Completed/Archived afterward. Chronology ties break by
+// application opening date, then residency start date (cycleChronoKey - the
+// same authoritative comparison the prior-hire exclusion uses).
+export const CYCLE_CLOSED_STATUSES = ['Completed', 'Archived']
+
+export function orderCyclesForSelector(cycles) {
+  const group = c => (c.is_active ? 0 : CYCLE_CLOSED_STATUSES.includes(c.status) ? 2 : 1)
+  return [...(cycles || [])].sort((a, b) => {
+    const g = group(a) - group(b)
+    if (g !== 0) return g
+    return cycleChronoKey(a) < cycleChronoKey(b) ? -1 : cycleChronoKey(a) > cycleChronoKey(b) ? 1 : 0
+  })
+}
+
+// The effective selection: a still-valid saved selection is preserved; else
+// the active cycle; else the first of the ordered list. Pure, so the
+// preference restore is unit-testable.
+export function resolveSelectedCycle(cycles, preferredId) {
+  const ordered = orderCyclesForSelector(cycles)
+  return ordered.find(c => c.id === preferredId)
+    || ordered.find(c => c.is_active)
+    || ordered[0]
+    || null
+}
 
 const CANDIDATE_DEFAULTS = {
   form_status: 'not_sent',
