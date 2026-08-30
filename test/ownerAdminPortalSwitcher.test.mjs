@@ -46,9 +46,11 @@ test('portal profile menu returns previewing staff to the Main App', () => {
 
 test('preview access is server-derived and never provisions a portal account', () => {
   assert.match(previewAccess, /verifyOwnerAdminCaller\(req\)/)
+  assert.match(previewAccess, /PREVIEW_ROLES\.has\(role\)/)
+  assert.match(portalApp, /admin-preview-access\?role=\$\{encodeURIComponent\(previewRole\)\}/)
   assert.match(previewAccess, /from\('students'\)/)
-  assert.match(previewAccess, /from\('units'\)/)
-  assert.match(previewAccess, /from\('schools'\)/)
+  assert.match(previewAccess, /if \(role !== 'student'\)/)
+  assert.doesNotMatch(previewAccess, /from\('units'\)|from\('schools'\)/)
   assert.doesNotMatch(previewAccess, /user_role_grants|user_student_links|user_unit_scopes|user_school_scopes|\.insert\(|\.update\(|\.delete\(/)
 })
 

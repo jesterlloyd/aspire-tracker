@@ -279,7 +279,7 @@ export default function PortalApp() {
           const { data: sessionData } = await supabase.auth.getSession()
           const token = sessionData?.session?.access_token
           if (!token) throw new Error('unauthenticated')
-          const response = await fetch('/api/portal/admin-preview-access', {
+          const response = await fetch(`/api/portal/admin-preview-access?role=${encodeURIComponent(previewRole)}`, {
             headers: { Authorization: `Bearer ${token}` },
           })
           if (!response.ok) throw new Error('preview_access_failed')

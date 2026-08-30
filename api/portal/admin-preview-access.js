@@ -1,8 +1,11 @@
 // Owner/Admin portal preview catalog. This endpoint never grants or persists a
-// portal role. It returns the server-derived choices available to the current
-// staff actor so portal shells can render their in-portal scope selectors.
+// portal role. Only Student preview needs bootstrap choices here. Unit Leader
+// and Academic Partner derive their selectors from their existing authorized
+// roster endpoints, while Nursing Education & Leadership is organization-wide.
 
 import { getServiceDb, verifyOwnerAdminCaller } from '../lib/portalAuth.js'
+
+const PREVIEW_ROLES = new Set(['student', 'unit_leader', 'academic_partner', 'nursing_academic'])
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -15,20 +18,33 @@ export default async function handler(req, res) {
   const auth = await verifyOwnerAdminCaller(req)
   if (!auth.ok) return res.status(auth.status).json({ error: auth.reason })
 
+  const role = typeof req.query?.role === 'string' ? req.query.role.trim() : ''
+  if (!PREVIEW_ROLES.has(role)) return res.status(400).json({ error: 'invalid_preview_role' })
+
+  // These portals resolve their server-authorized scope in their own data
+  // endpoints. Do not make an unrelated student, unit, or school catalog a
+  // prerequisite for entering them.
+  if (role !== 'student') {
+    return res.status(200).json({ students: [], unit_keys: [], school_keys: [] })
+  }
+
   let db
   try { db = getServiceDb() } catch { return res.status(500).json({ error: 'internal_error' }) }
 
-  const [studentResult, cohortResult, unitResult, schoolResult] = await Promise.all([
-    db.from('students').select('id, cohort_id, first_name, preferred_first_name, last_name, school, status'),
-    db.from('cohorts').select('id, name'),
-    db.from('units').select('unit_name').not('unit_name', 'is', null),
-    db.from('schools').select('canonical_name, is_active').eq('is_active', true),
-  ])
-  if (studentResult.error || cohortResult.error || unitResult.error || schoolResult.error) {
-    return res.status(500).json({ error: 'internal_error' })
+  const studentResult = await db
+    .from('students')
+    .select('id, cohort_id, first_name, preferred_first_name, last_name, school, status')
+  if (studentResult.error) return res.status(500).json({ error: 'student_catalog_unavailable' })
+
+  const cohortIds = [...new Set((studentResult.data || []).map(student => student.cohort_id).filter(Boolean))]
+  let cohortRows = []
+  if (cohortIds.length > 0) {
+    const cohortResult = await db.from('cohorts').select('id, name').in('id', cohortIds)
+    if (cohortResult.error) return res.status(500).json({ error: 'cohort_catalog_unavailable' })
+    cohortRows = cohortResult.data || []
   }
 
-  const cohorts = Object.fromEntries((cohortResult.data || []).map(row => [row.id, row.name]))
+  const cohorts = Object.fromEntries(cohortRows.map(row => [row.id, row.name]))
   const students = (studentResult.data || [])
     .map(student => ({
       id: student.id,
@@ -38,8 +54,5 @@ export default async function handler(req, res) {
       status: student.status || null,
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
-  const unitKeys = [...new Set((unitResult.data || []).map(row => String(row.unit_name || '').trim()).filter(Boolean))].sort()
-  const schoolKeys = [...new Set((schoolResult.data || []).map(row => String(row.canonical_name || '').trim()).filter(Boolean))].sort()
-
-  return res.status(200).json({ students, unit_keys: unitKeys, school_keys: schoolKeys })
+  return res.status(200).json({ students, unit_keys: [], school_keys: [] })
 }
