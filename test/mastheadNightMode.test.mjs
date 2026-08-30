@@ -66,6 +66,13 @@ test('the calendar button adopts the existing dark-theme treatment on the night 
   // The light-theme button and the app-level dark-theme override are untouched.
   assert.match(css, /\.mast-cal-btn \{\n {2}background: var\(--chart-navy, #1D2567\); color: #fff;/)
   assert.match(css, /\[data-theme="dark"\] \.mast-cal-btn \{ color: #0F1419; \}/)
+  // MASTHEAD-SCENE polish 2: scenery cards SUPERSEDE both with frosted glass -
+  // the later .mast-scene-night rule must stay after the solid night rule so
+  // the cascade keeps the glass treatment (Owner decision; do not "fix" back).
+  const solidAt = css.indexOf('.mast-night .mast-cal-btn {')
+  const glassAt = css.indexOf('.mast-scene-night .mast-cal-btn {')
+  assert.ok(solidAt !== -1 && glassAt > solidAt, 'glass night button must come after the solid rule')
+  assert.match(css, /\.mast-scene-night \.mast-cal-btn \{\n {2}background: rgba\(255,255,255,0\.14\);/)
 })
 
 test('reduced motion drops the night cross-fade along with every ink transition', () => {

@@ -1997,6 +1997,38 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-dawn .wx-mast-art, .mast-scene-night .wx-mast-art {
   transform: translate(-70px, -10px);
 }
+/* Polish 2 follow-up (Owner): View calendar goes frosted glass on scenery
+   cards so the artwork reads through it - bright glass with navy ink on the
+   light scenes, smoked glass with white ink at night (superseding the solid
+   accent treatment pinned above for the night card). The 1px border is paid
+   for out of the padding, so the button's footprint does not change.
+   Weatherless mastheads keep the solid navy button. */
+.mast-scene-day .mast-cal-btn, .mast-scene-sunset .mast-cal-btn,
+.mast-scene-dawn .mast-cal-btn {
+  background: rgba(255,255,255,0.32);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.55); padding: 7px 15px;
+  color: var(--chart-navy, #1D2567);
+  box-shadow: 0 1px 8px rgba(29,37,103,0.10);
+}
+.mast-scene-day .mast-cal-btn:hover, .mast-scene-sunset .mast-cal-btn:hover,
+.mast-scene-dawn .mast-cal-btn:hover { background: rgba(255,255,255,0.50); }
+.mast-scene-night .mast-cal-btn {
+  background: rgba(255,255,255,0.14);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.32); padding: 7px 15px;
+  color: #fff; box-shadow: none;
+}
+.mast-scene-night .mast-cal-btn:hover { background: rgba(255,255,255,0.24); }
+/* Dark page theme: the light scenes' bright glass would fight the dimmed
+   artwork and the theme's light inks - use the smoked treatment there too. */
+[data-theme="dark"] .mast-scene-day .mast-cal-btn,
+[data-theme="dark"] .mast-scene-sunset .mast-cal-btn,
+[data-theme="dark"] .mast-scene-dawn .mast-cal-btn {
+  background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.32);
+  color: #fff; box-shadow: none;
+}
+
 /* Owner feedback (reference comp): the right cluster rides the TOP of the
    scenery card - caption, milestone, and View calendar sit in the sky band
    while the skyline owns the lower half unobscured. Scene classes only, so
