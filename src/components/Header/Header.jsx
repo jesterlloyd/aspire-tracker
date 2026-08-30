@@ -7,12 +7,18 @@ import HeaderBrand from './HeaderBrand'
 import CohortPicker from './CohortPicker'
 import UniversalSearch from './UniversalSearch'
 import HeaderActions from './HeaderActions'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
 
-export default function Header({ cohort, search, actions }) {
+export default function Header({ cohort, search, actions, workspace }) {
   return (
     <header className="chart-header">
       {/* Zone 1: Brand */}
       <HeaderBrand />
+
+      {/* NGRP-WORKSPACE-1: explicit ASPIRE | NGRP switcher, brand-adjacent so
+          the active workspace is legible before any content. Optional prop -
+          absent, the header renders exactly as before. */}
+      {workspace && <WorkspaceSwitcher active={workspace.active} onSwitch={workspace.onSwitch} />}
 
       <div className="chart-header-spacer" />
 

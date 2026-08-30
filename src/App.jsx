@@ -60,6 +60,11 @@ import { safeWrite } from './lib/safeWrite'
 import { cleanupStudentFiles } from './lib/studentFileClient'
 import ConnectPage from './pages/Connect'
 import CatalogPage from './components/catalog/CatalogPage'
+// NGRP-WORKSPACE-1: the NGRP workspace (nav + shell). The roster derives from
+// the SAME canonical students state as the five ASPIRE tabs - no second fetch.
+import NgrpNav from './components/ngrp/NgrpNav'
+import NgrpWorkspace from './components/ngrp/NgrpWorkspace'
+import { NGRP_TABS } from './lib/ngrp/ngrpTabs'
 
 // PHASE1-PUBLIC-SITE: the public marketing site is a lazy chunk so the staff
 // bundle does not grow and public visitors do not download the staff app UI
@@ -214,6 +219,7 @@ function MainApp({ onLogout }) {
   const activeTab = (() => {
     const p = location.pathname
     if (p.startsWith('/rotation')) return 'rotation'
+    if (p.startsWith('/ngrp'))     return 'ngrp'     // NGRP-WORKSPACE-1: sibling workspace
     if (p.startsWith('/connect'))  return 'connect'
     if (p.startsWith('/catalog'))  return 'catalog'  // CATALOG-1: app-level utility section
     if (p.startsWith('/settings')) return 'settings' // WS2.1: app-level utility section
@@ -236,7 +242,7 @@ function MainApp({ onLogout }) {
     const ROUTE_TITLES = {
       overview: 'At a Glance', profiles: 'Student Profiles', interviews: 'Interviews',
       rotation: 'Rotation', evaluation: 'Evaluation', connect: 'ASPIRE Connect',
-      catalog: 'Catalog', settings: 'Settings',
+      catalog: 'Catalog', settings: 'Settings', ngrp: 'NGRP',
     }
     const label = ROUTE_TITLES[activeTab]
     document.title = label ? `${label} · ASPIRE Intelligence` : 'ASPIRE Intelligence'
@@ -246,6 +252,7 @@ function MainApp({ onLogout }) {
   // Derive back-navigation label from the stored path
   const backPath  = prevWorkspacePath.current || '/aggregate'
   const backLabel = backPath.startsWith('/rotation') ? 'Rotation'
+    : backPath.startsWith('/ngrp') ? 'NGRP'
     : backPath === '/students'   ? 'Student Profiles'
     : backPath === '/interviews' ? 'Interviews'
     : backPath === '/evaluation' ? 'Evaluation'
@@ -555,6 +562,22 @@ function MainApp({ onLogout }) {
     currentUserProfile?.onboarding_tour_dismissed,
     activeCohortId,
   ])
+
+  // NGRP-WORKSPACE-1: explicit workspace switch from the header's segmented
+  // ASPIRE | NGRP control - plain navigation, never a scroll or swipe. NGRP
+  // always enters through Applicants (its front door); ASPIRE returns to the
+  // user's last-used operational tab, same restore rule as "/".
+  const switchWorkspace = ws => {
+    if (ws === 'ngrp') { navigate('/ngrp/applicants'); return }
+    const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null
+    const resolved = saved === 'matching' ? 'rotation' : saved
+    navigate(TAB_TO_PATH[resolved] || '/aggregate')
+  }
+  // Active NGRP sub-tab for the nav, derived from the URL like activeTab is.
+  const ngrpSubTab = (() => {
+    const seg = location.pathname.split('/')[2] || ''
+    return NGRP_TABS.some(t => t.id === seg) ? seg : 'applicants'
+  })()
 
   const switchTab = tab => {
     // AUTH-UX-1: persist under THIS user's scoped key so it cannot leak to another account.
@@ -1247,9 +1270,15 @@ function MainApp({ onLogout }) {
           cohort={{ cohorts, cohortPickerRef, cohortOpen, setCohortOpen, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread }}
+          workspace={{ active: activeTab === 'ngrp' ? 'ngrp' : 'aspire', onSwitch: switchWorkspace }}
         />
 
-        {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && (
+        {/* NGRP-WORKSPACE-1: the NGRP workspace has its own six-tab nav in the
+            same sticky band; the ASPIRE nav is untouched for every other tab. */}
+        {cohorts.length > 0 && activeTab === 'ngrp' && (
+          <NgrpNav activeTab={ngrpSubTab} onSwitchTab={id => navigate(`/ngrp/${id}`)} />
+        )}
+        {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && activeTab !== 'ngrp' && (
           <UnifiedNav
             cohorts={cohorts}
             activeCohortId={activeCohortId}
@@ -1397,6 +1426,18 @@ function MainApp({ onLogout }) {
             {/* CATALOG-1: read-only ASPIRE Catalog (Owner/Admin gated by RLS + endpoint). */}
             {activeTab === 'catalog' && (
               <CatalogPage backPath={backPath} backLabel={backLabel} />
+            )}
+
+            {/* NGRP-WORKSPACE-1: the NGRP workspace. Applicants derives from the
+                canonical cohort-scoped students above - completed students ARE
+                the prospective candidates; no duplicate roster exists. */}
+            {activeTab === 'ngrp' && (
+              <NgrpWorkspace
+                students={students}
+                cohorts={cohorts}
+                canEdit={canEdit}
+                toast={toast}
+              />
             )}
           </>
         )}
