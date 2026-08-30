@@ -11,7 +11,7 @@ The first release serves the ASPIRE team. It uses existing ASPIRE alumni records
 
 ### Success criteria
 
-- Jester can see every completed alumnus in a selected ASPIRE cohort and identify who still needs the Transition Form.
+- Jester can see every completed alumnus across all ASPIRE cohorts mapped to the selected NGRP residency cycle and identify who still needs the Transition Form.
 - ASPIRE Connect can send one secure Transition Form link to each selected alumnus through **Outreach > Send to Many**.
 - Form, interest, eligibility, application, unit, and interview indicators update without reopening the student record.
 - The app distinguishes interest and readiness from a confirmed NGRP application.
@@ -23,7 +23,7 @@ The first release serves the ASPIRE team. It uses existing ASPIRE alumni records
 
 - Population: ASPIRE alumni whose student records already exist in ASPIRE Intelligence.
 - Entry into applicant counts: only an alumnus marked **Application Confirmed** counts as an NGRP applicant.
-- Roster scope: Applicants shows every completed alumnus in the selected ASPIRE cohort, including people who have not received the form.
+- Roster scope (corrected 2026-08-30): Applicants shows every completed alumnus from ALL ASPIRE cohorts mapped to the selected NGRP residency cycle (via `ngrp_cycle_source_cohorts`), including people who have not received the form. The internal ASPIRE-cohort filter narrows that combined roster; it never defines it. An alumnus already hired through an earlier NGRP cycle (durable `hired_at` in `ngrp_residency_outcomes`) is excluded; a prior application, interview, no-offer, or withdrawal without a hire never excludes anyone, and a later separation does not re-open prospect status.
 - Neutral state: **Not applied** and **Not confirmed** are neutral. They are not failures, demerits, or negative outcomes.
 - Form delivery: Jester sends the Transition Form manually from ASPIRE Connect through a reusable Send to Many template.
 - Form hosting: ASPIRE hosts the form through a secure, tokenized link. Alumni do not need portal access.
@@ -76,6 +76,8 @@ The NGRP navigation spells ASPIRE:
 Use a residency-cycle selector as the primary NGRP scope. One NGRP cycle can include alumni from multiple ASPIRE cohorts.
 
 Use ASPIRE cohort as a filter inside Applicants. This lets Jester answer, "Which Summer 2026 alumni still need the form?" without incorrectly tying the whole residency cycle to Summer 2026.
+
+The cycle-to-cohort relationship is an explicit many-to-many mapping table, `ngrp_cycle_source_cohorts` (one row per `(cycle_id, cohort_id)`, unique, with created-at and actor audit; no duplicated cohort names or student identity). Planning manages the mappings; the Applicants read contract resolves them server-side, so the roster is never derived from whichever single cohort the ASPIRE workspace has loaded. In the header, the NGRP workspace swaps the ASPIRE cohort picker for an "NGRP Residency Cycle" picker; the two selections are separate state (per-authenticated-user cycle preference), and switching workspaces never changes the other side's pick.
 
 Recommended selector behavior:
 
@@ -398,6 +400,7 @@ Use additive, cycle-centered tables. Do not overload the existing cohort or stud
 | Table | Purpose |
 |---|---|
 | `ngrp_cycles` | Cycle dates, state, deadlines, requirements, and benchmark configuration |
+| `ngrp_cycle_source_cohorts` | Which ASPIRE cohorts feed a cycle (explicit many-to-many, unique per pair, audit columns; managed by Planning) |
 | `ngrp_cycle_units` | Participating units, display order, active state, and optional capacity |
 | `ngrp_candidates` | One alumnus attempt per student and cycle; interest, calculated/effective eligibility, application state |
 | `ngrp_transition_assignments` | Form lifecycle, deadline, latest revision, and send state |
@@ -586,7 +589,7 @@ Context
 ASPIRE currently uses a top header and an A-SP-I-R-E navigation set for At a Glance, Student Profiles, Interviews, Rotation, and Evaluation. Add an explicit ASPIRE | NGRP workspace switcher. NGRP uses six tabs that also spell ASPIRE: Applicants, Support, Planning, Interviews, Residency, and Evaluation.
 
 Primary design target
-Design the NGRP Applicants tab first. It is a real-time operational roster of every completed ASPIRE alumnus in a selected ASPIRE cohort for a selected NGRP residency cycle. Jester uses it to decide who needs a secure Transition Form and to monitor progress.
+Design the NGRP Applicants tab first. It is a real-time operational roster of every completed ASPIRE alumnus across the ASPIRE cohorts mapped to the selected NGRP residency cycle. Jester uses it to decide who needs a secure Transition Form and to monitor progress.
 
 Required Applicants content
 - Primary NGRP cycle selector

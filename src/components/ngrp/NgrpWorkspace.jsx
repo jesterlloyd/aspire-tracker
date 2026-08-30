@@ -1,21 +1,18 @@
-// NGRP-WORKSPACE-1: the NGRP workspace shell. Owns the residency-cycle
-// selector (the workspace's PRIMARY selector - an NGRP cycle is not an ASPIRE
-// cohort; the cohort remains a filter inside Applicants) and routes the six
-// sub-tabs by URL (/ngrp/<tab>), matching the app's URL-derived tab pattern.
+// NGRP-WORKSPACE-1 (correction): the NGRP workspace shell.
 //
-// Cycle persistence lands with migration 20260903000000 (Owner-gated, not yet
-// applied). Until then the hooks report provisioned:false, the roster still
-// derives fully from completed ASPIRE students, and everything that would
-// write is visibly gated.
-import { useEffect, useMemo, useState } from 'react'
+// The PRIMARY cycle selector now lives in the header (NgrpCyclePicker, in the
+// slot the ASPIRE cohort picker occupies in the ASPIRE workspace) - this
+// shell no longer renders a second selector. What remains here is compact
+// cycle METADATA (status, application dates, interview window, residency
+// start) plus the sub-tab routing and the workspace's distinct query states:
+// loading, unprovisioned, unauthorized, error, and no-cycles are all
+// different situations and render as different things - none of them is ever
+// shown as "No cycles yet".
+import { useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
 import { NGRP_TABS } from '../../lib/ngrp/ngrpTabs'
 import ApplicantsTab from './ApplicantsTab'
-import { useNgrpCycles, useNgrpCandidates } from '../../lib/ngrp/useNgrpData'
 import './ngrp.css'
-
-const CYCLE_KEY = 'aspire:ngrpCycleId'
 
 const PLANNED_TABS = {
   support: {
@@ -24,7 +21,7 @@ const PLANNED_TABS = {
   },
   planning: {
     title: 'Planning',
-    body: 'Cycle setup: name and status, application dates, interview window, licensing deadline, residency start date, participating units, qualification requirements, conditional-requirement deadlines, the application checklist, retention benchmarks, and cycle events.',
+    body: 'Cycle setup: name and status, application dates, interview window, licensing deadline, residency start date, source ASPIRE cohorts, participating units, qualification requirements, conditional-requirement deadlines, the application checklist, retention benchmarks, and cycle events.',
   },
   interviews: {
     title: 'Interviews',
@@ -40,7 +37,28 @@ const PLANNED_TABS = {
   },
 }
 
-export default function NgrpWorkspace({ students, cohorts, canEdit, toast }) {
+const fmtDate = d => {
+  if (!d) return null
+  const [y, m, day] = String(d).split('T')[0].split('-').map(Number)
+  if (!y || !m || !day) return d
+  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function StateCard({ heading, body, tone = 'info' }) {
+  const tones = {
+    info:  { bg: '#F3F4F6', border: '#D1D5DB', color: '#4B5563' },
+    error: { bg: '#FEE2E2', border: '#FCA5A5', color: '#991B1B' },
+  }
+  const t = tones[tone] || tones.info
+  return (
+    <div className="snap" style={{ margin: '14px 0', padding: '22px 24px', background: t.bg, border: `1px solid ${t.border}` }}>
+      <h2 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 700, color: t.color }}>{heading}</h2>
+      <p style={{ margin: 0, fontSize: 13, color: t.color, maxWidth: 640, lineHeight: 1.6 }}>{body}</p>
+    </div>
+  )
+}
+
+export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canManage, toast }) {
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -54,73 +72,78 @@ export default function NgrpWorkspace({ students, cohorts, canEdit, toast }) {
     if (!subTab) navigate('/ngrp/applicants', { replace: true })
   }, [subTab, navigate])
 
-  const { provisioned, cycles, loading: cyclesLoading } = useNgrpCycles()
-
-  // The stored id is a preference, not state to synchronize: the effective
-  // cycle is DERIVED (stored id if it still exists → the active cycle → the
-  // newest), and only an explicit selection writes anything back.
-  const [cycleId, setCycleId] = useState(() => {
-    try { return localStorage.getItem(CYCLE_KEY) || '' } catch { return '' }
-  })
-  const cycle = cycles.find(c => c.id === cycleId)
-    || cycles.find(c => c.is_active)
-    || cycles[0]
-    || null
-  const selectCycle = id => {
-    setCycleId(id)
-    try { localStorage.setItem(CYCLE_KEY, id) } catch { /* storage unavailable */ }
+  // ── Workspace-level query states (each one distinct, none conflated) ───────
+  if (cyclesStatus === 'loading') {
+    return (
+      <div className="ngrp-main">
+        <div className="state-box"><div className="spinner" /><p>Loading NGRP cycles…</p></div>
+      </div>
+    )
+  }
+  if (cyclesStatus === 'unauthorized') {
+    // The App-level guard redirects; this renders only for the brief interim
+    // and never shows any roster data.
+    return (
+      <div className="ngrp-main">
+        <StateCard heading="NGRP access required" body="Your account does not have access to the NGRP workspace." />
+      </div>
+    )
+  }
+  if (cyclesStatus === 'unprovisioned') {
+    return (
+      <div className="ngrp-main">
+        <StateCard
+          heading="NGRP persistence is not provisioned yet"
+          body="The NGRP foundation migration (supabase/migrations/20260903000000_ngrp_foundation.sql) has not been applied. Apply it through the Owner SQL gate, then reload - no roster is shown until the workspace can answer correctly."
+        />
+      </div>
+    )
+  }
+  if (cyclesStatus === 'error' || cyclesStatus === 'stale') {
+    return (
+      <div className="ngrp-main">
+        <StateCard
+          tone="error"
+          heading="NGRP cycles could not be loaded"
+          body="The server or database did not answer. This is not an empty cycle list - refresh to try again, and check the connection if it persists."
+        />
+      </div>
+    )
+  }
+  if (cyclesCount === 0) {
+    return (
+      <div className="ngrp-main">
+        <StateCard
+          heading="No residency cycles configured"
+          body="NGRP is provisioned but no cycle exists yet. Cycles (and their source ASPIRE cohorts) are created in NGRP → Planning; until then there is nothing to scope the Applicants roster to."
+        />
+      </div>
+    )
   }
 
-  const { candidates } = useNgrpCandidates(cycle?.id, { enabled: provisioned })
-
-  // NgrpNav itself renders in App.jsx's sticky .top-section, beside where
-  // UnifiedNav renders for the ASPIRE workspace; this shell owns everything
-  // below the nav.
   return (
     <div className="ngrp-workspace">
       <div className="ngrp-main">
-        {/* Cycle strip: the workspace-level context. Distinct from (and shown
-            alongside) the ASPIRE cohort, which stays in the header picker. */}
-        <div className="ngrp-cycle-strip">
-          <span className="ngrp-cycle-eyebrow">NGRP Residency Cycle</span>
-          {cycles.length > 0 ? (
-            <label className="ngrp-cycle-pick">
-              <span className="sr-only">Select NGRP residency cycle</span>
-              <select value={cycle?.id || ''} onChange={e => selectCycle(e.target.value)}>
-                {cycles.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}{c.status ? ` · ${c.status}` : ''}</option>
-                ))}
-              </select>
-              <ChevronDown size={12} strokeWidth={2.4} aria-hidden="true" />
-            </label>
-          ) : (
-            <span className="ngrp-cycle-none">
-              {cyclesLoading ? 'Loading cycles…' : 'No cycles yet'}
-            </span>
-          )}
-          {cycle?.residency_start_date && (
-            <span className="ngrp-cycle-meta">Residency starts {cycle.residency_start_date}</span>
-          )}
-          {cycle?.application_deadline && (
-            <span className="ngrp-cycle-meta">Applications close {cycle.application_deadline}</span>
-          )}
-          {!provisioned && (
-            <span className="ngrp-provision-chip" title="Apply supabase/migrations/20260903000000_ngrp_foundation.sql (Owner SQL gate), then reload.">
-              Awaiting NGRP provisioning - roster is live, persisted actions are disabled
-            </span>
-          )}
-        </div>
+        {/* Compact cycle metadata - the selector itself is the header pill. */}
+        {cycle && (
+          <div className="ngrp-cycle-strip" data-testid="ngrp-cycle-meta">
+            <span className="ngrp-cycle-eyebrow">NGRP Residency Cycle</span>
+            <span className="ngrp-cycle-name">{cycle.name}</span>
+            {cycle.status && <span className="ngrp-cycle-meta">{cycle.status}</span>}
+            {cycle.application_open_date && (
+              <span className="ngrp-cycle-meta">Applications {fmtDate(cycle.application_open_date)}{cycle.application_deadline ? ` – ${fmtDate(cycle.application_deadline)}` : ''}</span>
+            )}
+            {cycle.interview_window_start && (
+              <span className="ngrp-cycle-meta">Interviews {fmtDate(cycle.interview_window_start)}{cycle.interview_window_end ? ` – ${fmtDate(cycle.interview_window_end)}` : ''}</span>
+            )}
+            {cycle.residency_start_date && (
+              <span className="ngrp-cycle-meta">Residency starts {fmtDate(cycle.residency_start_date)}</span>
+            )}
+          </div>
+        )}
 
         {(!subTab || subTab === 'applicants') && (
-          <ApplicantsTab
-            students={students}
-            cohorts={cohorts}
-            cycle={cycle}
-            candidates={candidates}
-            provisioned={provisioned}
-            canEdit={canEdit}
-            toast={toast}
-          />
+          <ApplicantsTab cycle={cycle} canManage={canManage} toast={toast} />
         )}
 
         {subTab && subTab !== 'applicants' && (

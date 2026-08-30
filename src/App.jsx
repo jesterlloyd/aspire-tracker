@@ -60,11 +60,16 @@ import { safeWrite } from './lib/safeWrite'
 import { cleanupStudentFiles } from './lib/studentFileClient'
 import ConnectPage from './pages/Connect'
 import CatalogPage from './components/catalog/CatalogPage'
-// NGRP-WORKSPACE-1: the NGRP workspace (nav + shell). The roster derives from
-// the SAME canonical students state as the five ASPIRE tabs - no second fetch.
+// NGRP-WORKSPACE-1 (correction): the NGRP workspace. Its Applicants roster is
+// served by /api/ngrp-workspace (cycle-scoped, multi-cohort), NOT by the
+// cohort-scoped students state below - the ASPIRE cohort never constrains the
+// NGRP roster. The workspace body is a lazy chunk: only the small staff
+// subset holding the ngrp_access capability ever downloads it.
 import NgrpNav from './components/ngrp/NgrpNav'
-import NgrpWorkspace from './components/ngrp/NgrpWorkspace'
 import { NGRP_TABS } from './lib/ngrp/ngrpTabs'
+import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from './lib/ngrp/ngrpAccess'
+import { useNgrpCycles } from './lib/ngrp/useNgrpData'
+const NgrpWorkspace = lazy(() => import('./components/ngrp/NgrpWorkspace'))
 
 // PHASE1-PUBLIC-SITE: the public marketing site is a lazy chunk so the staff
 // bundle does not grow and public visitors do not download the staff app UI
@@ -232,9 +237,13 @@ function MainApp({ onLogout }) {
     // WS2.1: Settings (like Connect) is an app-level utility, not a workspace - exclude
     // it so Back-to-workspace returns to the prior operational tab, not /settings.
     if (!location.pathname.startsWith('/connect') && !location.pathname.startsWith('/settings') && !location.pathname.startsWith('/catalog')) {
-      prevWorkspacePath.current = location.pathname
+      // NGRP-WORKSPACE-1 (correction): record the search string too, so
+      // returning from Connect restores the Applicants filters (which live in
+      // the URL). The five ASPIRE tabs carry no search params, so their
+      // back-navigation is unchanged.
+      prevWorkspacePath.current = location.pathname + (location.search || '')
     }
-  }, [location.pathname])
+  }, [location.pathname, location.search])
 
   // ASPIRE-CHART: consistent staff route titles in the browser tab. Staff
   // routes are noindex, so this is purely orientation for the human reader.
@@ -566,7 +575,9 @@ function MainApp({ onLogout }) {
   // NGRP-WORKSPACE-1: explicit workspace switch from the header's segmented
   // ASPIRE | NGRP control - plain navigation, never a scroll or swipe. NGRP
   // always enters through Applicants (its front door); ASPIRE returns to the
-  // user's last-used operational tab, same restore rule as "/".
+  // user's last-used operational tab, same restore rule as "/". Neither
+  // direction touches the OTHER workspace's scope: the ASPIRE cohort pick and
+  // the per-user NGRP cycle pref are separate state.
   const switchWorkspace = ws => {
     if (ws === 'ngrp') { navigate('/ngrp/applicants'); return }
     const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null
@@ -578,6 +589,42 @@ function MainApp({ onLogout }) {
     const seg = location.pathname.split('/')[2] || ''
     return NGRP_TABS.some(t => t.id === seg) ? seg : 'applicants'
   })()
+
+  // ── NGRP access + cycle scope (correction pass) ─────────────────────────────
+  // Access is the ONE capability definition (lib/server/access.js via
+  // canAccessNgrp): active Owner capability, Admin, or Co-Lead. canEdit is
+  // deliberately NOT used - it omits Co-Lead and is not this role model.
+  const ngrpAllowed = canAccessNgrp(currentUserProfile)
+  // Unauthorized direct navigation to /ngrp/* leaves once the profile has
+  // resolved; until it resolves, nothing NGRP renders (fail closed below).
+  useEffect(() => {
+    if (activeTab === 'ngrp' && currentUserProfile && !canAccessNgrp(currentUserProfile)) {
+      navigate('/aggregate', { replace: true })
+    }
+  }, [activeTab, currentUserProfile]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cycle list is fetched only inside the workspace, by an authorized caller.
+  const ngrpCyclesQuery = useNgrpCycles({ enabled: ngrpAllowed && activeTab === 'ngrp' })
+  // Per-authenticated-user cycle preference (never a browser-global key):
+  // restore the saved cycle if it still exists, else the active cycle, else
+  // the first configured one. Only an explicit selection writes.
+  const [ngrpCyclePref, setNgrpCyclePref] = useState(() => {
+    try {
+      const k = ngrpCycleStorageKey(user?.id)
+      return k ? localStorage.getItem(k) : null
+    } catch { return null }
+  })
+  const activeNgrpCycle =
+    ngrpCyclesQuery.cycles.find(c => c.id === ngrpCyclePref) ||
+    ngrpCyclesQuery.cycles.find(c => c.is_active) ||
+    ngrpCyclesQuery.cycles[0] || null
+  const selectNgrpCycle = id => {
+    setNgrpCyclePref(id)
+    try {
+      const k = ngrpCycleStorageKey(user?.id)
+      if (k) localStorage.setItem(k, id)
+    } catch { /* storage unavailable: selection still applies this session */ }
+  }
 
   const switchTab = tab => {
     // AUTH-UX-1: persist under THIS user's scoped key so it cannot leak to another account.
@@ -1270,12 +1317,21 @@ function MainApp({ onLogout }) {
           cohort={{ cohorts, cohortPickerRef, cohortOpen, setCohortOpen, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread }}
-          workspace={{ active: activeTab === 'ngrp' ? 'ngrp' : 'aspire', onSwitch: switchWorkspace }}
+          /* The switcher renders ONLY for profiles holding ngrp_access; every
+             other role sees the pre-NGRP header, unchanged. In NGRP the Zone-2
+             picker becomes the residency-cycle picker (Header.jsx). */
+          workspace={ngrpAllowed ? { active: activeTab === 'ngrp' ? 'ngrp' : 'aspire', onSwitch: switchWorkspace } : null}
+          ngrpCycle={ngrpAllowed && activeTab === 'ngrp' ? {
+            status: ngrpCyclesQuery.status,
+            cycles: ngrpCyclesQuery.cycles,
+            activeCycle: activeNgrpCycle,
+            onSelectCycle: selectNgrpCycle,
+          } : null}
         />
 
         {/* NGRP-WORKSPACE-1: the NGRP workspace has its own six-tab nav in the
             same sticky band; the ASPIRE nav is untouched for every other tab. */}
-        {cohorts.length > 0 && activeTab === 'ngrp' && (
+        {ngrpAllowed && activeTab === 'ngrp' && (
           <NgrpNav activeTab={ngrpSubTab} onSwitchTab={id => navigate(`/ngrp/${id}`)} />
         )}
         {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && activeTab !== 'ngrp' && (
@@ -1428,16 +1484,21 @@ function MainApp({ onLogout }) {
               <CatalogPage backPath={backPath} backLabel={backLabel} />
             )}
 
-            {/* NGRP-WORKSPACE-1: the NGRP workspace. Applicants derives from the
-                canonical cohort-scoped students above - completed students ARE
-                the prospective candidates; no duplicate roster exists. */}
-            {activeTab === 'ngrp' && (
-              <NgrpWorkspace
-                students={students}
-                cohorts={cohorts}
-                canEdit={canEdit}
-                toast={toast}
-              />
+            {/* NGRP-WORKSPACE-1 (correction): the NGRP workspace, lazily
+                loaded and rendered ONLY for authorized profiles. It receives
+                the cycle scope resolved above - never the cohort-scoped
+                students state, which would silently shrink "All ASPIRE
+                Cohorts" to one cohort. */}
+            {ngrpAllowed && activeTab === 'ngrp' && (
+              <Suspense fallback={<div className="state-box"><div className="spinner" /><p>Loading NGRP…</p></div>}>
+                <NgrpWorkspace
+                  cyclesStatus={ngrpCyclesQuery.status}
+                  cyclesCount={ngrpCyclesQuery.cycles.length}
+                  cycle={activeNgrpCycle}
+                  canManage={canManageNgrp(currentUserProfile)}
+                  toast={toast}
+                />
+              </Suspense>
             )}
           </>
         )}
