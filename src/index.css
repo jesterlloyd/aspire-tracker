@@ -1932,7 +1932,10 @@ a.doc-file-link:hover { text-decoration: underline; }
    --scn-img-h to zoom, the mask stop to move the fade. */
 .mast-scn-img {
   position: absolute; bottom: 0; right: 0;
-  height: var(--scn-img-h, 185%); width: auto; max-width: none;
+  /* 185% → 162% (Owner feedback): zoomed out and bottom-pinned so the whole
+     skyline and the palm sit inside the card instead of running off its
+     edges - the art reads as a vista, not a crop. */
+  height: var(--scn-img-h, 162%); width: auto; max-width: none;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 26%);
   mask-image: linear-gradient(90deg, transparent 0, #000 26%);
   opacity: 0; transition: opacity 0.8s ease;
@@ -1972,6 +1975,43 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-night .wx-mast-caption {
   background: rgba(12,16,44,0.40);
+}
+/* Dark page theme uses light inks, so every scene's scrim goes dark there. */
+[data-theme="dark"] .mast-scene-day .wx-mast-caption,
+[data-theme="dark"] .mast-scene-sunset .wx-mast-caption,
+[data-theme="dark"] .mast-scene-dawn .wx-mast-caption,
+[data-theme="dark"] .mast-scene-night .wx-mast-caption {
+  background: rgba(14,18,42,0.45);
+}
+/* Owner feedback: on scenery cards the animated sun/moon slides left into the
+   open sky instead of sitting directly on the skyline (which lives under the
+   caption). Pure transform - no layout shift, and the art is already
+   pointer-events:none. Narrow layouts keep the 1c top-right anchor. */
+.mast-scene-day .wx-mast-art, .mast-scene-sunset .wx-mast-art,
+.mast-scene-dawn .wx-mast-art, .mast-scene-night .wx-mast-art {
+  transform: translateX(-46px);
+}
+/* Owner feedback (reference comp): the right cluster rides the TOP of the
+   scenery card - caption, milestone, and View calendar sit in the sky band
+   while the skyline owns the lower half unobscured. Scene classes only, so
+   weatherless mastheads keep their centered cluster. */
+.mast-scene-day .mast-right, .mast-scene-sunset .mast-right,
+.mast-scene-dawn .mast-right, .mast-scene-night .mast-right {
+  align-items: flex-start;
+}
+.mast-scene-day .wx-mast, .mast-scene-sunset .wx-mast,
+.mast-scene-dawn .wx-mast, .mast-scene-night .wx-mast {
+  align-items: flex-start;
+}
+.mast-scene-day .wx-mast-caption, .mast-scene-sunset .wx-mast-caption,
+.mast-scene-dawn .wx-mast-caption, .mast-scene-night .wx-mast-caption {
+  margin-top: -2px;
+}
+@media (max-width: 760px) {
+  .mast-scene-day .wx-mast-art, .mast-scene-sunset .wx-mast-art,
+  .mast-scene-dawn .wx-mast-art, .mast-scene-night .wx-mast-art { transform: none; }
+  .mast-scene-day .mast-right, .mast-scene-sunset .mast-right,
+  .mast-scene-dawn .mast-right, .mast-scene-night .mast-right { align-items: center; }
 }
 
 /* Dark theme: the daylight scenes mute to slate so the card never glows
