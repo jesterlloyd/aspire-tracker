@@ -186,8 +186,12 @@ test('S-01: the rate limit fails closed and runs before any student lookup', () 
     SRC.indexOf("rpc('consume_evaluation_rate_limit'") < SRC.indexOf(".from('students')"),
     'the limit must be consumed before the students query runs',
   )
+  // The cohort read moved into the shared fail-closed resolver
+  // (api/lib/intakeStudentLookup.js resolveAcceptingCohort), so the first lookup
+  // this endpoint performs is now that call rather than a .from('cohorts') query.
+  // The property under test is unchanged: nothing is read before the limit.
   assert.ok(
-    SRC.indexOf("rpc('consume_evaluation_rate_limit'") < SRC.indexOf(".from('cohorts')"),
+    SRC.indexOf("rpc('consume_evaluation_rate_limit'") < SRC.indexOf('resolveAcceptingCohort(db)'),
     'the limit must be consumed before any lookup at all',
   )
 })

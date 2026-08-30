@@ -39,6 +39,7 @@ import { Resend } from 'resend'
 import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js'
 import { extractClientIp, bucketKey } from '../lib/server/evaluation/rate_limit.js'
 import { CANONICAL_APP_URL, LEGACY_APP_URL } from '../src/lib/appUrl.js'
+import { resolveAcceptingCohort } from './lib/intakeStudentLookup.js'
 // Shared with the lookup so the two halves of the scheduling flow can never disagree about who may
 // schedule. A student the lookup admits is exactly a student this endpoint will book.
 import { ELIGIBLE_STATUSES } from './interview-lookup.js'
@@ -139,10 +140,17 @@ export default async function handler(req, res) {
     }
 
     // 1. Cohort from server state. Scheduling being open is a precondition of booking, so a closed
-    //    cohort refuses here exactly as it does in the lookup.
-    const { data: cohort } = await db.from('cohorts')
-      .select('id').eq('accepting_submissions', true).limit(1).maybeSingle()
-    if (!cohort) return res.status(400).json({ error: 'Scheduling is not currently open. Please contact the ASPIRE team.' })
+    //    cohort refuses here exactly as it does in the lookup, and by the same fail-closed resolver:
+    //    `.limit(1).maybeSingle()` used to pick an arbitrary row when more than one cohort was
+    //    accepting, which would have written a real booking into the wrong cohort. Booking is the
+    //    half of this pair that MUTATES, so guessing here was the more expensive of the two.
+    //    See api/interview-lookup.js step 1 and migration 20260902000000.
+    const cohortResult = await resolveAcceptingCohort(db)
+    if (cohortResult.failure) {
+      console.warn('[interview-book] no single accepting cohort:', cohortResult.failure.error)
+      return res.status(400).json({ error: 'Scheduling is not currently open. Please contact the ASPIRE team.' })
+    }
+    const cohort = { id: cohortResult.cohortId }
 
     // 2. Student re-resolved from the email, scoped to that cohort. Same matching rule as the
     //    lookup: escaped ilike, then a normalized-equality confirm in JS.

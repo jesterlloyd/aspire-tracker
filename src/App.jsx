@@ -474,10 +474,20 @@ function MainApp({ onLogout }) {
   }
   const updateCohort = async (id, updates) => {
     if (updates.accepting_submissions === true) {
-      await safeWrite(
+      // Clearing the flag elsewhere must SUCCEED before we set it here. This
+      // result used to be discarded, so a failed clear (an RLS refusal, a lost
+      // connection) still fell through to the write below and left TWO cohorts
+      // accepting. That is not a cosmetic inconsistency: accepting_submissions
+      // is the server-side cohort router for every anonymous public form, so a
+      // second accepting cohort makes the routing ambiguous for student intake,
+      // the unit form, the school form, and interview scheduling at once.
+      const { error: clearError } = await safeWrite(
         () => supabase.from('cohorts').update({ accepting_submissions: false }).neq('id', id),
         { name: 'deactivate other cohorts' }
       )
+      if (clearError) {
+        return new Error('Could not close submissions on the other cohorts, so this cohort was not opened. Nothing was changed. Please try again.')
+      }
       queryClient.setQueryData(['cohorts_all'], prev =>
         (prev || []).map(c => c.id !== id ? { ...c, accepting_submissions: false } : c))
     }
@@ -485,11 +495,19 @@ function MainApp({ onLogout }) {
       () => supabase.from('cohorts').update(updates).eq('id', id),
       { name: 'update cohort' }
     )
-    if (!error) {
-      queryClient.setQueryData(['cohorts_all'], prev =>
-        (prev || []).map(c => c.id === id ? { ...c, ...updates } : c))
+    if (error) {
+      // 23505 is the partial unique index from migration 20260902000000, which
+      // enforces the same one-at-a-time rule in the database. Reaching it means
+      // the clear above did not cover every accepting cohort. Translate it: the
+      // raw driver text names an index the reader has no reason to know about.
+      if (error.code === '23505') {
+        return new Error('Another cohort is already accepting submissions. Turn that off first, then open this one.')
+      }
+      return error
     }
-    return error || null
+    queryClient.setQueryData(['cohorts_all'], prev =>
+      (prev || []).map(c => c.id === id ? { ...c, ...updates } : c))
+    return null
   }
   const handleCohortSwitch = id => {
     localStorage.setItem('aspire_active_cohort_id', id)

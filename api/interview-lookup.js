@@ -34,6 +34,7 @@ import { createClient } from '@supabase/supabase-js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js'
 import { extractClientIp, bucketKey } from '../lib/server/evaluation/rate_limit.js'
 import { CANONICAL_APP_URL, LEGACY_APP_URL } from '../src/lib/appUrl.js'
+import { resolveAcceptingCohort } from './lib/intakeStudentLookup.js'
 
 export const ELIGIBLE_STATUSES = new Set([
   'Form Received', 'Interview Scheduled', 'Interviewed',
@@ -158,10 +159,25 @@ export default async function handler(req, res) {
       }
     }
 
-    // 1. Active cohort
-    const { data: cohort } = await db.from('cohorts')
-      .select('id, name').eq('accepting_submissions', true).limit(1).maybeSingle()
-    if (!cohort) return res.status(400).json({ error: 'Scheduling is not currently open. Please contact the ASPIRE team.' })
+    // 1. Active cohort, resolved fail-closed through the shared resolver.
+    //    This used to be `.limit(1).maybeSingle()`, which returned whichever row
+    //    Postgres ordered first. accepting_submissions is the cohort ROUTER for
+    //    every anonymous surface, and the single-accepting-cohort rule lived only
+    //    in the browser, so a second accepting cohort would have silently sent a
+    //    student into an arbitrary cohort's slots with no error raised to anyone.
+    //    resolveAcceptingCohort never picks a row: 0 and >1 both refuse.
+    //    Migration 20260902000000 additionally makes the >1 state unreachable.
+    //
+    //    The two failures are collapsed into ONE student-facing sentence on
+    //    purpose. `error` is rendered verbatim by InterviewSchedulePage, and a
+    //    student can neither act on nor be told about a cohort misconfiguration.
+    //    The distinction is kept server-side in the log line instead.
+    const cohortResult = await resolveAcceptingCohort(db)
+    if (cohortResult.failure) {
+      console.warn('[interview-lookup] no single accepting cohort:', cohortResult.failure.error)
+      return res.status(400).json({ error: 'Scheduling is not currently open. Please contact the ASPIRE team.' })
+    }
+    const cohort = { id: cohortResult.cohortId, name: cohortResult.cohortName }
 
     // 2. Student by school_email - forgiving match (case/whitespace/zero-width),
     //    escaped ilike (no % / _ wildcard broadening), JS normalized-equality confirm.

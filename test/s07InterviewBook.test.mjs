@@ -48,8 +48,30 @@ test('S-07: studentId is never read from the body, anywhere in the endpoint', ()
 })
 
 test('S-07: cohortId is not accepted from the body either; the cohort comes from server state', () => {
-  assert.doesNotMatch(CODE, /\bcohortId\b/, 'cohortId must not appear in the endpoint code')
-  assert.match(SRC, /\.from\('cohorts'\)[\s\S]{0,120}\.eq\('accepting_submissions', true\)/)
+  // The strongest form of this: the body yields exactly two fields, so no cohort
+  // identifier can enter from the request at all.
+  assert.match(SRC, /const \{ email, slotId \} = req\.body \|\| \{\}/)
+
+  // The cohort is resolved server-side by the shared FAIL-CLOSED resolver. This
+  // was `.eq('accepting_submissions', true).limit(1).maybeSingle()`, which could
+  // not tell one accepting cohort from several and simply took the first row it
+  // was handed, so a broken single-accepting-cohort invariant would have written
+  // a real booking into an arbitrary cohort. resolveAcceptingCohort refuses both
+  // the 0 and the >1 case and never yields a row.
+  assert.match(SRC, /const cohortResult = await resolveAcceptingCohort\(db\)/)
+  assert.match(SRC, /if \(cohortResult\.failure\)/)
+
+  // `cohortId` may now appear ONLY as that resolver's return field. This replaces
+  // the blanket ban on the identifier, which was a proxy for "it must not come
+  // from the body" and stopped being usable once the server-side resolver
+  // legitimately returned a field of that name. Any other occurrence, above all
+  // one reached from req.body, still fails here.
+  for (const m of CODE.matchAll(/\bcohortId\b/g)) {
+    assert.match(
+      CODE.slice(Math.max(0, m.index - 20), m.index), /cohortResult\.$/,
+      'cohortId may only be read from resolveAcceptingCohort',
+    )
+  }
 })
 
 test('S-07: identity is re-resolved from the email, matching the lookup exactly', () => {
@@ -189,7 +211,8 @@ test('S-07: the limit is consumed before any read or write, and fails closed', (
   assert.match(SRC, /if \(rlError \|\| allowed !== true\) \{/)
   assert.match(SRC, /return res\.status\(429\)/)
   const rl = SRC.indexOf("rpc('consume_evaluation_rate_limit'")
-  assert.ok(rl < SRC.indexOf(".from('cohorts')"), 'before the cohort read')
+  // The cohort read is now the shared resolver call, not a .from('cohorts') query.
+  assert.ok(rl < SRC.indexOf('resolveAcceptingCohort(db)'), 'before the cohort read')
   assert.ok(rl < SRC.indexOf(".from('students')"), 'before the student read')
   assert.ok(rl < SRC.indexOf("update({ is_booked: true"), 'before the slot claim')
 })

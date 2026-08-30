@@ -622,6 +622,10 @@ section:
   carry them inline or in a companion `db/audit/` file), not by memory.
 - When confirmed, replace UNKNOWN with APPLIED YYYY-MM-DD or NOT APPLIED, in
   the same sitting as the confirmation.
+- Topped up 2026-08-29 with the three migrations added by the parallel session
+  (20260830000000, 20260831000000, 20260901000000) plus 20260902000000. The
+  commit and date columns come from `git log`; the applied state does not, and
+  is UNKNOWN for the first three exactly as the rule above requires.
 
 | Migration | Added (commit, date) | Applied state |
 |---|---|---|
@@ -649,6 +653,10 @@ section:
 | 20260826000000_contacts_canonicalization.sql | b2dee20, 2026-08-25 | UNKNOWN pending confirmation |
 | 20260827000000_cohort_completed_at.sql | 5c27f60, 2026-08-26 | UNKNOWN pending confirmation |
 | 20260828000000_enable_nursing_academic_portal_utilities.sql | 15e45b7, 2026-08-27 | UNKNOWN pending confirmation |
+| 20260830000000_wcu_noho_fall2_split_repair.sql | ffccfd6, 2026-08-29 | UNKNOWN pending confirmation |
+| 20260831000000_wcu_anaheim_move_to_winter_2027.sql | ffccfd6, 2026-08-29 | UNKNOWN pending confirmation |
+| 20260901000000_winter_2027_unit_carryover_and_juliana.sql | a848ee5, 2026-08-29 | UNKNOWN pending confirmation |
+| 20260902000000_one_accepting_cohort.sql | this commit, 2026-08-29 | NOT APPLIED. Creates the partial unique index `cohorts_one_accepting_submissions`, which enforces at most one cohort with accepting_submissions = true. RUN PRE 1 OF db/audit/one_accepting_cohort_checks.sql FIRST: it is a stop condition, because the migration cannot and should not succeed while two cohorts are already accepting, and choosing which one keeps the flag is an operational decision. Confirm with POST 1 (the index is both UNIQUE and PARTIAL, read the indexdef rather than counting the row) and POST 2 |
 | 20260829000000_s22_is_owner_or_admin_requires_active.sql | 8762010, 2026-08-27 | APPLIED, confirmed 2026-08-29 via POST 1 to 5 of db/audit/s22_is_owner_or_admin_preflight_and_verification.sql (the predicate now delegates to is_active_owner_or_admin with its hardened attributes intact, both helpers agree for the session, every dependency unchanged from PRE 2, grants exclude anon and PUBLIC, and no second overload exists). S-22 closed. CORRECTION: PRE 4 showed is_owner_or_admin ALREADY held service_role EXECUTE before the migration, so the grant-parity step was a no-op; the migration header and the original discovery report both said otherwise |
 
 CONFIRMED 2026-08-27: `consume_evaluation_rate_limit` is present in
