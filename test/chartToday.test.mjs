@@ -64,8 +64,8 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
   })
 
   await t.test('the weather scene survives as the compact masthead variant', () => {
-    // MASTHEAD-NIGHT-1: the import gained useMastheadNight (whole-card night state).
-    assert.match(masthead, /import \{ WeatherMasthead, useMastheadNight \} from '\.\/WeatherScene'/)
+    // MASTHEAD-SCENE-1: the import carries the unified scene clock (artwork + night state).
+    assert.match(masthead, /import \{ WeatherMasthead, useMastheadScene \} from '\.\/WeatherScene'/)
     const wx = read('src/components/WeatherScene.jsx')
     // Same scenes and animations; only resized/repositioned per the approval (enlarged for presence).
     assert.match(wx, /export function WeatherMasthead\(\)/)

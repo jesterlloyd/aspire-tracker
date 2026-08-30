@@ -20,7 +20,8 @@ import { toLocalDateStr } from '../lib/designTokens'
 import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen, localDateStr } from '../lib/aspireEvents'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 import { greetingLine } from '../lib/masthead'
-import { WeatherMasthead, useMastheadNight } from './WeatherScene'
+import { WeatherMasthead, useMastheadScene } from './WeatherScene'
+import MastheadScenery from './MastheadScenery'
 
 const IMPORTANT_TYPES = new Set(['deadline', 'ngrp_deadline', 'ngrp_open', 'town_hall', 'orientation'])
 
@@ -86,9 +87,10 @@ export default function TodayMasthead({ students, cohort, cohortId, currentUserI
   })
 
   const { heading, wash } = greetingLine(userProfile?.full_name)
-  // MASTHEAD-NIGHT-1: whole-card night treatment when the weather scene is the
-  // moon/night scene (shared hook; scene-keyed, never theme- or greeting-keyed).
-  const sceneNight = useMastheadNight()
+  // MASTHEAD-SCENE-1: one unified clock drives the time-of-day artwork AND the
+  // whole-card night treatment (sun-times with fixed-window fallback; never
+  // the app theme, never the greeting wash).
+  const { scene, night: sceneNight } = useMastheadScene()
   const dateLabel = new Date(`${today}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const lastVisitLine = useLastVisitLine(students, cohortId, currentUserId)
 
@@ -129,7 +131,8 @@ export default function TodayMasthead({ students, cohort, cohortId, currentUserI
   const hasTodayLine = todayEvents.length > 0 || todayHolidays.length > 0
 
   return (
-    <div className={`mast mast-wash-${wash}${sceneNight ? ' mast-night' : ''}`}>
+    <div className={`mast mast-wash-${wash} mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
+      <MastheadScenery />
       <div className="mast-row">
         <div className="mast-left">
           <h1 className="chart-route-title mast-greet">{heading}</h1>

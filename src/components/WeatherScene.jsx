@@ -9,10 +9,11 @@
 // never says "night". Optional + non-blocking: returns null on any failure (silent hide, never throws,
 // never blocks the welcome band). Pure CSS keyframes (prefixed, scoped inline <style>), auto-frozen
 // under prefers-reduced-motion; a scoped media query shrinks the graphic on narrow screens.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sceneAssets } from '../lib/weatherAssetMap'
 import { useWeatherLocation } from '../lib/weatherLocation'
+import { sceneForTime, sunTimesFrom, SCENES } from '../lib/mastheadScene'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -207,7 +208,8 @@ export function useWelcomeWeather() {
   const q = useQuery({
     queryKey: ['welcome_weather', location.geo ? `geo:${location.lat},${location.lon}` : 'los_angeles'],
     queryFn: async () => {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=kmh&timezone=auto&forecast_days=1`
+      // MASTHEAD-SCENE-1: sunrise/sunset ride the same daily request (no extra fetch).
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=kmh&timezone=auto&forecast_days=1`
       const res = await fetch(url)
       if (!res.ok) return null
       const j = await res.json().catch(() => null)
@@ -219,6 +221,8 @@ export function useWelcomeWeather() {
         isDay: j.current.is_day,
         hi: j.daily?.temperature_2m_max?.[0] != null ? Math.round(j.daily.temperature_2m_max[0]) : null,
         lo: j.daily?.temperature_2m_min?.[0] != null ? Math.round(j.daily.temperature_2m_min[0]) : null,
+        sunrise: j.daily?.sunrise?.[0] ?? null,
+        sunset: j.daily?.sunset?.[0] ?? null,
       }
     },
     staleTime: 30 * 60 * 1000,
@@ -229,15 +233,33 @@ export function useWelcomeWeather() {
   return { ...q, location }
 }
 
-// MASTHEAD-NIGHT-1: the masthead hosts (TodayMasthead + the shared portal
-// GreetingMasthead) key their whole-card night treatment on the SAME weather
-// condition the scene itself uses (is_day === 0) - never the app theme or the
-// time-of-day greeting wash. The query is shared/deduped, so this costs no
-// extra request. Returns false until weather resolves, so the card starts
-// light and cross-fades in.
-export function useMastheadNight() {
+// MASTHEAD-SCENE-1: ONE unified clock for the masthead's time-of-day artwork
+// (day / sunset / night / dawn) AND its whole-card night treatment. Anchored
+// to the real sunrise/sunset from the shared weather query when available,
+// fixed local-time windows otherwise - never the app theme, never the greeting
+// wash, and no longer the weather's is_day flag (the old split let the dark
+// card and the artwork disagree at dawn/dusk). A minute-tick keeps a long-open
+// tab crossing scene boundaries without a reload. The localStorage override
+// (aspire_scene_override_v1 = dawn|day|sunset|night) exists for visual QA only.
+export function useMastheadScene() {
   const { data } = useWelcomeWeather()
-  return data?.isDay === 0
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60 * 1000)
+    return () => clearInterval(id)
+  }, [])
+  let scene = sceneForTime(new Date(), sunTimesFrom(data))
+  try {
+    const o = localStorage.getItem('aspire_scene_override_v1')
+    if (SCENES.includes(o)) scene = o
+  } catch { /* storage unavailable: the live clock wins */ }
+  return { scene, night: scene === 'night' }
+}
+
+// MASTHEAD-NIGHT-1 → MASTHEAD-SCENE-1: night now follows the unified scene
+// clock above. Kept as a named export so the night contract stays one symbol.
+export function useMastheadNight() {
+  return useMastheadScene().night
 }
 
 // ASPIRE-MASTHEAD: compact in-flow variant for the At a Glance masthead card.

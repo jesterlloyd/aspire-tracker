@@ -1853,6 +1853,88 @@ a.doc-file-link:hover { text-decoration: underline; }
   .wx-mast-temp, .wx-mast-cond, .wx-mast-hilo { transition: none; }
 }
 
+/* ── MASTHEAD-SCENE-1: time-of-day background artwork ─────────────────────────
+   Four scene states on the card (.mast-scene-dawn/day/sunset/night) from the
+   unified useMastheadScene clock (real sun times when the shared weather query
+   has them, fixed local windows otherwise). The artwork lives in
+   MastheadScenery.jsx; this block owns every color and visibility decision so
+   scene changes CROSS-FADE in CSS (no remounts). Composition contract: the
+   left stays quiet behind the greeting (left-fading masks on the skies and the
+   art), with ridges/skyline/palms weighted center-right by the weather module.
+   Painting order inside the .mast stacking context: above the ::after night
+   gradient and the ::before wash, below .mast-row and .mast-today-line (both
+   position:relative and later in the DOM). */
+.mast-scenery {
+  position: absolute; inset: 0; pointer-events: none;
+  /* Fallback = the day palette so the first paint is never unstyled. */
+  --scn-r1: #D3E0F0; --scn-r2: #BDCEE8; --scn-r3: #A4B9DC;
+  --scn-city: #AABFDC; --scn-palm: #8FA6C6; --scn-lights: 0; --scn-stars: 0;
+}
+/* Day: pale atmospheric layers, soft sunshine, bright airy sky. */
+.mast-scene-day .mast-scenery { --scn-r1: #D3E0F0; --scn-r2: #BDCEE8; --scn-r3: #A4B9DC; --scn-city: #AABFDC; --scn-palm: #8FA6C6; --scn-lights: 0; --scn-stars: 0; }
+/* Sunset: warm mountains under a peach/lavender horizon glow. */
+.mast-scene-sunset .mast-scenery { --scn-r1: #EBC5AF; --scn-r2: #D3A3A4; --scn-r3: #AC8098; --scn-city: #9A7390; --scn-palm: #7B5E79; --scn-lights: 0.35; --scn-stars: 0; }
+/* Night: deep-indigo ridges, a barely-visible skyline, sparse lights, moonlight. */
+.mast-scene-night .mast-scenery { --scn-r1: #2E3576; --scn-r2: #262C63; --scn-r3: #1C224E; --scn-city: #171C40; --scn-palm: #141937; --scn-lights: 0.9; --scn-stars: 0.8; }
+/* Dawn (early morning): cool blue layers, gentle pre-sunrise lavender glow. */
+.mast-scene-dawn .mast-scenery { --scn-r1: #CBD4EC; --scn-r2: #AFBBDF; --scn-r3: #8E9AC8; --scn-city: #95A0CA; --scn-palm: #707CA8; --scn-lights: 0.25; --scn-stars: 0.3; }
+
+/* Sky layers: all four stay mounted; the active scene fades its own in. Each
+   gradient is weighted center-right and top-right, and the shared mask keeps
+   the greeting's corner nearly clean. */
+.mast-sky {
+  position: absolute; inset: 0; opacity: 0; transition: opacity 0.8s ease;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.30) 0, rgba(0,0,0,0.60) 30%, #000 58%);
+  mask-image: linear-gradient(90deg, rgba(0,0,0,0.30) 0, rgba(0,0,0,0.60) 30%, #000 58%);
+}
+.mast-sky-day {
+  background: radial-gradient(760px 300px at 70% -40%, rgba(255,233,178,0.42), transparent 68%),
+    linear-gradient(115deg, rgba(255,255,255,0) 34%, rgba(178,216,244,0.50) 100%);
+}
+.mast-sky-sunset {
+  background: radial-gradient(720px 300px at 64% 112%, rgba(255,166,110,0.50), rgba(255,201,150,0.26) 48%, transparent 74%),
+    radial-gradient(560px 220px at 88% -20%, rgba(176,152,214,0.34), transparent 70%),
+    linear-gradient(115deg, rgba(255,244,235,0) 30%, rgba(255,196,150,0.28) 100%);
+}
+.mast-sky-night {
+  background: radial-gradient(680px 260px at 66% 116%, rgba(96,116,220,0.28), transparent 70%),
+    radial-gradient(420px 200px at 86% -10%, rgba(214,226,255,0.16), transparent 70%);
+}
+.mast-sky-dawn {
+  background: radial-gradient(720px 300px at 66% 114%, rgba(178,168,232,0.46), rgba(196,204,244,0.22) 50%, transparent 76%),
+    linear-gradient(115deg, rgba(240,244,252,0) 32%, rgba(150,168,224,0.30) 100%);
+}
+.mast-scene-day .mast-sky-day, .mast-scene-sunset .mast-sky-sunset,
+.mast-scene-night .mast-sky-night, .mast-scene-dawn .mast-sky-dawn { opacity: 1; }
+
+/* The ridge/skyline/palm art. Same left-quiet mask; fills cross-fade as the
+   scene class swaps the CSS variables above. */
+.mast-scenery-art {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.30) 0, rgba(0,0,0,0.55) 30%, #000 56%);
+  mask-image: linear-gradient(90deg, rgba(0,0,0,0.30) 0, rgba(0,0,0,0.55) 30%, #000 56%);
+}
+.mast-scenery-art path, .mast-scenery-art rect, .mast-scenery-art use { transition: fill 0.8s ease; }
+.mast-scenery-art .scn-lights { opacity: var(--scn-lights); transition: opacity 0.8s ease; }
+.mast-scenery-art .scn-stars { opacity: var(--scn-stars); transition: opacity 0.8s ease; }
+/* Narrow layouts stretch the viewBox hard; the palms distort first, so they
+   bow out while the soft ridges (which stretch invisibly) carry the scene. */
+@media (max-width: 760px) { .mast-scenery-art .scn-palms { display: none; } }
+
+/* Dark theme: the daylight scenes mute to slate so the card never glows
+   against a dark page; the night scene already speaks the theme's language. */
+[data-theme="dark"] .mast-scene-day .mast-scenery { --scn-r1: #39445F; --scn-r2: #313B54; --scn-r3: #283147; --scn-city: #2C364E; --scn-palm: #232C40; }
+[data-theme="dark"] .mast-scene-dawn .mast-scenery { --scn-r1: #3A4162; --scn-r2: #333A59; --scn-r3: #2A3049; --scn-city: #2E3450; --scn-palm: #242A42; }
+[data-theme="dark"] .mast-scene-sunset .mast-scenery { --scn-r1: #4A3D50; --scn-r2: #403448; --scn-r3: #33293C; --scn-city: #2E2536; --scn-palm: #251E2C; }
+[data-theme="dark"] .mast-scene-day .mast-sky-day,
+[data-theme="dark"] .mast-scene-dawn .mast-sky-dawn,
+[data-theme="dark"] .mast-scene-sunset .mast-sky-sunset { opacity: 0.35; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mast-sky, .mast-scenery-art path, .mast-scenery-art rect, .mast-scenery-art use,
+  .mast-scenery-art .scn-lights, .mast-scenery-art .scn-stars { transition: none; }
+}
+
 .mast-row { position: relative; display: flex; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
 .mast-left { min-width: 0; flex: 1 1 340px; }
 .mast-greet {
@@ -1929,6 +2011,13 @@ a.doc-file-link:hover { text-decoration: underline; }
   opacity: 0; transition: opacity 0.8s ease;
 }
 .wx-mast-night .wx-mast-art::before { opacity: 1; }
+/* MASTHEAD-SCENE-1: on a LIGHT scenery-bearing card the 1c backdrop read as a
+   grey veil (dawn's pre-sunrise moon scene). The night card keeps it - beyond
+   the stars, it still hides the moon render's hard lower-glow edge. Same
+   specificity as the rule above, later in the cascade, so it wins on the three
+   light scenes; weatherless mastheads keep the original behavior. */
+.mast-scene-dawn .wx-mast-art::before, .mast-scene-day .wx-mast-art::before,
+.mast-scene-sunset .wx-mast-art::before { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .wx-mast-art::before { transition: none; } }
 .wx-mast-temp { font-size: 27px; font-weight: 700; color: var(--chart-ink, #191919); letter-spacing: -0.01em; line-height: 1.05; }
 .wx-mast-cond { font-size: 13px; font-weight: 600; color: var(--chart-ink, #191919); margin-top: 1px; }

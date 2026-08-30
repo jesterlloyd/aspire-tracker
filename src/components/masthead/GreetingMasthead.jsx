@@ -13,7 +13,8 @@
 // portal family shares. See docs/product/SHARED_PORTAL_HOME_PROFILE_CALENDAR_FOUNDATION.md.
 
 import { greetingLine } from '../../lib/masthead'
-import { WeatherMasthead, useMastheadNight } from '../WeatherScene'
+import { WeatherMasthead, useMastheadScene } from '../WeatherScene'
+import MastheadScenery from '../MastheadScenery'
 
 export default function GreetingMasthead({
   fullName,
@@ -28,12 +29,14 @@ export default function GreetingMasthead({
 }) {
   const { heading, wash } = greetingLine(fullName)
   const subParts = [dateLabel, contextLabel, lastVisitLine].filter(Boolean)
-  // MASTHEAD-NIGHT-1: whole-card night treatment when the weather scene is the
-  // moon/night scene (shared hook; scene-keyed, never theme- or greeting-keyed).
-  const sceneNight = useMastheadNight()
+  // MASTHEAD-SCENE-1: one unified clock drives the time-of-day artwork AND the
+  // whole-card night treatment. Both stay gated on showWeather so a weatherless
+  // masthead never darkens and never carries scenery.
+  const { scene, night: sceneNight } = useMastheadScene()
 
   return (
-    <div className={`mast mast-wash-${wash}${showWeather && sceneNight ? ' mast-night' : ''}`}>
+    <div className={`mast mast-wash-${wash}${showWeather ? ` mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}>
+      {showWeather && <MastheadScenery />}
       <div className="mast-row">
         <div className="mast-left">
           <h1 className="chart-route-title mast-greet" tabIndex={-1} ref={headingRef}>{heading}</h1>

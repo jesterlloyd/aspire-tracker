@@ -75,10 +75,10 @@ test('one shared resolver: a single module-level promise feeds every consumer', 
 })
 
 test('all four surfaces share ONE weather component (no duplicated implementations)', () => {
-  // MASTHEAD-NIGHT-1: both hosts also import useMastheadNight from the same module.
-  assert.match(read('src/components/TodayMasthead.jsx'), /import \{ WeatherMasthead, useMastheadNight \} from '\.\/WeatherScene'/)
+  // MASTHEAD-SCENE-1: both hosts import the unified scene clock from the same module.
+  assert.match(read('src/components/TodayMasthead.jsx'), /import \{ WeatherMasthead, useMastheadScene \} from '\.\/WeatherScene'/)
   const shared = read('src/components/masthead/GreetingMasthead.jsx')
-  assert.match(shared, /import \{ WeatherMasthead, useMastheadNight \} from '\.\.\/WeatherScene'/)
+  assert.match(shared, /import \{ WeatherMasthead, useMastheadScene \} from '\.\.\/WeatherScene'/)
   // The three portals all render the shared GreetingMasthead.
   for (const p of ['src/portal/StudentPortal.jsx', 'src/portal/UnitLeaderPortal.jsx', 'src/portal/AcademicPartnerPortal.jsx']) {
     assert.match(read(p), /GreetingMasthead/, `${p} must use the shared masthead`)

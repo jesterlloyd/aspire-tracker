@@ -1,12 +1,13 @@
-// MASTHEAD-NIGHT-1: the masthead card adopts the Nightfall dark treatment when
-// the MOON/NIGHT weather scene is active - and only then.
+// MASTHEAD-NIGHT-1 → MASTHEAD-SCENE-1: the masthead card adopts the Nightfall
+// dark treatment when the unified time-of-day scene is 'night' - and only then.
 //
-// One shared state (useMastheadNight, is_day === 0 - the same condition the
-// scene itself uses) drives one shared class (.mast-night) on both masthead
-// hosts, so the main app and all three portals behave identically. The night
-// layer is an always-mounted ::after that cross-fades, every ink cross-fades
-// with it, day/dusk scenes stay light, and the page outside the card keeps the
-// user's theme.
+// One shared clock (useMastheadScene: real sun times from the shared weather
+// query, fixed local windows as fallback) drives BOTH the .mast-scene-* artwork
+// state and the .mast-night card treatment on both masthead hosts, so the dark
+// card and the night artwork can never disagree. The night layer is an
+// always-mounted ::after that cross-fades, every ink cross-fades with it,
+// day/dusk scenes stay light, and the page outside the card keeps the user's
+// theme.
 //
 // Run: node --test test/mastheadNightMode.test.mjs
 
@@ -23,19 +24,26 @@ const today = read('src/components/TodayMasthead.jsx')
 const shared = read('src/components/masthead/GreetingMasthead.jsx')
 const css = read('src/index.css')
 
-test('one shared scene-keyed state: useMastheadNight reads the weather is_day, never the theme', () => {
-  assert.match(wx, /export function useMastheadNight\(\) \{\n {2}const \{ data \} = useWelcomeWeather\(\)\n {2}return data\?\.isDay === 0\n\}/)
+test('one unified clock: night is the scene clock, never is_day and never the theme', () => {
+  // useMastheadScene anchors to sun times (fallback: fixed windows) and derives night from it.
+  assert.match(wx, /let scene = sceneForTime\(new Date\(\), sunTimesFrom\(data\)\)/)
+  assert.match(wx, /return \{ scene, night: scene === 'night' \}/)
+  assert.match(wx, /export function useMastheadNight\(\) \{\n {2}return useMastheadScene\(\)\.night\n\}/)
+  // The old split driver is gone: nothing keys the card on the weather's is_day.
+  assert.doesNotMatch(wx, /useMastheadNight\(\) \{\n {2}const \{ data \} = useWelcomeWeather/)
   // Neither host infers night from the app theme or the greeting wash.
   for (const [name, src] of [['TodayMasthead', today], ['GreetingMasthead', shared]]) {
-    assert.match(src, /const sceneNight = useMastheadNight\(\)/, `${name} must use the shared hook`)
+    assert.match(src, /const \{ scene, night: sceneNight \} = useMastheadScene\(\)/, `${name} must use the shared clock`)
     assert.doesNotMatch(src, /data-theme|prefers-color-scheme/, `${name} must not key night on the theme`)
   }
 })
 
-test('both hosts apply the same .mast-night class; the portal host gates it on showWeather', () => {
-  assert.match(today, /className=\{`mast mast-wash-\$\{wash\}\$\{sceneNight \? ' mast-night' : ''\}`\}/)
-  // A portal masthead rendered with showWeather={false} has no scene, so it never darkens.
-  assert.match(shared, /className=\{`mast mast-wash-\$\{wash\}\$\{showWeather && sceneNight \? ' mast-night' : ''\}`\}/)
+test('both hosts carry the scene class and .mast-night; the portal host gates both on showWeather', () => {
+  assert.ok(today.includes("className={`mast mast-wash-${wash} mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}"))
+  assert.match(today, /<MastheadScenery \/>/)
+  // A portal masthead rendered with showWeather={false} has no scenery and never darkens.
+  assert.ok(shared.includes("className={`mast mast-wash-${wash}${showWeather ? ` mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}"))
+  assert.match(shared, /\{showWeather && <MastheadScenery \/>\}/)
 })
 
 test('the night layer is the existing Nightfall language, cross-fading and contained', () => {
