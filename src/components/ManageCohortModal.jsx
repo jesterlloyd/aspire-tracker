@@ -157,9 +157,25 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
               />
               <div>
                 <div className="toggle-title">Accepting submissions</div>
+                {/* This copy is a list of consequences, not a summary, because the flag reaches
+                    further than its name suggests. It is the server-side cohort router for every
+                    anonymous surface, so turning it off closes STUDENT intake, document uploads,
+                    and interview self-scheduling too. The previous wording named only "unit and
+                    school coordinator form submissions", which made unticking it to close the
+                    school form look harmless while it silently stopped students booking
+                    interviews. Name every surface, and name the notable one that is unaffected. */}
                 <div className="toggle-desc">
-                  Turn on to accept unit and school coordinator form submissions for this cohort.
-                  Only one cohort can be active at a time, enabling here will disable it on any other cohort.
+                  Turn on to open this cohort to submissions: the school placement form and
+                  Academic Partner portal requests, the unit participation form, student intake
+                  and document uploads, and student interview self-scheduling.
+                  <div style={{ marginTop: 6 }}>
+                    Shift logging is not affected by this setting. Students already in a rotation
+                    can keep logging shifts either way.
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    Only one cohort can accept submissions at a time. Turning this on turns it off
+                    on every other cohort.
+                  </div>
                 </div>
               </div>
             </label>
