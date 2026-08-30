@@ -1931,10 +1931,13 @@ a.doc-file-link:hover { text-decoration: underline; }
    keeps the greeting's corner quiet per the composition contract. Tune
    --scn-img-h to zoom, the mask stop to move the fade. */
 .mast-scn-img {
-  position: absolute; bottom: 0; right: 0;
   /* 185% → 162% (Owner feedback): zoomed out and bottom-pinned so the whole
      skyline and the palm sit inside the card instead of running off its
-     edges - the art reads as a vista, not a crop. */
+     edges - the art reads as a vista, not a crop.
+     Polish 2 (Owner feedback): the pin drops below the card edge, cropping
+     the band's mostly-empty foothill bottom so the mountain peaks clear the
+     card's top instead of being cut off. Tune --scn-img-b to slide. */
+  position: absolute; bottom: var(--scn-img-b, -28px); right: 0;
   height: var(--scn-img-h, 162%); width: auto; max-width: none;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 26%);
   mask-image: linear-gradient(90deg, transparent 0, #000 26%);
@@ -1964,32 +1967,35 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-night .mast-mile-label, .mast-night .mast-mile-name, .mast-night .mast-mile-when {
   text-shadow: 0 1px 10px rgba(8,12,36,0.85), 0 0 3px rgba(8,12,36,0.6);
 }
-/* The weather caption sits directly on the skyline, so scene cards give it a
-   frosted scrim. Padding is cancelled by equal negative margins - zero layout
-   shift, the module's footprint is untouched. */
-.mast-scene-day .wx-mast-caption, .mast-scene-sunset .wx-mast-caption,
-.mast-scene-dawn .wx-mast-caption, .mast-scene-night .wx-mast-caption {
-  padding: 6px 11px; margin: -6px -11px; border-radius: 12px;
-  background: rgba(255,255,255,0.42);
-  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+/* Dark page theme uses light inks on every scene, so the daylight scenes'
+   white glow flips to the night treatment's dark one there. */
+[data-theme="dark"] .mast-scene-day .wx-mast-temp, [data-theme="dark"] .mast-scene-day .wx-mast-cond, [data-theme="dark"] .mast-scene-day .wx-mast-hilo,
+[data-theme="dark"] .mast-scene-day .mast-mile-label, [data-theme="dark"] .mast-scene-day .mast-mile-name, [data-theme="dark"] .mast-scene-day .mast-mile-when,
+[data-theme="dark"] .mast-scene-sunset .wx-mast-temp, [data-theme="dark"] .mast-scene-sunset .wx-mast-cond, [data-theme="dark"] .mast-scene-sunset .wx-mast-hilo,
+[data-theme="dark"] .mast-scene-sunset .mast-mile-label, [data-theme="dark"] .mast-scene-sunset .mast-mile-name, [data-theme="dark"] .mast-scene-sunset .mast-mile-when,
+[data-theme="dark"] .mast-scene-dawn .wx-mast-temp, [data-theme="dark"] .mast-scene-dawn .wx-mast-cond, [data-theme="dark"] .mast-scene-dawn .wx-mast-hilo,
+[data-theme="dark"] .mast-scene-dawn .mast-mile-label, [data-theme="dark"] .mast-scene-dawn .mast-mile-name, [data-theme="dark"] .mast-scene-dawn .mast-mile-when {
+  text-shadow: 0 1px 10px rgba(8,12,36,0.85), 0 0 3px rgba(8,12,36,0.6);
 }
-.mast-night .wx-mast-caption {
-  background: rgba(12,16,44,0.40);
+/* Polish 2 (Owner feedback): the frosted caption scrim is RETIRED - it read
+   as an outline covering the cityscape. Instead the whole weather module
+   (icon + caption together) slides left into the open sky, where the
+   scene-keyed text shadows above carry legibility on their own, and the
+   top-right corner is left to View calendar alone. Layout-true margin so
+   wrapping stays sane; narrow layouts reset it. */
+.mast-scene-day .wx-mast, .mast-scene-sunset .wx-mast,
+.mast-scene-dawn .wx-mast, .mast-scene-night .wx-mast {
+  margin-right: 110px;
 }
-/* Dark page theme uses light inks, so every scene's scrim goes dark there. */
-[data-theme="dark"] .mast-scene-day .wx-mast-caption,
-[data-theme="dark"] .mast-scene-sunset .wx-mast-caption,
-[data-theme="dark"] .mast-scene-dawn .wx-mast-caption,
-[data-theme="dark"] .mast-scene-night .wx-mast-caption {
-  background: rgba(14,18,42,0.45);
-}
-/* Owner feedback: on scenery cards the animated sun/moon slides left into the
-   open sky instead of sitting directly on the skyline (which lives under the
-   caption). Pure transform - no layout shift, and the art is already
-   pointer-events:none. Narrow layouts keep the 1c top-right anchor. */
+/* Owner feedback: on scenery cards the animated sun/moon slides further left
+   into the open sky, and rises so the moon composition meets the card's top
+   border (the visible gap under the edge is gone - the art clips at the
+   border like the pre-scene design). Pure transform - no layout shift, and
+   the art is already pointer-events:none. Narrow layouts keep the 1c
+   top-right anchor. */
 .mast-scene-day .wx-mast-art, .mast-scene-sunset .wx-mast-art,
 .mast-scene-dawn .wx-mast-art, .mast-scene-night .wx-mast-art {
-  transform: translateX(-46px);
+  transform: translate(-70px, -10px);
 }
 /* Owner feedback (reference comp): the right cluster rides the TOP of the
    scenery card - caption, milestone, and View calendar sit in the sky band
@@ -2003,15 +2009,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-dawn .wx-mast, .mast-scene-night .wx-mast {
   align-items: flex-start;
 }
-.mast-scene-day .wx-mast-caption, .mast-scene-sunset .wx-mast-caption,
-.mast-scene-dawn .wx-mast-caption, .mast-scene-night .wx-mast-caption {
-  margin-top: -2px;
-}
 @media (max-width: 760px) {
   .mast-scene-day .wx-mast-art, .mast-scene-sunset .wx-mast-art,
   .mast-scene-dawn .wx-mast-art, .mast-scene-night .wx-mast-art { transform: none; }
   .mast-scene-day .mast-right, .mast-scene-sunset .mast-right,
   .mast-scene-dawn .mast-right, .mast-scene-night .mast-right { align-items: center; }
+  .mast-scene-day .wx-mast, .mast-scene-sunset .wx-mast,
+  .mast-scene-dawn .wx-mast, .mast-scene-night .wx-mast { margin-right: 0; }
 }
 
 /* Dark theme: the daylight scenes mute to slate so the card never glows
