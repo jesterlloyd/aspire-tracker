@@ -22,8 +22,14 @@ import {
 
 // Residency is offered only to callers who hold it; everyone else has exactly one
 // experience, and the pane says so honestly rather than being hidden.
-const INTERNSHIP = { id: 'internship', label: 'Internship', sub: 'ASPIRE student pathway' }
-const RESIDENCY  = { id: 'residency',  label: 'Residency',  sub: 'New-graduate RN residency (NGRP)' }
+//
+// SCOPE-PICKER-2: both descriptions are the programs' proper names, title-cased.
+// "New Graduate RN Residency Program" is the FORMAL name and is spelled exactly this
+// way everywhere else it appears (src/public-site/publicContent.js states the rule,
+// and the public site, the interview script, and the FAQ all follow it). The header is
+// not the place to introduce a second spelling of a program's own name.
+const INTERNSHIP = { id: 'internship', label: 'Internship', sub: 'Senior Clinical Rotation' }
+const RESIDENCY  = { id: 'residency',  label: 'Residency',  sub: 'New Graduate RN Residency Program (NGRP)' }
 
 export default function Header({ cohort, search, actions, experience, residencyCohort }) {
   const hasResidency = Boolean(experience)

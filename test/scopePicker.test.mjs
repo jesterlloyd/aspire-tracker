@@ -181,12 +181,59 @@ test('the onboarding tour points at the control that now exists', () => {
   assert.match(tours, /If your access includes the Residency experience/)
 })
 
+// ── 6. Season marks and program naming ───────────────────────────────────────
+
+test('seasonOf reads only what the name actually states', async () => {
+  const { seasonOf } = await import('../src/lib/cohortSeason.js')
+  assert.equal(seasonOf('Summer 2026'), 'summer')
+  assert.equal(seasonOf('Fall 2026'), 'fall')
+  assert.equal(seasonOf('Winter 2027'), 'winter')
+  assert.equal(seasonOf('Spring 2027'), 'spring')
+  assert.equal(seasonOf('Autumn 2026'), 'fall', 'same season, other word')
+  // Real shapes in this program: a term split still names one season.
+  assert.equal(seasonOf('Fall II 2026'), 'fall')
+  assert.equal(seasonOf('fall 2026'), 'fall', 'case insensitive')
+  // Ambiguous or absent: no icon rather than a guess dressed as a fact.
+  assert.equal(seasonOf('Summer/Fall 2026'), null, 'two seasons is a coin flip')
+  assert.equal(seasonOf('January 2027'), null, 'a month is not a season')
+  assert.equal(seasonOf('Pilot cohort'), null)
+  assert.equal(seasonOf(''), null)
+  assert.equal(seasonOf(null), null)
+  assert.equal(seasonOf(undefined), null)
+  // Never matches inside another word.
+  assert.equal(seasonOf('Springfield 2027'), null)
+  assert.equal(seasonOf('Winterbourne 2027'), null)
+})
+
+test('the season mark is decoration: monochrome, aligned, and never announced', () => {
+  const src = read(INT_LIST)
+  // One muted color, so it cannot compete with the status pill or the Accepting badge,
+  // which are the two things in the row that carry actual state.
+  assert.match(src, /color: '#9ca3af'/)
+  assert.match(src, /aria-hidden="true"/)
+  // Fixed-width slot so a season-less name does not rag the left edge.
+  assert.match(src, /width: 15, flexShrink: 0/)
+  assert.match(src, /\{Icon \? <Icon size=\{13\} strokeWidth=\{2\} \/> : null\}/)
+  // Residency names are months, so that list must not derive a season from them.
+  assert.doesNotMatch(read(RES_LIST), /seasonOf|SeasonMark/)
+})
+
+test('the residency program is named the one way the app names it everywhere', () => {
+  // src/public-site/publicContent.js states the rule: the formal name is always
+  // "New Graduate RN Residency Program". A second spelling in the header would be a
+  // second name for the same program.
+  const header = read(HEADER)
+  assert.match(header, /sub: 'New Graduate RN Residency Program \(NGRP\)'/)
+  assert.match(header, /sub: 'Senior Clinical Rotation'/)
+  assert.doesNotMatch(header, /New Graduate-RN|New-graduate/)
+})
+
 // ── House style ──────────────────────────────────────────────────────────────
 
 test('no em dash in anything this change added', () => {
   // The character below is the em dash, written as an escape so this file has none.
   const EM = String.fromCharCode(0x2014)
-  for (const f of [SCOPE, INT_LIST, RES_LIST, HEADER, 'src/lib/scopePickerLabels.js']) {
+  for (const f of [SCOPE, INT_LIST, RES_LIST, HEADER, 'src/lib/scopePickerLabels.js', 'src/lib/cohortSeason.js']) {
     assert.ok(!read(f).includes(EM), `${f} contains an em dash`)
   }
 })
