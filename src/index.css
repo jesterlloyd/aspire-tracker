@@ -1871,9 +1871,22 @@ a.doc-file-link:hover { text-decoration: underline; }
    Content floor stays at the compact height so narrow/stacked layouts size
    themselves; weatherless mastheads keep the compact card. */
 .mast-scenic {
-  aspect-ratio: 5 / 1;
-  min-height: 141px;
+  /* Owner trim: shorter than the art's native 5:1, the crop coming off the
+     TOP (sky) via the bottom-anchored art below, never the city footer. The
+     Owner's marker caps it: the left palm crowns top out at y 66-74px of 400
+     (canvas-measured across all seven scenes), so 5.9/1 cuts 61px ≈ 15.3% -
+     the most sky that can go with every frond intact.
+     Sizing subtlety: the automatic content-based minimum that lets a tall
+     left stack (milestone lines) GROW the card only applies to aspect-ratio
+     boxes with visible overflow, so the card trades overflow:hidden for a
+     matching rounded clip-path - layout identical, content never clips. */
+  aspect-ratio: 5.9 / 1;
+  /* NO explicit min-height: a definite value would replace min-height:auto
+     and with it the automatic content-based minimum this sizing relies on.
+     The left stack itself floors the card far above the old 141px. */
   max-height: 400px;
+  overflow: visible;
+  clip-path: inset(0 round 14px);
 }
 .mast-scenery {
   position: absolute; inset: 0; pointer-events: none;
@@ -1966,7 +1979,9 @@ a.doc-file-link:hover { text-decoration: underline; }
      card shows a horizontal band of the panorama, chosen by --scn-img-y.
      The left-fade mask still keeps the greeting corner quiet. */
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; object-position: 50% var(--scn-img-y, 62%);
+  /* Bottom-anchored: whatever the card's shape cannot show is cropped from
+     the image's TOP (sky), keeping the ground and city footer whole. */
+  object-fit: cover; object-position: 50% var(--scn-img-y, 100%);
   /* The panoramas carry ridges and palms on the left too, so the quiet zone
      fades harder there - the greeting and date line sit on washed-out art. */
   -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0.38) 26%, rgba(0,0,0,0.82) 48%, #000 62%);
