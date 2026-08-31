@@ -43,7 +43,14 @@
 --                                UNIQUE (batch_id, candidate_id): the
 --                                idempotency source for retried batches
 --                                (notification_log is a display ledger, not
---                                the idempotency authority). No DELETE.
+--                                the idempotency authority). Every attempt
+--                                is BOUND to its exact prepared token before
+--                                the provider is called, and provider
+--                                acceptance is recorded separately from
+--                                completed activation, so a same-batch
+--                                replay resumes the recorded attempt instead
+--                                of minting a second token under the same
+--                                provider idempotency key. No DELETE.
 --   ngrp_audit_events          - allowlisted NGRP workflow audit trail with
 --                                safe minimal metadata. Deliberately NO
 --                                foreign keys: audit outlives its subject.
@@ -258,28 +265,39 @@ CREATE INDEX IF NOT EXISTS ngrp_candidate_requirements_candidate_idx
   ON public.ngrp_candidate_requirements (candidate_id);
 
 -- ── Durable per-recipient delivery attempts (the idempotency authority) ─────
--- One row per (batch, candidate). A retried batch request consults THIS
--- table - fail-closed - before mailing anyone: 'accepted' rows are skipped,
--- and the provider idempotency key (batch+candidate) backstops the window
--- between provider acceptance and the row update. No DELETE privilege: the
--- attempt history is durable.
+-- One row per (batch, candidate), claimed BEFORE any token is minted and
+-- BOUND (token_id) to the exact prepared token BEFORE the provider is
+-- called, so one provider idempotency key can only ever correspond to ONE
+-- tokenized email body. provider_accepted_at records provider acceptance
+-- SEPARATELY from completed activation ('accepted' = accepted AND the exact
+-- emailed token activated AND the ledger settled). A same-batch replay
+-- resumes the recorded attempt - it never re-arms a row, never mints
+-- another token, and never calls the provider again; a deliberate new send
+-- uses a NEW batch id. No DELETE privilege: the attempt history is durable.
+-- token_id is a keyed-hash row reference - never the raw token.
 CREATE TABLE IF NOT EXISTS public.ngrp_transition_deliveries (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  batch_id          uuid NOT NULL,
-  cycle_id          uuid NOT NULL REFERENCES public.ngrp_cycles(id) ON DELETE RESTRICT,
-  candidate_id      uuid NOT NULL REFERENCES public.ngrp_candidates(id) ON DELETE RESTRICT,
-  student_id        uuid,
-  status            text NOT NULL DEFAULT 'attempting'
-                      CHECK (status IN ('attempting','accepted','failed')),
-  token_hash_prefix text,
-  provider_email_id text,
-  failed_reason     text,
-  attempted_at      timestamptz NOT NULL DEFAULT now(),
-  accepted_at       timestamptz,
-  created_at        timestamptz NOT NULL DEFAULT now(),
-  updated_at        timestamptz NOT NULL DEFAULT now(),
+  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  batch_id             uuid NOT NULL,
+  cycle_id             uuid NOT NULL REFERENCES public.ngrp_cycles(id) ON DELETE RESTRICT,
+  candidate_id         uuid NOT NULL REFERENCES public.ngrp_candidates(id) ON DELETE RESTRICT,
+  student_id           uuid,
+  status               text NOT NULL DEFAULT 'attempting'
+                         CHECK (status IN ('attempting','accepted','failed')),
+  token_id             uuid REFERENCES public.ngrp_transition_tokens(id),
+  token_hash_prefix    text,
+  provider_email_id    text,
+  provider_accepted_at timestamptz,
+  failed_reason        text,
+  attempted_at         timestamptz NOT NULL DEFAULT now(),
+  accepted_at          timestamptz,
+  created_at           timestamptz NOT NULL DEFAULT now(),
+  updated_at           timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ngrp_deliveries_batch_candidate UNIQUE (batch_id, candidate_id),
-  CONSTRAINT ngrp_deliveries_accepted_time CHECK (status <> 'accepted' OR accepted_at IS NOT NULL)
+  CONSTRAINT ngrp_deliveries_accepted_time CHECK (status <> 'accepted' OR accepted_at IS NOT NULL),
+  -- Completed means the provider really accepted first - the state can
+  -- never claim more than the timestamps carry.
+  CONSTRAINT ngrp_deliveries_accept_after_provider
+    CHECK (status <> 'accepted' OR provider_accepted_at IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS ngrp_deliveries_batch_idx ON public.ngrp_transition_deliveries (batch_id);
 
@@ -785,6 +803,9 @@ COMMENT ON TABLE public.ngrp_candidate_requirements IS
 COMMENT ON TABLE public.ngrp_transition_deliveries IS
   'Durable per-recipient Transition Form send attempts, UNIQUE per '
   '(batch_id, candidate_id) - the idempotency authority for retried batches. '
+  'Each attempt is bound (token_id) to its exact prepared token before the '
+  'provider call; provider_accepted_at records acceptance separately from '
+  'completed activation. Replays resume, never re-mint or resend. '
   'Server-only; no DELETE.';
 COMMENT ON TABLE public.ngrp_audit_events IS
   'Allowlisted NGRP workflow audit trail with minimal safe metadata. No '

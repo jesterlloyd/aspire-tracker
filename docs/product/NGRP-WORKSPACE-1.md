@@ -185,17 +185,27 @@ through review/confirm dialogs; every change is audited.
   where the registered `ngrp_transition_form_invitation` template renders a
   dedicated server-minted panel (`NgrpTransitionSendPanel`) - never the
   manual composer. Server preview classifies first-sends / re-sends / skips;
-  typed `SEND MESSAGES` confirmation; sequential provider loop with DURABLE
-  batch idempotency: `ngrp_transition_deliveries` (UNIQUE batch+candidate)
-  is the fail-closed idempotency authority, a Resend `Idempotency-Key`
-  (batch+candidate) backstops process retries after acceptance, and the
-  per-success `notification_log` row (`ngrp_transition_form_sent`, hash
-  prefix only, registered in Sent History as a secure-link type) is a
-  display ledger only - its failure is a reported warning, never a false
-  "failed". SEND-TRUTH: an assignment is born `pending` and becomes Sent
-  only when the provider ACCEPTED the email (`ngrp_activate_token_tx`);
-  the `form_sent`/`token_resent` audit event is written inside that same
-  transaction.
+  typed `SEND MESSAGES` confirmation; sequential provider loop with DURABLE,
+  REPLAY-SAFE batch idempotency: the `ngrp_transition_deliveries` row
+  (UNIQUE batch+candidate, fail-closed) is claimed before any token exists
+  and BOUND (`token_id`) to the exact prepared token before the provider is
+  called, so the Resend `Idempotency-Key` (batch+candidate) can only ever
+  correspond to one tokenized email body. `provider_accepted_at` records
+  acceptance separately from completed activation. A same-batch replay
+  never re-mints or re-mails: accepted rows skip, an accepted-but-pending
+  token gets its activation retried (that exact token), an active token
+  with a lagging ledger gets the ledger repaired, and failed/indeterminate
+  rows return `recovery_required_new_batch` (a deliberate re-attempt is a
+  NEW batch: new token, new key). Only an EXPLICIT provider rejection fails
+  the pending token / revokes an undelivered first-send assignment; after
+  acceptance the emailed token is never failed. The per-success
+  `notification_log` row (`ngrp_transition_form_sent`, hash prefix only,
+  registered in Sent History as a secure-link type) is a display ledger
+  only - its failure, and any replay-settled send, is a reported warning,
+  never a false "failed". SEND-TRUTH: an assignment is born `pending` and
+  becomes Sent only when the provider ACCEPTED the email
+  (`ngrp_activate_token_tx`); the `form_sent`/`token_resent` audit event is
+  written inside that same transaction.
 - Tokens: minted via the evaluation module (32-byte base64url, HMAC with
   `EVALUATION_TOKEN_PEPPER`); only `token_hash` + 8-char hash prefix persist.
   Delivery-safe state machine: `pending → active | failed`, `active →

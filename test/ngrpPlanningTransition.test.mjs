@@ -272,13 +272,17 @@ function mutableDb(tables, journal = []) {
       if (db.rpcErrors[name]) return { data: null, error: db.rpcErrors[name] }
       const handler = RPC_HANDLERS[name]
       if (!handler) return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } }
-      const snapshot = structuredClone(tables)
+      // Snapshot ROWS only (bucket objects may carry injected error
+      // functions, which structuredClone cannot copy) - buckets keep their
+      // identity so injections survive a rollback.
+      const snapshot = {}
+      for (const [k, v] of Object.entries(tables)) snapshot[k] = { bucket: v, rows: structuredClone(v.rows) }
       try {
         const data = handler(tables, args)
         return { data, error: null }
       } catch (err) {
-        for (const k of Object.keys(tables)) delete tables[k]
-        Object.assign(tables, snapshot)
+        for (const k of Object.keys(tables)) { if (!snapshot[k]) delete tables[k] }
+        for (const [k, s] of Object.entries(snapshot)) { tables[k] = s.bucket; s.bucket.rows = s.rows }
         return { data: null, error: { code: err.code, message: err.message } }
       }
     },
@@ -304,7 +308,11 @@ function mutableDb(tables, journal = []) {
           return { data: rows, error: null }
         }
         if (pendingUpdate) {
-          if (bucket.updateError) return { data: null, error: bucket.updateError }
+          // updateError may be a predicate on the patch, so a failure can be
+          // injected at ONE specific update (e.g. only the final accepted
+          // settle) while earlier updates on the same table succeed.
+          const updErr = typeof bucket.updateError === 'function' ? bucket.updateError(pendingUpdate) : bucket.updateError
+          if (updErr) return { data: null, error: updErr }
           const hit = applyFilters(bucket.rows, filters)
           for (const r of hit) { Object.assign(r, pendingUpdate); journal.push({ op: 'update', table, id: r.id, patch: { ...pendingUpdate } }) }
           return { data: hit, error: null }
@@ -360,11 +368,37 @@ const okSend = async () => ({ ok: true, providerId: 'prov-1' })
 const failSend = async () => ({ ok: false, reason: 'provider_rejected' })
 const buildEmail = () => ({ subject: 'Your NGRP Transition Form', html: '<p>hi</p>' })
 
+// Each logical send gets its own batch id by default (the product rule: a
+// deliberate re-attempt is a NEW batch); replay tests pass the same batchId
+// explicitly.
+let batchSeq = 0
 function sendCtx(db, overrides = {}) {
   return {
     db, cycle: CYCLE, student: STUDENT, candidate: null, assignment: null,
     actorProfileId: 'prof-1', generateToken: fakeGenerateToken,
-    sendEmail: okSend, buildEmail, baseUrl: 'https://app.test', ...overrides,
+    sendEmail: okSend, buildEmail, baseUrl: 'https://app.test',
+    batchId: `batch-${++batchSeq}`, ...overrides,
+  }
+}
+
+// A sendEmail spy that records every provider call (to prove replays never
+// mail again, and that one idempotency key never carries two bodies).
+function spySend() {
+  const calls = []
+  const fn = async ({ to, subject, html, idempotencyKey }) => {
+    calls.push({ to, subject, html, idempotencyKey })
+    return { ok: true, providerId: `prov-${calls.length}` }
+  }
+  fn.calls = calls
+  return fn
+}
+const buildEmailWithUrl = ({ url }) => ({ subject: 'Your NGRP Transition Form', html: `<a href="${url}">Open</a>` })
+const assertOneBodyPerKey = calls => {
+  const seen = new Map()
+  for (const c of calls) {
+    if (seen.has(c.idempotencyKey)) {
+      assert.equal(seen.get(c.idempotencyKey), c.html, 'one idempotency key must never carry two different bodies')
+    } else seen.set(c.idempotencyKey, c.html)
   }
 }
 
@@ -604,6 +638,13 @@ test('send: first send is pending until provider acceptance, then exactly one ac
   assert.equal(db.tables.ngrp_transition_tokens.rows[0].status, 'active')
   assert.equal(db.tables.ngrp_audit_events.rows.at(-1).event_type, 'form_sent', 'audited inside the activation transaction')
 
+  // the durable delivery row is bound to the exact token and fully settled
+  const delivery = db.tables.ngrp_transition_deliveries.rows[0]
+  assert.equal(delivery.status, 'accepted')
+  assert.equal(delivery.token_id, db.tables.ngrp_transition_tokens.rows[0].id, 'bound to the emailed token')
+  assert.ok(delivery.provider_accepted_at, 'provider acceptance recorded separately')
+  assert.ok(delivery.accepted_at)
+
   const second = await sendOneTransitionForm(sendCtx(db))
   assert.equal(second.outcome, 'resent')
   assert.equal(db.tables.ngrp_candidates.rows.length, 1, 'no duplicate candidate attempt')
@@ -644,7 +685,7 @@ test('send: a failed FIRST delivery never becomes Sent - pending token fails, pe
   assert.equal(db.tables.ngrp_transition_assignments.rows.filter(a => !a.revoked_at).length, 1)
 })
 
-test('send: token insert failure and activation failure both leave the previous link untouched', async () => {
+test('send: token insert failure leaves the previous link untouched; a leftover pending assignment is retried, not "already sent"', async () => {
   // token insert failure on a resend
   const db = sendDb()
   await sendOneTransitionForm(sendCtx(db))
@@ -653,19 +694,10 @@ test('send: token insert failure and activation failure both leave the previous 
   assert.equal(insFail.outcome, 'failed')
   assert.equal(insFail.reason, 'token_write_failed')
   assert.equal(db.tables.ngrp_transition_tokens.rows[0].status, 'active', 'old link untouched')
+  assert.equal(db.tables.ngrp_transition_deliveries.rows.at(-1).status, 'failed', 'attempt recorded as failed - never re-armable')
   delete db.tables.ngrp_transition_tokens.insertError
 
-  // activation failure after provider acceptance: honest failure, old link live
-  db.rpcErrors.ngrp_activate_token_tx = { message: 'boom' }
-  const actFail = await sendOneTransitionForm(sendCtx(db))
-  assert.equal(actFail.outcome, 'failed')
-  assert.equal(actFail.reason, 'activation_failed')
-  assert.equal(actFail.providerAccepted, true, 'reported honestly - the email did go out')
-  assert.equal(db.tables.ngrp_transition_tokens.rows[0].status, 'active', 'old link STILL works')
-  assert.equal(db.tables.ngrp_transition_tokens.rows.at(-1).status, 'failed', 'undelivered replacement can never activate later')
-  delete db.rpcErrors.ngrp_activate_token_tx
-
-  // and a leftover pending FIRST-send assignment is retried, not "already sent"
+  // a leftover pending FIRST-send assignment is retried, not "already sent"
   const db2 = sendDb({
     ngrp_candidates: { rows: [{ id: 'cand-p', cycle_id: CYCLE.id, student_id: STUDENT.id }] },
     ngrp_transition_assignments: { rows: [{ id: 'asg-p', candidate_id: 'cand-p', status: 'pending', sent_at: null, revision_count: 0, revoked_at: null }] },
@@ -680,6 +712,140 @@ test('send: token insert failure and activation failure both leave the previous 
   const retried = await sendOneTransitionForm(sendCtx(db2, { candidate: { id: 'cand-p' }, assignment: db2.tables.ngrp_transition_assignments.rows[0] }))
   assert.equal(retried.outcome, 'sent', 'a reused pending assignment still counts as the FIRST send')
   assert.equal(db2.tables.ngrp_transition_assignments.rows.length, 1)
+})
+
+test('send REPLAY: provider accepts token A, activation fails - the same batch retries activation of token A with NO second email', async () => {
+  const db = sendDb()
+  const send = spySend()
+  db.rpcErrors.ngrp_activate_token_tx = { message: 'boom' }
+  const first = await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl, batchId: 'batch-replay-1' }))
+  assert.equal(first.outcome, 'failed')
+  assert.equal(first.reason, 'activation_failed')
+  assert.equal(first.providerAccepted, true)
+  assert.equal(first.recoverable, true)
+  assert.equal(send.calls.length, 1)
+
+  const tokenA = db.tables.ngrp_transition_tokens.rows[0]
+  assert.equal(tokenA.status, 'pending', 'the emailed token is kept RECOVERABLE - never failed')
+  const row = db.tables.ngrp_transition_deliveries.rows[0]
+  assert.equal(row.token_id, tokenA.id, 'delivery bound to the exact emailed token before the provider call')
+  assert.ok(row.provider_accepted_at, 'provider acceptance recorded separately from activation')
+  assert.equal(row.status, 'attempting')
+
+  // the raw token the alumnus actually RECEIVED (from the emailed URL)
+  const emailedRaw = /#t=([^"]+)"/.exec(send.calls[0].html)[1]
+  const mintN = /^RAWTOKEN_(\d+)_/.exec(emailedRaw)[1]
+
+  delete db.rpcErrors.ngrp_activate_token_tx
+  const retry = await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl, batchId: 'batch-replay-1' }))
+  assert.equal(retry.outcome, 'sent')
+  assert.equal(retry.activatedOnReplay, true)
+  assert.equal(send.calls.length, 1, 'Resend called exactly ONCE across attempt + replay')
+  assert.equal(db.tables.ngrp_transition_tokens.rows.length, 1, 'no token B was ever minted')
+  assert.equal(tokenA.status, 'active', 'the retry activated token A itself')
+  assert.equal(tokenA.token_hash, `hash_${mintN}`, 'the hash of the token from the ORIGINAL email is the active one')
+  assert.equal((await resolveTokenAssignment(db, tokenA.token_hash, '2026-09-10T00:00:00Z')).state, 'ok', 'the emailed link works')
+  assert.equal(db.tables.ngrp_transition_deliveries.rows[0].status, 'accepted')
+  assertOneBodyPerKey(send.calls)
+})
+
+test('send REPLAY: activation-failure replay on a RESEND keeps the old link live until token A activates, then swaps', async () => {
+  const db = sendDb()
+  const send = spySend()
+  await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl }))
+  const originalTok = db.tables.ngrp_transition_tokens.rows[0]
+
+  db.rpcErrors.ngrp_activate_token_tx = { message: 'boom' }
+  const resendFail = await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl, batchId: 'batch-replay-2' }))
+  assert.equal(resendFail.reason, 'activation_failed')
+  assert.equal(originalTok.status, 'active', 'the old link still works while the replacement waits')
+  assert.equal(db.tables.ngrp_transition_tokens.rows.at(-1).status, 'pending', 'replacement recoverable, not failed')
+
+  delete db.rpcErrors.ngrp_activate_token_tx
+  const replay = await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl, batchId: 'batch-replay-2' }))
+  assert.equal(replay.outcome, 'resent')
+  assert.equal(send.calls.length, 2, 'attempt + resend attempt - the replay itself never mailed')
+  assert.equal(originalTok.status, 'revoked', 'old token swapped out only once its replacement truly activated')
+  assert.equal(db.tables.ngrp_transition_tokens.rows.at(-1).status, 'active')
+  assertOneBodyPerKey(send.calls)
+})
+
+test('send REPLAY: activation succeeded but the ledger settle failed - replay repairs the ledger with no provider call and no new token', async () => {
+  const db = sendDb()
+  const send = spySend()
+  db.tables.ngrp_transition_deliveries = {
+    rows: [],
+    updateError: patch => (patch.status === 'accepted' ? { message: 'ledger down' } : null),
+  }
+  const out = await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl, batchId: 'batch-replay-3' }))
+  assert.equal(out.outcome, 'sent', 'the email went out and the token activated - truthfully Sent')
+  assert.ok(out.warnings.some(w => w.warning === 'delivery_ledger_update_failed'))
+  const token = db.tables.ngrp_transition_tokens.rows[0]
+  assert.equal(token.status, 'active')
+  assert.equal(db.tables.ngrp_transition_deliveries.rows[0].status, 'attempting', 'ledger lagging behind reality')
+
+  delete db.tables.ngrp_transition_deliveries.updateError
+  const replay = await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl, batchId: 'batch-replay-3' }))
+  assert.equal(replay.outcome, 'repaired')
+  assert.equal(send.calls.length, 1, 'the repair made no provider call')
+  assert.equal(db.tables.ngrp_transition_tokens.rows.length, 1, 'no replacement token was created')
+  assert.equal(token.status, 'active', 'the original token stays active')
+  assert.equal(db.tables.ngrp_transition_deliveries.rows[0].status, 'accepted', 'ledger repaired')
+})
+
+test('send REPLAY: attempting/failed/accepted rows can never be re-armed and mailed again under the same batch', async () => {
+  const mkDb = deliveryRow => sendDb({
+    ngrp_candidates: { rows: [{ id: 'cand-1', cycle_id: CYCLE.id, student_id: STUDENT.id }] },
+    ngrp_transition_deliveries: { rows: [deliveryRow] },
+  })
+  const base = { batch_id: 'batch-locked', cycle_id: CYCLE.id, candidate_id: 'cand-1', student_id: STUDENT.id, token_id: null, provider_accepted_at: null }
+
+  // indeterminate attempting (no recorded acceptance)
+  const send1 = spySend()
+  const db1 = mkDb({ id: 'd-att', ...base, status: 'attempting' })
+  const att = await sendOneTransitionForm(sendCtx(db1, { sendEmail: send1, candidate: { id: 'cand-1' }, batchId: 'batch-locked' }))
+  assert.equal(att.outcome, 'failed')
+  assert.equal(att.reason, 'recovery_required_new_batch')
+
+  // failed
+  const db2 = mkDb({ id: 'd-fail', ...base, status: 'failed', failed_reason: 'provider_rejected' })
+  const failedRow = await sendOneTransitionForm(sendCtx(db2, { sendEmail: send1, candidate: { id: 'cand-1' }, batchId: 'batch-locked' }))
+  assert.equal(failedRow.reason, 'recovery_required_new_batch')
+
+  // accepted
+  const db3 = mkDb({ id: 'd-acc', ...base, status: 'accepted', provider_accepted_at: '2026-09-02T00:00:00Z', accepted_at: '2026-09-02T00:00:01Z' })
+  const acc = await sendOneTransitionForm(sendCtx(db3, { sendEmail: send1, candidate: { id: 'cand-1' }, batchId: 'batch-locked' }))
+  assert.equal(acc.outcome, 'skipped')
+  assert.equal(acc.reason, 'already_sent_in_batch')
+
+  assert.equal(send1.calls.length, 0, 'no replay path ever called the provider')
+  for (const d of [db1, db2, db3]) {
+    assert.equal((d.tables.ngrp_transition_tokens?.rows || []).length, 0, 'no replay path ever minted a token')
+    assert.equal(d.tables.ngrp_transition_deliveries.rows[0].status !== 'attempting' || d.tables.ngrp_transition_deliveries.rows[0].id === 'd-att', true)
+  }
+
+  // a DELIBERATE new batch performs a real new send: new token, new key
+  const fresh = await sendOneTransitionForm(sendCtx(db1, { sendEmail: send1, buildEmail: buildEmailWithUrl, candidate: { id: 'cand-1' }, batchId: 'batch-new' }))
+  assert.equal(fresh.outcome, 'sent')
+  assert.equal(send1.calls.length, 1)
+  assert.match(send1.calls[0].idempotencyKey, /batch-new/)
+  assert.equal(db1.tables.ngrp_transition_tokens.rows.length, 1, 'the new batch minted its own token')
+  assert.equal(db1.tables.ngrp_transition_deliveries.rows.length, 2, 'a second, separate delivery row')
+})
+
+test('send REPLAY: two batches never share an idempotency key, and each key maps to exactly one token body', async () => {
+  const db = sendDb()
+  const send = spySend()
+  await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl, batchId: 'batch-k1' }))
+  await sendOneTransitionForm(sendCtx(db, { sendEmail: send, buildEmail: buildEmailWithUrl, batchId: 'batch-k2' }))
+  assert.equal(send.calls.length, 2)
+  assert.notEqual(send.calls[0].idempotencyKey, send.calls[1].idempotencyKey)
+  assert.notEqual(send.calls[0].html, send.calls[1].html, 'different tokens ride different keys')
+  assertOneBodyPerKey(send.calls)
+  // the replay path is structurally incapable of mailing or minting:
+  const coreSrc = read('lib/server/ngrpTransition.js')
+  const resumeFn = coreSrc.slice(coreSrc.indexOf('async function resumeDeliveryAttempt'))
+  assert.doesNotMatch(resumeFn.slice(0, resumeFn.indexOf('// ── Public form resolution')), /sendEmail|generateToken/)
 })
 
 test('send: raw tokens are never persisted, returned, or derivable from what is stored', async () => {
@@ -725,7 +891,8 @@ test('send: endpoint gates - no request-body recipients, typed confirmation, cap
   assert.match(sendApi, /not an application to the/)
 })
 
-test('send: idempotency is DURABLE - fail-closed probe, ledger before mail, accepted rows skip, provider idempotency key', () => {
+test('send: idempotency is DURABLE - fail-closed probe, claim + bind before mail, accepted rows skip, one key per token', () => {
+  const coreSrc = read('lib/server/ngrpTransition.js')
   // The probe reads ngrp_transition_deliveries and FAILS CLOSED on error.
   assert.match(sendApi, /from\('ngrp_transition_deliveries'\)/)
   assert.match(sendApi, /idempotency_probe_failed/)
@@ -733,22 +900,34 @@ test('send: idempotency is DURABLE - fail-closed probe, ledger before mail, acce
     'a failed probe returns before any send')
   // notification_log is a display ledger, never the idempotency source.
   assert.doesNotMatch(sendApi, /from\('notification_log'\)\s*\n?\s*\.select/)
-  // A durable per-recipient attempt row is written BEFORE the email leaves.
-  const attemptIdx = sendApi.indexOf("status: 'attempting'")
-  assert.ok(attemptIdx > -1 && attemptIdx < sendApi.indexOf('sendOneTransitionForm({'))
-  // Accepted rows in a retried batch are skipped; the ledger write is checked.
-  assert.match(sendApi, /status === 'accepted'/)
-  assert.match(sendApi, /ledger_unavailable/)
-  assert.match(sendApi, /delivery_ledger_update_failed/)
-  // Provider idempotency key rides every batch send.
-  assert.match(sendApi, /idempotencyKey/)
-  assert.match(read('lib/server/ngrpTransition.js'), /idempotencyKey: batchId \? `ngrp-transition\//)
+  // The durable claim happens BEFORE the token exists, and the row is BOUND
+  // to the exact prepared token BEFORE the provider is called.
+  const claimIdx = coreSrc.indexOf("status: 'attempting'")
+  const mintIdx = coreSrc.indexOf('generateToken()')
+  const bindIdx = coreSrc.indexOf('token_id: tokenId')
+  const mailIdx = coreSrc.indexOf('await sendEmail({')
+  assert.ok(claimIdx > -1 && claimIdx < mintIdx, 'claim before mint')
+  assert.ok(mintIdx < bindIdx && bindIdx < mailIdx, 'mint, then bind, then mail')
+  // Accepted rows are skipped; ledger failures are typed; acceptance is
+  // recorded separately from activation.
+  assert.match(coreSrc, /already_sent_in_batch/)
+  assert.match(coreSrc, /ledger_unavailable/)
+  assert.match(coreSrc, /provider_accepted_at/)
+  assert.match(coreSrc, /delivery_ledger_update_failed/)
+  // Provider idempotency key rides every send, unconditionally.
+  assert.match(coreSrc, /idempotencyKey: `ngrp-transition\//)
+  // Only an EXPLICIT rejection fails the token; activation failure never does.
+  assert.match(coreSrc, /sent\.reason === 'provider_rejected'/)
+  const actFailBlock = coreSrc.slice(coreSrc.indexOf("rpc('ngrp_activate_token_tx'"), coreSrc.indexOf('async function resumeDeliveryAttempt'))
+  assert.doesNotMatch(actFailBlock, /ngrp_fail_token_tx/, 'no fail_token call after provider acceptance')
   // A notification_log failure after acceptance is a WARNING, not a failure -
   // the email went out and the recipient stays truthfully Sent.
   assert.match(sendApi, /sent_history_ledger_failed/)
   assert.match(sendApi, /logIns\.error/)
   assert.ok(sendApi.indexOf('results.warnings.push({ student_id: student.id, warning: \'sent_history_ledger_failed\' })')
-    < sendApi.indexOf('results.sent.push'), 'the ledger warning never blocks the truthful Sent result')
+    < sendApi.indexOf('results.sent.push({ student_id: student.id, resent'), 'the ledger warning never blocks the truthful Sent result')
+  // Replays that settle earlier work are reported, never silently re-logged.
+  assert.match(sendApi, /sent_history_may_be_incomplete/)
   // The panel reports the warning honestly.
   assert.match(sendPanel, /delivered but a bookkeeping ledger write failed/)
 })
@@ -1112,6 +1291,11 @@ test('db: constraints make bad states unrepresentable - one live assignment, ONE
   assert.match(migration, /CONSTRAINT ngrp_revisions_numbered UNIQUE \(assignment_id, revision_number\)/)
   assert.match(migration, /CONSTRAINT ngrp_cycle_units_unique UNIQUE \(cycle_id, unit_name\)/)
   assert.match(migration, /CONSTRAINT ngrp_deliveries_batch_candidate UNIQUE \(batch_id, candidate_id\)/)
+  // delivery rows bind to their exact token and record provider acceptance
+  // separately from completed activation
+  assert.match(migration, /token_id\s+uuid REFERENCES public\.ngrp_transition_tokens\(id\)/)
+  assert.match(migration, /provider_accepted_at timestamptz/)
+  assert.match(migration, /CONSTRAINT ngrp_deliveries_accept_after_provider\s*\n\s*CHECK \(status <> 'accepted' OR provider_accepted_at IS NOT NULL\)/)
   assert.match(migration, /CONSTRAINT ngrp_assignment_state_times/)
   assert.match(migration, /\(status = 'pending'\s+AND sent_at IS NULL\)/)
   assert.match(migration, /CONSTRAINT ngrp_token_status_coherence/)

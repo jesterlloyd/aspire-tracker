@@ -28,7 +28,7 @@ import { generateToken } from '../lib/server/evaluation/tokens.js'
 import { emailBaseUrl } from '../lib/server/appUrl.js'
 import { aspireEmailShell, aspireSystemSignature } from '../lib/server/email/aspireShell.js'
 import {
-  classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate, ensureCandidate,
+  classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate,
 } from '../lib/server/ngrpTransition.js'
 import { isMissingNgrpTable, sanitizeStudent } from '../lib/server/ngrpApplicants.js'
 import { openReadiness } from '../lib/server/ngrpPlanning.js'
@@ -278,53 +278,15 @@ export default async function handler(req, res) {
     if (attempted) await sleep(SEND_DELAY_MS)
     attempted = true
 
-    // The candidate attempt is ensured FIRST so the durable delivery row can
-    // be keyed by (batch_id, candidate_id) BEFORE any email leaves.
-    let candidate = item.candidate || null
-    if (!candidate) {
-      const ensured = await ensureCandidate(db, { cycleId: cycle.id, studentId: student.id })
-      if (ensured.error) {
-        results.failed.push({ student_id: student.id, reason: 'candidate_write_failed' })
-        continue
-      }
-      candidate = ensured.candidate
-    }
-
-    // Durable attempt row - fail closed when the ledger cannot be written.
-    let deliveryId
-    const attempt = await db.from('ngrp_transition_deliveries')
-      .insert({ batch_id: batchId, cycle_id: cycle.id, candidate_id: candidate.id, student_id: student.id, status: 'attempting' })
-      .select('id').maybeSingle()
-    if (attempt.data) {
-      deliveryId = attempt.data.id
-    } else if (attempt.error?.code === '23505') {
-      // This (batch, candidate) was attempted before - re-read its truth.
-      const existing = await db.from('ngrp_transition_deliveries')
-        .select('id, status').eq('batch_id', batchId).eq('candidate_id', candidate.id).maybeSingle()
-      if (existing.error || !existing.data) {
-        results.failed.push({ student_id: student.id, reason: 'ledger_unavailable' })
-        continue
-      }
-      if (existing.data.status === 'accepted') {
-        results.skipped.push({ student_id: student.id, reason: 'already_sent_in_batch' })
-        continue
-      }
-      deliveryId = existing.data.id
-      const rearm = await db.from('ngrp_transition_deliveries')
-        .update({ status: 'attempting', attempted_at: nowIsoBatch, failed_reason: null })
-        .eq('id', deliveryId)
-      if (rearm.error) {
-        results.failed.push({ student_id: student.id, reason: 'ledger_unavailable' })
-        continue
-      }
-    } else {
-      results.failed.push({ student_id: student.id, reason: 'ledger_unavailable' })
-      continue
-    }
-
+    // The COMPLETE per-recipient unit of work (lib/server/ngrpTransition.js
+    // sendOneTransitionForm): the durable (batch, candidate) delivery row is
+    // claimed before any token exists and bound to the exact prepared token
+    // before the provider is called, so a same-batch replay never mints
+    // another token or mails again - it resumes the recorded attempt
+    // (activation retry or ledger repair) or reports recovery_required.
     const outcome = await sendOneTransitionForm({
       db, cycle, student,
-      candidate,
+      candidate: item.candidate || null,
       assignment: item.assignment || null,
       actorProfileId: actorId,
       generateToken,
@@ -333,30 +295,31 @@ export default async function handler(req, res) {
       baseUrl,
       batchId,
     })
+    for (const w of outcome.warnings || []) results.warnings.push(w)
 
-    if (outcome.outcome === 'failed') {
-      const mark = await db.from('ngrp_transition_deliveries')
-        .update({ status: 'failed', failed_reason: outcome.reason }).eq('id', deliveryId)
-      if (mark.error) {
-        console.error('[ngrp-transition-send] delivery_row_fail_mark_failed:', { batch_id: batchId, error: mark.error.message })
-      }
-      results.failed.push({ student_id: student.id, reason: outcome.reason })
+    if (outcome.outcome === 'skipped') {
+      results.skipped.push({ student_id: student.id, reason: outcome.reason })
       continue
     }
-
-    // The provider ACCEPTED this email: the delivery row becomes the durable
-    // proof, checked - a retry after this point skips the recipient.
-    const accepted = await db.from('ngrp_transition_deliveries')
-      .update({
-        status: 'accepted', accepted_at: new Date().toISOString(),
-        token_hash_prefix: outcome.tokenHashPrefix, provider_email_id: outcome.providerId,
+    if (outcome.outcome === 'failed') {
+      results.failed.push({
+        student_id: student.id, reason: outcome.reason,
+        ...(outcome.providerAccepted ? { provider_accepted: true } : {}),
+        ...(outcome.recoverable ? { recoverable_same_batch: true } : {}),
       })
-      .eq('id', deliveryId)
-    if (accepted.error) {
-      // The email IS out (never claim otherwise); the provider idempotency
-      // key still blocks a duplicate on retry. Report the ledger gap.
-      console.error('[ngrp-transition-send] delivery_row_accept_failed:', { batch_id: batchId, error: accepted.error.message })
-      results.warnings.push({ student_id: student.id, warning: 'delivery_ledger_update_failed' })
+      continue
+    }
+    if (outcome.outcome === 'repaired' || outcome.activatedOnReplay) {
+      // A replay settled an earlier attempt: the email already went out on
+      // the ORIGINAL request, so nothing is re-logged here (a duplicate
+      // display row would be worse than a gap) - reported honestly instead.
+      results.warnings.push({ student_id: student.id, warning: 'sent_history_may_be_incomplete' })
+      results.sent.push({
+        student_id: student.id,
+        resent: outcome.outcome === 'resent',
+        ...(outcome.outcome === 'repaired' ? { repaired: true } : { activated_on_replay: true }),
+      })
+      continue
     }
 
     // Display ledger row (never the URL, never the raw token). Like the
