@@ -38,13 +38,24 @@ export default function GreetingMasthead({
     <div className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}>
       {showWeather && <MastheadScenery />}
       <div className="mast-row">
+        {/* MASTHEAD-SCENE-3 hero layout: on scenic (weather-bearing) cards the
+            weather caption and milestone stack in the LEFT column under the
+            greeting, with the calendar button alone top-right; a weatherless
+            masthead keeps the original right-cluster arrangement. */}
         <div className="mast-left">
           <h1 className="chart-route-title mast-greet" tabIndex={-1} ref={headingRef}>{heading}</h1>
           <div className="mast-sub">{subParts.join(' · ')}</div>
+          {showWeather && <WeatherMasthead />}
+          {showWeather && milestone && (
+            <div className="mast-mile">
+              <div className="mast-mile-label">{milestone.label}</div>
+              <div className="mast-mile-name">{milestone.name}</div>
+              <div className="mast-mile-when">{milestone.when}</div>
+            </div>
+          )}
         </div>
         <div className="mast-right">
-          {showWeather && <WeatherMasthead />}
-          {milestone && (
+          {!showWeather && milestone && (
             <div className="mast-mile-wrap">
               <span className="mast-vdiv" aria-hidden />
               <div className="mast-mile">

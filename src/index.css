@@ -2010,23 +2010,27 @@ a.doc-file-link:hover { text-decoration: underline; }
 [data-theme="dark"] .mast-scenic:not(.mast-night) .mast-sub {
   text-shadow: 0 1px 10px rgba(8,12,36,0.85), 0 0 3px rgba(8,12,36,0.6);
 }
-/* Polish 2 (Owner feedback): the frosted caption scrim is RETIRED - it read
-   as an outline covering the cityscape. Instead the whole weather module
-   (icon + caption together) slides left into the open sky, where the
-   scene-keyed text shadows above carry legibility on their own, and the
-   top-right corner is left to View calendar alone. Layout-true margin so
-   wrapping stays sane; narrow layouts reset it. */
-.mast-scenic .wx-mast {
-  margin-right: 110px;
-}
-/* Owner feedback: on scenery cards the animated sun/moon slides further left
-   into the open sky, and rises so the moon composition meets the card's top
-   border (the visible gap under the edge is gone - the art clips at the
-   border like the pre-scene design). Pure transform - no layout shift, and
-   the art is already pointer-events:none. Narrow layouts keep the 1c
-   top-right anchor. */
+/* SCENE-3 hero layout (Owner): the weather module lives in the LEFT column
+   now - the caption (temp / condition / H·L) flows under the greeting and
+   date line, while the animated sun/moon LIFTS OUT of the module entirely
+   (absolute at the card level, pointer-events already none) and floats in
+   the open sky above the mountains. The frosted caption scrim stayed
+   retired; the scene-keyed text glow carries legibility. */
+.mast-scenic .wx-mast { display: block; }
+.mast-scenic .wx-mast-caption { margin-top: 12px; }
+.mast-scenic .mast-mile { margin-top: 12px; }
 .mast-scenic .wx-mast-art {
-  transform: translate(-70px, -10px);
+  position: absolute; top: -10px; left: 55%; margin-top: 0;
+}
+/* The celestial renders carry their own soft-glow fill, whose rectangular
+   image bounds read against the smooth panorama sky. Screen-blending drops
+   the dark bounds and keeps the luminous parts - the moon floats free. */
+.mast-scenic .wx-mast-art img {
+  mix-blend-mode: screen;
+  /* The glow reaches the render's edges, so feather every layer radially -
+     no square bounds survive against the panorama sky. */
+  -webkit-mask-image: radial-gradient(ellipse 78% 78% at 50% 32%, #000 42%, transparent 90%);
+  mask-image: radial-gradient(ellipse 78% 78% at 50% 32%, #000 42%, transparent 90%);
 }
 /* Polish 2 follow-up (Owner): View calendar goes frosted glass on scenery
    cards so the artwork reads through it - bright glass with navy ink on the
@@ -2063,13 +2067,11 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic .mast-right {
   align-items: flex-start;
 }
-.mast-scenic .wx-mast {
-  align-items: flex-start;
-}
 @media (max-width: 760px) {
-  .mast-scenic .wx-mast-art { transform: none; }
+  /* Narrow: the floating celestial art tucks to the card's top-right corner
+     (the 1c anchor), clear of the stacked left column. */
+  .mast-scenic .wx-mast-art { left: auto; right: 6px; top: 0; }
   .mast-scenic .mast-right { align-items: center; }
-  .mast-scenic .wx-mast { margin-right: 0; }
 }
 
 /* Dark theme: the daylight scenes mute to slate so the card never glows
