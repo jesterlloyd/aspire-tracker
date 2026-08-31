@@ -190,3 +190,20 @@ test('the tour registry serves the new experience', async () => {
   assert.ok(steps.some(s => s.target === '[data-tour="portal-nav-calendar"]'))
   assert.ok(steps.some(s => s.target === '[data-tour="portal-nav-community-benefit"]'))
 })
+
+test('the NE&L masthead context is the fiscal year, from the canonical FY clock', async () => {
+  // Owner decision: the other portals name their cohort (Fall 2026); NE&L is
+  // not cohort-scoped, so its masthead context is the spanning fiscal year
+  // ("FY 2026-2027"). The value MUST come from the Community Benefit engine's
+  // currentFiscalYear (Pacific Jul-Jun boundary) - never a second definition.
+  const { readFileSync } = await import('node:fs')
+  const portal = readFileSync(new URL('../src/portal/na/NursingAcademicsPortal.jsx', import.meta.url), 'utf8')
+  assert.match(portal, /import \{ currentFiscalYear \} from '\.\.\/\.\.\/\.\.\/lib\/server\/communityBenefit\/compute'/)
+  assert.match(portal, /`FY \$\{fy - 1\}-\$\{fy\}`/)
+  assert.match(portal, /contextLabel=\{fyLabel\}/)
+  assert.doesNotMatch(portal, /contextLabel="Nursing Education & Leadership"/)
+  // The canonical clock itself: FY is the ENDING year, flipping on July 1 (Pacific).
+  const { currentFiscalYear } = await import('../lib/server/communityBenefit/compute.js')
+  assert.equal(currentFiscalYear(new Date('2026-06-30T12:00:00-07:00')), 2026)
+  assert.equal(currentFiscalYear(new Date('2026-07-01T12:00:00-07:00')), 2027)
+})

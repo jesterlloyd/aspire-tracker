@@ -13,6 +13,9 @@
 import { useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import GreetingMasthead from '../../components/masthead/GreetingMasthead'
+// The CANONICAL fiscal-year clock (pure, Pacific day boundary) - the same one
+// the Community Benefit engine uses. Never a second FY definition.
+import { currentFiscalYear } from '../../../lib/server/communityBenefit/compute'
 import { EmptyState } from '../unit/UnitLeaderChrome'
 import PortalMessagesWorkspace from '../messages/PortalMessagesWorkspace'
 import AcademicsCalendarView from './AcademicsCalendarView'
@@ -29,6 +32,13 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     [],
   )
+  // Owner: NE&L doesn't live in a cohort the way the other portals do - its
+  // masthead context is the FISCAL YEAR (spanning form, "FY 2026-2027"; the
+  // canonical fy value is the ENDING year, Jul-Jun on the Pacific boundary).
+  const fyLabel = useMemo(() => {
+    const fy = currentFiscalYear()
+    return `FY ${fy - 1}-${fy}`
+  }, [])
 
   return (
     <div className="ptl-page ptl-na-page">
@@ -36,7 +46,7 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
       <GreetingMasthead
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}
-        contextLabel="Nursing Education & Leadership"
+        contextLabel={fyLabel}
       />
       <div style={{ display: view === 'calendar' ? 'block' : 'none' }}>
         <AcademicsCalendarView active={view === 'calendar'} />
