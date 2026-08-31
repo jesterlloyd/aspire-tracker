@@ -361,11 +361,40 @@ export default function AccountsDirectory() {
   // sense in the other.
   const switchTab = (t) => { setTab(t); setRoleFilter(''); setStatusFilter(''); setExpiringOnly(false); setInterviewerOnly(false) }
 
-  // ACCOUNTS-KPI-SORT-1: a role KPI card drives the SAME roleFilter state as the role
-  // dropdown, so the two can never contradict each other - the card toggles the filter,
-  // the dropdown reflects it, and either control can clear it. Role combines freely
-  // with status, expiring, and search.
-  const toggleRoleCard = (role) => { setRoleFilter(r => r === role ? '' : role) }
+  // A KPI card is one quick-filter choice, not an accumulation of hidden KPI
+  // state. Without these resets, clicking Students after Pending or Expiring
+  // could yield an apparently ignored card because the old predicate stayed
+  // active. Text search remains intentional and visible in the toolbar.
+  const togglePortalRoleCard = (role) => {
+    setRoleFilter(r => r === role ? '' : role)
+    setStatusFilter('')
+    setExpiringOnly(false)
+    setPortalLimit(PAGE_SIZE)
+  }
+  const togglePortalStatusCard = (status) => {
+    setRoleFilter('')
+    setExpiringOnly(false)
+    setStatusFilter(current => current === status ? '' : status)
+    setPortalLimit(PAGE_SIZE)
+  }
+  const togglePortalExpiringCard = () => {
+    setRoleFilter('')
+    setStatusFilter('')
+    setExpiringOnly(current => !current)
+    setPortalLimit(PAGE_SIZE)
+  }
+  const toggleStaffStatusCard = (status) => {
+    setRoleFilter('')
+    setInterviewerOnly(false)
+    setStatusFilter(current => current === status ? '' : status)
+    setStaffLimit(PAGE_SIZE)
+  }
+  const toggleStaffInterviewersCard = () => {
+    setRoleFilter('')
+    setStatusFilter('')
+    setInterviewerOnly(current => !current)
+    setStaffLimit(PAGE_SIZE)
+  }
 
   if (!isAdmin) return (
     <div style={{ fontSize: 13, color: '#6b7280' }}>You don’t have access to Accounts &amp; Access.</div>
@@ -409,40 +438,40 @@ export default function AccountsDirectory() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
           <FilterKPICard value={counts.allGrants} label="All Portal Users" sub="Every portal grant" accent="nightfall"
             active={!roleFilter && !statusFilter && !expiringOnly}
-            onClick={() => { setRoleFilter(''); setStatusFilter(''); setExpiringOnly(false) }} />
+            onClick={() => { setRoleFilter(''); setStatusFilter(''); setExpiringOnly(false); setPortalLimit(PAGE_SIZE) }} />
           <FilterKPICard value={counts.students} label="Students" sub="Student portal role" accent="marina"
             active={roleFilter === 'student'}
-            onClick={() => toggleRoleCard('student')} />
+            onClick={() => togglePortalRoleCard('student')} />
           <FilterKPICard value={counts.unitLeaders} label="Unit Leaders" sub="Unit Leader portal role" accent="sage"
             active={roleFilter === 'unit_leader'}
-            onClick={() => toggleRoleCard('unit_leader')} />
+            onClick={() => togglePortalRoleCard('unit_leader')} />
           <FilterKPICard value={counts.academicPartners} label="Academic Partners" sub="Academic Partner role" accent="nightfall"
             active={roleFilter === 'academic_partner'}
-            onClick={() => toggleRoleCard('academic_partner')} />
+            onClick={() => togglePortalRoleCard('academic_partner')} />
           <FilterKPICard value={counts.nursingAcademics} label="Nursing Education & Leadership" sub="ASPIRE-wide view role" accent="periwinkle"
             active={roleFilter === 'nursing_academic'}
-            onClick={() => toggleRoleCard('nursing_academic')} />
+            onClick={() => togglePortalRoleCard('nursing_academic')} />
           <FilterKPICard value={counts.pending} label="Pending Invitations" sub="Awaiting first sign-in" accent="dawn"
             active={statusFilter === 'pending'}
-            onClick={() => { setExpiringOnly(false); setStatusFilter(f => f === 'pending' ? '' : 'pending') }} />
+            onClick={() => togglePortalStatusCard('pending')} />
           <FilterKPICard value={counts.expiring} label="Expiring Soon" sub={`Within ${EXPIRING_SOON_DAYS} days`} accent="chroma"
             active={expiringOnly}
-            onClick={() => { setStatusFilter(''); setExpiringOnly(e => !e) }} />
+            onClick={togglePortalExpiringCard} />
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
           <FilterKPICard value={counts.staff} label="All Staff" sub="Staff accounts" accent="nightfall"
             active={!statusFilter && !interviewerOnly}
-            onClick={() => { setStatusFilter(''); setInterviewerOnly(false) }} />
+            onClick={() => { setRoleFilter(''); setStatusFilter(''); setInterviewerOnly(false); setStaffLimit(PAGE_SIZE) }} />
           <FilterKPICard value={counts.staffActive} label="Active" sub="Can sign in" accent="sage"
             active={statusFilter === 'active'}
-            onClick={() => setStatusFilter(f => f === 'active' ? '' : 'active')} />
+            onClick={() => toggleStaffStatusCard('active')} />
           <FilterKPICard value={counts.staffDisabled} label="Disabled" sub="Sign-in blocked" accent="dawn"
             active={statusFilter === 'disabled'}
-            onClick={() => setStatusFilter(f => f === 'disabled' ? '' : 'disabled')} />
+            onClick={() => toggleStaffStatusCard('disabled')} />
           <FilterKPICard value={counts.staffInterviewers} label="Interviewers" sub="Conduct interviews" accent="marina"
             active={interviewerOnly}
-            onClick={() => setInterviewerOnly(v => !v)} />
+            onClick={toggleStaffInterviewersCard} />
         </div>
       )}
 

@@ -79,25 +79,27 @@ test('AccountsDirectory KPI card wiring', async (t) => {
     }
   })
 
-  await t.test('role cards drive the SAME roleFilter state as the dropdown (no contradictions possible)', () => {
-    assert.match(dir, /const toggleRoleCard = \(role\) => \{ setRoleFilter\(r => r === role \? '' : role\) \}/)
-    assert.match(dir, /value=\{counts\.students\}[^]*?active=\{roleFilter === 'student'\}[^]*?onClick=\{\(\) => toggleRoleCard\('student'\)\}/)
+  await t.test('portal role cards clear other KPI predicates before filtering by role', () => {
+    assert.match(dir, /const togglePortalRoleCard = \(role\) => \{[\s\S]*?setRoleFilter\(r => r === role \? '' : role\)[\s\S]*?setStatusFilter\(''\)[\s\S]*?setExpiringOnly\(false\)/)
+    assert.match(dir, /value=\{counts\.students\}[^]*?active=\{roleFilter === 'student'\}[^]*?onClick=\{\(\) => togglePortalRoleCard\('student'\)\}/)
     assert.match(dir, /value=\{counts\.unitLeaders\}[^]*?active=\{roleFilter === 'unit_leader'\}/)
     assert.match(dir, /value=\{counts\.academicPartners\}[^]*?active=\{roleFilter === 'academic_partner'\}/)
   })
 
   await t.test('All Portal Users clears every card filter and is active only when none is engaged', () => {
-    assert.match(dir, /value=\{counts\.allGrants\}[^]*?active=\{!roleFilter && !statusFilter && !expiringOnly\}[^]*?onClick=\{\(\) => \{ setRoleFilter\(''\); setStatusFilter\(''\); setExpiringOnly\(false\) \}\}/)
+    assert.match(dir, /value=\{counts\.allGrants\}[^]*?active=\{!roleFilter && !statusFilter && !expiringOnly\}[^]*?onClick=\{\(\) => \{ setRoleFilter\(''\); setStatusFilter\(''\); setExpiringOnly\(false\); setPortalLimit\(PAGE_SIZE\) \}\}/)
   })
 
-  await t.test('Pending card toggles statusFilter to/from pending and clears expiringOnly', () => {
+  await t.test('Pending and Expiring cards clear competing KPI predicates', () => {
     assert.match(dir, /value=\{counts\.pending\}[^]*?active=\{statusFilter === 'pending'\}/)
-    assert.match(dir, /onClick=\{\(\) => \{ setExpiringOnly\(false\); setStatusFilter\(f => f === 'pending' \? '' : 'pending'\) \}\}/)
+    assert.match(dir, /value=\{counts\.expiring\}[^]*?active=\{expiringOnly\}/)
+    assert.match(dir, /const togglePortalStatusCard = \(status\) => \{[\s\S]*?setRoleFilter\(''\)[\s\S]*?setExpiringOnly\(false\)/)
+    assert.match(dir, /const togglePortalExpiringCard = \(\) => \{[\s\S]*?setRoleFilter\(''\)[\s\S]*?setStatusFilter\(''\)/)
   })
 
-  await t.test('Expiring Soon card toggles expiringOnly and clears statusFilter', () => {
-    assert.match(dir, /value=\{counts\.expiring\}[^]*?active=\{expiringOnly\}/)
-    assert.match(dir, /onClick=\{\(\) => \{ setStatusFilter\(''\); setExpiringOnly\(e => !e\) \}\}/)
+  await t.test('staff KPI cards clear competing status, role, and interviewer predicates', () => {
+    assert.match(dir, /const toggleStaffStatusCard = \(status\) => \{[\s\S]*?setRoleFilter\(''\)[\s\S]*?setInterviewerOnly\(false\)/)
+    assert.match(dir, /const toggleStaffInterviewersCard = \(\) => \{[\s\S]*?setRoleFilter\(''\)[\s\S]*?setStatusFilter\(''\)/)
   })
 
   await t.test('the staff row carries staff-relevant KPIs; Staff never dominates the portal view', () => {
