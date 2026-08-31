@@ -52,10 +52,15 @@ test('masthead-first hierarchy', async (t) => {
 })
 
 test('the masthead absorbs the welcome band honestly', async (t) => {
-  await t.test('last-visit line keeps the honest browser-scoped wording', () => {
-    assert.match(masthead, /aspire:lastVisit:\$\{currentUserId\}:\$\{cohortId\}/)
-    assert.match(masthead, /Last visit on this browser/)
-    assert.match(masthead, /students\.filter\(s => s\.created_at && s\.created_at > lastVisit\)/)
+  await t.test('the date line is a control-room readout, not the retired last-visit note', () => {
+    // MASTHEAD-SCENE-3 (Owner): the browser-local "last visit" affordance is
+    // retired - do not restore it. The line carries live occupancy and
+    // today's event tempo instead, each segment omitted at zero.
+    assert.doesNotMatch(masthead, /Last visit on this browser|aspire:lastVisit/)
+    assert.match(masthead, /onCampusCount > 0 \? ` · \$\{onCampusCount\} on campus now` : ''/)
+    assert.match(masthead, /todayEvents\.length > 0 \? ` · \$\{todayEvents\.length\} event\$\{todayEvents\.length === 1 \? '' : 's'\} today` : ''/)
+    // The count is the SAME merged rows the On Campus Now strip renders.
+    assert.match(read('src/components/OverviewTab.jsx'), /onCampusCount=\{mergedCampusLogs\.length\}/)
   })
 
   await t.test('events reuse the gated endpoint and query key, gated to the visible route', () => {

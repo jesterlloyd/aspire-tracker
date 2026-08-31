@@ -11,7 +11,7 @@
 // same query key the welcome band used, so nothing new is fetched; the query
 // is additionally gated to the visible route (the five workspace tabs stay
 // mounted, and hidden tabs must not fetch).
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -32,32 +32,9 @@ function daysBetween(fromStr, toStr) {
   return Math.round((b.getTime() - a.getTime()) / 86400000)
 }
 
-// Honest and clearly-scoped: the timestamp lives in THIS browser's storage
-// per user+cohort (no server audit log is implied), and the line only claims
-// what the loaded data can prove (students added since that moment).
-function useLastVisitLine(students, cohortId, currentUserId) {
-  const [lastVisit, setLastVisit] = useState(null)
-  useEffect(() => {
-    if (!currentUserId || !cohortId) return
-    const key = `aspire:lastVisit:${currentUserId}:${cohortId}`
-    try {
-      const prev = localStorage.getItem(key)
-      setLastVisit(prev || null)
-      localStorage.setItem(key, new Date().toISOString())
-    } catch { /* storage unavailable: skip the affordance */ }
-  }, [currentUserId, cohortId])
-
-  if (!lastVisit) return null
-  const newStudents = students.filter(s => s.created_at && s.created_at > lastVisit).length
-  const then = new Date(lastVisit)
-  const days = Math.floor((Date.now() - then.getTime()) / (24 * 3600 * 1000))
-  const when = days === 0 ? 'earlier today' : days === 1 ? 'yesterday'
-    : then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  return `Last visit on this browser: ${when}`
-    + (newStudents > 0 ? ` · ${newStudents} student${newStudents === 1 ? '' : 's'} added since` : '')
-}
-
-export default function TodayMasthead({ students, cohort, cohortId, currentUserId, onTodayRoute }) {
+// students/cohortId/currentUserId left the signature with the last-visit
+// affordance; the host still passes them, harmlessly, for call-site stability.
+export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
 
@@ -92,7 +69,6 @@ export default function TodayMasthead({ students, cohort, cohortId, currentUserI
   // the app theme, never the greeting wash).
   const { scene, night: sceneNight } = useMastheadScene()
   const dateLabel = new Date(`${today}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const lastVisitLine = useLastVisitLine(students, cohortId, currentUserId)
 
   // Today in ASPIRE - point / all-day / ranged events overlapping today,
   // plus US holidays (client-computed, read-only, never persisted).
@@ -140,10 +116,14 @@ export default function TodayMasthead({ students, cohort, cohortId, currentUserI
             the module); View calendar stands alone top-right. */}
         <div className="mast-left">
           <h1 className="chart-route-title mast-greet">{heading}</h1>
+          {/* Control-room date line (Owner: the browser-local "last visit"
+              affordance retired as unhelpful): live occupancy and today's
+              tempo instead, each segment omitted when zero. */}
           <div className="mast-sub">
             {dateLabel}
             {cohort?.name ? ` · ${cohort.name}` : ''}
-            {lastVisitLine ? ` · ${lastVisitLine}` : ''}
+            {onCampusCount > 0 ? ` · ${onCampusCount} on campus now` : ''}
+            {todayEvents.length > 0 ? ` · ${todayEvents.length} event${todayEvents.length === 1 ? '' : 's'} today` : ''}
           </div>
           <WeatherMasthead />
           {nextMilestone && (

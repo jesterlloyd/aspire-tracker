@@ -60,8 +60,9 @@ test('the shared component and TodayMasthead do not depend on each other', () =>
   // No import dependency in either direction (a comment may name the other for context).
   assert.ok(!/^import[^\n]*TodayMasthead/m.test(shared), 'shared masthead must not import the staff one')
   assert.ok(!/GreetingMasthead/.test(staff), 'staff masthead must remain independent')
-  // The staff masthead still owns its guarded internals (unchanged this branch).
-  assert.match(staff, /aspire:lastVisit:\$\{currentUserId\}:\$\{cohortId\}/)
+  // The staff masthead still owns its guarded internals (the last-visit line
+  // was retired by Owner decision; the control-room readout replaced it).
+  assert.match(staff, /on campus now/)
   assert.match(staff, /<h1 className="chart-route-title mast-greet">\{heading\}<\/h1>/)
 })
 

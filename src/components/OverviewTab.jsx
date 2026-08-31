@@ -1015,7 +1015,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           live campus signal, then the merged snapshot. Everything orientation
           lives in the masthead card; the page says hello exactly once. ════════ */}
       <TodayMasthead students={students} cohort={cohort} cohortId={cohortId}
-        currentUserId={currentUserId} onTodayRoute={onTodayRoute} />
+        currentUserId={currentUserId} onTodayRoute={onTodayRoute}
+        onCampusCount={mergedCampusLogs.length} />
       <AttentionDigest attention={attention} onOpenActionCenter={onOpenActionCenter} />
       {/* Opens the student's Interview Rubric directly. InterviewRubricTab seeds
           its selection from ?student= (the same param its own selectStudent
