@@ -22,7 +22,10 @@ const buildTime = new Date().toISOString();
 // built-in SVG scenery renders instead.
 const mastheadSceneFiles = (() => {
   try {
-    return readdirSync(join(dirname(fileURLToPath(import.meta.url)), 'public', 'masthead'))
+    // SCENE-3: recursive - city packs live in one subfolder per city
+    // (public/masthead/LA/LA_Day.webp); flat files still count.
+    return readdirSync(join(dirname(fileURLToPath(import.meta.url)), 'public', 'masthead'), { recursive: true })
+      .map(f => String(f).replace(/\\/g, '/'))
       .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
       .sort();
   } catch {

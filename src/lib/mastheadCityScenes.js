@@ -13,13 +13,18 @@
 // then null (the caller falls back to the built-in SVG scenery). Pure and
 // list-injected for tests.
 
-// Scene-word synonyms accepted in filenames, normalized to the four canonical
-// scene keys from src/lib/mastheadScene.js.
+// Scene-word synonyms accepted in filenames, normalized to the canonical
+// scene keys from src/lib/mastheadScene.js. SCENE-3: seven scenes - morning
+// is its own state now (no longer an alias of dawn), golden hour joined, and
+// rain is the weather-override artwork.
 const SCENE_WORDS = {
-  day: 'day',
+  dawn: 'dawn', sunrise: 'dawn', earlymorning: 'dawn',
+  morning: 'morning',
+  day: 'day', noon: 'day', midday: 'day',
+  goldenhour: 'goldenhour', golden: 'goldenhour',
   sunset: 'sunset', dusk: 'sunset', evening: 'sunset',
   night: 'night',
-  dawn: 'dawn', morning: 'dawn', earlymorning: 'dawn', sunrise: 'dawn',
+  rain: 'rain', rainy: 'rain', cloudy: 'rain', overcast: 'rain', storm: 'rain',
 }
 
 // Lowercased, punctuation-stripped label/filename tokens → canonical pack key.
@@ -68,26 +73,44 @@ export const normalizeCityToken = s =>
 
 /**
  * Parse a public/masthead/ file listing into packs:
- * { la: { day: '/masthead/LA_Day.webp', ... }, ... }
- * The city key is everything before the LAST underscore (so "Las_Vegas_Night"
- * still works), normalized through the alias table. WebP wins over PNG/JPG for
- * the same city+scene. Unrecognized scene words are ignored.
+ * { la: { day: '/masthead/LA/LA_Day.webp', ... }, ... }
+ *
+ * SCENE-3 convention: one FOLDER per city (public/masthead/LA/) holding files
+ * named <City>_<Scene>; the folder name is the city key. Flat top-level files
+ * still parse (city from the filename). The scene is recognized from the END
+ * of the basename - up to two trailing tokens ("Golden Hour", "Golden_Hour")
+ * - so multi-word cities like Las_Vegas_Night resolve correctly either way.
+ * WebP wins over PNG/JPG for the same city+scene; unrecognized scene words
+ * and deeper nesting are ignored.
  */
 export function parseSceneFiles(files) {
   const packs = {}
   const isWebp = f => /\.webp$/i.test(f)
   for (const file of files || []) {
-    const m = /^(.+)_([A-Za-z]+)\.(webp|png|jpe?g)$/i.exec(file)
+    const path = String(file).replace(/\\/g, '/')
+    const parts = path.split('/')
+    if (parts.length > 2 || parts.some(p => !p)) continue
+    const folder = parts.length === 2 ? parts[0] : null
+    const base = parts[parts.length - 1]
+    const m = /^(.+)\.(webp|png|jpe?g)$/i.exec(base)
     if (!m) continue
-    const scene = SCENE_WORDS[m[2].toLowerCase()]
+    const tokens = m[1].split(/[_ ]+/).filter(Boolean)
+    let scene = null
+    let cityTokens = null
+    for (const take of [2, 1]) {
+      // A flat file must keep at least one token for the city name.
+      if (tokens.length < take + (folder ? 0 : 1)) continue
+      const s = SCENE_WORDS[normalizeCityToken(tokens.slice(-take).join(''))]
+      if (s) { scene = s; cityTokens = tokens.slice(0, -take); break }
+    }
     if (!scene) continue
-    const token = normalizeCityToken(m[1])
+    const token = normalizeCityToken(folder ?? cityTokens.join(''))
     const city = CITY_ALIASES[token] || token
     if (!city) continue
     packs[city] = packs[city] || {}
     const existing = packs[city][scene]
-    if (existing && isWebp(existing.file) && !isWebp(file)) continue
-    packs[city][scene] = { file, url: `/masthead/${file}` }
+    if (existing && isWebp(existing.file) && !isWebp(path)) continue
+    packs[city][scene] = { file: path, url: encodeURI(`/masthead/${path}`) }
   }
   // Flatten to scene → url.
   for (const city of Object.keys(packs)) {

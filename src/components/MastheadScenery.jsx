@@ -73,12 +73,15 @@ export default function MastheadScenery() {
   const complete = scenes && SCENES.every(s => scenes[s])
   return (
     <div className="mast-scenery" aria-hidden>
-      {/* The state-keyed sky gradients always render: in city mode the
-          right-anchored art fades leftward into them. */}
+      {/* The state-keyed sky gradients always render: in city mode the art's
+          left fade lands on them. SCENE-3 added morning/goldenhour/rain. */}
       <div className="mast-sky mast-sky-dawn" />
+      <div className="mast-sky mast-sky-morning" />
       <div className="mast-sky mast-sky-day" />
+      <div className="mast-sky mast-sky-goldenhour" />
       <div className="mast-sky mast-sky-sunset" />
       <div className="mast-sky mast-sky-night" />
+      <div className="mast-sky mast-sky-rain" />
       {/* The SVG ridge art renders beneath a PARTIAL pack so a missing scene
           still shows artwork; a complete pack replaces it. */}
       {!complete && <SvgScenery />}

@@ -1,19 +1,30 @@
-// MASTHEAD-SCENE-1: the deterministic time-of-day scene for the masthead
+// MASTHEAD-SCENE-1/3: the deterministic time-of-day scene for the masthead
 // background artwork AND the whole-card night treatment - ONE clock for both,
 // so the artwork and the dark card can never disagree at dawn or dusk.
 //
-// Four states: 'dawn' (early morning, pre-sunrise glow), 'day', 'sunset',
-// 'night'. When the shared weather query has today's sun times (they ride the
-// existing Open-Meteo daily request - no extra fetch), the windows are anchored
-// to the real sunrise/sunset; otherwise fixed local-time windows take over, so
-// the scene never blocks on the network. Pure and clock-injected for tests.
+// SCENE-3 (seven-scene city packs): the clock now cycles SIX time states -
+// 'dawn' (pre-sunrise), 'morning' (the low light after sunrise), 'day',
+// 'goldenhour' (the warm hour before sunset), 'sunset', 'night' - and a
+// seventh artwork state 'rain' overrides the daytime family when the weather
+// says rain, overcast, or fog (Owner decision: partly cloudy keeps the time
+// scene, and night keeps its city-lights artwork whatever the weather).
+//
+// When the shared weather query has today's sun times (they ride the existing
+// Open-Meteo daily request - no extra fetch), the windows anchor to the real
+// sunrise/sunset; otherwise fixed local-time windows take over, so the scene
+// never blocks on the network. Pure and clock-injected for tests.
 //
 // This module deliberately does NOT touch the greeting (src/lib/masthead.js):
 // "Good evening" and its four windows are a separate, already-shipped contract.
 
 const MIN = 60 * 1000
 
-export const SCENES = ['dawn', 'day', 'sunset', 'night']
+/** Every artwork state a city pack can carry (also the QA-override vocabulary
+ *  and the pack-completeness checklist). */
+export const SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night', 'rain']
+
+/** The six states the clock itself produces ('rain' is weather-driven). */
+export const CLOCK_SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night']
 
 /** Parse the weather payload's sun times into Dates, or null when absent/bad.
  *  Open-Meteo (timezone=auto) returns the LOCATION's local wall time without an
@@ -28,29 +39,54 @@ export function sunTimesFrom(weather) {
 }
 
 /**
- * The scene for a moment in time.
- * With sun times: dawn opens 80 min before sunrise and holds until 15 min
- * after it (the low golden light just past sunrise still reads as dawn);
- * sunset opens 50 min before sunset and holds until 25 min after (civil
- * twilight); night is everything outside those and the day between them.
+ * The clock scene for a moment in time.
+ * With sun times: dawn opens 80 min before sunrise and holds until 10 min
+ * after it; morning carries the low light until 2.5 h past sunrise; golden
+ * hour opens 75 min before sunset; sunset proper runs from 15 min before to
+ * 25 min after (civil twilight); night is everything outside those.
  * Without sun times: fixed windows sized for Los Angeles year-round.
  */
 export function sceneForTime(now = new Date(), sun = null) {
   if (sun) {
     const t = now.getTime()
     const dawnStart = sun.sunrise.getTime() - 80 * MIN
-    const dayStart = sun.sunrise.getTime() + 15 * MIN
-    const sunsetStart = sun.sunset.getTime() - 50 * MIN
+    const morningStart = sun.sunrise.getTime() + 10 * MIN
+    const dayStart = sun.sunrise.getTime() + 150 * MIN
+    const goldenStart = sun.sunset.getTime() - 75 * MIN
+    const sunsetStart = sun.sunset.getTime() - 15 * MIN
     const nightStart = sun.sunset.getTime() + 25 * MIN
     // Sun times are today's; overnight hours fall outside [dawnStart, nightStart).
-    if (t >= dawnStart && t < dayStart) return 'dawn'
-    if (t >= dayStart && t < sunsetStart) return 'day'
+    if (t >= dawnStart && t < morningStart) return 'dawn'
+    if (t >= morningStart && t < dayStart) return 'morning'
+    if (t >= dayStart && t < goldenStart) return 'day'
+    if (t >= goldenStart && t < sunsetStart) return 'goldenhour'
     if (t >= sunsetStart && t < nightStart) return 'sunset'
     return 'night'
   }
   const h = now.getHours() + now.getMinutes() / 60
-  if (h >= 5 && h < 7) return 'dawn'
-  if (h >= 7 && h < 18) return 'day'
-  if (h >= 18 && h < 19.75) return 'sunset'
+  if (h >= 5 && h < 6.5) return 'dawn'
+  if (h >= 6.5 && h < 9) return 'morning'
+  if (h >= 9 && h < 17.5) return 'day'
+  if (h >= 17.5 && h < 18.92) return 'goldenhour'
+  if (h >= 18.92 && h < 19.75) return 'sunset'
   return 'night'
+}
+
+/** WMO codes that swap the daytime artwork for the Rain scene: rain, drizzle,
+ *  freezing rain, showers, thunderstorms, snow (LA courtesy), full overcast,
+ *  and fog. Partly cloudy (1-2) deliberately keeps the time-of-day scene. */
+export function isRainyCode(code) {
+  if (code == null) return false
+  if (code === 3 || code === 45 || code === 48) return true
+  if (code >= 51 && code <= 67) return true
+  if (code >= 71 && code <= 77) return true
+  if ((code >= 80 && code <= 86) || (code >= 95 && code <= 99)) return true
+  return false
+}
+
+/** The artwork scene: the clock scene, except the daytime family yields to
+ *  'rain' in rainy/overcast/foggy weather. Night keeps its own artwork. */
+export function artSceneFor(clockScene, weatherCode) {
+  if (clockScene !== 'night' && isRainyCode(weatherCode)) return 'rain'
+  return clockScene
 }

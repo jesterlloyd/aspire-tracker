@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sceneAssets } from '../lib/weatherAssetMap'
 import { useWeatherLocation } from '../lib/weatherLocation'
-import { sceneForTime, sunTimesFrom, SCENES } from '../lib/mastheadScene'
+import { sceneForTime, sunTimesFrom, artSceneFor, SCENES } from '../lib/mastheadScene'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -233,14 +233,17 @@ export function useWelcomeWeather() {
   return { ...q, location }
 }
 
-// MASTHEAD-SCENE-1: ONE unified clock for the masthead's time-of-day artwork
-// (day / sunset / night / dawn) AND its whole-card night treatment. Anchored
-// to the real sunrise/sunset from the shared weather query when available,
-// fixed local-time windows otherwise - never the app theme, never the greeting
-// wash, and no longer the weather's is_day flag (the old split let the dark
-// card and the artwork disagree at dawn/dusk). A minute-tick keeps a long-open
-// tab crossing scene boundaries without a reload. The localStorage override
-// (aspire_scene_override_v1 = dawn|day|sunset|night) exists for visual QA only.
+// MASTHEAD-SCENE-1/3: ONE unified clock for the masthead's time-of-day
+// artwork AND its whole-card night treatment. Anchored to the real
+// sunrise/sunset from the shared weather query when available, fixed
+// local-time windows otherwise - never the app theme, never the greeting
+// wash, and never the weather's is_day flag (the old split let the dark card
+// and the artwork disagree at dawn/dusk). SCENE-3: six clock states (dawn,
+// morning, day, goldenhour, sunset, night) plus the weather-driven 'rain'
+// artwork override (rain/overcast/fog swap the daytime scene; night keeps
+// its city-lights artwork). A minute-tick keeps a long-open tab crossing
+// scene boundaries without a reload. The localStorage override
+// (aspire_scene_override_v1 = any SCENES value, including rain) is QA-only.
 export function useMastheadScene() {
   const { data } = useWelcomeWeather()
   const [, setTick] = useState(0)
@@ -248,7 +251,7 @@ export function useMastheadScene() {
     const id = setInterval(() => setTick(t => t + 1), 60 * 1000)
     return () => clearInterval(id)
   }, [])
-  let scene = sceneForTime(new Date(), sunTimesFrom(data))
+  let scene = artSceneFor(sceneForTime(new Date(), sunTimesFrom(data)), data?.code)
   try {
     const o = localStorage.getItem('aspire_scene_override_v1')
     if (SCENES.includes(o)) scene = o

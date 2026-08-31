@@ -25,8 +25,9 @@ const shared = read('src/components/masthead/GreetingMasthead.jsx')
 const css = read('src/index.css')
 
 test('one unified clock: night is the scene clock, never is_day and never the theme', () => {
-  // useMastheadScene anchors to sun times (fallback: fixed windows) and derives night from it.
-  assert.match(wx, /let scene = sceneForTime\(new Date\(\), sunTimesFrom\(data\)\)/)
+  // useMastheadScene anchors to sun times (fallback: fixed windows), applies the
+  // SCENE-3 rain artwork override, and derives night from the result.
+  assert.match(wx, /let scene = artSceneFor\(sceneForTime\(new Date\(\), sunTimesFrom\(data\)\), data\?\.code\)/)
   assert.match(wx, /return \{ scene, night: scene === 'night' \}/)
   assert.match(wx, /export function useMastheadNight\(\) \{\n {2}return useMastheadScene\(\)\.night\n\}/)
   // The old split driver is gone: nothing keys the card on the weather's is_day.
@@ -39,10 +40,10 @@ test('one unified clock: night is the scene clock, never is_day and never the th
 })
 
 test('both hosts carry the scene class and .mast-night; the portal host gates both on showWeather', () => {
-  assert.ok(today.includes("className={`mast mast-wash-${wash} mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}"))
+  assert.ok(today.includes("className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}"))
   assert.match(today, /<MastheadScenery \/>/)
   // A portal masthead rendered with showWeather={false} has no scenery and never darkens.
-  assert.ok(shared.includes("className={`mast mast-wash-${wash}${showWeather ? ` mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}"))
+  assert.ok(shared.includes("className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}"))
   assert.match(shared, /\{showWeather && <MastheadScenery \/>\}/)
 })
 

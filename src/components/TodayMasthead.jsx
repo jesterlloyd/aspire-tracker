@@ -131,7 +131,7 @@ export default function TodayMasthead({ students, cohort, cohortId, currentUserI
   const hasTodayLine = todayEvents.length > 0 || todayHolidays.length > 0
 
   return (
-    <div className={`mast mast-wash-${wash} mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
+    <div className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
       <MastheadScenery />
       <div className="mast-row">
         <div className="mast-left">

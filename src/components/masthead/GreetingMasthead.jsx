@@ -35,7 +35,7 @@ export default function GreetingMasthead({
   const { scene, night: sceneNight } = useMastheadScene()
 
   return (
-    <div className={`mast mast-wash-${wash}${showWeather ? ` mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}>
+    <div className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}>
       {showWeather && <MastheadScenery />}
       <div className="mast-row">
         <div className="mast-left">
