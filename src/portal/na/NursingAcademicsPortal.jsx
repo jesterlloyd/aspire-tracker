@@ -43,12 +43,18 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
   return (
     <div className="ptl-page ptl-na-page">
       <h1 className="ptl-visually-hidden">Nursing Education &amp; Leadership Portal</h1>
-      <GreetingMasthead
-        fullName={userProfile?.full_name}
-        dateLabel={dateLabel}
-        contextLabel={fyLabel}
-      />
-      <div style={{ display: view === 'calendar' ? 'block' : 'none' }}>
+      {/* Owner: the masthead greets ONCE, on the landing section only - the
+          same shape every other portal has (Student/Unit Leader Home,
+          Academic Partner Students). It used to sit above the section switch
+          and so repeated on Community Benefit, Contacts, and Messages, which
+          pushed those dense views down and let its current-FY label
+          contradict the fiscal year selected inside the benefit report. */}
+      <div className="ptl-na-stack" style={{ display: view === 'calendar' ? 'flex' : 'none' }}>
+        <GreetingMasthead
+          fullName={userProfile?.full_name}
+          dateLabel={dateLabel}
+          contextLabel={fyLabel}
+        />
         <AcademicsCalendarView active={view === 'calendar'} />
       </div>
       <div style={{ display: view === 'community-benefit' ? 'block' : 'none' }}>

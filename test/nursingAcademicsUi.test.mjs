@@ -40,7 +40,11 @@ test('the nav uses the shared .ptl-nav language with stable tour anchors and ari
 })
 
 test('sections stay mounted and hide with display, matching the other portals', () => {
-  assert.match(portal, /display: view === 'calendar' \? 'block' : 'none'/)
+  // At A Glance is a flex column because it also carries the masthead above
+  // the calendar (the other two sections hold a single child, so they stay
+  // 'block'); all three still MOUNT and hide with display, which is what
+  // preserves month position, filters, and the loaded report across nav.
+  assert.match(portal, /display: view === 'calendar' \? 'flex' : 'none'/)
   assert.match(portal, /display: view === 'community-benefit' \? 'block' : 'none'/)
   assert.match(portal, /display: view === 'contacts' \? 'block' : 'none'/)
   assert.match(portal, /GreetingMasthead/)

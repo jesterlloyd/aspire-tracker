@@ -2015,6 +2015,9 @@ img.ptl-detail-photo {
 
 .ptl-na-page { display: flex; flex-direction: column; gap: 16px; }
 .ptl-na-page .mast { margin: 0; width: 100%; }
+/* The At A Glance section carries the masthead above the calendar, so it
+   keeps the page's own column rhythm instead of butting them together. */
+.ptl-na-stack { flex-direction: column; gap: 16px; }
 .ptl-na-calendar { display: flex; flex-direction: column; gap: 16px; }
 .ptl-na-section-heading,
 .ptl-na-table-heading {
