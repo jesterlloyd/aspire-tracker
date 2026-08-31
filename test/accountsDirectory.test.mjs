@@ -73,13 +73,13 @@ test('Accounts & Access directory replaces the card board', async (t) => {
     // current tab (the segmented control owns tab switching). Portal row: six cards
     // including the three role cards driving the shared roleFilter state.
     assert.match(dir, /value=\{counts\.allGrants\}[^]*?active=\{!roleFilter && !statusFilter && !expiringOnly\}/)
-    assert.match(dir, /value=\{counts\.students\}[^]*?onClick=\{\(\) => toggleRoleCard\('student'\)\}/)
+    assert.match(dir, /value=\{counts\.students\}[^]*?onClick=\{\(\) => togglePortalRoleCard\('student'\)\}/)
     // Pending card: toggles statusFilter to/from 'pending', clears expiringOnly.
     assert.match(dir, /value=\{counts\.pending\}[^]*?statusFilter === 'pending'/)
-    assert.match(dir, /setStatusFilter\(f => f === 'pending' \? '' : 'pending'\)/)
+    assert.match(dir, /togglePortalStatusCard\('pending'\)/)
     // Expiring card: toggles expiringOnly, clears statusFilter.
     assert.match(dir, /value=\{counts\.expiring\}[^]*?active=\{expiringOnly\}/)
-    assert.match(dir, /setExpiringOnly\(e => !e\)/)
+    assert.match(dir, /onClick=\{togglePortalExpiringCard\}/)
   })
 
   await t.test('counts.pending comes from the server contract, not a client array length', () => {

@@ -112,14 +112,19 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
   const schoolOptions = useMemo(
     () => [...new Set(allRows.map(r => r.student.school).filter(Boolean))].sort(),
     [allRows])
+  // URL filters can outlive the residency cycle that supplied their options.
+  // Fail back to the visible All option instead of letting a stale cohort or
+  // school continue to empty the roster behind a newly clicked KPI card.
+  const activeCohortFilter = sourceCohorts.some(c => c.id === cohortFilter) ? cohortFilter : ''
+  const activeSchoolFilter = schoolOptions.includes(schoolFilter) ? schoolFilter : ''
 
   const activeKpi = KPI_DEFS.find(k => k.key === kpiFilter) || KPI_DEFS[0]
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const rows = allRows.filter(r => {
       if (!activeKpi.match(r)) return false
-      if (cohortFilter && r.student.cohort_id !== cohortFilter) return false
-      if (schoolFilter && r.student.school !== schoolFilter) return false
+      if (activeCohortFilter && r.student.cohort_id !== activeCohortFilter) return false
+      if (activeSchoolFilter && r.student.school !== activeSchoolFilter) return false
       if (q) {
         const hay = `${displayName(r.student)} ${r.student.first_name || ''} ${r.student.last_name || ''} ${r.student.school || ''}`.toLowerCase()
         if (!hay.includes(q)) return false
@@ -127,9 +132,9 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
       return true
     })
     return sortApplicantRows(rows, sortKey, { cohortOrder })
-  }, [allRows, activeKpi, cohortFilter, schoolFilter, query, sortKey, cohortOrder])
+  }, [allRows, activeKpi, activeCohortFilter, activeSchoolFilter, query, sortKey, cohortOrder])
 
-  const hasFilters = kpiFilter !== 'all' || query || cohortFilter || schoolFilter
+  const hasFilters = kpiFilter !== 'all' || query || activeCohortFilter || activeSchoolFilter
 
   const toggleRow = id => setSelected(prev => {
     const next = new Set(prev)
@@ -291,11 +296,11 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
             {/* Every cohort MAPPED to the cycle is listed - including one with
                 zero completed students - because the option list comes from the
                 cycle's source-cohort mapping, not from the loaded rows. */}
-            <select value={cohortFilter} onChange={e => setParam('cohort', e.target.value)} aria-label="Filter by source ASPIRE cohort" style={selectStyle}>
+            <select value={activeCohortFilter} onChange={e => setParam('cohort', e.target.value)} aria-label="Filter by source ASPIRE cohort" style={selectStyle}>
               <option value="">All ASPIRE Cohorts</option>
               {sourceCohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <select value={schoolFilter} onChange={e => setParam('school', e.target.value)} aria-label="Filter by school" style={selectStyle}>
+            <select value={activeSchoolFilter} onChange={e => setParam('school', e.target.value)} aria-label="Filter by school" style={selectStyle}>
               <option value="">All Schools</option>
               {schoolOptions.map(sc => <option key={sc} value={sc}>{sc}</option>)}
             </select>

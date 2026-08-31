@@ -229,6 +229,17 @@ export default function KnowledgeCenterPanel() {
     return c
   }, [entries])
 
+  // Every tag in use, for the filter. Alphabetical so the list is scannable.
+  const allTags = useMemo(() => {
+    const s = new Set()
+    for (const e of entries) for (const t of e.tags || []) s.add(t)
+    return [...s].sort((a, b) => a.localeCompare(b))
+  }, [entries])
+  // Editing or archiving the final entry with a selected tag can remove that
+  // option while the panel stays mounted. Do not let the missing value keep
+  // constraining subsequent KPI card clicks.
+  const activeTagFilter = tagFilter === 'all' || allTags.includes(tagFilter) ? tagFilter : 'all'
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return entries.filter(e => {
@@ -238,7 +249,7 @@ export default function KnowledgeCenterPanel() {
         || (stateFilter === 'review' ? (e.expired || e.due_for_review) : e.state === stateFilter)
       if (!stateOk) return false
       if (categoryFilter !== 'all' && e.category !== categoryFilter) return false
-      if (tagFilter !== 'all' && !(e.tags || []).includes(tagFilter)) return false
+      if (activeTagFilter !== 'all' && !(e.tags || []).includes(activeTagFilter)) return false
       if (!q) return true
       // KNOWLEDGE-VAULT-1: search now covers aliases and tags too. Searching
       // for a name the author declared should find the page - that is the whole
@@ -247,14 +258,7 @@ export default function KnowledgeCenterPanel() {
         || (e.aliases || []).some(a => a.toLowerCase().includes(q))
         || (e.tags || []).some(t => t.toLowerCase().includes(q))
     })
-  }, [entries, search, stateFilter, categoryFilter, tagFilter])
-
-  // Every tag in use, for the filter. Alphabetical so the list is scannable.
-  const allTags = useMemo(() => {
-    const s = new Set()
-    for (const e of entries) for (const t of e.tags || []) s.add(t)
-    return [...s].sort((a, b) => a.localeCompare(b))
-  }, [entries])
+  }, [entries, search, stateFilter, categoryFilter, activeTagFilter])
 
   // Fetch the graph lazily: only when the Graph view is open and the data is
   // stale. Metadata only - the graph payload never includes a body.
@@ -416,7 +420,7 @@ export default function KnowledgeCenterPanel() {
             {/* Only offered once tags exist - an empty tag filter is noise. */}
             {allTags.length > 0 && (
               <select
-                value={tagFilter}
+                value={activeTagFilter}
                 onChange={e => setTagFilter(e.target.value)}
                 aria-label="Filter by tag"
                 style={selectStyle}
@@ -496,7 +500,7 @@ export default function KnowledgeCenterPanel() {
           onOpenEntry={node => openEntry(node.id)}
           stateFilter={stateFilter}
           categoryFilter={categoryFilter}
-          tagFilter={tagFilter}
+          tagFilter={activeTagFilter}
           search={search}
           // The selection survives closing the drawer ON PURPOSE: the drawer's
           // backdrop blocks the graph controls while open, so Local focus is a

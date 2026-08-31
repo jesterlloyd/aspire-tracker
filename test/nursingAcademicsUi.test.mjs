@@ -252,14 +252,14 @@ test('auto-selection always takes the FIRST DISPLAYED row (orderContacts), never
   assert.match(contacts, /const orderContacts = \(list, category, query, ordering = DEFAULT_ORDERING\) =>/)
   assert.match(contacts, /const scopeOrdering = \(activeScope\) => \(\{\s*\n\s*categoryOrder: scopedCategoryOrder\(activeScope, CONTACT_CATEGORY_ORDER\),\s*\n\s*scopeUnits: scopeUnitSet\(activeScope\),/)
   // ...feeding the visible list...
-  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(scopedContacts, category, query, ordering\)/)
+  assert.match(contacts, /const filtered = useMemo\(\(\) => orderContacts\(scopedContacts, activeCategory, query, ordering\)/)
   // ...and every selection site: category click, search, initial load, deactivation fallback.
   assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, value, query, ordering\)\[0\]\?\.id \|\| null\)/)
-  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, category, nextQuery, ordering\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(scopedContacts, activeCategory, nextQuery, ordering\)\[0\]\?\.id \|\| null\)/)
   assert.match(contacts, /orderContacts\(next\.filter\(contact => contact\.is_active !== false\), 'All', ''\)\[0\]/)
-  assert.match(contacts, /setSelectedId\(orderContacts\(remaining, category, query, ordering\)\[0\]\?\.id \|\| null\)/)
+  assert.match(contacts, /setSelectedId\(orderContacts\(remaining, nextCategory, query, ordering\)\[0\]\?\.id \|\| null\)/)
   // The scope-change site derives its ordering from the INCOMING scope.
-  assert.match(contacts, /orderContacts\(nextScoped, category, query, scopeOrdering\(value\)\)/)
+  assert.match(contacts, /orderContacts\(nextScoped, nextCategory, query, scopeOrdering\(value\)\)/)
   // No selection site reads raw fetch order any more.
   assert.doesNotMatch(contacts, /setSelectedId\(directoryContacts\.find/)
 })
@@ -386,7 +386,7 @@ test('dragging the list scrollbar floats a group indicator over the list center'
   assert.match(contacts, /document\.elementFromPoint\(rect\.left \+ rect\.width \/ 2, rect\.top \+ rect\.height \/ 2\)/)
   assert.match(contacts, /closest\?\.\('\[data-scrub\]'\)/)
   // Every row and divider carries its group label.
-  assert.match(contacts, /data-scrub=\{scrubGroupLabel\(contact, category, query\)\}/)
+  assert.match(contacts, /data-scrub=\{scrubGroupLabel\(contact, activeCategory, query\)\}/)
   assert.match(contacts, /data-scrub=\{item\.label\}/)
   // The label names what the active sort walks through.
   assert.match(contacts, /if \(category === 'Unit Leader'\) return contactUnitList\(contact\)\[0\] \|\| letter/)

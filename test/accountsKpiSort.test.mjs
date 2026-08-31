@@ -131,7 +131,7 @@ test('KPI rows are tab-gated: portal cards never render on Staff, and vice versa
   // ROLE-GUIDE-1: a third tab (Role Guide) joined the control; it has no\n  // rows, so it renders no KPI row. Gating is still asserted here.\n  assert.match(dir, /\{tab === 'guide' \? null : tab === 'portal' \? \(/)
   // Role cards and the dropdown share ONE state (roleFilter), so contradictory
   // states are structurally impossible.
-  assert.match(dir, /const toggleRoleCard = \(role\) => \{ setRoleFilter\(r => r === role \? '' : role\) \}/)
+  assert.match(dir, /const togglePortalRoleCard = \(role\) => \{[\s\S]*?setRoleFilter\(r => r === role \? '' : role\)[\s\S]*?setStatusFilter\(''\)[\s\S]*?setExpiringOnly\(false\)[\s\S]*?\}/)
   assert.match(dir, /value=\{roleFilter\} onChange=\{e => setRoleFilter\(e\.target\.value\)\}/)
   // The role dropdown is retained (it reflects the card selection 1:1).
   assert.match(dir, /aria-label="Filter by role"/)

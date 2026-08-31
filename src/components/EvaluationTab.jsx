@@ -362,13 +362,19 @@ export default function EvaluationTab({ cohortId }) {
   const timepoints = ['All', ...new Set(
     assignments.map(a => a.timepoint).filter(Boolean)
   )]
+  // A cohort change can remove the selected instrument or timepoint while this
+  // mounted tab keeps its local state. Treat an unavailable value as All so a
+  // status KPI click cannot be silently constrained by a filter that is no
+  // longer present in either dropdown.
+  const activeInstrumentFilter = instruments.includes(filterInstrument) ? filterInstrument : 'All'
+  const activeTimepointFilter = timepoints.includes(filterTimepoint) ? filterTimepoint : 'All'
 
   // Instrument + timepoint filter only (no status filter) - basis for KPI card counts.
   // Per A.4: card counts are independent of the status filter so the full distribution
   // is always visible regardless of which card is active.
   const instrumentTimeFiltered = assignments.filter(a => {
-    if (filterInstrument !== 'All' && a.evaluation_instruments?.display_name !== filterInstrument) return false
-    if (filterTimepoint  !== 'All' && a.timepoint !== filterTimepoint) return false
+    if (activeInstrumentFilter !== 'All' && a.evaluation_instruments?.display_name !== activeInstrumentFilter) return false
+    if (activeTimepointFilter  !== 'All' && a.timepoint !== activeTimepointFilter) return false
     return true
   })
 
@@ -458,7 +464,7 @@ export default function EvaluationTab({ cohortId }) {
   // Instrument cards: per-instrument completed/assigned within the current timepoint filter (NOT
   // instrument-filtered, so every instrument is always visible). Only the canonical instruments that
   // actually appear in this cohort are shown - Program Experience is never shown.
-  const timepointScoped = assignments.filter(a => filterTimepoint === 'All' || a.timepoint === filterTimepoint)
+  const timepointScoped = assignments.filter(a => activeTimepointFilter === 'All' || a.timepoint === activeTimepointFilter)
   const instrumentCards = INSTRUMENT_ORDER.map(slug => {
     const rows = timepointScoped.filter(a => a.evaluation_instruments?.slug === slug)
     if (rows.length === 0) return null
@@ -471,7 +477,7 @@ export default function EvaluationTab({ cohortId }) {
   // must see both completed baseline and post-rotation Casey-Fink responses to form
   // honest student-level pairs. The cohort is already enforced by the database query.
   const caseyFinkComparison = buildCaseyFinkComparison(assignments)
-  const selectedInstrumentSlug = filterInstrument === 'All' ? null : slugByDisplayName[filterInstrument]
+  const selectedInstrumentSlug = activeInstrumentFilter === 'All' ? null : slugByDisplayName[activeInstrumentFilter]
   const showCaseyFinkComparison = selectedInstrumentSlug == null || selectedInstrumentSlug === 'casey_fink_readiness_2024'
 
   // ── Event handlers ────────────────────────────────────────────────────────
@@ -674,7 +680,7 @@ export default function EvaluationTab({ cohortId }) {
               {instrumentCards.length > 0 && (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
                   {instrumentCards.map(card => {
-                    const active = filterInstrument === card.displayName
+                    const active = activeInstrumentFilter === card.displayName
                     const pct = card.assigned > 0 ? Math.round((card.completed / card.assigned) * 100) : 0
                     return (
                       <button
@@ -733,13 +739,13 @@ export default function EvaluationTab({ cohortId }) {
 
               {/* Filter strip - instrument and timepoint dropdowns only */}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
-                <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)} style={sel}>
+                <select value={activeInstrumentFilter} onChange={e => setFilterInstrument(e.target.value)} style={sel}>
                   {instruments.map(i => (
                     <option key={i} value={i}>{i === 'All' ? 'All instruments' : instrumentCompactLabel(slugByDisplayName[i], i)}</option>
                   ))}
                 </select>
 
-                <select value={filterTimepoint} onChange={e => setFilterTimepoint(e.target.value)} style={sel}>
+                <select value={activeTimepointFilter} onChange={e => setFilterTimepoint(e.target.value)} style={sel}>
                   {timepoints.map(t => (
                     <option key={t} value={t}>{t === 'All' ? 'All timepoints' : (TIMEPOINT_LABELS[t] || t)}</option>
                   ))}
