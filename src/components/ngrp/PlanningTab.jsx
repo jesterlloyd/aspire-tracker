@@ -307,7 +307,14 @@ function PlanningEditor({ data, aspireCohorts, toast, invalidate, refetch, onCre
       toast?.error?.('Not saved', errText(res.errors) || 'The configuration could not be saved.')
       return false
     }
-    toast?.success?.('Planning saved', `${sections} updated for ${res.cycle?.name || basics.name}.`)
+    if (res.recalc && !res.recalc.ok) {
+      // The cycle saved, but eligibility recalculation partially failed -
+      // never let that read as a clean success (stale eligibility is real).
+      toast?.error?.('Saved, with a recalculation problem',
+        `${sections} updated, but eligibility recalculation failed for ${res.recalc.failed} candidate(s). Run Recalculate from the applicant drawer, or save again.`)
+    } else {
+      toast?.success?.('Planning saved', `${sections} updated for ${res.cycle?.name || basics.name}.`)
+    }
     invalidate()
     refetch()
     return true

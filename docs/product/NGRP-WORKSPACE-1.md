@@ -185,24 +185,50 @@ through review/confirm dialogs; every change is audited.
   where the registered `ngrp_transition_form_invitation` template renders a
   dedicated server-minted panel (`NgrpTransitionSendPanel`) - never the
   manual composer. Server preview classifies first-sends / re-sends / skips;
-  typed `SEND MESSAGES` confirmation; sequential provider loop with batch
-  idempotency; per-success `notification_log` row (`ngrp_transition_form_sent`,
-  hash prefix only, registered in Sent History as a secure-link type) and
-  audit events. SEND-TRUTH: provider failure revokes the token and any
-  fresh assignment - a failed delivery can never read as Sent.
+  typed `SEND MESSAGES` confirmation; sequential provider loop with DURABLE
+  batch idempotency: `ngrp_transition_deliveries` (UNIQUE batch+candidate)
+  is the fail-closed idempotency authority, a Resend `Idempotency-Key`
+  (batch+candidate) backstops process retries after acceptance, and the
+  per-success `notification_log` row (`ngrp_transition_form_sent`, hash
+  prefix only, registered in Sent History as a secure-link type) is a
+  display ledger only - its failure is a reported warning, never a false
+  "failed". SEND-TRUTH: an assignment is born `pending` and becomes Sent
+  only when the provider ACCEPTED the email (`ngrp_activate_token_tx`);
+  the `form_sent`/`token_resent` audit event is written inside that same
+  transaction.
 - Tokens: minted via the evaluation module (32-byte base64url, HMAC with
-  `EVALUATION_TOKEN_PEPPER`); only `token_hash` + 8-char hash prefix persist;
-  one live token per assignment; revocation always by token id; resend
-  revokes-then-issues.
+  `EVALUATION_TOKEN_PEPPER`); only `token_hash` + 8-char hash prefix persist.
+  Delivery-safe state machine: `pending → active | failed`, `active →
+  revoked`; a resend PREPARES a pending replacement while the old link stays
+  active, provider acceptance atomically activates-new/revokes-old
+  (`ngrp_activate_token_tx`), and provider failure fails the pending token
+  and keeps the old link working (`ngrp_fail_token_tx`) - a failed resend
+  never strands the alumnus without a working link. One ACTIVE token per
+  assignment (DB partial unique); the public endpoint resolves ACTIVE
+  tokens only; staff revocation always by token id.
 - Public form `/ngrp/transition#t=<token>`: fragment-only token (stripped on
   load), 8-step endpoint order with fail-closed rate limits, identical 410
-  for unknown/revoked, server-enforced effective close (assignment deadline,
-  else cycle deadline end-of-day; no deadline → sending disabled with the
-  Planning reason). Lifecycle sent → opened → in_progress → submitted →
-  revised; single autosave draft; immutable numbered revisions (no UPDATE/
-  DELETE privilege exists); revisable until close; expiration retains
-  submissions for staff review. Form contact answers stay in the revision -
-  never written back to the student profile.
+  for unknown/pending/failed/revoked, server-enforced effective close: the
+  configured closing date means 11:59:59.999 PM America/Los_Angeles
+  (DST-aware; `pacificEndOfDay` in JS = `ngrp_pacific_deadline` in SQL), the
+  ONE rule shared by enforcement, email copy, page display, and readiness.
+  Closure is checked BEFORE any first-use/Opened bookkeeping. Lifecycle
+  sent → opened → in_progress → submitted → revised; autosave runs through
+  `ngrp_save_draft_tx` (draft + lifecycle atomic; saved:true only on
+  commit); submission runs through `ngrp_submit_revision_tx` (locked serial
+  revision number, in-transaction deadline, revision + lifecycle + interest
+  + eligibility + requirement rows + draft cleanup + audit, all-or-nothing);
+  the server requires every fact the active rules calculate with (real
+  calendar dates included) so a submitted form is never eligibility-Pending;
+  immutable numbered revisions (no UPDATE/DELETE privilege exists);
+  revisable until close; expiration retains submissions for staff review.
+  Form contact answers stay in the revision - never written back to the
+  student profile.
+- Planning writes are transactional too: `ngrp_cycle_create_tx` (ids
+  validated before the cycle exists), `ngrp_cycle_set_active_tx`,
+  `ngrp_sources_set_tx`, `ngrp_units_set_tx` - locked, audited
+  in-transaction, all-or-nothing. Cycle-wide recalculation reports partial
+  failure and never writes a success audit for one.
 - Eligibility: explainable engine (`lib/server/ngrpEligibility.js`) with
   per-code reasons + deadlines, run on submit and on engine-config change;
   calculated vs effective override unchanged from Release 1; support
@@ -212,9 +238,13 @@ through review/confirm dialogs; every change is audited.
   review-submitted-form, override, confirm-application (still the only path
   to Confirmed), withdraw, and revoke-link actions.
 
-Apply/verify/rollback for `20260904000000` live in the migration file
-(preflight P1-P4, verification V1-V2 with `has_table_privilege`, rollback
-that never destroys revisions or audit rows without export).
+Apply/verify/rollback for `20260904000000` live in the migration file:
+eight server-only tables + ten server-only functions, explicit service_role
+REVOKEs before every grant (the outcomes lesson), preflight P1-P5,
+verification V1-V3 (`has_table_privilege` + `has_function_privilege`, V1
+policy check names the exact eight tables - never `LIKE 'ngrp_%'`), rollback
+that drops the functions and never destroys revisions or audit rows without
+export.
 
 ## Remaining future phases
 

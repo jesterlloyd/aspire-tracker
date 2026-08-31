@@ -78,6 +78,26 @@ const CSS = `
   @media (max-width: 620px) { .ngrpf-grid { grid-template-columns: 1fr; } .ngrpf-card, .ngrpf-mast { padding: 18px 16px; } }
 `
 
+// Server error fields → the input that fixes them (the pill-group fields
+// scroll to the summary only; their labels carry the group name).
+const FIELD_TO_INPUT_ID = {
+  'identity.preferred_email': 'pe',
+  'education.completion_date': 'cd',
+  'education.gpa': 'gpa',
+  'licensure.license_number': 'ln',
+  'licensure.nclex_scheduled_date': 'nd',
+  'licensure.paid_rn_months': 'pm',
+  'licensure.bls_issuer': 'bi',
+  'licensure.bls_expiration': 'be',
+  'licensure.acls_issuer': 'ai',
+  'residency_interest.unit_preferences': 'pref0',
+  'residency_interest.interest_statement': 'is',
+}
+const focusField = id => {
+  const el = document.getElementById(id)
+  if (el) { el.scrollIntoView({ block: 'center' }); el.focus() }
+}
+
 const preventImplicitSubmit = e => {
   if (e.key === 'Enter' && e.target && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'submit') {
     e.preventDefault()
@@ -99,6 +119,7 @@ export default function NgrpTransitionFormPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const saveTimer = useRef(null)
   const dirtyRef = useRef(false)
+  const errorSummaryRef = useRef(null)
 
   useEffect(() => {
     const m = document.createElement('meta'); m.name = 'referrer'; m.content = 'no-referrer'; document.head.appendChild(m)
@@ -173,6 +194,16 @@ export default function NgrpTransitionFormPage() {
     })
   }
 
+  // Accessible error surfacing: the summary receives focus so screen readers
+  // announce it, and each field-specific entry jumps to its input.
+  const showErrors = (errs) => {
+    setErrors(errs)
+    requestAnimationFrame(() => {
+      errorSummaryRef.current?.scrollIntoView({ block: 'center' })
+      errorSummaryRef.current?.focus()
+    })
+  }
+
   const submit = async () => {
     if (submitting) return
     setSubmitting(true)
@@ -181,10 +212,10 @@ export default function NgrpTransitionFormPage() {
     const { status, body } = await post('submit', { payload })
     setSubmitting(false)
     if (status === 200 && body?.success) { setMeta(m => ({ ...m, revisionNumber: body.revisionNumber })); setView('thank_you'); return }
-    if (status === 422) { setErrors(body?.errors || [{ message: 'Please review the required fields and try again.' }]); return }
+    if (status === 422) { showErrors(body?.errors || [{ message: 'Please review the required fields and try again.' }]); return }
     if (status === 410) { setErrorMessage(body?.error || 'The window for this Transition Form has closed.'); setView('closed_late'); return }
-    if (status === 429) { setErrors([{ message: 'Too many requests - wait a minute and try again. Your draft is saved.' }]); return }
-    setErrors([{ message: 'Something went wrong. Your draft is saved - please try again.' }])
+    if (status === 429) { showErrors([{ message: 'Too many requests - wait a minute and try again. Your draft is saved.' }]); return }
+    showErrors([{ message: 'Something went wrong. Your draft is saved - please try again.' }])
   }
 
   // ── Non-form states ─────────────────────────────────────────────────────────
@@ -215,7 +246,9 @@ export default function NgrpTransitionFormPage() {
   const p = payload
   const units = meta?.units || []
   const checklist = meta?.checklist?.length ? meta.checklist : DEFAULT_APPLICATION_CHECKLIST
-  const closeDate = meta?.closeAt ? new Date(meta.closeAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : null
+  // The close instant is Pacific end-of-day; format it in America/Los_Angeles
+  // so the page shows the SAME calendar date staff configured.
+  const closeDate = meta?.closeAt ? new Date(meta.closeAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' }) : null
   const interested = p.residency_interest.interest === 'interested'
   const isRevise = (meta?.revisionCount || 0) > 0
   const prefDupes = new Set(p.residency_interest.unit_preferences.filter(Boolean)).size !== p.residency_interest.unit_preferences.filter(Boolean).length
@@ -434,8 +467,20 @@ export default function NgrpTransitionFormPage() {
           </section>
 
           {errors.length > 0 && (
-            <div role="alert" style={{ background: '#FDECEC', border: '1px solid #FCA5A5', borderRadius: 10, padding: '10px 14px', margin: '0 0 14px' }}>
-              {errors.map((e2, i) => <p key={i} className="ngrpf-error" style={{ margin: i ? '4px 0 0' : 0 }}>{e2.message}</p>)}
+            <div ref={errorSummaryRef} tabIndex={-1} role="alert" aria-label="Please fix the following before submitting"
+              style={{ background: '#FDECEC', border: '1px solid #FCA5A5', borderRadius: 10, padding: '10px 14px', margin: '0 0 14px', outline: 'none' }}>
+              <p className="ngrpf-error" style={{ margin: 0, fontWeight: 700 }}>Please fix the following before submitting:</p>
+              {errors.map((e2, i) => {
+                const targetId = FIELD_TO_INPUT_ID[e2.field]
+                return targetId ? (
+                  <button key={i} type="button" className="ngrpf-error" onClick={() => focusField(targetId)}
+                    style={{ display: 'block', margin: '4px 0 0', background: 'none', border: 'none', padding: 0, textAlign: 'left', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {e2.message}
+                  </button>
+                ) : (
+                  <p key={i} className="ngrpf-error" style={{ margin: '4px 0 0' }}>{e2.message}</p>
+                )
+              })}
             </div>
           )}
 

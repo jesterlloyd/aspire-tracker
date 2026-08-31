@@ -28,11 +28,10 @@ import { generateToken } from '../lib/server/evaluation/tokens.js'
 import { emailBaseUrl } from '../lib/server/appUrl.js'
 import { aspireEmailShell, aspireSystemSignature } from '../lib/server/email/aspireShell.js'
 import {
-  classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate,
+  classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate, ensureCandidate,
 } from '../lib/server/ngrpTransition.js'
 import { isMissingNgrpTable, sanitizeStudent } from '../lib/server/ngrpApplicants.js'
 import { openReadiness } from '../lib/server/ngrpPlanning.js'
-import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 
 const CONFIRMATION = 'SEND MESSAGES'
 const MAX_RECIPIENTS = 75
@@ -49,11 +48,14 @@ const isRateLimited = err => err?.statusCode === 429 || /rate.?limit/i.test(err?
 const escapeHtml = s => String(s || '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+// The close instant is Pacific end-of-day (effectiveFormClose), so the email
+// copy formats it in America/Los_Angeles - the SAME calendar date the staff
+// configured, never the UTC rollover date.
 function fmtCloseDate(closeIso) {
   if (!closeIso) return null
   const d = new Date(closeIso)
   if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })
 }
 
 // The invitation email. Sending it means "Transition Form Sent" - the copy
@@ -226,12 +228,15 @@ export default async function handler(req, res) {
   const baseUrl = emailBaseUrl(req)
   const nowIsoBatch = new Date().toISOString()
 
-  const sendEmail = async ({ to, subject, html }) => {
+  // The provider idempotency key (batch + candidate, via sendOne) makes a
+  // process retry after acceptance a duplicate-free no-op at Resend.
+  const sendEmail = async ({ to, subject, html, idempotencyKey }) => {
+    const opts = idempotencyKey ? { idempotencyKey } : undefined
     try {
-      let { data, error } = await resendClient.emails.send({ from: FROM, to, subject, html })
+      let { data, error } = await resendClient.emails.send({ from: FROM, to, subject, html }, opts)
       if (error && isRateLimited(error)) {
         await sleep(RATE_RETRY_MS)
-        ;({ data, error } = await resendClient.emails.send({ from: FROM, to, subject, html }))
+        ;({ data, error } = await resendClient.emails.send({ from: FROM, to, subject, html }, opts))
       }
       if (error) return { ok: false, reason: 'provider_rejected' }
       return { ok: true, providerId: data?.id || null }
@@ -240,7 +245,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const results = { sent: [], skipped: [], failed: [] }
+  const results = { sent: [], skipped: [], failed: [], warnings: [] }
   for (const s of classified.skipped) {
     results.skipped.push({ student_id: s.student.id, reason: s.reason })
   }
@@ -248,80 +253,151 @@ export default async function handler(req, res) {
     results.skipped.push({ student_id: id, reason: 'not_in_cycle_scope' })
   }
 
-  // Batch idempotency: a retried request with the same batch_id skips anyone
-  // this batch already mailed, so a double-click cannot double-send.
-  const probe = await db.from('notification_log')
-    .select('student_id')
-    .eq('notification_type', NOTIFICATION_TYPE)
-    .eq('metadata->>batch_id', batchId)
-  const alreadyInBatch = new Set((probe.data || []).map(r => r.student_id).filter(Boolean))
+  // Durable batch idempotency: ngrp_transition_deliveries is the authority
+  // (notification_log is a display ledger only). The probe FAILS CLOSED - if
+  // it cannot be read, nothing is mailed, because a blind retry could
+  // double-send.
+  const probe = await db.from('ngrp_transition_deliveries')
+    .select('candidate_id, student_id, status')
+    .eq('batch_id', batchId)
+  if (probe.error) {
+    return isMissingNgrpTable(probe.error)
+      ? res.status(200).json({ provisioned: false })
+      : res.status(500).json({ error: 'idempotency_probe_failed' })
+  }
+  const acceptedInBatch = new Set(
+    (probe.data || []).filter(r => r.status === 'accepted').map(r => r.student_id).filter(Boolean))
 
   let attempted = false
   for (const item of [...classified.send, ...classified.reissue]) {
     const student = item.student
-    if (alreadyInBatch.has(student.id)) {
+    if (acceptedInBatch.has(student.id)) {
       results.skipped.push({ student_id: student.id, reason: 'already_sent_in_batch' })
       continue
     }
     if (attempted) await sleep(SEND_DELAY_MS)
     attempted = true
 
+    // The candidate attempt is ensured FIRST so the durable delivery row can
+    // be keyed by (batch_id, candidate_id) BEFORE any email leaves.
+    let candidate = item.candidate || null
+    if (!candidate) {
+      const ensured = await ensureCandidate(db, { cycleId: cycle.id, studentId: student.id })
+      if (ensured.error) {
+        results.failed.push({ student_id: student.id, reason: 'candidate_write_failed' })
+        continue
+      }
+      candidate = ensured.candidate
+    }
+
+    // Durable attempt row - fail closed when the ledger cannot be written.
+    let deliveryId
+    const attempt = await db.from('ngrp_transition_deliveries')
+      .insert({ batch_id: batchId, cycle_id: cycle.id, candidate_id: candidate.id, student_id: student.id, status: 'attempting' })
+      .select('id').maybeSingle()
+    if (attempt.data) {
+      deliveryId = attempt.data.id
+    } else if (attempt.error?.code === '23505') {
+      // This (batch, candidate) was attempted before - re-read its truth.
+      const existing = await db.from('ngrp_transition_deliveries')
+        .select('id, status').eq('batch_id', batchId).eq('candidate_id', candidate.id).maybeSingle()
+      if (existing.error || !existing.data) {
+        results.failed.push({ student_id: student.id, reason: 'ledger_unavailable' })
+        continue
+      }
+      if (existing.data.status === 'accepted') {
+        results.skipped.push({ student_id: student.id, reason: 'already_sent_in_batch' })
+        continue
+      }
+      deliveryId = existing.data.id
+      const rearm = await db.from('ngrp_transition_deliveries')
+        .update({ status: 'attempting', attempted_at: nowIsoBatch, failed_reason: null })
+        .eq('id', deliveryId)
+      if (rearm.error) {
+        results.failed.push({ student_id: student.id, reason: 'ledger_unavailable' })
+        continue
+      }
+    } else {
+      results.failed.push({ student_id: student.id, reason: 'ledger_unavailable' })
+      continue
+    }
+
     const outcome = await sendOneTransitionForm({
       db, cycle, student,
-      candidate: item.candidate || null,
+      candidate,
       assignment: item.assignment || null,
       actorProfileId: actorId,
       generateToken,
       sendEmail,
       buildEmail: buildTransitionEmail,
       baseUrl,
+      batchId,
     })
 
     if (outcome.outcome === 'failed') {
+      const mark = await db.from('ngrp_transition_deliveries')
+        .update({ status: 'failed', failed_reason: outcome.reason }).eq('id', deliveryId)
+      if (mark.error) {
+        console.error('[ngrp-transition-send] delivery_row_fail_mark_failed:', { batch_id: batchId, error: mark.error.message })
+      }
       results.failed.push({ student_id: student.id, reason: outcome.reason })
       continue
     }
 
-    // Ledger row (never the URL, never the raw token). Like the evaluation
-    // secure sends, the BODY is deliberately not archived: it contains a
-    // personal secure link, and Sent History classifies the type as
-    // secure_link_email ("body not stored") rather than re-rendering one.
-    try {
-      const { data: logRow } = await db.from('notification_log').insert({
-        notification_type: NOTIFICATION_TYPE,
-        audience: 'student',
-        recipient_email: student.email,
-        recipient_name: student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
-        recipient_role: 'Student',
-        subject: outcome.subject,
-        status: 'sent',
-        resend_email_id: outcome.providerId,
-        sent_at: nowIsoBatch,
-        recipient_type: 'student',
-        student_id: student.id,
-        metadata: {
-          batch_id: batchId,
-          template_key: TEMPLATE_KEY,
-          template_label: 'NGRP Transition Form Invitation',
-          cycle_id: cycle.id,
-          cycle_name: cycle.name,
-          recipient_email_norm: String(student.email).trim().toLowerCase(),
-          token_hash_prefix: outcome.tokenHashPrefix,
-          resent: outcome.outcome === 'resent',
-          sent_by_user_id: caller.profile.id,
-          // transition form URL / token intentionally omitted - must not be persisted.
-        },
-      }).select('id').single()
-      void logRow
-    } catch (logErr) {
-      console.error('[ngrp-transition-send] log_write_failed:', { batch_id: batchId, error: logErr?.message })
+    // The provider ACCEPTED this email: the delivery row becomes the durable
+    // proof, checked - a retry after this point skips the recipient.
+    const accepted = await db.from('ngrp_transition_deliveries')
+      .update({
+        status: 'accepted', accepted_at: new Date().toISOString(),
+        token_hash_prefix: outcome.tokenHashPrefix, provider_email_id: outcome.providerId,
+      })
+      .eq('id', deliveryId)
+    if (accepted.error) {
+      // The email IS out (never claim otherwise); the provider idempotency
+      // key still blocks a duplicate on retry. Report the ledger gap.
+      console.error('[ngrp-transition-send] delivery_row_accept_failed:', { batch_id: batchId, error: accepted.error.message })
+      results.warnings.push({ student_id: student.id, warning: 'delivery_ledger_update_failed' })
     }
-    await recordNgrpAudit(db, {
-      eventType: outcome.outcome === 'resent' ? 'token_resent' : 'form_sent',
-      cycleId: cycle.id, candidateId: outcome.candidateId, assignmentId: outcome.assignmentId,
-      studentId: student.id, actorProfileId: actorId,
-      metadata: { batch_id: batchId, token_hash_prefix: outcome.tokenHashPrefix },
-    })
+
+    // Display ledger row (never the URL, never the raw token). Like the
+    // evaluation secure sends, the BODY is deliberately not archived: it
+    // contains a personal secure link, and Sent History classifies the type
+    // as secure_link_email ("body not stored") rather than re-rendering one.
+    // notification_log is NOT the idempotency source: a failure here is a
+    // reported warning, and the recipient stays truthfully Sent - the
+    // provider accepted the email.
+    const logIns = await db.from('notification_log').insert({
+      notification_type: NOTIFICATION_TYPE,
+      audience: 'student',
+      recipient_email: student.email,
+      recipient_name: student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+      recipient_role: 'Student',
+      subject: outcome.subject,
+      status: 'sent',
+      resend_email_id: outcome.providerId,
+      sent_at: nowIsoBatch,
+      recipient_type: 'student',
+      student_id: student.id,
+      metadata: {
+        batch_id: batchId,
+        template_key: TEMPLATE_KEY,
+        template_label: 'NGRP Transition Form Invitation',
+        cycle_id: cycle.id,
+        cycle_name: cycle.name,
+        recipient_email_norm: String(student.email).trim().toLowerCase(),
+        token_hash_prefix: outcome.tokenHashPrefix,
+        resent: outcome.outcome === 'resent',
+        sent_by_user_id: caller.profile.id,
+        // transition form URL / token intentionally omitted - must not be persisted.
+      },
+    }).select('id').maybeSingle()
+    if (logIns.error || !logIns.data) {
+      console.error('[ngrp-transition-send] log_write_failed:', { batch_id: batchId, error: logIns.error?.message })
+      results.warnings.push({ student_id: student.id, warning: 'sent_history_ledger_failed' })
+    }
+    // The form_sent / token_resent audit event is written INSIDE
+    // ngrp_activate_token_tx, in the same transaction that activated the
+    // link - the endpoint deliberately does not write a second one.
     results.sent.push({ student_id: student.id, resent: outcome.outcome === 'resent' })
   }
 
@@ -333,9 +409,11 @@ export default async function handler(req, res) {
       sent: results.sent.length,
       skipped: results.skipped.length,
       failed: results.failed.length,
+      warnings: results.warnings.length,
     },
     sent: results.sent,
     skipped: results.skipped,
     failed: results.failed,
+    warnings: results.warnings,
   })
 }

@@ -79,18 +79,25 @@ export default async function handler(req, res) {
 
     // ── load ─────────────────────────────────────────────────────────────────
     if (action === 'load') {
-      // First-open bookkeeping (never on save/submit; never twice).
-      if (!tokenRow.first_used_at) {
-        await supabaseAdmin.from('ngrp_transition_tokens')
-          .update({ first_used_at: nowIso }).eq('id', tokenRow.id)
-      }
-      if (assignment.status === 'sent') {
-        await supabaseAdmin.from('ngrp_transition_assignments')
-          .update({ status: 'opened', opened_at: nowIso }).eq('id', assignment.id)
-        await recordNgrpAudit(supabaseAdmin, {
-          eventType: 'form_opened', cycleId: cycle.id, candidateId: candidate.id,
-          assignmentId: assignment.id, studentId: candidate.student_id, actorKind: 'alumnus',
-        })
+      // First-open bookkeeping (never on save/submit; never twice) - and
+      // NEVER after closure: an expired link may render the safe closed
+      // page, but it must not create first_used_at, an Opened state, or a
+      // form_opened audit event. Every update result is checked.
+      if (!resolved.closed) {
+        if (!tokenRow.first_used_at) {
+          const used = await supabaseAdmin.from('ngrp_transition_tokens')
+            .update({ first_used_at: nowIso }).eq('id', tokenRow.id)
+          if (used.error) return res.status(500).json({ error: 'Internal error' })
+        }
+        if (assignment.status === 'sent') {
+          const opened = await supabaseAdmin.from('ngrp_transition_assignments')
+            .update({ status: 'opened', opened_at: nowIso }).eq('id', assignment.id)
+          if (opened.error) return res.status(500).json({ error: 'Internal error' })
+          await recordNgrpAudit(supabaseAdmin, {
+            eventType: 'form_opened', cycleId: cycle.id, candidateId: candidate.id,
+            assignmentId: assignment.id, studentId: candidate.student_id, actorKind: 'alumnus',
+          })
+        }
       }
 
       // Prefill identity from the canonical student row (their own record).
@@ -141,44 +148,46 @@ export default async function handler(req, res) {
     if (resolved.closed) return res.status(410).json({ error: WINDOW_CLOSED })
 
     // ── save_draft ───────────────────────────────────────────────────────────
+    // ONE database transaction (ngrp_save_draft_tx): draft upsert AND the
+    // assignment lifecycle move together, the deadline is re-enforced inside
+    // the transaction, and saved:true is returned ONLY when everything
+    // committed - never after a failed assignment update.
     if (action === 'save_draft') {
-      const canonical = validateSubmission(body.payload, { activeUnitNames, checklist, requireComplete: false })
+      const canonical = validateSubmission(body.payload, {
+        activeUnitNames, checklist, rules: cycle.qualification_rules, requireComplete: false,
+      })
       if (!canonical.ok) return res.status(422).json({ error: 'Invalid draft payload.' })
-      const existing = await supabaseAdmin.from('ngrp_transition_drafts')
-        .select('id').eq('assignment_id', assignment.id).maybeSingle()
-      if (existing.error) return res.status(500).json({ error: 'Internal error' })
-      if (existing.data) {
-        const upd = await supabaseAdmin.from('ngrp_transition_drafts')
-          .update({ payload: canonical.payload, saved_at: nowIso }).eq('id', existing.data.id)
-        if (upd.error) return res.status(500).json({ error: 'Internal error' })
-      } else {
-        const ins = await supabaseAdmin.from('ngrp_transition_drafts')
-          .insert({ assignment_id: assignment.id, payload: canonical.payload, saved_at: nowIso })
-        if (ins.error) return res.status(500).json({ error: 'Internal error' })
+      const saved = await supabaseAdmin.rpc('ngrp_save_draft_tx', {
+        p_assignment_id: assignment.id, p_payload: canonical.payload,
+      })
+      if (saved.error) {
+        const msg = saved.error.message || ''
+        if (msg.includes('NGRP_CLOSED')) return res.status(410).json({ error: WINDOW_CLOSED })
+        if (msg.includes('NGRP_GONE')) return res.status(410).json({ error: LINK_INVALID })
+        return res.status(500).json({ error: 'Internal error' })
       }
-      const patch = { last_saved_at: nowIso }
-      if (assignment.status === 'sent' || assignment.status === 'opened') {
-        patch.status = 'in_progress'
-        if (!assignment.opened_at) patch.opened_at = nowIso
-      }
-      await supabaseAdmin.from('ngrp_transition_assignments').update(patch).eq('id', assignment.id)
-      return res.status(200).json({ saved: true, savedAt: nowIso })
+      return res.status(200).json({ saved: true, savedAt: saved.data?.saved_at || nowIso })
     }
 
     // ── submit ───────────────────────────────────────────────────────────────
+    // ONE database transaction (ngrp_submit_revision_tx): the locked
+    // assignment serializes the revision number, the deadline is re-enforced
+    // in-transaction (a request that passed the check above cannot commit
+    // after closure), and revision + lifecycle + interest + eligibility +
+    // requirement rows + draft cleanup + audit land together or not at all.
     if (action === 'submit') {
-      const canonical = validateSubmission(body.payload, { activeUnitNames, checklist, requireComplete: true })
+      const canonical = validateSubmission(body.payload, {
+        activeUnitNames, checklist, rules: cycle.qualification_rules, requireComplete: true,
+      })
       if (!canonical.ok) return res.status(422).json({ error: 'Invalid response payload.', errors: canonical.errors })
       const result = await submitRevision(supabaseAdmin, {
-        cycle, candidate, assignment, payload: canonical.payload, nowIso,
+        cycle, candidate, assignment, payload: canonical.payload,
       })
-      if (!result.ok) return res.status(500).json({ error: 'Internal error' })
-      await recordNgrpAudit(supabaseAdmin, {
-        eventType: result.revisionNumber === 1 ? 'form_submitted' : 'form_revised',
-        cycleId: cycle.id, candidateId: candidate.id, assignmentId: assignment.id,
-        studentId: candidate.student_id, actorKind: 'alumnus',
-        metadata: { revision_number: result.revisionNumber, result: result.result },
-      })
+      if (!result.ok) {
+        if (result.reason === 'closed') return res.status(410).json({ error: WINDOW_CLOSED })
+        if (result.reason === 'gone') return res.status(410).json({ error: LINK_INVALID })
+        return res.status(500).json({ error: 'Internal error' })
+      }
       return res.status(200).json({ success: true, submittedAt: nowIso, revisionNumber: result.revisionNumber })
     }
 

@@ -28,7 +28,7 @@ import {
   validateCyclePayload, validateSourceCohortIds, validateCycleUnits,
   openReadiness, validateStatusTransition, FORM_ACTIVE_STATUSES,
 } from '../lib/server/ngrpPlanning.js'
-import { isMissingNgrpTable } from '../lib/server/ngrpApplicants.js'
+import { isMissingNgrpTable, isMissingNgrpSchema } from '../lib/server/ngrpApplicants.js'
 import {
   liveAssignmentForCandidate, revokeTokensById, recalculateEligibility,
 } from '../lib/server/ngrpTransition.js'
@@ -103,13 +103,19 @@ async function candidateWithCycle(db, candidateId) {
 }
 
 // Recalculate every candidate in a cycle (bounded: one residency cohort).
-async function recalculateCycle(db, cycle, nowIso) {
+// HONEST by construction: every per-candidate result is checked, and any
+// failure surfaces as ok:false with the counts - a partial recalculation is
+// never reported as success, and the caller must not write a success audit.
+async function recalculateCycle(db, cycle) {
   const cands = await db.from('ngrp_candidates').select('*').eq('cycle_id', cycle.id)
-  if (cands.error) return { ok: false }
+  if (cands.error) return { ok: false, reason: 'candidates_read_failed', count: 0, failed: 0 }
+  let failed = 0
   for (const candidate of cands.data || []) {
-    await recalculateEligibility(db, { cycle, candidate, nowIso })
+    const r = await recalculateEligibility(db, { cycle, candidate })
+    if (!r.ok) failed += 1
   }
-  return { ok: true, count: (cands.data || []).length }
+  const count = (cands.data || []).length
+  return { ok: failed === 0, count, failed }
 }
 
 export default async function handler(req, res) {
@@ -172,22 +178,21 @@ export default async function handler(req, res) {
       })
       if (!transition.ok) return invalid(res, transition.errors)
 
-      const inserted = await db.from('ngrp_cycles').insert(validated.cycle).select('*').maybeSingle()
-      if (!inserted.data) {
-        if (inserted.error && isMissingNgrpTable(inserted.error)) return unprovisioned(res)
-        if (inserted.error?.code === '23505') return invalid(res, [{ field: 'name', message: 'A residency cohort with this name already exists.' }])
+      // ONE database transaction (ngrp_cycle_create_tx): source cohort ids
+      // are validated before the cycle exists, and cycle + mappings + audit
+      // commit together - a failure can never leave an orphan cycle.
+      const created = await db.rpc('ngrp_cycle_create_tx', {
+        p_cycle: validated.cycle, p_source_cohort_ids: sources.ids, p_actor: actorId,
+      })
+      if (created.error) {
+        if (isMissingNgrpSchema(created.error)) return unprovisioned(res)
+        if (created.error.code === '23505') return invalid(res, [{ field: 'name', message: 'A residency cohort with this name already exists.' }])
+        if (/NGRP_UNKNOWN_COHORT/.test(created.error.message || '')) {
+          return invalid(res, [{ field: 'cohort_ids', message: 'One of the cohorts does not exist.' }])
+        }
         return internal(res)
       }
-      if (sources.ids.length) {
-        const { error } = await db.from('ngrp_cycle_source_cohorts')
-          .insert(sources.ids.map(cohort_id => ({ cycle_id: inserted.data.id, cohort_id, created_by_profile_id: actorId })))
-        if (error && error.code !== '23505') return internal(res)
-      }
-      await recordNgrpAudit(db, { eventType: 'cycle_created', cycleId: inserted.data.id, actorProfileId: actorId, metadata: { cycle_name: inserted.data.name, status: inserted.data.status, source_cohort_count: sources.ids.length } })
-      if (sources.ids.length) {
-        await recordNgrpAudit(db, { eventType: 'source_cohorts_changed', cycleId: inserted.data.id, actorProfileId: actorId, metadata: { source_cohort_count: sources.ids.length } })
-      }
-      return res.status(200).json({ ok: true, cycle: inserted.data })
+      return res.status(200).json({ ok: true, cycle: created.data })
     }
 
     // ── cycle-scoped actions ────────────────────────────────────────────────
@@ -220,26 +225,33 @@ export default async function handler(req, res) {
         const changed = Object.keys(validated.cycle).filter(k =>
           JSON.stringify(validated.cycle[k] ?? null) !== JSON.stringify(current[k] ?? null))
         await recordNgrpAudit(db, { eventType: 'cycle_updated', cycleId, actorProfileId: actorId, metadata: { cycle_name: upd.data.name, status: upd.data.status, fields_changed: changed } })
-        // Config that feeds the engine changed → recalculate the cycle.
+        // Config that feeds the engine changed → recalculate the cycle. A
+        // partial recalculation is REPORTED, never silently swallowed, and
+        // the success audit is written only when every candidate succeeded.
         const engineFields = ['qualification_rules', 'application_open_date', 'application_deadline', 'interview_window_start', 'licensure_deadline']
+        let recalcReport = null
         if (changed.some(f => engineFields.includes(f))) {
-          const recalc = await recalculateCycle(db, upd.data, nowIso)
-          await recordNgrpAudit(db, { eventType: 'eligibility_calculated', cycleId, actorProfileId: actorId, metadata: { recipient_count: recalc.count || 0 } })
+          const recalc = await recalculateCycle(db, upd.data)
+          recalcReport = { ok: recalc.ok, recalculated: recalc.count - recalc.failed, failed: recalc.failed }
+          if (recalc.ok) {
+            await recordNgrpAudit(db, { eventType: 'eligibility_calculated', cycleId, actorProfileId: actorId, metadata: { recipient_count: recalc.count || 0 } })
+          }
         }
-        return res.status(200).json({ ok: true, cycle: upd.data })
+        return res.status(200).json({ ok: true, cycle: upd.data, recalc: recalcReport })
       }
 
       if (action === 'cycle_set_active') {
-        // Same discipline as the cohort accepting flag: clear everywhere else
-        // FIRST, abort if that fails, then set (partial unique index backs it).
-        const clear = await db.from('ngrp_cycles').update({ is_active: false }).neq('id', cycleId)
-        if (clear.error) return internal(res)
-        const set = await db.from('ngrp_cycles').update({ is_active: true }).eq('id', cycleId).select('*').maybeSingle()
-        if (!set.data) {
-          if (set.error?.code === '23505') return res.status(409).json({ error: 'another_cycle_active' })
+        // ONE database transaction (ngrp_cycle_set_active_tx): the target is
+        // locked, every other cycle is cleared, the target is set, and the
+        // audit lands together - there is never a committed moment with zero
+        // or two active cycles.
+        const set = await db.rpc('ngrp_cycle_set_active_tx', { p_cycle_id: cycleId, p_actor: actorId })
+        if (set.error) {
+          if (isMissingNgrpSchema(set.error)) return unprovisioned(res)
+          if (set.error.code === '23505') return res.status(409).json({ error: 'another_cycle_active' })
+          if (/NGRP_NOT_FOUND/.test(set.error.message || '')) return res.status(404).json({ error: 'cycle_not_found' })
           return internal(res)
         }
-        await recordNgrpAudit(db, { eventType: 'cycle_activated', cycleId, actorProfileId: actorId, metadata: { cycle_name: set.data.name } })
         return res.status(200).json({ ok: true, cycle: set.data })
       }
 
@@ -249,21 +261,20 @@ export default async function handler(req, res) {
         if (sources.ids.length === 0 && FORM_ACTIVE_STATUSES.includes(current.status)) {
           return invalid(res, [{ field: 'cohort_ids', message: 'An open residency cohort must keep at least one source ASPIRE cohort. Close it first if the mapping really should be emptied.' }])
         }
-        if (sources.ids.length) {
-          const found = await db.from('cohorts').select('id').in('id', sources.ids)
-          if (found.error) return internal(res)
-          if ((found.data || []).length !== sources.ids.length) {
+        // ONE database transaction (ngrp_sources_set_tx): the cycle is
+        // locked, ids validated, and the mapping replaced with the audit
+        // event - a failed insert restores the previous mapping.
+        const replaced = await db.rpc('ngrp_sources_set_tx', {
+          p_cycle_id: cycleId, p_cohort_ids: sources.ids, p_actor: actorId,
+        })
+        if (replaced.error) {
+          if (isMissingNgrpSchema(replaced.error)) return unprovisioned(res)
+          if (/NGRP_UNKNOWN_COHORT/.test(replaced.error.message || '')) {
             return invalid(res, [{ field: 'cohort_ids', message: 'One of the cohorts does not exist.' }])
           }
+          if (/NGRP_NOT_FOUND/.test(replaced.error.message || '')) return res.status(404).json({ error: 'cycle_not_found' })
+          return internal(res)
         }
-        const del = await db.from('ngrp_cycle_source_cohorts').delete().eq('cycle_id', cycleId)
-        if (del.error) return internal(res)
-        if (sources.ids.length) {
-          const ins = await db.from('ngrp_cycle_source_cohorts')
-            .insert(sources.ids.map(cohort_id => ({ cycle_id: cycleId, cohort_id, created_by_profile_id: actorId })))
-          if (ins.error && ins.error.code !== '23505') return internal(res)
-        }
-        await recordNgrpAudit(db, { eventType: 'source_cohorts_changed', cycleId, actorProfileId: actorId, metadata: { source_cohort_count: sources.ids.length } })
         return res.status(200).json({ ok: true })
       }
 
@@ -273,14 +284,18 @@ export default async function handler(req, res) {
         if (validated.units.filter(u => u.is_active).length === 0 && FORM_ACTIVE_STATUSES.includes(current.status)) {
           return invalid(res, [{ field: 'units', message: 'An open residency cohort must keep at least one active participating unit.' }])
         }
-        const del = await db.from('ngrp_cycle_units').delete().eq('cycle_id', cycleId)
-        if (del.error) return isMissingNgrpTable(del.error) ? unprovisioned(res) : internal(res)
-        if (validated.units.length) {
-          const ins = await db.from('ngrp_cycle_units')
-            .insert(validated.units.map((u, i) => ({ ...u, display_order: i, cycle_id: cycleId })))
-          if (ins.error) return internal(res)
+        // ONE database transaction (ngrp_units_set_tx): locked cycle, full
+        // replace, audit - a failed insert restores the previous unit list.
+        const replaced = await db.rpc('ngrp_units_set_tx', {
+          p_cycle_id: cycleId,
+          p_units: validated.units.map((u, i) => ({ ...u, display_order: i })),
+          p_actor: actorId,
+        })
+        if (replaced.error) {
+          if (isMissingNgrpSchema(replaced.error)) return unprovisioned(res)
+          if (/NGRP_NOT_FOUND/.test(replaced.error.message || '')) return res.status(404).json({ error: 'cycle_not_found' })
+          return internal(res)
         }
-        await recordNgrpAudit(db, { eventType: 'units_changed', cycleId, actorProfileId: actorId, metadata: { unit_count: validated.units.length } })
         return res.status(200).json({ ok: true })
       }
     }
@@ -293,8 +308,16 @@ export default async function handler(req, res) {
       const cyc = await db.from('ngrp_cycles').select('*').eq('id', cycleId).maybeSingle()
       if (cyc.error) return isMissingNgrpTable(cyc.error) ? unprovisioned(res) : internal(res)
       if (!cyc.data) return res.status(404).json({ error: 'cycle_not_found' })
-      const recalc = await recalculateCycle(db, cyc.data, nowIso)
-      if (!recalc.ok) return internal(res)
+      const recalc = await recalculateCycle(db, cyc.data)
+      if (!recalc.ok) {
+        // Partial (or total) failure is reported, never masked - and no
+        // eligibility_calculated success audit is written for it.
+        return res.status(500).json({
+          error: 'recalculation_failed',
+          recalculated: recalc.count - recalc.failed,
+          failed: recalc.failed,
+        })
+      }
       await recordNgrpAudit(db, { eventType: 'eligibility_calculated', cycleId, actorProfileId: actorId, metadata: { recipient_count: recalc.count } })
       return res.status(200).json({ ok: true, recalculated: recalc.count })
     }
@@ -308,6 +331,9 @@ export default async function handler(req, res) {
     if (action === 'candidate_review') {
       const live = await liveAssignmentForCandidate(db, candidateId)
       if (live.error) return isMissingNgrpTable(live.error) ? unprovisioned(res) : internal(res)
+      // A pending assignment (prepared, never accepted by the provider) is
+      // not a delivered form - the review surface treats it as none.
+      if (live.assignment?.status === 'pending') live.assignment = null
       let latestRevision = null
       let tokens = []
       if (live.assignment) {
@@ -321,7 +347,7 @@ export default async function handler(req, res) {
           latestRevision = rev.data
         }
         const toks = await db.from('ngrp_transition_tokens')
-          .select('id, token_hash_prefix, created_at, revoked_at, first_used_at')
+          .select('id, token_hash_prefix, status, created_at, revoked_at, first_used_at')
           .eq('assignment_id', live.assignment.id)
           .order('created_at', { ascending: false })
         if (toks.error) return internal(res)
@@ -343,7 +369,7 @@ export default async function handler(req, res) {
     }
 
     if (action === 'eligibility_recalculate') {
-      const recalc = await recalculateEligibility(db, { cycle, candidate, nowIso })
+      const recalc = await recalculateEligibility(db, { cycle, candidate })
       if (!recalc.ok) return internal(res)
       await recordNgrpAudit(db, { eventType: 'eligibility_calculated', cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId, metadata: { result: recalc.result, recipient_count: 1 } })
       return res.status(200).json({ ok: true, result: recalc.result })
@@ -391,9 +417,9 @@ export default async function handler(req, res) {
     if (action === 'token_revoke') {
       const live = await liveAssignmentForCandidate(db, candidateId)
       if (live.error) return isMissingNgrpTable(live.error) ? unprovisioned(res) : internal(res)
-      if (!live.assignment) return res.status(409).json({ error: 'no_live_assignment' })
+      if (!live.assignment || live.assignment.status === 'pending') return res.status(409).json({ error: 'no_live_assignment' })
       const toks = await db.from('ngrp_transition_tokens')
-        .select('id, token_hash_prefix').eq('assignment_id', live.assignment.id).is('revoked_at', null)
+        .select('id, token_hash_prefix').eq('assignment_id', live.assignment.id).eq('status', 'active')
       if (toks.error) return internal(res)
       const ids = (toks.data || []).map(t => t.id)
       const revoked = await revokeTokensById(db, ids, actorId)

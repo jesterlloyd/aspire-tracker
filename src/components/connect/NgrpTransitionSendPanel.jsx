@@ -235,6 +235,12 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
                   the workflow is idempotent and will not double-send anyone who succeeded.
                 </p>
               )}
+              {(result.warnings || []).length > 0 && (
+                <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#92400e' }}>
+                  {result.warnings.length} email(s) were delivered but a bookkeeping ledger write failed -
+                  those recipients ARE sent; the delivery record may be incomplete in Sent History.
+                </p>
+              )}
               <p style={{ margin: '0 0 12px', fontSize: 11.5, color: '#9ca3af' }}>Batch {result.batch_id}</p>
             </div>
           )}
