@@ -138,6 +138,17 @@ const lastTabKey = (userId) => `aspire:lastActiveTab:${userId}`
 // Residency experience restores where the user left off (same rule as the
 // ASPIRE lastTabKey above).
 const lastNgrpTabKey = (userId) => `aspire:lastNgrpTab:${userId}`
+// SCOPE-PICKER-1: the ASPIRE cohort selection is now per authenticated user too, the
+// same rule NGRP already followed (ngrpCycleStorageKey). It was one browser-global key,
+// so on a shared workstation the next person to sign in inherited the previous person's
+// cohort - the exact leak the tab and cycle keys were made per-user to prevent.
+//
+// The legacy value is deliberately NOT adopted into the new key: carrying it over would
+// preserve continuity by perpetuating the leak. Everyone's next sign-in falls back to
+// the normal default (the Active cohort), which is correct for them. The stale key is
+// removed once so it stops sitting in storage.
+const aspireCohortKey = (userId) => `aspire:activeCohort:${userId}`
+const LEGACY_COHORT_KEY = 'aspire_active_cohort_id'
 // AUTH-UX-1B: remembers which authenticated user was last active in THIS browser so a
 // different account logging in (while the browser is still on a prior route like /connect)
 // is reset to Aggregate once, instead of inheriting the previous user's visible route.
@@ -184,8 +195,9 @@ function MainApp({ onLogout }) {
   const [confirmLogout,    setConfirmLogout]    = useState(false)
 
   // ── Header: cohort picker state ──────────────────────────────────────────────
-  const [cohortOpen, setCohortOpen] = useState(false)
-  const cohortPickerRef    = useRef(null)
+  // SCOPE-PICKER-1: the header's scope dropdown owns its own open state, ref,
+  // outside-click and Escape handling, like the pickers NGRP introduced. App no longer
+  // carries cohortOpen / setCohortOpen / cohortPickerRef.
   const bellRef            = useRef(null)
   const prevWorkspacePath  = useRef('/aggregate')
 
@@ -332,10 +344,17 @@ function MainApp({ onLogout }) {
   useEffect(() => {
     if (activeCohortId) return  // already set
     if (!cohorts.length) { setLoading(false); return }
-    const saved    = localStorage.getItem('aspire_active_cohort_id')
+    // Per-user key, so wait for the authenticated user rather than resolving against a
+    // null key and then never re-running (the guard above fires once a cohort is set).
+    if (!user?.id) return
+    let saved = null
+    try {
+      saved = localStorage.getItem(aspireCohortKey(user.id))
+      localStorage.removeItem(LEGACY_COHORT_KEY)   // one-time cleanup, never adopted
+    } catch { /* storage unavailable */ }
     const restored = saved && cohorts.find(c => c.id === saved)
     setActiveCohortId(restored ? restored.id : (cohorts.find(c => c.status === 'Active') || cohorts[0]).id)
-  }, [cohorts]) // eslint-disable-line
+  }, [cohorts, user?.id]) // eslint-disable-line
 
   // Lightweight fetch of the lazy Action Center task data (count-only fields) so the
   // CLOSED bell badge can include Student Not Logged Recently /
@@ -489,7 +508,7 @@ function MainApp({ onLogout }) {
     )
     if (!error && data) {
       queryClient.setQueryData(['cohorts_all'], prev => [data, ...(prev || [])])
-      localStorage.setItem('aspire_active_cohort_id', data.id)
+      try { if (user?.id) localStorage.setItem(aspireCohortKey(user.id), data.id) } catch { /* storage unavailable */ }
       setActiveCohortId(data.id)
       setStudents([]); setUnits([]); setMatches([]); setInterviews([])
       setShowNewCohort(false)
@@ -534,7 +553,7 @@ function MainApp({ onLogout }) {
     return null
   }
   const handleCohortSwitch = id => {
-    localStorage.setItem('aspire_active_cohort_id', id)
+    try { if (user?.id) localStorage.setItem(aspireCohortKey(user.id), id) } catch { /* storage unavailable */ }
     setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
     // Invalidate every cohort-scoped query so all tabs refetch with the new cohort
     ;[
@@ -1175,10 +1194,9 @@ function MainApp({ onLogout }) {
   })
 
   // ── Action Center badge count - must be after activeCohort ───
-  // ── Header: click-outside for cohort + search ────────────────────────────────
+  // ── Header: click-outside for search (the scope picker handles its own) ──────
   useEffect(() => {
     const handler = e => {
-      if (cohortPickerRef.current && !cohortPickerRef.current.contains(e.target)) setCohortOpen(false)
       if (searchAreaRef.current && !searchAreaRef.current.contains(e.target)) { setSearchOpen(false); setSearchActiveIdx(-1) }
     }
     document.addEventListener('mousedown', handler)
@@ -1336,14 +1354,16 @@ function MainApp({ onLogout }) {
       <div className="top-section">
         {/* ── Application header (WS2.0: extracted to components/Header) ── */}
         <Header
-          cohort={{ cohorts, cohortPickerRef, cohortOpen, setCohortOpen, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
+          cohort={{ cohorts, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread }}
-          /* The Experience picker (Internship | Residency) renders ONLY for
-             profiles holding ngrp_access; every other role sees the pre-NGRP
-             header, unchanged - so the Residency option simply does not exist
-             for them. In Residency the adjacent COHORT picker lists NGRP
-             residency cohorts (Header.jsx). */
+          /* SCOPE-PICKER-1: `experience` is passed ONLY for profiles holding
+             ngrp_access. Its absence means one experience, which the Scope pill
+             renders as the cohort name alone - a caller with no Residency has no
+             second term for "Internship" to contrast with. `residencyCohort` is
+             passed only while IN the residency workspace, so the cohort pane always
+             describes where the user already is and residency cycles are still
+             fetched only by an authorized caller inside that workspace. */
           experience={ngrpAllowed ? { active: activeTab === 'ngrp' ? 'residency' : 'internship', onSwitch: switchExperience } : null}
           residencyCohort={ngrpAllowed && activeTab === 'ngrp' ? {
             status: ngrpCyclesQuery.status,

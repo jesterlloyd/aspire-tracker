@@ -16,7 +16,8 @@ const indexCss = read('src/index.css')
 const header = read('src/components/Header/Header.jsx')
 const brand = read('src/components/Header/HeaderBrand.jsx')
 const search = read('src/components/Header/UniversalSearch.jsx')
-const cohort = read('src/components/Header/CohortPicker.jsx')
+// SCOPE-PICKER-1: CohortPicker merged into the Scope picker.
+const scopePicker = read('src/components/Header/scope/ScopePicker.jsx')
 const nav = read('src/components/UnifiedNav.jsx')
 const toast = read('src/components/Toast.jsx')
 const app = read('src/App.jsx')
@@ -73,7 +74,10 @@ test('responsive header', async (t) => {
   await t.test('dropdowns can never exceed the viewport', () => {
     assert.match(tokens, /\.chart-search-dropdown \{[\s\S]*?width: min\(360px, calc\(100vw - 24px\)\)/)
     assert.match(tokens, /\.chart-cohort-dropdown \{[\s\S]*?width: min\(380px, calc\(100vw - 16px\)\)/)
-    assert.match(cohort, /className="chart-cohort-dropdown"/)
+    assert.match(scopePicker, /className="chart-cohort-dropdown chart-scope-dropdown"/)
+    // SCOPE-PICKER-1: the two-pane variant is WIDER, so it needs the same viewport
+    // clamp in its own right - a fixed 600px would overflow a phone.
+    assert.match(tokens, /\.chart-scope-dropdown \{[\s\S]*?width: min\(600px, calc\(100vw - 16px\)\)/)
   })
 
   await t.test('the wordmark cannot slide under the action icons', () => {

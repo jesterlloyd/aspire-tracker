@@ -231,7 +231,7 @@ test('rendering is a dependency-free canvas: no graph library joined the bundle'
 })
 
 test('the panel filters drive the graph too, as dimming rather than removal', () => {
-  for (const prop of ['stateFilter=\\{stateFilter\\}', 'categoryFilter=\\{categoryFilter\\}', 'tagFilter=\\{tagFilter\\}', 'search=\\{search\\}']) {
+  for (const prop of ['stateFilter=\\{stateFilter\\}', 'categoryFilter=\\{categoryFilter\\}', 'tagFilter=\\{activeTagFilter\\}', 'search=\\{search\\}']) {
     assert.match(panel, new RegExp(prop))
   }
   assert.match(view, /filteredOut \? 0\.10/, 'filtered-out nodes dim instead of vanishing')

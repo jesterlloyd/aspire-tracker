@@ -578,6 +578,10 @@ export default function AcademicsContactsView({ active = true }) {
       ...[...available].filter(value => !CONTACT_CATEGORY_ORDER.includes(value)).sort((a, b) => a.localeCompare(b)),
     ]
   }, [categoryCounts])
+  // A scope or data refresh can remove the category that was selected in the
+  // prior result set. Resolve that stale state to All so the category KPI band
+  // and directory never disagree about which filter is active.
+  const activeCategory = category === 'All' || categories.includes(category) ? category : 'All'
   // CONTACTS-CANON-1 ordering: the approved per-category sort from the ONE
   // shared comparator; the flat All view while searching is unit-aware (a
   // query naming a unit surfaces its leadership chain, acting executive on
@@ -585,14 +589,14 @@ export default function AcademicsContactsView({ active = true }) {
   // NA-CONTACTS-SCOPE-2: a unit/division scope leads with the chain of command
   // (Nursing Executives, Unit Leaders, Preceptors) in the grouped view.
   const ordering = useMemo(() => scopeOrdering(scope), [scope])
-  const filtered = useMemo(() => orderContacts(scopedContacts, category, query, ordering), [scopedContacts, category, query, ordering])
+  const filtered = useMemo(() => orderContacts(scopedContacts, activeCategory, query, ordering), [scopedContacts, activeCategory, query, ordering])
   // All Contacts with no query groups by primary category with dividers,
   // exactly like the staff ASPIRE Connect list. `filtered` is ALREADY in
   // grouped display order (orderContacts), so the dividers are derived from
   // it directly - render order and auto-selection order are one list by
   // construction.
   const listItems = useMemo(() => {
-    if (category !== 'All' || query) return filtered.map(contact => ({ type: 'row', contact }))
+    if (activeCategory !== 'All' || query) return filtered.map(contact => ({ type: 'row', contact }))
     const counts = {}
     filtered.forEach(contact => {
       const cat = getPrimaryCategory(contact) || 'Other'
@@ -609,7 +613,7 @@ export default function AcademicsContactsView({ active = true }) {
       items.push({ type: 'row', contact })
     })
     return items
-  }, [filtered, category, query])
+  }, [filtered, activeCategory, query])
   const visibleEmails = useMemo(() => {
     const seen = new Set()
     return filtered.reduce((emails, contact) => {
@@ -631,14 +635,19 @@ export default function AcademicsContactsView({ active = true }) {
     setScope(value)
     setCopyStatus('')
     const nextScoped = directoryContacts.filter(contact => contactMatchesScope(contact, value))
-    setSelectedId(orderContacts(nextScoped, category, query, scopeOrdering(value))[0]?.id || null)
+    const nextCategory = activeCategory === 'All'
+      || nextScoped.some(contact => getContactCategories(contact).includes(activeCategory))
+      ? activeCategory
+      : 'All'
+    if (nextCategory !== activeCategory) setCategory(nextCategory)
+    setSelectedId(orderContacts(nextScoped, nextCategory, query, scopeOrdering(value))[0]?.id || null)
   }
   const updateSearch = event => {
     const value = event.target.value
     const nextQuery = value.trim().toLowerCase()
     setSearch(value)
     setCopyStatus('')
-    setSelectedId(orderContacts(scopedContacts, category, nextQuery, ordering)[0]?.id || null)
+    setSelectedId(orderContacts(scopedContacts, activeCategory, nextQuery, ordering)[0]?.id || null)
   }
   const copyVisibleEmails = async () => {
     if (visibleEmails.length === 0 || !navigator.clipboard?.writeText) {
@@ -692,7 +701,12 @@ export default function AcademicsContactsView({ active = true }) {
     applySavedContact(res.data.contact)
     if (!activate) {
       const remaining = contacts.filter(row => row.id !== contact.id && row.is_active !== false && contactMatchesScope(row, scope))
-      setSelectedId(orderContacts(remaining, category, query, ordering)[0]?.id || null)
+      const nextCategory = activeCategory === 'All'
+        || remaining.some(row => getContactCategories(row).includes(activeCategory))
+        ? activeCategory
+        : 'All'
+      if (nextCategory !== activeCategory) setCategory(nextCategory)
+      setSelectedId(orderContacts(remaining, nextCategory, query, ordering)[0]?.id || null)
     }
     setMutationStatus(activate ? 'Contact reactivated' : 'Contact deactivated')
     window.setTimeout(() => setMutationStatus(''), 2500)
@@ -708,7 +722,7 @@ export default function AcademicsContactsView({ active = true }) {
     <section className="ptl-na-contacts" aria-label="Contacts">
       <div className="ptl-na-contact-kpis" role="group" aria-label="Filter contacts by category">
         {['All', ...categories].map(value => {
-          const selected = category === value
+          const selected = activeCategory === value
           const colors = value === 'All'
             ? { color: '#1D2567', bg: '#eef2fb', border: '#c3cdf0' }
             : categoryChipColors(value)
@@ -800,7 +814,7 @@ export default function AcademicsContactsView({ active = true }) {
                   className={`ptl-na-contact-row${selectedId === contact.id ? ' ptl-na-contact-row-active' : ''}${contact.is_active === false ? ' ptl-na-contact-row-inactive' : ''}`}
                   onClick={() => setSelectedId(contact.id)}
                   aria-pressed={selectedId === contact.id}
-                  data-scrub={scrubGroupLabel(contact, category, query)}
+                  data-scrub={scrubGroupLabel(contact, activeCategory, query)}
                 >
                   <ContactAvatar contact={contact} />
                   <span className="ptl-na-contact-row-copy">

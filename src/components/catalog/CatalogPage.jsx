@@ -164,6 +164,10 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'At a
     const q = query.trim().toLowerCase()
     const now = Date.now()
     return rows.filter(r => {
+      // A KPI always describes active resources. Apply the same rule locally
+      // during the Show removed refetch so the count and visible rows cannot
+      // temporarily disagree.
+      if (!showInactive && r.is_active === false) return false
       if (category !== 'all' && r.category !== category) return false
       if (kpi === 'featured' && !r.is_featured) return false
       if (kpi === 'recent' && !(r.updated_at && (now - new Date(r.updated_at).getTime()) <= 30 * DAY_MS)) return false
@@ -174,7 +178,33 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'At a
       ].filter(Boolean).join(' ').toLowerCase()
       return hay.includes(q)
     })
-  }, [rows, query, category, kpi])
+  }, [rows, query, category, kpi, showInactive])
+
+  const resetToActiveCatalog = () => setShowInactive(false)
+  const showAllResources = () => {
+    resetToActiveCatalog()
+    setKpi('all')
+    setCategory('all')
+    setGrouped(false)
+    setQuery('')
+  }
+  const toggleGroupedCatalog = () => {
+    resetToActiveCatalog()
+    setGrouped(current => !current)
+  }
+  const toggleCatalogKpi = key => {
+    resetToActiveCatalog()
+    setKpi(current => current === key ? 'all' : key)
+  }
+  const changeRemovedVisibility = checked => {
+    setShowInactive(checked)
+    if (checked) {
+      // Removed resources are a separate maintenance view, not part of the
+      // active-resource KPI population.
+      setKpi('all')
+      setGrouped(false)
+    }
+  }
 
   // Right-rail derivations (active resources only).
   const featuredCollections = useMemo(() => {
@@ -458,23 +488,23 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'At a
       <div className="stat-cards-row" style={{ marginBottom: 24 }}>
         <FilterKPICard
           accent="nightfall" value={metrics.resources} label="Resources" sub="Show all"
-          active={kpi === 'all' && category === 'all' && !grouped && query === ''}
-          onClick={() => { setKpi('all'); setCategory('all'); setGrouped(false); setQuery('') }}
+          active={!showInactive && kpi === 'all' && category === 'all' && !grouped && query === ''}
+          onClick={showAllResources}
         />
         <FilterKPICard
           accent="marina" value={metrics.categories} label="Categories"
           sub={grouped ? 'Grouped' : 'Group view'} active={grouped}
-          onClick={() => setGrouped(g => !g)}
+          onClick={toggleGroupedCatalog}
         />
         <FilterKPICard
           accent="sage" value={metrics.recent} label="Recently Updated" sub="Last 30 days"
-          active={kpi === 'recent'}
-          onClick={() => setKpi(k => (k === 'recent' ? 'all' : 'recent'))}
+          active={!showInactive && kpi === 'recent'}
+          onClick={() => toggleCatalogKpi('recent')}
         />
         <FilterKPICard
           accent="dawn" value={metrics.featured} label="Featured" sub="Highlighted"
-          active={kpi === 'featured'}
-          onClick={() => setKpi(k => (k === 'featured' ? 'all' : 'featured'))}
+          active={!showInactive && kpi === 'featured'}
+          onClick={() => toggleCatalogKpi('featured')}
         />
       </div>
 
@@ -519,7 +549,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'At a
         </label>
         {canManage && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#4A5560', cursor: 'pointer' }}>
-            <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
+            <input type="checkbox" checked={showInactive} onChange={e => changeRemovedVisibility(e.target.checked)} />
             Show removed
           </label>
         )}

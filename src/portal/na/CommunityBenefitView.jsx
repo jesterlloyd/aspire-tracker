@@ -200,10 +200,15 @@ export default function CommunityBenefitView({
     if (group in programCounts) programCounts[group] += 1
   }
   const query = search.trim().toLowerCase()
+  // Fiscal-year changes replace the available school/cohort option sets. A
+  // value from the prior year must not survive invisibly and make a program
+  // KPI look ineffective, so unavailable selections resolve to All.
+  const activeSchoolFilter = schools.includes(schoolFilter) ? schoolFilter : ''
+  const activeCohortFilter = cohorts.includes(cohortFilter) ? cohortFilter : ''
   const filteredRows = detailRows
     .filter(r => programFilter === 'All Programs' || academicsProgramGroup(r.program) === programFilter)
-    .filter(r => !schoolFilter || r.school === schoolFilter)
-    .filter(r => !cohortFilter || r.cohort === cohortFilter)
+    .filter(r => !activeSchoolFilter || r.school === activeSchoolFilter)
+    .filter(r => !activeCohortFilter || r.cohort === activeCohortFilter)
     .filter(r => !query || r.student_name.toLowerCase().includes(query))
     .sort((a, b) => {
       if (sortBy === 'student-za') return b.student_name.localeCompare(a.student_name)
@@ -325,14 +330,14 @@ export default function CommunityBenefitView({
               </label>
               <label className="ptl-na-control" htmlFor="na-detail-school">
                 <span className="ptl-visually-hidden">Filter by school</span>
-                <select id="na-detail-school" value={schoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
+                <select id="na-detail-school" value={activeSchoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
                   <option value="">All Schools</option>
                   {schools.map(s => <option key={s} value={s}>{academicsSchoolLabel(s)}</option>)}
                 </select>
               </label>
               <label className="ptl-na-control" htmlFor="na-detail-cohort">
                 <span className="ptl-visually-hidden">Filter by cohort</span>
-                <select id="na-detail-cohort" value={cohortFilter} onChange={e => setCohortFilter(e.target.value)}>
+                <select id="na-detail-cohort" value={activeCohortFilter} onChange={e => setCohortFilter(e.target.value)}>
                   <option value="">All Cohorts</option>
                   {cohorts.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>

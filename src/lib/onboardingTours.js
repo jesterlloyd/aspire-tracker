@@ -144,10 +144,18 @@ const staffWelcome = (firstName) => ({
   content: "This is ASPIRE Intelligence, your workspace for managing ASPIRE cohorts, students, interviews, placements, evaluations, and communication. This short tour walks you through the areas you'll use most.",
 });
 
-const staffCohortSwitcher = {
-  target: '[data-tour="cohort-switcher"]',
-  title: 'Cohort Picker',
-  content: 'Switch between active and past ASPIRE cohorts here. Most of the app scopes to the selected cohort.',
+// SCOPE-PICKER-1: the Cohort and Experience pills merged into one Scope control, so
+// this step retargets and now describes both dimensions.
+//
+// ONE VERSION FOR EVERY ROLE, deliberately. Residency access is a capability
+// (canAccessNgrp), not a role, so it does not line up exactly with the privileged /
+// interviewer / viewer split these tours use. Copy that promised a Residency switch to
+// everyone in the privileged tour would be wrong for a privileged user without the
+// capability. The conditional phrasing below is true for every reader.
+const staffScopeSwitcher = {
+  target: '[data-tour="scope-switcher"]',
+  title: 'Scope',
+  content: 'Almost everything in ASPIRE is scoped to one cohort, and this is where you set it. If your access includes the Residency experience, you also switch between Internship and Residency here.',
 };
 
 const staffAggregate = {
@@ -257,13 +265,13 @@ function getStaffSteps(userProfile) {
   const role = userProfile?.role;
   const isPrivileged = userProfile?.is_owner === true || ['admin', 'co-lead', 'co_lead'].includes(role);
 
-  // Sequence logic: Welcome -> Cohort Picker (context) -> main workflow TABS in order ->
+  // Sequence logic: Welcome -> Scope (context) -> main workflow TABS in order ->
   // header/taskbar TOOLS in order -> Finish.
   if (isPrivileged) {
     // Owner / Admin / Co-Lead - full tour incl. Catalog, Rotation, Evaluation, Connect.
     return [
       staffWelcome(firstName),
-      staffCohortSwitcher,
+      staffScopeSwitcher,
       // workflow tabs
       staffAggregate,
       staffStudentProfiles,
@@ -287,7 +295,7 @@ function getStaffSteps(userProfile) {
     // (overlay-only) or owner/admin-oriented, so the tour does not walk them through those areas.
     return [
       staffWelcome(firstName),
-      staffCohortSwitcher,
+      staffScopeSwitcher,
       // workflow tabs (no Rotation / Evaluation)
       staffAggregate,
       staffStudentProfiles,
@@ -305,7 +313,7 @@ function getStaffSteps(userProfile) {
   // Viewer and default - conservative; Catalog is NOT shown (not visible to viewers).
   return [
     staffWelcome(firstName),
-    staffCohortSwitcher,
+    staffScopeSwitcher,
     // workflow tabs
     staffAggregate,
     staffStudentProfiles,
