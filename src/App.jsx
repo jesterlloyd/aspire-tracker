@@ -31,6 +31,7 @@ import EvaluationPage from './pages/EvaluationPage'
 import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
 import StudentEvaluationPage from './pages/StudentEvaluationPage'
 import PostRotationEvaluationPage from './pages/PostRotationEvaluationPage'
+import NgrpTransitionFormPage from './pages/NgrpTransitionFormPage'
 import UnitFormPage from './components/UnitFormPage'
 import { applyReviewTotals } from './lib/studentTotals'
 import { applyPreceptorProjection } from './lib/preceptorProjection'
@@ -1519,6 +1520,7 @@ function MainApp({ onLogout }) {
                 cycle={activeNgrpCycle}
                 canManage={canManageNgrp(currentUserProfile)}
                 toast={toast}
+                onSelectCycle={selectNgrpCycle}
               />
             )}
           </>
@@ -1773,6 +1775,10 @@ export default function App() {
       <Route path="/evaluation/feedback/*"  element={<div data-theme-lock="light"><PreceptorEvaluationPage /></div>} />
       <Route path="/evaluation/experience/*" element={<div data-theme-lock="light"><StudentEvaluationPage /></div>} />
       <Route path="/evaluation/post-rotation/*" element={<div data-theme-lock="light"><PostRotationEvaluationPage /></div>} />
+      {/* NGRP-RELEASE-2: the public tokenized Transition Form. Mounted ABOVE the
+          /* wildcard like every public form, so an alumnus's secure link renders
+          outside the authed shell; the raw token travels only in the fragment. */}
+      <Route path="/ngrp/transition/*" element={<div data-theme-lock="light"><NgrpTransitionFormPage /></div>} />
       {/* RECOVERY-PASSWORD-SCREEN-1: public password-recovery landing (Supabase reset link target).
           Must precede the /* wildcard so it renders outside AuthedShell even with a recovery session. */}
       <Route path="/auth/reset-password"   element={<div data-theme-lock="light"><ResetPasswordPage /></div>} />

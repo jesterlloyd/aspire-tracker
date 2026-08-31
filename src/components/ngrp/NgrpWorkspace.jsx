@@ -12,16 +12,13 @@ import { useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { NGRP_TABS } from '../../lib/ngrp/ngrpTabs'
 import ApplicantsTab from './ApplicantsTab'
+import PlanningTab from './PlanningTab'
 import './ngrp.css'
 
 const PLANNED_TABS = {
   support: {
     title: 'Support',
     body: 'Optional NGRP preparation - Town Halls, Interview Bootcamps, workshops, and mentorship touchpoints - with attendance tracked per cycle. Participation is always optional and never affects eligibility.',
-  },
-  planning: {
-    title: 'Planning',
-    body: 'Cycle setup: name and status, application dates, interview window, licensing deadline, residency start date, source ASPIRE cohorts, participating units, qualification requirements, conditional-requirement deadlines, the application checklist, retention benchmarks, and cycle events.',
   },
   interviews: {
     title: 'Interviews',
@@ -58,7 +55,7 @@ function StateCard({ heading, body, tone = 'info' }) {
   )
 }
 
-export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canManage, toast }) {
+export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canManage, toast, onSelectCycle }) {
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -110,12 +107,15 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
       </div>
     )
   }
-  if (cyclesCount === 0) {
+  // NGRP-RELEASE-2: no configured cohorts no longer blocks the workspace -
+  // Planning stays fully usable (that is where the first cohort is created),
+  // and every OTHER tab explains the requirement honestly.
+  if (cyclesCount === 0 && subTab !== 'planning') {
     return (
       <div className="ngrp-main">
         <StateCard
           heading="No residency cohorts configured"
-          body="NGRP is provisioned but no residency cohort exists yet. Cohorts (and their source ASPIRE cohorts) are created in Residency → Planning; until then there is nothing to scope the Applicants roster to."
+          body="NGRP is provisioned but no residency cohort exists yet. Create one in Residency → Planning (no SQL involved) - until then there is nothing to scope this tab to."
         />
       </div>
     )
@@ -147,7 +147,17 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
           <ApplicantsTab cycle={cycle} canManage={canManage} toast={toast} />
         )}
 
-        {subTab && subTab !== 'applicants' && (
+        {subTab === 'planning' && (
+          <PlanningTab
+            cycle={cycle}
+            cyclesCount={cyclesCount}
+            canManage={canManage}
+            toast={toast}
+            onSelectCycle={onSelectCycle}
+          />
+        )}
+
+        {subTab && subTab !== 'applicants' && subTab !== 'planning' && (
           <div className="snap" style={{ margin: '14px 0', padding: '22px 24px' }}>
             <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: 'var(--raven, #191919)' }}>
               {PLANNED_TABS[subTab]?.title}

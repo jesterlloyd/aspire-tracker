@@ -21,7 +21,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../supabase'
 
-async function postNgrp(action, payload = {}) {
+async function authedPost(endpoint, action, payload = {}) {
   const { data } = await supabase.auth.getSession()
   const token = data?.session?.access_token
   if (!token) {
@@ -29,7 +29,7 @@ async function postNgrp(action, payload = {}) {
     err.status = 401
     throw err
   }
-  const res = await fetch('/api/ngrp-workspace', {
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, ...payload }),
@@ -39,9 +39,24 @@ async function postNgrp(action, payload = {}) {
   if (!res.ok) {
     const err = new Error(body?.error || 'request_failed')
     err.status = res.status
+    err.body = body
     throw err
   }
   return body
+}
+
+const postNgrp = (action, payload) => authedPost('/api/ngrp-workspace', action, payload)
+
+// NGRP-RELEASE-2: management writes (Planning + staff review actions). Same
+// bearer pattern; callers get { ok:false, status, errors } instead of a throw
+// so validation errors can render field-by-field without try/catch noise.
+export async function postNgrpManage(action, payload = {}) {
+  try {
+    const body = await authedPost('/api/ngrp-manage', action, payload)
+    return { ok: true, ...body }
+  } catch (err) {
+    return { ok: false, status: err.status || 0, error: err.message, errors: err.body?.errors || [] }
+  }
 }
 
 const isAuthStatus = (s) => s === 401 || s === 403
@@ -70,6 +85,24 @@ export function useNgrpCycles({ enabled = true } = {}) {
     status: deriveStatus(query),
     cycles: query.data?.cycles || [],
     dataUpdatedAt: query.dataUpdatedAt || 0,
+    refetch: query.refetch,
+  }
+}
+
+// Planning bundle for one residency cohort (or the first-time setup data
+// when cycleId is null: just the ASPIRE cohort catalog for the mapper).
+export function useNgrpPlanning(cycleId, { enabled = true } = {}) {
+  const query = useQuery({
+    queryKey: ['ngrp_workspace', 'planning', cycleId || 'none'],
+    queryFn: () => postNgrpManage('planning', cycleId ? { cycle_id: cycleId } : {})
+      .then(r => { if (!r.ok) { const e = new Error(r.error || 'request_failed'); e.status = r.status; throw e } return r }),
+    enabled,
+    staleTime: 15_000,
+    retry: noAuthRetry,
+  })
+  return {
+    status: deriveStatus(query),
+    data: query.data && query.data.provisioned !== false ? query.data : null,
     refetch: query.refetch,
   }
 }

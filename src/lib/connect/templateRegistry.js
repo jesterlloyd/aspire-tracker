@@ -196,6 +196,18 @@ export const SEND_TO_MANY_TEMPLATES = [
     surface: 'many', templateKind: 'survey', composerMode: 'survey', audiences: [AUDIENCES.STUDENT],
   },
   {
+    // NGRP-RELEASE-2: the secure NGRP Transition Form invitation. templateKind
+    // 'ngrp_secure' routes OutreachView to the dedicated server-minted panel
+    // (NgrpTransitionSendPanel), NEVER BulkManualComposer: each recipient's
+    // secure link is injected server-side inside /api/ngrp-transition-send,
+    // so no client-editable body exists for this template. Launched from
+    // NGRP → Applicants (LAUNCH_KINDS.NGRP_TRANSITION_FORM); selecting it
+    // cold shows how to start from Applicants instead.
+    key: 'ngrp_transition_form_invitation', label: 'NGRP Transition Form Invitation',
+    surface: 'many', templateKind: 'ngrp_secure', builderKey: null,
+    defaultSource: 'students', audiences: [AUDIENCES.STUDENT],
+  },
+  {
     key: 'academic_partner_placement', label: 'Academic Partner Placement Request',
     surface: 'many', templateKind: 'manual', builderKey: 'academic_partner_placement',
     defaultSource: 'contacts', defaultContactCategory: 'Academic Partner', audiences: [AUDIENCES.ACADEMIC_PARTNER],

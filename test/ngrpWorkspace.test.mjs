@@ -55,6 +55,7 @@ function applyFilters(rows, filters) {
     if (op === 'eq') return acc.filter(r => r[col] === a)
     if (op === 'neq') return acc.filter(r => r[col] !== a)
     if (op === 'in') return acc.filter(r => (a || []).includes(r[col]))
+    if (op === 'is' && a === null) return acc.filter(r => r[col] === null || r[col] === undefined)
     if (op === 'not' && a === 'is' && b === null) return acc.filter(r => r[col] !== null && r[col] !== undefined)
     return acc
   }, rows)
@@ -75,6 +76,7 @@ function mockDb(tables) {
         eq: (col, v) => { filters.push(['eq', col, v]); return b },
         neq: (col, v) => { filters.push(['neq', col, v]); return b },
         in: (col, v) => { filters.push(['in', col, v]); return b },
+        is: (col, v) => { filters.push(v === null ? ['is', col, null] : ['eq', col, v]); return b },
         not: (col, op, v) => { filters.push(['not', col, op, v]); return b },
         maybeSingle: async () => {
           const r = resolve()
@@ -474,7 +476,8 @@ test('db: durable employment history cannot be silently erased; no seeded rows; 
 
 test('db: no browser data path exists in the client code (endpoint-only reads)', () => {
   assert.doesNotMatch(dataHooks, /supabase\s*\.\s*from\(/)
-  assert.match(dataHooks, /fetch\('\/api\/ngrp-workspace'/)
+  assert.match(dataHooks, /authedPost\('\/api\/ngrp-workspace'/)
+  assert.match(dataHooks, /authedPost\('\/api\/ngrp-manage'/)
   assert.doesNotMatch(serverCore, /select\('\*'\)[\s\S]{0,80}from\('students'\)|from\('students'\)[\s\S]{0,120}select\('\*'\)/)
 })
 
@@ -612,8 +615,10 @@ test('reliability: no toast in the data layer; KPI filters keep the roster visib
   assert.match(applicants, /setParam\('kpi', kpiFilter === k\.key \? 'all' : k\.key, 'all'\)/)
   assert.match(applicants, /No alumni match the current filters/)
   assert.match(ngrpCss, /\.ngrp-table thead th \{\s*position: sticky/)
-  // The workspace body renders cohort metadata only - no second selector.
-  assert.doesNotMatch(workspace, /<select|<ResidencyCohortPicker|onSelectCycle|selectCycle\(/)
+  // The workspace body renders cohort metadata only - no second selector
+  // (onSelectCycle passes through to Planning purely as a post-create
+  // selection callback, never as a rendered picker).
+  assert.doesNotMatch(workspace, /<select|<ResidencyCohortPicker/)
 })
 
 test('roster semantics: neutral defaults, operational sort, and KPI predicates hold', () => {

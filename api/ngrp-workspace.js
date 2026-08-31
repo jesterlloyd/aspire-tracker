@@ -71,5 +71,9 @@ export default async function handler(req, res) {
     students: payload.students,
     candidates: payload.candidates,
     excludedPriorHires: payload.excludedPriorHires,
+    // NGRP-RELEASE-2: false while migration 20260904000000 is unapplied - the
+    // roster still renders (neutral defaults), but send/review actions
+    // disable themselves honestly instead of failing mid-flight.
+    transitionProvisioned: payload.transitionProvisioned !== false,
   })
 }

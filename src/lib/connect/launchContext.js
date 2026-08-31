@@ -33,6 +33,12 @@ export const LAUNCH_KINDS = Object.freeze({
   // bookmarkable link, and the whole handoff dies with the browser session. They
   // are values the same Owner/Admin is already looking at on the board.
   PRECEPTOR_ASSIGNMENT: 'preceptor_assignment_handoff',
+  // NGRP-RELEASE-2: the secure Transition Form send, launched from NGRP →
+  // Applicants. Scope is a RESIDENCY COHORT (ngrp_cycles row), not an ASPIRE
+  // cohort, carried in cycleId/cycleName; studentIds are the selected
+  // completed alumni. The dedicated Outreach panel sends through the
+  // server-minted endpoint - no client-authored body ever exists for it.
+  NGRP_TRANSITION_FORM: 'ngrp_transition_form',
 })
 const VALID_KINDS = new Set(Object.values(LAUNCH_KINDS))
 
@@ -46,7 +52,10 @@ function safeStorage() {
 // Write a fresh 'launched' context. Returns the stored context or null when invalid/unavailable.
 export function writeLaunchContext(ctx) {
   const store = safeStorage()
-  if (!store || !ctx || !VALID_KINDS.has(ctx.kind) || !ctx.cohortId || !ctx.templateKey) return null
+  // NGRP launches are scoped by residency cohort (cycleId) instead of an
+  // ASPIRE cohortId; every other kind keeps the original cohortId requirement.
+  const scopeId = ctx?.kind === LAUNCH_KINDS.NGRP_TRANSITION_FORM ? ctx?.cycleId : ctx?.cohortId
+  if (!store || !ctx || !VALID_KINDS.has(ctx.kind) || !scopeId || !ctx.templateKey) return null
   const record = {
     v: VERSION,
     status: 'launched',
@@ -59,6 +68,9 @@ export function writeLaunchContext(ctx) {
     units: Array.isArray(ctx.units) ? ctx.units : [],
     studentIds: Array.isArray(ctx.studentIds) ? ctx.studentIds : [],
     school: ctx.school || null,
+    // NGRP-RELEASE-2: residency-cohort scope for NGRP_TRANSITION_FORM.
+    cycleId: ctx.cycleId || null,
+    cycleName: ctx.cycleName || '',
     // Contact recipients for contact-mediated launches. Kept in the v1 contract for any launch that
     // preselects Contacts rows by email (the capacity flow carries its leads inside units[] instead;
     // the school form flow now targets students directly, ASPIRE-DESIGN-CORRECTION-1).

@@ -156,6 +156,66 @@ that snapshot and approves an explicit mapping.
   Vercel-pull gotcha) - reported separately, not an NGRP defect; no
   credentials were retrieved.
 
+## Release 2 (NGRP-RELEASE-2): Planning + Transition Form
+
+Built on branch `ngrp-planning-transition-1`. Migration
+`20260904000000_ngrp_planning_transition.sql` is **NOT applied** (Owner SQL
+gate); until it is, everything from Release 1 keeps working, Planning can
+manage cycle basics/sources, and every persisted form action disables itself
+with the reason (`transitionProvisioned:false`).
+
+**Planning** (`src/components/ngrp/PlanningTab.jsx` + `api/ngrp-manage.js`):
+first-time "Create residency cohort" flow (Planning is never blocked by the
+no-cohorts guard; other tabs explain the requirement), then six card
+sections - basics (approved status vocabulary; status is always an explicit
+staff action, gated by open-readiness), source ASPIRE cohorts (chronological
+chips; an open cohort can never drop to zero sources), participating units
+(unit_name reuse with canonical suggestions; active/order/capacity; the ONLY
+source of form ranked preferences), eligibility rules (GPA/experience/
+completion-window/NCLEX-exception/accreditation + conditional licensure
+deadline; changing engine inputs recalculates the cycle), the structured
+application checklist, and retention benchmarks (config only). Per-section
+unsaved-changes chips with confirm-to-discard; consequential actions go
+through review/confirm dialogs; every change is audited.
+
+**Transition Form** (`lib/server/ngrpTransition.js`, `api/ngrp-transition-send.js`,
+`api/ngrp-transition.js`, `src/pages/NgrpTransitionFormPage.jsx`):
+- Send: NGRP → Applicants selection hands off via
+  `LAUNCH_KINDS.NGRP_TRANSITION_FORM` to Connect → Outreach → Send to Many,
+  where the registered `ngrp_transition_form_invitation` template renders a
+  dedicated server-minted panel (`NgrpTransitionSendPanel`) - never the
+  manual composer. Server preview classifies first-sends / re-sends / skips;
+  typed `SEND MESSAGES` confirmation; sequential provider loop with batch
+  idempotency; per-success `notification_log` row (`ngrp_transition_form_sent`,
+  hash prefix only, registered in Sent History as a secure-link type) and
+  audit events. SEND-TRUTH: provider failure revokes the token and any
+  fresh assignment - a failed delivery can never read as Sent.
+- Tokens: minted via the evaluation module (32-byte base64url, HMAC with
+  `EVALUATION_TOKEN_PEPPER`); only `token_hash` + 8-char hash prefix persist;
+  one live token per assignment; revocation always by token id; resend
+  revokes-then-issues.
+- Public form `/ngrp/transition#t=<token>`: fragment-only token (stripped on
+  load), 8-step endpoint order with fail-closed rate limits, identical 410
+  for unknown/revoked, server-enforced effective close (assignment deadline,
+  else cycle deadline end-of-day; no deadline → sending disabled with the
+  Planning reason). Lifecycle sent → opened → in_progress → submitted →
+  revised; single autosave draft; immutable numbered revisions (no UPDATE/
+  DELETE privilege exists); revisable until close; expiration retains
+  submissions for staff review. Form contact answers stay in the revision -
+  never written back to the student profile.
+- Eligibility: explainable engine (`lib/server/ngrpEligibility.js`) with
+  per-code reasons + deadlines, run on submit and on engine-config change;
+  calculated vs effective override unchanged from Release 1; support
+  participation is not an input.
+- Applicants/drawer now render the real lifecycle (composed server-side from
+  assignments + latest-revision preferences), with working send/resend,
+  review-submitted-form, override, confirm-application (still the only path
+  to Confirmed), withdraw, and revoke-link actions.
+
+Apply/verify/rollback for `20260904000000` live in the migration file
+(preflight P1-P4, verification V1-V2 with `has_table_privilege`, rollback
+that never destroys revisions or audit rows without export).
+
 ## Remaining future phases
 
 Phase-2 writers (cycle-manage incl. source-cohort mapping editor in

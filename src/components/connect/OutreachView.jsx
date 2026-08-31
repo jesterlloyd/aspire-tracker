@@ -20,6 +20,7 @@ import { readLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext
 import RichTextEditor from './RichTextEditor'
 import { isRichComposeEnabled, plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
 import ConnectPanel from './ConnectPanel'
+import NgrpTransitionSendPanel from './NgrpTransitionSendPanel'
 import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { mergeCcRecipientText, parseRecipientText } from '../../lib/recipientParse'
@@ -3463,7 +3464,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           Calls /api/evaluation-bulk-invitations for generate_only.
           No email. No Resend. Generated surveyUrls live in React state only.
       ═══════════════════════════════════════════════════════════════════ */}
-      {recipientMode === 'bulk' && bulkMsgType !== 'survey_invitation' && (
+      {recipientMode === 'bulk' && bulkMsgType !== 'survey_invitation' && bulkMsgType !== 'ngrp_transition_form_invitation' && (
         <BulkManualComposer
           bulkMsgType={bulkMsgType}
           students={students}
@@ -3474,6 +3475,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           richEnabled={richEnabled}
           initialAudience={launchAudience}
         />
+      )}
+
+      {/* NGRP-RELEASE-2: the secure Transition Form invitation renders its own
+          server-minted panel - never the manual composer, whose client-authored
+          body could not carry per-recipient secure links. */}
+      {recipientMode === 'bulk' && bulkMsgType === 'ngrp_transition_form_invitation' && (
+        <NgrpTransitionSendPanel renderTypeSelector={renderBulkTypeSelector} />
       )}
 
       {recipientMode === 'bulk' && bulkMsgType === 'survey_invitation' && (

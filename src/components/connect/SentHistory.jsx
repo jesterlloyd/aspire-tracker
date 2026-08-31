@@ -34,6 +34,7 @@ const MESSAGE_TYPE_LABELS = {
   unit_form_received:               'Unit Form Received',
   teams_invite_reminder:            'Teams Invite Reminder',
   teams_invite_reminder_escalation: 'Teams Invite Escalation',
+  ngrp_transition_form_sent:        'NGRP Transition Form',
 }
 function messageTypeLabel(type) {
   return MESSAGE_TYPE_LABELS[type] || type || '-'
@@ -45,6 +46,7 @@ const PSEUDO_FOLDERS = [
   { key: 'all',             label: 'All' },
   { key: 'direct_messages', label: 'Direct Messages', types: ['direct_message_sent'] },
   { key: 'surveys',         label: 'Surveys',          types: ['evaluation_invitation_sent', 'evaluation_invitation_test'] },
+  { key: 'ngrp',            label: 'NGRP',             types: ['ngrp_transition_form_sent'] },
   { key: 'weekly_digests',  label: 'Weekly Digests',   types: ['coordinator_weekly_digest', 'coordinator_weekly_digest_test'] },
   { key: 'internal_system', label: 'Internal/System',  recipientTypeFilter: 'null' },
 ]

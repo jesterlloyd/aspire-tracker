@@ -15,9 +15,10 @@
 // 4. Alumni hired through an EARLIER NGRP cycle are excluded server-side; a
 //    prior application without a hire never excludes anyone.
 // 5. Raw emails never reach the browser - rows carry has_email only.
-import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useMemo, useState, useCallback } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Search, Send, GraduationCap, X } from 'lucide-react'
+import { writeLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
 import { FilterKPICard } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 import EmptyState from '../EmptyState'
@@ -28,7 +29,7 @@ import {
   INTERVIEW_STATES, KPI_DEFS, SORT_OPTIONS,
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
 } from '../../lib/ngrp/ngrpStates'
-import { useNgrpApplicants } from '../../lib/ngrp/useNgrpData'
+import { useNgrpApplicants, postNgrpManage } from '../../lib/ngrp/useNgrpData'
 import { displayName } from '../../lib/utils'
 
 const relTime = ts => {
@@ -67,7 +68,11 @@ function SkeletonRoster() {
 }
 
 export default function ApplicantsTab({ cycle, canManage, toast }) {
+  const navigate = useNavigate()
   const { status, payload, dataUpdatedAt, refetch } = useNgrpApplicants(cycle?.id)
+  // False until migration 20260904000000 is applied - the roster still works
+  // with neutral defaults, but send/review actions disable themselves.
+  const transitionProvisioned = payload?.transitionProvisioned !== false
 
   // Filters live in the URL (plan §3.2: shareable, restorable views - and
   // they survive the Connect round trip via the recorded back path). All
@@ -149,6 +154,39 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
     }
     setSendReview({ send, missingEmail, resend })
   }
+
+  // The real handoff: NGRP → Applicants selection travels to ASPIRE Connect →
+  // Outreach → Send to Many via the launch context, with the residency cohort
+  // AND the current URL filters in the return path. The Connect panel owns
+  // the server-side preview + typed confirmation; the send itself mints every
+  // secure link server-side.
+  const launchSend = useCallback((rows) => {
+    const ctx = writeLaunchContext({
+      kind: LAUNCH_KINDS.NGRP_TRANSITION_FORM,
+      cycleId: cycle.id,
+      cycleName: cycle.name || '',
+      cohortId: null,
+      templateKey: 'ngrp_transition_form_invitation',
+      source: 'ngrp_applicants',
+      returnPath: `/ngrp/applicants${window.location.search || ''}`,
+      studentIds: rows.map(r => r.id),
+    })
+    if (!ctx) { toast?.error?.('Send unavailable', 'The send could not be prepared in this browser.'); return }
+    navigate('/connect/outreach?launch=1')
+  }, [cycle, navigate, toast])
+
+  // Staff review/decision actions (drawer). Each is explicit, audited
+  // server-side, and refreshes the roster quietly on success.
+  const runManage = useCallback(async (action, extra, successTitle, successBody) => {
+    const res = await postNgrpManage(action, extra)
+    if (!res.ok) {
+      toast?.error?.('Not saved', (res.errors || []).map(e => e.message).join(' ') || res.error || 'The action failed.')
+      return null
+    }
+    if (successTitle) toast?.success?.(successTitle, successBody)
+    refetch()
+    return res
+  }, [refetch, toast])
 
   const drawerRow = drawerRowId ? allRows.find(r => r.id === drawerRowId) : null
 
@@ -466,13 +504,14 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
                   </li>
                 )}
               </ul>
-              <p style={{
-                margin: '12px 0 0', padding: '9px 12px', borderRadius: 8, fontSize: 12,
-                background: '#F3F4F6', color: '#4B5563', border: '1px solid #D1D5DB',
-              }}>
-                Sending is disabled until the Phase-2 send endpoint and Connect template exist
-                (docs/product/NGRP-WORKSPACE-1.md). Nothing was sent.
-              </p>
+              {!transitionProvisioned && (
+                <p style={{
+                  margin: '12px 0 0', padding: '9px 12px', borderRadius: 8, fontSize: 12,
+                  background: '#F3F4F6', color: '#4B5563', border: '1px solid #D1D5DB',
+                }}>
+                  Sending is disabled until the pending NGRP migration is applied. Nothing was sent.
+                </p>
+              )}
             </div>
             <div style={{ padding: '12px 20px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button type="button" onClick={() => setSendReview(null)} style={{
@@ -484,13 +523,19 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
               </button>
               <button
                 type="button"
-                disabled
-                title="Requires the Phase-2 NGRP send endpoint"
-                onClick={() => toast?.info?.('Not sent', 'The NGRP send endpoint is not provisioned yet.')}
+                disabled={!transitionProvisioned || (sendReview.send.length + sendReview.resend.length) === 0}
+                title={transitionProvisioned ? undefined : 'Requires the pending NGRP migration'}
+                onClick={() => {
+                  const rows = [...sendReview.send, ...sendReview.resend]
+                  setSendReview(null)
+                  launchSend(rows)
+                }}
                 style={{
                   height: 34, padding: '0 16px', borderRadius: 9, border: 'none',
                   background: '#1D2567', color: '#fff', fontSize: 13, fontWeight: 600,
-                  fontFamily: 'DM Sans, sans-serif', cursor: 'not-allowed', opacity: 0.55,
+                  fontFamily: 'DM Sans, sans-serif',
+                  cursor: !transitionProvisioned ? 'not-allowed' : 'pointer',
+                  opacity: !transitionProvisioned ? 0.55 : 1,
                 }}
               >
                 Continue in Connect ({sendReview.send.length + sendReview.resend.length})
@@ -504,9 +549,21 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
         open={Boolean(drawerRow)}
         row={drawerRow}
         cycle={cycle}
-        canEdit={canManage}
-        provisioned={true}
+        canManage={canManage}
+        provisioned={transitionProvisioned}
         onClose={() => setDrawerRowId(null)}
+        actions={{
+          sendForm: r => launchSend([r]),
+          review: r => postNgrpManage('candidate_review', { candidate_id: r.candidate_id }),
+          confirmApplication: r => runManage('application_confirm', { candidate_id: r.candidate_id },
+            'Application confirmed', `${displayName(r.student)} is now on the official NGRP applicant list.`),
+          withdraw: r => runManage('application_withdraw', { candidate_id: r.candidate_id },
+            'Withdrawal recorded', `${displayName(r.student)} is recorded as withdrawn (a neutral state).`),
+          override: (r, fields) => runManage('eligibility_override', { candidate_id: r.candidate_id, ...fields },
+            'Eligibility overridden', 'The calculated result is preserved beside the override.'),
+          revokeLink: r => runManage('token_revoke', { candidate_id: r.candidate_id },
+            'Link revoked', 'The live Transition Form link no longer works. Use Resend to issue a new one.'),
+        }}
       />
     </div>
   )

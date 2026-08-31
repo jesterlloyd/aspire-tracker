@@ -1,10 +1,12 @@
-// NGRP-WORKSPACE-1: applicant detail drawer. Identity is the canonical ASPIRE
-// student record; everything cycle-specific renders from the (optional)
-// ngrp_candidates row with neutral defaults. Actions are declared here but
-// stay disabled until the Phase-2 endpoints exist (see
-// docs/product/NGRP-WORKSPACE-1.md) - the drawer never fabricates a write
-// path. Raw preceptor survey answers are never surfaced here; only the
-// approved recommendation summary will be (Phase 2, when authorized).
+// NGRP-RELEASE-2: applicant detail drawer, now operational. Identity is the
+// canonical ASPIRE student record; cycle state renders from the composed
+// candidate row (form lifecycle from ngrp_transition_assignments, prefs from
+// the latest revision). Staff actions - send/resend, review the submitted
+// form, override eligibility, confirm/withdraw the application, revoke the
+// link - are explicit, audited server-side, and every consequential one has
+// its own confirm step. Confirmation is the ONLY path to "Confirmed";
+// nothing here (or anywhere) confirms automatically.
+import { useState } from 'react'
 import DetailDrawer from '../ui/DetailDrawer'
 import StudentAvatar from '../StudentAvatar'
 import NgrpStatusPill from './NgrpStatusPill'
@@ -14,6 +16,7 @@ import {
 } from '../../lib/ngrp/ngrpStates'
 import { displayName } from '../../lib/utils'
 
+const F = 'DM Sans, sans-serif'
 const fmt = ts => {
   if (!ts) return null
   const d = new Date(ts)
@@ -21,15 +24,25 @@ const fmt = ts => {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-function Section({ title, tint, children }) {
+const smallBtn = (primary = false, danger = false) => ({
+  height: 30, padding: '0 12px', borderRadius: 8, fontFamily: F, fontSize: 12, fontWeight: 600,
+  cursor: 'pointer', border: primary || danger ? 'none' : '1px solid rgba(29,37,103,0.15)',
+  background: danger ? '#FEF2F2' : primary ? '#1D2567' : '#fff',
+  color: danger ? '#B3282D' : primary ? '#fff' : '#1D2567',
+  ...(danger ? { border: '1px solid #FECACA' } : {}),
+})
+
+function Section({ title, tint, children, right }) {
   return (
     <section style={{ background: tint, borderRadius: 12, padding: '13px 15px', marginBottom: 10 }}>
       <h3 style={{
         margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary, #6b7280)',
         textTransform: 'uppercase', letterSpacing: '0.06em',
         paddingBottom: 8, borderBottom: '1px solid rgba(0,0,0,0.045)',
+        display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        {title}
+        <span style={{ flex: 1 }}>{title}</span>
+        {right}
       </h3>
       {children}
     </section>
@@ -45,14 +58,12 @@ function Row({ label, children }) {
   )
 }
 
-// Transition Form lifecycle: Sent → Opened → In Progress → Submitted, with
-// Revised as a marker on the Submitted step. Reached steps are solid.
 function FormLifecycle({ row }) {
   const steps = [
-    { key: 'sent',        label: 'Sent',      at: row.form_sent_at },
-    { key: 'opened',      label: 'Opened',    at: row.form_opened_at },
-    { key: 'in_progress', label: 'Draft',     at: row.form_last_saved_at },
-    { key: 'submitted',   label: 'Submitted', at: row.form_submitted_at },
+    { key: 'sent', label: 'Sent', at: row.form_sent_at },
+    { key: 'opened', label: 'Opened', at: row.form_opened_at },
+    { key: 'in_progress', label: 'Draft', at: row.form_last_saved_at },
+    { key: 'submitted', label: 'Submitted', at: row.form_submitted_at },
   ]
   const orderIdx = { not_sent: -1, sent: 0, opened: 1, in_progress: 2, submitted: 3, revised: 3 }
   const reached = orderIdx[row.form_status] ?? -1
@@ -60,16 +71,10 @@ function FormLifecycle({ row }) {
     <div style={{ display: 'flex', margin: '4px 0 6px' }} aria-hidden="true">
       {steps.map((s, i) => (
         <div key={s.key} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
-          {i > 0 && (
-            <div style={{
-              position: 'absolute', top: 6, left: '-50%', width: '100%', height: 2,
-              background: i <= reached ? '#2F7D5C' : '#E5E7EB',
-            }} />
-          )}
+          {i > 0 && <div style={{ position: 'absolute', top: 6, left: '-50%', width: '100%', height: 2, background: i <= reached ? '#2F7D5C' : '#E5E7EB' }} />}
           <div style={{
-            width: 14, height: 14, borderRadius: '50%', margin: '0 auto 5px',
-            position: 'relative', zIndex: 1, border: '2px solid #fff',
-            background: i <= reached ? '#2F7D5C' : '#E5E7EB',
+            width: 14, height: 14, borderRadius: '50%', margin: '0 auto 5px', position: 'relative', zIndex: 1,
+            border: '2px solid #fff', background: i <= reached ? '#2F7D5C' : '#E5E7EB',
             boxShadow: `0 0 0 1px ${i <= reached ? '#2F7D5C' : '#D1D5DB'}`,
           }} />
           <div style={{ fontSize: 10, fontWeight: 700, color: i <= reached ? '#1F3219' : '#9CA3AF' }}>{s.label}</div>
@@ -80,35 +85,141 @@ function FormLifecycle({ row }) {
   )
 }
 
-export default function ApplicantDrawer({
-  open, row, cycle, canEdit, provisioned, onClose,
+const REQ_GLYPHS = { met: '✓', not_met: '✗', conditional: '◔', unknown: '·' }
+const REQ_COLORS = { met: '#166534', not_met: '#991B1B', conditional: '#92400E', unknown: '#6B7280' }
+
+// A compact read-only render of a submitted revision for staff review.
+function RevisionSummary({ payload }) {
+  if (!payload) return null
+  const rows = []
+  const push = (label, v) => { if (v !== undefined && v !== null && v !== '') rows.push([label, String(v)]) }
+  push('Preferred email', payload.identity?.preferred_email)
+  push('Preferred phone', payload.identity?.preferred_phone)
+  push('CS employment', payload.identity?.cs_employment_status?.replace(/_/g, ' '))
+  push('Degree', payload.education?.degree_type)
+  push('Completion date', payload.education?.completion_date)
+  push('GPA', payload.education?.gpa)
+  push('US accredited', payload.education?.us_accredited === true ? 'Yes' : payload.education?.us_accredited === false ? 'No' : undefined)
+  push('Precepted unit', payload.aspire?.precepted_unit)
+  push('Rotation hours', payload.aspire?.rotation_hours)
+  push('Prior NGRP application', payload.aspire?.prior_ngrp_applied === true ? `Yes${payload.aspire?.prior_ngrp_details ? ` - ${payload.aspire.prior_ngrp_details}` : ''}` : payload.aspire?.prior_ngrp_applied === false ? 'No' : undefined)
+  push('CA RN license', payload.licensure?.ca_rn_status)
+  push('License #', payload.licensure?.license_number)
+  push('NCLEX scheduled', payload.licensure?.nclex_scheduled_date)
+  push('Paid RN months', payload.licensure?.paid_rn_months)
+  push('BLS', payload.licensure?.bls_status ? `${payload.licensure.bls_status}${payload.licensure.bls_issuer ? ` (${payload.licensure.bls_issuer})` : ''}${payload.licensure.bls_expiration ? ` exp ${payload.licensure.bls_expiration}` : ''}` : undefined)
+  if (payload.licensure?.acls_required) push('ACLS', payload.licensure?.acls_status || 'required, not reported')
+  push('Interest', payload.residency_interest?.interest?.replace(/_/g, ' '))
+  push('Interest statement', payload.residency_interest?.interest_statement)
+  push('Strengths', payload.residency_interest?.strengths_statement)
+  const ready = Object.entries(payload.readiness || {}).filter(([, v]) => v === true).map(([k]) => k.replace(/_/g, ' '))
+  if (ready.length) push('Readiness checked', ready.join(', '))
+  return (
+    <div style={{ marginTop: 8 }}>
+      {rows.map(([label, v]) => (
+        <div key={label} style={{ display: 'flex', gap: 10, fontSize: 12, padding: '3px 0', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
+          <span style={{ color: '#6B7785', flexShrink: 0, minWidth: 120 }}>{label}</span>
+          <span style={{ color: '#191919', overflowWrap: 'anywhere' }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function OverrideDialog({ open, onClose, onSubmit, busy }) {
+  const [result, setResult] = useState('eligible')
+  const [category, setCategory] = useState('documentation_verified')
+  const [note, setNote] = useState('')
+  if (!open) return null
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,25,0.40)', zIndex: 2098 }} />
+      <div role="dialog" aria-modal="true" aria-label="Override eligibility" style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+        width: 'min(460px, calc(100vw - 32px))', background: '#fff', borderRadius: 16,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.18)', zIndex: 2099, fontFamily: F,
+      }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid #F3F4F6', fontSize: 15, fontWeight: 700 }}>Override eligibility</div>
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#6B7785' }}>
+            The calculated result is never overwritten - the override becomes the effective result and
+            is recorded with your name and timestamp.
+          </p>
+          <label style={{ fontSize: 11.5, fontWeight: 600, color: '#4A5560' }}>Replacement result
+            <select value={result} onChange={e => setResult(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4, height: 34, padding: '0 8px', border: '1px solid rgba(29,37,103,0.14)', borderRadius: 8, fontFamily: F, fontSize: 13 }}>
+              <option value="eligible">Eligible</option>
+              <option value="conditionally_eligible">Conditionally Eligible</option>
+              <option value="not_eligible">Not Eligible</option>
+              <option value="pending">Pending</option>
+            </select>
+          </label>
+          <label style={{ fontSize: 11.5, fontWeight: 600, color: '#4A5560' }}>Reason category
+            <select value={category} onChange={e => setCategory(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4, height: 34, padding: '0 8px', border: '1px solid rgba(29,37,103,0.14)', borderRadius: 8, fontFamily: F, fontSize: 13 }}>
+              <option value="documentation_verified">Documentation verified outside the form</option>
+              <option value="requirement_waived">Requirement waived</option>
+              <option value="data_correction">Data correction</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label style={{ fontSize: 11.5, fontWeight: 600, color: '#4A5560' }}>Narrative note (required)
+            <textarea value={note} onChange={e => setNote(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4, minHeight: 70, padding: 8, border: '1px solid rgba(29,37,103,0.14)', borderRadius: 8, fontFamily: F, fontSize: 13, boxSizing: 'border-box' }} />
+          </label>
+        </div>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" style={smallBtn()} onClick={onClose}>Cancel</button>
+          <button type="button" style={smallBtn(true)} disabled={busy || !note.trim()}
+            onClick={() => onSubmit({ result, reason_category: category, note: note.trim() })}>
+            {busy ? 'Saving…' : 'Record override'}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// Thin wrapper: keying the body by the row id resets every transient state
+// (review load, confirms, override dialog) by REMOUNT when the selected
+// applicant changes - no reset effect needed.
+export default function ApplicantDrawer(props) {
+  if (!props.open || !props.row) return null
+  return <ApplicantDrawerBody key={props.row.id} {...props} />
+}
+
+function ApplicantDrawerBody({
+  open, row, cycle, canManage, provisioned, onClose, actions = {},
 }) {
-  if (!open || !row) return null
+  const [review, setReview] = useState(null)
+  const [reviewState, setReviewState] = useState('idle')
+  const [overrideOpen, setOverrideOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(null) // 'confirm' | 'withdraw' | 'revoke'
   const s = row.student
   const elig = effectiveEligibility(row)
   const overridden = Boolean(row.eligibility_effective)
   const reasons = Array.isArray(row.eligibility_reasons) ? row.eligibility_reasons : []
   const prefs = [row.unit_preference_1, row.unit_preference_2, row.unit_preference_3]
-  const gateNote = !provisioned
-    ? 'Available after the NGRP foundation migration is applied'
-    : 'Available with the Phase-2 NGRP endpoints'
+  const hasForm = row.form_status !== 'not_sent'
+  const hasSubmission = (row.form_revision_count || 0) > 0
+  const gateNote = provisioned ? null : 'Available once the pending NGRP migration is applied'
 
-  const gatedBtn = (label, primary = false) => (
-    <button
-      key={label}
-      type="button"
-      disabled
-      title={gateNote}
-      style={{
-        height: 34, padding: '0 14px', borderRadius: 9, fontSize: 13, fontWeight: 600,
-        fontFamily: 'DM Sans, sans-serif', cursor: 'not-allowed', opacity: 0.55,
-        background: primary ? '#1D2567' : '#F3F4FF',
-        color: primary ? '#fff' : '#1D2567',
-        border: primary ? 'none' : '1px solid #E0E7FF',
-      }}
-    >
-      {label}
-    </button>
+  const loadReview = async () => {
+    if (!actions.review || reviewState === 'loading') return
+    setReviewState('loading')
+    const res = await actions.review(row)
+    if (res && res.ok !== false) { setReview(res); setReviewState('ready') }
+    else setReviewState('error')
+  }
+
+  const guarded = async (fn) => { setBusy(true); try { await fn() } finally { setBusy(false); setConfirming(null) } }
+
+  const confirmBar = (kind, text, run, danger = false) => (
+    confirming === kind ? (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11.5, color: danger ? '#B3282D' : '#4A5560', fontFamily: F }}>{text}</span>
+        <button type="button" style={smallBtn(true)} disabled={busy} onClick={() => guarded(run)}>{busy ? 'Working…' : 'Yes'}</button>
+        <button type="button" style={smallBtn()} onClick={() => setConfirming(null)}>No</button>
+      </span>
+    ) : null
   )
 
   return (
@@ -116,11 +227,26 @@ export default function ApplicantDrawer({
       open={open}
       onClose={onClose}
       title={`${displayName(s)} · NGRP`}
-      footer={canEdit ? (
+      footer={canManage ? (
         <>
-          <span style={{ marginRight: 'auto', fontSize: 11, color: '#9CA3AF' }}>{gateNote}</span>
-          {gatedBtn(row.form_status === 'not_sent' ? 'Send Transition Form' : 'Resend Form', true)}
-          {gatedBtn('Confirm Application')}
+          {gateNote && <span style={{ marginRight: 'auto', fontSize: 11, color: '#9CA3AF' }}>{gateNote}</span>}
+          {!gateNote && confirming === 'confirm' && confirmBar('confirm',
+            'Place this alumnus on the official NGRP applicant list?',
+            async () => { await actions.confirmApplication?.(row) })}
+          {!gateNote && confirming !== 'confirm' && (
+            <>
+              <button type="button" style={smallBtn()} disabled={!provisioned}
+                onClick={() => actions.sendForm?.(row)}>
+                {hasForm ? 'Resend Form' : 'Send Transition Form'}
+              </button>
+              {row.application_status !== 'confirmed' && (
+                <button type="button" style={smallBtn(true)} disabled={!provisioned}
+                  onClick={() => setConfirming('confirm')}>
+                  Confirm Application
+                </button>
+              )}
+            </>
+          )}
         </>
       ) : null}
     >
@@ -145,13 +271,20 @@ export default function ApplicantDrawer({
           </span>
           {cycle && (
             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#EDEEF4', color: '#1D2567' }}>
-              NGRP · {cycle.name}
+              {cycle.name}
             </span>
           )}
         </div>
       </div>
 
-      <Section title="Transition Form" tint="rgba(96,120,170,0.055)">
+      <Section
+        title="Transition Form" tint="rgba(96,120,170,0.055)"
+        right={canManage && hasForm && provisioned ? (
+          confirming === 'revoke'
+            ? confirmBar('revoke', 'Revoke the live link? The alumnus loses access until a resend.', async () => { await actions.revokeLink?.(row) }, true)
+            : <button type="button" style={{ ...smallBtn(false, true), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setConfirming('revoke')}>Revoke link</button>
+        ) : null}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <NgrpStatusPill config={FORM_STATES} value={row.form_status} srPrefix="Transition Form" />
           {row.form_status === 'revised' && (row.form_revision_count || 0) > 0 && (
@@ -166,6 +299,21 @@ export default function ApplicantDrawer({
           {cycle?.application_deadline ? ` (${cycle.application_deadline})` : ''}. Sending the form
           records “Transition Form Sent” - it is not an invitation to apply.
         </p>
+        {hasSubmission && (
+          <div style={{ marginTop: 10 }}>
+            {reviewState === 'idle' && (
+              <button type="button" style={smallBtn()} onClick={loadReview}>Review submitted form</button>
+            )}
+            {reviewState === 'loading' && <span style={{ fontSize: 12, color: '#6B7785', fontFamily: F }}>Loading submission…</span>}
+            {reviewState === 'error' && <span style={{ fontSize: 12, color: '#B3282D', fontFamily: F }}>The submission could not load - try again.</span>}
+            {reviewState === 'ready' && review?.latestRevision && (
+              <>
+                <Row label={`Revision ${review.latestRevision.revision_number}`}>{fmt(review.latestRevision.submitted_at)}</Row>
+                <RevisionSummary payload={review.latestRevision.payload} />
+              </>
+            )}
+          </div>
+        )}
       </Section>
 
       <Section title="Residency Interest" tint="rgba(96,120,170,0.055)">
@@ -177,7 +325,12 @@ export default function ApplicantDrawer({
         )}
       </Section>
 
-      <Section title="Eligibility" tint="rgba(110,150,135,0.075)">
+      <Section
+        title="Eligibility" tint="rgba(110,150,135,0.075)"
+        right={canManage && provisioned ? (
+          <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setOverrideOpen(true)}>Override…</button>
+        ) : null}
+      >
         <Row label="Calculated result">
           <NgrpStatusPill config={ELIGIBILITY_STATES} value={row.eligibility_calculated} />
         </Row>
@@ -190,7 +343,9 @@ export default function ApplicantDrawer({
               <span style={{ fontWeight: 400, color: '#5A6170' }}>{row.eligibility_override_reason || '—'}</span>
             </Row>
             {row.eligibility_overridden_at && (
-              <Row label="Overridden">{fmt(row.eligibility_overridden_at)}</Row>
+              <Row label={`Overridden${row.eligibility_overridden_by_name ? ` by ${row.eligibility_overridden_by_name}` : ''}`}>
+                {fmt(row.eligibility_overridden_at)}
+              </Row>
             )}
           </>
         )}
@@ -201,17 +356,19 @@ export default function ApplicantDrawer({
                 display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12,
                 padding: '5px 0', borderBottom: i < reasons.length - 1 ? '1px dashed rgba(0,0,0,0.06)' : 'none',
               }}>
-                <span aria-hidden="true" style={{ flexShrink: 0, width: 14, textAlign: 'center', color: r.met ? '#166534' : '#92400e', fontWeight: 700 }}>
-                  {r.met ? '✓' : '·'}
+                <span aria-hidden="true" style={{ flexShrink: 0, width: 14, textAlign: 'center', color: REQ_COLORS[r.status] || (r.met ? '#166534' : '#92400e'), fontWeight: 700 }}>
+                  {REQ_GLYPHS[r.status] || (r.met ? '✓' : '·')}
                 </span>
-                <span style={{ color: '#5A6170', flex: 1 }}>{r.label}</span>
+                <span style={{ color: '#5A6170', flex: 1 }}>
+                  {r.label}{r.detail ? <span style={{ color: '#9CA3AF' }}> - {r.detail}</span> : null}
+                </span>
                 {r.deadline && <span style={{ color: '#92400E', fontWeight: 600, whiteSpace: 'nowrap' }}>due {r.deadline}</span>}
               </div>
             ))}
           </div>
         ) : (
           <p style={{ margin: '4px 0 0', fontSize: 11, color: '#9CA3AF' }}>
-            Requirement detail appears once eligibility has been calculated for this cycle.
+            Requirement detail appears once a submitted form has been evaluated for this cycle.
           </p>
         )}
         <p style={{ margin: '8px 0 0', fontSize: 11, color: '#9CA3AF' }}>
@@ -235,7 +392,7 @@ export default function ApplicantDrawer({
         <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', marginTop: 8, paddingTop: 8 }}>
           <Row label="HR-assigned unit">
             {row.assigned_unit
-              ? <span>{row.assigned_unit}{row.assigned_unit_changed_at ? <span style={{ fontWeight: 400, color: '#92400E' }}> · changed {fmt(row.assigned_unit_changed_at)}</span> : null}</span>
+              ? <span>{row.assigned_unit}</span>
               : <span style={{ fontWeight: 400, color: '#6b7280' }}>No assignment</span>}
           </Row>
           <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9CA3AF' }}>
@@ -244,30 +401,40 @@ export default function ApplicantDrawer({
         </div>
       </Section>
 
-      <Section title="Official Application" tint="rgba(150,120,150,0.06)">
+      <Section
+        title="Official Application" tint="rgba(150,120,150,0.06)"
+        right={canManage && provisioned && row.application_status !== 'withdrawn' ? (
+          confirming === 'withdraw'
+            ? confirmBar('withdraw', 'Record a withdrawal? (Neutral, never a demerit.)', async () => { await actions.withdraw?.(row) })
+            : <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setConfirming('withdraw')}>Record withdrawal</button>
+        ) : null}
+      >
         <Row label="Status"><NgrpStatusPill config={APPLICATION_STATES} value={row.application_status} /></Row>
         {row.application_confirmed_at && <Row label="Confirmed">{fmt(row.application_confirmed_at)}</Row>}
         {row.application_withdrawn_at && <Row label="Withdrawn">{fmt(row.application_withdrawn_at)}</Row>}
         <p style={{ margin: '4px 0 0', fontSize: 11, color: '#9CA3AF' }}>
-          Only “Confirmed” means this alumnus appears on the official NGRP applicant list.
+          Only “Confirmed” means this alumnus appears on the official NGRP applicant list - and only
+          through the explicit action below, matched against the official list. A submitted form or an
+          eligible result never confirms anything automatically.
         </p>
       </Section>
 
       <Section title="Interview" tint="rgba(150,120,150,0.06)">
-        <Row label="Status"><NgrpStatusPill config={INTERVIEW_STATES} value={row.interview_status} /></Row>
-        {row.interview_at && <Row label="Scheduled for">{fmt(row.interview_at)}</Row>}
-        {row.interviewer_name && <Row label="Interviewer">{row.interviewer_name}</Row>}
+        <Row label="Status"><NgrpStatusPill config={INTERVIEW_STATES} value={row.interview_status} srPrefix="Interview" /></Row>
       </Section>
 
-      {/* The legacy students.ngrp_cohort_target / ngrp_outcome fields are
-          deliberately NOT shown: the cycle/candidate/outcome tables are the
-          NGRP source of truth and the endpoint no longer returns them. */}
       <Section title="Activity" tint="rgba(120,124,134,0.05)">
-        {row.candidate ? (
+        {row.candidate_id ? (
           <>
             {formTimestamp(row) && <Row label="Latest form activity">{fmt(formTimestamp(row))}</Row>}
-            <Row label="Candidate record created">{fmt(row.candidate.created_at) || '—'}</Row>
-            <Row label="Last updated">{fmt(row.candidate.updated_at) || '—'}</Row>
+            {reviewState === 'ready' && (review?.tokens || []).length > 0 && (
+              <Row label="Latest link">
+                <span style={{ fontWeight: 400, color: '#6B7785' }}>
+                  #{review.tokens[0].token_hash_prefix} · issued {fmt(review.tokens[0].created_at)}
+                  {review.tokens[0].revoked_at ? ' · revoked' : ''}
+                </span>
+              </Row>
+            )}
           </>
         ) : (
           <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF' }}>
@@ -276,6 +443,13 @@ export default function ApplicantDrawer({
           </p>
         )}
       </Section>
+
+      <OverrideDialog
+        open={overrideOpen}
+        busy={busy}
+        onClose={() => setOverrideOpen(false)}
+        onSubmit={fields => guarded(async () => { await actions.override?.(row, fields); setOverrideOpen(false) })}
+      />
     </DetailDrawer>
   )
 }
