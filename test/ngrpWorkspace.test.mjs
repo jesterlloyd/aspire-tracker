@@ -41,8 +41,13 @@ const ngrpAuth    = read('api/lib/ngrpAuth.js')
 const serverCore  = read('lib/server/ngrpApplicants.js')
 const appJsx      = read('src/App.jsx')
 const headerJsx   = read('src/components/Header/Header.jsx')
-const expPicker   = read('src/components/Header/ExperiencePicker.jsx')
-const resPicker   = read('src/components/Header/ResidencyCohortPicker.jsx')
+// SCOPE-PICKER-1: the Experience and Cohort pills merged into one Scope picker.
+// ExperiencePicker/CohortPicker/ResidencyCohortPicker are retired; their behavior lives
+// in the shell (ScopePicker), the two cohort panes, and the pure label module. These
+// assertions follow the code rather than being dropped.
+const scopePicker = read('src/components/Header/scope/ScopePicker.jsx')
+const resList     = read('src/components/Header/scope/ResidencyCohortList.jsx')
+const scopeLabels = read('src/lib/scopePickerLabels.js')
 const workspace   = read('src/components/ngrp/NgrpWorkspace.jsx')
 const applicants  = read('src/components/ngrp/ApplicantsTab.jsx')
 const dataHooks   = read('src/lib/ngrp/useNgrpData.js')
@@ -172,7 +177,7 @@ test('scope: no mapped cohorts is its own distinct empty result, not an error', 
 })
 
 test('scope: the internal ASPIRE cohort filter narrows by cohort_id from the mapping, not from loaded students', () => {
-  assert.match(applicants, /r\.student\.cohort_id !== cohortFilter/)
+  assert.match(applicants, /r\.student\.cohort_id !== activeCohortFilter/)
   assert.match(applicants, /sourceCohorts\.map\(c => <option key=\{c\.id\} value=\{c\.id\}>\{c\.name\}<\/option>\)/)
   assert.doesNotMatch(applicants, /students=\{students\}/)
 })
@@ -483,50 +488,63 @@ test('db: no browser data path exists in the client code (endpoint-only reads)',
 
 // ── Experience / Cohort header presentation ──────────────────────────────────
 
-test('header: Experience dropdown offers Internship and Residency; adjacency and shared pill treatment', () => {
-  assert.match(expPicker, /id: 'internship', label: 'Internship'/)
-  assert.match(expPicker, /id: 'residency',\s+label: 'Residency'/)
-  assert.match(expPicker, />Experience</)
-  // Adjacent controls in the right-side cluster, before search - and NOT in
-  // the brand zone (the old segmented switcher there is gone).
-  const iExp = headerJsx.indexOf('<ExperiencePicker')
-  const iCoh = headerJsx.indexOf('<CohortPicker')
-  const iRes = headerJsx.indexOf('<ResidencyCohortPicker')
+test('header: the Scope picker offers Internship and Residency, in the right-side cluster', () => {
+  assert.match(headerJsx, /const INTERNSHIP = \{ id: 'internship', label: 'Internship'/)
+  assert.match(headerJsx, /const RESIDENCY  = \{ id: 'residency',  label: 'Residency'/)
+  assert.match(scopePicker, />Experience</, 'the experience pane is labelled')
+  // One control now, still in the right-side cluster before search and NOT in the
+  // brand zone (the old segmented switcher there is gone).
+  const iScope  = headerJsx.indexOf('<ScopePicker')
   const iSearch = headerJsx.indexOf('<UniversalSearch')
   const iSpacer = headerJsx.indexOf('chart-header-spacer')
-  assert.ok(iSpacer < iExp && iExp < iRes && iRes < iCoh && iCoh < iSearch, 'spacer < experience < cohort pickers < search')
+  assert.ok(iSpacer < iScope && iScope < iSearch, 'spacer < scope < search')
   assert.doesNotMatch(headerJsx, /WorkspaceSwitcher/)
-  // Both pickers share the dark translucent pill style.
-  for (const src of [expPicker, resPicker]) assert.match(src, /rgba\(255,255,255,0\.07\)/)
+  // The one pill keeps the dark translucent treatment both pills shared.
+  assert.match(scopePicker, /rgba\(255,255,255,0\.07\)/)
 })
 
-test('header: unauthorized users have no Experience picker (and therefore no Residency option)', () => {
+test('header: unauthorized users have no Residency option at all', () => {
   assert.match(appJsx, /experience=\{ngrpAllowed \? \{ active: activeTab === 'ngrp' \? 'residency' : 'internship'/)
-  assert.match(headerJsx, /\{experience && <ExperiencePicker/)
+  // Without the capability the experience list is Internship ALONE, so Residency is
+  // not merely hidden behind a disabled row - it is absent from the offered set.
+  assert.match(headerJsx, /experiences=\{hasResidency \? \[INTERNSHIP, RESIDENCY\] : \[INTERNSHIP\]\}/)
+  assert.match(headerJsx, /const hasResidency = Boolean\(experience\)/)
+  // And the pill drops the experience name entirely when there is only one, rather
+  // than asserting a contrast the reader has no second term for.
+  assert.match(scopeLabels, /if \(!multiExperience\) return cohort/)
 })
 
-test('header: Residency swaps the adjacent picker to residency cohorts presented as COHORT; Internship keeps CohortPicker', () => {
-  assert.match(headerJsx, /inResidency && residencyCohort\s*\?\s*<ResidencyCohortPicker/)
-  assert.match(headerJsx, /:\s*<CohortPicker/)
+test('header: Residency swaps the cohort PANE, presented as COHORT; Internship keeps the ASPIRE list', () => {
+  assert.match(headerJsx, /inResidency && residencyCohort/)
+  assert.match(headerJsx, /pane: <ResidencyCohortList \{\.\.\.residencyCohort\} \/>/)
+  assert.match(headerJsx, /pane: \(\s*\n\s*<InternshipCohortList/)
   // Eyebrow says Cohort, primary label is the cohort (cycle) name.
-  assert.match(resPicker, />Cohort</)
-  assert.match(resPicker, /activeCycle\?\.name/)
+  assert.match(scopePicker, />Cohort</)
+  assert.match(scopeLabels, /activeCycle\?\.name/)
   // Presentation language: no user-facing "NGRP Residency Cycle" and no
   // "Awaiting provisioning" anywhere in the header components.
-  for (const src of [headerJsx, expPicker, resPicker]) {
+  for (const src of [headerJsx, scopePicker, resList, scopeLabels]) {
     assert.doesNotMatch(src, /NGRP Residency Cycle/)
     assert.doesNotMatch(src, /Awaiting provisioning/)
   }
 })
 
 test('header: unconfigured, unavailable, and loading picker states are truthful and distinct', () => {
-  assert.match(resPicker, /'No cohorts configured'/)
-  assert.match(resPicker, /'Cohorts unavailable'/)
-  assert.match(resPicker, /'Loading cohorts…'/)
-  // A failure is never presented as a valid empty cohort list: the
-  // unavailable branch is separate from the zero-cycles branch.
-  assert.match(resPicker, /unavailable = status === 'unprovisioned' \|\| status === 'error' \|\| status === 'stale'/)
-  assert.doesNotMatch(resPicker, /January 2027/)
+  // The states now live in ONE pure module read by BOTH the pill and the pane, so the
+  // two can no longer disagree about whether a cohort exists.
+  assert.match(scopeLabels, /'No cohorts configured'/)
+  assert.match(scopeLabels, /'Cohorts unavailable'/)
+  assert.match(scopeLabels, /'Loading cohorts…'/)
+  // A failure is never presented as a valid empty cohort list: the unavailable branch
+  // is separate from the zero-cycles branch.
+  assert.match(scopeLabels, /status === 'unprovisioned' \|\| status === 'error' \|\| status === 'stale'/)
+  assert.doesNotMatch(scopeLabels, /January 2027/)
+  assert.doesNotMatch(resList, /January 2027/)
+  // The pane explains the same three states in prose, and the pill is dimmed whenever
+  // its label is a state rather than a chosen cohort.
+  assert.match(resList, /Cohorts could not be loaded right now/)
+  assert.match(resList, /No residency cohorts are configured yet/)
+  assert.match(scopePicker, /opacity: cohortLabelDimmed \? 0\.7 : 1/)
 })
 
 test('header: each experience restores its own last operational tab; residency cohort pref is per user', () => {
@@ -572,14 +590,18 @@ test('tabs: any VALID location-derived NGRP subtab is persisted; unknown routes 
 })
 
 test('pickers: Escape closes and refocuses the trigger; options are native buttons with Enter/Space for free', () => {
-  for (const src of [expPicker, resPicker]) {
-    assert.match(src, /e\.key === 'Escape' && open/)
-    assert.match(src, /const closeAndRefocus = \(\) => \{ setOpen\(false\); triggerRef\.current\?\.focus\(\) \}/)
-    assert.match(src, /ref=\{triggerRef\}/)
-    // Choices are real <button type="button"> options; selection closes and
-    // refocuses the trigger; no synthetic Enter/Space handler remains.
-    assert.match(src, /<button\s+key=\{[cx]\.id\}\s+type="button"\s+role="option"/)
-    assert.match(src, /closeAndRefocus\(\) \}/)
+  // One shell now owns the dropdown, so Escape/refocus is asserted once rather than
+  // per picker - which is the point of merging them.
+  assert.match(scopePicker, /e\.key === 'Escape' && open/)
+  assert.match(scopePicker, /const closeAndRefocus = \(\) => \{ setOpen\(false\); triggerRef\.current\?\.focus\(\) \}/)
+  assert.match(scopePicker, /ref=\{triggerRef\}/)
+  assert.match(scopePicker, /<button\s+key=\{x\.id\}\s+type="button"\s+role="option"/)
+  assert.match(scopePicker, /closeAndRefocus\(\) \}/)
+  // Every cohort row is a real option button too. The ASPIRE rows were plain divs
+  // before this change and were keyboard-unreachable; both lists match now.
+  const intList = read('src/components/Header/scope/InternshipCohortList.jsx')
+  for (const src of [scopePicker, resList, intList]) {
+    assert.match(src, /type="button"\s+role="option"/)
     assert.doesNotMatch(src, /e\.key === 'Enter' \|\| e\.key === ' '/)
   }
 })

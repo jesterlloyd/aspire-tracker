@@ -69,8 +69,11 @@ test('rotation rows group by cohort id and dropped rows never leak between cohor
   assert.equal(Object.keys(grouped).length, 2)
 })
 
-test('CohortPicker uses the derived range with a bounded date-only query and never writes cohorts', () => {
-  const src = read('src/components/Header/CohortPicker.jsx')
+// SCOPE-PICKER-1: the ASPIRE cohort rows and this bounded query moved out of
+// CohortPicker into the Scope picker's Internship pane. Same query, same columns, same
+// display-only rule; only the file changed.
+test('the cohort list uses the derived range with a bounded date-only query and never writes cohorts', () => {
+  const src = read('src/components/Header/scope/InternshipCohortList.jsx')
   assert.match(src, /resolveCohortPickerRange/)
   assert.match(src, /groupRotationRowsByCohort/)
   assert.match(src, /from\('cohort_school_rotations'\)/)
@@ -234,6 +237,13 @@ test('no write, edit, authorization, or schema behavior was added', () => {
   const newQuery = overview.slice(overview.indexOf("['cohort_school_responses'"), overview.indexOf("['cohort_school_responses'") + 600)
   assert.match(newQuery, /from\('cohort_school_rotations'\)/)
   assert.doesNotMatch(newQuery, /\.update\(|\.insert\(|\.upsert\(|\.delete\(/)
-  const picker = read('src/components/Header/CohortPicker.jsx')
-  assert.doesNotMatch(picker, /from\('cohorts'\)/)  // never writes derived dates back
+  // The header must never write derived dates back to the cohorts table. Checked
+  // across the whole Scope picker now, not just the one file that used to hold it.
+  for (const f of [
+    'src/components/Header/scope/InternshipCohortList.jsx',
+    'src/components/Header/scope/ScopePicker.jsx',
+    'src/components/Header/Header.jsx',
+  ]) {
+    assert.doesNotMatch(read(f), /from\('cohorts'\)/, f)
+  }
 })

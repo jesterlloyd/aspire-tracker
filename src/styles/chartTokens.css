@@ -139,6 +139,25 @@
   z-index: 400; overflow: hidden;
 }
 
+/* SCOPE-PICKER-1: the merged Experience + Cohort dropdown. Two panes side by side,
+   so both scope dimensions are visible in one click; the single-pane .chart-cohort-dropdown
+   above is unchanged and still used by nothing else in the staff header. Wider than the
+   single-pane width because two columns of cohort rows will not fit in 380px. */
+.chart-scope-dropdown {
+  width: min(600px, calc(100vw - 16px));
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+}
+.chart-scope-pane { min-width: 0; }
+.chart-scope-pane-experience { border-right: 1px solid #f3f4f6; background: #fcfbf9; }
+.chart-scope-kicker {
+  padding: 10px 14px 6px; font-size: 11px; font-weight: 600; color: #6b7280;
+  text-transform: uppercase; letter-spacing: 0.05em; background: var(--sand);
+}
+/* The cohort side is the long one; cap it so a cohort-rich program cannot push the
+   dropdown past the viewport, and scroll inside instead. */
+.chart-scope-pane-cohort .chart-scope-rows { max-height: 340px; overflow-y: auto; }
+
 /* The unwrapped band needs ~1150px (brand + cohort + search + actions), so
    wrapping starts at 1200px - measured, not guessed; at 1024 the actions
    previously overflowed the viewport by ~126px. */
@@ -165,6 +184,11 @@
   .chart-brand-divider { display: none; }
   .chart-brand-title { font-size: 15px; white-space: normal; line-height: 1.15; }
   .chart-cohort-dropdown { position: fixed; left: 8px; right: 8px; top: auto; width: auto; }
+  /* SCOPE-PICKER-1: one column on phones. The experience pane keeps its rows above
+     the cohort list rather than becoming a cramped 100px column. */
+  .chart-scope-dropdown { width: auto; grid-template-columns: minmax(0, 1fr); }
+  .chart-scope-pane-experience { border-right: none; border-bottom: 1px solid #f3f4f6; }
+  .chart-scope-pane-cohort .chart-scope-rows { max-height: 45vh; }
 }
 
 /* ============================================================
