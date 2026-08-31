@@ -25,7 +25,12 @@ test('AuthContext: touch_my_last_login is called once per session, guarded by a 
   assert.match(authCtx, /touchedLoginRef\.current = user\.id/)
   assert.match(authCtx, /supabase\.rpc\('touch_my_last_login'\)/)
   // Reset on sign-out so the next session (same or different user) stamps again.
-  assert.match(authCtx, /event === 'SIGNED_OUT'[\s\S]{0,400}touchedLoginRef\.current = null/)
+  // Scoped to the SIGNED_OUT branch itself rather than a character budget from it:
+  // FRESH-LOGIN-HOME-1 added more work to that branch and pushed the reset past a
+  // fixed 400-char window, which said nothing about whether the reset still happened.
+  const signedOut = authCtx.slice(authCtx.indexOf("event === 'SIGNED_OUT'"), authCtx.indexOf("event === 'TOKEN_REFRESHED'"))
+  assert.ok(signedOut.length > 0, 'SIGNED_OUT branch not found')
+  assert.match(signedOut, /touchedLoginRef\.current = null/)
 })
 
 test('AuthContext: the touch_my_last_login call swallows every error silently', () => {

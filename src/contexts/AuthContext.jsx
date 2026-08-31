@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { setStudentPhotoCacheScope, clearStudentPhotoCache } from '../lib/studentPhotoCache';
 import { normalizeStaffRole } from '../lib/permissions';
 import { clearPortalCohortHintSession } from '../lib/portalCohortHint';
+import { clearLastLocationOnSignOut } from '../lib/sessionKeys';
 
 // Roles that READ student files across every cohort, with no entitlement needed.
 // Co-Lead joined Owner/Admin here on 2026-08-05: near-Owner for student access.
@@ -28,6 +29,12 @@ export function AuthProvider({ children }) {
   // refreshUserProfile call, or a TOKEN_REFRESHED tick never re-stamps it.
   // Reset to null on SIGNED_OUT so the next sign-in stamps again.
   const touchedLoginRef = useRef(null);
+  // FRESH-LOGIN-HOME-1: the signed-in user id, held in a ref so the SIGNED_OUT handler
+  // can clear that user's saved location. The handler is registered once with [] deps,
+  // so it would close over a stale `user` state value; and the event's own session is
+  // null by then, which is exactly when we still need to know who just left. Covers an
+  // EXPIRED session as well as a deliberate sign-out, since both arrive as SIGNED_OUT.
+  const currentUserIdRef = useRef(null);
 
   const loadUserProfile = async () => {
     if (loadingRef.current) return;
@@ -92,6 +99,10 @@ export function AuthProvider({ children }) {
         }
 
         if (session?.user) {
+          // FRESH-LOGIN-HOME-1: a RESTORED session sets the ref too. Without this, a
+          // user who opened the app on an existing session and then signed out would
+          // have no id here, and their saved tab would survive the sign-out.
+          currentUserIdRef.current = session.user.id;
           setUser(session.user);
           await loadUserProfile();
         } else {
@@ -110,6 +121,7 @@ export function AuthProvider({ children }) {
         if (!mounted) return;
 
         if (event === 'SIGNED_IN' && session?.user) {
+          currentUserIdRef.current = session.user.id;
           setUser(session.user);
           // Defer profile load so the callback returns synchronously before making
           // further Supabase calls - prevents the auth-lock deadlock documented at
@@ -117,6 +129,12 @@ export function AuthProvider({ children }) {
           setTimeout(() => { void loadUserProfile() }, 0)
         } else if (event === 'SIGNED_OUT') {
           clearPortalCohortHintSession();
+          // FRESH-LOGIN-HOME-1: forget WHERE this user was (tab + NGRP sub-tab) and mark
+          // that a sign-out happened here, so the next sign-in lands on At a Glance
+          // instead of the screen the browser happened to be left on. The selected
+          // cohort is deliberately kept: that is scope, not location.
+          clearLastLocationOnSignOut(currentUserIdRef.current);
+          currentUserIdRef.current = null;
           setUser(null);
           setUserProfile(null);
           setLoading(false);
@@ -124,6 +142,7 @@ export function AuthProvider({ children }) {
           // next sign-in (a different user, or the same user again) stamps again.
           touchedLoginRef.current = null;
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          currentUserIdRef.current = session.user.id;
           setUser(session.user);
           // Don't reload profile on token refresh, just update user
         }

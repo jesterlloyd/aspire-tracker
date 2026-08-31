@@ -72,6 +72,9 @@ import NgrpNav from './components/ngrp/NgrpNav'
 import NgrpWorkspace from './components/ngrp/NgrpWorkspace'
 import { ngrpTabFromPath, resolveNgrpEntryTab } from './lib/ngrp/ngrpTabs'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from './lib/ngrp/ngrpAccess'
+import {
+  lastTabKey, lastNgrpTabKey, aspireCohortKey, LAST_AUTH_USER_KEY, consumeSignedOutMarker,
+} from './lib/sessionKeys'
 import { orderCyclesForSelector, resolveSelectedCycle } from './lib/ngrp/ngrpStates'
 import { useNgrpCycles } from './lib/ngrp/useNgrpData'
 
@@ -129,30 +132,19 @@ const PATH_TO_TAB = {
   // /rotation/* handled by startsWith in activeTab derivation below
 }
 
-// AUTH-UX-1: the last-active-tab is persisted PER AUTHENTICATED USER (by Supabase user.id),
-// so a different account logging in on the same browser starts on Aggregate rather than
-// inheriting the previous user's tab. The prior global 'aspire_active_tab' key is no longer
-// read for restore (left untouched in storage; not wiped).
-const lastTabKey = (userId) => `aspire:lastActiveTab:${userId}`
-// NGRP-WORKSPACE-1: the last-used NGRP sub-tab, per authenticated user, so the
-// Residency experience restores where the user left off (same rule as the
-// ASPIRE lastTabKey above).
-const lastNgrpTabKey = (userId) => `aspire:lastNgrpTab:${userId}`
-// SCOPE-PICKER-1: the ASPIRE cohort selection is now per authenticated user too, the
-// same rule NGRP already followed (ngrpCycleStorageKey). It was one browser-global key,
-// so on a shared workstation the next person to sign in inherited the previous person's
-// cohort - the exact leak the tab and cycle keys were made per-user to prevent.
+// FRESH-LOGIN-HOME-1: the per-user storage keys moved to src/lib/sessionKeys.js so
+// AuthContext can clear the right ones on sign-out without App exporting them. That
+// module also documents WHICH are cleared and which are kept, and why.
+//   lastTabKey / lastNgrpTabKey  AUTH-UX-1, NGRP-WORKSPACE-1: where you were.
+//   aspireCohortKey              SCOPE-PICKER-1: what you work in. Not cleared.
+//   LAST_AUTH_USER_KEY           AUTH-UX-1B: which account was last active here.
 //
-// The legacy value is deliberately NOT adopted into the new key: carrying it over would
-// preserve continuity by perpetuating the leak. Everyone's next sign-in falls back to
-// the normal default (the Active cohort), which is correct for them. The stale key is
+// SCOPE-PICKER-1: the legacy browser-global cohort key is deliberately NOT adopted into
+// the per-user one: carrying it over would preserve continuity by perpetuating the
+// shared-workstation leak the per-user key exists to close. Everyone's next sign-in
+// falls back to the Active cohort, which is correct for them, and the stale key is
 // removed once so it stops sitting in storage.
-const aspireCohortKey = (userId) => `aspire:activeCohort:${userId}`
 const LEGACY_COHORT_KEY = 'aspire_active_cohort_id'
-// AUTH-UX-1B: remembers which authenticated user was last active in THIS browser so a
-// different account logging in (while the browser is still on a prior route like /connect)
-// is reset to Aggregate once, instead of inheriting the previous user's visible route.
-const LAST_AUTH_USER_KEY = 'aspire:lastAuthenticatedUserId'
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MainApp({ onLogout }) {
@@ -303,18 +295,36 @@ function MainApp({ onLogout }) {
     }
   }, [location.pathname])
 
-  // AUTH-UX-1B: when the AUTHENTICATED IDENTITY changes between sessions in the same browser,
-  // force the new user to Aggregate ONCE - fixes the case where logout/login leaves the browser
-  // on the prior user's route (e.g. /connect, /catalog) so the `/`-only restore above is bypassed.
-  // Same-user refresh: previous id === current id → no redirect (current route preserved).
-  // First user in this browser: no previous id → no redirect (just records the id). The `/`
-  // restore above and the welcome tour are untouched.
+  // Where a SIGN-IN lands.
+  //
+  // Signing out does not change the URL: App renders <LoginNew /> in place, so the
+  // browser sits on whatever route you left. Signing back in therefore re-rendered the
+  // workspace exactly there, which is the defect FRESH-LOGIN-HOME-1 fixes.
+  //
+  // Two triggers, one behavior:
+  //   AUTH-UX-1B  a DIFFERENT account signed in on this browser.
+  //   FRESH-LOGIN-HOME-1  a sign-out happened here, deliberate or an expired session.
+  //     The marker is consumed on read, so it fires once per sign-in and a later
+  //     navigation in the same session is never mistaken for a fresh arrival.
+  //
+  // A REFRESH with a live session matches neither and keeps its route, which is the
+  // "unless I never logged out" half of the requirement.
+  //
+  // THE ONE URL THAT WINS. ?student= is the only query in the staff app that names a
+  // specific record, so it is the only way a route can mean "someone sent me here"
+  // rather than "here is where I happened to be". Every genuinely external deep link
+  // (evaluation and activation emails, the public forms, the portals) has its own route
+  // outside AuthedShell and never renders this screen, so none of them is at risk here.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!user?.id) return
     const prevAuthId = localStorage.getItem(LAST_AUTH_USER_KEY)
-    if (prevAuthId && prevAuthId !== user.id) {
-      navigate('/aggregate', { replace: true })
+    const differentUser = Boolean(prevAuthId) && prevAuthId !== user.id
+    // Consumed unconditionally: a marker left set would fire on some later render.
+    const afterSignOut = consumeSignedOutMarker()
+    if (differentUser || afterSignOut) {
+      const linkedToRecord = new URLSearchParams(location.search).has('student')
+      if (!linkedToRecord) navigate('/aggregate', { replace: true })
     }
     if (prevAuthId !== user.id) {
       localStorage.setItem(LAST_AUTH_USER_KEY, user.id)

@@ -125,7 +125,11 @@ test('the experience choice commits immediately, as the old pill did', () => {
 
 test('the ASPIRE cohort pick is per user, and the leaky global key is not adopted', () => {
   const app = read(APP)
-  assert.match(app, /const aspireCohortKey = \(userId\) => `aspire:activeCohort:\$\{userId\}`/)
+  // FRESH-LOGIN-HOME-1 moved the per-user keys to src/lib/sessionKeys.js so AuthContext
+  // can clear the right ones on sign-out. Same key, same rule, one owner.
+  const keys = read('src/lib/sessionKeys.js')
+  assert.match(keys, /export const aspireCohortKey = \(userId\) => `aspire:activeCohort:\$\{userId\}`/)
+  assert.match(app, /aspireCohortKey/, 'App still reads it')
   // Every read and write goes through the per-user key.
   const code = strip(app)
   assert.doesNotMatch(code, /localStorage\.(get|set)Item\('aspire_active_cohort_id'/)
