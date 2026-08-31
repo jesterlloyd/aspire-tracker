@@ -20,7 +20,7 @@ export default function GreetingMasthead({
   fullName,
   dateLabel,
   contextLabel = null,      // e.g. active cohort name; omitted when null
-  lastVisitLine = null,     // from useLastVisitLabel; omitted when null
+  onCampusCount = 0,        // live occupancy; replaces the retired last-visit line
   showWeather = true,
   milestone = null,         // optional { label, name, when }
   todayItems = null,        // optional [{ key, dot, text }]
@@ -28,7 +28,14 @@ export default function GreetingMasthead({
   headingRef = null,        // lets the host make the greeting the focus-on-navigation target
 }) {
   const { heading, wash } = greetingLine(fullName)
-  const subParts = [dateLabel, contextLabel, lastVisitLine].filter(Boolean)
+  // MASTHEAD-SCENE-3 parity (Owner): the browser-local "last visit" line is
+  // retired across every masthead surface - the same control-room readout the
+  // staff card uses takes its place, omitted at zero.
+  const subParts = [
+    dateLabel,
+    contextLabel,
+    onCampusCount > 0 ? `${onCampusCount} on campus now` : null,
+  ].filter(Boolean)
   // MASTHEAD-SCENE-1: one unified clock drives the time-of-day artwork AND the
   // whole-card night treatment. Both stay gated on showWeather so a weatherless
   // masthead never darkens and never carries scenery.

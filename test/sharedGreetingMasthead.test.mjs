@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import { greetingLine } from '../src/lib/masthead.js'
-import { formatLastVisit } from '../src/lib/lastVisit.js'
+import { readdirSync, statSync } from 'node:fs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -26,13 +26,26 @@ test('the shared masthead reuses the canonical daypart greeting', () => {
 })
 
 // ── last-visit label ──────────────────────────────────────────────────────────
-test('formatLastVisit produces the honest browser-scoped wording', () => {
-  const now = Date.parse('2026-07-18T12:00:00Z')
-  assert.equal(formatLastVisit(null, now), null)
-  assert.equal(formatLastVisit('not-a-date', now), null)
-  assert.match(formatLastVisit('2026-07-18T09:00:00Z', now), /Last visit on this browser: earlier today/)
-  assert.match(formatLastVisit('2026-07-17T09:00:00Z', now), /Last visit on this browser: yesterday/)
-  assert.match(formatLastVisit('2026-07-10T09:00:00Z', now), /Last visit on this browser: Jul 10/)
+// ── the last-visit affordance is retired on EVERY masthead surface ────────────
+test('no masthead surface renders or stamps the last-visit affordance (Owner decision)', () => {
+  // Walk the whole portal family plus both masthead components: the retired
+  // "Last visit on this browser" line, its hook, and its storage keys must not
+  // come back on ANY surface - staff or portal. Parity is structural now.
+  const files = []
+  const walk = (dir) => {
+    for (const name of readdirSync(join(here, '..', dir))) {
+      const rel = `${dir}/${name}`
+      if (statSync(join(here, '..', rel)).isDirectory()) walk(rel)
+      else if (/\.jsx?$/.test(name)) files.push(rel)
+    }
+  }
+  walk('src/portal')
+  files.push('src/components/masthead/GreetingMasthead.jsx', 'src/components/TodayMasthead.jsx')
+  for (const f of files) {
+    assert.doesNotMatch(read(f), /Last visit on this browser|useLastVisitLabel|lastVisitLine|aspire:lastVisit/, `${f} must not carry the retired last-visit affordance`)
+  }
+  // The shared masthead carries the SAME control-room wording the staff card uses.
+  assert.match(read('src/components/masthead/GreetingMasthead.jsx'), /on campus now/)
 })
 
 // ── the shared component reuses the canonical system, no parallel art ─────────
@@ -48,7 +61,7 @@ test('GreetingMasthead reuses greetingLine, WeatherMasthead, and the .mast* card
   // No new weather artwork or parallel greeting system is defined here.
   assert.ok(!/svg|canvas|\.png|weather-icon|new Image/i.test(c), 'must not define new weather art')
   // Role-neutral slots: name, date, context, last-visit all arrive as props.
-  for (const p of ['fullName', 'dateLabel', 'contextLabel', 'lastVisitLine', 'headingRef']) {
+  for (const p of ['fullName', 'dateLabel', 'contextLabel', 'onCampusCount', 'headingRef']) {
     assert.ok(c.includes(p), `must accept ${p} prop`)
   }
 })

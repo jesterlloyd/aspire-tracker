@@ -20,9 +20,9 @@ const drawer = read('src/portal/EditProfileDrawer.jsx')
 const css = read('src/portal/portal.css')
 
 test('the shared greeting masthead replaces the student-only hero', async (t) => {
-  await t.test('reuses the shared GreetingMasthead (greeting + date/cohort/last-visit + weather)', () => {
+  await t.test('reuses the shared GreetingMasthead (greeting + date/cohort + weather)', () => {
     assert.match(portal, /import GreetingMasthead from '\.\.\/components\/masthead\/GreetingMasthead'/)
-    assert.match(portal, /<GreetingMasthead[\s\S]*?fullName=\{fullName\}[\s\S]*?dateLabel=\{dateLabel\}[\s\S]*?contextLabel=\{cohortName\}[\s\S]*?lastVisitLine=\{lastVisitLine\}/)
+    assert.match(portal, /<GreetingMasthead[\s\S]*?fullName=\{fullName\}[\s\S]*?dateLabel=\{dateLabel\}[\s\S]*?contextLabel=\{cohortName\}/)
   })
 
   await t.test('the old navy compass hero (welcome / stage / attention) is fully removed', () => {
@@ -30,9 +30,8 @@ test('the shared greeting masthead replaces the student-only hero', async (t) =>
     assert.doesNotMatch(css, /\.ptl-compass/)
   })
 
-  await t.test('last-visit reuses the shared hook, scoped to this browser + student', () => {
-    assert.match(portal, /import \{ useLastVisitLabel \} from '\.\.\/lib\/lastVisit'/)
-    assert.match(portal, /useLastVisitLabel\(student\?\.id \? `aspire:lastVisit:portal:student:\$\{student\.id\}` : null\)/)
+  await t.test('the last-visit affordance stays retired (Owner decision, all surfaces)', () => {
+    assert.doesNotMatch(portal, /useLastVisitLabel|lastVisitLine|aspire:lastVisit/)
   })
 
   await t.test('the single stage representation is Your progress; the stage action stays on its own card', () => {

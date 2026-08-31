@@ -39,7 +39,6 @@ import { composePortalEmail } from '../lib/outlookCompose'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
-import { useLastVisitLabel } from '../lib/lastVisit'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
 const SUPPORT = 'aspire@cshs.org'
@@ -254,7 +253,6 @@ export default function StudentPortal({
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     [],
   )
-  const lastVisitLine = useLastVisitLabel(student?.id ? `aspire:lastVisit:portal:student:${student.id}` : null)
 
   if (loading) return <HomeSkeleton />
   if (error)   return <div className="ptl-card ptl-error">{error}</div>
@@ -346,7 +344,6 @@ export default function StudentPortal({
         fullName={fullName}
         dateLabel={dateLabel}
         contextLabel={cohortName}
-        lastVisitLine={lastVisitLine}
       />
 
       <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />

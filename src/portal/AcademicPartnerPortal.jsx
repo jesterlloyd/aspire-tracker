@@ -18,7 +18,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
-import { useLastVisitLabel } from '../lib/lastVisit'
 import { FilterKPICard } from '../components/KPIBand'
 import StatusPill from '../components/StatusPill'
 import StatusLegendPopover from '../components/StatusLegendPopover'
@@ -121,7 +120,6 @@ function StudentsView() {
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     [],
   )
-  const lastVisitLine = useLastVisitLabel(userProfile?.id ? `aspire:lastVisit:portal:ap:${userProfile.id}` : null)
 
   const reload = useCallback(() => setReloadKey(k => k + 1), [])
   const reportFailure = useReportPortalFailure()
@@ -234,7 +232,6 @@ function StudentsView() {
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}
         contextLabel={cohortLabel}
-        lastVisitLine={lastVisitLine}
       />
 
       {/* School scope + cohort picker live in the persistent Nightfall header (no page-level context

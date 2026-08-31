@@ -325,7 +325,9 @@ test('house style: no em dash in anything this pass added', () => {
 })
 
 test('ASPIRE is never written as "ASPIRE Program" in the changed files', () => {
-  const changed = execSync('git diff --name-only 762adfb -- "*.js" "*.jsx" "*.sql"', { cwd: root, encoding: 'utf8' })
+  // --diff-filter=d: a file DELETED since the baseline has no content to scan
+  // (reading it would ENOENT, failing the test for the wrong reason).
+  const changed = execSync('git diff --name-only --diff-filter=d 762adfb -- "*.js" "*.jsx" "*.sql"', { cwd: root, encoding: 'utf8' })
     .trim().split('\n').filter(Boolean)
   for (const f of changed) {
     assert.doesNotMatch(read(f), /ASPIRE Program/, `${f} uses "ASPIRE Program"`)

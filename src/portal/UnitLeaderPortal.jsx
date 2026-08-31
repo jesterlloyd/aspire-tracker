@@ -20,7 +20,6 @@ import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
-import { useLastVisitLabel } from '../lib/lastVisit'
 import { buildLiveShiftDisplay } from '../lib/onCampusRows'
 import StatusLegendPopover from '../components/StatusLegendPopover'
 import StudentActionsMenu from './unit/StudentActionsMenu'
@@ -292,7 +291,6 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     [],
   )
-  const lastVisitLine = useLastVisitLabel(profile?.id ? `aspire:lastVisit:portal:ul:${profile.id}` : null)
   const greetingRef = useRef(null)
   useEffect(() => {
     const el = greetingRef.current
@@ -338,7 +336,7 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
         fullName={profile?.full_name}
         dateLabel={dateLabel}
         contextLabel={acceptingCohort?.name || null}
-        lastVisitLine={lastVisitLine}
+        onCampusCount={campusRows.length}
         headingRef={greetingRef}
       />
 

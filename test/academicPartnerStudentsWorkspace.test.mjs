@@ -118,10 +118,10 @@ test('the KPI band is the canonical 8-up grid stepping 8 -> 4 -> 2, like the mai
   assert.match(kpi, /translateY\(-2px\)/)
 })
 
-test('the workspace reuses the shared masthead, last-visit hook, and state primitives', () => {
+test('the workspace reuses the shared masthead and state primitives', () => {
   assert.match(portal, /import GreetingMasthead from '\.\.\/components\/masthead\/GreetingMasthead'/)
-  assert.match(portal, /import \{ useLastVisitLabel \} from '\.\.\/lib\/lastVisit'/)
-  assert.match(portal, /useLastVisitLabel\(userProfile\?\.id \? `aspire:lastVisit:portal:ap:\$\{userProfile\.id\}` : null\)/)
+  // The last-visit affordance is retired across every masthead surface (Owner).
+  assert.doesNotMatch(portal, /useLastVisitLabel|lastVisitLine|aspire:lastVisit/)
   assert.match(portal, /<GreetingMasthead[\s\S]*?fullName=\{userProfile\?\.full_name\}[\s\S]*?contextLabel=\{cohortLabel\}/)
   assert.match(portal, /import \{ LoadingState, EmptyState, ErrorState, DeniedState \} from '\.\/unit\/UnitLeaderChrome'/)
   assert.match(css, /\.ptl-ap-page \.mast \{ margin: 0; \}/)

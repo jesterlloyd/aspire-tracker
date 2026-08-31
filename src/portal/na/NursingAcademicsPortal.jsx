@@ -13,7 +13,6 @@
 import { useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import GreetingMasthead from '../../components/masthead/GreetingMasthead'
-import { useLastVisitLabel } from '../../lib/lastVisit'
 import { EmptyState } from '../unit/UnitLeaderChrome'
 import PortalMessagesWorkspace from '../messages/PortalMessagesWorkspace'
 import AcademicsCalendarView from './AcademicsCalendarView'
@@ -30,9 +29,6 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     [],
   )
-  const lastVisitLine = useLastVisitLabel(
-    userProfile?.id ? `aspire:lastVisit:portal:na:${userProfile.id}` : null,
-  )
 
   return (
     <div className="ptl-page ptl-na-page">
@@ -41,7 +37,6 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}
         contextLabel="Nursing Education & Leadership"
-        lastVisitLine={lastVisitLine}
       />
       <div style={{ display: view === 'calendar' ? 'block' : 'none' }}>
         <AcademicsCalendarView active={view === 'calendar'} />
