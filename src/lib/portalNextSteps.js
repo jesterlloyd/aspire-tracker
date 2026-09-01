@@ -65,7 +65,7 @@ export function deriveNextSteps({ status, hours, evaluations = [], certificate =
       } else if (pendingEvals.length === 0) {
         steps.push({ key: 'certificate', label: 'Certificate processing; watch your email', done: false })
       }
-      steps.push({ key: 'ngrp', label: 'Apply to the New-Graduate RN Residency Program when applications open', done: false })
+      steps.push({ key: 'ngrp', label: 'Apply to the New Graduate RN Residency Program when applications open', done: false })
       break
     case 'Declined':
     case 'Not Proceeding':
