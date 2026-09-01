@@ -52,7 +52,6 @@ export default function GreetingMasthead({
         <div className="mast-left">
           <h1 className="chart-route-title mast-greet" tabIndex={-1} ref={headingRef}>{heading}</h1>
           <div className="mast-sub">{subParts.join(' · ')}</div>
-          {showWeather && <WeatherMasthead />}
           {showWeather && milestone && (
             <div className="mast-mile">
               <div className="mast-mile-label">{milestone.label}</div>
@@ -62,6 +61,7 @@ export default function GreetingMasthead({
           )}
         </div>
         <div className="mast-right">
+          {showWeather && <WeatherMasthead />}
           {!showWeather && milestone && (
             <div className="mast-mile-wrap">
               <span className="mast-vdiv" aria-hidden />

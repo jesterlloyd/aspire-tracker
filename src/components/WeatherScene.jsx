@@ -9,11 +9,15 @@
 // never says "night". Optional + non-blocking: returns null on any failure (silent hide, never throws,
 // never blocks the welcome band). Pure CSS keyframes (prefixed, scoped inline <style>), auto-frozen
 // under prefers-reduced-motion; a scoped media query shrinks the graphic on narrow screens.
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sceneAssets } from '../lib/weatherAssetMap'
 import { useWeatherLocation } from '../lib/weatherLocation'
 import { sceneForTime, sunTimesFrom, artSceneFor, SCENES } from '../lib/mastheadScene'
+import { parseSceneFiles, injectedSceneFiles } from '../lib/mastheadCityScenes'
+import { cityOptions } from '../lib/mastheadCityPreference'
+import { useCityPreference } from './masthead/useCityPreference'
+import CityPickerDialog from './masthead/CityPickerDialog'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -275,6 +279,12 @@ export function useMastheadNight() {
 export function WeatherMasthead() {
   const { data, location } = useWelcomeWeather()
   const [assetsBroken, setAssetsBroken] = useState(false)
+  // MASTHEAD-SCENE-4: the temperature opens the scenery city picker. The hooks
+  // sit ABOVE the data guard so the hook order never changes between the
+  // no-weather and weather renders.
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const { raw: rawCity, choose } = useCityPreference()
+  const cityOpts = useMemo(() => cityOptions(parseSceneFiles(injectedSceneFiles())), [])
   if (!data) return null // silent, non-blocking - the masthead simply has no weather module
 
   const scene = mapScene(data.code, data.wind, data.isDay)
@@ -282,24 +292,50 @@ export function WeatherMasthead() {
   const night = data.isDay === 0
   const manifest = assetsBroken ? null : sceneAssets(scene, night)
   const hiLo = data.hi != null && data.lo != null ? `H ${data.hi}° · L ${data.lo}°` : ''
+  const readout = `${label || 'Weather'}, ${data.temp} degrees${hiLo ? `, high ${data.hi}, low ${data.lo}` : ''}, ${location.label}`
+  // Only offer the picker where there is a real choice to make (more than the
+  // Automatic entry); a single-pack deployment keeps a plain, inert readout.
+  const pickable = cityOpts.length > 1
   return (
     // MASTHEAD-WEATHER-1c: wx-mast-night keys the scene-state night backdrop in
     // index.css (a soft dark radial behind the art so the stars read); the class
     // follows the WEATHER's is_day, not the greeting's time-of-day wash, and the
     // backdrop cross-fades so scene changes never hard-jump.
-    <div className={`wx-mast${night ? ' wx-mast-night' : ''}`} style={{ fontFamily: F }} title={`${location.label} weather`}
-      role="img" aria-label={`${label || 'Weather'}, ${data.temp} degrees${hiLo ? `, high ${data.hi}, low ${data.lo}` : ''}, ${location.label}`}>
+    <div className={`wx-mast${night ? ' wx-mast-night' : ''}`} style={{ fontFamily: F }}>
       <style>{KEYFRAMES}</style>
       <div className="wx-mast-art" aria-hidden>
         {manifest
           ? <AssetScene manifest={manifest} onBroken={() => setAssetsBroken(true)} />
           : <SceneSvg scene={scene} />}
       </div>
-      <div className="wx-mast-caption" aria-hidden>
-        <div className="wx-mast-temp">{data.temp}°</div>
-        {label && <div className="wx-mast-cond">{label}</div>}
-        <div className="wx-mast-hilo">{hiLo || location.label}</div>
-      </div>
+      {pickable ? (
+        <button
+          type="button"
+          className="wx-mast-caption wx-mast-trigger"
+          onClick={() => setPickerOpen(true)}
+          title={`${location.label} weather · choose masthead scenery`}
+          aria-label={`${readout}. Choose masthead scenery.`}
+          aria-haspopup="dialog"
+        >
+          <span className="wx-mast-temp" aria-hidden>{data.temp}°</span>
+          {label && <span className="wx-mast-cond" aria-hidden>{label}</span>}
+          <span className="wx-mast-hilo" aria-hidden>{hiLo || location.label}</span>
+        </button>
+      ) : (
+        <div className="wx-mast-caption" title={`${location.label} weather`} role="img" aria-label={readout}>
+          <div className="wx-mast-temp" aria-hidden>{data.temp}°</div>
+          {label && <div className="wx-mast-cond" aria-hidden>{label}</div>}
+          <div className="wx-mast-hilo" aria-hidden>{hiLo || location.label}</div>
+        </div>
+      )}
+      <CityPickerDialog
+        open={pickerOpen}
+        options={cityOpts}
+        value={rawCity}
+        autoResolvedLabel={location.label}
+        onSelect={choose}
+        onClose={() => setPickerOpen(false)}
+      />
     </div>
   )
 }

@@ -110,10 +110,11 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
     <div className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
       <MastheadScenery />
       <div className="mast-row">
-        {/* MASTHEAD-SCENE-3 hero layout (Owner): the weather caption and the
-            next milestone stack in the LEFT column under the greeting; the
-            animated sun/moon floats in the open sky (CSS-positioned out of
-            the module); View calendar stands alone top-right. */}
+        {/* MASTHEAD-SCENE-4 hero layout (Owner): greeting far LEFT and the
+            temperature far RIGHT as a matched typographic pair, with the
+            condition and H/L beneath the temperature and View calendar below
+            that. The milestone stays under the date line, and the animated
+            sun/moon still floats in the open sky between them. */}
         <div className="mast-left">
           <h1 className="chart-route-title mast-greet">{heading}</h1>
           {/* Control-room date line (Owner: the browser-local "last visit"
@@ -125,7 +126,6 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
             {onCampusCount > 0 ? ` · ${onCampusCount} on campus now` : ''}
             {todayEvents.length > 0 ? ` · ${todayEvents.length} event${todayEvents.length === 1 ? '' : 's'} today` : ''}
           </div>
-          <WeatherMasthead />
           {nextMilestone && (
             <div className="mast-mile">
               <div className="mast-mile-label">Next milestone</div>
@@ -135,6 +135,7 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
           )}
         </div>
         <div className="mast-right">
+          <WeatherMasthead />
           <button type="button" className="mast-cal-btn" onClick={() => navigate('/interviews')}>
             View calendar
           </button>

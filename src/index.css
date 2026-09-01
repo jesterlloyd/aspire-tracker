@@ -2031,12 +2031,49 @@ a.doc-file-link:hover { text-decoration: underline; }
    (absolute at the card level, pointer-events already none) and floats in
    the open sky above the mountains. The frosted caption scrim stayed
    retired; the scene-keyed text glow carries legibility. */
+/* SCENE-4 hero layout (Owner): greeting far left, temperature far right, the
+   two set in ONE display face at the same size and weight so they read as a
+   matched pair across the card; condition and H/L sit under the temperature,
+   View calendar under those. The animated sun/moon still floats free in the
+   sky between the two columns. */
 .mast-scenic .wx-mast { display: block; }
-.mast-scenic .wx-mast-caption { margin-top: 12px; }
-.mast-scenic .mast-mile { margin-top: 12px; }
+.mast-scenic .mast-mile { margin-top: 10px; }
 .mast-scenic .wx-mast-art {
-  position: absolute; top: -10px; left: 55%; margin-top: 0;
+  position: absolute; top: -10px; left: 52%; margin-top: 0;
 }
+.mast-scenic .wx-mast-caption { text-align: right; }
+/* Newsreader carries both halves of the pair: an optical-size display serif
+   whose numerals are built for large settings, sturdy at 600 over artwork (a
+   high-contrast face would thin out against a bright sky). */
+.mast-scenic .mast-greet,
+.mast-scenic .wx-mast-temp {
+  font-family: 'Newsreader', 'Fraunces', Georgia, serif;
+  font-size: 34px; font-weight: 600; line-height: 1.15;
+  letter-spacing: -0.015em; font-variant-numeric: lining-nums;
+  /* Folded in rather than written as its own single-selector greeting rule:
+     the base greeting block must stay the FIRST such selector in this file (a
+     guard in mastheadGreetingWeatherScale reads it by first match). The 1.15
+     box at 34px still clears descenders - a taller line box than 1.25 at 30px. */
+  padding-bottom: 0;
+}
+.mast-scenic .wx-mast-temp { color: var(--chart-ink, #191919); }
+.mast-night .wx-mast-temp { color: #fff; }
+.mast-scenic .wx-mast-cond { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.mast-scenic .wx-mast-hilo { font-size: 11.5px; margin-top: 1px; }
+/* The temperature is a control: it opens the scenery city picker. It must not
+   look like a button (the card is artwork), so it keeps the caption's exact
+   type and only lifts on hover/focus. */
+.mast-scenic .wx-mast-trigger {
+  display: flex; flex-direction: column; align-items: flex-end;
+  background: none; border: none; padding: 2px 6px; margin: -2px -6px;
+  border-radius: 10px; cursor: pointer; font-family: inherit;
+  transition: background-color 0.15s ease;
+}
+.mast-scenic .wx-mast-trigger:hover { background: rgba(255,255,255,0.30); }
+.mast-night .wx-mast-trigger:hover { background: rgba(255,255,255,0.12); }
+.mast-scenic .wx-mast-trigger:focus-visible { outline: 2px solid var(--chart-navy, #1D2567); outline-offset: 2px; }
+.mast-night .wx-mast-trigger:focus-visible { outline-color: #fff; }
+@media (prefers-reduced-motion: reduce) { .mast-scenic .wx-mast-trigger { transition: none; } }
 /* The celestial renders carry their own soft-glow fill, whose rectangular
    image bounds read against the smooth panorama sky. Screen-blending drops
    the dark bounds and keeps the luminous parts - the moon floats free. */
@@ -2080,13 +2117,22 @@ a.doc-file-link:hover { text-decoration: underline; }
    while the skyline owns the lower half unobscured. Scene classes only, so
    weatherless mastheads keep their centered cluster. */
 .mast-scenic .mast-right {
-  align-items: flex-start;
+  flex-direction: column; align-items: flex-end; gap: 10px; margin-left: auto;
+  /* STATIC on purpose: the celestial art is absolutely positioned and must
+     resolve against the ROW (the full card width) so it floats in the open
+     sky between the columns. Left relative, it would anchor inside this
+     narrow column and land on the temperature. */
+  position: static;
 }
 @media (max-width: 760px) {
   /* Narrow: the floating celestial art tucks to the card's top-right corner
-     (the 1c anchor), clear of the stacked left column. */
+     (the 1c anchor), clear of the stacked left column, and the pair drops to
+     a size that still fits beside a wrapped greeting. */
   .mast-scenic .wx-mast-art { left: auto; right: 6px; top: 0; }
-  .mast-scenic .mast-right { align-items: center; }
+  .mast-scenic .mast-right { align-items: flex-start; }
+  .mast-scenic .wx-mast-caption { text-align: left; }
+  .mast-scenic .wx-mast-trigger { align-items: flex-start; }
+  .mast-scenic .mast-greet, .mast-scenic .wx-mast-temp { font-size: 26px; }
 }
 
 /* Dark theme: the daylight scenes mute to slate so the card never glows
@@ -2192,6 +2238,47 @@ a.doc-file-link:hover { text-decoration: underline; }
 .wx-mast-temp { font-size: 27px; font-weight: 700; color: var(--chart-ink, #191919); letter-spacing: -0.01em; line-height: 1.05; }
 .wx-mast-cond { font-size: 13px; font-weight: 600; color: var(--chart-ink, #191919); margin-top: 1px; }
 .wx-mast-hilo { font-size: 11.5px; color: var(--chart-ink-soft, #6b7280); margin-top: 1px; }
+
+/* ── MASTHEAD-SCENE-4: the scenery city picker (opened by the temperature) ──
+   Shared by the staff card and all four portals, so it uses app-level classes
+   only - never portal-scoped ptl-*. Sits above every masthead layer and the
+   portal chrome; the backdrop closes it, as does Escape. */
+.mast-citypick-backdrop {
+  position: fixed; inset: 0; z-index: 1200;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(15, 20, 40, 0.42);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.mast-citypick {
+  width: 100%; max-width: 340px;
+  background: var(--chart-card, #fff);
+  border: 1px solid var(--chart-line, rgba(29,37,103,0.10));
+  border-radius: 14px; padding: 18px 18px 14px;
+  box-shadow: 0 18px 44px rgba(15,20,40,0.28);
+  font-family: 'DM Sans', sans-serif;
+}
+.mast-citypick-title { font-size: 15px; font-weight: 700; color: var(--chart-ink, #0E1428); margin: 0; }
+.mast-citypick-note { font-size: 12px; line-height: 1.45; color: var(--chart-ink-soft, #6b7280); margin: 5px 0 12px; }
+.mast-citypick-list { display: flex; flex-direction: column; gap: 4px; }
+.mast-citypick-opt {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 9px 11px; border-radius: 9px; cursor: pointer; text-align: left;
+  background: none; border: 1px solid transparent;
+  font-family: 'DM Sans', sans-serif; font-size: 13.5px; color: var(--chart-ink, #191919);
+}
+.mast-citypick-opt:hover { background: var(--chart-hover, rgba(29,37,103,0.05)); }
+.mast-citypick-opt:focus-visible { outline: 2px solid var(--chart-navy, #1D2567); outline-offset: 1px; }
+.mast-citypick-opt.is-selected { border-color: var(--chart-navy, #1D2567); font-weight: 600; }
+.mast-citypick-label { flex: 1 1 auto; }
+.mast-citypick-sub { font-size: 11.5px; color: var(--chart-ink-soft, #6b7280); font-weight: 400; }
+.mast-citypick-check { color: var(--chart-navy, #1D2567); font-weight: 700; }
+.mast-citypick-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.mast-citypick-close {
+  background: none; border: none; cursor: pointer; padding: 6px 8px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  color: var(--chart-navy, #1D2567); border-radius: 8px;
+}
+.mast-citypick-close:hover { background: var(--chart-hover, rgba(29,37,103,0.06)); }
 
 /* ── ASPIRE-MASTHEAD: On Campus Now live strip ────────────────────────────── */
 .mast-live { margin: 14px 20px 0; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }

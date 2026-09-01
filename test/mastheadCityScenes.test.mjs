@@ -6,7 +6,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { parseSceneFiles, choosePack, normalizeCityToken, CITY_COORDS } from '../src/lib/mastheadCityScenes.js'
@@ -85,5 +85,41 @@ test('the shipped LA folder is a complete seven-scene pack and nothing is orphan
 test('proximity cities carry sane coordinates', () => {
   for (const [city, [lat, lon]] of Object.entries(CITY_COORDS)) {
     assert.ok(Math.abs(lat) <= 90 && Math.abs(lon) <= 180, `${city} coords out of range`)
+  }
+})
+
+// ── MASTHEAD-SCENE-4: the viewer's chosen scenery city ───────────────────────
+
+test('the city preference is artwork-only, per browser, and defaults to automatic', async () => {
+  const { AUTO, cityOptions, cityDisplayName, CITY_PREF_KEY } = await import('../src/lib/mastheadCityPreference.js')
+  assert.equal(AUTO, 'auto')
+  assert.equal(CITY_PREF_KEY, 'aspire_masthead_city_v1')
+  assert.equal(cityDisplayName('lasvegas'), 'Las Vegas')
+  assert.equal(cityDisplayName('la'), 'Los Angeles')
+  // Automatic always leads; installed packs follow in display order.
+  const packs = parseSceneFiles(['LA/LA_Day.webp', 'Vegas/Vegas_Day.webp'])
+  const opts = cityOptions(packs)
+  assert.equal(opts[0].key, 'auto')
+  assert.deepEqual(opts.slice(1).map(o => o.label), ['Las Vegas', 'Los Angeles'])
+  // The picker changes SCENERY only - it must never touch the weather query.
+  const pref = readFileSync(join(here, '..', 'src/lib/mastheadCityPreference.js'), 'utf8')
+  assert.doesNotMatch(pref, /useWelcomeWeather|open-meteo|weatherLocation/)
+})
+
+test('an explicit city wins over location, and a stale choice falls back to automatic', () => {
+  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
+  // The override only applies when that pack is actually installed; otherwise
+  // choosePack (location matching) runs, never the SVG fallback.
+  assert.match(scenery, /if \(preferredCity && packs\[preferredCity\]\) return \{ city: preferredCity, scenes: packs\[preferredCity\] \}/)
+  assert.match(scenery, /return choosePack\(packs, location\)/)
+})
+
+test('the Vegas pack is installed and complete alongside LA', () => {
+  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+    .map(f => String(f).replace(/\\/g, '/'))
+    .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
+  const packs = parseSceneFiles(files)
+  for (const city of ['la', 'lasvegas']) {
+    for (const scene of SCENES) assert.ok(packs[city]?.[scene], `${city} pack must include ${scene}`)
   }
 })
