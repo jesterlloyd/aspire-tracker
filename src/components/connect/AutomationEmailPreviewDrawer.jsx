@@ -15,7 +15,11 @@ const NAVY = '#1D2567'
 const SENDER = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
 
 // `entry` is a fixture from AUTOMATION_PREVIEW_FIXTURES: { recipientType, variants?, render(variantKey) }.
-export default function AutomationEmailPreviewDrawer({ title, entry, onClose }) {
+// `footNote` overrides the closing line. It defaults to the automation wording every
+// existing caller expects; NGRP-TRANSITION-PREVIEW-1 passes its own because the
+// Transition Form is sent BY HAND, and telling a reader an automation sends it would be
+// the one false sentence on a screen whose entire purpose is showing exactly what goes out.
+export default function AutomationEmailPreviewDrawer({ title, entry, onClose, footNote = null }) {
   const variants = entry?.variants || null
   const [variant, setVariant] = useState(variants?.[0]?.key || null)
 
@@ -122,7 +126,7 @@ export default function AutomationEmailPreviewDrawer({ title, entry, onClose }) 
               />
 
               <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 12, lineHeight: 1.5 }}>
-                This preview uses synthetic data and is rendered with the same template the automation sends.
+                {footNote || 'This preview uses synthetic data and is rendered with the same template the automation sends.'}
               </div>
             </>
           )}

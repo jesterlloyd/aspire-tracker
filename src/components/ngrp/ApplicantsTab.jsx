@@ -17,13 +17,19 @@
 // 5. Raw emails never reach the browser - rows carry has_email only.
 import { useMemo, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Send, GraduationCap, X } from 'lucide-react'
+import { Search, Send, GraduationCap, X, Eye } from 'lucide-react'
 import { writeLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
 import { FilterKPICard } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 import EmptyState from '../EmptyState'
 import NgrpStatusPill from './NgrpStatusPill'
 import ApplicantDrawer from './ApplicantDrawer'
+// NGRP-TRANSITION-PREVIEW-1: the same drawer the Automations and Survey previews use.
+// It lives under connect/ by history rather than by coupling (its own header notes the
+// shared extraction as debt); Evaluation already imports it across in the same way, so
+// this follows the existing practice rather than moving a component three surfaces use.
+import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
+import { NGRP_TRANSITION_PREVIEW } from '../../lib/ngrp/transitionPreviewFixture'
 import {
   FORM_STATES, INTEREST_STATES, ELIGIBILITY_STATES, APPLICATION_STATES,
   INTERVIEW_STATES, KPI_DEFS, SORT_OPTIONS,
@@ -97,6 +103,9 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
   const [selected, setSelected] = useState(() => new Set())
   const [drawerRowId, setDrawerRowId] = useState(null)
   const [sendReview, setSendReview] = useState(null)
+  // NGRP-TRANSITION-PREVIEW-1: renders a synthetic copy of the invitation. No network,
+  // no recipient, no token; it cannot send anything.
+  const [showEmailPreview, setShowEmailPreview] = useState(false)
 
   const sourceCohorts = useMemo(() => payload?.sourceCohorts || [], [payload])
   const allRows = useMemo(
@@ -328,8 +337,26 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
           <div className="ngrp-roster">
             <div className="ngrp-roster-head">
               <span style={{ fontSize: 13, fontWeight: 700 }}>Alumni Roster</span>
-              <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-                {cycle.name} · {sourceCohorts.length} source cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <span style={{ fontSize: 11, color: '#9CA3AF' }}>
+                  {cycle.name} · {sourceCohorts.length} source cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
+                </span>
+                {/* Always available, and deliberately NOT inside the bulk-selection bar:
+                    reading what the email says should not require selecting a real
+                    alumnus first. The preview is synthetic and sends nothing. */}
+                <button
+                  type="button"
+                  onClick={() => setShowEmailPreview(true)}
+                  title="Preview the Transition Form email"
+                  aria-label="Preview the Transition Form email"
+                  style={{
+                    width: 28, height: 28, flexShrink: 0, display: 'inline-flex',
+                    alignItems: 'center', justifyContent: 'center', background: 'none',
+                    border: 'none', borderRadius: 8, cursor: 'pointer', color: '#9ca3af', padding: 0,
+                  }}
+                >
+                  <Eye size={15} />
+                </button>
               </span>
             </div>
             <div className="ngrp-roster-scroll">
@@ -475,6 +502,15 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
             )}
           </div>
         </>
+      )}
+
+      {showEmailPreview && (
+        <AutomationEmailPreviewDrawer
+          title="NGRP Transition Form"
+          entry={NGRP_TRANSITION_PREVIEW}
+          footNote="This preview uses synthetic data and is rendered with the same template the send uses. The Transition Form is sent by hand, never on a schedule."
+          onClose={() => setShowEmailPreview(false)}
+        />
       )}
 
       {sendReview && (

@@ -43,6 +43,10 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const migration    = read('supabase/migrations/20260904000000_ngrp_planning_transition.sql')
 const manageApi    = read('api/ngrp-manage.js')
 const sendApi      = read('api/ngrp-transition-send.js')
+// NGRP-TRANSITION-PREVIEW-1: the email builder moved out of the endpoint into a pure
+// module so the in-app preview renders the SAME template the send uses. The copy and
+// the Pacific close-date formatting live there now; the endpoint keeps the gates.
+const transitionEmail = read('lib/server/email/ngrpTransitionEmail.js')
 const publicApi    = read('api/ngrp-transition.js')
 const appJsx       = read('src/App.jsx')
 const outreachView = read('src/components/connect/OutreachView.jsx')
@@ -625,7 +629,7 @@ test('close: Pacific end-of-day is DST-aware - PST and PDT dates both close at 1
   assert.match(submitFn.slice(0, 3000), /ngrp_pacific_deadline\(cyc\.application_deadline\)/)
   const saveFn = migration.slice(migration.indexOf('FUNCTION public.ngrp_save_draft_tx'))
   assert.match(saveFn.slice(0, 3000), /ngrp_pacific_deadline\(cyc\.application_deadline\)/)
-  assert.match(sendApi, /timeZone: 'America\/Los_Angeles'/)
+  assert.match(transitionEmail, /timeZone: 'America\/Los_Angeles'/)
   assert.match(formPage, /timeZone: 'America\/Los_Angeles'/)
 })
 
@@ -893,7 +897,7 @@ test('send: endpoint gates - no request-body recipients, typed confirmation, cap
   assert.match(sendApi, /\.in\('cohort_id', cohortIds\)/)
   // send copy discipline: the user-facing phrase "Invited to Apply" never appears
   assert.doesNotMatch(sendApi, /Invited to Apply/)
-  assert.match(sendApi, /not an application to the/)
+  assert.match(transitionEmail, /not an application to the/)
 })
 
 test('send: idempotency is DURABLE - fail-closed probe, claim + bind before mail, accepted rows skip, one key per token', () => {
