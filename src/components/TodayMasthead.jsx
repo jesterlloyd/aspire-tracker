@@ -136,12 +136,13 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
         </div>
         <div className="mast-right">
           <WeatherMasthead />
-          <button type="button" className="mast-cal-btn" onClick={() => navigate('/interviews')}>
-            View calendar
-          </button>
         </div>
       </div>
 
+      {/* Owner: View calendar is as dynamic as the day itself - it lives at
+          the end of this row and appears only when there is something on the
+          calendar to go and look at. On a quiet day the card is just the
+          greeting, the readout, and the artwork. */}
       {hasTodayLine && (
         <div className="mast-today-line">
           <span className="mast-today-label">Today in ASPIRE</span>
@@ -157,6 +158,9 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
               {ev.is_milestone ? '★ ' : ''}{ev.title} · {eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}
             </span>
           ))}
+          <button type="button" className="mast-cal-btn mast-cal-btn-inline" onClick={() => navigate('/interviews')}>
+            View calendar
+          </button>
         </div>
       )}
     </div>

@@ -2042,14 +2042,16 @@ a.doc-file-link:hover { text-decoration: underline; }
   position: absolute; top: -10px; left: 52%; margin-top: 0;
 }
 .mast-scenic .wx-mast-caption { text-align: right; }
-/* Newsreader carries both halves of the pair: an optical-size display serif
-   whose numerals are built for large settings, sturdy at 600 over artwork (a
-   high-contrast face would thin out against a bright sky). */
+/* Both halves of the pair use the APP's own face (DM Sans, the global family)
+   rather than a display serif: the serif read as borrowed - a Cambria-ish
+   note against the product's voice - and worst on the temperature, where
+   lining numerals in the UI face look native. Same size and weight on both
+   halves is what makes them read as one pair across the card. */
 .mast-scenic .mast-greet,
 .mast-scenic .wx-mast-temp {
-  font-family: 'Newsreader', 'Fraunces', Georgia, serif;
-  font-size: 34px; font-weight: 600; line-height: 1.15;
-  letter-spacing: -0.015em; font-variant-numeric: lining-nums;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 34px; font-weight: 700; line-height: 1.2;
+  letter-spacing: -0.02em; font-variant-numeric: lining-nums tabular-nums;
   /* Folded in rather than written as its own single-selector greeting rule:
      the base greeting block must stay the FIRST such selector in this file (a
      guard in mastheadGreetingWeatherScale reads it by first match). The 1.15
@@ -2059,7 +2061,14 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic .wx-mast-temp { color: var(--chart-ink, #191919); }
 .mast-night .wx-mast-temp { color: #fff; }
 .mast-scenic .wx-mast-cond { font-size: 13px; font-weight: 600; margin-top: 2px; }
-.mast-scenic .wx-mast-hilo { font-size: 11.5px; margin-top: 1px; }
+/* The H/L sat at the soft-grey token, which disappeared into a bright sky
+   even with the glow behind it. On scenic cards it takes the full ink at a
+   slightly heavier weight; the night card keeps its own white ramp. */
+.mast-scenic .wx-mast-hilo {
+  font-size: 12px; font-weight: 600; margin-top: 2px;
+  color: var(--chart-ink, #191919);
+}
+.mast-night .wx-mast-hilo { color: rgba(255,255,255,0.82); }
 /* The temperature is a control: it opens the scenery city picker. It must not
    look like a button (the card is artwork), so it keeps the caption's exact
    type and only lifts on hover/focus. */
@@ -2116,6 +2125,12 @@ a.doc-file-link:hover { text-decoration: underline; }
    scenery card - caption, milestone, and View calendar sit in the sky band
    while the skyline owns the lower half unobscured. Scene classes only, so
    weatherless mastheads keep their centered cluster. */
+/* SCENE-4b: View calendar rides the end of the Today-in-ASPIRE row, pushed
+   right past the chips, and wraps under them rather than squeezing when the
+   day is busy. */
+.mast-cal-btn-inline { margin-left: auto; }
+@media (max-width: 760px) { .mast-cal-btn-inline { margin-left: 0; } }
+
 .mast-scenic .mast-right {
   flex-direction: column; align-items: flex-end; gap: 10px; margin-left: auto;
   /* STATIC on purpose: the celestial art is absolutely positioned and must

@@ -172,3 +172,26 @@ test('the digest count chip is the approved red-count use only', () => {
   // Warnings stay amber: the error banner is warn-toned, not red.
   assert.match(css, /\.today-error \{[\s\S]*?var\(--chart-warn-bg/)
 })
+
+test('View calendar is as dynamic as the day (SCENE-4b, Owner)', async (t) => {
+  const masthead = read('src/components/TodayMasthead.jsx')
+  await t.test('the button lives in the Today-in-ASPIRE row, so a quiet day has none', () => {
+    // Owner decision: the button appears only when there is something on the
+    // calendar to look at. It must sit INSIDE the hasTodayLine block - not in
+    // the right column, where it rendered unconditionally.
+    const todayBlock = masthead.slice(masthead.indexOf('{hasTodayLine && ('))
+    assert.match(todayBlock, /className="mast-cal-btn mast-cal-btn-inline"/)
+    const rightCol = masthead.slice(masthead.indexOf('<div className="mast-right">'), masthead.indexOf('</div>\n      </div>'))
+    assert.doesNotMatch(rightCol, /mast-cal-btn/, 'the right column holds the weather only')
+    // Pushed to the end of the row, past the chips.
+    assert.match(read('src/index.css'), /\.mast-cal-btn-inline \{ margin-left: auto; \}/)
+  })
+  await t.test('the greeting/temperature pair uses the app face, not a display serif', () => {
+    const css = read('src/index.css')
+    const pair = css.slice(css.indexOf('.mast-scenic .mast-greet,'))
+    assert.match(pair, /font-family: 'DM Sans', sans-serif;/)
+    assert.doesNotMatch(pair, /Newsreader|Georgia/)
+    // The whole app still loads only its two established families.
+    assert.doesNotMatch(read('index.html'), /Newsreader/)
+  })
+})
