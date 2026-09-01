@@ -133,8 +133,9 @@ export default function InternshipCohortList({
           )
         })}
       </div>
-      {/* Cohort administration belongs to the Internship experience only: residency
-          cohorts are created in Planning, not from the header. */}
+      {/* NGRP-PLANNING-2: both experiences now administer cohorts from this footer,
+          in the same words. "New" became "Add" so the two lists read identically -
+          the residency side was never going to say "New Cycle". */}
       {canEdit && (
         <div style={{ display: 'flex', gap: 8, padding: '10px 14px', borderTop: '1px solid #f3f4f6', background: 'var(--sand)' }}>
           {activeCohort && (
@@ -145,7 +146,7 @@ export default function InternshipCohortList({
           )}
           <button type="button" onClick={() => { onNewCohort(); onDone?.() }}
             style={{ flex: 1, padding: '7px', background: '#1D2567', border: 'none', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#fff' }}>
-            + New Cohort
+            + Add Cohort
           </button>
         </div>
       )}

@@ -55,7 +55,7 @@ function StateCard({ heading, body, tone = 'info' }) {
   )
 }
 
-export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canManage, toast, onSelectCycle }) {
+export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canManage, toast, onEditCohort, onAddCohort }) {
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -108,14 +108,16 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
     )
   }
   // NGRP-RELEASE-2: no configured cohorts no longer blocks the workspace -
-  // Planning stays fully usable (that is where the first cohort is created),
+  // Planning stays fully usable (that is where the first cohort is set up),
   // and every OTHER tab explains the requirement honestly.
+  // NGRP-PLANNING-2: the instruction now names the header's Scope picker, which
+  // is where Add Cohort actually lives for both experiences.
   if (cyclesCount === 0 && subTab !== 'planning') {
     return (
       <div className="ngrp-main">
         <StateCard
           heading="No residency cohorts configured"
-          body="NGRP is provisioned but no residency cohort exists yet. Create one in Residency → Planning (no SQL involved) - until then there is nothing to scope this tab to."
+          body="NGRP is provisioned but no residency cohort exists yet. Add one from the Scope picker in the header, or from Planning (no SQL involved) - until then there is nothing to scope this tab to."
         />
       </div>
     )
@@ -152,8 +154,8 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
             cycle={cycle}
             cyclesCount={cyclesCount}
             canManage={canManage}
-            toast={toast}
-            onSelectCycle={onSelectCycle}
+            onEditCohort={onEditCohort}
+            onAddCohort={onAddCohort}
           />
         )}
 

@@ -53,6 +53,11 @@ const applicantsUi = read('src/components/ngrp/ApplicantsTab.jsx')
 const drawerUi     = read('src/components/ngrp/ApplicantDrawer.jsx')
 const workspaceUi  = read('src/components/ngrp/NgrpWorkspace.jsx')
 const planningUi   = read('src/components/ngrp/PlanningTab.jsx')
+// NGRP-PLANNING-2: cohort CONFIGURATION moved out of the Planning tab and into
+// the modal the header's Scope picker opens; Planning kept the operating
+// picture. The contracts below still hold - they just live in these files now.
+const cohortSettingsUi = read('src/components/ngrp/CohortSettingsModal.jsx')
+const createCohortUi   = read('src/components/ngrp/CreateCohortDialog.jsx')
 const formPage     = read('src/pages/NgrpTransitionFormPage.jsx')
 
 // ── Mutable mock db with transactional rpc handlers ─────────────────────────
@@ -477,9 +482,9 @@ test('planning: endpoint order and guards (first cohort, scope guard, status act
   assert.match(manageApi, /must keep at least one active participating unit/)
   // engine-feeding config changes trigger a cycle recalculation.
   assert.match(manageApi, /engineFields = \['qualification_rules', 'application_open_date', 'application_deadline', 'interview_window_start', 'licensure_deadline'\]/)
-  // Planning UI: no auto-open, explicit confirm for form-active statuses.
-  assert.match(planningUi, /Status is an explicit staff action/)
-  assert.match(planningUi, /Opening a residency cohort makes Transition Form sends possible/)
+  // Cohort settings UI: no auto-open, explicit confirm for form-active statuses.
+  assert.match(cohortSettingsUi, /Status is an explicit staff action/)
+  assert.match(cohortSettingsUi, /Opening a residency cohort makes Transition Form sends possible/)
 })
 
 test('planning ATOMICITY: replacement operations run through transactional rpc functions, never delete-then-insert requests', () => {
@@ -584,8 +589,8 @@ test('planning: recalculation is honest - partial failure is reported and never 
   assert.ok(recalcBlock.indexOf('recalculation_failed') < recalcBlock.indexOf("recordNgrpAudit"), 'failure returns before the success audit')
   // recalculateCycle checks every candidate result.
   assert.match(manageApi, /if \(!r\.ok\) failed \+= 1/)
-  // And the Planning UI surfaces the partial-failure report.
-  assert.match(planningUi, /res\.recalc && !res\.recalc\.ok/)
+  // And the cohort settings UI surfaces the partial-failure report.
+  assert.match(cohortSettingsUi, /res\.recalc && !res\.recalc\.ok/)
   // recalculateEligibility itself goes through the atomic eligibility rpc.
   const db = mutableDb({
     ngrp_cycles: { rows: [CYCLE] },
@@ -1345,7 +1350,9 @@ test('regression: launch handoff carries cycle + filters and the dedicated panel
 test('regression: Planning is reachable with zero cohorts; unprovisioned covers missing functions too', () => {
   assert.match(workspaceUi, /cyclesCount === 0 && subTab !== 'planning'/)
   assert.match(planningUi, /Set up your first residency cohort/)
-  assert.match(planningUi, /Create residency cohort/)
+  assert.match(planningUi, /Add residency cohort/)
+  // The create dialog still lands every new cohort in Planning status.
+  assert.match(createCohortUi, /status: 'Planning'/)
   // before 20260904000000 is applied, a missing FUNCTION answers as
   // unprovisioned - honestly - instead of a 500
   assert.ok(isMissingNgrpFunction({ code: 'PGRST202', message: 'Could not find the function' }))

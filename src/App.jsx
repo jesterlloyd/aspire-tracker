@@ -70,6 +70,8 @@ import CatalogPage from './components/catalog/CatalogPage'
 // import keeps the entry at its baseline.
 import NgrpNav from './components/ngrp/NgrpNav'
 import NgrpWorkspace from './components/ngrp/NgrpWorkspace'
+import CohortSettingsModal from './components/ngrp/CohortSettingsModal'
+import CreateCohortDialog from './components/ngrp/CreateCohortDialog'
 import { ngrpTabFromPath, resolveNgrpEntryTab } from './lib/ngrp/ngrpTabs'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from './lib/ngrp/ngrpAccess'
 import {
@@ -184,6 +186,10 @@ function MainApp({ onLogout }) {
   const [activeCohortId,   setActiveCohortId]   = useState(null)
   const [showNewCohort,    setShowNewCohort]    = useState(false)
   const [showManageCohort, setShowManageCohort] = useState(false)
+  // NGRP-PLANNING-2: the residency equivalents. Owned here, beside the ASPIRE
+  // pair, because both the header's Scope footer and the Planning tab open them.
+  const [showNgrpCohortSettings, setShowNgrpCohortSettings] = useState(false)
+  const [showNgrpNewCohort,      setShowNgrpNewCohort]      = useState(false)
   const [confirmLogout,    setConfirmLogout]    = useState(false)
 
   // ── Header: cohort picker state ──────────────────────────────────────────────
@@ -1380,6 +1386,11 @@ function MainApp({ onLogout }) {
             cycles: orderedNgrpCycles,
             activeCycle: activeNgrpCycle,
             onSelectCycle: selectNgrpCycle,
+            /* NGRP-PLANNING-2: the same Edit/Add footer the ASPIRE pane has,
+               gated on ngrp_manage rather than the ASPIRE canEdit. */
+            canManage: canManageNgrp(currentUserProfile),
+            onManageCycle: () => setShowNgrpCohortSettings(true),
+            onNewCycle: () => setShowNgrpNewCohort(true),
           } : null}
         />
 
@@ -1550,7 +1561,8 @@ function MainApp({ onLogout }) {
                 cycle={activeNgrpCycle}
                 canManage={canManageNgrp(currentUserProfile)}
                 toast={toast}
-                onSelectCycle={selectNgrpCycle}
+                onEditCohort={() => setShowNgrpCohortSettings(true)}
+                onAddCohort={() => setShowNgrpNewCohort(true)}
               />
             )}
           </>
@@ -1559,6 +1571,30 @@ function MainApp({ onLogout }) {
 
       {showAddModal && <AddStudentModal cohortId={activeCohortId} onAdd={addStudent} onClose={() => setShowAddModal(false)} />}
       {showNewCohort && <NewCohortModal onSave={createCohort} onClose={() => setShowNewCohort(false)} />}
+      {/* NGRP-PLANNING-2: residency cohort administration, rendered at app level
+          beside the ASPIRE pair. It is opened from the header's Scope footer AND
+          from the Planning tab, so neither of those can own the state. */}
+      {showNgrpCohortSettings && activeNgrpCycle && (
+        <CohortSettingsModal
+          cycle={activeNgrpCycle}
+          canManage={canManageNgrp(currentUserProfile)}
+          toast={toast}
+          onClose={() => setShowNgrpCohortSettings(false)}
+        />
+      )}
+      {showNgrpNewCohort && (
+        <CreateCohortDialog
+          onClose={() => setShowNgrpNewCohort(false)}
+          onCreated={(created) => {
+            setShowNgrpNewCohort(false)
+            toast?.success?.('Residency cohort added', `${created.name} is ready to configure.`)
+            queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] })
+            selectNgrpCycle(created.id)
+            // Straight into its settings: a new cohort is never usable as created.
+            setShowNgrpCohortSettings(true)
+          }}
+        />
+      )}
       {showManageCohort && activeCohort && (
         <ManageCohortModal cohort={activeCohort} onSave={updateCohort} onClose={() => setShowManageCohort(false)} />
       )}

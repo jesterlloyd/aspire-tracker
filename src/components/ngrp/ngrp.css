@@ -241,3 +241,121 @@
   .ngrp-table tbody tr { transition: none; }
   .ngrp-skel { animation: none; }
 }
+
+/* ── NGRP-PLANNING-2: the Planning tab's operating picture ─────────────────── */
+
+/* Two columns where there is room; one below the workspace's own narrow point,
+   which is where the seat list and the funnel stop being readable side by side. */
+/* STRETCHED, not start-aligned. The two cards rarely hold the same amount of
+   content, and a short Seats card floating beside a tall Pipeline left a large
+   hole in the page. Equal heights read as a pair. */
+.ngrp-plan-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+.ngrp-plan-2col > .snap { margin: 0; }
+@media (max-width: 900px) {
+  .ngrp-plan-2col { grid-template-columns: 1fr; gap: 14px; }
+}
+
+/* Timeline. A vertical list, not a horizontal rail: the labels are full
+   sentences ("Licensure deadline") and a horizontal rail would either truncate
+   them or force the card wider than the column it lives in. */
+.ngrp-timeline { list-style: none; margin: 0; padding: 0; }
+.ngrp-tl-step {
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  position: relative;
+  font-family: 'DM Sans', sans-serif;
+}
+.ngrp-tl-step + .ngrp-tl-step { border-top: 1px solid #F3F4F6; }
+/* The connector runs between dots, so it is drawn on every step but the last. */
+.ngrp-tl-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: calc(50% + 5px);
+  height: calc(100% - 10px);
+  border-left: 1.5px dotted #D6DAE4;
+}
+.ngrp-tl-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  justify-self: center;
+  background: #fff; border: 2px solid #D6DAE4;
+}
+.ngrp-tl-label { font-size: 13px; font-weight: 600; color: #374151; }
+.ngrp-tl-date { font-size: 12.5px; color: #6B7785; font-variant-numeric: tabular-nums; }
+.ngrp-tl-when {
+  font-size: 11.5px; color: #8B8F99; text-align: right;
+  min-width: 84px; font-variant-numeric: tabular-nums;
+}
+
+/* Past is settled, not dimmed into unreadability: it still carries the date. */
+.ngrp-tl-past .ngrp-tl-dot { background: #C7CBD6; border-color: #C7CBD6; }
+.ngrp-tl-past .ngrp-tl-label { color: #8B8F99; font-weight: 500; }
+
+/* Happening now, and the one thing coming next, are the two states worth a
+   color. Everything else stays quiet so these two can be found at a glance. */
+.ngrp-tl-today .ngrp-tl-dot { background: #16A34A; border-color: #16A34A; box-shadow: 0 0 0 3px rgba(22,163,74,0.16); }
+.ngrp-tl-today .ngrp-tl-label { color: #166534; font-weight: 700; }
+.ngrp-tl-today .ngrp-tl-when { color: #166534; font-weight: 700; }
+.ngrp-tl-next .ngrp-tl-dot { background: #fff; border-color: #1D2567; }
+.ngrp-tl-next .ngrp-tl-label { color: #1D2567; font-weight: 700; }
+.ngrp-tl-next .ngrp-tl-when { color: #1D2567; font-weight: 700; }
+.ngrp-tl-unset .ngrp-tl-dot { border-style: dashed; }
+.ngrp-tl-unset .ngrp-tl-label,
+.ngrp-tl-unset .ngrp-tl-date { color: #A9AEBB; font-weight: 500; }
+
+/* Funnel. Counts are tabular so the column reads as a column. */
+.ngrp-funnel { display: flex; flex-direction: column; }
+.ngrp-funnel-row {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 8px 0;
+  font-family: 'DM Sans', sans-serif;
+}
+.ngrp-funnel-row + .ngrp-funnel-row { border-top: 1px solid #F3F4F6; }
+.ngrp-funnel-label {
+  display: flex; flex-direction: column; gap: 1px;
+  font-size: 13px; font-weight: 600; color: #374151; min-width: 0;
+}
+.ngrp-funnel-hint { font-size: 11px; font-weight: 500; color: #9CA3AF; }
+.ngrp-funnel-count {
+  margin-left: auto;
+  font-size: 17px; font-weight: 700; color: #1D2567;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Seats. */
+.ngrp-seatbar {
+  height: 8px; border-radius: 999px; background: #EDEEF4; overflow: hidden; margin-top: 6px;
+}
+.ngrp-seatbar-fill { display: block; height: 100%; background: #1D2567; border-radius: 999px; }
+.ngrp-seatbar-over { background: #B3282D; }
+
+.ngrp-seatlist {
+  list-style: none; margin: 12px 0 0; padding: 0;
+  font-family: 'DM Sans', sans-serif; font-size: 12.5px; color: #4A5560;
+}
+.ngrp-seatlist li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 0; border-top: 1px solid #F3F4F6;
+}
+.ngrp-seatlist-cap { margin-left: auto; font-variant-numeric: tabular-nums; color: #6B7785; }
+
+/* Read-only configuration summary. */
+.ngrp-summary {
+  display: grid; grid-template-columns: 160px 1fr; gap: 10px 18px;
+  margin: 0; font-family: 'DM Sans', sans-serif;
+}
+.ngrp-summary dt { font-size: 11.5px; font-weight: 700; color: #8B8F99; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 2px; }
+.ngrp-summary dd { margin: 0; font-size: 13px; color: #374151; line-height: 1.65; }
+@media (max-width: 640px) {
+  .ngrp-summary { grid-template-columns: 1fr; gap: 3px 0; }
+  .ngrp-summary dd { margin-bottom: 10px; }
+}

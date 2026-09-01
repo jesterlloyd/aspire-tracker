@@ -43,6 +43,9 @@ export default function Header({ cohort, search, actions, experience, residencyC
         cohortLabel: residencyCohortLabel(residencyCohort),
         cohortLive: residencyCohortLive(residencyCohort.activeCycle),
         cohortLabelDimmed: residencyLabelIsState(residencyCohort),
+        /* NGRP-PLANNING-2: the residency pane now carries the same Edit/Add footer
+           the ASPIRE pane has. Its handlers and canManage arrive inside
+           `residencyCohort`, so the spread already passes them through. */
         pane: <ResidencyCohortList {...residencyCohort} />,
       }
     : {

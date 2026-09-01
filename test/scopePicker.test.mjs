@@ -156,15 +156,33 @@ test('App no longer owns the cohort dropdown state the picker took over', () => 
 
 // ── 5. Behavior carried across from the retired pickers ──────────────────────
 
-test('cohort administration belongs to the Internship pane only', () => {
-  // Residency cohorts are created in Planning, not from the header, so Edit/New must
-  // not appear beside a residency cohort list.
+// NGRP-PLANNING-2: cohort administration used to belong to the Internship pane
+// ALONE - residency cohorts were configured in a workspace tab instead, so the
+// same act was learned twice depending on which experience you were in. Both
+// panes now end in the same footer, and this test guards the SYMMETRY: same two
+// buttons, same words, each gated on its own experience's permission.
+test('both cohort panes administer cohorts from the same footer, in the same words', () => {
   const intList = read(INT_LIST)
-  assert.match(intList, /\+ New Cohort/)
-  assert.match(intList, /Edit Cohort/)
-  assert.match(intList, /canEdit &&/, 'still permission-gated')
   const resList = read(RES_LIST)
-  assert.doesNotMatch(resList, /New Cohort|Edit Cohort/)
+  for (const [name, code, gate] of [['Internship', intList, /canEdit &&/], ['Residency', resList, /canManage &&/]]) {
+    assert.match(code, /\+ Add Cohort/, `${name} offers Add Cohort`)
+    assert.match(code, /Edit Cohort/, `${name} offers Edit Cohort`)
+    assert.match(code, gate, `${name} footer is permission-gated`)
+  }
+  // "New Cohort" was the ASPIRE-only wording; one vocabulary now.
+  assert.doesNotMatch(intList, /\+ New Cohort/)
+  // Edit needs something selected to edit; Add never does.
+  assert.match(intList, /\{activeCohort && \(/)
+  assert.match(resList, /\{activeCycle && onManageCycle && \(/)
+})
+
+test('the residency footer is the only creation path when no cohorts exist', () => {
+  // A brand-new NGRP instance has an empty list. If the footer rendered only
+  // alongside rows, there would be no way to add the first cohort from the
+  // header at all - the exact dead end the old "created in Planning" copy left.
+  const resList = read(RES_LIST)
+  assert.match(resList, /\{status === 'ready' && cycles\.length === 0 && footer\}/)
+  assert.doesNotMatch(resList, /Cohorts are created in Planning/, 'stale instruction retired')
 })
 
 test('both cohort lists are keyboard-reachable option buttons', () => {
