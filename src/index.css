@@ -2041,8 +2041,15 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic .wx-mast-art {
   /* The left offset comes from the CITY (--scn-sky-x, set by the weather
      module from the resolved pack): each artwork leaves its sky clear in a
-     different place. The fallback matches the default in mastheadCityScenes. */
-  position: absolute; top: -10px; left: var(--scn-sky-x, 52%); margin-top: 0;
+     different place. The fallback matches the default in mastheadCityScenes.
+     The top offset is set against the PULSE, not the resting frame: wx-pulse
+     scales the disc about its own centre, so the render's top edge travels
+     ~8px between phases. Measured against the card at top:-10px it ran 4.6px
+     to 12.6px BELOW the edge - never clipped, and opening a visible gap at
+     rest, which is the seam this removes. At -27px the same travel runs
+     -12.4px to -4.4px, so the disc is always cut by the card edge and the
+     gap can never appear. Re-measure before changing this number. */
+  position: absolute; top: -27px; left: var(--scn-sky-x, 52%); margin-top: 0;
 }
 .mast-scenic .wx-mast-caption { text-align: right; }
 /* Both halves of the pair use the APP's own face (DM Sans, the global family)
@@ -2154,7 +2161,10 @@ a.doc-file-link:hover { text-decoration: underline; }
   /* Narrow: the floating celestial art tucks to the card's top-right corner
      (the 1c anchor), clear of the stacked left column, and the pair drops to
      a size that still fits beside a wrapped greeting. */
-  .mast-scenic .wx-mast-art { left: auto; right: 6px; top: 0; }
+  /* Same pulse reasoning at the narrow anchor, scaled to the smaller art
+     (150px vs 192px, so ~6px of travel instead of ~8): the disc must sit
+     above the card edge at its LOWEST phase, not at its highest. */
+  .mast-scenic .wx-mast-art { left: auto; right: 6px; top: -13px; }
   .mast-scenic .mast-right { align-items: flex-start; }
   .mast-scenic .wx-mast-caption { text-align: left; }
   .mast-scenic .wx-mast-trigger { align-items: flex-start; }
