@@ -3,6 +3,33 @@
    Colors and metrics follow the app tokens (theme.css / chartTokens.css). */
 
 /* Cycle strip (workspace context; the ASPIRE cohort stays in the header) */
+/* NGRP-PAGE-COLUMN-1: the Residency workspace sits in the SAME page column as
+   every other staff tab.
+ *
+ * .ngrp-main was referenced in NgrpWorkspace.jsx from the start but never given a
+ * rule, so the workspace ran the full width of .app-main while the rest of the app
+ * sat 20px inside it. Measured at a 1728px viewport: At a Glance's content started at
+ * 93px and NGRP's at 76px, and NGRP ran 37px wider. Side by side that reads as a
+ * different page, which is what it was.
+ *
+ * 20px is the app's page column, not a number picked to look right. It is the
+ * horizontal margin the At a Glance card system uses (.snap is `margin: 14px 20px`),
+ * and .mast-live-flush exists specifically to CANCEL that inset "for hosts that
+ * already sit inside a padded page column", which is the same 20px named from the
+ * other side.
+ *
+ * Applied here rather than per-card so both Residency tabs, Applicants and Planning,
+ * inherit it, and so a tab added later gets it without remembering to.
+ *
+ * It also happens to close the gap where the floating Keith and Messages launchers
+ * overlapped the content: at 1728 the content's right edge moves from 1654 to 1634
+ * and the launchers begin at 1644. That is a side effect, not the reason; the wider
+ * launcher overlap at narrower breakpoints is a separate, app-wide question. */
+.ngrp-main {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
 .ngrp-cycle-strip {
   display: flex;
   align-items: center;
