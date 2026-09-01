@@ -1,8 +1,9 @@
-// MASTHEAD-SCENE-4: the small city chooser behind the masthead temperature.
+// MASTHEAD-SCENE-4/5: the small city chooser behind the masthead temperature.
 //
-// It changes the ARTWORK only. The weather itself keeps following the viewer's
-// real resolved location, so the reading stays honest wherever the scenery is
-// set - the dialog says so in one line rather than leaving it to be inferred.
+// Choosing a city moves the whole masthead there - artwork, weather, and time
+// of day together - so the card never mixes one city's skyline with another's
+// temperature. The dialog says so in one line rather than leaving it to be
+// inferred, and Automatic returns to the viewer's own location.
 //
 // Deliberately tiny and dependency-free: a centered dialog with a backdrop,
 // Escape to close, focus moved to the current choice on open and returned to
@@ -37,7 +38,7 @@ export default function CityPickerDialog({ open, options, value, autoResolvedLab
       <div className="mast-citypick" role="dialog" aria-modal="true" aria-labelledby="mast-citypick-title" ref={panelRef}>
         <h2 className="mast-citypick-title" id="mast-citypick-title">Masthead scenery</h2>
         <p className="mast-citypick-note">
-          Choose the city shown in the artwork. Your weather still follows your own location.
+          The masthead shows this city&rsquo;s artwork and weather. Automatic follows wherever you are.
         </p>
         <div className="mast-citypick-list" role="radiogroup" aria-labelledby="mast-citypick-title">
           {options.map(opt => {

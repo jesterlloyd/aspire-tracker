@@ -71,7 +71,9 @@ test('one shared resolver: a single module-level promise feeds every consumer', 
   assert.match(loc, /if \(_locPromise\) return _locPromise/)
   // WeatherScene consumes it through the one shared hook + one shared query key.
   assert.match(wx, /import \{ useWeatherLocation \} from '\.\.\/lib\/weatherLocation'/)
-  assert.match(wx, /queryKey: \['welcome_weather', location\.geo \? `geo:\$\{location\.lat\},\$\{location\.lon\}` : 'los_angeles'\]/)
+  // MASTHEAD-SCENE-5: a chosen city keys ahead of the geo/LA branches, so its
+  // reading caches separately and never overwrites the viewer's own entry.
+  assert.match(wx, /queryKey: \['welcome_weather', location\.chosen \? `city:\$\{preferredCity\}` : location\.geo \? `geo:\$\{location\.lat\},\$\{location\.lon\}` : 'los_angeles'\]/)
 })
 
 test('all four surfaces share ONE weather component (no duplicated implementations)', () => {

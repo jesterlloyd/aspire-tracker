@@ -2072,6 +2072,14 @@ a.doc-file-link:hover { text-decoration: underline; }
   color: var(--chart-ink, #191919);
 }
 .mast-night .wx-mast-hilo { color: rgba(255,255,255,0.82); }
+/* Shown only while a city is explicitly chosen: the reading below it is that
+   city's, not the viewer's, and the card should never leave that ambiguous. */
+.wx-mast-city {
+  font-size: 11px; font-weight: 600; margin-top: 3px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--chart-ink-soft, #6b7280);
+}
+.mast-night .wx-mast-city { color: rgba(255,255,255,0.70); }
 /* The temperature is a control: it opens the scenery city picker. It must not
    look like a button (the card is artwork), so it keeps the caption's exact
    type and only lifts on hover/focus. */

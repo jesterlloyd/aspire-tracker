@@ -162,3 +162,34 @@ test('the celestial art sits where each city leaves its sky clear', async () => 
     assert.match(src, /resolvePack\(/, `${name} must resolve the pack through the shared helper`)
   }
 })
+
+test('a chosen city moves the whole masthead: artwork, weather, and time of day', async () => {
+  const { cityWeatherLocation } = await import('../src/lib/mastheadCityPreference.js')
+  const { CITY_COORDS: coords } = await import('../src/lib/mastheadCityScenes.js')
+  // Automatic returns null so the viewer's own resolved location stands.
+  assert.equal(cityWeatherLocation(null, coords), null)
+  assert.equal(cityWeatherLocation('auto', coords), null)
+  // A city with no coordinates cannot move the weather (it would silently
+  // report the wrong place); it keeps the viewer's location instead.
+  assert.equal(cityWeatherLocation('atlantis', coords), null)
+  const ny = cityWeatherLocation('newyork', coords)
+  assert.deepEqual([ny.lat, ny.lon], coords.newyork)
+  assert.equal(ny.label, 'New York')
+  // geo:false keeps a chosen city out of the granted-location cache, which is
+  // reserved for where the person actually is.
+  assert.equal(ny.geo, false)
+  assert.equal(ny.chosen, true)
+
+  const wx = readFileSync(join(here, '..', 'src/components/WeatherScene.jsx'), 'utf8')
+  // The SAME query carries the sun times, so the scene clock follows the city
+  // too - a New York skyline can never sit under Los Angeles's time of day.
+  assert.match(wx, /const location = cityWeatherLocation\(preferredCity, CITY_COORDS\) \|\| resolved/)
+  assert.match(wx, /queryKey: \['welcome_weather', location\.chosen \? `city:\$\{preferredCity\}`/)
+  // The card names a chosen city so its reading is never mistaken for the
+  // viewer's own, and says nothing extra on automatic.
+  assert.match(wx, /\{location\.chosen && <span className="wx-mast-city"/)
+  // The dialog must not still promise that the weather stays local.
+  const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
+  assert.doesNotMatch(dlg, /weather still follows your own location/)
+  assert.match(dlg, /artwork and weather/)
+})

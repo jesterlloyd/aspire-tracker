@@ -14,8 +14,8 @@ import { useQuery } from '@tanstack/react-query'
 import { sceneAssets } from '../lib/weatherAssetMap'
 import { useWeatherLocation } from '../lib/weatherLocation'
 import { sceneForTime, sunTimesFrom, artSceneFor, SCENES } from '../lib/mastheadScene'
-import { parseSceneFiles, injectedSceneFiles, resolvePack, skyPositionFor } from '../lib/mastheadCityScenes'
-import { cityOptions } from '../lib/mastheadCityPreference'
+import { parseSceneFiles, injectedSceneFiles, resolvePack, skyPositionFor, CITY_COORDS } from '../lib/mastheadCityScenes'
+import { cityOptions, cityWeatherLocation } from '../lib/mastheadCityPreference'
 import { useCityPreference } from './masthead/useCityPreference'
 import CityPickerDialog from './masthead/CityPickerDialog'
 
@@ -208,9 +208,15 @@ function AssetScene({ manifest, onBroken }) {
 // React Query dedupes to a single fetch. Same Open-Meteo source/params/mapping as before; only the
 // latitude/longitude (and the label) now come from the browser location when granted, else LA/Cedars.
 export function useWelcomeWeather() {
-  const location = useWeatherLocation()
+  const resolved = useWeatherLocation()
+  // MASTHEAD-SCENE-5: an explicitly chosen city moves the whole masthead -
+  // temperature, condition, AND (through this query's sunrise/sunset) the
+  // scene clock, so the artwork's time of day matches the city on screen.
+  // Automatic leaves the viewer's own resolved location untouched.
+  const { city: preferredCity } = useCityPreference()
+  const location = cityWeatherLocation(preferredCity, CITY_COORDS) || resolved
   const q = useQuery({
-    queryKey: ['welcome_weather', location.geo ? `geo:${location.lat},${location.lon}` : 'los_angeles'],
+    queryKey: ['welcome_weather', location.chosen ? `city:${preferredCity}` : location.geo ? `geo:${location.lat},${location.lon}` : 'los_angeles'],
     queryFn: async () => {
       // MASTHEAD-SCENE-1: sunrise/sunset ride the same daily request (no extra fetch).
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=kmh&timezone=auto&forecast_days=1`
@@ -324,6 +330,7 @@ export function WeatherMasthead() {
           <span className="wx-mast-temp" aria-hidden>{data.temp}°</span>
           {label && <span className="wx-mast-cond" aria-hidden>{label}</span>}
           <span className="wx-mast-hilo" aria-hidden>{hiLo || location.label}</span>
+          {location.chosen && <span className="wx-mast-city" aria-hidden>{location.label}</span>}
         </button>
       ) : (
         <div className="wx-mast-caption" title={`${location.label} weather`} role="img" aria-label={readout}>

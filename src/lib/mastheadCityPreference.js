@@ -1,12 +1,19 @@
-// MASTHEAD-SCENE-4: the viewer's chosen masthead city.
+// MASTHEAD-SCENE-4/5: the viewer's chosen masthead city.
 //
-// A display preference, nothing more: it picks which installed city pack the
-// masthead artwork uses. It never touches the WEATHER, which keeps following
-// the viewer's real resolved location - the temperature on screen is always
-// the temperature where they are, whatever scenery they choose to look at.
+// Choosing a city moves the WHOLE masthead there: its artwork, its weather,
+// and - because the scene clock reads the same query's sunrise and sunset -
+// its time of day. That coherence is the point. An earlier pass changed only
+// the artwork, which left a New York skyline reporting a Los Angeles
+// temperature: one card making two claims that did not match.
+//
+// The greeting deliberately stays local. It addresses the person, not the
+// city, so someone in Los Angeles reading a New York masthead at 5 PM is
+// still greeted "Good afternoon" while the scene shows New York's evening.
+// The card names the chosen city so that reads as a fact about New York
+// rather than a contradiction.
 //
 // Saved per browser (the theme's model), so it needs no schema and no server.
-// 'auto' - the default - falls back to location matching.
+// 'auto' - the default - follows the viewer's own resolved location.
 
 export const CITY_PREF_KEY = 'aspire_masthead_city_v1'
 export const AUTO = 'auto'
@@ -50,6 +57,18 @@ export function cityDisplayName(key) {
  * The options a picker should show: Auto first, then every installed city
  * pack in display order. `packs` is the parsed { city: { scene: url } } map.
  */
+/**
+ * The weather location for a chosen city, or null for automatic. Shaped like
+ * the resolver's own value so it can stand in for it directly; geo:false keeps
+ * it out of the granted-location cache, which stays reserved for the viewer's
+ * real position.
+ */
+export function cityWeatherLocation(city, coords) {
+  if (!city || !coords?.[city]) return null
+  const [lat, lon] = coords[city]
+  return { lat, lon, label: cityDisplayName(city), geo: false, chosen: true }
+}
+
 export function cityOptions(packs) {
   const cities = Object.keys(packs || {})
     .map(key => ({ key, label: cityDisplayName(key) }))
