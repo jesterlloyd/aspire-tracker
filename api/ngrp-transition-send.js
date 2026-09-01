@@ -32,9 +32,13 @@ import { emailBaseUrl } from '../lib/server/appUrl.js'
 // the drift is invisible until a student receives something nobody reviewed.
 import { buildTransitionEmail } from '../lib/server/email/ngrpTransitionEmail.js'
 import {
-  classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate,
+  classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate, parseFormCloseDate,
 } from '../lib/server/ngrpTransition.js'
 import { isMissingNgrpTable, sanitizeStudent } from '../lib/server/ngrpApplicants.js'
+// NGRP-TRANSITION-COPY-2: alumni are addressed at their PERSONAL email. The shared
+// routing canon already says so for exactly this population, and classifySendRecipients
+// only ever passes Completed students, so every recipient here is in that branch.
+import { getStudentBulkEmailRoute } from '../src/lib/studentBulkEmail.js'
 import { openReadiness } from '../lib/server/ngrpPlanning.js'
 
 const CONFIRMATION = 'SEND MESSAGES'
@@ -48,9 +52,6 @@ export const TEMPLATE_KEY = 'ngrp_transition_form_invitation'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 const isRateLimited = err => err?.statusCode === 429 || /rate.?limit/i.test(err?.message || '')
-
-
-
 // Server-side recipient resolution: only Completed students from the cycle's
 // mapped ASPIRE cohorts, addressed at THEIR OWN stored email. The request
 // contributes ids only - never an email address.
@@ -68,7 +69,12 @@ async function resolveSelection(db, cycle, studentIds) {
   return {
     students: (rows.data || []).map(r => ({
       ...sanitizeStudent(r),
-      email: (r.school_email || r.personal_email || '').trim() || null,
+      // SCHOOL-FIRST WAS WRONG HERE. The Transition Form reaches an alumnus weeks or
+      // months after graduation, when a school address is often already closed. The
+      // canon in src/lib/studentBulkEmail.js routes anyone outside Active Rotation to
+      // their personal address and falls back to school only when no personal one is on
+      // file; this endpoint was the one send that contradicted it.
+      email: getStudentBulkEmailRoute(r).email || null,
     })),
     outOfScope: studentIds.filter(id => !found.has(id)),
   }
@@ -117,6 +123,9 @@ export default async function handler(req, res) {
   }
   const resend = body.resend === true
   const preview = body.preview === true
+  const closeParsed = parseFormCloseDate(body.form_close_date, new Date().toISOString())
+  if (closeParsed.error) return res.status(422).json({ error: closeParsed.error })
+  const formCloseAt = closeParsed.closeAt
 
   const db = getServiceDb()
 
@@ -246,6 +255,7 @@ export default async function handler(req, res) {
       candidate: item.candidate || null,
       assignment: item.assignment || null,
       actorProfileId: actorId,
+      formCloseAt,
       generateToken,
       sendEmail,
       buildEmail: buildTransitionEmail,

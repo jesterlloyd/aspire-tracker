@@ -33,6 +33,12 @@ async function authedPost(payload) {
   return { ok: res.ok, status: res.status, body }
 }
 
+const SEND_ERRORS = {
+  confirmation_required: `Type ${CONFIRMATION} exactly to confirm.`,
+  invalid_form_close_date: 'That revise-until date is not a real date. Nothing was sent.',
+  form_close_date_in_past: 'The revise-until date has already passed, so the form would arrive closed. Nothing was sent.',
+}
+
 const SKIP_LABELS = {
   missing_email: 'no email on file',
   not_completed: 'not at Completed status',
@@ -48,6 +54,10 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
     return c && c.kind === LAUNCH_KINDS.NGRP_TRANSITION_FORM ? c : null
   })
   const [resend, setResend] = useState(false)
+  // NGRP-TRANSITION-COPY-2: the optional per-send revise-until date. BLANK IS THE DEFAULT
+  // and means the residency cohort's application deadline, which is what every send used
+  // before this field existed - so leaving it alone changes nothing.
+  const [closeDate, setCloseDate] = useState('')
   const [typed, setTyped] = useState('')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
@@ -86,12 +96,12 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
       cycle_id: ctx.cycleId,
       student_ids: ctx.studentIds || [],
       resend,
+      ...(closeDate ? { form_close_date: closeDate } : {}),
     })
     setSending(false)
     if (!res.ok || !res.body?.success) {
-      setErrorText(res.body?.error === 'confirmation_required'
-        ? `Type ${CONFIRMATION} exactly to confirm.`
-        : 'The send could not start. Nothing was sent - review and try again.')
+      setErrorText(SEND_ERRORS[res.body?.error]
+        || 'The send could not start. Nothing was sent - review and try again.')
       return
     }
     setResult(res.body)
@@ -187,6 +197,24 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
                   <span>Resend to alumni who already have a form (revokes their prior link immediately)</span>
                 </label>
               )}
+              <label style={{ display: 'block', margin: '0 0 12px' }}>
+                <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#4a5560', marginBottom: 5 }}>
+                  Revise submitted forms until
+                </span>
+                <input
+                  type="date"
+                  value={closeDate}
+                  onChange={e => setCloseDate(e.target.value)}
+                  style={{ height: 34, padding: '0 10px', border: '1px solid rgba(29,37,103,0.15)', borderRadius: 8, fontFamily: F, fontSize: 12.5 }}
+                />
+                <span style={{ display: 'block', fontSize: 11.5, color: '#6b7785', marginTop: 5, lineHeight: 1.5 }}>
+                  {closeDate
+                    ? 'This date is stated in the email and enforced by the form, for this send only.'
+                    : preview.cycle?.application_deadline
+                      ? `Leave blank to use the cohort's application deadline (${preview.cycle.application_deadline}).`
+                      : "Leave blank to use the cohort's application deadline."}
+                </span>
+              </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
                 <input
                   value={typed}

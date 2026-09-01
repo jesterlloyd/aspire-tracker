@@ -27,7 +27,7 @@ const FIXTURE = 'src/lib/ngrp/transitionPreviewFixture.js'
 const ENDPOINT = 'api/ngrp-transition-send.js'
 const TAB = 'src/components/ngrp/ApplicantsTab.jsx'
 
-const { NGRP_TRANSITION_PREVIEW } = await import('../src/lib/ngrp/transitionPreviewFixture.js')
+const { NGRP_TRANSITION_PREVIEW, transitionPreviewFor } = await import('../src/lib/ngrp/transitionPreviewFixture.js')
 
 // ── Preview equals sent ──────────────────────────────────────────────────────
 
@@ -59,13 +59,43 @@ test('the fixture URL is obviously fake and carries no token', () => {
   assert.doesNotMatch(html, /\b[a-f0-9]{32,}\b/i, 'nothing token-shaped may render')
 })
 
-test('the fixture invents its recipient: no real person, cohort, or email', () => {
+test('the fixture invents its recipient: no real person or email', () => {
   const src = read(FIXTURE)
   assert.match(src, /Jordan/, 'a synthetic name')
   // It must not read anything live. A preview that queried would be a preview that
   // could show a real alumnus.
   const code = strip(src)
   assert.doesNotMatch(code, /supabase|useQuery|fetch\(/)
+})
+
+// ── The cohort name is live, and that is the point ───────────────────────────
+
+test('the preview renders the caller\'s cohort, so it cannot go stale', () => {
+  // A frozen sample name is how the preview came to show "January 2027" after the
+  // cohort had been renamed: it read as though the template hard-coded a cohort. The
+  // template always interpolated cycle.name; only the fixture froze one.
+  assert.match(transitionPreviewFor('Winter 2027').render().html, /Winter 2027/)
+  assert.match(transitionPreviewFor('Summer 2028').render().html, /Summer 2028/)
+  // strip(): the comment above this line explains the stale name, so the assertion has
+  // to read the CODE, not the prose about it.
+  assert.doesNotMatch(strip(read(FIXTURE)), /January 2027/, 'no cohort name may be frozen here again')
+})
+
+test('no cohort in scope degrades to a generic phrase, never a made-up cohort', () => {
+  for (const empty of [null, undefined, '', '   ']) {
+    const html = transitionPreviewFor(empty).render().html
+    assert.match(html, /the upcoming residency cohort/)
+    assert.doesNotMatch(html, /\b(January|Winter|Summer|Fall|Spring) 20\d\d\b/)
+  }
+})
+
+test('ApplicantsTab passes the live cohort and memoizes it', () => {
+  const tab = read(TAB)
+  assert.match(tab, /transitionPreviewFor\(cycle\?\.name\), \[cycle\?\.name\]\)/)
+  assert.match(tab, /entry=\{transitionPreview\}/)
+  // A fresh object every parent render would re-render the email on every keystroke in
+  // the search box above it.
+  assert.doesNotMatch(tab, /entry=\{transitionPreviewFor\(/)
 })
 
 // ── Both variants render, and the copy actually forks ────────────────────────
@@ -106,7 +136,10 @@ test('the eye sits in the roster header, not behind a selection', () => {
 test('the drawer footer tells the truth about a hand-sent email', () => {
   // The shared drawer says "the automation sends", which is false here: nothing
   // schedules the Transition Form. The override exists for that one sentence.
-  assert.match(read(TAB), /footNote="[^"]*sent by hand, never on a schedule/)
+  const tab = read(TAB)
+  assert.match(tab, /footNote="[^"]*sent by hand, never on a schedule/)
+  // And it no longer claims the whole preview is synthetic, because the cohort is real.
+  assert.match(tab, /footNote="The recipient and link are synthetic; the cohort name is your live one/)
   const drawer = read('src/components/connect/AutomationEmailPreviewDrawer.jsx')
   assert.match(drawer, /footNote = null/, 'defaulted, so existing callers are unchanged')
   assert.match(drawer, /footNote \|\| 'This preview uses synthetic data and is rendered with the same template the automation sends\.'/)

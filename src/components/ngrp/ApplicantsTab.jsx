@@ -29,7 +29,7 @@ import ApplicantDrawer from './ApplicantDrawer'
 // shared extraction as debt); Evaluation already imports it across in the same way, so
 // this follows the existing practice rather than moving a component three surfaces use.
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
-import { NGRP_TRANSITION_PREVIEW } from '../../lib/ngrp/transitionPreviewFixture'
+import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import {
   FORM_STATES, INTEREST_STATES, ELIGIBILITY_STATES, APPLICATION_STATES,
   INTERVIEW_STATES, KPI_DEFS, SORT_OPTIONS,
@@ -188,6 +188,10 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
     if (!ctx) { toast?.error?.('Send unavailable', 'The send could not be prepared in this browser.'); return }
     navigate('/connect/outreach?launch=1')
   }, [cycle, navigate, toast])
+
+  // Stable identity: AutomationEmailPreviewDrawer memoizes its render on `entry`, so a
+  // fresh object each parent render would re-render the email on every keystroke above.
+  const transitionPreview = useMemo(() => transitionPreviewFor(cycle?.name), [cycle?.name])
 
   // Staff review/decision actions (drawer). Each is explicit, audited
   // server-side, and refreshes the roster quietly on success.
@@ -507,8 +511,8 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
       {showEmailPreview && (
         <AutomationEmailPreviewDrawer
           title="NGRP Transition Form"
-          entry={NGRP_TRANSITION_PREVIEW}
-          footNote="This preview uses synthetic data and is rendered with the same template the send uses. The Transition Form is sent by hand, never on a schedule."
+          entry={transitionPreview}
+          footNote="The recipient and link are synthetic; the cohort name is your live one. Rendered with the same template the send uses. The Transition Form is sent by hand, never on a schedule."
           onClose={() => setShowEmailPreview(false)}
         />
       )}
