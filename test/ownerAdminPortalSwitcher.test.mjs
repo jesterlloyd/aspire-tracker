@@ -35,7 +35,7 @@ test('Owner/Admin profile menu exposes the four current portals below Public sit
 test('only active Owner/Admin staff routes enter preview; other staff still return to Main App', () => {
   assert.match(app, /const isOwnerAdmin = userProfile\?\.is_active !== false && \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
   assert.match(app, /if \(isStaff && !isStaffPreviewRoute\)/)
-  assert.match(app, /location\.pathname === '\/portal\/student'/)
+  assert.match(app, /location\.pathname === '\/portal\/student' \|\| location\.pathname\.startsWith\('\/portal\/student\/'\)/)
   assert.match(app, /location\.pathname\.startsWith\('\/portal\/academics\/'\)/)
 })
 
@@ -75,13 +75,16 @@ test('Student preview is selected inside the portal and remains read-only', () =
   assert.match(studentPreview, /verifyOwnerAdminCaller\(req\)/)
   assert.match(studentPreview, /buildStudentPortalSummary\(db, \[studentId\]\)/)
   assert.doesNotMatch(studentPreview, /\.insert\(|\.update\(|\.delete\(|student_edit_shift_log|student_void_shift_log/)
+  assert.match(portalApp, /previewRole === 'student' \? '\/portal\/student\/messages'/)
+  assert.match(portalApp, /Student messaging remains read-only in Owner\/Admin preview/)
+  assert.match(student, /readOnly=\{readOnlyPreview\}/)
 })
 
 test('portal-only identity actions stay suppressed while staff preview uses staff utilities', () => {
   assert.match(portalApp, /function StaffPreviewUtilities/)
   assert.match(portalApp, /<MainMessagesLauncher \/>/)
   assert.match(portalApp, /<FeedbackPanel activeTab=\{section\}/)
-  assert.match(portalApp, /staffPreview \? '\/connect\/messages' : '\/portal\/messages'/)
+  assert.match(portalApp, /previewRole === 'student' \? '\/portal\/student\/messages'/)
   assert.match(portalApp, /staffPreview && key === 'messages'[\s\S]{0,120}navigate\('\/connect\/messages'\)/)
   assert.match(portalApp, /messagesEnabled=\{staffPreview \|\| naMessagesEnabled\}/)
   assert.match(portalApp, /portalUserActionsEnabled=\{!staffPreview\}/)

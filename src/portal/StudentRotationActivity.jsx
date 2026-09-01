@@ -74,11 +74,11 @@ function PlanDialog({ form, preceptors, busy, error, onChange, onSave, onClose }
       <div className="ptl-drawer-backdrop" onMouseDown={onClose} />
       <section className="ptl-plan-modal" role="dialog" aria-modal="true" aria-labelledby="ptl-plan-title">
         <div className="ptl-drawer-head">
-          <h2 className="ptl-drawer-title" id="ptl-plan-title">{form.id ? 'Edit planned shift' : 'Add planned shift'}</h2>
+          <h2 className="ptl-drawer-title" id="ptl-plan-title">{form.id ? 'Edit planned shift' : 'Plan a shift'}</h2>
           <button type="button" className="ptl-icon-btn" onClick={onClose} aria-label="Close planned shift form"><X size={18} /></button>
         </div>
         <div className="ptl-plan-body">
-          <p className="ptl-muted ptl-small">Planning marks your calendar only. Log the actual shift through the Shift Log after you complete it.</p>
+          <p className="ptl-muted ptl-small">Planning adds the shift to Rotation Activity so you can see when you expect to return. It does not log clinical hours. After you complete the shift, submit the actual shift through the Shift Log.</p>
           <label className="ptl-plan-field">Date
             <input type="date" value={form.shift_date} onChange={event => onChange({ ...form, shift_date: event.target.value })} />
           </label>
@@ -278,9 +278,11 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
               <b>School blackout date</b><span>Provided by your clinical placement coordinator</span>
             </div>
           )}
-          {!selectedLog && !selectedPlan && !readOnly && (
-            <button type="button" className="ptl-btn ptl-btn-sm ptl-student-cal-add-btn" onClick={() => openPlan(selectedDate)}>
-              <CalendarPlus size={15} /> Add Shift
+          {!selectedLog && !selectedPlan && (
+            <button type="button" className="ptl-btn ptl-btn-sm ptl-student-cal-add-btn"
+              onClick={() => openPlan(selectedDate)} disabled={readOnly}
+              title={readOnly ? 'Plan Shift is available to signed-in students. Owner/Admin preview is read-only.' : undefined}>
+              <CalendarPlus size={15} /> Plan Shift
             </button>
           )}
         </div>
@@ -323,7 +325,7 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
               if (plan) labelParts.push('planned shift')
               if (blackout) labelParts.push('school blackout date')
               if (dayHolidays.length) labelParts.push(...dayHolidays.map(item => item.name))
-              if (empty && !readOnly) labelParts.push('Add Shift')
+              if (empty) labelParts.push(readOnly ? 'Plan Shift available to students' : 'Plan Shift')
               return (
                 <CanonicalMonthCell
                   key={ymd}
@@ -349,7 +351,7 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
                   {plan && <span className="ptl-student-cal-plan">Shift {firstNameOf(plan.preceptor_name) ? `with ${firstNameOf(plan.preceptor_name)}` : ''}</span>}
                   {dayHolidays.slice(0, 1).map(holiday => <span className="ptl-student-cal-holiday" key={holiday.name}>{holiday.name}</span>)}
                   {blackout && <span className="ptl-student-cal-blackout">School blackout</span>}
-                  {empty && !readOnly && <span className="ptl-student-cal-add"><CalendarPlus size={11} /> Add Shift</span>}
+                  {empty && <span className="ptl-student-cal-add"><CalendarPlus size={11} /> Plan Shift</span>}
                 </CanonicalMonthCell>
               )
             })}

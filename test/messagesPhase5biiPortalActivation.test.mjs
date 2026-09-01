@@ -129,10 +129,11 @@ test('activation: view switching preserves both surfaces', async (t) => {
   })
 
   await t.test('the default view is Home', () => {
-    // The view derives from the URL; any /portal path that is not
-    // /portal/messages, /portal/profile, and /portal/placement resolve from the URL.
-    // resolves to Home.
-    assert.match(app, /const studentView = location\.pathname\.startsWith\('\/portal\/messages'\) \? 'messages'\s*\n\s*: location\.pathname\.startsWith\('\/portal\/profile'\) \? 'profile'\s*\n\s*: location\.pathname\.startsWith\('\/portal\/placement'\)[\s\S]*?\? 'placement'\s*\n\s*: 'home'/)
+    // The view derives from the URL. Regular student Messages and the read-only
+    // Owner/Admin preview Messages route share one explicit predicate; every
+    // other unmatched Student Portal path resolves to Home.
+    assert.match(app, /const studentMessagesPath = location\.pathname\.startsWith\('\/portal\/messages'\)[\s\S]*?startsWith\('\/portal\/student\/messages'\)/)
+    assert.match(app, /const studentView = studentMessagesPath \? 'messages'[\s\S]*?: 'home'/)
   })
 
   await t.test('a hidden Messages view does not poll the inbox or thread', () => {

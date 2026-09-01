@@ -31,7 +31,7 @@ import PortalNav from './PortalNav'
 import StudentPortal from './StudentPortal'
 import MyProfile from './MyProfile'
 import UnitLeaderPortal from './UnitLeaderPortal'
-import { UnitLeaderNav } from './unit/UnitLeaderChrome'
+import { EmptyState, UnitLeaderNav } from './unit/UnitLeaderChrome'
 import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
 // NURSING-ACADEMICS-1: the fourth portal experience (organization-wide, view only).
@@ -129,8 +129,9 @@ function staffPreviewRole(pathname) {
 }
 
 // Owner/Admin preview keeps the portal chrome but uses the staff utilities.
-// Messages therefore opens the real staff inbox, and Feedback keeps the
-// existing staff delivery path. Neither action impersonates a portal user.
+// The student Messages tab stays inside the preview with an honest read-only
+// state; the shared launcher opens the real staff inbox. Neither action
+// impersonates a portal user.
 function StaffPreviewUtilities({ portalName, section }) {
   return (
     <>
@@ -162,7 +163,9 @@ export default function PortalApp() {
   const [previewStudentId, setPreviewStudentId] = useState(null)
 
   // STUDENT-PORTAL-PROFILE-1: /portal/profile is the My Profile destination.
-  const studentView = location.pathname.startsWith('/portal/messages') ? 'messages'
+  const studentMessagesPath = location.pathname.startsWith('/portal/messages')
+    || (previewRole === 'student' && location.pathname.startsWith('/portal/student/messages'))
+  const studentView = studentMessagesPath ? 'messages'
     : location.pathname.startsWith('/portal/profile') ? 'profile'
     : location.pathname.startsWith('/portal/placement') || location.pathname.startsWith('/portal/student/placement') ? 'placement'
     : 'home'
@@ -277,6 +280,7 @@ export default function PortalApp() {
     else refreshUserProfile?.()
   }, [isStudent, refreshUserProfile])
   const onMessagesRoute = location.pathname.startsWith('/portal/messages')
+    || location.pathname.startsWith('/portal/student/messages')
     || location.pathname.startsWith('/portal/ap/messages')
     || location.pathname.startsWith('/portal/academics/messages')
   const unread = usePortalUnreadCount({
@@ -286,7 +290,10 @@ export default function PortalApp() {
 
   const goHome = useCallback(() => navigate(staffPreview ? '/portal/student' : '/portal'), [navigate, staffPreview])
   const goPlacement = useCallback(() => navigate(staffPreview ? '/portal/student/placement' : '/portal/placement'), [navigate, staffPreview])
-  const goMessages = useCallback(() => navigate(staffPreview ? '/connect/messages' : '/portal/messages'), [navigate, staffPreview])
+  const goMessages = useCallback(() => navigate(
+    previewRole === 'student' ? '/portal/student/messages'
+      : staffPreview ? '/connect/messages' : '/portal/messages',
+  ), [navigate, previewRole, staffPreview])
   const goProfile = useCallback(() => navigate('/portal/profile'), [navigate])
   const openThread = useCallback((id) => navigate(`/portal/messages/${id}`), [navigate])
   const backToList = useCallback(() => navigate('/portal/messages'), [navigate])
@@ -546,6 +553,12 @@ export default function PortalApp() {
             onBackToList={backToList}
           />
         </div>}
+        {staffPreview && studentView === 'messages' && (
+          <EmptyState
+            title="Messages"
+            detail="Student messaging remains read-only in Owner/Admin preview because the preview does not impersonate the selected student. Use the Messages launcher to open the staff inbox."
+          />
+        )}
         {/* STUDENT-PORTAL-PROFILE-1: mounted only while visited (it fetches on
             activation), unlike the always-mounted Home/Messages pair. */}
         {!staffPreview && studentView === 'profile' && <MyProfile active />}

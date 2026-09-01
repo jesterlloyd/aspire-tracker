@@ -1740,7 +1740,7 @@ function PortalRoute() {
     PORTAL_STAFF_ROLES.includes(userProfile.role)
   const isOwnerAdmin = userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role)
   const isStaffPreviewRoute = isOwnerAdmin && (
-    location.pathname === '/portal/student' ||
+    location.pathname === '/portal/student' || location.pathname.startsWith('/portal/student/') ||
     location.pathname.startsWith('/portal/unit/') ||
     location.pathname.startsWith('/portal/ap/') ||
     location.pathname.startsWith('/portal/academics/')
