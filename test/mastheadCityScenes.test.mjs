@@ -114,12 +114,23 @@ test('an explicit city wins over location, and a stale choice falls back to auto
   assert.match(scenery, /return choosePack\(packs, location\)/)
 })
 
-test('the Vegas pack is installed and complete alongside LA', () => {
+test('every installed city pack carries all seven scenes', () => {
+  // Swept rather than enumerated, so a new city folder is checked the moment
+  // it is dropped in - a pack missing a scene falls back to the SVG art for
+  // that state alone, which is a silent visual inconsistency worth catching.
   const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
   const packs = parseSceneFiles(files)
-  for (const city of ['la', 'lasvegas']) {
+  const cities = Object.keys(packs)
+  assert.ok(cities.includes('la') && cities.includes('lasvegas') && cities.includes('newyork'),
+    `expected the shipped packs; got ${cities.join(', ')}`)
+  for (const city of cities) {
     for (const scene of SCENES) assert.ok(packs[city]?.[scene], `${city} pack must include ${scene}`)
+  }
+  // Every city with a pack needs coordinates, or location matching can never
+  // reach it and the pack is picker-only.
+  for (const city of cities) {
+    assert.ok(CITY_COORDS[city], `${city} pack needs CITY_COORDS for location matching`)
   }
 })

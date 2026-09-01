@@ -20,7 +20,7 @@
 const SCENE_WORDS = {
   dawn: 'dawn', sunrise: 'dawn', earlymorning: 'dawn',
   morning: 'morning',
-  day: 'day', noon: 'day', midday: 'day',
+  day: 'day', daytime: 'day', noon: 'day', midday: 'day',
   goldenhour: 'goldenhour', golden: 'goldenhour',
   sunset: 'sunset', dusk: 'sunset', evening: 'sunset',
   night: 'night',
