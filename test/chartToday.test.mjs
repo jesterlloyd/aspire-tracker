@@ -151,9 +151,15 @@ test('ledger group rows are real buttons', () => {
 })
 
 test('responsive reflow of the operational surfaces', async (t) => {
+  await t.test('At a Glance uses the document scroll on desktop', () => {
+    const overviewRule = css.match(/\.overview-tab \{[^}]*\}/)?.[0] || ''
+    assert.match(overviewRule, /overflow-x: clip; overflow-y: visible;/)
+    assert.doesNotMatch(overviewRule, /height:\s*calc\(|overflow-y:\s*auto/)
+    assert.match(css, /\.aggregate-sticky-header \{[\s\S]*?position: sticky; top: var\(--app-chrome-height\);/)
+  })
   await t.test('panels and headers stack below 900px', () => {
     assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.aggregate-panel-headers, \.ov-panels-body \{ grid-template-columns: 1fr; \}/)
-    assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.overview-tab \{ height: auto; overflow-y: visible; \}/)
+    assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.aggregate-sticky-header \{ position: static; \}/)
   })
   await t.test('the KPI grid reflows (column count lives in CSS, not inline)', () => {
     assert.match(overview, /className="glance-kpis snap-kpis"/)

@@ -1707,18 +1707,16 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* ================================================================
    OVERVIEW TAB
    ================================================================ */
-/* Aggregate tab - sticky header + scrollable body layout */
+/* At a Glance follows the document scroll. Keeping this wrapper out of the scroll-container
+   chain prevents a second desktop scrollbar inside the centered content column. */
 .overview-tab {
   display: flex; flex-direction: column;
-  height: calc(100vh - 138px);  /* header 64px + tab strip ~54px + app-main padding-top 20px */
-  /* ASPIRE-WELCOME-AGGREGATE-3A: the tab is now the single natural scroll container so the whole
-     Aggregate page (welcome band → KPIs → panels) scrolls as one, with the header pinned via
-     position:sticky (below) instead of a frozen flex row. */
-  overflow-y: auto; overflow-x: hidden;
+  overflow-x: clip; overflow-y: visible;
 }
 .aggregate-sticky-header {
   flex-shrink: 0;
-  position: sticky; top: 0;   /* pins the KPI + Placement panel headers as the page scrolls */
+  /* The document now owns scrolling, so pin the ledger headers below the sticky app chrome. */
+  position: sticky; top: var(--app-chrome-height);
   background: var(--sand);
   z-index: 10;
   border-bottom: 1px solid #e5e7eb;
@@ -2443,7 +2441,6 @@ button.ov-group-row {
 /* ── ASPIRE-CHART: the operational surfaces finally reflow ────────────────── */
 .glance-kpis { grid-template-columns: repeat(5, 1fr); }
 @media (max-width: 900px) {
-  .overview-tab { height: auto; overflow-y: visible; }
   .aggregate-sticky-header { position: static; }
   .aggregate-panel-headers, .ov-panels-body { grid-template-columns: 1fr; }
   .aggregate-panel-hdr { border-radius: 14px 14px 0 0; }
