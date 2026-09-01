@@ -2084,7 +2084,11 @@ a.doc-file-link:hover { text-decoration: underline; }
 .wx-mast-city {
   font-size: 11px; font-weight: 600; margin-top: 3px;
   letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--chart-ink-soft, #6b7280);
+  /* Full ink, not the soft token: over a bright scene (San Francisco's
+     midday bay) the soft grey washed out, and this label is the one line
+     that says the reading is not the viewer's own - it has to be legible.
+     Small caps at 11px keep it subordinate to the temperature regardless. */
+  color: var(--chart-ink, #191919);
 }
 .mast-night .wx-mast-city { color: rgba(255,255,255,0.70); }
 /* The temperature is a control: it opens the scenery city picker. It must not

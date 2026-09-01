@@ -32,7 +32,7 @@ const CITY_ALIASES = {
   la: 'la', losangeles: 'la',
   lasvegas: 'lasvegas', vegas: 'lasvegas',
   newyork: 'newyork', newyorkcity: 'newyork', nyc: 'newyork',
-  sanfrancisco: 'sanfrancisco', sf: 'sanfrancisco',
+  sanfrancisco: 'sanfrancisco', sf: 'sanfrancisco', sfo: 'sanfrancisco',
   washington: 'washington', washingtondc: 'washington', dc: 'washington',
   saltlakecity: 'saltlakecity', slc: 'saltlakecity',
 }
@@ -181,6 +181,10 @@ export function resolvePack(packs, preferredCity, location) {
  */
 export const CITY_SKY_X = {
   newyork: '33%',
+  // San Francisco puts downtown center-right (the moon sat on the Salesforce
+  // and Transamerica towers at the default) and leaves the sky over the bay
+  // and the bridge span open, between the greeting and the skyline.
+  sanfrancisco: '30%',
 }
 export const DEFAULT_SKY_X = '52%'
 
