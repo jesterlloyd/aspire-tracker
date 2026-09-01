@@ -100,11 +100,39 @@
   font-family: 'DM Sans', sans-serif;
 }
 /* The scroll container is what makes the sticky header work during vertical
-   scrolling: thead sticks to ITS top edge. */
+   scrolling: thead sticks to ITS top edge.
+ *
+ * NGRP-ROSTER-SCROLL-1: `contain: paint` is load-bearing, not a micro-optimization.
+ *
+ * WITHOUT IT, the rows extended the DOCUMENT's scrollable area even though this box
+ * clipped them visually. Measured on a 1728x1117 viewport with 28 alumni: every
+ * visible thing ended at 1142px, yet the page scrolled 1197px further, into a
+ * viewport containing nothing at all. Scrolling "lost the screen" with no way to tell
+ * what you were looking at, because there was nothing to look at.
+ *
+ * The page scroll almost exactly equalled this scroller's hidden overflow
+ * (1197 vs 1209), which is the tell: overflow:auto was clipping the PAINT but the
+ * descendants were still counted in the root scrolling box. `contain: paint` is what
+ * declares that nothing inside can affect layout outside, and it takes the page from
+ * 1197px of phantom scroll to 53px of real content. Ruled out first, each measured:
+ * the sticky thead, the table's min-width, the row transitions, nested 100vh
+ * wrappers, and overflow:clip (which does NOT fix it).
+ *
+ * `contain: strict` also works and goes to 0, but it adds SIZE containment, which
+ * would collapse this box to nothing when its height is content-derived. Paint is the
+ * weakest containment that fixes it, so it is the one used.
+ *
+ * VERIFIED SAFE FOR THE STICKY HEADER: paint containment makes this a containing
+ * block and a stacking context, and the thead still pins to the scroller's top edge
+ * (measured offset 0 both before and after scrolling the rows 600px). Anything that
+ * must escape this box, such as a tooltip, already portals to body for exactly this
+ * class of reason; do not introduce a position:fixed descendant here expecting it to
+ * escape, because paint containment will keep it inside. */
 .ngrp-roster-scroll {
   max-height: calc(100vh - 330px);
   min-height: 220px;
   overflow: auto;
+  contain: paint;
 }
 .ngrp-table {
   width: 100%;
