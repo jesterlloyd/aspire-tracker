@@ -41,14 +41,14 @@ test('no em dash anywhere in the changed portal files', () => {
 
 // ── PortalNav ────────────────────────────────────────────────────────────────
 
-test('PortalNav carries the Home and Messages tour anchors', () => {
+test('PortalNav carries the Home, My Placement, and Messages tour anchors', () => {
   assert.match(navCode, /className=\{`ptl-nav-item\$\{view === 'home' \? ' ptl-nav-item-active' : ''\}`\}[\s\S]{0,120}data-tour="portal-nav-home"/)
+  assert.match(navCode, /data-tour="portal-nav-placement"/)
   assert.match(navCode, /className=\{`ptl-nav-item\$\{view === 'messages' \? ' ptl-nav-item-active' : ''\}`\}[\s\S]{0,160}data-tour="portal-nav-messages"/)
 })
 
-test('PortalNav carries portal-nav-action on both the <a> and <button> stage-action variants', () => {
-  assert.match(navCode, /<a className="ptl-nav-item ptl-nav-action" href=\{action\.href\} data-tour="portal-nav-action">/)
-  assert.match(navCode, /<button type="button" className="ptl-nav-item ptl-nav-action" data-tour="portal-nav-action" onClick=\{action\.onActivate\}>/)
+test('PortalNav contains only the approved primary destinations and Refresh', () => {
+  assert.doesNotMatch(navCode, /portal-nav-action|portal-nav-profile/)
 })
 
 // ── UnitLeaderChrome ─────────────────────────────────────────────────────────

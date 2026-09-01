@@ -51,7 +51,7 @@ import {
   hasActiveRoleGrant,
   getActiveStudentLinks,
 } from '../lib/portalAuth.js'
-import { applyEditAcceptanceDownstream, recordHoursThresholdCorrection } from '../lib/studentShiftEffects.js'
+import { recordHoursThresholdCorrection } from '../lib/studentShiftEffects.js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     if (!(await editReady(db))) {
       return res.status(503).json({
         error: 'migration_required',
-        detail: 'Apply 20260819000000_student_shift_log_self_service before managing shift logs.',
+        detail: 'Apply 20260901010000_student_rotation_activity before managing reviewed shift logs.',
       })
     }
 
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
     // outside the allowlist is indistinguishable from a missing one.
     const { data: shiftRow, error: shiftErr } = await db
       .from('student_shift_logs')
-      .select('id, student_id, unit_name')
+      .select('id, student_id, unit_name, status')
       .eq('id', shiftId)
       .maybeSingle()
     if (shiftErr) return res.status(500).json({ error: 'internal_error' })
@@ -138,7 +138,13 @@ export default async function handler(req, res) {
     if (!verdict || verdict.reason === 'not_found') return res.status(404).json({ error: 'not_found' })
 
     if (action === 'eligibility') {
-      return res.status(200).json({ success: true, eligibility: verdict })
+      return res.status(200).json({
+        success: true,
+        eligibility: {
+          ...verdict,
+          voidable: ['Auto-Accepted', 'Pending Review'].includes(shiftRow.status),
+        },
+      })
     }
     if (verdict.editable !== true) {
       return res.status(409).json({ error: 'not_editable', reason: verdict.reason })
@@ -155,6 +161,12 @@ export default async function handler(req, res) {
 
     // ── 4a. WITHDRAW ────────────────────────────────────────────────────────
     if (action === 'void') {
+      // A reviewed entry may be corrected, but withdrawing it would erase the
+      // current staff decision from hour totals without a fresh review. Keep
+      // withdrawal on the original unreviewed statuses only.
+      if (!['Auto-Accepted', 'Pending Review'].includes(shiftRow.status)) {
+        return res.status(409).json({ error: 'not_editable', reason: 'staff_decided' })
+      }
       const { data: result, error } = await db.rpc('student_void_shift_log', {
         p_shift_id: shiftId,
         p_student_id: studentId,
@@ -195,7 +207,7 @@ export default async function handler(req, res) {
     const learningHighlight = String(body.learning_highlight || '').slice(0, 2000)
     const supportNeeded = String(body.support_needed || '').slice(0, 2000)
 
-    const { data: result, error } = await db.rpc('student_edit_shift_log', {
+    const { data: result, error } = await db.rpc('student_revise_shift_log', {
       p_shift_id: shiftId,
       p_student_id: studentId,
       p_actor_profile_id: profileId,
@@ -214,8 +226,8 @@ export default async function handler(req, res) {
     })
     if (error) return mapRpcError(error, res)
 
-    // ── 5. Downstream parity, both directions (best-effort, never blocking) ─
-    await applyEditAcceptanceDownstream(db, student, { unit_name: unitName }, result)
+    // ── 5. If approved hours fell below a prior threshold, append the same
+    //       non-destructive correction event used by the existing edit path. ─
     await recordHoursThresholdCorrection(db, student, result)
 
     return res.status(200).json({ success: true, result })
@@ -230,6 +242,9 @@ export default async function handler(req, res) {
 function mapRpcError(error, res) {
   const code = error?.code
   const msg = String(error?.message || '')
+  if (['PGRST202', '42P01'].includes(code)) {
+    return res.status(503).json({ error: 'migration_required' })
+  }
   if (code === 'P0002') return res.status(404).json({ error: 'not_found' })
   if (code === 'P0001') {
     const reason = (msg.split('shift_not_editable:')[1] || '').trim() || 'not_editable'

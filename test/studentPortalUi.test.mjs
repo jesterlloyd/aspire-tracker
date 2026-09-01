@@ -34,11 +34,9 @@ test('the shared greeting masthead replaces the student-only hero', async (t) =>
     assert.doesNotMatch(portal, /useLastVisitLabel|lastVisitLine|aspire:lastVisit/)
   })
 
-  await t.test('the single stage representation is Your progress; the stage action stays on its own card', () => {
-    // The timeline (Your progress card) is the one stage representation; the redundant hero
-    // stage/next block and duplicated CTA are gone. The action lives on the Hours / Badge cards.
+  await t.test('the single stage representation is ASPIRE Status', () => {
     assert.match(portal, /derivePortalTimeline\(\{ status: student\.status/)
-    assert.match(portal, />Your progress<\/h2>/)
+    assert.match(portal, />ASPIRE Status<\/h2>/)
     const logShift = portal.match(/Log a Shift/g) || []
     assert.equal(logShift.length, 1, 'exactly one Log a Shift entry point (the Hours card)')
   })
@@ -66,9 +64,9 @@ test('actions and destinations', async (t) => {
 })
 
 test('student-facing vocabulary', async (t) => {
-  await t.test('Surveys, Badge & Certificate, and Support replace the staff terms', () => {
+  await t.test('Surveys, Badge and Certificates, and Support replace the staff terms', () => {
     assert.match(portal, />Surveys<\/h2>/)
-    assert.match(portal, />Badge &amp; Certificate<\/h2>/)
+    assert.match(portal, />Badge and Certificates<\/h2>/)
     assert.match(portal, />Support<\/h2>/)
     assert.doesNotMatch(portal, />Evaluations<\/h2>|>Documents<\/h2>|>Need help\?<\/h2>/)
   })

@@ -42,16 +42,17 @@ test('desktop workspace and 12-column grid', async (t) => {
     }
   })
 
-  await t.test('the refined rows: Placement 7 / Progress 5, Hours full width (12), then 4/4/4', () => {
+  await t.test('Home leads with Rotation Activity and Rotation Progress; My Placement owns the remaining cards', () => {
     // The Home Messages card is gone (no latest-message strip).
     assert.doesNotMatch(portal, /ptl-latest-title/)
-    // Order: Placement, then Your progress, then the full-width Hours surface, then Surveys.
-    const iPlacement = portal.indexOf('>Placement</h2>')
-    const iProgress = portal.indexOf('>Your progress</h2>')
+    const iCalendar = portal.indexOf('<StudentRotationActivity')
     const iHours = portal.indexOf('id="ptl-hours"')
+    const iPlacement = portal.indexOf('>Placement Progress</h2>')
+    const iProgress = portal.indexOf('>ASPIRE Status</h2>')
     const iSurveys = portal.indexOf('id="ptl-surveys"')
-    assert.ok(iPlacement > 0 && iPlacement < iProgress && iProgress < iHours && iHours < iSurveys,
-      'card order is Placement, Your progress, Hours, Surveys')
+    assert.ok(iCalendar > 0 && iCalendar < iHours, 'Home order is Rotation Activity, Rotation Progress')
+    assert.ok(iPlacement > 0 && iPlacement < iProgress && iProgress < iSurveys,
+      'My Placement order is Placement Progress, ASPIRE Status, Surveys')
     // Spans: Placement col-7, Progress col-5, Hours full-width col-12.
     assert.match(portal, /ptl-col-7\$\{placedMoment/)                          // Placement card is col-7
     assert.match(portal, /<section className="ptl-card ptl-section ptl-col-5">/) // Your progress card is col-5
@@ -96,8 +97,8 @@ test('the home replaces duplicated surfaces', async (t) => {
     assert.equal(noRecord, 1, 'one no-record fallback contact control')
   })
 
-  await t.test('hours and shifts are ONE surface with the authoritative total first', () => {
-    assert.match(portal, /Hours &amp; shifts/)
+  await t.test('Rotation Progress is the one hours and log surface with the authoritative total first', () => {
+    assert.match(portal, /Rotation Progress/)
     assert.doesNotMatch(portal, />Clinical hours<\/h2>|>Shift logs<\/h2>/)
     assert.match(portal, /Approved hours/)
   })
@@ -164,8 +165,8 @@ test('accessibility and hygiene', async (t) => {
     assert.match(portal, /aria-valuetext=/)
   })
 
-  await t.test('the home has a page-level heading', () => {
-    assert.match(portal, /<h1 className="ptl-visually-hidden">Student Portal home<\/h1>/)
+  await t.test('Home and My Placement share a route-aware page-level heading', () => {
+    assert.match(portal, /<h1 className="ptl-visually-hidden">\{view === 'placement' \? 'My Placement' : 'Student Portal home'\}<\/h1>/)
   })
 
   await t.test('Contact ASPIRE still routes through the centralized compose helper', () => {

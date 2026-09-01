@@ -19,7 +19,7 @@
 // Student-facing vocabulary (display only; API fields are untouched):
 //   Evaluations -> Surveys, Documents -> Badge & Certificate,
 //   Need help? -> Support.
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import {
   MapPin, Clock, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail,
   ChevronRight, Copy, Download, Award, IdCard,
@@ -27,7 +27,6 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { derivePortalTimeline, deriveClinicalHours } from '../lib/portalProgress'
-import { deriveCompassAction } from '../lib/portalHome'
 import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocuments'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
@@ -43,6 +42,7 @@ import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
 const SUPPORT = 'aspire@cshs.org'
 const CONTACT_SUBJECT = 'ASPIRE Student Support Request'
+const StudentRotationActivity = lazy(() => import('./StudentRotationActivity'))
 
 const EVAL_STATUS_LABELS = {
   draft: 'Not yet sent', sent: 'Waiting for you', opened: 'In progress',
@@ -80,7 +80,7 @@ function HomeSkeleton() {
 // which covers the full submitted profile with the canonical lock. onOpenProfile
 // navigates there; the drawer component file is retained for rollback only.
 export default function StudentPortal({
-  active = true, onOpenProfile, onMobileAction,
+  active = true, view = 'home', onOpenProfile,
   previewStudentId = null, previewStudents = [], onPreviewStudentChange, readOnlyPreview = false,
 }) {
   const { user } = useAuth()
@@ -134,21 +134,6 @@ export default function StudentPortal({
       setCertMsg({ ok: false, text: 'Your certificate could not be downloaded right now.' })
     }
     setCertBusy(false)
-  }
-
-  // Report the stage-aware action upward for the phone bottom bar. Called
-  // from the data-arrival and rotation-switch events (never from an effect):
-  // the certificate variant needs an in-page activation, wrapped here.
-  const reportMobileAction = (studentObj, evalsData, certsData) => {
-    if (!onMobileAction) return
-    if (readOnlyPreview) { onMobileAction(null); return }
-    if (!studentObj) { onMobileAction(null); return }
-    const cert = (certsData || []).find(c => c.student_id === studentObj.id) || null
-    const evalRows = (evalsData || []).filter(e => e.student_id === studentObj.id)
-    const cs = deriveCertificateStatus({ certificate: cert, status: studentObj.status, evaluations: evalRows })
-    const a = deriveCompassAction({ status: studentObj.status, certificateDownloadable: !!cs?.downloadable })
-    if (!a) { onMobileAction(null); return }
-    onMobileAction(a.kind === 'certificate' ? { ...a, onActivate: downloadCertificate } : a)
   }
 
   async function load() {
@@ -211,9 +196,6 @@ export default function StudentPortal({
       setLogs(logsRes.data || [])
       setEvals(evalsRes.data || [])
       setCerts(certsRes.data || [])
-      // Data-arrival event: report the stage-aware action for the bottom bar.
-      const first = summaryData.students?.find(s => s.id === activeId) || summaryData.students?.[0] || null
-      reportMobileAction(first, evalsRes.data || [], certsRes.data || [])
     } catch {
       setError('We could not load your portal right now. Please try again shortly.')
     }
@@ -303,7 +285,7 @@ export default function StudentPortal({
 
   return (
     <div className="ptl-student">
-      <h1 className="ptl-visually-hidden">Student Portal home</h1>
+      <h1 className="ptl-visually-hidden">{view === 'placement' ? 'My Placement' : 'Student Portal home'}</h1>
       {/* Role scope in the persistent header subtitle: the student's school. No cohort switcher for
           students (they remain in one cohort); school context is not repeated below the masthead. */}
       {student.school && <PortalHeaderScope> · {student.school}</PortalHeaderScope>}
@@ -328,8 +310,6 @@ export default function StudentPortal({
           <select id="ptl-rotation-pick" className="ptl-select" value={student.id}
             onChange={e => {
               setActiveId(e.target.value)
-              const next = students.find(s => s.id === e.target.value) || null
-              reportMobileAction(next, evals, certs)
             }}>
             {students.map(s => <option key={s.id} value={s.id}>{s.cohort?.name || 'Rotation'} ({s.status})</option>)}
           </select>
@@ -340,13 +320,31 @@ export default function StudentPortal({
           Home use (greeting + date/cohort/last-visit + weather). No student-only hero graphic. The
           old stage/next block is dropped; "Your progress" below is the single stage representation,
           and the stage action stays on its own card (the Hours and Badge cards). */}
-      <GreetingMasthead
-        fullName={fullName}
-        dateLabel={dateLabel}
-        contextLabel={cohortName}
-      />
+      {view === 'home' ? (
+        <GreetingMasthead
+          fullName={fullName}
+          dateLabel={dateLabel}
+          contextLabel={cohortName}
+        />
+      ) : (
+        <div className="ptl-page-heading">
+          <h2>My Placement</h2>
+          <p>Review your placement, ASPIRE status, surveys, files, and support options.</p>
+        </div>
+      )}
 
       <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
+
+      {view === 'home' && (
+        <Suspense fallback={<div className="ptl-card ptl-activity-loading" role="status">Loading Rotation Activity</div>}>
+          <StudentRotationActivity
+            student={student}
+            logs={myLogs}
+            readOnly={readOnlyPreview}
+            onManageLogs={() => setHistoryOpen(true)}
+          />
+        </Suspense>
+      )}
 
       <div className="ptl-grid">
         {/* Home IA: Placement + Your progress lead (always populated, strong visibility), then the
@@ -354,11 +352,12 @@ export default function StudentPortal({
             Home Messages card was removed as redundant with the Messages tab and the floating
             Messages button; the Messages tab and that floating utility are unchanged. */}
 
+        {view === 'placement' && (<>
         {/* ── Placement (where you are) ─────────────────────────────────────── */}
         <section className={`ptl-card ptl-section ptl-col-7${placedMoment ? ' ptl-moment' : ''}`}>
           <div className="ptl-section-head">
             <span className="ptl-section-icon" style={{ background: '#eef2fb', color: '#1D2567' }}><MapPin size={16} /></span>
-            <h2 className="ptl-section-title">Placement</h2>
+            <h2 className="ptl-section-title">Placement Progress</h2>
             {placedMoment && <span className="ptl-chip ptl-chip-ok">Confirmed</span>}
           </div>
           {placedMoment && (
@@ -382,7 +381,7 @@ export default function StudentPortal({
         <section className="ptl-card ptl-section ptl-col-5">
           <div className="ptl-section-head">
             <span className="ptl-section-icon" style={{ background: '#edf2e2', color: '#166534' }}><ClipboardCheck size={16} /></span>
-            <h2 className="ptl-section-title">Your progress</h2>
+            <h2 className="ptl-section-title">ASPIRE Status</h2>
           </div>
           <ol className="ptl-timeline" aria-label="Your ASPIRE progress">
             {timeline.steps.map(s => (
@@ -394,12 +393,14 @@ export default function StudentPortal({
             ))}
           </ol>
         </section>
+        </>)}
 
         {/* ── Hours & shifts: ONE authoritative surface, full width ─────────── */}
+        {view === 'home' && (
         <section className={`ptl-card ptl-section ptl-col-12${activeRotation ? '' : ' ptl-section-quiet'}`} id="ptl-hours">
           <div className="ptl-section-head">
             <span className="ptl-section-icon" style={{ background: '#e0f7fa', color: '#0d7a8a' }}><Clock size={16} /></span>
-            <h2 className="ptl-section-title">Hours &amp; shifts</h2>
+            <h2 className="ptl-section-title">Rotation Progress</h2>
           </div>
           {hours.reliable ? (
             <>
@@ -466,7 +467,9 @@ export default function StudentPortal({
             )}
           </div>
         </section>
+        )}
 
+        {view === 'placement' && (<>
         {/* ── Surveys (prominent only when one is waiting) ──────────────────── */}
         <section className={`ptl-card ptl-section ptl-col-4${waitingSurveys.length === 0 ? ' ptl-section-quiet' : ' ptl-section-attend'}`} id="ptl-surveys">
           <div className="ptl-section-head">
@@ -507,7 +510,7 @@ export default function StudentPortal({
         <section className={`ptl-card ptl-section ptl-col-4${certStatus?.downloadable ? ' ptl-moment-cert' : (!badgeRelevant && !certRelevant ? ' ptl-section-quiet' : '')}`}>
           <div className="ptl-section-head">
             <span className="ptl-section-icon" style={{ background: '#eef2fb', color: '#1D2567' }}><Award size={16} /></span>
-            <h2 className="ptl-section-title">Badge &amp; Certificate</h2>
+            <h2 className="ptl-section-title">Badge and Certificates</h2>
           </div>
           <div className="ptl-doc-list">
             {/* ID Badge: status only. No downloadable badge file exists server-side
@@ -590,6 +593,7 @@ export default function StudentPortal({
             </div>
           )}
         </section>
+        </>)}
       </div>
 
       {/* STUDENT-PORTAL-PROFILE-1: the EditProfileDrawer render was removed here -

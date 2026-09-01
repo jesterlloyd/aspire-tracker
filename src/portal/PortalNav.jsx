@@ -2,14 +2,12 @@
 //
 // One navigation component, two presentations driven purely by CSS:
 //   - Desktop and tablet (>760px): underline tabs beneath the shell header.
-//   - Phone (<=760px): a single fixed bottom bar (Home, Messages, and the
-//     stage-aware primary action when one exists). This REPLACES the old
-//     separate sticky action bar, so the phone never stacks two persistent
-//     bars.
+//   - Phone (<=760px): a single fixed bottom bar for Home, My Placement, and
+//     Messages. This replaces the old separate sticky action bar.
 // Destinations are real route changes handled by PortalApp (URL-driven), so
 // back, forward, and refresh behave like the rest of the app.
 
-import { MessageSquare, Home, CalendarPlus, Award, UserCircle } from 'lucide-react'
+import { MessageSquare, Home, MapPin } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
 import { PortalNavRefresh } from './PortalRefresh'
 
@@ -18,10 +16,7 @@ const srOnly = {
   overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
 }
 
-const ACTION_ICONS = { 'shift-log': CalendarPlus, certificate: Award }
-
-export default function PortalNav({ view, unread = 0, onHome, onMessages, onProfile, action = null, messagesEnabled = true, profileEnabled = true }) {
-  const ActionIcon = action ? (ACTION_ICONS[action.kind] || CalendarPlus) : null
+export default function PortalNav({ view, unread = 0, onHome, onPlacement, onMessages, messagesEnabled = true }) {
   return (
     <nav className="ptl-nav" aria-label="Student Portal sections">
       {/* WELCOME-TOUR-PORTALS-1: stable anchors for the Welcome Tour. */}
@@ -34,6 +29,17 @@ export default function PortalNav({ view, unread = 0, onHome, onMessages, onProf
       >
         <Home size={16} aria-hidden="true" />
         <span className="ptl-nav-label">Home</span>
+      </button>
+
+      <button
+        type="button"
+        className={`ptl-nav-item${view === 'placement' || view === 'profile' ? ' ptl-nav-item-active' : ''}`}
+        aria-current={view === 'placement' || view === 'profile' ? 'page' : undefined}
+        data-tour="portal-nav-placement"
+        onClick={() => onPlacement?.()}
+      >
+        <MapPin size={16} aria-hidden="true" />
+        <span className="ptl-nav-label">My Placement</span>
       </button>
 
       {messagesEnabled && (
@@ -55,37 +61,6 @@ export default function PortalNav({ view, unread = 0, onHome, onMessages, onProf
           <span className="ptl-nav-label">Messages</span>
           <span style={srOnly}>{unread > 0 ? unreadLabel(unread) : ''}</span>
         </button>
-      )}
-
-      {/* STUDENT-PORTAL-PROFILE-1: the student's canonical submitted-profile destination. */}
-      {profileEnabled && onProfile && (
-        <button
-          type="button"
-          className={`ptl-nav-item${view === 'profile' ? ' ptl-nav-item-active' : ''}`}
-          aria-current={view === 'profile' ? 'page' : undefined}
-          data-tour="portal-nav-profile"
-          onClick={() => onProfile?.()}
-        >
-          <UserCircle size={16} aria-hidden="true" />
-          <span className="ptl-nav-label">My Profile</span>
-        </button>
-      )}
-
-      {/* Stage-aware action slot: rendered ONLY in the phone bottom bar (CSS
-          hides it on desktop, where the action lives in the Compass band).
-          It exists only when the stage genuinely offers one. */}
-      {action && (
-        action.kind === 'shift-log' ? (
-          <a className="ptl-nav-item ptl-nav-action" href={action.href} data-tour="portal-nav-action">
-            <ActionIcon size={16} aria-hidden="true" />
-            <span className="ptl-nav-label">{action.label}</span>
-          </a>
-        ) : (
-          <button type="button" className="ptl-nav-item ptl-nav-action" data-tour="portal-nav-action" onClick={action.onActivate}>
-            <ActionIcon size={16} aria-hidden="true" />
-            <span className="ptl-nav-label">{action.label}</span>
-          </button>
-        )
       )}
 
       {/* Right-aligned shared Refresh (desktop only; hidden in the phone bottom bar). */}

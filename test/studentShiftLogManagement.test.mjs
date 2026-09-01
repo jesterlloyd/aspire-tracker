@@ -502,7 +502,7 @@ test('F4: the drawer shows the SERVER eligibility verdict, never a local guess',
   assert.match(drawer, /!voided && can\.ready && can\.ok/)
   assert.match(drawer, /!voided && can\.ready && !can\.ok/)
   // The endpoint serves that verdict without mutating anything.
-  assert.match(endpoint, /if \(action === 'eligibility'\) \{\s*\n?\s*return res\.status\(200\)\.json\(\{ success: true, eligibility: verdict \}\)/)
+  assert.match(endpoint, /if \(action === 'eligibility'\) \{[\s\S]{0,260}eligibility: \{[\s\S]{0,120}\.\.\.verdict,[\s\S]{0,180}voidable:/)
   const eligAt = endpoint.indexOf("action === 'eligibility'")
   const voidAt = endpoint.indexOf("rpc('student_void_shift_log'")
   assert.ok(eligAt > 0 && eligAt < voidAt, 'the read-only branch returns before any writer')

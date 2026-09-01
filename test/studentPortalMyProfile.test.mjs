@@ -260,12 +260,13 @@ test('the public /student-form is behaviorally preserved when no portal prop is 
 
 // ── Portal navigation ────────────────────────────────────────────────────────────────
 
-test('My Profile is a real routed destination with a nav item', () => {
+test('My Profile remains a routed destination inside My Placement support, not a primary tab', () => {
   assert.match(portalApp, /location\.pathname\.startsWith\('\/portal\/profile'\) \? 'profile'/)
   assert.match(portalApp, /navigate\('\/portal\/profile'\)/)
   assert.match(portalApp, /studentView === 'profile'/)
-  assert.match(portalNav, /data-tour="portal-nav-profile"/)
-  assert.match(portalNav, /My Profile/)
+  assert.doesNotMatch(portalNav, /data-tour="portal-nav-profile"/)
+  assert.doesNotMatch(portalNav, /My Profile/)
+  assert.match(read('src/portal/StudentPortal.jsx'), /ptl-help-action-title">My Profile/)
 })
 
 // ── Owner/Admin editing (including locked profiles) ──────────────────────────────────

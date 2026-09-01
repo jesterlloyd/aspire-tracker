@@ -148,7 +148,7 @@ export default function ShiftLogHistoryDrawer({
       return
     }
     setEditingId(null)
-    setNotice('Your shift was updated. Your hours have been recalculated.')
+    setNotice('Your shift was updated and returned to Pending Review. Your hours have been recalculated.')
     onChanged?.(r.result)
   }
 
@@ -175,7 +175,7 @@ export default function ShiftLogHistoryDrawer({
     const v = verdicts[log.id]
     if (v === undefined) return { ok: false, reason: null, ready: false }
     if (v === null) return { ok: false, reason: 'not_editable', ready: true }
-    return { ok: v.editable === true, reason: v.reason, ready: true }
+    return { ok: v.editable === true, voidable: v.voidable === true, reason: v.reason, ready: true }
   }
 
   return (
@@ -267,10 +267,12 @@ export default function ShiftLogHistoryDrawer({
                   <div className="ptl-slh-actions" style={{ display: 'flex', gap: 8, marginTop: 9 }}>
                     <button className="ptl-btn ptl-btn-sm" data-testid="shift-edit-btn"
                       onClick={() => startEdit(log)}>Edit</button>
-                    <button className="ptl-slh-ghost" data-testid="shift-void-btn"
-                      onClick={() => { setEditingId(null); setNotice(null); setVoidReason(''); setConfirmVoidId(log.id) }}>
-                      Withdraw
-                    </button>
+                    {can.voidable && (
+                      <button className="ptl-slh-ghost" data-testid="shift-void-btn"
+                        onClick={() => { setEditingId(null); setNotice(null); setVoidReason(''); setConfirmVoidId(log.id) }}>
+                        Withdraw
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -396,9 +398,8 @@ export default function ShiftLogHistoryDrawer({
                     </label>
 
                     <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5, margin: '9px 0' }}>
-                      Saving re-checks your shift against your unit assignment and dates. Depending on what
-                      you change, it may move between counted and awaiting review, and your totals update
-                      straight away.
+                      Saving returns this shift to Pending Review, updates your totals immediately, and
+                      requires a new ASPIRE approval before the hours count as approved.
                     </div>
 
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

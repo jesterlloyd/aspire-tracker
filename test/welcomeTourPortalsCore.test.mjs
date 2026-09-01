@@ -207,10 +207,10 @@ test('getTourSteps: student', async (t) => {
   const profile = { full_name: 'Sam Rivera' }
   const targets = stepTargets(getTourSteps('student', { userProfile: profile }))
 
-  await t.test('includes the four portal anchors', () => {
+  await t.test('includes the approved portal anchors', () => {
     assert.ok(targets.includes('[data-tour="portal-nav-home"]'))
+    assert.ok(targets.includes('[data-tour="portal-nav-placement"]'))
     assert.ok(targets.includes('[data-tour="portal-nav-messages"]'))
-    assert.ok(targets.includes('[data-tour="portal-nav-action"]'))
     assert.ok(targets.includes('[data-tour="portal-profile-menu"]'))
   })
 

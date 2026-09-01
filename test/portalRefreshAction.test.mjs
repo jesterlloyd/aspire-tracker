@@ -81,11 +81,11 @@ test('the Student portal registers Home refetch, gated to the active surface', (
   const app = read('src/portal/PortalApp.jsx')
   assert.match(student, /import \{ useRegisterPortalRefresh \} from '\.\/PortalRefresh'/)
   assert.match(student, /useRegisterPortalRefresh\(load, active\)/)
-  // active is driven by the current view (Home vs Messages both stay mounted).
+  // Home and My Placement share one mounted data source; Messages is separate.
   // STUDENT-PORTAL-PROFILE-1: the drawer plumbing left the signature with the
   // drawer's retirement; onOpenProfile routes to the My Profile destination.
-  assert.match(student, /active = true, onOpenProfile, onMobileAction/)
-  assert.match(app, /active=\{studentView === 'home'\}/)
+  assert.match(student, /active = true, view = 'home', onOpenProfile/)
+  assert.match(app, /active=\{\['home', 'placement'\]\.includes\(studentView\)\}/)
 })
 
 test('the Academic Partner roster registers its reload, and prepared states register nothing', () => {

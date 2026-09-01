@@ -115,7 +115,7 @@ test('activation: view switching preserves both surfaces', async (t) => {
   await t.test('Home and Messages are mounted-but-hidden, not unmounted', () => {
     // Unmounting would drop the reply draft, the selected conversation, the
     // mobile view, and StudentPortal's own fetched data on every switch.
-    assert.match(app, /display: studentView === 'home' \? 'block' : 'none'/)
+    assert.match(app, /display: \['home', 'placement'\]\.includes\(studentView\) \? 'block' : 'none'/)
     assert.match(app, /display: studentView === 'messages' \? 'block' : 'none'/)
   })
 
@@ -130,9 +130,9 @@ test('activation: view switching preserves both surfaces', async (t) => {
 
   await t.test('the default view is Home', () => {
     // The view derives from the URL; any /portal path that is not
-    // /portal/messages (or /portal/profile, STUDENT-PORTAL-PROFILE-1)
+    // /portal/messages, /portal/profile, and /portal/placement resolve from the URL.
     // resolves to Home.
-    assert.match(app, /const studentView = location\.pathname\.startsWith\('\/portal\/messages'\) \? 'messages'\s*\n\s*: location\.pathname\.startsWith\('\/portal\/profile'\) \? 'profile'\s*\n\s*: 'home'/)
+    assert.match(app, /const studentView = location\.pathname\.startsWith\('\/portal\/messages'\) \? 'messages'\s*\n\s*: location\.pathname\.startsWith\('\/portal\/profile'\) \? 'profile'\s*\n\s*: location\.pathname\.startsWith\('\/portal\/placement'\)[\s\S]*?\? 'placement'\s*\n\s*: 'home'/)
   })
 
   await t.test('a hidden Messages view does not poll the inbox or thread', () => {

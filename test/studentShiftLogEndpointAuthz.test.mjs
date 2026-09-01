@@ -76,11 +76,11 @@ writeFileSync(join(dir, 'fake.mjs'), `
           }
           return { data: state.eligibility, error: null }
         }
-        if (name === 'student_void_shift_log' || name === 'student_edit_shift_log') {
+        if (name === 'student_void_shift_log' || name === 'student_revise_shift_log') {
           return { data: { ok: true, action: name.includes('void') ? 'voided' : 'edited',
                            student_id: args.p_student_id, shift_id: args.p_shift_id,
-                           status: 'Auto-Accepted', previous_status: 'Auto-Accepted',
-                           approved_hours: 10, pending_hours: 0 }, error: null }
+                           status: 'Pending Review', previous_status: 'Approved',
+                           approved_hours: 0, pending_hours: 10 }, error: null }
         }
         return { data: null, error: { code: 'PGRST202' } }
       },
@@ -138,9 +138,9 @@ function twoLinkedStudents(overrides = {}) {
   fake.__reset({
     links: [STUDENT_A, STUDENT_B],
     shifts: {
-      [SHIFT_A]: { student_id: STUDENT_A, unit_name: 'PACU' },
-      [SHIFT_B]: { student_id: STUDENT_B, unit_name: '6 NE' },
-      [SHIFT_STRANGER]: { student_id: STRANGER, unit_name: 'PACU' },
+      [SHIFT_A]: { student_id: STUDENT_A, unit_name: 'PACU', status: 'Pending Review' },
+      [SHIFT_B]: { student_id: STUDENT_B, unit_name: '6 NE', status: 'Pending Review' },
+      [SHIFT_STRANGER]: { student_id: STRANGER, unit_name: 'PACU', status: 'Pending Review' },
     },
     ...overrides,
   })
@@ -166,7 +166,7 @@ test('a caller linked to TWO students may manage an eligible shift of EITHER', a
   assert.equal(b.body.success, true)
 
   // The acting student is the one that OWNS each shift, not the first link.
-  const calls = fake.__rpcCalls().filter(c => c.name.startsWith('student_void') || c.name.startsWith('student_edit'))
+  const calls = fake.__rpcCalls().filter(c => c.name.startsWith('student_void') || c.name.startsWith('student_revise'))
   assert.equal(calls[0].args.p_student_id, STUDENT_A)
   assert.equal(calls[1].args.p_student_id, STUDENT_B)
 })
@@ -184,7 +184,7 @@ test('an unrelated student\'s shift returns the SAME 404 as an unknown id', asyn
   assert.deepEqual(stranger.body, { error: 'not_found' })
 
   // Neither reached a writer.
-  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('edit_shift'))
+  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('revise_shift'))
   assert.equal(writes.length, 0, 'no write RPC was attempted for either')
 })
 
@@ -201,7 +201,7 @@ test('NEGATIVE CONTROL: a body-supplied student id cannot broaden access', async
   const redirect = await post({ action: 'void', shift_id: SHIFT_STRANGER, student_id: STUDENT_A })
   assert.equal(redirect.statusCode, 400)
 
-  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('edit_shift'))
+  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('revise_shift'))
   assert.equal(writes.length, 0)
 })
 
@@ -232,12 +232,12 @@ test('the eligibility action is read-only and honours the same allowlist', async
 
   const mine = await post({ action: 'eligibility', shift_id: SHIFT_B })
   assert.equal(mine.statusCode, 200)
-  assert.deepEqual(mine.body.eligibility, { editable: false, reason: 'certificate_issued' })
+  assert.deepEqual(mine.body.eligibility, { editable: false, reason: 'certificate_issued', voidable: true })
 
   const theirs = await post({ action: 'eligibility', shift_id: SHIFT_STRANGER })
   assert.equal(theirs.statusCode, 404)
 
-  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('edit_shift'))
+  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('revise_shift'))
   assert.equal(writes.length, 0, 'asking about eligibility never writes')
 })
 
@@ -248,7 +248,7 @@ test('a locked entry is refused with its reason, for either linked student', asy
     assert.equal(r.statusCode, 409)
     assert.deepEqual(r.body, { error: 'not_editable', reason: 'staff_decided' })
   }
-  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('edit_shift'))
+  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('revise_shift'))
   assert.equal(writes.length, 0)
 })
 
@@ -262,6 +262,6 @@ test('the readiness gate fails closed before any allowlist work is trusted', asy
   // With no shift fixtures the probe still runs first; either way the caller
   // never reaches a writer.
   assert.ok([404, 503].includes(notReady.statusCode))
-  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('edit_shift'))
+  const writes = fake.__rpcCalls().filter(c => c.name.includes('void') || c.name.includes('revise_shift'))
   assert.equal(writes.length, 0)
 })

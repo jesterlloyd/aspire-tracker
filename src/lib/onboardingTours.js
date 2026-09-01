@@ -349,9 +349,9 @@ const portalMessagesLauncherStep = {
 
 // ── Student Portal (Compass) step definitions ────────────────────────────────
 // WELCOME-TOUR-PORTALS-1: targets are the portal-nav-* anchors the portal agent
-// is adding to PortalNav.jsx/PortalShell.jsx in the same feature. The stage-
-// action step and the profile menu are portal-only concepts with no staff
-// equivalent.
+// is adding to PortalNav.jsx/PortalShell.jsx in the same feature. The student
+// placement destination and the profile menu are portal-only concepts with no
+// staff equivalent.
 
 function getStudentSteps(userProfile) {
   const firstName = userProfile?.full_name?.split(' ')[0] || 'there';
@@ -374,12 +374,9 @@ function getStudentSteps(userProfile) {
       content: 'Send and receive secure messages with the ASPIRE team here. An unread badge shows when a new message is waiting.',
     },
     {
-      // Phone-only: CSS renders this slot only in the bottom bar, and only when
-      // the current stage actually offers a quick action. The engine's missing-
-      // target skip handles both the desktop case and the no-action case.
-      target: '[data-tour="portal-nav-action"]',
-      title: 'Quick Action',
-      content: 'A stage-aware quick action, such as logging a shift, appears here on your phone when your current stage offers one.',
+      target: '[data-tour="portal-nav-placement"]',
+      title: 'My Placement',
+      content: 'Review your placement progress, ASPIRE status, surveys, badge and certificates, and support options here.',
     },
     portalFeedbackStep,
     portalMessagesLauncherStep,

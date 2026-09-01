@@ -121,7 +121,7 @@ function naThreadIdFromPath(pathname) {
 }
 
 function staffPreviewRole(pathname) {
-  if (pathname === '/portal/student') return 'student'
+  if (pathname === '/portal/student' || pathname.startsWith('/portal/student/')) return 'student'
   if (pathname.startsWith('/portal/unit/')) return 'unit_leader'
   if (pathname.startsWith('/portal/ap/')) return 'academic_partner'
   if (pathname.startsWith('/portal/academics/')) return 'nursing_academic'
@@ -158,16 +158,13 @@ export default function PortalApp() {
   // server has said the access is gone, no later view may quietly render as if
   // it were not, and Try again is not offered for something retrying cannot fix.
   const [accessEnded, setAccessEnded] = useState(false)
-  // The stage-aware mobile action (Log a Shift during Active Rotation) is
-  // reported upward by StudentPortal once its summary loads, so the single
-  // bottom bar can carry it without a second data fetch here.
-  const [mobileAction, setMobileAction] = useState(null)
   const [previewStudents, setPreviewStudents] = useState([])
   const [previewStudentId, setPreviewStudentId] = useState(null)
 
   // STUDENT-PORTAL-PROFILE-1: /portal/profile is the My Profile destination.
   const studentView = location.pathname.startsWith('/portal/messages') ? 'messages'
     : location.pathname.startsWith('/portal/profile') ? 'profile'
+    : location.pathname.startsWith('/portal/placement') || location.pathname.startsWith('/portal/student/placement') ? 'placement'
     : 'home'
   const threadId = threadIdFromPath(location.pathname)
   // /portal/unit/<section> -> section; /portal/messages -> messages; else home.
@@ -288,6 +285,7 @@ export default function PortalApp() {
   })
 
   const goHome = useCallback(() => navigate(staffPreview ? '/portal/student' : '/portal'), [navigate, staffPreview])
+  const goPlacement = useCallback(() => navigate(staffPreview ? '/portal/student/placement' : '/portal/placement'), [navigate, staffPreview])
   const goMessages = useCallback(() => navigate(staffPreview ? '/connect/messages' : '/portal/messages'), [navigate, staffPreview])
   const goProfile = useCallback(() => navigate('/portal/profile'), [navigate])
   const openThread = useCallback((id) => navigate(`/portal/messages/${id}`), [navigate])
@@ -510,11 +508,9 @@ export default function PortalApp() {
             view={studentView}
             unread={unread}
             onHome={goHome}
+            onPlacement={goPlacement}
             onMessages={goMessages}
-            onProfile={goProfile}
-            action={mobileAction}
             messagesEnabled
-            profileEnabled={!staffPreview}
           />
         )}
         utilityLayer={(
@@ -531,11 +527,11 @@ export default function PortalApp() {
             onOpenMessages={goMessages}
           />
         )}>
-        <div style={{ display: studentView === 'home' ? 'block' : 'none' }}>
+        <div style={{ display: ['home', 'placement'].includes(studentView) ? 'block' : 'none' }}>
           <StudentPortal
-            active={studentView === 'home'}
+            active={['home', 'placement'].includes(studentView)}
+            view={studentView}
             onOpenProfile={goProfile}
-            onMobileAction={setMobileAction}
             previewStudentId={previewStudentId}
             previewStudents={previewStudents}
             onPreviewStudentChange={setPreviewStudentId}
