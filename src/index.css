@@ -1829,14 +1829,14 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast::after {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background: var(--nightfall-gradient, linear-gradient(180deg, #1c2452 0%, #141928 100%));
-  opacity: 0; transition: opacity 0.8s ease;
+  opacity: 0; transition: opacity var(--scn-fade, 0.8s) ease;
 }
 .mast-night::after { opacity: 1; }
 .mast-night { border-color: rgba(255,255,255,0.10); }
 .mast-greet, .mast-sub, .mast-mile-label, .mast-mile-name, .mast-mile-when,
 .mast-today-label, .mast-evchip, .mast-vdiv, .mast-today-line,
-.wx-mast-temp, .wx-mast-cond, .wx-mast-hilo {
-  transition: color 0.8s ease, background-color 0.8s ease, border-color 0.8s ease;
+.wx-mast-temp, .wx-mast-cond, .wx-mast-hilo, .wx-mast-city {
+  transition: color var(--scn-fade, 0.8s) ease, background-color var(--scn-fade, 0.8s) ease, border-color var(--scn-fade, 0.8s) ease;
 }
 .mast-night .mast-greet, .mast-night .mast-mile-name,
 .mast-night .wx-mast-temp, .mast-night .wx-mast-cond { color: #fff; }
@@ -1880,6 +1880,13 @@ a.doc-file-link:hover { text-decoration: underline; }
      left stack (milestone lines) GROW the card only applies to aspect-ratio
      boxes with visible overflow, so the card trades overflow:hidden for a
      matching rounded clip-path - layout identical, content never clips. */
+  /* MASTHEAD-SCENE-6 (Owner): scene changes MORPH rather than switch - one
+     shared duration for every layer that participates (images, skies, SVG
+     fills, the night gradient, the inks), so the sunset-to-night boundary
+     darkens the card and whitens the text at the same pace the artwork
+     blends. Initial paint is unaffected: transitions only run on style
+     CHANGES, and the scene class is present from first render. */
+  --scn-fade: 10s;
   aspect-ratio: 5.9 / 1;
   /* NO explicit min-height: a definite value would replace min-height:auto
      and with it the automatic content-based minimum this sizing relies on.
@@ -1912,7 +1919,7 @@ a.doc-file-link:hover { text-decoration: underline; }
    gradient is weighted center-right and top-right, and the shared mask keeps
    the greeting's corner nearly clean. */
 .mast-sky {
-  position: absolute; inset: 0; opacity: 0; transition: opacity 0.8s ease;
+  position: absolute; inset: 0; opacity: 0; transition: opacity var(--scn-fade, 0.8s) ease;
   -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.30) 0, rgba(0,0,0,0.60) 30%, #000 58%);
   mask-image: linear-gradient(90deg, rgba(0,0,0,0.30) 0, rgba(0,0,0,0.60) 30%, #000 58%);
 }
@@ -1957,9 +1964,9 @@ a.doc-file-link:hover { text-decoration: underline; }
   -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.30) 0, rgba(0,0,0,0.55) 30%, #000 56%);
   mask-image: linear-gradient(90deg, rgba(0,0,0,0.30) 0, rgba(0,0,0,0.55) 30%, #000 56%);
 }
-.mast-scenery-art path, .mast-scenery-art rect, .mast-scenery-art use { transition: fill 0.8s ease; }
-.mast-scenery-art .scn-lights { opacity: var(--scn-lights); transition: opacity 0.8s ease; }
-.mast-scenery-art .scn-stars { opacity: var(--scn-stars); transition: opacity 0.8s ease; }
+.mast-scenery-art path, .mast-scenery-art rect, .mast-scenery-art use { transition: fill var(--scn-fade, 0.8s) ease; }
+.mast-scenery-art .scn-lights { opacity: var(--scn-lights); transition: opacity var(--scn-fade, 0.8s) ease; }
+.mast-scenery-art .scn-stars { opacity: var(--scn-stars); transition: opacity var(--scn-fade, 0.8s) ease; }
 /* Narrow layouts stretch the viewBox hard; the palms distort first, so they
    bow out while the soft ridges (which stretch invisibly) carry the scene. */
 @media (max-width: 760px) { .mast-scenery-art .scn-palms { display: none; } }
@@ -1986,7 +1993,7 @@ a.doc-file-link:hover { text-decoration: underline; }
      fades harder there - the greeting and date line sit on washed-out art. */
   -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0.38) 26%, rgba(0,0,0,0.82) 48%, #000 62%);
   mask-image: linear-gradient(90deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0.38) 26%, rgba(0,0,0,0.82) 48%, #000 62%);
-  opacity: 0; transition: opacity 0.8s ease;
+  opacity: 0; transition: opacity var(--scn-fade, 0.8s) ease;
   pointer-events: none; user-select: none;
 }
 .mast-scene-day .mast-scn-img-day, .mast-scene-sunset .mast-scn-img-sunset,

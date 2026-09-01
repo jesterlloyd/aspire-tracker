@@ -50,7 +50,10 @@ test('both hosts carry the scene class and .mast-night; the portal host gates bo
 test('the night layer is the existing Nightfall language, cross-fading and contained', () => {
   assert.match(css, /\.mast \{ isolation: isolate; \}/)
   assert.match(css, /\.mast::after \{\n {2}content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;\n {2}background: var\(--nightfall-gradient/)
-  assert.match(css, /opacity: 0; transition: opacity 0\.8s ease;\n\}\n\.mast-night::after \{ opacity: 1; \}/)
+  // MASTHEAD-SCENE-6: the night layer breathes at the shared morph duration
+  // (10s on scenic cards via --scn-fade; the 0.8s fallback covers any
+  // non-scenic surface), so the card darkens at the pace the artwork blends.
+  assert.match(css, /opacity: 0; transition: opacity var\(--scn-fade, 0\.8s\) ease;\n\}\n\.mast-night::after \{ opacity: 1; \}/)
 })
 
 test('every ink cross-fades and flips to accessible night values', () => {
@@ -59,7 +62,7 @@ test('every ink cross-fades and flips to accessible night values', () => {
   assert.match(css, /\.mast-night \.mast-mile-label, \.mast-night \.mast-today-label \{ color: rgba\(255,255,255,0\.60\); \}/)
   assert.match(css, /\.mast-night \.mast-evchip \{ background: rgba\(255,255,255,0\.10\); border-color: rgba\(255,255,255,0\.18\); color: rgba\(255,255,255,0\.92\); \}/)
   // The transition list covers the same elements so the fade is uniform.
-  assert.match(css, /\.mast-greet, \.mast-sub, \.mast-mile-label, \.mast-mile-name, \.mast-mile-when,\n\.mast-today-label, \.mast-evchip, \.mast-vdiv, \.mast-today-line,\n\.wx-mast-temp, \.wx-mast-cond, \.wx-mast-hilo \{\n {2}transition: color 0\.8s ease, background-color 0\.8s ease, border-color 0\.8s ease;\n\}/)
+  assert.match(css, /\.mast-greet, \.mast-sub, \.mast-mile-label, \.mast-mile-name, \.mast-mile-when,\n\.mast-today-label, \.mast-evchip, \.mast-vdiv, \.mast-today-line,\n\.wx-mast-temp, \.wx-mast-cond, \.wx-mast-hilo, \.wx-mast-city \{\n {2}transition: color var\(--scn-fade, 0\.8s\) ease, background-color var\(--scn-fade, 0\.8s\) ease, border-color var\(--scn-fade, 0\.8s\) ease;\n\}/)
 })
 
 test('the calendar button adopts the existing dark-theme treatment on the night card', () => {
