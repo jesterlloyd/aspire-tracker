@@ -8,7 +8,7 @@
 import { useMemo, useState } from 'react'
 import { useWelcomeWeather } from './WeatherScene'
 import { SCENES } from '../lib/mastheadScene'
-import { parseSceneFiles, choosePack, injectedSceneFiles } from '../lib/mastheadCityScenes'
+import { parseSceneFiles, resolvePack, injectedSceneFiles } from '../lib/mastheadCityScenes'
 import { useCityPreference } from './masthead/useCityPreference'
 //
 // The component is purely presentational and state-free: the host card carries
@@ -70,11 +70,10 @@ export default function MastheadScenery() {
   // choice naming a pack that is no longer installed falls back to automatic
   // rather than dropping the viewer to the SVG scenery.
   const { city: preferredCity } = useCityPreference()
-  const pack = useMemo(() => {
-    const packs = parseSceneFiles(injectedSceneFiles())
-    if (preferredCity && packs[preferredCity]) return { city: preferredCity, scenes: packs[preferredCity] }
-    return choosePack(packs, location)
-  }, [location, preferredCity])
+  const pack = useMemo(
+    () => resolvePack(parseSceneFiles(injectedSceneFiles()), preferredCity, location),
+    [location, preferredCity],
+  )
   const scenes = pack && !imagesBroken ? pack.scenes : null
   const complete = scenes && SCENES.every(s => scenes[s])
   return (

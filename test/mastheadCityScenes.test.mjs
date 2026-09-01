@@ -106,12 +106,16 @@ test('the city preference is artwork-only, per browser, and defaults to automati
   assert.doesNotMatch(pref, /useWelcomeWeather|open-meteo|weatherLocation/)
 })
 
-test('an explicit city wins over location, and a stale choice falls back to automatic', () => {
-  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
-  // The override only applies when that pack is actually installed; otherwise
-  // choosePack (location matching) runs, never the SVG fallback.
-  assert.match(scenery, /if \(preferredCity && packs\[preferredCity\]\) return \{ city: preferredCity, scenes: packs\[preferredCity\] \}/)
-  assert.match(scenery, /return choosePack\(packs, location\)/)
+test('an explicit city wins over location, and a stale choice falls back to automatic', async () => {
+  // The rule lives in resolvePack (shared by the scenery layer and the weather
+  // module), so it is asserted behaviorally rather than by matching source.
+  const { resolvePack } = await import('../src/lib/mastheadCityScenes.js')
+  const packs = parseSceneFiles(['LA/LA_Day.webp', 'Vegas/Vegas_Day.webp'])
+  const inLA = { label: 'Los Angeles', lat: 34.05, lon: -118.24 }
+  assert.equal(resolvePack(packs, 'lasvegas', inLA).city, 'lasvegas', 'an explicit choice wins')
+  assert.equal(resolvePack(packs, null, inLA).city, 'la', 'automatic follows location')
+  // A choice naming an uninstalled pack must not strand the viewer on the SVG.
+  assert.equal(resolvePack(packs, 'chicago', inLA).city, 'la')
 })
 
 test('every installed city pack carries all seven scenes', () => {
@@ -132,5 +136,29 @@ test('every installed city pack carries all seven scenes', () => {
   // reach it and the pack is picker-only.
   for (const city of cities) {
     assert.ok(CITY_COORDS[city], `${city} pack needs CITY_COORDS for location matching`)
+  }
+})
+
+test('the celestial art sits where each city leaves its sky clear', async () => {
+  const { skyPositionFor, DEFAULT_SKY_X, CITY_SKY_X, resolvePack } = await import('../src/lib/mastheadCityScenes.js')
+  // New York's towers occupy the middle of its frame (One WTC's spire sat
+  // under the moon at the default), so that pack moves the art over the open
+  // harbor sky; every other city keeps the default.
+  assert.equal(skyPositionFor('newyork'), CITY_SKY_X.newyork)
+  assert.notEqual(CITY_SKY_X.newyork, DEFAULT_SKY_X)
+  for (const city of ['la', 'lasvegas', 'chicago', undefined, null]) {
+    assert.equal(skyPositionFor(city), DEFAULT_SKY_X, `${city} uses the default sky position`)
+  }
+  // The scenery layer and the weather module must resolve the SAME pack, or
+  // the artwork and the sun/moon placement could disagree about the city.
+  const packs = parseSceneFiles(['LA/LA_Day.webp', 'NYC/NYC_Day.webp'])
+  assert.equal(resolvePack(packs, 'newyork', { label: 'Los Angeles', lat: 34.05, lon: -118.24 }).city, 'newyork')
+  assert.equal(resolvePack(packs, null, { label: 'Los Angeles', lat: 34.05, lon: -118.24 }).city, 'la')
+  // A choice for an uninstalled pack falls back to location, never to nothing.
+  assert.equal(resolvePack(packs, 'chicago', { label: 'Los Angeles', lat: 34.05, lon: -118.24 }).city, 'la')
+  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
+  const weather = readFileSync(join(here, '..', 'src/components/WeatherScene.jsx'), 'utf8')
+  for (const [name, src] of [['MastheadScenery', scenery], ['WeatherScene', weather]]) {
+    assert.match(src, /resolvePack\(/, `${name} must resolve the pack through the shared helper`)
   }
 })

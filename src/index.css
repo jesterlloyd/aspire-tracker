@@ -2039,7 +2039,10 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic .wx-mast { display: block; }
 .mast-scenic .mast-mile { margin-top: 10px; }
 .mast-scenic .wx-mast-art {
-  position: absolute; top: -10px; left: 52%; margin-top: 0;
+  /* The left offset comes from the CITY (--scn-sky-x, set by the weather
+     module from the resolved pack): each artwork leaves its sky clear in a
+     different place. The fallback matches the default in mastheadCityScenes. */
+  position: absolute; top: -10px; left: var(--scn-sky-x, 52%); margin-top: 0;
 }
 .mast-scenic .wx-mast-caption { text-align: right; }
 /* Both halves of the pair use the APP's own face (DM Sans, the global family)

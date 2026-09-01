@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query'
 import { sceneAssets } from '../lib/weatherAssetMap'
 import { useWeatherLocation } from '../lib/weatherLocation'
 import { sceneForTime, sunTimesFrom, artSceneFor, SCENES } from '../lib/mastheadScene'
-import { parseSceneFiles, injectedSceneFiles } from '../lib/mastheadCityScenes'
+import { parseSceneFiles, injectedSceneFiles, resolvePack, skyPositionFor } from '../lib/mastheadCityScenes'
 import { cityOptions } from '../lib/mastheadCityPreference'
 import { useCityPreference } from './masthead/useCityPreference'
 import CityPickerDialog from './masthead/CityPickerDialog'
@@ -283,8 +283,12 @@ export function WeatherMasthead() {
   // sit ABOVE the data guard so the hook order never changes between the
   // no-weather and weather renders.
   const [pickerOpen, setPickerOpen] = useState(false)
-  const { raw: rawCity, choose } = useCityPreference()
-  const cityOpts = useMemo(() => cityOptions(parseSceneFiles(injectedSceneFiles())), [])
+  const { city: preferredCity, raw: rawCity, choose } = useCityPreference()
+  const packs = useMemo(() => parseSceneFiles(injectedSceneFiles()), [])
+  const cityOpts = useMemo(() => cityOptions(packs), [packs])
+  // The animated sun/moon floats where the CURRENT city's sky is clear - the
+  // same resolved pack the scenery renders, so the two can never disagree.
+  const skyX = skyPositionFor(resolvePack(packs, preferredCity, location)?.city)
   if (!data) return null // silent, non-blocking - the masthead simply has no weather module
 
   const scene = mapScene(data.code, data.wind, data.isDay)
@@ -303,7 +307,7 @@ export function WeatherMasthead() {
     // backdrop cross-fades so scene changes never hard-jump.
     <div className={`wx-mast${night ? ' wx-mast-night' : ''}`} style={{ fontFamily: F }}>
       <style>{KEYFRAMES}</style>
-      <div className="wx-mast-art" aria-hidden>
+      <div className="wx-mast-art" style={{ '--scn-sky-x': skyX }} aria-hidden>
         {manifest
           ? <AssetScene manifest={manifest} onBroken={() => setAssetsBroken(true)} />
           : <SceneSvg scene={scene} />}

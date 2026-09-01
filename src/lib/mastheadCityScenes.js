@@ -157,6 +157,37 @@ export function choosePack(packs, location) {
   return null
 }
 
+/**
+ * The pack to render: an explicit city choice wins, but only when that pack is
+ * actually installed - a stale choice falls back to location matching rather
+ * than dropping the viewer to the SVG scenery. Shared by the scenery layer and
+ * the weather module so they can never disagree about which city is on screen.
+ */
+export function resolvePack(packs, preferredCity, location) {
+  if (preferredCity && packs?.[preferredCity]) return { city: preferredCity, scenes: packs[preferredCity] }
+  return choosePack(packs, location)
+}
+
+/**
+ * Where each city's sky is CLEAR, as a left offset for the animated sun/moon.
+ *
+ * This is a property of the artwork, not of the layout: LA and Vegas put their
+ * mountains and skyline center-right with open sky above the middle of the
+ * card, while New York's harbor leaves the left-of-centre sky empty and its
+ * towers (One WTC's spire especially) occupy exactly the middle. A single
+ * global position cannot serve both - at 52% the moon sat on the spire.
+ * Measured from each pack's night scene by column profile, then confirmed on
+ * screen. A city with no entry uses the default.
+ */
+export const CITY_SKY_X = {
+  newyork: '33%',
+}
+export const DEFAULT_SKY_X = '52%'
+
+export function skyPositionFor(city) {
+  return CITY_SKY_X[city] || DEFAULT_SKY_X
+}
+
 /** The build-injected file list, safe under Node tests (no global defined). */
 export function injectedSceneFiles() {
   // eslint-disable-next-line no-undef
