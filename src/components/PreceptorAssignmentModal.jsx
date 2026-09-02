@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { createPreceptorRequestIdController } from '../lib/preceptorRequestId'
 import PreceptorFormModal from './PreceptorFormModal'
+import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 
 export default function PreceptorAssignmentModal({ isOpen, onClose, student, onAssigned }) {
   const [query,       setQuery]       = useState('')
@@ -168,7 +169,7 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
               <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
                 Assigning to{' '}
                 <strong style={{ color: '#374151' }}>
-                  {student.first_name} {student.last_name}
+                  {getStudentPreferredFullName(student)}
                 </strong>
               </div>
             )}

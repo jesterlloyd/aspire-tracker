@@ -42,6 +42,7 @@ const AVAIL_ACTION_HOVER = '#141928'
 // NGRP-ACTIVITY-PARITY-1: moved to lib/ngrp/ngrpActivity.js so the Residency
 // Activity calendar offers the same act in the same colour from one definition.
 import { EVENT_ACTION, EVENT_ACTION_HOVER } from '../lib/ngrp/ngrpActivity'
+import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 
 // Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
@@ -1058,7 +1059,7 @@ function WeekPill({ item, top, height, colW, left, ivColor, onSlotClick, ds }) {
       {isBooked && student && (
         <>
           <div style={{ fontWeight:700, fontSize:12, lineHeight:1.25, color:s.txt, wordBreak:'break-word' }}>
-            {student.first_name} {student.last_name}
+            {getStudentPreferredFullName(student)}
           </div>
           {schoolShort && (
             <div style={{ fontSize:10, opacity:0.75, lineHeight:1.2 }}>

@@ -17,6 +17,7 @@ import { openStudentFile } from '../lib/useStudentFile'
 // action (Owner/Admin/Interviewer) instead of the generic onStudentUpdate path.
 import { saveInterviewOutcome } from '../lib/studentProxy'
 import { normalizeStaffRole } from '../lib/permissions'
+import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -930,9 +931,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 style={{ border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)', fontSize:'28px' }}
               />
             </div>
-            {/* First Last */}
+            {/* Preferred first + legal last: the interviewer is about to speak to this
+                person, and a student whose legal name is Xing may introduce himself as Steven. */}
             <div style={{ fontSize:20, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>
-              {student.first_name} {student.last_name}
+              {getStudentPreferredFullName(student)}
             </div>
             {/* School · Program */}
             <div style={{ fontSize:13, color:'#6b7280', marginBottom:8 }}>

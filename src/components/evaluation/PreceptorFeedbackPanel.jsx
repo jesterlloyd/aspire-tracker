@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { resolvePreceptor } from '../../lib/preceptor'
+import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 
 // Owner/Admin-only manual send flow for the ASPIRE Preceptor Student Progress &
 // Readiness Feedback survey. Evaluation-specific - NOT the Connect/Outreach bulk path.
@@ -234,7 +235,7 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
                       />
                     </td>
                     <td style={{ padding: '10px 14px', fontSize: 13, color: '#191919', fontWeight: 600 }}>
-                      {student.first_name} {student.last_name}
+                      {getStudentPreferredFullName(student)}
                     </td>
                     <td style={{ padding: '10px 14px', fontSize: 13, color: '#374151' }}>
                       {resolved.name || <span style={{ color: '#9ca3af' }}>-</span>}

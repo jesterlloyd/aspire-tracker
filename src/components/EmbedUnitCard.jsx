@@ -24,6 +24,7 @@ import { MATCH_RANK_CONFIG, matchRankOf } from '../lib/placementDisplay'
 import NotificationControl from './placement/NotificationControl'
 import { NOTIFICATION_TARGETS, notificationStateFor } from '../lib/placementNotificationState'
 import { planUnmatch } from '../lib/unmatchPlan'
+import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 
 // ── Choice / match-quality config ────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ function CompactPlacementRow({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap', overflow: 'hidden' }}>
         <StudentAvatar student={student} size={24} style={{ flexShrink: 0 }} />
         <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 500, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-          {student.first_name} {student.last_name}
+          {getStudentPreferredFullName(student)}
         </span>
         {student.shift_assigned && (
           <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 10.5, fontWeight: 500, color: '#9CA3AF', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap', flexShrink: 0 }}>

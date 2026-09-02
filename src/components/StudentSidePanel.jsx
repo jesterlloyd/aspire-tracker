@@ -34,7 +34,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { logActivity } from '../lib/logActivity'
 import ConflictDialog from './ConflictDialog'
 import { generateBadgePNGs, calculateBadgeDates } from '../lib/badgeGenerator'
-import { getStudentLegalDisplayName } from '../lib/studentNameFormatters'
+import { getStudentLegalDisplayName, getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { isLegacyNonIsoDateValue, dateInputValue } from '../lib/csLinkDateUtils'
 import { usePreceptors } from '../hooks/usePreceptors'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
@@ -2821,7 +2821,7 @@ export default function StudentSidePanel({
             </div>
             <div style={{ fontSize:13, color:'#374151', lineHeight:1.6, marginBottom:12 }}>
               <div style={{ marginBottom:6 }}>
-                <strong>{student.first_name} {student.last_name}</strong>
+                <strong>{getStudentPreferredFullName(student)}</strong>
               </div>
               <div style={{ marginBottom:10 }}>
                 Active disposition:{' '}

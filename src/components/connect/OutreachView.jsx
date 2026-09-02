@@ -36,7 +36,7 @@ import {
   splitTemplatesForAudience, getPrimarySectionTitle, audienceForContact, AUDIENCES,
 } from '../../lib/connect/templateRegistry'
 import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
-import { getStudentPreferredFirstName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
+import { getStudentPreferredFirstName, getStudentPreferredFullName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 import { buildStudentInvitationEmail, formatExpiresAt, TIMEPOINT_LABELS } from '../../../lib/server/evaluation/emailTemplates'
 
 const F = 'DM Sans, sans-serif'
@@ -1208,7 +1208,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     : null
   // Survey preview greeting honors the student's preferred first name (display only; the survey
   // send path already resolves the preferred greeting server-side).
-  const firstName        = (selectedStudent ? getStudentPreferredFirstName(selectedStudent) : '') || null
+  const studentFirstName = (selectedStudent ? getStudentPreferredFirstName(selectedStudent) : '') || null
   const expiresFormatted = fmtDate(expiresAt)
   // Branded "Email Preview" HTML - the EXACT Casey-Fink invitation template the send uses, rendered
   // client-side from the generated survey link (no send, no endpoint call).
@@ -1371,7 +1371,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     const docs = docsOverride || effectiveDocs
     // Salutation first name comes from the selected recipient. Student/unit/preceptor body fields
     // that describe someone other than the recipient stay bracketed editable placeholders.
-    const firstName = firstNameOf(dmRecipientName)
+    //
+    // STUDENT-PREFERRED-NAME: for a STUDENT the name comes from the canon (preferred_first_name,
+    // else legal first), which studentFirstName above already resolved. It used to be derived by
+    // splitting dmRecipientName, and that string is built from students.name or first+last, so a
+    // student whose legal name is Xing Li and who goes by Steven was greeted "Dear Xing" in every
+    // template. The correct value was sitting in this same component, unread by this path.
+    //
+    // A contact is not a student and has no preferred_first_name, so it still splits its display
+    // name, which is the only source available for one.
+    const firstName = studentFirstName || firstNameOf(dmRecipientName)
     switch (key) {
       case 'preceptor_assignment':
         // PLACEMENT-COMMUNICATION-HANDOFF-1: real placement values when a handoff
@@ -1388,7 +1397,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       case 'coordinator_acceptance':       return buildAcademicPartnerUpdateDraft({ firstName })
       default:                             return buildAcademicPartnerUpdateDraft({ firstName })
     }
-  }, [dmRecipientName, activePlacement, effectiveDocs])
+  }, [studentFirstName, dmRecipientName, activePlacement, effectiveDocs])
 
   const applyTemplate = useCallback((key, docsOverride = null) => {
     const docs = docsOverride || effectiveDocs
@@ -2532,7 +2541,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     </option>
                     {students.map(s => (
                       <option key={s.id} value={s.id}>
-                        {s.first_name} {s.last_name}{s.school ? `, ${s.school}` : ''}
+                        {getStudentPreferredFullName(s)}{s.school ? `, ${s.school}` : ''}
                       </option>
                     ))}
                   </select>
@@ -3249,8 +3258,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     {/* Greeting is system-controlled (not editable) */}
                     <p style={{ margin: '0 0 8px' }}>
                       Hi{' '}
-                      {firstName
-                        ? <strong>{firstName}</strong>
+                      {studentFirstName
+                        ? <strong>{studentFirstName}</strong>
                         : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>[Student first name]</span>
                       },
                     </p>

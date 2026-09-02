@@ -12,6 +12,8 @@
 //
 // This module holds no data access and no authorization. It filters only what a
 // caller already fetched under existing RLS, so it can never widen exposure.
+import { getStudentPreferredFullName } from './studentNameFormatters.js'
+
 
 export const INTERVIEW_STATES = ['in_progress', 'upcoming', 'completed', 'canceled']
 
@@ -180,7 +182,7 @@ export function buildInterviewRows(slots, { now = new Date(), avatarFor, intervi
     const student = slotStudent(slot)
     if (!student) return null
     const state = interviewState(slot, now)
-    const name = [student.first_name, student.last_name].filter(Boolean).join(' ') || 'Student'
+    const name = getStudentPreferredFullName(student) || 'Student'
     const time = formatSlotTime(slot)
     const interviewer = interviewerNameFor ? interviewerNameFor(slot) : (slot.interviewer_name || '')
     const subLabel = [student.school || student.program_type, interviewer].filter(Boolean).join(' · ')

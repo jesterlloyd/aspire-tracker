@@ -34,6 +34,7 @@ import { formatSchoolProgram } from '../lib/displayFormatters'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getAvailabilityReadiness } from '../lib/availability'
+import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 
 // ── Preference tier colors (matches the strip used in MatchingTab focus banner) ─
 const ORDINAL_COLOR = { 1: '#059669', 2: '#B5895A', 3: '#7C8FD9' }
@@ -244,7 +245,7 @@ export default function StudentMatchingCard({
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             lineHeight: 1.25, marginBottom: 2,
           }}>
-            {student.first_name} {student.last_name}
+            {getStudentPreferredFullName(student)}
           </div>
 
           {/* School · Program - same utility and typography as StudentCard */}
