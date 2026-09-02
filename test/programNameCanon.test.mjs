@@ -23,9 +23,11 @@ const read = (p) => readFileSync(join(root, p), 'utf8')
 
 function sourceFiles(dir, out = []) {
   for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
-    // The " 2.js" duplicates are stray copies the Owner keeps untracked; they are not
+    // The stray " 2.js" / " 3.js" copies are untracked duplicates the Owner keeps; they are not
     // the product and must not fail a product-copy rule.
-    if (entry.name.includes(' 2.')) continue
+    // Matched by SHAPE, not by the number: this test failed on a " 3.js" copy because the
+    // original pattern hard-coded 2, which made a local artifact look like a real violation.
+    if (/ \d+\.[a-z]+$/i.test(entry.name)) continue
     const rel = `${dir}/${entry.name}`
     if (entry.isDirectory()) sourceFiles(rel, out)
     else if (/\.(js|jsx)$/.test(entry.name)) out.push(rel)
