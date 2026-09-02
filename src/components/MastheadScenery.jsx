@@ -7,7 +7,7 @@
 //
 import { useMemo, useState } from 'react'
 import { useWelcomeWeather } from './WeatherScene'
-import { SCENES } from '../lib/mastheadScene'
+import { SCENES, ALL_SCENES, sceneFrameFor } from '../lib/mastheadScene'
 import { parseSceneFiles, resolvePack, injectedSceneFiles, imgPositionFor } from '../lib/mastheadCityScenes'
 import { useCityPreference } from './masthead/useCityPreference'
 //
@@ -89,15 +89,20 @@ export default function MastheadScenery() {
       <div className="mast-sky mast-sky-goldenhour" />
       <div className="mast-sky mast-sky-sunset" />
       <div className="mast-sky mast-sky-night" />
+      <div className="mast-sky mast-sky-cloudynight" />
       <div className="mast-sky mast-sky-rain" />
       {/* The SVG ridge art renders beneath a PARTIAL pack so a missing scene
           still shows artwork; a complete pack replaces it. */}
       {!complete && <SvgScenery />}
-      {scenes && SCENES.map(s => scenes[s] && (
+      {/* ALL_SCENES, not SCENES: an optional scene renders too, using its own
+          frame when the pack has one and its declared fallback when it does
+          not. A city without CloudyNight therefore shows its Night frame on a
+          stormy night rather than losing the artwork entirely. */}
+      {scenes && ALL_SCENES.map(s => sceneFrameFor(s, scenes) && (
         <img
           key={s}
           className={`mast-scn-img mast-scn-img-${s}`}
-          src={scenes[s]}
+          src={sceneFrameFor(s, scenes)}
           alt=""
           draggable={false}
           decoding="async"

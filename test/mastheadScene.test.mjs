@@ -7,7 +7,9 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sceneForTime, sunTimesFrom, artSceneFor, isRainyCode, SCENES, CLOCK_SCENES } from '../src/lib/mastheadScene.js'
+import { sceneForTime, sunTimesFrom, artSceneFor, isRainyCode, SCENES, CLOCK_SCENES,
+  OPTIONAL_SCENES, ALL_SCENES, SCENE_FALLBACK, sceneFrameFor, isNightScene,
+} from '../src/lib/mastheadScene.js'
 
 const at = (h, m = 0) => new Date(2026, 7, 29, h, m) // local time, Aug 29 2026
 const SUN = { sunrise: at(6, 24), sunset: at(19, 20) }
@@ -62,13 +64,20 @@ test('rain codes: precipitation, overcast, and fog - never partly cloudy', () =>
   }
 })
 
-test('the rain artwork overrides the daytime family and yields to night', () => {
+test('bad weather overrides every scene: rain by day, cloudynight after dark', () => {
   for (const scene of ['dawn', 'morning', 'day', 'goldenhour', 'sunset']) {
     assert.equal(artSceneFor(scene, 61), 'rain', `${scene} + rain -> rain art`)
     assert.equal(artSceneFor(scene, 0), scene, `${scene} + clear stays`)
     assert.equal(artSceneFor(scene, 2), scene, `${scene} + partly cloudy stays`)
   }
-  assert.equal(artSceneFor('night', 61), 'night')  // city lights stay after dark
+  // MASTHEAD-CLOUDY-NIGHT (Owner): night used to ignore the weather entirely
+  // and show a clear sky through a storm. Now it has its own bad-weather frame.
+  assert.equal(artSceneFor('night', 61), 'cloudynight', 'rain after dark')
+  assert.equal(artSceneFor('night', 3), 'cloudynight', 'overcast after dark')
+  assert.equal(artSceneFor('night', 45), 'cloudynight', 'fog after dark')
+  assert.equal(artSceneFor('night', 95), 'cloudynight', 'thunderstorm after dark')
+  assert.equal(artSceneFor('night', 0), 'night', 'a clear night is still a clear night')
+  assert.equal(artSceneFor('night', 2), 'night', 'partly cloudy is not bad weather')
   assert.equal(artSceneFor('day', undefined), 'day')
 })
 
@@ -88,5 +97,43 @@ test('a full day sweep never yields anything outside the clock vocabulary', () =
     for (const sun of [SUN, null]) {
       assert.ok(CLOCK_SCENES.includes(sceneForTime(at(h, 17), sun)))
     }
+  }
+})
+
+// ── MASTHEAD-CLOUDY-NIGHT (Owner) ───────────────────────────────────────────
+
+test('an optional scene is optional, and declares what it falls back to', () => {
+  // Making CloudyNight REQUIRED would have made all five cities that shipped
+  // before it incomplete overnight, which drops the SVG scenery in underneath
+  // a perfectly good pack. It is optional with a declared fallback instead.
+  assert.ok(!SCENES.includes('cloudynight'), 'not required of every pack')
+  assert.deepEqual(OPTIONAL_SCENES, ['cloudynight'])
+  assert.deepEqual(ALL_SCENES, [...SCENES, 'cloudynight'])
+  assert.equal(SCENE_FALLBACK.cloudynight, 'night')
+  // Every optional scene must declare a fallback, or a pack without it would
+  // render nothing at all for that state.
+  for (const s of OPTIONAL_SCENES) {
+    assert.ok(SCENE_FALLBACK[s], `${s} must declare a fallback`)
+    assert.ok(SCENES.includes(SCENE_FALLBACK[s]), `${s} must fall back to a REQUIRED scene`)
+  }
+})
+
+test('a pack without CloudyNight shows its Night frame, never nothing', () => {
+  const withIt = { night: '/n.webp', cloudynight: '/cn.webp', day: '/d.webp' }
+  const without = { night: '/n.webp', day: '/d.webp' }
+  assert.equal(sceneFrameFor('cloudynight', withIt), '/cn.webp')
+  assert.equal(sceneFrameFor('cloudynight', without), '/n.webp', 'falls back rather than blanking')
+  assert.equal(sceneFrameFor('night', without), '/n.webp')
+  // A required scene has no fallback: absent means absent, which is what makes
+  // the pack incomplete and brings the SVG scenery back.
+  assert.equal(sceneFrameFor('rain', without), null)
+  assert.equal(sceneFrameFor('cloudynight', null), null)
+})
+
+test('night treatment follows every night scene, clear or clouded', () => {
+  assert.ok(isNightScene('night'))
+  assert.ok(isNightScene('cloudynight'))
+  for (const s of ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'rain']) {
+    assert.ok(!isNightScene(s), s)
   }
 })

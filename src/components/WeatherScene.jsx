@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sceneAssets } from '../lib/weatherAssetMap'
 import { useWeatherLocation } from '../lib/weatherLocation'
-import { sceneForTime, sunTimesFrom, artSceneFor, SCENES } from '../lib/mastheadScene'
+import { sceneForTime, sunTimesFrom, artSceneFor, ALL_SCENES, isNightScene } from '../lib/mastheadScene'
 import { parseSceneFiles, injectedSceneFiles, resolvePack, skyPositionFor, CITY_COORDS } from '../lib/mastheadCityScenes'
 import { cityOptions, cityWeatherLocation } from '../lib/mastheadCityPreference'
 import { useCityPreference } from './masthead/useCityPreference'
@@ -264,9 +264,10 @@ export function useMastheadScene() {
   let scene = artSceneFor(sceneForTime(new Date(), sunTimesFrom(data)), data?.code)
   try {
     const o = localStorage.getItem('aspire_scene_override_v1')
-    if (SCENES.includes(o)) scene = o
+    if (ALL_SCENES.includes(o)) scene = o
   } catch { /* storage unavailable: the live clock wins */ }
-  return { scene, night: scene === 'night' }
+  // Night treatment follows every night scene, clear or clouded.
+  return { scene, night: isNightScene(scene) }
 }
 
 // MASTHEAD-NIGHT-1 → MASTHEAD-SCENE-1: night now follows the unified scene

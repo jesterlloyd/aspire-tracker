@@ -1934,6 +1934,12 @@ a.doc-file-link:hover { text-decoration: underline; }
   background: radial-gradient(680px 260px at 66% 116%, rgba(96,116,220,0.28), transparent 70%),
     radial-gradient(420px 200px at 86% -10%, rgba(214,226,255,0.16), transparent 70%);
 }
+.mast-sky-cloudynight {
+  /* MASTHEAD-CLOUDY-NIGHT: the clear-night sky with its moon-glow damped and a
+     low, wide haze where cloud cover catches the city's own light. */
+  background: radial-gradient(760px 220px at 58% 118%, rgba(120,134,190,0.30), transparent 72%),
+    radial-gradient(520px 160px at 30% -14%, rgba(150,162,200,0.12), transparent 70%);
+}
 .mast-sky-dawn {
   background: radial-gradient(720px 300px at 66% 114%, rgba(178,168,232,0.46), rgba(196,204,244,0.22) 50%, transparent 76%),
     linear-gradient(115deg, rgba(240,244,252,0) 32%, rgba(150,168,224,0.30) 100%);
@@ -1953,7 +1959,8 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-day .mast-sky-day, .mast-scene-sunset .mast-sky-sunset,
 .mast-scene-night .mast-sky-night, .mast-scene-dawn .mast-sky-dawn,
 .mast-scene-morning .mast-sky-morning, .mast-scene-goldenhour .mast-sky-goldenhour,
-.mast-scene-rain .mast-sky-rain { opacity: 1; }
+.mast-scene-rain .mast-sky-rain,
+.mast-scene-cloudynight .mast-sky-cloudynight { opacity: 1; }
 
 /* The ridge/skyline/palm art. Same left-quiet mask; fills cross-fade as the
    scene class swaps the CSS variables above. */
@@ -1997,11 +2004,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-day .mast-scn-img-day, .mast-scene-sunset .mast-scn-img-sunset,
 .mast-scene-night .mast-scn-img-night, .mast-scene-dawn .mast-scn-img-dawn,
 .mast-scene-morning .mast-scn-img-morning, .mast-scene-rain .mast-scn-img-rain,
-.mast-scene-goldenhour .mast-scn-img-goldenhour { opacity: 1; }
+.mast-scene-goldenhour .mast-scn-img-goldenhour,
+.mast-scene-cloudynight .mast-scn-img-cloudynight { opacity: 1; }
 /* Dark page theme: soften the daylight artwork so the card doesn't glow;
    the night image already lives in the theme's register. */
 [data-theme="dark"] .mast-scn-img { filter: brightness(0.85) saturate(0.9); }
-[data-theme="dark"] .mast-scene-night .mast-scn-img-night { filter: none; }
+[data-theme="dark"] .mast-scene-night .mast-scn-img-night,
+[data-theme="dark"] .mast-scene-cloudynight .mast-scn-img-cloudynight { filter: none; }
 @media (prefers-reduced-motion: reduce) { .mast-scn-img { transition: none; } }
 /* Legibility over artwork: the weather caption and milestone sit in the
    detailed half of the scene, so light scenes lift them with a soft white

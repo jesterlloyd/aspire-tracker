@@ -28,7 +28,11 @@ test('one unified clock: night is the scene clock, never is_day and never the th
   // useMastheadScene anchors to sun times (fallback: fixed windows), applies the
   // SCENE-3 rain artwork override, and derives night from the result.
   assert.match(wx, /let scene = artSceneFor\(sceneForTime\(new Date\(\), sunTimesFrom\(data\)\), data\?\.code\)/)
-  assert.match(wx, /return \{ scene, night: scene === 'night' \}/)
+  // MASTHEAD-CLOUDY-NIGHT: the night treatment follows EVERY night scene, so
+  // a clouded night gets the Nightfall card and white ink like a clear one.
+  assert.match(wx, /return \{ scene, night: isNightScene\(scene\) \}/)
+  assert.match(read('src/lib/mastheadScene.js'),
+    /export function isNightScene\(scene\) \{\s*return scene === 'night' \|\| scene === 'cloudynight'/)
   assert.match(wx, /export function useMastheadNight\(\) \{\n {2}return useMastheadScene\(\)\.night\n\}/)
   // The old split driver is gone: nothing keys the card on the weather's is_day.
   assert.doesNotMatch(wx, /useMastheadNight\(\) \{\n {2}const \{ data \} = useWelcomeWeather/)

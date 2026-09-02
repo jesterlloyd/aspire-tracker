@@ -274,3 +274,31 @@ test('the crop hook is applied where the art renders, not on the card', () => {
   const css = read('src/index.css')
   assert.match(css, /object-position: 50% var\(--scn-img-y, 100%\)/)
 })
+
+test('CloudyNight parses as its own scene, not as bare Night', () => {
+  // The parser reads the scene from the END of the basename, longest run
+  // first, so "Hollywood_CloudyNight" must not resolve to 'night'.
+  const packs = parseSceneFiles([
+    'Hollywood/Hollywood_Night.webp', 'Hollywood/Hollywood_CloudyNight.webp',
+  ])
+  assert.equal(packs.hollywood.night, '/masthead/Hollywood/Hollywood_Night.webp')
+  assert.equal(packs.hollywood.cloudynight, '/masthead/Hollywood/Hollywood_CloudyNight.webp')
+  // The separated spellings work too, as they do for Golden Hour.
+  for (const name of ['Cloudy Night', 'Cloudy_Night', 'Rainy Night', 'Night Rain']) {
+    const p = parseSceneFiles([`Hollywood/Hollywood_${name}.webp`])
+    assert.equal(Object.keys(p.hollywood)[0], 'cloudynight', name)
+  }
+})
+
+test('an installed pack may add CloudyNight, and the five that predate it need not', () => {
+  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+    .map(f => String(f).replace(/\\/g, '/'))
+    .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
+  const packs = parseSceneFiles(files)
+  // Hollywood ships it; nobody is required to.
+  assert.ok(packs.hollywood?.cloudynight, 'Hollywood carries CloudyNight')
+  // And every pack, with or without it, is still COMPLETE on the required set.
+  for (const city of Object.keys(packs)) {
+    for (const scene of SCENES) assert.ok(packs[city]?.[scene], `${city} must carry ${scene}`)
+  }
+})

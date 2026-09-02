@@ -21,7 +21,35 @@ const MIN = 60 * 1000
 
 /** Every artwork state a city pack can carry (also the QA-override vocabulary
  *  and the pack-completeness checklist). */
+// The scenes EVERY city pack must carry. A pack missing one of these is
+// incomplete and the SVG scenery renders beneath it, so this list is the
+// contract a dropped folder has to satisfy.
 export const SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night', 'rain']
+
+// MASTHEAD-CLOUDY-NIGHT (Owner): scenes a pack MAY carry. Optional on purpose -
+// the five cities that shipped before this one have no CloudyNight frame, and
+// making it required would have made all of them incomplete overnight. Each
+// optional scene declares what it falls back to, so a pack without it still
+// renders something true rather than nothing at all.
+export const OPTIONAL_SCENES = ['cloudynight']
+export const SCENE_FALLBACK = { cloudynight: 'night' }
+
+/** Every scene that can be rendered, required and optional together. */
+export const ALL_SCENES = [...SCENES, ...OPTIONAL_SCENES]
+
+/** The frame a pack actually shows for a scene: itself, or what it falls back
+ *  to when the pack does not carry it. Pure, so both the renderer and the
+ *  tests read one rule. */
+export function sceneFrameFor(scene, scenes) {
+  if (scenes?.[scene]) return scenes[scene]
+  const fallback = SCENE_FALLBACK[scene]
+  return fallback ? scenes?.[fallback] || null : null
+}
+
+/** Night treatment covers every scene that IS night, not only the clear one. */
+export function isNightScene(scene) {
+  return scene === 'night' || scene === 'cloudynight'
+}
 
 /** The six states the clock itself produces ('rain' is weather-driven). */
 export const CLOCK_SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night']
@@ -84,9 +112,13 @@ export function isRainyCode(code) {
   return false
 }
 
-/** The artwork scene: the clock scene, except the daytime family yields to
- *  'rain' in rainy/overcast/foggy weather. Night keeps its own artwork. */
+/** The artwork scene: the clock scene, except that rainy, overcast or foggy
+ *  weather overrides it - to 'rain' by day and, since MASTHEAD-CLOUDY-NIGHT, to
+ *  'cloudynight' after dark. Night used to ignore the weather entirely and show
+ *  a clear sky through a storm; it does not any more. A pack without a
+ *  CloudyNight frame falls back to its Night one (SCENE_FALLBACK), so this is
+ *  safe for every city whether or not it has the extra artwork. */
 export function artSceneFor(clockScene, weatherCode) {
-  if (clockScene !== 'night' && isRainyCode(weatherCode)) return 'rain'
-  return clockScene
+  if (!isRainyCode(weatherCode)) return clockScene
+  return clockScene === 'night' ? 'cloudynight' : 'rain'
 }

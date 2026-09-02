@@ -25,6 +25,11 @@ const SCENE_WORDS = {
   sunset: 'sunset', dusk: 'sunset', evening: 'sunset',
   night: 'night',
   rain: 'rain', rainy: 'rain', cloudy: 'rain', overcast: 'rain', storm: 'rain',
+  // MASTHEAD-CLOUDY-NIGHT: the same weather after dark. Listed before nothing
+  // else matters, but note the parser tries the LONGEST trailing token run
+  // first, so "CloudyNight" resolves here rather than as bare "night".
+  cloudynight: 'cloudynight', nightcloudy: 'cloudynight',
+  rainynight: 'cloudynight', nightrain: 'cloudynight', overcastnight: 'cloudynight',
 }
 
 // ── MASTHEAD-CITY-CANON (Owner) ──────────────────────────────────────────────
@@ -64,6 +69,7 @@ const CITY_ALIASES = {
   saltlakecity: 'saltlakecity',
   washington: 'washington', washingtondc: 'washington',
   atlanta: 'atlanta',
+  hollywood: 'hollywood',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -86,6 +92,10 @@ export const CITY_COORDS = {
   houston: [29.76, -95.37],
   miami: [25.76, -80.19],
   atlanta: [33.75, -84.39],
+  // Hollywood sits about 12km from downtown Los Angeles, so proximity gives a
+  // viewer whichever they are actually nearer to. Both packs are installed and
+  // both are pickable; this only decides the automatic match.
+  hollywood: [34.10, -118.33],
   newyork: [40.71, -74.01],
   boston: [42.36, -71.06],
   washington: [38.91, -77.04],
@@ -219,6 +229,10 @@ export const CITY_SKY_X = {
   // the moon in the middle of them. The left third is low rooftops and trees
   // under open sky, which is where it goes.
   atlanta: '30%',
+  // Hollywood looks east from Griffith: the right half is ridgeline rising to
+  // the radio tower near 70%, and the left half is the open basin under a low
+  // horizon. The moon goes over the basin.
+  hollywood: '30%',
 }
 export const DEFAULT_SKY_X = '52%'
 
