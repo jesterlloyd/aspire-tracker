@@ -22,12 +22,14 @@ import {
   CanonicalCalendarLayout,
   CanonicalCalendarSidebar,
   CanonicalCalendarNav,
+  CanonicalHolidayChip,
   CanonicalCalendarMonthTitle,
 } from '../../components/shared/CanonicalCalendarFoundation'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
 import { orderCohortsByTimeline } from '../../lib/derivations/cohortOrder'
+import { getUsHolidaysForRange } from '../../lib/usHolidays'
 import { fetchAcademicsCalendar, fetchCommunityBenefit } from './nursingAcademicsApi'
 import { schoolColor } from './naSchoolColors'
 import { academicsProgramLabel, academicsSchoolLabel } from './naDisplayLabels'
@@ -145,6 +147,21 @@ export default function AcademicsCalendarView({ active = true }) {
   const today = new Date()
   const todayInMonth = today >= monthStart && today <= monthEnd
   const dayPct = (day) => ((day - 1) / daysInMonth) * 100
+
+  // CALENDAR-HOLIDAY-CANON. This view is a TIMELINE, not a month grid, so holidays cannot
+  // sit in a day cell. They also cannot sit on the track: .ptl-na-today is already amber,
+  // and a second amber mark on the same axis would read as another "today". They get their
+  // own strip under the axis instead: calendar context, stated once for the month rather
+  // than repeated down every school row. A month with no holidays renders nothing.
+  //
+  // Computed plainly, not memoized: this whole block sits AFTER the loading/error early
+  // returns, where a hook cannot go, and every neighbour here (inMonth, dayPct, spanFor)
+  // recomputes per render for the same reason. The cost is the same pure date math.
+  const monthHolidays = (() => {
+    const pad = (n) => String(n).padStart(2, '0')
+    const y = monthStart.getFullYear(), mo = monthStart.getMonth() + 1
+    return getUsHolidaysForRange(`${y}-${pad(mo)}-01`, `${y}-${pad(mo)}-${pad(daysInMonth)}`)
+  })()
   const spanFor = (r) => {
     const start = parseYmd(r.rotation_start)
     const end = parseYmd(r.rotation_end)
@@ -248,6 +265,21 @@ export default function AcademicsCalendarView({ active = true }) {
               <span key={day} className="ptl-na-axis-tick" style={{ left: `${dayPct(day)}%` }}>{day}</span>
             ))}
           </div>
+
+          {monthHolidays.length > 0 && (
+            <div
+              style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '2px 0 4px' }}
+              aria-label={`US holidays in ${monthLabel}`}
+            >
+              {monthHolidays.map(h => (
+                <CanonicalHolidayChip
+                  key={`${h.date}|${h.name}`}
+                  name={`${Number(h.date.slice(8, 10))} ${h.name}`}
+                  observed={h.observed}
+                />
+              ))}
+            </div>
+          )}
 
           {inMonth.length === 0 ? (
             <EmptyState

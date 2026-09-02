@@ -175,20 +175,39 @@ export default function ActivityCalendar({ cycle, canManage }) {
         description={cycle?.name ? `Workshops, town halls and bootcamps across ${cycle.name}.` : 'Workshops, town halls and bootcamps.'}
         labelledBy="ngrp-activity-title"
         toolbar={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <CanonicalCalendarNav
-              onPrev={() => step(-1)}
-              onNext={() => step(1)}
-              onToday={() => {
-                const [y, m] = today.split('-').map(Number)
-                setCursor({ year: y, month: m - 1 })
-                setSelected(today)
-              }}
-            />
+          /* CALENDAR-NAV-CANON: the three-slot toolbar every other ASPIRE calendar uses
+             (Rotation Activity, Unit Leader, Academics, Student Portal): nav pinned left,
+             month CENTERED between two equal flex slots, controls right. This calendar
+             was the one holdout, using a plain wrapping row that left the month jammed
+             against the arrows.
+
+             The two flex:1 flanks are what keep the layout still. The month label's
+             width changes with its name ("May 2027" against "September 2027"), and in a
+             plain row that width has to be absorbed by whatever sits next to it. Here
+             the flanks absorb it, so nothing moves when the month changes.
+
+             flexWrap is deliberately GONE. With it, a long month name pushed Add Event
+             onto a second line and the toolbar's height jumped from 32px to 74px,
+             shoving the whole grid down on a month change. The right slot lets the
+             button hold its place instead. */
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
+              <CanonicalCalendarNav
+                onPrev={() => step(-1)}
+                onNext={() => step(1)}
+                onToday={() => {
+                  const [y, m] = today.split('-').map(Number)
+                  setCursor({ year: y, month: m - 1 })
+                  setSelected(today)
+                }}
+                prevAriaLabel="Previous month"
+                nextAriaLabel="Next month"
+              />
+            </div>
             <CanonicalCalendarMonthTitle ariaLive="polite">{monthName}</CanonicalCalendarMonthTitle>
-            {canManage && (
-              <AddEventButton onClick={() => setEditing({ isNew: true })} style={{ marginLeft: 'auto' }} />
-            )}
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+              {canManage && <AddEventButton onClick={() => setEditing({ isNew: true })} />}
+            </div>
           </div>
         }
         sidebar={

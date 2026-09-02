@@ -224,6 +224,40 @@ export function CanonicalMonthCell({
 }
 
 /**
+ * A US federal holiday on a month cell.
+ *
+ * CALENDAR-HOLIDAY-CANON: amber, deliberately NOT any event colour. A holiday is context
+ * nobody scheduled, and a chip in an event colour reads as something the program put
+ * there. It is also not a button, because there is nothing to open.
+ *
+ * The styling is copied verbatim from the Interviews calendar's inline holiday chip, so a
+ * calendar adopting this primitive matches what already shipped rather than approximating
+ * it. Inline styles, no class, because portal CSS is not in the staff bundle and staff CSS
+ * is not in the portal bundle: a shared class here would silently render unstyled on one
+ * side or the other.
+ */
+export function CanonicalHolidayChip({ name, observed = false }) {
+  const title = observed ? `${name} (observed) \u00b7 US Holiday` : `${name} \u00b7 US Holiday`
+  return (
+    <div
+      title={title}
+      onClick={e => e.stopPropagation()}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0,
+        background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 4,
+        padding: '1px 5px', cursor: 'default', maxWidth: '100%',
+      }}
+    >
+      <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#D97706', flexShrink: 0 }} />
+      <span style={{
+        fontFamily: 'DM Sans', fontSize: 9, fontWeight: 600, color: '#92400E',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{name}</span>
+    </div>
+  )
+}
+
+/**
  * A dense activity chip for a month cell, matching the main-app interviewer chip's
  * radius and density. Navy on a light wash by default; a live variant uses the
  * on-shift green already established in the Unit Leader calendar.

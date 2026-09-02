@@ -38,9 +38,14 @@ import {
   CanonicalCalendarMonthTitle,
   CanonicalWeekdayHeader,
   CanonicalMonthCell,
+  CanonicalHolidayChip,
   CanonicalActivityChip,
 } from '../shared/CanonicalCalendarFoundation'
 import { pacificToday, monthGrid, monthLabel, groupByDay } from '../../lib/rotationCalendarDates'
+// CALENDAR-HOLIDAY-CANON: US federal holidays are pure client-side date math - no fetch,
+// no persistence - so computing them here does not violate this component's props-only
+// contract. They are context, never records: a holiday chip is not a shift.
+import { getUsHolidaysForRange } from '../../lib/usHolidays'
 import { firstNameOf } from '../../lib/masthead'
 import { ordinalWord } from '../../lib/ordinalWord'
 
@@ -225,6 +230,13 @@ export default function RotationActivityCalendar({
 
   const byDay = useMemo(() => groupByDay(shifts), [shifts])
   const cells = useMemo(() => monthGrid(cursor.y, cursor.m), [cursor])
+  const holidaysByDay = useMemo(() => {
+    if (!cells.length) return new Map()
+    const list = getUsHolidaysForRange(cells[0].ymd, cells[cells.length - 1].ymd)
+    const map = new Map()
+    for (const h of list) map.set(h.date, [...(map.get(h.date) || []), h])
+    return map
+  }, [cells])
   const selectedShifts = byDay.get(selectedDate) || []
 
   // Navigation is unbounded in both directions, matching the Interviews calendar. What
@@ -305,9 +317,13 @@ export default function RotationActivityCalendar({
                 const selected = ymd === selectedDate
                 const future = ymd > today
                 const live = day.some(s => s.state === 'in_progress')
-                const label = day.length === 0
+                const dayHolidays = holidaysByDay.get(ymd) || []
+                const base = day.length === 0
                   ? `${ymd}, no activity`
                   : `${ymd}, ${day.length} shift${day.length === 1 ? '' : 's'}${live ? ', on shift now' : ''}`
+                // The holiday is announced too: a screen reader user gets the same context
+                // the amber chip gives a sighted one.
+                const label = dayHolidays.length ? `${base}, ${dayHolidays.map(h => h.name).join(', ')}` : base
                 if (!inMonth) return <CanonicalMonthCell key={ymd} isOtherMonth />
                 return (
                   <CanonicalMonthCell
@@ -319,6 +335,9 @@ export default function RotationActivityCalendar({
                     ariaLabel={label}
                     onClick={() => selectDate(ymd, day)}
                   >
+                    {dayHolidays.slice(0, 1).map(h => (
+                      <CanonicalHolidayChip key={h.name} name={h.name} observed={h.observed} />
+                    ))}
                     {day.slice(0, MAX_CHIPS_PER_DAY).map(shift => (
                       <CanonicalActivityChip
                         key={shift.id}
