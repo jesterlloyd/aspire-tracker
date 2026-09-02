@@ -24,7 +24,7 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
           id, slot_date, slot_time, duration_minutes, block_id,
           interviewer_name, is_booked, booked_by_student_id,
           students!booked_by_student_id (
-            id, first_name, last_name, school, program_type, headshot_url
+            id, first_name, preferred_first_name, last_name, school, program_type, headshot_url
           ),
           interview_sessions!slot_id (
             id, interview_flag

@@ -16,7 +16,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -24,6 +24,7 @@ import {
   getStudentPreferredFullName, getStudentPreferredFirstName, getStudentLegalDisplayName,
 } from '../src/lib/studentNameFormatters.js'
 import { buildInterviewRows } from '../src/lib/interviewsToday.js'
+import { displayName } from '../src/lib/utils.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(root, p), 'utf8')
@@ -127,3 +128,55 @@ test('the audit log still records the legal name', () => {
 // files was edited by one line. Chasing it led into unrelated separator cleanup in the
 // evaluation panels, which is not this fix. The rule still stands; it is just not this
 // test's job to enforce it over legacy files.
+
+// ── The roster spelling, and the data behind it ──────────────────────────────
+
+test('displayName carries the preferred first name to all 30-odd of its consumers', () => {
+  // The second helper, and the one that made Placement Requests read "Li, Xing". Fixing it
+  // here rather than at each call site is the point: every consumer inherits the rule, and
+  // a new one gets it without having to know.
+  assert.equal(displayName(XING), 'Li, Steven')
+  assert.equal(displayName(PLAIN), 'Reed, Dana')
+  // Legal last name always; only the first half is preferred.
+  assert.ok(displayName(XING).startsWith('Li,'))
+  // Pre-migration rows with only the combined column still fall back.
+  assert.equal(displayName({ name: 'Old Record' }), 'Old Record')
+  assert.equal(displayName({ last_name: 'Solo' }), 'Solo')
+  assert.equal(displayName(null), '')
+})
+
+test('a formatter cannot use a column the query never fetched', () => {
+  // This is what kept Interviews Today wrong AFTER the display was fixed: the select listed
+  // first_name and last_name and not preferred_first_name, so the canon read undefined and
+  // correctly fell back to the legal name. Display and data have to move together.
+  const withoutColumn = { first_name: 'Xing', last_name: 'Li' }   // as the row arrived
+  assert.equal(getStudentPreferredFullName(withoutColumn), 'Xing Li')
+  assert.equal(displayName(withoutColumn), 'Li, Xing')
+})
+
+test('every students select that reads first_name also reads preferred_first_name', () => {
+  const roots = ['src', 'api', 'lib']
+  const offenders = []
+  const walk = (dir) => {
+    for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${entry.name}`
+      if (/ \d+\.|node_modules/.test(entry.name)) continue
+      if (entry.isDirectory()) { walk(rel); continue }
+      if (!/\.(js|jsx)$/.test(entry.name)) continue
+      const src = read(rel)
+      // Embedded students joins, and .select() bodies in a statement naming the table.
+      for (const m of src.matchAll(/\bstudents(?:!\w+)?(?:\s*:\s*\w+)?\s*\(\s*([^()]*?)\)/g)) {
+        if (m[1].includes('first_name') && !m[1].includes('preferred_first_name')) offenders.push(`${rel} (join)`)
+      }
+      for (const m of src.matchAll(/\.select\(\s*([`'"])([^`'"]*?)\1/gs)) {
+        const body = m[2]
+        if (!body.includes('first_name') || body.includes('preferred_first_name')) continue
+        const window = src.slice(Math.max(0, m.index - 500), m.index + m[0].length + 250)
+        if (/from\(\s*['"]students['"]\s*\)/.test(window)) offenders.push(`${rel} (select)`)
+      }
+    }
+  }
+  for (const r of roots) walk(r)
+  assert.deepEqual([...new Set(offenders)], [],
+    'these fetch a student name without the column the preferred-name rule needs')
+})

@@ -410,7 +410,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
         const limit = Math.min(input.limit || 20, 50);
         let query = supabase
           .from('students')
-          .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, unit_preference_1, unit_preference_2, unit_preference_3, headshot_url, avg_composite_score, auto_recommendation')
+          .select('id, first_name, preferred_first_name, last_name, school, program_type, status, cumulative_gpa, unit_preference_1, unit_preference_2, unit_preference_3, headshot_url, avg_composite_score, auto_recommendation')
           .eq('cohort_id', activeCohortId)
           .order('last_name', { ascending: true });
         if (input.status)       query = query.eq('status', input.status);
@@ -430,7 +430,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
       case 'get_student_detail': {
         const { data: student, error } = await supabase
           .from('students')
-          .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, preceptor_id, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement')
+          .select('id, first_name, preferred_first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, preceptor_id, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement')
           .eq('id', input.student_id)
           .single();
         if (error || !student) return { error: 'Student not found' };
@@ -516,7 +516,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
         if (placedIds.length > 0) {
           const { data: ps } = await supabase
             .from('students')
-            .select('id, first_name, last_name, school, program_type, status')
+            .select('id, first_name, preferred_first_name, last_name, school, program_type, status')
             .in('id', placedIds);
           placedStudents = (ps || []).map(s => {
             const m = matches.find(mx => mx.student_id === s.id);
@@ -527,9 +527,9 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
         // Students who listed this unit as a preference
         const unitName = unit.unit_name;
         const [pref1, pref2, pref3] = await Promise.all([
-          supabase.from('students').select('id, first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_1', unitName),
-          supabase.from('students').select('id, first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_2', unitName),
-          supabase.from('students').select('id, first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_3', unitName),
+          supabase.from('students').select('id, first_name, preferred_first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_1', unitName),
+          supabase.from('students').select('id, first_name, preferred_first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_2', unitName),
+          supabase.from('students').select('id, first_name, preferred_first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_3', unitName),
         ]);
         const placedSet = new Set(placedIds);
 

@@ -273,7 +273,7 @@ export default async function handler(req, res) {
     if (studentIds.length) {
       const { data: students } = await supabaseAdmin
         .from('students')
-        .select('id, first_name, last_name, school')
+        .select('id, first_name, preferred_first_name, last_name, school')
         .in('id', studentIds);
       for (const s of students || []) studentsById[s.id] = s;
     }

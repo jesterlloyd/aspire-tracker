@@ -80,7 +80,7 @@ export async function validateBulkRecipients({ db, recipients, batchId }) {
       if (!isUuid(r.studentId)) { rejected.push({ ...label, reason: 'invalid_student_id' }); continue; }
       const { data: student, error: sErr } = await db
         .from('students')
-        .select('id, first_name, last_name, personal_email, school_email, status')
+        .select('id, first_name, preferred_first_name, last_name, personal_email, school_email, status')
         .eq('id', r.studentId)
         .single();
       if (sErr || !student) { rejected.push({ ...label, reason: 'student_not_found' }); continue; }

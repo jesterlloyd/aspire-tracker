@@ -274,7 +274,7 @@ async function _handler(req, res) {
       // Step 1: Fetch student and confirm cohort membership
       const { data: student, error: studentErr } = await supabaseAdmin
         .from('students')
-        .select('id, first_name, last_name, school_email, personal_email, approved_hours, cohort_id, status, school')
+        .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, approved_hours, cohort_id, status, school')
         .eq('id', studentId)
         .single();
 

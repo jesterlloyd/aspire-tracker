@@ -60,7 +60,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
       const [sRes, pRes, aRes] = await Promise.all([
         supabase
           .from('students')
-          .select('id, first_name, last_name, school, program_type, approved_hours, hours_required, personal_email, school_email, preceptor_id, matched_preceptor')
+          .select('id, first_name, preferred_first_name, last_name, school, program_type, approved_hours, hours_required, personal_email, school_email, preceptor_id, matched_preceptor')
           .eq('cohort_id', cohortId)
           .order('last_name').order('first_name'),
         supabase

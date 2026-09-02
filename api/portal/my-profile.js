@@ -266,7 +266,7 @@ export default async function handler(req, res) {
 
   const { data: student, error: sErr } = await db
     .from('students')
-    .select('id, cohort_id, status, interview_scheduled_date, submitted_via, updated_at, first_name, last_name, cs_cedars_status, resume_url, headshot_url')
+    .select('id, cohort_id, status, interview_scheduled_date, submitted_via, updated_at, first_name, preferred_first_name, last_name, cs_cedars_status, resume_url, headshot_url')
     .eq('id', targetId).maybeSingle()
   if (sErr) return res.status(500).json({ error: 'internal_error' })
   if (!student) return res.status(404).json({ error: 'not_found' })

@@ -320,7 +320,7 @@ export default function EvaluationTab({ cohortId }) {
           invited_at, sent_at, opened_at, expires_at, revoked_at,
           approved_hours_at_invitation, approved_hours_at_completion, notes,
           respondent_type, respondent_name,
-          students!inner ( id, first_name, last_name ),
+          students!inner ( id, first_name, preferred_first_name, last_name ),
           evaluation_instruments!inner ( slug, display_name ),
           evaluation_responses (
             submitted_at,

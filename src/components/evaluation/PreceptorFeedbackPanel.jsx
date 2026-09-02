@@ -74,7 +74,7 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
     Promise.all([
       supabase
         .from('students')
-        .select('id, first_name, last_name, status, preceptor_id, preceptor_email, matched_preceptor')
+        .select('id, first_name, preferred_first_name, last_name, status, preceptor_id, preceptor_email, matched_preceptor')
         .eq('cohort_id', cohortId)
         .order('last_name').order('first_name'),
       supabase

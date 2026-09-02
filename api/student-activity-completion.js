@@ -145,7 +145,7 @@ export default async function handler(req, res) {
   // at all, so it cannot be spoofed; the student's own row is the authority.
   const { data: student, error: studentErr } = await supabaseAdmin
     .from('students')
-    .select('id, cohort_id, first_name, last_name')
+    .select('id, cohort_id, first_name, preferred_first_name, last_name')
     .eq('id', studentId)
     .maybeSingle();
   if (studentErr) {

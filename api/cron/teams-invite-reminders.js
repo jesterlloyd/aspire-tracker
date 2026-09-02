@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         teams_reminder_count,
         teams_reminder_escalated,
         students:student_id (
-          id, first_name, last_name, school, school_email, program_type
+          id, first_name, preferred_first_name, last_name, school, school_email, program_type
         ),
         slots:slot_id (
           id, slot_date, slot_time, duration_minutes, interviewer_name

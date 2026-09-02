@@ -1772,7 +1772,7 @@ export default function ContactsView({ refreshKey = 0 }) {
       setLoadingStudents(true)
       supabase
         .from('students')
-        .select('id, first_name, last_name, status, matched_unit_id')
+        .select('id, first_name, preferred_first_name, last_name, status, matched_unit_id')
         .ilike('preceptor_email', contact.email)
         .not('status', 'in', '(Not Proceeding,Declined)')
         .order('last_name')
@@ -1789,7 +1789,7 @@ export default function ContactsView({ refreshKey = 0 }) {
       setLoadingStudents(true)
       supabase
         .from('students')
-        .select('id, first_name, last_name, status')
+        .select('id, first_name, preferred_first_name, last_name, status')
         .eq('school', contact.school_name)
         .order('last_name')
         .order('first_name')

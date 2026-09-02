@@ -66,7 +66,7 @@ export default async function handler(req, res) {
         cohort_id,
         slot_id,
         students:student_id (
-          id, first_name, last_name, school_email, personal_email, cohort_id
+          id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id
         ),
         slots:slot_id (
           id, slot_date, slot_time, duration_minutes

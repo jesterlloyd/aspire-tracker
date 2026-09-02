@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     // Fetch Active Rotation students in enabled cohorts
     const { data: students, error: studentsErr } = await supabase
       .from('students')
-      .select('id, first_name, last_name, school_email, personal_email, cohort_id, approved_hours, hours_required, matched_unit_id')
+      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id, approved_hours, hours_required, matched_unit_id')
       .in('cohort_id', cohortIds)
       .eq('status', 'Active Rotation');
 

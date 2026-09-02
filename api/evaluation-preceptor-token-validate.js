@@ -174,7 +174,7 @@ export default async function handler(req, res) {
         evaluation_assignments!inner (
           timepoint,
           respondent_name,
-          students!inner ( first_name, last_name ),
+          students!inner ( first_name, preferred_first_name, last_name ),
           preceptors:respondent_preceptor_id ( full_name, unit_name )
         )
       `)

@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     const studentIdList = [...new Set(targetSlots.map(s => s.booked_by_student_id).filter(Boolean))];
     const { data: students, error: studErr } = await supabase
       .from('students')
-      .select('id, first_name, last_name, school_email, personal_email, cohort_id')
+      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id')
       .in('id', studentIdList);
     if (studErr) return res.status(500).json({ error: studErr.message });
     const studentById = Object.fromEntries((students || []).map(s => [s.id, s]));

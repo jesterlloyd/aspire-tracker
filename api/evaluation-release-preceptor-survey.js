@@ -158,7 +158,7 @@ async function _handler(req, res) {
   // ── 4. Load detection inputs for THIS student (read-only) and re-run PS-3a. ──────
   const { data: student, error: studentErr } = await supabaseAdmin
     .from('students')
-    .select('id, first_name, last_name, approved_hours, hours_required, cohort_id, preceptor_id, preceptor_email, matched_preceptor')
+    .select('id, first_name, preferred_first_name, last_name, approved_hours, hours_required, cohort_id, preceptor_id, preceptor_email, matched_preceptor')
     .eq('id', studentId)
     .single();
   if (studentErr || !student) {

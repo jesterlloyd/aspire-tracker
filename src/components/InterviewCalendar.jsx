@@ -1266,7 +1266,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         supabase.from('interview_availability_blocks')
           .select('*').eq('cohort_id', cohortId).eq('is_active', true),
         supabase.from('interview_slots')
-          .select(`*, students!booked_by_student_id (id, first_name, last_name, school, school_email, program_type), interview_sessions!slot_id (id, teams_meeting_booked, teams_invite_sent_at)`)
+          .select(`*, students!booked_by_student_id (id, first_name, preferred_first_name, last_name, school, school_email, program_type), interview_sessions!slot_id (id, teams_meeting_booked, teams_invite_sent_at)`)
           .eq('cohort_id', cohortId)
           .order('slot_date', { ascending: true })
           .order('slot_time', { ascending: true }),

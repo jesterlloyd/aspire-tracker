@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     // EVERY cohort. date_of_birth is selected for the month/day match only.
     const { data: students, error: studentsErr } = await supabase
       .from('students')
-      .select('id, first_name, last_name, school_email, personal_email, cohort_id, status, date_of_birth')
+      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id, status, date_of_birth')
       .eq('status', ACTIVE_ROTATION_STATUS);
 
     if (studentsErr) {

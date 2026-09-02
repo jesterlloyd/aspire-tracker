@@ -148,7 +148,7 @@ export default async function handler(req, res) {
       try {
         const { data: students, error: studentsErr } = await supabase
           .from('students')
-          .select('id, first_name, last_name, school, status, cs_cedars_status, cs_stage1_submitted, cs_stage1_complete, cs_link_requested, cs_link_complete')
+          .select('id, first_name, preferred_first_name, last_name, school, status, cs_cedars_status, cs_stage1_submitted, cs_stage1_complete, cs_link_requested, cs_link_complete')
           .eq('cohort_id', cohort.id);
         if (studentsErr) throw new Error(`students query failed: ${studentsErr.message}`);
 

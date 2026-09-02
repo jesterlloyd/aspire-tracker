@@ -1,9 +1,19 @@
+import { getStudentPreferredFirstName } from './studentNameFormatters.js'
+
 /**
  * Returns "Last, First" when both name parts exist, falls back to the name field.
  * Handles pre-migration records that only have the combined name column.
+ *
+ * STUDENT-PREFERRED-NAME: the FIRST half is the preferred first name when the student has
+ * one, else their legal first name. This helper is the sort/roster spelling used across a
+ * dozen surfaces, and it read the legal first name only, so a student who goes by Steven
+ * appeared as "Li, Xing" in every one of them. The last name is always legal.
+ *
+ * Changing it here rather than at each call site is the point: the rule now applies to
+ * every consumer at once, and a new one inherits it without having to know.
  */
 export function displayName(student) {
-  const f = student?.first_name?.trim()
+  const f = getStudentPreferredFirstName(student)
   const l = student?.last_name?.trim()
   if (l && f) return `${l}, ${f}`
   if (l) return l

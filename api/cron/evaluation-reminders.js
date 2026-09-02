@@ -105,7 +105,7 @@ async function loadContext(db, now) {
   if (studentIds.length) {
     const { data: students, error: sErr } = await db
       .from('students')
-      .select('id, first_name, last_name, school_email, personal_email, status, ngrp_outcome')
+      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, status, ngrp_outcome')
       .in('id', studentIds);
     if (sErr) throw new Error(`students query failed: ${sErr.message}`);
     for (const s of students || []) studentsById.set(s.id, s);
@@ -277,7 +277,7 @@ export async function runEvaluationReminders(req, res, { sweep = false } = {}) {
       if (needStudents.length > 0) {
         const { data: st, error: sErr } = await supabase
           .from('students')
-          .select('id, first_name, last_name, school_email, personal_email, status, ngrp_outcome')
+          .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, status, ngrp_outcome')
           .in('id', needStudents);
         if (sErr) throw new Error(`recovery student hydration failed: ${sErr.message}`);
         for (const s of st || []) studentsById.set(s.id, s);

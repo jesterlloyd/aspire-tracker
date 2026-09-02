@@ -122,7 +122,7 @@ export default async function handler(req, res) {
       .from('program_events')
       .select(`
         id, event_type, event_date, created_at, notes,
-        students!inner(id, first_name, last_name, school, program_type, status)
+        students!inner(id, first_name, preferred_first_name, last_name, school, program_type, status)
       `)
       .gte('created_at', windowStart.toISOString())
       .lt('created_at', windowEnd.toISOString())

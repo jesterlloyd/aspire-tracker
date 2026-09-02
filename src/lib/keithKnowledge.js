@@ -318,7 +318,7 @@ export async function getKeithContext(supabase, cohortId) {
     const { data: students } = await supabase
       .from('students')
       .select(`
-        id, first_name, last_name, school, program_type, status,
+        id, first_name, preferred_first_name, last_name, school, program_type, status,
         interview_scheduled_date, interview_outcome, auto_recommendation,
         matched_unit_id, matched_preceptor, preceptor_id, cs_stage1_submitted,
         cs_link_complete, badge_created, approved_hours, hours_required,

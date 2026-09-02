@@ -116,7 +116,7 @@ export default function PreceptorParityPanel() {
       const [studentsRes, preceptorsRes, assignmentsRes] = await Promise.all([
         supabase
           .from('students')
-          .select('id, first_name, last_name, preceptor_id, cohort_id, matched_preceptor, preceptor_email')
+          .select('id, first_name, preferred_first_name, last_name, preceptor_id, cohort_id, matched_preceptor, preceptor_email')
           .not('preceptor_id', 'is', null),
         supabase
           .from('preceptors')
@@ -144,7 +144,7 @@ export default function PreceptorParityPanel() {
       if (assignmentOnlyIds.length) {
         const extraRes = await supabase
           .from('students')
-          .select('id, first_name, last_name, preceptor_id, cohort_id, matched_preceptor, preceptor_email')
+          .select('id, first_name, preferred_first_name, last_name, preceptor_id, cohort_id, matched_preceptor, preceptor_email')
           .in('id', assignmentOnlyIds)
         if (extraRes.error) throw extraRes.error
         assignmentOnlyStudents = extraRes.data || []
