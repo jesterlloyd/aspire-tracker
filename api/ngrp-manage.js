@@ -27,6 +27,7 @@ import { can } from '../lib/server/access.js'
 import {
   validateCyclePayload, validateSourceCohortIds, validateCycleUnits,
   openReadiness, validateStatusTransition, FORM_ACTIVE_STATUSES,
+  validateInterviewPayload, validateOutcomePayload,
 } from '../lib/server/ngrpPlanning.js'
 import { isMissingNgrpTable, isMissingNgrpSchema, isMissingNgrpColumn } from '../lib/server/ngrpApplicants.js'
 import {
@@ -401,6 +402,77 @@ export default async function handler(req, res) {
     // Only a CONFIRMED applicant can be assigned. Someone who has not reached
     // the official NGRP list has not applied, and assigning them a unit would
     // put a decision against a person who never asked for one.
+    // NGRP-INTERVIEW-HIRE-1: the interview record. WORKFLOW state, so it lives
+    // on ngrp_candidates beside the assignment. No rubric and no score is
+    // stored: this program records who was interviewed and what came of it.
+    if (action === 'interview_set') {
+      const v = validateInterviewPayload(body)
+      if (!v.ok) return invalid(res, v.errors)
+      if (candidate.interview_status === v.interview.interview_status
+          && (candidate.interview_at || null) === v.interview.interview_at) {
+        return res.status(200).json({ ok: true, idempotent: true })
+      }
+      const upd = await db.from('ngrp_candidates').update({
+        ...v.interview,
+        interview_recorded_by_profile_id: actorId,
+        interview_recorded_at: nowIso,
+      }).eq('id', candidateId)
+      if (upd.error) return isMissingNgrpColumn(upd.error) ? unprovisioned(res) : internal(res)
+      await recordNgrpAudit(db, {
+        eventType: 'interview_recorded',
+        cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
+        metadata: { interview_status: v.interview.interview_status },
+      })
+      return res.status(200).json({ ok: true, interview: v.interview })
+    }
+
+    // The DURABLE employment record. Deliberately a different table from the
+    // interview: ngrp_residency_outcomes is the minimal set of facts that
+    // outlive the workflow, with RESTRICT foreign keys and DELETE revoked even
+    // from service_role. One row per candidate attempt, upserted.
+    if (action === 'outcome_set') {
+      if (candidate.application_status !== 'confirmed') {
+        return invalid(res, [{ field: 'candidate', message: 'Only an applicant on the official NGRP list can carry an offer or a hire.' }])
+      }
+      const v = validateOutcomePayload(body)
+      if (!v.ok) return invalid(res, v.errors)
+      const existing = await db.from('ngrp_residency_outcomes')
+        .select('*').eq('candidate_id', candidateId).maybeSingle()
+      if (existing.error && !isMissingNgrpTable(existing.error)) return internal(res)
+      if (existing.error) return unprovisioned(res)
+
+      const row = {
+        candidate_id: candidateId,
+        student_id: candidate.student_id,
+        cycle_id: cycle.id,
+        ...v.outcome,
+        recorded_by_profile_id: actorId,
+        updated_at: nowIso,
+      }
+      const wrote = existing.data
+        ? await db.from('ngrp_residency_outcomes').update(row).eq('candidate_id', candidateId)
+        : await db.from('ngrp_residency_outcomes').insert(row)
+      if (wrote.error) return isMissingNgrpSchema(wrote.error) ? unprovisioned(res) : internal(res)
+
+      // Audit what actually CHANGED, so the trail records the moment a hire was
+      // recorded rather than every time the section was saved.
+      const before = existing.data || {}
+      for (const [field, ev] of [
+        ['offer_extended_at', 'offer_extended'],
+        ['offer_accepted_at', 'offer_accepted'],
+        ['hired_at', 'hire_recorded'],
+      ]) {
+        if (v.outcome[field] && !before[field]) {
+          await recordNgrpAudit(db, {
+            eventType: ev,
+            cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
+            metadata: ev === 'hire_recorded' ? { hired_unit: v.outcome.hired_unit } : {},
+          })
+        }
+      }
+      return res.status(200).json({ ok: true, outcome: v.outcome })
+    }
+
     if (action === 'assign_unit') {
       const raw = typeof body.unit === 'string' ? body.unit.trim() : ''
       const unit = raw || null

@@ -28,11 +28,12 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNgrpPlanning, useNgrpApplicants, postNgrpManage } from '../../lib/ngrp/useNgrpData'
-import { deriveApplicantRows, effectiveEligibility, ELIGIBILITY_STATES } from '../../lib/ngrp/ngrpStates'
+import { deriveApplicantRows, effectiveEligibility, ELIGIBILITY_STATES, INTERVIEW_STATES } from '../../lib/ngrp/ngrpStates'
 import { displayName } from '../../lib/utils'
 import { UNIT_CATALOG } from '../../lib/unitCatalog'
 import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
+import ApplicantDrawer from './ApplicantDrawer'
 import { F } from '../../lib/ngrp/ngrpCohortForm'
 import {
   placeableRows, preferencesOf, assignedRank, unitPool, placementSummary,
@@ -123,6 +124,7 @@ export default function PlacementBoard({ cycle, canManage, toast }) {
   const [saving, setSaving] = useState(null)
   const [focusedUnit, setFocusedUnit] = useState(null)
   const [selectedApplicant, setSelectedApplicant] = useState(null)
+  const [drawerId, setDrawerId] = useState(null)
   const [division, setDivision] = useState('')
   const [search, setSearch] = useState('')
   const [showOnly, setShowOnly] = useState('all')
@@ -154,6 +156,10 @@ export default function PlacementBoard({ cycle, canManage, toast }) {
     return orderForFocus(list, focusedUnit, nameOf)
   }, [rows, showOnly, search, focusedUnit])
 
+  // Resolved from the live rows each render, so a save is reflected in the open
+  // drawer rather than leaving a stale copy on screen.
+  const drawerRow = drawerId ? rows.find(r => r.id === drawerId) || null : null
+
   const focusPrefTally = useMemo(() => {
     if (!focusedUnit) return null
     const t = { 1: 0, 2: 0, 3: 0 }
@@ -163,6 +169,25 @@ export default function PlacementBoard({ cycle, canManage, toast }) {
     }
     return t
   }, [rows, focusedUnit])
+
+  // NGRP-INTERVIEW-HIRE-1: the board opens the SAME drawer Profiles opens, so
+  // one person's record has exactly one place it is edited rather than two that
+  // can disagree.
+  const runManage = async (action, row, fields, title, body) => {
+    const res = await postNgrpManage(action, { candidate_id: row.candidate_id, ...fields })
+    if (!res.ok) {
+      toast?.error?.(
+        res.status === 503 ? 'Not provisioned yet' : 'Not saved',
+        res.status === 503
+          ? 'A pending NGRP migration has not been applied yet, so this cannot be saved.'
+          : (res.errors?.[0]?.message || res.error || 'The change could not be saved.'),
+      )
+      return
+    }
+    toast?.success?.(title, body)
+    queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] })
+    applicants.refetch()
+  }
 
   const assign = async (row, unit) => {
     setSaving(row.id)
@@ -386,6 +411,25 @@ export default function PlacementBoard({ cycle, canManage, toast }) {
                       )}
                     </button>
 
+                    {/* Where the row stands beyond placement. Hired outranks the
+                        interview state, because it is the later fact and the
+                        durable one. */}
+                    <div className="ngrp-ac-track">
+                      {row.outcome?.hired_at
+                        ? <span className="ngrp-ac-chip ngrp-ac-chip-hired">Hired{row.outcome.hired_unit ? ` · ${row.outcome.hired_unit}` : ''}</span>
+                        : row.outcome?.offer_accepted_at
+                          ? <span className="ngrp-ac-chip ngrp-ac-chip-offer">Offer accepted</span>
+                          : row.outcome?.offer_extended_at
+                            ? <span className="ngrp-ac-chip ngrp-ac-chip-offer">Offer extended</span>
+                            : null}
+                      {row.interview_status && row.interview_status !== 'not_scheduled' && (
+                        <span className="ngrp-ac-chip">{INTERVIEW_STATES[row.interview_status]?.label || row.interview_status}</span>
+                      )}
+                      <button type="button" className="ngrp-ac-record" onClick={() => setDrawerId(row.id)}>
+                        Record interview or hire
+                      </button>
+                    </div>
+
                     <div className="ngrp-ac-prefs">
                       {prefs.length === 0
                         ? <span className="ngrp-ac-noprefs">No ranked preferences on their form</span>
@@ -431,9 +475,24 @@ export default function PlacementBoard({ cycle, canManage, toast }) {
       </div>
 
       <p style={{ margin: '12px 0 0', fontSize: 11.5, color: '#6B7785', fontFamily: F, lineHeight: 1.55 }}>
-        Interview and hire outcomes are recorded here next. No interview rubric or score is stored
-        anywhere in ASPIRE.
+        Interview and hire outcomes are recorded in the applicant drawer, the same one Profiles &amp;
+        Interest opens. No interview rubric or score is stored anywhere in ASPIRE.
       </p>
+
+      <ApplicantDrawer
+        open={Boolean(drawerRow)}
+        row={drawerRow}
+        cycle={cycle}
+        canManage={canManage}
+        provisioned={applicants.payload?.transitionProvisioned !== false}
+        onClose={() => setDrawerId(null)}
+        actions={{
+          setInterview: (r, fields) => runManage('interview_set', r, fields,
+            'Interview recorded', `${nameOf(r)}'s interview state is saved.`),
+          setOutcome: (r, fields) => runManage('outcome_set', r, fields,
+            'Outcome recorded', `${nameOf(r)}'s residency outcome is saved.`),
+        }}
+      />
     </div>
   )
 }

@@ -16,7 +16,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -1328,12 +1328,17 @@ test('db: constraints make bad states unrepresentable - one live assignment, ONE
 test('db: audit metadata is allowlisted and safe; event types mirror the table CHECK', () => {
   const meta = sanitizeAuditMetadata({ batch_id: 'b', token_hash_prefix: 'pfx', survey_url: 'https://evil', raw: 'RAWTOKEN', result: 'eligible' })
   assert.deepEqual(Object.keys(meta).sort(), ['batch_id', 'result', 'token_hash_prefix'])
-  // NGRP-PLACEMENT-BOARD-1: 20260906000000 WIDENS the audit CHECK, so that file
-  // is the one in force. Every JS-allowlisted event must appear in it, or
+  // The audit CHECK is widened by successive migrations, and the LATEST one is
+  // the one in force. Every JS-allowlisted event must appear in it, or
   // recordNgrpAudit's insert is refused by the database even though the JS
-  // allowlist permits it - an event type has to pass BOTH gates.
-  const boardMigration = read('supabase/migrations/20260906000000_ngrp_assignment_interview.sql')
-  const liveCheck = boardMigration.slice(boardMigration.indexOf('ngrp_audit_events_event_type_check'))
+  // allowlist permits it - an event type has to pass BOTH gates. Resolved by
+  // filename so a later widening cannot leave this test pinned to an old file.
+  const widening = readdirSync(join(here, '..', 'supabase/migrations'))
+    .filter(f => read(`supabase/migrations/${f}`).includes('ngrp_audit_events_event_type_check'))
+    .sort()
+  assert.ok(widening.length > 0, 'some migration must define the audit CHECK')
+  const newest = read(`supabase/migrations/${widening[widening.length - 1]}`)
+  const liveCheck = newest.slice(newest.indexOf('ADD CONSTRAINT ngrp_audit_events_event_type_check'))
   for (const ev of NGRP_AUDIT_EVENTS) assert.match(liveCheck, new RegExp(`'${ev}'`), ev)
   // Widened, never narrowed: nothing the original CHECK allowed was dropped.
   for (const ev of (migration.match(/'(cycle_created|form_sent|application_confirmed|token_revoked)'/g) || [])) {

@@ -616,6 +616,12 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
             'Eligibility overridden', 'The calculated result is preserved beside the override.'),
           revokeLink: r => runManage('token_revoke', { candidate_id: r.candidate_id },
             'Link revoked', 'The live Transition Form link no longer works. Use Resend to issue a new one.'),
+          // NGRP-INTERVIEW-HIRE-1: recorded in this drawer from both surfaces,
+          // so one person's record has exactly one place it is edited.
+          setInterview: (r, fields) => runManage('interview_set', { candidate_id: r.candidate_id, ...fields },
+            'Interview recorded', `${displayName(r.student)}'s interview state is saved.`),
+          setOutcome: (r, fields) => runManage('outcome_set', { candidate_id: r.candidate_id, ...fields },
+            'Outcome recorded', `${displayName(r.student)}'s residency outcome is saved.`),
         }}
       />
     </div>

@@ -180,6 +180,176 @@ function OverrideDialog({ open, onClose, onSubmit, busy }) {
 // Thin wrapper: keying the body by the row id resets every transient state
 // (review load, confirms, override dialog) by REMOUNT when the selected
 // applicant changes - no reset effect needed.
+// ── NGRP-INTERVIEW-HIRE-1 sections ─────────────────────────────────────────
+
+// datetime-local wants "YYYY-MM-DDTHH:mm" in LOCAL time; a stored timestamptz is
+// UTC. Converting through the epoch keeps the displayed time the one the
+// interview is actually at, rather than sliding it by the offset.
+function toLocalInput(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+const fromLocalInput = v => (v ? new Date(v).toISOString() : null)
+const dateOnly = ts => (ts ? String(ts).slice(0, 10) : '')
+
+const field = {
+  height: 30, padding: '0 8px', border: '1px solid rgba(29,37,103,0.14)', borderRadius: 7,
+  fontFamily: 'DM Sans, sans-serif', fontSize: 12.5, background: '#fff', color: '#191919',
+  width: '100%', boxSizing: 'border-box',
+}
+
+// Which states keep the time the interview was held at. 'scheduled' REQUIRES
+// one; the states meaning it never happened drop it.
+const KEEPS_TIME = ['scheduled', 'completed', 'decision_recorded', 'no_show']
+
+function InterviewSection({ row, canManage, onSave }) {
+  const [status, setStatus] = useState(row.interview_status || 'not_scheduled')
+  const [at, setAt] = useState(toLocalInput(row.interview_at))
+  const [busy, setBusy] = useState(false)
+  const dirty = status !== (row.interview_status || 'not_scheduled') || at !== toLocalInput(row.interview_at)
+  const needsTime = status === 'scheduled' && !at
+
+  return (
+    <Section title="Interview" tint="rgba(150,120,150,0.06)">
+      <Row label="Status"><NgrpStatusPill config={INTERVIEW_STATES} value={row.interview_status} srPrefix="Interview" /></Row>
+      {row.interview_at && <Row label="Held">{fmt(row.interview_at)}</Row>}
+      {canManage && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <label style={{ display: 'block' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Interview state</span>
+            <select style={field} value={status} onChange={e => setStatus(e.target.value)}>
+              {Object.entries(INTERVIEW_STATES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </label>
+          {KEEPS_TIME.includes(status) && (
+            <label style={{ display: 'block' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>
+                Date and time{status === 'scheduled' ? '' : ' (optional)'}
+              </span>
+              <input type="datetime-local" style={{ ...field, borderColor: needsTime ? '#B3282D' : field.border }}
+                value={at} onChange={e => setAt(e.target.value)} />
+            </label>
+          )}
+          {needsTime && <p style={{ margin: 0, fontSize: 11, color: '#B3282D' }}>A scheduled interview needs a date and time.</p>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              style={{ ...smallBtn(true), opacity: !dirty || needsTime || busy ? 0.5 : 1 }}
+              disabled={!dirty || needsTime || busy}
+              onClick={async () => {
+                setBusy(true)
+                await onSave({ status, interview_at: KEEPS_TIME.includes(status) ? fromLocalInput(at) : null })
+                setBusy(false)
+              }}
+            >
+              {busy ? 'Saving…' : 'Save interview'}
+            </button>
+          </div>
+          <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>
+            No interview rubric or score is stored anywhere in ASPIRE.
+          </p>
+        </div>
+      )}
+    </Section>
+  )
+}
+
+function OutcomeSection({ row, canManage, onSave }) {
+  const o = row.outcome || {}
+  const init = {
+    offer_extended_at: toLocalInput(o.offer_extended_at),
+    offer_accepted_at: toLocalInput(o.offer_accepted_at),
+    hired_at: toLocalInput(o.hired_at),
+    // A hire almost always lands in the unit HR assigned, so that is the
+    // starting point rather than an empty box.
+    hired_unit: o.hired_unit || row.assigned_unit || '',
+    residency_start_date: dateOnly(o.residency_start_date),
+  }
+  const [form, setForm] = useState(init)
+  const [busy, setBusy] = useState(false)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const dirty = JSON.stringify(form) !== JSON.stringify(init)
+  const confirmed = row.application_status === 'confirmed'
+
+  const problem =
+    form.offer_accepted_at && !form.offer_extended_at ? 'Record the offer before recording that it was accepted.'
+    : form.hired_at && !form.offer_accepted_at ? 'Record the accepted offer before recording the hire.'
+    : form.hired_at && !form.hired_unit.trim() ? 'A hire needs the unit they were hired into.'
+    : null
+
+  return (
+    <Section title="Residency Outcome" tint="rgba(110,150,135,0.075)">
+      {!confirmed ? (
+        <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF' }}>
+          Only an applicant on the official NGRP list can carry an offer or a hire.
+        </p>
+      ) : (
+        <>
+          {o.hired_at
+            ? <Row label="Hired">{fmt(o.hired_at)}{o.hired_unit ? ` · ${o.hired_unit}` : ''}</Row>
+            : o.offer_accepted_at
+              ? <Row label="Offer accepted">{fmt(o.offer_accepted_at)}</Row>
+              : o.offer_extended_at
+                ? <Row label="Offer extended">{fmt(o.offer_extended_at)}</Row>
+                : <Row label="Status"><span style={{ fontWeight: 400, color: '#9CA3AF' }}>Nothing recorded yet</span></Row>}
+          {o.residency_start_date && <Row label="Residency starts">{o.residency_start_date}</Row>}
+
+          {canManage && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {[
+                ['offer_extended_at', 'Offer extended'],
+                ['offer_accepted_at', 'Offer accepted'],
+                ['hired_at', 'Hired'],
+              ].map(([k, label]) => (
+                <label key={k} style={{ display: 'block' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>{label}</span>
+                  <input type="datetime-local" style={field} value={form[k]} onChange={e => set(k, e.target.value)} />
+                </label>
+              ))}
+              <label style={{ display: 'block' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Hired into unit</span>
+                <input style={field} value={form.hired_unit} onChange={e => set('hired_unit', e.target.value)} placeholder="Unit name" />
+              </label>
+              <label style={{ display: 'block' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Residency start date</span>
+                <input type="date" style={field} value={form.residency_start_date} onChange={e => set('residency_start_date', e.target.value)} />
+              </label>
+              {problem && <p style={{ margin: 0, fontSize: 11, color: '#B3282D' }}>{problem}</p>}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  style={{ ...smallBtn(true), opacity: !dirty || problem || busy ? 0.5 : 1 }}
+                  disabled={!dirty || Boolean(problem) || busy}
+                  onClick={async () => {
+                    setBusy(true)
+                    await onSave({
+                      offer_extended_at: fromLocalInput(form.offer_extended_at),
+                      offer_accepted_at: fromLocalInput(form.offer_accepted_at),
+                      hired_at: fromLocalInput(form.hired_at),
+                      hired_unit: form.hired_unit.trim() || null,
+                      residency_start_date: form.residency_start_date || null,
+                    })
+                    setBusy(false)
+                  }}
+                >
+                  {busy ? 'Saving…' : 'Save outcome'}
+                </button>
+              </div>
+              <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>
+                A recorded hire is durable employment history. It is what excludes this alumnus from
+                a later residency cohort, and it can never be deleted, only corrected.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </Section>
+  )
+}
+
 export default function ApplicantDrawer(props) {
   if (!props.open || !props.row) return null
   return <ApplicantDrawerBody key={props.row.id} {...props} />
@@ -419,9 +589,26 @@ function ApplicantDrawerBody({
         </p>
       </Section>
 
-      <Section title="Interview" tint="rgba(150,120,150,0.06)">
-        <Row label="Status"><NgrpStatusPill config={INTERVIEW_STATES} value={row.interview_status} srPrefix="Interview" /></Row>
-      </Section>
+      {/* NGRP-INTERVIEW-HIRE-1: the interview record, editable here rather than
+          on the board, because this drawer is already where one person's record
+          is edited and a second editing surface would be a second truth.
+          WORKFLOW state, so it writes to ngrp_candidates.
+          NO RUBRIC AND NO SCORE, by explicit Owner decision: who was
+          interviewed and what came of it, never how they were graded. */}
+      <InterviewSection
+        row={row}
+        canManage={canManage && provisioned}
+        onSave={fields => actions.setInterview?.(row, fields)}
+      />
+
+      {/* The DURABLE employment record, in its own table with RESTRICT foreign
+          keys and DELETE revoked even from service_role. Only an applicant on
+          the official list can carry one. */}
+      <OutcomeSection
+        row={row}
+        canManage={canManage && provisioned}
+        onSave={fields => actions.setOutcome?.(row, fields)}
+      />
 
       <Section title="Activity" tint="rgba(120,124,134,0.05)">
         {row.candidate_id ? (
