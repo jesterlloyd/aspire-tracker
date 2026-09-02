@@ -43,7 +43,7 @@ const SKIP_LABELS = {
   missing_email: 'no email on file',
   not_completed: 'not at Completed status',
   already_sent: 'already has a live form (enable resend to replace the link)',
-  not_in_cycle_scope: 'not in this residency cohort’s source cohorts',
+  not_in_cycle_scope: 'not in this residency cohort’s participating ASPIRE cohorts',
   already_sent_in_batch: 'already sent in this batch',
 }
 

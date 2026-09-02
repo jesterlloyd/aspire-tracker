@@ -39,8 +39,9 @@ const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 //   Event:        #6D28D9 (violet-700, ~6.7:1 on white), hover #5B21B6 (violet-800, ~8:1).
 const AVAIL_ACTION = '#1D2567'
 const AVAIL_ACTION_HOVER = '#141928'
-const EVENT_ACTION = '#6D28D9'
-const EVENT_ACTION_HOVER = '#5B21B6'
+// NGRP-ACTIVITY-PARITY-1: moved to lib/ngrp/ngrpActivity.js so the Residency
+// Activity calendar offers the same act in the same colour from one definition.
+import { EVENT_ACTION, EVENT_ACTION_HOVER } from '../lib/ngrp/ngrpActivity'
 
 // Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).

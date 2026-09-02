@@ -26,6 +26,12 @@ export default function GreetingMasthead({
   todayItems = null,        // optional [{ key, dot, text }]
   calendar = null,          // optional { label, onClick }
   headingRef = null,        // lets the host make the greeting the focus-on-navigation target
+  // NGRP-ACTIVITY-PARITY-1: hosts that already sit in a padded page column cancel
+  // the card's own 20px inset, exactly as OnCampusNow's `flush` does. Without it
+  // the masthead sits 20px inside every sibling AND, because the card is
+  // aspect-ratio sized, comes out shorter than the same masthead elsewhere:
+  // measured 1264/5.9 = 214px against the app's 1304/5.9 = 221px.
+  flush = false,
 }) {
   const { heading, wash } = greetingLine(fullName)
   // MASTHEAD-SCENE-3 parity (Owner): the browser-local "last visit" line is
@@ -42,7 +48,7 @@ export default function GreetingMasthead({
   const { scene, night: sceneNight } = useMastheadScene()
 
   return (
-    <div className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}>
+    <div className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}${flush ? ' mast-flush' : ''}`}>
       {showWeather && <MastheadScenery />}
       <div className="mast-row">
         {/* MASTHEAD-SCENE-3 hero layout: on scenic (weather-bearing) cards the

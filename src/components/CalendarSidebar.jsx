@@ -19,7 +19,11 @@ const MINI_DOT = {
 const MINI_DOT_ORDER = ['holiday', 'interview', 'aspireEvent', 'availability']
 
 // ─── Mini Calendar ────────────────────────────────────────────────────────────
-function MiniCalendar({ blocks, slots, aspireEvents, selectedDate, onSelectDate }) {
+// NGRP-ACTIVITY-PARITY-1: exported so the Residency Activity calendar can show
+// the same mini calendar without the interview half. `blocks` and `slots` carry
+// the interview dots and default to empty, so an events-only caller passes
+// neither and gets event and holiday dots alone.
+export function MiniCalendar({ blocks = [], slots = [], aspireEvents = [], selectedDate, onSelectDate }) {
   const [viewMonth, setViewMonth] = useState(() => {
     const d = new Date()
     return { year: d.getFullYear(), month: d.getMonth() }

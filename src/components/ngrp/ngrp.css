@@ -30,28 +30,6 @@
   padding-right: 20px;
 }
 
-.ngrp-cycle-strip {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px 0 2px;
-  font-family: 'DM Sans', sans-serif;
-}
-.ngrp-cycle-eyebrow {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted, #6B7785);
-}
-/* The cycle SELECTOR is the header pill (NgrpCyclePicker); this strip is
-   metadata only - no second selector below the nav. */
-.ngrp-cycle-name { font-size: 13px; font-weight: 700; color: var(--color-accent-primary, #1D2567); }
-.ngrp-cycle-meta { font-size: 12px; color: var(--text-muted, #6B7785); }
-
-/* Quiet in-page banners (stale refresh, prior-hire note, roster error).
-   Banners, never toasts: routine background changes stay silent. */
 .ngrp-banner {
   border-radius: 10px;
   padding: 9px 14px;
@@ -480,7 +458,67 @@
 /* Support and Residency carry two sections each. The strip sits between the
    cohort metadata and the section, indented to the same left edge as the cards
    below it so the three read as one column. */
+/* The picker needs room to breathe before the section it switches: without the
+   bottom margin the calendar sat directly under it and read as crammed. Adjacent
+   sibling margins collapse, so a section carrying its own 14px top margin still
+   gets 16, not 30. */
 .ngrp-subnav {
-  margin: 14px 0 0;
+  margin: 14px 0 16px;
   display: flex;
+}
+
+/* ── NGRP-ACTIVITY-PARITY-1: hover-to-add on a day cell ───────────────────── */
+
+/* The pill is a SIBLING of the day button, positioned over it, because nesting
+   a button inside a button is invalid HTML and costs the pill its keyboard
+   reachability. Hover is CSS rather than per-cell React state, so thirty-odd
+   cells do not each hold a hover flag. */
+.ngrp-daycell { position: relative; }
+.ngrp-daycell > .canonical-month-cell { width: 100%; }
+
+.ngrp-dayadd {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  border: none;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #6D28D9;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.15s ease;
+}
+.ngrp-daycell:hover .ngrp-dayadd { opacity: 1; }
+/* Keyboard users never hover, so the pill also appears when it is focused. */
+.ngrp-dayadd:focus-visible { opacity: 1; outline: 2px solid #1D2567; outline-offset: 2px; }
+.ngrp-dayadd:hover { background: #5B21B6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ngrp-dayadd { transition: none; }
+}
+
+/* A US holiday on the month grid. Amber, matching the Interviews calendar: it is
+   context nobody scheduled, and an event-coloured chip reads as something the
+   program put there. Not a button, because there is nothing to open. */
+.ngrp-holiday-chip {
+  display: block;
+  margin: 1px 0 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #FEF3C7;
+  color: #92400E;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

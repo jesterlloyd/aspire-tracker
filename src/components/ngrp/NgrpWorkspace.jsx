@@ -40,13 +40,6 @@ const PLANNED = {
   },
 }
 
-const fmtDate = d => {
-  if (!d) return null
-  const [y, m, day] = String(d).split('T')[0].split('-').map(Number)
-  if (!y || !m || !day) return d
-  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
 function StateCard({ heading, body, tone = 'info' }) {
   const tones = {
     info:  { bg: '#F3F4F6', border: '#D1D5DB', color: '#4B5563' },
@@ -138,27 +131,14 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
 
   const subs = ngrpSubTabs(tab)
 
+  // NGRP-ACTIVITY-PARITY-1 (Owner): there is deliberately no cohort metadata
+  // strip here. It repeated above EVERY tab, and nothing on it was only there:
+  // the header's Scope pill names the cohort on every screen, and At a Glance
+  // carries the dates in its masthead and timeline, where they read against
+  // today rather than being recited.
   return (
     <div className="ngrp-workspace">
       <div className="ngrp-main">
-        {/* Compact cohort metadata - the selector itself is the header's Scope pill. */}
-        {cycle && (
-          <div className="ngrp-cycle-strip" data-testid="ngrp-cycle-meta">
-            <span className="ngrp-cycle-eyebrow">Residency Cohort</span>
-            <span className="ngrp-cycle-name">{cycle.name}</span>
-            {cycle.status && <span className="ngrp-cycle-meta">{cycle.status}</span>}
-            {cycle.application_open_date && (
-              <span className="ngrp-cycle-meta">Applications {fmtDate(cycle.application_open_date)}{cycle.application_deadline ? ` – ${fmtDate(cycle.application_deadline)}` : ''}</span>
-            )}
-            {cycle.interview_window_start && (
-              <span className="ngrp-cycle-meta">Interviews {fmtDate(cycle.interview_window_start)}{cycle.interview_window_end ? ` – ${fmtDate(cycle.interview_window_end)}` : ''}</span>
-            )}
-            {cycle.residency_start_date && (
-              <span className="ngrp-cycle-meta">Residency starts {fmtDate(cycle.residency_start_date)}</span>
-            )}
-          </div>
-        )}
-
         {/* Sub-tabs, for the two tabs that have them. The strip is the shared
             SegmentedTabs, so it keeps its own arrow-key handling. */}
         {subs.length > 0 && (

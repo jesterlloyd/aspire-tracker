@@ -57,7 +57,9 @@ test('GreetingMasthead reuses greetingLine, WeatherMasthead, and the .mast* card
   assert.match(c, /className="chart-route-title mast-greet"/)      // same heading class as staff
   // MASTHEAD-SCENE-1: the card carries the scene artwork class and mast-night,
   // both gated on showWeather (a weatherless masthead never darkens).
-  assert.ok(c.includes("className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}"))
+  // NGRP-ACTIVITY-PARITY-1: a trailing `mast-flush` modifier for hosts that
+  // already provide the page column. The scene classes ahead of it are unchanged.
+  assert.ok(c.includes("className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}${flush ? ' mast-flush' : ''}`}"))
   // No new weather artwork or parallel greeting system is defined here.
   assert.ok(!/svg|canvas|\.png|weather-icon|new Image/i.test(c), 'must not define new weather art')
   // Role-neutral slots: name, date, context, last-visit all arrive as props.

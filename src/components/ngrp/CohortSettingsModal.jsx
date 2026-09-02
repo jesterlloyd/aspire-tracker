@@ -217,7 +217,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
       title: 'Change which ASPIRE cohorts participate?',
       body: names.length
         ? `The Applicants roster for ${serverCycle.name} will draw completed alumni from: ${names.join(', ')}. Alumni outside these cohorts leave the roster scope immediately.`
-        : `This removes EVERY source cohort from ${serverCycle.name} - the Applicants roster will be empty until cohorts are mapped again.`,
+        : `This removes EVERY participating ASPIRE cohort from ${serverCycle.name} - the Profiles & Interest roster will be empty until cohorts are chosen again.`,
       confirmLabel: 'Update mapping',
       run: async () => { await saveSources() },
     })

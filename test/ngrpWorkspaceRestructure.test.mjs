@@ -21,7 +21,7 @@ import {
   NGRP_TABS, LEGACY_NGRP_TABS, resolveNgrpPath, resolveNgrpEntryPath,
   ngrpPath, ngrpSubTabs, defaultSubTab, isNgrpSubTabId, canonicalNgrpTab,
 } from '../src/lib/ngrp/ngrpTabs.js'
-import { initialActivityMonth } from '../src/lib/ngrp/ngrpActivity.js'
+import { initialActivityMonth, monthRange, EVENT_ACTION, EVENT_ACTION_HOVER } from '../src/lib/ngrp/ngrpActivity.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = p => readFileSync(join(here, '..', p), 'utf8')
@@ -179,11 +179,107 @@ test('a surface that does not exist yet says so, and is never an empty success',
   assert.match(workspace, /cyclesCount === 0 && tab !== 'overview'/)
 })
 
+// ── NGRP-ACTIVITY-PARITY-1 ───────────────────────────────────────────────────
+
+test('the Activity calendar matches the Interviews calendar, part for part', () => {
+  const interviews = read('src/components/InterviewCalendar.jsx')
+  // The mini calendar is IMPORTED, not reimplemented, and its interview inputs
+  // default to empty so an events-only caller passes neither.
+  assert.match(activity, /import \{ MiniCalendar \} from '\.\.\/CalendarSidebar'/)
+  assert.match(read('src/components/CalendarSidebar.jsx'),
+    /export function MiniCalendar\(\{ blocks = \[\], slots = \[\], aspireEvents = \[\]/)
+  // One definition of the event-action colour, read by both calendars.
+  assert.equal(EVENT_ACTION, '#6D28D9')
+  assert.equal(EVENT_ACTION_HOVER, '#5B21B6')
+  for (const [name, src] of [['interviews', interviews], ['activity', activity]]) {
+    assert.match(src, /EVENT_ACTION/, name)
+    // A comment documenting the palette's contrast ratios is fine; a second
+    // ASSIGNMENT of the hex is what would let the two calendars drift.
+    assert.doesNotMatch(src, /=\s*'#6D28D9'/, `${name} must not restate the hex`)
+  }
+  // US holidays, from the same client-computed helper the masthead uses, and
+  // amber as they are on the Interviews calendar: context nobody scheduled,
+  // which an event-coloured chip would misrepresent.
+  assert.match(activity, /import \{ getUsHolidaysForRange \} from '\.\.\/\.\.\/lib\/usHolidays'/)
+  assert.match(interviews, /getUsHolidaysForRange/)
+  assert.match(activity, /className="ngrp-holiday-chip"/)
+  const holidayCss = read('src/components/ngrp/ngrp.css')
+  assert.match(holidayCss, /\.ngrp-holiday-chip \{[\s\S]{0,220}background: #FEF3C7/)
+  assert.match(holidayCss, /\.ngrp-holiday-chip \{[\s\S]{0,260}color: #92400E/)
+  // Clicking a day opens a modal; hovering a day offers the add.
+  assert.match(activity, /const openDay = date =>/)
+  assert.match(activity, /\{dayOpen && \(/)
+  assert.match(activity, /className="ngrp-dayadd"/)
+})
+
+test('the hover add is a sibling of the day button, and reachable without a mouse', () => {
+  // Nesting a button inside CanonicalMonthCell's button would be invalid HTML
+  // and would cost the pill its keyboard reachability.
+  const cell = activity.slice(activity.indexOf('<div key={date} className="ngrp-daycell">'), activity.indexOf('</div>', activity.indexOf('className="ngrp-dayadd"')))
+  assert.ok(cell.indexOf('</CanonicalMonthCell>') < cell.indexOf('className="ngrp-dayadd"'),
+    'the pill comes after the cell closes, not inside it')
+  assert.match(activity, /aria-label=\{`Add an event on \$\{longDate\(date\)\}`\}/)
+  const css = read('src/components/ngrp/ngrp.css')
+  assert.match(css, /\.ngrp-daycell:hover \.ngrp-dayadd \{ opacity: 1; \}/)
+  assert.match(css, /\.ngrp-dayadd:focus-visible \{ opacity: 1;/, 'keyboard users never hover')
+  assert.match(css, /prefers-reduced-motion[\s\S]{0,120}\.ngrp-dayadd \{ transition: none/)
+})
+
+test('the month window is one range, used by both the fetch and the holidays', () => {
+  assert.deepEqual(monthRange({ year: 2026, month: 7 }), { from: '2026-08-01', to: '2026-08-31' })
+  assert.deepEqual(monthRange({ year: 2027, month: 1 }), { from: '2027-02-01', to: '2027-02-28' })
+  assert.deepEqual(monthRange({ year: 2028, month: 1 }), { from: '2028-02-01', to: '2028-02-29' }, 'leap year')
+  assert.deepEqual(monthRange({ year: 2026, month: 0 }), { from: '2026-01-01', to: '2026-01-31' })
+  // Both reads take the same window, so a holiday can never fall outside the
+  // events it is shown beside.
+  assert.match(activity, /const \{ from, to \} = monthRange\(cursor\)/)
+  assert.match(activity, /getUsHolidaysForRange\(from, to\)/)
+  assert.match(activity, /queryKey: \['ngrp_activity_events', from, to\]/)
+  // Staff tabs stay mounted, so only the visible sub-tab fetches.
+  assert.match(activity, /enabled: location\.pathname\.startsWith\('\/ngrp\/residency\/activity'\)/)
+})
+
+test('the masthead sits in the same column, and therefore at the same height', () => {
+  // .mast carries its own 20px inset for hosts without a page column. Inside
+  // .ngrp-main, which already provides one, that inset applied twice: measured
+  // at 88..1352 against every sibling's 68..1372. And because .mast-scenic is
+  // aspect-ratio sized, the narrower card was also SHORTER - 1264/5.9 = 214px
+  // against the app's 1304/5.9 = 221px. One opt-out fixes both.
+  const indexCss = read('src/index.css')
+  assert.match(indexCss, /\.mast\.mast-flush \{ margin-left: 0; margin-right: 0; \}/)
+  // Defined beside the sibling opt-out so the two cannot drift apart.
+  assert.ok(indexCss.indexOf('.mast-live-flush {') < indexCss.indexOf('.mast.mast-flush {'))
+  assert.ok(indexCss.indexOf('.mast.mast-flush {') - indexCss.indexOf('.mast-live-flush {') < 700)
+  // The prop is opt-in, so every existing host is untouched.
+  const masthead = read('src/components/masthead/GreetingMasthead.jsx')
+  assert.match(masthead, /flush = false,/)
+  assert.match(glance, /flush\n\s*\/>/, 'At a Glance opts in')
+})
+
+test('no cohort metadata strip repeats above every tab', () => {
+  // It recited the cohort name, status and dates on all five tabs. Nothing on it
+  // was only there, and it pushed the actual content down on every screen.
+  assert.doesNotMatch(workspace, /ngrp-cycle-strip|ngrp-cycle-eyebrow|ngrp-cycle-name|ngrp-cycle-meta/)
+  assert.doesNotMatch(read('src/components/ngrp/ngrp.css'), /\.ngrp-cycle-/, 'and its CSS went with it')
+  // The date formatter existed only for that strip.
+  assert.doesNotMatch(workspace, /const fmtDate/)
+  // What it said still exists, where it can be read against today: the header
+  // names the cohort, and At a Glance carries the dates.
+  assert.match(read('src/components/Header/Header.jsx'), /residencyCohortLabel/)
+  assert.match(glance, /title="Cohort timeline"/)
+  assert.match(glance, /contextLabel=\{serverCycle\.name\}/)
+})
+
+test('the sub-tab picker is not crammed against the section it switches', () => {
+  const css = read('src/components/ngrp/ngrp.css')
+  assert.match(css, /\.ngrp-subnav \{\s*margin: 14px 0 16px;/)
+})
+
 test('no em dash in anything this change added', () => {
   for (const f of [
     'src/lib/ngrp/ngrpTabs.js', 'src/lib/ngrp/ngrpActivity.js',
     'src/components/ngrp/NgrpWorkspace.jsx', 'src/components/ngrp/NgrpNav.jsx',
-    'src/components/ngrp/ActivityCalendar.jsx',
+    'src/components/ngrp/ActivityCalendar.jsx', 'src/components/masthead/GreetingMasthead.jsx',
   ]) {
     assert.doesNotMatch(read(f), /—/, `${f} must not contain an em dash`)
   }

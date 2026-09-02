@@ -43,7 +43,9 @@ test('both hosts carry the scene class and .mast-night; the portal host gates bo
   assert.ok(today.includes("className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}"))
   assert.match(today, /<MastheadScenery \/>/)
   // A portal masthead rendered with showWeather={false} has no scenery and never darkens.
-  assert.ok(shared.includes("className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}`}"))
+  // NGRP-ACTIVITY-PARITY-1: a trailing `mast-flush` modifier for hosts that
+  // already provide the page column. The scene classes ahead of it are unchanged.
+  assert.ok(shared.includes("className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}${flush ? ' mast-flush' : ''}`}"))
   assert.match(shared, /\{showWeather && <MastheadScenery \/>\}/)
 })
 

@@ -2345,6 +2345,13 @@ a.doc-file-link:hover { text-decoration: underline; }
    horizontal inset (OnCampusNow flush), so its header and cards align with the
    surrounding content. */
 .mast-live-flush { margin-left: 0; margin-right: 0; margin-bottom: 16px; }
+/* NGRP-ACTIVITY-PARITY-1: the same opt-out for the masthead card itself. A host
+   that already provides the 20px page column (the Residency workspace's
+   .ngrp-main) would otherwise inset the card twice, and because .mast-scenic is
+   aspect-ratio sized that also makes it SHORTER than the identical masthead
+   elsewhere: 1264/5.9 = 214px against the app's 1304/5.9 = 221px. Defined
+   beside its sibling so the two opt-outs cannot drift apart. */
+.mast.mast-flush { margin-left: 0; margin-right: 0; }
 .mast-live-card {
   display: flex; align-items: center; gap: 11px;
   background: var(--chart-card, #fff); border: 1px solid var(--chart-line, rgba(29,37,103,0.1));

@@ -178,8 +178,16 @@ test('action order is Availability then Event in the header toolbar', () => {
 
 test('action colors are a single converged family: Availability navy, Event dark purple', () => {
   assert.match(staffCalendar, /const AVAIL_ACTION = '#1D2567'/)
-  assert.match(staffCalendar, /const EVENT_ACTION = '#6D28D9'/)
-  assert.match(staffCalendar, /const EVENT_ACTION_HOVER = '#5B21B6'/)
+  // NGRP-ACTIVITY-PARITY-1: the palette moved to lib/ngrp/ngrpActivity.js so the
+  // Residency Activity calendar offers the same act in the same colour from ONE
+  // definition rather than a hex repeated in two files.
+  assert.match(staffCalendar, /import \{ EVENT_ACTION, EVENT_ACTION_HOVER \} from '\.\.\/lib\/ngrp\/ngrpActivity'/)
+  assert.match(read('src/lib/ngrp/ngrpActivity.js'), /export const EVENT_ACTION = '#6D28D9'/)
+  assert.match(read('src/lib/ngrp/ngrpActivity.js'), /export const EVENT_ACTION_HOVER = '#5B21B6'/)
+  // And the Activity calendar reads it rather than restating it.
+  const activity = read('src/components/ngrp/ActivityCalendar.jsx')
+  assert.match(activity, /EVENT_ACTION, EVENT_ACTION_HOVER/)
+  assert.doesNotMatch(activity, /#6D28D9/, 'no second copy of the hex')
   // Both the header Event button and the date-cell "+ Event" chip use the token (≥2 uses).
   const uses = staffCalendar.match(/background:\s*EVENT_ACTION\b/g) || []
   assert.ok(uses.length >= 2, `expected ≥2 EVENT_ACTION backgrounds, found ${uses.length}`)

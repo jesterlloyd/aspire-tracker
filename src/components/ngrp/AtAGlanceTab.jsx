@@ -166,6 +166,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
         dateLabel={dateLabel}
         contextLabel={serverCycle.name}
         milestone={mastheadMilestone}
+        flush
       />
 
       {/* 1 · Readiness - the one question that gates everything downstream. */}
@@ -207,7 +208,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
 
       {/* 3 · Demand and seats, side by side - the actual planning judgment. */}
       <div className="ngrp-plan-2col">
-        <Panel title="Pipeline" sub={applicants.status === 'loading' ? 'Loading…' : `${sources.length} source cohort${sources.length === 1 ? '' : 's'}`}>
+        <Panel title="Pipeline" sub={applicants.status === 'loading' ? 'Loading…' : `${sources.length} participating cohort${sources.length === 1 ? '' : 's'}`}>
           {sources.length === 0 && (
             <p style={{ margin: '0 0 10px', fontSize: 12.5, color: '#92400E', fontFamily: F }}>
               No ASPIRE cohorts are participating yet, so no alumni are in scope.
