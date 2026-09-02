@@ -8,7 +8,7 @@
 import { useMemo, useState } from 'react'
 import { useWelcomeWeather } from './WeatherScene'
 import { SCENES } from '../lib/mastheadScene'
-import { parseSceneFiles, resolvePack, injectedSceneFiles } from '../lib/mastheadCityScenes'
+import { parseSceneFiles, resolvePack, injectedSceneFiles, imgPositionFor } from '../lib/mastheadCityScenes'
 import { useCityPreference } from './masthead/useCityPreference'
 //
 // The component is purely presentational and state-free: the host card carries
@@ -77,7 +77,10 @@ export default function MastheadScenery() {
   const scenes = pack && !imagesBroken ? pack.scenes : null
   const complete = scenes && SCENES.every(s => scenes[s])
   return (
-    <div className="mast-scenery" aria-hidden>
+    // --scn-img-y decides which horizontal band of the panorama the card shows.
+    // Per city, because where a skyline sits in its own frame is a property of
+    // the artwork, not of the layout - the same reason --scn-sky-x is per city.
+    <div className="mast-scenery" aria-hidden style={{ '--scn-img-y': imgPositionFor(pack?.city) }}>
       {/* The state-keyed sky gradients always render: in city mode the art's
           left fade lands on them. SCENE-3 added morning/goldenhour/rain. */}
       <div className="mast-sky mast-sky-dawn" />

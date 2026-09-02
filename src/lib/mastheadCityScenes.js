@@ -9,7 +9,7 @@
 // artwork follows the person the way the temperature already does.
 //
 // Selection order: exact city-name match on the location label (with aliases),
-// then nearest known city that has a pack within MAX_KM, then the LA pack,
+// then nearest known city that has a pack within MAX_KM, then the Los Angeles pack,
 // then null (the caller falls back to the built-in SVG scenery). Pure and
 // list-injected for tests.
 
@@ -27,14 +27,43 @@ const SCENE_WORDS = {
   rain: 'rain', rainy: 'rain', cloudy: 'rain', overcast: 'rain', storm: 'rain',
 }
 
-// Lowercased, punctuation-stripped label/filename tokens → canonical pack key.
+// ── MASTHEAD-CITY-CANON (Owner) ──────────────────────────────────────────────
+//
+// A CITY FOLDER IS NAMED FOR THE CITY, IN FULL, WITH NO ABBREVIATION:
+//
+//   public/masthead/LosAngeles/LosAngeles_Dawn.webp
+//   public/masthead/SanFrancisco/SanFrancisco_GoldenHour.webp
+//
+//   folder   the city's common name, PascalCase, no spaces or punctuation
+//   file     <Folder>_<Scene>.webp
+//   scenes   Dawn · Morning · Day · GoldenHour · Sunset · Night · Rain
+//
+// The canonical key is that folder name lowercased: losangeles, lasvegas,
+// newyork, sanfrancisco, atlanta. It is what CITY_COORDS, CITY_SKY_X and
+// cityDisplayName are all keyed on, so there is ONE spelling of a city
+// anywhere in the system.
+//
+// Los Angeles used to be the exception, keyed 'la' while every other city used
+// its full name, which made it the one city whose folder and key disagreed.
+// It does not any more.
+//
+// THE ABBREVIATIONS ARE RETIRED (Owner). NYC, SFO, Vegas, SF, DC and SLC no
+// longer resolve, and neither does a folder named after them. That is not a
+// silent failure: the pack guard in test/mastheadCityScenes.test.mjs asserts
+// every image file maps to a city and a scene, so a mis-named folder fails the
+// suite naming the exact files rather than quietly falling back to LA.
+//
+// This map now holds only the spellings of ONE name that should mean the same
+// city - the same word with and without its spaces, which is what a location
+// label like "New York" arrives as.
 const CITY_ALIASES = {
-  la: 'la', losangeles: 'la',
-  lasvegas: 'lasvegas', vegas: 'lasvegas',
-  newyork: 'newyork', newyorkcity: 'newyork', nyc: 'newyork',
-  sanfrancisco: 'sanfrancisco', sf: 'sanfrancisco', sfo: 'sanfrancisco',
-  washington: 'washington', washingtondc: 'washington', dc: 'washington',
-  saltlakecity: 'saltlakecity', slc: 'saltlakecity',
+  losangeles: 'losangeles',
+  lasvegas: 'lasvegas',
+  newyork: 'newyork', newyorkcity: 'newyork',
+  sanfrancisco: 'sanfrancisco',
+  saltlakecity: 'saltlakecity',
+  washington: 'washington', washingtondc: 'washington',
+  atlanta: 'atlanta',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -42,7 +71,7 @@ const CITY_ALIASES = {
 // city pack is added; a pack whose key is absent here still works via exact
 // label match.
 export const CITY_COORDS = {
-  la: [34.05, -118.24],
+  losangeles: [34.05, -118.24],
   sandiego: [32.72, -117.16],
   sanfrancisco: [37.77, -122.42],
   sacramento: [38.58, -121.49],
@@ -73,7 +102,7 @@ export const normalizeCityToken = s =>
 
 /**
  * Parse a public/masthead/ file listing into packs:
- * { la: { day: '/masthead/LA/LA_Day.webp', ... }, ... }
+ * { losangeles: { day: '/masthead/LosAngeles/LosAngeles_Day.webp', ... }, ... }
  *
  * SCENE-3 convention: one FOLDER per city (public/masthead/LA/) holding files
  * named <City>_<Scene>; the folder name is the city key. Flat top-level files
@@ -153,7 +182,7 @@ export function choosePack(packs, location) {
     if (best) return { city: best.city, scenes: packs[best.city] }
   }
 
-  if (packs.la) return { city: 'la', scenes: packs.la }
+  if (packs.losangeles) return { city: 'losangeles', scenes: packs.losangeles }
   return null
 }
 
@@ -185,8 +214,35 @@ export const CITY_SKY_X = {
   // and Transamerica towers at the default) and leaves the sky over the bay
   // and the bridge span open, between the greeting and the skyline.
   sanfrancisco: '30%',
+  // Atlanta's towers run in one dense band from roughly 42% to 72% of the
+  // frame, with the Bank of America spire near 68%, so the default 52% lands
+  // the moon in the middle of them. The left third is low rooftops and trees
+  // under open sky, which is where it goes.
+  atlanta: '30%',
 }
 export const DEFAULT_SKY_X = '52%'
+
+// ── Where the card's vertical crop comes from, per city ─────────────────────
+//
+// The card is 5.9:1 and the panoramas are 5:1, so cover crops a horizontal band
+// and object-position decides which. 100% is bottom-anchored: the whole crop
+// comes off the TOP, which keeps the ground and city footer whole and is right
+// for a skyline whose towers sit well below the frame's top edge.
+//
+// ATLANTA DOES NOT (Owner). Its tallest spire begins at source row 42 of 400,
+// and the card crops about 40px off the top at a 1304px width, so roughly 12px
+// of tower was being sliced. Because both the crop and the tower scale with the
+// card width, the ratio is viewport-independent: anything at or below 69% keeps
+// the spire in frame, and 50% leaves a few pixels of sky above it. The cost is
+// paid at the bottom, where Atlanta has open highway rather than a skyline.
+export const CITY_IMG_Y = {
+  atlanta: '50%',
+}
+export const DEFAULT_IMG_Y = '100%'
+
+export function imgPositionFor(city) {
+  return CITY_IMG_Y[city] || DEFAULT_IMG_Y
+}
 
 export function skyPositionFor(city) {
   return CITY_SKY_X[city] || DEFAULT_SKY_X

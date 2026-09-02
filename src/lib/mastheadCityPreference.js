@@ -38,7 +38,7 @@ export function writeCityPreference(city) {
 
 /** Display names for installed pack keys; falls back to a title-cased key. */
 const CITY_NAMES = {
-  la: 'Los Angeles',
+  losangeles: 'Los Angeles',
   lasvegas: 'Las Vegas',
   sandiego: 'San Diego',
   sanfrancisco: 'San Francisco',
