@@ -73,6 +73,7 @@ import NgrpWorkspace from './components/ngrp/NgrpWorkspace'
 import CohortSettingsModal from './components/ngrp/CohortSettingsModal'
 import CreateCohortDialog from './components/ngrp/CreateCohortDialog'
 import { ngrpTabFromPath, resolveNgrpEntryTab } from './lib/ngrp/ngrpTabs'
+import { compareCohortsChrono } from './lib/cohortSeason'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from './lib/ngrp/ngrpAccess'
 import {
   lastTabKey, lastNgrpTabKey, aspireCohortKey, LAST_AUTH_USER_KEY, consumeSignedOutMarker,
@@ -1220,12 +1221,11 @@ function MainApp({ onLogout }) {
   }, [])
 
   // ── Header: derived + search handler ─────────────────────────────────────────
-  const sortedCohorts = [...cohorts].sort((a, b) => {
-    const da = a.start_date || null, db = b.start_date || null
-    if (!da && !db) return (a.created_at||'').localeCompare(b.created_at||'')
-    if (!da) return 1; if (!db) return -1
-    return da.localeCompare(db)
-  })
+  // COHORT-ORDER-1: ordered by the cohort NAME's season and year. This used to
+  // localeCompare cohorts.start_date, which is a free-text TEXT column holding
+  // values like "May 4, 2026"; alphabetical order over those put Winter 2027
+  // above Fall 2026. See lib/cohortSeason.js.
+  const sortedCohorts = [...cohorts].sort(compareCohortsChrono)
 
   const runSearch = useCallback(async q => {
     if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }

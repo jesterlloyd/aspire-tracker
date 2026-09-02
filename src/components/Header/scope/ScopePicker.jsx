@@ -20,7 +20,7 @@
 //
 // The pill omits the experience name when the caller has only one experience. See
 // scopePillValue in src/lib/scopePickerLabels.js for why.
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, isValidElement, cloneElement } from 'react'
 import Tooltip from '../../ui/Tooltip'
 import { scopePillValue } from '../../../lib/scopePickerLabels'
 
@@ -134,7 +134,11 @@ export default function ScopePicker({
 
           <div className="chart-scope-pane chart-scope-pane-cohort">
             <div className="chart-scope-kicker">Cohort</div>
-            {cohortPane}
+            {/* Close only, no refocus: the footer's Edit and Add both open a
+                dialog, and that dialog owns focus from the moment it mounts
+                (ModalShell restores it to the opener on close). Sending focus
+                back to the pill here would fight it. */}
+            {isValidElement(cohortPane) ? cloneElement(cohortPane, { onDone: () => setOpen(false) }) : cohortPane}
           </div>
         </div>
       )}

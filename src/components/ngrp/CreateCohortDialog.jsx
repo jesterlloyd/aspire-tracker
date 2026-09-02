@@ -5,14 +5,17 @@
 import { useState } from 'react'
 import { useNgrpPlanning, postNgrpManage } from '../../lib/ngrp/useNgrpData'
 import { F, inputStyle, labelStyle, btn } from '../../lib/ngrp/ngrpCohortForm'
+import { compareCohortsChrono } from '../../lib/cohortSeason'
 import { Field, ModalShell } from './NgrpFormUi'
+import SeasonMark from '../Header/scope/SeasonMark'
 
 export default function CreateCohortDialog({ onClose, onCreated }) {
   // The dialog fetches its OWN ASPIRE cohort list (planning with no cycle_id),
   // so the header can open it without the Planning tab being mounted.
   const planning = useNgrpPlanning(null)
-  const aspireCohorts = [...(planning.data?.aspireCohorts || [])]
-    .sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''))
+  // COHORT-ORDER-1: program order, read from the cohort name. Same rule as the
+  // settings modal and the header, so the three lists cannot disagree.
+  const aspireCohorts = [...(planning.data?.aspireCohorts || [])].sort(compareCohortsChrono)
 
   const [step, setStep] = useState('edit')
   const [name, setName] = useState('')
@@ -37,10 +40,10 @@ export default function CreateCohortDialog({ onClose, onCreated }) {
   const names = aspireCohorts.filter(c => sourceIds.includes(c.id)).map(c => c.name)
   return (
     <ModalShell label="Add residency cohort" onClose={onClose} width={560}>
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid #F3F4F6', fontSize: 15, fontWeight: 700 }}>
+      <div style={{ flexShrink: 0, padding: '16px 20px', borderBottom: '1px solid #F3F4F6', fontSize: 15, fontWeight: 700 }}>
         {step === 'edit' ? 'Add residency cohort' : 'Review and confirm'}
       </div>
-      <div style={{ padding: '16px 20px', overflowY: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, padding: '16px 20px', overflowY: 'auto' }}>
         {step === 'edit' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Field label="Name (e.g. August 2027)"><input style={inputStyle} value={name} onChange={e => setName(e.target.value)} /></Field>
@@ -49,7 +52,7 @@ export default function CreateCohortDialog({ onClose, onCreated }) {
             <Field label="Residency start date (optional)">
               <input type="date" style={inputStyle} value={start} onChange={e => setStart(e.target.value)} /></Field>
             <div>
-              <label style={labelStyle}>Source ASPIRE cohorts</label>
+              <label style={labelStyle}>ASPIRE cohorts participating</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {aspireCohorts.map(c => {
                   const on = sourceIds.includes(c.id)
@@ -57,6 +60,7 @@ export default function CreateCohortDialog({ onClose, onCreated }) {
                     <button key={c.id} type="button" aria-pressed={on}
                       onClick={() => setSourceIds(prev => on ? prev.filter(id => id !== c.id) : [...prev, c.id])}
                       style={{ ...btn(), height: 32, background: on ? '#EDEEF4' : '#fff', border: on ? '1.5px solid #1D2567' : '1px solid rgba(29,37,103,0.15)', fontWeight: on ? 700 : 500 }}>
+                      <SeasonMark name={c.name} />
                       {c.name}
                     </button>
                   )
@@ -74,12 +78,12 @@ export default function CreateCohortDialog({ onClose, onCreated }) {
         ) : (
           <div style={{ fontSize: 13, color: '#4A5560', lineHeight: 1.7 }}>
             <p style={{ margin: '0 0 8px' }}><b>{name}</b> will be created in <b>Planning</b> status (it never opens automatically).</p>
-            <p style={{ margin: '0 0 8px' }}>Source ASPIRE cohorts: {names.length ? <b>{names.join(', ')}</b> : <i>none yet - the Applicants roster stays empty until cohorts are mapped</i>}.</p>
+            <p style={{ margin: '0 0 8px' }}>ASPIRE cohorts participating: {names.length ? <b>{names.join(', ')}</b> : <i>none yet - the Applicants roster stays empty until cohorts are mapped</i>}.</p>
             <p style={{ margin: 0 }}>Application closes: {deadline ? <b>{deadline}</b> : <i>not set - required before Transition Forms can send</i>}.</p>
           </div>
         )}
       </div>
-      <div style={{ padding: '12px 20px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+      <div style={{ flexShrink: 0, padding: '12px 20px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
         <button type="button" style={btn()} onClick={step === 'edit' ? onClose : () => setStep('edit')}>{step === 'edit' ? 'Cancel' : 'Back'}</button>
         {step === 'edit'
           ? <button type="button" style={btn(true)} disabled={!name.trim()} onClick={() => setStep('review')}>Review</button>

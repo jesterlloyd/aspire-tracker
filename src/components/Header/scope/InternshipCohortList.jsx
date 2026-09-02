@@ -12,10 +12,9 @@
 // fallback. Display-only: nothing is written back to the cohorts table. One bounded
 // query (cohort_id + the two dates) covers every listed cohort.
 import { useQuery } from '@tanstack/react-query'
-import { Sun, Leaf, Snowflake, Flower2 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { groupRotationRowsByCohort, resolveCohortPickerRange } from '../../../lib/schoolResponseDisplay'
-import { seasonOf } from '../../../lib/cohortSeason'
+import SeasonMark from './SeasonMark'
 
 const COHORT_STATUS_COLORS = {
   Planning:  { bg: '#dbeafe', color: '#1d4ed8' },
@@ -34,29 +33,6 @@ function fmtCohortDate(d) {
   const p = new Date(s)
   return isNaN(p.getTime()) ? s.replace(/,?\s*\d{4}/, '').trim() : p.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
-// SCOPE-PICKER-2: a season mark for the cohort name.
-//
-// MONOCHROME, DELIBERATELY. The row already carries a status pill (blue planned /
-// green active / gray done) and the Accepting badge, and those two carry real state. A
-// colored season icon would compete with them for attention while saying nothing the
-// cohort's own name does not already say. It is reinforcement for scanning, so it gets
-// the weight of punctuation, not of a signal.
-//
-// The slot is FIXED WIDTH and renders empty for a name that states no single season,
-// so a list mixing "Fall 2026" with a differently-named cohort keeps one left edge
-// instead of ragging.
-const SEASON_ICONS = { summer: Sun, fall: Leaf, winter: Snowflake, spring: Flower2 }
-
-function SeasonMark({ name }) {
-  const season = seasonOf(name)
-  const Icon = season ? SEASON_ICONS[season] : null
-  return (
-    <span aria-hidden="true" style={{ display: 'inline-flex', width: 15, flexShrink: 0, justifyContent: 'center', color: '#9ca3af' }}>
-      {Icon ? <Icon size={13} strokeWidth={2} /> : null}
-    </span>
-  )
-}
-
 function fmtCohortRange(a, b) {
   if (!a && !b) return ''
   if (!b) return fmtCohortDate(a)

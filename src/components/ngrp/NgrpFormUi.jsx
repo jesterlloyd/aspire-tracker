@@ -23,7 +23,10 @@ export function Field({ label, children, span2 = false }) {
   )
 }
 
-export function Card({ title, dirty, onSave, onDiscard, saving, children, footNote }) {
+// `saveDisabledReason` is a sentence, not a boolean: a Save that refuses to fire
+// has to say why, in the card, next to the field at fault. A silently dead button
+// reads as a broken form.
+export function Card({ title, dirty, onSave, onDiscard, saving, children, footNote, saveDisabledReason = null }) {
   // Only meaningful while dirty - deriving it avoids a reset effect.
   const [confirmDiscardRaw, setConfirmDiscard] = useState(false)
   const confirmDiscard = confirmDiscardRaw && dirty
@@ -52,8 +55,9 @@ export function Card({ title, dirty, onSave, onDiscard, saving, children, footNo
                   nothing reads as a broken form. */}
               <button
                 type="button"
-                style={{ ...btn(true), ...(!dirty || saving ? { background: '#C7CBD6', cursor: 'default' } : null) }}
-                disabled={!dirty || saving}
+                style={{ ...btn(true), ...(!dirty || saving || saveDisabledReason ? { background: '#C7CBD6', cursor: 'default' } : null) }}
+                disabled={!dirty || saving || Boolean(saveDisabledReason)}
+                title={saveDisabledReason || undefined}
                 onClick={onSave}
               >
                 {saving ? 'Saving…' : 'Save'}
@@ -63,6 +67,11 @@ export function Card({ title, dirty, onSave, onDiscard, saving, children, footNo
         </div>
       </div>
       {children}
+      {dirty && saveDisabledReason && (
+        <p role="alert" style={{ margin: '12px 0 0', fontSize: 12.5, fontWeight: 600, color: '#B3282D', fontFamily: F }}>
+          {saveDisabledReason}
+        </p>
+      )}
       {footNote && <p style={{ margin: '12px 0 0', fontSize: 11.5, color: '#6B7785', lineHeight: 1.55, fontFamily: F }}>{footNote}</p>}
     </section>
   )
@@ -100,6 +109,16 @@ export function ModalShell({ label, onClose, width = 560, z = 1998, children, di
           width: `min(${width}px, calc(100vw - 32px))`, maxHeight: '88vh',
           display: 'flex', flexDirection: 'column',
           background: '#fff', borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+          // CLIP, NOT HIDDEN. The body paints its own background to the panel's
+          // edge, so without clipping it squared off the two bottom corners
+          // while the header kept its radius. `hidden` would fix the corners and
+          // introduce a worse bug: it makes the panel a scroll container, and a
+          // single pixel of overflow is enough for scrollIntoView - or the
+          // browser's own scroll-on-focus when you tab to a field near the
+          // bottom - to push the header off the top with no way to bring it
+          // back. `clip` rounds the corners and refuses to scroll. Only the body
+          // scrolls, which is the whole intent.
+          overflow: 'clip',
           zIndex: z + 1, fontFamily: F, outline: 'none',
         }}
       >
@@ -114,9 +133,9 @@ export function ConfirmDialog({ open, title, body, confirmLabel = 'Confirm', bus
   if (!open) return null
   return (
     <ModalShell label={title} onClose={onCancel} width={520} z={2098}>
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid #F3F4F6', fontSize: 15, fontWeight: 700 }}>{title}</div>
-      <div style={{ padding: '14px 20px', fontSize: 13, color: '#4A5560', lineHeight: 1.6, overflowY: 'auto' }}>{body}</div>
-      <div style={{ padding: '12px 20px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+      <div style={{ flexShrink: 0, padding: '16px 20px', borderBottom: '1px solid #F3F4F6', fontSize: 15, fontWeight: 700 }}>{title}</div>
+      <div style={{ flex: 1, minHeight: 0, padding: '14px 20px', fontSize: 13, color: '#4A5560', lineHeight: 1.6, overflowY: 'auto' }}>{body}</div>
+      <div style={{ flexShrink: 0, padding: '12px 20px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
         <button type="button" style={btn()} onClick={onCancel}>Cancel</button>
         <button type="button" style={btn(true)} disabled={busy} onClick={onConfirm}>{busy ? 'Working…' : confirmLabel}</button>
       </div>

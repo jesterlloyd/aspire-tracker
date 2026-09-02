@@ -228,7 +228,7 @@ test('seasonOf reads only what the name actually states', async () => {
 })
 
 test('the season mark is decoration: monochrome, aligned, and never announced', () => {
-  const src = read(INT_LIST)
+  const src = read('src/components/Header/scope/SeasonMark.jsx')
   // One muted color, so it cannot compete with the status pill or the Accepting badge,
   // which are the two things in the row that carry actual state.
   assert.match(src, /color: '#9ca3af'/)
@@ -236,8 +236,22 @@ test('the season mark is decoration: monochrome, aligned, and never announced', 
   // Fixed-width slot so a season-less name does not rag the left edge.
   assert.match(src, /width: 15, flexShrink: 0/)
   assert.match(src, /\{Icon \? <Icon size=\{13\} strokeWidth=\{2\} \/> : null\}/)
-  // Residency names are months, so that list must not derive a season from them.
-  assert.doesNotMatch(read(RES_LIST), /seasonOf|SeasonMark/)
+})
+
+// COHORT-ORDER-1: residency cohorts used to be named by start month ("January
+// 2027"), and deriving winter from January would have asserted something the
+// name does not say - so that list did not mark seasons. They are named by
+// season now ("Winter 2027"), so BOTH lists read the same rule from the same
+// component. A second copy is how two lists start drifting apart.
+test('both cohort lists mark seasons, from one shared component', () => {
+  for (const f of [INT_LIST, RES_LIST]) {
+    assert.match(read(f), /import SeasonMark from '\.\/SeasonMark'/, f)
+    assert.match(read(f), /<SeasonMark name=\{c\.name\} \/>/, f)
+    // The icon table lives in SeasonMark alone.
+    assert.doesNotMatch(read(f), /SEASON_ICONS/, `${f} must not keep its own icon table`)
+  }
+  // The stale note claiming residency deliberately opts out is gone.
+  assert.doesNotMatch(read('src/lib/cohortSeason.js'), /the residency list deliberately does not call this/)
 })
 
 test('the residency program is named the one way the app names it everywhere', () => {

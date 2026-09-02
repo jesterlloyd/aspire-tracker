@@ -19,14 +19,19 @@
 // state initializers read props, so no sync-setState effect exists anywhere.
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Plus, ChevronUp, ChevronDown, Trash2, X } from 'lucide-react'
+import { Plus, Trash2, X, Lock } from 'lucide-react'
 import { useNgrpPlanning, postNgrpManage } from '../../lib/ngrp/useNgrpData'
 import { CYCLE_STATUSES } from '../../lib/ngrp/ngrpStates'
+import { DEFAULT_APPLICATION_CHECKLIST } from '../../../lib/server/ngrpEligibility.js'
+import { compareCohortsChrono } from '../../lib/cohortSeason'
 import {
   F, inputStyle, btn, errText,
-  cycleBasics, rulesOf, checklistOf, benchmarksOf, unitsOf,
+  cycleBasics, rulesOf, benchmarksOf,
+  unitRoster, unitRosterByDivision, unitsToSave, unitsMissingSpots, unitDescription,
+  checklistExtrasOf, buildChecklist,
 } from '../../lib/ngrp/ngrpCohortForm'
 import { Field, Card, ConfirmDialog, ModalShell } from './NgrpFormUi'
+import SeasonMark from '../Header/scope/SeasonMark'
 
 export default function CohortSettingsModal({ cycle, canManage, toast, onClose }) {
   const queryClient = useQueryClient()
@@ -38,8 +43,10 @@ export default function CohortSettingsModal({ cycle, canManage, toast, onClose }
     queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] })
   }, [queryClient])
 
-  const aspireCohorts = [...(data?.aspireCohorts || [])]
-    .sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''))
+  // COHORT-ORDER-1: program order (Summer 2026, Fall 2026, Winter 2027), read
+  // from the cohort NAME. Sorting on the free-text start_date column put Winter
+  // above Fall alphabetically.
+  const aspireCohorts = [...(data?.aspireCohorts || [])].sort(compareCohortsChrono)
 
   let body
   if (!canManage) {
@@ -79,7 +86,7 @@ export default function CohortSettingsModal({ cycle, canManage, toast, onClose }
          configuration; the header X and Escape are the deliberate exits. */
       dismissOnBackdrop={false}
     >
-      <div style={{ padding: '16px 22px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ flexShrink: 0, padding: '16px 22px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#8B8F99' }}>Residency cohort settings</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#1D2567', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -93,7 +100,7 @@ export default function CohortSettingsModal({ cycle, canManage, toast, onClose }
           <X size={18} />
         </button>
       </div>
-      <div style={{ padding: '16px 22px 22px', overflowY: 'auto', background: 'var(--sand, #FAF9F7)' }}>
+      <div style={{ flex: 1, minHeight: 0, padding: '16px 22px 22px', overflowY: 'auto', background: 'var(--sand, #FAF9F7)' }}>
         {body}
       </div>
     </ModalShell>
@@ -112,21 +119,24 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
   const serverCycle = data.cycle
   const [basics, setBasics] = useState(() => cycleBasics(serverCycle))
   const [rules, setRules] = useState(() => rulesOf(serverCycle))
-  const [checklist, setChecklist] = useState(() => checklistOf(serverCycle))
+  // Only the EXTRAS are editable state: the five official requirements are fixed
+  // and are re-attached at save time, so they cannot be edited out by accident.
+  const [extras, setExtras] = useState(() => checklistExtrasOf(serverCycle))
   const [benchmarks, setBenchmarks] = useState(() => benchmarksOf(serverCycle))
   const [sourceIds, setSourceIds] = useState(() => (data.sourceCohorts || []).map(c => c.id))
-  const [units, setUnits] = useState(() => unitsOf(data))
-  const [newUnit, setNewUnit] = useState('')
+  const [units, setUnits] = useState(() => unitRoster(data))
   const [saving, setSaving] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
   const [confirm, setConfirm] = useState(null)
 
   const basicsDirty = serverCycle && JSON.stringify(basics) !== JSON.stringify(cycleBasics(serverCycle))
   const rulesDirty = serverCycle && JSON.stringify(rules) !== JSON.stringify(rulesOf(serverCycle))
-  const checklistDirty = serverCycle && JSON.stringify(checklist) !== JSON.stringify(checklistOf(serverCycle))
+  const checklistDirty = serverCycle && JSON.stringify(extras) !== JSON.stringify(checklistExtrasOf(serverCycle))
   const benchmarksDirty = serverCycle && JSON.stringify(benchmarks) !== JSON.stringify(benchmarksOf(serverCycle))
   const sourcesDirty = serverCycle && JSON.stringify([...sourceIds].sort()) !== JSON.stringify((data.sourceCohorts || []).map(c => c.id).sort())
-  const unitsDirty = serverCycle && JSON.stringify(units) !== JSON.stringify(unitsOf(data))
+  const unitsDirty = serverCycle && JSON.stringify(units) !== JSON.stringify(unitRoster(data))
+  // A ticked unit that will not say how many it is hiring blocks the save.
+  const missingSpots = unitsMissingSpots(units)
 
   // ── Save handlers ──────────────────────────────────────────────────────────
   const buildCyclePayload = () => ({
@@ -146,7 +156,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
       nclex_exception_enabled: rules.nclex_exception_enabled,
       conditional: { license: { enabled: rules.nclex_exception_enabled, deadline: rules.license_deadline_override || null } },
     },
-    application_checklist: checklist || undefined,
+    application_checklist: buildChecklist(DEFAULT_APPLICATION_CHECKLIST, extras),
     retention_benchmarks: {
       traditional_pct: benchmarks.traditional_pct === '' ? null : Number(benchmarks.traditional_pct),
       organization_pct: benchmarks.organization_pct === '' ? null : Number(benchmarks.organization_pct),
@@ -204,7 +214,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
   const requestSaveSources = () => {
     const names = aspireCohorts.filter(c => sourceIds.includes(c.id)).map(c => c.name)
     setConfirm({
-      title: 'Change the source ASPIRE cohorts?',
+      title: 'Change which ASPIRE cohorts participate?',
       body: names.length
         ? `The Applicants roster for ${serverCycle.name} will draw completed alumni from: ${names.join(', ')}. Alumni outside these cohorts leave the roster scope immediately.`
         : `This removes EVERY source cohort from ${serverCycle.name} - the Applicants roster will be empty until cohorts are mapped again.`,
@@ -215,10 +225,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
 
   const saveUnits = async () => {
     setSaving('units')
-    const res = await postNgrpManage('units_set', {
-      cycle_id: serverCycle.id,
-      units: units.map((u, i) => ({ ...u, capacity: u.capacity === '' ? null : Number(u.capacity), display_order: i })),
-    })
+    const res = await postNgrpManage('units_set', { cycle_id: serverCycle.id, units: unitsToSave(units) })
     setSaving(null)
     if (!res.ok) { toast?.error?.('Not saved', errText(res.errors) || 'The unit list could not be saved.'); return }
     toast?.success?.('Participating units updated', 'The Transition Form ranked-preference list reflects the change.')
@@ -237,16 +244,6 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
         toast?.success?.('Active cohort set', `${serverCycle.name} is now the default.`)
         invalidate(); refetch()
       },
-    })
-  }
-
-  const moveUnit = (i, delta) => {
-    setUnits(prev => {
-      const next = [...prev]
-      const j = i + delta
-      if (j < 0 || j >= next.length) return prev
-      ;[next[i], next[j]] = [next[j], next[i]]
-      return next
     })
   }
 
@@ -290,9 +287,9 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
         </div>
       </Card>
 
-      {/* 2 · Source ASPIRE cohorts */}
+      {/* 2 · ASPIRE cohorts participating */}
       <Card
-        title="Source ASPIRE cohorts" dirty={sourcesDirty} saving={saving === 'sources'}
+        title="ASPIRE cohorts participating" dirty={sourcesDirty} saving={saving === 'sources'}
         onSave={requestSaveSources} onDiscard={() => setSourceIds((data.sourceCohorts || []).map(c => c.id))}
         footNote="Applicants shows every Completed student across these cohorts (chronological below). No cohort or student data is duplicated - this is a mapping only."
       >
@@ -308,7 +305,11 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
                   border: on ? '1.5px solid #1D2567' : '1px solid rgba(29,37,103,0.15)',
                   fontWeight: on ? 700 : 500,
                 }}>
-                {c.name}{c.start_date ? ` · ${c.start_date.slice(0, 7)}` : ''}
+                {/* Name only (Owner). The name already states season and year;
+                    cohorts.start_date is free text and was the source of the
+                    ragged "May 4, " label. Nothing reads it here now. */}
+                <SeasonMark name={c.name} />
+                {c.name}
               </button>
             )
           })}
@@ -319,49 +320,76 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
       {/* 3 · Participating units */}
       <Card
         title="Participating units" dirty={unitsDirty} saving={saving === 'units'}
-        onSave={saveUnits} onDiscard={() => setUnits(unitsOf(data))}
-        footNote="These units (active ones, in this order) are the ONLY options the Transition Form offers as ranked preferences. Capacity is context for later phases - never an assignment."
+        onSave={saveUnits} onDiscard={() => setUnits(unitRoster(data))}
+        saveDisabledReason={missingSpots.length
+          ? `Set the number of new grads being hired for ${missingSpots.join(', ')} before saving.`
+          : null}
+        footNote="Every unit is listed; pick the ones hiring into this cohort and say how many new grads each is taking. Picked units are the ONLY options the Transition Form offers as ranked preferences, in the order shown. Unpicking keeps the number for next cycle. The total is what Planning reports as Seats."
       >
         {!data.unitsProvisioned && (
           <p style={{ margin: '0 0 10px', fontSize: 12.5, color: '#4B5563', fontFamily: F }}>
             Unit configuration unlocks once the pending NGRP migration is applied.
           </p>
         )}
-        {units.map((u, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F3F4F6' }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <button type="button" aria-label={`Move ${u.unit_name} up`} disabled={i === 0} onClick={() => moveUnit(i, -1)} style={{ border: 'none', background: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? '#D1D5DB' : '#6B7785', padding: 1 }}><ChevronUp size={13} /></button>
-              <button type="button" aria-label={`Move ${u.unit_name} down`} disabled={i === units.length - 1} onClick={() => moveUnit(i, 1)} style={{ border: 'none', background: 'none', cursor: i === units.length - 1 ? 'default' : 'pointer', color: i === units.length - 1 ? '#D1D5DB' : '#6B7785', padding: 1 }}><ChevronDown size={13} /></button>
+        {/* Tiles, not rows (Owner). Twenty-nine full-width rows with a checkbox,
+            a name, a number and two arrows each ate the card. A tile is the same
+            control the ASPIRE cohorts above use - pick or do not pick - and it
+            only grows the number box once it has been picked, so the unpicked
+            majority stays small enough to scan as a block. */}
+        {/* Grouped by division (Owner), because that is how the units are
+            grouped on the org chart and therefore where someone looks for one.
+            The group order doubles as the order the Transition Form offers the
+            picked units in. */}
+        <div className="ngrp-unitdivs" role="group" aria-label="Participating units">
+          {unitRosterByDivision(units).map(group => (
+            <div key={group.division} className="ngrp-unitdiv">
+              <div className="ngrp-unitdiv-name">{group.division}</div>
+              <div className="ngrp-unittiles">
+                {group.units.map(u => {
+                  const i = units.indexOf(u)
+                  const needsSpots = u.is_active && !(Number(u.capacity) > 0)
+                  const desc = unitDescription(u.unit_name)
+                  return (
+                    <div
+                      key={u.unit_name}
+                      className={`ngrp-unittile${u.is_active ? ' ngrp-unittile-on' : ''}${needsSpots ? ' ngrp-unittile-err' : ''}`}
+                    >
+                      {/* The label wraps the control, so the whole tile is the
+                          hit target and the checkbox stays the real, focusable
+                          input. */}
+                      <label className="ngrp-unittile-pick">
+                        <input
+                          type="checkbox" className="sr-only"
+                          checked={u.is_active}
+                          aria-label={`${u.unit_name} is participating and hiring`}
+                          onChange={e => setUnits(prev => prev.map((x, j) => j === i ? { ...x, is_active: e.target.checked } : x))}
+                        />
+                        {/* The catalog description is a tooltip rather than a
+                            second line: it disambiguates 5 SCCT from 6 SCCT
+                            without making every tile two lines tall. */}
+                        <span className="ngrp-unittile-name" title={desc || undefined}>{u.unit_name}</span>
+                      </label>
+                      {u.is_active && (
+                        <input
+                          type="number" min="1"
+                          className="ngrp-unittile-num"
+                          aria-label={`New grads ${u.unit_name} is hiring`}
+                          aria-invalid={needsSpots || undefined}
+                          value={u.capacity}
+                          onChange={e => setUnits(prev => prev.map((x, j) => j === i ? { ...x, capacity: e.target.value } : x))}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <span style={{ fontSize: 13, fontWeight: 600, fontFamily: F, flex: 1 }}>{u.unit_name}</span>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#4A5560', fontFamily: F, cursor: 'pointer' }}>
-              <input type="checkbox" checked={u.is_active} onChange={e => setUnits(prev => prev.map((x, j) => j === i ? { ...x, is_active: e.target.checked } : x))} style={{ accentColor: '#1D2567' }} />
-              Active
-            </label>
-            <input
-              type="number" min="1" placeholder="Capacity" aria-label={`${u.unit_name} capacity`}
-              value={u.capacity} onChange={e => setUnits(prev => prev.map((x, j) => j === i ? { ...x, capacity: e.target.value } : x))}
-              style={{ ...inputStyle, width: 92 }}
-            />
-            <button type="button" aria-label={`Remove ${u.unit_name}`} onClick={() => setUnits(prev => prev.filter((_, j) => j !== i))}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#B3282D', padding: 4 }}><Trash2 size={14} /></button>
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <input
-            list="ngrp-unit-suggestions" placeholder="Add a unit (e.g. 5 SCCT)" value={newUnit}
-            onChange={e => setNewUnit(e.target.value)} aria-label="Add a participating unit"
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (newUnit.trim()) { setUnits(prev => [...prev, { unit_name: newUnit.trim(), is_active: true, capacity: '' }]); setNewUnit('') } } }}
-            style={{ ...inputStyle, maxWidth: 280 }}
-          />
-          <datalist id="ngrp-unit-suggestions">
-            {(data.unitNameSuggestions || []).filter(n => !units.some(u => u.unit_name.toLowerCase() === n.toLowerCase())).map(n => <option key={n} value={n} />)}
-          </datalist>
-          <button type="button" style={btn()} disabled={!newUnit.trim() || units.some(u => u.unit_name.toLowerCase() === newUnit.trim().toLowerCase())}
-            onClick={() => { setUnits(prev => [...prev, { unit_name: newUnit.trim(), is_active: true, capacity: '' }]); setNewUnit('') }}>
-            <Plus size={13} /> Add
-          </button>
+          ))}
         </div>
+        <p style={{ margin: '12px 0 0', fontSize: 12.5, fontWeight: 600, color: '#1D2567', fontFamily: F }}>
+          {units.filter(u => u.is_active).reduce((n, u) => n + (Number(u.capacity) > 0 ? Number(u.capacity) : 0), 0)} new
+          grads across {units.filter(u => u.is_active).length} hiring unit{units.filter(u => u.is_active).length === 1 ? '' : 's'}
+        </p>
       </Card>
 
       {/* 4 · Eligibility rules */}
@@ -404,22 +432,46 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
       {/* 5 · Application checklist */}
       <Card
         title="Required application checklist" dirty={checklistDirty} saving={saving === 'cycle'}
-        onSave={() => saveCycle('Application checklist')} onDiscard={() => setChecklist(checklistOf(serverCycle))}
+        onSave={() => saveCycle('Application checklist')} onDiscard={() => setExtras(checklistExtrasOf(serverCycle))}
         footNote="Shown to alumni in the Transition Form as an application-readiness snapshot. Structured items, not free text."
       >
-        {(checklist || []).map((item, i) => (
+        {/* The five published requirements are FIXED. They are the program's
+            official application requirements, so they are shown as what they are
+            rather than as five editable rows one click from being deleted out of
+            the alumni-facing form. */}
+        <div className="ngrp-cl-kicker">Official program requirements</div>
+        <ul className="ngrp-cl-official">
+          {DEFAULT_APPLICATION_CHECKLIST.map(item => (
+            <li key={item.key}>
+              <Lock size={11} strokeWidth={2.4} aria-hidden="true" />
+              <span>{item.label}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="ngrp-cl-note">
+          Set by the program and the same for every cohort. Alumni tick these off on the
+          Transition Form as a readiness snapshot, not as the application itself.
+        </p>
+
+        <div className="ngrp-cl-kicker" style={{ marginTop: 16 }}>Additional items for this cohort</div>
+        {extras.length === 0 && (
+          <p style={{ margin: '0 0 8px', fontSize: 12.5, color: '#9CA3AF', fontFamily: F }}>
+            None. Add anything this cohort needs beyond the requirements above.
+          </p>
+        )}
+        {extras.map((item, i) => (
           <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0' }}>
             <input
-              value={item.label} aria-label={`Checklist item ${i + 1}`}
-              onChange={e => setChecklist(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+              value={item.label} aria-label={`Additional checklist item ${i + 1}`}
+              onChange={e => setExtras(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
               style={{ ...inputStyle, flex: 1 }}
             />
-            <button type="button" aria-label={`Remove checklist item ${i + 1}`} onClick={() => setChecklist(prev => prev.filter((_, j) => j !== i))}
+            <button type="button" aria-label={`Remove additional item ${i + 1}`} onClick={() => setExtras(prev => prev.filter((_, j) => j !== i))}
               style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#B3282D', padding: 4 }}><Trash2 size={14} /></button>
           </div>
         ))}
         <button type="button" style={{ ...btn(), marginTop: 8 }}
-          onClick={() => setChecklist(prev => [...(prev || []), { key: `item_${(prev?.length || 0) + 1}`, label: '', required: true }])}>
+          onClick={() => setExtras(prev => [...prev, { key: `extra_${Date.now()}`, label: '', required: true }])}>
           <Plus size={13} /> Add item
         </button>
       </Card>

@@ -23,7 +23,9 @@ import { Plus, CheckCircle2, AlertTriangle, Settings2 } from 'lucide-react'
 import { useNgrpPlanning, useNgrpApplicants } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows, effectiveEligibility } from '../../lib/ngrp/ngrpStates'
 import { toLocalDateStr } from '../../lib/designTokens'
-import { F, btn, rulesOf, checklistOf } from '../../lib/ngrp/ngrpCohortForm'
+import { F, btn, rulesOf } from '../../lib/ngrp/ngrpCohortForm'
+import { compareCohortsChrono } from '../../lib/cohortSeason'
+import { DEFAULT_APPLICATION_CHECKLIST } from '../../../lib/server/ngrpEligibility.js'
 import {
   cycleTimeline, milestoneWhen, capacitySummary, pipelineStages, seatPressure, ruleSummaryLines,
 } from '../../lib/ngrp/ngrpPlanningView'
@@ -108,7 +110,7 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
           A residency cohort (for example “January 2027”) scopes everything in the Residency
           experience: which completed ASPIRE alumni appear in Applicants, the Transition Form
           window, participating units, and eligibility rules. Add it here - no SQL involved -
-          then map its source ASPIRE cohorts and configure the rest at your own pace.
+          then choose the ASPIRE cohorts participating and configure the rest at your own pace.
         </p>
         <button type="button" style={{ ...btn(true), height: 38, fontSize: 13.5 }} onClick={onAddCohort}>
           <Plus size={15} strokeWidth={2.2} aria-hidden="true" /> Add residency cohort
@@ -121,8 +123,13 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
 
   const readiness = data?.readiness || { ok: false, reasons: [] }
   const rules = rulesOf(serverCycle)
-  const checklist = checklistOf(serverCycle) || []
-  const sources = data?.sourceCohorts || []
+  // COHORT-ORDER-1: the summary reads in program order too, so it cannot
+  // disagree with the picker that set it.
+  const sources = [...(data?.sourceCohorts || [])].sort(compareCohortsChrono)
+  // The five official requirements are always in force, whatever the cycle
+  // stores; only the extras vary by cohort.
+  const extras = (Array.isArray(serverCycle.application_checklist) ? serverCycle.application_checklist : [])
+    .filter(i => !DEFAULT_APPLICATION_CHECKLIST.some(o => o.key === i.key))
 
   const editButton = (
     <button type="button" style={btn()} onClick={onEditCohort}>
@@ -174,7 +181,7 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
         <Panel title="Pipeline" sub={applicants.status === 'loading' ? 'Loading…' : `${sources.length} source cohort${sources.length === 1 ? '' : 's'}`}>
           {sources.length === 0 && (
             <p style={{ margin: '0 0 10px', fontSize: 12.5, color: '#92400E', fontFamily: F }}>
-              No source ASPIRE cohorts are mapped, so no alumni are in scope yet.
+              No ASPIRE cohorts are participating yet, so no alumni are in scope.
             </p>
           )}
           <div className="ngrp-funnel">
@@ -250,7 +257,7 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
       {/* 4 · What this cohort is configured to be. Read-only on purpose. */}
       <Panel title="Scope and rules" action={editButton}>
         <dl className="ngrp-summary">
-          <dt>Source ASPIRE cohorts</dt>
+          <dt>ASPIRE cohorts participating</dt>
           <dd>{sources.length ? sources.map(c => c.name).join(', ') : <i>None mapped</i>}</dd>
 
           <dt>Eligibility</dt>
@@ -261,9 +268,10 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
           </dd>
 
           <dt>Application checklist</dt>
-          <dd>{checklist.length
-            ? `${checklist.length} item${checklist.length === 1 ? '' : 's'}: ${checklist.map(i => i.label).filter(Boolean).join(', ')}`
-            : <i>Using the default checklist</i>}</dd>
+          <dd>
+            {DEFAULT_APPLICATION_CHECKLIST.length} required item{DEFAULT_APPLICATION_CHECKLIST.length === 1 ? '' : 's'}
+            {extras.length ? `, plus ${extras.length} for this cohort: ${extras.map(i => i.label).filter(Boolean).join(', ')}` : ''}
+          </dd>
 
           <dt>Retention benchmarks</dt>
           <dd>{[

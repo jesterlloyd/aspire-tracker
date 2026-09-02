@@ -359,3 +359,118 @@
   .ngrp-summary { grid-template-columns: 1fr; gap: 3px 0; }
   .ngrp-summary dd { margin-bottom: 10px; }
 }
+
+/* ── COHORT-ORDER-1: the participating-unit tiles ──────────────────────────── */
+
+/* A wrap of small tiles, the same gesture as the ASPIRE cohort chips above.
+   Twenty-nine full-width rows consumed the card; twenty-nine tiles read as one
+   block you can scan, and only the picked ones grow. */
+.ngrp-unittiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px;
+}
+
+/* The divisions stack; the scroll bound lives on the stack, not on each wrap,
+   so a division is never cut in half by its own scrollbar. */
+.ngrp-unitdivs {
+  font-family: 'DM Sans', sans-serif;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.ngrp-unitdiv + .ngrp-unitdiv { margin-top: 12px; }
+.ngrp-unitdiv-name {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #A9AEBB; margin: 0 0 6px 2px;
+}
+
+.ngrp-unittile {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 4px 0 10px;
+  border: 1px solid rgba(29, 37, 103, 0.15);
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.12s, background 0.12s;
+}
+/* An unpicked tile has no number box, so it keeps its right padding instead of
+   leaving a gap where one would sit. */
+.ngrp-unittile:not(.ngrp-unittile-on) { padding-right: 10px; }
+
+.ngrp-unittile-pick {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  min-width: 0;
+}
+.ngrp-unittile-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #4A5560;
+  white-space: nowrap;
+}
+/* Picked reads as picked without a tick: filled ground, program border, bolder
+   name. Same treatment the cohort chips above already use, so the two pickers
+   in one card cannot be mistaken for different kinds of control. */
+.ngrp-unittile-on {
+  background: #EDEEF4;
+  border: 1.5px solid #1D2567;
+}
+.ngrp-unittile-on .ngrp-unittile-name { color: #1D2567; font-weight: 700; }
+
+/* A picked unit that will not say how many it is hiring. The tile carries the
+   signal; the card's blocked-save line names the units. */
+.ngrp-unittile-err { border-color: #B3282D; }
+.ngrp-unittile-err .ngrp-unittile-num { border-color: #B3282D; color: #B3282D; }
+
+.ngrp-unittile-num {
+  width: 46px;
+  height: 22px;
+  padding: 0 2px;
+  border: 1px solid rgba(29, 37, 103, 0.2);
+  border-radius: 6px;
+  background: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  color: #1D2567;
+}
+/* The spinners do not fit a 22px box and are not worth the width. */
+.ngrp-unittile-num::-webkit-outer-spin-button,
+.ngrp-unittile-num::-webkit-inner-spin-button { appearance: none; margin: 0; }
+.ngrp-unittile-num { appearance: textfield; -moz-appearance: textfield; }
+
+/* The checkbox is visually hidden but still the focused element, so the tile
+   has to show the ring on its behalf. */
+.ngrp-unittile:has(.ngrp-unittile-pick input:focus-visible) {
+  outline: 2px solid #1D2567;
+  outline-offset: 2px;
+}
+
+/* ── The application checklist ─────────────────────────────────────────────── */
+
+.ngrp-cl-kicker {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #A9AEBB; margin-bottom: 8px; font-family: 'DM Sans', sans-serif;
+}
+/* The five requirements read as a statement of fact, not as five disabled text
+   inputs: a greyed-out field invites people to try to type in it. */
+.ngrp-cl-official {
+  list-style: none; margin: 0; padding: 10px 14px;
+  background: var(--sand, #FAF9F7); border: 1px solid #EDEEF4; border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+}
+.ngrp-cl-official li {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13px; color: #374151; padding: 5px 0;
+}
+.ngrp-cl-official li + li { border-top: 1px solid rgba(29, 37, 103, 0.05); }
+.ngrp-cl-official svg { color: #A9AEBB; flex-shrink: 0; }
+.ngrp-cl-note {
+  margin: 8px 0 0; font-size: 11.5px; color: #6B7785; line-height: 1.55;
+  font-family: 'DM Sans', sans-serif;
+}

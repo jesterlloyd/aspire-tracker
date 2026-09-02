@@ -27,6 +27,7 @@
 // ASPIRE footer is gated on canEdit - a viewer sees the list and no footer at all.
 import { CYCLE_CLOSED_STATUSES } from '../../../lib/ngrp/ngrpStates'
 import { residencyUnavailable } from '../../../lib/scopePickerLabels'
+import SeasonMark from './SeasonMark'
 
 // Approved status vocabulary (plan §10.1), colored like the ASPIRE cohort statuses:
 // blue = planned/in progress, green = open/active, gray = done.
@@ -115,7 +116,12 @@ export default function ResidencyCohortList({
             onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'var(--sand)' }}
             onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent' }}
           >
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>{c.name}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 15, fontWeight: 600, color: '#374151' }}>
+              {/* COHORT-ORDER-1: residency cohorts are named by season now
+                  ("Winter 2027"), so they read the same mark the ASPIRE rows do. */}
+              <SeasonMark name={c.name} />
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 }}>
               <span style={{ fontSize: 12, color: '#6b7280' }}>{dates || ' '}</span>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 8 }}>
