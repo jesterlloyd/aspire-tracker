@@ -26,28 +26,18 @@
 // tab); Add Cohort opens the create dialog. Both are gated on ngrp_manage, the way the
 // ASPIRE footer is gated on canEdit - a viewer sees the list and no footer at all.
 import { CYCLE_CLOSED_STATUSES } from '../../../lib/ngrp/ngrpStates'
-import { residencyUnavailable } from '../../../lib/scopePickerLabels'
+import { residencyUnavailable, cycleDatesLine } from '../../../lib/scopePickerLabels'
 import SeasonMark from './SeasonMark'
 
-// Approved status vocabulary (plan §10.1), colored like the ASPIRE cohort statuses:
-// blue = planned/in progress, green = open/active, gray = done.
+// NGRP-CYCLE-STATUS-CANON: the four ASPIRE cohort statuses and the four ASPIRE cohort
+// colors, byte for byte what InternshipCohortList renders. Two lists sitting in one
+// dropdown should not speak different languages, and the nine-value vocabulary this
+// replaced also needed two colors the ASPIRE side never used.
 const STATUS_COLORS = {
-  'Planning':           { bg: '#dbeafe', color: '#1d4ed8' },
-  'Accepting Interest': { bg: '#dbeafe', color: '#1d4ed8' },
-  'Application Open':   { bg: '#dcfce7', color: '#166534' },
-  'Application Closed': { bg: '#fef3c7', color: '#92400e' },
-  'Interviews':         { bg: '#ede9fe', color: '#5b21b6' },
-  'Offers':             { bg: '#ede9fe', color: '#5b21b6' },
-  'Residency Active':   { bg: '#dcfce7', color: '#166534' },
-  'Completed':          { bg: '#f3f4f6', color: '#6b7280' },
-  'Archived':           { bg: '#f3f4f6', color: '#9ca3af' },
-}
-
-const fmtDate = d => {
-  if (!d) return null
-  const [y, m, day] = String(d).split('T')[0].split('-').map(Number)
-  if (!y || !m || !day) return d
-  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  Planning:  { bg: '#dbeafe', color: '#1d4ed8' },
+  Active:    { bg: '#dcfce7', color: '#166534' },
+  Completed: { bg: '#f3f4f6', color: '#6b7280' },
+  Archived:  { bg: '#f3f4f6', color: '#9ca3af' },
 }
 
 export default function ResidencyCohortList({
@@ -94,10 +84,7 @@ export default function ResidencyCohortList({
         const isSel = c.id === activeCycle?.id
         const sc = STATUS_COLORS[c.status] || { bg: '#f3f4f6', color: '#6b7280' }
         const done = CYCLE_CLOSED_STATUSES.includes(c.status)
-        const dates = [
-          c.application_open_date && `Apps ${fmtDate(c.application_open_date)}${c.application_deadline ? `–${fmtDate(c.application_deadline)}` : ''}`,
-          c.residency_start_date && `Starts ${fmtDate(c.residency_start_date)}`,
-        ].filter(Boolean).join(' · ')
+        const dates = cycleDatesLine(c)
         return (
           <button
             key={c.id}

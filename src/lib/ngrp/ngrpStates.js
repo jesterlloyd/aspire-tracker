@@ -76,11 +76,32 @@ export const INTERVIEW_STATES = {
   no_show:            { label: 'No Show',            family: 'err',  icon: 'alert' },
 }
 
-// ── Cycle status vocabulary (ngrp_cycles.status; plan section 10.1) ──────────
-export const CYCLE_STATUSES = [
-  'Planning', 'Accepting Interest', 'Application Open', 'Application Closed',
-  'Interviews', 'Offers', 'Residency Active', 'Completed', 'Archived',
-]
+// ── Cycle status vocabulary (ngrp_cycles.status) ─────────────────────────────
+// NGRP-CYCLE-STATUS-CANON: ONE cohort status vocabulary across both experiences.
+// This was nine values (Planning, Accepting Interest, Application Open, Application
+// Closed, Interviews, Offers, Residency Active, Completed, Archived) against the four
+// an ASPIRE cohort uses, so the same act of setting a cohort's status had to be learned
+// twice and the two lists could not be compared at a glance.
+//
+// The six middle values were also DUPLICATING the dates. "Application Open" restated
+// application_open_date, "Interviews" restated interview_window_start, "Residency
+// Active" restated residency_start_date - a second, hand-maintained copy of facts the
+// cycle already carries, free to contradict them. Where a cohort is in its lifecycle is
+// now read from its dates (which the picker shows) and the status says only what an
+// ASPIRE cohort's status says.
+//
+// MUST stay identical to COHORT_STATUSES in src/lib/constants.js; a test pins that, and
+// the ngrp_cycles CHECK constraint is the runtime authority.
+export const CYCLE_STATUSES = ['Planning', 'Active', 'Completed', 'Archived']
+
+// Statuses in which alumni-facing form activity is expected: saving a cycle INTO one of
+// these requires a form-ready configuration (openReadiness). This was ['Accepting
+// Interest', 'Application Open']; 'Active' absorbs both, and also the later phases that
+// previously skipped the check. That is a tightening, not a loosening, and not a real
+// restriction: a cohort cannot reach interviews or offers without having had a
+// deadline, source cohorts, and units in the first place. The send path enforces the
+// same readiness independently, so nothing here is the only guard.
+export const FORM_ACTIVE_STATUSES = ['Active']
 
 // ── Selector ordering (plan §3.2) ────────────────────────────────────────────
 // Current active cycle first; other planned/open/in-progress cycles next in

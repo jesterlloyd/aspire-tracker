@@ -365,7 +365,7 @@ const fakeGenerateToken = () => {
 
 const CYCLE = {
   id: 'cccccccc-0000-4000-8000-000000000001', name: 'January 2027',
-  status: 'Application Open', application_open_date: '2026-09-01',
+  status: 'Active', application_open_date: '2026-09-01',
   application_deadline: '2026-10-15', interview_window_start: '2026-11-02',
   interview_window_end: '2026-11-13', licensure_deadline: null,
   residency_start_date: '2027-01-25', qualification_rules: {}, application_checklist: [],
@@ -469,11 +469,11 @@ test('planning: readiness names every blocking reason and gates form-active stat
   const notReady = openReadiness({ cycle: { name: 'X' }, sourceCohortCount: 0, activeUnitCount: 0 })
   assert.equal(notReady.ok, false)
   assert.equal(notReady.reasons.length, 3, 'deadline + sources + units all reported')
-  const gate = validateStatusTransition({ nextStatus: 'Application Open', readiness: notReady })
+  const gate = validateStatusTransition({ nextStatus: 'Active', readiness: notReady })
   assert.equal(gate.ok, false)
   const ready = openReadiness({ cycle: { application_deadline: '2026-10-15' }, sourceCohortCount: 2, activeUnitCount: 3 })
   assert.equal(ready.ok, true)
-  assert.equal(validateStatusTransition({ nextStatus: 'Application Open', readiness: ready }).ok, true)
+  assert.equal(validateStatusTransition({ nextStatus: 'Active', readiness: ready }).ok, true)
   assert.equal(validateStatusTransition({ nextStatus: 'Planning', readiness: notReady }).ok, true, 'non-form statuses are never blocked')
 })
 
@@ -488,7 +488,11 @@ test('planning: endpoint order and guards (first cohort, scope guard, status act
   assert.match(manageApi, /engineFields = \['qualification_rules', 'application_open_date', 'application_deadline', 'interview_window_start', 'licensure_deadline'\]/)
   // Cohort settings UI: no auto-open, explicit confirm for form-active statuses.
   assert.match(cohortSettingsUi, /Status is an explicit staff action/)
-  assert.match(cohortSettingsUi, /Opening a residency cohort makes Transition Form sends possible/)
+  // NGRP-CYCLE-STATUS-CANON: the confirm reads "Activate" now that 'Active' is the one
+  // form-active status. The guarantee it pins is unchanged: form sends never become
+  // possible without an explicit, confirmed staff action.
+  assert.match(cohortSettingsUi, /Activating a residency cohort makes Transition Form sends possible/)
+  assert.match(cohortSettingsUi, /FORM_ACTIVE_STATUSES\.includes\(basics\.status\)/, 'reads the shared vocabulary')
 })
 
 test('planning ATOMICITY: replacement operations run through transactional rpc functions, never delete-then-insert requests', () => {

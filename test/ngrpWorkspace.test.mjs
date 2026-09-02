@@ -100,7 +100,7 @@ const CYCLE = 'cccccccc-0000-4000-8000-000000000001'
 const LATER = 'cccccccc-0000-4000-8000-000000000002'
 const CYCLE_ROWS = [
   { id: PRIOR, name: 'August 2026 NGRP',  status: 'Completed',        application_open_date: '2026-03-01', residency_start_date: '2026-08-10', created_at: '2026-01-01T00:00:00Z' },
-  { id: CYCLE, name: 'January 2027 NGRP', status: 'Application Open', application_open_date: '2026-09-01', residency_start_date: '2027-01-25', created_at: '2026-06-01T00:00:00Z' },
+  { id: CYCLE, name: 'January 2027 NGRP', status: 'Active', application_open_date: '2026-09-01', residency_start_date: '2027-01-25', created_at: '2026-06-01T00:00:00Z' },
   { id: LATER, name: 'August 2027 NGRP',  status: 'Planning',         application_open_date: '2027-03-01', residency_start_date: '2027-08-09', created_at: '2026-08-01T00:00:00Z' },
 ]
 const [A, B, C, D] = ['a', 'b', 'c', 'd'].map(x => `${x}0000000-0000-4000-8000-000000000000`)
@@ -363,10 +363,10 @@ test('ordering: active first, then planned/open chronologically, then completed/
   const cycles = [
     { id: 'z-arch', name: 'Old',    status: 'Archived',         application_open_date: '2025-03-01' },
     { id: 'later',  name: 'Later',  status: 'Planning',         application_open_date: '2027-03-01', residency_start_date: '2027-08-09' },
-    { id: 'act',    name: 'Active', status: 'Application Open', application_open_date: '2026-09-01', is_active: true },
+    { id: 'act',    name: 'Active', status: 'Active',           application_open_date: '2026-09-01', is_active: true },
     { id: 'done',   name: 'Done',   status: 'Completed',        application_open_date: '2026-03-01' },
     { id: 'tie-b',  name: 'TieB',   status: 'Planning',         application_open_date: '2027-03-01', residency_start_date: '2027-09-01' },
-    { id: 'early',  name: 'Early',  status: 'Accepting Interest', application_open_date: '2026-11-01' },
+    { id: 'early',  name: 'Early',  status: 'Active',           application_open_date: '2026-11-01' },
   ]
   const ordered = orderCyclesForSelector(cycles).map(c => c.id)
   // Closed cycles come after every active/planned one, chronological within
@@ -377,7 +377,7 @@ test('ordering: active first, then planned/open chronologically, then completed/
 test('ordering: a valid saved selection is preserved; otherwise active, then first ordered', () => {
   const cycles = [
     { id: 'c1', status: 'Completed', application_open_date: '2026-03-01' },
-    { id: 'c2', status: 'Application Open', application_open_date: '2026-09-01', is_active: true },
+    { id: 'c2', status: 'Active', application_open_date: '2026-09-01', is_active: true },
     { id: 'c3', status: 'Planning', application_open_date: '2027-03-01' },
   ]
   assert.equal(resolveSelectedCycle(cycles, 'c3')?.id, 'c3', 'saved selection preserved')

@@ -44,7 +44,7 @@ const APP = 'src/App.jsx'
 // ── 1. The label module, functionally ────────────────────────────────────────
 
 test('every residency cohort state is distinct, and none reads as a chosen cohort', () => {
-  const cycle = { id: 'c1', name: 'January 2027', status: 'Application Open' }
+  const cycle = { id: 'c1', name: 'January 2027', status: 'Active' }
   assert.equal(residencyCohortLabel({ status: 'loading', cycles: [] }), 'Loading cohorts…')
   // The three failure shapes all say "unavailable", never "none configured".
   for (const status of ['unprovisioned', 'error', 'stale']) {
@@ -60,9 +60,14 @@ test('every residency cohort state is distinct, and none reads as a chosen cohor
 })
 
 test('a failure never shows a live dot, and every non-choice label is dimmed', () => {
-  assert.equal(residencyCohortLive({ status: 'Application Open' }), true)
-  assert.equal(residencyCohortLive({ status: 'Residency Active' }), true)
+  // NGRP-CYCLE-STATUS-CANON: five of the old nine statuses meant live; 'Active' is now
+  // the only one, matching what a green dot means on the ASPIRE side.
+  assert.equal(residencyCohortLive({ status: 'Active' }), true)
+  assert.equal(residencyCohortLive({ status: 'Planning' }), false)
   assert.equal(residencyCohortLive({ status: 'Completed' }), false)
+  // A row still holding a retired value is NOT live: it is unmigrated data, and
+  // guessing that it is live would be inventing a fact.
+  assert.equal(residencyCohortLive({ status: 'Application Open' }), false)
   assert.equal(residencyCohortLive(null), false, 'no cycle is never live')
   for (const s of [{ status: 'loading' }, { status: 'error' }, { status: 'ready', cycles: [] }]) {
     assert.equal(residencyLabelIsState(s), true, JSON.stringify(s))

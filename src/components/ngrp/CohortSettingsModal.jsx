@@ -21,7 +21,7 @@ import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, X, Lock } from 'lucide-react'
 import { useNgrpPlanning, postNgrpManage } from '../../lib/ngrp/useNgrpData'
-import { CYCLE_STATUSES } from '../../lib/ngrp/ngrpStates'
+import { CYCLE_STATUSES, FORM_ACTIVE_STATUSES } from '../../lib/ngrp/ngrpStates'
 import { DEFAULT_APPLICATION_CHECKLIST } from '../../../lib/server/ngrpEligibility.js'
 import { compareCohortsChrono } from '../../lib/cohortSeason'
 import {
@@ -189,11 +189,13 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
   }
 
   const requestSaveBasics = () => {
-    const opensForms = ['Accepting Interest', 'Application Open'].includes(basics.status) && serverCycle.status !== basics.status
+    // NGRP-CYCLE-STATUS-CANON: reads the shared vocabulary rather than restating which
+    // statuses open forms. The list moved once already; it must not need finding twice.
+    const opensForms = FORM_ACTIVE_STATUSES.includes(basics.status) && serverCycle.status !== basics.status
     if (opensForms) {
       setConfirm({
-        title: `Open ${basics.name} for ${basics.status === 'Application Open' ? 'applications' : 'interest'}?`,
-        body: 'Opening a residency cohort makes Transition Form sends possible. Status is an explicit staff action - confirm to proceed.',
+        title: `Activate ${basics.name}?`,
+        body: 'Activating a residency cohort makes Transition Form sends possible. Status is an explicit staff action - confirm to proceed.',
         confirmLabel: `Set status to ${basics.status}`,
         run: () => saveCycle('Cohort basics'),
       })
@@ -260,6 +262,17 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
             {fieldErrors.name && <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#B3282D' }}>{fieldErrors.name}</p>}</Field>
           <Field label="Status">
             <select style={inputStyle} value={basics.status} onChange={e => setBasics(b => ({ ...b, status: e.target.value }))}>
+              {/* NGRP-CYCLE-STATUS-CANON: a row still holding one of the retired nine
+                  values (this app deployed, migration 20260905000000 not yet applied)
+                  would otherwise have NO matching option. A select whose value matches
+                  nothing displays its first option, so opening the modal and saving any
+                  unrelated field would silently rewrite the status to Planning. The
+                  legacy value is offered as a selectable option, marked, so the rewrite
+                  is a choice rather than an accident. Disappears on its own once the
+                  data is canonical. */}
+              {!CYCLE_STATUSES.includes(basics.status) && basics.status && (
+                <option value={basics.status}>{basics.status} (retired status)</option>
+              )}
               {CYCLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             {fieldErrors.status && <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#B3282D' }}>{fieldErrors.status}</p>}</Field>
