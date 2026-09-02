@@ -4,7 +4,7 @@
 // Cohort scoping is DEFERRED in Phase 2 (no cohort picker here) - reported deferred.
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ASPIRE_EVENT_TYPES, RECURRENCE_OPTIONS, ANNUAL_ALLDAY_TYPES, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
+import { ASPIRE_EVENT_TYPES, RECURRENCE_OPTIONS, ANNUAL_ALLDAY_TYPES, OFFERED_AUDIENCES, STUDENT_DELIVERED_TYPES, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
 
 const COLOR_SWATCHES = ['#1D2567', '#0E7490', '#7C3AED', '#C2410C', '#B91C1C', '#2F7D5C']
 
@@ -50,8 +50,9 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
     location:        event?.location || '',
     url:             event?.url || '',
     school:          event?.school || '',
-    // Audience is preserved server-side (default 'internal') but its control is hidden: only 'internal'
-    // is operative today (nothing consumes the others; no authorized portal read path). See discovery.
+    // EVENT-AUDIENCE-1: this control used to be hidden, correctly, because nothing read the
+    // value and no portal could reach an event. There is a read path now
+    // (api/portal/my-calendar-events.js), so the choice is real and the picker is shown.
     audience:        event?.audience || 'internal',
     description:     event?.description || '',
     is_milestone:    event?.is_milestone ?? false,
@@ -67,8 +68,8 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  // Selecting a Birthday (or any annual-all-day type) applies its defaults: all-day on, and — when
-  // recurrence is enabled — Annually. The user can still change any default before saving.
+  // Selecting a Birthday (or any annual-all-day type) applies its defaults: all-day on, and (when
+  // recurrence is enabled) Annually. The user can still change any default before saving.
   const setEventType = (val) => setForm(f => {
     const next = { ...f, event_type: val }
     if (ANNUAL_ALLDAY_TYPES.has(val)) {
@@ -224,7 +225,7 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
             All-day event
           </label>
 
-          {/* Recurrence end — only when repeating. "Never" (blank) or "On date". */}
+          {/* Recurrence end, only when repeating. "Never" (blank) or "On date". */}
           {recurrenceEnabled && form.recurrence !== 'none' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-field">
@@ -302,6 +303,35 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
                   style={{ width: 26, height: 26, borderRadius: '50%', background: c, cursor: 'pointer', border: '2px solid #fff', boxShadow: form.color === c ? `0 0 0 2px ${c}` : '0 0 0 1px #e5e7eb' }} />
               ))}
             </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="event-audience">Who sees this</label>
+            <select
+              id="event-audience"
+              className="form-select"
+              value={form.audience}
+              onChange={e => set('audience', e.target.value)}
+              disabled={readOnly}
+            >
+              {/* Only the audiences with a CONSUMER are offered. 'cohort' and 'school' exist in
+                  the column and the endpoint validates them, but nothing reads them yet, and an
+                  option that silently does nothing is worse than no option. */}
+              <option value="internal">Internal team only</option>
+              <option value="all">Everyone, including students</option>
+              {/* Defensive, and self-removing: an event somehow carrying a targeted audience keeps
+                  it visible rather than being silently rewritten to whichever option renders first. */}
+              {!OFFERED_AUDIENCES.includes(form.audience) && (
+                <option value={form.audience}>{form.audience} (not currently delivered)</option>
+              )}
+            </select>
+            <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280', lineHeight: 1.5 }}>
+              {form.audience === 'all'
+                ? STUDENT_DELIVERED_TYPES.includes(form.event_type)
+                  ? 'Students will see this on their portal calendar.'
+                  : `Staff calendars only: "${eventTypeLabel(form.event_type)}" is not a type delivered to students, whatever the audience.`
+                : 'Staff calendars only. Nobody outside the ASPIRE team sees this.'}
+            </p>
           </div>
 
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>

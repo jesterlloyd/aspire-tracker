@@ -41,6 +41,30 @@ export const AUDIENCE_OPTIONS = [
 ]
 export const AUDIENCE_VALUES = AUDIENCE_OPTIONS.map(a => a.value)
 
+// EVENT-AUDIENCE-1: the audiences the modal actually OFFERS. 'cohort' and 'school' remain
+// valid in the column and the endpoint still validates them, but nothing reads them, and an
+// option that silently delivers to nobody is worse than no option. Widen this only when a
+// consumer exists.
+export const OFFERED_AUDIENCES = ['internal', 'all']
+
+// The event types delivered to a student's portal calendar. This is a SECOND gate, applied
+// on top of the audience, and it is deliberately narrow.
+//
+// Audience alone is one mistake away from an accident: 'Everyone' is a single click, and the
+// free-text types below it ('deadline', 'reminder', 'custom') are where internal shorthand
+// gets written. A note reading "chase Maria re: paperwork" tagged Everyone by mistake should
+// not reach a student, so the type has to opt in as well as the audience.
+//
+// The list is the Owner's (2026-09-02): the NGRP dates a student must act on, and the events
+// a student is invited to attend. Milestones, rotation markers, generic deadlines, reminders
+// and custom notes are deliberately absent.
+//
+// api/portal/my-calendar-events.js keeps its own copy (api/ imports do not resolve safely at
+// the Vercel runtime) and a parity test pins the two together.
+export const STUDENT_DELIVERED_TYPES = [
+  'ngrp_open', 'ngrp_deadline', 'interview_window', 'town_hall', 'orientation',
+]
+
 const TYPE_MAP = Object.fromEntries(ASPIRE_EVENT_TYPES.map(t => [t.value, t]))
 
 export function eventTypeLabel(type) {

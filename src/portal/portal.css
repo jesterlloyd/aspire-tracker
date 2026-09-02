@@ -1817,9 +1817,18 @@ img.ptl-detail-photo {
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; width: 100%;
 }
 .ptl-student-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+/* EVENT-AUDIENCE-1: an ASPIRE event on a student's day cell. Shape only - the colour is
+   set inline from the event's own type, so the same event reads the same here as it does
+   on the staff calendar, and it can never be confused with the holiday amber or the
+   shift navy. */
+.ptl-student-cal-event {
+  border-radius: 4px; padding: 1px 5px; font-size: 9px; font-weight: 600;
+  white-space: nowrap; text-overflow: ellipsis;
+}
 .ptl-student-cal-plan,
 .ptl-student-cal-holiday,
 .ptl-student-cal-blackout,
+.ptl-student-cal-event,
 .ptl-student-cal-add {
   display: inline-flex; align-items: center; gap: 3px; max-width: 100%; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; padding: 1px 5px; border-radius: 4px;

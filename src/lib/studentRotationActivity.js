@@ -31,6 +31,17 @@ export function fetchMyRotationActivity() {
   return portalRequest('/api/portal/my-rotation-activity')
 }
 
+// EVENT-AUDIENCE-1: the ASPIRE events a student may see for one visible month. The server
+// applies both gates (audience 'all' AND a delivered event type) and returns a built, named
+// field set - this helper adds nothing and filters nothing, so there is one place to read
+// the rule rather than two that can disagree.
+export function fetchMyCalendarEvents({ from, to }) {
+  return portalRequest('/api/portal/my-calendar-events', {
+    method: 'POST',
+    body: JSON.stringify({ from, to }),
+  })
+}
+
 export function saveMyPlannedShift({ planId = null, studentId, shiftDate, preceptorName }) {
   return portalRequest('/api/portal/my-rotation-activity', {
     method: 'POST',

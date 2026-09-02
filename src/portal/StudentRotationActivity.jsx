@@ -13,11 +13,13 @@ import {
 import { pacificToday, monthGrid, monthLabel } from '../lib/rotationCalendarDates'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 import { firstNameOf } from '../lib/masthead'
+import { eventColor, eventTypeLabel } from '../lib/aspireEvents'
 import { portalShiftStatus } from '../lib/portalShiftStatus'
 import {
   reconcileStudentRotationActivity,
   groupStudentActivityByDate,
   fetchMyRotationActivity,
+  fetchMyCalendarEvents,
   saveMyPlannedShift,
   cancelMyPlannedShift,
 } from '../lib/studentRotationActivity'
@@ -117,6 +119,10 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
   const [formError, setFormError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [cancelConfirm, setCancelConfirm] = useState(false)
+  // EVENT-AUDIENCE-1: ASPIRE events for the visible month. Their own state and their own
+  // failure: an event fetch that fails must never take the student's OWN shifts down with
+  // it, so this never sets loadError and simply shows no events.
+  const [events, setEvents] = useState([])
 
   const loadPlans = useCallback(async () => {
     if (readOnly) {
@@ -167,9 +173,37 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
     }
     return map
   }, [holidays])
+  // Refetched per visible month, and scoped to exactly the grid on screen (which includes
+  // the leading/trailing days of the neighbouring months, so an event on those cells shows).
+  const rangeFrom = cells[0].ymd
+  const rangeTo = cells[cells.length - 1].ymd
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const result = await fetchMyCalendarEvents({ from: rangeFrom, to: rangeTo })
+      if (cancelled) return
+      setEvents(result.ok ? (result.events || []) : [])
+    })()
+    return () => { cancelled = true }
+  }, [rangeFrom, rangeTo])
+
+  const eventsByDay = useMemo(() => {
+    const map = new Map()
+    for (const ev of events) {
+      // start_at is a timestamptz; the day is the LOCAL day, matching how every other date
+      // on this calendar is derived.
+      const d = new Date(ev.start_at)
+      if (Number.isNaN(d.getTime())) continue
+      const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      map.set(ymd, [...(map.get(ymd) || []), ev])
+    }
+    return map
+  }, [events])
+  const selectedEvents = eventsByDay.get(selectedDate) || []
+
   const markedDates = useMemo(() => new Set([
-    ...byDay.keys(), ...blackoutDates, ...holidaysByDay.keys(),
-  ]), [byDay, blackoutDates, holidaysByDay])
+    ...byDay.keys(), ...blackoutDates, ...holidaysByDay.keys(), ...eventsByDay.keys(),
+  ]), [byDay, blackoutDates, holidaysByDay, eventsByDay])
   const selectedItems = byDay.get(selectedDate) || []
   const selectedPlan = selectedItems.find(item => item.kind === 'planned') || null
   const selectedLog = selectedItems.find(item => item.kind === 'logged') || null
@@ -238,7 +272,7 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
     await loadPlans()
   }
 
-  const sidebarCount = selectedItems.length + selectedHolidays.length + (isBlackout ? 1 : 0)
+  const sidebarCount = selectedItems.length + selectedHolidays.length + selectedEvents.length + (isBlackout ? 1 : 0)
   const sidebar = (
     <CanonicalCalendarSidebar>
       <StudentMiniCalendar cells={cells} markedDates={markedDates} selectedDate={selectedDate} today={today} onSelectDate={setSelectedDate} />
@@ -268,6 +302,19 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
               )}
             </div>
           )}
+          {selectedEvents.map(ev => (
+            <div className="ptl-student-cal-detail" key={ev.id}
+              style={{ borderLeft: `3px solid ${eventColor(ev)}` }}>
+              <b>{ev.title}</b>
+              <span>{eventTypeLabel(ev.event_type)}{ev.location ? ` \u00b7 ${ev.location}` : ''}</span>
+              {ev.description && <span>{ev.description}</span>}
+              {/* rel=noreferrer with noopener: the link is staff-authored, but a student's
+                  portal session is not something to hand to an external page. */}
+              {ev.url && (
+                <a className="ptl-inline-link" href={ev.url} target="_blank" rel="noopener noreferrer">Open link</a>
+              )}
+            </div>
+          ))}
           {selectedHolidays.map(holiday => (
             <div className="ptl-student-cal-detail ptl-student-cal-detail-holiday" key={`${holiday.date}-${holiday.name}`}>
               <b>{holiday.name}</b><span>U.S. federal holiday</span>
@@ -325,6 +372,7 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
               if (plan) labelParts.push('planned shift')
               if (blackout) labelParts.push('school blackout date')
               if (dayHolidays.length) labelParts.push(...dayHolidays.map(item => item.name))
+              for (const ev of eventsByDay.get(ymd) || []) labelParts.push(`${eventTypeLabel(ev.event_type)}: ${ev.title}`)
               if (empty) labelParts.push(readOnly ? 'Plan Shift available to students' : 'Plan Shift')
               return (
                 <CanonicalMonthCell
@@ -350,6 +398,17 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
                   )}
                   {plan && <span className="ptl-student-cal-plan">Shift {firstNameOf(plan.preceptor_name) ? `with ${firstNameOf(plan.preceptor_name)}` : ''}</span>}
                   {dayHolidays.slice(0, 1).map(holiday => <span className="ptl-student-cal-holiday" key={holiday.name}>{holiday.name}</span>)}
+                  {/* EVENT-AUDIENCE-1: the event's own colour, as staff chose it, so the same
+                      event reads the same here as on the staff calendar. Never the holiday
+                      amber and never the shift navy. */}
+                  {(eventsByDay.get(ymd) || []).slice(0, 2).map(ev => (
+                    <span
+                      key={ev.id}
+                      className="ptl-student-cal-event"
+                      style={{ background: `${eventColor(ev)}1a`, color: eventColor(ev) }}
+                      title={ev.title}
+                    >{ev.title}</span>
+                  ))}
                   {blackout && <span className="ptl-student-cal-blackout">School blackout</span>}
                   {empty && <span className="ptl-student-cal-add"><CalendarPlus size={11} /> Plan Shift</span>}
                 </CanonicalMonthCell>
@@ -361,6 +420,7 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
           <span><span className="ptl-cal-chip" aria-hidden="true">Shift</span> Logged shift</span>
           <span><span className="ptl-student-cal-plan" aria-hidden="true">Shift</span> Planned shift</span>
           <span><span className="ptl-student-cal-holiday" aria-hidden="true">Holiday</span> Federal holiday</span>
+          <span><span className="ptl-student-cal-event" aria-hidden="true" style={{ background: '#1d25671a', color: '#1D2567' }}>Event</span> ASPIRE event</span>
           <span><span className="ptl-student-cal-blackout" aria-hidden="true">Blackout</span> School blackout</span>
         </div>
       </CanonicalCalendarLayout>
