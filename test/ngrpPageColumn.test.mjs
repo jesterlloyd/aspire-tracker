@@ -45,11 +45,11 @@ test('it is the SAME column the rest of the app uses', () => {
 })
 
 test('the column is on the shared wrapper, not on individual cards', () => {
-  // Both Residency tabs render inside .ngrp-main, so putting the inset here means
-  // Planning gets it too, and a tab added later gets it without remembering to.
+  // Every Residency tab renders inside .ngrp-main, so putting the inset here
+  // means each one gets it, and a tab added later gets it without remembering to.
   assert.match(workspace, /<div className="ngrp-main">/)
   const inMain = workspace.slice(workspace.indexOf('<div className="ngrp-main">'))
-  for (const tab of ['<ApplicantsTab', '<PlanningTab']) {
+  for (const tab of ['<ProfilesTab', '<AtAGlanceTab', '<ActivityCalendar', '<PlannedCard']) {
     assert.ok(inMain.includes(tab), `${tab} must render inside .ngrp-main`)
   }
   // The cards must not carry their own horizontal inset, or it would double.

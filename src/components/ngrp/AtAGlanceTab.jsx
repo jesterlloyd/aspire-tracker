@@ -1,4 +1,11 @@
-// NGRP-PLANNING-2: Planning, rethought as the cohort's OPERATING PICTURE.
+// NGRP-WORKSPACE-2: At a Glance - the cohort's OPERATING PICTURE.
+//
+// This was the Planning tab. NGRP-WORKSPACE-2 renamed the workspace's tabs to
+// match the Internship side, and "Planning" is exactly what At a Glance means
+// there: where are we, what is next, what is blocked. The content is unchanged;
+// only the name and the masthead above it are new.
+//
+// (Original note, still true.)
 //
 // WHAT CHANGED AND WHY.
 // Planning used to be six configuration cards - the residency answer to the
@@ -19,6 +26,8 @@
 // the planning payload, the funnel from the SAME derived rows the Applicants
 // roster renders - so Planning can never disagree with the tab it summarizes.
 import { useMemo } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
+import GreetingMasthead from '../masthead/GreetingMasthead'
 import { Plus, CheckCircle2, AlertTriangle, Settings2 } from 'lucide-react'
 import { useNgrpPlanning, useNgrpApplicants } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows, effectiveEligibility } from '../../lib/ngrp/ngrpStates'
@@ -50,7 +59,8 @@ function Panel({ title, action, children, sub }) {
   )
 }
 
-export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohort, onAddCohort }) {
+export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCohort, onAddCohort }) {
+  const { userProfile } = useAuth()
   const planning = useNgrpPlanning(cycle?.id || null)
   const data = planning.data
   const applicants = useNgrpApplicants(cycle?.id)
@@ -73,13 +83,13 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
     return (
       <div className="snap" style={{ margin: '14px 0', padding: '22px 24px' }}>
         <p style={{ margin: 0, fontSize: 13, color: '#6b7280', fontFamily: F }}>
-          Planning requires NGRP management access.
+          At a Glance requires NGRP management access.
         </p>
       </div>
     )
   }
   if (planning.status === 'loading') {
-    return <div className="state-box"><div className="spinner" /><p>Loading Planning…</p></div>
+    return <div className="state-box"><div className="spinner" /><p>Loading At a Glance…</p></div>
   }
   if (planning.status === 'unprovisioned') {
     return (
@@ -93,7 +103,7 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
   if (planning.status === 'error' || planning.status === 'stale') {
     return (
       <div className="ngrp-banner ngrp-banner-error" role="alert" style={{ marginTop: 14 }}>
-        <b>Planning could not load.</b> This is a server or connection problem.{' '}
+        <b>At a Glance could not load.</b> This is a server or connection problem.{' '}
         <button type="button" className="ngrp-linkbtn" onClick={() => planning.refetch()}>Try again</button>
       </div>
     )
@@ -131,6 +141,14 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
   const extras = (Array.isArray(serverCycle.application_checklist) ? serverCycle.application_checklist : [])
     .filter(i => !DEFAULT_APPLICATION_CHECKLIST.some(o => o.key === i.key))
 
+  const dateLabel = new Date(`${todayStr}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  // The masthead's milestone is the same "next" the timeline marks, so the card
+  // and the list below it can never name different things.
+  const nextMilestone = timeline.find(i => i.isNext) || timeline.find(i => i.state === 'today') || null
+  const mastheadMilestone = nextMilestone
+    ? { label: 'Next milestone', name: nextMilestone.label, when: milestoneWhen(nextMilestone) }
+    : null
+
   const editButton = (
     <button type="button" style={btn()} onClick={onEditCohort}>
       <Settings2 size={13} strokeWidth={2.2} aria-hidden="true" /> Edit cohort
@@ -139,12 +157,23 @@ export default function PlanningTab({ cycle, cyclesCount, canManage, onEditCohor
 
   return (
     <div style={{ margin: '14px 0 28px' }}>
+      {/* NGRP-WORKSPACE-2: the same shared masthead the Internship At a Glance
+          and every portal home use, so the two experiences open the same way.
+          Its context line names the residency cohort rather than an ASPIRE one,
+          because that is what everything below it is scoped to. */}
+      <GreetingMasthead
+        fullName={userProfile?.full_name}
+        dateLabel={dateLabel}
+        contextLabel={serverCycle.name}
+        milestone={mastheadMilestone}
+      />
+
       {/* 1 · Readiness - the one question that gates everything downstream. */}
       <div className={`ngrp-banner ${readiness.ok ? 'ngrp-banner-info' : 'ngrp-banner-warn'}`}
         style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         {readiness.ok
           ? <><CheckCircle2 size={15} strokeWidth={2.2} aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }} />
-              <span><b>Ready for Transition Form sends.</b> Deadline, source cohorts, and participating units are all configured.</span></>
+              <span><b>Ready for Transition Form sends.</b> Deadline, participating ASPIRE cohorts, and participating units are all configured.</span></>
           : <><AlertTriangle size={15} strokeWidth={2.2} aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }} />
               <span><b>Not ready for form sends yet:</b>
                 <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>{readiness.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>

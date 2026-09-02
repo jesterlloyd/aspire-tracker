@@ -116,8 +116,11 @@ test('the experience choice commits immediately, as the old pill did', () => {
   assert.match(scope, /onClick=\{\(\) => \{ if \(!isSel\) onSwitchExperience\(x\.id\); closeAndRefocus\(\) \}\}/)
   // App still navigates and restores that experience's own last tab.
   const app = read(APP)
-  const sw = app.slice(app.indexOf('const switchExperience'), app.indexOf('const ngrpSubTab'))
-  assert.match(sw, /navigate\(`\/ngrp\//)
+  const sw = app.slice(app.indexOf('const switchExperience'), app.indexOf('const ngrpActiveTab'))
+  // NGRP-WORKSPACE-2: the destination is computed rather than templated, because
+  // the saved tab id may be a retired one and every tab now has a default
+  // sub-tab to land on.
+  assert.match(sw, /navigate\(resolveNgrpEntryPath\(savedNgrp\)\)/)
   assert.match(sw, /lastNgrpTabKey\(user\.id\)/)
 })
 

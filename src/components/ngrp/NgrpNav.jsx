@@ -1,13 +1,19 @@
-// NGRP-WORKSPACE-1: the NGRP workspace's six-tab navigation. Same .chart-nav
-// primitives, spacing, and mnemonic-chip treatment as UnifiedNav, so the two
-// workspaces read as one application. The six tabs spell ASPIRE:
-//   A Applicants · S Support · P Planning · I Interviews · R Residency · E Evaluation
+// NGRP-WORKSPACE-2: the Residency workspace's five-tab navigation. Same
+// .chart-nav primitives, spacing, and mnemonic-chip treatment as UnifiedNav, so
+// the two workspaces read as one application.
+//
+// The chips spell ASPIRE with MULTI-LETTER chips where a tab needs one, which is
+// how the Internship nav already does it (A / SP / I / R / E). Residency reads
+// A / S / PI / R / E:
+//   A At a Glance · S Support · PI Profiles & Interest · R Residency · E Evaluation
+// The chip box widens for a two-letter chip exactly as UnifiedNav's does; the
+// single-letter width was hardcoded here and would have clipped "PI".
 import { RefreshHint } from '../UnifiedNav'
 import { NGRP_TABS } from '../../lib/ngrp/ngrpTabs'
 
 export default function NgrpNav({ activeTab, onSwitchTab }) {
   return (
-    <nav className="chart-nav" aria-label="NGRP workspace">
+    <nav className="chart-nav" aria-label="Residency workspace">
       {NGRP_TABS.map(({ id, label, chip }) => {
         const isActive = activeTab === id
         return (
@@ -28,7 +34,8 @@ export default function NgrpNav({ activeTab, onSwitchTab }) {
           >
             <span className="chart-nav-chip" style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              height: 20, minWidth: 20, padding: 0,
+              height: 20, minWidth: chip.length > 1 ? 26 : 20,
+              padding: chip.length > 1 ? '0 4px' : 0,
               borderRadius: 4, border: '1px solid #8B8F99',
               fontSize: 10, fontWeight: 600, letterSpacing: '0.01em',
               color: '#8B8F99', background: 'transparent',

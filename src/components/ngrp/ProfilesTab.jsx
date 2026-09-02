@@ -1,4 +1,12 @@
-// NGRP-WORKSPACE-1 (correction): the Applicants roster.
+// NGRP-WORKSPACE-2: Profiles & Interest - the alumni roster.
+//
+// This was the Applicants tab. It carries BOTH halves the name states: who each
+// alumnus is, and where they are in the Transition Form (sent, opened,
+// submitted), their stated interest and their calculated eligibility. That is
+// why there is no separate Interest tab - it would have been these same columns
+// a second time.
+//
+// (Original roster contract, unchanged.)
 //
 // THE ROSTER CONTRACT (server-resolved in /api/ngrp-workspace →
 // lib/server/ngrpApplicants.js; this component never queries students):
@@ -73,7 +81,7 @@ function SkeletonRoster() {
   )
 }
 
-export default function ApplicantsTab({ cycle, canManage, toast }) {
+export default function ProfilesTab({ cycle, canManage, toast }) {
   const navigate = useNavigate()
   const { status, payload, dataUpdatedAt, refetch } = useNgrpApplicants(cycle?.id)
   // False until migration 20260904000000 is applied - the roster still works
@@ -243,8 +251,8 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
       <div className="snap" style={{ margin: '14px 0' }}>
         <EmptyState
           icon={<GraduationCap />}
-          heading="No source ASPIRE cohorts mapped to this residency cohort"
-          subtext={`${cycle.name} has no ASPIRE cohorts linked yet, so there is no student scope to draw applicants from. Source cohorts are managed in Residency → Planning.`}
+          heading="No ASPIRE cohorts are participating in this residency cohort"
+          subtext={`${cycle.name} has no ASPIRE cohorts linked yet, so there is no student scope to draw applicants from. Choose them in Edit Cohort, from the Scope picker in the header.`}
         />
       </div>
     )
@@ -343,7 +351,7 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
               <span style={{ fontSize: 13, fontWeight: 700 }}>Alumni Roster</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                 <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-                  {cycle.name} · {sourceCohorts.length} source cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
+                  {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
                 </span>
                 {/* Always available, and deliberately NOT inside the bulk-selection bar:
                     reading what the email says should not require selecting a real
@@ -392,7 +400,7 @@ export default function ApplicantsTab({ cycle, canManage, toast }) {
                         <EmptyState
                           compact
                           heading="No alumni match the current filters"
-                          subtext="Adjust the filters above, or clear them to see every completed alumnus in the cycle's source cohorts."
+                          subtext="Adjust the filters above, or clear them to see every completed alumnus in the cohort's participating ASPIRE cohorts."
                         />
                       </td>
                     </tr>

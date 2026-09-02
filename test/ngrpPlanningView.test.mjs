@@ -24,7 +24,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = p => readFileSync(join(here, '..', p), 'utf8')
-const planning = read('src/components/ngrp/PlanningTab.jsx')
+const planning = read('src/components/ngrp/AtAGlanceTab.jsx')
 const settings = read('src/components/ngrp/CohortSettingsModal.jsx')
 const createDlg = read('src/components/ngrp/CreateCohortDialog.jsx')
 const formUi = read('src/components/ngrp/NgrpFormUi.jsx')

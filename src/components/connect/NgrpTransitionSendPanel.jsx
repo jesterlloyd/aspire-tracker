@@ -156,7 +156,7 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {(preview?.notReady || []).map((r, i) => <li key={i} style={{ marginBottom: 4 }}>{r}</li>)}
               </ul>
-              <p style={{ margin: '10px 0 0' }}>Fix this in Residency → Planning, then relaunch the send.</p>
+              <p style={{ margin: '10px 0 0' }}>Fix this in Edit Cohort, from the Scope picker in the header, then relaunch the send.</p>
             </div>
           )}
 

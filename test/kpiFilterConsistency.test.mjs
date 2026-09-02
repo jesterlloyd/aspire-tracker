@@ -12,7 +12,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = path => readFileSync(join(here, '..', path), 'utf8')
 
 const evaluation = read('src/components/EvaluationTab.jsx')
-const applicants = read('src/components/ngrp/ApplicantsTab.jsx')
+const applicants = read('src/components/ngrp/ProfilesTab.jsx')
 const benefit = read('src/portal/na/CommunityBenefitView.jsx')
 const contacts = read('src/portal/na/AcademicsContactsView.jsx')
 const catalog = read('src/components/catalog/CatalogPage.jsx')

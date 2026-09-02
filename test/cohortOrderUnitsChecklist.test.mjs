@@ -308,7 +308,7 @@ test('the locked five are not rendered as disabled inputs', () => {
 })
 
 test('the Planning summary cannot disagree with the pickers that set it', () => {
-  const planning = read('src/components/ngrp/PlanningTab.jsx')
+  const planning = read('src/components/ngrp/AtAGlanceTab.jsx')
   // Same ordering rule as the two source-cohort pickers.
   assert.match(planning, /const sources = \[\.\.\.\(data\?\.sourceCohorts \|\| \[\]\)\]\.sort\(compareCohortsChrono\)/)
   // The stale hedge is gone: the five requirements are always in force, so

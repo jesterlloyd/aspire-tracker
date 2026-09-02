@@ -25,7 +25,7 @@ const strip = (src) => src.replace(/^\s*\/\/[^\n]*$/gm, '').replace(/\/\*[\s\S]*
 const BUILDER = 'lib/server/email/ngrpTransitionEmail.js'
 const FIXTURE = 'src/lib/ngrp/transitionPreviewFixture.js'
 const ENDPOINT = 'api/ngrp-transition-send.js'
-const TAB = 'src/components/ngrp/ApplicantsTab.jsx'
+const TAB = 'src/components/ngrp/ProfilesTab.jsx'
 
 const { NGRP_TRANSITION_PREVIEW, transitionPreviewFor } = await import('../src/lib/ngrp/transitionPreviewFixture.js')
 

@@ -29,7 +29,7 @@ import {
   deriveApplicantRows, sortApplicantRows, operationalRank, KPI_DEFS, effectiveEligibility,
   orderCyclesForSelector, resolveSelectedCycle,
 } from '../src/lib/ngrp/ngrpStates.js'
-import { ngrpTabFromPath, resolveNgrpEntryTab } from '../src/lib/ngrp/ngrpTabs.js'
+import { resolveNgrpPath, resolveNgrpEntryTab, resolveNgrpEntryPath, NGRP_TABS, LEGACY_NGRP_TABS } from '../src/lib/ngrp/ngrpTabs.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -49,7 +49,7 @@ const scopePicker = read('src/components/Header/scope/ScopePicker.jsx')
 const resList     = read('src/components/Header/scope/ResidencyCohortList.jsx')
 const scopeLabels = read('src/lib/scopePickerLabels.js')
 const workspace   = read('src/components/ngrp/NgrpWorkspace.jsx')
-const applicants  = read('src/components/ngrp/ApplicantsTab.jsx')
+const applicants  = read('src/components/ngrp/ProfilesTab.jsx')
 const dataHooks   = read('src/lib/ngrp/useNgrpData.js')
 const ngrpCss     = read('src/components/ngrp/ngrp.css')
 
@@ -189,7 +189,7 @@ test('scope: the ASPIRE workspace cohort cannot constrain the NGRP roster (no st
   const cohortSwitch = appJsx.slice(appJsx.indexOf('const handleCohortSwitch'), appJsx.indexOf('// Auto-start welcome tour'))
   assert.doesNotMatch(cohortSwitch, /ngrp/i)
   // …and the experience switch never touches the ASPIRE cohort selection.
-  const wsSwitch = appJsx.slice(appJsx.indexOf('const switchExperience'), appJsx.indexOf('const ngrpSubTab'))
+  const wsSwitch = appJsx.slice(appJsx.indexOf('const switchExperience'), appJsx.indexOf('const ngrpActiveTab'))
   assert.doesNotMatch(wsSwitch, /aspire_active_cohort_id/)
 })
 
@@ -548,45 +548,73 @@ test('header: unconfigured, unavailable, and loading picker states are truthful 
 })
 
 test('header: each experience restores its own last operational tab; residency cohort pref is per user', () => {
-  const wsSwitch = appJsx.slice(appJsx.indexOf('const switchExperience'), appJsx.indexOf('const ngrpSubTab'))
+  const wsSwitch = appJsx.slice(appJsx.indexOf('const switchExperience'), appJsx.indexOf('const ngrpActiveTab'))
   assert.match(wsSwitch, /lastNgrpTabKey\(user\.id\)/)
   assert.match(wsSwitch, /lastTabKey\(user\.id\)/)
-  assert.match(wsSwitch, /resolveNgrpEntryTab\(savedNgrp\)/)
+  assert.match(wsSwitch, /resolveNgrpEntryPath\(savedNgrp\)/)
   assert.equal(ngrpCycleStorageKey('user-a'), 'aspire:ngrpCycle:user-a')
   assert.notEqual(ngrpCycleStorageKey('user-a'), ngrpCycleStorageKey('user-b'))
   assert.equal(ngrpCycleStorageKey(null), null)
   assert.match(appJsx, /ngrpCycleStorageKey\(user\?\.id\)/)
 })
 
-test('tabs: any VALID location-derived NGRP subtab is persisted; unknown routes never overwrite', () => {
-  // The pure model the App effect and entry restore are built on. Simulated
-  // per-user store:
+test('tabs: the location-derived tab is persisted, and a retired id still resolves', () => {
+  // NGRP-WORKSPACE-2: the workspace went from six single-letter tabs to five,
+  // A / S / PI / R / E. The retired ids are live URLs people have bookmarked AND
+  // what is sitting in every browser's saved last-tab key, so they must resolve
+  // forward rather than strand anyone.
   const store = {}
   const visit = (pathname) => {
-    const tab = ngrpTabFromPath(pathname)
-    if (tab) store['aspire:lastNgrpTab:u1'] = tab   // exactly the effect's guard
+    const { tab } = resolveNgrpPath(pathname)   // exactly the effect's expression
+    if (tab) store['aspire:lastNgrpTab:u1'] = tab
   }
-  // Direct visit to /ngrp/support → switch to Internship → back to Residency
-  // lands on /ngrp/support.
-  visit('/ngrp/support')
+  visit('/ngrp/support/before')
   assert.equal(resolveNgrpEntryTab(store['aspire:lastNgrpTab:u1']), 'support')
-  // Browser navigation (Back/Forward or link) to another valid tab updates
-  // the saved tab.
-  visit('/ngrp/planning')
-  assert.equal(resolveNgrpEntryTab(store['aspire:lastNgrpTab:u1']), 'planning')
-  // An unknown /ngrp/* route yields null and does NOT overwrite the saved
-  // value - and it is never itself restorable.
-  assert.equal(ngrpTabFromPath('/ngrp/bogus'), null)
-  visit('/ngrp/bogus')
-  assert.equal(resolveNgrpEntryTab(store['aspire:lastNgrpTab:u1']), 'planning')
-  assert.equal(resolveNgrpEntryTab('bogus'), 'applicants')
-  assert.equal(resolveNgrpEntryTab(null), 'applicants')
-  // App.jsx wires exactly this model: an effect persists the location-derived
-  // tab (covering nav clicks, direct URLs, Back/Forward, and programmatic
-  // navigation) with the null guard, and the nav handler only navigates.
-  assert.match(appJsx, /const tab = ngrpTabFromPath\(location\.pathname\)\s*if \(!tab\) return\s*try \{ localStorage\.setItem\(lastNgrpTabKey\(user\.id\), tab\)/)
-  assert.match(appJsx, /const switchNgrpTab = id => navigate\(`\/ngrp\/\$\{id\}`\)/)
-  assert.match(appJsx, /const ngrpSubTab = ngrpTabFromPath\(location\.pathname\) \|\| 'applicants'/)
+  visit('/ngrp/profiles')
+  assert.equal(resolveNgrpEntryTab(store['aspire:lastNgrpTab:u1']), 'profiles')
+
+  // Every retired id resolves to a live tab, and none resolves to itself.
+  for (const [old, live] of Object.entries(LEGACY_NGRP_TABS)) {
+    assert.ok(NGRP_TABS.some(t => t.id === live), `${old} maps to a live tab`)
+    assert.equal(resolveNgrpEntryTab(old), live)
+    assert.equal(resolveNgrpPath(`/ngrp/${old}`).tab, live)
+    assert.ok(resolveNgrpPath(`/ngrp/${old}`).redirect, `${old} redirects rather than rendering`)
+  }
+  // The roster moved to Profiles and the operating picture became At a Glance.
+  assert.equal(LEGACY_NGRP_TABS.applicants, 'profiles')
+  assert.equal(LEGACY_NGRP_TABS.planning, 'overview')
+
+  // An unknown route never renders an error: it lands on the first tab.
+  assert.equal(resolveNgrpPath('/ngrp/bogus').tab, 'overview')
+  assert.equal(resolveNgrpPath('/ngrp/bogus').redirect, '/ngrp/overview')
+  assert.equal(resolveNgrpEntryTab('bogus'), 'overview')
+  assert.equal(resolveNgrpEntryTab(null), 'overview')
+  // A bare tab path fills in its default sub-tab; a bogus sub-tab is corrected.
+  assert.equal(resolveNgrpPath('/ngrp/support').redirect, '/ngrp/support/before')
+  assert.equal(resolveNgrpPath('/ngrp/support/nope').redirect, '/ngrp/support/before')
+  assert.equal(resolveNgrpPath('/ngrp/support/after').redirect, null, 'a canonical path is left alone')
+  assert.equal(resolveNgrpEntryPath('applicants'), '/ngrp/profiles')
+
+  // App.jsx wires exactly this model.
+  assert.match(appJsx, /const tab = resolveNgrpPath\(location\.pathname\)\.tab\s*if \(!tab\) return\s*try \{ localStorage\.setItem\(lastNgrpTabKey\(user\.id\), tab\)/)
+  assert.match(appJsx, /const switchNgrpTab = id => navigate\(ngrpPath\(id\)\)/)
+  assert.match(appJsx, /const ngrpActiveTab = resolveNgrpPath\(location\.pathname\)\.tab/)
+})
+
+test('the mnemonic still reads ASPIRE, with multi-letter chips like the Internship nav', () => {
+  // The Internship nav already does this: A / SP / I / R / E. Residency reads
+  // A / S / PI / R / E, so "Profiles & Interest" carries the I without a sixth
+  // tab existing only to hold a letter.
+  assert.equal(NGRP_TABS.map(t => t.chip).join('-'), 'A-S-PI-R-E')
+  assert.equal(NGRP_TABS.map(t => t.chip).join(''), 'ASPIRE')
+  assert.equal(NGRP_TABS.length, 5)
+  // The chip box widens for a two-letter chip; the single-letter width was
+  // hardcoded in NgrpNav and would have clipped "PI".
+  const nav = read('src/components/ngrp/NgrpNav.jsx')
+  assert.match(nav, /minWidth: chip\.length > 1 \? 26 : 20/)
+  assert.match(nav, /padding: chip\.length > 1 \? '0 4px' : 0/)
+  // Same rule as the Internship nav, not a second one.
+  assert.match(read('src/components/UnifiedNav.jsx'), /minWidth: chip\.length > 1 \? 26 : 20/)
 })
 
 test('pickers: Escape closes and refocuses the trigger; options are native buttons with Enter/Space for free', () => {
@@ -614,11 +642,15 @@ test('bundle: NgrpWorkspace is statically imported (the lazy chunk regressed the
 })
 
 test('states: cycle errors, no-cohorts, no-mappings, unprovisioned, and unauthorized are all distinct', () => {
-  assert.match(workspace, /NGRP cycles could not be loaded/)
+  // NGRP-WORKSPACE-2: cohort framing throughout, matching the Scope picker.
+  assert.match(workspace, /Residency cohorts could not be loaded/)
   assert.match(workspace, /No residency cohorts configured/)
   assert.match(workspace, /NGRP persistence is not provisioned yet/)
   assert.match(workspace, /NGRP access required/)
-  assert.match(applicants, /No source ASPIRE cohorts mapped to this residency cohort/)
+  // NGRP-WORKSPACE-2: the card is named "ASPIRE cohorts participating" now, and
+  // it lives in Edit Cohort, so the empty state names both correctly.
+  assert.match(applicants, /No ASPIRE cohorts are participating in this residency cohort/)
+  assert.match(applicants, /Choose them in Edit Cohort/)
   assert.match(applicants, /No completed alumni yet/)
   assert.match(applicants, /Live refresh failed/)
   assert.doesNotMatch(dataHooks, /provisioned \?\? true|provisioned: true/)

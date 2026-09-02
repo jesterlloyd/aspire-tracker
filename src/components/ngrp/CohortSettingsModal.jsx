@@ -207,7 +207,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
     const res = await postNgrpManage('sources_set', { cycle_id: serverCycle.id, cohort_ids: sourceIds })
     setSaving(null)
     if (!res.ok) { toast?.error?.('Not saved', errText(res.errors) || 'The source mapping could not be saved.'); return }
-    toast?.success?.('Source cohorts updated', 'The Applicants roster scope reflects the new mapping.')
+    toast?.success?.('Participating cohorts updated', 'The Profiles & Interest roster scope reflects the new mapping.')
     invalidate()
     refetch()
   }
@@ -324,7 +324,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
         saveDisabledReason={missingSpots.length
           ? `Set the number of new grads being hired for ${missingSpots.join(', ')} before saving.`
           : null}
-        footNote="Every unit is listed; pick the ones hiring into this cohort and say how many new grads each is taking. Picked units are the ONLY options the Transition Form offers as ranked preferences, in the order shown. Unpicking keeps the number for next cycle. The total is what Planning reports as Seats."
+        footNote="Every unit is listed; pick the ones hiring into this cohort and say how many new grads each is taking. Picked units are the ONLY options the Transition Form offers as ranked preferences, in the order shown. Unpicking keeps the number for next cycle. The total is what At a Glance reports as Seats."
       >
         {!data.unitsProvisioned && (
           <p style={{ margin: '0 0 10px', fontSize: 12.5, color: '#4B5563', fontFamily: F }}>

@@ -474,3 +474,13 @@
   margin: 8px 0 0; font-size: 11.5px; color: #6B7785; line-height: 1.55;
   font-family: 'DM Sans', sans-serif;
 }
+
+/* ── NGRP-WORKSPACE-2: the sub-tab strip ──────────────────────────────────── */
+
+/* Support and Residency carry two sections each. The strip sits between the
+   cohort metadata and the section, indented to the same left edge as the cards
+   below it so the three read as one column. */
+.ngrp-subnav {
+  margin: 14px 0 0;
+  display: flex;
+}

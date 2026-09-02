@@ -53,10 +53,10 @@ const outreachView = read('src/components/connect/OutreachView.jsx')
 const sendPanel    = read('src/components/connect/NgrpTransitionSendPanel.jsx')
 const registry     = read('src/lib/connect/templateRegistry.js')
 const launchCtx    = read('src/lib/connect/launchContext.js')
-const applicantsUi = read('src/components/ngrp/ApplicantsTab.jsx')
+const applicantsUi = read('src/components/ngrp/ProfilesTab.jsx')
 const drawerUi     = read('src/components/ngrp/ApplicantDrawer.jsx')
 const workspaceUi  = read('src/components/ngrp/NgrpWorkspace.jsx')
-const planningUi   = read('src/components/ngrp/PlanningTab.jsx')
+const planningUi   = read('src/components/ngrp/AtAGlanceTab.jsx')
 // NGRP-PLANNING-2: cohort CONFIGURATION moved out of the Planning tab and into
 // the modal the header's Scope picker opens; Planning kept the operating
 // picture. The contracts below still hold - they just live in these files now.
@@ -1351,8 +1351,8 @@ test('regression: launch handoff carries cycle + filters and the dedicated panel
   assert.match(sendPanel, /not an invitation to apply/)
 })
 
-test('regression: Planning is reachable with zero cohorts; unprovisioned covers missing functions too', () => {
-  assert.match(workspaceUi, /cyclesCount === 0 && subTab !== 'planning'/)
+test('regression: At a Glance is reachable with zero cohorts; unprovisioned covers missing functions too', () => {
+  assert.match(workspaceUi, /cyclesCount === 0 && tab !== 'overview'/)
   assert.match(planningUi, /Set up your first residency cohort/)
   assert.match(planningUi, /Add residency cohort/)
   // The create dialog still lands every new cohort in Planning status.

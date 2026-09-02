@@ -72,7 +72,7 @@ import NgrpNav from './components/ngrp/NgrpNav'
 import NgrpWorkspace from './components/ngrp/NgrpWorkspace'
 import CohortSettingsModal from './components/ngrp/CohortSettingsModal'
 import CreateCohortDialog from './components/ngrp/CreateCohortDialog'
-import { ngrpTabFromPath, resolveNgrpEntryTab } from './lib/ngrp/ngrpTabs'
+import { resolveNgrpPath, resolveNgrpEntryPath, ngrpPath } from './lib/ngrp/ngrpTabs'
 import { compareCohortsChrono } from './lib/cohortSeason'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from './lib/ngrp/ngrpAccess'
 import {
@@ -626,7 +626,9 @@ function MainApp({ onLogout }) {
     if (exp === 'residency') {
       let savedNgrp = null
       try { savedNgrp = user?.id ? localStorage.getItem(lastNgrpTabKey(user.id)) : null } catch { /* storage unavailable */ }
-      navigate(`/ngrp/${resolveNgrpEntryTab(savedNgrp)}`)
+      // NGRP-WORKSPACE-2: the saved id may be a RETIRED one; resolveNgrpEntryPath
+      // maps it forward and appends the tab's default sub-tab.
+      navigate(resolveNgrpEntryPath(savedNgrp))
       return
     }
     const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null
@@ -634,8 +636,10 @@ function MainApp({ onLogout }) {
     navigate(TAB_TO_PATH[resolved] || '/aggregate')
   }
   // Active NGRP sub-tab for the nav, derived from the URL like activeTab is.
-  const ngrpSubTab = ngrpTabFromPath(location.pathname) || 'applicants'
-  const switchNgrpTab = id => navigate(`/ngrp/${id}`)
+  // NGRP-WORKSPACE-2: one resolver owns which tab a path names, including the
+  // retired ids. Switching a tab lands on that tab's default sub-tab.
+  const ngrpActiveTab = resolveNgrpPath(location.pathname).tab
+  const switchNgrpTab = id => navigate(ngrpPath(id))
   // Persist the last VALID NGRP sub-tab actually visited, however the route
   // was reached - nav click, direct URL, browser Back/Forward, or
   // programmatic navigation. Synchronizing external storage with resolved
@@ -643,7 +647,7 @@ function MainApp({ onLogout }) {
   // yields null and never overwrites the saved value.
   useEffect(() => {
     if (activeTab !== 'ngrp' || !user?.id) return
-    const tab = ngrpTabFromPath(location.pathname)
+    const tab = resolveNgrpPath(location.pathname).tab
     if (!tab) return
     try { localStorage.setItem(lastNgrpTabKey(user.id), tab) } catch { /* storage unavailable */ }
   }, [activeTab, location.pathname, user?.id])
@@ -1397,7 +1401,7 @@ function MainApp({ onLogout }) {
         {/* NGRP-WORKSPACE-1: the NGRP workspace has its own six-tab nav in the
             same sticky band; the ASPIRE nav is untouched for every other tab. */}
         {ngrpAllowed && activeTab === 'ngrp' && (
-          <NgrpNav activeTab={ngrpSubTab} onSwitchTab={switchNgrpTab} />
+          <NgrpNav activeTab={ngrpActiveTab} onSwitchTab={switchNgrpTab} />
         )}
         {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && activeTab !== 'ngrp' && (
           <UnifiedNav
