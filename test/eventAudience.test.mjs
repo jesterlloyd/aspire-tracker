@@ -60,14 +60,14 @@ test('the delivered types are the narrow programme set, not everything', () => {
   }
 })
 
-test('the server keeps its own copy of both lists, in sync with the client', () => {
-  // api/ imports do not resolve safely at the Vercel runtime, which is why api/aspire-events.js
-  // already duplicates its allow-lists. Duplication is accepted; DRIFT is not.
+test('the endpoint imports the delivered types rather than copying them', () => {
+  // This test used to check two lists for parity. There is one list now: the endpoint imports
+  // STUDENT_DELIVERED_TYPES directly. The duplicate was justified by "api/ imports do not
+  // resolve safely at the Vercel runtime", which is false, and this file's own import is the
+  // proof. Parity is unnecessary when there is nothing to be un-parallel with.
   const src = read(ENDPOINT)
-  const types = src.match(/const DELIVERED_TYPES = \[([^\]]*)\]/)
-  assert.ok(types, 'the server copy must exist')
-  const parsed = types[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean)
-  assert.deepEqual(parsed, STUDENT_DELIVERED_TYPES, 'server and client type lists have drifted')
+  assert.match(src, /import \{ STUDENT_DELIVERED_TYPES as DELIVERED_TYPES \} from '\.\.\/\.\.\/src\/lib\/aspireEvents\.js'/)
+  assert.doesNotMatch(strip(src), /const DELIVERED_TYPES = \[/, 'no second copy of the list')
 })
 
 // ── What comes back ──────────────────────────────────────────────────────────

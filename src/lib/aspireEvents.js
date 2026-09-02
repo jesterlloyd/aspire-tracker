@@ -1,7 +1,11 @@
 // ASPIRE-EVENTS-CALENDAR-2B: shared config/helpers for custom ASPIRE events (distinct from
 // interview slots/availability). Pure config + pure functions - no data/API/JSX. The gated endpoint
-// api/aspire-events.js keeps its OWN copies of the allow-lists (api/ imports don't resolve safely at
-// the Vercel runtime), so keep the two in sync if the lists ever change.
+// api/aspire-events.js keeps its OWN copies of the allow-lists, so keep the two in sync if the
+// lists ever change. NOTE the stated reason for those copies, "api/ imports don't resolve safely
+// at the Vercel runtime", is NOT true: 28 endpoints under api/ import from src/ in production,
+// and api/portal/my-calendar-events.js imports STUDENT_DELIVERED_TYPES from this file. The copies
+// in api/aspire-events.js are left as they are (they match, and a parity test holds them), but do
+// not cite that reason for a new one.
 
 // Event types - each carries a distinct, non-interview color so ASPIRE events never read like a
 // booked/available/blocked interview slot. Order = the modal's picker order.
@@ -58,9 +62,6 @@ export const OFFERED_AUDIENCES = ['internal', 'all']
 // The list is the Owner's (2026-09-02): the NGRP dates a student must act on, and the events
 // a student is invited to attend. Milestones, rotation markers, generic deadlines, reminders
 // and custom notes are deliberately absent.
-//
-// api/portal/my-calendar-events.js keeps its own copy (api/ imports do not resolve safely at
-// the Vercel runtime) and a parity test pins the two together.
 export const STUDENT_DELIVERED_TYPES = [
   'ngrp_open', 'ngrp_deadline', 'interview_window', 'town_hall', 'orientation',
 ]

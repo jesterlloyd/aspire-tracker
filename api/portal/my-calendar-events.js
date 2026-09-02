@@ -22,13 +22,15 @@
 // READ ONLY. No create, no update, no archive. Students author nothing here.
 
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveStudentLinks } from '../lib/portalAuth.js'
+import { STUDENT_DELIVERED_TYPES as DELIVERED_TYPES } from '../../src/lib/aspireEvents.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 
-// Kept in sync with STUDENT_DELIVERED_TYPES in src/lib/aspireEvents.js (api/ imports do not
-// resolve safely at the Vercel runtime, the same reason api/aspire-events.js keeps its own
-// copies). A parity test pins the two lists together.
-const DELIVERED_TYPES = ['ngrp_open', 'ngrp_deadline', 'interview_window', 'town_hall', 'orientation']
+// Imported, not copied. This file originally duplicated the list and cited "api/ imports do
+// not resolve safely at the Vercel runtime", a claim carried in comments since d96984e and
+// repeated here without being checked. It is not true: 28 endpoints under api/ already
+// import from src/ in production, and src/lib/aspireEvents.js has no imports of its own.
+// One list, so there is nothing to keep in sync.
 
 // The one audience that reaches a student today. 'cohort' and 'school' are valid values in
 // the column but have no consumer; they are NOT accepted here, so an event carrying one is
