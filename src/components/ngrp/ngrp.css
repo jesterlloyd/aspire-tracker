@@ -522,3 +522,150 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── NGRP-PLACEMENT-BOARD-1: Unit Pool | Applicant Pool ───────────────────── */
+
+/* The board reuses the ASPIRE placement board's panel system wholesale
+   (.embed-units-panel, .embed-unit-grid, .embed-students-panel,
+   .embed-student-grid, .embed-light-hdr, .euc-card, .euc-fill-badge). What
+   follows is only what the residency board adds: the card interiors, which
+   carry ranked preferences and an assignment rather than slots and preceptors. */
+
+.ngrp-pb-page { display: flex; flex-direction: column; gap: 14px; font-family: 'DM Sans', sans-serif; }
+.ngrp-pb-cols { display: flex; gap: 14px; align-items: stretch; min-height: 0; }
+@media (max-width: 1180px) {
+  .ngrp-pb-cols { flex-direction: column; }
+}
+.ngrp-pb-empty { margin: 16px 20px; font-size: 12.5px; color: #9CA3AF; line-height: 1.6; }
+
+/* ── Unit card ───────────────────────────────────────────────────────────── */
+
+.ngrp-uc { display: flex; flex-direction: column; border: 1px solid #e0e7ff; }
+/* The focused unit, and a unit the selected applicant asked for. Focus runs
+   both ways, so both states exist and can be true at once. */
+.ngrp-uc-focus { border: 1.5px solid var(--nightfall, #1D2567); box-shadow: 0 2px 10px rgba(29, 37, 103, 0.10); }
+.ngrp-uc-wanted { border-color: #16A34A; }
+.ngrp-uc-over { border-color: #B3282D; }
+
+.ngrp-uc-head {
+  display: flex; align-items: flex-start; gap: 8px; width: 100%;
+  padding: 11px 12px 9px; border: none; background: none; cursor: pointer; text-align: left;
+  border-bottom: 1px solid #F3F4F6;
+}
+.ngrp-uc-title { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ngrp-uc-name { font-size: 13.5px; font-weight: 700; color: var(--nightfall, #1D2567); }
+.ngrp-uc-desc {
+  font-size: 10.5px; color: #A9AEBB;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ngrp-uc-badges { margin-left: auto; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+/* Which of the SELECTED applicant's choices this unit is. */
+.ngrp-uc-pref {
+  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 20px;
+  background: #DCFCE7; color: #166534; white-space: nowrap;
+}
+
+.ngrp-uc-slots { padding: 9px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ngrp-uc-slot {
+  display: flex; align-items: center; gap: 7px;
+  border-radius: 8px; padding: 5px 7px; min-height: 32px;
+}
+.ngrp-uc-slot-filled { background: #F4F1EC; }
+/* An open seat is DRAWN, not merely absent: a unit hiring three with one
+   assigned should look two short, which an empty gap cannot show. */
+.ngrp-uc-slot-open { border: 1px dashed #D6DAE4; justify-content: center; }
+.ngrp-uc-slot-name { font-size: 12px; font-weight: 600; color: #374151; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ngrp-uc-slot-rank {
+  margin-left: auto; flex-shrink: 0;
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #166534; background: #DCFCE7; border-radius: 4px; padding: 1px 5px;
+}
+.ngrp-uc-slot-rank-off { color: #92400E; background: #FEF3C7; }
+.ngrp-uc-slot-clear {
+  border: none; background: none; cursor: pointer; flex-shrink: 0;
+  color: #9CA3AF; font-size: 14px; line-height: 1; padding: 0 2px;
+}
+.ngrp-uc-slot-clear:hover { color: #B3282D; }
+.ngrp-uc-slot-empty { font-size: 11px; color: #A9AEBB; }
+/* One-click placement of whoever is selected, which is what makes the two
+   panels a board rather than two lists. */
+.ngrp-uc-slot-place {
+  border: none; background: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 700; color: var(--nightfall, #1D2567);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.ngrp-uc-noseats { margin: 0; font-size: 11px; color: #92400E; }
+.ngrp-uc-foot {
+  margin-top: auto; padding: 7px 12px; border-top: 1px solid #F3F4F6;
+  font-size: 10.5px; color: #8B8F99;
+}
+
+/* ── Applicant card ──────────────────────────────────────────────────────── */
+
+.ngrp-ac {
+  display: flex; flex-direction: column;
+  background: #fff; border: 1px solid #e0e7ff; border-radius: 12px; overflow: hidden;
+  transition: opacity 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.ngrp-ac-sel { border: 1.5px solid var(--nightfall, #1D2567); box-shadow: 0 2px 10px rgba(29, 37, 103, 0.10); }
+/* Focusing a unit recedes the applicants who did not rank it. Dimmed, never
+   hidden: they are all still assignable, and hiding them would misrepresent the
+   pool as smaller than it is. */
+.ngrp-ac-dim { opacity: 0.4; }
+
+.ngrp-ac-head {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 10px 11px; border: none; background: none; cursor: pointer; text-align: left;
+}
+.ngrp-ac-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ngrp-ac-name { font-size: 13px; font-weight: 700; color: var(--nightfall, #1D2567); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ngrp-ac-meta { font-size: 10.5px; color: #8B8F99; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ngrp-ac-focusrank {
+  margin-left: auto; flex-shrink: 0;
+  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 20px;
+  background: #EDEEF4; color: var(--nightfall, #1D2567); white-space: nowrap;
+}
+
+.ngrp-ac-prefs { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 11px 9px; }
+.ngrp-ac-pref {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: #4A5560;
+  background: var(--sand, #F4F1EC); border-radius: 999px; padding: 2px 8px 2px 3px;
+}
+.ngrp-ac-pref-rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; color: #6B7785; font-size: 9px; font-weight: 700;
+}
+/* The preference HR actually granted. */
+.ngrp-ac-pref-on { background: #DCFCE7; color: #166534; font-weight: 700; }
+.ngrp-ac-pref-on .ngrp-ac-pref-rank { color: #166534; }
+.ngrp-ac-noprefs { font-size: 10.5px; color: #A9AEBB; font-style: italic; }
+
+.ngrp-ac-assign {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  padding: 8px 11px; border-top: 1px solid #F3F4F6; background: #FCFCFD; margin-top: auto;
+}
+.ngrp-ac-assigned {
+  font-size: 11.5px; font-weight: 700; color: #166534;
+  background: #DCFCE7; border-radius: 7px; padding: 3px 8px;
+}
+/* HR assigning a unit the applicant did not rank is legitimate, not an error,
+   so it is amber rather than red, and it is never left unsaid. */
+.ngrp-ac-assigned-off { color: #92400E; background: #FEF3C7; }
+.ngrp-ac-assigned-rank { display: block; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.85; }
+.ngrp-ac-unassigned { font-size: 11.5px; color: #8B8F99; }
+.ngrp-ac-assign .embed-light-select { margin-left: auto; max-width: 150px; }
+
+/* ── Pool header extras ──────────────────────────────────────────────────── */
+
+.ngrp-pb-count { padding: 10px 16px 0; font-size: 11.5px; color: #6B7785; }
+.ngrp-pb-count-warn { color: #92400E; font-weight: 600; }
+.ngrp-pb-focusbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 10px 16px 0; padding: 8px 12px;
+  background: var(--sand, #F4F1EC); border-radius: 9px;
+  font-size: 12px; color: #4A5560;
+}
+.ngrp-pb-focus-n { font-weight: 700; color: var(--nightfall, #1D2567); font-variant-numeric: tabular-nums; }
+.ngrp-pb-focusbar .embed-light-btn { margin-left: auto; }

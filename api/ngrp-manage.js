@@ -28,7 +28,7 @@ import {
   validateCyclePayload, validateSourceCohortIds, validateCycleUnits,
   openReadiness, validateStatusTransition, FORM_ACTIVE_STATUSES,
 } from '../lib/server/ngrpPlanning.js'
-import { isMissingNgrpTable, isMissingNgrpSchema } from '../lib/server/ngrpApplicants.js'
+import { isMissingNgrpTable, isMissingNgrpSchema, isMissingNgrpColumn } from '../lib/server/ngrpApplicants.js'
 import {
   liveAssignmentForCandidate, revokeTokensById, recalculateEligibility,
 } from '../lib/server/ngrpTransition.js'
@@ -392,6 +392,37 @@ export default async function handler(req, res) {
       if (!upd.data) return internal(res)
       await recordNgrpAudit(db, { eventType: 'eligibility_overridden', cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId, metadata: { result, previous_result: upd.data.eligibility_calculated, reason_category: category } })
       return res.status(200).json({ ok: true })
+    }
+
+    // NGRP-PLACEMENT-BOARD-1: the ONE unit HR assigns. A ranked preference is
+    // what the applicant asked for; this is what HR decided, and the plan is
+    // explicit that one never substitutes for the other.
+    //
+    // Only a CONFIRMED applicant can be assigned. Someone who has not reached
+    // the official NGRP list has not applied, and assigning them a unit would
+    // put a decision against a person who never asked for one.
+    if (action === 'assign_unit') {
+      const raw = typeof body.unit === 'string' ? body.unit.trim() : ''
+      const unit = raw || null
+      if (unit && candidate.application_status !== 'confirmed') {
+        return invalid(res, [{ field: 'unit', message: 'Only an applicant on the official NGRP list can be assigned a unit. Confirm the application first.' }])
+      }
+      if (unit === (candidate.assigned_unit || null)) return res.status(200).json({ ok: true, idempotent: true })
+      // Actor and moment travel WITH the assignment, or the DB check rejects
+      // it: "who assigned this, and when" is never a question the row cannot
+      // answer. Clearing an assignment clears both.
+      const upd = await db.from('ngrp_candidates').update({
+        assigned_unit: unit,
+        assigned_unit_at: unit ? nowIso : null,
+        assigned_by_profile_id: unit ? actorId : null,
+      }).eq('id', candidateId)
+      if (upd.error) return isMissingNgrpColumn(upd.error) ? unprovisioned(res) : internal(res)
+      await recordNgrpAudit(db, {
+        eventType: unit ? 'unit_assigned' : 'unit_assignment_cleared',
+        cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
+        metadata: { unit },
+      })
+      return res.status(200).json({ ok: true, assigned_unit: unit })
     }
 
     if (action === 'application_confirm') {

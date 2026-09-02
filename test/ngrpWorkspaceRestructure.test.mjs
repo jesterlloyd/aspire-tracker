@@ -166,14 +166,14 @@ test('the activity calendar opens on the cohort year, not on today', () => {
 // ── Unbuilt surfaces are honest ──────────────────────────────────────────────
 
 test('a surface that does not exist yet says so, and is never an empty success', () => {
-  for (const id of ['support/before', 'support/after', 'residency/board', 'evaluation']) {
+  for (const id of ['support/before', 'support/after', 'evaluation']) {
     assert.match(workspace, new RegExp(`'${id}':|^  ${id}:`, 'm'), id)
   }
   assert.match(workspace, /This surface ships after the workspace restructure/)
-  // The placement board's card says where interviews and hires will be recorded,
-  // which is the question the retired Interviews tab used to answer.
-  const board = workspace.slice(workspace.indexOf("'residency/board'"), workspace.indexOf('evaluation:'))
-  assert.match(board, /who was interviewed and who was hired/)
+  // NGRP-PLACEMENT-BOARD-1: the board is BUILT now, so it is no longer one of
+  // the described-but-unbuilt surfaces; it renders the real component.
+  assert.doesNotMatch(workspace, /'residency\/board':/)
+  assert.match(workspace, /<PlacementBoard cycle=\{cycle\} canManage=\{canManage\} toast=\{toast\} \/>/)
   // At a Glance stays reachable with no cohorts, because it is where the first
   // one is set up; every other tab explains the requirement.
   assert.match(workspace, /cyclesCount === 0 && tab !== 'overview'/)

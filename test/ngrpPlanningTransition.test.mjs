@@ -1328,7 +1328,17 @@ test('db: constraints make bad states unrepresentable - one live assignment, ONE
 test('db: audit metadata is allowlisted and safe; event types mirror the table CHECK', () => {
   const meta = sanitizeAuditMetadata({ batch_id: 'b', token_hash_prefix: 'pfx', survey_url: 'https://evil', raw: 'RAWTOKEN', result: 'eligible' })
   assert.deepEqual(Object.keys(meta).sort(), ['batch_id', 'result', 'token_hash_prefix'])
-  for (const ev of NGRP_AUDIT_EVENTS) assert.match(migration, new RegExp(`'${ev}'`))
+  // NGRP-PLACEMENT-BOARD-1: 20260906000000 WIDENS the audit CHECK, so that file
+  // is the one in force. Every JS-allowlisted event must appear in it, or
+  // recordNgrpAudit's insert is refused by the database even though the JS
+  // allowlist permits it - an event type has to pass BOTH gates.
+  const boardMigration = read('supabase/migrations/20260906000000_ngrp_assignment_interview.sql')
+  const liveCheck = boardMigration.slice(boardMigration.indexOf('ngrp_audit_events_event_type_check'))
+  for (const ev of NGRP_AUDIT_EVENTS) assert.match(liveCheck, new RegExp(`'${ev}'`), ev)
+  // Widened, never narrowed: nothing the original CHECK allowed was dropped.
+  for (const ev of (migration.match(/'(cycle_created|form_sent|application_confirmed|token_revoked)'/g) || [])) {
+    assert.match(liveCheck, new RegExp(ev))
+  }
 })
 
 // ── Regression guards ────────────────────────────────────────────────────────
@@ -1337,9 +1347,23 @@ test('regression: confirmation stays an explicit staff act; preferences never be
   assert.match(manageApi, /application_status: 'confirmed'/)
   assert.doesNotMatch(publicApi, /'confirmed'/)
   assert.doesNotMatch(read('lib/server/ngrpTransition.js'), /application_status: 'confirmed'/)
-  for (const src of [manageApi, publicApi, sendApi, read('lib/server/ngrpTransition.js'), migration]) {
-    assert.doesNotMatch(src, /assigned_unit:/)
+  // NGRP-PLACEMENT-BOARD-1: an assignment now EXISTS, and this guard sharpens
+  // rather than relaxes. The rule was never "nothing writes assigned_unit" - it
+  // is that a ranked preference never becomes one and an applicant cannot
+  // assign themselves. Every ALUMNI-FACING path stays incapable of writing it.
+  for (const src of [publicApi, sendApi, read('lib/server/ngrpTransition.js')]) {
+    assert.doesNotMatch(src, /assigned_unit/, 'no alumni-facing path may write an assignment')
   }
+  // Staff-only, through one explicit action, and never derived from a preference.
+  const assignBlock = manageApi.slice(manageApi.indexOf("action === 'assign_unit'"), manageApi.indexOf("action === 'application_confirm'"))
+  assert.match(assignBlock, /body\.unit/, 'the unit comes from the request, not from a preference')
+  assert.doesNotMatch(assignBlock, /unit_preference/, 'a preference is never copied into an assignment')
+  // Only someone on the official NGRP list can be assigned at all.
+  assert.match(assignBlock, /candidate\.application_status !== 'confirmed'/)
+  // Actor and moment travel with it, enforced by the DB, not merely by the UI.
+  assert.match(assignBlock, /assigned_by_profile_id: unit \? actorId : null/)
+  assert.match(read('supabase/migrations/20260906000000_ngrp_assignment_interview.sql'),
+    /ngrp_assignment_requires_actor_time/)
   assert.match(drawerUi, /never confirms anything automatically/)
 })
 

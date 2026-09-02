@@ -17,6 +17,7 @@ import SegmentedTabs from '../ui/SegmentedTabs'
 import AtAGlanceTab from './AtAGlanceTab'
 import ProfilesTab from './ProfilesTab'
 import ActivityCalendar from './ActivityCalendar'
+import PlacementBoard from './PlacementBoard'
 import './ngrp.css'
 
 // Tabs and sub-tabs whose surfaces are not built yet say what they will hold and
@@ -29,10 +30,6 @@ const PLANNED = {
   'support/after': {
     title: 'Support after residency',
     body: 'Mentorship for residents who have started: mentor pairing, weekly check-ins, and the touchpoints that run alongside the 3, 6 and 12 month checkpoints.',
-  },
-  'residency/board': {
-    title: 'Placement board',
-    body: 'Units hiring on the left, applicants on the right, matched the way the ASPIRE placement board works: ranked preferences beside the assigned unit, seats against confirmed applicants, and the interview and hire outcome recorded on the row. This is where who was interviewed and who was hired will live.',
   },
   evaluation: {
     title: 'Evaluation',
@@ -166,7 +163,9 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
 
         {tab === 'support' && <PlannedCard id={`support/${subTab}`} />}
 
-        {tab === 'residency' && subTab === 'board' && <PlannedCard id="residency/board" />}
+        {tab === 'residency' && subTab === 'board' && (
+          <PlacementBoard cycle={cycle} canManage={canManage} toast={toast} />
+        )}
         {tab === 'residency' && subTab === 'activity' && (
           <ActivityCalendar cycle={cycle} canManage={canManage} />
         )}
