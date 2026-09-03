@@ -191,12 +191,14 @@ function Th({ label, sortable, onClick, active, dir }) {
     <th
       onClick={sortable ? onClick : undefined}
       style={{
-        padding: '10px 14px',
+        // UI-CONSISTENCY-2: canon 1. It reads the tokens it helped define, so it cannot
+        // drift from them. An active sort column is navy; every other header is the muted token.
+        padding: 'var(--aspire-th-pad, 10px 12px)',
         textAlign: 'left',
-        fontSize: 11,
-        fontWeight: 700,
-        color: sortable && active ? '#1D2567' : '#6b7280',
-        letterSpacing: 0.5,
+        fontSize: 'var(--aspire-th-size, 11px)',
+        fontWeight: 'var(--aspire-th-weight, 700)',
+        color: sortable && active ? '#1D2567' : 'var(--aspire-th-color, #6b7785)',
+        letterSpacing: 'var(--aspire-th-tracking, 0.06em)',
         cursor: sortable ? 'pointer' : 'default',
         userSelect: 'none',
         fontFamily: F,
@@ -779,7 +781,7 @@ export default function EvaluationTab({ cohortId }) {
                 <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
                   <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontFamily: F }}>
                     <thead>
-                      <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                      <tr style={{ background: 'var(--aspire-th-bg, #f9fafb)', borderBottom: 'var(--aspire-row-line, 1px solid #e5e7eb)' }}>
                         <Th label="Student"      sortable onClick={() => handleSort('student')}      active={sortKey === 'student'}      dir={sortDir} />
                         <Th label="Completed By" sortable onClick={() => handleSort('completed_by')} active={sortKey === 'completed_by'} dir={sortDir} />
                         <Th label="Instrument"   sortable onClick={() => handleSort('instrument')}   active={sortKey === 'instrument'}   dir={sortDir} />
@@ -804,8 +806,8 @@ export default function EvaluationTab({ cohortId }) {
                           <React.Fragment key={a.id}>
                             <tr
                               onClick={() => toggleRow(a.id)}
-                              style={{ cursor: 'pointer', background: bgBase, borderBottom: isExpanded ? 'none' : '1px solid #f3f4f6' }}
-                              onMouseEnter={e => e.currentTarget.style.background = '#eef2fb'}
+                              style={{ cursor: 'pointer', background: bgBase, borderBottom: isExpanded ? 'none' : 'var(--aspire-row-line, 1px solid #e5e7eb)' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--aspire-row-hover, #eef2fb)'}
                               onMouseLeave={e => e.currentTarget.style.background = bgBase}
                             >
                               <Td>

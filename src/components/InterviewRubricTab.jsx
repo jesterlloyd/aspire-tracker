@@ -637,7 +637,9 @@ export default function InterviewRubricTab({
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(29,37,103,0.05)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
-                  <span style={{ fontWeight: sortBy === key ? 800 : 700 }}>{label}</span>
+                  {/* UI-CONSISTENCY-2: the active sort column is navy, like the Evaluation table;
+                      weight stays at the header token so headers read as one row. */}
+                  <span style={{ color: sortBy === key ? '#1D2567' : 'inherit' }}>{label}</span>
                   {sortBy === key
                     ? <span aria-hidden="true">{sortDir === 'asc' ? '↑' : '↓'}</span>
                     : <span aria-hidden="true" style={{ opacity:0.3 }}>↕</span>}

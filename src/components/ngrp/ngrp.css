@@ -150,27 +150,29 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--color-bg-elevated, #F9FAFB);
+  /* UI-CONSISTENCY-2: this table is one of the two the canon was derived from. It reads
+     the tokens anyway, so it can never drift away from the canon it defined. */
+  background: var(--aspire-th-bg);
   text-align: left;
   font-size: var(--aspire-th-size);
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: var(--aspire-th-weight);
+  letter-spacing: var(--aspire-th-tracking);
   text-transform: uppercase;
-  color: var(--text-muted, #6B7785);
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--border-lt, #E5E7EB);
+  color: var(--aspire-th-color);
+  padding: var(--aspire-th-pad);
+  border-bottom: var(--aspire-row-line);
   white-space: nowrap;
 }
 .ngrp-table tbody td {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border-lt, #E5E7EB);
+  border-bottom: var(--aspire-row-line);
   vertical-align: middle;
 }
 .ngrp-table tbody tr {
   cursor: pointer;
   transition: background 0.1s;
 }
-.ngrp-table tbody tr:hover { background: rgba(244, 241, 236, 0.6); }
+.ngrp-table tbody tr:hover { background: var(--aspire-row-hover); }
 .ngrp-table tbody tr:focus-visible {
   outline: 2px solid var(--color-focus-ring, #4F6DA8);
   outline-offset: -2px;

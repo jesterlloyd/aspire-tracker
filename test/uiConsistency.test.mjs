@@ -156,6 +156,56 @@ test('headshot images decode off the main thread and reserve their box', () => {
   }
 })
 
+// ── UI-CONSISTENCY-2: the classes At a Glance really renders, the hover, the tables ──
+
+test('the block that follows the snapshot card is the one that carries the gap', () => {
+  // .ov-panels is rendered by no page; the sticky header strip is what follows .snap.
+  assert.doesNotMatch(read('src/components/OverviewTab.jsx'), /className="ov-panels"/)
+  assert.match(rule(index, '.aggregate-sticky-header'), /margin-top:\s*var\(--aspire-gap-card\)/)
+  assert.doesNotMatch(rule(index, '.aggregate-sticky-header'), /border-bottom/, 'no strip-wide hairline across the gap between panels')
+})
+
+test('the Placement Capacity / Requests split card reads the canon on both halves', () => {
+  const hdr = rule(index, '.aggregate-panel-hdr'), body = rule(index, '.ov-panel-body')
+  assert.match(hdr, /\bborder:\s*0;/); assert.match(body, /\bborder:\s*0;/)
+  assert.doesNotMatch(hdr + body, /#e0e7ff/, 'the faint outline the Owner pointed at is gone')
+  assert.match(hdr, /border-radius:\s*var\(--aspire-radius-card\) var\(--aspire-radius-card\) 0 0/)
+  assert.match(body, /border-radius:\s*0 0 var\(--aspire-radius-card\) var\(--aspire-radius-card\)/)
+  assert.match(body, /box-shadow:\s*var\(--aspire-shadow-card\)/)
+  assert.match(hdr, /border-bottom:\s*1px solid var\(--border-lt\)/, 'the seam belongs to the card')
+  for (const sel of ['.aggregate-panel-headers', '.ov-panels-body']) assert.match(rule(index, sel), /gap:\s*var\(--aspire-gap-card\)/)
+})
+
+test('a student card lifts on hover like a KPI card, and never changes colour', () => {
+  const base = rule(index, '.mast-live-card'), hover = rule(index, '.mast-live-card:hover')
+  assert.match(base, /\bborder:\s*0;/); assert.match(base, /border-radius:\s*var\(--aspire-radius-card\)/)
+  assert.match(base, /transition:\s*transform 0\.18s cubic-bezier\(0\.2, 0\.7, 0\.2, 1\), box-shadow 0\.18s ease/, 'the same curve KPIBand uses')
+  assert.match(hover, /transform:\s*translateY\(-2px\)/)
+  assert.match(hover, /box-shadow:\s*var\(--aspire-shadow-card-hover\)/)
+  assert.doesNotMatch(hover, /border-color|background/, 'no blue outline, no colour change')
+  assert.match(rule(index, '.mast-live-card:active'), /translateY\(0\)/)
+})
+
+test('every table header reads the canon: weight, colour, band, tracking, hairline', () => {
+  const TH = [
+    ['index.css', index, '.iv-th'], ['index.css', index, '.ir-wl-th'], ['index.css', index, '.table-header'],
+    ['index.css', index, '.am-th'], ['index.css', index, '.preview-table th'], ['index.css', index, '.rub-legend-table th'],
+    ['index.css', index, '.casey-paired-table th'], ['ngrp.css', ngrp, '.ngrp-table thead th'],
+    ['portal.css', portal, '.ptl-stu-table thead th'], ['portal.css', portal, '.ptl-na-table th'],
+  ]
+  for (const [f, css, sel] of TH) {
+    const body = rule(css, sel); assert.ok(body, `${f} ${sel}`)
+    assert.match(body, /font-weight:\s*var\(--aspire-th-weight/, `${f} ${sel} weight`)
+    assert.match(body, /color:\s*var\(--aspire-th-color/, `${f} ${sel} colour`)
+    assert.doesNotMatch(body, /font-weight:\s*\d|letter-spacing:\s*0\.\d+em|\bcolor:\s*#|background:\s*(?:#|var\(--sand\))/, `${f} ${sel} still hard-codes a header value`)
+  }
+  // Canon 1 is inline; it reads the same tokens.
+  const ev = read('src/components/EvaluationTab.jsx')
+  assert.match(ev, /fontWeight: 'var\(--aspire-th-weight, 700\)'/); assert.match(ev, /letterSpacing: 'var\(--aspire-th-tracking, 0\.06em\)'/)
+  // The bad table no longer bolds the sorted header heavier than its neighbours.
+  assert.doesNotMatch(read('src/components/InterviewRubricTab.jsx'), /fontWeight: sortBy === key \? 800 : 700/)
+})
+
 test('no em dash in the token file or the new test', () => {
   const EM = String.fromCharCode(0x2014)
   for (const f of ['src/styles/aspireBrand.css', 'test/uiConsistency.test.mjs']) assert.ok(!read(f).includes(EM), f)

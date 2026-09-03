@@ -52,6 +52,19 @@
   --aspire-gap-card: 16px;
   --aspire-page-top: 24px;
   --aspire-th-size: 11px;
+  /* UI-CONSISTENCY-2: the table canon. Derived from the two tables the Owner named as
+     right (Evaluation > Responses, and the Alumni Roster): they agree on every value
+     below, so these are what every other table now reads. Letter-case is deliberately
+     NOT a token; both canon tables are right and they differ on it. */
+  --aspire-th-weight: 700;
+  --aspire-th-color: #6b7785;
+  --aspire-th-bg: #f9fafb;
+  --aspire-th-tracking: 0.06em;
+  --aspire-th-pad: 10px 12px;
+  --aspire-row-line: 1px solid #e5e7eb;
+  --aspire-row-hover: #eef2fb;
+  /* A clickable card lifts on hover; the shadow deepens, nothing changes colour. */
+  --aspire-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
   --aspire-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
   --aspire-nav-line: rgba(29, 37, 103, 0.08);
 }

@@ -58,8 +58,11 @@ test('Unit Leader Preceptors table uses the shared main-app table container and 
   assert.match(preceptorTable, /import SortHeader from '\.\/SortHeader'/)
   assert.match(sortHeader, /thClassName = 'am-th am-sortable'/)
   assert.match(sortHeader, /<th[\s\S]*?scope="col"[\s\S]*?className=\{thClassName\}[\s\S]*?aria-sort=/)
-  assert.match(css, /\.am-table-wrap \{[\s\S]*border: 1px solid var\(--border\);[\s\S]*border-radius: 6px;[\s\S]*background: var\(--pearl\);/)
-  assert.match(css, /\.am-th \{[\s\S]*font-size: 11px;[\s\S]*font-weight: 700;[\s\S]*letter-spacing: 0\.05em;[\s\S]*border-bottom: 2px solid var\(--border\);/)
+  // UI-CONSISTENCY-2: the wrapper is a card, so it reads the card canon: no outline, the
+  // shadow is the edge, the shared radius. The property this test guards, that the Unit
+  // Leader table shares the main app's container, holds more strongly now, not less.
+  assert.match(css, /\.am-table-wrap \{[\s\S]*border: 0; box-shadow: var\(--aspire-shadow-card\);[\s\S]*border-radius: var\(--aspire-radius-card\);[\s\S]*background: var\(--pearl\);/)
+  assert.match(css, /\.am-th \{[\s\S]*font-size: var\(--aspire-th-size\);[\s\S]*font-weight: var\(--aspire-th-weight\);[\s\S]*letter-spacing: var\(--aspire-th-tracking\);[\s\S]*border-bottom: var\(--aspire-row-line\);/)
   assert.match(css, /\.preceptor-dir-sort \{[\s\S]*display: inline-flex;[\s\S]*align-items: center;/)
 })
 
