@@ -192,11 +192,18 @@ test('View calendar is as dynamic as the day (SCENE-4b, Owner)', async (t) => {
     // Pushed to the end of the row, past the chips.
     assert.match(read('src/index.css'), /\.mast-cal-btn-inline \{ margin-left: auto; \}/)
   })
-  await t.test('the greeting/temperature pair uses the app face, not a display serif', () => {
+  await t.test('the greeting is the route serif moment; the temperature beside it keeps the app face', () => {
     const css = read('src/index.css')
     const pair = css.slice(css.indexOf('.mast-scenic .mast-greet,'))
-    assert.match(pair, /font-family: 'Plus Jakarta Sans', sans-serif;/)
-    assert.doesNotMatch(pair, /Newsreader|Georgia|DM Sans|Pangram|Fraunces/)
+    // Shared metrics on the pair, no family: each half declares its own.
+    const shared = pair.slice(0, pair.indexOf('\n}'))
+    assert.match(shared, /font-size: 34px/)
+    assert.doesNotMatch(shared, /font-family/)
+    assert.match(pair, /\.mast-scenic \.wx-mast-temp \{ font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; \}/)
+    // The greeting reaches the serif ONLY through the route-title token (never a literal family),
+    // with the base block's descender room restored at the larger size.
+    assert.match(pair, /\.mast-scenic \.mast-greet\.chart-route-title \{\s*font-family: var\(--chart-serif\); font-weight: 600;\s*line-height: 1\.25; padding-bottom: 2px;/)
+    assert.doesNotMatch(pair.slice(0, pair.indexOf('.mast-scenic .wx-mast-temp { color')), /Newsreader|Georgia|DM Sans|Pangram|Fraunces|'Playfair Display'/)
     // The whole app still loads only its two established families, both
     // self-hosted (TYPOGRAPHY-1); nothing comes from Google Fonts.
     const html = read('index.html')

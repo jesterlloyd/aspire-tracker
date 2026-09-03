@@ -2302,21 +2302,30 @@ a.doc-file-link:hover { text-decoration: underline; }
   position: absolute; top: -27px; left: var(--scn-sky-x, 52%); margin-top: 0;
 }
 .mast-scenic .wx-mast-caption { text-align: right; }
-/* Both halves of the pair use the APP's own face (Plus Jakarta Sans, the global family)
-   rather than a display serif: the serif read as borrowed - a Cambria-ish
-   note against the product's voice - and worst on the temperature, where
-   lining numerals in the UI face look native. Same size and weight on both
-   halves is what makes them read as one pair across the card. */
+/* The pair shares one size so greeting and temperature read as one line
+   across the card, but each half keeps its own face. The greeting is the
+   route's serif moment (Playfair Display through --chart-serif, the same
+   token .chart-route-title already gives it; Owner returned it to the serif
+   with the Playfair swap). The temperature stays in the app face: lining
+   numerals in the UI sans look native, and the serif's figures did not. */
 .mast-scenic .mast-greet,
 .mast-scenic .wx-mast-temp {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 34px; font-weight: 700; line-height: 1.2;
+  font-size: 34px; line-height: 1.2;
   letter-spacing: -0.02em; font-variant-numeric: lining-nums tabular-nums;
   /* Folded in rather than written as its own single-selector greeting rule:
      the base greeting block must stay the FIRST such selector in this file (a
-     guard in mastheadGreetingWeatherScale reads it by first match). The 1.15
-     box at 34px still clears descenders - a taller line box than 1.25 at 30px. */
+     guard in mastheadGreetingWeatherScale reads it by first match). */
   padding-bottom: 0;
+}
+.mast-scenic .wx-mast-temp { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
+/* Compound selector on purpose (see the guard note above): this must not read
+   as a bare single-selector greeting block. Playfair's descenders need the base block's
+   taller box and bottom pad back at 34px, or the g in "Good evening" clips
+   under the ellipsis rule's overflow: hidden. Weight 600 matches every other
+   route title; 700 in the serif read heavier than the temperature beside it. */
+.mast-scenic .mast-greet.chart-route-title {
+  font-family: var(--chart-serif); font-weight: 600;
+  line-height: 1.25; padding-bottom: 2px;
 }
 .mast-scenic .wx-mast-temp { color: var(--chart-ink, #191919); }
 .mast-night .wx-mast-temp { color: #fff; }
