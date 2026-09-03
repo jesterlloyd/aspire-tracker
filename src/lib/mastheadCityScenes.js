@@ -254,6 +254,117 @@ export const CITY_IMG_Y = {
 }
 export const DEFAULT_IMG_Y = '100%'
 
+// MASTHEAD-MOTION-1 (PROTOTYPE): what moves in each city, and where.
+//
+// Coordinates are percentages of the CARD, not of the source image. The card
+// crops the top 15.3% of the 5:1 panorama (a 5.9:1 box, bottom anchored), so
+// these are already past that conversion and are only valid while the city
+// keeps its --scn-img-y. Every position was MEASURED off the artwork by
+// local-maximum search for bright pixels, never placed by eye: an invented
+// coordinate lands the glow on empty hillside and reads as dust on the lens.
+//
+// A city names only the effects its own frame can carry. Los Angeles has no
+// water and no bridge, so it has neither; San Francisco has both. Absent means
+// absent, not defaulted, which is why this is a registry and not a formula.
+//
+//   lights    warm points already lit in the frame, breathing out of phase
+//   beacons   tower crowns, a slow aviation pulse rather than a breath
+//   aircraft  one light crossing the sky, then a long empty gap
+//   water     reflections on a bay, stretching as well as brightening
+//   bridge    a deck light string, plus traffic running both ways along it
+//   beam      a single landmark shaft of light, for the one city that has one
+export const CITY_MOTION = {
+  hollywood: {
+    lights: [
+      [47.0, 77.9], [51.3, 82.6], [53.6, 44.5], [48.3, 35.7], [46.7, 44.5],
+      [60.6, 74.3], [65.1, 71.1], [66.5, 95.3], [71.0, 89.7], [76.8, 67.3],
+      [77.5, 81.1], [81.9, 47.2], [85.4, 56.3],
+    ],
+  },
+  losangeles: {
+    // The basin is a carpet of light, which is the best possible case for this.
+    lights: [
+      [55.5, 90.9], [67.9, 88.5], [76.4, 88.2], [49.1, 98.2], [61.9, 71.4],
+      [46.9, 87.0], [61.9, 89.1], [81.0, 93.5], [58.7, 90.3], [52.3, 88.8],
+      [71.2, 87.9], [67.3, 71.4], [57.5, 68.7], [51.4, 78.5],
+    ],
+    // Two crowns, because downtown LA really is dominated by two towers.
+    beacons: [[62.5, 62.2], [64.4, 66.4]],
+    // East to west over downtown, the way an approach actually runs. It leaves
+    // the frame before the cycle repeats, so the loop has no seam to hide.
+    aircraft: { y: 21, from: 97, to: 33, flight: 34, cycle: 82 },
+  },
+  sanfrancisco: {
+    lights: [
+      [63.9, 44.8], [71.4, 46.0], [61.3, 37.8], [74.2, 46.6], [70.9, 36.3],
+      [58.9, 37.2], [67.8, 35.7], [52.4, 34.2], [54.8, 35.4], [64.5, 37.8],
+    ],
+    // Reflections sit below the city and stretch vertically with the swell.
+    water: [
+      [60.8, 86.1], [64.3, 86.7], [67.8, 85.3], [72.5, 86.4], [75.5, 86.4],
+      [78.5, 85.3], [82.0, 85.3], [88.0, 84.1], [93.1, 77.3],
+    ],
+    bridge: {
+      // Measured along the deck, so the string carries the span's real sag.
+      lights: [
+        [22.0, 62.8], [24.8, 64.0], [28.4, 61.1], [31.3, 60.5], [34.2, 60.2],
+        [37.9, 59.6], [41.3, 59.3], [44.8, 59.0], [47.3, 58.7], [50.7, 59.9],
+        [55.3, 59.6], [59.0, 59.3], [69.3, 59.3], [73.5, 58.1], [78.3, 59.0],
+        [81.5, 58.4],
+      ],
+      // The deck as a line: start point, span, and rise across it. Traffic
+      // rides this rather than a flat row, or it drifts off the roadway by
+      // several pixels at the ends.
+      deck: { x: 22.0, y: 62.8, w: 59.5, rise: -4.4 },
+    },
+  },
+  newyork: {
+    lights: [
+      [50.2, 74.6], [53.9, 77.0], [54.1, 64.9], [56.7, 74.3], [63.5, 74.3],
+      [74.4, 74.3], [76.8, 64.0], [79.0, 74.3], [85.5, 74.3], [88.9, 74.0],
+      [92.1, 74.6], [95.2, 74.9],
+    ],
+    // The harbour throws the strongest reflections of any pack.
+    water: [
+      [50.0, 84.4], [54.0, 90.6], [54.2, 81.4], [58.7, 87.0], [63.4, 82.6],
+      [63.5, 95.3], [69.3, 91.7], [75.0, 82.6], [75.0, 99.1],
+    ],
+    // The first entry is the One World Trade spire tip, which the artwork
+    // already paints red. Every other pack's crowns are white, so this is the
+    // one city where an aviation-red beacon would be true to the frame.
+    beacons: [[58.5, 13.6], [63.9, 41.9], [71.9, 43.7], [68.5, 51.9]],
+  },
+  lasvegas: {
+    lights: [
+      [46.2, 70.8], [48.7, 69.3], [51.3, 71.4], [56.0, 72.3], [59.8, 68.1],
+      [62.4, 68.1], [65.3, 71.7], [67.8, 67.0], [75.1, 70.2], [79.5, 68.1],
+      [84.3, 67.3], [87.9, 66.4], [91.3, 70.5], [93.8, 70.5],
+    ],
+    beacons: [[46.7, 49.9]],
+    // The Luxor shaft, standing on the pyramid apex. The apex had to be found
+    // by eye in the end: a brightest-pixel search kept landing on the hotel
+    // beside it, which put the beam in mid-air next to the pyramid rather than
+    // on it. No other city has a landmark that projects light, which is exactly
+    // why this is not a shared effect: elsewhere it is a searchlight in an
+    // empty sky.
+    beam: { x: 64.6, y: 59.4, height: 52, width: 2.6 },
+  },
+  atlanta: {
+    // Atlanta is the one city cropped at --scn-img-y 50%, so these were
+    // converted through a centred crop, not the usual bottom-anchored one.
+    lights: [
+      [46.2, 54.0], [50.5, 56.6], [51.3, 65.2], [56.6, 44.3], [59.3, 59.0],
+      [63.2, 41.6], [63.2, 67.6], [70.2, 58.7], [76.5, 55.8], [80.1, 56.0],
+      [86.0, 56.3], [88.9, 63.7], [92.3, 64.9], [95.0, 65.5],
+    ],
+    beacons: [[50.8, 10.9], [68.4, 11.8]],
+    // NO traffic, deliberately. The foreground is an interchange, not a span:
+    // its light trails scatter rather than fitting a line, so the straight rail
+    // that works for the Golden Gate would drive cars off the road. A curved
+    // path needs a hand-traced offset-path per city, which is its own job.
+  },
+}
+
 export function imgPositionFor(city) {
   return CITY_IMG_Y[city] || DEFAULT_IMG_Y
 }

@@ -10,6 +10,7 @@ import { useWelcomeWeather } from './WeatherScene'
 import { SCENES, ALL_SCENES, sceneFrameFor } from '../lib/mastheadScene'
 import { parseSceneFiles, resolvePack, injectedSceneFiles, imgPositionFor } from '../lib/mastheadCityScenes'
 import { useCityPreference } from './masthead/useCityPreference'
+import MastheadMotion from './masthead/MastheadMotion'
 //
 // The component is purely presentational and state-free: the host card carries
 // .mast-scene-{dawn|day|sunset|night} (from useMastheadScene) and index.css
@@ -109,6 +110,10 @@ export default function MastheadScenery() {
           onError={() => setImagesBroken(true)}
         />
       ))}
+      {/* MASTHEAD-MOTION-1: only over a photo pack. The light coordinates are
+          measured off the artwork, so on the SVG fallback they would land on
+          nothing. Scene gating is the CSS's job, not this component's. */}
+      {scenes && <MastheadMotion city={pack?.city} />}
     </div>
   )
 }

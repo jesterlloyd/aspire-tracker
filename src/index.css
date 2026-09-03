@@ -2012,6 +2012,240 @@ a.doc-file-link:hover { text-decoration: underline; }
 [data-theme="dark"] .mast-scene-night .mast-scn-img-night,
 [data-theme="dark"] .mast-scene-cloudynight .mast-scn-img-cloudynight { filter: none; }
 @media (prefers-reduced-motion: reduce) { .mast-scn-img { transition: none; } }
+
+/* ── MASTHEAD-MOTION-1 (PROTOTYPE): motion over the still artwork ──
+   Zero payload, zero video decode. Scene gating lives here rather than in JS,
+   the same way .mast-sky and .mast-scn-img are gated, so the component stays
+   state-free. Nearly everything is mix-blend-mode: screen, which is what makes
+   these read as LIGHT falling on the photo instead of shapes drawn over it.
+
+   Every effect below is night-only except lightning, because every position
+   was measured off a night frame. Daytime equivalents (sun glint on water,
+   traffic in daylight) would need their own measurements. */
+.mast-motion { position: absolute; inset: 0; pointer-events: none; }
+
+/* ── LIGHTNING. A cloud lighting up from inside, not a white rectangle: a
+   broad radial glow seated above the top edge, masked off the greeting. ── */
+.mast-motion-bolt {
+  position: absolute; inset: 0; opacity: 0;
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.18) 30%, rgba(0,0,0,0.70) 52%, #000 68%);
+  mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.18) 30%, rgba(0,0,0,0.70) 52%, #000 68%);
+}
+/* Per-bolt intensity lives in the gradient's own alphas rather than in a
+   keyframe multiplier, so the keyframes stay one shared, simple rule. */
+.mast-motion-bolt-a {
+  /* The source sits ABOVE the top edge, so the card shows the lower half of
+     the glow. That is what makes it read as a cloud lit from within rather
+     than a searchlight pointed at the hills. Wide and flat, never a disc. */
+  background: radial-gradient(74% 108% at 76% -4%,
+    rgba(226,238,255,0.82) 0%, rgba(190,212,248,0.44) 26%,
+    rgba(152,182,232,0.13) 52%, transparent 76%);
+}
+.mast-motion-bolt-b {
+  background: radial-gradient(58% 92% at 55% -8%,
+    rgba(214,229,255,0.44) 0%, rgba(178,202,242,0.22) 28%,
+    rgba(148,178,228,0.07) 54%, transparent 78%);
+}
+/* Roughly 0.4s of strike in an 11s cycle. The double stroke (bright, near
+   dark, brighter) is what separates lightning from a lamp being switched on. */
+@keyframes mast-bolt {
+  0%, 92.8% { opacity: 0; }
+  93.0%     { opacity: 0.75; }
+  93.35%    { opacity: 0.08; }
+  93.7%     { opacity: 1; }
+  94.4%     { opacity: 0.28; }
+  96.0%     { opacity: 0; }
+  100%      { opacity: 0; }
+}
+.mast-scenic.mast-scene-rain .mast-motion-bolt-a,
+.mast-scenic.mast-scene-cloudynight .mast-motion-bolt-a { animation: mast-bolt 11s linear infinite; }
+.mast-scenic.mast-scene-rain .mast-motion-bolt-b,
+.mast-scenic.mast-scene-cloudynight .mast-motion-bolt-b { animation: mast-bolt 17s linear 4s infinite; }
+
+/* ── SHIMMER. Each glow sits on a light already in the photograph and breathes
+   on its own period, which is how haze actually treats distant lights. ── */
+.mast-motion-light {
+  /* Small and tight on purpose. Any bigger and the glow stops looking like the
+     light itself brightening and starts looking like a halo laid over it, which
+     is the failure mode that makes this read as an effect instead of weather. */
+  position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(circle,
+    rgba(255,214,152,0.90) 0%, rgba(255,188,110,0.32) 30%, transparent 66%);
+}
+@keyframes mast-shimmer {
+  0%, 100% { opacity: 0.08; }
+  50%      { opacity: 0.55; }
+}
+.mast-scenic.mast-scene-night .mast-motion-light,
+.mast-scenic.mast-scene-cloudynight .mast-motion-light {
+  animation: mast-shimmer var(--d, 4s) ease-in-out var(--dl, 0s) infinite;
+}
+
+/* ── BEACONS. Tower crowns blink, they do not breathe: a long dark hold and a
+   short double pulse, which is the rhythm the eye reads as aviation. Kept in
+   the artwork's own crown colour rather than aviation red, so it lands as the
+   crown pulsing rather than as a red pixel sitting on top of the paint. ── */
+.mast-motion-beacon {
+  position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+  border-radius: 50%; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(circle,
+    rgba(226,242,255,0.95) 0%, rgba(170,206,246,0.40) 32%, transparent 68%);
+}
+@keyframes mast-beacon {
+  0%, 74%  { opacity: 0.12; }
+  78%      { opacity: 0.95; }
+  82%      { opacity: 0.18; }
+  86%      { opacity: 0.80; }
+  92%,100% { opacity: 0.12; }
+}
+.mast-scenic.mast-scene-night .mast-motion-beacon,
+.mast-scenic.mast-scene-cloudynight .mast-motion-beacon {
+  animation: mast-beacon 3.4s linear var(--dl, 0s) infinite;
+}
+
+/* ── AIRCRAFT. One light crossing the sky, then a long empty gap. The gap is
+   the point: continuous traffic reads as a screensaver, one aircraft a minute
+   reads as a city. It leaves the frame before repeating, so the loop has no
+   seam to hide, which is the thing a generated video loop cannot promise. ── */
+.mast-motion-plane {
+  position: absolute; left: var(--from, 100%); opacity: 0;
+  width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px;
+}
+@keyframes mast-fly {
+  0%       { left: var(--from, 100%); opacity: 0; }
+  1.5%     { opacity: 1; }
+  38%      { opacity: 1; }
+  41%      { left: var(--to, 30%); opacity: 0; }
+  100%     { left: var(--to, 30%); opacity: 0; }
+}
+.mast-motion-plane-dot {
+  position: absolute; inset: 0; border-radius: 50%; mix-blend-mode: screen;
+  background: radial-gradient(circle,
+    rgba(255,244,226,0.98) 0%, rgba(255,214,150,0.42) 38%, transparent 72%);
+}
+@keyframes mast-plane-blink {
+  0%, 46%   { opacity: 0.30; }
+  52%, 58%  { opacity: 1; }
+  64%, 100% { opacity: 0.30; }
+}
+.mast-scenic.mast-scene-night .mast-motion-plane,
+.mast-scenic.mast-scene-cloudynight .mast-motion-plane {
+  animation: mast-fly var(--cycle, 82s) linear infinite;
+}
+.mast-scenic.mast-scene-night .mast-motion-plane-dot,
+.mast-scenic.mast-scene-cloudynight .mast-motion-plane-dot {
+  animation: mast-plane-blink 2.2s ease-in-out infinite;
+}
+
+/* ── WATER. A reflection is not a point: it is a vertical smear that stretches
+   and shortens as the swell moves under it. Scaling Y as well as fading is the
+   whole difference between water and a lamp on a hillside. ── */
+.mast-motion-water {
+  position: absolute; width: 9px; height: 24px; opacity: 0;
+  mix-blend-mode: screen; border-radius: 50%;
+  transform: translate(-50%, -50%) scaleY(0.82);
+  background: linear-gradient(180deg,
+    transparent 0%, rgba(255,206,140,0.30) 22%, rgba(255,222,168,0.55) 50%,
+    rgba(255,206,140,0.26) 78%, transparent 100%);
+}
+@keyframes mast-ripple {
+  0%, 100% { opacity: 0.10; transform: translate(-50%, -50%) scaleY(0.80); }
+  50%      { opacity: 0.52; transform: translate(-50%, -50%) scaleY(1.20); }
+}
+.mast-scenic.mast-scene-night .mast-motion-water,
+.mast-scenic.mast-scene-cloudynight .mast-motion-water {
+  animation: mast-ripple var(--d, 6s) ease-in-out var(--dl, 0s) infinite;
+}
+
+/* ── BEAM. One city, one landmark. Anchored at its apex and grown upward with
+   transform-origin at the bottom, so it reads as light leaving the building
+   rather than a bar dropped onto the sky. It breathes rather than blinks: the
+   real thing is a steady shaft that the atmosphere thickens and thins. ── */
+.mast-motion-beam {
+  position: absolute; opacity: 0; mix-blend-mode: screen;
+  transform: translateX(-50%) translateY(-100%) scaleY(0.94);
+  transform-origin: 50% 100%;
+  /* Cross-section ACROSS the shaft, not along it. A vertical-only gradient
+     leaves hard left and right edges and the whole thing reads as a grey
+     rectangle; the softness has to be horizontal, with the length falloff
+     handled by the mask instead. */
+  background: linear-gradient(90deg, transparent 0%, rgba(206,226,255,0.34) 30%,
+    rgba(232,243,255,0.72) 50%, rgba(206,226,255,0.34) 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(0deg, #000 0%, rgba(0,0,0,0.42) 46%, transparent 100%);
+  mask-image: linear-gradient(0deg, #000 0%, rgba(0,0,0,0.42) 46%, transparent 100%);
+  /* Beams spread with distance, so the shaft is narrow where it leaves the
+     apex and wider at altitude. */
+  clip-path: polygon(41% 100%, 59% 100%, 72% 0%, 28% 0%);
+  filter: blur(0.4px);
+}
+@keyframes mast-beam {
+  0%, 100% { opacity: 0.30; transform: translateX(-50%) translateY(-100%) scaleY(0.92); }
+  50%      { opacity: 0.62; transform: translateX(-50%) translateY(-100%) scaleY(1.04); }
+}
+.mast-scenic.mast-scene-night .mast-motion-beam,
+.mast-scenic.mast-scene-cloudynight .mast-motion-beam {
+  animation: mast-beam 7.4s ease-in-out infinite;
+}
+
+/* ── BRIDGE. Two parts. The deck string shimmers with a delay that rises along
+   the span, so the brightening travels the bridge slowly instead of chasing
+   like a marquee. Then traffic runs both ways on a rail rotated to the deck's
+   real angle, warm headlights one way and red tail lights the other. ── */
+.mast-motion-decklight {
+  position: absolute; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(circle,
+    rgba(255,206,142,0.92) 0%, rgba(255,176,96,0.30) 32%, transparent 68%);
+}
+@keyframes mast-deck {
+  0%, 100% { opacity: 0.14; }
+  50%      { opacity: 0.46; }
+}
+.mast-scenic.mast-scene-night .mast-motion-decklight,
+.mast-scenic.mast-scene-cloudynight .mast-motion-decklight {
+  animation: mast-deck 5.6s ease-in-out var(--dl, 0s) infinite;
+}
+.mast-motion-deck {
+  position: absolute; height: 0;
+  transform-origin: 0 50%; transform: rotate(var(--angle, 0deg));
+}
+.mast-motion-car {
+  position: absolute; top: -1px; width: 15px; height: 2px;
+  border-radius: 2px; opacity: 0; mix-blend-mode: screen;
+}
+/* Elongated, because at this distance a moving vehicle is a short trail rather
+   than a dot. The trail tapers behind the direction of travel. */
+.mast-motion-car-west {
+  background: linear-gradient(90deg, rgba(255,238,206,0.85) 0%, rgba(255,214,150,0.20) 70%, transparent 100%);
+}
+.mast-motion-car-east {
+  background: linear-gradient(270deg, rgba(255,138,110,0.75) 0%, rgba(226,96,74,0.18) 70%, transparent 100%);
+}
+@keyframes mast-car-west { 0% { left: 100%; opacity: 0; } 6%, 90% { opacity: 1; } 100% { left: -3%; opacity: 0; } }
+@keyframes mast-car-east { 0% { left: -3%; opacity: 0; } 6%, 90% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+.mast-scenic.mast-scene-night .mast-motion-car-west,
+.mast-scenic.mast-scene-cloudynight .mast-motion-car-west {
+  animation: mast-car-west var(--dur, 9s) linear var(--dl, 0s) infinite;
+}
+.mast-scenic.mast-scene-night .mast-motion-car-east,
+.mast-scenic.mast-scene-cloudynight .mast-motion-car-east {
+  animation: mast-car-east var(--dur, 13s) linear var(--dl, 0s) infinite;
+}
+
+/* Motion is decoration, so reduced motion removes it outright rather than
+   slowing it down. The card is complete without it. */
+@media (prefers-reduced-motion: reduce) {
+  .mast-motion-bolt, .mast-motion-light, .mast-motion-beacon, .mast-motion-plane,
+  .mast-motion-plane-dot, .mast-motion-water, .mast-motion-decklight, .mast-motion-car,
+  .mast-motion-beam {
+    animation: none !important; opacity: 0 !important;
+  }
+}
+
+
+
 /* Legibility over artwork: the weather caption and milestone sit in the
    detailed half of the scene, so light scenes lift them with a soft white
    glow and the night card grounds them with a dark one. Scene classes exist
