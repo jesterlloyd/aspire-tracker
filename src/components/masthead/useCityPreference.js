@@ -5,26 +5,49 @@
 // module-level listener set. Writing it notifies every masthead on the page at
 // once (staff card and portal card alike) - no context provider, no prop
 // threading through hosts that never cared about scenery.
+//
+// MASTHEAD-CITY-PER-USER-1: the value is stored per signed-in user, so the hook
+// needs the user id. It reads it from AuthContext, which main.jsx mounts above
+// both the staff app and every portal, rather than taking a prop: the masthead
+// is rendered by hosts that have no reason to know about identity.
 
 import { useEffect, useState } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
 import { AUTO, readCityPreference, writeCityPreference } from '../../lib/mastheadCityPreference'
 
 const listeners = new Set()
 
 export function useCityPreference() {
-  const [city, setCity] = useState(() => readCityPreference())
+  const { user } = useAuth()
+  const userId = user?.id || null
+  const [city, setCity] = useState(() => readCityPreference(userId))
+
+  // Re-read whenever the account changes. This is the shared-workstation case
+  // the per-user key exists for: signing out and back in as someone else does
+  // not necessarily remount this hook, and without this the new user would keep
+  // looking at the previous user's city until the page happened to reload.
+  //
+  // Adjusted DURING RENDER rather than in an effect. React documents this as the
+  // way to reset state when an input changes ("You Might Not Need an Effect");
+  // the effect version sets state after paint, which both trips the repo's
+  // set-state-in-effect rule and shows the previous account's city for a frame.
+  const [seenUser, setSeenUser] = useState(userId)
+  if (seenUser !== userId) {
+    setSeenUser(userId)
+    setCity(readCityPreference(userId))
+  }
 
   useEffect(() => {
     const onChange = (next) => setCity(next)
     listeners.add(onChange)
     // Another tab changing the preference should reach this one too.
-    const onStorage = () => setCity(readCityPreference())
+    const onStorage = () => setCity(readCityPreference(userId))
     window.addEventListener('storage', onStorage)
     return () => { listeners.delete(onChange); window.removeEventListener('storage', onStorage) }
-  }, [])
+  }, [userId])
 
   const choose = (next) => {
-    writeCityPreference(next)
+    writeCityPreference(userId, next)
     const value = next || AUTO
     for (const fn of listeners) fn(value)
   }

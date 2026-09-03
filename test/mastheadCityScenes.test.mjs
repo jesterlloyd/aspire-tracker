@@ -94,10 +94,10 @@ test('proximity cities carry sane coordinates', () => {
 
 // ── MASTHEAD-SCENE-4: the viewer's chosen scenery city ───────────────────────
 
-test('the city preference is artwork-only, per browser, and defaults to automatic', async () => {
-  const { AUTO, cityOptions, cityDisplayName, CITY_PREF_KEY } = await import('../src/lib/mastheadCityPreference.js')
+test('the city preference is artwork-only, and defaults to automatic', async () => {
+  // Per-user storage is asserted in test/mastheadCityPerUser.test.mjs.
+  const { AUTO, cityOptions, cityDisplayName } = await import('../src/lib/mastheadCityPreference.js')
   assert.equal(AUTO, 'auto')
-  assert.equal(CITY_PREF_KEY, 'aspire_masthead_city_v1')
   assert.equal(cityDisplayName('lasvegas'), 'Las Vegas')
   assert.equal(cityDisplayName('losangeles'), 'Los Angeles')
   // Automatic always leads; installed packs follow in display order.

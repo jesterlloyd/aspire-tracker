@@ -34,6 +34,33 @@ export const lastNgrpTabKey = (userId) => `aspire:lastNgrpTab:${userId}`
 export const aspireCohortKey = (userId) => `aspire:activeCohort:${userId}`
 
 /**
+ * The chosen masthead city (MASTHEAD-CITY-PER-USER-1).
+ *
+ * Per user for the reason this whole module exists: shared workstations are normal
+ * on a unit, and before this the city lived under one flat browser-wide key, so the
+ * next person to sign in inherited whoever last used the machine. They could change
+ * it, but it was not theirs. Choosing a city is an act of preference and every
+ * viewer is entitled to their own.
+ *
+ * Deliberately NOT cleared on sign-out, for exactly the cohort's reason: this is
+ * WHAT YOU PREFER, not WHERE YOU WERE. It already falls back to Automatic when
+ * unset, so clearing it each sign-in would discard a deliberate choice.
+ *
+ * 'anon' covers the signed-out card. It is a real bucket rather than a leak: nobody
+ * signed in ever reads it, and it keeps the picker working before authentication
+ * resolves instead of flipping the artwork once the user id arrives.
+ */
+export const mastheadCityKey = (userId) => `aspire:mastheadCity:${userId || 'anon'}`
+
+/**
+ * The pre-namespacing masthead city key. Read ONCE per browser, adopted by the first
+ * account to sign in after the change, and then removed, so a machine's own user
+ * keeps the city they picked while everyone after them starts clean. Kept only as a
+ * migration source; nothing writes it any more.
+ */
+export const LEGACY_MASTHEAD_CITY_KEY = 'aspire_masthead_city_v1'
+
+/**
  * Which account was last active in THIS browser. Not per-user by definition: it is how
  * a DIFFERENT account signing in is detected (AUTH-UX-1B).
  */
