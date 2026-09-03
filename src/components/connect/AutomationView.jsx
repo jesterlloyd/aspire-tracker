@@ -378,7 +378,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
   // Pessimistic global toggle: disable while PATCH pending, apply returned setting to cache
   // immediately, then background-refetch to confirm server truth.
   const [savingKey, setSavingKey] = useState(null)
-  // Email preview drawer: the card whose synthetic email preview is open (null = closed).
+  // Email Preview drawer: the card whose synthetic email preview is open (null = closed).
   const [previewCard, setPreviewCard] = useState(null)
   const handleToggleControl = async (automationKey, val) => {
     if (savingKey) return
@@ -544,7 +544,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
         >Outreach › Sent History</button>
       </div>
 
-      {/* Email preview drawer - synthetic data, client-side render, sandboxed iframe. */}
+      {/* Email Preview drawer - synthetic data, client-side render, sandboxed iframe. */}
       {previewCard && (
         <AutomationEmailPreviewDrawer
           title={previewCard.title}

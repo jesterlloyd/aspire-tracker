@@ -169,7 +169,7 @@ test('unsubscribe is a real, validated control', () => {
 })
 
 test('the preferences UI exposes every type and explains the scope of the setting', () => {
-  assert.match(portal, /Notification preferences/)
+  assert.match(portal, /Notification Preferences/)
   assert.match(portal, /toggle\(p\.alert_type, e\.target\.checked\)/)
   assert.match(portal, /await setNotificationPreference\(alertType, next\)/)
   assert.match(portal, /These settings control email only/)

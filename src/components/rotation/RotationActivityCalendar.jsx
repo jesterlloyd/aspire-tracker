@@ -293,7 +293,7 @@ export default function RotationActivityCalendar({
 
   return (
     <CanonicalCalendarLayout
-      title="Rotation activity"
+      title="Rotation Activity"
       titleVisuallyHidden
       labelledBy="rotation-activity-cal-title"
       sidebar={sidebar}

@@ -438,7 +438,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const interviewerProfilesByName = interviewer_unit_data?.interviewerProfilesByName || {}
   const availUnits   = interviewer_unit_data?.availUnits   || []
 
-  // Unit availability snapshot for the student's 3 preferences - cached per student+cohort+prefs
+  // Unit Availability snapshot for the student's 3 preferences - cached per student+cohort+prefs
   const { data: unitAvailability = [null, null, null], isLoading: availLoading, refetch: loadUnitAvailability } = useQuery({
     queryKey: ['unit_availability', cohortId, student.id,
       student.unit_preference_1, student.unit_preference_2, student.unit_preference_3],

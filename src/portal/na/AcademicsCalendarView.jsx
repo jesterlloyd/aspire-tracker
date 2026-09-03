@@ -9,7 +9,7 @@
 //
 // DATES ARE CANONICAL. Every window comes from cohort_school_rotations via
 // the server endpoint; the 1900-01-01 sentinel and missing dates arrive as
-// has_dates=false and render in the "Needs dates" data-quality panel: they
+// has_dates=false and render in the "Needs Dates" data-quality panel: they
 // are never plotted, never silently omitted.
 //
 // COLOR CONSISTENCY. schoolColor() hashes the canonical school identity, so
@@ -108,7 +108,7 @@ export default function AcademicsCalendarView({ active = true }) {
 
   // FY/cohort/school/program filters. The FY filter cannot apply to a rotation
   // without dates, so dateless rotations are governed by the other filters
-  // only and always surface in the Needs dates panel.
+  // only and always surface in the Needs Dates panel.
   const matchesShared = useCallback((r) =>
     (!cohortFilter || r.cohort_id === cohortFilter) &&
     (!schoolFilter || r.school === schoolFilter) &&
@@ -192,7 +192,7 @@ export default function AcademicsCalendarView({ active = true }) {
       <section aria-labelledby="na-fy-summary-heading">
         <div className="ptl-na-section-heading">
           <div>
-            <h2 id="na-fy-summary-heading">Fiscal-year impact</h2>
+            <h2 id="na-fy-summary-heading">Fiscal-Year Impact</h2>
             <p>{benefit?.fiscal_year_label} · July {benefit?.fiscal_year - 1} through June {benefit?.fiscal_year}</p>
           </div>
         </div>
@@ -233,7 +233,7 @@ export default function AcademicsCalendarView({ active = true }) {
         sidebar={(
           <CanonicalCalendarSidebar>
             <div className="ptl-na-legend">
-              <h3>Schools this month</h3>
+              <h3>Schools This Month</h3>
               {legendSchools.length === 0 && <p className="ptl-na-legend-empty">No rotations in view.</p>}
               <ul>
                 {legendSchools.map(s => (
@@ -320,7 +320,7 @@ export default function AcademicsCalendarView({ active = true }) {
 
       {needsDates.length > 0 && (
         <section className="ptl-card ptl-na-quality" aria-labelledby="na-needs-dates-heading">
-          <h2 id="na-needs-dates-heading">Needs dates</h2>
+          <h2 id="na-needs-dates-heading">Needs Dates</h2>
           <p>
             These school rotations have no confirmed start and end dates yet (pending
             coordinator or admin review), so they cannot be placed on the calendar.

@@ -78,7 +78,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
             <thead>
               <tr style={{ background: 'var(--sand)' }}>
                 {['Shift #', 'Date', 'Hrs', 'Unit', 'Preceptor', 'Type', 'Status', 'Details', ''].map(h => (
-                  <th key={h} style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, color: '#6b7280', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, color: '#6b7280', fontSize: 'var(--aspire-th-size)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>

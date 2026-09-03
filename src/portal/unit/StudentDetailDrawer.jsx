@@ -195,7 +195,7 @@ export default function StudentDetailDrawer({
   // over the student currently on screen, because the ids will not match.
   const [detail, setDetail] = useState({ forId: null, status: 'loading', data: null })
   const [milestones, setMilestones] = useState({ forId: null, status: 'loading', rows: [] })
-  // Clinical hours + logged shifts, through the role-safe unit-scoped endpoint. Same forId
+  // Clinical Hours + logged shifts, through the role-safe unit-scoped endpoint. Same forId
   // pattern as detail/milestones: loading is derived, never a synchronous setState in an
   // effect. `reloadShifts` re-runs the fetch for the Try-again affordance.
   const [shiftData, setShiftData] = useState({ forId: null, status: 'loading', hours: null, rows: [] })
@@ -221,7 +221,7 @@ export default function StudentDetailDrawer({
     return () => { live = false; ac.abort() }
   }, [studentId, assignmentRefreshKey])
 
-  // Milestone history, through the authorized unit-scoped endpoint, narrowed to this
+  // Milestone History, through the authorized unit-scoped endpoint, narrowed to this
   // student in the browser. The server has already bounded the set to the caller's
   // units, so this filter is presentation and never authorization.
   useEffect(() => {
@@ -237,7 +237,7 @@ export default function StudentDetailDrawer({
     return () => { live = false; ac.abort() }
   }, [studentId, unitKey])
 
-  // Clinical hours + logged shifts.
+  // Clinical Hours + logged shifts.
   useEffect(() => {
     if (!studentId) return undefined
     const ac = new AbortController()
@@ -404,7 +404,7 @@ export default function StudentDetailDrawer({
 
               {/* Clinical Hours: the canonical calc + status chips, role-safe (no support text,
                   no internal review reason, no ShiftDetailsModal). */}
-              <h3 className="ptl-detail-heading">Clinical hours</h3>
+              <h3 className="ptl-detail-heading">Clinical Hours</h3>
               <UnitClinicalHours
                 hours={shiftData.forId === studentId ? shiftData.hours : null}
                 shifts={shiftData.forId === studentId ? shiftData.rows : []}
@@ -413,10 +413,10 @@ export default function StudentDetailDrawer({
                 onRetry={() => setShiftNonce(n => n + 1)}
               />
 
-              <h3 className="ptl-detail-heading">Milestone history</h3>
+              <h3 className="ptl-detail-heading">Milestone History</h3>
               {milestoneStatus === 'loading' && <LoadingState label="Loading milestone history" />}
               {milestoneStatus === 'error' && (
-                <ErrorState detail="Milestone history could not be loaded just now." />
+                <ErrorState detail="Milestone History could not be loaded just now." />
               )}
               {milestoneStatus === 'ready' && milestones.rows.length === 0 && (
                 <EmptyState title="No milestones yet"

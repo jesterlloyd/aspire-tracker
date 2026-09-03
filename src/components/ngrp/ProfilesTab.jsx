@@ -120,7 +120,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
     () => deriveApplicantRows(payload?.students || [], payload?.candidates || []),
     [payload])
 
-  // Cohort timeline order from the mapped source cohorts (start_date order,
+  // Cohort Timeline order from the mapped source cohorts (start_date order,
   // resolved server-side from the cohorts table).
   const cohortOrder = useMemo(
     () => Object.fromEntries(sourceCohorts.map((c, i) => [c.name, i])),

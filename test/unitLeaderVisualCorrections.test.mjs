@@ -167,7 +167,7 @@ test('the avatar menu shows exactly Profile, Public site, Sign out for a Unit Le
   assert.match(shell, /onProfile\s*\n?\s*\?\s*<button[\s\S]*?Profile<\/button>/)
   assert.match(shell, /Public site/)
   assert.match(shell, /Sign out/)
-  // Notification preferences must NOT be in the avatar menu.
+  // Notification Preferences must NOT be in the avatar menu.
   assert.ok(!shell.includes('Notification'), 'the avatar menu must not carry notification preferences')
 })
 
@@ -193,7 +193,7 @@ test('mobile More holds exactly Evaluations, Placement Requests, and Capacity', 
 
 test('there is exactly one Notification Preferences destination', () => {
   const profile = portalCode.slice(portalCode.indexOf('function ProfileScreen'))
-  assert.match(profile, /Notification preferences/)
+  assert.match(profile, /Notification Preferences/)
   assert.ok(!chromeCode.includes("'notifications'"))
   assert.ok(!shell.includes('Notification'))
 })

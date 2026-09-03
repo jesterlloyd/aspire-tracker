@@ -465,7 +465,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
           A record of shifts already logged, never a forward schedule. The unit filter
           sits where the portal leaves an empty toolbar slot. */}
       <SectionHeader
-        title="Rotation activity"
+        title="Rotation Activity"
         subtitle="Shifts students have logged, by day. Select a day to list it, then a shift to open its details."
       />
       <RotationActivityCalendar

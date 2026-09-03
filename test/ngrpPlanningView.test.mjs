@@ -163,8 +163,8 @@ test('rule summaries state every rule that is on, and omit the ones that are off
 
 test('the six configuration cards left Planning INTACT - not dropped in transit', () => {
   for (const card of [
-    'Residency cohort basics', 'ASPIRE cohorts participating', 'Participating units',
-    'Eligibility rules', 'Required application checklist', 'Retention benchmarks',
+    'Residency Cohort Basics', 'ASPIRE Cohorts Participating', 'Participating Units',
+    'Eligibility Rules', 'Required Application Checklist', 'Retention Benchmarks',
   ]) {
     assert.match(settings, new RegExp(`title="${card}"`), `${card} survived the move`)
     assert.doesNotMatch(planning, new RegExp(`title="${card}"`), `${card} does not ALSO remain in Planning`)

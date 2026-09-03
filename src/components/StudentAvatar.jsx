@@ -51,6 +51,10 @@ export default function StudentAvatar({ student, size = 34, style: extraStyle })
       {hasPhoto ? (
         <img
           src={signedUrl}
+          width={size}
+          height={size}
+          decoding="async"
+          loading="lazy"
           alt={`${first} ${last}`}
           onError={() => setErroredUrl(signedUrl)}
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}

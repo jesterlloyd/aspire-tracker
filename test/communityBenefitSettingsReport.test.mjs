@@ -90,7 +90,7 @@ test('Settings CSV stays aggregate-only and refuses staff without community bene
 
 test('Settings Community Benefit presents modal actions, compact inputs, the full report, and history in the approved order', () => {
   const panel = read('src/components/settings/CommunityBenefitPanel.jsx')
-  const inputsIndex = panel.indexOf('Reporting inputs')
+  const inputsIndex = panel.indexOf('Reporting Inputs')
   const reportIndex = panel.indexOf('<CommunityBenefitView')
   const historyIndex = panel.indexOf('Reporting history')
   assert.ok(inputsIndex > 0 && inputsIndex < reportIndex)

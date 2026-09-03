@@ -40,8 +40,10 @@ test('the redundant lower unit label is removed; the upper "Unit · X" context s
 
 test('the taskbar-to-tabs gap is reduced (compact, like the main app)', () => {
   // Base and desktop top padding on the shared portal main are tighter than before (24/28px).
-  assert.match(css, /\.ptl-main \{ flex: 1; width: 100%; margin: 0 auto; padding: 16px 24px 40px; \}/)
-  assert.match(css, /\.ptl-main \{ width: 94vw; max-width: 1500px; padding: 14px 0 40px; \}/)
+  // UI-CONSISTENCY-1: the top offset is the shared --aspire-page-top token (24px), the
+  // same distance the staff app puts between its section nav and its first card.
+  assert.match(css, /\.ptl-main \{ flex: 1; width: 100%; margin: 0 auto; padding: var\(--aspire-page-top, 24px\) 24px 40px; \}/)
+  assert.match(css, /\.ptl-main \{ width: 94vw; max-width: 1500px; padding: var\(--aspire-page-top, 24px\) 0 40px; \}/)
   // Tabs keep their accessible 44px touch target (unchanged).
   assert.match(css, /\.ptl-nav-item \{[\s\S]*?min-height: 44px/)
 })

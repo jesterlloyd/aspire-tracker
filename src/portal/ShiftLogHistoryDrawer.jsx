@@ -185,13 +185,13 @@ export default function ShiftLogHistoryDrawer({
         className="ptl-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label="Shift log history"
+        aria-label="Shift Log History"
         data-testid="shift-history-drawer"
         ref={panelRef}
         tabIndex={-1}
       >
         <div className="ptl-drawer-head">
-          <h2 className="ptl-drawer-title">Shift log history</h2>
+          <h2 className="ptl-drawer-title">Shift Log History</h2>
           <button className="ptl-icon-btn" onClick={onClose} aria-label="Close shift log history">
             <X size={18} />
           </button>

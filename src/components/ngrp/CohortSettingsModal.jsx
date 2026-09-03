@@ -230,7 +230,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
     const res = await postNgrpManage('units_set', { cycle_id: serverCycle.id, units: unitsToSave(units) })
     setSaving(null)
     if (!res.ok) { toast?.error?.('Not saved', errText(res.errors) || 'The unit list could not be saved.'); return }
-    toast?.success?.('Participating units updated', 'The Transition Form ranked-preference list reflects the change.')
+    toast?.success?.('Participating Units updated', 'The Transition Form ranked-preference list reflects the change.')
     invalidate()
     refetch()
   }
@@ -253,7 +253,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
     <div>
       {/* 1 · Basics */}
       <Card
-        title="Residency cohort basics" dirty={Boolean(basicsDirty)} saving={saving === 'cycle'}
+        title="Residency Cohort Basics" dirty={Boolean(basicsDirty)} saving={saving === 'cycle'}
         onSave={requestSaveBasics} onDiscard={() => { setBasics(cycleBasics(serverCycle)); setFieldErrors({}) }}
         footNote="Status is an explicit staff action - a cohort never opens automatically when a date arrives."
       >
@@ -302,7 +302,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
 
       {/* 2 · ASPIRE cohorts participating */}
       <Card
-        title="ASPIRE cohorts participating" dirty={sourcesDirty} saving={saving === 'sources'}
+        title="ASPIRE Cohorts Participating" dirty={sourcesDirty} saving={saving === 'sources'}
         onSave={requestSaveSources} onDiscard={() => setSourceIds((data.sourceCohorts || []).map(c => c.id))}
         footNote="Applicants shows every Completed student across these cohorts (chronological below). No cohort or student data is duplicated - this is a mapping only."
       >
@@ -330,9 +330,9 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
         </div>
       </Card>
 
-      {/* 3 · Participating units */}
+      {/* 3 · Participating Units */}
       <Card
-        title="Participating units" dirty={unitsDirty} saving={saving === 'units'}
+        title="Participating Units" dirty={unitsDirty} saving={saving === 'units'}
         onSave={saveUnits} onDiscard={() => setUnits(unitRoster(data))}
         saveDisabledReason={missingSpots.length
           ? `Set the number of new grads being hired for ${missingSpots.join(', ')} before saving.`
@@ -353,7 +353,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
             grouped on the org chart and therefore where someone looks for one.
             The group order doubles as the order the Transition Form offers the
             picked units in. */}
-        <div className="ngrp-unitdivs" role="group" aria-label="Participating units">
+        <div className="ngrp-unitdivs" role="group" aria-label="Participating Units">
           {unitRosterByDivision(units).map(group => (
             <div key={group.division} className="ngrp-unitdiv">
               <div className="ngrp-unitdiv-name">{group.division}</div>
@@ -405,10 +405,10 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
         </p>
       </Card>
 
-      {/* 4 · Eligibility rules */}
+      {/* 4 · Eligibility Rules */}
       <Card
-        title="Eligibility rules" dirty={rulesDirty} saving={saving === 'cycle'}
-        onSave={() => saveCycle('Eligibility rules')} onDiscard={() => setRules(rulesOf(serverCycle))}
+        title="Eligibility Rules" dirty={rulesDirty} saving={saving === 'cycle'}
+        onSave={() => saveCycle('Eligibility Rules')} onDiscard={() => setRules(rulesOf(serverCycle))}
         footNote="Results are always explainable per rule - never a score - and optional support participation is never an input. Recalculation runs automatically when these rules or the cohort dates change."
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px 16px' }}>
@@ -444,7 +444,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
 
       {/* 5 · Application checklist */}
       <Card
-        title="Required application checklist" dirty={checklistDirty} saving={saving === 'cycle'}
+        title="Required Application Checklist" dirty={checklistDirty} saving={saving === 'cycle'}
         onSave={() => saveCycle('Application checklist')} onDiscard={() => setExtras(checklistExtrasOf(serverCycle))}
         footNote="Shown to alumni in the Transition Form as an application-readiness snapshot. Structured items, not free text."
       >
@@ -452,7 +452,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
             official application requirements, so they are shown as what they are
             rather than as five editable rows one click from being deleted out of
             the alumni-facing form. */}
-        <div className="ngrp-cl-kicker">Official program requirements</div>
+        <div className="ngrp-cl-kicker">Official Program Requirements</div>
         <ul className="ngrp-cl-official">
           {DEFAULT_APPLICATION_CHECKLIST.map(item => (
             <li key={item.key}>
@@ -466,7 +466,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
           Transition Form as a readiness snapshot, not as the application itself.
         </p>
 
-        <div className="ngrp-cl-kicker" style={{ marginTop: 16 }}>Additional items for this cohort</div>
+        <div className="ngrp-cl-kicker" style={{ marginTop: 16 }}>Additional Items for This Cohort</div>
         {extras.length === 0 && (
           <p style={{ margin: '0 0 8px', fontSize: 12.5, color: '#9CA3AF', fontFamily: F }}>
             None. Add anything this cohort needs beyond the requirements above.
@@ -489,10 +489,10 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
         </button>
       </Card>
 
-      {/* 6 · Retention benchmarks */}
+      {/* 6 · Retention Benchmarks */}
       <Card
-        title="Retention benchmarks" dirty={benchmarksDirty} saving={saving === 'cycle'}
-        onSave={() => saveCycle('Retention benchmarks')} onDiscard={() => setBenchmarks(benchmarksOf(serverCycle))}
+        title="Retention Benchmarks" dirty={benchmarksDirty} saving={saving === 'cycle'}
+        onSave={() => saveCycle('Retention Benchmarks')} onDiscard={() => setBenchmarks(benchmarksOf(serverCycle))}
         footNote="Configuration only for this release - the Evaluation dashboard reads these in a later phase."
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px 16px' }}>

@@ -52,6 +52,10 @@ export default function UnitStudentAvatar({ url, name, size = 44, style }) {
         <img
           src={url}
           alt=""
+          width={size}
+          height={size}
+          decoding="async"
+          loading="lazy"
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           // Render-driven: a load error flips to initials on the next render rather
           // than hiding the element behind React's back.

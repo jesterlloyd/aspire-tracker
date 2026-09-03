@@ -13,11 +13,11 @@ import { dirname, join } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const src = readFileSync(join(here, '../src/components/settings/AccountDetailsDrawer.jsx'), 'utf8')
 
-test('Account details drawer', async (t) => {
+test('Account Details drawer', async (t) => {
   await t.test('is an accessible dialog with a title', () => {
     assert.match(src, /role="dialog"/)
     assert.match(src, /aria-modal="true"/)
-    assert.match(src, /aria-label=\{`Account details for /)
+    assert.match(src, /aria-label=\{`Account Details for /)
   })
 
   await t.test('manages focus: moves in, traps Tab, returns on close', () => {

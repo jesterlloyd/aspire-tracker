@@ -4,7 +4,7 @@
 //
 // THIS IS A RECORD, NOT A SCHEDULE. ASPIRE has no scheduled-shift data: a shift
 // row is created when a student checks in, and a future shift_date is rejected by
-// the submit endpoint. The UI says "Rotation activity", never "Schedule".
+// the submit endpoint. The UI says "Rotation Activity", never "Schedule".
 //
 // PROPS ONLY. This component fetches nothing and knows no authorization. Shifts
 // arrive already scoped and already field-filtered by api/portal/unit-shift-activity.js.
@@ -213,7 +213,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
 
   return (
     <CanonicalCalendarLayout
-      title="Rotation activity"
+      title="Rotation Activity"
       titleVisuallyHidden
       labelledBy="ul-cal-title"
       sidebar={sidebar}
@@ -229,7 +229,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
         <p className="ptl-muted" role="status">Loading rotation activity</p>
       ) : (
         <>
-          <div role="grid" aria-label={`Rotation activity for ${monthLabel(cursor.y, cursor.m)}`}>
+          <div role="grid" aria-label={`Rotation Activity for ${monthLabel(cursor.y, cursor.m)}`}>
             <CanonicalWeekdayHeader days={DOW} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {cells.map(({ ymd, inMonth }) => {

@@ -155,7 +155,7 @@ test('the branded staff email carries the canonical single-use wording', async (
   assert.match(html, /When a new link is issued, earlier activation links stop working, so always use the most recent email\./)
   assert.match(endpoint, /import \{ staffInvitationEmail \}/)
   assert.match(endpoint, /replyTo: EMAIL_REPLY_TO/)
-  // Staff access has no expiration, so the rendered email states none.
+  // Staff Access has no expiration, so the rendered email states none.
   assert.doesNotMatch(html, /portal access itself is available through/)
   assert.ok(!/\b\d+\s*(hour|hours|minute|minutes)\b/.test(staffMail),
     'the staff template must render the shared sentence, never a hardcoded duration')

@@ -170,10 +170,10 @@ export default function UnitEvaluationsWorkspace({ unitKeys = [] }) {
             />
           ) : (
             <>
-              <h3 className="ptl-card-title" style={{ margin: '4px 0 8px' }}>Quantitative averages</h3>
+              <h3 className="ptl-card-title" style={{ margin: '4px 0 8px' }}>Quantitative Averages</h3>
               <EvalMetricAverages averages={averages} />
 
-              <h3 className="ptl-card-title" style={{ margin: '20px 0 8px' }}>Individual responses</h3>
+              <h3 className="ptl-card-title" style={{ margin: '20px 0 8px' }}>Individual Responses</h3>
               <EvalQuantTable responses={responses} metricPaths={metricPaths} onOpen={openRow} />
             </>
           )}

@@ -107,10 +107,10 @@ export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onC
   return (
     <>
       <div onClick={() => !confirmRevoke && !busy && onClose?.()} style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,25,0.40)', zIndex: 1998 }} />
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-label={`Account details for ${title}`}
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label={`Account Details for ${title}`}
         style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: 460, zIndex: 1999, background: '#fff', boxShadow: '-8px 0 24px rgba(16,24,40,0.12)', display: 'flex', flexDirection: 'column', fontFamily: F }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#191919', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Account details</h2>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#191919', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Account Details</h2>
           <button type="button" data-drawer-initial onClick={onClose} aria-label="Close details" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#6b7280', display: 'flex' }}><X size={18} /></button>
         </div>
 
@@ -130,7 +130,7 @@ export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onC
           </div>
 
           {!isPortal && (
-            <Section title="Staff access">
+            <Section title="Staff Access">
               <dl style={row}>
                 <dt style={dt}>Staff role</dt><dd style={dd}>{displayRole(record)}</dd>
                 <dt style={dt}>Interviewer</dt><dd style={dd}>{record.can_conduct_interviews ? 'Enabled' : 'Not enabled'}</dd>
@@ -151,7 +151,7 @@ export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onC
           )}
 
           {isPortal && (
-            <Section title="Portal access">
+            <Section title="Portal Access">
               <dl style={row}>
                 <dt style={dt}>Portal role</dt><dd style={dd}>{PORTAL_ROLE_LABELS[record.portal_role] || record.portal_role}</dd>
                 <dt style={dt}>Status</dt><dd style={dd}><StatusBadge value={record.status} colorMap={PORTAL_STATUS_STYLES} /></dd>

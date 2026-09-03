@@ -1,0 +1,162 @@
+// test/uiConsistency.test.mjs
+//
+// UI-CONSISTENCY-1: one radius, one card edge, one gap, one first-card offset, one
+// table-header size and one secondary-nav hairline across the staff app and every portal.
+//
+// The root cause this guards against returning: src/styles/aspireBrand.css already held
+// the brand tokens, and only the portal imported it. The staff app never saw them, so
+// nineteen radii, 123 card-edge colours and 23 gaps grew in the gaps between files. The
+// property that matters is therefore not "the values are nice" but "both halves READ THE
+// SAME FILE", and everything below follows from that.
+
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const read = (p) => readFileSync(join(root, p), 'utf8')
+const rule = (css, sel) => {
+  const m = css.match(new RegExp('(?:^|\\n)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{([^}]*)\\}'))
+  return m ? m[1] : null
+}
+
+const brand = read('src/styles/aspireBrand.css')
+const index = read('src/index.css')
+const portal = read('src/portal/portal.css')
+const ngrp = read('src/components/ngrp/ngrp.css')
+const chart = read('src/styles/chartTokens.css')
+
+// ── One file, read by both halves ────────────────────────────────────────────
+
+test('the staff app imports the brand tokens the portal already read', () => {
+  assert.match(index, /@import '\.\/styles\/aspireBrand\.css';/)
+  assert.match(read('src/portal/PortalApp.jsx'), /import '\.\.\/styles\/aspireBrand\.css'/)
+})
+
+test('the tokens exist, once, with the decided values', () => {
+  for (const [name, value] of [
+    ['--aspire-radius-card', '12px'], ['--aspire-radius-control', '10px'],
+    ['--aspire-gap-card', '16px'], ['--aspire-page-top', '24px'], ['--aspire-th-size', '11px'],
+  ]) {
+    const hits = brand.match(new RegExp(`${name}:\\s*${value};`, 'g')) || []
+    assert.equal(hits.length, 1, `${name} must be declared exactly once as ${value}`)
+  }
+  assert.match(brand, /--aspire-shadow-card:/)
+  assert.match(brand, /--aspire-nav-line:/)
+})
+
+// ── Cards: token radius, no outline, shadow edge ─────────────────────────────
+
+const CARDS = [
+  ['staff', index, '.ov-panel '], ['staff', index, '.stat-card'], ['staff', index, '.snap'],
+  ['staff', index, '.mast'], ['staff', index, '.unit-card'], ['staff', index, '.matching-board'],
+  ['staff', index, '.canonical-calendar-shell'],
+  ['portal', portal, '.ptl-card'], ['portal', portal, '.ptl-rotation-switch'],
+  ['ngrp', ngrp, '.ngrp-roster'],
+]
+
+test('every card reads the radius token and none hard-codes a radius', () => {
+  for (const [side, css, sel] of CARDS) {
+    const body = rule(css, sel)
+    assert.ok(body, `${side} ${sel} rule must exist`)
+    assert.match(body, /border-radius:\s*var\(--(?:aspire-radius-card|ptl-radius)/, `${side} ${sel} reads the token`)
+    assert.doesNotMatch(body, /border-radius:\s*\d/, `${side} ${sel} hard-codes a radius`)
+  }
+  // The portal's own alias resolves to the shared token.
+  assert.match(portal, /--ptl-radius:\s*var\(--aspire-radius-card,\s*12px\)/)
+})
+
+test('every card has no outline and a shadow edge', () => {
+  for (const [side, css, sel] of CARDS) {
+    const body = rule(css, sel)
+    assert.match(body, /\bborder:\s*0;/, `${side} ${sel} must not draw an outline`)
+    assert.match(body, /box-shadow:\s*var\(--aspire-shadow-card/, `${side} ${sel} edge is the shadow`)
+  }
+})
+
+// ── Rhythm ───────────────────────────────────────────────────────────────────
+
+test('sibling cards share one gap and the first card one offset', () => {
+  assert.match(rule(index, '.ov-panels'), /gap:\s*var\(--aspire-gap-card\)/)
+  assert.match(rule(index, '.dashboard'), /gap:\s*var\(--aspire-gap-card\)/)
+  assert.match(rule(index, '.snap'), /margin:\s*var\(--aspire-gap-card\) 20px 0/)
+  assert.match(rule(index, '.mast'), /margin:\s*var\(--aspire-gap-card\) 20px 0/)
+  assert.match(rule(portal, '.ptl-grid'), /gap:\s*var\(--aspire-gap-card/)
+  // Staff: page column 8px + card's own 16px margin = 24. Portal: 24 directly. Same distance.
+  assert.match(rule(index, '.app-main'), /padding:\s*calc\(var\(--aspire-page-top\) - var\(--aspire-gap-card\)\) 0 0/)
+  assert.match(portal, /\.ptl-main \{[^}]*padding: var\(--aspire-page-top, 24px\) 24px 40px/)
+})
+
+// ── Table headers ────────────────────────────────────────────────────────────
+
+test('no table-header rule hard-codes a font size', () => {
+  for (const [name, css] of [['index.css', index], ['portal.css', portal], ['ngrp.css', ngrp]]) {
+    for (const m of css.matchAll(/(?:^|\n)([^\n{]*(?:\bth\b|thead|table-header|-th\b)[^\n{]*)\{([^}]*)\}/g)) {
+      const fs = m[2].match(/font-size:\s*([^;]+);/)
+      if (!fs) continue
+      // .iv-th-info is a 14px circular "i" glyph that sits INSIDE a header, not a header
+      // label; 9px is the right size for a glyph in a 14px circle. The selector heuristic
+      // above (anything with -th in it) is what caught it, not the rule.
+      if (/\.iv-th-info\b/.test(m[1])) continue
+      assert.match(fs[1], /var\(--aspire-th-size/, `${name} ${m[1].trim()} hard-codes ${fs[1]}`)
+    }
+  }
+  for (const f of ['src/portal/unit/UnitClinicalHours.jsx', 'src/components/ClinicalHoursPanel.jsx', 'src/components/AvailabilitySection.jsx']) {
+    assert.doesNotMatch(read(f), /<th[^>]*fontSize:\s*10\b/, `${f} inline header hard-codes 10px`)
+  }
+})
+
+// ── Secondary navs ───────────────────────────────────────────────────────────
+
+test('the staff workspace bar and the portal nav share one hairline', () => {
+  assert.match(rule(chart, '.chart-nav'), /border-bottom:\s*1px solid var\(--aspire-nav-line\)/)
+  assert.match(rule(portal, '.ptl-nav'), /border-bottom:\s*1px solid var\(--aspire-nav-line/)
+  // The navy app-level tab bar is deliberately untouched: it is brand chrome, not a section nav.
+  assert.match(rule(index, '.tab-bar'), /background:\s*var\(--nightfall\)/)
+})
+
+// ── Titles ───────────────────────────────────────────────────────────────────
+
+test('section, panel, card, chart and drawer titles are Title Case', () => {
+  const SMALL = new Set(['a','an','and','as','at','by','for','from','in','of','on','or','the','to','with','per','this'])
+  const titles = [
+    ['src/portal/na/CommunityBenefitView.jsx', 'Benefit Contribution by School'],
+    ['src/portal/na/AcademicsCalendarView.jsx', 'Fiscal-Year Impact'],
+    ['src/components/ngrp/AtAGlanceTab.jsx', 'Scope and Rules'],
+    ['src/components/ngrp/CohortSettingsModal.jsx', 'Official Program Requirements'],
+    ['src/components/settings/AccountDetailsDrawer.jsx', 'Account Details'],
+    ['src/components/settings/KeithUsagePanel.jsx', 'Anthropic Billing Reconciliation'],
+    ['src/portal/unit/StudentDetailDrawer.jsx', 'Milestone History'],
+    ['src/portal/UnitLeaderPortal.jsx', 'Notification Preferences'],
+    ['src/portal/StudentPortal.jsx', 'Approved Clinical Hours'],
+  ]
+  for (const [f, t] of titles) {
+    assert.ok(read(f).includes(t), `${f} must render ${JSON.stringify(t)}`)
+    for (const [i, w] of t.split(' ').entries()) {
+      const core = w.replace(/[^A-Za-z-]/g, '')
+      if (i > 0 && SMALL.has(core.toLowerCase())) continue
+      assert.match(core, /^[A-Z]/, `${JSON.stringify(t)}: ${w} should be capitalised`)
+    }
+  }
+  // Empty states and prompts stay sentence case on purpose; this one is pinned so a
+  // future sweep does not "fix" it into shouting.
+  assert.ok(read('src/portal/AcademicPartnerPortal.jsx').includes('No students match this filter'))
+})
+
+// ── Photos ───────────────────────────────────────────────────────────────────
+
+test('headshot images decode off the main thread and reserve their box', () => {
+  for (const f of ['src/components/StudentAvatar.jsx', 'src/portal/unit/UnitStudentAvatar.jsx']) {
+    const src = read(f)
+    assert.match(src, /decoding="async"/, `${f}`)
+    assert.match(src, /loading="lazy"/, `${f}`)
+    assert.match(src, /width=\{size\}\s*\n\s*height=\{size\}/, `${f} reserves its box so rows do not shift`)
+  }
+})
+
+test('no em dash in the token file or the new test', () => {
+  const EM = String.fromCharCode(0x2014)
+  for (const f of ['src/styles/aspireBrand.css', 'test/uiConsistency.test.mjs']) assert.ok(!read(f).includes(EM), f)
+})

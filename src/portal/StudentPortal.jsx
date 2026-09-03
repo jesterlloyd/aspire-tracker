@@ -383,7 +383,7 @@ export default function StudentPortal({
             <span className="ptl-section-icon" style={{ background: '#edf2e2', color: '#166534' }}><ClipboardCheck size={16} /></span>
             <h2 className="ptl-section-title">ASPIRE Status</h2>
           </div>
-          <ol className="ptl-timeline" aria-label="Your ASPIRE progress">
+          <ol className="ptl-timeline" aria-label="Your ASPIRE Progress">
             {timeline.steps.map(s => (
               <li key={s.key} className={`ptl-tl-step ptl-tl-${s.state}`}>
                 <span className="ptl-tl-mark" aria-hidden="true">{s.state === 'complete' ? '✓' : s.state === 'current' ? '●' : '○'}</span>
@@ -410,7 +410,7 @@ export default function StudentPortal({
                 <div className="ptl-stat"><span className="ptl-stat-num">{hours.remaining}</span><span className="ptl-stat-label">Remaining</span></div>
                 {hours.pending > 0 && <div className="ptl-stat"><span className="ptl-stat-num ptl-stat-pending">{hours.pending}</span><span className="ptl-stat-label">Pending review</span></div>}
               </div>
-              <div className="ptl-progress" role="progressbar" aria-label="Approved clinical hours"
+              <div className="ptl-progress" role="progressbar" aria-label="Approved Clinical Hours"
                 aria-valuenow={hours.pct} aria-valuemin={0} aria-valuemax={100}
                 aria-valuetext={`${hours.completed} of ${hours.required} approved hours, ${hours.pct} percent`}>
                 <div className="ptl-progress-fill" style={{ width: `${hours.pct}%` }} />
@@ -585,7 +585,7 @@ export default function StudentPortal({
           </div>
           {supportItems.length > 0 && (
             <div className="ptl-support-notes">
-              <div className="ptl-help-title">Your recent support notes</div>
+              <div className="ptl-help-title">Your Recent Support Notes</div>
               <ul className="ptl-list">
                 {supportItems.slice(0, 4).map(l => <li key={l.id}><span>{fmtDate(l.shift_date) || 'Recent'}: {l.support_needed}</span></li>)}
               </ul>

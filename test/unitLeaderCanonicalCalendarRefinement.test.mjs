@@ -105,7 +105,7 @@ test('responsive and accessible calendar shell guardrails are codified', () => {
   assert.match(sharedCss, /@media \(max-width: 760px\) \{[\s\S]*?\.canonical-calendar-shell \{[\s\S]*?grid-template-columns: 1fr/)
   assert.match(unitCalendar, /role="grid"/)
   assert.match(unitCalendar, /role="gridcell"/)
-  assert.match(unitCalendar, /aria-label=\{`Rotation activity for/)
+  assert.match(unitCalendar, /aria-label=\{`Rotation Activity for/)
   assert.match(unitCalendar, /aria-label="Mini rotation activity calendar"/)
   // The shared month cell carries the main-grid focus ring; the mini keeps its own.
   assert.match(sharedCss, /\.canonical-month-cell:focus-visible/)

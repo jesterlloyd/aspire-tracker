@@ -99,7 +99,7 @@ test('the home replaces duplicated surfaces', async (t) => {
 
   await t.test('Rotation Progress is the one hours and log surface with the authoritative total first', () => {
     assert.match(portal, /Rotation Progress/)
-    assert.doesNotMatch(portal, />Clinical hours<\/h2>|>Shift logs<\/h2>/)
+    assert.doesNotMatch(portal, />Clinical Hours<\/h2>|>Shift logs<\/h2>/)
     assert.match(portal, /Approved hours/)
   })
 })
@@ -161,7 +161,7 @@ test('Badge & Certificate security', async (t) => {
 
 test('accessibility and hygiene', async (t) => {
   await t.test('the hours progress bar is labeled and has value text', () => {
-    assert.match(portal, /role="progressbar" aria-label="Approved clinical hours"/)
+    assert.match(portal, /role="progressbar" aria-label="Approved Clinical Hours"/)
     assert.match(portal, /aria-valuetext=/)
   })
 

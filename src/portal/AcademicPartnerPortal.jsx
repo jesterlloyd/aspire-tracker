@@ -227,7 +227,7 @@ function StudentsView() {
 
   return (
     <div className="ptl-page ptl-ap-page">
-      <h1 className="ptl-visually-hidden">Academic Partner students</h1>
+      <h1 className="ptl-visually-hidden">Academic Partner Students</h1>
       <GreetingMasthead
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}

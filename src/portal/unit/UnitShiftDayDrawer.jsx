@@ -72,7 +72,7 @@ export default function UnitShiftDayDrawer({ ymd, shifts = [], onClose, returnFo
         className="ptl-drawer ptl-day-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label={`Rotation activity for ${fmtDay(ymd)}`}
+        aria-label={`Rotation Activity for ${fmtDay(ymd)}`}
       >
         <div className="ptl-drawer-head">
           <div style={{ minWidth: 0 }}>

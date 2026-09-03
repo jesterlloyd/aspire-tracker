@@ -122,7 +122,7 @@ test('no cohort list reads the free-text date column for order or label', () => 
   assert.doesNotMatch(intList, /start_date\.slice/)
 })
 
-// ── Participating units ──────────────────────────────────────────────────────
+// ── Participating Units ──────────────────────────────────────────────────────
 
 const DATA = {
   units: [
@@ -301,8 +301,8 @@ test('a cohort storing the column default is not a cohort with no checklist', ()
 test('the locked five are not rendered as disabled inputs', () => {
   // A greyed-out text field invites people to try to type in it. They are a
   // statement of what the program requires.
-  assert.match(settings, /Official program requirements/)
-  assert.match(settings, /Additional items for this cohort/)
+  assert.match(settings, /Official Program Requirements/)
+  assert.match(settings, /Additional Items for This Cohort/)
   assert.match(settings, /<ul className="ngrp-cl-official">/)
   assert.doesNotMatch(settings, /disabled[\s\S]{0,60}item\.label/)
 })

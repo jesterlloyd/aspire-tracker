@@ -182,7 +182,7 @@ function statusLine(w, counts) {
 // .rr-chip classes; the mobile select still spells badges out in text via statusLine.)
 
 // Navigation-only workflow row: a single native selection button (no per-row preview control).
-// Email preview is reached from the workspace Preview Email button. Enter/Space work natively.
+// Email Preview is reached from the workspace Preview Email button. Enter/Space work natively.
 //
 // EVAL-RR-RAIL-C-1 (Owner-approved Option C): one compact line per row. The recipient subtitle
 // is gone (the workspace title already carries the recipient badge) and the status prose is

@@ -343,15 +343,15 @@ export default function KeithUsagePanel() {
                 Success rate counts completed against errors only. Rate-limited, denied, and missing-data requests are tracked here as separate signals and do not affect it.
               </p>
 
-              <h3 style={SECTION_TITLE}>Model usage</h3>
+              <h3 style={SECTION_TITLE}>Model Usage</h3>
               <DataTable columns={MODEL_COLUMNS} rows={summary.models} getRowKey={m => m.model}
                 empty={<div style={{ padding: '20px 18px', fontSize: 13, color: secondary }}>No model calls in this period.</div>} />
 
-              <h3 style={SECTION_TITLE}>Keith workload</h3>
+              <h3 style={SECTION_TITLE}>Keith Workload</h3>
               <DataTable columns={WORKLOAD_COLUMNS} rows={summary.workloads} getRowKey={w => w.key}
                 empty={<div style={{ padding: '20px 18px', fontSize: 13, color: secondary }}>No workload activity in this period.</div>} />
 
-              <h3 style={SECTION_TITLE}>Recent usage</h3>
+              <h3 style={SECTION_TITLE}>Recent Usage</h3>
               <div style={{ overflowX: 'auto' }}>
                 <DataTable columns={RECENT_COLUMNS} rows={summary.recent} getRowKey={r => r.id}
                   empty={<div style={{ padding: '20px 18px', fontSize: 13, color: secondary }}>No requests in this period.</div>} />
@@ -363,7 +363,7 @@ export default function KeithUsagePanel() {
           )}
 
           {/* Provider reconciliation */}
-          <h3 style={SECTION_TITLE}>Anthropic billing reconciliation</h3>
+          <h3 style={SECTION_TITLE}>Anthropic Billing Reconciliation</h3>
           <SurfaceCard padding="16px 18px" style={{ fontSize: 13, color: 'var(--color-text-primary, #374151)' }}>
             <p style={{ margin: 0 }}>
               Figures on this page are <strong>estimates</strong>: ASPIRE prices its own recorded input and output

@@ -39,7 +39,9 @@ test('it is the SAME column the rest of the app uses', () => {
   // If either side of this pair changes, the workspace silently stops matching the
   // app again, which is exactly how this defect went unnoticed.
   const indexCss = read('src/index.css')
-  assert.match(indexCss, /\.snap \{[^}]*margin:\s*14px 20px/s, 'the At a Glance card inset')
+  // UI-CONSISTENCY-1: the vertical rhythm is the shared gap token now; the 20px
+  // horizontal inset, which is what this pair guards, is unchanged.
+  assert.match(indexCss, /\.snap \{[^}]*margin:\s*var\(--aspire-gap-card\) 20px 0/s, 'the At a Glance card inset')
   assert.match(indexCss, /\.mast-live-flush \{ margin-left: 0; margin-right: 0;/,
     'the opt-out that names the same column from the other side')
 })

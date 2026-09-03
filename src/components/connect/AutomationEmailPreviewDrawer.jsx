@@ -121,7 +121,7 @@ export default function AutomationEmailPreviewDrawer({ title, entry, onClose, fo
                 srcDoc={result.html}
                 sandbox=""
                 referrerPolicy="no-referrer"
-                title="Email preview"
+                title="Email Preview"
                 style={{ width: '100%', minHeight: 520, border: '1px solid #eee', borderRadius: 8, background: '#fff' }}
               />
 

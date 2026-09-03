@@ -60,7 +60,7 @@ test('every workflow still has a nav entry after the Phase 1 restructure', () =>
     assert.ok(chrome.includes(`label: '${label}'`), `nav must include ${label}`)
   }
   assert.ok(!chrome.includes("label: 'Profile'"), 'Profile lives in the avatar menu')
-  assert.ok(!chrome.includes("label: 'Notification preferences'"), 'preferences live inside Profile')
+  assert.ok(!chrome.includes("label: 'Notification Preferences'"), 'preferences live inside Profile')
   assert.ok(!chrome.includes("label: 'Report a Concern'"),
     'it is an action inside Messages, not a section')
 })

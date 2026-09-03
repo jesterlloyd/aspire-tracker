@@ -72,11 +72,11 @@ test('unit-student-shifts re-checks scope and returns only allowlisted fields', 
 })
 
 // ── the drawer wires the section from the authorized endpoint ─────────────────
-test('the profile drawer renders Clinical hours from the scoped shifts endpoint', () => {
+test('the profile drawer renders Clinical Hours from the scoped shifts endpoint', () => {
   const drawer = read('src/portal/unit/StudentDetailDrawer.jsx')
   assert.match(drawer, /import UnitClinicalHours from '\.\/UnitClinicalHours'/)
   assert.match(drawer, /getStudentShifts/)
-  assert.match(drawer, /<h3 className="ptl-detail-heading">Clinical hours<\/h3>/)
+  assert.match(drawer, /<h3 className="ptl-detail-heading">Clinical Hours<\/h3>/)
   assert.match(drawer, /<UnitClinicalHours/)
   // The staff editable profile panel is never mounted here.
   assert.ok(!drawer.includes('StudentSidePanel'))

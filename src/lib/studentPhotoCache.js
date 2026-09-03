@@ -10,8 +10,14 @@
 // remounts reuse the browser-cached image.
 //
 // Security:
-//   - Memory only. Never localStorage / sessionStorage / IndexedDB, so nothing
-//     survives a tab close, and no signed URL is persisted anywhere.
+//   - UI-CONSISTENCY-1 (Owner decision, 2026-09-03): entries are mirrored to
+//     sessionStorage so a fresh page load shows every headshot instantly instead of
+//     re-signing the roster. This REPLACES the earlier memory-only posture, and it is
+//     bounded the same three ways: sessionStorage dies with the tab (never localStorage
+//     or IndexedDB); every stored entry carries the authorization scope it was signed
+//     under and is ignored, then discarded, under any other scope; and every entry
+//     carries its own expiry, which is shorter than the server signed-URL lifetime. A
+//     read never trusts storage blindly: scope and expiry are checked on every peek.
 //   - The cache is scoped to an authorization context (see setStudentPhotoCacheScope).
 //     Changing user, role, or active state clears it, so a signed URL minted for one
 //     authorization context is never reused under another (no cross-user leakage,
@@ -31,6 +37,36 @@ const cache = new Map()    // key -> { url, expiresAt }
 const inflight = new Map() // key -> Promise<string|null>
 let scope = null           // current authorization scope token
 
+// sessionStorage mirror. Guarded everywhere: storage can be absent (SSR, tests), full,
+// or blocked, and none of that may ever break a render - the cache simply stays in memory.
+const STORE_KEY = 'aspire:studentPhotoCache:v1'
+function storage() {
+  try { return typeof sessionStorage !== 'undefined' ? sessionStorage : null } catch { return null }
+}
+function persist() {
+  const st = storage(); if (!st) return
+  try {
+    if (!scope || cache.size === 0) { st.removeItem(STORE_KEY); return }
+    const now = Date.now()
+    const entries = [...cache.entries()].filter(([, e]) => e.expiresAt > now)
+    st.setItem(STORE_KEY, JSON.stringify({ scope, entries }))
+  } catch { /* quota or privacy mode: memory still works */ }
+}
+// Rehydrate ONLY entries signed under the current scope and not yet expired. Anything
+// else is dropped from storage on the spot, so a stale or foreign snapshot never lingers.
+function rehydrate() {
+  const st = storage(); if (!st || !scope) return
+  try {
+    const raw = st.getItem(STORE_KEY); if (!raw) return
+    const snap = JSON.parse(raw)
+    if (!snap || snap.scope !== scope || !Array.isArray(snap.entries)) { st.removeItem(STORE_KEY); return }
+    const now = Date.now()
+    for (const [key, e] of snap.entries) {
+      if (e && typeof e.url === 'string' && typeof e.expiresAt === 'number' && e.expiresAt > now) cache.set(key, e)
+    }
+  } catch { try { st.removeItem(STORE_KEY) } catch { /* ignore */ } }
+}
+
 // Set the current authorization scope. Any change (sign-in, sign-out, role change,
 // active-state change, user change) clears the cache and in-flight promises, so the
 // next request re-signs under the new context. Call from AuthContext.
@@ -40,6 +76,10 @@ export function setStudentPhotoCacheScope(nextScope) {
     scope = s
     cache.clear()
     inflight.clear()
+    // A scope change is the one moment storage may be read: what it holds is either
+    // this scope's warm cache from an earlier page load, or someone else's, dropped.
+    rehydrate()
+    persist()
   }
 }
 
@@ -52,11 +92,13 @@ export function invalidateStudentPhoto(key) {
   if (!key) return
   cache.delete(key)
   inflight.delete(key)
+  persist()
 }
 
 export function clearStudentPhotoCache() {
   cache.clear()
   inflight.clear()
+  persist()
 }
 
 // Synchronous read of a still-valid cached URL, or null. Used to render a warm
@@ -82,7 +124,7 @@ export async function resolveStudentPhotoUrl(key, fetcher) {
   const p = (async () => {
     try {
       const url = await fetcher()
-      if (url) cache.set(key, { url, expiresAt: Date.now() + TTL_MS })
+      if (url) { cache.set(key, { url, expiresAt: Date.now() + TTL_MS }); persist() }
       return url || null
     } catch (err) {
       // Never cache a failure. An auth error invalidates the whole scope.

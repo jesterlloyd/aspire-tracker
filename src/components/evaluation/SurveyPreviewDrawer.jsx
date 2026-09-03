@@ -151,7 +151,7 @@ export default function SurveyPreviewDrawer({ workflowKey, onClose }) {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={`Survey preview: ${survey.title}`}
+        aria-label={`Survey Preview: ${survey.title}`}
         style={{
           position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: 620, zIndex: 2999,
           background: '#fff', boxShadow: '-8px 0 24px rgba(16,24,40,0.16)', display: 'flex',
@@ -162,7 +162,7 @@ export default function SurveyPreviewDrawer({ workflowKey, onClose }) {
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <Eye size={15} color={NAVY} aria-hidden="true" />
-              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#191919' }}>Survey preview</h2>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#191919' }}>Survey Preview</h2>
             </div>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#374151' }}>{survey.title}</p>
           </div>

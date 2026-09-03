@@ -88,8 +88,8 @@
 /* Roster card */
 .ngrp-roster {
   background: var(--pearl, #fff);
-  border: 1px solid rgba(29, 37, 103, 0.08);
-  border-radius: 14px;
+  border: 0; box-shadow: var(--aspire-shadow-card);
+  border-radius: var(--aspire-radius-card);
   box-shadow: 0 2px 10px rgba(29, 37, 103, 0.06);
   overflow: hidden;
   margin-bottom: 28px;
@@ -152,7 +152,7 @@
   z-index: 2;
   background: var(--color-bg-elevated, #F9FAFB);
   text-align: left;
-  font-size: 10px;
+  font-size: var(--aspire-th-size);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;

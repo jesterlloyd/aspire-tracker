@@ -14,7 +14,7 @@
   --ptl-ink: var(--aspire-ink, #232842);
   --ptl-ink-soft: var(--aspire-ink-soft, #6b7280);
   --ptl-serif: var(--aspire-serif, Georgia, serif);
-  --ptl-radius: var(--aspire-radius-card, 16px);
+  --ptl-radius: var(--aspire-radius-card, 12px);
   min-height: 100vh;
   background: var(--ptl-cream);
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -106,9 +106,9 @@
 /* Top padding is the gap between the Nightfall taskbar and the first content (the nav tabs).
    Kept compact, like the main app where the tabs sit directly under the header band, while
    preserving readable separation and the 44px touch targets on the tabs themselves. */
-.ptl-main { flex: 1; width: 100%; margin: 0 auto; padding: 16px 24px 40px; }
+.ptl-main { flex: 1; width: 100%; margin: 0 auto; padding: var(--aspire-page-top, 24px) 24px 40px; }
 @media (min-width: 1024px) {
-  .ptl-main { width: 94vw; max-width: 1500px; padding: 14px 0 40px; }
+  .ptl-main { width: 94vw; max-width: 1500px; padding: var(--aspire-page-top, 24px) 0 40px; }
 }
 
 .ptl-footer {
@@ -122,7 +122,7 @@
    Row 4: Evaluations (4) + Shift logs (4) + Documents (4)
    align-items:start keeps each card at its natural height (no stretch). */
 .ptl-grid {
-  display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; align-items: start;
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--aspire-gap-card, 16px); align-items: start;
 }
 .ptl-col-4  { grid-column: span 4; }
 .ptl-col-5  { grid-column: span 5; }
@@ -142,8 +142,12 @@
 }
 
 .ptl-card {
-  background: var(--ptl-card, #fff); border: 1px solid var(--ptl-line, #e3ded4);
-  border-radius: var(--ptl-radius, 16px);
+  background: var(--ptl-card, #fff); border: 0;
+  /* UI-CONSISTENCY-1: the edge is the shadow, matching every staff card. The portal
+     card had no shadow before, so removing its outline alone would have dissolved it
+     into the cream page. */
+  box-shadow: var(--aspire-shadow-card, 0 1px 3px rgba(0,0,0,0.06));
+  border-radius: var(--ptl-radius, 12px);
   padding: 22px 24px;
   /* The card's own horizontal padding, published so a full-bleed child can
      cancel it exactly. Card padding changes at two breakpoints; a hardcoded
@@ -240,7 +244,7 @@
 .ptl-table-wrap { overflow-x: auto; }
 .ptl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .ptl-table th {
-  text-align: left; padding: 8px 10px; color: #6b7280; font-size: 12px;
+  text-align: left; padding: 8px 10px; color: #6b7280; font-size: var(--aspire-th-size, 11px);
   text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e3ded4;
 }
 .ptl-table td { padding: 9px 10px; border-bottom: 1px dashed #eee9df; vertical-align: top; }
@@ -411,7 +415,7 @@
    shared greeting masthead (GreetingMasthead / .mast*), so its styles (and the attention-chip /
    pathway-dot styles it owned) were removed. */
 .ptl-student { display: flex; flex-direction: column; gap: 18px; }
-.ptl-rotation-switch { background: var(--ptl-card, #fff); border: 1px solid var(--ptl-line, #e3ded4); border-radius: var(--ptl-radius, 16px); padding: 14px 18px; }
+.ptl-rotation-switch { background: var(--ptl-card, #fff); border: 0; box-shadow: var(--aspire-shadow-card, 0 1px 3px rgba(0,0,0,0.06)); border-radius: var(--ptl-radius, 12px); padding: 14px 18px; }
 
 /* Section cards with icons */
 .ptl-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -546,7 +550,7 @@
 /* Very wide desktop: a touch more card padding and grid gap so the extra width
    reads as hierarchy and breathing room, not stretched text. */
 @media (min-width: 1280px) {
-  .ptl-grid { gap: 22px; }
+  .ptl-grid { gap: var(--aspire-gap-card, 16px); }
   .ptl-card { padding: 24px 26px; --ptl-card-pad-x: 26px; }
 }
 
@@ -923,7 +927,7 @@
   display: flex; align-items: center; gap: 6px;
   padding: 0 max(24px, env(safe-area-inset-left));
   background: var(--bg-card, #fafaf7);
-  border-bottom: 1px solid var(--ptl-line, #e3ded4);
+  border-bottom: 1px solid var(--aspire-nav-line, rgba(29,37,103,0.08));
   overflow-x: auto;                 /* many items scroll rather than wrap raggedly */
   -webkit-overflow-scrolling: touch;
 }
@@ -1341,7 +1345,7 @@
   text-align: left; padding: 10px 12px; vertical-align: top;
   border-bottom: 1px solid rgba(29, 37, 103, 0.10);
 }
-.ptl-table th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.ptl-table th { font-size: var(--aspire-th-size, 11px); text-transform: uppercase; letter-spacing: 0.02em; }
 
 /* Phone: the table becomes stacked cards, so no horizontal scrolling is needed
    and each row reads as a labelled block. */
@@ -1662,7 +1666,7 @@ img.ptl-detail-photo {
 
 /* Home: welcome sub-line + the two-column grid columns stack internally. */
 .ptl-home-sub { margin: -8px 0 0; }
-.ptl-home-col { display: grid; gap: 16px; align-content: start; }
+.ptl-home-col { display: grid; gap: var(--aspire-gap-card, 16px); align-content: start; }
 
 /* Needs-your-attention rows: tone dot, label + summary, unit chip, chevron. */
 .ptl-attn-list li { padding: 0; border-bottom: 1px dashed #eee9df; }
@@ -1910,7 +1914,7 @@ img.ptl-detail-photo {
 .ptl-stu-tablewrap { padding: 0; overflow-x: auto; }
 .ptl-stu-table { width: 100%; border-collapse: collapse; font-family: inherit; }
 .ptl-stu-table thead th {
-  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  text-align: left; font-size: var(--aspire-th-size, 11px); font-weight: 700; letter-spacing: 0.05em;
   text-transform: uppercase; color: #9ca3af; padding: 10px 14px; border-bottom: 1px solid #eee9df;
   white-space: nowrap;
 }
@@ -2225,7 +2229,7 @@ img.ptl-detail-photo {
 }
 .ptl-na-table th {
   position: sticky; top: 0; z-index: 2; background: #fbfaf7;
-  font-size: 11px; font-weight: 700; color: var(--ptl-muted, #6b7280);
+  font-size: var(--aspire-th-size, 11px); font-weight: 700; color: var(--ptl-muted, #6b7280);
   box-shadow: 0 1px 0 var(--ptl-line);
 }
 .ptl-na-table th:nth-child(1) { width: 8.5%; }

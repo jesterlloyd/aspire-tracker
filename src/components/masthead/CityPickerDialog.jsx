@@ -36,7 +36,7 @@ export default function CityPickerDialog({ open, options, value, autoResolvedLab
   return createPortal(
     <div className="mast-citypick-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="mast-citypick" role="dialog" aria-modal="true" aria-labelledby="mast-citypick-title" ref={panelRef}>
-        <h2 className="mast-citypick-title" id="mast-citypick-title">Masthead scenery</h2>
+        <h2 className="mast-citypick-title" id="mast-citypick-title">Masthead Scenery</h2>
         <p className="mast-citypick-note">
           The masthead shows this city&rsquo;s artwork and weather. Automatic follows wherever you are.
         </p>

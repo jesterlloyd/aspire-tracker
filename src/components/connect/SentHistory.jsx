@@ -291,7 +291,7 @@ function MessageDrawer({ detail, onClose, onRetry }) {
                       srcDoc={preview.html}
                       sandbox=""
                       referrerPolicy="no-referrer"
-                      title="Message preview"
+                      title="Message Preview"
                       style={{ width: '100%', minHeight: 460, border: '1px solid #eee', borderRadius: 8, background: '#fff' }}
                     />
                   </>
@@ -299,7 +299,7 @@ function MessageDrawer({ detail, onClose, onRetry }) {
                   <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12.5, color: '#374151', fontFamily: F, margin: 0 }}>{preview.text}</pre>
                 ) : (
                   <div style={{ padding: '20px 16px', textAlign: 'center', background: '#fcfcfb', border: '1px solid #eee', borderRadius: 8, color: '#6b7280', fontSize: 12.5, lineHeight: 1.6 }}>
-                    {preview?.notice || 'Message preview is not available for this item.'}
+                    {preview?.notice || 'Message Preview is not available for this item.'}
                   </div>
                 )}
               </div>

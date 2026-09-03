@@ -188,7 +188,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
       </div>
 
       {/* 2 · The cohort's own calendar. */}
-      <Panel title="Cohort timeline" sub={serverCycle.status} action={editButton}>
+      <Panel title="Cohort Timeline" sub={serverCycle.status} action={editButton}>
         <ol className="ngrp-timeline">
           {timeline.map(item => {
             const range = item.end && item.end !== item.start
@@ -285,7 +285,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
       </div>
 
       {/* 4 · What this cohort is configured to be. Read-only on purpose. */}
-      <Panel title="Scope and rules" action={editButton}>
+      <Panel title="Scope and Rules" action={editButton}>
         <dl className="ngrp-summary">
           <dt>ASPIRE cohorts participating</dt>
           <dd>{sources.length ? sources.map(c => c.name).join(', ') : <i>None mapped</i>}</dd>

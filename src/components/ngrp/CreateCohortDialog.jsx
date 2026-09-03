@@ -52,7 +52,7 @@ export default function CreateCohortDialog({ onClose, onCreated }) {
             <Field label="Residency start date (optional)">
               <input type="date" style={inputStyle} value={start} onChange={e => setStart(e.target.value)} /></Field>
             <div>
-              <label style={labelStyle}>ASPIRE cohorts participating</label>
+              <label style={labelStyle}>ASPIRE Cohorts Participating</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {aspireCohorts.map(c => {
                   const on = sourceIds.includes(c.id)
@@ -78,7 +78,7 @@ export default function CreateCohortDialog({ onClose, onCreated }) {
         ) : (
           <div style={{ fontSize: 13, color: '#4A5560', lineHeight: 1.7 }}>
             <p style={{ margin: '0 0 8px' }}><b>{name}</b> will be created in <b>Planning</b> status (it never opens automatically).</p>
-            <p style={{ margin: '0 0 8px' }}>ASPIRE cohorts participating: {names.length ? <b>{names.join(', ')}</b> : <i>none yet - the Applicants roster stays empty until cohorts are mapped</i>}.</p>
+            <p style={{ margin: '0 0 8px' }}>ASPIRE Cohorts Participating: {names.length ? <b>{names.join(', ')}</b> : <i>none yet - the Applicants roster stays empty until cohorts are mapped</i>}.</p>
             <p style={{ margin: 0 }}>Application closes: {deadline ? <b>{deadline}</b> : <i>not set - required before Transition Forms can send</i>}.</p>
           </div>
         )}

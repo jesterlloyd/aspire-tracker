@@ -647,7 +647,7 @@ function CapacityScreen({ unitKeys, acceptingCohort, refreshRoster }) {
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
 
       <form className="ptl-card ptl-unit-form" onSubmit={submit}>
-        <h3 className="ptl-card-title">Unit availability</h3>
+        <h3 className="ptl-card-title">Unit Availability</h3>
         <p className="ptl-muted">Cohort: {acceptingCohort?.name ? acceptingCohort.name : EMPTY}</p>
         <p className="ptl-muted">
           This is the same unit availability form the ASPIRE team reviews in At a Glance.
@@ -1250,7 +1250,7 @@ function ProfileScreen({ unitKeys, profile }) {
     <>
       <SectionHeading focusKey="profile">Profile</SectionHeading>
       <section className="ptl-card">
-        <h3 className="ptl-card-title">Your ASPIRE access</h3>
+        <h3 className="ptl-card-title">Your ASPIRE Access</h3>
         <dl className="ptl-deflist">
           <dt>Name</dt><dd>{orDash(profile?.full_name)}</dd>
           <dt>Role</dt><dd>Unit Leader</dd>
@@ -1264,7 +1264,7 @@ function ProfileScreen({ unitKeys, profile }) {
       </section>
 
       <section className="ptl-card" aria-labelledby="ul-prefs">
-        <h3 id="ul-prefs" className="ptl-card-title">Notification preferences</h3>
+        <h3 id="ul-prefs" className="ptl-card-title">Notification Preferences</h3>
         {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
         <p className="ptl-muted">
           Every alert always appears in the portal. These settings control email only,

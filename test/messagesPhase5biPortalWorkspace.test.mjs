@@ -110,7 +110,7 @@ test('API client', async (t) => {
 
   await t.test('safe error mapping exposes nothing internal', () => {
     assert.match(mapPortalMessagesError(401), /session expired/i)
-    assert.match(mapPortalMessagesError(403), /Student Portal access/i)
+    assert.match(mapPortalMessagesError(403), /Student Portal Access/i)
     assert.match(mapPortalMessagesError(404), /no longer available/i)
     assert.match(mapPortalMessagesError(409), /changed/i)
     assert.match(mapPortalMessagesError(422), /check the highlighted fields/i)

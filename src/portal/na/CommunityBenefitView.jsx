@@ -9,9 +9,9 @@
 // HONEST STATES. A fiscal year with no entered rate shows "Rate not set"
 // instead of a guessed dollar figure. Records that cannot be assigned to a
 // fiscal year (missing/sentinel rotation end date, drifted rotation link)
-// appear in the "Needs reporting data" panel and are excluded from totals
+// appear in the "Needs Reporting Data" panel and are excluded from totals
 // until corrected, never silently dropped. Students whose previously worked
-// hours were later rejected or voided appear in "Records for review" so
+// hours were later rejected or voided appear in "Records for Review" so
 // hours never just vanish.
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
@@ -279,7 +279,7 @@ export default function CommunityBenefitView({
         <>
           {benefitChartRows.length > 0 && (
             <BarChart
-              title="Benefit contribution by school"
+              title="Benefit Contribution by School"
               ariaLabel="Estimated nursing benefit contribution by school"
               rows={benefitChartRows}
             />
@@ -347,7 +347,7 @@ export default function CommunityBenefitView({
                 <select id="na-detail-sort" value={sortBy} onChange={e => setSortBy(e.target.value)}>
                   <option value="student-az">Student A–Z</option>
                   <option value="student-za">Student Z–A</option>
-                  <option value="cohort">Cohort timeline</option>
+                  <option value="cohort">Cohort Timeline</option>
                 </select>
               </label>
             </div>
@@ -412,7 +412,7 @@ export default function CommunityBenefitView({
 
       {report.needs_data.length > 0 && (
         <section className="ptl-card ptl-na-quality" aria-labelledby="na-needs-data-heading">
-          <h2 id="na-needs-data-heading">Needs reporting data</h2>
+          <h2 id="na-needs-data-heading">Needs Reporting Data</h2>
           <p>
             These ASPIRE placements cannot be assigned to a fiscal year yet, so they
             are excluded from the totals above until their rotation dates are
@@ -435,7 +435,7 @@ export default function CommunityBenefitView({
 
       {report.review_records.length > 0 && (
         <section className="ptl-card ptl-na-quality" aria-labelledby="na-review-heading">
-          <h2 id="na-review-heading">Records for review</h2>
+          <h2 id="na-review-heading">Records for Review</h2>
           <p>
             These students have previously recorded hours that were later rejected or
             voided. Completed totals above already exclude them; they are surfaced

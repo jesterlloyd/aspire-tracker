@@ -93,7 +93,20 @@ test('cache entries expire BEFORE the server signed-URL TTL', () => {
 test('cache is memory-only (no persistent browser storage) and holds no service-role secret', () => {
   const cacheSrc = read('src/lib/studentPhotoCache.js')
   // No persistent-storage API is used (comments may explain the rule).
-  assert.doesNotMatch(cacheSrc, /localStorage\.|sessionStorage\.|indexedDB\.|\.setItem\(/i)
+  // UI-CONSISTENCY-1 (Owner decision, 2026-09-03): the cache now mirrors to
+  // sessionStorage so a fresh page load renders every headshot instantly. The
+  // posture this test guards is therefore no longer "no browser storage"; it is
+  // the BOUNDED form of it, and each bound below is a line of code, not a promise:
+  //   - sessionStorage only. localStorage and IndexedDB stay forbidden: they outlive the tab.
+  //   - every read checks the entry's authorization scope and drops the whole snapshot
+  //     on a mismatch, so one user's signed URLs never warm another's roster.
+  //   - every read checks expiry, so a URL is never served past its signed lifetime.
+  //   - storage is optional: absent, full or blocked, the module stays memory-only.
+  assert.doesNotMatch(cacheSrc, /localStorage\.|indexedDB\./i, 'never a store that outlives the tab')
+  assert.match(cacheSrc, /snap\.scope !== scope[^\n]*removeItem\(STORE_KEY\)/, 'a foreign scope is discarded, not ignored')
+  assert.match(cacheSrc, /e\.expiresAt > now\) cache\.set\(key, e\)/, 'only unexpired entries rehydrate')
+  assert.match(cacheSrc, /typeof sessionStorage !== 'undefined' \? sessionStorage : null/, 'storage is optional')
+  assert.match(cacheSrc, /rehydrate\(\)\n\s+persist\(\)/, 'the scope change is the only moment storage is read')
   assert.doesNotMatch(cacheSrc, /SERVICE_ROLE_KEY\s*=|['"]service_role['"]/)
 })
 

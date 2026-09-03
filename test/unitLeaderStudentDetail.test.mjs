@@ -80,7 +80,7 @@ test('the drawer renders every approved field label', () => {
 test('the drawer renders the student name, the photo, and milestone history', () => {
   assert.match(drawerCode, /aria-label=\{`Details for \$\{name\}`\}/)
   assert.match(drawerCode, /<StudentPhoto/)
-  assert.match(drawerCode, /Milestone history/)
+  assert.match(drawerCode, /Milestone History/)
 })
 
 // ── Excluded fields are absent ──────────────────────────────────────────────
@@ -162,7 +162,7 @@ test('an expired photo link is refreshed once, then stops and offers a control',
   assert.match(photo, /Reload photo/, 'a manual retry control must exist')
 })
 
-// ── Milestone history uses the authorized endpoint ──────────────────────────
+// ── Milestone History uses the authorized endpoint ──────────────────────────
 test('milestone history comes from the authorized unit-scoped endpoint', () => {
   assert.match(drawerCode, /getMilestones\(unitKey, ac\.signal\)/)
   assert.match(drawerCode, /\.filter\(m => m\.student_id === studentId\)/,

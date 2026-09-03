@@ -2,7 +2,7 @@
 //
 // Revoking portal access mid-session must not be reported as a transient error.
 //
-// Found by smoke test: the Academic Partner students view showed "Something went
+// Found by smoke test: the Academic Partner Students view showed "Something went
 // wrong. We could not load your students right now. Please try again shortly",
 // with a Try again button. Nothing had gone wrong, the person's access had ended,
 // Try again could never succeed, and "shortly" repeated the false-promise problem
@@ -141,7 +141,7 @@ test('shell: the failure reporter is stable so roster requests can finish', () =
 
 // ── The surfaces ─────────────────────────────────────────────────────────────
 
-test('surface: the Academic Partner students view no longer lies', () => {
+test('surface: the Academic Partner Students view no longer lies', () => {
   const ap = read('src/portal/AcademicPartnerPortal.jsx')
   assert.match(ap, /const kind = reportFailure\(\{ status: res\.status, error: payload\?\.error \}\)/)
   assert.match(ap, /if \(kind === ACCESS_FAILURE\.ACCESS_ENDED\) \{ setLoading\(false\); return \}/)

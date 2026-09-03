@@ -126,7 +126,7 @@ test('the section nav is the attached solid light row inside the shared top-sect
   // The nav row: attached (no bottom margin), full-bleed solid light bar with a hairline border.
   const navBlock = cssBlock('.ptl-nav')
   assert.match(navBlock, /background: var\(--bg-card, #fafaf7\)/)
-  assert.match(navBlock, /border-bottom: 1px solid var\(--ptl-line/)
+  assert.match(navBlock, /border-bottom: 1px solid var\(--aspire-nav-line/)
   assert.doesNotMatch(navBlock, /margin-bottom/)
   // The shell renders whatever nav each portal passes; it does not hard-code a role's nav component.
   assert.doesNotMatch(shellCode, /UnitLeaderNav|PortalNav|PortalMessagesWorkspace/)

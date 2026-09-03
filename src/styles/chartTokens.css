@@ -199,7 +199,8 @@
    ============================================================ */
 .chart-nav {
   background: var(--bg-card, #FAFAF7);
-  border-bottom: 1px solid var(--border-divider, rgba(29, 37, 103, 0.08));
+  /* UI-CONSISTENCY-1: the one hairline every secondary nav shares (portal .ptl-nav reads it too). */
+  border-bottom: 1px solid var(--aspire-nav-line);
   padding: 0 32px;
   display: flex;
   align-items: stretch;

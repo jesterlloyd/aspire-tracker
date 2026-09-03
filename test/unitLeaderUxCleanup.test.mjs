@@ -180,9 +180,9 @@ test('mobile More contains exactly Evaluations, Placement Requests, and Capacity
   assert.ok(!m[1].includes('preceptors'), 'Preceptors is a primary mobile destination')
 })
 
-test('Notification preferences still lives in Profile', () => {
+test('Notification Preferences still lives in Profile', () => {
   const profile = portalCode.slice(portalCode.indexOf('function ProfileScreen'))
-  assert.match(profile, /Notification preferences/)
+  assert.match(profile, /Notification Preferences/)
   assert.match(profile, /setNotificationPreference/)
 })
 

@@ -34,8 +34,24 @@
   --aspire-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --aspire-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 
-  /* Shape and focus */
-  --aspire-radius-card: 16px;
+  /* Shape and focus.
+     UI-CONSISTENCY-1 (2026-09-03): the staff app now reads this file too. Until then
+     only the portal imported it, so every staff surface chose its own radius, gap and
+     edge, and nineteen distinct radii were in use. These are the values every card,
+     grid and table header on both halves of the app resolve to; change them here, not
+     in a component. The card radius moved 16 -> 12: sixteen reads bubbly on the dense
+     staff panels, eight reads clipped on the roomy portal cards, twelve looks right on
+     both. */
+  --aspire-radius-card: 12px;
   --aspire-radius-control: 10px;
   --aspire-focus-ring: 2px solid var(--aspire-navy);
+
+  /* Rhythm. One gap between sibling cards, one offset from a section nav to the first
+     card, one table-header size. A card has NO border: its edge is the shadow, so it
+     sits on the cream page as a surface rather than a boxed outline. */
+  --aspire-gap-card: 16px;
+  --aspire-page-top: 24px;
+  --aspire-th-size: 11px;
+  --aspire-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --aspire-nav-line: rgba(29, 37, 103, 0.08);
 }

@@ -522,7 +522,7 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
           </div>
         )}
 
-        {/* ── Notification preferences ── */}
+        {/* ── Notification Preferences ── */}
         <div style={{
           background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
           padding: '14px 16px', marginBottom: 8,

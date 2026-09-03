@@ -134,10 +134,10 @@ function IdentityPicker({ id, value, onChange, onPickStudent, onPickContact, inc
 // to ../shared/MultiScopePicker.jsx so the contacts editors reuse it too.
 
 const OUTCOME_200 = {
-  reused: 'Portal access already active. No changes were needed.',
-  renewed: 'Portal access renewed.',
-  reissued: 'Portal access reissued.',
-  created: 'Portal access granted.',
+  reused: 'Portal Access already active. No changes were needed.',
+  renewed: 'Portal Access renewed.',
+  reissued: 'Portal Access reissued.',
+  created: 'Portal Access granted.',
 }
 
 export default function GrantPortalAccessModal({ onClose, onGranted, initial = null }) {
@@ -269,7 +269,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
         setResult({ success: true, message: 'Portal invitation sent and access granted.' })
         onGranted?.(); setTimeout(() => onClose?.(), 1100)
       } else if (res.status === 200) {
-        setResult({ success: true, message: OUTCOME_200[json?.provisioned?.grant_action] || 'Portal access updated.' })
+        setResult({ success: true, message: OUTCOME_200[json?.provisioned?.grant_action] || 'Portal Access updated.' })
         onGranted?.(); setTimeout(() => onClose?.(), 1100)
       } else if (res.status === 409) {
         setResult({ success: false, message: role === 'student'

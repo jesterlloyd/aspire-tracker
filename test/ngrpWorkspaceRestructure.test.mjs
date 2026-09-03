@@ -110,7 +110,7 @@ test('At a Glance and Profiles are the old tabs, renamed, not rewritten', () => 
   // The operating picture that was Planning: same four sections, same one way
   // out to the settings modal.
   assert.match(glance, /export default function AtAGlanceTab/)
-  for (const section of ['Cohort timeline', 'Pipeline', 'Seats', 'Scope and rules']) {
+  for (const section of ['Cohort Timeline', 'Pipeline', 'Seats', 'Scope and Rules']) {
     assert.match(glance, new RegExp(`title="${section}"`), section)
   }
   assert.match(glance, /onEditCohort/)
@@ -266,7 +266,7 @@ test('no cohort metadata strip repeats above every tab', () => {
   // What it said still exists, where it can be read against today: the header
   // names the cohort, and At a Glance carries the dates.
   assert.match(read('src/components/Header/Header.jsx'), /residencyCohortLabel/)
-  assert.match(glance, /title="Cohort timeline"/)
+  assert.match(glance, /title="Cohort Timeline"/)
   assert.match(glance, /contextLabel=\{serverCycle\.name\}/)
 })
 

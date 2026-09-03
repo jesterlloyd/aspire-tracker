@@ -647,7 +647,7 @@ test('states: cycle errors, no-cohorts, no-mappings, unprovisioned, and unauthor
   assert.match(workspace, /No residency cohorts configured/)
   assert.match(workspace, /NGRP persistence is not provisioned yet/)
   assert.match(workspace, /NGRP access required/)
-  // NGRP-WORKSPACE-2: the card is named "ASPIRE cohorts participating" now, and
+  // NGRP-WORKSPACE-2: the card is named "ASPIRE Cohorts Participating" now, and
   // it lives in Edit Cohort, so the empty state names both correctly.
   assert.match(applicants, /No ASPIRE cohorts are participating in this residency cohort/)
   assert.match(applicants, /Choose them in Edit Cohort/)

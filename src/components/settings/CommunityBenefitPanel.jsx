@@ -258,7 +258,7 @@ export default function CommunityBenefitPanel() {
 
       <SurfaceCard padding="14px 16px" className="cb-inputs-card">
         <div className="cb-inputs-heading">
-          <div><h3>Reporting inputs</h3><p>Current values applied to FY {selectedFy}.</p></div>
+          <div><h3>Reporting Inputs</h3><p>Current values applied to FY {selectedFy}.</p></div>
           <span>Benefit estimates update when these inputs change.</span>
         </div>
         <div className="cb-inputs-grid">
@@ -277,7 +277,7 @@ export default function CommunityBenefitPanel() {
         <summary><span>Reporting history</span><small>{rates.length} rate entries · {capstone.length} non-clinical entries</small></summary>
         <div className="cb-history-body">
           <section>
-            <h3>Hourly rate history</h3>
+            <h3>Hourly Rate History</h3>
             <div className="cb-table-scroll"><table><thead><tr><th>Fiscal year</th><th>Category</th><th>Rate</th><th>Status</th><th>Entered</th></tr></thead><tbody>
               {rates.length === 0 && <tr><td colSpan={5}>No rates entered yet.</td></tr>}
               {rates.map(rate => <tr key={rate.id}><td>FY {rate.fiscal_year}</td><td>{CATEGORY_LABELS[rate.category] || rate.category}</td><td>{money.format(Number(rate.hourly_rate))}/hr</td><td>{rate.superseded_at ? 'Superseded' : 'Current'}</td><td>{rate.created_at ? new Date(rate.created_at).toLocaleDateString() : '-'}</td></tr>)}
@@ -285,7 +285,7 @@ export default function CommunityBenefitPanel() {
             {supersededRates.length > 0 && <p>{supersededRates.length} superseded rate {supersededRates.length === 1 ? 'is' : 'are'} retained for audit history.</p>}
           </section>
           <section>
-            <h3>Non-clinical hour entries</h3>
+            <h3>Non-Clinical Hour Entries</h3>
             <div className="cb-table-scroll"><table><thead><tr><th>Fiscal year</th><th>School</th><th>Hours</th><th>Note</th><th>Entered</th>{canEdit && <th aria-label="Actions" />}</tr></thead><tbody>
               {capstone.length === 0 && <tr><td colSpan={canEdit ? 6 : 5}>No additional non-clinical hours recorded yet.</td></tr>}
               {capstone.map(entry => <tr key={entry.id} className={entry.voided_at ? 'cb-row-voided' : ''}><td>FY {entry.fiscal_year}</td><td>{entry.school_name}</td><td>{num.format(Number(entry.hours))}{entry.voided_at ? ' (voided)' : ''}</td><td>{entry.note || '-'}</td><td>{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '-'}</td>{canEdit && <td>{!entry.voided_at && <button type="button" className="cb-void-button" onClick={() => voidCapstone(entry.id)} disabled={busy}>Void</button>}</td>}</tr>)}

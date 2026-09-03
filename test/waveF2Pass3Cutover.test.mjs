@@ -204,7 +204,9 @@ test('every upload uses a server-issued signed upload token (works on a private 
 })
 
 test('the photo cache holds signed URLs in memory only and clears on sign-out/role change', () => {
-  assert.doesNotMatch(cache, /localStorage\.|sessionStorage\.|indexedDB\.|\.setItem\(/i)
+  // UI-CONSISTENCY-1: sessionStorage mirroring is now allowed and bounded; the full
+  // posture is pinned in test/studentPhotoCache.test.mjs. Stores that outlive the tab remain out.
+  assert.doesNotMatch(cache, /localStorage\.|indexedDB\./i)
   assert.match(cache, /export function setStudentPhotoCacheScope/)
   assert.match(cache, /export function clearStudentPhotoCache/)
   assert.match(auth, /setStudentPhotoCacheScope\(authScope\)/)

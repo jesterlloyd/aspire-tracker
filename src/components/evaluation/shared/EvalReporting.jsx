@@ -58,7 +58,7 @@ export function EvalPicker({ label, value, onChange, options, ariaLabel }) {
 }
 
 /**
- * Quantitative averages block. Each metric shows its label, average, and n; a 'context'
+ * Quantitative Averages block. Each metric shows its label, average, and n; a 'context'
  * metric is tagged as context (never framed as an outcome/score). No composite score, no
  * directional bar (higher is not assumed better). Never shown below any threshold — there
  * is no suppression; n = 1 is displayed.

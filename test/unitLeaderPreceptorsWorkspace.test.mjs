@@ -32,7 +32,7 @@ test('students deep link remains while stale notifications route metadata is rem
   assert.match(sections, /'students'/)
   assert.match(sections, /'profile'/)
   assert.doesNotMatch(sections, /'notifications'/)
-  assert.match(portal, /Notification preferences/)
+  assert.match(portal, /Notification Preferences/)
 })
 
 test('workspace supplies the complete roster table, filters, states, and legacy history', () => {

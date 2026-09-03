@@ -84,11 +84,11 @@ test('the calendar is timeline-first on the shared canonical foundation with mon
   assert.doesNotMatch(calendar, /@fullcalendar|react-big-calendar|dayjs|moment/)
 })
 
-test('all four filters exist and sentinel rotations surface in the Needs dates panel', () => {
+test('all four filters exist and sentinel rotations surface in the Needs Dates panel', () => {
   for (const f of ['Fiscal year', 'Cohort', 'School', 'Program']) {
     assert.ok(calendar.includes(`'${f}'`) || calendar.includes(`label: '${f}'`), `filter ${f} present`)
   }
-  assert.match(calendar, /Needs dates/)
+  assert.match(calendar, /Needs Dates/)
   assert.match(calendar, /has_dates/)
   // Ranges are always printed in text next to the bar (bar is never the only carrier).
   assert.match(calendar, /rangeText/)
@@ -107,8 +107,8 @@ test('the report view renders honest loading, error, empty, rate-not-set, and re
   assert.match(benefit, /ErrorState detail=\{error\} onRetry=\{reload\}/)
   assert.match(benefit, /EmptyState/)
   assert.match(benefit, /Rate not set/)
-  assert.match(benefit, /Needs reporting data/)
-  assert.match(benefit, /Records for review/)
+  assert.match(benefit, /Needs Reporting Data/)
+  assert.match(benefit, /Records for Review/)
   assert.match(benefit, /ASPIRE status/)
   assert.match(benefit, /r\.status/)
 })
@@ -158,7 +158,7 @@ test('Community Benefit uses program KPI filters, compact labels, and table cont
   assert.match(benefit, /All Schools/)
   assert.match(benefit, /All Cohorts/)
   assert.match(benefit, /Student A–Z/)
-  assert.match(benefit, /Cohort timeline/)
+  assert.match(benefit, /Cohort Timeline/)
   const labels = read('src/portal/na/naDisplayLabels.js')
   for (const value of ['APU', 'CSULA', 'CSULB', 'CSUN', 'WCU-Anaheim', 'WCU-NoHo', 'UCLA']) assert.match(labels, new RegExp(value))
   for (const value of ['ELMN', 'ABSN', 'BSN \\(Semester\\)', 'BSN \\(Trimester\\)', 'BSN \\(Quarter\\)']) assert.match(labels, new RegExp(value))
@@ -411,8 +411,8 @@ test('the portal export is the Settings Download CSV button, nightfall filled', 
 test('the missing-rate advisory sits at the BOTTOM of the report, after the quality sections', () => {
   const noteAt = benefit.indexOf('ptl-na-rate-note')
   assert.ok(noteAt > -1)
-  assert.ok(noteAt > benefit.indexOf('na-review-heading'), 'note renders after Records for review')
-  assert.ok(noteAt > benefit.indexOf('na-needs-data-heading'), 'note renders after Needs reporting data')
+  assert.ok(noteAt > benefit.indexOf('na-review-heading'), 'note renders after Records for Review')
+  assert.ok(noteAt > benefit.indexOf('na-needs-data-heading'), 'note renders after Needs Reporting Data')
   assert.ok(noteAt > benefit.indexOf('ptl-na-kpis'), 'note no longer leads the page')
 })
 
