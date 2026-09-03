@@ -18,6 +18,7 @@ import { openStudentFile } from '../lib/useStudentFile'
 import { saveInterviewOutcome } from '../lib/studentProxy'
 import { normalizeStaffRole } from '../lib/permissions'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
+import { toInterviewRubricWrite } from '../lib/interviewRubricWrite'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -495,17 +496,21 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       interviewer_name: userProfile?.full_name || '',
     } : {}
     const scopedUpdates = { ...updates, ...identityUpdates }
-    const payload = {
+    // The form may have been seeded from a list_interview_rubrics_for_cohort row, or a
+    // browser draft of one, and those rows carry can_view_details / can_edit / is_own.
+    // They are not columns; PostgREST rejects the whole write if one reaches it. The
+    // auto-save and Mark Complete send the whole form, so every write passes the gate.
+    const payload = toInterviewRubricWrite({
       ...scopedUpdates,
       composite_score: (scopedUpdates.cj_score ?? (form.cj_score || 0)) + (scopedUpdates.pp_score ?? (form.pp_score || 0)) + (scopedUpdates.ga_score ?? (form.ga_score || 0)),
       updated_at: new Date().toISOString(),
-    }
+    })
     let id = rubricId
     if (!id) {
       const effectiveInterviewerName = payload.interviewer_name || form.interviewer_name
       if (!createIfNeeded || !effectiveInterviewerName) { setSaveStatus('idle'); return false }
       const { data, error } = await safeWrite(
-        () => supabase.from('interview_rubrics').insert({ student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload }).select().single(),
+        () => supabase.from('interview_rubrics').insert(toInterviewRubricWrite({ student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload })).select().single(),
         { name: 'create rubric' }
       )
       if (error) {
@@ -614,7 +619,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     setConfirmReset(false)
     const blank = { ...initForm(), interviewer_name: form.interviewer_name, interview_date: form.interview_date }
     if (rubricId) await safeWrite(
-      () => supabase.from('interview_rubrics').update({ ...blank, updated_at: new Date().toISOString() }).eq('id', rubricId),
+      () => supabase.from('interview_rubrics').update(toInterviewRubricWrite({ ...blank, updated_at: new Date().toISOString() })).eq('id', rubricId),
       { name: 'reset rubric' }
     )
     setForm(blank)
@@ -627,7 +632,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const handleUnlock = async () => {
     setConfirmUnlock(false)
     if (rubricId) await safeWrite(
-      () => supabase.from('interview_rubrics').update({ status: 'In Progress', updated_at: new Date().toISOString() }).eq('id', rubricId),
+      () => supabase.from('interview_rubrics').update(toInterviewRubricWrite({ status: 'In Progress', updated_at: new Date().toISOString() })).eq('id', rubricId),
       { name: 'unlock rubric' }
     )
     setForm(p => ({ ...p, status:'In Progress' }))
@@ -654,7 +659,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       : updates
     const composite = (safeUpdates.cj_score||0) + (safeUpdates.pp_score||0) + (safeUpdates.ga_score||0)
     const { error } = await supabase.from('interview_rubrics')
-      .update({ ...safeUpdates, composite_score: composite, updated_at: new Date().toISOString() })
+      .update(toInterviewRubricWrite({ ...safeUpdates, composite_score: composite, updated_at: new Date().toISOString() }))
       .eq('id', rubricId)
     if (error) {
       toast?.error('Save failed', error.message || 'Could not update rubric.')
