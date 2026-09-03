@@ -21,7 +21,7 @@ export default function LastSyncedIndicator() {
     compute(); const id = setInterval(compute, 5000); return () => clearInterval(id)
   }, [queryClient])
   return (
-    <span style={{ flexShrink:0, fontSize:11.5, color:'rgba(255,255,255,0.55)', fontFamily:'DM Sans, sans-serif', display:'flex', alignItems:'center', gap:5 }}>
+    <span style={{ flexShrink:0, fontSize:11.5, color:'rgba(255,255,255,0.55)', fontFamily:'Plus Jakarta Sans, sans-serif', display:'flex', alignItems:'center', gap:5 }}>
       <span style={{ width:6, height:6, borderRadius:'50%', background:'#5DD39E', flexShrink:0, boxShadow:'0 0 0 3px rgba(93,211,158,0.18)' }} />
       {label}
     </span>

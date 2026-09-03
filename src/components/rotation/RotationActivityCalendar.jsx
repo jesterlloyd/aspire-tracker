@@ -49,7 +49,7 @@ import { getUsHolidaysForRange } from '../../lib/usHolidays'
 import { firstNameOf } from '../../lib/masthead'
 import { ordinalWord } from '../../lib/ordinalWord'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const MUTED = '#6b7280'
 

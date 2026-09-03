@@ -16,7 +16,7 @@ import {
 } from '../../lib/ngrp/ngrpStates'
 import { displayName } from '../../lib/utils'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const fmt = ts => {
   if (!ts) return null
   const d = new Date(ts)
@@ -197,7 +197,7 @@ const dateOnly = ts => (ts ? String(ts).slice(0, 10) : '')
 
 const field = {
   height: 30, padding: '0 8px', border: '1px solid rgba(29,37,103,0.14)', borderRadius: 7,
-  fontFamily: 'DM Sans, sans-serif', fontSize: 12.5, background: '#fff', color: '#191919',
+  fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5, background: '#fff', color: '#191919',
   width: '100%', boxSizing: 'border-box',
 }
 

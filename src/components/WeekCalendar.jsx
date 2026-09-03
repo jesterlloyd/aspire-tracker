@@ -402,7 +402,7 @@ export default function WeekCalendar({
                             background: '#f0f0ff',
                             borderLeft: `3px solid ${interviewerColors[dayBlocks[0].interviewer_name] || '#6366f1'}`,
                             borderRadius: 4, padding: '3px 6px', marginBottom: 3,
-                            fontSize: 10, fontFamily: 'DM Sans', color: '#4338ca', fontWeight: 600,
+                            fontSize: 10, fontFamily: 'Plus Jakarta Sans', color: '#4338ca', fontWeight: 600,
                           }}>
                             {openCount > 0 ? `${openCount} of ${totalSlots} open` : `${totalSlots} slots · Full`}
                           </div>
@@ -418,7 +418,7 @@ export default function WeekCalendar({
                               background: '#f5f3ff',
                               borderLeft: `3px solid ${interviewerColors[sl.interviewer_name] || '#8b5cf6'}`,
                               borderRadius: 4, padding: '3px 6px', marginBottom: 2,
-                              fontSize: 10, fontFamily: 'DM Sans', color: '#7c3aed',
+                              fontSize: 10, fontFamily: 'Plus Jakarta Sans', color: '#7c3aed',
                               cursor: 'pointer', opacity: 0.85,
                               display: 'flex', gap: 4, alignItems: 'center',
                             }}>
@@ -488,7 +488,7 @@ export default function WeekCalendar({
                             background: '#f0f0ff',
                             borderLeft: `3px solid ${interviewerColors[dayBlocksM[0].interviewer_name] || '#6366f1'}`,
                             borderRadius: 3, padding: '2px 5px', marginBottom: 2,
-                            fontSize: 9, fontFamily: 'DM Sans', color: '#4338ca', fontWeight: 600,
+                            fontSize: 9, fontFamily: 'Plus Jakarta Sans', color: '#4338ca', fontWeight: 600,
                             whiteSpace: 'nowrap', overflow: 'hidden',
                           }}>
                             {openCountM > 0 ? `${openCountM}/${totalSlotsM} open` : `${totalSlotsM} · Full`}
@@ -533,7 +533,7 @@ export default function WeekCalendar({
       <div style={{
         display: 'flex', gap: '16px', alignItems: 'center',
         padding: '8px 4px', marginTop: '4px',
-        fontFamily: 'DM Sans', fontSize: '11px', color: '#6b7280',
+        fontFamily: 'Plus Jakarta Sans', fontSize: '11px', color: '#6b7280',
         flexWrap: 'wrap',
       }}>
         {[

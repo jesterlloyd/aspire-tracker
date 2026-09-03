@@ -206,13 +206,13 @@ export default function StudentProfilesTab({
           {/* Profiles / CS-Link Access - segmented, matches List/Grid style */}
           <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
             <button onClick={() => changeView('records')}
-              style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
+              style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
                 background: view==='records' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
                 color: view==='records' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
               Profiles
             </button>
             <button onClick={() => changeView('access')}
-              style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
+              style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
                 background: view==='access' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
                 color: view==='access' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
               CS-Link Access
@@ -232,7 +232,7 @@ export default function StudentProfilesTab({
               aria-label="Search student"
               style={{ width:'100%', paddingLeft:30, paddingRight:unifiedSearch?28:10, paddingTop:7, paddingBottom:7,
                 border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7,
-                fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)',
+                fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', background:'var(--bg-input,#fff)',
                 color:'var(--text-body,#191919)', outline:'none', boxSizing:'border-box' }}
             />
             {unifiedSearch && (
@@ -246,7 +246,7 @@ export default function StudentProfilesTab({
           {/* School filter */}
           <select value={activeSchoolFilter} onChange={e => setSchoolFilter(e.target.value)}
             aria-label="Filter students by school"
-            style={{ height:32, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, padding:'0 8px', fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', outline:'none', cursor:'pointer', flexShrink:0 }}>
+            style={{ height:32, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, padding:'0 8px', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', outline:'none', cursor:'pointer', flexShrink:0 }}>
             <option value="">All Schools</option>
             {schoolOptions.map(school => (
               <option key={school} value={school}>{school}</option>
@@ -256,7 +256,7 @@ export default function StudentProfilesTab({
           {/* Active KPI filter clear */}
           {activeStatusFilter && (
             <button onClick={() => changeFilter(null)}
-              style={{ display:'flex', alignItems:'center', gap:4, height:32, padding:'0 10px', borderRadius:7, border:'1px solid rgba(29,37,103,0.15)', background:'#f0f3ff', color:'#1D2567', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans,sans-serif', flexShrink:0 }}>
+              style={{ display:'flex', alignItems:'center', gap:4, height:32, padding:'0 10px', borderRadius:7, border:'1px solid rgba(29,37,103,0.15)', background:'#f0f3ff', color:'#1D2567', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', flexShrink:0 }}>
               <X size={10} />
               {Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter}
             </button>
@@ -266,13 +266,13 @@ export default function StudentProfilesTab({
           {view === 'records' && (
             <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
               <button onClick={() => setViewMode('list')}
-                style={{ height:32, padding:'0 12px', display:'flex', alignItems:'center', gap:6, border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
+                style={{ height:32, padding:'0 12px', display:'flex', alignItems:'center', gap:6, border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
                   background: viewMode==='list' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
                   color: viewMode==='list' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
                 <List size={13} /> List
               </button>
               <button onClick={() => setViewMode('grid')}
-                style={{ height:32, padding:'0 12px', display:'flex', alignItems:'center', gap:6, border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
+                style={{ height:32, padding:'0 12px', display:'flex', alignItems:'center', gap:6, border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
                   background: viewMode==='grid' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
                   color: viewMode==='grid' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
                 <LayoutGrid size={13} /> Grid
@@ -287,7 +287,7 @@ export default function StudentProfilesTab({
           {canEdit && (
             <Tooltip label="Import students from CSV" placement="bottom">
             <button onClick={() => setShowImport(true)}
-              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
               ↑ Import
             </button>
             </Tooltip>
@@ -295,7 +295,7 @@ export default function StudentProfilesTab({
           {canEdit && onAddStudent && (
             <Tooltip label="Add student" placement="bottom">
             <button onClick={onAddStudent}
-              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
               + Add
             </button>
             </Tooltip>
@@ -303,7 +303,7 @@ export default function StudentProfilesTab({
           {canEdit && onExportCSV && (
             <Tooltip label="Export students to CSV" placement="bottom">
             <button onClick={onExportCSV}
-              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
               ↓ Export
             </button>
             </Tooltip>
@@ -361,7 +361,7 @@ export default function StudentProfilesTab({
                 toast={toast}
               />
             ) : (
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', color:'var(--text-muted,#9ca3af)', fontFamily:'DM Sans,sans-serif', padding:40, textAlign:'center' }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', color:'var(--text-muted,#9ca3af)', fontFamily:'Plus Jakarta Sans,sans-serif', padding:40, textAlign:'center' }}>
                 <div style={{ fontSize:32, marginBottom:12, opacity:0.4 }}>👤</div>
                 <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>No student selected</div>
                 <div style={{ fontSize:12 }}>Select a student from the list to view their profile</div>

@@ -15,7 +15,7 @@ import { ChevronRight } from 'lucide-react'
 import { shiftTypeOf, shiftBadge, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
 import { openShiftUnit, openShiftPreceptor } from '../lib/onCampusNow'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 function fmtCheckedIn(iso) {

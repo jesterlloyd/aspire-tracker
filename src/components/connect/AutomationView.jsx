@@ -20,7 +20,7 @@ import AutomationEmailPreviewDrawer from './AutomationEmailPreviewDrawer'
 import { getPreviewFixture } from '../../lib/notifications/previewFixtures'
 import { automationById, isRunStale } from '../../lib/automationCatalog'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // ── Canonical catalog - the SINGLE source of truth for card order, identity, schedule, scope, and

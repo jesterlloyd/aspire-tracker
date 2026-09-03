@@ -341,7 +341,7 @@ export default function CustomOnboardingTour({ run, onClose, experience = 'staff
           borderRadius: 12,
           padding: '22px 22px 18px',
           boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-          fontFamily: 'DM Sans, sans-serif',
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
           maxWidth: TOOLTIP_WIDTH,
           overflow: 'visible',
           outline: 'none',
@@ -389,7 +389,7 @@ export default function CustomOnboardingTour({ run, onClose, experience = 'staff
       {/* Skip / dismiss modal */}
       {showSkipModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000000, background: 'rgba(20,25,40,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 28, maxWidth: 420, width: '90%', fontFamily: 'DM Sans, sans-serif', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 28, maxWidth: 420, width: '90%', fontFamily: 'Plus Jakarta Sans, sans-serif', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: NIGHTFALL, marginBottom: 10 }}>Skip the tour?</div>
             <div style={{ fontSize: 13, color: '#374151', marginBottom: 20, lineHeight: 1.5 }}>
               You can always restart it from {restartHint}.
@@ -413,14 +413,14 @@ export default function CustomOnboardingTour({ run, onClose, experience = 'staff
 const btnPrimary = {
   background: NIGHTFALL, color: '#fff', border: 'none',
   borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600,
-  fontFamily: 'DM Sans, sans-serif', cursor: 'pointer',
+  fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer',
 };
 const btnSecondary = {
   background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB',
   borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500,
-  fontFamily: 'DM Sans, sans-serif', cursor: 'pointer',
+  fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer',
 };
 const btnText = {
   background: 'transparent', color: '#9CA3AF', border: 'none',
-  fontSize: 13, fontFamily: 'DM Sans, sans-serif', cursor: 'pointer', padding: 4,
+  fontSize: 13, fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer', padding: 4,
 };

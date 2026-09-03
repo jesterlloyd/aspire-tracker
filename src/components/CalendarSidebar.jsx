@@ -78,7 +78,7 @@ export function MiniCalendar({ blocks = [], slots = [], aspireEvents = [], selec
 
   return (
     <div>
-      <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'10px' }}>
+      <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'10px', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'10px' }}>
         Mini Calendar
       </div>
 
@@ -86,7 +86,7 @@ export function MiniCalendar({ blocks = [], slots = [], aspireEvents = [], selec
         <button onClick={() => go(-1)} style={{ background:'none', border:'none', cursor:'pointer', color:'#6b7280', padding:'2px', display:'flex' }}>
           <ChevronLeft size={14} />
         </button>
-        <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#1D2567' }}>{monthLabel}</span>
+        <span style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'12px', color:'#1D2567' }}>{monthLabel}</span>
         <button onClick={() => go(1)} style={{ background:'none', border:'none', cursor:'pointer', color:'#6b7280', padding:'2px', display:'flex' }}>
           <ChevronRight size={14} />
         </button>
@@ -94,7 +94,7 @@ export function MiniCalendar({ blocks = [], slots = [], aspireEvents = [], selec
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)', marginBottom:'4px' }}>
         {['S','M','T','W','T','F','S'].map((d, i) => (
-          <div key={i} style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'9px', color:'#d1d5db', textAlign:'center', paddingBottom:'3px' }}>{d}</div>
+          <div key={i} style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'9px', color:'#d1d5db', textAlign:'center', paddingBottom:'3px' }}>{d}</div>
         ))}
       </div>
 
@@ -137,7 +137,7 @@ export function MiniCalendar({ blocks = [], slots = [], aspireEvents = [], selec
               onMouseEnter={e => { if (!isSelected && !isToday) e.currentTarget.style.background = '#f3f4ff' }}
               onMouseLeave={e => { if (!isSelected && !isToday) e.currentTarget.style.background = 'transparent' }}
             >
-              <span style={{ fontFamily:'DM Sans', fontWeight: isToday||isSelected ? 700 : 400, fontSize:'11px', color: isSelected ? '#ffffff' : isToday ? '#1D2567' : '#374151', lineHeight:1 }}>
+              <span style={{ fontFamily:'Plus Jakarta Sans', fontWeight: isToday||isSelected ? 700 : 400, fontSize:'11px', color: isSelected ? '#ffffff' : isToday ? '#1D2567' : '#374151', lineHeight:1 }}>
                 {day}
               </span>
               {shownKeys.length > 0 && (
@@ -195,19 +195,19 @@ function TodaySnapshot({ slots }) {
 
   return (
     <div style={{ marginTop:'20px', paddingTop:'16px', borderTop:'1px solid #f3f4f6' }}>
-      <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'8px' }}>
+      <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'10px', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'8px' }}>
         Today
       </div>
-      <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#1D2567', marginBottom:'4px' }}>
+      <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'12px', color:'#1D2567', marginBottom:'4px' }}>
         {todayLabel}
       </div>
-      <div style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', marginBottom:'12px' }}>
+      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'11px', color:'#6b7280', marginBottom:'12px' }}>
         {scheduledSlots.length} scheduled · {openSlots.length} open slot{openSlots.length !== 1 ? 's' : ''}
       </div>
 
       {scheduledSlots.length === 0 && openSlots.length === 0 ? (
         <div style={{ background:'#f9fafb', borderRadius:'10px', padding:'12px', textAlign:'center' }}>
-          <div style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af', lineHeight:1.5 }}>
+          <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'11px', color:'#9ca3af', lineHeight:1.5 }}>
             No interviews today.
           </div>
         </div>
@@ -223,10 +223,10 @@ function TodaySnapshot({ slots }) {
                   const name    = student ? `${student.first_name} ${student.last_name}` : 'Booked'
                   return (
                     <div key={s.id} style={{ padding:'8px 10px', background:'#f0fdf4', borderRadius:'8px', borderLeft:'3px solid #16a34a' }}>
-                      <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'11px', color:'#166534', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                      <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'11px', color:'#166534', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                         {name}
                       </div>
-                      <div style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#6b7280', marginTop:'2px' }}>
+                      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'10px', color:'#6b7280', marginTop:'2px' }}>
                         {fmt(s.slot_time)} · {s.interviewer_name || 'ASPIRE Team'}
                       </div>
                     </div>
@@ -235,7 +235,7 @@ function TodaySnapshot({ slots }) {
                 {hidden > 0 && (
                   <button
                     onClick={() => setShowAll(true)}
-                    style={{ padding:'5px 10px', background:'#f3f4f6', border:'none', borderRadius:'8px', cursor:'pointer', fontFamily:'DM Sans', fontSize:'10px', fontWeight:600, color:'#6b7280', textAlign:'left' }}
+                    style={{ padding:'5px 10px', background:'#f3f4f6', border:'none', borderRadius:'8px', cursor:'pointer', fontFamily:'Plus Jakarta Sans', fontSize:'10px', fontWeight:600, color:'#6b7280', textAlign:'left' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#e5e7eb'}
                     onMouseLeave={e => e.currentTarget.style.background = '#f3f4f6'}
                   >
@@ -248,15 +248,15 @@ function TodaySnapshot({ slots }) {
 
           {openByInterviewer.length > 0 && (
             <div style={{ marginTop: scheduledSlots.length > 0 ? '8px' : '0' }}>
-              <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'4px' }}>
+              <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'10px', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'4px' }}>
                 Open Slots
               </div>
               {openByInterviewer.map((group, i) => (
                 <div key={i} style={{ padding:'7px 10px', background:'#f0f3ff', borderRadius:'8px', borderLeft:'3px solid #1D2567', marginBottom:'3px' }}>
-                  <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'11px', color:'#1D2567' }}>
+                  <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'11px', color:'#1D2567' }}>
                     {group.slots.length} open slot{group.slots.length !== 1 ? 's' : ''}
                   </div>
-                  <div style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#6b7280', marginTop:'2px' }}>
+                  <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'10px', color:'#6b7280', marginTop:'2px' }}>
                     {fmt(group.slots[0]?.slot_time)} · {group.interviewer}
                   </div>
                 </div>

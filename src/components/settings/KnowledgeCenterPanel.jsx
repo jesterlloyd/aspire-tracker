@@ -114,7 +114,7 @@ const selectStyle = {
   padding: '8px 10px', borderRadius: 9,
   border: '1px solid var(--color-border-default, #e5e7eb)',
   background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
-  fontFamily: 'DM Sans, sans-serif', fontSize: 13, cursor: 'pointer',
+  fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, cursor: 'pointer',
 }
 
 export default function KnowledgeCenterPanel() {
@@ -344,14 +344,14 @@ export default function KnowledgeCenterPanel() {
 
   if (!allowed) {
     return (
-      <div style={{ fontSize: 13, color: 'var(--color-text-secondary, #6b7280)', fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ fontSize: 13, color: 'var(--color-text-secondary, #6b7280)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
         You don’t have access to the Knowledge Center.
       </div>
     )
   }
 
   return (
-    <section aria-labelledby="settings-knowledge-heading" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <section aria-labelledby="settings-knowledge-heading" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       <div id="settings-knowledge-heading">
         <SettingsPageHeader
           title="Knowledge Center"
@@ -401,7 +401,7 @@ export default function KnowledgeCenterPanel() {
                 width: '100%', padding: '8px 10px 8px 30px', borderRadius: 9,
                 border: '1px solid var(--color-border-default, #e5e7eb)',
                 background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
-                fontFamily: 'DM Sans, sans-serif', fontSize: 13, outline: 'none',
+                fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, outline: 'none',
               }}
             />
           </>
@@ -531,7 +531,7 @@ export default function KnowledgeCenterPanel() {
           onRowClick={e => openEntry(e.id)}
           rowSelected={e => drawerOpen && selectedEntry?.id === e.id}
           empty={(
-            <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13, fontFamily: 'DM Sans, sans-serif' }}>
+            <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
               No entries match your search and filters.
             </div>
           )}

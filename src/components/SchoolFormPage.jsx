@@ -217,13 +217,13 @@ export default function SchoolFormPage() {
     <div className="uf-page">
       <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-        <h2 style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 24,
+        <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 24,
           color: 'var(--nightfall)', marginBottom: 16 }}>Form Unavailable</h2>
-        <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 15,
+        <p style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 400, fontSize: 15,
           color: '#6b7280', lineHeight: 1.6, marginBottom: 8 }}>
           The ASPIRE school submission form is not currently accepting registrations.
         </p>
-        <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 15,
+        <p style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 400, fontSize: 15,
           color: '#6b7280', lineHeight: 1.6 }}>
           If you believe this is an error, please contact the ASPIRE team at{' '}
           <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer"
@@ -316,7 +316,7 @@ export default function SchoolFormPage() {
         }}>
           <div style={{
             background: '#fff', borderRadius: 14, maxWidth: 460, width: '100%',
-            padding: '28px 28px 22px', fontFamily: 'DM Sans, sans-serif',
+            padding: '28px 28px 22px', fontFamily: 'Plus Jakarta Sans, sans-serif',
             boxShadow: '0 20px 50px rgba(0,0,0,0.18)',
           }}>
             <div style={{ fontWeight: 700, fontSize: 16, color: '#1D2567', marginBottom: 14 }}>
@@ -329,14 +329,14 @@ export default function SchoolFormPage() {
               <button
                 onClick={() => setWarnModal(null)}
                 style={{ flex: 1, height: 42, borderRadius: 9, border: '1px solid #e5e7eb',
-                  background: '#f9fafb', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 14,
+                  background: '#f9fafb', fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: 14,
                   cursor: 'pointer', color: '#374151' }}>
                 Go back
               </button>
               <button
                 onClick={() => warnModal.onConfirm()}
                 style={{ flex: 1, height: 42, borderRadius: 9, border: 'none',
-                  background: '#1D2567', fontFamily: 'DM Sans', fontWeight: 700, fontSize: 14,
+                  background: '#1D2567', fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 14,
                   cursor: 'pointer', color: '#fff' }}>
                 Submit anyway
               </button>
@@ -435,14 +435,14 @@ export default function SchoolFormPage() {
           {/* Section 2: Rotation Dates (new) */}
           <div className="uf-section">
             <div className="sf-section-title">{T.rotationSectionTitle}</div>
-            <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: '#6b7280',
+            <p style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, color: '#6b7280',
               lineHeight: 1.6, margin: '0 0 16px' }}>
               {T.rotationIntro}
             </p>
             {rotError && (
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
                 padding: '10px 14px', marginBottom: 12,
-                fontFamily: 'DM Sans', fontSize: 13, color: '#991b1b' }}>
+                fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: '#991b1b' }}>
                 {rotError}
               </div>
             )}
@@ -467,7 +467,7 @@ export default function SchoolFormPage() {
           {/* Section 2b: Rotation Availability (AVAILABILITY-CANON-1B) */}
           <div className="uf-section">
             <div className="sf-section-title">{T.availabilitySectionTitle}</div>
-            <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: '#6b7280',
+            <p style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, color: '#6b7280',
               lineHeight: 1.6, margin: '0 0 16px' }}>
               {T.availabilityIntro}
             </p>
@@ -482,7 +482,7 @@ export default function SchoolFormPage() {
                   return (
                     <button type="button" key={day}
                       onClick={() => setA('unavailable_weekdays', toggleWeekday(avail.unavailable_weekdays, day))}
-                      style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 13,
+                      style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'Plus Jakarta Sans', fontSize: 13,
                         fontWeight: 600, cursor: 'pointer',
                         background: on ? '#1D2567' : '#fff', color: on ? '#fff' : '#374151',
                         border: `1px solid ${on ? '#1D2567' : '#d1d5db'}` }}>
@@ -541,7 +541,7 @@ export default function SchoolFormPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                   {avail.blackout_dates.map(d => (
                     <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-                      borderRadius: 16, background: '#f1f5f9', color: '#374151', fontSize: 12, fontFamily: 'DM Sans' }}>
+                      borderRadius: 16, background: '#f1f5f9', color: '#374151', fontSize: 12, fontFamily: 'Plus Jakarta Sans' }}>
                       {d}
                       <button type="button" onClick={() => setA('blackout_dates', avail.blackout_dates.filter(x => x !== d))}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontWeight: 700, padding: 0 }}>×</button>

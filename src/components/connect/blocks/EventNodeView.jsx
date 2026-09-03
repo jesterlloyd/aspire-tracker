@@ -11,7 +11,7 @@ import { Pencil } from 'lucide-react'
 const NAVY = '#1D2567'
 const CS_RED = '#dc1e34'
 const RAVEN = '#191919'
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 export function EventNodeView({ node, editor, getPos, deleteNode, selected }) {
   const a = node.attrs

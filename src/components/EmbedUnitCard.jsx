@@ -97,11 +97,11 @@ function CompactPlacementRow({
           name on a narrow card instead of running under the action column. ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap', overflow: 'hidden' }}>
         <StudentAvatar student={student} size={24} style={{ flexShrink: 0 }} />
-        <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 500, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+        <span style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, fontWeight: 500, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
           {getStudentPreferredFullName(student)}
         </span>
         {student.shift_assigned && (
-          <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 10.5, fontWeight: 500, color: '#9CA3AF', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 10.5, fontWeight: 500, color: '#9CA3AF', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
             {student.shift_assigned === 'Day'       ? '☀ Day'
             : student.shift_assigned === 'Night'    ? '☾ Night'
             : student.shift_assigned === 'Mid'      ? '◐ Mid'
@@ -109,7 +109,7 @@ function CompactPlacementRow({
             : student.shift_assigned}
           </span>
         )}
-        <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: qCfg.bg, color: qCfg.color, border: `1px solid ${qCfg.border}`, whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: qCfg.bg, color: qCfg.color, border: `1px solid ${qCfg.border}`, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {qCfg.label}
         </span>
       </div>
@@ -159,12 +159,12 @@ function CompactPlacementRow({
         {!hasPreceptor && onAssignPreceptor ? (
           <button
             onClick={e => { e.stopPropagation(); onAssignPreceptor(student) }}
-            style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textAlign: 'left' }}
+            style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textAlign: 'left' }}
           >
             + Assign preceptor
           </button>
         ) : !hasPreceptor ? (
-          <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#B45309' }}>
+          <div style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11, color: '#B45309' }}>
             {'⚠'} Preceptor needed
           </div>
         ) : (
@@ -177,7 +177,7 @@ function CompactPlacementRow({
             onClick={e => { e.stopPropagation(); onAssignPreceptor?.(student) }}
             disabled={!onAssignPreceptor}
             title={onAssignPreceptor ? 'Change preceptor' : undefined}
-            style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#4b5563', background: 'none',
+            style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11, color: '#4b5563', background: 'none',
               border: 'none', padding: 0, textAlign: 'left', maxWidth: '100%',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               cursor: onAssignPreceptor ? 'pointer' : 'default' }}
@@ -234,7 +234,7 @@ function CompactOpenSlot({ selectedStudent, compat, onClick }) {
         borderRadius: 8,
         border: `1px solid ${hovered && isReady ? '#c8c8c8' : '#E5E5E5'}`,
         background: hovered && isReady ? '#F4F1EC' : '#ffffff',
-        fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 500,
+        fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, fontWeight: 500,
         color: isReady ? '#191919' : '#9ca3af',
         cursor: isReady ? 'pointer' : 'default',
         transition: 'background 150ms ease, border-color 150ms ease',
@@ -624,7 +624,7 @@ export default function EmbedUnitCard({
           transition: `box-shadow ${CARD.hoverDuration} ease, transform ${CARD.hoverDuration} ease, opacity ${CARD.hoverDuration} ease, border-color ${CARD.hoverDuration} ease`,
           cursor: 'pointer',
           animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
-          fontFamily: 'DM Sans,sans-serif',
+          fontFamily: 'Plus Jakarta Sans,sans-serif',
           overflow: 'hidden',
         }}
         onMouseEnter={() => setCardHovered(true)}
@@ -718,7 +718,7 @@ export default function EmbedUnitCard({
                       aria-hidden="true"
                       style={{ position: 'absolute', top: -4, right: -5, minWidth: 13, height: 13,
                         borderRadius: 8, padding: '0 3px', background: BADGE_COUNT_BG, color: BADGE_COUNT_FG,
-                        fontFamily: 'DM Sans,sans-serif', fontSize: 9, fontWeight: 700, lineHeight: '13px',
+                        fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 9, fontWeight: 700, lineHeight: '13px',
                         textAlign: 'center', pointerEvents: 'none' }}>
                       {unnotifiedStudents.length}
                     </span>
@@ -733,7 +733,7 @@ export default function EmbedUnitCard({
               data-testid="unit-leader-all-notified"
               title={`The unit leader has been notified for ${filledCount === 1 ? 'this placement' : `all ${filledCount} placements`}. Preceptor notification is tracked per row.`}
               style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontFamily: 'DM Sans,sans-serif', fontSize: 11.5, fontWeight: 600, color: '#166534' }}>
+                fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11.5, fontWeight: 600, color: '#166534' }}>
               ✓ Unit Leader Notified · {notifiedCount} of {filledCount}
             </div>
           )}
@@ -798,11 +798,11 @@ export default function EmbedUnitCard({
               <button className="modal-close" onClick={() => setNotifyPreview(null)}>×</button>
             </div>
             <div className="modal-body">
-              <p style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 10px' }}>
+              <p style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 10px' }}>
                 {missingSummary(notifyPreview.missing)} The notice to {unit.unit_name} will say
                 {' '}<strong>To be confirmed</strong> for {notifyPreview.missing.length === 1 ? 'it' : 'them'}.
               </p>
-              <ul data-testid="notify-missing-list" style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#4b5563', lineHeight: 1.7, margin: 0, paddingLeft: 20 }}>
+              <ul data-testid="notify-missing-list" style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, color: '#4b5563', lineHeight: 1.7, margin: 0, paddingLeft: 20 }}>
                 {notifyPreview.missing.map(m => <li key={`${m.key}-${m.label}`}>{m.label}</li>)}
               </ul>
             </div>
@@ -836,7 +836,7 @@ export default function EmbedUnitCard({
               <button className="modal-close" onClick={() => setNotifyFlow(null)}>×</button>
             </div>
             <div className="modal-body">
-              <p style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 10px' }}>
+              <p style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 10px' }}>
                 One email to {leaderGreeting.name || 'the unit leader'} will describe{' '}
                 {notifyFlow.rows.length === 1 ? 'this placement' : `these ${notifyFlow.rows.length} placements`}.
                 Placements already confirmed as notified are not included.
@@ -851,7 +851,7 @@ export default function EmbedUnitCard({
                     </span>
                   )
                   return (
-                    <div key={r.student.id} style={{ border: '1px solid #eef0f4', borderRadius: 8, padding: '8px 11px', fontFamily: 'DM Sans,sans-serif' }}>
+                    <div key={r.student.id} style={{ border: '1px solid #eef0f4', borderRadius: 8, padding: '8px 11px', fontFamily: 'Plus Jakarta Sans,sans-serif' }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#1D2567' }}>{f.studentName || displayName(r.student)}</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 14px', fontSize: 11.5, color: '#4b5563', marginTop: 3 }}>
                         {fact('School', f.school)}
@@ -867,7 +867,7 @@ export default function EmbedUnitCard({
                 })}
               </div>
               {notifyFlow.missing.length > 0 && (
-                <p data-testid="notify-review-gaps" style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11.5, color: '#92400e', lineHeight: 1.6, margin: '10px 0 0' }}>
+                <p data-testid="notify-review-gaps" style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11.5, color: '#92400e', lineHeight: 1.6, margin: '10px 0 0' }}>
                   The notice will say <strong>To be confirmed</strong> for:{' '}
                   {notifyFlow.missing.map(m => m.label).join(' · ')}
                 </p>
@@ -896,19 +896,19 @@ export default function EmbedUnitCard({
               <button className="modal-close" onClick={() => !notifyBusy && setNotifyFlow(null)}>×</button>
             </div>
             <div className="modal-body">
-              <p style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 8px' }}>
+              <p style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 8px' }}>
                 The draft to <strong>{leaderGreeting.name || `${unit.unit_name}'s unit leader`}</strong> named{' '}
                 {notifyFlow.rows.length === 1 ? 'this placement' : `these ${notifyFlow.rows.length} placements`}:
               </p>
-              <ul data-testid="notify-batch-students" style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 12.5, color: '#4b5563', lineHeight: 1.7, margin: '0 0 8px', paddingLeft: 18 }}>
+              <ul data-testid="notify-batch-students" style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 12.5, color: '#4b5563', lineHeight: 1.7, margin: '0 0 8px', paddingLeft: 18 }}>
                 {notifyFlow.rows.map(r => <li key={r.student.id}>{studentNaturalName(r.student)}</li>)}
               </ul>
-              <p style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 12, color: '#6b7280', lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 12, color: '#6b7280', lineHeight: 1.6, margin: 0 }}>
                 Confirming marks {notifyFlow.rows.length === 1 ? 'that placement' : `all ${notifyFlow.rows.length} placements`}{' '}
                 as unit-leader notified on the Placement Board. Preceptors are not affected.
               </p>
               {notifyErrors && (
-                <div data-testid="notify-batch-errors" role="alert" style={{ marginTop: 10, background: '#FEF2F2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 11px', fontFamily: 'DM Sans,sans-serif', fontSize: 12, color: '#991b1b', lineHeight: 1.6 }}>
+                <div data-testid="notify-batch-errors" role="alert" style={{ marginTop: 10, background: '#FEF2F2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 11px', fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 12, color: '#991b1b', lineHeight: 1.6 }}>
                   {notifyErrors.length === notifyFlow.rows.length
                     ? 'Nothing was recorded.'
                     : 'Some placements were recorded; these were not:'}
@@ -959,7 +959,7 @@ export default function EmbedUnitCard({
                 Remove <strong>{studentNaturalName(confirmUnmatch)}</strong> from{' '}
                 <strong>{unit.unit_name}</strong>?
               </p>
-              <ul style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 12.5, color: '#4b5563', lineHeight: 1.7, margin: 0, paddingLeft: 18 }}>
+              <ul style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 12.5, color: '#4b5563', lineHeight: 1.7, margin: 0, paddingLeft: 18 }}>
                 {unmatchPlanned.kind === 'additional' && (<>
                   <li>This {unit.unit_name} placement ends and its slot reopens.</li>
                   <li>Their primary placement is unchanged - the student stays placed,

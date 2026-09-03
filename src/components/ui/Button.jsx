@@ -1,5 +1,5 @@
 // UI-1: governance/admin button primitive, based on shipped Settings / Knowledge
-// Center pixels (DM Sans 13/600, radius 9, navy accent) and the established
+// Center pixels (Plus Jakarta Sans 13/600, radius 9, navy accent) and the established
 // button variants. The universal DISABLED treatment reproduces the shipped
 // Knowledge Center "New Entry" pixels exactly (elevated background, secondary
 // text, 0.6 opacity, not-allowed cursor) regardless of variant.
@@ -33,7 +33,7 @@ export default function Button({ variant = 'primary', size = 'md', icon, disable
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         borderRadius: 9, cursor: 'pointer',
-        fontFamily: 'DM Sans, sans-serif', fontWeight: 600,
+        fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600,
         ...v, ...s, ...disabledStyle, ...style,
       }}
       {...rest}

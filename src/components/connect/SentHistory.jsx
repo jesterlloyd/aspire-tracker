@@ -14,7 +14,7 @@ import { Clock, Check, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Inb
 import { supabase } from '../../lib/supabase'
 import OutreachAnalytics from './OutreachAnalytics'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const PER_PAGE = 50
 const FILTER_STORAGE_KEY = 'aspire_sent_history_filters'

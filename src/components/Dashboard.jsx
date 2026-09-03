@@ -32,7 +32,7 @@ export default function Dashboard({ students, activeFilter, onFilterChange }) {
           >
             <StatCard value={value} label={label} sublabel={sublabel} icon={icon} colorScheme={colorScheme} />
             {isActive && (
-              <div style={{ position:'absolute', top:'5px', right:'8px', fontFamily:'DM Sans', fontSize:'9px', color:'#1D2567', fontWeight:700 }}>
+              <div style={{ position:'absolute', top:'5px', right:'8px', fontFamily:'Plus Jakarta Sans', fontSize:'9px', color:'#1D2567', fontWeight:700 }}>
                 ✕ CLEAR
               </div>
             )}

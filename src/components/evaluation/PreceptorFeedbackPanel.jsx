@@ -9,7 +9,7 @@ import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 // Select up to 5 students, pick a feedback period, review each resolved preceptor, and
 // send. The endpoint resolves recipients server-side and enforces idempotency.
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const MAX_BATCH = 5
 const CONFIRMATION = 'SEND FEEDBACK REQUESTS'

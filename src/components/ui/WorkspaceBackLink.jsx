@@ -22,7 +22,7 @@ export default function WorkspaceBackLink({ path = '/aggregate', label = 'At a G
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '7px 14px 7px 10px', borderRadius: 999, cursor: 'pointer',
-        fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600,
+        fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, fontWeight: 600,
         background: hover ? 'var(--color-bg-elevated, #EEF1FB)' : 'var(--bg-card, #fff)',
         border: `1px solid ${hover ? 'var(--border-accent, #c7d0ee)' : 'var(--border-input, #e2e0d9)'}`,
         color: hover ? NAVY : 'var(--color-text-primary, #374151)',

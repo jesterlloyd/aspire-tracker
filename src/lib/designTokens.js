@@ -31,7 +31,7 @@ export const TOKENS = {
     card: '0 2px 12px rgba(0,0,0,0.07)',
   },
   font: {
-    family: 'DM Sans, sans-serif',
+    family: 'Plus Jakarta Sans, sans-serif',
     sizes: {
       xs:   '10px',
       sm:   '11px',
@@ -82,7 +82,7 @@ export const SPACING = {
 export const BUTTON = {
   height:   '34px',
   radius:   '9px',
-  font:     'DM Sans',
+  font:     'Plus Jakarta Sans',
   weight:   600,
   fontSize: '13px',
   padding:  '0 16px',
@@ -168,7 +168,7 @@ export const shadows = {
 };
 
 export const type = {
-  family: 'DM Sans, system-ui, sans-serif',
+  family: 'Plus Jakarta Sans, system-ui, sans-serif',
   sizes: {
     micro:   10.5,
     small:   11.5,

@@ -3,7 +3,7 @@
 // row), shown from Aggregate > Placement Capacity. No fetch, no edit, no resend/contact - display only.
 import DetailDrawer from './ui/DetailDrawer'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 // Humanize the stored enum/boolean answers for display.
 const ENUM_LABELS = {

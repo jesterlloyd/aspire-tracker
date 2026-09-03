@@ -913,7 +913,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       {sendFormPlan && (
         <div role="dialog" aria-modal="true" aria-label={sendFormPlan.confirmTitle}
           style={{ position:'fixed', inset:0, zIndex:9997, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(15,23,42,0.28)' }}>
-          <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(440px, calc(100vw - 32px))', fontFamily:'DM Sans,sans-serif' }}>
+          <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(440px, calc(100vw - 32px))', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
             <div style={{ fontSize:15, fontWeight:700, color:'var(--chart-ink)', marginBottom:8 }}>{sendFormPlan.confirmTitle}</div>
             <div style={{ fontSize:13, color:'var(--chart-ink-soft)', lineHeight:1.5, marginBottom:8 }}>{sendFormPlan.confirmBody}</div>
             <div style={{ fontSize:12, color:'var(--chart-ink-soft)', marginBottom:14 }}>
@@ -921,11 +921,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             </div>
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button onClick={handleCancelFormSent} disabled={sendFormBusy}
-                style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                 Not sent
               </button>
               <button onClick={handleConfirmFormSent} disabled={sendFormBusy}
-                style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                 {sendFormBusy ? 'Saving…' : 'Mark as sent'}
               </button>
             </div>
@@ -942,7 +942,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       {capacityConfirm && (
         <div role="dialog" aria-modal="true" aria-label="Were the capacity requests sent?"
           style={{ position:'fixed', inset:0, zIndex:9997, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(15,23,42,0.28)' }}>
-          <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(520px, calc(100vw - 32px))', fontFamily:'DM Sans,sans-serif' }}>
+          <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(520px, calc(100vw - 32px))', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, marginBottom:8 }}>
               <div style={{ fontSize:15, fontWeight:700, color:'var(--chart-ink)' }}>Were the capacity requests sent?</div>
               <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
@@ -955,15 +955,15 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             {capacityConfirmMode === 'choice' ? (
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end', flexWrap:'wrap' }}>
                 <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
-                  style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                   Not Sent
                 </button>
                 <button onClick={() => setCapacityConfirmMode('identify')} disabled={capacityBusy}
-                  style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                   Identify Units Sent
                 </button>
                 <button onClick={() => recordConfirmedCapacityUnits(capacityConfirm.units || [])} disabled={capacityBusy}
-                  style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                   {capacityBusy ? 'Saving…' : 'Sent to All Selected Units'}
                 </button>
               </div>
@@ -991,17 +991,17 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 </ul>
                 <div style={{ display:'flex', gap:8, justifyContent:'flex-end', flexWrap:'wrap' }}>
                   <button onClick={() => setCapacityConfirmMode('choice')} disabled={capacityBusy}
-                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                     Back
                   </button>
                   <button onClick={() => closeCapacityConfirm('No units were marked as expected.')} disabled={capacityBusy}
-                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                     Not Sent
                   </button>
                   <button
                     onClick={() => recordConfirmedCapacityUnits((capacityConfirm.units || []).filter(u => capacityChecked.has(u.key)))}
                     disabled={capacityBusy || capacityChecked.size === 0}
-                    style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor: capacityChecked.size === 0 ? 'not-allowed' : 'pointer', opacity: capacityChecked.size === 0 ? 0.6 : 1 }}>
+                    style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor: capacityChecked.size === 0 ? 'not-allowed' : 'pointer', opacity: capacityChecked.size === 0 ? 0.6 : 1 }}>
                     {capacityBusy ? 'Saving…' : `Confirm ${capacityChecked.size} Unit${capacityChecked.size === 1 ? '' : 's'} Sent`}
                   </button>
                 </div>
@@ -1080,7 +1080,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                           border: active ? 'none' : '1px solid #e5e7eb',
                           background: active ? c.activeBg : '#fff',
                           color: active ? c.activeTxt : '#6b7280',
-                          cursor:'pointer', whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif',
+                          cursor:'pointer', whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif',
                         }}>
                         {c.label} ({unitResponsesLoading ? '…' : c.count})
                       </button>

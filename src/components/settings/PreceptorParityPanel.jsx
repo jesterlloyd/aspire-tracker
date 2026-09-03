@@ -222,7 +222,7 @@ export default function PreceptorParityPanel() {
   // already-active card resets to 'all'. Filtering a pre-sorted array preserves worklist order.
   const filteredRows = parityFilter === 'all' ? rows : rows.filter(r => r.parity === parityFilter)
 
-  const F = 'DM Sans, sans-serif'
+  const F = 'Plus Jakarta Sans, sans-serif'
 
   return (
     <div style={{ fontFamily: F }}>

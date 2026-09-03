@@ -35,7 +35,7 @@
   padding: 9px 14px;
   font-size: 12.5px;
   margin: 10px 0 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ngrp-banner-info  { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
 .ngrp-banner-warn  { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; }
@@ -82,7 +82,7 @@
   gap: 8px;
   flex-wrap: wrap;
   margin: 0 0 12px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 /* Roster card */
@@ -102,7 +102,7 @@
   background: var(--color-bg-elevated, #F9FAFB);
   border-bottom: 1px solid rgba(29, 37, 103, 0.08);
   padding: 10px 16px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 /* The scroll container is what makes the sticky header work during vertical
    scrolling: thead sticks to ITS top edge.
@@ -142,7 +142,7 @@
 .ngrp-table {
   width: 100%;
   border-collapse: collapse;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   min-width: 980px;
 }
@@ -204,7 +204,7 @@
   background: var(--nightfall, #1D2567);
   color: #fff;
   padding: 10px 16px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   box-shadow: 0 -4px 16px rgba(29, 37, 103, 0.18);
 }
 
@@ -250,7 +250,7 @@
   gap: 10px;
   padding: 9px 0;
   position: relative;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ngrp-tl-step + .ngrp-tl-step { border-top: 1px solid #F3F4F6; }
 /* The connector runs between dots, so it is drawn on every step but the last. */
@@ -295,7 +295,7 @@
 .ngrp-funnel-row {
   display: flex; align-items: baseline; gap: 12px;
   padding: 8px 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ngrp-funnel-row + .ngrp-funnel-row { border-top: 1px solid #F3F4F6; }
 .ngrp-funnel-label {
@@ -318,7 +318,7 @@
 
 .ngrp-seatlist {
   list-style: none; margin: 12px 0 0; padding: 0;
-  font-family: 'DM Sans', sans-serif; font-size: 12.5px; color: #4A5560;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #4A5560;
 }
 .ngrp-seatlist li {
   display: flex; align-items: center; gap: 10px;
@@ -329,7 +329,7 @@
 /* Read-only configuration summary. */
 .ngrp-summary {
   display: grid; grid-template-columns: 160px 1fr; gap: 10px 18px;
-  margin: 0; font-family: 'DM Sans', sans-serif;
+  margin: 0; font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ngrp-summary dt { font-size: 11.5px; font-weight: 700; color: #8B8F99; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 2px; }
 .ngrp-summary dd { margin: 0; font-size: 13px; color: #374151; line-height: 1.65; }
@@ -353,7 +353,7 @@
 /* The divisions stack; the scroll bound lives on the stack, not on each wrap,
    so a division is never cut in half by its own scrollbar. */
 .ngrp-unitdivs {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   max-height: 320px;
   overflow-y: auto;
 }
@@ -411,7 +411,7 @@
   border: 1px solid rgba(29, 37, 103, 0.2);
   border-radius: 6px;
   background: #fff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   font-weight: 700;
   text-align: center;
@@ -433,14 +433,14 @@
 
 .ngrp-cl-kicker {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  color: #A9AEBB; margin-bottom: 8px; font-family: 'DM Sans', sans-serif;
+  color: #A9AEBB; margin-bottom: 8px; font-family: 'Plus Jakarta Sans', sans-serif;
 }
 /* The five requirements read as a statement of fact, not as five disabled text
    inputs: a greyed-out field invites people to try to type in it. */
 .ngrp-cl-official {
   list-style: none; margin: 0; padding: 10px 14px;
   background: var(--sand, #FAF9F7); border: 1px solid #EDEEF4; border-radius: 10px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ngrp-cl-official li {
   display: flex; align-items: center; gap: 9px;
@@ -450,7 +450,7 @@
 .ngrp-cl-official svg { color: #A9AEBB; flex-shrink: 0; }
 .ngrp-cl-note {
   margin: 8px 0 0; font-size: 11.5px; color: #6B7785; line-height: 1.55;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 /* ── NGRP-WORKSPACE-2: the sub-tab strip ──────────────────────────────────── */
@@ -485,7 +485,7 @@
   padding: 3px 8px;
   background: #6D28D9;
   color: #fff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 10px;
   font-weight: 600;
   line-height: 1.4;
@@ -513,7 +513,7 @@
   border-radius: 4px;
   background: #FEF3C7;
   color: #92400E;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 10.5px;
   font-weight: 600;
   line-height: 1.5;
@@ -531,7 +531,7 @@
    follows is only what the residency board adds: the card interiors, which
    carry ranked preferences and an assignment rather than slots and preceptors. */
 
-.ngrp-pb-page { display: flex; flex-direction: column; gap: 14px; font-family: 'DM Sans', sans-serif; }
+.ngrp-pb-page { display: flex; flex-direction: column; gap: 14px; font-family: 'Plus Jakarta Sans', sans-serif; }
 .ngrp-pb-cols { display: flex; gap: 14px; align-items: stretch; min-height: 0; }
 @media (max-width: 1180px) {
   .ngrp-pb-cols { flex-direction: column; }
@@ -591,7 +591,7 @@
    panels a board rather than two lists. */
 .ngrp-uc-slot-place {
   border: none; background: none; cursor: pointer;
-  font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 700; color: var(--nightfall, #1D2567);
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; font-weight: 700; color: var(--nightfall, #1D2567);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 .ngrp-uc-noseats { margin: 0; font-size: 11px; color: #92400E; }
@@ -685,7 +685,7 @@
 .ngrp-ac-chip-hired { background: #DCFCE7; color: #166534; }
 .ngrp-ac-record {
   margin-left: auto; border: none; background: none; cursor: pointer;
-  font-family: 'DM Sans', sans-serif; font-size: 10.5px; font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 10.5px; font-weight: 700;
   color: var(--nightfall, #1D2567); text-decoration: underline; padding: 0;
 }
 .ngrp-ac-record:hover { color: #4F6DA8; }

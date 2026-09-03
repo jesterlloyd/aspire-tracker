@@ -19,7 +19,7 @@ import { RefreshHint } from '../components/UnifiedNav'
 import WorkspaceBackLink from '../components/ui/WorkspaceBackLink'
 import SegmentedTabs from '../components/ui/SegmentedTabs'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef, backPath = '/aggregate', backLabel = 'At a Glance' }) {
   const navigate = useNavigate()

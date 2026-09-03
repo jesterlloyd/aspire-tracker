@@ -23,7 +23,7 @@ export default function ShiftNumberBadge({ ordinal, size = 22 }) {
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         minWidth: size, height: size, padding: wide ? '0 6px' : 0,
         borderRadius: 999, background: '#EEF2FB', color: '#1D2567',
-        border: '1px solid #c7d2fe', fontFamily: 'DM Sans, sans-serif',
+        border: '1px solid #c7d2fe', fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: 11, fontWeight: 700, lineHeight: 1, boxSizing: 'border-box',
       }}
     >

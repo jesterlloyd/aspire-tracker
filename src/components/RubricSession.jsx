@@ -1606,7 +1606,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         <div className="modal-overlay" onMouseDown={() => setViewingRubric(null)}>
           <div className="modal-rubric-view" onMouseDown={e => e.stopPropagation()}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid var(--color-border-subtle, #f3f4f6)', flexShrink:0 }}>
-              <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:15, color:'var(--color-text-primary)' }}>
+              <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:15, color:'var(--color-text-primary)' }}>
                 Rubric, {viewingRubric.interviewer_name || 'Unknown Interviewer'}
               </div>
               <button className="modal-close" onClick={() => setViewingRubric(null)}>×</button>

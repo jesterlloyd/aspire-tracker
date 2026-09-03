@@ -1688,7 +1688,7 @@ function AuthedShell() {
         minHeight: '100vh', background: '#F4F1EC',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', color: '#9ca3af' }}>
+        <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '14px', color: '#9ca3af' }}>
           Loading ASPIRE Intelligence...
         </div>
       </div>
@@ -1704,7 +1704,7 @@ function AuthedShell() {
       <div style={{
         minHeight: '100vh', background: '#F4F1EC',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'DM Sans, sans-serif',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
       }}>
         <div style={{ textAlign: 'center', color: '#991b1b' }}>
           <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>Account Deactivated</div>
@@ -1742,7 +1742,7 @@ function ShellSplash() {
       minHeight: '100vh', background: '#F4F1EC',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', color: '#9ca3af' }}>
+      <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '14px', color: '#9ca3af' }}>
         Loading ASPIRE Intelligence...
       </div>
     </div>

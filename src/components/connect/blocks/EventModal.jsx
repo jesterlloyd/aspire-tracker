@@ -8,7 +8,7 @@
 import { useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const MAX = { title: 80, dateTime: 120, location: 120, format: 80, respondBy: 120 }
 const INP = { width: '100%', boxSizing: 'border-box', height: 38, padding: '0 11px', fontSize: 13, fontFamily: F, border: '1.5px solid #e5e7eb', borderRadius: 8, color: '#191919', outline: 'none' }

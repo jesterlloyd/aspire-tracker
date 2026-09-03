@@ -72,5 +72,5 @@ export function routableSections(roleFlags) {
 export const SETTINGS_HEADING_STYLE = {
   margin: '0 0 14px', fontSize: 20, fontWeight: 700, lineHeight: '28px',
   letterSpacing: '-0.01em',
-  color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
+  color: 'var(--color-text-primary, #191919)', fontFamily: 'Plus Jakarta Sans, sans-serif',
 }

@@ -99,7 +99,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
     // container +20/-20, verified by bounding-box measurement at 1792/2000/1280).
     // Removing it entirely in the first density pass put Settings cards 20px wide of
     // the A/S/I/R/E column and into the Keith launcher's protected right gutter.
-    <div style={{ padding: '0 20px 40px', fontFamily: 'DM Sans, sans-serif' }}>
+    <div style={{ padding: '0 20px 40px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       {/* ACCOUNTS-ACCESS-REDESIGN-1B: keep the Settings nav rail visible during long panel scrolling
           (e.g. Accounts & Access → Activity Log). Sticky within the layout, offset ~120px to clear the
           global sticky .top-section (header ~64 + cohort bar ~48). max-height + overflow so a tall rail
@@ -152,7 +152,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
                     padding: '10px 12px', marginBottom: 4, borderRadius: 10, border: 'none', cursor: 'pointer',
-                    fontFamily: 'DM Sans, sans-serif', fontSize: 13.5, fontWeight: active ? 700 : 500,
+                    fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13.5, fontWeight: active ? 700 : 500,
                     // Active = solid navy pill with white text/icon (unmistakable). Inactive = quiet.
                     background: active ? 'var(--color-accent-primary, #1D2567)' : 'transparent',
                     boxShadow: active ? '0 1px 3px rgba(29,37,103,0.30)' : 'none',

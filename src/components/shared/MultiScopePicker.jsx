@@ -14,7 +14,7 @@ import { X } from 'lucide-react'
 
 const DEFAULT_INPUT_STYLE = {
   width: '100%', padding: '8px 10px', border: '1px solid #d5d9e2', borderRadius: 8,
-  fontFamily: 'DM Sans, sans-serif', fontSize: 13, boxSizing: 'border-box',
+  fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, boxSizing: 'border-box',
 }
 
 export default function MultiScopePicker({ id, options, selected, onChange, placeholder, inputStyle = DEFAULT_INPUT_STYLE }) {

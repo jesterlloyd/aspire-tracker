@@ -112,8 +112,8 @@ export default function AdditionalPreceptors({ student, preceptors = [], canEdit
   // Non-admins (RLS returns no rows) with nothing to show: render nothing.
   if (!canEdit && rows.length === 0) return null
 
-  const link = { fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontFamily: 'DM Sans,sans-serif' }
-  const input = { fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid #e5e7eb', fontFamily: 'DM Sans,sans-serif', width: '100%' }
+  const link = { fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontFamily: 'Plus Jakarta Sans,sans-serif' }
+  const input = { fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid #e5e7eb', fontFamily: 'Plus Jakarta Sans,sans-serif', width: '100%' }
 
   return (
     <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #ececec' }}>
@@ -176,11 +176,11 @@ export default function AdditionalPreceptors({ student, preceptors = [], canEdit
           <input value={notes} onChange={e => setNotes(e.target.value.slice(0, 500))} placeholder="Notes (optional)" style={input} />
           <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
             <button onClick={submit} disabled={busy}
-              style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: busy ? '#9ca3af' : '#1D2567', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+              style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: busy ? '#9ca3af' : '#1D2567', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'Plus Jakarta Sans,sans-serif' }}>
               {busy ? 'Saving…' : 'Assign'}
             </button>
             <button onClick={() => { setFormOpen(false); setMsg(null) }} disabled={busy}
-              style={{ fontSize: 12, fontWeight: 600, color: '#374151', background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+              style={{ fontSize: 12, fontWeight: 600, color: '#374151', background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans,sans-serif' }}>
               Cancel
             </button>
           </div>

@@ -17,7 +17,7 @@ import { CARD } from '../lib/designTokens';
 import { ROLE_BADGE, displayRole, formatLoginDate, columnizeUsers, UserInitials, CARD_AVATAR_RING } from './settings/accountsShared';
 import AccountProfileModal from './settings/AccountProfileModal';
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const DEFAULT_COLOR = '#1D2567'
 
 // ── Cozy interactive profile card - hover lift via the shared CARD tokens / StudentCard recipe. ──

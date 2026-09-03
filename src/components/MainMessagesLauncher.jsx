@@ -31,7 +31,7 @@ import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed, onFloatingPanelClosed } from '../lib/floatingPanels'
 import MessagesWorkspace from './connect/messages/MessagesWorkspace'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 export default function MainMessagesLauncher() {
   const { userProfile } = useAuth()

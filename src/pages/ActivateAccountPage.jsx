@@ -64,7 +64,7 @@ async function postActivationEvent(eventType, category) {
   } catch { /* diagnostics never affect activation */ }
 }
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const MIN_LEN = 8
 

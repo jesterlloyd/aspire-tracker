@@ -40,7 +40,7 @@ import {
 import RowActionsMenu from '../../shared/RowActionsMenu'
 import * as defaultApi from '../../../lib/messages/messagesApiClient'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const PAGE_LIMIT = 25
 const SEARCH_DEBOUNCE_MS = 300
 

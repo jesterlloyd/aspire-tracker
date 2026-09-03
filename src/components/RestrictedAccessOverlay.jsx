@@ -8,7 +8,7 @@
 // placeholder backdrop for Evaluation - interviewers never fetch evaluation data).
 import { Lock } from 'lucide-react'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 export default function RestrictedAccessOverlay({ title, body, contact }) {
   return (

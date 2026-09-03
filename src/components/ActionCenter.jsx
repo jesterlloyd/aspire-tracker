@@ -102,7 +102,7 @@ const AC_GLASS_STYLES = `
 .ac-card:hover { background: #fbfbfd; border-color: rgba(29,37,103,0.16); box-shadow: 0 2px 8px rgba(15,23,42,0.07); }
 .ac-pill {
   flex-shrink: 0; padding: 5px 12px; border-radius: 16px; cursor: pointer;
-  font-family: 'DM Sans, sans-serif'; font-size: 11.5px; font-weight: 600;
+  font-family: 'Plus Jakarta Sans, sans-serif'; font-size: 11.5px; font-weight: 600;
   transition: all 0.12s ease; white-space: nowrap;
   background: rgba(29,37,103,0.06); border: 1px solid transparent; color: #475467;
 }
@@ -148,7 +148,7 @@ function AutomationStatusSection({ rows, expanded, onToggle }) {
       <button
         onClick={onToggle}
         aria-expanded={expanded}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif', textAlign: 'left' }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>
         </svg>
@@ -327,7 +327,7 @@ function ItemCard({
           </div>
           <button onClick={onOriExpand}
             style={{ flexShrink: 0, padding: '5px 10px', borderRadius: 7, border: '1px solid #e0e7ff',
-              fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+              fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
               background: '#f0f3ff', color: '#1D2567' }}>
             {oriExpanded ? 'Close ▴' : 'Compose ▾'}
           </button>
@@ -351,11 +351,11 @@ function ItemCard({
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <button onClick={onCopyOrientation}
-                style={{ flex: 1, padding: '7px', fontSize: 12, fontWeight: 600, background: '#1D2567', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                style={{ flex: 1, padding: '7px', fontSize: 12, fontWeight: 600, background: '#1D2567', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                 {copyOk ? '✓ Copied' : 'Copy Full Email'}
               </button>
               <button onClick={onOpenOrientationMailto}
-                style={{ flex: 1, padding: '7px', fontSize: 12, fontWeight: 600, background: '#fff', color: '#1D2567', border: '1.5px solid #1D2567', borderRadius: 6, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                style={{ flex: 1, padding: '7px', fontSize: 12, fontWeight: 600, background: '#fff', color: '#1D2567', border: '1.5px solid #1D2567', borderRadius: 6, cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                 Open Outlook
               </button>
             </div>
@@ -411,11 +411,11 @@ function ItemCard({
               <span style={{ fontSize: 11, color: '#374151', fontWeight: 500, whiteSpace: 'nowrap' }}>Mark complete?</span>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={onCancelConfirm}
-                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f3f4f6', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>
+                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f3f4f6', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#6b7280', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                   Cancel
                 </button>
                 <button onClick={onConfirm} disabled={isActioning}
-                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, cursor: 'pointer', color: '#166534', fontFamily: 'DM Sans, sans-serif' }}>
+                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, cursor: 'pointer', color: '#166534', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                   {isActioning ? '…' : 'Confirm'}
                 </button>
               </div>
@@ -423,7 +423,7 @@ function ItemCard({
           ) : actionLabel ? (
             <button onClick={onAction} disabled={isActioning}
               style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(29,37,103,0.15)',
-                fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: 11, cursor: 'pointer',
+                fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: 11, cursor: 'pointer',
                 whiteSpace: 'nowrap', transition: 'all 0.12s',
                 background: item.markDoneType === 'update_field' ? '#f0fdf4' : '#f0f3ff',
                 color: item.markDoneType === 'update_field' ? '#166534' : '#1D2567' }}>
@@ -1055,7 +1055,7 @@ ${KR_SIG}`
         display: 'flex',
         flexDirection: 'column',
         zIndex: 1003,
-        fontFamily: 'DM Sans, sans-serif',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
         overflow: 'hidden',
       }}
     >
@@ -1096,7 +1096,7 @@ ${KR_SIG}`
           style={{
             background: 'none', border: 'none', borderBottom: `2px solid ${acTab === 'actions' ? '#1D2567' : 'transparent'}`,
             padding: '10px 12px', fontSize: 12.5, fontWeight: acTab === 'actions' ? 700 : 600,
-            color: acTab === 'actions' ? '#1D2567' : '#6b7280', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+            color: acTab === 'actions' ? '#1D2567' : '#6b7280', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif',
           }}>
           Action Needed{totalCount > 0 ? ` (${totalCount})` : ''}
         </button>
@@ -1106,7 +1106,7 @@ ${KR_SIG}`
             display: 'inline-flex', alignItems: 'center', background: 'none', border: 'none',
             borderBottom: `2px solid ${acTab === 'notifications' ? '#1D2567' : 'transparent'}`,
             padding: '10px 12px', fontSize: 12.5, fontWeight: acTab === 'notifications' ? 700 : 600,
-            color: acTab === 'notifications' ? '#1D2567' : '#6b7280', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+            color: acTab === 'notifications' ? '#1D2567' : '#6b7280', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif',
           }}>
           Notifications
           {notifUnread > 0 && (
@@ -1152,7 +1152,7 @@ ${KR_SIG}`
             style={{
               fontSize: 11, fontWeight: 700, color: '#92400e',
               background: 'none', border: '1px solid #fcd34d', borderRadius: 6,
-              padding: '3px 9px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+              padding: '3px 9px', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif',
             }}>
             Retry
           </button>
@@ -1170,7 +1170,7 @@ ${KR_SIG}`
       }}>
         {totalCount === 0 && !hasFetchError && (shiftLogsLoading || dispositionFollowupsLoading) ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 24px' }}>
-            <span style={{ fontSize: 13, color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>Loading action items…</span>
+            <span style={{ fontSize: 13, color: '#6b7280', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Loading action items…</span>
           </div>
         ) : totalCount === 0 && !hasFetchError ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 28px', gap: 12 }}>
@@ -1270,7 +1270,7 @@ ${KR_SIG}`
             <button
               onClick={() => setShowCompleted(s => !s)}
               aria-expanded={showCompleted}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif', textAlign: 'left' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7BA86B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
               </svg>

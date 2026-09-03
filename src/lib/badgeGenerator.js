@@ -200,7 +200,7 @@ function drawHeadshotCover(ctx, img, frame) {
 }
 
 function ctxFont(weight, size) {
-  return `${weight} ${size}px 'DM Sans', system-ui, sans-serif`
+  return `${weight} ${size}px 'Plus Jakarta Sans', system-ui, sans-serif`
 }
 
 
@@ -222,7 +222,7 @@ export async function generateBadgePNGs({ student, rotation, headshotUrl }) {
     throw new Error('Valid rotation dates are required to generate a badge.')
   }
 
-  // Ensure DM Sans (and all other app fonts) are ready in the canvas context
+  // Ensure Plus Jakarta Sans (and all other app fonts) are ready in the canvas context
   if (typeof document !== 'undefined' && document.fonts?.ready) {
     await document.fonts.ready
   }

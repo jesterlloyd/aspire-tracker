@@ -51,7 +51,7 @@ export default function StaffNotificationsPanel({
   onNavigateDestination,
 }) {
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 0 calc(18px + env(safe-area-inset-bottom))', fontFamily: 'DM Sans, sans-serif' }}>
+    <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 0 calc(18px + env(safe-area-inset-bottom))', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       {unreadCount > 0 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 16px 6px' }}>
           <button
@@ -59,7 +59,7 @@ export default function StaffNotificationsPanel({
             style={{
               fontSize: 11.5, fontWeight: 600, color: '#3949ab', background: 'none',
               border: '1px solid rgba(57,73,171,0.30)', borderRadius: 6, padding: '3px 9px',
-              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+              cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif',
             }}>
             Mark all read
           </button>

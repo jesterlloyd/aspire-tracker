@@ -8,7 +8,7 @@ import { categoryChipColors } from '../../lib/contactCategories'
 import { useStudentFileUrl } from '../../lib/useStudentFile'
 import { classifyStoredFileRef } from '../../lib/studentFileClient'
 
-const F    = 'DM Sans, sans-serif'
+const F    = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 

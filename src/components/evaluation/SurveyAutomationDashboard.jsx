@@ -30,7 +30,7 @@ import {
 // revoke actions, legacy read-only rows, eligibility, and timing rules are unchanged - it simply
 // renders inside this shell (embedded) instead of above it.
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const WORKSPACE_ID = 'survey-automation-workspace'
 

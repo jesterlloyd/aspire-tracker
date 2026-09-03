@@ -27,7 +27,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { listStudentUnitAssignments, manageStudentUnitAssignment } from '../lib/studentUnitAssignmentsApi'
 import { canonicalUnitName } from '../lib/unitNameCanon'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const STATUS_CHIP = {

@@ -19,7 +19,7 @@ import { cityOptions, cityWeatherLocation } from '../lib/mastheadCityPreference'
 import { useCityPreference } from './masthead/useCityPreference'
 import CityPickerDialog from './masthead/CityPickerDialog'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // WMO weather_code + is_day + wind → scene. Conservative; unrecognized → 'unknown' (calm cloud).

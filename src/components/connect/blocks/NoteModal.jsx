@@ -8,7 +8,7 @@
 import { useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const TITLE_MAX = 80
 const BODY_MAX = 600

@@ -50,13 +50,13 @@ export default function ResidencyCohortList({
     <div style={{ display: 'flex', gap: 8, padding: '10px 14px', borderTop: '1px solid #f3f4f6', background: 'var(--sand)' }}>
       {activeCycle && onManageCycle && (
         <button type="button" onClick={() => { onManageCycle(); onDone?.() }}
-          style={{ flex: 1, padding: '7px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 12, cursor: 'pointer', color: '#374151' }}>
+          style={{ flex: 1, padding: '7px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: 'Plus Jakarta Sans', fontSize: 12, cursor: 'pointer', color: '#374151' }}>
           ✏ Edit Cohort
         </button>
       )}
       {onNewCycle && (
         <button type="button" onClick={() => { onNewCycle(); onDone?.() }}
-          style={{ flex: 1, padding: '7px', background: '#1D2567', border: 'none', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#fff' }}>
+          style={{ flex: 1, padding: '7px', background: '#1D2567', border: 'none', borderRadius: 8, fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#fff' }}>
           + Add Cohort
         </button>
       )}
@@ -66,7 +66,7 @@ export default function ResidencyCohortList({
   if (status !== 'ready' || cycles.length === 0) {
     return (
       <>
-        <div style={{ padding: '16px', fontSize: 12.5, color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }} role="status">
+        <div style={{ padding: '16px', fontSize: 12.5, color: '#6b7280', fontFamily: 'Plus Jakarta Sans, sans-serif' }} role="status">
           {status === 'loading' && 'Loading cohorts…'}
           {residencyUnavailable(status) && 'Cohorts could not be loaded right now. The Residency workspace shows what is wrong and how to resolve it.'}
           {status === 'ready' && cycles.length === 0 && 'No residency cohorts are configured yet.'}
@@ -94,7 +94,7 @@ export default function ResidencyCohortList({
             onClick={() => { onSelectCycle(c.id); onDone?.() }}
             style={{
               display: 'block', width: '100%', textAlign: 'left', border: 'none',
-              fontFamily: 'DM Sans, sans-serif',
+              fontFamily: 'Plus Jakarta Sans, sans-serif',
               padding: '14px 16px', cursor: 'pointer', opacity: done ? 0.75 : 1,
               background: isSel ? '#e8edf8' : 'transparent',
               borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent',

@@ -70,7 +70,7 @@ const SHIFT_BADGE_TONES = {
 
 // ── Token-derived style constants ─────────────────────────────────────────────
 
-const F = { family: 'DM Sans, sans-serif' }
+const F = { family: 'Plus Jakarta Sans, sans-serif' }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

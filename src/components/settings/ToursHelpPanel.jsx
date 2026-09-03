@@ -38,7 +38,7 @@ export default function ToursHelpPanel({ onRestartTour }) {
             padding: '9px 16px', borderRadius: 9,
             background: 'var(--color-accent-primary, #1D2567)', color: '#ffffff',
             border: 'none', cursor: onRestartTour ? 'pointer' : 'not-allowed',
-            fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600,
+            fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, fontWeight: 600,
             opacity: onRestartTour ? 1 : 0.6, transition: 'opacity 0.15s, filter 0.15s',
           }}
           onMouseEnter={e => { if (onRestartTour) e.currentTarget.style.filter = 'brightness(1.12)' }}

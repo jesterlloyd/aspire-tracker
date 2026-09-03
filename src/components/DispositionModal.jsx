@@ -17,7 +17,7 @@ import {
 
 const labelStyle = {
   display: 'block',
-  fontFamily: 'DM Sans',
+  fontFamily: 'Plus Jakarta Sans',
   fontSize: 11,
   fontWeight: 700,
   color: 'var(--text-secondary, #374151)',
@@ -148,7 +148,7 @@ export default function DispositionModal({
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="modal-header">
-          <h2 style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 18 }}>
+          <h2 style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 18 }}>
             {initialValues ? 'Update Program Disposition' : 'Record Program Disposition'}
           </h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
@@ -164,7 +164,7 @@ export default function DispositionModal({
               borderRadius: 8,
               padding: '10px 12px',
               marginBottom: 16,
-              fontFamily: 'DM Sans',
+              fontFamily: 'Plus Jakarta Sans',
               fontSize: 12,
               lineHeight: 1.5,
               color: 'var(--text-secondary, #6b7280)',
@@ -184,25 +184,25 @@ export default function DispositionModal({
             marginBottom: 20,
           }}>
             <div style={{
-              fontFamily: 'DM Sans', fontWeight: 700, fontSize: 16,
+              fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 16,
               color: 'var(--text-primary, #111827)', marginBottom: 2,
             }}>
               {student?.first_name} {student?.last_name}
             </div>
             {(student?.school || student?.program_type) && (
-              <div style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--text-secondary, #6b7280)' }}>
+              <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary, #6b7280)' }}>
                 {[student.school, student.program_type].filter(Boolean).join(' · ')}
               </div>
             )}
             {cohort?.name && (
-              <div style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--text-tertiary, #9ca3af)', marginTop: 2 }}>
+              <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-tertiary, #9ca3af)', marginTop: 2 }}>
                 {cohort.name}
               </div>
             )}
             {student?.status && (
               <div style={{ marginTop: 8 }}>
                 <span style={{
-                  fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600,
+                  fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600,
                   padding: '2px 9px', borderRadius: 12,
                   background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d',
                   display: 'inline-block',
@@ -288,7 +288,7 @@ export default function DispositionModal({
                       background: selectedFollowups.includes(type)
                         ? 'var(--surface-2, #f9fafb)'
                         : 'transparent',
-                      fontFamily: 'DM Sans',
+                      fontFamily: 'Plus Jakarta Sans',
                       fontSize: 13,
                       color: 'var(--text-primary, #374151)',
                       userSelect: 'none',
@@ -330,7 +330,7 @@ export default function DispositionModal({
                 maxLength={1000}
                 style={{
                   width: '100%', resize: 'vertical',
-                  fontFamily: 'DM Sans', fontSize: 13,
+                  fontFamily: 'Plus Jakarta Sans', fontSize: 13,
                   lineHeight: 1.5,
                 }}
               />
@@ -360,7 +360,7 @@ export default function DispositionModal({
                 borderRadius: 8,
                 border: '1px solid var(--border, #e5e7eb)',
                 background: 'transparent',
-                fontFamily: 'DM Sans',
+                fontFamily: 'Plus Jakarta Sans',
                 fontSize: 14,
                 fontWeight: 500,
                 cursor: submitting ? 'not-allowed' : 'pointer',

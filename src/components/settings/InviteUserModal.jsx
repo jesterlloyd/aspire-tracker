@@ -34,7 +34,7 @@ import ContactSuggest from './ContactSuggest'
 import { searchContacts } from '../../lib/contactSearch'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const field = { width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', boxSizing: 'border-box' }
 const label = { display: 'block', fontFamily: F, fontWeight: 600, fontSize: 12, color: '#374151', marginBottom: 6 }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

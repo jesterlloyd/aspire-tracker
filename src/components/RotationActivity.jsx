@@ -53,7 +53,7 @@ function resolveRotationRange(student, rotationRow) {
   return (student.term_dates || '').trim()
 }
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000
 
 // Who appears in the Rotation Progress list. 'Placed' is included so a student who has been

@@ -25,7 +25,7 @@ import { listStudentUnitAssignments } from '../lib/studentUnitAssignmentsApi'
 import { shiftStatusChip } from '../lib/shiftStatusChips'
 import { computeReviewWarnings, WARNING_COPY } from '../lib/shiftReviewWarnings'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const flagChip = {

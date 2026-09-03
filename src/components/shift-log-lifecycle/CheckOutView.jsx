@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useCheckOut } from './useCheckOut'
 import { deriveGreeting } from './CheckInView'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const SHIFT_TYPES = ['Day', 'Night', 'Mid']
 
 const INPUT = {

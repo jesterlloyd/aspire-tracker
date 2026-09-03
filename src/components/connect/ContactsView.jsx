@@ -27,7 +27,7 @@ import MultiScopePicker from '../shared/MultiScopePicker'
 import { toneGradient } from '../../lib/connectTones'
 import ConnectPanel, { ConnectPanelIcon } from './ConnectPanel'
 
-const F    = 'DM Sans, sans-serif'
+const F    = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // ── Category mapping ──────────────────────────────────────────────────────────

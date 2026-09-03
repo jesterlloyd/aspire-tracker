@@ -12,7 +12,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { hasSupportRequest } from '../lib/support/supportRequests'
 import { markSupportRequestRead } from '../lib/support/useSupportRequestReads'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 // Mirrors the Status badge styling used in StudentSidePanel's Clinical Hours table.
 const STATUS_STYLES = {

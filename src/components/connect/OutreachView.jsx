@@ -39,7 +39,7 @@ import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, ema
 import { getStudentPreferredFirstName, getStudentPreferredFullName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 import { buildStudentInvitationEmail, formatExpiresAt, TIMEPOINT_LABELS } from '../../../lib/server/evaluation/emailTemplates'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 // Canonical default body for the editable Survey Invitation draft (Send-to-One).
 // Mirrors the fixed intro paragraph the server template falls back to when no

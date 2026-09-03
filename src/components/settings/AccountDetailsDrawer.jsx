@@ -12,7 +12,7 @@ import { PORTAL_ROLE_LABELS, PORTAL_STATUS_STYLES } from '../../lib/portalAccess
 import { supabase } from '../../lib/supabase'
 import { useInterviewerEntitlements } from '../../lib/useInterviewerEntitlements'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const sectionTitle = { margin: '0 0 8px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#6b7280' }
 const row = { display: 'grid', gridTemplateColumns: '120px 1fr', rowGap: 8, fontSize: 13 }
 const dt = { color: '#6b7280' }

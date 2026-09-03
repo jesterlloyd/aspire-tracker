@@ -117,7 +117,7 @@ export default function SchedulingLinkReturnConfirm({
   return (
     <div role="dialog" aria-modal="true" aria-label={plan.confirmTitle}
       style={{ position:'fixed', inset:0, zIndex:9997, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(15,23,42,0.28)' }}>
-      <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(460px, calc(100vw - 32px))', fontFamily:'DM Sans,sans-serif' }}>
+      <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(460px, calc(100vw - 32px))', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
         <div style={{ fontSize:15, fontWeight:700, color:'var(--chart-ink)', marginBottom:8 }}>{plan.confirmTitle}</div>
         <div style={{ fontSize:13, color:'var(--chart-ink-soft)', lineHeight:1.5, marginBottom:8 }}>{plan.confirmBody}</div>
         <div style={{ fontSize:12, color:'var(--chart-ink-soft)', marginBottom:14 }}>
@@ -125,11 +125,11 @@ export default function SchedulingLinkReturnConfirm({
         </div>
         <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
           <button onClick={() => close('No scheduling link was recorded.')} disabled={busy}
-            style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+            style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
             Not sent
           </button>
           <button onClick={handleConfirm} disabled={busy}
-            style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+            style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'Plus Jakarta Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
             {busy ? 'Saving…' : 'Mark as sent'}
           </button>
         </div>

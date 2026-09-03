@@ -64,7 +64,7 @@ export default function UnitStudentAvatar({ url, name, size = 44, style }) {
     <span
       style={{
         ...base,
-        color: '#fff', fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+        color: '#fff', fontWeight: 700, fontFamily: "'Plus Jakarta Sans', sans-serif",
         fontSize: Math.round(size * 0.35),
       }}
       aria-hidden="true"

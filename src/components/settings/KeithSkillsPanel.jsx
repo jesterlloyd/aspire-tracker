@@ -226,14 +226,14 @@ export default function KeithSkillsPanel() {
 
   if (!allowed) {
     return (
-      <div style={{ fontSize: 13, color: secondary, fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ fontSize: 13, color: secondary, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
         You don’t have access to Keith skills.
       </div>
     )
   }
 
   return (
-    <section aria-labelledby="settings-keith-heading" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <section aria-labelledby="settings-keith-heading" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       <div id="settings-keith-heading">
         <SettingsPageHeader
           title="Keith"
@@ -277,7 +277,7 @@ export default function KeithSkillsPanel() {
                 width: '100%', padding: '8px 10px 8px 30px', borderRadius: 9,
                 border: '1px solid var(--color-border-default, #e5e7eb)',
                 background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
-                fontFamily: 'DM Sans, sans-serif', fontSize: 13, outline: 'none',
+                fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, outline: 'none',
               }}
             />
           </>
@@ -309,7 +309,7 @@ export default function KeithSkillsPanel() {
           onRowClick={s => openSkill(s.id)}
           rowSelected={s => drawerOpen && selectedSkill?.id === s.id}
           empty={(
-            <div style={{ padding: '24px 18px', textAlign: 'center', color: secondary, fontSize: 13, fontFamily: 'DM Sans, sans-serif' }}>
+            <div style={{ padding: '24px 18px', textAlign: 'center', color: secondary, fontSize: 13, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
               No skills match your search and filters.
             </div>
           )}

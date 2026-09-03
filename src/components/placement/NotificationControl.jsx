@@ -31,7 +31,7 @@ const ICON_BTN = {
   background: 'none', padding: 0, lineHeight: 1, flexShrink: 0,
 }
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 function Dialog({ title, body, children, onCancel }) {
   // Portaled: the unit card transforms on hover and clips its overflow, which

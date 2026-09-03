@@ -14,7 +14,7 @@ import {
   RELEASE_STATE_LABELS, MODERATION_STATE_LABELS,
 } from '../../lib/unitEvaluationReleaseActions'
 
-const F = "'DM Sans', system-ui, sans-serif"
+const F = "'Plus Jakarta Sans', system-ui, sans-serif"
 const NAVY = '#1D2567'
 const INSTRUMENTS = [
   { slug: 'student_preceptor_eval' },

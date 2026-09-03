@@ -49,7 +49,7 @@ const TIER_BADGE = {
   3: { bg: '#7C8FD9', label: '3rd Choice' },
 }
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 /**
  * Returns open slots for a unit name from the participating units array.

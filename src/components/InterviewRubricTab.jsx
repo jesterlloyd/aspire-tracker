@@ -61,7 +61,7 @@ function TeamsInvitePill({ student, sessions }) {
   }
   const t = tones[tone] || tones.neutral
   return (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 9px', borderRadius:999, background:t.bg, color:t.text, border:`1px solid ${t.border}`, fontSize:11, fontWeight:600, fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 9px', borderRadius:999, background:t.bg, color:t.text, border:`1px solid ${t.border}`, fontSize:11, fontWeight:600, fontFamily:'Plus Jakarta Sans, sans-serif', whiteSpace:'nowrap' }}>
       {tone === 'attention' && (
         <span style={{ width:5, height:5, borderRadius:'50%', background:'#930045', animation:'pulse-dot 1.8s ease-in-out infinite', flexShrink:0 }} />
       )}
@@ -329,10 +329,10 @@ export default function InterviewRubricTab({
     if (isViewer) {
       // Viewers: back to list, no rubric form
       return (
-        <div style={{ padding:'32px', textAlign:'center', color:'#9ca3af', fontFamily:'DM Sans,sans-serif' }}>
+        <div style={{ padding:'32px', textAlign:'center', color:'#9ca3af', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
           <div style={{ fontSize:14, marginBottom:12 }}>Rubric submission requires Interviewer access or above.</div>
           <button onClick={() => selectStudent(null)}
-            style={{ background:'#1D2567', color:'#fff', border:'none', borderRadius:8, padding:'8px 18px', fontFamily:'DM Sans,sans-serif', fontWeight:600, cursor:'pointer' }}>
+            style={{ background:'#1D2567', color:'#fff', border:'none', borderRadius:8, padding:'8px 18px', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, cursor:'pointer' }}>
             ← Back to list
           </button>
         </div>
@@ -457,7 +457,7 @@ export default function InterviewRubricTab({
               background: calendarCollapsed ? '#1D2567' : '#f3f4ff',
               border: `1px solid ${calendarCollapsed ? '#1D2567' : '#e0e7ff'}`,
               borderRadius: '8px', cursor: 'pointer',
-              fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px',
+              fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px',
               color: calendarCollapsed ? '#ffffff' : '#1D2567',
               transition: 'all 0.2s ease',
             }}
@@ -494,7 +494,7 @@ export default function InterviewRubricTab({
             <div style={{
               height: '34px', flex: 1, display: 'inline-flex', alignItems: 'center', gap: '14px',
               padding: '0 14px', background: '#F5F7FB', border: '1px solid #E5E7EB',
-              borderRadius: '999px', fontFamily: 'DM Sans', fontSize: '12px',
+              borderRadius: '999px', fontFamily: 'Plus Jakarta Sans', fontSize: '12px',
               overflowX: 'auto', scrollbarWidth: 'thin', whiteSpace: 'nowrap',
             }}>
               <span style={{ fontWeight: 600, color: '#1D2567', paddingRight: '8px', borderRight: '1px solid #E5E7EB', flexShrink: 0 }}>
@@ -517,7 +517,7 @@ export default function InterviewRubricTab({
 
           {/* Schedule scope toggle */}
           {!calendarCollapsed && (
-            <div style={{ display:'flex', alignItems:'center', background:'#F4F1EC', borderRadius:8, padding:2, fontFamily:'DM Sans, sans-serif', border:'1px solid rgba(29,37,103,0.06)', flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'center', background:'#F4F1EC', borderRadius:8, padding:2, fontFamily:'Plus Jakarta Sans, sans-serif', border:'1px solid rgba(29,37,103,0.06)', flexShrink:0 }}>
               {[
                 { key:'mine', label:'My schedule' },
                 { key:'all',  label:"Everyone's schedule" },
@@ -552,7 +552,7 @@ export default function InterviewRubricTab({
 
       {/* Interview Recommendations header strip */}
       <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', padding:'4px 16px 0' }}>
-        <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:18, color:'var(--text-heading,#191919)' }}>
+        <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:18, color:'var(--text-heading,#191919)' }}>
           Interview Recommendations
         </span>
         {/* ASPIRE-CHART: interview-to-placement handoff */}
@@ -561,7 +561,7 @@ export default function InterviewRubricTab({
             onClick={() => onNavigateToPlacement(readyToPlace[0].id)}
             style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 12px', borderRadius:20,
               border:'1px solid var(--chart-line,rgba(29,37,103,0.12))', background:'var(--chart-ok-bg,#E5F3EA)',
-              color:'var(--chart-ok-ink,#166534)', fontFamily:'DM Sans,sans-serif', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+              color:'var(--chart-ok-ink,#166534)', fontFamily:'Plus Jakarta Sans,sans-serif', fontSize:12, fontWeight:700, cursor:'pointer' }}>
             Ready to place: {readyToPlace.length} → Placement Board
           </button>
         )}
@@ -574,11 +574,11 @@ export default function InterviewRubricTab({
             aria-label="Search the interview worklist"
             style={{ width:'100%', boxSizing:'border-box', padding:'6px 10px',
               border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7,
-              fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)',
+              fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', background:'var(--bg-input,#fff)',
               color:'var(--text-body,#191919)' }}
           />
         </div>
-        <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:12, color:'var(--text-muted,#9ca3af)', flexShrink:0 }}>
+        <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontSize:12, color:'var(--text-muted,#9ca3af)', flexShrink:0 }}>
           {sorted.length} of {students.length} student{students.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -601,11 +601,11 @@ export default function InterviewRubricTab({
             padding:'7px 14px', marginBottom:'8px',
             background:'#f0f3ff', borderRadius:'8px', border:'1px solid #e0e7ff',
           }}>
-            <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#1D2567' }}>
+            <span style={{ fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'12px', color:'#1D2567' }}>
               Showing: {activeFilter.replace(/_/g, ' ')}
             </span>
             <button onClick={() => setActiveFilter(null)} style={{
-              background:'none', border:'none', fontFamily:'DM Sans', fontSize:'12px',
+              background:'none', border:'none', fontFamily:'Plus Jakarta Sans', fontSize:'12px',
               color:'#6b7280', cursor:'pointer', textDecoration:'underline', padding:0,
             }}>Clear filter</button>
           </div>
@@ -729,10 +729,10 @@ export default function InterviewRubricTab({
                     <div style={{ display:'flex', gap:10, alignItems:'center' }}>
                       <StudentAvatar student={s} size={40} style={{ flexShrink:0 }} />
                       <div style={{ minWidth:0 }}>
-                        <div style={{ fontWeight:600, fontSize:13, color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                        <div style={{ fontWeight:600, fontSize:13, color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                           {displayName(s)}
                         </div>
-                        <div style={{ fontSize:11, color:'var(--color-text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:2, fontFamily:'DM Sans,sans-serif' }}>
+                        <div style={{ fontSize:11, color:'var(--color-text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:2, fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                           {formatSchoolProgram(s.school, s.program_type)}
                         </div>
                       </div>
@@ -743,18 +743,18 @@ export default function InterviewRubricTab({
                   <div className="ir-wl-cell ir-wl-col-appt">
                     {s.interview_scheduled_date ? (
                       <>
-                        <div style={{ fontWeight:600, fontSize:12, color:'var(--color-accent-primary)', fontFamily:'DM Sans,sans-serif', whiteSpace:'nowrap' }}>
+                        <div style={{ fontWeight:600, fontSize:12, color:'var(--color-accent-primary)', fontFamily:'Plus Jakarta Sans,sans-serif', whiteSpace:'nowrap' }}>
                           {fmtApptDate(s.interview_scheduled_date)}
                           {fmtApptTime(s.interview_scheduled_time) && (
                             <> &middot; {fmtApptTime(s.interview_scheduled_time)}</>
                           )}
                         </div>
-                        <div style={{ fontSize:11, color:'var(--color-text-muted)', marginTop:3, fontFamily:'DM Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        <div style={{ fontSize:11, color:'var(--color-text-muted)', marginTop:3, fontFamily:'Plus Jakarta Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {interviewerDisplay || 'Interviewer pending'}
                         </div>
                       </>
                     ) : (
-                      <span style={{ fontSize:12, color:'var(--color-text-muted)', fontStyle:'italic', fontFamily:'DM Sans,sans-serif' }}>
+                      <span style={{ fontSize:12, color:'var(--color-text-muted)', fontStyle:'italic', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                         Not Scheduled
                       </span>
                     )}
@@ -766,13 +766,13 @@ export default function InterviewRubricTab({
                       (() => {
                         const c = DISPOSITION_PILL_COLORS[irDispType] || DISPOSITION_PILL_COLORS['not_selected']
                         return (
-                          <span style={{ display:'inline-block', marginBottom:5, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                          <span style={{ display:'inline-block', marginBottom:5, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                             {DISPOSITION_TYPES[irDispType] || irDispType}
                           </span>
                         )
                       })()
                     ) : (
-                      <span style={{ display:'inline-block', marginBottom:5, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                      <span style={{ display:'inline-block', marginBottom:5, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                         {s.status}
                       </span>
                     ))}
@@ -783,15 +783,15 @@ export default function InterviewRubricTab({
                   <div className="ir-wl-cell ir-wl-col-outcome">
                     {scoredRubs.length > 0 ? (
                       <>
-                        <div style={{ fontSize:11, color:'var(--color-text-muted)', fontFamily:'DM Sans,sans-serif', marginBottom:2 }}>
+                        <div style={{ fontSize:11, color:'var(--color-text-muted)', fontFamily:'Plus Jakarta Sans,sans-serif', marginBottom:2 }}>
                           Rubrics: {studentRubs.length}
                         </div>
-                        <div style={{ fontWeight:700, fontSize:13, color:'var(--color-text-primary)', fontFamily:'DM Sans,sans-serif', marginBottom:4 }}>
+                        <div style={{ fontWeight:700, fontSize:13, color:'var(--color-text-primary)', fontFamily:'Plus Jakarta Sans,sans-serif', marginBottom:4 }}>
                           {avgScore.toFixed(1)}<span style={{ fontWeight:400, color:'var(--color-text-muted)', fontSize:11 }}> / 15</span>
                         </div>
                         {recCfg && (
                           <span style={{ display:'inline-flex', alignItems:'center', gap:3 }}>
-                            <span style={{ fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:4, background:recCfg.bg, color:recCfg.color, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                            <span style={{ fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:4, background:recCfg.bg, color:recCfg.color, whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                               {recCfg.label}
                             </span>
                             <ScoreFlag message={s.score_flag ? s.score_flag_message : ''} />
@@ -799,7 +799,7 @@ export default function InterviewRubricTab({
                         )}
                       </>
                     ) : s.interview_scheduled_date ? (
-                      <span style={{ fontSize:12, color:'var(--color-text-muted)', fontStyle:'italic', fontFamily:'DM Sans,sans-serif' }}>
+                      <span style={{ fontSize:12, color:'var(--color-text-muted)', fontStyle:'italic', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                         Awaiting Interview
                       </span>
                     ) : null}
@@ -817,7 +817,7 @@ export default function InterviewRubricTab({
                             display:'inline-flex', alignItems:'center', gap:4,
                             padding:'7px 14px', borderRadius:999,
                             border:'1px solid var(--color-border-default)', background:'var(--color-bg-surface)',
-                            fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:500,
+                            fontFamily:'Plus Jakarta Sans,sans-serif', fontSize:13, fontWeight:500,
                             color:'var(--color-text-primary)', whiteSpace:'nowrap',
                             cursor: rowAction.disabled ? 'not-allowed' : 'pointer',
                             opacity: rowAction.disabled ? 0.55 : 1,

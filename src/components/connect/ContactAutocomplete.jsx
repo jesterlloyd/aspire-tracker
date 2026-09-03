@@ -25,7 +25,7 @@ import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { getPrimaryCategory, categoryChipColors } from '../../lib/contactCategories'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const SOURCE_BADGE = {

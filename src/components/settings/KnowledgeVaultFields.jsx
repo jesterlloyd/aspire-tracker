@@ -19,7 +19,7 @@ const inputStyle = {
   border: '1px solid var(--color-border-default, #e5e7eb)',
   background: 'var(--color-bg-surface, #ffffff)',
   color: 'var(--color-text-primary, #191919)',
-  fontFamily: 'DM Sans, sans-serif', fontSize: 13, outline: 'none',
+  fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, outline: 'none',
 }
 
 /**
@@ -90,7 +90,7 @@ export function TermChips({ label, hint, values, onChange, placeholder, max, dis
             onBlur={() => commit(draft)}
             placeholder={list.length ? '' : placeholder}
             aria-label={label}
-            style={{ flex: '1 1 90px', minWidth: 90, border: 'none', outline: 'none', fontSize: 13, fontFamily: 'DM Sans, sans-serif', background: 'transparent' }}
+            style={{ flex: '1 1 90px', minWidth: 90, border: 'none', outline: 'none', fontSize: 13, fontFamily: 'Plus Jakarta Sans, sans-serif', background: 'transparent' }}
           />
         )}
       </div>
@@ -143,7 +143,7 @@ export function MarkdownBodyEditor({ value, onChange, format, onFormatChange, re
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'none',
                 cursor: 'pointer', color: 'var(--color-accent-primary, #1D2567)',
-                fontFamily: 'DM Sans, sans-serif', fontSize: 12.5, fontWeight: 600, padding: 0,
+                fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5, fontWeight: 600, padding: 0,
               }}
             >
               {preview ? <Pencil size={13} /> : <Eye size={13} />}
@@ -170,7 +170,7 @@ export function MarkdownBodyEditor({ value, onChange, format, onFormatChange, re
           aria-label="Body"
           style={{
             ...inputStyle, minHeight: 220, resize: 'vertical', lineHeight: 1.5,
-            fontFamily: isMarkdown ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'DM Sans, sans-serif',
+            fontFamily: isMarkdown ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'Plus Jakarta Sans, sans-serif',
             fontSize: isMarkdown ? 12.5 : 13,
           }}
         />
@@ -247,7 +247,7 @@ export function EntryLinksPanel({ links, loading, onOpenEntry }) {
     display: 'inline-flex', alignItems: 'center', gap: 5, borderRadius: 999,
     padding: '3px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
     border: '1px solid transparent', background: 'var(--color-bg-elevated, #eef2fb)',
-    color: 'var(--color-accent-primary, #1D2567)', fontFamily: 'DM Sans, sans-serif',
+    color: 'var(--color-accent-primary, #1D2567)', fontFamily: 'Plus Jakarta Sans, sans-serif',
   }
 
   if (loading) {

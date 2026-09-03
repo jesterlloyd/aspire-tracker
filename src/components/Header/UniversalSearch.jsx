@@ -44,7 +44,7 @@ export default function UniversalSearch({
             transition:'width 200ms ease, border-color 150ms ease',
             background: searchFocused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)',
             border:`1px solid ${searchFocused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)'}`,
-            borderRadius:8, color:'#fff', fontSize:12.5, fontFamily:'DM Sans',
+            borderRadius:8, color:'#fff', fontSize:12.5, fontFamily:'Plus Jakarta Sans',
           }}
           placeholder="Search students, units, contacts…"
         />

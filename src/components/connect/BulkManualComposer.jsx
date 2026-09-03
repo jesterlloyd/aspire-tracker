@@ -47,7 +47,7 @@ import ConnectPanel from './ConnectPanel'
 import RichTextEditor from './RichTextEditor'
 import { plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // ── Local style tokens (mirror OutreachView's design language) ──────────────────

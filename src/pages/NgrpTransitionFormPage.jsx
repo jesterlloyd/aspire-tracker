@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { DEFAULT_APPLICATION_CHECKLIST } from '../../lib/server/ngrpEligibility.js'
 
 const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
-const F = "'DM Sans', system-ui, sans-serif"
+const F = "'Plus Jakarta Sans', system-ui, sans-serif"
 
 const EMPTY_PAYLOAD = {
   identity: { preferred_email: '', preferred_phone: '', cs_employment_status: null },

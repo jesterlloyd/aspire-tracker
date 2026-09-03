@@ -11,7 +11,7 @@ import { useAuth } from '../../contexts/AuthContext'
 // Admin role (defense in depth). The evaluated_target shown here comes from the response
 // JSON (server-canonicalized at submit time).
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 function fmtDate(iso) {
   if (!iso) return '-'

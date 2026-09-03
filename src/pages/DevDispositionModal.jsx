@@ -36,7 +36,7 @@ export default function DevDispositionModal() {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: 'DM Sans',
+      fontFamily: 'Plus Jakarta Sans',
       gap: 20,
       padding: 40,
     }}>

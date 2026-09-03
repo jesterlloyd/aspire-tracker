@@ -9,7 +9,7 @@ export default function PageHeader({ title, subtitle, accessNote, actions }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <h2 style={{
           margin: 0, fontSize: 17, fontWeight: 700,
-          color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
+          color: 'var(--color-text-primary, #191919)', fontFamily: 'Plus Jakarta Sans, sans-serif',
         }}>
           {title}
         </h2>
@@ -18,7 +18,7 @@ export default function PageHeader({ title, subtitle, accessNote, actions }) {
             display: 'inline-flex', alignItems: 'center',
             padding: '2px 9px', borderRadius: 999,
             background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-accent-primary, #1D2567)',
-            fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+            fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
           }}>
             {accessNote}
           </span>
@@ -26,7 +26,7 @@ export default function PageHeader({ title, subtitle, accessNote, actions }) {
         {actions && <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>{actions}</div>}
       </div>
       {subtitle && (
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)', fontFamily: 'DM Sans, sans-serif' }}>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           {subtitle}
         </p>
       )}

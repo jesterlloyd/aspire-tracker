@@ -115,14 +115,14 @@ export default function StatCard({
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
+          fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700,
           fontSize: '26px', lineHeight: 1,
           color: scheme.valueColor, marginBottom: '4px',
         }}>
           {value}
         </div>
         <div style={{
-          fontFamily: 'DM Sans, sans-serif', fontWeight: 600,
+          fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600,
           fontSize: '11px', textTransform: 'uppercase',
           letterSpacing: '0.05em', color: scheme.labelColor,
           lineHeight: 1.2,
@@ -131,7 +131,7 @@ export default function StatCard({
         </div>
         {sublabel && (
           <div style={{
-            fontFamily: 'DM Sans, sans-serif', fontWeight: 400,
+            fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 400,
             fontSize: '11px', color: scheme.labelColor,
             opacity: 0.65, marginTop: '2px', lineHeight: 1.2,
           }}>

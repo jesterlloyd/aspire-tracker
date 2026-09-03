@@ -13,14 +13,14 @@ export function RefreshHint({ onClick, tooltipLabel, loading = false, disabled =
   const tipLabel = tooltipLabel ?? 'Refresh app'
 
   return (
-    <div style={{ display:'flex', alignItems:'center', marginLeft:'auto', paddingRight:4, flexShrink:0, alignSelf:'center', fontFamily:'DM Sans, sans-serif' }}>
+    <div style={{ display:'flex', alignItems:'center', marginLeft:'auto', paddingRight:4, flexShrink:0, alignSelf:'center', fontFamily:'Plus Jakarta Sans, sans-serif' }}>
       <Tooltip label={tipLabel} placement="bottom">
       <button
         onClick={handleClick}
         disabled={isDisabled}
         aria-label="Refresh"
         aria-busy={loading}
-        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'rgba(29,37,103,0.04)', border:'1px solid rgba(29,37,103,0.12)', borderRadius:7, color: loading ? '#1D2567' : '#475467', fontSize:12, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor: isDisabled ? 'default' : 'pointer', opacity: disabled && !loading ? 0.6 : 1, transition:'all 0.15s ease' }}
+        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'rgba(29,37,103,0.04)', border:'1px solid rgba(29,37,103,0.12)', borderRadius:7, color: loading ? '#1D2567' : '#475467', fontSize:12, fontWeight:600, fontFamily:'Plus Jakarta Sans, sans-serif', cursor: isDisabled ? 'default' : 'pointer', opacity: disabled && !loading ? 0.6 : 1, transition:'all 0.15s ease' }}
         onMouseEnter={e => { if (!isDisabled) { e.currentTarget.style.background='rgba(29,37,103,0.08)'; e.currentTarget.style.color='#1D2567' } }}
         onMouseLeave={e => { if (!isDisabled) { e.currentTarget.style.background='rgba(29,37,103,0.04)'; e.currentTarget.style.color='#475467' } }}
       >

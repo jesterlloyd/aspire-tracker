@@ -21,7 +21,7 @@ import { useContactSearch, contactSubtitle, contactUnitValues, matchCatalogKeys,
 import ContactSuggest from './ContactSuggest'
 import MultiScopePicker from '../shared/MultiScopePicker'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const field = { width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', boxSizing: 'border-box' }
 const label = { display: 'block', fontFamily: F, fontWeight: 600, fontSize: 12, color: '#374151', marginBottom: 6 }
 const UNIT_VALUES = UNIT_SCOPE_OPTIONS.map(o => o.value)

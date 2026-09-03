@@ -173,7 +173,7 @@ export function InterviewersContent({ onRequestClose }) {
     }
   }
 
-  const F = 'DM Sans, sans-serif'
+  const F = 'Plus Jakarta Sans, sans-serif'
   const fieldStyle = {
     width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '8px',
     fontFamily: F, fontSize: '13px', outline: 'none', boxSizing: 'border-box',
@@ -381,7 +381,7 @@ export function InterviewersContent({ onRequestClose }) {
 export default function InterviewersModal({ isOpen, onClose }) {
   const navigate = useNavigate()
   if (!isOpen) return null
-  const F = 'DM Sans, sans-serif'
+  const F = 'Plus Jakarta Sans, sans-serif'
   return (
     <div
       onClick={onClose}

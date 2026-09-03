@@ -327,7 +327,7 @@ export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onData
                   <button type="button" onClick={() => setOpenId(open ? null : rev.entry_id)}
                     aria-expanded={open}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
-                      padding: '9px 12px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                      padding: '9px 12px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                     {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{rev.entry?.title || rev.title}</span>
                     {rev.entry?.body_format === 'plain' && rev.body_format === 'markdown' && (

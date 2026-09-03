@@ -9,7 +9,7 @@ import { NodeViewWrapper } from '@tiptap/react'
 import { Pencil } from 'lucide-react'
 
 const CS_RED = '#dc1e34'
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 export function ButtonNodeView({ node, editor, getPos, deleteNode, selected }) {
   const label = node.attrs.label || 'Button'

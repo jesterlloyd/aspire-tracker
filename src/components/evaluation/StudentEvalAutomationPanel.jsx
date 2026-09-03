@@ -16,7 +16,7 @@ const ROUTE = RELEASE_ROUTES.student
 // policies). This phase is EVIDENCE ONLY: NO release/send button, NO assignment/token
 // creation, NO Resend, NO notification_log, NO cron. "Ready to release" is status text.
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const GROUPS = [

@@ -21,7 +21,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { activeCohortIds, grantableCohorts } from '../../lib/interviewerEntitlements'
 import { useInterviewerEntitlements, postEntitlements, ENTITLEMENTS_KEY } from '../../lib/useInterviewerEntitlements'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 export default function InterviewerEntitlementsSection({ user, sectionTitle, onToast }) {

@@ -12,7 +12,7 @@ const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 
 const PR_CSS = `
   .pr-page { background:#F4F1EC; min-height:100vh; }
-  .pr-container { max-width:880px; margin:0 auto; padding:24px 16px 80px; font-family:'DM Sans',system-ui,sans-serif; color:#191919; }
+  .pr-container { max-width:880px; margin:0 auto; padding:24px 16px 80px; font-family:'Plus Jakarta Sans',system-ui,sans-serif; color:#191919; }
   .pr-card { background:#fff; border-radius:12px; border:1px solid #e8e4dc; padding:24px 24px; margin-bottom:20px; }
   .pr-section-title { font-size:17px; font-weight:700; color:#191919; margin:0 0 14px; }
   .pr-field { margin-bottom:22px; }
@@ -22,7 +22,7 @@ const PR_CSS = `
   .pr-helper { font-size:12.5px; color:#6b7280; margin:0 0 8px; line-height:1.55; }
   .pr-textarea {
     width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px;
-    padding:11px 12px; font-size:16px; font-family:'DM Sans',system-ui,sans-serif; color:#191919;
+    padding:11px 12px; font-size:16px; font-family:'Plus Jakarta Sans',system-ui,sans-serif; color:#191919;
     min-height:88px; resize:vertical; line-height:1.5;
   }
   .pr-textarea:focus { outline:2px solid #1D2567; outline-offset:1px; }
@@ -36,7 +36,7 @@ const PR_CSS = `
   .pr-opt input { width:17px; height:17px; accent-color:#1D2567; flex-shrink:0; }
   .pr-submit {
     background:#1D2567; color:#fff; border:none; border-radius:10px; padding:15px 32px;
-    font-size:16px; font-weight:600; font-family:'DM Sans',system-ui,sans-serif; cursor:pointer;
+    font-size:16px; font-weight:600; font-family:'Plus Jakarta Sans',system-ui,sans-serif; cursor:pointer;
     width:100%; min-height:52px;
   }
   .pr-submit:disabled { opacity:0.4; cursor:not-allowed; }
@@ -205,17 +205,17 @@ export default function PostRotationEvaluationPage() {
           <div className="pr-band-inner">
             <img src="/cs-logo-large.png" alt="Cedars-Sinai" style={{ height: 36, width: 'auto', display: 'block', flexShrink: 0 }} />
             <div className="pr-divider" />
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Brawerman Nursing Institute
             </span>
           </div>
         </div>
         <div className="pr-title-block">
           <div className="pr-title-inner">
-            <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
+            <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
               {content?.title || 'ASPIRE Post-Rotation Evaluation'}
             </h1>
-            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Your feedback helps improve ASPIRE for future students and academic partners
             </p>
           </div>

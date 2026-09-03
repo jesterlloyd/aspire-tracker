@@ -72,7 +72,7 @@ function PlacementOverview({ studentsCount, matchedCount, unmatchedCount, prefCo
   })()
 
   return (
-    <section style={{ background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:14, boxShadow:'var(--shadow-card)', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
+    <section style={{ background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:14, boxShadow:'var(--shadow-card)', overflow:'hidden', fontFamily:'Plus Jakarta Sans, sans-serif' }}>
       {/* PLACEMENT-SECTION-HIERARCHY-1: the three board section titles (Placement at a Glance,
           Unit Pool, Student Pool) share the canonical .ov-panel-title treatment used by the
           At a Glance cards - one navy title system across the placement surfaces. */}
@@ -681,7 +681,7 @@ export default function MatchingTab({
             <div className="embed-units-body">
               {/* Unit Pool guide - shows when no unit is focused and no student selected */}
               {!focusedUnit && !selectedStudent && (
-                <div style={{ margin:'10px 12px 0', background:'#FAFAF7', border:'1px dashed rgba(29,37,103,0.12)', borderRadius:10, padding:'10px 13px', fontSize:12, color:'#475467', display:'flex', alignItems:'center', gap:8, fontFamily:'DM Sans, sans-serif' }}>
+                <div style={{ margin:'10px 12px 0', background:'#FAFAF7', border:'1px dashed rgba(29,37,103,0.12)', borderRadius:10, padding:'10px 13px', fontSize:12, color:'#475467', display:'flex', alignItems:'center', gap:8, fontFamily:'Plus Jakarta Sans, sans-serif' }}>
                   <Info size={14} style={{ color:'#98A2B3', flexShrink:0 }} />
                   <span>Click a unit to surface students who picked it as their top choice, ranked by preference.</span>
                 </div>
@@ -735,7 +735,7 @@ export default function MatchingTab({
                   {getDisplayUnits.hasFocus && getDisplayUnits.others.length > 0 && (
                     <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'8px 4px', margin:'4px 0', gridColumn:'1 / -1' }}>
                       <div style={{ flex:1, height:'1px', background:'#e0e7ff' }} />
-                      <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'10px', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>
+                      <span style={{ fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'10px', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>
                         Other Available Units
                       </span>
                       <div style={{ flex:1, height:'1px', background:'#e0e7ff' }} />
@@ -848,7 +848,7 @@ export default function MatchingTab({
                   background: '#F4F1EC', padding: '10px 14px',
                   borderRadius: 10, margin: '12px 12px 0',
                   display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 13,
+                  fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13,
                 }}>
                   <span style={{ fontWeight: 600, color: '#1D2567', flexShrink: 0 }}>
                     Preferences for {focusedUnit.unit_name}:
@@ -868,7 +868,7 @@ export default function MatchingTab({
                       marginLeft: 'auto', background: 'transparent',
                       border: '1px solid #d1d5db', borderRadius: 999,
                       padding: '3px 12px', fontSize: 12, cursor: 'pointer',
-                      fontFamily: 'DM Sans', color: '#6b7280',
+                      fontFamily: 'Plus Jakarta Sans', color: '#6b7280',
                     }}
                   >Clear</button>
                 </div>
@@ -876,7 +876,7 @@ export default function MatchingTab({
 
               {/* Student Pool guide - shows when no student is selected */}
               {!selectedStudent && filteredPool.length > 0 && (
-                <div style={{ margin:'10px 12px 0', background:'#FAFAF7', border:'1px dashed rgba(29,37,103,0.12)', borderRadius:10, padding:'10px 13px', fontSize:12, color:'#475467', display:'flex', alignItems:'center', gap:8, fontFamily:'DM Sans, sans-serif' }}>
+                <div style={{ margin:'10px 12px 0', background:'#FAFAF7', border:'1px dashed rgba(29,37,103,0.12)', borderRadius:10, padding:'10px 13px', fontSize:12, color:'#475467', display:'flex', alignItems:'center', gap:8, fontFamily:'Plus Jakarta Sans, sans-serif' }}>
                   <Info size={14} style={{ color:'#98A2B3', flexShrink:0 }} />
                   <span>Select a student to view their compatible units, ordered by their preferences.</span>
                 </div>
@@ -942,7 +942,7 @@ export default function MatchingTab({
             data-testid="placement-exception-dialog"
             onMouseDown={e => e.stopPropagation()}
             style={{ background: '#fff', borderRadius: 12, maxWidth: 520, width: '92vw', padding: 20,
-              fontFamily: 'DM Sans, sans-serif' }}>
+              fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, color: '#1D2567' }}>
               Placement exception: not yet interviewed
             </h3>

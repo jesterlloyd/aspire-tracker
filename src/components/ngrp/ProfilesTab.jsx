@@ -61,7 +61,7 @@ const relTime = ts => {
 const selectStyle = {
   height: 32, padding: '0 8px', border: '1px solid var(--border-input, rgba(29,37,103,0.10))',
   borderRadius: 7, fontSize: 12, background: 'var(--bg-input, #fff)',
-  color: 'var(--text-body, #191919)', fontFamily: 'DM Sans, sans-serif', cursor: 'pointer',
+  color: 'var(--text-body, #191919)', fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer',
 }
 
 function SkeletonRoster() {
@@ -338,7 +338,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
               <button type="button" onClick={clearFilters} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5, height: 26, padding: '0 10px',
                 borderRadius: 7, border: '1px solid rgba(29,37,103,0.15)', background: '#F0F3FF',
-                color: '#1D2567', fontSize: 11, fontWeight: 600, fontFamily: 'DM Sans, sans-serif', cursor: 'pointer',
+                color: '#1D2567', fontSize: 11, fontWeight: 600, fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer',
               }}>
                 <X size={11} strokeWidth={2.5} aria-hidden="true" />
                 Clear filters
@@ -492,7 +492,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
                   style={{
                     height: 32, padding: '0 14px', borderRadius: 9, border: 'none',
                     background: '#fff', color: '#1D2567', fontSize: 12.5, fontWeight: 700,
-                    fontFamily: 'DM Sans, sans-serif', cursor: 'pointer',
+                    fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer',
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                   }}
                 >
@@ -505,7 +505,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
                   style={{
                     marginLeft: 'auto', background: 'none', border: 'none',
                     color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 600,
-                    textDecoration: 'underline', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                    textDecoration: 'underline', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif',
                   }}
                 >
                   Clear selection
@@ -531,7 +531,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
           <div role="dialog" aria-modal="true" aria-label="Send Transition Form" style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
             width: 'min(560px, calc(100vw - 32px))', background: '#fff', borderRadius: 16,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.18)', zIndex: 1999, fontFamily: 'DM Sans, sans-serif',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.18)', zIndex: 1999, fontFamily: 'Plus Jakarta Sans, sans-serif',
             display: 'flex', flexDirection: 'column', maxHeight: '80vh',
           }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #F3F4F6', fontSize: 16, fontWeight: 700 }}>
@@ -570,7 +570,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
               <button type="button" onClick={() => setSendReview(null)} style={{
                 height: 34, padding: '0 14px', borderRadius: 9, background: '#F3F4FF',
                 border: '1px solid #E0E7FF', color: '#1D2567', fontSize: 13, fontWeight: 600,
-                fontFamily: 'DM Sans, sans-serif', cursor: 'pointer',
+                fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer',
               }}>
                 Cancel
               </button>
@@ -586,7 +586,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
                 style={{
                   height: 34, padding: '0 16px', borderRadius: 9, border: 'none',
                   background: '#1D2567', color: '#fff', fontSize: 13, fontWeight: 600,
-                  fontFamily: 'DM Sans, sans-serif',
+                  fontFamily: 'Plus Jakarta Sans, sans-serif',
                   cursor: !transitionProvisioned ? 'not-allowed' : 'pointer',
                   opacity: !transitionProvisioned ? 0.55 : 1,
                 }}

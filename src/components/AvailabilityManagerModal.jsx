@@ -244,7 +244,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
                 width: '100%', padding: '11px',
                 background: saving ? '#e5e7eb' : '#1D2567',
                 border: 'none', borderRadius: '10px',
-                fontFamily: 'DM Sans', fontWeight: 700,
+                fontFamily: 'Plus Jakarta Sans', fontWeight: 700,
                 fontSize: '13px', color: '#ffffff',
                 cursor: saving ? 'default' : 'pointer',
                 display: 'flex', alignItems: 'center',

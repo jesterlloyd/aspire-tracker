@@ -3,7 +3,7 @@
 // called exactly as before. What changed is presentation only: a
 // show-password control, safe error differentiation (network and rate-limit
 // failures get honest copy; credential failures stay one non-enumerating
-// message), approved email guidance, and Fraunces on the display headings.
+// message), approved email guidance, and Playfair Display on the display headings.
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';

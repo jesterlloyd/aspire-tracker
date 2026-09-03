@@ -1000,7 +1000,7 @@ export default function StudentIntakeFormPage({ portal = null }) {
                   return (
                     <button type="button" key={day}
                       onClick={() => set('unavailable_weekdays', toggleWeekday(form.unavailable_weekdays, day))}
-                      style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 13,
+                      style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'Plus Jakarta Sans', fontSize: 13,
                         fontWeight: 600, cursor: 'pointer',
                         background: on ? '#1D2567' : '#fff', color: on ? '#fff' : '#374151',
                         border: `1px solid ${on ? '#1D2567' : '#d1d5db'}` }}>
@@ -1036,7 +1036,7 @@ export default function StudentIntakeFormPage({ portal = null }) {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                   {form.personal_blackout_dates.map(d => (
                     <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-                      borderRadius: 16, background: '#f1f5f9', color: '#374151', fontSize: 12, fontFamily: 'DM Sans' }}>
+                      borderRadius: 16, background: '#f1f5f9', color: '#374151', fontSize: 12, fontFamily: 'Plus Jakarta Sans' }}>
                       {d}
                       <button type="button" onClick={() => set('personal_blackout_dates', form.personal_blackout_dates.filter(x => x !== d))}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontWeight: 700, padding: 0 }}>×</button>
@@ -1077,7 +1077,7 @@ export default function StudentIntakeFormPage({ portal = null }) {
                   return (
                     <button type="button" key={day}
                       onClick={() => set('preferred_days', toggleWeekday(form.preferred_days, day))}
-                      style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 13,
+                      style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'Plus Jakarta Sans', fontSize: 13,
                         fontWeight: 600, cursor: 'pointer',
                         background: on ? '#16a34a' : '#fff', color: on ? '#fff' : '#374151',
                         border: `1px solid ${on ? '#16a34a' : '#d1d5db'}` }}>

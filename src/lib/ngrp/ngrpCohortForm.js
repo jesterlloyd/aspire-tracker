@@ -12,7 +12,7 @@
 
 import { UNIT_CATALOG, DIVISION_ORDER } from '../unitCatalog.js'
 
-export const F = 'DM Sans, sans-serif'
+export const F = 'Plus Jakarta Sans, sans-serif'
 
 export const inputStyle = {
   height: 34, padding: '0 10px', border: '1px solid rgba(29,37,103,0.14)', borderRadius: 8,

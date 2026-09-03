@@ -18,7 +18,7 @@ import { supabase } from '../../lib/supabase'
 import StudentAvatar from '../StudentAvatar'
 import { ASPIRE_STATUS_CONFIG } from '../../lib/constants'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // CONTACTS-CANON-1: the category palette is the shared canonical module

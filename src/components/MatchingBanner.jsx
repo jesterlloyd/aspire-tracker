@@ -54,24 +54,24 @@ export default function MatchingBanner({ student, units, matches, onClearSelecti
         <div style={{ flex: '0 0 50%', display: 'flex', gap: '12px', minWidth: 0 }}>
           <StudentAvatar student={student} size={48} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '16px', color: '#1D2567', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '16px', color: '#1D2567', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {student.last_name}, {student.first_name}
             </div>
-            <div style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#6b7280', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '12px', color: '#6b7280', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
             </div>
             <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
               {student.status && (
-                <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '11px', background: '#f0f3ff', color: '#1D2567', padding: '2px 8px', borderRadius: '20px' }}>
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '11px', background: '#f0f3ff', color: '#1D2567', padding: '2px 8px', borderRadius: '20px' }}>
                   {student.status}
                 </span>
               )}
               {student.cumulative_gpa && (
-                <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '11px', background: '#f0fdf4', color: '#166534', padding: '2px 8px', borderRadius: '20px' }}>
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '11px', background: '#f0fdf4', color: '#166534', padding: '2px 8px', borderRadius: '20px' }}>
                   GPA {parseFloat(student.cumulative_gpa).toFixed(2)}
                 </span>
               )}
-              <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '11px', background: '#f9fafb', color: '#6b7280', padding: '2px 8px', borderRadius: '20px' }}>
+              <span style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '11px', background: '#f9fafb', color: '#6b7280', padding: '2px 8px', borderRadius: '20px' }}>
                 {interviewStatus}
               </span>
             </div>
@@ -80,7 +80,7 @@ export default function MatchingBanner({ student, units, matches, onClearSelecti
 
         {/* ── Right zone: Top 3 Unit Choices ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '8px' }}>
+          <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '8px' }}>
             Top 3 Unit Choices
           </div>
           {prefs.length > 0 ? prefs.map(pref => {
@@ -88,24 +88,24 @@ export default function MatchingBanner({ student, units, matches, onClearSelecti
             const open = unit ? (unitOpenSlots(unit, matches) || 0) : null
             return (
               <div key={pref.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-                <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '12px', color: ORDINAL_COLORS[pref.key], flexShrink: 0, width: '28px' }}>
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '12px', color: ORDINAL_COLORS[pref.key], flexShrink: 0, width: '28px' }}>
                   {pref.key}
                 </span>
-                <span style={{ fontFamily: 'DM Sans', fontSize: '13px', color: '#374151', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: '#374151', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {pref.unitName}
                 </span>
                 {open !== null && (
-                  <span style={{ fontFamily: 'DM Sans', fontSize: '12px', fontWeight: 600, color: open > 0 ? '#16a34a' : '#9ca3af', flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '12px', fontWeight: 600, color: open > 0 ? '#16a34a' : '#9ca3af', flexShrink: 0 }}>
                     {open > 0 ? `${open} open` : 'Full'}
                   </span>
                 )}
               </div>
             )
           }) : (
-            <div style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#9ca3af' }}>No preferences set</div>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '12px', color: '#9ca3af' }}>No preferences set</div>
           )}
           {recommendedUnit && (
-            <div style={{ marginTop: '6px', fontFamily: 'DM Sans', fontSize: '11px', color: '#059669', fontWeight: 600 }}>
+            <div style={{ marginTop: '6px', fontFamily: 'Plus Jakarta Sans', fontSize: '11px', color: '#059669', fontWeight: 600 }}>
               ✓ Recommended: {recommendedUnit.unit_name}
             </div>
           )}
@@ -117,7 +117,7 @@ export default function MatchingBanner({ student, units, matches, onClearSelecti
         {LEGEND_DOTS.map(item => (
           <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.color, flexShrink: 0 }} />
-            <span style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#6b7280' }}>{item.label}</span>
+            <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '11px', color: '#6b7280' }}>{item.label}</span>
           </div>
         ))}
       </div>

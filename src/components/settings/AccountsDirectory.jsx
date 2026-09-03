@@ -37,7 +37,7 @@ import GrantPortalAccessModal from './GrantPortalAccessModal'
 import AccountDetailsDrawer from './AccountDetailsDrawer'
 import AccountProfileModal from './AccountProfileModal'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const DEFAULT_COLOR = '#1D2567'
 const PAGE_SIZE = 25
 const STAFF_ROLES = new Set(['owner', 'admin', 'co-lead', 'co_lead', 'interviewer', 'viewer'])

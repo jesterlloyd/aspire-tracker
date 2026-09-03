@@ -20,7 +20,7 @@ import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 // links navigate out. No writes, no uploads, no edit/delete - Manage affordances are inert
 // placeholders only.
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // Stored categories (7) + the UI-only "All" filter. Labels are display-only.

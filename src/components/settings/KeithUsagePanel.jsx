@@ -222,7 +222,7 @@ const RECENT_COLUMNS = [
 
 const SECTION_TITLE = {
   margin: '26px 0 10px', fontSize: 14.5, fontWeight: 700,
-  color: 'var(--color-text-primary, #191919)', fontFamily: 'DM Sans, sans-serif',
+  color: 'var(--color-text-primary, #191919)', fontFamily: 'Plus Jakarta Sans, sans-serif',
 }
 
 export default function KeithUsagePanel() {
@@ -260,7 +260,7 @@ export default function KeithUsagePanel() {
 
   if (!allowed) {
     return (
-      <div style={{ fontSize: 13, color: secondary, fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ fontSize: 13, color: secondary, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
         You don’t have access to Keith usage.
       </div>
     )
@@ -271,7 +271,7 @@ export default function KeithUsagePanel() {
   const hasData = (totals?.requests || 0) > 0
 
   return (
-    <section aria-labelledby="settings-keith-usage-heading" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <section aria-labelledby="settings-keith-usage-heading" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       <div id="settings-keith-usage-heading">
         <SettingsPageHeader
           title="Usage & Cost"

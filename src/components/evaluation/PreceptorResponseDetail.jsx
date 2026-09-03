@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 // the is_owner_or_admin() RLS SELECT policy, and this component additionally refuses to
 // render for any non-Owner/Admin role (defense in depth). No student-facing surface.
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 const PERIOD_LABELS = {
   midpoint: 'Midpoint',

@@ -18,7 +18,7 @@ const ROUTE = RELEASE_ROUTES.caseyFinkPostRotation
 // the Certificate of Completion (issuance happens server-side at submit, not at release).
 // Manual, human-approved release only; no auto-send, no bulk.
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const STATUS_STYLE = {

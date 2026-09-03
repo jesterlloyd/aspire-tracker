@@ -13,7 +13,7 @@ const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 // Page-scoped CSS. Inputs use font-size:16px to avoid mobile zoom; large touch targets.
 const PE_CSS = `
   .pe-page { background:#F4F1EC; min-height:100vh; }
-  .pe-container { max-width:880px; margin:0 auto; padding:24px 16px 80px; font-family:'DM Sans',system-ui,sans-serif; color:#191919; }
+  .pe-container { max-width:880px; margin:0 auto; padding:24px 16px 80px; font-family:'Plus Jakarta Sans',system-ui,sans-serif; color:#191919; }
   .pe-card { background:#fff; border-radius:12px; border:1px solid #e8e4dc; padding:24px 24px; margin-bottom:20px; }
   .pe-section-title { font-size:17px; font-weight:700; color:#191919; margin:0 0 6px; }
   .pe-section-instr { font-size:13.5px; color:#4b5563; line-height:1.6; margin:0 0 18px; }
@@ -24,7 +24,7 @@ const PE_CSS = `
   .pe-readonly { font-size:15px; color:#191919; font-weight:600; }
   .pe-input, .pe-select, .pe-textarea {
     width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px;
-    padding:11px 12px; font-size:16px; font-family:'DM Sans',system-ui,sans-serif; color:#191919;
+    padding:11px 12px; font-size:16px; font-family:'Plus Jakarta Sans',system-ui,sans-serif; color:#191919;
   }
   .pe-textarea { min-height:96px; resize:vertical; line-height:1.5; }
   .pe-input:focus, .pe-select:focus, .pe-textarea:focus { outline:2px solid #1D2567; outline-offset:1px; }
@@ -42,7 +42,7 @@ const PE_CSS = `
   .pe-attest label { font-size:14px; color:#374151; line-height:1.55; cursor:pointer; }
   .pe-submit {
     background:#1D2567; color:#fff; border:none; border-radius:10px; padding:15px 32px;
-    font-size:16px; font-weight:600; font-family:'DM Sans',system-ui,sans-serif; cursor:pointer;
+    font-size:16px; font-weight:600; font-family:'Plus Jakarta Sans',system-ui,sans-serif; cursor:pointer;
     width:100%; max-width:100%; min-height:52px;
   }
   .pe-submit:disabled { opacity:0.4; cursor:not-allowed; }
@@ -266,17 +266,17 @@ export default function PreceptorEvaluationPage() {
           <div className="pe-band-inner">
             <img src="/cs-logo-large.png" alt="Cedars-Sinai" style={{ height: 36, width: 'auto', display: 'block', flexShrink: 0 }} />
             <div className="pe-divider" />
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Brawerman Nursing Institute
             </span>
           </div>
         </div>
         <div className="pe-title-block">
           <div className="pe-title-inner">
-            <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
+            <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
               Preceptor Student Readiness Assessment
             </h1>
-            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Developmental and readiness feedback to support student growth
             </p>
           </div>
@@ -313,7 +313,7 @@ export default function PreceptorEvaluationPage() {
                   disabled={!rawToken}
                   style={{
                     padding: '11px 26px', background: '#1D2567', color: '#fff', border: 'none',
-                    borderRadius: 9, fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans, system-ui, sans-serif',
+                    borderRadius: 9, fontSize: 14, fontWeight: 700, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
                     cursor: rawToken ? 'pointer' : 'default', opacity: rawToken ? 1 : 0.65,
                   }}
                 >

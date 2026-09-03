@@ -12,7 +12,7 @@ import ShiftLogPage from '../ShiftLogPage'
 import { useLookupStudent } from './useLookupStudent'
 import { getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 export default function ShiftLogLifecycle() {
   const { lookup, loading: lookupLoading } = useLookupStudent()

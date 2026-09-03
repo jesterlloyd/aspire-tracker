@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useCheckIn } from './useCheckIn'
 import { getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const SHIFT_TYPES = ['Day', 'Night', 'Mid']
 
 const INPUT = {

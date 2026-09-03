@@ -20,7 +20,7 @@ import { supabase } from '../../lib/supabase'
 import { surveyByKey, relationshipFor } from '../../lib/evaluation/surveyCatalog'
 import { buildPreviewModel, countQuestions } from '../../lib/evaluation/surveyPreviewModel'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const TYPE_LABEL = {

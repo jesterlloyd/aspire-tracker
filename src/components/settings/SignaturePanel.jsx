@@ -13,7 +13,7 @@ const NAVY = '#1D2567'
 const CS_RED = '#dc1e34'
 const RAVEN = '#191919'
 const labelStyle = { display: 'block', fontSize: 11.5, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }
-const inputStyle = { width: '100%', padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, fontFamily: 'DM Sans, sans-serif', color: '#191919', background: '#fff', boxSizing: 'border-box' }
+const inputStyle = { width: '100%', padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#191919', background: '#fff', boxSizing: 'border-box' }
 
 export default function SignaturePanel() {
   const { userProfile, refreshUserProfile } = useAuth()
@@ -68,7 +68,7 @@ export default function SignaturePanel() {
           genuinely operational (manual Connect emails only), so it moved INSIDE the card
           rather than living as a page subtitle. Custom border card -> canonical SurfaceCard. */}
       <SurfaceCard padding={18}>
-        <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: 'DM Sans, sans-serif' }}>
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           This signature is used for your <strong>manual ASPIRE Connect</strong> emails only. Automated
           program emails (reminders, notifications) are unaffected.
         </p>
@@ -99,7 +99,7 @@ export default function SignaturePanel() {
           </div>
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, cursor: 'pointer', fontSize: 13, color: '#374151', fontFamily: 'DM Sans, sans-serif' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, cursor: 'pointer', fontSize: 13, color: '#374151', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           <input type="checkbox" checked={form.signature_enabled} onChange={e => set('signature_enabled', e.target.checked)} style={{ width: 14, height: 14, accentColor: NAVY }} />
           Include my signature on manual ASPIRE Connect emails
         </label>
@@ -111,7 +111,7 @@ export default function SignaturePanel() {
             institute default), and the nightfall email | Office: phone line. */}
         <div style={{ marginTop: 16 }}>
           <div style={labelStyle}>Preview</div>
-          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px 16px', background: '#fff', fontSize: 14, color: RAVEN, lineHeight: 1.6, fontFamily: 'DM Sans, sans-serif' }}>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px 16px', background: '#fff', fontSize: 14, color: RAVEN, lineHeight: 1.6, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             {form.signature_enabled ? (
               <>
                 <div style={{ marginBottom: 6 }}>Kind regards,</div>
@@ -133,7 +133,7 @@ export default function SignaturePanel() {
         </div>
 
         {status && (
-          <div style={{ marginTop: 14, padding: '8px 12px', borderRadius: 8, fontSize: 12.5, fontFamily: 'DM Sans, sans-serif',
+          <div style={{ marginTop: 14, padding: '8px 12px', borderRadius: 8, fontSize: 12.5, fontFamily: 'Plus Jakarta Sans, sans-serif',
             background: status.ok ? '#EEF7F0' : '#fef2f2', border: `1px solid ${status.ok ? '#c6d9a8' : '#fecaca'}`, color: status.ok ? '#2F7D5C' : '#dc2626' }}>
             {status.msg}
           </div>
@@ -141,7 +141,7 @@ export default function SignaturePanel() {
 
         <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
           <button onClick={handleSave} disabled={saving}
-            style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving ? '#e5e7eb' : NAVY, color: saving ? '#9ca3af' : '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif', cursor: saving ? 'not-allowed' : 'pointer' }}>
+            style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving ? '#e5e7eb' : NAVY, color: saving ? '#9ca3af' : '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? 'Saving…' : 'Save Signature'}
           </button>
         </div>

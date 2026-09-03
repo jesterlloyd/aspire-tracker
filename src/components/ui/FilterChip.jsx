@@ -13,7 +13,7 @@ export default function FilterChip({ label, active, onClick, count }) {
         border: `1px solid ${active ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-border-default, #e5e7eb)'}`,
         background: active ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-bg-surface, #ffffff)',
         color: active ? '#ffffff' : 'var(--color-text-secondary, #6b7280)',
-        fontFamily: 'DM Sans, sans-serif', fontSize: 12.5, fontWeight: active ? 600 : 500,
+        fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5, fontWeight: active ? 600 : 500,
         transition: 'background 0.15s, color 0.15s, border-color 0.15s',
       }}
     >

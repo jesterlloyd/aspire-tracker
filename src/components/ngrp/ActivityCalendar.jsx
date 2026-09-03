@@ -47,7 +47,7 @@ function AddEventButton({ onClick, style }) {
       title="Add a custom ASPIRE event"
       style={{
         height: 32, padding: '0 14px', background: EVENT_ACTION, border: 'none', borderRadius: 9,
-        cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 12, color: '#fff',
+        cursor: 'pointer', fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: 12, color: '#fff',
         display: 'flex', alignItems: 'center', gap: 6, transition: 'background 0.15s ease', ...style,
       }}
       onMouseEnter={e => { e.currentTarget.style.background = EVENT_ACTION_HOVER }}

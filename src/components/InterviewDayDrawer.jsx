@@ -36,8 +36,8 @@ const getStatus = (slot) => slot.status || (slot.is_booked ? 'booked' : 'availab
 function KPI({ label, value, color, bg }) {
   return (
     <div style={{ background: bg, padding: '10px 8px', borderRadius: 8, textAlign: 'center' }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: 'DM Sans' }}>{value}</div>
-      <div style={{ fontSize: 9, color, opacity: 0.85, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, fontFamily: 'DM Sans', marginTop: 2 }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: 'Plus Jakarta Sans' }}>{value}</div>
+      <div style={{ fontSize: 9, color, opacity: 0.85, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, fontFamily: 'Plus Jakarta Sans', marginTop: 2 }}>{label}</div>
     </div>
   )
 }
@@ -45,7 +45,7 @@ function KPI({ label, value, color, bg }) {
 function SectionHeader({ title, count, badgeBg, badgeColor }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-      <span style={{ fontSize: 12, fontWeight: 700, color: '#1D2567', fontFamily: 'DM Sans' }}>{title}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: '#1D2567', fontFamily: 'Plus Jakarta Sans' }}>{title}</span>
       <span style={{ background: badgeBg, color: badgeColor, padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{count}</span>
     </div>
   )
@@ -59,7 +59,7 @@ function InterviewerChip({ name, colorMap }) {
       background: color + '22', color: color,
       border: `1px solid ${color}44`,
       padding: '2px 7px', borderRadius: 999,
-      fontSize: 10, fontWeight: 700, fontFamily: 'DM Sans',
+      fontSize: 10, fontWeight: 700, fontFamily: 'Plus Jakarta Sans',
     }}>
       <span style={{ width: 12, height: 12, borderRadius: '50%', background: color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: '#fff', fontWeight: 700 }}>
         {getInitials(name)}
@@ -77,7 +77,7 @@ function StatusPill({ status }) {
   }
   const s = styles[status] || styles.available
   return (
-    <span style={{ background: s.bg, color: s.color, padding: '2px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700, fontFamily: 'DM Sans' }}>
+    <span style={{ background: s.bg, color: s.color, padding: '2px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700, fontFamily: 'Plus Jakarta Sans' }}>
       {s.label}
     </span>
   )
@@ -127,7 +127,7 @@ function MBtn({ variant, disabled, onClick, children, title, style: extraStyle }
       ...v,
       padding: '4px 10px', borderRadius: 6,
       fontSize: 11, fontWeight: 600, cursor: disabled ? 'default' : 'pointer',
-      fontFamily: 'DM Sans', opacity: disabled ? 0.6 : 1,
+      fontFamily: 'Plus Jakarta Sans', opacity: disabled ? 0.6 : 1,
       display: 'inline-flex', alignItems: 'center', gap: 4,
       ...extraStyle,
     }}>{children}</button>
@@ -156,7 +156,7 @@ function BlockTimeModal({ slot, onSubmit, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 320, fontFamily: 'DM Sans', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 320, fontFamily: 'Plus Jakarta Sans', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#1D2567' }}>
             Block {fmtTime(slot.slot_time)} – {fmtTime(addMinutes(slot.slot_time, slot.duration_minutes))}
@@ -392,7 +392,7 @@ export default function InterviewDayDrawer({
         boxShadow: isMobile ? '0 -4px 24px rgba(0,0,0,0.12)' : '-4px 0 28px rgba(0,0,0,0.10)',
         overflowY: 'auto',
         zIndex: 60,
-        fontFamily: 'DM Sans, sans-serif',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
       }}>
 
         {/* ── Dark header band ── */}
@@ -525,7 +525,7 @@ export default function InterviewDayDrawer({
                       </div>
                       <button type="button" onClick={() => setExpandedBlocks(p => ({ ...p, [key]: !open }))}
                         aria-expanded={open}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1D2567', fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, padding: 0, flexShrink: 0 }}>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1D2567', fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, padding: 0, flexShrink: 0 }}>
                         {open ? 'Hide slots' : `Show ${groupSlots.length} slot${groupSlots.length !== 1 ? 's' : ''}`}
                       </button>
                     </div>
@@ -635,7 +635,7 @@ export default function InterviewDayDrawer({
               style={{
                 width: '100%', padding: '10px 14px',
                 background: '#1D2567', color: '#fff', border: 'none',
-                borderRadius: 8, fontFamily: 'DM Sans', fontWeight: 600,
+                borderRadius: 8, fontFamily: 'Plus Jakarta Sans', fontWeight: 600,
                 fontSize: 13, cursor: 'pointer',
               }}
             >
@@ -660,7 +660,7 @@ export default function InterviewDayDrawer({
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           background: '#1D2567', color: '#fff', padding: '8px 18px',
           borderRadius: 999, fontSize: 13, fontWeight: 600,
-          fontFamily: 'DM Sans', zIndex: 200, pointerEvents: 'none',
+          fontFamily: 'Plus Jakarta Sans', zIndex: 200, pointerEvents: 'none',
           boxShadow: '0 4px 16px rgba(29,37,103,0.25)',
         }}>
           {toastMsg}

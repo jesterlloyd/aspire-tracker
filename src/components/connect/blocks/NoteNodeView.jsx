@@ -10,7 +10,7 @@ import { Pencil } from 'lucide-react'
 
 const NAVY = '#1D2567'
 const RAVEN = '#191919'
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 export function NoteNodeView({ node, editor, getPos, deleteNode, selected }) {
   const title = node.attrs.title || ''

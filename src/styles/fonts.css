@@ -1,0 +1,46 @@
+/* TYPOGRAPHY-1: the app's two self-hosted families, both SIL Open Font
+   License 1.1 (free for commercial use, embedding, and redistribution; the
+   OFL.txt beside each family is the license notice the OFL requires).
+   Loaded first from index.css so every surface (staff app, portals, public
+   site, login, charts) sees both families before any rule asks for them.
+
+   Sans  - Plus Jakarta Sans, variable weight 200..800 with true italics.
+           The operational face: body, UI, buttons, tables, charts.
+   Serif - Playfair Display, variable weight 400..900 with true italics.
+           The editorial face: public-site headlines, login title, chart route
+           titles, portal moment lines. Only ever reached through
+           --aspire-serif (src/styles/aspireBrand.css).
+
+   Files under public/fonts/<family>/ are subset to Latin, Latin Extended,
+   general punctuation, currency, and arrows (pyftsubset, WOFF2). Swapping a
+   family later is: new files here, the two tokens in aspireBrand.css, and
+   the preloads in index.html. test/typographyFonts.test.mjs pins that. */
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/plus-jakarta-sans/PlusJakartaSans-Variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/plus-jakarta-sans/PlusJakartaSans-Italic-Variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/playfair-display/PlayfairDisplay-Variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/playfair-display/PlayfairDisplay-Italic-Variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: italic;
+  font-display: swap;
+}

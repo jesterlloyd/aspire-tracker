@@ -24,7 +24,7 @@ import {
   displayRole, formatLoginDate, formatRelativeTime, UserInitials, HERO_AVATAR_RING,
 } from './accountsShared'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const DEFAULT_COLOR = '#1D2567'
 

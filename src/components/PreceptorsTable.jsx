@@ -206,14 +206,14 @@ export default function PreceptorsTable({ students = [], units = [], cohortId, t
 
   if (error) {
     return (
-      <div style={{ padding: '32px 24px', fontFamily: 'DM Sans, sans-serif', color: '#6b7280', fontSize: 13 }}>
+      <div style={{ padding: '32px 24px', fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#6b7280', fontSize: 13 }}>
         Could not load preceptors. Make sure the database migration has been applied.
       </div>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'DM Sans, sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       {/* Toolbar */}
       <div style={{ padding: '0 20px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <button
@@ -222,7 +222,7 @@ export default function PreceptorsTable({ students = [], units = [], cohortId, t
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 14px', borderRadius: 7,
             background: '#1D2567', border: 'none',
-            fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600, color: '#fff',
+            fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, fontWeight: 600, color: '#fff',
             cursor: 'pointer', flexShrink: 0,
           }}
           onMouseEnter={e => e.currentTarget.style.background = '#141928'}

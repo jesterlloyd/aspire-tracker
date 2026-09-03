@@ -13,7 +13,7 @@ const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 
 const SE_CSS = `
   .se-page { background:#F4F1EC; min-height:100vh; }
-  .se-container { max-width:880px; margin:0 auto; padding:24px 16px 80px; font-family:'DM Sans',system-ui,sans-serif; color:#191919; }
+  .se-container { max-width:880px; margin:0 auto; padding:24px 16px 80px; font-family:'Plus Jakarta Sans',system-ui,sans-serif; color:#191919; }
   .se-card { background:#fff; border-radius:12px; border:1px solid #e8e4dc; padding:24px 24px; margin-bottom:20px; }
   .se-section-title { font-size:17px; font-weight:700; color:#191919; margin:0 0 6px; }
   .se-section-instr { font-size:13.5px; color:#4b5563; line-height:1.6; margin:0 0 18px; }
@@ -23,7 +23,7 @@ const SE_CSS = `
   .se-req { color:#b91c1c; margin-left:3px; }
   .se-textarea {
     width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px;
-    padding:11px 12px; font-size:16px; font-family:'DM Sans',system-ui,sans-serif; color:#191919;
+    padding:11px 12px; font-size:16px; font-family:'Plus Jakarta Sans',system-ui,sans-serif; color:#191919;
     min-height:88px; resize:vertical; line-height:1.5;
   }
   .se-textarea:focus { outline:2px solid #1D2567; outline-offset:1px; }
@@ -44,7 +44,7 @@ const SE_CSS = `
   .se-attest label { font-size:14px; color:#374151; line-height:1.55; cursor:pointer; }
   .se-submit {
     background:#1D2567; color:#fff; border:none; border-radius:10px; padding:15px 32px;
-    font-size:16px; font-weight:600; font-family:'DM Sans',system-ui,sans-serif; cursor:pointer;
+    font-size:16px; font-weight:600; font-family:'Plus Jakarta Sans',system-ui,sans-serif; cursor:pointer;
     width:100%; min-height:52px;
   }
   .se-submit:disabled { opacity:0.4; cursor:not-allowed; }
@@ -196,17 +196,17 @@ export default function StudentEvaluationPage() {
           <div className="se-band-inner">
             <img src="/cs-logo-large.png" alt="Cedars-Sinai" style={{ height: 36, width: 'auto', display: 'block', flexShrink: 0 }} />
             <div className="se-divider" />
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Brawerman Nursing Institute
             </span>
           </div>
         </div>
         <div className="se-title-block">
           <div className="se-title-inner">
-            <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
+            <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
               Student Feedback: Preceptor & Unit
             </h1>
-            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Your feedback helps improve the ASPIRE learning environment
             </p>
           </div>

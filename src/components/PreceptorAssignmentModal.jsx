@@ -217,7 +217,7 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
                             display: 'block', width: '100%', textAlign: 'left',
                             padding: '10px 14px', background: 'none', border: 'none',
                             borderBottom: '1px solid #f3f4f6', cursor: 'pointer',
-                            fontFamily: 'DM Sans, sans-serif',
+                            fontFamily: 'Plus Jakarta Sans, sans-serif',
                           }}
                           onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                           onMouseLeave={e => e.currentTarget.style.background = 'none'}

@@ -30,12 +30,13 @@
     <meta name="twitter:title" content="ASPIRE at Cedars-Sinai | Senior Nursing Student Clinical Pathway" />
     <meta name="twitter:description" content="ASPIRE at Cedars-Sinai is a clinical pathway for senior nursing students: hands-on bedside rotations in specialized units with dedicated preceptor support." />
     <meta name="twitter:image" content="https://aspireintelligence.app/social/aspire-social-preview.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- ASPIRE-PUBLIC-REDESIGN: Fraunces carries the public site's editorial
-         display voice (headlines only); DM Sans remains the workhorse for
-         body copy and the entire staff app. -->
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,480;0,9..144,560;0,9..144,640;1,9..144,480&display=swap" rel="stylesheet">
+    <!-- TYPOGRAPHY-1: both families are self-hosted (SIL OFL) and declared in
+         src/styles/fonts.css: Plus Jakarta Sans for everything operational and
+         Playfair Display for the editorial serif moments. The two upright
+         variable files first paint needs are preloaded; nothing loads from
+         Google Fonts any more. -->
+    <link rel="preload" href="/fonts/plus-jakarta-sans/PlusJakartaSans-Variable.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/playfair-display/PlayfairDisplay-Variable.woff2" as="font" type="font/woff2" crossorigin>
   </head>
   <body>
     <!-- FOUC prevention: apply stored theme before first paint -->

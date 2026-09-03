@@ -24,7 +24,7 @@ function sectionIMean(assignment) {
   return (Number(cps) + Number(la) + Number(pr)) / 3
 }
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 // ── Timepoint display labels ──────────────────────────────────────────────────
 const TIMEPOINT_LABELS = {

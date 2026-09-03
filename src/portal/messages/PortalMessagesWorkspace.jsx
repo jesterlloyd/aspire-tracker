@@ -202,7 +202,7 @@ export default function PortalMessagesWorkspace({
               onClick={() => setView('active')}
               style={{
                 height: 32, padding: '0 13px', border: 'none', cursor: 'pointer',
-                fontSize: 12, fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
+                fontSize: 12, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 500,
                 background: view === 'active' ? '#1D2567' : '#fff',
                 color: view === 'active' ? '#fff' : '#4A5560',
               }}
@@ -215,7 +215,7 @@ export default function PortalMessagesWorkspace({
               onClick={() => setView('archived')}
               style={{
                 height: 32, padding: '0 13px', border: 'none', cursor: 'pointer',
-                fontSize: 12, fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
+                fontSize: 12, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 500,
                 background: view === 'archived' ? '#1D2567' : '#fff',
                 color: view === 'archived' ? '#fff' : '#4A5560',
               }}

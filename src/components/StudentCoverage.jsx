@@ -20,7 +20,7 @@ import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
 import { canonicalRotationWindow } from '../lib/rotationWindow'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const COVERAGE_STATUSES = ['Active Rotation', 'Placed'] // statuses committed to rotation
 
 const fmtRangeDate = (ymd) => {

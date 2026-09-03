@@ -155,7 +155,7 @@ export default function Toggle({
         alignItems: description ? 'flex-start' : 'center',
         gap:        sz.gap,
         cursor:     disabled ? 'not-allowed' : 'default',
-        fontFamily: 'DM Sans, sans-serif',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
       }}
     >
       {/* Text stack - fills remaining space */}

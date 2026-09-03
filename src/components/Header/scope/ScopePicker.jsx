@@ -86,7 +86,7 @@ export default function ScopePicker({
             display: 'flex', alignItems: 'center', gap: 8,
             background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)',
             borderRadius: 999, padding: '7px 13px',
-            color: '#fff', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+            color: '#fff', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif',
             transition: 'background 0.15s', minWidth: 0,
           }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
@@ -115,7 +115,7 @@ export default function ScopePicker({
                     onClick={() => { if (!isSel) onSwitchExperience(x.id); closeAndRefocus() }}
                     style={{
                       display: 'block', width: '100%', textAlign: 'left', border: 'none',
-                      fontFamily: 'DM Sans, sans-serif',
+                      fontFamily: 'Plus Jakarta Sans, sans-serif',
                       padding: '12px 14px', cursor: 'pointer',
                       background: isSel ? '#e8edf8' : 'transparent',
                       borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent',

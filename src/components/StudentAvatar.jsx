@@ -40,7 +40,7 @@ export default function StudentAvatar({ student, size = 34, style: extraStyle })
       display:        'flex',
       alignItems:     'center',
       justifyContent: 'center',
-      fontFamily:     'DM Sans, sans-serif',
+      fontFamily:     'Plus Jakarta Sans, sans-serif',
       fontWeight:     700,
       fontSize:       `${fontSize}px`,
       color:          '#ffffff',

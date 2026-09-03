@@ -71,7 +71,7 @@ function SubsettingsList({ activeKey }) {
               borderRadius: 10, marginBottom: ri === SUBSETTINGS.length - 1 ? 0 : 4,
               background: active ? 'var(--color-accent-primary, #1D2567)' : 'transparent',
               boxShadow: active ? '0 1px 3px rgba(29,37,103,0.30)' : 'none',
-              fontFamily: 'DM Sans, sans-serif',
+              fontFamily: 'Plus Jakarta Sans, sans-serif',
               transition: 'background 0.12s, box-shadow 0.12s',
             }}
             onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-bg-hover, #f1efe9)' }}
@@ -105,7 +105,7 @@ function BackToGeneral() {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16,
         padding: '4px 6px 4px 2px', border: 'none', background: 'transparent', cursor: 'pointer',
-        fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600,
+        fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, fontWeight: 600,
         color: 'var(--color-accent-primary, #1D2567)',
       }}
     >

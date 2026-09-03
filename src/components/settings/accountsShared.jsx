@@ -135,7 +135,7 @@ export function UserInitials({ user, size = 40, ring = null }) {
     <div style={{
       width: size, height: size, borderRadius: '50%', background: '#1D2567',
       flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
+      fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700,
       fontSize: Math.round(size * 0.35) + 'px', color: '#ffffff', ...ringStyle,
     }}>{initials}</div>
   )

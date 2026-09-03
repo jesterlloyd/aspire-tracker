@@ -10,7 +10,7 @@
 import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const SENDER = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
 

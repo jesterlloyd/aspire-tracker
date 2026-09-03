@@ -200,13 +200,13 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
   const pct       = required > 0 ? Math.min(100, (approved/required)*100) : 0
 
   const INPUT = { width:'100%', maxWidth:'100%', height:52, fontSize:16, padding:'0 14px', borderRadius:12,
-    border:'1px solid #e5e7eb', fontFamily:'DM Sans,sans-serif', outline:'none', boxSizing:'border-box',
+    border:'1px solid #e5e7eb', fontFamily:'Plus Jakarta Sans,sans-serif', outline:'none', boxSizing:'border-box',
     display:'block', WebkitAppearance:'none', appearance:'none', overflow:'hidden' }
-  const BTN_PRIMARY = { width:'100%', height:52, fontSize:16, fontWeight:700, fontFamily:'DM Sans,sans-serif',
+  const BTN_PRIMARY = { width:'100%', height:52, fontSize:16, fontWeight:700, fontFamily:'Plus Jakarta Sans,sans-serif',
     background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:12, cursor:'pointer' }
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--sand)', padding:'24px 16px', fontFamily:'DM Sans,sans-serif' }}>
+    <div style={{ minHeight:'100vh', background:'var(--sand)', padding:'24px 16px', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
       <div style={{ maxWidth:480, margin:'0 auto' }}>
         <div style={{ textAlign:'center', marginBottom:24 }}>
           <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="36" />
@@ -306,7 +306,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
                           border: `2px solid ${shiftType===t ? '#1D2567' : '#e5e7eb'}`,
                           background: shiftType===t ? '#1D2567' : '#f9fafb',
                           color: shiftType===t ? '#ffffff' : '#374151',
-                          fontFamily:'DM Sans,sans-serif' }}>
+                          fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                         {t}
                       </button>
                     ))}
@@ -329,7 +329,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
                     <div style={{ marginTop:10 }}>
                       <input style={{...INPUT, height:44, fontSize:14}} placeholder="Unit name" value={diffUnitName}
                         onChange={e => setDiffUnitName(e.target.value)} />
-                      <textarea style={{ width:'100%', marginTop:8, padding:'10px 14px', borderRadius:10, border:'1px solid #e5e7eb', fontSize:14, fontFamily:'DM Sans,sans-serif', resize:'none', boxSizing:'border-box' }}
+                      <textarea style={{ width:'100%', marginTop:8, padding:'10px 14px', borderRadius:10, border:'1px solid #e5e7eb', fontSize:14, fontFamily:'Plus Jakarta Sans,sans-serif', resize:'none', boxSizing:'border-box' }}
                         rows={2} required placeholder="Please explain (e.g. floated with preceptor)"
                         value={diffUnitReason} onChange={e => setDiffUnitReason(e.target.value)} />
                     </div>
@@ -352,7 +352,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
                 {/* Learning highlight */}
                 <div style={{ marginBottom:18 }}>
                   <label style={{ fontSize:14, fontWeight:600, color:'var(--raven)', display:'block', marginBottom:6 }}>Learning Highlight <span style={{fontWeight:400,color:'#9ca3af'}}>(optional)</span></label>
-                  <textarea style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:'1px solid #e5e7eb', fontSize:14, fontFamily:'DM Sans,sans-serif', resize:'none', boxSizing:'border-box' }}
+                  <textarea style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:'1px solid #e5e7eb', fontSize:14, fontFamily:'Plus Jakarta Sans,sans-serif', resize:'none', boxSizing:'border-box' }}
                     rows={3} placeholder="What did you learn or practice today?"
                     value={learningHighlight} onChange={e => setLearningHighlight(e.target.value)} />
                 </div>
@@ -360,7 +360,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
                 {/* Support needed */}
                 <div style={{ marginBottom:18 }}>
                   <label style={{ fontSize:14, fontWeight:600, color:'var(--raven)', display:'block', marginBottom:6 }}>Support Needed <span style={{fontWeight:400,color:'#9ca3af'}}>(optional)</span></label>
-                  <textarea style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:'1px solid #e5e7eb', fontSize:14, fontFamily:'DM Sans,sans-serif', resize:'none', boxSizing:'border-box' }}
+                  <textarea style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:'1px solid #e5e7eb', fontSize:14, fontFamily:'Plus Jakarta Sans,sans-serif', resize:'none', boxSizing:'border-box' }}
                     rows={3} placeholder="Any concerns or support you need?"
                     value={supportNeeded} onChange={e => setSupportNeeded(e.target.value)} />
                 </div>
@@ -433,7 +433,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
             {celebration && newApproved >= required && (
               <div style={{ background:'#dcfce7', border:'1px solid #86efac', borderRadius:16, padding:'20px', marginBottom:16, textAlign:'center' }}>
                 <div style={{ fontSize:36, marginBottom:8 }}>⭐</div>
-                <div style={{ fontSize:20, fontWeight:700, color:'#166534', marginBottom:8, fontFamily:'DM Sans,sans-serif' }}>
+                <div style={{ fontSize:20, fontWeight:700, color:'#166534', marginBottom:8, fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                   You've Completed Your Required Hours!
                 </div>
                 <p style={{ fontSize:14, color:'#166534', lineHeight:1.6, margin:'0 0 16px' }}>
@@ -445,7 +445,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
                     const body = encodeURIComponent(`Hi Jester,\n\nI have completed my required ${required} hours for ASPIRE rotation.\n\nStudent: ${student.last_name}, ${student.first_name}\nSchool: ${student.school}\nTotal Approved Hours: ${newApproved}\n\nThank you!`)
                     openMailtoLink(`mailto:JesterLloyd.Bautista@cshs.org?subject=${subject}&body=${body}`)
                   }}
-                  style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:10, padding:'12px 24px', fontSize:15, fontWeight:700, fontFamily:'DM Sans,sans-serif', cursor:'pointer' }}>
+                  style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:10, padding:'12px 24px', fontSize:15, fontWeight:700, fontFamily:'Plus Jakarta Sans,sans-serif', cursor:'pointer' }}>
                   Remind My Coordinator
                 </button>
               </div>
@@ -458,7 +458,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
             )}
 
             <button onClick={resetForm}
-              style={{ width:'100%', height:48, borderRadius:12, fontSize:15, fontWeight:600, fontFamily:'DM Sans,sans-serif', background:'#fff', border:'2px solid var(--nightfall)', color:'var(--nightfall)', cursor:'pointer', marginBottom:12 }}>
+              style={{ width:'100%', height:48, borderRadius:12, fontSize:15, fontWeight:600, fontFamily:'Plus Jakarta Sans,sans-serif', background:'#fff', border:'2px solid var(--nightfall)', color:'var(--nightfall)', cursor:'pointer', marginBottom:12 }}>
               Log Another Shift
             </button>
             <p style={{ fontSize:13, color:'#6b7280', margin:0 }}>

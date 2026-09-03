@@ -13,7 +13,7 @@ import {
 import { collectAdditionalNotes } from '../lib/schoolResponseDisplay'
 import { displayName } from '../lib/utils'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const PENDING_WINDOW = 'Pending coordinator/admin review'
 const NOT_PROVIDED = 'Not provided'
 

@@ -98,7 +98,7 @@ export default function PreferenceMatchRing({ students = [], units = [], cohort 
       borderRadius: 14,
       boxShadow: 'var(--shadow-card)',
       overflow: 'hidden',
-      fontFamily: 'DM Sans, sans-serif',
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
       height: '100%',
       boxSizing: 'border-box',
     }}>
@@ -164,12 +164,12 @@ export default function PreferenceMatchRing({ students = [], units = [], cohort 
 
           {/* Center number */}
           <text x={CX} y={CY - 5} textAnchor="middle"
-            fontFamily="DM Sans, sans-serif" fontSize="22" fontWeight="600" fill={centerColor}>
+            fontFamily="Plus Jakarta Sans, sans-serif" fontSize="22" fontWeight="600" fill={centerColor}>
             {centerBig}
           </text>
           {/* Center subtitle */}
           <text x={CX} y={CY + 10} textAnchor="middle"
-            fontFamily="DM Sans, sans-serif" fontSize="9.5" fontWeight="500"
+            fontFamily="Plus Jakarta Sans, sans-serif" fontSize="9.5" fontWeight="500"
             fill="var(--text-caption,#6b7280)">
             {centerSub}
           </text>
@@ -178,7 +178,7 @@ export default function PreferenceMatchRing({ students = [], units = [], cohort 
         {/* Legend row - static, no interaction */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
           {SEGMENTS.map(seg => (
-            <div key={seg.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--text-caption,#6b7280)', fontFamily: 'DM Sans, sans-serif' }}>
+            <div key={seg.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--text-caption,#6b7280)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: seg.solidColor, display: 'inline-block', flexShrink: 0 }} />
               {seg.label} · {counts[seg.key]}
             </div>

@@ -142,7 +142,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
           left: tooltipPos.left,
           transform: 'translateX(-50%)',
           background: '#1D2567', color: '#ffffff',
-          fontFamily: 'DM Sans', fontSize: '11px', fontWeight: 500,
+          fontFamily: 'Plus Jakarta Sans', fontSize: '11px', fontWeight: 500,
           padding: '4px 10px', borderRadius: '6px',
           whiteSpace: 'nowrap', pointerEvents: 'none',
           zIndex: 9999,
@@ -184,10 +184,10 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             flexShrink: 0,
           }}>
             <div>
-              <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
+              <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
                 {LEGEND_TITLE}
               </div>
-              <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: 'rgba(255,255,255,0.65)', marginTop: '2px' }}>
+              <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '11px', color: 'rgba(255,255,255,0.65)', marginTop: '2px' }}>
                 {LEGEND_INTRO}
               </div>
             </div>
@@ -202,7 +202,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
               max-height; the whole page never scrolls to reveal legend content. Touch scrolling kept. */}
           <div style={{ padding: '14px 18px', flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {/* Lifecycle statuses - descriptions keyed by status VALUE per audience */}
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
               Active Pathway Statuses
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '18px' }}>
@@ -212,14 +212,14 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                   <div key={status.value} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                     <span style={{
                       background: swatch.bg, color: swatch.text, border: `1px solid ${swatch.border}`,
-                      fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                      fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '10px',
                       padding: '3px 9px', borderRadius: '20px',
                       whiteSpace: 'nowrap', flexShrink: 0,
                       minWidth: '120px', textAlign: 'center',
                     }}>
                       {status.label}
                     </span>
-                    <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#4b5563', lineHeight: 1.5, paddingTop: '2px' }}>
+                    <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '12px', color: '#4b5563', lineHeight: 1.5, paddingTop: '2px' }}>
                       {statusDescriptions[status.value]}
                     </span>
                   </div>
@@ -230,7 +230,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             {/* Not Proceeding - every audience sees the general status; only staff see the
                 disposition breakdown beneath it. */}
             <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: '14px' }} />
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
               Not Proceeding
             </div>
             <div style={{ marginBottom: '14px' }}>
@@ -238,20 +238,20 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                 <span style={{
                   background: swatchFor('Not Proceeding').bg, color: swatchFor('Not Proceeding').text,
                   border: `1px solid ${swatchFor('Not Proceeding').border}`,
-                  fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                  fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '10px',
                   padding: '3px 9px', borderRadius: '20px',
                   whiteSpace: 'nowrap', flexShrink: 0,
                   minWidth: '120px', textAlign: 'center',
                 }}>
                   Not Proceeding
                 </span>
-                <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#4b5563', lineHeight: 1.5, paddingTop: '2px' }}>
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '12px', color: '#4b5563', lineHeight: 1.5, paddingTop: '2px' }}>
                   {NOT_PROCEEDING_DESCRIPTION}
                 </span>
               </div>
               {staffDetail && (
               <div style={{ paddingLeft: '6px' }}>
-                <div style={{ fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
                   Pre-placement
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '10px' }}>
@@ -261,7 +261,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                       <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{
                           background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
-                          fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                          fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '10px',
                           padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap', flexShrink: 0,
                         }}>
                           {DISPOSITION_TYPES[type]}
@@ -270,7 +270,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                     )
                   })}
                 </div>
-                <div style={{ fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
                   Post-placement (Phase 4)
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -280,7 +280,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                       <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{
                           background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
-                          fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                          fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '10px',
                           padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap', flexShrink: 0,
                         }}>
                           {DISPOSITION_TYPES[type]}
@@ -298,7 +298,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
 
             {/* Status colors - color stays a supporting signal; every audience gets the meanings,
                 with the amber row phrased for the reader (no Action Center outside the main app). */}
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
               Status Colors
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
@@ -312,10 +312,10 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: item.dot }} />
                   </div>
                   <div>
-                    <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1f2937' }}>
+                    <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px', color: '#1f2937' }}>
                       {item.label}
                     </div>
-                    <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#6b7280', lineHeight: 1.4 }}>
+                    <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '11px', color: '#6b7280', lineHeight: 1.4 }}>
                       {item.description}
                     </div>
                   </div>

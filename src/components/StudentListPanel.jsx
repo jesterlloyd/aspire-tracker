@@ -255,14 +255,14 @@ export default function StudentListPanel({
                       const c = DISPOSITION_PILL_COLORS[dispType] || DISPOSITION_PILL_COLORS['not_selected']
                       return (
                         <span style={{ display:'inline-block', marginTop:3, fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:10,
-                          background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                          background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                           {DISPOSITION_TYPES[dispType] || dispType}
                         </span>
                       )
                     })()
                   ) : sChip ? (
                     <span style={{ display:'inline-block', marginTop:3, fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:10,
-                      background:sChip.bg, color:sChip.text, border:`1px solid ${sChip.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                      background:sChip.bg, color:sChip.text, border:`1px solid ${sChip.border}`, whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                       {s.status}
                     </span>
                   ) : null}

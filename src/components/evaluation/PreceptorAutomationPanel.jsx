@@ -12,7 +12,7 @@ import { classifyCohort, PERIOD_LABELS } from '../../lib/evaluation/preceptorDue
 // re-runs detection server-side and sends through the SAME shared core as the PS-2b manual
 // send. There is NO queue table, NO cron, NO auto-send, and NO bulk/Release-All.
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const GROUPS = [

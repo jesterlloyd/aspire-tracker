@@ -4,7 +4,7 @@
 // states the ASPIRE team can see the student is onsite (NOT that the preceptor
 // was notified).
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const JESTER = 'JesterLloyd.Bautista@cshs.org'
 
 const CARD = { background: '#fff', borderRadius: 16, padding: '28px 24px', textAlign: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', fontFamily: F }

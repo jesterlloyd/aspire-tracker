@@ -18,7 +18,7 @@ export default function NgrpStatusPill({ config, value, srPrefix }) {
         fontSize: 11, fontWeight: 700, lineHeight: 1.4,
         padding: '3px 9px', borderRadius: 999,
         background: fam.bg, color: fam.text, border: `1px solid ${fam.border}`,
-        whiteSpace: 'nowrap', fontFamily: 'DM Sans, sans-serif',
+        whiteSpace: 'nowrap', fontFamily: 'Plus Jakarta Sans, sans-serif',
       }}
     >
       <Icon size={11} strokeWidth={2.4} aria-hidden="true" style={{ flexShrink: 0 }} />

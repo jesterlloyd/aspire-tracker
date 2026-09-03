@@ -22,7 +22,7 @@ export default function DetailDrawer({ open, title, onClose, footer, width = 580
           width: '100%', maxWidth: width, zIndex: 1999,
           background: 'var(--color-bg-surface, #ffffff)',
           boxShadow: '-8px 0 24px rgba(16,24,40,0.12)',
-          display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif',
+          display: 'flex', flexDirection: 'column', fontFamily: 'Plus Jakarta Sans, sans-serif',
         }}
       >
         <div style={{

@@ -1,5 +1,5 @@
 // ASPIRE-MASTHEAD: the At a Glance briefing masthead. One bounded card
-// carries every orientation element - greeting (the route's one Fraunces
+// carries every orientation element - greeting (the route's one Playfair Display
 // moment), date · cohort · last-visit line, the HTC-inspired weather scene
 // (compact variant, preserved by owner decision), the single next milestone,
 // View calendar, and a Today-in-ASPIRE chips row that renders only when

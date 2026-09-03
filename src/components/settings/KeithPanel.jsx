@@ -124,7 +124,7 @@ function WorkspaceList({ activeKey }) {
               borderRadius: 10, marginBottom: ri === KEITH_WORKSPACES.length - 1 ? 0 : 4,
               background: active ? 'var(--color-accent-primary, #1D2567)' : 'transparent',
               boxShadow: active ? '0 1px 3px rgba(29,37,103,0.30)' : 'none',
-              fontFamily: 'DM Sans, sans-serif',
+              fontFamily: 'Plus Jakarta Sans, sans-serif',
               transition: 'background 0.12s, box-shadow 0.12s',
             }}
             onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-bg-hover, #f1efe9)' }}
@@ -172,7 +172,7 @@ function CompactWorkspacePicker({ activeKey }) {
               border: 'none', cursor: 'pointer', borderRadius: 9,
               background: active ? 'var(--color-accent-primary, #1D2567)' : 'transparent',
               boxShadow: active ? '0 1px 3px rgba(29,37,103,0.30)' : 'none',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 13.5, fontWeight: active ? 700 : 500,
+              fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13.5, fontWeight: active ? 700 : 500,
               color: active ? '#ffffff' : 'var(--color-text-primary, #374151)',
               transition: 'background 0.12s, color 0.12s, box-shadow 0.12s',
             }}

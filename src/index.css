@@ -1,3 +1,5 @@
+/* TYPOGRAPHY-1: self-hosted Plus Jakarta Sans + Playfair Display, loaded before anything asks for them */
+@import './styles/fonts.css';
 /* Theme token layer - must load before any legacy vars */
 @import './styles/theme.css';
 /* ASPIRE-CHART: staff functional tokens + shell (loads aspireBrand core) */
@@ -5,11 +7,11 @@
 
 /* ================================================================
    ASPIRE Placement Tracker - Design System
-   Font: DM Sans 400/500/600/700
+   Fonts: Plus Jakarta Sans (sans) + Playfair Display (serif), self-hosted, see styles/fonts.css
    Palette: Nightfall · Nova · Marina · Sand · Pearl · Raven · CS Red
    ================================================================ */
 
-* { font-family: 'DM Sans', sans-serif; box-sizing: border-box; margin: 0; padding: 0; }
+* { font-family: 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; margin: 0; padding: 0; }
 
 /* Remove number input spin buttons globally */
 input[type="number"]::-webkit-inner-spin-button,
@@ -229,7 +231,7 @@ body { min-height: 100vh; }
 .msg-date-separator span {
   color: var(--text-secondary, #6b7280);
   font-size: 11px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .msg-bubble-row {
   list-style: none;
@@ -257,7 +259,7 @@ body { min-height: 100vh; }
   color: #1f2937;
   min-width: 0;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   overflow: visible;
 }
 .msg-bubble-incoming {
@@ -362,7 +364,7 @@ body { min-height: 100vh; }
   color: inherit;
   font-size: 11.5px;
   line-height: 1;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   cursor: pointer;
 }
 .msg-reaction-chip:hover:not(:disabled) { background: rgba(120, 120, 120, 0.34); }
@@ -412,7 +414,7 @@ body { min-height: 100vh; }
   border-radius: 7px;
   font-size: 13px;
   color: #191919;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   cursor: pointer;
 }
 .msg-reaction-option:hover { background: #f7f9ff; }
@@ -446,7 +448,7 @@ body { min-height: 100vh; }
   cursor: pointer;
   font-size: 12px;
   line-height: 1;
-  font-family: "DM Sans", sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 500;
   white-space: nowrap;
   background: var(--bg-input, #fff);
@@ -541,7 +543,7 @@ body { min-height: 100vh; }
   color: var(--text-secondary, #6b7280);
 }
 .canonical-calendar-kicker {
-  font-family: "DM Sans", sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 700;
   font-size: 10px;
   color: #9ca3af;
@@ -556,14 +558,14 @@ body { min-height: 100vh; }
 }
 .canonical-calendar-today-date {
   margin: 0 0 4px;
-  font-family: "DM Sans", sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 700;
   font-size: 12px;
   color: #1D2567;
 }
 .canonical-calendar-today-summary {
   margin: 0 0 12px;
-  font-family: "DM Sans", sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 11px;
   color: #6b7280;
 }
@@ -572,7 +574,7 @@ body { min-height: 100vh; }
   border-radius: 10px;
   padding: 12px;
   text-align: center;
-  font-family: "DM Sans", sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 11px;
   color: #9ca3af;
   line-height: 1.5;
@@ -782,20 +784,20 @@ body { min-height: 100vh; }
   transition: box-shadow 0.2s ease;
 }
 .summary-card-value {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 700;
   font-size: 36px;
   line-height: 1;
 }
 .summary-card-label {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 500;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 .summary-card-sub {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 400;
   font-size: 12px;
   opacity: 0.7;
@@ -838,7 +840,7 @@ body { min-height: 100vh; }
   padding: 10px 20px;
   box-sizing: border-box;
   background: var(--bg-app, #F4F1EC);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .connect-three-zone > .c3-col { min-width: 0; min-height: 0; }
 .c3-contacts { grid-area: contacts; overflow: hidden; }
@@ -1009,7 +1011,7 @@ body { min-height: 100vh; }
 .aspire-status-pill {
   display: inline-block; font-size: 11px; font-weight: 700; line-height: 1.4;
   padding: 3px 9px; border-radius: 999px; border: 1px solid transparent;
-  white-space: nowrap; font-family: 'DM Sans', sans-serif;
+  white-space: nowrap; font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .badge-amber  { background: var(--amber-bg); color: var(--amber); }
 
@@ -1517,18 +1519,18 @@ body { min-height: 100vh; }
   background: var(--pearl); border-radius: 8px; padding: 48px 40px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); border-top: 3px solid var(--nightfall);
 }
-.cohort-access-title { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 22px; color: var(--nightfall); margin: 0 0 10px; line-height: 1.3; }
-.cohort-access-intro { font-family: 'DM Sans', sans-serif; font-weight: 400; font-size: 14px; color: var(--text-secondary, #6b7280); line-height: 1.6; margin: 0 0 24px; }
+.cohort-access-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 22px; color: var(--nightfall); margin: 0 0 10px; line-height: 1.3; }
+.cohort-access-intro { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 400; font-size: 14px; color: var(--text-secondary, #6b7280); line-height: 1.6; margin: 0 0 24px; }
 .cohort-access-form { display: flex; flex-direction: column; }
 .cohort-access-input {
   width: 100%; height: 52px; font-size: 16px; padding: 0 14px; border-radius: 12px;
-  border: 1px solid #e5e7eb; font-family: 'DM Sans', sans-serif; outline: none;
+  border: 1px solid #e5e7eb; font-family: 'Plus Jakarta Sans', sans-serif; outline: none;
   box-sizing: border-box; margin-bottom: 8px;
 }
 .cohort-access-input.is-error { border-color: var(--cs-red, #dc1e34); }
-.cohort-access-error { font-size: 14px; color: var(--cs-red, #dc1e34); margin: 0 0 12px; font-family: 'DM Sans', sans-serif; text-align: left; }
+.cohort-access-error { font-size: 14px; color: var(--cs-red, #dc1e34); margin: 0 0 12px; font-family: 'Plus Jakarta Sans', sans-serif; text-align: left; }
 .cohort-access-submit {
-  width: 100%; height: 52px; font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+  width: 100%; height: 52px; font-size: 15px; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif;
   background: var(--nightfall); color: #fff; border: none; border-radius: 12px; cursor: pointer;
 }
 .cohort-access-submit:disabled { opacity: 0.6; cursor: default; }
@@ -1581,18 +1583,18 @@ body { min-height: 100vh; }
    public placement form. Amber, not red: this is a decision point, not an
    error. Scoped to .sf-resubmit-* so it shares nothing with .sf-student-*. */
 .sf-resubmit-warning { margin-top: 14px; border: 1px solid #fcd34d; background: #fffbeb; border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-.sf-resubmit-title { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 14px; color: #92400e; line-height: 1.4; }
-.sf-resubmit-detail { font-family: 'DM Sans', sans-serif; font-size: 13px; color: #78350f; line-height: 1.6; margin: 0; }
+.sf-resubmit-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px; color: #92400e; line-height: 1.4; }
+.sf-resubmit-detail { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: #78350f; line-height: 1.6; margin: 0; }
 .sf-resubmit-modes { display: flex; flex-direction: column; gap: 8px; }
 .sf-resubmit-mode { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #fde68a; border-radius: 6px; background: #fff; cursor: pointer; }
 .sf-resubmit-mode.is-selected { border-color: #d97706; box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.15); }
 .sf-resubmit-mode input { margin-top: 3px; flex-shrink: 0; }
 .sf-resubmit-mode span { display: flex; flex-direction: column; gap: 3px; }
-.sf-resubmit-mode strong { font-family: 'DM Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: var(--nightfall); }
-.sf-resubmit-mode em { font-family: 'DM Sans', sans-serif; font-size: 12.5px; font-style: normal; color: #6b7280; line-height: 1.5; }
-.sf-resubmit-ack { display: flex; gap: 10px; align-items: flex-start; font-family: 'DM Sans', sans-serif; font-size: 13px; color: #78350f; line-height: 1.5; cursor: pointer; }
+.sf-resubmit-mode strong { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: var(--nightfall); }
+.sf-resubmit-mode em { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; font-style: normal; color: #6b7280; line-height: 1.5; }
+.sf-resubmit-ack { display: flex; gap: 10px; align-items: flex-start; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: #78350f; line-height: 1.5; cursor: pointer; }
 .sf-resubmit-ack input { margin-top: 2px; flex-shrink: 0; }
-.sf-resubmit-inherited p { font-family: 'DM Sans', sans-serif; font-size: 13px; color: #6b7280; line-height: 1.6; margin: 8px 0 0; }
+.sf-resubmit-inherited p { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; color: #6b7280; line-height: 1.6; margin: 8px 0 0; }
 .sf-resubmit-inherited strong { color: var(--nightfall); }
 .sf-resubmit-inherited a { color: var(--nightfall); text-decoration: underline; }
 .sf-student-header { display: flex; align-items: center; justify-content: space-between; }
@@ -1697,7 +1699,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .ov-send-btn {
   height: 30px; padding: 0 14px;
   background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 9px;
-  color: #166534; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+  color: #166534; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; font-weight: 600;
   cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
   transition: all 0.15s ease; white-space: nowrap;
 }
@@ -1760,7 +1762,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .ov-hero-label { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* ── ASPIRE-MASTHEAD: the At a Glance briefing masthead ───────────────────
-   One bounded card: greeting (Fraunces via .chart-route-title), sub-line,
+   One bounded card: greeting (Playfair Display via .chart-route-title), sub-line,
    compact weather scene, next milestone, View calendar, Today-in-ASPIRE
    chips. The wash is a time-of-day tint only (never a weather claim - the
    condition is text); dark mode swaps to low-opacity glows via the theme
@@ -1775,7 +1777,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   border-radius: 14px;
   padding: 18px 22px 16px;
   margin: 14px 20px 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .mast::before { content: ''; position: absolute; inset: 0; pointer-events: none; }
 .mast-wash-morning::before {
@@ -2300,14 +2302,14 @@ a.doc-file-link:hover { text-decoration: underline; }
   position: absolute; top: -27px; left: var(--scn-sky-x, 52%); margin-top: 0;
 }
 .mast-scenic .wx-mast-caption { text-align: right; }
-/* Both halves of the pair use the APP's own face (DM Sans, the global family)
+/* Both halves of the pair use the APP's own face (Plus Jakarta Sans, the global family)
    rather than a display serif: the serif read as borrowed - a Cambria-ish
    note against the product's voice - and worst on the temperature, where
    lining numerals in the UI face look native. Same size and weight on both
    halves is what makes them read as one pair across the card. */
 .mast-scenic .mast-greet,
 .mast-scenic .wx-mast-temp {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 34px; font-weight: 700; line-height: 1.2;
   letter-spacing: -0.02em; font-variant-numeric: lining-nums tabular-nums;
   /* Folded in rather than written as its own single-selector greeting rule:
@@ -2440,7 +2442,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-row { position: relative; display: flex; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
 .mast-left { min-width: 0; flex: 1 1 340px; }
 .mast-greet {
-  /* line-height 1.1 gave the 30px Fraunces greeting too tight a line box, and the overflow:hidden
+  /* line-height 1.1 gave the 30px Playfair Display greeting too tight a line box, and the overflow:hidden
      required by the horizontal ellipsis then cropped the descenders (the g in "Good morning"). A
      taller line box plus a small bottom pad give the descender room without changing the 30px size.
      Shared by every masthead surface (main app, Unit Leader, Student) through .mast-greet. */
@@ -2461,7 +2463,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-cal-btn {
   background: var(--chart-navy, #1D2567); color: #fff;
   border: none; border-radius: 9px; padding: 8px 16px;
-  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 600;
   cursor: pointer; white-space: nowrap; flex-shrink: 0;
 }
 [data-theme="dark"] .mast-cal-btn { color: #0F1419; }
@@ -2543,7 +2545,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   border: 1px solid var(--chart-line, rgba(29,37,103,0.10));
   border-radius: 14px; padding: 18px 18px 14px;
   box-shadow: 0 18px 44px rgba(15,20,40,0.28);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .mast-citypick-title { font-size: 15px; font-weight: 700; color: var(--chart-ink, #0E1428); margin: 0; }
 .mast-citypick-note { font-size: 12px; line-height: 1.45; color: var(--chart-ink-soft, #6b7280); margin: 5px 0 12px; }
@@ -2552,7 +2554,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 9px 11px; border-radius: 9px; cursor: pointer; text-align: left;
   background: none; border: 1px solid transparent;
-  font-family: 'DM Sans', sans-serif; font-size: 13.5px; color: var(--chart-ink, #191919);
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; color: var(--chart-ink, #191919);
 }
 .mast-citypick-opt:hover { background: var(--chart-hover, rgba(29,37,103,0.05)); }
 .mast-citypick-opt:focus-visible { outline: 2px solid var(--chart-navy, #1D2567); outline-offset: 1px; }
@@ -2563,13 +2565,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-citypick-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .mast-citypick-close {
   background: none; border: none; cursor: pointer; padding: 6px 8px;
-  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 600;
   color: var(--chart-navy, #1D2567); border-radius: 8px;
 }
 .mast-citypick-close:hover { background: var(--chart-hover, rgba(29,37,103,0.06)); }
 
 /* ── ASPIRE-MASTHEAD: On Campus Now live strip ────────────────────────────── */
-.mast-live { margin: 14px 20px 0; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
+.mast-live { margin: 14px 20px 0; font-family: 'Plus Jakarta Sans', sans-serif; flex-shrink: 0; }
 .mast-live-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
 .mast-live-dot {
   width: 7px; height: 7px; border-radius: 50%; background: #22c55e;
@@ -2580,7 +2582,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-live-sub { font-size: 11px; color: var(--chart-ink-soft, #9ca3af); }
 .mast-live-link {
   margin-left: auto; background: none; border: none; cursor: pointer;
-  color: var(--chart-navy, #1D2567); font-family: 'DM Sans', sans-serif;
+  color: var(--chart-navy, #1D2567); font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px; font-weight: 600; padding: 2px;
 }
 .mast-live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 9px; }
@@ -2599,7 +2601,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   display: flex; align-items: center; gap: 11px;
   background: var(--chart-card, #fff); border: 1px solid var(--chart-line, rgba(29,37,103,0.1));
   border-radius: 12px; padding: 10px 13px; cursor: pointer; text-align: left;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 .mast-live-card:hover { border-color: var(--chart-navy, #1D2567); box-shadow: 0 2px 10px rgba(29,37,103,0.08); }
@@ -2625,7 +2627,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   background: var(--chart-card, #fff);
   border: 1px solid var(--chart-line, rgba(29,37,103,0.08));
   border-radius: 14px; overflow: hidden;
-  margin: 14px 20px; font-family: 'DM Sans', sans-serif;
+  margin: 14px 20px; font-family: 'Plus Jakarta Sans', sans-serif;
   box-shadow: var(--shadow-card);
 }
 .snap-head {
@@ -2647,7 +2649,7 @@ button.ov-group-row {
 .today-digest {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 10px 20px 12px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .today-digest-lead {
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
@@ -2659,7 +2661,7 @@ button.ov-group-row {
   border: 1px solid var(--chart-line, rgba(29,37,103,0.12));
   background: var(--chart-card, #fff);
   color: var(--chart-ink, #191919);
-  font-family: 'DM Sans', sans-serif; font-size: 12.5px; font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; font-weight: 600;
   cursor: pointer; transition: border-color 0.12s, background 0.12s;
 }
 .today-digest-btn:hover { border-color: var(--chart-navy, #1D2567); }
@@ -2672,7 +2674,7 @@ button.ov-group-row {
 }
 .today-digest-open {
   background: none; border: none; cursor: pointer;
-  color: var(--chart-navy, #1D2567); font-family: 'DM Sans', sans-serif;
+  color: var(--chart-navy, #1D2567); font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12.5px; font-weight: 600; padding: 5px 4px;
 }
 .today-error {
@@ -2680,11 +2682,11 @@ button.ov-group-row {
   background: var(--chart-warn-bg, #FBF3E0); color: var(--chart-warn-ink, #8B5E1A);
   border: 1px solid rgba(139,94,26,0.25); border-radius: 10px;
   padding: 10px 14px; margin: 10px 0 14px;
-  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px;
 }
 .today-error button {
   background: none; border: 1px solid currentColor; border-radius: 7px;
-  color: inherit; font-family: 'DM Sans', sans-serif; font-size: 12px;
+  color: inherit; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px;
   font-weight: 600; padding: 4px 12px; cursor: pointer; flex-shrink: 0;
 }
 
@@ -2751,7 +2753,7 @@ button.ov-group-row {
    look; the wrapper keeps the established hover/padding. */
 .ov-school-row { flex-wrap: wrap; }
 .ov-school-toggle { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; background: none; border: none; font: inherit; color: inherit; text-align: left; cursor: pointer; padding: 0; }
-.ov-view-response-btn { background: none; border: 1px solid #d1d5db; border-radius: 6px; padding: 2px 8px; font-size: 10.5px; font-weight: 600; color: var(--nightfall, #1D2567); cursor: pointer; white-space: nowrap; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
+.ov-view-response-btn { background: none; border: 1px solid #d1d5db; border-radius: 6px; padding: 2px 8px; font-size: 10.5px; font-weight: 600; color: var(--nightfall, #1D2567); cursor: pointer; white-space: nowrap; font-family: 'Plus Jakarta Sans', sans-serif; flex-shrink: 0; }
 .ov-view-response-btn:hover { border-color: var(--nightfall, #1D2567); }
 .ov-chevron    { font-size: 13px; color: var(--nightfall); flex-shrink: 0; }
 .ov-group-name { font-size: 15px; font-weight: 600; color: var(--nightfall); flex: 1; }
@@ -3446,7 +3448,7 @@ button.ov-group-row {
   border-radius: 14px;
   box-shadow: 0 8px 24px rgba(31,41,55,0.08);
   color: var(--cf-text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   margin-bottom: 20px;
   overflow: hidden;
 }
@@ -3467,7 +3469,7 @@ button.ov-group-row {
 }
 .casey-compare-header h3 {
   color: var(--cf-navy);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 22px;
   font-weight: 600;
   line-height: 1.25;
@@ -3672,7 +3674,7 @@ button.ov-group-row {
   color: var(--cf-navy);
   cursor: pointer;
   flex-shrink: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 11.5px;
   font-weight: 700;
   padding: 8px 10px;
@@ -3803,7 +3805,7 @@ button.ov-group-row {
    the left edge of each flagged row. */
 .ir-worklist { display: flex; flex-direction: column; border: 1px solid rgba(29,37,103,0.08); border-radius: 10px; background: var(--pearl); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
 .ir-wl-thead { display: flex; align-items: center; background: var(--sand); border-bottom: 1px solid rgba(29,37,103,0.10); position: sticky; top: 0; z-index: 5; }
-.ir-wl-th { padding: 9px 12px; font-family: 'DM Sans', sans-serif; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-caption, #9ca3af); white-space: nowrap; }
+.ir-wl-th { padding: 9px 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-caption, #9ca3af); white-space: nowrap; }
 .ir-wl-row { display: flex; align-items: stretch; border-bottom: 1px solid rgba(29,37,103,0.05); cursor: pointer; transition: background 0.12s ease; min-height: 76px; }
 .ir-wl-row:hover { background: rgba(244,241,236,0.55); }
 .ir-wl-row:last-child { border-bottom: none; }
@@ -4012,7 +4014,7 @@ button.ov-group-row {
 .rub-script-heading { font-size: 14px; font-weight: 700; color: var(--nightfall); margin-top: 6px; }
 .rub-script-quote { font-style: italic; padding-left: 12px; border-left: 3px solid rgba(29,37,103,0.25); margin: 4px 0; }
 .rub-legend-card { padding: 16px; border-top: 3px solid var(--nightfall); background: var(--pearl); }
-.rub-legend-table { width: 100%; border-collapse: collapse; font-family: 'DM Sans', sans-serif; }
+.rub-legend-table { width: 100%; border-collapse: collapse; font-family: 'Plus Jakarta Sans', sans-serif; }
 .rub-legend-table th { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px; border-bottom: 2px solid var(--border); }
 .rub-legend-table td { padding: 8px 10px; border-bottom: 1px solid rgba(0,0,0,0.06); }
 
@@ -4063,7 +4065,7 @@ button.ov-group-row {
   border: 1px solid var(--border-input, rgba(29,37,103,0.10));
   border-radius: 7px;
   padding: 0 8px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px; color: var(--text-body, #191919);
   cursor: pointer; outline: none; flex-shrink: 0;
 }
@@ -4073,7 +4075,7 @@ button.ov-group-row {
   background: none;
   border: 1px solid var(--border-divider, rgba(29,37,103,0.12));
   border-radius: 7px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px; font-weight: 600;
   color: var(--text-caption, #4A5560);
   cursor: pointer; white-space: nowrap; flex-shrink: 0;
@@ -4136,7 +4138,7 @@ button.ov-group-row {
 .embed-pool-search  {
   flex: 1; min-width: 60px; padding: 4px 9px; height: 30px;
   border: 1px solid var(--border-input, rgba(29,37,103,0.10)); border-radius: 7px;
-  font-size: 12px; font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--text-body, #191919); background: var(--bg-input, #fff); outline: none;
   box-sizing: border-box;
 }
@@ -4144,7 +4146,7 @@ button.ov-group-row {
 .embed-pool-search:focus { border-color: var(--color-focus-ring, #4F6DA8); box-shadow: 0 0 0 2px var(--color-status-info-bg, rgba(79,109,168,0.12)); }
 .embed-pool-school  {
   padding: 0 8px; height: 30px; border: 1px solid var(--border-input, rgba(29,37,103,0.10)); border-radius: 7px;
-  font-size: 12px; font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--text-body, #191919); background: var(--bg-input, #fff); outline: none; cursor: pointer;
   min-width: 100px; flex-shrink: 0;
 }
@@ -4590,7 +4592,7 @@ button.ov-group-row {
   bottom: 88px;
   background: #1d2567;
   color: #ffffff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   font-weight: 500;
   padding: 6px 12px;
@@ -4668,14 +4670,14 @@ button.ov-group-row {
 }
 .shared-feedback-head h2 {
   margin: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 700;
   font-size: 15px;
   color: #ffffff;
 }
 .shared-feedback-head p {
   margin: 2px 0 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.75);
 }
@@ -4706,7 +4708,7 @@ button.ov-group-row {
 }
 .shared-feedback-categories legend,
 .shared-feedback-field > span {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 600;
   font-size: 12px;
   color: #6b7280;
@@ -4725,7 +4727,7 @@ button.ov-group-row {
   border-radius: 10px;
   border: 2px solid #e5e7eb;
   background: #f9fafb;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   color: #6b7280;
   cursor: pointer;
@@ -4751,7 +4753,7 @@ button.ov-group-row {
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 10px 12px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 13px;
   color: #374151;
   resize: vertical;
@@ -4772,13 +4774,13 @@ button.ov-group-row {
   border: 1px solid #f9a8d4;
   border-radius: 8px;
   padding: 8px 12px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 11px;
   color: #930045;
 }
 .shared-feedback-live {
   min-height: 18px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   color: #166534;
 }
@@ -4794,7 +4796,7 @@ button.ov-group-row {
   background: linear-gradient(135deg, #930045, #6d0033);
   border: none;
   color: #ffffff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;

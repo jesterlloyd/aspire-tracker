@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 // ── Display constants ─────────────────────────────────────────────────────────
 

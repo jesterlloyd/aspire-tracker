@@ -40,7 +40,7 @@ function ToastItem({ toast, onRemove }) {
       boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
       minWidth: '280px', maxWidth: '380px',
       animation: 'toastSlideIn 0.25s ease',
-      fontFamily: 'DM Sans',
+      fontFamily: 'Plus Jakarta Sans',
     }}>
       <div style={{ flexShrink: 0, marginTop: '1px' }}>{style.icon}</div>
       <div style={{ flex: 1, minWidth: 0 }}>

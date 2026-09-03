@@ -238,7 +238,7 @@ export default function KnowledgeGraphView({
       // Labels.
       if (shouldLabel(n, { hoverSet, selectedId: selectedEntryId, scale, hubDegree }) && !filteredOut) {
         const fontPx = Math.max(10.5, 12 / scale)
-        ctx.font = `500 ${fontPx}px "DM Sans", sans-serif`
+        ctx.font = `500 ${fontPx}px "Plus Jakarta Sans", sans-serif`
         ctx.textAlign = 'center'
         ctx.lineWidth = 3 / scale
         ctx.strokeStyle = 'rgba(253,252,250,0.9)'
@@ -400,13 +400,13 @@ export default function KnowledgeGraphView({
   if (error) {
     return (
       <SurfaceCard padding="16px 18px" style={{ fontSize: 13, color: secondary }}>
-        We couldn’t load the knowledge graph. <button type="button" onClick={onRetry} style={{ border: 'none', background: 'none', color: 'var(--color-accent-primary, #1D2567)', fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'DM Sans, sans-serif', fontSize: 13 }}>Try again</button>
+        We couldn’t load the knowledge graph. <button type="button" onClick={onRetry} style={{ border: 'none', background: 'none', color: 'var(--color-accent-primary, #1D2567)', fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13 }}>Try again</button>
       </SurfaceCard>
     )
   }
 
   const btn = (active) => ({
-    padding: '5px 11px', borderRadius: 8, fontFamily: 'DM Sans, sans-serif', fontSize: 12.5,
+    padding: '5px 11px', borderRadius: 8, fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5,
     fontWeight: 600, cursor: 'pointer', border: '1px solid var(--color-border-default, #e5e7eb)',
     background: active ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-bg-surface, #ffffff)',
     color: active ? '#ffffff' : 'var(--color-text-primary, #374151)',
@@ -466,7 +466,7 @@ export default function KnowledgeGraphView({
             position: 'fixed', left: tooltip.x + 14, top: tooltip.y + 14, zIndex: 40,
             background: 'var(--color-bg-surface, #ffffff)', border: '1px solid var(--color-border-default, #e5e7eb)',
             borderRadius: 10, boxShadow: '0 4px 14px rgba(25,25,25,0.10)', padding: '8px 11px',
-            fontFamily: 'DM Sans, sans-serif', fontSize: 12.5, pointerEvents: 'none', maxWidth: 260,
+            fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5, pointerEvents: 'none', maxWidth: 260,
           }}>
             <div style={{ fontWeight: 700, marginBottom: 2 }}>{tooltip.node.title}</div>
             <div style={{ color: secondary, fontSize: 11.5 }}>

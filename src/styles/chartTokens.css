@@ -10,15 +10,15 @@
      not an override list.
    - Count badges stay on the shared standard (lib/badgeTokens.js
      + --cs-red). Red is never decorative here.
-   - Fraunces appears ONLY through --chart-serif (route titles and
-     major orientation moments). DM Sans stays the operational face.
+   - The serif appears ONLY through --chart-serif (route titles and
+     major orientation moments). Plus Jakarta Sans (--aspire-sans) stays the operational face.
    ============================================================ */
 @import './aspireBrand.css';
 
 :root {
   /* Type */
-  --chart-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
-  --chart-sans: 'DM Sans', sans-serif;
+  --chart-serif: var(--aspire-serif, Georgia, serif);
+  --chart-sans: var(--aspire-sans, 'Plus Jakarta Sans', sans-serif);
 
   /* Surfaces and ink, resolved through the semantic theme layer so
      [data-theme="dark"] flips them without per-class overrides. */
@@ -62,7 +62,7 @@
 }
 
 /* ------------------------------------------------------------
-   Route title: the one Fraunces moment per route.
+   Route title: the one Playfair Display moment per route.
    ------------------------------------------------------------ */
 .chart-route-title {
   font-family: var(--chart-serif);

@@ -46,8 +46,12 @@ test('the chart token layer', async (t) => {
     }
   })
 
-  await t.test('Fraunces enters staff only through the serif token', () => {
-    assert.match(tokens, /--chart-serif: 'Fraunces'/)
+  await t.test('the serif enters staff only through the serif token, declared once in the core brand layer', () => {
+    // TYPOGRAPHY-PANGRAM-1: --chart-serif resolves through --aspire-serif so the
+    // display face (Playfair Display today, Ivy Ora when it arrives) is named in ONE file.
+    assert.match(tokens, /--chart-serif: var\(--aspire-serif/)
+    assert.doesNotMatch(tokens, /Playfair Display'/)
+    assert.match(read('src/styles/aspireBrand.css'), /--aspire-serif: 'Playfair Display'/)
     assert.match(tokens, /\.chart-route-title \{[\s\S]*?font-family: var\(--chart-serif\)/)
   })
 })

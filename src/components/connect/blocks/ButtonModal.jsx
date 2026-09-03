@@ -8,7 +8,7 @@ import { useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { validateButtonUrl } from '../../../lib/connect/buttonUrl'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const LABEL_MAX = 60
 

@@ -11,7 +11,7 @@ import SurfaceCard from './SurfaceCard'
 
 export default function MetricCard({ label, value, sub, badge }) {
   return (
-    <SurfaceCard padding="14px 16px" style={{ flex: '1 1 140px', minWidth: 120, fontFamily: 'DM Sans, sans-serif' }}>
+    <SurfaceCard padding="14px 16px" style={{ flex: '1 1 140px', minWidth: 120, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       {(badge || label) && (
         <div style={{ marginBottom: 8 }}>
           {badge || (

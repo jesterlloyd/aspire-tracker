@@ -78,7 +78,7 @@ export default function InternshipCohortList({
               onClick={() => { onSelectCohort(c.id); onDone?.() }}
               style={{
                 display: 'block', width: '100%', textAlign: 'left', border: 'none',
-                fontFamily: 'DM Sans, sans-serif',
+                fontFamily: 'Plus Jakarta Sans, sans-serif',
                 padding: '14px 16px', cursor: 'pointer',
                 background: isSel ? '#e8edf8' : 'transparent',
                 borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent',
@@ -116,12 +116,12 @@ export default function InternshipCohortList({
         <div style={{ display: 'flex', gap: 8, padding: '10px 14px', borderTop: '1px solid #f3f4f6', background: 'var(--sand)' }}>
           {activeCohort && (
             <button type="button" onClick={() => { onManageCohort(); onDone?.() }}
-              style={{ flex: 1, padding: '7px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 12, cursor: 'pointer', color: '#374151' }}>
+              style={{ flex: 1, padding: '7px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: 'Plus Jakarta Sans', fontSize: 12, cursor: 'pointer', color: '#374151' }}>
               ✏ Edit Cohort
             </button>
           )}
           <button type="button" onClick={() => { onNewCohort(); onDone?.() }}
-            style={{ flex: 1, padding: '7px', background: '#1D2567', border: 'none', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#fff' }}>
+            style={{ flex: 1, padding: '7px', background: '#1D2567', border: 'none', borderRadius: 8, fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#fff' }}>
             + Add Cohort
           </button>
         </div>

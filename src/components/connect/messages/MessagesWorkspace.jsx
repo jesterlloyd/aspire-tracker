@@ -36,7 +36,7 @@ import {
 } from '../../../lib/messages/messagesPolling'
 import * as defaultApi from '../../../lib/messages/messagesApiClient'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const THREAD_PAGE_LIMIT = 50
 
 const T = {

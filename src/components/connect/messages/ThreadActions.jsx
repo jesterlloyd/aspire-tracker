@@ -37,7 +37,7 @@ import {
 } from '../../../lib/messages/messagesConstants'
 import * as defaultApi from '../../../lib/messages/messagesApiClient'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 // The exact approved safety notice. Never shortened or paraphrased.
 export const SAFETY_NOTICE = "ASPIRE Messages is not monitored continuously. Do not include patient names, medical record numbers, or other identifying information. For urgent patient-care or safety concerns, follow your unit's established escalation process."

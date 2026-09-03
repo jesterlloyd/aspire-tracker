@@ -19,7 +19,7 @@ import { shiftDrivesState } from '../../lib/shiftLifecycle'
 // degrades gracefully if unavailable. Data loading uses react-query (the repo pattern).
 
 const ROUTE = RELEASE_ROUTES.postRotation
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const STATUS_STYLE = {

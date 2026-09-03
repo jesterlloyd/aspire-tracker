@@ -16,7 +16,7 @@ import ConnectPanel from './ConnectPanel'
 import { supabase } from '../../lib/supabase'
 import { LAUNCH_KINDS, readLaunchContext, clearLaunchContext } from '../../lib/connect/launchContext'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const CONFIRMATION = 'SEND MESSAGES'
 
 async function authedPost(payload) {

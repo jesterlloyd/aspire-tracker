@@ -17,7 +17,7 @@
   --ptl-radius: var(--aspire-radius-card, 16px);
   min-height: 100vh;
   background: var(--ptl-cream);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--ptl-ink);
   display: flex;
   flex-direction: column;
@@ -58,7 +58,7 @@
 .ptl-header-controls:empty { display: none; }
 .ptl-header-ctl { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .ptl-header-ctl select {
-  font-family: 'DM Sans', sans-serif; font-size: 12.5px; font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; font-weight: 600;
   padding: 5px 8px; border-radius: 8px; cursor: pointer; max-width: 15rem;
   background: rgba(255, 255, 255, 0.10); color: var(--pearl, #fff);
   border: 1px solid rgba(255, 255, 255, 0.24);
@@ -653,7 +653,7 @@
 .ptl-drawer {
   position: fixed; top: 0; right: 0; bottom: 0; width: 100%; max-width: 420px; z-index: 1999;
   background: #fff; box-shadow: -8px 0 24px rgba(16,24,40,0.14); display: flex; flex-direction: column;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ptl-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #f0ece3; }
 .ptl-drawer-title { margin: 0; font-size: 16px; font-weight: 700; color: #191919; }
@@ -1027,7 +1027,7 @@
 /* Academic Partner Placement Requests workspace (list + new-request form). Reuses the shared
    .ptl-card / .ptl-table / form primitives; these rules cover the request-specific layout. */
 .ptl-plr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.ptl-plr-title { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 22px; color: var(--ptl-navy, #1D2567); margin: 0; }
+.ptl-plr-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 22px; color: var(--ptl-navy, #1D2567); margin: 0; }
 .ptl-plr-lede { max-width: 62ch; margin: 6px 0 0; }
 .ptl-plr-new { flex-shrink: 0; }
 .ptl-plr-back { margin-bottom: 4px; align-self: flex-start; }
@@ -1037,7 +1037,7 @@
 .ptl-plr-form-card { display: flex; flex-direction: column; gap: 4px; }
 .ptl-plr-form-head { display: flex; align-items: center; gap: 12px; }
 .ptl-ap-cohort-badge {
-  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; font-weight: 700;
   color: var(--ptl-navy, #1D2567); background: var(--ptl-navy-tint, #eef2fb);
   border-radius: 999px; padding: 3px 12px;
 }
@@ -1066,7 +1066,7 @@
 .ptl-plr-resubmit-ack input { margin-top: 2px; flex-shrink: 0; }
 .ptl-plr-resubmit-inherited strong { color: var(--nightfall, #1D2567); }
 .ptl-plr-section-title {
-  font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.04em;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.04em;
   text-transform: uppercase; color: #6b7280; border-bottom: 1px solid var(--ptl-line, #e3ded4);
   padding-bottom: 6px;
 }
@@ -1074,7 +1074,7 @@
 .ptl-plr-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .ptl-plr-weekdays { display: flex; flex-wrap: wrap; gap: 6px; }
 .ptl-plr-day {
-  padding: 6px 12px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+  padding: 6px 12px; border-radius: 8px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px;
   font-weight: 600; cursor: pointer; background: #fff; color: #374151; border: 1px solid #d1d5db;
 }
 .ptl-plr-day-on { background: var(--ptl-navy, #1D2567); color: #fff; border-color: var(--ptl-navy, #1D2567); }
@@ -1858,7 +1858,7 @@ img.ptl-detail-photo {
   position: fixed; z-index: 1999; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(440px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto;
   background: #fff; border-radius: 14px; box-shadow: 0 20px 55px rgba(15, 20, 25, 0.24);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ptl-plan-body { display: grid; gap: 14px; padding: 18px 20px; }
 .ptl-plan-body > p { margin: 0; }
@@ -1937,7 +1937,7 @@ img.ptl-detail-photo {
 .ptl-stu-school { font-size: 11px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ptl-stu-pill {
   display: inline-block; font-size: 9.5px; font-weight: 700; padding: 2px 8px;
-  border-radius: 10px; white-space: nowrap; font-family: 'DM Sans', sans-serif;
+  border-radius: 10px; white-space: nowrap; font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ptl-stu-actioncell { width: 44px; text-align: right; }
 
@@ -1949,7 +1949,7 @@ img.ptl-detail-photo {
 .ptl-prec-name { font-size: 12.5px; color: #191919; }
 .ptl-prec-pill {
   display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em;
-  padding: 1px 6px; border-radius: 4px; white-space: nowrap; font-family: 'DM Sans', sans-serif;
+  padding: 1px 6px; border-radius: 4px; white-space: nowrap; font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .ptl-prec-primary   { color: #3730a3; background: #eef2ff; }
 .ptl-prec-secondary { color: #155e75; background: #ecfeff; }
@@ -1987,7 +1987,7 @@ img.ptl-detail-photo {
 .ptl-detail-heroschool { margin: 0; font-size: 13px; color: #6b7280; }
 .ptl-detail-heropill {
   font-size: 11px; font-weight: 700; padding: 3px 12px; border-radius: 20px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 @media (max-width: 760px) {

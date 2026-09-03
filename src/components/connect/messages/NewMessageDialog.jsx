@@ -34,7 +34,7 @@ import {
 import { debounce } from '../../../lib/messages/inboxState'
 import * as defaultApi from '../../../lib/messages/messagesApiClient'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const MIN_SEARCH = 2          // matches the endpoint's documented minimum
 const SEARCH_DEBOUNCE_MS = 300 // inside the approved 250 to 400 range
 

@@ -23,7 +23,7 @@ export default function DataTable({ columns, rows, getRowKey, onRowClick, rowSel
       {(!rows || rows.length === 0) ? (
         empty || null
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'DM Sans, sans-serif' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--color-border-subtle, #f3f4f6)' }}>
               {columns.map(c => (

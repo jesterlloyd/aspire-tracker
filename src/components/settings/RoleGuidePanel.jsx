@@ -15,7 +15,7 @@ import {
 } from '../../lib/portalRoleGuide'
 import { ROLE_BADGE } from './accountsShared'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const secondary = 'var(--color-text-secondary, #6b7280)'
 
 // One restrained treatment per level: strength reads at a glance without a

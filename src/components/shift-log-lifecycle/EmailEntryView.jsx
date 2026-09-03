@@ -1,7 +1,7 @@
 // EmailEntryView.jsx - initial school-email entry for the shift-log lifecycle.
 import { useState } from 'react'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const JESTER = 'JesterLloyd.Bautista@cshs.org'
 
 const INPUT = {

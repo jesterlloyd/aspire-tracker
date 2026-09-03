@@ -12,7 +12,7 @@
 
 import Tooltip from './Tooltip'
 
-const F    = 'DM Sans, sans-serif'
+const F    = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const SOLID = {

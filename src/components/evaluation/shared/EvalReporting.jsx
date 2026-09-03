@@ -1,7 +1,7 @@
 // src/components/evaluation/shared/EvalReporting.jsx
 //
 // Shared, ROLE-SAFE presentation primitives for the Unit Leader evaluations workspace. They
-// match the main-app Evaluation Dashboard's visual language (navy #1D2567, DM Sans, 14px
+// match the main-app Evaluation Dashboard's visual language (navy #1D2567, Plus Jakarta Sans, 14px
 // radius cards, tabular numerals) without reaching into it, so the main app is unchanged.
 //
 // These components render ONLY what they are handed. They hold no data, no authorization,
@@ -9,7 +9,7 @@
 
 import { fmtMetric, metricKind, metricLabel } from '../../../lib/unitEvaluationDisplay'
 
-const F = "'DM Sans', system-ui, sans-serif"
+const F = "'Plus Jakarta Sans', system-ui, sans-serif"
 const NAVY = '#1D2567'
 
 /** A KPI number card (released count, etc.). Presentational only. */

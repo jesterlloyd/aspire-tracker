@@ -22,7 +22,7 @@ export default function RotationTab(props) {
   const btnStyle = (key) => ({
     height: 32, padding: '0 13px', display: 'flex', alignItems: 'center',
     border: 'none', cursor: 'pointer', fontSize: 12,
-    fontFamily: 'DM Sans,sans-serif', fontWeight: 500,
+    fontFamily: 'Plus Jakarta Sans,sans-serif', fontWeight: 500,
     background: activeSubTab === key ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
     color: activeSubTab === key ? '#fff' : 'var(--text-secondary,#4A5560)',
     transition: 'all 0.12s',

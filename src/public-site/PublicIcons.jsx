@@ -94,9 +94,9 @@ export function HeroArt({ className }) {
         <circle r="52" fill="none" stroke="#eceadf" strokeWidth="12" />
         <circle r="52" fill="none" stroke="url(#ps-g-navy)" strokeWidth="12"
           strokeLinecap="round" strokeDasharray="245 327" transform="rotate(-90)" />
-        <text x="0" y="-2" textAnchor="middle" fontFamily="DM Sans, sans-serif"
+        <text x="0" y="-2" textAnchor="middle" fontFamily="Plus Jakarta Sans, sans-serif"
           fontSize="30" fontWeight="700" fill="#1D2567">90+</text>
-        <text x="0" y="20" textAnchor="middle" fontFamily="DM Sans, sans-serif"
+        <text x="0" y="20" textAnchor="middle" fontFamily="Plus Jakarta Sans, sans-serif"
           fontSize="12" fontWeight="600" fill="#4b5265">hours</text>
       </g>
 

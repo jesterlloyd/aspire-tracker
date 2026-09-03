@@ -192,7 +192,7 @@ function CsLinkDateField({ value, onChange }) {
       <input className="csw-date-input" type="date" placeholder="Date"
         value={dateInputValue(value)} onChange={onChange} />
       {legacy && (
-        <span style={{ fontSize: 11, color: '#92400e', fontFamily: 'DM Sans, sans-serif' }}>
+        <span style={{ fontSize: 11, color: '#92400e', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           Existing value: {value}, re-enter to update.
         </span>
       )}
@@ -1100,7 +1100,7 @@ export default function StudentSidePanel({
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               background: '#fffbeb', border: '1px solid #fde68a',
               borderRadius: 8, padding: '8px 14px', margin: '0 0 12px',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 12,
+              fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12,
             }}>
               <span style={{ color: '#92400e', fontWeight: 600 }}>
                 ⚠ This record was just updated by another user.
@@ -1238,7 +1238,7 @@ export default function StudentSidePanel({
                       padding:'6px 14px', borderRadius:'8px',
                       border:`1px solid ${summaryCopied ? '#86efac' : '#e5e7eb'}`,
                       background: summaryCopied ? '#f0fdf4' : '#f9fafb',
-                      fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'12px',
+                      fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:'12px',
                       color: summaryCopied ? '#166534' : '#374151',
                       cursor:'pointer', transition:'all 0.2s ease',
                       width:'100%', justifyContent:'center',
@@ -1517,18 +1517,18 @@ export default function StudentSidePanel({
                     onClick={handleOpenRotationEdit}
                     style={{ fontSize:11, fontWeight:600, padding:'2px 10px', borderRadius:6,
                       background:'#f0f3ff', border:'1px solid #e0e7ff', color:'#1D2567',
-                      cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}>
+                      cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                     Edit
                   </button>
                 )}
               </SectionHeader>
 
               {(rotationLoading && student.cohort_school_rotation_id) ? (
-                <div style={{ fontSize:12, color:'var(--text-caption,#6b7280)', fontFamily:'DM Sans' }}>Loading…</div>
+                <div style={{ fontSize:12, color:'var(--text-caption,#6b7280)', fontFamily:'Plus Jakarta Sans' }}>Loading…</div>
               ) : rotationPending ? (
                 <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 12px',
                   background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8,
-                  fontFamily:'DM Sans', fontSize:12.5, color:'#583733', fontWeight:600 }}>
+                  fontFamily:'Plus Jakarta Sans', fontSize:12.5, color:'#583733', fontWeight:600 }}>
                   <span>&#9651;</span>
                   Rotation Dates: Pending coordinator/admin review
                 </div>
@@ -1561,7 +1561,7 @@ export default function StudentSidePanel({
                   </div>
                   {/* Coordinator provenance - this date window is coordinator-owned (school form). */}
                   <div style={{ marginTop:8, fontSize:11, color:'var(--text-caption,#6b7280)',
-                    fontFamily:'DM Sans', fontStyle:'italic' }}>
+                    fontFamily:'Plus Jakarta Sans', fontStyle:'italic' }}>
                     {rotationRow?.coordinator_name
                       ? `Submitted by ${rotationRow.coordinator_name}${rotationRow.coordinator_email ? `, ${rotationRow.coordinator_email}` : ''}`
                       : 'Coordinator-submitted via school form'}
@@ -1596,12 +1596,12 @@ export default function StudentSidePanel({
                   <div style={{ display:'flex', gap:8 }}>
                     <button onClick={handleSaveRotationDates}
                       style={{ padding:'6px 16px', background:'#1D2567', border:'none', borderRadius:8,
-                        fontFamily:'DM Sans', fontWeight:700, fontSize:12, color:'#fff', cursor:'pointer' }}>
+                        fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:12, color:'#fff', cursor:'pointer' }}>
                       Save
                     </button>
                     <button onClick={() => { setEditingRotation(false); setRotEditError(null) }}
                       style={{ padding:'6px 14px', background:'#f9fafb', border:'1px solid #e5e7eb',
-                        borderRadius:8, fontFamily:'DM Sans', fontWeight:600, fontSize:12,
+                        borderRadius:8, fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:12,
                         color:'#374151', cursor:'pointer' }}>
                       Cancel
                     </button>
@@ -1614,7 +1614,7 @@ export default function StudentSidePanel({
                 <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:2999,
                   display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
                   <div style={{ background:'#fff', borderRadius:14, maxWidth:420, width:'100%',
-                    padding:'24px 24px 20px', fontFamily:'DM Sans, sans-serif',
+                    padding:'24px 24px 20px', fontFamily:'Plus Jakarta Sans, sans-serif',
                     boxShadow:'0 20px 50px rgba(0,0,0,0.18)' }}>
                     <div style={{ fontWeight:700, fontSize:15, color:'#1D2567', marginBottom:10 }}>
                       Update rotation dates?
@@ -1627,11 +1627,11 @@ export default function StudentSidePanel({
                     <div style={{ display:'flex', gap:10 }}>
                       <button onClick={() => setRotConfirmModal(null)} disabled={rotSaving}
                         style={{ flex:1, height:38, borderRadius:8, border:'1px solid #e5e7eb',
-                          background:'#f9fafb', fontFamily:'DM Sans', fontWeight:600, fontSize:13,
+                          background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:13,
                           cursor:'pointer', color:'#374151' }}>Cancel</button>
                       <button onClick={handleConfirmRotationSave} disabled={rotSaving}
                         style={{ flex:1, height:38, borderRadius:8, border:'none',
-                          background:'#1D2567', fontFamily:'DM Sans', fontWeight:700, fontSize:13,
+                          background:'#1D2567', fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:13,
                           cursor:'pointer', color:'#fff' }}>
                         {rotSaving ? 'Saving...' : 'Confirm'}
                       </button>
@@ -1911,7 +1911,7 @@ export default function StudentSidePanel({
                           color: badgeDisabledReason ? '#9ca3af' : '#fff',
                           fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
                           cursor: (badgeDisabledReason || generatingBadge) ? 'not-allowed' : 'pointer',
-                          flexShrink:0, fontFamily:'DM Sans,sans-serif',
+                          flexShrink:0, fontFamily:'Plus Jakarta Sans,sans-serif',
                         }}>
                         {generatingBadge ? 'Generating...' : 'Download Badge'}
                       </button>
@@ -1953,7 +1953,7 @@ export default function StudentSidePanel({
                         color: certDisabledReason ? '#9ca3af' : '#fff',
                         fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
                         cursor: (certDisabledReason || downloadingCert) ? 'not-allowed' : 'pointer',
-                        fontFamily:'DM Sans,sans-serif',
+                        fontFamily:'Plus Jakarta Sans,sans-serif',
                       }}>
                       {downloadingCert ? 'Preparing…' : 'Download Certificate of Completion'}
                     </button>
@@ -1970,7 +1970,7 @@ export default function StudentSidePanel({
             </SectionHeader>
             {!editingInterest ? (
               <div onClick={() => setEditingInterest(true)}
-                style={{ fontFamily:'DM Sans', fontSize:'13px', color:data.interest_statement?'#374151':'#9ca3af', lineHeight:1.6, padding:'10px 12px', borderRadius:'8px', border:'1px solid transparent', cursor:'text', minHeight:'80px', transition:'border-color 0.15s ease, background 0.15s ease' }}
+                style={{ fontFamily:'Plus Jakarta Sans', fontSize:'13px', color:data.interest_statement?'#374151':'#9ca3af', lineHeight:1.6, padding:'10px 12px', borderRadius:'8px', border:'1px solid transparent', cursor:'text', minHeight:'80px', transition:'border-color 0.15s ease, background 0.15s ease' }}
                 onMouseEnter={e=>{ e.currentTarget.style.borderColor='#e5e7eb'; e.currentTarget.style.background='#f9fafb' }}
                 onMouseLeave={e=>{ e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent' }}>
                 {data.interest_statement || 'Click to add interest statement...'}
@@ -1978,12 +1978,12 @@ export default function StudentSidePanel({
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 <textarea value={interestDraft} onChange={e=>setInterestDraft(e.target.value)} autoFocus rows={5}
-                  style={{ width:'100%', padding:'10px 12px', border:'1px solid #0ea5e9', borderRadius:8, fontFamily:'DM Sans', fontSize:13, color:'#374151', lineHeight:1.6, resize:'vertical', outline:'none', boxSizing:'border-box' }} />
+                  style={{ width:'100%', padding:'10px 12px', border:'1px solid #0ea5e9', borderRadius:8, fontFamily:'Plus Jakarta Sans', fontSize:13, color:'#374151', lineHeight:1.6, resize:'vertical', outline:'none', boxSizing:'border-box' }} />
                 <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
                   <button onClick={() => { setInterestDraft(data.interest_statement||''); setEditingInterest(false) }}
-                    style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #e5e7eb', background:'#f9fafb', fontFamily:'DM Sans', fontSize:12, cursor:'pointer' }}>Cancel</button>
+                    style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #e5e7eb', background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontSize:12, cursor:'pointer' }}>Cancel</button>
                   <button onClick={async () => { const err = await onUpdate(student.id, { interest_statement: interestDraft }); if (!err) setData(p=>({...p, interest_statement:interestDraft})); setEditingInterest(false) }}
-                    style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#0ea5e9', color:'#fff', fontFamily:'DM Sans', fontSize:12, fontWeight:600, cursor:'pointer' }}>Save</button>
+                    style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#0ea5e9', color:'#fff', fontFamily:'Plus Jakarta Sans', fontSize:12, fontWeight:600, cursor:'pointer' }}>Save</button>
                 </div>
               </div>
             )}
@@ -2222,7 +2222,7 @@ export default function StudentSidePanel({
                     )}
                     {canEdit && (
                       <button onClick={() => setAssignModalOpen(true)}
-                        style={{ alignSelf:'flex-start', marginTop:2, fontSize:11, color:'#1D2567', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', padding:0, fontFamily:'DM Sans,sans-serif' }}>
+                        style={{ alignSelf:'flex-start', marginTop:2, fontSize:11, color:'#1D2567', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', padding:0, fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                         Change preceptor
                       </button>
                     )}
@@ -2247,7 +2247,7 @@ export default function StudentSidePanel({
                     )}
                     {canEdit && (
                       <button onClick={() => setAssignModalOpen(true)}
-                        style={{ alignSelf:'flex-start', marginTop:2, fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}>
+                        style={{ alignSelf:'flex-start', marginTop:2, fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}>
                         Link to preceptor record
                       </button>
                     )}
@@ -2255,7 +2255,7 @@ export default function StudentSidePanel({
                 ) : (
                   canEdit ? (
                     <button onClick={() => setAssignModalOpen(true)}
-                      style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}>
+                      style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}>
                       + Assign preceptor
                     </button>
                   ) : (
@@ -2351,7 +2351,7 @@ export default function StudentSidePanel({
                                     setCompletionNote('')
                                     setCompletionMethod('')
                                   }}
-                                  style={{ fontSize:11, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:5, padding:'2px 8px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}
+                                  style={{ fontSize:11, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:5, padding:'2px 8px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}
                                 >
                                   {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type)
                                     ? 'Document Notification'
@@ -2382,7 +2382,7 @@ export default function StudentSidePanel({
                                         onClick={() => setCompletionMethod(val)}
                                         style={{
                                           fontSize:11, padding:'3px 9px', borderRadius:5, cursor:'pointer',
-                                          fontFamily:'DM Sans,sans-serif', fontWeight:600,
+                                          fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600,
                                           background: completionMethod === val ? '#1D2567' : '#f0f3ff',
                                           color: completionMethod === val ? '#fff' : '#1D2567',
                                           border: `1px solid ${completionMethod === val ? '#1D2567' : '#e0e7ff'}`,
@@ -2400,7 +2400,7 @@ export default function StudentSidePanel({
                                     onChange={e => setCompletionNote(e.target.value)}
                                     placeholder="e.g. Email sent 05/28/2026…"
                                     rows={2}
-                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'DM Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
                                   />
                                   <div style={{ fontSize:11, color:'#6b7280', marginTop:6, marginBottom:6, fontStyle:'italic' }}>
                                     I confirm this notification has already occurred and is being documented here.
@@ -2412,7 +2412,7 @@ export default function StudentSidePanel({
                                       style={{
                                         flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
                                         cursor: (completingFollowup || !completionMethod || !completionNote.trim()) ? 'default' : 'pointer',
-                                        fontFamily:'DM Sans,sans-serif',
+                                        fontFamily:'Plus Jakarta Sans,sans-serif',
                                         background: (!completionMethod || !completionNote.trim()) ? '#f3f4f6' : '#f0fdf4',
                                         color:      (!completionMethod || !completionNote.trim()) ? '#9ca3af' : '#166534',
                                         border:     `1px solid ${(!completionMethod || !completionNote.trim()) ? '#e5e7eb' : '#bbf7d0'}`,
@@ -2422,7 +2422,7 @@ export default function StudentSidePanel({
                                     </button>
                                     <button
                                       onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
                                     >
                                       Cancel
                                     </button>
@@ -2438,7 +2438,7 @@ export default function StudentSidePanel({
                                     onChange={e => setCompletionNote(e.target.value)}
                                     placeholder="e.g. Reviewed by leadership on 05/28/2026…"
                                     rows={2}
-                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'DM Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
                                   />
                                   <div style={{ display:'flex', gap:6, marginTop:6 }}>
                                     <button
@@ -2447,7 +2447,7 @@ export default function StudentSidePanel({
                                       style={{
                                         flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
                                         cursor: (completingFollowup || !completionNote.trim()) ? 'default' : 'pointer',
-                                        fontFamily:'DM Sans,sans-serif',
+                                        fontFamily:'Plus Jakarta Sans,sans-serif',
                                         background: !completionNote.trim() ? '#f3f4f6' : '#f0fdf4',
                                         color:      !completionNote.trim() ? '#9ca3af' : '#166534',
                                         border:     `1px solid ${!completionNote.trim() ? '#e5e7eb' : '#bbf7d0'}`,
@@ -2457,7 +2457,7 @@ export default function StudentSidePanel({
                                     </button>
                                     <button
                                       onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
                                     >
                                       Cancel
                                     </button>
@@ -2473,7 +2473,7 @@ export default function StudentSidePanel({
                                     onChange={e => setCompletionNote(e.target.value)}
                                     placeholder="e.g. Documentation reviewed and filed…"
                                     rows={2}
-                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'DM Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
                                   />
                                   <div style={{ display:'flex', gap:6, marginTop:6 }}>
                                     <button
@@ -2482,7 +2482,7 @@ export default function StudentSidePanel({
                                       style={{
                                         flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
                                         cursor: (completingFollowup || !completionNote.trim()) ? 'default' : 'pointer',
-                                        fontFamily:'DM Sans,sans-serif',
+                                        fontFamily:'Plus Jakarta Sans,sans-serif',
                                         background: !completionNote.trim() ? '#f3f4f6' : '#f0fdf4',
                                         color:      !completionNote.trim() ? '#9ca3af' : '#166534',
                                         border:     `1px solid ${!completionNote.trim() ? '#e5e7eb' : '#bbf7d0'}`,
@@ -2492,7 +2492,7 @@ export default function StudentSidePanel({
                                     </button>
                                     <button
                                       onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
                                     >
                                       Cancel
                                     </button>
@@ -2539,13 +2539,13 @@ export default function StudentSidePanel({
                   <div style={{ marginTop:14, display:'flex', gap:8, flexWrap:'wrap' }}>
                     <button
                       onClick={handleUpdateDisposition}
-                      style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}
+                      style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
                     >
                       Update Disposition
                     </button>
                     <button
                       onClick={handleOpenClearDisposition}
-                      style={{ fontSize:12, color:'#92400e', background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}
+                      style={{ fontSize:12, color:'#92400e', background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
                     >
                       Clear Disposition
                     </button>
@@ -2564,7 +2564,7 @@ export default function StudentSidePanel({
                 {canEdit && (
                   <button
                     onClick={handleUpdateDisposition}
-                    style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}
+                    style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
                   >
                     Update Program Disposition
                   </button>
@@ -2577,7 +2577,7 @@ export default function StudentSidePanel({
           {/* Clinical Hours */}
           <div className="sp-section">
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:'#374151', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:700, fontSize:12, color:'#374151', textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 Clinical Hours
               </span>
               <SyncIndicator display={hoursSyncDisplay} align="right" />
@@ -2617,7 +2617,7 @@ export default function StudentSidePanel({
                 Program Timeline
               </div>
               <button onClick={() => setShowEventForm(p => !p)}
-                style={{ fontSize:12, color:'var(--nightfall)', background:'none', border:'1px solid var(--nightfall)', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}>
+                style={{ fontSize:12, color:'var(--nightfall)', background:'none', border:'1px solid var(--nightfall)', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                 {showEventForm ? 'Cancel' : '+ Add Event'}
               </button>
             </div>
@@ -2649,7 +2649,7 @@ export default function StudentSidePanel({
                     onChange={e => setNewEvent(p => ({ ...p, notes: e.target.value }))} placeholder="Optional note…" />
                 </div>
                 <button onClick={handleAddEvent} disabled={!newEvent.event_date || savingEvent}
-                  style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:6, padding:'6px 14px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+                  style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:6, padding:'6px 14px', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:13, cursor:'pointer' }}>
                   {savingEvent ? 'Saving…' : 'Save Event'}
                 </button>
               </div>
@@ -2663,13 +2663,13 @@ export default function StudentSidePanel({
                   <div key={ev.id} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
                     <div style={{ width:10, height:10, borderRadius:'50%', background:getEventColor(ev.event_type), marginTop:3, flexShrink:0 }} />
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#1d2567', fontFamily:'DM Sans,sans-serif', display:'flex', alignItems:'center', gap:4 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#1d2567', fontFamily:'Plus Jakarta Sans,sans-serif', display:'flex', alignItems:'center', gap:4 }}>
                         {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
                         {ev.created_by === 'system' && (
-                          <span style={{ fontFamily:'DM Sans', fontSize:9, fontWeight:600, background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd', borderRadius:4, padding:'1px 5px', textTransform:'uppercase', letterSpacing:'0.05em' }}>Auto</span>
+                          <span style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, fontWeight:600, background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd', borderRadius:4, padding:'1px 5px', textTransform:'uppercase', letterSpacing:'0.05em' }}>Auto</span>
                         )}
                       </div>
-                      <div style={{ fontSize:12, color:'#6b7280', fontFamily:'DM Sans,sans-serif' }}>
+                      <div style={{ fontSize:12, color:'#6b7280', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                         {ev.event_date}{ev.event_time ? ` · ${ev.event_time}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}
                       </div>
                     </div>
@@ -2691,17 +2691,17 @@ export default function StudentSidePanel({
           <div className="sp-section sp-card sp-zone-records">
             <SectionHeader title="Recent Communications" icon={<MessageSquare size={13} />} />
             {recentComms.length === 0 ? (
-              <div style={{ fontSize:12, color:'var(--text-secondary,#6b7280)', fontFamily:'DM Sans,sans-serif', padding:'2px 0 8px' }}>
+              <div style={{ fontSize:12, color:'var(--text-secondary,#6b7280)', fontFamily:'Plus Jakarta Sans,sans-serif', padding:'2px 0 8px' }}>
                 No communications recorded yet for this student.
               </div>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
                 {recentComms.map(c => (
                   <div key={c.id} style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:'#374151', fontFamily:'DM Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#374151', fontFamily:'Plus Jakarta Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {c.subject || commTypeLabel(c.notification_type)}
                     </div>
-                    <div style={{ fontSize:11, color:'#9ca3af', fontFamily:'DM Sans,sans-serif' }}>
+                    <div style={{ fontSize:11, color:'#9ca3af', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                       {commTypeLabel(c.notification_type)} · {c.status || 'unknown'} · {fmtCommDate(c.sent_at)}
                     </div>
                   </div>
@@ -2710,7 +2710,7 @@ export default function StudentSidePanel({
             )}
             <button
               onClick={() => navigate(`/connect/outreach?tab=sent_history&student_id=${student.id}`)}
-              style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:11, fontWeight:600, color:'#1D2567', fontFamily:'DM Sans,sans-serif' }}
+              style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:11, fontWeight:600, color:'#1D2567', fontFamily:'Plus Jakarta Sans,sans-serif' }}
             >
               View all communications for this student →
             </button>
@@ -2813,7 +2813,7 @@ export default function StudentSidePanel({
           display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
           onMouseDown={() => !clearing && setShowClearModal(false)}>
           <div style={{ background:'#fff', borderRadius:14, maxWidth:460, width:'100%',
-            padding:'22px 24px 20px', fontFamily:'DM Sans, sans-serif',
+            padding:'22px 24px 20px', fontFamily:'Plus Jakarta Sans, sans-serif',
             boxShadow:'0 20px 50px rgba(0,0,0,0.18)' }}
             onMouseDown={e => e.stopPropagation()}>
             <div style={{ fontWeight:700, fontSize:16, color:'#1D2567', marginBottom:10 }}>
@@ -2850,7 +2850,7 @@ export default function StudentSidePanel({
               placeholder="Why is this disposition being cleared?"
               rows={3}
               maxLength={1000}
-              style={{ width:'100%', resize:'vertical', fontFamily:'DM Sans', fontSize:13, lineHeight:1.5, marginBottom:12 }}
+              style={{ width:'100%', resize:'vertical', fontFamily:'Plus Jakarta Sans', fontSize:13, lineHeight:1.5, marginBottom:12 }}
             />
 
             {clearError && (
@@ -2860,13 +2860,13 @@ export default function StudentSidePanel({
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
               <button onClick={() => setShowClearModal(false)} disabled={clearing}
                 style={{ padding:'9px 18px', borderRadius:8, border:'1px solid #e5e7eb',
-                  background:'#f9fafb', fontFamily:'DM Sans', fontWeight:600, fontSize:13,
+                  background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:13,
                   cursor: clearing ? 'not-allowed' : 'pointer', color:'#374151' }}>
                 Cancel
               </button>
               <button onClick={handleConfirmClearDisposition} disabled={clearing}
                 style={{ padding:'9px 18px', borderRadius:8, border:'none',
-                  background:'#92400e', fontFamily:'DM Sans', fontWeight:700, fontSize:13,
+                  background:'#92400e', fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:13,
                   cursor: clearing ? 'not-allowed' : 'pointer', color:'#fff' }}>
                 {clearing ? 'Clearing…' : 'Clear Disposition'}
               </button>
@@ -2887,10 +2887,10 @@ export default function StudentSidePanel({
             padding: 28, width: 400,
             boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
           }}>
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 18, color: '#1d2567', marginBottom: 8 }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 18, color: '#1d2567', marginBottom: 8 }}>
               Decline Student
             </div>
-            <div style={{ fontFamily: 'DM Sans', fontSize: 14, color: '#6b7280', marginBottom: 20 }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 14, color: '#6b7280', marginBottom: 20 }}>
               Please select a reason for declining this student. This will be recorded for program reporting.
             </div>
             <select
@@ -2899,7 +2899,7 @@ export default function StudentSidePanel({
               style={{
                 width: '100%', padding: '10px 12px',
                 border: '1px solid #e5e7eb', borderRadius: 8,
-                fontFamily: 'DM Sans', fontSize: 14,
+                fontFamily: 'Plus Jakarta Sans', fontSize: 14,
                 marginBottom: 20,
               }}
             >
@@ -2912,7 +2912,7 @@ export default function StudentSidePanel({
                 style={{
                   padding: '8px 18px', borderRadius: 8,
                   border: '1px solid #e5e7eb', background: '#f9fafb',
-                  fontFamily: 'DM Sans', cursor: 'pointer',
+                  fontFamily: 'Plus Jakarta Sans', cursor: 'pointer',
                 }}
               >Cancel</button>
               <button
@@ -2922,7 +2922,7 @@ export default function StudentSidePanel({
                   padding: '8px 18px', borderRadius: 8,
                   background: declineReason ? '#dc1e34' : '#e5e7eb',
                   border: 'none', color: '#fff',
-                  fontFamily: 'DM Sans', fontWeight: 600,
+                  fontFamily: 'Plus Jakarta Sans', fontWeight: 600,
                   cursor: declineReason ? 'pointer' : 'default',
                 }}
               >Confirm Decline</button>

@@ -14,7 +14,7 @@ export default function ConflictDialog({ studentName, fieldName, onDiscard, onFo
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 2999,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'DM Sans, sans-serif',
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
     }}>
       <div style={{
         background: '#fff', borderRadius: 16, width: 448, maxWidth: '92vw',

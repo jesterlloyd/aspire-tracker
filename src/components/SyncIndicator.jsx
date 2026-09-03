@@ -20,7 +20,7 @@ export default function SyncIndicator({ display, align = 'right', dark = false }
     }}>
       <RefreshCw size={10} color={dark ? 'rgba(255,255,255,0.35)' : '#9ca3af'} strokeWidth={2} />
       <span style={{
-        fontFamily: 'DM Sans, sans-serif',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontWeight: 400,
         fontSize: '10px',
         color: dark ? 'rgba(255,255,255,0.35)' : '#9ca3af',

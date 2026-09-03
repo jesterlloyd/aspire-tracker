@@ -8,12 +8,12 @@ const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 // Section content (instructions, anchors, item prose) comes from Storage JSON.
 const EVAL_CSS = `
   .eval-page { background: #F4F1EC; min-height: 100vh; }
-  .eval-container { max-width: 1040px; margin: 0 auto; padding: 32px 20px 80px; font-family: 'DM Sans', system-ui, sans-serif; color: #191919; }
+  .eval-container { max-width: 1040px; margin: 0 auto; padding: 32px 20px 80px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #191919; }
   .eval-card { background: #ffffff; border-radius: 12px; border: 1px solid #e8e4dc; padding: 28px 32px; margin-bottom: 24px; }
 
   /* Sticky progress bar */
   .eval-progress-bar { position: sticky; top: 0; z-index: 20; background: #1D2567; }
-  .eval-progress-inner { max-width: 1040px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 10px; font-family: 'DM Sans', system-ui, sans-serif; font-size: 14px; color: #ffffff; }
+  .eval-progress-inner { max-width: 1040px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 10px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 14px; color: #ffffff; }
   .eval-progress-count { font-weight: 700; font-size: 18px; line-height: 1; }
 
   /* Typography */
@@ -64,7 +64,7 @@ const EVAL_CSS = `
     border-radius: 6px;
     padding: 9px 12px;
     font-size: 16px; /* FORMS-MOBILE-RESPONSIVE: prevent iOS auto-zoom */
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     color: #191919;
     box-sizing: border-box;
     width: 100%;
@@ -77,7 +77,7 @@ const EVAL_CSS = `
     border-radius: 6px;
     padding: 9px 12px;
     font-size: 16px; /* FORMS-MOBILE-RESPONSIVE: prevent iOS auto-zoom */
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     color: #191919;
     width: 100%;
     min-height: 96px;
@@ -95,7 +95,7 @@ const EVAL_CSS = `
     padding: 13px 40px;
     font-size: 15px;
     font-weight: 600;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     cursor: pointer;
     transition: opacity 0.15s;
   }
@@ -159,7 +159,7 @@ const EVAL_CSS = `
     display: flex;
     align-items: center;
     gap: 14px;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   .eval-branded-divider {
     width: 1px; height: 28px;
@@ -176,7 +176,7 @@ const EVAL_CSS = `
     max-width: 1040px;
     margin: 0 auto;
     padding: 20px 20px 16px;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   @media (max-width: 768px) {
     .eval-branded-title-inner h1 { font-size: 18px; }
@@ -448,7 +448,7 @@ export default function EvaluationPage() {
               style={{ height: 38, width: 'auto', display: 'block', flexShrink: 0 }}
             />
             <div className="eval-branded-divider" />
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.90)', fontWeight: 500, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.90)', fontWeight: 500, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Brawerman Nursing Institute
             </span>
           </div>
@@ -458,11 +458,11 @@ export default function EvaluationPage() {
           <div className="eval-branded-title-inner">
             <h1 style={{
               fontSize: 22, fontWeight: 700, color: '#191919',
-              margin: '0 0 6px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3,
+              margin: '0 0 6px', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', lineHeight: 1.3,
             }}>
               Casey-Fink Readiness for Practice Survey
             </h1>
-            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Instrument: Casey-Fink Readiness for Practice Survey
             </p>
           </div>

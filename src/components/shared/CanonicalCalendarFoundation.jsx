@@ -124,7 +124,7 @@ export function CanonicalCalendarNav({
       <button
         type="button"
         onClick={onToday}
-        style={{ height: '32px', padding: '0 14px', background: 'none', border: '1px solid #e5e7eb', borderRadius: '9px', cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', transition: 'all 0.15s ease' }}
+        style={{ height: '32px', padding: '0 14px', background: 'none', border: '1px solid #e5e7eb', borderRadius: '9px', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px', color: '#374151', transition: 'all 0.15s ease' }}
         onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#d1d5db' }}
         onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = '#e5e7eb' }}
       >{todayLabel}</button>
@@ -137,7 +137,7 @@ export function CanonicalCalendarMonthTitle({ children, ariaLive }) {
   return (
     <span
       aria-live={ariaLive}
-      style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '15px', color: '#1D2567', letterSpacing: '-0.01em' }}
+      style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '15px', color: '#1D2567', letterSpacing: '-0.01em' }}
     >
       {children}
     </span>
@@ -152,7 +152,7 @@ export function CanonicalWeekdayHeader({ days = ['Sun', 'Mon', 'Tue', 'Wed', 'Th
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #f3f4f6' }}>
       {days.map((d, i) => (
-        <div key={i} style={{ padding: '8px 0', textAlign: 'center', fontFamily: 'DM Sans', fontWeight: 700, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280' }}>
+        <div key={i} style={{ padding: '8px 0', textAlign: 'center', fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280' }}>
           {d}
         </div>
       ))}
@@ -215,7 +215,7 @@ export function CanonicalMonthCell({
         width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: '50%',
         background: (isToday || isSelected) ? '#1D2567' : 'transparent',
-        fontFamily: 'DM Sans', fontWeight: 600, fontSize: 12,
+        fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: 12,
         color: numColor, flexShrink: 0,
       }}>{day}</span>
       {children}
@@ -250,7 +250,7 @@ export function CanonicalHolidayChip({ name, observed = false }) {
     >
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#D97706', flexShrink: 0 }} />
       <span style={{
-        fontFamily: 'DM Sans', fontSize: 9, fontWeight: 600, color: '#92400E',
+        fontFamily: 'Plus Jakarta Sans', fontSize: 9, fontWeight: 600, color: '#92400E',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{name}</span>
     </div>

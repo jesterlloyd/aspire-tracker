@@ -78,7 +78,7 @@ const inputStyle = {
   width: '100%', padding: '8px 10px', borderRadius: 9,
   border: '1px solid var(--color-border-default, #e5e7eb)',
   background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
-  fontFamily: 'DM Sans, sans-serif', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+  fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, outline: 'none', boxSizing: 'border-box',
 }
 const errStyle = { fontSize: 11.5, color: '#dc2626', marginTop: 4 }
 

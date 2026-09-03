@@ -151,7 +151,7 @@ export default function Tooltip({
         left:       pos.left,
         background: '#1D2567',
         color:      '#ffffff',
-        fontFamily: 'DM Sans, sans-serif',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize:   '12px',
         fontWeight: 500,
         padding:    '6px 12px',

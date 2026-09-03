@@ -30,7 +30,7 @@ export default function BackButton({ label, onClick, variant = 'default' }) {
                       ? '#F4F1EC'                       // sand on hover (both variants)
                       : isSubtle ? 'transparent' : '#ffffff',
     color:          '#191919',
-    fontFamily:     'DM Sans, sans-serif',
+    fontFamily:     'Plus Jakarta Sans, sans-serif',
     fontSize:       '14px',
     fontWeight:     500,
     cursor:         'pointer',

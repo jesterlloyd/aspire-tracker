@@ -542,9 +542,9 @@ function HoursRing() {
       <circle cx="60" cy="60" r="47" fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="10" />
       <circle cx="60" cy="60" r="47" fill="none" stroke="url(#ps-ring-dark)" strokeWidth="10"
         strokeLinecap="round" strokeDasharray="222 295" transform="rotate(-90 60 60)" />
-      <text x="60" y="58" textAnchor="middle" fontFamily="DM Sans, sans-serif"
+      <text x="60" y="58" textAnchor="middle" fontFamily="Plus Jakarta Sans, sans-serif"
         fontSize="27" fontWeight="700" fill="#ffffff">90+</text>
-      <text x="60" y="78" textAnchor="middle" fontFamily="DM Sans, sans-serif"
+      <text x="60" y="78" textAnchor="middle" fontFamily="Plus Jakarta Sans, sans-serif"
         fontSize="11.5" fontWeight="600" fill="#cdd2ea">hours</text>
     </svg>
   )

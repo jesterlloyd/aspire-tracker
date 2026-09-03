@@ -58,7 +58,7 @@ function AspireEventChip({ ev, compact = false, onClick }) {
         background: hexToRgba(color, 0.12), borderLeft: `3px solid ${color}`,
         borderTop: 'none', borderRight: 'none', borderBottom: 'none',
         borderRadius: 4, padding: compact ? '1px 5px' : '3px 7px', cursor: 'pointer',
-        overflow: 'hidden', fontFamily: 'DM Sans, sans-serif',
+        overflow: 'hidden', fontFamily: 'Plus Jakarta Sans, sans-serif',
       }}
     >
       {ev.is_milestone && <span style={{ color, fontSize: compact ? 8 : 10, flexShrink: 0 }}>★</span>}
@@ -265,11 +265,11 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
   const inputStyle = {
     width: '100%', padding: '8px 10px',
     border: '1px solid #e5e7eb', borderRadius: '8px',
-    fontFamily: 'DM Sans', fontSize: '13px',
+    fontFamily: 'Plus Jakarta Sans', fontSize: '13px',
     outline: 'none', boxSizing: 'border-box', color: '#374151',
   }
   const labelStyle = {
-    fontFamily: 'DM Sans', fontWeight: 600, fontSize: '11px', color: '#6b7280',
+    fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '11px', color: '#6b7280',
     display: 'block', marginBottom: '4px',
     textTransform: 'uppercase', letterSpacing: '0.04em',
   }
@@ -327,7 +327,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
         padding: '14px 16px', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
+        <span style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
           Add Availability
         </span>
         <button onClick={onClose} style={{
@@ -424,7 +424,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
         {slotCount > 0 && (
           <div role="status" style={{
             background: '#f0f3ff', borderRadius: '8px', padding: '9px 12px',
-            fontFamily: 'DM Sans', fontSize: '12px', color: '#1D2567',
+            fontFamily: 'Plus Jakarta Sans', fontSize: '12px', color: '#1D2567',
             display: 'flex', alignItems: 'flex-start', gap: '7px', lineHeight: 1.5,
           }}>
             <CheckCircle size={13} color="#1D2567" style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -438,7 +438,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
         {slotCount === 0 && (
           <div role="status" style={{
             background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: '8px', padding: '9px 12px',
-            fontFamily: 'DM Sans', fontSize: '12px', color: '#8B5E1A', lineHeight: 1.5,
+            fontFamily: 'Plus Jakarta Sans', fontSize: '12px', color: '#8B5E1A', lineHeight: 1.5,
           }}>
             No slots fit yet. Extend the end time, or shorten the interview length or break.
           </div>
@@ -447,7 +447,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
         {error && (
           <div style={{
             background: '#fef2f2', borderRadius: '8px', padding: '8px 12px',
-            fontSize: '12px', color: '#991b1b', fontFamily: 'DM Sans',
+            fontSize: '12px', color: '#991b1b', fontFamily: 'Plus Jakarta Sans',
           }}>
             {error}
           </div>
@@ -457,7 +457,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
           width: '100%', padding: '10px',
           background: saving ? '#e5e7eb' : '#1D2567',
           border: 'none', borderRadius: '10px',
-          fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff',
+          fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff',
           cursor: saving ? 'default' : 'pointer',
         }}>
           {saving ? 'Adding…' : 'Add availability'}
@@ -510,10 +510,10 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff' }}>
+          <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff' }}>
             {block.interviewer_name || 'ASPIRE Team'}
           </div>
-          <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>
+          <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>
             {new Date(block.block_date + 'T12:00:00').toLocaleDateString('en-US', {
               weekday: 'short', month: 'short', day: 'numeric',
             })} · {block.start_time} – {block.end_time}
@@ -532,12 +532,12 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
         {/* Slot counts */}
         <div style={{ display: 'flex', gap: '8px' }}>
           <div style={{ flex: 1, background: '#f0fdf4', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '20px', color: '#166534' }}>{openCount}</div>
-            <div style={{ fontFamily: 'DM Sans', fontSize: '10px', color: '#16a34a' }}>Open</div>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '20px', color: '#166534' }}>{openCount}</div>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '10px', color: '#16a34a' }}>Open</div>
           </div>
           <div style={{ flex: 1, background: '#eff6ff', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '20px', color: '#1e40af' }}>{booked.length}</div>
-            <div style={{ fontFamily: 'DM Sans', fontSize: '10px', color: '#3b82f6' }}>Booked</div>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '20px', color: '#1e40af' }}>{booked.length}</div>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '10px', color: '#3b82f6' }}>Booked</div>
           </div>
         </div>
 
@@ -545,7 +545,7 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
         {booked.length > 0 && (
           <div>
             <div style={{
-              fontFamily: 'DM Sans', fontWeight: 600, fontSize: '11px', color: '#6b7280',
+              fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '11px', color: '#6b7280',
               textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px',
             }}>Booked Students</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -561,8 +561,8 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
                     padding: '6px 10px', background: '#f8f9ff', borderRadius: '8px',
                   }}>
                     <div>
-                      <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151' }}>{name}</div>
-                      <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af' }}>{time}</div>
+                      <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px', color: '#374151' }}>{name}</div>
+                      <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '11px', color: '#9ca3af' }}>{time}</div>
                     </div>
                     {canDelete && (
                       <button
@@ -572,7 +572,7 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
                         style={{
                           background: cancelling === slot.id ? '#f3f4f6' : '#fef2f2',
                           border: '1px solid #fecaca', borderRadius: '6px',
-                          padding: '4px 8px', fontFamily: 'DM Sans', fontWeight: 600,
+                          padding: '4px 8px', fontFamily: 'Plus Jakarta Sans', fontWeight: 600,
                           fontSize: '10px', color: '#dc2626',
                           cursor: cancelling === slot.id ? 'default' : 'pointer',
                         }}
@@ -593,7 +593,7 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
             width: '100%', padding: '9px',
             background: deleting ? '#f3f4f6' : '#fef2f2',
             border: '1px solid #fecaca', borderRadius: '8px',
-            fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#dc2626',
+            fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px', color: '#dc2626',
             cursor: deleting ? 'default' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
           }}>
@@ -643,10 +643,10 @@ function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDele
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
+          <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
             {dateLabel}
           </div>
-          <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>
+          <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>
             {blocks.length} block{blocks.length !== 1 ? 's' : ''} scheduled
           </div>
         </div>
@@ -673,17 +673,17 @@ function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDele
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
                 <div>
-                  <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '12px', color: '#ffffff' }}>
+                  <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '12px', color: '#ffffff' }}>
                     {block.interviewer_name}
                   </div>
-                  <div style={{ fontFamily: 'DM Sans', fontSize: '10px', color: 'rgba(255,255,255,0.75)' }}>
+                  <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '10px', color: 'rgba(255,255,255,0.75)' }}>
                     {block.start_time} – {block.end_time} · {block.duration_minutes}min slots
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <span style={{
                     background: 'rgba(255,255,255,0.2)',
-                    fontFamily: 'DM Sans', fontWeight: 700, fontSize: '10px', color: '#ffffff',
+                    fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '10px', color: '#ffffff',
                     padding: '2px 7px', borderRadius: '20px',
                   }}>
                     {openCount} open · {bookedCount} booked
@@ -715,7 +715,7 @@ function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDele
             width: '100%', padding: '9px',
             background: '#f3f4ff', border: '1.5px dashed #c7d2fe',
             borderRadius: '10px', cursor: 'pointer',
-            fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567',
+            fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
             marginTop: '2px',
           }}
@@ -871,7 +871,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 width:22, height:22, display:'flex', alignItems:'center', justifyContent:'center',
                 borderRadius:'50%',
                 background: isToday ? '#1D2567' : isSel ? '#1D2567' : 'transparent',
-                fontFamily:'DM Sans', fontWeight:600, fontSize:12,
+                fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:12,
                 color: isToday || isSel ? '#fff' : '#374151', flexShrink:0,
               }}>{day}</div>
 
@@ -910,23 +910,23 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 }}>
                   {isFullyBooked ? (
                     <>
-                      <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:700, color:'#930045', lineHeight:1.2 }}>Fully Booked</div>
-                      <div style={{ fontFamily:'DM Sans', fontSize:9, color:'#6B7280', lineHeight:1.2 }}>{scheduled.length} interview{scheduled.length!==1?'s':''}</div>
+                      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:10, fontWeight:700, color:'#930045', lineHeight:1.2 }}>Fully Booked</div>
+                      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, color:'#6B7280', lineHeight:1.2 }}>{scheduled.length} interview{scheduled.length!==1?'s':''}</div>
                     </>
                   ) : (
                     <>
                       {scheduled.length > 0 && (
-                        <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:600, color:accentColor, lineHeight:1.2 }}>
+                        <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:10, fontWeight:600, color:accentColor, lineHeight:1.2 }}>
                           {scheduled.length} scheduled
                         </div>
                       )}
                       {available.length > 0 && (
-                        <div style={{ fontFamily:'DM Sans', fontSize:9, fontWeight:500, color:accentColor, opacity:0.85, lineHeight:1.2 }}>
+                        <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, fontWeight:500, color:accentColor, opacity:0.85, lineHeight:1.2 }}>
                           {available.length} available
                         </div>
                       )}
                       {blocked.length > 0 && (
-                        <div style={{ fontFamily:'DM Sans', fontSize:9, fontWeight:500, color:'#9A3412', lineHeight:1.2 }}>
+                        <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, fontWeight:500, color:'#9A3412', lineHeight:1.2 }}>
                           {blocked.length} blocked
                         </div>
                       )}
@@ -956,7 +956,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 <div style={{ position:'absolute', bottom:4, right:4, display:'flex', gap:4, alignItems:'center' }}>
                   <button
                     onClick={e => { e.stopPropagation(); onAddAvailability(dateStr, e.currentTarget.getBoundingClientRect()) }}
-                    style={{ background:'rgba(29,37,103,0.92)', color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
+                    style={{ background:'rgba(29,37,103,0.92)', color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'Plus Jakarta Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
                   >
                     + Availability
                   </button>
@@ -964,7 +964,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                     <button
                       onClick={e => { e.stopPropagation(); onAddEvent(dateStr) }}
                       title="Add ASPIRE event"
-                      style={{ background:EVENT_ACTION, color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
+                      style={{ background:EVENT_ACTION, color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'Plus Jakarta Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
                       onMouseEnter={e => e.currentTarget.style.background = EVENT_ACTION_HOVER}
                       onMouseLeave={e => e.currentTarget.style.background = EVENT_ACTION}
                     >
@@ -1125,7 +1125,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', fontFamily:'DM Sans, sans-serif', border:'1px solid #E5E7EB', borderRadius:8, overflow:'hidden' }}>
+    <div style={{ display:'flex', flexDirection:'column', fontFamily:'Plus Jakarta Sans, sans-serif', border:'1px solid #E5E7EB', borderRadius:8, overflow:'hidden' }}>
       {/* Day headers */}
       <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)', background:'#F9FAFB', borderBottom:'1px solid #E5E7EB', flexShrink:0 }}>
         <div />
@@ -1562,7 +1562,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         overflow: 'hidden', width: '100%', boxSizing: 'border-box',
         height: '18px', lineHeight: '18px', display: 'block',
         background: bg, borderLeft: `3px solid ${border}`, opacity,
-        fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10.5px',
+        fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '10.5px',
         color: textColor, whiteSpace: 'nowrap', textOverflow: 'ellipsis',
         letterSpacing: '-0.01em',
       }}>{label}</div>
@@ -1587,7 +1587,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     }
 
     return (
-      <div style={{ fontFamily:'DM Sans', fontSize:'10px', fontWeight:600, padding:'2px 6px', color:'#374151', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'10px', fontWeight:600, padding:'2px 6px', color:'#374151', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
         {info.event.title}
       </div>
     )
@@ -1644,11 +1644,11 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
             {/* Center: title + filtered pill */}
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'15px', color:'#1D2567', letterSpacing:'-0.01em' }}>
+              <span style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'15px', color:'#1D2567', letterSpacing:'-0.01em' }}>
                 {displayTitle}
               </span>
               {scheduleScope === 'mine' && (
-                <span style={{ fontSize:11, fontWeight:500, color:'#475467', padding:'3px 9px', borderRadius:999, background:'#EDEEF4', border:'1px solid rgba(29,37,103,0.08)', fontFamily:'DM Sans, sans-serif' }}>
+                <span style={{ fontSize:11, fontWeight:500, color:'#475467', padding:'3px 9px', borderRadius:999, background:'#EDEEF4', border:'1px solid rgba(29,37,103,0.08)', fontFamily:'Plus Jakarta Sans, sans-serif' }}>
                   Filtered to my blocks
                 </span>
               )}
@@ -1659,7 +1659,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
               <button
                 onClick={handleAddAvailabilityClick}
-                style={{ height:'32px', padding:'0 14px', background:AVAIL_ACTION, border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
+                style={{ height:'32px', padding:'0 14px', background:AVAIL_ACTION, border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
                 onMouseEnter={e => e.currentTarget.style.background = AVAIL_ACTION_HOVER}
                 onMouseLeave={e => e.currentTarget.style.background = AVAIL_ACTION}
               >
@@ -1670,7 +1670,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                 <button
                   onClick={() => setEventModal({ event: null, defaultDate: selectedDate })}
                   title="Add a custom ASPIRE event"
-                  style={{ height:'32px', padding:'0 14px', background:EVENT_ACTION, border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
+                  style={{ height:'32px', padding:'0 14px', background:EVENT_ACTION, border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
                   onMouseEnter={e => e.currentTarget.style.background = EVENT_ACTION_HOVER}
                   onMouseLeave={e => e.currentTarget.style.background = EVENT_ACTION}
                 >
@@ -1693,7 +1693,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                           setCurrentView('dayGridMonth')
                         }
                       }}
-                      style={{ height:'26px', padding:'0 14px', background: isActive ? '#1D2567' : 'transparent', border:'none', borderRadius:'7px', fontFamily:'DM Sans', fontWeight: isActive ? 700 : 500, fontSize:'12px', color: isActive ? '#ffffff' : '#6b7280', cursor:'pointer', transition:'all 0.15s ease', whiteSpace:'nowrap' }}
+                      style={{ height:'26px', padding:'0 14px', background: isActive ? '#1D2567' : 'transparent', border:'none', borderRadius:'7px', fontFamily:'Plus Jakarta Sans', fontWeight: isActive ? 700 : 500, fontSize:'12px', color: isActive ? '#ffffff' : '#6b7280', cursor:'pointer', transition:'all 0.15s ease', whiteSpace:'nowrap' }}
                       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#e5e7eb' }}
                       onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                     >{label}</button>
@@ -1704,7 +1704,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           </div>
 
           <style>{`
-            .fc { font-family: 'DM Sans', sans-serif; }
+            .fc { font-family: 'Plus Jakarta Sans', sans-serif; }
 
             /* Fixed cell heights - every row identical */
             .fc-daygrid-body tbody tr { height: 88px; }
@@ -1744,7 +1744,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               content: '+ Add availability';
               position: absolute; bottom: 6px; left: 50%;
               transform: translateX(-50%);
-              font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 600;
+              font-family: 'Plus Jakarta Sans', sans-serif; font-size: 9px; font-weight: 600;
               color: #c7d2fe; white-space: nowrap; pointer-events: none;
               opacity: 0; animation: fadeInHint 0.2s ease forwards;
             }
@@ -1758,14 +1758,14 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
             /* +N more overflow link */
             .fc-more-link {
-              font-family: 'DM Sans', sans-serif !important; font-size: 11px !important;
+              font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 11px !important;
               font-weight: 500 !important; color: #1D2567 !important;
               padding: 0 4px !important; border-radius: 3px !important;
             }
             .fc-more-link:hover { color: #4338ca !important; background: #e0e7ff !important; }
             .fc-popover { border-radius: 10px !important; box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important; }
             .fc-popover-header {
-              font-family: 'DM Sans', sans-serif !important; font-size: 12px !important;
+              font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 12px !important;
               font-weight: 700 !important; padding: 8px 12px !important;
               background: #1D2567 !important; color: #ffffff !important; border-radius: 10px 10px 0 0 !important;
             }

@@ -12,7 +12,7 @@ import { useState } from 'react'
 import { AUDIENCES, AUDIENCE_LABELS } from '../../../lib/server/outreachAnalytics.js'
 import { FilterKPICard } from '../KPIBand'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 
 // One restrained hue per audience, drawn from the app's accent family. Stacked
 // bars need to be distinguishable at 6px wide, so these are separated by value

@@ -23,7 +23,7 @@ import { EventBlock } from './blocks/EventBlock'
 import EventModal from './blocks/EventModal'
 import { isValidRichDoc } from '../../lib/connect/richCompose'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const SAFE_LINK = /^(https?:\/\/|mailto:)/i
 

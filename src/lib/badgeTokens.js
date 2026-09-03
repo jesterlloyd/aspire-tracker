@@ -24,7 +24,7 @@ export const pinBadgeStyle = {
   position: 'absolute', top: -3, right: -3,
   minWidth: 16, height: 16, borderRadius: 8,
   background: BADGE_COUNT_BG, color: BADGE_COUNT_FG,
-  fontSize: 10, fontWeight: 700, fontFamily: 'DM Sans',
+  fontSize: 10, fontWeight: 700, fontFamily: 'Plus Jakarta Sans',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
   padding: '0 3px', lineHeight: 1, border: '1.5px solid #1D2567',
 };

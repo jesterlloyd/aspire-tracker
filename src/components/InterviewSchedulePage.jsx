@@ -436,7 +436,7 @@ export default function InterviewSchedulePage() {
         {/* ── Screen 3: Confirmed ── */}
         {screen === 'confirmed' && bookedSlot && student && (() => {
           const icsUrl = buildIcsDataUri(student, bookedSlot)
-          const btnPrimary = { padding:'10px 18px', borderRadius:8, background:'#1D2567', color:'#fff', fontSize:13, fontWeight:500, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6, fontFamily:'DM Sans, sans-serif', border:'none', cursor:'pointer' }
+          const btnPrimary = { padding:'10px 18px', borderRadius:8, background:'#1D2567', color:'#fff', fontSize:13, fontWeight:500, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6, fontFamily:'Plus Jakarta Sans, sans-serif', border:'none', cursor:'pointer' }
           const btnSecondary = { ...btnPrimary, background:'#fff', color:'#1D2567', border:'1px solid rgba(29,37,103,0.12)' }
           const DetailRow = ({ label, value, last }) => (
             <div style={{ display:'flex', padding:'8px 0', borderBottom: last ? 'none' : '1px dashed rgba(29,37,103,0.08)', fontSize:13.5 }}>
@@ -445,7 +445,7 @@ export default function InterviewSchedulePage() {
             </div>
           )
           return (
-            <div style={{ maxWidth:540, margin:'0 auto', padding:'24px 0', fontFamily:'DM Sans, sans-serif', color:'#0E1428' }}>
+            <div style={{ maxWidth:540, margin:'0 auto', padding:'24px 0', fontFamily:'Plus Jakarta Sans, sans-serif', color:'#0E1428' }}>
               {/* Header */}
               <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
                 <div style={{ width:44, height:44, borderRadius:'50%', background:'#EEF7F0', color:'#2F7D5C', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>✓</div>
@@ -520,7 +520,7 @@ export default function InterviewSchedulePage() {
         )}
         {/* ── Screen 5: No slots available ── */}
         {screen === 'no_slots' && (
-          <div style={{ textAlign:'center', padding:'32px', fontFamily:'DM Sans' }}>
+          <div style={{ textAlign:'center', padding:'32px', fontFamily:'Plus Jakarta Sans' }}>
             <div style={{ fontSize:'32px', marginBottom:'12px' }}>📅</div>
             <div style={{ fontWeight:700, fontSize:'16px', color:'#374151', marginBottom:'8px' }}>
               No interview slots available yet
@@ -537,7 +537,7 @@ export default function InterviewSchedulePage() {
 
         {/* ── Screen 6: Error / timeout ── */}
         {screen === 'error' && (
-          <div style={{ textAlign:'center', padding:'32px', fontFamily:'DM Sans' }}>
+          <div style={{ textAlign:'center', padding:'32px', fontFamily:'Plus Jakarta Sans' }}>
             <div style={{ fontSize:'32px', marginBottom:'12px' }}>⚠️</div>
             <div style={{ fontWeight:700, fontSize:'16px', color:'#dc2626', marginBottom:'8px' }}>
               Something went wrong
@@ -549,7 +549,7 @@ export default function InterviewSchedulePage() {
               onClick={() => { setScreen('identify'); setError(null); setErrorMessage('') }}
               style={{
                 padding:'9px 20px', background:'#1D2567', border:'none', borderRadius:'8px',
-                fontFamily:'DM Sans', fontWeight:600, fontSize:'13px', color:'#ffffff', cursor:'pointer',
+                fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'13px', color:'#ffffff', cursor:'pointer',
               }}
             >
               Try Again

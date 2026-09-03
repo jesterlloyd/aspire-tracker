@@ -14,7 +14,7 @@ import { useState } from 'react'
 import { Contact as ContactIcon } from 'lucide-react'
 import { useContactSearch, contactSubtitle } from '../../lib/contactSearch'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const field = { width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', boxSizing: 'border-box' }
 
 // Local (not exported): this file exports the component only, so fast refresh

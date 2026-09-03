@@ -118,15 +118,15 @@ export default function UserMenu() {
         <div style={{ width:'26px', height:'26px', borderRadius:'50%', overflow:'hidden', flexShrink:0, border:'1.5px solid rgba(255,255,255,0.3)' }}>
           <img src={getAvatarUrl(userProfile)} alt={userProfile.full_name}
             style={{ width:'100%', height:'100%', objectFit:'cover' }}
-            onError={e => { e.target.style.display='none'; e.target.parentNode.style.background=roleStyle.bg; e.target.parentNode.style.display='flex'; e.target.parentNode.style.alignItems='center'; e.target.parentNode.style.justifyContent='center'; e.target.parentNode.innerHTML=`<span style="font-family:DM Sans;font-weight:700;font-size:10px;color:#fff">${initials}</span>` }} />
+            onError={e => { e.target.style.display='none'; e.target.parentNode.style.background=roleStyle.bg; e.target.parentNode.style.display='flex'; e.target.parentNode.style.alignItems='center'; e.target.parentNode.style.justifyContent='center'; e.target.parentNode.innerHTML=`<span style="font-family:Plus Jakarta Sans;font-weight:700;font-size:10px;color:#fff">${initials}</span>` }} />
         </div>
 
         {/* Name + role */}
         <div style={{ textAlign: 'left' }}>
-          <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#ffffff', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+          <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px', color: '#ffffff', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
             {userProfile.full_name.split(' ')[0]}
           </div>
-          <div style={{ fontFamily: 'DM Sans', fontWeight: 500, fontSize: '10px', color: 'rgba(255,255,255,0.55)', lineHeight: 1 }}>
+          <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 500, fontSize: '10px', color: 'rgba(255,255,255,0.55)', lineHeight: 1 }}>
             {roleStyle.label}
           </div>
         </div>
@@ -156,9 +156,9 @@ export default function UserMenu() {
                   style={{ width:'100%', height:'100%', objectFit:'cover' }} />
               </div>
               <div>
-                <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'13px', color:'var(--color-text-primary,#1D2567)' }}>{userProfile.full_name}</div>
-                <div style={{ fontFamily:'DM Sans', fontSize:'11px', color:'var(--color-text-muted,#9ca3af)', marginTop:'2px' }}>{userProfile.email}</div>
-                <span style={{ display:'inline-block', marginTop:'5px', background:roleStyle.bg, color:roleStyle.color, fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', padding:'2px 8px', borderRadius:'20px' }}>
+                <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'13px', color:'var(--color-text-primary,#1D2567)' }}>{userProfile.full_name}</div>
+                <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'11px', color:'var(--color-text-muted,#9ca3af)', marginTop:'2px' }}>{userProfile.email}</div>
+                <span style={{ display:'inline-block', marginTop:'5px', background:roleStyle.bg, color:roleStyle.color, fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'10px', padding:'2px 8px', borderRadius:'20px' }}>
                   {userProfile.is_owner ? 'Owner' : roleStyle.label}
                 </span>
                 {/* Hidden file input */}
@@ -172,7 +172,7 @@ export default function UserMenu() {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', cursor: uploading ? 'default' : 'pointer', padding:0, marginTop:'4px', display:'flex', alignItems:'center', gap:'5px' }}
+                  style={{ background:'none', border:'none', fontFamily:'Plus Jakarta Sans', fontSize:'11px', color:'#6b7280', cursor: uploading ? 'default' : 'pointer', padding:0, marginTop:'4px', display:'flex', alignItems:'center', gap:'5px' }}
                 >
                   {uploading ? (
                     <>
@@ -189,7 +189,7 @@ export default function UserMenu() {
                       await supabase.rpc('update_my_avatar', { p_url: '' });
                       window.location.reload();
                     }}
-                    style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'10px', color:'#9ca3af', cursor:'pointer', padding:0, marginTop:'2px', display:'block' }}
+                    style={{ background:'none', border:'none', fontFamily:'Plus Jakarta Sans', fontSize:'10px', color:'#9ca3af', cursor:'pointer', padding:0, marginTop:'2px', display:'block' }}
                   >
                     Remove photo
                   </button>
@@ -204,7 +204,7 @@ export default function UserMenu() {
               href={CANONICAL_APP_URL}
               target="_blank" rel="noopener noreferrer"
               onClick={() => setIsOpen(false)}
-              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', textDecoration: 'none', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', textDecoration: 'none', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}
             >
@@ -217,14 +217,14 @@ export default function UserMenu() {
                 intentionally absent until that portal has a real route. */}
             {['owner', 'admin'].includes(userProfile.role) && (
               <div style={{ borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', padding: '8px 0' }}>
-                <div style={{ padding: '2px 16px 6px', fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-muted,#9ca3af)' }}>
+                <div style={{ padding: '2px 16px 6px', fontFamily: 'Plus Jakarta Sans', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-muted,#9ca3af)' }}>
                   Portals
                 </div>
                 {PORTAL_LINKS.map(({ label, path, Icon }) => (
                   <button
                     key={path}
                     onClick={() => { setIsOpen(false); navigate(path); }}
-                    style={{ width: '100%', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease' }}
+                    style={{ width: '100%', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'none'}
                   >
@@ -238,7 +238,7 @@ export default function UserMenu() {
             {/* WS2.1: Settings link (additive - navigates to Settings → General) */}
             <button
               onClick={() => { setIsOpen(false); navigate('/settings/general'); }}
-              style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
+              style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}
             >
@@ -259,7 +259,7 @@ export default function UserMenu() {
                 width: '100%', padding: '12px 16px',
                 display: 'flex', alignItems: 'center', gap: '10px',
                 background: 'none', border: 'none',
-                fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)',
+                fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)',
                 cursor: 'pointer', textAlign: 'left',
                 transition: 'background 0.15s ease',
               }}

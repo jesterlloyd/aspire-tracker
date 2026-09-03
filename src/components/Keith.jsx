@@ -421,7 +421,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           right: '96px',
           background: '#1d2567',
           color: '#ffffff',
-          fontFamily: 'DM Sans',
+          fontFamily: 'Plus Jakarta Sans',
           fontSize: '12px',
           fontWeight: 500,
           padding: '6px 12px',
@@ -523,8 +523,8 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 {orb(36, isTyping)}
               </div>
               <div>
-                <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '16px', color: '#ffffff' }}>Keith</div>
-                <div style={{ fontFamily: 'DM Sans', fontWeight: 400, fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>ASPIRE Assistant</div>
+                <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '16px', color: '#ffffff' }}>Keith</div>
+                <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 400, fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>ASPIRE Assistant</div>
               </div>
               <Tooltip label="New conversation" placement="bottom">
               <button
@@ -534,7 +534,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                   background: 'none', border: 'none',
                   color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
                   padding: '4px 8px', fontSize: '13px',
-                  fontFamily: 'DM Sans', borderRadius: '6px',
+                  fontFamily: 'Plus Jakarta Sans', borderRadius: '6px',
                   transition: 'color 0.15s ease',
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.9)'}
@@ -567,10 +567,10 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 padding: '12px 14px',
                 maxWidth: '90%',
               }}>
-                <div style={{ fontFamily: 'DM Sans', fontSize: '14px', fontWeight: 600, color: '#1d2567' }}>
+                <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '14px', fontWeight: 600, color: '#1d2567' }}>
                   {greeting}
                 </div>
-                <div style={{ fontFamily: 'DM Sans', fontSize: '12.5px', color: '#374151', lineHeight: 1.55, marginTop: 3 }}>
+                <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '12.5px', color: '#374151', lineHeight: 1.55, marginTop: 3 }}>
                   {returning
                     ? <>Ask anything, or type <span style={{ fontFamily: 'ui-monospace, monospace' }}>/</span> to use a Skill.</>
                     : <>{capabilityLine} Ask anything, or type <span style={{ fontFamily: 'ui-monospace, monospace' }}>/</span> to use a Skill.</>}
@@ -590,7 +590,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         border: '1px solid #e5e7eb',
                         borderRadius: '20px',
                         padding: '5px 12px',
-                        fontFamily: 'DM Sans',
+                        fontFamily: 'Plus Jakarta Sans',
                         fontSize: '12px',
                         color: '#374151',
                         cursor: isTyping ? 'default' : 'pointer',
@@ -632,7 +632,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                     maxWidth: '88%',
                   }}>
                     <div style={{
-                      fontFamily: 'DM Sans', fontSize: '13px', lineHeight: 1.6,
+                      fontFamily: 'Plus Jakarta Sans', fontSize: '13px', lineHeight: 1.6,
                       color: msg.role === 'user' ? '#ffffff' : '#374151',
                       whiteSpace: 'pre-wrap',
                     }}>
@@ -655,7 +655,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                           onClick={() => setToolExpanded(p => ({ ...p, [msg.id]: !p[msg.id] }))}
                           style={{
                             background: 'none', border: 'none', cursor: 'pointer',
-                            fontFamily: 'DM Sans, sans-serif', fontSize: 10,
+                            fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 10,
                             color: '#1D2567', padding: '2px 0', display: 'flex',
                             alignItems: 'center', gap: 4, opacity: 0.75,
                           }}
@@ -671,7 +671,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                             display: 'flex', flexDirection: 'column', gap: 3,
                           }}>
                             {msg.tool_calls.map((tc, i) => (
-                              <div key={i} style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: '#475467' }}>
+                              <div key={i} style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 10, color: '#475467' }}>
                                 <span style={{ fontWeight: 600, color: '#1D2567' }}>{tc.tool}</span>
                                 {': '}
                                 {tc.result_summary}
@@ -691,7 +691,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                       style={{
                         background: '#fff7ed', border: '1px solid #fed7aa',
                         borderRadius: '8px', padding: '4px 10px',
-                        fontFamily: 'DM Sans', fontSize: '11px',
+                        fontFamily: 'Plus Jakarta Sans', fontSize: '11px',
                         color: '#c2410c', cursor: 'pointer',
                       }}
                     >
@@ -707,7 +707,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         border: `1px solid ${copiedId === msg.id ? '#86efac' : '#e5e7eb'}`,
                         borderRadius: '8px',
                         padding: '4px 10px',
-                        fontFamily: 'DM Sans', fontSize: '11px',
+                        fontFamily: 'Plus Jakarta Sans', fontSize: '11px',
                         color: copiedId === msg.id ? '#166534' : '#6b7280',
                         cursor: 'pointer',
                       }}
@@ -725,7 +725,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         border: '1px solid #bfdbfe',
                         borderRadius: '8px',
                         padding: '4px 10px',
-                        fontFamily: 'DM Sans', fontSize: '11px',
+                        fontFamily: 'Plus Jakarta Sans', fontSize: '11px',
                         color: '#1d4ed8',
                         cursor: 'pointer',
                       }}
@@ -793,14 +793,14 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                           background: i === slashIndex ? '#eef2ff' : 'transparent',
                         }}
                       >
-                        <div style={{ fontFamily: 'DM Sans', fontSize: 12.5, fontWeight: 600, color: '#1d2567' }}>/{s.slug}</div>
+                        <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12.5, fontWeight: 600, color: '#1d2567' }}>/{s.slug}</div>
                         {/* SKILL-PALETTE-1: one concise line, derived at render
                             time. The stored description, trigger guidance,
                             instructions and references are untouched, and the
                             detail drawer still shows the full text. */}
                         {paletteSummary(s) && (
                           <div style={{
-                            fontFamily: 'DM Sans', fontSize: 11, color: '#6b7280', marginTop: 1,
+                            fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#6b7280', marginTop: 1,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }}>{paletteSummary(s)}</div>
                         )}
@@ -812,7 +812,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                     position: 'absolute', bottom: '100%', left: 16, right: 16, marginBottom: 4,
                     background: '#ffffff', border: '1px solid #e0e7ff', borderRadius: 10,
                     boxShadow: '0 6px 24px rgba(29,37,103,0.16)', padding: '8px 12px',
-                    fontFamily: 'DM Sans', fontSize: 11.5, color: '#6b7280', zIndex: 5,
+                    fontFamily: 'Plus Jakarta Sans', fontSize: 11.5, color: '#6b7280', zIndex: 5,
                   }}>
                     {skillCatalog.length === 0 ? 'No Skills are available to your role.' : 'No Skill matches. Keep typing or press Escape.'}
                   </div>
@@ -859,7 +859,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                   border: '1px solid #e5e7eb',
                   borderRadius: '20px',
                   padding: '8px 14px',
-                  fontFamily: 'DM Sans', fontSize: '13px',
+                  fontFamily: 'Plus Jakarta Sans', fontSize: '13px',
                   color: '#374151',
                   outline: 'none',
                   background: '#f9fafb',
@@ -892,7 +892,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
             <div style={{
               padding: '4px 16px 10px',
               display: 'flex', alignItems: 'center', gap: 8,
-              fontFamily: 'DM Sans', fontSize: '10px', color: '#9ca3af',
+              fontFamily: 'Plus Jakarta Sans', fontSize: '10px', color: '#9ca3af',
             }}>
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {cohortName || 'No cohort'}
@@ -905,7 +905,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 onChange={e => pickModel(e.target.value)}
                 style={{
                   marginLeft: 'auto', flexShrink: 0,
-                  fontFamily: 'DM Sans', fontSize: '10px', color: '#6b7280',
+                  fontFamily: 'Plus Jakarta Sans', fontSize: '10px', color: '#6b7280',
                   border: '1px solid #e5e7eb', borderRadius: 6,
                   background: '#f9fafb', padding: '2px 4px', cursor: 'pointer',
                 }}

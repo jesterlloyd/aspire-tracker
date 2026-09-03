@@ -26,7 +26,7 @@ import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 import StatusLegendPopover from '../StatusLegendPopover'
 import { ASPIRE_STATUS_CONFIG } from '../../lib/constants'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const COLSPAN = 7
 

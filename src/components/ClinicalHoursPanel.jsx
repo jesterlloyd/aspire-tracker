@@ -103,7 +103,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
                     {(() => {
                       const s = shiftStatusChip(log.status)
                       return (
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 999, background: s.bg, color: s.text, fontWeight: 600, fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 999, background: s.bg, color: s.text, fontWeight: 600, fontFamily: 'Plus Jakarta Sans, sans-serif', whiteSpace: 'nowrap' }}>
                           {s.label}
                         </span>
                       )
@@ -144,7 +144,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
                           title="Review this shift: approve, adjust, or reject"
                           style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
                             border: '1px solid #78350F', background: '#FEF3C7', color: '#78350F',
-                            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                            cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                           Review
                         </button>
                       ) : (

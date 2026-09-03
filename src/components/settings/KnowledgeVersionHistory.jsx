@@ -39,7 +39,7 @@ const sectionLabel = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase'
 const metaStyle = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #9ca3af)', marginBottom: 4 }
 const quietBtn = {
   background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-  color: 'var(--color-accent-primary, #1D2567)', fontFamily: 'DM Sans, sans-serif', fontSize: 12.5, fontWeight: 600,
+  color: 'var(--color-accent-primary, #1D2567)', fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5, fontWeight: 600,
 }
 
 export default function KnowledgeVersionHistory({ entryId, open, reloadToken, isOwner = false, entryState = null, onRestored }) {
@@ -180,7 +180,7 @@ export default function KnowledgeVersionHistory({ entryId, open, reloadToken, is
                     aria-label="Restore change note"
                     style={{
                       width: '100%', minHeight: 54, padding: '8px 10px', borderRadius: 8,
-                      border: '1px solid var(--color-border-default, #e5e7eb)', fontFamily: 'DM Sans, sans-serif',
+                      border: '1px solid var(--color-border-default, #e5e7eb)', fontFamily: 'Plus Jakarta Sans, sans-serif',
                       fontSize: 13, resize: 'vertical', marginBottom: 10,
                     }}
                   />
@@ -189,11 +189,11 @@ export default function KnowledgeVersionHistory({ entryId, open, reloadToken, is
                   )}
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button type="button" disabled={restoring} onClick={confirmRestore}
-                      style={{ padding: '7px 14px', borderRadius: 8, border: 'none', cursor: restoring ? 'default' : 'pointer', background: 'var(--color-accent-primary, #1D2567)', color: '#fff', fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600, opacity: restoring ? 0.6 : 1 }}>
+                      style={{ padding: '7px 14px', borderRadius: 8, border: 'none', cursor: restoring ? 'default' : 'pointer', background: 'var(--color-accent-primary, #1D2567)', color: '#fff', fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, fontWeight: 600, opacity: restoring ? 0.6 : 1 }}>
                       {restoring ? 'Restoring…' : `Restore version ${selNum}`}
                     </button>
                     <button type="button" disabled={restoring} onClick={() => { setRestoreNum(null); setRestoreError(null) }}
-                      style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--color-border-default, #e5e7eb)', cursor: 'pointer', background: 'transparent', fontFamily: 'DM Sans, sans-serif', fontSize: 13 }}>
+                      style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--color-border-default, #e5e7eb)', cursor: 'pointer', background: 'transparent', fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13 }}>
                       Cancel
                     </button>
                   </div>
@@ -253,7 +253,7 @@ export default function KnowledgeVersionHistory({ entryId, open, reloadToken, is
                 textAlign: 'left', cursor: 'pointer', width: '100%',
                 border: '1px solid var(--color-border-subtle, #f3f4f6)', borderRadius: 9,
                 background: 'var(--color-bg-surface, #ffffff)', padding: '9px 12px',
-                fontFamily: 'DM Sans, sans-serif',
+                fontFamily: 'Plus Jakarta Sans, sans-serif',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>

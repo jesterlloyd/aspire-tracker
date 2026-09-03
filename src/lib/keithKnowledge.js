@@ -907,9 +907,9 @@ Three card types share the same visual DNA via CARD tokens in designTokens.js:
 - StudentMatchingCard -- used in Embed Student Pool
 - UnitCard (EmbedUnitCard) -- used in Embed Unit Pool
 
-All share: 12px border-radius, 1px hairline border, soft shadow, Apple TV-style hover lift (-3px translateY), 150ms transition, DM Sans typography.
+All share: 12px border-radius, 1px hairline border, soft shadow, Apple TV-style hover lift (-3px translateY), 150ms transition, Plus Jakarta Sans typography.
 
-BackButton (src/components/BackButton.jsx) is the canonical back-navigation affordance. Pill-shaped, white background, hairline border, sand hover (#F4F1EC), DM Sans 14/500. Two variants: default (with border) and subtle (transparent). Use this component for every "go back" action; do not create custom back buttons.
+BackButton (src/components/BackButton.jsx) is the canonical back-navigation affordance. Pill-shaped, white background, hairline border, sand hover (#F4F1EC), Plus Jakarta Sans 14/500. Two variants: default (with border) and subtle (transparent). Use this component for every "go back" action; do not create custom back buttons.
 
 Pill philosophy: status pills, match quality chips, capacity descriptors, and header chips each have distinct visual treatments. Pills hug their label text (display: inline-block, width: fit-content). They do not stretch to fill columns.
 `.trim();

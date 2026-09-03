@@ -38,7 +38,7 @@ export default function EmptyState({
         </div>
       )}
       <div style={{
-        fontFamily: 'DM Sans',
+        fontFamily: 'Plus Jakarta Sans',
         fontWeight: 700,
         fontSize: compact ? '13px' : '15px',
         color: '#374151',
@@ -48,7 +48,7 @@ export default function EmptyState({
       </div>
       {subtext && (
         <div style={{
-          fontFamily: 'DM Sans',
+          fontFamily: 'Plus Jakarta Sans',
           fontWeight: 400,
           fontSize: compact ? '12px' : '13px',
           color: '#9ca3af',
@@ -68,7 +68,7 @@ export default function EmptyState({
             background: '#1D2567',
             border: 'none',
             color: '#ffffff',
-            fontFamily: 'DM Sans',
+            fontFamily: 'Plus Jakarta Sans',
             fontWeight: 600,
             fontSize: '12px',
             cursor: 'pointer',

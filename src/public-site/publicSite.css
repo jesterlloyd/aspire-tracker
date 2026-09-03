@@ -3,7 +3,7 @@
    The public site is light-locked (wrapped in data-theme-lock="light").
 
    Creative direction:
-   - Editorial voice: Fraunces (display serif) for headlines over DM Sans body.
+   - Editorial voice: Playfair Display (display serif) for headlines over Plus Jakarta Sans body.
    - The pathway thread: a navy-to-red drawn line that recurs in the scroll
      cue, heading flourishes, and the journey timeline, echoing the route
      from nursing school into professional practice.
@@ -33,8 +33,8 @@
   --ps-radius: 18px;
   --ps-maxw: 1160px;
   --ps-maxw-wide: 1280px;
-  --ps-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
-  --ps-sans: 'DM Sans', -apple-system, sans-serif;
+  --ps-serif: var(--aspire-serif, Georgia, serif);
+  --ps-sans: var(--aspire-sans, 'Plus Jakarta Sans', sans-serif);
   min-height: 100vh;
   background: var(--ps-cream);
   color: var(--ps-ink);
@@ -228,7 +228,7 @@
 .ps-eyebrow-light { color: #ffb3b6; }
 .ps-eyebrow-light::before { background: linear-gradient(90deg, #8d96d8, #ffb3b6); }
 
-/* Editorial type scale: Fraunces for display, DM Sans everywhere else. */
+/* Editorial type scale: Playfair Display for display, Plus Jakarta Sans everywhere else. */
 .ps-h1 {
   font-family: var(--ps-serif);
   font-size: clamp(34px, 4.6vw, 54px); line-height: 1.07; font-weight: 560;

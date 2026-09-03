@@ -32,7 +32,7 @@ test('masthead-first hierarchy', async (t) => {
   await t.test('the page greets exactly once: the welcome band is retired', () => {
     assert.ok(!existsSync(join(here, '..', 'src/components/AggregateWelcome.jsx')), 'AggregateWelcome.jsx deleted')
     assert.doesNotMatch(overview, /AggregateWelcome/)
-    // The masthead heading is the route's h1 and its one Fraunces moment.
+    // The masthead heading is the route's h1 and its one Playfair Display moment.
     assert.match(masthead, /<h1 className="chart-route-title mast-greet">\{heading\}<\/h1>/)
   })
 
@@ -195,9 +195,12 @@ test('View calendar is as dynamic as the day (SCENE-4b, Owner)', async (t) => {
   await t.test('the greeting/temperature pair uses the app face, not a display serif', () => {
     const css = read('src/index.css')
     const pair = css.slice(css.indexOf('.mast-scenic .mast-greet,'))
-    assert.match(pair, /font-family: 'DM Sans', sans-serif;/)
-    assert.doesNotMatch(pair, /Newsreader|Georgia/)
-    // The whole app still loads only its two established families.
-    assert.doesNotMatch(read('index.html'), /Newsreader/)
+    assert.match(pair, /font-family: 'Plus Jakarta Sans', sans-serif;/)
+    assert.doesNotMatch(pair, /Newsreader|Georgia|DM Sans|Pangram|Fraunces/)
+    // The whole app still loads only its two established families, both
+    // self-hosted (TYPOGRAPHY-1); nothing comes from Google Fonts.
+    const html = read('index.html')
+    assert.doesNotMatch(html, /Newsreader|DM\+Sans|fonts\.googleapis/)
+    assert.match(html, /fonts\/plus-jakarta-sans\/PlusJakartaSans-Variable\.woff2/)
   })
 })

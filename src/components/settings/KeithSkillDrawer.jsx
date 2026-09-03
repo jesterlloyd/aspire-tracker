@@ -68,7 +68,7 @@ const inputStyle = {
   width: '100%', padding: '8px 10px', borderRadius: 9,
   border: '1px solid var(--color-border-default, #e5e7eb)',
   background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
-  fontFamily: 'DM Sans, sans-serif', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+  fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 13, outline: 'none', boxSizing: 'border-box',
 }
 const noticeStyle = { padding: '8px 12px', marginBottom: 14, borderRadius: 8, background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-text-secondary, #6b7280)', fontSize: 12.5 }
 

@@ -7,7 +7,7 @@
 
 import { toneGradient, toneChip } from '../../lib/connectTones'
 
-const F = 'DM Sans, sans-serif'
+const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // Navy line icons - identical navy + size/weight across ALL panels (the unifying constant).
