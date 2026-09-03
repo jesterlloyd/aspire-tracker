@@ -888,7 +888,7 @@ body { min-height: 100vh; }
 .card-indigo    { background: #eff6ff;  border-color: #bfdbfe; box-shadow: 0 4px 12px rgba(29,78,216,0.10); }
 .card-neutral   { background: #f9fafb;  border-color: #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.07); }
 
-.dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--aspire-gap-card); margin-bottom: 12px; }
+.dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--aspire-gap-card); margin-top: var(--aspire-gap-card); margin-bottom: 12px; }
 
 .stat-card {
   background: var(--pearl);
@@ -2746,7 +2746,11 @@ button.ov-group-row {
 }
 
 /* Keep these for any legacy references */
-.ov-panels { display: grid; grid-template-columns: 1fr 1fr; gap: var(--aspire-gap-card); align-items: start; }
+/* Every block that follows a card carries its OWN top margin; a card never carries a
+   bottom one. That is what keeps stacked cards 16px apart instead of 28 (vertical margins
+   do not collapse in a flex column). This grid had no top margin at all, so once the
+   snapshot card above it stopped carrying a bottom one, the two touched. */
+.ov-panels { display: grid; grid-template-columns: 1fr 1fr; gap: var(--aspire-gap-card); margin-top: var(--aspire-gap-card); align-items: start; }
 .ov-panel  { background: var(--pearl); border: 0; border-radius: var(--aspire-radius-card); overflow: hidden; box-shadow: var(--aspire-shadow-card); }
 .ov-panel-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border-lt); gap: 12px; }
 .ov-panel-title  { font-size: 18px; font-weight: 700; color: var(--nightfall); }
