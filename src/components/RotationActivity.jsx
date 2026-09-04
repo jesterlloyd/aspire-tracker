@@ -454,8 +454,13 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
           The SAME StaffOnCampusStrip the At a Glance dashboard renders, so the two
           staff surfaces cannot disagree on badge, duration, or the hedged overdue
           wording. Clicking a card opens that student's profile drawer, which is what
-          the Unit Leader portal's equivalent card does. */}
-      <SectionHeader title="On Campus Now" subtitle="Students checked in or active on campus right now." />
+          the Unit Leader portal's equivalent card does.
+
+          ON-CAMPUS-HEADING-1: the strip's shared green-dot head IS this section's
+          heading (dot, title, date and live count on one line), exactly as on At a
+          Glance and the Interviews tab (INTERVIEWS-TODAY-HEADER-1, ee0a170b). No
+          SectionHeader above it: the page drew "On Campus Now" twice from 2026-08-30
+          until this was removed. */}
       <StaffOnCampusStrip
         logs={openLogs}
         students={students}

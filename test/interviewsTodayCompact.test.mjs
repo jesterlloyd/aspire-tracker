@@ -187,6 +187,20 @@ test('both surfaces present the identical header pattern', () => {
   assert.match(strip, /<OnCampusNow[\s\S]{0,200}sub=\{resolvedSub\}/)
 })
 
+test('ON-CAMPUS-HEADING-1: Rotation > Activity draws the shared head as its ONLY On Campus Now heading', () => {
+  // The same duplicate the Interviews tab had: a page-level SectionHeader above the
+  // strip, then the strip's own dot + title + count head. The Interviews decision
+  // (ee0a170b) is that the shared head IS the heading, so the outer one is gone here
+  // too, and the strip keeps its zero-state and the page's left edge.
+  const ra = read('src/components/RotationActivity.jsx')
+  assert.doesNotMatch(ra, /<SectionHeader title="On Campus Now"/, 'no outer heading above the strip')
+  assert.doesNotMatch(ra, /Students checked in or active on campus right now/, 'the separate summary sentence is gone')
+  assert.match(ra, /<StaffOnCampusStrip[\s\S]{0,300}emptyText="No students are on shift right now\."\s+flush\s+\/>/)
+  // The sibling sections still use SectionHeader; only the one with a self-titled body lost it.
+  assert.match(ra, /<SectionHeader\s+title="Rotation Activity"/)
+  assert.match(ra, /<SectionHeader\s+title="Rotation Progress"/)
+})
+
 // ── Each caller owns its own navigation ──────────────────────────────────────
 
 test('At a Glance interview cards open the Interview Rubric, NOT Rotation > Activity', () => {
