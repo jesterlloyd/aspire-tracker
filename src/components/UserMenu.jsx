@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Tooltip from './ui/Tooltip';
 import { CANONICAL_APP_URL } from '../lib/appUrl';
+import { PORTAL_LINKS } from '../lib/portalLinks';
 
 const ROLE_LABELS = {
   owner:       { label: 'Owner',       bg: '#1D2567', color: '#ffffff' },
@@ -19,12 +20,14 @@ const ROLE_LABELS = {
   viewer:      { label: 'Viewer',      bg: '#6b7280', color: '#ffffff' },
 };
 
-const PORTAL_LINKS = [
-  { label: 'Student Portal', path: '/portal/student', Icon: GraduationCap },
-  { label: 'Unit Leader Portal', path: '/portal/unit/home', Icon: Building2 },
-  { label: 'Academic Partner Portal', path: '/portal/ap/students', Icon: School },
-  { label: 'Nursing Education & Leadership Portal', path: '/portal/academics/calendar', Icon: HeartHandshake },
-];
+// The labels and paths live in src/lib/portalLinks.js so the portal profile menu
+// offers the same destinations; only the icon choice is this menu's own.
+const PORTAL_ICONS = {
+  student: GraduationCap,
+  unit_leader: Building2,
+  academic_partner: School,
+  nursing_academic: HeartHandshake,
+};
 
 export default function UserMenu() {
   const { userProfile, signOut } = useAuth();
@@ -220,7 +223,9 @@ export default function UserMenu() {
                 <div style={{ padding: '2px 16px 6px', fontFamily: 'Plus Jakarta Sans', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-muted,#9ca3af)' }}>
                   Portals
                 </div>
-                {PORTAL_LINKS.map(({ label, path, Icon }) => (
+                {PORTAL_LINKS.map(({ key, label, path }) => {
+                  const Icon = PORTAL_ICONS[key];
+                  return (
                   <button
                     key={path}
                     onClick={() => { setIsOpen(false); navigate(path); }}
@@ -231,7 +236,8 @@ export default function UserMenu() {
                     <Icon size={14} strokeWidth={2} color="#6b7280" />
                     {label}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             )}
 

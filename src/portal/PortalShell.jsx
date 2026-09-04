@@ -5,16 +5,33 @@
 // mobile (the desktop header may surface a couple of them inline). Portals are
 // focused, read-mostly surfaces; the staff shell is never loaded here.
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ExternalLink, Camera, UserRound, LogOut, RotateCcw, House } from 'lucide-react'
+import {
+  ChevronDown, ExternalLink, Camera, UserRound, LogOut, RotateCcw, House,
+  Settings, Check, GraduationCap, Building2, School, HeartHandshake,
+} from 'lucide-react'
+import { PORTAL_LINKS } from '../lib/portalLinks'
 import { useAuth } from '../contexts/AuthContext'
 import { PortalRefreshProvider } from './PortalRefresh'
 import { PortalHeaderSlotsContext } from './PortalHeaderSlots'
+
+// PORTAL-SWITCHER-1: the same icon per portal as the staff UserMenu, so a portal is
+// recognizable from either menu. The labels and paths come from the shared list.
+const PORTAL_ICONS = {
+  student: GraduationCap,
+  unit_leader: Building2,
+  academic_partner: School,
+  nursing_academic: HeartHandshake,
+}
 
 function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, onChangePhoto, publicSiteUrl = '/', mainAppUrl, onRestartTour, portalUserActionsEnabled = true }) {
+function ProfileMenu({
+  userName, roleLabel, profileImageUrl, onEditProfile, onProfile, onChangePhoto,
+  publicSiteUrl = '/', mainAppUrl, settingsUrl, portalSwitcher = null,
+  onRestartTour, portalUserActionsEnabled = true,
+}) {
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [failedImageUrl, setFailedImageUrl] = useState(null)
@@ -41,8 +58,15 @@ function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, onCh
         <ChevronDown size={15} className="ptl-avatar-caret" />
       </button>
       {open && (
-        <div ref={menuRef} className="ptl-menu" role="menu" aria-label="Profile menu">
-          {userName && <div className="ptl-menu-name">{userName}</div>}
+        <div ref={menuRef} className={`ptl-menu${portalSwitcher ? ' ptl-menu-wide' : ''}`} role="menu" aria-label="Profile menu">
+          {/* The signed-in email is deliberately absent: no staff or student email is
+              handled in the portal bundle (see test/messagesPhase5biiPortalActivation). */}
+          {(userName || roleLabel) && (
+            <div className="ptl-menu-id">
+              {userName && <div className="ptl-menu-name">{userName}</div>}
+              {roleLabel && <span className="ptl-menu-role">{roleLabel}</span>}
+            </div>
+          )}
           {portalUserActionsEnabled && (onProfile
             ? <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onProfile() }}><UserRound size={15} /> Profile</button>
             : onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><UserRound size={15} /> My Profile</button>)}
@@ -62,6 +86,37 @@ function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, onCh
               <House size={15} /> Main App
             </a>
           )}
+          {/* PORTAL-SWITCHER-1: Owner/Admin can cross straight to another portal instead of
+              returning to the main app first. Wired only for staff who already see this list
+              in the staff profile menu, so a student's or a unit leader's menu is unchanged.
+              The portal being viewed is marked and does not navigate. */}
+          {portalSwitcher && (
+            <div className="ptl-menu-group">
+              <div className="ptl-menu-group-label">Portals</div>
+              {PORTAL_LINKS.map(({ key, label, path }) => {
+                const Icon = PORTAL_ICONS[key]
+                if (key === portalSwitcher.currentKey) {
+                  return (
+                    <span key={key} role="menuitem" aria-current="page" aria-disabled="true"
+                          className="ptl-menu-item ptl-menu-item-current">
+                      <Icon size={15} /> {label}
+                      <Check size={14} className="ptl-menu-check" aria-hidden="true" />
+                    </span>
+                  )
+                }
+                return (
+                  <a key={key} role="menuitem" className="ptl-menu-item" href={path}>
+                    <Icon size={15} /> {label}
+                  </a>
+                )
+              })}
+            </div>
+          )}
+          {settingsUrl && (
+            <a role="menuitem" className="ptl-menu-item" href={settingsUrl}>
+              <Settings size={15} /> Settings
+            </a>
+          )}
           {/* WELCOME-TOUR-PORTALS-1: only rendered when the caller wires a restart handler, so
               a portal that has not adopted the tour yet keeps its existing menu unchanged. */}
           {portalUserActionsEnabled && onRestartTour && (
@@ -77,6 +132,9 @@ function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, onCh
 export default function PortalShell({
   title,
   userName,
+  roleLabel,
+  settingsUrl,
+  portalSwitcher = null,
   onEditProfile,
   onProfile,
   onChangePhoto,
@@ -133,9 +191,11 @@ export default function PortalShell({
               {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
                   widths, opt-in per portal so student behavior is unchanged. */}
               {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
-              <ProfileMenu userName={userName} profileImageUrl={resolvedProfileImageUrl}
+              <ProfileMenu userName={userName} roleLabel={roleLabel}
+                profileImageUrl={resolvedProfileImageUrl}
                 onEditProfile={onEditProfile} onProfile={onProfile} onChangePhoto={onChangePhoto}
-                publicSiteUrl={publicSiteUrl} mainAppUrl={mainAppUrl}
+                publicSiteUrl={publicSiteUrl} mainAppUrl={mainAppUrl} settingsUrl={settingsUrl}
+                portalSwitcher={portalSwitcher}
                 portalUserActionsEnabled={portalUserActionsEnabled} onRestartTour={onRestartTour} />
             </div>
           </header>

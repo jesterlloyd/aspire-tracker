@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { PORTAL_LINKS } from '../src/lib/portalLinks.js'
+
 const here = fileURLToPath(new URL('.', import.meta.url))
 const read = path => readFileSync(join(here, '..', path), 'utf8')
 
@@ -11,25 +13,46 @@ const app = read('src/App.jsx')
 const userMenu = read('src/components/UserMenu.jsx')
 const portalApp = read('src/portal/PortalApp.jsx')
 const shell = read('src/portal/PortalShell.jsx')
+const portalLinks = read('src/lib/portalLinks.js')
 const student = read('src/portal/StudentPortal.jsx')
 const previewAccess = read('api/portal/admin-preview-access.js')
 const studentPreview = read('api/portal/admin-student-preview.js')
 const unitScope = read('api/lib/unitLeaderScope.js')
 const schoolScope = read('api/lib/schoolScope.js')
 const nursingScope = read('api/lib/nursingAcademicScope.js')
+const portalCss = read('src/portal/portal.css')
 
 test('Owner/Admin profile menu exposes the four current portals below Public site', () => {
-  for (const [label, path] of [
-    ['Student Portal', '/portal/student'],
-    ['Unit Leader Portal', '/portal/unit/home'],
-    ['Academic Partner Portal', '/portal/ap/students'],
-    ['Nursing Education & Leadership Portal', '/portal/academics/calendar'],
-  ]) {
-    assert.match(userMenu, new RegExp(label.replace(/[&]/g, '\\&')))
-    assert.match(userMenu, new RegExp(path.replaceAll('/', '\\/')))
+  // PORTAL-SWITCHER-1: one list, read by the staff menu AND the portal menu, so the two
+  // can never drift and a fifth portal is added in exactly one place.
+  assert.deepEqual(
+    PORTAL_LINKS.map(p => [p.key, p.label, p.path]),
+    [
+      ['student', 'Student Portal', '/portal/student'],
+      ['unit_leader', 'Unit Leader Portal', '/portal/unit/home'],
+      ['academic_partner', 'Academic Partner Portal', '/portal/ap/students'],
+      ['nursing_academic', 'Nursing Education & Leadership Portal', '/portal/academics/calendar'],
+    ],
+  )
+  for (const source of [userMenu, shell]) {
+    assert.match(source, /from '\.\.\/lib\/portalLinks'/)
+    assert.doesNotMatch(source, /'Unit Leader Portal'/, 'labels belong to the shared list, not a menu')
   }
   assert.ok(userMenu.indexOf('Public site') < userMenu.indexOf('PORTAL_LINKS.map'))
   assert.doesNotMatch(userMenu, /New Grad Residency Portal|\/portal\/ngrp/)
+  assert.doesNotMatch(portalLinks, /New Grad Residency Portal|\/portal\/ngrp/)
+})
+
+test('every portal key is a real access role, an experience, and has an icon in both menus', () => {
+  // The keys are the vocabulary shared with get_my_portal_access().roles and PortalApp's
+  // `experience`, which is what lets one value mark the portal being viewed.
+  for (const { key } of PORTAL_LINKS) {
+    assert.match(portalApp, new RegExp(`includes\\('${key}'\\)`), `${key} must be a portal access role`)
+    for (const [name, source] of [['staff menu', userMenu], ['portal menu', shell]]) {
+      assert.match(source, new RegExp(`\\b${key}:\\s*\\w`), `${key} needs an icon in the ${name}`)
+    }
+  }
+  assert.match(portalApp, /experience = isStudent \? 'student' : isUnitLeader \? 'unit_leader'/)
 })
 
 test('only active Owner/Admin staff routes enter preview; other staff still return to Main App', () => {
@@ -39,9 +62,50 @@ test('only active Owner/Admin staff routes enter preview; other staff still retu
   assert.match(app, /location\.pathname\.startsWith\('\/portal\/academics\/'\)/)
 })
 
-test('portal profile menu returns previewing staff to the Main App', () => {
+test('portal profile menu lets Owner/Admin cross to any portal, the main app, or Settings', () => {
   assert.match(shell, /<House size=\{15\} \/> Main App/)
-  assert.match(portalApp, /mainAppUrl=\{staffPreview \? '\/aggregate' : undefined\}/)
+  assert.match(shell, /<Settings size=\{15\} \/> Settings/)
+  assert.match(shell, /portalSwitcher && \(/)
+  assert.match(shell, /<div className="ptl-menu-group-label">Portals<\/div>/)
+  // ONE predicate decides all of it, and it is the staff menu's own Owner/Admin test, so a
+  // staff member offered a way ACROSS the portals is offered the way OUT from the same menu.
+  assert.match(portalApp, /const staffMenu = ownerAdmin \? \{/)
+  assert.match(portalApp, /portalSwitcher: \{ currentKey: previewRole \|\| experience \}/)
+  assert.match(portalApp, /mainAppUrl: MAIN_APP_PATH/)
+  assert.match(portalApp, /settingsUrl: STAFF_SETTINGS_PATH/)
+  // All four shells read that one object; none keeps a switcher rule of its own.
+  assert.equal((portalApp.match(/portalSwitcher=\{staffMenu\.portalSwitcher\}/g) || []).length, 4)
+  assert.equal((portalApp.match(/mainAppUrl=\{staffMenu\.mainAppUrl\}/g) || []).length, 4)
+  assert.doesNotMatch(portalApp, /mainAppUrl=\{staffPreview/)
+})
+
+test('the portal being viewed is marked and inert, so the menu says where you are', () => {
+  assert.match(shell, /key === portalSwitcher\.currentKey/)
+  assert.match(shell, /aria-current="page" aria-disabled="true"/)
+  assert.match(shell, /className="ptl-menu-item ptl-menu-item-current"/)
+  // Marked as a span, never an <a>: the current portal must not navigate to itself.
+  const current = shell.slice(shell.indexOf('key === portalSwitcher.currentKey'))
+  assert.ok(current.indexOf('</span>') < current.indexOf('</a>'))
+  assert.match(portalCss, /\.ptl-menu-item-current/)
+  assert.match(portalCss, /\.ptl-menu-wide/)
+})
+
+test('a real portal user is offered no switcher, no main app, and no Settings', () => {
+  // The whole group hangs off ownerAdmin, which already requires an active staff role, so a
+  // student, unit leader, academic partner or nursing academic menu is unchanged by this.
+  assert.match(portalApp, /const ownerAdmin = userProfile\?\.is_active !== false && \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
+  assert.match(portalApp, /\} : \{\s*portalSwitcher: null,\s*mainAppUrl: undefined,\s*settingsUrl: undefined,/)
+  for (const guarded of ['portalSwitcher', 'settingsUrl', 'mainAppUrl']) {
+    assert.match(shell, new RegExp(`\\{${guarded} && \\(|\\{${guarded} &&\\n`), `${guarded} must render only when supplied`)
+  }
+})
+
+test('no staff or student email is introduced into the portal bundle', () => {
+  // messagesPhase5biiPortalActivation holds the same line for PortalApp; the identity block
+  // in the portal menu deliberately shows the name and role only.
+  assert.doesNotMatch(shell, /userEmail|\.email\b/)
+  assert.doesNotMatch(portalCss, /ptl-menu-email/)
+  assert.match(shell, /\{roleLabel && <span className="ptl-menu-role">\{roleLabel\}<\/span>\}/)
 })
 
 test('preview access is server-derived and never provisions a portal account', () => {

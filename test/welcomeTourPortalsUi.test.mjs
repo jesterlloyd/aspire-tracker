@@ -128,7 +128,7 @@ test('PortalShell: onRestartTour is accepted and threaded through to ProfileMenu
   // PROFILE-MENU-AVATARS-1: onChangePhoto joined the threaded props, widening
   // the character span between the first ProfileMenu prop and onRestartTour.
   assert.match(shellCode, /export default function PortalShell\(\{[\s\S]{0,500}onRestartTour,[\s\S]{0,60}children,/)
-  assert.match(shellCode, /<ProfileMenu userName=\{userName\} profileImageUrl=\{resolvedProfileImageUrl\}[\s\S]{0,320}onRestartTour=\{onRestartTour\} \/>/)
+  assert.match(shellCode, /<ProfileMenu userName=\{userName\} roleLabel=\{roleLabel\}[\s\S]{0,420}onRestartTour=\{onRestartTour\} \/>/)
 })
 
 // ── PortalApp ────────────────────────────────────────────────────────────────

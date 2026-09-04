@@ -57,6 +57,7 @@ import { resolveAccessState, accessCopy, ACCESS_STATES, SUPPORT_EMAIL } from '..
 // A data surface that is refused for an access reason reports it here rather than
 // showing its own "something went wrong" card.
 import { PortalAccessSignalContext } from './portalAccessSignal'
+import { portalKeyFromPath, MAIN_APP_PATH, STAFF_SETTINGS_PATH } from '../lib/portalLinks'
 import '../styles/aspireBrand.css'
 import '../styles/aspireTable.css'
 import './portal.css'
@@ -121,14 +122,6 @@ function naThreadIdFromPath(pathname) {
   return m ? m[1] : null
 }
 
-function staffPreviewRole(pathname) {
-  if (pathname === '/portal/student' || pathname.startsWith('/portal/student/')) return 'student'
-  if (pathname.startsWith('/portal/unit/')) return 'unit_leader'
-  if (pathname.startsWith('/portal/ap/')) return 'academic_partner'
-  if (pathname.startsWith('/portal/academics/')) return 'nursing_academic'
-  return null
-}
-
 // Owner/Admin preview keeps the portal chrome but uses the staff utilities.
 // The student Messages tab stays inside the preview with an honest read-only
 // state; the shared launcher opens the real staff inbox. Neither action
@@ -147,7 +140,7 @@ export default function PortalApp() {
   const location = useLocation()
   const navigate = useNavigate()
   const ownerAdmin = userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role)
-  const previewRole = ownerAdmin ? staffPreviewRole(location.pathname) : null
+  const previewRole = ownerAdmin ? portalKeyFromPath(location.pathname) : null
   const staffPreview = Boolean(previewRole)
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
   const [loading, setLoading] = useState(true)
@@ -478,6 +471,23 @@ export default function PortalApp() {
     />
   ) : null
 
+  // PORTAL-SWITCHER-1: the same Owner/Admin predicate that gates the Portals group in the
+  // staff profile menu also gates it here, so the two menus offer the same destinations.
+  // Main App widens from staffPreview to ownerAdmin for the same reason: a staff member who
+  // is offered a way ACROSS the portals is offered the way OUT of them from the same menu.
+  // A student, unit leader, academic partner or nursing academic sees none of this.
+  const staffMenu = ownerAdmin ? {
+    portalSwitcher: { currentKey: previewRole || experience },
+    mainAppUrl: MAIN_APP_PATH,
+    settingsUrl: STAFF_SETTINGS_PATH,
+    roleLabel: userProfile?.is_owner ? 'Owner' : 'Admin',
+  } : {
+    portalSwitcher: null,
+    mainAppUrl: undefined,
+    settingsUrl: undefined,
+    roleLabel: undefined,
+  }
+
   const cohortLoginHint = (isUnitLeader || isAcademicPartner) ? (
     <PortalCohortLoginHint
       enabled={portalTourDecisionReady && !welcomeTourWillAutoStart && !tourRunning}
@@ -509,7 +519,9 @@ export default function PortalApp() {
         previewProfileImageUrl={staffPreview ? previewStudentHeaderPhotoUrl : null}
         onChangePhoto={openChangePhoto} publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
-        mainAppUrl={staffPreview ? '/aggregate' : undefined}
+        mainAppUrl={staffMenu.mainAppUrl} settingsUrl={staffMenu.settingsUrl}
+        portalSwitcher={staffMenu.portalSwitcher}
+        roleLabel={staffMenu.roleLabel}
         portalUserActionsEnabled={!staffPreview}
         nav={(
           <PortalNav
@@ -584,7 +596,9 @@ export default function PortalApp() {
         onProfile={() => goUnitSection('profile')} onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
-        mainAppUrl={staffPreview ? '/aggregate' : undefined}
+        mainAppUrl={staffMenu.mainAppUrl} settingsUrl={staffMenu.settingsUrl}
+        portalSwitcher={staffMenu.portalSwitcher}
+        roleLabel={staffMenu.roleLabel}
         portalUserActionsEnabled={!staffPreview}
         nav={<UnitLeaderNav view={unitView} unread={unread} onNavigate={goUnitSection} />}
         utilityLayer={(
@@ -633,7 +647,9 @@ export default function PortalApp() {
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
-        mainAppUrl={staffPreview ? '/aggregate' : undefined}
+        mainAppUrl={staffMenu.mainAppUrl} settingsUrl={staffMenu.settingsUrl}
+        portalSwitcher={staffMenu.portalSwitcher}
+        roleLabel={staffMenu.roleLabel}
         portalUserActionsEnabled={!staffPreview}
         nav={<AcademicPartnerNav view={apView} onNavigate={goApSection} />}
         utilityLayer={(
@@ -676,7 +692,9 @@ export default function PortalApp() {
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
         onRestartTour={() => setTourRunning(true)}
-        mainAppUrl={staffPreview ? '/aggregate' : undefined}
+        mainAppUrl={staffMenu.mainAppUrl} settingsUrl={staffMenu.settingsUrl}
+        portalSwitcher={staffMenu.portalSwitcher}
+        roleLabel={staffMenu.roleLabel}
         portalUserActionsEnabled={!staffPreview}
         nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} messagesEnabled={staffPreview || naMessagesEnabled} unread={unread} />}
         utilityLayer={(

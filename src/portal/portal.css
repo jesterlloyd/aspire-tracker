@@ -408,7 +408,15 @@
   background: #fff; border: 1px solid #e3ded4; border-radius: 12px;
   box-shadow: 0 10px 30px rgba(16,24,40,0.14); padding: 6px; z-index: 40;
 }
-.ptl-menu-name { padding: 8px 10px 6px; font-size: 13px; font-weight: 700; color: #1D2567; border-bottom: 1px solid #f0ece3; margin-bottom: 4px; }
+/* PORTAL-SWITCHER-1: the identity block carries the rule that used to sit on the name
+   itself, so a name-only menu (every real portal user) renders exactly as before and a
+   staff menu can add the role pill beneath it. */
+.ptl-menu-id { border-bottom: 1px solid #f0ece3; margin-bottom: 4px; }
+.ptl-menu-name { padding: 8px 10px 6px; font-size: 13px; font-weight: 700; color: #1D2567; }
+.ptl-menu-role {
+  display: inline-block; margin: 0 10px 8px; padding: 2px 8px; border-radius: 999px;
+  background: #1D2567; color: #fff; font-size: 10px; font-weight: 700;
+}
 .ptl-menu-item {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
   padding: 9px 10px; border: none; background: none; border-radius: 8px;
@@ -418,6 +426,19 @@
    keyboard position is never invisible. */
 .ptl-menu-item:hover, .ptl-menu-item:focus { background: #f5f4ef; }
 .ptl-menu-danger { color: #b91c1c; }
+
+/* PORTAL-SWITCHER-1: the Portals group, mirroring the staff profile menu's group. Only
+   Owner/Admin are given it. The portal being viewed is marked with a check and is inert,
+   so the menu always says which portal you are in. */
+.ptl-menu-group { border-top: 1px solid #f0ece3; margin-top: 4px; padding-top: 4px; }
+.ptl-menu-group-label {
+  padding: 6px 10px 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #9ca3af;
+}
+.ptl-menu-item-current { color: #1D2567; font-weight: 600; cursor: default; background: #f5f4ef; }
+.ptl-menu-check { margin-left: auto; color: #1D2567; flex-shrink: 0; }
+/* The four portal names are long; the identity-only menu's 210px would wrap them. */
+.ptl-menu-wide { min-width: 292px; }
 
 /* Student Portal Home column. The old navy compass orientation band was retired in favor of the
    shared greeting masthead (GreetingMasthead / .mast*), so its styles (and the attention-chip /

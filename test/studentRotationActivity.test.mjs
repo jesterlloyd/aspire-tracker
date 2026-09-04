@@ -18,6 +18,7 @@ const manageEndpoint = read('api/portal/my-shift-log-manage.js')
 const component = read('src/portal/StudentRotationActivity.jsx')
 const portal = read('src/portal/StudentPortal.jsx')
 const portalApp = read('src/portal/PortalApp.jsx')
+const portalLinks = read('src/lib/portalLinks.js')
 const nav = read('src/portal/PortalNav.jsx')
 
 test('an actual log replaces a planned shift on the same date without duplicating a clinical record', () => {
@@ -87,7 +88,10 @@ test('Student Home and navigation match the approved information architecture', 
   assert.match(portal, />ASPIRE Status<\/h2>/)
   assert.match(portal, />Badge and Certificates<\/h2>/)
   assert.match(portalApp, /startsWith\('\/portal\/placement'\)/)
-  assert.match(portalApp, /pathname === '\/portal\/student' \|\| pathname\.startsWith\('\/portal\/student\/'\)/)
+  // PORTAL-SWITCHER-1: the preview path mapping moved to the shared portal list, which
+  // PortalApp reads as portalKeyFromPath.
+  assert.match(portalLinks, /pathname === '\/portal\/student' \|\| pathname\.startsWith\('\/portal\/student\/'\)/)
+  assert.match(portalApp, /previewRole = ownerAdmin \? portalKeyFromPath\(location\.pathname\) : null/)
   assert.match(portalApp, /onPlacement=\{goPlacement\}/)
   const home = nav.indexOf('>Home</span>')
   const placement = nav.indexOf('>My Placement</span>')
