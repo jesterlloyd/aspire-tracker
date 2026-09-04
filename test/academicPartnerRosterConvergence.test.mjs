@@ -60,7 +60,7 @@ test('the Student cell reuses the circular avatar with a securely resolved photo
   // Secure-photo fast-follow: photos are served through the school-scoped file-access endpoint, so
   // the avatar takes an already-resolved signed URL from the shared cache (or null => initials). No
   // raw storage path is ever exposed in the roster UI.
-  assert.match(portal, /<UnitStudentAvatar url=\{photos\.peek\(s\.id\)\} name=\{displayName\(s\)\} size=\{34\} \/>/)
+  assert.match(portal, /<UnitStudentAvatar url=\{photos\.peek\(s\.id\)\} name=\{displayName\(s\)\} size=\{40\} \/>/)
   const avatar = read('src/portal/unit/UnitStudentAvatar.jsx')
   assert.match(avatar, /function initials\(name\)/)
   assert.doesNotMatch(portalCode, /headshot_url|storage\.from|createSignedUrl|signed_url|getStudentFileUrl/)

@@ -286,6 +286,9 @@ function StudentsView() {
                   </SortHeader>
                   <th scope="col">Confirmed unit</th>
                   <th scope="col">Primary preceptor</th>
+                  {/* UI-CONSISTENCY-5 (Owner decision): the assigned shift, so a coordinator knows when to
+                      round. Shift TYPE only; never shift-log content. */}
+                  <th scope="col">Shift</th>
                   <SortHeader sortKey="hours" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName="">Hours</SortHeader>
                 </tr>
               </thead>
@@ -294,7 +297,7 @@ function StudentsView() {
                   <tr key={s.id}>
                     <td>
                       <span className="ptl-ap-student">
-                        <UnitStudentAvatar url={photos.peek(s.id)} name={displayName(s)} size={34} />
+                        <UnitStudentAvatar url={photos.peek(s.id)} name={displayName(s)} size={40} />
                         <span className="ptl-ap-student-name">{displayName(s)}</span>
                       </span>
                     </td>
@@ -302,6 +305,7 @@ function StudentsView() {
                     <td><StatusPill status={s.status} /></td>
                     <td>{s.unit_name || <span className="ptl-muted">Not yet confirmed</span>}</td>
                     <td>{s.preceptor_name || ''}</td>
+                    <td>{s.shift_assigned || <span className="ptl-muted">Not set</span>}</td>
                     <td><ApHoursCell hours={s.hours} /></td>
                   </tr>
                 ))}

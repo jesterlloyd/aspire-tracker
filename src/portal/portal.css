@@ -242,12 +242,14 @@
 
 /* PHASE3-UNIT-PORTAL: roster table and participation form */
 .ptl-table-wrap { overflow-x: auto; }
-.ptl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+/* UI-CONSISTENCY-5: portal roster bodies match the Alumni Roster (Owner decision): 12px cells,
+   10px 12px padding, so a school's or a unit leader's table reads at the same density as staff's. */
+.ptl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .ptl-table th {
   text-align: left; padding: var(--aspire-th-pad, 10px 12px); color: var(--aspire-th-color, #6b7785); font-weight: var(--aspire-th-weight, 700); background: var(--aspire-th-bg, #f9fafb); font-size: var(--aspire-th-size, 11px);
   text-transform: uppercase; letter-spacing: var(--aspire-th-tracking, 0.06em); border-bottom: var(--aspire-row-line, 1px solid #e5e7eb);
 }
-.ptl-table td { padding: 9px 10px; border-bottom: var(--aspire-row-line, 1px solid #e5e7eb); vertical-align: top; }
+.ptl-table td { padding: 10px 12px; border-bottom: var(--aspire-row-line, 1px solid #e5e7eb); vertical-align: top; }
 .ptl-table tr:last-child td { border-bottom: none; }
 .ptl-chip-inline { margin-left: 8px; font-size: 11px; padding: 2px 8px; }
 
@@ -1023,7 +1025,7 @@
    hours bar (.ptl-mini-progress / .ptl-hours-cell), and avatar are the canonical shared primitives. */
 .ptl-ap-table td { vertical-align: middle; }
 .ptl-ap-student { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-.ptl-ap-student-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.ptl-ap-student-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 700; line-height: 1.25; }
 /* Sortable headers now use the shared canonical SortHeader (.preceptor-dir-sort button + ↑/↓ glyph,
    aria-sort on the th), so the former bespoke .ptl-ap-sort treatment was removed. The status header
    pairs that button with the legend via the shared .am-sort-th-inner row. */

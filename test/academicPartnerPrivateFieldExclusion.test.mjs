@@ -175,7 +175,7 @@ test('the roster avatar renders the securely resolved photo with the initials fa
   assert.match(portalRaw, /import UnitStudentAvatar from '\.\/unit\/UnitStudentAvatar'/)
   assert.match(portalRaw, /import \{ useSchoolStudentPhotos \} from '\.\/ap\/useSchoolStudentPhotos'/)
   assert.match(portalRaw, /const photos = useSchoolStudentPhotos\(roster\)/)
-  assert.match(portalRaw, /<UnitStudentAvatar url=\{photos\.peek\(s\.id\)\} name=\{displayName\(s\)\} size=\{34\} \/>/)
+  assert.match(portalRaw, /<UnitStudentAvatar url=\{photos\.peek\(s\.id\)\} name=\{displayName\(s\)\} size=\{40\} \/>/)
   // The avatar itself keeps the initials fallback and never fetches (presentational only).
   const avatar = read('src/portal/unit/UnitStudentAvatar.jsx')
   assert.match(avatar, /function initials\(name\)/)

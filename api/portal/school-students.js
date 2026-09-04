@@ -12,7 +12,7 @@
 // ACTIVE user_school_scopes. No request parameter influences scope.
 //
 // Privacy posture (blueprint plus Owner decision item 8, conservative
-// default): pipeline stage, placement, rotation dates, hours, and
+// default): pipeline stage, placement, rotation dates, assigned shift type, hours, and
 // completion/evaluation DONE-or-NOT status only. No interview scores or
 // recommendations, no rubric or evaluation content, no shift-log narratives,
 // no support requests, no disposition reasons, no compliance flags (the
@@ -31,6 +31,9 @@ const STUDENT_COLUMNS = [
   'id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
   'school', 'status', 'matched_unit_id', 'preceptor_name', 'term_dates',
   'hours_required', 'approved_hours', 'pending_hours', 'headshot_url',
+  // UI-CONSISTENCY-5 (Owner decision, 2026-09-03): the assigned shift TYPE (Day / Night / Mid /
+  // Variable), so a coordinator knows when to round. Shift-log content stays out.
+  'shift_assigned',
 ].join(', ')
 
 // A stored file reference resolves to a real object (not empty, not an unparseable value).
@@ -144,6 +147,7 @@ export default async function handler(req, res) {
       unit_name: unitNameById[s.matched_unit_id] || null,
       preceptor_name: assignmentsByStudent[s.id] || s.preceptor_name || null,
       term_dates: s.term_dates || null,
+      shift_assigned: s.shift_assigned || null,
       cohort: cohortsById[s.cohort_id]
         ? {
             id: cohortsById[s.cohort_id].id,

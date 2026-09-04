@@ -252,6 +252,32 @@ test('the Academic Partner roster has no Rotation column', () => {
   assert.doesNotMatch(ap, /<th scope="col">Rotation<\/th>/); assert.doesNotMatch(ap, /rotationText/)
 })
 
+// ── UI-CONSISTENCY-5: portal roster bodies and the Academic Partner Shift column ──────
+
+test('portal roster bodies read at the Alumni Roster density', () => {
+  // Owner decision: 12px cells and 10px 12px padding, the values .ngrp-table uses, so a
+  // school's or a unit leader's table is the same density as staff's.
+  assert.match(rule(portal, '.ptl-table'), /font-size:\s*12px/)
+  assert.match(rule(portal, '.ptl-table td'), /padding:\s*10px 12px/)
+  assert.match(rule(ngrp, '.ngrp-table'), /font-size:\s*12px/)
+  assert.match(rule(ngrp, '.ngrp-table tbody td'), /padding:\s*10px 12px/)
+})
+
+test('the Academic Partner roster shows the assigned shift, and only the shift type', () => {
+  const ap = read('src/portal/AcademicPartnerPortal.jsx'), ep = read('api/portal/school-students.js')
+  assert.match(ap, /<th scope="col">Shift<\/th>/)
+  assert.match(ap, /\{s\.shift_assigned \|\| <span className="ptl-muted">Not set<\/span>\}/)
+  // The allowlist widened by exactly the two fields the Owner approved. Shift-log content
+  // (narratives, review, support) stays out; the privacy test pins that list separately.
+  assert.match(ep, /'shift_assigned'/)
+  // program_type is on the school endpoint's FORBIDDEN list (an earlier Owner decision, pinned in
+  // test/academicPartnerPrivateFieldExclusion.test.mjs); the roster must not reach for it.
+  for (const forbidden of ['program_type', 'shift_logs', 'support_needed', 'learning_highlight', 'admin_notes']) assert.ok(!ep.includes(`'${forbidden}'`), `${forbidden} must stay out of the school allowlist`)
+  // Identity cell matches the Alumni Roster's avatar size. No program sub-line: see above.
+  assert.match(ap, /<UnitStudentAvatar url=\{photos\.peek\(s\.id\)\} name=\{displayName\(s\)\} size=\{40\} \/>/)
+  assert.doesNotMatch(ap, /s\.program_type/)
+})
+
 test('no em dash in the token file or the new test', () => {
   const EM = String.fromCharCode(0x2014)
   for (const f of ['src/styles/aspireBrand.css', 'test/uiConsistency.test.mjs']) assert.ok(!read(f).includes(EM), f)
