@@ -38,7 +38,7 @@ test('the status column uses the canonical StatusPill (ASPIRE_STATUS_CONFIG), no
 
 test('the ASPIRE status header opens the canonical legend with staff disposition detail hidden', () => {
   // STATUS-LEGEND-AUDIENCE-1: showStaffDetail became audience="academic_partner".
-  assert.match(portal, /sortKey="status"[\s\S]*?after=\{<StatusLegendPopover audience="academic_partner" \/>\}[\s\S]*?>\s*ASPIRE status\s*<\/SortHeader>/)
+  assert.match(portal, /sortKey="status"[\s\S]*?after=\{<StatusLegendPopover audience="academic_partner" \/>\}[\s\S]*?>\s*ASPIRE Status\s*<\/SortHeader>/)
   // The legend gates the staff-only disposition breakdown behind audience === 'staff'
   // (default keeps the main app unchanged).
   assert.match(legend, /export default function StatusLegendPopover\(\{ position = 'bottom-left', dark = false, audience = 'staff' \}\)/)
@@ -92,8 +92,8 @@ test('deriveClinicalHours caps over-completion at 100% and never counts pending 
   assert.equal(deriveClinicalHours({ required: null, approved: 5 }).reliable, false)
 })
 
-test('the Academic Partner roster keeps its Phase 1 columns and adds no drawer or later-phase surface', () => {
-  for (const col of ['Student', 'Cohort', 'ASPIRE status', 'Confirmed unit', 'Primary preceptor', 'Rotation', 'Hours']) {
+test('the Academic Partner roster carries the shared roster columns and adds no drawer or later-phase surface', () => {
+  for (const col of ['Student', 'ASPIRE Status', 'Cohort', 'Rotation Timeline', 'Assigned Unit', 'Shift', 'Preceptor(s)', 'Hours']) {
     assert.ok(portal.includes(col), `roster keeps the ${col} column`)
   }
   assert.doesNotMatch(portalCode, /onRowClick|openDrawer|StudentDetailDrawer|OnCampusNow|Needs Attention|ptl-detail-drawer/)

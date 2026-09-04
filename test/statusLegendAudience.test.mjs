@@ -32,7 +32,7 @@ const INTERNAL_TERMS = /rubric|formal disposition|Action Center|Phase 4|moderati
 // ── Copy module: completeness and audience safety ────────────────────────────
 
 test('every audience describes every lifecycle status, keyed by value', () => {
-  assert.deepEqual(LEGEND_AUDIENCES, ['staff', 'academic_partner', 'unit_leader'])
+  assert.deepEqual(LEGEND_AUDIENCES, ['staff', 'academic_partner', 'unit_leader', 'nursing_academic'])
   for (const audience of LEGEND_AUDIENCES) {
     const map = STATUS_DESCRIPTIONS_BY_AUDIENCE[audience]
     for (const status of LIFECYCLE) {
@@ -43,7 +43,7 @@ test('every audience describes every lifecycle status, keyed by value', () => {
 })
 
 test('external audiences carry no internal workflow terminology', () => {
-  for (const audience of ['academic_partner', 'unit_leader']) {
+  for (const audience of ['academic_partner', 'unit_leader', 'nursing_academic']) {
     for (const [status, text] of Object.entries(STATUS_DESCRIPTIONS_BY_AUDIENCE[audience])) {
       assert.doesNotMatch(text, INTERNAL_TERMS, `${audience} ${status} copy must stay external-safe`)
     }

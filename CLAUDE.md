@@ -61,6 +61,22 @@ the shared sheet; do not give it inline `font` or `color`. That inline `font: in
 and the browser's own button defaults, are how sortable columns came to render in a
 different case and size from their neighbours in three tables at once.
 
+A table that sits inside a padded card (Academic Partner Students, NEL Student Detail, anything
+on `.ptl-table` or `.ptl-na-table`) wears the inset band: `--aspire-th-bg-inset` with
+`--aspire-th-color-inset` labels and top corners rounded on `--aspire-radius-control`. A table
+that is the card (Unit Leader Your Students, Evaluation > Responses, the `.am-*` family) keeps
+`--aspire-th-bg` as its top edge. Even rows carry `--aspire-row-band` everywhere, and hover still
+wins. Both are Owner decisions from a rendered comparison on 2026-09-03 (UI-CONSISTENCY-6).
+
+Student rosters share one column canon, in this order and with these labels: Student, ASPIRE
+Status, Cohort, Rotation Timeline, Assigned Unit, Shift, Preceptor(s), Hours. Preceptor(s) is
+`PreceptorList` (every active assignment with its role chip). Rotation Timeline reads the
+coordinator-owned `cohort_school_rotations` row through the one `fmtShortDate` in
+`src/portal/unit/unitLeaderApi.js`. A report table with columns of its own (NEL Student Detail)
+leads with the shared columns in that order, shows ASPIRE Status as the canonical pill with the
+legend, and keeps its numbers on the right. Table titles are Title Case ("Your Students",
+"Student Detail").
+
 ## New portal checklist
 
 A new portal imports `src/styles/aspireBrand.css` (as `PortalApp.jsx` does), uses

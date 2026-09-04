@@ -20,7 +20,7 @@ test('the Unit Leader roster reuses the shared StatusLegendPopover (no UL-specif
   assert.match(ul, /import StatusLegendPopover from '\.\.\/components\/StatusLegendPopover'/)
   // The trigger sits in the ASPIRE status column header, on the shared inline row used by the AP roster.
   // STATUS-LEGEND-AUDIENCE-1: the boolean showStaffDetail became the audience prop.
-  assert.match(ul, /<th scope="col">[\s\S]*?<span className="am-sort-th-inner">ASPIRE status<StatusLegendPopover audience="unit_leader" \/><\/span>[\s\S]*?<\/th>/)
+  assert.match(ul, /<th scope="col">[\s\S]*?<span className="am-sort-th-inner">ASPIRE Status<StatusLegendPopover audience="unit_leader" \/><\/span>[\s\S]*?<\/th>/)
 })
 
 test('the same shared component is used by Main App, Academic Partner, and Unit Leader', () => {

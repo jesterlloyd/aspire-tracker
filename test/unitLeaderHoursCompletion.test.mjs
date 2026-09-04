@@ -83,7 +83,7 @@ test('HoursCell renders one completion indicator and leaves canonical status to 
   assert.match(ul, /\{c\.complete && <span className="ptl-hours-complete">Hours complete<\/span>\}/)
   assert.match(ul, /Required approved hours reached\. Rotation remains active through \{fmtShortDate\(rotationEnd\)\}\./)
   assert.doesNotMatch(ul, /Ready to complete|ptl-ready-complete/)
-  assert.match(ul, /<td data-label="ASPIRE status">[\s\S]*?\{orDash\(s\.status\)\}/)
+  assert.match(ul, /<td data-label="ASPIRE Status">[\s\S]*?\{orDash\(s\.status\)\}/)
 })
 
 test('the row passes the canonical rotation end and a stable today to HoursCell', () => {

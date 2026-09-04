@@ -1,7 +1,8 @@
 // STATUS-LEGEND-AUDIENCE-1: audience-aware copy for the ONE canonical ASPIRE
 // Status Legend (StatusLegendPopover). The status NAMES, colors, and ordering
 // are canonical everywhere; only the explanatory DESCRIPTIONS adapt to who is
-// reading - staff (main app), Academic Partners, and Unit Leaders.
+// reading - staff (main app), Academic Partners, Unit Leaders, and Nursing
+// Education and Leadership.
 //
 // Descriptions are keyed BY STATUS VALUE, never by list position: the old
 // positional array silently mis-paired descriptions if the status order ever
@@ -12,7 +13,7 @@
 export const LEGEND_TITLE = 'ASPIRE Status Legend'
 export const LEGEND_INTRO = 'Follow each student’s progress through the ASPIRE pathway.'
 
-export const LEGEND_AUDIENCES = ['staff', 'academic_partner', 'unit_leader']
+export const LEGEND_AUDIENCES = ['staff', 'academic_partner', 'unit_leader', 'nursing_academic']
 
 // ── Lifecycle status descriptions ────────────────────────────────────────────
 const STAFF_STATUS_DESCRIPTIONS = {
@@ -40,10 +41,16 @@ const UNIT_LEADER_STATUS_DESCRIPTIONS = {
   'Interviewed': 'The interview is complete, and the student is awaiting or has received a placement decision.',
 }
 
+// Nursing Education and Leadership (the NEL portal's Community Benefit report): internal
+// Cedars-Sinai leadership reading a fiscal view, so the neutral placement-focused copy,
+// with no Action Center reference (a main-app concept they do not use).
+const NURSING_ACADEMIC_STATUS_DESCRIPTIONS = UNIT_LEADER_STATUS_DESCRIPTIONS
+
 export const STATUS_DESCRIPTIONS_BY_AUDIENCE = {
   staff: STAFF_STATUS_DESCRIPTIONS,
   academic_partner: ACADEMIC_PARTNER_STATUS_DESCRIPTIONS,
   unit_leader: UNIT_LEADER_STATUS_DESCRIPTIONS,
+  nursing_academic: NURSING_ACADEMIC_STATUS_DESCRIPTIONS,
 }
 
 // ── Not Proceeding ───────────────────────────────────────────────────────────
@@ -87,6 +94,10 @@ const COLOR_DESCRIPTIONS_BY_AUDIENCE = {
     amber: 'The student may need follow-up from the student, school, or ASPIRE team.',
   },
   unit_leader: {
+    ...SHARED_COLOR_DESCRIPTIONS,
+    amber: 'Follow-up may be needed.',
+  },
+  nursing_academic: {
     ...SHARED_COLOR_DESCRIPTIONS,
     amber: 'Follow-up may be needed.',
   },

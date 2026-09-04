@@ -43,7 +43,7 @@ test('confirmed unit resolves from matched_unit_id -> units.unit_name, never the
 test('the response allowlist is exactly the Phase 1 roster fields; no private field is selected', () => {
   for (const col of ['id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
     'school', 'status', 'matched_unit_id', 'preceptor_name', 'term_dates',
-    'hours_required', 'approved_hours', 'pending_hours']) {
+    'hours_required', 'approved_hours', 'pending_hours', 'cohort_school_rotation_id']) {
     assert.match(roster, new RegExp(`'${col}'`), `roster must select ${col}`)
   }
   // No restricted / confidential field is ever selected or returned. headshot_url is deliberately

@@ -109,7 +109,7 @@ test('the report view renders honest loading, error, empty, rate-not-set, and re
   assert.match(benefit, /Rate not set/)
   assert.match(benefit, /Needs Reporting Data/)
   assert.match(benefit, /Records for Review/)
-  assert.match(benefit, /ASPIRE status/)
+  assert.match(benefit, /ASPIRE Status/)
   assert.match(benefit, /r\.status/)
 })
 

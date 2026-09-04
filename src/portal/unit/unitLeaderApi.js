@@ -221,6 +221,15 @@ export function studentName(s) {
   return full || EMPTY
 }
 
+/** A short rotation-timeline date ("Aug 17"), the roster and drawer date style. One function
+ *  for the Unit Leader and Academic Partner rosters, so their Rotation Timeline columns read alike. */
+export function fmtShortDate(ymd) {
+  if (!ymd) return null
+  const [y, m, d] = String(ymd).split('-').map(Number)
+  if (!y || !m || !d) return null
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 /** 'changes_requested' -> 'Changes requested'. Text stays the meaning carrier. */
 export function sentenceCase(value) {
   const text = String(value || '').replace(/_/g, ' ').trim()

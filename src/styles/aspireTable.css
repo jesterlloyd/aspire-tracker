@@ -61,6 +61,8 @@
 .am-td { padding: 8px 12px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
 .am-row:last-child .am-td { border-bottom: none; }
 .am-row:hover { background: rgba(244,241,236,0.5); }
+/* UI-CONSISTENCY-6: even rows carry the Evaluation > Responses banding; hover still wins. */
+.am-table tbody tr:nth-child(even):not(:hover) { background: var(--aspire-row-band, #fafafa); }
 .am-row-highlight { animation: am-highlight-fade 2.5s ease-out forwards; }
 @keyframes am-highlight-fade {
   0%   { background: rgba(159,175,248,0.28); }

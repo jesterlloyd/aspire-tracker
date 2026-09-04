@@ -791,7 +791,7 @@ export default function EvaluationTab({ cohortId }) {
                         const response   = extractResponse(a)
                         const isExpanded = expandedIds.has(a.id)
                         const es         = effectiveStatus(a)
-                        const bgBase     = idx % 2 === 0 ? '#ffffff' : '#fafafa'
+                        const bgBase     = idx % 2 === 0 ? '#ffffff' : 'var(--aspire-row-band, #fafafa)'
                         const cps = response?.score_s1_clinical_problem_solving
                         const la  = response?.score_s1_learning_activities
                         const pr  = response?.score_s1_practice_readiness

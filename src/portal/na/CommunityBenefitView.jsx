@@ -17,6 +17,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Download } from 'lucide-react'
 import MetricCard from '../../components/ui/MetricCard'
+import StatusPill from '../../components/StatusPill'
+import StatusLegendPopover from '../../components/StatusLegendPopover'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from '../portalAccessSignal'
@@ -309,7 +311,7 @@ export default function CommunityBenefitView({
             })}
           </div>
 
-          <div className="ptl-na-table-controls" role="group" aria-label="Student detail controls">
+          <div className="ptl-na-table-controls" role="group" aria-label="Student Detail controls">
             <label className="ptl-na-search" htmlFor="na-detail-search">
               <span className="ptl-visually-hidden">Search students</span>
               <input
@@ -347,7 +349,7 @@ export default function CommunityBenefitView({
           <section className="ptl-card ptl-na-table-card" aria-labelledby="na-detail-heading">
             <div className="ptl-na-table-heading">
               <div>
-                <h2 id="na-detail-heading">Student detail ({report.fiscal_year_label})</h2>
+                <h2 id="na-detail-heading">Student Detail ({report.fiscal_year_label})</h2>
                 <p className="ptl-na-table-note">
                   Protected view for authorized Nursing Education and Leadership users.
                   The downloadable CSV never includes this level of detail.
@@ -360,43 +362,46 @@ export default function CommunityBenefitView({
               <table className="ptl-na-table">
                 <thead>
                   <tr>
+                    {/* UI-CONSISTENCY-6: the shared roster columns lead, in the shared order, with
+                        the canonical status pill and legend; the report's own columns follow and the
+                        numbers keep their place on the right. */}
                     <th scope="col">Student</th>
+                    <th scope="col"><span className="am-sort-th-inner">ASPIRE Status<StatusLegendPopover audience="nursing_academic" /></span></th>
+                    <th scope="col">Cohort</th>
+                    <th scope="col">Rotation Timeline</th>
                     <th scope="col">School</th>
                     <th scope="col">Program</th>
-                    <th scope="col">Course type</th>
-                    <th scope="col">Cohort</th>
-                    <th scope="col">ASPIRE status</th>
-                    <th scope="col">Rotation</th>
+                    <th scope="col">Course Type</th>
+                    <th scope="col">Primary Preceptor</th>
                     <th scope="col" className="ptl-na-num">Required</th>
                     <th scope="col" className="ptl-na-num">Completed</th>
-                    <th scope="col">Primary preceptor</th>
                     <th scope="col">Category</th>
-                    <th scope="col" className="ptl-na-num">Est. benefit</th>
+                    <th scope="col" className="ptl-na-num">Est. Benefit</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredRows.map((r, i) => (
                     <tr key={`${r.student_name}-${i}`}>
                       <td>{r.student_name}</td>
+                      <td><StatusPill status={r.status} /></td>
+                      <td>{r.cohort || '-'}</td>
+                      <td>{fmtDate(r.rotation_start)} to {fmtDate(r.rotation_end)}</td>
                       <td>
                         <span className="ptl-na-legend-dot" style={{ background: schoolColor(r.school).fill }} aria-hidden="true" />
                         {academicsSchoolLabel(r.school)}
                       </td>
                       <td>{academicsProgramLabel(r.program)}</td>
                       <td>{r.course_type}</td>
-                      <td>{r.cohort || '-'}</td>
-                      <td>{r.status}</td>
-                      <td>{fmtDate(r.rotation_start)} to {fmtDate(r.rotation_end)}</td>
+                      <td>
+                        {r.preceptor_name || 'Not assigned'}
+                        {r.preceptor_source === 'legacy' && <span className="ptl-na-muted"> (legacy record)</span>}
+                      </td>
                       <td className="ptl-na-num">{num.format(r.required_hours)}</td>
                       <td className="ptl-na-num">
                         {num.format(r.approved_hours)}
                         {r.projection_matches === false && (
                           <span className="ptl-na-flag" title="The stored hours projection differs from the authoritative shift-log total; the shift-log total is shown."> *</span>
                         )}
-                      </td>
-                      <td>
-                        {r.preceptor_name || 'Not assigned'}
-                        {r.preceptor_source === 'legacy' && <span className="ptl-na-muted"> (legacy record)</span>}
                       </td>
                       <td>{r.benefit_category}</td>
                       <td className="ptl-na-num">{r.estimated_benefit == null ? 'Rate not set' : money2.format(r.estimated_benefit)}</td>

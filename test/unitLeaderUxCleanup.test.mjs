@@ -53,7 +53,7 @@ test('the canonical calendar is full width, followed directly by Your Students',
 test('Your Students is full width below the calendar', () => {
   const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function PlacementScreen'))
   assert.ok(home.indexOf('<StudentRoster') > home.indexOf('<UnitRotationCalendar'))
-  assert.match(portalCode, /heading="Your students"/)
+  assert.match(portalCode, /heading="Your Students"/)
 })
 
 // ── 2. Redundant cards removed ──────────────────────────────────────────────
@@ -131,7 +131,7 @@ test('the student table has exactly the approved columns', () => {
   const roster0 = portalCode.slice(portalCode.indexOf('function StudentRoster'), portalCode.indexOf('function StudentRow'))
   const head = roster0.slice(roster0.indexOf('<thead>'), roster0.indexOf('</thead>'))
   // The preceptor column is now Preceptor(s), showing every active assignment.
-  for (const col of ['Student', 'ASPIRE status', 'Preceptor(s)', 'Shift', 'Rotation', 'Cohort', 'Hours']) {
+  for (const col of ['Student', 'ASPIRE Status', 'Cohort', 'Rotation Timeline', 'Assigned Unit', 'Shift', 'Preceptor(s)', 'Hours']) {
     assert.ok(head.includes(`>${col}<`), `the table must have a ${col} column`)
   }
   // The row renders each column from roster data.

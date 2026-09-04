@@ -28,6 +28,8 @@ import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
+import PreceptorList from './unit/PreceptorList'
+import { fmtShortDate } from './unit/unitLeaderApi'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
 import { cohortOptions, inCohortScope, sortRoster } from './ap/academicPartnerRoster'
 import { computeStatusCounts } from '../lib/derivations/cohortStatus'
@@ -271,24 +273,32 @@ function StudentsView() {
             <table className="ptl-table ptl-ap-table">
               <thead>
                 <tr>
-                  {/* Canonical sort headers (shared with the staff roster): ↑/↓ arrows, aria-sort,
-                      dynamic aria-label. thClassName="" keeps the portal table cell styling; the sort
-                      logic, school/cohort scope, and KPI filter are untouched. */}
+                  {/* UI-CONSISTENCY-6: the student roster column canon, shared with the Unit Leader
+                      roster (CLAUDE.md, Tables): Student, ASPIRE Status, Cohort, Rotation Timeline,
+                      Assigned Unit, Shift, Preceptor(s), Hours. Canonical sort headers (shared with
+                      the staff roster): arrows only on the sorted column, aria-sort, dynamic
+                      aria-label. thClassName="" keeps the portal table cell styling; the sort logic,
+                      school/cohort scope, and KPI filter are untouched. */}
                   <SortHeader sortKey="student" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName="">Student</SortHeader>
-                  <th scope="col">Cohort</th>
                   {/* The status header pairs the canonical sort button with the ASPIRE Status Legend
                       (staff disposition detail hidden) via the shared after= slot. */}
                   <SortHeader
                     sortKey="status" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName=""
                     after={<StatusLegendPopover audience="academic_partner" />}
                   >
-                    ASPIRE status
+                    ASPIRE Status
                   </SortHeader>
-                  <th scope="col">Confirmed unit</th>
-                  <th scope="col">Primary preceptor</th>
+                  <th scope="col">Cohort</th>
+                  {/* The coordinator-owned rotation window (cohort_school_rotations), the same dates the
+                      Placement Requests list and the Unit Leader roster show. */}
+                  <th scope="col">Rotation Timeline</th>
+                  <th scope="col">Assigned Unit</th>
                   {/* UI-CONSISTENCY-5 (Owner decision): the assigned shift, so a coordinator knows when to
                       round. Shift TYPE only; never shift-log content. */}
                   <th scope="col">Shift</th>
+                  {/* Every active assignment with its role chip (Primary, Secondary, Coverage), the Unit
+                      Leader's own PreceptorList (UI-CONSISTENCY-6, Owner decision). */}
+                  <th scope="col">Preceptor(s)</th>
                   <SortHeader sortKey="hours" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName="">Hours</SortHeader>
                 </tr>
               </thead>
@@ -301,11 +311,15 @@ function StudentsView() {
                         <span className="ptl-ap-student-name">{displayName(s)}</span>
                       </span>
                     </td>
-                    <td>{s.cohort?.name || ''}</td>
                     <td><StatusPill status={s.status} /></td>
-                    <td>{s.unit_name || <span className="ptl-muted">Not yet confirmed</span>}</td>
-                    <td>{s.preceptor_name || ''}</td>
+                    <td>{s.cohort?.name || ''}</td>
+                    <td>{s.rotation ? `${fmtShortDate(s.rotation.start)} to ${fmtShortDate(s.rotation.end)}` : <span className="ptl-muted">Not set</span>}</td>
+                    <td>{s.unit_name || <span className="ptl-muted">Not yet assigned</span>}</td>
                     <td>{s.shift_assigned || <span className="ptl-muted">Not set</span>}</td>
+                    <td>
+                      <PreceptorList assignments={s.preceptors} fallbackName={s.preceptor_name}
+                        formatDate={fmtShortDate} empty={<span className="ptl-muted">Not assigned</span>} />
+                    </td>
                     <td><ApHoursCell hours={s.hours} /></td>
                   </tr>
                 ))}
@@ -313,7 +327,7 @@ function StudentsView() {
             </table>
           </div>
           <p className="ptl-muted ptl-small">
-            Hours show approved of required (plus pending review). Confirmed unit and preceptor
+            Hours show approved of required (plus pending review). Assigned unit and preceptors
             appear once a placement is set. Status content and evaluation responses stay with the
             ASPIRE team.
           </p>

@@ -38,7 +38,7 @@ import {
   SectionHeading, Pill, TableSkeleton,
 } from './unit/UnitLeaderChrome'
 import {
-  ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, ASPIRE_AUTHORITY_NOTE,
+  ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, fmtShortDate, ASPIRE_AUTHORITY_NOTE,
   getRoster, getPlacementRequests, respondToPlacement,
   submitParticipation,
   startUnitConversation,
@@ -385,7 +385,7 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
         onNavigate={onNavigate}
         onOpenThread={onOpenThread}
         refreshRoster={refreshRoster}
-        heading="Your students"
+        heading="Your Students"
       />
 
       {dayOpen && (
@@ -840,13 +840,6 @@ function HoursCell({ hours, rotationEnd = null, todayYmd = null }) {
  * /portal/unit/students so that deep link keeps working after Students left the nav.
  * `heading` distinguishes them; everything else is identical, so the two can never drift.
  */
-/** A short rotation-timeline date, matching the drawer's date style. */
-function fmtShortDate(ymd) {
-  if (!ymd) return null
-  const [y, m, d] = String(ymd).split('-').map(Number)
-  if (!y || !m || !d) return null
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
 
 function StudentRoster({ students, photos: providedPhotos = null, onNavigate, onOpenThread, refreshRoster, heading = null }) {
   // Reuse the parent's already-batched photos when provided (Home), otherwise resolve our own
@@ -948,12 +941,16 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
                   {/* Shared ASPIRE Status Legend, same trigger/position/behavior as the Academic
                       Partner roster. Portal-safe audience mode (audience="unit_leader"): no NGRP
                       disposition reasons, interview recommendations, or staff-only readiness detail. */}
-                  <span className="am-sort-th-inner">ASPIRE status<StatusLegendPopover audience="unit_leader" /></span>
+                  <span className="am-sort-th-inner">ASPIRE Status<StatusLegendPopover audience="unit_leader" /></span>
                 </th>
-                <th scope="col">Preceptor(s)</th>
-                <th scope="col">Shift</th>
-                <th scope="col">Rotation</th>
+                {/* UI-CONSISTENCY-6: the student roster column canon, shared with the Academic
+                    Partner roster (CLAUDE.md, Tables). Assigned Unit is the in-scope unit the row
+                    was resolved through, which is what matters under All Units. */}
                 <th scope="col">Cohort</th>
+                <th scope="col">Rotation Timeline</th>
+                <th scope="col">Assigned Unit</th>
+                <th scope="col">Shift</th>
+                <th scope="col">Preceptor(s)</th>
                 <th scope="col">Hours</th>
                 <th scope="col"><span className="ptl-visually-hidden">Actions</span></th>
               </tr>
@@ -1052,21 +1049,23 @@ function StudentRow({
           </span>
         </span>
       </td>
-      <td data-label="ASPIRE status">
+      <td data-label="ASPIRE Status">
         <span className="ptl-stu-pill"
           style={{ background: status.bg, color: status.text, border: `1px solid ${status.border}` }}>
           {orDash(s.status)}
         </span>
       </td>
+      {/* The shared roster column order (UI-CONSISTENCY-6). */}
+      <td data-label="Cohort">{orDash(s.cohort?.name)}</td>
+      <td data-label="Rotation Timeline">{rot}</td>
+      <td data-label="Assigned Unit">{orDash(s.unit_key)}</td>
+      {/* DEPLOYED shift (primary preceptor's assigned shift), never a preference. A clear
+          "Not assigned" reads better than a dash when no actual shift exists. */}
+      <td data-label="Shift">{s.shift || 'Not assigned'}</td>
       <td data-label="Preceptor(s)">
         <PreceptorList assignments={s.preceptors} fallbackName={s.preceptor_name}
           formatDate={fmtShortDate} empty={EMPTY} />
       </td>
-      {/* DEPLOYED shift (primary preceptor's assigned shift), never a preference. A clear
-          "Not assigned" reads better than a dash when no actual shift exists. */}
-      <td data-label="Shift">{s.shift || 'Not assigned'}</td>
-      <td data-label="Rotation">{rot}</td>
-      <td data-label="Cohort">{orDash(s.cohort?.name)}</td>
       <td data-label="Hours"><HoursCell hours={s.hours} rotationEnd={s.rotation?.end} todayYmd={todayYmd} /></td>
       <td data-label="Actions" className="ptl-stu-actioncell"
         onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>

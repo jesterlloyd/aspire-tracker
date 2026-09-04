@@ -63,6 +63,15 @@
   --aspire-th-pad: 10px 12px;
   --aspire-row-line: 1px solid #e5e7eb;
   --aspire-row-hover: #eef2fb;
+  /* UI-CONSISTENCY-6 (Owner decisions, 2026-09-03, from a rendered comparison): a table that
+     sits INSIDE a padded card (Academic Partner Students, NEL Student Detail) wears the
+     navy-wash band with rounded top corners; the faint canon band read as unfinished when
+     it floated inside white padding. A table that IS the card (Unit Leader Your Students,
+     Evaluation > Responses) keeps --aspire-th-bg as its top edge. Even rows carry the
+     Evaluation > Responses banding everywhere; hover still wins. */
+  --aspire-th-bg-inset: #eef1f8;
+  --aspire-th-color-inset: #4b5675;
+  --aspire-row-band: #fafafa;
   /* A clickable card lifts on hover; the shadow deepens, nothing changes colour. */
   --aspire-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
   --aspire-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);

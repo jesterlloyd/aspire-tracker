@@ -246,9 +246,15 @@
    10px 12px padding, so a school's or a unit leader's table reads at the same density as staff's. */
 .ptl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .ptl-table th {
-  text-align: left; padding: var(--aspire-th-pad, 10px 12px); color: var(--aspire-th-color, #6b7785); font-weight: var(--aspire-th-weight, 700); background: var(--aspire-th-bg, #f9fafb); font-size: var(--aspire-th-size, 11px);
+  text-align: left; padding: var(--aspire-th-pad, 10px 12px); color: var(--aspire-th-color-inset, #4b5675); font-weight: var(--aspire-th-weight, 700); background: var(--aspire-th-bg-inset, #eef1f8); font-size: var(--aspire-th-size, 11px);
   text-transform: uppercase; letter-spacing: var(--aspire-th-tracking, 0.06em); border-bottom: var(--aspire-row-line, 1px solid #e5e7eb);
 }
+/* UI-CONSISTENCY-6 (Owner decision, 2026-09-03): .ptl-table always sits inside a padded .ptl-card,
+   so it wears the inset band with rounded top corners, and even rows carry the Evaluation >
+   Responses banding. */
+.ptl-table th:first-child { border-top-left-radius: var(--aspire-radius-control); }
+.ptl-table th:last-child { border-top-right-radius: var(--aspire-radius-control); }
+.ptl-table tbody tr:nth-child(even) > td { background: var(--aspire-row-band, #fafafa); }
 .ptl-table td { padding: 10px 12px; border-bottom: var(--aspire-row-line, 1px solid #e5e7eb); vertical-align: top; }
 .ptl-table tr:last-child td { border-bottom: none; }
 .ptl-chip-inline { margin-left: 8px; font-size: 11px; padding: 2px 8px; }
@@ -1359,6 +1365,8 @@
     border: 1px solid rgba(29, 37, 103, 0.12); border-radius: 10px;
   }
   .ptl-table td { display: block; border: 0; padding: 4px 0; }
+  /* Stacked rows are cards of their own; the banding belongs to the desktop grid. */
+  .ptl-table tbody tr:nth-child(even) > td { background: transparent; }
   .ptl-table td::before {
     content: attr(data-label); display: block;
     font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.02em;
@@ -1933,6 +1941,8 @@ img.ptl-detail-photo {
 .ptl-stu-trow:hover { background: #fafbff; }
 .ptl-stu-trow:focus-visible { outline: 3px solid #93c5fd; outline-offset: -3px; }
 .ptl-stu-table td { padding: 10px 14px; font-size: 12.5px; color: #191919; vertical-align: middle; }
+/* UI-CONSISTENCY-6: even rows carry the Evaluation > Responses banding; the row hover still wins. */
+.ptl-stu-table tbody tr:nth-child(even):not(:hover) { background: var(--aspire-row-band, #fafafa); }
 
 .ptl-stu-idcell { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .ptl-stu-idtext { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -2228,23 +2238,31 @@ img.ptl-detail-photo {
   text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--ptl-line);
   color: var(--ptl-ink); white-space: normal; overflow-wrap: anywhere; vertical-align: top;
 }
+/* UI-CONSISTENCY-6: this table sits inside the padded Student Detail card, so it wears the
+   inset band (see aspireBrand.css). */
 .ptl-na-table th {
-  position: sticky; top: 0; z-index: 2; background: var(--aspire-th-bg, #f9fafb);
-  font-size: var(--aspire-th-size, 11px); font-weight: var(--aspire-th-weight, 700); color: var(--aspire-th-color, #6b7785);
+  position: sticky; top: 0; z-index: 2; background: var(--aspire-th-bg-inset, #eef1f8);
+  font-size: var(--aspire-th-size, 11px); font-weight: var(--aspire-th-weight, 700); color: var(--aspire-th-color-inset, #4b5675);
   letter-spacing: var(--aspire-th-tracking, 0.06em); text-transform: uppercase;
   box-shadow: 0 1px 0 var(--ptl-line);
   /* UI-CONSISTENCY-4: a header never breaks mid-word ("COMPLET / ED"); the column gets wider, not the label shorter. */
   white-space: nowrap;
 }
+.ptl-na-table th:first-child { border-top-left-radius: var(--aspire-radius-control); }
+.ptl-na-table th:last-child { border-top-right-radius: var(--aspire-radius-control); }
+.ptl-na-table tbody tr:nth-child(even) > td { background: var(--aspire-row-band, #fafafa); }
+/* Column widths follow the shared roster order (UI-CONSISTENCY-6): Student, ASPIRE Status, Cohort,
+   Rotation Timeline, School, Program, Course Type, Primary Preceptor, Required, Completed, Category,
+   Est. Benefit. The status column is wide enough for the "Active Rotation" pill on one line. */
 .ptl-na-table th:nth-child(1) { width: 8.5%; }
-.ptl-na-table th:nth-child(2) { width: 6.5%; }
-.ptl-na-table th:nth-child(3) { width: 7%; }
-.ptl-na-table th:nth-child(4) { width: 7%; }
+.ptl-na-table th:nth-child(2) { width: 8%; }
+.ptl-na-table th:nth-child(3) { width: 6.5%; }
+.ptl-na-table th:nth-child(4) { width: 12%; }
 .ptl-na-table th:nth-child(5) { width: 6.5%; }
 .ptl-na-table th:nth-child(6) { width: 7%; }
-.ptl-na-table th:nth-child(7) { width: 12%; }
-.ptl-na-table th:nth-child(8), .ptl-na-table th:nth-child(9) { width: 5%; }
-.ptl-na-table th:nth-child(10) { width: 10%; }
+.ptl-na-table th:nth-child(7) { width: 7%; }
+.ptl-na-table th:nth-child(8) { width: 10%; }
+.ptl-na-table th:nth-child(9), .ptl-na-table th:nth-child(10) { width: 5%; }
 .ptl-na-table th:nth-child(11) { width: 6%; }
 .ptl-na-table th:nth-child(12) { width: 8%; }
 .ptl-na-num { text-align: right; font-variant-numeric: tabular-nums; }

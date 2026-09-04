@@ -12,8 +12,9 @@
 // ACTIVE user_school_scopes. No request parameter influences scope.
 //
 // Privacy posture (blueprint plus Owner decision item 8, conservative
-// default): pipeline stage, placement, rotation dates, assigned shift type, hours, and
-// completion/evaluation DONE-or-NOT status only. No interview scores or
+// default): pipeline stage, placement, rotation dates, active preceptors (name, role,
+// and assignment dates only), assigned shift type, hours, and completion/evaluation DONE-or-NOT
+// status only. No interview scores or
 // recommendations, no rubric or evaluation content, no shift-log narratives,
 // no support requests, no disposition reasons, no compliance flags (the
 // exact compliance field list awaits the Owner's decision item 8).
@@ -34,6 +35,9 @@ const STUDENT_COLUMNS = [
   // UI-CONSISTENCY-5 (Owner decision, 2026-09-03): the assigned shift TYPE (Day / Night / Mid /
   // Variable), so a coordinator knows when to round. Shift-log content stays out.
   'shift_assigned',
+  // UI-CONSISTENCY-6 (Owner decision, 2026-09-03): the coordinator-owned rotation row, so the
+  // roster shows the same Rotation Timeline the Placement Requests list already shows.
+  'cohort_school_rotation_id',
 ].join(', ')
 
 // A stored file reference resolves to a real object (not empty, not an unparseable value).
@@ -99,21 +103,53 @@ export default async function handler(req, res) {
     unitNameById = Object.fromEntries((units || []).map(u => [u.id, u.unit_name]))
   }
 
+  // Rotation Timeline from the coordinator-owned rotation row (cohort_school_rotations), the same
+  // source the Placement Requests list and the Unit Leader roster read. The 1900-01-01 sentinel
+  // (dates not yet supplied) resolves to null so the portal says "Not set", never a fake year.
+  const ROTATION_SENTINEL = '1900-01-01'
+  const rotationIds = [...new Set(matches.map(m => m.student.cohort_school_rotation_id).filter(Boolean))]
+  const rotationById = {}
+  if (rotationIds.length > 0) {
+    const { data: rotations, error: rErr } = await db
+      .from('cohort_school_rotations')
+      .select('id, rotation_start_date, rotation_end_date')
+      .in('id', rotationIds)
+    if (rErr) return res.status(500).json({ error: 'internal_error' })
+    for (const r of rotations || []) {
+      const { rotation_start_date: start, rotation_end_date: end } = r
+      rotationById[r.id] = (!start || !end || start === ROTATION_SENTINEL || end === ROTATION_SENTINEL)
+        ? null
+        : { start, end }
+    }
+  }
+
   const studentIds = matches.map(m => m.student.id)
 
-  // Active primary preceptor (normalized model; legacy text fallback below).
-  const assignmentsByStudent = {}
+  // Every ACTIVE preceptor assignment (Primary, Secondary, Coverage) ordered by role, the same
+  // shape the Unit Leader roster returns (UI-CONSISTENCY-6, Owner decision 2026-09-03: a
+  // coordinator who rounds sees who is actually with the student). Name, role, and assignment
+  // dates only. The primary's name also stands alone as preceptor_name for existing readers, with
+  // the legacy free-text name as its fallback.
+  const ROLE_ORDER = { primary: 0, secondary: 1, coverage: 2 }
+  const assignmentsByStudent = {}   // student_id -> [{ name, role, start_date, end_date }]
   {
     const { data: assignments } = await db
       .from('student_preceptor_assignments')
-      .select('student_id, role, status, preceptors ( full_name )')
+      .select('student_id, role, status, start_date, end_date, preceptors ( full_name )')
       .in('student_id', studentIds)
       .eq('status', 'active')
     for (const a of assignments || []) {
-      const current = assignmentsByStudent[a.student_id]
-      if (!current || a.role === 'primary') {
-        assignmentsByStudent[a.student_id] = a.preceptors?.full_name || null
-      }
+      const name = a.preceptors?.full_name || null
+      if (!name) continue
+      ;(assignmentsByStudent[a.student_id] ||= []).push({
+        name,
+        role: a.role,
+        start_date: a.start_date || null,
+        end_date: a.end_date || null,
+      })
+    }
+    for (const id of Object.keys(assignmentsByStudent)) {
+      assignmentsByStudent[id].sort((x, y) => (ROLE_ORDER[x.role] ?? 9) - (ROLE_ORDER[y.role] ?? 9))
     }
   }
 
@@ -145,7 +181,9 @@ export default async function handler(req, res) {
       // for these students. The storage path itself never leaves the server.
       has_photo: hasFile(s.headshot_url),
       unit_name: unitNameById[s.matched_unit_id] || null,
-      preceptor_name: assignmentsByStudent[s.id] || s.preceptor_name || null,
+      preceptor_name: assignmentsByStudent[s.id]?.[0]?.name || s.preceptor_name || null,
+      preceptors: assignmentsByStudent[s.id] || [],
+      rotation: rotationById[s.cohort_school_rotation_id] || null,
       term_dates: s.term_dates || null,
       shift_assigned: s.shift_assigned || null,
       cohort: cohortsById[s.cohort_id]

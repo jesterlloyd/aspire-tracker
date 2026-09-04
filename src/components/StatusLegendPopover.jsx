@@ -28,7 +28,7 @@ const swatchFor = (value) => ASPIRE_STATUS_CONFIG[value] || { bg: '#f3f4f6', tex
 //                                 disposition breakdown, and Status Colors.
 //   audience="academic_partner" - external copy: statuses, the general
 //   audience="unit_leader"        Not Proceeding entry (no disposition
-//                                 breakdown), and Status Colors with no
+//   audience="nursing_academic"   breakdown), and Status Colors with no
 //                                 internal terminology.
 // Status names, pill colors, and ordering are canonical for every audience;
 // only descriptions adapt (src/lib/statusLegendCopy.js).
