@@ -140,7 +140,7 @@ test('Accounts & Access directory replaces the card board', async (t) => {
 
   await t.test('portal table shows one identity cell (avatar + name + email) and a Last login column', () => {
     assert.doesNotMatch(dir, /<th style=\{th\}>Email<\/th>/, 'the separate Email column must be gone from the portal table')
-    assert.match(dir, /<th style=\{th\}>Last login<\/th>/)
+    assert.match(dir, /<th className="aspire-th" style=\{th\}>Last login<\/th>/)
     assert.match(dir, /formatLoginDate\(r\.last_login_at\)/)
   })
 

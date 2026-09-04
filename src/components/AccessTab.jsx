@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { isIsoDateString, isLegacyNonIsoDateValue, dateInputValue } from '../lib/csLinkDateUtils'
 import StudentAvatar from './StudentAvatar'
+import SortHeader from './shared/SortHeader'
 
 // CSLINK-DATE-PICKER-DATA-RECOVERY: the four CS-Link date columns are TEXT and may hold legacy
 // non-ISO values. We only ever WRITE a date field the user actually touched - untouched fields are
@@ -60,12 +61,10 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
         <table className="am-table">
           <thead>
             <tr>
-              <th className="am-th am-sortable" onClick={() => toggleSort('last_name')}>
-                Student Name&nbsp;{sortBy === 'last_name' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="am-sort-icon">↕</span>}
-              </th>
-              <th className="am-th am-sortable" onClick={() => toggleSort('school')}>
-                School&nbsp;{sortBy === 'school' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="am-sort-icon">↕</span>}
-              </th>
+              {/* UI-CONSISTENCY-3: the shared sort header. Arrow only on the sorted column;
+                  no resting glyph, matching the Evaluation table. */}
+              <SortHeader sortKey="last_name" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort}>Student Name</SortHeader>
+              <SortHeader sortKey="school" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort}>School</SortHeader>
               <th className="am-th">Cedars-Sinai Status</th>
               <th className="am-th">Step 2, Service Center</th>
               <th className="am-th">Step 3, Account Active</th>

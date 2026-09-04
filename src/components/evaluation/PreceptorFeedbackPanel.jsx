@@ -207,11 +207,11 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
             <thead>
-              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                <th style={{ padding: '10px 14px', width: 44 }}></th>
-                <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>STUDENT</th>
-                <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>RESOLVED PRECEPTOR</th>
-                <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>RECIPIENT</th>
+              <tr>
+                <th className="aspire-th" style={{ width: 44 }}></th>
+                <th className="aspire-th">STUDENT</th>
+                <th className="aspire-th">RESOLVED PRECEPTOR</th>
+                <th className="aspire-th">RECIPIENT</th>
               </tr>
             </thead>
             <tbody>

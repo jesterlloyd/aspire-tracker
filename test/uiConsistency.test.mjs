@@ -11,7 +11,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -189,7 +189,7 @@ test('a student card lifts on hover like a KPI card, and never changes colour', 
 test('every table header reads the canon: weight, colour, band, tracking, hairline', () => {
   const TH = [
     ['index.css', index, '.iv-th'], ['index.css', index, '.ir-wl-th'], ['index.css', index, '.table-header'],
-    ['index.css', index, '.am-th'], ['index.css', index, '.preview-table th'], ['index.css', index, '.rub-legend-table th'],
+    ['aspireTable.css', read('src/styles/aspireTable.css'), '.am-th'], ['index.css', index, '.preview-table th'], ['index.css', index, '.rub-legend-table th'],
     ['index.css', index, '.casey-paired-table th'], ['ngrp.css', ngrp, '.ngrp-table thead th'],
     ['portal.css', portal, '.ptl-stu-table thead th'], ['portal.css', portal, '.ptl-na-table th'],
   ]
@@ -199,11 +199,57 @@ test('every table header reads the canon: weight, colour, band, tracking, hairli
     assert.match(body, /color:\s*var\(--aspire-th-color/, `${f} ${sel} colour`)
     assert.doesNotMatch(body, /font-weight:\s*\d|letter-spacing:\s*0\.\d+em|\bcolor:\s*#|background:\s*(?:#|var\(--sand\))/, `${f} ${sel} still hard-codes a header value`)
   }
-  // Canon 1 is inline; it reads the same tokens.
+  // Canon 1 wears the class its values became; only the active-sort colour is inline.
   const ev = read('src/components/EvaluationTab.jsx')
-  assert.match(ev, /fontWeight: 'var\(--aspire-th-weight, 700\)'/); assert.match(ev, /letterSpacing: 'var\(--aspire-th-tracking, 0\.06em\)'/)
+  assert.match(ev, /<th\s+onClick=\{sortable \? onClick : undefined\}[\s\S]*?className="aspire-th"/)
+  assert.doesNotMatch(ev, /fontWeight: 'var\(--aspire-th-weight/)
   // The bad table no longer bolds the sorted header heavier than its neighbours.
   assert.doesNotMatch(read('src/components/InterviewRubricTab.jsx'), /fontWeight: sortBy === key \? 800 : 700/)
+})
+
+// ── UI-CONSISTENCY-3: one header sheet, one sort control ─────────────────────
+
+test('both halves import the shared table sheet, and the sort control lives there', () => {
+  assert.match(index, /@import '\.\/styles\/aspireTable\.css';/)
+  assert.match(read('src/portal/PortalApp.jsx'), /import '\.\.\/styles\/aspireTable\.css'/)
+  const sheet = read('src/styles/aspireTable.css')
+  assert.match(sheet, /\.aspire-th \{[^}]*font-size: var\(--aspire-th-size/s)
+  // The button inside a sortable header inherits everything typographic from the cell.
+  const btn = sheet.match(/\.preceptor-dir-sort \{([^}]*)\}/)[1]
+  for (const prop of ['font: inherit', 'color: inherit', 'text-transform: inherit', 'letter-spacing: inherit']) assert.ok(btn.includes(prop), `sort button must ${prop}`)
+  assert.doesNotMatch(index, /\n\.preceptor-dir-sort\s*\{/, 'not also in index.css, where the portals cannot see it')
+})
+
+test('no resting sort glyph anywhere: the arrow appears only on the sorted column', () => {
+  const offenders = []
+  const walk = (dir) => { for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
+    if (/ \d+\.|node_modules/.test(e.name)) continue
+    const rel = `${dir}/${e.name}`
+    // A sort control always pairs an up glyph with a down one; a lone down-triangle is a
+    // disclosure chevron (OutreachView's "Other templates" toggle pairs it with a right-pointing
+    // one), not a sort indicator, so only the up-triangle and the double arrow are matched.
+    if (e.isDirectory()) walk(rel); else if (/\.jsx$/.test(e.name) && /↕|am-sort-icon|'\u25B2'/.test(read(rel))) offenders.push(rel)
+  } }
+  walk('src')
+  assert.deepEqual(offenders, [], 'these still show a glyph on an unsorted column')
+})
+
+test('no header cell carries its own inline typography', () => {
+  const offenders = []
+  const walk = (dir) => { for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
+    if (/ \d+\.|node_modules/.test(e.name)) continue
+    const rel = `${dir}/${e.name}`
+    if (e.isDirectory()) walk(rel); else if (/\.jsx$/.test(e.name)) {
+      for (const m of read(rel).matchAll(/<th\b[^>]*style=\{\{([^}]*)\}/g)) if (/fontSize|fontWeight|textTransform|letterSpacing/.test(m[1])) offenders.push(rel)
+    }
+  } }
+  walk('src')
+  assert.deepEqual([...new Set(offenders)], [], 'these header cells style their own type instead of using .aspire-th')
+})
+
+test('the Academic Partner roster has no Rotation column', () => {
+  const ap = read('src/portal/AcademicPartnerPortal.jsx')
+  assert.doesNotMatch(ap, /<th scope="col">Rotation<\/th>/); assert.doesNotMatch(ap, /rotationText/)
 })
 
 test('no em dash in the token file or the new test', () => {

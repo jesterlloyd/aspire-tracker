@@ -190,19 +190,14 @@ function Th({ label, sortable, onClick, active, dir }) {
   return (
     <th
       onClick={sortable ? onClick : undefined}
+      // UI-CONSISTENCY-3: canon 1 wears the class its values became, so it cannot drift from
+      // the canon it defined. Only the active-sort colour stays inline.
+      className="aspire-th"
       style={{
-        // UI-CONSISTENCY-2: canon 1. It reads the tokens it helped define, so it cannot
-        // drift from them. An active sort column is navy; every other header is the muted token.
-        padding: 'var(--aspire-th-pad, 10px 12px)',
-        textAlign: 'left',
-        fontSize: 'var(--aspire-th-size, 11px)',
-        fontWeight: 'var(--aspire-th-weight, 700)',
-        color: sortable && active ? '#1D2567' : 'var(--aspire-th-color, #6b7785)',
-        letterSpacing: 'var(--aspire-th-tracking, 0.06em)',
+        color: sortable && active ? '#1D2567' : undefined,
         cursor: sortable ? 'pointer' : 'default',
         userSelect: 'none',
         fontFamily: F,
-        whiteSpace: 'nowrap',
       }}
     >
       {label}{sortable && active ? (dir === 'asc' ? ' ↑' : ' ↓') : ''}

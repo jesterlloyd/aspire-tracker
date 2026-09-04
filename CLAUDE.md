@@ -46,6 +46,21 @@ Rules that follow from the table:
    `getBoundingClientRect`. Source reading missed two cascade overrides on the day this
    canon shipped; a browser caught both.
 
+## Tables (UI-CONSISTENCY-3)
+
+One header for every table, defined once in `src/styles/aspireTable.css`, which both
+`index.css` and `PortalApp.jsx` import. A header cell is `<th className="aspire-th">`
+(`aspire-th-right` / `aspire-th-center` for alignment). Do not write an inline `<th style>`
+or a per-table header class; the ratchet counts inline header styles and fails if the
+count rises.
+
+A sortable column is `<SortHeader>` from `src/components/shared/SortHeader.jsx`. Its rule
+is that the arrow appears only on the sorted column (up or down) and there is never a
+resting glyph. The `<button>` it renders inherits the cell's caps, tracking and size from
+the shared sheet; do not give it inline `font` or `color`. That inline `font: inherit`,
+and the browser's own button defaults, are how sortable columns came to render in a
+different case and size from their neighbours in three tables at once.
+
 ## New portal checklist
 
 A new portal imports `src/styles/aspireBrand.css` (as `PortalApp.jsx` does), uses

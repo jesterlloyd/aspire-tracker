@@ -95,10 +95,10 @@ export function EvalQuantTable({ responses, metricPaths, onOpen }) {
       <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontFamily: F }}>
         <thead>
           <tr style={{ background: '#fafafa' }}>
-            <th style={thStyle}>Response</th>
-            <th style={thStyle}>Unit</th>
-            {metricPaths.map(p => <th key={p} style={thStyle}>{metricLabel(p)}</th>)}
-            <th style={thStyle}><span style={srOnly}>Open</span></th>
+            <th className="aspire-th">Response</th>
+            <th className="aspire-th">Unit</th>
+            {metricPaths.map(p => <th key={p} className="aspire-th">{metricLabel(p)}</th>)}
+            <th className="aspire-th"><span style={srOnly}>Open</span></th>
           </tr>
         </thead>
         <tbody>
@@ -147,6 +147,5 @@ export function EvalNoMetrics({ message }) {
   )
 }
 
-const thStyle = { padding: '9px 12px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: '#6b7280', whiteSpace: 'nowrap' }
 const tdStyle = { padding: '9px 12px', fontSize: 12.5, color: '#191919', verticalAlign: 'middle' }
 const srOnly = { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }

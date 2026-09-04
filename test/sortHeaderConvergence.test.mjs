@@ -47,7 +47,10 @@ test('the th class is overridable and adjacent content renders in a shared inner
   assert.match(shared, /thClassName = 'am-th am-sortable'/)
   assert.match(shared, /after = null/)
   assert.match(shared, /\{after \? <span className="am-sort-th-inner">\{button\}\{after\}<\/span> : button\}/)
-  assert.match(css, /\.am-sort-th-inner \{/)
+  // UI-CONSISTENCY-3: the sort control's rules moved to the shared table sheet, which BOTH the
+  // staff app and the portals import; index.css alone never reached the portals.
+  assert.match(read('src/styles/aspireTable.css'), /\.am-sort-th-inner \{/)
+  assert.match(read('src/styles/aspireTable.css'), /\.preceptor-dir-sort \{[^}]*text-transform: inherit/s)
 })
 
 test('the staff PreceptorDirectoryTable adopts the shared header with NO appearance change', () => {

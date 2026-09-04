@@ -9,10 +9,6 @@
 // exactly as today (no cursor, no hover, no selected treatment).
 import SurfaceCard from './SurfaceCard'
 
-const TH_BASE = {
-  padding: '9px 14px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
-  letterSpacing: 0.4, color: 'var(--color-text-secondary, #6b7280)', textAlign: 'left', whiteSpace: 'nowrap',
-}
 const TD_BASE = {
   padding: '10px 14px', fontSize: 13, color: 'var(--color-text-primary, #374151)', verticalAlign: 'middle',
 }
@@ -27,7 +23,7 @@ export default function DataTable({ columns, rows, getRowKey, onRowClick, rowSel
           <thead>
             <tr style={{ borderBottom: '1px solid var(--color-border-subtle, #f3f4f6)' }}>
               {columns.map(c => (
-                <th key={c.key} style={{ ...TH_BASE, ...(c.align === 'right' ? { textAlign: 'right' } : {}), ...c.headerStyle }}>
+                <th key={c.key} className={c.align === 'right' ? 'aspire-th aspire-th-right' : 'aspire-th'} style={c.headerStyle}>
                   {c.label}
                 </th>
               ))}

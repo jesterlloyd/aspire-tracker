@@ -210,12 +210,12 @@ export default function SurveyPreviewDrawer({ workflowKey, onClose }) {
             {rel.others.length > 0 && (
               <table style={{ width: '100%', marginTop: 9, borderCollapse: 'collapse', fontSize: 11.5 }}>
                 <thead>
-                  <tr style={{ textAlign: 'left', color: '#6b7280' }}>
-                    <th style={{ padding: '4px 6px 4px 0', fontWeight: 600 }}>Workflow</th>
-                    <th style={{ padding: '4px 6px', fontWeight: 600 }}>Survey</th>
-                    <th style={{ padding: '4px 6px', fontWeight: 600 }}>Recipient</th>
-                    <th style={{ padding: '4px 6px', fontWeight: 600 }}>Target</th>
-                    <th style={{ padding: '4px 0 4px 6px', fontWeight: 600 }}>Status</th>
+                  <tr>
+                    <th className="aspire-th">Workflow</th>
+                    <th className="aspire-th">Survey</th>
+                    <th className="aspire-th">Recipient</th>
+                    <th className="aspire-th">Target</th>
+                    <th className="aspire-th">Status</th>
                   </tr>
                 </thead>
                 <tbody>

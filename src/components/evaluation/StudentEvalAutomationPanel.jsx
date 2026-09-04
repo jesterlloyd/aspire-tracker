@@ -245,9 +245,9 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
                       <thead>
                         <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                           {['Student', 'Approved / Required', 'Recipient (student)', 'Evaluated target', 'Reason'].map(h => (
-                            <th key={h} style={{ padding: '9px 13px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>{h}</th>
+                            <th key={h} className="aspire-th">{h}</th>
                           ))}
-                          {g.releasable && <th style={{ padding: '9px 13px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>Action</th>}
+                          {g.releasable && <th className="aspire-th aspire-th-right">Action</th>}
                         </tr>
                       </thead>
                       <tbody>

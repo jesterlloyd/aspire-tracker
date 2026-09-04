@@ -281,7 +281,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
               <thead>
                 <tr style={{ background:'var(--sand)' }}>
                   {['Date','Start','End','Interviewer','Duration','Active',''].map(h => (
-                    <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontWeight:600, color:'var(--text-secondary)', fontSize:11, textTransform:'uppercase', letterSpacing:'0.04em' }}>{h}</th>
+                    <th key={h} className="aspire-th">{h}</th>
                   ))}
                 </tr>
               </thead>

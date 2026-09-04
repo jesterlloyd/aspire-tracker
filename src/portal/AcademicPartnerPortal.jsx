@@ -38,16 +38,6 @@ import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 // the roster is still loading (a fresh [] each render would look like a new dependency).
 const EMPTY_ROSTER = []
 
-const fmtDate = (d) => {
-  if (!d) return ''
-  try {
-    return new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  } catch { return String(d) }
-}
-
-const rotationText = (s) =>
-  s.term_dates || (s.cohort?.start_date ? `${fmtDate(s.cohort.start_date)} to ${fmtDate(s.cohort.end_date)}` : '')
-
 const displayName = (s) => `${s.preferred_first_name || s.first_name || ''} ${s.last_name || ''}`.trim()
 
 // Hours cell reusing the canonical .ptl-mini-progress bar + deriveClinicalHours (pct capped at 100,
@@ -296,7 +286,6 @@ function StudentsView() {
                   </SortHeader>
                   <th scope="col">Confirmed unit</th>
                   <th scope="col">Primary preceptor</th>
-                  <th scope="col">Rotation</th>
                   <SortHeader sortKey="hours" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName="">Hours</SortHeader>
                 </tr>
               </thead>
@@ -313,7 +302,6 @@ function StudentsView() {
                     <td><StatusPill status={s.status} /></td>
                     <td>{s.unit_name || <span className="ptl-muted">Not yet confirmed</span>}</td>
                     <td>{s.preceptor_name || ''}</td>
-                    <td>{rotationText(s)}</td>
                     <td><ApHoursCell hours={s.hours} /></td>
                   </tr>
                 ))}

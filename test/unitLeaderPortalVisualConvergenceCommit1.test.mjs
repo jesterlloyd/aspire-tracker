@@ -61,9 +61,14 @@ test('Unit Leader Preceptors table uses the shared main-app table container and 
   // UI-CONSISTENCY-2: the wrapper is a card, so it reads the card canon: no outline, the
   // shadow is the edge, the shared radius. The property this test guards, that the Unit
   // Leader table shares the main app's container, holds more strongly now, not less.
-  assert.match(css, /\.am-table-wrap \{[\s\S]*border: 0; box-shadow: var\(--aspire-shadow-card\);[\s\S]*border-radius: var\(--aspire-radius-card\);[\s\S]*background: var\(--pearl\);/)
-  assert.match(css, /\.am-th \{[\s\S]*font-size: var\(--aspire-th-size\);[\s\S]*font-weight: var\(--aspire-th-weight\);[\s\S]*letter-spacing: var\(--aspire-th-tracking\);[\s\S]*border-bottom: var\(--aspire-row-line\);/)
-  assert.match(css, /\.preceptor-dir-sort \{[\s\S]*display: inline-flex;[\s\S]*align-items: center;/)
+  // UI-CONSISTENCY-3: the .am-* family moved to the shared table sheet so the Unit Leader
+  // portal, which never loads index.css, finally receives it.
+  const sheet = read('src/styles/aspireTable.css')
+  assert.match(sheet, /\.am-table-wrap \{[\s\S]*border: 0; box-shadow: var\(--aspire-shadow-card\);[\s\S]*border-radius: var\(--aspire-radius-card\);[\s\S]*background: var\(--pearl\);/)
+  assert.match(sheet, /\.am-th \{[\s\S]*font-size: var\(--aspire-th-size\);[\s\S]*font-weight: var\(--aspire-th-weight\);[\s\S]*letter-spacing: var\(--aspire-th-tracking\);[\s\S]*border-bottom: var\(--aspire-row-line\);/)
+  // UI-CONSISTENCY-3: the sort control's rule lives in the shared table sheet, which the
+  // portals import; index.css alone never reached the Unit Leader portal.
+  assert.match(read('src/styles/aspireTable.css'), /\.preceptor-dir-sort \{[\s\S]*display: inline-flex;[\s\S]*align-items: center;/)
 })
 
 test('Current Student omits repeated unit text but keeps stacked assignment rows', () => {

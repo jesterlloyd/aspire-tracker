@@ -63,7 +63,6 @@ export default function RoleGuidePanel() {
   const roleSummary = isPortalGuide ? PORTAL_ROLE_SUMMARY : ROLE_SUMMARY
   const capabilityMatrix = isPortalGuide ? PORTAL_CAPABILITY_MATRIX : CAPABILITY_MATRIX
   const modelNotes = isPortalGuide ? PORTAL_MODEL_NOTES : MODEL_NOTES
-  const th = { textAlign: 'left', padding: '9px 12px', fontSize: 11.5, fontWeight: 600, color: secondary, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap' }
   const td = { padding: '9px 12px', fontSize: 13, borderTop: '1px solid var(--color-border-subtle, #f3f4f6)', verticalAlign: 'top' }
 
   return (
@@ -150,8 +149,8 @@ export default function RoleGuidePanel() {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
           <thead>
             <tr>
-              <th style={th}>Capability</th>
-              {roleOrder.map(role => <th key={role} style={{ ...th, textAlign: 'center' }}>{roleSummary[role].label}</th>)}
+              <th className="aspire-th">Capability</th>
+              {roleOrder.map(role => <th key={role} className="aspire-th aspire-th-center">{roleSummary[role].label}</th>)}
             </tr>
           </thead>
           <tbody>

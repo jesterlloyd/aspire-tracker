@@ -1,0 +1,70 @@
+/* UI-CONSISTENCY-3: the table header, once, for every table on both halves of the app.
+   Imported by src/index.css (staff) and src/portal/PortalApp.jsx (portals), so a header
+   rendered in either reads the same rule. The values are the tokens in aspireBrand.css,
+   derived from the two tables the Owner named as right (Evaluation > Responses and the
+   Alumni Roster).
+
+   A header cell is `.aspire-th`. A sortable header is a SortHeader, whose <button> sits
+   INSIDE the cell: the browser's default stylesheet gives every <button> text-transform:
+   none, letter-spacing: normal and its own font, which is exactly how sortable columns
+   came to render in Title Case at a different size beside their uppercase neighbours. The
+   button rule below inherits all of it back from the cell. The arrow appears only on the
+   sorted column, never a resting glyph. */
+
+.aspire-th {
+  padding: var(--aspire-th-pad, 10px 12px);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+  background: var(--aspire-th-bg, #f9fafb);
+  border-bottom: var(--aspire-row-line, 1px solid #e5e7eb);
+  font-size: var(--aspire-th-size, 11px);
+  font-weight: var(--aspire-th-weight, 700);
+  letter-spacing: var(--aspire-th-tracking, 0.06em);
+  text-transform: uppercase;
+  color: var(--aspire-th-color, #6b7785);
+}
+.aspire-th-right  { text-align: right; }
+.aspire-th-center { text-align: center; }
+
+/* The sort control inside any header cell (SortHeader). Everything typographic inherits
+   from the cell, so a sortable column is indistinguishable from a plain one at rest. */
+.preceptor-dir-sort {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 0; padding: 0; margin: 0; border: 0; background: transparent;
+  font: inherit; color: inherit;
+  text-transform: inherit; letter-spacing: inherit;
+  cursor: pointer;
+}
+.preceptor-dir-sort:hover { color: var(--aspire-navy, #1D2567); }
+.am-sort-th-inner { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ── The .am-* family: the staff directory table (CS-Link Access, Accounts) and the shared
+   PreceptorDirectoryTable, which the Unit Leader portal renders too. `.am-table thead th`
+   is more specific than `.am-th`, so its band MUST be the token or it wins with sand. ── */
+.am-table-wrap { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; border: 0; box-shadow: var(--aspire-shadow-card); border-radius: var(--aspire-radius-card); background: var(--pearl); }
+.am-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.am-table thead th { position: sticky; top: 0; z-index: 10; background: var(--aspire-th-bg, #f9fafb); }
+
+.am-th {
+  padding: var(--aspire-th-pad); text-align: left;
+  font-size: var(--aspire-th-size); font-weight: var(--aspire-th-weight); color: var(--aspire-th-color);
+  text-transform: uppercase; letter-spacing: var(--aspire-th-tracking);
+  background: var(--aspire-th-bg); border-bottom: var(--aspire-row-line);
+  white-space: nowrap;
+}
+.am-sortable { cursor: pointer; user-select: none; }
+.am-sortable:hover { color: var(--raven); }
+/* Header cell that pairs the shared SortHeader button with adjacent content (e.g. the status
+   legend). Keeps the button and the trailing control on one aligned row. */
+
+.am-td { padding: 8px 12px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
+.am-row:last-child .am-td { border-bottom: none; }
+.am-row:hover { background: rgba(244,241,236,0.5); }
+.am-row-highlight { animation: am-highlight-fade 2.5s ease-out forwards; }
+@keyframes am-highlight-fade {
+  0%   { background: rgba(159,175,248,0.28); }
+  100% { background: transparent; }
+}
+.am-td-name   { font-weight: 600; color: var(--raven); white-space: nowrap; min-width: 150px; }
+.am-td-school { color: var(--text-secondary); white-space: nowrap; min-width: 120px; }

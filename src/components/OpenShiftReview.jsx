@@ -65,8 +65,7 @@ export default function OpenShiftReview({ openLogs = [], students = [], units = 
 
   if (rows.length === 0) return null
 
-  const th = { padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', whiteSpace: 'nowrap' }
-  const td = { padding: '9px 12px', fontSize: 12.5, color: '#374151', verticalAlign: 'top' }
+    const td = { padding: '9px 12px', fontSize: 12.5, color: '#374151', verticalAlign: 'top' }
 
   return (
     <div style={{ margin: '8px 0 24px', fontFamily: F }}>
@@ -105,7 +104,7 @@ export default function OpenShiftReview({ openLogs = [], students = [], units = 
                 <thead>
                   <tr style={{ borderBottom: '1px solid #eee7da' }}>
                     {['Student', 'Unit', 'Logged Preceptor', 'Shift', 'Checked in', 'Open', 'Status'].map(h => (
-                      <th key={h} style={th}>{h}</th>
+                      <th key={h} className="aspire-th">{h}</th>
                     ))}
                   </tr>
                 </thead>

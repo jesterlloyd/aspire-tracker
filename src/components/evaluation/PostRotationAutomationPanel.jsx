@@ -377,10 +377,7 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
                 <thead>
                   <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                     {COLS.map(h => (
-                      <th key={h} style={{
-                        padding: '9px 13px', textAlign: h === 'Action' ? 'right' : 'left',
-                        fontSize: 11, fontWeight: 700, color: '#6b7280', whiteSpace: 'nowrap',
-                      }}>{h}</th>
+                      <th key={h} className={h === 'Action' ? 'aspire-th aspire-th-right' : 'aspire-th'}>{h}</th>
                     ))}
                   </tr>
                 </thead>

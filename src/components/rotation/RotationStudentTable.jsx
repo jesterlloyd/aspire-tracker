@@ -30,10 +30,6 @@ const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 const COLSPAN = 7
 
-const th = {
-  textAlign: 'left', fontSize: 10.5, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase',
-  letterSpacing: '0.05em', padding: '10px 12px', borderBottom: '1px solid #e8e4dc', whiteSpace: 'nowrap',
-}
 const td = { padding: '11px 12px', fontSize: 12.5, color: '#374151', verticalAlign: 'middle' }
 
 function Badge({ label, tone }) {
@@ -213,17 +209,17 @@ export default function RotationStudentTable({
         </caption>
         <thead>
           <tr>
-            <th scope="col" style={th}>Student</th>
-            <th scope="col" style={th}>
+            <th scope="col" className="aspire-th">Student</th>
+            <th scope="col" className="aspire-th">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 ASPIRE status<StatusLegendPopover position="bottom-left" />
               </span>
             </th>
-            <th scope="col" style={th}>Preceptor</th>
-            <th scope="col" style={th}>Shift</th>
-            <th scope="col" style={th}>Rotation</th>
-            <th scope="col" style={th}>Hours</th>
-            <th scope="col" style={{ ...th, textAlign: 'right' }}>Actions</th>
+            <th scope="col" className="aspire-th">Preceptor</th>
+            <th scope="col" className="aspire-th">Shift</th>
+            <th scope="col" className="aspire-th">Rotation</th>
+            <th scope="col" className="aspire-th">Hours</th>
+            <th scope="col" className="aspire-th aspire-th-right">Actions</th>
           </tr>
         </thead>
         <tbody>

@@ -149,7 +149,9 @@ test('sorting composes with filters: applied after the server filter chain + exp
 test('sortable headers: native buttons with aria-sort on the th and a visible indicator', () => {
   assert.match(dir, /aria-sort=\{activeCol \? \(sort\.dir === 'asc' \? 'ascending' : 'descending'\) : undefined\}/)
   assert.match(dir, /aria-label=\{`Sort by \$\{label\.toLowerCase\(\)\}`\}/)
-  assert.match(dir, /\{activeCol \? \(sort\.dir === 'asc' \? '▲' : '▼'\) : '↕'\}/)
+  // UI-CONSISTENCY-3: the arrow appears only on the sorted column; there is no resting glyph.
+  assert.match(dir, /\{activeCol && \(sort\.dir === 'asc' \? '↑' : '↓'\)\}/)
+  assert.doesNotMatch(dir, /[▲▼↕]/)
   // Headers derive from the module's column config, so the table and the sort rules
   // cannot drift apart.
   assert.match(dir, /Object\.entries\(PORTAL_SORT_COLUMNS\)\.map\(\(\[key, col\]\) => \(/)

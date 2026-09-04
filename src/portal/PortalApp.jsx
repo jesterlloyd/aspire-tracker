@@ -58,6 +58,7 @@ import { resolveAccessState, accessCopy, ACCESS_STATES, SUPPORT_EMAIL } from '..
 // showing its own "something went wrong" card.
 import { PortalAccessSignalContext } from './portalAccessSignal'
 import '../styles/aspireBrand.css'
+import '../styles/aspireTable.css'
 import './portal.css'
 
 // /portal/messages/abc -> 'abc'; /portal/messages -> null; /portal -> null.

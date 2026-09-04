@@ -179,7 +179,7 @@ export default function UnitEvaluationReleaseConsole({ embedded = false }) {
             <thead>
               <tr style={{ background: '#fafafa' }}>
                 {['Student', 'Instrument', 'Timepoint', 'Unit', 'Evaluated preceptor', 'Rotation end', 'Eligible', 'Moderation', 'Release', 'Actions']
-                  .map(h => <th key={h} style={thStyle}>{h}</th>)}
+                  .map(h => <th key={h} className="aspire-th">{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -233,8 +233,6 @@ export default function UnitEvaluationReleaseConsole({ embedded = false }) {
 
 const selStyle = { height: 32, padding: '0 10px', fontFamily: F, fontSize: 12, borderRadius: 7,
   border: '1px solid #e5e7eb', background: '#fff', color: '#374151' }
-const thStyle = { padding: '9px 12px', textAlign: 'left', fontSize: 10.5, fontWeight: 700,
-  letterSpacing: 0.4, textTransform: 'uppercase', color: '#6b7280', whiteSpace: 'nowrap' }
 const tdStyle = { padding: '9px 12px', fontSize: 12.5, color: '#191919', verticalAlign: 'middle' }
 const actBtn = { height: 26, padding: '0 9px', fontFamily: F, fontSize: 11.5, fontWeight: 600,
   borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer' }

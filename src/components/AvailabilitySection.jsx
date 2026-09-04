@@ -193,7 +193,7 @@ export default function AvailabilitySection({ cohortId }) {
               <thead>
                 <tr style={{ background:'var(--sand)' }}>
                   {['Date','Start','End','Interviewer','Duration','Active',''].map(h => (
-                    <th key={h} style={{ padding:'6px 8px', textAlign:'left', fontWeight:700, color:'var(--text-secondary)', fontSize: 'var(--aspire-th-size)', textTransform:'uppercase', letterSpacing:'0.04em' }}>{h}</th>
+                    <th key={h} className="aspire-th">{h}</th>
                   ))}
                 </tr>
               </thead>

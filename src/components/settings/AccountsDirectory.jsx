@@ -134,7 +134,8 @@ function PortalAccountAvatar({ record, size = 32, online }) {
   return <PresenceAvatar user={user} size={size} online={online} />
 }
 
-const th = { textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#6b7280', padding: '10px 12px', position: 'sticky', top: 0, background: '#fbfbfc', borderBottom: '1px solid #eceef2', zIndex: 1 }
+// UI-CONSISTENCY-3: typography, band and hairline come from .aspire-th; this keeps only the sticky layout.
+const th = { position: 'sticky', top: 0, zIndex: 1 }
 const td = { padding: '11px 12px', fontSize: 13, color: '#191919', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle' }
 
 // ACCOUNTS-KPI-SORT-1: sortable column header for the Portal Access table. A native
@@ -144,17 +145,15 @@ const td = { padding: '11px 12px', fontSize: 13, color: '#191919', borderBottom:
 function SortableTh({ colKey, label, sort, onSort, align = 'left' }) {
   const activeCol = sort.key === colKey
   return (
-    <th style={{ ...th, textAlign: align, padding: 0 }}
+    <th className="aspire-th" style={{ ...th, textAlign: align, padding: 0 }}
       aria-sort={activeCol ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
-      <button type="button" onClick={() => onSort(colKey)}
+      {/* UI-CONSISTENCY-3: the button inherits the cell's type through .preceptor-dir-sort; the
+          arrow appears only on the sorted column, never a resting glyph. */}
+      <button type="button" className="preceptor-dir-sort" onClick={() => onSort(colKey)}
         aria-label={`Sort by ${label.toLowerCase()}`}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: '100%', padding: '10px 12px',
-          background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: activeCol ? '#1D2567' : 'inherit',
-          fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', textAlign: align, fontFamily: F }}>
+        style={{ width: '100%', padding: '10px 12px', color: activeCol ? '#1D2567' : 'inherit', textAlign: align }}>
         {label}
-        <span aria-hidden="true" style={{ fontSize: 9, lineHeight: 1, opacity: activeCol ? 1 : 0.35 }}>
-          {activeCol ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
-        </span>
+        <span aria-hidden="true">{activeCol && (sort.dir === 'asc' ? '↑' : '↓')}</span>
       </button>
     </th>
   )
@@ -587,7 +586,7 @@ function StaffPanel({ isNarrow, loading, error, users, limit, onMore, onlineProf
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
-            <thead><tr><th style={th}>Name</th><th style={th}>Staff role</th><th style={th}>Interviewer</th><th style={th}>Status</th><th style={th}>Last login</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+            <thead><tr><th className="aspire-th" style={th}>Name</th><th className="aspire-th" style={th}>Staff role</th><th className="aspire-th" style={th}>Interviewer</th><th className="aspire-th" style={th}>Status</th><th className="aspire-th" style={th}>Last login</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
             <tbody>
               {page.map(u => (
                 <tr key={u.id} tabIndex={0} onClick={(e) => onView(u, e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter') onView(u, e.currentTarget) }} style={{ cursor: 'pointer' }}

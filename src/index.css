@@ -3,6 +3,7 @@
 /* Theme token layer - must load before any legacy vars */
 @import './styles/theme.css';
 @import './styles/aspireBrand.css';
+@import './styles/aspireTable.css';
 /* ASPIRE-CHART: staff functional tokens + shell (loads aspireBrand core) */
 @import './styles/chartTokens.css';
 
@@ -600,22 +601,10 @@ body { min-height: 100vh; }
   min-width: 920px;
   background: var(--pearl);
 }
-.preceptor-dir-table thead th { background: #fafafa; }
+/* UI-CONSISTENCY-3: the header band comes from .am-table thead th in the shared sheet (the token);
+   the #fafafa override that lived here was the one table on a different band. */
 .preceptor-dir-table .am-row { background: #fff; }
-.preceptor-dir-table .am-row:hover { background: #fafafa; }
-.preceptor-dir-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 32px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: inherit;
-  cursor: pointer;
-}
+.preceptor-dir-table .am-row:hover { background: var(--aspire-row-hover); }
 .preceptor-dir-sort:focus-visible {
   outline: 2px solid var(--cs-navy, #1D2567);
   outline-offset: 3px;
@@ -3309,34 +3298,10 @@ button.ov-group-row {
 .am-incomplete-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--raven); cursor: pointer; user-select: none; }
 .am-incomplete-toggle input { accent-color: var(--nightfall); width: 15px; height: 15px; cursor: pointer; }
 
-.am-table-wrap { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; border: 0; box-shadow: var(--aspire-shadow-card); border-radius: var(--aspire-radius-card); background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.am-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.am-table thead th { position: sticky; top: 0; z-index: 10; background: var(--sand); }
+/* UI-CONSISTENCY-3: the .am-* table family moved to src/styles/aspireTable.css, which the
+   portals import too. It lived here only, so PreceptorDirectoryTable rendered unstyled in the
+   Unit Leader portal: 16px, no caps, no band. */
 
-.am-th {
-  padding: var(--aspire-th-pad); text-align: left;
-  font-size: var(--aspire-th-size); font-weight: var(--aspire-th-weight); color: var(--aspire-th-color);
-  text-transform: uppercase; letter-spacing: var(--aspire-th-tracking);
-  background: var(--aspire-th-bg); border-bottom: var(--aspire-row-line);
-  white-space: nowrap;
-}
-.am-sortable { cursor: pointer; user-select: none; }
-.am-sortable:hover { color: var(--raven); }
-.am-sort-icon { opacity: 0.35; font-size: 10px; }
-/* Header cell that pairs the shared SortHeader button with adjacent content (e.g. the status
-   legend). Keeps the button and the trailing control on one aligned row. */
-.am-sort-th-inner { display: inline-flex; align-items: center; gap: 6px; }
-
-.am-td { padding: 8px 12px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
-.am-row:last-child .am-td { border-bottom: none; }
-.am-row:hover { background: rgba(244,241,236,0.5); }
-.am-row-highlight { animation: am-highlight-fade 2.5s ease-out forwards; }
-@keyframes am-highlight-fade {
-  0%   { background: rgba(159,175,248,0.28); }
-  100% { background: transparent; }
-}
-.am-td-name   { font-weight: 600; color: var(--raven); white-space: nowrap; min-width: 150px; }
-.am-td-school { color: var(--text-secondary); white-space: nowrap; min-width: 120px; }
 
 .am-access-cell { display: flex; align-items: center; gap: 6px; min-width: 80px; }
 .am-checkbox { width: 15px; height: 15px; accent-color: #16a34a; cursor: pointer; flex-shrink: 0; }
@@ -3826,6 +3791,9 @@ button.ov-group-row {
 .ir-worklist { display: flex; flex-direction: column; border: 0; border-radius: var(--aspire-radius-card); background: var(--pearl); overflow: hidden; box-shadow: var(--aspire-shadow-card); }
 .ir-wl-thead { display: flex; align-items: center; background: var(--aspire-th-bg); border-bottom: var(--aspire-row-line); position: sticky; top: 0; z-index: 5; }
 .ir-wl-th { padding: var(--aspire-th-pad); font-family: 'Plus Jakarta Sans', sans-serif; font-size: var(--aspire-th-size); font-weight: var(--aspire-th-weight); text-transform: uppercase; letter-spacing: var(--aspire-th-tracking); color: var(--aspire-th-color); white-space: nowrap; }
+/* UI-CONSISTENCY-3: two of these header cells are <button>s. The class is on the button, so
+   its typography wins over the browser default, but the button chrome still has to go. */
+button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: pointer; user-select: none; }
 .ir-wl-row { display: flex; align-items: stretch; border-bottom: var(--aspire-row-line); cursor: pointer; transition: background 0.12s ease; min-height: 76px; }
 .ir-wl-row:hover { background: var(--aspire-row-hover); }
 .ir-wl-row:last-child { border-bottom: none; }

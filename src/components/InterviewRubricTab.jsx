@@ -360,7 +360,7 @@ export default function InterviewRubricTab({
   const SortIcon = ({ field }) =>
     sortBy === field
       ? <span style={{ marginLeft:3 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>
-      : <span style={{ marginLeft:3, opacity:0.3 }}>↕</span>
+      : null
 
   const filteredByCard = activeFilter
     ? students.filter(s => {
@@ -633,16 +633,14 @@ export default function InterviewRubricTab({
                   aria-sort={sortBy === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
                   aria-label={`Sort by ${label}`}
                   style={{ cursor:'pointer', userSelect:'none', display:'flex', alignItems:'center', gap:4,
-                    background:'transparent', border:'none', font:'inherit', color:'inherit', textAlign:'left', padding:0 }}
+                    background:'transparent', border:'none', textAlign:'left', padding:0 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(29,37,103,0.05)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
                   {/* UI-CONSISTENCY-2: the active sort column is navy, like the Evaluation table;
                       weight stays at the header token so headers read as one row. */}
                   <span style={{ color: sortBy === key ? '#1D2567' : 'inherit' }}>{label}</span>
-                  {sortBy === key
-                    ? <span aria-hidden="true">{sortDir === 'asc' ? '↑' : '↓'}</span>
-                    : <span aria-hidden="true" style={{ opacity:0.3 }}>↕</span>}
+                  {sortBy === key && <span aria-hidden="true">{sortDir === 'asc' ? '↑' : '↓'}</span>}
                 </button>
               ))}
               <div className="ir-wl-th ir-wl-col-workflow" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
