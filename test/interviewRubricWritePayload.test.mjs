@@ -12,7 +12,10 @@ import { readFile } from 'node:fs/promises'
 import {
   INTERVIEW_RUBRIC_COLUMNS,
   INTERVIEW_RUBRIC_COMPUTED_KEYS,
+  INTERVIEW_RUBRIC_SERVER_KEYS,
   toInterviewRubricWrite,
+  toInterviewRubricInsert,
+  resolveDraftRubricId,
 } from '../src/lib/interviewRubricWrite.js'
 
 const migrationPath = new URL('../supabase/migrations/20260822010000_interview_rubric_authorization.sql', import.meta.url)
@@ -77,10 +80,10 @@ test('every field the session form starts with is a writable column', () => {
 })
 
 test('every interview_rubrics write in RubricSession passes the gate', () => {
-  assert.match(session, /import \{ toInterviewRubricWrite \} from '\.\.\/lib\/interviewRubricWrite'/)
+  assert.match(session, /import \{ toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId \} from '\.\.\/lib\/interviewRubricWrite'/)
   // persist: the shared payload is gated once, and the create path gates the whole spread.
   assert.match(session, /const payload = toInterviewRubricWrite\(\{\s*\.\.\.scopedUpdates,/)
-  assert.match(session, /\.insert\(toInterviewRubricWrite\(\{ student_id: student\.id, cohort_id: cohortId, \.\.\.initForm\(\), \.\.\.form, \.\.\.payload \}\)\)/)
+  assert.match(session, /\.insert\(toInterviewRubricInsert\(\{ student_id: student\.id, cohort_id: cohortId, \.\.\.initForm\(\), \.\.\.form, \.\.\.payload \}\)\)/)
   assert.match(session, /\.update\(payload\)\.eq\('id', id\)/)
   // reset, unlock, and inline edit each gate their literal.
   const gatedUpdates = session.match(/\.update\(toInterviewRubricWrite\(/g) || []
@@ -94,4 +97,45 @@ test('the whole-form writers that carried the RPC row still exist and are the re
   assert.match(session, /await persistRef\.current\(formRef\.current, false\)/)
   assert.match(session, /persist\(\{ \.\.\.form, status:'Completed', composite_score: composite \}, true\)/)
   assert.match(session, /setForm\(existing\); setRubricId\(existing\.id\); return/)
+})
+
+// INTERVIEW-RUBRIC-WRITE-2: a restored draft must adopt its row, and an insert must
+// never carry a row identity ("duplicate key value violates unique constraint
+// "interview_rubrics_pkey"").
+
+test('an insert built from a whole form never carries id or created_at', () => {
+  const written = toInterviewRubricInsert({ ...rpcRow(), student_id: 's1', cohort_id: 'c1' })
+  for (const key of INTERVIEW_RUBRIC_SERVER_KEYS) assert.equal(key in written, false, `${key} must be left to the database`)
+  for (const key of INTERVIEW_RUBRIC_COMPUTED_KEYS) assert.equal(key in written, false)
+  assert.equal(written.student_id, 's1')
+  assert.equal(written.cohort_id, 'c1')
+  assert.equal(written.cj_score, 'value:cj_score')
+  // The update gate still carries id: an update payload naming its own row is harmless.
+  assert.equal(toInterviewRubricWrite({ id: 'r1' }).id, 'r1')
+})
+
+test('a draft adopts the rubric it came from only while that row still exists', () => {
+  const rubrics = [{ id: 'r1', student_id: 's1' }, { id: 'r2', student_id: 's1' }]
+  assert.equal(resolveDraftRubricId({ id: 'r2', cj_score: 3 }, rubrics), 'r2')
+  assert.equal(resolveDraftRubricId({ id: 'gone', cj_score: 3 }, rubrics), null, 'a deleted row is not adopted')
+  assert.equal(resolveDraftRubricId({ cj_score: 3 }, rubrics), null, 'a form with no id is a new rubric')
+  assert.equal(resolveDraftRubricId(null, rubrics), null)
+  assert.equal(resolveDraftRubricId({ id: 'r1' }, undefined), null)
+})
+
+test('the session adopts a draft row on restore and again at save time', () => {
+  assert.match(session, /import \{ toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId \} from '\.\.\/lib\/interviewRubricWrite'/)
+  // Restore: the id is restored beside the form.
+  assert.match(session, /const draftRubricId = resolveDraftRubricId\(draft\.formState, rubrics\)\s*if \(draftRubricId\) setRubricId\(draftRubricId\)/)
+  // Save: any path that seeded the form without rubricId resolves the row before choosing insert.
+  assert.match(session, /let id = rubricId \|\| resolveDraftRubricId\(form, studentRubrics\)\s*if \(id && !rubricId\) setRubricId\(id\)/)
+  // No insert on the table bypasses the insert gate.
+  assert.doesNotMatch(session, /from\('interview_rubrics'\)\s*\.insert\(toInterviewRubricWrite\(/)
+})
+
+test('the existing-rubrics banner does not call an in-progress row submitted', () => {
+  assert.match(session, /const submitted  = completedRubrics\.length/)
+  assert.match(session, /const inProgress = studentRubrics\.length - submitted/)
+  assert.match(session, /rubric\$\{inProgress !== 1 \? 's' : ''\} in progress/)
+  assert.doesNotMatch(session, /\{studentRubrics\.length\} rubric\{studentRubrics\.length !== 1 \? 's' : ''\} already submitted/)
 })

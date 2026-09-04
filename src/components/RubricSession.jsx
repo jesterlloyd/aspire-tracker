@@ -18,7 +18,7 @@ import { openStudentFile } from '../lib/useStudentFile'
 import { saveInterviewOutcome } from '../lib/studentProxy'
 import { normalizeStaffRole } from '../lib/permissions'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
-import { toInterviewRubricWrite } from '../lib/interviewRubricWrite'
+import { toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId } from '../lib/interviewRubricWrite'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -505,12 +505,16 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       composite_score: (scopedUpdates.cj_score ?? (form.cj_score || 0)) + (scopedUpdates.pp_score ?? (form.pp_score || 0)) + (scopedUpdates.ga_score ?? (form.ga_score || 0)),
       updated_at: new Date().toISOString(),
     })
-    let id = rubricId
+    // A restored browser draft carries the id of the rubric it was taken from while
+    // rubricId can still be null (the seed set only the form). Adopt that row rather
+    // than inserting its id a second time, which violates interview_rubrics_pkey.
+    let id = rubricId || resolveDraftRubricId(form, studentRubrics)
+    if (id && !rubricId) setRubricId(id)
     if (!id) {
       const effectiveInterviewerName = payload.interviewer_name || form.interviewer_name
       if (!createIfNeeded || !effectiveInterviewerName) { setSaveStatus('idle'); return false }
       const { data, error } = await safeWrite(
-        () => supabase.from('interview_rubrics').insert(toInterviewRubricWrite({ student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload })).select().single(),
+        () => supabase.from('interview_rubrics').insert(toInterviewRubricInsert({ student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload })).select().single(),
         { name: 'create rubric' }
       )
       if (error) {
@@ -817,13 +821,17 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       // rerender the tree, but a stored draft is restored only once per student.
       restoredDraftKeyRef.current = key
 
-      // Restore every tracked field
+      // Restore every tracked field, and the row the draft belongs to: a draft taken
+      // from an existing rubric carries that row's id, and without rubricId the next
+      // edit would create a second row with the same id.
       if (draft.formState) {
         setForm(isInterviewerOnly ? {
           ...draft.formState,
           interviewer_profile_id: userProfile?.id || null,
           interviewer_name: userProfile?.full_name || '',
         } : draft.formState)
+        const draftRubricId = resolveDraftRubricId(draft.formState, rubrics)
+        if (draftRubricId) setRubricId(draftRubricId)
       }
       if (draft.prefs)                       setPrefs(draft.prefs)
       if (draft.flagNote   !== undefined)    setFlagNote(draft.flagNote)
@@ -1181,12 +1189,20 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
           )}
 
           {/* Existing rubrics banner */}
-          {!readOnly && studentRubrics.length > 0 && (
-            <div style={{ background:'var(--marina)', border:'1px solid #b8d8eb', borderRadius:6, padding:'10px 14px', margin:'0 0 16px', fontSize:13, color:'var(--nightfall)' }}>
-              <strong>{studentRubrics.length} rubric{studentRubrics.length !== 1 ? 's' : ''} already submitted</strong> for this student.
-              {!rubricId && ' You are adding a new rubric. Each interviewer scores independently.'}
-            </div>
-          )}
+          {!readOnly && studentRubrics.length > 0 && (() => {
+            // Count what is actually there: a row still In Progress is not "submitted".
+            const submitted  = completedRubrics.length
+            const inProgress = studentRubrics.length - submitted
+            const parts = []
+            if (submitted)  parts.push(`${submitted} rubric${submitted !== 1 ? 's' : ''} already submitted`)
+            if (inProgress) parts.push(`${inProgress} rubric${inProgress !== 1 ? 's' : ''} in progress`)
+            return (
+              <div style={{ background:'var(--marina)', border:'1px solid #b8d8eb', borderRadius:6, padding:'10px 14px', margin:'0 0 16px', fontSize:13, color:'var(--nightfall)' }}>
+                <strong>{parts.join(' and ')}</strong> for this student.
+                {!rubricId && ' You are adding a new rubric. Each interviewer scores independently.'}
+              </div>
+            )
+          })()}
 
           <div className="rub-form-body">
 

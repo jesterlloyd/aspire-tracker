@@ -48,3 +48,32 @@ export function toInterviewRubricWrite(values) {
   }
   return out
 }
+
+// INTERVIEW-RUBRIC-WRITE-2: the create path never sends a row's identity.
+//
+// A browser draft is saved from the whole form, so a draft taken from an existing
+// rubric carries that row's id and created_at. Restoring it set the form but not
+// rubricId, so the next edit took the create path and inserted the same id again:
+//   duplicate key value violates unique constraint "interview_rubrics_pkey"
+// The fix has two halves: resolveDraftRubricId lets the session adopt the row the
+// draft came from, and toInterviewRubricInsert guarantees an insert can never carry
+// an id or created_at, so the database generates both.
+export const INTERVIEW_RUBRIC_SERVER_KEYS = Object.freeze(['id', 'created_at'])
+
+const SERVER_KEYS = new Set(INTERVIEW_RUBRIC_SERVER_KEYS)
+
+// toInterviewRubricWrite, minus the keys only the database may set on a new row.
+export function toInterviewRubricInsert(values) {
+  const out = toInterviewRubricWrite(values)
+  for (const key of SERVER_KEYS) delete out[key]
+  return out
+}
+
+// The id of the rubric row a form (or a stored draft's formState) was taken from, when
+// that row still exists in the session's rubric list; otherwise null. A stale id from a
+// row that was deleted must not be adopted, and a form with no id is a new rubric.
+export function resolveDraftRubricId(formState, rubrics) {
+  const id = formState?.id
+  if (!id || !Array.isArray(rubrics)) return null
+  return rubrics.some(r => r?.id === id) ? id : null
+}
