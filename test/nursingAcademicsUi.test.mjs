@@ -222,7 +222,8 @@ test('the Settings panel warns about non-clinical-hour double-counting and defer
 test('contact KPI filter cards follow the canonical FilterKPICard treatment (no colored outline)', () => {
   // Rest state: near-invisible border + 14px radius + s1 shadow, exactly the
   // values FilterKPICard uses in src/components/KPIBand.jsx.
-  assert.match(css, /\.ptl-na-contact-kpi \{[\s\S]*?border: 1px solid rgba\(29, 37, 103, 0\.06\); border-radius: 14px;/)
+  // UI-CONSISTENCY-4: no outline at all, and the shared radius; the "no colored outline" intent holds more strongly.
+  assert.match(css, /\.ptl-na-contact-kpi \{[\s\S]*?border: 0; border-radius: var\(--aspire-radius-card, 12px\);/)
   assert.doesNotMatch(css, /\.ptl-na-contact-kpi \{[\s\S]{0,400}?var\(--ptl-na-contact-border/)
 })
 
@@ -336,7 +337,7 @@ test('the Community Benefit program filters follow the canonical FilterKPICard t
   // Accents from the canonical palette, applied per card via CSS vars.
   assert.match(benefit, /const PROGRAM_ACCENTS = Object\.freeze\(\{/)
   assert.match(benefit, /'--ptl-na-program-tint': accent\.tint, '--ptl-na-program-solid': accent\.solid/)
-  assert.match(css, /\.ptl-na-program-card \{[\s\S]{0,200}?border: 1px solid rgba\(29, 37, 103, 0\.06\); border-radius: 14px;/)
+  assert.match(css, /\.ptl-na-program-card \{[\s\S]{0,200}?border: 0; border-radius: var\(--aspire-radius-card, 12px\);/)
   assert.match(css, /background: var\(--ptl-na-program-tint, #f7f8fc\)/)
   assert.match(css, /\.ptl-na-program-card-active \{\s*\n\s*background: var\(--ptl-na-program-solid/)
 })

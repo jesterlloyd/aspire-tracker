@@ -285,6 +285,65 @@ export default function CommunityBenefitView({
             />
           )}
 
+          {/* UI-CONSISTENCY-4: the program KPI filters and the controls sit ABOVE the card, as they
+              do on every other roster (Academic Partner Students, Alumni Roster, Interviews). The
+              card is the heading and the table; a card that also swallowed its own filters read
+              as one undifferentiated block. */}
+          <div className="ptl-na-program-kpis" role="group" aria-label="Filter student detail by program">
+            {PROGRAM_FILTERS.map(key => {
+              const selected = programFilter === key
+              const accent = PROGRAM_ACCENTS[key] || PROGRAM_ACCENTS['All Programs']
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`ptl-na-program-card${selected ? ' ptl-na-program-card-active' : ''}`}
+                  style={{ '--ptl-na-program-tint': accent.tint, '--ptl-na-program-solid': accent.solid }}
+                  aria-pressed={selected}
+                  onClick={() => setProgramFilter(key)}
+                >
+                  <strong>{num.format(programCounts[key] || 0)}</strong>
+                  <span>{key}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="ptl-na-table-controls" role="group" aria-label="Student detail controls">
+            <label className="ptl-na-search" htmlFor="na-detail-search">
+              <span className="ptl-visually-hidden">Search students</span>
+              <input
+                id="na-detail-search"
+                type="search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search student"
+              />
+            </label>
+            <label className="ptl-na-control" htmlFor="na-detail-school">
+              <span className="ptl-visually-hidden">Filter by school</span>
+              <select id="na-detail-school" value={activeSchoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
+                <option value="">All Schools</option>
+                {schools.map(s => <option key={s} value={s}>{academicsSchoolLabel(s)}</option>)}
+              </select>
+            </label>
+            <label className="ptl-na-control" htmlFor="na-detail-cohort">
+              <span className="ptl-visually-hidden">Filter by cohort</span>
+              <select id="na-detail-cohort" value={activeCohortFilter} onChange={e => setCohortFilter(e.target.value)}>
+                <option value="">All Cohorts</option>
+                {cohorts.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="ptl-na-control" htmlFor="na-detail-sort">
+              <span className="ptl-visually-hidden">Sort students</span>
+              <select id="na-detail-sort" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                <option value="student-az">Student A–Z</option>
+                <option value="student-za">Student Z–A</option>
+                <option value="cohort">Cohort Timeline</option>
+              </select>
+            </label>
+          </div>
+
           <section className="ptl-card ptl-na-table-card" aria-labelledby="na-detail-heading">
             <div className="ptl-na-table-heading">
               <div>
@@ -295,61 +354,6 @@ export default function CommunityBenefitView({
                 </p>
               </div>
               <span className="ptl-na-result-count">{filteredRows.length} of {detailRows.length} students</span>
-            </div>
-
-            <div className="ptl-na-program-kpis" role="group" aria-label="Filter student detail by program">
-              {PROGRAM_FILTERS.map(key => {
-                const selected = programFilter === key
-                const accent = PROGRAM_ACCENTS[key] || PROGRAM_ACCENTS['All Programs']
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`ptl-na-program-card${selected ? ' ptl-na-program-card-active' : ''}`}
-                    style={{ '--ptl-na-program-tint': accent.tint, '--ptl-na-program-solid': accent.solid }}
-                    aria-pressed={selected}
-                    onClick={() => setProgramFilter(key)}
-                  >
-                    <strong>{num.format(programCounts[key] || 0)}</strong>
-                    <span>{key}</span>
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="ptl-na-table-controls" role="group" aria-label="Student detail controls">
-              <label className="ptl-na-search" htmlFor="na-detail-search">
-                <span className="ptl-visually-hidden">Search students</span>
-                <input
-                  id="na-detail-search"
-                  type="search"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search student"
-                />
-              </label>
-              <label className="ptl-na-control" htmlFor="na-detail-school">
-                <span className="ptl-visually-hidden">Filter by school</span>
-                <select id="na-detail-school" value={activeSchoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
-                  <option value="">All Schools</option>
-                  {schools.map(s => <option key={s} value={s}>{academicsSchoolLabel(s)}</option>)}
-                </select>
-              </label>
-              <label className="ptl-na-control" htmlFor="na-detail-cohort">
-                <span className="ptl-visually-hidden">Filter by cohort</span>
-                <select id="na-detail-cohort" value={activeCohortFilter} onChange={e => setCohortFilter(e.target.value)}>
-                  <option value="">All Cohorts</option>
-                  {cohorts.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <label className="ptl-na-control" htmlFor="na-detail-sort">
-                <span className="ptl-visually-hidden">Sort students</span>
-                <select id="na-detail-sort" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                  <option value="student-az">Student A–Z</option>
-                  <option value="student-za">Student Z–A</option>
-                  <option value="cohort">Cohort Timeline</option>
-                </select>
-              </label>
             </div>
 
             <div className="ptl-na-table-scroll">

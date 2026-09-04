@@ -2193,35 +2193,34 @@ img.ptl-detail-photo {
 .ptl-na-table-card h2 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--ptl-ink); }
 .ptl-na-table-note { margin: 0; font-size: 11.5px; color: var(--ptl-muted, #6b7280); }
 .ptl-na-result-count { flex: none; font-size: 12px; font-weight: 600; color: var(--ptl-muted, #6b7280); }
-.ptl-na-program-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 14px 0 12px; }
+.ptl-na-program-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0; }
 /* NA-CONTACTS-POLISH-3: the program quick filters follow the canonical
    FilterKPICard treatment (src/components/KPIBand.jsx): accent tint at rest
    with a near-invisible border, solid accent fill when active. */
 .ptl-na-program-card {
-  min-height: 82px; padding: 12px 14px; border: 1px solid rgba(29, 37, 103, 0.06); border-radius: 14px;
+  min-height: 82px; padding: 12px 14px; border: 0; border-radius: var(--aspire-radius-card, 12px);
   box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04);
   background: var(--ptl-na-program-tint, #f7f8fc); color: var(--ptl-na-program-solid, var(--ptl-ink)); text-align: left; cursor: pointer;
   display: flex; flex-direction: column; justify-content: center; gap: 5px;
   transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
 }
-.ptl-na-program-card:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(29, 37, 103, 0.10); }
+.ptl-na-program-card:hover { transform: translateY(-2px); box-shadow: var(--aspire-shadow-card-hover, 0 4px 12px rgba(0,0,0,0.08)); }
 .ptl-na-program-card:focus-visible { outline: 2px solid var(--nightfall, #1D2567); outline-offset: 2px; }
 .ptl-na-program-card strong { font-size: 24px; line-height: 1; }
 .ptl-na-program-card span { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ptl-muted, #6b7280); }
 .ptl-na-program-card-active {
   background: var(--ptl-na-program-solid, var(--nightfall, #1D2567)); color: #fff;
-  border-color: var(--ptl-na-program-solid, var(--nightfall, #1D2567));
   box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 4px 12px rgba(29, 37, 103, 0.05);
 }
 .ptl-na-program-card-active span { color: rgba(255, 255, 255, 0.88); }
-.ptl-na-table-controls { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(150px, .7fr)); gap: 10px; margin-bottom: 12px; }
+.ptl-na-table-controls { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(150px, .7fr)); gap: 10px; margin-bottom: 0; }
 .ptl-na-search input,
 .ptl-na-control select,
 .ptl-na-contact-search input {
   width: 100%; min-height: 40px; padding: 8px 11px; box-sizing: border-box;
   border: 1px solid var(--ptl-line); border-radius: 9px; background: #fff; color: var(--ptl-ink); font: inherit; font-size: 13px;
 }
-.ptl-na-table-scroll { overflow: auto; max-height: min(68vh, 760px); border: 1px solid var(--ptl-line); border-radius: 10px; }
+.ptl-na-table-scroll { overflow: auto; max-height: min(68vh, 760px); border: 0; border-radius: 0; }
 .ptl-na-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 12px; }
 .ptl-na-table th, .ptl-na-table td {
   text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--ptl-line);
@@ -2232,6 +2231,8 @@ img.ptl-detail-photo {
   font-size: var(--aspire-th-size, 11px); font-weight: var(--aspire-th-weight, 700); color: var(--aspire-th-color, #6b7785);
   letter-spacing: var(--aspire-th-tracking, 0.06em); text-transform: uppercase;
   box-shadow: 0 1px 0 var(--ptl-line);
+  /* UI-CONSISTENCY-4: a header never breaks mid-word ("COMPLET / ED"); the column gets wider, not the label shorter. */
+  white-space: nowrap;
 }
 .ptl-na-table th:nth-child(1) { width: 8.5%; }
 .ptl-na-table th:nth-child(2) { width: 6.5%; }
@@ -2258,13 +2259,13 @@ img.ptl-detail-photo {
    The per-category accent still colors the number and the active fill; the
    colored outline is gone. */
 .ptl-na-contact-kpi {
-  min-height: 82px; padding: 12px 14px; border: 1px solid rgba(29, 37, 103, 0.06); border-radius: 14px;
+  min-height: 82px; padding: 12px 14px; border: 0; border-radius: var(--aspire-radius-card, 12px);
   box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04);
   background: var(--ptl-na-contact-bg, #f7f8fc); color: var(--ptl-na-contact-accent, var(--ptl-ink)); text-align: left; cursor: pointer;
   display: flex; flex-direction: column; justify-content: center; gap: 5px;
   transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
 }
-.ptl-na-contact-kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(29, 37, 103, 0.10); }
+.ptl-na-contact-kpi:hover { transform: translateY(-2px); box-shadow: var(--aspire-shadow-card-hover, 0 4px 12px rgba(0,0,0,0.08)); }
 .ptl-na-contact-kpi:focus-visible { outline: 2px solid var(--nightfall, #1D2567); outline-offset: 2px; }
 .ptl-na-contact-kpi strong { font-size: 24px; line-height: 1; }
 .ptl-na-contact-kpi span { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
