@@ -17,7 +17,9 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 
 // Anything not on this list is a typo. A misspelled effect key does not throw,
 // it simply renders nothing, so the registry has to be closed rather than open.
-const EFFECTS = ['lights', 'beacons', 'aircraft', 'water', 'bridge', 'beam']
+const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
+  'birds', 'haze', 'flare', 'helicopter', 'rainfall']
+const CROSSINGS = ['aircraft', 'birds', 'helicopter']
 const POINT_EFFECTS = ['lights', 'beacons', 'water']
 
 // The artwork's left fade runs to 62%, and the greeting sits in it. Points to
@@ -113,26 +115,59 @@ test('a beam stands on the card and rises inside it', () => {
   }
 })
 
-test('aircraft crosses the frame and leaves it', () => {
+test('every crossing has a flight, a direction, and a height inside the card', () => {
+  // The on-screen fraction of a cycle is the VISIBLE constant in MastheadMotion,
+  // written against the keyframes; a stored cycle would be a second source that
+  // could disagree with it, so the data carries only the flight.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
-    if (!m.aircraft) continue
-    const a = m.aircraft
-    assert.ok(a.flight < a.cycle,
-      `${city}.aircraft flight ${a.flight}s must be shorter than its ${a.cycle}s cycle, or the sky never empties`)
-    assert.ok(a.from > a.to, `${city}.aircraft should travel right to left`)
-    assert.ok(a.y >= 0 && a.y <= 100, `${city}.aircraft y=${a.y} is outside the card`)
+    for (const kind of CROSSINGS) {
+      const c = m[kind]
+      if (!c) continue
+      assert.ok(c.flight > 0, `${city}.${kind} needs a flight duration`)
+      assert.equal(c.cycle, undefined, `${city}.${kind} carries a cycle; the component derives it, remove the field`)
+      assert.notEqual(c.from, c.to, `${city}.${kind} must actually move`)
+      assert.ok(c.y >= 0 && c.y <= 100, `${city}.${kind} y=${c.y} is outside the card`)
+    }
   }
 })
 
-test('Atlanta is the crop exception, and the registry knows it', () => {
-  // Atlanta is cropped at 50% rather than the bottom-anchored default, so its
-  // coordinates went through a different conversion. If someone changes its
-  // --scn-img-y, every Atlanta point silently shifts by about 30px and this
-  // test is the only thing that will say so.
-  assert.equal(CITY_IMG_Y.atlanta, '50%')
+test('beacon tone is only red where the artwork paints it red', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    if (m.beaconTone === undefined) continue
+    assert.equal(m.beaconTone, 'red', `${city}.beaconTone "${m.beaconTone}" is not a known tone`)
+    assert.ok(m.beacons?.length, `${city} declares a beacon tone with no beacons to apply it to`)
+  }
+  // Hollywood's mast lights are rgb(163,103,103) in the frame: red. Everyone
+  // else's crowns are white, and stay on the default tone.
+  assert.equal(CITY_MOTION.hollywood.beaconTone, 'red')
+  assert.equal(CITY_MOTION.losangeles.beaconTone, undefined)
+})
+
+test('haze and flare stay on the card where they must, and off it where they may', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    if (m.haze) {
+      assert.ok(m.haze.y >= 0 && m.haze.y + m.haze.height <= 100, `${city}.haze band leaves the card`)
+    }
+    if (m.flare) {
+      // The sun may sit OFF the card (a light source at the edge of frame is the
+      // normal case for a flare), but its height must be on it.
+      assert.ok(m.flare.y >= 0 && m.flare.y <= 100, `${city}.flare y=${m.flare.y} is outside the card`)
+      assert.ok(m.flare.x < QUIET_ZONE_X, `${city}.flare sun at x=${m.flare.x}: ghosts are placed toward the centre from it, so a sun on the right would throw them over the greeting`)
+    }
+  }
+})
+
+test('the crop exceptions are exactly the cities measured through them', () => {
+  // A city cropped at 50% rather than the bottom-anchored default had its
+  // coordinates converted differently. If someone changes a city's --scn-img-y,
+  // every one of its points silently shifts by about 30px and this test is the
+  // only thing that will say so. Atlanta and Hollywood (second pack) are the
+  // two; both were measured through the centred crop.
+  const CENTRED = ['atlanta', 'hollywood']
   assert.equal(DEFAULT_IMG_Y, '100%')
+  for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of Object.keys(CITY_MOTION)) {
-    if (city === 'atlanta') continue
+    if (CENTRED.includes(city)) continue
     assert.equal(CITY_IMG_Y[city], undefined,
       `${city} now has a custom --scn-img-y, so its measured points need redoing`)
   }

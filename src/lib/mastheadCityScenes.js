@@ -251,6 +251,11 @@ export const DEFAULT_SKY_X = '52%'
 // paid at the bottom, where Atlanta has open highway rather than a skyline.
 export const CITY_IMG_Y = {
   atlanta: '50%',
+  // MASTHEAD-HOLLYWOOD-2: the second pack's radio mast reaches source row 36,
+  // and the default crop removes rows 0..60, so it lost its top 25px and all of
+  // its aviation lights with them. Centring the crop keeps the mast whole and
+  // spends the 30px on featureless brush at the bottom instead.
+  hollywood: '50%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -273,13 +278,50 @@ export const DEFAULT_IMG_Y = '100%'
 //   water     reflections on a bay, stretching as well as brightening
 //   bridge    a deck light string, plus traffic running both ways along it
 //   beam      a single landmark shaft of light, for the one city that has one
+//   birds     a small flock crossing clear sky, daytime scenes
+//   haze      the basin's smog, drifting and breathing, daytime scenes
+//   flare     lens artefacts thrown by a low sun, golden hour only
+//   helicopter one aircraft low and slow with a strobe, sunset only
+//   rainfall  streaks over the whole card, rain and cloudy night
+//
+// beaconTone: 'red' paints a city's beacons aviation red. Only where the
+// artwork already does: Hollywood's mast lights are red in the frame.
 export const CITY_MOTION = {
   hollywood: {
+    // MASTHEAD-HOLLYWOOD-2 (2026-09-04): the second Hollywood pack replaced
+    // the first, so EVERY coordinate here was re-measured. All eight frames
+    // share one viewpoint, which is why one set of landmarks serves scenes
+    // that carry that landmark. Measured through the 50% crop (see CITY_IMG_Y),
+    // not the default: the old numbers would be about 30px out.
+    //
+    // Fewer lit points than the first pack, because this frame renders the
+    // basin as a glow rather than as discrete windows; the ones here are the
+    // hillside houses and the far basin edge, right of the greeting.
     lights: [
-      [47.0, 77.9], [51.3, 82.6], [53.6, 44.5], [48.3, 35.7], [46.7, 44.5],
-      [60.6, 74.3], [65.1, 71.1], [66.5, 95.3], [71.0, 89.7], [76.8, 67.3],
-      [77.5, 81.1], [81.9, 47.2], [85.4, 56.3],
+      [49.1, 88.8], [51.5, 59.6], [56.3, 62.2], [57.5, 90.0], [58.1, 78.5],
+      [65.5, 31.9], [68.5, 30.4], [68.5, 71.4], [84.7, 56.9], [94.6, 54.6],
     ],
+    // The Mt Lee mast. Its lights are painted red in the Night and CloudyNight
+    // frames (rgb 163,103,103 at row 88), which is why this city alone carries
+    // beaconTone. The tip sits at card y 0.1%; it is placed at 0.8% so the glow
+    // is not half outside the card, the only non-measured value in this entry.
+    beacons: [[71.4, 0.8], [71.3, 11.7], [71.2, 17.0]],
+    beaconTone: 'red',
+    // Sky is clear to card y 17% at the shallowest point (x 40-50%), so anything
+    // flying at y <= 13% clears every ridge except the mast itself.
+    aircraft: { y: 9, from: 98, to: 36, flight: 36 },
+    birds: { y: 11, from: 99, to: 40, flight: 30, count: 6 },
+    helicopter: { y: 13, from: 44, to: 96, flight: 42 },
+    // The basin lies at card y 40-60%; the band sits on it and drifts.
+    haze: { y: 49, height: 18 },
+    // The golden-hour sun is OFF-FRAME LEFT: the left edge is brightest at card
+    // y 33%. Ghosts lie on the line from there through the card's centre, so
+    // they land on the hills at right, which is exactly where a photograph
+    // would put them.
+    flare: { x: -6, y: 33 },
+    rainfall: true,
+    // No traffic: the frame has no road that reads as a line of light. Griffith
+    // Park's roads are unlit switchbacks in this artwork.
   },
   losangeles: {
     // The basin is a carpet of light, which is the best possible case for this.
@@ -291,8 +333,10 @@ export const CITY_MOTION = {
     // Two crowns, because downtown LA really is dominated by two towers.
     beacons: [[62.5, 62.2], [64.4, 66.4]],
     // East to west over downtown, the way an approach actually runs. It leaves
-    // the frame before the cycle repeats, so the loop has no seam to hide.
-    aircraft: { y: 21, from: 97, to: 33, flight: 34, cycle: 82 },
+    // the frame before the cycle repeats, so the loop has no seam to hide. The
+    // cycle is flight / VISIBLE (MastheadMotion), so the sky is empty ~59% of
+    // the time; there is deliberately no per-city cycle to disagree with that.
+    aircraft: { y: 21, from: 97, to: 33, flight: 34 },
   },
   sanfrancisco: {
     lights: [

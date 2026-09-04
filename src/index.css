@@ -2229,12 +2229,156 @@ a.doc-file-link:hover { text-decoration: underline; }
   animation: mast-car-east var(--dur, 13s) linear var(--dl, 0s) infinite;
 }
 
+
+/* ── MASTHEAD-HOLLYWOOD-2: the daytime kinds, so a city is alive in every
+   scene and not only after dark. Same rules as the night kinds: zero payload,
+   screen blend where the thing IS light, gated to scenes in this file. ── */
+
+/* Red beacons, only where the artwork paints them red (Hollywood's mast). */
+.mast-motion-beacon-red {
+  background: radial-gradient(circle,
+    rgba(255,120,110,0.95) 0%, rgba(235,70,70,0.45) 34%, transparent 68%);
+}
+
+/* ── RAINFALL. Individual streaks, each on its own timing (see DROPS in
+   MastheadMotion). The container is tilted a little off vertical, which is
+   how rain actually reads through a lens, and the streaks fall through a
+   fixed pixel distance that covers the tallest card. Faded off the greeting
+   like everything else. ── */
+.mast-motion-rain {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  transform: rotate(-11deg) scale(1.25); transform-origin: 50% 50%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.25) 30%, #000 58%);
+  mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.25) 30%, #000 58%);
+}
+.mast-motion-drop {
+  position: absolute; top: -40px; width: 1px; mix-blend-mode: screen;
+  background: linear-gradient(180deg, transparent 0%, rgba(222,234,255,0.9) 55%, transparent 100%);
+}
+@keyframes mast-drop { from { transform: translateY(0); } to { transform: translateY(440px); } }
+.mast-scenic.mast-scene-rain .mast-motion-rain,
+.mast-scenic.mast-scene-cloudynight .mast-motion-rain { opacity: 1; }
+.mast-scenic.mast-scene-rain .mast-motion-drop,
+.mast-scenic.mast-scene-cloudynight .mast-motion-drop {
+  animation: mast-drop var(--dur, 0.9s) linear var(--dl, 0s) infinite;
+}
+
+/* ── HAZE. The basin's smog: a warm-grey veil that drifts and thickens. Normal
+   blend, not screen, because smog takes light away. Soft on every edge, and
+   faded off the greeting like the artwork itself. ── */
+.mast-motion-haze {
+  position: absolute; left: -12%; width: 130%; opacity: 0;
+  background: linear-gradient(90deg,
+    rgba(212,202,184,0) 0%, rgba(212,202,184,0.55) 14%, rgba(206,198,184,0.30) 30%,
+    rgba(214,206,190,0.58) 48%, rgba(208,200,186,0.26) 64%, rgba(212,204,188,0.50) 80%,
+    rgba(212,202,184,0) 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 35%, #000 65%, transparent 100%),
+    linear-gradient(90deg, transparent 0, rgba(0,0,0,0.25) 28%, #000 56%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 35%, #000 65%, transparent 100%),
+    linear-gradient(90deg, transparent 0, rgba(0,0,0,0.25) 28%, #000 56%);
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+  filter: blur(6px);
+}
+@keyframes mast-haze {
+  0%   { transform: translateX(0);    opacity: 0.32; }
+  50%  { transform: translateX(-7%);  opacity: 0.50; }
+  100% { transform: translateX(-13%); opacity: 0.30; }
+}
+.mast-scenic.mast-scene-day .mast-motion-haze,
+.mast-scenic.mast-scene-morning .mast-motion-haze {
+  animation: mast-haze 64s ease-in-out infinite alternate;
+}
+
+/* ── BIRDS. A loose V of dark chevrons crossing clear sky. Each bird flaps on
+   its own period (scaleY on transform) and bobs on another (the separate
+   translate property, so the two never fight over one transform). The flock
+   rides the same crossing keyframe as the aircraft. ── */
+.mast-motion-flock {
+  position: absolute; left: var(--from, 100%); opacity: 0;
+  width: 6.5%; height: 22%;   /* the box the FLOCK offsets are percentages of */
+  /* Centred on its y with a transform, NOT a percentage margin: a percentage
+     margin resolves against the container's WIDTH, and on a 5.9:1 card that
+     put the flock 149px above the top edge. */
+  transform: translateY(-50%);
+}
+.mast-motion-bird {
+  position: absolute; width: 7px; height: 3px; margin: -1.5px 0 0 -3.5px;
+  background: rgba(28,30,40,0.82);
+  clip-path: polygon(0 100%, 50% 0, 100% 100%, 100% 58%, 50% 26%, 0 58%);
+  transform-origin: 50% 50%;
+}
+@keyframes mast-flap { from { transform: scaleY(1); } to { transform: scaleY(0.22); } }
+@keyframes mast-bob  { from { translate: 0 0; } to { translate: 0 2.2px; } }
+.mast-scenic.mast-scene-day .mast-motion-flock,
+.mast-scenic.mast-scene-morning .mast-motion-flock,
+.mast-scenic.mast-scene-dawn .mast-motion-flock {
+  animation: mast-fly var(--cycle, 74s) linear infinite;
+}
+.mast-scenic.mast-scene-day .mast-motion-bird,
+.mast-scenic.mast-scene-morning .mast-motion-bird,
+.mast-scenic.mast-scene-dawn .mast-motion-bird {
+  animation: mast-flap var(--flap, 0.45s) ease-in-out infinite alternate,
+             mast-bob  var(--bob, 2.5s)  ease-in-out infinite alternate;
+}
+
+/* ── HELICOPTER. Low, slow, strobing: the three things that make it not an
+   aircraft. The body is a dark speck (it is against a lit sky), the strobe is
+   red and fast with a short duty. ── */
+.mast-motion-heli { position: absolute; left: var(--from, 40%); opacity: 0; width: 0; height: 0; }
+.mast-motion-heli-body {
+  position: absolute; width: 6px; height: 2px; margin: -1px 0 0 -3px;
+  background: rgba(40,34,44,0.85); border-radius: 50%;
+}
+.mast-motion-heli-strobe {
+  position: absolute; width: 3px; height: 3px; margin: -1.5px 0 0 1px;
+  border-radius: 50%; mix-blend-mode: screen; opacity: 0;
+  background: radial-gradient(circle, rgba(255,120,110,1) 0%, rgba(240,70,70,0.5) 40%, transparent 72%);
+}
+@keyframes mast-strobe { 0%, 84% { opacity: 0; } 87%, 91% { opacity: 1; } 94%, 100% { opacity: 0; } }
+@keyframes mast-hover  { from { translate: 0 0; } to { translate: 0 1.6px; } }
+.mast-scenic.mast-scene-sunset .mast-motion-heli {
+  animation: mast-fly var(--cycle, 104s) linear infinite, mast-hover 1.7s ease-in-out infinite alternate;
+}
+.mast-scenic.mast-scene-sunset .mast-motion-heli-strobe { animation: mast-strobe 1.1s linear infinite; }
+
+/* ── FLARE. Golden hour only. Ghosts sit on the sun-to-centre line and
+   breathe in size; the streak is anamorphic, horizontal from the sun. The whole
+   layer sways a fraction of a percent, the way a hand-held frame does. Faded
+   off the greeting, so only the ghosts that land on the hills are seen. ── */
+.mast-motion-flare {
+  position: absolute; inset: 0; opacity: 0; pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.15) 28%, rgba(0,0,0,0.7) 50%, #000 66%);
+  mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.15) 28%, rgba(0,0,0,0.7) 50%, #000 66%);
+}
+.mast-motion-flare-streak {
+  position: absolute; left: -12%; width: 92%; height: 2px; margin-top: -1px;
+  mix-blend-mode: screen; filter: blur(1px);
+  background: linear-gradient(90deg, rgba(255,238,204,0.75) 0%, rgba(255,226,180,0.35) 45%, transparent 100%);
+}
+.mast-motion-ghost {
+  position: absolute; aspect-ratio: 1; border-radius: 50%;
+  transform: translate(-50%, -50%); mix-blend-mode: screen;
+  opacity: var(--ghost-alpha, 0.25);
+  background: radial-gradient(circle,
+    rgba(255,226,178,0.95) 0%, rgba(255,208,150,0.55) 38%, rgba(255,196,130,0.18) 62%, transparent 74%);
+}
+@keyframes mast-sway  { from { translate: 0 0; } to { translate: -0.5% 0.35%; } }
+@keyframes mast-ghost { from { transform: translate(-50%, -50%) scale(0.90); } to { transform: translate(-50%, -50%) scale(1.08); } }
+.mast-scenic.mast-scene-goldenhour .mast-motion-flare {
+  opacity: 1; animation: mast-sway 9.5s ease-in-out infinite alternate;
+}
+.mast-scenic.mast-scene-goldenhour .mast-motion-ghost {
+  animation: mast-ghost 5.3s ease-in-out var(--dl, 0s) infinite alternate;
+}
+
 /* Motion is decoration, so reduced motion removes it outright rather than
    slowing it down. The card is complete without it. */
 @media (prefers-reduced-motion: reduce) {
   .mast-motion-bolt, .mast-motion-light, .mast-motion-beacon, .mast-motion-plane,
   .mast-motion-plane-dot, .mast-motion-water, .mast-motion-decklight, .mast-motion-car,
-  .mast-motion-beam {
+  .mast-motion-beam, .mast-motion-rain, .mast-motion-drop, .mast-motion-haze, .mast-motion-flock,
+  .mast-motion-bird, .mast-motion-heli, .mast-motion-heli-strobe, .mast-motion-flare,
+  .mast-motion-ghost {
     animation: none !important; opacity: 0 !important;
   }
 }

@@ -248,21 +248,17 @@ test('a retired abbreviation no longer resolves, and the guard is what says so',
   assert.ok(!CITY_COORDS.nyc, 'which has no coordinates, so location can never reach it')
 })
 
-test('the vertical crop is per city, and only Atlanta opts out of bottom-anchored', () => {
-  // The card is 5.9:1 and the panoramas are 5:1, so cover crops a band and
-  // object-position decides which. 100% takes the whole crop off the TOP,
-  // which keeps the ground whole and suits a skyline sitting well below the
-  // frame's top edge. Every city but one is like that.
+test('the vertical crop is per city, and only the cities whose mast or spire needs it opt out', () => {
+  // Bottom-anchored is the default because the panoramas are composed with
+  // ground at the bottom and sky to spare. Atlanta's spire (row 42) and the
+  // second Hollywood pack's radio mast (row 36) both reach into the top 61
+  // rows the default removes, so they crop centred. Everyone else stays.
   assert.equal(DEFAULT_IMG_Y, '100%')
-  for (const city of ['losangeles', 'lasvegas', 'newyork', 'sanfrancisco', undefined, null]) {
-    assert.equal(imgPositionFor(city), '100%', String(city))
-  }
-  // Atlanta's tallest spire begins at source row 42 of 400 and the card was
-  // slicing about 12px off it. Both the crop and the tower scale with the card
-  // width, so the ratio is viewport-independent: 69% is the point the spire
-  // touches the edge, and this leaves headroom below that.
+  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood'])
   assert.equal(imgPositionFor('atlanta'), '50%')
-  assert.ok(Number.parseInt(CITY_IMG_Y.atlanta, 10) < 69, 'must clear the spire at every width')
+  assert.equal(imgPositionFor('hollywood'), '50%')
+  assert.equal(imgPositionFor('losangeles'), '100%')
+  assert.equal(imgPositionFor(undefined), '100%')
 })
 
 test('the crop hook is applied where the art renders, not on the card', () => {
