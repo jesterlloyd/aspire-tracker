@@ -49,6 +49,15 @@ function initials(name) {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
 }
 
+// The month-cell chip names the student by FIRST name (the preferred name when one is
+// set), so a reader sees "Victoria with Romelyn" instead of decoding "VM". The feed sends
+// student_first_name from the student record; the first token of student_name (already
+// preferred-first + last) covers any older payload, and "Student" is the honest fallback.
+// Initials survive only as the state marker beside the full name in the day list.
+function chipName(shift) {
+  return shift.student_first_name || firstNameOf(shift.student_name) || 'Student'
+}
+
 // The extra chip content for one shift: "with <preceptor first name>" and the chronological
 // ordinal, plus a full accessible label. The preceptor's first name only (never a last name)
 // is shown; a missing preceptor drops the "with" clause (the safe fallback). The ordinal is
@@ -262,7 +271,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
                     {day.slice(0, 3).map(shift => (
                       <CanonicalActivityChip
                         key={shift.id}
-                        label={initials(shift.student_name)}
+                        label={chipName(shift)}
                         live={shift.state === 'in_progress'}
                         {...chipExtras(shift)}
                       />
@@ -281,8 +290,8 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
           )}
 
           <div className="ptl-cal-legend">
-            <span><span className="ptl-cal-chip" aria-hidden="true">AR</span> Completed shift</span>
-            <span><span className="ptl-cal-chip ptl-cal-chip-live" aria-hidden="true">AR</span> On shift now</span>
+            <span><span className="ptl-cal-chip" aria-hidden="true">Student</span> Completed shift</span>
+            <span><span className="ptl-cal-chip ptl-cal-chip-live" aria-hidden="true">Student</span> On shift now</span>
           </div>
         </>
       )}

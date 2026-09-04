@@ -68,6 +68,15 @@ function initials(name) {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
 }
 
+// The month-cell chip names the student by FIRST name (the preferred name when one is
+// set), so a reader sees "Victoria with Romelyn" instead of decoding "VM". The feed sends
+// student_first_name from the student record; the first token of student_name (already
+// preferred-first + last) covers any older payload, and "Student" is the honest fallback.
+// Initials survive only as the state marker beside the full name in the day list.
+function chipName(shift) {
+  return shift.student_first_name || firstNameOf(shift.student_name) || 'Student'
+}
+
 // The extra chip content for one shift: "with <preceptor first name>" and the
 // chronological ordinal, plus a full accessible label. The preceptor's FIRST name only,
 // never a last name; a missing preceptor drops the "with" clause rather than inventing
@@ -208,7 +217,7 @@ function SelectedDayActivity({ shifts, onSelectShift }) {
 }
 
 /**
- * @param shifts         [{ id, shift_date, student_name, preceptor_name, unit_key,
+ * @param shifts         [{ id, shift_date, student_name, student_first_name, preceptor_name, unit_key,
  *                          state: 'in_progress'|'completed', ordinal, checked_in_at }]
  * @param onSelectDay    (ymd, dayShifts) when a day WITH activity is chosen in the grid
  * @param onSelectShift  (shift) from the selected-day list; omit to render it read-only
@@ -341,7 +350,7 @@ export default function RotationActivityCalendar({
                     {day.slice(0, MAX_CHIPS_PER_DAY).map(shift => (
                       <CanonicalActivityChip
                         key={shift.id}
-                        label={initials(shift.student_name)}
+                        label={chipName(shift)}
                         live={shift.state === 'in_progress'}
                         {...chipExtras(shift)}
                       />
@@ -365,10 +374,10 @@ export default function RotationActivityCalendar({
 
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10, fontSize: 11.5, color: MUTED, alignItems: 'center', fontFamily: F }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <CanonicalActivityChip label="AR" /> Completed shift
+              <CanonicalActivityChip label="Student" /> Completed shift
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <CanonicalActivityChip label="AR" live /> On shift now
+              <CanonicalActivityChip label="Student" live /> On shift now
             </span>
           </div>
         </>

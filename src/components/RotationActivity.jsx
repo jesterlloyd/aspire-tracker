@@ -32,7 +32,7 @@ import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { unreadCountByStudent, unreadSupportShifts } from '../lib/support/supportRequests'
-import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
+import { getStudentPreferredFullName, getStudentPreferredFirstName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
 import { canonicalRotationWindow } from '../lib/rotationWindow'
 import { hoursProgress } from '../lib/clinicalHours'
@@ -313,7 +313,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // ── Calendar rows ───────────────────────────────────────────────────────────
   // Built from the cohort-wide shift rows the summary query already fetched. The shape
   // matches what the Unit Leader calendar consumes, so both render through identical logic:
-  //   { id, shift_date, student_name, preceptor_name, unit_key, state, ordinal, checked_in_at }
+  //   { id, shift_date, student_name, student_first_name, preceptor_name, unit_key, state, ordinal, checked_in_at }
   //
   // An in-progress shift has not recorded its final unit or preceptor yet, so it reads the
   // PLANNED values; a completed one reads the actual. This mirrors api/portal/unit-shift-
@@ -324,6 +324,9 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
     // history, which is what these rows are: every shift in the cohort, unwindowed.
     const ordinalById = buildStudentShiftOrdinals(rows)
     const nameById = new Map(students.map(s => [s.id, getStudentPreferredFullName(s)]))
+    // The chip label: preferred first name when set, through the same formatter the Unit
+    // Leader feed uses, so the two calendars name a student identically.
+    const firstById = new Map(students.map(s => [s.id, getStudentPreferredFirstName(s)]))
     return rows.map(l => {
       const inProgress = l.lifecycle_state === 'in_progress'
       return {
@@ -331,6 +334,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         student_id: l.student_id,
         shift_date: l.shift_date,
         student_name: nameById.get(l.student_id) || null,
+        student_first_name: firstById.get(l.student_id) || null,
         preceptor_name: (inProgress ? l.planned_preceptor_name : l.preceptor_name) || null,
         unit_key: (inProgress ? l.planned_unit_name : l.unit_name) || null,
         state: inProgress ? 'in_progress' : 'completed',

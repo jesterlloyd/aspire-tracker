@@ -32,6 +32,7 @@ import {
 } from '../lib/unitLeaderScope.js'
 import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
 import { buildStudentShiftOrdinals } from '../../lib/server/shiftOrdinals.js'
+import { getStudentPreferredFirstName } from '../../src/lib/studentNameFormatters.js'
 
 // Does the resolved student have a real headshot? A boolean only; the storage path itself
 // is never sent; the browser resolves the photo through the unit-scoped file endpoint. Same
@@ -147,6 +148,9 @@ export default async function handler(req, res) {
       // Denormalized for the calendar so the browser needs no second lookup, and taken
       // from the SCOPED student record rather than from the shift row.
       student_name: [s?.preferred_first_name || s?.first_name, s?.last_name].filter(Boolean).join(' ').trim() || null,
+      // The calendar chip's label: the preferred first name when one is set, else the legal
+      // first name, through the one shared formatter so a multi-word preferred name survives.
+      student_first_name: getStudentPreferredFirstName(s) || null,
       unit_key: s?.unit_key || null,
       // Presence-only flag so the On Campus Now card can show a photo; resolved through the
       // unit-scoped batch file endpoint (useUnitStudentPhotos), never a path in this payload.
