@@ -126,11 +126,12 @@ test('At a Glance and Profiles are the old tabs, renamed, not rewritten', () => 
 test('At a Glance opens with the same masthead every other home uses', () => {
   assert.match(glance, /import GreetingMasthead from '\.\.\/masthead\/GreetingMasthead'/)
   assert.match(glance, /contextLabel=\{serverCycle\.name\}/, 'named by the residency cohort, not an ASPIRE one')
-  // The masthead's milestone is the timeline's own "next", so the card and the
-  // list beneath it cannot name different things. MASTHEAD-LOCKSCREEN-1: it
-  // reaches the card as a chip, and only inside the shared 14-day window.
-  assert.match(glance, /const nextMilestone = timeline\.find\(i => i\.isNext\)/)
+  // EVENT-AUDIENCE-2: the masthead shows the shared staff event feed, not a
+  // chip invented from the cycle timeline; the timeline card below still
+  // carries the cycle's own dates.
+  assert.match(glance, /useStaffMastheadEvents\(\)/)
   assert.match(glance, /items=\{mastheadItems\}/)
+  assert.doesNotMatch(glance, /nextMilestone/)
 })
 
 // ── Activity ─────────────────────────────────────────────────────────────────

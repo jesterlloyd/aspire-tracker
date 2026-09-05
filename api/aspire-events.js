@@ -11,6 +11,7 @@
 // user_profiles.id. Generic error messages; best-effort activity_logs audit.
 
 /* global process */
+import { PORTAL_AUDIENCE_VALUES, legacyAudienceFor } from '../src/lib/aspireEvents.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
@@ -166,19 +167,30 @@ function validateEventBody(body, { partial = false } = {}) {
     if (typeof body.all_day !== 'boolean') return { ok: false, status: 400, field: 'all_day', message: 'all_day must be a boolean.' };
     out.all_day = body.all_day;
   }
-  if (has('is_milestone')) {
-    if (typeof body.is_milestone !== 'boolean') return { ok: false, status: 400, field: 'is_milestone', message: 'is_milestone must be a boolean.' };
-    out.is_milestone = body.is_milestone;
-  }
+  // EVENT-AUDIENCE-2: `is_milestone` is retired (Owner, 2026-09-04). The column stays, nothing
+  // writes it, and nothing reads it; "Show in Masthead" is the one flag.
   if (has('show_on_welcome')) {
     if (typeof body.show_on_welcome !== 'boolean') return { ok: false, status: 400, field: 'show_on_welcome', message: 'show_on_welcome must be a boolean.' };
     out.show_on_welcome = body.show_on_welcome;
   }
 
-  if (has('audience') || !partial) {
+  // EVENT-AUDIENCE-2: the set of portal roles. Validated against the allowed values, de-duplicated,
+  // and the legacy single-value column is DERIVED from it so old readers stay coherent. A body
+  // that sends only the legacy `audience` (an older client) still works, unchanged.
+  if (has('audiences')) {
+    if (!Array.isArray(body.audiences) || body.audiences.some(v => typeof v !== 'string')) {
+      return { ok: false, status: 400, field: 'audiences', message: 'audiences must be an array of roles.' };
+    }
+    const set = [...new Set(body.audiences)];
+    const bad = set.find(v => !PORTAL_AUDIENCE_VALUES.includes(v));
+    if (bad) return { ok: false, status: 400, field: 'audiences', message: `Unknown audience "${bad}".` };
+    out.audiences = set;
+    out.audience = legacyAudienceFor(set);
+  } else if (has('audience') || !partial) {
     const a = typeof body.audience === 'string' && body.audience ? body.audience : 'internal';
     if (!AUDIENCES.includes(a)) return { ok: false, status: 400, field: 'audience', message: 'Invalid audience.' };
     out.audience = a;
+    if (!partial) out.audiences = a === 'all' ? ['student'] : [];
   }
 
   if (has('color')) {
@@ -235,6 +247,11 @@ function validateEventBody(body, { partial = false } = {}) {
 // message, details, hint, constraint internals, SQL, or stack. CHECK violations (23514) are told apart
 // by CONSTRAINT NAME - not by the generic code - so an event-type rejection is distinct from a date
 // rejection, and recurrence-readiness is never inferred here (that stays the explicit pre-insert 503).
+// EVENT-AUDIENCE-2: PostgREST reports an unknown column as PGRST204 (schema cache) or 42703.
+function audiencesColumnMissing(error) {
+  return ['PGRST204', '42703'].includes(error?.code) && /audiences/.test(`${error?.message || ''} ${error?.details || ''}`);
+}
+
 export function classifyWriteError(error) {
   const code = error?.code || '';
   const where = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
@@ -331,7 +348,13 @@ export default async function handler(req, res) {
     };
     // Without the columns, never reference them (a one-time event still saves normally).
     if (!recurrenceReady) { delete row.recurrence; delete row.recurrence_end; }
-    const { data, error } = await db.from('aspire_events').insert(row).select('*').single();
+    let { data, error } = await db.from('aspire_events').insert(row).select('*').single();
+    if (error && audiencesColumnMissing(error) && 'audiences' in row) {
+      // EVENT-AUDIENCE-2 not applied yet: save without the set. The legacy `audience` value,
+      // derived from the same ticks, still carries what the column would have.
+      delete row.audiences;
+      ({ data, error } = await db.from('aspire_events').insert(row).select('*').single());
+    }
     if (error || !data) {
       const mapped = classifyWriteError(error);
       console.log('[aspire-events] create failed', { request_id: requestId, errorCode: error?.code, mappedCode: mapped.body.code });
@@ -355,7 +378,11 @@ export default async function handler(req, res) {
     delete patch.status;
     if (!recurrenceReady) { delete patch.recurrence; delete patch.recurrence_end; }
     if (Object.keys(patch).length === 1) return res.status(400).json({ error: 'invalid_request', message: 'Nothing to update.' });
-    const { data, error } = await db.from('aspire_events').update(patch).eq('id', id).eq('status', 'active').select('*').maybeSingle();
+    let { data, error } = await db.from('aspire_events').update(patch).eq('id', id).eq('status', 'active').select('*').maybeSingle();
+    if (error && audiencesColumnMissing(error) && 'audiences' in patch) {
+      delete patch.audiences;
+      ({ data, error } = await db.from('aspire_events').update(patch).eq('id', id).eq('status', 'active').select('*').maybeSingle());
+    }
     if (error) {
       const mapped = classifyWriteError(error);
       console.log('[aspire-events] update failed', { request_id: requestId, errorCode: error.code, mappedCode: mapped.body.code });

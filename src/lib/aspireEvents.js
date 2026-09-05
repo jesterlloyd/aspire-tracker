@@ -45,11 +45,23 @@ export const AUDIENCE_OPTIONS = [
 ]
 export const AUDIENCE_VALUES = AUDIENCE_OPTIONS.map(a => a.value)
 
-// EVENT-AUDIENCE-1: the audiences the modal actually OFFERS. 'cohort' and 'school' remain
-// valid in the column and the endpoint still validates them, but nothing reads them, and an
-// option that silently delivers to nobody is worse than no option. Widen this only when a
-// consumer exists.
-export const OFFERED_AUDIENCES = ['internal', 'all']
+// EVENT-AUDIENCE-2 (Owner, 2026-09-04): "Who sees this" is a SET. The internal team always
+// sees an event; each portal role is ticked per event. Order = the modal's checkbox order.
+// The value is the role name the grant table uses, so the delivery endpoint can verify the
+// caller holds exactly that grant.
+export const PORTAL_AUDIENCES = [
+  { value: 'student',          label: 'Student' },
+  { value: 'unit_leader',      label: 'Unit Leader' },
+  { value: 'academic_partner', label: 'Academic Partner' },
+  { value: 'nursing_academic', label: 'Nursing Education & Leadership' },
+]
+export const PORTAL_AUDIENCE_VALUES = PORTAL_AUDIENCES.map(a => a.value)
+
+// The legacy single-value column is still written, derived from the set, so every reader
+// of `audience` that predates AUDIENCE-2 keeps working: 'all' when any role is ticked.
+export function legacyAudienceFor(audiences) {
+  return Array.isArray(audiences) && audiences.length > 0 ? 'all' : 'internal'
+}
 
 // The event types delivered to a student's portal calendar. This is a SECOND gate, applied
 // on top of the audience, and it is deliberately narrow.
@@ -65,6 +77,10 @@ export const OFFERED_AUDIENCES = ['internal', 'all']
 export const STUDENT_DELIVERED_TYPES = [
   'ngrp_open', 'ngrp_deadline', 'interview_window', 'town_hall', 'orientation',
 ]
+// EVENT-AUDIENCE-2: the same list gates every outside audience. A tick is one click and the
+// free-text types are still where shorthand lives, so the type opts in for a unit or a school
+// exactly as it does for a student. Widen per role only when that role has a named need.
+export const PORTAL_DELIVERED_TYPES = STUDENT_DELIVERED_TYPES
 
 const TYPE_MAP = Object.fromEntries(ASPIRE_EVENT_TYPES.map(t => [t.value, t]))
 

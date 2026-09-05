@@ -38,6 +38,7 @@ import { composePortalEmail } from '../lib/outlookCompose'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
+import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
 const SUPPORT = 'aspire@cshs.org'
@@ -84,6 +85,9 @@ export default function StudentPortal({
   previewStudentId = null, previewStudents = [], onPreviewStudentChange, readOnlyPreview = false,
 }) {
   const { user } = useAuth()
+  // EVENT-AUDIENCE-2: flagged events ticked for Students. Off in Owner/Admin
+  // preview, where the caller holds no student grant and the call would only 403.
+  const mastheadItems = useMastheadFeed('student', { enabled: !readOnlyPreview })
   const loginEmail = user?.email || ''
   const [summary, setSummary]   = useState(null)
   const [logs, setLogs]         = useState([])
@@ -325,6 +329,8 @@ export default function StudentPortal({
           fullName={fullName}
           dateLabel={dateLabel}
           contextLabel={cohortName}
+          items={mastheadItems}
+          calendar={{ label: 'Open Calendar', onClick: () => scrollToCalendar('student-rotation-activity-title') }}
         />
       ) : (
         <div className="ptl-page-heading">

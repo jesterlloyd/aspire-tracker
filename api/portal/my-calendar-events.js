@@ -1,41 +1,45 @@
-// EVENT-AUDIENCE-1: ASPIRE events for a signed-in student's portal calendar.
+// EVENT-AUDIENCE-1 / EVENT-AUDIENCE-2: ASPIRE events for a signed-in portal user.
 //
-// THE FIRST PATH BY WHICH A STAFF-AUTHORED EVENT REACHES A STUDENT. Until this endpoint
+// THE ONE PATH BY WHICH A STAFF-AUTHORED EVENT LEAVES THE STAFF APP. Until this endpoint
 // existed, aspire_events was readable only through api/aspire-events.js, which is gated to
-// active internal users, so no student could see an event under any circumstances. That is
-// why this file is deliberately narrow: it is a new disclosure surface, not a convenience.
+// active internal users, so no outside user could see an event under any circumstances.
+// That is why this file is deliberately narrow: it is a disclosure surface, not a
+// convenience. AUDIENCE-2 widened it from students to every portal role, one role per
+// request, with the same shape of gate for each.
 //
 // TWO INDEPENDENT GATES, both required:
-//   1. audience = 'all'. The staff author opted the event in, per event.
-//   2. event_type is in DELIVERED_TYPES below. A narrow allow-list of programme dates.
+//   1. The event's `audiences` set names the caller's role. The staff author ticked that
+//      role, per event, in "Who sees this".
+//   2. event_type is in DELIVERED_TYPES. A narrow allow-list of programme dates.
 //
-// Why two. Audience alone is one mistake away from an accident: "Everyone" is a single
-// click, and the free-text types ('deadline', 'reminder', 'custom') are exactly where
-// internal shorthand gets written. A note reading "chase Maria re: paperwork" mis-tagged
-// Everyone must not reach a student, so the type has to opt in as well.
+// Why two. A tick is one click, and the free-text types ('deadline', 'reminder', 'custom')
+// are exactly where internal shorthand gets written. A note reading "chase Maria re:
+// paperwork" mis-ticked for Unit Leaders must not reach a unit, so the type has to opt in
+// as well. The list is shared by every outside audience; widen it per role only when a
+// role has a named need.
+//
+// THE ROLE IS THE CALLER'S CLAIM, VERIFIED. The body names the role the portal is
+// rendering; the endpoint verifies the caller holds an ACTIVE grant for exactly that
+// role (S-05 deactivation), and for students an active student link as well. A profile
+// with two roles asking as the wrong one gets 403, not the union.
 //
 // FIELD ALLOW-LIST, not field exclusion. The response is BUILT from named fields rather
 // than filtered, so a column added to aspire_events later cannot leak by default. Nothing
-// about authorship, targeting, or internal flags is returned: not created_by, not
-// updated_by, not audience, not cohort_id, not school, not is_milestone, not status.
+// about authorship or targeting is returned: not created_by, not updated_by, not the
+// audience set, not cohort_id, not school, not status. The one flag that IS returned is
+// `in_masthead`, a boolean computed from show_on_welcome, because the masthead needs it
+// and it says nothing about anyone but the event.
 //
-// READ ONLY. No create, no update, no archive. Students author nothing here.
+// BEFORE THE MIGRATION IS APPLIED (Owner-gated), the `audiences` column does not exist.
+// The query then falls back to the AUDIENCE-1 rule exactly: audience = 'all' delivers to
+// students, and to no other role. Nothing widens until the column is there.
+//
+// READ ONLY. No create, no update, no archive. Portal users author nothing here.
 
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveStudentLinks } from '../lib/portalAuth.js'
-import { STUDENT_DELIVERED_TYPES as DELIVERED_TYPES } from '../../src/lib/aspireEvents.js'
+import { PORTAL_DELIVERED_TYPES as DELIVERED_TYPES, PORTAL_AUDIENCE_VALUES } from '../../src/lib/aspireEvents.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
-
-// Imported, not copied. This file originally duplicated the list and cited "api/ imports do
-// not resolve safely at the Vercel runtime", a claim carried in comments since d96984e and
-// repeated here without being checked. It is not true: 28 endpoints under api/ already
-// import from src/ in production, and src/lib/aspireEvents.js has no imports of its own.
-// One list, so there is nothing to keep in sync.
-
-// The one audience that reaches a student today. 'cohort' and 'school' are valid values in
-// the column but have no consumer; they are NOT accepted here, so an event carrying one is
-// treated exactly like 'internal' rather than being quietly delivered.
-const DELIVERED_AUDIENCE = 'all'
 
 // The maximum span a single request may ask for. A calendar shows one month; this allows
 // generous padding without letting one call enumerate the whole table.
@@ -51,6 +55,9 @@ function validYmd(value) {
 function migrationMissing(error) {
   return ['42P01', 'PGRST205'].includes(error?.code)
 }
+function columnMissing(error) {
+  return ['42703', 'PGRST204'].includes(error?.code)
+}
 
 // Built from named fields. Never a spread of the row.
 function publicShape(row) {
@@ -65,8 +72,11 @@ function publicShape(row) {
     location: row.location || null,
     url: row.url || null,
     color: row.color || null,
+    in_masthead: row.show_on_welcome === true,
   }
 }
+
+const SELECT = 'id, title, description, event_type, start_at, end_at, all_day, location, url, color, show_on_welcome'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -76,14 +86,21 @@ export default async function handler(req, res) {
 
   const auth = await verifyPortalCaller(req)
   if (!auth.authenticated) return res.status(auth.status || 401).json({ error: auth.reason || 'unauthenticated' })
-  if (!(await hasActiveRoleGrant(db, auth.profile.id, 'student'))) {
+
+  const body = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {}
+  // The role defaults to student so the AUDIENCE-1 caller (the student calendar) needs no change.
+  const role = typeof body.role === 'string' && body.role ? body.role : 'student'
+  if (!PORTAL_AUDIENCE_VALUES.includes(role)) return res.status(422).json({ error: 'invalid_role' })
+
+  if (!(await hasActiveRoleGrant(db, auth.profile.id, role))) {
     return res.status(403).json({ error: 'forbidden' })
   }
   // A profile with no LIVE student link is not a student any more (S-05 deactivation).
-  const studentIds = await getActiveStudentLinks(db, auth.profile.id)
-  if (studentIds.length === 0) return res.status(403).json({ error: 'forbidden' })
+  if (role === 'student') {
+    const studentIds = await getActiveStudentLinks(db, auth.profile.id)
+    if (studentIds.length === 0) return res.status(403).json({ error: 'forbidden' })
+  }
 
-  const body = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {}
   const { from, to } = body
   if (!validYmd(from) || !validYmd(to)) return res.status(422).json({ error: 'invalid_range' })
   if (to < from) return res.status(422).json({ error: 'invalid_range' })
@@ -94,20 +111,29 @@ export default async function handler(req, res) {
   // that day belongs to it, so the upper bound is the START of the following day.
   const toExclusive = new Date(Date.parse(`${to}T00:00:00Z`) + 86400000).toISOString()
 
-  const { data, error } = await db
+  const base = () => db
     .from('aspire_events')
-    .select('id, title, description, event_type, start_at, end_at, all_day, location, url, color')
+    .select(SELECT)
     .eq('status', 'active')
-    .eq('audience', DELIVERED_AUDIENCE)
     .in('event_type', DELIVERED_TYPES)
     .gte('start_at', `${from}T00:00:00Z`)
     .lt('start_at', toExclusive)
     .order('start_at', { ascending: true })
     .limit(200)
 
+  // Gate 1, the set form: the caller's role is IN the event's audiences.
+  let { data, error } = await base().contains('audiences', [role])
+
+  if (error && columnMissing(error)) {
+    // The AUDIENCE-2 column is not there yet. Fall back to the AUDIENCE-1 rule exactly:
+    // audience = 'all' reaches students, and reaches nobody else.
+    if (role !== 'student') return res.status(200).json({ events: [] })
+    ;({ data, error } = await base().eq('audience', 'all'))
+  }
+
   if (error) {
     // A missing table means the feature is not provisioned, which is not an error the
-    // student can act on: the calendar simply shows no events.
+    // caller can act on: the calendar simply shows no events.
     if (migrationMissing(error)) return res.status(200).json({ events: [] })
     console.error('[my-calendar-events] query_failed:', error.message)
     return res.status(500).json({ error: 'internal_error' })

@@ -26,9 +26,10 @@
 // the planning payload, the funnel from the SAME derived rows the Applicants
 // roster renders - so Planning can never disagree with the tab it summarizes.
 import { useMemo } from 'react'
-import { MASTHEAD_WINDOW_DAYS } from '../../lib/mastheadEvents'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import GreetingMasthead from '../masthead/GreetingMasthead'
+import { useStaffMastheadEvents } from '../masthead/useStaffMastheadEvents'
 import { Plus, CheckCircle2, AlertTriangle, Settings2 } from 'lucide-react'
 import { useNgrpPlanning, useNgrpApplicants } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows, effectiveEligibility } from '../../lib/ngrp/ngrpStates'
@@ -62,6 +63,9 @@ function Panel({ title, action, children, sub }) {
 
 export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCohort, onAddCohort }) {
   const { userProfile } = useAuth()
+  const navigate = useNavigate()
+  // Hooks stay above the early returns below.
+  const mastheadItems = useStaffMastheadEvents()
   const planning = useNgrpPlanning(cycle?.id || null)
   const data = planning.data
   const applicants = useNgrpApplicants(cycle?.id)
@@ -143,17 +147,10 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
     .filter(i => !DEFAULT_APPLICATION_CHECKLIST.some(o => o.key === i.key))
 
   const dateLabel = new Date(`${todayStr}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  // The masthead's milestone is the same "next" the timeline marks, so the card
-  // and the list below it can never name different things.
-  const nextMilestone = timeline.find(i => i.isNext) || timeline.find(i => i.state === 'today') || null
-  // MASTHEAD-LOCKSCREEN-1: the masthead shows a milestone only as a chip and
-  // only inside the shared 14-day window (src/lib/mastheadEvents.js); further
-  // out, the card says nothing and the timeline below carries it. Same rule
-  // the staff card applies to its flagged events.
-  const mastheadItems = nextMilestone && nextMilestone.daysAway != null && nextMilestone.daysAway >= 0 && nextMilestone.daysAway <= MASTHEAD_WINDOW_DAYS
-    ? [{ key: nextMilestone.key, dot: '#7C3AED', milestone: true,
-        text: `${nextMilestone.label} · ${nextMilestone.daysAway === 0 ? 'today' : nextMilestone.daysAway === 1 ? 'tomorrow' : `in ${nextMilestone.daysAway} days`}` }]
-    : []
+  // EVENT-AUDIENCE-2 (Owner, 2026-09-04): the cycle-milestone chip is gone. The
+  // masthead shows the SAME flagged calendar events every staff masthead shows,
+  // by the one rule in src/lib/mastheadEvents.js; the cycle's own dates live in
+  // the timeline card below, where they always were.
 
   const editButton = (
     <button type="button" style={btn()} onClick={onEditCohort}>
@@ -172,6 +169,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
         dateLabel={dateLabel}
         contextLabel={serverCycle.name}
         items={mastheadItems}
+        calendar={{ label: 'Open Calendar', onClick: () => navigate('/ngrp/residency/activity') }}
         flush
       />
 

@@ -39,10 +39,15 @@ test('the staff card applies the shared window rule and always offers Open Calen
   assert.doesNotMatch(staff, /IMPORTANT_TYPES|nextMilestone|milestoneWhen/)
 })
 
-test('the events row: sentence-case label only when something qualifies, pill last', () => {
+test('the events row: no row on a quiet day (pill included), labels that tell the truth, pill last', () => {
   const row = read('src/components/masthead/MastheadEventsRow.jsx')
-  assert.match(row, /if \(list\.length === 0 && !calendar\) return null/)
-  assert.match(row, /\{list\.length > 0 && <span className="mast-today-label">Events Today<\/span>\}/)
+  // EVENT-AUDIENCE-2 (Owner): Open Calendar with nothing beside it was noise.
+  assert.match(row, /if \(list\.length === 0\) return null/)
+  // "Events Today" only over today's chips; "Upcoming" over the rest.
+  assert.match(row, /\{today\.length > 0 && <span className="mast-today-label">Events Today<\/span>\}/)
+  assert.match(row, /\{upcoming\.length > 0 && <span className="mast-today-label">Upcoming<\/span>\}/)
+  assert.match(row, /const today = list\.filter\(it => it\.today\)/)
+  assert.doesNotMatch(row, /mast-evchip-milestone/)
   assert.doesNotMatch(row, /Today in ASPIRE/)
   // The pill is the last child of the row.
   const pill = row.indexOf('mast-cal-btn mast-cal-btn-inline')
@@ -96,14 +101,22 @@ test('the calendar flag is named for what it does now', () => {
   assert.match(read('src/components/AspireEventModal.jsx'), /Show in Masthead/)
   assert.doesNotMatch(read('src/components/AspireEventModal.jsx'), /Show on Aggregate welcome/)
   assert.match(read('src/components/InterviewCalendar.jsx'), />In masthead</)
-  // The column did not change, so every already-flagged event carries over.
-  assert.match(read('src/lib/mastheadEvents.js'), /ev\.show_on_welcome \|\| ev\.is_milestone/)
+  // The column did not change, so every already-flagged event carries over;
+  // the portal endpoint hands the same tick over as in_masthead. Milestones no
+  // longer qualify on their own.
+  assert.match(read('src/lib/mastheadEvents.js'), /ev\.show_on_welcome \|\| ev\.in_masthead/)
+  assert.doesNotMatch(read('src/lib/mastheadEvents.js'), /is_milestone/)
 })
 
-test('the Residency At a Glance folds its milestone into the same window', () => {
+test('the Residency At a Glance shows the same flagged events as every staff masthead', () => {
   const glance = read('src/components/ngrp/AtAGlanceTab.jsx')
-  assert.match(glance, /import \{ MASTHEAD_WINDOW_DAYS \} from '\.\.\/\.\.\/lib\/mastheadEvents'/)
-  assert.match(glance, /nextMilestone\.daysAway <= MASTHEAD_WINDOW_DAYS/)
+  // EVENT-AUDIENCE-2 (Owner): the cycle-milestone chip is gone; the card reads
+  // the shared staff feed and offers the residency Activity calendar.
+  assert.match(glance, /const mastheadItems = useStaffMastheadEvents\(\)/)
   assert.match(glance, /items=\{mastheadItems\}/)
-  assert.doesNotMatch(glance, /milestone=\{mastheadMilestone\}/)
+  assert.match(glance, /calendar=\{\{ label: 'Open Calendar', onClick: \(\) => navigate\('\/ngrp\/residency\/activity'\) \}\}/)
+  assert.doesNotMatch(glance, /nextMilestone|MASTHEAD_WINDOW_DAYS/)
+  const feed = read('src/components/masthead/useStaffMastheadEvents.js')
+  assert.match(feed, /body: JSON\.stringify\(\{ action: 'list', from: today, to \}\)/)
+  assert.match(feed, /mastheadItems\(events, today\)/)
 })

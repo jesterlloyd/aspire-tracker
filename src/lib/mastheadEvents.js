@@ -2,11 +2,12 @@
 // chip says. Pure and shared, so the staff card and the portal card can never
 // disagree about the rule.
 //
-// THE RULE (Owner, 2026-09-04): a chip is an event the author explicitly chose
-// to show in the masthead, OR a milestone, and it is inside the next
-// MASTHEAD_WINDOW_DAYS days. Nothing else. The old card surfaced the single
-// "next milestone" however far away it was, and "in 67 days" is not something
-// the masthead should be saying; the calendar is one click away for that.
+// THE RULE (Owner, 2026-09-04, revised the same evening): a chip is an event the
+// author explicitly ticked "Show in Masthead", and it is inside the next
+// MASTHEAD_WINDOW_DAYS days. Nothing else: not milestones, not a type, not a
+// cycle date. One tick, one rule, every surface. The old card surfaced the
+// single "next milestone" however far away it was, and "in 67 days" is not
+// something the masthead should be saying; the calendar is one click away.
 //
 // The flag is still the show_on_welcome column. The label changed to "Show in
 // Masthead" because that is what it does now; the column did not, so every
@@ -43,9 +44,13 @@ export function chipWhen(days, ev) {
   return `in ${days} days`
 }
 
-/** Whether an event has asked to be on the masthead at all. */
+/**
+ * Whether an event has asked to be on the masthead at all: the tick, and only
+ * the tick. Staff rows carry it as show_on_welcome; the portal delivery
+ * endpoint returns it as the computed boolean in_masthead.
+ */
 export function isMastheadCandidate(ev) {
-  return !!(ev && (ev.show_on_welcome || ev.is_milestone))
+  return !!(ev && (ev.show_on_welcome || ev.in_masthead))
 }
 
 /**
@@ -62,9 +67,9 @@ export function daysUntil(ev, today, windowDays = MASTHEAD_WINDOW_DAYS) {
 }
 
 /**
- * The chips. Milestones lead, then everything else by distance, then by start
- * time. Each item is { key, dot, text, days, milestone }: dot is the colour the
- * calendar already gives the event, text is "Title · when".
+ * The chips, by distance and then by start time. Each item is
+ * { key, dot, text, days, today }: dot is the colour the calendar already gives
+ * the event, text is "Title · when", today decides which label it sits under.
  */
 export function mastheadItems(events, today, windowDays = MASTHEAD_WINDOW_DAYS) {
   const out = []
@@ -77,19 +82,15 @@ export function mastheadItems(events, today, windowDays = MASTHEAD_WINDOW_DAYS) 
       dot: eventColor(ev),
       text: `${ev.title} · ${chipWhen(days, ev)}`,
       days,
-      milestone: !!ev.is_milestone,
+      today: days === 0,
       startAt: String(ev.start_at || ''),
     })
   }
-  out.sort((a, b) => {
-    if (a.milestone !== b.milestone) return a.milestone ? -1 : 1
-    if (a.days !== b.days) return a.days - b.days
-    return a.startAt.localeCompare(b.startAt)
-  })
+  out.sort((a, b) => (a.days !== b.days ? a.days - b.days : a.startAt.localeCompare(b.startAt)))
   return out.map(({ startAt, ...item }) => item)   // eslint-disable-line no-unused-vars
 }
 
 /** Today's US holidays as chips: they are "Events Today" by definition. */
 export function holidayItems(holidays) {
-  return (holidays || []).map(h => ({ key: `holiday-${h.name}`, dot: '#D97706', text: `${h.name} · US Holiday`, days: 0, milestone: false }))
+  return (holidays || []).map(h => ({ key: `holiday-${h.name}`, dot: '#D97706', text: `${h.name} · US Holiday`, days: 0, today: true }))
 }

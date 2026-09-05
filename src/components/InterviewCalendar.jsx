@@ -61,7 +61,6 @@ function AspireEventChip({ ev, compact = false, onClick }) {
         overflow: 'hidden', fontFamily: 'Plus Jakarta Sans, sans-serif',
       }}
     >
-      {ev.is_milestone && <span style={{ color, fontSize: compact ? 8 : 10, flexShrink: 0 }}>★</span>}
       <span style={{ fontSize: compact ? 9 : 11, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {ev.title}
       </span>
@@ -89,17 +88,15 @@ function AspireDayDetail({ date, events, isAdmin, hasSlots, onEventClick, onOpen
               <button key={ev.id} type="button" onClick={() => onEventClick(ev)}
                 style={{ textAlign: 'left', border: '1px solid #eef0f2', borderLeft: `3px solid ${color}`, borderRadius: 8, padding: '10px 12px', background: '#fff', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {ev.is_milestone && <span style={{ color, fontSize: 11 }}>★</span>}
                   <span style={{ fontWeight: 700, fontSize: 13, color: '#1D2567' }}>{ev.title}</span>
                 </div>
                 <div style={{ fontSize: 11.5, color: '#6b7280' }}>{eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}</div>
                 {ev.location && <div style={{ fontSize: 11.5, color: '#6b7280' }}>📍 {ev.location}</div>}
                 {ev.url && <div style={{ fontSize: 11.5, color: '#0E7490', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.url}</div>}
                 {ev.description && <div style={{ fontSize: 11.5, color: '#6b7280', lineHeight: 1.4 }}>{ev.description}</div>}
-                {(ev.is_milestone || ev.show_on_welcome) && (
+                {ev.show_on_welcome && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                    {ev.is_milestone && <span style={{ fontSize: 10, fontWeight: 600, color: '#7C3AED', background: '#F3EEFE', padding: '1px 7px', borderRadius: 20 }}>Milestone</span>}
-                    {ev.show_on_welcome && <span style={{ fontSize: 10, fontWeight: 600, color: '#3730A3', background: '#E0E7FF', padding: '1px 7px', borderRadius: 20 }}>In masthead</span>}
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#3730A3', background: '#E0E7FF', padding: '1px 7px', borderRadius: 20 }}>In masthead</span>
                   </div>
                 )}
                 <div style={{ fontSize: 10.5, color: '#9ca3af', marginTop: 2 }}>{isAdmin ? 'Click to edit' : 'Click to view'}</div>

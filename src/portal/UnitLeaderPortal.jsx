@@ -19,6 +19,7 @@ import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
+import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { buildLiveShiftDisplay } from '../lib/onCampusRows'
 import StatusLegendPopover from '../components/StatusLegendPopover'
@@ -261,6 +262,8 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
   // server-filtered to safe fields; nothing here can widen either.
   const activity = useEndpoint(s => getShiftActivity({}, s), [])
   const [dayOpen, setDayOpen] = useState(null)   // { ymd, shifts }
+  // EVENT-AUDIENCE-2: flagged events ticked for Unit Leaders.
+  const mastheadItems = useMastheadFeed('unit_leader')
 
   // The shared portal Refresh re-fetches Home's three data paths: the roster (identity/hours), the
   // in-app feed, and the rotation calendar activity.
@@ -338,6 +341,8 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
         contextLabel={acceptingCohort?.name || null}
         onCampusCount={campusRows.length}
         headingRef={greetingRef}
+        items={mastheadItems}
+        calendar={{ label: 'Open Calendar', onClick: () => scrollToCalendar('ul-cal-title') }}
       />
 
       {/* On Campus Now: the canonical live-shift card, scoped to authorized units. */}

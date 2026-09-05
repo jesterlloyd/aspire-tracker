@@ -18,6 +18,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
+import { useMastheadFeed } from './shared/useMastheadFeed'
 import { FilterKPICard } from '../components/KPIBand'
 import StatusPill from '../components/StatusPill'
 import StatusLegendPopover from '../components/StatusLegendPopover'
@@ -96,6 +97,9 @@ export default function AcademicPartnerPortal({ view = 'students', onNavigate, m
 
 function StudentsView() {
   const { userProfile } = useAuth()
+  // EVENT-AUDIENCE-2: flagged events ticked for Academic Partners. No calendar
+  // pill: this portal has no calendar to open.
+  const mastheadItems = useMastheadFeed('academic_partner')
   const [schools, setSchools] = useState(null)
   const [error, setError]     = useState(null)
   const [loading, setLoading] = useState(true)
@@ -224,6 +228,7 @@ function StudentsView() {
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}
         contextLabel={cohortLabel}
+        items={mastheadItems}
       />
 
       {/* School scope + cohort picker live in the persistent Nightfall header (no page-level context

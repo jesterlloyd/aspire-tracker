@@ -13,6 +13,7 @@
 import { useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import GreetingMasthead from '../../components/masthead/GreetingMasthead'
+import { useMastheadFeed } from '../shared/useMastheadFeed'
 // The CANONICAL fiscal-year clock (pure, Pacific day boundary) - the same one
 // the Community Benefit engine uses. Never a second FY definition.
 import { currentFiscalYear } from '../../../lib/server/communityBenefit/compute'
@@ -28,6 +29,8 @@ import AcademicsContactsView from './AcademicsContactsView'
 // reports enabled, a pasted /portal/academics/messages link shows an honest prepared state.
 export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, threadId, onSelectThread, onBackToList }) {
   const { userProfile } = useAuth()
+  // EVENT-AUDIENCE-2: flagged events ticked for Nursing Education & Leadership.
+  const mastheadItems = useMastheadFeed('nursing_academic')
   const dateLabel = useMemo(
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     [],
@@ -54,6 +57,7 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
           fullName={userProfile?.full_name}
           dateLabel={dateLabel}
           contextLabel={fyLabel}
+          items={mastheadItems}
         />
         <AcademicsCalendarView active={view === 'calendar'} />
       </div>

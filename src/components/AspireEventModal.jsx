@@ -4,7 +4,7 @@
 // Cohort scoping is DEFERRED in Phase 2 (no cohort picker here) - reported deferred.
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { ASPIRE_EVENT_TYPES, RECURRENCE_OPTIONS, ANNUAL_ALLDAY_TYPES, OFFERED_AUDIENCES, STUDENT_DELIVERED_TYPES, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
+import { ASPIRE_EVENT_TYPES, RECURRENCE_OPTIONS, ANNUAL_ALLDAY_TYPES, PORTAL_AUDIENCES, PORTAL_DELIVERED_TYPES, legacyAudienceFor, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
 
 const COLOR_SWATCHES = ['#1D2567', '#0E7490', '#7C3AED', '#C2410C', '#B91C1C', '#2F7D5C']
 
@@ -35,6 +35,12 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// "Student and Unit Leader", not "Student, Unit Leader".
+function listWithAnd(labels) {
+  if (labels.length <= 1) return labels.join('')
+  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
+}
+
 export default function AspireEventModal({ event, canManage, defaultDate, recurrenceEnabled = false, onClose, onSaved }) {
   const isEdit = !!event
   const readOnly = !canManage
@@ -53,9 +59,11 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
     // EVENT-AUDIENCE-1: this control used to be hidden, correctly, because nothing read the
     // value and no portal could reach an event. There is a read path now
     // (api/portal/my-calendar-events.js), so the choice is real and the picker is shown.
-    audience:        event?.audience || 'internal',
+    // EVENT-AUDIENCE-2: the SET of portal roles that may see the event. An event saved before
+    // the column existed carries only the legacy value; 'all' meant students, so it reads back
+    // as {student} here exactly as the migration's backfill writes it.
+    audiences:       Array.isArray(event?.audiences) ? event.audiences : (event?.audience === 'all' ? ['student'] : []),
     description:     event?.description || '',
-    is_milestone:    event?.is_milestone ?? false,
     show_on_welcome: event?.show_on_welcome ?? false,
     color:           event?.color || '',
     // Recurrence (gated on recurrenceEnabled from the server capability; fail-closed to 'none').
@@ -121,9 +129,9 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
       location: form.location.trim() || null,
       url: form.url.trim() || null,
       school: form.school.trim() || null,
-      audience: form.audience,
+      audiences: form.audiences,
+      audience: legacyAudienceFor(form.audiences),
       description: form.description.trim() || null,
-      is_milestone: form.is_milestone,
       show_on_welcome: form.show_on_welcome,
       color: form.color || null,
       // Only send recurrence when the server reports it enabled; a one-time event omits it entirely.
@@ -173,7 +181,6 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
             {row('Link', event.url)}
             {row('School', event.school)}
             {row('Details', event.description)}
-            {event.is_milestone ? <span style={{ fontSize: 12, color: '#7C3AED', fontWeight: 600 }}>★ Milestone</span> : null}
           </div>
           <div className="modal-footer">
             <button className="btn btn-primary" onClick={onClose}>Close</button>
@@ -306,40 +313,41 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="event-audience">Who sees this</label>
-            <select
-              id="event-audience"
-              className="form-select"
-              value={form.audience}
-              onChange={e => set('audience', e.target.value)}
-              disabled={readOnly}
-            >
-              {/* Only the audiences with a CONSUMER are offered. 'cohort' and 'school' exist in
-                  the column and the endpoint validates them, but nothing reads them yet, and an
-                  option that silently does nothing is worse than no option. */}
-              <option value="internal">Internal team only</option>
-              <option value="all">Everyone, including students</option>
-              {/* Defensive, and self-removing: an event somehow carrying a targeted audience keeps
-                  it visible rather than being silently rewritten to whichever option renders first. */}
-              {!OFFERED_AUDIENCES.includes(form.audience) && (
-                <option value={form.audience}>{form.audience} (not currently delivered)</option>
-              )}
-            </select>
+            {/* EVENT-AUDIENCE-2 (Owner): a SET, not a pick. The internal team always sees an
+                event, so that row is ticked and cannot be unticked; each portal role is its own
+                tick. Delivery to any portal is still gated by event type (PORTAL_DELIVERED_TYPES),
+                and the line under the ticks says which side of that gate this event is on. */}
+            <div className="form-label" id="event-audiences-label">Who sees this</div>
+            <div role="group" aria-labelledby="event-audiences-label" style={{ display: 'grid', gap: 6 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#6b7280' }}>
+                <input type="checkbox" checked readOnly disabled style={{ accentColor: '#1D2567', width: 15, height: 15 }} />
+                Internal team (always)
+              </label>
+              {PORTAL_AUDIENCES.map(a => (
+                <label key={a.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: readOnly ? 'default' : 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.audiences.includes(a.value)}
+                    disabled={readOnly}
+                    onChange={e => set('audiences', e.target.checked
+                      ? [...form.audiences, a.value]
+                      : form.audiences.filter(v => v !== a.value))}
+                    style={{ accentColor: '#1D2567', width: 15, height: 15 }}
+                  />
+                  {a.label}
+                </label>
+              ))}
+            </div>
             <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280', lineHeight: 1.5 }}>
-              {form.audience === 'all'
-                ? STUDENT_DELIVERED_TYPES.includes(form.event_type)
-                  ? 'Students will see this on their portal calendar.'
-                  : `Staff calendars only: "${eventTypeLabel(form.event_type)}" is not a type delivered to students, whatever the audience.`
-                : 'Staff calendars only. Nobody outside the ASPIRE team sees this.'}
+              {form.audiences.length === 0
+                ? 'Staff calendars only. Nobody outside the ASPIRE team sees this.'
+                : PORTAL_DELIVERED_TYPES.includes(form.event_type)
+                  ? `Visible on the ${listWithAnd(form.audiences.map(v => PORTAL_AUDIENCES.find(a => a.value === v)?.label || v))} portal calendar${form.show_on_welcome ? ' and masthead' : ''}.`
+                  : `Staff calendars only: "${eventTypeLabel(form.event_type)}" is not a type delivered to portals, whichever roles are ticked.`}
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.is_milestone} onChange={e => set('is_milestone', e.target.checked)}
-                style={{ accentColor: '#1D2567', width: 15, height: 15 }} />
-              Mark as milestone
-            </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={form.show_on_welcome} onChange={e => set('show_on_welcome', e.target.checked)}
                 style={{ accentColor: '#1D2567', width: 15, height: 15 }} />

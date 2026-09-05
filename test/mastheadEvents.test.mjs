@@ -1,6 +1,7 @@
 // MASTHEAD-LOCKSCREEN-1: which events earn a masthead chip, and what it says.
-// The rule is the Owner's (2026-09-04): explicitly flagged or a milestone, AND
-// inside the next 14 days. Nothing further out, whatever it is.
+// The rule is the Owner's (2026-09-04): explicitly ticked Show in Masthead, AND
+// inside the next 14 days. Nothing further out, whatever it is. Milestones are
+// retired; the tick is the only way onto the card.
 //
 // Run: node --test test/mastheadEvents.test.mjs
 
@@ -13,28 +14,30 @@ import { clockLabel, dateLabel, planFit } from '../src/lib/mastheadClock.js'
 
 const TODAY = '2026-09-04'
 const at = (ymd, hh = '09:00') => `${ymd}T${hh}:00`     // local wall time, like the API's timestamps in this zone
-const ev = (over) => ({ id: over.title, title: 'Event', start_at: at(TODAY), all_day: false, show_on_welcome: false, is_milestone: false, ...over })
+const ev = (over) => ({ id: over.title, title: 'Event', start_at: at(TODAY), all_day: false, show_on_welcome: false, ...over })
 
 test('the window is fourteen days', () => {
   assert.equal(MASTHEAD_WINDOW_DAYS, 14)
 })
 
-test('only flagged or milestone events are candidates', () => {
+test('only ticked events are candidates: staff rows by show_on_welcome, portal rows by in_masthead', () => {
   assert.equal(isMastheadCandidate(ev({ show_on_welcome: true })), true)
-  assert.equal(isMastheadCandidate(ev({ is_milestone: true })), true)
+  assert.equal(isMastheadCandidate(ev({ in_masthead: true })), true)
+  // A milestone with no tick is not a candidate any more.
+  assert.equal(isMastheadCandidate(ev({ is_milestone: true })), false)
   assert.equal(isMastheadCandidate(ev({})), false)
   assert.equal(isMastheadCandidate(null), false)
 })
 
 test('an event inside the window earns a chip; one day past it does not', () => {
   const inside = ev({ title: 'Cohort orientation', show_on_welcome: true, start_at: at(addDays(TODAY, 14)) })
-  const outside = ev({ title: 'Applications close', is_milestone: true, start_at: at(addDays(TODAY, 15)) })
+  const outside = ev({ title: 'Applications close', show_on_welcome: true, start_at: at(addDays(TODAY, 15)) })
   const items = mastheadItems([inside, outside], TODAY)
   assert.deepEqual(items.map(i => i.text), ['Cohort orientation · in 14 days'])
 })
 
 test('"in 67 days" never appears: a far milestone is silent, not shown', () => {
-  const far = ev({ title: 'Applications close', is_milestone: true, show_on_welcome: true, start_at: at(addDays(TODAY, 67)) })
+  const far = ev({ title: 'Applications close', show_on_welcome: true, start_at: at(addDays(TODAY, 67)) })
   assert.deepEqual(mastheadItems([far], TODAY), [])
 })
 
@@ -45,21 +48,21 @@ test('chip wording: time today, "tomorrow", then "in N days"', () => {
   assert.equal(chipWhen(8, ev({})), 'in 8 days')
 })
 
-test('milestones lead, then by distance, then by start time', () => {
+test('chips sort by distance, then by start time, and each knows whether it is today', () => {
   const items = mastheadItems([
     ev({ title: 'Huddle', show_on_welcome: true, start_at: at(addDays(TODAY, 8)) }),
     ev({ title: 'Orientation', show_on_welcome: true, start_at: at(TODAY, '09:00') }),
-    ev({ title: 'Applications close', is_milestone: true, start_at: at(addDays(TODAY, 12)) }),
+    ev({ title: 'Applications close', show_on_welcome: true, start_at: at(addDays(TODAY, 12)) }),
     ev({ title: 'Town hall', show_on_welcome: true, start_at: at(TODAY, '08:00') }),
   ], TODAY)
   assert.deepEqual(items.map(i => i.text), [
-    'Applications close · in 12 days',
     'Town hall · 8:00 AM',
     'Orientation · 9:00 AM',
     'Huddle · in 8 days',
+    'Applications close · in 12 days',
   ])
-  assert.equal(items[0].milestone, true)
-  assert.equal(items[1].milestone, false)
+  assert.deepEqual(items.map(i => i.today), [true, true, false, false])
+  assert.ok(items.every(i => !('milestone' in i)), 'no milestone flag survives on a chip')
 })
 
 test('a multi-day event already under way counts as today', () => {
