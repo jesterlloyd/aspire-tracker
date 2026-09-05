@@ -56,14 +56,13 @@ test('every point sits inside the card', () => {
   }
 })
 
-test('no lit point sits in the greeting quiet zone', () => {
+test('the left third is lit too, now that nothing fades it', () => {
+  // MASTHEAD-LOCKSCREEN-1 retired the half-card fade, and with it the rule
+  // that no point may sit under the greeting. Every city was re-measured on
+  // its left third; each must now carry at least one point there.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
-    for (const key of POINT_EFFECTS) {
-      for (const [x] of m[key] || []) {
-        assert.ok(x >= QUIET_ZONE_X,
-          `${city}.${key} has a point at x=${x}, inside the greeting's quiet zone (<${QUIET_ZONE_X}%)`)
-      }
-    }
+    assert.ok((m.lights || []).some(([x]) => x < QUIET_ZONE_X),
+      `${city} has no measured light in the left third; the frame was not re-measured after the fade came off`)
   }
 })
 

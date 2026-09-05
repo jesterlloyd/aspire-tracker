@@ -127,9 +127,10 @@ test('At a Glance opens with the same masthead every other home uses', () => {
   assert.match(glance, /import GreetingMasthead from '\.\.\/masthead\/GreetingMasthead'/)
   assert.match(glance, /contextLabel=\{serverCycle\.name\}/, 'named by the residency cohort, not an ASPIRE one')
   // The masthead's milestone is the timeline's own "next", so the card and the
-  // list beneath it cannot name different things.
+  // list beneath it cannot name different things. MASTHEAD-LOCKSCREEN-1: it
+  // reaches the card as a chip, and only inside the shared 14-day window.
   assert.match(glance, /const nextMilestone = timeline\.find\(i => i\.isNext\)/)
-  assert.match(glance, /mastheadMilestone/)
+  assert.match(glance, /items=\{mastheadItems\}/)
 })
 
 // ── Activity ─────────────────────────────────────────────────────────────────

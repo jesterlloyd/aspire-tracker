@@ -343,7 +343,7 @@ export default function AspireEventModal({ event, canManage, defaultDate, recurr
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={form.show_on_welcome} onChange={e => set('show_on_welcome', e.target.checked)}
                 style={{ accentColor: '#1D2567', width: 15, height: 15 }} />
-              Show on Aggregate welcome
+              Show in Masthead
             </label>
           </div>
         </div>

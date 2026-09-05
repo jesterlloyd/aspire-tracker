@@ -324,20 +324,20 @@ export function WeatherMasthead() {
           type="button"
           className="wx-mast-caption wx-mast-trigger"
           onClick={() => setPickerOpen(true)}
-          title={`${location.label} weather · choose masthead scenery`}
+          title={`${location.label} · Choose masthead scenery`}
           aria-label={`${readout}. Choose masthead scenery.`}
           aria-haspopup="dialog"
         >
+          {/* MASTHEAD-LOCKSCREEN-1 (Owner): temperature and condition only.
+              The H/L and the city moved out of the card and into this hover
+              and the accessible readout, one click from the full reading. */}
           <span className="wx-mast-temp" aria-hidden>{data.temp}°</span>
           {label && <span className="wx-mast-cond" aria-hidden>{label}</span>}
-          <span className="wx-mast-hilo" aria-hidden>{hiLo || location.label}</span>
-          {location.chosen && <span className="wx-mast-city" aria-hidden>{location.label}</span>}
         </button>
       ) : (
         <div className="wx-mast-caption" title={`${location.label} weather`} role="img" aria-label={readout}>
           <div className="wx-mast-temp" aria-hidden>{data.temp}°</div>
           {label && <div className="wx-mast-cond" aria-hidden>{label}</div>}
-          <div className="wx-mast-hilo" aria-hidden>{hiLo || location.label}</div>
         </div>
       )}
       <CityPickerDialog

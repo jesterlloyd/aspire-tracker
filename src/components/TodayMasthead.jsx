@@ -1,39 +1,38 @@
-// ASPIRE-MASTHEAD: the At a Glance briefing masthead. One bounded card
-// carries every orientation element - greeting (the route's one Playfair Display
-// moment), date · cohort · last-visit line, the HTC-inspired weather scene
-// (compact variant, preserved by owner decision), the single next milestone,
-// View calendar, and a Today-in-ASPIRE chips row that renders only when
-// events or holidays exist. It replaces both the old "Today" head and the
-// bottom welcome band (AggregateWelcome), which greeted the user a second
-// time at the footer.
+// ASPIRE-MASTHEAD: the At a Glance briefing masthead. One bounded card over
+// the city artwork carries the greeting (left), the date over a live clock
+// (centre), the weather (right), and an events row along the bottom.
+//
+// MASTHEAD-LOCKSCREEN-1 (Owner, 2026-09-04): the card became a lock screen.
+// The half-card fade over the artwork is gone, so the whole frame shows at
+// full colour; every bare element is white and BIG (greeting, clock,
+// temperature), and everything operational is a chip in the bottom row, the
+// one material element that survived. The date-and-cohort line, the milestone
+// block, and the weather's H/L line are retired from the card: the cohort
+// lives in the scope picker, the milestone is now a chip when it is near, and
+// the full weather readout is one click away on the temperature.
 //
 // Events come through the SAME gated /api/aspire-events list action and the
 // same query key the welcome band used, so nothing new is fetched; the query
 // is additionally gated to the visible route (the five workspace tabs stay
-// mounted, and hidden tabs must not fetch).
+// mounted, and hidden tabs must not fetch). Which events earn a chip is the
+// shared rule in src/lib/mastheadEvents.js.
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { toLocalDateStr } from '../lib/designTokens'
-import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen, localDateStr } from '../lib/aspireEvents'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 import { greetingLine } from '../lib/masthead'
+import { mastheadItems, holidayItems } from '../lib/mastheadEvents'
 import { WeatherMasthead, useMastheadScene } from './WeatherScene'
 import MastheadScenery from './MastheadScenery'
+import MastheadClock from './masthead/MastheadClock'
+import MastheadEventsRow from './masthead/MastheadEventsRow'
 
-const IMPORTANT_TYPES = new Set(['deadline', 'ngrp_deadline', 'ngrp_open', 'town_hall', 'orientation'])
-
-// Whole-day difference between two local 'YYYY-MM-DD' strings.
-function daysBetween(fromStr, toStr) {
-  const a = new Date(`${fromStr}T00:00:00`)
-  const b = new Date(`${toStr}T00:00:00`)
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
-}
-
-// students/cohortId/currentUserId left the signature with the last-visit
-// affordance; the host still passes them, harmlessly, for call-site stability.
+// cohort / onCampusCount stay in the signature for call-site stability; the
+// card no longer prints either (Owner: no cohort line on the masthead).
+// eslint-disable-next-line no-unused-vars
 export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
@@ -68,101 +67,29 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
   // whole-card night treatment (sun-times with fixed-window fallback; never
   // the app theme, never the greeting wash).
   const { scene, night: sceneNight } = useMastheadScene()
-  const dateLabel = new Date(`${today}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
-  // Today in ASPIRE - point / all-day / ranged events overlapping today,
-  // plus US holidays (client-computed, read-only, never persisted).
-  const todayEvents = useMemo(
-    () => (events || []).filter(ev => eventOnDate(ev, today)).sort((a, b) => {
-      if (!!a.all_day !== !!b.all_day) return a.all_day ? -1 : 1
-      return String(a.start_at).localeCompare(String(b.start_at))
-    }),
+  // The chips: flagged-or-milestone events inside the 14-day window (milestones
+  // first), then today's US holidays, which are "Events Today" by definition.
+  const items = useMemo(
+    () => [...mastheadItems(events, today), ...holidayItems(getUsHolidaysForRange(today, today))],
     [events, today],
   )
-  const todayHolidays = useMemo(() => getUsHolidaysForRange(today, today), [today])
-
-  // The single next milestone - soonest important event from today forward.
-  // The full list lives one click away behind View calendar.
-  const nextMilestone = useMemo(() => {
-    const isImportant = ev => ev.show_on_welcome || ev.is_milestone || IMPORTANT_TYPES.has(ev.event_type)
-    return (events || [])
-      .filter(ev => isImportant(ev) && localDateStr(ev.start_at) >= today)
-      .sort((a, b) => {
-        const c = localDateStr(a.start_at).localeCompare(localDateStr(b.start_at))
-        if (c) return c
-        return (b.show_on_welcome ? 1 : 0) - (a.show_on_welcome ? 1 : 0)
-      })[0] || null
-  }, [events, today])
-
-  const milestoneWhen = (() => {
-    if (!nextMilestone) return null
-    const startDay = localDateStr(nextMilestone.start_at)
-    const d = daysBetween(today, startDay)
-    const dateStr = new Date(`${startDay}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    if (d <= 0) return `Today · ${dateStr}`
-    if (d === 1) return `Tomorrow · ${dateStr}`
-    return `In ${d} days · ${dateStr}`
-  })()
-
-  const hasTodayLine = todayEvents.length > 0 || todayHolidays.length > 0
 
   return (
     <div className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
       <MastheadScenery />
       <div className="mast-row">
-        {/* MASTHEAD-SCENE-4 hero layout (Owner): greeting far LEFT and the
-            temperature far RIGHT as a matched typographic pair, with the
-            condition and H/L beneath the temperature and View calendar below
-            that. The milestone stays under the date line, and the animated
-            sun/moon still floats in the open sky between them. */}
         <div className="mast-left">
           <h1 className="chart-route-title mast-greet">{heading}</h1>
-          {/* Control-room date line (Owner: the browser-local "last visit"
-              affordance retired as unhelpful): live occupancy and today's
-              tempo instead, each segment omitted when zero. */}
-          <div className="mast-sub">
-            {dateLabel}
-            {cohort?.name ? ` · ${cohort.name}` : ''}
-            {onCampusCount > 0 ? ` · ${onCampusCount} on campus now` : ''}
-            {todayEvents.length > 0 ? ` · ${todayEvents.length} event${todayEvents.length === 1 ? '' : 's'} today` : ''}
-          </div>
-          {nextMilestone && (
-            <div className="mast-mile">
-              <div className="mast-mile-label">Next milestone</div>
-              <div className="mast-mile-name">{nextMilestone.title}</div>
-              <div className="mast-mile-when">{milestoneWhen}</div>
-            </div>
-          )}
         </div>
+        <MastheadClock />
         <div className="mast-right">
           <WeatherMasthead />
         </div>
       </div>
-
-      {/* Owner: View calendar is as dynamic as the day itself - it lives at
-          the end of this row and appears only when there is something on the
-          calendar to go and look at. On a quiet day the card is just the
-          greeting, the readout, and the artwork. */}
-      {hasTodayLine && (
-        <div className="mast-today-line">
-          <span className="mast-today-label">Today in ASPIRE</span>
-          {todayHolidays.map(h => (
-            <span key={h.name} className="mast-evchip">
-              <span className="mast-evdot" style={{ background: '#D97706' }} aria-hidden />
-              {h.name} · US Holiday
-            </span>
-          ))}
-          {todayEvents.map(ev => (
-            <span key={ev.id} className="mast-evchip">
-              <span className="mast-evdot" style={{ background: eventColor(ev) }} aria-hidden />
-              {ev.is_milestone ? '★ ' : ''}{ev.title} · {eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}
-            </span>
-          ))}
-          <button type="button" className="mast-cal-btn mast-cal-btn-inline" onClick={() => navigate('/interviews')}>
-            View calendar
-          </button>
-        </div>
-      )}
+      {/* Owner: the label and chips appear only when something is inside the
+          window; the Open Calendar pill is the row's constant. */}
+      <MastheadEventsRow items={items} calendar={{ label: 'Open Calendar', onClick: () => navigate('/interviews') }} />
     </div>
   )
 }

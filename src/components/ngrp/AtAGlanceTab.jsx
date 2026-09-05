@@ -26,6 +26,7 @@
 // the planning payload, the funnel from the SAME derived rows the Applicants
 // roster renders - so Planning can never disagree with the tab it summarizes.
 import { useMemo } from 'react'
+import { MASTHEAD_WINDOW_DAYS } from '../../lib/mastheadEvents'
 import { useAuth } from '../../contexts/AuthContext'
 import GreetingMasthead from '../masthead/GreetingMasthead'
 import { Plus, CheckCircle2, AlertTriangle, Settings2 } from 'lucide-react'
@@ -145,9 +146,14 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
   // The masthead's milestone is the same "next" the timeline marks, so the card
   // and the list below it can never name different things.
   const nextMilestone = timeline.find(i => i.isNext) || timeline.find(i => i.state === 'today') || null
-  const mastheadMilestone = nextMilestone
-    ? { label: 'Next milestone', name: nextMilestone.label, when: milestoneWhen(nextMilestone) }
-    : null
+  // MASTHEAD-LOCKSCREEN-1: the masthead shows a milestone only as a chip and
+  // only inside the shared 14-day window (src/lib/mastheadEvents.js); further
+  // out, the card says nothing and the timeline below carries it. Same rule
+  // the staff card applies to its flagged events.
+  const mastheadItems = nextMilestone && nextMilestone.daysAway != null && nextMilestone.daysAway >= 0 && nextMilestone.daysAway <= MASTHEAD_WINDOW_DAYS
+    ? [{ key: nextMilestone.key, dot: '#7C3AED', milestone: true,
+        text: `${nextMilestone.label} · ${nextMilestone.daysAway === 0 ? 'today' : nextMilestone.daysAway === 1 ? 'tomorrow' : `in ${nextMilestone.daysAway} days`}` }]
+    : []
 
   const editButton = (
     <button type="button" style={btn()} onClick={onEditCohort}>
@@ -165,7 +171,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}
         contextLabel={serverCycle.name}
-        milestone={mastheadMilestone}
+        items={mastheadItems}
         flush
       />
 

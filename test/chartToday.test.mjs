@@ -52,14 +52,14 @@ test('masthead-first hierarchy', async (t) => {
 })
 
 test('the masthead absorbs the welcome band honestly', async (t) => {
-  await t.test('the date line is a control-room readout, not the retired last-visit note', () => {
+  await t.test('neither the last-visit note nor the control-room readout is on the card', () => {
     // MASTHEAD-SCENE-3 (Owner): the browser-local "last visit" affordance is
-    // retired - do not restore it. The line carries live occupancy and
-    // today's event tempo instead, each segment omitted at zero.
+    // retired - do not restore it. MASTHEAD-LOCKSCREEN-1 (Owner): the readout
+    // that replaced it is retired too; the clock owns the date, the cohort
+    // lives in the scope picker. The host still passes onCampusCount for
+    // call-site stability; the card does not print it.
     assert.doesNotMatch(masthead, /Last visit on this browser|aspire:lastVisit/)
-    assert.match(masthead, /onCampusCount > 0 \? ` · \$\{onCampusCount\} on campus now` : ''/)
-    assert.match(masthead, /todayEvents\.length > 0 \? ` · \$\{todayEvents\.length\} event\$\{todayEvents\.length === 1 \? '' : 's'\} today` : ''/)
-    // The count is the SAME merged rows the On Campus Now strip renders.
+    assert.doesNotMatch(masthead, /on campus now|className="mast-sub"/)
     assert.match(read('src/components/OverviewTab.jsx'), /onCampusCount=\{mergedCampusLogs\.length\}/)
   })
 
@@ -80,8 +80,9 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
     assert.match(css, /\.wx-mast \.wx-svg \{ width: 192px; \}/)
   })
 
-  await t.test('the Today-in-ASPIRE line renders only when it has content', () => {
-    assert.match(masthead, /\{hasTodayLine && \(/)
+  await t.test('the events row is the shared component, fed by the shared window rule', () => {
+    assert.match(masthead, /<MastheadEventsRow items=\{items\}/)
+    assert.match(masthead, /mastheadItems\(events, today\)/)
   })
 })
 
@@ -179,31 +180,29 @@ test('the digest count chip is the approved red-count use only', () => {
   assert.match(css, /\.today-error \{[\s\S]*?var\(--chart-warn-bg/)
 })
 
-test('View calendar is as dynamic as the day (SCENE-4b, Owner)', async (t) => {
+test('Open Calendar is the events row\'s constant (MASTHEAD-LOCKSCREEN-1, Owner)', async (t) => {
   const masthead = read('src/components/TodayMasthead.jsx')
-  await t.test('the button lives in the Today-in-ASPIRE row, so a quiet day has none', () => {
-    // Owner decision: the button appears only when there is something on the
-    // calendar to look at. It must sit INSIDE the hasTodayLine block - not in
-    // the right column, where it rendered unconditionally.
-    const todayBlock = masthead.slice(masthead.indexOf('{hasTodayLine && ('))
-    assert.match(todayBlock, /className="mast-cal-btn mast-cal-btn-inline"/)
+  await t.test('the pill lives in the events row and is always offered; the right column holds the weather only', () => {
+    // SCENE-4b put View calendar in the Today row so a quiet day had none.
+    // LOCKSCREEN-1 keeps it in the row but makes it the row's constant: the
+    // one thing left on a quiet day, rightmost, after the chips.
+    assert.match(masthead, /<MastheadEventsRow items=\{items\} calendar=\{\{ label: 'Open Calendar'/)
     const rightCol = masthead.slice(masthead.indexOf('<div className="mast-right">'), masthead.indexOf('</div>\n      </div>'))
     assert.doesNotMatch(rightCol, /mast-cal-btn/, 'the right column holds the weather only')
-    // Pushed to the end of the row, past the chips.
     assert.match(read('src/index.css'), /\.mast-cal-btn-inline \{ margin-left: auto; \}/)
   })
-  await t.test('the greeting is the route serif moment; the temperature beside it keeps the app face', () => {
+  await t.test('the greeting and the temperature are a small matched pair, both in the app sans', () => {
     const css = read('src/index.css')
     const pair = css.slice(css.indexOf('.mast-scenic .mast-greet,'))
     // Shared metrics on the pair, no family: each half declares its own.
     const shared = pair.slice(0, pair.indexOf('\n}'))
-    assert.match(shared, /font-size: 34px/)
+    assert.match(shared, /font-size: 19px/)
     assert.doesNotMatch(shared, /font-family/)
     assert.match(pair, /\.mast-scenic \.wx-mast-temp \{ font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; \}/)
-    // The greeting reaches the serif ONLY through the route-title token (never a literal family),
-    // with the base block's descender room restored at the larger size.
-    assert.match(pair, /\.mast-scenic \.mast-greet\.chart-route-title \{\s*font-family: var\(--chart-serif\); font-weight: 600;\s*line-height: 1\.25; padding-bottom: 2px;/)
-    assert.doesNotMatch(pair.slice(0, pair.indexOf('.mast-scenic .wx-mast-temp { color')), /Newsreader|Georgia|DM Sans|Pangram|Fraunces|'Playfair Display'/)
+    // MASTHEAD-LOCKSCREEN-1 (Owner): the masthead is all sans, so the greeting
+    // leaves the route serif HERE ONLY; every other route title keeps --chart-serif.
+    assert.match(pair, /\.mast-scenic \.mast-greet\.chart-route-title \{[^}]*font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;/)
+    assert.doesNotMatch(pair.slice(0, pair.indexOf('.mast-scenic .wx-mast-temp { color')), /Newsreader|Georgia|DM Sans|Pangram|Fraunces|'Playfair Display'|var\(--chart-serif\)/)
     // The whole app still loads only its two established families, both
     // self-hosted (TYPOGRAPHY-1); nothing comes from Google Fonts.
     const html = read('index.html')

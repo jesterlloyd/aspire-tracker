@@ -300,6 +300,10 @@ export const CITY_MOTION = {
     lights: [
       [49.1, 88.8], [51.5, 59.6], [56.3, 62.2], [57.5, 90.0], [58.1, 78.5],
       [65.5, 31.9], [68.5, 30.4], [68.5, 71.4], [84.7, 56.9], [94.6, 54.6],
+      // MASTHEAD-LOCKSCREEN-1: the left third, now that nothing fades it. The
+      // observatory's windows and the basin edge under the greeting.
+      [1.4, 56.0], [7.8, 96.2], [13.8, 54.3], [19.3, 53.7], [25.7, 59.6],
+      [25.8, 78.8], [29.5, 72.3], [32.6, 79.9],
     ],
     // The Mt Lee mast. Its lights are painted red in the Night and CloudyNight
     // frames (rgb 163,103,103 at row 88), which is why this city alone carries
@@ -329,6 +333,9 @@ export const CITY_MOTION = {
       [55.5, 90.9], [67.9, 88.5], [76.4, 88.2], [49.1, 98.2], [61.9, 71.4],
       [46.9, 87.0], [61.9, 89.1], [81.0, 93.5], [58.7, 90.3], [52.3, 88.8],
       [71.2, 87.9], [67.3, 71.4], [57.5, 68.7], [51.4, 78.5],
+      // MASTHEAD-LOCKSCREEN-1: the left third of the basin carpet.
+      [21.3, 90.9], [26.4, 93.5], [30.0, 87.9], [31.4, 98.5], [34.8, 97.4],
+      [35.1, 86.7], [42.0, 87.3], [45.6, 87.9],
     ],
     // Two crowns, because downtown LA really is dominated by two towers.
     beacons: [[62.5, 62.2], [64.4, 66.4]],
@@ -342,6 +349,10 @@ export const CITY_MOTION = {
     lights: [
       [63.9, 44.8], [71.4, 46.0], [61.3, 37.8], [74.2, 46.6], [70.9, 36.3],
       [58.9, 37.2], [67.8, 35.7], [52.4, 34.2], [54.8, 35.4], [64.5, 37.8],
+      // MASTHEAD-LOCKSCREEN-1: the far shore across the bay at left. The
+      // left-third search also found the deck lights, which the bridge
+      // already carries; they are deliberately not repeated here.
+      [18.6, 24.8], [37.1, 25.1], [43.3, 24.8],
     ],
     // Reflections sit below the city and stretch vertically with the swell.
     water: [
@@ -367,6 +378,10 @@ export const CITY_MOTION = {
       [50.2, 74.6], [53.9, 77.0], [54.1, 64.9], [56.7, 74.3], [63.5, 74.3],
       [74.4, 74.3], [76.8, 64.0], [79.0, 74.3], [85.5, 74.3], [88.9, 74.0],
       [92.1, 74.6], [95.2, 74.9],
+      // MASTHEAD-LOCKSCREEN-1: the left third. [16.4, 35.4] is the torch of
+      // the Statue of Liberty; the rest are Liberty Island and the Jersey shore.
+      [16.0, 74.9], [16.1, 63.4], [16.4, 35.4], [27.9, 77.0], [32.6, 74.6],
+      [39.0, 69.3], [45.0, 60.8], [45.0, 74.3],
     ],
     // The harbour throws the strongest reflections of any pack.
     water: [
@@ -383,6 +398,9 @@ export const CITY_MOTION = {
       [46.2, 70.8], [48.7, 69.3], [51.3, 71.4], [56.0, 72.3], [59.8, 68.1],
       [62.4, 68.1], [65.3, 71.7], [67.8, 67.0], [75.1, 70.2], [79.5, 68.1],
       [84.3, 67.3], [87.9, 66.4], [91.3, 70.5], [93.8, 70.5],
+      // MASTHEAD-LOCKSCREEN-1: the Strip's western end. Desert to the left of
+      // it, so only three.
+      [34.4, 71.7], [40.3, 61.4], [41.8, 70.8],
     ],
     beacons: [[46.7, 49.9]],
     // The Luxor shaft, standing on the pyramid apex. The apex had to be found
@@ -400,6 +418,9 @@ export const CITY_MOTION = {
       [46.2, 54.0], [50.5, 56.6], [51.3, 65.2], [56.6, 44.3], [59.3, 59.0],
       [63.2, 41.6], [63.2, 67.6], [70.2, 58.7], [76.5, 55.8], [80.1, 56.0],
       [86.0, 56.3], [88.9, 63.7], [92.3, 64.9], [95.0, 65.5],
+      // MASTHEAD-LOCKSCREEN-1: the left third, Midtown's western blocks.
+      [3.8, 83.8], [13.7, 69.3], [15.5, 83.5], [18.7, 86.1], [19.8, 69.6],
+      [23.4, 89.1], [26.6, 86.1], [42.1, 63.1],
     ],
     beacons: [[50.8, 10.9], [68.4, 11.8]],
     // NO traffic, deliberately. The foreground is an interchange, not a span:

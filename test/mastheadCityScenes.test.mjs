@@ -189,9 +189,10 @@ test('a chosen city moves the whole masthead: artwork, weather, and time of day'
   // too - a New York skyline can never sit under Los Angeles's time of day.
   assert.match(wx, /const location = cityWeatherLocation\(preferredCity, CITY_COORDS\) \|\| resolved/)
   assert.match(wx, /queryKey: \['welcome_weather', location\.chosen \? `city:\$\{preferredCity\}`/)
-  // The card names a chosen city so its reading is never mistaken for the
-  // viewer's own, and says nothing extra on automatic.
-  assert.match(wx, /\{location\.chosen && <span className="wx-mast-city"/)
+  // MASTHEAD-LOCKSCREEN-1: the city moved off the card and into the
+  // temperature's hover and accessible readout, which always name it.
+  assert.match(wx, /title=\{`\$\{location\.label\} · Choose masthead scenery`\}/)
+  assert.doesNotMatch(wx, /wx-mast-city/)
   // The dialog must not still promise that the weather stays local.
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.doesNotMatch(dlg, /weather still follows your own location/)

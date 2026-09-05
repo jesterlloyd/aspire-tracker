@@ -1989,10 +1989,9 @@ a.doc-file-link:hover { text-decoration: underline; }
   /* Bottom-anchored: whatever the card's shape cannot show is cropped from
      the image's TOP (sky), keeping the ground and city footer whole. */
   object-fit: cover; object-position: 50% var(--scn-img-y, 100%);
-  /* The panoramas carry ridges and palms on the left too, so the quiet zone
-     fades harder there - the greeting and date line sit on washed-out art. */
-  -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0.38) 26%, rgba(0,0,0,0.82) 48%, #000 62%);
-  mask-image: linear-gradient(90deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0.38) 26%, rgba(0,0,0,0.82) 48%, #000 62%);
+  /* MASTHEAD-LOCKSCREEN-1 (Owner): NO left fade any more. The card is a lock
+     screen: the whole frame shows at full colour, and legibility comes from
+     white ink, size, and a drop shadow, not from washing out the art. */
   opacity: 0; transition: opacity var(--scn-fade, 0.8s) ease;
   pointer-events: none; user-select: none;
 }
@@ -2389,28 +2388,19 @@ a.doc-file-link:hover { text-decoration: underline; }
    detailed half of the scene, so light scenes lift them with a soft white
    glow and the night card grounds them with a dark one. Scene classes exist
    only on scenery-bearing cards; weatherless mastheads are untouched. */
-.mast-scenic:not(.mast-night) .wx-mast-temp, .mast-scenic:not(.mast-night) .wx-mast-cond,
-.mast-scenic:not(.mast-night) .wx-mast-hilo, .mast-scenic:not(.mast-night) .mast-mile-label,
-.mast-scenic:not(.mast-night) .mast-mile-name, .mast-scenic:not(.mast-night) .mast-mile-when,
-.mast-scenic:not(.mast-night) .mast-greet, .mast-scenic:not(.mast-night) .mast-sub {
-  text-shadow: 0 1px 10px rgba(255,255,255,0.9), 0 0 3px rgba(255,255,255,0.75);
-}
-.mast-night .wx-mast-temp, .mast-night .wx-mast-cond, .mast-night .wx-mast-hilo,
-.mast-night .mast-mile-label, .mast-night .mast-mile-name, .mast-night .mast-mile-when,
-.mast-night .mast-greet, .mast-night .mast-sub {
-  text-shadow: 0 1px 10px rgba(8,12,36,0.85), 0 0 3px rgba(8,12,36,0.6);
-}
-/* Dark page theme uses light inks on every scene, so the daylight scenes'
-   white glow flips to the night treatment's dark one there. */
-[data-theme="dark"] .mast-scenic:not(.mast-night) .wx-mast-temp,
-[data-theme="dark"] .mast-scenic:not(.mast-night) .wx-mast-cond,
-[data-theme="dark"] .mast-scenic:not(.mast-night) .wx-mast-hilo,
-[data-theme="dark"] .mast-scenic:not(.mast-night) .mast-mile-label,
-[data-theme="dark"] .mast-scenic:not(.mast-night) .mast-mile-name,
-[data-theme="dark"] .mast-scenic:not(.mast-night) .mast-mile-when,
-[data-theme="dark"] .mast-scenic:not(.mast-night) .mast-greet,
-[data-theme="dark"] .mast-scenic:not(.mast-night) .mast-sub {
-  text-shadow: 0 1px 10px rgba(8,12,36,0.85), 0 0 3px rgba(8,12,36,0.6);
+/* MASTHEAD-LOCKSCREEN-1: white ink on every scene, day and night alike, with
+   a dark drop shadow as the only aid. Measured across all 43 frames at the
+   real text rectangles (10th percentile, AA): the big elements pass everywhere
+   bare; the small ones are chips on their own material. No veil, no halo. */
+/* Selector order matters here: a guard test locates the typography pair by
+   the first occurrence of its opening selector in this file, and another
+   locates the base greeting block by the first bare greeting selector before
+   a brace. The greeting therefore appears here only as h1.mast-greet, which
+   is neither. */
+.mast-scenic .mast-clock, .mast-scenic h1.mast-greet, .mast-scenic .mast-date,
+.mast-scenic .wx-mast-temp, .mast-scenic .wx-mast-cond, .mast-scenic .mast-today-label {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.55), 0 2px 14px rgba(0,0,0,0.45);
 }
 /* SCENE-3 hero layout (Owner): the weather module lives in the LEFT column
    now - the caption (temp / condition / H·L) flows under the greeting and
@@ -2447,7 +2437,9 @@ a.doc-file-link:hover { text-decoration: underline; }
    numerals in the UI sans look native, and the serif's figures did not. */
 .mast-scenic .mast-greet,
 .mast-scenic .wx-mast-temp {
-  font-size: 34px; line-height: 1.2;
+  /* MASTHEAD-LOCKSCREEN-1: the pair came down from 34px so the clock is the
+     card's one large element; they still match each other. */
+  font-size: 19px; line-height: 1.2;
   letter-spacing: -0.02em; font-variant-numeric: lining-nums tabular-nums;
   /* Folded in rather than written as its own single-selector greeting rule:
      the base greeting block must stay the FIRST such selector in this file (a
@@ -2461,10 +2453,13 @@ a.doc-file-link:hover { text-decoration: underline; }
    under the ellipsis rule's overflow: hidden. Weight 600 matches every other
    route title; 700 in the serif read heavier than the temperature beside it. */
 .mast-scenic .mast-greet.chart-route-title {
-  font-family: var(--chart-serif); font-weight: 600;
+  /* MASTHEAD-LOCKSCREEN-1 (Owner): the masthead is all sans for consistency,
+     so the greeting leaves the route serif here and here only; every other
+     route title keeps --chart-serif. */
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
   line-height: 1.25; padding-bottom: 2px;
 }
-.mast-scenic .wx-mast-temp { color: var(--chart-ink, #191919); }
+.mast-scenic .wx-mast-temp { color: #fff; }
 .mast-night .wx-mast-temp { color: #fff; }
 .mast-scenic .wx-mast-cond { font-size: 13px; font-weight: 600; margin-top: 2px; }
 /* The H/L sat at the soft-grey token, which disappeared into a bright sky
@@ -2548,6 +2543,80 @@ a.doc-file-link:hover { text-decoration: underline; }
    day is busy. */
 .mast-cal-btn-inline { margin-left: auto; }
 @media (max-width: 760px) { .mast-cal-btn-inline { margin-left: 0; } }
+
+/* ── MASTHEAD-LOCKSCREEN-1: the lock-screen layout (Owner, 2026-09-04) ──
+   Greeting LEFT, date over a live clock in the CENTRE, weather RIGHT, the
+   events row along the BOTTOM. Three columns on a grid; the outer two are
+   equal so the clock is centred on the card, not on what is left over. */
+.mast-scenic .mast-row {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: start; column-gap: 16px;
+}
+.mast-scenic .mast-left { grid-column: 1; min-width: 0; }
+.mast-scenic .mast-right { grid-column: 3; justify-self: end; }
+.mast-centre {
+  grid-column: 2; justify-self: center; align-self: center;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  color: #fff;
+}
+/* "Friday, 4 Sep" over "07:29". The clock is the card's one large element;
+   twelve-hour, zero-padded, no AM/PM, tabular so the minutes never jitter.
+   MastheadClock.jsx fits the two to one width. */
+.mast-date { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.2; white-space: nowrap; margin-bottom: 5px; }
+.mast-clock {
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 500;
+  font-size: 32px; line-height: 1; letter-spacing: -0.02em;
+  font-variant-numeric: lining-nums tabular-nums; white-space: nowrap;
+}
+/* The card is a flex column: the top row takes the free height so the clock
+   sits in the vertical middle of the card, and the events row rides the
+   BOTTOM, where it has always been. Scenery and the celestial art are
+   absolute and unaffected. */
+.mast-scenic { display: flex; flex-direction: column; }
+.mast-scenic .mast-row { flex: 1 1 auto; }
+/* The events row is the card's only material. No rule above it (the art is
+   the rule), a sentence-case label, glass chips, and the Open Calendar pill
+   as the constant at the right end. */
+.mast-scenic .mast-today-line { border-top: 0; margin-top: auto; padding-top: 10px; }
+.mast-scenic .mast-today-label {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.01em; text-transform: none;
+  color: rgba(255,255,255,0.88);
+}
+.mast-scenic .mast-evchip {
+  color: #fff; background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.28);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.mast-scenic .mast-evchip-milestone { background: rgba(255,255,255,0.24); border-color: rgba(255,255,255,0.40); }
+/* Three classes deep on purpose: the earlier frosted rule is
+   .mast-scenic:not(.mast-night) .mast-cal-btn (navy ink on light glass) and
+   outranks a two-class override; this ties it and, being later, wins. */
+.mast-scenic .mast-today-line .mast-cal-btn {
+  background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.28);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: #fff; box-shadow: none; padding: 5px 13px; font-size: 12px; border-radius: 20px;
+}
+.mast-scenic .mast-today-line .mast-cal-btn:hover { background: rgba(255,255,255,0.26); }
+/* The weather caption is now two lines, temperature over condition, both
+   white; the celestial art keeps floating in the sky it was measured for. */
+.mast-scenic .wx-mast-cond { color: #fff; }
+@media (max-width: 760px) {
+  /* Two columns; the clock drops under the greeting and weather, centred. */
+  .mast-scenic .mast-row { grid-template-columns: 1fr auto; }
+  .mast-scenic .mast-right { grid-column: 2; }
+  .mast-centre { grid-column: 1 / -1; grid-row: 2; margin-top: 6px; }
+  /* The old flex layout reserved 132px beside the greeting for the tucked
+     celestial art; on the grid that squeezed the greeting to 88px. The art
+     would also land on the temperature's column here, and the photo packs
+     carry their own skies, so it steps aside on narrow scenery cards. */
+  .mast-scenic .mast-left { padding-right: 0; }
+  .mast-scenic .wx-mast-art { display: none; }
+  /* The old narrow layout made the row static so the celestial art could
+     anchor to the card; static also paints the row BEHIND the absolutely
+     positioned scenery, which hid the greeting, clock and weather entirely
+     below 760px. The art steps aside here, so the row is positioned again. */
+  .mast.mast-scenic .mast-row { position: relative; }
+}
+@media (prefers-reduced-motion: reduce) { .mast-centre { transition: none; } }
 
 .mast-scenic .mast-right {
   flex-direction: column; align-items: flex-end; gap: 10px; margin-left: auto;

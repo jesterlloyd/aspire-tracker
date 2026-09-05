@@ -99,7 +99,7 @@ function AspireDayDetail({ date, events, isAdmin, hasSlots, onEventClick, onOpen
                 {(ev.is_milestone || ev.show_on_welcome) && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
                     {ev.is_milestone && <span style={{ fontSize: 10, fontWeight: 600, color: '#7C3AED', background: '#F3EEFE', padding: '1px 7px', borderRadius: 20 }}>Milestone</span>}
-                    {ev.show_on_welcome && <span style={{ fontSize: 10, fontWeight: 600, color: '#3730A3', background: '#E0E7FF', padding: '1px 7px', borderRadius: 20 }}>On welcome</span>}
+                    {ev.show_on_welcome && <span style={{ fontSize: 10, fontWeight: 600, color: '#3730A3', background: '#E0E7FF', padding: '1px 7px', borderRadius: 20 }}>In masthead</span>}
                   </div>
                 )}
                 <div style={{ fontSize: 10.5, color: '#9ca3af', marginTop: 2 }}>{isAdmin ? 'Click to edit' : 'Click to view'}</div>

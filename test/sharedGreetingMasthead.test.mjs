@@ -44,8 +44,9 @@ test('no masthead surface renders or stamps the last-visit affordance (Owner dec
   for (const f of files) {
     assert.doesNotMatch(read(f), /Last visit on this browser|useLastVisitLabel|lastVisitLine|aspire:lastVisit/, `${f} must not carry the retired last-visit affordance`)
   }
-  // The shared masthead carries the SAME control-room wording the staff card uses.
-  assert.match(read('src/components/masthead/GreetingMasthead.jsx'), /on campus now/)
+  // MASTHEAD-LOCKSCREEN-1: the control-room readout is retired too (the clock
+  // owns the date; the cohort lives in the scope picker). Neither host prints it.
+  assert.doesNotMatch(read('src/components/masthead/GreetingMasthead.jsx'), /on campus now/)
 })
 
 // ── the shared component reuses the canonical system, no parallel art ─────────
@@ -76,8 +77,8 @@ test('the shared component and TodayMasthead do not depend on each other', () =>
   assert.ok(!/^import[^\n]*TodayMasthead/m.test(shared), 'shared masthead must not import the staff one')
   assert.ok(!/GreetingMasthead/.test(staff), 'staff masthead must remain independent')
   // The staff masthead still owns its guarded internals (the last-visit line
-  // was retired by Owner decision; the control-room readout replaced it).
-  assert.match(staff, /on campus now/)
+  // and the control-room readout are both retired by Owner decision).
+  assert.doesNotMatch(staff, /on campus now/)
   assert.match(staff, /<h1 className="chart-route-title mast-greet">\{heading\}<\/h1>/)
 })
 
