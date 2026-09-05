@@ -48,6 +48,8 @@ function Contact() {
   )
 }
 
+// STUDENT-SHIFT-TAB-1: inside the portal there is no email to change, so `onTryDifferentEmail`
+// is null there and the email buttons do not render; the advice text and Contact block stay.
 export default function LifecycleResultView({ variant, data = {}, onDone, onTryDifferentEmail, onRetry }) {
   const name = data.studentName
   const shift = data.shift || {}
@@ -107,7 +109,7 @@ export default function LifecycleResultView({ variant, data = {}, onDone, onTryD
           Make sure you're using the email your school registered with ASPIRE.
         </Banner>
         <Contact />
-        <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>
+        {onTryDifferentEmail && <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>}
       </>
     )
   } else if (variant === 'ineligible_not_active_rotation') {
@@ -117,7 +119,7 @@ export default function LifecycleResultView({ variant, data = {}, onDone, onTryD
           Your records show you're not currently in an active ASPIRE rotation. If this seems wrong, please reach out to the ASPIRE team.
         </Banner>
         <Contact />
-        <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>
+        {onTryDifferentEmail && <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>}
       </>
     )
   } else if (variant === 'ineligible_cohort_archived') {
@@ -127,7 +129,7 @@ export default function LifecycleResultView({ variant, data = {}, onDone, onTryD
           The cohort you're associated with has been archived. Please contact the ASPIRE team if you need to update something.
         </Banner>
         <Contact />
-        <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>
+        {onTryDifferentEmail && <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>}
       </>
     )
   } else if (variant === 'ambiguous') {
@@ -137,7 +139,7 @@ export default function LifecycleResultView({ variant, data = {}, onDone, onTryD
           It looks like your email is associated with more than one record. Please contact the ASPIRE team so we can resolve this.
         </Banner>
         <Contact />
-        <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>
+        {onTryDifferentEmail && <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>}
       </>
     )
   } else { // network_error
@@ -147,7 +149,7 @@ export default function LifecycleResultView({ variant, data = {}, onDone, onTryD
           We couldn't reach the system. Check your connection and try again.
         </Banner>
         {onRetry && <button style={BTN_PRIMARY} onClick={onRetry}>Try again</button>}
-        <button style={BTN_SECONDARY} onClick={onTryDifferentEmail}>Start over</button>
+        {onTryDifferentEmail && <button style={BTN_SECONDARY} onClick={onTryDifferentEmail}>Start over</button>}
       </>
     )
   }

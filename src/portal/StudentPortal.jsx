@@ -11,7 +11,7 @@
 //     (empty for anyone without an active student grant)
 // Writes: none from Home. Profile editing lives in the My Profile destination
 // (/portal/profile -> /api/portal/my-profile; STUDENT-PORTAL-PROFILE-1 retired the
-// EditProfileDrawer as an editor). Shift logging stays on the public /shift-log flow;
+// EditProfileDrawer as an editor). Shift logging lives in the portal's Shift Log tab (STUDENT-SHIFT-TAB-1);
 // surveys stay on their tokenized email links. Document downloads go through
 // authenticated, server-authorized endpoints that resolve the linked student
 // from the caller's grant (never from a client-supplied id).
@@ -83,7 +83,7 @@ function HomeSkeleton() {
 // which covers the full submitted profile with the canonical lock. onOpenProfile
 // navigates there; the drawer component file is retained for rollback only.
 export default function StudentPortal({
-  active = true, view = 'home', onOpenProfile,
+  active = true, view = 'home', onOpenProfile, onOpenShiftLog,
   previewStudentId = null, previewStudents = [], onPreviewStudentChange, readOnlyPreview = false,
 }) {
   const { user } = useAuth()
@@ -497,7 +497,7 @@ export default function StudentPortal({
           )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {canLogShift && !readOnlyPreview && (
-              <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>
+              <button type="button" className="ptl-btn ptl-btn-sm" onClick={() => onOpenShiftLog?.()}><CalendarPlus size={15} /> Log a Shift</button>
             )}
             {/* STUDENT-SHIFT-LOG-MANAGEMENT-1: the card lists only the four most
                 recent entries; the full history (and the correct/withdraw

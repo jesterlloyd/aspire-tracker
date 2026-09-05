@@ -202,10 +202,16 @@ test('S-10: a returning coordinator still gets their own answers back', () => {
 
 // ── S-09: shift log ──────────────────────────────────────────────────────────
 
-test('S-09: the public shift-log path is NOT retired, because nothing replaces it', () => {
-  // The signed-in portal links students straight here, and the portal endpoint
-  // cannot create a shift log at all.
-  assert.match(read('src/portal/StudentPortal.jsx'), /href="\/shift-log"/)
+test('S-09: the public shift-log path is NOT retired; the portal create path runs the same handlers', () => {
+  // The public page stays for students without a portal account.
+  assert.match(read('src/App.jsx'), /<Route path="\/shift-log\/\*"/)
+  // STUDENT-SHIFT-TAB-1: the portal's own create path is the session-identified
+  // endpoint, and it delegates every write to the public handlers unchanged, so
+  // there is still exactly one implementation of the shift-log rules.
+  const lifecycle = read('api/portal/my-shift-lifecycle.js')
+  for (const f of ['check-in', 'check-out', 'submit-past-shift']) {
+    assert.match(lifecycle, new RegExp(`import\\('\\.\\./shift-log/${f}\\.js'\\)`), `delegates ${f}`)
+  }
   const portalManage = read('api/portal/my-shift-log-manage.js')
   assert.match(portalManage, /const ACTIONS = \['edit', 'void', 'eligibility'\]/)
   assert.doesNotMatch(portalManage, /'create'/)

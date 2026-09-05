@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from 'react'
 
-export function useCheckIn() {
+export function useCheckIn(transport = null) {
   const [submitting, setSubmitting] = useState(false)
 
   const checkIn = useCallback(async (payload) => {
@@ -12,12 +12,16 @@ export function useCheckIn() {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
     try {
-      const res = await fetch('/api/shift-log/check-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      })
+      // STUDENT-SHIFT-TAB-1: the portal supplies a transport that carries its session
+      // token to the authenticated endpoint; the public page keeps the plain POST.
+      const res = transport?.send
+        ? await transport.send(payload, controller.signal)
+        : await fetch('/api/shift-log/check-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        })
       clearTimeout(timeoutId)
       if (res.status >= 500) return { _networkError: true }
       const data = await res.json().catch(() => ({}))
@@ -28,7 +32,7 @@ export function useCheckIn() {
     } finally {
       setSubmitting(false)
     }
-  }, [])
+  }, [transport])
 
   return { checkIn, submitting }
 }

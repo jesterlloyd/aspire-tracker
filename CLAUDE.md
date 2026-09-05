@@ -87,6 +87,14 @@ bottom bar hides it). The portal's Log a Shift gate
 is the public flow's gate: Placed and Active Rotation. The ID badge has no server file; once
 created it is rendered in the student's browser by `src/lib/badgeGenerator.js`.
 
+Shift logging inside the portal is the Shift Log tab (`src/portal/StudentShiftLog.jsx`), which
+reuses the public lifecycle's own views through a session-token transport to
+`api/portal/my-shift-lifecycle.js`. That endpoint resolves the student from the token and its
+active links, reads the school email server-side, and delegates every write to the public
+handlers in `api/shift-log/` unchanged. Never accept `school_email` or an unlisted `student_id`
+from the client, and never re-implement the shift-log rules in a second place. The public
+`/shift-log` page stays for students without a portal account (STUDENT-SHIFT-TAB-1).
+
 ## New portal checklist
 
 A new portal imports `src/styles/aspireBrand.css` (as `PortalApp.jsx` does), uses

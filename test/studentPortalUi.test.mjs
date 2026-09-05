@@ -43,8 +43,9 @@ test('the shared greeting masthead replaces the student-only hero', async (t) =>
 })
 
 test('actions and destinations', async (t) => {
-  await t.test('Log a Shift routes to /shift-log with no student identifiers in the URL', () => {
-    assert.match(portal, /href="\/shift-log"/)
+  await t.test('Log a Shift opens the portal Shift Log tab; no student identifier travels in a URL', () => {
+    assert.match(portal, /onClick=\{\(\) => onOpenShiftLog\?\.\(\)\}/)
+    assert.doesNotMatch(portal, /href="\/shift-log"/)
     assert.doesNotMatch(portal, /shift-log\?[^"']*(student|id|email)/i)
   })
 

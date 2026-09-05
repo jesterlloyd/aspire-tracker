@@ -25,8 +25,10 @@ export function deriveGreeting(student) {
   return `Hi ${getStudentPreferredGreetingName(student)},`
 }
 
-export default function CheckInView({ student, onSuccess, onNetworkError, onPastShift, onDifferentEmail }) {
-  const { checkIn, submitting } = useCheckIn()
+// STUDENT-SHIFT-TAB-1: `transport` routes the write through the portal's authenticated
+// endpoint; `onDifferentEmail` is absent inside the portal, where the session is the identity.
+export default function CheckInView({ student, onSuccess, onNetworkError, onPastShift, onDifferentEmail, transport = null }) {
+  const { checkIn, submitting } = useCheckIn(transport)
   const [expectedHours, setExpectedHours] = useState('12')
   const [plannedUnit, setPlannedUnit] = useState(student?.assigned_unit_name || '')
   const [plannedPreceptor, setPlannedPreceptor] = useState(student?.matched_preceptor || '')
@@ -125,7 +127,7 @@ export default function CheckInView({ student, onSuccess, onNetworkError, onPast
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginTop: 16 }}>
         <button type="button" style={LINK} onClick={onPastShift}>Log a past shift instead</button>
-        <button type="button" style={LINK} onClick={onDifferentEmail}>Use a different email</button>
+        {onDifferentEmail && <button type="button" style={LINK} onClick={onDifferentEmail}>Use a different email</button>}
       </div>
     </div>
   )

@@ -546,6 +546,11 @@
 .ptl-badge-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .ptl-badge-actions .ptl-btn-sm { margin-top: 0; }
 @media (max-width: 480px) { .ptl-badge-preview { grid-template-columns: 1fr; } }
+/* STUDENT-SHIFT-TAB-1: the Shift Log tab hosts the public lifecycle's own white cards, so it
+   is a measure, not a card of its own. */
+.ptl-shift-tab { max-width: 520px; margin: 0 auto; }
+.ptl-shift-tab-records { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ptl-shift-tab-back { margin-bottom: 10px; }
 
 /* Cap descriptive/empty text so wide cards do not stretch copy into long lines
    or leave sparse, oversized empty states. */

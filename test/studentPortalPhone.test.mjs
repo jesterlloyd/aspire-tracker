@@ -60,7 +60,7 @@ test('Refresh is desktop chrome: the phone bottom bar hides it with a selector t
 test('the portal Log a Shift gate is the public shift-log gate', () => {
   assert.match(lookup, /const SHIFT_LOG_ELIGIBLE_STATUSES = \['Placed', 'Active Rotation'\]/)
   assert.match(portal, /const canLogShift = placedMoment \|\| activeRotation/)
-  assert.match(portal, /\{canLogShift && !readOnlyPreview && \(\s*<a className="ptl-btn ptl-btn-sm" href="\/shift-log">/)
+  assert.match(portal, /\{canLogShift && !readOnlyPreview && \(\s*<button type="button" className="ptl-btn ptl-btn-sm" onClick=\{\(\) => onOpenShiftLog\?\.\(\)\}>/)
   assert.match(portal, /\{canLogShift && shiftCount === 0 && \(/)
   assert.doesNotMatch(stripJs(portal), /activeRotation && !readOnlyPreview/)
 })

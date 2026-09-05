@@ -8,9 +8,10 @@
 // 'Active Rotation'), and returns safe student fields plus any open in_progress
 // shift. Read-only.
 //
-// NOT dormant: ShiftLogPage and the shift-log lifecycle both call this, and the
-// signed-in Student Portal links students here (StudentPortal 'Log a Shift'), so
-// this is the only path by which any student creates a shift log.
+// NOT dormant: ShiftLogPage and the shift-log lifecycle both call this. The
+// signed-in Student Portal now has its own create path (api/portal/my-shift-lifecycle.js,
+// STUDENT-SHIFT-TAB-1) that delegates every write to the public handlers; this page
+// stays for students without a portal account.
 // Logging never includes the plain email or student name.
 
 import { randomUUID } from 'crypto'

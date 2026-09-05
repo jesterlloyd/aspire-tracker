@@ -19,7 +19,7 @@
 // polling or marking anything read. Refresh, back, and forward now work
 // because the view derives from the location instead of transient state.
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,6 +28,8 @@ import PortalUtilityLayer from './PortalUtilityLayer'
 import FeedbackPanel from '../components/FeedbackPanel'
 import MainMessagesLauncher from '../components/MainMessagesLauncher'
 import PortalNav from './PortalNav'
+// STUDENT-SHIFT-TAB-1: loaded on first visit; it carries the shift-log views.
+const StudentShiftLog = lazy(() => import('./StudentShiftLog'))
 import StudentPortal from './StudentPortal'
 import MyProfile from './MyProfile'
 import UnitLeaderPortal from './UnitLeaderPortal'
@@ -160,6 +162,7 @@ export default function PortalApp() {
   const studentMessagesPath = location.pathname.startsWith('/portal/messages')
     || (previewRole === 'student' && location.pathname.startsWith('/portal/student/messages'))
   const studentView = studentMessagesPath ? 'messages'
+    : location.pathname.startsWith('/portal/shift-log') || location.pathname.startsWith('/portal/student/shift-log') ? 'shiftlog'
     : location.pathname.startsWith('/portal/profile') ? 'profile'
     : location.pathname.startsWith('/portal/placement') || location.pathname.startsWith('/portal/student/placement') ? 'placement'
     : 'home'
@@ -284,6 +287,7 @@ export default function PortalApp() {
 
   const goHome = useCallback(() => navigate(staffPreview ? '/portal/student' : '/portal'), [navigate, staffPreview])
   const goPlacement = useCallback(() => navigate(staffPreview ? '/portal/student/placement' : '/portal/placement'), [navigate, staffPreview])
+  const goShiftLog = useCallback(() => navigate(staffPreview ? '/portal/student/shift-log' : '/portal/shift-log'), [navigate, staffPreview])
   const goMessages = useCallback(() => navigate(
     previewRole === 'student' ? '/portal/student/messages'
       : staffPreview ? '/connect/messages' : '/portal/messages',
@@ -530,6 +534,7 @@ export default function PortalApp() {
             onHome={goHome}
             onPlacement={goPlacement}
             onMessages={goMessages}
+            onShiftLog={goShiftLog}
             messagesEnabled
           />
         )}
@@ -552,6 +557,7 @@ export default function PortalApp() {
             active={['home', 'placement'].includes(studentView)}
             view={studentView}
             onOpenProfile={goProfile}
+            onOpenShiftLog={goShiftLog}
             previewStudentId={previewStudentId}
             previewStudents={previewStudents}
             onPreviewStudentChange={setPreviewStudentId}
@@ -571,6 +577,13 @@ export default function PortalApp() {
             title="Messages"
             detail="Student messaging remains read-only in Owner/Admin preview because the preview does not impersonate the selected student. Use the Messages launcher to open the staff inbox."
           />
+        )}
+        {/* STUDENT-SHIFT-TAB-1: mounted only while visited; it looks the student up on
+            activation and again on the shared Refresh. */}
+        {studentView === 'shiftlog' && (
+          <Suspense fallback={<div className="ptl-card ptl-activity-loading" role="status">Loading Shift Log</div>}>
+            <StudentShiftLog active readOnlyPreview={staffPreview} />
+          </Suspense>
         )}
         {/* STUDENT-PORTAL-PROFILE-1: mounted only while visited (it fetches on
             activation), unlike the always-mounted Home/Messages pair. */}

@@ -26,19 +26,22 @@ function fmtDisplayDate(s) {
   return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})
 }
 
-export default function ShiftLogPage({ initialSchoolEmail = '' }) {
+// STUDENT-SHIFT-TAB-1: inside the portal the form starts on `presetStudent` (the session's
+// own lookup answer), submits through `transport` (the authenticated endpoint), and renders
+// `embedded` (no page shell, no logo, no document title). The public page passes none of these.
+export default function ShiftLogPage({ initialSchoolEmail = '', presetStudent = null, transport = null, embedded = false }) {
   // Student resolution goes through /api/shift-log/lookup-student (service role,
   // server-side) via the shared lifecycle hook. ShiftLogPage performs NO
   // browser-side read of public.students or public.units, so this public route
   // survives Phase 0B Wave D (anon students removal).
   const { lookup } = useLookupStudent()
-  const [screen,   setScreen]   = useState('email') // email | form | confirm
+  const [screen,   setScreen]   = useState(presetStudent ? 'form' : 'email') // email | form | confirm
   const [email,    setEmail]    = useState(initialSchoolEmail || '')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
-  const [student,  setStudent]  = useState(null)
-  const [cohortId, setCohortId] = useState(null)
-  const [unitName, setUnitName] = useState('')
+  const [student,  setStudent]  = useState(presetStudent)
+  const [cohortId, setCohortId] = useState(presetStudent?.cohort_id ?? null)
+  const [unitName, setUnitName] = useState(presetStudent?.assigned_unit_name || '')
 
   // Form fields
   const today = fmtLocalDate(new Date())
@@ -48,7 +51,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
   const [isDiffUnit,        setIsDiffUnit]        = useState(false)
   const [diffUnitName,      setDiffUnitName]      = useState('')
   const [diffUnitReason,    setDiffUnitReason]    = useState('')
-  const [preceptorName,     setPreceptorName]     = useState('')
+  const [preceptorName,     setPreceptorName]     = useState(presetStudent?.matched_preceptor || '')
   const [preceptorChanged,  setPreceptorChanged]  = useState(false)
   const [learningHighlight, setLearningHighlight] = useState('')
   const [supportNeeded,     setSupportNeeded]     = useState('')
@@ -64,7 +67,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
   const [newApproved,       setNewApproved]       = useState(0)
   const [celebration,       setCelebration]       = useState(false)
 
-  useEffect(() => { document.title = 'ASPIRE Shift Log' }, [])
+  useEffect(() => { if (!embedded) document.title = 'ASPIRE Shift Log' }, [embedded])
 
   // ── Email screen ──────────────────────────────────────────────
   // Resolve the student server-side through /api/shift-log/lookup-student. The
@@ -151,11 +154,13 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
         ...(supportNeeded.trim()    && { support_needed: supportNeeded.trim() }),
       }
 
-      const res = await fetch('/api/shift-log/submit-past-shift', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      const res = transport?.send
+        ? await transport.send(payload)
+        : await fetch('/api/shift-log/submit-past-shift', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setFormErrors([data.message || 'Submission failed. Please try again.'])
@@ -206,11 +211,13 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
     background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:12, cursor:'pointer' }
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--sand)', padding:'24px 16px', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+    <div style={{ minHeight: embedded ? 0 : '100vh', background: embedded ? 'transparent' : 'var(--sand)', padding: embedded ? 0 : '24px 16px', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
       <div style={{ maxWidth:480, margin:'0 auto' }}>
-        <div style={{ textAlign:'center', marginBottom:24 }}>
-          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="36" />
-        </div>
+        {!embedded && (
+          <div style={{ textAlign:'center', marginBottom:24 }}>
+            <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="36" />
+          </div>
+        )}
 
         {/* ── Email screen ── */}
         {screen === 'email' && (
