@@ -87,10 +87,20 @@ test('scene overrides name a real scene, replace only point kinds, and are measu
   assert.deepEqual(CITY_MOTION.hollywood.sceneOverrides.cloudynight.beacons[0], [72.5, 1.5])
 })
 
-test('the bolt never blends: an opacity animation on a blended card-sized layer flashes the page in WebKit', () => {
+test('nothing in the motion layer blends: two hundred blended layers over the bolt dropped every storm frame', () => {
+  // MASTHEAD-BOLT-FLICKER-2 (2026-09-05). Taking the blend off the bolt alone
+  // was not enough: with ~200 mix-blend-mode children above it, every frame
+  // of the bolt's opacity animation made each of them re-read its backdrop.
+  // Chromium dropped 37 frames of 75-167ms in 3.5s of the cloudy-night scene
+  // and none with blending off, which the Owner saw as the whole screen
+  // flickering on each strike. So the rule is for the whole block.
   const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
-  const bolt = css.slice(css.indexOf('.mast-motion-bolt {'), css.indexOf('.mast-motion-bolt-a {'))
-  assert.doesNotMatch(bolt, /mix-blend-mode/)
+  // The header line sits inside a comment, so start at that comment's opener.
+  const start = css.lastIndexOf('/*', css.indexOf('MASTHEAD-MOTION-1 (PROTOTYPE): motion over the still artwork'))
+  const end = css.indexOf('Motion is decoration, so reduced motion removes it outright')
+  assert.ok(start > 0 && end > start, 'the motion block is where it was')
+  const rules = css.slice(start, end).replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.doesNotMatch(rules, /mix-blend-mode/)
   assert.match(css, /\.mast-motion \{ position: absolute; inset: 0; pointer-events: none; overflow: hidden; \}/)
 })
 
