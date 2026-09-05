@@ -219,7 +219,11 @@ export function resolvePack(packs, preferredCity, location) {
  * screen. A city with no entry uses the default.
  */
 export const CITY_SKY_X = {
-  newyork: '33%',
+  // MASTHEAD-NEWYORK-2: the second pack puts One WTC's needle at x 40.6%, and
+  // at 33% the moon's disc touched it. The clearing is the sky over the
+  // Jersey shore, left of Jersey City's towers (x 29-33, tops at card y 34%),
+  // so the celestial art anchors there (Owner, 2026-09-05).
+  newyork: '20%',
   // San Francisco puts downtown center-right (the moon sat on the Salesforce
   // and Transamerica towers at the default) and leaves the sky over the bay
   // and the bridge span open, between the greeting and the skyline.
@@ -256,6 +260,11 @@ export const CITY_IMG_Y = {
   // its aviation lights with them. Centring the crop keeps the mast whole and
   // spends the 30px on featureless brush at the bottom instead.
   hollywood: '50%',
+  // MASTHEAD-NEWYORK-2: One WTC's needle runs to source row 5 in the second
+  // pack; the bottom-anchored crop would cut it at the antenna. Centred, the
+  // needle exits the top edge as a skyline does in a photograph, and the
+  // 30 rows spent at the bottom are Liberty Island's seawall.
+  newyork: '50%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -447,24 +456,112 @@ export const CITY_MOTION = {
     ],
   },
   newyork: {
+    // MASTHEAD-NEWYORK-2 (2026-09-05): the second New York pack replaced the
+    // first, so EVERY coordinate here was re-measured off the new frames
+    // (scratchpad nymeasure.mjs). All eight frames share one viewpoint: the
+    // harbour from above Liberty Island, Lower Manhattan centre, Midtown
+    // behind it, the two East River bridges at right. Measured through the
+    // 50% crop (see CITY_IMG_Y): One WTC's needle runs to source row 5.
+    //
+    // Night: Lower Manhattan's windows, Midtown's crowns (the Empire State at
+    // [61.1, 20.4]), Brooklyn and the far Queens skyline, the Jersey shore
+    // under the greeting, Liberty's torch ([21.0, 50.2]) and the island's lamps.
     lights: [
-      [50.2, 74.6], [53.9, 77.0], [54.1, 64.9], [56.7, 74.3], [63.5, 74.3],
-      [74.4, 74.3], [76.8, 64.0], [79.0, 74.3], [85.5, 74.3], [88.9, 74.0],
-      [92.1, 74.6], [95.2, 74.9],
-      // MASTHEAD-LOCKSCREEN-1: the left third. [16.4, 35.4] is the torch of
-      // the Statue of Liberty; the rest are Liberty Island and the Jersey shore.
-      [16.0, 74.9], [16.1, 63.4], [16.4, 35.4], [27.9, 77.0], [32.6, 74.6],
-      [39.0, 69.3], [45.0, 60.8], [45.0, 74.3],
+      [47.5, 28.3], [38.4, 58.4], [55.0, 49.6], [29.2, 54.6], [53.6, 35.7],
+      [61.1, 60.2], [42.7, 61.7], [34.1, 56.6], [57.4, 30.1], [33.8, 36.9],
+      [45.1, 20.7], [44.1, 38.1], [61.3, 44.5], [37.1, 29.2], [28.2, 41.9],
+      [58.3, 43.1], [35.7, 45.1], [40.6, 41.9], [53.3, 28.3], [61.1, 20.4],
+      [50.2, 35.1], [53.8, 60.8],
+      // Brooklyn and the far skyline, right of the bridges. Lamps within
+      // 1.5% of either deck rail are left to the deck string.
+      [73.8, 49.0], [91.3, 54.0], [63.5, 52.5], [64.6, 23.6], [79.1, 38.6],
+      [64.3, 43.1], [93.2, 36.9], [70.3, 52.5], [99.1, 58.4], [67.3, 41.9],
+      [88.1, 38.1], [72.2, 38.9],
+      // The Jersey shore, left third.
+      [7.4, 51.0], [18.8, 42.5], [11.9, 49.0], [22.4, 41.9], [4.9, 42.2],
+      [0.5, 53.1], [15.4, 47.8], [26.8, 41.3], [14.3, 30.4], [4.2, 51.9],
+      // Liberty's torch, and the island's path lamps along the bottom edge.
+      [21.0, 50.2], [10.3, 95.9], [29.3, 97.1], [19.1, 94.7], [33.4, 95.6],
     ],
-    // The harbour throws the strongest reflections of any pack.
+    // Aviation red is painted on most of this frame's crowns (rgb 252,27,17 on
+    // the Jersey City tower, 236,45,3 and 248,58,29 on the two crowns beside
+    // One WTC, 238,0,14 on the near bridge tower), so the city takes the red
+    // tone. First is One WTC's antenna light, the only part of the needle the
+    // crop keeps (the crown itself is white in the frame, 237,232,205).
+    beacons: [
+      [40.6, 2.1], [44.1, 21.8], [47.6, 23.6], [52.8, 33.0], [29.5, 36.3],
+      [32.6, 34.2], [8.8, 28.0], [81.3, 31.6], [73.9, 39.2], [83.5, 44.0],
+    ],
+    beaconTone: 'red',
+    // The harbour throws the strongest reflections of any pack: the waterfront
+    // columns under Lower Manhattan (two tiers), the East River under the far
+    // span, the near tower's column, the Brooklyn promenade, the Jersey shore.
     water: [
-      [50.0, 84.4], [54.0, 90.6], [54.2, 81.4], [58.7, 87.0], [63.4, 82.6],
-      [63.5, 95.3], [69.3, 91.7], [75.0, 82.6], [75.0, 99.1],
+      [50.0, 64.6], [59.6, 63.1], [56.3, 64.0], [43.0, 64.0], [53.4, 63.1],
+      [36.5, 67.6], [46.5, 64.6],
+      [43.6, 68.4], [58.1, 68.7], [43.6, 79.7], [48.6, 81.7], [48.6, 68.1],
+      [57.8, 79.1], [61.4, 77.6],
+      [71.5, 66.1], [73.8, 67.0], [64.5, 71.1],
+      [87.9, 76.1], [83.3, 87.6],
+      [89.2, 76.7], [99.4, 76.7], [92.2, 77.9], [96.5, 82.0],
+      [12.0, 63.4], [3.0, 65.2], [14.8, 63.1], [33.1, 55.8],
     ],
-    // The first entry is the One World Trade spire tip, which the artwork
-    // already paints red. Every other pack's crowns are white, so this is the
-    // one city where an aviation-red beacon would be true to the frame.
-    beacons: [[58.5, 13.6], [63.9, 41.9], [71.9, 43.7], [68.5, 51.9]],
+    // Two spans. The far one (Brooklyn Bridge, tower at x 67) runs from the
+    // Manhattan approach to where it passes behind the near span; the near
+    // one (Manhattan Bridge, tower at x 83.5) descends to the Brooklyn shore.
+    // Each rail is one line fitted through a per-column trace of the lit
+    // roadway (band +-1.3%); the near deck is a shallow curve, steeper to the
+    // tower and flatter after, and one rail sits within 1.1% of it everywhere.
+    bridge: [
+      {
+        lights: [[58.5, 53.7], [61.5, 52.5], [63.5, 52.8], [65.0, 53.4], [70.0, 54.6], [72.0, 56.0]],
+        deck: { x: 58.5, y: 52.2, w: 13.5, rise: 3.2 },
+      },
+      {
+        lights: [
+          [74.0, 56.0], [77.5, 59.0], [80.0, 60.5], [81.5, 61.1], [83.0, 61.4],
+          [84.5, 62.0], [86.0, 62.5], [89.0, 64.0], [93.5, 65.5],
+        ],
+        deck: { x: 74, y: 57.2, w: 22, rise: 8.4 },
+      },
+    ],
+    // Sky is clear to card y 15% right of the needle (the Empire State reaches
+    // 17% at x 61). The approach comes in from the east over Brooklyn.
+    aircraft: { y: 4, from: 98, to: 44, flight: 40 },
+    birds: { y: 8, from: 98, to: 44, flight: 34, count: 6 },
+    // A tour helicopter, low over Midtown and out over the East River.
+    helicopter: { y: 12, from: 46, to: 98, flight: 46 },
+    // Smog lies on the far skylines (Jersey at y 30-42, Queens at 33-40 and
+    // Midtown's base) while Lower Manhattan's towers rise through it.
+    haze: { y: 27, height: 16 },
+    // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y 18%;
+    // sky column means fall from 223 at left to 203 at right), like Hollywood.
+    flare: { x: -6, y: 18 },
+    rainfall: true,
+    // The Staten Island Ferry, orange, out of the Battery and south-west across
+    // the harbour. Its lane, y 73, is water the whole way: under the Brooklyn
+    // shore (which reaches y 70.7 at x 90, hence the start at 84), clear of
+    // Lower Manhattan (waterfront y 60-62) and stopping short of Liberty's
+    // pedestal at x 20-22.5.
+    ferry: { y: 73, from: 84, to: 26, flight: 150 },
+    ferryTone: 'orange',
+    // Steam, the thing every New York rooftop does. Three measured roof edges
+    // (Day frame, first row where the column leaves the sky) with open sky
+    // above them: a low-rise west of the WTC cluster and two mid towers.
+    steam: [[34.0, 35.7], [52.0, 33.9], [58.0, 31.6]],
+    // Sun glitter, measured as pale maxima INSIDE the water (the brightest
+    // pale points of the day frames are the promenade edges, not the water):
+    // the harbour below the waterfront, the East River mouth, the near shore.
+    glints: [
+      [33.9, 67.0], [40.9, 68.4], [40.2, 76.7], [46.0, 75.5], [57.2, 72.6],
+      [61.1, 77.9], [63.4, 72.6], [68.2, 72.0], [71.2, 74.9], [80.0, 91.5],
+      [85.0, 87.3], [96.3, 80.2],
+    ],
+    // MASTHEAD-SCENE-SHIFT: the CloudyNight frame is the Night drawing moved
+    // DOWN 2.2% of the card (46 Night lights find their warm pixel 7-8px
+    // lower, the four red crowns 2.0-2.3% lower, x unchanged). One measured
+    // shift on the anchored group, rather than a second copy of every set.
+    sceneShift: { cloudynight: 2.2 },
   },
   lasvegas: {
     lights: [

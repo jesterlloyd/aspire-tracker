@@ -19,6 +19,11 @@
 // MASTHEAD-HOLLYWOOD-2 added the daytime kinds: birds, haze, flare, a
 // helicopter and rainfall, so a city can be alive in every scene and not only
 // after dark. Each is gated to the scenes it belongs to in index.css.
+//
+// MASTHEAD-NEWYORK-2 added steam (rooftop plumes on measured roof edges), a
+// second span (bridge may be a list), a ferry that sails either way in its
+// own hull colour, and sceneShift: one measured vertical offset for a scene
+// whose frame is the same drawing moved, applied to the anchored group.
 import { CITY_MOTION } from '../../lib/mastheadCityScenes'
 
 // Coprime-ish periods so a row of lights never visibly pulses in unison.
@@ -101,7 +106,14 @@ export default function MastheadMotion({ city }) {
   const m = CITY_MOTION[city]
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
-    birds, haze, hazeTone, flare, helicopter, rainfall, ferry, glints, sceneOverrides } = m
+    birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
+    sceneOverrides, sceneShift } = m
+  const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
+  // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
+  // beam, steam) sits in one anchored box, and a scene whose frame is the same
+  // drawing moved by a measured amount shifts that box, by CSS on the scene
+  // class. Crossings, weather and the flare are not anchored to anything.
+  const shiftVars = Object.fromEntries(Object.entries(sceneShift || {}).map(([scene, y]) => [`--shift-${scene}`, `${y}%`]))
   // MASTHEAD-SCENE-OVERRIDES: a scene whose frame is a different drawing gets
   // its own measured point sets. The default set hides in that scene and the
   // override shows, both by CSS on the host's scene class.
@@ -151,6 +163,7 @@ export default function MastheadMotion({ city }) {
           style={{ top: `${haze.y}%`, height: `${haze.height}%` }} />
       )}
 
+      <div className="mast-motion-anchored" style={shiftVars}>
       {/* Aviation beacons blink, they do not breathe. Keeping them on a
           separate keyframe from the shimmer is what makes a tower read as a
           tower rather than as one more window. */}
@@ -166,6 +179,68 @@ export default function MastheadMotion({ city }) {
           {renderWater(o.water, scene)}
         </span>
       ))}
+
+      {/* One landmark shaft, standing on the apex that projects it. Anchored at
+          the bottom and grown upward, so it reads as light leaving the building
+          rather than a bar dropped onto the sky. */}
+      {beam && (
+        <span className="mast-motion-beam"
+          style={{ left: `${beam.x}%`, top: `${beam.y}%`, width: `${beam.width}%`, height: `${beam.height}%` }} />
+      )}
+
+      {/* Steam off a rooftop: three puffs per stack, a third of a cycle apart
+          so the plume never empties, each rising, spreading and thinning from
+          the measured roof edge. */}
+      {steam?.map(([x, y], i) => [0, 1 / 3, 2 / 3].map(phase => (
+        <span key={`st-${x}-${y}-${phase}`} className="mast-motion-steam"
+          style={{ left: `${x}%`, top: `${y}%`, '--d': `${(6.2 + period(i)).toFixed(1)}s`,
+            '--dl': `${(phase * (6.2 + period(i)) + i * 1.3).toFixed(2)}s` }} />
+      )))}
+
+      {/* Sun glitter: each speck sits on a measured pale maximum of the water
+          and twinkles on its own short period, stretching sideways as it
+          brightens, which is what a facet of swell does as it turns. */}
+      {glints?.map(([x, y], i) => (
+        <span key={`gl-${x}-${y}`} className="mast-motion-glint"
+          style={{ left: `${x}%`, top: `${y}%`, '--d': `${(period(i) * 0.45).toFixed(2)}s`, '--dl': stagger(i) }} />
+      ))}
+
+      {spans.map((span, si) => (
+        <span key={`span-${si}`} className="mast-motion-set">
+          {span.lights.map(([x, y]) => (
+            <span key={`br-${x}-${y}`} className="mast-motion-decklight"
+              style={{
+                left: `${x}%`, top: `${y}%`,
+                // Delay rises with position along the span, so the shimmer
+                // travels the deck slowly instead of chasing like a marquee.
+                '--dl': `${(((x - span.deck.x) / span.deck.w) * 4.2).toFixed(2)}s`,
+              }} />
+          ))}
+          {/* The deck as a rotated rail. Traffic rides it rather than a flat
+              row, which matters: a span rises several percent of the card
+              across its length, pixels of drift off the roadway at the ends. */}
+          <span
+            className="mast-motion-deck"
+            style={{
+              left: `${span.deck.x}%`, top: `${span.deck.y}%`,
+              width: `${span.deck.w}%`,
+              // Card percentages are not square: the card is 5.9:1, so a 1%
+              // rise is 5.9x smaller in pixels than a 1% run. The angle has to
+              // be computed through that or the rail tilts far too steeply.
+              '--angle': `${(Math.atan((span.deck.rise / 5.9) / span.deck.w) * 180 / Math.PI).toFixed(3)}deg`,
+            }}
+          >
+            {/* Two each way on periods that do not divide into one another, so
+                the roadway never empties and never falls into lockstep. */}
+            {CARS.map(c => (
+              <span key={`${c.dir}-${c.dur}`}
+                className={`mast-motion-car mast-motion-car-${c.dir}`}
+                style={{ '--dur': `${c.dur + si * 1.7}s`, '--dl': `${c.delay + si * 2.3}s` }} />
+            ))}
+          </span>
+        </span>
+      ))}
+      </div>
 
       {aircraft && (
         <span className="mast-motion-plane" style={crossing(aircraft)}>
@@ -192,14 +267,6 @@ export default function MastheadMotion({ city }) {
         </span>
       )}
 
-      {/* One landmark shaft, standing on the apex that projects it. Anchored at
-          the bottom and grown upward, so it reads as light leaving the building
-          rather than a bar dropped onto the sky. */}
-      {beam && (
-        <span className="mast-motion-beam"
-          style={{ left: `${beam.x}%`, top: `${beam.y}%`, width: `${beam.width}%`, height: `${beam.height}%` }} />
-      )}
-
       {/* Ghosts are placed on the line from the sun through the card's centre,
           which is the one thing about a lens flare that is not decorative: it
           is where the optics put them. The streak is anamorphic, horizontal
@@ -222,58 +289,15 @@ export default function MastheadMotion({ city }) {
 
       {/* A ferry: a dark hull with a white wake by day, two warm lights by
           night. It runs its whole crossing on screen (no long empty gap like
-          the aircraft), because a ferry route is never empty for long. */}
+          the aircraft), because a ferry route is never empty for long. One
+          sailing left is the same ferry mirrored, so its wake still trails. */}
       {ferry && (
-        <span className="mast-motion-ferry"
+        <span className={`mast-motion-ferry${ferry.from > ferry.to ? ' mast-motion-ferry-west' : ''}${ferryTone === 'orange' ? ' mast-motion-ferry-orange' : ''}`}
           style={{ top: `${ferry.y}%`, '--from': `${ferry.from}%`, '--to': `${ferry.to}%`, '--cycle': `${ferry.flight}s` }}>
           <span className="mast-motion-ferry-wake" />
           <span className="mast-motion-ferry-hull" />
           <span className="mast-motion-ferry-lamp" />
         </span>
-      )}
-
-      {/* Sun glitter: each speck sits on a measured pale maximum of the water
-          and twinkles on its own short period, stretching sideways as it
-          brightens, which is what a facet of swell does as it turns. */}
-      {glints?.map(([x, y], i) => (
-        <span key={`gl-${x}-${y}`} className="mast-motion-glint"
-          style={{ left: `${x}%`, top: `${y}%`, '--d': `${(period(i) * 0.45).toFixed(2)}s`, '--dl': stagger(i) }} />
-      ))}
-
-      {bridge && (
-        <>
-          {bridge.lights.map(([x, y]) => (
-            <span key={`br-${x}-${y}`} className="mast-motion-decklight"
-              style={{
-                left: `${x}%`, top: `${y}%`,
-                // Delay rises with position along the span, so the shimmer
-                // travels the deck slowly instead of chasing like a marquee.
-                '--dl': `${(((x - bridge.deck.x) / bridge.deck.w) * 4.2).toFixed(2)}s`,
-              }} />
-          ))}
-          {/* The deck as a rotated rail. Traffic rides it rather than a flat
-              row, which matters: the span rises 4.4% of the card across its
-              length, several pixels of drift off the roadway at the ends. */}
-          <span
-            className="mast-motion-deck"
-            style={{
-              left: `${bridge.deck.x}%`, top: `${bridge.deck.y}%`,
-              width: `${bridge.deck.w}%`,
-              // Card percentages are not square: the card is 5.9:1, so a 1%
-              // rise is 5.9x smaller in pixels than a 1% run. The angle has to
-              // be computed through that or the rail tilts far too steeply.
-              '--angle': `${(Math.atan((bridge.deck.rise / 5.9) / bridge.deck.w) * 180 / Math.PI).toFixed(3)}deg`,
-            }}
-          >
-            {/* Two each way on periods that do not divide into one another, so
-                the roadway never empties and never falls into lockstep. */}
-            {CARS.map(c => (
-              <span key={`${c.dir}-${c.dur}`}
-                className={`mast-motion-car mast-motion-car-${c.dir}`}
-                style={{ '--dur': `${c.dur}s`, '--dl': `${c.delay}s` }} />
-            ))}
-          </span>
-        </>
       )}
     </div>
   )

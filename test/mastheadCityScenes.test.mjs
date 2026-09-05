@@ -251,13 +251,15 @@ test('a retired abbreviation no longer resolves, and the guard is what says so',
 
 test('the vertical crop is per city, and only the cities whose mast or spire needs it opt out', () => {
   // Bottom-anchored is the default because the panoramas are composed with
-  // ground at the bottom and sky to spare. Atlanta's spire (row 42) and the
-  // second Hollywood pack's radio mast (row 36) both reach into the top 61
-  // rows the default removes, so they crop centred. Everyone else stays.
+  // ground at the bottom and sky to spare. Atlanta's spire (row 42), the
+  // second Hollywood pack's radio mast (row 36) and the second New York
+  // pack's One WTC needle (row 5) all reach into the top 61 rows the default
+  // removes, so they crop centred. Everyone else stays.
   assert.equal(DEFAULT_IMG_Y, '100%')
-  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood'])
+  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'newyork'])
   assert.equal(imgPositionFor('atlanta'), '50%')
   assert.equal(imgPositionFor('hollywood'), '50%')
+  assert.equal(imgPositionFor('newyork'), '50%')
   assert.equal(imgPositionFor('losangeles'), '100%')
   assert.equal(imgPositionFor(undefined), '100%')
 })

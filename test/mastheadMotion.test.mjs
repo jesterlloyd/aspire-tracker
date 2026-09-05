@@ -18,14 +18,20 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // Anything not on this list is a typo. A misspelled effect key does not throw,
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
-  'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'glints', 'sceneOverrides']
+  'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
+  'steam', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
 const OVERRIDE_SCENES = ['cloudynight']
 const OVERRIDE_KINDS = ['lights', 'beacons', 'water']
+// A scene whose frame is the same drawing MOVED gets one measured vertical
+// shift of the anchored group instead of a second copy of every set.
+const SHIFT_SCENES = ['cloudynight']
 const CROSSINGS = ['aircraft', 'birds', 'helicopter', 'ferry']
-const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints']
+const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints', 'steam']
+// A city may carry one span or a list of them.
+const spansOf = m => Array.isArray(m.bridge) ? m.bridge : m.bridge ? [m.bridge] : []
 
 // The artwork's left fade runs to 62%, and the greeting sits in it. Points to
 // the left of this are washed out at best and fight the text at worst.
@@ -125,18 +131,39 @@ test('bridge deck lights lie along the declared deck line', () => {
   // The deck line is what traffic rides. If the lights and the line disagree,
   // the cars drive off the roadway and nothing else notices.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
-    if (!m.bridge) continue
-    const { deck, lights } = m.bridge
-    assert.ok(deck && lights?.length, `${city}.bridge needs both deck and lights`)
-    const slope = deck.rise / deck.w
-    for (const [x, y] of lights) {
-      assert.ok(x >= deck.x - 0.5 && x <= deck.x + deck.w + 0.5,
-        `${city} deck light at x=${x} is off the declared span`)
-      const expected = deck.y + slope * (x - deck.x)
-      assert.ok(Math.abs(y - expected) < 3,
-        `${city} deck light at x=${x} is ${(y - expected).toFixed(1)}% off the deck line`)
+    for (const span of spansOf(m)) {
+      const { deck, lights } = span
+      assert.ok(deck && lights?.length, `${city}.bridge needs both deck and lights`)
+      const slope = deck.rise / deck.w
+      for (const [x, y] of lights) {
+        assert.ok(x >= deck.x - 0.5 && x <= deck.x + deck.w + 0.5,
+          `${city} deck light at x=${x} is off the declared span`)
+        const expected = deck.y + slope * (x - deck.x)
+        assert.ok(Math.abs(y - expected) < 3,
+          `${city} deck light at x=${x} is ${(y - expected).toFixed(1)}% off the deck line`)
+      }
     }
   }
+  // New York carries both East River spans, far then near, and they do not
+  // overlap in x: two rails on one stretch would stack traffic.
+  const ny = spansOf(CITY_MOTION.newyork)
+  assert.equal(ny.length, 2)
+  assert.ok(ny[0].deck.x + ny[0].deck.w <= ny[1].deck.x + 0.5, 'the far span runs into the near one')
+})
+
+test('a scene shift names a gated scene, is small, and has its CSS rule', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const [scene, y] of Object.entries(m.sceneShift || {})) {
+      assert.ok(SHIFT_SCENES.includes(scene), `${city}.sceneShift.${scene}: no CSS gate exists for that scene`)
+      assert.ok(typeof y === 'number' && y !== 0 && Math.abs(y) <= 5,
+        `${city}.sceneShift.${scene}=${y}: a shift is a few percent, measured; anything larger is a different drawing and wants sceneOverrides`)
+      assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-anchored \\{ transform: translateY\\(var\\(--shift-${scene}, 0\\)\\); \\}`))
+      assert.ok(!m.sceneOverrides?.[scene], `${city}.${scene} has both a shift and an override; pick one`)
+    }
+  }
+  // New York's cloudy night is the night drawing 2.2% lower (46 lights, 4 crowns).
+  assert.equal(CITY_MOTION.newyork.sceneShift.cloudynight, 2.2)
 })
 
 test('a beam stands on the card and rises inside it', () => {
@@ -178,7 +205,17 @@ test('beacon tone is only red where the artwork paints it red', () => {
   // red. Everyone else's crowns are white, and stay on the default tone.
   assert.equal(CITY_MOTION.hollywood.beaconTone, 'red')
   assert.equal(CITY_MOTION.sanfrancisco.beaconTone, 'red')
+  // New York's second pack paints aviation red on most crowns (rgb 252,27,17
+  // on the Jersey City tower, 238,0,14 on the Manhattan Bridge tower).
+  assert.equal(CITY_MOTION.newyork.beaconTone, 'red')
   assert.equal(CITY_MOTION.losangeles.beaconTone, undefined)
+  // A ferry tone is likewise only 'orange' (the Staten Island Ferry), with a ferry.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    if (m.ferryTone === undefined) continue
+    assert.equal(m.ferryTone, 'orange', `${city}.ferryTone "${m.ferryTone}" is not a known tone`)
+    assert.ok(m.ferry, `${city} declares a ferry tone with no ferry to paint`)
+  }
+  assert.equal(CITY_MOTION.newyork.ferryTone, 'orange')
   // A haze tone is likewise only 'fog', and only with a haze to colour.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (m.hazeTone === undefined) continue
@@ -209,9 +246,9 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // A city cropped at 50% rather than the bottom-anchored default had its
   // coordinates converted differently. If someone changes a city's --scn-img-y,
   // every one of its points silently shifts by about 30px and this test is the
-  // only thing that will say so. Atlanta and Hollywood (second pack) are the
-  // two; both were measured through the centred crop.
-  const CENTRED = ['atlanta', 'hollywood']
+  // only thing that will say so. Atlanta, Hollywood (second pack) and New
+  // York (second pack) are the three; all were measured through the centred crop.
+  const CENTRED = ['atlanta', 'hollywood', 'newyork']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of Object.keys(CITY_MOTION)) {

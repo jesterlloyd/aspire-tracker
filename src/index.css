@@ -2488,6 +2488,52 @@ a.doc-file-link:hover { text-decoration: underline; }
   animation: mast-twinkle var(--d, 2s) ease-in-out var(--dl, 0s) infinite;
 }
 
+/* ── MASTHEAD-NEWYORK-2: kinds the harbour frames asked for. ── */
+
+/* The anchored group: every effect measured against the frame. A scene whose
+   frame is the same drawing moved by a measured amount (New York's cloudy
+   night sits 2.2% lower than its night) shifts the whole group at once; the
+   component sets --shift-<scene> from CITY_MOTION.sceneShift. */
+.mast-motion-anchored { position: absolute; inset: 0; pointer-events: none; }
+.mast-scenic.mast-scene-cloudynight .mast-motion-anchored { transform: translateY(var(--shift-cloudynight, 0)); }
+
+/* A ferry sailing LEFT is the same ferry mirrored about its own point, so
+   the wake still trails behind it. The sail keyframe animates left, which
+   the mirror does not touch. */
+.mast-motion-ferry-west { transform: scaleX(-1); }
+/* The Staten Island Ferry is orange; nothing else on the harbour is. */
+.mast-motion-ferry-orange .mast-motion-ferry-hull { background: rgba(236,122,34,0.95); }
+
+/* Steam off a rooftop. Each puff starts small and dense at the measured roof
+   edge, then rises, drifts with the wind, spreads and thins. Normal blend
+   (steam is white and covers what is behind it), so it reads by day against
+   a pale sky and by night against a dark one alike. */
+.mast-motion-steam {
+  position: absolute; width: 8px; height: 14px; margin: -14px 0 0 -4px;
+  border-radius: 50%; opacity: 0; filter: blur(1.4px);
+  transform-origin: 50% 100%;
+  background: radial-gradient(ellipse at 50% 78%,
+    rgba(255,255,255,0.78) 0%, rgba(242,246,252,0.34) 44%, transparent 70%);
+}
+/* Linear, so the puff keeps climbing while it thins; an ease-out left every
+   puff hanging near the top of its rise as a round orb. It stretches taller
+   than it widens, which is what a plume does before the wind takes it. */
+@keyframes mast-steam {
+  0%   { transform: translate(0, 0) scale(0.4, 0.5); opacity: 0; }
+  12%  { opacity: 0.50; }
+  55%  { opacity: 0.26; }
+  100% { transform: translate(9px, -30px) scale(1.5, 2.2); opacity: 0; }
+}
+.mast-scenic.mast-scene-day .mast-motion-steam,
+.mast-scenic.mast-scene-morning .mast-motion-steam,
+.mast-scenic.mast-scene-dawn .mast-motion-steam,
+.mast-scenic.mast-scene-goldenhour .mast-motion-steam,
+.mast-scenic.mast-scene-sunset .mast-motion-steam,
+.mast-scenic.mast-scene-night .mast-motion-steam,
+.mast-scenic.mast-scene-cloudynight .mast-motion-steam {
+  animation: mast-steam var(--d, 8s) linear var(--dl, 0s) infinite;
+}
+
 /* Motion is decoration, so reduced motion removes it outright rather than
    slowing it down. The card is complete without it. */
 @media (prefers-reduced-motion: reduce) {
@@ -2495,7 +2541,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-plane-dot, .mast-motion-water, .mast-motion-decklight, .mast-motion-car,
   .mast-motion-beam, .mast-motion-rain, .mast-motion-drop, .mast-motion-haze, .mast-motion-flock,
   .mast-motion-bird, .mast-motion-heli, .mast-motion-heli-strobe, .mast-motion-flare,
-  .mast-motion-ghost {
+  .mast-motion-ghost, .mast-motion-ferry, .mast-motion-ferry-hull, .mast-motion-ferry-wake,
+  .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored {
     animation: none !important; opacity: 0 !important;
   }
 }
