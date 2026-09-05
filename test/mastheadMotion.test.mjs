@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -29,7 +29,9 @@ const OVERRIDE_KINDS = ['lights', 'beacons', 'water']
 // shift of the anchored group instead of a second copy of every set.
 const SHIFT_SCENES = ['cloudynight']
 const CROSSINGS = ['aircraft', 'birds', 'helicopter', 'ferry']
-const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints', 'steam']
+const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints', 'steam', 'neon']
+// Neon points may carry a tone as a third element; only this one is drawn.
+const NEON_TONES = ['cyan']
 // A city may carry one span or a list of them.
 const spansOf = m => Array.isArray(m.bridge) ? m.bridge : m.bridge ? [m.bridge] : []
 
@@ -151,6 +153,25 @@ test('bridge deck lights lie along the declared deck line', () => {
   assert.ok(ny[0].deck.x + ny[0].deck.w <= ny[1].deck.x + 0.5, 'the far span runs into the near one')
 })
 
+test('a wheel and an orb are measured discs that sit on the card', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const kind of ['wheel', 'orb']) {
+      const d = m[kind]
+      if (!d) continue
+      assert.ok(d.x >= 0 && d.x <= 100 && d.y >= 0 && d.y <= 100, `${city}.${kind} centre is outside the card`)
+      assert.ok(d.d > 0 && d.d < 12, `${city}.${kind} diameter ${d.d}% of the width is not a landmark`)
+    }
+    if (m.orb) assert.ok(m.orb.cut > 0 && m.orb.cut <= 100, `${city}.orb.cut must be a share of the disc`)
+    for (const pt of m.neon || []) {
+      if (pt[2] !== undefined) assert.ok(NEON_TONES.includes(pt[2]), `${city}.neon tone "${pt[2]}" has no glow`)
+    }
+  }
+  // Las Vegas: the High Roller's rim (97px across, centre x 39.0) and the
+  // Sphere (123px, cut by the skyline 54% of the way down).
+  assert.deepEqual(CITY_MOTION.lasvegas.wheel, { x: 39.0, y: 58.6, d: 4.85 })
+  assert.equal(CITY_MOTION.lasvegas.orb.cut, 54)
+})
+
 test('a scene shift names a gated scene, is small, and has its CSS rule', () => {
   const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
   for (const [city, m] of Object.entries(CITY_MOTION)) {
@@ -208,6 +229,9 @@ test('beacon tone is only red where the artwork paints it red', () => {
   // New York's second pack paints aviation red on most crowns (rgb 252,27,17
   // on the Jersey City tower, 238,0,14 on the Manhattan Bridge tower).
   assert.equal(CITY_MOTION.newyork.beaconTone, 'red')
+  // Las Vegas's second pack: the Strat's pod band is rgb(244,34,61) and the
+  // crown at x 81.2 is 248,19,14.
+  assert.equal(CITY_MOTION.lasvegas.beaconTone, 'red')
   assert.equal(CITY_MOTION.losangeles.beaconTone, undefined)
   // A ferry tone is likewise only 'orange' (the Staten Island Ferry), with a ferry.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
@@ -248,7 +272,7 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // every one of its points silently shifts by about 30px and this test is the
   // only thing that will say so. Atlanta, Hollywood (second pack) and New
   // York (second pack) are the three; all were measured through the centred crop.
-  const CENTRED = ['atlanta', 'hollywood', 'newyork']
+  const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of Object.keys(CITY_MOTION)) {

@@ -24,6 +24,10 @@
 // second span (bridge may be a list), a ferry that sails either way in its
 // own hull colour, and sceneShift: one measured vertical offset for a scene
 // whose frame is the same drawing moved, applied to the anchored group.
+//
+// MASTHEAD-LASVEGAS-2 added neon (fast irregular flicker on measured
+// saturated maxima, magenta or cyan), a wheel (a rim of cabin lights turning
+// on a measured ring) and an orb (the Sphere's skin shifting hue).
 import { CITY_MOTION } from '../../lib/mastheadCityScenes'
 
 // Coprime-ish periods so a row of lights never visibly pulses in unison.
@@ -107,7 +111,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    sceneOverrides, sceneShift } = m
+    neon, wheel, orb, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -186,6 +190,28 @@ export default function MastheadMotion({ city }) {
       {beam && (
         <span className="mast-motion-beam"
           style={{ left: `${beam.x}%`, top: `${beam.y}%`, width: `${beam.width}%`, height: `${beam.height}%` }} />
+      )}
+
+      {/* Neon flickers: a fast, irregular step pattern, nothing like the slow
+          breath of the shimmer, on the Strip's saturated signage. */}
+      {neon?.map(([x, y, tone], i) => (
+        <span key={`ne-${x}-${y}`} className={`mast-motion-neon${tone === 'cyan' ? ' mast-motion-neon-cyan' : ''}`}
+          style={{ left: `${x}%`, top: `${y}%`, '--d': `${(2.3 + (period(i) % 2.1)).toFixed(2)}s`, '--dl': stagger(i) }} />
+      ))}
+
+      {/* A wheel is a rim of cabin lights turning slowly. The box is square
+          in pixels (width as a share of the card width, aspect-ratio 1), so
+          the ring stays round on a card that is not. */}
+      {wheel && (
+        <span className="mast-motion-wheel"
+          style={{ left: `${wheel.x}%`, top: `${wheel.y}%`, width: `${wheel.d}%` }} />
+      )}
+
+      {/* The orb's skin drifts through the hues, masked off below the line
+          where the skyline in front of it begins. */}
+      {orb && (
+        <span className="mast-motion-orb"
+          style={{ left: `${orb.x}%`, top: `${orb.y}%`, width: `${orb.d}%`, '--cut': `${orb.cut}%` }} />
       )}
 
       {/* Steam off a rooftop: three puffs per stack, a third of a cycle apart

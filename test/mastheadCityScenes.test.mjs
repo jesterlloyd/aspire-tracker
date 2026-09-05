@@ -254,9 +254,12 @@ test('the vertical crop is per city, and only the cities whose mast or spire nee
   // ground at the bottom and sky to spare. Atlanta's spire (row 42), the
   // second Hollywood pack's radio mast (row 36) and the second New York
   // pack's One WTC needle (row 5) all reach into the top 61 rows the default
-  // removes, so they crop centred. Everyone else stays.
+  // removes, so they crop centred; the second Las Vegas pack's Strat (row 68)
+  // clears it by seven rows and crops centred for the sky above its tip.
+  // Everyone else stays.
   assert.equal(DEFAULT_IMG_Y, '100%')
-  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'newyork'])
+  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'lasvegas', 'newyork'])
+  assert.equal(imgPositionFor('lasvegas'), '50%')
   assert.equal(imgPositionFor('atlanta'), '50%')
   assert.equal(imgPositionFor('hollywood'), '50%')
   assert.equal(imgPositionFor('newyork'), '50%')

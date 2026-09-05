@@ -265,6 +265,10 @@ export const CITY_IMG_Y = {
   // needle exits the top edge as a skyline does in a photograph, and the
   // 30 rows spent at the bottom are Liberty Island's seawall.
   newyork: '50%',
+  // MASTHEAD-LASVEGAS-2: the Strat's tip is at source row 68, seven rows
+  // under the default crop's edge; centred it sits at card y 11% with sky
+  // above it, and the 30 rows given up at the bottom are suburb.
+  lasvegas: '50%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -564,22 +568,96 @@ export const CITY_MOTION = {
     sceneShift: { cloudynight: 2.2 },
   },
   lasvegas: {
+    // MASTHEAD-LASVEGAS-2 (2026-09-05): the second Las Vegas pack replaced
+    // the first, so EVERY coordinate here was re-measured (scratchpad
+    // nymeasure.mjs, lvbbox.mjs). One viewpoint on all eight frames: the
+    // valley from the south-east, the Strat at far left, the High Roller and
+    // the Sphere left of centre, Paris's tower right of it, the Luxor pyramid
+    // at right, mountains behind, the suburbs' arterial roads in front.
+    // Measured through the 50% crop (see CITY_IMG_Y): the Strat's tip is at
+    // source row 68. CloudyNight is the same drawing (landmarks and crowns
+    // within 3px), so it needs no shift and no override.
+    //
+    // Night: the Strip's facades and crowns, then the suburb's lamps.
     lights: [
-      [46.2, 70.8], [48.7, 69.3], [51.3, 71.4], [56.0, 72.3], [59.8, 68.1],
-      [62.4, 68.1], [65.3, 71.7], [67.8, 67.0], [75.1, 70.2], [79.5, 68.1],
-      [84.3, 67.3], [87.9, 66.4], [91.3, 70.5], [93.8, 70.5],
-      // MASTHEAD-LOCKSCREEN-1: the Strip's western end. Desert to the left of
-      // it, so only three.
-      [34.4, 71.7], [40.3, 61.4], [41.8, 70.8],
+      [65.5, 63.4], [65.3, 52.8], [80.5, 45.7], [70.8, 54.3], [65.6, 73.5],
+      [58.7, 54.9], [20.6, 47.8], [92.7, 59.6], [94.6, 71.4], [28.2, 46.6],
+      [10.6, 73.2], [95.9, 51.3], [24.2, 57.2], [26.6, 62.5], [21.3, 72.9],
+      [22.2, 62.5], [93.0, 49.3], [92.4, 71.1], [15.4, 67.3], [31.4, 47.8],
+      [26.5, 69.6], [59.4, 73.8], [2.3, 64.0], [97.5, 69.6], [23.6, 68.7],
+      [34.7, 67.0], [14.0, 73.5], [30.0, 65.8], [67.7, 62.0], [26.6, 56.3],
+      [26.2, 50.4], [17.0, 73.2], [52.5, 62.0], [30.1, 72.9], [84.1, 52.8],
+      // The suburb's lamps, off the two road rails.
+      [21.8, 94.4], [33.0, 98.8], [69.3, 83.8], [55.8, 76.7], [41.6, 97.4],
+      [91.0, 99.1], [95.1, 83.5], [50.3, 94.4], [91.0, 77.9],
     ],
-    beacons: [[46.7, 49.9]],
-    // The Luxor shaft, standing on the pyramid apex. The apex had to be found
-    // by eye in the end: a brightest-pixel search kept landing on the hotel
-    // beside it, which put the beam in mid-air next to the pyramid rather than
-    // on it. No other city has a landmark that projects light, which is exactly
-    // why this is not a shared effect: elsewhere it is a searchlight in an
-    // empty sky.
-    beam: { x: 64.6, y: 59.4, height: 52, width: 2.6 },
+    // The Strat's tip (rgb 232,100,58 at card y 11) and its pod's red band
+    // (244,34,61), the crown at x 28 (250,67,2), Paris's tip, the red crown
+    // at 81.2 (248,19,14) and the three tower crowns beside it.
+    beacons: [
+      [7.7, 11.0], [7.7, 16.8], [28.0, 47.8], [65.5, 42.2], [81.2, 44.8],
+      [77.6, 43.1], [75.9, 44.5], [72.1, 44.0],
+    ],
+    beaconTone: 'red',
+    // Neon: the saturated magenta and cyan maxima of the Strip's signage
+    // (the third element picks the cyan glow; magenta is the default). The
+    // wheel's rim and the Sphere's skin are left to their own kinds.
+    neon: [
+      [11.9, 59.6], [41.1, 58.1], [40.9, 66.4], [37.5, 69.0], [48.6, 74.9],
+      [64.0, 58.4], [62.9, 68.4], [73.6, 45.7], [78.1, 48.7], [80.3, 59.3],
+      [1.2, 67.3],
+      [86.9, 71.7, 'cyan'], [87.5, 64.0, 'cyan'], [72.2, 45.7, 'cyan'],
+      [91.5, 76.1, 'cyan'], [36.9, 58.7, 'cyan'], [73.6, 62.0, 'cyan'],
+      [54.2, 53.4, 'cyan'],
+    ],
+    // The High Roller: a ring 97 source px across (bounding box of its lit
+    // rim, card y 44.3-72.9), centred at x 39.0. Diameter as a share of the
+    // card WIDTH, since the ring is square in pixels and the card is not.
+    wheel: { x: 39.0, y: 58.6, d: 4.85 },
+    // The Sphere: 123 px across, top at card y 54.3, its lower half behind
+    // the Strip (the skyline cuts it at y 73.8, 54% of the way down).
+    orb: { x: 47.2, y: 72.4, d: 6.15, cut: 54 },
+    // The Luxor shaft, standing on the pyramid's apex: the brightest column
+    // at x 88 peaks white (254,255,253) at card y 57-58 and the frame already
+    // paints a faint beam above it.
+    beam: { x: 87.95, y: 57.5, height: 47, width: 2.4 },
+    // Two arterial roads across the suburb in front, traced light by light
+    // (+-1.3% band): both run level across the whole frame.
+    bridge: [
+      {
+        lights: [
+          [3.5, 81.1], [7.0, 80.8], [10.0, 80.8], [13.0, 79.7], [16.5, 79.9],
+          [20.0, 80.5], [25.5, 81.4], [29.0, 80.5], [35.0, 79.1], [39.0, 79.1],
+          [43.5, 79.4], [46.5, 79.1], [53.5, 79.4], [56.5, 79.9], [60.5, 79.1],
+          [64.5, 79.9], [69.0, 79.4], [73.0, 79.1], [77.5, 79.9], [81.5, 78.8],
+          [86.0, 79.1], [89.5, 79.4], [92.0, 79.7], [97.0, 78.8],
+        ],
+        deck: { x: 1, y: 79.7, w: 98, rise: 0 },
+      },
+      {
+        lights: [
+          [2.5, 91.5], [8.0, 89.1], [12.0, 89.4], [16.5, 90.6], [21.0, 89.4],
+          [26.0, 89.1], [31.5, 89.7], [37.0, 90.9], [40.5, 90.6], [44.0, 90.6],
+          [50.0, 90.6], [53.5, 89.7], [58.0, 89.4], [61.5, 90.9], [65.5, 89.4],
+          [70.0, 90.0], [73.5, 89.1], [79.5, 91.7], [84.5, 90.0], [88.5, 90.0],
+          [93.5, 91.2], [97.0, 90.0],
+        ],
+        deck: { x: 1, y: 90.3, w: 98, rise: 0 },
+      },
+    ],
+    // The ridge tops out at card y 30%; the Strat reaches 11% at x 7.7, so
+    // the crossings keep to the east of it.
+    aircraft: { y: 16, from: 98, to: 44, flight: 40 },
+    birds: { y: 22, from: 98, to: 44, flight: 34, count: 6 },
+    helicopter: { y: 24, from: 44, to: 98, flight: 46 },
+    // Morning haze on the valley floor behind the Strip (the far lights band
+    // at y 45-58), white rather than the basin's smog; the towers stand out.
+    haze: { y: 44, height: 14 },
+    hazeTone: 'fog',
+    // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
+    // 15%; sky column means fall from 225 at left to 207 at right).
+    flare: { x: -6, y: 15 },
+    rainfall: true,
   },
   atlanta: {
     // Atlanta is the one city cropped at --scn-img-y 50%, so these were

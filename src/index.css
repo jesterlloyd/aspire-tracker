@@ -2534,6 +2534,75 @@ a.doc-file-link:hover { text-decoration: underline; }
   animation: mast-steam var(--d, 8s) linear var(--dl, 0s) infinite;
 }
 
+/* ── MASTHEAD-LASVEGAS-2: kinds the Strip asked for. ── */
+
+/* Neon. A sign flickers: an irregular step pattern with short dropouts,
+   nothing like the shimmer's slow breath. Magenta by default, cyan by class. */
+.mast-motion-neon {
+  position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+  border-radius: 50%; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(circle,
+    rgba(255,150,245,0.95) 0%, rgba(240,90,230,0.36) 34%, transparent 68%);
+}
+.mast-motion-neon-cyan {
+  background: radial-gradient(circle,
+    rgba(160,245,255,0.95) 0%, rgba(80,200,250,0.36) 34%, transparent 68%);
+}
+@keyframes mast-flicker {
+  0%, 100% { opacity: 0.72; }
+  8%       { opacity: 0.20; }
+  10%      { opacity: 0.80; }
+  22%      { opacity: 0.68; }
+  24%      { opacity: 0.14; }
+  26%      { opacity: 0.84; }
+  50%      { opacity: 0.60; }
+  61%      { opacity: 0.10; }
+  63%      { opacity: 0.78; }
+  80%      { opacity: 0.70; }
+}
+.mast-scenic.mast-scene-night .mast-motion-neon,
+.mast-scenic.mast-scene-cloudynight .mast-motion-neon {
+  animation: mast-flicker var(--d, 3s) steps(1, end) var(--dl, 0s) infinite;
+}
+
+/* The wheel: 28 cabin lights on a rim, turning. A repeating conic gradient
+   masked to a thin annulus; the rotate property, not transform, so the
+   centring translate is untouched. */
+.mast-motion-wheel {
+  position: absolute; aspect-ratio: 1; opacity: 0; mix-blend-mode: screen;
+  transform: translate(-50%, -50%); border-radius: 50%; filter: blur(0.5px);
+  background: repeating-conic-gradient(from 0deg,
+    rgba(255,196,250,0.95) 0deg 2.6deg, transparent 2.6deg 12.857deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 76%, #000 82%, #000 93%, transparent 100%);
+  mask-image: radial-gradient(circle, transparent 76%, #000 82%, #000 93%, transparent 100%);
+}
+@keyframes mast-turn { from { rotate: 0deg; } to { rotate: 360deg; } }
+.mast-scenic.mast-scene-night .mast-motion-wheel,
+.mast-scenic.mast-scene-cloudynight .mast-motion-wheel {
+  opacity: 0.8; animation: mast-turn 52s linear infinite;
+}
+
+/* The orb: a soft disc whose hue drifts right round the wheel, cut off
+   below the line where the skyline in front of it begins (--cut, a share
+   of the disc from its top). Blur and hue-rotate share one filter so the
+   keyframe can animate the hue without dropping the blur. */
+.mast-motion-orb {
+  position: absolute; aspect-ratio: 1; opacity: 0; mix-blend-mode: screen;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle at 42% 36%,
+    rgba(150,210,255,0.62) 0%, rgba(255,110,225,0.50) 55%, transparent 71%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(var(--cut, 50%) - 8%), transparent var(--cut, 50%));
+  mask-image: linear-gradient(180deg, #000 0, #000 calc(var(--cut, 50%) - 8%), transparent var(--cut, 50%));
+  filter: blur(3px) hue-rotate(0deg);
+}
+@keyframes mast-orb { from { filter: blur(3px) hue-rotate(0deg); } to { filter: blur(3px) hue-rotate(360deg); } }
+.mast-scenic.mast-scene-night .mast-motion-orb,
+.mast-scenic.mast-scene-cloudynight .mast-motion-orb,
+.mast-scenic.mast-scene-dawn .mast-motion-orb,
+.mast-scenic.mast-scene-sunset .mast-motion-orb {
+  opacity: 0.7; animation: mast-orb 36s linear infinite;
+}
+
 /* Motion is decoration, so reduced motion removes it outright rather than
    slowing it down. The card is complete without it. */
 @media (prefers-reduced-motion: reduce) {
@@ -2542,7 +2611,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-beam, .mast-motion-rain, .mast-motion-drop, .mast-motion-haze, .mast-motion-flock,
   .mast-motion-bird, .mast-motion-heli, .mast-motion-heli-strobe, .mast-motion-flare,
   .mast-motion-ghost, .mast-motion-ferry, .mast-motion-ferry-hull, .mast-motion-ferry-wake,
-  .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored {
+  .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored,
+  .mast-motion-neon, .mast-motion-wheel, .mast-motion-orb {
     animation: none !important; opacity: 0 !important;
   }
 }
