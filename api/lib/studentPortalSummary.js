@@ -7,6 +7,8 @@ const STUDENT_COLUMNS = [
   'school', 'status', 'unit', 'preceptor_name', 'term_dates',
   'hours_required', 'approved_hours', 'pending_hours',
   'headshot_url', 'phone', 'badge_created',
+  // STUDENT-BADGE-1: the coordinator-owned rotation row feeds the badge dates.
+  'cohort_school_rotation_id',
 ].join(', ')
 
 const COHORT_COLUMNS = 'id, name, status, start_date, end_date'
@@ -29,6 +31,26 @@ export async function buildStudentPortalSummary(db, studentIds) {
       .in('id', cohortIds)
     if (cErr) throw new Error('cohort_lookup_failed')
     cohortsById = Object.fromEntries((cohorts || []).map(c => [c.id, c]))
+  }
+
+  // STUDENT-BADGE-1: the student's own rotation window from cohort_school_rotations, the same
+  // source the Unit Leader and Academic Partner rosters read; the 1900-01-01 sentinel resolves
+  // to null. It feeds the badge dates (issued a week before the start, valid through the end
+  // month) exactly as the staff badge tool computes them.
+  const ROTATION_SENTINEL = '1900-01-01'
+  const rotationIds = [...new Set((students || []).map(s => s.cohort_school_rotation_id).filter(Boolean))]
+  const rotationById = {}
+  if (rotationIds.length > 0) {
+    const { data: rotations, error: rErr } = await db
+      .from('cohort_school_rotations')
+      .select('id, rotation_start_date, rotation_end_date')
+      .in('id', rotationIds)
+    if (!rErr && rotations) {
+      for (const r of rotations) {
+        const { rotation_start_date: start, rotation_end_date: end } = r
+        rotationById[r.id] = (!start || !end || start === ROTATION_SENTINEL || end === ROTATION_SENTINEL) ? null : { start, end }
+      }
+    }
   }
 
   const assignmentsByStudent = {}
@@ -78,6 +100,7 @@ export async function buildStudentPortalSummary(db, studentIds) {
       unit_names: unitsByStudent[student.id] || [],
       preceptor_name: assignmentsByStudent[student.id]?.preceptor_name || student.preceptor_name || null,
       term_dates: student.term_dates || null,
+      rotation: rotationById[student.cohort_school_rotation_id] || null,
       cohort: cohortsById[student.cohort_id]
         ? {
             id: cohortsById[student.cohort_id].id,

@@ -538,6 +538,14 @@
 .ptl-doc-meta { margin-bottom: 8px; }
 .ptl-doc-row .ptl-btn-sm { margin-top: 6px; }
 .ptl-doc-row .ptl-form-ok, .ptl-doc-row .ptl-form-error { margin-bottom: 0; }
+/* STUDENT-BADGE-1 (Owner decision, 2026-09-05): the badge is rendered in the student's own
+   browser by the generator staff use; front and back preview side by side, stacked on narrow
+   phones, each with its own download. */
+.ptl-badge-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; max-width: 460px; }
+.ptl-badge-preview img { display: block; width: 100%; height: auto; border-radius: var(--aspire-radius-control); box-shadow: var(--aspire-shadow-card); }
+.ptl-badge-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.ptl-badge-actions .ptl-btn-sm { margin-top: 0; }
+@media (max-width: 480px) { .ptl-badge-preview { grid-template-columns: 1fr; } }
 
 /* Cap descriptive/empty text so wide cards do not stretch copy into long lines
    or leave sparse, oversized empty states. */
@@ -1008,8 +1016,11 @@
     position: absolute; top: -7px; right: -13px;
     min-width: 17px; padding: 1px 5px; font-size: 10.5px;
   }
-  /* The nav row is the bottom tab bar on phones; Refresh is a desktop chrome affordance. */
-  .ptl-nav-refresh { display: none; }
+  /* The nav row is the bottom tab bar on phones; Refresh is a desktop chrome affordance.
+     STUDENT-PHONE-1: the selector carries the parent because `.ptl-nav > span { display:
+     contents }` (0,1,1) outranked the bare class (0,1,0); with the span's box gone, its
+     button rendered straight into the bottom bar on every phone. Measured, not inferred. */
+  .ptl-nav > .ptl-nav-refresh { display: none; }
 }
 
 /* ============================================================================
@@ -1912,8 +1923,17 @@ img.ptl-detail-photo {
   .ptl-student-cal-toolbar > :nth-child(2) { grid-row: 1; text-align: center; }
   .ptl-student-cal-toolbar > :first-child { grid-row: 2; }
   .ptl-student-cal-toolbar > :last-child { display: none; }
-  .ptl-student-cal-grid { min-width: 620px; }
-  .canonical-calendar-main:has(.ptl-student-cal-grid) { overflow-x: auto; }
+  /* STUDENT-PHONE-1 (Owner decision, 2026-09-05): on a phone the mini calendar and its day
+     panel ARE the calendar. The month grid, its legend and its footnote hide; the title,
+     description and month nav stay and move ABOVE the mini calendar, so the month being
+     browsed is named before it is shown. Tablets and desktops keep the full grid. */
+  .canonical-calendar-shell:has(.ptl-student-cal-grid) .canonical-calendar-main {
+    order: 1; border-bottom: 1px solid var(--border-lt, #eef0f2); padding-bottom: 4px;
+  }
+  .canonical-calendar-shell:has(.ptl-student-cal-grid) .canonical-calendar-sidebar { order: 2; border-bottom: 0; }
+  .canonical-calendar-shell:has(.ptl-student-cal-grid) .canonical-calendar-main [role="grid"],
+  .canonical-calendar-shell:has(.ptl-student-cal-grid) .ptl-cal-legend,
+  .canonical-calendar-shell:has(.ptl-student-cal-grid) .ptl-student-cal-foot { display: none; }
 }
 
 /* Live attention dot, distinct from the standard one. */

@@ -140,8 +140,10 @@ test('Badge & Certificate security', async (t) => {
     assert.match(portal, /\{certStatus\.downloadable \? \(/)
   })
 
-  await t.test('the badge never renders an active download control (no server-side file)', () => {
-    assert.doesNotMatch(portal, /badge[\s\S]{0,120}?<a [^>]*download|downloadBadge/i)
+  await t.test('the badge is rendered in the browser by the staff generator, never fetched as a server file', () => {
+    assert.match(portal, /import \{ generateBadgePNGs \} from '\.\.\/lib\/badgeGenerator'/)
+    assert.match(portal, /const headshotUrl = await fetchPortalHeadshotUrl\(\)/)
+    assert.doesNotMatch(portal, /download-badge/)
   })
 
   await t.test('certificate download uses the authenticated endpoint with NO id in the URL', () => {

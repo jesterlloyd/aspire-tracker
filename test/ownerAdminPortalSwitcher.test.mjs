@@ -158,6 +158,6 @@ test('portal-only identity actions stay suppressed while staff preview uses staf
   assert.match(portalApp, /\{!staffPreview && <div style=\{\{ display: studentView === 'messages'/)
   assert.match(portalApp, /if \(staffPreview\) return/)
   assert.match(portalApp, /const tourOverlay = !staffPreview && experience \? \(/)
-  assert.match(student, /activeRotation && !readOnlyPreview/)
+  assert.match(student, /canLogShift && !readOnlyPreview/)
   assert.match(student, /!readOnlyPreview && <button[^>]+Download your Certificate of Completion/)
 })

@@ -23,6 +23,11 @@
 // role grant, at least one ACTIVE user_student_links row. No student_id, path,
 // or bucket is ever read from the client or returned to it.
 //
+// STUDENT-BADGE-1 (Owner decision, 2026-09-05): the Student Portal now renders the badge in
+// the student's own browser with the staff generator (public templates + the student's own
+// signed headshot + their rotation window). This endpoint is unchanged: still no stored file,
+// still the gated placeholder should one ever exist.
+//
 // GET /api/portal/download-badge   (Authorization: Bearer <jwt>)
 
 import process from 'node:process'

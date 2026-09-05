@@ -77,6 +77,16 @@ leads with the shared columns in that order, shows ASPIRE Status as the canonica
 legend, and keeps its numbers on the right. Table titles are Title Case ("Your Students",
 "Student Detail").
 
+## Student Portal on phones (STUDENT-PHONE-1)
+
+Students open the portal on their phones first. Below 760px the Rotation Activity calendar is
+the mini calendar plus its day panel: the month grid, its legend and its footnote hide, and the
+title, description and month nav move above the mini calendar. Tablets and desktops keep the
+full grid. Never reintroduce a sideways-scrolling grid on a phone, and Refresh stays desktop chrome (the
+bottom bar hides it). The portal's Log a Shift gate
+is the public flow's gate: Placed and Active Rotation. The ID badge has no server file; once
+created it is rendered in the student's browser by `src/lib/badgeGenerator.js`.
+
 ## New portal checklist
 
 A new portal imports `src/styles/aspireBrand.css` (as `PortalApp.jsx` does), uses

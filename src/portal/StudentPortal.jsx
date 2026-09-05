@@ -28,6 +28,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { derivePortalTimeline, deriveClinicalHours } from '../lib/portalProgress'
 import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocuments'
+import { generateBadgePNGs } from '../lib/badgeGenerator'
+import { fetchPortalHeadshotUrl } from '../lib/studentFileClient'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
 import ShiftNumberBadge from '../components/ShiftNumberBadge'
@@ -101,6 +103,14 @@ export default function StudentPortal({
   const [compose, setCompose]   = useState(null) // { kind: 'outlook'|'sent'|'blocked', loginEmail?, body? }
   const [certBusy, setCertBusy] = useState(false)
   const [certMsg, setCertMsg]   = useState(null)  // { ok, text } | null
+  // STUDENT-BADGE-1: the badge rendered in this browser (object URLs for front and back), or null.
+  const [badgeFiles, setBadgeFiles] = useState(null)
+  const [badgeBusy, setBadgeBusy]   = useState(false)
+  const [badgeMsg, setBadgeMsg]     = useState(null)   // { ok, text } | null
+  // Object URLs are revoked when they are replaced and when the portal unmounts.
+  useEffect(() => () => {
+    if (badgeFiles) { URL.revokeObjectURL(badgeFiles.frontUrl); URL.revokeObjectURL(badgeFiles.backUrl) }
+  }, [badgeFiles])
   const editBtnRef = useRef(null)
 
   const contactAspire = (ctx) => {
@@ -138,6 +148,32 @@ export default function StudentPortal({
       setCertMsg({ ok: false, text: 'Your certificate could not be downloaded right now.' })
     }
     setCertBusy(false)
+  }
+
+  // STUDENT-BADGE-1 (Owner decision, 2026-09-05): the badge is rendered HERE, in the student's
+  // browser, by the same generator staff use: the public templates, the student's OWN signed
+  // headshot (the portal own-file endpoint, never a path), and the coordinator-owned rotation
+  // window from the summary. Nothing is uploaded or stored, and no server badge file exists.
+  // Generator messages that name repo files are staff-facing; the student sees a plain line.
+  const renderBadge = async () => {
+    if (!student) return
+    setBadgeBusy(true); setBadgeMsg(null)
+    try {
+      const headshotUrl = await fetchPortalHeadshotUrl()
+      const rotation = student.rotation
+        ? { rotation_start_date: student.rotation.start, rotation_end_date: student.rotation.end }
+        : null
+      const { frontBlob, backBlob } = await generateBadgePNGs({ student, rotation, headshotUrl })
+      const part = v => String(v || '').replace(/\s+/g, '_')
+      const base = `${part(student.last_name)}_${part(student.first_name)}_ASPIRE_Badge`
+      setBadgeFiles({ frontUrl: URL.createObjectURL(frontBlob), backUrl: URL.createObjectURL(backBlob), base })
+    } catch (err) {
+      const text = /template|public\//i.test(err?.message || '')
+        ? 'Your badge could not be rendered right now. Please try again later.'
+        : (err?.message || 'Your badge could not be rendered right now.')
+      setBadgeMsg({ ok: false, text })
+    }
+    setBadgeBusy(false)
   }
 
   async function load() {
@@ -275,6 +311,10 @@ export default function StudentPortal({
   const activeRotation = student.status === 'Active Rotation'
   const placedMoment = student.status === 'Placed'
   const completedMoment = student.status === 'Completed'
+  // STUDENT-PHONE-1 (Owner decision, 2026-09-05): the portal's shift-logging gate is the public
+  // shift-log flow's gate (SHIFT_LOG_ELIGIBLE_STATUSES in api/lib/shiftLogLookup.js): a Placed
+  // student logs their first shift from here too, and that shift is what promotes them.
+  const canLogShift = placedMoment || activeRotation
   const onContact = () => contactAspire({ name: fullName, school: student.school, cohort: cohortName, status: student.status })
 
   const shiftCount = myLogs.length
@@ -452,11 +492,11 @@ export default function StudentPortal({
               </ul>
             </>
           )}
-          {activeRotation && shiftCount === 0 && (
+          {canLogShift && shiftCount === 0 && (
             <div className="ptl-empty" style={{ marginTop: 12 }}>No shifts logged yet. Record your first shift to start building your approved hours.</div>
           )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {activeRotation && !readOnlyPreview && (
+            {canLogShift && !readOnlyPreview && (
               <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>
             )}
             {/* STUDENT-SHIFT-LOG-MANAGEMENT-1: the card lists only the four most
@@ -519,8 +559,9 @@ export default function StudentPortal({
             <h2 className="ptl-section-title">Badge and Certificates</h2>
           </div>
           <div className="ptl-doc-list">
-            {/* ID Badge: status only. No downloadable badge file exists server-side
-                (see src/lib/portalDocuments.js), so no download button renders. */}
+            {/* ID Badge: status, and once created (STUDENT-BADGE-1) a preview rendered in this
+                browser with front and back downloads. No server-side badge file exists
+                (see src/lib/portalDocuments.js). */}
             <div className="ptl-doc-row">
               <div className="ptl-doc-head">
                 <span className="ptl-doc-icon" aria-hidden="true"><IdCard size={16} /></span>
@@ -528,6 +569,29 @@ export default function StudentPortal({
                 <span className={`ptl-doc-status ptl-doc-${badgeStatus.state}`}>{badgeStatus.label}</span>
               </div>
               <p className="ptl-muted ptl-small">{badgeStatus.detail}</p>
+              {badgeStatus.downloadable && !readOnlyPreview && (
+                <>
+                  {!badgeFiles && (
+                    <button type="button" className="ptl-btn ptl-btn-sm" onClick={renderBadge} disabled={badgeBusy}
+                      aria-label="Preview your Cedars-Sinai ID badge, rendered in your browser">
+                      <IdCard size={15} /> {badgeBusy ? 'Preparing...' : 'Preview Badge'}
+                    </button>
+                  )}
+                  {badgeFiles && (
+                    <>
+                      <div className="ptl-badge-preview">
+                        <img src={badgeFiles.frontUrl} alt="Front of your ASPIRE ID badge" />
+                        <img src={badgeFiles.backUrl} alt="Back of your ASPIRE ID badge" />
+                      </div>
+                      <div className="ptl-badge-actions">
+                        <a className="ptl-btn ptl-btn-sm" href={badgeFiles.frontUrl} download={`${badgeFiles.base}_Front.png`}><Download size={15} /> Download Front</a>
+                        <a className="ptl-btn ptl-btn-sm" href={badgeFiles.backUrl} download={`${badgeFiles.base}_Back.png`}><Download size={15} /> Download Back</a>
+                      </div>
+                    </>
+                  )}
+                  {badgeMsg && <div className={badgeMsg.ok ? 'ptl-form-ok' : 'ptl-form-error'} role="status">{badgeMsg.text}</div>}
+                </>
+              )}
             </div>
 
             <div className="ptl-doc-row">

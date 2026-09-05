@@ -26,9 +26,9 @@ test('deriveBadgeStatus', async (t) => {
     assert.equal(b.label, 'Not yet available')
   })
 
-  await t.test('the badge is NEVER downloadable (no server-side badge file exists)', () => {
+  await t.test('the badge is downloadable only once created: rendered in the browser, never a server file', () => {
+    assert.equal(deriveBadgeStatus({ badgeCreated: true, status: 'Completed' }).downloadable, true)
     for (const args of [
-      { badgeCreated: true, status: 'Completed' },
       { badgeCreated: false, status: 'Placed' },
       { badgeCreated: false, status: 'Form Sent' },
     ]) {
