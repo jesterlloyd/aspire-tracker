@@ -101,7 +101,24 @@ export default function MastheadMotion({ city }) {
   const m = CITY_MOTION[city]
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
-    birds, haze, hazeTone, flare, helicopter, rainfall, ferry, glints } = m
+    birds, haze, hazeTone, flare, helicopter, rainfall, ferry, glints, sceneOverrides } = m
+  // MASTHEAD-SCENE-OVERRIDES: a scene whose frame is a different drawing gets
+  // its own measured point sets. The default set hides in that scene and the
+  // override shows, both by CSS on the host's scene class.
+  const overrides = sceneOverrides || {}
+  const defaultSetClass = ['mast-motion-set', ...Object.keys(overrides).map(s => `mast-motion-not-${s}`)].join(' ')
+  const renderLights = (pts, tag) => pts?.map(([x, y], i) => (
+    <span key={`lt-${tag}-${x}-${y}`} className="mast-motion-light"
+      style={{ left: `${x}%`, top: `${y}%`, '--d': `${period(i)}s`, '--dl': stagger(i) }} />
+  ))
+  const renderBeacons = (pts, tag) => pts?.map(([x, y], i) => (
+    <span key={`bc-${tag}-${x}-${y}`} className={beaconClass}
+      style={{ left: `${x}%`, top: `${y}%`, '--dl': `${(i * 0.9).toFixed(1)}s` }} />
+  ))
+  const renderWater = (pts, tag) => pts?.map(([x, y], i) => (
+    <span key={`wt-${tag}-${x}-${y}`} className="mast-motion-water"
+      style={{ left: `${x}%`, top: `${y}%`, '--d': `${period(i) * 1.4}s`, '--dl': stagger(i) }} />
+  ))
   const beaconClass = `mast-motion-beacon${beaconTone === 'red' ? ' mast-motion-beacon-red' : ''}`
   // MASTHEAD-SANFRANCISCO-2: a sun off-frame RIGHT. The flare geometry is
   // written for a sun at left, so the layer is mirrored and the sun's x is
@@ -134,17 +151,20 @@ export default function MastheadMotion({ city }) {
           style={{ top: `${haze.y}%`, height: `${haze.height}%` }} />
       )}
 
-      {lights?.map(([x, y], i) => (
-        <span key={`lt-${x}-${y}`} className="mast-motion-light"
-          style={{ left: `${x}%`, top: `${y}%`, '--d': `${period(i)}s`, '--dl': stagger(i) }} />
-      ))}
-
       {/* Aviation beacons blink, they do not breathe. Keeping them on a
           separate keyframe from the shimmer is what makes a tower read as a
           tower rather than as one more window. */}
-      {beacons?.map(([x, y], i) => (
-        <span key={`bc-${x}-${y}`} className={beaconClass}
-          style={{ left: `${x}%`, top: `${y}%`, '--dl': `${(i * 0.9).toFixed(1)}s` }} />
+      <span className={defaultSetClass}>
+        {renderLights(lights, 'd')}
+        {renderBeacons(beacons, 'd')}
+        {renderWater(water, 'd')}
+      </span>
+      {Object.entries(overrides).map(([scene, o]) => (
+        <span key={scene} className={`mast-motion-set mast-motion-only-${scene}`}>
+          {renderLights(o.lights, scene)}
+          {renderBeacons(o.beacons, scene)}
+          {renderWater(o.water, scene)}
+        </span>
       ))}
 
       {aircraft && (
@@ -218,11 +238,6 @@ export default function MastheadMotion({ city }) {
       {glints?.map(([x, y], i) => (
         <span key={`gl-${x}-${y}`} className="mast-motion-glint"
           style={{ left: `${x}%`, top: `${y}%`, '--d': `${(period(i) * 0.45).toFixed(2)}s`, '--dl': stagger(i) }} />
-      ))}
-
-      {water?.map(([x, y], i) => (
-        <span key={`wt-${x}-${y}`} className="mast-motion-water"
-          style={{ left: `${x}%`, top: `${y}%`, '--d': `${period(i) * 1.4}s`, '--dl': stagger(i) }} />
       ))}
 
       {bridge && (

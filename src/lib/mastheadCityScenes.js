@@ -326,6 +326,24 @@ export const CITY_MOTION = {
     rainfall: true,
     // No traffic: the frame has no road that reads as a line of light. Griffith
     // Park's roads are unlit switchbacks in this artwork.
+    //
+    // MASTHEAD-SCENE-OVERRIDES (Owner, 2026-09-05): the CloudyNight frame is a
+    // separate generation, not the Night frame under cloud. Its mast is a
+    // different drawing, 22px further right and shorter (tip at source row 36
+    // against 31), and the basin's discrete windows are gone under the haze:
+    // of the eighteen Night lights, only the eight on the left ridge have a
+    // warm pixel within 8px in this frame. So the two point kinds that run in
+    // that scene get their own measured sets here, and the Night sets hide.
+    sceneOverrides: {
+      cloudynight: {
+        lights: [
+          [31.6, 81.1], [1.5, 57.8], [27.1, 59.6], [35.2, 88.2], [26.1, 80.8],
+          [14.6, 56.0], [9.5, 55.5], [21.1, 59.0], [42.4, 51.0],
+        ],
+        // The mast's red lights, tip to base: source rows 36, 57, 73, 91.
+        beacons: [[72.5, 1.5], [72.5, 7.7], [72.6, 12.4], [72.7, 17.7]],
+      },
+    },
   },
   losangeles: {
     // The basin is a carpet of light, which is the best possible case for this.

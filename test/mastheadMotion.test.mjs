@@ -7,7 +7,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { CITY_MOTION, CITY_IMG_Y, DEFAULT_IMG_Y } from '../src/lib/mastheadCityScenes.js'
@@ -18,7 +18,12 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // Anything not on this list is a typo. A misspelled effect key does not throw,
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
-  'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'glints']
+  'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'glints', 'sceneOverrides']
+// A scene may carry its own measured point sets when its frame is a different
+// drawing. Only point kinds, only these scenes (the two that share a frame
+// with another scene's motion), and each set is a full replacement.
+const OVERRIDE_SCENES = ['cloudynight']
+const OVERRIDE_KINDS = ['lights', 'beacons', 'water']
 const CROSSINGS = ['aircraft', 'birds', 'helicopter', 'ferry']
 const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints']
 
@@ -43,6 +48,38 @@ test('every effect key is a known effect', () => {
         `${city} declares unknown effect "${key}" - a typo renders nothing and throws nothing`)
     }
   }
+})
+
+test('scene overrides name a real scene, replace only point kinds, and are measured too', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const [scene, o] of Object.entries(m.sceneOverrides || {})) {
+      assert.ok(OVERRIDE_SCENES.includes(scene), `${city}.sceneOverrides.${scene}: no CSS gate exists for that scene`)
+      for (const [kind, pts] of Object.entries(o)) {
+        assert.ok(OVERRIDE_KINDS.includes(kind), `${city}.sceneOverrides.${scene}.${kind} is not a point kind`)
+        assert.ok(pts.length > 0, `${city}.sceneOverrides.${scene}.${kind} is empty; omit it instead`)
+        for (const [x, y] of pts) assert.ok(x >= 0 && x <= 100 && y >= 0 && y <= 100, `${city}.${scene}.${kind} [${x},${y}] is outside the card`)
+        for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+          assert.ok(Math.abs(pts[i][0] - pts[j][0]) > 0.4 || Math.abs(pts[i][1] - pts[j][1]) > 1.5,
+            `${city}.${scene}.${kind} points ${i} and ${j} sit on top of each other`)
+        }
+      }
+    }
+    // Both CSS halves exist for every override scene, or the sets would stack.
+    const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+    for (const scene of Object.keys(m.sceneOverrides || {})) {
+      assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-only-${scene} \\{ display: contents; \\}`))
+      assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-not-${scene} \\{ display: none; \\}`))
+    }
+  }
+  // Hollywood's cloudy-night mast is a different drawing (x 72.5%, not 71.4%).
+  assert.deepEqual(CITY_MOTION.hollywood.sceneOverrides.cloudynight.beacons[0], [72.5, 1.5])
+})
+
+test('the bolt never blends: an opacity animation on a blended card-sized layer flashes the page in WebKit', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const bolt = css.slice(css.indexOf('.mast-motion-bolt {'), css.indexOf('.mast-motion-bolt-a {'))
+  assert.doesNotMatch(bolt, /mix-blend-mode/)
+  assert.match(css, /\.mast-motion \{ position: absolute; inset: 0; pointer-events: none; overflow: hidden; \}/)
 })
 
 test('every point sits inside the card', () => {

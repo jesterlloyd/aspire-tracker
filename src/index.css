@@ -2016,13 +2016,27 @@ a.doc-file-link:hover { text-decoration: underline; }
    Every effect below is night-only except lightning, because every position
    was measured off a night frame. Daytime equivalents (sun glint on water,
    traffic in daylight) would need their own measurements. */
-.mast-motion { position: absolute; inset: 0; pointer-events: none; }
+.mast-motion { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+/* MASTHEAD-SCENE-OVERRIDES: a point set is a wrapper that takes no space.
+   The default set hides in a scene that carries its own measured set, and
+   that set shows only there. */
+.mast-motion-set { display: contents; }
+.mast-motion-only-cloudynight { display: none; }
+.mast-scenic.mast-scene-cloudynight .mast-motion-only-cloudynight { display: contents; }
+.mast-scenic.mast-scene-cloudynight .mast-motion-not-cloudynight { display: none; }
 
 /* ── LIGHTNING. A cloud lighting up from inside, not a white rectangle: a
    broad radial glow seated above the top edge, masked off the greeting. ── */
 .mast-motion-bolt {
   position: absolute; inset: 0; opacity: 0;
-  mix-blend-mode: screen;
+  /* NO blend mode here, deliberately. The bolt is the one card-sized layer
+     whose opacity animates, and WebKit composites an opacity animation on a
+     blended layer against the PAGE: the Owner saw the whole screen flash on
+     each strike (2026-09-05). Plain alpha over a storm sky reads the same; the
+     gradient alphas below are a little higher to make up for the lost
+     additive lift. The small lights keep their blend: they are tiny and the
+     bug is proportional to the layer. */
   -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.18) 30%, rgba(0,0,0,0.70) 52%, #000 68%);
   mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.18) 30%, rgba(0,0,0,0.70) 52%, #000 68%);
 }
@@ -2033,13 +2047,13 @@ a.doc-file-link:hover { text-decoration: underline; }
      the glow. That is what makes it read as a cloud lit from within rather
      than a searchlight pointed at the hills. Wide and flat, never a disc. */
   background: radial-gradient(74% 108% at 76% -4%,
-    rgba(226,238,255,0.82) 0%, rgba(190,212,248,0.44) 26%,
-    rgba(152,182,232,0.13) 52%, transparent 76%);
+    rgba(226,238,255,0.90) 0%, rgba(190,212,248,0.52) 26%,
+    rgba(152,182,232,0.16) 52%, transparent 76%);
 }
 .mast-motion-bolt-b {
   background: radial-gradient(58% 92% at 55% -8%,
-    rgba(214,229,255,0.44) 0%, rgba(178,202,242,0.22) 28%,
-    rgba(148,178,228,0.07) 54%, transparent 78%);
+    rgba(214,229,255,0.52) 0%, rgba(178,202,242,0.27) 28%,
+    rgba(148,178,228,0.09) 54%, transparent 78%);
 }
 /* Roughly 0.4s of strike in an 11s cycle. The double stroke (bright, near
    dark, brighter) is what separates lightning from a lamp being switched on. */
