@@ -2603,6 +2603,26 @@ a.doc-file-link:hover { text-decoration: underline; }
   opacity: 0.7; animation: mast-orb 36s linear infinite;
 }
 
+/* ── MASTHEAD-ATLANTA-2: a police car on the Connector. ── */
+
+/* Rides the westbound keyframe like any car, but short, and its lights flip
+   red and blue on a fast step so it reads as a light bar, not a headlight.
+   The flip is on the background, the movement on left: two animations on
+   two properties, so neither interrupts the other. */
+.mast-motion-car-police {
+  width: 7px; height: 2px; background: rgba(255,70,70,0.95);
+  box-shadow: 0 0 4px 1px rgba(255,80,80,0.55);
+}
+@keyframes mast-police {
+  0%, 49%   { background: rgba(255,70,70,0.95); box-shadow: 0 0 4px 1px rgba(255,80,80,0.55); }
+  50%, 100% { background: rgba(90,140,255,0.95); box-shadow: 0 0 4px 1px rgba(100,150,255,0.6); }
+}
+.mast-scenic.mast-scene-night .mast-motion-car-police,
+.mast-scenic.mast-scene-cloudynight .mast-motion-car-police {
+  animation: mast-car-west var(--dur, 23s) linear var(--dl, 0s) infinite,
+             mast-police 0.44s steps(1, end) infinite;
+}
+
 /* Motion is decoration, so reduced motion removes it outright rather than
    slowing it down. The card is complete without it. */
 @media (prefers-reduced-motion: reduce) {

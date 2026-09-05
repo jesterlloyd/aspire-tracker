@@ -28,6 +28,9 @@
 // MASTHEAD-LASVEGAS-2 added neon (fast irregular flicker on measured
 // saturated maxima, magenta or cyan), a wheel (a rim of cabin lights turning
 // on a measured ring) and an orb (the Sphere's skin shifting hue).
+//
+// MASTHEAD-ATLANTA-2 added a police car: a span with police: true runs one
+// more vehicle whose lights flip red and blue as it goes.
 import { CITY_MOTION } from '../../lib/mastheadCityScenes'
 
 // Coprime-ish periods so a row of lights never visibly pulses in unison.
@@ -263,6 +266,11 @@ export default function MastheadMotion({ city }) {
                 className={`mast-motion-car mast-motion-car-${c.dir}`}
                 style={{ '--dur': `${c.dur + si * 1.7}s`, '--dl': `${c.delay + si * 2.3}s` }} />
             ))}
+            {/* One police car on a long period, so it is an event, not traffic. */}
+            {span.police && (
+              <span className="mast-motion-car mast-motion-car-west mast-motion-car-police"
+                style={{ '--dur': '23s', '--dl': '11s' }} />
+            )}
           </span>
         </span>
       ))}

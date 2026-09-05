@@ -660,21 +660,74 @@ export const CITY_MOTION = {
     rainfall: true,
   },
   atlanta: {
-    // Atlanta is the one city cropped at --scn-img-y 50%, so these were
-    // converted through a centred crop, not the usual bottom-anchored one.
+    // MASTHEAD-ATLANTA-2 (2026-09-05): the second Atlanta pack replaced the
+    // first, so EVERY coordinate here was re-measured (scratchpad
+    // nymeasure.mjs, gridzoom.py). One viewpoint on all eight frames: the
+    // skyline from the west, the stadium at left, Bank of America Plaza's
+    // spire at x 42.3, the Connector's interchange in front. Measured
+    // through the 50% crop (the spire's tip is at source row 63). CloudyNight
+    // is the same drawing as Night (lights and crowns within 3px).
+    //
+    // Night: Midtown and Downtown's windows, then the suburb's lamps.
     lights: [
-      [46.2, 54.0], [50.5, 56.6], [51.3, 65.2], [56.6, 44.3], [59.3, 59.0],
-      [63.2, 41.6], [63.2, 67.6], [70.2, 58.7], [76.5, 55.8], [80.1, 56.0],
-      [86.0, 56.3], [88.9, 63.7], [92.3, 64.9], [95.0, 65.5],
-      // MASTHEAD-LOCKSCREEN-1: the left third, Midtown's western blocks.
-      [3.8, 83.8], [13.7, 69.3], [15.5, 83.5], [18.7, 86.1], [19.8, 69.6],
-      [23.4, 89.1], [26.6, 86.1], [42.1, 63.1],
+      [36.2, 52.2], [48.2, 66.4], [40.4, 59.3], [42.1, 39.5], [32.2, 63.7],
+      [28.6, 69.3], [36.5, 60.8], [46.9, 41.6], [53.5, 41.6], [62.4, 67.8],
+      [43.6, 56.6], [42.4, 28.3], [53.1, 48.7], [37.4, 44.5], [25.4, 67.8],
+      [17.8, 65.5], [94.1, 66.7], [11.3, 67.3], [80.8, 54.0], [47.0, 55.8],
+      [52.6, 55.8], [45.6, 65.2], [52.8, 66.4], [49.4, 55.8], [55.9, 51.3],
+      [96.9, 50.7], [42.0, 69.3], [67.0, 67.3], [64.7, 63.4], [55.8, 67.8],
+      [36.5, 68.4], [15.2, 65.8], [91.0, 53.1], [29.9, 49.6], [0.9, 66.7],
+      // The suburb in front, off the two freeway rails.
+      [44.6, 74.9], [69.7, 94.1], [9.6, 90.6], [29.9, 78.2], [58.3, 71.1],
+      [37.5, 77.0], [82.8, 79.1], [75.6, 97.9], [54.5, 98.8], [14.3, 73.5],
+      [66.8, 71.4], [46.0, 86.7], [54.3, 81.7],
     ],
-    beacons: [[50.8, 10.9], [68.4, 11.8]],
-    // NO traffic, deliberately. The foreground is an interchange, not a span:
-    // its light trails scatter rather than fitting a line, so the straight rail
-    // that works for the Golden Gate would drive cars off the road. A curved
-    // path needs a hand-traced offset-path per city, which is its own job.
+    // Aviation red is painted on the crowns here: the spire's tip (rgb
+    // 244,4,9 at card y 10) and its lattice, 191 Peachtree's tip, Truist
+    // Plaza, and the tower tops east and west of them (252,1,14 at x 70).
+    beacons: [
+      [42.4, 10.0], [42.4, 20.1], [53.0, 32.2], [47.2, 36.3], [50.0, 50.4],
+      [65.0, 46.3], [69.9, 52.8], [78.3, 57.8], [32.3, 51.9], [58.4, 52.8],
+      [39.6, 54.9],
+    ],
+    beaconTone: 'red',
+    // The stadium's LED halo and two cyan signs, flickering.
+    neon: [
+      [24.9, 70.2, 'cyan'], [21.1, 71.1, 'cyan'], [18.6, 70.5, 'cyan'],
+      [75.1, 76.1, 'cyan'], [86.3, 97.4, 'cyan'],
+    ],
+    // Steam off three rooftops with sky above them (Day frame roof edges).
+    steam: [[30.0, 49.6], [58.0, 52.8], [62.0, 54.3]],
+    // The Connector. The first pack had no traffic because the interchange
+    // is a curve; this frame's run under the stadium is straight enough for
+    // two rails, the gentle stretch from x 22 to 37 and the steeper ramp
+    // from 36 that leaves the card's bottom edge, traced light by light
+    // (+-1.5% band; every lamp within 1.8% of its rail). A police car runs
+    // the long one.
+    bridge: [
+      {
+        lights: [[25.0, 82.6], [26.5, 83.5], [28.5, 85.8], [30.0, 84.7], [31.5, 87.6], [35.0, 87.3]],
+        deck: { x: 22, y: 83.2, w: 15, rise: 6.0 },
+        police: true,
+      },
+      {
+        lights: [[37.5, 92.6], [39.0, 92.6], [40.5, 94.7], [42.5, 98.5]],
+        deck: { x: 36, y: 88.8, w: 7.5, rise: 10.4 },
+      },
+    ],
+    // Sky is clear above card y 30 east of the spire (191 Peachtree reaches
+    // 32 at x 53); the far hills lie at 37-42.
+    aircraft: { y: 14, from: 98, to: 48, flight: 40 },
+    birds: { y: 24, from: 98, to: 58, flight: 30, count: 6 },
+    helicopter: { y: 20, from: 56, to: 98, flight: 46 },
+    // Morning mist on the far hills and the suburbs behind the skyline.
+    haze: { y: 36, height: 14 },
+    hazeTone: 'fog',
+    // The golden-hour sky is brightest at the top-RIGHT corner (219 against
+    // 212 at left; Sunset and Dawn are lit from the right too), so the sun is
+    // off-frame right and high.
+    flare: { x: 106, y: 8 },
+    rainfall: true,
   },
 }
 

@@ -79,6 +79,10 @@ test('scene overrides name a real scene, replace only point kinds, and are measu
       assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-not-${scene} \\{ display: none; \\}`))
     }
   }
+  // Atlanta's Connector: the first pack refused traffic on a curve; the
+  // second carries two short straight rails, the long one with the police car.
+  assert.equal(spansOf(CITY_MOTION.atlanta).length, 2)
+  assert.equal(spansOf(CITY_MOTION.atlanta)[0].police, true)
   // Hollywood's cloudy-night mast is a different drawing (x 72.5%, not 71.4%).
   assert.deepEqual(CITY_MOTION.hollywood.sceneOverrides.cloudynight.beacons[0], [72.5, 1.5])
 })
@@ -134,8 +138,9 @@ test('bridge deck lights lie along the declared deck line', () => {
   // the cars drive off the roadway and nothing else notices.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     for (const span of spansOf(m)) {
-      const { deck, lights } = span
+      const { deck, lights, police } = span
       assert.ok(deck && lights?.length, `${city}.bridge needs both deck and lights`)
+      assert.ok(police === undefined || police === true, `${city}.bridge police is a flag, not a value`)
       const slope = deck.rise / deck.w
       for (const [x, y] of lights) {
         assert.ok(x >= deck.x - 0.5 && x <= deck.x + deck.w + 0.5,
