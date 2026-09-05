@@ -56,14 +56,29 @@ export const CLOCK_SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', '
 
 /** Parse the weather payload's sun times into Dates, or null when absent/bad.
  *  Open-Meteo (timezone=auto) returns the LOCATION's local wall time without an
- *  offset; Date() reads it in the browser's zone. The weather location is the
- *  viewer's own (or the LA fallback), so the zones agree in practice. */
+ *  offset. MASTHEAD-CITY-TIME-1: the payload now carries the location's UTC
+ *  offset as well, and the wall time is read THROUGH it into an absolute
+ *  instant, so a chosen city's sun rises when it actually rises there. New
+ *  York's 06:27 used to be read as 06:27 in the viewer's zone, three hours
+ *  late from Los Angeles: a sunlit weather icon over a night skyline until
+ *  nine in the morning Eastern. Without an offset (older payloads, tests) the
+ *  string is read in the browser's zone as before. */
 export function sunTimesFrom(weather) {
   if (!weather?.sunrise || !weather?.sunset) return null
-  const sunrise = new Date(weather.sunrise)
-  const sunset = new Date(weather.sunset)
+  const off = typeof weather.utcOffsetSeconds === 'number' ? weather.utcOffsetSeconds : null
+  const sunrise = wallTimeToInstant(weather.sunrise, off)
+  const sunset = wallTimeToInstant(weather.sunset, off)
   if (Number.isNaN(sunrise.getTime()) || Number.isNaN(sunset.getTime())) return null
   return { sunrise, sunset }
+}
+
+/** "2026-09-05T06:27" in a zone that is `offsetSeconds` from UTC, as an
+ *  instant. With no offset, the browser's own zone reads it. */
+export function wallTimeToInstant(wall, offsetSeconds = null) {
+  if (offsetSeconds === null) return new Date(wall)
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(wall))
+  if (!m) return new Date(NaN)
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - offsetSeconds * 1000)
 }
 
 /**

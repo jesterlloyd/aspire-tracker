@@ -233,6 +233,11 @@ export function useWelcomeWeather() {
         lo: j.daily?.temperature_2m_min?.[0] != null ? Math.round(j.daily.temperature_2m_min[0]) : null,
         sunrise: j.daily?.sunrise?.[0] ?? null,
         sunset: j.daily?.sunset?.[0] ?? null,
+        // MASTHEAD-CITY-TIME-1: the location's zone, so the scene clock reads
+        // the sun times as instants and the masthead clock can show the
+        // chosen city's own time. Both ride the same request.
+        timezone: typeof j.timezone === 'string' ? j.timezone : null,
+        utcOffsetSeconds: typeof j.utc_offset_seconds === 'number' ? j.utc_offset_seconds : null,
       }
     },
     staleTime: 30 * 60 * 1000,

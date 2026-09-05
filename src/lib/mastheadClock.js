@@ -1,17 +1,50 @@
 // MASTHEAD-LOCKSCREEN-1: the clock's two labels and the width match, kept pure
 // so the component file exports only a component (react-refresh) and so the
 // rule can be tested without a DOM.
+//
+// MASTHEAD-CITY-TIME-1: both labels take an optional IANA zone. A chosen
+// city's masthead is a window onto that city, so its clock reads the city's
+// time (New York at 06:59 while Los Angeles is at 03:59); Automatic and the
+// viewer's own city read local time as before.
+
+/** The wall-clock fields of an instant in a zone (or the browser's zone). */
+function partsIn(d, timeZone) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit', hour12: true,
+    weekday: 'long', day: 'numeric', month: 'short',
+    ...(timeZone ? { timeZone } : {}),
+  })
+  const out = {}
+  for (const { type, value } of fmt.formatToParts(d)) out[type] = value
+  return out
+}
 
 /** "07:29": twelve-hour, zero-padded, no AM/PM (the macOS lock screen's form). */
-export function clockLabel(d) {
-  let h = d.getHours() % 12
-  if (h === 0) h = 12
-  return `${String(h).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+export function clockLabel(d, timeZone) {
+  const p = partsIn(d, timeZone)
+  return `${String(p.hour).padStart(2, '0')}:${p.minute}`
 }
 
 /** "Friday, 4 Sep": full weekday, day, three-letter month, no year. */
-export function dateLabel(d) {
-  return `${d.toLocaleDateString('en-US', { weekday: 'long' })}, ${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`
+export function dateLabel(d, timeZone) {
+  const p = partsIn(d, timeZone)
+  return `${p.weekday}, ${p.day} ${p.month}`
+}
+
+/**
+ * The zone the masthead clock runs in: the chosen city's, from the weather
+ * payload, and only when the location IS a chosen city (Automatic keeps the
+ * viewer's own clock even though its payload names a zone too). A zone the
+ * runtime cannot format falls back to local rather than throwing in render.
+ */
+export function mastheadTimeZone(weather, location) {
+  if (!location?.chosen || typeof weather?.timezone !== 'string' || !weather.timezone) return undefined
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: weather.timezone })
+    return weather.timezone
+  } catch {
+    return undefined
+  }
 }
 
 export const DATE_MAX_PX = 16

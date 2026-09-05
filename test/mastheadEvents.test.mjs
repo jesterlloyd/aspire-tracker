@@ -6,11 +6,12 @@
 // Run: node --test test/mastheadEvents.test.mjs
 
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import {
   MASTHEAD_WINDOW_DAYS, mastheadItems, holidayItems, chipWhen, daysUntil, addDays, isMastheadCandidate,
 } from '../src/lib/mastheadEvents.js'
-import { clockLabel, dateLabel, planFit } from '../src/lib/mastheadClock.js'
+import { clockLabel, dateLabel, planFit, mastheadTimeZone } from '../src/lib/mastheadClock.js'
 
 const TODAY = '2026-09-04'
 const at = (ymd, hh = '09:00') => `${ymd}T${hh}:00`     // local wall time, like the API's timestamps in this zone
@@ -100,6 +101,27 @@ test('the date is "Friday, 4 Sep": full weekday, day, three-letter month, no yea
   assert.equal(dateLabel(new Date(2026, 8, 4)), 'Friday, 4 Sep')
   assert.equal(dateLabel(new Date(2026, 11, 25)), 'Friday, 25 Dec')
   assert.doesNotMatch(dateLabel(new Date(2026, 8, 4)), /2026/)
+  // MASTHEAD-CITY-TIME-1: a chosen city's clock reads that city's zone. One
+  // instant, two cities: 10:59Z is 06:59 in New York and 03:59 in Los
+  // Angeles, and 03:30Z is still Friday in New York when it is Saturday in
+  // London.
+  const t = new Date('2026-09-05T10:59:00Z')
+  assert.equal(clockLabel(t, 'America/New_York'), '06:59')
+  assert.equal(clockLabel(t, 'America/Los_Angeles'), '03:59')
+  assert.equal(clockLabel(new Date('2026-09-05T16:05:00Z'), 'America/New_York'), '12:05')
+  assert.equal(dateLabel(new Date('2026-09-05T03:30:00Z'), 'America/New_York'), 'Friday, 4 Sep')
+  assert.equal(dateLabel(new Date('2026-09-05T03:30:00Z'), 'Europe/London'), 'Saturday, 5 Sep')
+  // Only a CHOSEN city moves the clock; Automatic keeps the viewer's own.
+  assert.equal(mastheadTimeZone({ timezone: 'America/New_York' }, { chosen: true }), 'America/New_York')
+  assert.equal(mastheadTimeZone({ timezone: 'America/New_York' }, { chosen: false, geo: true }), undefined)
+  assert.equal(mastheadTimeZone({ timezone: 'Mars/Olympus' }, { chosen: true }), undefined, 'an unknown zone falls back to local rather than throwing')
+  assert.equal(mastheadTimeZone(undefined, { chosen: true }), undefined)
+  // And the component reads it from the shared weather query.
+  const clock = readFileSync(new URL('../src/components/masthead/MastheadClock.jsx', import.meta.url), 'utf8')
+  assert.match(clock, /const \{ data, location \} = useWelcomeWeather\(\)/)
+  assert.match(clock, /const timeZone = mastheadTimeZone\(data, location\)/)
+  assert.match(clock, /clockLabel\(now, timeZone\)/)
+  assert.match(clock, /dateLabel\(now, timeZone\)/)
 })
 
 test('the width match tracks the clock out when the date is wider, and scales the date up when it is narrower', () => {

@@ -6,6 +6,7 @@
 // Run: node --test test/mastheadScene.test.mjs
 
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { sceneForTime, sunTimesFrom, artSceneFor, isRainyCode, SCENES, CLOCK_SCENES,
   OPTIONAL_SCENES, ALL_SCENES, SCENE_FALLBACK, sceneFrameFor, isNightScene,
@@ -90,6 +91,24 @@ test('sunTimesFrom parses only complete, valid pairs', () => {
   assert.ok(sun.sunrise instanceof Date && sun.sunset instanceof Date)
   assert.equal(sun.sunrise.getHours(), 6)
   assert.equal(sun.sunset.getHours(), 19)
+})
+
+test('with the location\'s UTC offset, sun times are read as instants in THAT zone', () => {
+  // MASTHEAD-CITY-TIME-1: New York's 06:27 sunrise (UTC-4) is 10:27Z, whatever
+  // zone the browser is in. Read in the browser's zone, as it used to be, a
+  // Los Angeles viewer saw New York's dawn three hours late.
+  const ny = sunTimesFrom({ sunrise: '2026-09-05T06:27', sunset: '2026-09-05T19:22', utcOffsetSeconds: -14400 })
+  assert.equal(ny.sunrise.toISOString(), '2026-09-05T10:27:00.000Z')
+  assert.equal(ny.sunset.toISOString(), '2026-09-05T23:22:00.000Z')
+  // 07:00 in New York is morning there, and the scene says so from anywhere.
+  assert.equal(sceneForTime(new Date('2026-09-05T11:00:00Z'), ny), 'morning')
+  assert.equal(sceneForTime(new Date('2026-09-05T04:00:00Z'), ny), 'night')
+  // A malformed wall time with an offset is rejected, not read as garbage.
+  assert.equal(sunTimesFrom({ sunrise: 'soon', sunset: '2026-09-05T19:22', utcOffsetSeconds: -14400 }), null)
+  // The offset ride the payload: the weather query keeps both zone fields.
+  const wx = readFileSync(new URL('../src/components/WeatherScene.jsx', import.meta.url), 'utf8')
+  assert.match(wx, /utcOffsetSeconds: typeof j\.utc_offset_seconds === 'number' \? j\.utc_offset_seconds : null/)
+  assert.match(wx, /timezone: typeof j\.timezone === 'string' \? j\.timezone : null/)
 })
 
 test('a full day sweep never yields anything outside the clock vocabulary', () => {
