@@ -346,32 +346,87 @@ export const CITY_MOTION = {
     aircraft: { y: 21, from: 97, to: 33, flight: 34 },
   },
   sanfrancisco: {
+    // MASTHEAD-SANFRANCISCO-2 (2026-09-04): the second San Francisco pack
+    // replaced the first, so EVERY coordinate here was re-measured off the new
+    // frames (scratchpad sfmeasure.mjs, default crop: the tallest feature is
+    // the Salesforce crown at source row 104, well under the 61 rows the
+    // bottom-anchored crop removes). All eight frames share one viewpoint, the
+    // Marin Headlands looking south-east over the Golden Gate to the city.
+    //
+    // Night: the downtown and Marina windows, the far East Bay shore under
+    // the greeting, and the lit coast road on the Marin side at right.
     lights: [
-      [63.9, 44.8], [71.4, 46.0], [61.3, 37.8], [74.2, 46.6], [70.9, 36.3],
-      [58.9, 37.2], [67.8, 35.7], [52.4, 34.2], [54.8, 35.4], [64.5, 37.8],
-      // MASTHEAD-LOCKSCREEN-1: the far shore across the bay at left. The
-      // left-third search also found the deck lights, which the bridge
-      // already carries; they are deliberately not repeated here.
-      [18.6, 24.8], [37.1, 25.1], [43.3, 24.8],
+      [97.8, 31.0], [86.9, 31.9], [70.3, 49.0], [49.5, 43.1], [44.6, 31.3],
+      [59.7, 44.3], [64.9, 41.6], [40.5, 31.9], [76.3, 48.4], [91.0, 31.3],
+      [55.8, 44.0], [86.9, 56.3], [52.0, 31.9], [57.3, 22.1], [45.9, 44.0],
+      [82.5, 34.8],
+      // The East Bay shore, left third.
+      [27.9, 32.7], [13.7, 33.9], [35.8, 31.3], [1.8, 34.8], [20.1, 33.0],
+      // The Marin coast road, right of the bridge's north pier.
+      [78.6, 60.8], [74.5, 69.6], [94.9, 68.1], [90.7, 69.0], [99.6, 67.6],
     ],
-    // Reflections sit below the city and stretch vertically with the swell.
+    // The two tower crowns carry aviation lights, painted RED in the Night
+    // frame (rgb 251,5,6 on the south tower, 248,55,48 on the north), so this
+    // city joins Hollywood on the red tone. Nothing else on the bridge is a
+    // beacon: the other red maxima are the International Orange paint.
+    beacons: [[29.8, 34.2], [68.2, 33.6]],
+    beaconTone: 'red',
+    // Reflections: each tower's column of light in the strait beneath it, and
+    // the city's soft wash on the bay between the bridge and the waterfront.
     water: [
-      [60.8, 86.1], [64.3, 86.7], [67.8, 85.3], [72.5, 86.4], [75.5, 86.4],
-      [78.5, 85.3], [82.0, 85.3], [88.0, 84.1], [93.1, 77.3],
+      [29.9, 75.5], [26.7, 82.3], [30.0, 87.6],
+      [67.8, 67.6], [67.8, 74.0], [67.5, 82.6], [68.3, 88.8], [63.9, 85.5],
+      [68.3, 50.2], [72.3, 53.4], [64.5, 51.0], [53.9, 50.2], [58.1, 55.8], [40.5, 55.8],
     ],
     bridge: {
-      // Measured along the deck, so the string carries the span's real sag.
+      // The deck string, measured light by light from the south approach to
+      // the north pier.
       lights: [
-        [22.0, 62.8], [24.8, 64.0], [28.4, 61.1], [31.3, 60.5], [34.2, 60.2],
-        [37.9, 59.6], [41.3, 59.3], [44.8, 59.0], [47.3, 58.7], [50.7, 59.9],
-        [55.3, 59.6], [59.0, 59.3], [69.3, 59.3], [73.5, 58.1], [78.3, 59.0],
-        [81.5, 58.4],
+        [21.1, 65.2], [23.2, 66.1], [25.5, 65.5], [31.3, 63.1], [33.5, 62.5],
+        [35.4, 63.4], [38.3, 62.0], [40.5, 61.4], [43.5, 61.1], [47.0, 60.2],
+        [51.3, 61.1], [53.8, 59.3], [58.0, 59.6], [60.5, 59.6], [62.5, 59.3],
+        [66.3, 59.6], [70.0, 59.6], [73.7, 59.9], [76.4, 60.5],
       ],
-      // The deck as a line: start point, span, and rise across it. Traffic
-      // rides this rather than a flat row, or it drifts off the roadway by
-      // several pixels at the ends.
-      deck: { x: 22.0, y: 62.8, w: 59.5, rise: -4.4 },
+      // The roadway is not quite one line here: it climbs from the south
+      // approach to mid-span and runs level to the north pier (per-column
+      // trace: 65.2 at x21, 62.8 at x39, 60.5 from x55 on). One rail fitted
+      // through the whole run stays within 1.5% of the deck everywhere, about
+      // three pixels on a wide card, under a 2px trail; the cost of a second
+      // rail would be cars vanishing at the joint.
+      deck: { x: 21.1, y: 64.6, w: 55.3, rise: -4.5 },
     },
+    // Clear sky to card y 12% everywhere: the crown is the only thing above.
+    aircraft: { y: 8, from: 2, to: 62, flight: 40 },
+    // Gulls in the open sky above the East Bay hills (the hills begin at card
+    // y 17%). Over the bay they vanished against the waterfront's buildings.
+    birds: { y: 10, from: 98, to: 40, flight: 34, count: 5 },
+    helicopter: { y: 44, from: 96, to: 42, flight: 46 },
+    // The Golden Gate's fog: a band at deck height and below, so the towers
+    // stand out of it. Tone 'fog' is white-blue, not the basin's warm smog.
+    haze: { y: 60, height: 22 },
+    hazeTone: 'fog',
+    // The golden-hour sun is OFF-FRAME RIGHT here (sky brightest at the right
+    // edge, card y 40%; sky column means rise from 155 at left to 193 at
+    // right), the mirror of Hollywood. The flare layer flips for it and the
+    // ghosts land on the strait and the headland at left.
+    flare: { x: 106, y: 40 },
+    rainfall: true,
+    // A ferry on the Sausalito run, crossing the bay behind the bridge. Slow
+    // and continuous rather than a rare crossing: it is what that water does.
+    // Its lane is the strip of water between the waterfront (which reaches
+    // card y 50% east of x 58%) and the deck (y 60%): nothing else is water
+    // the whole way across.
+    ferry: { y: 56, from: 46, to: 80, flight: 130 },
+    // Sun glitter on the strait. Measured as the pale local maxima the
+    // Morning, Golden Hour and Sunset frames share south-east of the north
+    // pier, where the light path lies; the Day frame's water is flat and its
+    // only pale maxima are the beach surf, so these twinkle in Day too but
+    // over the same measured patch, not over invented water.
+    glints: [
+      [65.3, 70.5], [71.5, 66.1], [71.2, 74.0], [72.8, 73.5], [72.0, 83.5],
+      [73.4, 83.2], [74.6, 85.0], [79.7, 84.7], [78.0, 88.5], [81.3, 90.0],
+      [73.3, 93.2],
+    ],
   },
   newyork: {
     lights: [

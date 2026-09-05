@@ -18,9 +18,9 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // Anything not on this list is a typo. A misspelled effect key does not throw,
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
-  'birds', 'haze', 'flare', 'helicopter', 'rainfall']
-const CROSSINGS = ['aircraft', 'birds', 'helicopter']
-const POINT_EFFECTS = ['lights', 'beacons', 'water']
+  'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'glints']
+const CROSSINGS = ['aircraft', 'birds', 'helicopter', 'ferry']
+const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints']
 
 // The artwork's left fade runs to 62%, and the greeting sits in it. Points to
 // the left of this are washed out at best and fight the text at worst.
@@ -136,10 +136,18 @@ test('beacon tone is only red where the artwork paints it red', () => {
     assert.equal(m.beaconTone, 'red', `${city}.beaconTone "${m.beaconTone}" is not a known tone`)
     assert.ok(m.beacons?.length, `${city} declares a beacon tone with no beacons to apply it to`)
   }
-  // Hollywood's mast lights are rgb(163,103,103) in the frame: red. Everyone
-  // else's crowns are white, and stay on the default tone.
+  // Hollywood's mast lights are rgb(163,103,103) in the frame: red. The Golden
+  // Gate's tower crowns are rgb(251,5,6) in the second San Francisco pack:
+  // red. Everyone else's crowns are white, and stay on the default tone.
   assert.equal(CITY_MOTION.hollywood.beaconTone, 'red')
+  assert.equal(CITY_MOTION.sanfrancisco.beaconTone, 'red')
   assert.equal(CITY_MOTION.losangeles.beaconTone, undefined)
+  // A haze tone is likewise only 'fog', and only with a haze to colour.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    if (m.hazeTone === undefined) continue
+    assert.equal(m.hazeTone, 'fog', `${city}.hazeTone "${m.hazeTone}" is not a known tone`)
+    assert.ok(m.haze, `${city} declares a haze tone with no haze to apply it to`)
+  }
 })
 
 test('haze and flare stay on the card where they must, and off it where they may', () => {
@@ -151,7 +159,11 @@ test('haze and flare stay on the card where they must, and off it where they may
       // The sun may sit OFF the card (a light source at the edge of frame is the
       // normal case for a flare), but its height must be on it.
       assert.ok(m.flare.y >= 0 && m.flare.y <= 100, `${city}.flare y=${m.flare.y} is outside the card`)
-      assert.ok(m.flare.x < QUIET_ZONE_X, `${city}.flare sun at x=${m.flare.x}: ghosts are placed toward the centre from it, so a sun on the right would throw them over the greeting`)
+      // The sun sits at one EDGE or beyond it, never mid-card: ghosts are
+      // placed toward the centre from it, and a mid-card sun would pile them on
+      // the clock. Left of the quiet zone, or (mirrored) right of its reflection.
+      assert.ok(m.flare.x < QUIET_ZONE_X || m.flare.x > 100 - QUIET_ZONE_X,
+        `${city}.flare sun at x=${m.flare.x} is mid-card; a flare needs a sun at an edge`)
     }
   }
 })

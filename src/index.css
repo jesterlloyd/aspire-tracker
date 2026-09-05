@@ -2370,6 +2370,110 @@ a.doc-file-link:hover { text-decoration: underline; }
   animation: mast-ghost 5.3s ease-in-out var(--dl, 0s) infinite alternate;
 }
 
+
+/* ── MASTHEAD-SANFRANCISCO-2: kinds the Golden Gate frames asked for. ── */
+
+/* A sun off-frame RIGHT. The flare is written for a sun at left; mirroring
+   the layer is the whole adaptation (the component reflects the sun's x
+   before placing the ghosts). The sway keyframe animates the separate
+   translate property, so it survives the transform. */
+.mast-motion-flare-right { transform: scaleX(-1); }
+
+/* Fog rather than smog: white-blue, and it takes no light away, so it sits
+   on screen blend like the things that are light. The band drifts on the
+   same keyframe as the haze. */
+.mast-motion-haze-fog {
+  /* Normal blend, not screen: fog is white and reads on a bright frame only
+     by covering it. Its own mask too: the smog mask fades the left half off
+     the greeting, but the fog's whole point is the south tower standing out
+     of it, and that tower is at x 30%. Feathered at the card edges only. */
+  mix-blend-mode: normal;
+  background: linear-gradient(90deg,
+    rgba(236,242,248,0) 0%, rgba(236,242,248,0.78) 10%, rgba(228,236,246,0.46) 24%,
+    rgba(240,245,250,0.84) 40%, rgba(230,238,246,0.42) 56%, rgba(238,244,250,0.76) 72%,
+    rgba(232,240,248,0.40) 86%, rgba(236,242,248,0) 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 30%, #000 70%, transparent 100%),
+    linear-gradient(90deg, transparent 4%, #000 14%, #000 86%, transparent 96%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 30%, #000 70%, transparent 100%),
+    linear-gradient(90deg, transparent 4%, #000 14%, #000 86%, transparent 96%);
+  filter: blur(7px);
+}
+/* Fog is denser than smog and it is white on blue, so it runs on its own
+   opacity envelope; the drift is the haze's. Declared after the haze gate so
+   the later rule wins at equal specificity. */
+@keyframes mast-fog {
+  0%   { transform: translateX(0);    opacity: 0.62; }
+  50%  { transform: translateX(-7%);  opacity: 0.92; }
+  100% { transform: translateX(-13%); opacity: 0.58; }
+}
+.mast-scenic.mast-scene-day .mast-motion-haze-fog,
+.mast-scenic.mast-scene-morning .mast-motion-haze-fog {
+  animation: mast-fog 64s ease-in-out infinite alternate;
+}
+
+/* Ferry. The wrapper is a zero-size point that crosses once per cycle and
+   fades only at the two ends of its run. */
+.mast-motion-ferry { position: absolute; left: var(--from, 40%); opacity: 0; width: 0; height: 0; }
+.mast-motion-ferry-hull {
+  position: absolute; width: 6px; height: 2px; margin: -1px 0 0 -3px;
+  background: rgba(46,48,58,0.85); border-radius: 1px; opacity: 0;
+}
+/* The wake trails behind the direction of travel (the ferry sails right). */
+.mast-motion-ferry-wake {
+  position: absolute; width: 16px; height: 2px; margin: -1px 0 0 -18px;
+  mix-blend-mode: screen; opacity: 0; filter: blur(0.6px);
+  background: linear-gradient(270deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.28) 55%, transparent 100%);
+}
+.mast-motion-ferry-lamp {
+  position: absolute; width: 5px; height: 3px; margin: -1.5px 0 0 -2.5px;
+  mix-blend-mode: screen; opacity: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,226,170,0.95) 0%, rgba(255,196,120,0.4) 45%, transparent 75%);
+}
+@keyframes mast-sail {
+  0%   { left: var(--from, 40%); opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { left: var(--to, 80%); opacity: 0; }
+}
+.mast-scenic.mast-scene-dawn .mast-motion-ferry,
+.mast-scenic.mast-scene-morning .mast-motion-ferry,
+.mast-scenic.mast-scene-day .mast-motion-ferry,
+.mast-scenic.mast-scene-goldenhour .mast-motion-ferry,
+.mast-scenic.mast-scene-sunset .mast-motion-ferry,
+.mast-scenic.mast-scene-night .mast-motion-ferry {
+  animation: mast-sail var(--cycle, 130s) linear infinite;
+}
+.mast-scenic.mast-scene-dawn .mast-motion-ferry-hull,
+.mast-scenic.mast-scene-morning .mast-motion-ferry-hull,
+.mast-scenic.mast-scene-day .mast-motion-ferry-hull,
+.mast-scenic.mast-scene-goldenhour .mast-motion-ferry-hull,
+.mast-scenic.mast-scene-sunset .mast-motion-ferry-hull,
+.mast-scenic.mast-scene-dawn .mast-motion-ferry-wake,
+.mast-scenic.mast-scene-morning .mast-motion-ferry-wake,
+.mast-scenic.mast-scene-day .mast-motion-ferry-wake,
+.mast-scenic.mast-scene-goldenhour .mast-motion-ferry-wake,
+.mast-scenic.mast-scene-sunset .mast-motion-ferry-wake { opacity: 1; }
+.mast-scenic.mast-scene-night .mast-motion-ferry-lamp { opacity: 1; }
+
+/* Sun glitter on water. Short periods, and a sideways stretch as each speck
+   brightens: a facet of swell turning through the sun. */
+.mast-motion-glint {
+  position: absolute; width: 4px; height: 2px; margin: -1px 0 0 -2px;
+  border-radius: 50%; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(ellipse, rgba(255,252,240,0.98) 0%, rgba(255,246,220,0.45) 45%, transparent 75%);
+}
+@keyframes mast-twinkle {
+  0%, 100% { opacity: 0;    transform: scaleX(0.6); }
+  50%      { opacity: 0.95; transform: scaleX(1.5); }
+}
+.mast-scenic.mast-scene-dawn .mast-motion-glint,
+.mast-scenic.mast-scene-morning .mast-motion-glint,
+.mast-scenic.mast-scene-day .mast-motion-glint,
+.mast-scenic.mast-scene-goldenhour .mast-motion-glint,
+.mast-scenic.mast-scene-sunset .mast-motion-glint {
+  animation: mast-twinkle var(--d, 2s) ease-in-out var(--dl, 0s) infinite;
+}
+
 /* Motion is decoration, so reduced motion removes it outright rather than
    slowing it down. The card is complete without it. */
 @media (prefers-reduced-motion: reduce) {

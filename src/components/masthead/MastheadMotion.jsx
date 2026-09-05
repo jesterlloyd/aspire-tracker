@@ -101,8 +101,13 @@ export default function MastheadMotion({ city }) {
   const m = CITY_MOTION[city]
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
-    birds, haze, flare, helicopter, rainfall } = m
+    birds, haze, hazeTone, flare, helicopter, rainfall, ferry, glints } = m
   const beaconClass = `mast-motion-beacon${beaconTone === 'red' ? ' mast-motion-beacon-red' : ''}`
+  // MASTHEAD-SANFRANCISCO-2: a sun off-frame RIGHT. The flare geometry is
+  // written for a sun at left, so the layer is mirrored and the sun's x is
+  // reflected before the ghosts are placed; everything else is unchanged.
+  const flareRight = !!flare && flare.x > 50
+  const flareX = flareRight ? 100 - flare.x : flare?.x
   return (
     <div className="mast-motion" aria-hidden>
       {/* Two bolts on different periods, so the storm does not tick like a
@@ -125,7 +130,7 @@ export default function MastheadMotion({ city }) {
       )}
 
       {haze && (
-        <div className="mast-motion-haze"
+        <div className={`mast-motion-haze${hazeTone === 'fog' ? ' mast-motion-haze-fog' : ''}`}
           style={{ top: `${haze.y}%`, height: `${haze.height}%` }} />
       )}
 
@@ -180,12 +185,12 @@ export default function MastheadMotion({ city }) {
           is where the optics put them. The streak is anamorphic, horizontal
           from the sun, and fades with distance from it. */}
       {flare && (
-        <span className="mast-motion-flare">
+        <span className={`mast-motion-flare${flareRight ? ' mast-motion-flare-right' : ''}`}>
           <span className="mast-motion-flare-streak" style={{ top: `${flare.y}%` }} />
           {GHOSTS.map(({ t, size, alpha }) => (
             <span key={t} className="mast-motion-ghost"
               style={{
-                left: `${(flare.x + (50 - flare.x) * t).toFixed(1)}%`,
+                left: `${(flareX + (50 - flareX) * t).toFixed(1)}%`,
                 top: `${(flare.y + (50 - flare.y) * t).toFixed(1)}%`,
                 width: `${size}%`,
                 '--ghost-alpha': alpha,
@@ -194,6 +199,26 @@ export default function MastheadMotion({ city }) {
           ))}
         </span>
       )}
+
+      {/* A ferry: a dark hull with a white wake by day, two warm lights by
+          night. It runs its whole crossing on screen (no long empty gap like
+          the aircraft), because a ferry route is never empty for long. */}
+      {ferry && (
+        <span className="mast-motion-ferry"
+          style={{ top: `${ferry.y}%`, '--from': `${ferry.from}%`, '--to': `${ferry.to}%`, '--cycle': `${ferry.flight}s` }}>
+          <span className="mast-motion-ferry-wake" />
+          <span className="mast-motion-ferry-hull" />
+          <span className="mast-motion-ferry-lamp" />
+        </span>
+      )}
+
+      {/* Sun glitter: each speck sits on a measured pale maximum of the water
+          and twinkles on its own short period, stretching sideways as it
+          brightens, which is what a facet of swell does as it turns. */}
+      {glints?.map(([x, y], i) => (
+        <span key={`gl-${x}-${y}`} className="mast-motion-glint"
+          style={{ left: `${x}%`, top: `${y}%`, '--d': `${(period(i) * 0.45).toFixed(2)}s`, '--dl': stagger(i) }} />
+      ))}
 
       {water?.map(([x, y], i) => (
         <span key={`wt-${x}-${y}`} className="mast-motion-water"
