@@ -218,9 +218,26 @@ test('the picker grid: every option has its image, the images exist, and the car
     assert.ok(existsSync(join(dir, PICKER_IMAGE_FILES[key])), `${key}: ${PICKER_IMAGE_FILES[key]} is not in public/masthead/picker`)
   }
   // Root-relative, encoded URLs; nothing for an unknown key.
-  assert.equal(pickerImageFor('newyork'), '/masthead/picker/NewYork.png')
-  assert.equal(pickerImageFor(AUTO), '/masthead/picker/Automatic.png')
+  assert.equal(pickerImageFor('newyork'), '/masthead/picker/NewYork.webp')
+  assert.equal(pickerImageFor(AUTO), '/masthead/picker/Automatic.webp')
   assert.equal(pickerImageFor('nowhere'), null)
+  // MASTHEAD-PICKER-WEBP-1: the whole set is WebP and stays that way. The PNGs
+  // were 50 MB and arrived in one burst the first time anyone opened the
+  // picker; a single .png creeping back into the map is that regression
+  // starting again, one card at a time.
+  for (const [key, file] of Object.entries(PICKER_IMAGE_FILES)) {
+    assert.match(file, /\.webp$/, `${key}: picker art is WebP, not ${file}`)
+  }
+  // And nothing heavy is sitting in the folder beside them. 200 KB is roughly
+  // twice the largest card at 960px; the supplied originals live in
+  // reference/masthead-picker-source/ instead.
+  const { statSync } = await import('node:fs')
+  for (const f of rd(dir)) {
+    if (f.startsWith('.')) continue
+    assert.match(f, /\.webp$/, `public/masthead/picker/${f} is not WebP`)
+    const kb = statSync(join(dir, f)).size / 1024
+    assert.ok(kb < 200, `picker/${f} is ${kb.toFixed(0)} KB; the set is meant to stay small`)
+  }
   // The option order is Automatic first, then cities by display name. The grid
   // wraps at three, so the count is free; nothing about the layout is pinned.
   // Rio sorts under its full name, which is the label, not the folder.

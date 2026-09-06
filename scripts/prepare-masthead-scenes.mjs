@@ -37,8 +37,9 @@ const BANNER_ASPECT = 3 // >= this, the frame ships uncropped
 const raws = readdirSync(SCENES_DIR, { recursive: true })
   .map(f => String(f).replace(/\\/g, '/'))
   // MASTHEAD-PICKER-GRID-1: public/masthead/picker/ holds the card artwork for
-  // the city chooser, not scene frames. Those PNGs ship as PNGs and are read by
-  // pickerImageFor() by name, so this script must never convert or move them.
+  // the city chooser, not scene frames. This script must not touch it: its
+  // output is 16:9 cards at 960px, not the 5:1 scene crop, and a dropped PNG
+  // there wants scripts/prepare-picker-images.mjs instead.
   .filter(f => /\.png$/i.test(f) && !f.startsWith('picker/'))
 if (raws.length === 0) {
   console.log('No raw .png files under public/masthead/ - nothing to prepare.')

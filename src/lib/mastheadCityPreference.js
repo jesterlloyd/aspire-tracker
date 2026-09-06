@@ -97,25 +97,34 @@ export function cityWeatherLocation(city, coords) {
   return { lat, lon, label: cityDisplayName(city), geo: false, chosen: true }
 }
 
-// MASTHEAD-PICKER-GRID-1: the picker's card images, one per option, dropped
-// by the Owner under public/masthead/picker/ (16:9, corners already rounded,
-// never edited here). The mapping is explicit so a renamed file fails the
-// guard test rather than showing a broken card; a city with no image gets no
-// URL and the card renders its label alone.
+// MASTHEAD-PICKER-GRID-1: the picker's card images, one per option, under
+// public/masthead/picker/ (16:9). The mapping is explicit so a renamed file
+// fails the guard test rather than showing a broken card; a city with no image
+// gets no URL and the card renders its label alone.
+//
+// MASTHEAD-PICKER-WEBP-1 (Owner lifted the do-not-modify rule, 2026-09-06):
+// these are 960px WebP now, not the supplied 2000px PNGs. The set was 50 MB
+// and every byte of it arrived the first time anyone opened the picker; it is
+// 1.4 MB now, and the originals are in reference/masthead-picker-source/.
+// 960 because the WIDEST the card is ever drawn is the one-column phone layout
+// at ~444 CSS px, and 960 covers that past 2x. The alpha is kept even though
+// the CSS clips a larger radius than the art bakes (10px displayed is an 83px
+// source radius against a 40px bake, so the baked corners are never the ones
+// you see) - WebP alpha measured free here, so faithful beat clever.
 export const PICKER_IMAGE_FILES = {
-  [AUTO]: 'Automatic.png',
-  atlanta: 'Atlanta.png',
-  hollywood: 'Hollywood.png',
-  hongkong: 'HongKong.png',
-  honolulu: 'Honolulu.png',
-  rio: 'Rio.png',
-  tokyo: 'Tokyo.png',
-  lasvegas: 'LasVegas.png',
-  london: 'London.png',
-  losangeles: 'LosAngeles.png',
-  newyork: 'NewYork.png',
-  sanfrancisco: 'SanFrancisco.png',
-  seattle: 'Seattle.png',
+  [AUTO]: 'Automatic.webp',
+  atlanta: 'Atlanta.webp',
+  hollywood: 'Hollywood.webp',
+  hongkong: 'HongKong.webp',
+  honolulu: 'Honolulu.webp',
+  rio: 'Rio.webp',
+  tokyo: 'Tokyo.webp',
+  lasvegas: 'LasVegas.webp',
+  london: 'London.webp',
+  losangeles: 'LosAngeles.webp',
+  newyork: 'NewYork.webp',
+  sanfrancisco: 'SanFrancisco.webp',
+  seattle: 'Seattle.webp',
 }
 
 /** Root-relative public URL for an option's picker image, or null. Encoded,
