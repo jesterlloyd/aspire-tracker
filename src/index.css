@@ -2735,6 +2735,46 @@ a.doc-file-link:hover { text-decoration: underline; }
   opacity: 0.55; animation: mast-swell 7s linear infinite;
 }
 
+/* Cableway. A rail rotated to the chord between two stations, with one cabin
+   riding it end to end and back. The rail itself draws nothing: the wire is
+   already in the artwork, and painting a second one over it would double every
+   cable in the frame. Only the cabin is ours.
+
+   `alternate` is doing real work here. A cable car does not loop, it shuttles,
+   and an alternating ease-in-out gives the slow-away, slow-into-station
+   rhythm plus a dwell at each end without a single extra keyframe. */
+.mast-motion-cable {
+  position: absolute; height: 0;
+  transform-origin: 0 50%; transform: rotate(var(--angle, 0deg));
+}
+.mast-motion-cabin {
+  /* Sized and toned against the cabins the frame already paints on this wire:
+     at 7x5 with a full glow the animated one read as a sticker beside them.
+     A pill rather than a box, which is the exempt shape closest to a gondola
+     and closer to the artwork's than a rectangle was. */
+  position: absolute; top: 0; left: 0; width: 5px; height: 3.5px;
+  /* Hung under the wire, not centred on it: -0.5px puts the arm on the cable
+     and the body below it, which is how a gondola sits. */
+  margin: -0.5px 0 0 -2.5px; border-radius: 999px;
+  background: linear-gradient(180deg, rgba(78,84,98,0.88) 0%, rgba(52,57,70,0.92) 60%, rgba(38,42,54,0.85) 100%);
+  box-shadow: 0 -2.5px 0 -2.2px rgba(64,70,84,0.85);
+  opacity: 0;
+}
+@keyframes mast-cabin { from { left: 0%; } to { left: 100%; } }
+.mast-scenic .mast-motion-cabin {
+  opacity: 0.85;
+  animation: mast-cabin var(--cycle, 42s) ease-in-out infinite alternate;
+}
+/* After dark the cabin is its own lamp rather than a silhouette: at this size
+   a dark box on a dark hillside is nothing, and the frame's own painted cabins
+   are lit. Warm, small, and dimmer than the stations it runs between. */
+.mast-scenic.mast-scene-night .mast-motion-cabin,
+.mast-scenic.mast-scene-cloudynight .mast-motion-cabin,
+.mast-scenic.mast-scene-snownight .mast-motion-cabin {
+  background: linear-gradient(180deg, rgba(255,208,138,0.90) 0%, rgba(252,178,92,0.86) 60%, rgba(196,130,56,0.68) 100%);
+  box-shadow: 0 0 4px 0 rgba(255,188,108,0.40), 0 -2.5px 0 -2.2px rgba(70,62,52,0.75);
+}
+
 /* Rainbow. One arc drawn from the bottom centre of its box, so the registry
    places the apex and both feet with a single rectangle. The bands are an
    elliptical radial gradient rather than a circular one on purpose: the card
@@ -2856,7 +2896,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-ghost, .mast-motion-ferry, .mast-motion-ferry-hull, .mast-motion-ferry-wake,
   .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored,
   .mast-motion-neon, .mast-motion-wheel, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
-  .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow {
+  .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin {
     animation: none !important; opacity: 0 !important;
   }
 }

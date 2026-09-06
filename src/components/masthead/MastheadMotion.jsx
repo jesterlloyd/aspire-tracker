@@ -144,7 +144,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, snowfall, swell, surf, rainbow, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -305,6 +305,30 @@ export default function MastheadMotion({ city }) {
         <span key={`gl-${x}-${y}`} className="mast-motion-glint"
           style={{ left: `${x}%`, top: `${y}%`, '--d': `${(period(i) * 0.45).toFixed(2)}s`, '--dl': stagger(i) }} />
       ))}
+
+      {/* MASTHEAD-CABLE-1: a cableway. The rail is the chord between the two
+          stations, rotated through the same 5.9:1 correction the bridge deck
+          uses, and one cabin rides it from end to end and back - `alternate`
+          gives the dwell at each station for free, which is what a cable car
+          actually does. The cabin hangs BELOW the wire on a short arm, because
+          that is where a gondola is relative to the cable carrying it. */}
+      {cable && (
+        <span className="mast-motion-cable"
+          style={{
+            left: `${cable.x}%`, top: `${cable.y}%`,
+            // The rail's WIDTH is the chord's length, not its horizontal run.
+            // Rotating about the left end shortens the run by cos(angle), and
+            // at a cableway's 34 degrees that is 17%: declaring w=8 landed the
+            // cabin at x 89.6 instead of the lower station at 91, and 5% of
+            // the card short of it vertically. The bridge deck has the same
+            // geometry but runs at 4 degrees, where the correction is 0.2%.
+            width: `${Math.hypot(cable.w, cable.rise / 5.9).toFixed(3)}%`,
+            '--angle': `${(Math.atan((cable.rise / 5.9) / cable.w) * 180 / Math.PI).toFixed(3)}deg`,
+            '--cycle': `${cable.flight}s`,
+          }}>
+          <span className="mast-motion-cabin" />
+        </span>
+      )}
 
       {spans.map((span, si) => (
         <span key={`span-${si}`} className="mast-motion-set">

@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'snowfall', 'swell', 'surf', 'rainbow', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -267,6 +267,31 @@ test('a rainbow arcs inside the card, on the half away from the sun', () => {
   }
 })
 
+test('a cableway hangs between two points on the card', () => {
+  // MASTHEAD-CABLE-1. The rail is a chord: x/y is the top station, w the run
+  // and rise the drop across it, so BOTH ends have to land on the card. A
+  // cableway whose lower station is off the frame would send the cabin out of
+  // the card and back, which reads as a bug rather than as a journey.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    const c = m.cable
+    if (!c) continue
+    assert.ok(c.w > 0, `${city}.cable has no run`)
+    assert.ok(c.x >= 0 && c.x + c.w <= 100, `${city}.cable leaves the card sideways`)
+    assert.ok(c.y >= 0 && c.y <= 100 && c.y + c.rise >= 0 && c.y + c.rise <= 100,
+      `${city}.cable runs off the card between y=${c.y} and y=${c.y + c.rise}`)
+    assert.ok(c.flight > 0, `${city}.cable needs a flight duration`)
+    // A cableway climbs. A rail this shallow is a road and belongs in bridge,
+    // where it would get traffic instead of a gondola.
+    assert.ok(Math.abs(c.rise) / c.w > 1.5,
+      `${city}.cable drops ${c.rise}% over ${c.w}%; that is a roadway, not a cableway`)
+  }
+  // Rio's bondinho: the Sugarloaf summit at [83, 37] down to Urca at [91, 68.6].
+  assert.deepEqual(CITY_MOTION.rio.cable, { x: 83, y: 37, w: 8, rise: 31.6, flight: 42 })
+  // The wire is the artwork's. Ours is the cabin, and only the cabin.
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  assert.match(css, /\.mast-motion-cable \{\s*\n\s*position: absolute; height: 0;/)
+})
+
 test('a beam stands on the card and rises inside it', () => {
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (!m.beam) continue
@@ -358,10 +383,15 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // only thing that will say so. Atlanta, Hollywood (second pack) and New
   // York (second pack) are the three; all were measured through the centred crop.
   const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle', 'hongkong', 'honolulu']
+  // MASTHEAD-RIO-1: Rio is anchored to the TOP, alone. Christ the Redeemer
+  // starts at source row 7 and neither the default nor the centred crop keeps
+  // him, so its points were converted through a third offset again.
+  const TOP = ['rio']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
+  for (const city of TOP) assert.equal(CITY_IMG_Y[city], '0%', `${city} was measured through a top-anchored crop`)
   for (const city of Object.keys(CITY_MOTION)) {
-    if (CENTRED.includes(city)) continue
+    if (CENTRED.includes(city) || TOP.includes(city)) continue
     assert.equal(CITY_IMG_Y[city], undefined,
       `${city} now has a custom --scn-img-y, so its measured points need redoing`)
   }

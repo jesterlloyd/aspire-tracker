@@ -69,6 +69,11 @@ const CITY_NAMES = {
   saltlakecity: 'Salt Lake City',
   washington: 'Washington, DC',
   hongkong: 'Hong Kong',
+  // The folder is Rio (the Owner named it), the city is Rio de Janeiro. The
+  // pack key follows the folder, as the canon requires; only the label is the
+  // long form, and CITY_ALIASES maps the long spelling back so a browser that
+  // reports "Rio de Janeiro" still lands on this pack.
+  rio: 'Rio de Janeiro',
 }
 
 export function cityDisplayName(key) {
@@ -103,6 +108,7 @@ export const PICKER_IMAGE_FILES = {
   hollywood: 'Hollywood.png',
   hongkong: 'HongKong.png',
   honolulu: 'Honolulu.png',
+  rio: 'Rio.png',
   lasvegas: 'LasVegas.png',
   losangeles: 'LosAngeles.png',
   newyork: 'NewYork.png',

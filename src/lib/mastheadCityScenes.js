@@ -81,6 +81,9 @@ const CITY_ALIASES = {
   seattle: 'seattle',
   hongkong: 'hongkong',
   honolulu: 'honolulu',
+  // The folder is Rio, the city is Rio de Janeiro, and a browser's location
+  // label says the long form. Both spellings have to reach the same pack.
+  rio: 'rio', riodejaneiro: 'rio',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -115,6 +118,7 @@ export const CITY_COORDS = {
   paris: [48.86, 2.35],
   tokyo: [35.68, 139.69],
   honolulu: [21.31, -157.86],
+  rio: [-22.91, -43.17],
   manila: [14.6, 120.98],
 }
 
@@ -301,6 +305,13 @@ export const CITY_IMG_Y = {
   // to sit in. Centred, the ridge keeps its skyline and the 30 rows given up
   // at the bottom are open water, of which this frame has more than it needs.
   honolulu: '50%',
+  // MASTHEAD-RIO-1: THE ONLY TOP-ANCHORED CITY, and not by preference.
+  // Christ the Redeemer begins at source row 7 of 400. The default crop starts
+  // at row 61 and removes him entirely; the centred crop starts at row 31 and
+  // beheads him. Only 0% keeps the statue, and a Rio masthead without it is
+  // not a Rio masthead. The 61 rows are paid at the bottom, where the frame
+  // has foreground bay and a few sailboats and nothing that names the city.
+  rio: '0%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -1102,6 +1113,113 @@ export const CITY_MOTION = {
     // clock's box at 45.9 because the arc's band stops at y 39 and the clock
     // starts at 47.9. Withdrawn below 768px, where the card changes aspect.
     rainbow: { x: 18, y: 11, w: 34, h: 42 },
+    rainfall: true,
+  },
+  rio: {
+    // MASTHEAD-RIO-1 (2026-09-06): a new city, nine frames, measured through
+    // the TOP-anchored crop (see CITY_IMG_Y - Rio is the only city that uses
+    // one, and every coordinate here is void if that changes). The view looks
+    // east from above Botafogo: Corcovado and the statue at x 16, the favela
+    // hillside across the left, the Botafogo cove and its promenade curving
+    // from x 31 to 62, Guanabara Bay filling the centre-right with Niteroi on
+    // the far shore, and Sugarloaf at x 83 with Urca below it.
+    //
+    // The city's own windows, the hillside, and the far shore.
+    lights: [
+      [3.0, 55.5], [3.9, 70.5], [13.2, 78.2], [15.1, 75.8], [7.2, 56.6],
+      [2.7, 65.8], [11.1, 72.0], [10.8, 78.2], [7.2, 64.0], [0.9, 63.7],
+      [8.3, 60.5], [15.5, 79.4], [0.9, 74.0], [5.5, 67.8],
+      [16.9, 80.8], [34.5, 79.1], [26.3, 85.0], [24.8, 83.8], [24.6, 79.1],
+      [18.8, 82.9], [35.6, 85.0], [28.5, 84.1], [17.4, 83.8], [30.3, 61.1],
+      [31.8, 76.1], [36.9, 83.8], [35.1, 69.9], [33.1, 80.8], [22.2, 86.7],
+      [29.4, 81.1],
+      [48.4, 69.9], [51.3, 80.2], [48.7, 82.6], [43.1, 81.1], [45.6, 83.8],
+      [39.6, 83.8], [57.8, 62.2], [54.8, 77.3], [53.3, 78.2], [47.0, 81.7],
+      [44.0, 64.9], [41.4, 84.4], [51.8, 74.9], [57.4, 81.7],
+      [91.3, 65.8], [62.4, 79.7], [70.3, 67.3], [93.1, 70.2], [72.8, 65.8],
+      [58.9, 62.5], [88.4, 59.6], [59.2, 83.2], [74.2, 65.2], [78.3, 64.3],
+      [61.1, 81.4], [69.8, 83.8], [63.3, 61.1], [64.3, 83.5],
+      // The floodlit statue, twice up its height, and the lit summit station
+      // on Sugarloaf that the cable car runs from.
+      [15.8, 7.4], [15.8, 10.4], [83.1, 36.3],
+    ],
+    // The two red masts flanking Corcovado. Measured by their HALO, not their
+    // core: a small saturated red light blows out to pink in the middle, so
+    // the core reads rgb(156,78,98) and rgb(229,180,199) while the glow around
+    // them is unambiguously red against the blue sky. A strict red test over
+    // the whole frame returned nothing but sodium street lamps.
+    beacons: [[11.3, 15.3], [11.4, 19.2], [18.1, 19.8]],
+    beaconTone: 'red',
+    // THE SHORE HERE IS A ROAD, NOT A BEACH. Botafogo's waterline is the
+    // promenade below, traced lamp by lamp, and every reflection is sampled
+    // 2.2% clear beneath it. The first pass measured reflections and deck
+    // lights independently and produced eleven pairs sitting on each other -
+    // [62.1, 86.1] appeared in both sets at the same coordinate.
+    water: [
+      [34.2, 97.1], [49.8, 92.3], [51.4, 92.6], [39.4, 98.5], [35.8, 97.1],
+      [60.3, 92.3], [37.8, 97.6], [49.6, 97.4], [54.7, 90.6], [53.0, 91.2],
+      [57.2, 93.2], [58.8, 92.6], [45.5, 93.5], [31.6, 98.8], [62.1, 90.3],
+      [48.0, 92.0], [60.3, 98.5], [47.4, 99.1], [45.5, 98.2],
+    ],
+    // Sun glitter in the OPEN bay. Rio's city is white, so pale maxima find
+    // rooftops: every one of these was accepted only when the ring 10-18px
+    // around it is blue, smooth and darker than the glint itself. Without
+    // that ring test the first pass put twelve of fourteen on buildings.
+    glints: [
+      [61.0, 61.4], [69.9, 63.7], [73.0, 64.0], [74.5, 70.5], [75.8, 58.7],
+      [89.7, 59.0], [95.3, 63.7], [98.2, 64.0], [90.9, 97.1],
+    ],
+    // The promenade round the cove, in two straight runs because one is not
+    // straight: the drop is 0.29% per 1% of width from x 31 and 0.26% from
+    // x 47, and a single rail through both would leave the traffic 2% off the
+    // road at the join. Traced light by light; every lamp is within 1.3% of
+    // the rail it belongs to. The seaward run carries the police car.
+    bridge: [
+      {
+        lights: [[31, 95.6], [34, 95.3], [36.5, 93.5], [39, 93.2], [41, 92.3], [43.5, 91.7], [46, 91.2]],
+        deck: { x: 31, y: 95.6, w: 15, rise: -4.4 },
+      },
+      {
+        lights: [[47, 90.0], [49.5, 90.3], [52, 90.0], [54.5, 89.1], [57, 87.0], [59.5, 86.4], [62, 86.1]],
+        deck: { x: 47, y: 90.0, w: 15, rise: -3.9 },
+        police: true,
+      },
+    ],
+    // MASTHEAD-CABLE-1: the Sugarloaf bondinho, and the reason this pack has a
+    // new kind. The wire is DRAWN in all nine frames, from the summit station
+    // down to Urca, with cabins painted on it and both stations lit at night,
+    // so a cabin that runs it is riding real geometry rather than decorating
+    // empty rock. Anchored on the five bright points along the wire (the two
+    // stations at [83.0, 35.7] and [91.0, 66.5] and the three lit cabins
+    // between them) and fitted by least squares; the cable sags, so the rail
+    // is the chord and the worst residual is 2.1% of card height, which is
+    // inside the cabin's own radius. One cabin, down and back up, because
+    // that is what a cableway does.
+    cable: { x: 83, y: 37, w: 8, rise: 31.6, flight: 42 },
+    // Sky is clear above card y 33 from x 22 east; Corcovado holds y 4-24 at
+    // x 14-18 and the lane stops well short of it.
+    aircraft: { y: 8, from: 98, to: 26, flight: 40 },
+    // Frigatebirds over the bay, high. The flock spreads 6.4% above the lane
+    // and 11.5% below it, so at y 22 the highest sits at 15.6 and the lowest
+    // at 33.5, and the ridge under the run never rises past 37.
+    birds: { y: 22, from: 96, to: 30, flight: 34, count: 6 },
+    // A tour helicopter round the Sugarloaf circuit, above its summit at 37.
+    helicopter: { y: 30, from: 60, to: 96, flight: 46 },
+    // The Niteroi ferry. Lane y 68 is open water from x 82 in to 58 and then
+    // stops: Sugarloaf's base blocks x 84-86, so the crossing cannot run the
+    // width of the card and does not pretend to.
+    ferry: { y: 68, from: 82, to: 58, flight: 120 },
+    ferryTone: 'white',
+    // Tropical haze on the far range and the bay's far shore. Default tone,
+    // whose mask is strongest right of 56% - which here is exactly the
+    // distance that carries it.
+    haze: { y: 38, height: 12 },
+    // The golden-hour sun is OFF-FRAME LEFT: the sky column mean falls from
+    // 231 at x 0 to 191 at x 90, and the brightest edge pixel is at x 2.
+    flare: { x: -6, y: 26 },
+    // The bay between the cove and Sugarloaf's base, verified open water at
+    // every 2% from x 60 to 82.
+    swell: { x: 60, y: 64, w: 22, height: 14 },
     rainfall: true,
   },
 }

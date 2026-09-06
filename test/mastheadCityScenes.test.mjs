@@ -221,14 +221,12 @@ test('the picker grid: every option has its image, the images exist, and the car
   assert.equal(pickerImageFor('newyork'), '/masthead/picker/NewYork.png')
   assert.equal(pickerImageFor(AUTO), '/masthead/picker/Automatic.png')
   assert.equal(pickerImageFor('nowhere'), null)
-  // The option order is Automatic first, then cities by display name, which
-  // is the Owner's desktop order: Atlanta, Hollywood, Hong Kong, Honolulu,
-  // Las Vegas, Los Angeles, New York, San Francisco, Seattle. A tenth card
-  // wraps the 3-column grid to a fourth row; nothing about the layout is
-  // pinned to nine.
+  // The option order is Automatic first, then cities by display name. The grid
+  // wraps at three, so the count is free; nothing about the layout is pinned.
+  // Rio sorts under its full name, which is the label, not the folder.
   const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
   assert.deepEqual(cityOptions(packs).map(o => o.label),
-    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'Los Angeles', 'New York', 'San Francisco', 'Seattle'])
+    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'Los Angeles', 'New York', 'Rio de Janeiro', 'San Francisco', 'Seattle'])
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.match(dlg, /role="radiogroup"/)
   assert.match(dlg, /role="radio"/)
@@ -303,10 +301,13 @@ test('the vertical crop is per city, and only the cities whose mast or spire nee
   // removes, so they crop centred; the second Las Vegas pack's Strat (row 68)
   // clears it by seven rows and crops centred for the sky above its tip.
   // Honolulu joins them for the Koolau crest (row 54), which the default cut,
-  // and for the open sky the centred crop gives the sun and moon.
+  // and for the open sky the centred crop gives the sun and moon. Rio is the
+  // one city anchored to the TOP: Christ the Redeemer starts at source row 7,
+  // which neither the default nor the centred crop keeps.
   // Everyone else stays.
   assert.equal(DEFAULT_IMG_Y, '100%')
-  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'hongkong', 'honolulu', 'lasvegas', 'newyork', 'seattle'])
+  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'hongkong', 'honolulu', 'lasvegas', 'newyork', 'rio', 'seattle'])
+  assert.equal(imgPositionFor('rio'), '0%')
   assert.equal(imgPositionFor('lasvegas'), '50%')
   assert.equal(imgPositionFor('seattle'), '50%')
   assert.equal(imgPositionFor('atlanta'), '50%')
