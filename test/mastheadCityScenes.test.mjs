@@ -243,7 +243,7 @@ test('the picker grid: every option has its image, the images exist, and the car
   // Rio sorts under its full name, which is the label, not the folder.
   const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
   assert.deepEqual(cityOptions(packs).map(o => o.label),
-    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Rio de Janeiro', 'San Francisco', 'Seattle', 'Tokyo'])
+    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo'])
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.match(dlg, /role="radiogroup"/)
   assert.match(dlg, /role="radio"/)
@@ -323,10 +323,11 @@ test('the vertical crop is per city, and only the cities whose mast or spire nee
   // which neither the default nor the centred crop keeps.
   // Everyone else stays.
   assert.equal(DEFAULT_IMG_Y, '100%')
-  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'hongkong', 'honolulu', 'lasvegas', 'london', 'newyork', 'rio', 'seattle', 'tokyo'])
+  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'hongkong', 'honolulu', 'lasvegas', 'london', 'newyork', 'rio', 'rome', 'seattle', 'tokyo'])
   assert.equal(imgPositionFor('rio'), '0%')
   assert.equal(imgPositionFor('tokyo'), '0%')
   assert.equal(imgPositionFor('london'), '0%')
+  assert.equal(imgPositionFor('rome'), '0%')
   assert.equal(imgPositionFor('lasvegas'), '50%')
   assert.equal(imgPositionFor('seattle'), '50%')
   assert.equal(imgPositionFor('atlanta'), '50%')
@@ -355,10 +356,23 @@ test('CloudyNight parses as its own scene, not as bare Night', () => {
   assert.equal(packs.hollywood.night, '/masthead/Hollywood/Hollywood_Night.webp')
   assert.equal(packs.hollywood.cloudynight, '/masthead/Hollywood/Hollywood_CloudyNight.webp')
   // The separated spellings work too, as they do for Golden Hour.
-  for (const name of ['Cloudy Night', 'Cloudy_Night', 'Rainy Night', 'Night Rain']) {
+  for (const name of ['Cloudy Night', 'Cloudy_Night', 'Overcast Night']) {
     const p = parseSceneFiles([`Hollywood/Hollywood_${name}.webp`])
     assert.equal(Object.keys(p.hollywood)[0], 'cloudynight', name)
   }
+  // MASTHEAD-RAINNIGHT-1: the rainy spellings are their OWN scene as of Rome.
+  // They pointed at cloudynight only because no pack had a rain-at-night
+  // frame; no shipped file used them, so nothing re-resolved when they moved.
+  for (const name of ['RainNight', 'Rain Night', 'Rainy Night', 'Night Rain']) {
+    const p = parseSceneFiles([`Rome/Rome_${name}.webp`])
+    assert.equal(Object.keys(p.rome)[0], 'rainnight', name)
+  }
+  // And the trap this scene walked into: the parser takes the LONGEST trailing
+  // token run first, so RainNight must not read as bare "night" and leave a
+  // phantom city called RomeRain. Before the word existed it did exactly that
+  // - the file parsed to nothing at all and was silently dropped.
+  const rn = parseSceneFiles(['Rome/Rome_RainNight.webp'])
+  assert.deepEqual(Object.keys(rn), ['rome'], 'RainNight must not invent a city')
 })
 
 test('an installed pack may add CloudyNight, and the five that predate it need not', () => {

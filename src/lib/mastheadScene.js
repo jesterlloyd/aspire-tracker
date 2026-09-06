@@ -39,8 +39,16 @@ export const SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night'
 // and night. Only New York carries them (about 2% of its hours a year). A
 // fallback may name another OPTIONAL scene: the chain is followed until a
 // frame the pack has is found, and every chain ends on a required scene.
-export const OPTIONAL_SCENES = ['cloudynight', 'cloudy', 'snow', 'snownight']
-export const SCENE_FALLBACK = { cloudynight: 'night', cloudy: 'rain', snow: 'rain', snownight: 'cloudynight' }
+export const OPTIONAL_SCENES = ['cloudynight', 'cloudy', 'snow', 'snownight', 'rainnight']
+export const SCENE_FALLBACK = {
+  cloudynight: 'night', cloudy: 'rain', snow: 'rain', snownight: 'cloudynight',
+  // MASTHEAD-RAINNIGHT-1 (Rome, 2026-09-06): rain after dark is its own frame
+  // now. Every pack before Rome answered a wet night with CloudyNight and let
+  // the falling rain be the only difference between a storm and a dry overcast
+  // one, which is why the chain lands there: a city with no RainNight frame
+  // behaves exactly as it did, showing CloudyNight with rain over it.
+  rainnight: 'cloudynight',
+}
 
 /** Every scene that can be rendered, required and optional together. */
 export const ALL_SCENES = [...SCENES, ...OPTIONAL_SCENES]
@@ -60,6 +68,7 @@ export function sceneFrameFor(scene, scenes) {
 /** Night treatment covers every scene that IS night, not only the clear one. */
 export function isNightScene(scene) {
   return scene === 'night' || scene === 'cloudynight' || scene === 'snownight'
+    || scene === 'rainnight'
 }
 
 /** The six states the clock itself produces ('rain' is weather-driven). */
@@ -166,7 +175,13 @@ export function artSceneFor(clockScene, weatherCode) {
   // MASTHEAD-SNOW-1: snow has its own frames; a pack without them falls back
   // along the chain (snow -> rain, snownight -> cloudynight -> night).
   if (isSnowCode(weatherCode)) return clockScene === 'night' ? 'snownight' : 'snow'
-  if (clockScene === 'night') return 'cloudynight'
+  // MASTHEAD-RAINNIGHT-1: the night branch now splits the same way the day one
+  // always has - wet is Rain, merely grey is Cloudy - instead of sending both
+  // to CloudyNight and letting the rainfall layer carry the difference. That
+  // asymmetry existed only because no pack had a rain-at-night frame; Rome
+  // does. A pack without one still lands on CloudyNight via SCENE_FALLBACK,
+  // so nothing changes for the twelve cities that shipped before it.
+  if (clockScene === 'night') return isWetCode(weatherCode) ? 'rainnight' : 'cloudynight'
   // MASTHEAD-CLOUDY-1: a dry grey day is Cloudy, not Rain. A pack without the
   // frame shows Rain through SCENE_FALLBACK, as it always did.
   return isWetCode(weatherCode) ? 'rain' : 'cloudy'

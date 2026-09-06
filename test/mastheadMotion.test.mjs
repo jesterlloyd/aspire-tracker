@@ -399,7 +399,7 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // Christ the Redeemer starts at source row 7, the Skytree's mast at row 0 and
   // the Shard's spire at row 0, and neither the default nor the centred crop
   // keeps them, so those packs were converted through a third offset again.
-  const TOP = ['rio', 'tokyo', 'london']
+  const TOP = ['rio', 'tokyo', 'london', 'rome']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of TOP) assert.equal(CITY_IMG_Y[city], '0%', `${city} was measured through a top-anchored crop`)

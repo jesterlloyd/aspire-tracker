@@ -1935,6 +1935,11 @@ a.doc-file-link:hover { text-decoration: underline; }
   background: radial-gradient(680px 260px at 66% 116%, rgba(96,116,220,0.28), transparent 70%),
     radial-gradient(420px 200px at 86% -10%, rgba(214,226,255,0.16), transparent 70%);
 }
+/* MASTHEAD-RAINNIGHT-1: rain after dark shares the cloudy-night gradient rather
+   than inventing a second one. The art is full-bleed, so this only shows where
+   the frame does not reach, and a wet night and a grey one are the same colour
+   in that sliver. */
+.mast-sky-rainnight,
 .mast-sky-cloudynight {
   /* MASTHEAD-CLOUDY-NIGHT: the clear-night sky with its moon-glow damped and a
      low, wide haze where cloud cover catches the city's own light. */
@@ -1975,6 +1980,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-rain .mast-sky-rain, .mast-scene-cloudy .mast-sky-cloudy,
 .mast-scene-snow .mast-sky-snow, .mast-scene-snownight .mast-sky-snownight,
 .mast-scene-cloudynight .mast-sky-cloudynight { opacity: 1; }
+.mast-scene-rainnight .mast-sky-rainnight { opacity: 1; }
 
 /* The ridge/skyline/palm art. Same left-quiet mask; fills cross-fade as the
    scene class swaps the CSS variables above. */
@@ -2020,6 +2026,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-goldenhour .mast-scn-img-goldenhour, .mast-scene-cloudy .mast-scn-img-cloudy,
 .mast-scene-snow .mast-scn-img-snow, .mast-scene-snownight .mast-scn-img-snownight,
 .mast-scene-cloudynight .mast-scn-img-cloudynight { opacity: 1; }
+.mast-scene-rainnight .mast-scn-img-rainnight { opacity: 1; }
 /* MASTHEAD-TIMELAPSE-1: the sweep that runs the day when you pick a city.
    data-sweep names the frame to show and OUTRANKS the scene-class rule above
    (three compound selectors against two), which is the whole mechanism: the
@@ -2037,6 +2044,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenery[data-sweep="rain"] .mast-scn-img-rain,
 .mast-scenery[data-sweep="cloudy"] .mast-scn-img-cloudy,
 .mast-scenery[data-sweep="cloudynight"] .mast-scn-img-cloudynight,
+.mast-scenery[data-sweep="rainnight"] .mast-scn-img-rainnight,
 .mast-scenery[data-sweep="snow"] .mast-scn-img-snow,
 .mast-scenery[data-sweep="snownight"] .mast-scn-img-snownight { opacity: 1; }
 /* The two layers that make a claim about the time of day stand down while the
@@ -2051,6 +2059,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 [data-theme="dark"] .mast-scene-night .mast-scn-img-night,
 [data-theme="dark"] .mast-scene-snownight .mast-scn-img-snownight,
 [data-theme="dark"] .mast-scene-cloudynight .mast-scn-img-cloudynight { filter: none; }
+[data-theme="dark"] .mast-scene-rainnight .mast-scn-img-rainnight { filter: none; }
 @media (prefers-reduced-motion: reduce) { .mast-scn-img { transition: none; } }
 
 /* ── MASTHEAD-MOTION-1 (PROTOTYPE): motion over the still artwork ──
@@ -2120,8 +2129,10 @@ a.doc-file-link:hover { text-decoration: underline; }
    from the shared weather query). The Rain scene is wet by construction. */
 .mast-scenic.mast-scene-rain .mast-motion-bolt-a,
 .mast-scenic.mast-scene-cloudynight .mast-motion-wet .mast-motion-bolt-a { animation: mast-bolt 11s linear infinite; }
+.mast-scenic.mast-scene-rainnight .mast-motion-wet .mast-motion-bolt-a { animation: mast-bolt 11s linear infinite; }
 .mast-scenic.mast-scene-rain .mast-motion-bolt-b,
 .mast-scenic.mast-scene-cloudynight .mast-motion-wet .mast-motion-bolt-b { animation: mast-bolt 17s linear 4s infinite; }
+.mast-scenic.mast-scene-rainnight .mast-motion-wet .mast-motion-bolt-b { animation: mast-bolt 17s linear 4s infinite; }
 
 /* ── SHIMMER. Each glow sits on a light already in the photograph and breathes
    on its own period, which is how haze actually treats distant lights. ── */
@@ -2140,6 +2151,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-light,
 .mast-scenic.mast-scene-cloudynight .mast-motion-light,
+.mast-scenic.mast-scene-rainnight .mast-motion-light,
 .mast-scenic.mast-scene-snownight .mast-motion-light {
   animation: mast-shimmer var(--d, 4s) ease-in-out var(--dl, 0s) infinite;
 }
@@ -2163,6 +2175,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-beacon,
 .mast-scenic.mast-scene-cloudynight .mast-motion-beacon,
+.mast-scenic.mast-scene-rainnight .mast-motion-beacon,
 .mast-scenic.mast-scene-snownight .mast-motion-beacon {
   animation: mast-beacon 3.4s linear var(--dl, 0s) infinite;
 }
@@ -2194,11 +2207,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-plane,
 .mast-scenic.mast-scene-cloudynight .mast-motion-plane,
+.mast-scenic.mast-scene-rainnight .mast-motion-plane,
 .mast-scenic.mast-scene-snownight .mast-motion-plane {
   animation: mast-fly var(--cycle, 82s) linear infinite;
 }
 .mast-scenic.mast-scene-night .mast-motion-plane-dot,
 .mast-scenic.mast-scene-cloudynight .mast-motion-plane-dot,
+.mast-scenic.mast-scene-rainnight .mast-motion-plane-dot,
 .mast-scenic.mast-scene-snownight .mast-motion-plane-dot {
   animation: mast-plane-blink 2.2s ease-in-out infinite;
 }
@@ -2219,6 +2234,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-water,
 .mast-scenic.mast-scene-cloudynight .mast-motion-water,
+.mast-scenic.mast-scene-rainnight .mast-motion-water,
 .mast-scenic.mast-scene-snownight .mast-motion-water {
   animation: mast-ripple var(--d, 6s) ease-in-out var(--dl, 0s) infinite;
 }
@@ -2250,6 +2266,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-beam,
 .mast-scenic.mast-scene-cloudynight .mast-motion-beam,
+.mast-scenic.mast-scene-rainnight .mast-motion-beam,
 .mast-scenic.mast-scene-snownight .mast-motion-beam {
   animation: mast-beam 7.4s ease-in-out infinite;
 }
@@ -2270,6 +2287,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-decklight,
 .mast-scenic.mast-scene-cloudynight .mast-motion-decklight,
+.mast-scenic.mast-scene-rainnight .mast-motion-decklight,
 .mast-scenic.mast-scene-snownight .mast-motion-decklight {
   animation: mast-deck 5.6s ease-in-out var(--dl, 0s) infinite;
 }
@@ -2293,11 +2311,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 @keyframes mast-car-east { 0% { left: -3%; opacity: 0; } 6%, 90% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
 .mast-scenic.mast-scene-night .mast-motion-car-west,
 .mast-scenic.mast-scene-cloudynight .mast-motion-car-west,
+.mast-scenic.mast-scene-rainnight .mast-motion-car-west,
 .mast-scenic.mast-scene-snownight .mast-motion-car-west {
   animation: mast-car-west var(--dur, 9s) linear var(--dl, 0s) infinite;
 }
 .mast-scenic.mast-scene-night .mast-motion-car-east,
 .mast-scenic.mast-scene-cloudynight .mast-motion-car-east,
+.mast-scenic.mast-scene-rainnight .mast-motion-car-east,
 .mast-scenic.mast-scene-snownight .mast-motion-car-east {
   animation: mast-car-east var(--dur, 13s) linear var(--dl, 0s) infinite;
 }
@@ -2331,7 +2351,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 @keyframes mast-drop { from { transform: translateY(0); } to { transform: translateY(440px); } }
 .mast-scenic.mast-scene-rain .mast-motion-rain,
 .mast-scenic.mast-scene-cloudynight .mast-motion-wet .mast-motion-rain { opacity: 1; }
+.mast-scenic.mast-scene-rainnight .mast-motion-wet .mast-motion-rain { opacity: 1; }
 .mast-scenic.mast-scene-rain .mast-motion-drop,
+.mast-scenic.mast-scene-rainnight .mast-motion-wet .mast-motion-drop,
 .mast-scenic.mast-scene-cloudynight .mast-motion-wet .mast-motion-drop {
   animation: mast-drop var(--dur, 0.9s) linear var(--dl, 0s) infinite;
 }
@@ -2605,6 +2627,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-sunset .mast-motion-steam,
 .mast-scenic.mast-scene-night .mast-motion-steam,
 .mast-scenic.mast-scene-cloudynight .mast-motion-steam,
+.mast-scenic.mast-scene-rainnight .mast-motion-steam,
 .mast-scenic.mast-scene-snownight .mast-motion-steam {
   animation: mast-steam var(--d, 8s) linear var(--dl, 0s) infinite;
 }
@@ -2637,6 +2660,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-neon,
 .mast-scenic.mast-scene-cloudynight .mast-motion-neon,
+.mast-scenic.mast-scene-rainnight .mast-motion-neon,
 .mast-scenic.mast-scene-snownight .mast-motion-neon {
   animation: mast-flicker var(--d, 3s) steps(1, end) var(--dl, 0s) infinite;
 }
@@ -2655,6 +2679,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 @keyframes mast-turn { from { rotate: 0deg; } to { rotate: 360deg; } }
 .mast-scenic.mast-scene-night .mast-motion-wheel,
 .mast-scenic.mast-scene-cloudynight .mast-motion-wheel,
+.mast-scenic.mast-scene-rainnight .mast-motion-wheel,
 .mast-scenic.mast-scene-snownight .mast-motion-wheel {
   opacity: 0.8; animation: mast-turn 52s linear infinite;
 }
@@ -2676,6 +2701,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-night .mast-motion-orb,
 .mast-scenic.mast-scene-snownight .mast-motion-orb,
 .mast-scenic.mast-scene-cloudynight .mast-motion-orb,
+.mast-scenic.mast-scene-rainnight .mast-motion-orb,
 .mast-scenic.mast-scene-dawn .mast-motion-orb,
 .mast-scenic.mast-scene-sunset .mast-motion-orb {
   opacity: 0.7; animation: mast-orb 36s linear infinite;
@@ -2697,6 +2723,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-car-police,
 .mast-scenic.mast-scene-cloudynight .mast-motion-car-police,
+.mast-scenic.mast-scene-rainnight .mast-motion-car-police,
 .mast-scenic.mast-scene-snownight .mast-motion-car-police {
   animation: mast-car-west var(--dur, 23s) linear var(--dl, 0s) infinite,
              mast-police 0.44s steps(1, end) infinite;
@@ -2795,6 +2822,7 @@ a.doc-file-link:hover { text-decoration: underline; }
    are lit. Warm, small, and dimmer than the stations it runs between. */
 .mast-scenic.mast-scene-night .mast-motion-cabin,
 .mast-scenic.mast-scene-cloudynight .mast-motion-cabin,
+.mast-scenic.mast-scene-rainnight .mast-motion-cabin,
 .mast-scenic.mast-scene-snownight .mast-motion-cabin {
   background: linear-gradient(180deg, rgba(255,208,138,0.90) 0%, rgba(252,178,92,0.86) 60%, rgba(196,130,56,0.68) 100%);
   box-shadow: 0 0 4px 0 rgba(255,188,108,0.40), 0 -2.5px 0 -2.2px rgba(70,62,52,0.75);
@@ -2900,6 +2928,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-night .mast-motion-surf,
 .mast-scenic.mast-scene-cloudynight .mast-motion-surf,
+.mast-scenic.mast-scene-rainnight .mast-motion-surf,
 .mast-scenic.mast-scene-snownight .mast-motion-surf {
   opacity: 0; filter: blur(1.6px);
   animation: mast-surf-night 8.2s ease-in-out var(--dl, 0s) infinite;

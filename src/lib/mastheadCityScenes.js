@@ -35,8 +35,14 @@ const SCENE_WORDS = {
   // MASTHEAD-CLOUDY-NIGHT: the same weather after dark. Listed before nothing
   // else matters, but note the parser tries the LONGEST trailing token run
   // first, so "CloudyNight" resolves here rather than as bare "night".
-  cloudynight: 'cloudynight', nightcloudy: 'cloudynight',
-  rainynight: 'cloudynight', nightrain: 'cloudynight', overcastnight: 'cloudynight',
+  cloudynight: 'cloudynight', nightcloudy: 'cloudynight', overcastnight: 'cloudynight',
+  // MASTHEAD-RAINNIGHT-1: rain after dark is its own scene as of Rome. The
+  // "rainy night" spellings move here from cloudynight, where they only ever
+  // pointed because there was no frame for this - no shipped pack used them,
+  // so nothing re-resolves. Note the parser takes the LONGEST trailing token
+  // run first, which is what stops "RainNight" reading as plain "night" and
+  // leaving a phantom city called RomeRain.
+  rainnight: 'rainnight', nightrain: 'rainnight', rainynight: 'rainnight',
 }
 
 // ── MASTHEAD-CITY-CANON (Owner) ──────────────────────────────────────────────
@@ -86,6 +92,7 @@ const CITY_ALIASES = {
   rio: 'rio', riodejaneiro: 'rio',
   tokyo: 'tokyo',
   london: 'london',
+  rome: 'rome',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -116,6 +123,7 @@ export const CITY_COORDS = {
   boston: [42.36, -71.06],
   washington: [38.91, -77.04],
   london: [51.51, -0.13],
+  rome: [41.90, 12.50],
   hongkong: [22.30, 114.17],
   paris: [48.86, 2.35],
   tokyo: [35.68, 139.69],
@@ -329,6 +337,13 @@ export const CITY_IMG_Y = {
   // spire, because the wheel effect is a circle fitted to that rim. The cost is
   // the near bank at the bottom; the Thames still fills y 60-99.
   london: '0%',
+  // MASTHEAD-ROME-1: top-anchored, the fourth city to need it. St Peter's cross
+  // reaches source row 24. The default crop starts at 61 and loses the dome
+  // outright; the centred one starts at 31 and takes the cross off the lantern,
+  // which is worse than losing a spire - it is the one silhouette that says
+  // Rome. The 61 rows are paid on the near rooftops at the bottom, of which
+  // this frame has more than it can use.
+  rome: '0%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -1405,6 +1420,63 @@ export const CITY_MOTION = {
     // The golden-hour sun is OFF-FRAME LEFT: the sky column mean falls from
     // 232 at x 0 to about 190 at x 80.
     flare: { x: -6, y: 20 },
+    rainfall: true,
+  },
+  rome: {
+    // MASTHEAD-ROME-1 (2026-09-06): a new city, and the first pack with TEN
+    // frames - it brought RainNight, a rain-after-dark scene no pack had
+    // before (see OPTIONAL_SCENES in mastheadScene.js). Measured through the
+    // TOP-anchored crop (see CITY_IMG_Y). The view looks across the centro
+    // storico from the Janiculum: St Peter's at x 24, the Vittoriano at 62-72,
+    // domes and tiled rooftops everywhere between, the Alban hills behind.
+    //
+    // All ten frames are ONE DRAWING - a vertical cross-correlation of their
+    // edge profiles agrees to within 1px of 339 on every pair, the tightest of
+    // any pack so far - so there is no scene shift and no override, and the
+    // pick sweep dissolves through them without anything moving.
+    //
+    // NO BEACONS, and none available: Rome has no building tall enough to
+    // carry an aviation light, and a strict red test over the night frame
+    // returns nothing but sodium street lamps (rgb 245,145,60 and its
+    // neighbours). NO WATER either - the Tiber is not in this frame - so
+    // nothing here reflects, glitters, swells or sails.
+    //
+    // Warm windows, lit facades and the floodlit domes, west to east. Rome
+    // burns sodium, so the shared warm score finds these the way it was
+    // written to; contrast Tokyo, whose windows are white.
+    lights: [
+      [9.6, 85.5], [12.8, 69.3], [19.8, 62.5], [2.1, 75.2], [19.1, 54.3],
+      [18.9, 62.0], [3.6, 48.7], [13.2, 83.8], [19.8, 49.3], [18.9, 59.0],
+      [16.4, 98.2], [13.1, 89.1], [14.9, 73.8],
+      [28.5, 49.9], [21.1, 49.9], [38.6, 52.2], [22.4, 33.3], [27.8, 36.6],
+      [23.4, 40.4], [36.9, 77.6], [21.4, 85.8], [20.6, 36.3], [24.9, 62.0],
+      [25.3, 39.8], [39.4, 74.6], [22.1, 50.2],
+      [52.2, 71.4], [59.4, 76.7], [57.5, 73.8], [49.5, 55.5], [59.3, 73.5],
+      [50.0, 96.8], [44.5, 64.9], [50.3, 59.0], [50.9, 95.9], [51.8, 96.8],
+      [58.4, 68.7], [48.4, 87.6], [48.4, 59.3],
+      [79.9, 85.3], [61.2, 72.9], [64.5, 87.0], [60.1, 74.0], [76.4, 54.6],
+      [76.1, 72.3], [68.8, 74.9], [79.3, 59.0], [69.3, 48.7], [67.2, 57.5],
+      [79.7, 80.8], [60.5, 69.9], [64.7, 58.4],
+      [83.8, 60.5], [80.3, 87.3], [80.3, 79.9], [89.0, 75.8], [83.5, 52.8],
+      [83.4, 57.5], [86.5, 58.4], [83.9, 63.7], [98.2, 62.0], [80.2, 82.9],
+      [88.9, 92.9], [96.2, 95.0], [93.0, 72.9],
+    ],
+    // The approach stops at x 32 because St Peter's cross reaches card y 8 at
+    // x 24, and the motion layer draws ABOVE the artwork - a plane at this
+    // height would cross the dome rather than pass behind it.
+    aircraft: { y: 12, from: 98, to: 32, flight: 40 },
+    // Swifts over the rooftops. The flock spreads 6.4% above its lane and
+    // 11.5% below, and the lowest roofline under this run is card y 23 (the
+    // Vittoriano's quadrigae at x 62), so y 10 keeps all six clear of it.
+    birds: { y: 10, from: 96, to: 34, flight: 34, count: 6 },
+    helicopter: { y: 16, from: 34, to: 96, flight: 46 },
+    // Haze on the Alban hills and the far quarters, which sit at card y 23-37
+    // across the frame - and the default tone's mask is strongest right of
+    // 56%, which here is exactly the distance that carries it.
+    haze: { y: 24, height: 10 },
+    // The golden-hour sun is OFF-FRAME LEFT: the sky column mean falls from
+    // 241 at x 0 to 210 at x 90, and the brightest edge pixel is at card y 12.
+    flare: { x: -6, y: 10 },
     rainfall: true,
   },
 }

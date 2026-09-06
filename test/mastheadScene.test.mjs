@@ -65,7 +65,7 @@ test('rain codes: precipitation, overcast, and fog - never partly cloudy', () =>
   }
 })
 
-test('bad weather overrides every scene: rain or cloudy by day, cloudynight after dark', () => {
+test('bad weather overrides every scene: rain or cloudy by day, rain or cloudy after dark', () => {
   for (const scene of ['dawn', 'morning', 'day', 'goldenhour', 'sunset']) {
     assert.equal(artSceneFor(scene, 61), 'rain', `${scene} + rain -> rain art`)
     // MASTHEAD-CLOUDY-1: a dry grey day is Cloudy (a pack without the frame
@@ -87,10 +87,16 @@ test('bad weather overrides every scene: rain or cloudy by day, cloudynight afte
   assert.equal(artSceneFor('night', 86), 'snownight')
   // MASTHEAD-CLOUDY-NIGHT (Owner): night used to ignore the weather entirely
   // and show a clear sky through a storm. Now it has its own bad-weather frame.
-  assert.equal(artSceneFor('night', 61), 'cloudynight', 'rain after dark')
+  // MASTHEAD-RAINNIGHT-1: the night branch splits the way the day one always
+  // has. Before Rome, a wet night and a dry grey one both answered CloudyNight
+  // and the falling rain was the only difference; that was a compromise, not a
+  // rule, and it lasted exactly as long as no pack had a rain-at-night frame.
+  assert.equal(artSceneFor('night', 61), 'rainnight', 'rain after dark')
+  assert.equal(artSceneFor('night', 3), 'cloudynight', 'a DRY overcast night is still CloudyNight')
+  assert.equal(artSceneFor('night', 95), 'rainnight', 'a thunderstorm after dark is wet')
   assert.equal(artSceneFor('night', 3), 'cloudynight', 'overcast after dark')
   assert.equal(artSceneFor('night', 45), 'cloudynight', 'fog after dark')
-  assert.equal(artSceneFor('night', 95), 'cloudynight', 'thunderstorm after dark')
+  assert.equal(artSceneFor('night', 95), 'rainnight', 'thunderstorm after dark')
   assert.equal(artSceneFor('night', 0), 'night', 'a clear night is still a clear night')
   assert.equal(artSceneFor('night', 2), 'night', 'partly cloudy is not bad weather')
   assert.equal(artSceneFor('day', undefined), 'day')
@@ -141,8 +147,12 @@ test('an optional scene is optional, and declares what it falls back to', () => 
   // a perfectly good pack. It is optional with a declared fallback instead.
   assert.ok(!SCENES.includes('cloudynight'), 'not required of every pack')
   assert.ok(!SCENES.includes('cloudy'), 'not required of every pack')
-  assert.deepEqual(OPTIONAL_SCENES, ['cloudynight', 'cloudy', 'snow', 'snownight'])
-  assert.deepEqual(ALL_SCENES, [...SCENES, 'cloudynight', 'cloudy', 'snow', 'snownight'])
+  assert.deepEqual(OPTIONAL_SCENES, ['cloudynight', 'cloudy', 'snow', 'snownight', 'rainnight'])
+  assert.deepEqual(ALL_SCENES, [...SCENES, 'cloudynight', 'cloudy', 'snow', 'snownight', 'rainnight'])
+  // MASTHEAD-RAINNIGHT-1: a pack without a RainNight frame lands on CloudyNight
+  // and behaves exactly as every pack did before Rome brought one.
+  assert.equal(SCENE_FALLBACK.rainnight, 'cloudynight')
+  assert.ok(isNightScene('rainnight'), 'a wet night is still night, and gets night ink')
   assert.equal(SCENE_FALLBACK.cloudynight, 'night')
   // MASTHEAD-CLOUDY-1: without a Cloudy frame a grey day shows Rain, as before.
   assert.equal(SCENE_FALLBACK.cloudy, 'rain')
@@ -223,4 +233,73 @@ test('night treatment follows every night scene, clear or clouded', () => {
   for (const s of ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'rain', 'cloudy', 'snow']) {
     assert.ok(!isNightScene(s), s)
   }
+})
+
+test('RainNight is a night scene everywhere the CSS treats night specially', () => {
+  // MASTHEAD-RAINNIGHT-1. Adding an optional scene is not one edit: every gate
+  // that says "this is night" needs the new word too, and a missed one fails
+  // INVISIBLY - the card just quietly loses its lights, or its ink stays dark
+  // on a dark frame. So this walks the cloudy-night gates and requires a twin.
+  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  const gates = css.split('\n').filter(l => l.includes('.mast-scene-cloudynight'))
+  const exempt = [
+    'mast-motion-only-cloudynight',   // sceneOverrides machinery, cloudynight-only
+    'mast-motion-not-cloudynight',
+    'mast-motion-anchored',           // sceneShift, and no pack shifts a RainNight
+  ]
+  // Compare the SELECTOR, not the line: a twin folded into an existing
+  // selector list ends in a comma where the original ends in the brace that
+  // opens the block, and both are correct.
+  const sel = l => l.trim().replace(/[,{]\s*$/, '').trim()
+  const present = new Set(css.split('\n').map(sel))
+  for (const line of gates) {
+    if (exempt.some(e => line.includes(e))) continue
+    const twin = sel(line).replace(/cloudynight/g, 'rainnight')
+    assert.ok(present.has(twin), `no RainNight twin for:\n  ${line.trim()}`)
+  }
+  // The frame itself, the sky under it, and the sweep step that shows it.
+  assert.match(css, /\.mast-scene-rainnight \.mast-scn-img-rainnight \{ opacity: 1; \}/)
+  assert.match(css, /\.mast-scene-rainnight \.mast-sky-rainnight \{ opacity: 1; \}/)
+  assert.match(css, /\[data-sweep="rainnight"\] \.mast-scn-img-rainnight/)
+  // And the layer that renders the sky divs has one for it, or the gate above
+  // has nothing to switch on.
+  const scenery = readFileSync(new URL('../src/components/MastheadScenery.jsx', import.meta.url), 'utf8')
+  assert.match(scenery, /mast-sky mast-sky-rainnight/)
+})
+
+test('a wet night is wet by construction, so the storm can trust the scene', () => {
+  // artSceneFor only returns rainnight when isWetCode, which means the frame
+  // and the falling rain can never disagree. Before Rome, CloudyNight served
+  // both a storm and a dry overcast night and the wet flag was the ONLY thing
+  // telling them apart.
+  for (const code of [51, 61, 65, 80, 82, 95, 99]) {
+    assert.equal(artSceneFor('night', code), 'rainnight', `code ${code} is wet`)
+    assert.ok(isWetCode(code), `code ${code} must set the wet flag too`)
+  }
+  for (const code of [3, 45, 48]) {
+    assert.equal(artSceneFor('night', code), 'cloudynight', `code ${code} is dry overcast`)
+    assert.ok(!isWetCode(code), `code ${code} must NOT set the wet flag`)
+  }
+})
+
+test('index.css has balanced braces', () => {
+  // MASTHEAD-RAINNIGHT-1 added twenty-three selectors by twinning the
+  // cloudy-night gates, and one of them landed AFTER a line that opened a
+  // block rather than before it, giving that rule two opening braces. postcss
+  // rejected the whole stylesheet and the card rendered unstyled - but every
+  // test still passed, because they all check that a selector is PRESENT and
+  // none checked that the file is still valid CSS. The dev server caught it.
+  // This is cheaper than the dev server and catches the same class of thing.
+  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/"[^"]*"|'[^']*'/g, '')
+  let depth = 0, line = 1
+  for (const ch of bare) {
+    if (ch === '\n') line++
+    else if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      assert.ok(depth >= 0, `unmatched } around line ${line}`)
+    }
+  }
+  assert.equal(depth, 0, `${depth} unclosed block(s) in index.css`)
 })
