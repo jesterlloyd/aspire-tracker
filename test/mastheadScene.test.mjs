@@ -189,7 +189,10 @@ test('the storm runs only when something is falling: the wet flag, and the CSS t
   const wx = readFileSync(new URL('../src/components/WeatherScene.jsx', import.meta.url), 'utf8')
   assert.match(wx, /return \{ scene, night: isNightScene\(scene\), wet \}/)
   const motion = readFileSync(new URL('../src/components/masthead/MastheadMotion.jsx', import.meta.url), 'utf8')
-  assert.match(motion, /className=\{`mast-motion\$\{wet \? ' mast-motion-wet' : ''\}`\}/)
+  // The wet flag has to reach the class name; the class LIST is allowed to grow
+  // (MASTHEAD-TIMELAPSE-1 added mast-motion-hushed), so this pins the flag
+  // rather than the whole template, which is what the rule actually is.
+  assert.match(motion, /`mast-motion\$\{wet \? ' mast-motion-wet' : ''\}/)
   // And the grey day carries the day kinds that belong on it, not the sun ones.
   for (const kind of ['haze', 'flock', 'bird', 'steam', 'ferry', 'haze-fog']) {
     assert.match(css, new RegExp(`\\.mast-scenic\\.mast-scene-cloudy \\.mast-motion-${kind}`), `${kind} runs on a cloudy day`)

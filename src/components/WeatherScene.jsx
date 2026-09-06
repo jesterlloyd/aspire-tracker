@@ -17,6 +17,7 @@ import { sceneForTime, sunTimesFrom, artSceneFor, ALL_SCENES, isNightScene, isWe
 import { parseSceneFiles, injectedSceneFiles, resolvePack, skyPositionFor, CITY_COORDS } from '../lib/mastheadCityScenes'
 import { cityOptions, cityWeatherLocation } from '../lib/mastheadCityPreference'
 import { useCityPreference } from './masthead/useCityPreference'
+import { useSceneSweep } from '../lib/mastheadSweep'
 import CityPickerDialog from './masthead/CityPickerDialog'
 
 const F = 'Plus Jakarta Sans, sans-serif'
@@ -304,6 +305,7 @@ export function WeatherMasthead() {
   // no-weather and weather renders.
   const [pickerOpen, setPickerOpen] = useState(false)
   const { city: preferredCity, raw: rawCity, choose } = useCityPreference()
+  const sweeping = !!useSceneSweep()
   const packs = useMemo(() => parseSceneFiles(injectedSceneFiles()), [])
   const cityOpts = useMemo(() => cityOptions(packs), [packs])
   // The animated sun/moon floats where the CURRENT city's sky is clear - the
@@ -327,7 +329,10 @@ export function WeatherMasthead() {
     // backdrop cross-fades so scene changes never hard-jump.
     <div className={`wx-mast${night ? ' wx-mast-night' : ''}`} style={{ fontFamily: F }}>
       <style>{KEYFRAMES}</style>
-      <div className="wx-mast-art" style={{ '--scn-sky-x': skyX }} aria-hidden>
+      {/* MASTHEAD-TIMELAPSE-1: the sun or moon is a statement about the time of
+          day, and during a sweep the card is running through all of them. It
+          fades out with the motion layer and returns when the sweep lands. */}
+      <div className={`wx-mast-art${sweeping ? ' wx-mast-art-hushed' : ''}`} style={{ '--scn-sky-x': skyX }} aria-hidden>
         {manifest
           ? <AssetScene manifest={manifest} onBroken={() => setAssetsBroken(true)} />
           : <SceneSvg scene={scene} />}

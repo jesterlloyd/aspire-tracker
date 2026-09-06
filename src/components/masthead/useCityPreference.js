@@ -17,6 +17,14 @@ import { AUTO, readCityPreference, writeCityPreference } from '../../lib/masthea
 
 const listeners = new Set()
 
+// MASTHEAD-TIMELAPSE-1: a counter, not a boolean, so that re-picking the city
+// you already have still registers as a pick. That is the Owner's on-demand
+// replay: the value does not change, the sequence does, and the sweep runs.
+// It exists here because `choose` is the ONLY explicit pick in the system -
+// the value also moves on load, on an account switch and on another tab's
+// write, and none of those should trigger a sweep.
+let pickSeq = 0
+
 export function useCityPreference() {
   const { user } = useAuth()
   const userId = user?.id || null
@@ -37,8 +45,10 @@ export function useCityPreference() {
     setCity(readCityPreference(userId))
   }
 
+  const [seenPick, setSeenPick] = useState(pickSeq)
+
   useEffect(() => {
-    const onChange = (next) => setCity(next)
+    const onChange = (next, seq) => { setCity(next); setSeenPick(seq) }
     listeners.add(onChange)
     // Another tab changing the preference should reach this one too.
     const onStorage = () => setCity(readCityPreference(userId))
@@ -49,9 +59,12 @@ export function useCityPreference() {
   const choose = (next) => {
     writeCityPreference(userId, next)
     const value = next || AUTO
-    for (const fn of listeners) fn(value)
+    pickSeq += 1
+    for (const fn of listeners) fn(value, pickSeq)
   }
 
   // 'auto' reads as no override, which is what every consumer branches on.
-  return { city: city === AUTO ? null : city, raw: city, choose }
+  // pickSeq is 0 until the viewer picks, so a consumer can tell a pick from the
+  // value simply arriving.
+  return { city: city === AUTO ? null : city, raw: city, choose, pickSeq: seenPick }
 }

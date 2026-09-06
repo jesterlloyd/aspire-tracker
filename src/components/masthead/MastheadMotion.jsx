@@ -35,6 +35,7 @@
 // MASTHEAD-SNOW-1 added snowfall (seeded flakes that fall and sway) and a
 // swell (faint drifting crests on a measured patch of water).
 import { CITY_MOTION } from '../../lib/mastheadCityScenes'
+import { useSceneSweep } from '../../lib/mastheadSweep'
 import { useMastheadScene } from '../WeatherScene'
 
 // Coprime-ish periods so a row of lights never visibly pulses in unison.
@@ -140,6 +141,12 @@ export default function MastheadMotion({ city }) {
   // class says which frame is up; this says whether anything is falling, so
   // a dry overcast night keeps its cloudy frame without rain or lightning.
   const { wet } = useMastheadScene()
+  // MASTHEAD-TIMELAPSE-1: the motion layer sits out a sweep. Its gates are on
+  // the host's scene class, which a sweep deliberately does NOT change, so the
+  // lights and birds would otherwise carry on at the destination scene while
+  // the artwork under them ran through the whole day - the one arrangement
+  // that looks broken rather than either still or moving.
+  const sweeping = !!useSceneSweep()
   const m = CITY_MOTION[city]
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
@@ -175,7 +182,7 @@ export default function MastheadMotion({ city }) {
   const flareRight = !!flare && flare.x > 50
   const flareX = flareRight ? 100 - flare.x : flare?.x
   return (
-    <div className={`mast-motion${wet ? ' mast-motion-wet' : ''}`} aria-hidden>
+    <div className={`mast-motion${wet ? ' mast-motion-wet' : ''}${sweeping ? ' mast-motion-hushed' : ''}`} aria-hidden>
       {/* Two bolts on different periods, so the storm does not tick like a
           metronome. Both sit right of centre: a flash over the greeting would
           fight the text, the same contract the artwork's left fade honours. */}

@@ -2020,6 +2020,31 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-goldenhour .mast-scn-img-goldenhour, .mast-scene-cloudy .mast-scn-img-cloudy,
 .mast-scene-snow .mast-scn-img-snow, .mast-scene-snownight .mast-scn-img-snownight,
 .mast-scene-cloudynight .mast-scn-img-cloudynight { opacity: 1; }
+/* MASTHEAD-TIMELAPSE-1: the sweep that runs the day when you pick a city.
+   data-sweep names the frame to show and OUTRANKS the scene-class rule above
+   (three compound selectors against two), which is the whole mechanism: the
+   host keeps .mast-scene-<destination> the entire time, so every gate, sky,
+   ink and motion effect stays put at the scene you are going to end on, and
+   only these eleven images move. The frame duration and the cross-fade are set
+   inline from SWEEP_MS, not here, because they are one Owner tunable. */
+.mast-scenery[data-sweep] .mast-scn-img { opacity: 0; }
+.mast-scenery[data-sweep="dawn"] .mast-scn-img-dawn,
+.mast-scenery[data-sweep="morning"] .mast-scn-img-morning,
+.mast-scenery[data-sweep="day"] .mast-scn-img-day,
+.mast-scenery[data-sweep="goldenhour"] .mast-scn-img-goldenhour,
+.mast-scenery[data-sweep="sunset"] .mast-scn-img-sunset,
+.mast-scenery[data-sweep="night"] .mast-scn-img-night,
+.mast-scenery[data-sweep="rain"] .mast-scn-img-rain,
+.mast-scenery[data-sweep="cloudy"] .mast-scn-img-cloudy,
+.mast-scenery[data-sweep="cloudynight"] .mast-scn-img-cloudynight,
+.mast-scenery[data-sweep="snow"] .mast-scn-img-snow,
+.mast-scenery[data-sweep="snownight"] .mast-scn-img-snownight { opacity: 1; }
+/* The two layers that make a claim about the time of day stand down while the
+   card is running through all of them. Faded, not hidden: a cut would be one
+   more thing happening at the moment the sweep starts. */
+.mast-motion-hushed, .wx-mast-art-hushed { opacity: 0; transition: opacity 0.45s ease; }
+.wx-mast-art { transition: opacity 0.6s ease; }
+
 /* Dark page theme: soften the daylight artwork so the card doesn't glow;
    the night image already lives in the theme's register. */
 [data-theme="dark"] .mast-scn-img { filter: brightness(0.85) saturate(0.9); }

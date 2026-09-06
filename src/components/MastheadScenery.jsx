@@ -5,11 +5,12 @@
 // MASTHEAD-SCENE-2 layers city scene packs (prepared images) on top; the SVG
 // below is the always-available fallback.
 //
-import { useMemo, useState } from 'react'
-import { useWelcomeWeather } from './WeatherScene'
+import { useEffect, useMemo, useState } from 'react'
+import { useWelcomeWeather, useMastheadScene } from './WeatherScene'
 import { SCENES, ALL_SCENES, sceneFrameFor } from '../lib/mastheadScene'
 import { parseSceneFiles, resolvePack, injectedSceneFiles, imgPositionFor } from '../lib/mastheadCityScenes'
 import { useCityPreference } from './masthead/useCityPreference'
+import { sweepFramesFor, startSweepWhenReady, stopSweep, useSceneSweep, SWEEP_MS } from '../lib/mastheadSweep'
 import MastheadMotion from './masthead/MastheadMotion'
 //
 // The component is purely presentational and state-free: the host card carries
@@ -77,11 +78,48 @@ export default function MastheadScenery() {
   )
   const scenes = pack && !imagesBroken ? pack.scenes : null
   const complete = scenes && SCENES.every(s => scenes[s])
+
+  // MASTHEAD-TIMELAPSE-1: an explicit pick runs the day before the card
+  // settles. This component owns the trigger because it is the one that has
+  // BOTH halves: the destination scene and the pack the frames come from.
+  const { scene } = useMastheadScene()
+  const sweep = useSceneSweep()
+  const { pickSeq } = useCityPreference()
+  useEffect(() => {
+    if (!pickSeq || !scenes) return
+    // Picking again while the first pick's frames are still preloading has to
+    // abandon the first sweep, not queue it: the destination scene is per city
+    // (each carries its own timezone and weather), so a stale sweep would run
+    // the day and land on the scene of the city you just moved away from.
+    let cancelled = false
+    const urls = sweepFramesFor(scene).map(s => sceneFrameFor(s, scenes))
+    startSweepWhenReady(scene, urls, { shouldStart: () => !cancelled })
+    return () => { cancelled = true; stopSweep() }
+    // Deliberately keyed on the PICK alone. Re-running when the scene drifts
+    // or the pack resolves would sweep on a plain dusk, which is the one thing
+    // the Owner ruled out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickSeq])
+
   return (
     // --scn-img-y decides which horizontal band of the panorama the card shows.
     // Per city, because where a skyline sits in its own frame is a property of
     // the artwork, not of the layout - the same reason --scn-sky-x is per city.
-    <div className="mast-scenery" aria-hidden style={{ '--scn-img-y': imgPositionFor(pack?.city) }}>
+    <div
+      className="mast-scenery"
+      aria-hidden
+      // data-sweep overrides which frame is visible WITHOUT touching the host's
+      // scene class, so every motion gate, sky and ink holds at the destination
+      // while only the images cross-fade. The card's own --scn-fade is 10s (the
+      // Owner's slow morph for a real scene change); a sweep needs the fade to
+      // be about as long as the step so each frame is still dissolving into the
+      // next when the next arrives, so it is overridden here for the duration.
+      data-sweep={sweep?.frame || undefined}
+      style={{
+        '--scn-img-y': imgPositionFor(pack?.city),
+        ...(sweep ? { '--scn-fade': `${(SWEEP_MS / sweepFramesFor(scene).length / 1000).toFixed(2)}s` } : null),
+      }}
+    >
       {/* The state-keyed sky gradients always render: in city mode the art's
           left fade lands on them. SCENE-3 added morning/goldenhour/rain. */}
       <div className="mast-sky mast-sky-dawn" />
