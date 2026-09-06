@@ -92,6 +92,30 @@ export function cityWeatherLocation(city, coords) {
   return { lat, lon, label: cityDisplayName(city), geo: false, chosen: true }
 }
 
+// MASTHEAD-PICKER-GRID-1: the picker's card images, one per option, dropped
+// by the Owner under public/masthead/picker/ (16:9, corners already rounded,
+// never edited here). The mapping is explicit so a renamed file fails the
+// guard test rather than showing a broken card; a city with no image gets no
+// URL and the card renders its label alone.
+export const PICKER_IMAGE_FILES = {
+  [AUTO]: 'Automatic.png',
+  atlanta: 'Atlanta.png',
+  hollywood: 'Hollywood.png',
+  hongkong: 'HongKong.png',
+  lasvegas: 'LasVegas.png',
+  losangeles: 'LosAngeles.png',
+  newyork: 'NewYork.png',
+  sanfrancisco: 'SanFrancisco.png',
+  seattle: 'Seattle.png',
+}
+
+/** Root-relative public URL for an option's picker image, or null. Encoded,
+ *  so a filename with a space would still resolve. */
+export function pickerImageFor(key) {
+  const file = PICKER_IMAGE_FILES[key]
+  return file ? encodeURI(`/masthead/picker/${file}`) : null
+}
+
 export function cityOptions(packs) {
   const cities = Object.keys(packs || {})
     .map(key => ({ key, label: cityDisplayName(key) }))

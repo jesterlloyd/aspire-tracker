@@ -3107,7 +3107,10 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* ── MASTHEAD-SCENE-4: the scenery city picker (opened by the temperature) ──
    Shared by the staff card and all four portals, so it uses app-level classes
    only - never portal-scoped ptl-*. Sits above every masthead layer and the
-   portal chrome; the backdrop closes it, as does Escape. */
+   portal chrome; the backdrop closes it, as does Escape.
+   MASTHEAD-PICKER-GRID-1: a grid of picture cards, 3 / 2 / 1 across by width;
+   the grid scrolls inside the dialog when the viewport is short. Radii read
+   the brand tokens; the check is a circle. */
 .mast-citypick-backdrop {
   position: fixed; inset: 0; z-index: 1200;
   display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -3115,35 +3118,81 @@ a.doc-file-link:hover { text-decoration: underline; }
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
 .mast-citypick {
-  width: 100%; max-width: 340px;
+  width: 100%; max-width: 760px; max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
   background: var(--chart-card, #fff);
   border: 1px solid var(--chart-line, rgba(29,37,103,0.10));
-  border-radius: 14px; padding: 18px 18px 14px;
+  border-radius: var(--aspire-radius-card); padding: 22px 26px 16px;
   box-shadow: 0 18px 44px rgba(15,20,40,0.28);
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
-.mast-citypick-title { font-size: 15px; font-weight: 700; color: var(--chart-ink, #0E1428); margin: 0; }
-.mast-citypick-note { font-size: 12px; line-height: 1.45; color: var(--chart-ink-soft, #6b7280); margin: 5px 0 12px; }
-.mast-citypick-list { display: flex; flex-direction: column; gap: 4px; }
-.mast-citypick-opt {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 9px 11px; border-radius: 9px; cursor: pointer; text-align: left;
-  background: none; border: 1px solid transparent;
-  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; color: var(--chart-ink, #191919);
+.mast-citypick-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-shrink: 0; }
+.mast-citypick-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--chart-ink, #0E1428); margin: 0; }
+.mast-citypick-note { font-size: 13.5px; line-height: 1.45; color: var(--chart-ink-soft, #6b7280); margin: 6px 0 16px; }
+.mast-citypick-x {
+  flex-shrink: 0; width: 34px; height: 34px; margin: -6px -8px 0 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 0; border-radius: var(--aspire-radius-control); cursor: pointer;
+  color: var(--chart-ink-soft, #6b7280);
 }
-.mast-citypick-opt:hover { background: var(--chart-hover, rgba(29,37,103,0.05)); }
-.mast-citypick-opt:focus-visible { outline: 2px solid var(--chart-navy, #1D2567); outline-offset: 1px; }
-.mast-citypick-opt.is-selected { border-color: var(--chart-navy, #1D2567); font-weight: 600; }
-.mast-citypick-label { flex: 1 1 auto; }
-.mast-citypick-sub { font-size: 11.5px; color: var(--chart-ink-soft, #6b7280); font-weight: 400; }
-.mast-citypick-check { color: var(--chart-navy, #1D2567); font-weight: 700; }
-.mast-citypick-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.mast-citypick-x:hover { background: var(--chart-hover, rgba(29,37,103,0.06)); color: var(--chart-ink, #0E1428); }
+.mast-citypick-x:focus-visible { outline: 2px solid var(--chart-navy, #1D2567); outline-offset: 2px; }
+.mast-citypick-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;
+  overflow-y: auto; overscroll-behavior: contain; padding: 3px; margin: -3px;
+  min-height: 0;
+}
+.mast-citypick-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 0 0 10px; text-align: left; cursor: pointer;
+  background: var(--chart-card, #fff);
+  border: 1px solid var(--chart-line, rgba(29,37,103,0.14));
+  border-radius: var(--aspire-radius-control);
+  font-family: 'Plus Jakarta Sans', sans-serif; color: var(--chart-ink, #191919);
+  box-shadow: var(--aspire-shadow-card);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+.mast-citypick-card:hover { transform: translateY(-1px); box-shadow: var(--aspire-shadow-card-hover); border-color: rgba(29,37,103,0.30); }
+.mast-citypick-card:hover .mast-citypick-img { filter: brightness(1.04); }
+.mast-citypick-card:focus-visible { outline: 2px solid var(--chart-navy, #1D2567); outline-offset: 2px; }
+.mast-citypick-card.is-selected { border-color: var(--chart-navy, #1D2567); box-shadow: 0 0 0 1px var(--chart-navy, #1D2567), var(--aspire-shadow-card); }
+.mast-citypick-frame { position: relative; display: block; width: 100%; padding: 4px 4px 0; box-sizing: border-box; }
+.mast-citypick-img {
+  display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+  border-radius: var(--aspire-radius-control);
+  background: var(--chart-hover, rgba(29,37,103,0.05));
+  transition: filter 0.16s ease;
+}
+.mast-citypick-check {
+  position: absolute; top: 10px; right: 10px; width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--chart-navy, #1D2567); color: #fff;
+  box-shadow: 0 1px 4px rgba(15,20,40,0.35);
+}
+.mast-citypick-label { font-size: 15px; font-weight: 600; padding: 6px 10px 0; }
+.mast-citypick-sub { font-size: 12.5px; color: var(--chart-ink-soft, #6b7280); padding: 0 10px; }
+.mast-citypick-actions { display: flex; justify-content: flex-end; margin-top: 14px; flex-shrink: 0; }
 .mast-citypick-close {
   background: none; border: none; cursor: pointer; padding: 6px 8px;
-  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 600;
-  color: var(--chart-navy, #1D2567); border-radius: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 600;
+  color: var(--chart-navy, #1D2567); border-radius: var(--aspire-radius-control);
 }
 .mast-citypick-close:hover { background: var(--chart-hover, rgba(29,37,103,0.06)); }
+.mast-citypick-close:focus-visible { outline: 2px solid var(--chart-navy, #1D2567); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .mast-citypick { padding: 18px 18px 12px; }
+  .mast-citypick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .mast-citypick-title { font-size: 19px; }
+}
+@media (max-width: 520px) {
+  .mast-citypick-backdrop { padding: 12px; }
+  .mast-citypick { max-height: calc(100vh - 24px); }
+  .mast-citypick-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mast-citypick-card, .mast-citypick-img { transition: none; }
+  .mast-citypick-card:hover { transform: none; }
+}
 
 /* ── ASPIRE-MASTHEAD: On Campus Now live strip ────────────────────────────── */
 .mast-live { margin: var(--aspire-gap-card) 20px 0; font-family: 'Plus Jakarta Sans', sans-serif; flex-shrink: 0; }

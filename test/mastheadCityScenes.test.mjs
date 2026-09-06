@@ -80,6 +80,8 @@ test('the shipped Los Angeles folder is a complete seven-scene pack and nothing 
   const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
+    // MASTHEAD-PICKER-GRID-1: the chooser's card images are not scene frames.
+    .filter(f => !f.startsWith('picker/'))
   const packs = parseSceneFiles(files)
   const placed = Object.values(packs).reduce((n, p) => n + Object.keys(p).length, 0)
   assert.equal(placed, files.length, `every image file must map to a city+scene: ${files.join(', ')}`)
@@ -198,15 +200,55 @@ test('a chosen city moves the whole masthead: artwork, weather, and time of day'
   // The dialog must not still promise that the weather stays local.
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.doesNotMatch(dlg, /weather still follows your own location/)
-  assert.match(dlg, /artwork and weather/)
+  // MASTHEAD-PICKER-GRID-1: the Owner's helper copy, and the whole-masthead
+  // move kept in the component's own words.
+  assert.match(dlg, /Choose the scenery shown in your masthead\./)
+  assert.match(dlg, /Automatic follows your current location\./)
+  assert.match(dlg, /artwork, weather, and time/)
+})
+
+test('the picker grid: every option has its image, the images exist, and the cards are radios', async () => {
+  const { PICKER_IMAGE_FILES, pickerImageFor, AUTO, cityOptions } = await import('../src/lib/mastheadCityPreference.js')
+  const { existsSync, readdirSync: rd } = await import('node:fs')
+  const dir = join(here, '..', 'public', 'masthead', 'picker')
+  // Every shipped city pack, and Automatic, has a card image on disk.
+  const shipped = rd(join(here, '..', 'public', 'masthead'), { withFileTypes: true }).filter(d => d.isDirectory() && d.name !== 'picker').map(d => d.name.toLowerCase())
+  for (const key of [AUTO, ...shipped]) {
+    assert.ok(PICKER_IMAGE_FILES[key], `${key} has no picker image mapped`)
+    assert.ok(existsSync(join(dir, PICKER_IMAGE_FILES[key])), `${key}: ${PICKER_IMAGE_FILES[key]} is not in public/masthead/picker`)
+  }
+  // Root-relative, encoded URLs; nothing for an unknown key.
+  assert.equal(pickerImageFor('newyork'), '/masthead/picker/NewYork.png')
+  assert.equal(pickerImageFor(AUTO), '/masthead/picker/Automatic.png')
+  assert.equal(pickerImageFor('nowhere'), null)
+  // The option order is Automatic first, then cities by display name, which
+  // is the Owner's desktop order: Atlanta, Hollywood, Hong Kong, Las Vegas,
+  // Los Angeles, New York, San Francisco, Seattle.
+  const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
+  assert.deepEqual(cityOptions(packs).map(o => o.label),
+    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Las Vegas', 'Los Angeles', 'New York', 'San Francisco', 'Seattle'])
+  const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
+  assert.match(dlg, /role="radiogroup"/)
+  assert.match(dlg, /role="radio"/)
+  assert.match(dlg, /aria-checked=\{selected\}/)
+  assert.match(dlg, /aria-label="Close"/)
+  assert.match(dlg, /document\.body\.style\.overflow = 'hidden'/, 'the page locks behind the dialog')
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  assert.match(css, /\.mast-citypick-grid \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
+  assert.match(css, /@media \(max-width: 760px\) \{[^@]*\.mast-citypick-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+  assert.match(css, /@media \(max-width: 520px\) \{[^@]*\.mast-citypick-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/)
+  assert.match(css, /\.mast-citypick-card:focus-visible \{ outline: 2px solid/)
+  assert.match(css, /\.mast-citypick-img \{[^}]*aspect-ratio: 16 \/ 9; object-fit: cover/)
 })
 
 // ── MASTHEAD-CITY-CANON (Owner): full names, no abbreviations ───────────────
 
 test('every shipped folder follows the naming canon', async () => {
   const { readdirSync: rd } = await import('node:fs')
+  // MASTHEAD-PICKER-GRID-1: `picker/` holds the chooser's card images, not a
+  // city pack, and is guarded by its own test below.
   const dirs = rd(join(here, '..', 'public', 'masthead'), { withFileTypes: true })
-    .filter(d => d.isDirectory()).map(d => d.name)
+    .filter(d => d.isDirectory() && d.name !== 'picker').map(d => d.name)
   assert.ok(dirs.length >= 5, `expected the shipped city folders; got ${dirs.join(', ')}`)
   for (const dir of dirs) {
     // PascalCase, no spaces, no punctuation, and never an abbreviation.
