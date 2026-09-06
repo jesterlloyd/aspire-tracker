@@ -10,7 +10,7 @@ import { useWelcomeWeather, useMastheadScene } from './WeatherScene'
 import { SCENES, ALL_SCENES, sceneFrameFor } from '../lib/mastheadScene'
 import { parseSceneFiles, resolvePack, injectedSceneFiles, imgPositionFor } from '../lib/mastheadCityScenes'
 import { useCityPreference } from './masthead/useCityPreference'
-import { sweepFramesFor, startSweepWhenReady, stopSweep, useSceneSweep, SWEEP_MS } from '../lib/mastheadSweep'
+import { sweepFramesFor, startSweepWhenReady, stopSweep, useSceneSweep } from '../lib/mastheadSweep'
 import MastheadMotion from './masthead/MastheadMotion'
 //
 // The component is purely presentational and state-free: the host card carries
@@ -117,7 +117,7 @@ export default function MastheadScenery() {
       data-sweep={sweep?.frame || undefined}
       style={{
         '--scn-img-y': imgPositionFor(pack?.city),
-        ...(sweep ? { '--scn-fade': `${(SWEEP_MS / sweepFramesFor(scene).length / 1000).toFixed(2)}s` } : null),
+        ...(sweep ? { '--scn-fade': `${(sweep.stepMs / 1000).toFixed(2)}s` } : null),
       }}
     >
       {/* The state-keyed sky gradients always render: in city mode the art's

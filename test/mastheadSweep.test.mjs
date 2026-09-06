@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { CLOCK_SCENES, SWEEP_MS, sweepFramesFor } from '../src/lib/mastheadSweep.js'
+import { CLOCK_SCENES, SWEEP_MS, SWEEP_MAX_MS, SWEEP_OVERRIDE_KEY, sweepDurationMs, sweepFramesFor } from '../src/lib/mastheadSweep.js'
 import { SCENES, OPTIONAL_SCENES, isNightScene } from '../src/lib/mastheadScene.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -100,4 +100,41 @@ test('only an explicit pick can start a sweep', () => {
   assert.match(chooseBody, /pickSeq \+= 1/, 'choose() no longer registers a pick')
   const scenery = readFileSync(join(here, '..', 'src', 'components', 'MastheadScenery.jsx'), 'utf8')
   assert.match(scenery, /\}, \[pickSeq\]\)/, 'the sweep effect is keyed on something other than the pick')
+})
+
+test('the length override follows the house QA convention and refuses nonsense', () => {
+  // Same shape as aspire_scene_override_v1 / aspire_wet_override_v1: set it in
+  // the console, pick a city, watch. The pace is taste, and taste cannot be
+  // settled by reading code or looking at stills.
+  assert.equal(SWEEP_OVERRIDE_KEY, 'aspire_sweep_ms_v1')
+  const store = new Map()
+  globalThis.localStorage = {
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k),
+  }
+  try {
+    assert.equal(sweepDurationMs(), SWEEP_MS, 'unset means the default')
+    store.set(SWEEP_OVERRIDE_KEY, '4000')
+    assert.equal(sweepDurationMs(), 4000)
+    // 0 is a real setting: no sweep, the same as reduced motion gets.
+    store.set(SWEEP_OVERRIDE_KEY, '0')
+    assert.equal(sweepDurationMs(), 0)
+    // Anything unusable falls back rather than breaking the pick. A sweep is
+    // decoration; a typo in a console override must not cost you the city.
+    for (const bad of ['', 'soon', '-1', String(SWEEP_MAX_MS + 1), 'NaN', 'Infinity']) {
+      store.set(SWEEP_OVERRIDE_KEY, bad)
+      assert.equal(sweepDurationMs(), SWEEP_MS, `"${bad}" should fall back to the default`)
+    }
+  } finally {
+    delete globalThis.localStorage
+  }
+})
+
+test('the cross-fade is carried by the sweep, not recomputed at render', () => {
+  // Changing the override mid-sweep would otherwise desync the fade from the
+  // frames it is fading between.
+  const scenery = readFileSync(join(here, '..', 'src', 'components', 'MastheadScenery.jsx'), 'utf8')
+  assert.match(scenery, /'--scn-fade': `\$\{\(sweep\.stepMs \/ 1000\)/)
+  assert.doesNotMatch(scenery, /SWEEP_MS/, 'the fade should come from the running sweep, not the constant')
 })

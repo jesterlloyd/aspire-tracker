@@ -45,6 +45,32 @@ export const CLOCK_SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', '
 // each frame is still dissolving into the next when the next begins.
 export const SWEEP_MS = 6000
 
+// QA/taste override, same shape as aspire_scene_override_v1 and
+// aspire_wet_override_v1: set aspire_sweep_ms_v1 in the console and pick a
+// city to try a length live, remove it to go back to the default.
+//
+//   localStorage.setItem('aspire_sweep_ms_v1', 4000)   // try four seconds
+//   localStorage.setItem('aspire_sweep_ms_v1', 0)      // turn the sweep off
+//   localStorage.removeItem('aspire_sweep_ms_v1')      // back to the default
+//
+// This exists because the pace is a matter of taste that cannot be settled by
+// reading the code or by looking at stills - it has to be watched, at speed,
+// by the person who has to live with it. 0 is a legitimate setting and means
+// no sweep, which is also what reduced motion gets.
+export const SWEEP_OVERRIDE_KEY = 'aspire_sweep_ms_v1'
+export const SWEEP_MAX_MS = 20000
+
+export function sweepDurationMs() {
+  try {
+    const raw = localStorage.getItem(SWEEP_OVERRIDE_KEY)
+    if (raw !== null && raw !== '') {
+      const n = Number(raw)
+      if (Number.isFinite(n) && n >= 0 && n <= SWEEP_MAX_MS) return n
+    }
+  } catch { /* storage unavailable: the default stands */ }
+  return SWEEP_MS
+}
+
 /**
  * The frames to run, ending on `destination`.
  *
@@ -92,7 +118,7 @@ export function stopSweep() {
  * `totalMs` of 0 - or a viewer who has asked for reduced motion - means no
  * sweep at all, which is the straight cut those viewers should get.
  */
-export function startSweep(destination, totalMs = SWEEP_MS) {
+export function startSweep(destination, totalMs = sweepDurationMs()) {
   if (state || !destination) return false
   let reduced = false
   try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { /* no matchMedia: sweep */ }
@@ -101,11 +127,15 @@ export function startSweep(destination, totalMs = SWEEP_MS) {
   // The last frame is the destination, which the scene class is already
   // showing, so the sweep only has to DRIVE the frames before it and then get
   // out of the way. Holding the last one would double-render the same image.
+  // The step travels WITH the state so the cross-fade always matches the sweep
+  // that is actually running. Recomputing it at render would read the override
+  // afresh, and changing the override mid-sweep would then desync the fade from
+  // the frames it is fading between.
   const step = totalMs / frames.length
-  state = { frame: frames[0] }
+  state = { frame: frames[0], stepMs: step }
   publish()
   for (let i = 1; i < frames.length; i++) {
-    timers.push(setTimeout(() => { state = { frame: frames[i] }; publish() }, step * i))
+    timers.push(setTimeout(() => { state = { frame: frames[i], stepMs: step }; publish() }, step * i))
   }
   timers.push(setTimeout(() => { state = null; timers = []; publish() }, totalMs))
   return true
@@ -125,7 +155,7 @@ export function startSweep(destination, totalMs = SWEEP_MS) {
  * sweep, just over whatever has arrived, rather than a click that appears to
  * do nothing for ten seconds.
  */
-export async function startSweepWhenReady(destination, urls, { totalMs = SWEEP_MS, capMs = 1200, shouldStart } = {}) {
+export async function startSweepWhenReady(destination, urls, { totalMs = sweepDurationMs(), capMs = 1200, shouldStart } = {}) {
   if (state || !destination) return false
   const list = (urls || []).filter(Boolean)
   const load = u => new Promise(resolve => {
