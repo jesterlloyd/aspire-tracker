@@ -2041,7 +2041,14 @@ a.doc-file-link:hover { text-decoration: underline; }
    ink and motion effect stays put at the scene you are going to end on, and
    only these eleven images move. The frame duration and the cross-fade are set
    inline from SWEEP_MS, not here, because they are one Owner tunable. */
-.mast-scenery[data-sweep] .mast-scn-img { opacity: 0; }
+/* MASTHEAD-SWEEP-CONTINUOUS-1: LINEAR while sweeping. The card's normal
+   cross-fade is `ease` - right for a ten-second morph at dusk, where a frame
+   should settle. Back to back at a second each it reads as transition, stop,
+   transition, stop: every frame decelerates into full opacity and dwells
+   there before the next one creeps in. A probe caught the card at dawn@0.99
+   with nothing else visible - a stop. Linear at a fade equal to the step is
+   one unbroken motion: each frame reaches 1 at the instant the next begins. */
+.mast-scenery[data-sweep] .mast-scn-img { opacity: 0; transition-timing-function: linear; }
 .mast-scenery[data-sweep="dawn"] .mast-scn-img-dawn,
 .mast-scenery[data-sweep="morning"] .mast-scn-img-morning,
 .mast-scenery[data-sweep="day"] .mast-scn-img-day,

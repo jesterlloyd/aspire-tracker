@@ -115,7 +115,7 @@ export default function MastheadScenery() {
       // next when the next arrives, so it is overridden here for the duration.
       data-sweep={sweep?.frame || undefined}
       style={{
-        ...(sweep ? { '--scn-fade': `${(sweep.stepMs / 1000).toFixed(2)}s` } : null),
+        ...(sweep ? { '--scn-fade': `${(sweep.fadeMs / 1000).toFixed(2)}s` } : null),
       }}
     >
       {/* The state-keyed sky gradients always render: in city mode the art's

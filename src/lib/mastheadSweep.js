@@ -69,6 +69,32 @@ export const SWEEP_MS = 4500
 export const SWEEP_OVERRIDE_KEY = 'aspire_sweep_ms_v1'
 export const SWEEP_MAX_MS = 20000
 
+// MASTHEAD-SWEEP-CONTINUOUS-1 (Owner, 2026-09-06): how far each dissolve runs
+// PAST the step that started it, as a multiple of the step. At 1 a frame
+// reaches full opacity at the exact instant the next one begins, which with a
+// linear curve is one unbroken motion. Above 1 the next frame starts while the
+// last is still arriving, so two are always mid-dissolve and no frame is ever
+// quite whole - more fluid, less distinct. The Owner's complaint that the sweep
+// went "transition, stop, transition, stop" was not this number at all: it was
+// the default `ease` curve decelerating into every frame and dwelling there.
+// That is fixed in the CSS; this is the dial for taste on top of it.
+//
+//   localStorage.setItem('aspire_sweep_overlap_v1', 1.3)  // try a softer blend
+//   localStorage.removeItem('aspire_sweep_overlap_v1')    // back to the default
+export const SWEEP_OVERLAP = 1
+export const SWEEP_OVERLAP_KEY = 'aspire_sweep_overlap_v1'
+
+export function sweepOverlap() {
+  try {
+    const raw = localStorage.getItem(SWEEP_OVERLAP_KEY)
+    if (raw !== null && raw !== '') {
+      const n = Number(raw)
+      if (Number.isFinite(n) && n >= 0.5 && n <= 3) return n
+    }
+  } catch { /* storage unavailable: the default stands */ }
+  return SWEEP_OVERLAP
+}
+
 export function sweepDurationMs() {
   try {
     const raw = localStorage.getItem(SWEEP_OVERRIDE_KEY)
@@ -141,10 +167,11 @@ export function startSweep(destination, totalMs = sweepDurationMs()) {
   // afresh, and changing the override mid-sweep would then desync the fade from
   // the frames it is fading between.
   const step = totalMs / frames.length
-  state = { frame: frames[0], stepMs: step }
+  const fade = step * sweepOverlap()
+  state = { frame: frames[0], stepMs: step, fadeMs: fade }
   publish()
   for (let i = 1; i < frames.length; i++) {
-    timers.push(setTimeout(() => { state = { frame: frames[i], stepMs: step }; publish() }, step * i))
+    timers.push(setTimeout(() => { state = { frame: frames[i], stepMs: step, fadeMs: fade }; publish() }, step * i))
   }
   timers.push(setTimeout(() => { state = null; timers = []; publish() }, totalMs))
   return true

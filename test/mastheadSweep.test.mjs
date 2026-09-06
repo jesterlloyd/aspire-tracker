@@ -135,6 +135,24 @@ test('the cross-fade is carried by the sweep, not recomputed at render', () => {
   // Changing the override mid-sweep would otherwise desync the fade from the
   // frames it is fading between.
   const scenery = readFileSync(join(here, '..', 'src', 'components', 'MastheadScenery.jsx'), 'utf8')
-  assert.match(scenery, /'--scn-fade': `\$\{\(sweep\.stepMs \/ 1000\)/)
+  assert.match(scenery, /'--scn-fade': `\$\{\(sweep\.fadeMs \/ 1000\)/)
   assert.doesNotMatch(scenery, /SWEEP_MS/, 'the fade should come from the running sweep, not the constant')
+})
+
+test('the sweep dissolves continuously: linear timing, and a fade no shorter than the step', async () => {
+  // MASTHEAD-SWEEP-CONTINUOUS-1. With `ease`, each frame decelerates into full
+  // opacity and dwells before the next starts - the Owner saw it as
+  // "transition, stop, transition, stop". Linear at fade >= step is unbroken.
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  assert.match(css, /\.mast-scenery\[data-sweep\] \.mast-scn-img \{[^}]*transition-timing-function: linear/)
+  const { SWEEP_OVERLAP, sweepOverlap, SWEEP_OVERLAP_KEY } = await import('../src/lib/mastheadSweep.js')
+  assert.ok(SWEEP_OVERLAP >= 1, 'a fade shorter than the step leaves a gap where nothing is arriving')
+  assert.equal(SWEEP_OVERLAP_KEY, 'aspire_sweep_overlap_v1')
+  const store = new Map()
+  globalThis.localStorage = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) }
+  try {
+    assert.equal(sweepOverlap(), SWEEP_OVERLAP)
+    store.set(SWEEP_OVERLAP_KEY, '1.3'); assert.equal(sweepOverlap(), 1.3)
+    for (const bad of ['0.2', '9', 'soft', '']) { store.set(SWEEP_OVERLAP_KEY, bad); assert.equal(sweepOverlap(), SWEEP_OVERLAP, `"${bad}" should fall back`) }
+  } finally { delete globalThis.localStorage }
 })
