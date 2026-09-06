@@ -144,7 +144,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, snowfall, swell, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, snowfall, swell, surf, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -218,6 +218,21 @@ export default function MastheadMotion({ city }) {
       )}
 
       <div className="mast-motion-anchored" style={shiftVars}>
+      {/* MASTHEAD-SURF-1: the break along a beach. Each crest is a soft bar
+          laid on the measured waterline and rotated to the slope of the shore
+          under it, so a curved bay's foam follows the sand instead of cutting
+          across it. Card percentages are not square (the card is 5.9:1), so
+          the rise is divided through that before the angle is taken - the same
+          correction the bridge deck makes. Delays run along the beach, which
+          is what makes a set of waves read as arriving rather than blinking. */}
+      {surf?.map(([x, y, w, rise], i) => (
+        <span key={`sf-${x}-${y}`} className="mast-motion-surf"
+          style={{
+            left: `${x}%`, top: `${y}%`, width: `${w}%`,
+            '--angle': `${(Math.atan((rise / 5.9) / w) * 180 / Math.PI).toFixed(3)}deg`,
+            '--dl': `${(i * 0.85).toFixed(2)}s`,
+          }} />
+      ))}
       {/* Aviation beacons blink, they do not breathe. Keeping them on a
           separate keyframe from the shimmer is what makes a tower read as a
           tower rather than as one more window. */}

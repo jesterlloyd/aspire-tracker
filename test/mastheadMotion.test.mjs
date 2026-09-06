@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'snowfall', 'swell', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'snowfall', 'swell', 'surf', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -209,8 +209,30 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
       assert.ok(x >= 0 && x + w <= 100 && y >= 0 && y + height <= 100, `${city}.swell leaves the card`)
     }
     if (m.snowfall !== undefined) assert.equal(m.snowfall, true, `${city}.snowfall is a flag`)
+    // MASTHEAD-SURF-1: a crest is a bar on a traced shoreline - x, y, width
+    // and the rise across that width. A crest whose ends leave the card, or
+    // whose rise is steeper than a shoreline can be, is a measurement error:
+    // the whole point of the kind is that it lies ON the waterline.
+    for (const [x, y, w, rise] of m.surf || []) {
+      assert.ok(x >= 0 && x + w <= 100, `${city}.surf crest at x=${x} width ${w} leaves the card`)
+      assert.ok(w > 0, `${city}.surf crest at x=${x} has no width`)
+      assert.ok(y >= 0 && y <= 100 && y + rise >= 0 && y + rise <= 100,
+        `${city}.surf crest at x=${x} runs off the card between y=${y} and y=${y + rise}`)
+      assert.ok(Math.abs(rise) <= 8,
+        `${city}.surf crest at x=${x} falls ${rise}% across ${w}%; a shoreline that steep was mis-traced`)
+    }
   }
   assert.equal(CITY_MOTION.newyork.snowfall, true)
+  // Honolulu's beach: nine crests, west to east, each one lower than the last
+  // because the waterline climbs the card from y 93 on the left to y 71 on
+  // the right. Out of order means the trace was resorted and the rises no
+  // longer belong to the segments they were measured on.
+  const surf = CITY_MOTION.honolulu.surf
+  assert.equal(surf.length, 9)
+  for (let i = 1; i < surf.length; i++) {
+    assert.ok(surf[i][0] > surf[i - 1][0], 'honolulu.surf crests are not in west-to-east order')
+    assert.ok(surf[i][1] < surf[i - 1][1], 'honolulu.surf crests do not follow the beach up the card')
+  }
 })
 
 test('a beam stands on the card and rises inside it', () => {
@@ -303,7 +325,7 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // every one of its points silently shifts by about 30px and this test is the
   // only thing that will say so. Atlanta, Hollywood (second pack) and New
   // York (second pack) are the three; all were measured through the centred crop.
-  const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle', 'hongkong']
+  const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle', 'hongkong', 'honolulu']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of Object.keys(CITY_MOTION)) {
