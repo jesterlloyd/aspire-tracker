@@ -74,6 +74,9 @@ export function sceneAssets(scene, night) {
           { src: CLOUD_NIGHT(2), left: '8%',  top: '52%', width: '42%', anim: 'wx-drift2', dur: '11s', opacity: 0.9, z: 1 },
         ],
       }
+    // MASTHEAD-SNOW-1: the snow icon wears the cloud layers (there is no
+    // licensed snow render); the caption says Snow and the scenery shows it.
+    case 'snow':
     case 'cloudy':
       return {
         layers: [

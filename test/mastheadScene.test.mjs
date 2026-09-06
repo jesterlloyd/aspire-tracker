@@ -8,7 +8,7 @@
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
-import { sceneForTime, sunTimesFrom, artSceneFor, isRainyCode, isWetCode, isOvercastCode, SCENES, CLOCK_SCENES,
+import { sceneForTime, sunTimesFrom, artSceneFor, isRainyCode, isWetCode, isOvercastCode, isSnowCode, SCENES, CLOCK_SCENES,
   OPTIONAL_SCENES, ALL_SCENES, SCENE_FALLBACK, sceneFrameFor, isNightScene,
 } from '../src/lib/mastheadScene.js'
 
@@ -76,10 +76,15 @@ test('bad weather overrides every scene: rain or cloudy by day, cloudynight afte
     assert.equal(artSceneFor(scene, 0), scene, `${scene} + clear stays`)
     assert.equal(artSceneFor(scene, 2), scene, `${scene} + partly cloudy stays`)
   }
-  // Wet is the subset that brings rain and lightning; overcast is the rest.
-  for (const code of [51, 61, 67, 71, 77, 80, 82, 85, 95, 99]) assert.ok(isWetCode(code) && !isOvercastCode(code), `code ${code} is wet`)
-  for (const code of [3, 45, 48]) assert.ok(isOvercastCode(code) && !isWetCode(code), `code ${code} is dry overcast`)
-  for (const code of [0, 1, 2, null, undefined]) assert.ok(!isWetCode(code) && !isOvercastCode(code), `code ${code} is neither`)
+  // Wet brings rain and lightning; snow is its own family; overcast is dry.
+  for (const code of [51, 61, 67, 80, 82, 95, 99]) assert.ok(isWetCode(code) && !isOvercastCode(code) && !isSnowCode(code), `code ${code} is wet`)
+  for (const code of [71, 75, 77, 85, 86]) assert.ok(isSnowCode(code) && !isWetCode(code) && !isOvercastCode(code), `code ${code} is snow`)
+  for (const code of [3, 45, 48]) assert.ok(isOvercastCode(code) && !isWetCode(code) && !isSnowCode(code), `code ${code} is dry overcast`)
+  for (const code of [0, 1, 2, null, undefined]) assert.ok(!isWetCode(code) && !isOvercastCode(code) && !isSnowCode(code), `code ${code} is neither`)
+  // MASTHEAD-SNOW-1: snow has its own frames by day and by night.
+  for (const scene of ['dawn', 'morning', 'day', 'goldenhour', 'sunset']) assert.equal(artSceneFor(scene, 73), 'snow', `${scene} + snow`)
+  assert.equal(artSceneFor('night', 73), 'snownight')
+  assert.equal(artSceneFor('night', 86), 'snownight')
   // MASTHEAD-CLOUDY-NIGHT (Owner): night used to ignore the weather entirely
   // and show a clear sky through a storm. Now it has its own bad-weather frame.
   assert.equal(artSceneFor('night', 61), 'cloudynight', 'rain after dark')
@@ -136,16 +141,19 @@ test('an optional scene is optional, and declares what it falls back to', () => 
   // a perfectly good pack. It is optional with a declared fallback instead.
   assert.ok(!SCENES.includes('cloudynight'), 'not required of every pack')
   assert.ok(!SCENES.includes('cloudy'), 'not required of every pack')
-  assert.deepEqual(OPTIONAL_SCENES, ['cloudynight', 'cloudy'])
-  assert.deepEqual(ALL_SCENES, [...SCENES, 'cloudynight', 'cloudy'])
+  assert.deepEqual(OPTIONAL_SCENES, ['cloudynight', 'cloudy', 'snow', 'snownight'])
+  assert.deepEqual(ALL_SCENES, [...SCENES, 'cloudynight', 'cloudy', 'snow', 'snownight'])
   assert.equal(SCENE_FALLBACK.cloudynight, 'night')
   // MASTHEAD-CLOUDY-1: without a Cloudy frame a grey day shows Rain, as before.
   assert.equal(SCENE_FALLBACK.cloudy, 'rain')
-  // Every optional scene must declare a fallback, or a pack without it would
-  // render nothing at all for that state.
+  // MASTHEAD-SNOW-1: a fallback may name another optional scene; the chain
+  // is followed and every chain ends on a required scene.
+  assert.equal(SCENE_FALLBACK.snow, 'rain')
+  assert.equal(SCENE_FALLBACK.snownight, 'cloudynight')
   for (const s of OPTIONAL_SCENES) {
     assert.ok(SCENE_FALLBACK[s], `${s} must declare a fallback`)
-    assert.ok(SCENES.includes(SCENE_FALLBACK[s]), `${s} must fall back to a REQUIRED scene`)
+    let t = s, hops = 0
+    while (!SCENES.includes(t)) { t = SCENE_FALLBACK[t]; assert.ok(t && ++hops < 8, `${s}'s fallback chain must end on a REQUIRED scene`) }
   }
 })
 
@@ -161,6 +169,11 @@ test('a pack without CloudyNight shows its Night frame, never nothing', () => {
   assert.equal(sceneFrameFor('cloudynight', null), null)
   assert.equal(sceneFrameFor('cloudy', { rain: '/r.webp' }), '/r.webp', 'a grey day without its frame shows Rain')
   assert.equal(sceneFrameFor('cloudy', { rain: '/r.webp', cloudy: '/c.webp' }), '/c.webp')
+  // MASTHEAD-SNOW-1: the chain. A snowy night shows SnowNight, else CloudyNight, else Night.
+  assert.equal(sceneFrameFor('snownight', { night: '/n.webp', cloudynight: '/cn.webp', snownight: '/sn.webp' }), '/sn.webp')
+  assert.equal(sceneFrameFor('snownight', { night: '/n.webp', cloudynight: '/cn.webp' }), '/cn.webp')
+  assert.equal(sceneFrameFor('snownight', { night: '/n.webp' }), '/n.webp')
+  assert.equal(sceneFrameFor('snow', { rain: '/r.webp' }), '/r.webp')
 })
 
 test('the storm runs only when something is falling: the wet flag, and the CSS that reads it', () => {
@@ -184,15 +197,27 @@ test('the storm runs only when something is falling: the wet flag, and the CSS t
   assert.doesNotMatch(css, /\.mast-scene-cloudy \.mast-motion-glint/, 'no sun glitter under an overcast')
   assert.doesNotMatch(css, /\.mast-scene-cloudy \.mast-motion-flare/, 'no lens flare under an overcast')
   // The scene has its sky, its frame gate and its celestial-art gate like every other.
-  assert.match(css, /\.mast-scene-cloudy \.mast-sky-cloudy/)
-  assert.match(css, /\.mast-scene-cloudy \.mast-scn-img-cloudy/)
-  assert.match(css, /\.mast-scene-cloudy \.wx-mast-art::before/)
+  for (const scene of ['cloudy', 'snow', 'snownight']) {
+    assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-sky-${scene}`), `${scene} sky`)
+    assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-scn-img-${scene}`), `${scene} frame gate`)
+    assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.wx-mast-art::before`), `${scene} art gate`)
+  }
+  // MASTHEAD-SNOW-1: a snowy night carries every night kind the clouded one
+  // does (each plain cloudynight gate has a snownight twin), never the storm.
+  const gates = css.match(/\.mast-scenic\.mast-scene-cloudynight \.mast-motion-[\w-]+/g).filter(g => !/-wet|only-|not-|anchored/.test(g))
+  for (const g of new Set(gates)) assert.match(css, new RegExp(g.replace('cloudynight', 'snownight').replace(/\./g, '\\.')), `${g} has a snownight twin`)
+  assert.doesNotMatch(css, /\.mast-scene-snownight \.mast-motion-wet/)
+  assert.doesNotMatch(css, /\.mast-scene-snow \.mast-motion-drop/)
+  // and snow falls on both snow scenes, the swell only on calm days.
+  assert.match(css, /\.mast-scenic\.mast-scene-snow \.mast-motion-flake,\n\.mast-scenic\.mast-scene-snownight \.mast-motion-flake \{/)
+  assert.doesNotMatch(css, /\.mast-scene-(rain|night|cloudynight|snownight) \.mast-motion-swell/)
 })
 
 test('night treatment follows every night scene, clear or clouded', () => {
   assert.ok(isNightScene('night'))
   assert.ok(isNightScene('cloudynight'))
-  for (const s of ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'rain', 'cloudy']) {
+  assert.ok(isNightScene('snownight'))
+  for (const s of ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'rain', 'cloudy', 'snow']) {
     assert.ok(!isNightScene(s), s)
   }
 })

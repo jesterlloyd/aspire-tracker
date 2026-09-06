@@ -93,6 +93,8 @@ export default function MastheadScenery() {
       <div className="mast-sky mast-sky-cloudynight" />
       <div className="mast-sky mast-sky-rain" />
       <div className="mast-sky mast-sky-cloudy" />
+      <div className="mast-sky mast-sky-snow" />
+      <div className="mast-sky mast-sky-snownight" />
       {/* The SVG ridge art renders beneath a PARTIAL pack so a missing scene
           still shows artwork; a complete pack replaces it. */}
       {!complete && <SvgScenery />}

@@ -1909,6 +1909,10 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-rain .mast-scenery { --scn-r1: #CBD2D9; --scn-r2: #B4BDC7; --scn-r3: #97A2AF; --scn-city: #8E99A7; --scn-palm: #76828F; --scn-lights: 0.15; --scn-stars: 0; }
 /* MASTHEAD-CLOUDY-1: a dry overcast day, the rain palette a shade lighter. */
 .mast-scene-cloudy .mast-scenery { --scn-r1: #D2D8DF; --scn-r2: #BCC4CD; --scn-r3: #A0AAB6; --scn-city: #97A1AD; --scn-palm: #7E8A96; --scn-lights: 0.1; --scn-stars: 0; }
+/* MASTHEAD-SNOW-1: a snowy day is the cloudy palette gone white; a snowy
+   night is the night palette a shade paler, with the lights up. */
+.mast-scene-snow .mast-scenery { --scn-r1: #E4E8EE; --scn-r2: #D0D6DE; --scn-r3: #B6BEC9; --scn-city: #AEB6C1; --scn-palm: #949CA8; --scn-lights: 0.1; --scn-stars: 0; }
+.mast-scene-snownight .mast-scenery { --scn-r1: #3A4180; --scn-r2: #30376C; --scn-r3: #262C58; --scn-city: #20264A; --scn-palm: #1B2040; --scn-lights: 0.9; --scn-stars: 0.2; }
 
 /* Sky layers: all stay mounted; the active scene fades its own in. Each
    gradient is weighted center-right and top-right, and the shared mask keeps
@@ -1957,10 +1961,19 @@ a.doc-file-link:hover { text-decoration: underline; }
   background: radial-gradient(720px 300px at 66% 110%, rgba(160,170,184,0.26), transparent 74%),
     linear-gradient(115deg, rgba(240,243,247,0) 32%, rgba(178,188,200,0.30) 100%);
 }
+.mast-sky-snow {
+  background: radial-gradient(720px 300px at 66% 110%, rgba(190,198,210,0.26), transparent 74%),
+    linear-gradient(115deg, rgba(244,246,250,0) 32%, rgba(200,208,220,0.30) 100%);
+}
+.mast-sky-snownight {
+  background: radial-gradient(720px 300px at 66% 110%, rgba(70,80,120,0.34), transparent 74%),
+    linear-gradient(115deg, rgba(30,36,72,0) 32%, rgba(40,48,92,0.40) 100%);
+}
 .mast-scene-day .mast-sky-day, .mast-scene-sunset .mast-sky-sunset,
 .mast-scene-night .mast-sky-night, .mast-scene-dawn .mast-sky-dawn,
 .mast-scene-morning .mast-sky-morning, .mast-scene-goldenhour .mast-sky-goldenhour,
 .mast-scene-rain .mast-sky-rain, .mast-scene-cloudy .mast-sky-cloudy,
+.mast-scene-snow .mast-sky-snow, .mast-scene-snownight .mast-sky-snownight,
 .mast-scene-cloudynight .mast-sky-cloudynight { opacity: 1; }
 
 /* The ridge/skyline/palm art. Same left-quiet mask; fills cross-fade as the
@@ -2005,11 +2018,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-night .mast-scn-img-night, .mast-scene-dawn .mast-scn-img-dawn,
 .mast-scene-morning .mast-scn-img-morning, .mast-scene-rain .mast-scn-img-rain,
 .mast-scene-goldenhour .mast-scn-img-goldenhour, .mast-scene-cloudy .mast-scn-img-cloudy,
+.mast-scene-snow .mast-scn-img-snow, .mast-scene-snownight .mast-scn-img-snownight,
 .mast-scene-cloudynight .mast-scn-img-cloudynight { opacity: 1; }
 /* Dark page theme: soften the daylight artwork so the card doesn't glow;
    the night image already lives in the theme's register. */
 [data-theme="dark"] .mast-scn-img { filter: brightness(0.85) saturate(0.9); }
 [data-theme="dark"] .mast-scene-night .mast-scn-img-night,
+[data-theme="dark"] .mast-scene-snownight .mast-scn-img-snownight,
 [data-theme="dark"] .mast-scene-cloudynight .mast-scn-img-cloudynight { filter: none; }
 @media (prefers-reduced-motion: reduce) { .mast-scn-img { transition: none; } }
 
@@ -2099,7 +2114,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   50%      { opacity: 0.55; }
 }
 .mast-scenic.mast-scene-night .mast-motion-light,
-.mast-scenic.mast-scene-cloudynight .mast-motion-light {
+.mast-scenic.mast-scene-cloudynight .mast-motion-light,
+.mast-scenic.mast-scene-snownight .mast-motion-light {
   animation: mast-shimmer var(--d, 4s) ease-in-out var(--dl, 0s) infinite;
 }
 
@@ -2121,7 +2137,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   92%,100% { opacity: 0.12; }
 }
 .mast-scenic.mast-scene-night .mast-motion-beacon,
-.mast-scenic.mast-scene-cloudynight .mast-motion-beacon {
+.mast-scenic.mast-scene-cloudynight .mast-motion-beacon,
+.mast-scenic.mast-scene-snownight .mast-motion-beacon {
   animation: mast-beacon 3.4s linear var(--dl, 0s) infinite;
 }
 
@@ -2151,11 +2168,13 @@ a.doc-file-link:hover { text-decoration: underline; }
   64%, 100% { opacity: 0.30; }
 }
 .mast-scenic.mast-scene-night .mast-motion-plane,
-.mast-scenic.mast-scene-cloudynight .mast-motion-plane {
+.mast-scenic.mast-scene-cloudynight .mast-motion-plane,
+.mast-scenic.mast-scene-snownight .mast-motion-plane {
   animation: mast-fly var(--cycle, 82s) linear infinite;
 }
 .mast-scenic.mast-scene-night .mast-motion-plane-dot,
-.mast-scenic.mast-scene-cloudynight .mast-motion-plane-dot {
+.mast-scenic.mast-scene-cloudynight .mast-motion-plane-dot,
+.mast-scenic.mast-scene-snownight .mast-motion-plane-dot {
   animation: mast-plane-blink 2.2s ease-in-out infinite;
 }
 
@@ -2174,7 +2193,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   50%      { opacity: 0.52; transform: translate(-50%, -50%) scaleY(1.20); }
 }
 .mast-scenic.mast-scene-night .mast-motion-water,
-.mast-scenic.mast-scene-cloudynight .mast-motion-water {
+.mast-scenic.mast-scene-cloudynight .mast-motion-water,
+.mast-scenic.mast-scene-snownight .mast-motion-water {
   animation: mast-ripple var(--d, 6s) ease-in-out var(--dl, 0s) infinite;
 }
 
@@ -2204,7 +2224,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   50%      { opacity: 0.62; transform: translateX(-50%) translateY(-100%) scaleY(1.04); }
 }
 .mast-scenic.mast-scene-night .mast-motion-beam,
-.mast-scenic.mast-scene-cloudynight .mast-motion-beam {
+.mast-scenic.mast-scene-cloudynight .mast-motion-beam,
+.mast-scenic.mast-scene-snownight .mast-motion-beam {
   animation: mast-beam 7.4s ease-in-out infinite;
 }
 
@@ -2223,7 +2244,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   50%      { opacity: 0.46; }
 }
 .mast-scenic.mast-scene-night .mast-motion-decklight,
-.mast-scenic.mast-scene-cloudynight .mast-motion-decklight {
+.mast-scenic.mast-scene-cloudynight .mast-motion-decklight,
+.mast-scenic.mast-scene-snownight .mast-motion-decklight {
   animation: mast-deck 5.6s ease-in-out var(--dl, 0s) infinite;
 }
 .mast-motion-deck {
@@ -2245,11 +2267,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 @keyframes mast-car-west { 0% { left: 100%; opacity: 0; } 6%, 90% { opacity: 1; } 100% { left: -3%; opacity: 0; } }
 @keyframes mast-car-east { 0% { left: -3%; opacity: 0; } 6%, 90% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
 .mast-scenic.mast-scene-night .mast-motion-car-west,
-.mast-scenic.mast-scene-cloudynight .mast-motion-car-west {
+.mast-scenic.mast-scene-cloudynight .mast-motion-car-west,
+.mast-scenic.mast-scene-snownight .mast-motion-car-west {
   animation: mast-car-west var(--dur, 9s) linear var(--dl, 0s) infinite;
 }
 .mast-scenic.mast-scene-night .mast-motion-car-east,
-.mast-scenic.mast-scene-cloudynight .mast-motion-car-east {
+.mast-scenic.mast-scene-cloudynight .mast-motion-car-east,
+.mast-scenic.mast-scene-snownight .mast-motion-car-east {
   animation: mast-car-east var(--dur, 13s) linear var(--dl, 0s) infinite;
 }
 
@@ -2464,6 +2488,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-morning .mast-motion-ferry,
 .mast-scenic.mast-scene-day .mast-motion-ferry,
 .mast-scenic.mast-scene-cloudy .mast-motion-ferry,
+.mast-scenic.mast-scene-snow .mast-motion-ferry,
 .mast-scenic.mast-scene-goldenhour .mast-motion-ferry,
 .mast-scenic.mast-scene-sunset .mast-motion-ferry,
 .mast-scenic.mast-scene-night .mast-motion-ferry {
@@ -2473,12 +2498,14 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-morning .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-day .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-cloudy .mast-motion-ferry-hull,
+.mast-scenic.mast-scene-snow .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-goldenhour .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-sunset .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-dawn .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-morning .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-day .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-cloudy .mast-motion-ferry-wake,
+.mast-scenic.mast-scene-snow .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-goldenhour .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-sunset .mast-motion-ferry-wake { opacity: 1; }
 .mast-scenic.mast-scene-night .mast-motion-ferry-lamp { opacity: 1; }
@@ -2498,7 +2525,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-morning .mast-motion-glint,
 .mast-scenic.mast-scene-day .mast-motion-glint,
 .mast-scenic.mast-scene-goldenhour .mast-motion-glint,
-.mast-scenic.mast-scene-sunset .mast-motion-glint {
+.mast-scenic.mast-scene-sunset .mast-motion-glint,
+.mast-scenic.mast-scene-snow .mast-motion-glint,
+.mast-scenic.mast-scene-snownight .mast-motion-glint {
   animation: mast-twinkle var(--d, 2s) ease-in-out var(--dl, 0s) infinite;
 }
 
@@ -2510,6 +2539,7 @@ a.doc-file-link:hover { text-decoration: underline; }
    component sets --shift-<scene> from CITY_MOTION.sceneShift. */
 .mast-motion-anchored { position: absolute; inset: 0; pointer-events: none; }
 .mast-scenic.mast-scene-cloudynight .mast-motion-anchored { transform: translateY(var(--shift-cloudynight, 0)); }
+.mast-scenic.mast-scene-snownight .mast-motion-anchored { transform: translateY(var(--shift-snownight, 0)); }
 
 /* A ferry sailing LEFT is the same ferry mirrored about its own point, so
    the wake still trails behind it. The sail keyframe animates left, which
@@ -2541,11 +2571,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-day .mast-motion-steam,
 .mast-scenic.mast-scene-morning .mast-motion-steam,
 .mast-scenic.mast-scene-cloudy .mast-motion-steam,
+.mast-scenic.mast-scene-snow .mast-motion-steam,
 .mast-scenic.mast-scene-dawn .mast-motion-steam,
 .mast-scenic.mast-scene-goldenhour .mast-motion-steam,
 .mast-scenic.mast-scene-sunset .mast-motion-steam,
 .mast-scenic.mast-scene-night .mast-motion-steam,
-.mast-scenic.mast-scene-cloudynight .mast-motion-steam {
+.mast-scenic.mast-scene-cloudynight .mast-motion-steam,
+.mast-scenic.mast-scene-snownight .mast-motion-steam {
   animation: mast-steam var(--d, 8s) linear var(--dl, 0s) infinite;
 }
 
@@ -2576,7 +2608,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   80%      { opacity: 0.70; }
 }
 .mast-scenic.mast-scene-night .mast-motion-neon,
-.mast-scenic.mast-scene-cloudynight .mast-motion-neon {
+.mast-scenic.mast-scene-cloudynight .mast-motion-neon,
+.mast-scenic.mast-scene-snownight .mast-motion-neon {
   animation: mast-flicker var(--d, 3s) steps(1, end) var(--dl, 0s) infinite;
 }
 
@@ -2593,7 +2626,8 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 @keyframes mast-turn { from { rotate: 0deg; } to { rotate: 360deg; } }
 .mast-scenic.mast-scene-night .mast-motion-wheel,
-.mast-scenic.mast-scene-cloudynight .mast-motion-wheel {
+.mast-scenic.mast-scene-cloudynight .mast-motion-wheel,
+.mast-scenic.mast-scene-snownight .mast-motion-wheel {
   opacity: 0.8; animation: mast-turn 52s linear infinite;
 }
 
@@ -2612,6 +2646,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 @keyframes mast-orb { from { filter: blur(3px) hue-rotate(0deg); } to { filter: blur(3px) hue-rotate(360deg); } }
 .mast-scenic.mast-scene-night .mast-motion-orb,
+.mast-scenic.mast-scene-snownight .mast-motion-orb,
 .mast-scenic.mast-scene-cloudynight .mast-motion-orb,
 .mast-scenic.mast-scene-dawn .mast-motion-orb,
 .mast-scenic.mast-scene-sunset .mast-motion-orb {
@@ -2633,9 +2668,59 @@ a.doc-file-link:hover { text-decoration: underline; }
   50%, 100% { background: rgba(90,140,255,0.95); box-shadow: 0 0 4px 1px rgba(100,150,255,0.6); }
 }
 .mast-scenic.mast-scene-night .mast-motion-car-police,
-.mast-scenic.mast-scene-cloudynight .mast-motion-car-police {
+.mast-scenic.mast-scene-cloudynight .mast-motion-car-police,
+.mast-scenic.mast-scene-snownight .mast-motion-car-police {
   animation: mast-car-west var(--dur, 23s) linear var(--dl, 0s) infinite,
              mast-police 0.44s steps(1, end) infinite;
+}
+
+/* ── MASTHEAD-SNOW-1: kinds the snow frames asked for. ── */
+
+/* Snowfall. Individual flakes on their own timings (SNOWFLAKES in
+   MastheadMotion), each falling on transform and swaying on the separate
+   translate property, so the two never fight. Two depths: far flakes small,
+   faint and slow; near ones larger, brighter and quicker. Faded off the
+   greeting a little less than the rain, since snow is quieter over text. */
+.mast-motion-snow {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.35) 0, rgba(0,0,0,0.6) 30%, #000 58%);
+  mask-image: linear-gradient(90deg, rgba(0,0,0,0.35) 0, rgba(0,0,0,0.6) 30%, #000 58%);
+}
+.mast-motion-flake {
+  position: absolute; top: -8px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.55) 55%, transparent 80%);
+}
+@keyframes mast-flake-fall { from { transform: translateY(0); } to { transform: translateY(440px); } }
+@keyframes mast-flake-sway { from { translate: calc(var(--sway, 14px) * -1) 0; } to { translate: var(--sway, 14px) 0; } }
+.mast-scenic.mast-scene-snow .mast-motion-snow,
+.mast-scenic.mast-scene-snownight .mast-motion-snow { opacity: 1; }
+.mast-scenic.mast-scene-snow .mast-motion-flake,
+.mast-scenic.mast-scene-snownight .mast-motion-flake {
+  animation: mast-flake-fall var(--dur, 9s) linear var(--dl, 0s) infinite,
+             mast-flake-sway var(--sw, 3s) ease-in-out var(--dl, 0s) infinite alternate;
+}
+
+/* Swell. A measured patch of water carries faint horizontal crests that
+   drift down the frame and a little sideways, the way a light chop reads
+   from above. Repeating gradient on background-position, so the crests keep
+   their spacing; soft on every edge. Calm-weather scenes only. */
+.mast-motion-swell {
+  position: absolute; opacity: 0; pointer-events: none;
+  background: repeating-linear-gradient(180deg,
+    transparent 0px, transparent 6px, rgba(255,255,255,0.13) 6px, rgba(255,255,255,0.13) 7px, transparent 7px, transparent 13px);
+  -webkit-mask-image: radial-gradient(ellipse 70% 62% at 50% 50%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 70% 62% at 50% 50%, #000 40%, transparent 100%);
+  filter: blur(0.6px);
+}
+@keyframes mast-swell {
+  from { background-position: 0 0; translate: 0 0; }
+  to   { background-position: 0 13px; translate: 6px 0; }
+}
+.mast-scenic.mast-scene-day .mast-motion-swell,
+.mast-scenic.mast-scene-morning .mast-motion-swell,
+.mast-scenic.mast-scene-cloudy .mast-motion-swell,
+.mast-scenic.mast-scene-snow .mast-motion-swell {
+  opacity: 0.55; animation: mast-swell 7s linear infinite;
 }
 
 /* Motion is decoration, so reduced motion removes it outright rather than
@@ -2647,7 +2732,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-bird, .mast-motion-heli, .mast-motion-heli-strobe, .mast-motion-flare,
   .mast-motion-ghost, .mast-motion-ferry, .mast-motion-ferry-hull, .mast-motion-ferry-wake,
   .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored,
-  .mast-motion-neon, .mast-motion-wheel, .mast-motion-orb {
+  .mast-motion-neon, .mast-motion-wheel, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
+  .mast-motion-swell {
     animation: none !important; opacity: 0 !important;
   }
 }
@@ -3008,7 +3094,8 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scene-dawn .wx-mast-art::before, .mast-scene-day .wx-mast-art::before,
 .mast-scene-sunset .wx-mast-art::before, .mast-scene-night .wx-mast-art::before,
 .mast-scene-morning .wx-mast-art::before, .mast-scene-goldenhour .wx-mast-art::before,
-.mast-scene-rain .wx-mast-art::before, .mast-scene-cloudy .wx-mast-art::before { opacity: 0; }
+.mast-scene-rain .wx-mast-art::before, .mast-scene-cloudy .wx-mast-art::before,
+.mast-scene-snow .wx-mast-art::before, .mast-scene-snownight .wx-mast-art::before { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .wx-mast-art::before { transition: none; } }
 .wx-mast-temp { font-size: 27px; font-weight: 700; color: var(--chart-ink, #191919); letter-spacing: -0.01em; line-height: 1.05; }
 .wx-mast-cond { font-size: 13px; font-weight: 600; color: var(--chart-ink, #191919); margin-top: 1px; }

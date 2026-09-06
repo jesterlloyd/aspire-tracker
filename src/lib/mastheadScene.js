@@ -35,8 +35,12 @@ export const SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night'
 // hour in three in New York and San Francisco is plain grey with dry streets,
 // and every pack showed the Rain frame for it. A pack without a Cloudy frame
 // falls back to Rain, which is exactly what it showed before.
-export const OPTIONAL_SCENES = ['cloudynight', 'cloudy']
-export const SCENE_FALLBACK = { cloudynight: 'night', cloudy: 'rain' }
+// MASTHEAD-SNOW-1 (Owner, 2026-09-05): 'snow' and 'snownight', a snowy day
+// and night. Only New York carries them (about 2% of its hours a year). A
+// fallback may name another OPTIONAL scene: the chain is followed until a
+// frame the pack has is found, and every chain ends on a required scene.
+export const OPTIONAL_SCENES = ['cloudynight', 'cloudy', 'snow', 'snownight']
+export const SCENE_FALLBACK = { cloudynight: 'night', cloudy: 'rain', snow: 'rain', snownight: 'cloudynight' }
 
 /** Every scene that can be rendered, required and optional together. */
 export const ALL_SCENES = [...SCENES, ...OPTIONAL_SCENES]
@@ -45,14 +49,17 @@ export const ALL_SCENES = [...SCENES, ...OPTIONAL_SCENES]
  *  to when the pack does not carry it. Pure, so both the renderer and the
  *  tests read one rule. */
 export function sceneFrameFor(scene, scenes) {
-  if (scenes?.[scene]) return scenes[scene]
-  const fallback = SCENE_FALLBACK[scene]
-  return fallback ? scenes?.[fallback] || null : null
+  let s = scene
+  for (let hops = 0; s && hops < 8; hops++) {
+    if (scenes?.[s]) return scenes[s]
+    s = SCENE_FALLBACK[s]
+  }
+  return null
 }
 
 /** Night treatment covers every scene that IS night, not only the clear one. */
 export function isNightScene(scene) {
-  return scene === 'night' || scene === 'cloudynight'
+  return scene === 'night' || scene === 'cloudynight' || scene === 'snownight'
 }
 
 /** The six states the clock itself produces ('rain' is weather-driven). */
@@ -123,7 +130,7 @@ export function sceneForTime(now = new Date(), sun = null) {
  *  plus full overcast and fog. Partly cloudy (1-2) deliberately keeps the
  *  time-of-day scene. */
 export function isRainyCode(code) {
-  return isOvercastCode(code) || isWetCode(code)
+  return isOvercastCode(code) || isWetCode(code) || isSnowCode(code)
 }
 
 /** Overcast or fog: grey, but nothing is falling. By day this is the Cloudy
@@ -133,14 +140,19 @@ export function isOvercastCode(code) {
   return code === 3 || code === 45 || code === 48
 }
 
-/** Something is falling: drizzle, rain, freezing rain, showers, snow (LA
- *  courtesy) and thunderstorms. Rain and lightning motion run only on these. */
+/** Rain is falling: drizzle, rain, freezing rain, showers and thunderstorms.
+ *  Rain and lightning motion run only on these. Snow is its own family. */
 export function isWetCode(code) {
   if (code == null) return false
   if (code >= 51 && code <= 67) return true
-  if (code >= 71 && code <= 77) return true
-  if ((code >= 80 && code <= 86) || (code >= 95 && code <= 99)) return true
+  if ((code >= 80 && code <= 82) || (code >= 95 && code <= 99)) return true
   return false
+}
+
+/** Snow is falling: snow, snow grains and snow showers. MASTHEAD-SNOW-1. */
+export function isSnowCode(code) {
+  if (code == null) return false
+  return (code >= 71 && code <= 77) || code === 85 || code === 86
 }
 
 /** The artwork scene: the clock scene, except that rainy, overcast or foggy
@@ -151,6 +163,9 @@ export function isWetCode(code) {
  *  safe for every city whether or not it has the extra artwork. */
 export function artSceneFor(clockScene, weatherCode) {
   if (!isRainyCode(weatherCode)) return clockScene
+  // MASTHEAD-SNOW-1: snow has its own frames; a pack without them falls back
+  // along the chain (snow -> rain, snownight -> cloudynight -> night).
+  if (isSnowCode(weatherCode)) return clockScene === 'night' ? 'snownight' : 'snow'
   if (clockScene === 'night') return 'cloudynight'
   // MASTHEAD-CLOUDY-1: a dry grey day is Cloudy, not Rain. A pack without the
   // frame shows Rain through SCENE_FALLBACK, as it always did.

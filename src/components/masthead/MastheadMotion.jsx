@@ -31,6 +31,9 @@
 //
 // MASTHEAD-ATLANTA-2 added a police car: a span with police: true runs one
 // more vehicle whose lights flip red and blue as it goes.
+//
+// MASTHEAD-SNOW-1 added snowfall (seeded flakes that fall and sway) and a
+// swell (faint drifting crests on a measured patch of water).
 import { CITY_MOTION } from '../../lib/mastheadCityScenes'
 import { useMastheadScene } from '../WeatherScene'
 
@@ -93,6 +96,28 @@ const DROPS = (() => {
   return out
 })()
 
+// Snow, like rain, is individual flakes from a seeded generator. Slower and
+// wider apart than the rain, each with its own sway period and amplitude.
+// Two depths again: near flakes larger and quicker, far ones small and slow.
+const SNOWFLAKES = (() => {
+  let seed = 19
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+  const out = []
+  for (let i = 0; i < 64; i++) {
+    const near = i % 3 === 0
+    out.push({
+      x: (rnd() * 112 - 6).toFixed(1),
+      size: near ? 3 + rnd() * 2 : 1.6 + rnd() * 1.2,
+      dur: near ? 6.5 + rnd() * 2.5 : 9 + rnd() * 4,
+      dl: (rnd() * 9).toFixed(2),
+      sw: (2.2 + rnd() * 2.4).toFixed(2),
+      sway: (8 + rnd() * 16).toFixed(0),
+      op: near ? 0.75 + rnd() * 0.2 : 0.4 + rnd() * 0.25,
+    })
+  }
+  return out
+})()
+
 // Fraction of a crossing's cycle during which it is on screen. The keyframes
 // in index.css are written against this number, so it is a constant here and
 // not a per-city knob: a per-city value would silently disagree with the CSS.
@@ -119,7 +144,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, snowfall, swell, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -168,6 +193,23 @@ export default function MastheadMotion({ city }) {
                 '--dur': `${d.dur.toFixed(2)}s`, '--dl': `${d.dl}s` }} />
           ))}
         </div>
+      )}
+
+      {/* Snow sits where the rain does, under the lights. */}
+      {snowfall && (
+        <div className="mast-motion-snow">
+          {SNOWFLAKES.map((f, i) => (
+            <span key={i} className="mast-motion-flake"
+              style={{ left: `${f.x}%`, width: `${f.size.toFixed(1)}px`, height: `${f.size.toFixed(1)}px`, opacity: f.op.toFixed(2),
+                '--dur': `${f.dur.toFixed(2)}s`, '--dl': `${f.dl}s`, '--sw': `${f.sw}s`, '--sway': `${f.sway}px` }} />
+          ))}
+        </div>
+      )}
+
+      {/* A measured patch of water that carries a light chop. */}
+      {swell && (
+        <span className="mast-motion-swell"
+          style={{ left: `${swell.x}%`, top: `${swell.y}%`, width: `${swell.w}%`, height: `${swell.height}%` }} />
       )}
 
       {haze && (

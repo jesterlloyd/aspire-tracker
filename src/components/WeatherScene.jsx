@@ -31,7 +31,7 @@ function mapScene(code, windKmh, isDay) {
   else if (code === 3) scene = 'cloudy'
   else if (code === 45 || code === 48) scene = 'fog'
   else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || (code >= 95 && code <= 99)) scene = 'rain'
-  else if ((code >= 71 && code <= 77) || code === 85 || code === 86) scene = 'cloudy' // snow ~never LA
+  else if ((code >= 71 && code <= 77) || code === 85 || code === 86) scene = 'snow' // MASTHEAD-SNOW-1: its own label
   const mild = ['clear_day', 'clear_night', 'partly_cloudy_day', 'partly_cloudy_night', 'cloudy']
   if (windKmh >= 32 && mild.includes(scene)) scene = 'windy'
   return scene
@@ -41,7 +41,7 @@ function mapScene(code, windKmh, isDay) {
 const LABELS = {
   clear_day: 'Sunny', clear_night: 'Clear',
   partly_cloudy_day: 'Partly Cloudy', partly_cloudy_night: 'Partly Cloudy',
-  cloudy: 'Cloudy', rain: 'Rain', fog: 'Fog', windy: 'Windy', unknown: '',
+  cloudy: 'Cloudy', rain: 'Rain', fog: 'Fog', windy: 'Windy', snow: 'Snow', unknown: '',
 }
 
 const KEYFRAMES = `

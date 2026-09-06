@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'snowfall', 'swell', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -27,7 +27,7 @@ const OVERRIDE_SCENES = ['cloudynight']
 const OVERRIDE_KINDS = ['lights', 'beacons', 'water']
 // A scene whose frame is the same drawing MOVED gets one measured vertical
 // shift of the anchored group instead of a second copy of every set.
-const SHIFT_SCENES = ['cloudynight']
+const SHIFT_SCENES = ['cloudynight', 'snownight']
 const CROSSINGS = ['aircraft', 'birds', 'helicopter', 'ferry']
 const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints', 'steam', 'neon']
 // Neon points may carry a tone as a third element; only this one is drawn.
@@ -198,8 +198,19 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
       assert.ok(!m.sceneOverrides?.[scene], `${city}.${scene} has both a shift and an override; pick one`)
     }
   }
-  // New York's cloudy night is the night drawing 2.2% lower (46 lights, 4 crowns).
+  // New York's cloudy night is the night drawing 2.2% lower (46 lights, 4 crowns),
+  // and its snowy night 1.5% lower (the crowns at 44.1 and 83.5).
   assert.equal(CITY_MOTION.newyork.sceneShift.cloudynight, 2.2)
+  assert.equal(CITY_MOTION.newyork.sceneShift.snownight, 1.5)
+  // A swell is a measured patch inside the card; snowfall is a flag.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    if (m.swell) {
+      const { x, y, w, height } = m.swell
+      assert.ok(x >= 0 && x + w <= 100 && y >= 0 && y + height <= 100, `${city}.swell leaves the card`)
+    }
+    if (m.snowfall !== undefined) assert.equal(m.snowfall, true, `${city}.snowfall is a flag`)
+  }
+  assert.equal(CITY_MOTION.newyork.snowfall, true)
 })
 
 test('a beam stands on the card and rises inside it', () => {

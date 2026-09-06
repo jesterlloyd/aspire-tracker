@@ -306,6 +306,11 @@ test('an installed pack may add CloudyNight, and the five that predate it need n
   assert.equal(parseSceneFiles(['LosAngeles/LosAngeles_Overcast.webp']).losangeles.cloudy, '/masthead/LosAngeles/LosAngeles_Overcast.webp')
   assert.equal(parseSceneFiles(['LosAngeles/LosAngeles_Cloudy.webp']).losangeles.rain, undefined)
   assert.ok(packs.losangeles?.cloudy, 'Los Angeles carries Cloudy')
+  // MASTHEAD-SNOW-1: Snow and SnowNight are scenes; SnowNight is not "night".
+  assert.equal(parseSceneFiles(['NewYork/NewYork_Snow.webp']).newyork.snow, '/masthead/NewYork/NewYork_Snow.webp')
+  assert.equal(parseSceneFiles(['NewYork/NewYork_SnowNight.webp']).newyork.snownight, '/masthead/NewYork/NewYork_SnowNight.webp')
+  assert.equal(parseSceneFiles(['NewYork/NewYork_SnowNight.webp']).newyork.night, undefined)
+  assert.ok(packs.newyork?.snow && packs.newyork?.snownight && packs.newyork?.cloudy, 'New York carries all three')
   // And every pack, with or without it, is still COMPLETE on the required set.
   for (const city of Object.keys(packs)) {
     for (const scene of SCENES) assert.ok(packs[city]?.[scene], `${city} must carry ${scene}`)

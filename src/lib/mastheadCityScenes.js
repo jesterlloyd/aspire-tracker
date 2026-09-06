@@ -28,6 +28,10 @@ const SCENE_WORDS = {
   // MASTHEAD-CLOUDY-1: a dry overcast day is its own optional scene now.
   // "Cloudy" used to be a synonym of Rain; no shipped pack used the word.
   cloudy: 'cloudy', overcast: 'cloudy',
+  // MASTHEAD-SNOW-1: a snowy day and night (the parser takes the longest
+  // trailing token run first, so "SnowNight" resolves here, not as "night").
+  snow: 'snow', snowy: 'snow', snowday: 'snow',
+  snownight: 'snownight', nightsnow: 'snownight', snowynight: 'snownight',
   // MASTHEAD-CLOUDY-NIGHT: the same weather after dark. Listed before nothing
   // else matters, but note the parser tries the LONGEST trailing token run
   // first, so "CloudyNight" resolves here rather than as bare "night".
@@ -45,7 +49,7 @@ const SCENE_WORDS = {
 //   folder   the city's common name, PascalCase, no spaces or punctuation
 //   file     <Folder>_<Scene>.webp
 //   scenes   Dawn · Morning · Day · GoldenHour · Sunset · Night · Rain
-//            (optional: CloudyNight, Cloudy)
+//            (optional: CloudyNight, Cloudy, Snow, SnowNight)
 //
 // The canonical key is that folder name lowercased: losangeles, lasvegas,
 // newyork, sanfrancisco, atlanta. It is what CITY_COORDS, CITY_SKY_X and
@@ -612,11 +616,20 @@ export const CITY_MOTION = {
       [61.1, 77.9], [63.4, 72.6], [68.2, 72.0], [71.2, 74.9], [80.0, 91.5],
       [85.0, 87.3], [96.3, 80.2],
     ],
+    // MASTHEAD-SNOW-1: snow falls on the Snow and SnowNight frames, and the
+    // harbour carries a light chop on the calm day scenes: the patch below
+    // Lower Manhattan and the East River mouth (x 36-82, y 62-99), clear of
+    // Liberty Island (x 8-35 below y 79) and the Brooklyn shore (x 76+ above
+    // y 75, the mask's fade covers the corner).
+    snowfall: true,
+    swell: { x: 36, y: 62, w: 46, height: 37 },
     // MASTHEAD-SCENE-SHIFT: the CloudyNight frame is the Night drawing moved
     // DOWN 2.2% of the card (46 Night lights find their warm pixel 7-8px
     // lower, the four red crowns 2.0-2.3% lower, x unchanged). One measured
     // shift on the anchored group, rather than a second copy of every set.
-    sceneShift: { cloudynight: 2.2 },
+    // SnowNight is the same drawing moved down 1.5% (crowns at 44.1 and
+    // 83.5 sit 1.5-1.7% lower; the waterfront lamps within 1%).
+    sceneShift: { cloudynight: 2.2, snownight: 1.5 },
   },
   lasvegas: {
     // MASTHEAD-LASVEGAS-2 (2026-09-05): the second Las Vegas pack replaced
