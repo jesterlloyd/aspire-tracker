@@ -79,6 +79,7 @@ const CITY_ALIASES = {
   atlanta: 'atlanta',
   hollywood: 'hollywood',
   seattle: 'seattle',
+  hongkong: 'hongkong',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -109,6 +110,7 @@ export const CITY_COORDS = {
   boston: [42.36, -71.06],
   washington: [38.91, -77.04],
   london: [51.51, -0.13],
+  hongkong: [22.30, 114.17],
   paris: [48.86, 2.35],
   tokyo: [35.68, 139.69],
   manila: [14.6, 120.98],
@@ -246,6 +248,10 @@ export const CITY_SKY_X = {
   // the radio tower near 70%, and the left half is the open basin under a low
   // horizon. The moon goes over the basin.
   hollywood: '30%',
+  // Hong Kong's hills reach the top edge from x 26 to 60 and again east of
+  // 66; the one clear sky is over the western harbour, so the moon sits just
+  // right of the greeting, above the distant islands.
+  hongkong: '24%',
 }
 export const DEFAULT_SKY_X = '52%'
 
@@ -283,6 +289,10 @@ export const CITY_IMG_Y = {
   // y 9% with sky above it, and the 30 rows given up at the bottom are the
   // near shore's trees.
   seattle: '50%',
+  // MASTHEAD-HONGKONG-1: the ICC's top is at source row 60 and Kowloon's
+  // hills reach the frame's top edge; centred, the tower keeps its crown and
+  // the 30 rows given up at the bottom are the Peak's trees.
+  hongkong: '50%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -728,6 +738,88 @@ export const CITY_MOTION = {
     // 15%; sky column means fall from 225 at left to 207 at right).
     flare: { x: -6, y: 15 },
     rainfall: true,
+  },
+  hongkong: {
+    // MASTHEAD-HONGKONG-1 (2026-09-05): a new city, nine frames (Cloudy and
+    // CloudyNight included). One viewpoint on all nine, from the Peak: Central
+    // and Wan Chai below with the IFC at x 38.9 and the Bank of China at 55,
+    // Victoria Harbour across the middle (card y 36-52), Kowloon on the far
+    // shore with the ICC at x 61, the hills behind reaching the top edge.
+    // Every coordinate measured (scratchpad nymeasure.mjs, gridzoom.py)
+    // through the 50% crop (see CITY_IMG_Y). All nine frames are one drawing
+    // (skyline profiles within 6px), so no shift and no override.
+    //
+    // Night: Central and Wan Chai's windows, then Kowloon's along the far
+    // shore. The harbour's own maxima are reflections and live in `water`.
+    lights: [
+      [97.1, 99.7], [6.9, 96.8], [80.2, 77.3], [70.9, 88.5], [81.4, 91.2],
+      [66.3, 93.5], [73.3, 95.6], [26.5, 72.9], [22.9, 63.1], [46.5, 57.2],
+      [30.3, 95.9], [84.0, 86.7], [1.8, 69.3], [32.7, 99.7], [77.2, 97.1],
+      [31.3, 72.6], [47.1, 64.9], [58.8, 94.1], [39.8, 93.5], [84.0, 77.3],
+      [37.8, 80.8], [86.9, 84.1], [3.6, 91.5], [12.9, 98.2], [54.1, 91.5],
+      [17.8, 54.9], [39.5, 71.4], [63.8, 82.9], [23.4, 80.2], [64.5, 54.0],
+      [63.5, 98.5], [70.7, 95.9],
+      // Kowloon, the far shore, west to east.
+      [27.5, 17.1], [26.7, 26.3], [30.3, 30.4], [34.2, 33.9], [38.2, 34.8],
+      [41.3, 35.4], [51.2, 26.3], [56.6, 20.7], [73.2, 20.9], [79.0, 24.8],
+      [82.7, 24.2], [85.5, 22.7], [88.1, 23.3], [92.0, 17.1], [97.2, 19.5],
+      [99.5, 21.5], [85.5, 31.6], [82.3, 33.0], [87.8, 33.3],
+    ],
+    // The ICC's top light across the harbour, the IFC's crown, and the red
+    // crowns the frame paints on Central's and Wan Chai's towers (rgb
+    // 252,70,4 at x 31.3, 245,51,24 at x 51).
+    beacons: [
+      [61.2, 14.2], [38.9, 36.0], [46.3, 58.7], [31.3, 67.8], [17.6, 68.7],
+      [41.9, 82.9], [51.0, 85.8], [65.8, 85.5],
+    ],
+    beaconTone: 'red',
+    // Neon: Hong Kong's facades are lit in magenta and cyan, and the frame
+    // paints them so. Twenty-two measured saturated maxima on the near towers.
+    neon: [
+      [44.5, 79.7], [12.7, 59.0], [46.8, 94.4], [12.7, 65.2], [21.1, 72.9],
+      [74.0, 92.3], [13.5, 73.5], [67.3, 62.5], [74.2, 85.0], [66.8, 83.2],
+      [21.3, 80.5], [10.0, 33.6],
+      [31.1, 92.6, 'cyan'], [34.1, 60.5, 'cyan'], [63.2, 75.5, 'cyan'],
+      [63.4, 55.8, 'cyan'], [26.6, 54.0, 'cyan'], [52.1, 93.8, 'cyan'],
+      [62.8, 67.0, 'cyan'], [55.5, 66.7, 'cyan'], [61.3, 59.6, 'cyan'],
+      [27.0, 68.7, 'cyan'], [69.7, 87.3, 'cyan'],
+    ],
+    // Reflections on the harbour between the two shores (Kowloon's at card y
+    // 33-36, Central's at 55, North Point's at 46-50): the ICC's column and
+    // the shore lights thrown back across the water.
+    water: [
+      [80.4, 44.5], [70.5, 50.4], [56.5, 49.9], [76.4, 48.4], [91.0, 38.1],
+      [99.8, 49.9], [93.6, 41.0], [53.8, 50.7], [48.2, 43.4], [59.9, 47.2],
+      [51.1, 45.7], [36.4, 42.5], [74.1, 50.4], [84.4, 43.4],
+    ],
+    // Steam off three tower tops that stand against the harbour.
+    steam: [[46.5, 58.0], [66.5, 68.5], [21.5, 63.5]],
+    // The hills reach the top edge between x 50 and 60, so the approach
+    // crosses in front of them at night; the kites keep to the eastern
+    // hills, the helicopter to the harbour.
+    aircraft: { y: 4, from: 98, to: 30, flight: 40 },
+    birds: { y: 6, from: 98, to: 66, flight: 30, count: 5 },
+    helicopter: { y: 40, from: 96, to: 30, flight: 46 },
+    // Haze over Kowloon (the far shore's towers, card y 20-36), warm-grey.
+    haze: { y: 20, height: 16 },
+    // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
+    // 32; sky column means fall from 237 at left to 150 behind the ICC).
+    flare: { x: -6, y: 32 },
+    rainfall: true,
+    // The Star Ferry, white, Tsim Sha Tsui to Central: lane y 43 is water
+    // from the eastern harbour at x 98 to the piers at 28 (Kowloon's shore
+    // ends at 36, North Point's begins at 46).
+    ferry: { y: 43, from: 98, to: 28, flight: 140 },
+    ferryTone: 'white',
+    // Sun glitter, the pale maxima the Day and Golden Hour frames share
+    // inside the harbour, the ICC's light path among them.
+    glints: [
+      [49.5, 41.3], [52.1, 47.2], [71.5, 48.7], [61.2, 41.9], [38.0, 44.3],
+      [74.0, 47.2], [80.8, 47.2], [60.6, 38.1], [76.8, 44.5], [65.0, 50.2],
+      [91.0, 36.6], [67.4, 42.5],
+    ],
+    // The harbour's chop, shore to shore.
+    swell: { x: 28, y: 36, w: 72, height: 14 },
   },
   seattle: {
     // MASTHEAD-SEATTLE-1 (2026-09-05): a new city, eleven frames (Cloudy,

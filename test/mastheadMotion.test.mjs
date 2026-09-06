@@ -303,7 +303,7 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // every one of its points silently shifts by about 30px and this test is the
   // only thing that will say so. Atlanta, Hollywood (second pack) and New
   // York (second pack) are the three; all were measured through the centred crop.
-  const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle']
+  const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle', 'hongkong']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of Object.keys(CITY_MOTION)) {

@@ -68,6 +68,7 @@ const CITY_NAMES = {
   newyork: 'New York',
   saltlakecity: 'Salt Lake City',
   washington: 'Washington, DC',
+  hongkong: 'Hong Kong',
 }
 
 export function cityDisplayName(key) {
