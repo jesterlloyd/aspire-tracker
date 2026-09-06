@@ -83,8 +83,16 @@ test('scene overrides name a real scene, replace only point kinds, and are measu
   // second carries two short straight rails, the long one with the police car.
   assert.equal(spansOf(CITY_MOTION.atlanta).length, 2)
   assert.equal(spansOf(CITY_MOTION.atlanta)[0].police, true)
-  // Hollywood's cloudy-night mast is a different drawing (x 72.5%, not 71.4%).
-  assert.deepEqual(CITY_MOTION.hollywood.sceneOverrides.cloudynight.beacons[0], [72.5, 1.5])
+  // MASTHEAD-HOLLYWOOD-3: NOTHING declares sceneOverrides any more. Hollywood's
+  // second pack was its only user - its cloudy-night frame drew the mast at a
+  // different x - and the third pack's ten frames align within 1px, so the
+  // override went with the art. The machinery stays: it is general, it is
+  // tested above, and the next pack whose weather frame is a different drawing
+  // will want it. This asserts it is unused rather than absent, so that a city
+  // quietly acquiring one is a deliberate act.
+  const withOverrides = Object.entries(CITY_MOTION).filter(([, m]) => m.sceneOverrides)
+  assert.deepEqual(withOverrides.map(([c]) => c), [],
+    'a city declares sceneOverrides again; make sure its frames really are different drawings')
 })
 
 test('nothing in the motion layer blends: two hundred blended layers over the bolt dropped every storm frame', () => {
@@ -394,12 +402,12 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // every one of its points silently shifts by about 30px and this test is the
   // only thing that will say so. Atlanta, Hollywood (second pack) and New
   // York (second pack) are the three; all were measured through the centred crop.
-  const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle', 'hongkong', 'honolulu']
+  const CENTRED = ['atlanta', 'newyork', 'lasvegas', 'seattle', 'hongkong', 'honolulu']
   // MASTHEAD-RIO-1 / TOKYO-1 / LONDON-1: three cities are anchored to the TOP.
   // Christ the Redeemer starts at source row 7, the Skytree's mast at row 0 and
   // the Shard's spire at row 0, and neither the default nor the centred crop
   // keeps them, so those packs were converted through a third offset again.
-  const TOP = ['rio', 'tokyo', 'london', 'rome']
+  const TOP = ['rio', 'tokyo', 'london', 'rome', 'hollywood']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of TOP) assert.equal(CITY_IMG_Y[city], '0%', `${city} was measured through a top-anchored crop`)

@@ -328,10 +328,12 @@ test('the vertical crop is per city, and only the cities whose mast or spire nee
   assert.equal(imgPositionFor('tokyo'), '0%')
   assert.equal(imgPositionFor('london'), '0%')
   assert.equal(imgPositionFor('rome'), '0%')
+  // MASTHEAD-HOLLYWOOD-3 moved Hollywood from the centred crop to the top one:
+  // the third pack puts the mast's beacon at source row 5.
+  assert.equal(imgPositionFor('hollywood'), '0%')
   assert.equal(imgPositionFor('lasvegas'), '50%')
   assert.equal(imgPositionFor('seattle'), '50%')
   assert.equal(imgPositionFor('atlanta'), '50%')
-  assert.equal(imgPositionFor('hollywood'), '50%')
   assert.equal(imgPositionFor('newyork'), '50%')
   assert.equal(imgPositionFor('losangeles'), '100%')
   assert.equal(imgPositionFor(undefined), '100%')

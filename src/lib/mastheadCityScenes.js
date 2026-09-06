@@ -286,11 +286,11 @@ export const DEFAULT_SKY_X = '52%'
 // paid at the bottom, where Atlanta has open highway rather than a skyline.
 export const CITY_IMG_Y = {
   atlanta: '50%',
-  // MASTHEAD-HOLLYWOOD-2: the second pack's radio mast reaches source row 36,
-  // and the default crop removes rows 0..60, so it lost its top 25px and all of
-  // its aviation lights with them. Centring the crop keeps the mast whole and
-  // spends the 30px on featureless brush at the bottom instead.
-  hollywood: '50%',
+  // MASTHEAD-HOLLYWOOD-3: the third pack puts the mast's aviation beacon at
+  // source row 5, so even the centred crop that served the second pack now
+  // takes the top third of the mast and the beacon with it. Top-anchored, like
+  // Rome and Rio; the 61 rows are paid on foreground chaparral at the bottom.
+  hollywood: '0%',
   // MASTHEAD-NEWYORK-2: One WTC's needle runs to source row 5 in the second
   // pack; the bottom-anchored crop would cut it at the antenna. Centred, the
   // needle exits the top edge as a skyline does in a photograph, and the
@@ -376,62 +376,65 @@ export const DEFAULT_IMG_Y = '100%'
 // artwork already does: Hollywood's mast lights are red in the frame.
 export const CITY_MOTION = {
   hollywood: {
-    // MASTHEAD-HOLLYWOOD-2 (2026-09-04): the second Hollywood pack replaced
-    // the first, so EVERY coordinate here was re-measured. All eight frames
-    // share one viewpoint, which is why one set of landmarks serves scenes
-    // that carry that landmark. Measured through the 50% crop (see CITY_IMG_Y),
-    // not the default: the old numbers would be about 30px out.
+    // MASTHEAD-HOLLYWOOD-3 (2026-09-06): the THIRD Hollywood pack, and every
+    // coordinate here is new - the viewpoint, the crop and the architecture all
+    // changed, so nothing from the second pack survives. Ten frames now, with
+    // Cloudy and RainNight that the second pack lacked. Measured through the
+    // TOP-anchored crop (see CITY_IMG_Y), which is itself a change from the
+    // second pack's centred one.
     //
-    // Fewer lit points than the first pack, because this frame renders the
-    // basin as a glow rather than as discrete windows; the ones here are the
-    // hillside houses and the far basin edge, right of the greeting.
+    // The view is Griffith Park looking east: the sign at x 17-21 on the ridge,
+    // the transmission mast above it at x 23, dark chaparral hills across the
+    // whole left half, Griffith Observatory at x 60-72, and downtown Los
+    // Angeles small and hazy at x 75-92 with the basin spread below it.
+    //
+    // THE LEFT HALF IS GENUINELY DARK. The hills are unlit parkland, so the
+    // only lit things out there are the sign's letters and the mast - which is
+    // the honest answer, and a change from the second pack, whose art put a
+    // basin glow behind the ridge.
     lights: [
-      [49.1, 88.8], [51.5, 59.6], [56.3, 62.2], [57.5, 90.0], [58.1, 78.5],
-      [65.5, 31.9], [68.5, 30.4], [68.5, 71.4], [84.7, 56.9], [94.6, 54.6],
-      // MASTHEAD-LOCKSCREEN-1: the left third, now that nothing fades it. The
-      // observatory's windows and the basin edge under the greeting.
-      [1.4, 56.0], [7.8, 96.2], [13.8, 54.3], [19.3, 53.7], [25.7, 59.6],
-      [25.8, 78.8], [29.5, 72.3], [32.6, 79.9],
+      // The sign, letter by letter. Pale rather than warm (rgb 164,171,210):
+      // it is floodlit white, not sodium, and the warm scorer does not see it.
+      [17.3, 32.2], [18.3, 32.2], [18.9, 32.2], [19.8, 32.5], [20.6, 32.7],
+      // The mast's own structure lights, below the beacon.
+      [22.9, 23.9], [22.0, 26.3], [22.5, 26.3],
+      // Griffith Observatory: the dome, the colonnade and the lawn lights.
+      [61.1, 87.3], [65.4, 84.4], [66.9, 64.0], [70.6, 62.8], [69.9, 63.7],
+      [66.0, 84.4],
+      // Downtown and the basin behind it.
+      [67.8, 93.2], [97.4, 72.3], [82.2, 67.0], [77.8, 74.3], [80.7, 67.8],
+      [73.7, 67.8], [75.0, 81.7], [66.9, 92.9], [68.4, 62.8], [92.4, 81.1],
+      [80.8, 72.3], [78.0, 67.8], [90.0, 67.3], [66.1, 86.1], [75.4, 67.0],
+      [68.7, 92.3], [72.8, 67.0], [90.9, 57.8], [81.5, 67.6], [85.7, 69.9],
+      // The near basin below the observatory.
+      [65.5, 92.0], [61.1, 91.7], [62.0, 92.0], [63.9, 92.6], [64.5, 90.0],
+      [62.9, 91.7], [56.4, 98.8], [63.8, 95.6],
     ],
-    // The Mt Lee mast. Its lights are painted red in the Night and CloudyNight
-    // frames (rgb 163,103,103 at row 88), which is why this city alone carries
-    // beaconTone. The tip sits at card y 0.1%; it is placed at 0.8% so the glow
-    // is not half outside the card, the only non-measured value in this entry.
-    beacons: [[71.4, 0.8], [71.3, 11.7], [71.2, 17.0]],
+    // ONE beacon, and it is the only red thing in the frame: the mast's
+    // aviation light at the very top, core rgb(152,46,70) with a red halo
+    // against the blue sky. Downtown's crowns probe warm white, not red, so
+    // they stay in lights where they breathe.
+    beacons: [[23.8, 2.1]],
     beaconTone: 'red',
-    // Sky is clear to card y 17% at the shallowest point (x 40-50%), so anything
-    // flying at y <= 13% clears every ridge except the mast itself.
-    aircraft: { y: 9, from: 98, to: 36, flight: 36 },
-    birds: { y: 11, from: 99, to: 40, flight: 30, count: 6 },
-    helicopter: { y: 13, from: 44, to: 96, flight: 42 },
-    // The basin lies at card y 40-60%; the band sits on it and drifts.
-    haze: { y: 49, height: 18 },
-    // The golden-hour sun is OFF-FRAME LEFT: the left edge is brightest at card
-    // y 33%. Ghosts lie on the line from there through the card's centre, so
-    // they land on the hills at right, which is exactly where a photograph
-    // would put them.
-    flare: { x: -6, y: 33 },
+    // Sky is clear above card y 34 east of the mast, which itself reaches y 2
+    // at x 23 - so the lane stops at 30. The motion layer draws ABOVE the
+    // artwork, and a plane at this height would cross the mast, not pass it.
+    aircraft: { y: 14, from: 98, to: 30, flight: 40 },
+    // The flock spreads 6.4% above its lane and 11.5% below, so y 24 puts it
+    // between 17.6 and 35.5 and the ridge under the run never rises past 38.
+    birds: { y: 24, from: 96, to: 34, flight: 34, count: 6 },
+    helicopter: { y: 30, from: 34, to: 96, flight: 46 },
+    // THE SMOG, which is the one thing this view is really about: the pale band
+    // lying across the basin at card y 44-57, with downtown standing in it. The
+    // default warm-grey tone, whose mask is strongest right of 56% - which here
+    // is exactly the basin and not the hills.
+    haze: { y: 44, height: 13 },
+    // The golden-hour sun is OFF-FRAME RIGHT on this pack, which is a reversal
+    // from the second one: the brightest edge pixel is at the RIGHT edge at
+    // card y 2.4, and the sky column mean rises from 224 mid-frame to 229 at
+    // x 90. The old art was lit from the left; this one is not.
+    flare: { x: 106, y: 8 },
     rainfall: true,
-    // No traffic: the frame has no road that reads as a line of light. Griffith
-    // Park's roads are unlit switchbacks in this artwork.
-    //
-    // MASTHEAD-SCENE-OVERRIDES (Owner, 2026-09-05): the CloudyNight frame is a
-    // separate generation, not the Night frame under cloud. Its mast is a
-    // different drawing, 22px further right and shorter (tip at source row 36
-    // against 31), and the basin's discrete windows are gone under the haze:
-    // of the eighteen Night lights, only the eight on the left ridge have a
-    // warm pixel within 8px in this frame. So the two point kinds that run in
-    // that scene get their own measured sets here, and the Night sets hide.
-    sceneOverrides: {
-      cloudynight: {
-        lights: [
-          [31.6, 81.1], [1.5, 57.8], [27.1, 59.6], [35.2, 88.2], [26.1, 80.8],
-          [14.6, 56.0], [9.5, 55.5], [21.1, 59.0], [42.4, 51.0],
-        ],
-        // The mast's red lights, tip to base: source rows 36, 57, 73, 91.
-        beacons: [[72.5, 1.5], [72.5, 7.7], [72.6, 12.4], [72.7, 17.7]],
-      },
-    },
   },
   losangeles: {
     // MASTHEAD-LOSANGELES-2 (2026-09-05): the second Los Angeles pack (nine

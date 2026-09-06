@@ -303,3 +303,23 @@ test('index.css has balanced braces', () => {
   }
   assert.equal(depth, 0, `${depth} unclosed block(s) in index.css`)
 })
+
+test('the CSS rain falls the way the artwork paints it: down-LEFT', () => {
+  // MASTHEAD-RAINSLANT-1 (Owner spotted it). The drops fall straight down
+  // inside .mast-motion-rain, so that container's rotation IS the direction of
+  // the rain. It was rotate(-11deg), which under CSS's clockwise-positive
+  // convention sends a local (0,1) fall to screen (+sin 11, cos 11) - down and
+  // to the RIGHT - while every pack paints its streaks leaning LEFT. The CSS
+  // rain crossed the painted rain in all thirteen cities from the day the
+  // effect shipped until Hollywood's third pack made it obvious.
+  //
+  // Checked by eye on Hollywood, Rome, Rio, Tokyo, Atlanta and Las Vegas with
+  // the clouds high-passed away; all lean left, 14 to 24 degrees off vertical.
+  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  const m = /\.mast-motion-rain \{[\s\S]*?transform: rotate\((-?[\d.]+)deg\)/.exec(css)
+  assert.ok(m, 'the rain container no longer declares a rotation')
+  const deg = Number(m[1])
+  // Positive rotation tilts the fall to the left, which is the whole point.
+  assert.ok(deg > 0, `rain rotate(${deg}deg) tilts the fall RIGHT; the art leans left`)
+  assert.ok(deg >= 10 && deg <= 26, `rain rotate(${deg}deg) is outside the range the packs paint`)
+})

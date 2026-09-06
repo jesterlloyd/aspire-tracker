@@ -2340,7 +2340,16 @@ a.doc-file-link:hover { text-decoration: underline; }
    like everything else. ── */
 .mast-motion-rain {
   position: absolute; inset: 0; pointer-events: none; opacity: 0;
-  transform: rotate(-11deg) scale(1.25); transform-origin: 50% 50%;
+  /* MASTHEAD-RAINSLANT-1 (Owner, 2026-09-06): the drops fall down-LEFT, because
+     that is the way every pack paints them. This was rotate(-11deg), which
+     tilts the fall down-RIGHT, so since the effect shipped the CSS rain has
+     been crossing the painted rain in all thirteen cities. Checked frame by
+     frame with the clouds high-passed away: Hollywood, Rome, Rio, Tokyo,
+     Atlanta, Las Vegas and the rest all lean left, between about 14 and 24
+     degrees off vertical. 16 is the middle of that. (An automatic slant
+     detector agreed on some cities and was confidently wrong on others - it
+     locks onto cloud banding - so the answer here came from looking.) */
+  transform: rotate(16deg) scale(1.3); transform-origin: 50% 50%;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.25) 30%, #000 58%);
   mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,0.25) 30%, #000 58%);
 }
