@@ -78,6 +78,7 @@ const CITY_ALIASES = {
   washington: 'washington', washingtondc: 'washington',
   atlanta: 'atlanta',
   hollywood: 'hollywood',
+  seattle: 'seattle',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -277,6 +278,11 @@ export const CITY_IMG_Y = {
   // under the default crop's edge; centred it sits at card y 11% with sky
   // above it, and the 30 rows given up at the bottom are suburb.
   lasvegas: '50%',
+  // MASTHEAD-SEATTLE-1: the Space Needle's tip is at source row 62 by day
+  // and its beacon glows to row 44 at night; centred, the tip sits at card
+  // y 9% with sky above it, and the 30 rows given up at the bottom are the
+  // near shore's trees.
+  seattle: '50%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -722,6 +728,93 @@ export const CITY_MOTION = {
     // 15%; sky column means fall from 225 at left to 207 at right).
     flare: { x: -6, y: 15 },
     rainfall: true,
+  },
+  seattle: {
+    // MASTHEAD-SEATTLE-1 (2026-09-05): a new city, eleven frames (Cloudy,
+    // Snow and SnowNight included). One viewpoint on all eleven, the Kerry
+    // Park view: the Space Needle at x 20.1, downtown to x 50, the stadiums
+    // and the port along the waterfront, Elliott Bay below, Rainier at x 76.
+    // Every coordinate measured (scratchpad nymeasure.mjs, gridzoom.py)
+    // through the 50% crop (see CITY_IMG_Y). The three night frames are one
+    // drawing (forty lights and the Needle's tip within scatter), so the
+    // snowy and clouded nights need neither a shift nor an override.
+    //
+    // Night: downtown's windows, then the waterfront, the stadiums, the port
+    // and the far shore.
+    lights: [
+      [24.8, 46.9], [34.3, 47.5], [11.3, 67.3], [17.0, 65.5], [21.2, 62.5],
+      [28.3, 45.7], [43.6, 66.1], [11.6, 60.5], [38.8, 55.5], [39.2, 72.0],
+      [9.0, 62.5], [45.0, 52.8], [22.7, 34.2], [31.8, 47.5], [14.0, 36.6],
+      [41.5, 66.4], [15.2, 49.0], [22.4, 53.4], [8.6, 54.0], [25.0, 72.0],
+      [44.9, 44.8], [34.6, 41.3], [25.4, 64.6], [29.4, 39.5], [16.5, 73.2],
+      [37.5, 33.3], [1.6, 56.9], [43.7, 72.6], [24.4, 57.8], [26.8, 53.1],
+      [11.4, 73.5], [17.2, 54.3], [33.1, 59.3], [27.6, 71.1], [4.3, 63.4],
+      [32.1, 70.2], [38.3, 62.0], [12.0, 42.2], [1.0, 67.6],
+      // The waterfront, the port and the far shore.
+      [70.7, 71.7], [56.4, 61.1], [76.5, 71.1], [74.2, 74.3], [68.4, 71.4],
+      [78.3, 60.5], [63.8, 74.3], [58.7, 74.0], [73.9, 62.5], [61.7, 59.6],
+      [79.3, 72.9], [55.3, 70.5], [65.5, 63.4], [61.6, 71.7], [94.7, 64.6],
+      [83.8, 65.2], [67.8, 61.4], [86.3, 75.2], [58.9, 58.4], [81.5, 63.1],
+    ],
+    // The Needle's aviation light (rgb 221,31,7 on the snowy night, warm
+    // white on the clear one) at the very tip, the Columbia Center's crown,
+    // the Municipal Tower's, and the red crowns at x 12.6, 15.2 and 29.9.
+    beacons: [[20.1, 4.0], [33.1, 20.7], [37.8, 28.6], [12.6, 43.1], [15.2, 34.8], [29.9, 39.8]],
+    beaconTone: 'red',
+    // The bay throws the city back: reflections under the waterfront, the
+    // port and the far shore, and in the marina below the near shore.
+    water: [
+      [52.9, 87.0], [65.8, 79.9], [62.5, 82.0], [39.1, 94.7], [69.1, 79.7],
+      [41.6, 93.8], [73.6, 77.3], [80.3, 77.9], [36.4, 95.3], [39.0, 85.0],
+      [51.4, 79.7], [48.0, 80.2], [58.7, 85.8], [94.7, 81.4], [87.9, 78.5],
+      [44.3, 86.1], [98.2, 82.0], [58.7, 74.0], [39.4, 77.6], [36.5, 74.6],
+    ],
+    // Alaskan Way along the piers: one level lit line from the aquarium to
+    // the stadiums, traced light by light (+-1.3%), with a police car.
+    bridge: [
+      {
+        lights: [[44.5, 72.6], [46.5, 72.0], [48.0, 72.0], [49.5, 73.2], [52.0, 74.3], [53.5, 72.6], [55.5, 74.0], [60.0, 74.0], [62.0, 73.2], [63.5, 73.8]],
+        deck: { x: 44, y: 73.0, w: 20, rise: 0.5 },
+        police: true,
+      },
+    ],
+    // Sky is clear above card y 10 east of the Needle (Rainier's summit is at
+    // 18, x 76; the Columbia Center reaches 21 at x 33), so the approach into
+    // Sea-Tac runs east to west and stops short of the Needle's mast.
+    aircraft: { y: 7, from: 98, to: 30, flight: 40 },
+    birds: { y: 12, from: 96, to: 40, flight: 34, count: 6 },
+    // A floatplane's height and a helicopter's rhythm, low over the bay at
+    // sunset, out past the stadiums.
+    helicopter: { y: 24, from: 40, to: 96, flight: 46 },
+    // Marine fog lying on the bay: from the piers (y 72-75) out over the
+    // water, white, with downtown and the Needle standing clear above it. A
+    // first pass at y 60 laid it across the lower skyline and read as a bar.
+    haze: { y: 66, height: 15 },
+    hazeTone: 'fog',
+    // Steam off three downtown rooftops with sky above them (first lit row of
+    // the column on the Night frame).
+    steam: [[26.0, 41.6], [36.0, 39.8], [46.0, 42.2]],
+    // The golden-hour sun is OFF-FRAME RIGHT (right edge brightest at card y
+    // 32; sky column means rise from 198 at left to 215 at right).
+    flare: { x: 106, y: 32 },
+    rainfall: true,
+    snowfall: true,
+    // A Washington State ferry, white, on the Bainbridge run: in from the
+    // Sound at right and across the bay to the terminal. Lane y 88 is water
+    // from x 98 to the marina at 46 (the near shore's trees begin at 45).
+    ferry: { y: 88, from: 98, to: 46, flight: 150 },
+    ferryTone: 'white',
+    // Sun glitter, measured as the pale maxima of the Day and Golden Hour
+    // frames INSIDE the bay: the marina below the near shore, the water off
+    // the piers and the port, and the reach toward the far shore.
+    glints: [
+      [48.7, 84.1], [36.8, 82.9], [66.5, 79.9], [90.0, 77.0], [41.3, 92.0],
+      [95.5, 80.8], [38.6, 90.6], [57.6, 80.5], [84.4, 78.8], [70.2, 76.1],
+      [52.8, 79.4], [73.7, 79.4],
+    ],
+    // The bay's chop, from the marina to the far shore (the piers end at y
+    // 75, the far shore at 72, the near shore's trees hold x < 45 below 78).
+    swell: { x: 46, y: 76, w: 52, height: 23 },
   },
   atlanta: {
     // MASTHEAD-ATLANTA-2 (2026-09-05): the second Atlanta pack replaced the

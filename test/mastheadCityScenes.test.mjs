@@ -260,8 +260,9 @@ test('the vertical crop is per city, and only the cities whose mast or spire nee
   // clears it by seven rows and crops centred for the sky above its tip.
   // Everyone else stays.
   assert.equal(DEFAULT_IMG_Y, '100%')
-  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'lasvegas', 'newyork'])
+  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'lasvegas', 'newyork', 'seattle'])
   assert.equal(imgPositionFor('lasvegas'), '50%')
+  assert.equal(imgPositionFor('seattle'), '50%')
   assert.equal(imgPositionFor('atlanta'), '50%')
   assert.equal(imgPositionFor('hollywood'), '50%')
   assert.equal(imgPositionFor('newyork'), '50%')

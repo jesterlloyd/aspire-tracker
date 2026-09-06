@@ -373,7 +373,7 @@ export default function MastheadMotion({ city }) {
           the aircraft), because a ferry route is never empty for long. One
           sailing left is the same ferry mirrored, so its wake still trails. */}
       {ferry && (
-        <span className={`mast-motion-ferry${ferry.from > ferry.to ? ' mast-motion-ferry-west' : ''}${ferryTone === 'orange' ? ' mast-motion-ferry-orange' : ''}`}
+        <span className={`mast-motion-ferry${ferry.from > ferry.to ? ' mast-motion-ferry-west' : ''}${ferryTone ? ` mast-motion-ferry-${ferryTone}` : ''}`}
           style={{ top: `${ferry.y}%`, '--from': `${ferry.from}%`, '--to': `${ferry.to}%`, '--cycle': `${ferry.flight}s` }}>
           <span className="mast-motion-ferry-wake" />
           <span className="mast-motion-ferry-hull" />

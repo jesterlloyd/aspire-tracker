@@ -261,13 +261,16 @@ test('beacon tone is only red where the artwork paints it red', () => {
   // Los Angeles's second pack paints its crowns red too (the US Bank tower's
   // is rgb 252,38,6). Atlanta's first pack is the one on the default tone.
   assert.equal(CITY_MOTION.losangeles.beaconTone, 'red')
-  // A ferry tone is likewise only 'orange' (the Staten Island Ferry), with a ferry.
+  // A ferry tone is 'orange' (the Staten Island Ferry) or 'white' (Washington
+  // State's), each with a hull rule in the CSS, and only with a ferry.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (m.ferryTone === undefined) continue
-    assert.equal(m.ferryTone, 'orange', `${city}.ferryTone "${m.ferryTone}" is not a known tone`)
+    assert.ok(['orange', 'white'].includes(m.ferryTone), `${city}.ferryTone "${m.ferryTone}" is not a known tone`)
     assert.ok(m.ferry, `${city} declares a ferry tone with no ferry to paint`)
+    assert.match(readFileSync(join(here, '..', 'src', 'index.css'), 'utf8'), new RegExp(`\\.mast-motion-ferry-${m.ferryTone} \\.mast-motion-ferry-hull`))
   }
   assert.equal(CITY_MOTION.newyork.ferryTone, 'orange')
+  assert.equal(CITY_MOTION.seattle.ferryTone, 'white')
   // A haze tone is likewise only 'fog', and only with a haze to colour.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (m.hazeTone === undefined) continue
@@ -300,7 +303,7 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // every one of its points silently shifts by about 30px and this test is the
   // only thing that will say so. Atlanta, Hollywood (second pack) and New
   // York (second pack) are the three; all were measured through the centred crop.
-  const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas']
+  const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of Object.keys(CITY_MOTION)) {

@@ -2547,6 +2547,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-motion-ferry-west { transform: scaleX(-1); }
 /* The Staten Island Ferry is orange; nothing else on the harbour is. */
 .mast-motion-ferry-orange .mast-motion-ferry-hull { background: rgba(236,122,34,0.95); }
+/* MASTHEAD-SEATTLE-1: a Washington State ferry is white, and reads on the
+   Sound's blue by day as a bright dash rather than a dark one. */
+.mast-motion-ferry-white .mast-motion-ferry-hull { background: rgba(250,252,255,0.95); }
 
 /* Steam off a rooftop. Each puff starts small and dense at the measured roof
    edge, then rises, drifts with the wind, spreads and thins. Normal blend
