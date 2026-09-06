@@ -1,5 +1,6 @@
 // MASTHEAD-TIMELAPSE-1 (Owner, 2026-09-06): when you PICK a city, the card
-// runs the day in six seconds before it settles on the time it actually is.
+// runs the day in four and a half seconds before it settles on the time it
+// actually is.
 //
 // This works because of something the packs already guarantee. Every city's
 // frames are ONE DRAWING - when each pack was built the nine frames were
@@ -40,10 +41,18 @@ import { isNightScene } from './mastheadScene.js'
 // The day, in order. SCENES minus 'rain' - see the clock-scenes-only rule.
 export const CLOCK_SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night']
 
-// Owner's number. One tunable, deliberately: the per-frame pace is this
-// divided by the frame count, and the cross-fade is the same length again, so
-// each frame is still dissolving into the next when the next begins.
-export const SWEEP_MS = 6000
+// Owner's number, chosen by watching. One tunable, deliberately: the per-frame
+// pace is this divided by the frame count, and the cross-fade is the same
+// length again, so each frame is still dissolving into the next when the next
+// begins - 750ms a frame for a clock destination.
+//
+// Picked from three real captures of the running sweep at 3s, 4.5s and 6s. At
+// 3s it is a swipe rather than a day: dawn and sunset barely register, and
+// those are the two best frames in every pack. 6s lets each time of day land
+// but outstays a UI response. This is the middle, and it was the Owner's call
+// on a question that is taste, not engineering - my own guesses were 4s, then
+// 6s from stills, and stills were the wrong evidence for it.
+export const SWEEP_MS = 4500
 
 // QA/taste override, same shape as aspire_scene_override_v1 and
 // aspire_wet_override_v1: set aspire_sweep_ms_v1 in the console and pick a
