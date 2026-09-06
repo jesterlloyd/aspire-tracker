@@ -85,6 +85,7 @@ const CITY_ALIASES = {
   // label says the long form. Both spellings have to reach the same pack.
   rio: 'rio', riodejaneiro: 'rio',
   tokyo: 'tokyo',
+  london: 'london',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -321,6 +322,13 @@ export const CITY_IMG_Y = {
   // Skytree a stump, which decides it. The cost is real and is recorded in the
   // motion entry: the elevated railway lies below the card entirely.
   tokyo: '0%',
+  // MASTHEAD-LONDON-1: top-anchored, the third city to need it. The Shard's
+  // spire reaches source row 0, the London Eye's rim row 16 and the City's
+  // crowns row 17. The centred crop starts at 31 and takes the Shard's tip and
+  // the TOP OF THE EYE - and a beheaded ferris wheel is worse than a beheaded
+  // spire, because the wheel effect is a circle fitted to that rim. The cost is
+  // the near bank at the bottom; the Thames still fills y 60-99.
+  london: '0%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -1304,6 +1312,99 @@ export const CITY_MOTION = {
     // The golden-hour sun is OFF-FRAME LEFT and high: the sky column mean falls
     // from 227 at x 0 to 200 at x 80, and the left edge is brightest at y 2-8.
     flare: { x: -6, y: 8 },
+    rainfall: true,
+  },
+  london: {
+    // MASTHEAD-LONDON-1 (2026-09-06): a new city, nine frames, measured through
+    // the TOP-anchored crop (see CITY_IMG_Y). The view looks east down the
+    // Thames: Parliament and Big Ben across the left, the London Eye at x 38.7,
+    // Westminster Bridge crossing from x 26 to 50, St Paul's at 52.8, the City
+    // cluster at 65-75, two more bridges downstream, and the Shard at x 90.
+    //
+    // NO BEACONS. Nothing in this frame blinks. A strict aviation-red test
+    // returns only sodium street lamps, and the Shard's tip probes
+    // rgb(255,248,121) - warm white. The tower crowns are steady, so they are
+    // in `lights`, where they breathe, rather than in `beacons`, where they
+    // would blink at a city that does not.
+    lights: [
+      [5.5, 49.3], [7.9, 55.2], [2.8, 70.2], [6.8, 30.1], [6.5, 50.2],
+      [24.5, 33.9], [4.0, 69.3], [6.2, 70.5], [23.6, 35.7], [5.3, 56.3],
+      [6.7, 44.5], [13.3, 55.2],
+      [36.8, 67.8], [47.5, 67.0], [41.0, 48.1], [45.3, 48.4], [44.0, 67.8],
+      [50.7, 40.4], [37.9, 51.9], [32.3, 49.3], [51.0, 44.5], [45.9, 68.1],
+      [67.3, 53.7], [59.2, 60.8], [63.3, 55.5], [64.6, 55.2], [73.4, 34.8],
+      [70.9, 53.7], [68.8, 53.1], [54.3, 32.2], [70.5, 31.0], [69.7, 59.3],
+      [66.1, 54.9], [55.8, 41.0],
+      [84.8, 67.0], [93.8, 74.3], [97.5, 45.1], [94.2, 37.5], [95.0, 73.5],
+      [86.1, 68.4], [99.5, 67.6], [91.8, 46.9], [98.4, 46.0], [84.4, 53.7],
+      [90.4, 54.3], [90.0, 46.9], [98.2, 88.8], [92.0, 78.2], [91.1, 75.2],
+      [92.5, 74.9], [91.1, 78.8], [98.2, 84.7], [93.7, 85.3], [82.0, 78.2],
+      // The crowns: Victoria Tower, St Paul's dome, a City tower, and four up
+      // the Shard's lit glass. Found by the sky above them, as Tokyo's were.
+      [17.2, 38.6], [52.8, 39.8], [70.1, 10.3], [65.8, 41.9],
+      [90.1, 13.0], [90.9, 18.0], [91.3, 29.2], [88.9, 38.6],
+    ],
+    // THE LONDON EYE. A least-squares circle through the rim arc that stands
+    // against clear sky: the centre x is 38.7 on every row from 18 to 90 (it
+    // never varies by more than 0.1), and pinning the apex at row 18 gives
+    // R 69.7px. Rows below 96 were excluded - the city behind the wheel creeps
+    // into the row scan there and inflates the radius by half again.
+    wheel: { x: 38.7, y: 25.9, d: 6.97 },
+    // The Thames at night. Reflections here are LONG streaks, so the test that
+    // separates them from the embankment lamps is a smear persisting 6 to 26
+    // rows down; at the four-sample depth that served Rio, Parliament's lit
+    // facade and the plane trees passed as river.
+    water: [
+      [74.6, 66.4], [53.1, 71.4], [72.3, 66.4], [26.8, 91.5], [45.8, 74.9],
+      [49.3, 73.2], [56.5, 71.4], [47.5, 77.0], [44.3, 74.9], [75.3, 75.8],
+      [60.4, 65.8], [69.8, 65.8], [64.5, 65.2], [70.3, 87.6], [67.4, 67.6],
+      [51.1, 72.0], [74.5, 71.1], [53.0, 77.3], [76.5, 81.4], [33.3, 94.4],
+      [56.4, 76.4], [54.8, 70.2], [69.7, 74.9], [38.0, 95.6], [64.4, 69.6],
+    ],
+    // Daylight glitter on the river, each one accepted only with a ring of
+    // open blue-grey water around it.
+    glints: [
+      [64.5, 77.3], [60.4, 82.6], [66.1, 68.1], [63.6, 70.5], [72.0, 69.3],
+      [55.8, 86.4], [66.0, 74.6], [47.5, 78.8], [59.1, 75.2], [58.0, 85.5],
+      [69.0, 74.0], [52.9, 79.9], [70.0, 69.0], [58.3, 79.9], [26.4, 97.9],
+      [71.5, 74.0], [60.0, 70.8], [69.0, 78.5],
+    ],
+    // The reach between Westminster Bridge and the downstream pair, verified
+    // open water at every 2% of width on five separate rows.
+    swell: { x: 50, y: 71, w: 24, height: 15 },
+    // Westminster Bridge, traced lamp by lamp: it falls 11.8% across 24% of
+    // the card and every lamp is within 1.1% of that rail. Then the downstream
+    // bridge, which is nearly level. The two do not overlap in x, so the
+    // traffic on one never stacks on the other. The police car runs the long
+    // span, which is the one with the red buses on it by day.
+    bridge: [
+      {
+        lights: [[26.7, 73.8], [28.7, 77.0], [30.7, 77.3], [32.7, 78.5], [34.7, 79.1], [36.7, 78.8], [38.7, 80.8], [40.7, 81.7], [42.7, 82.9], [44.7, 84.1], [46.7, 85.0], [48.7, 86.1]],
+        deck: { x: 26, y: 74.6, w: 24, rise: 11.8 },
+        police: true,
+      },
+      {
+        lights: [[62.0, 58.1], [63.5, 57.2], [65.5, 57.2], [67.5, 59.3], [69.5, 59.3], [71.0, 60.2], [72.5, 59.9], [76.0, 60.5]],
+        deck: { x: 61, y: 57.5, w: 15, rise: 3.0 },
+      },
+    ],
+    // A river boat, white like the ones the artwork already puts on the water.
+    // Lane y 80 is river from x 76 in to 42; the two columns that read as land
+    // on the way are bridge shadows, which a boat passes under.
+    ferry: { y: 80, from: 76, to: 42, flight: 130 },
+    ferryTone: 'white',
+    // The sky here is pierced in four places - Parliament's Victoria Tower at
+    // x 6, the Eye at 36-42, the City at 66-70 and the Shard at 90 - so there
+    // is no lane across the card at altitude. This is the longest clear run.
+    aircraft: { y: 12, from: 64, to: 42, flight: 40 },
+    // Gulls over the Thames rather than over the roofs: the flock spreads 6.4%
+    // above its lane and 11.5% below, so y 78 keeps all six over water.
+    birds: { y: 78, from: 74, to: 46, flight: 34, count: 6 },
+    helicopter: { y: 20, from: 44, to: 64, flight: 46 },
+    haze: { y: 27, height: 10 },
+    // The golden-hour sun is OFF-FRAME LEFT: the sky column mean falls from
+    // 232 at x 0 to about 190 at x 80.
+    flare: { x: -6, y: 20 },
     rainfall: true,
   },
 }

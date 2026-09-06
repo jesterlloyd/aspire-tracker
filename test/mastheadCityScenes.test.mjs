@@ -226,7 +226,7 @@ test('the picker grid: every option has its image, the images exist, and the car
   // Rio sorts under its full name, which is the label, not the folder.
   const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
   assert.deepEqual(cityOptions(packs).map(o => o.label),
-    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'Los Angeles', 'New York', 'Rio de Janeiro', 'San Francisco', 'Seattle', 'Tokyo'])
+    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Rio de Janeiro', 'San Francisco', 'Seattle', 'Tokyo'])
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.match(dlg, /role="radiogroup"/)
   assert.match(dlg, /role="radio"/)
@@ -306,9 +306,10 @@ test('the vertical crop is per city, and only the cities whose mast or spire nee
   // which neither the default nor the centred crop keeps.
   // Everyone else stays.
   assert.equal(DEFAULT_IMG_Y, '100%')
-  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'hongkong', 'honolulu', 'lasvegas', 'newyork', 'rio', 'seattle', 'tokyo'])
+  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'hongkong', 'honolulu', 'lasvegas', 'london', 'newyork', 'rio', 'seattle', 'tokyo'])
   assert.equal(imgPositionFor('rio'), '0%')
   assert.equal(imgPositionFor('tokyo'), '0%')
+  assert.equal(imgPositionFor('london'), '0%')
   assert.equal(imgPositionFor('lasvegas'), '50%')
   assert.equal(imgPositionFor('seattle'), '50%')
   assert.equal(imgPositionFor('atlanta'), '50%')

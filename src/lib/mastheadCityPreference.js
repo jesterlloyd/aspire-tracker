@@ -111,6 +111,7 @@ export const PICKER_IMAGE_FILES = {
   rio: 'Rio.png',
   tokyo: 'Tokyo.png',
   lasvegas: 'LasVegas.png',
+  london: 'London.png',
   losangeles: 'LosAngeles.png',
   newyork: 'NewYork.png',
   sanfrancisco: 'SanFrancisco.png',

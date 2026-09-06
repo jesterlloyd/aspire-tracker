@@ -184,6 +184,18 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
   // Las Vegas: the High Roller's rim (97px across, centre x 39.0) and the
   // Sphere (123px, cut by the skyline 54% of the way down).
   assert.deepEqual(CITY_MOTION.lasvegas.wheel, { x: 39.0, y: 58.6, d: 4.85 })
+  // London's Eye, fitted to the rim arc that stands against clear sky.
+  assert.deepEqual(CITY_MOTION.london.wheel, { x: 38.7, y: 25.9, d: 6.97 })
+  // A wheel is a circle drawn with aspect-ratio 1, so its diameter is a share
+  // of the card's WIDTH and its vertical reach is 5.9x that share of the
+  // height. Both ends of that reach have to stay on the card, or the rim is
+  // clipped and no longer reads as turning.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    if (!m.wheel) continue
+    const halfV = m.wheel.d / 2 * 5.9
+    assert.ok(m.wheel.y - halfV >= 0 && m.wheel.y + halfV <= 100,
+      `${city}.wheel reaches y ${(m.wheel.y - halfV).toFixed(1)}..${(m.wheel.y + halfV).toFixed(1)}, off the card`)
+  }
   assert.equal(CITY_MOTION.lasvegas.orb.cut, 54)
 })
 
@@ -383,11 +395,11 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // only thing that will say so. Atlanta, Hollywood (second pack) and New
   // York (second pack) are the three; all were measured through the centred crop.
   const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle', 'hongkong', 'honolulu']
-  // MASTHEAD-RIO-1 / MASTHEAD-TOKYO-1: two cities are anchored to the TOP.
-  // Christ the Redeemer starts at source row 7 and the Skytree's mast at row
-  // 0, and neither the default nor the centred crop keeps them, so both packs
-  // were converted through a third offset again.
-  const TOP = ['rio', 'tokyo']
+  // MASTHEAD-RIO-1 / TOKYO-1 / LONDON-1: three cities are anchored to the TOP.
+  // Christ the Redeemer starts at source row 7, the Skytree's mast at row 0 and
+  // the Shard's spire at row 0, and neither the default nor the centred crop
+  // keeps them, so those packs were converted through a third offset again.
+  const TOP = ['rio', 'tokyo', 'london']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of TOP) assert.equal(CITY_IMG_Y[city], '0%', `${city} was measured through a top-anchored crop`)
