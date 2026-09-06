@@ -2735,6 +2735,72 @@ a.doc-file-link:hover { text-decoration: underline; }
   opacity: 0.55; animation: mast-swell 7s linear infinite;
 }
 
+/* Rainbow. One arc drawn from the bottom centre of its box, so the registry
+   places the apex and both feet with a single rectangle. The bands are an
+   elliptical radial gradient rather than a circular one on purpose: the card
+   is 5.9:1, and a geometrically true 42-degree bow spanning this much width
+   would stand about five card-heights tall, which puts everything but two
+   near-vertical stubs off the top edge. Flattened to the letterbox, it reads
+   as the rainbow a panorama of a bay actually shows.
+
+   Alpha stays low across every band. A rainbow is a veil the sky is still
+   visible through; at the alpha that made it obvious it stopped looking like
+   light and started looking like a painted stripe.
+
+   The two masks together are what make it an arc rather than a dome: the
+   horizontal one dissolves both feet, the vertical one takes the lower half,
+   and mask-composite intersects them. Blurred, because a bow has no edge. */
+.mast-motion-rainbow {
+  position: absolute; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse 50% 100% at 50% 100%,
+    transparent 0 78%,
+    rgba(126,100,220,0) 78%,
+    rgba(126,100,220,0.24) 82%,
+    rgba(84,156,228,0.30) 86%,
+    rgba(104,204,156,0.30) 89.5%,
+    rgba(240,224,116,0.34) 93%,
+    rgba(244,164,88,0.30) 96.5%,
+    rgba(234,104,104,0.19) 99%,
+    transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14%, #000 86%, transparent 100%),
+    linear-gradient(180deg, #000 0, #000 66%, transparent 96%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 14%, #000 86%, transparent 100%),
+    linear-gradient(180deg, #000 0, #000 66%, transparent 96%);
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+  filter: blur(2.6px);
+}
+/* Visible for about a quarter of the cycle and absent for the rest, which is
+   what "appears and disappears" has to mean if the appearing is to register.
+   It also grows a little as it brightens: a bow strengthens outward from its
+   apex rather than switching on whole. */
+@keyframes mast-rainbow {
+  0%, 3%    { opacity: 0;    scale: 0.985 0.97; }
+  9%        { opacity: 0.75; scale: 1 1; }
+  15%       { opacity: 1;    scale: 1.005 1.01; }
+  21%       { opacity: 0.62; scale: 1.01 1.015; }
+  27%, 100% { opacity: 0;    scale: 1.015 1.02; }
+}
+/* The sunlit scenes only. A bow needs the sun behind the viewer and rain in
+   front, so the overcast frames (Rain, CloudyNight) and the dark ones get
+   none: drawing one there would be the same class of error as putting a
+   reflection on the sand. Cloudy qualifies because that frame is a bright
+   broken sky with sun on the water, not a closed lid. */
+.mast-scenic.mast-scene-day .mast-motion-rainbow,
+.mast-scenic.mast-scene-morning .mast-motion-rainbow,
+.mast-scenic.mast-scene-cloudy .mast-motion-rainbow,
+.mast-scenic.mast-scene-goldenhour .mast-motion-rainbow {
+  animation: mast-rainbow 104s ease-in-out infinite;
+}
+/* The card holds 5.9:1 down to 768px and then grows taller: 2.7:1 at 520 and
+   1.7:1 at 390. Every measured coordinate in the registry is a card
+   percentage, so below the break the same box is far taller in pixels - and
+   for an ARC that is not a small drift, it is the wrong shape. A bow that has
+   become a dome is worse than no bow, and on a phone the greeting covers that
+   part of the card anyway, so it is withdrawn rather than distorted. */
+@media (max-width: 767px) {
+  .mast-motion-rainbow { display: none; }
+}
+
 /* Surf. A beach breaks in one place - the waterline - so unlike the swell,
    which is a patch, this is a set of bars laid ALONG a traced shore, each
    rotated to the slope beneath it. A crest rises out of nothing, brightens as
@@ -2790,7 +2856,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-ghost, .mast-motion-ferry, .mast-motion-ferry-hull, .mast-motion-ferry-wake,
   .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored,
   .mast-motion-neon, .mast-motion-wheel, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
-  .mast-motion-swell, .mast-motion-surf {
+  .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow {
     animation: none !important; opacity: 0 !important;
   }
 }

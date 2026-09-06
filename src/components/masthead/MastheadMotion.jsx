@@ -144,7 +144,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, snowfall, swell, surf, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, snowfall, swell, surf, rainbow, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -204,6 +204,16 @@ export default function MastheadMotion({ city }) {
                 '--dur': `${f.dur.toFixed(2)}s`, '--dl': `${f.dl}s`, '--sw': `${f.sw}s`, '--sway': `${f.sway}px` }} />
           ))}
         </div>
+      )}
+
+      {/* MASTHEAD-RAINBOW-1: one arc, on the half of the sky opposite the sun.
+          It is an EVENT, not a texture: it fades up, holds, and is gone for
+          most of its cycle, the way a trade shower's rainbow actually behaves.
+          The box is the arc's bounding box and the arc is drawn from its
+          bottom centre, so x/y/w/h place the apex and both feet at once. */}
+      {rainbow && (
+        <span className="mast-motion-rainbow"
+          style={{ left: `${rainbow.x}%`, top: `${rainbow.y}%`, width: `${rainbow.w}%`, height: `${rainbow.h}%` }} />
       )}
 
       {/* A measured patch of water that carries a light chop. */}

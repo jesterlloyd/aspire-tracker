@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'snowfall', 'swell', 'surf', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'snowfall', 'swell', 'surf', 'rainbow', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -232,6 +232,38 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
   for (let i = 1; i < surf.length; i++) {
     assert.ok(surf[i][0] > surf[i - 1][0], 'honolulu.surf crests are not in west-to-east order')
     assert.ok(surf[i][1] < surf[i - 1][1], 'honolulu.surf crests do not follow the beach up the card')
+  }
+})
+
+test('a rainbow arcs inside the card, on the half away from the sun', () => {
+  // MASTHEAD-RAINBOW-1. A bow is centred on the ANTISOLAR point: it is always
+  // in the half of the sky opposite the sun, never the same half. A city that
+  // declares both a flare and a rainbow on the same side has one of the two
+  // measured wrong, and nothing on screen would say which - a rainbow lit from
+  // behind still draws, it just cannot happen.
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    const r = m.rainbow
+    if (!r) continue
+    assert.ok(r.w > 0 && r.h > 0, `${city}.rainbow has no size`)
+    assert.ok(r.x >= 0 && r.x + r.w <= 100, `${city}.rainbow leaves the card sideways`)
+    assert.ok(r.y >= 0 && r.y + r.h <= 100, `${city}.rainbow leaves the card vertically`)
+    if (m.flare) {
+      const apex = r.x + r.w / 2
+      assert.ok((m.flare.x > 50) !== (apex > 50),
+        `${city} puts its rainbow (apex x=${apex}) on the same half as its sun (x=${m.flare.x})`)
+    }
+  }
+  // Honolulu's, over the Koolau: apex at x 35, feet at 18 and 52, and its sun
+  // is off the right edge, so the bow is left of centre.
+  assert.deepEqual(CITY_MOTION.honolulu.rainbow, { x: 18, y: 11, w: 34, h: 42 })
+  // The sunlit scenes only. An overcast frame has no sun to make one, and the
+  // gate is the only thing that keeps it off Rain and the night scenes.
+  for (const scene of ['day', 'morning', 'cloudy', 'goldenhour']) {
+    assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-rainbow`))
+  }
+  for (const scene of ['rain', 'night', 'cloudynight', 'snownight']) {
+    assert.doesNotMatch(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-rainbow`))
   }
 })
 

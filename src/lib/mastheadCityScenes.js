@@ -1087,6 +1087,21 @@ export const CITY_MOTION = {
     // brightens from lum 196 at card y 2 to 207 at y 14 and holds, and the
     // Sunset frame puts its glow on the right horizon behind the crater.
     flare: { x: 106, y: 14 },
+    // MASTHEAD-RAINBOW-1: the Rainbow State earns one, and it goes where the
+    // real ones go - over the Koolau, on the half of the sky OPPOSITE the sun.
+    // A bow is centred on the antisolar point, and this artwork's sun is off
+    // the right edge (see flare), so an arc drawn anywhere right of centre
+    // would be lit from the wrong side. Apex at x 35, feet at x 18 and 52,
+    // measured against the frame: the sky at x 35 is clear from the top edge
+    // down to the ridge at y 25, and the arc stands on the range the way
+    // Honolulu's actually do. The apex sits at 35 rather than the 29 it
+    // started at because the greeting grows leftward-to-rightward as the card
+    // narrows - it reaches x 40 by 768px - and at 29 the peak of the bow, the
+    // one part that has to be seen, was behind the word "Jester". The visible
+    // span ends at x 47 (the mask dissolves the last 14%), which clears the
+    // clock's box at 45.9 because the arc's band stops at y 39 and the clock
+    // starts at 47.9. Withdrawn below 768px, where the card changes aspect.
+    rainbow: { x: 18, y: 11, w: 34, h: 42 },
     rainfall: true,
   },
 }
