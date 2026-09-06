@@ -40,7 +40,9 @@ test('scene synonyms, multi-word cities, flat files, and junk', () => {
   assert.equal(packs.lasvegas.sunset, '/masthead/Las_Vegas_Dusk.png')
   assert.equal(packs.lasvegas.dawn, '/masthead/Las_Vegas_Sunrise.png')
   assert.equal(packs.chicago.goldenhour, '/masthead/Chicago/Chicago_Golden_Hour.webp')
-  assert.equal(packs.chicago.rain, '/masthead/Chicago/Chicago_Overcast.webp')
+  // MASTHEAD-CLOUDY-1: Overcast is the Cloudy scene now, not a synonym of Rain.
+  assert.equal(packs.chicago.cloudy, '/masthead/Chicago/Chicago_Overcast.webp')
+  assert.equal(packs.chicago.rain, undefined)
   assert.equal(packs.paris, undefined)  // "Banner" is not a scene word
   assert.equal(packs.tokyo, undefined)  // no scene suffix; deeper nesting ignored
 })
@@ -299,6 +301,11 @@ test('an installed pack may add CloudyNight, and the five that predate it need n
   const packs = parseSceneFiles(files)
   // Hollywood ships it; nobody is required to.
   assert.ok(packs.hollywood?.cloudynight, 'Hollywood carries CloudyNight')
+  // MASTHEAD-CLOUDY-1: "Cloudy" is its own scene now, not a synonym of Rain.
+  assert.equal(parseSceneFiles(['LosAngeles/LosAngeles_Cloudy.webp']).losangeles.cloudy, '/masthead/LosAngeles/LosAngeles_Cloudy.webp')
+  assert.equal(parseSceneFiles(['LosAngeles/LosAngeles_Overcast.webp']).losangeles.cloudy, '/masthead/LosAngeles/LosAngeles_Overcast.webp')
+  assert.equal(parseSceneFiles(['LosAngeles/LosAngeles_Cloudy.webp']).losangeles.rain, undefined)
+  assert.ok(packs.losangeles?.cloudy, 'Los Angeles carries Cloudy')
   // And every pack, with or without it, is still COMPLETE on the required set.
   for (const city of Object.keys(packs)) {
     for (const scene of SCENES) assert.ok(packs[city]?.[scene], `${city} must carry ${scene}`)

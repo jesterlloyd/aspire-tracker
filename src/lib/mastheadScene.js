@@ -31,8 +31,12 @@ export const SCENES = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night'
 // making it required would have made all of them incomplete overnight. Each
 // optional scene declares what it falls back to, so a pack without it still
 // renders something true rather than nothing at all.
-export const OPTIONAL_SCENES = ['cloudynight']
-export const SCENE_FALLBACK = { cloudynight: 'night' }
+// MASTHEAD-CLOUDY-1 (Owner, 2026-09-05): 'cloudy', a dry overcast day. One
+// hour in three in New York and San Francisco is plain grey with dry streets,
+// and every pack showed the Rain frame for it. A pack without a Cloudy frame
+// falls back to Rain, which is exactly what it showed before.
+export const OPTIONAL_SCENES = ['cloudynight', 'cloudy']
+export const SCENE_FALLBACK = { cloudynight: 'night', cloudy: 'rain' }
 
 /** Every scene that can be rendered, required and optional together. */
 export const ALL_SCENES = [...SCENES, ...OPTIONAL_SCENES]
@@ -115,12 +119,24 @@ export function sceneForTime(now = new Date(), sun = null) {
   return 'night'
 }
 
-/** WMO codes that swap the daytime artwork for the Rain scene: rain, drizzle,
- *  freezing rain, showers, thunderstorms, snow (LA courtesy), full overcast,
- *  and fog. Partly cloudy (1-2) deliberately keeps the time-of-day scene. */
+/** WMO codes that take the time-of-day artwork away: everything in isWetCode
+ *  plus full overcast and fog. Partly cloudy (1-2) deliberately keeps the
+ *  time-of-day scene. */
 export function isRainyCode(code) {
+  return isOvercastCode(code) || isWetCode(code)
+}
+
+/** Overcast or fog: grey, but nothing is falling. By day this is the Cloudy
+ *  scene (or its Rain fallback); after dark the CloudyNight frame, without the
+ *  rain and lightning the wet codes bring. */
+export function isOvercastCode(code) {
+  return code === 3 || code === 45 || code === 48
+}
+
+/** Something is falling: drizzle, rain, freezing rain, showers, snow (LA
+ *  courtesy) and thunderstorms. Rain and lightning motion run only on these. */
+export function isWetCode(code) {
   if (code == null) return false
-  if (code === 3 || code === 45 || code === 48) return true
   if (code >= 51 && code <= 67) return true
   if (code >= 71 && code <= 77) return true
   if ((code >= 80 && code <= 86) || (code >= 95 && code <= 99)) return true
@@ -135,5 +151,8 @@ export function isRainyCode(code) {
  *  safe for every city whether or not it has the extra artwork. */
 export function artSceneFor(clockScene, weatherCode) {
   if (!isRainyCode(weatherCode)) return clockScene
-  return clockScene === 'night' ? 'cloudynight' : 'rain'
+  if (clockScene === 'night') return 'cloudynight'
+  // MASTHEAD-CLOUDY-1: a dry grey day is Cloudy, not Rain. A pack without the
+  // frame shows Rain through SCENE_FALLBACK, as it always did.
+  return isWetCode(weatherCode) ? 'rain' : 'cloudy'
 }

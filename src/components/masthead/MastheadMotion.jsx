@@ -32,6 +32,7 @@
 // MASTHEAD-ATLANTA-2 added a police car: a span with police: true runs one
 // more vehicle whose lights flip red and blue as it goes.
 import { CITY_MOTION } from '../../lib/mastheadCityScenes'
+import { useMastheadScene } from '../WeatherScene'
 
 // Coprime-ish periods so a row of lights never visibly pulses in unison.
 const PERIODS = [3.1, 4.3, 5.7, 3.7, 6.1, 4.9, 3.3, 5.3, 4.1, 6.7, 3.9, 5.9, 4.7]
@@ -110,6 +111,10 @@ function crossing(c) {
 }
 
 export default function MastheadMotion({ city }) {
+  // MASTHEAD-CLOUDY-1: the one weather fact this component reads. The scene
+  // class says which frame is up; this says whether anything is falling, so
+  // a dry overcast night keeps its cloudy frame without rain or lightning.
+  const { wet } = useMastheadScene()
   const m = CITY_MOTION[city]
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
@@ -145,7 +150,7 @@ export default function MastheadMotion({ city }) {
   const flareRight = !!flare && flare.x > 50
   const flareX = flareRight ? 100 - flare.x : flare?.x
   return (
-    <div className="mast-motion" aria-hidden>
+    <div className={`mast-motion${wet ? ' mast-motion-wet' : ''}`} aria-hidden>
       {/* Two bolts on different periods, so the storm does not tick like a
           metronome. Both sit right of centre: a flash over the greeting would
           fight the text, the same contract the artwork's left fade honours. */}

@@ -8,7 +8,7 @@
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
-import { sceneForTime, sunTimesFrom, artSceneFor, isRainyCode, SCENES, CLOCK_SCENES,
+import { sceneForTime, sunTimesFrom, artSceneFor, isRainyCode, isWetCode, isOvercastCode, SCENES, CLOCK_SCENES,
   OPTIONAL_SCENES, ALL_SCENES, SCENE_FALLBACK, sceneFrameFor, isNightScene,
 } from '../src/lib/mastheadScene.js'
 
@@ -65,12 +65,21 @@ test('rain codes: precipitation, overcast, and fog - never partly cloudy', () =>
   }
 })
 
-test('bad weather overrides every scene: rain by day, cloudynight after dark', () => {
+test('bad weather overrides every scene: rain or cloudy by day, cloudynight after dark', () => {
   for (const scene of ['dawn', 'morning', 'day', 'goldenhour', 'sunset']) {
     assert.equal(artSceneFor(scene, 61), 'rain', `${scene} + rain -> rain art`)
+    // MASTHEAD-CLOUDY-1: a dry grey day is Cloudy (a pack without the frame
+    // shows Rain through the fallback, which is what it always showed).
+    assert.equal(artSceneFor(scene, 3), 'cloudy', `${scene} + overcast -> cloudy art`)
+    assert.equal(artSceneFor(scene, 45), 'cloudy', `${scene} + fog -> cloudy art`)
+    assert.equal(artSceneFor(scene, 95), 'rain', `${scene} + thunderstorm -> rain art`)
     assert.equal(artSceneFor(scene, 0), scene, `${scene} + clear stays`)
     assert.equal(artSceneFor(scene, 2), scene, `${scene} + partly cloudy stays`)
   }
+  // Wet is the subset that brings rain and lightning; overcast is the rest.
+  for (const code of [51, 61, 67, 71, 77, 80, 82, 85, 95, 99]) assert.ok(isWetCode(code) && !isOvercastCode(code), `code ${code} is wet`)
+  for (const code of [3, 45, 48]) assert.ok(isOvercastCode(code) && !isWetCode(code), `code ${code} is dry overcast`)
+  for (const code of [0, 1, 2, null, undefined]) assert.ok(!isWetCode(code) && !isOvercastCode(code), `code ${code} is neither`)
   // MASTHEAD-CLOUDY-NIGHT (Owner): night used to ignore the weather entirely
   // and show a clear sky through a storm. Now it has its own bad-weather frame.
   assert.equal(artSceneFor('night', 61), 'cloudynight', 'rain after dark')
@@ -126,9 +135,12 @@ test('an optional scene is optional, and declares what it falls back to', () => 
   // before it incomplete overnight, which drops the SVG scenery in underneath
   // a perfectly good pack. It is optional with a declared fallback instead.
   assert.ok(!SCENES.includes('cloudynight'), 'not required of every pack')
-  assert.deepEqual(OPTIONAL_SCENES, ['cloudynight'])
-  assert.deepEqual(ALL_SCENES, [...SCENES, 'cloudynight'])
+  assert.ok(!SCENES.includes('cloudy'), 'not required of every pack')
+  assert.deepEqual(OPTIONAL_SCENES, ['cloudynight', 'cloudy'])
+  assert.deepEqual(ALL_SCENES, [...SCENES, 'cloudynight', 'cloudy'])
   assert.equal(SCENE_FALLBACK.cloudynight, 'night')
+  // MASTHEAD-CLOUDY-1: without a Cloudy frame a grey day shows Rain, as before.
+  assert.equal(SCENE_FALLBACK.cloudy, 'rain')
   // Every optional scene must declare a fallback, or a pack without it would
   // render nothing at all for that state.
   for (const s of OPTIONAL_SCENES) {
@@ -147,12 +159,40 @@ test('a pack without CloudyNight shows its Night frame, never nothing', () => {
   // the pack incomplete and brings the SVG scenery back.
   assert.equal(sceneFrameFor('rain', without), null)
   assert.equal(sceneFrameFor('cloudynight', null), null)
+  assert.equal(sceneFrameFor('cloudy', { rain: '/r.webp' }), '/r.webp', 'a grey day without its frame shows Rain')
+  assert.equal(sceneFrameFor('cloudy', { rain: '/r.webp', cloudy: '/c.webp' }), '/c.webp')
+})
+
+test('the storm runs only when something is falling: the wet flag, and the CSS that reads it', () => {
+  // MASTHEAD-CLOUDY-1: the cloudy-night frame serves a dry overcast night AND
+  // a storm; rain and lightning must not run on the dry one. The motion layer
+  // carries .mast-motion-wet from the shared weather query, and after dark the
+  // storm gates require it. The Rain scene is wet by construction.
+  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  assert.match(css, /\.mast-scenic\.mast-scene-cloudynight \.mast-motion-wet \.mast-motion-bolt-a \{ animation: mast-bolt/)
+  assert.match(css, /\.mast-scenic\.mast-scene-cloudynight \.mast-motion-wet \.mast-motion-rain \{ opacity: 1; \}/)
+  assert.doesNotMatch(css, /\.mast-scenic\.mast-scene-cloudynight \.mast-motion-bolt-a \{/)
+  assert.doesNotMatch(css, /\.mast-scenic\.mast-scene-cloudynight \.mast-motion-rain \{/)
+  const wx = readFileSync(new URL('../src/components/WeatherScene.jsx', import.meta.url), 'utf8')
+  assert.match(wx, /return \{ scene, night: isNightScene\(scene\), wet \}/)
+  const motion = readFileSync(new URL('../src/components/masthead/MastheadMotion.jsx', import.meta.url), 'utf8')
+  assert.match(motion, /className=\{`mast-motion\$\{wet \? ' mast-motion-wet' : ''\}`\}/)
+  // And the grey day carries the day kinds that belong on it, not the sun ones.
+  for (const kind of ['haze', 'flock', 'bird', 'steam', 'ferry', 'haze-fog']) {
+    assert.match(css, new RegExp(`\\.mast-scenic\\.mast-scene-cloudy \\.mast-motion-${kind}`), `${kind} runs on a cloudy day`)
+  }
+  assert.doesNotMatch(css, /\.mast-scene-cloudy \.mast-motion-glint/, 'no sun glitter under an overcast')
+  assert.doesNotMatch(css, /\.mast-scene-cloudy \.mast-motion-flare/, 'no lens flare under an overcast')
+  // The scene has its sky, its frame gate and its celestial-art gate like every other.
+  assert.match(css, /\.mast-scene-cloudy \.mast-sky-cloudy/)
+  assert.match(css, /\.mast-scene-cloudy \.mast-scn-img-cloudy/)
+  assert.match(css, /\.mast-scene-cloudy \.wx-mast-art::before/)
 })
 
 test('night treatment follows every night scene, clear or clouded', () => {
   assert.ok(isNightScene('night'))
   assert.ok(isNightScene('cloudynight'))
-  for (const s of ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'rain']) {
+  for (const s of ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'rain', 'cloudy']) {
     assert.ok(!isNightScene(s), s)
   }
 })

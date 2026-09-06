@@ -24,7 +24,10 @@ const SCENE_WORDS = {
   goldenhour: 'goldenhour', golden: 'goldenhour',
   sunset: 'sunset', dusk: 'sunset', evening: 'sunset',
   night: 'night',
-  rain: 'rain', rainy: 'rain', cloudy: 'rain', overcast: 'rain', storm: 'rain',
+  rain: 'rain', rainy: 'rain', storm: 'rain',
+  // MASTHEAD-CLOUDY-1: a dry overcast day is its own optional scene now.
+  // "Cloudy" used to be a synonym of Rain; no shipped pack used the word.
+  cloudy: 'cloudy', overcast: 'cloudy',
   // MASTHEAD-CLOUDY-NIGHT: the same weather after dark. Listed before nothing
   // else matters, but note the parser tries the LONGEST trailing token run
   // first, so "CloudyNight" resolves here rather than as bare "night".
@@ -42,6 +45,7 @@ const SCENE_WORDS = {
 //   folder   the city's common name, PascalCase, no spaces or punctuation
 //   file     <Folder>_<Scene>.webp
 //   scenes   Dawn · Morning · Day · GoldenHour · Sunset · Night · Rain
+//            (optional: CloudyNight, Cloudy)
 //
 // The canonical key is that folder name lowercased: losangeles, lasvegas,
 // newyork, sanfrancisco, atlanta. It is what CITY_COORDS, CITY_SKY_X and
@@ -359,22 +363,69 @@ export const CITY_MOTION = {
     },
   },
   losangeles: {
-    // The basin is a carpet of light, which is the best possible case for this.
+    // MASTHEAD-LOSANGELES-2 (2026-09-05): the second Los Angeles pack (nine
+    // frames, Cloudy joined) replaced the first, so EVERY coordinate here was
+    // re-measured (scratchpad nymeasure.mjs, gridzoom.py). One viewpoint on all
+    // nine: the basin from the south-west, palms at both edges, downtown at
+    // x 36-66 with the Wilshire Grand's spire at x 42.7, the San Gabriels
+    // behind, the 110/101 interchange in front. Default crop (the spire stays
+    // under the top edge). CloudyNight is the same drawing as Night.
+    //
+    // Night: downtown's windows and crowns, then the basin's carpet of light.
     lights: [
-      [55.5, 90.9], [67.9, 88.5], [76.4, 88.2], [49.1, 98.2], [61.9, 71.4],
-      [46.9, 87.0], [61.9, 89.1], [81.0, 93.5], [58.7, 90.3], [52.3, 88.8],
-      [71.2, 87.9], [67.3, 71.4], [57.5, 68.7], [51.4, 78.5],
-      // MASTHEAD-LOCKSCREEN-1: the left third of the basin carpet.
-      [21.3, 90.9], [26.4, 93.5], [30.0, 87.9], [31.4, 98.5], [34.8, 97.4],
-      [35.1, 86.7], [42.0, 87.3], [45.6, 87.9],
+      [55.4, 34.8], [48.6, 46.6], [42.4, 45.4], [50.3, 32.5], [68.2, 60.5],
+      [50.8, 44.0], [71.5, 67.3], [51.6, 59.0], [36.9, 55.5], [50.0, 67.8],
+      [61.2, 63.7], [53.1, 67.3], [64.2, 67.8], [28.2, 68.1], [53.3, 47.8],
+      [58.9, 70.2], [40.2, 55.2], [55.0, 53.7], [56.1, 64.9], [45.1, 51.6],
+      [48.8, 57.8], [57.8, 46.0], [37.1, 69.0], [57.3, 57.8], [42.1, 55.8],
+      [34.4, 62.8], [67.2, 68.7], [34.9, 71.1], [40.1, 68.4], [46.6, 61.7],
+      // The basin, off the two freeway rails.
+      [60.1, 95.6], [80.8, 95.6], [37.0, 81.7], [72.2, 96.5], [45.5, 89.1],
+      [10.8, 82.9], [23.9, 68.1], [31.3, 86.1], [20.0, 88.8], [48.5, 94.1],
+      [67.2, 78.5], [60.1, 74.6], [27.3, 90.9], [42.1, 95.6], [34.2, 99.1],
+      [70.5, 75.5], [53.5, 84.1], [6.3, 79.1], [66.8, 87.9], [19.1, 69.3],
     ],
-    // Two crowns, because downtown LA really is dominated by two towers.
-    beacons: [[62.5, 62.2], [64.4, 66.4]],
-    // East to west over downtown, the way an approach actually runs. It leaves
-    // the frame before the cycle repeats, so the loop has no seam to hide. The
-    // cycle is flight / VISIBLE (MastheadMotion), so the sky is empty ~59% of
-    // the time; there is deliberately no per-city cycle to disagree with that.
-    aircraft: { y: 21, from: 97, to: 33, flight: 34 },
+    // Aviation red on the crowns: the US Bank tower's (rgb 252,38,6 at card y
+    // 35.7), the towers at x 58, 41.6 and 40, City Hall's neighbour, and the
+    // Wilshire corridor's mid-rise crowns out to the west and east.
+    beacons: [
+      [54.4, 35.7], [58.3, 46.0], [41.6, 48.7], [40.0, 54.3], [59.9, 51.9],
+      [68.7, 60.8], [29.9, 64.0], [34.2, 62.2], [26.4, 62.2], [84.1, 67.8],
+      [88.8, 66.7], [18.2, 69.6], [4.5, 72.6],
+    ],
+    beaconTone: 'red',
+    // Steam off three lit rooftops (first lit row of each column), the block
+    // west of the towers and two mid-rises east of them, the ridge behind.
+    steam: [[38.0, 55.2], [52.0, 50.2], [60.0, 51.9]],
+    // The interchange. The first pack refused traffic on the curves; this
+    // frame's elevated run in front of the basin (x 26-42) and the ramp that
+    // drops off it (x 48.5-56.5) are straight enough, traced light by light
+    // (+-1.5% band). A police car works the long run.
+    bridge: [
+      {
+        lights: [[27.0, 90.6], [31.0, 90.6], [35.5, 90.6], [37.5, 89.7], [40.0, 88.2], [41.5, 89.4]],
+        deck: { x: 26, y: 91.6, w: 16, rise: -2.4 },
+        police: true,
+      },
+      {
+        lights: [[49.0, 91.5], [50.5, 92.6], [52.0, 92.6], [55.0, 95.9]],
+        deck: { x: 48.5, y: 90.5, w: 8, rise: 6 },
+      },
+    ],
+    // East to west over downtown, the way the LAX approach actually runs;
+    // the sky is clear above card y 25 between the palms (which reach the
+    // top at both edges), so everything flies inside x 6-94.
+    aircraft: { y: 21, from: 94, to: 33, flight: 34 },
+    birds: { y: 30, from: 94, to: 60, flight: 30, count: 6 },
+    // An LAPD helicopter low over the basin at sunset, west to east.
+    helicopter: { y: 36, from: 8, to: 62, flight: 46 },
+    // The basin's smog, between the mountains' base (card y 42-50) and the
+    // mid-rise band; warm-grey, the default tone, which is what the basin is.
+    haze: { y: 48, height: 16 },
+    // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
+    // 8%; sky column means peak at x 10 and fall to the right).
+    flare: { x: -6, y: 8 },
+    rainfall: true,
   },
   sanfrancisco: {
     // MASTHEAD-SANFRANCISCO-2 (2026-09-04): the second San Francisco pack

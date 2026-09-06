@@ -247,7 +247,9 @@ test('beacon tone is only red where the artwork paints it red', () => {
   // Las Vegas's second pack: the Strat's pod band is rgb(244,34,61) and the
   // crown at x 81.2 is 248,19,14.
   assert.equal(CITY_MOTION.lasvegas.beaconTone, 'red')
-  assert.equal(CITY_MOTION.losangeles.beaconTone, undefined)
+  // Los Angeles's second pack paints its crowns red too (the US Bank tower's
+  // is rgb 252,38,6). Atlanta's first pack is the one on the default tone.
+  assert.equal(CITY_MOTION.losangeles.beaconTone, 'red')
   // A ferry tone is likewise only 'orange' (the Staten Island Ferry), with a ferry.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (m.ferryTone === undefined) continue
