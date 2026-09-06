@@ -75,6 +75,14 @@ function IdentityPicker({ id, value, onChange, onPickStudent, onPickContact, inc
   const loading = contactsLoading || studentsLoading
   const safeActive = results.length ? Math.min(activeIdx, results.length - 1) : 0
   const showNoMatch = open && !loading && debounced.length >= 2 && results.length === 0
+  // GRANT-STUDENT-REGRANT-1: for a student login the record is REQUIRED and the login email is
+  // a separate field, so a no-match must say so instead of offering manual entry.
+  const termLooksLikeEmail = String(value || '').includes('@')
+  const noMatchCopy = includeStudents
+    ? (termLooksLikeEmail
+      ? 'No ASPIRE student record has this email. Search the student by name, then enter this address as the login email below.'
+      : 'No matching ASPIRE student. A student login must be linked to a student record; search by name or school.')
+    : 'No matching student or contact found. You can continue by entering the details manually.'
   const listboxId = `${id}-listbox`
 
   const choose = (r) => { if (r.kind === 'student') onPickStudent?.(r.student); else onPickContact?.(r.contact); setOpen(false) }
@@ -97,7 +105,7 @@ function IdentityPicker({ id, value, onChange, onPickStudent, onPickContact, inc
         <div id={listboxId} role="listbox" aria-label="Search results"
           style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.12)', maxHeight: 320, overflowY: 'auto', padding: 4 }}>
           {loading && <div style={{ fontSize: 11.5, color: '#9ca3af', padding: '10px' }}>Searching…</div>}
-          {showNoMatch && <div style={{ fontSize: 12, color: '#6b7280', padding: '10px', lineHeight: 1.5 }}>No matching student or contact found. You can continue by entering the details manually.</div>}
+          {showNoMatch && <div style={{ fontSize: 12, color: '#6b7280', padding: '10px', lineHeight: 1.5 }}>{noMatchCopy}</div>}
           {results.map((r, i) => {
             const isActive = i === safeActive
             const isStudent = r.kind === 'student'
@@ -170,6 +178,22 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose, loading])
 
+  // GRANT-STUDENT-REGRANT-1 (2026-09-05): Renew / Edit for a student account starts on the
+  // student that account is linked to, instead of an empty picker and a disabled button with
+  // no explanation. When the link is gone (a cleaned-up account), the picker stays and the
+  // footer names what is missing. A student the Owner has already picked is never replaced.
+  const linkedStudentId = initial?.portal_role === 'student' ? (initial?.scope?.students?.[0]?.student_id || null) : null
+  useEffect(() => {
+    if (!linkedStudentId) return undefined
+    let cancelled = false
+    supabase.from('students')
+      .select('id, first_name, last_name, preferred_first_name, school, cohort_id, status, school_email, personal_email, matched_unit_id')
+      .eq('id', linkedStudentId)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled && data) setStudent(current => current || data) })
+    return () => { cancelled = true }
+  }, [linkedStudentId])
+
   // Explicit saved-contact selection: infer the role from the contact's category,
   // fill name + email, and suggest the (possibly new) role's scope. A fresh
   // contact resets scope guards so its suggestions apply.
@@ -228,7 +252,9 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     setRole('student')
     setFullName(studentName(s))
     const em = bestStudentLoginEmail(s, null) // school -> personal (no Cedars-Sinai column exists)
-    if (em) setEmail(em) // else leave as-is; the manual-entry prompt shows below
+    // GRANT-STUDENT-REGRANT-1: a stored address that would not pass the validator is not
+    // prefilled; the field stays empty and the prompt below asks for a login email.
+    if (em && isValidEmail(em)) setEmail(em) // else leave as-is; the manual-entry prompt shows below
   }, [])
 
   // Validation evaluates ONLY the active role's scope. nursing_academic is
@@ -241,6 +267,16 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const emailValid = isValidEmail(email)
   const formValid = !!fullName.trim() && emailValid && !!role && scopeValid && !loading
   const showStudentEmailPrompt = role === 'student' && !!student && !email.trim()
+  const emailInvalid = !!email.trim() && !emailValid
+  // GRANT-STUDENT-REGRANT-1: the one reason the button is disabled, in the footer, so a
+  // re-grant never stalls on a silent gate. Order follows the form top to bottom.
+  const blockingReason = formValid || loading ? null
+    : role === 'student' && !student ? 'Pick the ASPIRE student record this login opens.'
+    : !fullName.trim() ? 'Enter the name for the invitation.'
+    : !emailValid ? (email.trim() ? 'The login email is not a valid address.' : 'Enter a login email. Any address works.')
+    : role === 'unit_leader' && !scopeValid ? 'Pick at least one unit.'
+    : role === 'academic_partner' && !scopeValid ? 'Pick at least one school.'
+    : null
   const emails = studentEmailOptions(student)
 
   const buildPayload = () => {
@@ -359,6 +395,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                   </div>
                 )}
                 {showStudentEmailPrompt && <div role="alert" style={{ fontSize: 11.5, color: '#991b1b', marginTop: 5 }}>No email is on file for this student. Enter a login email manually.</div>}
+                {emailInvalid && <div role="alert" style={{ fontSize: 11.5, color: '#991b1b', marginTop: 5 }}>Enter a valid login email, for example name@school.edu. It does not have to be a saved contact.</div>}
               </div>
               <p style={{ margin: '0 0 14px', fontSize: 11.5, color: '#6b7280', lineHeight: 1.5 }}>
                 The login email is the portal sign-in identity. It does not have to match an email stored on the linked ASPIRE student record, and changing it never changes the linked student.
@@ -446,6 +483,9 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontFamily: F, fontSize: 13, cursor: loading ? 'default' : 'pointer' }}>
             {step === 'review' && <ChevronLeft size={14} />}{step === 'review' ? 'Back' : 'Cancel'}
           </button>
+          {blockingReason && (
+            <span role="status" style={{ alignSelf: 'center', flex: 1, textAlign: 'right', fontSize: 11.5, color: '#6b7280', fontFamily: F, lineHeight: 1.4 }}>{blockingReason}</span>
+          )}
           {step === 'form' ? (
             <button type="button" onClick={() => setStep('review')} disabled={!formValid}
               style={{ padding: '8px 16px', border: 'none', borderRadius: 8, background: formValid ? '#1D2567' : '#e5e7eb', color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: formValid ? 'pointer' : 'default' }}>Review</button>
