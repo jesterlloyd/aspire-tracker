@@ -84,6 +84,7 @@ const CITY_ALIASES = {
   // The folder is Rio, the city is Rio de Janeiro, and a browser's location
   // label says the long form. Both spellings have to reach the same pack.
   rio: 'rio', riodejaneiro: 'rio',
+  tokyo: 'tokyo',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -312,6 +313,14 @@ export const CITY_IMG_Y = {
   // not a Rio masthead. The 61 rows are paid at the bottom, where the frame
   // has foreground bay and a few sailboats and nothing that names the city.
   rio: '0%',
+  // MASTHEAD-TOKYO-1: top-anchored for the same reason as Rio, twice over. The
+  // Skytree's mast reaches source row 0 - it touches the frame's top edge - and
+  // Tokyo Tower's antenna row 10. The default crop starts at 61 and the centred
+  // one at 31; both take the Skytree's whole crown and Tokyo Tower's spire with
+  // its aviation light. Rendered side by side the centred crop leaves the
+  // Skytree a stump, which decides it. The cost is real and is recorded in the
+  // motion entry: the elevated railway lies below the card entirely.
+  tokyo: '0%',
 }
 export const DEFAULT_IMG_Y = '100%'
 
@@ -1220,6 +1229,81 @@ export const CITY_MOTION = {
     // The bay between the cove and Sugarloaf's base, verified open water at
     // every 2% from x 60 to 82.
     swell: { x: 60, y: 64, w: 22, height: 14 },
+    rainfall: true,
+  },
+  tokyo: {
+    // MASTHEAD-TOKYO-1 (2026-09-06): a new city, nine frames, measured through
+    // the TOP-anchored crop (see CITY_IMG_Y). The view looks west across the
+    // whole basin: Fuji at x 10-16, Tokyo Tower at x 32.5 with its spire at the
+    // top edge, the Shinjuku cluster from x 40 to 72, the Skytree at x 87.5,
+    // and low-rise city everywhere else to the horizon.
+    //
+    // NO TRAIN, AND THE REASON IS THE CROP. The frame does draw an elevated
+    // railway, a clear multi-track viaduct running diagonally from x 58 to 66,
+    // but it sits at source rows 346-391 - card y 102 to 114, entirely below
+    // the card's bottom edge. Including it means the centred crop, which takes
+    // the Skytree's crown and Tokyo Tower's spire, and those are the city. A
+    // sweep of every straight line across the lower card found no second
+    // candidate: Tokyo's pale rooftops ARE the background here, so nothing
+    // scored above the noise. A train drawn anywhere else would be invented.
+    //
+    // TOKYO'S WINDOWS ARE WHITE. Every other pack in this registry measures its
+    // lights with a warm score (r - b >= 12) because sodium is what those
+    // cities burn; on this frame that score returns NOTHING. The artwork paints
+    // fluorescent office light at rgb(255,255,255), so these were measured on
+    // luminance with a low-saturation gate instead.
+    lights: [
+      [14.3, 93.5], [6.6, 96.5], [14.4, 96.5], [18.4, 98.2], [15.3, 92.3],
+      [19.0, 92.0], [14.6, 87.6], [16.8, 94.7], [12.8, 87.3], [0.6, 89.4],
+      [10.2, 85.0],
+      [32.4, 90.3], [37.3, 86.1], [31.1, 86.4], [29.5, 85.5], [33.7, 74.9],
+      [22.1, 86.4], [37.7, 90.9], [35.4, 95.6], [22.1, 79.4], [20.4, 88.2],
+      [38.4, 78.2],
+      [46.3, 94.7], [49.0, 87.3], [41.4, 55.2], [41.9, 60.2], [53.0, 90.6],
+      [57.6, 82.6], [50.0, 70.8], [56.3, 76.7], [43.9, 92.9], [55.2, 72.3],
+      [47.6, 74.9],
+      [66.1, 62.8], [66.1, 77.0], [71.3, 81.4], [65.7, 82.3], [65.5, 95.6],
+      [79.0, 96.5], [60.4, 82.9], [65.1, 63.4], [77.3, 95.3], [75.8, 95.9],
+      [78.3, 73.8],
+      [80.2, 84.4], [84.9, 77.6], [83.5, 91.7], [85.0, 89.4], [80.8, 75.2],
+      [82.3, 91.2], [91.5, 86.7], [97.2, 82.9], [93.3, 64.0], [92.5, 77.3],
+      [89.9, 66.7], [95.7, 91.5], [94.2, 72.0],
+      // Tokyo Tower's floodlit lattice, and the Skytree's lit column. Both are
+      // lit structures rather than windows, so they breathe with the city.
+      [32.4, 15.3], [32.5, 19.2], [32.4, 17.4], [32.4, 32.7], [31.8, 59.3],
+      [87.6, 5.0], [87.2, 21.8], [87.5, 27.7], [87.6, 29.5], [87.4, 45.1],
+    ],
+    // Every tall building in this frame carries an aviation light, which is
+    // true of Tokyo and is the single most animated thing in the artwork.
+    // FOUND BY THE SKY ABOVE THEM, not by colour: Tokyo Tower is painted
+    // red-orange from top to bottom, so a per-pixel red test returns its whole
+    // lattice and nothing useful. A beacon is the one red point on its
+    // building with open sky overhead, and that test returns only crowns -
+    // including the tower's own tip light at [32.5, 3.2].
+    beacons: [
+      [32.5, 3.2], [47.3, 37.2], [71.9, 57.5], [4.7, 58.7], [90.5, 60.5],
+      [12.0, 67.3], [93.2, 51.3], [53.3, 39.8], [94.0, 53.1], [39.8, 61.7],
+      [45.6, 37.5], [53.6, 73.5], [81.0, 74.0], [14.0, 59.3], [80.6, 55.8],
+      [67.9, 48.1], [7.9, 69.0], [65.2, 58.7], [53.6, 55.8], [91.7, 68.1],
+      [33.2, 57.8], [94.8, 60.8], [42.9, 73.2], [69.0, 57.2], [66.0, 58.4],
+      [40.8, 67.6],
+    ],
+    beaconTone: 'red',
+    // The approach runs east to west and stops at x 36: Tokyo Tower's spire
+    // reaches card y 3 at x 32.5 and the Skytree y 2 at x 87.5, so a lane that
+    // crossed the whole card at this height would draw straight through both.
+    // The motion layer sits ABOVE the artwork, so a plane behind a tower is not
+    // an option; the lane has to end short of them.
+    aircraft: { y: 12, from: 84, to: 36, flight: 40 },
+    // The flock spreads 6.4% above its lane and 11.5% below, so y 20 puts it
+    // between 13.6 and 31.5 - clear of the Shinjuku crowns, which start at 33.
+    birds: { y: 20, from: 82, to: 38, flight: 34, count: 6 },
+    helicopter: { y: 26, from: 40, to: 84, flight: 46 },
+    // Kanto haze on the far range, which sits at y 44-57 across the frame.
+    haze: { y: 44, height: 11 },
+    // The golden-hour sun is OFF-FRAME LEFT and high: the sky column mean falls
+    // from 227 at x 0 to 200 at x 80, and the left edge is brightest at y 2-8.
+    flare: { x: -6, y: 8 },
     rainfall: true,
   },
 }

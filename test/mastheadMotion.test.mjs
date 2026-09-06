@@ -383,10 +383,11 @@ test('the crop exceptions are exactly the cities measured through them', () => {
   // only thing that will say so. Atlanta, Hollywood (second pack) and New
   // York (second pack) are the three; all were measured through the centred crop.
   const CENTRED = ['atlanta', 'hollywood', 'newyork', 'lasvegas', 'seattle', 'hongkong', 'honolulu']
-  // MASTHEAD-RIO-1: Rio is anchored to the TOP, alone. Christ the Redeemer
-  // starts at source row 7 and neither the default nor the centred crop keeps
-  // him, so its points were converted through a third offset again.
-  const TOP = ['rio']
+  // MASTHEAD-RIO-1 / MASTHEAD-TOKYO-1: two cities are anchored to the TOP.
+  // Christ the Redeemer starts at source row 7 and the Skytree's mast at row
+  // 0, and neither the default nor the centred crop keeps them, so both packs
+  // were converted through a third offset again.
+  const TOP = ['rio', 'tokyo']
   assert.equal(DEFAULT_IMG_Y, '100%')
   for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
   for (const city of TOP) assert.equal(CITY_IMG_Y[city], '0%', `${city} was measured through a top-anchored crop`)
