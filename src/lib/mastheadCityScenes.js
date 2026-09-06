@@ -271,88 +271,29 @@ export const CITY_SKY_X = {
 }
 export const DEFAULT_SKY_X = '52%'
 
-// ── Where the card's vertical crop comes from, per city ─────────────────────
+// ── The card shows the WHOLE frame ──────────────────────────────────────────
 //
-// The card is 5.9:1 and the panoramas are 5:1, so cover crops a horizontal band
-// and object-position decides which. 100% is bottom-anchored: the whole crop
-// comes off the TOP, which keeps the ground and city footer whole and is right
-// for a skyline whose towers sit well below the frame's top edge.
+// MASTHEAD-FULL-FRAME-1 (Owner, 2026-09-06). The card was 5.9:1 and every
+// panorama is 5:1, so cover cropped 61 of each frame's 400 rows - 15% of the
+// artwork, on every city, in every scene. Which 15% was a per-city decision
+// (CITY_IMG_Y: bottom-anchored by default, centred for a spire, top-anchored
+// once a landmark reached the frame's top edge), and it cost something every
+// time: Rio, Tokyo, London, Rome and Hollywood 3 were all top-anchored to save
+// a cross, a mast or a needle, and each paid for it with the foreground.
 //
-// ATLANTA DOES NOT (Owner). Its tallest spire begins at source row 42 of 400,
-// and the card crops about 40px off the top at a 1304px width, so roughly 12px
-// of tower was being sliced. Because both the crop and the tower scale with the
-// card width, the ratio is viewport-independent: anything at or below 69% keeps
-// the spire in frame, and 50% leaves a few pixels of sky above it. The cost is
-// paid at the bottom, where Atlanta has open highway rather than a skyline.
-export const CITY_IMG_Y = {
-  atlanta: '50%',
-  // MASTHEAD-HOLLYWOOD-3: the third pack puts the mast's aviation beacon at
-  // source row 5, so even the centred crop that served the second pack now
-  // takes the top third of the mast and the beacon with it. Top-anchored, like
-  // Rome and Rio; the 61 rows are paid on foreground chaparral at the bottom.
-  hollywood: '0%',
-  // MASTHEAD-NEWYORK-2: One WTC's needle runs to source row 5 in the second
-  // pack; the bottom-anchored crop would cut it at the antenna. Centred, the
-  // needle exits the top edge as a skyline does in a photograph, and the
-  // 30 rows spent at the bottom are Liberty Island's seawall.
-  newyork: '50%',
-  // MASTHEAD-LASVEGAS-2: the Strat's tip is at source row 68, seven rows
-  // under the default crop's edge; centred it sits at card y 11% with sky
-  // above it, and the 30 rows given up at the bottom are suburb.
-  lasvegas: '50%',
-  // MASTHEAD-SEATTLE-1: the Space Needle's tip is at source row 62 by day
-  // and its beacon glows to row 44 at night; centred, the tip sits at card
-  // y 9% with sky above it, and the 30 rows given up at the bottom are the
-  // near shore's trees.
-  seattle: '50%',
-  // MASTHEAD-HONGKONG-1: the ICC's top is at source row 60 and Kowloon's
-  // hills reach the frame's top edge; centred, the tower keeps its crown and
-  // the 30 rows given up at the bottom are the Peak's trees.
-  hongkong: '50%',
-  // MASTHEAD-HONOLULU-1: the Koolau ridge behind Waikiki reaches source row 54
-  // and the bottom-anchored crop starts at row 61, so the range lost its crest
-  // and the card had no open sky left of Diamond Head for the sun or the moon
-  // to sit in. Centred, the ridge keeps its skyline and the 30 rows given up
-  // at the bottom are open water, of which this frame has more than it needs.
-  honolulu: '50%',
-  // MASTHEAD-RIO-1: THE ONLY TOP-ANCHORED CITY, and not by preference.
-  // Christ the Redeemer begins at source row 7 of 400. The default crop starts
-  // at row 61 and removes him entirely; the centred crop starts at row 31 and
-  // beheads him. Only 0% keeps the statue, and a Rio masthead without it is
-  // not a Rio masthead. The 61 rows are paid at the bottom, where the frame
-  // has foreground bay and a few sailboats and nothing that names the city.
-  rio: '0%',
-  // MASTHEAD-TOKYO-1: top-anchored for the same reason as Rio, twice over. The
-  // Skytree's mast reaches source row 0 - it touches the frame's top edge - and
-  // Tokyo Tower's antenna row 10. The default crop starts at 61 and the centred
-  // one at 31; both take the Skytree's whole crown and Tokyo Tower's spire with
-  // its aviation light. Rendered side by side the centred crop leaves the
-  // Skytree a stump, which decides it. The cost is real and is recorded in the
-  // motion entry: the elevated railway lies below the card entirely.
-  tokyo: '0%',
-  // MASTHEAD-LONDON-1: top-anchored, the third city to need it. The Shard's
-  // spire reaches source row 0, the London Eye's rim row 16 and the City's
-  // crowns row 17. The centred crop starts at 31 and takes the Shard's tip and
-  // the TOP OF THE EYE - and a beheaded ferris wheel is worse than a beheaded
-  // spire, because the wheel effect is a circle fitted to that rim. The cost is
-  // the near bank at the bottom; the Thames still fills y 60-99.
-  london: '0%',
-  // MASTHEAD-ROME-1: top-anchored, the fourth city to need it. St Peter's cross
-  // reaches source row 24. The default crop starts at 61 and loses the dome
-  // outright; the centred one starts at 31 and takes the cross off the lantern,
-  // which is worse than losing a spire - it is the one silhouette that says
-  // Rome. The 61 rows are paid on the near rooftops at the bottom, of which
-  // this frame has more than it can use.
-  rome: '0%',
-}
-export const DEFAULT_IMG_Y = '100%'
+// The card is 5:1 now. Nothing is cropped, the crop map is gone, and a new pack
+// needs no crop decision at all - which is also why this constant exists rather
+// than 5 appearing in four files: the motion layer converts a vertical
+// percentage into an on-screen angle through it, and a card that changed shape
+// without that changing with it would tilt every deck, cable and wave crest.
+export const CARD_ASPECT = 5
 
 // MASTHEAD-MOTION-1 (PROTOTYPE): what moves in each city, and where.
 //
-// Coordinates are percentages of the CARD, not of the source image. The card
-// crops the top 15.3% of the 5:1 panorama (a 5.9:1 box, bottom anchored), so
-// these are already past that conversion and are only valid while the city
-// keeps its --scn-img-y. Every position was MEASURED off the artwork by
+// Coordinates are percentages of the CARD, which since MASTHEAD-FULL-FRAME-1 is
+// the whole 5:1 frame - so a card percentage and a source percentage are now the
+// same thing, and a new pack's points can be read straight off the artwork with
+// no crop conversion in between. Every position was MEASURED off the artwork by
 // local-maximum search for bright pixels, never placed by eye: an invented
 // coordinate lands the glow on empty hillside and reads as dust on the lens.
 //
@@ -380,7 +321,7 @@ export const CITY_MOTION = {
     // coordinate here is new - the viewpoint, the crop and the architecture all
     // changed, so nothing from the second pack survives. Ten frames now, with
     // Cloudy and RainNight that the second pack lacked. Measured through the
-    // TOP-anchored crop (see CITY_IMG_Y), which is itself a change from the
+    // TOP-anchored crop (historic), which is itself a change from the
     // second pack's centred one.
     //
     // The view is Griffith Park looking east: the sign at x 17-21 on the ridge,
@@ -395,45 +336,45 @@ export const CITY_MOTION = {
     lights: [
       // The sign, letter by letter. Pale rather than warm (rgb 164,171,210):
       // it is floodlit white, not sodium, and the warm scorer does not see it.
-      [17.3, 32.2], [18.3, 32.2], [18.9, 32.2], [19.8, 32.5], [20.6, 32.7],
+      [17.3, 27.29], [18.3, 27.29], [18.9, 27.29], [19.8, 27.54], [20.6, 27.71],
       // The mast's own structure lights, below the beacon.
-      [22.9, 23.9], [22.0, 26.3], [22.5, 26.3],
+      [22.9, 20.25], [22.0, 22.29], [22.5, 22.29],
       // Griffith Observatory: the dome, the colonnade and the lawn lights.
-      [61.1, 87.3], [65.4, 84.4], [66.9, 64.0], [70.6, 62.8], [69.9, 63.7],
-      [66.0, 84.4],
+      [61.1, 73.98], [65.4, 71.53], [66.9, 54.24], [70.6, 53.22], [69.9, 53.98],
+      [66.0, 71.53],
       // Downtown and the basin behind it.
-      [67.8, 93.2], [97.4, 72.3], [82.2, 67.0], [77.8, 74.3], [80.7, 67.8],
-      [73.7, 67.8], [75.0, 81.7], [66.9, 92.9], [68.4, 62.8], [92.4, 81.1],
-      [80.8, 72.3], [78.0, 67.8], [90.0, 67.3], [66.1, 86.1], [75.4, 67.0],
-      [68.7, 92.3], [72.8, 67.0], [90.9, 57.8], [81.5, 67.6], [85.7, 69.9],
+      [67.8, 78.98], [97.4, 61.27], [82.2, 56.78], [77.8, 62.97], [80.7, 57.46],
+      [73.7, 57.46], [75.0, 69.24], [66.9, 78.73], [68.4, 53.22], [92.4, 68.73],
+      [80.8, 61.27], [78.0, 57.46], [90.0, 57.03], [66.1, 72.97], [75.4, 56.78],
+      [68.7, 78.22], [72.8, 56.78], [90.9, 48.98], [81.5, 57.29], [85.7, 59.24],
       // The near basin below the observatory.
-      [65.5, 92.0], [61.1, 91.7], [62.0, 92.0], [63.9, 92.6], [64.5, 90.0],
-      [62.9, 91.7], [56.4, 98.8], [63.8, 95.6],
+      [65.5, 77.97], [61.1, 77.71], [62.0, 77.97], [63.9, 78.47], [64.5, 76.27],
+      [62.9, 77.71], [56.4, 83.73], [63.8, 81.02],
     ],
     // ONE beacon, and it is the only red thing in the frame: the mast's
     // aviation light at the very top, core rgb(152,46,70) with a red halo
     // against the blue sky. Downtown's crowns probe warm white, not red, so
     // they stay in lights where they breathe.
-    beacons: [[23.8, 2.1]],
+    beacons: [[23.8, 1.78]],
     beaconTone: 'red',
     // Sky is clear above card y 34 east of the mast, which itself reaches y 2
     // at x 23 - so the lane stops at 30. The motion layer draws ABOVE the
     // artwork, and a plane at this height would cross the mast, not pass it.
-    aircraft: { y: 14, from: 98, to: 30, flight: 40 },
+    aircraft: { y: 11.86, from: 98, to: 30, flight: 40 },
     // The flock spreads 6.4% above its lane and 11.5% below, so y 24 puts it
     // between 17.6 and 35.5 and the ridge under the run never rises past 38.
-    birds: { y: 24, from: 96, to: 34, flight: 34, count: 6 },
-    helicopter: { y: 30, from: 34, to: 96, flight: 46 },
+    birds: { y: 20.34, from: 96, to: 34, flight: 34, count: 6 },
+    helicopter: { y: 25.42, from: 34, to: 96, flight: 46 },
     // THE SMOG, which is the one thing this view is really about: the pale band
     // lying across the basin at card y 44-57, with downtown standing in it. The
     // default warm-grey tone, whose mask is strongest right of 56% - which here
     // is exactly the basin and not the hills.
-    haze: { y: 44, height: 13 },
+    haze: { y: 37.29, height: 11.02 },
     // The golden-hour sun is OFF-FRAME RIGHT on this pack, which is a reversal
     // from the second one: the brightest edge pixel is at the RIGHT edge at
     // card y 2.4, and the sky column mean rises from 224 mid-frame to 229 at
     // x 90. The old art was lit from the left; this one is not.
-    flare: { x: 106, y: 8 },
+    flare: { x: 106, y: 6.78 },
     rainfall: true,
   },
   losangeles: {
@@ -447,58 +388,58 @@ export const CITY_MOTION = {
     //
     // Night: downtown's windows and crowns, then the basin's carpet of light.
     lights: [
-      [55.4, 34.8], [48.6, 46.6], [42.4, 45.4], [50.3, 32.5], [68.2, 60.5],
-      [50.8, 44.0], [71.5, 67.3], [51.6, 59.0], [36.9, 55.5], [50.0, 67.8],
-      [61.2, 63.7], [53.1, 67.3], [64.2, 67.8], [28.2, 68.1], [53.3, 47.8],
-      [58.9, 70.2], [40.2, 55.2], [55.0, 53.7], [56.1, 64.9], [45.1, 51.6],
-      [48.8, 57.8], [57.8, 46.0], [37.1, 69.0], [57.3, 57.8], [42.1, 55.8],
-      [34.4, 62.8], [67.2, 68.7], [34.9, 71.1], [40.1, 68.4], [46.6, 61.7],
+      [55.4, 44.75], [48.6, 54.75], [42.4, 53.73], [50.3, 42.8], [68.2, 66.53],
+      [50.8, 52.54], [71.5, 72.29], [51.6, 65.25], [36.9, 62.29], [50.0, 72.71],
+      [61.2, 69.24], [53.1, 72.29], [64.2, 72.71], [28.2, 72.97], [53.3, 55.76],
+      [58.9, 74.75], [40.2, 62.03], [55.0, 60.76], [56.1, 70.25], [45.1, 58.98],
+      [48.8, 64.24], [57.8, 54.24], [37.1, 73.73], [57.3, 64.24], [42.1, 62.54],
+      [34.4, 68.47], [67.2, 73.47], [34.9, 75.51], [40.1, 73.22], [46.6, 67.54],
       // The basin, off the two freeway rails.
-      [60.1, 95.6], [80.8, 95.6], [37.0, 81.7], [72.2, 96.5], [45.5, 89.1],
-      [10.8, 82.9], [23.9, 68.1], [31.3, 86.1], [20.0, 88.8], [48.5, 94.1],
-      [67.2, 78.5], [60.1, 74.6], [27.3, 90.9], [42.1, 95.6], [34.2, 99.1],
-      [70.5, 75.5], [53.5, 84.1], [6.3, 79.1], [66.8, 87.9], [19.1, 69.3],
+      [60.1, 96.27], [80.8, 96.27], [37.0, 84.49], [72.2, 97.03], [45.5, 90.76],
+      [10.8, 85.51], [23.9, 72.97], [31.3, 88.22], [20.0, 90.51], [48.5, 95.0],
+      [67.2, 81.78], [60.1, 78.47], [27.3, 92.29], [42.1, 96.27], [34.2, 99.24],
+      [70.5, 79.24], [53.5, 86.53], [6.3, 82.29], [66.8, 89.75], [19.1, 73.98],
     ],
     // Aviation red on the crowns: the US Bank tower's (rgb 252,38,6 at card y
     // 35.7), the towers at x 58, 41.6 and 40, City Hall's neighbour, and the
     // Wilshire corridor's mid-rise crowns out to the west and east.
     beacons: [
-      [54.4, 35.7], [58.3, 46.0], [41.6, 48.7], [40.0, 54.3], [59.9, 51.9],
-      [68.7, 60.8], [29.9, 64.0], [34.2, 62.2], [26.4, 62.2], [84.1, 67.8],
-      [88.8, 66.7], [18.2, 69.6], [4.5, 72.6],
+      [54.4, 45.51], [58.3, 54.24], [41.6, 56.53], [40.0, 61.27], [59.9, 59.24],
+      [68.7, 66.78], [29.9, 69.49], [34.2, 67.97], [26.4, 67.97], [84.1, 72.71],
+      [88.8, 71.78], [18.2, 74.24], [4.5, 76.78],
     ],
     beaconTone: 'red',
     // Steam off three lit rooftops (first lit row of each column), the block
     // west of the towers and two mid-rises east of them, the ridge behind.
-    steam: [[38.0, 55.2], [52.0, 50.2], [60.0, 51.9]],
+    steam: [[38.0, 62.03], [52.0, 57.8], [60.0, 59.24]],
     // The interchange. The first pack refused traffic on the curves; this
     // frame's elevated run in front of the basin (x 26-42) and the ramp that
     // drops off it (x 48.5-56.5) are straight enough, traced light by light
     // (+-1.5% band). A police car works the long run.
     bridge: [
       {
-        lights: [[27.0, 90.6], [31.0, 90.6], [35.5, 90.6], [37.5, 89.7], [40.0, 88.2], [41.5, 89.4]],
-        deck: { x: 26, y: 91.6, w: 16, rise: -2.4 },
+        lights: [[27.0, 92.03], [31.0, 92.03], [35.5, 92.03], [37.5, 91.27], [40.0, 90.0], [41.5, 91.02]],
+        deck: { x: 26, y: 92.88, w: 16, rise: -2.03 },
         police: true,
       },
       {
-        lights: [[49.0, 91.5], [50.5, 92.6], [52.0, 92.6], [55.0, 95.9]],
-        deck: { x: 48.5, y: 90.5, w: 8, rise: 6 },
+        lights: [[49.0, 92.8], [50.5, 93.73], [52.0, 93.73], [55.0, 96.53]],
+        deck: { x: 48.5, y: 91.95, w: 8, rise: 5.08 },
       },
     ],
     // East to west over downtown, the way the LAX approach actually runs;
     // the sky is clear above card y 25 between the palms (which reach the
     // top at both edges), so everything flies inside x 6-94.
-    aircraft: { y: 21, from: 94, to: 33, flight: 34 },
-    birds: { y: 30, from: 94, to: 60, flight: 30, count: 6 },
+    aircraft: { y: 33.05, from: 94, to: 33, flight: 34 },
+    birds: { y: 40.68, from: 94, to: 60, flight: 30, count: 6 },
     // An LAPD helicopter low over the basin at sunset, west to east.
-    helicopter: { y: 36, from: 8, to: 62, flight: 46 },
+    helicopter: { y: 45.76, from: 8, to: 62, flight: 46 },
     // The basin's smog, between the mountains' base (card y 42-50) and the
     // mid-rise band; warm-grey, the default tone, which is what the basin is.
-    haze: { y: 48, height: 16 },
+    haze: { y: 55.93, height: 13.56 },
     // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
     // 8%; sky column means peak at x 10 and fall to the right).
-    flare: { x: -6, y: 8 },
+    flare: { x: -6, y: 22.03 },
     rainfall: true,
   },
   sanfrancisco: {
@@ -512,36 +453,36 @@ export const CITY_MOTION = {
     // Night: the downtown and Marina windows, the far East Bay shore under
     // the greeting, and the lit coast road on the Marin side at right.
     lights: [
-      [97.8, 31.0], [86.9, 31.9], [70.3, 49.0], [49.5, 43.1], [44.6, 31.3],
-      [59.7, 44.3], [64.9, 41.6], [40.5, 31.9], [76.3, 48.4], [91.0, 31.3],
-      [55.8, 44.0], [86.9, 56.3], [52.0, 31.9], [57.3, 22.1], [45.9, 44.0],
-      [82.5, 34.8],
+      [97.8, 41.53], [86.9, 42.29], [70.3, 56.78], [49.5, 51.78], [44.6, 41.78],
+      [59.7, 52.8], [64.9, 50.51], [40.5, 42.29], [76.3, 56.27], [91.0, 41.78],
+      [55.8, 52.54], [86.9, 62.97], [52.0, 42.29], [57.3, 33.98], [45.9, 52.54],
+      [82.5, 44.75],
       // The East Bay shore, left third.
-      [27.9, 32.7], [13.7, 33.9], [35.8, 31.3], [1.8, 34.8], [20.1, 33.0],
+      [27.9, 42.97], [13.7, 43.98], [35.8, 41.78], [1.8, 44.75], [20.1, 43.22],
       // The Marin coast road, right of the bridge's north pier.
-      [78.6, 60.8], [74.5, 69.6], [94.9, 68.1], [90.7, 69.0], [99.6, 67.6],
+      [78.6, 66.78], [74.5, 74.24], [94.9, 72.97], [90.7, 73.73], [99.6, 72.54],
     ],
     // The two tower crowns carry aviation lights, painted RED in the Night
     // frame (rgb 251,5,6 on the south tower, 248,55,48 on the north), so this
     // city joins Hollywood on the red tone. Nothing else on the bridge is a
     // beacon: the other red maxima are the International Orange paint.
-    beacons: [[29.8, 34.2], [68.2, 33.6]],
+    beacons: [[29.8, 44.24], [68.2, 43.73]],
     beaconTone: 'red',
     // Reflections: each tower's column of light in the strait beneath it, and
     // the city's soft wash on the bay between the bridge and the waterfront.
     water: [
-      [29.9, 75.5], [26.7, 82.3], [30.0, 87.6],
-      [67.8, 67.6], [67.8, 74.0], [67.5, 82.6], [68.3, 88.8], [63.9, 85.5],
-      [68.3, 50.2], [72.3, 53.4], [64.5, 51.0], [53.9, 50.2], [58.1, 55.8], [40.5, 55.8],
+      [29.9, 79.24], [26.7, 85.0], [30.0, 89.49],
+      [67.8, 72.54], [67.8, 77.97], [67.5, 85.25], [68.3, 90.51], [63.9, 87.71],
+      [68.3, 57.8], [72.3, 60.51], [64.5, 58.47], [53.9, 57.8], [58.1, 62.54], [40.5, 62.54],
     ],
     bridge: {
       // The deck string, measured light by light from the south approach to
       // the north pier.
       lights: [
-        [21.1, 65.2], [23.2, 66.1], [25.5, 65.5], [31.3, 63.1], [33.5, 62.5],
-        [35.4, 63.4], [38.3, 62.0], [40.5, 61.4], [43.5, 61.1], [47.0, 60.2],
-        [51.3, 61.1], [53.8, 59.3], [58.0, 59.6], [60.5, 59.6], [62.5, 59.3],
-        [66.3, 59.6], [70.0, 59.6], [73.7, 59.9], [76.4, 60.5],
+        [21.1, 70.51], [23.2, 71.27], [25.5, 70.76], [31.3, 68.73], [33.5, 68.22],
+        [35.4, 68.98], [38.3, 67.8], [40.5, 67.29], [43.5, 67.03], [47.0, 66.27],
+        [51.3, 67.03], [53.8, 65.51], [58.0, 65.76], [60.5, 65.76], [62.5, 65.51],
+        [66.3, 65.76], [70.0, 65.76], [73.7, 66.02], [76.4, 66.53],
       ],
       // The roadway is not quite one line here: it climbs from the south
       // approach to mid-span and runs level to the north pier (per-column
@@ -549,39 +490,39 @@ export const CITY_MOTION = {
       // through the whole run stays within 1.5% of the deck everywhere, about
       // three pixels on a wide card, under a 2px trail; the cost of a second
       // rail would be cars vanishing at the joint.
-      deck: { x: 21.1, y: 64.6, w: 55.3, rise: -4.5 },
+      deck: { x: 21.1, y: 70.0, w: 55.3, rise: -3.81 },
     },
     // Clear sky to card y 12% everywhere: the crown is the only thing above.
-    aircraft: { y: 8, from: 2, to: 62, flight: 40 },
+    aircraft: { y: 22.03, from: 2, to: 62, flight: 40 },
     // Gulls in the open sky above the East Bay hills (the hills begin at card
     // y 17%). Over the bay they vanished against the waterfront's buildings.
-    birds: { y: 10, from: 98, to: 40, flight: 34, count: 5 },
-    helicopter: { y: 44, from: 96, to: 42, flight: 46 },
+    birds: { y: 23.73, from: 98, to: 40, flight: 34, count: 5 },
+    helicopter: { y: 52.54, from: 96, to: 42, flight: 46 },
     // The Golden Gate's fog: a band at deck height and below, so the towers
     // stand out of it. Tone 'fog' is white-blue, not the basin's warm smog.
-    haze: { y: 60, height: 22 },
+    haze: { y: 66.1, height: 18.64 },
     hazeTone: 'fog',
     // The golden-hour sun is OFF-FRAME RIGHT here (sky brightest at the right
     // edge, card y 40%; sky column means rise from 155 at left to 193 at
     // right), the mirror of Hollywood. The flare layer flips for it and the
     // ghosts land on the strait and the headland at left.
-    flare: { x: 106, y: 40 },
+    flare: { x: 106, y: 49.15 },
     rainfall: true,
     // A ferry on the Sausalito run, crossing the bay behind the bridge. Slow
     // and continuous rather than a rare crossing: it is what that water does.
     // Its lane is the strip of water between the waterfront (which reaches
     // card y 50% east of x 58%) and the deck (y 60%): nothing else is water
     // the whole way across.
-    ferry: { y: 56, from: 46, to: 80, flight: 130 },
+    ferry: { y: 62.71, from: 46, to: 80, flight: 130 },
     // Sun glitter on the strait. Measured as the pale local maxima the
     // Morning, Golden Hour and Sunset frames share south-east of the north
     // pier, where the light path lies; the Day frame's water is flat and its
     // only pale maxima are the beach surf, so these twinkle in Day too but
     // over the same measured patch, not over invented water.
     glints: [
-      [65.3, 70.5], [71.5, 66.1], [71.2, 74.0], [72.8, 73.5], [72.0, 83.5],
-      [73.4, 83.2], [74.6, 85.0], [79.7, 84.7], [78.0, 88.5], [81.3, 90.0],
-      [73.3, 93.2],
+      [65.3, 75.0], [71.5, 71.27], [71.2, 77.97], [72.8, 77.54], [72.0, 86.02],
+      [73.4, 85.76], [74.6, 87.29], [79.7, 87.03], [78.0, 90.25], [81.3, 91.53],
+      [73.3, 94.24],
     ],
   },
   newyork: {
@@ -590,27 +531,27 @@ export const CITY_MOTION = {
     // (scratchpad nymeasure.mjs). All eight frames share one viewpoint: the
     // harbour from above Liberty Island, Lower Manhattan centre, Midtown
     // behind it, the two East River bridges at right. Measured through the
-    // 50% crop (see CITY_IMG_Y): One WTC's needle runs to source row 5.
+    // 50% crop (historic): One WTC's needle runs to source row 5.
     //
     // Night: Lower Manhattan's windows, Midtown's crowns (the Empire State at
-    // [61.1, 20.4]), Brooklyn and the far Queens skyline, the Jersey shore
-    // under the greeting, Liberty's torch ([21.0, 50.2]) and the island's lamps.
+    // [61.1, 24.92]), Brooklyn and the far Queens skyline, the Jersey shore
+    // under the greeting, Liberty's torch ([21.0, 50.17]) and the island's lamps.
     lights: [
-      [47.5, 28.3], [38.4, 58.4], [55.0, 49.6], [29.2, 54.6], [53.6, 35.7],
-      [61.1, 60.2], [42.7, 61.7], [34.1, 56.6], [57.4, 30.1], [33.8, 36.9],
-      [45.1, 20.7], [44.1, 38.1], [61.3, 44.5], [37.1, 29.2], [28.2, 41.9],
-      [58.3, 43.1], [35.7, 45.1], [40.6, 41.9], [53.3, 28.3], [61.1, 20.4],
-      [50.2, 35.1], [53.8, 60.8],
+      [47.5, 31.61], [38.4, 57.12], [55.0, 49.66], [29.2, 53.9], [53.6, 37.88],
+      [61.1, 58.64], [42.7, 59.92], [34.1, 55.59], [57.4, 33.14], [33.8, 38.9],
+      [45.1, 25.17], [44.1, 39.92], [61.3, 45.34], [37.1, 32.37], [28.2, 43.14],
+      [58.3, 44.15], [35.7, 45.85], [40.6, 43.14], [53.3, 31.61], [61.1, 24.92],
+      [50.2, 37.37], [53.8, 59.15],
       // Brooklyn and the far skyline, right of the bridges. Lamps within
       // 1.5% of either deck rail are left to the deck string.
-      [73.8, 49.0], [91.3, 54.0], [63.5, 52.5], [64.6, 23.6], [79.1, 38.6],
-      [64.3, 43.1], [93.2, 36.9], [70.3, 52.5], [99.1, 58.4], [67.3, 41.9],
-      [88.1, 38.1], [72.2, 38.9],
+      [73.8, 49.15], [91.3, 53.39], [63.5, 52.12], [64.6, 27.63], [79.1, 40.34],
+      [64.3, 44.15], [93.2, 38.9], [70.3, 52.12], [99.1, 57.12], [67.3, 43.14],
+      [88.1, 39.92], [72.2, 40.59],
       // The Jersey shore, left third.
-      [7.4, 51.0], [18.8, 42.5], [11.9, 49.0], [22.4, 41.9], [4.9, 42.2],
-      [0.5, 53.1], [15.4, 47.8], [26.8, 41.3], [14.3, 30.4], [4.2, 51.9],
+      [7.4, 50.85], [18.8, 43.64], [11.9, 49.15], [22.4, 43.14], [4.9, 43.39],
+      [0.5, 52.63], [15.4, 48.14], [26.8, 42.63], [14.3, 33.39], [4.2, 51.61],
       // Liberty's torch, and the island's path lamps along the bottom edge.
-      [21.0, 50.2], [10.3, 95.9], [29.3, 97.1], [19.1, 94.7], [33.4, 95.6],
+      [21.0, 50.17], [10.3, 88.9], [29.3, 89.92], [19.1, 87.88], [33.4, 88.64],
     ],
     // Aviation red is painted on most of this frame's crowns (rgb 252,27,17 on
     // the Jersey City tower, 236,45,3 and 248,58,29 on the two crowns beside
@@ -618,22 +559,22 @@ export const CITY_MOTION = {
     // tone. First is One WTC's antenna light, the only part of the needle the
     // crop keeps (the crown itself is white in the frame, 237,232,205).
     beacons: [
-      [40.6, 2.1], [44.1, 21.8], [47.6, 23.6], [52.8, 33.0], [29.5, 36.3],
-      [32.6, 34.2], [8.8, 28.0], [81.3, 31.6], [73.9, 39.2], [83.5, 44.0],
+      [40.6, 9.41], [44.1, 26.1], [47.6, 27.63], [52.8, 35.59], [29.5, 38.39],
+      [32.6, 36.61], [8.8, 31.36], [81.3, 34.41], [73.9, 40.85], [83.5, 44.92],
     ],
     beaconTone: 'red',
     // The harbour throws the strongest reflections of any pack: the waterfront
     // columns under Lower Manhattan (two tiers), the East River under the far
     // span, the near tower's column, the Brooklyn promenade, the Jersey shore.
     water: [
-      [50.0, 64.6], [59.6, 63.1], [56.3, 64.0], [43.0, 64.0], [53.4, 63.1],
-      [36.5, 67.6], [46.5, 64.6],
-      [43.6, 68.4], [58.1, 68.7], [43.6, 79.7], [48.6, 81.7], [48.6, 68.1],
-      [57.8, 79.1], [61.4, 77.6],
-      [71.5, 66.1], [73.8, 67.0], [64.5, 71.1],
-      [87.9, 76.1], [83.3, 87.6],
-      [89.2, 76.7], [99.4, 76.7], [92.2, 77.9], [96.5, 82.0],
-      [12.0, 63.4], [3.0, 65.2], [14.8, 63.1], [33.1, 55.8],
+      [50.0, 62.37], [59.6, 61.1], [56.3, 61.86], [43.0, 61.86], [53.4, 61.1],
+      [36.5, 64.92], [46.5, 62.37],
+      [43.6, 65.59], [58.1, 65.85], [43.6, 75.17], [48.6, 76.86], [48.6, 65.34],
+      [57.8, 74.66], [61.4, 73.39],
+      [71.5, 63.64], [73.8, 64.41], [64.5, 67.88],
+      [87.9, 72.12], [83.3, 81.86],
+      [89.2, 72.63], [99.4, 72.63], [92.2, 73.64], [96.5, 77.12],
+      [12.0, 61.36], [3.0, 62.88], [14.8, 61.1], [33.1, 54.92],
     ],
     // Two spans. The far one (Brooklyn Bridge, tower at x 67) runs from the
     // Manhattan approach to where it passes behind the near span; the near
@@ -643,48 +584,48 @@ export const CITY_MOTION = {
     // tower and flatter after, and one rail sits within 1.1% of it everywhere.
     bridge: [
       {
-        lights: [[58.5, 53.7], [61.5, 52.5], [63.5, 52.8], [65.0, 53.4], [70.0, 54.6], [72.0, 56.0]],
-        deck: { x: 58.5, y: 52.2, w: 13.5, rise: 3.2 },
+        lights: [[58.5, 53.14], [61.5, 52.12], [63.5, 52.37], [65.0, 52.88], [70.0, 53.9], [72.0, 55.08]],
+        deck: { x: 58.5, y: 51.86, w: 13.5, rise: 2.71 },
       },
       {
         lights: [
-          [74.0, 56.0], [77.5, 59.0], [80.0, 60.5], [81.5, 61.1], [83.0, 61.4],
-          [84.5, 62.0], [86.0, 62.5], [89.0, 64.0], [93.5, 65.5],
+          [74.0, 55.08], [77.5, 57.63], [80.0, 58.9], [81.5, 59.41], [83.0, 59.66],
+          [84.5, 60.17], [86.0, 60.59], [89.0, 61.86], [93.5, 63.14],
         ],
-        deck: { x: 74, y: 57.2, w: 22, rise: 8.4 },
+        deck: { x: 74, y: 56.1, w: 22, rise: 7.12 },
       },
     ],
     // Sky is clear to card y 15% right of the needle (the Empire State reaches
     // 17% at x 61). The approach comes in from the east over Brooklyn.
-    aircraft: { y: 4, from: 98, to: 44, flight: 40 },
-    birds: { y: 8, from: 98, to: 44, flight: 34, count: 6 },
+    aircraft: { y: 11.02, from: 98, to: 44, flight: 40 },
+    birds: { y: 14.41, from: 98, to: 44, flight: 34, count: 6 },
     // A tour helicopter, low over Midtown and out over the East River.
-    helicopter: { y: 12, from: 46, to: 98, flight: 46 },
+    helicopter: { y: 17.8, from: 46, to: 98, flight: 46 },
     // Smog lies on the far skylines (Jersey at y 30-42, Queens at 33-40 and
     // Midtown's base) while Lower Manhattan's towers rise through it.
-    haze: { y: 27, height: 16 },
+    haze: { y: 30.51, height: 13.56 },
     // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y 18%;
     // sky column means fall from 223 at left to 203 at right), like Hollywood.
-    flare: { x: -6, y: 18 },
+    flare: { x: -6, y: 22.88 },
     rainfall: true,
     // The Staten Island Ferry, orange, out of the Battery and south-west across
     // the harbour. Its lane, y 73, is water the whole way: under the Brooklyn
     // shore (which reaches y 70.7 at x 90, hence the start at 84), clear of
     // Lower Manhattan (waterfront y 60-62) and stopping short of Liberty's
     // pedestal at x 20-22.5.
-    ferry: { y: 73, from: 84, to: 26, flight: 150 },
+    ferry: { y: 69.49, from: 84, to: 26, flight: 150 },
     ferryTone: 'orange',
     // Steam, the thing every New York rooftop does. Three measured roof edges
     // (Day frame, first row where the column leaves the sky) with open sky
     // above them: a low-rise west of the WTC cluster and two mid towers.
-    steam: [[34.0, 35.7], [52.0, 33.9], [58.0, 31.6]],
+    steam: [[34.0, 37.88], [52.0, 36.36], [58.0, 34.41]],
     // Sun glitter, measured as pale maxima INSIDE the water (the brightest
     // pale points of the day frames are the promenade edges, not the water):
     // the harbour below the waterfront, the East River mouth, the near shore.
     glints: [
-      [33.9, 67.0], [40.9, 68.4], [40.2, 76.7], [46.0, 75.5], [57.2, 72.6],
-      [61.1, 77.9], [63.4, 72.6], [68.2, 72.0], [71.2, 74.9], [80.0, 91.5],
-      [85.0, 87.3], [96.3, 80.2],
+      [33.9, 64.41], [40.9, 65.59], [40.2, 72.63], [46.0, 71.61], [57.2, 69.15],
+      [61.1, 73.64], [63.4, 69.15], [68.2, 68.64], [71.2, 71.1], [80.0, 85.17],
+      [85.0, 81.61], [96.3, 75.59],
     ],
     // MASTHEAD-SNOW-1: snow falls on the Snow and SnowNight frames, and the
     // harbour carries a light chop on the calm day scenes: the patch below
@@ -692,14 +633,14 @@ export const CITY_MOTION = {
     // Liberty Island (x 8-35 below y 79) and the Brooklyn shore (x 76+ above
     // y 75, the mask's fade covers the corner).
     snowfall: true,
-    swell: { x: 36, y: 62, w: 46, height: 37 },
+    swell: { x: 36, y: 60.17, w: 46, height: 31.36 },
     // MASTHEAD-SCENE-SHIFT: the CloudyNight frame is the Night drawing moved
     // DOWN 2.2% of the card (46 Night lights find their warm pixel 7-8px
     // lower, the four red crowns 2.0-2.3% lower, x unchanged). One measured
     // shift on the anchored group, rather than a second copy of every set.
     // SnowNight is the same drawing moved down 1.5% (crowns at 44.1 and
     // 83.5 sit 1.5-1.7% lower; the waterfront lamps within 1%).
-    sceneShift: { cloudynight: 2.2, snownight: 1.5 },
+    sceneShift: { cloudynight: 1.86, snownight: 1.27 },
   },
   lasvegas: {
     // MASTHEAD-LASVEGAS-2 (2026-09-05): the second Las Vegas pack replaced
@@ -708,89 +649,89 @@ export const CITY_MOTION = {
     // valley from the south-east, the Strat at far left, the High Roller and
     // the Sphere left of centre, Paris's tower right of it, the Luxor pyramid
     // at right, mountains behind, the suburbs' arterial roads in front.
-    // Measured through the 50% crop (see CITY_IMG_Y): the Strat's tip is at
+    // measured before MASTHEAD-FULL-FRAME-1 and converted to the full frame with it: the Strat's tip is at
     // source row 68. CloudyNight is the same drawing (landmarks and crowns
     // within 3px), so it needs no shift and no override.
     //
     // Night: the Strip's facades and crowns, then the suburb's lamps.
     lights: [
-      [65.5, 63.4], [65.3, 52.8], [80.5, 45.7], [70.8, 54.3], [65.6, 73.5],
-      [58.7, 54.9], [20.6, 47.8], [92.7, 59.6], [94.6, 71.4], [28.2, 46.6],
-      [10.6, 73.2], [95.9, 51.3], [24.2, 57.2], [26.6, 62.5], [21.3, 72.9],
-      [22.2, 62.5], [93.0, 49.3], [92.4, 71.1], [15.4, 67.3], [31.4, 47.8],
-      [26.5, 69.6], [59.4, 73.8], [2.3, 64.0], [97.5, 69.6], [23.6, 68.7],
-      [34.7, 67.0], [14.0, 73.5], [30.0, 65.8], [67.7, 62.0], [26.6, 56.3],
-      [26.2, 50.4], [17.0, 73.2], [52.5, 62.0], [30.1, 72.9], [84.1, 52.8],
+      [65.5, 61.36], [65.3, 52.37], [80.5, 46.36], [70.8, 53.64], [65.6, 69.92],
+      [58.7, 54.15], [20.6, 48.14], [92.7, 58.14], [94.6, 68.14], [28.2, 47.12],
+      [10.6, 69.66], [95.9, 51.1], [24.2, 56.1], [26.6, 60.59], [21.3, 69.41],
+      [22.2, 60.59], [93.0, 49.41], [92.4, 67.88], [15.4, 64.66], [31.4, 48.14],
+      [26.5, 66.61], [59.4, 70.17], [2.3, 61.86], [97.5, 66.61], [23.6, 65.85],
+      [34.7, 64.41], [14.0, 69.92], [30.0, 63.39], [67.7, 60.17], [26.6, 55.34],
+      [26.2, 50.34], [17.0, 69.66], [52.5, 60.17], [30.1, 69.41], [84.1, 52.37],
       // The suburb's lamps, off the two road rails.
-      [21.8, 94.4], [33.0, 98.8], [69.3, 83.8], [55.8, 76.7], [41.6, 97.4],
-      [91.0, 99.1], [95.1, 83.5], [50.3, 94.4], [91.0, 77.9],
+      [21.8, 87.63], [33.0, 91.36], [69.3, 78.64], [55.8, 72.63], [41.6, 90.17],
+      [91.0, 91.61], [95.1, 78.39], [50.3, 87.63], [91.0, 73.64],
     ],
     // The Strat's tip (rgb 232,100,58 at card y 11) and its pod's red band
     // (244,34,61), the crown at x 28 (250,67,2), Paris's tip, the red crown
     // at 81.2 (248,19,14) and the three tower crowns beside it.
     beacons: [
-      [7.7, 11.0], [7.7, 16.8], [28.0, 47.8], [65.5, 42.2], [81.2, 44.8],
-      [77.6, 43.1], [75.9, 44.5], [72.1, 44.0],
+      [7.7, 16.95], [7.7, 21.86], [28.0, 48.14], [65.5, 43.39], [81.2, 45.59],
+      [77.6, 44.15], [75.9, 45.34], [72.1, 44.92],
     ],
     beaconTone: 'red',
     // Neon: the saturated magenta and cyan maxima of the Strip's signage
     // (the third element picks the cyan glow; magenta is the default). The
     // wheel's rim and the Sphere's skin are left to their own kinds.
     neon: [
-      [11.9, 59.6], [41.1, 58.1], [40.9, 66.4], [37.5, 69.0], [48.6, 74.9],
-      [64.0, 58.4], [62.9, 68.4], [73.6, 45.7], [78.1, 48.7], [80.3, 59.3],
-      [1.2, 67.3],
-      [86.9, 71.7, 'cyan'], [87.5, 64.0, 'cyan'], [72.2, 45.7, 'cyan'],
-      [91.5, 76.1, 'cyan'], [36.9, 58.7, 'cyan'], [73.6, 62.0, 'cyan'],
-      [54.2, 53.4, 'cyan'],
+      [11.9, 58.14], [41.1, 56.86], [40.9, 63.9], [37.5, 66.1], [48.6, 71.1],
+      [64.0, 57.12], [62.9, 65.59], [73.6, 46.36], [78.1, 48.9], [80.3, 57.88],
+      [1.2, 64.66],
+      [86.9, 68.39, 'cyan'], [87.5, 61.86, 'cyan'], [72.2, 46.36, 'cyan'],
+      [91.5, 72.12, 'cyan'], [36.9, 57.37, 'cyan'], [73.6, 60.17, 'cyan'],
+      [54.2, 52.88, 'cyan'],
     ],
     // The High Roller: a ring 97 source px across (bounding box of its lit
     // rim, card y 44.3-72.9), centred at x 39.0. Diameter as a share of the
     // card WIDTH, since the ring is square in pixels and the card is not.
-    wheel: { x: 39.0, y: 58.6, d: 4.85 },
+    wheel: { x: 39.0, y: 57.29, d: 4.85 },
     // The Sphere: 123 px across, top at card y 54.3, its lower half behind
     // the Strip (the skyline cuts it at y 73.8, 54% of the way down).
-    orb: { x: 47.2, y: 72.4, d: 6.15, cut: 54 },
+    orb: { x: 47.2, y: 68.98, d: 6.15, cut: 54 },
     // The Luxor shaft, standing on the pyramid's apex: the brightest column
     // at x 88 peaks white (254,255,253) at card y 57-58 and the frame already
     // paints a faint beam above it.
-    beam: { x: 87.95, y: 57.5, height: 47, width: 2.4 },
+    beam: { x: 87.95, y: 56.36, height: 39.83, width: 2.4 },
     // Two arterial roads across the suburb in front, traced light by light
     // (+-1.3% band): both run level across the whole frame.
     bridge: [
       {
         lights: [
-          [3.5, 81.1], [7.0, 80.8], [10.0, 80.8], [13.0, 79.7], [16.5, 79.9],
-          [20.0, 80.5], [25.5, 81.4], [29.0, 80.5], [35.0, 79.1], [39.0, 79.1],
-          [43.5, 79.4], [46.5, 79.1], [53.5, 79.4], [56.5, 79.9], [60.5, 79.1],
-          [64.5, 79.9], [69.0, 79.4], [73.0, 79.1], [77.5, 79.9], [81.5, 78.8],
-          [86.0, 79.1], [89.5, 79.4], [92.0, 79.7], [97.0, 78.8],
+          [3.5, 76.36], [7.0, 76.1], [10.0, 76.1], [13.0, 75.17], [16.5, 75.34],
+          [20.0, 75.85], [25.5, 76.61], [29.0, 75.85], [35.0, 74.66], [39.0, 74.66],
+          [43.5, 74.92], [46.5, 74.66], [53.5, 74.92], [56.5, 75.34], [60.5, 74.66],
+          [64.5, 75.34], [69.0, 74.92], [73.0, 74.66], [77.5, 75.34], [81.5, 74.41],
+          [86.0, 74.66], [89.5, 74.92], [92.0, 75.17], [97.0, 74.41],
         ],
-        deck: { x: 1, y: 79.7, w: 98, rise: 0 },
+        deck: { x: 1, y: 75.17, w: 98, rise: 0.0 },
       },
       {
         lights: [
-          [2.5, 91.5], [8.0, 89.1], [12.0, 89.4], [16.5, 90.6], [21.0, 89.4],
-          [26.0, 89.1], [31.5, 89.7], [37.0, 90.9], [40.5, 90.6], [44.0, 90.6],
-          [50.0, 90.6], [53.5, 89.7], [58.0, 89.4], [61.5, 90.9], [65.5, 89.4],
-          [70.0, 90.0], [73.5, 89.1], [79.5, 91.7], [84.5, 90.0], [88.5, 90.0],
-          [93.5, 91.2], [97.0, 90.0],
+          [2.5, 85.17], [8.0, 83.14], [12.0, 83.39], [16.5, 84.41], [21.0, 83.39],
+          [26.0, 83.14], [31.5, 83.64], [37.0, 84.66], [40.5, 84.41], [44.0, 84.41],
+          [50.0, 84.41], [53.5, 83.64], [58.0, 83.39], [61.5, 84.66], [65.5, 83.39],
+          [70.0, 83.9], [73.5, 83.14], [79.5, 85.34], [84.5, 83.9], [88.5, 83.9],
+          [93.5, 84.92], [97.0, 83.9],
         ],
-        deck: { x: 1, y: 90.3, w: 98, rise: 0 },
+        deck: { x: 1, y: 84.15, w: 98, rise: 0.0 },
       },
     ],
     // The ridge tops out at card y 30%; the Strat reaches 11% at x 7.7, so
     // the crossings keep to the east of it.
-    aircraft: { y: 16, from: 98, to: 44, flight: 40 },
-    birds: { y: 22, from: 98, to: 44, flight: 34, count: 6 },
-    helicopter: { y: 24, from: 44, to: 98, flight: 46 },
+    aircraft: { y: 21.19, from: 98, to: 44, flight: 40 },
+    birds: { y: 26.27, from: 98, to: 44, flight: 34, count: 6 },
+    helicopter: { y: 27.97, from: 44, to: 98, flight: 46 },
     // Morning haze on the valley floor behind the Strip (the far lights band
     // at y 45-58), white rather than the basin's smog; the towers stand out.
-    haze: { y: 44, height: 14 },
+    haze: { y: 44.92, height: 11.86 },
     hazeTone: 'fog',
     // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
     // 15%; sky column means fall from 225 at left to 207 at right).
-    flare: { x: -6, y: 15 },
+    flare: { x: -6, y: 20.34 },
     rainfall: true,
   },
   hongkong: {
@@ -800,80 +741,80 @@ export const CITY_MOTION = {
     // Victoria Harbour across the middle (card y 36-52), Kowloon on the far
     // shore with the ICC at x 61, the hills behind reaching the top edge.
     // Every coordinate measured (scratchpad nymeasure.mjs, gridzoom.py)
-    // through the 50% crop (see CITY_IMG_Y). All nine frames are one drawing
+    // through the 50% crop (historic). All nine frames are one drawing
     // (skyline profiles within 6px), so no shift and no override.
     //
     // Night: Central and Wan Chai's windows, then Kowloon's along the far
     // shore. The harbour's own maxima are reflections and live in `water`.
     lights: [
-      [97.1, 99.7], [6.9, 96.8], [80.2, 77.3], [70.9, 88.5], [81.4, 91.2],
-      [66.3, 93.5], [73.3, 95.6], [26.5, 72.9], [22.9, 63.1], [46.5, 57.2],
-      [30.3, 95.9], [84.0, 86.7], [1.8, 69.3], [32.7, 99.7], [77.2, 97.1],
-      [31.3, 72.6], [47.1, 64.9], [58.8, 94.1], [39.8, 93.5], [84.0, 77.3],
-      [37.8, 80.8], [86.9, 84.1], [3.6, 91.5], [12.9, 98.2], [54.1, 91.5],
-      [17.8, 54.9], [39.5, 71.4], [63.8, 82.9], [23.4, 80.2], [64.5, 54.0],
-      [63.5, 98.5], [70.7, 95.9],
+      [97.1, 92.12], [6.9, 89.66], [80.2, 73.14], [70.9, 82.63], [81.4, 84.92],
+      [66.3, 86.86], [73.3, 88.64], [26.5, 69.41], [22.9, 61.1], [46.5, 56.1],
+      [30.3, 88.9], [84.0, 81.1], [1.8, 66.36], [32.7, 92.12], [77.2, 89.92],
+      [31.3, 69.15], [47.1, 62.63], [58.8, 87.37], [39.8, 86.86], [84.0, 73.14],
+      [37.8, 76.1], [86.9, 78.9], [3.6, 85.17], [12.9, 90.85], [54.1, 85.17],
+      [17.8, 54.15], [39.5, 68.14], [63.8, 77.88], [23.4, 75.59], [64.5, 53.39],
+      [63.5, 91.1], [70.7, 88.9],
       // Kowloon, the far shore, west to east.
-      [27.5, 17.1], [26.7, 26.3], [30.3, 30.4], [34.2, 33.9], [38.2, 34.8],
-      [41.3, 35.4], [51.2, 26.3], [56.6, 20.7], [73.2, 20.9], [79.0, 24.8],
-      [82.7, 24.2], [85.5, 22.7], [88.1, 23.3], [92.0, 17.1], [97.2, 19.5],
-      [99.5, 21.5], [85.5, 31.6], [82.3, 33.0], [87.8, 33.3],
+      [27.5, 22.12], [26.7, 29.92], [30.3, 33.39], [34.2, 36.36], [38.2, 37.12],
+      [41.3, 37.63], [51.2, 29.92], [56.6, 25.17], [73.2, 25.34], [79.0, 28.64],
+      [82.7, 28.14], [85.5, 26.86], [88.1, 27.37], [92.0, 22.12], [97.2, 24.15],
+      [99.5, 25.85], [85.5, 34.41], [82.3, 35.59], [87.8, 35.85],
     ],
     // The ICC's top light across the harbour, the IFC's crown, and the red
     // crowns the frame paints on Central's and Wan Chai's towers (rgb
     // 252,70,4 at x 31.3, 245,51,24 at x 51).
     beacons: [
-      [61.2, 14.2], [38.9, 36.0], [46.3, 58.7], [31.3, 67.8], [17.6, 68.7],
-      [41.9, 82.9], [51.0, 85.8], [65.8, 85.5],
+      [61.2, 19.66], [38.9, 38.14], [46.3, 57.37], [31.3, 65.08], [17.6, 65.85],
+      [41.9, 77.88], [51.0, 80.34], [65.8, 80.08],
     ],
     beaconTone: 'red',
     // Neon: Hong Kong's facades are lit in magenta and cyan, and the frame
     // paints them so. Twenty-two measured saturated maxima on the near towers.
     neon: [
-      [44.5, 79.7], [12.7, 59.0], [46.8, 94.4], [12.7, 65.2], [21.1, 72.9],
-      [74.0, 92.3], [13.5, 73.5], [67.3, 62.5], [74.2, 85.0], [66.8, 83.2],
-      [21.3, 80.5], [10.0, 33.6],
-      [31.1, 92.6, 'cyan'], [34.1, 60.5, 'cyan'], [63.2, 75.5, 'cyan'],
-      [63.4, 55.8, 'cyan'], [26.6, 54.0, 'cyan'], [52.1, 93.8, 'cyan'],
-      [62.8, 67.0, 'cyan'], [55.5, 66.7, 'cyan'], [61.3, 59.6, 'cyan'],
-      [27.0, 68.7, 'cyan'], [69.7, 87.3, 'cyan'],
+      [44.5, 75.17], [12.7, 57.63], [46.8, 87.63], [12.7, 62.88], [21.1, 69.41],
+      [74.0, 85.85], [13.5, 69.92], [67.3, 60.59], [74.2, 79.66], [66.8, 78.14],
+      [21.3, 75.85], [10.0, 36.1],
+      [31.1, 86.1, 'cyan'], [34.1, 58.9, 'cyan'], [63.2, 71.61, 'cyan'],
+      [63.4, 54.92, 'cyan'], [26.6, 53.39, 'cyan'], [52.1, 87.12, 'cyan'],
+      [62.8, 64.41, 'cyan'], [55.5, 64.15, 'cyan'], [61.3, 58.14, 'cyan'],
+      [27.0, 65.85, 'cyan'], [69.7, 81.61, 'cyan'],
     ],
     // Reflections on the harbour between the two shores (Kowloon's at card y
     // 33-36, Central's at 55, North Point's at 46-50): the ICC's column and
     // the shore lights thrown back across the water.
     water: [
-      [80.4, 44.5], [70.5, 50.4], [56.5, 49.9], [76.4, 48.4], [91.0, 38.1],
-      [99.8, 49.9], [93.6, 41.0], [53.8, 50.7], [48.2, 43.4], [59.9, 47.2],
-      [51.1, 45.7], [36.4, 42.5], [74.1, 50.4], [84.4, 43.4],
+      [80.4, 45.34], [70.5, 50.34], [56.5, 49.92], [76.4, 48.64], [91.0, 39.92],
+      [99.8, 49.92], [93.6, 42.37], [53.8, 50.59], [48.2, 44.41], [59.9, 47.63],
+      [51.1, 46.36], [36.4, 43.64], [74.1, 50.34], [84.4, 44.41],
     ],
     // Steam off three tower tops that stand against the harbour.
-    steam: [[46.5, 58.0], [66.5, 68.5], [21.5, 63.5]],
+    steam: [[46.5, 56.78], [66.5, 65.68], [21.5, 61.44]],
     // The hills reach the top edge between x 50 and 60, so the approach
     // crosses in front of them at night; the kites keep to the eastern
     // hills, the helicopter to the harbour.
-    aircraft: { y: 4, from: 98, to: 30, flight: 40 },
-    birds: { y: 6, from: 98, to: 66, flight: 30, count: 5 },
-    helicopter: { y: 40, from: 96, to: 30, flight: 46 },
+    aircraft: { y: 11.02, from: 98, to: 30, flight: 40 },
+    birds: { y: 12.71, from: 98, to: 66, flight: 30, count: 5 },
+    helicopter: { y: 41.53, from: 96, to: 30, flight: 46 },
     // Haze over Kowloon (the far shore's towers, card y 20-36), warm-grey.
-    haze: { y: 20, height: 16 },
+    haze: { y: 24.58, height: 13.56 },
     // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
     // 32; sky column means fall from 237 at left to 150 behind the ICC).
-    flare: { x: -6, y: 32 },
+    flare: { x: -6, y: 34.75 },
     rainfall: true,
     // The Star Ferry, white, Tsim Sha Tsui to Central: lane y 43 is water
     // from the eastern harbour at x 98 to the piers at 28 (Kowloon's shore
     // ends at 36, North Point's begins at 46).
-    ferry: { y: 43, from: 98, to: 28, flight: 140 },
+    ferry: { y: 44.07, from: 98, to: 28, flight: 140 },
     ferryTone: 'white',
     // Sun glitter, the pale maxima the Day and Golden Hour frames share
     // inside the harbour, the ICC's light path among them.
     glints: [
-      [49.5, 41.3], [52.1, 47.2], [71.5, 48.7], [61.2, 41.9], [38.0, 44.3],
-      [74.0, 47.2], [80.8, 47.2], [60.6, 38.1], [76.8, 44.5], [65.0, 50.2],
-      [91.0, 36.6], [67.4, 42.5],
+      [49.5, 42.63], [52.1, 47.63], [71.5, 48.9], [61.2, 43.14], [38.0, 45.17],
+      [74.0, 47.63], [80.8, 47.63], [60.6, 39.92], [76.8, 45.34], [65.0, 50.17],
+      [91.0, 38.64], [67.4, 43.64],
     ],
     // The harbour's chop, shore to shore.
-    swell: { x: 28, y: 36, w: 72, height: 14 },
+    swell: { x: 28, y: 38.14, w: 72, height: 11.86 },
   },
   seattle: {
     // MASTHEAD-SEATTLE-1 (2026-09-05): a new city, eleven frames (Cloudy,
@@ -881,86 +822,86 @@ export const CITY_MOTION = {
     // Park view: the Space Needle at x 20.1, downtown to x 50, the stadiums
     // and the port along the waterfront, Elliott Bay below, Rainier at x 76.
     // Every coordinate measured (scratchpad nymeasure.mjs, gridzoom.py)
-    // through the 50% crop (see CITY_IMG_Y). The three night frames are one
+    // through the 50% crop (historic). The three night frames are one
     // drawing (forty lights and the Needle's tip within scatter), so the
     // snowy and clouded nights need neither a shift nor an override.
     //
     // Night: downtown's windows, then the waterfront, the stadiums, the port
     // and the far shore.
     lights: [
-      [24.8, 46.9], [34.3, 47.5], [11.3, 67.3], [17.0, 65.5], [21.2, 62.5],
-      [28.3, 45.7], [43.6, 66.1], [11.6, 60.5], [38.8, 55.5], [39.2, 72.0],
-      [9.0, 62.5], [45.0, 52.8], [22.7, 34.2], [31.8, 47.5], [14.0, 36.6],
-      [41.5, 66.4], [15.2, 49.0], [22.4, 53.4], [8.6, 54.0], [25.0, 72.0],
-      [44.9, 44.8], [34.6, 41.3], [25.4, 64.6], [29.4, 39.5], [16.5, 73.2],
-      [37.5, 33.3], [1.6, 56.9], [43.7, 72.6], [24.4, 57.8], [26.8, 53.1],
-      [11.4, 73.5], [17.2, 54.3], [33.1, 59.3], [27.6, 71.1], [4.3, 63.4],
-      [32.1, 70.2], [38.3, 62.0], [12.0, 42.2], [1.0, 67.6],
+      [24.8, 47.37], [34.3, 47.88], [11.3, 64.66], [17.0, 63.14], [21.2, 60.59],
+      [28.3, 46.36], [43.6, 63.64], [11.6, 58.9], [38.8, 54.66], [39.2, 68.64],
+      [9.0, 60.59], [45.0, 52.37], [22.7, 36.61], [31.8, 47.88], [14.0, 38.64],
+      [41.5, 63.9], [15.2, 49.15], [22.4, 52.88], [8.6, 53.39], [25.0, 68.64],
+      [44.9, 45.59], [34.6, 42.63], [25.4, 62.37], [29.4, 41.1], [16.5, 69.66],
+      [37.5, 35.85], [1.6, 55.85], [43.7, 69.15], [24.4, 56.61], [26.8, 52.63],
+      [11.4, 69.92], [17.2, 53.64], [33.1, 57.88], [27.6, 67.88], [4.3, 61.36],
+      [32.1, 67.12], [38.3, 60.17], [12.0, 43.39], [1.0, 64.92],
       // The waterfront, the port and the far shore.
-      [70.7, 71.7], [56.4, 61.1], [76.5, 71.1], [74.2, 74.3], [68.4, 71.4],
-      [78.3, 60.5], [63.8, 74.3], [58.7, 74.0], [73.9, 62.5], [61.7, 59.6],
-      [79.3, 72.9], [55.3, 70.5], [65.5, 63.4], [61.6, 71.7], [94.7, 64.6],
-      [83.8, 65.2], [67.8, 61.4], [86.3, 75.2], [58.9, 58.4], [81.5, 63.1],
+      [70.7, 68.39], [56.4, 59.41], [76.5, 67.88], [74.2, 70.59], [68.4, 68.14],
+      [78.3, 58.9], [63.8, 70.59], [58.7, 70.34], [73.9, 60.59], [61.7, 58.14],
+      [79.3, 69.41], [55.3, 67.37], [65.5, 61.36], [61.6, 68.39], [94.7, 62.37],
+      [83.8, 62.88], [67.8, 59.66], [86.3, 71.36], [58.9, 57.12], [81.5, 61.1],
     ],
     // The Needle's aviation light (rgb 221,31,7 on the snowy night, warm
     // white on the clear one) at the very tip, the Columbia Center's crown,
     // the Municipal Tower's, and the red crowns at x 12.6, 15.2 and 29.9.
-    beacons: [[20.1, 4.0], [33.1, 20.7], [37.8, 28.6], [12.6, 43.1], [15.2, 34.8], [29.9, 39.8]],
+    beacons: [[20.1, 11.02], [33.1, 25.17], [37.8, 31.86], [12.6, 44.15], [15.2, 37.12], [29.9, 41.36]],
     beaconTone: 'red',
     // The bay throws the city back: reflections under the waterfront, the
     // port and the far shore, and in the marina below the near shore.
     water: [
-      [52.9, 87.0], [65.8, 79.9], [62.5, 82.0], [39.1, 94.7], [69.1, 79.7],
-      [41.6, 93.8], [73.6, 77.3], [80.3, 77.9], [36.4, 95.3], [39.0, 85.0],
-      [51.4, 79.7], [48.0, 80.2], [58.7, 85.8], [94.7, 81.4], [87.9, 78.5],
-      [44.3, 86.1], [98.2, 82.0], [58.7, 74.0], [39.4, 77.6], [36.5, 74.6],
+      [52.9, 81.36], [65.8, 75.34], [62.5, 77.12], [39.1, 87.88], [69.1, 75.17],
+      [41.6, 87.12], [73.6, 73.14], [80.3, 73.64], [36.4, 88.39], [39.0, 79.66],
+      [51.4, 75.17], [48.0, 75.59], [58.7, 80.34], [94.7, 76.61], [87.9, 74.15],
+      [44.3, 80.59], [98.2, 77.12], [58.7, 70.34], [39.4, 73.39], [36.5, 70.85],
     ],
     // Alaskan Way along the piers: one level lit line from the aquarium to
     // the stadiums, traced light by light (+-1.3%), with a police car.
     bridge: [
       {
-        lights: [[44.5, 72.6], [46.5, 72.0], [48.0, 72.0], [49.5, 73.2], [52.0, 74.3], [53.5, 72.6], [55.5, 74.0], [60.0, 74.0], [62.0, 73.2], [63.5, 73.8]],
-        deck: { x: 44, y: 73.0, w: 20, rise: 0.5 },
+        lights: [[44.5, 69.15], [46.5, 68.64], [48.0, 68.64], [49.5, 69.66], [52.0, 70.59], [53.5, 69.15], [55.5, 70.34], [60.0, 70.34], [62.0, 69.66], [63.5, 70.17]],
+        deck: { x: 44, y: 69.49, w: 20, rise: 0.42 },
         police: true,
       },
     ],
     // Sky is clear above card y 10 east of the Needle (Rainier's summit is at
     // 18, x 76; the Columbia Center reaches 21 at x 33), so the approach into
     // Sea-Tac runs east to west and stops short of the Needle's mast.
-    aircraft: { y: 7, from: 98, to: 30, flight: 40 },
-    birds: { y: 12, from: 96, to: 40, flight: 34, count: 6 },
+    aircraft: { y: 13.56, from: 98, to: 30, flight: 40 },
+    birds: { y: 17.8, from: 96, to: 40, flight: 34, count: 6 },
     // A floatplane's height and a helicopter's rhythm, low over the bay at
     // sunset, out past the stadiums.
-    helicopter: { y: 24, from: 40, to: 96, flight: 46 },
+    helicopter: { y: 27.97, from: 40, to: 96, flight: 46 },
     // Marine fog lying on the bay: from the piers (y 72-75) out over the
     // water, white, with downtown and the Needle standing clear above it. A
     // first pass at y 60 laid it across the lower skyline and read as a bar.
-    haze: { y: 66, height: 15 },
+    haze: { y: 63.56, height: 12.71 },
     hazeTone: 'fog',
     // Steam off three downtown rooftops with sky above them (first lit row of
     // the column on the Night frame).
-    steam: [[26.0, 41.6], [36.0, 39.8], [46.0, 42.2]],
+    steam: [[26.0, 42.88], [36.0, 41.36], [46.0, 43.39]],
     // The golden-hour sun is OFF-FRAME RIGHT (right edge brightest at card y
     // 32; sky column means rise from 198 at left to 215 at right).
-    flare: { x: 106, y: 32 },
+    flare: { x: 106, y: 34.75 },
     rainfall: true,
     snowfall: true,
     // A Washington State ferry, white, on the Bainbridge run: in from the
     // Sound at right and across the bay to the terminal. Lane y 88 is water
     // from x 98 to the marina at 46 (the near shore's trees begin at 45).
-    ferry: { y: 88, from: 98, to: 46, flight: 150 },
+    ferry: { y: 82.2, from: 98, to: 46, flight: 150 },
     ferryTone: 'white',
     // Sun glitter, measured as the pale maxima of the Day and Golden Hour
     // frames INSIDE the bay: the marina below the near shore, the water off
     // the piers and the port, and the reach toward the far shore.
     glints: [
-      [48.7, 84.1], [36.8, 82.9], [66.5, 79.9], [90.0, 77.0], [41.3, 92.0],
-      [95.5, 80.8], [38.6, 90.6], [57.6, 80.5], [84.4, 78.8], [70.2, 76.1],
-      [52.8, 79.4], [73.7, 79.4],
+      [48.7, 78.9], [36.8, 77.88], [66.5, 75.34], [90.0, 72.88], [41.3, 85.59],
+      [95.5, 76.1], [38.6, 84.41], [57.6, 75.85], [84.4, 74.41], [70.2, 72.12],
+      [52.8, 74.92], [73.7, 74.92],
     ],
     // The bay's chop, from the marina to the far shore (the piers end at y
     // 75, the far shore at 72, the near shore's trees hold x < 45 below 78).
-    swell: { x: 46, y: 76, w: 52, height: 23 },
+    swell: { x: 46, y: 72.03, w: 52, height: 19.49 },
   },
   atlanta: {
     // MASTHEAD-ATLANTA-2 (2026-09-05): the second Atlanta pack replaced the
@@ -973,34 +914,34 @@ export const CITY_MOTION = {
     //
     // Night: Midtown and Downtown's windows, then the suburb's lamps.
     lights: [
-      [36.2, 52.2], [48.2, 66.4], [40.4, 59.3], [42.1, 39.5], [32.2, 63.7],
-      [28.6, 69.3], [36.5, 60.8], [46.9, 41.6], [53.5, 41.6], [62.4, 67.8],
-      [43.6, 56.6], [42.4, 28.3], [53.1, 48.7], [37.4, 44.5], [25.4, 67.8],
-      [17.8, 65.5], [94.1, 66.7], [11.3, 67.3], [80.8, 54.0], [47.0, 55.8],
-      [52.6, 55.8], [45.6, 65.2], [52.8, 66.4], [49.4, 55.8], [55.9, 51.3],
-      [96.9, 50.7], [42.0, 69.3], [67.0, 67.3], [64.7, 63.4], [55.8, 67.8],
-      [36.5, 68.4], [15.2, 65.8], [91.0, 53.1], [29.9, 49.6], [0.9, 66.7],
+      [36.2, 51.86], [48.2, 63.9], [40.4, 57.88], [42.1, 41.1], [32.2, 61.61],
+      [28.6, 66.36], [36.5, 59.15], [46.9, 42.88], [53.5, 42.88], [62.4, 65.08],
+      [43.6, 55.59], [42.4, 31.61], [53.1, 48.9], [37.4, 45.34], [25.4, 65.08],
+      [17.8, 63.14], [94.1, 64.15], [11.3, 64.66], [80.8, 53.39], [47.0, 54.92],
+      [52.6, 54.92], [45.6, 62.88], [52.8, 63.9], [49.4, 54.92], [55.9, 51.1],
+      [96.9, 50.59], [42.0, 66.36], [67.0, 64.66], [64.7, 61.36], [55.8, 65.08],
+      [36.5, 65.59], [15.2, 63.39], [91.0, 52.63], [29.9, 49.66], [0.9, 64.15],
       // The suburb in front, off the two freeway rails.
-      [44.6, 74.9], [69.7, 94.1], [9.6, 90.6], [29.9, 78.2], [58.3, 71.1],
-      [37.5, 77.0], [82.8, 79.1], [75.6, 97.9], [54.5, 98.8], [14.3, 73.5],
-      [66.8, 71.4], [46.0, 86.7], [54.3, 81.7],
+      [44.6, 71.1], [69.7, 87.37], [9.6, 84.41], [29.9, 73.9], [58.3, 67.88],
+      [37.5, 72.88], [82.8, 74.66], [75.6, 90.59], [54.5, 91.36], [14.3, 69.92],
+      [66.8, 68.14], [46.0, 81.1], [54.3, 76.86],
     ],
     // Aviation red is painted on the crowns here: the spire's tip (rgb
     // 244,4,9 at card y 10) and its lattice, 191 Peachtree's tip, Truist
     // Plaza, and the tower tops east and west of them (252,1,14 at x 70).
     beacons: [
-      [42.4, 10.0], [42.4, 20.1], [53.0, 32.2], [47.2, 36.3], [50.0, 50.4],
-      [65.0, 46.3], [69.9, 52.8], [78.3, 57.8], [32.3, 51.9], [58.4, 52.8],
-      [39.6, 54.9],
+      [42.4, 16.1], [42.4, 24.66], [53.0, 34.92], [47.2, 38.39], [50.0, 50.34],
+      [65.0, 46.86], [69.9, 52.37], [78.3, 56.61], [32.3, 51.61], [58.4, 52.37],
+      [39.6, 54.15],
     ],
     beaconTone: 'red',
     // The stadium's LED halo and two cyan signs, flickering.
     neon: [
-      [24.9, 70.2, 'cyan'], [21.1, 71.1, 'cyan'], [18.6, 70.5, 'cyan'],
-      [75.1, 76.1, 'cyan'], [86.3, 97.4, 'cyan'],
+      [24.9, 67.12, 'cyan'], [21.1, 67.88, 'cyan'], [18.6, 67.37, 'cyan'],
+      [75.1, 72.12, 'cyan'], [86.3, 90.17, 'cyan'],
     ],
     // Steam off three rooftops with sky above them (Day frame roof edges).
-    steam: [[30.0, 49.6], [58.0, 52.8], [62.0, 54.3]],
+    steam: [[30.0, 49.66], [58.0, 52.37], [62.0, 53.64]],
     // The Connector. The first pack had no traffic because the interchange
     // is a curve; this frame's run under the stadium is straight enough for
     // two rails, the gentle stretch from x 22 to 37 and the steeper ramp
@@ -1009,27 +950,27 @@ export const CITY_MOTION = {
     // the long one.
     bridge: [
       {
-        lights: [[25.0, 82.6], [26.5, 83.5], [28.5, 85.8], [30.0, 84.7], [31.5, 87.6], [35.0, 87.3]],
-        deck: { x: 22, y: 83.2, w: 15, rise: 6.0 },
+        lights: [[25.0, 77.63], [26.5, 78.39], [28.5, 80.34], [30.0, 79.41], [31.5, 81.86], [35.0, 81.61]],
+        deck: { x: 22, y: 78.14, w: 15, rise: 5.08 },
         police: true,
       },
       {
-        lights: [[37.5, 92.6], [39.0, 92.6], [40.5, 94.7], [42.5, 98.5]],
-        deck: { x: 36, y: 88.8, w: 7.5, rise: 10.4 },
+        lights: [[37.5, 86.1], [39.0, 86.1], [40.5, 87.88], [42.5, 91.1]],
+        deck: { x: 36, y: 82.88, w: 7.5, rise: 8.81 },
       },
     ],
     // Sky is clear above card y 30 east of the spire (191 Peachtree reaches
     // 32 at x 53); the far hills lie at 37-42.
-    aircraft: { y: 14, from: 98, to: 48, flight: 40 },
-    birds: { y: 24, from: 98, to: 58, flight: 30, count: 6 },
-    helicopter: { y: 20, from: 56, to: 98, flight: 46 },
+    aircraft: { y: 19.49, from: 98, to: 48, flight: 40 },
+    birds: { y: 27.97, from: 98, to: 58, flight: 30, count: 6 },
+    helicopter: { y: 24.58, from: 56, to: 98, flight: 46 },
     // Morning mist on the far hills and the suburbs behind the skyline.
-    haze: { y: 36, height: 14 },
+    haze: { y: 38.14, height: 11.86 },
     hazeTone: 'fog',
     // The golden-hour sky is brightest at the top-RIGHT corner (219 against
     // 212 at left; Sunset and Dawn are lit from the right too), so the sun is
     // off-frame right and high.
-    flare: { x: 106, y: 8 },
+    flare: { x: 106, y: 14.41 },
     rainfall: true,
   },
   honolulu: {
@@ -1041,7 +982,7 @@ export const CITY_MOTION = {
     // vertical cross-correlation of their edge profiles agrees to within 2px
     // of 339 (0.6% of the card) on every pair - so there is neither a scene
     // shift nor a scene override here, and one set of coordinates serves all
-    // nine. Measured through the 50% crop (see CITY_IMG_Y).
+    // nine. measured before MASTHEAD-FULL-FRAME-1 and converted to the full frame with it.
     //
     // No beacons: nothing in this frame carries an aviation light. The reddest
     // points on the night frame are sodium street lamps (rgb 250,110,30), not
@@ -1053,16 +994,16 @@ export const CITY_MOTION = {
     // The hotel windows, west to east: the Ala Moana end, the tower cluster
     // behind the beach, then the low shorefront out past Kapiolani to Kahala.
     lights: [
-      [12.0, 41.3], [5.1, 52.2], [11.2, 62.8], [5.4, 66.4], [2.9, 59.6],
-      [11.9, 48.4], [11.3, 44.3], [9.0, 62.5], [5.1, 45.7], [2.9, 55.5],
-      [17.9, 56.0], [9.8, 58.4], [11.9, 53.4], [11.2, 60.2],
-      [35.8, 45.4], [34.5, 67.8], [35.8, 42.8], [34.5, 42.8], [42.1, 61.1],
-      [38.5, 50.2], [28.5, 47.8], [38.6, 57.2], [34.5, 63.7], [35.8, 50.2],
-      [34.5, 45.4], [38.6, 53.7], [34.5, 49.6],
-      [55.8, 65.5], [53.8, 67.6], [65.8, 67.8], [50.0, 67.3], [68.3, 66.7],
-      [47.7, 67.3], [56.8, 62.0], [67.2, 57.2], [60.3, 67.3], [47.9, 64.6],
-      [90.5, 67.0], [76.1, 67.3], [91.6, 66.4], [80.8, 68.1], [74.4, 68.4],
-      [72.0, 67.3], [75.3, 63.7], [79.3, 68.4], [86.5, 64.6], [71.0, 68.4],
+      [12.0, 42.63], [5.1, 51.86], [11.2, 60.85], [5.4, 63.9], [2.9, 58.14],
+      [11.9, 48.64], [11.3, 45.17], [9.0, 60.59], [5.1, 46.36], [2.9, 54.66],
+      [17.9, 55.08], [9.8, 57.12], [11.9, 52.88], [11.2, 58.64],
+      [35.8, 46.1], [34.5, 65.08], [35.8, 43.9], [34.5, 43.9], [42.1, 59.41],
+      [38.5, 50.17], [28.5, 48.14], [38.6, 56.1], [34.5, 61.61], [35.8, 50.17],
+      [34.5, 46.1], [38.6, 53.14], [34.5, 49.66],
+      [55.8, 63.14], [53.8, 64.92], [65.8, 65.08], [50.0, 64.66], [68.3, 64.15],
+      [47.7, 64.66], [56.8, 60.17], [67.2, 56.1], [60.3, 64.66], [47.9, 62.37],
+      [90.5, 64.41], [76.1, 64.66], [91.6, 63.9], [80.8, 65.34], [74.4, 65.59],
+      [72.0, 64.66], [75.3, 61.61], [79.3, 65.59], [86.5, 62.37], [71.0, 65.59],
     ],
     // THE WATERLINE IS A CURVE, AND EVERY WET COORDINATE BELOW RESPECTS IT.
     // Waikiki's beach runs diagonally across the card - the sea meets the sand
@@ -1072,20 +1013,20 @@ export const CITY_MOTION = {
     // dominance), then every point below sampled from waterline + 1.5% down.
     // The first pass took a flat band and put nine reflections on the sand.
     water: [
-      [30.2, 82.9], [34.5, 87.0], [35.2, 95.6], [44.8, 78.2], [11.7, 93.2],
-      [3.1, 92.0], [18.7, 93.2], [50.5, 78.5], [94.3, 72.3], [50.5, 86.1],
-      [16.1, 91.2], [19.6, 86.1], [7.1, 91.2], [43.5, 95.9], [43.7, 87.0],
-      [22.2, 85.0], [55.5, 74.6], [31.1, 96.5], [15.8, 98.8], [24.5, 97.9],
-      [38.4, 83.8], [47.8, 77.6], [46.6, 85.8], [41.8, 80.2], [53.3, 74.6],
-      [24.6, 85.8],
+      [30.2, 77.88], [34.5, 81.36], [35.2, 88.64], [44.8, 73.9], [11.7, 86.61],
+      [3.1, 85.59], [18.7, 86.61], [50.5, 74.15], [94.3, 68.9], [50.5, 80.59],
+      [16.1, 84.92], [19.6, 80.59], [7.1, 84.92], [43.5, 88.9], [43.7, 81.36],
+      [22.2, 79.66], [55.5, 70.85], [31.1, 89.41], [15.8, 91.36], [24.5, 90.59],
+      [38.4, 78.64], [47.8, 73.39], [46.6, 80.34], [41.8, 75.59], [53.3, 70.85],
+      [24.6, 80.34],
     ],
     // Sun glitter, the pale maxima of the Day frame taken under the same
     // waterline so none of them lands on the sand.
     glints: [
-      [88.1, 91.2], [97.5, 81.1], [53.3, 74.3], [18.6, 87.0], [88.1, 98.5],
-      [31.4, 82.6], [47.0, 77.3], [15.0, 90.9], [50.6, 74.9], [62.4, 72.0],
-      [35.3, 82.3], [11.0, 89.1], [25.8, 84.4], [39.8, 79.4], [18.8, 95.9],
-      [22.0, 85.5],
+      [88.1, 84.92], [97.5, 76.36], [53.3, 70.59], [18.6, 81.36], [88.1, 91.1],
+      [31.4, 77.63], [47.0, 73.14], [15.0, 84.66], [50.6, 71.1], [62.4, 68.64],
+      [35.3, 77.37], [11.0, 83.14], [25.8, 79.15], [39.8, 74.92], [18.8, 88.9],
+      [22.0, 80.08],
     ],
     // MASTHEAD-SURF-1: the break along the beach, and the reason this city
     // exists in the registry. Nine crests laid on the traced waterline,
@@ -1094,22 +1035,22 @@ export const CITY_MOTION = {
     // raw trace has one outlier at x 36 (a pier), so the line these use is
     // the monotone fit through the readings either side of it.
     surf: [
-      [0, 93.4, 9, -3.7], [9, 89.7, 9, -3.3], [18, 86.4, 9, -3.0],
-      [27, 83.4, 9, -3.1], [36, 80.3, 9, -3.6], [45, 76.7, 9, -3.3],
-      [54, 73.4, 9, -1.8], [63, 71.6, 9, -0.9], [72, 70.7, 9, -0.6],
+      [0, 86.78, 9, -3.14], [9, 83.64, 9, -2.8], [18, 80.85, 9, -2.54],
+      [27, 78.31, 9, -2.63], [36, 75.68, 9, -3.05], [45, 72.63, 9, -2.8],
+      [54, 69.83, 9, -1.53], [63, 68.31, 9, -0.76], [72, 67.54, 9, -0.51],
     ],
     // The open bay past the break, where the waterline has already fallen
     // away: x 44 meets the sea at y 75.7, x 98 at y 67.
-    swell: { x: 44, y: 78, w: 54, height: 21 },
+    swell: { x: 44, y: 73.73, w: 54, height: 17.8 },
     // A catamaran on the Waikiki run, white like the boats already in the
     // Day, Golden Hour and Sunset frames. Lane y 86 is open water from the
     // right edge in to x 36, where the sand is still 5.5% above it.
-    ferry: { y: 86, from: 98, to: 36, flight: 160 },
+    ferry: { y: 80.51, from: 98, to: 36, flight: 160 },
     ferryTone: 'white',
     // Sky is clear above card y 22 east of the ridge (the Koolau crest holds
     // y 9-18 out to x 26; Diamond Head's summit is at 30), so the approach
     // into Honolulu runs east to west and stops short of the range.
-    aircraft: { y: 6, from: 98, to: 30, flight: 40 },
+    aircraft: { y: 12.71, from: 98, to: 30, flight: 40 },
     // Seabirds, and the one flock in this registry that flies BELOW the
     // skyline rather than above it: over the bay is where Waikiki's birds
     // are, and a dark silhouette reads on turquoise as well as on sky.
@@ -1118,9 +1059,9 @@ export const CITY_MOTION = {
     // running in to x 44 put the leading bird on the sand at the west end.
     // At y 80 stopping at x 54 the highest bird is 73.6 and the sea there
     // begins at 72.0, so the whole flock stays over water for the whole run.
-    birds: { y: 80, from: 96, to: 54, flight: 34, count: 6 },
+    birds: { y: 75.42, from: 96, to: 54, flight: 34, count: 6 },
     // A tour helicopter's height and rhythm, out along the crater rim.
-    helicopter: { y: 22, from: 44, to: 96, flight: 46 },
+    helicopter: { y: 26.27, from: 44, to: 96, flight: 46 },
     // Vog on the horizon: the default warm-grey tone, not the white fog,
     // BECAUSE OF THE MASK. The smog mask fades off the left half and is full
     // strength from 56% rightward, which here is the crater's lower slopes
@@ -1128,11 +1069,11 @@ export const CITY_MOTION = {
     // marine haze belongs. The white fog tone is feathered at the card edges
     // only, so at this height it would have laid a bar across the open sky
     // east of Diamond Head, which is the mistake Seattle's first pass made.
-    haze: { y: 41, height: 12 },
+    haze: { y: 42.37, height: 10.17 },
     // The golden-hour sun is OFF-FRAME RIGHT and low: the right sky column
     // brightens from lum 196 at card y 2 to 207 at y 14 and holds, and the
     // Sunset frame puts its glow on the right horizon behind the crater.
-    flare: { x: 106, y: 14 },
+    flare: { x: 106, y: 19.49 },
     // MASTHEAD-RAINBOW-1: the Rainbow State earns one, and it goes where the
     // real ones go - over the Koolau, on the half of the sky OPPOSITE the sun.
     // A bow is centred on the antisolar point, and this artwork's sun is off
@@ -1147,13 +1088,12 @@ export const CITY_MOTION = {
     // span ends at x 47 (the mask dissolves the last 14%), which clears the
     // clock's box at 45.9 because the arc's band stops at y 39 and the clock
     // starts at 47.9. Withdrawn below 768px, where the card changes aspect.
-    rainbow: { x: 18, y: 11, w: 34, h: 42 },
+    rainbow: { x: 18, y: 16.95, w: 34, h: 35.59 },
     rainfall: true,
   },
   rio: {
-    // MASTHEAD-RIO-1 (2026-09-06): a new city, nine frames, measured through
-    // the TOP-anchored crop (see CITY_IMG_Y - Rio is the only city that uses
-    // one, and every coordinate here is void if that changes). The view looks
+    // MASTHEAD-RIO-1 (2026-09-06): a new city, nine frames, measured before
+    // MASTHEAD-FULL-FRAME-1 and converted to the full frame with it. The view looks
     // east from above Botafogo: Corcovado and the statue at x 16, the favela
     // hillside across the left, the Botafogo cove and its promenade curving
     // from x 31 to 62, Guanabara Bay filling the centre-right with Niteroi on
@@ -1161,48 +1101,48 @@ export const CITY_MOTION = {
     //
     // The city's own windows, the hillside, and the far shore.
     lights: [
-      [3.0, 55.5], [3.9, 70.5], [13.2, 78.2], [15.1, 75.8], [7.2, 56.6],
-      [2.7, 65.8], [11.1, 72.0], [10.8, 78.2], [7.2, 64.0], [0.9, 63.7],
-      [8.3, 60.5], [15.5, 79.4], [0.9, 74.0], [5.5, 67.8],
-      [16.9, 80.8], [34.5, 79.1], [26.3, 85.0], [24.8, 83.8], [24.6, 79.1],
-      [18.8, 82.9], [35.6, 85.0], [28.5, 84.1], [17.4, 83.8], [30.3, 61.1],
-      [31.8, 76.1], [36.9, 83.8], [35.1, 69.9], [33.1, 80.8], [22.2, 86.7],
-      [29.4, 81.1],
-      [48.4, 69.9], [51.3, 80.2], [48.7, 82.6], [43.1, 81.1], [45.6, 83.8],
-      [39.6, 83.8], [57.8, 62.2], [54.8, 77.3], [53.3, 78.2], [47.0, 81.7],
-      [44.0, 64.9], [41.4, 84.4], [51.8, 74.9], [57.4, 81.7],
-      [91.3, 65.8], [62.4, 79.7], [70.3, 67.3], [93.1, 70.2], [72.8, 65.8],
-      [58.9, 62.5], [88.4, 59.6], [59.2, 83.2], [74.2, 65.2], [78.3, 64.3],
-      [61.1, 81.4], [69.8, 83.8], [63.3, 61.1], [64.3, 83.5],
+      [3.0, 47.03], [3.9, 59.75], [13.2, 66.27], [15.1, 64.24], [7.2, 47.97],
+      [2.7, 55.76], [11.1, 61.02], [10.8, 66.27], [7.2, 54.24], [0.9, 53.98],
+      [8.3, 51.27], [15.5, 67.29], [0.9, 62.71], [5.5, 57.46],
+      [16.9, 68.47], [34.5, 67.03], [26.3, 72.03], [24.8, 71.02], [24.6, 67.03],
+      [18.8, 70.25], [35.6, 72.03], [28.5, 71.27], [17.4, 71.02], [30.3, 51.78],
+      [31.8, 64.49], [36.9, 71.02], [35.1, 59.24], [33.1, 68.47], [22.2, 73.47],
+      [29.4, 68.73],
+      [48.4, 59.24], [51.3, 67.97], [48.7, 70.0], [43.1, 68.73], [45.6, 71.02],
+      [39.6, 71.02], [57.8, 52.71], [54.8, 65.51], [53.3, 66.27], [47.0, 69.24],
+      [44.0, 55.0], [41.4, 71.53], [51.8, 63.47], [57.4, 69.24],
+      [91.3, 55.76], [62.4, 67.54], [70.3, 57.03], [93.1, 59.49], [72.8, 55.76],
+      [58.9, 52.97], [88.4, 50.51], [59.2, 70.51], [74.2, 55.25], [78.3, 54.49],
+      [61.1, 68.98], [69.8, 71.02], [63.3, 51.78], [64.3, 70.76],
       // The floodlit statue, twice up its height, and the lit summit station
       // on Sugarloaf that the cable car runs from.
-      [15.8, 7.4], [15.8, 10.4], [83.1, 36.3],
+      [15.8, 6.27], [15.8, 8.81], [83.1, 30.76],
     ],
     // The two red masts flanking Corcovado. Measured by their HALO, not their
     // core: a small saturated red light blows out to pink in the middle, so
     // the core reads rgb(156,78,98) and rgb(229,180,199) while the glow around
     // them is unambiguously red against the blue sky. A strict red test over
     // the whole frame returned nothing but sodium street lamps.
-    beacons: [[11.3, 15.3], [11.4, 19.2], [18.1, 19.8]],
+    beacons: [[11.3, 12.97], [11.4, 16.27], [18.1, 16.78]],
     beaconTone: 'red',
     // THE SHORE HERE IS A ROAD, NOT A BEACH. Botafogo's waterline is the
     // promenade below, traced lamp by lamp, and every reflection is sampled
     // 2.2% clear beneath it. The first pass measured reflections and deck
     // lights independently and produced eleven pairs sitting on each other -
-    // [62.1, 86.1] appeared in both sets at the same coordinate.
+    // [62.1, 72.97] appeared in both sets at the same coordinate.
     water: [
-      [34.2, 97.1], [49.8, 92.3], [51.4, 92.6], [39.4, 98.5], [35.8, 97.1],
-      [60.3, 92.3], [37.8, 97.6], [49.6, 97.4], [54.7, 90.6], [53.0, 91.2],
-      [57.2, 93.2], [58.8, 92.6], [45.5, 93.5], [31.6, 98.8], [62.1, 90.3],
-      [48.0, 92.0], [60.3, 98.5], [47.4, 99.1], [45.5, 98.2],
+      [34.2, 82.29], [49.8, 78.22], [51.4, 78.47], [39.4, 83.47], [35.8, 82.29],
+      [60.3, 78.22], [37.8, 82.71], [49.6, 82.54], [54.7, 76.78], [53.0, 77.29],
+      [57.2, 78.98], [58.8, 78.47], [45.5, 79.24], [31.6, 83.73], [62.1, 76.53],
+      [48.0, 77.97], [60.3, 83.47], [47.4, 83.98], [45.5, 83.22],
     ],
     // Sun glitter in the OPEN bay. Rio's city is white, so pale maxima find
     // rooftops: every one of these was accepted only when the ring 10-18px
     // around it is blue, smooth and darker than the glint itself. Without
     // that ring test the first pass put twelve of fourteen on buildings.
     glints: [
-      [61.0, 61.4], [69.9, 63.7], [73.0, 64.0], [74.5, 70.5], [75.8, 58.7],
-      [89.7, 59.0], [95.3, 63.7], [98.2, 64.0], [90.9, 97.1],
+      [61.0, 52.03], [69.9, 53.98], [73.0, 54.24], [74.5, 59.75], [75.8, 49.75],
+      [89.7, 50.0], [95.3, 53.98], [98.2, 54.24], [90.9, 82.29],
     ],
     // The promenade round the cove, in two straight runs because one is not
     // straight: the drop is 0.29% per 1% of width from x 31 and 0.26% from
@@ -1211,12 +1151,12 @@ export const CITY_MOTION = {
     // the rail it belongs to. The seaward run carries the police car.
     bridge: [
       {
-        lights: [[31, 95.6], [34, 95.3], [36.5, 93.5], [39, 93.2], [41, 92.3], [43.5, 91.7], [46, 91.2]],
-        deck: { x: 31, y: 95.6, w: 15, rise: -4.4 },
+        lights: [[31, 81.02], [34, 80.76], [36.5, 79.24], [39, 78.98], [41, 78.22], [43.5, 77.71], [46, 77.29]],
+        deck: { x: 31, y: 81.02, w: 15, rise: -3.73 },
       },
       {
-        lights: [[47, 90.0], [49.5, 90.3], [52, 90.0], [54.5, 89.1], [57, 87.0], [59.5, 86.4], [62, 86.1]],
-        deck: { x: 47, y: 90.0, w: 15, rise: -3.9 },
+        lights: [[47, 76.27], [49.5, 76.53], [52, 76.27], [54.5, 75.51], [57, 73.73], [59.5, 73.22], [62, 72.97]],
+        deck: { x: 47, y: 76.27, w: 15, rise: -3.31 },
         police: true,
       },
     ],
@@ -1225,41 +1165,41 @@ export const CITY_MOTION = {
     // down to Urca, with cabins painted on it and both stations lit at night,
     // so a cabin that runs it is riding real geometry rather than decorating
     // empty rock. Anchored on the five bright points along the wire (the two
-    // stations at [83.0, 35.7] and [91.0, 66.5] and the three lit cabins
+    // stations at [83.0, 30.25] and [91.0, 56.36] and the three lit cabins
     // between them) and fitted by least squares; the cable sags, so the rail
     // is the chord and the worst residual is 2.1% of card height, which is
     // inside the cabin's own radius. One cabin, down and back up, because
     // that is what a cableway does.
-    cable: { x: 83, y: 37, w: 8, rise: 31.6, flight: 42 },
+    cable: { x: 83, y: 31.36, w: 8, rise: 26.78, flight: 42 },
     // Sky is clear above card y 33 from x 22 east; Corcovado holds y 4-24 at
     // x 14-18 and the lane stops well short of it.
-    aircraft: { y: 8, from: 98, to: 26, flight: 40 },
+    aircraft: { y: 6.78, from: 98, to: 26, flight: 40 },
     // Frigatebirds over the bay, high. The flock spreads 6.4% above the lane
     // and 11.5% below it, so at y 22 the highest sits at 15.6 and the lowest
     // at 33.5, and the ridge under the run never rises past 37.
-    birds: { y: 22, from: 96, to: 30, flight: 34, count: 6 },
+    birds: { y: 18.64, from: 96, to: 30, flight: 34, count: 6 },
     // A tour helicopter round the Sugarloaf circuit, above its summit at 37.
-    helicopter: { y: 30, from: 60, to: 96, flight: 46 },
+    helicopter: { y: 25.42, from: 60, to: 96, flight: 46 },
     // The Niteroi ferry. Lane y 68 is open water from x 82 in to 58 and then
     // stops: Sugarloaf's base blocks x 84-86, so the crossing cannot run the
     // width of the card and does not pretend to.
-    ferry: { y: 68, from: 82, to: 58, flight: 120 },
+    ferry: { y: 57.63, from: 82, to: 58, flight: 120 },
     ferryTone: 'white',
     // Tropical haze on the far range and the bay's far shore. Default tone,
     // whose mask is strongest right of 56% - which here is exactly the
     // distance that carries it.
-    haze: { y: 38, height: 12 },
+    haze: { y: 32.2, height: 10.17 },
     // The golden-hour sun is OFF-FRAME LEFT: the sky column mean falls from
     // 231 at x 0 to 191 at x 90, and the brightest edge pixel is at x 2.
-    flare: { x: -6, y: 26 },
+    flare: { x: -6, y: 22.03 },
     // The bay between the cove and Sugarloaf's base, verified open water at
     // every 2% from x 60 to 82.
-    swell: { x: 60, y: 64, w: 22, height: 14 },
+    swell: { x: 60, y: 54.24, w: 22, height: 11.86 },
     rainfall: true,
   },
   tokyo: {
     // MASTHEAD-TOKYO-1 (2026-09-06): a new city, nine frames, measured through
-    // the TOP-anchored crop (see CITY_IMG_Y). The view looks west across the
+    // the TOP-anchored crop (historic). The view looks west across the
     // whole basin: Fuji at x 10-16, Tokyo Tower at x 32.5 with its spire at the
     // top edge, the Shinjuku cluster from x 40 to 72, the Skytree at x 87.5,
     // and low-rise city everywhere else to the horizon.
@@ -1279,25 +1219,25 @@ export const CITY_MOTION = {
     // fluorescent office light at rgb(255,255,255), so these were measured on
     // luminance with a low-saturation gate instead.
     lights: [
-      [14.3, 93.5], [6.6, 96.5], [14.4, 96.5], [18.4, 98.2], [15.3, 92.3],
-      [19.0, 92.0], [14.6, 87.6], [16.8, 94.7], [12.8, 87.3], [0.6, 89.4],
-      [10.2, 85.0],
-      [32.4, 90.3], [37.3, 86.1], [31.1, 86.4], [29.5, 85.5], [33.7, 74.9],
-      [22.1, 86.4], [37.7, 90.9], [35.4, 95.6], [22.1, 79.4], [20.4, 88.2],
-      [38.4, 78.2],
-      [46.3, 94.7], [49.0, 87.3], [41.4, 55.2], [41.9, 60.2], [53.0, 90.6],
-      [57.6, 82.6], [50.0, 70.8], [56.3, 76.7], [43.9, 92.9], [55.2, 72.3],
-      [47.6, 74.9],
-      [66.1, 62.8], [66.1, 77.0], [71.3, 81.4], [65.7, 82.3], [65.5, 95.6],
-      [79.0, 96.5], [60.4, 82.9], [65.1, 63.4], [77.3, 95.3], [75.8, 95.9],
-      [78.3, 73.8],
-      [80.2, 84.4], [84.9, 77.6], [83.5, 91.7], [85.0, 89.4], [80.8, 75.2],
-      [82.3, 91.2], [91.5, 86.7], [97.2, 82.9], [93.3, 64.0], [92.5, 77.3],
-      [89.9, 66.7], [95.7, 91.5], [94.2, 72.0],
+      [14.3, 79.24], [6.6, 81.78], [14.4, 81.78], [18.4, 83.22], [15.3, 78.22],
+      [19.0, 77.97], [14.6, 74.24], [16.8, 80.25], [12.8, 73.98], [0.6, 75.76],
+      [10.2, 72.03],
+      [32.4, 76.53], [37.3, 72.97], [31.1, 73.22], [29.5, 72.46], [33.7, 63.47],
+      [22.1, 73.22], [37.7, 77.03], [35.4, 81.02], [22.1, 67.29], [20.4, 74.75],
+      [38.4, 66.27],
+      [46.3, 80.25], [49.0, 73.98], [41.4, 46.78], [41.9, 51.02], [53.0, 76.78],
+      [57.6, 70.0], [50.0, 60.0], [56.3, 65.0], [43.9, 78.73], [55.2, 61.27],
+      [47.6, 63.47],
+      [66.1, 53.22], [66.1, 65.25], [71.3, 68.98], [65.7, 69.75], [65.5, 81.02],
+      [79.0, 81.78], [60.4, 70.25], [65.1, 53.73], [77.3, 80.76], [75.8, 81.27],
+      [78.3, 62.54],
+      [80.2, 71.53], [84.9, 65.76], [83.5, 77.71], [85.0, 75.76], [80.8, 63.73],
+      [82.3, 77.29], [91.5, 73.47], [97.2, 70.25], [93.3, 54.24], [92.5, 65.51],
+      [89.9, 56.53], [95.7, 77.54], [94.2, 61.02],
       // Tokyo Tower's floodlit lattice, and the Skytree's lit column. Both are
       // lit structures rather than windows, so they breathe with the city.
-      [32.4, 15.3], [32.5, 19.2], [32.4, 17.4], [32.4, 32.7], [31.8, 59.3],
-      [87.6, 5.0], [87.2, 21.8], [87.5, 27.7], [87.6, 29.5], [87.4, 45.1],
+      [32.4, 12.97], [32.5, 16.27], [32.4, 14.75], [32.4, 27.71], [31.8, 50.25],
+      [87.6, 4.24], [87.2, 18.47], [87.5, 23.47], [87.6, 25.0], [87.4, 38.22],
     ],
     // Every tall building in this frame carries an aviation light, which is
     // true of Tokyo and is the single most animated thing in the artwork.
@@ -1305,14 +1245,14 @@ export const CITY_MOTION = {
     // red-orange from top to bottom, so a per-pixel red test returns its whole
     // lattice and nothing useful. A beacon is the one red point on its
     // building with open sky overhead, and that test returns only crowns -
-    // including the tower's own tip light at [32.5, 3.2].
+    // including the tower's own tip light at [32.5, 2.71].
     beacons: [
-      [32.5, 3.2], [47.3, 37.2], [71.9, 57.5], [4.7, 58.7], [90.5, 60.5],
-      [12.0, 67.3], [93.2, 51.3], [53.3, 39.8], [94.0, 53.1], [39.8, 61.7],
-      [45.6, 37.5], [53.6, 73.5], [81.0, 74.0], [14.0, 59.3], [80.6, 55.8],
-      [67.9, 48.1], [7.9, 69.0], [65.2, 58.7], [53.6, 55.8], [91.7, 68.1],
-      [33.2, 57.8], [94.8, 60.8], [42.9, 73.2], [69.0, 57.2], [66.0, 58.4],
-      [40.8, 67.6],
+      [32.5, 2.71], [47.3, 31.53], [71.9, 48.73], [4.7, 49.75], [90.5, 51.27],
+      [12.0, 57.03], [93.2, 43.47], [53.3, 33.73], [94.0, 45.0], [39.8, 52.29],
+      [45.6, 31.78], [53.6, 62.29], [81.0, 62.71], [14.0, 50.25], [80.6, 47.29],
+      [67.9, 40.76], [7.9, 58.47], [65.2, 49.75], [53.6, 47.29], [91.7, 57.71],
+      [33.2, 48.98], [94.8, 51.53], [42.9, 62.03], [69.0, 48.47], [66.0, 49.49],
+      [40.8, 57.29],
     ],
     beaconTone: 'red',
     // The approach runs east to west and stops at x 36: Tokyo Tower's spire
@@ -1320,21 +1260,21 @@ export const CITY_MOTION = {
     // crossed the whole card at this height would draw straight through both.
     // The motion layer sits ABOVE the artwork, so a plane behind a tower is not
     // an option; the lane has to end short of them.
-    aircraft: { y: 12, from: 84, to: 36, flight: 40 },
+    aircraft: { y: 10.17, from: 84, to: 36, flight: 40 },
     // The flock spreads 6.4% above its lane and 11.5% below, so y 20 puts it
     // between 13.6 and 31.5 - clear of the Shinjuku crowns, which start at 33.
-    birds: { y: 20, from: 82, to: 38, flight: 34, count: 6 },
-    helicopter: { y: 26, from: 40, to: 84, flight: 46 },
+    birds: { y: 16.95, from: 82, to: 38, flight: 34, count: 6 },
+    helicopter: { y: 22.03, from: 40, to: 84, flight: 46 },
     // Kanto haze on the far range, which sits at y 44-57 across the frame.
-    haze: { y: 44, height: 11 },
+    haze: { y: 37.29, height: 9.32 },
     // The golden-hour sun is OFF-FRAME LEFT and high: the sky column mean falls
     // from 227 at x 0 to 200 at x 80, and the left edge is brightest at y 2-8.
-    flare: { x: -6, y: 8 },
+    flare: { x: -6, y: 6.78 },
     rainfall: true,
   },
   london: {
     // MASTHEAD-LONDON-1 (2026-09-06): a new city, nine frames, measured through
-    // the TOP-anchored crop (see CITY_IMG_Y). The view looks east down the
+    // the TOP-anchored crop (historic). The view looks east down the
     // Thames: Parliament and Big Ben across the left, the London Eye at x 38.7,
     // Westminster Bridge crossing from x 26 to 50, St Paul's at 52.8, the City
     // cluster at 65-75, two more bridges downstream, and the Shard at x 90.
@@ -1345,51 +1285,51 @@ export const CITY_MOTION = {
     // in `lights`, where they breathe, rather than in `beacons`, where they
     // would blink at a city that does not.
     lights: [
-      [5.5, 49.3], [7.9, 55.2], [2.8, 70.2], [6.8, 30.1], [6.5, 50.2],
-      [24.5, 33.9], [4.0, 69.3], [6.2, 70.5], [23.6, 35.7], [5.3, 56.3],
-      [6.7, 44.5], [13.3, 55.2],
-      [36.8, 67.8], [47.5, 67.0], [41.0, 48.1], [45.3, 48.4], [44.0, 67.8],
-      [50.7, 40.4], [37.9, 51.9], [32.3, 49.3], [51.0, 44.5], [45.9, 68.1],
-      [67.3, 53.7], [59.2, 60.8], [63.3, 55.5], [64.6, 55.2], [73.4, 34.8],
-      [70.9, 53.7], [68.8, 53.1], [54.3, 32.2], [70.5, 31.0], [69.7, 59.3],
-      [66.1, 54.9], [55.8, 41.0],
-      [84.8, 67.0], [93.8, 74.3], [97.5, 45.1], [94.2, 37.5], [95.0, 73.5],
-      [86.1, 68.4], [99.5, 67.6], [91.8, 46.9], [98.4, 46.0], [84.4, 53.7],
-      [90.4, 54.3], [90.0, 46.9], [98.2, 88.8], [92.0, 78.2], [91.1, 75.2],
-      [92.5, 74.9], [91.1, 78.8], [98.2, 84.7], [93.7, 85.3], [82.0, 78.2],
+      [5.5, 41.78], [7.9, 46.78], [2.8, 59.49], [6.8, 25.51], [6.5, 42.54],
+      [24.5, 28.73], [4.0, 58.73], [6.2, 59.75], [23.6, 30.25], [5.3, 47.71],
+      [6.7, 37.71], [13.3, 46.78],
+      [36.8, 57.46], [47.5, 56.78], [41.0, 40.76], [45.3, 41.02], [44.0, 57.46],
+      [50.7, 34.24], [37.9, 43.98], [32.3, 41.78], [51.0, 37.71], [45.9, 57.71],
+      [67.3, 45.51], [59.2, 51.53], [63.3, 47.03], [64.6, 46.78], [73.4, 29.49],
+      [70.9, 45.51], [68.8, 45.0], [54.3, 27.29], [70.5, 26.27], [69.7, 50.25],
+      [66.1, 46.53], [55.8, 34.75],
+      [84.8, 56.78], [93.8, 62.97], [97.5, 38.22], [94.2, 31.78], [95.0, 62.29],
+      [86.1, 57.97], [99.5, 57.29], [91.8, 39.75], [98.4, 38.98], [84.4, 45.51],
+      [90.4, 46.02], [90.0, 39.75], [98.2, 75.25], [92.0, 66.27], [91.1, 63.73],
+      [92.5, 63.47], [91.1, 66.78], [98.2, 71.78], [93.7, 72.29], [82.0, 66.27],
       // The crowns: Victoria Tower, St Paul's dome, a City tower, and four up
       // the Shard's lit glass. Found by the sky above them, as Tokyo's were.
-      [17.2, 38.6], [52.8, 39.8], [70.1, 10.3], [65.8, 41.9],
-      [90.1, 13.0], [90.9, 18.0], [91.3, 29.2], [88.9, 38.6],
+      [17.2, 32.71], [52.8, 33.73], [70.1, 8.73], [65.8, 35.51],
+      [90.1, 11.02], [90.9, 15.25], [91.3, 24.75], [88.9, 32.71],
     ],
     // THE LONDON EYE. A least-squares circle through the rim arc that stands
     // against clear sky: the centre x is 38.7 on every row from 18 to 90 (it
     // never varies by more than 0.1), and pinning the apex at row 18 gives
     // R 69.7px. Rows below 96 were excluded - the city behind the wheel creeps
     // into the row scan there and inflates the radius by half again.
-    wheel: { x: 38.7, y: 25.9, d: 6.97 },
+    wheel: { x: 38.7, y: 21.95, d: 6.97 },
     // The Thames at night. Reflections here are LONG streaks, so the test that
     // separates them from the embankment lamps is a smear persisting 6 to 26
     // rows down; at the four-sample depth that served Rio, Parliament's lit
     // facade and the plane trees passed as river.
     water: [
-      [74.6, 66.4], [53.1, 71.4], [72.3, 66.4], [26.8, 91.5], [45.8, 74.9],
-      [49.3, 73.2], [56.5, 71.4], [47.5, 77.0], [44.3, 74.9], [75.3, 75.8],
-      [60.4, 65.8], [69.8, 65.8], [64.5, 65.2], [70.3, 87.6], [67.4, 67.6],
-      [51.1, 72.0], [74.5, 71.1], [53.0, 77.3], [76.5, 81.4], [33.3, 94.4],
-      [56.4, 76.4], [54.8, 70.2], [69.7, 74.9], [38.0, 95.6], [64.4, 69.6],
+      [74.6, 56.27], [53.1, 60.51], [72.3, 56.27], [26.8, 77.54], [45.8, 63.47],
+      [49.3, 62.03], [56.5, 60.51], [47.5, 65.25], [44.3, 63.47], [75.3, 64.24],
+      [60.4, 55.76], [69.8, 55.76], [64.5, 55.25], [70.3, 74.24], [67.4, 57.29],
+      [51.1, 61.02], [74.5, 60.25], [53.0, 65.51], [76.5, 68.98], [33.3, 80.0],
+      [56.4, 64.75], [54.8, 59.49], [69.7, 63.47], [38.0, 81.02], [64.4, 58.98],
     ],
     // Daylight glitter on the river, each one accepted only with a ring of
     // open blue-grey water around it.
     glints: [
-      [64.5, 77.3], [60.4, 82.6], [66.1, 68.1], [63.6, 70.5], [72.0, 69.3],
-      [55.8, 86.4], [66.0, 74.6], [47.5, 78.8], [59.1, 75.2], [58.0, 85.5],
-      [69.0, 74.0], [52.9, 79.9], [70.0, 69.0], [58.3, 79.9], [26.4, 97.9],
-      [71.5, 74.0], [60.0, 70.8], [69.0, 78.5],
+      [64.5, 65.51], [60.4, 70.0], [66.1, 57.71], [63.6, 59.75], [72.0, 58.73],
+      [55.8, 73.22], [66.0, 63.22], [47.5, 66.78], [59.1, 63.73], [58.0, 72.46],
+      [69.0, 62.71], [52.9, 67.71], [70.0, 58.47], [58.3, 67.71], [26.4, 82.97],
+      [71.5, 62.71], [60.0, 60.0], [69.0, 66.53],
     ],
     // The reach between Westminster Bridge and the downstream pair, verified
     // open water at every 2% of width on five separate rows.
-    swell: { x: 50, y: 71, w: 24, height: 15 },
+    swell: { x: 50, y: 60.17, w: 24, height: 12.71 },
     // Westminster Bridge, traced lamp by lamp: it falls 11.8% across 24% of
     // the card and every lamp is within 1.1% of that rail. Then the downstream
     // bridge, which is nearly level. The two do not overlap in x, so the
@@ -1397,39 +1337,39 @@ export const CITY_MOTION = {
     // span, which is the one with the red buses on it by day.
     bridge: [
       {
-        lights: [[26.7, 73.8], [28.7, 77.0], [30.7, 77.3], [32.7, 78.5], [34.7, 79.1], [36.7, 78.8], [38.7, 80.8], [40.7, 81.7], [42.7, 82.9], [44.7, 84.1], [46.7, 85.0], [48.7, 86.1]],
-        deck: { x: 26, y: 74.6, w: 24, rise: 11.8 },
+        lights: [[26.7, 62.54], [28.7, 65.25], [30.7, 65.51], [32.7, 66.53], [34.7, 67.03], [36.7, 66.78], [38.7, 68.47], [40.7, 69.24], [42.7, 70.25], [44.7, 71.27], [46.7, 72.03], [48.7, 72.97]],
+        deck: { x: 26, y: 63.22, w: 24, rise: 10.0 },
         police: true,
       },
       {
-        lights: [[62.0, 58.1], [63.5, 57.2], [65.5, 57.2], [67.5, 59.3], [69.5, 59.3], [71.0, 60.2], [72.5, 59.9], [76.0, 60.5]],
-        deck: { x: 61, y: 57.5, w: 15, rise: 3.0 },
+        lights: [[62.0, 49.24], [63.5, 48.47], [65.5, 48.47], [67.5, 50.25], [69.5, 50.25], [71.0, 51.02], [72.5, 50.76], [76.0, 51.27]],
+        deck: { x: 61, y: 48.73, w: 15, rise: 2.54 },
       },
     ],
     // A river boat, white like the ones the artwork already puts on the water.
     // Lane y 80 is river from x 76 in to 42; the two columns that read as land
     // on the way are bridge shadows, which a boat passes under.
-    ferry: { y: 80, from: 76, to: 42, flight: 130 },
+    ferry: { y: 67.8, from: 76, to: 42, flight: 130 },
     ferryTone: 'white',
     // The sky here is pierced in four places - Parliament's Victoria Tower at
     // x 6, the Eye at 36-42, the City at 66-70 and the Shard at 90 - so there
     // is no lane across the card at altitude. This is the longest clear run.
-    aircraft: { y: 12, from: 64, to: 42, flight: 40 },
+    aircraft: { y: 10.17, from: 64, to: 42, flight: 40 },
     // Gulls over the Thames rather than over the roofs: the flock spreads 6.4%
     // above its lane and 11.5% below, so y 78 keeps all six over water.
-    birds: { y: 78, from: 74, to: 46, flight: 34, count: 6 },
-    helicopter: { y: 20, from: 44, to: 64, flight: 46 },
-    haze: { y: 27, height: 10 },
+    birds: { y: 66.1, from: 74, to: 46, flight: 34, count: 6 },
+    helicopter: { y: 16.95, from: 44, to: 64, flight: 46 },
+    haze: { y: 22.88, height: 8.47 },
     // The golden-hour sun is OFF-FRAME LEFT: the sky column mean falls from
     // 232 at x 0 to about 190 at x 80.
-    flare: { x: -6, y: 20 },
+    flare: { x: -6, y: 16.95 },
     rainfall: true,
   },
   rome: {
     // MASTHEAD-ROME-1 (2026-09-06): a new city, and the first pack with TEN
     // frames - it brought RainNight, a rain-after-dark scene no pack had
     // before (see OPTIONAL_SCENES in mastheadScene.js). Measured through the
-    // TOP-anchored crop (see CITY_IMG_Y). The view looks across the centro
+    // TOP-anchored crop (historic). The view looks across the centro
     // storico from the Janiculum: St Peter's at x 24, the Vittoriano at 62-72,
     // domes and tiled rooftops everywhere between, the Alban hills behind.
     //
@@ -1448,44 +1388,40 @@ export const CITY_MOTION = {
     // burns sodium, so the shared warm score finds these the way it was
     // written to; contrast Tokyo, whose windows are white.
     lights: [
-      [9.6, 85.5], [12.8, 69.3], [19.8, 62.5], [2.1, 75.2], [19.1, 54.3],
-      [18.9, 62.0], [3.6, 48.7], [13.2, 83.8], [19.8, 49.3], [18.9, 59.0],
-      [16.4, 98.2], [13.1, 89.1], [14.9, 73.8],
-      [28.5, 49.9], [21.1, 49.9], [38.6, 52.2], [22.4, 33.3], [27.8, 36.6],
-      [23.4, 40.4], [36.9, 77.6], [21.4, 85.8], [20.6, 36.3], [24.9, 62.0],
-      [25.3, 39.8], [39.4, 74.6], [22.1, 50.2],
-      [52.2, 71.4], [59.4, 76.7], [57.5, 73.8], [49.5, 55.5], [59.3, 73.5],
-      [50.0, 96.8], [44.5, 64.9], [50.3, 59.0], [50.9, 95.9], [51.8, 96.8],
-      [58.4, 68.7], [48.4, 87.6], [48.4, 59.3],
-      [79.9, 85.3], [61.2, 72.9], [64.5, 87.0], [60.1, 74.0], [76.4, 54.6],
-      [76.1, 72.3], [68.8, 74.9], [79.3, 59.0], [69.3, 48.7], [67.2, 57.5],
-      [79.7, 80.8], [60.5, 69.9], [64.7, 58.4],
-      [83.8, 60.5], [80.3, 87.3], [80.3, 79.9], [89.0, 75.8], [83.5, 52.8],
-      [83.4, 57.5], [86.5, 58.4], [83.9, 63.7], [98.2, 62.0], [80.2, 82.9],
-      [88.9, 92.9], [96.2, 95.0], [93.0, 72.9],
+      [9.6, 72.46], [12.8, 58.73], [19.8, 52.97], [2.1, 63.73], [19.1, 46.02],
+      [18.9, 52.54], [3.6, 41.27], [13.2, 71.02], [19.8, 41.78], [18.9, 50.0],
+      [16.4, 83.22], [13.1, 75.51], [14.9, 62.54],
+      [28.5, 42.29], [21.1, 42.29], [38.6, 44.24], [22.4, 28.22], [27.8, 31.02],
+      [23.4, 34.24], [36.9, 65.76], [21.4, 72.71], [20.6, 30.76], [24.9, 52.54],
+      [25.3, 33.73], [39.4, 63.22], [22.1, 42.54],
+      [52.2, 60.51], [59.4, 65.0], [57.5, 62.54], [49.5, 47.03], [59.3, 62.29],
+      [50.0, 82.03], [44.5, 55.0], [50.3, 50.0], [50.9, 81.27], [51.8, 82.03],
+      [58.4, 58.22], [48.4, 74.24], [48.4, 50.25],
+      [79.9, 72.29], [61.2, 61.78], [64.5, 73.73], [60.1, 62.71], [76.4, 46.27],
+      [76.1, 61.27], [68.8, 63.47], [79.3, 50.0], [69.3, 41.27], [67.2, 48.73],
+      [79.7, 68.47], [60.5, 59.24], [64.7, 49.49],
+      [83.8, 51.27], [80.3, 73.98], [80.3, 67.71], [89.0, 64.24], [83.5, 44.75],
+      [83.4, 48.73], [86.5, 49.49], [83.9, 53.98], [98.2, 52.54], [80.2, 70.25],
+      [88.9, 78.73], [96.2, 80.51], [93.0, 61.78],
     ],
     // The approach stops at x 32 because St Peter's cross reaches card y 8 at
     // x 24, and the motion layer draws ABOVE the artwork - a plane at this
     // height would cross the dome rather than pass behind it.
-    aircraft: { y: 12, from: 98, to: 32, flight: 40 },
+    aircraft: { y: 10.17, from: 98, to: 32, flight: 40 },
     // Swifts over the rooftops. The flock spreads 6.4% above its lane and
     // 11.5% below, and the lowest roofline under this run is card y 23 (the
     // Vittoriano's quadrigae at x 62), so y 10 keeps all six clear of it.
-    birds: { y: 10, from: 96, to: 34, flight: 34, count: 6 },
-    helicopter: { y: 16, from: 34, to: 96, flight: 46 },
+    birds: { y: 8.47, from: 96, to: 34, flight: 34, count: 6 },
+    helicopter: { y: 13.56, from: 34, to: 96, flight: 46 },
     // Haze on the Alban hills and the far quarters, which sit at card y 23-37
     // across the frame - and the default tone's mask is strongest right of
     // 56%, which here is exactly the distance that carries it.
-    haze: { y: 24, height: 10 },
+    haze: { y: 20.34, height: 8.47 },
     // The golden-hour sun is OFF-FRAME LEFT: the sky column mean falls from
     // 241 at x 0 to 210 at x 90, and the brightest edge pixel is at card y 12.
-    flare: { x: -6, y: 10 },
+    flare: { x: -6, y: 8.47 },
     rainfall: true,
   },
-}
-
-export function imgPositionFor(city) {
-  return CITY_IMG_Y[city] || DEFAULT_IMG_Y
 }
 
 export function skyPositionFor(city) {

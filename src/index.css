@@ -1880,7 +1880,12 @@ a.doc-file-link:hover { text-decoration: underline; }
      blends. Initial paint is unaffected: transitions only run on style
      CHANGES, and the scene class is present from first render. */
   --scn-fade: 10s;
-  aspect-ratio: 5.9 / 1;
+  /* MASTHEAD-FULL-FRAME-1 (Owner): 5:1, the shape the panoramas are drawn at,
+     so the card shows the whole frame and crops nothing. It was 5.9:1, which
+     cut 61 of every 400 rows and made "which 15% do we lose" a decision each
+     new city had to make. See CARD_ASPECT in mastheadCityScenes.js - the motion
+     layer converts vertical percentages to on-screen angles through it. */
+  aspect-ratio: 5 / 1;
   /* NO explicit min-height: a definite value would replace min-height:auto
      and with it the automatic content-based minimum this sizing relies on.
      The left stack itself floors the card far above the old 141px. */
@@ -2008,12 +2013,14 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scn-img {
   /* SCENE-3: city packs are full 2000x400 panoramas (skyline center-right,
      palms at both edges), so the art renders FULL-BLEED with cover - the
-     card shows a horizontal band of the panorama, chosen by --scn-img-y.
+     card shows the panorama WHOLE since MASTHEAD-FULL-FRAME-1.
      The left-fade mask still keeps the greeting corner quiet. */
   position: absolute; inset: 0; width: 100%; height: 100%;
   /* Bottom-anchored: whatever the card's shape cannot show is cropped from
      the image's TOP (sky), keeping the ground and city footer whole. */
-  object-fit: cover; object-position: 50% var(--scn-img-y, 100%);
+  /* Card and art are both 5:1, so cover crops nothing and the position is
+     only insurance for a future pack drawn at some other shape. */
+  object-fit: cover; object-position: 50% 50%;
   /* MASTHEAD-LOCKSCREEN-1 (Owner): NO left fade any more. The card is a lock
      screen: the whole frame shows at full colour, and legibility comes from
      white ink, size, and a drop shadow, not from washing out the art. */

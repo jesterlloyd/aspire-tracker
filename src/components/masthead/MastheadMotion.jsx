@@ -34,7 +34,7 @@
 //
 // MASTHEAD-SNOW-1 added snowfall (seeded flakes that fall and sway) and a
 // swell (faint drifting crests on a measured patch of water).
-import { CITY_MOTION } from '../../lib/mastheadCityScenes'
+import { CITY_MOTION, CARD_ASPECT } from '../../lib/mastheadCityScenes'
 import { useSceneSweep } from '../../lib/mastheadSweep'
 import { useMastheadScene } from '../WeatherScene'
 
@@ -238,7 +238,7 @@ export default function MastheadMotion({ city }) {
       {/* MASTHEAD-SURF-1: the break along a beach. Each crest is a soft bar
           laid on the measured waterline and rotated to the slope of the shore
           under it, so a curved bay's foam follows the sand instead of cutting
-          across it. Card percentages are not square (the card is 5.9:1), so
+          across it. Card percentages are not square (the card is CARD_ASPECT:1), so
           the rise is divided through that before the angle is taken - the same
           correction the bridge deck makes. Delays run along the beach, which
           is what makes a set of waves read as arriving rather than blinking. */}
@@ -246,7 +246,7 @@ export default function MastheadMotion({ city }) {
         <span key={`sf-${x}-${y}`} className="mast-motion-surf"
           style={{
             left: `${x}%`, top: `${y}%`, width: `${w}%`,
-            '--angle': `${(Math.atan((rise / 5.9) / w) * 180 / Math.PI).toFixed(3)}deg`,
+            '--angle': `${(Math.atan((rise / CARD_ASPECT) / w) * 180 / Math.PI).toFixed(3)}deg`,
             '--dl': `${(i * 0.85).toFixed(2)}s`,
           }} />
       ))}
@@ -314,7 +314,7 @@ export default function MastheadMotion({ city }) {
       ))}
 
       {/* MASTHEAD-CABLE-1: a cableway. The rail is the chord between the two
-          stations, rotated through the same 5.9:1 correction the bridge deck
+          stations, rotated through the same aspect correction the bridge deck
           uses, and one cabin rides it from end to end and back - `alternate`
           gives the dwell at each station for free, which is what a cable car
           actually does. The cabin hangs BELOW the wire on a short arm, because
@@ -329,8 +329,8 @@ export default function MastheadMotion({ city }) {
             // cabin at x 89.6 instead of the lower station at 91, and 5% of
             // the card short of it vertically. The bridge deck has the same
             // geometry but runs at 4 degrees, where the correction is 0.2%.
-            width: `${Math.hypot(cable.w, cable.rise / 5.9).toFixed(3)}%`,
-            '--angle': `${(Math.atan((cable.rise / 5.9) / cable.w) * 180 / Math.PI).toFixed(3)}deg`,
+            width: `${Math.hypot(cable.w, cable.rise / CARD_ASPECT).toFixed(3)}%`,
+            '--angle': `${(Math.atan((cable.rise / CARD_ASPECT) / cable.w) * 180 / Math.PI).toFixed(3)}deg`,
             '--cycle': `${cable.flight}s`,
           }}>
           <span className="mast-motion-cabin" />
@@ -356,10 +356,10 @@ export default function MastheadMotion({ city }) {
             style={{
               left: `${span.deck.x}%`, top: `${span.deck.y}%`,
               width: `${span.deck.w}%`,
-              // Card percentages are not square: the card is 5.9:1, so a 1%
-              // rise is 5.9x smaller in pixels than a 1% run. The angle has to
+              // Card percentages are not square: the card is CARD_ASPECT:1, so a 1%
+              // rise is CARD_ASPECT times smaller in pixels than a 1% run. The angle has to
               // be computed through that or the rail tilts far too steeply.
-              '--angle': `${(Math.atan((span.deck.rise / 5.9) / span.deck.w) * 180 / Math.PI).toFixed(3)}deg`,
+              '--angle': `${(Math.atan((span.deck.rise / CARD_ASPECT) / span.deck.w) * 180 / Math.PI).toFixed(3)}deg`,
             }}
           >
             {/* Two each way on periods that do not divide into one another, so

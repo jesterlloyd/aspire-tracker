@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { CITY_MOTION, CITY_IMG_Y, DEFAULT_IMG_Y } from '../src/lib/mastheadCityScenes.js'
+import { CITY_MOTION, CARD_ASPECT } from '../src/lib/mastheadCityScenes.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const MASTHEAD = join(here, '..', 'public', 'masthead')
@@ -32,6 +32,12 @@ const CROSSINGS = ['aircraft', 'birds', 'helicopter', 'ferry']
 const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints', 'steam', 'neon']
 // Neon points may carry a tone as a third element; only this one is drawn.
 const NEON_TONES = ['cyan']
+// Two glows are "on top of each other" at a PHYSICAL distance, so the vertical
+// threshold has to be stated as one. 0.2542% of the card's WIDTH is what 1.5%
+// of its height meant on the old 5.9:1 card; MASTHEAD-FULL-FRAME-1 made the
+// card 5:1 and every measured y shrank by the same factor, so a threshold left
+// at 1.5 would have started failing pairs that never moved relative to the art.
+const MIN_DY = 0.2542 * CARD_ASPECT
 // A city may carry one span or a list of them.
 const spansOf = m => Array.isArray(m.bridge) ? m.bridge : m.bridge ? [m.bridge] : []
 
@@ -143,7 +149,7 @@ test('no two points of the same effect collide', () => {
         for (let j = i + 1; j < pts.length; j++) {
           const dx = Math.abs(pts[i][0] - pts[j][0])
           const dy = Math.abs(pts[i][1] - pts[j][1])
-          assert.ok(dx > 0.4 || dy > 1.5,
+          assert.ok(dx > 0.4 || dy > MIN_DY,
             `${city}.${key} points ${i} and ${j} sit on top of each other`)
         }
       }
@@ -191,16 +197,16 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
   }
   // Las Vegas: the High Roller's rim (97px across, centre x 39.0) and the
   // Sphere (123px, cut by the skyline 54% of the way down).
-  assert.deepEqual(CITY_MOTION.lasvegas.wheel, { x: 39.0, y: 58.6, d: 4.85 })
+  assert.deepEqual(CITY_MOTION.lasvegas.wheel, { x: 39.0, y: 57.29, d: 4.85 })
   // London's Eye, fitted to the rim arc that stands against clear sky.
-  assert.deepEqual(CITY_MOTION.london.wheel, { x: 38.7, y: 25.9, d: 6.97 })
+  assert.deepEqual(CITY_MOTION.london.wheel, { x: 38.7, y: 21.95, d: 6.97 })
   // A wheel is a circle drawn with aspect-ratio 1, so its diameter is a share
-  // of the card's WIDTH and its vertical reach is 5.9x that share of the
+  // of the card's WIDTH and its vertical reach is CARD_ASPECT x that share of the
   // height. Both ends of that reach have to stay on the card, or the rim is
   // clipped and no longer reads as turning.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (!m.wheel) continue
-    const halfV = m.wheel.d / 2 * 5.9
+    const halfV = m.wheel.d / 2 * CARD_ASPECT
     assert.ok(m.wheel.y - halfV >= 0 && m.wheel.y + halfV <= 100,
       `${city}.wheel reaches y ${(m.wheel.y - halfV).toFixed(1)}..${(m.wheel.y + halfV).toFixed(1)}, off the card`)
   }
@@ -212,7 +218,7 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     for (const [scene, y] of Object.entries(m.sceneShift || {})) {
       assert.ok(SHIFT_SCENES.includes(scene), `${city}.sceneShift.${scene}: no CSS gate exists for that scene`)
-      assert.ok(typeof y === 'number' && y !== 0 && Math.abs(y) <= 5,
+      assert.ok(typeof y === 'number' && y !== 0 && Math.abs(y) <= 5 * (CARD_ASPECT / 5.9),
         `${city}.sceneShift.${scene}=${y}: a shift is a few percent, measured; anything larger is a different drawing and wants sceneOverrides`)
       assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-anchored \\{ transform: translateY\\(var\\(--shift-${scene}, 0\\)\\); \\}`))
       assert.ok(!m.sceneOverrides?.[scene], `${city}.${scene} has both a shift and an override; pick one`)
@@ -220,8 +226,8 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
   }
   // New York's cloudy night is the night drawing 2.2% lower (46 lights, 4 crowns),
   // and its snowy night 1.5% lower (the crowns at 44.1 and 83.5).
-  assert.equal(CITY_MOTION.newyork.sceneShift.cloudynight, 2.2)
-  assert.equal(CITY_MOTION.newyork.sceneShift.snownight, 1.5)
+  assert.equal(CITY_MOTION.newyork.sceneShift.cloudynight, 1.86)
+  assert.equal(CITY_MOTION.newyork.sceneShift.snownight, 1.27)
   // A swell is a measured patch inside the card; snowfall is a flag.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (m.swell) {
@@ -276,7 +282,7 @@ test('a rainbow arcs inside the card, on the half away from the sun', () => {
   }
   // Honolulu's, over the Koolau: apex at x 35, feet at 18 and 52, and its sun
   // is off the right edge, so the bow is left of centre.
-  assert.deepEqual(CITY_MOTION.honolulu.rainbow, { x: 18, y: 11, w: 34, h: 42 })
+  assert.deepEqual(CITY_MOTION.honolulu.rainbow, { x: 18, y: 16.95, w: 34, h: 35.59 })
   // The sunlit scenes only. An overcast frame has no sun to make one, and the
   // gate is the only thing that keeps it off Rain and the night scenes.
   for (const scene of ['day', 'morning', 'cloudy', 'goldenhour']) {
@@ -306,7 +312,7 @@ test('a cableway hangs between two points on the card', () => {
       `${city}.cable drops ${c.rise}% over ${c.w}%; that is a roadway, not a cableway`)
   }
   // Rio's bondinho: the Sugarloaf summit at [83, 37] down to Urca at [91, 68.6].
-  assert.deepEqual(CITY_MOTION.rio.cable, { x: 83, y: 37, w: 8, rise: 31.6, flight: 42 })
+  assert.deepEqual(CITY_MOTION.rio.cable, { x: 83, y: 31.36, w: 8, rise: 26.78, flight: 42 })
   // The wire is the artwork's. Ours is the cabin, and only the cabin.
   const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
   assert.match(css, /\.mast-motion-cable \{\s*\n\s*position: absolute; height: 0;/)
@@ -396,24 +402,28 @@ test('haze and flare stay on the card where they must, and off it where they may
   }
 })
 
-test('the crop exceptions are exactly the cities measured through them', () => {
-  // A city cropped at 50% rather than the bottom-anchored default had its
-  // coordinates converted differently. If someone changes a city's --scn-img-y,
-  // every one of its points silently shifts by about 30px and this test is the
-  // only thing that will say so. Atlanta, Hollywood (second pack) and New
-  // York (second pack) are the three; all were measured through the centred crop.
-  const CENTRED = ['atlanta', 'newyork', 'lasvegas', 'seattle', 'hongkong', 'honolulu']
-  // MASTHEAD-RIO-1 / TOKYO-1 / LONDON-1: three cities are anchored to the TOP.
-  // Christ the Redeemer starts at source row 7, the Skytree's mast at row 0 and
-  // the Shard's spire at row 0, and neither the default nor the centred crop
-  // keeps them, so those packs were converted through a third offset again.
-  const TOP = ['rio', 'tokyo', 'london', 'rome', 'hollywood']
-  assert.equal(DEFAULT_IMG_Y, '100%')
-  for (const city of CENTRED) assert.equal(CITY_IMG_Y[city], '50%', `${city} was measured through a 50% crop`)
-  for (const city of TOP) assert.equal(CITY_IMG_Y[city], '0%', `${city} was measured through a top-anchored crop`)
-  for (const city of Object.keys(CITY_MOTION)) {
-    if (CENTRED.includes(city) || TOP.includes(city)) continue
-    assert.equal(CITY_IMG_Y[city], undefined,
-      `${city} now has a custom --scn-img-y, so its measured points need redoing`)
-  }
+test('the card shows the whole frame, and the angle maths agrees with its shape', () => {
+  // MASTHEAD-FULL-FRAME-1. The card was 5.9:1 against 5:1 art, so it cropped
+  // 15% of every frame and each city carried a --scn-img-y saying which 15%.
+  // Now it is 5:1 and there is no crop and no map.
+  //
+  // CARD_ASPECT is not decoration. A vertical percentage is CARD_ASPECT times
+  // fewer pixels than a horizontal one, and the deck, cable and surf angles all
+  // divide their rise by it to get a real on-screen angle. If the CSS shape and
+  // this constant ever disagree, every rail in the registry tilts wrongly and
+  // nothing else says so.
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const m = /aspect-ratio: ([\d.]+) \/ 1;/.exec(css)
+  assert.ok(m, 'the card no longer declares an aspect ratio')
+  assert.equal(Number(m[1]), CARD_ASPECT, 'the CSS card shape and CARD_ASPECT disagree')
+  // Every source frame really is that shape, which is the premise for cropping
+  // nothing. A pack drawn at another ratio would be cover-cropped silently.
+  const dirs = readdirSync(MASTHEAD, { withFileTypes: true })
+    .filter(d => d.isDirectory() && d.name !== 'picker').map(d => d.name)
+  assert.ok(dirs.length > 0)
+  // And the crop machinery is gone rather than merely unused.
+  const reg = readFileSync(join(here, '..', 'src', 'lib', 'mastheadCityScenes.js'), 'utf8')
+  assert.doesNotMatch(reg, /export const CITY_IMG_Y/)
+  assert.doesNotMatch(reg, /export function imgPositionFor/)
+  assert.doesNotMatch(readFileSync(join(here, '..', 'src', 'index.css'), 'utf8'), /--scn-img-y/)
 })

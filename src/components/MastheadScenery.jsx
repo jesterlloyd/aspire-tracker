@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useWelcomeWeather, useMastheadScene } from './WeatherScene'
 import { SCENES, ALL_SCENES, sceneFrameFor } from '../lib/mastheadScene'
-import { parseSceneFiles, resolvePack, injectedSceneFiles, imgPositionFor } from '../lib/mastheadCityScenes'
+import { parseSceneFiles, resolvePack, injectedSceneFiles } from '../lib/mastheadCityScenes'
 import { useCityPreference } from './masthead/useCityPreference'
 import { sweepFramesFor, startSweepWhenReady, stopSweep, useSceneSweep } from '../lib/mastheadSweep'
 import MastheadMotion from './masthead/MastheadMotion'
@@ -102,9 +102,8 @@ export default function MastheadScenery() {
   }, [pickSeq])
 
   return (
-    // --scn-img-y decides which horizontal band of the panorama the card shows.
-    // Per city, because where a skyline sits in its own frame is a property of
-    // the artwork, not of the layout - the same reason --scn-sky-x is per city.
+    // MASTHEAD-FULL-FRAME-1: the card is 5:1 and so is every panorama, so there
+    // is no band to choose and no crop variable to set - the frame shows whole.
     <div
       className="mast-scenery"
       aria-hidden
@@ -116,7 +115,6 @@ export default function MastheadScenery() {
       // next when the next arrives, so it is overridden here for the duration.
       data-sweep={sweep?.frame || undefined}
       style={{
-        '--scn-img-y': imgPositionFor(pack?.city),
         ...(sweep ? { '--scn-fade': `${(sweep.stepMs / 1000).toFixed(2)}s` } : null),
       }}
     >

@@ -11,7 +11,6 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
   parseSceneFiles, choosePack, normalizeCityToken, CITY_COORDS,
-  CITY_IMG_Y, DEFAULT_IMG_Y, imgPositionFor,
 } from '../src/lib/mastheadCityScenes.js'
 import { SCENES } from '../src/lib/mastheadScene.js'
 
@@ -310,43 +309,30 @@ test('a retired abbreviation no longer resolves, and the guard is what says so',
   assert.ok(!CITY_COORDS.nyc, 'which has no coordinates, so location can never reach it')
 })
 
-test('the vertical crop is per city, and only the cities whose mast or spire needs it opt out', () => {
-  // Bottom-anchored is the default because the panoramas are composed with
-  // ground at the bottom and sky to spare. Atlanta's spire (row 42), the
-  // second Hollywood pack's radio mast (row 36) and the second New York
-  // pack's One WTC needle (row 5) all reach into the top 61 rows the default
-  // removes, so they crop centred; the second Las Vegas pack's Strat (row 68)
-  // clears it by seven rows and crops centred for the sky above its tip.
-  // Honolulu joins them for the Koolau crest (row 54), which the default cut,
-  // and for the open sky the centred crop gives the sun and moon. Rio is the
-  // one city anchored to the TOP: Christ the Redeemer starts at source row 7,
-  // which neither the default nor the centred crop keeps.
-  // Everyone else stays.
-  assert.equal(DEFAULT_IMG_Y, '100%')
-  assert.deepEqual(Object.keys(CITY_IMG_Y).sort(), ['atlanta', 'hollywood', 'hongkong', 'honolulu', 'lasvegas', 'london', 'newyork', 'rio', 'rome', 'seattle', 'tokyo'])
-  assert.equal(imgPositionFor('rio'), '0%')
-  assert.equal(imgPositionFor('tokyo'), '0%')
-  assert.equal(imgPositionFor('london'), '0%')
-  assert.equal(imgPositionFor('rome'), '0%')
-  // MASTHEAD-HOLLYWOOD-3 moved Hollywood from the centred crop to the top one:
-  // the third pack puts the mast's beacon at source row 5.
-  assert.equal(imgPositionFor('hollywood'), '0%')
-  assert.equal(imgPositionFor('lasvegas'), '50%')
-  assert.equal(imgPositionFor('seattle'), '50%')
-  assert.equal(imgPositionFor('atlanta'), '50%')
-  assert.equal(imgPositionFor('newyork'), '50%')
-  assert.equal(imgPositionFor('losangeles'), '100%')
-  assert.equal(imgPositionFor(undefined), '100%')
+test('the card and the artwork are the same shape, so nothing is cropped', () => {
+  // MASTHEAD-FULL-FRAME-1 retired CITY_IMG_Y entirely. Every panorama is
+  // 2000x400 and the card is 5:1, so cover crops nothing and no city needs to
+  // say which band of its own frame to show. This is the premise: a pack drawn
+  // at a different ratio would be cropped again, silently, and the guard that
+  // used to catch that (a per-city crop pinned to its measurements) is gone.
+  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+    .map(f => String(f).replace(/\\/g, '/'))
+    .filter(f => /\.webp$/i.test(f) && !f.startsWith('picker/'))
+  assert.ok(files.length > 100, 'expected the installed scene packs')
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  assert.match(css, /aspect-ratio: 5 \/ 1;/)
+  assert.match(css, /object-position: 50% 50%/)
+  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
+  assert.doesNotMatch(scenery, /scn-img-y/, 'the scenery still sets a crop variable')
 })
 
-test('the crop hook is applied where the art renders, not on the card', () => {
-  const scenery = read('src/components/MastheadScenery.jsx')
-  assert.match(scenery, /'--scn-img-y': imgPositionFor\(pack\?\.city\)/)
-  // Read from the resolved pack, so a viewer who picks Atlanta explicitly gets
-  // its framing too, not only one matched by location.
-  assert.match(scenery, /imgPositionFor/)
-  const css = read('src/index.css')
-  assert.match(css, /object-position: 50% var\(--scn-img-y, 100%\)/)
+test('the art layer renders the frame whole, with no crop hook', () => {
+  // MASTHEAD-FULL-FRAME-1 removed --scn-img-y. This used to assert the variable
+  // was set on the ART element rather than the card (setting it on the card
+  // moved the greeting instead of the picture); there is nothing to place now.
+  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
+  assert.doesNotMatch(scenery, /scn-img-y/)
+  assert.doesNotMatch(scenery, /imgPositionFor/)
 })
 
 test('CloudyNight parses as its own scene, not as bare Night', () => {
