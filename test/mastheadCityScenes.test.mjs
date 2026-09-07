@@ -150,10 +150,14 @@ test('the celestial art sits where each city leaves its sky clear', async () => 
   const { skyPositionFor, DEFAULT_SKY_X, CITY_SKY_X, resolvePack } = await import('../src/lib/mastheadCityScenes.js')
   // New York's towers occupy the middle of its frame (One WTC's spire sat
   // under the moon at the default), so that pack moves the art over the open
-  // harbor sky; every other city keeps the default.
+  // harbor sky. Los Angeles's third pack does the same: the Wilshire Grand's
+  // needle stands at x 54, so its art anchors over the west basin instead. A
+  // city with nothing under the default keeps it, and so does an unknown one.
   assert.equal(skyPositionFor('newyork'), CITY_SKY_X.newyork)
   assert.notEqual(CITY_SKY_X.newyork, DEFAULT_SKY_X)
-  for (const city of ['losangeles', 'lasvegas', 'chicago', undefined, null]) {
+  assert.equal(skyPositionFor('losangeles'), CITY_SKY_X.losangeles)
+  assert.notEqual(CITY_SKY_X.losangeles, DEFAULT_SKY_X)
+  for (const city of ['seattle', 'lasvegas', 'chicago', undefined, null]) {
     assert.equal(skyPositionFor(city), DEFAULT_SKY_X, `${city} uses the default sky position`)
   }
   // The scenery layer and the weather module must resolve the SAME pack, or

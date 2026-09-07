@@ -260,6 +260,12 @@ export const CITY_SKY_X = {
   // the moon in the middle of them. The left third is low rooftops and trees
   // under open sky, which is where it goes.
   atlanta: '30%',
+  // MASTHEAD-LOSANGELES-3: the third pack puts the Wilshire Grand's needle at
+  // x 54 (card y 12) with the tower cluster from x 40 to 76, so the default
+  // 52% sits the moon on the needle. The clearing is the sky over the west
+  // basin, between the left palms (x 10) and the towers, above a ridge that
+  // never rises past y 30 there.
+  losangeles: '28%',
   // Hollywood looks east from Griffith: the right half is ridgeline rising to
   // the radio tower near 70%, and the left half is the open basin under a low
   // horizon. The moon goes over the basin.
@@ -378,68 +384,91 @@ export const CITY_MOTION = {
     rainfall: true,
   },
   losangeles: {
-    // MASTHEAD-LOSANGELES-2 (2026-09-05): the second Los Angeles pack (nine
-    // frames, Cloudy joined) replaced the first, so EVERY coordinate here was
-    // re-measured (scratchpad nymeasure.mjs, gridzoom.py). One viewpoint on all
-    // nine: the basin from the south-west, palms at both edges, downtown at
-    // x 36-66 with the Wilshire Grand's spire at x 42.7, the San Gabriels
-    // behind, the 110/101 interchange in front. Default crop (the spire stays
-    // under the top edge). CloudyNight is the same drawing as Night.
+    // MASTHEAD-LOSANGELES-3 (2026-09-06): the THIRD Los Angeles pack. Ten
+    // frames now (RainNight joined), ONE drawing on all ten (row-edge
+    // correlation within 1px, r >= 0.90), and a new viewpoint, so nothing from
+    // the second pack survives: every coordinate here was measured on these
+    // frames (scratchpad la3measure.mjs, la3crown.mjs, overlay3.py) and read
+    // straight off the artwork, because the card shows the whole frame.
     //
-    // Night: downtown's windows and crowns, then the basin's carpet of light.
+    // The view is the basin from the south-west with a palm colonnade at both
+    // edges (fronds to the top edge at x 4-10 and x 90-96), downtown at x 40-76
+    // with the Wilshire Grand's needle at x 54 (dark to card y 18, lit from
+    // 19), the US Bank tower at x 61 (crown y 23.5), City Hall at x 70-71.7
+    // (tip y 49), the San Gabriels behind at y 24-33, and the 110 interchange
+    // in the foreground at x 47-67, y 82-100.
+    //
+    // Night: downtown's windows and crowns, then the basin's carpet of light,
+    // west and east of the towers and in the near foreground.
     lights: [
-      [55.4, 44.75], [48.6, 54.75], [42.4, 53.73], [50.3, 42.8], [68.2, 66.53],
-      [50.8, 52.54], [71.5, 72.29], [51.6, 65.25], [36.9, 62.29], [50.0, 72.71],
-      [61.2, 69.24], [53.1, 72.29], [64.2, 72.71], [28.2, 72.97], [53.3, 55.76],
-      [58.9, 74.75], [40.2, 62.03], [55.0, 60.76], [56.1, 70.25], [45.1, 58.98],
-      [48.8, 64.24], [57.8, 54.24], [37.1, 73.73], [57.3, 64.24], [42.1, 62.54],
-      [34.4, 68.47], [67.2, 73.47], [34.9, 75.51], [40.1, 73.22], [46.6, 67.54],
-      // The basin, off the two freeway rails.
-      [60.1, 96.27], [80.8, 96.27], [37.0, 84.49], [72.2, 97.03], [45.5, 90.76],
-      [10.8, 85.51], [23.9, 72.97], [31.3, 88.22], [20.0, 90.51], [48.5, 95.0],
-      [67.2, 81.78], [60.1, 78.47], [27.3, 92.29], [42.1, 96.27], [34.2, 99.24],
-      [70.5, 79.24], [53.5, 86.53], [6.3, 82.29], [66.8, 89.75], [19.1, 73.98],
+      [52.8, 38.8], [63.8, 32.5], [59.4, 60.3], [63.5, 42.3], [47.0, 56.5],
+      [49.1, 61.0], [51.9, 59.8], [55.1, 43.3], [42.6, 56.8], [42.8, 50.5],
+      [55.1, 51.5], [57.5, 43.5], [61.9, 60.3], [51.9, 53.5], [75.0, 58.3],
+      [48.3, 51.2], [59.3, 52.0], [59.7, 43.5], [52.3, 45.0], [63.8, 56.5],
+      [57.3, 59.8], [54.0, 57.5], [66.6, 58.0], [61.1, 23.5], [71.0, 52.0],
+      [61.9, 54.0], [61.1, 30.5], [38.2, 57.8], [42.8, 61.8], [69.7, 61.8],
+      [68.7, 50.5], [72.2, 58.3], [71.4, 46.0],
+      // The basin west of downtown.
+      [8.8, 88.8], [8.2, 80.8], [37.8, 95.0], [23.5, 68.5], [11.1, 76.8],
+      [15.7, 86.5], [19.6, 66.5], [27.5, 93.5], [28.7, 67.3], [24.4, 59.0],
+      [31.3, 77.8], [23.4, 79.0], [15.0, 62.3], [34.2, 67.8],
+      // East of downtown, and the near foreground either side of the freeway.
+      [80.5, 86.3], [91.0, 96.3], [84.8, 88.0], [76.6, 70.8], [76.1, 80.8],
+      [81.3, 70.8], [89.1, 68.5], [78.3, 62.5], [57.5, 83.8], [71.2, 93.3],
+      [71.2, 78.3], [44.5, 98.5], [44.8, 87.0], [68.1, 93.0], [45.5, 69.8],
+      [75.0, 71.3], [54.5, 81.3],
     ],
-    // Aviation red on the crowns: the US Bank tower's (rgb 252,38,6 at card y
-    // 35.7), the towers at x 58, 41.6 and 40, City Hall's neighbour, and the
-    // Wilshire corridor's mid-rise crowns out to the west and east.
+    // Aviation red on the crowns. Each of these is a strict-red local maximum
+    // (r >= 180, g <= 110) with OPEN SKY in the 6-16 rows above it, which is
+    // what separates a crown from a tail-light on the freeway (the plain red
+    // search returned thirty of those first). The pair at x 58-59 are the two
+    // corners of one roof; City Hall's is the beacon on its tip.
     beacons: [
-      [54.4, 45.51], [58.3, 54.24], [41.6, 56.53], [40.0, 61.27], [59.9, 59.24],
-      [68.7, 66.78], [29.9, 69.49], [34.2, 67.97], [26.4, 67.97], [84.1, 72.71],
-      [88.8, 71.78], [18.2, 74.24], [4.5, 76.78],
+      [58.0, 34.8], [59.0, 35.3], [67.3, 50.0], [56.5, 37.8], [63.2, 31.8],
+      [50.0, 43.0], [46.9, 53.0], [79.0, 56.8], [81.7, 60.0], [71.7, 49.3],
+      [21.5, 57.5], [85.5, 60.0], [10.4, 61.8],
     ],
     beaconTone: 'red',
-    // Steam off three lit rooftops (first lit row of each column), the block
-    // west of the towers and two mid-rises east of them, the ridge behind.
-    steam: [[38.0, 62.03], [52.0, 57.8], [60.0, 59.24]],
-    // The interchange. The first pack refused traffic on the curves; this
-    // frame's elevated run in front of the basin (x 26-42) and the ramp that
-    // drops off it (x 48.5-56.5) are straight enough, traced light by light
-    // (+-1.5% band). A police car works the long run.
+    // Steam off three rooftops (first lit row of each column): the tower west
+    // of the cluster, the glass tower east of the US Bank tower, and a low
+    // block behind City Hall. Not the tower at x 50: its crown carries a beacon.
+    steam: [[44.0, 54.8], [66.0, 39.5], [74.0, 55.0]],
+    // The interchange. Two straight stretches, traced light by light and then
+    // drawn back on the frame: the elevated run at the top of the curve
+    // (x 48-53) and the main freeway where it straightens toward the bottom
+    // edge (x 56-64.5, dropping 6.5% over 8.5%). The overpass at y 90 between
+    // them would overlap the freeway in x, so it carries no rail. The police
+    // car works the freeway.
     bridge: [
       {
-        lights: [[27.0, 92.03], [31.0, 92.03], [35.5, 92.03], [37.5, 91.27], [40.0, 90.0], [41.5, 91.02]],
-        deck: { x: 26, y: 92.88, w: 16, rise: -2.03 },
-        police: true,
+        lights: [[50.0, 85.5], [52.0, 87.3]],
+        deck: { x: 48, y: 84.2, w: 5, rise: 3 },
       },
       {
-        lights: [[49.0, 92.8], [50.5, 93.73], [52.0, 93.73], [55.0, 96.53]],
-        deck: { x: 48.5, y: 91.95, w: 8, rise: 5.08 },
+        lights: [[56.0, 90.8], [58.5, 94.5], [60.5, 94.0], [63.5, 96.3]],
+        deck: { x: 56, y: 92.5, w: 8.5, rise: 6.5 },
+        police: true,
       },
     ],
-    // East to west over downtown, the way the LAX approach actually runs;
-    // the sky is clear above card y 25 between the palms (which reach the
-    // top at both edges), so everything flies inside x 6-94.
-    aircraft: { y: 33.05, from: 94, to: 33, flight: 34 },
-    birds: { y: 40.68, from: 94, to: 60, flight: 30, count: 6 },
-    // An LAPD helicopter low over the basin at sunset, west to east.
-    helicopter: { y: 45.76, from: 8, to: 62, flight: 46 },
-    // The basin's smog, between the mountains' base (card y 42-50) and the
-    // mid-rise band; warm-grey, the default tone, which is what the basin is.
-    haze: { y: 55.93, height: 13.56 },
-    // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
-    // 8%; sky column means peak at x 10 and fall to the right).
-    flare: { x: -6, y: 22.03 },
+    // East to west over downtown, the way the LAX approach runs. The sky is
+    // clear above card y 10 from x 9 to x 92 (the palms own both corners,
+    // reaching y 4.5 at x 6 and y 3.3 at x 94; the needle stops at y 12), so
+    // the plane flies at 8 and fades inside the palms at each end.
+    aircraft: { y: 8, from: 88, to: 12, flight: 40 },
+    // The flock spreads 6.4% above its lane and 11.5% below; at y 12 it stays
+    // between 5.6 and 23.5, and the ridge never rises past 24.
+    birds: { y: 12, from: 86, to: 14, flight: 34, count: 6 },
+    // An LAPD helicopter low over the west basin at sunset, west to east,
+    // against the mountains' face; it fades before the towers at x 48.
+    helicopter: { y: 40, from: 14, to: 48, flight: 46 },
+    // The basin's smog: the pale band between the mountains' base (y 45-50)
+    // and the mid-rise band (y 55-66). The default warm-grey tone, which is
+    // what the basin is.
+    haze: { y: 46, height: 14 },
+    // The golden-hour sun is OFF-FRAME LEFT: the left edge is the brightest
+    // edge, the sky column means fall from 219 at x 0 to 207 at x 90, and the
+    // edge column peaks (lum 228) at y 36-40, just above the ridge.
+    flare: { x: -6, y: 36 },
     rainfall: true,
   },
   sanfrancisco: {
