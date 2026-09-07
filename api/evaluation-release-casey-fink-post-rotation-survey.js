@@ -8,13 +8,14 @@
 //
 // SECURITY INVARIANTS:
 //   - Owner/Admin only (server-verified).
-//   - Body accepts ONLY { student_id }. Any other field is rejected with 400.
+//   - Body accepts ONLY { student_id, expected_instrument_slug }. Any other field is rejected.
 //   - Recipient resolved server-side (personal first, school fallback). No override.
 //   - Refusal (not eligible / already released) sends nothing and writes nothing.
 //   - Raw token + survey URL are never persisted.
 //   - No certificate row, certificate number, or PDF is created here.
 //
-// POST /api/evaluation-release-casey-fink-post-rotation-survey   Body: { student_id }
+// POST /api/evaluation-release-casey-fink-post-rotation-survey
+// Body: { student_id, expected_instrument_slug: 'casey_fink_readiness_2024' }
 
 /* global process */
 import { createClient } from '@supabase/supabase-js';
@@ -24,7 +25,10 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { buildCaseyFinkPostRotationInvitationEmail, formatExpiresAt } from '../lib/server/evaluation/caseyFinkPostRotationEmailTemplates.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
-import { classifyCaseyFinkPostRotationCohort } from '../src/lib/evaluation/caseyFinkPostRotationDueDetection.js';
+import {
+  classifyCaseyFinkPostRotationCohort,
+  isCaseyFinkReissuableAssignment,
+} from '../src/lib/evaluation/caseyFinkPostRotationDueDetection.js';
 import { caseyFinkPrerequisite, STEP_SLUGS } from '../src/lib/evaluation/postRotationSequence.js';
 import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
@@ -39,9 +43,29 @@ const NOTIF_TYPE       = 'casey_fink_post_rotation_request_sent';
 const SOURCE           = 'casey_fink_post_rotation_queue_release';
 
 const ALREADY_SENT_STATUSES = ['sent', 'delivered', 'opened', 'clicked', 'delayed', 'bounced', 'complained'];
+const REISSUE_CLAIM_NOTE = 'casey_fink_readiness_2024:post_rotation:reissue_claim';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
+
+async function restoreReissueClaim(row) {
+  const { error } = await supabaseAdmin
+    .from('evaluation_assignments')
+    .update({
+      status:     row.status,
+      revoked_at: row.revoked_at || null,
+      notes:      row.notes || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', row.id)
+    .eq('status', 'draft')
+    .eq('notes', REISSUE_CLAIM_NOTE);
+  if (error) {
+    console.error('[casey-fink-post-rotation-release] reissue_claim_restore_failed:', {
+      assignment_id: row.id, error: error.message,
+    });
+  }
+}
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
@@ -102,7 +126,7 @@ async function _handler(req, res) {
   const senderUserId = profile.id;
   const senderEmail  = profile.email;
 
-  // ── 2. Parse + validate body (student_id ONLY) ──────────────────────────────────
+  // ── 2. Parse + validate the two-field request body. ─────────────────────────────
   let body;
   try {
     const raw = req.body;
@@ -164,15 +188,18 @@ async function _handler(req, res) {
     return res.status(422).json({ success: false, error: 'Student has no cohort' });
   }
 
-  // Existing Casey-Fink assignments for this student; keep ONLY post_rotation ones (baseline and
-  // early_rotation_baseline Casey-Fink must never block a post-rotation release).
+  // Existing assignments for this student's CURRENT cohort only. Keep only post_rotation Casey-Fink
+  // rows below; baseline Casey-Fink and assignments from a prior cohort must never block or be
+  // mutated by this release.
   const { data: rawAssignments, error: asgErr } = await supabaseAdmin
     .from('evaluation_assignments')
     .select(`
-      id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at, timepoint,
+      id, student_id, status, revoked_at, completed_at, invited_at, expires_at, sent_at, created_at,
+      updated_at, notes, timepoint,
       evaluation_instruments!inner ( slug )
     `)
-    .eq('student_id', studentId);
+    .eq('student_id', studentId)
+    .eq('cohort_id', cohortId);
   if (asgErr) {
     return res.status(500).json({ success: false, error: 'Failed to load existing assignments' });
   }
@@ -222,12 +249,24 @@ async function _handler(req, res) {
   });
   const row = rows[0];
 
-  // ── 5. Proceed ONLY if still eligible_for_review. Otherwise refuse (no write/send). ─────
-  if (!row || row.status !== 'eligible_for_review') {
+  // ── 5. Proceed only for a new release or a deliberate expired/revoked reissue. ──────────
+  // The queue and endpoint share isCaseyFinkReissuableAssignment, so an existing terminal row is
+  // never presented as a brand-new release. Completed and active assignments still fail closed.
+  const releaseMode = row?.status === 'eligible_for_review'
+    ? 'new'
+    : row?.status === 'readiness_reissue'
+      ? 'reissue'
+      : null;
+  const reissueRow = releaseMode === 'reissue'
+    ? assignments.find(a => isCaseyFinkReissuableAssignment(a, Date.now())) || null
+    : null;
+
+  if (!releaseMode || (releaseMode === 'reissue' && !reissueRow)) {
     const REFUSAL_REASON = {
       readiness_released:   'The post-rotation Casey-Fink survey has already been released to this student',
       readiness_completed:  'This student has already completed the post-rotation Casey-Fink survey',
       certificate_unlocked: 'This student already has a Certificate of Completion',
+      readiness_attention:  'An existing post-rotation Casey-Fink assignment needs support review before release',
       not_eligible_hours:   'This student does not have valid required hours set',
       not_eligible:         'This student has not yet reached the required hours',
     };
@@ -240,22 +279,27 @@ async function _handler(req, res) {
   }
 
   // ── 6. notification_log dedup. ──────────────────────────────────────────────────
-  const { data: priorLog, error: logErr } = await supabaseAdmin
-    .from('notification_log')
-    .select('id')
-    .eq('notification_type', NOTIF_TYPE)
-    .eq('student_id', studentId)
-    .in('status', ALREADY_SENT_STATUSES)
-    .limit(1);
-  if (logErr) {
-    return res.status(500).json({ success: false, error: 'Failed to check send history' });
-  }
-  if (priorLog && priorLog.length > 0) {
-    return res.status(200).json({
-      success: true, released: false,
-      classification: 'suppressed_existing',
-      reason: 'A post-rotation Casey-Fink survey has already been sent to this student',
-    });
+  // A historical send is authoritative for a NEW assignment, but it must not suppress a deliberate
+  // reissue of the same expired/revoked assignment. Once reissued, the refreshed active assignment
+  // blocks every repeat request before this point, which provides current-cycle deduplication.
+  if (!reissueRow) {
+    const { data: priorLog, error: logErr } = await supabaseAdmin
+      .from('notification_log')
+      .select('id')
+      .eq('notification_type', NOTIF_TYPE)
+      .eq('student_id', studentId)
+      .in('status', ALREADY_SENT_STATUSES)
+      .limit(1);
+    if (logErr) {
+      return res.status(500).json({ success: false, error: 'Failed to check send history' });
+    }
+    if (priorLog && priorLog.length > 0) {
+      return res.status(200).json({
+        success: true, released: false,
+        classification: 'suppressed_existing',
+        reason: 'A post-rotation Casey-Fink survey has already been sent to this student',
+      });
+    }
   }
 
   // ── 7. Resolve recipient server-side (personal first, school fallback). ──────────
@@ -265,57 +309,117 @@ async function _handler(req, res) {
     return res.status(200).json({ success: true, released: false, classification: 'no_email', reason: 'No student email on file' });
   }
 
-  // ── 8. Create the Casey-Fink post_rotation assignment. ───────────────────────────
+  // ── 8. Create or safely reissue the Casey-Fink post_rotation assignment. ─────────
   const nowIso = new Date().toISOString();
   const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + WINDOW_DAYS);
   const tokenExpiresAt = new Date(expiresAt.getTime() + TOKEN_GRACE_DAYS * 24 * 60 * 60 * 1000);
   const approvedHoursSnapshot = parseFloat(student.approved_hours || 0) || 0;
-
-  const { data: assignment, error: assignErr } = await supabaseAdmin
-    .from('evaluation_assignments')
-    .insert({
-      instrument_id:                instrument.id,
-      student_id:                   studentId,
-      cohort_id:                    cohortId,
-      timepoint:                    TIMEPOINT,
-      assigned_by:                  senderUserId,
-      status:                       'sent',
-      invited_at:                   nowIso,
-      sent_at:                      nowIso,
-      expires_at:                   expiresAt.toISOString(),
-      approved_hours_at_invitation: approvedHoursSnapshot,
-      respondent_type:              'student',
-      respondent_preceptor_id:      null,
-      respondent_email:             studentEmail,
-      respondent_name:              studentName,
-      notes:                        'casey_fink_readiness_2024:post_rotation:queue_release',
-    })
-    .select('id')
-    .single();
-
-  if (assignErr || !assignment) {
-    const msg = (assignErr?.message || '').toLowerCase();
-    if (msg.includes('uq_assignment') || msg.includes('duplicate') || assignErr?.code === '23505') {
-      return res.status(200).json({ success: true, released: false, classification: 'suppressed_existing', reason: 'A post-rotation Casey-Fink survey already exists for this student' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to create survey request' });
-  }
-
-  // ── 9. Mint token. Raw token lives only in this function scope. ──────────────────
   const { raw: rawToken, hash: tokenHash, hashPrefix: tokenHashPrefix } = generateToken();
-  const { error: tokenErr } = await supabaseAdmin
-    .from('evaluation_assignment_tokens')
-    .insert({
-      assignment_id:     assignment.id,
-      token_hash:        tokenHash,
-      token_hash_prefix: tokenHashPrefix,
-      expires_at:        tokenExpiresAt.toISOString(),
-    });
-  if (tokenErr) {
-    const { error: rbErr } = await supabaseAdmin
-      .from('evaluation_assignments').delete().eq('id', assignment.id);
-    if (rbErr) console.error('[casey-fink-post-rotation-release] ROLLBACK FAILED, orphaned assignment:', assignment.id, rbErr.message);
-    return res.status(500).json({ success: false, error: 'Failed to issue survey token' });
+  let assignmentId;
+
+  if (reissueRow) {
+    // Claim the terminal row before changing its token. The status predicate is a compare-and-set:
+    // concurrent requests may both read the old row, but only one can change its terminal status to
+    // draft. Every loser returns without minting, activating, or emailing a second link.
+    const { data: claimed, error: claimErr } = await supabaseAdmin
+      .from('evaluation_assignments')
+      // Clear revoked_at while claimed so a concurrent reader cannot classify this draft row as
+      // reissuable. restoreReissueClaim puts the original value back on any pre-send failure.
+      .update({ status: 'draft', revoked_at: null, notes: REISSUE_CLAIM_NOTE, updated_at: nowIso })
+      .eq('id', reissueRow.id)
+      .eq('status', reissueRow.status)
+      .select('id')
+      .maybeSingle();
+    if (claimErr) {
+      return res.status(500).json({ success: false, released: false, classification: 'reissue_claim_failed', error: 'Failed to claim the existing survey for reissue' });
+    }
+    if (!claimed) {
+      return res.status(409).json({ success: false, released: false, classification: 'release_in_progress', reason: 'Another release attempt changed this survey. Re-run detection before trying again.' });
+    }
+
+    // Reuse the existing token row because the assignment identity is intentionally stable. Updating
+    // the hash invalidates the old link. Insert only when an earlier partial assignment has no token.
+    const { data: refreshedTokens, error: tokenUpdateErr } = await supabaseAdmin
+      .from('evaluation_assignment_tokens')
+      .update({
+        token_hash: tokenHash, token_hash_prefix: tokenHashPrefix,
+        issued_at: nowIso, expires_at: tokenExpiresAt.toISOString(),
+        revoked_at: null, used_at: null, ip_used_first: null, user_agent_used_first: null,
+      })
+      .eq('assignment_id', reissueRow.id)
+      .select('assignment_id');
+    if (tokenUpdateErr) {
+      await restoreReissueClaim(reissueRow);
+      return res.status(500).json({ success: false, released: false, classification: 'reissue_token_failed', error: 'Failed to refresh the survey token' });
+    }
+    if (!refreshedTokens || refreshedTokens.length === 0) {
+      const { error: tokenInsertErr } = await supabaseAdmin
+        .from('evaluation_assignment_tokens')
+        .insert({
+          assignment_id: reissueRow.id, token_hash: tokenHash, token_hash_prefix: tokenHashPrefix,
+          issued_at: nowIso, expires_at: tokenExpiresAt.toISOString(),
+        });
+      if (tokenInsertErr) {
+        await restoreReissueClaim(reissueRow);
+        return res.status(500).json({ success: false, released: false, classification: 'reissue_token_failed', error: 'Failed to refresh the survey token' });
+      }
+    }
+
+    const { data: activated, error: activateErr } = await supabaseAdmin
+      .from('evaluation_assignments')
+      .update({
+        assigned_by: senderUserId,
+        status: 'sent', invited_at: nowIso, sent_at: nowIso, expires_at: expiresAt.toISOString(),
+        approved_hours_at_invitation: approvedHoursSnapshot,
+        respondent_type: 'student', respondent_preceptor_id: null,
+        respondent_email: studentEmail, respondent_name: studentName,
+        revoked_at: null, notes: 'casey_fink_readiness_2024:post_rotation:queue_reissue',
+        updated_at: nowIso,
+      })
+      .eq('id', reissueRow.id)
+      .eq('status', 'draft')
+      .eq('notes', REISSUE_CLAIM_NOTE)
+      .select('id')
+      .maybeSingle();
+    if (activateErr || !activated) {
+      await supabaseAdmin.from('evaluation_assignment_tokens')
+        .update({ revoked_at: new Date().toISOString() }).eq('assignment_id', reissueRow.id);
+      await restoreReissueClaim(reissueRow);
+      return res.status(500).json({ success: false, released: false, classification: 'reissue_activation_failed', error: 'Failed to activate the reissued survey' });
+    }
+    assignmentId = activated.id;
+  } else {
+    const { data: assignment, error: assignErr } = await supabaseAdmin
+      .from('evaluation_assignments')
+      .insert({
+        instrument_id: instrument.id, student_id: studentId, cohort_id: cohortId,
+        timepoint: TIMEPOINT, assigned_by: senderUserId, status: 'sent',
+        invited_at: nowIso, sent_at: nowIso, expires_at: expiresAt.toISOString(),
+        approved_hours_at_invitation: approvedHoursSnapshot,
+        respondent_type: 'student', respondent_preceptor_id: null,
+        respondent_email: studentEmail, respondent_name: studentName,
+        notes: 'casey_fink_readiness_2024:post_rotation:queue_release',
+      })
+      .select('id')
+      .single();
+
+    if (assignErr || !assignment) {
+      const msg = (assignErr?.message || '').toLowerCase();
+      if (msg.includes('uq_assignment') || msg.includes('duplicate') || assignErr?.code === '23505') {
+        return res.status(200).json({ success: true, released: false, classification: 'suppressed_existing', reason: 'A post-rotation Casey-Fink survey already exists for this student' });
+      }
+      return res.status(500).json({ success: false, error: 'Failed to create survey request' });
+    }
+    assignmentId = assignment.id;
+
+    const { error: tokenErr } = await supabaseAdmin
+      .from('evaluation_assignment_tokens')
+      .insert({ assignment_id: assignmentId, token_hash: tokenHash, token_hash_prefix: tokenHashPrefix, expires_at: tokenExpiresAt.toISOString() });
+    if (tokenErr) {
+      const { error: rbErr } = await supabaseAdmin.from('evaluation_assignments').delete().eq('id', assignmentId);
+      if (rbErr) console.error('[casey-fink-post-rotation-release] ROLLBACK FAILED, orphaned assignment:', assignmentId, rbErr.message);
+      return res.status(500).json({ success: false, error: 'Failed to issue survey token' });
+    }
   }
 
   // ── 10. Build survey URL - raw token only in the email, never stored/logged. ─────
@@ -330,6 +434,7 @@ async function _handler(req, res) {
 
   let resendMessageId = null;
   let sendError = null;
+  let deliveryUncertain = false;
   try {
     const { data: emailData, error: emailErr } = await resend.emails.send({
       from:     FROM,
@@ -339,23 +444,40 @@ async function _handler(req, res) {
       html,
       tags: [
         { name: 'type',          value: NOTIF_TYPE },
-        { name: 'assignment_id', value: assignment.id },
+        { name: 'assignment_id', value: assignmentId },
       ],
-    });
+    }, { idempotencyKey: `casey-fink-release/${assignmentId}:${nowIso}` });
     if (emailErr) sendError = emailErr.message || JSON.stringify(emailErr);
     else resendMessageId = emailData?.id || null;
   } catch (err) {
+    // A thrown transport error is indeterminate: the provider may have accepted the exact email.
+    // Keep this assignment/token active and block a blind retry, which could send a second email
+    // carrying a different token. An explicit provider rejection below remains safely reissuable.
+    deliveryUncertain = true;
     sendError = err.message;
+  }
+
+  if (deliveryUncertain) {
+    await supabaseAdmin.from('evaluation_assignments')
+      .update({ notes: 'casey_fink_readiness_2024:post_rotation:delivery_uncertain', updated_at: new Date().toISOString() })
+      .eq('id', assignmentId);
+    console.error('[casey-fink-post-rotation-release] delivery_uncertain (do not retry blindly):', {
+      assignment_id: assignmentId, error: sendError,
+    });
+    return res.status(202).json({
+      success: false, released: false, classification: 'delivery_uncertain',
+      reason: 'The email provider may have accepted this message. Do not retry until delivery is verified in Sent History.',
+    });
   }
 
   if (sendError) {
     await supabaseAdmin.from('evaluation_assignments')
       .update({ status: 'revoked', revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', assignment.id);
+      .eq('id', assignmentId);
     await supabaseAdmin.from('evaluation_assignment_tokens')
       .update({ revoked_at: new Date().toISOString() })
-      .eq('assignment_id', assignment.id);
-    console.error('[casey-fink-post-rotation-release] send_failed (assignment revoked):', { assignment_id: assignment.id, error: sendError });
+      .eq('assignment_id', assignmentId);
+    console.error('[casey-fink-post-rotation-release] send_failed (assignment revoked):', { assignment_id: assignmentId, error: sendError });
     return res.status(200).json({ success: true, released: false, classification: 'send_failed', reason: 'Email failed to send' });
   }
 
@@ -376,18 +498,20 @@ async function _handler(req, res) {
       student_id:        studentId,
       recipient_type:    'student',
       metadata: {
-        assignment_id:   assignment.id,
+        assignment_id:   assignmentId,
         student_id:      studentId,
         instrument_id:   instrument.id,
         timepoint:       TIMEPOINT,
         source:          SOURCE,
+        reissued:        !!reissueRow,
+        invitation_cycle_started_at: nowIso,
         sent_by_user_id: senderUserId,
         sent_by_email:   senderEmail,
       },
     }).select('id').single();
     notificationLogId = logRow?.id || null;
   } catch (logWriteErr) {
-    console.error('[casey-fink-post-rotation-release] log_write_failed:', { assignment_id: assignment.id, error: logWriteErr.message });
+    console.error('[casey-fink-post-rotation-release] log_write_failed:', { assignment_id: assignmentId, error: logWriteErr.message });
   }
 
   if (notificationLogId) {
@@ -404,15 +528,16 @@ async function _handler(req, res) {
   }
 
   console.log('[casey-fink-post-rotation-release] sent:', {
-    assignment_id: assignment.id, student_id: studentId, source: SOURCE,
+    assignment_id: assignmentId, student_id: studentId, source: SOURCE, reissued: !!reissueRow,
   });
   return res.status(200).json({
     success: true, released: true,
-    assignment_id: assignment.id,
+    assignment_id: assignmentId,
     student_id: studentId,
     student_name: studentName,
     student_email: studentEmail,
     sent_at: sentAtIso,
+    reissued: !!reissueRow,
     // ROUTING-HOTFIX-1: echo the workflow identity so the client can assert it matches the workflow
     // it intended (post-send tripwire, complementing the pre-send expected_instrument_slug guard).
     instrument_slug: INSTRUMENT_SLUG,

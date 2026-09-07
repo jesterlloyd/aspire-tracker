@@ -23,6 +23,8 @@ const NAVY = '#1D2567'
 
 const STATUS_STYLE = {
   eligible_for_review:  { label: 'Eligible for Review',       fg: '#166534', bg: '#EDF7F0' },
+  readiness_reissue:    { label: 'Ready to Reissue',          fg: '#92400e', bg: '#FBF3E0' },
+  readiness_attention:  { label: 'Needs Support Review',      fg: '#991b1b', bg: '#FEECEC' },
   readiness_released:   { label: 'Readiness Survey Released',  fg: '#1D2567', bg: '#EEF1FB' },
   readiness_completed:  { label: 'Readiness Survey Completed', fg: '#7c3aed', bg: '#F3EEFC' },
   certificate_unlocked: { label: 'Certificate Unlocked',       fg: '#b45309', bg: '#FBF5E8' },
@@ -50,8 +52,11 @@ function fmtDate(d) {
 
 const EMPTY_SUMMARY = {
   due_sendable: 0, due_unsendable: 0, suppressed_existing: 0,
-  ineligible_hours: 0, not_due: 0, eligible_for_review: 0, in_flow: 0,
+  ineligible_hours: 0, not_due: 0, eligible_for_review: 0, reissue_required: 0, in_flow: 0,
 }
+
+const isActionable = (row) =>
+  (row?.status === 'eligible_for_review' || row?.status === 'readiness_reissue') && row?.prereq?.ok
 
 async function loadCaseyFinkQueue(cohortId) {
   // Wave 1 (fatal): students + Casey-Fink assignments + units. Unit NAME is resolved via
@@ -65,7 +70,7 @@ async function loadCaseyFinkQueue(cohortId) {
     supabase
       .from('evaluation_assignments')
       .select(`
-        id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at, timepoint,
+        id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at, notes, timepoint,
         evaluation_instruments!inner ( slug )
       `)
       .eq('cohort_id', cohortId),
@@ -183,18 +188,18 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
 
   // POST-ROTATION-SEQUENCED-RELEASE-1: the practical filter staff asked for -
   // "who is ready for the next step right now". Feedback completed AND Casey-Fink
-  // neither released nor completed, which is exactly eligible_for_review with a
-  // satisfied prerequisite. Display-only: it narrows the visible rows and changes
-  // no state, no counts, and no release behavior.
+  // neither live nor completed, which is an eligible new release or a safe expired/revoked
+  // reissue with a satisfied prerequisite. Display-only: it narrows the visible rows and
+  // changes no state, no counts, and no release behavior.
   const [readyOnly, setReadyOnly] = useState(false)
   const rows = useMemo(
     () => (readyOnly
-      ? (allRows || []).filter(r => r.status === 'eligible_for_review' && r.prereq?.ok)
+      ? (allRows || []).filter(isActionable)
       : (allRows || [])),
     [allRows, readyOnly],
   )
   const readyCount = useMemo(
-    () => (allRows || []).filter(r => r.status === 'eligible_for_review' && r.prereq?.ok).length,
+    () => (allRows || []).filter(isActionable).length,
     [allRows],
   )
 
@@ -212,7 +217,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
-        setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
+        setReleaseMsg({ studentId: row.studentId, tone: 'err', text: 'Your session expired. Please sign in again.' })
         setReleasing(false); return
       }
       const res = await fetch(ROUTE.endpoint, {
@@ -226,15 +231,15 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
         // Post-send tripwire: the released workflow identity must match this panel's workflow.
         if (body.instrument_slug !== ROUTE.instrumentSlug || body.timepoint !== ROUTE.timepoint) {
           setIdentityHold(true)
-          setReleaseMsg({ tone: 'err', text: `Release identity mismatch for ${row.studentName}. The server reported ${body.instrument_slug}/${body.timepoint}, not the expected ${ROUTE.instrumentSlug}/${ROUTE.timepoint}. This release may have completed and an email may have been sent. Do NOT retry: verify in the send log first, since retrying could send a duplicate. Re-run detection to confirm the current state.` })
+          setReleaseMsg({ studentId: row.studentId, tone: 'err', text: `Release identity mismatch for ${row.studentName}. The server reported ${body.instrument_slug}/${body.timepoint}, not the expected ${ROUTE.instrumentSlug}/${ROUTE.timepoint}. This release may have completed and an email may have been sent. Do NOT retry: verify in the send log first, since retrying could send a duplicate. Re-run detection to confirm the current state.` })
         } else {
-          setReleaseMsg({ tone: 'ok', text: `Released. Readiness survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+          setReleaseMsg({ studentId: row.studentId, tone: 'ok', text: `${body.reissued ? 'Reissued' : 'Released'}. Readiness survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
         }
       } else {
-        setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer eligible'}` })
+        setReleaseMsg({ studentId: row.studentId, tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer eligible'}` })
       }
     } catch {
-      setReleaseMsg({ tone: 'err', text: 'Network error. Please try again.' })
+      setReleaseMsg({ studentId: row.studentId, tone: 'err', text: 'Network error. Do not retry until you verify Sent History; the provider may have received the request.' })
     } finally {
       setReleasing(false)
       setConfirm(null)
@@ -300,8 +305,8 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
           {detectedAtMs ? `Detected ${new Date(detectedAtMs).toLocaleString('en-US')}` : ''}
         </span>
         {/* POST-ROTATION-SEQUENCED-RELEASE-1: jump straight to the students whose
-            Student Feedback is complete and whose Casey-Fink is not yet released
-            or completed - i.e. exactly who can be released next. */}
+            Student Feedback is complete and whose Casey-Fink can be newly released
+            or safely reissued - i.e. exactly who can receive the next invitation. */}
         <label data-testid="cf-ready-filter"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#374151', fontFamily: F, cursor: 'pointer' }}>
           <input
@@ -317,7 +322,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
           fontSize: 12, fontWeight: 600, color: '#166534', background: '#EDF7F0',
           border: '1px solid #c6e7d0', borderRadius: 999, padding: '3px 10px',
         }}>
-          {summary.eligible_for_review} eligible for review
+          {summary.eligible_for_review - (summary.reissue_required || 0)} new release · {summary.reissue_required || 0} reissue
         </span>
         <span style={{
           fontSize: 12, fontWeight: 600, color: '#1D2567', background: '#EEF1FB',
@@ -411,7 +416,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
                           {r.warnings.length ? r.warnings.join(' · ') : <span style={{ color: '#9ca3af' }}>-</span>}
                         </td>
                         <td style={{ padding: '9px 13px', textAlign: 'right' }}>
-                          {r.status === 'eligible_for_review' ? (
+                          {r.status === 'eligible_for_review' || r.status === 'readiness_reissue' ? (
                             r.prereq && !r.prereq.ok ? (
                               <span data-testid="cf-blocked-reason"
                                 title={r.prereq.reason}
@@ -429,11 +434,24 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
                                 cursor: (releasing || identityHold) ? 'default' : 'pointer', opacity: (releasing || identityHold) ? 0.6 : 1, whiteSpace: 'nowrap',
                               }}
                             >
-                              Release Survey
+                              {r.status === 'readiness_reissue' ? 'Reissue Survey' : 'Release Survey'}
                             </button>
                             )
                           ) : (
                             <span style={{ color: '#9ca3af', fontSize: 12 }}>-</span>
+                          )}
+                          {releaseMsg?.studentId === r.studentId && (
+                            <div
+                              data-testid="cf-row-release-result"
+                              role="status"
+                              style={{
+                                marginTop: 7, maxWidth: 280, marginLeft: 'auto', fontSize: 11.5,
+                                lineHeight: 1.45, whiteSpace: 'normal',
+                                color: releaseMsg.tone === 'ok' ? '#166534' : '#991b1b',
+                              }}
+                            >
+                              {releaseMsg.text}
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -458,7 +476,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
           >
             <div className="modal-header">
               <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
-                Release post-rotation Readiness survey?
+                {confirm.status === 'readiness_reissue' ? 'Reissue post-rotation Readiness survey?' : 'Release post-rotation Readiness survey?'}
               </h2>
             </div>
             <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
@@ -469,9 +487,9 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Approved / Required</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>
               </div>
               <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
-                This will send the post-rotation Casey-Fink Readiness for Practice Survey to the
-                student. Completing it unlocks the Certificate of Completion. Eligibility is
-                re-checked on the server before sending.
+                {confirm.status === 'readiness_reissue'
+                  ? 'This replaces the expired or revoked link, opens a new 28-day response window, and sends one new invitation. A completed response is never replaced.'
+                  : 'This will send the post-rotation Casey-Fink Readiness for Practice Survey to the student. Completing it unlocks the Certificate of Completion. Eligibility is re-checked on the server before sending.'}
               </p>
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -485,7 +503,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
                   cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1,
                 }}
               >
-                {releasing ? 'Sending…' : 'Confirm & Send'}
+                {releasing ? 'Sending…' : confirm.status === 'readiness_reissue' ? 'Confirm & Reissue' : 'Confirm & Send'}
               </button>
             </div>
           </div>

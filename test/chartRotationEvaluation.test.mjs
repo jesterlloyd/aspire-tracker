@@ -106,8 +106,9 @@ test('evaluation: blockers visible, verbs unified, export, reflow', async (t) =>
     assert.match(cfDetect, /Required hours not met/)
     assert.match(cfDetect, /blocked,\n\s*\}\)/)
     assert.match(cfPanel, /not_eligible_hours:\s*\{ label: 'Blocked · hours not set'/)
-    // Blockers are amber states, never red; no release action for blocked rows.
-    assert.match(cfPanel, /r\.status === 'eligible_for_review' \? \(/)
+    // Blockers are amber states, never red; actions exist only for a new release or
+    // an explicitly safe expired/revoked reissue.
+    assert.match(cfPanel, /r\.status === 'eligible_for_review' \|\| r\.status === 'readiness_reissue' \? \(/)
   })
 
   await t.test('summary counts and release safety are untouched', () => {
