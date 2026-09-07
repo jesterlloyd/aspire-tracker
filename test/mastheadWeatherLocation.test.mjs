@@ -101,10 +101,44 @@ test('weather renders silently or not at all: no spinner, no throw, no layout ju
 
 test('sun and moon layers start inside the box (the old negative tops clipped the disc)', () => {
   assert.match(assets, /const sunLayer {2}= \{\n {2}src: SUN, left: '14%', top: '2%', width: '66%'/)
-  assert.match(assets, /const moonLayer = \{ src: MOON, left: '22%', top: '3%', width: '62%'/)
+  assert.match(assets, /const moonLayer = \{\n {2}src: MOON, left: '22%', top: '3%', width: '62%'/)
   // The partly-cloudy overrides inherit the corrected tops (no top override reintroduces clipping).
   assert.match(assets, /\{ \.\.\.sunLayer, left: '2%', width: '58%' \}/)
   assert.match(assets, /\{ \.\.\.moonLayer, left: '8%', width: '48%' \}/)
+})
+
+// ── MASTHEAD-WEATHER-BLEND-1: the blend belongs to the layer ─────────────────
+
+test('only the celestial layers blend; the weather layers never do', async () => {
+  // A blanket `.wx-mast-art img { mix-blend-mode: screen }` shipped for weeks
+  // and silently destroyed the night clouds: screen output is never darker
+  // than either input, so the grey cloud renders came out pale blue-white on
+  // the night card while the correct files were being loaded. The blend now
+  // rides on the layer, and neither half of that mistake may come back.
+  // Strip comments first: the note explaining the removal quotes the old rule,
+  // and a guard that reads its own documentation is not a guard.
+  const rules = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.doesNotMatch(rules, /\.wx-mast-art img\s*\{[^}]*mix-blend-mode/,
+    'no blanket blend rule on the weather art images')
+  assert.doesNotMatch(rules, /\.wx-mast-art img\s*\{[^}]*mask-image/,
+    'no blanket mask rule on the weather art images')
+  const { sceneAssets } = await import('../src/lib/weatherAssetMap.js')
+  const celestial = { clear_day: 'multiply', clear_night: 'screen' }
+  for (const [scene, blend] of Object.entries(celestial)) {
+    assert.equal(sceneAssets(scene, scene === 'clear_night').layers[0].blend, blend,
+      `${scene}'s celestial layer keeps its own ${blend} blend`)
+  }
+  // Every weather layer in every scene, day and night, must be unblended.
+  for (const scene of ['cloudy', 'snow', 'rain', 'fog', 'windy', 'partly_cloudy_day', 'partly_cloudy_night']) {
+    for (const night of [false, true]) {
+      for (const l of sceneAssets(scene, night).layers) {
+        const isCelestial = /\/(sun|moon)\.png$/.test(l.src)
+        if (isCelestial) continue
+        assert.equal(l.blend, undefined,
+          `${scene}${night ? ' (night)' : ''} layer ${l.src} must not blend`)
+      }
+    }
+  }
 })
 
 test('the masthead art and caption grew modestly, subordinate to the 30px greeting', () => {

@@ -37,7 +37,23 @@ const sunLayer  = {
   // the not-quite-pure-white glow fade.
   mask: 'radial-gradient(closest-side at 50% 26%, #000 48%, transparent 74%)',
 }
-const moonLayer = { src: MOON, left: '22%', top: '3%', width: '62%', anim: 'wx-pulse', dur: '6s', z: 0 }
+// MASTHEAD-WEATHER-BLEND-1: the blend belongs to the LAYER, not to every image
+// in the box. The moon render carries a soft glow inside a rectangular frame
+// and needs `screen` to drop those bounds and float free; the sun uses
+// `multiply` for the same reason against a light sky. Clouds, fog, drops and
+// leaves must NOT be screened - see the note on the CSS rule this replaces.
+// MASTHEAD-WEATHER-BLEND-1: the blend and the feather belong to the LAYER,
+// not to every image in the box. The moon render carries a soft glow out to
+// its rectangular edges, so it needs `screen` to drop those bounds and a
+// radial mask so no square edge survives against the panorama sky. The sun
+// does the same job with `multiply` and its own mask, above. The weather
+// layers - clouds, fog, drops, leaves - must carry NEITHER; see the note on
+// the CSS rule these two replace.
+const moonLayer = {
+  src: MOON, left: '22%', top: '3%', width: '62%', anim: 'wx-pulse', dur: '6s', z: 0,
+  blend: 'screen',
+  mask: 'radial-gradient(ellipse 78% 78% at 50% 32%, #000 42%, transparent 90%)',
+}
 
 const drops = [
   { src: DROP(1), left: '20%', top: '-10%', width: '6%', anim: 'wx-fall', dur: '1.3s', delay: '0s' },

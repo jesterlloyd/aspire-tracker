@@ -3092,16 +3092,21 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic .wx-mast-trigger:focus-visible { outline: 2px solid var(--chart-navy, #1D2567); outline-offset: 2px; }
 .mast-night .wx-mast-trigger:focus-visible { outline-color: #fff; }
 @media (prefers-reduced-motion: reduce) { .mast-scenic .wx-mast-trigger { transition: none; } }
-/* The celestial renders carry their own soft-glow fill, whose rectangular
-   image bounds read against the smooth panorama sky. Screen-blending drops
-   the dark bounds and keeps the luminous parts - the moon floats free. */
-.mast-scenic .wx-mast-art img {
-  mix-blend-mode: screen;
-  /* The glow reaches the render's edges, so feather every layer radially -
-     no square bounds survive against the panorama sky. */
-  -webkit-mask-image: radial-gradient(ellipse 78% 78% at 50% 32%, #000 42%, transparent 90%);
-  mask-image: radial-gradient(ellipse 78% 78% at 50% 32%, #000 42%, transparent 90%);
-}
+/* MASTHEAD-WEATHER-BLEND-1 (2026-09-06): there USED to be a rule here reading
+   `.mast-scenic .wx-mast-art img { mix-blend-mode: screen; mask-image: ... }`.
+   It was written for the celestial renders - the sun and moon carry a soft
+   glow out to their rectangular edges, so screen drops those bounds and the
+   radial mask feathers what is left. But the selector caught EVERY image in
+   the box, and the cloud, fog, rain and leaf layers are images too.
+   Screen output is never darker than either input, so a screened cloud CANNOT
+   be dark: the night set's grey modelling (median luminance 129 against the
+   day set's 213) was composited away and drawn as pale blue-white on the night
+   card. The Owner reported it as "cloudy still uses the white daytime clouds";
+   the dark clouds were being chosen, requested and loaded correctly all along,
+   and the compositing was throwing their darkness out.
+   Both properties now ride on the LAYER in weatherAssetMap.js - screen and a
+   mask for the moon, multiply and its own mask for the sun, neither for the
+   weather itself. Do not reintroduce a blanket rule here. */
 /* Polish 2 follow-up (Owner): View calendar goes frosted glass on scenery
    cards so the artwork reads through it - bright glass with navy ink on the
    light scenes, smoked glass with white ink at night (superseding the solid

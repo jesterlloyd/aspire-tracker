@@ -266,6 +266,27 @@ export const CITY_SKY_X = {
   // basin, between the left palms (x 10) and the towers, above a ridge that
   // never rises past y 30 there.
   losangeles: '28%',
+  // MASTHEAD-ROME-SKY-1 (2026-09-06, Owner): the sun belongs where THIS
+  // artwork's light actually comes from, and in Rome that is off-frame LEFT.
+  // Measured three ways and the three agree: the sky column means fall
+  // monotonically left to right on every sunlit frame (Day 231 -> 223, Morning
+  // 238 -> 219, Golden Hour 236 -> 205); St Peter's dome is brighter on its
+  // LEFT half than its right on all three (by 22.9, 14.8 and 8.6); and both
+  // umbrella-pine canopies are lit on the left on all three. At the default
+  // 52% the sun sat mid-frame, lighting the city from a side its own shadows
+  // contradict.
+  //
+  // So the art goes in the clearing BEFORE the basilica, not after it. The
+  // dome is the only thing between x 0 and 56 that breaks the skyline above
+  // y 22, and only across x 23-25.5, which leaves two clearings; the right-hand
+  // one (28%) is cleaner but puts the sun on the wrong side of every shadow in
+  // the frame. At 8% the sun render lands at x 11-21: past the greeting's last
+  // word, short of the dome, and on the side the painting is lit from.
+  //
+  // A caution for the next city: the art box is a FIXED 192px, so it is 14.6%
+  // of a 1400px card but 21% of a 1000px one. A left anchor that clears a
+  // landmark on a wide card can reach it on a narrow one - check both.
+  rome: '8%',
   // Hollywood looks east from Griffith: the right half is ridgeline rising to
   // the radio tower near 70%, and the left half is the open basin under a low
   // horizon. The moon goes over the basin.
