@@ -1063,17 +1063,38 @@ export const CITY_MOTION = {
       [80.3, 88.25], [80.9, 81.0], [83.3, 95.5], [91.0, 92.75], [94.9, 61.25],
       [95.3, 69.25], [95.3, 79.5], [95.5, 91.75],
     ],
-    // MASTHEAD-SURF-1, re-measured. THE BREAK RUNS THE OTHER WAY NOW. The
-    // first pack laid its crests along the beach, which climbed the card to
-    // the east; this frame paints the reef break instead - the line the
-    // surfers are riding - and it sweeps DOWN toward the viewer, from y 81.6
-    // at x 50 to y 97.8 at x 74 (slope 0.675, fitted on the twelve strongest
-    // columns of the foam trace). Three contiguous crests carry it, and a
-    // fourth sits on the separate, flatter band further out at x 79. Crests
-    // are placed on the CENTRE of the painted foam, not its upper edge: the
+    // MASTHEAD-SURF-1, re-measured, and THIS ARTWORK BREAKS IN TWO PLACES.
+    //
+    // The beach set is the one that was here in the first pack and it is back
+    // (Owner: "i don't see the waves in the seaside anymore"). Nine crests
+    // laid 1.6% seaward of the traced sand edge, each rotated to the slope of
+    // the shore beneath it, climbing the card west to east as the bay curves
+    // away. THE REASON THIS WAS BRIEFLY LOST IS WORTH KEEPING: the second pack
+    // paints no white shore break, so the foam trace scored the shoreline near
+    // zero and the reef break 20-42, and the crests were moved out to follow
+    // the strong signal. But the FIRST pack painted no shore break either -
+    // both frames put soft turquoise shallows at the water's edge - so those
+    // nine crests were never sitting on painted foam. They ARE the foam. A
+    // detector that finds nothing here is not evidence that nothing belongs
+    // here; it is only evidence that the artwork does not draw it.
+    //
+    // The reef set is what the second pack added: the line the surfers are
+    // riding, out in the bay, sweeping DOWN toward the viewer from y 81.6 at
+    // x 50 to y 97.8 at x 74 (slope 0.675, fitted on the twelve strongest
+    // columns of the foam trace). Three contiguous crests carry it and a
+    // fourth sits on the separate, flatter band further out at x 79. They are
+    // placed on the CENTRE of the painted foam, not its upper edge: the
     // detector reports the strongest six-row window, which reads about 1.5%
-    // high against a band that is thicker than that.
+    // high against a band thicker than that.
+    //
+    // Both sets run in EVERY scene - the sea does not stop breaking after
+    // dark, and the night frames get the quieter amplitude, not none.
     surf: [
+      // The shore break, west to east along the beach.
+      [0, 68.4, 9, -1.9], [9, 66.5, 9, -2.25], [18, 64.25, 9, -1.75],
+      [27, 62.5, 9, -1.9], [36, 60.6, 9, -2.2], [45, 58.4, 9, -1.3],
+      [54, 57.1, 9, -1.0], [63, 56.1, 9, 0.0], [72, 56.1, 9, -0.33],
+      // The reef break, and then the flatter band beyond it.
       [50, 81.6, 8, 5.4], [58, 87.0, 8, 5.4], [66, 92.4, 8, 5.4],
       [79, 89.5, 8, 2.0],
     ],

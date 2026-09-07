@@ -249,29 +249,48 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
     }
   }
   assert.equal(CITY_MOTION.newyork.snowfall, true)
-  // MASTHEAD-HONOLULU-2: the second pack's crests lie on the REEF BREAK, not
-  // on the beach, so they sweep DOWN toward the viewer where the first pack's
-  // climbed the card. Direction is therefore not the invariant; continuity is.
-  // Three contiguous crests carry the main break - each one starts exactly
-  // where the last ended - and a fourth sits on the separate flatter band
-  // further out. A crest whose rise no longer belongs to its segment breaks
-  // the chain, which is what this catches.
+  // MASTHEAD-HONOLULU-2: this artwork breaks in TWO places, so the crests are
+  // two sets and neither one's direction is the invariant. The beach set
+  // climbs the card west to east as the bay curves away; the reef set sweeps
+  // DOWN toward the viewer. What holds for both is that each set is one
+  // continuous line - every crest starts exactly where the last ended, on the
+  // same line - and that the shore break is always INSHORE of the reef break
+  // wherever they share an x. A resorted trace, or a rise that no longer
+  // belongs to its segment, breaks the chain.
   const surf = CITY_MOTION.honolulu.surf
-  assert.equal(surf.length, 4)
-  for (let i = 1; i < surf.length; i++) {
-    assert.ok(surf[i][0] > surf[i - 1][0], 'honolulu.surf crests are not in west-to-east order')
+  assert.equal(surf.length, 13)
+  const beach = surf.slice(0, 9), reef = surf.slice(9, 12), outer = surf[12]
+  const chain = (set, label) => {
+    for (let i = 1; i < set.length; i++) {
+      const [px, py, pw, prise] = set[i - 1]
+      assert.equal(set[i][0], px + pw, `honolulu.surf ${label} has a gap between crests`)
+      assert.ok(Math.abs(set[i][1] - (py + prise)) < 0.02,
+        `honolulu.surf ${label} steps off its own line between crests`)
+    }
   }
-  const main = surf.slice(0, 3)
-  for (let i = 1; i < main.length; i++) {
-    const [px, py, pw, prise] = main[i - 1]
-    assert.equal(main[i][0], px + pw, 'honolulu.surf main break has a gap between crests')
-    assert.ok(Math.abs(main[i][1] - (py + prise)) < 0.15,
-      'honolulu.surf main break steps off its own line between crests')
+  chain(beach, 'shore break')
+  chain(reef, 'reef break')
+  // Direction, asserted per set rather than across the array.
+  for (let i = 1; i < beach.length; i++) {
+    assert.ok(beach[i][1] <= beach[i - 1][1], 'honolulu.surf shore break does not climb the card')
   }
-  // The outer band is a different break: it starts further out and ABOVE the
-  // point the main line has fallen to by then.
-  assert.ok(surf[3][0] > main[2][0] + main[2][2], 'honolulu.surf outer band overlaps the main break')
-  assert.ok(surf[3][1] < main[2][1] + main[2][3], 'honolulu.surf outer band is not further out')
+  for (let i = 1; i < reef.length; i++) {
+    assert.ok(reef[i][1] > reef[i - 1][1], 'honolulu.surf reef break does not fall toward the viewer')
+  }
+  // The outer band is a different break: further out, and above the point the
+  // reef line has fallen to by then.
+  assert.ok(outer[0] > reef[2][0] + reef[2][2], 'honolulu.surf outer band overlaps the reef break')
+  assert.ok(outer[1] < reef[2][1] + reef[2][3], 'honolulu.surf outer band is not further out')
+  // The physical rule: a shore break cannot be seaward of a reef break.
+  const yAt = ([x, y, w, rise], at) => y + rise * (at - x) / w
+  for (const b of beach) {
+    for (const r of [...reef, outer]) {
+      const lo = Math.max(b[0], r[0]), hi = Math.min(b[0] + b[2], r[0] + r[2])
+      if (lo >= hi) continue
+      assert.ok(yAt(b, lo) < yAt(r, lo) && yAt(b, hi) < yAt(r, hi),
+        `honolulu.surf shore break crosses the reef break near x=${lo}`)
+    }
+  }
 })
 
 test('a rainbow arcs inside the card, on the half away from the sun', () => {
