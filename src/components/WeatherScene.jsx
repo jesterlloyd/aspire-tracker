@@ -310,7 +310,8 @@ export function WeatherMasthead() {
   const cityOpts = useMemo(() => cityOptions(packs), [packs])
   // The animated sun/moon floats where the CURRENT city's sky is clear - the
   // same resolved pack the scenery renders, so the two can never disagree.
-  const skyX = skyPositionFor(resolvePack(packs, preferredCity, location)?.city)
+  const resolvedCity = resolvePack(packs, preferredCity, location)?.city
+  const skyX = skyPositionFor(resolvedCity)
   if (!data) return null // silent, non-blocking - the masthead simply has no weather module
 
   const scene = mapScene(data.code, data.wind, data.isDay)

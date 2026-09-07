@@ -254,7 +254,21 @@ export const CITY_SKY_X = {
   // San Francisco puts downtown center-right (the moon sat on the Salesforce
   // and Transamerica towers at the default) and leaves the sky over the bay
   // and the bridge span open, between the greeting and the skyline.
-  sanfrancisco: '30%',
+  // MASTHEAD-SANFRANCISCO-3: the third pack's sky is the smallest in the
+  // registry - the hills close it at card y 13-16 by day - and the Salesforce
+  // Tower spikes to y 5 at x 60. The deepest clear band is x 64-80 (day 15-16,
+  // night 26+), which also clears the greeting on the left, the centred clock
+  // and the temperature readout on the right.
+  //
+  // The Owner also asked for the art to be RAISED here, and it should not be.
+  // I built a per-city vertical anchor and measured it: the celestial render
+  // is a tall 2:3 image with the disc at its VERY TOP and transparency below,
+  // so the -27px default already sits the whole disc between the card's edge
+  // and the hills, and raising only feeds the moon into the top edge - 13px
+  // cuts it in half, 22px leaves a glow and no moon. The box reaching card
+  // y 68 is empty pixels, not overhang. The machinery was removed rather than
+  // left unused; it is ten lines if a future pack genuinely needs it.
+  sanfrancisco: '66%',
   // Atlanta's towers run in one dense band from roughly 42% to 72% of the
   // frame, with the Bank of America spire near 68%, so the default 52% lands
   // the moon in the middle of them. The left third is low rooftops and trees
@@ -493,87 +507,104 @@ export const CITY_MOTION = {
     rainfall: true,
   },
   sanfrancisco: {
-    // MASTHEAD-SANFRANCISCO-2 (2026-09-04): the second San Francisco pack
-    // replaced the first, so EVERY coordinate here was re-measured off the new
-    // frames (scratchpad sfmeasure.mjs, default crop: the tallest feature is
-    // the Salesforce crown at source row 104, well under the 61 rows the
-    // bottom-anchored crop removes). All eight frames share one viewpoint, the
-    // Marin Headlands looking south-east over the Golden Gate to the city.
+    // MASTHEAD-SANFRANCISCO-3 (2026-09-07): the THIRD San Francisco pack. Ten
+    // frames now (Cloudy and RainNight joined the eight), one drawing on all
+    // ten (lag 0-1px), and a new viewpoint from the Marin headlands looking
+    // south-east, so every coordinate here was measured again.
     //
-    // Night: the downtown and Marina windows, the far East Bay shore under
-    // the greeting, and the lit coast road on the Marin side at right.
+    // The Golden Gate fills the frame: north tower at x 26.3 (top card y 22.8),
+    // south tower at x 75.1 (top y 25.3), the deck running between them and on
+    // to Fort Point at x 85-90. Downtown sits behind at x 33-96 with the
+    // Salesforce Tower spiking to y 5 at x 60. The Marin headland occupies the
+    // whole left third, its rocky foot breaking white from x 17 to 27. Water
+    // fills everything below the deck.
+    //
+    // Downtown and the shoreline, west to east.
     lights: [
-      [97.8, 41.53], [86.9, 42.29], [70.3, 56.78], [49.5, 51.78], [44.6, 41.78],
-      [59.7, 52.8], [64.9, 50.51], [40.5, 42.29], [76.3, 56.27], [91.0, 41.78],
-      [55.8, 52.54], [86.9, 62.97], [52.0, 42.29], [57.3, 33.98], [45.9, 52.54],
-      [82.5, 44.75],
-      // The East Bay shore, left third.
-      [27.9, 42.97], [13.7, 43.98], [35.8, 41.78], [1.8, 44.75], [20.1, 43.22],
-      // The Marin coast road, right of the bridge's north pier.
-      [78.6, 66.78], [74.5, 74.24], [94.9, 72.97], [90.7, 73.73], [99.6, 72.54],
+      [71.8, 39.5], [82.4, 40.5], [57.4, 44.3], [37.0, 37.5], [38.8, 38.5],
+      [57.3, 39.0], [79.0, 44.3], [78.2, 38.8], [86.7, 54.8], [74.7, 42.8],
+      [77.6, 49.0], [52.0, 42.8], [43.3, 40.3], [91.6, 36.0], [59.2, 40.3],
+      [61.3, 45.0], [72.7, 31.8], [71.2, 46.5], [68.3, 41.0], [64.8, 44.3],
+      [95.9, 57.3], [65.6, 38.5], [67.7, 47.5], [49.5, 37.0], [61.6, 40.8],
+      [79.5, 51.5], [94.3, 29.8], [68.5, 30.5], [93.5, 35.5], [56.9, 31.8],
+      [45.6, 40.3], [67.8, 36.8], [33.1, 28.0], [47.6, 35.3],
     ],
-    // The two tower crowns carry aviation lights, painted RED in the Night
-    // frame (rgb 251,5,6 on the south tower, 248,55,48 on the north), so this
-    // city joins Hollywood on the red tone. Nothing else on the bridge is a
-    // beacon: the other red maxima are the International Orange paint.
-    beacons: [[29.8, 44.24], [68.2, 43.73]],
+    // THE TOWERS BLINK RED (Owner). The Golden Gate is International Orange
+    // from top to bottom, so a plain red search returns the whole structure -
+    // these are the topmost red rows of each tower, which is where the real
+    // aviation lights sit, plus one at deck height on each where the artwork
+    // carries a second lamp.
+    beacons: [
+      [26.3, 22.75], [26.2, 45.0], [75.1, 25.25], [75.7, 39.5],
+    ],
     beaconTone: 'red',
-    // Reflections: each tower's column of light in the strait beneath it, and
-    // the city's soft wash on the bay between the bridge and the waterfront.
+    // THE DECK IS A CATENARY SEEN IN PERSPECTIVE, so it rises toward the middle
+    // of the frame rather than sagging: y 64.8 at the north tower, 61.8 across
+    // the centre span, back to 63.0 approaching Fort Point. One straight rail
+    // through all of that leaves the cars 2% off the roadway at the ends, so it
+    // is two, meeting at x 56. Every declared light is within 1.8% of its rail.
+    bridge: [
+      {
+        lights: [
+          [21, 65.0], [25, 64.8], [29, 64.0], [33, 63.5], [37, 63.0],
+          [41, 62.7], [45, 61.0], [49, 61.3], [53, 61.5],
+        ],
+        deck: { x: 20, y: 64.8, w: 36, rise: -3.0 },
+        police: true,
+      },
+      {
+        lights: [
+          [57, 61.8], [61, 61.5], [65, 61.8], [69, 61.8], [74, 62.0],
+          [77, 62.3], [81, 62.5], [87, 63.0], [91, 61.8],
+        ],
+        deck: { x: 56, y: 61.8, w: 36, rise: 1.2 },
+      },
+    ],
+    // The bridge's reflection. THE ARTWORK PAINTS STREAKS, NOT DISCS: each
+    // deck lamp throws a broken vertical chain of amber down into the water,
+    // which is exactly what this effect draws, so the shimmer goes on the
+    // streaks rather than inventing round bokeh that would fight the painting.
+    // Every point verified as a vertical smear and taken from below the deck.
     water: [
-      [29.9, 79.24], [26.7, 85.0], [30.0, 89.49],
-      [67.8, 72.54], [67.8, 77.97], [67.5, 85.25], [68.3, 90.51], [63.9, 87.71],
-      [68.3, 57.8], [72.3, 60.51], [64.5, 58.47], [53.9, 57.8], [58.1, 62.54], [40.5, 62.54],
+      [26.2, 96.25], [26.5, 78.0], [26.7, 87.0], [32.6, 95.25], [37.1, 86.5],
+      [40.8, 89.25], [54.6, 86.75], [58.8, 84.5], [62.7, 87.75], [70.5, 86.0],
+      [74.5, 81.0], [76.2, 90.0], [76.7, 77.5], [79.6, 85.25], [84.0, 77.0],
+      [88.1, 82.0], [89.3, 69.75],
     ],
-    bridge: {
-      // The deck string, measured light by light from the south approach to
-      // the north pier.
-      lights: [
-        [21.1, 70.51], [23.2, 71.27], [25.5, 70.76], [31.3, 68.73], [33.5, 68.22],
-        [35.4, 68.98], [38.3, 67.8], [40.5, 67.29], [43.5, 67.03], [47.0, 66.27],
-        [51.3, 67.03], [53.8, 65.51], [58.0, 65.76], [60.5, 65.76], [62.5, 65.51],
-        [66.3, 65.76], [70.0, 65.76], [73.7, 66.02], [76.4, 66.53],
-      ],
-      // The roadway is not quite one line here: it climbs from the south
-      // approach to mid-span and runs level to the north pier (per-column
-      // trace: 65.2 at x21, 62.8 at x39, 60.5 from x55 on). One rail fitted
-      // through the whole run stays within 1.5% of the deck everywhere, about
-      // three pixels on a wide card, under a 2px trail; the cost of a second
-      // rail would be cars vanishing at the joint.
-      deck: { x: 21.1, y: 70.0, w: 55.3, rise: -3.81 },
-    },
-    // Clear sky to card y 12% everywhere: the crown is the only thing above.
-    aircraft: { y: 22.03, from: 2, to: 62, flight: 40 },
-    // Gulls in the open sky above the East Bay hills (the hills begin at card
-    // y 17%). Over the bay they vanished against the waterfront's buildings.
-    birds: { y: 23.73, from: 98, to: 40, flight: 34, count: 5 },
-    helicopter: { y: 52.54, from: 96, to: 42, flight: 46 },
-    // The Golden Gate's fog: a band at deck height and below, so the towers
-    // stand out of it. Tone 'fog' is white-blue, not the basin's warm smog.
-    haze: { y: 66.1, height: 18.64 },
-    hazeTone: 'fog',
-    // The golden-hour sun is OFF-FRAME RIGHT here (sky brightest at the right
-    // edge, card y 40%; sky column means rise from 155 at left to 193 at
-    // right), the mirror of Hollywood. The flare layer flips for it and the
-    // ghosts land on the strait and the headland at left.
-    flare: { x: 106, y: 49.15 },
-    rainfall: true,
-    // A ferry on the Sausalito run, crossing the bay behind the bridge. Slow
-    // and continuous rather than a rare crossing: it is what that water does.
-    // Its lane is the strip of water between the waterfront (which reaches
-    // card y 50% east of x 58%) and the deck (y 60%): nothing else is water
-    // the whole way across.
-    ferry: { y: 62.71, from: 46, to: 80, flight: 130 },
-    // Sun glitter on the strait. Measured as the pale local maxima the
-    // Morning, Golden Hour and Sunset frames share south-east of the north
-    // pier, where the light path lies; the Day frame's water is flat and its
-    // only pale maxima are the beach surf, so these twinkle in Day too but
-    // over the same measured patch, not over invented water.
+    // Sun sparkle on the bay, taken east of x 32 so none of it lands in the
+    // headland's foam, which the pale detector otherwise reports first.
     glints: [
-      [65.3, 75.0], [71.5, 71.27], [71.2, 77.97], [72.8, 77.54], [72.0, 86.02],
-      [73.4, 85.76], [74.6, 87.29], [79.7, 87.03], [78.0, 90.25], [81.3, 91.53],
-      [73.3, 94.24],
+      [80.3, 72.0], [85.8, 77.0], [75.3, 67.8], [88.3, 63.7], [94.2, 76.8],
+      [89.7, 75.3], [92.5, 64.0], [85.3, 62.5], [96.5, 76.3], [66.0, 74.0],
+      [58.0, 79.0], [46.0, 82.0], [38.0, 88.0], [51.0, 91.0],
     ],
+    // Waves breaking on the headland's rocky foot (Owner). The shore runs
+    // diagonally out of the bottom-left, from (17, 91.5) up to (27, 83), so
+    // the crests follow it rather than lying flat.
+    surf: [
+      [17, 91.5, 4, -3.7], [21, 87.8, 3, -2.8], [24, 85.0, 3, -2.0],
+    ],
+    // The open bay beyond the bridge, where the chop reads.
+    swell: { x: 30, y: 70, w: 66, height: 16 },
+    // A ferry on the bay behind the bridge, white like the boats the day
+    // frames already carry.
+    ferry: { y: 58, from: 96, to: 34, flight: 150 },
+    ferryTone: 'white',
+    // THE SKY IS TINY ON THIS PACK. The hills close it off at card y 13-16 by
+    // day (y 22-26 at night), and the Salesforce Tower spikes to y 5 at x 60.
+    // Everything airborne therefore flies high and stops short of that tower.
+    aircraft: { y: 4, from: 96, to: 64, flight: 40 },
+    birds: { y: 9, from: 94, to: 66, flight: 34, count: 6 },
+    helicopter: { y: 11, from: 66, to: 96, flight: 46 },
+    // San Francisco's fog, on the water rather than the skyline: the white
+    // tone, laid across the bay behind the bridge. Seattle's first pass put
+    // marine fog at skyline height and drew a white bar across the city.
+    haze: { y: 52, height: 12 },
+    hazeTone: 'fog',
+    // The golden-hour sun is off-frame RIGHT: the right edge is the brightest
+    // edge pixel and the sky column means climb from 185 at x 0 to 216 at 90.
+    flare: { x: 106, y: 4 },
+    rainfall: true,
   },
   newyork: {
     // MASTHEAD-NEWYORK-2 (2026-09-05): the second New York pack replaced the
