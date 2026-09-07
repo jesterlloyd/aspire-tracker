@@ -1003,121 +1003,126 @@ export const CITY_MOTION = {
     rainfall: true,
   },
   honolulu: {
-    // MASTHEAD-HONOLULU-1 (2026-09-05): a new city, nine frames. The view is
-    // Waikiki from the west, looking along the beach to Diamond Head: the
-    // Koolau range across the left, the hotel towers from x 0 to 46, the
-    // shoreline running out to Kapiolani and the crater at x 64-88, and the
-    // bay filling everything below. All nine frames are ONE drawing - a
-    // vertical cross-correlation of their edge profiles agrees to within 2px
-    // of 339 (0.6% of the card) on every pair - so there is neither a scene
-    // shift nor a scene override here, and one set of coordinates serves all
-    // nine. measured before MASTHEAD-FULL-FRAME-1 and converted to the full frame with it.
+    // MASTHEAD-HONOLULU-2 (2026-09-06): the SECOND Honolulu pack replaced the
+    // first. Ten frames now (RainNight joined the nine), one drawing on all ten
+    // (row-edge Pearson: lag 0 on nine of them, 1px on Sunset), and a viewpoint
+    // that dropped closer to the water, so every coordinate here was measured
+    // again on these frames and read straight off the artwork.
     //
-    // No beacons: nothing in this frame carries an aviation light. The reddest
-    // points on the night frame are sodium street lamps (rgb 250,110,30), not
-    // crowns, so the city goes on the default with none rather than inventing
-    // some. No bridge either - the lit line along the Diamond Head shore is
-    // hotels and trees, not a roadway, and traffic on it would read as lights
-    // sliding along the sand.
+    // The view is still Waikiki looking east to Diamond Head, but from lower
+    // down and further out: the Koolau range across the left (crest y 12-25),
+    // the hotel towers from x 0 to 50 standing on a beach that runs from card
+    // y 67 at the left edge to y 54 under the crater, Diamond Head at x 52-80,
+    // and the bay filling the whole bottom half. The frame now paints an
+    // outrigger canoe at x 24, surfers on the reef break, and a moon glitter
+    // path down the right edge.
     //
-    // The hotel windows, west to east: the Ala Moana end, the tower cluster
-    // behind the beach, then the low shorefront out past Kapiolani to Kahala.
+    // Still no beacons. The reddest points on the night frame are sodium
+    // street lamps (rgb 249,71,7 at x 16) exactly as in the first pack, so the
+    // city goes without rather than inventing crowns. No bridge either.
+    //
+    // Hotel windows and shore lamps, west to east.
     lights: [
-      [12.0, 42.63], [5.1, 51.86], [11.2, 60.85], [5.4, 63.9], [2.9, 58.14],
-      [11.9, 48.64], [11.3, 45.17], [9.0, 60.59], [5.1, 46.36], [2.9, 54.66],
-      [17.9, 55.08], [9.8, 57.12], [11.9, 52.88], [11.2, 58.64],
-      [35.8, 46.1], [34.5, 65.08], [35.8, 43.9], [34.5, 43.9], [42.1, 59.41],
-      [38.5, 50.17], [28.5, 48.14], [38.6, 56.1], [34.5, 61.61], [35.8, 50.17],
-      [34.5, 46.1], [38.6, 53.14], [34.5, 49.66],
-      [55.8, 63.14], [53.8, 64.92], [65.8, 65.08], [50.0, 64.66], [68.3, 64.15],
-      [47.7, 64.66], [56.8, 60.17], [67.2, 56.1], [60.3, 64.66], [47.9, 62.37],
-      [90.5, 64.41], [76.1, 64.66], [91.6, 63.9], [80.8, 65.34], [74.4, 65.59],
-      [72.0, 64.66], [75.3, 61.61], [79.3, 65.59], [86.5, 62.37], [71.0, 65.59],
+      [20.2, 58.3], [32.6, 55.3], [23.5, 56.5], [3.4, 61.5], [10.5, 60.3],
+      [25.9, 56.8], [11.5, 36.0], [16.7, 56.5], [4.8, 49.3], [33.9, 42.8],
+      [28.6, 59.0], [1.7, 33.8], [20.1, 34.5], [29.0, 35.8], [38.2, 45.8],
+      [13.8, 55.0], [6.5, 59.3], [17.6, 42.5], [9.9, 45.5], [13.8, 43.8],
+      [28.9, 49.8], [14.3, 49.0], [36.3, 53.3], [22.2, 36.8], [32.6, 49.0],
+      [13.8, 60.5],
+      // The shorefront east of the towers, out along Kapiolani to the crater.
+      [50.9, 53.8], [79.4, 53.8], [60.3, 53.5], [68.3, 53.8], [55.4, 53.0],
+      [73.4, 53.3], [44.6, 54.8], [75.6, 54.5], [47.0, 52.8], [85.9, 53.5],
+      [50.7, 46.3], [53.3, 44.0], [61.6, 46.3], [58.3, 46.8], [83.8, 53.3],
+      [66.9, 47.8], [77.0, 47.8], [64.6, 53.5], [53.3, 51.0], [40.1, 40.3],
     ],
-    // THE WATERLINE IS A CURVE, AND EVERY WET COORDINATE BELOW RESPECTS IT.
-    // Waikiki's beach runs diagonally across the card - the sea meets the sand
-    // at card y 92 on the left edge and at y 67 on the right - so a flat band
-    // of "water" between two y values is half beach. Traced off the Day frame
-    // by hue (the first row of a column with fourteen straight rows of blue
-    // dominance), then every point below sampled from waterline + 1.5% down.
-    // The first pass took a flat band and put nine reflections on the sand.
+    // THE SHORELINE IS A CURVE AND EVERY WET COORDINATE RESPECTS IT. Traced
+    // off the Day frame as the last row of the pale sand strip in each column:
+    // y 67.2 at the left edge, 62.4 at x 20, 57.9 at x 40, 54.8 at x 60, 53.5
+    // at the right. A flat band of "water" between two y values would be half
+    // beach, which is the mistake the first pack's first pass made.
+    //
+    // Reflections of the shore lights, each one verified as a VERTICAL SMEAR
+    // (the warm run continues 14+ rows below the point) rather than a bright
+    // pixel, which is what separates a reflection from the lamp casting it.
+    // They stop at x 64: east of that the artwork's reflections are genuinely
+    // short and faint, and the bright path down the right edge is MOONLIGHT,
+    // which is neutral where this effect's glow is amber. It is left alone.
     water: [
-      [30.2, 77.88], [34.5, 81.36], [35.2, 88.64], [44.8, 73.9], [11.7, 86.61],
-      [3.1, 85.59], [18.7, 86.61], [50.5, 74.15], [94.3, 68.9], [50.5, 80.59],
-      [16.1, 84.92], [19.6, 80.59], [7.1, 84.92], [43.5, 88.9], [43.7, 81.36],
-      [22.2, 79.66], [55.5, 70.85], [31.1, 89.41], [15.8, 91.36], [24.5, 90.59],
-      [38.4, 78.64], [47.8, 73.39], [46.6, 80.34], [41.8, 75.59], [53.3, 70.85],
-      [24.6, 80.34],
+      [1.3, 70.25], [5.1, 69.0], [5.6, 80.0], [9.4, 68.0], [14.5, 85.0],
+      [14.7, 66.5], [18.1, 65.75], [24.9, 69.75], [30.4, 63.25], [33.9, 70.75],
+      [35.8, 62.75], [40.9, 61.0], [48.6, 60.75], [53.3, 58.75], [56.8, 58.25],
+      [63.9, 57.75],
     ],
-    // Sun glitter, the pale maxima of the Day frame taken under the same
-    // waterline so none of them lands on the sand.
+    // Sun glitter. The sun is off-frame RIGHT on this pack (see flare), so the
+    // glitter path is on the right half, and every point was required to have
+    // eleven of the fifteen rows below it still reading blue so none of them
+    // lands on foam or on the sand.
     glints: [
-      [88.1, 84.92], [97.5, 76.36], [53.3, 70.59], [18.6, 81.36], [88.1, 91.1],
-      [31.4, 77.63], [47.0, 73.14], [15.0, 84.66], [50.6, 71.1], [62.4, 68.64],
-      [35.3, 77.37], [11.0, 83.14], [25.8, 79.15], [39.8, 74.92], [18.8, 88.9],
-      [22.0, 80.08],
+      [52.3, 81.0], [59.0, 86.25], [61.4, 80.0], [63.1, 89.25], [66.3, 82.75],
+      [67.3, 92.0], [71.0, 83.75], [71.7, 95.5], [76.3, 86.25], [76.9, 97.0],
+      [80.3, 88.25], [80.9, 81.0], [83.3, 95.5], [91.0, 92.75], [94.9, 61.25],
+      [95.3, 69.25], [95.3, 79.5], [95.5, 91.75],
     ],
-    // MASTHEAD-SURF-1: the break along the beach, and the reason this city
-    // exists in the registry. Nine crests laid on the traced waterline,
-    // 1.4% seaward of it, each rotated to the slope of the shore it sits on
-    // so the foam follows the bay's curve instead of cutting across it. The
-    // raw trace has one outlier at x 36 (a pier), so the line these use is
-    // the monotone fit through the readings either side of it.
+    // MASTHEAD-SURF-1, re-measured. THE BREAK RUNS THE OTHER WAY NOW. The
+    // first pack laid its crests along the beach, which climbed the card to
+    // the east; this frame paints the reef break instead - the line the
+    // surfers are riding - and it sweeps DOWN toward the viewer, from y 81.6
+    // at x 50 to y 97.8 at x 74 (slope 0.675, fitted on the twelve strongest
+    // columns of the foam trace). Three contiguous crests carry it, and a
+    // fourth sits on the separate, flatter band further out at x 79. Crests
+    // are placed on the CENTRE of the painted foam, not its upper edge: the
+    // detector reports the strongest six-row window, which reads about 1.5%
+    // high against a band that is thicker than that.
     surf: [
-      [0, 86.78, 9, -3.14], [9, 83.64, 9, -2.8], [18, 80.85, 9, -2.54],
-      [27, 78.31, 9, -2.63], [36, 75.68, 9, -3.05], [45, 72.63, 9, -2.8],
-      [54, 69.83, 9, -1.53], [63, 68.31, 9, -0.76], [72, 67.54, 9, -0.51],
+      [50, 81.6, 8, 5.4], [58, 87.0, 8, 5.4], [66, 92.4, 8, 5.4],
+      [79, 89.5, 8, 2.0],
     ],
-    // The open bay past the break, where the waterline has already fallen
-    // away: x 44 meets the sea at y 75.7, x 98 at y 67.
-    swell: { x: 44, y: 73.73, w: 54, height: 17.8 },
-    // A catamaran on the Waikiki run, white like the boats already in the
-    // Day, Golden Hour and Sunset frames. Lane y 86 is open water from the
-    // right edge in to x 36, where the sand is still 5.5% above it.
-    ferry: { y: 80.51, from: 98, to: 36, flight: 160 },
+    // The calm open bay between the shore and the break, which is where the
+    // chop reads: below the waterline everywhere across it (y 62 against a
+    // shoreline of 57.6 at its west end) and above the foam.
+    swell: { x: 42, y: 62, w: 56, height: 17 },
+    // A catamaran on the Waikiki run, white like the boats already painted in
+    // the Day, Golden Hour and Sunset frames. Lane y 66 is open water from the
+    // right edge in to x 34, where the sand is still 6.7% above it, and it
+    // stays inshore of the break the whole way.
+    ferry: { y: 66, from: 96, to: 34, flight: 160 },
     ferryTone: 'white',
-    // Sky is clear above card y 22 east of the ridge (the Koolau crest holds
-    // y 9-18 out to x 26; Diamond Head's summit is at 30), so the approach
-    // into Honolulu runs east to west and stops short of the range.
-    aircraft: { y: 12.71, from: 98, to: 30, flight: 40 },
-    // Seabirds, and the one flock in this registry that flies BELOW the
-    // skyline rather than above it: over the bay is where Waikiki's birds
-    // are, and a dark silhouette reads on turquoise as well as on sky.
-    // THE LANE IS NOT THE FLOCK. Measured in the browser, the six birds sit
-    // from 6.4% ABOVE the declared y to 11.5% below it, so a lane at 76
-    // running in to x 44 put the leading bird on the sand at the west end.
-    // At y 80 stopping at x 54 the highest bird is 73.6 and the sea there
-    // begins at 72.0, so the whole flock stays over water for the whole run.
-    birds: { y: 75.42, from: 96, to: 54, flight: 34, count: 6 },
-    // A tour helicopter's height and rhythm, out along the crater rim.
-    helicopter: { y: 26.27, from: 44, to: 96, flight: 46 },
-    // Vog on the horizon: the default warm-grey tone, not the white fog,
-    // BECAUSE OF THE MASK. The smog mask fades off the left half and is full
-    // strength from 56% rightward, which here is the crater's lower slopes
-    // (y 30-44) and the sea horizon behind it (y 45-53), exactly where a
-    // marine haze belongs. The white fog tone is feathered at the card edges
-    // only, so at this height it would have laid a bar across the open sky
-    // east of Diamond Head, which is the mistake Seattle's first pass made.
-    haze: { y: 42.37, height: 10.17 },
-    // The golden-hour sun is OFF-FRAME RIGHT and low: the right sky column
-    // brightens from lum 196 at card y 2 to 207 at y 14 and holds, and the
-    // Sunset frame puts its glow on the right horizon behind the crater.
-    flare: { x: 106, y: 19.49 },
-    // MASTHEAD-RAINBOW-1: the Rainbow State earns one, and it goes where the
-    // real ones go - over the Koolau, on the half of the sky OPPOSITE the sun.
-    // A bow is centred on the antisolar point, and this artwork's sun is off
-    // the right edge (see flare), so an arc drawn anywhere right of centre
-    // would be lit from the wrong side. Apex at x 35, feet at x 18 and 52,
-    // measured against the frame: the sky at x 35 is clear from the top edge
-    // down to the ridge at y 25, and the arc stands on the range the way
-    // Honolulu's actually do. The apex sits at 35 rather than the 29 it
-    // started at because the greeting grows leftward-to-rightward as the card
-    // narrows - it reaches x 40 by 768px - and at 29 the peak of the bow, the
-    // one part that has to be seen, was behind the word "Jester". The visible
-    // span ends at x 47 (the mask dissolves the last 14%), which clears the
-    // clock's box at 45.9 because the arc's band stops at y 39 and the clock
-    // starts at 47.9. Withdrawn below 768px, where the card changes aspect.
-    rainbow: { x: 18, y: 16.95, w: 34, h: 35.59 },
+    // The approach into Honolulu, east to west, above both the clouds and the
+    // Koolau (which reach y 12 at x 12 and y 22 by x 30). It flies at 7 so it
+    // passes ABOVE the rainbow's apex at 10 rather than through it.
+    aircraft: { y: 7, from: 96, to: 30, flight: 40 },
+    // Seabirds over the bay - the one flock in this registry that flies BELOW
+    // the skyline, because over the water is where Waikiki's birds are and a
+    // dark silhouette reads on turquoise as well as on sky. THE LANE IS NOT
+    // THE FLOCK: the six birds sit from 6.4% above the declared y to 11.5%
+    // below it, so a lane at 74 running in to x 30 spans y 67.6 to 85.5 and
+    // the shoreline at x 30 is 60.3 - the whole flock stays over water.
+    birds: { y: 74, from: 96, to: 30, flight: 34, count: 6 },
+    // A tour helicopter along the crater rim at sunset, whose summit is y 30.
+    helicopter: { y: 24, from: 50, to: 96, flight: 46 },
+    // Vog on the horizon: the DEFAULT warm-grey tone, not the white fog,
+    // because of the mask. The smog mask fades off the left half and is full
+    // strength from 56% rightward, which here is the crater's slopes (y 30-50)
+    // and the sea horizon behind it (y 50-53), exactly where a marine haze
+    // belongs. The white fog tone is feathered at the card edges only, so at
+    // this height it would lay a bar across the open sky east of Diamond Head.
+    haze: { y: 40, height: 11 },
+    // The golden-hour sun is OFF-FRAME RIGHT and low: the brightest edge pixel
+    // on both the Golden Hour and Sunset frames is the RIGHT edge (lum 241 and
+    // 215), and the sky column means rise from 180 at x 0 to 200 at x 90.
+    flare: { x: 106, y: 19 },
+    // MASTHEAD-RAINBOW-1, re-placed on the new frame. A bow is centred on the
+    // ANTISOLAR point, so with the sun off the right edge it belongs on the
+    // LEFT half. Apex at x 35 (the box is x 18-52): the greeting grows
+    // rightward as the card narrows and reaches x 40 by 768px, and at the 29
+    // this started from the peak of the bow sat behind the word "Jester".
+    // The box is y 10-44, which puts the arc over the Koolau with its feet
+    // dissolving into the ridge - the CSS mask fades everything below 66% of
+    // the height, so the visible band is y 10-32 and never reaches the hotel
+    // towers at y 42-58. That is the change from the first pack, whose art put
+    // the city lower: at the old y the feet landed inside the buildings.
+    // Withdrawn below 768px, where the card changes aspect.
+    rainbow: { x: 18, y: 10, w: 34, h: 34 },
     rainfall: true,
   },
   rio: {

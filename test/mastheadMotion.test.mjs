@@ -249,16 +249,29 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
     }
   }
   assert.equal(CITY_MOTION.newyork.snowfall, true)
-  // Honolulu's beach: nine crests, west to east, each one lower than the last
-  // because the waterline climbs the card from y 93 on the left to y 71 on
-  // the right. Out of order means the trace was resorted and the rises no
-  // longer belong to the segments they were measured on.
+  // MASTHEAD-HONOLULU-2: the second pack's crests lie on the REEF BREAK, not
+  // on the beach, so they sweep DOWN toward the viewer where the first pack's
+  // climbed the card. Direction is therefore not the invariant; continuity is.
+  // Three contiguous crests carry the main break - each one starts exactly
+  // where the last ended - and a fourth sits on the separate flatter band
+  // further out. A crest whose rise no longer belongs to its segment breaks
+  // the chain, which is what this catches.
   const surf = CITY_MOTION.honolulu.surf
-  assert.equal(surf.length, 9)
+  assert.equal(surf.length, 4)
   for (let i = 1; i < surf.length; i++) {
     assert.ok(surf[i][0] > surf[i - 1][0], 'honolulu.surf crests are not in west-to-east order')
-    assert.ok(surf[i][1] < surf[i - 1][1], 'honolulu.surf crests do not follow the beach up the card')
   }
+  const main = surf.slice(0, 3)
+  for (let i = 1; i < main.length; i++) {
+    const [px, py, pw, prise] = main[i - 1]
+    assert.equal(main[i][0], px + pw, 'honolulu.surf main break has a gap between crests')
+    assert.ok(Math.abs(main[i][1] - (py + prise)) < 0.15,
+      'honolulu.surf main break steps off its own line between crests')
+  }
+  // The outer band is a different break: it starts further out and ABOVE the
+  // point the main line has fallen to by then.
+  assert.ok(surf[3][0] > main[2][0] + main[2][2], 'honolulu.surf outer band overlaps the main break')
+  assert.ok(surf[3][1] < main[2][1] + main[2][3], 'honolulu.surf outer band is not further out')
 })
 
 test('a rainbow arcs inside the card, on the half away from the sun', () => {
@@ -282,7 +295,7 @@ test('a rainbow arcs inside the card, on the half away from the sun', () => {
   }
   // Honolulu's, over the Koolau: apex at x 35, feet at 18 and 52, and its sun
   // is off the right edge, so the bow is left of centre.
-  assert.deepEqual(CITY_MOTION.honolulu.rainbow, { x: 18, y: 16.95, w: 34, h: 35.59 })
+  assert.deepEqual(CITY_MOTION.honolulu.rainbow, { x: 18, y: 10, w: 34, h: 34 })
   // The sunlit scenes only. An overcast frame has no sun to make one, and the
   // gate is the only thing that keeps it off Rain and the night scenes.
   for (const scene of ['day', 'morning', 'cloudy', 'goldenhour']) {
