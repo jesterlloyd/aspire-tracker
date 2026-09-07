@@ -50,6 +50,21 @@ const CARS = [
   { dir: 'east', dur: 11, delay: 3 },
   { dir: 'east', dur: 17, delay: 8 },
 ]
+// MASTHEAD-CAR-PACE-1 (2026-09-07, Owner: the Vegas traffic moved "at a speed
+// of light"). A car animates `left` from one end of ITS SPAN to the other, so
+// a fixed duration means the car's real speed is set by how wide that span is
+// - and spans run from Los Angeles's 5% ramp to Las Vegas's 98% arterial. At
+// one period for all of them Vegas's cars crossed the card NINETEEN TIMES
+// faster than LA's (10.9 vs 0.56 percent of the card per second).
+//
+// The period now grows with the span. Not linearly: constant speed is the
+// physically honest answer, but it would flick a car across LA's 5% ramp in
+// two seconds and leave that road empty most of the time. The square root is
+// the compromise - it leaves the short ramps exactly as they were tuned and
+// pulls the long arterials down to something a distant freeway looks like.
+// Las Vegas goes from 9s to 40s for a full crossing; nothing gets faster.
+const CAR_REF_SPAN = 5
+const carPace = w => Math.sqrt(Math.max(w, CAR_REF_SPAN) / CAR_REF_SPAN)
 
 // A flock is a loose V. Offsets are percentages OF THE FLOCK BOX (a small
 // sized span, see .mast-motion-flock), not of the card: a percentage inside a
@@ -151,7 +166,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, emoji, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -296,6 +311,29 @@ export default function MastheadMotion({ city }) {
           style={{ left: `${orb.x}%`, top: `${orb.y}%`, width: `${orb.d}%`, '--cut': `${orb.cut}%` }} />
       )}
 
+      {/* MASTHEAD-SPHERE-FACE-1: the Sphere is a SCREEN, so the one landmark on
+          any of these cards that can honestly be given an expression. The
+          Owner left it blank in emoji yellow for exactly this. Geometry is the
+          orb's disc, and every feature is a percentage OF THAT DISC, so the
+          face cannot drift off the sphere when the card resizes. The eyes
+          wander on a long loop with real pauses - a pupil that slides
+          continuously reads as a machine, one that darts and then holds reads
+          as something looking around. */}
+      {emoji && (
+        <span className="mast-motion-emoji"
+          style={{ left: `${emoji.x}%`, top: `${emoji.y}%`, width: `${emoji.d}%` }}>
+          <span className="mast-motion-emoji-brow mast-motion-emoji-brow-l" />
+          <span className="mast-motion-emoji-brow mast-motion-emoji-brow-r" />
+          <span className="mast-motion-emoji-eye mast-motion-emoji-eye-l">
+            <span className="mast-motion-emoji-pupil" />
+          </span>
+          <span className="mast-motion-emoji-eye mast-motion-emoji-eye-r">
+            <span className="mast-motion-emoji-pupil" />
+          </span>
+          <span className="mast-motion-emoji-mouth" />
+        </span>
+      )}
+
       {/* Steam off a rooftop: three puffs per stack, a third of a cycle apart
           so the plume never empties, each rising, spreading and thinning from
           the measured roof edge. */}
@@ -367,12 +405,15 @@ export default function MastheadMotion({ city }) {
             {CARS.map(c => (
               <span key={`${c.dir}-${c.dur}`}
                 className={`mast-motion-car mast-motion-car-${c.dir}`}
-                style={{ '--dur': `${c.dur + si * 1.7}s`, '--dl': `${c.delay + si * 2.3}s` }} />
+                style={{
+                  '--dur': `${(c.dur * carPace(span.deck.w) + si * 1.7).toFixed(1)}s`,
+                  '--dl': `${c.delay + si * 2.3}s`,
+                }} />
             ))}
             {/* One police car on a long period, so it is an event, not traffic. */}
             {span.police && (
               <span className="mast-motion-car mast-motion-car-west mast-motion-car-police"
-                style={{ '--dur': '23s', '--dl': '11s' }} />
+                style={{ '--dur': `${(23 * carPace(span.deck.w)).toFixed(1)}s`, '--dl': '11s' }} />
             )}
           </span>
         </span>

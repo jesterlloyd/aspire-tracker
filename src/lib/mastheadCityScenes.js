@@ -693,95 +693,129 @@ export const CITY_MOTION = {
     sceneShift: { cloudynight: 1.86, snownight: 1.27 },
   },
   lasvegas: {
-    // MASTHEAD-LASVEGAS-2 (2026-09-05): the second Las Vegas pack replaced
-    // the first, so EVERY coordinate here was re-measured (scratchpad
-    // nymeasure.mjs, lvbbox.mjs). One viewpoint on all eight frames: the
-    // valley from the south-east, the Strat at far left, the High Roller and
-    // the Sphere left of centre, Paris's tower right of it, the Luxor pyramid
-    // at right, mountains behind, the suburbs' arterial roads in front.
-    // measured before MASTHEAD-FULL-FRAME-1 and converted to the full frame with it: the Strat's tip is at
-    // source row 68. CloudyNight is the same drawing (landmarks and crowns
-    // within 3px), so it needs no shift and no override.
+    // MASTHEAD-LASVEGAS-3 (2026-09-07): the THIRD Las Vegas pack. Ten frames
+    // now (Cloudy and RainNight joined the eight), one drawing on all ten
+    // (row-edge Pearson: lag 0 or 1px, r 0.967-0.987), and every coordinate
+    // re-measured on these frames.
+    //
+    // The valley from the south-east: the Strat at x 11.7 (mast to card y 23,
+    // its red pod band at 28-31), the High Roller at x 39.35, the Sphere at
+    // x 46.9, Paris's tower at x 64, the Luxor pyramid at x 84.2 and the sky
+    // beam beside it at x 87.9, mountains behind, two arterial roads across
+    // the suburb in front.
     //
     // Night: the Strip's facades and crowns, then the suburb's lamps.
     lights: [
-      [65.5, 61.36], [65.3, 52.37], [80.5, 46.36], [70.8, 53.64], [65.6, 69.92],
-      [58.7, 54.15], [20.6, 48.14], [92.7, 58.14], [94.6, 68.14], [28.2, 47.12],
-      [10.6, 69.66], [95.9, 51.1], [24.2, 56.1], [26.6, 60.59], [21.3, 69.41],
-      [22.2, 60.59], [93.0, 49.41], [92.4, 67.88], [15.4, 64.66], [31.4, 48.14],
-      [26.5, 66.61], [59.4, 70.17], [2.3, 61.86], [97.5, 66.61], [23.6, 65.85],
-      [34.7, 64.41], [14.0, 69.92], [30.0, 63.39], [67.7, 60.17], [26.6, 55.34],
-      [26.2, 50.34], [17.0, 69.66], [52.5, 60.17], [30.1, 69.41], [84.1, 52.37],
+      [64.5, 66.3], [47.4, 70.3], [64.0, 46.3], [55.1, 71.5], [45.3, 67.8],
+      [44.8, 62.5], [47.4, 55.3], [9.3, 67.0], [64.0, 61.0], [91.0, 71.8],
+      [47.2, 61.8], [64.1, 53.3], [55.6, 57.5], [19.6, 71.3], [6.6, 61.5],
+      [92.0, 64.3], [20.5, 58.3], [69.0, 70.0], [52.3, 58.0], [32.7, 50.5],
+      [2.6, 71.0], [28.5, 69.5], [58.1, 55.3], [29.5, 51.2], [67.7, 58.0],
+      [79.3, 61.8], [94.8, 69.3], [9.3, 61.8], [13.2, 69.8], [92.0, 55.5],
+      [50.1, 55.3], [18.3, 64.3], [99.5, 67.0], [0.4, 69.5], [85.8, 63.2],
+      [12.3, 61.3], [69.9, 60.3], [17.6, 55.8], [23.6, 68.8], [4.8, 71.3],
       // The suburb's lamps, off the two road rails.
-      [21.8, 87.63], [33.0, 91.36], [69.3, 78.64], [55.8, 72.63], [41.6, 90.17],
-      [91.0, 91.61], [95.1, 78.39], [50.3, 87.63], [91.0, 73.64],
+      [50.8, 84.0], [99.2, 83.0], [21.0, 80.3], [10.0, 74.8], [37.2, 76.0],
+      [13.3, 78.3], [23.9, 83.8], [92.7, 72.8], [63.0, 75.8], [96.0, 87.5],
+      [84.5, 78.0], [74.3, 97.8], [69.2, 76.5], [47.6, 75.3], [37.0, 93.5],
+      [75.9, 83.3],
     ],
-    // The Strat's tip (rgb 232,100,58 at card y 11) and its pod's red band
-    // (244,34,61), the crown at x 28 (250,67,2), Paris's tip, the red crown
-    // at 81.2 (248,19,14) and the three tower crowns beside it.
+    // Aviation red. The Strat's pod band is the pair at x 11.7 - the "sky
+    // above" test FAILS on those two, correctly, because the mast continues
+    // above them, so they are taken from the column profile instead. The rest
+    // are strict-red maxima with open sky overhead: Paris's tip at x 64, the
+    // two crowns on the block at x 31-34, and the towers at 66 and 78.
     beacons: [
-      [7.7, 16.95], [7.7, 21.86], [28.0, 48.14], [65.5, 43.39], [81.2, 45.59],
-      [77.6, 44.15], [75.9, 45.34], [72.1, 44.92],
+      [11.7, 28.5], [11.7, 31.3], [64.0, 46.5], [33.7, 50.7], [31.3, 50.7],
+      [78.1, 47.8], [66.3, 56.8],
     ],
     beaconTone: 'red',
-    // Neon: the saturated magenta and cyan maxima of the Strip's signage
-    // (the third element picks the cyan glow; magenta is the default). The
-    // wheel's rim and the Sphere's skin are left to their own kinds.
+    // Neon: the saturated magenta and cyan maxima of the Strip's signage. The
+    // wheel's rim, the Sphere's skin and the beam are left to their own kinds.
     neon: [
-      [11.9, 58.14], [41.1, 56.86], [40.9, 63.9], [37.5, 66.1], [48.6, 71.1],
-      [64.0, 57.12], [62.9, 65.59], [73.6, 46.36], [78.1, 48.9], [80.3, 57.88],
-      [1.2, 64.66],
-      [86.9, 68.39, 'cyan'], [87.5, 61.86, 'cyan'], [72.2, 46.36, 'cyan'],
-      [91.5, 72.12, 'cyan'], [36.9, 57.37, 'cyan'], [73.6, 60.17, 'cyan'],
-      [54.2, 52.88, 'cyan'],
+      [9.6, 57.5], [63.1, 68.8], [78.6, 71.5], [5.0, 68.5], [40.6, 70.8],
+      [22.0, 62.7], [26.7, 68.5], [81.5, 72.0], [23.9, 53.3], [33.8, 72.8],
+      [39.4, 62.7], [61.6, 58.3], [38.5, 68.3],
+      [26.9, 57.3, 'cyan'], [73.9, 47.5, 'cyan'], [24.5, 58.5, 'cyan'],
+      [76.4, 68.0, 'cyan'], [84.0, 59.0, 'cyan'], [72.0, 57.3, 'cyan'],
+      [52.8, 53.8, 'cyan'], [67.0, 57.3, 'cyan'], [8.5, 68.5, 'cyan'],
     ],
-    // The High Roller: a ring 97 source px across (bounding box of its lit
-    // rim, card y 44.3-72.9), centred at x 39.0. Diameter as a share of the
-    // card WIDTH, since the ring is square in pixels and the card is not.
-    wheel: { x: 39.0, y: 57.29, d: 4.85 },
-    // The Sphere: 123 px across, top at card y 54.3, its lower half behind
-    // the Strip (the skyline cuts it at y 73.8, 54% of the way down).
-    orb: { x: 47.2, y: 68.98, d: 6.15, cut: 54 },
-    // The Luxor shaft, standing on the pyramid's apex: the brightest column
-    // at x 88 peaks white (254,255,253) at card y 57-58 and the frame already
-    // paints a faint beam above it.
-    beam: { x: 87.95, y: 56.36, height: 39.83, width: 2.4 },
-    // Two arterial roads across the suburb in front, traced light by light
-    // (+-1.3% band): both run level across the whole frame.
+    // The High Roller, fitted rather than eyeballed: the rim's topmost pixel is
+    // (39.35, 47.25) and its half-chord is 1.80 at y 54.75, which solves to a
+    // radius of 1.83% of the card WIDTH. Diameter is a share of the width
+    // because the ring is square in pixels and the card is not; the fit
+    // predicts the measured span within 0.2% at every row above the skyline.
+    wheel: { x: 39.35, y: 56.4, d: 3.66 },
+    // The Sphere: the largest solid-yellow component on the Night frame spans
+    // x 44.50-49.30 with its top at y 55.0, so it is 4.80% across, 24.0% tall,
+    // centred at y 67.0, and the skyline cuts it 67% of the way down.
+    orb: { x: 46.9, y: 67.0, d: 4.8, cut: 67 },
+    // MASTHEAD-SPHERE-FACE-1 (Owner): the Sphere is left blank in emoji yellow
+    // on the Night frame precisely so a face can be drawn on it, and the eyes
+    // look around the valley. Same disc as the orb above - it has to be, or
+    // the face slides off the sphere - and gated to Night alone, which is the
+    // only frame where the artwork's Sphere is that flat yellow (Golden Hour
+    // is orange, Cloudy Night orange, Rain Night purple, and the daylight
+    // frames paint it blue). The face sits in the TOP 67% of the disc because
+    // that is all the skyline leaves visible.
+    emoji: { x: 46.9, y: 67.0, d: 4.8 },
+    // The Luxor sky beam, standing on the pyramid's apex where it belongs
+    // (Owner). The frame paints a PURE WHITE LAMP there - x 84.25, y 57.5-59,
+    // rgb(255,255,255) against a sky at lum 33 - and no shaft above it: the
+    // sky column means over the apex are 36-42, flat. So the artwork gives the
+    // beam its source and leaves the shaft to us, which is exactly what this
+    // effect is for.
+    //
+    // I first put it at x 87.9, on the one column between x 80 and 96 that IS
+    // elevated (mean 56 against 46 either side). That column is real, but it
+    // rises from Mandalay Bay's roofline, not from the Luxor, and following it
+    // meant drawing the city's most recognisable landmark in the wrong place.
+    // Brightest is not the same as right.
+    beam: { x: 84.25, y: 57.5, height: 38.0, width: 2.4 },
+    // Two arterial roads across the suburb, traced light by light. The suburb
+    // is a carpet of lamps rather than a lit roadway, so the trace scatters:
+    // these are the lights within 1.4% of each fitted level, and none of the
+    // kept ones is more than 1.33% off the line the cars ride.
     bridge: [
       {
         lights: [
-          [3.5, 76.36], [7.0, 76.1], [10.0, 76.1], [13.0, 75.17], [16.5, 75.34],
-          [20.0, 75.85], [25.5, 76.61], [29.0, 75.85], [35.0, 74.66], [39.0, 74.66],
-          [43.5, 74.92], [46.5, 74.66], [53.5, 74.92], [56.5, 75.34], [60.5, 74.66],
-          [64.5, 75.34], [69.0, 74.92], [73.0, 74.66], [77.5, 75.34], [81.5, 74.41],
-          [86.0, 74.66], [89.5, 74.92], [92.0, 75.17], [97.0, 74.41],
+          [3.0, 77.0], [10.0, 74.8], [13.5, 74.8], [18.0, 76.8], [30.0, 75.0],
+          [32.0, 75.5], [34.0, 75.3], [41.5, 76.0], [43.0, 77.0], [45.5, 75.8],
+          [47.5, 75.3], [51.0, 76.5], [60.5, 77.0], [63.0, 75.8], [65.0, 76.3],
+          [69.0, 76.8], [73.5, 75.3], [75.5, 75.0], [77.5, 75.5], [80.0, 77.0],
+          [81.5, 75.8], [85.0, 74.5], [88.5, 76.5], [95.0, 75.3], [98.0, 76.5],
         ],
-        deck: { x: 1, y: 75.17, w: 98, rise: 0.0 },
+        deck: { x: 1, y: 75.83, w: 98, rise: 0.0 },
+        police: true,
       },
       {
         lights: [
-          [2.5, 85.17], [8.0, 83.14], [12.0, 83.39], [16.5, 84.41], [21.0, 83.39],
-          [26.0, 83.14], [31.5, 83.64], [37.0, 84.66], [40.5, 84.41], [44.0, 84.41],
-          [50.0, 84.41], [53.5, 83.64], [58.0, 83.39], [61.5, 84.66], [65.5, 83.39],
-          [70.0, 83.9], [73.5, 83.14], [79.5, 85.34], [84.5, 83.9], [88.5, 83.9],
-          [93.5, 84.92], [97.0, 83.9],
+          [3.5, 83.5], [6.5, 83.0], [11.0, 83.0], [17.5, 84.8], [20.0, 83.0],
+          [21.5, 83.0], [24.0, 83.8], [27.5, 84.0], [32.0, 83.3], [33.5, 84.5],
+          [35.0, 84.5], [36.5, 84.8], [40.5, 82.8], [45.0, 84.3], [51.0, 83.8],
+          [53.0, 85.0], [56.0, 83.8], [59.5, 84.3], [64.0, 84.8], [66.0, 83.5],
+          [73.5, 84.5], [76.0, 83.3], [79.5, 82.8], [82.5, 82.8], [85.5, 83.8],
+          [89.0, 84.3], [90.5, 83.8], [92.0, 83.8], [94.5, 83.3], [97.5, 83.5],
         ],
-        deck: { x: 1, y: 84.15, w: 98, rise: 0.0 },
+        deck: { x: 1, y: 83.87, w: 98, rise: 0.0 },
       },
     ],
-    // The ridge tops out at card y 30%; the Strat reaches 11% at x 7.7, so
-    // the crossings keep to the east of it.
-    aircraft: { y: 21.19, from: 98, to: 44, flight: 40 },
-    birds: { y: 26.27, from: 98, to: 44, flight: 34, count: 6 },
-    helicopter: { y: 27.97, from: 44, to: 98, flight: 46 },
+    // The ridge tops out at card y 30.8 and the Strat's mast reaches 23, so
+    // the crossings run east of it and above the range.
+    aircraft: { y: 12, from: 98, to: 22, flight: 40 },
+    // The flock spreads 6.4% above its lane and 11.5% below, so a lane at 16
+    // spans y 9.6-27.5 and clears the ridge everywhere along its run.
+    birds: { y: 16, from: 96, to: 26, flight: 34, count: 6 },
+    helicopter: { y: 24, from: 26, to: 96, flight: 46 },
     // Morning haze on the valley floor behind the Strip (the far lights band
-    // at y 45-58), white rather than the basin's smog; the towers stand out.
-    haze: { y: 44.92, height: 11.86 },
+    // at y 44-56), white rather than a basin smog; the towers stand out of it.
+    haze: { y: 44, height: 12 },
     hazeTone: 'fog',
-    // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
-    // 15%; sky column means fall from 225 at left to 207 at right).
-    flare: { x: -6, y: 20.34 },
+    // THE SUN CHANGED SIDES with this pack. It is off-frame RIGHT now: the
+    // brightest edge pixel on Golden Hour is the right edge, and the sky
+    // column means rise monotonically from 193 at x 0 to 221 at x 90. The
+    // second pack's art was lit from the left.
+    flare: { x: 106, y: 7 },
     rainfall: true,
   },
   hongkong: {

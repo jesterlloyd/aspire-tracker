@@ -2721,6 +2721,81 @@ a.doc-file-link:hover { text-decoration: underline; }
   filter: blur(3px) hue-rotate(0deg);
 }
 @keyframes mast-orb { from { filter: blur(3px) hue-rotate(0deg); } to { filter: blur(3px) hue-rotate(360deg); } }
+/* ── MASTHEAD-SPHERE-FACE-1 (2026-09-07, Owner): a face on the Sphere ──
+   The Sphere is a screen, so it is the one landmark in this registry that can
+   honestly wear an expression, and the Owner left it blank in emoji yellow on
+   the Night frame for exactly this. Everything is a percentage of the disc
+   (`width` comes from the registry, `aspect-ratio: 1` makes it round in
+   pixels), so the face scales with the card and cannot slide off the sphere.
+   THE FEATURES LIVE IN THE TOP 67% OF THE DISC, because that is all the
+   skyline in front of it leaves visible - the disc runs to card y 79 and the
+   rooftops cut it at 71. The first pass put the brows at 37% and the mouth at
+   66%, which looked right in the source and rendered with the eyes clipped at
+   the bottom edge and no mouth at all. Brows 22-27%, eyes 30-54%, mouth
+   55-64%: the whole face now sits above the cut with room to spare.
+   NIGHT ONLY. It is the only frame whose Sphere is that flat yellow: Golden
+   Hour and Cloudy Night paint it orange, Rain Night purple, and the daylight
+   frames blue. A face drawn on those reads as a decal on the wrong screen. */
+.mast-motion-emoji {
+  position: absolute; aspect-ratio: 1; opacity: 0;
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+.mast-motion-emoji > * { position: absolute; }
+/* Brows: short bars with a slight inward tilt, the way the reference draws
+   them. They sit above the eyes and do not move - the eyes carry the life. */
+.mast-motion-emoji-brow {
+  top: 22%; width: 23%; height: 5%;
+  background: #241c10; border-radius: 50%;
+}
+.mast-motion-emoji-brow-l { left: 21%; rotate: -4deg; }
+.mast-motion-emoji-brow-r { left: 56%; rotate: 4deg; }
+/* Eyes: a pale lavender oval, taller than it is wide, holding a dark pupil.
+   `overflow: hidden` keeps the pupil inside the eye at the ends of its travel
+   so it never rides out onto the yellow. */
+.mast-motion-emoji-eye {
+  top: 30%; width: 19%; height: 24%;
+  background: #efe6f7; border-radius: 50%;
+  overflow: hidden;
+}
+.mast-motion-emoji-eye-l { left: 23%; }
+.mast-motion-emoji-eye-r { left: 58%; }
+.mast-motion-emoji-pupil {
+  position: absolute; left: 19%; top: 19%; width: 62%; height: 62%;
+  background: #17130c; border-radius: 50%;
+}
+/* The smile: the bottom half of a rounded box, so the curve is a real arc
+   rather than a rotated dash. */
+.mast-motion-emoji-mouth {
+  left: 39%; top: 55%; width: 22%; height: 9%;
+  border-bottom: 2px solid #241c10;   /* px, not em: em would inherit whatever font-size the card carries */
+  border-radius: 0 0 50% 50%;
+}
+/* A pupil that slides continuously reads as a machine. This darts and then
+   HOLDS - the pauses are what make it read as looking around Las Vegas rather
+   than sweeping. Percentages on translate resolve against the pupil's own
+   box, and the pupil is 62% of the eye, so +-48% keeps it inside. */
+@keyframes mast-emoji-look {
+  0%, 10%    { translate: 0 0; }
+  16%, 27%   { translate: -46% -12%; }
+  33%, 45%   { translate: 44% -10%; }
+  51%, 58%   { translate: 10% 30%; }
+  64%, 76%   { translate: -34% 20%; }
+  82%, 93%   { translate: 28% -26%; }
+  100%       { translate: 0 0; }
+}
+/* The blink is on the EYE, not the pupil, and lands between the darts. */
+@keyframes mast-emoji-blink {
+  0%, 41%, 45%, 88%, 92%, 100% { transform: scaleY(1); }
+  43%, 90%                     { transform: scaleY(0.08); }
+}
+.mast-scenic.mast-scene-night .mast-motion-emoji { opacity: 1; }
+.mast-scenic.mast-scene-night .mast-motion-emoji-pupil {
+  animation: mast-emoji-look 17s ease-in-out infinite;
+}
+.mast-scenic.mast-scene-night .mast-motion-emoji-eye {
+  animation: mast-emoji-blink 17s ease-in-out infinite;
+}
+
 .mast-scenic.mast-scene-night .mast-motion-orb,
 .mast-scenic.mast-scene-snownight .mast-motion-orb,
 .mast-scenic.mast-scene-cloudynight .mast-motion-orb,
@@ -2973,7 +3048,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-ghost, .mast-motion-ferry, .mast-motion-ferry-hull, .mast-motion-ferry-wake,
   .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored,
   .mast-motion-neon, .mast-motion-wheel, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
-  .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin {
+  .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin,
+  .mast-motion-emoji {
     animation: none !important; opacity: 0 !important;
   }
 }

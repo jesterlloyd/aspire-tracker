@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'emoji', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -182,6 +182,36 @@ test('bridge deck lights lie along the declared deck line', () => {
   assert.ok(ny[0].deck.x + ny[0].deck.w <= ny[1].deck.x + 0.5, 'the far span runs into the near one')
 })
 
+// MASTHEAD-CAR-PACE-1: a car crosses ITS SPAN in one period, so a fixed period
+// makes the real speed a function of span width. Spans run 5% to 98% of the
+// card, which had Las Vegas's traffic moving nineteen times faster than Los
+// Angeles's. The period scales with the square root of the span; this pins the
+// resulting speeds to a band rather than pinning one city's number.
+test('traffic runs at a comparable speed on every span, whatever its length', async () => {
+  const src = readFileSync(new URL('../src/components/masthead/MastheadMotion.jsx', import.meta.url), 'utf8')
+  assert.match(src, /const carPace = w => Math\.sqrt\(Math\.max\(w, CAR_REF_SPAN\) \/ CAR_REF_SPAN\)/,
+    'the pace must come from the span width, not a constant')
+  assert.match(src, /'--dur': `\$\{\(c\.dur \* carPace\(span\.deck\.w\)/, 'cars must use the paced period')
+  assert.match(src, /'--dur': `\$\{\(23 \* carPace\(span\.deck\.w\)\)/, 'the police car must use it too')
+  const carPace = w => Math.sqrt(Math.max(w, 5) / 5)
+  const speeds = []
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const span of spansOf(m)) {
+      const w = span.deck.w
+      // the shortest car period is 9s; the slowest is 17s
+      speeds.push([city, w, w / (9 * carPace(w))])
+    }
+  }
+  assert.ok(speeds.length >= 10, 'expected traffic on several cities')
+  for (const [city, w, v] of speeds) {
+    assert.ok(v <= 2.6, `${city}'s ${w}% span moves at ${v.toFixed(2)}% of the card per second - too fast to read as traffic`)
+    assert.ok(v >= 0.4, `${city}'s ${w}% span moves at ${v.toFixed(2)}% of the card per second - slow enough to look stopped`)
+  }
+  const fastest = Math.max(...speeds.map(s => s[2])), slowest = Math.min(...speeds.map(s => s[2]))
+  assert.ok(fastest / slowest <= 6,
+    `the fastest traffic is ${(fastest / slowest).toFixed(1)}x the slowest; a fixed period made that 19x`)
+})
+
 test('a wheel and an orb are measured discs that sit on the card', () => {
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     for (const kind of ['wheel', 'orb']) {
@@ -195,9 +225,10 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
       if (pt[2] !== undefined) assert.ok(NEON_TONES.includes(pt[2]), `${city}.neon tone "${pt[2]}" has no glow`)
     }
   }
-  // Las Vegas: the High Roller's rim (97px across, centre x 39.0) and the
-  // Sphere (123px, cut by the skyline 54% of the way down).
-  assert.deepEqual(CITY_MOTION.lasvegas.wheel, { x: 39.0, y: 57.29, d: 4.85 })
+  // Las Vegas, third pack: the High Roller fitted from its rim above the
+  // skyline (top pixel 39.35/47.25, half-chord 1.80 at y 54.75 -> radius
+  // 1.83% of the card width), and the Sphere from its solid-yellow component.
+  assert.deepEqual(CITY_MOTION.lasvegas.wheel, { x: 39.35, y: 56.4, d: 3.66 })
   // London's Eye, fitted to the rim arc that stands against clear sky.
   assert.deepEqual(CITY_MOTION.london.wheel, { x: 38.7, y: 21.95, d: 6.97 })
   // A wheel is a circle drawn with aspect-ratio 1, so its diameter is a share
@@ -210,7 +241,19 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
     assert.ok(m.wheel.y - halfV >= 0 && m.wheel.y + halfV <= 100,
       `${city}.wheel reaches y ${(m.wheel.y - halfV).toFixed(1)}..${(m.wheel.y + halfV).toFixed(1)}, off the card`)
   }
-  assert.equal(CITY_MOTION.lasvegas.orb.cut, 54)
+  assert.equal(CITY_MOTION.lasvegas.orb.cut, 67)
+  // MASTHEAD-SPHERE-FACE-1: a face is drawn on a landmark, so its disc must BE
+  // that landmark's disc. If the emoji and the orb ever disagree the features
+  // slide off the sphere and land on the skyline, which nothing else reports.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    if (!m.emoji) continue
+    assert.ok(m.orb, `${city}.emoji needs the orb it is drawn on`)
+    assert.deepEqual({ x: m.emoji.x, y: m.emoji.y, d: m.emoji.d },
+      { x: m.orb.x, y: m.orb.y, d: m.orb.d },
+      `${city}.emoji must sit exactly on ${city}.orb`)
+    assert.ok(m.emoji.d > 0 && m.emoji.d < 12, `${city}.emoji is not a landmark-sized disc`)
+  }
+  assert.deepEqual(CITY_MOTION.lasvegas.emoji, { x: 46.9, y: 67.0, d: 4.8 })
 })
 
 test('a scene shift names a gated scene, is small, and has its CSS rule', () => {
