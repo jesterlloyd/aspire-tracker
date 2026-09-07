@@ -7,7 +7,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { CITY_MOTION, CARD_ASPECT } from '../src/lib/mastheadCityScenes.js'
@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'emoji', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'emoji', 'torch', 'strike', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -212,6 +212,25 @@ test('traffic runs at a comparable speed on every span, whatever its length', as
     `the fastest traffic is ${(fastest / slowest).toFixed(1)}x the slowest; a fixed period made that 19x`)
 })
 
+test('the forked lightning names files that exist, and only wet scenes render it', () => {
+  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  const src = readFileSync(new URL('../src/components/masthead/MastheadMotion.jsx', import.meta.url), 'utf8')
+  const urls = [...css.matchAll(/\.mast-motion-strike-[ab]\s*\{[^}]*url\('([^']+)'\)/g)].map(m => m[1])
+  assert.equal(urls.length, 2, 'both bolt shapes must be declared')
+  for (const u of urls) {
+    assert.ok(existsSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'public', u)),
+      `the strike names ${u}, which is not on disk - a missing image is silently no lightning`)
+  }
+  // An <img>/background loads whether or not CSS hid it, so the guard is in
+  // the component: a dry card must not pull the assets down at all.
+  assert.match(src, /\{strike && wet && BOLTS\.map/, 'the strike must be gated on wet in the component, not only in CSS')
+  // The box has to come from each shape's measured tip, or "hit the tower"
+  // silently degrades to "put a rectangle near the tower".
+  assert.match(src, /const BOLTS = \[/, 'the bolt tip fractions must be declared')
+  assert.match(src, /left: `\$\{\(strike\.x \+ \(0\.5 - bolt\.tipX\) \* strike\.w\)/)
+  assert.match(src, /top: `\$\{\(strike\.y - bolt\.tipY \* h\)/)
+})
+
 test('a wheel and an orb are measured discs that sit on the card', () => {
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     for (const kind of ['wheel', 'orb']) {
@@ -254,6 +273,29 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
     assert.ok(m.emoji.d > 0 && m.emoji.d < 12, `${city}.emoji is not a landmark-sized disc`)
   }
   assert.deepEqual(CITY_MOTION.lasvegas.emoji, { x: 46.9, y: 67.0, d: 4.8 })
+  // MASTHEAD-TORCH-1 / MASTHEAD-STRIKE-1: both are single measured points on
+  // the card, and the strike carries raster art, so the files it names have to
+  // exist - a missing background-image fails silently as no lightning at all.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    if (m.torch) assert.ok(m.torch.x >= 0 && m.torch.x <= 100 && m.torch.y >= 0 && m.torch.y <= 100,
+      `${city}.torch is off the card`)
+    if (!m.strike) continue
+    // x and y are WHERE THE TIP LANDS, so they are a point on the card, and
+    // the box is derived from each shape's own tip fraction in the component.
+    const { x, y, w } = m.strike
+    assert.ok(w > 0 && w < 40, `${city}.strike width ${w} is not a bolt`)
+    assert.ok(x >= 0 && x <= 100 && y >= 0 && y <= 100, `${city}.strike tip is off the card`)
+  }
+  assert.deepEqual(CITY_MOTION.newyork.torch, { x: 22.5, y: 49.5 })
+  assert.deepEqual(CITY_MOTION.newyork.strike, { x: 40.5, y: 16, w: 11 })
+  // The point of the effect: the tip must land ON One World Trade. The spire's
+  // red beacon is the topmost beacon in the entry, so the strike has to share
+  // its column and sit below it, on the tower rather than in open sky.
+  const spire = CITY_MOTION.newyork.beacons.reduce((a, b) => (b[1] < a[1] ? b : a))
+  assert.ok(Math.abs(CITY_MOTION.newyork.strike.x - spire[0]) < 1.5,
+    `the strike lands at x ${CITY_MOTION.newyork.strike.x} but One World Trade is at ${spire[0]}`)
+  assert.ok(CITY_MOTION.newyork.strike.y > spire[1],
+    'the strike must land below the spire tip, not above it')
 })
 
 test('a scene shift names a gated scene, is small, and has its CSS rule', () => {
@@ -267,10 +309,15 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
       assert.ok(!m.sceneOverrides?.[scene], `${city}.${scene} has both a shift and an override; pick one`)
     }
   }
-  // New York's cloudy night is the night drawing 2.2% lower (46 lights, 4 crowns),
-  // and its snowy night 1.5% lower (the crowns at 44.1 and 83.5).
-  assert.equal(CITY_MOTION.newyork.sceneShift.cloudynight, 1.86)
-  assert.equal(CITY_MOTION.newyork.sceneShift.snownight, 1.27)
+  // MASTHEAD-NEWYORK-3: the second pack's cloudy and snowy nights were the
+  // night drawing moved down, so they needed a measured shift. The third
+  // pack's twelve frames all align within 2px, so NOTHING declares a shift any
+  // more. The machinery is kept and the rules above still hold for the next
+  // pack that needs it; this asserts it is currently unused rather than
+  // pinning a city to a number that no longer exists.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    assert.equal(m.sceneShift, undefined, `${city} declares a sceneShift; none is expected`)
+  }
   // A swell is a measured patch inside the card; snowfall is a flag.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (m.swell) {
@@ -300,6 +347,8 @@ test('a scene shift names a gated scene, is small, and has its CSS rule', () => 
   // same line - and that the shore break is always INSHORE of the reef break
   // wherever they share an x. A resorted trace, or a rise that no longer
   // belongs to its segment, breaks the chain.
+  assert.equal(CITY_MOTION.newyork.surf, undefined,
+    'New York has no breaking crest in its water; the harbour chop is glints')
   const surf = CITY_MOTION.honolulu.surf
   assert.equal(surf.length, 13)
   const beach = surf.slice(0, 9), reef = surf.slice(9, 12), outer = surf[12]
@@ -449,7 +498,11 @@ test('beacon tone is only red where the artwork paints it red', () => {
     assert.ok(m.ferry, `${city} declares a ferry tone with no ferry to paint`)
     assert.match(readFileSync(join(here, '..', 'src', 'index.css'), 'utf8'), new RegExp(`\\.mast-motion-ferry-${m.ferryTone} \\.mast-motion-ferry-hull`))
   }
-  assert.equal(CITY_MOTION.newyork.ferryTone, 'orange')
+  // The third New York pack paints WHITE boats, not the orange Staten Island
+  // Ferry the second one carried - sampled at all three hulls in the Day
+  // frame, the brightest pixel is neutral (255,255,254 / 208,211,212). The
+  // tone follows the artwork, not the city's most famous boat.
+  assert.equal(CITY_MOTION.newyork.ferryTone, 'white')
   assert.equal(CITY_MOTION.seattle.ferryTone, 'white')
   // A haze tone is likewise only 'fog', and only with a haze to colour.
   for (const [city, m] of Object.entries(CITY_MOTION)) {

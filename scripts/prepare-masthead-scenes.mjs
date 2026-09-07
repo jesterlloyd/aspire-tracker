@@ -40,7 +40,10 @@ const raws = readdirSync(SCENES_DIR, { recursive: true })
   // the city chooser, not scene frames. This script must not touch it: its
   // output is 16:9 cards at 960px, not the 5:1 scene crop, and a dropped PNG
   // there wants scripts/prepare-picker-images.mjs instead.
-  .filter(f => /\.png$/i.test(f) && !f.startsWith('picker/'))
+  // MASTHEAD-STRIKE-1: public/masthead/fx/ holds the motion layer's own effect
+  // assets (the forked lightning). They are already the size and format the
+  // card wants and must NOT be cropped, converted or archived away.
+  .filter(f => /\.png$/i.test(f) && !f.startsWith('picker/') && !f.startsWith('fx/'))
 if (raws.length === 0) {
   console.log('No raw .png files under public/masthead/ - nothing to prepare.')
   process.exit(0)

@@ -80,7 +80,9 @@ test('the shipped Los Angeles folder is a complete seven-scene pack and nothing 
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
     // MASTHEAD-PICKER-GRID-1: the chooser's card images are not scene frames.
-    .filter(f => !f.startsWith('picker/'))
+    // MASTHEAD-STRIKE-1: neither are the effect assets under fx/ - the forked
+    // lightning the motion layer draws over New York lives there.
+    .filter(f => !f.startsWith('picker/') && !f.startsWith('fx/'))
   const packs = parseSceneFiles(files)
   const placed = Object.values(packs).reduce((n, p) => n + Object.keys(p).length, 0)
   assert.equal(placed, files.length, `every image file must map to a city+scene: ${files.join(', ')}`)
@@ -132,6 +134,7 @@ test('every installed city pack carries all seven scenes', () => {
   const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
+    .filter(f => !f.startsWith('picker/') && !f.startsWith('fx/'))
   const packs = parseSceneFiles(files)
   const cities = Object.keys(packs)
   assert.ok(cities.includes('losangeles') && cities.includes('lasvegas') && cities.includes('newyork'),
@@ -215,7 +218,10 @@ test('the picker grid: every option has its image, the images exist, and the car
   const { existsSync, readdirSync: rd } = await import('node:fs')
   const dir = join(here, '..', 'public', 'masthead', 'picker')
   // Every shipped city pack, and Automatic, has a card image on disk.
-  const shipped = rd(join(here, '..', 'public', 'masthead'), { withFileTypes: true }).filter(d => d.isDirectory() && d.name !== 'picker').map(d => d.name.toLowerCase())
+  // 'picker' holds the chooser's own cards and 'fx' the motion layer's effect
+  // assets; neither is a city, so neither needs a card of its own.
+  const NOT_CITIES = new Set(['picker', 'fx'])
+  const shipped = rd(join(here, '..', 'public', 'masthead'), { withFileTypes: true }).filter(d => d.isDirectory() && !NOT_CITIES.has(d.name)).map(d => d.name.toLowerCase())
   for (const key of [AUTO, ...shipped]) {
     assert.ok(PICKER_IMAGE_FILES[key], `${key} has no picker image mapped`)
     assert.ok(existsSync(join(dir, PICKER_IMAGE_FILES[key])), `${key}: ${PICKER_IMAGE_FILES[key]} is not in public/masthead/picker`)
@@ -266,9 +272,12 @@ test('the picker grid: every option has its image, the images exist, and the car
 test('every shipped folder follows the naming canon', async () => {
   const { readdirSync: rd } = await import('node:fs')
   // MASTHEAD-PICKER-GRID-1: `picker/` holds the chooser's card images, not a
-  // city pack, and is guarded by its own test below.
+  // city pack, and is guarded by its own test below. MASTHEAD-STRIKE-1: `fx/`
+  // holds the motion layer's effect assets (the forked lightning) and is not a
+  // city either; both are lowercase precisely so they cannot be mistaken for
+  // one, which is what this PascalCase rule is for.
   const dirs = rd(join(here, '..', 'public', 'masthead'), { withFileTypes: true })
-    .filter(d => d.isDirectory() && d.name !== 'picker').map(d => d.name)
+    .filter(d => d.isDirectory() && d.name !== 'picker' && d.name !== 'fx').map(d => d.name)
   assert.ok(dirs.length >= 5, `expected the shipped city folders; got ${dirs.join(', ')}`)
   for (const dir of dirs) {
     // PascalCase, no spaces, no punctuation, and never an abbreviation.

@@ -2721,6 +2721,73 @@ a.doc-file-link:hover { text-decoration: underline; }
   filter: blur(3px) hue-rotate(0deg);
 }
 @keyframes mast-orb { from { filter: blur(3px) hue-rotate(0deg); } to { filter: blur(3px) hue-rotate(360deg); } }
+/* ── MASTHEAD-TORCH-1 (2026-09-07, Owner): the Statue of Liberty's flame ──
+   A torch is not a window, so it does not join `lights`: the breath is deeper
+   (0.42 to 1) and much slower (7s against their ~3), and it runs in EVERY
+   scene because the flame is lit by day as well. Warm, soft, and centred on
+   the measured flame rather than the arm. */
+.mast-motion-torch {
+  /* Smaller and softer than the first pass (Owner: too much glow). 16px with
+     a 0.95 core read as a lamp on the arm rather than a flame in a hand. */
+  position: absolute; width: 9px; height: 9px;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(255,246,214,0.68) 0%, rgba(255,206,110,0.34) 38%,
+    rgba(255,168,54,0.13) 66%, transparent 80%);
+  filter: blur(0.6px);
+}
+.mast-scenic .mast-motion-torch { animation: mast-torch 7s ease-in-out infinite; }
+@keyframes mast-torch {
+  0%, 100% { opacity: 0.34; scale: 0.9; }
+  46%      { opacity: 0.8;  scale: 1.08; }
+  70%      { opacity: 0.52; scale: 0.98; }
+}
+
+/* ── MASTHEAD-STRIKE-1 (2026-09-07, Owner): forked lightning ──
+   The card already flashed the whole sky (.mast-motion-bolt); this is the bolt
+   itself, so the two run together - the flash is the sky lighting up and the
+   fork is where it came down. The shapes are raster, from the drop the Owner
+   pointed at, because a fork is exactly the thing CSS cannot draw honestly.
+   NO blend mode, per MASTHEAD-BOLT-FLICKER-2: a blended layer over an
+   animating one costs a repaint on every frame of the animation, and this
+   layer sits above two hundred others. Plain alpha over a storm sky reads the
+   same. The component renders these only when the weather is wet, so a dry
+   card still downloads nothing. */
+.mast-motion-strike {
+  position: absolute; aspect-ratio: 414 / 256; opacity: 0;
+  transform: translateX(-50%); pointer-events: none;
+  background-size: 100% 100%; background-repeat: no-repeat;
+}
+.mast-motion-strike-a { background-image: url('/masthead/fx/bolt-1.png'); }
+/* The mirror goes INSIDE the transform, not in the separate `scale` property.
+   Individual transform properties apply before `transform`, so a `scale: -1 1`
+   there flips the sign of the translateX and the bolt lands a full width to
+   the right of where it was declared - measured at x 45.5 against 30.5. */
+.mast-motion-strike-b {
+  background-image: url('/masthead/fx/bolt-2.png');
+  transform: translateX(-50%) scaleX(-1);
+}
+/* The same double-tick the sky flash uses, so fork and flash agree. */
+@keyframes mast-strike {
+  0%, 92.8% { opacity: 0; }
+  93.0%     { opacity: 0.9; }
+  93.35%    { opacity: 0.1; }
+  93.7%     { opacity: 1; }
+  94.4%     { opacity: 0.3; }
+  96.0%     { opacity: 0; }
+  100%      { opacity: 0; }
+}
+.mast-scenic.mast-scene-rain .mast-motion-strike-a,
+.mast-scenic.mast-scene-cloudynight .mast-motion-wet .mast-motion-strike-a,
+.mast-scenic.mast-scene-rainnight .mast-motion-wet .mast-motion-strike-a {
+  animation: mast-strike 11s linear infinite;
+}
+.mast-scenic.mast-scene-rain .mast-motion-strike-b,
+.mast-scenic.mast-scene-cloudynight .mast-motion-wet .mast-motion-strike-b,
+.mast-scenic.mast-scene-rainnight .mast-motion-wet .mast-motion-strike-b {
+  animation: mast-strike 17s linear 4s infinite;
+}
+
 /* ── MASTHEAD-SPHERE-FACE-1 (2026-09-07, Owner): a face on the Sphere ──
    The Sphere is a screen, so it is the one landmark in this registry that can
    honestly wear an expression, and the Owner left it blank in emoji yellow on
@@ -3049,7 +3116,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored,
   .mast-motion-neon, .mast-motion-wheel, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
   .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin,
-  .mast-motion-emoji {
+  .mast-motion-emoji, .mast-motion-torch, .mast-motion-strike {
     animation: none !important; opacity: 0 !important;
   }
 }

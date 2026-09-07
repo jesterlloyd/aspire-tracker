@@ -44,6 +44,17 @@ const period = i => PERIODS[i % PERIODS.length]
 const stagger = i => `${((i * 0.83) % 3.7).toFixed(2)}s`
 
 // Traffic. Periods are deliberately not multiples of each other.
+// MASTHEAD-STRIKE-1: where each bolt's tip sits INSIDE its own image, as a
+// fraction of that image, measured off the alpha channel (the lowest strongly
+// opaque pixel and the brightest column through it). bolt-2 is drawn mirrored,
+// so its tip fraction is mirrored with it. The registry gives the point the
+// lightning should hit; these turn that into a box for each shape.
+const BOLT_RATIO = 256 / 414          // the assets' own aspect
+const BOLTS = [
+  { cls: 'a', tipX: 0.213, tipY: 0.805 },
+  { cls: 'b', tipX: 1 - 0.891, tipY: 0.770 },
+]
+
 const CARS = [
   { dir: 'west', dur: 9, delay: 0 },
   { dir: 'west', dur: 14, delay: 5.5 },
@@ -166,7 +177,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, emoji, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, emoji, torch, strike, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -203,6 +214,27 @@ export default function MastheadMotion({ city }) {
           fight the text, the same contract the artwork's left fade honours. */}
       <div className="mast-motion-bolt mast-motion-bolt-a" />
       <div className="mast-motion-bolt mast-motion-bolt-b" />
+
+      {/* MASTHEAD-STRIKE-1: the FORK, over the bolts' sky flash. Two shapes on
+          different periods so the storm never repeats itself, drawn from the
+          assets under public/masthead/fx. Rendered only when the weather is
+          WET - an <img> loads whether or not CSS has hidden it, and every dry
+          scene should still cost the motion layer nothing. */}
+      {strike && wet && BOLTS.map(bolt => {
+        // The registry says where the TIP lands. Each shape's tip sits at a
+        // different place inside its own image, so the box is derived from it
+        // rather than declared - otherwise "strike the tower" means "put a
+        // rectangle near the tower" and the fork lands beside it.
+        const h = strike.w * (BOLT_RATIO * CARD_ASPECT)
+        return (
+          <span key={bolt.cls} className={`mast-motion-strike mast-motion-strike-${bolt.cls}`}
+            style={{
+              left: `${(strike.x + (0.5 - bolt.tipX) * strike.w).toFixed(2)}%`,
+              top: `${(strike.y - bolt.tipY * h).toFixed(2)}%`,
+              width: `${strike.w}%`,
+            }} />
+        )
+      })}
 
       {/* Rain sits UNDER the lights so a lit window still reads through it. Two
           layers at different densities and speeds give the parallax that one
@@ -306,6 +338,13 @@ export default function MastheadMotion({ city }) {
 
       {/* The orb's skin drifts through the hues, masked off below the line
           where the skyline in front of it begins. */}
+      {/* MASTHEAD-TORCH-1: a flame, not a window. It breathes deeper and far
+          slower than `lights` do, and it burns in every scene rather than
+          only after dark, because the torch is lit by day too. */}
+      {torch && (
+        <span className="mast-motion-torch" style={{ left: `${torch.x}%`, top: `${torch.y}%` }} />
+      )}
+
       {orb && (
         <span className="mast-motion-orb"
           style={{ left: `${orb.x}%`, top: `${orb.y}%`, width: `${orb.d}%`, '--cut': `${orb.cut}%` }} />
