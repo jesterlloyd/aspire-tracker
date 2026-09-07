@@ -34,6 +34,23 @@ test('the shared greeting has a line box tall enough for descenders under overfl
   assert.match(greet, /overflow: hidden; text-overflow: ellipsis; white-space: nowrap/)
 })
 
+// ── MASTHEAD-GREET-SHADOW-1 ──────────────────────────────────────────────────
+
+test('the greeting clips with a paint margin, in its own @supports block', () => {
+  // The shared scenic text-shadow needs ~16px past the glyphs; the greeting is
+  // the only element on that card which clips, so `overflow: hidden` cut the
+  // glow off flat and left a hard rectangle around the text.
+  assert.match(css, /@supports \(overflow: clip\) \{\n {2}\.mast-greet \{ overflow: clip; overflow-clip-margin: 16px; \}\n\}/)
+  // The fallback stays in the base rule. It must NOT be folded into that block
+  // as a second `overflow`: the minifier collapses duplicate properties inside
+  // one rule and drops `hidden`, leaving older browsers with no overflow at all
+  // and a long name spilling across the card.
+  const greet = cssBlock('.mast-greet')
+  assert.match(greet, /overflow: hidden; text-overflow: ellipsis; white-space: nowrap/)
+  assert.doesNotMatch(greet, /overflow: clip/,
+    'the clip belongs in the @supports block, not folded into the base rule')
+})
+
 test('every daypart greeting (the clipped glyphs live in "morning/evening") is produced', () => {
   const at = (h) => new Date(2026, 6, 18, h, 0)
   assert.equal(greetingLine('Jordan Cruz', at(8)).heading, 'Good morning, Jordan')

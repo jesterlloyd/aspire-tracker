@@ -3265,6 +3265,23 @@ a.doc-file-link:hover { text-decoration: underline; }
   font-size: 30px; margin: 0; line-height: 1.25; padding-bottom: 2px;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* MASTHEAD-GREET-SHADOW-1 (2026-09-07, Owner): the greeting is the ONLY element
+   on the scenic card that clips, and it carries the same
+   `text-shadow: 0 1px 2px, 0 2px 14px` as the clock and the temperature beside
+   it. That glow wants about 16px past the glyphs and the line box is 26px tall,
+   so `overflow: hidden` cut it off flat and drew a hard grey rectangle around
+   the text. The Owner read it as unfinished next to the temperature, which does
+   not clip and so keeps a shadow that follows its letters.
+   `clip` truncates identically - the ellipsis is unchanged, verified against a
+   `hidden` control - but honours a paint margin, so the glow spreads.
+   THIS MUST STAY ITS OWN @supports BLOCK. Written as a second `overflow` inside
+   the rule above, the minifier drops the `hidden` fallback and keeps only
+   `clip`, which would leave a browser without `clip` support no overflow at all
+   and spill a long name across the card. Across a block boundary both survive:
+   checked in the built bundle, not just the source. */
+@supports (overflow: clip) {
+  .mast-greet { overflow: clip; overflow-clip-margin: 16px; }
+}
 .mast-sub { font-size: 13px; color: var(--chart-ink-soft, #6b7280); margin-top: 4px; }
 .mast-right { position: relative; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-left: auto; }
 .mast-vdiv { width: 1px; height: 40px; background: var(--chart-line, rgba(29,37,103,0.12)); flex-shrink: 0; }
