@@ -577,6 +577,16 @@ export const CITY_MOTION = {
       [80.3, 72.0], [85.8, 77.0], [75.3, 67.8], [88.3, 63.7], [94.2, 76.8],
       [89.7, 75.3], [92.5, 64.0], [85.3, 62.5], [96.5, 76.3], [66.0, 74.0],
       [58.0, 79.0], [46.0, 82.0], [38.0, 88.0], [51.0, 91.0],
+      // A second pass, on the Owner's ask for more of them, from the water
+      // mask described in Rio's entry: a colour model learned from this
+      // frame's own reflection points plus a texture test, which is what
+      // keeps the picks off the foam and the headland. The two nearest the
+      // rocks still clear the westernmost crest by 1.5% of the card. Nothing
+      // is taken below y 96 or outside x 0.6-99.2: a sparkle centred on the
+      // card's edge is half a sparkle.
+      [25.5, 89.5], [26.95, 89.75], [28.1, 84.75], [29.8, 83.25], [31.35, 85.25],
+      [52.35, 89.5], [53.9, 90.0], [60.55, 94.75], [91.35, 95.25], [91.95, 80.5],
+      [93.75, 95.75],
     ],
     // Waves breaking on the headland's rocky foot (Owner). The shore runs
     // diagonally out of the bottom-left, from (17, 91.5) up to (27, 83), so
@@ -1319,8 +1329,19 @@ export const CITY_MOTION = {
       [54.6, 80.25], [56.95, 84.5], [57.15, 81.5], [57.55, 96.75], [58.95, 85.5],
       [59.2, 81.5], [61.05, 74.75], [62.75, 85.75], [63.45, 57.5], [66.05, 62.75],
       [66.65, 49.5], [67.35, 58.0], [67.9, 89.0], [68.65, 61.5], [68.95, 94.75],
-      [69.05, 58.5], [70.4, 97.25], [70.6, 89.75], [72.15, 57.5], [74.2, 66.25],
+      [69.05, 58.5], [70.6, 89.75], [72.15, 57.5], [74.2, 66.25],
       [78.4, 55.75],
+      // A second pass, on the Owner's ask for more of them. Same water mask,
+      // but its colour model is now LEARNED from the promenade reflections
+      // rather than written as a blue threshold: sample 1.5% below each
+      // reflection, take the median, and accept a pixel within 2.2 standard
+      // deviations of it whose 9px neighbourhood varies by less than 14. That
+      // last test is what a threshold cannot do - it separates water from
+      // foliage and rooftops, which is where a fixed blue rule put a third of
+      // the first pass. One candidate at [50.2, 51.25] passed every number
+      // and sits on a hillside; it was dropped by looking at it.
+      [32.8, 88.75], [35.8, 89.25], [37.4, 84.5], [46.9, 87.5], [48.1, 81.5],
+      [58.35, 81.5], [61.7, 86.0], [69.0, 91.5], [76.45, 95.75],
     ],
     // The promenade round the cove, in two straight runs because one is not
     // straight. Re-traced on this pack by walking the brightest continuous

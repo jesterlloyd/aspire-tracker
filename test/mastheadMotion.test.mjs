@@ -132,6 +132,34 @@ test('every point sits inside the card', () => {
   }
 })
 
+// MASTHEAD-GLINTS-EVERYWHERE (Owner, 2026-09-07): "glints is what I love. can
+// you put it in daytime water features". Every city that paints water carries
+// them; the six that paint none (Hollywood, Los Angeles, Las Vegas, Atlanta,
+// Tokyo, Rome) are exempt because there is nothing to sparkle on - checked
+// frame by frame, the blue below their horizons is glass, haze and hillside.
+// This guard is for the NEXT water city: an effect that says a city has water
+// obliges it to say where the sun lands on it.
+test('a city with water has sun glitter on it', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    const hasWater = (m.water?.length || 0) > 0 || !!m.swell || (m.surf?.length || 0) > 0
+    if (!hasWater) continue
+    assert.ok((m.glints?.length || 0) > 0,
+      `${city} paints water but declares no glints; daytime water sparkles (Owner)`)
+  }
+  // The two the Owner asked to enrich, and the two already carrying a full set.
+  assert.ok(CITY_MOTION.rio.glints.length >= 39, 'Rio lost its second glint pass')
+  assert.ok(CITY_MOTION.sanfrancisco.glints.length >= 25, 'San Francisco lost its second glint pass')
+  assert.ok(CITY_MOTION.newyork.glints.length >= 30)
+  // A sparkle centred on the card's edge is half a sparkle, and one at the
+  // very bottom row is clipped by the card's own corner radius.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const [x, y] of m.glints || []) {
+      assert.ok(x >= 0.5 && x <= 99.5, `${city} has a glint at x ${x}, on the card's edge`)
+      assert.ok(y <= 97, `${city} has a glint at y ${y}, in the card's bottom edge`)
+    }
+  }
+})
+
 test('the left third is lit too, now that nothing fades it', () => {
   // MASTHEAD-LOCKSCREEN-1 retired the half-card fade, and with it the rule
   // that no point may sit under the greeting. Every city was re-measured on
