@@ -806,7 +806,10 @@ export const CITY_MOTION = {
     // radius of 1.83% of the card WIDTH. Diameter is a share of the width
     // because the ring is square in pixels and the card is not; the fit
     // predicts the measured span within 0.2% at every row above the skyline.
-    wheel: { x: 39.35, y: 56.4, d: 3.66 },
+    // MASTHEAD-WHEEL-2: re-measured as the CABIN RING rather than the hub, and
+    // with a height, because a wheel is an ellipse on these cards. The High
+    // Roller's is very nearly round - 80px by 78px - so its scale is 0.98.
+    wheel: { x: 39.4, y: 56.2, d: 4.0, h: 19.6 },
     // The Sphere: the largest solid-yellow component on the Night frame spans
     // x 44.50-49.30 with its top at y 55.0, so it is 4.80% across, 24.0% tall,
     // centred at y 67.0, and the skyline cuts it 67% of the way down.
@@ -1522,6 +1525,18 @@ export const CITY_MOTION = {
     rainfall: true,
   },
   london: {
+    // MASTHEAD-LONDON-2 (2026-09-08): the second London drop, and a TARGETED
+    // one rather than a redraw. Diffed frame by frame against pack 1: Cloudy,
+    // Dawn, Day, GoldenHour, Morning and Sunset are BYTE-IDENTICAL, Night is
+    // relit (18% of pixels moved, none of them geometry), Rain and CloudyNight
+    // are largely new, and RainNight is a new scene. So the pack is ten frames
+    // now, and every point below was re-verified rather than re-measured: the
+    // rigid fit that recovers a pack's offset from its own points reports 0,0
+    // on the new Night frame at the same score as the old one. Two families
+    // appeared to want a 3px shift on CloudyNight and RainNight and were left
+    // alone - they disagreed on the direction, which is what chasing noise in
+    // a dim frame looks like, and the edge correlation says at most 1px.
+    //
     // MASTHEAD-LONDON-1 (2026-09-06): a new city, nine frames, measured through
     // the TOP-anchored crop (historic). The view looks east down the
     // Thames: Parliament and Big Ben across the left, the London Eye at x 38.7,
@@ -1556,7 +1571,17 @@ export const CITY_MOTION = {
     // never varies by more than 0.1), and pinning the apex at row 18 gives
     // R 69.7px. Rows below 96 were excluded - the city behind the wheel creeps
     // into the row scan there and inflates the radius by half again.
-    wheel: { x: 38.7, y: 21.95, d: 6.97 },
+    // MASTHEAD-CLOCK-1 (Owner). Big Ben's two lit dials, the near one and the
+    // one turned away from us: measured off the night frame at 11px and 9px
+    // across, centres level at y 33.4. They burn rather than twinkle, which is
+    // why they are their own kind and not two more `lights`.
+    clock: [[23.31, 33.4, 0.62], [24.3, 33.4, 0.48]],
+    // MASTHEAD-WHEEL-2: the Eye re-measured on the capsule ring. The old entry
+    // was a circle centred at y 21.95 with a diameter of 6.97% of the width,
+    // which is 139px across and 139px tall: the painted wheel is 150 by 196,
+    // so that circle cut clean across the middle of it. Traced by overlay on
+    // the night frame, where the rim is the brightest thing against the sky.
+    wheel: { x: 38.9, y: 29.8, d: 7.5, h: 49 },
     // The Thames at night. Reflections here are LONG streaks, so the test that
     // separates them from the embankment lamps is a smear persisting 6 to 26
     // rows down; at the four-sample depth that served Rio, Parliament's lit

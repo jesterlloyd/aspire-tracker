@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'emoji', 'torch', 'strike', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'emoji', 'torch', 'clock', 'strike', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -297,16 +297,19 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
   // Las Vegas, third pack: the High Roller fitted from its rim above the
   // skyline (top pixel 39.35/47.25, half-chord 1.80 at y 54.75 -> radius
   // 1.83% of the card width), and the Sphere from its solid-yellow component.
-  assert.deepEqual(CITY_MOTION.lasvegas.wheel, { x: 39.35, y: 56.4, d: 3.66 })
+  assert.deepEqual(CITY_MOTION.lasvegas.wheel, { x: 39.4, y: 56.2, d: 4.0, h: 19.6 })
   // London's Eye, fitted to the rim arc that stands against clear sky.
-  assert.deepEqual(CITY_MOTION.london.wheel, { x: 38.7, y: 21.95, d: 6.97 })
+  assert.deepEqual(CITY_MOTION.london.wheel, { x: 38.9, y: 29.8, d: 7.5, h: 49 })
   // A wheel is a circle drawn with aspect-ratio 1, so its diameter is a share
   // of the card's WIDTH and its vertical reach is CARD_ASPECT x that share of the
   // height. Both ends of that reach have to stay on the card, or the rim is
   // clipped and no longer reads as turning.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     if (!m.wheel) continue
-    const halfV = m.wheel.d / 2 * CARD_ASPECT
+    // MASTHEAD-WHEEL-2: a wheel may declare its own height, because both of
+    // the ones here are painted as ellipses. Without one it is a circle, whose
+    // vertical reach is CARD_ASPECT times its width share.
+    const halfV = (m.wheel.h ?? m.wheel.d * CARD_ASPECT) / 2
     assert.ok(m.wheel.y - halfV >= 0 && m.wheel.y + halfV <= 100,
       `${city}.wheel reaches y ${(m.wheel.y - halfV).toFixed(1)}..${(m.wheel.y + halfV).toFixed(1)}, off the card`)
   }
@@ -355,6 +358,54 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
 // altogether. I can't see it now"). What a light is FOR cannot be asserted,
 // but the two ways it fails can be bounded: a core too small to see, and a
 // breath whose low end is dark.
+// MASTHEAD-WHEEL-2 (2026-09-08, Owner: "I think you claimed they move/turn but
+// they really don't"). They did not. The wheel drew NOTHING, in either city,
+// from the day it shipped: its mask was `radial-gradient(circle, ...)`, whose
+// default size is FARTHEST-CORNER, so on a square box the opaque annulus at
+// 82-93% landed outside the element and masked all of it away. Proved by
+// screenshot - an opaque white ring changed 0 pixels against the same frame
+// with the element set to display:none - and fixed by naming the gradient's
+// size. Nothing in this suite can see a pixel, so what it can hold is the
+// three CSS facts the effect now depends on.
+test('a wheel is sized, spun on the inner box, and masked to its own edge', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  // 1. Every radial-gradient MASK states its size. Percentages in a radial
+  //    gradient mean nothing until it does, and the failure is silent.
+  for (const m of css.matchAll(/mask-image:\s*radial-gradient\(([^,]+),/g)) {
+    const head = m[1].trim()
+    assert.ok(/closest-side|farthest-side|closest-corner|farthest-corner|%|px/.test(head),
+      `a radial-gradient mask is sized by default to the farthest CORNER, which is off the box: "${head}"`)
+  }
+  // 2. The ellipse is a scale on the wheel and the spin is on the box inside
+  //    it. Put both on one element and the wheel tumbles like a flipped coin
+  //    instead of turning like a wheel.
+  assert.match(css, /\.mast-motion-wheel \{[^}]*transform: translate\(-50%, -50%\) scaleY\(var\(--wr, 1\)\)/)
+  assert.match(css, /\.mast-scene-night \.mast-motion-wheel-turn[\s\S]{0,320}?animation: mast-turn/)
+  // 3. The cabin exists, because a ring of evenly spaced identical lights has
+  //    28-fold symmetry and turning it is invisible without one feature to
+  //    follow. The component has to render it inside the spinning box.
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  assert.match(src, /mast-motion-wheel-turn[\s\S]{0,900}mast-motion-wheel-cabin/)
+  assert.match(src, /'--wr': \(wheel\.h \? wheel\.h \/ \(wheel\.d \* CARD_ASPECT\) : 1\)/)
+})
+
+// MASTHEAD-CLOCK-1: Big Ben's dials. A lit clock face is not a window and not
+// a beacon - it neither twinkles nor blinks - so it is its own kind.
+test('a clock face is a measured lit dial', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const [x, y, d] of m.clock || []) {
+      assert.ok(x >= 0 && x <= 100 && y >= 0 && y <= 100, `${city}.clock face is off the card`)
+      assert.ok(d > 0 && d < 3, `${city}.clock face is ${d}% of the width; that is not a dial`)
+    }
+  }
+  assert.deepEqual(CITY_MOTION.london.clock, [[23.31, 33.4, 0.62], [24.3, 33.4, 0.48]])
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  assert.match(css, /\.mast-motion-clock \{/)
+  assert.match(css, /@keyframes mast-dial/)
+  // It burns by day too, so its animation is on the bare scenic selector.
+  assert.match(css, /\.mast-scenic \.mast-motion-clock \{ animation: mast-dial/)
+})
+
 test('the lights that are meant to be noticed stay lit', () => {
   const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
   const block = name => {

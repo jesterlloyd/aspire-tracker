@@ -177,7 +177,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, emoji, torch, strike, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, emoji, torch, clock, strike, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -336,9 +336,41 @@ export default function MastheadMotion({ city }) {
       {/* A wheel is a rim of cabin lights turning slowly. The box is square
           in pixels (width as a share of the card width, aspect-ratio 1), so
           the ring stays round on a card that is not. */}
+      {/* MASTHEAD-CLOCK-1 (Owner: Big Ben is the other landmark on this card).
+          A lit clock face is not a window and not a beacon: it does not
+          twinkle and it does not blink, it just burns, all day and all night,
+          and the only thing it does is breathe a little. Each face carries its
+          own diameter because the two visible on the tower are at different
+          angles to us - the near one measures 11px across, the far one 9. */}
+      {clock?.map(([x, y, d]) => (
+        <span key={`ck-${x}-${y}`} className="mast-motion-clock"
+          style={{ left: `${x}%`, top: `${y}%`, width: `${d}%` }} />
+      ))}
+
+      {/* MASTHEAD-WHEEL-2: a wheel is measured as an ELLIPSE, because both of
+          the ones this registry carries are drawn as one - London's Eye is
+          1.36 times taller than it is wide in pixels. The box stays SQUARE and
+          the ellipse comes from a vertical scale on the parent, so the child
+          that spins is spinning a circle: scale a rotating ellipse and it
+          tumbles, rotate inside a scaled box and it turns. --wr is that
+          scale, the wheel's pixel height over its pixel width. */}
       {wheel && (
         <span className="mast-motion-wheel"
-          style={{ left: `${wheel.x}%`, top: `${wheel.y}%`, width: `${wheel.d}%` }} />
+          style={{
+            left: `${wheel.x}%`, top: `${wheel.y}%`, width: `${wheel.d}%`,
+            '--wr': (wheel.h ? wheel.h / (wheel.d * CARD_ASPECT) : 1).toFixed(4),
+          }}>
+          <span className="mast-motion-wheel-turn">
+          {/* The rim carries the capsule lights; the cabin is ONE of them, lit
+              brighter, and it is the whole reason the wheel reads as turning.
+              A ring of evenly spaced identical lights has 28-fold rotational
+              symmetry, so rotating it is very nearly a no-op to the eye: there
+              is no feature to follow. The cabin is that feature. Both ride the
+              same rotating box, so they cannot drift apart. */}
+            <span className="mast-motion-wheel-rim" />
+            <span className="mast-motion-wheel-cabin" />
+          </span>
+        </span>
       )}
 
       {/* The orb's skin drifts through the hues, masked off below the line

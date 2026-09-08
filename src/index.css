@@ -2714,20 +2714,82 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* The wheel: 28 cabin lights on a rim, turning. A repeating conic gradient
    masked to a thin annulus; the rotate property, not transform, so the
    centring translate is untouched. */
-.mast-motion-wheel {
+/* ── MASTHEAD-CLOCK-1 (2026-09-08, Owner: "this and the big ben are the most
+   most distinctive structures there"). A lit clock face. It is deliberately
+   NOT one of the existing kinds: `lights` twinkle, which on a clock dial reads
+   as a fault, and `beacons` blink, which reads as a warning. A dial is simply
+   lit - by day as well, since these faces are lit around the clock - so this
+   breathes slowly and shallowly and never drops far. Warm white, because that
+   is the colour the artwork paints them. ── */
+.mast-motion-clock {
   position: absolute; aspect-ratio: 1; opacity: 0;
-  transform: translate(-50%, -50%); border-radius: 50%; filter: blur(0.5px);
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(255,252,236,0.92) 0%, rgba(255,238,190,0.55) 42%,
+    rgba(255,214,132,0.20) 70%, transparent 84%);
+  filter: blur(0.4px);
+}
+.mast-scenic .mast-motion-clock { animation: mast-dial 9s ease-in-out var(--dl, 0s) infinite; }
+@keyframes mast-dial {
+  0%, 100% { opacity: 0.66; }
+  50%      { opacity: 0.95; }
+}
+
+/* ── MASTHEAD-WHEEL-2 (2026-09-08, Owner: "I think you claimed they move/turn
+   but they really don't"). Correct: the wheel had NEVER DRAWN A PIXEL, in
+   either city, since it shipped.
+   THE BUG. `radial-gradient(circle, ...)` sizes itself FARTHEST-CORNER by
+   default, so on a square box its 100% is the distance to the corner, which is
+   41% further out than the edge. The mask's opaque annulus at 82-93% therefore
+   landed at 58-66% of the half-width - entirely OUTSIDE the element - and
+   masked the whole wheel away. Measured, not guessed: with the mask as it was,
+   an opaque white ring changed 0 pixels against a frame with the element set
+   to display:none; with `closest-side` it changes 8306. Percentages in a
+   radial gradient are meaningless until the gradient's SIZE is stated.
+   THE SECOND BUG, which would have survived the first fix: a ring of evenly
+   spaced identical lights has 28-fold rotational symmetry, so turning it is
+   almost a no-op to the eye - every 12.857 degrees it is the same picture, and
+   in between there is no feature to follow. Hence the cabin below. ── */
+.mast-motion-wheel {
+  /* The box is SQUARE and the ellipse is a vertical scale on it, so the child
+     that spins spins a circle. Scale a rotating ellipse and it tumbles like a
+     coin; rotate inside a scaled box and it turns like a wheel. */
+  position: absolute; aspect-ratio: 1; opacity: 0;
+  transform: translate(-50%, -50%) scaleY(var(--wr, 1));
+}
+.mast-motion-wheel-turn { position: absolute; inset: 0; }
+.mast-motion-wheel-rim {
+  position: absolute; inset: 0; border-radius: 50%; filter: blur(0.5px);
   background: repeating-conic-gradient(from 0deg,
     rgba(255,196,250,0.95) 0deg 2.6deg, transparent 2.6deg 12.857deg);
-  -webkit-mask-image: radial-gradient(circle, transparent 76%, #000 82%, #000 93%, transparent 100%);
-  mask-image: radial-gradient(circle, transparent 76%, #000 82%, #000 93%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 76%, #000 82%, #000 93%, transparent 100%);
+  mask-image: radial-gradient(circle closest-side, transparent 76%, #000 82%, #000 93%, transparent 100%);
+}
+/* One capsule, lit brighter than its 27 neighbours, riding the rim at 87.5% of
+   the radius - the middle of the band the rim's mask leaves open. It is what
+   the eye follows, and it is honest to both wheels: their capsules are lit
+   individually. Sized as a share of the wheel, so it stays in proportion on a
+   3.7% Las Vegas wheel and a 7% London one alike. */
+.mast-motion-wheel-cabin {
+  position: absolute; left: 50%; top: 50%;
+  width: 11%; aspect-ratio: 1; margin: -5.5% 0 0 -5.5%;
+  border-radius: 50%; transform: translateY(-397%);
+  background: radial-gradient(circle,
+    rgba(255,255,255,0.98) 0%, rgba(255,226,252,0.62) 38%,
+    rgba(255,180,246,0.22) 66%, transparent 82%);
 }
 @keyframes mast-turn { from { rotate: 0deg; } to { rotate: 360deg; } }
 .mast-scenic.mast-scene-night .mast-motion-wheel,
 .mast-scenic.mast-scene-cloudynight .mast-motion-wheel,
 .mast-scenic.mast-scene-rainnight .mast-motion-wheel,
-.mast-scenic.mast-scene-snownight .mast-motion-wheel {
-  opacity: 0.8; animation: mast-turn 52s linear infinite;
+.mast-scenic.mast-scene-snownight .mast-motion-wheel { opacity: 0.8; }
+/* The spin is on the inner box, not on the wheel: the wheel carries the scale
+   that makes the circle an ellipse, and those two cannot share an element. */
+.mast-scenic.mast-scene-night .mast-motion-wheel-turn,
+.mast-scenic.mast-scene-cloudynight .mast-motion-wheel-turn,
+.mast-scenic.mast-scene-rainnight .mast-motion-wheel-turn,
+.mast-scenic.mast-scene-snownight .mast-motion-wheel-turn {
+  animation: mast-turn 52s linear infinite;
 }
 
 /* The orb: a soft disc whose hue drifts right round the wheel, cut off
@@ -3144,9 +3206,9 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-bird, .mast-motion-heli, .mast-motion-heli-strobe, .mast-motion-flare,
   .mast-motion-ghost, .mast-motion-ferry, .mast-motion-ferry-hull, .mast-motion-ferry-wake,
   .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored,
-  .mast-motion-neon, .mast-motion-wheel, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
+  .mast-motion-neon, .mast-motion-wheel, .mast-motion-wheel-turn, .mast-motion-wheel-cabin, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
   .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin,
-  .mast-motion-emoji, .mast-motion-torch, .mast-motion-strike {
+  .mast-motion-emoji, .mast-motion-torch, .mast-motion-clock, .mast-motion-strike {
     animation: none !important; opacity: 0 !important;
   }
 }
