@@ -30,6 +30,9 @@ const OVERRIDE_KINDS = ['lights', 'beacons', 'water']
 const SHIFT_SCENES = ['cloudynight', 'snownight']
 const CROSSINGS = ['aircraft', 'birds', 'helicopter', 'ferry']
 const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints', 'steam', 'neon']
+// Beacon points may carry a variant as a third element, the way neon points
+// carry a tone. Only this one is drawn.
+const BEACON_VARIANTS = ['glow']
 // Neon points may carry a tone as a third element; only this one is drawn.
 const NEON_TONES = ['cyan']
 // Two glows are "on top of each other" at a PHYSICAL distance, so the vertical
@@ -180,6 +183,21 @@ test('bridge deck lights lie along the declared deck line', () => {
   const ny = spansOf(CITY_MOTION.newyork)
   assert.equal(ny.length, 2)
   assert.ok(ny[0].deck.x + ny[0].deck.w <= ny[1].deck.x + 0.5, 'the far span runs into the near one')
+  // MASTHEAD-NY-DECK-2: both rails re-traced on the roadway (Owner: "the cars
+  // seem to elevate from the bridge in the right side part"). The check above
+  // is worth reading honestly: it asks whether a span's lights and its line
+  // agree with EACH OTHER, which the first pass did - the lights were measured
+  // off the cables and the city behind them, and the rail was fitted to those
+  // lights, so a bridge whose traffic ran up to 13% of the card above the
+  // roadway passed every test in this file. Nothing here can read the
+  // artwork, so these two lines are pinned instead, and a change to them is a
+  // change that has to be re-measured against the frame.
+  assert.deepEqual(ny[0].deck, { x: 57, y: 56.4, w: 16, rise: 4.3 })
+  assert.deepEqual(ny[1].deck, { x: 75, y: 61.5, w: 16, rise: 7.8 })
+  // Both East River spans fall away to the right in this drawing's
+  // perspective. A rail that runs flat across a span the artwork paints
+  // falling is the defect that was fixed here.
+  for (const span of ny) assert.ok(span.deck.rise > 3, 'a New York span cannot run flat')
 })
 
 // MASTHEAD-CAR-PACE-1: a car crosses ITS SPAN in one period, so a fixed period
@@ -243,6 +261,10 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
     for (const pt of m.neon || []) {
       if (pt[2] !== undefined) assert.ok(NEON_TONES.includes(pt[2]), `${city}.neon tone "${pt[2]}" has no glow`)
     }
+    for (const pt of m.beacons || []) {
+      if (pt[2] !== undefined) assert.ok(BEACON_VARIANTS.includes(pt[2]),
+        `${city}.beacons variant "${pt[2]}" has no rule; an unknown variant renders the default and throws nothing`)
+    }
   }
   // Las Vegas, third pack: the High Roller fitted from its rim above the
   // skyline (top pixel 39.35/47.25, half-chord 1.80 at y 54.75 -> radius
@@ -296,6 +318,50 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
     `the strike lands at x ${CITY_MOTION.newyork.strike.x} but One World Trade is at ${spire[0]}`)
   assert.ok(CITY_MOTION.newyork.strike.y > spire[1],
     'the strike must land below the spire tip, not above it')
+})
+
+// MASTHEAD-TORCH-1 and MASTHEAD-BEACON-GLOW-1 both exist because a light was
+// hard to see, and both have now been corrected in BOTH directions by the
+// Owner: the torch shipped as a floodlight ("too much glow"), was cut back,
+// and went out entirely ("I think you might have removed the torch glow
+// altogether. I can't see it now"). What a light is FOR cannot be asserted,
+// but the two ways it fails can be bounded: a core too small to see, and a
+// breath whose low end is dark.
+test('the lights that are meant to be noticed stay lit', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const block = name => {
+    const at = css.indexOf(name)
+    assert.ok(at > 0, `${name} is not defined in index.css`)
+    return css.slice(at, css.indexOf('}', at) + 1)
+  }
+  const floors = frames => [...frames.matchAll(/opacity:\s*([\d.]+)/g)].map(m => Number(m[1]))
+
+  // The flame. Its core is a pixel size rather than a card share because the
+  // artwork's own flame is a fixed feature of the frame, not a share of it.
+  const torch = block('.mast-motion-torch {')
+  const px = Number(/width:\s*(\d+(?:\.\d+)?)px/.exec(torch)[1])
+  assert.ok(px >= 12 && px <= 20, `the torch core is ${px}px; under 12 it disappears and over 20 it floods`)
+  const torchFrames = css.slice(css.indexOf('@keyframes mast-torch'), css.indexOf('@keyframes mast-torch') + 260)
+  assert.ok(Math.min(...floors(torchFrames)) >= 0.5,
+    'the torch breathes down to nothing; a flame dims, it does not go out')
+
+  // The landmark beacon. Bigger than an aviation light, and never dark.
+  const base = Number(/width:\s*calc\(?\s*(\d+)px/.exec(block('.mast-motion-beacon {'))?.[1]
+    ?? /width:\s*(\d+)px/.exec(block('.mast-motion-beacon {'))[1])
+  const glow = Number(/width:\s*(\d+)px/.exec(block('.mast-motion-beacon-glow {'))[1])
+  assert.ok(glow > base, `a glow beacon (${glow}px) must be larger than an aviation one (${base}px)`)
+  const glowFrames = css.slice(css.indexOf('@keyframes mast-beacon-glow'), css.indexOf('@keyframes mast-beacon-glow') + 200)
+  assert.ok(Math.min(...floors(glowFrames)) >= 0.35,
+    'the landmark beacon blinks like a mast light; it is meant to glow')
+  // It is a night light, gated exactly as the beacon it is a variant of.
+  for (const scene of ['night', 'cloudynight', 'rainnight', 'snownight']) {
+    assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-beacon-glow`),
+      `the glow beacon has no ${scene} gate, so it animates in scenes the base beacon sits out`)
+  }
+  // And the component has to hand the variant to that class, or the registry
+  // says 'glow' and the card renders an ordinary beacon.
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  assert.match(src, /variant === 'glow' \? ' mast-motion-beacon-glow' : ''/)
 })
 
 test('a scene shift names a gated scene, is small, and has its CSS rule', () => {

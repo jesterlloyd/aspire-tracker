@@ -2347,6 +2347,29 @@ a.doc-file-link:hover { text-decoration: underline; }
     rgba(255,120,110,0.95) 0%, rgba(235,70,70,0.45) 34%, transparent 68%);
 }
 
+/* ── MASTHEAD-BEACON-GLOW-1 (2026-09-07, Owner: "the red light in the one
+   world trade center tower also doesn't glow"). A beacon that names its
+   variant as 'glow' is the landmark lamp rather than an aviation light. The
+   aviation blink is right for a mast on a warehouse and wrong for the top of
+   One World Trade: it holds opacity 0.12 for nine tenths of its cycle and
+   spends about a seventh of a second lit, so at 6px the spire simply read as
+   unlit. This one is more than twice the area and breathes between half and
+   full, which is what a light you are meant to notice does. It keeps the
+   tone's own gradient; only its size and its cycle differ. ── */
+.mast-motion-beacon-glow {
+  width: 14px; height: 14px; margin: -7px 0 0 -7px;
+}
+.mast-scenic.mast-scene-night .mast-motion-beacon-glow,
+.mast-scenic.mast-scene-cloudynight .mast-motion-beacon-glow,
+.mast-scenic.mast-scene-rainnight .mast-motion-beacon-glow,
+.mast-scenic.mast-scene-snownight .mast-motion-beacon-glow {
+  animation: mast-beacon-glow 2.8s ease-in-out var(--dl, 0s) infinite;
+}
+@keyframes mast-beacon-glow {
+  0%, 100% { opacity: 0.45; scale: 0.9; }
+  50%      { opacity: 1;    scale: 1.14; }
+}
+
 /* ── RAINFALL. Individual streaks, each on its own timing (see DROPS in
    MastheadMotion). The container is tilted a little off vertical, which is
    how rain actually reads through a lens, and the streaks fall through a
@@ -2727,20 +2750,27 @@ a.doc-file-link:hover { text-decoration: underline; }
    scene because the flame is lit by day as well. Warm, soft, and centred on
    the measured flame rather than the arm. */
 .mast-motion-torch {
-  /* Smaller and softer than the first pass (Owner: too much glow). 16px with
-     a 0.95 core read as a lamp on the arm rather than a flame in a hand. */
-  position: absolute; width: 9px; height: 9px;
+  /* Third pass, and the one that lands between the first two. The first was
+     16px at a 0.95 core and read as a floodlight in her hand (Owner: too much
+     glow); the correction to 9px at 0.68, floating between opacity 0.34 and
+     0.8, put the flame out entirely (Owner: "I think you might have removed
+     the torch glow altogether. I can't see it now"). The painted flame
+     measures about 12px wide on the 2000px frame, roughly 8px of core on a
+     real card: this is that core near full strength with the falloff carried
+     out past it, so what grows is the GLOW around the flame rather than the
+     flame itself, and the low end of the breath never goes dark. */
+  position: absolute; width: 16px; height: 16px;
   transform: translate(-50%, -50%); border-radius: 50%;
   background: radial-gradient(circle,
-    rgba(255,246,214,0.68) 0%, rgba(255,206,110,0.34) 38%,
-    rgba(255,168,54,0.13) 66%, transparent 80%);
-  filter: blur(0.6px);
+    rgba(255,248,222,0.92) 0%, rgba(255,226,158,0.58) 22%,
+    rgba(255,196,92,0.30) 44%, rgba(255,162,48,0.12) 66%, transparent 82%);
+  filter: blur(0.7px);
 }
 .mast-scenic .mast-motion-torch { animation: mast-torch 7s ease-in-out infinite; }
 @keyframes mast-torch {
-  0%, 100% { opacity: 0.34; scale: 0.9; }
-  46%      { opacity: 0.8;  scale: 1.08; }
-  70%      { opacity: 0.52; scale: 0.98; }
+  0%, 100% { opacity: 0.62; scale: 0.92; }
+  46%      { opacity: 1;    scale: 1.1; }
+  70%      { opacity: 0.8;  scale: 1.0; }
 }
 
 /* ── MASTHEAD-STRIKE-1 (2026-09-07, Owner): forked lightning ──

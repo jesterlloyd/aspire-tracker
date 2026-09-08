@@ -193,8 +193,13 @@ export default function MastheadMotion({ city }) {
     <span key={`lt-${tag}-${x}-${y}`} className="mast-motion-light"
       style={{ left: `${x}%`, top: `${y}%`, '--d': `${period(i)}s`, '--dl': stagger(i) }} />
   ))
-  const renderBeacons = (pts, tag) => pts?.map(([x, y], i) => (
-    <span key={`bc-${tag}-${x}-${y}`} className={beaconClass}
+  // A beacon may name a variant as its third element, the way a neon does its
+  // tone. 'glow' is the landmark lamp: bigger, and breathing rather than
+  // blinking, because an aviation flash spends most of its cycle dark and the
+  // one light that names a building has to be lit while you look at it.
+  const renderBeacons = (pts, tag) => pts?.map(([x, y, variant], i) => (
+    <span key={`bc-${tag}-${x}-${y}`}
+      className={`${beaconClass}${variant === 'glow' ? ' mast-motion-beacon-glow' : ''}`}
       style={{ left: `${x}%`, top: `${y}%`, '--dl': `${(i * 0.9).toFixed(1)}s` }} />
   ))
   const renderWater = (pts, tag) => pts?.map(([x, y], i) => (

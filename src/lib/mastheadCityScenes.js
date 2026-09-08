@@ -636,8 +636,14 @@ export const CITY_MOTION = {
     // a clean red point at the very top of the card, x 40.5 y 2.4 - and the
     // rest are strict-red maxima with open sky above them across the skyline
     // and the Brooklyn shore.
+    // The spire light carries a third element, 'glow', because it is not an
+    // aviation blink: One World Trade's is the one beacon on this card that
+    // names the building, and a 6px dot that spends nine tenths of its cycle
+    // at opacity 0.12 does not read as lit at all (Owner: "the red light in
+    // the one world trade center tower also doesn't glow"). A 'glow' beacon is
+    // larger and breathes between half and full instead of flashing.
     beacons: [
-      [40.5, 2.4], [36.9, 43.8], [31.6, 38.8], [12.1, 42.8], [88.8, 40.3],
+      [40.5, 2.4, 'glow'], [36.9, 43.8], [31.6, 38.8], [12.1, 42.8], [88.8, 40.3],
       [83.4, 45.8], [88.2, 48.3],
     ],
     beaconTone: 'red',
@@ -688,14 +694,26 @@ export const CITY_MOTION = {
     ],
     // Both East River crossings, far then near, traced light by light. They do
     // not overlap in x: two rails on one stretch would stack traffic.
+    // MASTHEAD-NY-DECK-2 (Owner: "the cars seem to elevate from the bridge in
+    // the right side part"). Both rails were re-traced on the roadway itself,
+    // by walking the brightest continuous band across the span in the Night
+    // frame and again in the Day frame, which agree to within a pixel. The
+    // first pass fitted the rails to bright points that were NOT on the
+    // roadway - the near span's sat on the cables and the city behind them,
+    // several of them on pixels darker than the frame's own mean - and the
+    // guard below only checks that a span's lights and its line agree with
+    // EACH OTHER, so a rail measured wrong and lit wrong passes it. Both
+    // spans fall to the right in perspective: the far one 4.3% of the card
+    // across its length, the near one 7.8%, where the old rails fell 0.4 and
+    // 3.2 and left the traffic climbing off the bridge at the Brooklyn end.
     bridge: [
       {
-        lights: [[58, 56.5], [60.5, 56.5], [62.5, 57.3], [65, 57.8], [71.5, 56.0]],
-        deck: { x: 57, y: 56.4, w: 15, rise: 0.4 },
+        lights: [[58, 55.75], [59.8, 56.25], [62.5, 57.25], [64.5, 57.75], [67.2, 59.0], [70, 59.5], [72.2, 59.75]],
+        deck: { x: 57, y: 56.4, w: 16, rise: 4.3 },
       },
       {
-        lights: [[75, 55.3], [77, 56.5], [80.5, 59.0], [82.5, 56.8], [85, 57.3], [89, 59.3], [91.5, 59.3]],
-        deck: { x: 74, y: 55.8, w: 18, rise: 3.2 },
+        lights: [[75.2, 60.5], [77, 61.5], [79.8, 63.75], [81.8, 65.0], [83.8, 65.0], [86.5, 66.25], [88.8, 68.5], [91, 69.25]],
+        deck: { x: 75, y: 61.5, w: 16, rise: 7.8 },
         police: true,
       },
     ],
