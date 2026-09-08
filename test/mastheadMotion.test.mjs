@@ -501,8 +501,13 @@ test('a cableway hangs between two points on the card', () => {
     assert.ok(Math.abs(c.rise) / c.w > 1.5,
       `${city}.cable drops ${c.rise}% over ${c.w}%; that is a roadway, not a cableway`)
   }
-  // Rio's bondinho: the Sugarloaf summit at [83, 37] down to Urca at [91, 68.6].
-  assert.deepEqual(CITY_MOTION.rio.cable, { x: 83, y: 31.36, w: 8, rise: 26.78, flight: 42 })
+  // MASTHEAD-RIO-2: Rio's bondinho, fitted to the painted ROPE rather than to
+  // the two stations - it runs from where the strands leave Sugarloaf's rock
+  // at [84.4, 36] down to where they enter the trees above Urca at
+  // [91.5, 56.6]. The station-to-station chord was 0.45 steeper and crossed
+  // the strands instead of riding them, and its top percent of travel was a
+  // cabin drawn on the rock face.
+  assert.deepEqual(CITY_MOTION.rio.cable, { x: 84.4, y: 36.0, w: 7.1, rise: 20.6, flight: 42 })
   // The wire is the artwork's. Ours is the cabin, and only the cabin.
   const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
   assert.match(css, /\.mast-motion-cable \{\s*\n\s*position: absolute; height: 0;/)
