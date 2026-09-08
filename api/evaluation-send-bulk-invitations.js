@@ -175,6 +175,13 @@ async function _handler(req, res, startMs) {
   if (!timepoint || !VALID_TIMEPOINTS.has(timepoint)) {
     return res.status(400).json({ success: false, error: `timepoint is required and must be one of: ${[...VALID_TIMEPOINTS].join(', ')}` });
   }
+  if (instrument_slug === 'casey_fink_readiness_2024' && timepoint === 'post_rotation') {
+    return res.status(400).json({
+      success: false,
+      error: 'Post-Rotation Casey-Fink invitations must use the guarded release workflow.',
+      code: 'use_casey_fink_post_rotation_release',
+    });
+  }
 
   if (!expires_at) return res.status(400).json({ success: false, error: 'expires_at is required' });
   const expiresDate = new Date(expires_at);

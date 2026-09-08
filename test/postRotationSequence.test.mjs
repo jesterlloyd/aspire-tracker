@@ -196,7 +196,7 @@ test('null safety', () => {
 
 test('the Casey-Fink endpoint rechecks BEFORE any write or send', () => {
   const src = read('api/evaluation-release-casey-fink-post-rotation-survey.js')
-  const gate = src.indexOf('caseyFinkPrerequisite(')
+  const gate = src.indexOf('const prereq = caseyFinkPrerequisite(')
   assert.ok(gate > -1, 'the endpoint runs its own prerequisite check')
 
   for (const later of [

@@ -190,6 +190,7 @@ export function classifyCaseyFinkPostRotationCohort({
       status,
       certificateNumber: cert?.certificate_number || null,
       studentEmail: recipient.email,
+      sendable: recipient.sendable,
       warnings,
       blocked,
     })

@@ -32,9 +32,9 @@
 //
 // SURVEY-REISSUE-1: when the only existing assignment for the tuple is expired (or revoked) and NOT
 // completed, this endpoint REUSES that row (uq_assignment forbids a second row): it mints a new token
-// first, then refreshes the row to a fresh sent-state with a new expires_at. Old token rows are left
-// in place (each carries its own past expiry, so old links stay unusable). Completed responses always
-// block and are never modified.
+// first, then refreshes the row to a fresh sent-state with a new expires_at. Historical token rows
+// are revoked and one surviving row is rotated so old links stay unusable. Completed responses
+// always block and are never modified.
 
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
@@ -229,6 +229,12 @@ async function _handler(req, res) {
     const approvedHours = parseFloat(student.approved_hours || 0);
     timepoint = approvedHours > 0 ? 'early_rotation_baseline' : 'baseline';
   }
+  if (timepoint === 'post_rotation') {
+    return res.status(400).json({
+      error: 'Post-Rotation Casey-Fink invitations must use the guarded release workflow.',
+      code: 'use_casey_fink_post_rotation_release',
+    });
+  }
 
   // ── 7. Determine expires_at ───────────────────────────────────────────────
   let expiresAt;
@@ -300,33 +306,56 @@ async function _handler(req, res) {
     // ── 10a. REISSUE: reuse the existing row (uq_assignment forbids a second). Token-FIRST so the
     //         assignment is never flipped to a fresh active state without a usable new token.
     //
-    // The token table holds ONE row per assignment (lookups are by token_hash; revocation and the
-    // rollback path key on assignment_id). Inserting a SECOND token row for an existing assignment
-    // violates that uniqueness - the cause of the post-6f11cf8 reissue HTTP 500. So we reissue the
-    // token IN PLACE: update the existing row to the new hash (the old hash is discarded, so the old
-    // link stops validating) and clear revoked_at. If no token row exists yet (e.g. an earlier
-    // partial state), insert a fresh one.
+    // Historical assignments can have more than one token row. Updating every row to one new hash
+    // violates token_hash's unique constraint. Keep one survivor, revoke the rest, and rotate only
+    // the survivor. If no token row exists (an earlier partial state), insert one.
     console.log('[create-invitation] reissue branch', { assignment_id: reissueRow.id });
 
-    const { data: updatedTokens, error: tokenUpdateErr } = await supabaseAdmin
+    const { data: tokenRows, error: tokenLoadErr } = await supabaseAdmin
       .from('evaluation_assignment_tokens')
-      .update({
-        token_hash:        tokenHash,
-        token_hash_prefix: tokenHashPrefix,
-        expires_at:        tokenExpiresAt.toISOString(),
-        revoked_at:        null,
-      })
-      .eq('assignment_id', reissueRow.id)
-      .select('assignment_id');
+      .select('id')
+      .eq('assignment_id', reissueRow.id);
 
-    if (tokenUpdateErr) {
+    if (tokenLoadErr) {
       // No assignment state changed yet - the row stays expired/revoked. Safe to fail with no cleanup.
       console.error('[create-invitation] reissue_token_refresh_failed:',
-        { assignment_id: reissueRow.id, code: tokenUpdateErr.code, message: tokenUpdateErr.message, details: tokenUpdateErr.details, hint: tokenUpdateErr.hint });
-      return res.status(500).json({ error: 'Failed to issue invitation token', ...safeDbError('reissue_token_refresh_failed', tokenUpdateErr) });
+        { assignment_id: reissueRow.id, code: tokenLoadErr.code, message: tokenLoadErr.message, details: tokenLoadErr.details, hint: tokenLoadErr.hint });
+      return res.status(500).json({ error: 'Failed to issue invitation token', ...safeDbError('reissue_token_refresh_failed', tokenLoadErr) });
     }
 
-    if (!updatedTokens || updatedTokens.length === 0) {
+    const survivor = tokenRows?.[0] || null;
+    const obsoleteTokenIds = (tokenRows || []).slice(1).map(row => row.id);
+    if (obsoleteTokenIds.length > 0) {
+      const { error: retireErr } = await supabaseAdmin
+        .from('evaluation_assignment_tokens')
+        .update({ revoked_at: now.toISOString() })
+        .in('id', obsoleteTokenIds);
+      if (retireErr) {
+        console.error('[create-invitation] reissue_token_retire_failed:',
+          { assignment_id: reissueRow.id, code: retireErr.code, message: retireErr.message, details: retireErr.details, hint: retireErr.hint });
+        return res.status(500).json({ error: 'Failed to issue invitation token', ...safeDbError('reissue_token_retire_failed', retireErr) });
+      }
+    }
+
+    if (survivor) {
+      const { error: tokenUpdateErr } = await supabaseAdmin
+        .from('evaluation_assignment_tokens')
+        .update({
+          token_hash:        tokenHash,
+          token_hash_prefix: tokenHashPrefix,
+          expires_at:        tokenExpiresAt.toISOString(),
+          revoked_at:        null,
+          used_at:           null,
+          ip_used_first:     null,
+          user_agent_used_first: null,
+        })
+        .eq('id', survivor.id);
+      if (tokenUpdateErr) {
+        console.error('[create-invitation] reissue_token_refresh_failed:',
+          { assignment_id: reissueRow.id, code: tokenUpdateErr.code, message: tokenUpdateErr.message, details: tokenUpdateErr.details, hint: tokenUpdateErr.hint });
+        return res.status(500).json({ error: 'Failed to issue invitation token', ...safeDbError('reissue_token_refresh_failed', tokenUpdateErr) });
+      }
+    } else {
       const { error: tokenInsertErr } = await supabaseAdmin
         .from('evaluation_assignment_tokens')
         .insert({

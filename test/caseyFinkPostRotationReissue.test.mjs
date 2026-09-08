@@ -103,6 +103,34 @@ test('the endpoint reuses the terminal row and claims it before token mutation o
     'the endpoint cannot mutate a prior-cohort assignment')
 })
 
+test('reissue rotates one surviving token row and retires historical rows first', () => {
+  const source = read('api/evaluation-release-casey-fink-post-rotation-survey.js')
+  const tokenBlock = source.slice(
+    source.indexOf('// Historical data may contain more than one token row'),
+    source.indexOf('const { data: activated', source.indexOf('// Historical data may contain more than one token row')),
+  )
+  assert.match(tokenBlock, /const survivor = tokenRows\?\.\[0\]/)
+  assert.match(tokenBlock, /obsoleteTokenIds[\s\S]*\.in\('id', obsoleteTokenIds\)/)
+  assert.match(tokenBlock, /\.eq\('id', survivor\.id\)/,
+    'only one token row receives the new unique hash')
+  assert.doesNotMatch(tokenBlock, /\.update\([\s\S]*token_hash:[\s\S]*\.eq\('assignment_id', reissueRow\.id\)/,
+    'never write the same unique hash to every historical token row')
+})
+
+test('every legacy invitation generator avoids updating multiple rows to one token hash', () => {
+  for (const file of [
+    'api/evaluation-create-invitation.js',
+    'api/evaluation-bulk-invitations.js',
+  ]) {
+    const source = read(file)
+    assert.match(source, /const survivor = tokenRows\?\.\[0\]/, file)
+    assert.match(source, /\.in\('id', obsoleteTokenIds\)/, file)
+    assert.match(source, /\.eq\('id', survivor\.id\)/, file)
+    assert.doesNotMatch(source, /token_hash:[\s\S]{0,500}\.eq\('assignment_id', reissueRow\.id\)/,
+      `${file} must not assign one unique hash to every historical token`)
+  }
+})
+
 test('historical notification logs suppress only first-time release, not deliberate reissue', () => {
   const source = read('api/evaluation-release-casey-fink-post-rotation-survey.js')
   const dedup = source.slice(source.indexOf('// ── 6. notification_log dedup.'), source.indexOf('// ── 7.'))

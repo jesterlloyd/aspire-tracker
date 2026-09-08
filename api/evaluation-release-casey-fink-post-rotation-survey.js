@@ -69,8 +69,102 @@ async function restoreReissueClaim(row) {
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+}
+
+function slugForAssignment(row) {
+  const instrument = row?.evaluation_instruments;
+  const resolved = Array.isArray(instrument) ? instrument[0] : instrument;
+  return resolved?.slug;
+}
+
+function eligibilityReason(row, prerequisite) {
+  if (prerequisite && !prerequisite.ok) return prerequisite.reason;
+  if (!row?.sendable) return 'No valid student email is available.';
+  const reasons = {
+    readiness_released: 'An active Post-Rotation Casey-Fink invitation already exists.',
+    readiness_completed: 'The Post-Rotation Casey-Fink response is complete.',
+    certificate_unlocked: 'The student already has a Certificate of Completion.',
+    readiness_attention: 'The existing Post-Rotation Casey-Fink assignment needs support review.',
+    not_eligible_hours: 'Required hours are not set.',
+    not_eligible: 'Approved hours have not reached the required total.',
+  };
+  return reasons[row?.status] || null;
+}
+
+async function getCohortEligibility(req, res) {
+  const cohortId = typeof req.query?.cohort_id === 'string' ? req.query.cohort_id.trim() : '';
+  if (!isUuid(cohortId)) {
+    return res.status(400).json({ success: false, error: 'cohort_id must be a valid UUID' });
+  }
+
+  const [studentResult, assignmentResult] = await Promise.all([
+    supabaseAdmin
+      .from('students')
+      .select('id, first_name, last_name, preferred_first_name, school, program_type, approved_hours, hours_required, pending_hours, personal_email, school_email')
+      .eq('cohort_id', cohortId),
+    supabaseAdmin
+      .from('evaluation_assignments')
+      .select(`
+        id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at, notes, timepoint,
+        evaluation_instruments!inner ( slug )
+      `)
+      .eq('cohort_id', cohortId),
+  ]);
+  if (studentResult.error || assignmentResult.error) {
+    return res.status(500).json({ success: false, error: 'Failed to load Post-Rotation eligibility' });
+  }
+
+  const students = studentResult.data || [];
+  const allAssignments = assignmentResult.data || [];
+  const caseyFinkAssignments = allAssignments.filter(a =>
+    slugForAssignment(a) === INSTRUMENT_SLUG && a.timepoint === TIMEPOINT
+  );
+  const studentIds = students.map(s => s.id);
+  let certificates = [];
+  if (studentIds.length > 0) {
+    const certificateResult = await supabaseAdmin
+      .from('certificates')
+      .select('id, student_id, certificate_number')
+      .in('student_id', studentIds);
+    if (certificateResult.error) {
+      return res.status(500).json({ success: false, error: 'Failed to load certificate eligibility' });
+    }
+    certificates = certificateResult.data || [];
+  }
+
+  const assignmentsByStudent = new Map();
+  for (const assignment of allAssignments) {
+    if (!assignment?.student_id) continue;
+    if (!assignmentsByStudent.has(assignment.student_id)) assignmentsByStudent.set(assignment.student_id, []);
+    assignmentsByStudent.get(assignment.student_id).push(assignment);
+  }
+
+  const { rows } = classifyCaseyFinkPostRotationCohort({
+    students,
+    assignments: caseyFinkAssignments,
+    certificates,
+    nowMs: Date.now(),
+  });
+  return res.status(200).json({
+    success: true,
+    cohort_id: cohortId,
+    instrument_slug: INSTRUMENT_SLUG,
+    timepoint: TIMEPOINT,
+    rows: rows.map(row => {
+      const prerequisite = caseyFinkPrerequisite(assignmentsByStudent.get(row.studentId) || []);
+      const releaseState = row.status === 'eligible_for_review' || row.status === 'readiness_reissue';
+      return {
+        student_id: row.studentId,
+        status: row.status,
+        actionable: releaseState && prerequisite.ok && row.sendable,
+        reissue: row.status === 'readiness_reissue',
+        prerequisite: { ok: prerequisite.ok, code: prerequisite.code, reason: prerequisite.reason },
+        reason: eligibilityReason(row, prerequisite),
+      };
+    }),
+  });
 }
 
 export default async function handler(req, res) {
@@ -78,7 +172,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ success: false, error: 'Method not allowed' });
 
   try {
     return await _handler(req, res);
@@ -125,6 +219,8 @@ async function _handler(req, res) {
   }
   const senderUserId = profile.id;
   const senderEmail  = profile.email;
+
+  if (req.method === 'GET') return getCohortEligibility(req, res);
 
   // ── 2. Parse + validate the two-field request body. ─────────────────────────────
   let body;
@@ -203,12 +299,7 @@ async function _handler(req, res) {
   if (asgErr) {
     return res.status(500).json({ success: false, error: 'Failed to load existing assignments' });
   }
-  const slugFor = (a) => {
-    const inst = a.evaluation_instruments;
-    const i = Array.isArray(inst) ? inst[0] : inst;
-    return i?.slug;
-  };
-  const assignments = (rawAssignments || []).filter(a => slugFor(a) === INSTRUMENT_SLUG && a.timepoint === TIMEPOINT);
+  const assignments = (rawAssignments || []).filter(a => slugForAssignment(a) === INSTRUMENT_SLUG && a.timepoint === TIMEPOINT);
 
   // ── 4b. POST-ROTATION-SEQUENCED-RELEASE-1: independent prerequisite recheck. ────
   // Step 1 (Student Feedback: Preceptor & Unit) must be COMPLETED before this
@@ -337,27 +428,50 @@ async function _handler(req, res) {
       return res.status(409).json({ success: false, released: false, classification: 'release_in_progress', reason: 'Another release attempt changed this survey. Re-run detection before trying again.' });
     }
 
-    // Reuse the existing token row because the assignment identity is intentionally stable. Updating
-    // the hash invalidates the old link. Insert only when an earlier partial assignment has no token.
-    const { data: refreshedTokens, error: tokenUpdateErr } = await supabaseAdmin
+    // Historical data may contain more than one token row for this assignment. Keep one row as the
+    // survivor and revoke every other row before rotating its hash. Updating every historical row to
+    // the same hash causes the unique-key failure shown in Connect and can never succeed.
+    const { data: tokenRows, error: tokenLoadErr } = await supabaseAdmin
       .from('evaluation_assignment_tokens')
-      .update({
-        token_hash: tokenHash, token_hash_prefix: tokenHashPrefix,
-        issued_at: nowIso, expires_at: tokenExpiresAt.toISOString(),
-        revoked_at: null, used_at: null, ip_used_first: null, user_agent_used_first: null,
-      })
-      .eq('assignment_id', reissueRow.id)
-      .select('assignment_id');
-    if (tokenUpdateErr) {
+      .select('id')
+      .eq('assignment_id', reissueRow.id);
+    if (tokenLoadErr) {
       await restoreReissueClaim(reissueRow);
-      return res.status(500).json({ success: false, released: false, classification: 'reissue_token_failed', error: 'Failed to refresh the survey token' });
+      return res.status(500).json({ success: false, released: false, classification: 'reissue_token_failed', error: 'Failed to load survey tokens for reissue' });
     }
-    if (!refreshedTokens || refreshedTokens.length === 0) {
+
+    const survivor = tokenRows?.[0] || null;
+    const obsoleteTokenIds = (tokenRows || []).slice(1).map(row => row.id);
+    if (obsoleteTokenIds.length > 0) {
+      const { error: retireErr } = await supabaseAdmin
+        .from('evaluation_assignment_tokens')
+        .update({ revoked_at: nowIso })
+        .in('id', obsoleteTokenIds);
+      if (retireErr) {
+        await restoreReissueClaim(reissueRow);
+        return res.status(500).json({ success: false, released: false, classification: 'reissue_token_failed', error: 'Failed to retire historical survey tokens' });
+      }
+    }
+
+    if (survivor) {
+      const { error: tokenUpdateErr } = await supabaseAdmin
+        .from('evaluation_assignment_tokens')
+        .update({
+          token_hash: tokenHash, token_hash_prefix: tokenHashPrefix,
+          expires_at: tokenExpiresAt.toISOString(),
+          revoked_at: null, used_at: null, ip_used_first: null, user_agent_used_first: null,
+        })
+        .eq('id', survivor.id);
+      if (tokenUpdateErr) {
+        await restoreReissueClaim(reissueRow);
+        return res.status(500).json({ success: false, released: false, classification: 'reissue_token_failed', error: 'Failed to refresh the survey token' });
+      }
+    } else {
       const { error: tokenInsertErr } = await supabaseAdmin
         .from('evaluation_assignment_tokens')
         .insert({
           assignment_id: reissueRow.id, token_hash: tokenHash, token_hash_prefix: tokenHashPrefix,
-          issued_at: nowIso, expires_at: tokenExpiresAt.toISOString(),
+          expires_at: tokenExpiresAt.toISOString(),
         });
       if (tokenInsertErr) {
         await restoreReissueClaim(reissueRow);

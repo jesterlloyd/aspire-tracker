@@ -38,8 +38,11 @@ import {
 import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
 import { getStudentPreferredFirstName, getStudentPreferredFullName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 import { buildStudentInvitationEmail, formatExpiresAt, TIMEPOINT_LABELS } from '../../../lib/server/evaluation/emailTemplates'
+import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 
 const F = 'Plus Jakarta Sans, sans-serif'
+const POST_ROTATION_ROUTE = RELEASE_ROUTES.caseyFinkPostRotation
+const postRotationStudentEmail = student => (student?.personal_email || '').trim() || (student?.school_email || '').trim()
 
 // Canonical default body for the editable Survey Invitation draft (Send-to-One).
 // Mirrors the fixed intro paragraph the server template falls back to when no
@@ -761,6 +764,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // null | 'completed' (block) | 'active' (block) | 'reissuable' (expired/revoked, incomplete → allowed)
   const [priorInvitation,   setPriorInvitation]   = useState(null)
   const [checkingDuplicate, setCheckingDuplicate] = useState(false)
+  // The guarded Post-Rotation endpoint is the single source of truth for both recipient modes.
+  // Values are keyed by student_id and contain only eligibility state, never survey tokens.
+  const [postRotationEligibility, setPostRotationEligibility] = useState({})
+  const [postRotationEligibilityLoading, setPostRotationEligibilityLoading] = useState(false)
+  const [postRotationEligibilityError, setPostRotationEligibilityError] = useState(null)
 
   // ── Generate Link state ───────────────────────────────────────────────────
   const [generating,    setGenerating]    = useState(false)
@@ -826,7 +834,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setLoadingStudents(true)
     supabase
       .from('students')
-      .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, status, school_coordinator_email, school_coordinator_name')
+      .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, status, approved_hours, hours_required, pending_hours, school_coordinator_email, school_coordinator_name')
       .eq('cohort_id', cohortId)
       .order('last_name')
       .order('first_name')
@@ -836,8 +844,48 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       })
   }, [cohortId, refreshKey]) // refreshKey triggers re-fetch on Connect refresh
 
+  // Post-Rotation eligibility comes from the same guarded endpoint used to release the survey.
+  // Changing either timepoint therefore changes the eligible recipients immediately and cannot
+  // accidentally reuse Baseline state.
+  useEffect(() => {
+    const needsPostRotation = timepoint === 'post_rotation' || bulkTimepoint === 'post_rotation'
+    if (!cohortId || !needsPostRotation) {
+      setPostRotationEligibility({})
+      setPostRotationEligibilityError(null)
+      setPostRotationEligibilityLoading(false)
+      return
+    }
+    let cancelled = false
+    setPostRotationEligibilityLoading(true)
+    setPostRotationEligibilityError(null)
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) throw new Error('Session expired. Refresh and try again.')
+        const res = await fetch(`${POST_ROTATION_ROUTE.endpoint}?cohort_id=${encodeURIComponent(cohortId)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok || !payload?.success) throw new Error(payload?.error || 'Failed to load Post-Rotation eligibility.')
+        if (payload.instrument_slug !== POST_ROTATION_ROUTE.instrumentSlug || payload.timepoint !== POST_ROTATION_ROUTE.timepoint) {
+          throw new Error('Post-Rotation eligibility identity mismatch.')
+        }
+        if (cancelled) return
+        setPostRotationEligibility(Object.fromEntries((payload.rows || []).map(row => [row.student_id, row])))
+      } catch (err) {
+        if (!cancelled) {
+          setPostRotationEligibility({})
+          setPostRotationEligibilityError(err?.message || 'Failed to load Post-Rotation eligibility.')
+        }
+      } finally {
+        if (!cancelled) setPostRotationEligibilityLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [cohortId, timepoint, bulkTimepoint, refreshKey])
+
   // ── Prior-invitation pre-check (UX assist only; server enforces) ──────────
-  // Classifies any existing assignment for the tuple so the form can show whether generation will
+  // Classifies any existing Casey-Fink assignment for the tuple so the form can show whether generation will
   // be blocked (completed / unexpired active) or allowed as a reissue (expired / revoked, no
   // completion). Mirrors the server's inlined reissue classifier in api/evaluation-create-invitation.js.
   useEffect(() => {
@@ -845,13 +893,33 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       setPriorInvitation(null)
       return
     }
+    if (timepoint === 'post_rotation') {
+      setCheckingDuplicate(postRotationEligibilityLoading)
+      if (postRotationEligibilityLoading) return
+      const eligibility = postRotationEligibility[selectedStudentId]
+      if (!eligibility) {
+        setPriorInvitation(postRotationEligibilityError ? 'blocked' : null)
+      } else if (eligibility.status === 'readiness_completed' || eligibility.status === 'certificate_unlocked') {
+        setPriorInvitation('completed')
+      } else if (eligibility.status === 'readiness_released') {
+        setPriorInvitation('active')
+      } else if (eligibility.reissue && eligibility.actionable) {
+        setPriorInvitation('reissuable')
+      } else if (!eligibility.actionable) {
+        setPriorInvitation('blocked')
+      } else {
+        setPriorInvitation(null)
+      }
+      return
+    }
     setCheckingDuplicate(true)
     supabase
       .from('evaluation_assignments')
-      .select('id, status, expires_at, completed_at')
+      .select('id, status, expires_at, completed_at, evaluation_instruments!inner ( slug )')
       .eq('student_id', selectedStudentId)
       .eq('cohort_id', cohortId)
       .eq('timepoint', timepoint)
+      .eq('evaluation_instruments.slug', instrument)
       .then(({ data }) => {
         const rows  = data || []
         const nowMs = Date.now()
@@ -868,7 +936,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         setPriorInvitation(kind)
         setCheckingDuplicate(false)
       })
-  }, [selectedStudentId, timepoint, cohortId])
+  }, [selectedStudentId, timepoint, cohortId, instrument, postRotationEligibility, postRotationEligibilityLoading, postRotationEligibilityError])
 
   // ── Clear generated link when form identity changes ───────────────────────
   // Raw survey URL must not persist if recipient, instrument, or timepoint changes.
@@ -897,9 +965,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setBulkLoadingAssignments(true)
     supabase
       .from('evaluation_assignments')
-      .select('student_id, id, status')
+      .select('student_id, id, status, evaluation_instruments!inner ( slug )')
       .eq('cohort_id', cohortId)
       .eq('timepoint', bulkTimepoint)
+      .eq('evaluation_instruments.slug', bulkInstrument)
       .not('status', 'in', '(revoked,expired)')
       .then(({ data }) => {
         const map = {}
@@ -907,7 +976,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         setBulkActiveAssignments(map)
         setBulkLoadingAssignments(false)
       })
-  }, [recipientMode, cohortId, bulkTimepoint, refreshKey]) // refreshKey re-fetches assignment indicators on Connect refresh
+  }, [recipientMode, cohortId, bulkTimepoint, bulkInstrument, refreshKey]) // refreshKey re-fetches assignment indicators on Connect refresh
 
   // ── Bulk: clear selection + results when timepoint changes ────────────────
   useEffect(() => {
@@ -1204,7 +1273,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // (resolveStudentCorrespondenceRecipient = school-first), so the displayed address always matches
   // the address the send will actually use. No email-type pill is shown.
   const resolvedEmail    = selectedStudent
-    ? (resolveStudentCorrespondenceRecipient(selectedStudent)?.email || null)
+    ? (timepoint === 'post_rotation'
+      ? (postRotationStudentEmail(selectedStudent) || null)
+      : (resolveStudentCorrespondenceRecipient(selectedStudent)?.email || null))
     : null
   // Survey preview greeting honors the student's preferred first name (display only; the survey
   // send path already resolves the preferred greeting server-side).
@@ -1225,7 +1296,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       }).html
     } catch { return '' }
   }, [surveyResult, selectedStudent, surveyDraftSubject, surveyDraftBody])
-  const formValid        = !!(selectedStudentId && instrument && timepoint)
+  const selectedPostRotationEligibility = postRotationEligibility[selectedStudentId] || null
+  const isPostRotationSingle = timepoint === 'post_rotation'
+  const surveyIdentityComplete = !!(selectedStudentId && instrument && timepoint)
+  const formValid = surveyIdentityComplete && (!isPostRotationSingle || !!selectedPostRotationEligibility?.actionable)
 
   // ── Survey Invitation recipient clarity (Phase 1.2) ───────────────────────
   // Three render states for the Survey Invitation form, driven by the Send-to-one
@@ -1536,7 +1610,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
   // ── Generate Link handler ─────────────────────────────────────────────────
   const handleGenerateLink = useCallback(async () => {
-    if (!formValid || generating) return
+    if (!formValid || generating || timepoint === 'post_rotation') return
     setGenerating(true)
     setGenerateError(null)
     setSurveyResult(null)
@@ -1624,6 +1698,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Bulk: derived values ──────────────────────────────────────────────────
   const bulkSelectedSet    = new Set(bulkSelectedIds)
   const bulkEligible       = BULK_ELIGIBILITY[bulkTimepoint] || ['Placed', 'Active Rotation']
+  const isPostRotationBulk = bulkTimepoint === 'post_rotation'
   const bulkSchools        = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
   const bulkFilteredStudents = (() => {
@@ -1634,7 +1709,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         if (!hay.includes(q)) return false
       }
       if (bulkFilterSchool && s.school !== bulkFilterSchool) return false
-      if (!studentHasEmailSource(s, bulkFilterEmail)) return false
+      if (isPostRotationBulk ? !postRotationStudentEmail(s) : !studentHasEmailSource(s, bulkFilterEmail)) return false
       return true
     })
     const cmp = bulkSort === 'status'
@@ -1643,9 +1718,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     return [...out].sort(cmp)
   })()
 
-  // A student is checkbox-eligible if they have email AND no active assignment
-  const isBulkCheckboxEligible = s =>
-    !!(s.personal_email || s.school_email) && !bulkActiveAssignments[s.id]
+  // Baseline retains its placement-status gate. Post-Rotation uses the canonical hours,
+  // Student Feedback, completion, active-assignment, and email verdict from the release endpoint.
+  const isBulkCheckboxEligible = s => {
+    if (isPostRotationBulk) return !!postRotationEligibility[s.id]?.actionable
+    return bulkEligible.includes(s.status) && !!studentEmailForSource(s, bulkFilterEmail) && !bulkActiveAssignments[s.id]
+  }
 
   const bulkVisibleEligible = bulkFilteredStudents.filter(isBulkCheckboxEligible)
   const bulkHiddenSelectedCount = bulkSelectedIds.filter(
@@ -1677,22 +1755,100 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
   const handleBulkOpenReview = useCallback(() => {
     if (bulkSelectedIds.length === 0) return
+    setBulkSendPhrase('')
     setBulkShowReview(true)
   }, [bulkSelectedIds])
 
   const handleBulkCloseReview = useCallback(() => {
     if (bulkGenerating) return
     setBulkShowReview(false)
+    setBulkSendPhrase('')
   }, [bulkGenerating])
 
   const handleBulkGenerate = useCallback(async () => {
     if (!bulkReviewReady || bulkGenerating || bulkSelectedIds.length === 0) return
+    if (isPostRotationBulk && bulkSendPhrase !== 'SEND SURVEYS') return
     setBulkGenerating(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
         setBulkResults({ error: 'Session expired. Please refresh and try again.' })
         setBulkShowReview(false)
+        return
+      }
+      if (isPostRotationBulk) {
+        const sent = []
+        const skipped = []
+        const failed = []
+        for (let index = 0; index < bulkSelectedIds.length; index += 1) {
+          const studentId = bulkSelectedIds[index]
+          const student = students.find(row => row.id === studentId)
+          const studentName = student ? getStudentPreferredFullName(student) : studentId
+          try {
+            const res = await fetch(POST_ROTATION_ROUTE.endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+              body: JSON.stringify({
+                student_id: studentId,
+                expected_instrument_slug: POST_ROTATION_ROUTE.instrumentSlug,
+              }),
+            })
+            const payload = await res.json().catch(() => ({}))
+            if (res.ok && payload?.released &&
+                payload.instrument_slug === POST_ROTATION_ROUTE.instrumentSlug &&
+                payload.timepoint === POST_ROTATION_ROUTE.timepoint) {
+              sent.push({ studentId, studentName, reissued: !!payload.reissued, assignmentId: payload.assignment_id })
+            } else if (res.ok && payload?.success &&
+                       !['send_failed', 'delivery_uncertain'].includes(payload?.classification)) {
+              skipped.push({ studentId, studentName, reason: payload?.reason || 'No longer eligible.' })
+            } else {
+              const uncertain = payload?.classification === 'delivery_uncertain'
+              failed.push({
+                studentId, studentName,
+                reason: uncertain
+                  ? `${payload?.reason || 'Delivery is uncertain.'} Do not retry until Sent History is verified.`
+                  : (payload?.reason || payload?.error || `Request failed with HTTP ${res.status}.`),
+              })
+            }
+          } catch {
+            failed.push({
+              studentId, studentName,
+              reason: 'Network error. Do not retry until Sent History is verified; delivery may have occurred.',
+            })
+            for (const remainingId of bulkSelectedIds.slice(index + 1)) {
+              const remaining = students.find(row => row.id === remainingId)
+              failed.push({
+                studentId: remainingId,
+                studentName: remaining ? getStudentPreferredFullName(remaining) : remainingId,
+                reason: 'Not attempted after the network error.',
+              })
+            }
+            break
+          }
+        }
+        setBulkResults({
+          success: true,
+          canonicalPostRotation: true,
+          sent,
+          skipped,
+          failed,
+          summary: { total_sent: sent.length, total_skipped: skipped.length, total_failed: failed.length },
+        })
+        setBulkSelectedIds([])
+        if (sent.length > 0) {
+          setPostRotationEligibility(prev => {
+            const next = { ...prev }
+            sent.forEach(row => {
+              next[row.studentId] = {
+                ...(next[row.studentId] || {}), status: 'readiness_released', actionable: false,
+                reissue: false, reason: 'An active Post-Rotation Casey-Fink invitation already exists.',
+              }
+            })
+            return next
+          })
+        }
+        setBulkShowReview(false)
+        setBulkSendPhrase('')
         return
       }
       const res = await fetch('/api/evaluation-bulk-invitations', {
@@ -1739,7 +1895,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     } finally {
       setBulkGenerating(false)
     }
-  }, [bulkReviewReady, bulkGenerating, bulkSelectedIds, cohortId, bulkTimepoint, bulkExpiresAt, bulkNotes])
+  }, [bulkReviewReady, bulkGenerating, bulkSelectedIds, cohortId, bulkTimepoint, bulkExpiresAt, bulkNotes, isPostRotationBulk, bulkSendPhrase, students])
 
   const handleBulkCopyUrl = useCallback((assignmentId, url) => {
     navigator.clipboard.writeText(url).then(() => {
@@ -1875,9 +2031,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   }, [singleTestSendState, surveyResult, surveyDraftSubject, surveyDraftBody])
 
   // ── Single-recipient survey: real send to student via Resend ──────────────
-  // Reuses existing bulk send endpoint with a one-item payload.
+  // Baseline reuses the existing generated-link send endpoint. Post-Rotation calls the exact
+  // guarded release endpoint used by Evaluation; it never generates an untracked parallel link.
   const handleSingleSendViaResend = useCallback(async () => {
-    if (singleSendInFlight || !surveyResult) return
+    if (singleSendInFlight || (!surveyResult && !(isPostRotationSingle && selectedStudent))) return
     setSingleSendInFlight(true)
     setSingleSendState(null)
     setSingleSendMsg(null)
@@ -1887,6 +2044,43 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         setSingleSendState('error')
         setSingleSendMsg('Session expired. Refresh and try again.')
         setSingleSendConfirmOpen(false)
+        return
+      }
+      if (isPostRotationSingle) {
+        const res = await fetch(POST_ROTATION_ROUTE.endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            student_id: selectedStudent.id,
+            expected_instrument_slug: POST_ROTATION_ROUTE.instrumentSlug,
+          }),
+        })
+        const payload = await res.json().catch(() => ({}))
+        setSingleSendConfirmOpen(false)
+        setSingleSendPhrase('')
+        if (res.ok && payload?.released &&
+            payload.instrument_slug === POST_ROTATION_ROUTE.instrumentSlug &&
+            payload.timepoint === POST_ROTATION_ROUTE.timepoint) {
+          const sentMsg = `${payload.reissued ? 'Replacement survey' : 'Survey'} sent to ${payload.student_name || getStudentPreferredFullName(selectedStudent)}.`
+          setSingleSendState('sent')
+          setSingleSendMsg(sentMsg)
+          setPriorInvitation('active')
+          setPostRotationEligibility(prev => ({
+            ...prev,
+            [selectedStudent.id]: {
+              ...(prev[selectedStudent.id] || {}), status: 'readiness_released', actionable: false,
+              reissue: false, reason: 'An active Post-Rotation Casey-Fink invitation already exists.',
+            },
+          }))
+          toast?.success('Survey sent', sentMsg)
+        } else {
+          const uncertain = payload?.classification === 'delivery_uncertain'
+          const errMsg = payload?.reason || payload?.error || 'Survey was not sent.'
+          const safeMsg = uncertain ? `${errMsg} Do not retry until you verify Sent History.` : errMsg
+          setSingleSendState('error')
+          setSingleSendMsg(safeMsg)
+          toast?.error('Survey not sent', safeMsg)
+        }
         return
       }
       const res = await fetch('/api/evaluation-send-bulk-invitations', {
@@ -1934,14 +2128,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       }
     } catch {
       setSingleSendConfirmOpen(false)
-      const netMsg = 'Network error. Check your connection.'
+      const netMsg = isPostRotationSingle
+        ? 'Network error. Do not retry until you verify Sent History; the provider may have received the request.'
+        : 'Network error. Check your connection.'
       setSingleSendState('error')
       setSingleSendMsg(netMsg)
       toast?.error('Survey not sent', netMsg)
     } finally {
       setSingleSendInFlight(false)
     }
-  }, [singleSendInFlight, surveyResult, surveyDraftSubject, surveyDraftBody])
+  }, [singleSendInFlight, surveyResult, surveyDraftSubject, surveyDraftBody, isPostRotationSingle, selectedStudent])
 
   // CONNECT-COMMS-1F: the server-resolved primary To (preferred), falling back to the school-first
   // client approximation, then a contact's email. Used to drop CC==To and to exclude it from
@@ -2769,40 +2965,50 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   </select>
                 </div>
 
-                {/* Field 5 - Expires at */}
-                <div style={fieldWrap}>
-                  <label style={labelStyle}>
-                    Expires <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={expiresAt}
-                    min={minExpiresAt()}
-                    onChange={e => setExpiresAt(e.target.value)}
-                    style={inputBase}
-                  />
-                </div>
-
-                {/* Field 6 - Notes */}
-                <div style={fieldWrap}>
-                  <label style={labelStyle}>
-                    Notes{' '}
-                    <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value.slice(0, 500))}
-                    placeholder="Optional message or context for this invitation."
-                    rows={3}
-                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, minHeight: 74 }}
-                  />
+                {isPostRotationSingle ? (
                   <div style={{
-                    fontSize: 11, color: notes.length > 480 ? '#dc2626' : '#9ca3af',
-                    textAlign: 'right', marginTop: 4, fontFamily: F,
+                    padding: '11px 14px', marginBottom: 18,
+                    background: '#EEF2FB', border: '1px solid #c3cdf0',
+                    borderRadius: 'var(--aspire-radius-control)', fontSize: 12, color: '#1D2567', fontFamily: F, lineHeight: 1.6,
                   }}>
-                    {notes.length}/500
+                    Post-Rotation uses the guarded Evaluation release workflow, its approved email template, and a new 28-day response window.
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {/* Baseline expiry and notes remain part of the generate-then-send workflow. */}
+                    <div style={fieldWrap}>
+                      <label style={labelStyle}>
+                        Expires <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={expiresAt}
+                        min={minExpiresAt()}
+                        onChange={e => setExpiresAt(e.target.value)}
+                        style={inputBase}
+                      />
+                    </div>
+                    <div style={fieldWrap}>
+                      <label style={labelStyle}>
+                        Notes{' '}
+                        <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+                      </label>
+                      <textarea
+                        value={notes}
+                        onChange={e => setNotes(e.target.value.slice(0, 500))}
+                        placeholder="Optional message or context for this invitation."
+                        rows={3}
+                        style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, minHeight: 74 }}
+                      />
+                      <div style={{
+                        fontSize: 11, color: notes.length > 480 ? '#dc2626' : '#9ca3af',
+                        textAlign: 'right', marginTop: 4, fontFamily: F,
+                      }}>
+                        {notes.length}/500
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Prior-invitation status (server is source of truth; this is a UX assist) */}
                 {selectedStudentId && timepoint && !checkingDuplicate && priorInvitation === 'completed' && (
@@ -2832,7 +3038,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     borderRadius: 8, fontSize: 12, color: '#2f6b34',
                     fontFamily: F, lineHeight: 1.6,
                   }}>
-                    Previous invitation expired. A new invitation can be generated.
+                    Previous invitation expired or was revoked. One replacement invitation can be sent.
+                  </div>
+                )}
+                {selectedStudentId && timepoint && !checkingDuplicate && priorInvitation === 'blocked' && (
+                  <div style={{
+                    padding: '11px 14px', marginBottom: 18,
+                    background: '#fef2f2', border: '1px solid #fecaca',
+                    borderRadius: 'var(--aspire-radius-control)', fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.6,
+                  }}>
+                    {postRotationEligibilityError || selectedPostRotationEligibility?.reason || 'This student is not eligible for a Post-Rotation Casey-Fink invitation.'}
                   </div>
                 )}
 
@@ -2848,28 +3063,41 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   </div>
                 )}
 
-                {/* Generate Link action */}
+                {/* Baseline generates a link first. Post-Rotation reviews and sends through the
+                    same guarded endpoint as Evaluation. */}
                 <div style={{ paddingTop: 4 }}>
                   <button
-                    onClick={handleGenerateLink}
-                    disabled={!formValid || generating}
+                    onClick={isPostRotationSingle
+                      ? () => { setSingleSendConfirmOpen(true); setSingleSendPhrase('') }
+                      : handleGenerateLink}
+                    disabled={!formValid || generating || singleSendInFlight || postRotationEligibilityLoading}
                     style={{
                       padding: '9px 20px',
-                      background: formValid && !generating
+                      background: formValid && !generating && !singleSendInFlight && !postRotationEligibilityLoading
                         ? 'var(--color-accent-primary,#1D2567)'
                         : '#e5e7eb',
                       border: 'none', borderRadius: 8,
                       fontSize: 13, fontWeight: 600, fontFamily: F,
-                      color: formValid && !generating ? '#fff' : '#9ca3af',
-                      cursor: formValid && !generating ? 'pointer' : 'not-allowed',
+                      color: formValid && !generating && !singleSendInFlight && !postRotationEligibilityLoading ? '#fff' : '#9ca3af',
+                      cursor: formValid && !generating && !singleSendInFlight && !postRotationEligibilityLoading ? 'pointer' : 'not-allowed',
                       transition: 'background 0.15s',
                     }}
                   >
-                    {generating ? 'Generating…' : 'Generate Link'}
+                    {isPostRotationSingle
+                      ? (singleSendInFlight ? 'Sending…' : postRotationEligibilityLoading ? 'Checking eligibility…' : 'Review & Send Survey')
+                      : (generating ? 'Generating…' : 'Generate Link')}
                   </button>
-                  {!formValid && (
+                  {!surveyIdentityComplete && (
                     <div style={{ marginTop: 8, fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.5 }}>
-                      Select a student, instrument, and timepoint to generate a link.
+                      Select a student, instrument, and timepoint.
+                    </div>
+                  )}
+                  {isPostRotationSingle && singleSendMsg && (
+                    <div role="status" style={{
+                      marginTop: 10, fontSize: 12, lineHeight: 1.5, fontFamily: F,
+                      color: singleSendState === 'sent' ? '#166534' : '#dc2626',
+                    }}>
+                      {singleSendMsg}
                     </div>
                   )}
                 </div>
@@ -3233,6 +3461,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               {/* Survey subject/message preview - Draft panel (lavender) */}
               <ConnectPanel tone="draft" title="Draft"
                 style={surveyResult ? { border: '1px solid rgba(29,37,103,0.16)' } : undefined}>
+                {isPostRotationSingle && (
+                  <div style={{
+                    padding: '10px 12px', marginBottom: 14, background: '#EEF2FB',
+                    border: '1px solid #c3cdf0', borderRadius: 'var(--aspire-radius-control)',
+                    fontSize: 11.5, color: '#1D2567', fontFamily: F, lineHeight: 1.55,
+                  }}>
+                    The Post-Rotation subject and message are controlled by the canonical Evaluation workflow. They cannot be edited here.
+                  </div>
+                )}
                 {/* Subject line - editable; this exact value is used by the preview and the actual send */}
                 <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
                   <span style={sectionLabel}>Subject</span>
@@ -3241,12 +3478,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     value={surveyDraftSubject}
                     onChange={e => { setSurveyDraftSubject(e.target.value); setSurveyDraftEdited(true) }}
                     maxLength={200}
+                    disabled={isPostRotationSingle}
                     placeholder="ASPIRE: Casey-Fink Readiness Survey, Baseline"
                     style={{
                       width: '100%', boxSizing: 'border-box', marginTop: 4,
                       padding: '8px 10px', borderRadius: 7, border: '1px solid #e5e7eb',
                       fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5,
-                      background: '#fff', outline: 'none',
+                      background: isPostRotationSingle ? '#f9fafb' : '#fff', outline: 'none',
                     }}
                   />
                 </div>
@@ -3267,17 +3505,21 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                       value={surveyDraftBody}
                       onChange={e => { setSurveyDraftBody(e.target.value); setSurveyDraftEdited(true) }}
                       maxLength={4000}
+                      disabled={isPostRotationSingle}
                       rows={5}
                       placeholder={SURVEY_DRAFT_DEFAULT_BODY}
                       style={{
                         width: '100%', boxSizing: 'border-box', margin: '0 0 12px',
                         padding: '10px 11px', borderRadius: 8, border: '1px solid #e5e7eb',
                         fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.7,
-                        background: '#fff', outline: 'none', resize: 'vertical',
+                        background: isPostRotationSingle ? '#f9fafb' : '#fff', outline: 'none', resize: 'vertical',
                       }}
                     />
                     <p style={{ margin: '0 0 12px', fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>
-                      A “Complete Survey” button and the secure link are added automatically. This survey expires on <strong style={{ fontStyle: 'normal', color: '#6b7280' }}>{expiresFormatted}</strong>.
+                      A “Complete Survey” button and the secure link are added automatically.{' '}
+                      {isPostRotationSingle
+                        ? 'The survey expires 28 days after you send it.'
+                        : <>This survey expires on <strong style={{ fontStyle: 'normal', color: '#6b7280' }}>{expiresFormatted}</strong>.</>}
                     </p>
 
                     {/* Survey link - placeholder before generation, real URL shown once after.
@@ -3323,7 +3565,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                           background: '#f3f4f6', borderRadius: 5,
                           fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: F,
                         }}>
-                          [Secure survey link will be generated]
+                          {isPostRotationSingle ? '[Secure survey link will be created and emailed when confirmed]' : '[Secure survey link will be generated]'}
                         </span>
                       )}
                     </p>
@@ -3568,10 +3810,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     {bulkSchools.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 )}
-                <select value={bulkFilterEmail} onChange={e => setBulkFilterEmail(e.target.value)}
-                  style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                  {EMAIL_SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                {isPostRotationBulk ? (
+                  <div style={{ ...inputBase, flex: 1, fontSize: 10, padding: '5px 7px', background: '#f9fafb', color: '#6b7280' }}>
+                    Server-resolved email
+                  </div>
+                ) : (
+                  <select value={bulkFilterEmail} onChange={e => setBulkFilterEmail(e.target.value)}
+                    style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
+                    {EMAIL_SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                )}
                 <select value={bulkSort} onChange={e => setBulkSort(e.target.value)}
                   style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
                   <option value="name">Alphabetically</option>
@@ -3582,9 +3830,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
             {/* Eligibility note */}
             <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 8, lineHeight: 1.5 }}>
-              Eligible for {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}:{' '}
-              <strong style={{ color: '#6b7280' }}>{bulkEligible.join(', ')}</strong>
+              {isPostRotationBulk ? (
+                <>Eligible for Post-Rotation: <strong style={{ color: '#6b7280' }}>required hours complete, Student Feedback complete, and no completed or active Casey-Fink survey</strong></>
+              ) : (
+                <>Eligible for {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}:{' '}
+                  <strong style={{ color: '#6b7280' }}>{bulkEligible.join(', ')}</strong></>
+              )}
             </div>
+
+            {isPostRotationBulk && postRotationEligibilityError && (
+              <div style={{ padding: '8px 10px', marginBottom: 8, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--aspire-radius-control)', fontSize: 10.5, color: '#dc2626', fontFamily: F }}>
+                {postRotationEligibilityError}
+              </div>
+            )}
 
             {/* Student rows */}
             {loadingStudents ? (
@@ -3598,10 +3856,14 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             ) : (
               <div>
                 {bulkFilteredStudents.map(s => {
-                  const email       = studentEmailForSource(s, bulkFilterEmail)
-                  const altEmail    = bulkFilterEmail === 'school' ? s.personal_email : s.school_email
-                  const hasAssign   = !!bulkActiveAssignments[s.id]
+                  const postEligibility = postRotationEligibility[s.id]
+                  const email       = isPostRotationBulk ? postRotationStudentEmail(s) : studentEmailForSource(s, bulkFilterEmail)
+                  const altEmail    = isPostRotationBulk ? null : (bulkFilterEmail === 'school' ? s.personal_email : s.school_email)
+                  const hasAssign   = isPostRotationBulk
+                    ? postEligibility?.status === 'readiness_released'
+                    : !!bulkActiveAssignments[s.id]
                   const eligible    = !!email && !hasAssign
+                    && isBulkCheckboxEligible(s)
                   const isSelected  = bulkSelectedSet.has(s.id)
                   const badgeColor  = bulkFilterEmail === 'school' ? '#0e4e6e' : '#1D2567'
                   const badgeBg     = bulkFilterEmail === 'school' ? '#E1F3FB' : '#EEF2FB'
@@ -3629,22 +3891,30 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                           {email}
                         </div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: badgeBg, color: badgeColor, fontFamily: F }}>{emailTypeLabel(bulkFilterEmail)}</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 'var(--aspire-radius-control)', background: badgeBg, color: badgeColor, fontFamily: F }}>{isPostRotationBulk ? 'Student email' : emailTypeLabel(bulkFilterEmail)}</span>
                           {s.school && <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: F }}>{s.school}</span>}
                           <span style={{
-                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 'var(--aspire-radius-control)',
                             background: '#f3f4f6', color: '#6b7280', fontFamily: F,
                           }}>{s.status}</span>
                           {hasAssign && <span style={{
-                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 'var(--aspire-radius-control)',
                             background: '#FBF5E8', color: '#8B5E1A', border: '1px solid #f0c9b0', fontFamily: F,
                           }}>Has active assignment</span>}
+                          {isPostRotationBulk && postEligibility?.reissue && postEligibility?.actionable && <span style={{
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                            background: '#FBF3E0', color: '#92400e', border: '1px solid #f0c9b0', fontFamily: F,
+                          }}>Ready to reissue</span>}
+                          {isPostRotationBulk && !postEligibility?.actionable && !hasAssign && postEligibility?.reason && <span title={postEligibility.reason} style={{
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                            background: '#f3f4f6', color: '#6b7280', fontFamily: F,
+                          }}>Not eligible</span>}
                         </div>
                       </div>
                     </div>
                   )
                 })}
-                {bulkLoadingAssignments && (
+                {(bulkLoadingAssignments || (isPostRotationBulk && postRotationEligibilityLoading)) && (
                   <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, textAlign: 'center', paddingTop: 6 }}>
                     Loading assignment indicators…
                   </div>
@@ -3680,25 +3950,35 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     {BULK_CASEY_FINK_TIMEPOINTS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                   <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.5 }}>
-                    Eligible: {(BULK_ELIGIBILITY[bulkTimepoint] || []).join(', ')}
+                    {isPostRotationBulk
+                      ? 'Eligibility uses required hours, completed Student Feedback, and the Post-Rotation Casey-Fink state.'
+                      : `Eligible: ${(BULK_ELIGIBILITY[bulkTimepoint] || []).join(', ')}`}
                   </div>
                 </div>
-                <div style={fieldWrap}>
-                  <label style={labelStyle}>
-                    Expires <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
-                  </label>
-                  <input type="date" value={bulkExpiresAt} min={minExpiresAt()}
-                    onChange={e => setBulkExpiresAt(e.target.value)} style={inputBase} />
-                </div>
-                <div style={fieldWrap}>
-                  <label style={labelStyle}>Notes <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
-                  <textarea value={bulkNotes} onChange={e => setBulkNotes(e.target.value.slice(0, 500))}
-                    placeholder="Optional context for this bulk invitation."
-                    rows={3} style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, minHeight: 74 }} />
-                  <div style={{ fontSize: 11, color: bulkNotes.length > 480 ? '#dc2626' : '#9ca3af', textAlign: 'right', marginTop: 4, fontFamily: F }}>
-                    {bulkNotes.length}/500
+                {isPostRotationBulk ? (
+                  <div style={{ padding: '9px 11px', background: '#EEF2FB', border: '1px solid #c3cdf0', borderRadius: 'var(--aspire-radius-control)', fontSize: 10.5, color: '#1D2567', fontFamily: F, lineHeight: 1.55 }}>
+                    The canonical Evaluation workflow sends the approved template with a 28-day response window.
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div style={fieldWrap}>
+                      <label style={labelStyle}>
+                        Expires <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                      </label>
+                      <input type="date" value={bulkExpiresAt} min={minExpiresAt()}
+                        onChange={e => setBulkExpiresAt(e.target.value)} style={inputBase} />
+                    </div>
+                    <div style={fieldWrap}>
+                      <label style={labelStyle}>Notes <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+                      <textarea value={bulkNotes} onChange={e => setBulkNotes(e.target.value.slice(0, 500))}
+                        placeholder="Optional context for this bulk invitation."
+                        rows={3} style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, minHeight: 74 }} />
+                      <div style={{ fontSize: 11, color: bulkNotes.length > 480 ? '#dc2626' : '#9ca3af', textAlign: 'right', marginTop: 4, fontFamily: F }}>
+                        {bulkNotes.length}/500
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </ConnectPanel>
@@ -3711,7 +3991,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               <ConnectPanel tone="draft" icon="clipboardCheck" title="Bulk Student Casey-Fink Survey">
                 <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.6, marginBottom: 16 }}>
                   {INSTRUMENTS.find(i => i.slug === bulkInstrument)?.label}<br />
-                  {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label} · Expires {fmtDate(bulkExpiresAt)}
+                  {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label}
+                  {isPostRotationBulk ? ' · 28-day response window' : ` · Expires ${fmtDate(bulkExpiresAt)}`}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14,
@@ -3730,19 +4011,21 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     background: '#FBF5E8', border: '1px solid #f0c9b0',
                     borderRadius: 8, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.6,
                   }}>
-                    Each selected student will receive a unique secure survey link. Links are shown once and are not stored after this session.
+                    {isPostRotationBulk
+                      ? 'Each selected student will be re-checked by the server, then receive a real email with a unique secure survey link.'
+                      : 'Each selected student will receive a unique secure survey link. Links are shown once and are not stored after this session.'}
                   </div>
                 )}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {bulkSelectedIds.length === 0 ? (
-                    <Tooltip label="Select at least one student to generate links" placement="top">
+                    <Tooltip label={isPostRotationBulk ? 'Select at least one eligible student' : 'Select at least one student to generate links'} placement="top">
                       <button disabled style={{
                         padding: '9px 20px', background: '#e5e7eb',
                         border: 'none', borderRadius: 8,
                         fontSize: 13, fontWeight: 600, fontFamily: F,
                         color: '#9ca3af', cursor: 'not-allowed',
-                      }}>Generate Links</button>
+                      }}>{isPostRotationBulk ? 'Review & Send Surveys' : 'Generate Links'}</button>
                     </Tooltip>
                   ) : (
                     <button onClick={handleBulkOpenReview} style={{
@@ -3754,11 +4037,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
                     onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                     >
-                      Generate {bulkSelectedIds.length} {bulkSelectedIds.length === 1 ? 'Link' : 'Links'}
+                      {isPostRotationBulk
+                        ? `Review & Send ${bulkSelectedIds.length} ${bulkSelectedIds.length === 1 ? 'Survey' : 'Surveys'}`
+                        : `Generate ${bulkSelectedIds.length} ${bulkSelectedIds.length === 1 ? 'Link' : 'Links'}`}
                     </button>
                   )}
                   {/* Send via Resend - enabled when generated rows exist */}
-                  {(() => {
+                  {!isPostRotationBulk && (() => {
                     const eligible = (bulkResults?.generated || []).filter(g => !bulkSentIds.has(g.assignmentId))
                     const allSent  = bulkResults?.generated?.length > 0 && eligible.length === 0
                     if (allSent) return (
@@ -3808,8 +4093,82 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   </div>
                 )}
 
-                {/* Success results */}
-                {!bulkResults.error && (
+                {/* Canonical Post-Rotation send results */}
+                {!bulkResults.error && bulkResults.canonicalPostRotation && (
+                  <div>
+                    <div style={{ padding: '6px 12px', marginBottom: 10, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 'var(--aspire-radius-control)', fontSize: 10, color: '#9ca3af', fontFamily: F }}>
+                      This summary reflects this send attempt. Sent History remains the permanent delivery audit.
+                    </div>
+                    <div style={{ ...panelCard, marginBottom: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+                        {[
+                          { label: 'Sent', value: bulkResults.summary?.total_sent || 0, color: '#2F7D5C', bg: '#EEF7F0' },
+                          { label: 'Skipped', value: bulkResults.summary?.total_skipped || 0, color: '#8B5E1A', bg: '#FBF5E8' },
+                          { label: 'Failed', value: bulkResults.summary?.total_failed || 0, color: '#dc2626', bg: '#fef2f2' },
+                        ].map(({ label, value, color, bg }) => (
+                          <div key={label} style={{ textAlign: 'center', padding: '8px 6px', background: bg, borderRadius: 'var(--aspire-radius-control)' }}>
+                            <div style={{ fontSize: 20, fontWeight: 700, color, fontFamily: F }}>{value}</div>
+                            <div style={{ fontSize: 10, color, fontFamily: F }}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button onClick={handleBulkClearResults} style={{
+                          padding: '7px 14px', borderRadius: 'var(--aspire-radius-control)', border: '1px solid #e5e7eb',
+                          background: '#fff', fontSize: 11, fontWeight: 600,
+                          color: '#374151', fontFamily: F, cursor: 'pointer',
+                        }}>Return to eligibility list</button>
+                        <button onClick={handleBulkReset} style={{
+                          padding: '7px 14px', borderRadius: 'var(--aspire-radius-control)', border: '1px solid #e5e7eb',
+                          background: '#f9fafb', fontSize: 11, fontWeight: 600,
+                          color: '#6b7280', fontFamily: F, cursor: 'pointer',
+                        }}>Clear and reset</button>
+                      </div>
+                    </div>
+
+                    {bulkResults.sent?.length > 0 && (
+                      <div style={{ ...panelCard, marginBottom: 10, background: '#EEF7F0', border: '1px solid #c6d9a8' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#2F7D5C', fontFamily: F, marginBottom: 8 }}>
+                          {bulkResults.sent.length} sent
+                        </div>
+                        {bulkResults.sent.map(row => (
+                          <div key={row.studentId} style={{ fontSize: 11, color: '#2F7D5C', fontFamily: F, marginBottom: 2 }}>
+                            {row.studentName}{row.reissued ? ' · reissued' : ''}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {bulkResults.skipped?.length > 0 && (
+                      <div style={{ ...panelCard, marginBottom: 10, background: '#FBF5E8', border: '1px solid #f0c9b0' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#8B5E1A', fontFamily: F, marginBottom: 8 }}>
+                          {bulkResults.skipped.length} skipped after server re-check
+                        </div>
+                        {bulkResults.skipped.map(row => (
+                          <div key={row.studentId} style={{ fontSize: 11, color: '#8B5E1A', fontFamily: F, marginBottom: 3 }}>
+                            {row.studentName} · {row.reason}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {bulkResults.failed?.length > 0 && (
+                      <div style={{ ...panelCard, background: '#fef2f2', border: '1px solid #fecaca' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', fontFamily: F, marginBottom: 8 }}>
+                          {bulkResults.failed.length} failed or not attempted
+                        </div>
+                        {bulkResults.failed.map(row => (
+                          <div key={row.studentId} style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginBottom: 3 }}>
+                            {row.studentName} · {row.reason}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Baseline link-generation results */}
+                {!bulkResults.error && !bulkResults.canonicalPostRotation && (
                   <div>
                     {/* Session caveat */}
                     <div style={{ padding: '6px 12px', marginBottom: 10, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 10, color: '#9ca3af', fontFamily: F }}>
@@ -4068,7 +4427,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   disabled={bulkSendInFlight}
                   style={{ background: 'none', border: 'none', cursor: bulkSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>
               </div>
-              <div style={{ padding: '10px 14px', marginBottom: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.6, fontWeight: 600 }}>
+              <div style={{ padding: '10px 14px', marginBottom: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--aspire-radius-control)', fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.6, fontWeight: 600 }}>
                 These are real emails to real students. They cannot be unsent.
               </div>
               <div style={{ marginBottom: 16, fontSize: 12, fontFamily: F, color: '#374151', lineHeight: 1.6 }}>
@@ -4122,7 +4481,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       })()}
 
       {/* ── Single-recipient survey: typed send confirmation modal ────────── */}
-      {singleSendConfirmOpen && surveyResult && (
+      {singleSendConfirmOpen && (surveyResult || (isPostRotationSingle && selectedStudent)) && (
         <div onClick={() => { if (!singleSendInFlight) { setSingleSendConfirmOpen(false); setSingleSendPhrase('') } }} style={{
           position: 'fixed', inset: 0, zIndex: 1001, background: 'rgba(0,0,0,0.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -4142,10 +4501,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               This is a real email to a real student. It cannot be unsent.
             </div>
             <div style={{ marginBottom: 14, fontSize: 12, fontFamily: F, color: '#374151', lineHeight: 1.7 }}>
-              <div><strong>Student:</strong> {surveyResult.student.firstName} {surveyResult.student.lastName}</div>
-              <div><strong>Email:</strong> {surveyResult.student.email}</div>
-              <div><strong>Timepoint:</strong> {BULK_CASEY_FINK_TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}</div>
-              <div><strong>Expires:</strong> {fmtDate(surveyResult.expiresAt?.split('T')[0])}</div>
+              <div><strong>Student:</strong> {isPostRotationSingle ? getStudentPreferredFullName(selectedStudent) : `${surveyResult.student.firstName} ${surveyResult.student.lastName}`}</div>
+              <div><strong>Email:</strong> {isPostRotationSingle ? resolvedEmail : surveyResult.student.email}</div>
+              <div><strong>Timepoint:</strong> {isPostRotationSingle ? 'Post-Rotation' : (BULK_CASEY_FINK_TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint)}</div>
+              <div><strong>Expires:</strong> {isPostRotationSingle ? '28 days after sending' : fmtDate(surveyResult.expiresAt?.split('T')[0])}</div>
               <div><strong>From:</strong> ASPIRE at Cedars-Sinai &lt;noreply@aspire-program.com&gt;</div>
             </div>
             <div style={{ marginBottom: 14 }}>
@@ -4211,10 +4570,25 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               background: '#EEF2FB', borderRadius: 8,
               fontSize: 12, color: '#1D2567', fontFamily: F, lineHeight: 1.6,
             }}>
-              You are about to generate <strong>{bulkSelectedIds.length}</strong> survey link{bulkSelectedIds.length !== 1 ? 's' : ''} for{' '}
-              <strong>Casey-Fink · {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}</strong>.
-              Links are one-time and will be shown once in the results panel.
+              {isPostRotationBulk ? (
+                <>
+                  You are about to send <strong>{bulkSelectedIds.length}</strong> real survey email{bulkSelectedIds.length !== 1 ? 's' : ''} for{' '}
+                  <strong>Casey-Fink · Post-Rotation</strong>. Eligibility will be re-checked before each send, and each survey will expire 28 days after sending.
+                </>
+              ) : (
+                <>
+                  You are about to generate <strong>{bulkSelectedIds.length}</strong> survey link{bulkSelectedIds.length !== 1 ? 's' : ''} for{' '}
+                  <strong>Casey-Fink · {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}</strong>.
+                  Links are one-time and will be shown once in the results panel.
+                </>
+              )}
             </div>
+
+            {isPostRotationBulk && (
+              <div style={{ padding: '10px 14px', marginBottom: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.6, fontWeight: 600 }}>
+                These emails cannot be unsent. Confirm the recipients and email addresses below.
+              </div>
+            )}
 
             {/* Student list */}
             <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 16, border: '1px solid #f3f4f6', borderRadius: 8 }}>
@@ -4230,12 +4604,29 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                       {s.last_name}, {s.first_name}
                     </div>
                     <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>
-                      {s.personal_email || s.school_email} · {s.school} · {s.status}
+                      {(isPostRotationBulk ? postRotationStudentEmail(s) : (s.personal_email || s.school_email))} · {s.school} · {s.status}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+
+            {isPostRotationBulk && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', fontFamily: F, marginBottom: 6 }}>
+                  Type <strong>SEND SURVEYS</strong> to confirm:
+                </div>
+                <input
+                  type="text"
+                  value={bulkSendPhrase}
+                  onChange={e => setBulkSendPhrase(e.target.value)}
+                  placeholder="SEND SURVEYS"
+                  disabled={bulkGenerating}
+                  style={{ ...inputBase, fontFamily: 'monospace', letterSpacing: '0.05em' }}
+                  autoFocus
+                />
+              </div>
+            )}
 
             {/* Safety delay note */}
             {!bulkReviewReady && (
@@ -4255,17 +4646,21 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               <button
                 type="button"
                 onClick={handleBulkGenerate}
-                disabled={!bulkReviewReady || bulkGenerating}
+                disabled={!bulkReviewReady || bulkGenerating || (isPostRotationBulk && bulkSendPhrase !== 'SEND SURVEYS')}
                 style={{
                   padding: '8px 20px', borderRadius: 8, border: 'none',
-                  background: (!bulkReviewReady || bulkGenerating) ? '#e5e7eb' : '#1D2567',
+                  background: (!bulkReviewReady || bulkGenerating || (isPostRotationBulk && bulkSendPhrase !== 'SEND SURVEYS')) ? '#e5e7eb' : (isPostRotationBulk ? '#dc2626' : '#1D2567'),
                   fontSize: 12, fontWeight: 600, fontFamily: F,
-                  color: (!bulkReviewReady || bulkGenerating) ? '#9ca3af' : '#fff',
-                  cursor: (!bulkReviewReady || bulkGenerating) ? 'not-allowed' : 'pointer',
+                  color: (!bulkReviewReady || bulkGenerating || (isPostRotationBulk && bulkSendPhrase !== 'SEND SURVEYS')) ? '#9ca3af' : '#fff',
+                  cursor: (!bulkReviewReady || bulkGenerating || (isPostRotationBulk && bulkSendPhrase !== 'SEND SURVEYS')) ? 'not-allowed' : 'pointer',
                   transition: 'background 0.12s',
                 }}
               >
-                {bulkGenerating ? 'Generating…' : `Generate ${bulkSelectedIds.length} link${bulkSelectedIds.length !== 1 ? 's' : ''}`}
+                {bulkGenerating
+                  ? (isPostRotationBulk ? 'Sending…' : 'Generating…')
+                  : (isPostRotationBulk
+                    ? `Send ${bulkSelectedIds.length} survey${bulkSelectedIds.length !== 1 ? 's' : ''}`
+                    : `Generate ${bulkSelectedIds.length} link${bulkSelectedIds.length !== 1 ? 's' : ''}`)}
               </button>
             </div>
           </div>
