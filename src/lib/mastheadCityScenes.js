@@ -305,10 +305,14 @@ export const CITY_SKY_X = {
   // the radio tower near 70%, and the left half is the open basin under a low
   // horizon. The moon goes over the basin.
   hollywood: '30%',
-  // Hong Kong's hills reach the top edge from x 26 to 60 and again east of
-  // 66; the one clear sky is over the western harbour, so the moon sits just
-  // right of the greeting, above the distant islands.
-  hongkong: '24%',
+  // MASTHEAD-HONGKONG-2: a different drawing, and the old anchor is now the
+  // worst place on the card - at 24% the weather art sat on the ICC's crown,
+  // which is the tallest thing in Kowloon and carries this pack's landmark
+  // glow. Measured under a 12%-wide art box on the night frame, the ridge
+  // never rises above y 12.5 between x 70 and 88, and above y 6.2 anywhere
+  // west of 62. 74% is the deepest clear sky that still clears the greeting on
+  // the left and the temperature readout on the right.
+  hongkong: '74%',
 }
 export const DEFAULT_SKY_X = '52%'
 
@@ -876,86 +880,126 @@ export const CITY_MOTION = {
     rainfall: true,
   },
   hongkong: {
-    // MASTHEAD-HONGKONG-1 (2026-09-05): a new city, nine frames (Cloudy and
-    // CloudyNight included). One viewpoint on all nine, from the Peak: Central
-    // and Wan Chai below with the IFC at x 38.9 and the Bank of China at 55,
-    // Victoria Harbour across the middle (card y 36-52), Kowloon on the far
-    // shore with the ICC at x 61, the hills behind reaching the top edge.
-    // Every coordinate measured (scratchpad nymeasure.mjs, gridzoom.py)
-    // through the 50% crop (historic). All nine frames are one drawing
-    // (skyline profiles within 6px), so no shift and no override.
+    // MASTHEAD-HONGKONG-2 (2026-09-07): the SECOND Hong Kong pack, TEN frames
+    // (RainNight joined), and a COMPLETELY DIFFERENT DRAWING from the first -
+    // the edge correlation between the two Day frames is -0.02, so not one
+    // coordinate carried over and every number here was measured again.
     //
-    // Night: Central and Wan Chai's windows, then Kowloon's along the far
-    // shore. The harbour's own maxima are reflections and live in `water`.
+    // The frames register to each other to the pixel: each one's best rigid
+    // offset against this pack's own Day frame is 0, bar Cloudy at 1px.
+    //
+    // The view is the classic one from Victoria Peak, looking north-east.
+    // Hong Kong Island fills the bottom third from x 8 to 92, framed by the
+    // Peak's own dark foliage at both edges; Two IFC stands at x 41.7 with its
+    // lit crown at y 40 and the Bank of China's twin masts at x 64.05/64.45
+    // reach up to y 50.5. Victoria Harbour runs across the middle, roughly
+    // y 45-76, with two painted junks in it. Kowloon lines the far shore from
+    // y 22 to 45, the ICC rising out of it at x 30.35 with a crown glow at
+    // y 7. The New Territories hills close the back at y 5-25, and one lit
+    // ridge mast at x 53.75 is the highest thing on the card.
+    //
+    // Windows on both shores, and the far towns along the left ridge. The
+    // harbour's own maxima are reflections and live in `water`; each of these
+    // was tested against the water mask so none of them is one.
     lights: [
-      [97.1, 92.12], [6.9, 89.66], [80.2, 73.14], [70.9, 82.63], [81.4, 84.92],
-      [66.3, 86.86], [73.3, 88.64], [26.5, 69.41], [22.9, 61.1], [46.5, 56.1],
-      [30.3, 88.9], [84.0, 81.1], [1.8, 66.36], [32.7, 92.12], [77.2, 89.92],
-      [31.3, 69.15], [47.1, 62.63], [58.8, 87.37], [39.8, 86.86], [84.0, 73.14],
-      [37.8, 76.1], [86.9, 78.9], [3.6, 85.17], [12.9, 90.85], [54.1, 85.17],
-      [17.8, 54.15], [39.5, 68.14], [63.8, 77.88], [23.4, 75.59], [64.5, 53.39],
-      [63.5, 91.1], [70.7, 88.9],
-      // Kowloon, the far shore, west to east.
-      [27.5, 22.12], [26.7, 29.92], [30.3, 33.39], [34.2, 36.36], [38.2, 37.12],
-      [41.3, 37.63], [51.2, 29.92], [56.6, 25.17], [73.2, 25.34], [79.0, 28.64],
-      [82.7, 28.14], [85.5, 26.86], [88.1, 27.37], [92.0, 22.12], [97.2, 24.15],
-      [99.5, 25.85], [85.5, 34.41], [82.3, 35.59], [87.8, 35.85],
+      [2.05, 40.5], [4.35, 33.5], [6.7, 30.75], [8.4, 29.75], [9.3, 67.75],
+      [11.1, 74.25], [12.2, 20.25], [12.3, 26.5], [15.8, 28.0], [18.0, 42.25],
+      [18.05, 27.75], [18.6, 71.5], [18.75, 84.75], [18.9, 31.0], [19.6, 23.25],
+      [20.0, 96.25], [20.35, 76.25], [20.55, 40.25], [24.8, 88.25], [26.85, 92.5],
+      [27.55, 37.0], [28.7, 42.5], [31.75, 42.75], [33.35, 69.5], [33.35, 91.25],
+      [34.05, 33.25], [35.25, 78.5], [46.6, 40.75], [48.15, 22.75], [50.05, 21.75],
+      [51.15, 95.75], [57.95, 91.0], [58.0, 21.75], [58.0, 87.75], [58.0, 94.25],
+      [61.6, 41.75], [63.4, 21.75], [64.7, 84.0], [66.5, 84.75], [68.2, 31.25],
+      [69.95, 75.0], [71.4, 81.0], [71.55, 75.0], [73.1, 78.25], [80.2, 26.75],
+      [80.7, 30.0], [82.05, 77.5], [82.15, 96.0], [83.3, 27.75], [85.8, 87.25],
+      [86.35, 57.25], [87.05, 83.5], [93.45, 66.5], [96.25, 57.25], [99.15, 69.5],
     ],
-    // The ICC's top light across the harbour, the IFC's crown, and the red
-    // crowns the frame paints on Central's and Wan Chai's towers (rgb
-    // 252,70,4 at x 31.3, 245,51,24 at x 51).
+    // The tower tops, and the two that are landmarks. The ICC's crown and Two
+    // IFC's are drawn as a lit halo rather than as a point, so both take the
+    // 'glow' variant (MASTHEAD-BEACON-GLOW-1, first cut for One World Trade):
+    // larger, and breathing between half and full instead of blinking. The
+    // rest blink: the ridge mast above the highest peak, the crown at x 54.9,
+    // the Bank of China's two masts, and the tower top at x 82. No
+    // beaconTone - this artwork paints its crowns white and blue, not red, so
+    // the default is what matches it.
     beacons: [
-      [61.2, 19.66], [38.9, 38.14], [46.3, 57.37], [31.3, 65.08], [17.6, 65.85],
-      [41.9, 77.88], [51.0, 80.34], [65.8, 80.08],
+      [30.35, 7.0, 'glow'], [41.7, 40.0, 'glow'],
+      [53.75, 2.0], [54.9, 19.0], [64.05, 50.5], [64.45, 50.5], [82.0, 44.5],
     ],
-    beaconTone: 'red',
-    // Neon: Hong Kong's facades are lit in magenta and cyan, and the frame
-    // paints them so. Twenty-two measured saturated maxima on the near towers.
-    neon: [
-      [44.5, 75.17], [12.7, 57.63], [46.8, 87.63], [12.7, 62.88], [21.1, 69.41],
-      [74.0, 85.85], [13.5, 69.92], [67.3, 60.59], [74.2, 79.66], [66.8, 78.14],
-      [21.3, 75.85], [10.0, 36.1],
-      [31.1, 86.1, 'cyan'], [34.1, 58.9, 'cyan'], [63.2, 71.61, 'cyan'],
-      [63.4, 54.92, 'cyan'], [26.6, 53.39, 'cyan'], [52.1, 87.12, 'cyan'],
-      [62.8, 64.41, 'cyan'], [55.5, 64.15, 'cyan'], [61.3, 58.14, 'cyan'],
-      [27.0, 65.85, 'cyan'], [69.7, 81.61, 'cyan'],
-    ],
-    // Reflections on the harbour between the two shores (Kowloon's at card y
-    // 33-36, Central's at 55, North Point's at 46-50): the ICC's column and
-    // the shore lights thrown back across the water.
+    // THE BOKEH. This is the effect the harbour is for: the artwork paints
+    // every tower on both shores as a broken vertical chain of light on the
+    // water, so the shimmer goes on the chains rather than inventing round
+    // discs. Each one was accepted only if it is TALLER THAN IT IS WIDE at 72%
+    // of its own peak - which is what separates a reflection from a boat or a
+    // lit pier - and only if the water 2% either side of it is dark harbour
+    // blue. A day-frame water mask disagreed with 13 of these; the mask was
+    // wrong, not the reflections, because it needs 15 of the 18 rows below a
+    // pixel to be water too and the island's towers break that near the shore.
     water: [
-      [80.4, 45.34], [70.5, 50.34], [56.5, 49.92], [76.4, 48.64], [91.0, 39.92],
-      [99.8, 49.92], [93.6, 42.37], [53.8, 50.59], [48.2, 44.41], [59.9, 47.63],
-      [51.1, 46.36], [36.4, 43.64], [74.1, 50.34], [84.4, 44.41],
+      [14.0, 48.25], [16.4, 53.25], [18.6, 71.75], [19.2, 47.75], [19.2, 51.25],
+      [23.0, 51.5], [24.6, 55.5], [29.8, 57.5], [34.0, 49.75], [34.0, 57.75],
+      [34.0, 70.75], [37.0, 75.25], [37.8, 54.25], [40.6, 65.0], [40.6, 71.75],
+      [42.4, 52.5], [42.4, 57.25], [42.4, 65.5], [42.4, 70.5], [55.2, 51.5],
+      [62.8, 68.75], [63.8, 64.0], [64.4, 75.0], [75.4, 51.75], [82.4, 58.0],
+      [82.6, 47.75], [83.0, 52.0], [83.2, 72.75], [84.0, 66.5], [86.0, 60.0],
+      [86.2, 72.75], [86.2, 76.25], [86.8, 67.75], [88.0, 75.75], [88.2, 56.0],
+      [89.4, 48.75],
     ],
-    // Steam off three tower tops that stand against the harbour.
-    steam: [[46.5, 56.78], [66.5, 65.68], [21.5, 61.44]],
-    // The hills reach the top edge between x 50 and 60, so the approach
-    // crosses in front of them at night; the kites keep to the eastern
-    // hills, the helicopter to the harbour.
-    aircraft: { y: 11.02, from: 98, to: 30, flight: 40 },
-    birds: { y: 12.71, from: 98, to: 66, flight: 30, count: 5 },
-    helicopter: { y: 41.53, from: 96, to: 30, flight: 46 },
-    // Haze over Kowloon (the far shore's towers, card y 20-36), warm-grey.
-    haze: { y: 24.58, height: 13.56 },
-    // The golden-hour sun is OFF-FRAME LEFT (left edge brightest at card y
-    // 32; sky column means fall from 237 at left to 150 behind the ICC).
-    flare: { x: -6, y: 34.75 },
-    rainfall: true,
-    // The Star Ferry, white, Tsim Sha Tsui to Central: lane y 43 is water
-    // from the eastern harbour at x 98 to the piers at 28 (Kowloon's shore
-    // ends at 36, North Point's begins at 46).
-    ferry: { y: 44.07, from: 98, to: 28, flight: 140 },
-    ferryTone: 'white',
-    // Sun glitter, the pale maxima the Day and Golden Hour frames share
-    // inside the harbour, the ICC's light path among them.
+    // Sun sparkle on the harbour by day, the effect the Owner asked to see in
+    // every city that has water. From the learned-colour mask (see Rio), and
+    // none within 0.7% of a reflection: four candidates were dropped for
+    // sitting on one, which would put two glows on the same patch of water.
     glints: [
-      [49.5, 42.63], [52.1, 47.63], [71.5, 48.9], [61.2, 43.14], [38.0, 45.17],
-      [74.0, 47.63], [80.8, 47.63], [60.6, 39.92], [76.8, 45.34], [65.0, 50.17],
-      [91.0, 38.64], [67.4, 43.64],
+      [5.35, 44.25], [10.8, 45.0], [13.8, 45.25], [29.2, 60.75], [29.4, 51.0],
+      [30.6, 54.75], [43.2, 53.25], [45.8, 54.0], [50.55, 77.5], [52.6, 50.0],
+      [52.8, 54.75], [54.05, 60.75], [55.0, 54.25], [57.05, 60.0], [57.1, 53.75],
+      [58.8, 59.25], [59.4, 53.25], [60.1, 48.5], [61.3, 52.75], [67.0, 77.25],
+      [75.3, 48.5], [86.95, 51.5],
     ],
-    // The harbour's chop, shore to shore.
-    swell: { x: 28, y: 38.14, w: 72, height: 11.86 },
+    // Hong Kong is the neon city and this frame paints it: saturated signage
+    // on the island's blocks. Constrained three ways, because the first pass
+    // found none of it - it found the junk's red sails and a dozen of the
+    // harbour's own coloured reflections. A neon sign here has to be below the
+    // island's skyline, off the water, and saturated above 0.5. Eleven read
+    // cyan and one reads magenta, which is the kind's DEFAULT tone - naming it
+    // would have been a second word for the same glow.
+    neon: [
+      [8.7, 59.5, 'cyan'], [13.95, 63.25, 'cyan'], [19.05, 68.0, 'cyan'],
+      [34.2, 63.25, 'cyan'], [60.85, 84.75, 'cyan'], [63.25, 72.75, 'cyan'],
+      [65.75, 96.25, 'cyan'], [70.85, 68.0, 'cyan'], [79.4, 59.25, 'cyan'],
+      [81.35, 77.25, 'cyan'], [86.4, 54.25, 'cyan'], [87.2, 71.25],
+    ],
+    // A boat in the eastern channel, which is the widest stretch of open water
+    // on the card: 16% of the width with nothing standing in it. The harbour
+    // is wider than this everywhere else, but Two IFC and the Bank of China
+    // rise THROUGH it, and the motion layer draws above the artwork, so a
+    // ferry crossing the middle would pass in front of two towers it should
+    // pass behind.
+    ferry: { y: 54.5, from: 80.5, to: 65.5, flight: 130 },
+    ferryTone: 'white',
+    // The chop, in the western harbour: 84% water by the mask, and the best
+    // rectangle on the card that holds no tower.
+    swell: { x: 14, y: 52, w: 26, height: 12 },
+    // Above y 4 the sky is clear from x 26 east on every column, measured on
+    // the night frame where the ridge is a clean silhouette. The lit mast at
+    // x 53.75 reaches y 2, so the lane sits under it rather than through it.
+    aircraft: { y: 3.5, from: 98, to: 26, flight: 40 },
+    // Birds over the harbour rather than over the sky, which is what this view
+    // actually shows: the flock spreads 6.4% above its lane and 11.5% below,
+    // so at y 50 it fills 43.6 to 61.5, all of it water.
+    birds: { y: 50, from: 94, to: 20, flight: 34, count: 6 },
+    // A helicopter over Kowloon, low against the far shore's towers.
+    helicopter: { y: 34, from: 96, to: 58, flight: 46 },
+    // The humid band on the hills behind Kowloon, white rather than a basin
+    // smog - this is sea haze.
+    haze: { y: 12, height: 10 },
+    hazeTone: 'fog',
+    // The sun is OFF-FRAME RIGHT here, which is new for this registry: the sky
+    // column means rise left to right in all three low-sun frames (GoldenHour
+    // 191 -> 209, Sunset 114 -> 175, Dawn 119 -> 206). The component mirrors
+    // the flare geometry for a sun past 50.
+    flare: { x: 106, y: 16 },
+    rainfall: true,
   },
   seattle: {
     // MASTHEAD-SEATTLE-1 (2026-09-05): a new city, eleven frames (Cloudy,
