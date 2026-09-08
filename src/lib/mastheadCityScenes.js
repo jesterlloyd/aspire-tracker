@@ -965,6 +965,17 @@ export const CITY_MOTION = {
       [52.8, 54.75], [54.05, 60.75], [55.0, 54.25], [57.05, 60.0], [57.1, 53.75],
       [58.8, 59.25], [59.4, 53.25], [60.1, 48.5], [61.3, 52.75], [67.0, 77.25],
       [75.3, 48.5], [86.95, 51.5],
+      // MASTHEAD-WET-DAYLIGHT-1 (Owner: "I need glints in hongkong river").
+      // Eleven more on the harbour itself, from the same mask with its density
+      // rule relaxed from 15 rows in 18 to 10 in 12 - the strict version skips
+      // the water near both shores, where the towers break the run below a
+      // pixel. Relaxing it costs something: the mask then leaks onto BLUE
+      // GLASS, which in this city is everywhere, so every candidate also had
+      // to sit above the island's own skyline, and four were dropped for
+      // standing on a tower.
+      [24.4, 51.0], [44.45, 53.5], [46.6, 63.75], [46.7, 54.25], [51.4, 54.25],
+      [54.0, 52.0], [58.6, 49.5], [60.0, 58.75], [69.6, 51.5], [77.2, 46.0],
+      [85.7, 52.75],
     ],
     // Hong Kong is the neon city and this frame paints it: saturated signage
     // on the island's blocks. Constrained three ways, because the first pass

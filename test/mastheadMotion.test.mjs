@@ -389,6 +389,40 @@ test('a wheel is sized, spun on the inner box, and masked to its own edge', () =
   assert.match(src, /'--wr': \(wheel\.h \? wheel\.h \/ \(wheel\.d \* CARD_ASPECT\) : 1\)/)
 })
 
+// MASTHEAD-WET-DAYLIGHT-1 (Owner, 2026-09-08): "i'm looking at it now, for
+// example, it's raining but there's no other animation but the raindrops".
+// The daytime rain scene gated FIVE things and all five were the weather
+// itself. This holds the floor: a scene that renders nothing but its own
+// weather is a scene the eye has nothing to do with.
+test('no scene is empty of everything but its weather', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const WEATHER = /^(drop|rain|bolt|strike|flake|snow|wet)/
+  const scenes = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night',
+    'rain', 'rainnight', 'cloudy', 'cloudynight', 'snow', 'snownight']
+  const gated = Object.fromEntries(scenes.map(s => [s, new Set()]))
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!/animation:/.test(m[2])) continue
+    for (const sm of m[1].matchAll(/\.mast-scene-([a-z]+)\s+(?:\.mast-motion-wet\s+)?\.mast-motion-([a-z-]+)/g)) {
+      if (gated[sm[1]]) gated[sm[1]].add(sm[2])
+    }
+  }
+  for (const scene of scenes) {
+    const kinds = [...gated[scene]].filter(k => !WEATHER.test(k))
+    assert.ok(kinds.length >= 4,
+      `the ${scene} scene animates only ${kinds.length} things that are not its own weather (${kinds.join(', ') || 'nothing'})`)
+  }
+  // The rain scene specifically: something on the water, something crossing it,
+  // and the low cloud that rain brings.
+  for (const kind of ['glint', 'ferry', 'haze', 'haze-fog', 'steam']) {
+    assert.ok(gated.rain.has(kind), `the rain scene lost its ${kind}`)
+  }
+  // Sun glitter in the rain is not sun glitter: it is the dimple a drop makes,
+  // and it has its own quieter keyframe. MASTHEAD-CLOUDY-1's rule that a dry
+  // overcast carries no glitter is untouched, and its guard still holds it.
+  assert.match(css, /@keyframes mast-dimple/)
+  assert.match(css, /\.mast-scene-rain \.mast-motion-glint \{\s*animation: mast-dimple/)
+})
+
 // MASTHEAD-FACADE-1 (Owner, 2026-09-08): "can you make the windows/lights in
 // the griffith observatory and the buildings in rome have some sort of yellow
 // glow? these are dramatic buildings and I think they deserve this feel".

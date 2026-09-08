@@ -2427,6 +2427,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-day .mast-motion-haze,
 .mast-scenic.mast-scene-morning .mast-motion-haze,
+/* MASTHEAD-WET-DAYLIGHT-1: rain brings the cloud base down, so if any daylight
+   scene carries haze it is this one. */
+.mast-scenic.mast-scene-rain .mast-motion-haze,
 .mast-scenic.mast-scene-cloudy .mast-motion-haze {
   animation: mast-haze 64s ease-in-out infinite alternate;
 }
@@ -2551,6 +2554,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .mast-scenic.mast-scene-day .mast-motion-haze-fog,
 .mast-scenic.mast-scene-morning .mast-motion-haze-fog,
+.mast-scenic.mast-scene-rain .mast-motion-haze-fog,
 .mast-scenic.mast-scene-cloudy .mast-motion-haze-fog {
   animation: mast-fog 64s ease-in-out infinite alternate;
 }
@@ -2581,6 +2585,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-morning .mast-motion-ferry,
 .mast-scenic.mast-scene-day .mast-motion-ferry,
 .mast-scenic.mast-scene-cloudy .mast-motion-ferry,
+.mast-scenic.mast-scene-rain .mast-motion-ferry,
 .mast-scenic.mast-scene-snow .mast-motion-ferry,
 .mast-scenic.mast-scene-goldenhour .mast-motion-ferry,
 .mast-scenic.mast-scene-sunset .mast-motion-ferry,
@@ -2591,6 +2596,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-morning .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-day .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-cloudy .mast-motion-ferry-hull,
+.mast-scenic.mast-scene-rain .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-snow .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-goldenhour .mast-motion-ferry-hull,
 .mast-scenic.mast-scene-sunset .mast-motion-ferry-hull,
@@ -2598,6 +2604,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-morning .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-day .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-cloudy .mast-motion-ferry-wake,
+.mast-scenic.mast-scene-rain .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-snow .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-goldenhour .mast-motion-ferry-wake,
 .mast-scenic.mast-scene-sunset .mast-motion-ferry-wake { opacity: 1; }
@@ -2622,6 +2629,36 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-snow .mast-motion-glint,
 .mast-scenic.mast-scene-snownight .mast-motion-glint {
   animation: mast-twinkle var(--d, 2s) ease-in-out var(--dl, 0s) infinite;
+}
+
+/* ── MASTHEAD-WET-DAYLIGHT-1 (2026-09-08, Owner: "i'm looking at it now, for
+   example, it's raining but there's no other animation but the raindrops").
+   The daytime rain scene was the emptiest in the system: measured across the
+   whole stylesheet, `rain` gated FIVE things and every one of them was the
+   weather itself - two lightning flashes, the forked bolts and the drops.
+   Rainnight looked rich only because it inherits the night set. Everything
+   below is the same water and the same traffic the dry daylight scenes
+   already carry, on the reasoning that rain stops none of it: the sea still
+   moves, the boats still run, the roofs still steam, and low cloud is MORE
+   likely, not less.
+   The glitter is the one that changes character. Sun sparkle needs sun, so in
+   the wet scenes these are not facets of swell turning through it - they are
+   the dimples raindrops punch in the surface: dimmer than the sun's facets,
+   barely stretched sideways, and on a period a little over half as long. The
+   first pass ran them at 0.48 and they vanished - a rain FRAME is a bright
+   grey-blue, not a dark one, so a white speck needs more than half strength to
+   show on it at all. ── */
+@keyframes mast-dimple {
+  0%, 100% { opacity: 0;    transform: scaleX(0.7); }
+  50%      { opacity: 0.78; transform: scaleX(1.2); }
+}
+/* RAIN ONLY, not the dry overcast. MASTHEAD-CLOUDY-1 ruled that a grey day
+   has no sun glitter on it and a guard holds that line; this does not reopen
+   it, because these are not sun glitter. They are the dimples falling water
+   punches in a surface, so they need falling water, which `cloudy` has none
+   of and `rain` is made of. */
+.mast-scenic.mast-scene-rain .mast-motion-glint {
+  animation: mast-dimple calc(var(--d, 2s) * 0.55) ease-in-out var(--dl, 0s) infinite;
 }
 
 /* ── MASTHEAD-NEWYORK-2: kinds the harbour frames asked for. ── */
@@ -2674,6 +2711,8 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-night .mast-motion-steam,
 .mast-scenic.mast-scene-cloudynight .mast-motion-steam,
 .mast-scenic.mast-scene-rainnight .mast-motion-steam,
+/* MASTHEAD-WET-DAYLIGHT-1: a roof vent steams harder in the rain, not less. */
+.mast-scenic.mast-scene-rain .mast-motion-steam,
 .mast-scenic.mast-scene-snownight .mast-motion-steam {
   animation: mast-steam var(--d, 8s) linear var(--dl, 0s) infinite;
 }
@@ -3071,6 +3110,12 @@ a.doc-file-link:hover { text-decoration: underline; }
    Night stays out: at that alpha nothing survives the dark water anyway. */
 .mast-scenic.mast-scene-dawn .mast-motion-swell,
 .mast-scenic.mast-scene-goldenhour .mast-motion-swell,
+/* MASTHEAD-WET-DAYLIGHT-1 left the rain scene OUT of this one on purpose. A
+   chop under rain is defensible and I could not show it was better: the
+   swell is a white texture at 0.13 alpha and the only way to judge it against
+   falling drops is to watch it, which a screenshot cannot do. The rule that
+   the swell runs on calm days is older than this change and has a guard; the
+   rain scene gains five other things, so nothing here needed it. */
 .mast-scenic.mast-scene-sunset .mast-motion-swell {
   opacity: 0.55; animation: mast-swell 7s linear infinite;
 }
