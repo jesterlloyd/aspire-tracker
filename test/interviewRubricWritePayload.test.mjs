@@ -80,7 +80,9 @@ test('every field the session form starts with is a writable column', () => {
 })
 
 test('every interview_rubrics write in RubricSession passes the gate', () => {
-  assert.match(session, /import \{ toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId \} from '\.\.\/lib\/interviewRubricWrite'/)
+  // The three write gates are imported together; RUBRIC-RESUME-OWN-1 added ownership
+  // helpers to the same line, so the pin covers the gates and tolerates the rest.
+  assert.match(session, /import \{ toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId,/)
   // persist: the shared payload is gated once, and the create path gates the whole spread.
   assert.match(session, /const payload = toInterviewRubricWrite\(\{\s*\.\.\.scopedUpdates,/)
   assert.match(session, /\.insert\(toInterviewRubricInsert\(\{ student_id: student\.id, cohort_id: cohortId, \.\.\.initForm\(\), \.\.\.form, \.\.\.payload \}\)\)/)
@@ -124,7 +126,9 @@ test('a draft adopts the rubric it came from only while that row still exists', 
 })
 
 test('the session adopts a draft row on restore and again at save time', () => {
-  assert.match(session, /import \{ toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId \} from '\.\.\/lib\/interviewRubricWrite'/)
+  // The three write gates are imported together; RUBRIC-RESUME-OWN-1 added ownership
+  // helpers to the same line, so the pin covers the gates and tolerates the rest.
+  assert.match(session, /import \{ toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId,/)
   // Restore: the id is restored beside the form.
   assert.match(session, /const draftRubricId = resolveDraftRubricId\(draft\.formState, rubrics\)\s*if \(draftRubricId\) setRubricId\(draftRubricId\)/)
   // Save: any path that seeded the form without rubricId resolves the row before choosing insert.
@@ -134,8 +138,11 @@ test('the session adopts a draft row on restore and again at save time', () => {
 })
 
 test('the existing-rubrics banner does not call an in-progress row submitted', () => {
-  assert.match(session, /const submitted  = completedRubrics\.length/)
-  assert.match(session, /const inProgress = studentRubrics\.length - submitted/)
-  assert.match(session, /rubric\$\{inProgress !== 1 \? 's' : ''\} in progress/)
-  assert.doesNotMatch(session, /\{studentRubrics\.length\} rubric\{studentRubrics\.length !== 1 \? 's' : ''\} already submitted/)
+  // RUBRIC-RESUME-OWN-1: the banner now reports OTHER people's rubrics, because your
+  // own is the form on screen. It still must never call an unfinished row submitted.
+  assert.match(session, /const submitted  = others\.filter\(r => r\.status === 'Completed'\)\.length/)
+  assert.match(session, /const unfinished = others\.filter\(r => r\.status !== 'Completed'\)/)
+  assert.match(session, /rubric\$\{unfinished\.length !== 1 \? 's' : ''\} in progress/)
+  assert.doesNotMatch(session, /studentRubrics\.length - submitted/,
+    'the in-progress count no longer includes the reader\'s own row')
 })

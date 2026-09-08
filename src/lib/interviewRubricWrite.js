@@ -77,3 +77,59 @@ export function resolveDraftRubricId(formState, rubrics) {
   if (!id || !Array.isArray(rubrics)) return null
   return rubrics.some(r => r?.id === id) ? id : null
 }
+
+// ── RUBRIC-RESUME-OWN-1: whose rubric is this? ──────────────────────────────
+//
+// An unfinished rubric used to reopen only for accounts whose role was
+// interviewer and nothing more. An Owner, Admin or Co-lead who saved a draft
+// came back to a blank form, and the existing-rubrics banner then counted the
+// row they had just written and told them a rubric was in progress. These
+// helpers decide, from the rows the session already holds, which rubric belongs
+// to the signed-in person, so the same resume works at every privilege level.
+
+const normName = (v) => String(v || '').trim().toLowerCase()
+
+// True when `name` is the signed-in person's own name.
+export function isSelfInterviewerName(name, fullName) {
+  const me = normName(fullName)
+  return !!me && normName(name) === me
+}
+
+// Is this row the signed-in person's own work?
+//
+// is_own is the server's verdict: list_interview_rubrics_for_cohort reports
+// interviewer_profile_id = the caller's user_profiles.id. It is trusted first and
+// alone whenever the row is claimed.
+//
+// The second clause recovers rows written before identity was stamped reliably. A
+// privileged user picking a name from the dropdown got interviewer_profile_id NULL
+// whenever that name reached the list from the `interviewers` catalog, which holds
+// names and no ids. Such a row is owned by nobody, so no is_own match can ever
+// reopen it. It is claimed here only by name, only when the server already says
+// this actor may edit the row, and never when another profile owns it. This is the
+// same rule handleInterviewerChange already uses when a name is picked by hand.
+export function isOwnRubricRow(row, { fullName } = {}) {
+  if (!row) return false
+  if (row.is_own === true) return true
+  if (row.interviewer_profile_id) return false
+  if (row.can_edit !== true) return false
+  return isSelfInterviewerName(row.interviewer_name, fullName)
+}
+
+const rubricRecency = (r) => {
+  const t = Date.parse(r?.updated_at || r?.created_at || '')
+  return Number.isNaN(t) ? 0 : t
+}
+
+// The rubric to reopen for this student, or null to start a new one. Unfinished
+// work wins over a completed rubric, and the most recently updated row wins within
+// each group: every reopen under the old role gate took the create path, so one
+// author can hold several unfinished rows for the same student, and the newest is
+// the one they last typed into.
+export function selectResumableRubric(rubrics, { studentId, fullName } = {}) {
+  const mine = (Array.isArray(rubrics) ? rubrics : [])
+    .filter(r => r && r.student_id === studentId && isOwnRubricRow(r, { fullName }))
+  if (!mine.length) return null
+  const newestFirst = [...mine].sort((a, b) => rubricRecency(b) - rubricRecency(a))
+  return newestFirst.find(r => r.status !== 'Completed') || newestFirst[0]
+}

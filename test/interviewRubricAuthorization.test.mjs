@@ -10,10 +10,13 @@ const migrationPath = new URL('../supabase/migrations/20260822010000_interview_r
 const appPath = new URL('../src/App.jsx', import.meta.url)
 const sessionPath = new URL('../src/components/RubricSession.jsx', import.meta.url)
 
-const [migration, app, session] = await Promise.all([
+const writeLibPath = new URL('../src/lib/interviewRubricWrite.js', import.meta.url)
+
+const [migration, app, session, writeLib] = await Promise.all([
   readFile(migrationPath, 'utf8'),
   readFile(appPath, 'utf8'),
   readFile(sessionPath, 'utf8'),
+  readFile(writeLibPath, 'utf8'),
 ])
 
 test('rubrics are identity-bound and legacy names backfill only when unambiguous', () => {
@@ -58,7 +61,13 @@ test('ordinary interviewer inserts are bound to the authenticated profile identi
   assert.match(session, /interviewer_profile_id: userProfile\?\.id \|\| null/)
   assert.match(session, /interviewer_name: userProfile\?\.full_name \|\| ''/)
   assert.match(session, /if \(isInterviewerOnly\) return/)
-  assert.match(session, /r\.is_own === true/)
+  // RUBRIC-RESUME-OWN-1: the ownership match moved into the pure lib so it can be
+  // unit tested, and the session resumes through it at every privilege level. The
+  // server's is_own verdict is still what decides a claimed row.
+  assert.match(session, /selectResumableRubric\(rubrics, \{/)
+  assert.match(writeLib, /row\.is_own === true/)
+  assert.match(writeLib, /if \(row\.interviewer_profile_id\) return false/,
+    'a row another profile owns is never claimed by name')
 })
 
 test('average calculations use safe cohort summaries rather than an own-row table read', () => {

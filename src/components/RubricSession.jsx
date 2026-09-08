@@ -18,7 +18,8 @@ import { openStudentFile } from '../lib/useStudentFile'
 import { saveInterviewOutcome } from '../lib/studentProxy'
 import { normalizeStaffRole } from '../lib/permissions'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
-import { toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId } from '../lib/interviewRubricWrite'
+import { toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId,
+  isOwnRubricRow, isSelfInterviewerName, selectResumableRubric } from '../lib/interviewRubricWrite'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -354,13 +355,19 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const canManageAllRubrics = userProfile?.is_owner === true
     || ['owner', 'admin', 'co-lead'].includes(normalizedRole)
   const isInterviewerOnly = normalizedRole === 'interviewer' && !canManageAllRubrics
-  const ownRubrics = isInterviewerOnly
-    ? rubrics.filter(r => r.student_id === student.id && r.is_own === true)
-    : []
-  const initialOwnRubric = ownRubrics.find(r => r.status !== 'Completed')
-    || ownRubrics.find(r => r.status === 'Completed')
+  // RUBRIC-RESUME-OWN-1: your own unfinished rubric reopens whatever your role is.
+  // This used to be gated on isInterviewerOnly, so an Owner, Admin or Co-lead who
+  // saved a draft returned to a blank form while the banner counted the row they
+  // had just written. Ownership is decided per row by the server's is_own verdict,
+  // so a wider role can still only ever resume its OWN work, never a colleague's.
+  const initialOwnRubric = selectResumableRubric(rubrics, {
+    studentId: student.id,
+    fullName: userProfile?.full_name,
+  })
   const initialForm = initialRubric || initialOwnRubric || {
     ...initForm(),
+    // Unchanged: a privileged user may be entering a rubric on behalf of an
+    // interviewer, so their own name is not assumed on a blank form.
     interviewer_name: isInterviewerOnly ? (userProfile?.full_name || '') : '',
   }
   const [form,           setForm]           = useState(initialForm)
@@ -476,7 +483,13 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         setForm(existing); setRubricId(existing.id); return
       }
     }
-    const interviewerProfileId = interviewerProfilesByName[name] || null
+    // RUBRIC-RESUME-OWN-1: a name that reaches this dropdown only from the
+    // `interviewers` catalog carries no id, and the row would be written owned by
+    // nobody, which is how an unfinished rubric became unreachable. When the chosen
+    // name is the signed-in person's own, stamp their profile id so the row is
+    // theirs and reopens next time. A colleague's name is never stamped with it.
+    const interviewerProfileId = interviewerProfilesByName[name]
+      || (isSelfInterviewerName(name, userProfile?.full_name) ? (userProfile?.id || null) : null)
     setForm(p => ({ ...p, interviewer_name: name, interviewer_profile_id: interviewerProfileId }))
     setRubricId(null)
     // Selecting an interviewer is a meaningful action - create record immediately
@@ -1189,13 +1202,28 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
           )}
 
           {/* Existing rubrics banner */}
-          {!readOnly && studentRubrics.length > 0 && (() => {
-            // Count what is actually there: a row still In Progress is not "submitted".
-            const submitted  = completedRubrics.length
-            const inProgress = studentRubrics.length - submitted
+          {!readOnly && (() => {
+            // RUBRIC-RESUME-OWN-1: this banner reports OTHER people's work. It used to
+            // count every rubric for the student, the reader's own included, so an
+            // author who could not reopen their own draft was told a rubric was in
+            // progress and invited to add another. It was describing their own row back
+            // to them. Your own rubric is the form on screen; it is not news.
+            const others     = studentRubrics.filter(r => !isOwnRubricRow(r, { fullName: userProfile?.full_name }))
+            const submitted  = others.filter(r => r.status === 'Completed').length
+            const unfinished = others.filter(r => r.status !== 'Completed')
+            if (!submitted && !unfinished.length) return null
             const parts = []
-            if (submitted)  parts.push(`${submitted} rubric${submitted !== 1 ? 's' : ''} already submitted`)
-            if (inProgress) parts.push(`${inProgress} rubric${inProgress !== 1 ? 's' : ''} in progress`)
+            if (submitted) parts.push(`${submitted} rubric${submitted !== 1 ? 's' : ''} already submitted`)
+            if (unfinished.length) {
+              // Name whoever holds an unfinished rubric, so a colleague knows who to ask
+              // rather than seeing an anonymous count. interviewer_name is the one field
+              // list_interview_rubrics_for_cohort returns unmasked, so naming the author
+              // discloses nothing the caller could not already read; the rubric itself
+              // stays closed to them.
+              const who = [...new Set(unfinished.map(r => String(r.interviewer_name || '').trim()).filter(Boolean))]
+              parts.push(`${unfinished.length} rubric${unfinished.length !== 1 ? 's' : ''} in progress`
+                + (who.length ? ` (${who.join(', ')})` : ''))
+            }
             return (
               <div style={{ background:'var(--marina)', border:'1px solid #b8d8eb', borderRadius:6, padding:'10px 14px', margin:'0 0 16px', fontSize:13, color:'var(--nightfall)' }}>
                 <strong>{parts.join(' and ')}</strong> for this student.
