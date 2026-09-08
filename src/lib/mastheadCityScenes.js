@@ -420,6 +420,13 @@ export const CITY_MOTION = {
     // card y 2.4, and the sky column mean rises from 224 mid-frame to 229 at
     // x 90. The old art was lit from the left; this one is not.
     flare: { x: 106, y: 6.78 },
+    // MASTHEAD-FACADE-1 (Owner). The Griffith Observatory is floodlit white,
+    // so the warm-mask that found Rome's buildings barely sees it - only its
+    // golden window band passes. Measured off the night frame instead: the
+    // building runs x 60.5 to 71.5 and its lit colonnade sits at y 74 to 81,
+    // with the entrance hall brighter than the wings. Two boxes, the building
+    // and its doorway, because that is how the artwork lights it.
+    facade: [[66.0, 77.3, 11.6, 9.4], [65.3, 76.5, 2.8, 10.4]],
     rainfall: true,
   },
   losangeles: {
@@ -1694,6 +1701,18 @@ export const CITY_MOTION = {
     // The golden-hour sun is OFF-FRAME LEFT: the sky column mean falls from
     // 241 at x 0 to 210 at x 90, and the brightest edge pixel is at card y 12.
     flare: { x: -6, y: 8.47 },
+    // MASTHEAD-FACADE-1 (Owner). Rome's floodlit stone, as buildings rather
+    // than as points. Found by closing and labelling the warm-bright mask of
+    // the night frame (red over 150, red minus blue over 42) and taking the
+    // largest regions, then trimming each box back to the building itself -
+    // the raw St Peter's blob runs 15.7% wide because it swallows the Vatican
+    // wall and the umbrella pines in front of it. In order: the dome, the
+    // basilica below it, the Vittoriano, the dome over the centre of the city,
+    // the church on the right, and the lit palazzo in the foreground.
+    facade: [
+      [24.0, 32.6, 4.8, 14.8], [24.5, 46.0, 11.0, 17.0], [66.2, 43.5, 6.7, 17.0],
+      [48.1, 66.0, 6.0, 22.0], [75.2, 82.0, 5.0, 18.0], [60.9, 88.8, 8.8, 12.8],
+    ],
     rainfall: true,
   },
 }

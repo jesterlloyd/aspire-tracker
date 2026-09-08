@@ -177,7 +177,7 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, emoji, torch, clock, strike, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, emoji, torch, clock, facade, strike, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -336,6 +336,19 @@ export default function MastheadMotion({ city }) {
       {/* A wheel is a rim of cabin lights turning slowly. The box is square
           in pixels (width as a share of the card width, aspect-ratio 1), so
           the ring stays round on a card that is not. */}
+      {/* MASTHEAD-FACADE-1 (Owner: "these are dramatic buildings and I think
+          they deserve this feel"). A floodlit building, as a whole. Every
+          other light kind on these cards is a POINT - a window, a lamp, a
+          beacon - and a floodlit facade is not a point, it is a wall with
+          light thrown across it. So this is a soft warm ellipse over the
+          measured mass of the building, breathing slowly, drawn UNDER the
+          window shimmer that already sits on it. Night only: floodlights come
+          on at dusk, and by day a warm blob over a building is a smudge. */}
+      {facade?.map(([x, y, w, h], i) => (
+        <span key={`fa-${x}-${y}`} className="mast-motion-facade"
+          style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, '--dl': `${(i * 1.7).toFixed(1)}s` }} />
+      ))}
+
       {/* MASTHEAD-CLOCK-1 (Owner: Big Ben is the other landmark on this card).
           A lit clock face is not a window and not a beacon: it does not
           twinkle and it does not blink, it just burns, all day and all night,

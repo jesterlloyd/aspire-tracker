@@ -19,7 +19,7 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'emoji', 'torch', 'clock', 'strike', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'emoji', 'torch', 'clock', 'facade', 'strike', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -387,6 +387,45 @@ test('a wheel is sized, spun on the inner box, and masked to its own edge', () =
   const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
   assert.match(src, /mast-motion-wheel-turn[\s\S]{0,900}mast-motion-wheel-cabin/)
   assert.match(src, /'--wr': \(wheel\.h \? wheel\.h \/ \(wheel\.d \* CARD_ASPECT\) : 1\)/)
+})
+
+// MASTHEAD-FACADE-1 (Owner, 2026-09-08): "can you make the windows/lights in
+// the griffith observatory and the buildings in rome have some sort of yellow
+// glow? these are dramatic buildings and I think they deserve this feel".
+// Every other light kind here is a POINT; this one is a building.
+test('a facade glow covers a measured building', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const [x, y, w, h] of m.facade || []) {
+      assert.ok(x - w / 2 >= 0 && x + w / 2 <= 100, `${city}.facade runs off the card sideways`)
+      assert.ok(y - h / 2 >= 0 && y + h / 2 <= 100, `${city}.facade runs off the card vertically`)
+      assert.ok(w > 0.5 && w < 25, `${city}.facade is ${w}% of the width; that is not one building`)
+      assert.ok(h > 2 && h < 45, `${city}.facade is ${h}% of the height; that is not one building`)
+    }
+    // Two glows centred on the same spot is one building lit twice.
+    const f = m.facade || []
+    for (let i = 0; i < f.length; i++) {
+      for (let j = i + 1; j < f.length; j++) {
+        assert.ok(Math.abs(f[i][0] - f[j][0]) > 0.4 || Math.abs(f[i][1] - f[j][1]) > 1.271,
+          `${city}.facade boxes ${i} and ${j} are centred on the same place`)
+      }
+    }
+  }
+  assert.equal(CITY_MOTION.rome.facade.length, 6)
+  assert.equal(CITY_MOTION.hollywood.facade.length, 2)
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  // SIZED, like every other radial gradient in this file has to be: an unsized
+  // one measures to the farthest CORNER, so a third of this glow would spill
+  // past the building it belongs to. MASTHEAD-WHEEL-2 is where that default
+  // hid an entire effect for two weeks.
+  assert.match(css, /\.mast-motion-facade \{[\s\S]{0,400}?radial-gradient\(ellipse closest-side/)
+  assert.match(css, /@keyframes mast-facade/)
+  // Floodlights are a night thing; by day this would be a smudge on a wall.
+  for (const scene of ['night', 'cloudynight', 'rainnight', 'snownight']) {
+    assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-facade`),
+      `the facade glow has no ${scene} gate`)
+  }
+  assert.ok(!/\.mast-scenic \.mast-motion-facade \{/.test(css),
+    'the facade glow must not run in every scene')
 })
 
 // MASTHEAD-CLOCK-1: Big Ben's dials. A lit clock face is not a window and not

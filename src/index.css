@@ -2714,6 +2714,37 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* The wheel: 28 cabin lights on a rim, turning. A repeating conic gradient
    masked to a thin annulus; the rotate property, not transform, so the
    centring translate is untouched. */
+/* ── MASTHEAD-FACADE-1 (2026-09-08, Owner: "can you make the windows/lights in
+   the griffith observatory and the buildings in rome have some sort of yellow
+   glow? these are dramatic buildings and I think they deserve this feel").
+   A floodlit BUILDING rather than a lit point. The alphas are low on purpose -
+   0.30 at the core, 0.06 three quarters out - because this sits over painted
+   stone that is already lit: it is the air in front of the building warming,
+   not a lamp. Sized `ellipse closest-side`, which is the inscribed ellipse of
+   the declared box; an unsized radial gradient measures to the farthest CORNER
+   and would spill a third of its glow past the building (see MASTHEAD-WHEEL-2,
+   where the same default hid a whole effect). No blend mode, per the rule for
+   this layer. ── */
+.mast-motion-facade {
+  position: absolute; opacity: 0;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(ellipse closest-side,
+    rgba(255,206,118,0.38) 0%, rgba(255,184,86,0.22) 46%,
+    rgba(255,166,58,0.09) 72%, transparent 88%);
+  filter: blur(2px);
+}
+@keyframes mast-facade {
+  0%, 100% { opacity: 0.52; }
+  50%      { opacity: 1; }
+}
+/* The floodlights are a night thing, and these are the scenes that have them. */
+.mast-scenic.mast-scene-night .mast-motion-facade,
+.mast-scenic.mast-scene-cloudynight .mast-motion-facade,
+.mast-scenic.mast-scene-rainnight .mast-motion-facade,
+.mast-scenic.mast-scene-snownight .mast-motion-facade {
+  animation: mast-facade 11s ease-in-out var(--dl, 0s) infinite;
+}
+
 /* ── MASTHEAD-CLOCK-1 (2026-09-08, Owner: "this and the big ben are the most
    most distinctive structures there"). A lit clock face. It is deliberately
    NOT one of the existing kinds: `lights` twinkle, which on a clock dial reads
@@ -3208,7 +3239,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-ferry-lamp, .mast-motion-glint, .mast-motion-steam, .mast-motion-anchored,
   .mast-motion-neon, .mast-motion-wheel, .mast-motion-wheel-turn, .mast-motion-wheel-cabin, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
   .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin,
-  .mast-motion-emoji, .mast-motion-torch, .mast-motion-clock, .mast-motion-strike {
+  .mast-motion-emoji, .mast-motion-torch, .mast-motion-clock, .mast-motion-facade, .mast-motion-strike {
     animation: none !important; opacity: 0 !important;
   }
 }
