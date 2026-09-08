@@ -352,13 +352,29 @@ test('counting helpers exclude withdrawn entries', () => {
 test('the portal exposes a complete history, not four entries', () => {
   const portal = read('src/portal/StudentPortal.jsx')
   assert.match(portal, /data-testid="open-shift-history"/)
-  assert.match(portal, /View all \$\{shiftCount\} shifts/)
   assert.match(portal, /<ShiftLogHistoryDrawer/)
   // The drawer receives the WHOLE list; only the home card slices.
   assert.match(portal, /logs=\{myLogs\}/)
   const drawer = read('src/portal/ShiftLogHistoryDrawer.jsx')
   assert.doesNotMatch(drawer, /\.slice\(0, 4\)/, 'the drawer never truncates')
   assert.match(drawer, /logs\.map\(log =>/)
+})
+
+test('SHIFT-HISTORY-LABEL-1: the history button makes ONE promise, and it is management', () => {
+  // The old label read "View all N shifts" above four entries and "View & manage
+  // shifts" at or below four: the common case promised a longer list and opened a
+  // panel whose purpose is Edit, Withdraw and Request a correction. One label now,
+  // and it names the panel's actual job.
+  const portal = read('src/portal/StudentPortal.jsx')
+  assert.doesNotMatch(portal, /View all \$\{shiftCount\} shifts/, 'the disclosure-only label is gone')
+  assert.match(portal, /\{readOnlyPreview \? 'View shifts' : 'View & manage shifts'\}/)
+  // The count is not repeated on the button: the divider directly above carries it.
+  assert.match(portal, /ptl-shift-count">\{shiftCount\} \{shiftCount === 1 \? 'shift' : 'shifts'\} logged/)
+  // The Owner/Admin preview opens the SAME panel with every control suppressed, so
+  // its label must not promise management. One flag drives the label and the panel.
+  assert.match(portal, /readOnly=\{readOnlyPreview\}/)
+  const drawer = read('src/portal/ShiftLogHistoryDrawer.jsx')
+  assert.match(drawer, /\{readOnly && \(/, 'the panel still explains its read-only state')
 })
 
 test('a successful change refreshes the student surface immediately', () => {

@@ -501,14 +501,23 @@ export default function StudentPortal({
             )}
             {/* STUDENT-SHIFT-LOG-MANAGEMENT-1: the card lists only the four most
                 recent entries; the full history (and the correct/withdraw
-                controls) lives in the drawer. */}
+                controls) lives in the drawer.
+
+                SHIFT-HISTORY-LABEL-1: one promise, not two. The old label read
+                "View all N shifts" above four entries and "View & manage shifts"
+                at or below four, so the common case promised a longer list and
+                opened a management panel instead. The panel is where a student
+                edits, withdraws, or requests a correction, so the label says so
+                every time. The count is not repeated here: the divider directly
+                above already reads "N shifts logged". In the Owner/Admin preview
+                the panel is read-only, and the label matches that too. */}
             {shiftCount > 0 && (
               <button
                 className="ptl-slh-ghost"
                 data-testid="open-shift-history"
                 onClick={() => setHistoryOpen(true)}
               >
-                {shiftCount > 4 ? `View all ${shiftCount} shifts` : 'View & manage shifts'}
+                {readOnlyPreview ? 'View shifts' : 'View & manage shifts'}
               </button>
             )}
           </div>
