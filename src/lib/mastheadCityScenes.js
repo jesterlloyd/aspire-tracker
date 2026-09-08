@@ -1468,78 +1468,110 @@ export const CITY_MOTION = {
     rainfall: true,
   },
   tokyo: {
-    // MASTHEAD-TOKYO-1 (2026-09-06): a new city, nine frames, measured through
-    // the TOP-anchored crop (historic). The view looks west across the
-    // whole basin: Fuji at x 10-16, Tokyo Tower at x 32.5 with its spire at the
-    // top edge, the Shinjuku cluster from x 40 to 72, the Skytree at x 87.5,
-    // and low-rise city everywhere else to the horizon.
+    // MASTHEAD-TOKYO-2 (2026-09-08): the SECOND Tokyo pack, TEN frames
+    // (CloudyNight and RainNight joined the eight), and A DIFFERENT DRAWING -
+    // the edge correlation between the two Day frames is 0.145, so nothing
+    // carried over and every number here was measured again. The new frames
+    // register to each other within a pixel.
     //
-    // NO TRAIN, AND THE REASON IS THE CROP. The frame does draw an elevated
-    // railway, a clear multi-track viaduct running diagonally from x 58 to 66,
-    // but it sits at source rows 346-391 - card y 102 to 114, entirely below
-    // the card's bottom edge. Including it means the centred crop, which takes
-    // the Skytree's crown and Tokyo Tower's spire, and those are the city. A
-    // sweep of every straight line across the lower card found no second
-    // candidate: Tokyo's pale rooftops ARE the background here, so nothing
-    // scored above the noise. A train drawn anywhere else would be invented.
+    // The view looks west over the city at dusk. Mount Fuji stands in the
+    // top-left at x 4-18, TOKYO TOWER at x 25.6 reaching the very top of the
+    // card, the Skytree at x 91.2 doing the same on the right, the business
+    // district filling the middle with its rooftops at y 25-45, an elevated
+    // expressway sweeping across the near ground from x 52 to 74, and the
+    // park with its POND at x 39-49, y 88-95.
     //
-    // TOKYO'S WINDOWS ARE WHITE. Every other pack in this registry measures its
-    // lights with a warm score (r - b >= 12) because sodium is what those
-    // cities burn; on this frame that score returns NOTHING. The artwork paints
-    // fluorescent office light at rgb(255,255,255), so these were measured on
-    // luminance with a low-saturation gate instead.
+    // THERE IS NO FERRIS WHEEL. The white ellipse at x 50-53 reads like one at
+    // a glance and its bounding box even measures like one, but zoomed it is a
+    // narrow oval tower 52px wide and 124 tall with curved ribs, not spokes
+    // and cabins. The `wheel` kind stays out of this city.
+    //
+    // Windows across the skyline, the mid-city and the near blocks.
     lights: [
-      [14.3, 79.24], [6.6, 81.78], [14.4, 81.78], [18.4, 83.22], [15.3, 78.22],
-      [19.0, 77.97], [14.6, 74.24], [16.8, 80.25], [12.8, 73.98], [0.6, 75.76],
-      [10.2, 72.03],
-      [32.4, 76.53], [37.3, 72.97], [31.1, 73.22], [29.5, 72.46], [33.7, 63.47],
-      [22.1, 73.22], [37.7, 77.03], [35.4, 81.02], [22.1, 67.29], [20.4, 74.75],
-      [38.4, 66.27],
-      [46.3, 80.25], [49.0, 73.98], [41.4, 46.78], [41.9, 51.02], [53.0, 76.78],
-      [57.6, 70.0], [50.0, 60.0], [56.3, 65.0], [43.9, 78.73], [55.2, 61.27],
-      [47.6, 63.47],
-      [66.1, 53.22], [66.1, 65.25], [71.3, 68.98], [65.7, 69.75], [65.5, 81.02],
-      [79.0, 81.78], [60.4, 70.25], [65.1, 53.73], [77.3, 80.76], [75.8, 81.27],
-      [78.3, 62.54],
-      [80.2, 71.53], [84.9, 65.76], [83.5, 77.71], [85.0, 75.76], [80.8, 63.73],
-      [82.3, 77.29], [91.5, 73.47], [97.2, 70.25], [93.3, 54.24], [92.5, 65.51],
-      [89.9, 56.53], [95.7, 77.54], [94.2, 61.02],
-      // Tokyo Tower's floodlit lattice, and the Skytree's lit column. Both are
-      // lit structures rather than windows, so they breathe with the city.
-      [32.4, 12.97], [32.5, 16.27], [32.4, 14.75], [32.4, 27.71], [31.8, 50.25],
-      [87.6, 4.24], [87.2, 18.47], [87.5, 23.47], [87.6, 25.0], [87.4, 38.22],
+      [4.35, 54.75], [4.5, 58.5], [6.6, 61.0], [12.3, 59.25], [13.05, 55.25],
+      [16.6, 43.25], [18.7, 56.5], [20.1, 50.25], [24.25, 90.0], [24.35, 45.5],
+      [25.5, 24.0], [26.55, 88.5], [29.05, 72.75], [30.1, 80.5], [30.65, 41.0],
+      [32.05, 58.0], [32.7, 81.25], [35.6, 77.75], [36.45, 82.5], [37.15, 47.25],
+      [37.25, 42.75], [38.6, 80.5], [40.85, 43.25], [41.3, 51.5], [42.45, 41.75],
+      [42.8, 37.5], [44.35, 33.0], [44.75, 40.75], [45.25, 26.75], [45.8, 36.75],
+      [48.1, 52.0], [48.25, 39.0], [49.8, 85.0], [50.75, 36.25], [51.0, 32.25],
+      [53.75, 87.75], [54.65, 29.75], [54.7, 37.0], [56.0, 33.5], [57.7, 88.0],
+      [58.0, 43.75], [59.1, 58.75], [59.2, 32.75], [59.7, 52.5], [59.75, 46.75],
+      [59.8, 40.0], [62.4, 37.5], [64.45, 45.25], [64.5, 43.25], [66.0, 38.75],
+      [69.9, 50.5], [70.1, 44.5], [70.15, 57.0], [70.4, 41.25], [70.4, 70.0],
+      [70.85, 64.0], [76.7, 92.0], [82.0, 43.75], [86.7, 70.5], [89.3, 85.25],
+      [95.7, 40.75], [95.95, 60.25], [96.05, 54.5], [96.65, 46.75],
     ],
-    // Every tall building in this frame carries an aviation light, which is
-    // true of Tokyo and is the single most animated thing in the artwork.
-    // FOUND BY THE SKY ABOVE THEM, not by colour: Tokyo Tower is painted
-    // red-orange from top to bottom, so a per-pixel red test returns its whole
-    // lattice and nothing useful. A beacon is the one red point on its
-    // building with open sky overhead, and that test returns only crowns -
-    // including the tower's own tip light at [32.5, 2.71].
+    // Tokyo paints its aviation lights properly: strict red maxima with dark
+    // sky above them, all along the skyline band. The last three are the two
+    // towers - Tokyo Tower's mast lamps at y 4.0 and 6.6, and the Skytree's at
+    // y 2.5. Both towers carry a brighter lamp at the very tip (y 0.6 and 0.0)
+    // and neither is here: a 6px beacon centred two pixels from the card's top
+    // edge is a half beacon.
     beacons: [
-      [32.5, 2.71], [47.3, 31.53], [71.9, 48.73], [4.7, 49.75], [90.5, 51.27],
-      [12.0, 57.03], [93.2, 43.47], [53.3, 33.73], [94.0, 45.0], [39.8, 52.29],
-      [45.6, 31.78], [53.6, 62.29], [81.0, 62.71], [14.0, 50.25], [80.6, 47.29],
-      [67.9, 40.76], [7.9, 58.47], [65.2, 49.75], [53.6, 47.29], [91.7, 57.71],
-      [33.2, 48.98], [94.8, 51.53], [42.9, 62.03], [69.0, 48.47], [66.0, 49.49],
-      [40.8, 57.29],
+      [5.25, 43.25], [17.35, 42.25], [21.7, 41.0], [24.8, 45.0], [25.62, 4.0],
+      [25.62, 6.6], [25.7, 20.25], [37.15, 39.25], [40.0, 39.25], [44.2, 25.75],
+      [54.3, 41.0], [56.7, 35.5], [59.15, 30.0], [60.55, 40.75], [64.2, 40.25],
+      [66.75, 45.25], [70.35, 40.0], [73.35, 43.75], [82.15, 43.0], [91.2, 2.5],
+      [95.35, 36.75],
     ],
     beaconTone: 'red',
-    // The approach runs east to west and stops at x 36: Tokyo Tower's spire
-    // reaches card y 3 at x 32.5 and the Skytree y 2 at x 87.5, so a lane that
-    // crossed the whole card at this height would draw straight through both.
-    // The motion layer sits ABOVE the artwork, so a plane behind a tower is not
-    // an option; the lane has to end short of them.
-    aircraft: { y: 10.17, from: 84, to: 36, flight: 40 },
-    // The flock spreads 6.4% above its lane and 11.5% below, so y 20 puts it
-    // between 13.6 and 31.5 - clear of the Shinjuku crowns, which start at 33.
-    birds: { y: 16.95, from: 82, to: 38, flight: 34, count: 6 },
-    helicopter: { y: 22.03, from: 40, to: 84, flight: 46 },
-    // Kanto haze on the far range, which sits at y 44-57 across the frame.
-    haze: { y: 37.29, height: 9.32 },
-    // The golden-hour sun is OFF-FRAME LEFT and high: the sky column mean falls
-    // from 227 at x 0 to 200 at x 80, and the left edge is brightest at y 2-8.
-    flare: { x: -6, y: 6.78 },
+    // MASTHEAD-FACADE-1: Tokyo Tower is floodlit orange from top to bottom,
+    // which is exactly what this kind is for. Two boxes because the tower is a
+    // triangle and an ellipse is not: the shaft, and the wider base below the
+    // main deck.
+    facade: [[25.65, 24.0, 2.2, 32.0], [25.7, 43.0, 4.6, 16.0]],
+    // The pond in the park (Owner: "there is a water feature in the park").
+    // The lamps along its far bank throw vertical streaks across it, so the
+    // bokeh kind fits here exactly as it does on a harbour - just smaller.
+    // Nothing above y 88: the bank itself is lit and its lights are not
+    // reflections.
+    water: [
+      [39.2, 88.5], [41.0, 90.25], [41.0, 93.25], [41.9, 91.5], [43.85, 90.25],
+      [43.85, 94.0], [45.05, 91.25], [45.35, 93.5], [46.7, 88.5], [46.7, 91.0],
+      [46.7, 93.75], [47.6, 89.25], [47.6, 92.25], [48.5, 94.0], [48.65, 90.0],
+      // And the canal on the right, at x 77-82: the same streaks, a second
+      // water feature the Owner's note about the park led me to look for.
+      [77.0, 64.75], [78.05, 63.75], [78.05, 67.5], [79.25, 63.25], [80.3, 63.75], [81.95, 62.75], [82.1, 68.0],
+    ],
+    // And the same water by day, where it reads green-brown rather than blue
+    // (median rgb 69,122,89), so the glint mask that finds a harbour is no use
+    // here. These are local maxima inside the measured pond instead.
+    glints: [
+      [38.65, 91.75], [38.95, 94.5], [39.25, 89.0], [40.95, 89.25], [41.15, 94.5],
+      [46.75, 89.0], [48.45, 90.75],
+      // The canal by day (median rgb 74,139,186, so blue where the pond is
+      // green - two different waters on one card).
+      [76.75, 68.5], [77.0, 63.0], [78.75, 62.25], [79.0, 67.5], [80.75, 62.75], [81.5, 67.75], [82.0, 62.25],
+    ],
+    // The elevated expressway, which is the one road on this card a car can
+    // ride: it sweeps from x 52 down to x 74, dropping 18% of the card across
+    // its run, and it is lit end to end in sodium orange. Traced lamp by lamp;
+    // one candidate at x 55 came back at less than half the brightness of its
+    // neighbours and was dropped rather than carried.
+    bridge: [
+      {
+        lights: [[52.75, 79.5], [57.75, 82.75], [60.75, 85.75], [63.5, 88.25], [66.75, 91.5], [69.25, 92.0], [72.5, 94.75]],
+        deck: { x: 52, y: 79, w: 22, rise: 18 },
+        police: true,
+      },
+    ],
+    // Sky lanes. Both towers reach the top of the card, so every lane stops
+    // short of them: nothing runs west of x 30 or east of x 88.
+    aircraft: { y: 8, from: 88, to: 30, flight: 40 },
+    birds: { y: 16, from: 86, to: 32, flight: 34, count: 6 },
+    helicopter: { y: 22, from: 84, to: 34, flight: 46 },
+    // MASTHEAD-STRIKE-1 (Owner asked for a thunderstorm). x and y are where
+    // the bolt's TIP lands: the rooftop at x 44.2, whose own red beacon sits
+    // at y 25.75. A bolt is 3.1 times as tall as it is wide on this card, so a
+    // tip on either tower would need most of its fork above the card; this one
+    // fits with its top at y 1.5.
+    strike: { x: 44.2, y: 26.2, w: 10 },
+    // The haze on the far city, below Fuji and above the near blocks.
+    haze: { y: 36, height: 9 },
+    // The golden-hour sun is off-frame LEFT: the sky column means fall from
+    // 183 at x 20 to 128 at x 90.
+    flare: { x: -6, y: 14 },
     rainfall: true,
   },
   london: {
