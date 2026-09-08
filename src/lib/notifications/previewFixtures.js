@@ -133,8 +133,11 @@ export const AUTOMATION_PREVIEW_FIXTURES = {
     render: () => buildAccessRetirementEmail({
       cohortName: 'Fall 2026',
       recipientName: 'Arturo',
+      // The first row carries a preferred name deliberately: the recipient
+      // searches CS-Link, where the account may be registered under either
+      // name, so the preview must show that both travel in one string.
       students: [
-        { name: 'Jordan Sample', school: 'Cal State LA', status: 'Completed' },
+        { name: 'Jordan “Jay” Sample', school: 'Cal State LA', status: 'Completed' },
         { name: 'Riley Example', school: 'West Coast University North Hollywood', status: 'Not Proceeding' },
       ],
     }),

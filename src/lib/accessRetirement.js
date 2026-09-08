@@ -15,8 +15,17 @@
 // "complete" (the ✓ CS-Link Active badge - the Hybrid Student Nurse CS-Link
 // access Arturo retires), in ANY status except Active Rotation: a student
 // still rotating keeps their access even if the cohort was flipped early.
+//
+// THE NAME. getStudentLegalDisplayName, the same First “Preferred” Last the
+// Student Profiles header shows. The recipient searches CS-Link, where a
+// student may be registered under EITHER name: this email listed only the
+// legal name, so "Ofer DeLeon" was sent for an account registered as "Abel".
+// Carrying both names in one string means the search succeeds either way,
+// without the email having to guess which one CS-Link holds. A student with
+// no preferred name, or one equal to their legal first name, reads plainly.
 
 import { getCsLinkStatus } from './utils.js'
+import { getStudentLegalDisplayName } from './studentNameFormatters.js'
 
 export const ACTIVE_ROTATION_STATUS = 'Active Rotation'
 
@@ -155,7 +164,7 @@ export function selectRetirementStudents(students = []) {
     .filter(s => getCsLinkStatus(s) === 'complete' && s.status !== ACTIVE_ROTATION_STATUS)
     .map(s => ({
       id: s.id,
-      name: [s.first_name, s.last_name].map(v => String(v || '').trim()).filter(Boolean).join(' ') || 'Unnamed student',
+      name: getStudentLegalDisplayName(s) || 'Unnamed student',
       school: String(s.school || '').trim() || 'No school on file',
       status: s.status || '',
     }))

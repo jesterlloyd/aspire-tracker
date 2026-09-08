@@ -49,6 +49,11 @@ const PREFERRED_SURFACES = [
   'src/components/connect/OutreachView.jsx',
   'lib/server/evaluation/reminderSend.js',
   'lib/server/evaluation/reminderRecipient.js',
+  // 2026-09-08: the CS-Link access-retirement list composed the name itself and
+  // sent the recipient a legal name for an account registered under a preferred
+  // one. It was not on this list, and the patterns below did not match its
+  // shorthand, so nothing caught it. Both gaps are closed.
+  'src/lib/accessRetirement.js',
 ]
 
 // ── The rule itself (unchanged, and it was never the bug) ────────────────────
@@ -70,8 +75,15 @@ test('no surface composes a student name itself instead of asking', () => {
   const handRolled = [
     /\{student\.first_name\}\s*\{student\.last_name\}/,
     /\{s\.first_name\}\s*\{s\.last_name\}/,
-    /\[student\.first_name,\s*student\.last_name\]/,
+    // The array form, under either shorthand. Only the `student.` spelling was
+    // listed, so an identical composition written as `[s.first_name, ...]`
+    // passed this test for as long as it shipped.
+    /\[\s*(?:student|s)\.first_name\s*,\s*(?:student|s)\.last_name\s*\]/,
   ]
+  // NOT listed: the `${student.first_name} ${student.last_name}` template form.
+  // Its one occurrence is the RubricSession audit log, which records the legal
+  // name deliberately and is pinned by its own test below. A pattern that needs
+  // a carve-out the day it lands is not a guard, it is noise.
   for (const file of PREFERRED_SURFACES) {
     const code = strip(read(file))
     for (const pattern of handRolled) {

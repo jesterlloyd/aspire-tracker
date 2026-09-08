@@ -130,6 +130,45 @@ test('only ✓ CS-Link Active holders outside Active Rotation are listed', () =>
   assert.deepEqual(list[0], { id: 1, name: 'Ava Adams', school: 'Cal State LA', status: 'Completed' })
 })
 
+test('the list carries First “Preferred” Last, the way Student Profiles shows it', () => {
+  // The reported defect (2026-09-08): Ofer DeLeon is registered in CS-Link as
+  // Abel, his preferred name, so a list carrying only the legal name sent the
+  // recipient looking for an account that does not exist under that name.
+  const list = selectRetirementStudents([
+    { id: 1, first_name: 'Ofer', preferred_first_name: 'Abel', last_name: 'DeLeon',
+      school: 'WCU', status: 'Completed', cs_cedars_status: 'student', cs_link_complete: true },
+    // No preferred name: reads plainly, unchanged from before.
+    { id: 2, first_name: 'Dana', preferred_first_name: '', last_name: 'Reed',
+      school: 'APU', status: 'Completed', cs_cedars_status: 'student', cs_link_complete: true },
+    // Preferred equal to the legal first name is not quoted back at the reader.
+    { id: 3, first_name: 'Sam', preferred_first_name: 'sam', last_name: 'Ortiz',
+      school: 'CSUN', status: 'Completed', cs_cedars_status: 'student', cs_link_complete: true },
+    // Whitespace-only preferred name counts as missing.
+    { id: 4, first_name: 'Nina', preferred_first_name: '   ', last_name: 'Park',
+      school: 'CSULB', status: 'Completed', cs_cedars_status: 'student', cs_link_complete: true },
+  ])
+  assert.deepEqual(list.map(s => s.name), [
+    'Dana Reed', 'Nina Park', 'Ofer “Abel” DeLeon', 'Sam Ortiz',
+  ])
+  // Curly quotes, matching getStudentLegalDisplayName and the profile header.
+  assert.ok(list.find(s => s.id === 1).name.includes('“Abel”'))
+
+  // A row with no name at all still degrades to the placeholder, not ''.
+  const [unnamed] = selectRetirementStudents([
+    { id: 9, school: 'WCU', status: 'Completed', cs_cedars_status: 'student', cs_link_complete: true },
+  ])
+  assert.equal(unnamed.name, 'Unnamed student')
+})
+
+test('the cron selects the columns the name needs, and composes none of it itself', () => {
+  const cron = read('api/cron/cohort-access-retirement.js')
+  // preferred_first_name must be in the select or the canon reads undefined.
+  assert.match(cron, /first_name, preferred_first_name, last_name/)
+  const core = read('src/lib/accessRetirement.js')
+  assert.match(core, /getStudentLegalDisplayName/)
+  assert.doesNotMatch(core, /\[s\.first_name,\s*s\.last_name\]/, 'the name is asked for, never composed')
+})
+
 // ── 4. Source assertions ────────────────────────────────────────────────────
 
 test('the migration stamps on the transition, clears on revert, and never backfills', () => {
