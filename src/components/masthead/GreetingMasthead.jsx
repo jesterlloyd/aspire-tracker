@@ -51,7 +51,11 @@ export default function GreetingMasthead({
   void dateLabel; void contextLabel; void onCampusCount; void milestone
 
   return (
-    <div className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}${flush ? ' mast-flush' : ''}`}>
+    // WELCOME-TOUR-MASTHEAD-1: the Welcome Tour's masthead anchor. The CARD, not the
+    // weather trigger inside it: the trigger only exists once weather has resolved and
+    // more than one city pack is installed, and a step whose target is missing is
+    // skipped, so anchoring there would silently drop the step on a slow network.
+    <div data-tour="masthead" className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}${flush ? ' mast-flush' : ''}`}>
       {showWeather && <MastheadScenery />}
       <div className="mast-row">
         <div className="mast-left">

@@ -77,7 +77,12 @@ test('UnitLeaderChrome: the anchor is on NavItem, which MoreSheet does not use',
   assert.ok(unitCode.indexOf('<NavItem') > unitLeaderNavStart)
 })
 
-test('UnitLeaderChrome: the unit switcher carries portal-unit-switcher on its rendered wrapper', () => {
+// NOTE (WELCOME-TOUR-MASTHEAD-1): UnitSwitcher is exported but nothing renders it
+// any more; the unit picker moved into the shared portal header controls. The
+// anchor below therefore never reaches the DOM, which is why the Unit Leader tour
+// step now targets [data-tour="portal-scope-selector"] instead. This assertion is
+// kept as a source-level guard on the component that still exists.
+test('UnitLeaderChrome: the unit switcher carries portal-unit-switcher on its wrapper', () => {
   const switcherStart = unitCode.indexOf('export function UnitSwitcher')
   const switcherEnd = unitCode.indexOf('\n/**', switcherStart)
   const switcherBody = unitCode.slice(switcherStart, switcherEnd)

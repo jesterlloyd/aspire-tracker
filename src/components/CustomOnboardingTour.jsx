@@ -257,12 +257,26 @@ export default function CustomOnboardingTour({ run, onClose, experience = 'staff
   let tooltipStyle;
   let arrowSide = null;
 
+  // WELCOME-TOUR-MASTHEAD-1 fix: ONE width for every step, computed from the
+  // viewport, and always set explicitly.
+  //
+  // The defect this replaces: the centered ('body') step set no width at all,
+  // so a fixed box at left:50% shrink-to-fit against its containing block got
+  // exactly half the viewport. On a 375px phone the welcome step measured
+  // 187.5px, the measure effect stored that in tooltipSize, and every LATER
+  // step then inherited 187.5px as an explicit width - a tall unreadable
+  // column whose buttons ran off the bottom of the screen. Measured on a real
+  // 375x812 render, not reasoned about. Students meet this tour on a phone
+  // (STUDENT-PHONE-1), so it is the width that matters most.
+  const tooltipWidth = Math.min(TOOLTIP_WIDTH, window.innerWidth - 32);
+
   if (isCentered) {
     tooltipStyle = {
       position: 'fixed',
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
+      width: tooltipWidth,
       zIndex: 999999,
     };
   } else {
@@ -279,22 +293,25 @@ export default function CustomOnboardingTour({ run, onClose, experience = 'staff
       arrowSide = 'bottom';
     }
 
-    left = targetRect.left + targetRect.width / 2 - tooltipSize.width / 2;
-    if (left < 16) left = 16;
-    if (left + tooltipSize.width > window.innerWidth - 16) {
-      left = window.innerWidth - tooltipSize.width - 16;
+    left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
+    // Right edge first, THEN the left gutter, so the left clamp wins: the old
+    // order let the right-edge correction push left negative whenever the
+    // tooltip was wider than the viewport minus its gutters.
+    if (left + tooltipWidth > window.innerWidth - 16) {
+      left = window.innerWidth - tooltipWidth - 16;
     }
+    if (left < 16) left = 16;
 
-    tooltipStyle = { position: 'fixed', top, left, width: tooltipSize.width, zIndex: 999999 };
+    tooltipStyle = { position: 'fixed', top, left, width: tooltipWidth, zIndex: 999999 };
   }
 
   // Arrow offset relative to tooltip left edge
   const arrowLeft = targetRect
     ? Math.max(20, Math.min(
         targetRect.left + targetRect.width / 2 - (tooltipStyle.left ?? 0) - 8,
-        tooltipSize.width - 32
+        tooltipWidth - 32
       ))
-    : tooltipSize.width / 2 - 8;
+    : tooltipWidth / 2 - 8;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 

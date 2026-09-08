@@ -76,7 +76,9 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
   )
 
   return (
-    <div className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
+    // WELCOME-TOUR-MASTHEAD-1: same anchor as the shared portal masthead, so one tour
+    // step serves the staff card and all four portal cards.
+    <div data-tour="masthead" className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
       <MastheadScenery />
       <div className="mast-row">
         <div className="mast-left">

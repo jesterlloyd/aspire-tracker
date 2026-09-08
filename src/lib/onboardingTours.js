@@ -18,22 +18,33 @@
 // tour must not suppress the staff tour for the same person, and vice versa.
 // The ledger token in onboarding_tour_version is the sole acknowledgement source
 // - see isTourAcknowledged.
+//
+// WELCOME-TOUR-MASTHEAD-1 (2026-09-08): every experience gains the masthead step,
+// and each tour picks up the surfaces shipped since its last bump. Every version
+// moves, so every signed-in person sees their tour once more.
 export const TOUR_EXPERIENCES = {
-  staff: 'v4', // v2 -> v3: the Aggregate -> "At a Glance" rename and the Student
+  staff: 'v5', // v2 -> v3: the Aggregate -> "At a Glance" rename and the Student
                // Profiles / CS-Link Access copy correction re-show once.
                // v3 -> v4: the Rotation step now names the three subtabs
                // (Placement Board / Preceptors / Activity) and drops the stale
                // "matching board" phrase.
+               // v4 -> v5: the masthead step, the Messages dock, Keith's slash
+               // commands, and the profile menu's portal switcher.
   // v1 -> v2 (all three portals): the Send Feedback and Messages shortcut
   // launcher steps were added, so the corrected tours appear once.
-  student: 'v2',
-  unit_leader: 'v2',
+  // v2 -> v3: the masthead step, plus the Shift Log tab (student) and the
+  // header scope controls retarget (unit leader).
+  student: 'v3',
+  unit_leader: 'v3',
   // v2 -> v3: corrected Students / Placement Requests role boundary copy
   // (Placement Requests submits only; tracking lives on Students).
-  academic_partner: 'v3',
+  // v3 -> v4: the masthead step.
+  academic_partner: 'v4',
   // v1 -> v2: renamed the portal and At A Glance section, then added the
   // read-only Contacts directory.
-  nursing_academic: 'v2',
+  // v2 -> v3: the masthead step, plus the Messages tab and the two utility
+  // launchers this portal gained in NA-PORTAL-UTILITIES-1.
+  nursing_academic: 'v3',
 };
 
 // Legacy alias. Nothing outside this module should need it (use TOUR_EXPERIENCES
@@ -125,6 +136,30 @@ export function shouldAutoStartTour(userProfile, experience) {
   if (isTourSnoozed(experience)) return false;
   return true;
 }
+
+// ── The masthead, shared by every experience ─────────────────────────────────
+// WELCOME-TOUR-MASTHEAD-1: staff At a Glance (TodayMasthead) and all four portal
+// homes (GreetingMasthead) render the SAME card, so they get the same step from
+// one definition rather than five near-copies that drift.
+//
+// The target is the card, not the temperature button inside it. The button only
+// renders once weather has resolved AND more than one city pack is installed,
+// and the engine skips a step whose target is missing, so anchoring on the
+// button would quietly drop the step for anyone whose weather was still in
+// flight. The card is present the moment the page is.
+//
+// Claims are limited to what every host renders: the greeting, the clock and
+// date, the weather, the 14-day event chips (MASTHEAD_WINDOW_DAYS in
+// src/lib/mastheadEvents.js), and the scenery. Open Calendar is deliberately not
+// named - the Academic Partner and Nursing Academics mastheads pass no calendar
+// handler. The city choice is localStorage, keyed per user, so "on this device"
+// is the honest scope (see src/lib/mastheadCityPreference.js).
+
+const mastheadStep = {
+  target: '[data-tour="masthead"]',
+  title: 'Your Masthead',
+  content: 'The card at the top greets you, keeps a live clock and date, and shows the weather where you are. Anything on the calendar in the next two weeks appears as a chip along its bottom edge. The scenery behind it follows the time of day and the weather, and tapping the temperature lets you choose which city it shows. Your choice is remembered on this device.',
+};
 
 // ── Staff step definitions ───────────────────────────────────────────────────
 // TOUR-1 / WELCOME-TOUR-PORTALS-1: copy refreshed against current ASPIRE
@@ -231,7 +266,22 @@ const staffSearch = {
 const staffKeith = {
   target: '[data-tour="keith-orb"]',
   title: 'Keith, your AI assistant',
-  content: "Ask Keith about ASPIRE workflows, rules, and how to complete a task. Keith answers within your role's access, look bottom-right.",
+  // KEITH-SLASH-PALETTE-1: typing "/" in the composer opens a caret-anchored
+  // list of the skills Keith can run (src/lib/slashPalette.js), so the copy
+  // names it rather than leaving the affordance undiscoverable.
+  content: "Ask Keith about ASPIRE workflows, rules, and how to complete a task, and type a slash in the composer to see the tasks Keith can run for you. Keith answers within your role's access, look bottom-right.",
+};
+
+// MESSAGES-DOCK-1: the lower-right Messages dock. Authorization is Owner and
+// Admin only (canUseMessages in MainMessagesLauncher.jsx), which does NOT match
+// this tour's privileged set exactly - a Co-Lead is privileged here but sees no
+// launcher. The step stays in the privileged array and the engine's
+// missing-target skip carries a Co-Lead past it, the same rule the portal
+// launcher steps rely on.
+const staffMessagesDock = {
+  target: '[data-tour="main-messages-launcher"]',
+  title: 'Messages',
+  content: 'The round button above Keith opens a docked Messages panel over whatever you are working on: the same inbox, threads, and New message action as ASPIRE Connect, without leaving the page. Your unread count sits on the button.',
 };
 
 const staffFeedback = {
@@ -246,7 +296,9 @@ const staffFeedback = {
 const staffUserMenu = {
   target: '[data-tour="user-profile"]',
   title: 'Your Profile',
-  content: "View your role, open Settings, or sign out. Settings holds appearance, help, restarting this tour under Tours & Help, and, for Owners and Admins, account access and the governed Knowledge Center.",
+  // PORTAL-SWITCHER-1: the Portals group in this menu is Owner/Admin only
+  // (src/lib/portalLinks.js drives it), so the sentence names that audience.
+  content: "View your role, open Settings, or sign out. Settings holds appearance, help, restarting this tour under Tours & Help, and, for Owners and Admins, account access and the governed Knowledge Center. Owners and Admins can also open any of the four portals straight from this menu.",
   placement: 'bottom-end',
   spotlightPadding: 6,
   disableBeacon: true,
@@ -274,6 +326,9 @@ function getStaffSteps(userProfile) {
       staffScopeSwitcher,
       // workflow tabs
       staffAggregate,
+      // The masthead sits at the top of At a Glance, which is where the tour is
+      // already standing, so it follows that tab's step rather than opening the run.
+      mastheadStep,
       staffStudentProfiles,
       staffInterviewRubric,
       staffEmbed,
@@ -284,6 +339,8 @@ function getStaffSteps(userProfile) {
       staffCatalog,
       staffActionCenter,
       staffUserMenu,
+      // lower-right dock: Messages, then Keith, then Feedback
+      staffMessagesDock,
       staffKeith,
       staffFeedback,
       staffFinish,
@@ -298,6 +355,7 @@ function getStaffSteps(userProfile) {
       staffScopeSwitcher,
       // workflow tabs (no Rotation / Evaluation)
       staffAggregate,
+      mastheadStep,
       staffStudentProfiles,
       staffInterviewRubric,
       // header tools (no Connect)
@@ -316,6 +374,7 @@ function getStaffSteps(userProfile) {
     staffScopeSwitcher,
     // workflow tabs
     staffAggregate,
+    mastheadStep,
     staffStudentProfiles,
     staffInterviewRubric,
     staffEvaluation,
@@ -361,13 +420,18 @@ function getStudentSteps(userProfile) {
       placement: 'center',
       disableBeacon: true,
       title: `Welcome, ${firstName}!`,
-      content: 'This is your ASPIRE Compass, your home for tracking your stage progress, messaging the ASPIRE team, and managing your rotation. This short tour walks you through the areas you will use most.',
+      // STUDENT-PHONE-1: most students open this on a phone, where the section
+      // nav is the fixed bar along the bottom rather than a row of tabs. The
+      // anchors are the same buttons either way, so the tour spotlights them in
+      // place; the welcome says where to look.
+      content: 'This is your ASPIRE Compass, your home for tracking your stage progress, messaging the ASPIRE team, logging your shifts, and managing your rotation. This short tour walks you through the areas you will use most. On a phone, those sections live in the bar along the bottom of the screen.',
     },
     {
       target: '[data-tour="portal-nav-home"]',
       title: 'Home',
-      content: 'Your Compass home: where you are in the ASPIRE stages, what to do next, and quick access to your profile.',
+      content: 'Your Compass home: where you are in the ASPIRE stages, what to do next, your Rotation Activity calendar, and quick access to your profile.',
     },
+    mastheadStep,
     {
       target: '[data-tour="portal-nav-messages"]',
       title: 'Messages',
@@ -377,6 +441,17 @@ function getStudentSteps(userProfile) {
       target: '[data-tour="portal-nav-placement"]',
       title: 'My Placement',
       content: 'Review your placement progress, ASPIRE status, surveys, badge and certificates, and support options here.',
+    },
+    {
+      // STUDENT-SHIFT-TAB-1: shift logging moved INSIDE the portal, with the
+      // session as identity. The tab itself is check in / check out / log a past
+      // shift; editing, withdrawing and corrections live in the shift history
+      // panel, which opens from Home's Rotation Activity and from My Placement
+      // (see src/portal/ShiftLogHistoryDrawer.jsx), so the copy sends you there
+      // rather than promising it on this tab.
+      target: '[data-tour="portal-nav-shiftlog"]',
+      title: 'Shift Log',
+      content: 'Check in at the start of a shift, check out at the end, and log a past shift, without leaving the portal or typing your school email. Logging opens once you are Placed and in an Active Rotation. To edit, withdraw, or request a correction on a shift you already logged, open your shift history from Home or My Placement.',
     },
     portalFeedbackStep,
     portalMessagesLauncherStep,
@@ -424,8 +499,9 @@ function getUnitLeaderSteps(userProfile) {
     {
       target: '[data-tour="portal-nav-home"]',
       title: 'Home',
-      content: "Your unit's overview: the current student roster and where things stand at a glance.",
+      content: "Your unit's overview: who is on campus right now, the current student roster, the rotation calendar, and where things stand at a glance.",
     },
+    mastheadStep,
     {
       target: '[data-tour="portal-nav-preceptors"]',
       title: 'Preceptors',
@@ -454,11 +530,19 @@ function getUnitLeaderSteps(userProfile) {
     portalFeedbackStep,
     portalMessagesLauncherStep,
     {
-      // Rendered only when the leader is assigned more than one unit; a single-
-      // unit leader has nothing to switch between, so this step is skipped.
-      target: '[data-tour="portal-unit-switcher"]',
-      title: 'Switch Units',
-      content: "If you lead more than one unit, switch which unit's data this portal shows here, or view all of your assigned units together.",
+      // WELCOME-TOUR-MASTHEAD-1 correction: this step used to target
+      // [data-tour="portal-unit-switcher"], the anchor on UnitSwitcher in
+      // UnitLeaderChrome.jsx. That component is exported but no longer rendered
+      // anywhere: the unit picker moved into the shared portal header controls,
+      // where it now sits beside a Cohort picker. The anchor therefore never
+      // existed in the DOM and the engine skipped this step for every unit
+      // leader. It retargets to the shared header-controls wrapper, which is the
+      // same anchor the Academic Partner tour already uses, and the copy covers
+      // both controls. The wrapper carries `:empty { display: none }`, so a
+      // leader with one unit and one cohort still skips it.
+      target: '[data-tour="portal-scope-selector"]',
+      title: 'Units and Cohort',
+      content: "The controls in the header decide what this portal shows you. If you lead more than one unit, Viewing switches between them or shows all of your assigned units together. Cohort narrows the section you are on to a single cohort.",
     },
     {
       target: '[data-tour="portal-profile-menu"]',
@@ -499,6 +583,9 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
       title: `Welcome, ${firstName}!`,
       content: "This is the Academic Partner Portal, your home for your school's ASPIRE students and placement requests. This short tour walks you through each section.",
     },
+    // The portal opens on Students, and AcademicPartnerPortal.jsx renders the
+    // masthead at the top of that page, so the card is there from the first step.
+    mastheadStep,
     {
       target: '[data-tour="portal-nav-students"]',
       title: 'Students',
@@ -563,9 +650,16 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
 }
 
 // ── Nursing Academics Portal step definitions ────────────────────────────────
-// NURSING-ACADEMICS-1: three sections, view-only, no messaging/feedback
-// launchers (those capabilities are intentionally not enabled for this role),
-// so the tour is short: the three nav destinations and the profile menu.
+// NURSING-ACADEMICS-1: three sections, view-only, so the tour is short.
+//
+// NA-PORTAL-UTILITIES-1 changed that: the portal gained a Messages tab and both
+// utility launchers, each behind its own fail-closed server capability
+// (na_messaging / na_feedback in PortalApp.jsx). Unlike the Academic Partner
+// case, nothing here needs a new context key: when a capability is off, the nav
+// button and the launcher are simply not in the DOM, and the engine's
+// missing-target skip walks past them, exactly as the Student and Unit Leader
+// launcher steps already rely on. So they go in the array and stay honest either
+// way.
 
 function getNursingAcademicSteps(userProfile) {
   const firstName = userProfile?.full_name?.split(' ')[0] || 'there';
@@ -575,13 +669,14 @@ function getNursingAcademicSteps(userProfile) {
       placement: 'center',
       disableBeacon: true,
       title: `Welcome, ${firstName}!`,
-      content: 'This is the Nursing Education & Leadership Portal, your organization-wide view of ASPIRE. This short tour walks you through its three sections.',
+      content: 'This is the Nursing Education & Leadership Portal, your organization-wide view of ASPIRE. This short tour walks you through its sections.',
     },
     {
       target: '[data-tour="portal-nav-calendar"]',
       title: 'At A Glance',
       content: 'See fiscal-year impact totals and school rotation windows across every cohort, color-coded by school.',
     },
+    mastheadStep,
     {
       target: '[data-tour="portal-nav-community-benefit"]',
       title: 'Community Benefit',
@@ -590,8 +685,15 @@ function getNursingAcademicSteps(userProfile) {
     {
       target: '[data-tour="portal-nav-contacts"]',
       title: 'Contacts',
-      content: 'Search and view active ASPIRE contacts. This directory is read-only and does not include outreach or messaging tools.',
+      content: 'Search and view active ASPIRE contacts. This directory is read-only: it lists who to reach, and does not send outreach.',
     },
+    {
+      target: '[data-tour="portal-nav-messages"]',
+      title: 'Messages',
+      content: 'Send and receive secure messages with the ASPIRE team here. An unread badge shows when a new message is waiting.',
+    },
+    portalFeedbackStep,
+    portalMessagesLauncherStep,
     {
       target: '[data-tour="portal-profile-menu"]',
       title: 'Your Profile',

@@ -184,7 +184,9 @@ test('feedback and messaging recognize the role, fail-closed behind the Owner SQ
 
 test('the tour registry serves the new experience', async () => {
   const { TOUR_EXPERIENCES, getTourSteps } = await import('../src/lib/onboardingTours.js')
-  assert.equal(TOUR_EXPERIENCES.nursing_academic, 'v2')
+  // WELCOME-TOUR-MASTHEAD-1 bumped every experience; NE&L also gained the
+  // masthead step and the utilities from NA-PORTAL-UTILITIES-1.
+  assert.equal(TOUR_EXPERIENCES.nursing_academic, 'v3')
   const steps = getTourSteps('nursing_academic', { userProfile: { full_name: 'Michael M' } })
   assert.ok(steps.length >= 4)
   assert.ok(steps.some(s => s.target === '[data-tour="portal-nav-calendar"]'))

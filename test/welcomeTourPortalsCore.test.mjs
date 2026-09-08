@@ -60,7 +60,7 @@ test('parseTourAcks / serializeTourAcks', async (t) => {
 
 test('isTourAcknowledged', async (t) => {
   await t.test('true when the ledger token matches the current TOUR_EXPERIENCES version', () => {
-    const profile = { onboarding_tour_version: 'staff:v4' }
+    const profile = { onboarding_tour_version: 'staff:v5' }
     assert.equal(isTourAcknowledged(profile, 'staff'), true)
   })
 
@@ -70,20 +70,20 @@ test('isTourAcknowledged', async (t) => {
   })
 
   await t.test('false when the experience has no ledger entry at all', () => {
-    const profile = { onboarding_tour_version: 'staff:v4' }
+    const profile = { onboarding_tour_version: 'staff:v5' }
     assert.equal(isTourAcknowledged(profile, 'student'), false)
   })
 
   await t.test('one experience acknowledgement never acknowledges another', () => {
-    const studentAcked = { onboarding_tour_version: 'student:v2' }
+    const studentAcked = { onboarding_tour_version: 'student:v3' }
     assert.equal(isTourAcknowledged(studentAcked, 'staff'), false)
 
-    const staffAcked = { onboarding_tour_version: 'staff:v4' }
+    const staffAcked = { onboarding_tour_version: 'staff:v5' }
     assert.equal(isTourAcknowledged(staffAcked, 'student'), false)
   })
 
   await t.test('a mixed ledger acknowledges only the experiences it names', () => {
-    const profile = { onboarding_tour_version: 'staff:v4,unit_leader:v2' }
+    const profile = { onboarding_tour_version: 'staff:v5,unit_leader:v3' }
     assert.equal(isTourAcknowledged(profile, 'staff'), true)
     assert.equal(isTourAcknowledged(profile, 'unit_leader'), true)
     assert.equal(isTourAcknowledged(profile, 'student'), false)
@@ -92,14 +92,13 @@ test('isTourAcknowledged', async (t) => {
 })
 
 test('TOUR_EXPERIENCES and the legacy TOUR_VERSION alias', () => {
-  // WELCOME-TOUR-FOLLOWUP-1 bumps: staff v4 (Rotation subtab copy), portals v2
-  // (Send Feedback + Messages shortcut steps) - each corrected tour re-shows once.
-  assert.equal(TOUR_EXPERIENCES.staff, 'v4')
-  assert.equal(TOUR_EXPERIENCES.student, 'v2')
-  assert.equal(TOUR_EXPERIENCES.unit_leader, 'v2')
-  // WELCOME-TOUR-FOLLOWUP-2: v2 -> v3, the Students / Placement Requests role
-  // boundary correction re-shows the AP tour once. Only the AP version moved.
-  assert.equal(TOUR_EXPERIENCES.academic_partner, 'v3')
+  // WELCOME-TOUR-MASTHEAD-1: every experience gained the masthead step, so
+  // every version moved together and every tour re-shows once.
+  assert.equal(TOUR_EXPERIENCES.staff, 'v5')
+  assert.equal(TOUR_EXPERIENCES.student, 'v3')
+  assert.equal(TOUR_EXPERIENCES.unit_leader, 'v3')
+  assert.equal(TOUR_EXPERIENCES.academic_partner, 'v4')
+  assert.equal(TOUR_EXPERIENCES.nursing_academic, 'v3')
   assert.equal(TOUR_VERSION, TOUR_EXPERIENCES.staff)
 })
 
@@ -124,7 +123,7 @@ test('shouldAutoStartTour', async (t) => {
   })
 
   await t.test('false once the current version is acknowledged for that experience', () => {
-    const profile = { onboarding_tour_completed: true, onboarding_tour_version: 'staff:v4' }
+    const profile = { onboarding_tour_completed: true, onboarding_tour_version: 'staff:v5' }
     assert.equal(shouldAutoStartTour(profile, 'staff'), false)
   })
 })
@@ -226,14 +225,19 @@ test('getTourSteps: unit_leader', async (t) => {
   const profile = { full_name: 'Robin Chen' }
   const targets = stepTargets(getTourSteps('unit_leader', { userProfile: profile }))
 
-  await t.test('includes all six section anchors plus the unit switcher', () => {
+  await t.test('includes all six section anchors plus the header scope controls', () => {
     for (const anchor of [
       'portal-nav-home', 'portal-nav-preceptors', 'portal-nav-messages',
       'portal-nav-evaluations', 'portal-nav-placements', 'portal-nav-capacity',
     ]) {
       assert.ok(targets.includes(`[data-tour="${anchor}"]`), `missing ${anchor}`)
     }
-    assert.ok(targets.includes('[data-tour="portal-unit-switcher"]'))
+    // WELCOME-TOUR-MASTHEAD-1 correction: portal-unit-switcher is the anchor on
+    // UnitLeaderChrome's UnitSwitcher, which nothing renders any more (the unit
+    // picker moved into the shared portal header controls). The step targets the
+    // wrapper that actually exists, and must never go back to the dead anchor.
+    assert.ok(targets.includes('[data-tour="portal-scope-selector"]'))
+    assert.ok(!targets.includes('[data-tour="portal-unit-switcher"]'))
     assert.ok(targets.includes('[data-tour="portal-profile-menu"]'))
   })
 })
@@ -548,13 +552,158 @@ test('AP tour draws the submit-vs-track boundary correctly for both capability b
   }
 })
 
-test('the AP boundary bump moved only the academic_partner version', () => {
-  assert.equal(TOUR_EXPERIENCES.academic_partner, 'v3')
-  assert.equal(TOUR_EXPERIENCES.staff, 'v4')
-  assert.equal(TOUR_EXPERIENCES.student, 'v2')
-  assert.equal(TOUR_EXPERIENCES.unit_leader, 'v2')
-  // A pre-bump AP acknowledgement no longer suppresses; other experiences' do.
-  assert.equal(isTourAcknowledged({ onboarding_tour_version: 'academic_partner:v2' }, 'academic_partner'), false)
-  assert.equal(isTourAcknowledged({ onboarding_tour_version: 'academic_partner:v3' }, 'academic_partner'), true)
-  assert.equal(isTourAcknowledged({ onboarding_tour_version: 'student:v2' }, 'student'), true)
+test('the masthead bump moved every experience version', () => {
+  // WELCOME-TOUR-MASTHEAD-1: unlike the AP-only bump before it, this one touches
+  // all five, so a stale token from ANY prior version stops suppressing.
+  for (const [experience, stale, current] of [
+    ['staff', 'v4', 'v5'],
+    ['student', 'v2', 'v3'],
+    ['unit_leader', 'v2', 'v3'],
+    ['academic_partner', 'v3', 'v4'],
+    ['nursing_academic', 'v2', 'v3'],
+  ]) {
+    assert.equal(TOUR_EXPERIENCES[experience], current)
+    assert.equal(isTourAcknowledged({ onboarding_tour_version: `${experience}:${stale}` }, experience), false)
+    assert.equal(isTourAcknowledged({ onboarding_tour_version: `${experience}:${current}` }, experience), true)
+  }
+})
+
+// ── WELCOME-TOUR-MASTHEAD-1: the masthead step and the surfaces each tour gained
+
+test('every experience walks the masthead, on the card anchor both hosts render', () => {
+  const profile = { full_name: 'Alex Rivera', is_owner: true }
+  const anchor = '[data-tour="masthead"]'
+  for (const [exp, ctx] of [
+    ['staff', { userProfile: profile }],
+    ['staff', { userProfile: { full_name: 'Alex Rivera', role: 'interviewer' } }],
+    ['staff', { userProfile: { full_name: 'Alex Rivera', role: 'viewer' } }],
+    ['student', { userProfile: profile }],
+    ['unit_leader', { userProfile: profile }],
+    ['academic_partner', { userProfile: profile, apMessagesEnabled: true }],
+    ['academic_partner', { userProfile: profile, apMessagesEnabled: false }],
+    ['nursing_academic', { userProfile: profile }],
+  ]) {
+    const steps = getTourSteps(exp, ctx)
+    const targets = steps.map(s => s.target)
+    assert.equal(targets.filter(t => t === anchor).length, 1, `${exp} walks the masthead exactly once`)
+  }
+
+  // ONE definition, not five: the same object is reused, so the copy cannot drift
+  // between the staff card and the four portal cards.
+  const staffStep = getTourSteps('staff', { userProfile: profile }).find(s => s.target === anchor)
+  for (const exp of ['student', 'unit_leader', 'academic_partner', 'nursing_academic']) {
+    const step = getTourSteps(exp, { userProfile: profile }).find(s => s.target === anchor)
+    assert.equal(step, staffStep, `${exp} reuses the shared masthead step object`)
+  }
+
+  // The anchor is on the CARD in both hosts, never on the weather trigger (which
+  // only exists once weather resolves and more than one city pack is installed).
+  const shared = read('../src/components/masthead/GreetingMasthead.jsx')
+  const today = read('../src/components/TodayMasthead.jsx')
+  assert.match(shared, /<div data-tour="masthead" className=\{`mast /)
+  assert.match(today, /<div data-tour="masthead" className=\{`mast /)
+  assert.doesNotMatch(read('../src/components/WeatherScene.jsx'), /data-tour="masthead"/)
+})
+
+test('the masthead copy claims only what every host renders', () => {
+  const step = getTourSteps('staff', { userProfile: { full_name: 'Alex Rivera', is_owner: true } })
+    .find(s => s.target === '[data-tour="masthead"]')
+  assert.match(step.content, /live clock/)
+  assert.match(step.content, /weather/)
+  assert.match(step.content, /next two weeks/)   // MASTHEAD_WINDOW_DAYS = 14
+  assert.match(step.content, /scenery/)
+  assert.match(step.content, /tapping the temperature/)
+  // The city choice is localStorage keyed per user, never a server preference.
+  assert.match(step.content, /remembered on this device/)
+  // Open Calendar is NOT universal: the AP and NA mastheads pass no calendar
+  // handler, so the shared copy must not promise it.
+  assert.doesNotMatch(step.content, /Open Calendar/)
+})
+
+test('staff v5 additions: the Messages dock, Keith slash commands, and the portal switcher', () => {
+  const owner = { full_name: 'Ada Lovelace', is_owner: true }
+  const steps = getTourSteps('staff', { userProfile: owner })
+  const targets = steps.map(s => s.target)
+
+  // MESSAGES-DOCK-1: the anchor the launcher actually carries.
+  assert.ok(targets.includes('[data-tour="main-messages-launcher"]'))
+  assert.match(read('../src/components/MainMessagesLauncher.jsx'), /data-tour="main-messages-launcher"/)
+
+  // The dock is Owner/Admin only, so it is not offered to interviewers or viewers.
+  for (const role of ['interviewer', 'viewer']) {
+    const t = getTourSteps('staff', { userProfile: { full_name: 'Ada', role } }).map(s => s.target)
+    assert.ok(!t.includes('[data-tour="main-messages-launcher"]'), `${role} is not walked to the dock`)
+  }
+
+  // KEITH-SLASH-PALETTE-1: the slash affordance is named on the Keith step.
+  const keith = steps.find(s => s.target === '[data-tour="keith-orb"]')
+  assert.match(keith.content, /slash/)
+
+  // PORTAL-SWITCHER-1: the profile menu names the Owner/Admin portal list.
+  const menu = steps.find(s => s.target === '[data-tour="user-profile"]')
+  assert.match(menu.content, /Owners and Admins can also open any of the four portals/)
+  assert.match(read('../src/components/UserMenu.jsx'), /PORTAL_LINKS/)
+})
+
+test('the student tour walks the Shift Log tab and sends corrections to the history panel', () => {
+  const steps = getTourSteps('student', { userProfile: { full_name: 'Sam Rivera' } })
+  const shift = steps.find(s => s.target === '[data-tour="portal-nav-shiftlog"]')
+  assert.ok(shift, 'the Shift Log step exists')
+  // The anchor is the one PortalNav already carries (STUDENT-SHIFT-TAB-1).
+  assert.match(read('../src/portal/PortalNav.jsx'), /data-tour="portal-nav-shiftlog"/)
+  // The tab is check in / check out / log a past shift ...
+  assert.match(shift.content, /Check in/)
+  assert.match(shift.content, /check out/)
+  assert.match(shift.content, /log a past shift/)
+  // ... gated exactly as the public flow is: Placed and Active Rotation.
+  assert.match(shift.content, /Placed and in an Active Rotation/)
+  // ... and it must NOT claim editing lives on the tab: the history panel owns
+  // edit, withdraw and correction, and opens from Home or My Placement.
+  assert.match(shift.content, /shift history from Home or My Placement/)
+
+  // STUDENT-PHONE-1: the welcome says where the sections are on a phone.
+  assert.match(steps[0].content, /bar along the bottom/)
+})
+
+test('the Nursing Academics tour picks up the utilities that portal gained', () => {
+  const targets = getTourSteps('nursing_academic', { userProfile: { full_name: 'Michael M' } }).map(s => s.target)
+  // NA-PORTAL-UTILITIES-1: Messages tab plus both launchers. Each is capability
+  // gated server-side; when a capability is off the element is absent and the
+  // engine skips the step, so no new context key is needed here.
+  assert.ok(targets.includes('[data-tour="portal-nav-messages"]'))
+  assert.ok(targets.includes('[data-tour="feedback-button"]'))
+  assert.ok(targets.includes('[data-tour="portal-messages-launcher"]'))
+  assert.match(read('../src/portal/na/NursingAcademicsChrome.jsx'), /data-tour=\{`portal-nav-\$\{key\}`\}/)
+
+  // The Contacts step no longer claims this portal has no messaging.
+  const contacts = getTourSteps('nursing_academic', { userProfile: { full_name: 'Michael M' } })
+    .find(s => s.target === '[data-tour="portal-nav-contacts"]')
+  assert.doesNotMatch(contacts.content, /messaging/)
+})
+
+test('the tooltip gets one explicit, viewport-aware width on every step', () => {
+  // WELCOME-TOUR-MASTHEAD-1: the centered ('body') step used to set no width,
+  // so a fixed box at left:50% shrink-to-fit to HALF the viewport. Measured on a
+  // real 375x812 render it came out 187.5px, the measure effect stored that in
+  // tooltipSize, and every later step inherited it as an explicit width. Both
+  // halves of the fix are pinned here.
+  assert.match(engineSrc, /const tooltipWidth = Math\.min\(TOOLTIP_WIDTH, window\.innerWidth - 32\)/)
+  // The centered branch now carries a width ...
+  const centeredBranch = engineSrc.slice(
+    engineSrc.indexOf('if (isCentered) {'),
+    engineSrc.indexOf('} else {', engineSrc.indexOf('if (isCentered) {'))
+  )
+  assert.match(centeredBranch, /width: tooltipWidth/)
+  // ... and the positioned branch sizes and arrows from the same value, never
+  // from the measured tooltipSize.width.
+  assert.match(engineSrc, /tooltipStyle = \{ position: 'fixed', top, left, width: tooltipWidth, zIndex: 999999 \}/)
+  assert.doesNotMatch(engineSrc, /width: tooltipSize\.width/)
+  assert.doesNotMatch(engineSrc, /tooltipSize\.width - 32/)
+
+  // Clamp ORDER: the right-edge correction runs first so the left gutter wins,
+  // otherwise a tooltip wider than the viewport minus its gutters is pushed to a
+  // negative left.
+  const rightClamp = engineSrc.indexOf('left = window.innerWidth - tooltipWidth - 16')
+  const leftClamp = engineSrc.indexOf('if (left < 16) left = 16')
+  assert.ok(rightClamp > -1 && leftClamp > -1 && rightClamp < leftClamp)
 })
