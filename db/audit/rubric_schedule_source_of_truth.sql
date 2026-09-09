@@ -56,26 +56,45 @@ ORDER BY s.last_name;
 
 -- ── 3. Is there an open slot to move a booking INTO? ─────────────────────────
 -- move_booking refuses unless the destination already exists, is open, and belongs
--- to the SAME availability block (so the interviewer never changes silently). Set
--- the date and time to the ones being requested; an empty result is exactly the
--- refusal the rubric will show.
+-- to the SAME INTERVIEWER. Same interviewer, NOT the same availability block: each
+-- "Add availability" creates its own block, so one interviewer routinely holds
+-- several on a day and the open slot is usually in a different block from the booked
+-- one. This lists every slot that interviewer holds on the date, across all blocks.
+-- An empty result, or no row with is_booked = false at the wanted time, is exactly
+-- the refusal the rubric shows.
+WITH origin AS (
+  SELECT sl.block_id, sl.cohort_id
+  FROM public.interview_slots sl
+  WHERE sl.booked_by_student_id = (
+          SELECT id FROM public.students WHERE last_name ILIKE 'Waggoner' LIMIT 1)
+    AND sl.is_booked = true
+  LIMIT 1
+),
+who AS (
+  SELECT b.interviewer_profile_id, b.interviewer_name, o.cohort_id
+  FROM public.interview_availability_blocks b
+  JOIN origin o ON o.block_id = b.id
+)
 SELECT
   sl.id, sl.slot_date, sl.slot_time, sl.duration_minutes,
-  sl.interviewer_name, sl.is_booked
+  b.interviewer_name, sl.is_booked
 FROM public.interview_slots sl
-WHERE sl.block_id = (
-        SELECT block_id FROM public.interview_slots
-        WHERE booked_by_student_id = (
-                SELECT id FROM public.students WHERE last_name ILIKE 'Waggoner' LIMIT 1)
-          AND is_booked = true
-        LIMIT 1)
+JOIN public.interview_availability_blocks b ON b.id = sl.block_id
+JOIN who ON (
+      (who.interviewer_profile_id IS NOT NULL
+        AND b.interviewer_profile_id = who.interviewer_profile_id)
+   OR (who.interviewer_profile_id IS NULL
+        AND b.interviewer_name = who.interviewer_name)
+)
+WHERE b.cohort_id = (SELECT cohort_id FROM who)
   AND sl.slot_date = DATE '2026-09-09'
 ORDER BY sl.slot_time;
 
 -- ── 4. The one-booking invariant still holds ────────────────────────────────
--- A move claims the destination before releasing the origin, and rolls the claim
--- back if the release fails. This must return ZERO rows; any row is a student
--- holding two slots and needs a look.
+-- uq_interview_slots_one_booking_per_student enforces this at the database, which is
+-- WHY a move must release the origin before claiming the destination. This must
+-- return ZERO rows; a row would mean the index is missing, not merely that an
+-- application guard slipped.
 SELECT booked_by_student_id, count(*) AS booked_slots
 FROM public.interview_slots
 WHERE is_booked = true AND booked_by_student_id IS NOT NULL
