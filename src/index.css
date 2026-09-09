@@ -2048,7 +2048,34 @@ a.doc-file-link:hover { text-decoration: underline; }
    there before the next one creeps in. A probe caught the card at dawn@0.99
    with nothing else visible - a stop. Linear at a fade equal to the step is
    one unbroken motion: each frame reaches 1 at the instant the next begins. */
-.mast-scenery[data-sweep] .mast-scn-img { opacity: 0; transition-timing-function: linear; }
+.mast-scenery[data-sweep] .mast-scn-img { opacity: 0; transition-timing-function: var(--scn-ease, linear); }
+/* ── MASTHEAD-SWEEP-NATURAL-1 (2026-09-08, Owner: "the timelapse effect still
+   feels unnatural"). A dissolve changes tone and nothing else, and stillness
+   is what gives six paintings away as six paintings. The card drifts a shade
+   in across the whole sweep and settles at exactly 1, which is the geometry
+   every measured point in CITY_MOTION is registered against - so the drift can
+   never leave a light off its window at the end.
+   It is ONE animation over the whole sweep, not a transform per step: a
+   transform that restarted on each frame would be six little zooms. Changing
+   data-sweep's VALUE does not restart it, because the element goes on matching
+   the same selector with the same animation-name.
+   The motion layer is hushed throughout, so it does not ride the drift; the
+   sky gradients underneath are full-bleed, so 2% is invisible on them. ── */
+.mast-scenery[data-sweep] {
+  /* No fallback on the duration: SWEEP_MS is the one tunable and a default
+     here would be a second copy of it. The variable is set with data-sweep or
+     not at all, and an animation with no duration simply does not run. */
+  animation: mast-sweep-drift var(--sweep-total) linear 1 both;
+  transform-origin: 50% 55%;
+  will-change: transform;
+}
+@keyframes mast-sweep-drift {
+  from { transform: scale(var(--sweep-zoom, 1.022)); }
+  to   { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mast-scenery[data-sweep] { animation: none; transform: none; }
+}
 .mast-scenery[data-sweep="dawn"] .mast-scn-img-dawn,
 .mast-scenery[data-sweep="morning"] .mast-scn-img-morning,
 .mast-scenery[data-sweep="day"] .mast-scn-img-day,

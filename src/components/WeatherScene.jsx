@@ -305,7 +305,9 @@ export function WeatherMasthead() {
   // no-weather and weather renders.
   const [pickerOpen, setPickerOpen] = useState(false)
   const { city: preferredCity, raw: rawCity, choose } = useCityPreference()
-  const sweeping = !!useSceneSweep()
+  // MASTHEAD-SWEEP-NATURAL-1: back during the last dissolve, with the motion.
+  const sweepState = useSceneSweep()
+  const sweeping = !!sweepState && !sweepState.last
   const packs = useMemo(() => parseSceneFiles(injectedSceneFiles()), [])
   const cityOpts = useMemo(() => cityOptions(packs), [packs])
   // The animated sun/moon floats where the CURRENT city's sky is clear - the

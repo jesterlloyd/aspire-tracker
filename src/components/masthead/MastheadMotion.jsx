@@ -172,7 +172,13 @@ export default function MastheadMotion({ city }) {
   // lights and birds would otherwise carry on at the destination scene while
   // the artwork under them ran through the whole day - the one arrangement
   // that looks broken rather than either still or moving.
-  const sweeping = !!useSceneSweep()
+  // MASTHEAD-SWEEP-NATURAL-1: the motion comes back DURING the final dissolve
+  // rather than after it. It used to wait for the sweep to end, so the card
+  // arrived, paused, and then the lights came on - two events where there
+  // should be one. The lights each carry their own delay, so they surface at
+  // different points of their own breath rather than together.
+  const sweepState = useSceneSweep()
+  const sweeping = !!sweepState && !sweepState.last
   const m = CITY_MOTION[city]
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,

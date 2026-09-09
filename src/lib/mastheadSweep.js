@@ -106,6 +106,74 @@ export function sweepDurationMs() {
   return SWEEP_MS
 }
 
+// ── MASTHEAD-SWEEP-NATURAL-1 (Owner, 2026-09-08: "the timelapse effect still
+// feels unnatural") ─────────────────────────────────────────────────────────
+//
+// Three things separate a dissolve sequence from a time-lapse, and the sweep
+// had none of them.
+//
+// PACE. Equal steps are the obvious way to spend 4.5 seconds and the wrong
+// one, because the frames are not equally far apart. Measured as the mean
+// absolute pixel difference between each adjacent pair, downsampled to
+// 500x100, across all thirteen packs: sunset->night and night->dawn are more
+// than twice the change of morning->day. On equal steps the big ones read as
+// cuts and the small ones as dwelling, which is the "transition, stop"
+// complaint arriving by a different route. These weights are shares of an
+// equal step, so they sum to the frame count and the total is unchanged.
+//
+// ONE TABLE, NOT THIRTEEN. The step-to-step spread is 0.59 to 1.36; the
+// city-to-city standard deviation within a step is 0.16 to 0.30. The pattern
+// belongs to the time of day, not to the city, so a shared vector carries it
+// and a per-pack table would be six numbers of noise per city to maintain.
+export const STEP_WEIGHTS = {
+  'dawn>morning': 0.96,
+  'morning>day': 0.59,
+  'day>goldenhour': 0.99,
+  'goldenhour>sunset': 0.74,
+  'sunset>night': 1.36,
+  'night>dawn': 1.36,
+}
+export const STEP_WEIGHT_KEY = 'aspire_sweep_pace_v1'   // '0' restores equal steps
+
+// THE TAIL. The last beat is the one the eye lands on, and it was the same
+// length as every other. It now runs longer and decelerates - the only step
+// that does, which is what makes it read as arriving rather than stopping.
+export const SWEEP_TAIL = 1.5
+export const SWEEP_TAIL_KEY = 'aspire_sweep_tail_v1'
+
+// THE DRIFT. A dissolve changes tone and nothing else, and stillness is what
+// makes six paintings read as six paintings. The scenery starts a shade over
+// size and settles to exactly 1 across the whole sweep, so the destination
+// lands on the geometry every measured point is registered against. 1 is off.
+export const SWEEP_ZOOM = 1.022
+export const SWEEP_ZOOM_KEY = 'aspire_sweep_zoom_v1'
+
+const readNum = (key, dflt, lo, hi) => {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw !== null && raw !== '') {
+      const n = Number(raw)
+      if (Number.isFinite(n) && n >= lo && n <= hi) return n
+    }
+  } catch { /* storage unavailable: the default stands */ }
+  return dflt
+}
+export const sweepTail = () => readNum(SWEEP_TAIL_KEY, SWEEP_TAIL, 1, 4)
+export const sweepZoom = () => readNum(SWEEP_ZOOM_KEY, SWEEP_ZOOM, 1, 1.2)
+export const sweepPaced = () => readNum(STEP_WEIGHT_KEY, 1, 0, 1) !== 0
+
+/**
+ * How long the dissolve INTO `to` should run, as a share of an equal step.
+ *
+ * A weather frame is not on the clock and has no measured pair, so it takes an
+ * even share; it is also the only step that may move, and slowing or hurrying
+ * a step that shifts would draw the eye to the shift.
+ */
+export function stepWeight(from, to) {
+  if (!sweepPaced()) return 1
+  return STEP_WEIGHTS[`${from}>${to}`] ?? 1
+}
+
 /**
  * The frames to run, ending on `destination`.
  *
@@ -166,12 +234,29 @@ export function startSweep(destination, totalMs = sweepDurationMs()) {
   // that is actually running. Recomputing it at render would read the override
   // afresh, and changing the override mid-sweep would then desync the fade from
   // the frames it is fading between.
-  const step = totalMs / frames.length
-  const fade = step * sweepOverlap()
-  state = { frame: frames[0], stepMs: step, fadeMs: fade }
-  publish()
-  for (let i = 1; i < frames.length; i++) {
-    timers.push(setTimeout(() => { state = { frame: frames[i], stepMs: step, fadeMs: fade }; publish() }, step * i))
+  //
+  // MASTHEAD-SWEEP-NATURAL-1: every step is now its own length. The dissolve
+  // into a frame is weighted by how far that frame is from the one before it,
+  // and the FIRST of those steps starts from the destination, which is what is
+  // on screen when the pick happens - the sweep used to open with a cut from
+  // the destination to the far side of the day, which is a hard edge in the
+  // one place the eye is already looking.
+  const overlap = sweepOverlap()
+  const tail = sweepTail()
+  const zoom = sweepZoom()
+  const from = [destination, ...frames.slice(0, -1)]
+  const raw = frames.map((f, i) => stepWeight(from[i], f) * (i === frames.length - 1 ? tail : 1))
+  const unit = totalMs / raw.reduce((a, b) => a + b, 0)
+  const steps = raw.map(w => w * unit)
+  let at = 0
+  for (let i = 0; i < frames.length; i++) {
+    const last = i === frames.length - 1
+    // The dissolve fills the step it belongs to, so the frames never queue up
+    // behind a long one or leave a gap after a short one.
+    const beat = { frame: frames[i], stepMs: steps[i], fadeMs: steps[i] * overlap, last, totalMs, zoom }
+    if (i === 0) { state = beat; publish() }
+    else { const t = at; timers.push(setTimeout(() => { state = beat; publish() }, t)) }
+    at += steps[i]
   }
   timers.push(setTimeout(() => { state = null; timers = []; publish() }, totalMs))
   return true

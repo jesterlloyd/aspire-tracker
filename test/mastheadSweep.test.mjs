@@ -80,6 +80,71 @@ test('the sweep is one tunable, and the CSS does not hard-code a second one', ()
   }
 })
 
+// ── MASTHEAD-SWEEP-NATURAL-1 (Owner: "the timelapse effect still feels
+// unnatural"). Three changes, and each one is a claim that can be checked.
+test('the sweep is paced by how far apart the frames actually are', async () => {
+  const m = await import('../src/lib/mastheadSweep.js')
+  const { STEP_WEIGHTS, CLOCK_SCENES, stepWeight, STEP_WEIGHT_KEY } = m
+  // Every adjacent pair on the clock has a weight, including the wrap.
+  for (let i = 0; i < CLOCK_SCENES.length; i++) {
+    const a = CLOCK_SCENES[i], b = CLOCK_SCENES[(i + 1) % CLOCK_SCENES.length]
+    assert.ok(STEP_WEIGHTS[`${a}>${b}`] > 0, `no weight for ${a}>${b}`)
+  }
+  // They are SHARES of an equal step, so they must average one: any other
+  // normalisation silently changes the total length of the sweep.
+  const w = Object.values(STEP_WEIGHTS)
+  assert.equal(w.length, CLOCK_SCENES.length)
+  const mean = w.reduce((a, b) => a + b, 0) / w.length
+  assert.ok(Math.abs(mean - 1) < 0.02, `weights average ${mean.toFixed(3)}, not 1`)
+  // The two biggest changes in any pack are the ones that cross the light:
+  // measured across all thirteen, sunset>night and night>dawn are more than
+  // twice morning>day. If that ordering ever inverts, the table was rebuilt
+  // from something other than the frames.
+  assert.ok(STEP_WEIGHTS['sunset>night'] > STEP_WEIGHTS['morning>day'] * 2)
+  assert.ok(STEP_WEIGHTS['night>dawn'] > STEP_WEIGHTS['morning>day'] * 2)
+  // A frame off the clock (the weather beat) takes an even share.
+  assert.equal(stepWeight('night', 'rainnight'), 1)
+  assert.equal(STEP_WEIGHT_KEY, 'aspire_sweep_pace_v1')
+  const store = new Map()
+  globalThis.localStorage = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) }
+  try {
+    assert.equal(stepWeight('sunset', 'night'), STEP_WEIGHTS['sunset>night'])
+    store.set(STEP_WEIGHT_KEY, '0')
+    assert.equal(stepWeight('sunset', 'night'), 1, 'pace 0 restores equal steps')
+  } finally { delete globalThis.localStorage }
+})
+
+test('the sweep opens on a dissolve, lands long, and drifts to exactly 1', async () => {
+  const m = await import('../src/lib/mastheadSweep.js')
+  const { SWEEP_TAIL, SWEEP_ZOOM, sweepTail, sweepZoom } = m
+  assert.ok(SWEEP_TAIL > 1 && SWEEP_TAIL <= 2, 'the last beat is longer, not a different effect')
+  assert.ok(SWEEP_ZOOM > 1 && SWEEP_ZOOM < 1.05, 'a drift, not a zoom')
+  // The drift ENDS at 1. Anything else would leave the artwork off the
+  // geometry every point in CITY_MOTION is measured against.
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  assert.match(css, /@keyframes mast-sweep-drift \{\s*from \{ transform: scale\(var\(--sweep-zoom[^)]*\)\); \}\s*to\s+\{ transform: scale\(1\); \}/)
+  // One animation across the whole sweep, driven by the same tunable as the
+  // steps. A per-step transform would be six little zooms.
+  assert.match(css, /\.mast-scenery\[data-sweep\] \{[^}]*animation: mast-sweep-drift var\(--sweep-total\)/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.mast-scenery\[data-sweep\] \{ animation: none/)
+  // The first step starts from the destination - the frame already on screen -
+  // so the sweep opens with a dissolve rather than a cut.
+  const src = readFileSync(new URL('../src/lib/mastheadSweep.js', import.meta.url), 'utf8')
+  assert.match(src, /const from = \[destination, \.\.\.frames\.slice\(0, -1\)\]/)
+  // And the motion comes back DURING the last beat, not after the sweep ends.
+  for (const rel of [['masthead', 'MastheadMotion.jsx'], ['WeatherScene.jsx']]) {
+    const body = readFileSync(join(here, '..', 'src', 'components', ...rel), 'utf8')
+    assert.match(body, /!!sweepState && !sweepState\.last/, `${rel.join('/')} still waits for the sweep to end`)
+  }
+  const store = new Map()
+  globalThis.localStorage = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) }
+  try {
+    store.set('aspire_sweep_zoom_v1', '1'); assert.equal(sweepZoom(), 1, 'zoom 1 turns the drift off')
+    store.set('aspire_sweep_tail_v1', '1'); assert.equal(sweepTail(), 1, 'tail 1 restores an even last beat')
+    for (const bad of ['9', 'slow', '']) { store.set('aspire_sweep_zoom_v1', bad); assert.equal(sweepZoom(), SWEEP_ZOOM) }
+  } finally { delete globalThis.localStorage }
+})
+
 test('the sweep never changes the host scene class', () => {
   // This is what keeps the motion gates, skies and inks still while the images
   // move. If the scene class ever drove the sweep, every gate would fire six
@@ -144,7 +209,14 @@ test('the sweep dissolves continuously: linear timing, and a fade no shorter tha
   // opacity and dwells before the next starts - the Owner saw it as
   // "transition, stop, transition, stop". Linear at fade >= step is unbroken.
   const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
-  assert.match(css, /\.mast-scenery\[data-sweep\] \.mast-scn-img \{[^}]*transition-timing-function: linear/)
+  // MASTHEAD-SWEEP-NATURAL-1 made the curve a variable so the LAST beat can
+  // decelerate. Linear is still the default and still what every other step
+  // gets: the variable's fallback is the rule, and the component only ever
+  // overrides it on the frame it marks `last`.
+  assert.match(css, /\.mast-scenery\[data-sweep\] \.mast-scn-img \{[^}]*transition-timing-function: var\(--scn-ease, linear\)/)
+  const scenery = readFileSync(join(here, '..', 'src', 'components', 'MastheadScenery.jsx'), 'utf8')
+  assert.match(scenery, /'--scn-ease': sweep\.last \? '[^']+' : 'linear'/,
+    'only the last beat may ease; every other step is mid-motion when the next begins')
   const { SWEEP_OVERLAP, sweepOverlap, SWEEP_OVERLAP_KEY } = await import('../src/lib/mastheadSweep.js')
   assert.ok(SWEEP_OVERLAP >= 1, 'a fade shorter than the step leaves a gap where nothing is arriving')
   assert.equal(SWEEP_OVERLAP_KEY, 'aspire_sweep_overlap_v1')

@@ -115,7 +115,19 @@ export default function MastheadScenery() {
       // next when the next arrives, so it is overridden here for the duration.
       data-sweep={sweep?.frame || undefined}
       style={{
-        ...(sweep ? { '--scn-fade': `${(sweep.fadeMs / 1000).toFixed(2)}s` } : null),
+        ...(sweep ? {
+          '--scn-fade': `${(sweep.fadeMs / 1000).toFixed(2)}s`,
+          // MASTHEAD-SWEEP-NATURAL-1: linear through the day, eased on the
+          // last beat only. Every other step is mid-motion when the next
+          // begins and must not decelerate; the final one is the one the eye
+          // lands on, and arriving is a deceleration.
+          '--scn-ease': sweep.last ? 'cubic-bezier(0.22, 0.61, 0.36, 1)' : 'linear',
+          // The whole-sweep drift, as one animation rather than a per-step
+          // transform: a transform that restarted on every frame would be six
+          // little zooms, which is the opposite of the intent.
+          '--sweep-total': `${(sweep.totalMs / 1000).toFixed(2)}s`,
+          '--sweep-zoom': sweep.zoom,
+        } : null),
       }}
     >
       {/* The state-keyed sky gradients always render: in city mode the art's
