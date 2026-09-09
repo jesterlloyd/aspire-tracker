@@ -199,8 +199,13 @@ export default function MastheadMotion({ city }) {
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
     neon, wheel, orb, emoji, torch, clock, facade, strike, snowfall, swell, surf, rainbow, cable,
-    stars, comet, sceneOverrides, sceneShift } = m
+    stars, comet, butterflies, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
+  // MASTHEAD-PLANES-1 (Owner, of Porter Ranch: "i see a lot of planes at
+  // night"). A city may name SEVERAL lanes, the way it may name several bridge
+  // spans. One aircraft reads as a city; four reads as a flight path, which is
+  // what living under one actually looks like.
+  const planes = Array.isArray(aircraft) ? aircraft : aircraft ? [aircraft] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
   // drawing moved by a measured amount shifts that box, by CSS on the scene
@@ -236,6 +241,26 @@ export default function MastheadMotion({ city }) {
   const flareX = flareRight ? 100 - flare.x : flare?.x
   return (
     <div className={`mast-motion${wet ? ' mast-motion-wet' : ''}${sweeping ? ' mast-motion-hushed' : ''}`} aria-hidden>
+      {/* MASTHEAD-BUTTERFLY-1 (Owner: "maybe butterflies?"). Each one works a
+          MEASURED flowering canopy and stays there - the only thing in this
+          layer that moves without crossing the card. The wander is on the
+          wrapper and the wing-beat on the child, because one element cannot
+          animate transform twice. Daytime only. */}
+      {butterflies?.map(([x, y, pale], i) => (
+        <span key={`bf-${x}-${y}`}
+          className={`mast-motion-fly${pale ? ' mast-motion-fly-pale' : ''}`}
+          style={{
+            left: `${x}%`, top: `${y}%`,
+            '--dx': `${(7 + (i % 4) * 3)}px`,
+            '--dy': `${(4 + (i % 3) * 2)}px`,
+            '--d': `${(11 + (i % 5) * 2.3).toFixed(1)}s`,
+            '--fd': `${(0.26 + (i % 4) * 0.05).toFixed(2)}s`,
+            '--dl': `${(i * 0.9).toFixed(1)}s`,
+          }}>
+          <span className="mast-motion-fly-wing" />
+        </span>
+      ))}
+
       {/* MASTHEAD-STARS-1 (Owner). FIRST, so everything else on the card is in
           front of them: a star is the furthest thing in the frame, and a plane
           or a bird that passed BEHIND one would be the tell. They sit outside
@@ -567,11 +592,12 @@ export default function MastheadMotion({ city }) {
       ))}
       </div>
 
-      {aircraft && (
-        <span className="mast-motion-plane" style={crossing(aircraft)}>
+      {planes.map((p, i) => (
+        <span key={`ac-${p.y}-${p.from}`} className="mast-motion-plane"
+          style={{ ...crossing(p), '--dl': `${(i * 6.7).toFixed(1)}s` }}>
           <span className="mast-motion-plane-dot" />
         </span>
-      )}
+      ))}
 
       {/* Low, slow, and strobing. A helicopter differs from an aircraft in
           exactly those three things, and the eye knows it from a long way off. */}

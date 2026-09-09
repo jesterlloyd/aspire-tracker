@@ -74,6 +74,9 @@ const CITY_NAMES = {
   // long form, and CITY_ALIASES maps the long spelling back so a browser that
   // reports "Rio de Janeiro" still lands on this pack.
   rio: 'Rio de Janeiro',
+  // Two words, and the folder is one: the key follows the folder, the label
+  // is how the place is written.
+  porterranch: 'Porter Ranch',
 }
 
 export function cityDisplayName(key) {
@@ -127,6 +130,7 @@ export const PICKER_IMAGE_FILES = {
   sanfrancisco: 'SanFrancisco.webp',
   seattle: 'Seattle.webp',
   toronto: 'Toronto.webp',
+  porterranch: 'PorterRanch.webp',
 }
 
 /** Root-relative public URL for an option's picker image, or null. Encoded,

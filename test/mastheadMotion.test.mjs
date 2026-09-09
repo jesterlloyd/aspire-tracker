@@ -21,7 +21,9 @@ const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
   'steam', 'neon', 'wheel', 'orb', 'emoji', 'torch', 'clock', 'facade', 'strike', 'snowfall', 'swell', 'surf', 'rainbow', 'cable',
   // MASTHEAD-STARS-1: a twinkling field and a falling star, both clear-night only.
-  'stars', 'comet', 'sceneOverrides', 'sceneShift']
+  'stars', 'comet',
+  // MASTHEAD-BUTTERFLY-1: a wander over a measured flowering canopy, daytime only.
+  'butterflies', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -707,12 +709,22 @@ test('every crossing has a flight, a direction, and a height inside the card', (
   // could disagree with it, so the data carries only the flight.
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     for (const kind of CROSSINGS) {
-      const c = m[kind]
-      if (!c) continue
-      assert.ok(c.flight > 0, `${city}.${kind} needs a flight duration`)
-      assert.equal(c.cycle, undefined, `${city}.${kind} carries a cycle; the component derives it, remove the field`)
-      assert.notEqual(c.from, c.to, `${city}.${kind} must actually move`)
-      assert.ok(c.y >= 0 && c.y <= 100, `${city}.${kind} y=${c.y} is outside the card`)
+      // MASTHEAD-PLANES-1: a city may name SEVERAL lanes of one kind, the way
+      // it may name several bridge spans. Each lane is checked on its own.
+      const lanes = Array.isArray(m[kind]) ? m[kind] : m[kind] ? [m[kind]] : []
+      for (const c of lanes) {
+        assert.ok(c.flight > 0, `${city}.${kind} needs a flight duration`)
+        assert.equal(c.cycle, undefined, `${city}.${kind} carries a cycle; the component derives it, remove the field`)
+        assert.notEqual(c.from, c.to, `${city}.${kind} must actually move`)
+        assert.ok(c.y >= 0 && c.y <= 100, `${city}.${kind} y=${c.y} is outside the card`)
+      }
+      // Lanes of the same kind must not share a height, or two aircraft fly
+      // the same line and read as one blinking twice.
+      for (let i = 0; i < lanes.length; i++) {
+        for (let j = i + 1; j < lanes.length; j++) {
+          assert.notEqual(lanes[i].y, lanes[j].y, `${city}.${kind} has two lanes at y ${lanes[i].y}`)
+        }
+      }
     }
   }
 })
@@ -905,4 +917,71 @@ test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   assert.match(css, /@keyframes mast-starlight/)
   assert.equal(css.match(/@keyframes\s+mast-twinkle/g).length, 1,
     'mast-twinkle is defined twice; the later one silently wins for every glint on every card')
+})
+
+test('butterflies work a flowering canopy, by day, and never at night', () => {
+  // MASTHEAD-BUTTERFLY-1. Unlike every other moving thing in this layer a
+  // butterfly does not cross the card, so the checks are about where it STAYS.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const b of m.butterflies || []) {
+      const [x, y, tone] = b
+      assert.ok(b.length === 2 || b.length === 3, `${city}.butterflies takes [x, y] with an optional tone`)
+      if (tone !== undefined) assert.equal(tone, 'pale', `${city}.butterflies tone "${tone}" has no wing`)
+      assert.ok(x >= 1 && x <= 99, `${city} butterfly at x ${x} is on the card's edge`)
+      // They belong on the planting, which on every card that has any is the
+      // lower half. One up in the sky is a bird, and reads as a mistake.
+      assert.ok(y >= 45 && y <= 99, `${city} butterfly at y ${y} is not over the planting`)
+    }
+  }
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  // The wander and the flap are on DIFFERENT elements on purpose: one element
+  // animating transform twice silently keeps only the last declaration.
+  assert.match(css, /@keyframes mast-wander/)
+  assert.match(css, /@keyframes mast-flap/)
+  assert.match(css, /\.mast-motion-fly \{[\s\S]{0,200}?position: absolute/)
+  assert.match(css, /\.mast-motion-fly-wing \{/)
+  // Daytime only, and dry with it: no butterfly at night, in rain or in snow.
+  for (const scene of ['night', 'cloudynight', 'rainnight', 'snownight', 'rain', 'snow', 'cloudy']) {
+    assert.ok(!css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-fly`),
+      `butterflies fly on ${scene}; they do not`)
+  }
+  for (const scene of ['day', 'morning', 'goldenhour']) {
+    assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-fly`),
+      `butterflies have no ${scene} gate`)
+  }
+})
+
+test('Porter Ranch: a street, not a skyline', () => {
+  const m = CITY_MOTION.porterranch
+  // MASTHEAD-PORTERRANCH-1. The Owner's own street, and the first card in the
+  // registry with no water, no bridge and no facade - which is the point: this
+  // is a residential road, and porting a skyline's kinds onto it would be the
+  // same mistake as leaving Seattle's bridge on a stadium roof.
+  assert.equal(m.water, undefined, 'Porter Ranch has no water to reflect')
+  assert.equal(m.bridge, undefined, 'the road is a receding corridor, not a span')
+  assert.equal(m.facade, undefined, 'nothing on this street is floodlit')
+  assert.equal(m.snowfall, undefined, 'the pack has no Snow frame because it does not snow here')
+
+  // THE TOWER LIGHTS the Owner asked for, on the ridge masts. Every one sits in
+  // the band the masts actually occupy; a beacon outside it is on a hillside.
+  assert.ok(m.beacons.length >= 6, `Porter Ranch has ${m.beacons.length} mast lamps`)
+  assert.equal(m.beaconTone, 'red')
+  for (const [x, y] of m.beacons) {
+    assert.ok((x > 28 && x < 30) || (x > 51 && x < 52), `mast lamp at x ${x} is off both ridge clusters`)
+    assert.ok(y > 19 && y < 27, `mast lamp at y ${y} is off the masts`)
+  }
+
+  // "i see a lot of planes at night" - so more than one, at different heights,
+  // and all of them above the ridge, which closes the sky at y 19.5.
+  assert.ok(Array.isArray(m.aircraft) && m.aircraft.length >= 3,
+    'Porter Ranch lost its flight path')
+  for (const p of m.aircraft) {
+    assert.ok(p.y < 19.5, `a lane at y ${p.y} flies into the hills`)
+    assert.ok(Math.min(p.from, p.to) >= 24, `a lane reaching x ${Math.min(p.from, p.to)} crosses the palms`)
+  }
+  assert.ok(m.aircraft.some(p => p.from < p.to) && m.aircraft.some(p => p.from > p.to),
+    'every lane runs the same way; real traffic crosses both')
+
+  assert.ok((m.butterflies?.length || 0) >= 6, 'Porter Ranch lost its butterflies')
+  assert.ok((m.stars?.length || 0) >= 20 && m.comet, 'Porter Ranch lost its night sky')
 })

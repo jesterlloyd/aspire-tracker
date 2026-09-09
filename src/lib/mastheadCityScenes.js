@@ -94,6 +94,7 @@ const CITY_ALIASES = {
   london: 'london',
   rome: 'rome',
   toronto: 'toronto',
+  porterranch: 'porterranch',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -132,6 +133,10 @@ export const CITY_COORDS = {
   rio: [-22.91, -43.17],
   manila: [14.6, 120.98],
   toronto: [43.65, -79.38],
+  // Porter Ranch sits about 40km north-west of downtown Los Angeles, so it is
+  // well outside the 150km tie with LA and Hollywood only by name: proximity
+  // gives a viewer whichever they are actually nearest.
+  porterranch: [34.27, -118.55],
 }
 
 const MAX_KM = 150
@@ -1935,6 +1940,116 @@ export const CITY_MOTION = {
       [96.67, 10.85],
     ],
     comet: { x: 57.5, y: 2, run: 6, drop: 17, flight: 1.1 },
+  },
+  porterranch: {
+    // MASTHEAD-PORTERRANCH-1 (2026-09-09, Owner: "this one is personal cause
+    // it's my home"). TEN frames - no Snow or SnowNight, which is the right
+    // answer for the west San Fernando Valley and not a gap in the pack.
+    //
+    // AND IT IS NOT A SKYLINE. Every other city in this registry is a city
+    // seen from across something; this is a residential street seen from the
+    // middle of it, looking north at the Santa Susana range. Nothing here is a
+    // tower crown or a harbour, so nearly every kind had to be re-thought
+    // rather than re-measured: the lights are STREET LAMPS and front windows,
+    // the beacons are on RIDGE MASTS, and there is no water at all.
+    //
+    // The road runs from the bottom edge to a vanishing point at about
+    // (52, 78); the hills close the sky at card y 19.5-25 across the middle;
+    // foreground trees reach the very top at both edges (x 0-5 and x 95-100)
+    // and the palms at x 15-25 reach y 2.5.
+    //
+    // Street lamps down both kerbs and the lit front windows behind them.
+    // Found by labelling bright warm BLOBS rather than bright pixels - one
+    // point per lamp head - and then excluding the road corridor, because the
+    // brightest things in the lower third of this frame are not lights at all
+    // but the pools of lamplight lying on the tarmac. Four detectors in a row
+    // called those lamps; the corridor is what finally told them apart.
+    lights: [
+      [24.7, 79.0], [24.7, 88.25], [26.0, 70.75], [31.15, 78.25], [32.05, 75.0],
+      [32.05, 89.5], [34.2, 85.5], [34.8, 85.25], [35.1, 90.25], [36.8, 90.25],
+      [42.1, 80.25], [42.7, 78.0], [46.5, 78.25], [48.35, 78.0], [51.8, 75.5],
+      [55.25, 76.75], [60.85, 75.75], [61.5, 78.75], [61.55, 84.0], [65.6, 80.25],
+      [68.35, 96.75], [69.05, 95.5], [69.35, 76.25], [69.4, 83.0], [69.45, 73.0],
+      [69.9, 98.5], [70.5, 63.25], [71.2, 94.25], [78.1, 93.5], [86.9, 91.5],
+    ],
+    // THE TOWER LIGHTS (Owner asked for them by name). Seven broadcast masts
+    // stand on the ridge in two clusters, and the ARTWORK PAINTS NO LAMP ON
+    // ANY OF THEM - they are bare silhouettes, which is why nothing found them
+    // by brightness. Each tip was read off a gridded, brightened crop instead,
+    // to a quarter of a percent. The real masts up there carry aviation red,
+    // so that is what goes on them: the structure is measured, only the lamp
+    // is supplied.
+    beacons: [
+      [28.32, 22.9], [28.85, 20.5], [29.32, 25.7],
+      [51.15, 26.2], [51.4, 20.2], [51.69, 24.35],
+    ],
+    // Six lamps for seven masts: the fourth and fifth of the right-hand cluster
+    // stand 0.18% of the card apart, which is under three pixels once drawn, so
+    // two 6px glows there are one glow painted twice. They share a lamp at
+    // their midpoint rather than being nudged apart, because the measurement is
+    // right and it is the card that is too small to separate them.
+
+    beaconTone: 'red',
+    // MASTHEAD-PLANES-1 (Owner: "i see a lot of planes at night"). FOUR lanes,
+    // crossing both ways at four heights and four speeds, each starting at a
+    // different point in its own cycle so they never leave together. Between
+    // x 24 and 90 nothing on this card rises above y 19.5, so all four lanes
+    // and the flock fit under that with room to spare.
+    aircraft: [
+      { y: 4.5, from: 88, to: 26, flight: 38 },
+      { y: 8.5, from: 26, to: 88, flight: 47 },
+      { y: 12.5, from: 90, to: 28, flight: 33 },
+      { y: 16.5, from: 30, to: 86, flight: 55 },
+    ],
+    // The flock spreads 6.4% above its lane and 11.5% below, so y 7 puts it
+    // between 0.6 and 18.5 - under the lanes and still clear of the ridge.
+    birds: { y: 7, from: 86, to: 28, flight: 34, count: 6 },
+    helicopter: { y: 14.5, from: 30, to: 86, flight: 46 },
+    // MASTHEAD-BUTTERFLY-1 (Owner: "maybe butterflies?"). The crape myrtles,
+    // which are the one thing on this card that is genuinely in bloom. Read off
+    // gridded crops of the Day frame: the coral canopy at x 84-93 y 58-80, the
+    // pink one at the right edge, the flowering shrub band along the left
+    // foreground at x 2-14 y 74-90, and the low red shrubs under the fence.
+    // A colour mask was tried first and found the SUNLIT DRY GRASS on the
+    // hills, which is also red-over-green; blossom keeps its blue up near its
+    // green and tan does not, but by then the grid had already answered it.
+    // The third element asks for the pale form.
+    butterflies: [
+      [5.5, 80.5], [8.0, 77.5, 'pale'], [11.0, 82.0], [13.0, 78.0, 'pale'],
+      [86.5, 70.0], [89.5, 66.5, 'pale'], [92.0, 72.5], [96.5, 57.5],
+      [94.5, 93.5, 'pale'],
+    ],
+    // MASTHEAD-STARS-1: the sky here is as empty as New York's and darker than
+    // most - median rgb 6,42,115 - and it is a sky this Owner actually stands
+    // under, so it gets the full field.
+    stars: [
+      [5.52, 2.07], [6.08, 5.49], [10.18, 2.95], [12.15, 11.49], [15.02, 8.63],
+      [16.11, 12.34], [28.89, 9.28], [32.0, 6.62], [37.2, 8.3], [42.44, 11.37],
+      [45.58, 12.89], [49.18, 4.9], [53.27, 8.65], [69.38, 2.33], [71.78, 8.6],
+      [73.13, 19.93], [77.19, 2.4], [77.61, 11.87], [78.58, 7.24], [81.24, 4.57],
+      [84.15, 4.77], [84.28, 12.08], [87.66, 5.2], [90.35, 19.5], [93.98, 7.64],
+      [95.02, 3.64],
+    ],
+    comet: { x: 77, y: 2, run: 6, drop: 15, flight: 1.1 },
+    // The pale, desaturated band that sits right on the ridgeline: over x 25-88
+    // the Day frame's saturation bottoms out at 0.179 between y 22 and y 29
+    // while its brightness peaks at 223. That is distance, and it is the one
+    // thing on this card the Valley is famous for.
+    haze: { y: 22, height: 8 },
+    // The golden-hour sun is off-frame LEFT: the sky mean over the clean band
+    // x 25-88 falls 193.6 to 186.1 across the frame. It is a WEAK gradient (the
+    // trees at both edges dominate any wider measurement, which is why the band
+    // is clipped), but it is the direction a north-facing view puts the setting
+    // sun, and the Sunset frame's own rise to the right is the afterglow behind
+    // the viewer rather than the sun.
+    flare: { x: -6, y: 12 },
+    rainfall: true,
+    // NO WATER, NO BRIDGE, NO FACADE. There is nothing to reflect, the road is
+    // a receding corridor rather than a span (its centre line is nearly
+    // vertical on a 5:1 card, and a deck laid down it would be a light string
+    // painted along the middle of the road), and nothing on this street is
+    // floodlit. And no snow: the pack has no Snow frame because it does not
+    // snow here.
   },
   toronto: {
     // MASTHEAD-TORONTO-1 (2026-09-08, a new city). TWELVE frames, which makes

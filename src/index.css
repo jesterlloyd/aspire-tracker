@@ -2260,7 +2260,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-cloudynight .mast-motion-plane,
 .mast-scenic.mast-scene-rainnight .mast-motion-plane,
 .mast-scenic.mast-scene-snownight .mast-motion-plane {
-  animation: mast-fly var(--cycle, 82s) linear infinite;
+  animation: mast-fly var(--cycle, 82s) linear var(--dl, 0s) infinite;
 }
 .mast-scenic.mast-scene-night .mast-motion-plane-dot,
 .mast-scenic.mast-scene-cloudynight .mast-motion-plane-dot,
@@ -2830,6 +2830,71 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-rainnight .mast-motion-facade,
 .mast-scenic.mast-scene-snownight .mast-motion-facade {
   animation: mast-facade 11s ease-in-out var(--dl, 0s) infinite;
+}
+
+/* ── MASTHEAD-BUTTERFLY-1 (2026-09-09, Owner: "maybe butterflies?"). ────────
+
+   A butterfly is the first thing in this layer that is ALIVE and stays put:
+   every other crossing enters from one edge and leaves by the other, but a
+   butterfly works a bush and goes nowhere. So it is a wander, not a crossing -
+   a slow closed loop around a MEASURED flowering canopy, with the wings
+   beating far faster than the drift.
+
+   Two elements, because one cannot carry both: the wrapper does the wandering
+   (translate) and the wing does the flapping (scaleX), and a single element
+   animating transform twice would have the second declaration win silently.
+
+   DAYTIME ONLY, and dry: these do not fly at night, in rain, or in an
+   overcast. That gate is the same judgement as stars-only-on-a-clear-night. */
+.mast-motion-fly { position: absolute; width: 0; height: 0; }
+/* The wings are two TILTED ELLIPSES, one per side, not two gradients painted
+   into one box: at 7x5 px a pair of background gradients clips square at the
+   box edge and reads as two little tiles rather than as wings. Each wing is
+   its own rounded element, canted outward, which is what gives the silhouette
+   its pinch at the body. */
+.mast-motion-fly-wing {
+  position: absolute; width: 10px; height: 6px; margin: -3px 0 0 -5px;
+  opacity: 0;
+}
+.mast-motion-fly-wing::before,
+.mast-motion-fly-wing::after {
+  content: ''; position: absolute; top: 0;
+  width: 5px; height: 5.6px; border-radius: 62% 38% 54% 46%;
+  background: radial-gradient(circle at 50% 38%,
+    rgba(255,192,98,0.98) 0%, rgba(226,116,36,0.66) 58%, rgba(196,92,24,0.18) 82%, transparent 96%);
+}
+.mast-motion-fly-wing::before { left: 0;  transform: rotate(-26deg); }
+.mast-motion-fly-wing::after  { right: 0; transform: rotate(26deg); }
+/* The pale one: cabbage whites are as common on these bushes as sulphurs. */
+.mast-motion-fly-pale .mast-motion-fly-wing::before,
+.mast-motion-fly-pale .mast-motion-fly-wing::after {
+  background: radial-gradient(circle at 50% 38%,
+    rgba(255,253,246,0.98) 0%, rgba(228,224,200,0.66) 58%, rgba(198,192,164,0.18) 82%, transparent 96%);
+}
+@keyframes mast-wander {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(var(--dx, 3px), calc(var(--dy, 2px) * -1)); }
+  50%  { transform: translate(calc(var(--dx, 3px) * 1.7), calc(var(--dy, 2px) * 0.4)); }
+  75%  { transform: translate(calc(var(--dx, 3px) * 0.6), var(--dy, 2px)); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes mast-flap {
+  0%, 100% { transform: scaleX(1);    opacity: 0.92; }
+  50%      { transform: scaleX(0.32); opacity: 0.72; }
+}
+.mast-scenic.mast-scene-dawn .mast-motion-fly,
+.mast-scenic.mast-scene-morning .mast-motion-fly,
+.mast-scenic.mast-scene-day .mast-motion-fly,
+.mast-scenic.mast-scene-goldenhour .mast-motion-fly,
+.mast-scenic.mast-scene-sunset .mast-motion-fly {
+  animation: mast-wander var(--d, 13s) ease-in-out var(--dl, 0s) infinite;
+}
+.mast-scenic.mast-scene-dawn .mast-motion-fly-wing,
+.mast-scenic.mast-scene-morning .mast-motion-fly-wing,
+.mast-scenic.mast-scene-day .mast-motion-fly-wing,
+.mast-scenic.mast-scene-goldenhour .mast-motion-fly-wing,
+.mast-scenic.mast-scene-sunset .mast-motion-fly-wing {
+  animation: mast-flap var(--fd, 0.3s) ease-in-out var(--dl, 0s) infinite;
 }
 
 /* ── MASTHEAD-STARS-1 (2026-09-09, Owner: "blinking stars or comet (falling
@@ -3407,7 +3472,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-neon, .mast-motion-wheel, .mast-motion-wheel-turn, .mast-motion-wheel-cabin, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
   .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin,
   .mast-motion-emoji, .mast-motion-torch, .mast-motion-clock, .mast-motion-facade, .mast-motion-strike,
-  .mast-motion-star, .mast-motion-comet-streak {
+  .mast-motion-star, .mast-motion-comet-streak, .mast-motion-fly, .mast-motion-fly-wing {
     animation: none !important; opacity: 0 !important;
   }
 }
