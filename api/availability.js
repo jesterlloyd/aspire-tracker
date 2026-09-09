@@ -502,7 +502,7 @@ export default async function handler(req, res) {
       // The booking the student actually holds is the authority for what is being moved.
       const { data: current, error: currentErr } = await db
         .from('interview_slots')
-        .select('id, block_id, cohort_id, slot_date, slot_time, duration_minutes, interviewer_name')
+        .select('id, block_id, cohort_id, slot_date, slot_time, duration_minutes, interviewer_name, booked_at')
         .eq('booked_by_student_id', studentId)
         .eq('is_booked', true)
         .limit(1)
@@ -572,9 +572,28 @@ export default async function handler(req, res) {
         });
       }
 
-      // Claim the destination FIRST, conditionally, so two callers racing for the same
-      // open slot cannot both win and the student keeps the old booking if we lose.
+      // RELEASE FIRST, THEN CLAIM. This order is forced by the database and must not be
+      // flipped back: uq_interview_slots_one_booking_per_student (migration 20260822020000,
+      // applied 2026-08-27) is a partial unique index on booked_by_student_id WHERE
+      // is_booked, so a student cannot hold two booked slots even for an instant. Claiming
+      // the destination while the origin was still held raised a unique violation on EVERY
+      // move, which surfaced to the user as "that slot was just taken".
+      //
+      // The cost of this order is a short window where the student holds no booking, so a
+      // failed claim restores the origin rather than leaving them unbooked. There is no
+      // transaction available here: doing both updates atomically would need a Postgres
+      // function, which is SQL and Owner-gated.
       const now = new Date().toISOString();
+      const { error: releaseErr } = await db
+        .from('interview_slots')
+        .update({ is_booked: false, booked_by_student_id: null, booked_at: null, status: 'available' })
+        .eq('id', current.id)
+        .eq('booked_by_student_id', studentId);
+      if (releaseErr) {
+        console.warn('[availability] move_booking release failed, nothing changed', { request_id: requestId, errorCode: releaseErr.code });
+        return res.status(500).json({ error: 'internal_error' });
+      }
+
       const { data: claimed, error: claimErr } = await db
         .from('interview_slots')
         .update({ is_booked: true, booked_by_student_id: studentId, booked_at: now, status: 'booked' })
@@ -583,23 +602,28 @@ export default async function handler(req, res) {
         .select('id, slot_date, slot_time, duration_minutes, interviewer_name')
         .single();
       if (claimErr || !claimed) {
-        return res.status(409).json({ error: 'conflict', message: 'That slot was just taken. Refresh the calendar and try again.' });
-      }
-
-      // Release the old one. If this fails the student would hold two slots, which breaks
-      // the one-booking invariant, so give the claim back and fail rather than leave it.
-      const { error: releaseErr } = await db
-        .from('interview_slots')
-        .update({ is_booked: false, booked_by_student_id: null, booked_at: null, status: 'available' })
-        .eq('id', current.id)
-        .eq('booked_by_student_id', studentId);
-      if (releaseErr) {
-        await db.from('interview_slots')
-          .update({ is_booked: false, booked_by_student_id: null, booked_at: null, status: 'available' })
-          .eq('id', claimed.id)
-          .eq('booked_by_student_id', studentId);
-        console.warn('[availability] move_booking release failed, claim rolled back', { request_id: requestId, errorCode: releaseErr.code });
-        return res.status(500).json({ error: 'internal_error' });
+        // Put the student back on the slot we just freed. It was theirs a moment ago, so
+        // this restores exactly the state the caller started in.
+        const { data: restored } = await db
+          .from('interview_slots')
+          .update({ is_booked: true, booked_by_student_id: studentId, booked_at: current.booked_at || now, status: 'booked' })
+          .eq('id', current.id)
+          .eq('is_booked', false)
+          .select('id')
+          .single();
+        console.warn('[availability] move_booking claim failed', {
+          request_id: requestId, errorCode: claimErr?.code, restored: Boolean(restored),
+        });
+        if (!restored) {
+          return res.status(409).json({
+            error: 'conflict',
+            message: 'The interview could not be moved and the original time could not be restored. Open the interview calendar and re-book this student.',
+          });
+        }
+        return res.status(409).json({
+          error: 'conflict',
+          message: 'That slot was taken while the move was in progress. The original time is unchanged. Refresh the calendar and try again.',
+        });
       }
 
       // Carry the session across so the rubric stays attached to the booking it belongs to.

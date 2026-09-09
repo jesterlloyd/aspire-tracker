@@ -91,3 +91,22 @@ JOIN public.students s ON s.id = pe.student_id
 WHERE pe.event_type = 'interview_rescheduled'
 ORDER BY pe.event_date DESC, pe.created_at DESC
 LIMIT 50;
+
+-- ── 6. A student left with no booking ───────────────────────────────────────
+-- move_booking releases the origin BEFORE claiming the destination, because
+-- uq_interview_slots_one_booking_per_student forbids holding two at once. That
+-- leaves a brief window with no booking, and a failed claim is supposed to restore
+-- the origin. This query is how you would find a student the restore missed:
+-- scheduled fields set, but no booked slot behind them. Expect ZERO rows.
+SELECT
+  s.first_name || ' ' || s.last_name AS student,
+  s.status,
+  s.interview_scheduled_date,
+  s.interview_scheduled_time
+FROM public.students s
+WHERE s.interview_scheduled_date IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM public.interview_slots sl
+    WHERE sl.booked_by_student_id = s.id AND sl.is_booked = true
+  )
+ORDER BY s.interview_scheduled_date DESC;

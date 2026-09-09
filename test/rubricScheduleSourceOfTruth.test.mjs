@@ -65,17 +65,27 @@ test('rescheduling is Owner/Admin, matching the scheduling grant elsewhere', () 
   assert.match(studentUpdate, /if \(action === 'update_interview_schedule'\) \{\s*if \(!isOwnerAdmin\)/)
 })
 
-test('the move claims before it releases, and rolls back rather than orphan a booking', () => {
+test('the move RELEASES before it claims, because the database forbids the alternative', () => {
   const move = availability.slice(availability.indexOf("if (action === 'move_booking')"),
                                   availability.indexOf("if (action === 'cancel_booking')"))
   assert.ok(move.length > 500, 'expected the move_booking handler')
-  // Claim the destination conditionally first: losing the race leaves the old booking intact.
-  const claim = move.indexOf(".eq('is_booked', false)\n        .select")
+  // The first cut claimed first, which reads as the safer order and is impossible here:
+  // uq_interview_slots_one_booking_per_student is a PARTIAL UNIQUE INDEX on
+  // booked_by_student_id WHERE is_booked, so the student cannot hold two booked slots for
+  // even an instant. Every move raised a unique violation, surfaced as "just taken".
   const release = move.indexOf("status: 'available'")
-  assert.ok(claim > 0 && release > claim, 'the claim must precede the release')
-  assert.match(move, /rolled back/)
-  // A failed release gives the claim back rather than leaving the student holding two.
-  assert.match(move, /if \(releaseErr\) \{[\s\S]*?\.eq\('id', claimed\.id\)/)
+  const claim = move.indexOf("status: 'booked'")
+  assert.ok(release > 0 && claim > release, 'the release must precede the claim')
+  // The index that forces it still exists, so this ordering still has a reason.
+  const migration = read('supabase/migrations/20260822020000_wave_e_write_policy_split.sql')
+  assert.match(migration, /CREATE UNIQUE INDEX IF NOT EXISTS uq_interview_slots_one_booking_per_student/)
+  assert.match(migration, /ON public\.interview_slots \(booked_by_student_id\)\s*WHERE is_booked = true/)
+  assert.match(move, /uq_interview_slots_one_booking_per_student/, 'the code names the index that forces the order')
+  // The cost of that order is a window with no booking, so a failed claim restores the origin.
+  assert.match(move, /if \(claimErr \|\| !claimed\) \{[\s\S]*?\.eq\('id', current\.id\)/)
+  assert.match(move, /booked_at: current\.booked_at \|\| now/)
+  assert.match(move, /could not be restored/)
+  assert.match(move, /errorCode: claimErr\?\.code/, 'a claim failure is diagnosable, not just a message')
   // The session follows the booking so the rubric stays attached to it.
   assert.match(move, /from\('interview_sessions'\)[\s\S]*?\.update\(\{ slot_id: claimed\.id \}\)/)
   assert.match(availability, /ALLOWED_ACTIONS = \[[^\]]*'move_booking'\]/)
