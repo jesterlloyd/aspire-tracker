@@ -4504,6 +4504,9 @@ button.ov-group-row {
   font-size: 15px; color: var(--raven); min-height: 48px; line-height: 1.6;
 }
 .iv-readonly-tall { min-height: 100px; white-space: pre-wrap; }
+/* RUBRIC-SCHEDULE-1: the line under Section 1 saying these two fields move the real
+   booking, and carrying the server's refusal when there is no open slot. */
+.iv-sched-note { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary, #6b7280); }
 
 /* Question tiles (CHANGE 4 - radio circle, 16px, 8px radius) */
 .iv-questions { display: flex; flex-direction: column; gap: 8px; }

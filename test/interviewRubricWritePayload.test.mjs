@@ -85,11 +85,15 @@ test('every interview_rubrics write in RubricSession passes the gate', () => {
   assert.match(session, /import \{ toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId,/)
   // persist: the shared payload is gated once, and the create path gates the whole spread.
   assert.match(session, /const payload = toInterviewRubricWrite\(\{\s*\.\.\.scopedUpdates,/)
-  assert.match(session, /\.insert\(toInterviewRubricInsert\(\{ student_id: student\.id, cohort_id: cohortId, \.\.\.initForm\(\), \.\.\.form, \.\.\.payload \}\)\)/)
+  // The create seed grew across several lines when RUBRIC-SCHEDULE-1 taught it to take
+  // the date and time from the booking; what this pins is that it still goes through the gate.
+  assert.match(session, /\.insert\(toInterviewRubricInsert\(\{[\s\S]{0,400}?\.\.\.payload,?\s*\}\)\)/)
   assert.match(session, /\.update\(payload\)\.eq\('id', id\)/)
   // reset, unlock, and inline edit each gate their literal.
   const gatedUpdates = session.match(/\.update\(toInterviewRubricWrite\(/g) || []
-  assert.equal(gatedUpdates.length, 3, 'reset, unlock, and inline edit must each be gated')
+  // reset, unlock, inline edit, and (RUBRIC-SCHEDULE-1) the snapshot mirrored onto the
+  // rubric row after a successful reschedule.
+  assert.equal(gatedUpdates.length, 4, 'every literal update must be gated')
   // No raw object literal reaches the table.
   assert.doesNotMatch(session, /from\('interview_rubrics'\)\s*\.update\(\{/)
   assert.doesNotMatch(session, /from\('interview_rubrics'\)\s*\.insert\(\{/)

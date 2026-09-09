@@ -20,6 +20,7 @@ import { normalizeStaffRole } from '../lib/permissions'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId,
   isOwnRubricRow, isSelfInterviewerName, selectResumableRubric } from '../lib/interviewRubricWrite'
+import { moveInterviewBooking } from '../lib/interviewBooking'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -355,6 +356,14 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const canManageAllRubrics = userProfile?.is_owner === true
     || ['owner', 'admin', 'co-lead'].includes(normalizedRole)
   const isInterviewerOnly = normalizedRole === 'interviewer' && !canManageAllRubrics
+  // RUBRIC-SCHEDULE-1: moving an appointment is the scheduling grant, which is
+  // Owner/Admin only (api/student-update deliberately withholds it from Co-Lead),
+  // so it is NOT canManageAllRubrics. Everyone else reads the appointment.
+  const canReschedule = userProfile?.is_owner === true || ['owner', 'admin'].includes(normalizedRole)
+  // The appointment, read once. student.* is the booking; form.* is the rubric's own
+  // snapshot, which only still answers for rubrics written before a booking existed.
+  const bookedDate = student.interview_scheduled_date || ''
+  const bookedTime = (student.interview_scheduled_time || '').slice(0, 5)
   // RUBRIC-RESUME-OWN-1: your own unfinished rubric reopens whatever your role is.
   // This used to be gated on isInterviewerOnly, so an Owner, Admin or Co-lead who
   // saved a draft returned to a blank form while the banner counted the row they
@@ -527,7 +536,12 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       const effectiveInterviewerName = payload.interviewer_name || form.interviewer_name
       if (!createIfNeeded || !effectiveInterviewerName) { setSaveStatus('idle'); return false }
       const { data, error } = await safeWrite(
-        () => supabase.from('interview_rubrics').insert(toInterviewRubricInsert({ student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload })).select().single(),
+        () => supabase.from('interview_rubrics').insert(toInterviewRubricInsert({
+          student_id: student.id, cohort_id: cohortId, ...initForm(), ...form,
+          ...(bookedDate ? { interview_date: bookedDate } : {}),
+          ...(bookedTime ? { interview_time: bookedTime } : {}),
+          ...payload,
+        })).select().single(),
         { name: 'create rubric' }
       )
       if (error) {
@@ -582,12 +596,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => persist({ [field]: value }, false), 800)
   }
-  // Immediate non-creating save (date, time, etc.)
-  const saveImmediate = (field, value) => {
-    setForm(p => ({ ...p, [field]: value }))
-    hasUnsavedEditsRef.current = true
-    persist({ [field]: value }, false)
-  }
+  // RUBRIC-SCHEDULE-1: saveImmediate is gone with its last caller. It existed for
+  // Section 1 date and time, which now move the real booking through reschedule()
+  // instead of writing a second copy onto the rubric row.
   // Immediate save for meaningful edits - creates record if first interaction
   const saveMeaningful = (field, value) => {
     setForm(p => ({ ...p, [field]: value }))
@@ -630,6 +641,46 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       if (student?.id && userId) localStorage.removeItem(`aspire.rubric.draft.${student.id}.${userId}`)
     } catch (_) { /* non-critical */ }
     logActivity({ userProfile, actionType:'rubric_submitted', entityType:'student', entityId:student.id, cohortId, description:`${userProfile?.full_name} submitted interview rubric for ${student.first_name} ${student.last_name}. Score: ${composite}/15`, metadata:{ score: composite } })
+  }
+
+  // RUBRIC-SCHEDULE-1: Section 1's date and time ARE the appointment. Editing one
+  // moves the real booking, so the Interviews Today card (which reads the calendar
+  // slot) and the Interview Recommendations table (which reads the student's copy)
+  // both follow. The rubric's own interview_date / interview_time columns are kept
+  // in step as a snapshot, so a submitted rubric still records when it happened and
+  // the roster export keeps its column, but they are no longer a second opinion.
+  const [reschedError, setReschedError] = useState(null)
+  const [rescheduling, setRescheduling] = useState(false)
+  const reschedule = async (field, value) => {
+    if (!canReschedule || !value) return
+    const nextDate = field === 'date' ? value : bookedDate
+    const nextTime = field === 'time' ? value : bookedTime
+    if (!nextDate || !nextTime) {
+      setReschedError('This student has no booked interview yet. Schedule one from the interview calendar first.')
+      return
+    }
+    setRescheduling(true); setReschedError(null)
+    try {
+      const moved = await moveInterviewBooking(student.id, { date: nextDate, time: nextTime })
+      const appliedDate = moved?.slot_date || nextDate
+      const appliedTime = moved?.slot_time || nextTime
+      setForm(p => ({ ...p, interview_date: appliedDate, interview_time: appliedTime }))
+      if (rubricId) {
+        await safeWrite(
+          () => supabase.from('interview_rubrics')
+            .update(toInterviewRubricWrite({ interview_date: appliedDate, interview_time: appliedTime, updated_at: new Date().toISOString() }))
+            .eq('id', rubricId),
+          { name: 'mirror rubric schedule' }
+        )
+      }
+      toast?.success('Interview moved', `Now ${appliedDate} at ${appliedTime}.`)
+      if (onStudentUpdate) await onStudentUpdate()
+      if (onRubricsChange) onRubricsChange()
+    } catch (err) {
+      setReschedError(err.message || 'Could not move the interview.')
+    } finally {
+      setRescheduling(false)
+    }
   }
 
   const handleReset = async () => {
@@ -873,7 +924,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // Tri-state progress steps: 'empty' | 'partial' | 'complete'
   const stepSt = (complete, partial) => complete ? 'complete' : partial ? 'partial' : 'empty'
   const steps = [
-    { id:'s1', label:'Info',           status: stepSt(!!(form.interview_date && form.interviewer_name), !!(form.interview_date || form.interviewer_name)) },
+    { id:'s1', label:'Info',           status: stepSt(!!((bookedDate || form.interview_date) && form.interviewer_name), !!((bookedDate || form.interview_date) || form.interviewer_name)) },
     { id:'s2', label:'Preferences',    status: stepSt(!!prefs.unit_preference_1, false) },
     { id:'s3', label:'Clinical',       status: stepSt(hasQCj && form.cj_score > 0, hasQCj || form.cj_score > 0) },
     { id:'s4', label:'Professional',   status: stepSt(hasQPp && form.pp_score > 0, hasQPp || form.pp_score > 0) },
@@ -885,7 +936,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // Validation errors - computed live, gate Mark Complete
   const validationErrors = !locked ? [
     !form.interviewer_name                       && 'Interviewer name is required in Section 1',
-    !form.interview_date                         && 'Date of interview is required in Section 1',
+    !(bookedDate || form.interview_date)         && 'Date of interview is required in Section 1',
     (!form.cj_question_asked && !otherClicked.cj) && 'A question must be selected for Clinical Judgment',
     !form.cj_score                               && 'A score must be selected for Clinical Judgment',
     (!form.pp_question_asked && !otherClicked.pp) && 'A question must be selected for Professional Presence',
@@ -1296,8 +1347,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               <div className="iv-grid-2">
                 <div className="iv-field">
                   <label className="iv-label">Date of Interview</label>
-                  {locked ? <div className="iv-readonly">{form.interview_date}</div>
-                    : <input className="iv-input" type="date" value={form.interview_date} onChange={e => saveImmediate('interview_date', e.target.value)} />}
+                  {canReschedule && !readOnly
+                    ? <input className="iv-input" type="date" disabled={rescheduling}
+                        value={bookedDate}
+                        onChange={e => reschedule('date', e.target.value)} />
+                    : <div className="iv-readonly">{bookedDate || form.interview_date || '-'}</div>}
                 </div>
                 <div className="iv-field">
                   <label className="iv-label">Interviewer Name</label>
@@ -1309,10 +1363,20 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 </div>
                 <div className="iv-field">
                   <label className="iv-label">Interview Time</label>
-                  {locked ? <div className="iv-readonly">{form.interview_time || student.interview_scheduled_time || '-'}</div>
-                    : <input className="iv-input" type="text" value={form.interview_time || student.interview_scheduled_time || ''} onChange={e => saveText('interview_time', e.target.value)} placeholder="e.g. 09:00" />}
+                  {canReschedule && !readOnly
+                    ? <input className="iv-input" type="time" step="60" disabled={rescheduling}
+                        value={bookedTime}
+                        onChange={e => reschedule('time', e.target.value)} />
+                    : <div className="iv-readonly">{bookedTime || form.interview_time || '-'}</div>}
                 </div>
               </div>
+              {canReschedule && !readOnly && (
+                <p className="iv-sched-note">
+                  {reschedError
+                    ? reschedError
+                    : 'Changing the date or time moves the booked interview, so the calendar and the interview list both follow.'}
+                </p>
+              )}
             </div>
 
             {/* Section 2: Unit Preferences */}

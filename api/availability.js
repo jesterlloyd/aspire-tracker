@@ -26,7 +26,7 @@ import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.j
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'delete_slot', 'cancel_booking'];
+const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'delete_slot', 'cancel_booking', 'move_booking'];
 
 // AVAILABILITY-CALENDAR-1: breaks between interviews.
 //
@@ -449,6 +449,163 @@ export default async function handler(req, res) {
     }
 
     // ── CANCEL BOOKING (reverts student) ──────────────────────────────────────
+    // ── MOVE A BOOKING TO ANOTHER SLOT (RUBRIC-SCHEDULE-1) ────────────────────
+    //
+    // The Interview Rubric's Section 1 date and time edit the REAL appointment, so
+    // this action moves a student's booking from the slot it holds to an open slot
+    // at the requested date and time. Before this existed the rubric wrote
+    // interview_rubrics.interview_time, which nothing read: the appointment never
+    // moved and the rubric quietly disagreed with the calendar.
+    //
+    // It is a move, never a create: the student must already hold a booking, and the
+    // destination must be an EXISTING open slot in the SAME availability block, so the
+    // interviewer never changes silently and no slot is invented outside a block's grid.
+    // A cross-interviewer or cross-day move stays the calendar's job.
+    //
+    // Deliberately NOT cancel_booking + book: cancel_booking reverts the student to
+    // 'Form Received' and nulls the schedule, and booking sets status
+    // 'Interview Scheduled'. Either would rewrite the standing of a student who has
+    // already been interviewed. A move preserves status; only the appointment changes.
+    if (action === 'move_booking') {
+      // Owner/Admin only, matching student-update's update_interview_schedule: this
+      // writes the student's scheduled fields, which is the scheduling grant, not the
+      // own-block booking management an interviewer holds over cancel_booking.
+      if (!adminLevel) {
+        return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to reschedule interviews.' });
+      }
+      const studentId = typeof body.student_id === 'string' ? body.student_id : null;
+      if (!studentId || !UUID_REGEX.test(studentId)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'student_id' });
+      }
+      const newDate = typeof body.new_date === 'string' ? body.new_date : null;
+      const newTime = typeof body.new_time === 'string' ? body.new_time : null;
+      if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'new_date', message: 'Expected YYYY-MM-DD.' });
+      }
+      {
+        const [y, m, d] = newDate.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) {
+          return res.status(400).json({ error: 'invalid_request', field: 'new_date', message: 'Invalid calendar date.' });
+        }
+      }
+      if (!newTime || !/^([01]\d|2[0-3]):[0-5]\d$/.test(newTime)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'new_time', message: 'Expected HH:MM.' });
+      }
+
+      // The booking the student actually holds is the authority for what is being moved.
+      const { data: current, error: currentErr } = await db
+        .from('interview_slots')
+        .select('id, block_id, cohort_id, slot_date, slot_time, duration_minutes, interviewer_name')
+        .eq('booked_by_student_id', studentId)
+        .eq('is_booked', true)
+        .limit(1)
+        .maybeSingle();
+      if (currentErr) return res.status(500).json({ error: 'internal_error' });
+      if (!current) {
+        return res.status(409).json({ error: 'conflict', message: 'This student has no booked interview to move. Schedule one from the interview calendar first.' });
+      }
+
+      // slot_time is stored HH:MM or HH:MM:SS; compare on the minute.
+      const sameMinute = (a, b) => String(a || '').slice(0, 5) === String(b || '').slice(0, 5);
+      if (current.slot_date === newDate && sameMinute(current.slot_time, newTime)) {
+        return res.status(200).json({
+          success: true, no_change: true,
+          slot_date: current.slot_date, slot_time: String(current.slot_time).slice(0, 5),
+          duration_minutes: current.duration_minutes, interviewer_name: current.interviewer_name || null,
+        });
+      }
+
+      // The destination must already exist and be open, in the SAME block.
+      const { data: candidates, error: targetErr } = await db
+        .from('interview_slots')
+        .select('id, slot_date, slot_time, duration_minutes, interviewer_name')
+        .eq('block_id', current.block_id)
+        .eq('cohort_id', current.cohort_id)
+        .eq('slot_date', newDate)
+        .eq('is_booked', false);
+      if (targetErr) return res.status(500).json({ error: 'internal_error' });
+      const target = (candidates || []).find(s => sameMinute(s.slot_time, newTime)) || null;
+      if (!target) {
+        const who = current.interviewer_name ? ` with ${current.interviewer_name}` : '';
+        return res.status(409).json({
+          error: 'conflict',
+          message: `No open interview slot at ${newTime} on ${newDate}${who}. Open the interview calendar to add availability or move this booking to another interviewer.`,
+        });
+      }
+
+      // Claim the destination FIRST, conditionally, so two callers racing for the same
+      // open slot cannot both win and the student keeps the old booking if we lose.
+      const now = new Date().toISOString();
+      const { data: claimed, error: claimErr } = await db
+        .from('interview_slots')
+        .update({ is_booked: true, booked_by_student_id: studentId, booked_at: now, status: 'booked' })
+        .eq('id', target.id)
+        .eq('is_booked', false)
+        .select('id, slot_date, slot_time, duration_minutes, interviewer_name')
+        .single();
+      if (claimErr || !claimed) {
+        return res.status(409).json({ error: 'conflict', message: 'That slot was just taken. Refresh the calendar and try again.' });
+      }
+
+      // Release the old one. If this fails the student would hold two slots, which breaks
+      // the one-booking invariant, so give the claim back and fail rather than leave it.
+      const { error: releaseErr } = await db
+        .from('interview_slots')
+        .update({ is_booked: false, booked_by_student_id: null, booked_at: null, status: 'available' })
+        .eq('id', current.id)
+        .eq('booked_by_student_id', studentId);
+      if (releaseErr) {
+        await db.from('interview_slots')
+          .update({ is_booked: false, booked_by_student_id: null, booked_at: null, status: 'available' })
+          .eq('id', claimed.id)
+          .eq('booked_by_student_id', studentId);
+        console.warn('[availability] move_booking release failed, claim rolled back', { request_id: requestId, errorCode: releaseErr.code });
+        return res.status(500).json({ error: 'internal_error' });
+      }
+
+      // Carry the session across so the rubric stays attached to the booking it belongs to.
+      const { error: sessionErr } = await db
+        .from('interview_sessions')
+        .update({ slot_id: claimed.id })
+        .eq('slot_id', current.id)
+        .eq('student_id', studentId);
+      if (sessionErr) console.warn('[availability] move_booking session move failed (non-fatal)', { request_id: requestId, errorCode: sessionErr.code });
+
+      // The student's denormalized copy, WITHOUT touching status: an interviewed or
+      // placed student stays interviewed or placed when their appointment moves.
+      const { error: studentErr } = await db
+        .from('students')
+        .update({
+          interview_scheduled_date: claimed.slot_date,
+          interview_scheduled_time: String(claimed.slot_time).slice(0, 5),
+          interview_duration_minutes: claimed.duration_minutes,
+        })
+        .eq('id', studentId);
+      if (studentErr) {
+        console.warn('[availability] move_booking student update failed', { request_id: requestId, errorCode: studentErr.code });
+        return res.status(500).json({ error: 'internal_error' });
+      }
+
+      if (current.cohort_id) {
+        const { error: logErr } = await db.from('program_events').insert({
+          student_id: studentId, cohort_id: current.cohort_id, event_type: 'interview_rescheduled',
+          event_date: new Date().toISOString().split('T')[0],
+          notes: `Interview moved from ${current.slot_date} ${String(current.slot_time).slice(0, 5)} to ${claimed.slot_date} ${String(claimed.slot_time).slice(0, 5)}${claimed.interviewer_name ? ` with ${claimed.interviewer_name}` : ''}.`,
+        });
+        if (logErr) console.warn('[availability] move_booking log failed (non-fatal)', { request_id: requestId, errorCode: logErr.code });
+      }
+
+      console.log('[availability] booking moved', { request_id: requestId, callerRole: auth.role, studentId, from: current.id, to: claimed.id });
+      return res.status(200).json({
+        success: true,
+        slot_date: claimed.slot_date,
+        slot_time: String(claimed.slot_time).slice(0, 5),
+        duration_minutes: claimed.duration_minutes,
+        interviewer_name: claimed.interviewer_name || null,
+      });
+    }
+
     if (action === 'cancel_booking') {
       const slotId = typeof body.slot_id === 'string' ? body.slot_id : null;
       if (!slotId || !UUID_REGEX.test(slotId)) {
