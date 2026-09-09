@@ -150,6 +150,21 @@ const SNOWFLAKES = (() => {
 // not a per-city knob: a per-city value would silently disagree with the CSS.
 const VISIBLE = 0.41
 
+// MASTHEAD-STARS-1: a star field is not a row of lights. Lights breathe on
+// coprime periods so a street never pulses in unison; stars want the same
+// treatment but slower and wider apart, and they want SIZES - a sky where
+// every point is the same magnitude reads as a grid, not as a sky.
+const STAR_PERIODS = [3.4, 5.2, 4.1, 6.3, 3.8, 5.7, 4.6, 6.9, 3.2, 5.0, 4.4, 6.1]
+const STAR_SIZES = [2, 1.6, 2.6, 1.8, 2.2, 1.6, 3.2, 2, 1.8, 2.4, 1.6, 2.8]
+const starPeriod = i => STAR_PERIODS[i % STAR_PERIODS.length]
+const starSize = i => STAR_SIZES[i % STAR_SIZES.length]
+
+// Fraction of the comet's cycle during which it is falling. The keyframes in
+// index.css are written against this number, exactly as VISIBLE is, so it is a
+// constant here and not a per-city knob. A shooting star you can watch is not
+// a shooting star: at 3.2% a 1.1s fall means one every 34 seconds.
+const COMET_VISIBLE = 0.032
+
 function crossing(c) {
   return {
     top: `${c.y}%`,
@@ -183,7 +198,8 @@ export default function MastheadMotion({ city }) {
   if (!m) return null
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
-    neon, wheel, orb, emoji, torch, clock, facade, strike, snowfall, swell, surf, rainbow, cable, sceneOverrides, sceneShift } = m
+    neon, wheel, orb, emoji, torch, clock, facade, strike, snowfall, swell, surf, rainbow, cable,
+    stars, comet, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
@@ -220,6 +236,41 @@ export default function MastheadMotion({ city }) {
   const flareX = flareRight ? 100 - flare.x : flare?.x
   return (
     <div className={`mast-motion${wet ? ' mast-motion-wet' : ''}${sweeping ? ' mast-motion-hushed' : ''}`} aria-hidden>
+      {/* MASTHEAD-STARS-1 (Owner). FIRST, so everything else on the card is in
+          front of them: a star is the furthest thing in the frame, and a plane
+          or a bird that passed BEHIND one would be the tell. They sit outside
+          the anchored box on purpose - the box exists to carry a scene's
+          vertical shift, and the only scene stars appear on is `night`, which
+          is never shifted. Each position was measured to be open sky on this
+          city's own night frame; the CSS gates them to that frame alone. */}
+      {stars?.map(([x, y], i) => (
+        <span key={`st-${x}-${y}`} className="mast-motion-star"
+          style={{
+            left: `${x}%`, top: `${y}%`,
+            '--sz': `${starSize(i)}px`,
+            '--d': `${starPeriod(i)}s`,
+            '--dl': `${((i * 1.27) % 5.3).toFixed(2)}s`,
+          }} />
+      ))}
+
+      {/* The falling star. The container IS the measured path: laid along the
+          travel and rotated to the fall, with the streak sliding down it. The
+          angle is taken in PIXEL space (a vertical percentage is CARD_ASPECT
+          times fewer pixels than a horizontal one), which is the same
+          correction the bridge deck and the surf crest make. */}
+      {comet && (
+        <span className="mast-motion-comet" style={{
+          '--cx': `${comet.x}%`,
+          '--cy': `${comet.y}%`,
+          '--dist': `${Math.hypot(comet.run, comet.drop / CARD_ASPECT).toFixed(3)}%`,
+          '--angle': `${(Math.atan2(comet.drop / CARD_ASPECT, comet.run) * 180 / Math.PI).toFixed(3)}deg`,
+          '--cycle': `${(comet.flight / COMET_VISIBLE).toFixed(1)}s`,
+          '--dl': `${comet.delay ?? 0}s`,
+        }}>
+          <span className="mast-motion-comet-streak" />
+        </span>
+      )}
+
       {/* Two bolts on different periods, so the storm does not tick like a
           metronome. Both sit right of centre: a flash over the greeting would
           fight the text, the same contract the artwork's left fade honours. */}

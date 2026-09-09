@@ -446,6 +446,32 @@ export const CITY_MOTION = {
     // and its doorway, because that is how the artwork lights it.
     facade: [[66.0, 77.3, 11.6, 9.4], [65.3, 76.5, 2.8, 10.4]],
     rainfall: true,
+    // MASTHEAD-STARS-1 (2026-09-09, Owner: "blinking stars or comet (falling
+    // star) animations in some of the clear night skies"). CLEAR NIGHT ONLY -
+    // the CSS gates both kinds to `night` and to nothing else, because a star
+    // seen through an overcast is the same lie as sun glitter under a cloudy
+    // sky, which this registry already refuses to draw.
+    //
+    // These are measured the OTHER WAY ROUND from every other kind in this
+    // file. A light is placed on something the artwork already paints; a star
+    // is placed where the artwork paints NOTHING, so the measurement is a proof
+    // of emptiness. Each point sits at least 4 per cent of the card above this
+    // city's own skyline; its 7x7 neighbourhood still reads as sky (grey mean
+    // within 26 of the frame's top rows, standard deviation under 9, so no edge
+    // and no glow); and none lands under the moon, whose disc and halo were
+    // measured off the render's own alpha (box px 53 to 149 of 192) rather than
+    // assumed to fill the art box.
+    // The mast at x 23 reaches the very top, so the field steps around it, and the
+    // Observatory ridge closes the sky below y 27 across the right half.
+    stars: [
+      [6.13, 18.61], [14.2, 12.34], [22.01, 13.75], [22.14, 6.36], [24.85, 3.6],
+      [25.43, 6.89], [29.34, 10.31], [41.19, 19.53], [52.86, 2.54], [53.24, 8.69],
+      [53.85, 20.05], [56.35, 16.74], [57.01, 9.88], [62.93, 8.74], [66.74, 21.99],
+      [68.5, 26.43], [70.16, 19.52], [72.01, 12.7], [76.88, 21.3], [82.76, 16.8],
+      [83.07, 2.44], [86.92, 12.22], [91.08, 19.52], [93.9, 11.96], [95.34, 19.01],
+      [95.64, 25.26],
+    ],
+    comet: { x: 74, y: 2, run: 6, drop: 17, flight: 1.1 },
   },
   losangeles: {
     // MASTHEAD-LOSANGELES-3 (2026-09-06): the THIRD Los Angeles pack. Ten
@@ -534,6 +560,32 @@ export const CITY_MOTION = {
     // edge column peaks (lum 228) at y 36-40, just above the ridge.
     flare: { x: -6, y: 36 },
     rainfall: true,
+    // MASTHEAD-STARS-1 (2026-09-09, Owner: "blinking stars or comet (falling
+    // star) animations in some of the clear night skies"). CLEAR NIGHT ONLY -
+    // the CSS gates both kinds to `night` and to nothing else, because a star
+    // seen through an overcast is the same lie as sun glitter under a cloudy
+    // sky, which this registry already refuses to draw.
+    //
+    // These are measured the OTHER WAY ROUND from every other kind in this
+    // file. A light is placed on something the artwork already paints; a star
+    // is placed where the artwork paints NOTHING, so the measurement is a proof
+    // of emptiness. Each point sits at least 4 per cent of the card above this
+    // city's own skyline; its 7x7 neighbourhood still reads as sky (grey mean
+    // within 26 of the frame's top rows, standard deviation under 9, so no edge
+    // and no glow); and none lands under the moon, whose disc and halo were
+    // measured off the render's own alpha (box px 53 to 149 of 192) rather than
+    // assumed to fill the art box.
+    // The palms near x 5-10 and the towers at x 90-100 both reach past y 4, so the
+    // field stops short of either edge.
+    stars: [
+      [3.21, 12.23], [3.38, 20.28], [8.82, 2.46], [11.35, 11.5], [17.21, 10.5],
+      [22.19, 9.77], [23.28, 19.47], [25.55, 2.29], [46.13, 2.2], [46.97, 12.57],
+      [49.18, 18.33], [51.09, 8.47], [54.27, 8.31], [55.22, 20.99], [61.18, 16.09],
+      [62.38, 7.89], [62.43, 2.57], [65.72, 3.5], [65.86, 16.66], [70.99, 4.88],
+      [74.43, 5.41], [77.71, 7.83], [78.85, 3.05], [85.32, 14.63], [86.17, 10.15],
+      [87.23, 6.46],
+    ],
+    comet: { x: 52.5, y: 2, run: 6, drop: 17, flight: 1.1 },
   },
   sanfrancisco: {
     // MASTHEAD-SANFRANCISCO-3 (2026-09-07): the THIRD San Francisco pack. Ten
@@ -777,6 +829,33 @@ export const CITY_MOTION = {
     flare: { x: -6, y: 16.5 },
     rainfall: true,
     snowfall: true,
+    // MASTHEAD-STARS-1 (2026-09-09, Owner: "blinking stars or comet (falling
+    // star) animations in some of the clear night skies"). CLEAR NIGHT ONLY -
+    // the CSS gates both kinds to `night` and to nothing else, because a star
+    // seen through an overcast is the same lie as sun glitter under a cloudy
+    // sky, which this registry already refuses to draw.
+    //
+    // These are measured the OTHER WAY ROUND from every other kind in this
+    // file. A light is placed on something the artwork already paints; a star
+    // is placed where the artwork paints NOTHING, so the measurement is a proof
+    // of emptiness. Each point sits at least 4 per cent of the card above this
+    // city's own skyline; its 7x7 neighbourhood still reads as sky (grey mean
+    // within 26 of the frame's top rows, standard deviation under 9, so no edge
+    // and no glow); and none lands under the moon, whose disc and halo were
+    // measured off the render's own alpha (box px 53 to 149 of 192) rather than
+    // assumed to fill the art box.
+    // The deepest sky in the registry: the harbour leaves it open to y 40 at both
+    // edges, so this field runs lower than any other. One WTC at x 40.5 is the
+    // one column it never crosses.
+    stars: [
+      [2.2, 28.96], [4.78, 19.89], [6.64, 28.69], [10.73, 19.04], [16.8, 24.6],
+      [17.38, 14.41], [22.69, 32.13], [36.9, 22.62], [37.34, 2.52], [38.27, 18.81],
+      [39.04, 8.79], [42.24, 27.2], [47.33, 11.0], [49.1, 23.72], [49.18, 2.37],
+      [58.32, 7.15], [63.65, 12.48], [65.35, 4.65], [68.35, 10.7], [68.95, 20.38],
+      [72.81, 15.14], [75.61, 15.49], [84.24, 9.26], [86.02, 3.22], [90.26, 10.54],
+      [95.34, 22.97],
+    ],
+    comet: { x: 69.5, y: 2, run: 6, drop: 17, flight: 1.1 },
   },
   lasvegas: {
     // MASTHEAD-LASVEGAS-3 (2026-09-07): the THIRD Las Vegas pack. Ten frames
@@ -1775,6 +1854,32 @@ export const CITY_MOTION = {
       [48.1, 66.0, 6.0, 22.0], [75.2, 82.0, 5.0, 18.0], [60.9, 88.8, 8.8, 12.8],
     ],
     rainfall: true,
+    // MASTHEAD-STARS-1 (2026-09-09, Owner: "blinking stars or comet (falling
+    // star) animations in some of the clear night skies"). CLEAR NIGHT ONLY -
+    // the CSS gates both kinds to `night` and to nothing else, because a star
+    // seen through an overcast is the same lie as sun glitter under a cloudy
+    // sky, which this registry already refuses to draw.
+    //
+    // These are measured the OTHER WAY ROUND from every other kind in this
+    // file. A light is placed on something the artwork already paints; a star
+    // is placed where the artwork paints NOTHING, so the measurement is a proof
+    // of emptiness. Each point sits at least 4 per cent of the card above this
+    // city's own skyline; its 7x7 neighbourhood still reads as sky (grey mean
+    // within 26 of the frame's top rows, standard deviation under 9, so no edge
+    // and no glow); and none lands under the moon, whose disc and halo were
+    // measured off the render's own alpha (box px 53 to 149 of 192) rather than
+    // assumed to fill the art box.
+    // St Peter's dome breaks the skyline to y 6 across x 23-25.5, and the moon sits
+    // at 8 per cent, so the left third carries only three.
+    stars: [
+      [5.39, 8.13], [8.64, 5.7], [9.14, 1.87], [25.56, 3.75], [28.31, 12.93],
+      [30.07, 6.65], [31.86, 12.73], [32.35, 16.72], [34.48, 9.45], [46.01, 9.0],
+      [52.11, 2.36], [55.39, 13.72], [57.56, 7.29], [60.08, 16.95], [61.32, 11.78],
+      [62.92, 26.04], [64.15, 4.24], [67.16, 13.79], [76.47, 8.99], [78.46, 5.25],
+      [81.82, 3.72], [84.92, 14.64], [86.65, 8.35], [91.37, 2.38], [95.24, 3.59],
+      [96.67, 10.85],
+    ],
+    comet: { x: 57.5, y: 2, run: 6, drop: 17, flight: 1.1 },
   },
   toronto: {
     // MASTHEAD-TORONTO-1 (2026-09-08, a new city). TWELVE frames, which makes

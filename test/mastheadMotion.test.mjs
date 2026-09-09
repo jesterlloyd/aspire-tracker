@@ -19,7 +19,9 @@ const MASTHEAD = join(here, '..', 'public', 'masthead')
 // it simply renders nothing, so the registry has to be closed rather than open.
 const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge', 'beam',
   'birds', 'haze', 'hazeTone', 'flare', 'helicopter', 'rainfall', 'ferry', 'ferryTone', 'glints',
-  'steam', 'neon', 'wheel', 'orb', 'emoji', 'torch', 'clock', 'facade', 'strike', 'snowfall', 'swell', 'surf', 'rainbow', 'cable', 'sceneOverrides', 'sceneShift']
+  'steam', 'neon', 'wheel', 'orb', 'emoji', 'torch', 'clock', 'facade', 'strike', 'snowfall', 'swell', 'surf', 'rainbow', 'cable',
+  // MASTHEAD-STARS-1: a twinkling field and a falling star, both clear-night only.
+  'stars', 'comet', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -838,4 +840,67 @@ test('Toronto: the lake is the card, and nothing flies through the CN Tower', ()
   // weather kinds all have somewhere to land.
   assert.equal(t.rainfall, true)
   assert.equal(t.snowfall, true)
+})
+
+test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
+  // MASTHEAD-STARS-1. Every other kind is verified against something the
+  // artwork paints. These are verified against the artwork painting NOTHING,
+  // so the checks are the inverse: above the skyline, clear of the moon, and
+  // gated to the one scene with no cloud in it.
+  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome']
+  for (const city of STAR_CITIES) {
+    const m = CITY_MOTION[city]
+    assert.ok((m.stars?.length || 0) >= 20, `${city} has ${m.stars?.length || 0} stars; a handful reads as dust, not a sky`)
+    assert.ok(m.comet, `${city} lost its falling star`)
+  }
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const [x, y] of m.stars || []) {
+      assert.ok(x >= 0.5 && x <= 99.5, `${city} star at x ${x} is on the card's edge`)
+      // Stars live in the SKY. Every measured skyline in this registry is well
+      // below this, so a star under it is a star on a building.
+      assert.ok(y >= 1 && y <= 36, `${city} star at y ${y} is below the sky`)
+    }
+    // A star must not sit on a light, a beacon or the landmark glow: two
+    // sources on one pixel is one source rendered twice.
+    for (const [sx, sy] of m.stars || []) {
+      for (const kind of ['lights', 'beacons']) {
+        for (const [px, py] of m[kind] || []) {
+          assert.ok(Math.abs(sx - px) > 0.5 || Math.abs(sy - py) > 2.5,
+            `${city} has a star on top of a ${kind} point at ${px}, ${py}`)
+        }
+      }
+    }
+    const c = m.comet
+    if (!c) continue
+    // The path is start + travel, and BOTH ends have to be on the card. A
+    // comet is declared by its run and drop, not its end point, so the end is
+    // the number nobody looks at until it is off the frame.
+    assert.ok(c.run > 0 && c.drop > 0, `${city}.comet must fall down and across`)
+    assert.ok(c.x >= 0 && c.x + c.run <= 100, `${city}.comet leaves the card sideways`)
+    assert.ok(c.y >= 0 && c.y + c.drop <= 40, `${city}.comet ends at y ${c.y + c.drop}, in the skyline`)
+    assert.ok(c.flight > 0.4 && c.flight < 3,
+      `${city}.comet takes ${c.flight}s; a shooting star you can watch is not a shooting star`)
+    // It must FALL, not fly. The card is CARD_ASPECT:1, so the angle is only
+    // real once the vertical percentage is divided through it - written flat,
+    // a drop of 17 against a run of 6 would read as 70 degrees and it is 30.
+    const deg = Math.atan2(c.drop / CARD_ASPECT, c.run) * 180 / Math.PI
+    assert.ok(deg > 15 && deg < 55, `${city}.comet falls at ${deg.toFixed(1)}deg; that reads as an aircraft`)
+  }
+
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  // CLEAR night only. An overcast frame hides the sky, and this is the same
+  // rule as MASTHEAD-CLOUDY-1's refusal to put sun glitter under a cloud.
+  for (const cls of ['mast-motion-star', 'mast-motion-comet-streak']) {
+    assert.ok(css.includes(`.mast-scenic.mast-scene-night .${cls}`), `${cls} has no clear-night gate`)
+    for (const scene of ['cloudynight', 'rainnight', 'snownight', 'day', 'dawn', 'morning', 'goldenhour', 'sunset', 'cloudy', 'rain', 'snow']) {
+      assert.ok(!css.includes(`.mast-scenic.mast-scene-${scene} .${cls}`),
+        `${cls} is lit on ${scene}; stars do not show through an overcast, and they do not show by day`)
+    }
+  }
+  // The star keyframe must NOT be the glint's. `mast-twinkle` was already
+  // taken; a second definition of it would have won the cascade and quietly
+  // restyled the sun glitter of every city with water.
+  assert.match(css, /@keyframes mast-starlight/)
+  assert.equal(css.match(/@keyframes\s+mast-twinkle/g).length, 1,
+    'mast-twinkle is defined twice; the later one silently wins for every glint on every card')
 })
