@@ -1120,91 +1120,146 @@ export const CITY_MOTION = {
     rainfall: true,
   },
   seattle: {
-    // MASTHEAD-SEATTLE-1 (2026-09-05): a new city, eleven frames (Cloudy,
-    // Snow and SnowNight included). One viewpoint on all eleven, the Kerry
-    // Park view: the Space Needle at x 20.1, downtown to x 50, the stadiums
-    // and the port along the waterfront, Elliott Bay below, Rainier at x 76.
-    // Every coordinate measured (scratchpad nymeasure.mjs, gridzoom.py)
-    // through the 50% crop (historic). The three night frames are one
-    // drawing (forty lights and the Needle's tip within scatter), so the
-    // snowy and clouded nights need neither a shift nor an override.
+    // MASTHEAD-SEATTLE-2 (2026-09-09): the SECOND Seattle pack, and A DIFFERENT
+    // DRAWING - the edge correlation between the two Day frames is 0.209, barely
+    // above the 0.145 that made Tokyo's second pack a rewrite, so nothing from
+    // the first pack survived and every number here was measured again. Twelve
+    // frames now: RainNight joined the eleven. They register to each other
+    // within one row of four hundred.
     //
-    // Night: downtown's windows, then the waterfront, the stadiums, the port
-    // and the far shore.
+    // Seattle_RainNight.png arrived RGBA with a UNIFORM alpha of 219 and was
+    // flattened to RGB before cwebp, exactly as Rio's did. Encoded as-is it
+    // would have shipped one translucent frame in twelve.
+    //
+    // The view looks south-east across Elliott Bay from the north-west. The
+    // SPACE NEEDLE stands at x 20.1 and reaches the top of the card; downtown
+    // fills x 8-48 with crowns between y 24 and y 33; the stadium roofs arch at
+    // x 54-65; the PORT CRANES stand lit at x 67-75; MOUNT RAINIER fills
+    // x 68-88 and rises to y 6.5; and the bay opens across the right half,
+    // its near edge running from y 79 at x 42 up to y 61 at x 78.
+    //
+    // Windows, the waterfront and the hillside houses, taken as the brightest
+    // warm maximum in each cell of a column-by-band grid.
     lights: [
-      [24.8, 47.37], [34.3, 47.88], [11.3, 64.66], [17.0, 63.14], [21.2, 60.59],
-      [28.3, 46.36], [43.6, 63.64], [11.6, 58.9], [38.8, 54.66], [39.2, 68.64],
-      [9.0, 60.59], [45.0, 52.37], [22.7, 36.61], [31.8, 47.88], [14.0, 38.64],
-      [41.5, 63.9], [15.2, 49.15], [22.4, 52.88], [8.6, 53.39], [25.0, 68.64],
-      [44.9, 45.59], [34.6, 42.63], [25.4, 62.37], [29.4, 41.1], [16.5, 69.66],
-      [37.5, 35.85], [1.6, 55.85], [43.7, 69.15], [24.4, 56.61], [26.8, 52.63],
-      [11.4, 69.92], [17.2, 53.64], [33.1, 57.88], [27.6, 67.88], [4.3, 61.36],
-      [32.1, 67.12], [38.3, 60.17], [12.0, 43.39], [1.0, 64.92],
-      // The waterfront, the port and the far shore.
-      [70.7, 68.39], [56.4, 59.41], [76.5, 67.88], [74.2, 70.59], [68.4, 68.14],
-      [78.3, 58.9], [63.8, 70.59], [58.7, 70.34], [73.9, 60.59], [61.7, 58.14],
-      [79.3, 69.41], [55.3, 67.37], [65.5, 61.36], [61.6, 68.39], [94.7, 62.37],
-      [83.8, 62.88], [67.8, 59.66], [86.3, 71.36], [58.9, 57.12], [81.5, 61.1],
+      [2.2, 55.75], [4.6, 45.25], [6.5, 59.25], [8.1, 40.75], [8.45, 48.0],
+      [11.95, 36.25], [12.15, 59.5], [13.15, 50.25], [15.15, 62.75], [17.2, 37.75],
+      [19.35, 56.5], [19.5, 46.75], [20.25, 64.0], [25.8, 33.75], [26.05, 45.25],
+      [26.85, 55.5], [28.0, 65.0], [28.15, 41.75], [30.15, 41.5], [30.3, 51.0],
+      [30.5, 59.0], [32.9, 28.0], [36.5, 51.0], [37.45, 43.25], [38.2, 24.0],
+      [39.15, 64.25], [40.35, 49.75], [42.9, 56.0], [44.4, 70.5], [44.9, 34.75],
+      [45.15, 59.5], [45.35, 51.0], [47.3, 40.0], [49.75, 63.5], [50.2, 51.75],
+      [52.65, 66.75], [52.75, 58.0], [57.6, 69.25], [57.85, 59.5], [58.25, 49.25],
+      [61.9, 56.5], [62.2, 68.75], [65.05, 50.0], [66.05, 66.5], [68.45, 59.0],
+      [71.55, 49.0], [72.95, 63.75], [76.4, 50.5], [76.55, 59.75], [80.1, 50.75],
+      [83.2, 63.25], [86.25, 66.5], [89.55, 55.5], [91.2, 65.0], [92.0, 54.25],
+      [94.7, 50.5], [97.9, 65.75], [99.3, 55.5],
     ],
-    // The Needle's aviation light (rgb 221,31,7 on the snowy night, warm
-    // white on the clear one) at the very tip, the Columbia Center's crown,
-    // the Municipal Tower's, and the red crowns at x 12.6, 15.2 and 29.9.
-    beacons: [[20.1, 11.02], [33.1, 25.17], [37.8, 31.86], [12.6, 44.15], [15.2, 37.12], [29.9, 41.36]],
+    // Aviation red on the tower crowns and the tallest port crane. Detected the
+    // way Toronto's were - red dominance, dark sky above, a red blob no larger
+    // than 60 pixels - and then read one by one off a contact sheet, which
+    // dropped thirty-two of fifty-four. Nearly all of those were warm windows
+    // and floodlit orange steel, which colour alone cannot tell from a lamp.
+    //
+    // THE SPACE NEEDLE'S OWN LAMP IS NOT HERE. Its red spans rows 0 to 3 of the
+    // source frame and is centred 1.5px from the top, so the ARTWORK has
+    // already clipped it; a 6px beacon there is the half beacon Tokyo's two
+    // tower tips were. The Needle is lit by `facade` instead, which is what the
+    // frame actually shows.
+    beacons: [
+      [9.1, 38.75], [14.4, 41.25], [15.05, 30.75], [15.15, 26.25], [18.45, 38.25],
+      [25.1, 36.25], [29.05, 30.25], [29.75, 30.0], [31.15, 46.75], [33.35, 47.75],
+      [34.2, 38.25], [34.65, 43.25], [35.45, 48.5], [37.55, 52.0], [42.0, 44.25],
+      [46.15, 46.5], [53.05, 51.25], [60.05, 59.5], [61.6, 49.75], [66.4, 50.0],
+      [73.05, 50.25],
+    ],
     beaconTone: 'red',
-    // The bay throws the city back: reflections under the waterfront, the
-    // port and the far shore, and in the marina below the near shore.
+    // MASTHEAD-FACADE-1: the Space Needle, floodlit cream from its legs to its
+    // saucer. Three boxes because the tower is three shapes, and the column
+    // scan gives each: the SAUCER at y 8.5-13 where the lit structure widens to
+    // 2.85% of the card, the SHAFT from y 13.5 to 35 at a steady 0.75-1.3%, and
+    // the LEGS splaying to 4.25% below y 35. One ellipse over all three would
+    // have been a lozenge over the skyline behind it.
+    facade: [
+      [20.1, 10.8, 3.2, 5.6], [20.1, 24.0, 1.5, 23.0], [20.2, 40.0, 4.6, 12.0],
+    ],
+    // Elliott Bay after dark. The columns of the bay that run brighter than
+    // their own 60-column neighbourhood, which is what makes a reflection a
+    // reflection: a streak, not a level. The bay's near edge is not level
+    // either - it climbs from y 79 at x 42 to y 61 at x 78 - so the search
+    // starts from that measured edge per column rather than from one row.
     water: [
-      [52.9, 81.36], [65.8, 75.34], [62.5, 77.12], [39.1, 87.88], [69.1, 75.17],
-      [41.6, 87.12], [73.6, 73.14], [80.3, 73.64], [36.4, 88.39], [39.0, 79.66],
-      [51.4, 75.17], [48.0, 75.59], [58.7, 80.34], [94.7, 76.61], [87.9, 74.15],
-      [44.3, 80.59], [98.2, 77.12], [58.7, 70.34], [39.4, 73.39], [36.5, 70.85],
+      [42.5, 83.14], [44.35, 79.66], [46.65, 81.38], [47.45, 81.84], [48.9, 81.26],
+      [50.2, 78.75], [51.2, 82.65], [51.85, 76.43], [53.5, 79.69], [56.2, 78.54],
+      [57.85, 78.14], [59.05, 78.09], [60.8, 75.14], [62.5, 77.25], [63.05, 75.29],
+      [64.95, 72.75], [66.35, 74.48], [68.65, 73.53], [70.35, 69.62], [71.15, 65.91],
+      [73.05, 69.95], [73.75, 67.81], [79.8, 70.48], [83.2, 72.63], [86.25, 72.23],
+      [90.0, 72.42], [91.2, 73.86], [94.45, 73.12], [97.9, 72.2],
     ],
-    // Alaskan Way along the piers: one level lit line from the aquarium to
-    // the stadiums, traced light by light (+-1.3%), with a police car.
-    bridge: [
-      {
-        lights: [[44.5, 69.15], [46.5, 68.64], [48.0, 68.64], [49.5, 69.66], [52.0, 70.59], [53.5, 69.15], [55.5, 70.34], [60.0, 70.34], [62.0, 69.66], [63.5, 70.17]],
-        deck: { x: 44, y: 69.49, w: 20, rise: 0.42 },
-        police: true,
-      },
+    // Sun glitter, taken where the Day and Golden Hour frames INDEPENDENTLY put
+    // a local maximum in the same place: 206 of Day's 259 agreed, and these are
+    // the spaced best of those. The gap from x 50 to 62 is the piers and the
+    // stadiums standing in front of the water, not a thin patch of measurement.
+    glints: [
+      [42.95, 96.75], [43.05, 76.0], [44.8, 94.75], [48.5, 78.0], [49.45, 95.0],
+      [61.95, 78.5], [64.0, 70.75], [64.0, 79.0], [65.95, 74.0], [66.0, 79.5],
+      [67.8, 79.75], [68.0, 72.0], [69.95, 68.75], [72.95, 63.25], [74.95, 65.5],
+      [75.6, 76.5], [77.65, 72.5], [77.8, 67.0], [79.7, 76.25], [80.55, 67.75],
+      [81.6, 76.0], [82.85, 68.5], [83.3, 88.75], [84.6, 75.75], [84.9, 68.75],
+      [87.45, 76.0], [87.9, 86.75], [90.1, 74.25], [92.1, 84.0], [94.4, 83.75],
     ],
-    // Sky is clear above card y 10 east of the Needle (Rainier's summit is at
-    // 18, x 76; the Columbia Center reaches 21 at x 33), so the approach into
-    // Sea-Tac runs east to west and stops short of the Needle's mast.
-    aircraft: { y: 13.56, from: 98, to: 30, flight: 40 },
-    birds: { y: 17.8, from: 96, to: 40, flight: 34, count: 6 },
-    // A floatplane's height and a helicopter's rhythm, low over the bay at
-    // sunset, out past the stadiums.
-    helicopter: { y: 27.97, from: 40, to: 96, flight: 46 },
-    // Marine fog lying on the bay: from the piers (y 72-75) out over the
-    // water, white, with downtown and the Needle standing clear above it. A
-    // first pass at y 60 laid it across the lower skyline and read as a bar.
-    haze: { y: 63.56, height: 12.71 },
+    // MASTHEAD-STARS-1: Seattle was held back from the first star pass because
+    // this pack was coming. Its sky is as empty as New York's - brightened two
+    // and a half stops it carries nothing but the Needle, one tower and
+    // Rainier's snow - so it takes the same treatment, measured the same way.
+    // Rainier is the reason the right third carries few: the mountain reaches
+    // y 6.5 across x 68-88 and the field keeps 4% of card clear above it.
+    stars: [
+      [2.81, 16.05], [10.85, 3.33], [14.78, 7.34], [22.81, 13.9], [23.29, 10.42],
+      [24.21, 2.79], [24.94, 21.46], [31.17, 12.52], [32.01, 4.79], [34.75, 11.9],
+      [39.06, 13.98], [41.74, 8.86], [44.04, 13.13], [44.39, 21.9], [45.04, 5.36],
+      [49.82, 24.34], [50.36, 3.41], [53.2, 22.12], [62.0, 21.77], [72.39, 5.83],
+      [73.12, 14.97], [79.17, 2.67], [89.24, 18.6], [91.84, 3.46], [96.83, 13.94],
+      [98.23, 23.92],
+    ],
+    comet: { x: 44.5, y: 2, run: 6, drop: 17, flight: 1.1 },
+    // The chop, on open bay: clear of the piers, and inside the water at every
+    // corner - which the obvious rectangle is not, because the near shore rises
+    // to meet the trees on the left.
+    swell: { x: 60, y: 78, w: 38, height: 16 },
+    // A Washington State ferry on the Bainbridge run, white like the boats the
+    // day frames carry. Lane y 80 is open water from the right edge in to x 56.
+    ferry: { y: 80, from: 98, to: 56, flight: 150 },
+    ferryTone: 'white',
+    // Sky lanes, threaded between the two things that reach the top of this
+    // card: the Space Needle at x 20 and Mount Rainier from x 68. Between x 40
+    // and 68 nothing rises above y 26.5, and the one tower that breaks y 20 west
+    // of that sits at x 32 and tops at 14.25, which only the aircraft passes
+    // over.
+    aircraft: { y: 7, from: 66, to: 24, flight: 40 },
+    birds: { y: 10, from: 64, to: 40, flight: 34, count: 6 },
+    helicopter: { y: 16, from: 40, to: 64, flight: 46 },
+    // The bolt's TIP on a downtown roof at x 42, whose own beacon sits at
+    // y 44.25. A w:10 fork is about 25% of the card tall, so this one's top
+    // lands at y 8.5. The Needle and Rainier are both unstrikeable: either
+    // would need most of the fork above the frame.
+    strike: { x: 42, y: 33.5, w: 10 },
+    // Marine layer over the far shore and the sound, which is what this city's
+    // haze actually is - hence the fog tone rather than the warm-grey default.
+    haze: { y: 40, height: 10 },
     hazeTone: 'fog',
-    // Steam off three downtown rooftops with sky above them (first lit row of
-    // the column on the Night frame).
-    steam: [[26.0, 42.88], [36.0, 41.36], [46.0, 43.39]],
-    // The golden-hour sun is OFF-FRAME RIGHT (right edge brightest at card y
-    // 32; sky column means rise from 198 at left to 215 at right).
-    flare: { x: 106, y: 34.75 },
+    // The golden-hour sun is OFF-FRAME RIGHT, and two frames agree: the sky
+    // column means RISE left to right on Golden Hour (194 to 205) and Sunset
+    // (170 to 186). Morning falls the other way, which is the same sun on the
+    // other side of the day and not a contradiction.
+    flare: { x: 106, y: 18 },
+    // NO BRIDGE AND NO TRAFFIC on this drawing, and no steam either. The old
+    // pack had a lit deck with cars; here the arches at x 54-65 are STADIUM
+    // ROOFS, not a span, and the waterfront's brightest row wanders over ten
+    // per cent of the card between x 28 and 66 - a scatter of pier and building
+    // lights, not a road holding a line. Nothing paints a chimney, so nothing
+    // gets a plume.
     rainfall: true,
     snowfall: true,
-    // A Washington State ferry, white, on the Bainbridge run: in from the
-    // Sound at right and across the bay to the terminal. Lane y 88 is water
-    // from x 98 to the marina at 46 (the near shore's trees begin at 45).
-    ferry: { y: 82.2, from: 98, to: 46, flight: 150 },
-    ferryTone: 'white',
-    // Sun glitter, measured as the pale maxima of the Day and Golden Hour
-    // frames INSIDE the bay: the marina below the near shore, the water off
-    // the piers and the port, and the reach toward the far shore.
-    glints: [
-      [48.7, 78.9], [36.8, 77.88], [66.5, 75.34], [90.0, 72.88], [41.3, 85.59],
-      [95.5, 76.1], [38.6, 84.41], [57.6, 75.85], [84.4, 74.41], [70.2, 72.12],
-      [52.8, 74.92], [73.7, 74.92],
-    ],
-    // The bay's chop, from the marina to the far shore (the piers end at y
-    // 75, the far shore at 72, the near shore's trees hold x < 45 below 78).
-    swell: { x: 46, y: 72.03, w: 52, height: 19.49 },
   },
   atlanta: {
     // MASTHEAD-ATLANTA-2 (2026-09-05): the second Atlanta pack replaced the

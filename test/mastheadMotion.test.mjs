@@ -847,7 +847,9 @@ test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   // artwork paints. These are verified against the artwork painting NOTHING,
   // so the checks are the inverse: above the skyline, clear of the moon, and
   // gated to the one scene with no cloud in it.
-  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome']
+  // Seattle joined at MASTHEAD-SEATTLE-2: it was held back from the first
+  // pass only because its pack was being replaced.
+  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome', 'seattle']
   for (const city of STAR_CITIES) {
     const m = CITY_MOTION[city]
     assert.ok((m.stars?.length || 0) >= 20, `${city} has ${m.stars?.length || 0} stars; a handful reads as dust, not a sky`)
