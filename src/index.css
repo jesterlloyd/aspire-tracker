@@ -2073,6 +2073,16 @@ a.doc-file-link:hover { text-decoration: underline; }
   from { transform: scale(var(--sweep-zoom, 1.022)); }
   to   { transform: scale(1); }
 }
+/* The sun or moon is registered to the frame by CITY_SKY_X, so it drifts with
+   it. Same keyframe, same duration, started at the same moment, which is what
+   keeps them in step for the final beat where both are on screen. */
+.wx-mast-art-drift {
+  animation: mast-sweep-drift var(--sweep-total) linear 1 both;
+  transform-origin: 50% 55%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wx-mast-art-drift { animation: none; transform: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .mast-scenery[data-sweep] { animation: none; transform: none; }
 }

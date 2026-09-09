@@ -145,7 +145,32 @@ export const SWEEP_TAIL_KEY = 'aspire_sweep_tail_v1'
 // makes six paintings read as six paintings. The scenery starts a shade over
 // size and settles to exactly 1 across the whole sweep, so the destination
 // lands on the geometry every measured point is registered against. 1 is off.
-export const SWEEP_ZOOM = 1.022
+//
+// MASTHEAD-SWEEP-NATURAL-2 (Owner, 2026-09-08: "can we increase the % oversize
+// from 2.2%? that made it look really good", then "I like the 10%" from three
+// captures of the running sweep). 10% is four and a half times the original
+// travel. What it costs, measured rather than assumed:
+//
+//   The opening frame crops 5% off each side and, about the 55% origin, 5.5%
+//   off the top and 4.5% off the bottom. The rule that this card shows the
+//   WHOLE frame is about its resting state; this is a camera move that ends
+//   there. The tallest things in the registry are the ones that notice - Tokyo
+//   Tower's mast lamp at y 0.6 and the Skytree's at y 0 are outside the frame
+//   as the sweep opens and arrive as it settles, which reads as the push
+//   finding them rather than as a fault.
+//
+//   By the last beat the card is 2.9% oversize, so a handful of the very
+//   edge-most measured lights - Las Vegas at x 0.4 and 99.5, London at 99.5,
+//   Seattle at x 1 - are still outside the frame when the motion returns, and
+//   slide in over that beat. Every light INSIDE those margins is exactly on
+//   its window the whole way, because the motion layer is a CHILD of the
+//   scenery and rides the same transform.
+//
+//   The celestial art is a SIBLING and does not ride it by inheritance, so it
+//   is given the same drift explicitly. Without that it would sit 19px off the
+//   frame it is registered against at this depth; probed at 2.2, 6 and 10%,
+//   the two now differ by 0.0000 at every sample.
+export const SWEEP_ZOOM = 1.10
 export const SWEEP_ZOOM_KEY = 'aspire_sweep_zoom_v1'
 
 const readNum = (key, dflt, lo, hi) => {

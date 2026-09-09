@@ -117,11 +117,23 @@ test('the sweep is paced by how far apart the frames actually are', async () => 
 test('the sweep opens on a dissolve, lands long, and drifts to exactly 1', async () => {
   const m = await import('../src/lib/mastheadSweep.js')
   const { SWEEP_TAIL, SWEEP_ZOOM, sweepTail, sweepZoom } = m
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
   assert.ok(SWEEP_TAIL > 1 && SWEEP_TAIL <= 2, 'the last beat is longer, not a different effect')
-  assert.ok(SWEEP_ZOOM > 1 && SWEEP_ZOOM < 1.05, 'a drift, not a zoom')
+  // MASTHEAD-SWEEP-NATURAL-2 raised this from 1.022 on the Owner's word. The
+  // ceiling is the crop: the drift starts by taking half its excess off each
+  // side, and past about 6% a side it stops being a settle and starts hiding
+  // the landmarks the packs are measured on (Tokyo's Skytree sits at x 91.2).
+  assert.ok(SWEEP_ZOOM > 1 && SWEEP_ZOOM <= 1.12, 'a drift, not a zoom')
+  // Everything registered to the frame must ride the frame. The motion layer
+  // is a child of the scenery and inherits the transform; the celestial art is
+  // a SIBLING and has to be given it, or the moon slides against the ridge it
+  // was placed to clear - 11px at the card's edge at this depth.
+  const wx = readFileSync(join(here, '..', 'src', 'components', 'WeatherScene.jsx'), 'utf8')
+  assert.match(wx, /wx-mast-art-drift/, 'the celestial art does not ride the drift')
+  assert.match(wx, /'--sweep-zoom': sweepState\.zoom/)
+  assert.match(css, /\.wx-mast-art-drift \{\s*animation: mast-sweep-drift var\(--sweep-total\)/)
   // The drift ENDS at 1. Anything else would leave the artwork off the
   // geometry every point in CITY_MOTION is measured against.
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
   assert.match(css, /@keyframes mast-sweep-drift \{\s*from \{ transform: scale\(var\(--sweep-zoom[^)]*\)\); \}\s*to\s+\{ transform: scale\(1\); \}/)
   // One animation across the whole sweep, driven by the same tunable as the
   // steps. A per-step transform would be six little zooms.

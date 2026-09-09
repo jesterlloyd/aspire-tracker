@@ -335,7 +335,25 @@ export function WeatherMasthead() {
       {/* MASTHEAD-TIMELAPSE-1: the sun or moon is a statement about the time of
           day, and during a sweep the card is running through all of them. It
           fades out with the motion layer and returns when the sweep lands. */}
-      <div className={`wx-mast-art${sweeping ? ' wx-mast-art-hushed' : ''}`} style={{ '--scn-sky-x': skyX }} aria-hidden>
+      {/* MASTHEAD-SWEEP-NATURAL-2: the celestial art is a SIBLING of the
+          scenery, not a child, so it does not inherit the sweep's drift the
+          way the motion layer does - and it is registered to the frame by
+          CITY_SKY_X exactly as every measured point is. It therefore takes the
+          same drift, from the same state, so the two stay in step for the last
+          beat, when both are visible at once and the card is still oversize.
+          At 2.2% the mismatch was two pixels and did not matter; the Owner
+          asked for more, and at 6% it would be a moon sliding off a ridge. */}
+      <div
+        className={`wx-mast-art${sweeping ? ' wx-mast-art-hushed' : ''}${sweepState ? ' wx-mast-art-drift' : ''}`}
+        style={{
+          '--scn-sky-x': skyX,
+          ...(sweepState ? {
+            '--sweep-total': `${(sweepState.totalMs / 1000).toFixed(2)}s`,
+            '--sweep-zoom': sweepState.zoom,
+          } : null),
+        }}
+        aria-hidden
+      >
         {manifest
           ? <AssetScene manifest={manifest} onBroken={() => setAssetsBroken(true)} />
           : <SceneSvg scene={scene} />}
