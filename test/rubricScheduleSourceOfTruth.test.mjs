@@ -96,16 +96,41 @@ test('a move never rewrites the student standing', () => {
   assert.match(move, /interview_scheduled_time: String\(claimed\.slot_time\)\.slice\(0, 5\)/)
 })
 
-test('the destination must be an existing open slot of the same interviewer', () => {
+test('the destination is matched by INTERVIEWER, across all of that day\'s blocks', () => {
   const move = availability.slice(availability.indexOf("if (action === 'move_booking')"),
                                   availability.indexOf("if (action === 'cancel_booking')"))
-  // Same block means the interviewer cannot change under the user; no slot is invented.
-  assert.match(move, /\.eq\('block_id', current\.block_id\)/)
+  // The bug this replaced: the first cut required the destination to share the origin's
+  // block_id. Each "Add availability" creates its OWN block, so an interviewer with
+  // 10:30-11:00, 11:30-12:00 and 2:30-3:00 on one day has three single-slot blocks, and
+  // the open 11:30 is never in the booked 10:30's block. Every real move was refused.
+  assert.doesNotMatch(move, /\.eq\('block_id', current\.block_id\)/,
+    'matching the origin block refuses every move that crosses a block')
+  // Identity is resolved on the parent block, never trusted from the slot.
+  assert.match(move, /from\('interview_availability_blocks'\)[\s\S]{0,200}\.eq\('id', current\.block_id\)/)
+  assert.match(move, /\.eq\('interviewer_profile_id', originBlock\.interviewer_profile_id\)/)
+  assert.match(move, /\.eq\('block_date', newDate\)/)
+  // The search then spans every block that interviewer holds that day.
+  assert.match(move, /\.in\('block_id', blockIds\)/)
   assert.match(move, /\.eq\('is_booked', false\)/)
+  // Legacy blocks carry only a name; they still resolve rather than failing shut.
+  assert.match(move, /blockQuery\.eq\('interviewer_name', whoName\)/)
   assert.match(move, /No open interview slot at/)
   // A student with no booking is refused, not given one.
   assert.match(move, /has no booked interview to move/)
   assert.doesNotMatch(move, /\.insert\(\{[\s\S]{0,200}slot_date/, 'a move never creates a slot')
+})
+
+test('bookability is is_booked alone, the same test the public page applies', () => {
+  const move = availability.slice(availability.indexOf("if (action === 'move_booking')"),
+                                  availability.indexOf("if (action === 'cancel_booking')"))
+  // interview-lookup offers slots on is_booked and date alone; block is_active gates
+  // nothing there, so inventing a stricter rule here would hide bookable slots.
+  const lookup = read('api/interview-lookup.js')
+  assert.match(lookup, /\.eq\('is_booked', false\)/)
+  assert.doesNotMatch(lookup, /is_active/)
+  // Comments here explain the rule, so compare on code with comments stripped.
+  const moveCode = move.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")
+  assert.doesNotMatch(moveCode, /is_active/, "no stricter bookability rule than the public page")
 })
 
 test('the rubric keeps a snapshot in step, so the export and rubric cards stay honest', () => {

@@ -458,9 +458,15 @@ export default async function handler(req, res) {
     // moved and the rubric quietly disagreed with the calendar.
     //
     // It is a move, never a create: the student must already hold a booking, and the
-    // destination must be an EXISTING open slot in the SAME availability block, so the
+    // destination must be an EXISTING open slot belonging to the SAME INTERVIEWER, so the
     // interviewer never changes silently and no slot is invented outside a block's grid.
-    // A cross-interviewer or cross-day move stays the calendar's job.
+    // A cross-interviewer move stays the calendar's job.
+    //
+    // Same INTERVIEWER, not same block. Each "Add availability" creates its own block, so
+    // one interviewer routinely holds several on a single day (10:30-11:00, 11:30-12:00,
+    // 2:30-3:00 are three blocks, each one slot long). Matching the origin's block_id
+    // refused every real move: the open 11:30 slot is never in the booked 10:30's block.
+    // The identity lives on the parent block, never on the slot, so it is resolved there.
     //
     // Deliberately NOT cancel_booking + book: cancel_booking reverts the student to
     // 'Form Received' and nulls the schedule, and booking sets status
@@ -516,18 +522,50 @@ export default async function handler(req, res) {
         });
       }
 
-      // The destination must already exist and be open, in the SAME block.
-      const { data: candidates, error: targetErr } = await db
-        .from('interview_slots')
-        .select('id, slot_date, slot_time, duration_minutes, interviewer_name')
-        .eq('block_id', current.block_id)
+      // Whose booking this is, read from the parent block (the canonical identity).
+      const { data: originBlock, error: originBlockErr } = await db
+        .from('interview_availability_blocks')
+        .select('id, interviewer_profile_id, interviewer_name')
+        .eq('id', current.block_id)
+        .maybeSingle();
+      if (originBlockErr) return res.status(500).json({ error: 'internal_error' });
+      const whoName = originBlock?.interviewer_name || current.interviewer_name || null;
+      const who = whoName ? ` with ${whoName}` : '';
+
+      // Every block that interviewer holds in this cohort on the requested date.
+      let blockQuery = db
+        .from('interview_availability_blocks')
+        .select('id')
         .eq('cohort_id', current.cohort_id)
-        .eq('slot_date', newDate)
-        .eq('is_booked', false);
-      if (targetErr) return res.status(500).json({ error: 'internal_error' });
-      const target = (candidates || []).find(s => sameMinute(s.slot_time, newTime)) || null;
+        .eq('block_date', newDate);
+      if (originBlock?.interviewer_profile_id) {
+        blockQuery = blockQuery.eq('interviewer_profile_id', originBlock.interviewer_profile_id);
+      } else if (whoName) {
+        // Blocks created before interviewer_profile_id was required carry only a name.
+        blockQuery = blockQuery.eq('interviewer_name', whoName);
+      } else {
+        blockQuery = blockQuery.eq('id', current.block_id);
+      }
+      const { data: ownBlocks, error: blocksErr } = await blockQuery;
+      if (blocksErr) return res.status(500).json({ error: 'internal_error' });
+      const blockIds = (ownBlocks || []).map(b => b.id);
+
+      // The destination must already exist and be open. Bookability is is_booked alone,
+      // the same test the public scheduling page applies; block is_active gates nothing
+      // there, so it gates nothing here either.
+      let target = null;
+      if (blockIds.length > 0) {
+        const { data: candidates, error: targetErr } = await db
+          .from('interview_slots')
+          .select('id, slot_date, slot_time, duration_minutes, interviewer_name')
+          .in('block_id', blockIds)
+          .eq('cohort_id', current.cohort_id)
+          .eq('slot_date', newDate)
+          .eq('is_booked', false);
+        if (targetErr) return res.status(500).json({ error: 'internal_error' });
+        target = (candidates || []).find(s => sameMinute(s.slot_time, newTime)) || null;
+      }
       if (!target) {
-        const who = current.interviewer_name ? ` with ${current.interviewer_name}` : '';
         return res.status(409).json({
           error: 'conflict',
           message: `No open interview slot at ${newTime} on ${newDate}${who}. Open the interview calendar to add availability or move this booking to another interviewer.`,
