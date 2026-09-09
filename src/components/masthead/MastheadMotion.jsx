@@ -350,8 +350,9 @@ export default function MastheadMotion({ city }) {
           measured mass of the building, breathing slowly, drawn UNDER the
           window shimmer that already sits on it. Night only: floodlights come
           on at dusk, and by day a warm blob over a building is a smudge. */}
-      {facade?.map(([x, y, w, h], i) => (
-        <span key={`fa-${x}-${y}`} className="mast-motion-facade"
+      {facade?.map(([x, y, w, h, tone], i) => (
+        <span key={`fa-${x}-${y}`}
+          className={`mast-motion-facade${tone === 'cool' ? ' mast-motion-facade-cool' : ''}`}
           style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, '--dl': `${(i * 1.7).toFixed(1)}s` }} />
       ))}
 

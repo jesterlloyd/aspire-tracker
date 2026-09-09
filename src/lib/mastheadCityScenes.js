@@ -93,6 +93,7 @@ const CITY_ALIASES = {
   tokyo: 'tokyo',
   london: 'london',
   rome: 'rome',
+  toronto: 'toronto',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -130,6 +131,7 @@ export const CITY_COORDS = {
   honolulu: [21.31, -157.86],
   rio: [-22.91, -43.17],
   manila: [14.6, 120.98],
+  toronto: [43.65, -79.38],
 }
 
 const MAX_KM = 150
@@ -313,6 +315,22 @@ export const CITY_SKY_X = {
   // west of 62. 74% is the deepest clear sky that still clears the greeting on
   // the left and the temperature readout on the right.
   hongkong: '74%',
+  // MASTHEAD-TORONTO-1: the default 52% sits the moon on the financial
+  // district's crowns, which on this pack reach card y 24-28 between x 50 and
+  // 62, and the CN Tower's mast is immediately west of it at x 44.9 running
+  // the full height of the card. So the art goes WEST of the tower, where the
+  // skyline is at its lowest (nothing above card y 33 anywhere left of x 43)
+  // and where this artwork's own light comes from: the sky column means fall
+  // left to right on Morning, Golden Hour and Sunset alike.
+  //
+  // 18% and not further left, which is Rome's caution paid: the art box is a
+  // FIXED 192px, so it is 13.7% of a 1360px card but 19.2% of a 1000px one.
+  // Measured on both, with the CLOUD render rather than the moon because it is
+  // the widest art the box ever holds: at 12% it closed to nothing against the
+  // greeting on the narrow card (text ends 20.9%, box opened 13.7%); at 18%
+  // the gap is clear on both, and the disc still sits 27% of the card short of
+  // the CN Tower.
+  toronto: '18%',
 }
 export const DEFAULT_SKY_X = '52%'
 
@@ -1757,6 +1775,149 @@ export const CITY_MOTION = {
       [48.1, 66.0, 6.0, 22.0], [75.2, 82.0, 5.0, 18.0], [60.9, 88.8, 8.8, 12.8],
     ],
     rainfall: true,
+  },
+  toronto: {
+    // MASTHEAD-TORONTO-1 (2026-09-08, a new city). TWELVE frames, which makes
+    // this the first pack in the registry to carry every optional scene -
+    // Cloudy, CloudyNight, Snow, SnowNight, Rain and RainNight all arrived
+    // with the six of the day. One drawing throughout: edge correlation
+    // against Day runs 0.38 to 0.77, and the best whole-pixel registration
+    // shift is zero on five of the eleven others and never more than two rows
+    // of four hundred on any of them.
+    //
+    // The view is from the Toronto Islands looking north across Lake Ontario,
+    // and it is HALF WATER. The skyline runs the full width with its crowns
+    // between card y 25 and y 45; the CN TOWER stands at x 44.9 and reaches
+    // the very top of the card; the Rogers Centre dome sits at x 37.6-42.6,
+    // lit blue; a dense waterfront light strip runs the whole width at y 61-65;
+    // and everything below y 66 is open lake carrying the reflection of the
+    // entire city. That reflection is what this card is really about, which is
+    // why the water set here is the largest in the registry.
+    //
+    // Windows and the waterfront strip, taken as the brightest warm maximum in
+    // each cell of a 5%-column by four-band grid, so the skyline keeps its
+    // windows instead of the set collapsing onto the strip - which is what a
+    // plain brightness ranking did here, the strip being the brightest thing
+    // on the card by a distance.
+    lights: [
+      [2.9, 63.75], [3.25, 57.0], [8.9, 57.0], [9.75, 61.25], [10.55, 52.75],
+      [10.85, 63.75], [14.45, 59.25], [15.1, 51.75], [15.1, 55.25], [19.65, 65.0],
+      [21.55, 62.75], [23.6, 54.0], [27.5, 63.25], [28.65, 59.75], [30.65, 46.0],
+      [32.75, 64.25], [34.5, 56.5], [35.4, 51.5], [35.5, 53.75], [38.7, 64.0],
+      [40.75, 48.0], [41.4, 64.5], [43.15, 57.0], [46.25, 64.25], [46.8, 52.5],
+      [47.45, 56.0], [53.4, 64.25], [53.55, 51.75], [54.05, 56.75], [55.3, 43.25],
+      [56.75, 63.0], [57.35, 51.75], [57.85, 56.75], [60.55, 43.5], [62.1, 49.75],
+      [62.3, 53.0], [63.1, 62.0], [66.35, 64.5], [66.9, 49.75], [67.2, 56.0],
+      [70.45, 65.5], [70.95, 53.5], [75.1, 64.5], [76.2, 57.5], [80.85, 64.5],
+      [81.2, 52.0], [83.75, 54.25], [85.2, 55.5], [87.7, 63.25], [92.1, 59.75],
+      [93.35, 64.25], [95.0, 59.0], [97.4, 64.25],
+    ],
+    // Aviation red, all along the skyline. Four detectors had to agree before
+    // a point survived: red dominance over 58, dark sky above it, a red BLOB
+    // no larger than 60 pixels, and the eye. The blob size is the one that
+    // matters - a warm brown wall and a lamp read almost the same at a single
+    // pixel, and three candidates that passed every colour test were 120 to
+    // 400 pixels of lit masonry. Four more were dropped on sight after that.
+    //
+    // The last entry in the first row is the CN TOWER'S TIP at card y 1.5,
+    // six pixels from the top edge on the source frame. It is kept where
+    // Tokyo's two tip lamps were not, because a 6px beacon centred there still
+    // sits entirely on the card at rest; it is the opening of the timelapse
+    // drift, not the resting frame, that briefly carries it off the top.
+    beacons: [
+      [6.3, 54.25], [12.85, 52.25], [14.25, 46.25], [15.0, 46.25], [16.9, 45.5],
+      [18.65, 54.25], [23.3, 50.75], [28.45, 42.5], [32.15, 48.75], [35.9, 45.0],
+      [43.5, 46.25], [44.95, 1.5], [46.4, 40.25], [47.2, 40.25], [51.2, 45.5],
+      [53.75, 31.25], [54.4, 25.5], [56.85, 34.75], [57.1, 27.75], [58.15, 40.0],
+      [66.15, 44.5], [68.6, 41.25], [74.0, 43.0], [79.0, 43.25], [83.75, 47.75],
+    ],
+    beaconTone: 'red',
+    // MASTHEAD-FACADE-1, and the first COOL one. The CN Tower is floodlit
+    // cream from its base to the pod and takes the warm tone unchanged: the
+    // shaft, then the pod itself, which the column scan puts at y 18-24.4
+    // where the lit structure widens from 0.4% to 1.5% of the card.
+    //
+    // The Rogers Centre dome is lit BLUE, and a warm glow on it would have
+    // been the one light on this card painted a colour the artwork does not
+    // use. It names 'cool' as its fifth element instead - the same way a
+    // beacon names a variant third and a neon names its tone. Measured off the
+    // blue mask restricted to x 37.2-42.8: the arc runs y 54.3 to 59.5 and the
+    // rows below y 65 that the unrestricted mask also returned are the dome's
+    // REFLECTION, which is water and belongs to `water`.
+    facade: [
+      [44.95, 42.0, 1.6, 36.0], [45.0, 21.4, 3.2, 7.0],
+      [40.1, 56.9, 5.2, 5.8, 'cool'],
+    ],
+    // THE REFLECTIONS. Every column of the lake that runs brighter than its
+    // own 61-column neighbourhood, which is how a reflection differs from lit
+    // water: it is a vertical streak, not a level. 67 columns cleared the test
+    // and the strongest 42 are here, which ties New York for the largest water
+    // set in the registry and is the only place either number is deserved -
+    // a third of this card is lake.
+    water: [
+      [3.1, 72.69], [6.15, 73.8], [9.6, 73.28], [10.55, 72.81], [13.8, 74.82],
+      [15.95, 82.39], [19.6, 73.61], [24.75, 74.34], [27.95, 77.02], [29.75, 75.65],
+      [32.6, 74.79], [34.0, 73.83], [35.45, 75.32], [42.4, 73.87], [44.8, 80.77],
+      [46.55, 74.89], [48.3, 74.54], [49.1, 74.17], [49.9, 75.01], [52.1, 77.12],
+      [53.9, 76.85], [54.3, 71.9], [56.2, 74.59], [57.45, 76.15], [58.05, 73.3],
+      [61.5, 75.1], [63.15, 74.97], [65.8, 72.93], [67.95, 73.79], [68.4, 75.33],
+      [70.4, 75.77], [73.3, 74.05], [74.35, 75.24], [76.1, 75.25], [78.65, 75.99],
+      [80.45, 74.85], [82.25, 75.77], [83.75, 74.38], [87.05, 74.86], [90.6, 75.17],
+      [92.7, 72.88], [94.75, 74.79],
+    ],
+    // Sun glitter on the lake, and the detector here is AGREEMENT rather than
+    // a threshold: a point is a glint only where the Day frame and the Golden
+    // Hour frame independently put a local maximum in the same place. The two
+    // frames are lit differently and drawn separately, so a ripple crest that
+    // catches the light in both is a crest; 369 of Day's 407 maxima agreed,
+    // and these are 41 of those, spaced so the sparkle covers the whole lake
+    // rather than crowding the sun's own path. Each threshold is computed per
+    // 100px column band, because the water darkens toward the right and one
+    // global cut left that third of the lake bare. Five agreeing maxima below
+    // card y 97 are NOT here: the guard that keeps a sparkle off the card's
+    // rounded bottom corner is right, and the lake simply runs off the card.
+    glints: [
+      [0.8, 89.0], [10.45, 76.0], [14.05, 77.5], [14.1, 70.25], [21.4, 95.5],
+      [21.55, 87.25], [28.2, 96.25], [30.15, 86.25], [31.2, 76.75], [34.15, 88.5],
+      [38.55, 82.5], [38.8, 75.0], [42.2, 79.5], [44.5, 70.25], [44.55, 87.75],
+      [44.7, 95.0], [49.1, 83.25], [49.1, 70.5], [51.8, 92.5], [53.75, 82.25],
+      [55.85, 93.0], [56.1, 70.25], [57.4, 83.0], [61.0, 93.75], [61.35, 70.5],
+      [61.75, 84.5], [68.2, 83.25], [68.4, 92.5], [69.7, 75.75], [73.05, 83.0],
+      [73.65, 70.25], [73.7, 92.5], [77.4, 93.25], [78.55, 75.0], [78.65, 83.5],
+      [80.9, 90.25], [82.9, 76.75], [85.6, 92.0], [92.2, 91.5], [93.6, 82.25],
+      [95.9, 97.0],
+    ],
+    // The chop, on open lake: below the reflections, clear of the near shore,
+    // and short of both edges.
+    swell: { x: 4, y: 78, w: 92, height: 16 },
+    // The Island ferry, white like the boats moored along the shore in the day
+    // frames. Lane y 72 is open water from edge to edge - this is the one card
+    // in the registry where a crossing has nothing to avoid.
+    ferry: { y: 72, from: 98, to: 2, flight: 150 },
+    ferryTone: 'white',
+    // Sky lanes, all EAST of the CN Tower, which reaches the top of the card at
+    // x 44.9 and would be crossed rather than passed by anything flying over
+    // it. From x 50 to 96 the tallest thing on the skyline is a crown at card
+    // y 24, so the three lanes stack below that with the flock's own spread
+    // (6.4% up, 11.5% down) still clearing it.
+    aircraft: { y: 7, from: 96, to: 50, flight: 40 },
+    birds: { y: 11, from: 94, to: 52, flight: 34, count: 6 },
+    helicopter: { y: 17, from: 52, to: 94, flight: 46 },
+    // The bolt's TIP on the crown at x 57.1, whose own beacon sits at y 27.75.
+    // A w:10 fork is about 25% of the card tall, so this one's top lands at
+    // y 3 - on the card. A tip on the CN Tower would have needed most of its
+    // fork above the frame.
+    strike: { x: 57.1, y: 28.2, w: 10 },
+    // Atmospheric haze over the far skyline: the day frame's row mean falls
+    // steadily from 202 at y 40 to 129 at y 62 while its saturation rises,
+    // which is distance, not shadow.
+    haze: { y: 44, height: 11 },
+    // The golden-hour sun is OFF-FRAME LEFT, and three frames agree: the sky
+    // column means fall left to right on Morning (232 to 205), Golden Hour
+    // (196 to 156) and Sunset (146 to 113).
+    flare: { x: -6, y: 12 },
+    rainfall: true,
+    snowfall: true,
   },
 }
 

@@ -126,6 +126,7 @@ export const PICKER_IMAGE_FILES = {
   newyork: 'NewYork.webp',
   sanfrancisco: 'SanFrancisco.webp',
   seattle: 'Seattle.webp',
+  toronto: 'Toronto.webp',
 }
 
 /** Root-relative public URL for an option's picker image, or null. Encoded,

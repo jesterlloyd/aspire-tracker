@@ -35,6 +35,11 @@ const POINT_EFFECTS = ['lights', 'beacons', 'water', 'glints', 'steam', 'neon']
 const BEACON_VARIANTS = ['glow']
 // Neon points may carry a tone as a third element; only this one is drawn.
 const NEON_TONES = ['cyan']
+// MASTHEAD-TORONTO-1: a facade box may name a tone as its FIFTH element, after
+// x, y, w and h. Only this one is drawn, and it exists because the Rogers
+// Centre dome is lit blue and the warm default would have painted it a colour
+// its own artwork never uses.
+const FACADE_TONES = ['cool']
 // Two glows are "on top of each other" at a PHYSICAL distance, so the vertical
 // threshold has to be stated as one. 0.2542% of the card's WIDTH is what 1.5%
 // of its height meant on the old 5.9:1 card; MASTHEAD-FULL-FRAME-1 made the
@@ -446,6 +451,17 @@ test('a facade glow covers a measured building', () => {
   }
   assert.equal(CITY_MOTION.rome.facade.length, 6)
   assert.equal(CITY_MOTION.hollywood.facade.length, 2)
+  // A tone a box names has to be one the stylesheet actually paints; an
+  // unknown string here is a silently WARM building, which is the failure this
+  // whole kind was added to avoid.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const box of m.facade || []) {
+      assert.ok(box.length === 4 || box.length === 5,
+        `${city}.facade box is [x, y, w, h] with an optional tone, not ${box.length} values`)
+      if (box[4] !== undefined) assert.ok(FACADE_TONES.includes(box[4]),
+        `${city}.facade tone "${box[4]}" has no gradient`)
+    }
+  }
   const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
   // SIZED, like every other radial gradient in this file has to be: an unsized
   // one measures to the farthest CORNER, so a third of this glow would spill
@@ -453,6 +469,12 @@ test('a facade glow covers a measured building', () => {
   // hid an entire effect for two weeks.
   assert.match(css, /\.mast-motion-facade \{[\s\S]{0,400}?radial-gradient\(ellipse closest-side/)
   assert.match(css, /@keyframes mast-facade/)
+  // The cool tone is a background swap on the same element, so it inherits the
+  // shape, the breath and the night gates - but its gradient still has to be
+  // SIZED for the same reason the warm one does.
+  assert.match(css, /\.mast-motion-facade-cool \{[\s\S]{0,400}?radial-gradient\(ellipse closest-side/)
+  const cool = CITY_MOTION.toronto.facade.find(b => b[4] === 'cool')
+  assert.ok(cool, 'Toronto lost the cool facade on the Rogers Centre dome')
   // Floodlights are a night thing; by day this would be a smudge on a wall.
   for (const scene of ['night', 'cloudynight', 'rainnight', 'snownight']) {
     assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-facade`),
@@ -777,4 +799,43 @@ test('the card shows the whole frame, and the angle maths agrees with its shape'
   assert.doesNotMatch(reg, /export const CITY_IMG_Y/)
   assert.doesNotMatch(reg, /export function imgPositionFor/)
   assert.doesNotMatch(readFileSync(join(here, '..', 'src', 'index.css'), 'utf8'), /--scn-img-y/)
+})
+
+test('Toronto: the lake is the card, and nothing flies through the CN Tower', () => {
+  const t = CITY_MOTION.toronto
+  // MASTHEAD-TORONTO-1. The waterline measures at card y 66 (the day frame's
+  // row standard deviation collapses from 62 to 17.6 there, which is a skyline
+  // becoming a lake), so every water effect belongs below it and no light
+  // belongs in it. The reflections are the point of this card; if a future
+  // pass thins them to the size of an ordinary harbour, that is a regression.
+  assert.ok(t.water.length >= 40, `Toronto has ${t.water.length} reflections; this card is a third lake`)
+  assert.ok(t.glints.length >= 38, `Toronto has ${t.glints.length} glints`)
+  for (const [x, y] of t.water) assert.ok(y > 66, `Toronto water point at y ${y} is above the waterline`)
+  for (const [x, y] of t.glints) assert.ok(y > 66, `Toronto glint at y ${y} is above the waterline`)
+  for (const [x, y] of t.lights) assert.ok(y < 66, `Toronto light at y ${y} is in the lake`)
+
+  // The CN Tower stands at x 44.75-45.10 and reaches the top of the card, so
+  // it cannot be flown over - only passed on one side. Every crossing lane
+  // therefore stays east of it. This is the guard that would have caught a
+  // lane written from another city's numbers.
+  for (const kind of ['aircraft', 'birds', 'helicopter']) {
+    const lane = t[kind]
+    assert.ok(Math.min(lane.from, lane.to) > 47,
+      `Toronto.${kind} runs to x ${Math.min(lane.from, lane.to)}, through the CN Tower at 44.9`)
+  }
+  // And the ferry is the one crossing with nothing to avoid, because it is on
+  // open water the whole width of the card.
+  assert.ok(t.ferry.y > 66, 'the Toronto ferry is not on the lake')
+
+  // The tower's own tip lamp, which is the highest measured point in the whole
+  // registry. It is deliberately nearer the top edge than Tokyo's excluded
+  // tips: at card y 1.5 a 6px beacon still sits entirely on the frame at rest.
+  const tip = t.beacons.find(([x, y]) => y < 5)
+  assert.deepEqual(tip, [44.95, 1.5], 'the CN Tower lost its tip beacon')
+  assert.equal(t.beaconTone, 'red')
+
+  // Twelve frames: this is the first pack to ship every optional scene, so the
+  // weather kinds all have somewhere to land.
+  assert.equal(t.rainfall, true)
+  assert.equal(t.snowfall, true)
 })

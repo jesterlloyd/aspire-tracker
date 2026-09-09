@@ -2809,6 +2809,17 @@ a.doc-file-link:hover { text-decoration: underline; }
     rgba(255,166,58,0.09) 72%, transparent 88%);
   filter: blur(2px);
 }
+/* MASTHEAD-TORONTO-1: a floodlit building is not always warm. The Rogers
+   Centre dome is lit blue in every night frame of the Toronto pack, and the
+   warm gradient above would have been the one light on that card painted a
+   colour its artwork never uses. Same shape, same breath, the tone the
+   building is actually lit in - declared per box, the way a beacon declares
+   its variant and a neon its tone. */
+.mast-motion-facade-cool {
+  background: radial-gradient(ellipse closest-side,
+    rgba(150,205,255,0.38) 0%, rgba(110,175,250,0.22) 46%,
+    rgba(78,145,240,0.09) 72%, transparent 88%);
+}
 @keyframes mast-facade {
   0%, 100% { opacity: 0.52; }
   50%      { opacity: 1; }

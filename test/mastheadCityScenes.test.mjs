@@ -252,7 +252,7 @@ test('the picker grid: every option has its image, the images exist, and the car
   // Rio sorts under its full name, which is the label, not the folder.
   const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
   assert.deepEqual(cityOptions(packs).map(o => o.label),
-    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo'])
+    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo', 'Toronto'])
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.match(dlg, /role="radiogroup"/)
   assert.match(dlg, /role="radio"/)
