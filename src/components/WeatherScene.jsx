@@ -215,7 +215,15 @@ export function useWelcomeWeather() {
   // scene clock, so the artwork's time of day matches the city on screen.
   // Automatic leaves the viewer's own resolved location untouched.
   const { city: preferredCity } = useCityPreference()
-  const location = cityWeatherLocation(preferredCity, CITY_COORDS) || resolved
+  // MASTHEAD-ATLANTA-RETIRED: a chosen city moves the weather ONLY while its
+  // pack is installed, which is the same rule resolvePack applies to the
+  // artwork - so the two can never disagree. Without this, retiring a pack
+  // leaves anyone who had chosen it reading that city's temperature, condition
+  // and sunrise over another city's skyline: exactly the mismatch MASTHEAD-
+  // SCENE-5 existed to remove, arrived at from the other direction. A stored
+  // choice is not cleared, so it comes back the moment the pack does.
+  const installed = useMemo(() => parseSceneFiles(injectedSceneFiles()), [])
+  const location = (installed[preferredCity] ? cityWeatherLocation(preferredCity, CITY_COORDS) : null) || resolved
   const q = useQuery({
     queryKey: ['welcome_weather', location.chosen ? `city:${preferredCity}` : location.geo ? `geo:${location.lat},${location.lon}` : 'los_angeles'],
     queryFn: async () => {

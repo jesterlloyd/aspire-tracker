@@ -116,6 +116,14 @@ export const CITY_COORDS = {
   dallas: [32.78, -96.8],
   houston: [29.76, -95.37],
   miami: [25.76, -80.19],
+  // MASTHEAD-ATLANTA-RETIRED (2026-09-09, Owner: "remove the Atlanta for now,
+  // pending replacement"). The pack is gone; these coordinates are NOT, because
+  // they describe the city rather than the artwork and the replacement will want
+  // them. Nothing reaches them while no pack is installed: proximity matching
+  // only walks installed packs, and the weather now refuses a chosen city whose
+  // pack is missing. The measured motion, and the 30% sky anchor that went with
+  // it, are in the history at 74eec72e - but a second pack is a different
+  // drawing (Seattle's two correlated 0.209), so expect to measure it again.
   atlanta: [33.75, -84.39],
   // Hollywood sits about 12km from downtown Los Angeles, so proximity gives a
   // viewer whichever they are actually nearer to. Both packs are installed and
@@ -276,11 +284,6 @@ export const CITY_SKY_X = {
   // y 68 is empty pixels, not overhang. The machinery was removed rather than
   // left unused; it is ten lines if a future pack genuinely needs it.
   sanfrancisco: '66%',
-  // Atlanta's towers run in one dense band from roughly 42% to 72% of the
-  // frame, with the Bank of America spire near 68%, so the default 52% lands
-  // the moon in the middle of them. The left third is low rooftops and trees
-  // under open sky, which is where it goes.
-  atlanta: '30%',
   // MASTHEAD-LOSANGELES-3: the third pack puts the Wilshire Grand's needle at
   // x 54 (card y 12) with the tower cluster from x 40 to 76, so the default
   // 52% sits the moon on the needle. The clearing is the sky over the west
@@ -1265,76 +1268,6 @@ export const CITY_MOTION = {
     // gets a plume.
     rainfall: true,
     snowfall: true,
-  },
-  atlanta: {
-    // MASTHEAD-ATLANTA-2 (2026-09-05): the second Atlanta pack replaced the
-    // first, so EVERY coordinate here was re-measured (scratchpad
-    // nymeasure.mjs, gridzoom.py). One viewpoint on all eight frames: the
-    // skyline from the west, the stadium at left, Bank of America Plaza's
-    // spire at x 42.3, the Connector's interchange in front. Measured
-    // through the 50% crop (the spire's tip is at source row 63). CloudyNight
-    // is the same drawing as Night (lights and crowns within 3px).
-    //
-    // Night: Midtown and Downtown's windows, then the suburb's lamps.
-    lights: [
-      [36.2, 51.86], [48.2, 63.9], [40.4, 57.88], [42.1, 41.1], [32.2, 61.61],
-      [28.6, 66.36], [36.5, 59.15], [46.9, 42.88], [53.5, 42.88], [62.4, 65.08],
-      [43.6, 55.59], [42.4, 31.61], [53.1, 48.9], [37.4, 45.34], [25.4, 65.08],
-      [17.8, 63.14], [94.1, 64.15], [11.3, 64.66], [80.8, 53.39], [47.0, 54.92],
-      [52.6, 54.92], [45.6, 62.88], [52.8, 63.9], [49.4, 54.92], [55.9, 51.1],
-      [96.9, 50.59], [42.0, 66.36], [67.0, 64.66], [64.7, 61.36], [55.8, 65.08],
-      [36.5, 65.59], [15.2, 63.39], [91.0, 52.63], [29.9, 49.66], [0.9, 64.15],
-      // The suburb in front, off the two freeway rails.
-      [44.6, 71.1], [69.7, 87.37], [9.6, 84.41], [29.9, 73.9], [58.3, 67.88],
-      [37.5, 72.88], [82.8, 74.66], [75.6, 90.59], [54.5, 91.36], [14.3, 69.92],
-      [66.8, 68.14], [46.0, 81.1], [54.3, 76.86],
-    ],
-    // Aviation red is painted on the crowns here: the spire's tip (rgb
-    // 244,4,9 at card y 10) and its lattice, 191 Peachtree's tip, Truist
-    // Plaza, and the tower tops east and west of them (252,1,14 at x 70).
-    beacons: [
-      [42.4, 16.1], [42.4, 24.66], [53.0, 34.92], [47.2, 38.39], [50.0, 50.34],
-      [65.0, 46.86], [69.9, 52.37], [78.3, 56.61], [32.3, 51.61], [58.4, 52.37],
-      [39.6, 54.15],
-    ],
-    beaconTone: 'red',
-    // The stadium's LED halo and two cyan signs, flickering.
-    neon: [
-      [24.9, 67.12, 'cyan'], [21.1, 67.88, 'cyan'], [18.6, 67.37, 'cyan'],
-      [75.1, 72.12, 'cyan'], [86.3, 90.17, 'cyan'],
-    ],
-    // Steam off three rooftops with sky above them (Day frame roof edges).
-    steam: [[30.0, 49.66], [58.0, 52.37], [62.0, 53.64]],
-    // The Connector. The first pack had no traffic because the interchange
-    // is a curve; this frame's run under the stadium is straight enough for
-    // two rails, the gentle stretch from x 22 to 37 and the steeper ramp
-    // from 36 that leaves the card's bottom edge, traced light by light
-    // (+-1.5% band; every lamp within 1.8% of its rail). A police car runs
-    // the long one.
-    bridge: [
-      {
-        lights: [[25.0, 77.63], [26.5, 78.39], [28.5, 80.34], [30.0, 79.41], [31.5, 81.86], [35.0, 81.61]],
-        deck: { x: 22, y: 78.14, w: 15, rise: 5.08 },
-        police: true,
-      },
-      {
-        lights: [[37.5, 86.1], [39.0, 86.1], [40.5, 87.88], [42.5, 91.1]],
-        deck: { x: 36, y: 82.88, w: 7.5, rise: 8.81 },
-      },
-    ],
-    // Sky is clear above card y 30 east of the spire (191 Peachtree reaches
-    // 32 at x 53); the far hills lie at 37-42.
-    aircraft: { y: 19.49, from: 98, to: 48, flight: 40 },
-    birds: { y: 27.97, from: 98, to: 58, flight: 30, count: 6 },
-    helicopter: { y: 24.58, from: 56, to: 98, flight: 46 },
-    // Morning mist on the far hills and the suburbs behind the skyline.
-    haze: { y: 38.14, height: 11.86 },
-    hazeTone: 'fog',
-    // The golden-hour sky is brightest at the top-RIGHT corner (219 against
-    // 212 at left; Sunset and Dawn are lit from the right too), so the sun is
-    // off-frame right and high.
-    flare: { x: 106, y: 14.41 },
-    rainfall: true,
   },
   honolulu: {
     // MASTHEAD-HONOLULU-2 (2026-09-06): the SECOND Honolulu pack replaced the

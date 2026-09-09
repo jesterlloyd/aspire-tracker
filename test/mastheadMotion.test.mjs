@@ -97,10 +97,19 @@ test('scene overrides name a real scene, replace only point kinds, and are measu
       assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-not-${scene} \\{ display: none; \\}`))
     }
   }
-  // Atlanta's Connector: the first pack refused traffic on a curve; the
-  // second carries two short straight rails, the long one with the police car.
-  assert.equal(spansOf(CITY_MOTION.atlanta).length, 2)
-  assert.equal(spansOf(CITY_MOTION.atlanta)[0].police, true)
+  // MASTHEAD-ATLANTA-RETIRED: this used to pin Atlanta's Connector - two short
+  // straight rails, the long one carrying the police car - and Atlanta's pack
+  // has been withdrawn pending a replacement. The RULE it was really guarding
+  // is that a city may carry several spans and that one of them may run a
+  // police car, so it is pinned on the packs that still do rather than deleted
+  // with the city.
+  const withPolice = Object.entries(CITY_MOTION).filter(([, m]) => spansOf(m).some(s => s.police))
+  assert.ok(withPolice.length >= 5, `only ${withPolice.length} cities still run a police car`)
+  for (const [city, m] of withPolice) {
+    assert.ok(spansOf(m).some(s => s.police === true), `${city} lost its police car`)
+  }
+  assert.ok(Object.values(CITY_MOTION).some(m => spansOf(m).length >= 2),
+    'no city carries more than one span; the multi-span machinery is unused')
   // MASTHEAD-HOLLYWOOD-3: NOTHING declares sceneOverrides any more. Hollywood's
   // second pack was its only user - its cloudy-night frame drew the mast at a
   // different x - and the third pack's ten frames align within 1px, so the

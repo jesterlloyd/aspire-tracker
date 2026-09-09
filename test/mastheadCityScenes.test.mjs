@@ -197,7 +197,14 @@ test('a chosen city moves the whole masthead: artwork, weather, and time of day'
   const wx = readFileSync(join(here, '..', 'src/components/WeatherScene.jsx'), 'utf8')
   // The SAME query carries the sun times, so the scene clock follows the city
   // too - a New York skyline can never sit under Los Angeles's time of day.
-  assert.match(wx, /const location = cityWeatherLocation\(preferredCity, CITY_COORDS\) \|\| resolved/)
+  // MASTHEAD-ATLANTA-RETIRED: and it moves the weather ONLY while the chosen
+  // city's pack is installed. Retiring a pack used to leave whoever had chosen
+  // it reading that city's temperature and sunrise over another city's
+  // skyline - the same mismatch this rule exists to prevent, reached from the
+  // other side. The artwork already applied this test (resolvePack); now both
+  // halves apply it, so they cannot disagree.
+  assert.match(wx, /installed\[preferredCity\] \? cityWeatherLocation\(preferredCity, CITY_COORDS\) : null\) \|\| resolved/)
+  assert.match(wx, /const installed = useMemo\(\(\) => parseSceneFiles\(injectedSceneFiles\(\)\), \[\]\)/)
   assert.match(wx, /queryKey: \['welcome_weather', location\.chosen \? `city:\$\{preferredCity\}`/)
   // MASTHEAD-LOCKSCREEN-1: the city moved off the card and into the
   // temperature's hover and accessible readout, which always name it.
@@ -252,7 +259,7 @@ test('the picker grid: every option has its image, the images exist, and the car
   // Rio sorts under its full name, which is the label, not the folder.
   const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
   assert.deepEqual(cityOptions(packs).map(o => o.label),
-    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Porter Ranch', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo', 'Toronto'])
+    ['Automatic', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Porter Ranch', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo', 'Toronto'])
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.match(dlg, /role="radiogroup"/)
   assert.match(dlg, /role="radio"/)
@@ -397,4 +404,46 @@ test('an installed pack may add CloudyNight, and the five that predate it need n
   for (const city of Object.keys(packs)) {
     for (const scene of SCENES) assert.ok(packs[city]?.[scene], `${city} must carry ${scene}`)
   }
+})
+
+test('a withdrawn pack takes its whole city with it, and leaves the card coherent', async () => {
+  // MASTHEAD-ATLANTA-RETIRED (2026-09-09, Owner: "remove the Atlanta for now,
+  // pending replacement"). Retiring a pack is not just deleting images: a
+  // half-retired city is one that still has motion measured against artwork
+  // nobody can see, or a picker card pointing at a file that is gone.
+  const { CITY_MOTION, CITY_SKY_X, parseSceneFiles } = await import('../src/lib/mastheadCityScenes.js')
+  const { PICKER_IMAGE_FILES, AUTO } = await import('../src/lib/mastheadCityPreference.js')
+  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+    .map(f => String(f).replace(/\\/g, '/'))
+    .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
+    .filter(f => !f.startsWith('picker/') && !f.startsWith('fx/'))
+  const installed = parseSceneFiles(files)
+
+  assert.ok(!installed.atlanta, 'the Atlanta pack is still installed')
+  assert.ok(!CITY_MOTION.atlanta, 'Atlanta still declares motion measured against artwork that has gone')
+  assert.ok(!CITY_SKY_X.atlanta, 'Atlanta still declares a sky anchor; the next pack is a different drawing')
+  assert.ok(!PICKER_IMAGE_FILES.atlanta, 'Atlanta still has a picker card')
+
+  // The general rule, so the next withdrawal cannot go half-done either.
+  for (const city of Object.keys(CITY_MOTION)) {
+    assert.ok(installed[city], `${city} declares motion but has no pack installed`)
+  }
+  for (const city of Object.keys(CITY_SKY_X)) {
+    assert.ok(installed[city], `${city} declares a sky anchor but has no pack installed`)
+  }
+  for (const key of Object.keys(PICKER_IMAGE_FILES)) {
+    if (key === AUTO) continue
+    assert.ok(installed[key], `${key} has a picker card but no pack installed`)
+  }
+
+  // Coordinates are the exception and are meant to be: they describe the CITY,
+  // not the artwork, and several cities here have never had a pack at all.
+  // They are only safe to keep because nothing reaches them without one - the
+  // artwork resolves through resolvePack, and the weather now applies the same
+  // installed-pack test. If that changes, a stale choice starts reporting a
+  // missing city's temperature over whatever skyline it fell back to.
+  const { CITY_COORDS } = await import('../src/lib/mastheadCityScenes.js')
+  assert.ok(CITY_COORDS.atlanta, 'Atlanta lost the coordinates its replacement will want')
+  const wx = readFileSync(join(here, '..', 'src/components/WeatherScene.jsx'), 'utf8')
+  assert.match(wx, /installed\[preferredCity\] \? cityWeatherLocation/)
 })
