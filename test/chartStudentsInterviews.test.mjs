@@ -43,11 +43,11 @@ test('Students URL state', async (t) => {
     assert.match(spt, /never names,\s*\n\s*\/\/ emails, or free-typed search text/)
     // The free-text filter input writes component state only.
     assert.match(spt, /onChange=\{e => setUnifiedSearch\(e\.target\.value\)\}/)
-    // Every URL write uses one of the three fixed keys.
+    // Every URL write uses one of the fixed keys (cslink added by CS-LINK-KPI-1).
     const writes = [...spt.matchAll(/updateUrl\(\{ (\w+):/g)].map(m => m[1])
     assert.ok(writes.length >= 3, 'updateUrl call sites found')
     for (const key of writes) {
-      assert.ok(['student', 'filter', 'mode'].includes(key), `unexpected URL key: ${key}`)
+      assert.ok(['student', 'filter', 'cslink', 'mode'].includes(key), `unexpected URL key: ${key}`)
     }
   })
 })
@@ -59,14 +59,18 @@ test('Students rows are keyboard targets', () => {
   assert.match(listPanel, /e\.key === 'Enter' \|\| e\.key === ' '/)
 })
 
-test('Student search, school, and KPI filters apply to List, Grid, and CS-Link Access', () => {
-  assert.match(spt, /const displayedStudents = useMemo\(\(\) => \{[\s\S]*?if \(activeSchoolFilter\)[\s\S]*?if \(activeStatusFilter\)[\s\S]*?return sortStudentsByLastName\(list\)/)
+test('Student search and school are shared; each view applies the KPI cards it shows', () => {
+  // CS-LINK-KPI-1: Profiles shows pathway cards, CS-Link Access shows CS-Link stage cards,
+  // and neither view is narrowed by a card that is not on screen.
+  assert.match(spt, /const rosterStudents = useMemo\(\(\) => \{[\s\S]*?if \(activeSchoolFilter\)[\s\S]*?return sortStudentsByLastName\(list\)/)
+  assert.match(spt, /const displayedStudents = useMemo\(\(\) => \(\s*\n\s*activeStatusFilter\s*\n\s*\? rosterStudents\.filter/)
+  assert.match(spt, /const accessStudents = useMemo\(\(\) => \(\s*\n\s*csLinkFilter \? rosterStudents\.filter\(s => getCsLinkStatus\(s\) === csLinkFilter\) : rosterStudents/)
   assert.match(spt, /<StudentListPanel\s*\n\s*students=\{displayedStudents\}/,
-    'Profiles List and Grid must receive the shared filtered roster')
-  assert.match(spt, /<AccessTab students=\{displayedStudents\}/,
-    'CS-Link Access must receive the same shared filtered roster')
+    'Profiles List and Grid must receive the roster narrowed by the pathway card')
+  assert.match(spt, /<AccessTab students=\{accessStudents\}/,
+    'CS-Link Access must receive the roster narrowed by its own stage card')
   assert.doesNotMatch(spt, /<AccessTab students=\{students\}/,
-    'CS-Link Access must never bypass the active KPI or search filter')
+    'CS-Link Access must never bypass the search, school, or KPI filter')
 })
 
 test('Students toolbar uses cohort schools instead of a redundant sort menu', () => {

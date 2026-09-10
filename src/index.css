@@ -4350,6 +4350,8 @@ button.ov-group-row {
    drawer beneath) and the page scrolls naturally. No columns or fields are
    removed - density reflows, information does not. */
 .profiles-kpis { grid-template-columns: repeat(8, 1fr); }
+/* CS-LINK-KPI-1: CS-Link Access shows its own four cards, 4 across until phones, then 2. */
+.profiles-kpis[data-kpi-set="cslink"] { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 1280px) {
   .profiles-kpis { grid-template-columns: repeat(4, 1fr); }
 }
@@ -4375,7 +4377,8 @@ button.ov-group-row {
   .profiles-scroll-area { overflow: visible; }
 }
 @media (max-width: 560px) {
-  .profiles-kpis { grid-template-columns: repeat(2, 1fr); }
+  .profiles-kpis,
+  .profiles-kpis[data-kpi-set="cslink"] { grid-template-columns: repeat(2, 1fr); }
   .pl-row { grid-template-columns: 1fr !important; }
 }
 

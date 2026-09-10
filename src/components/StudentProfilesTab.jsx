@@ -14,9 +14,10 @@ import { Search, X, LayoutGrid, List, Info } from 'lucide-react'
 import Tooltip from './ui/Tooltip'
 import StatusLegendPopover from './StatusLegendPopover'
 import { getCsLinkStatus } from '../lib/utils'
+import { summarizeCsLink } from '../lib/derivations/csLink'
 
 // ── ASPIRE-CHART: URL state (approved) ────────────────────────────────────────
-// /students?student=<id>&filter=<bucket> is shareable and survives
+// /students?student=<id>&filter=<bucket>&cslink=<stage> is shareable and survives
 // refresh. Values are opaque ids and fixed vocabulary keys only - never names,
 // emails, or free-typed search text (the filter input stays out of the URL so
 // typed PII can never land in one). A URL grants nothing: an id that is not in
@@ -34,6 +35,18 @@ const filterToKey = (filterValue) => {
   const target = JSON.stringify(filterValue)
   return Object.keys(FILTER_KEYS).find(k => JSON.stringify(FILTER_KEYS[k]) === target) || null
 }
+// CS-LINK-KPI-1: the CS-Link Access view swaps the pathway cards for the four
+// CS-Link stages. Labels and counts come from summarizeCsLink (the one source
+// Keith also reads); this list only adds the URL key, sub-line and accent.
+// Not Started has no card; the table's status strip still counts it.
+const CSLINK_CARDS = [
+  { status: 'stage1_pending', urlKey: 'account-pending', sub: 'Service Center submitted', accent: 'dawn' },
+  { status: 'account_active', urlKey: 'account-active',  sub: 'Account confirmed',        accent: 'periwinkle' },
+  { status: 'cslink_pending', urlKey: 'cslink-pending',  sub: 'CS-Link requested',        accent: 'lavender' },
+  { status: 'complete',       urlKey: 'cslink-active',   sub: 'Access granted',           accent: 'sage' },
+]
+const cslinkFromKey = (key) => CSLINK_CARDS.find(c => c.urlKey === key)?.status ?? null
+const cslinkToKey = (status) => CSLINK_CARDS.find(c => c.status === status)?.urlKey ?? null
 // ── Sorting ───────────────────────────────────────────────────────────────────
 function sortStudentsByLastName(students) {
   return [...students].sort((a, b) => {
@@ -64,6 +77,7 @@ export default function StudentProfilesTab({
   const [unifiedSearch, setUnifiedSearch] = useState('')
   const [schoolFilter, setSchoolFilter] = useState('')
   const [activeStatusFilter, setActiveStatusFilter] = useState(() => FILTER_KEYS[searchParams.get('filter')] ?? null)
+  const [csLinkFilter, setCsLinkFilter] = useState(() => cslinkFromKey(searchParams.get('cslink')))
   const [showImport, setShowImport] = useState(false)
   const prevFilterKey = useRef(null)
 
@@ -82,6 +96,7 @@ export default function StudentProfilesTab({
   }
   const selectStudent = (id) => { setSelectedStudentId(id); updateUrl({ student: id }) }
   const changeFilter = (v) => { setActiveStatusFilter(v); updateUrl({ filter: filterToKey(v) }) }
+  const changeCsLinkFilter = (v) => { setCsLinkFilter(v); updateUrl({ cslink: cslinkToKey(v) }) }
   const changeView = (v) => { onViewChange(v); updateUrl({ mode: v === 'access' ? 'access' : null }) }
 
   // ?mode=access deep-links the CS-Link Access subview (once, on mount).
@@ -118,6 +133,9 @@ export default function StudentProfilesTab({
   // KLD-1: derivation moved verbatim into the shared canonical module so Keith and this
   // KPI strip share exactly one source of truth.
   const pipelineCounts = useMemo(() => computeStatusCounts(students), [students])
+  // CS-Link stage counts, also against the FULL cohort so both strips read alike.
+  const csLinkCounts = useMemo(() => summarizeCsLink(students), [students])
+  const csLinkLabel = (status) => csLinkCounts.find(c => c.key === status)?.label || status
 
   // School choices come from the active cohort. If a cohort switch removes the
   // selected school, fall back to All Schools without a state-setting effect.
@@ -127,8 +145,11 @@ export default function StudentProfilesTab({
   ), [students])
   const activeSchoolFilter = schoolOptions.includes(schoolFilter) ? schoolFilter : ''
 
-  // Shared filtered roster for Profiles List, Profiles Grid, and CS-Link Access.
-  const displayedStudents = useMemo(() => {
+  // Search and school are shared by both views; each view then applies the KPI
+  // cards it shows. Profiles (List and Grid) take the pathway filter, CS-Link
+  // Access takes the CS-Link stage filter, so neither view is ever narrowed by a
+  // card that is not on screen.
+  const rosterStudents = useMemo(() => {
     let list = students
     if (unifiedSearch.trim()) {
       const q = unifiedSearch.trim().toLowerCase()
@@ -152,15 +173,22 @@ export default function StudentProfilesTab({
     if (activeSchoolFilter) {
       list = list.filter(s => String(s.school || '').trim() === activeSchoolFilter)
     }
-    if (activeStatusFilter) {
-      list = list.filter(s =>
-        Array.isArray(activeStatusFilter)
-          ? activeStatusFilter.includes(s.status)
-          : s.status === activeStatusFilter
-      )
-    }
     return sortStudentsByLastName(list)
-  }, [students, unifiedSearch, activeSchoolFilter, activeStatusFilter]) // eslint-disable-line
+  }, [students, unifiedSearch, activeSchoolFilter]) // eslint-disable-line
+
+  const displayedStudents = useMemo(() => (
+    activeStatusFilter
+      ? rosterStudents.filter(s =>
+          Array.isArray(activeStatusFilter)
+            ? activeStatusFilter.includes(s.status)
+            : s.status === activeStatusFilter
+        )
+      : rosterStudents
+  ), [rosterStudents, activeStatusFilter])
+
+  const accessStudents = useMemo(() => (
+    csLinkFilter ? rosterStudents.filter(s => getCsLinkStatus(s) === csLinkFilter) : rosterStudents
+  ), [rosterStudents, csLinkFilter])
 
   // Auto-select first student when filter changes and current selection drops out
   useEffect(() => {
@@ -183,41 +211,59 @@ export default function StudentProfilesTab({
     const next = JSON.stringify(activeStatusFilter) === JSON.stringify(filterValue) ? null : filterValue
     changeFilter(next)
   }
+  const handleCsLinkKpiClick = (status) => changeCsLinkFilter(csLinkFilter === status ? null : status)
+
+  // The toolbar's clear chip belongs to the cards on screen.
+  const kpiFilterOn = view === 'access' ? !!csLinkFilter : !!activeStatusFilter
+  const clearKpiFilter = () => (view === 'access' ? changeCsLinkFilter(null) : changeFilter(null))
+  const kpiFilterLabel = view === 'access'
+    ? csLinkLabel(csLinkFilter)
+    : (Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter)
 
   return (
     <div className="student-profiles-tab">
 
-      {/* ── KPI filter strip (frozen; column count lives in CSS so it reflows) ── */}
+      {/* ── Section picker: Profiles / CS-Link Access. Sits above the KPI cards like the
+          Rotation and Evaluation pickers, with the same wrapper and button style. ── */}
+      <div style={{ padding:'0 0 12px', flexShrink:0 }}>
+        <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', width:'fit-content' }}>
+          <button onClick={() => changeView('records')}
+            style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
+              background: view==='records' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+              color: view==='records' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
+            Profiles
+          </button>
+          <button onClick={() => changeView('access')}
+            style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
+              background: view==='access' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+              color: view==='access' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
+            CS-Link Access
+          </button>
+        </div>
+      </div>
+
+      {/* ── KPI filter strip (frozen; column count lives in CSS so it reflows).
+          Each view shows its own cards: pathway on Profiles, CS-Link stages on CS-Link Access. ── */}
       <div className="profiles-frozen">
-        <div className="profiles-kpis" style={{ display:'grid', gap:10, marginBottom:14 }}>
-          <FilterKPICard value={pipelineCounts.total}             label="Total"              sub="All students"          accent="nightfall"  active={activeStatusFilter === null}                                                         onClick={() => handleKpiClick(null)} />
-          <FilterKPICard value={pipelineCounts.needsOutreach}     label="Needs Outreach"     sub="Pending + Form Sent"   accent="dawn"       active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Pending Outreach','Form Sent'])} onClick={() => handleKpiClick(['Pending Outreach','Form Sent'])} />
-          <FilterKPICard value={pipelineCounts.awaitingInterview} label="Awaiting Interview" sub="Form Received + Scheduled" accent="periwinkle" active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Form Received','Interview Scheduled'])} onClick={() => handleKpiClick(['Form Received','Interview Scheduled'])} />
-          <FilterKPICard value={pipelineCounts.interviewed}       label="Interviewed"        sub="Ready to place"        accent="lavender"   active={activeStatusFilter === 'Interviewed'}                                                onClick={() => handleKpiClick('Interviewed')} />
-          <FilterKPICard value={pipelineCounts.placed}            label="Placed"             sub="Unit assigned"         accent="sage"       active={activeStatusFilter === 'Placed'}                                                     onClick={() => handleKpiClick('Placed')} />
-          <FilterKPICard value={pipelineCounts.activeRotation}    label="Active Rotation"    sub="In rotation"           accent="marina"     active={activeStatusFilter === 'Active Rotation'}                                            onClick={() => handleKpiClick('Active Rotation')} />
-          <FilterKPICard value={pipelineCounts.completed}         label="Completed"          sub="Program done"          accent="sage"       active={activeStatusFilter === 'Completed'}                                                  onClick={() => handleKpiClick('Completed')} />
-          <FilterKPICard value={pipelineCounts.notProceeding}     label="Not Proceeding"     sub="Not selected · withdrew · declined offer" accent="chroma" active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Not Proceeding','Declined'])} onClick={() => handleKpiClick(['Not Proceeding', 'Declined'])} />
+        <div className="profiles-kpis" data-kpi-set={view === 'access' ? 'cslink' : 'pathway'} style={{ display:'grid', gap:10, marginBottom:14 }}>
+          {view === 'access' ? CSLINK_CARDS.map(c => (
+            <FilterKPICard key={c.status} value={csLinkCounts.find(x => x.key === c.status)?.count ?? 0} label={csLinkLabel(c.status)} sub={c.sub} accent={c.accent} active={csLinkFilter === c.status} onClick={() => handleCsLinkKpiClick(c.status)} />
+          )) : (
+            <>
+              <FilterKPICard value={pipelineCounts.total}             label="Total"              sub="All students"          accent="nightfall"  active={activeStatusFilter === null}                                                         onClick={() => handleKpiClick(null)} />
+              <FilterKPICard value={pipelineCounts.needsOutreach}     label="Needs Outreach"     sub="Pending + Form Sent"   accent="dawn"       active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Pending Outreach','Form Sent'])} onClick={() => handleKpiClick(['Pending Outreach','Form Sent'])} />
+              <FilterKPICard value={pipelineCounts.awaitingInterview} label="Awaiting Interview" sub="Form Received + Scheduled" accent="periwinkle" active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Form Received','Interview Scheduled'])} onClick={() => handleKpiClick(['Form Received','Interview Scheduled'])} />
+              <FilterKPICard value={pipelineCounts.interviewed}       label="Interviewed"        sub="Ready to place"        accent="lavender"   active={activeStatusFilter === 'Interviewed'}                                                onClick={() => handleKpiClick('Interviewed')} />
+              <FilterKPICard value={pipelineCounts.placed}            label="Placed"             sub="Unit assigned"         accent="sage"       active={activeStatusFilter === 'Placed'}                                                     onClick={() => handleKpiClick('Placed')} />
+              <FilterKPICard value={pipelineCounts.activeRotation}    label="Active Rotation"    sub="In rotation"           accent="marina"     active={activeStatusFilter === 'Active Rotation'}                                            onClick={() => handleKpiClick('Active Rotation')} />
+              <FilterKPICard value={pipelineCounts.completed}         label="Completed"          sub="Program done"          accent="sage"       active={activeStatusFilter === 'Completed'}                                                  onClick={() => handleKpiClick('Completed')} />
+              <FilterKPICard value={pipelineCounts.notProceeding}     label="Not Proceeding"     sub="Not selected · withdrew · declined offer" accent="chroma" active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Not Proceeding','Declined'])} onClick={() => handleKpiClick(['Not Proceeding', 'Declined'])} />
+            </>
+          )}
         </div>
 
-        {/* ── Unified toolbar: Profiles/CS-Link toggle + all controls in one row ── */}
+        {/* ── Unified toolbar: legend, search, school, view and actions in one row ── */}
         <div style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 12px', background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:10, marginBottom:10, flexWrap:'wrap' }}>
-
-          {/* Profiles / CS-Link Access - segmented, matches List/Grid style */}
-          <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
-            <button onClick={() => changeView('records')}
-              style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
-                background: view==='records' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-                color: view==='records' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
-              Profiles
-            </button>
-            <button onClick={() => changeView('access')}
-              style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
-                background: view==='access' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-                color: view==='access' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
-              CS-Link Access
-            </button>
-          </div>
 
           {/* Status legend popover */}
           <StatusLegendPopover position="bottom-left" />
@@ -254,11 +300,11 @@ export default function StudentProfilesTab({
           </select>
 
           {/* Active KPI filter clear */}
-          {activeStatusFilter && (
-            <button onClick={() => changeFilter(null)}
+          {kpiFilterOn && (
+            <button onClick={clearKpiFilter}
               style={{ display:'flex', alignItems:'center', gap:4, height:32, padding:'0 10px', borderRadius:7, border:'1px solid rgba(29,37,103,0.15)', background:'#f0f3ff', color:'#1D2567', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', flexShrink:0 }}>
               <X size={10} />
-              {Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter}
+              {kpiFilterLabel}
             </button>
           )}
 
@@ -374,9 +420,9 @@ export default function StudentProfilesTab({
       {/* ── CS-Link Access ── */}
       {view === 'access' && (
         <div className="profiles-scroll-area">
-          {/* Profiles and CS-Link are two views of the same roster. Keep the shared search and
-              pathway KPI filter active when switching views instead of bypassing them here. */}
-          <AccessTab students={displayedStudents} onUpdate={onUpdate} focusStudentId={accessFocusId} />
+          {/* Profiles and CS-Link are two views of the same roster: the shared search and school
+              filter apply here, plus the CS-Link stage card on screen. Never pass raw `students`. */}
+          <AccessTab students={accessStudents} onUpdate={onUpdate} focusStudentId={accessFocusId} />
         </div>
       )}
 
