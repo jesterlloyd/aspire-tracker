@@ -160,7 +160,11 @@ test('the celestial art sits where each city leaves its sky clear', async () => 
   assert.notEqual(CITY_SKY_X.newyork, DEFAULT_SKY_X)
   assert.equal(skyPositionFor('losangeles'), CITY_SKY_X.losangeles)
   assert.notEqual(CITY_SKY_X.losangeles, DEFAULT_SKY_X)
-  for (const city of ['seattle', 'lasvegas', 'chicago', undefined, null]) {
+  // Chicago's cloud art sat across the Wrigley spire at the default and moves
+  // left over the open sky above the clock (MASTHEAD-CHICAGO-1). It used to be
+  // this test's example of a city with coordinates and no pack; Denver is now.
+  assert.equal(skyPositionFor('chicago'), '44%')
+  for (const city of ['seattle', 'lasvegas', 'denver', undefined, null]) {
     assert.equal(skyPositionFor(city), DEFAULT_SKY_X, `${city} uses the default sky position`)
   }
   // The scenery layer and the weather module must resolve the SAME pack, or
@@ -259,7 +263,7 @@ test('the picker grid: every option has its image, the images exist, and the car
   // Rio sorts under its full name, which is the label, not the folder.
   const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
   assert.deepEqual(cityOptions(packs).map(o => o.label),
-    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Porter Ranch', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo', 'Toronto'])
+    ['Automatic', 'Atlanta', 'Chicago', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Porter Ranch', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo', 'Toronto'])
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.match(dlg, /role="radiogroup"/)
   assert.match(dlg, /role="radio"/)

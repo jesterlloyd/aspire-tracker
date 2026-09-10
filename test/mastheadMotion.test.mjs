@@ -29,7 +29,9 @@ const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge
   // motion layer, which is why it carries no points.
   'screen',
   // MASTHEAD-FOUNTAIN-1: measured jets that grow from a measured plaza.
-  'fountain', 'sceneOverrides', 'sceneShift']
+  'fountain',
+  // MASTHEAD-SEARCHLIGHT-1: a shaft that swings from a measured crown, night only.
+  'searchlights', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -869,6 +871,113 @@ test('Toronto: the lake is the card, and nothing flies through the CN Tower', ()
   assert.equal(t.snowfall, true)
 })
 
+// MASTHEAD-SEARCHLIGHT-1 (Owner, of Chicago: "how about spotlight moving
+// too?"). The beam's moving sibling. What is measured is where it stands; the
+// light itself is supplied, the same rule as Porter Ranch's mast lamps.
+test('a searchlight swings from a measured crown, and only after dark', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    const sl = m.searchlights || []
+    for (const s of sl) {
+      assert.ok(s.x > 0 && s.x < 100 && s.y > 0 && s.y < 100, `${city} searchlight at ${s.x}, ${s.y} is off the card`)
+      assert.ok(s.reach > 0 && s.reach <= 100, `${city} searchlight reaches ${s.reach}% of the card`)
+      // Under 15 degrees it never visibly leaves vertical in a short sky; over
+      // 60 it lies down across the skyline.
+      assert.ok(s.sweep >= 15 && s.sweep <= 60, `${city} searchlight sweeps ${s.sweep} degrees`)
+      assert.ok(s.period >= 8 && s.period <= 40, `${city} searchlight takes ${s.period}s a swing`)
+      assert.ok((m.beacons || []).some(([bx, by]) => Math.abs(bx - s.x) <= 0.5 && Math.abs(by - s.y) <= 1),
+        `${city} searchlight at ${s.x}, ${s.y} does not stand on a measured crown lamp`)
+    }
+    for (let i = 0; i < sl.length; i++) {
+      for (let j = i + 1; j < sl.length; j++) {
+        assert.notEqual(sl[i].period, sl[j].period, `${city} searchlights ${i} and ${j} share a period and swing as one`)
+      }
+    }
+  }
+  assert.equal(CITY_MOTION.chicago.searchlights.length, 2)
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  // Night only, the way the fixed beam is: by day a searchlight is invisible.
+  for (const scene of ['night', 'cloudynight', 'rainnight', 'snownight']) {
+    assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-searchlight,`) ||
+      css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-searchlight {`), `the searchlight has no ${scene} gate`)
+  }
+  for (const scene of ['day', 'dawn', 'morning', 'goldenhour', 'sunset', 'cloudy', 'rain', 'snow']) {
+    assert.ok(!css.includes(`.mast-scene-${scene} .mast-motion-searchlight`), `the searchlight is lit on ${scene}`)
+  }
+  // It turns about its lamp, and the swing is the declared sweep either way.
+  assert.match(css, /\.mast-motion-searchlight \{[^}]*transform-origin: 50% 100%/)
+  assert.match(css, /@keyframes mast-search \{[^}]*rotate\(calc\(-1 \* var\(--sweep/)
+  assert.match(css, /mast-search var\(--d, 16s\) ease-in-out var\(--dl, 0s\) infinite alternate/)
+  // Reduced motion removes it with everything else.
+  const reduced = css.slice(css.indexOf('.mast-motion-bolt, .mast-motion-light'))
+  assert.match(reduced.slice(0, 1400), /\.mast-motion-searchlight,/)
+  // The wrapper turns and the child is the light: one element cannot both
+  // swing and carry the taper.
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  assert.match(src, /className="mast-motion-searchlight"[\s\S]{0,400}className="mast-motion-searchlight-beam"/)
+})
+
+// MASTHEAD-CHICAGO-1: a bascule bridge whose bridgehouses stand IN FRONT of
+// the deck. A car driving the whole span would slide across their faces.
+test('a bridgehouse in front of the deck hides the traffic behind it', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    for (const span of spansOf(m)) {
+      if (!span.behind) continue
+      let last = span.deck.x
+      for (const [a, b] of span.behind) {
+        assert.ok(a < b, `${city} bridgehouse ${a}-${b} runs backwards`)
+        assert.ok(a >= last, `${city} bridgehouses overlap, or one starts before the deck`)
+        assert.ok(b <= span.deck.x + span.deck.w, `${city} bridgehouse ${a}-${b} is off the end of the deck`)
+        last = b
+      }
+      for (const [x] of span.lights) {
+        assert.ok(!span.behind.some(([a, b]) => x > a && x < b), `${city} deck lamp at x ${x} is on a bridgehouse face`)
+      }
+    }
+  }
+  assert.equal(spansOf(CITY_MOTION.chicago)[0].behind.length, 4)
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  assert.match(src, /span\.behind\s*\?\s*<span className="mast-motion-deck-lane" style=\{laneMask\(span\)\}>/)
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  // The lane has a height, because a mask on the 0px rail would hide every car.
+  assert.match(css, /\.mast-motion-deck-lane \{[^}]*height: 8px/)
+  assert.match(css, /\.mast-motion-deck-lane \.mast-motion-car \{ top: 3px; \}/)
+})
+
+test('Chicago: a river under a bascule bridge, and nothing flies through a landmark', () => {
+  const c = CITY_MOTION.chicago
+  // The waterline is a CURVE, traced off the Day frame's riverwalk walls.
+  const WL = [[0, 86], [5, 84], [10, 81.8], [15, 79.5], [20, 77.5], [25, 75.5], [30, 74.5], [35, 73.2],
+    [40, 71.5], [50, 71], [60, 72], [65, 73.3], [70, 75], [75, 76.7], [80, 79.5], [85, 82.5], [90, 85.5],
+    [95, 88], [100, 90]]
+  const wl = x => {
+    for (let i = 1; i < WL.length; i++) {
+      const [x0, y0] = WL[i - 1], [x1, y1] = WL[i]
+      if (x <= x1) return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    }
+    return 90
+  }
+  assert.ok(c.water.length >= 30, `Chicago has ${c.water.length} reflections`)
+  assert.ok(c.glints.length >= 40, `Chicago has ${c.glints.length} glints`)
+  for (const [x, y] of c.water) assert.ok(y > wl(x), `Chicago reflection at ${x}, ${y} is on the riverwalk`)
+  for (const [x, y] of c.glints) assert.ok(y > wl(x), `Chicago glint at ${x}, ${y} is on the riverwalk`)
+  for (const [x, y] of c.lights) assert.ok(y < wl(x), `Chicago light at ${x}, ${y} is in the river`)
+  assert.ok(c.ferry.y > wl(c.ferry.from) && c.ferry.y > wl(c.ferry.to), 'the tour boat leaves the river')
+  // Three landmarks reach into the sky; every crossing stays on one side of each.
+  const REACH = [['the Willis masts', 27.7], ['the Wrigley spire', 58.9], ["the Tribune's flag", 72.9]]
+  for (const kind of ['aircraft', 'birds', 'helicopter']) {
+    const lanes = Array.isArray(c[kind]) ? c[kind] : [c[kind]]
+    for (const lane of lanes) {
+      const lo = Math.min(lane.from, lane.to), hi = Math.max(lane.from, lane.to)
+      for (const [name, x] of REACH) assert.ok(!(lo < x && x < hi), `Chicago.${kind} at y ${lane.y} flies through ${name}`)
+    }
+  }
+  assert.ok(c.facade.some(b => b[4] === 'cool' && Math.abs(b[0] - 27.7) < 0.5), 'the Willis masts lost their cool floodlight')
+  assert.equal(c.clock.length, 2, 'the Wrigley Building has two lit dials')
+  // The Owner asked for smoke, and the artwork paints no chimneys to raise it
+  // from. That refusal is a measurement too; this keeps it one.
+  assert.equal(c.steam, undefined, 'Chicago paints no chimneys; a plume here would be invented')
+})
+
 test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   // MASTHEAD-STARS-1. Every other kind is verified against something the
   // artwork paints. These are verified against the artwork painting NOTHING,
@@ -876,7 +985,7 @@ test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   // gated to the one scene with no cloud in it.
   // Seattle joined at MASTHEAD-SEATTLE-2: it was held back from the first
   // pass only because its pack was being replaced.
-  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome', 'seattle']
+  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome', 'seattle', 'chicago']
   for (const city of STAR_CITIES) {
     const m = CITY_MOTION[city]
     assert.ok((m.stars?.length || 0) >= 20, `${city} has ${m.stars?.length || 0} stars; a handful reads as dust, not a sky`)

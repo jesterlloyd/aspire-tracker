@@ -117,6 +117,7 @@ export function cityWeatherLocation(city, coords) {
 export const PICKER_IMAGE_FILES = {
   [AUTO]: 'Automatic.webp',
   atlanta: 'Atlanta.webp',
+  chicago: 'Chicago.webp',
   hollywood: 'Hollywood.webp',
   hongkong: 'HongKong.webp',
   honolulu: 'Honolulu.webp',

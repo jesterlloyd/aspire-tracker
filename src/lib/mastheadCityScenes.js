@@ -95,6 +95,7 @@ const CITY_ALIASES = {
   rome: 'rome',
   toronto: 'toronto',
   porterranch: 'porterranch',
+  chicago: 'chicago',
 }
 
 // Coordinates for proximity matching ("wherever I am"): a viewer near one of
@@ -346,6 +347,12 @@ export const CITY_SKY_X = {
   // the gap is clear on both, and the disc still sits 27% of the card short of
   // the CN Tower.
   toronto: '18%',
+  // MASTHEAD-CHICAGO-1. The default 52% put the cloud art at x 52-66 on the
+  // wide card and 52-73 on the narrow one, straight across the Wrigley spire
+  // at 58.9. 44% keeps the art above the clock, where the default puts it on
+  // every other card, and clear of both the spire and the Willis masts at
+  // 27.7 on both widths (art box 44-52.8 at 1352px, 44-57 at 912px).
+  chicago: '44%',
 }
 export const DEFAULT_SKY_X = '52%'
 
@@ -2115,6 +2122,200 @@ export const CITY_MOTION = {
     // which is why the usual skyline probe returned y 0 in every column - and a
     // star field needs a clear one. This is the first pack to be refused them
     // on the artwork's own evidence.
+  },
+  chicago: {
+    // MASTHEAD-CHICAGO-1 (2026-09-10, a new city). TWELVE frames, every scene,
+    // all 2000x400 RGB with no alpha trap, one drawing throughout.
+    //
+    // The view is from the Chicago River looking east along the main stem:
+    // the river fills the bottom third and curves toward us between two
+    // riverwalk walls, a bascule bridge crosses it at card y 64 with four
+    // bridgehouses standing IN FRONT of the deck, and the skyline runs the
+    // full width above it. The WILLIS TOWER's lit masts reach the top of the
+    // card at x 27.7, the WRIGLEY BUILDING's clock tower carries its spire to
+    // y 5.5 at x 58.9, and the TRIBUNE TOWER's crown stands at x 72.9. The
+    // waterline is a curve, not a level: y 86 at the left edge, about 71
+    // under the bridge, y 90 at the right edge. Every wet coordinate below is
+    // checked against it.
+    //
+    // Warm windows and the riverwalk lamps, as the brightest warm maximum in
+    // each cell of a column-by-band grid (Toronto's rule: a plain brightness
+    // ranking collapses onto the lamps, which outshine the whole skyline),
+    // and none below the waterline, where a warm maximum is a reflection.
+    lights: [
+      [0.55, 60.0], [1.9, 30.75], [1.9, 66.0], [2.15, 10.25], [3.9, 68.75],
+      [4.0, 11.25], [4.9, 63.75], [6.2, 65.75], [7.3, 44.75], [8.35, 16.25],
+      [9.05, 64.5], [10.95, 65.75], [11.6, 39.25], [13.35, 65.75], [14.25, 26.75],
+      [14.95, 51.25], [15.15, 37.5], [15.9, 74.25], [18.2, 46.75], [18.45, 53.5],
+      [20.0, 74.25], [21.2, 29.0], [22.75, 73.75], [22.9, 55.5], [23.75, 34.25],
+      [24.2, 38.5], [25.2, 73.75], [26.95, 20.5], [27.2, 56.5], [28.1, 20.5],
+      [28.45, 47.25], [28.65, 69.75], [30.85, 50.75], [32.15, 71.5], [35.85, 41.0],
+      [35.95, 28.0], [35.95, 70.0], [36.3, 34.75], [36.85, 52.5], [40.85, 32.25],
+      [40.95, 28.5], [42.05, 69.5], [43.55, 62.0], [45.1, 47.0], [45.95, 24.5],
+      [47.85, 68.75], [49.55, 56.25], [49.95, 70.5], [51.25, 29.0], [51.9, 47.25],
+      [52.6, 29.0], [52.9, 32.25], [53.1, 70.25], [55.6, 68.75], [55.65, 56.5],
+      [59.4, 36.75], [59.55, 21.25], [61.0, 29.75], [61.35, 48.75], [64.95, 30.75],
+      [65.9, 59.0], [67.15, 22.5], [67.3, 69.75], [69.2, 73.5], [71.6, 26.75],
+      [71.8, 30.25], [71.9, 55.0], [72.25, 29.25], [72.55, 49.5], [73.95, 54.5],
+      [74.2, 74.75], [75.6, 68.25], [78.55, 29.25], [79.65, 45.75], [79.65, 53.75],
+      [80.15, 57.5], [80.5, 69.75], [83.7, 36.25], [83.75, 68.25], [85.75, 38.75],
+      [86.5, 68.5], [87.0, 29.0], [87.7, 57.25], [88.4, 56.0], [89.75, 68.75],
+      [91.35, 73.25], [91.6, 29.5], [91.6, 32.5], [92.5, 31.0], [93.85, 24.5],
+      [94.45, 52.0], [95.6, 66.75], [97.2, 44.75], [98.15, 66.75], [98.75, 20.75],
+      [99.2, 63.5], [99.6, 71.5],
+    ],
+    // Aviation red on the crowns, and there are a lot of them: this drawing
+    // lamps nearly every tower top. A point had to be strongly red, a red
+    // blob under 40 pixels (a lamp, not a wall), have dark sky above it, and
+    // sit within 2.6% of its column's skyline, which is what a crown is. Then
+    // the contact sheet: three went on sight (the Willis mast tip, clipped by
+    // the frame's top edge; a warm finial on the Wrigley roof; a point on
+    // bare beige masonry), and clusters of four and five lamps on one roof
+    // were thinned to one. The Wrigley spire's tip, x 58.92 y 5.5, is a real
+    // red lamp in the frame and stays.
+    beacons: [
+      [11.82, 30.58], [17.65, 34.62], [20.95, 24.12], [23.6, 21.38], [31.62, 26.75],
+      [33.42, 35.5], [37.13, 26.33], [40.48, 22.38], [41.52, 21.5], [43.18, 34.0],
+      [45.62, 24.38], [52.42, 25.12], [54.95, 22.12], [58.92, 5.5], [61.02, 24.75],
+      [62.9, 35.62], [64.15, 25.81], [65.45, 23.88], [66.42, 18.7], [67.53, 16.58],
+      [68.51, 17.6], [70.65, 26.25], [75.38, 32.92], [76.92, 20.29], [78.72, 18.12],
+      [80.95, 30.12], [83.98, 31.88], [85.72, 28.08], [86.58, 24.88], [87.58, 25.33],
+      [89.52, 32.38], [91.29, 20.65], [94.32, 15.25],
+    ],
+    beaconTone: 'red',
+    // Floodlit landmarks. The Willis masts are painted lit WHITE with a blue
+    // halo, so they take the cool tone: one box over the pair (x 27.13-28.23,
+    // y 1-10), because each mast alone is 0.35% wide and narrower than a
+    // building glow can honestly be. The Wrigley clock stage is x 57.9-59.7
+    // from y 16 to 34 by the column scan; the Tribune's crown is y 13-21 at
+    // x 72-74 and its shaft widens to x 70.2-74.6 down to y 59.
+    facade: [
+      [27.68, 5.5, 1.1, 9.0, 'cool'], [58.8, 25.0, 2.0, 18.0],
+      [72.95, 17.0, 2.0, 8.0], [72.4, 40.5, 4.4, 37.0],
+    ],
+    // The Wrigley Building's two lit dials, off an 8x zoom of the night frame:
+    // the near face is 11px across, the far one 9.
+    clock: [[58.47, 25.78, 0.56], [59.36, 25.78, 0.47]],
+    // THE BRIDGE. The deck's top edge is a flat line at y 64.1 (the Day
+    // frame's truss top reads 64.25-64.75, the night frame's 64.0) from the
+    // left bank at x 27.6 to the right at x 69. The lamps are the warm maxima
+    // along it, less the one that sits on a bridgehouse.
+    //
+    // `behind` is new with this pack. The four bridgehouses (x 34.5-36.7,
+    // 41.7-42.7, 52.4-53.6, 60.6-62.6, the outer two big, the inner two
+    // slim) stand in front of the roadway, so a car driving the whole deck
+    // would slide across their faces. The lane is masked out over each one
+    // instead, and traffic passes behind the stone.
+    bridge: {
+      lights: [
+        [27.45, 63.25], [29.65, 63.0], [32.25, 63.0], [38.25, 62.5], [45.4, 62.5],
+        [54.45, 64.25], [56.6, 62.75], [58.3, 63.75], [67.05, 63.5], [68.95, 64.75],
+      ],
+      deck: { x: 27.6, y: 64.1, w: 41.4, rise: 0 },
+      behind: [[34.5, 36.7], [41.7, 42.7], [52.4, 53.6], [60.6, 62.6]],
+      police: true,
+    },
+    // The river's reflections: every column brighter than its own 61-column
+    // neighbourhood across the water rows, which is how a streak differs from
+    // lit water, taken below the traced waterline so a wall sconce's glow on
+    // the riverwalk cannot pass as river.
+    water: [
+      [0.45, 91.75], [2.3, 90.5], [6.65, 87.0], [9.55, 85.25], [11.9, 89.5],
+      [16.5, 86.0], [20.05, 80.75], [22.65, 79.0], [25.95, 78.0], [29.75, 76.5],
+      [32.25, 76.5], [34.8, 76.25], [35.85, 76.0], [38.7, 75.25], [40.9, 75.0],
+      [42.2, 73.25], [44.15, 77.0], [46.65, 74.75], [50.0, 76.5], [52.65, 74.25],
+      [55.45, 75.75], [57.35, 76.0], [58.95, 75.75], [61.1, 76.5], [64.75, 79.5],
+      [67.2, 76.25], [69.45, 78.0], [71.95, 79.0], [73.8, 80.0], [75.7, 81.0],
+      [77.55, 81.75], [79.1, 91.0], [82.7, 85.0], [86.45, 87.75], [89.9, 90.5],
+      [94.7, 92.5],
+    ],
+    // Sun glitter by AGREEMENT, Toronto's detector: a point is a glint only
+    // where the Day and Golden Hour frames independently put a local maximum
+    // in the same place, with each 100px band's threshold taken from its own
+    // WATER pixels. Taken from the whole band, the pale riverwalk wall on the
+    // right set the bar so high that the right third of the river came back
+    // bare. 186 agreed; these are the brightest per cell.
+    glints: [
+      [1.85, 88.0], [1.85, 96.25], [7.25, 90.0], [11.0, 95.75], [11.9, 84.0],
+      [16.4, 84.5], [16.9, 91.25], [19.5, 90.25], [19.95, 81.75], [20.15, 96.25],
+      [22.15, 89.0], [23.95, 80.5], [26.1, 80.0], [27.3, 95.0], [27.5, 90.0],
+      [29.55, 81.75], [30.2, 96.25], [31.95, 83.75], [34.7, 90.0], [35.75, 81.0],
+      [38.4, 81.5], [38.4, 95.25], [38.8, 90.75], [43.75, 81.25], [43.85, 96.0],
+      [43.95, 74.5], [46.3, 91.75], [46.55, 85.75], [48.75, 85.0], [49.85, 79.5],
+      [50.25, 93.75], [52.5, 76.75], [55.45, 91.25], [55.7, 77.5], [60.85, 86.25],
+      [61.0, 77.5], [61.05, 96.25], [64.15, 92.0], [64.5, 83.0], [64.55, 77.25],
+      [66.8, 91.0], [69.0, 87.5], [71.55, 79.25], [71.95, 87.25], [74.75, 79.0],
+      [75.1, 93.25], [75.65, 89.0], [78.6, 87.5], [79.1, 95.5], [80.0, 81.5],
+      [82.3, 85.0], [82.85, 93.75], [86.0, 88.75], [89.55, 93.0], [89.65, 88.0],
+      [95.05, 95.25],
+    ],
+    // The chop, on open river between the two walls.
+    swell: { x: 14, y: 84, w: 70, height: 12 },
+    // An architecture tour boat, white like the one the Sunset and Golden
+    // Hour frames paint at y 76-79.5. Lane y 83 runs just in front of that
+    // painted boat rather than through it, and is open river from x 12 to 82.
+    ferry: { y: 83, from: 82, to: 12, flight: 150 },
+    ferryTone: 'white',
+    // THE SKY HAS TWO CLEARINGS. The Willis masts reach the top at x 27.7
+    // and the Wrigley spire y 5 at x 58.9, and between them no crown rises
+    // above y 21; east of the Tribune's flag (x 72.9, y 4.5) the crowns stay
+    // below y 15 until the tower at the right edge. Every lane stays inside
+    // one clearing, so nothing flies through a landmark.
+    aircraft: [
+      { y: 4.5, from: 56, to: 30, flight: 34 },
+      { y: 9.5, from: 93, to: 75, flight: 26 },
+      { y: 13, from: 30, to: 56, flight: 43 },
+    ],
+    // The flock spreads 6.4% above its lane and 11.5% below, so y 8 spans
+    // 1.6-19.5 and clears the lowest crown in the west clearing (y 21.25).
+    birds: { y: 8, from: 56, to: 31, flight: 30, count: 6 },
+    helicopter: { y: 11, from: 76, to: 93, flight: 40 },
+    // MASTHEAD-SEARCHLIGHT-1 (Owner: "how about spotlight moving too?").
+    // Two lights on two measured crowns in the EAST clearing, each rooted on
+    // a red lamp the frame already paints: the tower at x 67.5 (crown y 16.6)
+    // and the one at x 78.7 (y 18.1). Chosen there because the west clearing
+    // holds the moon, whose art box runs x 44-58, and a light swinging
+    // through it would put two sources in one patch of sky. Neither arc
+    // reaches the weather readout: at the card's top edge the east light's
+    // swing ends at x 81.8, and the readout starts at 94.
+    searchlights: [
+      { x: 67.53, y: 16.6, reach: 70, sweep: 46, period: 17 },
+      { x: 78.72, y: 18.1, reach: 70, sweep: 40, period: 23 },
+    ],
+    // The bolt's TIP on the purple-crowned tower at x 86.6, whose own red
+    // lamp is at y 24.9. A w:10 fork is about 25% of the card tall, so its top
+    // lands at y 0.2, on the card.
+    strike: { x: 86.6, y: 25.2, w: 10 },
+    // Distance haze over the far towers: the Day frame's row mean over the
+    // middle of the skyline falls from 198 at y 24 to 130 at y 52.
+    haze: { y: 32, height: 16 },
+    // The sun is PAINTED low on the left in both Golden Hour and Sunset, and
+    // the blurred-luminance peak puts it at x 10.8, y 31 and 35. Golden hour
+    // is the flare's scene, so its number is the one used.
+    flare: { x: 10.8, y: 31 },
+    // A clear night sky, measured as a proof of emptiness: flat patches
+    // (standard deviation under 7 over an 11px window) at least 4% above the
+    // skyline, and none inside the moon's art box at x 44-58.
+    stars: [
+      [8.1, 2.75], [11.4, 20.5], [11.7, 12.25], [13.4, 5.75], [16.5, 21.5],
+      [16.55, 12.0], [19.8, 6.75], [20.35, 16.5], [23.5, 4.75], [23.95, 13.75],
+      [30.55, 12.75], [31.85, 6.25], [31.95, 19.75], [34.2, 12.5], [35.7, 20.25],
+      [36.0, 6.0], [39.7, 17.25], [41.55, 9.0], [42.5, 1.5], [62.05, 5.0],
+      [62.3, 20.75], [64.25, 13.0], [65.95, 5.25], [68.05, 12.0], [69.4, 5.25],
+      [75.8, 9.75], [77.45, 2.75], [80.2, 9.5], [81.3, 16.25], [81.6, 2.25],
+      [84.2, 8.75], [85.6, 16.25], [88.45, 2.5], [89.35, 21.0], [90.5, 10.25],
+      [93.9, 5.5],
+    ],
+    // Down the west clearing, where every crown is below y 25.
+    comet: { x: 31, y: 2, run: 6, drop: 17, flight: 1.1 },
+    // NO STEAM, though the Owner asked for smoke, and the reason is the
+    // artwork's: this skyline paints no chimneys. The snow-capped bumps on
+    // the brick roofs at x 12-15 looked like stacks at first and are the red
+    // roof lamps every roof here carries, snow on top; the one thin rod on
+    // the right tower is an aerial. A plume needs something to rise from
+    // (Tokyo and Seattle refused it for the same reason), so there is none.
+    rainfall: true,
+    snowfall: true,
   },
   toronto: {
     // MASTHEAD-TORONTO-1 (2026-09-08, a new city). TWELVE frames, which makes

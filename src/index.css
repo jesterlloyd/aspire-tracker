@@ -2322,6 +2322,64 @@ a.doc-file-link:hover { text-decoration: underline; }
   animation: mast-beam 7.4s ease-in-out infinite;
 }
 
+/* ── SEARCHLIGHT. MASTHEAD-SEARCHLIGHT-1 (Owner, of Chicago: "how about
+   spotlight moving too?"). The beam's sibling that MOVES: a shaft planted on
+   a measured crown that swings across the sky and back. Two elements,
+   because one cannot both swing and taper: the wrapper is the pivot and
+   carries the rotation, the child is the light and carries the mask and the
+   spread. The pivot is the wrapper's bottom centre, lifted onto the crown by
+   translateY(-100%), so the shaft swings about its lamp and never slides off
+   the roof.
+
+   A transform turns in PIXELS, not card percentages, so the sweep is the
+   angle you actually see whatever shape the card is. The sky above Chicago's
+   crowns is under a fifth of the card tall, which is why the sweep is wide: a
+   light swinging twenty degrees in a sky that short would leave the frame
+   before it had visibly left vertical. `alternate` gives the slow turn at
+   each end of the arc for free, which is what a searchlight's operator does. ── */
+.mast-motion-searchlight {
+  position: absolute; width: 26px; margin-left: -13px; opacity: 0;
+  transform-origin: 50% 100%;
+  transform: translateY(-100%) rotate(0deg);
+}
+.mast-motion-searchlight-beam {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(206,226,255,0.30) 30%,
+    rgba(236,244,255,0.70) 50%, rgba(206,226,255,0.30) 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(0deg, #000 0%, rgba(0,0,0,0.45) 45%, transparent 100%);
+  mask-image: linear-gradient(0deg, #000 0%, rgba(0,0,0,0.45) 45%, transparent 100%);
+  clip-path: polygon(44% 100%, 56% 100%, 100% 0%, 0% 0%);
+  filter: blur(0.5px);
+}
+/* The lamp on the roof. Centred on the pivot, so turning it changes nothing. */
+.mast-motion-searchlight::after {
+  content: ''; position: absolute; left: 50%; bottom: 0; width: 7px; height: 7px;
+  transform: translate(-50%, 50%); border-radius: 50%;
+  background: radial-gradient(circle closest-side, rgba(255,255,255,0.95) 0%,
+    rgba(220,234,255,0.40) 55%, transparent 100%);
+}
+@keyframes mast-search {
+  0%   { transform: translateY(-100%) rotate(calc(-1 * var(--sweep, 40deg))); }
+  100% { transform: translateY(-100%) rotate(var(--sweep, 40deg)); }
+}
+@keyframes mast-search-breathe {
+  0%, 100% { opacity: 0.62; }
+  50%      { opacity: 0.92; }
+}
+.mast-scenic.mast-scene-night .mast-motion-searchlight,
+.mast-scenic.mast-scene-cloudynight .mast-motion-searchlight,
+.mast-scenic.mast-scene-rainnight .mast-motion-searchlight,
+.mast-scenic.mast-scene-snownight .mast-motion-searchlight {
+  opacity: 1;
+  animation: mast-search var(--d, 16s) ease-in-out var(--dl, 0s) infinite alternate;
+}
+.mast-scenic.mast-scene-night .mast-motion-searchlight-beam,
+.mast-scenic.mast-scene-cloudynight .mast-motion-searchlight-beam,
+.mast-scenic.mast-scene-rainnight .mast-motion-searchlight-beam,
+.mast-scenic.mast-scene-snownight .mast-motion-searchlight-beam {
+  animation: mast-search-breathe 5.2s ease-in-out var(--dl, 0s) infinite;
+}
+
 /* ── BRIDGE. Two parts. The deck string shimmers with a delay that rises along
    the span, so the brightening travels the bridge slowly instead of chasing
    like a marquee. Then traffic runs both ways on a rail rotated to the deck's
@@ -2346,6 +2404,13 @@ a.doc-file-link:hover { text-decoration: underline; }
   position: absolute; height: 0;
   transform-origin: 0 50%; transform: rotate(var(--angle, 0deg));
 }
+/* MASTHEAD-CHICAGO-1: a deck with bridgehouses standing IN FRONT of it. The
+   deck rail is 0px tall, and a mask on a 0px box hides everything, so the
+   traffic rides an 8px lane inside it instead; the lane's mask is cut where
+   each bridgehouse stands, and a car passes behind the stone rather than
+   over it. The car sits 3px down the lane, which is the rail's own -1px. */
+.mast-motion-deck-lane { position: absolute; left: 0; width: 100%; top: -4px; height: 8px; }
+.mast-motion-deck-lane .mast-motion-car { top: 3px; }
 .mast-motion-car {
   position: absolute; top: -1px; width: 15px; height: 2px;
   border-radius: 2px; opacity: 0;
@@ -3589,7 +3654,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin,
   .mast-motion-emoji, .mast-motion-torch, .mast-motion-clock, .mast-motion-facade, .mast-motion-strike,
   .mast-motion-star, .mast-motion-comet-streak, .mast-motion-fly, .mast-motion-fly-wing,
-  .mast-motion-jet {
+  .mast-motion-jet, .mast-motion-searchlight, .mast-motion-searchlight-beam {
     animation: none !important; opacity: 0 !important;
   }
 }

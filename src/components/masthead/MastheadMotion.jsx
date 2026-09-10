@@ -206,7 +206,7 @@ export default function MastheadMotion({ city }) {
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
     neon, wheel, orb, emoji, torch, clock, facade, strike, snowfall, swell, surf, rainbow, cable,
-    stars, comet, butterflies, screen, fountain, sceneOverrides, sceneShift } = m
+    stars, comet, butterflies, screen, fountain, searchlights, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-PLANES-1 (Owner, of Porter Ranch: "i see a lot of planes at
   // night"). A city may name SEVERAL lanes, the way it may name several bridge
@@ -236,6 +236,38 @@ export default function MastheadMotion({ city }) {
       className={`${beaconClass}${variant === 'glow' ? ' mast-motion-beacon-glow' : ''}`}
       style={{ left: `${x}%`, top: `${y}%`, '--dl': `${(i * 0.9).toFixed(1)}s` }} />
   ))
+  // MASTHEAD-CHICAGO-1: where a bridgehouse stands in front of the deck, the
+  // lane is masked out across it, so traffic passes behind the stone. Each
+  // [from, to] is a card x range; the stops are that range along the rail.
+  const laneMask = span => {
+    const at = gx => (((gx - span.deck.x) / span.deck.w) * 100).toFixed(2)
+    const stops = ['#000 0%']
+    for (const [a, b] of span.behind) {
+      stops.push(`#000 ${at(a)}%`, `transparent ${at(a)}%`, `transparent ${at(b)}%`, `#000 ${at(b)}%`)
+    }
+    stops.push('#000 100%')
+    const g = `linear-gradient(90deg, ${stops.join(', ')})`
+    return { WebkitMaskImage: g, maskImage: g }
+  }
+  const renderTraffic = (span, si) => (
+    <>
+      {/* Two each way on periods that do not divide into one another, so
+          the roadway never empties and never falls into lockstep. */}
+      {CARS.map(c => (
+        <span key={`${c.dir}-${c.dur}`}
+          className={`mast-motion-car mast-motion-car-${c.dir}`}
+          style={{
+            '--dur': `${(c.dur * carPace(span.deck.w) + si * 1.7).toFixed(1)}s`,
+            '--dl': `${c.delay + si * 2.3}s`,
+          }} />
+      ))}
+      {/* One police car on a long period, so it is an event, not traffic. */}
+      {span.police && (
+        <span className="mast-motion-car mast-motion-car-west mast-motion-car-police"
+          style={{ '--dur': `${(23 * carPace(span.deck.w)).toFixed(1)}s`, '--dl': '11s' }} />
+      )}
+    </>
+  )
   const renderWater = (pts, tag) => pts?.map(([x, y], i) => (
     <span key={`wt-${tag}-${x}-${y}`} className="mast-motion-water"
       style={{ left: `${x}%`, top: `${y}%`, '--d': `${period(i) * 1.4}s`, '--dl': stagger(i) }} />
@@ -442,6 +474,23 @@ export default function MastheadMotion({ city }) {
           style={{ left: `${beam.x}%`, top: `${beam.y}%`, width: `${beam.width}%`, height: `${beam.height}%` }} />
       )}
 
+      {/* MASTHEAD-SEARCHLIGHT-1: a shaft planted on a measured crown that
+          swings across the sky. The wrapper turns about its own bottom centre
+          (the lamp); the child is the light. Each one is phased a fraction of
+          its own period off the last, and the periods differ, so two lights
+          on one skyline cross, part and cross again instead of swinging as a
+          pair. */}
+      {searchlights?.map(({ x, y, reach, sweep, period }, i) => (
+        <span key={`sl-${x}-${y}`} className="mast-motion-searchlight"
+          style={{
+            left: `${x}%`, top: `${y}%`, height: `${reach}%`,
+            '--sweep': `${sweep}deg`, '--d': `${period}s`,
+            '--dl': `${(-i * period * 0.61).toFixed(2)}s`,
+          }}>
+          <span className="mast-motion-searchlight-beam" />
+        </span>
+      ))}
+
       {/* Neon flickers: a fast, irregular step pattern, nothing like the slow
           breath of the shimmer, on the Strip's saturated signage. */}
       {neon?.map(([x, y, tone], i) => (
@@ -606,21 +655,9 @@ export default function MastheadMotion({ city }) {
               '--angle': `${(Math.atan((span.deck.rise / CARD_ASPECT) / span.deck.w) * 180 / Math.PI).toFixed(3)}deg`,
             }}
           >
-            {/* Two each way on periods that do not divide into one another, so
-                the roadway never empties and never falls into lockstep. */}
-            {CARS.map(c => (
-              <span key={`${c.dir}-${c.dur}`}
-                className={`mast-motion-car mast-motion-car-${c.dir}`}
-                style={{
-                  '--dur': `${(c.dur * carPace(span.deck.w) + si * 1.7).toFixed(1)}s`,
-                  '--dl': `${c.delay + si * 2.3}s`,
-                }} />
-            ))}
-            {/* One police car on a long period, so it is an event, not traffic. */}
-            {span.police && (
-              <span className="mast-motion-car mast-motion-car-west mast-motion-car-police"
-                style={{ '--dur': `${(23 * carPace(span.deck.w)).toFixed(1)}s`, '--dl': '11s' }} />
-            )}
+            {span.behind
+              ? <span className="mast-motion-deck-lane" style={laneMask(span)}>{renderTraffic(span, si)}</span>
+              : renderTraffic(span, si)}
           </span>
         </span>
       ))}
