@@ -259,7 +259,7 @@ test('the picker grid: every option has its image, the images exist, and the car
   // Rio sorts under its full name, which is the label, not the folder.
   const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
   assert.deepEqual(cityOptions(packs).map(o => o.label),
-    ['Automatic', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Porter Ranch', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo', 'Toronto'])
+    ['Automatic', 'Atlanta', 'Hollywood', 'Hong Kong', 'Honolulu', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Porter Ranch', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo', 'Toronto'])
   const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
   assert.match(dlg, /role="radiogroup"/)
   assert.match(dlg, /role="radio"/)
@@ -419,10 +419,15 @@ test('a withdrawn pack takes its whole city with it, and leaves the card coheren
     .filter(f => !f.startsWith('picker/') && !f.startsWith('fx/'))
   const installed = parseSceneFiles(files)
 
-  assert.ok(!installed.atlanta, 'the Atlanta pack is still installed')
-  assert.ok(!CITY_MOTION.atlanta, 'Atlanta still declares motion measured against artwork that has gone')
-  assert.ok(!CITY_SKY_X.atlanta, 'Atlanta still declares a sky anchor; the next pack is a different drawing')
-  assert.ok(!PICKER_IMAGE_FILES.atlanta, 'Atlanta still has a picker card')
+  // MASTHEAD-ATLANTA-2: Atlanta is BACK, on a different drawing, so the four
+  // city-specific assertions this test opened with are gone. What they were
+  // really protecting is the general rule below, which is what a withdrawal has
+  // to satisfy - and which a RETURN has to satisfy in the other direction: the
+  // pack, the motion, the anchor and the card all arrive together or none of
+  // them do.
+  assert.ok(installed.atlanta, 'the Atlanta pack is back; its frames should be installed')
+  assert.ok(CITY_MOTION.atlanta && CITY_SKY_X.atlanta && PICKER_IMAGE_FILES.atlanta,
+    'Atlanta returned without all of its motion, anchor and picker card')
 
   // The general rule, so the next withdrawal cannot go half-done either.
   for (const city of Object.keys(CITY_MOTION)) {
@@ -443,7 +448,7 @@ test('a withdrawn pack takes its whole city with it, and leaves the card coheren
   // installed-pack test. If that changes, a stale choice starts reporting a
   // missing city's temperature over whatever skyline it fell back to.
   const { CITY_COORDS } = await import('../src/lib/mastheadCityScenes.js')
-  assert.ok(CITY_COORDS.atlanta, 'Atlanta lost the coordinates its replacement will want')
+  assert.ok(CITY_COORDS.atlanta, 'Atlanta lost its coordinates')
   const wx = readFileSync(join(here, '..', 'src/components/WeatherScene.jsx'), 'utf8')
   assert.match(wx, /installed\[preferredCity\] \? cityWeatherLocation/)
 })

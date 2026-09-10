@@ -2832,6 +2832,42 @@ a.doc-file-link:hover { text-decoration: underline; }
   animation: mast-facade 11s ease-in-out var(--dl, 0s) infinite;
 }
 
+/* ── MASTHEAD-FOUNTAIN-1 (2026-09-09, Owner: "fountain on the floor should look
+   like it's flowing/alive"). ────────────────────────────────────────────────
+
+   The Fountain of Rings, jet by jet. The artwork paints them standing still;
+   what makes water read as water is that each jet BREATHES at its own rate and
+   they never agree - a row of jets rising together is a row of bars on a graph.
+
+   The jet grows from its BASE (transform-origin at the bottom), because that is
+   where a nozzle is: scaling about the centre would sink it into the plaza on
+   every dip. Height comes from the measurement; the animation only ever scales
+   it between 0.68 and 1.05, so the tall jets stay tall and the short ones stay
+   short.
+
+   No scene gate. A fountain runs in daylight and after dark, in the rain and in
+   the snow, and this is the first effect in this layer for which that is simply
+   true - the artwork paints the jets on every one of the twelve frames. */
+.mast-motion-jet {
+  position: absolute;
+  width: 3px; margin-left: -1.5px;
+  transform-origin: 50% 100%;
+  opacity: 0;
+  /* Rounded at the crown and squared at the foot: a jet breaks up as it rises
+     and is solid where it leaves the nozzle. */
+  border-radius: 50% 50% 30% 30% / 70% 70% 6% 6%;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0) 0%, rgba(238,249,255,0.32) 22%,
+    rgba(224,241,255,0.68) 58%, rgba(255,255,255,0.86) 100%);
+}
+@keyframes mast-jet {
+  0%, 100% { transform: scaleY(0.68); opacity: 0.52; }
+  50%      { transform: scaleY(1.05); opacity: 0.92; }
+}
+.mast-scenic .mast-motion-jet {
+  animation: mast-jet var(--d, 3s) ease-in-out var(--dl, 0s) infinite;
+}
+
 /* ── MASTHEAD-SPHERE-CYCLE-1 (2026-09-09, Owner: the Sphere changes what it is
    showing every couple of minutes, and only the Sphere). ────────────────────
 
@@ -3552,7 +3588,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-neon, .mast-motion-wheel, .mast-motion-wheel-turn, .mast-motion-wheel-cabin, .mast-motion-orb, .mast-motion-snow, .mast-motion-flake,
   .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin,
   .mast-motion-emoji, .mast-motion-torch, .mast-motion-clock, .mast-motion-facade, .mast-motion-strike,
-  .mast-motion-star, .mast-motion-comet-streak, .mast-motion-fly, .mast-motion-fly-wing {
+  .mast-motion-star, .mast-motion-comet-streak, .mast-motion-fly, .mast-motion-fly-wing,
+  .mast-motion-jet {
     animation: none !important; opacity: 0 !important;
   }
 }

@@ -323,6 +323,13 @@ export const CITY_SKY_X = {
   // west of 62. 74% is the deepest clear sky that still clears the greeting on
   // the left and the temperature readout on the right.
   hongkong: '74%',
+  // MASTHEAD-ATLANTA-2: a new anchor for a new drawing (the first pack's 30%
+  // described a view this one does not share). The tall towers fill x 40-55 and
+  // reach card y 8.25, so the default 52% would sit the art on their shoulder.
+  // The clearing is the low skyline west of them: between x 25 and 35 nothing
+  // rises above y 32, and a disc opening at 25.3 on the narrowest card still
+  // clears the greeting. It is also the side this artwork's light comes from.
+  atlanta: '20%',
   // MASTHEAD-TORONTO-1: the default 52% sits the moon on the financial
   // district's crowns, which on this pack reach card y 24-28 between x 50 and
   // 62, and the CN Tower's mast is immediately west of it at x 44.9 running
@@ -2006,6 +2013,108 @@ export const CITY_MOTION = {
     // painted along the middle of the road), and nothing on this street is
     // floodlit. And no snow: the pack has no Snow frame because it does not
     // snow here.
+  },
+  atlanta: {
+    // MASTHEAD-ATLANTA-2 (2026-09-09). The Atlanta pack RETURNS, and it is a
+    // different drawing from the one withdrawn at c52a2225 - twelve frames now
+    // (the first pack had eight), a new viewpoint, and nothing carried over.
+    // The frames register to Day within a row, except Rain at two.
+    //
+    // The view is Centennial Olympic Park looking north at downtown, from
+    // inside the tree canopy. The SKYVIEW WHEEL stands at x 36.4; the tall
+    // towers fill x 40-55 and top out at card y 8.25; the FOUNTAIN OF RINGS
+    // plays at x 58-63 on the plaza at y 77; and the park's trees fill the
+    // whole foreground below y 64.
+    //
+    // Windows across the skyline and the lamps along the park's paths, taken as
+    // the brightest warm maximum in each cell of a column-by-band grid.
+    lights: [
+      [1.75, 60.75], [9.0, 61.75], [12.4, 62.25], [14.85, 48.75], [18.65, 68.5],
+      [18.8, 57.0], [21.05, 44.25], [22.15, 63.0], [22.5, 53.5], [24.95, 36.75],
+      [25.4, 62.5], [28.35, 42.0], [33.2, 62.0], [33.3, 40.25], [33.9, 31.5],
+      [34.2, 21.5], [34.45, 48.5], [36.3, 63.5], [37.8, 43.5], [38.9, 35.5],
+      [40.15, 64.75], [40.6, 42.75], [44.4, 11.75], [44.45, 55.5], [44.55, 46.0],
+      [44.75, 35.75], [45.45, 24.75], [46.15, 55.25], [48.7, 34.0], [49.35, 74.5],
+      [52.2, 39.5], [52.35, 15.0], [53.25, 52.25], [53.55, 62.0], [54.2, 31.25],
+      [55.85, 54.0], [57.6, 24.25], [57.6, 51.75], [58.35, 42.25], [59.85, 69.0],
+      [60.6, 35.0], [62.35, 56.25], [62.4, 41.25], [65.0, 25.75], [65.65, 45.25],
+      [65.95, 37.75], [66.05, 61.5], [67.85, 71.25], [70.65, 36.5], [70.95, 48.5],
+      [70.95, 79.25], [72.35, 25.25], [73.15, 55.5], [76.1, 49.75], [76.15, 42.0],
+      [76.45, 74.75], [76.7, 32.25], [76.95, 59.5], [81.7, 58.0], [81.95, 74.75],
+      [84.15, 48.75], [88.6, 63.5], [89.35, 53.25], [90.0, 41.75], [90.2, 64.25],
+      [91.85, 51.75], [95.95, 55.75], [97.95, 73.75],
+    ],
+    // NO BEACONS, and that is the artwork's answer rather than a gap. Fifty
+    // candidates passed the usual red test and a contact sheet showed every one
+    // of them to be a lit window or a warm facade; the two that survived a
+    // strict pass are orange sodium lamps at card y 43, in the middle of the
+    // city rather than on a crown. This drawing lights its towers with warm
+    // windows and never crowns one in aviation red. Rome is the same, and says
+    // so too.
+    //
+    // MASTHEAD-WHEEL-2: the SKYVIEW wheel, fitted rather than eyeballed. A
+    // flood fill from the hub gives the lit structure as 91px by 105px, but the
+    // lower 14px of that is the SUPPORT LEGS, not the rim: the rim's own widest
+    // rows (y 51-53) span 4.50-4.55% of the card, and its top sits at y 39.75,
+    // which puts the centre at 51.15 and makes it round to within a pixel. h is
+    // therefore d * CARD_ASPECT exactly, and the fit predicts the measured
+    // half-chord within 0.3% at every row.
+    wheel: { x: 36.43, y: 51.15, d: 4.55, h: 22.75 },
+    // MASTHEAD-FOUNTAIN-1 (Owner: "fountain on the floor should look like it's
+    // flowing/alive"). The Fountain of Rings, jet by jet. Measured on the night
+    // frame, where the water is lit and reads white against a warm plaza: each
+    // jet is a LOCAL MINIMUM of the top edge (a peak in height), because the
+    // jets merge at their bases and a connected-blob search returns one wide
+    // smear instead of eleven jets. Eleven were found; three sat within a
+    // quarter of a percent of a taller neighbour, which is under three pixels
+    // once drawn, so the taller of each pair is here. The plaza is at y 77.
+    fountain: {
+      y: 77,
+      jets: [
+        [58.6, 5.0], [59.0, 6.0], [59.4, 6.0], [59.8, 8.2],
+        [60.5, 8.0], [60.95, 7.2], [61.6, 6.2], [62.45, 3.0],
+      ],
+    },
+    // MASTHEAD-BUTTERFLY-1 (Owner: "maybe a couple butterflies on the trees").
+    // Four, on the densest canopy the park has: each sits in a window that is
+    // at least 77% foliage by the green mask, which is as solid as this drawing
+    // gets - the canopy is broken by branches and paths, and its best window
+    // anywhere is 80%.
+    butterflies: [
+      [6.0, 85.0], [22.0, 89.5, 'pale'], [74.0, 76.0], [96.0, 85.0, 'pale'],
+    ],
+    // Sky lanes. The tall towers at x 40-55 reach card y 8.25, which is what
+    // the high lane clears; the low one stays east of them, where nothing rises
+    // above y 22.
+    aircraft: [
+      { y: 4.5, from: 92, to: 12, flight: 46 },
+      { y: 11, from: 88, to: 58, flight: 36 },
+    ],
+    // Over the park, west of the towers: the flock spreads 6.4% above its lane
+    // and 11.5% below, so y 9 puts it between 2.6 and 20.5 and nothing between
+    // x 10 and 40 rises above 21.25.
+    birds: { y: 9, from: 40, to: 10, flight: 34, count: 6 },
+    helicopter: { y: 16, from: 60, to: 86, flight: 46 },
+    // The bolt's TIP on a roof at x 77, which tops at y 28.5. A w:10 fork is
+    // about 25% of the card tall, so this one's top lands at y 4. The downtown
+    // towers cannot be struck: at y 8.25 the fork would need most of its length
+    // above the frame.
+    strike: { x: 77, y: 29, w: 10 },
+    // The pale, desaturated band over the far city: across x 15-85 the Day
+    // frame's saturation bottoms out at 0.231 between y 30 and y 33 while its
+    // brightness holds near 197, and below y 44 saturation climbs past 0.30 as
+    // the near park takes over.
+    haze: { y: 28, height: 9 },
+    // The golden-hour sun is off-frame LEFT, and both frames agree: the sky
+    // mean falls left to right on Golden Hour (201.3 to 177.6) and on Sunset
+    // (173.3 to 162.2).
+    flare: { x: -6, y: 14 },
+    rainfall: true,
+    snowfall: true,
+    // NO STARS. The night sky here carries cloud across its whole top edge -
+    // which is why the usual skyline probe returned y 0 in every column - and a
+    // star field needs a clear one. This is the first pack to be refused them
+    // on the artwork's own evidence.
   },
   toronto: {
     // MASTHEAD-TORONTO-1 (2026-09-08, a new city). TWELVE frames, which makes

@@ -206,7 +206,7 @@ export default function MastheadMotion({ city }) {
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
     neon, wheel, orb, emoji, torch, clock, facade, strike, snowfall, swell, surf, rainbow, cable,
-    stars, comet, butterflies, screen, sceneOverrides, sceneShift } = m
+    stars, comet, butterflies, screen, fountain, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-PLANES-1 (Owner, of Porter Ranch: "i see a lot of planes at
   // night"). A city may name SEVERAL lanes, the way it may name several bridge
@@ -374,6 +374,22 @@ export default function MastheadMotion({ city }) {
         <span className="mast-motion-rainbow"
           style={{ left: `${rainbow.x}%`, top: `${rainbow.y}%`, width: `${rainbow.w}%`, height: `${rainbow.h}%` }} />
       )}
+
+      {/* MASTHEAD-FOUNTAIN-1 (Owner: the fountain should "look like it's
+          flowing/alive"). Each jet was measured off the night frame, where the
+          water is lit and its silhouette is crisp: x by peak-finding the top
+          edge, height from that peak down to the plaza at y 77. They grow from
+          the base and breathe on periods that never coincide. */}
+      {fountain?.jets?.map(([x, h], i) => (
+        <span key={`jt-${x}`} className="mast-motion-jet"
+          style={{
+            left: `${x}%`,
+            top: `${(fountain.y - h).toFixed(2)}%`,
+            height: `${h}%`,
+            '--d': `${(2.3 + (i % 5) * 0.41).toFixed(2)}s`,
+            '--dl': `${((i * 0.37) % 2.6).toFixed(2)}s`,
+          }} />
+      ))}
 
       {/* A measured patch of water that carries a light chop. */}
       {swell && (

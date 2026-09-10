@@ -116,6 +116,7 @@ export function cityWeatherLocation(city, coords) {
 // you see) - WebP alpha measured free here, so faithful beat clever.
 export const PICKER_IMAGE_FILES = {
   [AUTO]: 'Automatic.webp',
+  atlanta: 'Atlanta.webp',
   hollywood: 'Hollywood.webp',
   hongkong: 'HongKong.webp',
   honolulu: 'Honolulu.webp',

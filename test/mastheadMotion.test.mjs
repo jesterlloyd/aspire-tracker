@@ -27,7 +27,9 @@ const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge
   // MASTHEAD-SPHERE-CYCLE-1: a landmark that is a SCREEN, whose projection
   // cycles through the pack's own frames. Read by MastheadScenery, not by the
   // motion layer, which is why it carries no points.
-  'screen', 'sceneOverrides', 'sceneShift']
+  'screen',
+  // MASTHEAD-FOUNTAIN-1: measured jets that grow from a measured plaza.
+  'fountain', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -1064,4 +1066,63 @@ test('the Sphere cycles its projection, and only the Sphere', async () => {
   const motion = readFileSync(join(here, '..', 'src/components/masthead/MastheadMotion.jsx'), 'utf8')
   assert.match(motion, /'--sphere-fade': `\$\{\(SPHERE_FADE_MS \/ 1000\)/)
   assert.match(css, /\[data-sphere-face="1"\] \.mast-motion-emoji \{[\s\S]{0,80}?transition-delay: var\(--sphere-fade/)
+})
+
+test('a fountain plays from its measured plaza, on every scene', () => {
+  // MASTHEAD-FOUNTAIN-1 (Owner: the fountain should "look like it's
+  // flowing/alive"). A jet is the first effect here that is measured as a
+  // HEIGHT rather than a point, so the checks are about the column it occupies.
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    const f = m.fountain
+    if (!f) continue
+    assert.ok(f.y > 0 && f.y <= 100, `${city}.fountain plaza at y ${f.y} is off the card`)
+    assert.ok(Array.isArray(f.jets) && f.jets.length >= 3, `${city}.fountain is not a fountain`)
+    const xs = f.jets.map(([x]) => x).sort((a, b) => a - b)
+    for (const [x, h] of f.jets) {
+      assert.ok(x >= 0.5 && x <= 99.5, `${city} jet at x ${x} is on the card's edge`)
+      assert.ok(h > 1 && h < 30, `${city} jet is ${h}% of the card tall; that is not a jet`)
+      // A jet rises FROM the plaza, so its crown must still be on the card.
+      assert.ok(f.y - h > 0, `${city} jet at x ${x} rises off the top of the card`)
+    }
+    // Two jets closer than a quarter of a percent are under three pixels apart
+    // once drawn, which is one jet rendered twice.
+    for (let i = 1; i < xs.length; i++) {
+      assert.ok(xs[i] - xs[i - 1] >= 0.25, `${city} has two jets ${(xs[i] - xs[i - 1]).toFixed(2)}% apart`)
+    }
+  }
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  // It grows from the BASE. Scaling about the centre sinks the jet into the
+  // plaza on every dip, which is the one thing that would give it away.
+  assert.match(css, /\.mast-motion-jet \{[\s\S]{0,300}?transform-origin: 50% 100%/)
+  assert.match(css, /@keyframes mast-jet/)
+  // No scene gate: a fountain runs in daylight and after dark alike, and this
+  // artwork paints the jets on all twelve frames.
+  assert.match(css, /\.mast-scenic \.mast-motion-jet \{\s*animation: mast-jet/)
+  for (const scene of ['night', 'day', 'rain']) {
+    assert.ok(!css.includes(`.mast-scene-${scene} .mast-motion-jet`),
+      `the fountain is gated to ${scene}; it runs on every scene`)
+  }
+})
+
+test('Atlanta 2: a park, a wheel and a fountain, and no beacons', () => {
+  const m = CITY_MOTION.atlanta
+  // MASTHEAD-ATLANTA-2. The pack returned on a different drawing, so this pins
+  // what the SECOND one actually has rather than what the first did.
+  assert.ok(m.wheel, 'Atlanta lost the SkyView wheel')
+  // Fitted, and round to within a pixel: h must be d * CARD_ASPECT. A wheel
+  // whose h drifts off that is an ellipse, and a rotating ellipse tumbles.
+  const round = m.wheel.h / (m.wheel.d * CARD_ASPECT)
+  assert.ok(Math.abs(round - 1) < 0.02, `Atlanta's wheel is ${round.toFixed(3)} of round`)
+  assert.ok(m.fountain?.jets?.length >= 6, 'Atlanta lost the Fountain of Rings')
+  assert.ok((m.butterflies?.length || 0) >= 3, 'Atlanta lost its butterflies')
+  assert.ok(m.strike && m.rainfall, 'Atlanta lost its weather')
+  assert.ok(Array.isArray(m.aircraft) && m.aircraft.length >= 2, 'Atlanta lost a flight lane')
+
+  // NO BEACONS and NO STARS, both on the artwork's evidence rather than by
+  // omission: this drawing lights its towers with warm windows and never crowns
+  // one in aviation red, and its night sky carries cloud across the whole top.
+  assert.equal(m.beacons, undefined, 'this pack paints no aviation red')
+  assert.equal(m.beaconTone, undefined)
+  assert.equal(m.stars, undefined, 'this night sky is clouded; stars need a clear one')
+  assert.equal(m.comet, undefined)
 })
