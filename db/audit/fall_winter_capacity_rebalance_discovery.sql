@@ -11,6 +11,50 @@
 -- Fall 2026   eedd91ec-ad6f-4df8-aa20-5c06b2889011
 -- Winter 2027 52933615-cf6e-441f-ac68-130bdb6a0491
 
+-- ── D0. ONE PASTE: D1-D8 as a single JSON result. Run just this, copy the one cell back. ─
+with fall_units as (
+  select u.id, u.unit_name, u.is_participating, u.total_slots, u.slots_remaining,
+         (select count(*) from students s where s.matched_unit_id = u.id) as matched,
+         (select count(*) from students s where s.matched_unit_id = u.id
+             and s.status in ('Not Proceeding', 'Declined')) as matched_exited,
+         (select count(*) from student_unit_assignments a where a.unit_id = u.id
+             and a.status in ('planned', 'active')) as live_assignments,
+         (select count(*) from student_unit_assignments a where a.unit_id = u.id) as all_assignments,
+         (select count(*) from cohort_unit_response_targets t where t.unit_id = u.id) as outreach_targets,
+         (select jsonb_agg(jsonb_build_object('id', r.id, 'status', r.response_status, 'offered', r.slots_offered))
+            from unit_cohort_responses r where r.unit_id = u.id) as responses
+    from units u where u.cohort_id = 'eedd91ec-ad6f-4df8-aa20-5c06b2889011'
+), winter_units as (
+  select u.id, u.unit_name, u.is_participating, u.total_slots, u.slots_remaining,
+         to_jsonb(u)->>'created_at' as created_at, to_jsonb(u)->>'updated_at' as updated_at,
+         (select count(*) from students s where s.matched_unit_id = u.id) as matched,
+         (select count(*) from student_unit_assignments a where a.unit_id = u.id) as assignments,
+         (select count(*) from cohort_unit_response_targets t where t.unit_id = u.id) as outreach_targets,
+         (select jsonb_agg(jsonb_build_object('id', r.id, 'status', r.response_status, 'offered', r.slots_offered,
+                                              'updated', to_jsonb(r)->>'last_updated_at'))
+            from unit_cohort_responses r where r.unit_id = u.id) as responses
+    from units u where u.cohort_id = '52933615-cf6e-441f-ac68-130bdb6a0491'
+)
+select jsonb_pretty(jsonb_build_object(
+  'cohorts', (select jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name,
+                 'status', to_jsonb(c)->>'status', 'accepting', to_jsonb(c)->>'accepting_submissions'))
+                from cohorts c
+               where c.id in ('eedd91ec-ad6f-4df8-aa20-5c06b2889011', '52933615-cf6e-441f-ac68-130bdb6a0491')),
+  'fall_students_by_status', (select jsonb_agg(to_jsonb(x)) from (
+                 select status, count(*) as students, count(matched_unit_id) as with_unit
+                   from students where cohort_id = 'eedd91ec-ad6f-4df8-aa20-5c06b2889011'
+                  group by status order by status) x),
+  'fall_units',   (select jsonb_agg(to_jsonb(f) order by f.is_participating desc, f.unit_name) from fall_units f),
+  'winter_units', (select jsonb_agg(to_jsonb(w) order by w.unit_name) from winter_units w),
+  'winter_students', (select jsonb_agg(jsonb_build_object('id', s.id, 'status', s.status,
+                 'p1', s.unit_preference_1, 'p2', s.unit_preference_2, 'p3', s.unit_preference_3,
+                 'matched_unit_id', s.matched_unit_id) order by s.id)
+                from students s where s.cohort_id = '52933615-cf6e-441f-ac68-130bdb6a0491'),
+  'fks_into_units', (select jsonb_agg(jsonb_build_object('table', conrelid::regclass::text, 'name', conname,
+                 'def', pg_get_constraintdef(oid)) order by conrelid::regclass::text, conname)
+                from pg_constraint where confrelid = 'public.units'::regclass and contype = 'f')
+)) as discovery;
+
 -- ── D1. The two cohorts ────────────────────────────────────────────────────────
 select c.id, c.name, to_jsonb(c)->>'status' as status,
        to_jsonb(c)->>'accepting_submissions' as accepting_submissions
