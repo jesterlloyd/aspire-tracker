@@ -36,7 +36,7 @@
 // swell (faint drifting crests on a measured patch of water).
 import { CITY_MOTION, CARD_ASPECT } from '../../lib/mastheadCityScenes'
 import { useSceneSweep } from '../../lib/mastheadSweep'
-import { useSphereProjection } from '../../lib/mastheadSphere'
+import { useSphereProjection, SPHERE_FADE_MS } from '../../lib/mastheadSphere'
 import { useMastheadScene } from '../WeatherScene'
 
 // Coprime-ish periods so a row of lights never visibly pulses in unison.
@@ -253,6 +253,10 @@ export default function MastheadMotion({ city }) {
       // motion, or a QA override of 0) this is absent and the face keeps its
       // original scene gate untouched.
       data-sphere-face={screen && sphereProjection ? (sphereProjection === 'night' ? '1' : '0') : undefined}
+      // One source for the fade: the face's entry is delayed by exactly the
+      // time the projection takes to arrive, so it can never appear on a
+      // sphere that is still turning yellow.
+      style={screen ? { '--sphere-fade': `${(SPHERE_FADE_MS / 1000).toFixed(2)}s` } : undefined}
       aria-hidden
     >
       {/* MASTHEAD-BUTTERFLY-1 (Owner: "maybe butterflies?"). Each one works a

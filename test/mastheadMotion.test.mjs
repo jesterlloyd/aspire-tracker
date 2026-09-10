@@ -1036,20 +1036,32 @@ test('the Sphere cycles its projection, and only the Sphere', async () => {
   // card when the night projection comes round, and leaves a night card when
   // the Sphere moves on. Both halves, because only having the first would
   // paint a face on the Earth.
-  assert.match(css, /\.mast-motion\[data-sphere-face="1"\] \.mast-motion-emoji \{ opacity: 1; \}/)
-  assert.match(css, /\.mast-motion\[data-sphere-face="0"\] \.mast-motion-emoji \{ opacity: 0; \}/)
+  assert.match(css, /\[data-sphere-face="1"\] \.mast-motion-emoji \{[\s\S]{0,120}?opacity: 1;/)
+  assert.match(css, /\[data-sphere-face="0"\] \.mast-motion-emoji \{ opacity: 0; \}/)
 
-  // The rotation drops the scene the card is already showing, or one beat in
-  // the cycle is "no change at all".
-  const { startSphereCycle, stopSphereCycle, subscribeSphere, sphereIntervalMs, SPHERE_MS } =
+  // The rotation INCLUDES the card's own scene and starts there. Excluding it
+  // looked tidier and was wrong: on a night card the Sphere's own projection is
+  // the flat yellow one, so leaving it out meant the emoji face never came back
+  // at all. Its own beat is a rest, not a fault.
+  const { startSphereCycle, stopSphereCycle, subscribeSphere, SPHERE_MS, SPHERE_FADE_MS } =
     await import('../src/lib/mastheadSphere.js')
   assert.equal(SPHERE_MS, 120000, 'the Owner asked for about two minutes')
   let now = null
   const off = subscribeSphere(v => { now = v })
   assert.equal(startSphereCycle(['day'], 'day'), false, 'a rotation of one is not a rotation')
   assert.equal(startSphereCycle(['dawn', 'day', 'night'], 'day'), true)
-  assert.notEqual(now, 'day', 'the cycle is showing the projection the card already has')
+  assert.equal(now, 'day', 'the cycle must open on the projection the card already shows')
+  assert.equal(startSphereCycle(['dawn', 'day', 'night'], 'night'), true)
+  assert.equal(now, 'night', 'a night card must open on its own yellow, face and all')
   stopSphereCycle()
   assert.equal(now, null, 'stopping the cycle must hand the Sphere back to its own scene')
   off()
+
+  // The face waits for the yellow to arrive. Its entry delay is the projection
+  // fade, from the same constant, so the two can never drift apart and leave a
+  // face sitting on a half-dissolved Earth.
+  assert.ok(SPHERE_FADE_MS > 0)
+  const motion = readFileSync(join(here, '..', 'src/components/masthead/MastheadMotion.jsx'), 'utf8')
+  assert.match(motion, /'--sphere-fade': `\$\{\(SPHERE_FADE_MS \/ 1000\)/)
+  assert.match(css, /\[data-sphere-face="1"\] \.mast-motion-emoji \{[\s\S]{0,80}?transition-delay: var\(--sphere-fade/)
 })

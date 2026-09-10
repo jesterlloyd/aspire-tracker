@@ -68,9 +68,15 @@ function reduced() {
 
 /**
  * Start (or re-start) the cycle over `scenes`, a list of scene names whose
- * frames the pack actually has. `home` is the scene the card is really in; it
- * is dropped from the rotation because showing the projection that is already
- * there is a beat where nothing happens.
+ * frames the pack actually has, BEGINNING at `home` - the scene the card is
+ * really in.
+ *
+ * Home is IN the rotation, not excluded from it. Dropping it looked right (a
+ * beat showing the projection already underneath is a beat where nothing
+ * changes) and was wrong: on a night card the Sphere's own projection is the
+ * flat yellow one, so excluding it meant the emoji face - the thing that made
+ * this landmark worth animating - never came back. Its own beat now reads as a
+ * rest between changes, which a rotation wants anyway.
  */
 export function startSphereCycle(scenes, home) {
   stopSphereCycle()
@@ -78,10 +84,13 @@ export function startSphereCycle(scenes, home) {
   // Reduced motion keeps the Sphere on its own scene's projection: this is
   // decoration, and the card is complete without it.
   if (!ms || reduced()) return false
-  order = (scenes || []).filter(s => s && s !== home)
+  order = (scenes || []).filter(Boolean)
   if (order.length < 2) return false
-  at = 0
-  state = order[0]
+  // Start where the card already is, so the first thing anyone sees is the
+  // Sphere they expect, and the change happens while they are looking at it.
+  const home0 = order.indexOf(home)
+  at = home0 >= 0 ? home0 : 0
+  state = order[at]
   publish()
   timer = setInterval(() => {
     at = (at + 1) % order.length

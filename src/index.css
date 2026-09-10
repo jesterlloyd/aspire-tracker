@@ -3199,22 +3199,30 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-motion-emoji > * { position: absolute; }
 /* Brows: short bars with a slight inward tilt, the way the reference draws
    them. They sit above the eyes and do not move - the eyes carry the life. */
+/* MASTHEAD-SPHERE-FACE-2 (Owner, with photographs of the real building): the
+   face was too big. Measured off the reference, the real Sphere's EYE PAIR
+   spans about 42% of the disc's width (129px across a 310px sphere in the
+   head-on shot); ours spanned 54%. Every feature is therefore scaled by 0.8
+   about the face's own centre (50, 43), which brings the eye pair to 43.2% and
+   leaves the vertical placement where it read well. Kept deliberately a little
+   larger than life: at 4.8% of the card the real proportion would be a smudge,
+   and the Owner asked for "still discernible but not too big". */
 .mast-motion-emoji-brow {
-  top: 22%; width: 23%; height: 5%;
+  top: 26.2%; width: 18.4%; height: 4%;
   background: #241c10; border-radius: 50%;
 }
-.mast-motion-emoji-brow-l { left: 21%; rotate: -4deg; }
-.mast-motion-emoji-brow-r { left: 56%; rotate: 4deg; }
+.mast-motion-emoji-brow-l { left: 26.8%; rotate: -4deg; }
+.mast-motion-emoji-brow-r { left: 54.8%; rotate: 4deg; }
 /* Eyes: a pale lavender oval, taller than it is wide, holding a dark pupil.
    `overflow: hidden` keeps the pupil inside the eye at the ends of its travel
    so it never rides out onto the yellow. */
 .mast-motion-emoji-eye {
-  top: 30%; width: 19%; height: 24%;
+  top: 32.6%; width: 15.2%; height: 19.2%;
   background: #efe6f7; border-radius: 50%;
   overflow: hidden;
 }
-.mast-motion-emoji-eye-l { left: 23%; }
-.mast-motion-emoji-eye-r { left: 58%; }
+.mast-motion-emoji-eye-l { left: 28.4%; }
+.mast-motion-emoji-eye-r { left: 56.4%; }
 .mast-motion-emoji-pupil {
   position: absolute; left: 19%; top: 19%; width: 62%; height: 62%;
   background: #17130c; border-radius: 50%;
@@ -3222,8 +3230,11 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* The smile: the bottom half of a rounded box, so the curve is a real arc
    rather than a rotated dash. */
 .mast-motion-emoji-mouth {
-  left: 39%; top: 55%; width: 22%; height: 9%;
-  border-bottom: 2px solid #241c10;   /* px, not em: em would inherit whatever font-size the card carries */
+  left: 41.2%; top: 52.6%; width: 17.6%; height: 7.2%;
+  /* px, not em: em would inherit whatever font-size the card carries. Down
+     from 2px with the rest of the face - at the smaller mouth a 2px stroke was
+     a third of the smile's own height. */
+  border-bottom: 1.5px solid #241c10;
   border-radius: 0 0 50% 50%;
 }
 /* A pupil that slides continuously reads as a machine. This darts and then
@@ -3258,7 +3269,19 @@ a.doc-file-link:hover { text-decoration: underline; }
    projection is up, so with the cycle off these rules do not apply and the
    scene gate above is untouched. The extra attribute is what lets "0" beat the
    scene rule; without it the face would be stuck on through the whole cycle. */
-.mast-scenic .mast-motion[data-sphere-face="1"] .mast-motion-emoji { opacity: 1; }
+/* The face waits for the yellow. The projection cross-fades over --sphere-fade,
+   and a face that snapped on at the start of that fade would spend the whole
+   dissolve sitting on a half-transparent Earth - which is what the Owner saw
+   ("the emoji should only be present in the blank yellow sphere"). Going IN it
+   is delayed by the full fade; coming OUT it is immediate, because the moment
+   the Sphere starts turning into something else the face is already wrong. */
+.mast-scenic .mast-motion[data-sphere-face] .mast-motion-emoji {
+  transition: opacity 0.5s ease;
+}
+.mast-scenic .mast-motion[data-sphere-face="1"] .mast-motion-emoji {
+  opacity: 1;
+  transition-delay: var(--sphere-fade, 2.6s);
+}
 .mast-scenic .mast-motion[data-sphere-face="1"] .mast-motion-emoji-pupil {
   animation: mast-emoji-look 17s ease-in-out infinite;
 }
