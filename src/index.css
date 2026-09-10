@@ -2832,6 +2832,46 @@ a.doc-file-link:hover { text-decoration: underline; }
   animation: mast-facade 11s ease-in-out var(--dl, 0s) infinite;
 }
 
+/* ── MASTHEAD-SPHERE-CYCLE-1 (2026-09-09, Owner: the Sphere changes what it is
+   showing every couple of minutes, and only the Sphere). ────────────────────
+
+   Each layer is THE WHOLE CARD with one of the pack's frames as its background,
+   clipped to the Sphere's disc. Clipping a full-card layer rather than painting
+   a small positioned one is what keeps this honest: the disc lands wherever the
+   frame's own Sphere is, at any card width, with no background-position
+   arithmetic to drift out of step with the measured geometry.
+
+   The clip is an ELLIPSE and not a circle because the card is CARD_ASPECT:1 -
+   a shape that is round in pixels is 5x taller in card percentages, the same
+   correction the decks, the surf and the comet all make. `circle()` with a
+   percentage radius resolves against the box diagonal, which on a 5:1 box is
+   nothing you can reason about.
+
+   The mask is the skyline. The artwork puts buildings in front of the lower
+   third of the Sphere, so a disc drawn over them would float. `orb.cut` already
+   records where the skyline crosses it, and the same number cuts these layers -
+   in CARD terms here, because the layer is the card. */
+.mast-sphere-proj {
+  position: absolute; inset: 0;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  opacity: 0;
+  transition: opacity var(--sphere-fade, 2.6s) ease-in-out;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 0, #000 var(--sphere-hold), transparent var(--sphere-cut));
+  mask-image: linear-gradient(180deg, #000 0, #000 var(--sphere-hold), transparent var(--sphere-cut));
+}
+.mast-sphere-proj-on { opacity: 1; }
+/* The cycle is decoration; reduced motion leaves the Sphere showing the
+   projection its own scene paints, which is what the frame already has. */
+@media (prefers-reduced-motion: reduce) {
+  .mast-sphere-proj { display: none; }
+}
+/* A sweep runs the whole day through the card in four and a half seconds. The
+   Sphere sits that out for the same reason the motion layer does: a projection
+   cross-fading through a time-lapse is two dissolves fighting. */
+.mast-scenery[data-sweep] .mast-sphere-proj { opacity: 0; }
+
 /* ── MASTHEAD-BUTTERFLY-1 (2026-09-09, Owner: "maybe butterflies?"). ────────
 
    A butterfly is the first thing in this layer that is ALIVE and stays put:
@@ -3211,6 +3251,23 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-night .mast-motion-emoji-eye {
   animation: mast-emoji-blink 17s ease-in-out infinite;
 }
+/* MASTHEAD-SPHERE-CYCLE-1: once the Sphere is cycling, the face follows the
+   PROJECTION rather than the scene - it arrives on a daylight card when the
+   night projection comes round, and it leaves a night card when the Sphere
+   moves on to the Earth or the eye. The attribute is only present while a
+   projection is up, so with the cycle off these rules do not apply and the
+   scene gate above is untouched. The extra attribute is what lets "0" beat the
+   scene rule; without it the face would be stuck on through the whole cycle. */
+.mast-scenic .mast-motion[data-sphere-face="1"] .mast-motion-emoji { opacity: 1; }
+.mast-scenic .mast-motion[data-sphere-face="1"] .mast-motion-emoji-pupil {
+  animation: mast-emoji-look 17s ease-in-out infinite;
+}
+.mast-scenic .mast-motion[data-sphere-face="1"] .mast-motion-emoji-eye {
+  animation: mast-emoji-blink 17s ease-in-out infinite;
+}
+.mast-scenic .mast-motion[data-sphere-face="0"] .mast-motion-emoji { opacity: 0; }
+.mast-scenic .mast-motion[data-sphere-face="0"] .mast-motion-emoji-pupil,
+.mast-scenic .mast-motion[data-sphere-face="0"] .mast-motion-emoji-eye { animation: none; }
 
 .mast-scenic.mast-scene-night .mast-motion-orb,
 .mast-scenic.mast-scene-snownight .mast-motion-orb,

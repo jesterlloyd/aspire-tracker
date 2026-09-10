@@ -935,6 +935,29 @@ export const CITY_MOTION = {
     // frames paint it blue). The face sits in the TOP 67% of the disc because
     // that is all the skyline leaves visible.
     emoji: { x: 46.9, y: 67.0, d: 4.8 },
+    // MASTHEAD-SPHERE-CYCLE-1 (2026-09-09, Owner: "do you think it's possible
+    // for the sphere in las vegas to change projections (cycle through the
+    // scenes) every 2 minutes or so? Just the sphere part").
+    //
+    // It is, and the pack had already done the hard part. THE ARTWORK PAINTS A
+    // DIFFERENT PROJECTION ON THE SPHERE IN EVERY ONE OF THE TEN FRAMES, and
+    // they are the real building's own repertoire: a galaxy at Dawn, the EARTH
+    // at Morning, the grey dome by Day, a sunrise at Golden Hour, the EYE at
+    // Sunset, flat emoji yellow at Night, the MOON under Cloudy, a burning sun
+    // at Cloudy Night, blue ripples in Rain and a purple mesh at Rain Night.
+    // Nothing had to be drawn; each projection was already sitting in a frame
+    // that only ever showed at its own time of day.
+    //
+    // Two measurements made it safe. Every frame is ALREADY IN THE DOM (the
+    // scenery mounts all of them and cross-fades by opacity), so borrowing one
+    // costs no request and no decode. And over the Sphere's own neighbourhood
+    // the ten frames register to Night at dx=0 on all ten and dy=0 on nine, the
+    // tenth by one row - so a disc clipped out of one frame lands exactly on
+    // the disc in another.
+    //
+    // Same disc as the orb and the face, and it has to be: three effects on one
+    // sphere, and if they disagree the face slides off the projection.
+    screen: { x: 46.9, y: 67.0, d: 4.8, cut: 67 },
     // The Luxor sky beam, standing on the pyramid's apex where it belongs
     // (Owner). The frame paints a PURE WHITE LAMP there - x 84.25, y 57.5-59,
     // rgb(255,255,255) against a sky at lum 33 - and no shaft above it: the

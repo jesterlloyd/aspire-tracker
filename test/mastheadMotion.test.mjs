@@ -23,7 +23,11 @@ const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge
   // MASTHEAD-STARS-1: a twinkling field and a falling star, both clear-night only.
   'stars', 'comet',
   // MASTHEAD-BUTTERFLY-1: a wander over a measured flowering canopy, daytime only.
-  'butterflies', 'sceneOverrides', 'sceneShift']
+  'butterflies',
+  // MASTHEAD-SPHERE-CYCLE-1: a landmark that is a SCREEN, whose projection
+  // cycles through the pack's own frames. Read by MastheadScenery, not by the
+  // motion layer, which is why it carries no points.
+  'screen', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -993,4 +997,59 @@ test('Porter Ranch: a street, not a skyline', () => {
 
   assert.ok((m.butterflies?.length || 0) >= 6, 'Porter Ranch lost its butterflies')
   assert.ok((m.stars?.length || 0) >= 20 && m.comet, 'Porter Ranch lost its night sky')
+})
+
+test('the Sphere cycles its projection, and only the Sphere', async () => {
+  // MASTHEAD-SPHERE-CYCLE-1 (Owner: "cycle through the scenes every 2 minutes
+  // or so? Just the sphere part"). The whole feature rests on three facts, and
+  // each one is pinned here because losing any of them breaks it silently.
+  const m = CITY_MOTION.lasvegas
+  assert.ok(m.screen, 'Las Vegas lost its Sphere screen')
+
+  // ONE: the screen, the orb and the face are the SAME DISC. Three effects sit
+  // on one sphere; if they drift apart the face slides off the projection.
+  for (const k of ['x', 'y', 'd']) {
+    assert.equal(m.screen[k], m.orb[k], `screen.${k} has drifted from the orb`)
+    assert.equal(m.screen[k], m.emoji[k], `screen.${k} has drifted from the face`)
+  }
+  assert.equal(m.screen.cut, m.orb.cut, 'the screen and the orb disagree about the skyline')
+
+  // TWO: no other city declares one. This is not a general decoration - it is
+  // for a landmark that is genuinely a screen, and Las Vegas has the only one.
+  const screens = Object.entries(CITY_MOTION).filter(([, c]) => c.screen).map(([n]) => n)
+  assert.deepEqual(screens, ['lasvegas'], `unexpected screens: ${screens.join(', ')}`)
+
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  // THREE: the disc is clipped with an ELLIPSE. The card is CARD_ASPECT:1, so a
+  // circle() with a percentage radius resolves against the box diagonal and
+  // lands nowhere near the Sphere. The component computes the two radii; this
+  // asserts nothing has replaced them with a circle.
+  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
+  assert.match(scenery, /clipPath: `ellipse\(/)
+  assert.match(scenery, /CARD_ASPECT/, 'the vertical radius no longer goes through CARD_ASPECT')
+  // The layers must sit out a sweep, like the motion layer does.
+  assert.match(css, /\.mast-scenery\[data-sweep\] \.mast-sphere-proj \{ opacity: 0; \}/)
+  // Reduced motion leaves the Sphere on its own scene's projection.
+  assert.match(css, /prefers-reduced-motion: reduce\)[\s\S]{0,120}?\.mast-sphere-proj \{ display: none; \}/)
+
+  // The FACE follows the projection, not the scene: it arrives on a daylight
+  // card when the night projection comes round, and leaves a night card when
+  // the Sphere moves on. Both halves, because only having the first would
+  // paint a face on the Earth.
+  assert.match(css, /\.mast-motion\[data-sphere-face="1"\] \.mast-motion-emoji \{ opacity: 1; \}/)
+  assert.match(css, /\.mast-motion\[data-sphere-face="0"\] \.mast-motion-emoji \{ opacity: 0; \}/)
+
+  // The rotation drops the scene the card is already showing, or one beat in
+  // the cycle is "no change at all".
+  const { startSphereCycle, stopSphereCycle, subscribeSphere, sphereIntervalMs, SPHERE_MS } =
+    await import('../src/lib/mastheadSphere.js')
+  assert.equal(SPHERE_MS, 120000, 'the Owner asked for about two minutes')
+  let now = null
+  const off = subscribeSphere(v => { now = v })
+  assert.equal(startSphereCycle(['day'], 'day'), false, 'a rotation of one is not a rotation')
+  assert.equal(startSphereCycle(['dawn', 'day', 'night'], 'day'), true)
+  assert.notEqual(now, 'day', 'the cycle is showing the projection the card already has')
+  stopSphereCycle()
+  assert.equal(now, null, 'stopping the cycle must hand the Sphere back to its own scene')
+  off()
 })

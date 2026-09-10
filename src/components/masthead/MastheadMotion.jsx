@@ -36,6 +36,7 @@
 // swell (faint drifting crests on a measured patch of water).
 import { CITY_MOTION, CARD_ASPECT } from '../../lib/mastheadCityScenes'
 import { useSceneSweep } from '../../lib/mastheadSweep'
+import { useSphereProjection } from '../../lib/mastheadSphere'
 import { useMastheadScene } from '../WeatherScene'
 
 // Coprime-ish periods so a row of lights never visibly pulses in unison.
@@ -192,6 +193,12 @@ export default function MastheadMotion({ city }) {
   // arrived, paused, and then the lights came on - two events where there
   // should be one. The lights each carry their own delay, so they surface at
   // different points of their own breath rather than together.
+  // MASTHEAD-SPHERE-CYCLE-1: the face belongs to the PROJECTION, not to the
+  // scene. The Owner asked for the emoji to come along when the Sphere shows
+  // its night projection, and the other half of that is that it must LEAVE when
+  // the Sphere shows something else on a night card - a face drawn on the Earth
+  // or on the eye would be two pictures on one screen.
+  const sphereProjection = useSphereProjection()
   const sweepState = useSceneSweep()
   const sweeping = !!sweepState && !sweepState.last
   const m = CITY_MOTION[city]
@@ -199,7 +206,7 @@ export default function MastheadMotion({ city }) {
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
     neon, wheel, orb, emoji, torch, clock, facade, strike, snowfall, swell, surf, rainbow, cable,
-    stars, comet, butterflies, sceneOverrides, sceneShift } = m
+    stars, comet, butterflies, screen, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-PLANES-1 (Owner, of Porter Ranch: "i see a lot of planes at
   // night"). A city may name SEVERAL lanes, the way it may name several bridge
@@ -240,7 +247,14 @@ export default function MastheadMotion({ city }) {
   const flareRight = !!flare && flare.x > 50
   const flareX = flareRight ? 100 - flare.x : flare?.x
   return (
-    <div className={`mast-motion${wet ? ' mast-motion-wet' : ''}${sweeping ? ' mast-motion-hushed' : ''}`} aria-hidden>
+    <div
+      className={`mast-motion${wet ? ' mast-motion-wet' : ''}${sweeping ? ' mast-motion-hushed' : ''}`}
+      // Only while a projection is actually up: with the cycle off (reduced
+      // motion, or a QA override of 0) this is absent and the face keeps its
+      // original scene gate untouched.
+      data-sphere-face={screen && sphereProjection ? (sphereProjection === 'night' ? '1' : '0') : undefined}
+      aria-hidden
+    >
       {/* MASTHEAD-BUTTERFLY-1 (Owner: "maybe butterflies?"). Each one works a
           MEASURED flowering canopy and stays there - the only thing in this
           layer that moves without crossing the card. The wander is on the

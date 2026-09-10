@@ -8,9 +8,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useWelcomeWeather, useMastheadScene } from './WeatherScene'
 import { SCENES, ALL_SCENES, sceneFrameFor } from '../lib/mastheadScene'
-import { parseSceneFiles, resolvePack, injectedSceneFiles } from '../lib/mastheadCityScenes'
+import { parseSceneFiles, resolvePack, injectedSceneFiles, CITY_MOTION, CARD_ASPECT } from '../lib/mastheadCityScenes'
 import { useCityPreference } from './masthead/useCityPreference'
 import { sweepFramesFor, startSweepWhenReady, stopSweep, useSceneSweep } from '../lib/mastheadSweep'
+import { startSphereCycle, stopSphereCycle, useSphereProjection, SPHERE_FADE_MS } from '../lib/mastheadSphere'
 import MastheadMotion from './masthead/MastheadMotion'
 //
 // The component is purely presentational and state-free: the host card carries
@@ -101,6 +102,28 @@ export default function MastheadScenery() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickSeq])
 
+  // MASTHEAD-SPHERE-CYCLE-1: a city may declare a landmark SCREEN, and Las
+  // Vegas has the one screen on any of these cards. The rotation is the pack's
+  // own frames minus the one the card is already showing, so every change is a
+  // change; it restarts when the scene drifts past midnight or the city moves.
+  const screen = CITY_MOTION[pack?.city]?.screen
+  // Memoised on a STRING, not on `scenes`. `scenes` comes from a pack that is
+  // itself memoised on the resolved location, and that location is a fresh
+  // object every time the weather query settles - so keying on it gave the
+  // effect below a new array identity on every refresh, which restarted the
+  // cycle and reset it to its first projection. Measured before the fix: the
+  // store held 'night' one tick and 'dawn' 500ms later, with nothing having
+  // asked it to change. A rotation that restarts is a rotation that never
+  // rotates.
+  const screenKey = screen && scenes ? ALL_SCENES.filter(sc => scenes[sc]).join(',') : ''
+  const screenScenes = useMemo(() => (screenKey ? screenKey.split(',') : []), [screenKey])
+  useEffect(() => {
+    if (!screen || screenScenes.length < 3) return undefined
+    startSphereCycle(screenScenes, scene)
+    return () => stopSphereCycle()
+  }, [screen, screenScenes, scene])
+  const projection = useSphereProjection()
+
   return (
     // MASTHEAD-FULL-FRAME-1: the card is 5:1 and so is every panorama, so there
     // is no band to choose and no crop variable to set - the frame shows whole.
@@ -160,6 +183,29 @@ export default function MastheadScenery() {
           draggable={false}
           decoding="async"
           onError={() => setImagesBroken(true)}
+        />
+      ))}
+      {/* MASTHEAD-SPHERE-CYCLE-1: the Sphere's disc, cut out of a frame that is
+          NOT the one on screen. One layer per candidate projection, all of them
+          mounted so the swap is a cross-fade rather than a mount; only the
+          current one is opaque. The frames are the same files the <img> layers
+          above already carry, so this adds no request and no decode. */}
+      {screen && scenes && screenScenes.map(sc => (
+        <div
+          key={`proj-${sc}`}
+          className={`mast-sphere-proj${projection === sc ? ' mast-sphere-proj-on' : ''}`}
+          style={{
+            backgroundImage: `url(${sceneFrameFor(sc, scenes)})`,
+            // Round in PIXELS, so the vertical radius is CARD_ASPECT times the
+            // horizontal one in card percentages.
+            clipPath: `ellipse(${(screen.d / 2).toFixed(3)}% ${(screen.d / 2 * CARD_ASPECT).toFixed(3)}% at ${screen.x}% ${screen.y}%)`,
+            // orb.cut is a percentage OF THE DISC; these are card percentages,
+            // because the layer is the card.
+            '--sphere-hold': `${(screen.y - (screen.d * CARD_ASPECT) / 2 + (screen.d * CARD_ASPECT) * (screen.cut - 8) / 100).toFixed(3)}%`,
+            '--sphere-cut': `${(screen.y - (screen.d * CARD_ASPECT) / 2 + (screen.d * CARD_ASPECT) * screen.cut / 100).toFixed(3)}%`,
+            '--sphere-fade': `${(SPHERE_FADE_MS / 1000).toFixed(2)}s`,
+          }}
+          aria-hidden
         />
       ))}
       {/* MASTHEAD-MOTION-1: only over a photo pack. The light coordinates are
