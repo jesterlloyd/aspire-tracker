@@ -1850,6 +1850,11 @@ export default function StudentSidePanel({
                 <Field key={f} label={`Preference ${i+1}`} fieldKey={f}>
                   <select className="sp-select" value={data[f]||''} onChange={e => handleSelect(f, e.target.value)}>
                     <option value="">Not specified</option>
+                    {/* UNIT-PREFS-SAVE-1: a stored pick that no longer hosts this cohort is shown, not
+                        silently rendered as "Not specified"; it cannot be chosen again. */}
+                    {data[f] && !participatingUnits.includes(data[f]) && (
+                      <option value={data[f]} disabled>{data[f]} (not hosting this cohort)</option>
+                    )}
                     {participatingUnits.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </Field>

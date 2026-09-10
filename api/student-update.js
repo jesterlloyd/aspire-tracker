@@ -105,6 +105,8 @@ const CSLINK_PAIRS = [['cs_stage1_submitted', 'cs_stage1_submitted_date'], ['cs_
 const NGRP_FIELDS    = ['ngrp_cohort_target', 'ngrp_outcome']
 const BADGE_FIELDS   = ['badge_created'] // WS1e-A4 (corr.1): only active badge mutation
 const NOTES_FIELDS   = ['notes']
+// UNIT-PREFS-SAVE-1: the student's unit placement preferences (see update_unit_preferences).
+const UNIT_PREFERENCE_FIELDS = ['unit_preference_1', 'unit_preference_2', 'unit_preference_3']
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 function isValidYMD(s) {
@@ -612,6 +614,51 @@ export default async function handler(req, res) {
     if (action === 'update_notes') {
       if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: NOTES_FIELDS, label: 'notes update' })
+    }
+
+    // UNIT-PREFS-SAVE-1 (2026-09-10): staff correction of the student's unit placement
+    // preferences. When WS1e-A5 removed the generic `update` action (2026-06-09) these three
+    // fields stayed writable only through save_interview_outcome (the rubric workflow), so the
+    // side panel's Preference selects failed for every student. A non-empty value must name a
+    // unit HOSTING the student's own cohort, exactly the options the intake form, the Student
+    // Portal and the side panel offer; '' clears the preference.
+    if (action === 'update_unit_preferences') {
+      if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
+      const ALLOWED = ['action', 'student_id', ...UNIT_PREFERENCE_FIELDS]
+      const unexpected = Object.keys(req.body || {}).filter(k => !ALLOWED.includes(k))
+      if (unexpected.length > 0) return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+      const { student_id } = payload
+      if (!student_id || typeof student_id !== 'string') return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      const supplied = UNIT_PREFERENCE_FIELDS.filter(k => payload[k] !== undefined)
+      if (supplied.length === 0) return res.status(400).json({ error: 'invalid_request', message: 'At least one field is required.' })
+      for (const k of supplied) {
+        if (typeof payload[k] !== 'string' || payload[k].length > 120) {
+          return res.status(400).json({ error: 'invalid_request', field: k, message: 'Invalid value for this field.' })
+        }
+      }
+      const upd = {}
+      for (const k of supplied) upd[k] = payload[k].trim()
+      const { data: stu, error: stuErr } = await db.from('students')
+        .select(['id', 'cohort_id', ...supplied].join(', ')).eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+      if (supplied.some(k => upd[k] !== '')) {
+        const { data: hosting, error: unitErr } = await db.from('units')
+          .select('unit_name').eq('cohort_id', stu.cohort_id).eq('is_participating', true)
+        if (unitErr) return res.status(500).json({ error: 'internal_error' })
+        const names = new Set((hosting || []).map(u => u.unit_name))
+        const bad = supplied.find(k => upd[k] !== '' && !names.has(upd[k]))
+        if (bad) return res.status(400).json({ error: 'invalid_request', field: bad, message: 'Choose a unit that is hosting this cohort.' })
+      }
+      const noChange = supplied.every(k => (stu[k] ?? '') === upd[k])
+      if (noChange) return res.status(200).json({ success: true, no_change: true })
+      const { error: updErr } = await db.from('students').update(upd).eq('id', student_id)
+      if (updErr) {
+        console.log('[student-update] unit preferences update failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] unit preferences update', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null, fields: supplied })
+      return res.status(200).json({ success: true })
     }
 
     // STUDENT-PORTAL-PROFILE-1: Owner/Admin correction of the student-sourced

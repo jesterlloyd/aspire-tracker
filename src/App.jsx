@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
-import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStudentAvailability, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
+import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStudentAvailability, updateUnitPreferences, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
 import { displayName } from './lib/utils'
 import { clearPrimaryPreceptor } from './lib/staffPreceptorAssignmentApi'
 import { planUnmatch, unmatchStudentPatch } from './lib/unmatchPlan'
@@ -799,6 +799,8 @@ function MainApp({ onLogout }) {
       { keys: ['ngrp_cohort_target', 'ngrp_outcome'], helper: updateNgrp },
       { keys: ['badge_created'], helper: updateBadge },
       { keys: ['notes'], helper: updateNotes },
+      // UNIT-PREFS-SAVE-1: the side panel's Unit Placement Preferences (no route existed since 2026-06-09).
+      { keys: ['unit_preference_1', 'unit_preference_2', 'unit_preference_3'], helper: updateUnitPreferences },
       // STUDENT-PORTAL-PROFILE-1: staff correction of the student-sourced availability block.
       { keys: ['unavailable_weekdays', 'unavailable_weekdays_reason', 'personal_blackout_dates', 'weekends_available', 'nights_available', 'preferred_days', 'availability_notes'], helper: updateStudentAvailability },
       { keys: ['matched_preceptor', 'shift_assigned', 'preceptor_email'], helper: updatePreceptorAssignment },
