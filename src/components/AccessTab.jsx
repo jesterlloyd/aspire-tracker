@@ -5,12 +5,12 @@ import { isIsoDateString, isLegacyNonIsoDateValue, dateInputValue } from '../lib
 import StudentAvatar from './StudentAvatar'
 import SortHeader from './shared/SortHeader'
 import ServiceNowLink from './shared/ServiceNowLink'
-import { SERVICENOW_LINKS, STAGE1_REQUESTS, stage1RequestsFor, tickedStage1Request, isLegacyNotApplicable, stage1ResetFor, tickPatch, CS_TICK_DATE_FIELD } from '../lib/csLinkServiceNow'
+import { SERVICENOW_LINKS, STAGE1_REQUESTS, stage1RequestsFor, tickedStage1Request, isLegacyNotApplicable, stage1ResetFor, tickPatch } from '../lib/csLinkServiceNow'
 
 // CSLINK-DATE-PICKER-DATA-RECOVERY: the four CS-Link date columns are TEXT and may hold legacy
-// non-ISO values. We only ever WRITE a date field the user actually touched - untouched fields are
-// omitted from the save so a legacy value is never coerced to null.
-const CSLINK_DATE_FIELDS = ['cs_stage1_submitted_date', 'cs_stage1_complete_date', 'cs_link_requested_date', 'cs_link_complete_date']
+// non-ISO values. We only ever WRITE a date field the user actually touched. CSLINK-SERVICENOW-1:
+// every change now autosaves as a patch of exactly the fields that changed, so an untouched legacy
+// value is never sent at all.
 
 const CEDARS_STATUS_OPTIONS = [
   { value: 'new',      label: 'New to Cedars-Sinai' },
@@ -18,7 +18,7 @@ const CEDARS_STATUS_OPTIONS = [
   { value: 'employee', label: 'Current Cedars-Sinai Employee or Volunteer' },
 ]
 
-export default function AccessTab({ students, onUpdate, focusStudentId }) {
+export default function AccessTab({ students, onUpdate, focusStudentId, toast }) {
   const [sortBy,       setSortBy]       = useState('last_name')
   const [sortDir,      setSortDir]      = useState('asc')
 
@@ -54,14 +54,13 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
               <th className="am-th">Step 3, Account Active</th>
               <th className="am-th">Step 4, CS-Link</th>
               <th className="am-th">Status</th>
-              <th className="am-th">Notes</th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
-              <tr><td colSpan={8} className="am-empty">No students match the current filters.</td></tr>
+              <tr><td colSpan={7} className="am-empty">No students match the current filters.</td></tr>
             ) : sorted.map(s => (
-              <AccessRow key={s.id} student={s} onUpdate={onUpdate} isHighlighted={focusStudentId === s.id} />
+              <AccessRow key={s.id} student={s} onUpdate={onUpdate} isHighlighted={focusStudentId === s.id} toast={toast} />
             ))}
           </tbody>
         </table>
@@ -70,28 +69,21 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
   )
 }
 
-function AccessRow({ student, onUpdate, isHighlighted }) {
+function AccessRow({ student, onUpdate, isHighlighted, toast }) {
   const queryClient = useQueryClient()
 
   // null until student data is confirmed present - prevents rendering inputs
   // before fields arrive and prevents empty-string saves on uninitialized state.
   const [formData, setFormData] = useState(null)
-  const [isDirty,  setIsDirty]  = useState(false)
-  const [saving,   setSaving]   = useState(false)
-  // Which CS-Link date fields the user actually edited this session (reset when the student changes).
-  const touchedDatesRef = useRef(new Set())
 
   // Sync from server ONLY when:
   //   1. student.id is known
   //   2. formData hasn't been built for this student (_sourceStudentId differs)
-  //   3. user is not mid-edit (isDirty = false)
   // Field-level deps catch deferred column arrivals (e.g., background refetch
   // that fills in a previously-null column after the row first mounted).
   useEffect(() => {
     if (!student?.id) return
     if (formData?._sourceStudentId === student.id) return
-    if (isDirty) return
-    touchedDatesRef.current = new Set()   // fresh student → no date edits yet
     setFormData({
       _sourceStudentId:         student.id,
       cs_cedars_status:         student.cs_cedars_status         ?? '',
@@ -104,7 +96,6 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
       cs_link_requested_date:   student.cs_link_requested_date   ?? '',
       cs_link_complete:         student.cs_link_complete         ?? false,
       cs_link_complete_date:    student.cs_link_complete_date    ?? '',
-      cs_access_notes:          student.cs_access_notes          ?? '',
     })
   }, [
     student?.id,
@@ -118,20 +109,59 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     student?.cs_link_requested_date,
     student?.cs_link_complete,
     student?.cs_link_complete_date,
-    student?.cs_access_notes,
     formData?._sourceStudentId,
-    isDirty,
   ]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Toggle a boolean field. CSLINK-SERVICENOW-1: ticking fills the paired date with today
-  // (tickPatch), and that date counts as touched so Save writes it. Unticking keeps the date
-  // hidden but intact, so re-checking the box restores it without losing the value.
+  // CSLINK-SERVICENOW-1 (Owner, 2026-09-10): every change saves itself; there is no Save button.
+  // A tick or a status change saves at once; a typed date waits 800ms so a half-typed year is never
+  // sent. Pending fields merge into ONE patch and saves run one at a time, in order, so a quick
+  // tick-untick can never land out of order. Each save confirms with a toast; a failed one says so
+  // and puts the stored values back on the row. The app has no CS-Link realtime channel, so the
+  // row's own state stays the truth between saves.
+  const pendingRef = useRef({})
+  const timerRef   = useRef(null)
+  const chainRef   = useRef(Promise.resolve())
+  const studentRef = useRef(student)
+  useEffect(() => { studentRef.current = student })
+
+  const flush = () => {
+    clearTimeout(timerRef.current)
+    timerRef.current = null
+    const patch = pendingRef.current
+    if (!Object.keys(patch).length) return
+    pendingRef.current = {}
+    chainRef.current = chainRef.current.then(async () => {
+      const err = await onUpdate(student.id, patch)
+      if (err) {
+        const stored = studentRef.current
+        setFormData(prev => {
+          const back = { ...prev }
+          for (const k of Object.keys(patch)) back[k] = stored?.[k] ?? (typeof prev[k] === 'boolean' ? false : '')
+          return back
+        })
+        toast?.error('CS-Link not saved', `${displayName(student)}: the change did not save. Please try again.`)
+        return
+      }
+      toast?.success('CS-Link saved', displayName(student))
+      // Keep students_in_cohort cache fresh for Keith and other consumers
+      queryClient.invalidateQueries({ queryKey: ['students_in_cohort', student.cohort_id] })
+    })
+  }
+  const queueSave = (patch, { debounce = false } = {}) => {
+    pendingRef.current = { ...pendingRef.current, ...patch }
+    if (!debounce) return flush()
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(flush, 800)
+  }
+  // A date still waiting when the row unmounts (a filter change, a tab switch) is sent, not dropped.
+  useEffect(() => () => flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Toggle a boolean field. Ticking fills the paired date with today (tickPatch) and saves box and
+  // date together. Unticking keeps the date hidden but intact, so a re-tick restores it.
   const handleToggleBox = (boolField, extra = {}) => {
     const patch = { ...extra, ...tickPatch(formData, boolField, !formData[boolField]) }
-    const dateField = CS_TICK_DATE_FIELD[boolField]
-    if (dateField && dateField in patch) touchedDatesRef.current.add(dateField)
     setFormData(prev => ({ ...prev, ...patch }))
-    setIsDirty(true)
+    queueSave(patch)
   }
 
   // A Step 2 request tick. The first tick records which request went out; ticking the other
@@ -140,66 +170,23 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     if (tickedStage1Request(formData) === action) return handleToggleBox('cs_stage1_submitted')
     if (formData.cs_stage1_submitted) {
       setFormData(prev => ({ ...prev, cs_stage1_action: action }))
-      setIsDirty(true)
-      return
+      return queueSave({ cs_stage1_action: action })
     }
     handleToggleBox('cs_stage1_submitted', { cs_stage1_action: action })
   }
 
-  // Update a date or text field in local state only - no save yet.
-  const handleChangeField = (field, value) => {
-    if (CSLINK_DATE_FIELDS.includes(field)) touchedDatesRef.current.add(field)
+  // A date edit shows at once and saves after the pause: a valid pick as ISO, a cleared picker as null.
+  const handleChangeDate = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    setIsDirty(true)
+    queueSave({ [field]: isIsoDateString(value) ? value : null }, { debounce: true })
   }
 
-  // Cedars-Sinai status cascades: setting the status also resets Steps 2 and 3 in formData
-  // (no auto-save - waits for Save button). CSLINK-SERVICENOW-1: every status, employees
-  // included, starts at Step 2 unticked (stage1ResetFor).
+  // Cedars-Sinai status cascades: setting the status also resets Steps 2 and 3; every status,
+  // employees included, starts at Step 2 unticked (stage1ResetFor).
   const handleChangeCedarsStatus = (v) => {
-    setFormData(prev => ({ ...prev, cs_cedars_status:v, ...stage1ResetFor(v) }))
-    setIsDirty(true)
-  }
-
-  // Explicit Save: write the full payload in one atomic update so that boolean
-  // and date fields always travel together. This is the fix for the race where
-  // clearTimeout(timerRef) in per-field checkbox saves was canceling in-flight
-  // date debounce timers - dates never reached Supabase, so they vanished on refresh.
-  const handleSave = async () => {
-    if (!student?.id || !formData || saving) return
-    setSaving(true)
-
-    // CSLINK-DATE-PICKER-DATA-RECOVERY: never overwrite a legacy non-ISO date. Booleans / status /
-    // notes always save atomically; a date field is written ONLY if the user touched it this session
-    // - then a valid pick saves as ISO and an intentional clear saves null. Untouched date fields are
-    // OMITTED entirely, so the stored value (ISO or legacy free-text) is preserved as-is.
-    const payload = {
-      cs_cedars_status:    formData.cs_cedars_status || null,
-      cs_stage1_action:    formData.cs_stage1_action || null,
-      cs_stage1_submitted: formData.cs_stage1_submitted,
-      cs_stage1_complete:  formData.cs_stage1_complete,
-      cs_link_requested:   formData.cs_link_requested,
-      cs_link_complete:    formData.cs_link_complete,
-      cs_access_notes:     formData.cs_access_notes || null,
-    }
-    for (const f of CSLINK_DATE_FIELDS) {
-      if (!touchedDatesRef.current.has(f)) continue   // untouched → preserve stored value (omit)
-      const v = formData[f]
-      payload[f] = isIsoDateString(v) ? v : null       // touched: valid ISO, else intentional clear → null
-    }
-
-    console.log('[CS-Link save] sending:', payload)
-    const err = await onUpdate(student.id, payload)
-    setSaving(false)
-    if (err) {
-      console.error('[CS-Link save] failed:', err)
-      return
-    }
-    console.log('[CS-Link save] success')
-
-    setIsDirty(false)
-    // Keep students_in_cohort cache fresh for Keith and other consumers
-    queryClient.invalidateQueries({ queryKey: ['students_in_cohort', student.cohort_id] })
+    const reset = stage1ResetFor(v)
+    setFormData(prev => ({ ...prev, cs_cedars_status: v, ...reset }))
+    queueSave({ cs_cedars_status: v || null, ...reset, cs_stage1_action: reset.cs_stage1_action || null })
   }
 
   // Hold off rendering inputs until formData is ready
@@ -213,7 +200,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
           </div>
         </td>
         <td className="am-td am-td-school">{student.school || '-'}</td>
-        <td className="am-td" colSpan={6} />
+        <td className="am-td" colSpan={5} />
       </tr>
     )
   }
@@ -226,10 +213,10 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     <>
       <input type="date" className="am-date-input" aria-label="Date"
         value={dateInputValue(formData[field])}
-        onChange={e => handleChangeField(field, e.target.value)}
+        onChange={e => handleChangeDate(field, e.target.value)}
         placeholder="Date" />
       {isLegacyNonIsoDateValue(formData[field]) && (
-        <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData[field]}</span>
+        <span className="am-date-legacy" style={{ fontSize:9, color:'#92400e' }} title="Legacy value, re-enter to update">was: {formData[field]}</span>
       )}
     </>
   )
@@ -330,28 +317,6 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
         </span>
       </td>
 
-      {/* Col 8: Notes + Save button */}
-      <td className="am-td">
-        <input className="am-notes-input" type="text"
-          value={formData.cs_access_notes || ''}
-          onChange={e => handleChangeField('cs_access_notes', e.target.value)}
-          placeholder="Notes…" />
-        {isDirty && (
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              marginTop: 6, width: '100%',
-              padding: '4px 0', fontSize: 11, fontWeight: 700,
-              background: saving ? '#e5e7eb' : '#1D2567',
-              color: saving ? '#9ca3af' : '#ffffff',
-              border: 'none', borderRadius: 6, cursor: saving ? 'default' : 'pointer',
-            }}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        )}
-      </td>
     </tr>
   )
 }

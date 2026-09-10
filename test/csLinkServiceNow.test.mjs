@@ -101,6 +101,26 @@ test('ServiceNowLink opens a new tab safely and never ticks anything', () => {
   assert.match(read('src/index.css'), /\.sn-link \{ position: relative;/)
 })
 
+test('the table has no Notes column or Save button: every change autosaves with a toast', () => {
+  const access = read('src/components/AccessTab.jsx')
+  const css = read('src/index.css')
+  assert.doesNotMatch(access, /<th className="am-th">Notes<\/th>/)
+  assert.doesNotMatch(access, /cs_access_notes/, 'Access Notes is edited in the side panel only')
+  assert.doesNotMatch(access, /handleSave|isDirty|>\s*Save\s*</, 'no Save button and no dirty state')
+  assert.match(access, /colSpan=\{7\} className="am-empty"/)
+  // Ticks and status changes save at once; a typed date waits; saves run one at a time, in order.
+  assert.match(access, /const queueSave = \(patch, \{ debounce = false \} = \{\}\) =>/)
+  assert.match(access, /setTimeout\(flush, 800\)/)
+  assert.match(access, /chainRef\.current = chainRef\.current\.then\(/)
+  assert.match(access, /toast\?\.success\('CS-Link saved'/)
+  assert.match(access, /toast\?\.error\('CS-Link not saved'/)
+  assert.match(read('src/components/StudentProfilesTab.jsx'),
+    /<AccessTab students=\{accessStudents\} onUpdate=\{onUpdate\} focusStudentId=\{accessFocusId\} toast=\{toast\} \/>/)
+  assert.match(css, /\.am-request > \.am-date-input \{ margin-left: auto; \}/)
+  assert.ok(!css.includes('am-notes-input'), 'the notes input styles went with the column')
+  assert.match(read('src/components/StudentSidePanel.jsx'), /<Field label="Access Notes">/, 'notes stay editable in the side panel')
+})
+
 test('Keith no longer says employees skip Stage 1', () => {
   for (const p of ['src/lib/keithKnowledge.js', 'api/keith.js']) {
     assert.doesNotMatch(read(p), /employees skip Stage 1/)

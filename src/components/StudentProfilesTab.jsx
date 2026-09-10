@@ -423,7 +423,7 @@ export default function StudentProfilesTab({
         <div className="profiles-scroll-area">
           {/* Profiles and CS-Link are two views of the same roster: the shared search and school
               filter apply here, plus the CS-Link stage card on screen. Never pass raw `students`. */}
-          <AccessTab students={accessStudents} onUpdate={onUpdate} focusStudentId={accessFocusId} />
+          <AccessTab students={accessStudents} onUpdate={onUpdate} focusStudentId={accessFocusId} toast={toast} />
         </div>
       )}
 

@@ -4802,12 +4802,15 @@ button.ov-group-row {
 .am-request { flex-wrap: wrap; font-size: 11px; color: var(--text-secondary); row-gap: 4px; }
 .am-request-stack { display: flex; flex-direction: column; gap: 6px; }
 .am-request-head { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* Every date picker sits flush with the right end of its column, so a column's dates share one edge. */
+.am-request > .am-date-input { margin-left: auto; }
+.am-request > .am-date-legacy { flex-basis: 100%; text-align: right; }
 .am-step-note { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
 .sn-link { position: relative; /* contains the .sr-only hint, so a table scroller clips it instead of the page widening */ display: inline-flex; align-items: center; gap: 3px; font: inherit; font-weight: 600; color: var(--color-accent-primary, #1D2567); text-decoration: none; white-space: nowrap; }
 .sn-link:hover { text-decoration: underline; }
 .am-checkbox { width: 15px; height: 15px; accent-color: #16a34a; cursor: pointer; flex-shrink: 0; }
 .am-date-input {
-  width: 90px; padding: 3px 7px;
+  width: 116px; padding: 3px 7px;
   border: 1px solid var(--border); border-radius: 3px;
   font-size: 12px; color: var(--raven); background: var(--pearl);
   outline: none; transition: border-color 0.12s;
@@ -4815,14 +4818,6 @@ button.ov-group-row {
 .am-date-input:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
 .am-date-input::placeholder { color: #9ca3af; }
 
-.am-notes-input {
-  width: 140px; padding: 3px 7px;
-  border: 1px solid var(--border); border-radius: 3px;
-  font-size: 12px; color: var(--raven); background: var(--pearl);
-  outline: none; transition: border-color 0.12s;
-}
-.am-notes-input:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
-.am-notes-input::placeholder { color: #9ca3af; }
 .am-select {
   width: 160px; padding: 3px 7px;
   border: 1px solid var(--border); border-radius: 3px;
