@@ -99,7 +99,7 @@ test('every changed row is backed up before the first write, somewhere the API c
 test('student picks are named as untouched, and the script is in the Owner SQL gate ledger', () => {
   assert.match(sql, /Student picks are NOT touched/)
   assert.doesNotMatch(body, /UPDATE students/)
-  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260910000000_fall_winter_capacity_rebalance\.sql \| CAPACITY-REBALANCE-1, 2026-09-10 \| NOT APPLIED, awaiting the Owner/)
+  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260910000000_fall_winter_capacity_rebalance\.sql \| CAPACITY-REBALANCE-1, 73e4c1d4, 2026-09-10 \| \*\*APPLIED, confirmed 2026-09-10\*\*/)
 })
 
 function read(p) { return readFileSync(new URL(`../${p}`, import.meta.url), 'utf8') }
