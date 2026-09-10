@@ -38,6 +38,7 @@ import { isStudentProfileLocked, PROFILE_LOCKED_MESSAGE } from '../../src/lib/st
 import { STUDENT_EDITABLE_FIELDS, REQUIRED_ON_SAVE, INTEREST_STATEMENT_MIN } from '../../src/lib/studentProfileFields.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull } from '../../src/lib/availability.js'
 import { STUDENT_FORM_ACK_VERSION } from '../../src/lib/studentFormAck.js'
+import { stage1ResetFor } from '../../src/lib/csLinkServiceNow.js'
 // The SAME documents rule the public intake endpoint enforces (its named export).
 import { checkDocumentsRequired } from '../student-intake-submit.js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
@@ -360,15 +361,8 @@ export default async function handler(req, res) {
     const derived = CS_AFFILIATION_TO_CEDARS_STATUS[patch.cs_affiliation]
     if (derived && !str(student.cs_cedars_status)) {
       patch.cs_cedars_status = derived
-      if (derived === 'employee') {
-        patch.cs_stage1_action = 'not_applicable'
-        patch.cs_stage1_submitted = true
-        patch.cs_stage1_complete = true
-      } else {
-        patch.cs_stage1_action = ''
-        patch.cs_stage1_submitted = false
-        patch.cs_stage1_complete = false
-      }
+      // CSLINK-SERVICENOW-1: every status starts at Step 2 unticked, employees included.
+      Object.assign(patch, stage1ResetFor(derived))
     }
   }
 

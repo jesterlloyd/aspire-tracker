@@ -80,7 +80,8 @@ export function getCsLinkStatus(student) {
   if (!student.cs_cedars_status) return 'not_started'
   if (student.cs_link_complete)  return 'complete'
   if (student.cs_link_requested) return 'cslink_pending'
-  if (student.cs_cedars_status === 'employee') return 'account_active'
+  // CSLINK-SERVICENOW-1: employees and volunteers no longer skip Steps 2 and 3, so Account
+  // Active comes only from the Step 3 tick. Rows auto-completed earlier carry that tick already.
   if (student.cs_stage1_complete) return 'account_active'
   if (student.cs_stage1_submitted) return 'stage1_pending'
   return 'not_started'

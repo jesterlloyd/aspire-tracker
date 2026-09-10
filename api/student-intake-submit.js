@@ -30,6 +30,7 @@ import { STUDENT_FORM_ACK_VERSION } from '../src/lib/studentFormAck.js'
 // STUDENT-PORTAL-PROFILE-1: the intake-eligible statuses now live in the shared
 // canonical lock module, used identically by the portal profile endpoint.
 import { isStudentProfileLocked } from '../src/lib/studentProfileLock.js'
+import { stage1ResetFor } from '../src/lib/csLinkServiceNow.js'
 // PHASE0B-WAVE-D: cohort and student resolution shared with student-intake-lookup.js
 import { resolveAcceptingCohort, resolveStudentByEmail } from './lib/intakeStudentLookup.js'
 import { checkLengths, LIMITS } from './lib/fieldLimits.js'
@@ -291,17 +292,9 @@ export default async function handler(req, res) {
   const derivedCedarsStatus = CS_AFFILIATION_TO_CEDARS_STATUS[updates.cs_affiliation]
   if (derivedCedarsStatus && !str(student.cs_cedars_status)) {
     updates.cs_cedars_status = derivedCedarsStatus
-    if (derivedCedarsStatus === 'employee') {
-      // Mirrors StudentSidePanel: employees already have a worker record → Stage 1 not required.
-      updates.cs_stage1_action    = 'not_applicable'
-      updates.cs_stage1_submitted = true
-      updates.cs_stage1_complete  = true
-    } else {
-      // 'former' → mirrors StudentSidePanel's reset branch (Stage 1 pending, no action chosen yet).
-      updates.cs_stage1_action    = ''
-      updates.cs_stage1_submitted = false
-      updates.cs_stage1_complete  = false
-    }
+    // CSLINK-SERVICENOW-1: employees and volunteers no longer skip Steps 2 and 3. Every status
+    // starts at Step 2 unticked, exactly as when staff choose it (one rule: stage1ResetFor).
+    Object.assign(updates, stage1ResetFor(derivedCedarsStatus))
   }
 
   // Field write + status transition in a single update (no separate status write).

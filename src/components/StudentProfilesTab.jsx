@@ -35,11 +35,12 @@ const filterToKey = (filterValue) => {
   const target = JSON.stringify(filterValue)
   return Object.keys(FILTER_KEYS).find(k => JSON.stringify(FILTER_KEYS[k]) === target) || null
 }
-// CS-LINK-KPI-1: the CS-Link Access view swaps the pathway cards for the four
+// CS-LINK-KPI-1: the CS-Link Access view swaps the pathway cards for the five
 // CS-Link stages. Labels and counts come from summarizeCsLink (the one source
 // Keith also reads); this list only adds the URL key, sub-line and accent.
-// Not Started has no card; the table's status strip still counts it.
+// CSLINK-SERVICENOW-1: Not Started leads, and the cards replace the old status strip.
 const CSLINK_CARDS = [
+  { status: 'not_started',    urlKey: 'not-started',     sub: 'No request yet',           accent: 'nightfall' },
   { status: 'stage1_pending', urlKey: 'account-pending', sub: 'Service Center submitted', accent: 'dawn' },
   { status: 'account_active', urlKey: 'account-active',  sub: 'Account confirmed',        accent: 'periwinkle' },
   { status: 'cslink_pending', urlKey: 'cslink-pending',  sub: 'CS-Link requested',        accent: 'lavender' },

@@ -4,19 +4,13 @@ import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/util
 import { isIsoDateString, isLegacyNonIsoDateValue, dateInputValue } from '../lib/csLinkDateUtils'
 import StudentAvatar from './StudentAvatar'
 import SortHeader from './shared/SortHeader'
+import ServiceNowLink from './shared/ServiceNowLink'
+import { SERVICENOW_LINKS, STAGE1_REQUESTS, stage1RequestsFor, tickedStage1Request, isLegacyNotApplicable, stage1ResetFor, tickPatch, CS_TICK_DATE_FIELD } from '../lib/csLinkServiceNow'
 
 // CSLINK-DATE-PICKER-DATA-RECOVERY: the four CS-Link date columns are TEXT and may hold legacy
 // non-ISO values. We only ever WRITE a date field the user actually touched - untouched fields are
 // omitted from the save so a legacy value is never coerced to null.
 const CSLINK_DATE_FIELDS = ['cs_stage1_submitted_date', 'cs_stage1_complete_date', 'cs_link_requested_date', 'cs_link_complete_date']
-
-const STAGE1_ACTION_LABELS = {
-  add_non_employee:  'Add Non-Employee',
-  assignment_change: 'Assignment Change',
-  extend_end_date:   'Extend Project End Date',
-  reactivate:        'Reactivate',
-  not_applicable:    'Not Applicable',
-}
 
 const CEDARS_STATUS_OPTIONS = [
   { value: 'new',      label: 'New to Cedars-Sinai' },
@@ -27,9 +21,6 @@ const CEDARS_STATUS_OPTIONS = [
 export default function AccessTab({ students, onUpdate, focusStudentId }) {
   const [sortBy,       setSortBy]       = useState('last_name')
   const [sortDir,      setSortDir]      = useState('asc')
-
-  const statusCounts = { not_started:0, stage1_pending:0, account_active:0, cslink_pending:0, complete:0 }
-  students.forEach(s => { statusCounts[getCsLinkStatus(s)]++ })
 
   const sorted = [...students].sort((a, b) => {
     const av = (sortBy === 'last_name' ? (a.last_name || a.name || '') : (a.school || '')).toLowerCase()
@@ -46,15 +37,8 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
   return (
     <div className="access-tab">
 
-      {/* Compact stats */}
-      <div className="am-compact-stats">
-        {Object.entries(CS_LINK_STATUS_CONFIG).map(([key, cfg]) => (
-          <span key={key} className="am-stat-pill"
-            style={{ color: cfg.text, fontWeight: statusCounts[key] > 0 ? 700 : 400 }}>
-            {cfg.label}: <strong>{statusCounts[key]}</strong>
-          </span>
-        ))}
-      </div>
+      {/* CSLINK-SERVICENOW-1: the status strip that stood here is retired; the five KPI cards
+          above the toolbar carry the same counts and filter the table. */}
 
       {/* Table */}
       <div className="am-table-wrap">
@@ -139,11 +123,27 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     isDirty,
   ]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Toggle a boolean field. The paired date is kept in formData hidden but
-  // intact - re-checking the box restores it without losing the value.
-  const handleToggleBox = (boolField) => {
-    setFormData(prev => ({ ...prev, [boolField]: !prev[boolField] }))
+  // Toggle a boolean field. CSLINK-SERVICENOW-1: ticking fills the paired date with today
+  // (tickPatch), and that date counts as touched so Save writes it. Unticking keeps the date
+  // hidden but intact, so re-checking the box restores it without losing the value.
+  const handleToggleBox = (boolField, extra = {}) => {
+    const patch = { ...extra, ...tickPatch(formData, boolField, !formData[boolField]) }
+    const dateField = CS_TICK_DATE_FIELD[boolField]
+    if (dateField && dateField in patch) touchedDatesRef.current.add(dateField)
+    setFormData(prev => ({ ...prev, ...patch }))
     setIsDirty(true)
+  }
+
+  // A Step 2 request tick. The first tick records which request went out; ticking the other
+  // request switches it (date kept); ticking the ticked one clears Submitted.
+  const handleToggleRequest = (action) => {
+    if (tickedStage1Request(formData) === action) return handleToggleBox('cs_stage1_submitted')
+    if (formData.cs_stage1_submitted) {
+      setFormData(prev => ({ ...prev, cs_stage1_action: action }))
+      setIsDirty(true)
+      return
+    }
+    handleToggleBox('cs_stage1_submitted', { cs_stage1_action: action })
   }
 
   // Update a date or text field in local state only - no save yet.
@@ -153,15 +153,11 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     setIsDirty(true)
   }
 
-  // Cedars-Sinai status cascades: setting the status also updates the action
-  // and resets stage1 flags in formData (no auto-save - waits for Save button).
+  // Cedars-Sinai status cascades: setting the status also resets Steps 2 and 3 in formData
+  // (no auto-save - waits for Save button). CSLINK-SERVICENOW-1: every status, employees
+  // included, starts at Step 2 unticked (stage1ResetFor).
   const handleChangeCedarsStatus = (v) => {
-    const extras = v === 'employee'
-      ? { cs_stage1_action:'not_applicable', cs_stage1_submitted:true, cs_stage1_complete:true }
-      : v === 'new'
-        ? { cs_stage1_action:'add_non_employee', cs_stage1_submitted:false, cs_stage1_complete:false }
-        : { cs_stage1_action:'', cs_stage1_submitted:false, cs_stage1_complete:false }
-    setFormData(prev => ({ ...prev, cs_cedars_status:v, ...extras }))
+    setFormData(prev => ({ ...prev, cs_cedars_status:v, ...stage1ResetFor(v) }))
     setIsDirty(true)
   }
 
@@ -225,6 +221,21 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
   const status    = getCsLinkStatus(formData)
   const statusCfg = CS_LINK_STATUS_CONFIG[status]
 
+  // The date a tick fills: editable, with the legacy free-text hint when one is stored.
+  const dateFor = (field) => (
+    <>
+      <input type="date" className="am-date-input" aria-label="Date"
+        value={dateInputValue(formData[field])}
+        onChange={e => handleChangeField(field, e.target.value)}
+        placeholder="Date" />
+      {isLegacyNonIsoDateValue(formData[field]) && (
+        <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData[field]}</span>
+      )}
+    </>
+  )
+  const requests = stage1RequestsFor(formData.cs_cedars_status)
+  const ticked   = tickedStage1Request(formData)
+
   return (
     <tr id={`access-row-${student.id}`} className={`am-row${isHighlighted ? ' am-row-highlight' : ''}`}>
 
@@ -248,99 +259,65 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
         </select>
       </td>
 
-      {/* Col 4: Step 2 - Service Center Request */}
+      {/* Col 4: Step 2 - Service Center request. CSLINK-SERVICENOW-1: each request is a tickbox
+          beside its ServiceNow link. The link only opens the form; the tick records it was sent. */}
       <td className="am-td">
-        {formData.cs_stage1_action
-          ? <div style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:5 }}>
-              {STAGE1_ACTION_LABELS[formData.cs_stage1_action] || formData.cs_stage1_action}
-            </div>
-          : <div style={{ fontSize:11, color:'#9ca3af', marginBottom:5 }}>-</div>
-        }
-        {formData.cs_stage1_action && formData.cs_stage1_action !== 'not_applicable' && (
-          <div className="am-access-cell">
-            <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
-              <input type="checkbox" className="am-checkbox"
-                checked={formData.cs_stage1_submitted || false}
-                onChange={() => handleToggleBox('cs_stage1_submitted')} />
-              Submitted
-            </label>
-            {/* Date rendered only when checked, but value comes from formData
-                so it's preserved when unchecked and restored on re-check */}
-            {formData.cs_stage1_submitted && (
-              <>
-                <input type="date" className="am-date-input"
-                  value={dateInputValue(formData.cs_stage1_submitted_date)}
-                  onChange={e => handleChangeField('cs_stage1_submitted_date', e.target.value)}
-                  placeholder="Date" />
-                {isLegacyNonIsoDateValue(formData.cs_stage1_submitted_date) && (
-                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData.cs_stage1_submitted_date}</span>
-                )}
-              </>
-            )}
+        {isLegacyNotApplicable(formData) ? (
+          <div className="am-step-note">Not Applicable</div>
+        ) : requests.length === 0 ? (
+          <div style={{ fontSize:11, color:'#9ca3af' }}>-</div>
+        ) : (
+          <div className="am-request-stack">
+            {requests.map(action => (
+              <div key={action} className="am-access-cell am-request">
+                <span className="am-request-head">
+                  <input type="checkbox" className="am-checkbox"
+                    aria-label={`${STAGE1_REQUESTS[action].label} submitted`}
+                    checked={ticked === action}
+                    onChange={() => handleToggleRequest(action)} />
+                  <ServiceNowLink href={STAGE1_REQUESTS[action].href}>{STAGE1_REQUESTS[action].label}</ServiceNowLink>
+                </span>
+                {ticked === action && dateFor('cs_stage1_submitted_date')}
+              </div>
+            ))}
           </div>
         )}
       </td>
 
       {/* Col 5: Step 3 - Account Active */}
       <td className="am-td">
-        <div className="am-access-cell">
-          <input type="checkbox" className="am-checkbox"
+        <div className="am-access-cell am-request">
+          <input type="checkbox" className="am-checkbox" aria-label="Account active"
             checked={formData.cs_stage1_complete || false}
             onChange={() => handleToggleBox('cs_stage1_complete')} />
-          {formData.cs_stage1_complete && (
-            <>
-              <input type="date" className="am-date-input"
-                value={dateInputValue(formData.cs_stage1_complete_date)}
-                onChange={e => handleChangeField('cs_stage1_complete_date', e.target.value)}
-                placeholder="Date" />
-              {isLegacyNonIsoDateValue(formData.cs_stage1_complete_date) && (
-                <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData.cs_stage1_complete_date}</span>
-              )}
-            </>
-          )}
+          {formData.cs_stage1_complete && dateFor('cs_stage1_complete_date')}
         </div>
       </td>
 
-      {/* Col 6: Step 4 - CS-Link (Requested + Complete stacked) */}
+      {/* Col 6: Step 4 - CS-Link. Unticked, Requested is a Request link to the ServiceNow cart;
+          ticked, it reads Requested with today's date. */}
       <td className="am-td">
-        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-          <div className="am-access-cell">
-            <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
-              <input type="checkbox" className="am-checkbox"
+        <div className="am-request-stack">
+          <div className="am-access-cell am-request">
+            <span className="am-request-head">
+              <input type="checkbox" className="am-checkbox" id={`cs-req-${student.id}`}
+                aria-label="CS-Link requested"
                 checked={formData.cs_link_requested || false}
                 onChange={() => handleToggleBox('cs_link_requested')} />
-              Requested
-            </label>
-            {formData.cs_link_requested && (
-              <>
-                <input type="date" className="am-date-input"
-                  value={dateInputValue(formData.cs_link_requested_date)}
-                  onChange={e => handleChangeField('cs_link_requested_date', e.target.value)}
-                  placeholder="Date" />
-                {isLegacyNonIsoDateValue(formData.cs_link_requested_date) && (
-                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData.cs_link_requested_date}</span>
-                )}
-              </>
-            )}
+              {formData.cs_link_requested
+                ? <label htmlFor={`cs-req-${student.id}`} style={{ cursor:'pointer' }}>Requested</label>
+                : <ServiceNowLink href={SERVICENOW_LINKS.csLinkRequest}>Request</ServiceNowLink>}
+            </span>
+            {formData.cs_link_requested && dateFor('cs_link_requested_date')}
           </div>
-          <div className="am-access-cell">
-            <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
+          <div className="am-access-cell am-request">
+            <label className="am-request-head" style={{ cursor:'pointer' }}>
               <input type="checkbox" className="am-checkbox"
                 checked={formData.cs_link_complete || false}
                 onChange={() => handleToggleBox('cs_link_complete')} />
               Complete
             </label>
-            {formData.cs_link_complete && (
-              <>
-                <input type="date" className="am-date-input"
-                  value={dateInputValue(formData.cs_link_complete_date)}
-                  onChange={e => handleChangeField('cs_link_complete_date', e.target.value)}
-                  placeholder="Date" />
-                {isLegacyNonIsoDateValue(formData.cs_link_complete_date) && (
-                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData.cs_link_complete_date}</span>
-                )}
-              </>
-            )}
+            {formData.cs_link_complete && dateFor('cs_link_complete_date')}
           </div>
         </div>
       </td>

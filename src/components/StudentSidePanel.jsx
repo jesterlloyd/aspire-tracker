@@ -6,6 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
+import ServiceNowLink from './shared/ServiceNowLink'
+import { SERVICENOW_LINKS, STAGE1_REQUESTS, stage1RequestsFor, tickedStage1Request, isLegacyNotApplicable, stage1ResetFor, tickPatch } from '../lib/csLinkServiceNow'
 import StudentAvatar from './StudentAvatar'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
@@ -57,12 +59,6 @@ const CEDARS_STATUS_OPTIONS = [
   { value: 'new',      label: 'New to Cedars-Sinai (no prior rotation or employment)' },
   { value: 'former',   label: 'Former Student or Rotation (has been here before)' },
   { value: 'employee', label: 'Current Cedars-Sinai Employee or Volunteer' },
-]
-
-const STAGE1_ACTION_OPTIONS = [
-  { value: 'assignment_change', label: 'Assignment Change' },
-  { value: 'extend_end_date',   label: 'Extend Project End Date' },
-  { value: 'reactivate',        label: 'Reactivate Former Non-Employee' },
 ]
 
 const STAGE1_ACTION_LABELS = {
@@ -781,7 +777,9 @@ export default function StudentSidePanel({
   // doSave - OCC-protected field save.
   // Passes loadedUpdatedAt so the API can detect concurrent edits.
   // On HTTP 409 (conflict): shows ConflictDialog instead of silently overwriting.
-  const doSave = useCallback(async (field, value) => {
+  // CSLINK-SERVICENOW-1: `extra` rides along in the same update (and in a conflict force-save),
+  // so a tick and the date it fills are one write, never two racing the updated_at guard.
+  const doSave = useCallback(async (field, value, extra) => {
     setSaveStatus('saving')
     // WS1e-A2: preceptor/shift assignment is migrated off the generic update to the
     // explicit placement action (no OCC guard on that narrow operation).
@@ -820,10 +818,10 @@ export default function StudentSidePanel({
       }
       return
     }
-    const err = await onUpdate(student.id, { [field]: value }, loadedUpdatedAt)
+    const err = await onUpdate(student.id, { [field]: value, ...extra }, loadedUpdatedAt)
     if (err?.conflict) {
       setSaveStatus('idle')
-      setConflict({ field, value })
+      setConflict({ field, value, extra })
       return
     }
     setSaveStatus(err ? 'error' : 'saved')
@@ -879,7 +877,19 @@ export default function StudentSidePanel({
     }, 800)
   }
   const handleSelect = (field, value) => { setData(p => ({ ...p, [field]: value })); doSave(field, value) }
-  const handleCheck  = (field, value) => { setData(p => ({ ...p, [field]: value })); doSave(field, value) }
+  // CSLINK-SERVICENOW-1: a CS-Link tick fills its date with today (tickPatch) and saves box and
+  // date together. A Step 2 request tick records which request went out, switches between
+  // Update and Reactivate, or clears Submitted when the ticked one is unticked.
+  const handleCsTick = (field, value, extra = {}) => {
+    const { [field]: v, ...rest } = { ...extra, ...tickPatch(data, field, value) }
+    setData(p => ({ ...p, [field]: v, ...rest }))
+    doSave(field, v, rest)
+  }
+  const handleCsRequest = (action) => {
+    if (tickedStage1Request(data) === action) return handleCsTick('cs_stage1_submitted', false)
+    if (data.cs_stage1_submitted) return handleSelect('cs_stage1_action', action)
+    handleCsTick('cs_stage1_submitted', true, { cs_stage1_action: action })
+  }
   const handleDecimal = (field, raw) => {
     const value = raw === '' ? null : parseFloat(raw)
     setData(p => ({ ...p, [field]: value }))
@@ -1044,7 +1054,7 @@ export default function StudentSidePanel({
     // Force save without the updated_at guard (no loadedUpdatedAt passed)
     const updates = conflict.field === 'name'
       ? conflict.value
-      : { [conflict.field]: conflict.value }
+      : { [conflict.field]: conflict.value, ...conflict.extra }
     const err = await onUpdate(student.id, updates)
     await logEvent(supabase, {
       studentId: student.id, cohortId: student.cohort_id,
@@ -2005,11 +2015,8 @@ export default function StudentSidePanel({
               <select className="sp-select" value={data.cs_cedars_status||''}
                 onChange={e => {
                   const v = e.target.value
-                  const extras = v === 'employee'
-                    ? { cs_stage1_action:'not_applicable', cs_stage1_submitted:true, cs_stage1_complete:true }
-                    : v === 'new'
-                    ? { cs_stage1_action:'add_non_employee', cs_stage1_submitted:false, cs_stage1_complete:false }
-                    : { cs_stage1_action:'', cs_stage1_submitted:false, cs_stage1_complete:false }
+                  // CSLINK-SERVICENOW-1: every status, employees included, starts at Step 2.
+                  const extras = stage1ResetFor(v)
                   setData(p => ({ ...p, cs_cedars_status:v, ...extras }))
                   onUpdate(student.id, { cs_cedars_status:v, ...extras })
                 }}>
@@ -2023,68 +2030,50 @@ export default function StudentSidePanel({
               <div className={`csw-step${!data.cs_cedars_status ? ' csw-step-dim' : ''}`}>
                 <div className="csw-step-label">Step 2: Service Center Request</div>
 
-                {data.cs_cedars_status === 'employee' && (
-                  <div className="csw-info-green">Stage 1 not required. Current Cedars-Sinai employees already have a worker record. Proceed directly to adding CS-Link access.</div>
-                )}
-
-                {data.cs_cedars_status === 'new' && (
+                {/* CSLINK-SERVICENOW-1: each request is a tickbox beside its ServiceNow link. The
+                    link only opens the form; the tick records that the request was sent. */}
+                {isLegacyNotApplicable(data) ? (
+                  <div className="csw-info-green">Not required. This record was marked complete when current employees skipped this step.</div>
+                ) : (
                   <>
-                    <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', marginBottom:8 }}>Add Non-Employee</div>
-                    <p className="csw-note">Submit an Add Non-Employee request in the Service Center for this student.</p>
-                    <div className="csw-check-row">
-                      <label className="csw-check-label">
-                        <input type="checkbox" checked={data.cs_stage1_submitted||false}
-                          onChange={e => { handleCheck('cs_stage1_submitted', e.target.checked) }}
-                          style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
-                        Submitted to Service Center
-                      </label>
-                      {data.cs_stage1_submitted && (
-                        <CsLinkDateField value={data.cs_stage1_submitted_date}
-                          onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {data.cs_cedars_status === 'former' && (
-                  <>
-                    <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', marginBottom:8 }}>Update Non-Employee</div>
-                    <Field label="Request Type:">
-                      <select className="sp-select" value={data.cs_stage1_action||''}
-                        onChange={e => handleSelect('cs_stage1_action', e.target.value)}>
-                        <option value="">Select type…</option>
-                        {STAGE1_ACTION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
-                    </Field>
-                    <div className="csw-check-row">
-                      <label className="csw-check-label">
-                        <input type="checkbox" checked={data.cs_stage1_submitted||false}
-                          onChange={e => handleCheck('cs_stage1_submitted', e.target.checked)}
-                          style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
-                        Submitted to Service Center
-                      </label>
-                      {data.cs_stage1_submitted && (
-                        <CsLinkDateField value={data.cs_stage1_submitted_date}
-                          onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
-                      )}
-                    </div>
+                    <p className="csw-note" style={{ marginTop:0, marginBottom:8 }}>
+                      {data.cs_cedars_status === 'new'
+                        ? 'Submit an Add Non-Employee request in ServiceNow, then tick it.'
+                        : 'Submit an Update or Reactivate Non-Employee request in ServiceNow, then tick the one you sent.'}
+                    </p>
+                    {stage1RequestsFor(data.cs_cedars_status).map(action => {
+                      const on = tickedStage1Request(data) === action
+                      return (
+                        <div key={action} className="csw-check-row" style={{ marginTop:6 }}>
+                          <input type="checkbox" checked={on}
+                            aria-label={`${STAGE1_REQUESTS[action].label} submitted`}
+                            onChange={() => handleCsRequest(action)}
+                            style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                          <ServiceNowLink href={STAGE1_REQUESTS[action].href}>{STAGE1_REQUESTS[action].label}</ServiceNowLink>
+                          {on && (
+                            <CsLinkDateField value={data.cs_stage1_submitted_date}
+                              onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
+                          )}
+                        </div>
+                      )
+                    })}
                   </>
                 )}
               </div>
             )}
 
             {/* Step 3: Account Active Confirmation */}
-            {(data.cs_stage1_submitted || data.cs_cedars_status === 'employee') && (
+            {data.cs_stage1_submitted && (
               <div className="csw-step">
                 <div className="csw-step-label">Step 3: Contingent Worker Account Active</div>
-                {data.cs_cedars_status === 'employee' ? (
-                  <div className="csw-info-gray">Not applicable for current employees.</div>
+                {isLegacyNotApplicable(data) ? (
+                  <div className="csw-info-gray">Not applicable: marked complete when current employees skipped this step.</div>
                 ) : (
                   <>
                     <div className="csw-check-row">
                       <label className="csw-check-label">
                         <input type="checkbox" checked={data.cs_stage1_complete||false}
-                          onChange={e => handleCheck('cs_stage1_complete', e.target.checked)}
+                          onChange={e => handleCsTick('cs_stage1_complete', e.target.checked)}
                           style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
                         Account is active in the system
                       </label>
@@ -2100,16 +2089,18 @@ export default function StudentSidePanel({
             )}
 
             {/* Step 4: CS-Link Access */}
-            {(data.cs_stage1_complete || data.cs_cedars_status === 'employee') && (
+            {data.cs_stage1_complete && (
               <div className="csw-step">
                 <div className="csw-step-label">Step 4: Add CS-Link Access</div>
                 <div className="csw-check-row">
-                  <label className="csw-check-label">
-                    <input type="checkbox" checked={data.cs_link_requested||false}
-                      onChange={e => handleCheck('cs_link_requested', e.target.checked)}
-                      style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
-                    CS-Link access requested
-                  </label>
+                  {/* CSLINK-SERVICENOW-1: unticked, the label is a link to the ServiceNow cart. */}
+                  <input type="checkbox" id={`sp-cs-req-${student.id}`} aria-label="CS-Link access requested"
+                    checked={data.cs_link_requested||false}
+                    onChange={e => handleCsTick('cs_link_requested', e.target.checked)}
+                    style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                  {data.cs_link_requested
+                    ? <label htmlFor={`sp-cs-req-${student.id}`} className="csw-check-label">CS-Link access requested</label>
+                    : <ServiceNowLink href={SERVICENOW_LINKS.csLinkRequest}>Request CS-Link access</ServiceNowLink>}
                   {data.cs_link_requested && (
                     <CsLinkDateField value={data.cs_link_requested_date}
                       onChange={e => handleText('cs_link_requested_date', e.target.value)} />
@@ -2119,7 +2110,7 @@ export default function StudentSidePanel({
                   <div className="csw-check-row" style={{ marginTop:6 }}>
                     <label className="csw-check-label">
                       <input type="checkbox" checked={data.cs_link_complete||false}
-                        onChange={e => handleCheck('cs_link_complete', e.target.checked)}
+                        onChange={e => handleCsTick('cs_link_complete', e.target.checked)}
                         style={{ accentColor:'#16a34a', width:14, height:14 }} />
                       CS-Link confirmed active and working
                     </label>

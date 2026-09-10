@@ -92,7 +92,8 @@ function validateRubricField(k, v) {
 const ASPIRE_STATUSES = ['Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed', 'Placed', 'Active Rotation', 'Completed', 'Declined', 'Not Proceeding']
 const NGRP_OUTCOMES   = ['Pending', 'Applied', 'Interviewed', 'Offered', 'Hired', 'Declined']
 const CEDARS_STATUS   = ['new', 'former', 'employee']
-const STAGE1_ACTIONS  = ['add_non_employee', 'assignment_change', 'extend_end_date', 'reactivate', 'not_applicable']
+// CSLINK-SERVICENOW-1 added update_non_employee; the older values stay valid for rows that hold them.
+const STAGE1_ACTIONS  = ['add_non_employee', 'update_non_employee', 'assignment_change', 'extend_end_date', 'reactivate', 'not_applicable']
 
 const CONTACT_FIELDS = ['personal_email', 'phone']
 // WS1e-A4 (corr.2): `name` is NOT client-writable - server composes it from

@@ -26,9 +26,10 @@ test('CS-Link stage labels read thing, then state', () => {
     ['CS-Link Not Started', 'Account Pending', 'Account Active', 'CS-Link Pending', 'CS-Link Active'])
 })
 
-test('CS-Link Access shows the four stage cards, labelled and counted by summarizeCsLink', () => {
+test('CS-Link Access shows the five stage cards, labelled and counted by summarizeCsLink', () => {
   const cards = [...spt.matchAll(/\{ status: '(\w+)', +urlKey: '([\w-]+)'/g)].map(m => [m[1], m[2]])
   assert.deepEqual(cards, [
+    ['not_started', 'not-started'],
     ['stage1_pending', 'account-pending'],
     ['account_active', 'account-active'],
     ['cslink_pending', 'cslink-pending'],
@@ -37,7 +38,7 @@ test('CS-Link Access shows the four stage cards, labelled and counted by summari
   assert.match(spt, /const csLinkCounts = useMemo\(\(\) => summarizeCsLink\(students\), \[students\]\)/)
   assert.match(spt, /\{view === 'access' \? CSLINK_CARDS\.map\(c => \(\s*\n\s*<FilterKPICard[^\n]*label=\{csLinkLabel\(c\.status\)\}/)
   assert.match(spt, /data-kpi-set=\{view === 'access' \? 'cslink' : 'pathway'\}/)
-  assert.match(css, /\.profiles-kpis\[data-kpi-set="cslink"\] \{ grid-template-columns: repeat\(4, 1fr\); \}/)
+  assert.match(css, /\.profiles-kpis\[data-kpi-set="cslink"\] \{ grid-template-columns: repeat\(5, 1fr\); \}/)
 })
 
 test('the CS-Link filter is its own state, in the URL as a fixed key, cleared by the toolbar chip', () => {

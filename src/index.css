@@ -4350,8 +4350,8 @@ button.ov-group-row {
    drawer beneath) and the page scrolls naturally. No columns or fields are
    removed - density reflows, information does not. */
 .profiles-kpis { grid-template-columns: repeat(8, 1fr); }
-/* CS-LINK-KPI-1: CS-Link Access shows its own four cards, 4 across until phones, then 2. */
-.profiles-kpis[data-kpi-set="cslink"] { grid-template-columns: repeat(4, 1fr); }
+/* CS-LINK-KPI-1: CS-Link Access shows its own five cards, 5 across until phones, then 2. */
+.profiles-kpis[data-kpi-set="cslink"] { grid-template-columns: repeat(5, 1fr); }
 @media (max-width: 1280px) {
   .profiles-kpis { grid-template-columns: repeat(4, 1fr); }
 }
@@ -4530,15 +4530,6 @@ button.ov-group-row {
 .csw-info-gray  { background: var(--sand); border: 1px solid var(--border-lt); border-radius: 4px; padding: 8px 12px; font-size: 13px; color: var(--text-secondary); font-style: italic; }
 .csw-success-banner { background: #dcfce7; border: 1px solid #a7f3d0; border-radius: 4px; padding: 8px 12px; font-size: 13px; font-weight: 700; color: #166534; margin-top: 8px; }
 
-/* AccessTab compact stats */
-.am-compact-stats {
-  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
-  padding: 8px 0; flex-wrap: wrap;
-}
-.am-stat-pill { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
-.am-stat-pill-green { color: #166534; font-weight: 600; }
-.am-stat-pill strong { font-weight: 700; color: var(--nightfall); }
-.am-stat-pill-green strong { color: #166534; }
 .profiles-toggle-btn { background: var(--pearl); color: var(--text-secondary); border: none; padding: 9px 20px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.12s, color 0.12s; }
 .profiles-toggle-btn:hover { background: var(--sand); }
 .profiles-toggle-btn.active { background: var(--nightfall); color: var(--pearl); }
@@ -4807,6 +4798,13 @@ button.ov-group-row {
 
 
 .am-access-cell { display: flex; align-items: center; gap: 6px; min-width: 80px; }
+/* CSLINK-SERVICENOW-1: a tickbox, its ServiceNow link or label, and the date it fills. */
+.am-request { flex-wrap: wrap; font-size: 11px; color: var(--text-secondary); row-gap: 4px; }
+.am-request-stack { display: flex; flex-direction: column; gap: 6px; }
+.am-request-head { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.am-step-note { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+.sn-link { position: relative; /* contains the .sr-only hint, so a table scroller clips it instead of the page widening */ display: inline-flex; align-items: center; gap: 3px; font: inherit; font-weight: 600; color: var(--color-accent-primary, #1D2567); text-decoration: none; white-space: nowrap; }
+.sn-link:hover { text-decoration: underline; }
 .am-checkbox { width: 15px; height: 15px; accent-color: #16a34a; cursor: pointer; flex-shrink: 0; }
 .am-date-input {
   width: 90px; padding: 3px 7px;

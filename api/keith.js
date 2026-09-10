@@ -94,7 +94,7 @@ The platform is called ASPIRE Intelligence (formerly ASPIRE Tracker). Rebranded 
 ASPIRE STATUS JOURNEY (9 canonical stages):
 Pending Outreach → Form Sent → Form Received → Interview Scheduled → Interviewed → Placed → Active Rotation → Completed → Declined. "Accepted" is retired. Declined can occur at any stage and requires a decline reason. Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match, and Active Rotation becomes Completed only after the linked school-form rotation end date has fully passed and approved hours meet a positive configured requirement. Owner/Admin can still make a manual status correction.
 
-CS-LINK: Stage 1 for new students is Add Non-Employee. Former students need Assignment Change, Extend End Date, or Reactivate. Cedars employees skip Stage 1. Stage 2 is Add CS-Link for everyone.
+CS-LINK: Stage 1 for new students is Add Non-Employee. Former students and current Cedars-Sinai employees or volunteers need Update Non-Employee or Reactivate Non-Employee, then staff confirm the account is active. Stage 2 is Add CS-Link for everyone.
 
 PROGRAM EVENTS:
 Every major milestone is auto-logged to program_events table. Events include: orientation (manual), form_sent, form_received, interview, placement, rotation_start (first approved shift), rotation_end (hours requirement met), completion, manual_status_update, note. Auto-logged events have created_by = system. Powers the Gantt timeline in Aggregate tab.
