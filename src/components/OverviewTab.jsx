@@ -9,6 +9,7 @@ import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER, getEligibleUnits } from '../lib/unitCatalog'
 import { computeUnitResponseMetrics } from '../lib/unitResponseMetrics'
+import { placementCoverage } from '../lib/placementCoverage'
 import { listCohortResponseTargets, createCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
 import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
 import { UNIT_LEADERSHIP_ROLES } from '../lib/contactCategories'
@@ -44,7 +45,7 @@ import { GraduationCap, MapPin, Copy } from 'lucide-react'
 // stands alone, with no replacement visualization by design.
 // KPICell and useUpdatedLabel are shared - imported from ./KPIBand
 
-function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequesting, gap, participatingUnits, activeSchools, cohort, cohortId }) {
+function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequesting, coverage, participatingUnits, activeSchools, cohort, cohortId }) {
   const updatedLabel = useUpdatedLabel(cohortId)
   const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
 
@@ -62,7 +63,8 @@ function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequest
         <KPICell value={placedCount}        label="Slots Filled"     sub={`${placedPct}% of total capacity`} accent="sage" />
         <KPICell value={openSlots}          label="Open Slots" />
         <KPICell value={studentsRequesting} label="Student Requests" sub={`${activeSchools} schools`} />
-        <KPICell value={Math.abs(gap)}      label={gap > 0 ? 'Placement Gap' : 'Fully Covered'} sub={gap > 0 ? 'More requests than open slots' : 'Enough slots for all'} accent={gap > 0 ? 'warning' : 'sage'} />
+        {/* PROCEEDING-GAP-1: All Placed / Placement Gap / Fully Covered, proceeding students only */}
+        <KPICell value={coverage.value}     label={coverage.label} sub={coverage.sub} accent={coverage.accent} />
       </div>
     </section>
   )
@@ -596,7 +598,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // ASPIRE-MASTHEAD (D6): open slots display from the LIVE placement count,
   // never the stored slots_remaining field (one-capacity-source contract).
   const openSlotsLive       = Math.max(0, netRemaining)
-  const gap                 = totalStudents - totalSlots  // positive = short on slots
+  // PROCEEDING-GAP-1 (Owner, 2026-09-10): Not Proceeding and Declined students never need a
+  // slot, so the fifth card counts proceeding students only (src/lib/placementCoverage.js).
+  const coverage            = placementCoverage(students, totalSlots)
   const participatingUnits  = participating.length
   const studentsRequesting  = totalStudents
   const activeSchools       = Object.keys((() => { const m = {}; students.forEach(s => { if (s.school) m[s.school] = 1 }); return m })()).length
@@ -1038,7 +1042,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
       <PlacementSnapshot
         totalSlots={totalSlots} placedCount={placedCount} openSlots={openSlotsLive}
-        studentsRequesting={studentsRequesting} gap={gap}
+        studentsRequesting={studentsRequesting} coverage={coverage}
         participatingUnits={participatingUnits} activeSchools={activeSchools}
         cohort={cohort} cohortId={cohortId}
       />
