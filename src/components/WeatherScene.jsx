@@ -329,6 +329,11 @@ export function WeatherMasthead() {
   const night = data.isDay === 0
   const manifest = assetsBroken ? null : sceneAssets(scene, night)
   const hiLo = data.hi != null && data.lo != null ? `H ${data.hi}° · L ${data.lo}°` : ''
+  // MASTHEAD-HILO-CITY-1 (Owner, 2026-09-11): the high/low and the city are
+  // back on the card, under the condition and in its exact type. The city is
+  // the line that matters most: since the picker, the reading is the CHOSEN
+  // city's, and "69°" over Istanbul has to say whose 69° it is.
+  const hiLoLine = data.hi != null && data.lo != null ? `H:${data.hi}° L:${data.lo}°` : ''
   const readout = `${label || 'Weather'}, ${data.temp} degrees${hiLo ? `, high ${data.hi}, low ${data.lo}` : ''}, ${location.label}`
   // Only offer the picker where there is a real choice to make (more than the
   // Automatic entry); a single-pack deployment keeps a plain, inert readout.
@@ -375,16 +380,21 @@ export function WeatherMasthead() {
           aria-label={`${readout}. Choose masthead scenery.`}
           aria-haspopup="dialog"
         >
-          {/* MASTHEAD-LOCKSCREEN-1 (Owner): temperature and condition only.
-              The H/L and the city moved out of the card and into this hover
-              and the accessible readout, one click from the full reading. */}
+          {/* MASTHEAD-HILO-CITY-1 (Owner) reverses MASTHEAD-LOCKSCREEN-1's
+              "temperature and condition only": the high/low and the city
+              return, set in the condition's own class so they carry its size,
+              weight, white ink and shadow exactly, with no pill behind them. */}
           <span className="wx-mast-temp" aria-hidden>{data.temp}°</span>
           {label && <span className="wx-mast-cond" aria-hidden>{label}</span>}
+          {hiLoLine && <span className="wx-mast-cond" aria-hidden>{hiLoLine}</span>}
+          {location.label && <span className="wx-mast-cond" aria-hidden>{location.label}</span>}
         </button>
       ) : (
         <div className="wx-mast-caption" title={`${location.label} weather`} role="img" aria-label={readout}>
           <div className="wx-mast-temp" aria-hidden>{data.temp}°</div>
           {label && <div className="wx-mast-cond" aria-hidden>{label}</div>}
+          {hiLoLine && <div className="wx-mast-cond" aria-hidden>{hiLoLine}</div>}
+          {location.label && <div className="wx-mast-cond" aria-hidden>{location.label}</div>}
         </div>
       )}
       <CityPickerDialog

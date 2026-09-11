@@ -210,8 +210,9 @@ test('a chosen city moves the whole masthead: artwork, weather, and time of day'
   assert.match(wx, /installed\[preferredCity\] \? cityWeatherLocation\(preferredCity, CITY_COORDS\) : null\) \|\| resolved/)
   assert.match(wx, /const installed = useMemo\(\(\) => parseSceneFiles\(injectedSceneFiles\(\)\), \[\]\)/)
   assert.match(wx, /queryKey: \['welcome_weather', location\.chosen \? `city:\$\{preferredCity\}`/)
-  // MASTHEAD-LOCKSCREEN-1: the city moved off the card and into the
-  // temperature's hover and accessible readout, which always name it.
+  // MASTHEAD-LOCKSCREEN-1 moved the city into the hover and the readout;
+  // MASTHEAD-HILO-CITY-1 put it back on the card in the condition's class,
+  // so the legacy uppercase .wx-mast-city style still has no user.
   assert.match(wx, /title=\{`\$\{location\.label\} · Choose masthead scenery`\}/)
   assert.doesNotMatch(wx, /wx-mast-city/)
   // The dialog must not still promise that the weather stays local.

@@ -80,12 +80,23 @@ test('the pair is small and all sans; the clock is the one large element', () =>
   assert.match(css, /\.mast-greet \{[\s\S]*?font-size: 30px; margin: 0; line-height: 1\.25; padding-bottom: 2px;/)
 })
 
-test('the weather shows temperature and condition; the city lives in the hover', () => {
+// MASTHEAD-HILO-CITY-1 (Owner, 2026-09-11) reversed "temperature and condition
+// only": the high/low and the city are back, under the condition and in the
+// condition's OWN class, so they carry its size, weight, white ink and shadow.
+// The Owner declined a frosted pill; the older .wx-mast-hilo / .wx-mast-city
+// rules (smaller, dimmer, uppercase) must stay off them for the same reason.
+test('the weather shows temperature, condition, high/low and city, all in one type', () => {
   const wx = read('src/components/WeatherScene.jsx')
+  for (const [open, close] of [['className="wx-mast-caption wx-mast-trigger"', '</button>'], ['<div className="wx-mast-caption"', '</div>\n      )}']]) {
+    const block = wx.slice(wx.indexOf(open), wx.indexOf(close, wx.indexOf(open)))
+    assert.match(block, /wx-mast-temp/)
+    assert.match(block, /className="wx-mast-cond" aria-hidden>\{label\}/)
+    assert.match(block, /className="wx-mast-cond" aria-hidden>\{hiLoLine\}/, 'the high/low left the card')
+    assert.match(block, /className="wx-mast-cond" aria-hidden>\{location\.label\}/, 'the city left the card')
+    assert.doesNotMatch(block, /wx-mast-hilo|wx-mast-city/, 'the extra lines must not take the dimmer legacy styles')
+  }
+  assert.match(wx, /const hiLoLine = data\.hi != null && data\.lo != null \? `H:\$\{data\.hi\}° L:\$\{data\.lo\}°` : ''/)
   const trigger = wx.slice(wx.indexOf('className="wx-mast-caption wx-mast-trigger"'), wx.indexOf('</button>'))
-  assert.match(trigger, /wx-mast-temp/)
-  assert.match(trigger, /wx-mast-cond/)
-  assert.doesNotMatch(trigger, /wx-mast-hilo|wx-mast-city/, 'H/L and city are off the card')
   assert.match(trigger, /title=\{`\$\{location\.label\} · Choose masthead scenery`\}/)
   // The accessible readout still speaks the full reading.
   assert.match(wx, /const readout = `\$\{label \|\| 'Weather'\}, \$\{data\.temp\} degrees/)
