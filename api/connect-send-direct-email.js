@@ -51,6 +51,13 @@ import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { verifyPlacementSend } from './lib/placementSendGuard.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { RESIDENT_CHECKIN_TEMPLATE_KEY } from '../lib/server/ngrpSupportCheckins.js';
+import { residencyRecipient } from '../lib/server/ngrpResidencyRecipient.js';
+
+// RESIDENCY-SUPPORT-1: templates a send may declare. The marker never changes
+// the body; it records WHICH template this was, so Residency > Support can count
+// check-ins from the send itself, and it selects the residency address rule.
+const TEMPLATE_KEYS = new Set([RESIDENT_CHECKIN_TEMPLATE_KEY]);
 
 // CONNECT-COMMS-1D: seeded fallback signatures for the two known leads (by email), used when a
 // sender has not configured their own connect_signature yet. (signatures.js has no phone field.)
@@ -235,6 +242,15 @@ async function _handler(req, res, startMs) {
     }
   }
 
+  // RESIDENCY-SUPPORT-1: the OPTIONAL template marker, allowlisted here. An
+  // unknown value is refused rather than recorded, so the Support tab's count
+  // can only ever be made of sends this endpoint recognized.
+  const templateKeyRaw = typeof body.template_key === 'string' ? body.template_key.trim() : '';
+  if (templateKeyRaw && !TEMPLATE_KEYS.has(templateKeyRaw)) {
+    return res.status(400).json({ success: false, error: 'Unknown template_key' });
+  }
+  const templateKey = templateKeyRaw || null;
+
   // PLACEMENT-COMMUNICATION-HANDOFF-1A: the OPTIONAL placement this message is
   // about. It never changes the recipient, the body, or the attachments - those
   // stay server-resolved exactly as before. What it does is make a SUCCESSFUL
@@ -361,7 +377,38 @@ async function _handler(req, res, startMs) {
       hardError = { status: 404, error: 'Student not found' };
       recipientSource = 'missing';
     } else {
-      const resolved = resolveStudentCorrespondenceRecipient(student, null, {});
+      let resolved = resolveStudentCorrespondenceRecipient(student, null, {});
+      // RESIDENCY-SUPPORT-1 (Owner, 2026-09-11): residency mail never uses the
+      // school address - alumni lose it after graduation. A hired resident is
+      // reached at their Cedars-Sinai address, with the personal email as the
+      // backup; anyone else at their personal address.
+      if (templateKey === RESIDENT_CHECKIN_TEMPLATE_KEY) {
+        const full = await supabaseAdmin
+          .from('ngrp_residency_outcomes')
+          .select('hired_at, separated_at, cs_email')
+          .eq('student_id', recipientId)
+          .not('hired_at', 'is', null)
+          .order('hired_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        // Before 20260915000000 the column does not exist; the rule then falls
+        // through to the personal email rather than failing the send.
+        const lite = full.error
+          ? await supabaseAdmin
+            .from('ngrp_residency_outcomes')
+            .select('hired_at, separated_at')
+            .eq('student_id', recipientId)
+            .not('hired_at', 'is', null)
+            .order('hired_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          : null;
+        const outcome = full.error ? (lite?.data || null) : (full.data || null);
+        const pick = residencyRecipient({ outcome, student });
+        resolved = pick.email
+          ? { email: pick.email, type: pick.source, reason: null, warning: null }
+          : { email: null, type: 'missing', reason: pick.reason, warning: null };
+      }
       recipientEmail       = resolved.email;
       recipientName        = `${student.first_name || ''} ${student.last_name || ''}`.trim() || null;
       recipientRole        = 'Student';
@@ -534,6 +581,8 @@ async function _handler(req, res, startMs) {
     cc_auto_suggested:     ccAutoSuggested,
     body_format:           resolvedBodyFormat,
     body_length:           trimmedBody.length,
+    // RESIDENCY-SUPPORT-1: present only for a declared template send.
+    ...(templateKey ? { template_key: templateKey } : {}),
     // OUTREACH-ATTACHMENTS-1: metadata ONLY (slug, title, filename, type, size).
     // Never bytes, storage paths, signed URLs, or upload tokens.
     attachments:           att.summary,

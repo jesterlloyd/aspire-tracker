@@ -16,7 +16,7 @@ import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
 import BulkManualComposer from './BulkManualComposer'
-import { readLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
+import { readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
 import RichTextEditor from './RichTextEditor'
 import { isRichComposeEnabled, plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
 import ConnectPanel from './ConnectPanel'
@@ -29,11 +29,12 @@ import {
   buildPreceptorAssignmentDraft, buildAcademicPartnerUpdateDraft,
   PRECEPTOR_ATTACHMENT_REMINDER, STUDENT_NAME_PLACEHOLDER,
   buildStudentAcceptanceOrientationDraft, buildUnitLeaderSupportRequestDraft,
-  buildInterviewerAvailabilityRequestDraft,
+  buildInterviewerAvailabilityRequestDraft, buildResidentWeeklyCheckinDraft,
 } from '../../lib/outreachTemplates'
 import {
   SEND_TO_ONE_TEMPLATES, SEND_TO_MANY_TEMPLATES,
   splitTemplatesForAudience, getPrimarySectionTitle, audienceForContact, AUDIENCES,
+  RESIDENT_CHECKIN_TEMPLATE_KEY,
 } from '../../lib/connect/templateRegistry'
 import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
 import { getStudentPreferredFirstName, getStudentPreferredFullName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
@@ -406,6 +407,17 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     ? preceptorLaunch
     : null
 
+  // RESIDENCY-SUPPORT-1: the weekly check-in launch, the second single-recipient
+  // launch. Scoped to the RESIDENT it named, not to the selected ASPIRE cohort:
+  // a resident is usually from an earlier cohort than the one on screen, and
+  // gating on the cohort would silently drop them. A different recipient (or an
+  // unrelated Connect visit) leaves it inert exactly like the placement handoff.
+  const checkinLaunch = (launchCtx && launchCtx.kind === LAUNCH_KINDS.RESIDENT_CHECKIN) ? launchCtx : null
+  const activeCheckin = (checkinLaunch && recipientType === 'student' && studentId
+    && String(checkinLaunch.recipient?.studentId || '') === String(studentId))
+    ? checkinLaunch
+    : null
+
   // ── Placement handoff: is this launch for the recipient on screen? ─────────
   //
   // The merge applies ONLY when the composer is addressed to exactly the contact
@@ -519,6 +531,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // Priority: launch deep link > explicit Sent History deep link > explicit recipient > localStorage.
   const [recipientMode, setRecipientMode] = useState(() => {
     if (launchCtx?.kind === LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT) return 'single'
+    if (launchCtx?.kind === LAUNCH_KINDS.RESIDENT_CHECKIN) return 'single'
     if (launchCtx) return 'bulk'                                      // Send-and-confirm launch
     if (searchParams.get('tab') === 'sent_history') return 'history'  // Phase D.1 deep link
     if (hasExplicitRecipient || urlMode === 'message') return 'single'
@@ -530,6 +543,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // Priority: URL param > explicit router state > localStorage > default ──
   const [outreachMode, setOutreachMode] = useState(() => {
     if (launchCtx?.kind === LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT) return 'message'
+    if (launchCtx?.kind === LAUNCH_KINDS.RESIDENT_CHECKIN) return 'message'
     if (urlMode === 'message' || urlMode === 'survey') return urlMode
     if (hasExplicitRecipient) return 'message'
     const saved = localStorage.getItem(LAST_MODE_KEY)
@@ -1465,6 +1479,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           placement: activePlacement?.placement || null,
           attachmentsAttached: docs.ok,
         })
+      case RESIDENT_CHECKIN_TEMPLATE_KEY:  return buildResidentWeeklyCheckinDraft({ firstName })
       case 'student_acceptance_orientation': return buildStudentAcceptanceOrientationDraft({ firstName })
       case 'unit_leader_support_request':  return buildUnitLeaderSupportRequestDraft({ firstName })
       case 'interviewer_availability_request': return buildInterviewerAvailabilityRequestDraft({ firstName })
@@ -1506,6 +1521,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setIncludeSignature(true)  // template body has no signature - app appends the closing + sender block
     setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
   }, [buildTemplateDraft, richEnabled, effectiveDocs, activePlacement])
+
+  // A check-in launch opens with its template already applied, ONCE, for the
+  // resident it named. A saved draft still wins: the restore effect runs after
+  // this and opens the branded Replace draft? confirmation as usual.
+  const checkinAppliedRef = useRef(false)
+  useEffect(() => {
+    if (!activeCheckin || checkinAppliedRef.current) return
+    checkinAppliedRef.current = true
+    applyTemplate(RESIDENT_CHECKIN_TEMPLATE_KEY)
+  }, [activeCheckin, applyTemplate])
 
   // A deliberate act that severs a live placement connection must SAY so - the
   // silent version of this is exactly how a real send lost its tracking.
@@ -2191,6 +2216,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           // descriptive only: the server ignores it for routing and records it
           // solely on a confirmed successful send.
           ...(placementSendRef ? { placement_ref: placementSendRef } : {}),
+          // RESIDENCY-SUPPORT-1: WHICH template this was. Sent only while the
+          // check-in launch is live for this recipient. The server allowlists it,
+          // records it on the send, and addresses a check-in by the residency
+          // rule (Cedars-Sinai first, never the school address).
+          ...(activeCheckin ? { template_key: RESIDENT_CHECKIN_TEMPLATE_KEY } : {}),
         }),
       })
       let payload = null
@@ -2226,6 +2256,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         const successMsg = payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.`
         setDmSendStatus({ ok: true, msg: successMsg })
         toast?.success('Email sent', successMsg)
+        // The check-in is recorded by the send itself, so the Support tab shows
+        // it the moment we land back there.
+        if (activeCheckin) {
+          const back = activeCheckin.returnPath || '/ngrp/support/during'
+          clearLaunchContext()
+          navigate(back)
+        }
       } else {
         const errMsg = payload?.error || (res.status === 403 ? 'Access denied or recipient cannot receive email.' : 'Failed to send email. Please try again.')
         setDmSendStatus({ ok: false, msg: errMsg })

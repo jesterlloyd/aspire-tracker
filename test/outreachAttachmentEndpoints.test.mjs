@@ -269,6 +269,11 @@ function swap(src) {
     .replace(/from '\.\.\/src\/lib\/recipientParse\.js'/, `from ${abs('src/lib/recipientParse.js')}`)
     .replace(/from '\.\.\/src\/lib\/htmlEscape\.js'/, `from ${abs('src/lib/htmlEscape.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/templates\/signatures\.js'/, `from ${abs('src/lib/notifications/templates/signatures.js')}`)
+    // RESIDENCY-SUPPORT-1: the template marker and the residency address rule.
+    // Both are pure, so they load REAL here and these tests exercise the shipped
+    // rule (a check-in never falls back to the school address).
+    .replace(/from '\.\.\/lib\/server\/ngrpSupportCheckins\.js'/, `from ${abs('lib/server/ngrpSupportCheckins.js')}`)
+    .replace(/from '\.\.\/lib\/server\/ngrpResidencyRecipient\.js'/, `from ${abs('lib/server/ngrpResidencyRecipient.js')}`)
     .replace(/from '\.\/lib\/messageArchive\.js'/, `from ${abs('api/lib/messageArchive.js')}`)
     .replace(/from '\.\/lib\/outreachAttachments\.js'/, `from ${abs('api/lib/outreachAttachments.js')}`)
     .replace(/from '\.\/lib\/bulkRecipientAllowlist\.js'/, `from ${abs('api/lib/bulkRecipientAllowlist.js')}`)

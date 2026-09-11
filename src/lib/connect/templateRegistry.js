@@ -43,6 +43,9 @@ const ALL_AUDIENCES = [
 // tests. See docs/product/CAPACITY_RESPONSE_OUTREACH.md.
 export const CAPACITY_RESPONSE_TEMPLATE_KEY = 'unit_capacity_response_request'
 export const CAPACITY_REMINDER_TEMPLATE_KEY = 'unit_capacity_response_reminder'
+// RESIDENCY-SUPPORT-1: the weekly check-in to one resident. The server stamps
+// this key on the send, and Residency → Support counts check-ins from it.
+export const RESIDENT_CHECKIN_TEMPLATE_KEY = 'resident_weekly_checkin'
 
 // Canonical contact-category → audience map (categories come from lib/contactCategories.js;
 // CONTACTS-CANON-1 renamed the stored values to the singular canonical keys).
@@ -181,6 +184,12 @@ export const SEND_TO_ONE_TEMPLATES = [
   {
     key: 'interviewer_availability_request', label: 'Interviewer Availability Request', active: true, kind: 'hydrate',
     surface: 'one', templateKind: 'manual', builderKey: 'interviewer_availability_request', audiences: [AUDIENCES.INTERVIEWER],
+  },
+  {
+    // RESIDENCY-SUPPORT-1: sent one resident at a time, usually from the
+    // Residency Support tab, which counts each send as that week's check-in.
+    key: RESIDENT_CHECKIN_TEMPLATE_KEY, label: 'Residency Weekly Check-in', active: true, kind: 'hydrate',
+    surface: 'one', templateKind: 'manual', builderKey: RESIDENT_CHECKIN_TEMPLATE_KEY, audiences: [AUDIENCES.STUDENT],
   },
 ]
 

@@ -11,7 +11,8 @@
 // the recorded entries (src/lib/ngrp/ngrpSupportView.js). A wrong entry is
 // voided, never deleted.
 import { useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Send } from 'lucide-react'
 import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 import { useNgrpApplicants, useNgrpSupport, postNgrpSupport } from '../../lib/ngrp/useNgrpData'
@@ -20,6 +21,10 @@ import { activitiesFor, supportActivity, WEEKLY_CHECKIN_LABEL } from '../../lib/
 import { beforeResidency, duringResidency } from '../../lib/ngrp/ngrpSupportView'
 import { displayName } from '../../lib/utils'
 import { F, btn } from '../../lib/ngrp/ngrpCohortForm'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
+import { ngrpPath } from '../../lib/ngrp/ngrpTabs'
+import { writeLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
+import { RESIDENT_CHECKIN_TEMPLATE_KEY } from '../../lib/connect/templateRegistry'
 
 const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`
 const fmtDay = d => {
@@ -304,6 +309,28 @@ function MentorCell({ resident, canRecord, onSaved, toast }) {
 
 function DuringPanel({ cycle, rows, support, toast }) {
   const [sessionFor, setSessionFor] = useState(null)
+  const navigate = useNavigate()
+  // Sending runs through ASPIRE Connect, which only the staff app has.
+  const { staffApp, base } = useNgrpSurface()
+  // RESIDENCY-SUPPORT-1: the weekly check-in goes out from Connect, one
+  // resident at a time (Send to One), so a resident from an EARLIER ASPIRE
+  // cohort is still reachable. Connect records the send, and the count above
+  // is read back from that record - nothing is written here.
+  const sendCheckin = (r) => {
+    const studentId = r.row.student?.id || r.row.id
+    writeLaunchContext({
+      kind: LAUNCH_KINDS.RESIDENT_CHECKIN,
+      cycleId: cycle.id,
+      cycleName: cycle.name,
+      cohortId: r.row.student?.cohort_id || null,
+      templateKey: RESIDENT_CHECKIN_TEMPLATE_KEY,
+      source: 'residency_support',
+      returnPath: ngrpPath('support', 'during', base),
+      recipient: { studentId },
+      studentIds: [studentId],
+    })
+    navigate(`/connect/outreach?launch=1&mode=message&recipientType=student&recipientId=${studentId}`)
+  }
   const view = useMemo(() => duringResidency(rows, {
     entries: support.entries, mentors: support.mentors, checkins: support.checkins,
     cycleStart: cycle.residency_start_date, today: support.today,
@@ -367,7 +394,13 @@ function DuringPanel({ cycle, rows, support, toast }) {
                     <td className="num">{r.checkins}</td>
                     <td className="num">{r.sessions}{r.lastSession && <span className="ngrp-glance-muted"> · {fmtDay(r.lastSession)}</span>}</td>
                     {support.canRecord && (
-                      <td className="num" style={{ width: 'auto' }}>
+                      <td className="num" style={{ width: 'auto', whiteSpace: 'nowrap' }}>
+                        {staffApp && (
+                          <button type="button" className="ngrp-linkbtn" style={{ marginRight: 10 }} onClick={() => sendCheckin(r)}>
+                            <Send size={12} aria-hidden="true" style={{ marginRight: 4, verticalAlign: '-1px' }} />
+                            Send Check-in
+                          </button>
+                        )}
                         <button type="button" className="ngrp-linkbtn" onClick={() => setSessionFor(r)}>Record Session</button>
                       </td>
                     )}

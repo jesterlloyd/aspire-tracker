@@ -406,6 +406,35 @@ Thank you for your partnership in supporting our students and unit.`
 // Interviewer Availability Request - internal Cedars/BNI email asking an interviewer colleague to
 // access ASPIRE Intelligence and enter their interview availability. Brief and collegial. The
 // "[ASPIRE Intelligence link]" stays a literal placeholder - never a generated or secure link.
+// Residency Weekly Check-in - the NPD-P's weekly note to one resident during
+// their first year (RESIDENCY-SUPPORT-1). Short on purpose: it asks three
+// questions and makes replying easy.
+export function buildResidentWeeklyCheckinDraft({ firstName } = {}) {
+  const subject = 'ASPIRE: Your weekly check-in'
+  const body = `Hi ${fb(firstName, 'there')},
+
+Checking in on how your week went on [Unit]. Three things I would like to hear:
+
+• What went well this week?
+• What felt hard, or what would you like more practice with?
+• Anything you need from me or from your mentor?
+
+Reply whenever you have a moment. If it is easier to talk it through, send me a couple of times that work and I will call you.
+
+You are doing real work in a demanding first year, and I am glad you are here.`
+  const richBody =
+    bH2('Your Weekly Check-in')
+    + bP(`Hi ${fb(firstName, 'there')}, checking in on how your week went on [Unit]. Three things I would like to hear:`)
+    + bUL([
+      'What went well this week?',
+      'What felt hard, or what would you like more practice with?',
+      'Anything you need from me or from your mentor?',
+    ])
+    + bP('Reply whenever you have a moment. If it is easier to talk it through, send me a couple of times that work and I will call you.')
+    + bP('You are doing real work in a demanding first year, and I am glad you are here.')
+  return { subject, body, richBody }
+}
+
 export function buildInterviewerAvailabilityRequestDraft({ firstName } = {}) {
   const subject = 'ASPIRE: Interview availability requested'
   const body = `Dear ${fb(firstName, 'Colleague')},

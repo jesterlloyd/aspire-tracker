@@ -39,6 +39,13 @@ export const LAUNCH_KINDS = Object.freeze({
   // completed alumni. The dedicated Outreach panel sends through the
   // server-minted endpoint - no client-authored body ever exists for it.
   NGRP_TRANSITION_FORM: 'ngrp_transition_form',
+  // RESIDENCY-SUPPORT-1: the weekly check-in to ONE resident, launched from
+  // Residency → Support → During residency. Scope is the RESIDENCY COHORT
+  // (cycleId), and `recipient.studentId` is the resident the composer must be
+  // addressed to. The resident's own ASPIRE cohort travels in cohortId, which
+  // is often an EARLIER cohort than the one selected on screen - so nothing
+  // about this launch is gated on the selected cohort.
+  RESIDENT_CHECKIN: 'resident_weekly_checkin',
 })
 const VALID_KINDS = new Set(Object.values(LAUNCH_KINDS))
 
@@ -54,7 +61,8 @@ export function writeLaunchContext(ctx) {
   const store = safeStorage()
   // NGRP launches are scoped by residency cohort (cycleId) instead of an
   // ASPIRE cohortId; every other kind keeps the original cohortId requirement.
-  const scopeId = ctx?.kind === LAUNCH_KINDS.NGRP_TRANSITION_FORM ? ctx?.cycleId : ctx?.cohortId
+  const RESIDENCY_SCOPED = new Set([LAUNCH_KINDS.NGRP_TRANSITION_FORM, LAUNCH_KINDS.RESIDENT_CHECKIN])
+  const scopeId = RESIDENCY_SCOPED.has(ctx?.kind) ? ctx?.cycleId : ctx?.cohortId
   if (!store || !ctx || !VALID_KINDS.has(ctx.kind) || !scopeId || !ctx.templateKey) return null
   const record = {
     v: VERSION,
