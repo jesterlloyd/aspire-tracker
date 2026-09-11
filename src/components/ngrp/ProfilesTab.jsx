@@ -85,7 +85,7 @@ function SkeletonRoster() {
 
 const FEEDBACK_ERRORS = {
   no_feedback: 'There is no preceptor feedback on file for this alumnus.',
-  owner_required: 'Only the ASPIRE Owner can decide requests to view preceptor feedback.',
+  owner_required: 'Only the ASPIRE Owner or an Admin can decide requests to view preceptor feedback.',
   state_conflict: 'This request changed while you had it open. Refresh and try again.',
   invalid_transition: 'This request can no longer be changed that way.',
   candidate_not_found: 'This alumnus is not available.',

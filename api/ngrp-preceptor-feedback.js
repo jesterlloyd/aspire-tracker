@@ -11,8 +11,9 @@
 //                                            sees submitted-form alumni only and
 //                                            only its own requests
 //   request { candidate_id, note? }       -> Talent Acquisition only
-//   decide  { request_id, decision,       -> the Owner only (is_owner), checked
-//             expected_status, note? }       here and again in the database
+//   decide  { request_id, decision,       -> the Owner or an Admin (Owner,
+//             expected_status, note? }       2026-09-11), checked here and again
+//                                            in the database
 //   view    { request_id }                -> the requester only, while approved
 //
 // The two ngrp_preceptor_feedback_* tables are server-only (service_role).
@@ -20,7 +21,7 @@
 // hides itself until migration 20260912000000 is applied.
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
-import { isOwnerCaller } from '../lib/server/access.js'
+import { isAdminLevel } from '../lib/server/access.js'
 import { loadApplicantsPayload, isMissingNgrpTable } from '../lib/server/ngrpApplicants.js'
 import { liveAssignmentForCandidate } from '../lib/server/ngrpTransition.js'
 import {
@@ -125,7 +126,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         provisioned: true,
         audience: isTA ? TALENT_ACQUISITION : 'staff',
-        canDecide: !isTA && isOwnerCaller(caller.profile),
+        canDecide: !isTA && isAdminLevel(caller.profile),
         byStudent: buildFeedbackSummary({
           talentAcquisition: isTA,
           callerId: caller.profile.id,
@@ -172,7 +173,7 @@ export default async function handler(req, res) {
 
     // ── decide ──────────────────────────────────────────────────────────────
     if (action === 'decide') {
-      if (isTA || !isOwnerCaller(caller.profile)) return res.status(403).json({ error: 'owner_required' })
+      if (isTA || !isAdminLevel(caller.profile)) return res.status(403).json({ error: 'owner_required' })
       const requestId = uuidOf(body.request_id)
       if (!requestId) return res.status(422).json({ error: 'invalid_request_id' })
       if (!DECISIONS.has(body.decision)) return res.status(422).json({ error: 'invalid_decision' })

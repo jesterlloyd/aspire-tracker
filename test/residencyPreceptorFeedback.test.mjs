@@ -165,7 +165,8 @@ test('the endpoint: request is Talent Acquisition only, decide is the Owner only
   assert.match(reqBlock, /if \(!hasSubmittedForm\(live\.assignment\?\.status\)\) return res\.status\(404\)/)
   assert.match(reqBlock, /return res\.status\(409\)\.json\(\{ error: 'no_feedback' \}\)/)
   const decideBlock = api.slice(api.indexOf("if (action === 'decide')"), api.indexOf('// ── view'))
-  assert.match(decideBlock, /if \(isTA \|\| !isOwnerCaller\(caller\.profile\)\) return res\.status\(403\)\.json\(\{ error: 'owner_required' \}\)/)
+  // Owner, 2026-09-11: Admins decide too (20260913000000 widens the function to match).
+  assert.match(decideBlock, /if \(isTA \|\| !isAdminLevel\(caller\.profile\)\) return res\.status\(403\)\.json\(\{ error: 'owner_required' \}\)/)
   const viewBlock = api.slice(api.indexOf('// ── view'))
   assert.match(viewBlock, /request\.requester_profile_id !== caller\.profile\.id \|\| request\.status !== 'approved'/)
   assert.match(viewBlock, /feedbackRows\(db, \[request\.student_id\], 'timepoint, responses, submitted_at'\)/)
@@ -213,4 +214,20 @@ test('the notification link switches to the applicant\'s residency cohort first'
   assert.match(read('src/components/ngrp/NgrpWorkspace.jsx'), /<ProfilesTab [^>]*onSelectCycle=\{onSelectCycle\}/)
   assert.match(read('src/App.jsx'), /onSelectCycle=\{selectNgrpCycle\}/)
   assert.match(read('src/portal/residency/ResidencyPortal.jsx'), /onSelectCycle=\{selectCycle\}/)
+})
+
+test('Admins can decide too: the widened function matches the API and the notification fan-out', () => {
+  const sql = code(read('supabase/migrations/20260913000000_ngrp_preceptor_feedback_admin_decide.sql'))
+  assert.match(sql, /^BEGIN;$/m)
+  assert.match(sql, /^COMMIT;$/m)
+  assert.match(sql, /AND \(is_owner IS TRUE OR role IN \('owner', 'admin'\)\)\s+AND COALESCE\(is_active, true\) = true/)
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.ngrp_pf_decide_tx\(uuid, uuid, text, text, text\) FROM PUBLIC, anon, authenticated;/)
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.ngrp_pf_decide_tx\(uuid, uuid, text, text, text\) TO service_role;/)
+  assert.doesNotMatch(sql, /co-lead|co_lead|interviewer/i, 'no one beyond the Owner and Admins')
+  // The same people the request notification reaches.
+  const emitter = read('supabase/migrations/20260723000000_preceptor_assignment_authorization.sql')
+  assert.match(emitter, /up\.role IN \('owner', 'admin'\) OR up\.is_owner IS TRUE/)
+  const access = read('lib/server/access.js')
+  assert.match(access, /return c\.isOwner \|\| c\.role === 'admin' \|\| c\.role === 'owner'/)
+  assert.match(read('api/ngrp-preceptor-feedback.js'), /canDecide: !isTA && isAdminLevel\(caller\.profile\)/)
 })
