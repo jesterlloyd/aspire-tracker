@@ -28,7 +28,7 @@ export const NGRP_TABS = [
   { id: 'support',    label: 'Support',             chip: 'S',
     subTabs: [
       { id: 'before', label: 'Before residency' },
-      { id: 'after',  label: 'After residency' },
+      { id: 'during', label: 'During residency' },
     ] },
   { id: 'profiles',   label: 'Profiles & Interest', chip: 'PI' },
   { id: 'residency',  label: 'Residency',           chip: 'R',

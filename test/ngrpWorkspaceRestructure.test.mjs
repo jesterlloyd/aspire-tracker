@@ -42,7 +42,8 @@ test('five tabs, and the chips still spell ASPIRE', () => {
 })
 
 test('only Support and Residency carry sub-tabs, and each has a default', () => {
-  assert.deepEqual(ngrpSubTabs('support').map(s => s.id), ['before', 'after'])
+  // RESIDENCY-SUPPORT-1 (Owner, 2026-09-11): "After residency" is "During residency".
+  assert.deepEqual(ngrpSubTabs('support').map(s => s.id), ['before', 'during'])
   assert.deepEqual(ngrpSubTabs('residency').map(s => s.id), ['board', 'activity'])
   for (const id of ['overview', 'profiles', 'evaluation']) {
     assert.deepEqual(ngrpSubTabs(id), [], `${id} has none`)
@@ -91,7 +92,7 @@ test('a bare, unknown, or mismatched path is corrected rather than rendered', ()
   ]
   for (const [from, to] of cases) assert.equal(resolveNgrpPath(from).redirect, to, from)
   // A canonical path is left alone, or the effect would loop.
-  for (const p of ['/ngrp/overview', '/ngrp/profiles', '/ngrp/support/after', '/ngrp/residency/activity', '/ngrp/evaluation']) {
+  for (const p of ['/ngrp/overview', '/ngrp/profiles', '/ngrp/support/during', '/ngrp/residency/activity', '/ngrp/evaluation']) {
     assert.equal(resolveNgrpPath(p).redirect, null, p)
   }
 })
@@ -171,9 +172,12 @@ test('the activity calendar opens on the cohort year, not on today', () => {
 // ── Unbuilt surfaces are honest ──────────────────────────────────────────────
 
 test('a surface that does not exist yet says so, and is never an empty success', () => {
-  for (const id of ['support/before', 'support/after', 'evaluation']) {
+  for (const id of ['evaluation']) {
     assert.match(workspace, new RegExp(`'${id}':|^  ${id}:`, 'm'), id)
   }
+  // RESIDENCY-SUPPORT-1: Support is BUILT now; it renders the real component.
+  assert.doesNotMatch(workspace, /'support\/(before|after)':/)
+  assert.match(workspace, /<SupportTab cycle=\{cycle\} subTab=\{subTab\} toast=\{toast\} \/>/)
   assert.match(workspace, /This surface ships after the workspace restructure/)
   // NGRP-PLACEMENT-BOARD-1: the board is BUILT now, so it is no longer one of
   // the described-but-unbuilt surfaces; it renders the real component.

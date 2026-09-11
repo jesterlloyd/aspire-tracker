@@ -594,7 +594,7 @@ test('tabs: the location-derived tab is persisted, and a retired id still resolv
   // A bare tab path fills in its default sub-tab; a bogus sub-tab is corrected.
   assert.equal(resolveNgrpPath('/ngrp/support').redirect, '/ngrp/support/before')
   assert.equal(resolveNgrpPath('/ngrp/support/nope').redirect, '/ngrp/support/before')
-  assert.equal(resolveNgrpPath('/ngrp/support/after').redirect, null, 'a canonical path is left alone')
+  assert.equal(resolveNgrpPath('/ngrp/support/during').redirect, null, 'a canonical path is left alone')
   assert.equal(resolveNgrpEntryPath('applicants'), '/ngrp/profiles')
 
   // App.jsx wires exactly this model.

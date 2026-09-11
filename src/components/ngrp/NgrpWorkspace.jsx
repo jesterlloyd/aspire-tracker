@@ -18,20 +18,13 @@ import AtAGlanceTab from './AtAGlanceTab'
 import ProfilesTab from './ProfilesTab'
 import ActivityCalendar from './ActivityCalendar'
 import PlacementBoard from './PlacementBoard'
+import SupportTab from './SupportTab'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import './ngrp.css'
 
 // Tabs and sub-tabs whose surfaces are not built yet say what they will hold and
 // what they are waiting on. None of them is ever shown as an empty success.
 const PLANNED = {
-  'support/before': {
-    title: 'Support before residency',
-    body: 'Optional NGRP preparation for alumni who have not started yet - Town Halls, Interview Bootcamps, resume reviews and workshops - with attendance tracked per cohort. Participation is always optional and never affects eligibility.',
-  },
-  'support/after': {
-    title: 'Support after residency',
-    body: 'Mentorship for residents who have started: mentor pairing, weekly check-ins, and the touchpoints that run alongside the 3, 6 and 12 month checkpoints.',
-  },
   evaluation: {
     title: 'Evaluation',
     body: 'Cohort-scoped outcomes with explicit denominators: Interview Bootcamp pre and post assessment, resident evaluation completion, retention at 3, 6 and 12 months against cohort and organization benchmarks, and the Casey-Fink survey. Support participation comparisons stay observational.',
@@ -163,7 +156,8 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
 
         {tab === 'profiles' && <ProfilesTab cycle={cycle} canManage={canManage} toast={toast} onSelectCycle={onSelectCycle} />}
 
-        {tab === 'support' && <PlannedCard id={`support/${subTab}`} />}
+        {/* RESIDENCY-SUPPORT-1: built. Before and During residency. */}
+        {tab === 'support' && <SupportTab cycle={cycle} subTab={subTab} toast={toast} />}
 
         {tab === 'residency' && subTab === 'board' && (
           <PlacementBoard cycle={cycle} canManage={canManage} toast={toast} />

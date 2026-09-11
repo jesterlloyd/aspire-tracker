@@ -181,3 +181,36 @@ export async function locateNgrpCandidate(candidateId) {
     return { ok: false, status: err.status || 0 }
   }
 }
+
+// RESIDENCY-SUPPORT-1: the Support tab. Writes are the ASPIRE team's only.
+export async function postNgrpSupport(action, payload = {}) {
+  try {
+    const body = await authedPost('/api/ngrp-support', action, payload)
+    return { ok: true, ...body }
+  } catch (err) {
+    return { ok: false, status: err.status || 0, error: err.message, errors: err.body?.errors || [] }
+  }
+}
+
+// Recorded support, mentors, and check-ins for one residency cohort. Empty
+// (and the tab shows its placeholder) until migration 20260914000000 is applied.
+export function useNgrpSupport(cycleId, { enabled = true } = {}) {
+  const query = useQuery({
+    queryKey: ['ngrp_workspace', 'support', cycleId],
+    queryFn: () => authedPost('/api/ngrp-support', 'summary', { cycle_id: cycleId }),
+    enabled: Boolean(cycleId) && enabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    retry: noAuthRetry,
+  })
+  const ready = Boolean(query.data) && query.data.provisioned !== false
+  return {
+    status: deriveStatus(query),
+    entries: ready ? (query.data.entries || []) : [],
+    mentors: ready ? (query.data.mentors || []) : [],
+    checkins: ready ? (query.data.checkins || []) : [],
+    canRecord: ready && query.data.canRecord === true,
+    today: ready ? query.data.today : null,
+    refetch: query.refetch,
+  }
+}
