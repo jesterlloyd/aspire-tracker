@@ -314,7 +314,10 @@ test('the Planning summary cannot disagree with the pickers that set it', () => 
   // The stale hedge is gone: the five requirements are always in force, so
   // "Using the default checklist" was describing a state that no longer exists.
   assert.doesNotMatch(planning, /Using the default checklist/)
-  assert.match(planning, /DEFAULT_APPLICATION_CHECKLIST\.length\} required item/)
+  // RESIDENCY-GLANCE-1 (Owner, 2026-09-11): Scope and Rules left At a Glance;
+  // the checklist is stated only in the cohort settings, pinned above, so
+  // there is no second summary here that could drift from it.
+  assert.doesNotMatch(planning, /DEFAULT_APPLICATION_CHECKLIST/)
 })
 
 test('the scope dropdown closes behind the dialog it just opened', () => {

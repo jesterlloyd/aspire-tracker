@@ -124,7 +124,7 @@ test('section, panel, card, chart and drawer titles are Title Case', () => {
   const titles = [
     ['src/portal/na/CommunityBenefitView.jsx', 'Benefit Contribution by School'],
     ['src/portal/na/AcademicsCalendarView.jsx', 'Fiscal-Year Impact'],
-    ['src/components/ngrp/AtAGlanceTab.jsx', 'Scope and Rules'],
+    ['src/components/ngrp/AtAGlanceTab.jsx', 'Residency Snapshot'],
     ['src/components/ngrp/CohortSettingsModal.jsx', 'Official Program Requirements'],
     ['src/components/settings/AccountDetailsDrawer.jsx', 'Account Details'],
     ['src/components/settings/KeithUsagePanel.jsx', 'Anthropic Billing Reconciliation'],

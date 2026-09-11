@@ -107,12 +107,15 @@ test('the shell redirects exactly once, from the one resolver', () => {
 // ── The moves were moves ─────────────────────────────────────────────────────
 
 test('At a Glance and Profiles are the old tabs, renamed, not rewritten', () => {
-  // The operating picture that was Planning: same four sections, same one way
-  // out to the settings modal.
+  // The operating picture that was Planning. RESIDENCY-GLANCE-1 (Owner,
+  // 2026-09-11) kept the Timeline and Pipeline, retired Seats and Scope and
+  // Rules, and added the snapshot and tables (test/residencyGlance.test.mjs).
+  // Still one way out to the settings modal.
   assert.match(glance, /export default function AtAGlanceTab/)
-  for (const section of ['Cohort Timeline', 'Pipeline', 'Seats', 'Scope and Rules']) {
+  for (const section of ['Cohort Timeline', 'Pipeline']) {
     assert.match(glance, new RegExp(`title="${section}"`), section)
   }
+  assert.doesNotMatch(glance, /title="Seats"|title="Scope and Rules"/)
   assert.match(glance, /onEditCohort/)
   assert.doesNotMatch(glance, /postNgrpManage/, 'still read-only')
 
