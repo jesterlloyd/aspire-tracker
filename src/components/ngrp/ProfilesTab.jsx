@@ -32,6 +32,7 @@ import StudentAvatar from '../StudentAvatar'
 import EmptyState from '../EmptyState'
 import NgrpStatusPill from './NgrpStatusPill'
 import ApplicantDrawer from './ApplicantDrawer'
+import PreceptorFeedbackChip from './PreceptorFeedbackChip'
 // NGRP-TRANSITION-PREVIEW-1: the same drawer the Automations and Survey previews use.
 // It lives under connect/ by history rather than by coupling (its own header notes the
 // shared extraction as debt); Evaluation already imports it across in the same way, so
@@ -43,7 +44,7 @@ import {
   INTERVIEW_STATES, KPI_DEFS, SORT_OPTIONS,
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
 } from '../../lib/ngrp/ngrpStates'
-import { useNgrpApplicants, postNgrpManage } from '../../lib/ngrp/useNgrpData'
+import { useNgrpApplicants, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback } from '../../lib/ngrp/useNgrpData'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { displayName } from '../../lib/utils'
 
@@ -82,11 +83,30 @@ function SkeletonRoster() {
   )
 }
 
+const FEEDBACK_ERRORS = {
+  no_feedback: 'There is no preceptor feedback on file for this alumnus.',
+  owner_required: 'Only the ASPIRE Owner can decide requests to view preceptor feedback.',
+  state_conflict: 'This request changed while you had it open. Refresh and try again.',
+  invalid_transition: 'This request can no longer be changed that way.',
+  candidate_not_found: 'This alumnus is not available.',
+  request_not_found: 'This request is no longer available.',
+  talent_acquisition_only: 'Only Talent Acquisition can request preceptor feedback.',
+}
+
+const FEEDBACK_DECISION_TOAST = {
+  approved: ['Request approved', 'Only the person who asked can now view this preceptor feedback.'],
+  declined: ['Request declined', 'The requester can see that it was not approved.'],
+  revoked: ['Access withdrawn', 'The requester can no longer view this preceptor feedback.'],
+}
+
 export default function ProfilesTab({ cycle, canManage, toast }) {
   const navigate = useNavigate()
   // Sending runs through ASPIRE Connect, which only the staff app has.
   const { canSendForms } = useNgrpSurface()
   const { status, payload, dataUpdatedAt, refetch } = useNgrpApplicants(cycle?.id)
+  // RESIDENCY-PORTAL-2b: feedback on file and requests to view it, by student.
+  const feedback = useNgrpPreceptorFeedback(cycle?.id)
+  const refetchFeedback = feedback.refetch
   // False until migration 20260904000000 is applied - the roster still works
   // with neutral defaults, but send/review actions disable themselves.
   const transitionProvisioned = payload?.transitionProvisioned !== false
@@ -217,7 +237,23 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
     return res
   }, [refetch, toast])
 
-  const drawerRow = drawerRowId ? allRows.find(r => r.id === drawerRowId) : null
+  // RESIDENCY-PORTAL-2b: a staff notification links here with ?candidate=<id>,
+  // which opens that applicant's drawer (when they are in the selected cohort).
+  const linkedCandidate = searchParams.get('candidate')
+  const drawerRow = (drawerRowId
+    ? allRows.find(r => r.id === drawerRowId)
+    : linkedCandidate ? allRows.find(r => r.candidate_id === linkedCandidate) : null) || null
+
+  const runFeedback = useCallback(async (action, extra, successTitle, successBody) => {
+    const res = await postNgrpPreceptorFeedback(action, extra)
+    if (!res.ok) {
+      toast?.error?.('Not saved', FEEDBACK_ERRORS[res.error] || 'The request failed.')
+      return null
+    }
+    if (successTitle) toast?.success?.(successTitle, successBody)
+    refetchFeedback()
+    return res
+  }, [refetchFeedback, toast])
 
   // ── Distinct query states (none conflated with "no alumni") ────────────────
   if (!cycle) return null
@@ -445,6 +481,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
                                   {s.aspire_cohort}
                                 </span>
                               )}
+                              <PreceptorFeedbackChip entry={feedback.byStudent[s.id]} />
                             </div>
                           </div>
                         </td>
@@ -607,7 +644,13 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
         cycle={cycle}
         canManage={canManage}
         provisioned={transitionProvisioned}
-        onClose={() => setDrawerRowId(null)}
+        onClose={() => { setDrawerRowId(null); if (linkedCandidate) setParam('candidate', '') }}
+        feedback={drawerRow ? {
+          entry: feedback.byStudent[drawerRow.student?.id] || null,
+          audience: feedback.audience,
+          canDecide: feedback.canDecide,
+          ready: feedback.status === 'ready' || feedback.status === 'stale',
+        } : null}
         actions={{
           sendForm: canSendForms ? r => launchSend([r]) : undefined,
           review: r => postNgrpManage('candidate_review', { candidate_id: r.candidate_id }),
@@ -625,6 +668,12 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
             'Interview recorded', `${displayName(r.student)}'s interview state is saved.`),
           setOutcome: (r, fields) => runManage('outcome_set', { candidate_id: r.candidate_id, ...fields },
             'Outcome recorded', `${displayName(r.student)}'s residency outcome is saved.`),
+          // RESIDENCY-PORTAL-2b: request (Talent Acquisition), decide (the Owner), view (the requester).
+          requestFeedback: (r, note) => runFeedback('request', { candidate_id: r.candidate_id, note },
+            'Request sent', 'The ASPIRE team will review your request to view the preceptor feedback.'),
+          decideFeedback: (req, decision) => runFeedback('decide', { request_id: req.id, decision, expected_status: req.status },
+            ...(FEEDBACK_DECISION_TOAST[decision] || [])),
+          viewFeedback: req => postNgrpPreceptorFeedback('view', { request_id: req.id }),
         }}
       />
     </div>

@@ -18,6 +18,7 @@ const EVENT_LABEL = {
   preceptor_end_coverage: 'Coverage preceptor ended',
   preceptor_created: 'New preceptor created',
   preceptor_match_anomaly: 'Match record needs review',
+  ngrp_preceptor_feedback_requested: 'Preceptor feedback requested',
 }
 
 function labelFor(row) {
@@ -26,6 +27,7 @@ function labelFor(row) {
 
 function roleLabel(actorRole) {
   if (actorRole === 'unit_leader') return 'Unit Leader'
+  if (actorRole === 'talent_acquisition') return 'Talent Acquisition'
   if (actorRole === 'owner_admin') return 'Owner/Admin'
   return actorRole || 'Team member'
 }

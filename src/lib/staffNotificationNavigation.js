@@ -6,7 +6,8 @@ function studentDestination(studentId) {
 }
 
 // Fail-closed allowlist for durable staff notification destinations. It accepts only the two
-// application routes authored by Phase 2C and rejects external, protocol-relative, script, hash,
+// application routes authored by Phase 2C, plus one applicant in the staff Residency workspace
+// (RESIDENCY-PORTAL-2b), and rejects external, protocol-relative, script, hash,
 // credential, malformed, and route-confused values.
 export function allowedStaffNotificationDestination(destUrl, studentId = null) {
   if (destUrl == null || String(destUrl).trim() === '') return studentDestination(studentId)
@@ -23,6 +24,13 @@ export function allowedStaffNotificationDestination(destUrl, studentId = null) {
 
   if (parsed.pathname === '/rotation/preceptors' && parsed.search === '') {
     return '/rotation/preceptors'
+  }
+  // A Talent Acquisition request to view preceptor feedback opens that applicant's drawer.
+  if (parsed.pathname === '/ngrp/profiles') {
+    const keys = [...parsed.searchParams.keys()]
+    const candidateId = parsed.searchParams.get('candidate')
+    if (keys.length !== 1 || keys[0] !== 'candidate' || !UUID_PATTERN.test(candidateId || '')) return null
+    return `/ngrp/profiles?candidate=${candidateId}`
   }
   if (parsed.pathname !== '/students') return null
 

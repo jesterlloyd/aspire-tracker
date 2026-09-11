@@ -353,13 +353,192 @@ function OutcomeSection({ row, canManage, onSave }) {
   )
 }
 
+// RESIDENCY-PORTAL-2b: preceptor feedback, released one applicant at a time.
+// Not every preceptor submits it, so Talent Acquisition sees only whether it
+// exists. To read it they ask; the Owner approves; only the person who asked
+// can then open it, for this applicant, and every opening is recorded. The
+// shaped view (lib/server/ngrpPreceptorFeedback.js) never carries the
+// preceptor's confidential comments to the ASPIRE team or the attestation.
+const FEEDBACK_STATUS = {
+  pending: 'Waiting for approval',
+  approved: 'Approved',
+  declined: 'Declined',
+  revoked: 'Access withdrawn',
+}
+const FEEDBACK_READINESS = [
+  ['transitionReadiness', 'Readiness for transition'],
+  ['unitEndorsement', 'Would endorse for their unit'],
+  ['cedarsRecommendation', 'Recommends within Cedars-Sinai'],
+  ['explanation', 'Endorsement explanation'],
+  ['bestFitEnvironment', 'Best-fit environment'],
+]
+const feedbackMuted = { margin: '0 0 8px', fontSize: 12, color: '#6B7785', lineHeight: 1.45, fontFamily: F }
+const feedbackNoteInput = {
+  width: '100%', boxSizing: 'border-box', height: 30, padding: '0 10px', marginBottom: 8,
+  borderRadius: 'var(--aspire-radius-control)', border: '1px solid rgba(29,37,103,0.15)',
+  fontFamily: F, fontSize: 12,
+}
+const fmtDay = ts => {
+  if (!ts) return null
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function FeedbackText({ label, text }) {
+  if (!text) return null
+  return (
+    <div style={{ padding: '5px 0', fontSize: 12.5 }}>
+      <div style={{ color: '#6B7785', marginBottom: 2 }}>{label}</div>
+      <div style={{ color: 'var(--raven, #191919)', whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{text}</div>
+    </div>
+  )
+}
+
+function FeedbackEntry({ entry, first }) {
+  return (
+    <div style={first ? undefined : { borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1D2567', marginBottom: 4 }}>
+        {[entry.period || 'Preceptor feedback', fmtDay(entry.submittedAt)].filter(Boolean).join(' · ')}
+      </div>
+      {entry.rotationUnit && <Row label="Unit">{entry.rotationUnit}</Row>}
+      {entry.shiftsObserved && <Row label="Shifts observed">{entry.shiftsObserved}</Row>}
+      {entry.competencies.filter(c => c.ratingLabel).map(c => (
+        <div key={c.key}>
+          <Row label={c.label}>{c.ratingLabel}</Row>
+          {c.comment && <p style={{ margin: '0 0 4px', fontSize: 12, color: '#4A5560', whiteSpace: 'pre-wrap' }}>{c.comment}</p>}
+        </div>
+      ))}
+      <FeedbackText label="Strengths observed" text={entry.narrative.strengths} />
+      <FeedbackText label="Areas for development or coaching" text={entry.narrative.development} />
+      <FeedbackText label="Suggested support plan" text={entry.narrative.supportPlan} />
+      {FEEDBACK_READINESS.map(([key, label]) => (
+        <FeedbackText key={key} label={label} text={entry.readiness[key]} />
+      ))}
+    </div>
+  )
+}
+
+function PreceptorFeedbackSection({ row, feedback, actions }) {
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [viewState, setViewState] = useState('idle') // idle | loading | ready | error
+  const [entries, setEntries] = useState([])
+  if (!feedback?.ready || !feedback.audience || !row.candidate_id) return null
+  const { entry, canDecide } = feedback
+  const run = async (fn) => { setBusy(true); try { await fn() } finally { setBusy(false) } }
+  const tint = 'rgba(96,120,170,0.055)'
+
+  if (feedback.audience === 'talent_acquisition') {
+    const req = entry?.request || null
+    const open = async () => {
+      setViewState('loading')
+      const res = await actions.viewFeedback?.(req)
+      if (res?.ok) { setEntries(res.feedback || []); setViewState('ready') } else setViewState('error')
+    }
+    let body
+    if (!entry?.available) {
+      body = <p style={feedbackMuted}>No preceptor feedback is on file for this alumnus.</p>
+    } else if (req?.status === 'pending') {
+      body = <p style={feedbackMuted}>You asked to view it on {fmtDay(req.requestedAt)}. The ASPIRE team will review your request.</p>
+    } else if (req?.status === 'approved') {
+      body = (
+        <>
+          <p style={feedbackMuted}>
+            Approved for you on {fmtDay(req.decidedAt)}. Each time you open it, the ASPIRE team can see that you did.
+          </p>
+          {viewState === 'ready' ? (
+            entries.length
+              ? entries.map((e, i) => <FeedbackEntry key={i} entry={e} first={i === 0} />)
+              : <p style={feedbackMuted}>The feedback is no longer on file.</p>
+          ) : (
+            <button type="button" style={smallBtn(true)} disabled={viewState === 'loading'} onClick={open}>
+              {viewState === 'loading' ? 'Opening…' : 'View Feedback'}
+            </button>
+          )}
+          {viewState === 'error' && (
+            <p style={{ ...feedbackMuted, color: '#B3282D', margin: '6px 0 0' }}>The feedback could not be opened. Try again.</p>
+          )}
+        </>
+      )
+    } else {
+      body = (
+        <>
+          <p style={feedbackMuted}>
+            {req?.status === 'declined' && `Your request on ${fmtDay(req.requestedAt)} was not approved. `}
+            {req?.status === 'revoked' && `Your access was withdrawn on ${fmtDay(req.decidedAt)}. `}
+            A preceptor submitted feedback for this alumnus. Ask the ASPIRE team to let you view it.
+          </p>
+          {req?.decisionNote && <p style={feedbackMuted}>Note from the ASPIRE team: {req.decisionNote}</p>}
+          <input
+            type="text" value={note} maxLength={500} onChange={e => setNote(e.target.value)}
+            placeholder="Reason (optional)" aria-label="Reason for the request (optional)" style={feedbackNoteInput}
+          />
+          <button
+            type="button" style={smallBtn(true)} disabled={busy}
+            onClick={() => run(async () => { const res = await actions.requestFeedback?.(row, note.trim() || null); if (res) setNote('') })}
+          >
+            {busy ? 'Sending…' : 'Request to View'}
+          </button>
+        </>
+      )
+    }
+    return <Section title="Preceptor Feedback" tint={tint}>{body}</Section>
+  }
+
+  // The ASPIRE team: what is on file, who asked, and who has viewed it.
+  const requests = entry?.requests || []
+  const count = entry?.count || 0
+  return (
+    <Section title="Preceptor Feedback" tint={tint}>
+      <p style={feedbackMuted}>
+        {count
+          ? `${count} preceptor feedback submission${count === 1 ? '' : 's'} on file.`
+          : 'No preceptor feedback is on file for this alumnus.'}
+      </p>
+      {requests.length === 0 && count > 0 && (
+        <p style={feedbackMuted}>Talent Acquisition has not asked to view it.</p>
+      )}
+      {requests.map(req => (
+        <div key={req.id} style={{ padding: '6px 0', borderTop: '1px solid rgba(0,0,0,0.045)' }}>
+          <Row label={req.requesterName || 'Talent Acquisition'}>{FEEDBACK_STATUS[req.status] || req.status}</Row>
+          <div style={{ fontSize: 11.5, color: '#6B7785' }}>
+            {[
+              `Requested ${fmtDay(req.requestedAt)}`,
+              req.views
+                ? `Viewed ${req.views} time${req.views === 1 ? '' : 's'}, last ${fmt(req.lastViewedAt)}`
+                : (req.status === 'approved' ? 'Not viewed yet' : null),
+            ].filter(Boolean).join(' · ')}
+          </div>
+          {req.note && <p style={{ ...feedbackMuted, margin: '4px 0 0' }}>Reason: {req.note}</p>}
+          {canDecide && (req.status === 'pending' || req.status === 'approved') && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              {req.status === 'pending' ? (
+                <>
+                  <button type="button" style={smallBtn(true)} disabled={busy}
+                    onClick={() => run(() => actions.decideFeedback?.(req, 'approved'))}>Approve</button>
+                  <button type="button" style={smallBtn()} disabled={busy}
+                    onClick={() => run(() => actions.decideFeedback?.(req, 'declined'))}>Decline</button>
+                </>
+              ) : (
+                <button type="button" style={smallBtn(false, true)} disabled={busy}
+                  onClick={() => run(() => actions.decideFeedback?.(req, 'revoked'))}>Withdraw Access</button>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </Section>
+  )
+}
+
 export default function ApplicantDrawer(props) {
   if (!props.open || !props.row) return null
   return <ApplicantDrawerBody key={props.row.id} {...props} />
 }
 
 function ApplicantDrawerBody({
-  open, row, cycle, canManage, provisioned, onClose, actions = {},
+  open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null,
 }) {
   const [review, setReview] = useState(null)
   const [reviewState, setReviewState] = useState('idle')
@@ -616,6 +795,8 @@ function ApplicantDrawerBody({
         canManage={canManage && provisioned}
         onSave={fields => actions.setOutcome?.(row, fields)}
       />
+
+      <PreceptorFeedbackSection row={row} feedback={feedback} actions={actions} />
 
       <Section title="Activity" tint="rgba(120,124,134,0.05)">
         {row.candidate_id ? (

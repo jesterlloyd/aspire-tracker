@@ -128,3 +128,35 @@ export function useNgrpApplicants(cycleId, { enabled = true } = {}) {
     refetch: query.refetch,
   }
 }
+
+// RESIDENCY-PORTAL-2b: preceptor feedback requests. The same bearer pattern and
+// the same { ok } result shape as postNgrpManage.
+export async function postNgrpPreceptorFeedback(action, payload = {}) {
+  try {
+    const body = await authedPost('/api/ngrp-preceptor-feedback', action, payload)
+    return { ok: true, ...body }
+  } catch (err) {
+    return { ok: false, status: err.status || 0, error: err.message }
+  }
+}
+
+// Who has feedback on file and where each request stands, keyed by student id.
+// Empty (and the feature hidden) until migration 20260912000000 is applied.
+export function useNgrpPreceptorFeedback(cycleId, { enabled = true } = {}) {
+  const query = useQuery({
+    queryKey: ['ngrp_workspace', 'preceptor_feedback', cycleId],
+    queryFn: () => authedPost('/api/ngrp-preceptor-feedback', 'summary', { cycle_id: cycleId }),
+    enabled: Boolean(cycleId) && enabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    retry: noAuthRetry,
+  })
+  const ready = Boolean(query.data) && query.data.provisioned !== false
+  return {
+    status: deriveStatus(query),
+    byStudent: ready ? (query.data.byStudent || {}) : {},
+    audience: ready ? query.data.audience || null : null,
+    canDecide: ready && query.data.canDecide === true,
+    refetch: query.refetch,
+  }
+}
