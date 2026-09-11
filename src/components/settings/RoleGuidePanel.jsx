@@ -39,6 +39,7 @@ const PORTAL_BADGE = {
   unit_leader: { bg: '#D1FAE5', text: '#065F46' },
   academic_partner: { bg: '#FEF3C7', text: '#7C5A1F' },
   nursing_academic: { bg: '#EDE9FE', text: '#5B21B6' },
+  talent_acquisition: { bg: '#E0F2FE', text: '#075985' },
 }
 
 function LevelCell({ level }) {

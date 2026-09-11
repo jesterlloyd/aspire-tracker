@@ -35,10 +35,11 @@ const MIGRATION = 'supabase/migrations/20260908000000_aspire_event_audiences.sql
 
 // ── The set ──────────────────────────────────────────────────────────────────
 
-test('the audience set is the four portal roles, named as the grant table names them', () => {
-  assert.deepEqual(PORTAL_AUDIENCE_VALUES, ['student', 'unit_leader', 'academic_partner', 'nursing_academic'])
+test('the audience set is the five portal roles, named as the grant table names them', () => {
+  // RESIDENCY-PORTAL-1 appended talent_acquisition (the Residency Portal's role).
+  assert.deepEqual(PORTAL_AUDIENCE_VALUES, ['student', 'unit_leader', 'academic_partner', 'nursing_academic', 'talent_acquisition'])
   assert.deepEqual(PORTAL_AUDIENCES.map(a => a.label),
-    ['Student', 'Unit Leader', 'Academic Partner', 'Nursing Education & Leadership'])
+    ['Student', 'Unit Leader', 'Academic Partner', 'Nursing Education & Leadership', 'Talent Acquisition'])
   // Internal is not a member: the internal team always sees an event, so it is never a tick.
   assert.ok(!PORTAL_AUDIENCE_VALUES.includes('internal'))
   assert.ok(!PORTAL_AUDIENCE_VALUES.includes('all'))

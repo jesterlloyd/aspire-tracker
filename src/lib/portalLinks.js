@@ -18,6 +18,7 @@ export const PORTAL_LINKS = Object.freeze([
   Object.freeze({ key: 'unit_leader', label: 'Unit Leader Portal', path: '/portal/unit/home' }),
   Object.freeze({ key: 'academic_partner', label: 'Academic Partner Portal', path: '/portal/ap/students' }),
   Object.freeze({ key: 'nursing_academic', label: 'Nursing Education & Leadership Portal', path: '/portal/academics/calendar' }),
+  Object.freeze({ key: 'talent_acquisition', label: 'Residency Portal', path: '/portal/residency/overview' }),
 ])
 
 // Where the portal menus send a staff member who wants back out of the portals.
@@ -33,5 +34,6 @@ export function portalKeyFromPath(pathname) {
   if (pathname.startsWith('/portal/unit/')) return 'unit_leader'
   if (pathname.startsWith('/portal/ap/')) return 'academic_partner'
   if (pathname.startsWith('/portal/academics/')) return 'nursing_academic'
+  if (pathname.startsWith('/portal/residency/')) return 'talent_acquisition'
   return null
 }

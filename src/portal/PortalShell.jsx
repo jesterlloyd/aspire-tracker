@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   ChevronDown, ExternalLink, Camera, UserRound, LogOut, RotateCcw, House,
-  Settings, Check, GraduationCap, Building2, School, HeartHandshake,
+  Settings, Check, GraduationCap, Building2, School, HeartHandshake, BriefcaseBusiness,
 } from 'lucide-react'
 import { PORTAL_LINKS } from '../lib/portalLinks'
 import { useAuth } from '../contexts/AuthContext'
@@ -21,6 +21,7 @@ const PORTAL_ICONS = {
   unit_leader: Building2,
   academic_partner: School,
   nursing_academic: HeartHandshake,
+  talent_acquisition: BriefcaseBusiness,
 }
 
 function initials(name) {

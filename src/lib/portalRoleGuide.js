@@ -9,6 +9,7 @@ export const PORTAL_ROLE_ORDER = Object.freeze([
   'unit_leader',
   'academic_partner',
   'nursing_academic',
+  'talent_acquisition',
 ])
 
 export const PORTAL_ROLE_SUMMARY = Object.freeze({
@@ -32,6 +33,11 @@ export const PORTAL_ROLE_SUMMARY = Object.freeze({
     tagline: 'ASPIRE-wide reporting with optional contact management.',
     detail: 'Views At A Glance, Community Benefit, and Contacts across ASPIRE. Reporting stays view-only. The optional Contacts Editor permission allows adding, editing, deactivating, and reactivating contacts, but never permanent deletion or changes to school, program, cohort, or rotation data.',
   },
+  talent_acquisition: {
+    label: 'Talent Acquisition',
+    tagline: 'The Residency Portal, shared with the ASPIRE team.',
+    detail: 'Works in the Residency Portal across every residency cohort: the alumni who submitted a Transition Form, their eligibility, ranked unit preferences, interviews, and hires, plus cohort settings. Sending Transition Forms stays with the ASPIRE team. Talent Acquisition cannot open the staff application or any internship data.',
+  },
 })
 
 // These rows explain the primary scope boundary for each portal role. They are
@@ -47,6 +53,7 @@ export const PORTAL_CAPABILITY_MATRIX = Object.freeze([
       unit_leader: 'No access',
       academic_partner: 'No access',
       nursing_academic: 'No access',
+      talent_acquisition: 'No access',
     },
   },
   {
@@ -58,6 +65,7 @@ export const PORTAL_CAPABILITY_MATRIX = Object.freeze([
       unit_leader: 'Assigned scope',
       academic_partner: 'No access',
       nursing_academic: 'No access',
+      talent_acquisition: 'No access',
     },
   },
   {
@@ -69,6 +77,7 @@ export const PORTAL_CAPABILITY_MATRIX = Object.freeze([
       unit_leader: 'No access',
       academic_partner: 'Assigned scope',
       nursing_academic: 'No access',
+      talent_acquisition: 'No access',
     },
   },
   {
@@ -80,6 +89,7 @@ export const PORTAL_CAPABILITY_MATRIX = Object.freeze([
       unit_leader: 'No access',
       academic_partner: 'No access',
       nursing_academic: 'ASPIRE-wide read',
+      talent_acquisition: 'No access',
     },
   },
   {
@@ -91,6 +101,19 @@ export const PORTAL_CAPABILITY_MATRIX = Object.freeze([
       unit_leader: 'No access',
       academic_partner: 'No access',
       nursing_academic: 'View or edit',
+      talent_acquisition: 'No access',
+    },
+  },
+  {
+    key: 'residency',
+    label: 'Residency cohorts, applicants, and placement',
+    note: 'Submitted Transition Forms, eligibility, interviews, hires, and cohort settings.',
+    levels: {
+      student: 'No access',
+      unit_leader: 'No access',
+      academic_partner: 'No access',
+      nursing_academic: 'No access',
+      talent_acquisition: 'View or edit',
     },
   },
   {
@@ -101,6 +124,7 @@ export const PORTAL_CAPABILITY_MATRIX = Object.freeze([
       unit_leader: 'No access',
       academic_partner: 'No access',
       nursing_academic: 'No access',
+      talent_acquisition: 'No access',
     },
   },
   {
@@ -112,6 +136,7 @@ export const PORTAL_CAPABILITY_MATRIX = Object.freeze([
       unit_leader: 'No access',
       academic_partner: 'No access',
       nursing_academic: 'No access',
+      talent_acquisition: 'No access',
     },
   },
 ])
@@ -128,6 +153,7 @@ export const PORTAL_MODEL_NOTES = Object.freeze([
   'Portal access is separate from staff application access. A portal grant never creates a staff role.',
   'Student, Unit Leader, and Academic Partner access stays within the linked student, assigned units, or assigned schools.',
   'Nursing Education & Leadership is ASPIRE-wide, but At A Glance and Community Benefit remain view-only.',
+  'Talent Acquisition works in the Residency Portal across every residency cohort; sending Transition Forms stays with the ASPIRE team.',
   'Contacts Editor is an optional Nursing Education & Leadership permission, not another role. It never allows permanent deletion.',
   'Portal grants can start later, expire, or be revoked without changing the person’s contact record.',
 ])

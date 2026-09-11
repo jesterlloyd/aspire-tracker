@@ -349,6 +349,7 @@ export default function AccountsDirectory() {
     unitLeaders: portalData.counts?.by_role?.unit_leader ?? 0,
     academicPartners: portalData.counts?.by_role?.academic_partner ?? 0,
     nursingAcademics: portalData.counts?.by_role?.nursing_academic ?? 0,
+    talentAcquisition: portalData.counts?.by_role?.talent_acquisition ?? 0,
     pending: portalData.counts?.pending ?? 0,
     expiring: portalData.counts?.expiring_soon ?? 0,
   }
@@ -450,6 +451,9 @@ export default function AccountsDirectory() {
           <FilterKPICard value={counts.nursingAcademics} label="Nursing Education & Leadership" sub="ASPIRE-wide view role" accent="periwinkle"
             active={roleFilter === 'nursing_academic'}
             onClick={() => togglePortalRoleCard('nursing_academic')} />
+          <FilterKPICard value={counts.talentAcquisition} label="Talent Acquisition" sub="Residency Portal role" accent="marina"
+            active={roleFilter === 'talent_acquisition'}
+            onClick={() => togglePortalRoleCard('talent_acquisition')} />
           <FilterKPICard value={counts.pending} label="Pending Invitations" sub="Awaiting first sign-in" accent="dawn"
             active={statusFilter === 'pending'}
             onClick={() => togglePortalStatusCard('pending')} />

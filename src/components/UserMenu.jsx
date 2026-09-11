@@ -7,7 +7,7 @@ import { getAvatarUrl } from '../lib/getAvatar';
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
 import {
   LogOut, ChevronDown, Settings, ExternalLink, GraduationCap,
-  Building2, School, HeartHandshake,
+  Building2, School, HeartHandshake, BriefcaseBusiness,
 } from 'lucide-react';
 import Tooltip from './ui/Tooltip';
 import { CANONICAL_APP_URL } from '../lib/appUrl';
@@ -27,6 +27,7 @@ const PORTAL_ICONS = {
   unit_leader: Building2,
   academic_partner: School,
   nursing_academic: HeartHandshake,
+  talent_acquisition: BriefcaseBusiness,
 };
 
 export default function UserMenu() {

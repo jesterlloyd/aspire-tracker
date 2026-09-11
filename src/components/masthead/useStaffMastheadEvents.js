@@ -14,8 +14,9 @@ import { supabase } from '../../lib/supabase'
 import { toLocalDateStr } from '../../lib/designTokens'
 import { MASTHEAD_WINDOW_DAYS, addDays, mastheadItems, holidayItems } from '../../lib/mastheadEvents'
 import { getUsHolidaysForRange } from '../../lib/usHolidays'
+import { portalCanSeeEvent } from '../../lib/aspireEvents'
 
-export function useStaffMastheadEvents({ enabled = true } = {}) {
+export function useStaffMastheadEvents({ enabled = true, audience = null } = {}) {
   const today = toLocalDateStr()
   const to = addDays(today, MASTHEAD_WINDOW_DAYS)
   const { data: events = [] } = useQuery({
@@ -36,7 +37,12 @@ export function useStaffMastheadEvents({ enabled = true } = {}) {
     staleTime: 60_000,
   })
   return useMemo(
-    () => [...mastheadItems(events, today), ...holidayItems(getUsHolidaysForRange(today, today))],
-    [events, today],
+    () => [
+      // RESIDENCY-PORTAL-1: a portal host passes its audience, and gets only the events that
+      // portal may see (the Residency Portal's At a Glance).
+      ...mastheadItems(audience ? events.filter(ev => portalCanSeeEvent(ev, audience)) : events, today),
+      ...holidayItems(getUsHolidaysForRange(today, today)),
+    ],
+    [events, today, audience],
   )
 }

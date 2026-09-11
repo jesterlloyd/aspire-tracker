@@ -27,6 +27,8 @@
 // roster renders - so Planning can never disagree with the tab it summarizes.
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ngrpPath } from '../../lib/ngrp/ngrpTabs'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { useAuth } from '../../contexts/AuthContext'
 import GreetingMasthead from '../masthead/GreetingMasthead'
 import { useStaffMastheadEvents } from '../masthead/useStaffMastheadEvents'
@@ -64,8 +66,9 @@ function Panel({ title, action, children, sub }) {
 export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCohort, onAddCohort }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
+  const { base, eventAudience } = useNgrpSurface()
   // Hooks stay above the early returns below.
-  const mastheadItems = useStaffMastheadEvents()
+  const mastheadItems = useStaffMastheadEvents({ audience: eventAudience })
   const planning = useNgrpPlanning(cycle?.id || null)
   const data = planning.data
   const applicants = useNgrpApplicants(cycle?.id)
@@ -169,7 +172,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
         dateLabel={dateLabel}
         contextLabel={serverCycle.name}
         items={mastheadItems}
-        calendar={{ label: 'Open Calendar', onClick: () => navigate('/ngrp/residency/activity') }}
+        calendar={{ label: 'Open Calendar', onClick: () => navigate(ngrpPath('residency', 'activity', base)) }}
         flush
       />
 

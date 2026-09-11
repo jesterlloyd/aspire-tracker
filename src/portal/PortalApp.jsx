@@ -39,6 +39,11 @@ import AcademicPartnerPortal from './AcademicPartnerPortal'
 // NURSING-ACADEMICS-1: the fourth portal experience (organization-wide, view only).
 import { NursingAcademicsNav } from './na/NursingAcademicsChrome'
 import NursingAcademicsPortal from './na/NursingAcademicsPortal'
+// RESIDENCY-PORTAL-1: the fifth portal experience (Cedars-Sinai Talent Acquisition).
+import { ResidencyNav } from './residency/ResidencyChrome'
+import ResidencyPortal from './residency/ResidencyPortal'
+import { resolveNgrpPath, ngrpPath, RESIDENCY_PORTAL_BASE } from '../lib/ngrp/ngrpTabs'
+import { canManageNgrp } from '../lib/ngrp/ngrpAccess'
 import PortalCohortLoginHint from './PortalCohortLoginHint'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 // PROFILE-MENU-AVATARS-1: self-service photo dialog shared by all three portals.
@@ -211,6 +216,13 @@ export default function PortalApp() {
   const apBackToList = useCallback(() => navigate('/portal/ap/messages'), [navigate])
   const openNaThread = useCallback((id) => navigate(`/portal/academics/messages/${id}`), [navigate])
   const naBackToList = useCallback(() => navigate('/portal/academics/messages'), [navigate])
+  // RESIDENCY-PORTAL-1: the Residency Portal's sections are the workspace's own
+  // routes under /portal/residency; the nav and the workspace read one resolver.
+  const residencyRoute = resolveNgrpPath(location.pathname, RESIDENCY_PORTAL_BASE)
+  const goResidencyTab = useCallback(
+    (key) => navigate(ngrpPath(key, undefined, RESIDENCY_PORTAL_BASE)),
+    [navigate],
+  )
 
   const isStudent = (access?.roles || []).includes('student')
   // UL-POLISH P0: the idle unread poll runs for Unit Leaders too, so the
@@ -730,6 +742,34 @@ export default function PortalApp() {
           threadId={naThreadId} onSelectThread={openNaThread} onBackToList={naBackToList} />
         {!staffPreview && photoDialog}
         {tourOverlay}
+      </PortalShell>
+      </PortalAccessSignalContext.Provider>
+    )
+  }
+
+  if (roles.includes('talent_acquisition')) {
+    // RESIDENCY-PORTAL-1: the fifth portal, for Cedars-Sinai Talent Acquisition. It IS the
+    // staff Residency experience (the same five tabs and components) mounted under
+    // /portal/residency. Appended after nursing_academic so no existing user's portal
+    // changes. Messages, Send Feedback, and a Welcome Tour are not enabled for it yet.
+    return (
+      <PortalAccessSignalContext.Provider value={handleAccessEnded}>
+      <PortalShell title="Residency Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+        headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        profileImageUrl={userProfile?.avatar_url}
+        onChangePhoto={openChangePhoto}
+        publicSiteUrl="https://aspireintelligence.app"
+        mainAppUrl={staffMenu.mainAppUrl} settingsUrl={staffMenu.settingsUrl}
+        portalSwitcher={staffMenu.portalSwitcher}
+        roleLabel={staffMenu.roleLabel}
+        portalUserActionsEnabled={!staffPreview}
+        nav={<ResidencyNav tab={residencyRoute.tab} onNavigate={goResidencyTab} />}
+        utilityLayer={staffPreview ? <StaffPreviewUtilities portalName="Residency Portal" section={residencyRoute.tab} /> : null}>
+        {/* Joint ownership (Owner): Talent Acquisition manages residency records and cohort
+            settings alongside the ASPIRE team. A staff preview shows what that staff member
+            may manage. The server decides either way. */}
+        <ResidencyPortal canManage={staffPreview ? canManageNgrp(userProfile) : true} />
+        {!staffPreview && photoDialog}
       </PortalShell>
       </PortalAccessSignalContext.Provider>
     )

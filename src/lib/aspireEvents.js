@@ -54,6 +54,7 @@ export const PORTAL_AUDIENCES = [
   { value: 'unit_leader',      label: 'Unit Leader' },
   { value: 'academic_partner', label: 'Academic Partner' },
   { value: 'nursing_academic', label: 'Nursing Education & Leadership' },
+  { value: 'talent_acquisition', label: 'Talent Acquisition' },
 ]
 export const PORTAL_AUDIENCE_VALUES = PORTAL_AUDIENCES.map(a => a.value)
 
@@ -81,6 +82,15 @@ export const STUDENT_DELIVERED_TYPES = [
 // free-text types are still where shorthand lives, so the type opts in for a unit or a school
 // exactly as it does for a student. Widen per role only when that role has a named need.
 export const PORTAL_DELIVERED_TYPES = STUDENT_DELIVERED_TYPES
+
+// RESIDENCY-PORTAL-1: the one rule for whether a portal role may see an event, used by the
+// events list (server), the Residency Activity calendar, and the masthead. Both gates the
+// portal calendar feed applies: the role is ticked in "Who sees this" AND the event's type
+// is one delivered to portals, so the event form's hint stays true for every portal.
+export function portalCanSeeEvent(event, role) {
+  return Array.isArray(event?.audiences) && event.audiences.includes(role)
+    && PORTAL_DELIVERED_TYPES.includes(event?.event_type)
+}
 
 const TYPE_MAP = Object.fromEntries(ASPIRE_EVENT_TYPES.map(t => [t.value, t]))
 

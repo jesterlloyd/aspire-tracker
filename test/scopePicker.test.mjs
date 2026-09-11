@@ -267,8 +267,8 @@ test('the residency program is named the one way the app names it everywhere', (
   // "New Graduate RN Residency Program". A second spelling in the header would be a
   // second name for the same program.
   const header = read(HEADER)
-  assert.match(header, /sub: 'New Graduate RN Residency Program \(NGRP\)'/)
-  assert.match(header, /sub: 'Senior Clinical Rotation'/)
+  assert.match(read('src/lib/scopePickerLabels.js'), /sub: 'New Graduate RN Residency Program \(NGRP\)'/)
+  assert.match(read('src/lib/scopePickerLabels.js'), /sub: 'Senior Clinical Rotation'/)
   assert.doesNotMatch(header, /New Graduate-RN|New-graduate/)
 })
 

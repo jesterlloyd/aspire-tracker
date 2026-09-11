@@ -18,6 +18,7 @@ import UniversalSearch from './UniversalSearch'
 import HeaderActions from './HeaderActions'
 import {
   residencyCohortLabel, residencyCohortLive, residencyLabelIsState,
+  INTERNSHIP_EXPERIENCE, RESIDENCY_EXPERIENCE,
 } from '../../lib/scopePickerLabels'
 
 // Residency is offered only to callers who hold it; everyone else has exactly one
@@ -28,8 +29,8 @@ import {
 // way everywhere else it appears (src/public-site/publicContent.js states the rule,
 // and the public site, the interview script, and the FAQ all follow it). The header is
 // not the place to introduce a second spelling of a program's own name.
-const INTERNSHIP = { id: 'internship', label: 'Internship', sub: 'Senior Clinical Rotation' }
-const RESIDENCY  = { id: 'residency',  label: 'Residency',  sub: 'New Graduate RN Residency Program (NGRP)' }
+const INTERNSHIP = INTERNSHIP_EXPERIENCE
+const RESIDENCY  = RESIDENCY_EXPERIENCE
 
 export default function Header({ cohort, search, actions, experience, residencyCohort }) {
   const hasResidency = Boolean(experience)

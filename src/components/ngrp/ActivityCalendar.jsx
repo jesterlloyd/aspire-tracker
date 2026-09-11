@@ -19,9 +19,10 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { supabase } from '../../lib/supabase'
 import { toLocalDateStr } from '../../lib/designTokens'
-import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen } from '../../lib/aspireEvents'
+import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen , portalCanSeeEvent } from '../../lib/aspireEvents'
 import { getUsHolidaysForRange } from '../../lib/usHolidays'
 import AspireEventModal from '../AspireEventModal'
 import { MiniCalendar } from '../CalendarSidebar'
@@ -107,9 +108,13 @@ function DayModal({ date, events, holidays, canManage, onAdd, onEdit, onClose })
   )
 }
 
-export default function ActivityCalendar({ cycle, canManage }) {
+export default function ActivityCalendar({ cycle, canManage: canManageCohort }) {
   const queryClient = useQueryClient()
   const location = useLocation()
+  const { base, canEditEvents, eventAudience } = useNgrpSurface()
+  // Managing the cohort is not authoring ASPIRE events: the surface decides the latter, so
+  // Talent Acquisition sees no Add Event and cannot open an event for editing.
+  const canManage = canManageCohort && canEditEvents
   const today = toLocalDateStr()
   const [cursor, setCursor] = useState(() => initialActivityMonth(cycle, today))
   const [selected, setSelected] = useState(today)
@@ -118,7 +123,7 @@ export default function ActivityCalendar({ cycle, canManage }) {
 
   const { from, to } = monthRange(cursor)
 
-  const { data: events = [] } = useQuery({
+  const { data: fetchedEvents } = useQuery({
     queryKey: ['ngrp_activity_events', from, to],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -133,10 +138,17 @@ export default function ActivityCalendar({ cycle, canManage }) {
       return json.events || []
     },
     // Only the visible Activity sub-tab fetches; the workspace keeps tabs mounted.
-    enabled: location.pathname.startsWith('/ngrp/residency/activity'),
+    enabled: location.pathname.startsWith(`${base}/residency/activity`),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   })
+
+  // A portal surface shows only the events its audience may see. The server already narrows
+  // a portal user's list; this also makes a staff preview show exactly what they would see.
+  const events = useMemo(() => {
+    const all = fetchedEvents || []
+    return eventAudience ? all.filter(ev => portalCanSeeEvent(ev, eventAudience)) : all
+  }, [fetchedEvents, eventAudience])
 
   // US holidays are client-computed, read-only, and never persisted - the same
   // contract the masthead and the interview calendar use.

@@ -1775,7 +1775,7 @@ function PortalRoute() {
   // round trip so deep links (e.g. /portal/messages/:id) are restored.
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
 
-  // Owner/Admin can deliberately enter one of the four portal preview routes
+  // Owner/Admin can deliberately enter one of the five portal preview routes
   // from their profile menu. Every other staff visit to /portal keeps the
   // existing behavior and returns to the staff app.
   const isStaff = !userProfile || userProfile.is_owner === true ||
@@ -1785,7 +1785,8 @@ function PortalRoute() {
     location.pathname === '/portal/student' || location.pathname.startsWith('/portal/student/') ||
     location.pathname.startsWith('/portal/unit/') ||
     location.pathname.startsWith('/portal/ap/') ||
-    location.pathname.startsWith('/portal/academics/')
+    location.pathname.startsWith('/portal/academics/') ||
+    location.pathname.startsWith('/portal/residency/')
   )
   if (isStaff && !isStaffPreviewRoute) {
     let target = '/aggregate'

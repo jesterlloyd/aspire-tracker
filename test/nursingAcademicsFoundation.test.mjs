@@ -91,11 +91,12 @@ test('Contacts Editor is a narrow, default-view grant capability with no delete 
 // ── Lifecycle surfaces ───────────────────────────────────────────────────────
 
 test('the three access endpoints allow-list the fourth role', () => {
-  const FOUR = /const PORTAL_ROLES = \['student', 'unit_leader', 'academic_partner', 'nursing_academic'\]/
+  // RESIDENCY-PORTAL-1 appended talent_acquisition after nursing_academic.
+  const FOUR = /const PORTAL_ROLES = \['student', 'unit_leader', 'academic_partner', 'nursing_academic', 'talent_acquisition'\]/
   assert.match(read('api/invite-portal-user.js'), FOUR)
   assert.match(read('api/revoke-portal-access.js'), FOUR)
   assert.match(read('api/list-portal-access.js'), FOUR)
-  assert.match(read('api/list-portal-access.js'), /by_role: \{ student: 0, unit_leader: 0, academic_partner: 0, nursing_academic: 0 \}/)
+  assert.match(read('api/list-portal-access.js'), /by_role: \{ student: 0, unit_leader: 0, academic_partner: 0, nursing_academic: 0, talent_acquisition: 0 \}/)
 })
 
 test('invite requires NO scope for nursing_academic and passes null scopes to the RPC', () => {
@@ -136,7 +137,7 @@ test('grant lifecycle status math is role-agnostic and covers renewal, expiratio
 
 test('the grant modal treats nursing_academic as valid with no scope pickers', () => {
   const modal = read('src/components/settings/GrantPortalAccessModal.jsx')
-  assert.match(modal, /role === 'nursing_academic' \? true : false/)
+  assert.match(modal, /role === 'nursing_academic' \? true :\s+role === 'talent_acquisition' \? true : false/)
   assert.match(modal, /ASPIRE-wide \(view only\)/)
   assert.match(modal, /Contacts Editor/)
   assert.match(modal, /add, edit, deactivate, and reactivate contacts/i)

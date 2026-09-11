@@ -263,7 +263,8 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     role === 'student' ? !!student :
     role === 'unit_leader' ? unitKeys.length > 0 :
     role === 'academic_partner' ? schoolKeys.length > 0 :
-    role === 'nursing_academic' ? true : false
+    role === 'nursing_academic' ? true :
+    role === 'talent_acquisition' ? true : false
   const emailValid = isValidEmail(email)
   const formValid = !!fullName.trim() && emailValid && !!role && scopeValid && !loading
   const showStudentEmailPrompt = role === 'student' && !!student && !email.trim()
@@ -328,6 +329,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     role === 'student' ? (student ? `${studentName(student)}${student.school ? ` · ${student.school}` : ''}` : 'No student selected') :
     role === 'unit_leader' ? (unitKeys.join(', ') || 'No units selected') :
     role === 'nursing_academic' ? (contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)') :
+    role === 'talent_acquisition' ? 'All residency cohorts' :
     (schoolKeys.join(', ') || 'No schools selected')
 
   return (
@@ -411,6 +413,11 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                 <div style={{ marginBottom: 14 }}>
                   <label style={label} htmlFor="gpa-schools">Assigned schools (at least one)</label>
                   <MultiScopePicker id="gpa-schools" inputStyle={field} options={SCHOOL_SCOPE_OPTIONS} selected={schoolKeys} onChange={(next) => { setSchoolTouched(true); setSchoolKeys(next) }} placeholder="Search schools" />
+                </div>
+              )}
+              {role === 'talent_acquisition' && (
+                <div style={{ marginBottom: 14, display: 'flex', gap: 8, alignItems: 'flex-start', background: '#f5f7ff', border: '1px solid #dbe3fb', borderRadius: 'var(--aspire-radius-control)', padding: '9px 12px', fontSize: 12, color: '#1D2567' }}>
+                  Residency Portal access covers every residency cohort and is shared with the ASPIRE team. No unit, school, or student selection applies.
                 </div>
               )}
               {role === 'nursing_academic' && (

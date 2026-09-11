@@ -80,6 +80,13 @@ export function canonicalNgrpTab(id) {
   return LEGACY_NGRP_TABS[id] || null
 }
 
+// RESIDENCY-PORTAL-1: the same five tabs live at two addresses. The staff app
+// mounts them under /ngrp; the Residency Portal (Talent Acquisition) mounts them
+// under /portal/residency. The path helpers take the base, and it defaults to
+// the staff one, so every existing caller behaves exactly as before.
+export const NGRP_STAFF_BASE = '/ngrp'
+export const RESIDENCY_PORTAL_BASE = '/portal/residency'
+
 /**
  * The tab and sub-tab a pathname names.
  *
@@ -88,31 +95,35 @@ export function canonicalNgrpTab(id) {
  * missing sub-tab, or a sub-tab that does not belong to its tab all produce a
  * redirect rather than an error page.
  */
-export function resolveNgrpPath(pathname) {
-  const parts = String(pathname || '').split('/').filter(Boolean)
-  const rawTab = parts[1] || ''
-  const rawSub = parts[2] || ''
+export function resolveNgrpPath(pathname, base = NGRP_STAFF_BASE) {
+  // Only what follows the surface's base names a tab. A path outside the base
+  // names nothing, so it resolves to the home tab like any unknown id.
+  const path = String(pathname || '')
+  const rest = path === base || path.startsWith(`${base}/`) ? path.slice(base.length) : ''
+  const parts = rest.split('/').filter(Boolean)
+  const rawTab = parts[0] || ''
+  const rawSub = parts[1] || ''
 
   const tab = canonicalNgrpTab(rawTab)
   if (!tab) {
     const home = NGRP_TABS[0].id
-    return { tab: home, subTab: defaultSubTab(home), redirect: ngrpPath(home) }
+    return { tab: home, subTab: defaultSubTab(home), redirect: ngrpPath(home, undefined, base) }
   }
 
   const sub = defaultSubTab(tab)
   if (!sub) {
     // A tab with no sub-tabs: any trailing segment is noise.
     const canonical = tab === rawTab && !rawSub
-    return { tab, subTab: null, redirect: canonical ? null : ngrpPath(tab) }
+    return { tab, subTab: null, redirect: canonical ? null : ngrpPath(tab, undefined, base) }
   }
   const subTab = isNgrpSubTabId(tab, rawSub) ? rawSub : sub
   const canonical = tab === rawTab && subTab === rawSub
-  return { tab, subTab, redirect: canonical ? null : ngrpPath(tab, subTab) }
+  return { tab, subTab, redirect: canonical ? null : ngrpPath(tab, subTab, base) }
 }
 
-export function ngrpPath(tabId, subTabId = undefined) {
+export function ngrpPath(tabId, subTabId = undefined, base = NGRP_STAFF_BASE) {
   const sub = subTabId === undefined ? defaultSubTab(tabId) : subTabId
-  return sub ? `/ngrp/${tabId}/${sub}` : `/ngrp/${tabId}`
+  return sub ? `${base}/${tabId}/${sub}` : `${base}/${tabId}`
 }
 
 // The valid tab named by a pathname, or null. Kept for callers that only need

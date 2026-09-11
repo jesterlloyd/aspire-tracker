@@ -12,6 +12,7 @@
 
 /* global process */
 import { PORTAL_AUDIENCE_VALUES, legacyAudienceFor } from '../src/lib/aspireEvents.js';
+import { portalCanSeeEvent } from '../src/lib/aspireEvents.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
@@ -323,7 +324,25 @@ export default async function handler(req, res) {
       console.log('[aspire-events] list failed', { request_id: requestId, errorCode: error.code });
       return res.status(500).json({ error: 'internal_error' });
     }
-    return res.status(200).json({ success: true, events: data || [], recurrence_enabled: recurrenceReady });
+    // RESIDENCY-PORTAL-1: a portal user (role 'portal') is not the internal team, so the list is
+    // narrowed to what their portal may see: ticked for one of their LIVE portal roles and of a
+    // type delivered to portals. Staff keep the full list. Fails closed on a grant lookup error.
+    let events = data || [];
+    if (auth.role === 'portal') {
+      const nowIso = new Date().toISOString();
+      const { data: grants, error: gErr } = await db
+        .from('user_role_grants')
+        .select('role, starts_at, expires_at')
+        .eq('user_profile_id', auth.profileId)
+        .is('revoked_at', null);
+      if (gErr) return res.status(500).json({ error: 'internal_error' });
+      const roles = (grants || [])
+        .filter(g => (!g.starts_at || g.starts_at <= nowIso) && (!g.expires_at || g.expires_at > nowIso))
+        .map(g => g.role);
+      if (roles.length === 0) return res.status(403).json({ error: 'forbidden', message: 'Access denied.' });
+      events = events.filter(ev => roles.some(r => portalCanSeeEvent(ev, r)));
+    }
+    return res.status(200).json({ success: true, events, recurrence_enabled: recurrenceReady });
   }
 
   // ── writes: owner/admin only ─────────────────────────────────────────────────────────────────

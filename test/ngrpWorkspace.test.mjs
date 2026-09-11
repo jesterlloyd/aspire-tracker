@@ -489,8 +489,10 @@ test('db: no browser data path exists in the client code (endpoint-only reads)',
 // ── Experience / Cohort header presentation ──────────────────────────────────
 
 test('header: the Scope picker offers Internship and Residency, in the right-side cluster', () => {
-  assert.match(headerJsx, /const INTERNSHIP = \{ id: 'internship', label: 'Internship'/)
-  assert.match(headerJsx, /const RESIDENCY  = \{ id: 'residency',  label: 'Residency'/)
+  // The one spelling lives in scopePickerLabels (the Residency Portal's header reuses it).
+  assert.match(read('src/lib/scopePickerLabels.js'), /INTERNSHIP_EXPERIENCE = Object\.freeze\(\{ id: 'internship', label: 'Internship'/)
+  assert.match(read('src/lib/scopePickerLabels.js'), /RESIDENCY_EXPERIENCE = Object\.freeze\(\{ id: 'residency', label: 'Residency'/)
+  assert.match(headerJsx, /const INTERNSHIP = INTERNSHIP_EXPERIENCE\nconst RESIDENCY  = RESIDENCY_EXPERIENCE/)
   assert.match(scopePicker, />Experience</, 'the experience pane is labelled')
   // One control now, still in the right-side cluster before search and NOT in the
   // brand zone (the old segmented switcher there is gone).

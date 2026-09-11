@@ -5,7 +5,7 @@
 
 import { getServiceDb, verifyOwnerAdminCaller } from '../lib/portalAuth.js'
 
-const PREVIEW_ROLES = new Set(['student', 'unit_leader', 'academic_partner', 'nursing_academic'])
+const PREVIEW_ROLES = new Set(['student', 'unit_leader', 'academic_partner', 'nursing_academic', 'talent_acquisition'])
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')

@@ -112,11 +112,12 @@ test('the Residency At a Glance shows the same flagged events as every staff mas
   const glance = read('src/components/ngrp/AtAGlanceTab.jsx')
   // EVENT-AUDIENCE-2 (Owner): the cycle-milestone chip is gone; the card reads
   // the shared staff feed and offers the residency Activity calendar.
-  assert.match(glance, /const mastheadItems = useStaffMastheadEvents\(\)/)
+  assert.match(glance, /const mastheadItems = useStaffMastheadEvents\(\{ audience: eventAudience \}\)/)
   assert.match(glance, /items=\{mastheadItems\}/)
-  assert.match(glance, /calendar=\{\{ label: 'Open Calendar', onClick: \(\) => navigate\('\/ngrp\/residency\/activity'\) \}\}/)
+  assert.match(glance, /calendar=\{\{ label: 'Open Calendar', onClick: \(\) => navigate\(ngrpPath\('residency', 'activity', base\)\) \}\}/)
   assert.doesNotMatch(glance, /nextMilestone|MASTHEAD_WINDOW_DAYS/)
   const feed = read('src/components/masthead/useStaffMastheadEvents.js')
   assert.match(feed, /body: JSON\.stringify\(\{ action: 'list', from: today, to \}\)/)
-  assert.match(feed, /mastheadItems\(events, today\)/)
+  // RESIDENCY-PORTAL-1: a portal host narrows by audience first; the chip rule is still the one shared call.
+  assert.match(feed, /mastheadItems\(audience \? events\.filter\(ev => portalCanSeeEvent\(ev, audience\)\) : events, today\)/)
 })

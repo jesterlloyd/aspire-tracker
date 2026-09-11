@@ -22,7 +22,7 @@ const schoolScope = read('api/lib/schoolScope.js')
 const nursingScope = read('api/lib/nursingAcademicScope.js')
 const portalCss = read('src/portal/portal.css')
 
-test('Owner/Admin profile menu exposes the four current portals below Public site', () => {
+test('Owner/Admin profile menu exposes the five current portals below Public site', () => {
   // PORTAL-SWITCHER-1: one list, read by the staff menu AND the portal menu, so the two
   // can never drift and a fifth portal is added in exactly one place.
   assert.deepEqual(
@@ -32,6 +32,7 @@ test('Owner/Admin profile menu exposes the four current portals below Public sit
       ['unit_leader', 'Unit Leader Portal', '/portal/unit/home'],
       ['academic_partner', 'Academic Partner Portal', '/portal/ap/students'],
       ['nursing_academic', 'Nursing Education & Leadership Portal', '/portal/academics/calendar'],
+      ['talent_acquisition', 'Residency Portal', '/portal/residency/overview'],
     ],
   )
   for (const source of [userMenu, shell]) {
@@ -73,9 +74,9 @@ test('portal profile menu lets Owner/Admin cross to any portal, the main app, or
   assert.match(portalApp, /portalSwitcher: \{ currentKey: previewRole \|\| experience \}/)
   assert.match(portalApp, /mainAppUrl: MAIN_APP_PATH/)
   assert.match(portalApp, /settingsUrl: STAFF_SETTINGS_PATH/)
-  // All four shells read that one object; none keeps a switcher rule of its own.
-  assert.equal((portalApp.match(/portalSwitcher=\{staffMenu\.portalSwitcher\}/g) || []).length, 4)
-  assert.equal((portalApp.match(/mainAppUrl=\{staffMenu\.mainAppUrl\}/g) || []).length, 4)
+  // All five shells read that one object; none keeps a switcher rule of its own.
+  assert.equal((portalApp.match(/portalSwitcher=\{staffMenu\.portalSwitcher\}/g) || []).length, 5)
+  assert.equal((portalApp.match(/mainAppUrl=\{staffMenu\.mainAppUrl\}/g) || []).length, 5)
   assert.doesNotMatch(portalApp, /mainAppUrl=\{staffPreview/)
 })
 

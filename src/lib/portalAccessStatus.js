@@ -11,6 +11,7 @@ export const PORTAL_ROLE_LABELS = {
   unit_leader: 'Unit Leader',
   academic_partner: 'Academic Partner',
   nursing_academic: 'Nursing Education & Leadership',
+  talent_acquisition: 'Talent Acquisition',
 }
 
 export const PORTAL_ROLE_OPTIONS = [
@@ -18,6 +19,7 @@ export const PORTAL_ROLE_OPTIONS = [
   { value: 'unit_leader', label: 'Unit Leader' },
   { value: 'academic_partner', label: 'Academic Partner' },
   { value: 'nursing_academic', label: 'Nursing Education & Leadership' },
+  { value: 'talent_acquisition', label: 'Talent Acquisition' },
 ]
 
 // Text-labelled, accessible status styles (never color alone: each carries a label).
@@ -81,6 +83,10 @@ export function summarizeScope(record) {
     return record.contacts_access === 'manage'
       ? 'ASPIRE-wide · Contacts Editor'
       : 'ASPIRE-wide (view only)'
+  }
+  if (record.portal_role === 'talent_acquisition') {
+    // Every residency cohort is in scope by the role itself: no scope rows.
+    return 'All residency cohorts'
   }
   return ''
 }

@@ -168,7 +168,8 @@ export default async function handler(req, res) {
   const isUnitLeader = await hasActiveRoleGrant(db, auth.profile.id, 'unit_leader')
   const isPartner = isUnitLeader ? false : await hasActiveRoleGrant(db, auth.profile.id, 'academic_partner')
   const isNursingAcademic = (isUnitLeader || isPartner) ? false : await hasActiveRoleGrant(db, auth.profile.id, 'nursing_academic')
-  if (!isUnitLeader && !isPartner && !isNursingAcademic) return res.status(403).json({ error: 'forbidden' })
+  const isTalentAcquisition = (isUnitLeader || isPartner || isNursingAcademic) ? false : await hasActiveRoleGrant(db, auth.profile.id, 'talent_acquisition')
+  if (!isUnitLeader && !isPartner && !isNursingAcademic && !isTalentAcquisition) return res.status(403).json({ error: 'forbidden' })
 
   const mirrorContactAvatar = async (value, { onlyIfCurrently } = {}) => {
     // Mirror to the matching Connect contact (exact case-insensitive email

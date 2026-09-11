@@ -97,7 +97,7 @@ test('a bare, unknown, or mismatched path is corrected rather than rendered', ()
 })
 
 test('the shell redirects exactly once, from the one resolver', () => {
-  assert.match(workspace, /const \{ tab, subTab, redirect \} = resolveNgrpPath\(location\.pathname\)/)
+  assert.match(workspace, /const \{ tab, subTab, redirect \} = resolveNgrpPath\(location\.pathname, base\)/)
   assert.match(workspace, /if \(redirect\) navigate\(redirect, \{ replace: true \}\)/)
   // No second, hand-rolled routing rule survives beside it.
   assert.doesNotMatch(workspace, /navigate\('\/ngrp\//)
@@ -129,7 +129,7 @@ test('At a Glance opens with the same masthead every other home uses', () => {
   // EVENT-AUDIENCE-2: the masthead shows the shared staff event feed, not a
   // chip invented from the cycle timeline; the timeline card below still
   // carries the cycle's own dates.
-  assert.match(glance, /useStaffMastheadEvents\(\)/)
+  assert.match(glance, /useStaffMastheadEvents\(\{ audience: eventAudience \}\)/)
   assert.match(glance, /items=\{mastheadItems\}/)
   assert.doesNotMatch(glance, /nextMilestone/)
 })
@@ -238,7 +238,7 @@ test('the month window is one range, used by both the fetch and the holidays', (
   assert.match(activity, /getUsHolidaysForRange\(from, to\)/)
   assert.match(activity, /queryKey: \['ngrp_activity_events', from, to\]/)
   // Staff tabs stay mounted, so only the visible sub-tab fetches.
-  assert.match(activity, /enabled: location\.pathname\.startsWith\('\/ngrp\/residency\/activity'\)/)
+  assert.match(activity, /enabled: location\.pathname\.startsWith\(`\$\{base\}\/residency\/activity`\)/)
 })
 
 test('the masthead sits in the same column, and therefore at the same height', () => {

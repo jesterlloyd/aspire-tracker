@@ -44,6 +44,7 @@ import {
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
 } from '../../lib/ngrp/ngrpStates'
 import { useNgrpApplicants, postNgrpManage } from '../../lib/ngrp/useNgrpData'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { displayName } from '../../lib/utils'
 
 const relTime = ts => {
@@ -83,6 +84,8 @@ function SkeletonRoster() {
 
 export default function ProfilesTab({ cycle, canManage, toast }) {
   const navigate = useNavigate()
+  // Sending runs through ASPIRE Connect, which only the staff app has.
+  const { canSendForms } = useNgrpSurface()
   const { status, payload, dataUpdatedAt, refetch } = useNgrpApplicants(cycle?.id)
   // False until migration 20260904000000 is applied - the roster still works
   // with neutral defaults, but send/review actions disable themselves.
@@ -475,7 +478,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
               </table>
             </div>
 
-            {canManage && selected.size > 0 && (
+            {canManage && canSendForms && selected.size > 0 && (
               <div className="ngrp-selbar" role="region" aria-label="Bulk actions">
                 <span style={{ fontSize: 13, fontWeight: 700 }}>
                   {visibleSelected.length} selected
@@ -606,7 +609,7 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
         provisioned={transitionProvisioned}
         onClose={() => setDrawerRowId(null)}
         actions={{
-          sendForm: r => launchSend([r]),
+          sendForm: canSendForms ? r => launchSend([r]) : undefined,
           review: r => postNgrpManage('candidate_review', { candidate_id: r.candidate_id }),
           confirmApplication: r => runManage('application_confirm', { candidate_id: r.candidate_id },
             'Application confirmed', `${displayName(r.student)} is now on the official NGRP applicant list.`),

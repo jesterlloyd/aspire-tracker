@@ -405,10 +405,14 @@ function ApplicantDrawerBody({
             async () => { await actions.confirmApplication?.(row) })}
           {!gateNote && confirming !== 'confirm' && (
             <>
-              <button type="button" style={smallBtn()} disabled={!provisioned}
-                onClick={() => actions.sendForm?.(row)}>
-                {hasForm ? 'Resend Form' : 'Send Transition Form'}
-              </button>
+              {/* Only where a send action exists: sending runs through ASPIRE Connect,
+                  so the Residency Portal (and any host without it) shows no Send button. */}
+              {actions.sendForm && (
+                <button type="button" style={smallBtn()} disabled={!provisioned}
+                  onClick={() => actions.sendForm(row)}>
+                  {hasForm ? 'Resend Form' : 'Send Transition Form'}
+                </button>
+              )}
               {row.application_status !== 'confirmed' && (
                 <button type="button" style={smallBtn(true)} disabled={!provisioned}
                   onClick={() => setConfirming('confirm')}>

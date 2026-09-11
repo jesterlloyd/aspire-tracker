@@ -18,6 +18,12 @@
 // dot, which is the same signal accepting_submissions drives on the ASPIRE side.
 // NGRP-CYCLE-STATUS-CANON: five of the old nine statuses meant "live"; 'Active' is now
 // the single one, matching what an ASPIRE cohort's green dot means.
+// The two experiences the Scope picker offers. The ONE spelling of each program's name:
+// the staff header and the Residency Portal's header both read these, so the picker in
+// either place names the programs identically.
+export const INTERNSHIP_EXPERIENCE = Object.freeze({ id: 'internship', label: 'Internship', sub: 'Senior Clinical Rotation' })
+export const RESIDENCY_EXPERIENCE = Object.freeze({ id: 'residency', label: 'Residency', sub: 'New Graduate RN Residency Program (NGRP)' })
+
 export const RESIDENCY_OPEN_STATUSES = new Set(['Active'])
 
 /**

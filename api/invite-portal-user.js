@@ -44,8 +44,9 @@ import { portalInvitationEmail } from '../lib/server/email/portalInvitation.js'
 
 // nursing_academic is organization-wide by design: it requires no scope
 // payload (Gate 7 has no branch for it) and provisions with all scope
-// params null.
-const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner', 'nursing_academic']
+// params null. talent_acquisition (the Residency Portal) is organization-wide the
+// same way: every residency cohort is in scope by the role, so no scope payload.
+const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner', 'nursing_academic', 'talent_acquisition']
 const CONTACTS_ACCESS_LEVELS = ['view', 'manage']
 // Verified ASPIRE Resend sender (cshs.org is not a verified Resend domain, so
 // aspire@cshs.org is used as the reply-to / support address, not the from).

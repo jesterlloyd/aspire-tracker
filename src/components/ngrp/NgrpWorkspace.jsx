@@ -18,6 +18,7 @@ import AtAGlanceTab from './AtAGlanceTab'
 import ProfilesTab from './ProfilesTab'
 import ActivityCalendar from './ActivityCalendar'
 import PlacementBoard from './PlacementBoard'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import './ngrp.css'
 
 // Tabs and sub-tabs whose surfaces are not built yet say what they will hold and
@@ -69,7 +70,8 @@ function PlannedCard({ id }) {
 export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canManage, toast, onEditCohort, onAddCohort }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { tab, subTab, redirect } = resolveNgrpPath(location.pathname)
+  const { base } = useNgrpSurface()
+  const { tab, subTab, redirect } = resolveNgrpPath(location.pathname, base)
 
   // The one redirect. Everything from a bare /ngrp to a retired /ngrp/applicants
   // bookmark resolves through resolveNgrpPath and lands on a canonical path.
@@ -144,7 +146,7 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
               label={`${tab} sections`}
               items={subs.map(s => ({ key: s.id, label: s.label }))}
               value={subTab}
-              onChange={key => navigate(ngrpPath(tab, key))}
+              onChange={key => navigate(ngrpPath(tab, key, base))}
             />
           </div>
         )}
