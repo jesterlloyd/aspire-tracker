@@ -171,3 +171,13 @@ export async function fetchNgrpRosterCsv(cycleId) {
     return { ok: false, status: err.status || 0 }
   }
 }
+
+// The residency cohort an applicant belongs to. { ok, cycle_id } or { ok: false }.
+export async function locateNgrpCandidate(candidateId) {
+  try {
+    const body = await authedPost('/api/ngrp-workspace', 'locate', { candidate_id: candidateId })
+    return body?.cycle_id ? { ok: true, cycle_id: body.cycle_id } : { ok: false }
+  } catch (err) {
+    return { ok: false, status: err.status || 0 }
+  }
+}

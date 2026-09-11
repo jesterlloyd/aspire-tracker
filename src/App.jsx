@@ -1569,6 +1569,7 @@ function MainApp({ onLogout }) {
                 toast={toast}
                 onEditCohort={() => setShowNgrpCohortSettings(true)}
                 onAddCohort={() => setShowNgrpNewCohort(true)}
+                onSelectCycle={selectNgrpCycle}
               />
             )}
           </>

@@ -15,6 +15,8 @@
 //                                   students, candidates, excludedPriorHires }
 //   export { cycle_id }        -> { provisioned, csv, filename }: the same
 //                                   roster as a CSV, built here (RESIDENCY-PORTAL-3)
+//   locate { candidate_id }    -> { provisioned, cycle_id }: the residency
+//                                   cohort an applicant belongs to
 //
 // The roster contract (multi-cohort resolution, Completed-only, identity from
 // students, prior-hire exclusion, email stripping) lives in
@@ -23,12 +25,13 @@
 // conflated with "no cycles configured" or an ordinary error.
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
-import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload } from '../lib/server/ngrpApplicants.js'
-import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
+import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload, isMissingNgrpTable } from '../lib/server/ngrpApplicants.js'
+import { liveAssignmentForCandidate } from '../lib/server/ngrpTransition.js'
+import { TALENT_ACQUISITION, hasSubmittedForm, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 import { buildResidencyCsv, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants', 'export'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -57,6 +60,23 @@ export default async function handler(req, res) {
     if (mapped.provisioned === false) return res.status(200).json({ provisioned: false, cycles: [] })
     const cycles = result.cycles.map(c => ({ ...c, source_cohorts: mapped.byCycle.get(c.id) || [] }))
     return res.status(200).json({ provisioned: true, cycles })
+  }
+
+  // Which residency cohort an applicant belongs to, so a notification link can
+  // switch the cohort picker before opening them. Talent Acquisition gets an
+  // answer only for alumni who submitted the Transition Form, like everywhere else.
+  if (action === 'locate') {
+    const candidateId = typeof body.candidate_id === 'string' && UUID.test(body.candidate_id) ? body.candidate_id : null
+    if (!candidateId) return res.status(422).json({ error: 'invalid_candidate_id' })
+    const cand = await db.from('ngrp_candidates').select('id, cycle_id').eq('id', candidateId).maybeSingle()
+    if (cand.error) return isMissingNgrpTable(cand.error) ? res.status(200).json({ provisioned: false }) : res.status(500).json({ error: 'internal_error' })
+    if (!cand.data) return res.status(404).json({ error: 'candidate_not_found' })
+    if (caller.audience === TALENT_ACQUISITION) {
+      const live = await liveAssignmentForCandidate(db, candidateId)
+      if (live.error) return res.status(500).json({ error: 'internal_error' })
+      if (!hasSubmittedForm(live.assignment?.status)) return res.status(404).json({ error: 'candidate_not_found' })
+    }
+    return res.status(200).json({ provisioned: true, cycle_id: cand.data.cycle_id })
   }
 
   // action === 'applicants' | 'export'

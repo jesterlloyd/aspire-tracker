@@ -120,7 +120,7 @@ test('At a Glance and Profiles are the old tabs, renamed, not rewritten', () => 
   assert.match(profiles, /export default function ProfilesTab/)
   assert.match(profiles, /deriveApplicantRows/)
   assert.match(profiles, /KPI_DEFS/)
-  assert.match(workspace, /<ProfilesTab cycle=\{cycle\} canManage=\{canManage\} toast=\{toast\} \/>/)
+  assert.match(workspace, /<ProfilesTab cycle=\{cycle\} canManage=\{canManage\} toast=\{toast\} onSelectCycle=\{onSelectCycle\} \/>/)
 })
 
 test('At a Glance opens with the same masthead every other home uses', () => {

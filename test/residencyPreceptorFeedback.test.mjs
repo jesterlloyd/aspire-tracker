@@ -200,3 +200,17 @@ test('the roster and drawer: an indicator, a deep link, and the section', () => 
   assert.match(drawer, /title="Preceptor Feedback"/)
   assert.match(drawer, /\{actions\.sendForm && \(/, 'the send gate is untouched')
 })
+
+test('the notification link switches to the applicant\'s residency cohort first', () => {
+  const ws = read('api/ngrp-workspace.js')
+  const locate = ws.slice(ws.indexOf("if (action === 'locate')"), ws.indexOf("// action === 'applicants' | 'export'"))
+  assert.match(locate, /select\('id, cycle_id'\)/)
+  assert.match(locate, /if \(caller\.audience === TALENT_ACQUISITION\) \{[\s\S]*hasSubmittedForm\(live\.assignment\?\.status\)[\s\S]*404/)
+  const tab = read('src/components/ngrp/ProfilesTab.jsx')
+  assert.match(tab, /locateNgrpCandidate\(linkedCandidate\)\.then/)
+  assert.match(tab, /if \(res\.ok && res\.cycle_id !== cycle\?\.id\) onSelectCycle\(res\.cycle_id\)/)
+  assert.match(tab, /if \(locatedRef\.current === linkedCandidate\) return/, 'looked up once, never in a loop')
+  assert.match(read('src/components/ngrp/NgrpWorkspace.jsx'), /<ProfilesTab [^>]*onSelectCycle=\{onSelectCycle\}/)
+  assert.match(read('src/App.jsx'), /onSelectCycle=\{selectNgrpCycle\}/)
+  assert.match(read('src/portal/residency/ResidencyPortal.jsx'), /onSelectCycle=\{selectCycle\}/)
+})

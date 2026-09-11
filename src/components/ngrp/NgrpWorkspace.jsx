@@ -67,7 +67,7 @@ function PlannedCard({ id }) {
   )
 }
 
-export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canManage, toast, onEditCohort, onAddCohort }) {
+export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canManage, toast, onEditCohort, onAddCohort, onSelectCycle }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { base } = useNgrpSurface()
@@ -161,7 +161,7 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
           />
         )}
 
-        {tab === 'profiles' && <ProfilesTab cycle={cycle} canManage={canManage} toast={toast} />}
+        {tab === 'profiles' && <ProfilesTab cycle={cycle} canManage={canManage} toast={toast} onSelectCycle={onSelectCycle} />}
 
         {tab === 'support' && <PlannedCard id={`support/${subTab}`} />}
 

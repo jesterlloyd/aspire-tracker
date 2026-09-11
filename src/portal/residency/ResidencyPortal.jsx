@@ -96,6 +96,7 @@ export default function ResidencyPortal({ canManage = false }) {
           toast={toast}
           onEditCohort={() => setShowSettings(true)}
           onAddCohort={() => setShowNewCohort(true)}
+          onSelectCycle={selectCycle}
         />
       </div>
       {showSettings && activeCycle && (

@@ -23,7 +23,7 @@
 // 4. Alumni hired through an EARLIER NGRP cycle are excluded server-side; a
 //    prior application without a hire never excludes anyone.
 // 5. Raw emails never reach the browser - rows carry has_email only.
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Search, Send, GraduationCap, X, Eye, Download } from 'lucide-react'
 import { writeLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
@@ -44,7 +44,7 @@ import {
   INTERVIEW_STATES, KPI_DEFS, SORT_OPTIONS,
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
 } from '../../lib/ngrp/ngrpStates'
-import { useNgrpApplicants, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpRosterCsv } from '../../lib/ngrp/useNgrpData'
+import { useNgrpApplicants, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpRosterCsv, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { displayName, downloadCSV } from '../../lib/utils'
 
@@ -99,7 +99,7 @@ const FEEDBACK_DECISION_TOAST = {
   revoked: ['Access withdrawn', 'The requester can no longer view this preceptor feedback.'],
 }
 
-export default function ProfilesTab({ cycle, canManage, toast }) {
+export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) {
   const navigate = useNavigate()
   // Sending runs through ASPIRE Connect, which only the staff app has.
   const { canSendForms } = useNgrpSurface()
@@ -265,6 +265,20 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
     refetchFeedback()
     return res
   }, [refetchFeedback, toast])
+
+  // When the linked applicant belongs to a different residency cohort, look it
+  // up once and switch the picker to it; the drawer then opens on its own as
+  // soon as that cohort's roster loads.
+  const locatedRef = useRef(null)
+  useEffect(() => {
+    if (!linkedCandidate || !onSelectCycle || status !== 'ready') return
+    if (allRows.some(r => r.candidate_id === linkedCandidate)) return
+    if (locatedRef.current === linkedCandidate) return
+    locatedRef.current = linkedCandidate
+    locateNgrpCandidate(linkedCandidate).then(res => {
+      if (res.ok && res.cycle_id !== cycle?.id) onSelectCycle(res.cycle_id)
+    })
+  }, [linkedCandidate, onSelectCycle, status, allRows, cycle?.id])
 
   // ── Distinct query states (none conflated with "no alumni") ────────────────
   if (!cycle) return null
