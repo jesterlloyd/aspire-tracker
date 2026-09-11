@@ -461,7 +461,7 @@ export default async function handler(req, res) {
       const wrote = existing.data
         ? await db.from('ngrp_residency_outcomes').update(row).eq('candidate_id', candidateId)
         : await db.from('ngrp_residency_outcomes').insert(row)
-      if (wrote.error) return isMissingNgrpSchema(wrote.error) ? unprovisioned(res) : internal(res)
+      if (wrote.error) return (isMissingNgrpSchema(wrote.error) || isMissingNgrpColumn(wrote.error)) ? unprovisioned(res) : internal(res)
 
       // Audit what actually CHANGED, so the trail records the moment a hire was
       // recorded rather than every time the section was saved.

@@ -270,6 +270,7 @@ function OutcomeSection({ row, canManage, onSave }) {
     // starting point rather than an empty box.
     hired_unit: o.hired_unit || row.assigned_unit || '',
     residency_start_date: dateOnly(o.residency_start_date),
+    cs_email: o.cs_email || '',
   }
   const [form, setForm] = useState(init)
   const [busy, setBusy] = useState(false)
@@ -299,6 +300,7 @@ function OutcomeSection({ row, canManage, onSave }) {
                 ? <Row label="Offer extended">{fmt(o.offer_extended_at)}</Row>
                 : <Row label="Status"><span style={{ fontWeight: 400, color: '#9CA3AF' }}>Nothing recorded yet</span></Row>}
           {o.residency_start_date && <Row label="Residency starts">{o.residency_start_date}</Row>}
+          {o.cs_email && <Row label="Cedars-Sinai email">{o.cs_email}</Row>}
 
           {canManage && (
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -320,6 +322,14 @@ function OutcomeSection({ row, canManage, onSave }) {
                 <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Residency start date</span>
                 <input type="date" style={field} value={form.residency_start_date} onChange={e => set('residency_start_date', e.target.value)} />
               </label>
+              {/* Where residency correspondence goes once they are hired (Owner,
+                  2026-09-11). Optional: until the account exists, the personal
+                  email is the backup. The school address is never used. */}
+              <label style={{ display: 'block' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Cedars-Sinai email</span>
+                <input type="email" style={field} value={form.cs_email} maxLength={200}
+                  onChange={e => set('cs_email', e.target.value)} placeholder="first.last@cshs.org" />
+              </label>
               {problem && <p style={{ margin: 0, fontSize: 11, color: '#B3282D' }}>{problem}</p>}
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button
@@ -334,6 +344,7 @@ function OutcomeSection({ row, canManage, onSave }) {
                       hired_at: fromLocalInput(form.hired_at),
                       hired_unit: form.hired_unit.trim() || null,
                       residency_start_date: form.residency_start_date || null,
+                      cs_email: form.cs_email.trim() || null,
                     })
                     setBusy(false)
                   }}

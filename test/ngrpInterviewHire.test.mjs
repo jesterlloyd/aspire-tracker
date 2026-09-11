@@ -84,7 +84,9 @@ test('an empty outcome is valid, because the record accumulates over months', ()
   assert.ok(v.ok)
   assert.deepEqual(v.outcome, {
     offer_extended_at: null, offer_accepted_at: null, hired_at: null,
-    residency_start_date: null, hired_unit: null,
+    // RESIDENCY-SUPPORT-1 (Owner, 2026-09-11): where a hired resident is
+    // reached. Optional, because the account often does not exist on day one.
+    residency_start_date: null, hired_unit: null, cs_email: null,
   })
   // A residency start must be a calendar date, not a timestamp.
   assert.equal(validateOutcomePayload({ residency_start_date: '2027-02-02T00:00:00Z' }).errors[0].field, 'residency_start_date')
@@ -167,7 +169,10 @@ test('the outcome reaches the client, scoped to the selected cohort', () => {
   // Outcomes live in their own table, so the roster payload has to carry them
   // or the drawer would render an empty record over real data.
   assert.match(applicantsLib, /from\('ngrp_residency_outcomes'\)/)
-  assert.match(applicantsLib, /\.in\('candidate_id', candidates\.map\(c => c\.id\)\)/)
+  // The read carries the resident's Cedars-Sinai address when 20260915000000 is
+  // applied and falls back to the other hire fields when it is not.
+  assert.match(applicantsLib, /readOutcomes\(db, candidates\.map\(c => c\.id\)\)/)
+  assert.match(applicantsLib, /\.in\('candidate_id', candidateIds\)/)
   assert.match(applicantsLib, /outcomeByCandidate/)
   // A candidate with no row simply has no outcome yet, the normal state.
   assert.match(applicantsLib, /outcomeByCandidate\.get\(c\.id\) \|\| null/)

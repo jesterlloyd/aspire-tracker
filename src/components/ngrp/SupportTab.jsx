@@ -42,14 +42,17 @@ const ERRORS = {
 }
 const errorText = res => (res.errors || []).map(e => e.message).join(' ') || ERRORS[res.error] || 'It could not be saved.'
 
-function Name({ row }) {
+function Name({ row, sub }) {
   return (
     <div className="ngrp-glance-person">
       <StudentAvatar student={row.student} size={28} />
-      <span className="ov-unit-name">
-        {displayName(row.student)}
-        {row.student?.aspire_cohort && <span className="ngrp-glance-cohort">{row.student.aspire_cohort}</span>}
-      </span>
+      <div className="ov-unit-info">
+        <span className="ov-unit-name">
+          {displayName(row.student)}
+          {row.student?.aspire_cohort && <span className="ngrp-glance-cohort">{row.student.aspire_cohort}</span>}
+        </span>
+        {sub && <span className="ngrp-glance-muted">{sub}</span>}
+      </div>
     </div>
   )
 }
@@ -354,7 +357,7 @@ function DuringPanel({ cycle, rows, support, toast }) {
               <tbody>
                 {view.residents.map(r => (
                   <tr key={r.row.id}>
-                    <td><Name row={r.row} /></td>
+                    <td><Name row={r.row} sub={r.row.outcome?.cs_email || 'No Cedars-Sinai email yet'} /></td>
                     <td>{r.row.outcome?.hired_unit || r.row.assigned_unit || ''}</td>
                     <td><MentorCell resident={r} canRecord={support.canRecord} onSaved={support.refetch} toast={toast} /></td>
                     <td style={{ whiteSpace: 'nowrap' }}>
