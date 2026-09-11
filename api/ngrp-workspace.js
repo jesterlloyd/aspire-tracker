@@ -13,6 +13,8 @@
 //   cycles                     -> { provisioned, cycles }
 //   applicants { cycle_id }    -> { provisioned, cycle, sourceCohorts,
 //                                   students, candidates, excludedPriorHires }
+//   export { cycle_id }        -> { provisioned, csv, filename }: the same
+//                                   roster as a CSV, built here (RESIDENCY-PORTAL-3)
 //
 // The roster contract (multi-cohort resolution, Completed-only, identity from
 // students, prior-hire exclusion, email stripping) lives in
@@ -23,9 +25,10 @@ import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload } from '../lib/server/ngrpApplicants.js'
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
+import { buildResidencyCsv, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -56,7 +59,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ provisioned: true, cycles })
   }
 
-  // action === 'applicants'
+  // action === 'applicants' | 'export'
   const cycleId = typeof body.cycle_id === 'string' ? body.cycle_id : null
   if (!cycleId || !UUID.test(cycleId)) return res.status(422).json({ error: 'invalid_cycle_id' })
 
@@ -67,6 +70,21 @@ export default async function handler(req, res) {
   // RESIDENCY-PORTAL-2: Talent Acquisition sees only alumni who submitted the
   // Transition Form, plus the cohort-wide counts At a Glance shows.
   const view = caller.audience === TALENT_ACQUISITION ? narrowPayloadForTalentAcquisition(payload) : payload
+
+  // RESIDENCY-PORTAL-3: the roster as a CSV. Built from the view above, so it
+  // holds exactly the rows this caller's roster shows, plus each alumnus's
+  // latest Transition Form answers.
+  if (action === 'export') {
+    const revisions = await fetchLatestRevisions(db, view.candidates)
+    if (revisions.error) return res.status(500).json({ error: 'internal_error' })
+    return res.status(200).json({
+      provisioned: true,
+      ...buildResidencyCsv({
+        cycle: payload.cycle, students: view.students, candidates: view.candidates,
+        revisionsByAssignment: revisions.byAssignment,
+      }),
+    })
+  }
 
   return res.status(200).json({
     provisioned: true,

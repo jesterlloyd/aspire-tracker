@@ -160,3 +160,14 @@ export function useNgrpPreceptorFeedback(cycleId, { enabled = true } = {}) {
     refetch: query.refetch,
   }
 }
+
+// RESIDENCY-PORTAL-3: the Alumni Roster as a CSV, built server-side from the
+// roster this caller may see. { ok, csv, filename } or { ok: false }.
+export async function fetchNgrpRosterCsv(cycleId) {
+  try {
+    const body = await authedPost('/api/ngrp-workspace', 'export', { cycle_id: cycleId })
+    return body?.provisioned === false ? { ok: false } : { ok: true, csv: body?.csv, filename: body?.filename }
+  } catch (err) {
+    return { ok: false, status: err.status || 0 }
+  }
+}

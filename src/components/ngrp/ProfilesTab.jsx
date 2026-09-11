@@ -25,7 +25,7 @@
 // 5. Raw emails never reach the browser - rows carry has_email only.
 import { useMemo, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Send, GraduationCap, X, Eye } from 'lucide-react'
+import { Search, Send, GraduationCap, X, Eye, Download } from 'lucide-react'
 import { writeLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
 import { FilterKPICard } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
@@ -44,9 +44,9 @@ import {
   INTERVIEW_STATES, KPI_DEFS, SORT_OPTIONS,
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
 } from '../../lib/ngrp/ngrpStates'
-import { useNgrpApplicants, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback } from '../../lib/ngrp/useNgrpData'
+import { useNgrpApplicants, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpRosterCsv } from '../../lib/ngrp/useNgrpData'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
-import { displayName } from '../../lib/utils'
+import { displayName, downloadCSV } from '../../lib/utils'
 
 const relTime = ts => {
   if (!ts) return '—'
@@ -137,6 +137,17 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
   // NGRP-TRANSITION-PREVIEW-1: renders a synthetic copy of the invitation. No network,
   // no recipient, no token; it cannot send anything.
   const [showEmailPreview, setShowEmailPreview] = useState(false)
+  // RESIDENCY-PORTAL-3: Download CSV, as on the Community Benefit tab: the
+  // server builds the file from the roster this caller may see.
+  const [exporting, setExporting] = useState(false)
+  const onExport = async () => {
+    if (!cycle || exporting) return
+    setExporting(true)
+    const res = await fetchNgrpRosterCsv(cycle.id)
+    setExporting(false)
+    if (res.ok && res.csv) downloadCSV(res.csv, res.filename)
+    else toast?.error?.('Export failed', 'The CSV could not be generated right now. Please try again shortly.')
+  }
 
   const sourceCohorts = useMemo(() => payload?.sourceCohorts || [], [payload])
   const allRows = useMemo(
@@ -392,6 +403,21 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
                 <span style={{ fontSize: 11, color: '#9CA3AF' }}>
                   {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
                 </span>
+                <button
+                  type="button"
+                  onClick={onExport}
+                  disabled={exporting}
+                  title="Every alumnus on this roster with their latest Transition Form answers. Preceptor feedback is never included."
+                  style={{
+                    height: 28, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '0 10px', border: '1px solid #1D2567', background: '#1D2567', color: '#fff',
+                    borderRadius: 'var(--aspire-radius-control)', fontFamily: 'inherit', fontSize: 11.5,
+                    fontWeight: 700, cursor: exporting ? 'default' : 'pointer', opacity: exporting ? 0.6 : 1,
+                  }}
+                >
+                  <Download size={13} aria-hidden="true" />
+                  {exporting ? 'Preparing CSV…' : 'Download CSV'}
+                </button>
                 {/* Always available, and deliberately NOT inside the bulk-selection bar:
                     reading what the email says should not require selecting a real
                     alumnus first. The preview is synthetic and sends nothing. */}
