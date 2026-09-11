@@ -95,6 +95,7 @@ const CITY_ALIASES = {
   rome: 'rome',
   toronto: 'toronto',
   porterranch: 'porterranch',
+  istanbul: 'istanbul',
   chicago: 'chicago',
 }
 
@@ -142,6 +143,7 @@ export const CITY_COORDS = {
   rio: [-22.91, -43.17],
   manila: [14.6, 120.98],
   toronto: [43.65, -79.38],
+  istanbul: [41.01, 28.98],
   // Porter Ranch sits about 40km north-west of downtown Los Angeles, so it is
   // well outside the 150km tie with LA and Hollywood only by name: proximity
   // gives a viewer whichever they are actually nearest.
@@ -2122,6 +2124,116 @@ export const CITY_MOTION = {
     // which is why the usual skyline probe returned y 0 in every column - and a
     // star field needs a clear one. This is the first pack to be refused them
     // on the artwork's own evidence.
+  },
+  istanbul: {
+    // MASTHEAD-ISTANBUL-1 (2026-09-11, a new city). Ten frames, no Snow pair,
+    // all 2000x400 RGB, one drawing throughout.
+    //
+    // The view is across the Golden Horn to the Suleymaniye Mosque on its
+    // hill. The mosque body stands at x 32-39 with its dome crowned at y 10.6,
+    // and its four minarets rise to the top of the card at x 38.8, 41.55, 44.3
+    // and 47.1 (tips at y 1, 0, 5 and 12). Two older minarets stand on the
+    // left at x 6.45 and 11.4; three more and a far mosque stand low on the
+    // right, where the skyline drops to y 45-50. The quay runs level along
+    // y 79-81 and the water is everything below it.
+    //
+    // Windows and quay lamps, as the brightest warm maximum in each cell of a
+    // column-by-band grid (Toronto's rule), and none below the quay.
+    lights: [
+      [0.25, 79.5], [2.95, 52.75], [3.75, 48.25], [5.65, 76.5], [6.35, 31.0],
+      [6.55, 33.75], [7.05, 65.25], [8.1, 80.5], [9.75, 52.75], [10.65, 80.5],
+      [11.2, 28.75], [11.55, 49.75], [13.95, 69.5], [14.35, 64.5], [14.95, 44.25],
+      [15.65, 67.25], [17.95, 49.0], [19.9, 80.0], [22.0, 66.0], [22.95, 59.5],
+      [23.95, 49.75], [24.1, 54.25], [25.1, 77.25], [26.55, 42.25], [27.0, 76.25],
+      [29.5, 42.0], [31.7, 60.5], [32.7, 64.75], [32.75, 67.0], [33.25, 67.5],
+      [33.45, 38.25], [34.05, 31.25], [37.8, 80.25], [38.15, 64.0], [38.95, 41.5],
+      [39.0, 25.5], [40.45, 80.25], [42.4, 40.75], [42.95, 63.25], [43.9, 77.75],
+      [44.15, 20.25], [44.45, 34.75], [44.7, 60.0], [46.25, 80.0], [47.25, 22.25],
+      [49.15, 72.25], [49.8, 43.75], [51.75, 64.75], [51.75, 76.75], [54.65, 60.5],
+      [54.9, 46.0], [55.1, 69.75], [57.55, 68.5], [59.0, 53.25], [59.3, 49.75],
+      [60.75, 80.5], [61.3, 48.75], [62.15, 51.75], [65.8, 73.75], [67.05, 51.0],
+      [67.95, 45.25], [68.15, 43.0], [69.35, 57.75], [70.3, 80.25], [72.85, 80.0],
+      [75.9, 61.75], [76.05, 47.0], [76.1, 76.0], [77.15, 61.75], [78.4, 80.0],
+      [81.2, 49.5], [81.95, 62.5], [83.4, 68.5], [84.4, 55.0], [86.4, 79.5],
+      [88.4, 79.5], [90.75, 51.75], [91.0, 44.75], [91.9, 77.5], [92.65, 44.75],
+      [93.8, 79.25], [95.3, 63.75], [96.9, 64.25], [98.8, 76.25], [99.7, 78.0],
+    ],
+    // NO BEACONS, and the reason is the artwork's: a minaret wears no aviation
+    // red. The red test returned 985 candidates, and every cluster was the
+    // orange floodlit stone of a minaret or the mosque, which is what `facade`
+    // is for. Rome and Atlanta 2 are the same.
+    //
+    // The floodlit mosque and its minarets, measured as the warm-bright
+    // extent of each column at night (lum over 480, red over blue by 30),
+    // cut off where the hill's trees cover the shaft. Each minaret is its own
+    // box because each is its own lit shaft with dark sky either side of it.
+    facade: [
+      [35.4, 26.0, 6.4, 24.0], [38.8, 17.0, 0.7, 30.0], [41.55, 16.0, 0.7, 30.0],
+      [44.3, 21.5, 0.7, 31.0], [47.1, 23.5, 0.7, 23.0], [11.4, 32.0, 0.8, 34.0],
+      [6.45, 30.5, 0.6, 15.0], [91.0, 46.5, 3.6, 6.0],
+    ],
+    // The reflections: columns of the water brighter than their own 61-column
+    // neighbourhood, below the quay.
+    water: [
+      [2.25, 85.25], [5.8, 88.25], [7.9, 87.5], [10.95, 88.25], [16.35, 87.75],
+      [19.95, 87.0], [22.1, 85.75], [26.4, 86.5], [29.75, 85.25], [33.45, 85.25],
+      [39.2, 86.0], [42.6, 85.75], [44.8, 87.25], [48.85, 85.75], [49.85, 85.5],
+      [52.1, 85.25], [56.45, 85.75], [58.9, 84.25], [61.05, 86.0], [63.9, 84.5],
+      [66.0, 85.5], [67.85, 83.75], [71.15, 85.5], [74.55, 85.25], [76.85, 86.0],
+      [80.65, 83.5], [83.45, 85.0], [85.7, 83.75], [88.1, 86.0], [89.95, 85.75],
+    ],
+    // Sun glitter by AGREEMENT of the Day and Golden Hour frames, each 100px
+    // band's threshold taken from its own water pixels only.
+    glints: [
+      [2.1, 90.5], [2.3, 95.0], [2.65, 85.25], [5.8, 85.75], [6.25, 93.0],
+      [10.3, 93.5], [12.5, 88.5], [16.45, 94.25], [21.7, 94.75], [22.15, 89.0],
+      [24.05, 92.0], [26.3, 92.0], [32.5, 92.0], [38.9, 89.0], [39.45, 85.25],
+      [44.25, 95.0], [44.6, 87.75], [50.1, 92.75], [54.05, 89.0], [55.8, 94.75],
+      [56.55, 89.0], [57.3, 85.25], [60.5, 91.25], [66.2, 90.0], [68.0, 96.25],
+      [69.55, 92.25], [74.6, 84.25], [75.3, 93.75], [77.05, 89.0], [77.8, 94.0],
+      [80.85, 84.25], [80.85, 92.5], [83.0, 95.75], [83.15, 90.25], [83.4, 83.75],
+      [85.85, 92.5], [88.45, 89.5], [91.95, 91.75], [92.15, 83.0], [94.9, 90.5],
+      [95.55, 95.5], [95.8, 84.25], [98.1, 92.5], [98.35, 84.25],
+    ],
+    swell: { x: 4, y: 86, w: 92, height: 10 },
+    // A Bosphorus ferry. The day frames paint two, white, at y 77-85 (x 11-17.5
+    // and 88-91.5); lane y 90 runs in front of both rather than through them.
+    ferry: { y: 90, from: 96, to: 8, flight: 150 },
+    ferryTone: 'white',
+    // THE WHOLE RIGHT HALF IS SKY: from x 48 to the right edge nothing rises
+    // above y 32, so every crossing lives there, clear of the four minarets.
+    // The gulls are the city's own; the flock spreads 6.4% above its lane and
+    // 11.5% below, so y 12 spans 5.6-23.5.
+    aircraft: [
+      { y: 6, from: 98, to: 52, flight: 40 },
+      { y: 20, from: 52, to: 98, flight: 50 },
+    ],
+    birds: { y: 12, from: 96, to: 54, flight: 30, count: 6 },
+    helicopter: { y: 26, from: 96, to: 56, flight: 46 },
+    // The bolt's TIP on the minaret at x 68.0, whose lit shaft tops out at
+    // y 36. A w:10 fork is about 25% of the card tall, so its top lands at 11.
+    strike: { x: 68.0, y: 36.5, w: 10 },
+    // The far hills on the right read paler with distance in the day frames.
+    haze: { y: 44, height: 12 },
+    // The Golden Hour sun is PAINTED near the top-left corner: the blurred
+    // luminance peak is x 3.75, y 12.
+    flare: { x: 3.8, y: 12 },
+    // A clear night: flat patches of sky at least 4% above the skyline, none
+    // inside the moon's art box (x 50-66 at the default anchor).
+    stars: [
+      [1.3, 6.5], [1.3, 30.75], [3.5, 17.75], [6.6, 2.0], [7.35, 9.5],
+      [8.0, 20.25], [11.9, 9.0], [13.5, 21.0], [15.55, 1.5], [17.85, 13.25],
+      [18.3, 24.0], [23.7, 4.5], [23.95, 25.25], [26.55, 17.0], [28.4, 4.75],
+      [29.35, 24.0], [32.1, 16.75], [33.8, 9.25], [35.8, 2.0], [49.35, 14.25],
+      [49.35, 25.25], [49.75, 4.75], [67.35, 13.5], [68.3, 2.75], [70.25, 21.75],
+      [70.4, 31.5], [74.0, 13.25], [75.65, 3.0], [75.95, 32.75], [79.3, 24.75],
+      [80.05, 10.0], [80.4, 1.75], [80.45, 17.0], [82.4, 33.0], [85.7, 6.5],
+      [86.6, 24.25], [90.45, 16.25], [91.5, 28.0], [91.7, 2.25], [95.95, 32.75],
+      [96.45, 8.25], [96.65, 16.0],
+    ],
+    comet: { x: 70, y: 3, run: 6, drop: 17, flight: 1.1 },
+    rainfall: true,
+    snowfall: true,
   },
   chicago: {
     // MASTHEAD-CHICAGO-1 (2026-09-10, a new city). TWELVE frames, every scene,

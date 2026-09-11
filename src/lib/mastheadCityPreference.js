@@ -121,6 +121,7 @@ export const PICKER_IMAGE_FILES = {
   hollywood: 'Hollywood.webp',
   hongkong: 'HongKong.webp',
   honolulu: 'Honolulu.webp',
+  istanbul: 'Istanbul.webp',
   rio: 'Rio.webp',
   rome: 'Rome.webp',
   tokyo: 'Tokyo.webp',

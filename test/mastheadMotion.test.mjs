@@ -978,6 +978,26 @@ test('Chicago: a river under a bascule bridge, and nothing flies through a landm
   assert.equal(c.steam, undefined, 'Chicago paints no chimneys; a plume here would be invented')
 })
 
+test('Istanbul: the Golden Horn, and nothing flies through a minaret', () => {
+  const c = CITY_MOTION.istanbul
+  // The quay runs level at y 79-81; the water is everything below it.
+  for (const [x, y] of c.water) assert.ok(y > 82.5, `Istanbul reflection at ${x}, ${y} is on the quay`)
+  for (const [x, y] of c.glints) assert.ok(y > 82.5, `Istanbul glint at ${x}, ${y} is on the quay`)
+  for (const [x, y] of c.lights) assert.ok(y < 81, `Istanbul light at ${x}, ${y} is in the water`)
+  assert.ok(c.ferry.y > 82.5, 'the ferry left the water')
+  assert.ok(c.glints.length >= 30 && c.water.length >= 25)
+  // The Suleymaniye's four minarets reach the top of the card at x 38.8-47.1.
+  for (const kind of ['aircraft', 'birds', 'helicopter']) {
+    const lanes = Array.isArray(c[kind]) ? c[kind] : [c[kind]]
+    for (const lane of lanes) {
+      assert.ok(Math.min(lane.from, lane.to) > 48, `Istanbul.${kind} at y ${lane.y} flies through the minarets`)
+    }
+  }
+  // Floodlit stone, not aviation red: a minaret carries no beacon.
+  assert.equal(c.beacons, undefined, 'Istanbul paints no aviation red; its minarets are facade glows')
+  assert.ok(c.facade.length >= 6, 'the mosque and its minarets lost their floodlights')
+})
+
 test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   // MASTHEAD-STARS-1. Every other kind is verified against something the
   // artwork paints. These are verified against the artwork painting NOTHING,
@@ -985,7 +1005,7 @@ test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   // gated to the one scene with no cloud in it.
   // Seattle joined at MASTHEAD-SEATTLE-2: it was held back from the first
   // pass only because its pack was being replaced.
-  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome', 'seattle', 'chicago']
+  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome', 'seattle', 'chicago', 'istanbul']
   for (const city of STAR_CITIES) {
     const m = CITY_MOTION[city]
     assert.ok((m.stars?.length || 0) >= 20, `${city} has ${m.stars?.length || 0} stars; a handful reads as dust, not a sky`)
