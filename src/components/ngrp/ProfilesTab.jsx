@@ -711,8 +711,16 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
           // RESIDENCY-PORTAL-2b: request (Talent Acquisition), decide (the Owner), view (the requester).
           requestFeedback: (r, note) => runFeedback('request', { candidate_id: r.candidate_id, note },
             'Request sent', 'The ASPIRE team will review your request to view the preceptor feedback.'),
-          decideFeedback: (req, decision) => runFeedback('decide', { request_id: req.id, decision, expected_status: req.status },
-            ...(FEEDBACK_DECISION_TOAST[decision] || [])),
+          decideFeedback: async (req, decision, note) => {
+            const res = await runFeedback('decide', { request_id: req.id, decision, expected_status: req.status, note })
+            if (res) {
+              const [title, body] = FEEDBACK_DECISION_TOAST[decision] || ['Saved', '']
+              toast?.success?.(title, `${body} ${res.emailed
+                ? 'They have been emailed.'
+                : 'The email to them could not be sent, so please let them know directly.'}`)
+            }
+            return res
+          },
           viewFeedback: req => postNgrpPreceptorFeedback('view', { request_id: req.id }),
         }}
       />

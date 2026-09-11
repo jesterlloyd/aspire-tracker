@@ -424,6 +424,8 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
   const [busy, setBusy] = useState(false)
   const [viewState, setViewState] = useState('idle') // idle | loading | ready | error
   const [entries, setEntries] = useState([])
+  // One optional note per request, sent to the requester with the decision.
+  const [decisionNotes, setDecisionNotes] = useState({})
   if (!feedback?.ready || !feedback.audience || !row.candidate_id) return null
   const { entry, canDecide } = feedback
   const run = async (fn) => { setBusy(true); try { await fn() } finally { setBusy(false) } }
@@ -447,6 +449,7 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
           <p style={feedbackMuted}>
             Approved for you on {fmtDay(req.decidedAt)}. Each time you open it, the ASPIRE team can see that you did.
           </p>
+          {req.decisionNote && <p style={feedbackMuted}>Note from the ASPIRE team: {req.decisionNote}</p>}
           {viewState === 'ready' ? (
             entries.length
               ? entries.map((e, i) => <FeedbackEntry key={i} entry={e} first={i === 0} />)
@@ -511,21 +514,30 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
             ].filter(Boolean).join(' · ')}
           </div>
           {req.note && <p style={{ ...feedbackMuted, margin: '4px 0 0' }}>Reason: {req.note}</p>}
-          {canDecide && (req.status === 'pending' || req.status === 'approved') && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-              {req.status === 'pending' ? (
-                <>
-                  <button type="button" style={smallBtn(true)} disabled={busy}
-                    onClick={() => run(() => actions.decideFeedback?.(req, 'approved'))}>Approve</button>
-                  <button type="button" style={smallBtn()} disabled={busy}
-                    onClick={() => run(() => actions.decideFeedback?.(req, 'declined'))}>Decline</button>
-                </>
-              ) : (
-                <button type="button" style={smallBtn(false, true)} disabled={busy}
-                  onClick={() => run(() => actions.decideFeedback?.(req, 'revoked'))}>Withdraw Access</button>
-              )}
-            </div>
-          )}
+          {canDecide && (req.status === 'pending' || req.status === 'approved') && (() => {
+            const decide = decision => run(() => actions.decideFeedback?.(req, decision, (decisionNotes[req.id] || '').trim() || null))
+            return (
+              <div style={{ marginTop: 6 }}>
+                {/* Optional. It is emailed to the requester and shown to them in the portal. */}
+                <input
+                  type="text" value={decisionNotes[req.id] || ''} maxLength={500}
+                  onChange={e => setDecisionNotes(n => ({ ...n, [req.id]: e.target.value }))}
+                  placeholder="Note to the requester (optional)" aria-label="Note to the requester (optional)"
+                  style={feedbackNoteInput}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {req.status === 'pending' ? (
+                    <>
+                      <button type="button" style={smallBtn(true)} disabled={busy} onClick={() => decide('approved')}>Approve</button>
+                      <button type="button" style={smallBtn()} disabled={busy} onClick={() => decide('declined')}>Decline</button>
+                    </>
+                  ) : (
+                    <button type="button" style={smallBtn(false, true)} disabled={busy} onClick={() => decide('revoked')}>Withdraw Access</button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       ))}
     </Section>

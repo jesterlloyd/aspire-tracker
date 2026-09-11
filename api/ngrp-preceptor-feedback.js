@@ -30,6 +30,7 @@ import {
 import {
   PRECEPTOR_FEEDBACK_FORM_TYPE, REQUEST_NOTE_MAX, shapePreceptorFeedback, buildFeedbackSummary,
 } from '../lib/server/ngrpPreceptorFeedback.js'
+import { notifyRequesterOfDecision } from '../lib/server/ngrpPreceptorFeedbackNotify.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ACTIONS = new Set(['summary', 'request', 'decide', 'view'])
@@ -192,7 +193,11 @@ export default async function handler(req, res) {
       if (!data?.ok) {
         return res.status(DECIDE_STATUS[data?.reason] || 422).json({ error: data?.reason || 'decision_failed', status: data?.status })
       }
-      return res.status(200).json({ ok: true, request: { id: data.request_id, status: data.status } })
+      // The requester is told by email (Owner, 2026-09-11). Best effort: the
+      // decision is already saved, so a failed email never undoes it; the
+      // response says whether it went out so the team can follow up.
+      const mail = await notifyRequesterOfDecision(db, { requestId, decision: data.status, note: note.note })
+      return res.status(200).json({ ok: true, emailed: mail.emailed, request: { id: data.request_id, status: data.status } })
     }
 
     // ── view ────────────────────────────────────────────────────────────────
