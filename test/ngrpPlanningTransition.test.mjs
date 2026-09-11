@@ -418,13 +418,13 @@ const sendDb = (extra = {}) => mutableDb({ ngrp_cycles: { rows: [structuredClone
 const COMPLETE_FORM = {
   identity: { preferred_email: 'ada@x.test', preferred_phone: '', cs_employment_status: 'per_diem' },
   education: { school: 'CSUN', program: 'ABSN', degree_type: 'BSN', completion_date: '2026-08-01', gpa: 3.5, us_accredited: true },
-  aspire: { aspire_cohort: 'Summer 2026', precepted_unit: '6 South', rotation_hours: 180, prior_ngrp_applied: false },
+  aspire: { aspire_cohort: 'Summer 2026', precepted_unit: '6 South', rotation_shifts: 15, prior_ngrp_applied: false },
   licensure: {
     ca_rn_status: 'active', license_number: 'RN-12345', paid_rn_months: 2,
     bls_status: 'active', bls_issuer: 'AHA', bls_expiration: '2027-06-01', acls_required: false,
   },
   residency_interest: { interest: 'interested', unit_preferences: ['5 SCCT', 'NICU', '6 South'] },
-  attestation: { accurate: true, consent_followup: true },
+  attestation: { accurate: true, consent_followup: true, consent_hr_share: true },
 }
 const UNITS3 = ['5 SCCT', 'NICU', '6 South']
 const form = (over = {}) => {
@@ -1161,6 +1161,33 @@ test('complete: ranked preferences require exactly three DISTINCT active units, 
   assert.deepEqual(notInterested.payload.residency_interest.unit_preferences, [], 'a non-interested submission never carries rankings')
   const noAttest = vs(form({ attestation: { consent_followup: false } }))
   assert.equal(noAttest.ok, false)
+  // HR sees every submitted form, so sharing consent is required to submit,
+  // is stored on the revision, and is shown on the public page verbatim
+  const noHrConsent = vs(form({ attestation: { consent_hr_share: false } }))
+  assert.equal(noHrConsent.ok, false)
+  assert.ok(noHrConsent.errors.some(e => e.field === 'attestation.consent_hr_share'))
+  assert.equal(vs(form()).payload.attestation.consent_hr_share, true)
+  assert.match(formPage, /sharing my responses on this form with Cedars-Sinai Talent Acquisition/)
+  assert.match(drawerUi, /Consent to share with Talent Acquisition/)
+  // every alumni-facing sentence names the same team (never "Human Resources")
+  assert.match(formPage, /for the ASPIRE team and\s+Cedars-Sinai Talent Acquisition/)
+  assert.match(read('lib/server/email/ngrpTransitionEmail.js'), /ASPIRE team and Cedars-Sinai Talent Acquisition can/)
+  assert.doesNotMatch(formPage, /Human Resources/)
+  // precepted unit is picked from the catalog (or Other + a name); shifts are whole numbers
+  assert.equal(vs(form()).payload.aspire.precepted_unit, '6 South')
+  assert.equal(vs(form({ aspire: { precepted_unit: 'Made-up Unit' } })).payload.aspire.precepted_unit, '', 'off-list units are dropped')
+  const otherNoName = vs(form({ aspire: { precepted_unit: 'Other', precepted_unit_other: '' } }))
+  assert.ok(otherNoName.errors.some(e => e.field === 'aspire.precepted_unit_other'))
+  const otherNamed = vs(form({ aspire: { precepted_unit: 'Other', precepted_unit_other: 'Cath Lab' } }))
+  assert.equal(otherNamed.ok, true)
+  assert.equal(otherNamed.payload.aspire.precepted_unit_other, 'Cath Lab')
+  assert.equal(vs(form({ aspire: { precepted_unit: '6 South', precepted_unit_other: 'ignored' } })).payload.aspire.precepted_unit_other, '', 'other text only kept with Other')
+  assert.ok(vs(form({ aspire: { rotation_shifts: 12.5 } })).errors.some(e => e.field === 'aspire.rotation_shifts'))
+  assert.ok(vs(form({ aspire: { rotation_shifts: -1 } })).errors.some(e => e.field === 'aspire.rotation_shifts'))
+  assert.equal(vs(form({ aspire: { rotation_shifts: '' } })).ok, true, 'shifts stay optional')
+  assert.match(formPage, /getUnitsByDivision\(\)/)
+  assert.match(formPage, /<option value="Other">Other<\/option>/)
+  assert.doesNotMatch(formPage, /rotation_hours/)
   // and the public page maps field errors to inputs with an accessible summary
   assert.match(formPage, /FIELD_TO_INPUT_ID/)
   assert.match(formPage, /errorSummaryRef\.current\?\.focus\(\)/)

@@ -9,6 +9,11 @@
 // "draft restored" toast (a single static line notes a restored draft once).
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { DEFAULT_APPLICATION_CHECKLIST } from '../../lib/server/ngrpEligibility.js'
+import { DIVISION_ORDER, getUnitsByDivision } from '../lib/unitCatalog.js'
+
+// The ASPIRE placement units, grouped the way the org chart groups them. The
+// server accepts only these names or 'Other', so answers stay comparable.
+const UNITS_BY_DIVISION = getUnitsByDivision()
 
 const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 const F = "'Plus Jakarta Sans', system-ui, sans-serif"
@@ -16,7 +21,7 @@ const F = "'Plus Jakarta Sans', system-ui, sans-serif"
 const EMPTY_PAYLOAD = {
   identity: { preferred_email: '', preferred_phone: '', cs_employment_status: null },
   education: { school: '', program: '', degree_type: '', completion_date: '', gpa: '', us_accredited: null },
-  aspire: { aspire_cohort: '', precepted_unit: '', rotation_hours: '', prior_ngrp_applied: null, prior_ngrp_details: '' },
+  aspire: { aspire_cohort: '', precepted_unit: '', precepted_unit_other: '', rotation_shifts: '', prior_ngrp_applied: null, prior_ngrp_details: '' },
   licensure: {
     ca_rn_status: null, license_number: '', nclex_scheduled_date: '', paid_rn_months: '',
     bls_status: null, bls_issuer: '', bls_expiration: '',
@@ -24,7 +29,7 @@ const EMPTY_PAYLOAD = {
   },
   residency_interest: { interest: null, unit_preferences: ['', '', ''], interest_statement: '', strengths_statement: '' },
   readiness: {},
-  attestation: { accurate: false, consent_followup: false },
+  attestation: { accurate: false, consent_followup: false, consent_hr_share: false },
 }
 
 function mergePayload(base) {
@@ -50,23 +55,28 @@ const CSS = `
   .ngrpf-note { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1D4ED8; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; margin: 0 0 18px; }
   .ngrpf-sec { margin: 0 0 26px; }
   .ngrpf-sec h2 { font-size: 14px; font-weight: 700; color: #1D2567; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 2px solid #EDEEF4; padding-bottom: 7px; margin: 0 0 14px; }
-  .ngrpf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
-  .ngrpf-field { display: flex; flex-direction: column; gap: 5px; }
+  .ngrpf-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 16px; }
+  .ngrpf-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .ngrpf-field select { width: 100%; min-width: 0; text-overflow: ellipsis; }
   .ngrpf-field.full { grid-column: 1 / -1; }
   .ngrpf-field label { font-size: 12px; font-weight: 600; color: #4A5560; }
   .ngrpf-field .req { color: #B3282D; }
   .ngrpf-field input, .ngrpf-field select, .ngrpf-field textarea {
     font-size: 16px; /* FORMS-MOBILE-RESPONSIVE: prevent iOS auto-zoom */
-    font-family: ${F}; padding: 9px 11px; border: 1px solid #d7d2c8; border-radius: 8px; background: #fff; color: #191919;
+    font-family: ${F}; padding: 9px 11px; border: 1px solid #d7d2c8; border-radius: var(--aspire-radius-control); background: #fff; color: #191919;
   }
   .ngrpf-field textarea { min-height: 96px; resize: vertical; }
   .ngrpf-field input:focus, .ngrpf-field select:focus, .ngrpf-field textarea:focus { outline: 2px solid #4F6DA8; outline-offset: 1px; }
   .ngrpf-opts { display: flex; flex-wrap: wrap; gap: 8px; }
-  .ngrpf-opt { display: flex; align-items: center; gap: 7px; border: 1px solid #d7d2c8; border-radius: 999px; padding: 8px 14px; min-height: 44px; font-size: 13.5px; cursor: pointer; background: #fff; }
-  .ngrpf-opt.on { border-color: #1D2567; background: #EDEEF4; font-weight: 600; }
+  .ngrpf-opt { display: flex; align-items: center; gap: 7px; border: 1px solid #d1d5db; border-radius: var(--aspire-radius-control); padding: 8px 14px; min-height: 44px; font-size: 13.5px; cursor: pointer; background: #fff; }
+  /* Same treatment as the Student Form's weekday buttons: a picked option turns
+     Nightfall. The focus ring sits outside, so it stays visible on navy. */
+  .ngrpf-opt { font-weight: 600; color: #374151; }
+  .ngrpf-opt.on { border-color: #1D2567; background: #1D2567; color: #fff; }
+  .ngrpf-opt:focus-visible { outline: 2px solid #4F6DA8; outline-offset: 2px; }
   .ngrpf-check { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; font-size: 13.5px; cursor: pointer; min-height: 44px; }
-  .ngrpf-check input { width: 17px; height: 17px; margin-top: 2px; accent-color: #1D2567; }
-  .ngrpf-static { background: #F9FAFB; border: 1px solid #EFEDE8; border-radius: 8px; padding: 9px 11px; font-size: 13.5px; color: #4A5560; }
+  .ngrpf-check input { width: 17px; height: 17px; margin-top: 2px; accent-color: #1D2567; flex-shrink: 0; }
+  .ngrpf-static { background: #F9FAFB; border: 1px solid #EFEDE8; border-radius: var(--aspire-radius-control); padding: 9px 11px; font-size: 13.5px; color: #4A5560; }
   .ngrpf-error { color: #B3282D; font-size: 12.5px; margin: 4px 0 0; }
   .ngrpf-submitrow { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .ngrpf-submit { min-height: 52px; width: 100%; border: none; border-radius: 10px; background: #1D2567; color: #fff; font-family: ${F}; font-size: 15.5px; font-weight: 700; cursor: pointer; }
@@ -75,7 +85,7 @@ const CSS = `
   .ngrpf-state { max-width: 560px; margin: 12vh auto 0; background: #fff; border: 1px solid #e8e4dc; border-radius: 14px; padding: 34px 30px; text-align: center; }
   .ngrpf-state h1 { font-size: 19px; margin: 0 0 10px; color: #1D2567; }
   .ngrpf-state p { font-size: 14px; color: #4A5560; margin: 0; line-height: 1.6; }
-  @media (max-width: 620px) { .ngrpf-grid { grid-template-columns: 1fr; } .ngrpf-card, .ngrpf-mast { padding: 18px 16px; } }
+  @media (max-width: 620px) { .ngrpf-grid { grid-template-columns: minmax(0, 1fr); } .ngrpf-card, .ngrpf-mast { padding: 18px 16px; } }
 `
 
 // Server error fields → the input that fixes them (the pill-group fields
@@ -84,6 +94,8 @@ const FIELD_TO_INPUT_ID = {
   'identity.preferred_email': 'pe',
   'education.completion_date': 'cd',
   'education.gpa': 'gpa',
+  'aspire.precepted_unit_other': 'puo',
+  'aspire.rotation_shifts': 'rs',
   'licensure.license_number': 'ln',
   'licensure.nclex_scheduled_date': 'nd',
   'licensure.paid_rn_months': 'pm',
@@ -287,7 +299,8 @@ export default function NgrpTransitionFormPage() {
             <p className="ngrpf-note">Welcome back - your saved draft was restored.</p>
           )}
           <p className="ngrpf-note" style={{ background: '#F9FAFB', border: '1px solid #EFEDE8', color: '#4A5560' }}>
-            This form records your information and residency interest for the ASPIRE team. Completing
+            This form records your information and residency interest for the ASPIRE team and
+            Cedars-Sinai Talent Acquisition. Completing
             it is not an application to the residency program.
           </p>
 
@@ -340,9 +353,21 @@ export default function NgrpTransitionFormPage() {
             <h2>3 · ASPIRE experience</h2>
             <div className="ngrpf-grid">
               <div className="ngrpf-field"><label htmlFor="pu">Precepted unit</label>
-                <input id="pu" value={p.aspire.precepted_unit} onChange={e => update('aspire', 'precepted_unit', e.target.value)} /></div>
-              <div className="ngrpf-field"><label htmlFor="rh">Completed rotation hours / shifts</label>
-                <input id="rh" type="number" min="0" value={p.aspire.rotation_hours} onChange={e => update('aspire', 'rotation_hours', e.target.value)} /></div>
+                <select id="pu" value={p.aspire.precepted_unit} onChange={e => update('aspire', 'precepted_unit', e.target.value)}>
+                  <option value="">Select a unit…</option>
+                  {DIVISION_ORDER.filter(d => UNITS_BY_DIVISION[d]).map(d => (
+                    <optgroup key={d} label={d}>
+                      {UNITS_BY_DIVISION[d].map(u => <option key={u.name} value={u.name}>{u.name}, {u.description}</option>)}
+                    </optgroup>
+                  ))}
+                  <option value="Other">Other</option>
+                </select></div>
+              <div className="ngrpf-field"><label htmlFor="rs">Shifts completed in your ASPIRE rotation</label>
+                <input id="rs" type="number" min="0" step="1" inputMode="numeric" value={p.aspire.rotation_shifts} onChange={e => update('aspire', 'rotation_shifts', e.target.value)} /></div>
+              {p.aspire.precepted_unit === 'Other' && (
+                <div className="ngrpf-field full"><label htmlFor="puo">Which unit? <span className="req">*</span></label>
+                  <input id="puo" value={p.aspire.precepted_unit_other} onChange={e => update('aspire', 'precepted_unit_other', e.target.value)} /></div>
+              )}
               <div className="ngrpf-field full"><label>Have you applied to NGRP before?</label>
                 <div className="ngrpf-opts" role="group" aria-label="Prior NGRP application">
                   {opt('aspire', 'prior_ngrp_applied', true, 'Yes')}
@@ -463,6 +488,11 @@ export default function NgrpTransitionFormPage() {
               <input type="checkbox" checked={p.attestation.consent_followup}
                 onChange={e => update('attestation', 'consent_followup', e.target.checked)} />
               <span>I consent to the ASPIRE team following up with me about the residency pathway. <span className="req">*</span></span>
+            </label>
+            <label className="ngrpf-check">
+              <input type="checkbox" checked={p.attestation.consent_hr_share === true}
+                onChange={e => update('attestation', 'consent_hr_share', e.target.checked)} />
+              <span>I consent to the ASPIRE team sharing my responses on this form with Cedars-Sinai Talent Acquisition for the New Graduate RN Residency Program. <span className="req">*</span></span>
             </label>
           </section>
 
