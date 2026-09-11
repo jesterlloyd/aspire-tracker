@@ -456,7 +456,7 @@ function ApplicantDrawerBody({
 
       <Section
         title="Transition Form" tint="rgba(96,120,170,0.055)"
-        right={canManage && hasForm && provisioned ? (
+        right={canManage && hasForm && provisioned && actions.revokeLink ? (
           confirming === 'revoke'
             ? confirmBar('revoke', 'Revoke the live link? The alumnus loses access until a resend.', async () => { await actions.revokeLink?.(row) }, true)
             : <button type="button" style={{ ...smallBtn(false, true), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setConfirming('revoke')}>Revoke link</button>

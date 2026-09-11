@@ -22,8 +22,8 @@
 //   application_withdraw    { candidate_id }
 //   token_revoke            { candidate_id }          -> revoke live link (no resend)
 import { getServiceDb } from './lib/portalAuth.js'
-import { verifyPortalCaller } from './lib/portalAuth.js'
-import { can } from '../lib/server/access.js'
+import { verifyNgrpCaller } from './lib/ngrpAuth.js'
+import { TALENT_ACQUISITION, hasSubmittedForm } from '../lib/server/ngrpTalentAcquisition.js'
 import {
   validateCyclePayload, validateSourceCohortIds, validateCycleUnits,
   openReadiness, validateStatusTransition, FORM_ACTIVE_STATUSES,
@@ -44,11 +44,11 @@ const ACTIONS = new Set([
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
 
-async function verifyManageCaller(req) {
-  const caller = await verifyPortalCaller(req)
-  if (!caller.authenticated) return { ok: false, status: caller.status || 401, reason: caller.reason || 'unauthenticated' }
-  if (!can(caller.profile, 'ngrp_manage')) return { ok: false, status: 403, reason: 'ngrp_role_required' }
-  return { ok: true, profile: caller.profile }
+// RESIDENCY-PORTAL-2: the one Residency access check (api/lib/ngrpAuth.js) at
+// the manage level: ngrp_manage for staff, or an active Talent Acquisition grant
+// (joint ownership, Owner). Actions below narrow the latter.
+function verifyManageCaller(req) {
+  return verifyNgrpCaller(req, { manage: true })
 }
 
 const unprovisioned = res => res.status(200).json({ provisioned: false })
@@ -126,6 +126,7 @@ export default async function handler(req, res) {
   const caller = await verifyManageCaller(req)
   if (!caller.ok) return res.status(caller.status).json({ error: caller.reason })
   const actorId = caller.profile.id
+  const isTalentAcquisition = caller.audience === TALENT_ACQUISITION
 
   const body = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {}
   const action = typeof body.action === 'string' ? body.action : null
@@ -328,6 +329,14 @@ export default async function handler(req, res) {
     if (ctx.error) return isMissingNgrpTable(ctx.error) ? unprovisioned(res) : internal(res)
     if (ctx.notFound) return res.status(404).json({ error: 'candidate_not_found' })
     const { candidate, cycle } = ctx
+    // RESIDENCY-PORTAL-2: Talent Acquisition works only with alumni who submitted
+    // the Transition Form (Owner). Anyone else answers exactly like a missing
+    // candidate, so this endpoint never confirms who else is in the cohort.
+    if (isTalentAcquisition) {
+      const submittedCheck = await liveAssignmentForCandidate(db, candidateId)
+      if (submittedCheck.error) return isMissingNgrpTable(submittedCheck.error) ? unprovisioned(res) : internal(res)
+      if (!hasSubmittedForm(submittedCheck.assignment?.status)) return res.status(404).json({ error: 'candidate_not_found' })
+    }
 
     if (action === 'candidate_review') {
       const live = await liveAssignmentForCandidate(db, candidateId)
@@ -518,6 +527,8 @@ export default async function handler(req, res) {
     }
 
     if (action === 'token_revoke') {
+      // Form links belong to sending, which stays with the ASPIRE team.
+      if (isTalentAcquisition) return res.status(403).json({ error: 'staff_only_action' })
       const live = await liveAssignmentForCandidate(db, candidateId)
       if (live.error) return isMissingNgrpTable(live.error) ? unprovisioned(res) : internal(res)
       if (!live.assignment || live.assignment.status === 'pending') return res.status(409).json({ error: 'no_live_assignment' })

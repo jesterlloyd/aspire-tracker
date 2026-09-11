@@ -82,7 +82,12 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
   const serverCycle = data?.cycle || null
   const timeline = useMemo(() => cycleTimeline(serverCycle, todayStr), [serverCycle, todayStr])
   const capacity = useMemo(() => capacitySummary(data?.units), [data])
-  const stages = useMemo(() => pipelineStages(rows, { effectiveEligibility }), [rows])
+  // RESIDENCY-PORTAL-2: the Residency Portal's roster is submitted-forms only, so its
+  // server supplies the cohort-wide counts; the staff app derives them from its rows.
+  const stages = useMemo(
+    () => applicants.payload?.pipeline || pipelineStages(rows, { effectiveEligibility }),
+    [applicants.payload, rows],
+  )
   const confirmed = stages.find(s => s.key === 'confirmed')?.count || 0
   const pressure = seatPressure(capacity, confirmed)
 

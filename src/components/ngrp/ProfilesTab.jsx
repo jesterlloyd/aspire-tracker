@@ -617,8 +617,8 @@ export default function ProfilesTab({ cycle, canManage, toast }) {
             'Withdrawal recorded', `${displayName(r.student)} is recorded as withdrawn (a neutral state).`),
           override: (r, fields) => runManage('eligibility_override', { candidate_id: r.candidate_id, ...fields },
             'Eligibility overridden', 'The calculated result is preserved beside the override.'),
-          revokeLink: r => runManage('token_revoke', { candidate_id: r.candidate_id },
-            'Link revoked', 'The live Transition Form link no longer works. Use Resend to issue a new one.'),
+          revokeLink: canSendForms ? (r => runManage('token_revoke', { candidate_id: r.candidate_id },
+            'Link revoked', 'The live Transition Form link no longer works. Use Resend to issue a new one.')) : undefined,
           // NGRP-INTERVIEW-HIRE-1: recorded in this drawer from both surfaces,
           // so one person's record has exactly one place it is edited.
           setInterview: (r, fields) => runManage('interview_set', { candidate_id: r.candidate_id, ...fields },

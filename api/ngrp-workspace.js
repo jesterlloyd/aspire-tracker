@@ -22,6 +22,7 @@
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload } from '../lib/server/ngrpApplicants.js'
+import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ACTIONS = new Set(['cycles', 'applicants'])
@@ -63,13 +64,17 @@ export default async function handler(req, res) {
   if (payload.state === 'unprovisioned') return res.status(200).json({ provisioned: false })
   if (payload.state === 'cycle_not_found') return res.status(404).json({ error: 'cycle_not_found' })
   if (payload.state !== 'ok') return res.status(500).json({ error: 'internal_error' })
+  // RESIDENCY-PORTAL-2: Talent Acquisition sees only alumni who submitted the
+  // Transition Form, plus the cohort-wide counts At a Glance shows.
+  const view = caller.audience === TALENT_ACQUISITION ? narrowPayloadForTalentAcquisition(payload) : payload
 
   return res.status(200).json({
     provisioned: true,
     cycle: payload.cycle,
     sourceCohorts: payload.sourceCohorts,
-    students: payload.students,
-    candidates: payload.candidates,
+    students: view.students,
+    candidates: view.candidates,
+    ...(view.pipeline ? { pipeline: view.pipeline } : {}),
     excludedPriorHires: payload.excludedPriorHires,
     // NGRP-RELEASE-2: false while migration 20260904000000 is unapplied - the
     // roster still renders (neutral defaults), but send/review actions
