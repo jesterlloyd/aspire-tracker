@@ -24,7 +24,10 @@ const PAYLOAD = {
   sourceCohorts: [{ id: 'c1', name: 'Fall 2026' }],
   students: [stu('s-submitted'), stu('s-revised'), stu('s-opened'), stu('s-none')],
   candidates: [
-    { id: 'k1', student_id: 's-submitted', form_status: 'submitted', application_status: 'confirmed', eligibility_calculated: 'eligible' },
+    // RESIDENCY-ROSTER-1: interest is part of the pool rule now, so the fixture
+    // has to state it. This row was written when a 'confirmed' status was what
+    // put someone at the end of the funnel.
+    { id: 'k1', student_id: 's-submitted', form_status: 'submitted', interest: 'interested', application_status: 'confirmed', eligibility_calculated: 'eligible' },
     { id: 'k2', student_id: 's-revised', form_status: 'revised', application_status: 'not_confirmed', eligibility_calculated: 'pending' },
     { id: 'k3', student_id: 's-opened', form_status: 'opened', application_status: 'not_confirmed', eligibility_calculated: 'pending' },
   ],
@@ -53,7 +56,7 @@ test('At a Glance keeps the cohort-wide counts, computed before narrowing, as nu
   assert.equal(count('alumni'), 4, 'all four completed alumni, not just the two submitters')
   assert.equal(count('sent'), 3)
   assert.equal(count('submitted'), 2)
-  assert.equal(count('confirmed'), 1)
+  assert.equal(count('pool'), 1, 'the funnel ends at the Applicant Pool, which is derived')
   for (const stage of pipeline) assert.deepEqual(Object.keys(stage).sort(), ['count', 'hint', 'key', 'label'])
   assert.match(read('src/components/ngrp/AtAGlanceTab.jsx'), /applicants\.payload\?\.pipeline \|\| pipelineStages\(rows, \{ effectiveEligibility \}\)/)
 })

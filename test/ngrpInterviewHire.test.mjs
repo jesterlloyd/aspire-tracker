@@ -84,6 +84,11 @@ test('an empty outcome is valid, because the record accumulates over months', ()
   assert.ok(v.ok)
   assert.deepEqual(v.outcome, {
     offer_extended_at: null, offer_accepted_at: null, hired_at: null,
+    // RESIDENCY-ROSTER-1 (Owner, 2026-09-12): pairing means a unit will
+    // INTERVIEW them, and four results can follow. These are the two the record
+    // could not hold, so "interviewed and not selected" used to look exactly
+    // like "no decision yet".
+    not_selected_at: null, offer_declined_at: null,
     // RESIDENCY-SUPPORT-1 (Owner, 2026-09-11): where a hired resident is
     // reached. Optional, because the account often does not exist on day one.
     residency_start_date: null, hired_unit: null, cs_email: null,
@@ -103,8 +108,12 @@ test('the interview writes to candidates, the outcome to its own durable table',
 
   const oc = manageApi.slice(manageApi.indexOf("action === 'outcome_set'"), manageApi.indexOf("action === 'assign_unit'"))
   assert.match(oc, /from\('ngrp_residency_outcomes'\)/)
-  // Only someone on the official NGRP list can carry an offer or a hire.
-  assert.match(oc, /candidate\.application_status !== 'confirmed'/)
+  // Only someone who was actually in play can carry an offer or a hire. The
+  // pool rule decides that now (RESIDENCY-ROSTER-1), and a record that ALREADY
+  // exists stays correctable whatever the pool says later, so a hire recorded
+  // months ago never becomes uneditable.
+  assert.match(oc, /if \(!existing\.data\) \{[\s\S]{0,400}poolDecision\(composed\.row\)/)
+  assert.match(oc, /no offer or hire to record/)
   // One row per candidate attempt: update when it exists, insert when it does not.
   assert.match(oc, /existing\.data\s*\n?\s*\? await db\.from\('ngrp_residency_outcomes'\)\.update/)
   assert.match(oc, /: await db\.from\('ngrp_residency_outcomes'\)\.insert/)

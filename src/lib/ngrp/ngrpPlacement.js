@@ -13,26 +13,20 @@
 // own Transition Form, the assignment is what HR decided, and the board shows
 // both side by side rather than letting one stand in for the other.
 
-// Only confirmed applicants are placeable. A submitted form and an eligible
-// result are not an application; assigning a unit to someone who never applied
-// would record a decision against a person who did not ask for one.
-export function placeableRows(rows) {
-  return (rows || []).filter(r => r.application_status === 'confirmed')
-}
+// RESIDENCY-ROSTER-1 (Owner, 2026-09-12): who is placeable is now the
+// Applicant Pool rule, not a status somebody set by hand. Confirmation became
+// automatic: submitted, eligible or conditionally eligible, and interested puts
+// an alumnus on this board without anybody pressing a button. The care the old
+// rule was protecting is unchanged, because the rule still refuses to place
+// anyone who did not submit, did not say they were interested, or is recorded
+// as Not Proceeding. One definition, in lib/server/ngrpPool.js, read by the
+// board, the roster, At a Glance and every server write.
+import { isInApplicantPool, preferencesOf } from '../../../lib/server/ngrpPool.js'
 
-// The applicant's ranked preferences, compacted and de-duplicated, in rank
-// order. Blank ranks are dropped rather than rendered as empty slots.
-export function preferencesOf(row) {
-  const raw = [row?.unit_preference_1, row?.unit_preference_2, row?.unit_preference_3]
-  const seen = new Set()
-  const out = []
-  for (const p of raw) {
-    const name = typeof p === 'string' ? p.trim() : ''
-    if (!name || seen.has(name.toLowerCase())) continue
-    seen.add(name.toLowerCase())
-    out.push(name)
-  }
-  return out
+export { preferencesOf }
+
+export function placeableRows(rows) {
+  return (rows || []).filter(isInApplicantPool)
 }
 
 // Which rank, if any, the assigned unit matched. 1-based for display; null when
@@ -81,7 +75,9 @@ export function placementSummary(units, rows) {
   return {
     units: pool.length,
     seats: exact ? pool.reduce((n, u) => n + u.seats, 0) : null,
-    confirmed: placeable.length,
+    // Everyone the pool rule admits. Named for the rule rather than for the
+    // retired "Application Confirmed" status it used to count.
+    inPool: placeable.length,
     placed: placeable.filter(r => r.assigned_unit).length,
     unplaced: placeable.filter(r => !r.assigned_unit).length,
     overSubscribed: pool.filter(u => u.over).map(u => u.unit_name),

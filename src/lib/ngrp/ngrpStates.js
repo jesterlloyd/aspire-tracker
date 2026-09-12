@@ -17,6 +17,21 @@
 //   mute (gray dash)    - no action yet, no response, not confirmed (NEUTRAL)
 // Color is never the only signal: every pill renders an icon + text label.
 import { cycleChronoKey } from '../../../lib/server/ngrpApplicants.js'
+// RESIDENCY-ROSTER-1: the Applicant Pool rule and the roster Status vocabulary
+// live in lib/server/ngrpPool.js, which is the lower layer (it imports nothing
+// from here). effectiveEligibility moved there with them, because the pool rule
+// needs it and this module needs the pool rule; re-exported so every existing
+// import of it from ngrpStates keeps working.
+import { isInApplicantPool, effectiveEligibility } from '../../../lib/server/ngrpPool.js'
+
+export {
+  effectiveEligibility,
+  isInApplicantPool,
+  poolDecision, rosterStatus, rosterStatusLabel, statusCounts,
+  preferencesOf, effectivePreferences, formPreferences, normalizePreferences,
+  ROSTER_STATUSES, ROSTER_STATUS_BAND, NOT_PROCEEDING_REASONS, NOT_PROCEEDING_REASON_KEYS,
+  REASON_REQUIRING_NOTE, POOL_ELIGIBILITY,
+} from '../../../lib/server/ngrpPool.js'
 
 // ── Color families (hexes shared with ASPIRE_STATUS_CONFIG families) ─────────
 export const PILL_FAMILIES = {
@@ -38,6 +53,22 @@ export const FORM_STATES = {
 }
 export const FORM_ORDER = ['not_sent', 'sent', 'opened', 'in_progress', 'submitted', 'revised']
 
+// RESIDENCY-ROSTER-1 (Owner, 2026-09-12): the roster stopped carrying the form
+// lifecycle as a status column, because for Talent Acquisition everyone listed
+// submitted it and the column said the same word on every row. What the roster
+// still has to say is whether WE sent the form, so this is a two-state reading
+// of the same field. The full lifecycle stays in the drawer, where it is read
+// when it matters.
+export const FORM_SENT_STATES = {
+  not_sent: { label: 'Not Sent', family: 'mute', icon: 'dash' },
+  sent:     { label: 'Sent',     family: 'info', icon: 'info' },
+  received: { label: 'Received', family: 'ok',   icon: 'check' },
+}
+export function formSentState(row) {
+  if (row?.form_status === 'submitted' || row?.form_status === 'revised') return 'received'
+  return (!row?.form_status || row.form_status === 'not_sent') ? 'not_sent' : 'sent'
+}
+
 // ── Residency interest ───────────────────────────────────────────────────────
 export const INTEREST_STATES = {
   interested:     { label: 'Interested',     family: 'info', icon: 'info' },
@@ -55,13 +86,19 @@ export const ELIGIBILITY_STATES = {
 }
 
 // ── Official NGRP application ────────────────────────────────────────────────
-// A submitted Transition Form and an eligible result are NOT an application.
-// Only 'confirmed' means the alumnus appears on the official NGRP applicant
-// list. 'not_confirmed' is a neutral state, styled accordingly.
+// RESIDENCY-ROSTER-1 (Owner, 2026-09-12): confirmation is now AUTOMATIC, so
+// this vocabulary no longer decides who is on the official list; the pool rule
+// in ngrpPool.js does. What remains stored here is the one thing the rule
+// cannot derive, that a human recorded someone as no longer proceeding.
+// 'withdrawn' is legacy: migration 20260916000000 rewrote every such row to
+// 'not_proceeding' with the reason 'withdrew', and nothing writes it any more.
+// It stays in the vocabulary so an unmigrated row still renders a label rather
+// than a raw value.
 export const APPLICATION_STATES = {
-  not_confirmed: { label: 'Not Confirmed', family: 'mute', icon: 'dash' },
-  confirmed:     { label: 'Confirmed',     family: 'ok',   icon: 'check' },
-  withdrawn:     { label: 'Withdrawn',     family: 'mute', icon: 'dash' },
+  not_confirmed:  { label: 'Not Confirmed',  family: 'mute', icon: 'dash' },
+  confirmed:      { label: 'Confirmed',      family: 'ok',   icon: 'check' },
+  withdrawn:      { label: 'Not Proceeding', family: 'mute', icon: 'dash' },
+  not_proceeding: { label: 'Not Proceeding', family: 'mute', icon: 'dash' },
 }
 
 // ── Interview ────────────────────────────────────────────────────────────────
@@ -139,12 +176,9 @@ const CANDIDATE_DEFAULTS = {
   application_status: 'not_confirmed',
   assigned_unit: null,
   interview_status: 'not_scheduled',
-}
-
-// The staff override, when present, is the effective result; the calculated
-// result is always retained and shown alongside it in the drawer.
-export function effectiveEligibility(row) {
-  return row.eligibility_effective || row.eligibility_calculated || 'pending'
+  staff_unit_preferences: null,
+  not_proceeding_reason: null,
+  outcome: null,
 }
 
 // ── Roster derivation ────────────────────────────────────────────────────────
@@ -175,33 +209,41 @@ export function deriveApplicantRows(students, candidates) {
 export const KPI_DEFS = [
   { key: 'all',        label: 'Completed Alumni',       sub: 'Prospective candidates', accent: 'nightfall',
     match: () => true },
+  // Someone recorded as Not Proceeding is not an outreach target. The check
+  // names both values: 'withdrawn' is the legacy spelling of the same fact, and
+  // an unmigrated row must not reappear in this card.
   { key: 'not_sent',   label: 'Form Not Sent',          sub: 'Awaiting outreach',      accent: 'dawn',
-    match: r => r.form_status === 'not_sent' && r.application_status !== 'withdrawn' },
+    match: r => r.form_status === 'not_sent'
+      && r.application_status !== 'withdrawn' && r.application_status !== 'not_proceeding' },
   { key: 'submitted',  label: 'Form Submitted',         sub: 'Includes revisions',     accent: 'periwinkle',
     match: r => r.form_status === 'submitted' || r.form_status === 'revised' },
   { key: 'eligible',   label: 'Eligible',               sub: 'Effective result',       accent: 'sage',
     match: r => effectiveEligibility(r) === 'eligible' },
   { key: 'cond',       label: 'Conditionally Eligible', sub: 'Requirement pending',    accent: 'lavender',
     match: r => effectiveEligibility(r) === 'conditionally_eligible' },
-  { key: 'confirmed',  label: 'Application Confirmed',  sub: 'Official NGRP list',     accent: 'marina',
-    match: r => r.application_status === 'confirmed' },
+  // RESIDENCY-ROSTER-1: this card was "Application Confirmed". Confirmation is
+  // automatic now, so the card counts the rule's own answer rather than a
+  // status somebody had to set by hand.
+  { key: 'pool',       label: 'In the Applicant Pool',  sub: 'Ready to be paired',     accent: 'marina',
+    match: r => isInApplicantPool(r) },
 ]
 
 // ── Sorting ──────────────────────────────────────────────────────────────────
 // Default operational priority (lower rank = higher on the roster):
-//   1 application confirmed
+//   1 in the Applicant Pool
 //   2 interested and eligible
 //   3 interested and conditionally eligible
 //   4 form submitted but pending review (incl. a Not Eligible result awaiting
 //     staff review/override - it needs the same staff attention)
 //   5 form sent but incomplete (sent / opened / in progress)
 //   6 form not sent
-//   7 not interested or withdrawn (neutral, parked at the bottom - never a
+//   7 not interested or not proceeding (neutral, parked at the bottom - never a
 //     demerit, just not actionable)
 export function operationalRank(r) {
   const elig = effectiveEligibility(r)
-  if (r.application_status === 'withdrawn' || r.interest === 'not_interested') return 7
-  if (r.application_status === 'confirmed') return 1
+  if (r.application_status === 'not_proceeding' || r.application_status === 'withdrawn'
+      || r.interest === 'not_interested') return 7
+  if (isInApplicantPool(r)) return 1
   const formDone = r.form_status === 'submitted' || r.form_status === 'revised'
   if (formDone && r.interest === 'interested' && elig === 'eligible') return 2
   if (formDone && r.interest === 'interested' && elig === 'conditionally_eligible') return 3

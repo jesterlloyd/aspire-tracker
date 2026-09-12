@@ -25,13 +25,13 @@ import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 import { Plus, CheckCircle2, AlertTriangle, Settings2 } from 'lucide-react'
 import { useNgrpPlanning, useNgrpApplicants } from '../../lib/ngrp/useNgrpData'
-import { deriveApplicantRows, effectiveEligibility } from '../../lib/ngrp/ngrpStates'
+import { deriveApplicantRows, effectiveEligibility, rosterStatus, ROSTER_STATUSES } from '../../lib/ngrp/ngrpStates'
 import { toLocalDateStr } from '../../lib/designTokens'
 import { F, btn } from '../../lib/ngrp/ngrpCohortForm'
 import { compareCohortsChrono } from '../../lib/cohortSeason'
 import { displayName } from '../../lib/utils'
 import { cycleTimeline, milestoneWhen, pipelineStages } from '../../lib/ngrp/ngrpPlanningView'
-import { residencySnapshot, hiringUnitGroups, applicantsBySchool } from '../../lib/ngrp/ngrpGlanceView'
+import { residencySnapshot, hiringUnitGroups, applicantsBySchool, statusCounts } from '../../lib/ngrp/ngrpGlanceView'
 
 const fmtDay = d => {
   if (!d) return null
@@ -75,7 +75,7 @@ function useOpenSet() {
 }
 
 // ── 1 · The unified KPI card ─────────────────────────────────────────────────
-function ResidencySnapshot({ snap, cycleName }) {
+function ResidencySnapshot({ snap, band, cycleName }) {
   const positionsSub = snap.activeUnits === 0
     ? 'No hiring units yet'
     : snap.exact ? plural(snap.activeUnits, 'hiring unit') : `${snap.pricedUnits} of ${snap.activeUnits} units set`
@@ -90,13 +90,27 @@ function ResidencySnapshot({ snap, cycleName }) {
       <div className="glance-kpis snap-kpis">
         <KPICell value={snap.positions} label="Positions" sub={positionsSub} />
         <KPICell value={snap.applicants} label="Applicants" sub="Transition Form submitted" />
-        <KPICell value={snap.confirmed} label="Confirmed" sub="Official NGRP list" />
-        <KPICell value={snap.filled} label="Filled" sub="Assigned to a unit" accent="sage" />
+        {/* RESIDENCY-ROSTER-1: "Confirmed" is gone, because nobody confirms
+            anything any more. "Filled" is now "Paired", which is what the
+            placement board actually records: the unit that will interview
+            them. Hires have their own number in the band below. */}
+        <KPICell value={snap.inPool} label="In the Pool" sub="Ready to be paired" />
+        <KPICell value={snap.paired} label="Paired" sub="A unit will interview them" accent="sage" />
         <KPICell
           value={snap.open == null ? 'Not set' : snap.open}
           label="Open"
-          sub={snap.open == null ? 'Every unit needs a position count' : 'Positions not yet filled'}
+          sub={snap.open == null ? 'Every unit needs a position count' : 'Positions not yet paired'}
         />
+      </div>
+      {/* The Status band (Owner): one number per state, in the arc's own order,
+          the same states the Alumni Roster's Status column shows. */}
+      <div className="ngrp-statusband" aria-label="Applicants by status">
+        {band.map(s => (
+          <div key={s.key} className={`ngrp-statusband-item${s.count === 0 ? ' ngrp-statusband-zero' : ''}`}>
+            <span className="ngrp-statusband-n">{s.count}</span>
+            <span className="ngrp-statusband-l">{s.label}</span>
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -182,34 +196,28 @@ function HiringUnitsPanel({ groups, loading }) {
 }
 
 // ── 3 · Applicants (like Placement Requests) ─────────────────────────────────
-const ELIGIBILITY_WORDS = {
-  eligible: 'Eligible',
-  conditionally_eligible: 'Conditionally eligible',
-  not_eligible: 'Not eligible',
-  pending: 'Eligibility pending',
-}
-
+// RESIDENCY-ROSTER-1: the SAME Status the roster shows, so the two surfaces
+// cannot describe one person two ways.
 function ApplicantStatus({ row }) {
-  if (row.application_status === 'confirmed' && row.assigned_unit) {
-    return <span className="ngrp-glance-pill ngrp-glance-pill-ok">Assigned to {row.assigned_unit}</span>
+  const status = rosterStatus(row)
+  if (status === 'awaiting_decision' && row.assigned_unit) {
+    return <span className="ngrp-glance-pill ngrp-glance-pill-conf">{row.assigned_unit} interviews them</span>
   }
-  if (row.application_status === 'confirmed') {
-    return <span className="ngrp-glance-pill ngrp-glance-pill-conf">Confirmed</span>
-  }
-  return <span className="ngrp-glance-pill">{ELIGIBILITY_WORDS[effectiveEligibility(row)] || 'Eligibility pending'}</span>
+  const tone = status === 'hired' ? ' ngrp-glance-pill-ok' : status === 'in_pool' ? ' ngrp-glance-pill-conf' : ''
+  return <span className={`ngrp-glance-pill${tone}`}>{ROSTER_STATUSES[status].label}</span>
 }
 
 function ApplicantsPanel({ schools, loading }) {
   const { open, toggle, setOpen } = useOpenSet()
   const total = schools.reduce((s, g) => s + g.rows.length, 0)
-  const assigned = schools.reduce((s, g) => s + g.assigned, 0)
+  const paired = schools.reduce((s, g) => s + g.paired, 0)
   return (
     <section className="snap ngrp-glance-panel" aria-label="Applicants">
       <div className="aggregate-panel-hdr">
         <div>
           <div className="ov-panel-title">Applicants</div>
           <div className="ov-panel-sub">
-            {plural(schools.length, 'school')} · {plural(total, 'applicant')} · {assigned} assigned
+            {plural(schools.length, 'school')} · {plural(total, 'applicant')} · {paired} paired
           </div>
         </div>
         {schools.length > 0 && (
@@ -229,7 +237,7 @@ function ApplicantsPanel({ schools, loading }) {
                 <button type="button" className="ov-group-row ngrp-glance-grouprow" aria-expanded={isOpen} onClick={() => toggle(g.school)}>
                   <span className="ov-chevron">{isOpen ? '▾' : '▸'}</span>
                   <span className="ov-group-name">{g.school}</span>
-                  {g.confirmed > 0 && <span className="ngrp-glance-pill ngrp-glance-pill-ok">{g.confirmed} confirmed</span>}
+                  {g.inPool > 0 && <span className="ngrp-glance-pill ngrp-glance-pill-ok">{g.inPool} in the pool</span>}
                   <span className="ov-group-badge">{plural(g.rows.length, 'applicant')}</span>
                 </button>
                 {isOpen && (
@@ -285,6 +293,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
     [applicants.payload, rows],
   )
   const snap = useMemo(() => residencySnapshot({ units: data?.units || [], rows, stages }), [data, rows, stages])
+  const band = useMemo(() => statusCounts(rows), [rows])
   const unitGroups = useMemo(() => hiringUnitGroups(data?.units || [], rows), [data, rows])
   const schools = useMemo(() => applicantsBySchool(rows), [rows])
 
@@ -395,7 +404,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
         </div>
       )}
 
-      <ResidencySnapshot snap={snap} cycleName={serverCycle.name} />
+      <ResidencySnapshot snap={snap} band={band} cycleName={serverCycle.name} />
 
       <div className="ngrp-plan-2col">
         <HiringUnitsPanel groups={unitGroups} loading={planning.status === 'loading'} />

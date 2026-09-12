@@ -87,9 +87,9 @@ function PlacementOverview({ cycle, summary, prefCounts }) {
         </div>
       </div>
       <div style={{ display: 'flex', background: 'var(--border-card,rgba(29,37,103,0.04))', gap: 1, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 0' }}><KPICell value={summary.confirmed} label="Applicants" sub="Application confirmed" /></div>
-        <div style={{ flex: '1 1 0' }}><KPICell value={summary.placed} label="Assigned" sub={matchedSub} accent="sage" /></div>
-        <div style={{ flex: '1 1 0' }}><KPICell value={summary.unplaced} label="Unassigned" sub="Pending a unit" accent={summary.unplaced > 0 ? 'warning' : null} /></div>
+        <div style={{ flex: '1 1 0' }}><KPICell value={summary.inPool} label="Applicants" sub="In the Applicant Pool" /></div>
+        <div style={{ flex: '1 1 0' }}><KPICell value={summary.placed} label="Paired" sub={matchedSub} accent="sage" /></div>
+        <div style={{ flex: '1 1 0' }}><KPICell value={summary.unplaced} label="Not Paired" sub="Pending a unit" accent={summary.unplaced > 0 ? 'warning' : null} /></div>
         <div style={{ flex: '1 1 0' }}>
           <KPICell
             value={summary.seats == null ? '' : Math.max(0, summary.seats - summary.placed)}
@@ -102,7 +102,7 @@ function PlacementOverview({ cycle, summary, prefCounts }) {
           <div style={{ fontSize: 16, fontWeight: 700, color: topPct !== null ? 'var(--color-status-success,#2D4A2B)' : 'var(--text-muted,#98A2B3)', lineHeight: 1.2 }}>
             {topPct !== null ? `${topPct}% received top choice` : summary.placed > 0 ? 'No assignment matched a ranked choice' : '-'}
           </div>
-          <SegmentedBar counts={counts} total={summary.confirmed} />
+          <SegmentedBar counts={counts} total={summary.inPool} />
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {PREF_SEGMENTS.map(seg => (
               <div key={seg.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-caption,#6b7280)', whiteSpace: 'nowrap' }}>
@@ -378,7 +378,7 @@ export default function PlacementBoard({ cycle, canManage, toast }) {
             {visibleApplicants.length === 0 && (
               <p className="ngrp-pb-empty">
                 {rows.length === 0
-                  ? 'No confirmed applicants yet. An alumnus reaches this board once their application is confirmed in Profiles & Interest.'
+                  ? 'Nobody is in the Applicant Pool yet. An alumnus arrives here on their own once they submit the Transition Form, are eligible or conditionally eligible, and say they are interested.'
                   : 'No applicant matches these filters.'}
               </p>
             )}
@@ -475,8 +475,11 @@ export default function PlacementBoard({ cycle, canManage, toast }) {
       </div>
 
       <p style={{ margin: '12px 0 0', fontSize: 11.5, color: '#6B7785', fontFamily: F, lineHeight: 1.55 }}>
-        Interview and hire outcomes are recorded in the applicant drawer, the same one Profiles &amp;
-        Interest opens. No interview rubric or score is stored anywhere in ASPIRE.
+        Pairing an applicant with a unit means that unit will <b>interview</b> them. It is not a hire:
+        the hire is recorded in the applicant drawer, the same one Profiles &amp; Interest opens, once
+        Talent Acquisition confirms the person accepted and started.
+        No interview rubric or score is stored
+        anywhere in ASPIRE.
       </p>
 
       <ApplicantDrawer

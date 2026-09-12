@@ -18,9 +18,20 @@
 //   candidate_review        { candidate_id }          -> latest revision + requirements + link meta
 //   eligibility_recalculate { cycle_id? candidate_id? }
 //   eligibility_override    { candidate_id, result, reason_category, note }
-//   application_confirm     { candidate_id }          -> the ONLY path to Confirmed
-//   application_withdraw    { candidate_id }
+//   application_confirm     { candidate_id }          -> legacy explicit confirm
+//   application_withdraw    { candidate_id }          -> legacy; superseded by not_proceeding_set
 //   token_revoke            { candidate_id }          -> revoke live link (no resend)
+//   assign_unit             { candidate_id, unit }    -> PAIR with the unit that will interview them
+//   interview_set           { candidate_id, ... }     -> the interview record
+//   outcome_set             { candidate_id, ... }     -> the durable offer/hire record
+//   not_proceeding_set      { candidate_id, reason, note } -> leaves the Applicant Pool
+//   application_reinstate   { candidate_id }          -> undoes the above
+//   unit_preferences_set    { candidate_id, preferences } -> staff ranking of unit choices
+//
+// RESIDENCY-ROSTER-1 (Owner, 2026-09-12): pool membership is DERIVED, not
+// stored. Nothing here confirms an application any more; lib/server/ngrpPool.js
+// decides who is placeable, and the guards below ask it rather than reading a
+// status somebody had to set by hand.
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { TALENT_ACQUISITION, hasSubmittedForm } from '../lib/server/ngrpTalentAcquisition.js'
@@ -28,7 +39,9 @@ import {
   validateCyclePayload, validateSourceCohortIds, validateCycleUnits,
   openReadiness, validateStatusTransition, FORM_ACTIVE_STATUSES,
   validateInterviewPayload, validateOutcomePayload,
+  validateNotProceedingPayload, validateUnitPreferencesPayload,
 } from '../lib/server/ngrpPlanning.js'
+import { poolDecision, NOT_PROCEEDING } from '../lib/server/ngrpPool.js'
 import { isMissingNgrpTable, isMissingNgrpSchema, isMissingNgrpColumn } from '../lib/server/ngrpApplicants.js'
 import {
   liveAssignmentForCandidate, revokeTokensById, recalculateEligibility,
@@ -36,10 +49,20 @@ import {
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// DEFECT FIXED 2026-09-12 (RESIDENCY-ROSTER-1): assign_unit, interview_set and
+// outcome_set have handler blocks below but were never listed here, so since
+// 6035a370 every placement assignment and every interview or hire save has been
+// answered 400 invalid_action before reaching its block. That is why migration
+// 20260915000000's POST 3 found zero hires recorded in production: the write
+// could not land. An action must appear in BOTH places to be reachable, and
+// test/residencyRoster.test.mjs now pins that.
 const ACTIONS = new Set([
   'planning', 'cycle_create', 'cycle_update', 'cycle_set_active', 'sources_set', 'units_set',
   'candidate_review', 'eligibility_recalculate', 'eligibility_override',
   'application_confirm', 'application_withdraw', 'token_revoke',
+  'assign_unit', 'interview_set', 'outcome_set',
+  // RESIDENCY-ROSTER-1
+  'not_proceeding_set', 'application_reinstate', 'unit_preferences_set',
 ])
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
@@ -92,6 +115,18 @@ async function loadCycleBundle(db, cycleId) {
     if (!sug.error) unitNameSuggestions = [...new Set((sug.data || []).map(u => u.unit_name).filter(Boolean))]
   }
   return { cycle: cyc.data, sourceCohorts, units: cycleUnits, unitsProvisioned, readiness, unitNameSuggestions }
+}
+
+// RESIDENCY-ROSTER-1: the pool rule needs the form's lifecycle, which lives on
+// the transition assignment rather than on the candidate row, so the server
+// composes the same shape the browser derives before asking. A PENDING
+// assignment (prepared, never accepted by the provider) is not a delivered
+// form, exactly as the roster treats it.
+async function poolRowFor(db, candidate) {
+  const live = await liveAssignmentForCandidate(db, candidate.id)
+  if (live.error) return { error: live.error }
+  const status = live.assignment?.status
+  return { row: { ...candidate, form_status: (!status || status === 'pending') ? 'not_sent' : status } }
 }
 
 async function candidateWithCycle(db, candidateId) {
@@ -440,15 +475,24 @@ export default async function handler(req, res) {
     // outlive the workflow, with RESTRICT foreign keys and DELETE revoked even
     // from service_role. One row per candidate attempt, upserted.
     if (action === 'outcome_set') {
-      if (candidate.application_status !== 'confirmed') {
-        return invalid(res, [{ field: 'candidate', message: 'Only an applicant on the official NGRP list can carry an offer or a hire.' }])
-      }
       const v = validateOutcomePayload(body)
       if (!v.ok) return invalid(res, v.errors)
       const existing = await db.from('ngrp_residency_outcomes')
         .select('*').eq('candidate_id', candidateId).maybeSingle()
       if (existing.error && !isMissingNgrpTable(existing.error)) return internal(res)
       if (existing.error) return unprovisioned(res)
+      // An outcome belongs to someone who was actually in play. A record that
+      // ALREADY exists stays correctable whatever the pool says now, because a
+      // hire recorded months ago must not become uneditable the moment the
+      // person's workflow state moves on.
+      if (!existing.data) {
+        const composed = await poolRowFor(db, candidate)
+        if (composed.error) return isMissingNgrpTable(composed.error) ? unprovisioned(res) : internal(res)
+        const decision = poolDecision(composed.row)
+        if (!decision.inPool) {
+          return invalid(res, [{ field: 'candidate', message: `This alumnus is not in the Applicant Pool, so there is no offer or hire to record. ${decision.reasons.join(' ')}` }])
+        }
+      }
 
       const row = {
         candidate_id: candidateId,
@@ -470,6 +514,8 @@ export default async function handler(req, res) {
         ['offer_extended_at', 'offer_extended'],
         ['offer_accepted_at', 'offer_accepted'],
         ['hired_at', 'hire_recorded'],
+        ['offer_declined_at', 'offer_declined'],
+        ['not_selected_at', 'not_selected'],
       ]) {
         if (v.outcome[field] && !before[field]) {
           await recordNgrpAudit(db, {
@@ -485,8 +531,17 @@ export default async function handler(req, res) {
     if (action === 'assign_unit') {
       const raw = typeof body.unit === 'string' ? body.unit.trim() : ''
       const unit = raw || null
-      if (unit && candidate.application_status !== 'confirmed') {
-        return invalid(res, [{ field: 'unit', message: 'Only an applicant on the official NGRP list can be assigned a unit. Confirm the application first.' }])
+      // Pairing means this unit will INTERVIEW them, so it is refused for
+      // anyone the pool rule does not admit. The refusal says which of the
+      // three conditions failed rather than "confirm the application first",
+      // which is advice that no longer applies to anything.
+      if (unit) {
+        const composed = await poolRowFor(db, candidate)
+        if (composed.error) return isMissingNgrpTable(composed.error) ? unprovisioned(res) : internal(res)
+        const decision = poolDecision(composed.row)
+        if (!decision.inPool) {
+          return invalid(res, [{ field: 'unit', message: `This alumnus is not in the Applicant Pool, so they cannot be paired with a unit. ${decision.reasons.join(' ')}` }])
+        }
       }
       if (unit === (candidate.assigned_unit || null)) return res.status(200).json({ ok: true, idempotent: true })
       // Actor and moment travel WITH the assignment, or the DB check rejects
@@ -524,6 +579,79 @@ export default async function handler(req, res) {
       if (upd.error) return internal(res)
       await recordNgrpAudit(db, { eventType: 'application_withdrawn', cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId })
       return res.status(200).json({ ok: true })
+    }
+
+    // RESIDENCY-ROSTER-1: the removal, and its undo.
+    //
+    // "Not Proceeding" replaced "Reject" (Owner). The alumnus leaves the
+    // Applicant Pool and stops counting as an applicant; their submitted form,
+    // their revisions and their eligibility result are NOT touched, because
+    // leaving the pool is not erasure. The reason is required.
+    if (action === 'not_proceeding_set') {
+      const v = validateNotProceedingPayload(body)
+      if (!v.ok) return invalid(res, v.errors)
+      const already = candidate.application_status === NOT_PROCEEDING
+      const upd = await db.from('ngrp_candidates').update({
+        application_status: NOT_PROCEEDING,
+        not_proceeding_reason: v.reason,
+        not_proceeding_note: v.note,
+        // Correcting the reason later keeps the moment they actually left.
+        not_proceeding_at: (already && candidate.not_proceeding_at) || nowIso,
+        not_proceeding_by_profile_id: actorId,
+      }).eq('id', candidateId)
+      if (upd.error) return isMissingNgrpColumn(upd.error) ? unprovisioned(res) : internal(res)
+      await recordNgrpAudit(db, {
+        eventType: 'not_proceeding_recorded',
+        cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
+        metadata: { reason: v.reason, corrected: already },
+      })
+      return res.status(200).json({ ok: true, reason: v.reason })
+    }
+
+    if (action === 'application_reinstate') {
+      if (candidate.application_status !== NOT_PROCEEDING && candidate.application_status !== 'withdrawn') {
+        return res.status(200).json({ ok: true, idempotent: true })
+      }
+      // Back to the neutral baseline. The pool rule decides from there, so a
+      // still-interested, still-eligible alumnus is on the board again at once
+      // and nobody has to confirm anything.
+      const upd = await db.from('ngrp_candidates').update({
+        application_status: 'not_confirmed',
+        application_confirmed_at: null,
+        application_withdrawn_at: null,
+        not_proceeding_reason: null,
+        not_proceeding_note: null,
+        not_proceeding_at: null,
+        not_proceeding_by_profile_id: null,
+      }).eq('id', candidateId)
+      if (upd.error) return isMissingNgrpColumn(upd.error) ? unprovisioned(res) : internal(res)
+      await recordNgrpAudit(db, {
+        eventType: 'application_reinstated',
+        cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
+        metadata: { previous_reason: candidate.not_proceeding_reason || null },
+      })
+      return res.status(200).json({ ok: true })
+    }
+
+    // The staff ranking of unit choices. It sits BESIDE the ranking the alumnus
+    // submitted, which is immutable, and becomes the effective one. Sending an
+    // empty list clears it and gives their own ranking back.
+    if (action === 'unit_preferences_set') {
+      const v = validateUnitPreferencesPayload(body)
+      if (!v.ok) return invalid(res, v.errors)
+      const has = v.preferences.length > 0
+      const upd = await db.from('ngrp_candidates').update({
+        staff_unit_preferences: has ? v.preferences : null,
+        unit_preferences_set_by_profile_id: has ? actorId : null,
+        unit_preferences_set_at: has ? nowIso : null,
+      }).eq('id', candidateId)
+      if (upd.error) return isMissingNgrpColumn(upd.error) ? unprovisioned(res) : internal(res)
+      await recordNgrpAudit(db, {
+        eventType: 'unit_preferences_set',
+        cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
+        metadata: { preferences: v.preferences, cleared: !has },
+      })
+      return res.status(200).json({ ok: true, preferences: v.preferences })
     }
 
     if (action === 'token_revoke') {

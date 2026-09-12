@@ -106,7 +106,10 @@ test('surface: the portal hides the staff-only send action; the staff app is the
   const profiles = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(profiles, /canManage && canSendForms && selected\.size > 0/)
   assert.match(profiles, /sendForm: canSendForms \? r => launchSend\(\[r\]\) : undefined/)
-  assert.match(read('src/components/ngrp/ApplicantDrawer.jsx'), /\{actions\.sendForm && \(/)
+  // RESIDENCY-ROSTER-1 retired the Confirm Application button beside it, so the
+  // send button now sits directly under the gateNote check. The GATE is what
+  // matters here and it is unchanged.
+  assert.match(read('src/components/ngrp/ApplicantDrawer.jsx'), /actions\.sendForm && \(/)
   // no shared tab component hard-codes the staff address any more
   for (const f of ['src/components/ngrp/AtAGlanceTab.jsx', 'src/components/ngrp/ActivityCalendar.jsx', 'src/components/ngrp/NgrpWorkspace.jsx']) {
     assert.doesNotMatch(read(f), /'\/ngrp\/residency\/activity'/, f)

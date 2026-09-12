@@ -9,6 +9,8 @@
 // 'YYYY-MM-DD' values, so they are compared as STRINGS against today's local
 // date string - no Date parsing, and therefore no timezone day-shift.
 
+import { isInApplicantPool } from '../../../lib/server/ngrpPool.js'
+
 // The cycle's milestones in calendar order. `end` is set only for the interview
 // window, which is a span rather than a moment.
 export const MILESTONE_DEFS = [
@@ -110,8 +112,11 @@ export function pipelineStages(rows, { effectiveEligibility }) {
       hint: 'Effective result' },
     { key: 'cond',      label: 'Conditionally eligible', count: list.filter(r => effectiveEligibility(r) === 'conditionally_eligible').length,
       hint: 'Requirement pending' },
-    { key: 'confirmed', label: 'Application confirmed', count: list.filter(r => r.application_status === 'confirmed').length,
-      hint: 'Official NGRP list' },
+    // RESIDENCY-ROSTER-1: the funnel's last stage is the Applicant Pool, which
+    // is now derived (submitted, eligible or conditionally eligible, and
+    // interested) rather than confirmed by hand.
+    { key: 'pool', label: 'In the Applicant Pool', count: list.filter(isInApplicantPool).length,
+      hint: 'Ready to be paired with a hiring unit' },
   ]
 }
 

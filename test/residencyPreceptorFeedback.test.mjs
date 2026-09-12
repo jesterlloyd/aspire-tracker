@@ -199,7 +199,12 @@ test('the roster and drawer: an indicator, a deep link, and the section', () => 
   const drawer = read('src/components/ngrp/ApplicantDrawer.jsx')
   assert.match(drawer, /<PreceptorFeedbackSection row=\{row\} feedback=\{feedback\} actions=\{actions\} \/>/)
   assert.match(drawer, /title="Preceptor Feedback"/)
-  assert.match(drawer, /\{actions\.sendForm && \(/, 'the send gate is untouched')
+  // RESIDENCY-ROSTER-1 retired the Confirm Application button beside it, so the
+  // send button now sits directly under the gateNote check. The GATE itself is
+  // what this pins, and it is unchanged: a send action must exist, and the
+  // pending-migration note still suppresses it.
+  assert.match(drawer, /actions\.sendForm && \(/, 'the send gate is untouched')
+  assert.match(drawer, /\{!gateNote && actions\.sendForm/)
 })
 
 test('the notification link switches to the applicant\'s residency cohort first', () => {

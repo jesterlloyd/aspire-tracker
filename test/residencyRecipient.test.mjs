@@ -63,7 +63,12 @@ test('the migration adds one nullable, shape-checked column and nothing else', (
 
 test('the roster reads the column when it exists and falls back when it does not', () => {
   const src = read('lib/server/ngrpApplicants.js')
-  assert.match(src, /select\(`\$\{OUTCOME_FIELDS\}, cs_email`\)/)
+  // RESIDENCY-ROSTER-1 added not_selected_at and offer_declined_at to the same
+  // record, so the read is widest-first and falls back ONE group at a time: a
+  // database with cs_email but without the newer pair still gets its cs_email
+  // rather than dropping all the way to the base fields.
+  assert.match(src, /const full = await read\(`\$\{OUTCOME_FIELDS\}, cs_email, not_selected_at, offer_declined_at`\)/)
+  assert.match(src, /const withEmail = await read\(`\$\{OUTCOME_FIELDS\}, cs_email`\)/)
   assert.match(src, /if \(!full\.error \|\| !isMissingNgrpColumn\(full\.error\)\) return full/)
   assert.match(read('api/ngrp-manage.js'), /isMissingNgrpSchema\(wrote\.error\) \|\| isMissingNgrpColumn\(wrote\.error\)/)
   const drawer = read('src/components/ngrp/ApplicantDrawer.jsx')

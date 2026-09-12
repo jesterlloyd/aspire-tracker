@@ -5,10 +5,13 @@
 // what the applicant asked for on their Transition Form; the assignment is what
 // HR decided. The board shows both and lets neither imply the other.
 //
-// The second rule is that only a CONFIRMED applicant is placeable. A submitted
-// form and an eligible result are not an application, and assigning a unit to
-// someone who never applied records a decision against a person who did not ask
-// for one.
+// The second rule is WHO is placeable, and RESIDENCY-ROSTER-1 (Owner,
+// 2026-09-12) reversed how it is decided. Confirmation used to be an explicit
+// staff act; it is automatic now, so the Applicant Pool is DERIVED: submitted,
+// eligible or conditionally eligible, and interested. What the old rule was
+// protecting is unchanged, because the derivation still refuses anyone who did
+// not submit, did not say they were interested, or is recorded as Not
+// Proceeding, so a unit is never assigned to a person who did not ask for one.
 //
 // Run: node --test test/ngrpPlacementBoard.test.mjs
 
@@ -37,20 +40,30 @@ const UNITS = [
   { unit_name: '6 NT', is_active: true, capacity: 1 },
   { unit_name: 'NICU', is_active: false, capacity: 5 },
 ]
-const row = (o) => ({ application_status: 'confirmed', assigned_unit: null, ...o })
+// A pool member states all three conditions, because all three are the rule now.
+const row = (o) => ({
+  form_status: 'submitted', interest: 'interested', eligibility_calculated: 'eligible',
+  application_status: 'not_confirmed', assigned_unit: null, ...o,
+})
+const outOfPool = (o) => row({ interest: 'not_interested', ...o })
 
 // ── Who is on the board ──────────────────────────────────────────────────────
 
-test('only confirmed applicants are placeable', () => {
+test('the Applicant Pool is derived, and only the pool is placeable', () => {
   const rows = [
     row({ id: 'a' }),
-    row({ id: 'b', application_status: 'not_confirmed' }),
-    row({ id: 'c', application_status: 'withdrawn' }),
+    row({ id: 'b', interest: 'no_response' }),
+    row({ id: 'c', application_status: 'not_proceeding', not_proceeding_reason: 'withdrew' }),
   ]
   assert.deepEqual(placeableRows(rows).map(r => r.id), ['a'])
-  // A submitted form and an eligible result are NOT an application.
-  const eligibleButUnconfirmed = row({ id: 'd', application_status: 'not_confirmed', form_status: 'submitted', eligibility_calculated: 'eligible' })
-  assert.deepEqual(placeableRows([eligibleButUnconfirmed]), [])
+  // THE REVERSAL: a submitted form plus an eligible result plus interest IS the
+  // application now. Nobody confirms it, which is exactly what the Owner asked
+  // for, and a 'confirmed' status is not what puts anyone here.
+  assert.deepEqual(placeableRows([row({ id: 'd' })]).map(r => r.id), ['d'])
+  assert.deepEqual(placeableRows([row({ id: 'e', eligibility_calculated: 'conditionally_eligible' })]).map(r => r.id), ['e'])
+  // What has NOT changed: an unsubmitted form is still not an application.
+  assert.deepEqual(placeableRows([row({ id: 'f', form_status: 'sent' })]), [])
+  assert.deepEqual(placeableRows([row({ id: 'g', eligibility_calculated: 'not_eligible' })]), [])
 })
 
 // ── A preference is not an assignment ────────────────────────────────────────
@@ -85,7 +98,7 @@ test('the Unit Pool counts only active units, and counts them honestly', () => {
     row({ id: 'a', assigned_unit: '5 SCCT', unit_preference_1: '5 SCCT' }),
     row({ id: 'b', assigned_unit: '5 SCCT', unit_preference_1: '6 NT' }),
     row({ id: 'c', unit_preference_1: '6 NT' }),
-    row({ id: 'd', application_status: 'not_confirmed', assigned_unit: '6 NT' }),
+    outOfPool({ id: 'd', assigned_unit: '6 NT' }),
   ]
   const pool = unitPool(UNITS, rows)
   // NICU is inactive: the form never offered it, so nobody could rank it.
@@ -93,9 +106,9 @@ test('the Unit Pool counts only active units, and counts them honestly', () => {
   const scct = pool.find(u => u.unit_name === '5 SCCT')
   assert.deepEqual([scct.seats, scct.assigned, scct.remaining, scct.over], [2, 2, 0, false])
   const nt = pool.find(u => u.unit_name === '6 NT')
-  // 'd' is unconfirmed, so their stale assignment does not fill a seat.
+  // 'd' is out of the pool, so their stale assignment does not fill a seat.
   assert.equal(nt.assigned, 0)
-  // Three confirmed applicants ranked 6 NT anywhere... two did.
+  // Of the applicants in the pool, two ranked 6 NT anywhere.
   assert.equal(nt.requested, 2)
 })
 
@@ -122,15 +135,15 @@ test('a unit with no number set reports unknown, never zero remaining', () => {
 
 // ── The number the board exists to move ──────────────────────────────────────
 
-test('the summary counts placed against unplaced, confirmed only', () => {
+test('the summary counts placed against unplaced, the pool only', () => {
   const rows = [
     row({ id: 'a', assigned_unit: '5 SCCT' }),
     row({ id: 'b' }),
     row({ id: 'c' }),
-    row({ id: 'd', application_status: 'not_confirmed' }),
+    outOfPool({ id: 'd' }),
   ]
   const s = placementSummary(UNITS, rows)
-  assert.equal(s.confirmed, 3)
+  assert.equal(s.inPool, 3)
   assert.equal(s.placed, 1)
   assert.equal(s.unplaced, 2)
   assert.equal(s.seats, 3)
@@ -165,8 +178,10 @@ test('applicants sort by what still needs doing, never against each other', () =
 
 test('assigning is staff-only, explicit, and carries its actor', () => {
   const block = manageApi.slice(manageApi.indexOf("action === 'assign_unit'"), manageApi.indexOf("action === 'application_confirm'"))
-  // Only someone on the official NGRP list can be assigned.
-  assert.match(block, /candidate\.application_status !== 'confirmed'/)
+  // Only someone the pool rule admits can be paired, and the refusal says which
+  // condition failed rather than naming a status nobody sets any more.
+  assert.match(block, /poolDecision\(composed\.row\)/)
+  assert.match(block, /not in the Applicant Pool, so they cannot be paired with a unit/)
   // A blank string is not a unit; clearing is NULL, one representation only.
   assert.match(block, /const unit = raw \|\| null/)
   // Actor and moment travel with the assignment, and clearing clears both.
@@ -251,11 +266,11 @@ test('focus runs both ways, which is what makes it a board', () => {
 
 test('the preference breakdown is honest about what was not ranked', () => {
   const rows = [
-    { application_status: 'confirmed', assigned_unit: 'A', unit_preference_1: 'A' },
-    { application_status: 'confirmed', assigned_unit: 'B', unit_preference_1: 'A', unit_preference_2: 'B' },
+    row({ assigned_unit: 'A', unit_preference_1: 'A' }),
+    row({ assigned_unit: 'B', unit_preference_1: 'A', unit_preference_2: 'B' }),
     // HR assigned a unit this applicant never ranked.
-    { application_status: 'confirmed', assigned_unit: 'Z', unit_preference_1: 'A' },
-    { application_status: 'confirmed', assigned_unit: null, unit_preference_1: 'A' },
+    row({ assigned_unit: 'Z', unit_preference_1: 'A' }),
+    row({ assigned_unit: null, unit_preference_1: 'A' }),
   ]
   const c = preferenceCounts(rows)
   assert.deepEqual(c, { top: 1, second: 1, other: 0, notRecorded: 1 })

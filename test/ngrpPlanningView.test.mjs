@@ -144,7 +144,15 @@ test('the funnel counts the SAME rows the Applicants roster renders', () => {
   assert.equal(by.submitted, 3, 'revisions count as submitted')
   assert.equal(by.eligible, 2, 'a staff override is the effective result')
   assert.equal(by.cond, 1)
-  assert.equal(by.confirmed, 1, 'submitted and eligible is NOT an application')
+  // RESIDENCY-ROSTER-1 (Owner, 2026-09-12): the funnel's last stage is the
+  // Applicant Pool, and it is derived. "Submitted and eligible is NOT an
+  // application" was the old rule; interest is what replaced the confirming
+  // act, so none of these rows qualifies until they say they are interested.
+  assert.equal(by.pool, 0, 'nobody here has said they are interested')
+  const interested = rows.map(r => ({ ...r, interest: 'interested' }))
+  const withInterest = Object.fromEntries(pipelineStages(interested, { effectiveEligibility: eff }).map(s => [s.key, s.count]))
+  assert.equal(withInterest.pool, 3, 'submitted, eligible or conditional, and interested, with nobody confirming it')
+  assert.equal(withInterest.sent, 4, 'the earlier stages are untouched')
   assert.deepEqual(pipelineStages([], { effectiveEligibility: eff }).map(s => s.count), [0, 0, 0, 0, 0, 0])
 })
 

@@ -40,9 +40,10 @@ import PreceptorFeedbackChip from './PreceptorFeedbackChip'
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import {
-  FORM_STATES, INTEREST_STATES, ELIGIBILITY_STATES, APPLICATION_STATES,
-  INTERVIEW_STATES, KPI_DEFS, SORT_OPTIONS,
+  FORM_SENT_STATES, INTEREST_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
+  KPI_DEFS, SORT_OPTIONS,
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
+  formSentState, rosterStatus, effectivePreferences, NOT_PROCEEDING_REASONS,
 } from '../../lib/ngrp/ngrpStates'
 import { useNgrpApplicants, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpRosterCsv, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
@@ -462,20 +463,28 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         aria-label={allVisibleSelected ? 'Deselect all visible alumni' : 'Select all visible alumni'}
                       />
                     </th>
+                    {/* RESIDENCY-ROSTER-1 (Owner, 2026-09-12): the SAME six
+                        columns in the staff app and the Residency Portal.
+                        Assigned Unit, Interview and Last Updated are gone (all
+                        interviews happen in two days, and the drawer restates
+                        the rest); Transition Form became a sent indicator; the
+                        ranked choices arrived, because what Talent Acquisition
+                        is actually reading this table for is which unit each
+                        applicant wants; and Application became Status, which
+                        carries the whole arc now that confirmation is
+                        automatic. */}
                     <th scope="col">Alumnus</th>
-                    <th scope="col">Transition Form</th>
-                    <th scope="col">Interest</th>
+                    <th scope="col" className="ngrp-col-form">Form</th>
+                    <th scope="col" className="ngrp-col-interest">Interest</th>
                     <th scope="col">Eligibility</th>
-                    <th scope="col">Application</th>
-                    <th scope="col" className="ngrp-col-unit">Assigned Unit</th>
-                    <th scope="col" className="ngrp-col-iv">Interview</th>
-                    <th scope="col" className="ngrp-col-upd">Last Updated</th>
+                    <th scope="col" className="ngrp-col-choices">Top Choices</th>
+                    <th scope="col">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredRows.length === 0 && (
                     <tr>
-                      <td colSpan={9} style={{ padding: 0 }}>
+                      <td colSpan={7} style={{ padding: 0 }}>
                         <EmptyState
                           compact
                           heading="No alumni match the current filters"
@@ -488,6 +497,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     const s = r.student
                     const overridden = Boolean(r.eligibility_effective)
                     const ts = formTimestamp(r)
+                    const { preferences, source: prefSource } = effectivePreferences(r)
+                    const status = rosterStatus(r)
+                    const paired = status === 'awaiting_decision' ? r.assigned_unit : null
+                    const npReason = status === 'not_proceeding'
+                      ? NOT_PROCEEDING_REASONS[r.not_proceeding_reason]?.label
+                      : null
                     return (
                       <tr
                         key={r.id}
@@ -525,28 +540,43 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                             </div>
                           </div>
                         </td>
-                        <td>
-                          <NgrpStatusPill config={FORM_STATES} value={r.form_status} srPrefix="Transition Form" />
+                        {/* Whether WE sent the form, not where it got to. The
+                            lifecycle is in the drawer. */}
+                        <td className="ngrp-col-form">
+                          <NgrpStatusPill config={FORM_SENT_STATES} value={formSentState(r)} srPrefix="Transition Form" />
                           {ts && <div className="ngrp-cellsub">{relTime(ts)}</div>}
-                          {r.form_status === 'revised' && (r.form_revision_count || 0) > 0 && (
-                            <div className="ngrp-cellsub">Rev {r.form_revision_count}</div>
-                          )}
                         </td>
-                        <td><NgrpStatusPill config={INTEREST_STATES} value={r.interest} srPrefix="Interest" /></td>
+                        <td className="ngrp-col-interest"><NgrpStatusPill config={INTEREST_STATES} value={r.interest} srPrefix="Interest" /></td>
                         <td>
                           <NgrpStatusPill config={ELIGIBILITY_STATES} value={effectiveEligibility(r)} srPrefix="Eligibility" />
                           {overridden && <div className="ngrp-cellsub">staff override · see details</div>}
                         </td>
-                        <td><NgrpStatusPill config={APPLICATION_STATES} value={r.application_status} srPrefix="Application" /></td>
-                        <td className="ngrp-col-unit">
-                          {r.assigned_unit
-                            ? <span style={{ fontSize: 12, fontWeight: 600 }}>{r.assigned_unit}</span>
-                            : <span style={{ fontSize: 12, color: '#9CA3AF' }}>—</span>}
-                          {r.assigned_unit_changed_at && <div className="ngrp-cellsub">changed</div>}
+                        {/* All three ranked choices in one column (Owner). The
+                            unit they are paired with is marked, because that is
+                            the one deciding whether to interview them. */}
+                        <td className="ngrp-col-choices">
+                          {preferences.length === 0
+                            ? <span style={{ fontSize: 12, color: '#9CA3AF' }}>None ranked</span>
+                            : (
+                              <div className="ngrp-choices">
+                                {preferences.map((u, i) => (
+                                  <span
+                                    key={u}
+                                    className={`ngrp-choice${paired && u.toLowerCase() === paired.toLowerCase() ? ' ngrp-choice-on' : ''}`}
+                                  >
+                                    <span className="ngrp-choice-rank" aria-hidden="true">{i + 1}</span>
+                                    <span className="sr-only">Choice {i + 1}: </span>
+                                    {u}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          {prefSource === 'staff' && <div className="ngrp-cellsub">set by the ASPIRE team</div>}
                         </td>
-                        <td className="ngrp-col-iv"><NgrpStatusPill config={INTERVIEW_STATES} value={r.interview_status} srPrefix="Interview" /></td>
-                        <td className="ngrp-col-upd" style={{ fontSize: 11, color: '#6B7785', fontVariantNumeric: 'tabular-nums' }}>
-                          {relTime(r.last_activity_at)}
+                        <td>
+                          <NgrpStatusPill config={ROSTER_STATUSES} value={status} srPrefix="Status" />
+                          {paired && <div className="ngrp-cellsub">{paired} interviews them</div>}
+                          {npReason && <div className="ngrp-cellsub">{npReason}</div>}
                         </td>
                       </tr>
                     )
@@ -694,10 +724,18 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         actions={{
           sendForm: canSendForms ? r => launchSend([r]) : undefined,
           review: r => postNgrpManage('candidate_review', { candidate_id: r.candidate_id }),
-          confirmApplication: r => runManage('application_confirm', { candidate_id: r.candidate_id },
-            'Application confirmed', `${displayName(r.student)} is now on the official NGRP applicant list.`),
-          withdraw: r => runManage('application_withdraw', { candidate_id: r.candidate_id },
-            'Withdrawal recorded', `${displayName(r.student)} is recorded as withdrawn (a neutral state).`),
+          // RESIDENCY-ROSTER-1: the roster is informational; every action on a
+          // person lives in their drawer (Owner). Confirmation is gone from
+          // both, because it happens on its own now.
+          setNotProceeding: (r, fields) => runManage('not_proceeding_set', { candidate_id: r.candidate_id, ...fields },
+            'Recorded as Not Proceeding', `${displayName(r.student)} has left the Applicant Pool. Their form and eligibility stay on record.`),
+          reinstate: r => runManage('application_reinstate', { candidate_id: r.candidate_id },
+            'Back in consideration', `${displayName(r.student)} returns to the Applicant Pool if they still meet it.`),
+          setPreferences: (r, preferences) => runManage('unit_preferences_set', { candidate_id: r.candidate_id, preferences },
+            preferences.length ? 'Choices updated' : 'Choices restored',
+            preferences.length
+              ? `${displayName(r.student)}'s ranked choices now come from the ASPIRE team.`
+              : `${displayName(r.student)}'s own ranked choices are effective again.`),
           override: (r, fields) => runManage('eligibility_override', { candidate_id: r.candidate_id, ...fields },
             'Eligibility overridden', 'The calculated result is preserved beside the override.'),
           revokeLink: canSendForms ? (r => runManage('token_revoke', { candidate_id: r.candidate_id },

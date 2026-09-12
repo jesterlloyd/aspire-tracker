@@ -195,6 +195,32 @@
   white-space: nowrap;
 }
 
+/* RESIDENCY-ROSTER-1: the Status band on At a Glance. One number per state, in
+   the arc's own order, sitting under the snapshot's KPI cells. */
+.ngrp-statusband {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 11px 20px 13px;
+  border-top: var(--aspire-row-line);
+}
+.ngrp-statusband-item { display: flex; flex-direction: column; gap: 1px; min-width: 78px; }
+.ngrp-statusband-n {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--nightfall, #1D2567);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.ngrp-statusband-l {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-caption, #6B7785);
+}
+.ngrp-statusband-zero .ngrp-statusband-n { color: var(--text-muted, #9CA3AF); }
+
 /* Bulk-selection bar - sticks to the roster card's bottom edge */
 .ngrp-selbar {
   position: sticky;
@@ -210,12 +236,31 @@
   box-shadow: 0 -4px 16px rgba(29, 37, 103, 0.18);
 }
 
+/* RESIDENCY-ROSTER-1: the ranked choices, all three in one cell (Owner). The
+   rank badge reuses the drawer's square so the two surfaces read alike. */
+.ngrp-choices { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
+.ngrp-choice { display: flex; align-items: center; gap: 6px; font-size: 11.5px; line-height: 1.25; }
+.ngrp-choice-rank {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: var(--sand, #EDEEF4);
+  color: var(--nightfall, #1D2567);
+  font-size: 9px;
+  font-weight: 700;
+}
+.ngrp-choice-on { font-weight: 700; }
+
 /* Responsive column collapse: the columns that leave first are the ones the
-   drawer restates. Alumnus, Form, Interest, Eligibility, Application always
-   remain. */
-@media (max-width: 1360px) { .ngrp-table .ngrp-col-upd  { display: none; } .ngrp-table { min-width: 880px; } }
-@media (max-width: 1180px) { .ngrp-table .ngrp-col-iv   { display: none; } .ngrp-table { min-width: 760px; } }
-@media (max-width: 1020px) { .ngrp-table .ngrp-col-unit { display: none; } .ngrp-table { min-width: 640px; } }
+   drawer restates. Alumnus, Eligibility and Status always remain, because
+   Status is the column the whole roster is read for. */
+@media (max-width: 1240px) { .ngrp-table .ngrp-col-form    { display: none; } .ngrp-table { min-width: 880px; } }
+@media (max-width: 1080px) { .ngrp-table .ngrp-col-interest{ display: none; } .ngrp-table { min-width: 760px; } }
+@media (max-width: 900px)  { .ngrp-table .ngrp-col-choices { display: none; } .ngrp-table { min-width: 620px; } }
 
 @media (prefers-reduced-motion: reduce) {
   .ngrp-table tbody tr { transition: none; }

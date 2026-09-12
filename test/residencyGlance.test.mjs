@@ -25,7 +25,11 @@ const UNITS = [
 ]
 const row = (id, school, o = {}) => ({
   id, student: { id, first_name: id, last_name: 'Alum', school, aspire_cohort: 'Fall 2026' },
-  form_status: 'submitted', application_status: 'not_confirmed', eligibility_calculated: 'eligible',
+  // RESIDENCY-ROSTER-1: interest is part of the pool rule now, so the fixture
+  // has to state it. These rows were written when application_status decided
+  // who was on the board.
+  form_status: 'submitted', interest: 'interested',
+  application_status: 'not_confirmed', eligibility_calculated: 'eligible',
   assigned_unit: null, unit_preference_1: null, unit_preference_2: null, unit_preference_3: null, ...o,
 })
 const ROWS = [
@@ -36,18 +40,19 @@ const ROWS = [
   row('eve', 'UCLA', { form_status: 'not_sent' }),
 ]
 const STAGES = [
-  { key: 'alumni', count: 5 }, { key: 'submitted', count: 3 }, { key: 'confirmed', count: 3 },
+  { key: 'alumni', count: 5 }, { key: 'submitted', count: 3 }, { key: 'pool', count: 3 },
 ]
 
-test('the snapshot: positions, applicants, confirmed, filled (assigned), open', () => {
+test('the snapshot: positions, applicants, in the pool, paired, open', () => {
   const s = residencySnapshot({ units: UNITS, rows: ROWS, stages: STAGES })
   assert.equal(s.activeUnits, 3, 'inactive units are not hiring')
   assert.equal(s.positions, 5, 'units with a number only')
   assert.equal(s.exact, false, 'CSICU has no number')
   assert.equal(s.open, null, 'Open is not claimed while a unit has no number')
   assert.equal(s.applicants, 3, 'the Pipeline\'s own submitted count')
-  assert.equal(s.confirmed, 3)
-  assert.equal(s.filled, 2, 'assigned on the placement board')
+  assert.equal(s.inPool, 3)
+  assert.equal(s.paired, 2, 'matched to the unit that will interview them, which is not a hire')
+  assert.equal(s.hired, 1)
   assert.equal(s.schools, 2, 'schools among submitters')
   const exact = residencySnapshot({ units: UNITS.slice(0, 2), rows: ROWS, stages: STAGES })
   assert.equal(exact.open, 3)
@@ -72,8 +77,8 @@ test('applicants: submitters only, grouped by school A to Z, names in order', ()
   const schools = applicantsBySchool(ROWS)
   assert.deepEqual(schools.map(g => g.school), ['APU', 'CSUN'])
   assert.deepEqual(schools[1].rows.map(r => r.id), ['ana', 'ben'])
-  assert.equal(schools[1].confirmed, 2)
-  assert.equal(schools[1].assigned, 1)
+  assert.equal(schools[1].inPool, 2)
+  assert.equal(schools[1].paired, 1)
   assert.ok(!JSON.stringify(schools).includes('eve') && !JSON.stringify(schools).includes('dee'))
 })
 
@@ -83,7 +88,7 @@ test('the page: snapshot, both tables, timeline and pipeline; Seats and Scope an
   for (const t of ['Cohort Timeline', 'Pipeline']) assert.match(glance, new RegExp(`title="${t}"`), t)
   assert.doesNotMatch(glance, /title="Seats"|title="Scope and Rules"|seatPressure|ruleSummaryLines|capacitySummary/)
   for (const h of ['1st Choice', 'Top 3', 'Assigned', 'Hired', 'Open']) assert.match(glance, new RegExp(`>${h}</th>`), h)
-  assert.match(glance, /<KPICell value=\{snap\.filled\} label="Filled" sub="Assigned to a unit"/)
+  assert.match(glance, /<KPICell value=\{snap\.paired\} label="Paired" sub="A unit will interview them"/)
   assert.match(glance, /className="ngrp-glance-cohort">\{r\.student\.aspire_cohort\}/, 'cohort pill')
   assert.doesNotMatch(glance, /ApplicantDrawer|onSelect|setDrawer/, 'informational: no row opens anything')
   assert.match(glance, /\{staffApp && \(\s*<div className=\{`ngrp-banner/, 'the send-readiness banner is staff-only')
@@ -124,7 +129,12 @@ test('the roster reads the assigned unit and interview back (they were written b
   selects.length = 0
   const fallback = await loadApplicantsPayload(fake(true), 'cy1')
   assert.equal(fallback.state, 'ok', 'a missing column degrades to the base fields, not an error')
+  // RESIDENCY-ROSTER-1 added a third group, so the fallback drops ONE group at a
+  // time, newest first: a cohort missing 20260916000000's columns still gets its
+  // assigned unit and interview back rather than falling all the way to the base.
   const cand = selects.filter(s => s.name === 'ngrp_candidates')
   assert.equal(cand.length, 2)
-  assert.doesNotMatch(cand[1].cols, /assigned_unit/)
+  assert.match(cand[0].cols, /not_proceeding_reason/)
+  assert.doesNotMatch(cand[1].cols, /not_proceeding_reason/)
+  assert.match(cand[1].cols, /assigned_unit/)
 })

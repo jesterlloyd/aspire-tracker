@@ -684,12 +684,18 @@ test('roster semantics: neutral defaults, operational sort, and KPI predicates h
   assert.equal(rows[0].application_status, 'not_confirmed')
   assert.equal(effectiveEligibility(rows[0]), 'pending')
   assert.equal(operationalRank(rows[0]), 6)
-  const confirmed = { ...rows[0], application_status: 'confirmed' }
-  const withdrawn = { ...rows[0], application_status: 'withdrawn' }
-  assert.equal(operationalRank(confirmed), 1)
-  assert.equal(operationalRank(withdrawn), 7)
-  const sorted = sortApplicantRows([withdrawn, rows[0], confirmed], 'priority')
-  assert.deepEqual(sorted.map(r => r.application_status), ['confirmed', 'not_confirmed', 'withdrawn'])
-  assert.equal(KPI_DEFS.find(k => k.key === 'confirmed').match(confirmed), true)
-  assert.equal(KPI_DEFS.find(k => k.key === 'not_sent').match(withdrawn), false, 'withdrawn alumni are not outreach targets')
+  // RESIDENCY-ROSTER-1 (Owner, 2026-09-12): the top of the roster is the
+  // Applicant Pool, which is DERIVED. A 'confirmed' status no longer puts
+  // anyone there, because nothing sets it any more.
+  const inPool = { ...rows[0], form_status: 'submitted', interest: 'interested', eligibility_calculated: 'eligible' }
+  const removed = { ...rows[0], application_status: 'not_proceeding', not_proceeding_reason: 'withdrew' }
+  assert.equal(operationalRank(inPool), 1)
+  assert.equal(operationalRank({ ...rows[0], application_status: 'confirmed' }), 6, 'a status by itself is not the pool')
+  assert.equal(operationalRank(removed), 7)
+  const sorted = sortApplicantRows([removed, rows[0], inPool], 'priority')
+  assert.deepEqual(sorted.map(operationalRank), [1, 6, 7])
+  assert.equal(KPI_DEFS.find(k => k.key === 'pool').match(inPool), true)
+  assert.equal(KPI_DEFS.find(k => k.key === 'pool').match(removed), false)
+  assert.equal(KPI_DEFS.find(k => k.key === 'not_sent').match(removed), false, 'alumni who are not proceeding are not outreach targets')
+  assert.equal(KPI_DEFS.find(k => k.key === 'not_sent').match({ ...rows[0], application_status: 'withdrawn' }), false, 'nor the legacy spelling of it')
 })

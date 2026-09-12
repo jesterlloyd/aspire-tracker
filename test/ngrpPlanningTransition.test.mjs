@@ -1375,7 +1375,12 @@ test('db: audit metadata is allowlisted and safe; event types mirror the table C
 
 // ── Regression guards ────────────────────────────────────────────────────────
 
-test('regression: confirmation stays an explicit staff act; preferences never become an assignment', () => {
+// RESIDENCY-ROSTER-1 (Owner, 2026-09-12): confirmation is AUTOMATIC now, so the
+// first half of this guard's old title no longer describes the product. What it
+// was really protecting survives intact and is what it now pins: no
+// alumni-facing path can put someone in the pool or write an assignment, a
+// ranked preference never becomes an assignment, and pairing carries its actor.
+test('regression: alumni never confirm or assign themselves; preferences never become an assignment', () => {
   assert.match(manageApi, /application_status: 'confirmed'/)
   assert.doesNotMatch(publicApi, /'confirmed'/)
   assert.doesNotMatch(read('lib/server/ngrpTransition.js'), /application_status: 'confirmed'/)
@@ -1390,13 +1395,17 @@ test('regression: confirmation stays an explicit staff act; preferences never be
   const assignBlock = manageApi.slice(manageApi.indexOf("action === 'assign_unit'"), manageApi.indexOf("action === 'application_confirm'"))
   assert.match(assignBlock, /body\.unit/, 'the unit comes from the request, not from a preference')
   assert.doesNotMatch(assignBlock, /unit_preference/, 'a preference is never copied into an assignment')
-  // Only someone on the official NGRP list can be assigned at all.
-  assert.match(assignBlock, /candidate\.application_status !== 'confirmed'/)
+  // Only someone the POOL RULE admits can be paired at all. This is the same
+  // protection by a better route: the rule reads the alumnus's own submitted
+  // form, interest and eligibility, none of which a pairing can fake.
+  assert.match(assignBlock, /poolDecision\(composed\.row\)/)
+  assert.match(assignBlock, /not in the Applicant Pool, so they cannot be paired with a unit/)
   // Actor and moment travel with it, enforced by the DB, not merely by the UI.
   assert.match(assignBlock, /assigned_by_profile_id: unit \? actorId : null/)
   assert.match(read('supabase/migrations/20260906000000_ngrp_assignment_interview.sql'),
     /ngrp_assignment_requires_actor_time/)
-  assert.match(drawerUi, /never confirms anything automatically/)
+  // And the drawer says the rule out loud, so nobody goes looking for a button.
+  assert.match(drawerUi, /Nobody confirms this/)
 })
 
 test('regression: launch handoff carries cycle + filters and the dedicated panel replaces the composer', () => {
