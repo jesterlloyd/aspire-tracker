@@ -63,14 +63,27 @@ SELECT conname, pg_get_constraintdef(oid) AS definition
                    'ngrp_unit_prefs_require_actor_time')
  ORDER BY conname;
 
--- ── POST 3: exactly ONE status check survives, and it admits not_proceeding ──
--- Expect: status_checks = 1, admits_not_proceeding = true
--- (A second, narrower copy left behind would refuse every removal.)
-SELECT count(*) AS status_checks,
-       bool_or(pg_get_constraintdef(oid) LIKE '%not_proceeding%') AS admits_not_proceeding
+-- ── POST 3: no narrower copy of the status check survived ────────────────────
+-- Expect EXACTLY three rows, all admits_not_proceeding = true:
+--   ngrp_application_state_times
+--   ngrp_candidates_application_status_canon
+--   ngrp_not_proceeding_requires_reason_time  (its body names the column too)
+-- The old ngrp_candidates_application_status_check MUST NOT appear. A row must
+-- satisfy EVERY check on its table, so a surviving three-value copy would
+-- refuse every not_proceeding write while the new canon looked perfectly fine.
+--
+-- CORRECTED 2026-09-12: this section first matched on '%application_status IN%'
+-- and returned zero rows against a correctly migrated database. Postgres does
+-- not store IN (...) verbatim, it normalizes it to = ANY (ARRAY[...]), so that
+-- pattern can never match. Match the COLUMN NAME, never the syntax you wrote.
+SELECT conname,
+       pg_get_constraintdef(oid) LIKE '%not_proceeding%' AS admits_not_proceeding,
+       pg_get_constraintdef(oid) AS definition
   FROM pg_constraint
  WHERE conrelid = 'public.ngrp_candidates'::regclass
-   AND pg_get_constraintdef(oid) LIKE '%application_status IN%';
+   AND contype = 'c'
+   AND pg_get_constraintdef(oid) LIKE '%application_status%'
+ ORDER BY conname;
 
 -- ── POST 4: the rewrite landed, and nothing is left half-converted ───────────
 -- Expect: withdrawn_left = 0; not_proceeding matches PRE 3's withdrawn count;
