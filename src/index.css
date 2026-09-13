@@ -2252,6 +2252,14 @@ a.doc-file-link:hover { text-decoration: underline; }
     42% 100%, 32% 100%, 44% 74%, 6% 74%, 0 58%, 6% 44%);
 }
 .mast-motion-plane-west .mast-motion-plane-body { transform: scaleX(-1); }
+/* MASTHEAD-PLANE-DEPTH-1 (Owner: "if there are 2 or more planes in the sky,
+   make the other one smaller so it looks farther away"). Every lane after the
+   first is drawn at a share of the first's size and a little fainter, so two
+   aircraft on one card read as near and far rather than as a pair. The scale
+   rides the wrapper, so the belly light shrinks with the body; the westbound
+   mirror stays on the body and composes with it. */
+.mast-motion-plane-far { transform: scale(var(--depth, 0.62)); opacity: 0; }
+.mast-motion-plane-far .mast-motion-plane-body { background: rgba(150,160,178,0.50); }
 @keyframes mast-fly {
   0%       { left: var(--from, 100%); opacity: 0; }
   1.5%     { opacity: 1; }

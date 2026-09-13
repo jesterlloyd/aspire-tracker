@@ -657,6 +657,10 @@ export const CITY_MOTION = {
           [41, 62.7], [45, 61.0], [49, 61.3], [53, 61.5],
         ],
         deck: { x: 20, y: 64.8, w: 36, rise: -3.0 },
+        // MASTHEAD-NATURAL-1: the north tower's two legs stand IN FRONT of
+        // the roadway at x 25.3-26.5 (8x zoom, deck height); traffic passes
+        // behind them, the way Chicago's does behind its bridgehouses.
+        behind: [[25.25, 26.55]],
         police: true,
       },
       {
@@ -665,6 +669,8 @@ export const CITY_MOTION = {
           [77, 62.3], [81, 62.5], [87, 63.0], [91, 61.8],
         ],
         deck: { x: 56, y: 61.8, w: 36, rise: 1.2 },
+        // The south tower's legs, x 74.7-76.0 at deck height.
+        behind: [[74.65, 76.0]],
       },
     ],
     // The bridge's reflection. THE ARTWORK PAINTS STREAKS, NOT DISCS: each
@@ -829,12 +835,17 @@ export const CITY_MOTION = {
     // 3.2 and left the traffic climbing off the bridge at the Brooklyn end.
     bridge: [
       {
-        lights: [[58, 55.75], [59.8, 56.25], [62.5, 57.25], [64.5, 57.75], [67.2, 59.0], [70, 59.5], [72.2, 59.75]],
+        lights: [[58, 55.75], [59.8, 56.25], [62.5, 57.25], [67.2, 59.0], [70, 59.5], [72.2, 59.75]],
         deck: { x: 57, y: 56.4, w: 16, rise: 4.3 },
+        // MASTHEAD-NATURAL-1: the Manhattan Bridge tower's legs cross the
+        // roadway at x 64.1-65.6 (5x zoom); the cars pass behind them.
+        behind: [[64.1, 65.6]],
       },
       {
-        lights: [[75.2, 60.5], [77, 61.5], [79.8, 63.75], [81.8, 65.0], [83.8, 65.0], [86.5, 66.25], [88.8, 68.5], [91, 69.25]],
+        lights: [[75.2, 60.5], [77, 61.5], [81.8, 65.0], [83.8, 65.0], [86.5, 66.25], [88.8, 68.5], [91, 69.25]],
         deck: { x: 75, y: 61.5, w: 16, rise: 7.8 },
+        // The Brooklyn Bridge's stone tower, x 78.4-80.3 at the deck.
+        behind: [[78.4, 80.3]],
         police: true,
       },
     ],
@@ -842,8 +853,11 @@ export const CITY_MOTION = {
     steam: [[44.0, 41.0], [52.0, 38.5], [61.0, 34.5]],
     swell: { x: 26, y: 64, w: 70, height: 16 },
     // A Staten Island ferry across the harbour, white like the boats the day
-    // frames already carry.
-    ferry: { y: 80, from: 96, to: 30, flight: 150 },
+    // frames already carry. MASTHEAD-NATURAL-1: the lane used to start at x 96
+    // on y 80, which is the Brooklyn pier's edge from x 89 out - the boat
+    // sailed along the quay. At y 82 the water is open from x 90 in to 30
+    // (the dark run at 78-82 is the Brooklyn tower's reflection).
+    ferry: { y: 82, from: 90, to: 30, flight: 150 },
     ferryTone: 'white',
     // The skyline tops out at card y 25 (One World's spire reaches 2.4 at
     // x 40.5), so the crossings keep east of the tower and above the rest.
@@ -1583,12 +1597,13 @@ export const CITY_MOTION = {
     birds: { y: 18.64, from: 96, to: 30, flight: 34, count: 6 },
     // A tour helicopter round the Sugarloaf circuit, just above its summit.
     helicopter: { y: 25.42, from: 60, to: 96, flight: 46 },
-    // The Niteroi crossing, in the channel between the far shore and the Urca
-    // headland. Both ends moved in: pack 1 ran it from x 82 at y 57.6, which
-    // starts inside Sugarloaf's own base and clips the headland on the way
-    // across. The water at y 59 runs x 62 to 78 and is 91% open by the mask,
-    // the islands off Urca being the rest.
-    ferry: { y: 59, from: 78, to: 62, flight: 120 },
+    // MASTHEAD-NATURAL-1: the Niteroi channel lane (y 59, x 62-78) ran over
+    // the islet at x 70.5-72.5 and along the Urca hilltop at 69-75 - the 9% the
+    // old mask called "islands" was in the boat's path. The boat sails the
+    // near bay instead, where the water at y 79.5 is open from x 62 to 46
+    // (measured: y 78 open 50.5-63.3, y 80 open 44.6-62.6), in front of the
+    // beach and clear of the painted sailboats at y 85-95.
+    ferry: { y: 79.5, from: 62, to: 46, flight: 120 },
     ferryTone: 'white',
     // Tropical haze on the far range and the bay's far shore.
     haze: { y: 32.2, height: 10.17 },
@@ -1801,14 +1816,22 @@ export const CITY_MOTION = {
         police: true,
       },
       {
-        lights: [[62.0, 49.24], [63.5, 48.47], [65.5, 48.47], [67.5, 50.25], [69.5, 50.25], [71.0, 51.02], [72.5, 50.76], [76.0, 51.27]],
-        deck: { x: 61, y: 48.73, w: 15, rise: 2.54 },
+        // MASTHEAD-NATURAL-1 (Owner: the cars on this bridge were "not
+        // aligned"). The rail fell 2.54% across the span and the roadway does
+        // not: scanned column by column on the Day and Night frames, the pale
+        // road band sits at y 48.5-48.75 from x 61 to 67 and drifts to ~49.5
+        // by x 75. The old rail ended 2% of the card BELOW the road, with the
+        // cars driving through the arches. Lamps re-snapped to the new rail.
+        lights: [[62.0, 48.8], [63.5, 48.9], [65.5, 49.0], [67.5, 49.1], [69.5, 49.25], [71.0, 49.35], [72.5, 49.45], [76.0, 49.65]],
+        deck: { x: 61, y: 48.7, w: 15, rise: 0.95 },
       },
     ],
     // A river boat, white like the ones the artwork already puts on the water.
-    // Lane y 80 is river from x 76 in to 42; the two columns that read as land
-    // on the way are bridge shadows, which a boat passes under.
-    ferry: { y: 67.8, from: 76, to: 42, flight: 130 },
+    // MASTHEAD-NATURAL-1: the lane used to run in to x 42, and from x 50 in it
+    // was ON Westminster Bridge - the deck there is at y 70-73 and its parapet
+    // at 68, so the boat sailed along the balustrade. It stops at 52 now,
+    // where the river is open at y 67.8 all the way from 76.
+    ferry: { y: 67.8, from: 76, to: 52, flight: 130 },
     ferryTone: 'white',
     // The sky here is pierced in four places - Parliament's Victoria Tower at
     // x 6, the Eye at 36-42, the City at 66-70 and the Shard at 90 - so there

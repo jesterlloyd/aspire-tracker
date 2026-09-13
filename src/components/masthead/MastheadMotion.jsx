@@ -154,6 +154,9 @@ const VISIBLE = 0.41
 // against @keyframes mast-fly-relay (gone by 23.5%). Under a quarter, so four
 // lanes offset by a quarter each never put two aircraft in the sky at once.
 const RELAY_VISIBLE = 0.235
+// MASTHEAD-PLANE-DEPTH-1: sizes for the second, third and fourth lanes, as a
+// share of the first. Distinct, so a four-lane sky holds four distances.
+const PLANE_DEPTHS = [0.62, 0.8, 0.5]
 
 // MASTHEAD-STARS-1: a star field is not a row of lights. Lights breathe on
 // coprime periods so a street never pulses in unison; stars want the same
@@ -682,10 +685,16 @@ export default function MastheadMotion({ city }) {
 
       {planes.map((p, i) => (
         <span key={`ac-${p.y}-${p.from}`}
-          className={`mast-motion-plane${p.from > p.to ? ' mast-motion-plane-west' : ''}${relay ? ' mast-motion-plane-relay' : ''}`}
-          style={relay
-            ? { ...crossing(p), '--cycle': `${relayCycle.toFixed(1)}s`, '--dl': `${((i * relayCycle) / planes.length).toFixed(1)}s` }
-            : { ...crossing(p), '--dl': `${(i * 6.7).toFixed(1)}s` }}>
+          className={`mast-motion-plane${p.from > p.to ? ' mast-motion-plane-west' : ''}${relay ? ' mast-motion-plane-relay' : ''}${i ? ' mast-motion-plane-far' : ''}`}
+          style={{
+            ...crossing(p),
+            // MASTHEAD-PLANE-DEPTH-1: the first lane is the near one; each
+            // later lane is smaller, on a short table so no two are alike.
+            ...(i ? { '--depth': PLANE_DEPTHS[(i - 1) % PLANE_DEPTHS.length] } : null),
+            ...(relay
+              ? { '--cycle': `${relayCycle.toFixed(1)}s`, '--dl': `${((i * relayCycle) / planes.length).toFixed(1)}s` }
+              : { '--dl': `${(i * 6.7).toFixed(1)}s` }),
+          }}>
           {/* MASTHEAD-PLANE-SHAPE-1: a silhouette, with the light on its belly. */}
           <span className="mast-motion-plane-body" />
           <span className="mast-motion-plane-dot" />

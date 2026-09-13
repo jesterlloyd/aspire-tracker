@@ -1142,6 +1142,37 @@ test('Cape Town: a bay under three mountains, a rainbow over Lion\'s Head', () =
   assert.equal(c.snowfall, undefined, 'no snow in this pack, and none in Cape Town')
 })
 
+// MASTHEAD-NATURAL-1 (Owner: "let's make them look natural or part of the
+// scene rather than just added"). Pins the re-measured lanes and the towers
+// traffic now passes behind. Each number was read off the frame; a change
+// here is a change that has to be re-measured against the artwork.
+test('rails sit on their roadways, boats stay off the quays, and traffic passes behind the towers', () => {
+  const ldn = spansOf(CITY_MOTION.london)[1]
+  assert.deepEqual(ldn.deck, { x: 61, y: 48.7, w: 15, rise: 0.95 }, 'London\'s second roadway is flat at y 48.5-49.6; the old rail fell 2.5% below it')
+  assert.ok(CITY_MOTION.london.ferry.to >= 52, 'the London boat sails onto Westminster Bridge west of x 52')
+  const sf = spansOf(CITY_MOTION.sanfrancisco)
+  assert.deepEqual(sf[0].behind, [[25.25, 26.55]], 'the Golden Gate\'s north tower legs')
+  assert.deepEqual(sf[1].behind, [[74.65, 76.0]], 'the Golden Gate\'s south tower legs')
+  const ny = spansOf(CITY_MOTION.newyork)
+  assert.deepEqual(ny[0].behind, [[64.1, 65.6]], 'the Manhattan Bridge tower')
+  assert.deepEqual(ny[1].behind, [[78.4, 80.3]], 'the Brooklyn Bridge tower')
+  assert.ok(CITY_MOTION.newyork.ferry.from <= 90 && CITY_MOTION.newyork.ferry.y >= 81, 'the New York boat runs along the Brooklyn pier')
+  const rio = CITY_MOTION.rio.ferry
+  assert.ok(rio.y >= 78 && rio.y <= 80 && Math.max(rio.from, rio.to) <= 63 && Math.min(rio.from, rio.to) >= 45, 'the Rio boat left the open water of the near bay')
+})
+
+// MASTHEAD-PLANE-DEPTH-1 (Owner: "if there are 2 or more planes in the sky,
+// make the other one smaller so it looks farther away").
+test('every plane after the first is smaller, and no two far planes share a size', () => {
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const depths = JSON.parse(/const PLANE_DEPTHS = (\[[^\]]+\])/.exec(src)[1])
+  assert.ok(depths.length >= 3 && depths.every(d => d > 0.4 && d < 0.9), `plane depths ${depths} must all be smaller than the near plane and still visible`)
+  assert.equal(new Set(depths).size, depths.length, 'two far lanes at the same size read as a pair, not as depth')
+  assert.match(src, /\$\{i \? ' mast-motion-plane-far' : ''\}/)
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  assert.match(css, /\.mast-motion-plane-far \{ transform: scale\(var\(--depth, 0\.62\)\)/)
+})
+
 test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   // MASTHEAD-STARS-1. Every other kind is verified against something the
   // artwork paints. These are verified against the artwork painting NOTHING,
