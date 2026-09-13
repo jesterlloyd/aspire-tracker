@@ -77,6 +77,8 @@ const CITY_NAMES = {
   // Two words, and the folder is one: the key follows the folder, the label
   // is how the place is written.
   porterranch: 'Porter Ranch',
+  // One word in the folder, two on the map.
+  capetown: 'Cape Town',
 }
 
 export function cityDisplayName(key) {
@@ -117,6 +119,7 @@ export function cityWeatherLocation(city, coords) {
 export const PICKER_IMAGE_FILES = {
   [AUTO]: 'Automatic.webp',
   atlanta: 'Atlanta.webp',
+  capetown: 'CapeTown.webp',
   chicago: 'Chicago.webp',
   hollywood: 'Hollywood.webp',
   hongkong: 'HongKong.webp',

@@ -31,7 +31,9 @@ const EFFECTS = ['lights', 'beacons', 'beaconTone', 'aircraft', 'water', 'bridge
   // MASTHEAD-FOUNTAIN-1: measured jets that grow from a measured plaza.
   'fountain',
   // MASTHEAD-SEARCHLIGHT-1: a shaft that swings from a measured crown, night only.
-  'searchlights', 'sceneOverrides', 'sceneShift']
+  'searchlights',
+  // MASTHEAD-TABLECLOTH-1: Table Mountain's cloud, clear daylight only.
+  'tablecloth', 'sceneOverrides', 'sceneShift']
 // A scene may carry its own measured point sets when its frame is a different
 // drawing. Only point kinds, only these scenes (the two that share a frame
 // with another scene's motion), and each set is a full replacement.
@@ -1092,6 +1094,54 @@ test('a ferry sails on translate, not left, and mirrors the boat rather than the
   assert.match(src, /className="mast-motion-ferry-boat">\s*<span className="mast-motion-ferry-wake" \/>/)
 })
 
+// MASTHEAD-TABLECLOTH-1 (Cape Town). The phenomenon is attested by the pack
+// itself - its Cloudy and Rain frames paint the cloud on the plateau - so the
+// drifting one lives only on the clear daylight frames that do not.
+test('a tablecloth lies on a measured plateau, on clear daylight only', () => {
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    const t = m.tablecloth
+    if (!t) continue
+    assert.ok(t.x >= 0 && t.x + t.w <= 100 && t.y >= 0 && t.y + t.h <= 100, `${city}.tablecloth leaves the card`)
+    assert.ok(t.w >= 10 && t.w <= 40 && t.h >= 4 && t.h <= 25, `${city}.tablecloth is not one mountain's cloud`)
+  }
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  assert.match(css, /\.mast-motion-tablecloth \{[\s\S]{0,200}?radial-gradient\(ellipse closest-side/)
+  for (const scene of ['day', 'morning', 'goldenhour']) {
+    assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-tablecloth`), `no tablecloth on ${scene}`)
+  }
+  for (const scene of ['cloudy', 'rain', 'night', 'cloudynight', 'rainnight', 'sunset', 'dawn']) {
+    assert.ok(!css.includes(`.mast-scene-${scene} .mast-motion-tablecloth`),
+      `the tablecloth runs on ${scene}; the overcast frames paint their own and the dark ones cannot show it`)
+  }
+  const reduced = css.slice(css.indexOf('.mast-motion-bolt, .mast-motion-light'))
+  assert.match(reduced.slice(0, 1600), /\.mast-motion-tablecloth \{/)
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  assert.match(src, /tablecloth && \(\s*<span className="mast-motion-tablecloth"/)
+})
+
+test('Cape Town: a bay under three mountains, a rainbow over Lion\'s Head', () => {
+  const c = CITY_MOTION.capetown
+  // The quay runs level at y 75-77; the bay is everything below it.
+  for (const [x, y] of c.water) assert.ok(y >= 78, `Cape Town reflection at ${x}, ${y} is on the quay`)
+  for (const [x, y] of c.glints) assert.ok(y >= 78, `Cape Town glint at ${x}, ${y} is on the quay`)
+  for (const [x, y] of c.lights) assert.ok(y < 76, `Cape Town light at ${x}, ${y} is in the bay`)
+  assert.ok(c.ferry.y >= 78 && c.birds.y >= 78, 'the ferry and the gulls belong over the bay')
+  assert.ok(c.water.length >= 25 && c.glints.length >= 40 && c.stars.length >= 20)
+  // The four real crown lamps, not the red roofs of the Bo-Kaap.
+  assert.equal(c.beacons.length, 4)
+  // Nothing flies into Table Mountain, whose plateau tops out at y 15.
+  for (const lane of c.aircraft) assert.ok(lane.y < 13, `a Cape Town aircraft at y ${lane.y} flies into the plateau`)
+  // The tablecloth sits on the plateau measured at x 35.75-63.6, top y 15-18.75.
+  const t = c.tablecloth
+  assert.ok(t.x <= 36 && t.x + t.w >= 63 && t.y < 15 && t.y + t.h > 18.75, 'the tablecloth is off the plateau')
+  // The rainbow: over Lion's Head (x 83.75), on the half away from the left
+  // sun, and its right foot short of the weather readout.
+  assert.ok(c.flare.x < 0, 'the Cape Town sun is off-frame left')
+  assert.ok(c.rainbow.x < 83.75 && c.rainbow.x + c.rainbow.w > 83.75, 'the rainbow is not over Lion\'s Head')
+  assert.ok(c.rainbow.x + c.rainbow.w <= 90, 'the rainbow runs under the weather readout')
+  assert.equal(c.snowfall, undefined, 'no snow in this pack, and none in Cape Town')
+})
+
 test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   // MASTHEAD-STARS-1. Every other kind is verified against something the
   // artwork paints. These are verified against the artwork painting NOTHING,
@@ -1099,7 +1149,7 @@ test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
   // gated to the one scene with no cloud in it.
   // Seattle joined at MASTHEAD-SEATTLE-2: it was held back from the first
   // pass only because its pack was being replaced.
-  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome', 'seattle', 'chicago', 'istanbul']
+  const STAR_CITIES = ['hollywood', 'losangeles', 'newyork', 'rome', 'seattle', 'chicago', 'istanbul', 'capetown']
   for (const city of STAR_CITIES) {
     const m = CITY_MOTION[city]
     assert.ok((m.stars?.length || 0) >= 20, `${city} has ${m.stars?.length || 0} stars; a handful reads as dust, not a sky`)

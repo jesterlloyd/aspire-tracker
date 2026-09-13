@@ -3671,6 +3671,48 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-rainbow { display: none; }
 }
 
+/* ── TABLECLOTH. MASTHEAD-TABLECLOTH-1 (Cape Town). The cloud the south-easter
+   pours over Table Mountain: a soft white roll lying along the plateau that
+   drifts and thickens, with a veil spilling down the face below it (::after)
+   and thinning as it falls, which is what the real one does - it pours over
+   the edge and evaporates in the warmer air. Sized radial gradient (closest-
+   side), for the reason every radial gradient in this file is sized. Clear
+   daylight only: the Cloudy and Rain frames already paint it. ── */
+.mast-motion-tablecloth {
+  position: absolute; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse closest-side at 50% 48%,
+    rgba(252,253,255,0.95) 0%, rgba(246,249,253,0.78) 40%,
+    rgba(240,245,251,0.34) 72%, transparent 100%);
+  filter: blur(3px);
+}
+.mast-motion-tablecloth::after {
+  content: ''; position: absolute; left: 10%; right: 10%; top: 50%; height: 80%;
+  background: linear-gradient(180deg, rgba(248,250,254,0.62) 0%, rgba(244,248,252,0.22) 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+  filter: blur(4px); opacity: 0;
+}
+@keyframes mast-tablecloth {
+  0%   { opacity: 0.55; transform: translateX(-2%) scaleY(0.92); }
+  50%  { opacity: 0.88; transform: translateX(1%) scaleY(1.05); }
+  100% { opacity: 0.62; transform: translateX(3%) scaleY(0.96); }
+}
+@keyframes mast-tablecloth-spill {
+  0%   { opacity: 0;    transform: translateY(-10%); }
+  30%  { opacity: 0.75; }
+  100% { opacity: 0;    transform: translateY(45%); }
+}
+.mast-scenic.mast-scene-day .mast-motion-tablecloth,
+.mast-scenic.mast-scene-morning .mast-motion-tablecloth,
+.mast-scenic.mast-scene-goldenhour .mast-motion-tablecloth {
+  animation: mast-tablecloth 28s ease-in-out infinite alternate;
+}
+.mast-scenic.mast-scene-day .mast-motion-tablecloth::after,
+.mast-scenic.mast-scene-morning .mast-motion-tablecloth::after,
+.mast-scenic.mast-scene-goldenhour .mast-motion-tablecloth::after {
+  animation: mast-tablecloth-spill 9s ease-in infinite;
+}
+
 /* Surf. A beach breaks in one place - the waterline - so unlike the swell,
    which is a patch, this is a set of bars laid ALONG a traced shore, each
    rotated to the slope beneath it. A crest rises out of nothing, brightens as
@@ -3730,7 +3772,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   .mast-motion-swell, .mast-motion-surf, .mast-motion-rainbow, .mast-motion-cabin,
   .mast-motion-emoji, .mast-motion-torch, .mast-motion-clock, .mast-motion-facade, .mast-motion-strike,
   .mast-motion-star, .mast-motion-comet-streak, .mast-motion-fly, .mast-motion-fly-wing,
-  .mast-motion-jet, .mast-motion-searchlight, .mast-motion-searchlight-beam {
+  .mast-motion-jet, .mast-motion-searchlight, .mast-motion-searchlight-beam, .mast-motion-tablecloth {
     animation: none !important; opacity: 0 !important;
   }
 }

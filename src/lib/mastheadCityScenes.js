@@ -96,6 +96,7 @@ const CITY_ALIASES = {
   toronto: 'toronto',
   porterranch: 'porterranch',
   istanbul: 'istanbul',
+  capetown: 'capetown',
   chicago: 'chicago',
 }
 
@@ -144,6 +145,7 @@ export const CITY_COORDS = {
   manila: [14.6, 120.98],
   toronto: [43.65, -79.38],
   istanbul: [41.01, 28.98],
+  capetown: [-33.92, 18.42],
   // Porter Ranch sits about 40km north-west of downtown Los Angeles, so it is
   // well outside the 150km tie with LA and Hollywood only by name: proximity
   // gives a viewer whichever they are actually nearest.
@@ -2248,6 +2250,131 @@ export const CITY_MOTION = {
     comet: { x: 70, y: 3, run: 6, drop: 17, flight: 1.1 },
     rainfall: true,
     snowfall: true,
+  },
+  capetown: {
+    // MASTHEAD-CAPETOWN-1 (2026-09-12, a new city, and one of the Owner's
+    // favourites). Ten frames, no Snow pair (correct for Cape Town), all
+    // 2000x400 RGB, one drawing throughout.
+    //
+    // The view is from Table Bay looking south: the V&A Waterfront quay runs
+    // level along y 75-77, the bay is everything below it, and behind the
+    // city stand the three mountains - DEVIL'S PEAK at x 22 (y 20.6), TABLE
+    // MOUNTAIN's flat plateau from x 35.75 to 63.6 with its top at y 15-18.75,
+    // and LION'S HEAD at x 83.75 (y 26.5). Above the plateau the sky is open
+    // edge to edge, which is where everything that flies lives.
+    //
+    // Warm windows and waterfront lamps, as the brightest warm maximum in each
+    // cell of a column-by-band grid, none below the quay and none above y 52,
+    // where the overlay showed the only "windows" were on the dark mountainside.
+    lights: [
+      [0.55, 71.0], [2.4, 73.25], [2.6, 64.0], [4.55, 72.75], [5.7, 68.5],
+      [6.55, 71.75], [7.75, 61.5], [8.0, 72.75], [9.4, 64.75], [10.1, 71.75],
+      [10.85, 73.0], [12.05, 73.25], [13.15, 69.25], [14.45, 60.5], [15.15, 73.5],
+      [15.7, 57.0], [16.55, 68.25], [19.0, 54.25], [19.5, 60.75], [20.35, 60.5],
+      [20.8, 56.75], [20.8, 71.5], [20.8, 73.25], [21.35, 72.0], [22.55, 73.5],
+      [25.8, 65.5], [26.15, 56.5], [26.4, 72.75], [27.4, 58.25], [28.6, 58.25],
+      [29.15, 73.5], [29.45, 70.75], [32.0, 65.75], [32.35, 73.5], [34.5, 58.25],
+      [34.7, 70.25], [35.0, 72.5], [35.3, 55.75], [36.05, 55.0], [36.95, 74.25],
+      [37.2, 60.0], [37.75, 72.0], [41.55, 72.75], [41.65, 69.25], [43.65, 63.25],
+      [44.45, 74.5], [44.75, 68.5], [46.2, 56.5], [46.55, 69.25], [46.55, 73.25],
+      [46.65, 65.0], [49.35, 66.0], [50.8, 74.0], [51.65, 63.5], [51.8, 70.0],
+      [51.95, 57.0], [52.25, 73.5], [54.45, 73.25], [55.6, 62.5], [55.6, 66.75],
+      [56.25, 61.75], [56.85, 56.5], [57.15, 67.0], [58.35, 74.5], [61.6, 57.0],
+      [62.3, 73.5], [62.45, 72.0], [63.6, 60.25], [63.9, 71.0], [64.45, 74.25],
+      [67.25, 64.0], [68.55, 73.25], [68.6, 56.5], [69.25, 71.0], [69.5, 73.75],
+      [71.5, 62.0], [73.3, 74.75], [73.7, 62.75], [74.85, 68.25], [75.0, 56.75],
+      [75.3, 65.75], [76.2, 73.5], [77.15, 56.5], [79.4, 73.25], [79.85, 63.75],
+      [79.85, 71.5], [81.35, 74.0], [82.45, 64.5], [83.3, 66.5], [83.95, 56.75],
+      [84.75, 57.25], [84.8, 67.0], [86.8, 74.75], [87.2, 61.75], [87.65, 66.0],
+      [89.75, 73.5], [90.2, 74.0], [90.95, 60.5], [92.2, 62.25], [92.75, 71.75],
+      [94.35, 73.0], [95.65, 67.0], [96.45, 65.0], [98.25, 73.0], [99.2, 71.75],
+      [99.6, 73.25],
+    ],
+    // Only four. The red test returned 652 candidates across the night frame,
+    // and almost all of them are the red ROOFS of the Bo-Kaap and the slopes,
+    // lit from below. A 10x zoom of the towers found the real crown lamps: one
+    // on the tower at x 43.3, one at 48.55, and a pair on the roof at 50.8-51.35.
+    beacons: [
+      [43.3, 52.0], [48.55, 53.6], [50.8, 54.4], [51.35, 54.4],
+    ],
+    beaconTone: 'red',
+    // Reflections: columns of the bay brighter than their own 61-column
+    // neighbourhood, below the quay.
+    water: [
+      [3.05, 78.75], [5.95, 79.0], [11.15, 79.75], [13.4, 79.75], [17.95, 83.75],
+      [21.0, 80.75], [23.8, 78.5], [25.25, 84.5], [27.85, 78.5], [30.9, 79.25],
+      [31.95, 78.5], [34.35, 79.0], [38.0, 90.25], [39.8, 81.0], [41.85, 82.0],
+      [43.7, 79.25], [46.9, 82.5], [49.15, 82.25], [51.9, 86.25], [54.25, 81.0],
+      [55.2, 80.0], [58.15, 79.75], [59.75, 80.25], [62.2, 87.75], [64.1, 79.25],
+      [66.3, 79.5], [67.25, 79.5], [68.9, 93.25], [70.75, 80.25], [73.3, 80.25],
+      [75.75, 84.25], [79.75, 91.0], [81.05, 80.25], [83.15, 79.25], [85.75, 79.25],
+      [88.7, 82.0],
+    ],
+    // Sun glitter by agreement of the Day and Golden Hour frames, each band's
+    // threshold taken from its own water pixels.
+    glints: [
+      [0.8, 78.75], [1.35, 82.0], [1.45, 92.0], [3.65, 78.0], [4.7, 87.75],
+      [5.35, 78.0], [5.4, 95.75], [7.25, 92.75], [9.9, 80.5], [11.7, 80.5],
+      [12.6, 84.75], [12.75, 91.75], [13.5, 78.75], [15.15, 78.75], [16.85, 80.0],
+      [17.2, 90.75], [18.4, 96.25], [18.5, 83.5], [20.85, 81.0], [21.0, 84.75],
+      [21.35, 88.5], [23.75, 79.25], [23.8, 85.75], [23.9, 96.0], [25.45, 91.0],
+      [25.6, 86.25], [27.9, 81.0], [31.85, 88.0], [31.95, 79.5], [32.0, 84.25],
+      [32.2, 91.5], [34.95, 79.75], [37.95, 93.5], [38.2, 85.0], [39.8, 79.75],
+      [41.4, 92.75], [43.05, 85.0], [43.7, 80.25], [46.35, 87.25], [46.55, 95.25],
+      [47.0, 80.0], [50.8, 82.5], [51.0, 86.0], [52.85, 90.0], [53.95, 81.75],
+      [55.2, 86.25], [55.25, 89.75], [57.8, 83.25], [57.85, 79.75], [57.9, 87.0],
+      [57.9, 93.75], [59.7, 81.25], [61.45, 92.75], [63.95, 82.75], [68.9, 94.5],
+      [69.8, 91.0], [71.9, 81.0], [73.45, 89.25], [75.6, 87.0], [75.95, 80.25],
+      [76.35, 94.25], [80.2, 88.75], [80.35, 82.0], [80.9, 85.5], [80.9, 92.75],
+      [84.4, 83.75], [87.65, 82.5], [88.55, 79.25], [89.75, 92.5], [90.4, 83.5],
+      [93.9, 78.0], [94.15, 91.5], [95.75, 84.25], [97.25, 90.0], [97.45, 81.25],
+      [97.95, 78.0], [98.85, 92.75], [99.3, 82.0],
+    ],
+    swell: { x: 4, y: 82, w: 92, height: 14 },
+    // A Robben Island ferry. The frames paint no boats on the bay, so this one
+    // has open water from edge to edge, just off the quay.
+    ferry: { y: 82, from: 96, to: 6, flight: 150 },
+    ferryTone: 'white',
+    // MASTHEAD-TABLECLOTH-1. When the south-easter blows, a cloud pours over
+    // Table Mountain's plateau and down its face, and the locals call it the
+    // tablecloth. This artwork paints it on the Cloudy and Rain frames, lying
+    // along the plateau from x ~36 to ~64; the drifting one is placed exactly
+    // there and shown only on the clear daylight frames, which paint none.
+    tablecloth: { x: 35.5, y: 11, w: 28.5, h: 14 },
+    // The rainbow arcs over LION'S HEAD, on the half away from the sun (the
+    // Golden Hour and Sunset frames light the mountains from the LEFT). Its
+    // bands crest at y ~22 over the peak at x 83.75, just above the summit at
+    // 26.5, and its right foot stops at x 90, short of the weather readout.
+    rainbow: { x: 62, y: 10, w: 28, h: 40 },
+    // Gulls over the harbour, below the quay (the Honolulu precedent: a dark
+    // silhouette reads on the bay as well as on sky).
+    birds: { y: 90, from: 94, to: 8, flight: 34, count: 6 },
+    // Two lanes in the open sky above the plateau, which tops out at y 15.
+    aircraft: [
+      { y: 5, from: 96, to: 4, flight: 44 },
+      { y: 10, from: 4, to: 96, flight: 52 },
+    ],
+    // A sightseeing helicopter at sunset, over Lion's Head's shoulder (the
+    // summit is y 26.5, so y 18 clears it).
+    helicopter: { y: 18, from: 70, to: 96, flight: 46 },
+    // The bolt's TIP on Lion's Head's summit; a w:10 fork's top lands at y 2.
+    strike: { x: 83.75, y: 27, w: 10 },
+    // Distance on the far ranges at both ends, which fade to blue-grey.
+    haze: { y: 42, height: 14 },
+    // The sun is off-frame LEFT: Golden Hour and Sunset glow at the left edge
+    // and light the mountains' left faces.
+    flare: { x: -6, y: 30 },
+    // A clear night sky: flat patches at least 4% above the mountains, none in
+    // the moon's art box (x 50-66) or under the weather readout.
+    stars: [
+      [1.6, 4.75], [5.75, 12.5], [9.65, 1.75], [10.85, 8.5], [11.5, 15.0],
+      [23.35, 16.5], [23.7, 8.75], [27.55, 2.25], [32.4, 1.5], [32.55, 16.25],
+      [32.95, 23.25], [34.2, 9.5], [37.9, 12.75], [38.3, 2.25], [43.2, 15.0],
+      [43.35, 5.25], [48.25, 3.0], [49.1, 12.5], [66.7, 5.75], [68.0, 13.5],
+      [68.25, 22.0], [78.95, 22.25], [79.15, 7.75], [83.2, 16.5], [84.9, 7.75],
+    ],
+    comet: { x: 4, y: 2, run: 6, drop: 17, flight: 1.1 },
+    rainfall: true,
   },
   chicago: {
     // MASTHEAD-CHICAGO-1 (2026-09-10, a new city). TWELVE frames, every scene,

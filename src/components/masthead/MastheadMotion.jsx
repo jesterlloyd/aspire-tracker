@@ -210,7 +210,7 @@ export default function MastheadMotion({ city }) {
   const { lights, beacons, beaconTone, aircraft, water, bridge, beam,
     birds, haze, hazeTone, flare, helicopter, rainfall, ferry, ferryTone, glints, steam,
     neon, wheel, orb, emoji, torch, clock, facade, strike, snowfall, swell, surf, rainbow, cable,
-    stars, comet, butterflies, screen, fountain, searchlights, sceneOverrides, sceneShift } = m
+    stars, comet, butterflies, screen, fountain, searchlights, tablecloth, sceneOverrides, sceneShift } = m
   const spans = Array.isArray(bridge) ? bridge : bridge ? [bridge] : []
   // MASTHEAD-PLANES-1 (Owner, of Porter Ranch: "i see a lot of planes at
   // night"). A city may name SEVERAL lanes, the way it may name several bridge
@@ -412,6 +412,13 @@ export default function MastheadMotion({ city }) {
           most of its cycle, the way a trade shower's rainbow actually behaves.
           The box is the arc's bounding box and the arc is drawn from its
           bottom centre, so x/y/w/h place the apex and both feet at once. */}
+      {/* MASTHEAD-TABLECLOTH-1: the cloud the south-easter pours over Table
+          Mountain, placed where the pack's own Cloudy and Rain frames paint it. */}
+      {tablecloth && (
+        <span className="mast-motion-tablecloth"
+          style={{ left: `${tablecloth.x}%`, top: `${tablecloth.y}%`, width: `${tablecloth.w}%`, height: `${tablecloth.h}%` }} />
+      )}
+
       {rainbow && (
         <span className="mast-motion-rainbow"
           style={{ left: `${rainbow.x}%`, top: `${rainbow.y}%`, width: `${rainbow.w}%`, height: `${rainbow.h}%` }} />
