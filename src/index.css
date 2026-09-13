@@ -2703,14 +2703,30 @@ a.doc-file-link:hover { text-decoration: underline; }
 
 /* Ferry. The wrapper is a zero-size point that crosses once per cycle and
    fades only at the two ends of its run. */
-.mast-motion-ferry { position: absolute; left: var(--from, 40%); opacity: 0; width: 0; height: 0; }
+.mast-motion-ferry {
+  /* MASTHEAD-FERRY-SMOOTH-1 (Owner: the Hong Kong ship's movement "is
+     choppy"). The sail used to animate `left`, which is layout, and a layout
+     position PAINTS on whole pixels: measured off screenshots, Hong Kong's
+     ferry held still, jumped exactly 1px, held, jumped - its 15%-wide lane over
+     130s is under 2px a second, slow enough to see every step. Now the
+     wrapper spans the card and the sail animates `translate`, whose
+     percentages resolve against the element's own width (the card's), so
+     --from and --to still mean card percentages - and translate is
+     composited, so it moves by fractions of a pixel. */
+  position: absolute; left: 0; width: 100%; height: 0; opacity: 0;
+  translate: var(--from, 40%) 0; will-change: translate;
+}
+/* The ship itself: a zero-size point at the wrapper's left edge, which the
+   translate carries across. The westbound mirror lives here, because
+   mirroring the card-wide wrapper would flip the whole lane. */
+.mast-motion-ferry-boat { position: absolute; left: 0; top: 0; width: 0; height: 0; }
 .mast-motion-ferry-hull {
   /* MASTHEAD-BOAT-SHAPE-1 (Owner: the boats should not be ovals either). A
      ferry in profile, bow to the right: a hull that rises to the bow and
      rounds under it, a long deck house, and a raised bridge forward of
      midships. One box, drawn by clip-path, so the tone rules below still
      colour it with a single background. Its waterline is the anchor's y. */
-  position: absolute; width: 16px; height: 6px; margin: -4px 0 0 -8px;
+  position: absolute; width: 18px; height: 8px; margin: -5px 0 0 -9px;
   background: rgba(46,48,58,0.85); opacity: 0;
   clip-path: polygon(0 62%, 16% 62%, 18% 30%, 48% 30%, 52% 0, 72% 0, 76% 30%, 80% 30%,
     82% 58%, 100% 56%, 88% 100%, 6% 100%);
@@ -2718,7 +2734,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* The wake trails behind the direction of travel (the ferry sails right),
    leaving from under the stern at the waterline. */
 .mast-motion-ferry-wake {
-  position: absolute; width: 16px; height: 2px; margin: 0 0 0 -22px; opacity: 0; filter: blur(0.6px);
+  position: absolute; width: 16px; height: 2px; margin: 1px 0 0 -24px; opacity: 0; filter: blur(0.6px);
   background: linear-gradient(270deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.28) 55%, transparent 100%);
 }
 .mast-motion-ferry-lamp {
@@ -2726,10 +2742,10 @@ a.doc-file-link:hover { text-decoration: underline; }
   background: radial-gradient(circle, rgba(255,226,170,0.95) 0%, rgba(255,196,120,0.4) 45%, transparent 75%);
 }
 @keyframes mast-sail {
-  0%   { left: var(--from, 40%); opacity: 0; }
+  0%   { translate: var(--from, 40%) 0; opacity: 0; }
   5%   { opacity: 1; }
   95%  { opacity: 1; }
-  100% { left: var(--to, 80%); opacity: 0; }
+  100% { translate: var(--to, 80%) 0; opacity: 0; }
 }
 .mast-scenic.mast-scene-dawn .mast-motion-ferry,
 .mast-scenic.mast-scene-morning .mast-motion-ferry,
@@ -2824,12 +2840,24 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* A ferry sailing LEFT is the same ferry mirrored about its own point, so
    the wake still trails behind it. The sail keyframe animates left, which
    the mirror does not touch. */
-.mast-motion-ferry-west { transform: scaleX(-1); }
+.mast-motion-ferry-west .mast-motion-ferry-boat { transform: scaleX(-1); }
 /* The Staten Island Ferry is orange; nothing else on the harbour is. */
 .mast-motion-ferry-orange .mast-motion-ferry-hull { background: rgba(236,122,34,0.95); }
 /* MASTHEAD-SEATTLE-1: a Washington State ferry is white, and reads on the
    Sound's blue by day as a bright dash rather than a dark one. */
 .mast-motion-ferry-white .mast-motion-ferry-hull { background: rgba(250,252,255,0.95); }
+/* MASTHEAD-SHIP-LIVERY-1 (Owner: "not just plain white - maybe gray with some
+   dark red on it so it's believably a ship... the lower part blue"). A plain
+   white box read as a chip of paint, not a vessel. The livery is bands down
+   the one clipped box, so it stays a single element: light grey decks and
+   bridge above, a dark red boot stripe at the deck line (the hull's own top
+   edge runs at 56-62% of the height), and a navy hull to the waterline. */
+.mast-motion-ferry-white .mast-motion-ferry-hull {
+  background: linear-gradient(180deg,
+    rgba(232,236,242,0.96) 0%, rgba(196,203,213,0.96) 58%,
+    rgba(146,32,38,0.96) 58%, rgba(146,32,38,0.96) 72%,
+    rgba(36,58,96,0.96) 72%, rgba(24,40,72,0.96) 100%);
+}
 
 /* Steam off a rooftop. Each puff starts small and dense at the measured roof
    edge, then rises, drifts with the wind, spreads and thins. Normal blend

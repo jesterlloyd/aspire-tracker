@@ -732,9 +732,11 @@ export default function MastheadMotion({ city }) {
       {ferry && (
         <span className={`mast-motion-ferry${ferry.from > ferry.to ? ' mast-motion-ferry-west' : ''}${ferryTone ? ` mast-motion-ferry-${ferryTone}` : ''}`}
           style={{ top: `${ferry.y}%`, '--from': `${ferry.from}%`, '--to': `${ferry.to}%`, '--cycle': `${ferry.flight}s` }}>
-          <span className="mast-motion-ferry-wake" />
-          <span className="mast-motion-ferry-hull" />
-          <span className="mast-motion-ferry-lamp" />
+          <span className="mast-motion-ferry-boat">
+            <span className="mast-motion-ferry-wake" />
+            <span className="mast-motion-ferry-hull" />
+            <span className="mast-motion-ferry-lamp" />
+          </span>
         </span>
       )}
     </div>

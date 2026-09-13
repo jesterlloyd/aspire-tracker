@@ -957,11 +957,14 @@ test('Chicago: a river under a bascule bridge, and nothing flies through a landm
     return 90
   }
   assert.ok(c.water.length >= 30, `Chicago has ${c.water.length} reflections`)
-  assert.ok(c.glints.length >= 40, `Chicago has ${c.glints.length} glints`)
+  assert.ok(c.glints.length >= 80, `Chicago has ${c.glints.length} glints; the second pass replaced the ferry`)
   for (const [x, y] of c.water) assert.ok(y > wl(x), `Chicago reflection at ${x}, ${y} is on the riverwalk`)
   for (const [x, y] of c.glints) assert.ok(y > wl(x), `Chicago glint at ${x}, ${y} is on the riverwalk`)
   for (const [x, y] of c.lights) assert.ok(y < wl(x), `Chicago light at ${x}, ${y} is in the river`)
-  assert.ok(c.ferry.y > wl(c.ferry.from) && c.ferry.y > wl(c.ferry.to), 'the tour boat leaves the river')
+  // The Owner removed the animated tour boat (the frames paint one) and asked
+  // for glints in its place.
+  assert.equal(c.ferry, undefined, 'Chicago does not need an animated ship; its frames paint one')
+  assert.equal(c.ferryTone, undefined)
   // Three landmarks reach into the sky; every crossing stays on one side of each.
   const REACH = [['the Willis masts', 27.7], ['the Wrigley spire', 58.9], ["the Tribune's flag", 72.9]]
   for (const kind of ['aircraft', 'birds', 'helicopter']) {
@@ -1053,6 +1056,40 @@ test('three or more flight lanes take turns, and a ferry is a boat', () => {
   const hull = css.slice(css.indexOf('.mast-motion-ferry-hull {'), css.indexOf('}', css.indexOf('.mast-motion-ferry-hull {')))
   assert.match(hull, /clip-path: polygon\(/, 'the ferry went back to a dash')
   assert.doesNotMatch(hull, /border-radius/, 'the ferry went back to an oval')
+})
+
+// MASTHEAD-SHIP-LIVERY-1 (Owner, of San Francisco: the boat "cuts through the
+// mountain and bridge... not just plain white - maybe gray with some dark red
+// on it so it's believably a ship... the lower part blue").
+test('a white ferry wears a ship livery, and San Francisco sails in front of the bridge', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const rules = [...css.matchAll(/\.mast-motion-ferry-white \.mast-motion-ferry-hull \{([^}]*)\}/g)].map(m => m[1])
+  const livery = rules[rules.length - 1]
+  assert.match(livery, /linear-gradient\(180deg/, 'the white ferry went back to a flat colour')
+  assert.match(livery, /rgba\(146,32,38/, 'the ferry lost its dark red stripe')
+  assert.match(livery, /rgba\(36,58,96/, 'the ferry lost its navy hull')
+  const sf = CITY_MOTION.sanfrancisco.ferry
+  // Fort Point's headland stands at x 86-96 down to y 74; the deck is at y 62-65.
+  assert.ok(sf.y >= 80, `the San Francisco ferry at y ${sf.y} sails through the bridge or the headland`)
+  assert.ok(Math.min(sf.from, sf.to) >= 30, 'the San Francisco ferry runs into the Marin headland')
+})
+
+// MASTHEAD-FERRY-SMOOTH-1 (Owner: Hong Kong's ship "is choppy"). A `left`
+// animation paints on whole pixels, and a slow ferry visibly steps; translate
+// is composited and moves by fractions of one.
+test('a ferry sails on translate, not left, and mirrors the boat rather than the lane', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const kf = css.slice(css.indexOf('@keyframes mast-sail'), css.indexOf('}\n}', css.indexOf('@keyframes mast-sail')))
+  assert.match(kf, /translate: var\(--from, 40%\) 0/)
+  assert.match(kf, /translate: var\(--to, 80%\) 0/)
+  assert.doesNotMatch(kf, /left:/, 'the ferry animates layout again, and a slow one will step a pixel at a time')
+  // translate's percentages are the element's own width, so the wrapper must
+  // BE the card's width for --from/--to to stay card percentages.
+  assert.match(css, /\.mast-motion-ferry \{[^}]*left: 0; width: 100%;/)
+  assert.match(css, /\.mast-motion-ferry-west \.mast-motion-ferry-boat \{ transform: scaleX\(-1\); \}/)
+  assert.doesNotMatch(css, /\.mast-motion-ferry-west \{ transform/, 'mirroring the card-wide wrapper flips the whole lane')
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  assert.match(src, /className="mast-motion-ferry-boat">\s*<span className="mast-motion-ferry-wake" \/>/)
 })
 
 test('stars and comets sit in measured, empty, CLEAR-night sky', () => {

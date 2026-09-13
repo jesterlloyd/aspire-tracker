@@ -701,9 +701,13 @@ export const CITY_MOTION = {
     ],
     // The open bay beyond the bridge, where the chop reads.
     swell: { x: 30, y: 70, w: 66, height: 16 },
-    // A ferry on the bay behind the bridge, white like the boats the day
-    // frames already carry.
-    ferry: { y: 58, from: 96, to: 34, flight: 150 },
+    // A ferry on the bay IN FRONT of the bridge (Owner, 2026-09-12: the boat
+    // "cuts through the mountain and bridge"). The old lane at y 58 ran behind
+    // the deck and straight across the Fort Point headland at x 86-96, which
+    // stands from y 55 to 74. At y 84 the water is open from the headland's
+    // foot to x 32: below the south tower's base (y 78), above the Marin
+    // headland's surf, and clear of the two boats painted behind the bridge.
+    ferry: { y: 84, from: 96, to: 32, flight: 150 },
     ferryTone: 'white',
     // THE SKY IS TINY ON THIS PACK. The hills close it off at card y 13-16 by
     // day (y 22-26 at night), and the Salesforce Tower spikes to y 5 at x 60.
@@ -2357,27 +2361,36 @@ export const CITY_MOTION = {
     // WATER pixels. Taken from the whole band, the pale riverwalk wall on the
     // right set the bar so high that the right third of the river came back
     // bare. 186 agreed; these are the brightest per cell.
+    // SECOND PASS (2026-09-12, in place of the ferry): the same agreement
+    // detector at the 89th percentile of each band's river pixels, starting
+    // 2.5% below the traced waterline, keeping only maxima at least 1.6% x or
+    // 3% y from an existing glint and none on the painted tour boat's hull.
     glints: [
-      [1.85, 88.0], [1.85, 96.25], [7.25, 90.0], [11.0, 95.75], [11.9, 84.0],
-      [16.4, 84.5], [16.9, 91.25], [19.5, 90.25], [19.95, 81.75], [20.15, 96.25],
-      [22.15, 89.0], [23.95, 80.5], [26.1, 80.0], [27.3, 95.0], [27.5, 90.0],
-      [29.55, 81.75], [30.2, 96.25], [31.95, 83.75], [34.7, 90.0], [35.75, 81.0],
-      [38.4, 81.5], [38.4, 95.25], [38.8, 90.75], [43.75, 81.25], [43.85, 96.0],
-      [43.95, 74.5], [46.3, 91.75], [46.55, 85.75], [48.75, 85.0], [49.85, 79.5],
-      [50.25, 93.75], [52.5, 76.75], [55.45, 91.25], [55.7, 77.5], [60.85, 86.25],
-      [61.0, 77.5], [61.05, 96.25], [64.15, 92.0], [64.5, 83.0], [64.55, 77.25],
-      [66.8, 91.0], [69.0, 87.5], [71.55, 79.25], [71.95, 87.25], [74.75, 79.0],
-      [75.1, 93.25], [75.65, 89.0], [78.6, 87.5], [79.1, 95.5], [80.0, 81.5],
-      [82.3, 85.0], [82.85, 93.75], [86.0, 88.75], [89.55, 93.0], [89.65, 88.0],
-      [95.05, 95.25],
+      [1.75, 91.75], [1.85, 88], [1.85, 96.25], [3.6, 91.25], [3.95, 95.5],
+      [6.05, 96.25], [6.7, 86.25], [7.25, 90], [7.45, 93.0], [9.7, 86.25],
+      [9.95, 92.0], [11, 95.75], [11.9, 84], [11.9, 87.5], [12.15, 92.0],
+      [12.9, 95.5], [16.4, 84.5], [16.9, 91.25], [18.5, 95.0], [19.5, 90.25],
+      [19.95, 81.75], [20.15, 96.25], [22.15, 89], [23.95, 80.5], [25.05, 92.5],
+      [25.85, 85.25], [26.1, 80], [27.3, 95], [27.5, 90], [29.05, 86.25],
+      [29.55, 81.75], [29.7, 90.75], [30.2, 96.25], [31.95, 83.75], [32.05, 93.25],
+      [32.6, 87.0], [32.65, 90.25], [34.7, 90], [35.55, 93.75], [35.75, 81],
+      [38.4, 81.5], [38.4, 95.25], [38.8, 90.75], [43.75, 81.25], [43.85, 89.25],
+      [43.85, 96], [43.95, 74.5], [44.2, 85.25], [46.3, 91.75], [46.55, 85.75],
+      [46.8, 82.5], [48.75, 85], [48.9, 88.75], [48.95, 96.75], [49.85, 79.5],
+      [49.9, 76.25], [50.25, 93.75], [52.5, 76.75], [52.5, 79.75], [55.45, 91.25],
+      [55.7, 77.5], [60.85, 86.25], [61, 77.5], [61.05, 96.25], [61.15, 92.5],
+      [64.15, 92], [64.5, 83], [64.55, 77.25], [66.8, 91], [69, 87.5],
+      [71.55, 79.25], [71.9, 84.25], [71.95, 87.25], [72.2, 96.75], [72.7, 91.25],
+      [74.75, 79], [75.1, 93.25], [75.65, 89], [77.45, 82.0], [78.6, 87.5],
+      [79.1, 95.5], [80, 81.5], [82.3, 85], [82.6, 89.25], [82.85, 93.75],
+      [86, 88.75], [86.5, 92.0], [89.55, 93], [89.65, 88], [93.25, 92.5],
+      [95.05, 95.25], [95.1, 91.75],
     ],
     // The chop, on open river between the two walls.
     swell: { x: 14, y: 84, w: 70, height: 12 },
-    // An architecture tour boat, white like the one the Sunset and Golden
-    // Hour frames paint at y 76-79.5. Lane y 83 runs just in front of that
-    // painted boat rather than through it, and is open river from x 12 to 82.
-    ferry: { y: 83, from: 82, to: 12, flight: 150 },
-    ferryTone: 'white',
+    // NO FERRY (Owner, 2026-09-12: "we don't need a ship in chicago (we need
+    // glints)"). The Sunset and Golden Hour frames already paint a tour boat
+    // at y 76-79.5; the river carries a second glint pass instead.
     // THE SKY HAS TWO CLEARINGS. The Willis masts reach the top at x 27.7
     // and the Wrigley spire y 5 at x 58.9, and between them no crown rises
     // above y 21; east of the Tribune's flag (x 72.9, y 4.5) the crowns stay
