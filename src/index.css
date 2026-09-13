@@ -3946,3 +3946,51 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
   white-space: nowrap;
   border: 0;
 }
+
+/* ── On Campus Now (MASTHEAD-PHASE-2b) ──────────────────────────────────────
+   These .mast-live / .mast-shift rules travelled out with the masthead block in
+   Phase 1 and came back when the card moved to its own program: they style the
+   On Campus Now strip, which is the app's, not the card's. The masthead itself
+   now renders inside <masthead-card>, loaded from the Masthead service; the app
+   keeps only this host-side wrapper rule. */
+.mast-host { display: block; }
+.mast-live { margin: var(--aspire-gap-card) 20px 0; font-family: 'Plus Jakarta Sans', sans-serif; flex-shrink: 0; }
+.mast-live-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.mast-live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #22c55e;
+  align-self: center; flex-shrink: 0; animation: pulse 2s infinite;
+}
+.mast-live-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chart-ink, #0E1428); }
+.mast-live-sub { font-size: 11px; color: var(--chart-ink-soft, #9ca3af); }
+.mast-live-link {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--chart-navy, #1D2567); font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px; font-weight: 600; padding: 2px;
+}
+.mast-live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 9px; }
+.mast-live-flush { margin-left: 0; margin-right: 0; margin-bottom: 16px; }
+.mast-live-card {
+  display: flex; align-items: center; gap: 11px;
+  background: var(--chart-card, #fff); border: 0;
+  border-radius: var(--aspire-radius-card); padding: 10px 13px; cursor: pointer; text-align: left;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.18s ease;
+  box-shadow: var(--aspire-shadow-card);
+  will-change: transform, box-shadow;
+}
+.mast-live-card:hover { transform: translateY(-2px); box-shadow: var(--aspire-shadow-card-hover); }
+.mast-live-card:active { transform: translateY(0); }
+.mast-live-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mast-live-name { font-size: 13.5px; font-weight: 700; color: var(--chart-ink, #0E1428); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mast-live-unit { font-size: 11.5px; color: var(--chart-ink-soft, #6b7280); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mast-live-right { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+.mast-live-shift { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.mast-shift-day         { background: var(--chart-ok-bg, #E5F3EA);   color: var(--chart-ok-ink, #166534); }
+.mast-shift-night       { background: var(--chart-wait-bg, #EDF0FA); color: var(--chart-wait-ink, #3B4A9F); }
+.mast-shift-mid         { background: var(--chart-info-bg, #EFF1F5); color: var(--chart-info-ink, #4B5563); }
+.mast-shift-variable    { background: var(--chart-info-bg, #EFF1F5); color: var(--chart-info-ink, #4B5563); }
+.mast-shift-unspecified { background: var(--chart-info-bg, #EFF1F5); color: var(--chart-info-ink, #4B5563); }
+.mast-live-dur { font-size: 11px; color: var(--chart-ink-soft, #475467); white-space: nowrap; }
+.mast-live-dur.warn { color: var(--chart-warn-ink, #92400e); font-weight: 600; }
+.mast-live-empty { margin: 9px 0 0; font-size: 12.5px; color: var(--chart-ink-soft, #6b7280); }
+@media (prefers-reduced-motion: reduce) { .mast-live-dot { animation: none; } }

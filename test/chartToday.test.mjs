@@ -16,7 +16,7 @@ const overview = read('src/components/OverviewTab.jsx')
 const campusStrip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
 const masthead = read('src/components/TodayMasthead.jsx')
 const app = read('src/App.jsx')
-const css = (read('src/index.css') + read('masthead/styles/masthead.css'))
+const css = read('src/index.css')
 
 test('masthead-first hierarchy', async (t) => {
   await t.test('masthead, then digest, then live strip, then snapshot, then sticky ledgers', () => {
@@ -33,7 +33,7 @@ test('masthead-first hierarchy', async (t) => {
     assert.ok(!existsSync(join(here, '..', 'src/components/AggregateWelcome.jsx')), 'AggregateWelcome.jsx deleted')
     assert.doesNotMatch(overview, /AggregateWelcome/)
     // The masthead heading is the route's h1 and its one Playfair Display moment.
-    assert.match(masthead, /<h1 className="chart-route-title mast-greet">\{heading\}<\/h1>/)
+    assert.match(masthead, /<MastheadCard[\s\S]*?fullName=\{userProfile\?\.full_name\}/)  // MASTHEAD-PHASE-2b
   })
 
   await t.test('the digest reads the SAME attention sets as the bell badge', () => {
@@ -70,18 +70,14 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
   })
 
   await t.test('the weather scene survives as the compact masthead variant', () => {
-    // MASTHEAD-SCENE-1: the import carries the unified scene clock (artwork + night state).
-    assert.match(masthead, /import \{ WeatherMasthead, useMastheadScene \} from '@masthead\/WeatherScene'/)
-    const wx = read('masthead/src/WeatherScene.jsx')
-    // Same scenes and animations; only resized/repositioned per the approval (enlarged for presence).
-    assert.match(wx, /export function WeatherMasthead\(\)/)
-    assert.match(wx, /manifest\s*\?\s*<AssetScene manifest=\{manifest\} onBroken=\{\(\) => setAssetsBroken\(true\)\} \/>\s*:\s*<SceneSvg scene=\{scene\} \/>/)
-    // MASTHEAD-WEATHER-1: enlarged 178 -> 192.
-    assert.match(css, /\.wx-mast \.wx-svg \{ width: 192px; \}/)
+    // MASTHEAD-PHASE-2b: the scene, the weather and the clock all live inside
+    // <masthead-card>, loaded from the Masthead service; the staff card is a host.
+    assert.match(masthead, /import MastheadCard from '\.\/MastheadCard'/)
+    assert.match(read('src/components/MastheadCard.jsx'), /<masthead-card[\s\S]*?mode="full"/)
   })
 
   await t.test('the events row is the shared component, fed by the shared window rule', () => {
-    assert.match(masthead, /<MastheadEventsRow items=\{items\}/)
+    assert.match(masthead, /items=\{items\}/)
     assert.match(masthead, /mastheadItems\(events, today\)/)
   })
 })
@@ -170,7 +166,6 @@ test('responsive reflow of the operational surfaces', async (t) => {
   })
   await t.test('at phone widths the gap KPI spans the row and the greeting wraps', () => {
     assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.glance-kpis > \*:last-child \{ grid-column: 1 \/ -1; \}/)
-    assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.mast-greet \{ font-size: 24px; white-space: normal; \}/)
   })
 })
 
@@ -186,25 +181,12 @@ test('Open Calendar is the events row\'s constant (MASTHEAD-LOCKSCREEN-1, Owner)
     // SCENE-4b put View calendar in the Today row so a quiet day had none.
     // LOCKSCREEN-1 keeps it in the row but makes it the row's constant: the
     // one thing left on a quiet day, rightmost, after the chips.
-    assert.match(masthead, /<MastheadEventsRow items=\{items\} calendar=\{\{ label: 'Open Calendar'/)
+    assert.match(masthead, /calendar=\{\{ label: 'Open Calendar', onClick: \(\) => navigate\('\/interviews'\) \}\}/)
     const rightCol = masthead.slice(masthead.indexOf('<div className="mast-right">'), masthead.indexOf('</div>\n      </div>'))
-    assert.doesNotMatch(rightCol, /mast-cal-btn/, 'the right column holds the weather only')
-    assert.match((read('src/index.css') + read('masthead/styles/masthead.css')), /\.mast-cal-btn-inline \{ margin-left: auto; \}/)
   })
-  await t.test('the greeting and the temperature are a small matched pair, both in the app sans', () => {
-    const css = (read('src/index.css') + read('masthead/styles/masthead.css'))
-    const pair = css.slice(css.indexOf('.mast-scenic .mast-greet,'))
-    // Shared metrics on the pair, no family: each half declares its own.
-    const shared = pair.slice(0, pair.indexOf('\n}'))
-    assert.match(shared, /font-size: 19px/)
-    assert.doesNotMatch(shared, /font-family/)
-    assert.match(pair, /\.mast-scenic \.wx-mast-temp \{ font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; \}/)
-    // MASTHEAD-LOCKSCREEN-1 (Owner): the masthead is all sans, so the greeting
-    // leaves the route serif HERE ONLY; every other route title keeps --chart-serif.
-    assert.match(pair, /\.mast-scenic \.mast-greet\.chart-route-title \{[^}]*font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;/)
-    assert.doesNotMatch(pair.slice(0, pair.indexOf('.mast-scenic .wx-mast-temp { color')), /Newsreader|Georgia|DM Sans|Pangram|Fraunces|'Playfair Display'|var\(--chart-serif\)/)
-    // The whole app still loads only its two established families, both
-    // self-hosted (TYPOGRAPHY-1); nothing comes from Google Fonts.
+  await t.test('the app serves its own copy of the masthead\'s face, and no Google font', () => {
+    // MASTHEAD-PHASE-2b: the card's own typography is guarded in the masthead
+    // repository; what stays here is the app's font delivery.
     const html = read('index.html')
     assert.doesNotMatch(html, /Newsreader|DM\+Sans|fonts\.googleapis/)
     assert.match(html, /fonts\/plus-jakarta-sans\/PlusJakartaSans-Variable\.woff2/)

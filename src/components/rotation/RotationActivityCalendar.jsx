@@ -46,7 +46,7 @@ import { pacificToday, monthGrid, monthLabel, groupByDay } from '../../lib/rotat
 // no persistence - so computing them here does not violate this component's props-only
 // contract. They are context, never records: a holiday chip is not a shift.
 import { getUsHolidaysForRange } from '../../lib/usHolidays'
-import { firstNameOf } from '@masthead/lib/masthead'
+import { firstNameOf } from '../../lib/greeting'
 import { ordinalWord } from '../../lib/ordinalWord'
 
 const F = 'Plus Jakarta Sans, sans-serif'

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { greetingFor, firstNameOf, greetingLine } from '../masthead/src/lib/masthead.js'
+import { greetingFor, firstNameOf, greetingLine } from '../src/lib/greeting.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -69,12 +69,8 @@ test('the A-name decision: tab renamed, mnemonic and route preserved', async (t)
 
   await t.test('the greeting is the visible h1, so the tab title never carries a name', () => {
     const masthead = read('src/components/TodayMasthead.jsx')
-    assert.match(masthead, /greetingLine\(userProfile\?\.full_name\)/)
+    assert.match(masthead, /fullName=\{userProfile\?\.full_name\}/)  // MASTHEAD-PHASE-2b: the element greets
     assert.doesNotMatch(app, /full_name[\s\S]{0,80}document\.title/)
   })
 })
 
-test('the greeting clamps instead of wrapping (long names)', () => {
-  const css = (read('src/index.css') + read('masthead/styles/masthead.css'))
-  assert.match(css, /\.mast-greet \{[\s\S]*?text-overflow: ellipsis; white-space: nowrap;/)
-})

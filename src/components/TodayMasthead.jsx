@@ -23,13 +23,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { toLocalDateStr } from '../lib/designTokens'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
-import { greetingLine } from '@masthead/lib/masthead'
 import { mastheadItems, holidayItems } from '../lib/mastheadEvents'
-import { WeatherMasthead, useMastheadScene } from '@masthead/WeatherScene'
-import MastheadScenery from '@masthead/MastheadScenery'
-import MastheadClock from '@masthead/MastheadClock'
-import MastheadEventsRow from '@masthead/MastheadEventsRow'
-import { MastheadIdentity } from '@masthead/identity'
+import MastheadCard from './MastheadCard'
 
 // cohort / onCampusCount stay in the signature for call-site stability; the
 // card no longer prints either (Owner: no cohort line on the masthead).
@@ -63,12 +58,6 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
     enabled: onTodayRoute !== false,
   })
 
-  const { heading, wash } = greetingLine(userProfile?.full_name)
-  // MASTHEAD-SCENE-1: one unified clock drives the time-of-day artwork AND the
-  // whole-card night treatment (sun-times with fixed-window fallback; never
-  // the app theme, never the greeting wash).
-  const { scene, night: sceneNight } = useMastheadScene()
-
   // The chips: flagged-or-milestone events inside the 14-day window (milestones
   // first), then today's US holidays, which are "Events Today" by definition.
   const items = useMemo(
@@ -76,27 +65,15 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
     [events, today],
   )
 
+  // MASTHEAD-PHASE-2b: the card itself is <masthead-card>, loaded live from
+  // the Masthead service; this component is its ASPIRE host: it fetches the
+  // events, names the viewer, and routes the calendar pill.
   return (
-    // WELCOME-TOUR-MASTHEAD-1: same anchor as the shared portal masthead, so one tour
-    // step serves the staff card and all four portal cards.
-    // MASTHEAD-PHASE-1: the card's pieces read the viewer's key from this
-    // provider (the package no longer knows ASPIRE's auth).
-    <MastheadIdentity userKey={user?.id}>
-    <div data-tour="masthead" className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
-      <MastheadScenery />
-      <div className="mast-row">
-        <div className="mast-left">
-          <h1 className="chart-route-title mast-greet">{heading}</h1>
-        </div>
-        <MastheadClock />
-        <div className="mast-right">
-          <WeatherMasthead />
-        </div>
-      </div>
-      {/* Owner: the label and chips appear only when something is inside the
-          window; the Open Calendar pill is the row's constant. */}
-      <MastheadEventsRow items={items} calendar={{ label: 'Open Calendar', onClick: () => navigate('/interviews') }} />
-    </div>
-    </MastheadIdentity>
+    <MastheadCard
+      fullName={userProfile?.full_name}
+      userKey={user?.id}
+      items={items}
+      calendar={{ label: 'Open Calendar', onClick: () => navigate('/interviews') }}
+    />
   )
 }

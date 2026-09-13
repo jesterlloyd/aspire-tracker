@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import GreetingMasthead from '@masthead/GreetingMasthead'
+import MastheadCard from '../../components/MastheadCard'
 import { useMastheadFeed } from '../shared/useMastheadFeed'
 // The CANONICAL fiscal-year clock (pure, Pacific day boundary) - the same one
 // the Community Benefit engine uses. Never a second FY definition.
@@ -53,7 +53,8 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
           pushed those dense views down and let its current-FY label
           contradict the fiscal year selected inside the benefit report. */}
       <div className="ptl-na-stack" style={{ display: view === 'calendar' ? 'flex' : 'none' }}>
-        <GreetingMasthead
+        <MastheadCard
+          flush
           userKey={user?.id}
           fullName={userProfile?.full_name}
           dateLabel={dateLabel}

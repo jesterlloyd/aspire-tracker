@@ -19,7 +19,7 @@ import { useNavigate } from 'react-router-dom'
 import { ngrpPath } from '../../lib/ngrp/ngrpTabs'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { useAuth } from '../../contexts/AuthContext'
-import GreetingMasthead from '@masthead/GreetingMasthead'
+import MastheadCard from '../MastheadCard'
 import { useStaffMastheadEvents } from '../useStaffMastheadEvents'
 import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
@@ -374,7 +374,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
           and every portal home use, so the two experiences open the same way.
           Its context line names the residency cohort rather than an ASPIRE one,
           because that is what everything below it is scoped to. */}
-      <GreetingMasthead
+      <MastheadCard
           userKey={user?.id}
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}

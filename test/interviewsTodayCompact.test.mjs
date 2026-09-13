@@ -170,8 +170,8 @@ test('the header renders unconditionally again; flush only drops the inset', () 
   assert.match(occ, /flush \? 'mast-live mast-live-flush' : 'mast-live'/)
   // flush also restores the bottom breathing room the old wrapper provided, so
   // the cards do not butt against the calendar controls below.
-  assert.match((read('src/index.css') + read('masthead/styles/masthead.css')), /\.mast-live-flush \{ margin-left: 0; margin-right: 0; margin-bottom: 16px; \}/)
-  assert.doesNotMatch((read('src/index.css') + read('masthead/styles/masthead.css')), /mast-live-headless/)
+  assert.match(read('src/index.css'), /\.mast-live-flush \{ margin-left: 0; margin-right: 0; margin-bottom: 16px; \}/)
+  assert.doesNotMatch(read('src/index.css'), /mast-live-headless/)
 })
 
 test('both surfaces present the identical header pattern', () => {

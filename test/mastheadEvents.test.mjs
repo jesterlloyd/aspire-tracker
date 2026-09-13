@@ -11,7 +11,6 @@ import assert from 'node:assert/strict'
 import {
   MASTHEAD_WINDOW_DAYS, mastheadItems, holidayItems, chipWhen, daysUntil, addDays, isMastheadCandidate,
 } from '../src/lib/mastheadEvents.js'
-import { clockLabel, dateLabel, planFit, mastheadTimeZone } from '../masthead/src/lib/mastheadClock.js'
 
 const TODAY = '2026-09-04'
 const at = (ymd, hh = '09:00') => `${ymd}T${hh}:00`     // local wall time, like the API's timestamps in this zone
@@ -89,53 +88,3 @@ test("today's holidays become chips", () => {
   assert.deepEqual(holidayItems([]), [])
 })
 
-test('the clock is twelve-hour, zero-padded, with no AM/PM', () => {
-  assert.equal(clockLabel(new Date(2026, 8, 4, 7, 5)), '07:05')
-  assert.equal(clockLabel(new Date(2026, 8, 4, 19, 29)), '07:29')
-  assert.equal(clockLabel(new Date(2026, 8, 4, 0, 0)), '12:00')
-  assert.equal(clockLabel(new Date(2026, 8, 4, 12, 0)), '12:00')
-  assert.doesNotMatch(clockLabel(new Date(2026, 8, 4, 19, 29)), /AM|PM/)
-})
-
-test('the date is "Friday, 4 Sep": full weekday, day, three-letter month, no year', () => {
-  assert.equal(dateLabel(new Date(2026, 8, 4)), 'Friday, 4 Sep')
-  assert.equal(dateLabel(new Date(2026, 11, 25)), 'Friday, 25 Dec')
-  assert.doesNotMatch(dateLabel(new Date(2026, 8, 4)), /2026/)
-  // MASTHEAD-CITY-TIME-1: a chosen city's clock reads that city's zone. One
-  // instant, two cities: 10:59Z is 06:59 in New York and 03:59 in Los
-  // Angeles, and 03:30Z is still Friday in New York when it is Saturday in
-  // London.
-  const t = new Date('2026-09-05T10:59:00Z')
-  assert.equal(clockLabel(t, 'America/New_York'), '06:59')
-  assert.equal(clockLabel(t, 'America/Los_Angeles'), '03:59')
-  assert.equal(clockLabel(new Date('2026-09-05T16:05:00Z'), 'America/New_York'), '12:05')
-  assert.equal(dateLabel(new Date('2026-09-05T03:30:00Z'), 'America/New_York'), 'Friday, 4 Sep')
-  assert.equal(dateLabel(new Date('2026-09-05T03:30:00Z'), 'Europe/London'), 'Saturday, 5 Sep')
-  // Only a CHOSEN city moves the clock; Automatic keeps the viewer's own.
-  assert.equal(mastheadTimeZone({ timezone: 'America/New_York' }, { chosen: true }), 'America/New_York')
-  assert.equal(mastheadTimeZone({ timezone: 'America/New_York' }, { chosen: false, geo: true }), undefined)
-  assert.equal(mastheadTimeZone({ timezone: 'Mars/Olympus' }, { chosen: true }), undefined, 'an unknown zone falls back to local rather than throwing')
-  assert.equal(mastheadTimeZone(undefined, { chosen: true }), undefined)
-  // And the component reads it from the shared weather query.
-  const clock = readFileSync(new URL('../masthead/src/MastheadClock.jsx', import.meta.url), 'utf8')
-  assert.match(clock, /const \{ data, location \} = useWelcomeWeather\(\)/)
-  assert.match(clock, /const timeZone = mastheadTimeZone\(data, location\)/)
-  assert.match(clock, /clockLabel\(now, timeZone\)/)
-  assert.match(clock, /dateLabel\(now, timeZone\)/)
-})
-
-test('the width match tracks the clock out when the date is wider, and scales the date up when it is narrower', () => {
-  // A long date over a tightened clock: the clock spreads, the date keeps its size.
-  const wide = planFit({ dateW: 131, clockW: 84, baseFontPx: 13, glyphs: 5 })
-  assert.equal(wide.kind, 'track')
-  assert.ok(Math.abs(wide.letterSpacingPx - (131 - 84) / 5) < 1e-9)
-  assert.equal(wide.paddingLeftPx, wide.letterSpacingPx, 'padding balances the trailing spacing')
-  // A short date under the clock: the date grows to meet it, capped.
-  const narrow = planFit({ dateW: 75, clockW: 84, baseFontPx: 13, glyphs: 5 })
-  assert.equal(narrow.kind, 'scale')
-  assert.ok(Math.abs(narrow.fontSizePx - 13 * 84 / 75) < 1e-9)
-  assert.equal(planFit({ dateW: 20, clockW: 84, baseFontPx: 13, glyphs: 5 }).fontSizePx, 16, 'never past the cap')
-  // The failure mode this exists to prevent: the date is never fitted DOWN.
-  assert.notEqual(wide.kind, 'scale')
-  assert.equal(planFit({ dateW: 0, clockW: 84, baseFontPx: 13, glyphs: 5 }).kind, 'none')
-})

@@ -47,7 +47,7 @@ test('sections stay mounted and hide with display, matching the other portals', 
   assert.match(portal, /display: view === 'calendar' \? 'flex' : 'none'/)
   assert.match(portal, /display: view === 'community-benefit' \? 'block' : 'none'/)
   assert.match(portal, /display: view === 'contacts' \? 'block' : 'none'/)
-  assert.match(portal, /GreetingMasthead/)
+  assert.match(portal, /MastheadCard/)
 })
 
 // ── School color consistency ─────────────────────────────────────────────────

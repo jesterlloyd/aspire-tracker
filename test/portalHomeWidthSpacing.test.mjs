@@ -21,7 +21,7 @@ test('masthead and On Campus Now align to the calendar/grid edges (no side inset
   // They sit directly in the .ptl-unit-page grid, not inside a narrower nested wrapper.
   assert.match(portal, /<div className="ptl-page ptl-unit-page">/)
   const home = portal.slice(portal.indexOf('function HomeScreen'), portal.indexOf('function PlacementScreen'))
-  assert.match(home, /<GreetingMasthead/)
+  assert.match(home, /<MastheadCard/)
   assert.match(home, /<OnCampusNow/)
   assert.match(home, /<UnitRotationCalendar/)
   // No Home-only width wrapper around the masthead / card.

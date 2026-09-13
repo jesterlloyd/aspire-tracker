@@ -38,7 +38,7 @@ test('the Residency workspace has a page column at all', () => {
 test('it is the SAME column the rest of the app uses', () => {
   // If either side of this pair changes, the workspace silently stops matching the
   // app again, which is exactly how this defect went unnoticed.
-  const indexCss = (read('src/index.css') + read('masthead/styles/masthead.css'))
+  const indexCss = read('src/index.css')
   // UI-CONSISTENCY-1: the vertical rhythm is the shared gap token now; the 20px
   // horizontal inset, which is what this pair guards, is unchanged.
   assert.match(indexCss, /\.snap \{[^}]*margin:\s*var\(--aspire-gap-card\) 20px 0/s, 'the At a Glance card inset')

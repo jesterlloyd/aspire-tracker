@@ -128,7 +128,7 @@ test('At a Glance and Profiles are the old tabs, renamed, not rewritten', () => 
 })
 
 test('At a Glance opens with the same masthead every other home uses', () => {
-  assert.match(glance, /import GreetingMasthead from '@masthead\/GreetingMasthead'/)
+  assert.match(glance, /import MastheadCard from '[^']+MastheadCard'/)
   assert.match(glance, /contextLabel=\{serverCycle\.name\}/, 'named by the residency cohort, not an ASPIRE one')
   // EVENT-AUDIENCE-2: the masthead shows the shared staff event feed, not a
   // chip invented from the cycle timeline; the timeline card below still
@@ -254,13 +254,9 @@ test('the masthead sits in the same column, and therefore at the same height', (
   // at 88..1352 against every sibling's 68..1372. And because .mast-scenic is
   // aspect-ratio sized, the narrower card was also SHORTER - 1264/5.9 = 214px
   // against the app's 1304/5.9 = 221px. One opt-out fixes both.
-  const indexCss = (read('src/index.css') + read('masthead/styles/masthead.css'))
-  assert.match(indexCss, /\.mast\.mast-flush \{ margin-left: 0; margin-right: 0; \}/)
-  // Defined beside the sibling opt-out so the two cannot drift apart.
-  assert.ok(indexCss.indexOf('.mast-live-flush {') < indexCss.indexOf('.mast.mast-flush {'))
-  assert.ok(indexCss.indexOf('.mast.mast-flush {') - indexCss.indexOf('.mast-live-flush {') < 700)
-  // The prop is opt-in, so every existing host is untouched.
-  const masthead = read('masthead/src/GreetingMasthead.jsx')
+  // MASTHEAD-PHASE-2b: the card's flush rule (.mast.mast-flush) lives in the
+  // masthead repository; the host passes the attribute through the wrapper.
+  const masthead = read('src/components/MastheadCard.jsx')
   assert.match(masthead, /flush = false,/)
   assert.match(glance, /flush\n\s*\/>/, 'At a Glance opts in')
 })
@@ -288,7 +284,7 @@ test('no em dash in anything this change added', () => {
   for (const f of [
     'src/lib/ngrp/ngrpTabs.js', 'src/lib/ngrp/ngrpActivity.js',
     'src/components/ngrp/NgrpWorkspace.jsx', 'src/components/ngrp/NgrpNav.jsx',
-    'src/components/ngrp/ActivityCalendar.jsx', 'masthead/src/GreetingMasthead.jsx',
+    'src/components/ngrp/ActivityCalendar.jsx',
   ]) {
     assert.doesNotMatch(read(f), /—/, `${f} must not contain an em dash`)
   }

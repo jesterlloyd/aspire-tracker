@@ -18,7 +18,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
-import GreetingMasthead from '@masthead/GreetingMasthead'
+import MastheadCard from '../components/MastheadCard'
 import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { buildLiveShiftDisplay } from '../lib/onCampusRows'
@@ -298,13 +298,11 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
   )
   const greetingRef = useRef(null)
   useEffect(() => {
-    const el = greetingRef.current
-    if (!el) return undefined
-    el.dataset.programmaticFocus = 'true'
-    el.focus()
-    const clear = () => { delete el.dataset.programmaticFocus }
-    el.addEventListener('blur', clear, { once: true })
-    return () => { el.removeEventListener('blur', clear); clear() }
+    // MASTHEAD-PHASE-2b: the greeting lives inside <masthead-card>'s shadow
+    // root; the wrapper's ref exposes focus(), which the element performs as
+    // a programmatic focus (no ring) and clears on blur itself.
+    greetingRef.current?.focus?.()
+    return undefined
   }, [])
 
   // On Campus Now: the same canonical live-shift card the staff At a Glance dashboard uses,
@@ -337,7 +335,8 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
 
   return (
     <>
-      <GreetingMasthead
+      <MastheadCard
+          flush
           userKey={user?.id}
         fullName={profile?.full_name}
         dateLabel={dateLabel}

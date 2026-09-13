@@ -215,6 +215,33 @@ comparison of the staff card and each portal card before and after.
 
 ### Phase 2: the service, and ASPIRE as its first host
 
+**Done, 2026-09-13.** The service is the `masthead` repository beside this
+one (github.com/jesterlloyd/masthead, private), deployed by Vercel on every
+push to `https://masthead-seven.vercel.app`. `/v1/masthead.js` (134 KB
+gzipped) defines `<masthead-card>`; `/v1/manifest.json` lists the frames.
+Ten renders of the served element against the in-app card, with the weather
+stubbed and every animation frozen, were pixel-identical before the switch.
+
+ASPIRE is the first host: `src/components/MastheadCard.jsx` loads the script
+once (`src/lib/mastheadService.js`, `VITE_MASTHEAD_URL` to override), renders
+the element, keeps the app's theme and the host's `items`/`calendar` in step
+with it, and carries the welcome tour's anchor in light DOM. The staff card
+and the four portals render it; the app's own copy of the package, the
+34 MB of artwork and the prepare scripts are gone from this repository, and
+`npm test` is back to one folder. What stayed: `src/lib/greeting.js` (the
+greeting line, also used by the rotation calendars), `src/lib/mastheadEvents.js`
+and `src/components/useStaffMastheadEvents.js` (how ASPIRE shapes its events),
+and the `.mast-live-*` rules, which style On Campus Now, not the card.
+
+Two things found on the way and fixed in the element: a shadow tree gets none
+of the host's resets, tokens, typography or fonts (the package carries all
+four); and a host that assigns `items` before the script arrives shadows the
+setter unless the element adopts the value on upgrade.
+
+**A city or effect is now added in the masthead repository** (its README
+says how) and reaches ASPIRE, and every later host, on the next page load.
+
+
 Deploy the element. Switch the staff card and the four portals to
 `<masthead-card>`. The welcome tour anchors to the host's wrapper element
 instead of the card's own `data-tour`. Verify parity again (the lock harness

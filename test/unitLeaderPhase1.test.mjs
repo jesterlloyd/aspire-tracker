@@ -293,7 +293,7 @@ test('the day drawer shows student and preceptor and traps focus', () => {
 test('Home renders welcome, an attention strip, the calendar, then the students table', () => {
   const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function PlacementScreen'))
   // The plain "Welcome" heading is now the shared greeting masthead (Commit 1).
-  const order = ['<GreetingMasthead', 'ptl-attn-strip', '<UnitRotationCalendar', '<StudentRoster']
+  const order = ['<MastheadCard', 'ptl-attn-strip', '<UnitRotationCalendar', '<StudentRoster']
   let cursor = -1
   for (const marker of order) {
     const at = home.indexOf(marker)

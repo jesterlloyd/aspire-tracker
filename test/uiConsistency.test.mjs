@@ -23,7 +23,7 @@ const rule = (css, sel) => {
 }
 
 const brand = read('src/styles/aspireBrand.css')
-const index = (read('src/index.css') + read('masthead/styles/masthead.css'))
+const index = read('src/index.css')
 const portal = read('src/portal/portal.css')
 const ngrp = read('src/components/ngrp/ngrp.css')
 const chart = read('src/styles/chartTokens.css')
@@ -51,7 +51,8 @@ test('the tokens exist, once, with the decided values', () => {
 
 const CARDS = [
   ['staff', index, '.ov-panel '], ['staff', index, '.stat-card'], ['staff', index, '.snap'],
-  ['staff', index, '.mast'], ['staff', index, '.unit-card'], ['staff', index, '.matching-board'],
+  // MASTHEAD-PHASE-2b: .mast is <masthead-card>'s now, guarded in the masthead repository.
+  ['staff', index, '.unit-card'], ['staff', index, '.matching-board'],
   ['staff', index, '.canonical-calendar-shell'],
   ['portal', portal, '.ptl-card'], ['portal', portal, '.ptl-rotation-switch'],
   ['ngrp', ngrp, '.ngrp-roster'],
@@ -82,7 +83,6 @@ test('sibling cards share one gap and the first card one offset', () => {
   assert.match(rule(index, '.ov-panels'), /gap:\s*var\(--aspire-gap-card\)/)
   assert.match(rule(index, '.dashboard'), /gap:\s*var\(--aspire-gap-card\)/)
   assert.match(rule(index, '.snap'), /margin:\s*var\(--aspire-gap-card\) 20px 0/)
-  assert.match(rule(index, '.mast'), /margin:\s*var\(--aspire-gap-card\) 20px 0/)
   assert.match(rule(portal, '.ptl-grid'), /gap:\s*var\(--aspire-gap-card/)
   // Staff: page column 8px + card's own 16px margin = 24. Portal: 24 directly. Same distance.
   assert.match(rule(index, '.app-main'), /padding:\s*calc\(var\(--aspire-page-top\) - var\(--aspire-gap-card\)\) 0 0/)

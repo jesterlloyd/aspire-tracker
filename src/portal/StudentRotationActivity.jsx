@@ -12,7 +12,7 @@ import {
 } from '../components/shared/CanonicalCalendarFoundation'
 import { pacificToday, monthGrid, monthLabel } from '../lib/rotationCalendarDates'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
-import { firstNameOf } from '@masthead/lib/masthead'
+import { firstNameOf } from '../lib/greeting'
 import { eventColor, eventTypeLabel } from '../lib/aspireEvents'
 import { portalShiftStatus } from '../lib/portalShiftStatus'
 import {
