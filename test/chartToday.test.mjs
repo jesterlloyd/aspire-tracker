@@ -192,3 +192,10 @@ test('Open Calendar is the events row\'s constant (MASTHEAD-LOCKSCREEN-1, Owner)
     assert.match(html, /fonts\/plus-jakarta-sans\/PlusJakartaSans-Variable\.woff2/)
   })
 })
+
+// MASTHEAD-SETTINGS-1: the service refuses a script request with no host key.
+test('the app loads the masthead as a registered host', () => {
+  const svc = read('src/lib/mastheadService.js')
+  assert.match(svc, /\/v1\/masthead\.js\?host=\$\{MASTHEAD_HOST_KEY\}/)
+  assert.match(svc, /MASTHEAD_HOST_KEY = import\.meta\.env\.VITE_MASTHEAD_HOST_KEY \|\| 'aspire-intelligence'/)
+})

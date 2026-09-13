@@ -4,6 +4,7 @@
 // and loaded live, so a new city or effect reaches this app on the next page
 // load with no build. VITE_MASTHEAD_URL overrides the address for a preview
 // deployment or a local build of the service.
+export const MASTHEAD_HOST_KEY = import.meta.env.VITE_MASTHEAD_HOST_KEY || 'aspire-intelligence'
 export const MASTHEAD_URL = (import.meta.env.VITE_MASTHEAD_URL || 'https://masthead-seven.vercel.app').replace(/\/+$/, '')
 
 let loading = null
@@ -14,7 +15,9 @@ export function ensureMasthead() {
       if (typeof customElements !== 'undefined' && customElements.get('masthead-card')) return resolve()
       const s = document.createElement('script')
       s.type = 'module'
-      s.src = `${MASTHEAD_URL}/v1/masthead.js`
+      // MASTHEAD-SETTINGS-1: the service admits only registered hosts, by key
+      // and by page origin; this app is registered as aspire-intelligence.
+      s.src = `${MASTHEAD_URL}/v1/masthead.js?host=${MASTHEAD_HOST_KEY}`
       s.onload = () => resolve()
       s.onerror = () => reject(new Error('masthead failed to load'))
       document.head.appendChild(s)
