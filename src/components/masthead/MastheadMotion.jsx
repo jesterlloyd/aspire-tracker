@@ -150,6 +150,10 @@ const SNOWFLAKES = (() => {
 // in index.css are written against this number, so it is a constant here and
 // not a per-city knob: a per-city value would silently disagree with the CSS.
 const VISIBLE = 0.41
+// MASTHEAD-PLANE-RELAY-1: the on-screen share of a RELAY lane's cycle, written
+// against @keyframes mast-fly-relay (gone by 23.5%). Under a quarter, so four
+// lanes offset by a quarter each never put two aircraft in the sky at once.
+const RELAY_VISIBLE = 0.235
 
 // MASTHEAD-STARS-1: a star field is not a row of lights. Lights breathe on
 // coprime periods so a street never pulses in unison; stars want the same
@@ -213,6 +217,12 @@ export default function MastheadMotion({ city }) {
   // spans. One aircraft reads as a city; four reads as a flight path, which is
   // what living under one actually looks like.
   const planes = Array.isArray(aircraft) ? aircraft : aircraft ? [aircraft] : []
+  // MASTHEAD-PLANE-RELAY-1 (Owner: "not too many planes at the same time").
+  // Three or more lanes share ONE cycle, sized so the slowest lane keeps its
+  // flight, and each starts an equal share of it after the last: one aircraft
+  // crosses at a time, and a new one appears as the last leaves.
+  const relay = planes.length >= 3
+  const relayCycle = relay ? Math.max(...planes.map(p => p.flight)) / RELAY_VISIBLE : 0
   // MASTHEAD-SCENE-SHIFT: everything measured against the frame (points, decks,
   // beam, steam) sits in one anchored box, and a scene whose frame is the same
   // drawing moved by a measured amount shifts that box, by CSS on the scene
@@ -664,8 +674,13 @@ export default function MastheadMotion({ city }) {
       </div>
 
       {planes.map((p, i) => (
-        <span key={`ac-${p.y}-${p.from}`} className="mast-motion-plane"
-          style={{ ...crossing(p), '--dl': `${(i * 6.7).toFixed(1)}s` }}>
+        <span key={`ac-${p.y}-${p.from}`}
+          className={`mast-motion-plane${p.from > p.to ? ' mast-motion-plane-west' : ''}${relay ? ' mast-motion-plane-relay' : ''}`}
+          style={relay
+            ? { ...crossing(p), '--cycle': `${relayCycle.toFixed(1)}s`, '--dl': `${((i * relayCycle) / planes.length).toFixed(1)}s` }
+            : { ...crossing(p), '--dl': `${(i * 6.7).toFixed(1)}s` }}>
+          {/* MASTHEAD-PLANE-SHAPE-1: a silhouette, with the light on its belly. */}
+          <span className="mast-motion-plane-body" />
           <span className="mast-motion-plane-dot" />
         </span>
       ))}
@@ -673,7 +688,8 @@ export default function MastheadMotion({ city }) {
       {/* Low, slow, and strobing. A helicopter differs from an aircraft in
           exactly those three things, and the eye knows it from a long way off. */}
       {helicopter && (
-        <span className="mast-motion-heli" style={crossing(helicopter)}>
+        <span className={`mast-motion-heli${helicopter.from > helicopter.to ? ' mast-motion-heli-west' : ''}`}
+          style={crossing(helicopter)}>
           <span className="mast-motion-heli-body" />
           <span className="mast-motion-heli-strobe" />
         </span>

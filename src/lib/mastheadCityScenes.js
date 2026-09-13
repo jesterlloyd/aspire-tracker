@@ -2183,23 +2183,33 @@ export const CITY_MOTION = {
       [80.65, 83.5], [83.45, 85.0], [85.7, 83.75], [88.1, 86.0], [89.95, 85.75],
     ],
     // Sun glitter by AGREEMENT of the Day and Golden Hour frames, each 100px
-    // band's threshold taken from its own water pixels only.
+    // band's threshold taken from its own water pixels only. A second pass
+    // (2026-09-12, in place of the ferry) lowered the cut to the 90th
+    // percentile over y 83-97 and kept every agreeing maximum at least 1.5% x
+    // or 3.2% y from an existing glint, minus the maxima that sat on the two
+    // PAINTED ferries' white hulls, which pass for glitter on colour alone.
     glints: [
-      [2.1, 90.5], [2.3, 95.0], [2.65, 85.25], [5.8, 85.75], [6.25, 93.0],
-      [10.3, 93.5], [12.5, 88.5], [16.45, 94.25], [21.7, 94.75], [22.15, 89.0],
-      [24.05, 92.0], [26.3, 92.0], [32.5, 92.0], [38.9, 89.0], [39.45, 85.25],
-      [44.25, 95.0], [44.6, 87.75], [50.1, 92.75], [54.05, 89.0], [55.8, 94.75],
-      [56.55, 89.0], [57.3, 85.25], [60.5, 91.25], [66.2, 90.0], [68.0, 96.25],
-      [69.55, 92.25], [74.6, 84.25], [75.3, 93.75], [77.05, 89.0], [77.8, 94.0],
-      [80.85, 84.25], [80.85, 92.5], [83.0, 95.75], [83.15, 90.25], [83.4, 83.75],
-      [85.85, 92.5], [88.45, 89.5], [91.95, 91.75], [92.15, 83.0], [94.9, 90.5],
-      [95.55, 95.5], [95.8, 84.25], [98.1, 92.5], [98.35, 84.25],
+      [2.1, 90.5], [2.3, 95], [2.65, 85.25], [5.8, 85.75], [6.25, 93],
+      [6.35, 89.25], [10.3, 93.5], [12.5, 88.5], [14.95, 94.75], [15.3, 89.25],
+      [16.45, 94.25], [20.1, 96.75], [21.7, 94.75], [22.1, 83.5], [22.15, 89],
+      [24.05, 92], [25.7, 96.5], [26.3, 92], [26.65, 88.75], [27.75, 96.75],
+      [32.5, 92], [34.0, 96.75], [34.2, 89.5], [34.25, 83.0], [34.6, 93.25],
+      [38.9, 89], [39.45, 85.25], [44.25, 95], [44.6, 87.75], [50.1, 92.75],
+      [53.9, 94.5], [54.05, 89], [55.8, 94.75], [56.55, 89], [57.3, 85.25],
+      [60.25, 96.5], [60.5, 91.25], [61.6, 87.5], [62.05, 96.75], [62.2, 92.25],
+      [66.0, 94.25], [66.2, 90], [67.95, 92.75], [68, 96.25], [69.55, 92.25],
+      [71.95, 89.75], [74.6, 84.25], [75.3, 93.75], [77.05, 89], [77.8, 94],
+      [78.55, 90.25], [80.7, 96.5], [80.85, 84.25], [80.85, 92.5], [83, 95.75],
+      [83.15, 90.25], [83.4, 83.75], [84.95, 96.75], [85.85, 92.5], [87.55, 96.75],
+      [87.7, 93.25], [88.45, 89.5], [90.35, 96.75], [91.95, 91.75], [92.15, 83],
+      [94.15, 84.25], [94.9, 90.5], [95.55, 95.5], [95.8, 84.25], [98.1, 92.5],
+      [98.35, 84.25],
     ],
     swell: { x: 4, y: 86, w: 92, height: 10 },
-    // A Bosphorus ferry. The day frames paint two, white, at y 77-85 (x 11-17.5
-    // and 88-91.5); lane y 90 runs in front of both rather than through them.
-    ferry: { y: 90, from: 96, to: 8, flight: 150 },
-    ferryTone: 'white',
+    // NO FERRY (Owner, 2026-09-12: "remove that in istanbul as there are
+    // already ships in there"). The day frames paint two Bosphorus ferries at
+    // y 77-85 (x 11-17.5 and 88-91.5), so a third crossing in front of them
+    // was one boat too many. The water gets more glints instead.
     // THE WHOLE RIGHT HALF IS SKY: from x 48 to the right edge nothing rises
     // above y 32, so every crossing lives there, clear of the four minarets.
     // The gulls are the city's own; the flock spreads 6.4% above its lane and

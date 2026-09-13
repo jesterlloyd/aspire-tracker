@@ -984,8 +984,12 @@ test('Istanbul: the Golden Horn, and nothing flies through a minaret', () => {
   for (const [x, y] of c.water) assert.ok(y > 82.5, `Istanbul reflection at ${x}, ${y} is on the quay`)
   for (const [x, y] of c.glints) assert.ok(y > 82.5, `Istanbul glint at ${x}, ${y} is on the quay`)
   for (const [x, y] of c.lights) assert.ok(y < 81, `Istanbul light at ${x}, ${y} is in the water`)
-  assert.ok(c.ferry.y > 82.5, 'the ferry left the water')
-  assert.ok(c.glints.length >= 30 && c.water.length >= 25)
+  // The day frames paint two ferries already; an animated third was removed
+  // at the Owner's request and the water carries more glints instead.
+  assert.equal(c.ferry, undefined, 'Istanbul paints its own ferries; do not sail another in front of them')
+  assert.equal(c.ferryTone, undefined)
+  assert.ok(c.glints.length >= 60, `Istanbul has ${c.glints.length} glints; the second pass replaced the ferry`)
+  assert.ok(c.water.length >= 25)
   // The Suleymaniye's four minarets reach the top of the card at x 38.8-47.1.
   for (const kind of ['aircraft', 'birds', 'helicopter']) {
     const lanes = Array.isArray(c[kind]) ? c[kind] : [c[kind]]
@@ -996,6 +1000,59 @@ test('Istanbul: the Golden Horn, and nothing flies through a minaret', () => {
   // Floodlit stone, not aviation red: a minaret carries no beacon.
   assert.equal(c.beacons, undefined, 'Istanbul paints no aviation red; its minarets are facade glows')
   assert.ok(c.facade.length >= 6, 'the mosque and its minarets lost their floodlights')
+})
+
+// MASTHEAD-PLANE-SHAPE-1 (Owner: "not just black ovals but plane shaped and
+// maybe grayish so they blend in the sky"). The helicopter was a 6x2 dark
+// ellipse and the aircraft a bare 3px dot. Both are silhouettes now, in grey,
+// and each faces the way its lane flies.
+test('aircraft and helicopters are grey silhouettes that face their direction of travel', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const block = name => css.slice(css.indexOf(name), css.indexOf('}', css.indexOf(name)) + 1)
+  for (const name of ['.mast-motion-plane-body {', '.mast-motion-heli-body {']) {
+    const b = block(name)
+    assert.match(b, /clip-path: polygon\(/, `${name} is not a silhouette`)
+    assert.doesNotMatch(b, /border-radius: 50%/, `${name} went back to an oval`)
+    const [r, g, bl, a] = /background: rgba\((\d+),(\d+),(\d+),([\d.]+)\)/.exec(b).slice(1).map(Number)
+    assert.ok(Math.max(r, g, bl) - Math.min(r, g, bl) <= 30, `${name} is not grey (rgb ${r},${g},${bl})`)
+    assert.ok(Math.min(r, g, bl) >= 60, `${name} is near-black again (rgb ${r},${g},${bl})`)
+    assert.ok(a < 0.85, `${name} is opaque; it should sit in the sky, not on it`)
+  }
+  assert.match(css, /\.mast-motion-plane-west \.mast-motion-plane-body \{ transform: scaleX\(-1\); \}/)
+  assert.match(css, /\.mast-motion-heli-west \.mast-motion-heli-body \{ transform: scaleX\(-1\); \}/)
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  assert.match(src, /mast-motion-plane\$\{p\.from > p\.to \? ' mast-motion-plane-west' : ''\}/)
+  assert.match(src, /mast-motion-heli\$\{helicopter\.from > helicopter\.to \? ' mast-motion-heli-west' : ''\}/)
+  assert.match(src, /className="mast-motion-plane-body"[\s\S]{0,80}className="mast-motion-plane-dot"/)
+})
+
+// MASTHEAD-PLANE-RELAY-1 (Owner, of Porter Ranch: "not too many planes at the
+// same time") and MASTHEAD-BOAT-SHAPE-1 ("how about the ships or boats... maybe
+// not oval as well").
+test('three or more flight lanes take turns, and a ferry is a boat', () => {
+  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  // The relay window is under a quarter of the cycle, so four lanes offset by
+  // a quarter each can never overlap; the constant and the keyframe agree.
+  const vis = Number(/const RELAY_VISIBLE = ([\d.]+)/.exec(src)[1])
+  const kf = css.slice(css.indexOf('@keyframes mast-fly-relay'), css.indexOf('}\n}', css.indexOf('@keyframes mast-fly-relay')))
+  const gone = Number(/([\d.]+)%\s*\{ left: var\(--to/.exec(kf)[1]) / 100
+  assert.equal(gone, vis, 'mast-fly-relay and RELAY_VISIBLE disagree')
+  for (const [city, m] of Object.entries(CITY_MOTION)) {
+    const lanes = Array.isArray(m.aircraft) ? m.aircraft : []
+    if (lanes.length >= 3) assert.ok(vis < 1 / lanes.length, `${city} has ${lanes.length} lanes; a relay window of ${vis} lets two overlap`)
+  }
+  assert.match(src, /const relay = planes\.length >= 3/)
+  assert.match(src, /'--dl': `\$\{\(\(i \* relayCycle\) \/ planes\.length\)\.toFixed\(1\)\}s`/)
+  for (const scene of ['night', 'cloudynight', 'rainnight', 'snownight']) {
+    assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-plane.mast-motion-plane-relay`), `no relay rule on ${scene}`)
+  }
+  // Small at this distance: an aircraft is no longer than this across.
+  const body = css.slice(css.indexOf('.mast-motion-plane-body {'), css.indexOf('}', css.indexOf('.mast-motion-plane-body {')))
+  assert.ok(Number(/width: (\d+)px/.exec(body)[1]) <= 16, 'the aircraft silhouette grew too big')
+  const hull = css.slice(css.indexOf('.mast-motion-ferry-hull {'), css.indexOf('}', css.indexOf('.mast-motion-ferry-hull {')))
+  assert.match(hull, /clip-path: polygon\(/, 'the ferry went back to a dash')
+  assert.doesNotMatch(hull, /border-radius/, 'the ferry went back to an oval')
 })
 
 test('stars and comets sit in measured, empty, CLEAR-night sky', () => {

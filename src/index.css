@@ -2237,8 +2237,21 @@ a.doc-file-link:hover { text-decoration: underline; }
    seam to hide, which is the thing a generated video loop cannot promise. ── */
 .mast-motion-plane {
   position: absolute; left: var(--from, 100%); opacity: 0;
-  width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px;
+  width: 0; height: 0;
 }
+/* MASTHEAD-PLANE-SHAPE-1 (Owner: "not just black ovals but plane shaped and
+   maybe grayish so they blend in the sky"). A side-profile airliner, drawn by
+   clip-path on one box so it stays one element: tail fin at the back, fuselage
+   to a rounded nose, one swept wing under the middle. Soft slate, so it sits in
+   the sky rather than on top of it; the blinking light rides its belly. The
+   silhouette faces right; a westbound lane mirrors it about its own point. */
+.mast-motion-plane-body {
+  position: absolute; width: 14px; height: 6px; margin: -4px 0 0 -7px;
+  background: rgba(150,160,178,0.62);
+  clip-path: polygon(2% 0, 13% 0, 28% 42%, 90% 42%, 100% 57%, 90% 74%, 60% 74%,
+    42% 100%, 32% 100%, 44% 74%, 6% 74%, 0 58%, 6% 44%);
+}
+.mast-motion-plane-west .mast-motion-plane-body { transform: scaleX(-1); }
 @keyframes mast-fly {
   0%       { left: var(--from, 100%); opacity: 0; }
   1.5%     { opacity: 1; }
@@ -2247,7 +2260,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   100%     { left: var(--to, 30%); opacity: 0; }
 }
 .mast-motion-plane-dot {
-  position: absolute; inset: 0; border-radius: 50%;
+  position: absolute; width: 3px; height: 3px; margin: -1px 0 0 -1.5px; border-radius: 50%;
   background: radial-gradient(circle,
     rgba(255,244,226,0.98) 0%, rgba(255,214,150,0.42) 38%, transparent 72%);
 }
@@ -2261,6 +2274,26 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-scenic.mast-scene-rainnight .mast-motion-plane,
 .mast-scenic.mast-scene-snownight .mast-motion-plane {
   animation: mast-fly var(--cycle, 82s) linear var(--dl, 0s) infinite;
+}
+/* MASTHEAD-PLANE-RELAY-1 (Owner, of Porter Ranch: "not too many planes at the
+   same time"). A city with three or more lanes flies them as a RELAY: one
+   shared cycle, each lane offset by an equal share of it, and each plane on
+   screen for under a quarter of the cycle, so the lanes hand the sky to each
+   other and only one aircraft crosses at a time. The window here is written
+   against RELAY_VISIBLE in MastheadMotion, exactly as mast-fly is against
+   VISIBLE. Four compound classes so it outranks the gate above. */
+@keyframes mast-fly-relay {
+  0%       { left: var(--from, 100%); opacity: 0; }
+  1%       { opacity: 1; }
+  21.5%    { opacity: 1; }
+  23.5%    { left: var(--to, 30%); opacity: 0; }
+  100%     { left: var(--to, 30%); opacity: 0; }
+}
+.mast-scenic.mast-scene-night .mast-motion-plane.mast-motion-plane-relay,
+.mast-scenic.mast-scene-cloudynight .mast-motion-plane.mast-motion-plane-relay,
+.mast-scenic.mast-scene-rainnight .mast-motion-plane.mast-motion-plane-relay,
+.mast-scenic.mast-scene-snownight .mast-motion-plane.mast-motion-plane-relay {
+  animation-name: mast-fly-relay;
 }
 .mast-scenic.mast-scene-night .mast-motion-plane-dot,
 .mast-scenic.mast-scene-cloudynight .mast-motion-plane-dot,
@@ -2574,10 +2607,17 @@ a.doc-file-link:hover { text-decoration: underline; }
    aircraft. The body is a dark speck (it is against a lit sky), the strobe is
    red and fast with a short duty. ── */
 .mast-motion-heli { position: absolute; left: var(--from, 40%); opacity: 0; width: 0; height: 0; }
+/* MASTHEAD-PLANE-SHAPE-1: a helicopter silhouette, not a dark oval - rotor
+   bar on a mast, a rounded cabin, and a tail boom out the back - in the same
+   soft grey family as the aircraft, a shade deeper because a sunset sky is
+   lighter than a night one. Faces right; a westbound lane mirrors it. */
 .mast-motion-heli-body {
-  position: absolute; width: 6px; height: 2px; margin: -1px 0 0 -3px;
-  background: rgba(40,34,44,0.85); border-radius: 50%;
+  position: absolute; width: 11px; height: 6px; margin: -3.5px 0 0 -5.5px;
+  background: rgba(92,88,102,0.72);
+  clip-path: polygon(10% 0, 90% 0, 90% 10%, 54% 10%, 54% 26%, 74% 28%, 92% 50%,
+    88% 80%, 60% 90%, 44% 78%, 6% 60%, 0 40%, 6% 40%, 40% 56%, 42% 36%, 54% 26%);
 }
+.mast-motion-heli-west .mast-motion-heli-body { transform: scaleX(-1); }
 .mast-motion-heli-strobe {
   position: absolute; width: 3px; height: 3px; margin: -1.5px 0 0 1px;
   border-radius: 50%; opacity: 0;
@@ -2665,12 +2705,20 @@ a.doc-file-link:hover { text-decoration: underline; }
    fades only at the two ends of its run. */
 .mast-motion-ferry { position: absolute; left: var(--from, 40%); opacity: 0; width: 0; height: 0; }
 .mast-motion-ferry-hull {
-  position: absolute; width: 6px; height: 2px; margin: -1px 0 0 -3px;
-  background: rgba(46,48,58,0.85); border-radius: 1px; opacity: 0;
+  /* MASTHEAD-BOAT-SHAPE-1 (Owner: the boats should not be ovals either). A
+     ferry in profile, bow to the right: a hull that rises to the bow and
+     rounds under it, a long deck house, and a raised bridge forward of
+     midships. One box, drawn by clip-path, so the tone rules below still
+     colour it with a single background. Its waterline is the anchor's y. */
+  position: absolute; width: 16px; height: 6px; margin: -4px 0 0 -8px;
+  background: rgba(46,48,58,0.85); opacity: 0;
+  clip-path: polygon(0 62%, 16% 62%, 18% 30%, 48% 30%, 52% 0, 72% 0, 76% 30%, 80% 30%,
+    82% 58%, 100% 56%, 88% 100%, 6% 100%);
 }
-/* The wake trails behind the direction of travel (the ferry sails right). */
+/* The wake trails behind the direction of travel (the ferry sails right),
+   leaving from under the stern at the waterline. */
 .mast-motion-ferry-wake {
-  position: absolute; width: 16px; height: 2px; margin: -1px 0 0 -18px; opacity: 0; filter: blur(0.6px);
+  position: absolute; width: 16px; height: 2px; margin: 0 0 0 -22px; opacity: 0; filter: blur(0.6px);
   background: linear-gradient(270deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.28) 55%, transparent 100%);
 }
 .mast-motion-ferry-lamp {
