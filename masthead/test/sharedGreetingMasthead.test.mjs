@@ -101,3 +101,17 @@ test('the Unit Leader Home renders the shared masthead without a duplicated unit
   const css = read('../src/portal/portal.css')
   assert.match(css, /\.mast-greet\[data-programmatic-focus\]:focus \{ outline: none; \}/)
 })
+
+// MASTHEAD-PHASE-1 regression, caught the same evening it shipped: wrapping the
+// card in <MastheadIdentity> moved a `//` comment that used to sit before the
+// JSX to INSIDE it, where JSX renders a line comment as TEXT - a stray sentence
+// above every masthead in production. The frozen-render parity check missed it
+// because it screenshots the .mast card, not what sits above it.
+test('no line comment sits inside the JSX tree, where it would render as text', () => {
+  for (const f of ['src/GreetingMasthead.jsx', '../src/components/TodayMasthead.jsx']) {
+    const src = read(f)
+    const ret = src.slice(src.indexOf('return ('))
+    const insideJsx = ret.slice(ret.indexOf('<'))
+    assert.doesNotMatch(insideJsx, /\n\s*\/\/ /, `${f}: a line comment inside JSX renders as text; use {/* */}`)
+  }
+})
