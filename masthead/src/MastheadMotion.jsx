@@ -34,10 +34,10 @@
 //
 // MASTHEAD-SNOW-1 added snowfall (seeded flakes that fall and sway) and a
 // swell (faint drifting crests on a measured patch of water).
-import { CITY_MOTION, CARD_ASPECT } from '../../lib/mastheadCityScenes'
-import { useSceneSweep } from '../../lib/mastheadSweep'
-import { useSphereProjection, SPHERE_FADE_MS } from '../../lib/mastheadSphere'
-import { useMastheadScene } from '../WeatherScene'
+import { CITY_MOTION, CARD_ASPECT } from './lib/mastheadCityScenes'
+import { useSceneSweep } from './lib/mastheadSweep'
+import { useSphereProjection, SPHERE_FADE_MS } from './lib/mastheadSphere'
+import { useMastheadScene } from './WeatherScene'
 
 // Coprime-ish periods so a row of lights never visibly pulses in unison.
 const PERIODS = [3.1, 4.3, 5.7, 3.7, 6.1, 4.9, 3.3, 5.3, 4.1, 6.7, 3.9, 5.9, 4.7]

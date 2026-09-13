@@ -39,22 +39,22 @@ test('no masthead surface renders or stamps the last-visit affordance (Owner dec
       else if (/\.jsx?$/.test(name)) files.push(rel)
     }
   }
-  walk('src/portal')
-  files.push('src/components/masthead/GreetingMasthead.jsx', 'src/components/TodayMasthead.jsx')
+  walk('../src/portal')
+  files.push('src/GreetingMasthead.jsx', '../src/components/TodayMasthead.jsx')
   for (const f of files) {
     assert.doesNotMatch(read(f), /Last visit on this browser|useLastVisitLabel|lastVisitLine|aspire:lastVisit/, `${f} must not carry the retired last-visit affordance`)
   }
   // MASTHEAD-LOCKSCREEN-1: the control-room readout is retired too (the clock
   // owns the date; the cohort lives in the scope picker). Neither host prints it.
-  assert.doesNotMatch(read('src/components/masthead/GreetingMasthead.jsx'), /on campus now/)
+  assert.doesNotMatch(read('src/GreetingMasthead.jsx'), /on campus now/)
 })
 
 // ── the shared component reuses the canonical system, no parallel art ─────────
 test('GreetingMasthead reuses greetingLine, WeatherMasthead, and the .mast* card', () => {
-  const c = read('src/components/masthead/GreetingMasthead.jsx')
-  assert.match(c, /import \{ greetingLine \} from '\.\.\/\.\.\/lib\/masthead'/)
+  const c = read('src/GreetingMasthead.jsx')
+  assert.match(c, /import \{ greetingLine \} from '\.\/lib\/masthead'/)
   // MASTHEAD-SCENE-1: the shared masthead imports the unified scene clock.
-  assert.match(c, /import \{ WeatherMasthead, useMastheadScene \} from '\.\.\/WeatherScene'/)
+  assert.match(c, /import \{ WeatherMasthead, useMastheadScene \} from '\.\/WeatherScene'/)
   assert.match(c, /className="chart-route-title mast-greet"/)      // same heading class as staff
   // MASTHEAD-SCENE-1: the card carries the scene artwork class and mast-night,
   // both gated on showWeather (a weatherless masthead never darkens).
@@ -71,8 +71,8 @@ test('GreetingMasthead reuses greetingLine, WeatherMasthead, and the .mast* card
 
 // ── the main-app masthead is untouched (its guards stay valid) ────────────────
 test('the shared component and TodayMasthead do not depend on each other', () => {
-  const shared = read('src/components/masthead/GreetingMasthead.jsx')
-  const staff = read('src/components/TodayMasthead.jsx')
+  const shared = read('src/GreetingMasthead.jsx')
+  const staff = read('../src/components/TodayMasthead.jsx')
   // No import dependency in either direction (a comment may name the other for context).
   assert.ok(!/^import[^\n]*TodayMasthead/m.test(shared), 'shared masthead must not import the staff one')
   assert.ok(!/GreetingMasthead/.test(staff), 'staff masthead must remain independent')
@@ -84,9 +84,9 @@ test('the shared component and TodayMasthead do not depend on each other', () =>
 
 // ── UL Home integration: masthead in, no duplicate unit label ─────────────────
 test('the Unit Leader Home renders the shared masthead without a duplicated unit label', () => {
-  const raw = read('src/portal/UnitLeaderPortal.jsx')
+  const raw = read('../src/portal/UnitLeaderPortal.jsx')
   const portal = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')  // scan CODE, not comments
-  assert.match(portal, /import GreetingMasthead from '\.\.\/components\/masthead\/GreetingMasthead'/)
+  assert.match(portal, /import GreetingMasthead from '@masthead\/GreetingMasthead'/)
   assert.match(portal, /<GreetingMasthead[\s\S]*?headingRef=\{greetingRef\}/)
   // The greeting <h1> is the focus-on-navigation target (programmatic focus, like SectionHeading).
   assert.match(portal, /el\.dataset\.programmaticFocus = 'true'/)
@@ -98,6 +98,6 @@ test('the Unit Leader Home renders the shared masthead without a duplicated unit
   // The old plain welcome heading is gone.
   assert.ok(!portal.includes('firstNameOf') && !/`Welcome`|Welcome, \$\{first\}/.test(portal))
   // A portal-scoped ring suppression exists for the masthead heading focus.
-  const css = read('src/portal/portal.css')
+  const css = read('../src/portal/portal.css')
   assert.match(css, /\.mast-greet\[data-programmatic-focus\]:focus \{ outline: none; \}/)
 })

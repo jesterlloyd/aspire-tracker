@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { mastheadCityKey, LEGACY_MASTHEAD_CITY_KEY } from '../src/lib/sessionKeys.js'
+import { mastheadCityKey, LEGACY_MASTHEAD_CITY_KEY } from '../src/lib/mastheadCityPreference.js'
 import { AUTO, readCityPreference, writeCityPreference } from '../src/lib/mastheadCityPreference.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -52,9 +52,9 @@ test('the signed-out bucket is separate from every signed-in user', () => {
 })
 
 test('the key carries the user id, and anonymous is its own bucket', () => {
-  assert.equal(mastheadCityKey(ALICE), `aspire:mastheadCity:${ALICE}`)
-  assert.equal(mastheadCityKey(null), 'aspire:mastheadCity:anon')
-  assert.equal(mastheadCityKey(undefined), 'aspire:mastheadCity:anon')
+  assert.equal(mastheadCityKey(ALICE), `masthead:city:${ALICE}`)
+  assert.equal(mastheadCityKey(null), 'masthead:city:anon')
+  assert.equal(mastheadCityKey(undefined), 'masthead:city:anon')
   assert.notEqual(mastheadCityKey(ALICE), mastheadCityKey(BOB))
 })
 
@@ -106,12 +106,12 @@ test('nothing sends the city to a server', () => {
   assert.doesNotMatch(src, /fetch\(|supabase|\/api\//)
 })
 
-test('the hook reads the id from AuthContext and re-reads when it changes', () => {
+test('the hook reads the key from MastheadIdentity and re-reads when it changes', () => {
   // The shared-workstation case: signing out and in as someone else need not
   // remount the hook, so without the userId effect the new viewer would keep
   // looking at the previous viewer's city until something forced a reload.
-  const hook = readFileSync(join(here, '..', 'src/components/masthead/useCityPreference.js'), 'utf8')
-  assert.match(hook, /useAuth\(\)/)
+  const hook = readFileSync(join(here, '..', 'src/useCityPreference.js'), 'utf8')
+  assert.match(hook, /useMastheadUserKey\(\)/)
   assert.match(hook, /readCityPreference\(userId\)/)
   // The account change is handled during render, not in an effect: an effect
   // sets state after paint, so the new viewer would see the previous viewer's

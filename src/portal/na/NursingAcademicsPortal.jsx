@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import GreetingMasthead from '../../components/masthead/GreetingMasthead'
+import GreetingMasthead from '@masthead/GreetingMasthead'
 import { useMastheadFeed } from '../shared/useMastheadFeed'
 // The CANONICAL fiscal-year clock (pure, Pacific day boundary) - the same one
 // the Community Benefit engine uses. Never a second FY definition.
@@ -28,7 +28,7 @@ import AcademicsContactsView from './AcademicsContactsView'
 // messagesEnabled (env flag AND applied DB migration), never a client constant; until the server
 // reports enabled, a pasted /portal/academics/messages link shows an honest prepared state.
 export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, threadId, onSelectThread, onBackToList }) {
-  const { userProfile } = useAuth()
+  const { userProfile, user } = useAuth()
   // EVENT-AUDIENCE-2: flagged events ticked for Nursing Education & Leadership.
   const mastheadItems = useMastheadFeed('nursing_academic')
   const dateLabel = useMemo(
@@ -54,6 +54,7 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
           contradict the fiscal year selected inside the benefit report. */}
       <div className="ptl-na-stack" style={{ display: view === 'calendar' ? 'flex' : 'none' }}>
         <GreetingMasthead
+          userKey={user?.id}
           fullName={userProfile?.full_name}
           dateLabel={dateLabel}
           contextLabel={fyLabel}

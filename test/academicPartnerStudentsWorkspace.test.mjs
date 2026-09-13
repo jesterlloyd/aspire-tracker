@@ -119,7 +119,7 @@ test('the KPI band is the canonical 8-up grid stepping 8 -> 4 -> 2, like the mai
 })
 
 test('the workspace reuses the shared masthead and state primitives', () => {
-  assert.match(portal, /import GreetingMasthead from '\.\.\/components\/masthead\/GreetingMasthead'/)
+  assert.match(portal, /import GreetingMasthead from '@masthead\/GreetingMasthead'/)
   // The last-visit affordance is retired across every masthead surface (Owner).
   assert.doesNotMatch(portal, /useLastVisitLabel|lastVisitLine|aspire:lastVisit/)
   assert.match(portal, /<GreetingMasthead[\s\S]*?fullName=\{userProfile\?\.full_name\}[\s\S]*?contextLabel=\{cohortLabel\}/)

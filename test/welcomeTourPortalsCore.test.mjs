@@ -598,11 +598,11 @@ test('every experience walks the masthead, on the card anchor both hosts render'
 
   // The anchor is on the CARD in both hosts, never on the weather trigger (which
   // only exists once weather resolves and more than one city pack is installed).
-  const shared = read('../src/components/masthead/GreetingMasthead.jsx')
+  const shared = read('../masthead/src/GreetingMasthead.jsx')
   const today = read('../src/components/TodayMasthead.jsx')
   assert.match(shared, /<div data-tour="masthead" className=\{`mast /)
   assert.match(today, /<div data-tour="masthead" className=\{`mast /)
-  assert.doesNotMatch(read('../src/components/WeatherScene.jsx'), /data-tour="masthead"/)
+  assert.doesNotMatch(read('../masthead/src/WeatherScene.jsx'), /data-tour="masthead"/)
 })
 
 test('the masthead copy claims only what every host renders', () => {

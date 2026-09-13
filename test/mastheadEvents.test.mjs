@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import {
   MASTHEAD_WINDOW_DAYS, mastheadItems, holidayItems, chipWhen, daysUntil, addDays, isMastheadCandidate,
 } from '../src/lib/mastheadEvents.js'
-import { clockLabel, dateLabel, planFit, mastheadTimeZone } from '../src/lib/mastheadClock.js'
+import { clockLabel, dateLabel, planFit, mastheadTimeZone } from '../masthead/src/lib/mastheadClock.js'
 
 const TODAY = '2026-09-04'
 const at = (ymd, hh = '09:00') => `${ymd}T${hh}:00`     // local wall time, like the API's timestamps in this zone
@@ -117,7 +117,7 @@ test('the date is "Friday, 4 Sep": full weekday, day, three-letter month, no yea
   assert.equal(mastheadTimeZone({ timezone: 'Mars/Olympus' }, { chosen: true }), undefined, 'an unknown zone falls back to local rather than throwing')
   assert.equal(mastheadTimeZone(undefined, { chosen: true }), undefined)
   // And the component reads it from the shared weather query.
-  const clock = readFileSync(new URL('../src/components/masthead/MastheadClock.jsx', import.meta.url), 'utf8')
+  const clock = readFileSync(new URL('../masthead/src/MastheadClock.jsx', import.meta.url), 'utf8')
   assert.match(clock, /const \{ data, location \} = useWelcomeWeather\(\)/)
   assert.match(clock, /const timeZone = mastheadTimeZone\(data, location\)/)
   assert.match(clock, /clockLabel\(now, timeZone\)/)

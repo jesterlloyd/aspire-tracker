@@ -19,7 +19,7 @@
 
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { AUTO, pickerImageFor } from '../../lib/mastheadCityPreference'
+import { AUTO, pickerImageFor } from './lib/mastheadCityPreference'
 
 export default function CityPickerDialog({ open, options, value, autoResolvedLabel, onSelect, onClose }) {
   const panelRef = useRef(null)

@@ -17,7 +17,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import GreetingMasthead from '../components/masthead/GreetingMasthead'
+import GreetingMasthead from '@masthead/GreetingMasthead'
 import { useMastheadFeed } from './shared/useMastheadFeed'
 import { FilterKPICard } from '../components/KPIBand'
 import StatusPill from '../components/StatusPill'
@@ -96,7 +96,7 @@ export default function AcademicPartnerPortal({ view = 'students', onNavigate, m
 }
 
 function StudentsView() {
-  const { userProfile } = useAuth()
+  const { userProfile, user } = useAuth()
   // EVENT-AUDIENCE-2: flagged events ticked for Academic Partners. No calendar
   // pill: this portal has no calendar to open.
   const mastheadItems = useMastheadFeed('academic_partner')
@@ -225,6 +225,7 @@ function StudentsView() {
     <div className="ptl-page ptl-ap-page">
       <h1 className="ptl-visually-hidden">Academic Partner Students</h1>
       <GreetingMasthead
+          userKey={user?.id}
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}
         contextLabel={cohortLabel}

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { greetingFor, firstNameOf, greetingLine } from '../src/lib/masthead.js'
+import { greetingFor, firstNameOf, greetingLine } from '../masthead/src/lib/masthead.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -75,6 +75,6 @@ test('the A-name decision: tab renamed, mnemonic and route preserved', async (t)
 })
 
 test('the greeting clamps instead of wrapping (long names)', () => {
-  const css = read('src/index.css')
+  const css = (read('src/index.css') + read('masthead/styles/masthead.css'))
   assert.match(css, /\.mast-greet \{[\s\S]*?text-overflow: ellipsis; white-space: nowrap;/)
 })

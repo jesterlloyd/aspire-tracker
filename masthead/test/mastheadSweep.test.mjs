@@ -64,7 +64,7 @@ test('weather arrives as a final beat, never mid-day', () => {
 
 test('the sweep is one tunable, and the CSS does not hard-code a second one', () => {
   assert.ok(SWEEP_MS > 0 && SWEEP_MS <= 12000, 'a sweep is seconds, not a mood')
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // The frame duration and cross-fade come from SWEEP_MS via an inline style.
   // A duration written into the sweep block would silently disagree with it.
   const start = css.indexOf('MASTHEAD-TIMELAPSE-1')
@@ -117,7 +117,7 @@ test('the sweep is paced by how far apart the frames actually are', async () => 
 test('the sweep opens on a dissolve, lands long, and drifts to exactly 1', async () => {
   const m = await import('../src/lib/mastheadSweep.js')
   const { SWEEP_TAIL, SWEEP_ZOOM, sweepTail, sweepZoom } = m
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   assert.ok(SWEEP_TAIL > 1 && SWEEP_TAIL <= 2, 'the last beat is longer, not a different effect')
   // MASTHEAD-SWEEP-NATURAL-2 raised this from 1.022 on the Owner's word. The
   // ceiling is the crop: the drift starts by taking half its excess off each
@@ -128,7 +128,7 @@ test('the sweep opens on a dissolve, lands long, and drifts to exactly 1', async
   // is a child of the scenery and inherits the transform; the celestial art is
   // a SIBLING and has to be given it, or the moon slides against the ridge it
   // was placed to clear - 11px at the card's edge at this depth.
-  const wx = readFileSync(join(here, '..', 'src', 'components', 'WeatherScene.jsx'), 'utf8')
+  const wx = readFileSync(join(here, '..', 'src', 'WeatherScene.jsx'), 'utf8')
   assert.match(wx, /wx-mast-art-drift/, 'the celestial art does not ride the drift')
   assert.match(wx, /'--sweep-zoom': sweepState\.zoom/)
   assert.match(css, /\.wx-mast-art-drift \{\s*animation: mast-sweep-drift var\(--sweep-total\)/)
@@ -144,8 +144,8 @@ test('the sweep opens on a dissolve, lands long, and drifts to exactly 1', async
   const src = readFileSync(new URL('../src/lib/mastheadSweep.js', import.meta.url), 'utf8')
   assert.match(src, /const from = \[destination, \.\.\.frames\.slice\(0, -1\)\]/)
   // And the motion comes back DURING the last beat, not after the sweep ends.
-  for (const rel of [['masthead', 'MastheadMotion.jsx'], ['WeatherScene.jsx']]) {
-    const body = readFileSync(join(here, '..', 'src', 'components', ...rel), 'utf8')
+  for (const rel of [['MastheadMotion.jsx'], ['WeatherScene.jsx']]) {
+    const body = readFileSync(join(here, '..', 'src', ...rel), 'utf8')
     assert.match(body, /!!sweepState && !sweepState\.last/, `${rel.join('/')} still waits for the sweep to end`)
   }
   const store = new Map()
@@ -161,21 +161,21 @@ test('the sweep never changes the host scene class', () => {
   // This is what keeps the motion gates, skies and inks still while the images
   // move. If the scene class ever drove the sweep, every gate would fire six
   // times per pick.
-  const scenery = readFileSync(join(here, '..', 'src', 'components', 'MastheadScenery.jsx'), 'utf8')
+  const scenery = readFileSync(join(here, '..', 'src', 'MastheadScenery.jsx'), 'utf8')
   assert.match(scenery, /data-sweep=\{sweep\?\.frame \|\| undefined\}/)
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   assert.match(css, /\.mast-motion-hushed, \.wx-mast-art-hushed \{ opacity: 0;/)
 })
 
 test('only an explicit pick can start a sweep', () => {
   // pickSeq is a counter incremented in choose() and nowhere else. A boolean
   // would not survive re-picking the same city, which is the Owner's replay.
-  const hook = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'useCityPreference.js'), 'utf8')
+  const hook = readFileSync(join(here, '..', 'src', 'useCityPreference.js'), 'utf8')
   const increments = hook.match(/pickSeq \+= 1/g) || []
   assert.equal(increments.length, 1, 'pickSeq is incremented somewhere other than choose()')
   const chooseBody = hook.slice(hook.indexOf('const choose ='), hook.indexOf('return {'))
   assert.match(chooseBody, /pickSeq \+= 1/, 'choose() no longer registers a pick')
-  const scenery = readFileSync(join(here, '..', 'src', 'components', 'MastheadScenery.jsx'), 'utf8')
+  const scenery = readFileSync(join(here, '..', 'src', 'MastheadScenery.jsx'), 'utf8')
   assert.match(scenery, /\}, \[pickSeq\]\)/, 'the sweep effect is keyed on something other than the pick')
 })
 
@@ -211,7 +211,7 @@ test('the length override follows the house QA convention and refuses nonsense',
 test('the cross-fade is carried by the sweep, not recomputed at render', () => {
   // Changing the override mid-sweep would otherwise desync the fade from the
   // frames it is fading between.
-  const scenery = readFileSync(join(here, '..', 'src', 'components', 'MastheadScenery.jsx'), 'utf8')
+  const scenery = readFileSync(join(here, '..', 'src', 'MastheadScenery.jsx'), 'utf8')
   assert.match(scenery, /'--scn-fade': `\$\{\(sweep\.fadeMs \/ 1000\)/)
   assert.doesNotMatch(scenery, /SWEEP_MS/, 'the fade should come from the running sweep, not the constant')
 })
@@ -220,13 +220,13 @@ test('the sweep dissolves continuously: linear timing, and a fade no shorter tha
   // MASTHEAD-SWEEP-CONTINUOUS-1. With `ease`, each frame decelerates into full
   // opacity and dwells before the next starts - the Owner saw it as
   // "transition, stop, transition, stop". Linear at fade >= step is unbroken.
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // MASTHEAD-SWEEP-NATURAL-1 made the curve a variable so the LAST beat can
   // decelerate. Linear is still the default and still what every other step
   // gets: the variable's fallback is the rule, and the component only ever
   // overrides it on the frame it marks `last`.
   assert.match(css, /\.mast-scenery\[data-sweep\] \.mast-scn-img \{[^}]*transition-timing-function: var\(--scn-ease, linear\)/)
-  const scenery = readFileSync(join(here, '..', 'src', 'components', 'MastheadScenery.jsx'), 'utf8')
+  const scenery = readFileSync(join(here, '..', 'src', 'MastheadScenery.jsx'), 'utf8')
   assert.match(scenery, /'--scn-ease': sweep\.last \? '[^']+' : 'linear'/,
     'only the last beat may ease; every other step is mid-motion when the next begins')
   const { SWEEP_OVERLAP, sweepOverlap, SWEEP_OVERLAP_KEY } = await import('../src/lib/mastheadSweep.js')

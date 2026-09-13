@@ -24,7 +24,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, parse } from 'node:path'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const SCENES_DIR = join(root, 'public', 'masthead')
 const SOURCE_DIR = join(root, 'reference', 'masthead-scenes-source')
 

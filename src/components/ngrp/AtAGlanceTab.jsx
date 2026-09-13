@@ -19,8 +19,8 @@ import { useNavigate } from 'react-router-dom'
 import { ngrpPath } from '../../lib/ngrp/ngrpTabs'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { useAuth } from '../../contexts/AuthContext'
-import GreetingMasthead from '../masthead/GreetingMasthead'
-import { useStaffMastheadEvents } from '../masthead/useStaffMastheadEvents'
+import GreetingMasthead from '@masthead/GreetingMasthead'
+import { useStaffMastheadEvents } from '../useStaffMastheadEvents'
 import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 import { Plus, CheckCircle2, AlertTriangle, Settings2 } from 'lucide-react'
@@ -269,7 +269,7 @@ function ApplicantsPanel({ schools, loading }) {
 }
 
 export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCohort, onAddCohort }) {
-  const { userProfile } = useAuth()
+  const { userProfile, user } = useAuth()
   const navigate = useNavigate()
   const { base, eventAudience, staffApp } = useNgrpSurface()
   // Hooks stay above the early returns below.
@@ -375,6 +375,7 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
           Its context line names the residency cohort rather than an ASPIRE one,
           because that is what everything below it is scoped to. */}
       <GreetingMasthead
+          userKey={user?.id}
         fullName={userProfile?.full_name}
         dateLabel={dateLabel}
         contextLabel={serverCycle.name}

@@ -23,18 +23,19 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { toLocalDateStr } from '../lib/designTokens'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
-import { greetingLine } from '../lib/masthead'
+import { greetingLine } from '@masthead/lib/masthead'
 import { mastheadItems, holidayItems } from '../lib/mastheadEvents'
-import { WeatherMasthead, useMastheadScene } from './WeatherScene'
-import MastheadScenery from './MastheadScenery'
-import MastheadClock from './masthead/MastheadClock'
-import MastheadEventsRow from './masthead/MastheadEventsRow'
+import { WeatherMasthead, useMastheadScene } from '@masthead/WeatherScene'
+import MastheadScenery from '@masthead/MastheadScenery'
+import MastheadClock from '@masthead/MastheadClock'
+import MastheadEventsRow from '@masthead/MastheadEventsRow'
+import { MastheadIdentity } from '@masthead/identity'
 
 // cohort / onCampusCount stay in the signature for call-site stability; the
 // card no longer prints either (Owner: no cohort line on the masthead).
 // eslint-disable-next-line no-unused-vars
 export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 }) {
-  const { userProfile } = useAuth()
+  const { userProfile, user } = useAuth()
   const navigate = useNavigate()
 
   const today = toLocalDateStr()
@@ -78,6 +79,9 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
   return (
     // WELCOME-TOUR-MASTHEAD-1: same anchor as the shared portal masthead, so one tour
     // step serves the staff card and all four portal cards.
+    // MASTHEAD-PHASE-1: the card's pieces read the viewer's key from this
+    // provider (the package no longer knows ASPIRE's auth).
+    <MastheadIdentity userKey={user?.id}>
     <div data-tour="masthead" className={`mast mast-wash-${wash} mast-scenic mast-scene-${scene}${sceneNight ? ' mast-night' : ''}`}>
       <MastheadScenery />
       <div className="mast-row">
@@ -93,5 +97,6 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
           window; the Open Calendar pill is the row's constant. */}
       <MastheadEventsRow items={items} calendar={{ label: 'Open Calendar', onClick: () => navigate('/interviews') }} />
     </div>
+    </MastheadIdentity>
   )
 }

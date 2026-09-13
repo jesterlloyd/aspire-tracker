@@ -50,7 +50,6 @@ export const aspireCohortKey = (userId) => `aspire:activeCohort:${userId}`
  * signed in ever reads it, and it keeps the picker working before authentication
  * resolves instead of flipping the artwork once the user id arrives.
  */
-export const mastheadCityKey = (userId) => `aspire:mastheadCity:${userId || 'anon'}`
 
 /**
  * The pre-namespacing masthead city key. Read ONCE per browser, adopted by the first
@@ -58,7 +57,6 @@ export const mastheadCityKey = (userId) => `aspire:mastheadCity:${userId || 'ano
  * keeps the city they picked while everyone after them starts clean. Kept only as a
  * migration source; nothing writes it any more.
  */
-export const LEGACY_MASTHEAD_CITY_KEY = 'aspire_masthead_city_v1'
 
 /**
  * Which account was last active in THIS browser. Not per-user by definition: it is how

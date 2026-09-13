@@ -23,9 +23,9 @@ import { LA_FALLBACK, readCachedLocation, LOC_CACHE_KEY, PROMPT_SNOOZE_KEY, PROM
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const loc = read('src/lib/weatherLocation.js')
-const wx = read('src/components/WeatherScene.jsx')
+const wx = read('src/WeatherScene.jsx')
 const assets = read('src/lib/weatherAssetMap.js')
-const css = read('src/index.css')
+const css = read('styles/masthead.css')
 
 // ── Fallback hierarchy ───────────────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ test('one shared resolver: a single module-level promise feeds every consumer', 
   assert.match(loc, /let _locPromise = null/)
   assert.match(loc, /if \(_locPromise\) return _locPromise/)
   // WeatherScene consumes it through the one shared hook + one shared query key.
-  assert.match(wx, /import \{ useWeatherLocation \} from '\.\.\/lib\/weatherLocation'/)
+  assert.match(wx, /import \{ useWeatherLocation \} from '\.\/lib\/weatherLocation'/)
   // MASTHEAD-SCENE-5: a chosen city keys ahead of the geo/LA branches, so its
   // reading caches separately and never overwrites the viewer's own entry.
   assert.match(wx, /queryKey: \['welcome_weather', location\.chosen \? `city:\$\{preferredCity\}` : location\.geo \? `geo:\$\{location\.lat\},\$\{location\.lon\}` : 'los_angeles'\]/)
@@ -78,11 +78,11 @@ test('one shared resolver: a single module-level promise feeds every consumer', 
 
 test('all four surfaces share ONE weather component (no duplicated implementations)', () => {
   // MASTHEAD-SCENE-1: both hosts import the unified scene clock from the same module.
-  assert.match(read('src/components/TodayMasthead.jsx'), /import \{ WeatherMasthead, useMastheadScene \} from '\.\/WeatherScene'/)
-  const shared = read('src/components/masthead/GreetingMasthead.jsx')
-  assert.match(shared, /import \{ WeatherMasthead, useMastheadScene \} from '\.\.\/WeatherScene'/)
+  assert.match(read('../src/components/TodayMasthead.jsx'), /import \{ WeatherMasthead, useMastheadScene \} from '@masthead\/WeatherScene'/)
+  const shared = read('src/GreetingMasthead.jsx')
+  assert.match(shared, /import \{ WeatherMasthead, useMastheadScene \} from '\.\/WeatherScene'/)
   // The three portals all render the shared GreetingMasthead.
-  for (const p of ['src/portal/StudentPortal.jsx', 'src/portal/UnitLeaderPortal.jsx', 'src/portal/AcademicPartnerPortal.jsx']) {
+  for (const p of ['../src/portal/StudentPortal.jsx', '../src/portal/UnitLeaderPortal.jsx', '../src/portal/AcademicPartnerPortal.jsx']) {
     assert.match(read(p), /GreetingMasthead/, `${p} must use the shared masthead`)
   }
 })
@@ -161,7 +161,7 @@ test('narrow layouts top-anchor the art to the card, clicks fall through, captio
 })
 
 test('the night backdrop is scene-keyed, cross-fades, and never blocks input', () => {
-  const wxSrc = read('src/components/WeatherScene.jsx')
+  const wxSrc = read('src/WeatherScene.jsx')
   assert.match(wxSrc, /className=\{`wx-mast\$\{night \? ' wx-mast-night' : ''\}`\}/)
   // Always-mounted overlay at opacity 0 -> 1 keyed by the class; soft edges via mask.
   assert.match(css, /\.wx-mast-art::before \{/)

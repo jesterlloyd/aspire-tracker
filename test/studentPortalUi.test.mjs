@@ -21,7 +21,7 @@ const css = read('src/portal/portal.css')
 
 test('the shared greeting masthead replaces the student-only hero', async (t) => {
   await t.test('reuses the shared GreetingMasthead (greeting + date/cohort + weather)', () => {
-    assert.match(portal, /import GreetingMasthead from '\.\.\/components\/masthead\/GreetingMasthead'/)
+    assert.match(portal, /import GreetingMasthead from '@masthead\/GreetingMasthead'/)
     assert.match(portal, /<GreetingMasthead[\s\S]*?fullName=\{fullName\}[\s\S]*?dateLabel=\{dateLabel\}[\s\S]*?contextLabel=\{cohortName\}/)
   })
 

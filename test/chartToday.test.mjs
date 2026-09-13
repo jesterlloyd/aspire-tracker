@@ -16,7 +16,7 @@ const overview = read('src/components/OverviewTab.jsx')
 const campusStrip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
 const masthead = read('src/components/TodayMasthead.jsx')
 const app = read('src/App.jsx')
-const css = read('src/index.css')
+const css = (read('src/index.css') + read('masthead/styles/masthead.css'))
 
 test('masthead-first hierarchy', async (t) => {
   await t.test('masthead, then digest, then live strip, then snapshot, then sticky ledgers', () => {
@@ -71,8 +71,8 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
 
   await t.test('the weather scene survives as the compact masthead variant', () => {
     // MASTHEAD-SCENE-1: the import carries the unified scene clock (artwork + night state).
-    assert.match(masthead, /import \{ WeatherMasthead, useMastheadScene \} from '\.\/WeatherScene'/)
-    const wx = read('src/components/WeatherScene.jsx')
+    assert.match(masthead, /import \{ WeatherMasthead, useMastheadScene \} from '@masthead\/WeatherScene'/)
+    const wx = read('masthead/src/WeatherScene.jsx')
     // Same scenes and animations; only resized/repositioned per the approval (enlarged for presence).
     assert.match(wx, /export function WeatherMasthead\(\)/)
     assert.match(wx, /manifest\s*\?\s*<AssetScene manifest=\{manifest\} onBroken=\{\(\) => setAssetsBroken\(true\)\} \/>\s*:\s*<SceneSvg scene=\{scene\} \/>/)
@@ -189,10 +189,10 @@ test('Open Calendar is the events row\'s constant (MASTHEAD-LOCKSCREEN-1, Owner)
     assert.match(masthead, /<MastheadEventsRow items=\{items\} calendar=\{\{ label: 'Open Calendar'/)
     const rightCol = masthead.slice(masthead.indexOf('<div className="mast-right">'), masthead.indexOf('</div>\n      </div>'))
     assert.doesNotMatch(rightCol, /mast-cal-btn/, 'the right column holds the weather only')
-    assert.match(read('src/index.css'), /\.mast-cal-btn-inline \{ margin-left: auto; \}/)
+    assert.match((read('src/index.css') + read('masthead/styles/masthead.css')), /\.mast-cal-btn-inline \{ margin-left: auto; \}/)
   })
   await t.test('the greeting and the temperature are a small matched pair, both in the app sans', () => {
-    const css = read('src/index.css')
+    const css = (read('src/index.css') + read('masthead/styles/masthead.css'))
     const pair = css.slice(css.indexOf('.mast-scenic .mast-greet,'))
     // Shared metrics on the pair, no family: each half declares its own.
     const shared = pair.slice(0, pair.indexOf('\n}'))

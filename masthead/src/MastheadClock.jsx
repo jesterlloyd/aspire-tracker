@@ -11,8 +11,8 @@
 // payload that already moves the scene and the temperature there). Automatic
 // and the viewer's own location keep the local clock.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { clockLabel, dateLabel, fitWidths, mastheadTimeZone } from '../../lib/mastheadClock'
-import { useWelcomeWeather } from '../WeatherScene'
+import { clockLabel, dateLabel, fitWidths, mastheadTimeZone } from './lib/mastheadClock'
+import { useWelcomeWeather } from './WeatherScene'
 
 export default function MastheadClock() {
   const [now, setNow] = useState(() => new Date())

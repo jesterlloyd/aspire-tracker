@@ -10,9 +10,10 @@
     "dev": "vite",
     "build": "vite build && vite build --ssr src/public-site/prerender-entry.jsx --outDir .prerender-ssr && node scripts/prerender-public.mjs",
     "lint": "eslint .",
-    "masthead:prepare": "node scripts/prepare-masthead-scenes.mjs",
-    "picker:prepare": "node scripts/prepare-picker-images.mjs",
-    "preview": "vite preview"
+    "masthead:prepare": "node masthead/scripts/prepare-masthead-scenes.mjs",
+    "picker:prepare": "node masthead/scripts/prepare-picker-images.mjs",
+    "preview": "vite preview",
+    "test": "node --test 'test/*.test.mjs' 'masthead/test/*.test.mjs'"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",

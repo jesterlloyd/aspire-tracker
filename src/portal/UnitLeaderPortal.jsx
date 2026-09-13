@@ -18,7 +18,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
-import GreetingMasthead from '../components/masthead/GreetingMasthead'
+import GreetingMasthead from '@masthead/GreetingMasthead'
 import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { buildLiveShiftDisplay } from '../lib/onCampusRows'
@@ -255,6 +255,8 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
 function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, acceptingCohort, onNavigate, onOpenThread, refreshRoster }) {
+  // MASTHEAD-PHASE-1: the masthead stores the chosen city against this key.
+  const { user } = useAuth()
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
   const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
@@ -336,6 +338,7 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
   return (
     <>
       <GreetingMasthead
+          userKey={user?.id}
         fullName={profile?.full_name}
         dateLabel={dateLabel}
         contextLabel={acceptingCohort?.name || null}

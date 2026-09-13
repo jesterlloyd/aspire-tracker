@@ -19,14 +19,17 @@
 // are not rendered. A host that has calendar items passes them as `items` (the shape
 // src/lib/mastheadEvents.js produces), and a calendar handler as `calendar`.
 
-import { greetingLine } from '../../lib/masthead'
-import { WeatherMasthead, useMastheadScene } from '../WeatherScene'
-import MastheadScenery from '../MastheadScenery'
+import { greetingLine } from './lib/masthead'
+import { MastheadIdentity } from './identity'
+import '../styles/masthead.css'
+import { WeatherMasthead, useMastheadScene } from './WeatherScene'
+import MastheadScenery from './MastheadScenery'
 import MastheadClock from './MastheadClock'
 import MastheadEventsRow from './MastheadEventsRow'
 
 export default function GreetingMasthead({
   fullName,
+  userKey = null,          // MASTHEAD-PHASE-1: the host's opaque key for the viewer; namespaces the city choice
   dateLabel = null,         // accepted, not rendered: the clock owns the date now
   contextLabel = null,      // accepted, not rendered: the cohort lives in the scope picker
   onCampusCount = 0,        // accepted, not rendered
@@ -51,22 +54,24 @@ export default function GreetingMasthead({
   void dateLabel; void contextLabel; void onCampusCount; void milestone
 
   return (
-    // WELCOME-TOUR-MASTHEAD-1: the Welcome Tour's masthead anchor. The CARD, not the
-    // weather trigger inside it: the trigger only exists once weather has resolved and
-    // more than one city pack is installed, and a step whose target is missing is
-    // skipped, so anchoring there would silently drop the step on a slow network.
-    <div data-tour="masthead" className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}${flush ? ' mast-flush' : ''}`}>
-      {showWeather && <MastheadScenery />}
-      <div className="mast-row">
-        <div className="mast-left">
-          <h1 className="chart-route-title mast-greet" tabIndex={-1} ref={headingRef}>{heading}</h1>
+    <MastheadIdentity userKey={userKey}>
+      // WELCOME-TOUR-MASTHEAD-1: the Welcome Tour's masthead anchor. The CARD, not the
+      // weather trigger inside it: the trigger only exists once weather has resolved and
+      // more than one city pack is installed, and a step whose target is missing is
+      // skipped, so anchoring there would silently drop the step on a slow network.
+      <div data-tour="masthead" className={`mast mast-wash-${wash}${showWeather ? ` mast-scenic mast-scene-${scene}` : ''}${showWeather && sceneNight ? ' mast-night' : ''}${flush ? ' mast-flush' : ''}`}>
+        {showWeather && <MastheadScenery />}
+        <div className="mast-row">
+          <div className="mast-left">
+            <h1 className="chart-route-title mast-greet" tabIndex={-1} ref={headingRef}>{heading}</h1>
+          </div>
+          <MastheadClock />
+          <div className="mast-right">
+            {showWeather && <WeatherMasthead />}
+          </div>
         </div>
-        <MastheadClock />
-        <div className="mast-right">
-          {showWeather && <WeatherMasthead />}
-        </div>
+        <MastheadEventsRow items={items ?? todayItems ?? []} calendar={calendar} />
       </div>
-      <MastheadEventsRow items={items ?? todayItems ?? []} calendar={calendar} />
-    </div>
+    </MastheadIdentity>
   )
 }

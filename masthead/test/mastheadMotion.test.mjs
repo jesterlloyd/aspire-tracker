@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path'
 import { CITY_MOTION, CARD_ASPECT } from '../src/lib/mastheadCityScenes.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const MASTHEAD = join(here, '..', 'public', 'masthead')
+const MASTHEAD = join(here, '..', '..', 'public', 'masthead')
 
 // Anything not on this list is a typo. A misspelled effect key does not throw,
 // it simply renders nothing, so the registry has to be closed rather than open.
@@ -101,7 +101,7 @@ test('scene overrides name a real scene, replace only point kinds, and are measu
       }
     }
     // Both CSS halves exist for every override scene, or the sets would stack.
-    const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+    const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
     for (const scene of Object.keys(m.sceneOverrides || {})) {
       assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-only-${scene} \\{ display: contents; \\}`))
       assert.match(css, new RegExp(`\\.mast-scene-${scene} \\.mast-motion-not-${scene} \\{ display: none; \\}`))
@@ -139,7 +139,7 @@ test('nothing in the motion layer blends: two hundred blended layers over the bo
   // Chromium dropped 37 frames of 75-167ms in 3.5s of the cloudy-night scene
   // and none with blending off, which the Owner saw as the whole screen
   // flickering on each strike. So the rule is for the whole block.
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // The header line sits inside a comment, so start at that comment's opener.
   const start = css.lastIndexOf('/*', css.indexOf('MASTHEAD-MOTION-1 (PROTOTYPE): motion over the still artwork'))
   const end = css.indexOf('Motion is decoration, so reduced motion removes it outright')
@@ -262,7 +262,7 @@ test('bridge deck lights lie along the declared deck line', () => {
 // Angeles's. The period scales with the square root of the span; this pins the
 // resulting speeds to a band rather than pinning one city's number.
 test('traffic runs at a comparable speed on every span, whatever its length', async () => {
-  const src = readFileSync(new URL('../src/components/masthead/MastheadMotion.jsx', import.meta.url), 'utf8')
+  const src = readFileSync(new URL('../src/MastheadMotion.jsx', import.meta.url), 'utf8')
   assert.match(src, /const carPace = w => Math\.sqrt\(Math\.max\(w, CAR_REF_SPAN\) \/ CAR_REF_SPAN\)/,
     'the pace must come from the span width, not a constant')
   assert.match(src, /'--dur': `\$\{\(c\.dur \* carPace\(span\.deck\.w\)/, 'cars must use the paced period')
@@ -287,12 +287,12 @@ test('traffic runs at a comparable speed on every span, whatever its length', as
 })
 
 test('the forked lightning names files that exist, and only wet scenes render it', () => {
-  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
-  const src = readFileSync(new URL('../src/components/masthead/MastheadMotion.jsx', import.meta.url), 'utf8')
+  const css = readFileSync(new URL('../styles/masthead.css', import.meta.url), 'utf8')
+  const src = readFileSync(new URL('../src/MastheadMotion.jsx', import.meta.url), 'utf8')
   const urls = [...css.matchAll(/\.mast-motion-strike-[ab]\s*\{[^}]*url\('([^']+)'\)/g)].map(m => m[1])
   assert.equal(urls.length, 2, 'both bolt shapes must be declared')
   for (const u of urls) {
-    assert.ok(existsSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'public', u)),
+    assert.ok(existsSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', u)),
       `the strike names ${u}, which is not on disk - a missing image is silently no lightning`)
   }
   // An <img>/background loads whether or not CSS hid it, so the guard is in
@@ -396,7 +396,7 @@ test('a wheel and an orb are measured discs that sit on the card', () => {
 // size. Nothing in this suite can see a pixel, so what it can hold is the
 // three CSS facts the effect now depends on.
 test('a wheel is sized, spun on the inner box, and masked to its own edge', () => {
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // 1. Every radial-gradient MASK states its size. Percentages in a radial
   //    gradient mean nothing until it does, and the failure is silent.
   for (const m of css.matchAll(/mask-image:\s*radial-gradient\(([^,]+),/g)) {
@@ -412,7 +412,7 @@ test('a wheel is sized, spun on the inner box, and masked to its own edge', () =
   // 3. The cabin exists, because a ring of evenly spaced identical lights has
   //    28-fold symmetry and turning it is invisible without one feature to
   //    follow. The component has to render it inside the spinning box.
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   assert.match(src, /mast-motion-wheel-turn[\s\S]{0,900}mast-motion-wheel-cabin/)
   assert.match(src, /'--wr': \(wheel\.h \? wheel\.h \/ \(wheel\.d \* CARD_ASPECT\) : 1\)/)
 })
@@ -423,7 +423,7 @@ test('a wheel is sized, spun on the inner box, and masked to its own edge', () =
 // itself. This holds the floor: a scene that renders nothing but its own
 // weather is a scene the eye has nothing to do with.
 test('no scene is empty of everything but its weather', () => {
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   const WEATHER = /^(drop|rain|bolt|strike|flake|snow|wet)/
   const scenes = ['dawn', 'morning', 'day', 'goldenhour', 'sunset', 'night',
     'rain', 'rainnight', 'cloudy', 'cloudynight', 'snow', 'snownight']
@@ -485,7 +485,7 @@ test('a facade glow covers a measured building', () => {
         `${city}.facade tone "${box[4]}" has no gradient`)
     }
   }
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // SIZED, like every other radial gradient in this file has to be: an unsized
   // one measures to the farthest CORNER, so a third of this glow would spill
   // past the building it belongs to. MASTHEAD-WHEEL-2 is where that default
@@ -517,7 +517,7 @@ test('a clock face is a measured lit dial', () => {
     }
   }
   assert.deepEqual(CITY_MOTION.london.clock, [[23.31, 33.4, 0.62], [24.3, 33.4, 0.48]])
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   assert.match(css, /\.mast-motion-clock \{/)
   assert.match(css, /@keyframes mast-dial/)
   // It burns by day too, so its animation is on the bare scenic selector.
@@ -525,7 +525,7 @@ test('a clock face is a measured lit dial', () => {
 })
 
 test('the lights that are meant to be noticed stay lit', () => {
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   const block = name => {
     const at = css.indexOf(name)
     assert.ok(at > 0, `${name} is not defined in index.css`)
@@ -557,12 +557,12 @@ test('the lights that are meant to be noticed stay lit', () => {
   }
   // And the component has to hand the variant to that class, or the registry
   // says 'glow' and the card renders an ordinary beacon.
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   assert.match(src, /variant === 'glow' \? ' mast-motion-beacon-glow' : ''/)
 })
 
 test('a scene shift names a gated scene, is small, and has its CSS rule', () => {
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     for (const [scene, y] of Object.entries(m.sceneShift || {})) {
       assert.ok(SHIFT_SCENES.includes(scene), `${city}.sceneShift.${scene}: no CSS gate exists for that scene`)
@@ -654,7 +654,7 @@ test('a rainbow arcs inside the card, on the half away from the sun', () => {
   // declares both a flare and a rainbow on the same side has one of the two
   // measured wrong, and nothing on screen would say which - a rainbow lit from
   // behind still draws, it just cannot happen.
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   for (const [city, m] of Object.entries(CITY_MOTION)) {
     const r = m.rainbow
     if (!r) continue
@@ -706,7 +706,7 @@ test('a cableway hangs between two points on the card', () => {
   // cabin drawn on the rock face.
   assert.deepEqual(CITY_MOTION.rio.cable, { x: 84.4, y: 36.0, w: 7.1, rise: 20.6, flight: 42 })
   // The wire is the artwork's. Ours is the cabin, and only the cabin.
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   assert.match(css, /\.mast-motion-cable \{\s*\n\s*position: absolute; height: 0;/)
 })
 
@@ -774,7 +774,7 @@ test('beacon tone is only red where the artwork paints it red', () => {
     if (m.ferryTone === undefined) continue
     assert.ok(['orange', 'white'].includes(m.ferryTone), `${city}.ferryTone "${m.ferryTone}" is not a known tone`)
     assert.ok(m.ferry, `${city} declares a ferry tone with no ferry to paint`)
-    assert.match(readFileSync(join(here, '..', 'src', 'index.css'), 'utf8'), new RegExp(`\\.mast-motion-ferry-${m.ferryTone} \\.mast-motion-ferry-hull`))
+    assert.match(readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8'), new RegExp(`\\.mast-motion-ferry-${m.ferryTone} \\.mast-motion-ferry-hull`))
   }
   // The third New York pack paints WHITE boats, not the orange Staten Island
   // Ferry the second one carried - sampled at all three hulls in the Day
@@ -818,7 +818,7 @@ test('the card shows the whole frame, and the angle maths agrees with its shape'
   // divide their rise by it to get a real on-screen angle. If the CSS shape and
   // this constant ever disagree, every rail in the registry tilts wrongly and
   // nothing else says so.
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   const m = /aspect-ratio: ([\d.]+) \/ 1;/.exec(css)
   assert.ok(m, 'the card no longer declares an aspect ratio')
   assert.equal(Number(m[1]), CARD_ASPECT, 'the CSS card shape and CARD_ASPECT disagree')
@@ -831,7 +831,7 @@ test('the card shows the whole frame, and the angle maths agrees with its shape'
   const reg = readFileSync(join(here, '..', 'src', 'lib', 'mastheadCityScenes.js'), 'utf8')
   assert.doesNotMatch(reg, /export const CITY_IMG_Y/)
   assert.doesNotMatch(reg, /export function imgPositionFor/)
-  assert.doesNotMatch(readFileSync(join(here, '..', 'src', 'index.css'), 'utf8'), /--scn-img-y/)
+  assert.doesNotMatch(readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8'), /--scn-img-y/)
 })
 
 test('Toronto: the lake is the card, and nothing flies through the CN Tower', () => {
@@ -896,7 +896,7 @@ test('a searchlight swings from a measured crown, and only after dark', () => {
     }
   }
   assert.equal(CITY_MOTION.chicago.searchlights.length, 2)
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // Night only, the way the fixed beam is: by day a searchlight is invisible.
   for (const scene of ['night', 'cloudynight', 'rainnight', 'snownight']) {
     assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-searchlight,`) ||
@@ -914,7 +914,7 @@ test('a searchlight swings from a measured crown, and only after dark', () => {
   assert.match(reduced.slice(0, 1400), /\.mast-motion-searchlight,/)
   // The wrapper turns and the child is the light: one element cannot both
   // swing and carry the taper.
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   assert.match(src, /className="mast-motion-searchlight"[\s\S]{0,400}className="mast-motion-searchlight-beam"/)
 })
 
@@ -937,9 +937,9 @@ test('a bridgehouse in front of the deck hides the traffic behind it', () => {
     }
   }
   assert.equal(spansOf(CITY_MOTION.chicago)[0].behind.length, 4)
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   assert.match(src, /span\.behind\s*\?\s*<span className="mast-motion-deck-lane" style=\{laneMask\(span\)\}>/)
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // The lane has a height, because a mask on the 0px rail would hide every car.
   assert.match(css, /\.mast-motion-deck-lane \{[^}]*height: 8px/)
   assert.match(css, /\.mast-motion-deck-lane \.mast-motion-car \{ top: 3px; \}/)
@@ -1012,7 +1012,7 @@ test('Istanbul: the Golden Horn, and nothing flies through a minaret', () => {
 // ellipse and the aircraft a bare 3px dot. Both are silhouettes now, in grey,
 // and each faces the way its lane flies.
 test('aircraft and helicopters are grey silhouettes that face their direction of travel', () => {
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   const block = name => css.slice(css.indexOf(name), css.indexOf('}', css.indexOf(name)) + 1)
   for (const name of ['.mast-motion-plane-body {', '.mast-motion-heli-body {']) {
     const b = block(name)
@@ -1025,7 +1025,7 @@ test('aircraft and helicopters are grey silhouettes that face their direction of
   }
   assert.match(css, /\.mast-motion-plane-west \.mast-motion-plane-body \{ transform: scaleX\(-1\); \}/)
   assert.match(css, /\.mast-motion-heli-west \.mast-motion-heli-body \{ transform: scaleX\(-1\); \}/)
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   assert.match(src, /mast-motion-plane\$\{p\.from > p\.to \? ' mast-motion-plane-west' : ''\}/)
   assert.match(src, /mast-motion-heli\$\{helicopter\.from > helicopter\.to \? ' mast-motion-heli-west' : ''\}/)
   assert.match(src, /className="mast-motion-plane-body"[\s\S]{0,80}className="mast-motion-plane-dot"/)
@@ -1035,8 +1035,8 @@ test('aircraft and helicopters are grey silhouettes that face their direction of
 // same time") and MASTHEAD-BOAT-SHAPE-1 ("how about the ships or boats... maybe
 // not oval as well").
 test('three or more flight lanes take turns, and a ferry is a boat', () => {
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   // The relay window is under a quarter of the cycle, so four lanes offset by
   // a quarter each can never overlap; the constant and the keyframe agree.
   const vis = Number(/const RELAY_VISIBLE = ([\d.]+)/.exec(src)[1])
@@ -1064,7 +1064,7 @@ test('three or more flight lanes take turns, and a ferry is a boat', () => {
 // mountain and bridge... not just plain white - maybe gray with some dark red
 // on it so it's believably a ship... the lower part blue").
 test('a white ferry wears a ship livery, and San Francisco sails in front of the bridge', () => {
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   const rules = [...css.matchAll(/\.mast-motion-ferry-white \.mast-motion-ferry-hull \{([^}]*)\}/g)].map(m => m[1])
   const livery = rules[rules.length - 1]
   assert.match(livery, /linear-gradient\(180deg/, 'the white ferry went back to a flat colour')
@@ -1080,7 +1080,7 @@ test('a white ferry wears a ship livery, and San Francisco sails in front of the
 // animation paints on whole pixels, and a slow ferry visibly steps; translate
 // is composited and moves by fractions of one.
 test('a ferry sails on translate, not left, and mirrors the boat rather than the lane', () => {
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   const kf = css.slice(css.indexOf('@keyframes mast-sail'), css.indexOf('}\n}', css.indexOf('@keyframes mast-sail')))
   assert.match(kf, /translate: var\(--from, 40%\) 0/)
   assert.match(kf, /translate: var\(--to, 80%\) 0/)
@@ -1090,7 +1090,7 @@ test('a ferry sails on translate, not left, and mirrors the boat rather than the
   assert.match(css, /\.mast-motion-ferry \{[^}]*left: 0; width: 100%;/)
   assert.match(css, /\.mast-motion-ferry-west \.mast-motion-ferry-boat \{ transform: scaleX\(-1\); \}/)
   assert.doesNotMatch(css, /\.mast-motion-ferry-west \{ transform/, 'mirroring the card-wide wrapper flips the whole lane')
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   assert.match(src, /className="mast-motion-ferry-boat">\s*<span className="mast-motion-ferry-wake" \/>/)
 })
 
@@ -1104,7 +1104,7 @@ test('a tablecloth lies on a measured plateau, on clear daylight only', () => {
     assert.ok(t.x >= 0 && t.x + t.w <= 100 && t.y >= 0 && t.y + t.h <= 100, `${city}.tablecloth leaves the card`)
     assert.ok(t.w >= 10 && t.w <= 40 && t.h >= 4 && t.h <= 25, `${city}.tablecloth is not one mountain's cloud`)
   }
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   assert.match(css, /\.mast-motion-tablecloth \{[\s\S]{0,200}?radial-gradient\(ellipse closest-side/)
   for (const scene of ['day', 'morning', 'goldenhour']) {
     assert.ok(css.includes(`.mast-scenic.mast-scene-${scene} .mast-motion-tablecloth`), `no tablecloth on ${scene}`)
@@ -1115,7 +1115,7 @@ test('a tablecloth lies on a measured plateau, on clear daylight only', () => {
   }
   const reduced = css.slice(css.indexOf('.mast-motion-bolt, .mast-motion-light'))
   assert.match(reduced.slice(0, 1600), /\.mast-motion-tablecloth \{/)
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   assert.match(src, /tablecloth && \(\s*<span className="mast-motion-tablecloth"/)
 })
 
@@ -1164,12 +1164,12 @@ test('rails sit on their roadways, boats stay off the quays, and traffic passes 
 // MASTHEAD-PLANE-DEPTH-1 (Owner: "if there are 2 or more planes in the sky,
 // make the other one smaller so it looks farther away").
 test('every plane after the first is smaller, and no two far planes share a size', () => {
-  const src = readFileSync(join(here, '..', 'src', 'components', 'masthead', 'MastheadMotion.jsx'), 'utf8')
+  const src = readFileSync(join(here, '..', 'src', 'MastheadMotion.jsx'), 'utf8')
   const depths = JSON.parse(/const PLANE_DEPTHS = (\[[^\]]+\])/.exec(src)[1])
   assert.ok(depths.length >= 3 && depths.every(d => d > 0.4 && d < 0.9), `plane depths ${depths} must all be smaller than the near plane and still visible`)
   assert.equal(new Set(depths).size, depths.length, 'two far lanes at the same size read as a pair, not as depth')
   assert.match(src, /\$\{i \? ' mast-motion-plane-far' : ''\}/)
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   assert.match(css, /\.mast-motion-plane-far \{ transform: scale\(var\(--depth, 0\.62\)\)/)
 })
 
@@ -1220,7 +1220,7 @@ test('stars and comets sit in measured, empty, CLEAR-night sky', () => {
     assert.ok(deg > 15 && deg < 55, `${city}.comet falls at ${deg.toFixed(1)}deg; that reads as an aircraft`)
   }
 
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // CLEAR night only. An overcast frame hides the sky, and this is the same
   // rule as MASTHEAD-CLOUDY-1's refusal to put sun glitter under a cloud.
   for (const cls of ['mast-motion-star', 'mast-motion-comet-streak']) {
@@ -1252,7 +1252,7 @@ test('butterflies work a flowering canopy, by day, and never at night', () => {
       assert.ok(y >= 45 && y <= 99, `${city} butterfly at y ${y} is not over the planting`)
     }
   }
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // The wander and the flap are on DIFFERENT elements on purpose: one element
   // animating transform twice silently keeps only the last declaration.
   assert.match(css, /@keyframes mast-wander/)
@@ -1325,12 +1325,12 @@ test('the Sphere cycles its projection, and only the Sphere', async () => {
   const screens = Object.entries(CITY_MOTION).filter(([, c]) => c.screen).map(([n]) => n)
   assert.deepEqual(screens, ['lasvegas'], `unexpected screens: ${screens.join(', ')}`)
 
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // THREE: the disc is clipped with an ELLIPSE. The card is CARD_ASPECT:1, so a
   // circle() with a percentage radius resolves against the box diagonal and
   // lands nowhere near the Sphere. The component computes the two radii; this
   // asserts nothing has replaced them with a circle.
-  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
+  const scenery = readFileSync(join(here, '..', 'src/MastheadScenery.jsx'), 'utf8')
   assert.match(scenery, /clipPath: `ellipse\(/)
   assert.match(scenery, /CARD_ASPECT/, 'the vertical radius no longer goes through CARD_ASPECT')
   // The layers must sit out a sweep, like the motion layer does.
@@ -1367,7 +1367,7 @@ test('the Sphere cycles its projection, and only the Sphere', async () => {
   // fade, from the same constant, so the two can never drift apart and leave a
   // face sitting on a half-dissolved Earth.
   assert.ok(SPHERE_FADE_MS > 0)
-  const motion = readFileSync(join(here, '..', 'src/components/masthead/MastheadMotion.jsx'), 'utf8')
+  const motion = readFileSync(join(here, '..', 'src/MastheadMotion.jsx'), 'utf8')
   assert.match(motion, /'--sphere-fade': `\$\{\(SPHERE_FADE_MS \/ 1000\)/)
   assert.match(css, /\[data-sphere-face="1"\] \.mast-motion-emoji \{[\s\S]{0,80}?transition-delay: var\(--sphere-fade/)
 })
@@ -1394,7 +1394,7 @@ test('a fountain plays from its measured plaza, on every scene', () => {
       assert.ok(xs[i] - xs[i - 1] >= 0.25, `${city} has two jets ${(xs[i] - xs[i - 1]).toFixed(2)}% apart`)
     }
   }
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   // It grows from the BASE. Scaling about the centre sinks the jet into the
   // plaza on every dip, which is the one thing that would give it away.
   assert.match(css, /\.mast-motion-jet \{[\s\S]{0,300}?transform-origin: 50% 100%/)

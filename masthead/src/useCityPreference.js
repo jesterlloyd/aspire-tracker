@@ -6,14 +6,15 @@
 // once (staff card and portal card alike) - no context provider, no prop
 // threading through hosts that never cared about scenery.
 //
-// MASTHEAD-CITY-PER-USER-1: the value is stored per signed-in user, so the hook
-// needs the user id. It reads it from AuthContext, which main.jsx mounts above
-// both the staff app and every portal, rather than taking a prop: the masthead
-// is rendered by hosts that have no reason to know about identity.
+// MASTHEAD-CITY-PER-USER-1: the value is stored per person, so the hook needs
+// a key for them. MASTHEAD-PHASE-1: it used to read ASPIRE's AuthContext; now
+// it reads the MastheadIdentity context the host provides (GreetingMasthead
+// provides it from its userKey prop), because a masthead other products load
+// cannot know their auth.
 
 import { useEffect, useState } from 'react'
-import { useAuth } from '../../contexts/AuthContext'
-import { AUTO, readCityPreference, writeCityPreference } from '../../lib/mastheadCityPreference'
+import { useMastheadUserKey } from './identityContext'
+import { AUTO, readCityPreference, writeCityPreference } from './lib/mastheadCityPreference'
 
 const listeners = new Set()
 
@@ -26,8 +27,7 @@ const listeners = new Set()
 let pickSeq = 0
 
 export function useCityPreference() {
-  const { user } = useAuth()
-  const userId = user?.id || null
+  const userId = useMastheadUserKey()
   const [city, setCity] = useState(() => readCityPreference(userId))
 
   // Re-read whenever the account changes. This is the shared-workstation case

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
+import { listSceneFiles } from './masthead/src/lib/sceneManifest.mjs'
 import react from '@vitejs/plugin-react'
-import { readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -19,23 +19,20 @@ const buildTime = new Date().toISOString();
 // files there (npm run masthead:prepare) and restart to register them. The
 // list is injected as a global constant so the runtime never needs to probe
 // or enumerate the folder over HTTP. Missing folder → empty list → the
-// built-in SVG scenery renders instead.
-const mastheadSceneFiles = (() => {
-  try {
-    // SCENE-3: recursive - city packs live in one subfolder per city
-    // (public/masthead/LosAngeles/LosAngeles_Day.webp); flat files still count.
-    return readdirSync(join(dirname(fileURLToPath(import.meta.url)), 'public', 'masthead'), { recursive: true })
-      .map(f => String(f).replace(/\\/g, '/'))
-      .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
-      .sort();
-  } catch {
-    return [];
-  }
-})();
+// built-in SVG scenery renders instead. MASTHEAD-PHASE-1: the scan lives in
+// the package now.
+const here = dirname(fileURLToPath(import.meta.url));
+const mastheadSceneFiles = listSceneFiles(join(here, 'public', 'masthead'));
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    // MASTHEAD-PHASE-1: the masthead is a package inside this repo, on its way to
+    // being its own program (docs/product/MASTHEAD_SERVICE_PLAN.md). The app
+    // reaches it through one alias so the move out is a one-line change.
+    alias: { '@masthead': join(here, 'masthead', 'src') },
+  },
   define: {
     'import.meta.env.VITE_BUILD_SHA': JSON.stringify(buildSha),
     'import.meta.env.VITE_BUILD_ENV': JSON.stringify(buildEnv),

@@ -8,13 +8,13 @@ import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { greetingLine } from '../src/lib/masthead.js'
+import { greetingLine } from '../masthead/src/lib/masthead.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const read = (p) => readFileSync(join(root, p), 'utf8')
 
-const css = read('src/index.css')
+const css = (read('src/index.css') + read('masthead/styles/masthead.css'))
 const cssBlock = (selector) => {
   const start = css.indexOf(`${selector} {`)
   if (start === -1) return ''
@@ -60,7 +60,7 @@ test('every daypart greeting (the clipped glyphs live in "morning/evening") is p
 
 test('all three surfaces use the shared .mast-greet, so the fix applies once', () => {
   const staff = read('src/components/TodayMasthead.jsx')
-  const shared = read('src/components/masthead/GreetingMasthead.jsx')
+  const shared = read('masthead/src/GreetingMasthead.jsx')
   assert.match(staff, /className="chart-route-title mast-greet"/)   // main app
   assert.match(shared, /className="chart-route-title mast-greet"/)  // Unit Leader + Student portals
 })
@@ -96,7 +96,7 @@ test('the evening wash is cooler and less reddish so the night sky elements read
 test('no new weather artwork or weather request is introduced', () => {
   // The scene component is reused unchanged: one shared Open-Meteo query, the same SVG + licensed
   // asset renderers. The resize is CSS only, so index.css must not add any image or asset path.
-  const wx = read('src/components/WeatherScene.jsx')
+  const wx = read('masthead/src/WeatherScene.jsx')
   assert.equal((wx.match(/fetch\(/g) || []).length, 1)              // still one weather request
   assert.match(wx, /export function WeatherMasthead\(\)/)
   assert.match(wx, /<SceneSvg scene=\{scene\} \/>/)

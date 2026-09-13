@@ -76,7 +76,7 @@ test('fallback chain: distant viewer → Los Angeles pack; no packs → null (SV
 })
 
 test('the shipped Los Angeles folder is a complete seven-scene pack and nothing is orphaned', () => {
-  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+  const files = readdirSync(join(here, '..', '..', 'public', 'masthead'), { recursive: true })
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
     // MASTHEAD-PICKER-GRID-1: the chooser's card images are not scene frames.
@@ -131,7 +131,7 @@ test('every installed city pack carries all seven scenes', () => {
   // Swept rather than enumerated, so a new city folder is checked the moment
   // it is dropped in - a pack missing a scene falls back to the SVG art for
   // that state alone, which is a silent visual inconsistency worth catching.
-  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+  const files = readdirSync(join(here, '..', '..', 'public', 'masthead'), { recursive: true })
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
     .filter(f => !f.startsWith('picker/') && !f.startsWith('fx/'))
@@ -174,8 +174,8 @@ test('the celestial art sits where each city leaves its sky clear', async () => 
   assert.equal(resolvePack(packs, null, { label: 'Los Angeles', lat: 34.05, lon: -118.24 }).city, 'losangeles')
   // A choice for an uninstalled pack falls back to location, never to nothing.
   assert.equal(resolvePack(packs, 'chicago', { label: 'Los Angeles', lat: 34.05, lon: -118.24 }).city, 'losangeles')
-  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
-  const weather = readFileSync(join(here, '..', 'src/components/WeatherScene.jsx'), 'utf8')
+  const scenery = readFileSync(join(here, '..', 'src/MastheadScenery.jsx'), 'utf8')
+  const weather = readFileSync(join(here, '..', 'src/WeatherScene.jsx'), 'utf8')
   for (const [name, src] of [['MastheadScenery', scenery], ['WeatherScene', weather]]) {
     assert.match(src, /resolvePack\(/, `${name} must resolve the pack through the shared helper`)
   }
@@ -198,7 +198,7 @@ test('a chosen city moves the whole masthead: artwork, weather, and time of day'
   assert.equal(ny.geo, false)
   assert.equal(ny.chosen, true)
 
-  const wx = readFileSync(join(here, '..', 'src/components/WeatherScene.jsx'), 'utf8')
+  const wx = readFileSync(join(here, '..', 'src/WeatherScene.jsx'), 'utf8')
   // The SAME query carries the sun times, so the scene clock follows the city
   // too - a New York skyline can never sit under Los Angeles's time of day.
   // MASTHEAD-ATLANTA-RETIRED: and it moves the weather ONLY while the chosen
@@ -216,7 +216,7 @@ test('a chosen city moves the whole masthead: artwork, weather, and time of day'
   assert.match(wx, /title=\{`\$\{location\.label\} · Choose masthead scenery`\}/)
   assert.doesNotMatch(wx, /wx-mast-city/)
   // The dialog must not still promise that the weather stays local.
-  const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
+  const dlg = readFileSync(join(here, '..', 'src/CityPickerDialog.jsx'), 'utf8')
   assert.doesNotMatch(dlg, /weather still follows your own location/)
   // MASTHEAD-PICKER-GRID-1: the Owner's helper copy, and the whole-masthead
   // move kept in the component's own words.
@@ -228,12 +228,12 @@ test('a chosen city moves the whole masthead: artwork, weather, and time of day'
 test('the picker grid: every option has its image, the images exist, and the cards are radios', async () => {
   const { PICKER_IMAGE_FILES, pickerImageFor, AUTO, cityOptions } = await import('../src/lib/mastheadCityPreference.js')
   const { existsSync, readdirSync: rd } = await import('node:fs')
-  const dir = join(here, '..', 'public', 'masthead', 'picker')
+  const dir = join(here, '..', '..', 'public', 'masthead', 'picker')
   // Every shipped city pack, and Automatic, has a card image on disk.
   // 'picker' holds the chooser's own cards and 'fx' the motion layer's effect
   // assets; neither is a city, so neither needs a card of its own.
   const NOT_CITIES = new Set(['picker', 'fx'])
-  const shipped = rd(join(here, '..', 'public', 'masthead'), { withFileTypes: true }).filter(d => d.isDirectory() && !NOT_CITIES.has(d.name)).map(d => d.name.toLowerCase())
+  const shipped = rd(join(here, '..', '..', 'public', 'masthead'), { withFileTypes: true }).filter(d => d.isDirectory() && !NOT_CITIES.has(d.name)).map(d => d.name.toLowerCase())
   for (const key of [AUTO, ...shipped]) {
     assert.ok(PICKER_IMAGE_FILES[key], `${key} has no picker image mapped`)
     assert.ok(existsSync(join(dir, PICKER_IMAGE_FILES[key])), `${key}: ${PICKER_IMAGE_FILES[key]} is not in public/masthead/picker`)
@@ -265,13 +265,13 @@ test('the picker grid: every option has its image, the images exist, and the car
   const packs = Object.fromEntries(shipped.map(c => [c, { day: `/${c}.webp` }]))
   assert.deepEqual(cityOptions(packs).map(o => o.label),
     ['Automatic', 'Atlanta', 'Cape Town', 'Chicago', 'Hollywood', 'Hong Kong', 'Honolulu', 'Istanbul', 'Las Vegas', 'London', 'Los Angeles', 'New York', 'Porter Ranch', 'Rio de Janeiro', 'Rome', 'San Francisco', 'Seattle', 'Tokyo', 'Toronto'])
-  const dlg = readFileSync(join(here, '..', 'src/components/masthead/CityPickerDialog.jsx'), 'utf8')
+  const dlg = readFileSync(join(here, '..', 'src/CityPickerDialog.jsx'), 'utf8')
   assert.match(dlg, /role="radiogroup"/)
   assert.match(dlg, /role="radio"/)
   assert.match(dlg, /aria-checked=\{selected\}/)
   assert.match(dlg, /aria-label="Close"/)
   assert.match(dlg, /document\.body\.style\.overflow = 'hidden'/, 'the page locks behind the dialog')
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   assert.match(css, /\.mast-citypick-grid \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
   assert.match(css, /@media \(max-width: 760px\) \{[^@]*\.mast-citypick-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
   assert.match(css, /@media \(max-width: 520px\) \{[^@]*\.mast-citypick-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/)
@@ -288,7 +288,7 @@ test('every shipped folder follows the naming canon', async () => {
   // holds the motion layer's effect assets (the forked lightning) and is not a
   // city either; both are lowercase precisely so they cannot be mistaken for
   // one, which is what this PascalCase rule is for.
-  const dirs = rd(join(here, '..', 'public', 'masthead'), { withFileTypes: true })
+  const dirs = rd(join(here, '..', '..', 'public', 'masthead'), { withFileTypes: true })
     .filter(d => d.isDirectory() && d.name !== 'picker' && d.name !== 'fx').map(d => d.name)
   assert.ok(dirs.length >= 5, `expected the shipped city folders; got ${dirs.join(', ')}`)
   for (const dir of dirs) {
@@ -296,7 +296,7 @@ test('every shipped folder follows the naming canon', async () => {
     assert.match(dir, /^[A-Z][A-Za-z]+$/, `${dir} must be the city name in PascalCase with no spaces`)
     // Every file inside is <Folder>_<Scene>.webp - the folder names the city
     // once, and the file repeats it so a loose file is still identifiable.
-    for (const f of rd(join(here, '..', 'public', 'masthead', dir))) {
+    for (const f of rd(join(here, '..', '..', 'public', 'masthead', dir))) {
       assert.match(String(f), new RegExp(`^${dir}_[A-Za-z]+\\.webp$`),
         `${dir}/${f} must be ${dir}_<Scene>.webp`)
     }
@@ -340,14 +340,14 @@ test('the card and the artwork are the same shape, so nothing is cropped', () =>
   // say which band of its own frame to show. This is the premise: a pack drawn
   // at a different ratio would be cropped again, silently, and the guard that
   // used to catch that (a per-city crop pinned to its measurements) is gone.
-  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+  const files = readdirSync(join(here, '..', '..', 'public', 'masthead'), { recursive: true })
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.webp$/i.test(f) && !f.startsWith('picker/'))
   assert.ok(files.length > 100, 'expected the installed scene packs')
-  const css = readFileSync(join(here, '..', 'src', 'index.css'), 'utf8')
+  const css = readFileSync(join(here, '..', 'styles', 'masthead.css'), 'utf8')
   assert.match(css, /aspect-ratio: 5 \/ 1;/)
   assert.match(css, /object-position: 50% 50%/)
-  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
+  const scenery = readFileSync(join(here, '..', 'src/MastheadScenery.jsx'), 'utf8')
   assert.doesNotMatch(scenery, /scn-img-y/, 'the scenery still sets a crop variable')
 })
 
@@ -355,7 +355,7 @@ test('the art layer renders the frame whole, with no crop hook', () => {
   // MASTHEAD-FULL-FRAME-1 removed --scn-img-y. This used to assert the variable
   // was set on the ART element rather than the card (setting it on the card
   // moved the greeting instead of the picture); there is nothing to place now.
-  const scenery = readFileSync(join(here, '..', 'src/components/MastheadScenery.jsx'), 'utf8')
+  const scenery = readFileSync(join(here, '..', 'src/MastheadScenery.jsx'), 'utf8')
   assert.doesNotMatch(scenery, /scn-img-y/)
   assert.doesNotMatch(scenery, /imgPositionFor/)
 })
@@ -389,7 +389,7 @@ test('CloudyNight parses as its own scene, not as bare Night', () => {
 })
 
 test('an installed pack may add CloudyNight, and the five that predate it need not', () => {
-  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+  const files = readdirSync(join(here, '..', '..', 'public', 'masthead'), { recursive: true })
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
   const packs = parseSceneFiles(files)
@@ -418,7 +418,7 @@ test('a withdrawn pack takes its whole city with it, and leaves the card coheren
   // nobody can see, or a picker card pointing at a file that is gone.
   const { CITY_MOTION, CITY_SKY_X, parseSceneFiles } = await import('../src/lib/mastheadCityScenes.js')
   const { PICKER_IMAGE_FILES, AUTO } = await import('../src/lib/mastheadCityPreference.js')
-  const files = readdirSync(join(here, '..', 'public', 'masthead'), { recursive: true })
+  const files = readdirSync(join(here, '..', '..', 'public', 'masthead'), { recursive: true })
     .map(f => String(f).replace(/\\/g, '/'))
     .filter(f => /\.(webp|png|jpe?g)$/i.test(f))
     .filter(f => !f.startsWith('picker/') && !f.startsWith('fx/'))
@@ -454,6 +454,6 @@ test('a withdrawn pack takes its whole city with it, and leaves the card coheren
   // missing city's temperature over whatever skyline it fell back to.
   const { CITY_COORDS } = await import('../src/lib/mastheadCityScenes.js')
   assert.ok(CITY_COORDS.atlanta, 'Atlanta lost its coordinates')
-  const wx = readFileSync(join(here, '..', 'src/components/WeatherScene.jsx'), 'utf8')
+  const wx = readFileSync(join(here, '..', 'src/WeatherScene.jsx'), 'utf8')
   assert.match(wx, /installed\[preferredCity\] \? cityWeatherLocation/)
 })

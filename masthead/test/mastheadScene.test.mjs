@@ -126,7 +126,7 @@ test('with the location\'s UTC offset, sun times are read as instants in THAT zo
   // A malformed wall time with an offset is rejected, not read as garbage.
   assert.equal(sunTimesFrom({ sunrise: 'soon', sunset: '2026-09-05T19:22', utcOffsetSeconds: -14400 }), null)
   // The offset ride the payload: the weather query keeps both zone fields.
-  const wx = readFileSync(new URL('../src/components/WeatherScene.jsx', import.meta.url), 'utf8')
+  const wx = readFileSync(new URL('../src/WeatherScene.jsx', import.meta.url), 'utf8')
   assert.match(wx, /utcOffsetSeconds: typeof j\.utc_offset_seconds === 'number' \? j\.utc_offset_seconds : null/)
   assert.match(wx, /timezone: typeof j\.timezone === 'string' \? j\.timezone : null/)
 })
@@ -191,14 +191,14 @@ test('the storm runs only when something is falling: the wet flag, and the CSS t
   // a storm; rain and lightning must not run on the dry one. The motion layer
   // carries .mast-motion-wet from the shared weather query, and after dark the
   // storm gates require it. The Rain scene is wet by construction.
-  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  const css = readFileSync(new URL('../styles/masthead.css', import.meta.url), 'utf8')
   assert.match(css, /\.mast-scenic\.mast-scene-cloudynight \.mast-motion-wet \.mast-motion-bolt-a \{ animation: mast-bolt/)
   assert.match(css, /\.mast-scenic\.mast-scene-cloudynight \.mast-motion-wet \.mast-motion-rain \{ opacity: 1; \}/)
   assert.doesNotMatch(css, /\.mast-scenic\.mast-scene-cloudynight \.mast-motion-bolt-a \{/)
   assert.doesNotMatch(css, /\.mast-scenic\.mast-scene-cloudynight \.mast-motion-rain \{/)
-  const wx = readFileSync(new URL('../src/components/WeatherScene.jsx', import.meta.url), 'utf8')
+  const wx = readFileSync(new URL('../src/WeatherScene.jsx', import.meta.url), 'utf8')
   assert.match(wx, /return \{ scene, night: isNightScene\(scene\), wet \}/)
-  const motion = readFileSync(new URL('../src/components/masthead/MastheadMotion.jsx', import.meta.url), 'utf8')
+  const motion = readFileSync(new URL('../src/MastheadMotion.jsx', import.meta.url), 'utf8')
   // The wet flag has to reach the class name; the class LIST is allowed to grow
   // (MASTHEAD-TIMELAPSE-1 added mast-motion-hushed), so this pins the flag
   // rather than the whole template, which is what the rule actually is.
@@ -240,7 +240,7 @@ test('RainNight is a night scene everywhere the CSS treats night specially', () 
   // that says "this is night" needs the new word too, and a missed one fails
   // INVISIBLY - the card just quietly loses its lights, or its ink stays dark
   // on a dark frame. So this walks the cloudy-night gates and requires a twin.
-  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  const css = readFileSync(new URL('../styles/masthead.css', import.meta.url), 'utf8')
   const gates = css.split('\n').filter(l => l.includes('.mast-scene-cloudynight'))
   const exempt = [
     'mast-motion-only-cloudynight',   // sceneOverrides machinery, cloudynight-only
@@ -263,7 +263,7 @@ test('RainNight is a night scene everywhere the CSS treats night specially', () 
   assert.match(css, /\[data-sweep="rainnight"\] \.mast-scn-img-rainnight/)
   // And the layer that renders the sky divs has one for it, or the gate above
   // has nothing to switch on.
-  const scenery = readFileSync(new URL('../src/components/MastheadScenery.jsx', import.meta.url), 'utf8')
+  const scenery = readFileSync(new URL('../src/MastheadScenery.jsx', import.meta.url), 'utf8')
   assert.match(scenery, /mast-sky mast-sky-rainnight/)
 })
 
@@ -290,7 +290,7 @@ test('index.css has balanced braces', () => {
   // test still passed, because they all check that a selector is PRESENT and
   // none checked that the file is still valid CSS. The dev server caught it.
   // This is cheaper than the dev server and catches the same class of thing.
-  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  const css = readFileSync(new URL('../styles/masthead.css', import.meta.url), 'utf8')
   const bare = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/"[^"]*"|'[^']*'/g, '')
   let depth = 0, line = 1
   for (const ch of bare) {
@@ -315,7 +315,7 @@ test('the CSS rain falls the way the artwork paints it: down-LEFT', () => {
   //
   // Checked by eye on Hollywood, Rome, Rio, Tokyo, Atlanta and Las Vegas with
   // the clouds high-passed away; all lean left, 14 to 24 degrees off vertical.
-  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+  const css = readFileSync(new URL('../styles/masthead.css', import.meta.url), 'utf8')
   const m = /\.mast-motion-rain \{[\s\S]*?transform: rotate\((-?[\d.]+)deg\)/.exec(css)
   assert.ok(m, 'the rain container no longer declares a rotation')
   const deg = Number(m[1])

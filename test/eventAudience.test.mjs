@@ -243,7 +243,7 @@ test('an external link from a student portal is opener-safe', () => {
 
 test('no em dash in anything this change touched', () => {
   const EM = String.fromCharCode(0x2014)
-  for (const f of [ENDPOINT, STAFF_ENDPOINT, MODAL, CALENDAR, FEED, MIGRATION, 'src/lib/aspireEvents.js', 'src/lib/mastheadEvents.js', 'src/components/masthead/MastheadEventsRow.jsx']) {
+  for (const f of [ENDPOINT, STAFF_ENDPOINT, MODAL, CALENDAR, FEED, MIGRATION, 'src/lib/aspireEvents.js', 'src/lib/mastheadEvents.js', 'masthead/src/MastheadEventsRow.jsx']) {
     assert.ok(!read(f).includes(EM), `${f} contains an em dash`)
   }
 })

@@ -10,11 +10,11 @@
 // Owner retired that (2026-09-04).
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabase'
-import { toLocalDateStr } from '../../lib/designTokens'
-import { MASTHEAD_WINDOW_DAYS, addDays, mastheadItems, holidayItems } from '../../lib/mastheadEvents'
-import { getUsHolidaysForRange } from '../../lib/usHolidays'
-import { portalCanSeeEvent } from '../../lib/aspireEvents'
+import { supabase } from '../lib/supabase'
+import { toLocalDateStr } from '../lib/designTokens'
+import { MASTHEAD_WINDOW_DAYS, addDays, mastheadItems, holidayItems } from '../lib/mastheadEvents'
+import { getUsHolidaysForRange } from '../lib/usHolidays'
+import { portalCanSeeEvent } from '../lib/aspireEvents'
 
 export function useStaffMastheadEvents({ enabled = true, audience = null } = {}) {
   const today = toLocalDateStr()

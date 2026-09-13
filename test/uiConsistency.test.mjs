@@ -23,7 +23,7 @@ const rule = (css, sel) => {
 }
 
 const brand = read('src/styles/aspireBrand.css')
-const index = read('src/index.css')
+const index = (read('src/index.css') + read('masthead/styles/masthead.css'))
 const portal = read('src/portal/portal.css')
 const ngrp = read('src/components/ngrp/ngrp.css')
 const chart = read('src/styles/chartTokens.css')

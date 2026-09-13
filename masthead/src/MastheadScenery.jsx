@@ -6,13 +6,14 @@
 // below is the always-available fallback.
 //
 import { useEffect, useMemo, useState } from 'react'
+import '../styles/masthead.css'
 import { useWelcomeWeather, useMastheadScene } from './WeatherScene'
-import { SCENES, ALL_SCENES, sceneFrameFor } from '../lib/mastheadScene'
-import { parseSceneFiles, resolvePack, injectedSceneFiles, CITY_MOTION, CARD_ASPECT } from '../lib/mastheadCityScenes'
-import { useCityPreference } from './masthead/useCityPreference'
-import { sweepFramesFor, startSweepWhenReady, stopSweep, useSceneSweep } from '../lib/mastheadSweep'
-import { startSphereCycle, stopSphereCycle, useSphereProjection, SPHERE_FADE_MS } from '../lib/mastheadSphere'
-import MastheadMotion from './masthead/MastheadMotion'
+import { SCENES, ALL_SCENES, sceneFrameFor } from './lib/mastheadScene'
+import { parseSceneFiles, resolvePack, injectedSceneFiles, CITY_MOTION, CARD_ASPECT } from './lib/mastheadCityScenes'
+import { useCityPreference } from './useCityPreference'
+import { sweepFramesFor, startSweepWhenReady, stopSweep, useSceneSweep } from './lib/mastheadSweep'
+import { startSphereCycle, stopSphereCycle, useSphereProjection, SPHERE_FADE_MS } from './lib/mastheadSphere'
+import MastheadMotion from './MastheadMotion'
 //
 // The component is purely presentational and state-free: the host card carries
 // .mast-scene-{dawn|day|sunset|night} (from useMastheadScene) and index.css

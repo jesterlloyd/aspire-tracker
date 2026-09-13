@@ -36,7 +36,7 @@ import { pacificToday, monthGrid, monthLabel, groupByDay } from '../../lib/rotat
 // CALENDAR-HOLIDAY-CANON: pure client-side date math, no fetch and no persistence, so the
 // props-only contract above still holds. Context, never a record.
 import { getUsHolidaysForRange } from '../../lib/usHolidays'
-import { firstNameOf } from '../../lib/masthead'
+import { firstNameOf } from '@masthead/lib/masthead'
 import { ordinalWord } from '../../lib/ordinalWord'
 
 // Sunday-first, matching the main-app Interviews calendar week start. The main grid

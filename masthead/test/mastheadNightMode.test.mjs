@@ -19,10 +19,10 @@ import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
-const wx = read('src/components/WeatherScene.jsx')
-const today = read('src/components/TodayMasthead.jsx')
-const shared = read('src/components/masthead/GreetingMasthead.jsx')
-const css = read('src/index.css')
+const wx = read('src/WeatherScene.jsx')
+const today = read('../src/components/TodayMasthead.jsx')
+const shared = read('src/GreetingMasthead.jsx')
+const css = read('styles/masthead.css')
 
 test('one unified clock: night is the scene clock, never is_day and never the theme', () => {
   // useMastheadScene anchors to sun times (fallback: fixed windows), applies the

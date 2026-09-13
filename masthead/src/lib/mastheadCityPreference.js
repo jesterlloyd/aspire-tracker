@@ -20,7 +20,14 @@
 // workstations are normal on a unit, and under the old flat key the next person
 // to sign in inherited whoever last used the machine. See mastheadCityKey.
 
-import { mastheadCityKey, LEGACY_MASTHEAD_CITY_KEY } from './sessionKeys.js'
+// MASTHEAD-PHASE-1: the key is the package's own. It used to come from ASPIRE's
+// sessionKeys module (`aspire:mastheadCity:<userId>`); a masthead that other
+// products load owns its storage, namespaced by the host's opaque user key.
+// Both older keys are adopted once, on the way past, the same way the flat
+// pre-namespacing key already was.
+export const mastheadCityKey = (userKey) => `masthead:city:${userKey || 'anon'}`
+const ASPIRE_CITY_KEY = (userKey) => `aspire:mastheadCity:${userKey || 'anon'}`
+export const LEGACY_MASTHEAD_CITY_KEY = 'aspire_masthead_city_v1'
 
 export const AUTO = 'auto'
 
@@ -37,11 +44,13 @@ export function readCityPreference(userId) {
     const key = mastheadCityKey(userId)
     const own = localStorage.getItem(key)
     if (own) return own
-    const legacy = localStorage.getItem(LEGACY_MASTHEAD_CITY_KEY)
-    if (legacy) {
-      localStorage.removeItem(LEGACY_MASTHEAD_CITY_KEY)
-      localStorage.setItem(key, legacy)
-      return legacy
+    for (const old of [ASPIRE_CITY_KEY(userId), LEGACY_MASTHEAD_CITY_KEY]) {
+      const legacy = localStorage.getItem(old)
+      if (legacy) {
+        localStorage.removeItem(old)
+        localStorage.setItem(key, legacy)
+        return legacy
+      }
     }
     return AUTO
   } catch {

@@ -14,9 +14,9 @@ import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
-const staff = read('src/components/TodayMasthead.jsx')
-const shared = read('src/components/masthead/GreetingMasthead.jsx')
-const css = read('src/index.css')
+const staff = read('../src/components/TodayMasthead.jsx')
+const shared = read('src/GreetingMasthead.jsx')
+const css = read('styles/masthead.css')
 
 test('both hosts carry the same three columns and the events row', () => {
   for (const [name, src] of [['TodayMasthead', staff], ['GreetingMasthead', shared]]) {
@@ -40,7 +40,7 @@ test('the staff card applies the shared window rule and always offers Open Calen
 })
 
 test('the events row: no row on a quiet day (pill included), labels that tell the truth, pill last', () => {
-  const row = read('src/components/masthead/MastheadEventsRow.jsx')
+  const row = read('src/MastheadEventsRow.jsx')
   // EVENT-AUDIENCE-2 (Owner): Open Calendar with nothing beside it was noise.
   assert.match(row, /if \(list\.length === 0\) return null/)
   // "Events Today" only over today's chips; "Upcoming" over the rest.
@@ -86,7 +86,7 @@ test('the pair is small and all sans; the clock is the one large element', () =>
 // The Owner declined a frosted pill; the older .wx-mast-hilo / .wx-mast-city
 // rules (smaller, dimmer, uppercase) must stay off them for the same reason.
 test('the weather shows temperature, condition, high/low and city, all in one type', () => {
-  const wx = read('src/components/WeatherScene.jsx')
+  const wx = read('src/WeatherScene.jsx')
   for (const [open, close] of [['className="wx-mast-caption wx-mast-trigger"', '</button>'], ['<div className="wx-mast-caption"', '</div>\n      )}']]) {
     const block = wx.slice(wx.indexOf(open), wx.indexOf(close, wx.indexOf(open)))
     assert.match(block, /wx-mast-temp/)
@@ -109,25 +109,25 @@ test('the layout is a three-column grid with the clock centred on the card', () 
 })
 
 test('the calendar flag is named for what it does now', () => {
-  assert.match(read('src/components/AspireEventModal.jsx'), /Show in Masthead/)
-  assert.doesNotMatch(read('src/components/AspireEventModal.jsx'), /Show on Aggregate welcome/)
-  assert.match(read('src/components/InterviewCalendar.jsx'), />In masthead</)
+  assert.match(read('../src/components/AspireEventModal.jsx'), /Show in Masthead/)
+  assert.doesNotMatch(read('../src/components/AspireEventModal.jsx'), /Show on Aggregate welcome/)
+  assert.match(read('../src/components/InterviewCalendar.jsx'), />In masthead</)
   // The column did not change, so every already-flagged event carries over;
   // the portal endpoint hands the same tick over as in_masthead. Milestones no
   // longer qualify on their own.
-  assert.match(read('src/lib/mastheadEvents.js'), /ev\.show_on_welcome \|\| ev\.in_masthead/)
-  assert.doesNotMatch(read('src/lib/mastheadEvents.js'), /is_milestone/)
+  assert.match(read('../src/lib/mastheadEvents.js'), /ev\.show_on_welcome \|\| ev\.in_masthead/)
+  assert.doesNotMatch(read('../src/lib/mastheadEvents.js'), /is_milestone/)
 })
 
 test('the Residency At a Glance shows the same flagged events as every staff masthead', () => {
-  const glance = read('src/components/ngrp/AtAGlanceTab.jsx')
+  const glance = read('../src/components/ngrp/AtAGlanceTab.jsx')
   // EVENT-AUDIENCE-2 (Owner): the cycle-milestone chip is gone; the card reads
   // the shared staff feed and offers the residency Activity calendar.
   assert.match(glance, /const mastheadItems = useStaffMastheadEvents\(\{ audience: eventAudience \}\)/)
   assert.match(glance, /items=\{mastheadItems\}/)
   assert.match(glance, /calendar=\{\{ label: 'Open Calendar', onClick: \(\) => navigate\(ngrpPath\('residency', 'activity', base\)\) \}\}/)
   assert.doesNotMatch(glance, /nextMilestone|MASTHEAD_WINDOW_DAYS/)
-  const feed = read('src/components/masthead/useStaffMastheadEvents.js')
+  const feed = read('../src/components/useStaffMastheadEvents.js')
   assert.match(feed, /body: JSON\.stringify\(\{ action: 'list', from: today, to \}\)/)
   // RESIDENCY-PORTAL-1: a portal host narrows by audience first; the chip rule is still the one shared call.
   assert.match(feed, /mastheadItems\(audience \? events\.filter\(ev => portalCanSeeEvent\(ev, audience\)\) : events, today\)/)
