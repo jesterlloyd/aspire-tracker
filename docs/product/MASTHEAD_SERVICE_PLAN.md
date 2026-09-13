@@ -238,6 +238,16 @@ of the host's resets, tokens, typography or fonts (the package carries all
 four); and a host that assigns `items` before the script arrives shadows the
 setter unless the element adopts the value on upgrade.
 
+**Settings app (2026-09-13).** The Owner then asked for permission control,
+a log, and a safer update. The service is gated: `/v1/masthead.js?host=KEY`
+is served only to a registered, enabled host from one of its registered page
+origins, checked on the server; every admitted load is logged per host. A
+push builds to `/next/`; hosts receive only what the Owner publishes from the
+settings app at `/admin/` (one owner password, separate from ASPIRE). Cities
+have on/off switches there. ASPIRE is registered as `aspire-intelligence`.
+Storage is one private Vercel Blob store on the existing plan. Installable
+city packages are deferred; nothing depends on them.
+
 **A city or effect is now added in the masthead repository** (its README
 says how) and reaches ASPIRE, and every later host, on the next page load.
 
