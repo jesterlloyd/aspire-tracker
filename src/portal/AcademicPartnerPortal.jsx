@@ -17,7 +17,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import MastheadCard from '../components/MastheadCard'
+import SkylineCard from '../components/SkylineCard'
 import { useMastheadFeed } from './shared/useMastheadFeed'
 import { FilterKPICard } from '../components/KPIBand'
 import StatusPill from '../components/StatusPill'
@@ -224,7 +224,7 @@ function StudentsView() {
   return (
     <div className="ptl-page ptl-ap-page">
       <h1 className="ptl-visually-hidden">Academic Partner Students</h1>
-      <MastheadCard
+      <SkylineCard
           flush
           userKey={user?.id}
         fullName={userProfile?.full_name}

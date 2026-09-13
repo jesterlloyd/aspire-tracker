@@ -135,7 +135,7 @@ test('P0-7: six desktop destinations and four mobile slots with accessible More'
 test('P1-8: the Compass welcome header replaces the literal Home heading', () => {
   // The welcome header is the shared greeting masthead (Commit 1), which reuses the main-app
   // masthead visual system rather than a plain heading.
-  assert.match(portal, /<MastheadCard/)
+  assert.match(portal, /<SkylineCard/)
   assert.doesNotMatch(portal, /\{first \? `Welcome, \$\{first\}` : 'Welcome'\}/)
   // The redundant lower "Unit Leader · <units>" line was removed (Commit 2); the unit context
   // is shown once above by the UnitSwitcher's "Unit · X" line in UnitLeaderChrome.

@@ -18,7 +18,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
-import MastheadCard from '../components/MastheadCard'
+import SkylineCard from '../components/SkylineCard'
 import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { buildLiveShiftDisplay } from '../lib/onCampusRows'
@@ -298,7 +298,7 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
   )
   const greetingRef = useRef(null)
   useEffect(() => {
-    // MASTHEAD-PHASE-2b: the greeting lives inside <masthead-card>'s shadow
+    // MASTHEAD-PHASE-2b: the greeting lives inside <skyline-card>'s shadow
     // root; the wrapper's ref exposes focus(), which the element performs as
     // a programmatic focus (no ring) and clears on blur itself.
     greetingRef.current?.focus?.()
@@ -335,7 +335,7 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
 
   return (
     <>
-      <MastheadCard
+      <SkylineCard
           flush
           userKey={user?.id}
         fullName={profile?.full_name}

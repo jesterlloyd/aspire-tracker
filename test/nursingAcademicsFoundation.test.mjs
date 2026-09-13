@@ -208,12 +208,12 @@ test('the NE&L masthead context is the fiscal year, from the canonical FY clock'
   // The masthead greets ONCE, inside the At A Glance section - never above the
   // section switch, where it repeated on Community Benefit / Contacts /
   // Messages and could contradict the FY selected inside the benefit report.
-  assert.equal((portal.match(/<MastheadCard/g) || []).length, 1)
+  assert.equal((portal.match(/<SkylineCard/g) || []).length, 1)
   const glance = portal.slice(
     portal.indexOf("view === 'calendar' ? 'flex'"),
     portal.indexOf('<AcademicsCalendarView'),
   )
-  assert.match(glance, /<MastheadCard/, 'the masthead must live inside the At A Glance section')
+  assert.match(glance, /<SkylineCard/, 'the masthead must live inside the At A Glance section')
   // The canonical clock itself: FY is the ENDING year, flipping on July 1 (Pacific).
   const { currentFiscalYear } = await import('../lib/server/communityBenefit/compute.js')
   assert.equal(currentFiscalYear(new Date('2026-06-30T12:00:00-07:00')), 2026)

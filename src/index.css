@@ -3951,7 +3951,7 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
    These .mast-live / .mast-shift rules travelled out with the masthead block in
    Phase 1 and came back when the card moved to its own program: they style the
    On Campus Now strip, which is the app's, not the card's. The masthead itself
-   now renders inside <masthead-card>, loaded from the Masthead service; the app
+   now renders inside <skyline-card>, loaded from the Masthead service; the app
    keeps only this host-side wrapper rule. */
 .mast-host { display: block; }
 .mast-live { margin: var(--aspire-gap-card) 20px 0; font-family: 'Plus Jakarta Sans', sans-serif; flex-shrink: 0; }

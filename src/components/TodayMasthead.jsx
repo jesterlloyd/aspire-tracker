@@ -24,7 +24,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { toLocalDateStr } from '../lib/designTokens'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 import { mastheadItems, holidayItems } from '../lib/mastheadEvents'
-import MastheadCard from './MastheadCard'
+import SkylineCard from './SkylineCard'
 
 // cohort / onCampusCount stay in the signature for call-site stability; the
 // card no longer prints either (Owner: no cohort line on the masthead).
@@ -65,11 +65,11 @@ export default function TodayMasthead({ cohort, onTodayRoute, onCampusCount = 0 
     [events, today],
   )
 
-  // MASTHEAD-PHASE-2b: the card itself is <masthead-card>, loaded live from
+  // MASTHEAD-PHASE-2b: the card itself is <skyline-card>, loaded live from
   // the Masthead service; this component is its ASPIRE host: it fetches the
   // events, names the viewer, and routes the calendar pill.
   return (
-    <MastheadCard
+    <SkylineCard
       fullName={userProfile?.full_name}
       userKey={user?.id}
       items={items}

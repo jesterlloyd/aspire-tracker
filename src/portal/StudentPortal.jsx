@@ -39,7 +39,7 @@ import { shiftDrivesState } from '../lib/shiftLifecycle'
 import { composePortalEmail } from '../lib/outlookCompose'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
-import MastheadCard from '../components/MastheadCard'
+import SkylineCard from '../components/SkylineCard'
 import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
@@ -365,7 +365,7 @@ export default function StudentPortal({
           old stage/next block is dropped; "Your progress" below is the single stage representation,
           and the stage action stays on its own card (the Hours and Badge cards). */}
       {view === 'home' ? (
-        <MastheadCard
+        <SkylineCard
           flush
           userKey={user?.id}
           fullName={fullName}

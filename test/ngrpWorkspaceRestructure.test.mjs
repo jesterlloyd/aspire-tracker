@@ -128,7 +128,7 @@ test('At a Glance and Profiles are the old tabs, renamed, not rewritten', () => 
 })
 
 test('At a Glance opens with the same masthead every other home uses', () => {
-  assert.match(glance, /import MastheadCard from '[^']+MastheadCard'/)
+  assert.match(glance, /import SkylineCard from '[^']+SkylineCard'/)
   assert.match(glance, /contextLabel=\{serverCycle\.name\}/, 'named by the residency cohort, not an ASPIRE one')
   // EVENT-AUDIENCE-2: the masthead shows the shared staff event feed, not a
   // chip invented from the cycle timeline; the timeline card below still
@@ -256,7 +256,7 @@ test('the masthead sits in the same column, and therefore at the same height', (
   // against the app's 1304/5.9 = 221px. One opt-out fixes both.
   // MASTHEAD-PHASE-2b: the card's flush rule (.mast.mast-flush) lives in the
   // masthead repository; the host passes the attribute through the wrapper.
-  const masthead = read('src/components/MastheadCard.jsx')
+  const masthead = read('src/components/SkylineCard.jsx')
   assert.match(masthead, /flush = false,/)
   assert.match(glance, /flush\n\s*\/>/, 'At a Glance opts in')
 })

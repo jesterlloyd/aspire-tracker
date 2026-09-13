@@ -51,7 +51,7 @@ test('the tokens exist, once, with the decided values', () => {
 
 const CARDS = [
   ['staff', index, '.ov-panel '], ['staff', index, '.stat-card'], ['staff', index, '.snap'],
-  // MASTHEAD-PHASE-2b: .mast is <masthead-card>'s now, guarded in the masthead repository.
+  // MASTHEAD-PHASE-2b: .mast is <skyline-card>'s now, guarded in the masthead repository.
   ['staff', index, '.unit-card'], ['staff', index, '.matching-board'],
   ['staff', index, '.canonical-calendar-shell'],
   ['portal', portal, '.ptl-card'], ['portal', portal, '.ptl-rotation-switch'],

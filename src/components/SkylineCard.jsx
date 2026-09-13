@@ -1,13 +1,13 @@
 // MASTHEAD-PHASE-2b: the app's one way to show the masthead.
 //
 // The card is its own program now (docs/product/MASTHEAD_SERVICE_PLAN.md),
-// served once at MASTHEAD_URL and loaded live: when a city or an effect lands
+// served once at SKYLINE_URL and loaded live: when a city or an effect lands
 // there, this app shows it on the next page load with no build. This wrapper
 // loads the element's script once, keeps the app's theme and the host props
 // in step with the element, and carries the welcome tour's anchor, which has
 // to be light DOM the tour can find.
 import { useEffect, useImperativeHandle, useRef } from 'react'
-import { ensureMasthead } from '../lib/mastheadService'
+import { ensureMasthead } from '../lib/skylineService'
 
 // The app's theme is an attribute on <html>; the element takes it as a prop
 // and follows it, rather than the OS setting, so the card matches the page.
@@ -15,7 +15,7 @@ function appTheme() {
   return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
 }
 
-export default function MastheadCard({
+export default function SkylineCard({
   fullName,
   userKey = null,
   items = null,
@@ -50,8 +50,8 @@ export default function MastheadCard({
     const el = ref.current
     if (!el) return undefined
     const onCalendar = () => calendar?.onClick?.()
-    el.addEventListener('masthead-calendar', onCalendar)
-    return () => el.removeEventListener('masthead-calendar', onCalendar)
+    el.addEventListener('skyline-calendar', onCalendar)
+    return () => el.removeEventListener('skyline-calendar', onCalendar)
   }, [calendar])
 
   // Follow the app's theme toggle live.
@@ -72,7 +72,7 @@ export default function MastheadCard({
   return (
     // WELCOME-TOUR-MASTHEAD-1: the tour anchors here, on light DOM, not inside the shadow root.
     <div data-tour="masthead" className="mast-host">
-      <masthead-card
+      <skyline-card
         ref={ref}
         mode="full"
         name={fullName || ''}

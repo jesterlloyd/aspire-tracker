@@ -21,8 +21,8 @@ const css = read('src/portal/portal.css')
 
 test('the shared greeting masthead replaces the student-only hero', async (t) => {
   await t.test('reuses the shared GreetingMasthead (greeting + date/cohort + weather)', () => {
-    assert.match(portal, /import MastheadCard from '[^']+MastheadCard'/)
-    assert.match(portal, /<MastheadCard[\s\S]*?fullName=\{fullName\}[\s\S]*?dateLabel=\{dateLabel\}[\s\S]*?contextLabel=\{cohortName\}/)
+    assert.match(portal, /import SkylineCard from '[^']+SkylineCard'/)
+    assert.match(portal, /<SkylineCard[\s\S]*?fullName=\{fullName\}[\s\S]*?dateLabel=\{dateLabel\}[\s\S]*?contextLabel=\{cohortName\}/)
   })
 
   await t.test('the old navy compass hero (welcome / stage / attention) is fully removed', () => {

@@ -33,7 +33,7 @@ test('masthead-first hierarchy', async (t) => {
     assert.ok(!existsSync(join(here, '..', 'src/components/AggregateWelcome.jsx')), 'AggregateWelcome.jsx deleted')
     assert.doesNotMatch(overview, /AggregateWelcome/)
     // The masthead heading is the route's h1 and its one Playfair Display moment.
-    assert.match(masthead, /<MastheadCard[\s\S]*?fullName=\{userProfile\?\.full_name\}/)  // MASTHEAD-PHASE-2b
+    assert.match(masthead, /<SkylineCard[\s\S]*?fullName=\{userProfile\?\.full_name\}/)  // MASTHEAD-PHASE-2b
   })
 
   await t.test('the digest reads the SAME attention sets as the bell badge', () => {
@@ -71,9 +71,9 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
 
   await t.test('the weather scene survives as the compact masthead variant', () => {
     // MASTHEAD-PHASE-2b: the scene, the weather and the clock all live inside
-    // <masthead-card>, loaded from the Masthead service; the staff card is a host.
-    assert.match(masthead, /import MastheadCard from '\.\/MastheadCard'/)
-    assert.match(read('src/components/MastheadCard.jsx'), /<masthead-card[\s\S]*?mode="full"/)
+    // <skyline-card>, loaded from the Masthead service; the staff card is a host.
+    assert.match(masthead, /import SkylineCard from '\.\/SkylineCard'/)
+    assert.match(read('src/components/SkylineCard.jsx'), /<skyline-card[\s\S]*?mode="full"/)
   })
 
   await t.test('the events row is the shared component, fed by the shared window rule', () => {
@@ -195,7 +195,7 @@ test('Open Calendar is the events row\'s constant (MASTHEAD-LOCKSCREEN-1, Owner)
 
 // MASTHEAD-SETTINGS-1: the service refuses a script request with no host key.
 test('the app loads the masthead as a registered host', () => {
-  const svc = read('src/lib/mastheadService.js')
-  assert.match(svc, /\/v1\/masthead\.js\?host=\$\{MASTHEAD_HOST_KEY\}/)
-  assert.match(svc, /MASTHEAD_HOST_KEY = import\.meta\.env\.VITE_MASTHEAD_HOST_KEY \|\| 'aspire-intelligence'/)
+  const svc = read('src/lib/skylineService.js')
+  assert.match(svc, /\/v1\/skyline\.js\?host=\$\{SKYLINE_HOST_KEY\}/)
+  assert.match(svc, /SKYLINE_HOST_KEY = import\.meta\.env\.VITE_SKYLINE_HOST_KEY \|\| 'aspire-intelligence'/)
 })

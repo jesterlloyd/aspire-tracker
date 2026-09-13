@@ -1,3 +1,5 @@
+> **Renamed 2026-09-13: the service is Skyline.** Repository `jesterlloyd/skyline`, address https://skyline-card.vercel.app (the old masthead-seven address still answers), element `<skyline-card>`, script `/v1/skyline.js`, events `skyline-ready` and `skyline-calendar`, ASPIRE wrapper `src/components/SkylineCard.jsx` and `src/lib/skylineService.js`. The document below keeps its original wording.
+
 # Masthead Service Plan
 
 Status: investigation and plan, not built. Written 2026-09-12 from a read of the
@@ -82,8 +84,8 @@ Sunrise and sunset ride the same request and drive the scene clock.
 The service publishes a single script. A host adds:
 
 ```html
-<script type="module" src="https://<masthead-host>/v1/masthead.js"></script>
-<masthead-card mode="full" name="Jester" user-key="cshs:u_8f2…" theme="auto"></masthead-card>
+<script type="module" src="https://<masthead-host>/v1/skyline.js"></script>
+<skyline-card mode="full" name="Jester" user-key="cshs:u_8f2…" theme="auto"></skyline-card>
 ```
 
 The element renders into a Shadow DOM, so the masthead's 4,700 lines of CSS
@@ -114,8 +116,8 @@ Attributes:
 Properties (set from script, since they are objects): `items` (events, same
 shape as today), `calendar` (`{ label }`; the click comes back as an event).
 
-Events dispatched: `masthead-ready`, `masthead-city` (city changed),
-`masthead-scene` (scene changed, with the scene name), `masthead-calendar`
+Events dispatched: `skyline-ready`, `masthead-city` (city changed),
+`masthead-scene` (scene changed, with the scene name), `skyline-calendar`
 (the host handles navigation).
 
 Slots (`scene` mode): the host may place its own elements over the card. The
@@ -125,7 +127,7 @@ place ASPIRE's sits.
 
 ### Versioning
 
-`/v1/masthead.js` is a channel, not a build. Content (cities, effects, fixes)
+`/v1/skyline.js` is a channel, not a build. Content (cities, effects, fixes)
 flows through it automatically. A breaking change to the contract goes to
 `/v2/`; hosts move when they choose. The manifest of installed cities lives at
 `/v1/manifest.json` and replaces the Vite build-time define.
@@ -217,13 +219,13 @@ comparison of the staff card and each portal card before and after.
 
 **Done, 2026-09-13.** The service is the `masthead` repository beside this
 one (github.com/jesterlloyd/masthead, private), deployed by Vercel on every
-push to `https://masthead-seven.vercel.app`. `/v1/masthead.js` (134 KB
-gzipped) defines `<masthead-card>`; `/v1/manifest.json` lists the frames.
+push to `https://masthead-seven.vercel.app`. `/v1/skyline.js` (134 KB
+gzipped) defines `<skyline-card>`; `/v1/manifest.json` lists the frames.
 Ten renders of the served element against the in-app card, with the weather
 stubbed and every animation frozen, were pixel-identical before the switch.
 
-ASPIRE is the first host: `src/components/MastheadCard.jsx` loads the script
-once (`src/lib/mastheadService.js`, `VITE_MASTHEAD_URL` to override), renders
+ASPIRE is the first host: `src/components/SkylineCard.jsx` loads the script
+once (`src/lib/skylineService.js`, `VITE_SKYLINE_URL` to override), renders
 the element, keeps the app's theme and the host's `items`/`calendar` in step
 with it, and carries the welcome tour's anchor in light DOM. The staff card
 and the four portals render it; the app's own copy of the package, the
@@ -239,7 +241,7 @@ four); and a host that assigns `items` before the script arrives shadows the
 setter unless the element adopts the value on upgrade.
 
 **Settings app (2026-09-13).** The Owner then asked for permission control,
-a log, and a safer update. The service is gated: `/v1/masthead.js?host=KEY`
+a log, and a safer update. The service is gated: `/v1/skyline.js?host=KEY`
 is served only to a registered, enabled host from one of its registered page
 origins, checked on the server; every admitted load is logged per host. A
 push builds to `/next/`; hosts receive only what the Owner publishes from the
@@ -253,7 +255,7 @@ says how) and reaches ASPIRE, and every later host, on the next page load.
 
 
 Deploy the element. Switch the staff card and the four portals to
-`<masthead-card>`. The welcome tour anchors to the host's wrapper element
+`<skyline-card>`. The welcome tour anchors to the host's wrapper element
 instead of the card's own `data-tour`. Verify parity again (the lock harness
 recipe in memory does this in minutes). ASPIRE deletes the in-repo copy.
 
@@ -302,8 +304,8 @@ host, an admin page listing cities and hosts.
    front later without touching any host.
 2. Access control: none. The masthead holds no data beyond a city choice; the
    only exposure is bandwidth. Can be added later if ever wanted.
-3. Name: **Masthead**. Repository `masthead`, script `/v1/masthead.js`, element
-   `<masthead-card>` (a custom element must contain a hyphen), picker title
+3. Name: **Masthead**. Repository `masthead`, script `/v1/skyline.js`, element
+   `<skyline-card>` (a custom element must contain a hyphen), picker title
    stays "Masthead Scenery". Nothing carries the ASPIRE name into other products.
 4. Source PNG archive: moves into the Masthead folder, outside git. The WebPs
    are what ships; the PNGs are kept because they are sharper for measuring.
