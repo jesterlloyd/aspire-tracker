@@ -63,14 +63,17 @@ const CSS = `
   .ngrpr-helpbox { grid-column: 1 / -1; background: #F5F7FB; border: 1px solid #D6DEEE; border-radius: var(--aspire-radius-control); padding: 12px 14px; font-size: 12.5px; color: #374151; line-height: 1.55; }
   .ngrpr-helpbox h4 { margin: 0 0 4px; font-size: 12.5px; color: #1D2567; }
   .ngrpr-helpbox p { margin: 0; }
-  .ngrpr-tiers { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 4px 12px; margin: 10px 0 0; font-size: 12px; }
-  .ngrpr-tiers .th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #6B7785; font-weight: 700; }
-  .ngrpr-tiers .tn { font-weight: 700; color: #1D2567; white-space: nowrap; }
+  .ngrpr-tiers { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 0; font-size: 12px; }
+  .ngrpr-tiers .tier { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; }
+  .ngrpr-tiers .tier .tn { grid-row: 1 / span 2; font-weight: 700; color: #1D2567; white-space: nowrap; }
+  .ngrpr-tiers b { color: #4A5560; font-weight: 700; }
+  .ngrpr-field label .lh { font-weight: 400; color: #6B7785; }
+  .ngrpr-field label .lh::before { content: '· '; }
   .ngrpr-cal { border: 1px solid #EFEDE8; border-radius: 12px; background: #FCFBF9; padding: 12px 14px 14px; }
   .ngrpr-cal-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
   .ngrpr-cal-head h3 { margin: 0; font-size: 13.5px; font-weight: 700; color: #1D2567; }
   .ngrpr-cal-nav { display: flex; gap: 6px; }
-  .ngrpr-cal-nav button { min-width: 40px; min-height: 36px; border: 1px solid #d1d5db; background: #fff; border-radius: var(--aspire-radius-control); font-family: ${F}; font-size: 15px; cursor: pointer; color: #374151; }
+  .ngrpr-cal-nav button { min-width: 44px; min-height: 40px; border: 1px solid #d1d5db; background: #fff; border-radius: var(--aspire-radius-control); font-family: ${F}; font-size: 15px; cursor: pointer; color: #374151; }
   .ngrpr-cal-nav button:focus-visible { outline: 2px solid #4F6DA8; outline-offset: 2px; }
   .ngrpr-cal-dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 0 0 4px; }
   .ngrpr-cal-dow span { text-align: center; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #6B7785; font-weight: 700; }
@@ -104,7 +107,7 @@ const CSS = `
   .ngrpr-check { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; font-size: 13.5px; cursor: pointer; min-height: 40px; }
   .ngrpr-check input { width: 17px; height: 17px; margin-top: 2px; accent-color: #1D2567; flex-shrink: 0; }
   .ngrpr-check .hint { display: block; font-size: 11.5px; color: #6B7785; }
-  .ngrpr-link { background: none; border: none; color: #1D2567; font-family: ${F}; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 6px 0; text-decoration: underline; }
+  .ngrpr-link { background: none; border: none; color: #1D2567; font-family: ${F}; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 6px 0; min-height: 40px; text-decoration: underline; }
   .ngrpr-goal { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start; margin: 0 0 10px; }
   .ngrpr-goal-meta { display: flex; flex-direction: column; gap: 5px; }
   .ngrpr-goal-meta > label { font-size: 12px; font-weight: 600; color: #4A5560; }
@@ -121,6 +124,19 @@ const CSS = `
   @media (max-width: 620px) {
     .ngrpr-grid, .ngrpr-shift-grid, .ngrpr-goal { grid-template-columns: minmax(0, 1fr); }
     .ngrpr-card, .ngrpr-mast { padding: 18px 16px; }
+    /* Phones first (Owner, 2026-09-14): the hint drops to its own line, the
+       Met | Not met pills and the day menu's buttons fill the row for thumbs,
+       and the calendar keeps its seven columns at 375px (cells stay 40px+). */
+    .ngrpr-field label .lh { flex-basis: 100%; }
+    .ngrpr-field label .lh::before { content: none; }
+    .ngrpr-goal .ngrpr-opts { display: grid; grid-template-columns: 1fr 1fr; }
+    .ngrpr-goal .ngrpr-opt { justify-content: center; }
+    .ngrpr-daymenu .grow { flex-basis: 100%; }
+    .ngrpr-daymenu .ngrpr-opts { flex-basis: 100%; }
+    .ngrpr-daymenu .ngrpr-opts .ngrpr-opt { flex: 1 1 0; justify-content: center; }
+    .ngrpr-daymenu .ngrpr-btn { flex: 1 1 0; min-height: 44px; }
+    .ngrpr-cal { padding: 10px 8px 12px; }
+    .ngrpr-cal-grid, .ngrpr-cal-dow { gap: 3px; }
   }
 `
 
@@ -338,22 +354,23 @@ export default function NgrpReflectionPage() {
       <p>{HELP[key].body}</p>
       {HELP[key].tiers && (
         <div className="ngrpr-tiers">
-          <span className="th">Tier</span><span className="th">You</span><span className="th">Your preceptor</span>
           {HELP[key].tiers.map(t => (
-            <Fragment key={t.tier}>
+            <div className="tier" key={t.tier}>
               <span className="tn">Tier {t.tier}</span>
-              <span>{t.orientee.join('; ')}</span>
-              <span>{t.preceptor.join('; ')}</span>
-            </Fragment>
+              <span><b>You:</b> {t.orientee.join('; ')}</span>
+              <span><b>Your preceptor:</b> {t.preceptor.join('; ')}</span>
+            </div>
           ))}
         </div>
       )}
     </div>
   )
+  // The (i) travels with the label's last word (one span), and the hint is its
+  // own span so a phone can drop it to the next line without a stray dot.
   const text = ({ id, label, value, onChange, rows, hint, placeholder, helpKey }) => (
     <Fragment key={id}>
       <div className="ngrpr-field full">
-        <label htmlFor={id}>{label}{helpKey && help(helpKey)}{hint && <span style={{ fontWeight: 400, color: '#6B7785' }}> · {hint}</span>}</label>
+        <label htmlFor={id}><span className="lt">{label}{helpKey && <> {help(helpKey)}</>}</span>{hint && <span className="lh">{hint}</span>}</label>
         {readOnly
           ? <div className="ngrpr-ro">{value || 'Not answered'}</div>
           : <textarea id={id} value={value} rows={rows || 3} placeholder={placeholder} onChange={e => onChange(e.target.value)} />}

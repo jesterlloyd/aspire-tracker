@@ -454,6 +454,17 @@ test('the refined questionnaire: sample answers in every text field, four (i) te
   assert.match(page, /<label id=\{`go\$\{i\}`\}>Outcome<\/label>/)
   assert.match(page, /\.ngrpr-goal \.ngrpr-opt \{ min-height: 40px;/)
   assert.match(page, /\.ngrpr-field select \{[\s\S]*?min-height: 40px;/)
+  // Phones first (Owner, 2026-09-14): measured at 375px, no sideways scroll and
+  // no tap target under 40px. The hint drops to its own line without its dot,
+  // the pills and the day-menu buttons fill the row, the ladder stacks per tier.
+  const phone = page.slice(page.indexOf('@media (max-width: 620px)'))
+  assert.match(phone, /\.ngrpr-field label \.lh::before \{ content: none; \}/)
+  assert.match(phone, /\.ngrpr-goal \.ngrpr-opts \{ display: grid; grid-template-columns: 1fr 1fr; \}/)
+  assert.match(phone, /\.ngrpr-daymenu \.ngrpr-btn \{ flex: 1 1 0; min-height: 44px; \}/)
+  assert.match(page, /\.ngrpr-cal-nav button \{ min-width: 44px; min-height: 40px;/)
+  assert.match(page, /\.ngrpr-link \{[^}]*min-height: 40px;/)
+  assert.match(page, /<div className="tier" key=\{t\.tier\}>/, 'the TSAM ladder is one block per tier, readable at any width')
+  assert.match(page, /<label htmlFor=\{id\}><span className="lt">\{label\}\{helpKey && <> \{help\(helpKey\)\}<\/>\}<\/span>\{hint && <span className="lh">\{hint\}<\/span>\}<\/label>/, 'the (i) travels with the label text')
   // The renamed line and the retired textarea.
   assert.ok(page.includes('Orientation competencies on track? <span className="req">*</span>'))
   assert.ok(!page.includes('Current work schedule'), 'the calendar replaced the free-text schedule')
