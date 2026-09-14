@@ -13,13 +13,14 @@
 // the recorded entries (src/lib/ngrp/ngrpSupportView.js). A wrong entry is
 // voided, never deleted.
 import { Fragment, useMemo, useState } from 'react'
-import { Plus, Eye } from 'lucide-react'
+import { Plus, Eye, ExternalLink } from 'lucide-react'
 import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 // RESIDENCY-REFLECTION-1: the same drawer Profiles & Interest uses to preview
 // the Transition Form email, rendering the same builder the send uses.
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { NGRP_REFLECTION_PREVIEW } from '../../lib/ngrp/reflectionPreviewFixture'
+import { SAMPLE_PATH } from '../../lib/ngrp/reflectionSample'
 import { useNgrpApplicants, useNgrpSupport, postNgrpSupport } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows } from '../../lib/ngrp/ngrpStates'
 import { activitiesFor, supportActivity } from '../../lib/ngrp/ngrpSupportActivities'
@@ -544,6 +545,21 @@ function DuringPanel({ cycle, rows, support, toast }) {
           >
             <Eye size={15} />
           </button>
+          {/* RESIDENCY-REFLECTION-3: the form itself, as a sample, for demos. */}
+          <a
+            href={SAMPLE_PATH}
+            target="_blank"
+            rel="noopener"
+            title="Open a sample of the form"
+            aria-label="Open a sample of the form"
+            style={{
+              width: 28, height: 28, flexShrink: 0, display: 'inline-flex',
+              alignItems: 'center', justifyContent: 'center',
+              borderRadius: 'var(--aspire-radius-control)', color: '#9ca3af',
+            }}
+          >
+            <ExternalLink size={15} />
+          </a>
         </div>
         {view.residents.length === 0 ? (
           <p className="ngrp-glance-empty">No residents yet. Alumni appear here once their hire is recorded on the placement board.</p>

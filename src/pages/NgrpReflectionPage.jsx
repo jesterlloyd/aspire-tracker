@@ -24,6 +24,9 @@ import {
 import { monthGrid, monthLabel, pacificToday } from '../lib/rotationCalendarDates.js'
 import { shiftBadge } from '../lib/shiftStatus.js'
 import { shiftColor } from '../lib/ngrp/ngrpActivity.js'
+// RESIDENCY-REFLECTION-3: #sample renders this same page with a made-up resident
+// and an in-memory stand-in for the endpoint, for demos. No token, no writes.
+import { isSampleHash, createSampleResponder } from '../lib/ngrp/reflectionSample.js'
 
 const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 const F = "'Plus Jakarta Sans', system-ui, sans-serif"
@@ -35,6 +38,7 @@ const CSS = `
   .ngrpr-mast { background: #1D2567; color: #fff; border-radius: 14px 14px 0 0; padding: 22px 26px; }
   .ngrpr-mast h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; }
   .ngrpr-mast p { margin: 0; font-size: 13px; color: rgba(255,255,255,0.75); }
+  .ngrpr-sample { display: inline-block; margin: 0 0 8px; padding: 2px 9px; border-radius: 999px; background: #FCD34D; color: #1D2567; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
   .ngrpr-card { background: #fff; border: 1px solid #e8e4dc; border-top: none; border-radius: 0 0 14px 14px; padding: 24px 26px; }
   .ngrpr-note { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1D4ED8; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; margin: 0 0 18px; }
   .ngrpr-sec { margin: 0 0 26px; }
@@ -173,9 +177,12 @@ const preventImplicitSubmit = e => {
 
 export default function NgrpReflectionPage() {
   const [initial] = useState(() => {
-    const match = TOKEN_PATTERN.exec(window.location.hash)
-    return { rawToken: match ? match[1] : null, valid: !!match }
+    const sample = isSampleHash(window.location.hash)
+    const match = sample ? null : TOKEN_PATTERN.exec(window.location.hash)
+    return { rawToken: match ? match[1] : null, valid: sample || !!match, sample }
   })
+  // One responder per page open; held in state so it is created exactly once.
+  const [sampleRespond] = useState(() => (initial.sample ? createSampleResponder() : null))
   const [view, setView] = useState(initial.valid ? 'loading' : 'invalid')
   const [meta, setMeta] = useState(null)
   const [p, setP] = useState(() => emptyReflection())
@@ -201,11 +208,14 @@ export default function NgrpReflectionPage() {
   useEffect(() => {
     const m = document.createElement('meta'); m.name = 'referrer'; m.content = 'no-referrer'; document.head.appendChild(m)
     const s = document.createElement('style'); s.id = 'ngrpr-css'; s.textContent = CSS; document.head.appendChild(s)
-    window.history.replaceState(null, '', window.location.pathname)
+    // A real token leaves the address bar; #sample stays, so a refresh or a
+    // shared address still opens the sample.
+    if (!initial.sample) window.history.replaceState(null, '', window.location.pathname)
     return () => { document.head.removeChild(m); const el = document.getElementById('ngrpr-css'); if (el) document.head.removeChild(el) }
-  }, [])
+  }, [initial.sample])
 
   const post = useCallback(async (action, extra = {}) => {
+    if (initial.sample) return sampleRespond(action, extra)
     const res = await fetch('/api/ngrp-reflection', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, token: initial.rawToken, ...extra }),
@@ -213,7 +223,7 @@ export default function NgrpReflectionPage() {
     let body = null
     try { body = await res.json() } catch { /* non-JSON */ }
     return { status: res.status, body }
-  }, [initial.rawToken])
+  }, [initial.rawToken, initial.sample, sampleRespond])
 
   useEffect(() => {
     if (!initial.valid) return
@@ -327,7 +337,14 @@ export default function NgrpReflectionPage() {
     }[view] || ['', '']
     return (
       <div className="ngrpr-page">
-        <div className="ngrpr-state" role="status"><h1>{copy[0]}</h1><p>{copy[1]}</p></div>
+        <div className="ngrpr-state" role="status">
+          <h1>{copy[0]}</h1><p>{copy[1]}</p>
+          {initial.sample && view === 'thank_you' && (
+            <p style={{ marginTop: 14, fontSize: 12.5, color: '#92400E' }}>
+              This was the sample. Nothing was saved. <a href={window.location.href} onClick={() => window.location.reload()} style={{ color: '#1D2567' }}>Open it again</a>
+            </p>
+          )}
+        </div>
       </div>
     )
   }
@@ -470,12 +487,18 @@ export default function NgrpReflectionPage() {
     <div className="ngrpr-page">
       <div className="ngrpr-shell">
         <div className="ngrpr-mast">
+          {initial.sample && <span className="ngrpr-sample">Sample</span>}
           <h1>NGRP Clinical Orientation Progress and Reflection Tool</h1>
           <p>{meta?.residentFullName}{meta?.unit ? ` · ${meta.unit}` : ''} · Period {n} of {total} · {fmtDay(meta?.opensOn)} to {fmtDay(meta?.dueOn)}</p>
         </div>
         <form className="ngrpr-card" onKeyDown={preventImplicitSubmit} onSubmit={e => { e.preventDefault(); submit() }}>
           {readOnly && (
             <p className="ngrpr-note">You submitted this period on {new Date(meta.submittedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}. It is shown here for your records and cannot be changed.</p>
+          )}
+          {initial.sample && (
+            <p className="ngrpr-note" style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#92400E' }}>
+              This is a sample of the form with a made-up resident, for showing the NGRP team. Everything works, and nothing you type is saved.
+            </p>
           )}
           {!readOnly && restoredDraft && <p className="ngrpr-note">Welcome back. Your saved answers were restored.</p>}
           {!readOnly && (

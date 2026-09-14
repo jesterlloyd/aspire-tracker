@@ -29,6 +29,7 @@ import { duringResidency } from '../src/lib/ngrp/ngrpSupportView.js'
 import { AUTOMATION_CATALOG } from '../src/lib/automationCatalog.js'
 import { getPreviewFixture } from '../src/lib/notifications/previewFixtures.js'
 import { NGRP_REFLECTION_PREVIEW } from '../src/lib/ngrp/reflectionPreviewFixture.js'
+import { SAMPLE_HASH, SAMPLE_PATH, isSampleHash, createSampleResponder } from '../src/lib/ngrp/reflectionSample.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = p => readFileSync(join(here, '..', p), 'utf8')
@@ -382,7 +383,7 @@ test('the preview is the real email, rendered once for both the card and the Sup
   const later = fx.render('later')
   // Byte-identical to a real send with the same inputs.
   const schedule = buildSchedule({ startedOn: '2026-09-18' })
-  const real = buildReflectionEmail({ student: { first_name: 'Jordan', preferred_first_name: 'Jordan' }, run: { period_count: 5 }, period: schedule[1], url: 'https://aspireintelligence.app/ngrp/reflection/#sample-preview-not-a-real-link' })
+  const real = buildReflectionEmail({ student: { first_name: 'Jordan', preferred_first_name: 'Jordan' }, run: { period_count: 5 }, period: schedule[1], url: 'https://aspireintelligence.app/ngrp/reflection#sample' })
   assert.equal(later.subject, real.subject)
   assert.equal(later.html, real.html)
   assert.ok(first.subject.includes('period 1 of 5'))
@@ -390,7 +391,8 @@ test('the preview is the real email, rendered once for both the card and the Sup
   assert.ok(first.html.includes('your preceptor'), 'period 1 explains the About you section')
   // Nothing real, and above all no token shape.
   for (const out of [first, later]) {
-    assert.ok(out.html.includes('#sample-preview-not-a-real-link'))
+    // RESIDENCY-REFLECTION-3: the preview's link opens the sample form.
+    assert.ok(out.html.includes('https://aspireintelligence.app/ngrp/reflection#sample'))
     assert.doesNotMatch(out.html, /#t=[A-Za-z0-9_-]{43}/, 'never a real token')
     assert.doesNotMatch(out.html, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, 'no uuid')
   }
@@ -416,7 +418,7 @@ test('no em dash in anything this change added', () => {
     'supabase/migrations/20260917000000_ngrp_reflections.sql', 'db/audit/ngrp_reflections_checks.sql',
     'src/lib/ngrp/reflectionPreviewFixture.js',
     'supabase/migrations/20260918000000_ngrp_resident_schedule.sql', 'db/audit/ngrp_resident_schedule_checks.sql',
-    'src/lib/ngrp/ngrpActivity.js',
+    'src/lib/ngrp/ngrpActivity.js', 'src/lib/ngrp/reflectionSample.js',
   ]) {
     assert.doesNotMatch(read(f), /—/, f)
   }
@@ -591,6 +593,57 @@ test('Residency > Activity shows the marks: a read action for both audiences, fi
   assert.match(cal, /\{firstNameOf\(mark\.name\) \|\| mark\.name\} \{mark\.shift \? badge\.label\.split\(' '\)\[0\] : ''\}/)
   assert.match(cal, /marks=\{marksOn\(dayOpen\)\}/, 'the day modal lists them too')
   assert.match(read('src/components/ngrp/ngrp.css'), /\.ngrp-shift-mark \{/)
+})
+
+test('RESIDENCY-REFLECTION-3: #sample renders the real form with an in-memory endpoint; no token, no fetch, no writes', async () => {
+  assert.equal(SAMPLE_HASH, '#sample')
+  assert.equal(SAMPLE_PATH, '/ngrp/reflection#sample')
+  assert.equal(isSampleHash('#sample'), true)
+  assert.equal(isSampleHash('#t=' + 'A'.repeat(43)), false)
+  assert.equal(isSampleHash(''), false)
+  const respond = createSampleResponder()
+  const load = await respond('load')
+  assert.equal(load.status, 200)
+  assert.equal(load.body.state, 'form')
+  assert.equal(load.body.residentFullName, 'Jordan Avery')
+  assert.equal(load.body.residentShift, 'Night')
+  assert.deepEqual([load.body.periodNumber, load.body.opensOn, load.body.dueOn, load.body.closesOn], [1, '2026-09-18', '2026-10-04', '2026-10-06'], 'the same worked example the email preview uses')
+  assert.deepEqual(load.body.schedule.map(m => m.on_date), ['2026-09-15', '2026-09-16', '2026-09-21', '2026-09-22'])
+  assert.ok(!('token' in load.body) && !JSON.stringify(load.body).match(/[A-Za-z0-9_-]{43}/), 'no token shape anywhere')
+  // The schedule edits change only the responder's own state.
+  const added = await respond('schedule_add', { date: '2026-09-24' })
+  assert.deepEqual(added.body.schedule.map(m => m.on_date), ['2026-09-15', '2026-09-16', '2026-09-21', '2026-09-22', '2026-09-24'])
+  assert.equal((await respond('schedule_add', { date: 'nope' })).status, 422)
+  const removed = await respond('schedule_remove', { date: '2026-09-15' })
+  assert.equal(removed.body.schedule.length, 4)
+  assert.equal((await respond('save_draft', { payload: {} })).body.saved, true)
+  // Submit runs the server's own validation, then the thank-you, then refuses a second.
+  const bad = await respond('submit', { payload: {} })
+  assert.equal(bad.status, 422)
+  assert.deepEqual(bad.body.errors.map(e => e.field), ['about.unit', 'competencies_on_track'])
+  const ok = await respond('submit', { payload: { about: { unit: '5 SCCT' }, competencies_on_track: true } })
+  assert.equal(ok.status, 200)
+  assert.equal(ok.body.success, true)
+  assert.equal((await respond('submit', { payload: { about: { unit: '5 SCCT' }, competencies_on_track: true } })).status, 409)
+  assert.equal((await respond('nope')).status, 400)
+  const sample = read('src/lib/ngrp/reflectionSample.js')
+  assert.doesNotMatch(sample, /fetch\(|supabase|generateToken|hashToken/, 'the sample never touches the network or a token')
+  // The page: the sample responder replaces post(), the hash stays, the ribbon shows.
+  const page = read('src/pages/NgrpReflectionPage.jsx')
+  assert.match(page, /const sample = isSampleHash\(window\.location\.hash\)/)
+  assert.match(page, /const match = sample \? null : TOKEN_PATTERN\.exec\(window\.location\.hash\)/, 'a sample never parses as a token')
+  assert.match(page, /if \(initial\.sample\) return sampleRespond\(action, extra\)/)
+  assert.match(page, /if \(!initial\.sample\) window\.history\.replaceState\(null, '', window\.location\.pathname\)/, 'a real token still leaves the address bar')
+  assert.match(page, /<span className="ngrpr-sample">Sample<\/span>/)
+  assert.match(page, /nothing you type is saved/)
+  // The two doors: Support > During residency and the Automations card.
+  const tab = read('src/components/ngrp/SupportTab.jsx')
+  assert.match(tab, /href=\{SAMPLE_PATH\}\s+target="_blank"\s+rel="noopener"\s+title="Open a sample of the form"/)
+  const auto = read('src/components/connect/AutomationView.jsx')
+  assert.match(auto, /sampleHref: SAMPLE_PATH, sampleLabel: 'Open a sample of the form'/)
+  assert.match(auto, /\{card\.sampleHref && \(/)
+  // The email preview's link opens the sample.
+  assert.match(read('src/lib/ngrp/reflectionPreviewFixture.js'), /const SAMPLE_URL = `\$\{appUrl\('\/ngrp\/reflection'\)\}\$\{SAMPLE_HASH\}`/)
 })
 
 test('migration 20260918: the schedule table, the hire shift, DELETE for service_role only here, and its checks', () => {

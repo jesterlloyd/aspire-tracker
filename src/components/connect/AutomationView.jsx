@@ -12,7 +12,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eye } from 'lucide-react'
+import { Eye, ExternalLink } from 'lucide-react'
+import { SAMPLE_PATH } from '../../lib/ngrp/reflectionSample'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import Toggle from '../ui/Toggle'
@@ -65,7 +66,9 @@ const AUTOMATION_CARDS = [
   { id: 'resident_reflections', title: 'Resident Reflections',
     cron_name: 'resident-reflections', automation_key: 'resident_reflections',
     scope: 'Residents', schedule: 'Fridays · 7:00 PM PT', hasGlobalSetting: true,
-    desc: 'Sends each resident their next bi-weekly NGRP Clinical Orientation Progress and Reflection Tool, by secure link, the Friday before it opens. Period 1 is sent by the Start button on Residency > Support.' },
+    desc: 'Sends each resident their next bi-weekly NGRP Clinical Orientation Progress and Reflection Tool, by secure link, the Friday before it opens. Period 1 is sent by the Start button on Residency > Support.',
+    // RESIDENCY-REFLECTION-3: the form itself, as a sample, beside the email eye.
+    sampleHref: SAMPLE_PATH, sampleLabel: 'Open a sample of the form' },
 ]
 
 // Friendly labels for the numeric counts crons record in cron_runs.details (counts only - no PII).
@@ -238,6 +241,21 @@ function AutomationCard({ card, run, health, ctrl, onPreview, canPreview }) {
           >
             <Eye size={16} />
           </button>
+          )}
+          {card.sampleHref && (
+            <a
+              href={card.sampleHref}
+              target="_blank"
+              rel="noopener"
+              title={card.sampleLabel}
+              aria-label={card.sampleLabel}
+              style={{
+                width: 44, height: 44, flexShrink: 0, display: 'inline-flex', alignItems: 'center',
+                justifyContent: 'center', borderRadius: 'var(--aspire-radius-control)', color: '#9ca3af',
+              }}
+            >
+              <ExternalLink size={16} />
+            </a>
           )}
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11,

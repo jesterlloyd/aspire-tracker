@@ -16,8 +16,12 @@
 
 import { buildReflectionEmail } from '../../../lib/server/email/ngrpReflectionEmail.js'
 import { PERIOD_COUNT, buildSchedule } from './ngrpReflectionForm.js'
+import { SAMPLE_HASH } from './reflectionSample.js'
+import { appUrl } from '../appUrl.js'
 
-const SAMPLE_URL = 'https://aspireintelligence.app/ngrp/reflection/#sample-preview-not-a-real-link'
+// RESIDENCY-REFLECTION-3: the preview's link opens the SAMPLE form, so a reader
+// of the email can click through to what the resident sees. Still no token.
+const SAMPLE_URL = `${appUrl('/ngrp/reflection')}${SAMPLE_HASH}`
 const SAMPLE_STUDENT = { first_name: 'Jordan', preferred_first_name: 'Jordan' }
 // A fixed start day, so the dates in the preview never move under the reader.
 // Friday 2026-09-18 puts period 1 due Sunday October 4 and period 2 opening
