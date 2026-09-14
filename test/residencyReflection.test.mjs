@@ -250,7 +250,9 @@ test('the email names the period, the due Sunday, and the close; carries the lin
   assert.ok(html.includes('submit it by <strong>Sunday, October 18</strong>'))
   assert.ok(html.includes('stays open until Tuesday, October 20'))
   assert.equal(html.split('#t=abc').length - 1, 1, 'the link appears exactly once')
-  assert.ok(html.includes('aspire@cshs.org'))
+  // Owner, 2026-09-14: the NGRP mailbox, in the body line and the footer both.
+  assert.equal(html.split('ngrp@cshs.org').length - 1, 3, 'mailto href, link text, and the footer note')
+  assert.ok(!html.includes('aspire@cshs.org'), 'not the ASPIRE mailbox')
   assert.doesNotMatch(subject + html, /—/)
   const first = buildReflectionEmail({ student: {}, run: { period_count: 5 }, period: { period_number: 1, opens_on: '2026-09-18', due_on: '2026-10-04' }, url: 'u' })
   assert.ok(first.html.includes('Hi there,'))
