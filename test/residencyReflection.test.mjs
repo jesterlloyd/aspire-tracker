@@ -20,6 +20,9 @@ import {
 import { buildReflectionEmail } from '../lib/server/email/ngrpReflectionEmail.js'
 import { NGRP_AUDIT_EVENTS } from '../lib/server/ngrpAudit.js'
 import { duringResidency } from '../src/lib/ngrp/ngrpSupportView.js'
+import { AUTOMATION_CATALOG } from '../src/lib/automationCatalog.js'
+import { getPreviewFixture } from '../src/lib/notifications/previewFixtures.js'
+import { NGRP_REFLECTION_PREVIEW } from '../src/lib/ngrp/reflectionPreviewFixture.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = p => readFileSync(join(here, '..', p), 'utf8')
@@ -341,11 +344,64 @@ test('the migration: four server-only tables, an immutable submission, and the a
   }
 })
 
+// ── The Automations card and the email preview (Owner, 2026-09-14) ─────────
+
+test('the cron is an Automations card: registered in the view, the server, and the monitor, on the same key', () => {
+  const view = read('src/components/connect/AutomationView.jsx')
+  const server = read('api/automation-settings.js')
+  const cron = read('api/cron/resident-reflections.js')
+  assert.match(view, /\{ id: 'resident_reflections', title: 'Resident Reflections',\s*\n\s*cron_name: 'resident-reflections', automation_key: 'resident_reflections',/)
+  assert.match(view, /hasGlobalSetting: true,\s*\n\s*desc: 'Sends each resident their next bi-weekly/)
+  assert.match(server, /\{ key: 'resident_reflections', label: 'Resident Reflections',[\s\S]{0,400}defaultEnabled: true \}/,
+    'default On, matching the cron helper which is default-on')
+  assert.match(cron, /export const AUTOMATION_KEY = 'resident_reflections'/)
+  assert.match(cron, /export const CRON_NAME = 'resident-reflections'/)
+  assert.ok(AUTOMATION_CATALOG.some(a => a.id === 'resident_reflections' && a.cronName === 'resident-reflections' && a.automationKey === 'resident_reflections'))
+  assert.equal(AUTOMATION_CATALOG.find(a => a.id === 'resident_reflections').maxAgeHours, 192, 'the cron runs weekly, so a week plus slack')
+})
+
+test('the preview is the real email, rendered once for both the card and the Support tab', () => {
+  const fx = getPreviewFixture('resident_reflections')
+  assert.ok(fx, 'the card has a preview, so its eye means something')
+  assert.equal(fx, NGRP_REFLECTION_PREVIEW, 'the SAME object the Support tab renders')
+  assert.deepEqual(fx.variants.map(v => v.key), ['first', 'later'])
+  const first = fx.render('first')
+  const later = fx.render('later')
+  // Byte-identical to a real send with the same inputs.
+  const schedule = buildSchedule({ startedOn: '2026-09-18' })
+  const real = buildReflectionEmail({ student: { first_name: 'Jordan', preferred_first_name: 'Jordan' }, run: { period_count: 5 }, period: schedule[1], url: 'https://aspireintelligence.app/ngrp/reflection/#sample-preview-not-a-real-link' })
+  assert.equal(later.subject, real.subject)
+  assert.equal(later.html, real.html)
+  assert.ok(first.subject.includes('period 1 of 5'))
+  assert.ok(later.subject.includes('period 2 of 5'))
+  assert.ok(first.html.includes('your preceptor'), 'period 1 explains the About you section')
+  // Nothing real, and above all no token shape.
+  for (const out of [first, later]) {
+    assert.ok(out.html.includes('#sample-preview-not-a-real-link'))
+    assert.doesNotMatch(out.html, /#t=[A-Za-z0-9_-]{43}/, 'never a real token')
+    assert.doesNotMatch(out.html, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, 'no uuid')
+  }
+  const fixture = read('src/lib/ngrp/reflectionPreviewFixture.js')
+  assert.doesNotMatch(fixture, /sendNotification|new Resend|resend\.emails|generateToken/, 'a fixture renders only')
+})
+
+test('Support > During residency has the eye, the same drawer, and the same fixture as Profiles & Interest', () => {
+  const tab = read('src/components/ngrp/SupportTab.jsx')
+  const profiles = read('src/components/ngrp/ProfilesTab.jsx')
+  assert.match(tab, /import AutomationEmailPreviewDrawer from '\.\.\/connect\/AutomationEmailPreviewDrawer'/)
+  assert.match(profiles, /import AutomationEmailPreviewDrawer from '\.\.\/connect\/AutomationEmailPreviewDrawer'/, 'the Transition Form preview uses the same drawer')
+  assert.match(tab, /aria-label="Preview the reflection email"/)
+  assert.match(tab, /<Eye size=\{15\} \/>/)
+  assert.match(tab, /<AutomationEmailPreviewDrawer\s+title="NGRP Bi-Weekly Reflection"\s+entry=\{NGRP_REFLECTION_PREVIEW\}/)
+  assert.match(tab, /footNote="The resident, the dates and the link are synthetic\./)
+})
+
 test('no em dash in anything this change added', () => {
   for (const f of [
     'src/lib/ngrp/ngrpReflectionForm.js', 'lib/server/ngrpReflection.js', 'lib/server/email/ngrpReflectionEmail.js',
     'api/ngrp-reflection.js', 'api/cron/resident-reflections.js', 'src/pages/NgrpReflectionPage.jsx',
     'supabase/migrations/20260917000000_ngrp_reflections.sql', 'db/audit/ngrp_reflections_checks.sql',
+    'src/lib/ngrp/reflectionPreviewFixture.js',
   ]) {
     assert.doesNotMatch(read(f), /—/, f)
   }

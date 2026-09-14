@@ -13,9 +13,13 @@
 // the recorded entries (src/lib/ngrp/ngrpSupportView.js). A wrong entry is
 // voided, never deleted.
 import { Fragment, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Eye } from 'lucide-react'
 import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
+// RESIDENCY-REFLECTION-1: the same drawer Profiles & Interest uses to preview
+// the Transition Form email, rendering the same builder the send uses.
+import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
+import { NGRP_REFLECTION_PREVIEW } from '../../lib/ngrp/reflectionPreviewFixture'
 import { useNgrpApplicants, useNgrpSupport, postNgrpSupport } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows } from '../../lib/ngrp/ngrpStates'
 import { activitiesFor, supportActivity } from '../../lib/ngrp/ngrpSupportActivities'
@@ -471,6 +475,9 @@ function DuringPanel({ cycle, rows, support, toast }) {
   const [openFor, setOpenFor] = useState(null)
   const [starting, setStarting] = useState(null)   // candidate_id awaiting confirm
   const [busy, setBusy] = useState(false)
+  // Renders a synthetic copy of the reflection email. No network, no resident,
+  // no token; it cannot send anything.
+  const [showEmailPreview, setShowEmailPreview] = useState(false)
   const view = useMemo(() => duringResidency(rows, {
     entries: support.entries, mentors: support.mentors, reflections: support.reflections, today: support.today,
   }), [rows, support.entries, support.mentors, support.reflections, support.today])
@@ -522,6 +529,21 @@ function DuringPanel({ cycle, rows, support, toast }) {
                 : 'Reflections switch on once migration 20260917000000 is applied'}
             </div>
           </div>
+          {/* Always available: reading what the email says should not require
+              starting a real resident first. The preview is synthetic. */}
+          <button
+            type="button"
+            onClick={() => setShowEmailPreview(true)}
+            title="Preview the reflection email"
+            aria-label="Preview the reflection email"
+            style={{
+              width: 28, height: 28, flexShrink: 0, display: 'inline-flex',
+              alignItems: 'center', justifyContent: 'center', background: 'none',
+              border: 'none', borderRadius: 'var(--aspire-radius-control)', cursor: 'pointer', color: '#9ca3af', padding: 0,
+            }}
+          >
+            <Eye size={15} />
+          </button>
         </div>
         {view.residents.length === 0 ? (
           <p className="ngrp-glance-empty">No residents yet. Alumni appear here once their hire is recorded on the placement board.</p>
@@ -583,6 +605,15 @@ function DuringPanel({ cycle, rows, support, toast }) {
       )}
 
       <RecentEntries entries={sessions} rows={rows} canRecord={support.canRecord} onChanged={support.refetch} toast={toast} />
+
+      {showEmailPreview && (
+        <AutomationEmailPreviewDrawer
+          title="NGRP Bi-Weekly Reflection"
+          entry={NGRP_REFLECTION_PREVIEW}
+          footNote="The resident, the dates and the link are synthetic. Rendered with the same template Start and the Friday cron send. Period 1 goes out when you press Start; the rest follow every other Friday."
+          onClose={() => setShowEmailPreview(false)}
+        />
+      )}
     </>
   )
 }

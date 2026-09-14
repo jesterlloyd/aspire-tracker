@@ -50,6 +50,12 @@ const KNOWN_AUTOMATIONS = [
   { key: 'evaluation_reminders', label: 'Evaluation & Survey Reminders',
     description: 'Reminds students and preceptors about incomplete evaluations and surveys at 7, 14, and 21 days. Stops as soon as the survey is completed.',
     defaultEnabled: false },
+  // RESIDENCY-REFLECTION-1. Default On, matching api/cron/resident-reflections.js,
+  // which asks the shared gate with the default. Switching it Off stops periods
+  // 2 to 5; period 1 is sent by the Start button and is not an automation.
+  { key: 'resident_reflections', label: 'Resident Reflections',
+    description: 'Sends each resident their next bi-weekly NGRP Clinical Orientation Progress and Reflection Tool, by secure link, on the Friday before it opens.',
+    defaultEnabled: true },
 ];
 const META_BY_KEY = new Map(KNOWN_AUTOMATIONS.map(a => [a.key, a]));
 

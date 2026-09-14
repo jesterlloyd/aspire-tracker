@@ -60,6 +60,12 @@ const AUTOMATION_CARDS = [
     cron_name: 'clockout-reminders-scheduled', automation_key: 'clockout_reminders',
     scope: 'Global', schedule: 'Hourly', hasGlobalSetting: true,
     desc: 'Hourly nudge for students with an open shift that may be overdue to clock out.' },
+  // RESIDENCY-REFLECTION-1. The cron runs every Friday evening; each resident
+  // receives a period every other week, on the schedule their Start set.
+  { id: 'resident_reflections', title: 'Resident Reflections',
+    cron_name: 'resident-reflections', automation_key: 'resident_reflections',
+    scope: 'Residents', schedule: 'Fridays · 7:00 PM PT', hasGlobalSetting: true,
+    desc: 'Sends each resident their next bi-weekly NGRP Clinical Orientation Progress and Reflection Tool, by secure link, the Friday before it opens. Period 1 is sent by the Start button on Residency > Support.' },
 ]
 
 // Friendly labels for the numeric counts crons record in cron_runs.details (counts only - no PII).

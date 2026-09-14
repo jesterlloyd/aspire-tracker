@@ -74,6 +74,16 @@ export const AUTOMATION_CATALOG = Object.freeze([
     automationKey: 'clockout_reminders',
     maxAgeHours: 4,
   },
+  {
+    // RESIDENCY-REFLECTION-1. The cron RUNS every Friday evening (three
+    // Saturday-UTC slots gated on Pacific Friday), and records a run whether or
+    // not any period was due, so weekly freshness is the right budget even
+    // though each resident receives a period only every other week.
+    id: 'resident_reflections',
+    cronName: 'resident-reflections',
+    automationKey: 'resident_reflections',
+    maxAgeHours: 192,
+  },
 ])
 
 /** Cron names the Automations dashboard monitors. The runs query filters to these. */

@@ -22,6 +22,9 @@ import { buildEvaluationReminderEmail } from '../../../lib/server/evaluation/rem
 import { CERTIFICATE_KINDS } from '../evaluation/reminderSchedule.js';
 import { buildCoordinatorWeeklyDigestEmail } from './templates/coordinatorWeeklyDigest.js';
 import { buildClockoutReminderEmail } from './templates/clockoutReminder.js';
+// RESIDENCY-REFLECTION-1: the one fixture the Support tab also renders, so the
+// Automations card and the Start button preview the same email.
+import { NGRP_REFLECTION_PREVIEW } from '../ngrp/reflectionPreviewFixture.js';
 
 // ── Safe synthetic data (never real) ─────────────────────────────────────────
 const MOCK = {
@@ -170,6 +173,11 @@ export const AUTOMATION_PREVIEW_FIXTURES = {
         : null,
     }),
   },
+
+  // RESIDENCY-REFLECTION-1. Two variants because the copy forks on first
+  // period (explains the About you section) versus a later one (names its
+  // opening Monday). Defined once in src/lib/ngrp/reflectionPreviewFixture.js.
+  resident_reflections: NGRP_REFLECTION_PREVIEW,
 };
 
 // Convenience accessor used by the card UI.
