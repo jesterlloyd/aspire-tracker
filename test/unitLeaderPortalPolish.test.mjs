@@ -263,8 +263,8 @@ test('P1-13: placement response state after responding', async (t) => {
 test('P2-14: one type scale across the portal', () => {
   assert.match(css, /\.ptl-unit-page \.ptl-section-title \{ font-size: 21px; \}/)
   assert.match(css, /\.ptl-msg-workspace \.ptl-section-title \{ font-size: 22px; line-height: 1\.25; \}/)
-  // No 26px page heading survives; the pre-existing .ptl-hours-big stat is a
-  // Student Portal numeral, not a heading, and is deliberately untouched.
+  // No 26px page heading survives; the Student Portal's hours row sets its
+  // numerals at 26px, which are figures, not headings.
   assert.doesNotMatch(css, /\.ptl-section-title \{ font-size: 26px/)
   assert.match(css, /\.ptl-msg-row-cat, \.ptl-msg-row-time \{ font-size: 12\.5px; \}/)
 })

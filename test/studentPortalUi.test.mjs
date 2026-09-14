@@ -199,3 +199,17 @@ test('EditProfileDrawer boundaries', async (t) => {
     }
   })
 })
+
+// STUDENT-HOURS-STATS-1 (Owner, 2026-09-14): "the Approved Hours, Required, and
+// Remaining Hours aren't the same font". One size for every figure in the row.
+test('Rotation Progress: every hours figure is the same size', () => {
+  const src = read('src/portal/StudentPortal.jsx')
+  const css = read('src/portal/portal.css')
+  const row = src.slice(src.indexOf('<div className="ptl-hours-stats">'), src.indexOf('<div className="ptl-progress"'))
+  assert.ok(row.length > 0, 'the hours row is missing')
+  const nums = row.match(/className="ptl-stat-num[^"]*"/g) || []
+  assert.ok(nums.length >= 3, 'the hours row lost a figure')
+  for (const n of nums) assert.doesNotMatch(n, /ptl-hours-big/, 'one figure is sized apart from the others')
+  assert.match(css, /\.ptl-hours-stats \.ptl-stat-num \{ font-size: 26px; \}/)
+  assert.doesNotMatch(css, /\.ptl-stat-num\.ptl-hours-big/)
+})

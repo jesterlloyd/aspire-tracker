@@ -453,7 +453,7 @@ export default function StudentPortal({
           {hours.reliable ? (
             <>
               <div className="ptl-hours-stats">
-                <div className="ptl-stat"><span className="ptl-stat-num ptl-hours-big">{hours.completed}</span><span className="ptl-stat-label">Approved hours</span></div>
+                <div className="ptl-stat"><span className="ptl-stat-num">{hours.completed}</span><span className="ptl-stat-label">Approved hours</span></div>
                 <div className="ptl-stat"><span className="ptl-stat-num">{hours.required}</span><span className="ptl-stat-label">Required</span></div>
                 <div className="ptl-stat"><span className="ptl-stat-num">{hours.remaining}</span><span className="ptl-stat-label">Remaining</span></div>
                 {hours.pending > 0 && <div className="ptl-stat"><span className="ptl-stat-num ptl-stat-pending">{hours.pending}</span><span className="ptl-stat-label">Pending review</span></div>}
