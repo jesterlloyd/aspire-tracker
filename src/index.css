@@ -617,6 +617,14 @@ body { min-height: 100vh; }
   background: #1D2567; color: #fff; font-size: 11px; font-weight: 700;
 }
 .preceptor-dir-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* PRECEPTOR-TITLE-PHOTO-1: Role/Title and Photo in the Add/Edit Preceptor form */
+.preceptor-form-photo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.preceptor-form-photo .preceptor-dir-avatar { width: 40px; height: 40px; font-size: 13px; }
+.preceptor-form-photo-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.preceptor-form-photo-btn { padding: 4px 10px; font-size: 12px; }
+.preceptor-form-custom-title { margin-top: 8px; }
+.preceptor-form-hint { margin: -4px 0 12px; font-size: 11px; line-height: 1.45; color: #6b7280; }
+.preceptor-form-error { margin-top: 4px; font-size: 11px; color: #dc2626; }
 .preceptor-dir-contact { max-width: 220px; }
 .preceptor-dir-contact a,
 .preceptor-dir-contact span {

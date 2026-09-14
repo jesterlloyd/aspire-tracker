@@ -7,6 +7,7 @@ import { ToastContainer } from '../Toast'
 
 const LAST_CONTACT_KEY = 'aspire.connect.contacts.lastContactId'
 import { supabase } from '../../lib/supabase'
+import { uploadContactAvatar } from '../../lib/contactAvatarUpload'
 import Tooltip from '../ui/Tooltip'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
@@ -1132,39 +1133,14 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 
   async function handlePhotoUpload(e) {
     const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
     if (!file) return
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
-    if (!validTypes.includes(file.type)) {
-      setUploadErr('Only JPEG, PNG, and WebP images are supported.')
-      if (e.target) e.target.value = ''
-      return
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      setUploadErr('Image must be under 2 MB.')
-      if (e.target) e.target.value = ''
-      return
-    }
     setUploadErr(null)
     setUploadingPhoto(true)
-    try {
-      const ext      = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
-      const uniqueId = initialData?.id || `new-${Date.now()}`
-      const path     = `${uniqueId}-${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('contact-avatars')
-        .upload(path, file, { upsert: true, contentType: file.type })
-      if (uploadError) {
-        setUploadErr(`Upload failed: ${uploadError.message}`)
-        return
-      }
-      const { data: { publicUrl } } = supabase.storage.from('contact-avatars').getPublicUrl(path)
-      set('avatar_url', publicUrl)
-    } catch (err) {
-      setUploadErr(`Upload error: ${err.message}`)
-    } finally {
-      setUploadingPhoto(false)
-      if (e.target) e.target.value = ''
-    }
+    const { url, error: err } = await uploadContactAvatar(supabase, file, initialData?.id)
+    setUploadingPhoto(false)
+    if (err) { setUploadErr(err); return }
+    set('avatar_url', url)
   }
 
   function handleRemovePhoto() {

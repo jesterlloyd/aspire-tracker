@@ -63,6 +63,7 @@ export default function PreceptorDirectoryTable({
   onEditPreceptor,
   onDeletePreceptor,
   contactAvatarMap = {},
+  contactTitleMap = null,
   showContact = true,
   showCohorts = false,
   showLastActive = false,
@@ -80,6 +81,7 @@ export default function PreceptorDirectoryTable({
       <thead>
         <tr>
           <SortHeader sortKey="name" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Name</SortHeader>
+          {contactTitleMap && <th scope="col" className="am-th">Role/Title</th>}
           {showContact && <th scope="col" className="am-th">Contact</th>}
           <SortHeader sortKey="unit" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Unit</SortHeader>
           <SortHeader sortKey="shift" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Shift</SortHeader>
@@ -121,6 +123,11 @@ export default function PreceptorDirectoryTable({
                   <strong>{row.full_name}</strong>
                 </div>
               </td>
+              {contactTitleMap && (
+                <td className="am-td" data-label="Role/Title">
+                  {contactTitleMap[String(row.email || '').toLowerCase().trim()] || <span className="preceptor-dir-empty">-</span>}
+                </td>
+              )}
               {showContact && (
                 <td className="am-td preceptor-dir-contact" data-label="Contact">
                   {row.email ? <a href={`mailto:${row.email}`}>{row.email}</a> : '-'}

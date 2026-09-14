@@ -1,48 +1,93 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { buildUnitOptions, optionLabel, resolveUnitName } from '../lib/preceptorUnitOptions'
+import { preceptorInitials } from '../lib/preceptorDirectory'
+import { uploadContactAvatar, CONTACT_AVATAR_HINT } from '../lib/contactAvatarUpload'
+import {
+  CUSTOM_TITLE, normalizeEmail, pickContactByEmail, titleChoices, buildContactPatch,
+} from '../lib/preceptorContact'
 
-// Ensures a Contact record exists for this preceptor in ASPIRE Connect.
-// Called after every successful preceptor create/update.
-// Safe: 409 = already exists (skip). Failure = non-blocking (preceptor still saved).
-async function ensurePreceptorContact(preceptor) {
+const EMPTY_FORM = {
+  full_name: '', email: '', unit_id: '', shift_type: 'Variable', phone: '', notes: '',
+  role: '', role_custom: false, avatar_url: '',
+}
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// PRECEPTOR-TITLE-PHOTO-1: Role/Title and photo are stored on the ASPIRE
+// Connect contact with this email, not on the preceptor.
+async function findContact(email) {
+  const key = normalizeEmail(email)
+  if (!key) return null
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('id, full_name, email, category, role, avatar_url')
+    .ilike('email', key)
+    .limit(5)
+  if (error) throw error
+  return pickContactByEmail(data, key)
+}
+
+async function postContact(token, body) {
+  const res = await fetch('/api/contacts-upsert', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (res.ok) return { ok: true, status: res.status }
+  const json = await res.json().catch(() => ({}))
+  return { ok: false, status: res.status, message: json.error }
+}
+
+// Called after every successful preceptor create/update. Creates the contact
+// when none exists; otherwise writes only the title and photo the form changed.
+// Failure is non-blocking: the preceptor is already saved.
+async function syncPreceptorContact(preceptor, fields) {
   if (!preceptor?.email?.trim()) return { status: 'no_email' }
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) return { status: 'error' }
-    const body = {
-      full_name:    preceptor.full_name,
-      email:        preceptor.email.toLowerCase().trim(),
-      // CONTACTS-CANON-1: singular canonical category; no invented title (the
-      // CN level is unknown here; CN II / CN III are set by hand). The
-      // Cedars-Sinai affiliation is derived server-side from the category.
-      role:         '',
-      category:     'Preceptor',
-      is_active:    true,
-      notes:        'Imported from Rotations > Preceptors.',
-      ...(preceptor.unit_name ? { unit_name: preceptor.unit_name } : {}),
-      ...(preceptor.phone     ? { phone:     preceptor.phone     } : {}),
+    let contact = await findContact(preceptor.email)
+    if (!contact) {
+      const created = await postContact(session.access_token, {
+        full_name:    preceptor.full_name,
+        email:        normalizeEmail(preceptor.email),
+        // CONTACTS-CANON-1: singular canonical category. The Cedars-Sinai
+        // affiliation is derived server-side from the category.
+        role:         fields.role || '',
+        avatar_url:   fields.avatar_url || '',
+        category:     'Preceptor',
+        is_active:    true,
+        notes:        'Imported from Rotations > Preceptors.',
+        ...(preceptor.unit_name ? { unit_name: preceptor.unit_name } : {}),
+        ...(preceptor.phone     ? { phone:     preceptor.phone     } : {}),
+      })
+      if (created.ok) return { status: 'created' }
+      if (created.status !== 409) return { status: 'error', message: created.message }
+      contact = await findContact(preceptor.email)   // created elsewhere since the lookup
+      if (!contact) return { status: 'error' }
     }
-    const res = await fetch('/api/contacts-upsert', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify(body),
-    })
-    if (res.status === 409) return { status: 'exists' }  // already in Contacts - safe skip
-    if (!res.ok)            return { status: 'error' }
-    return { status: 'created' }
+    const patch = buildContactPatch(contact, fields)
+    if (!patch) return { status: 'unchanged' }
+    const updated = await postContact(session.access_token, patch)
+    return updated.ok ? { status: 'updated' } : { status: 'error', message: updated.message }
   } catch {
     return { status: 'error' }
   }
 }
 
 export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialData = null, cohortId, units: unitsProp }) {
-  const [form, setForm]   = useState({ full_name: '', email: '', unit_id: '', shift_type: 'Variable', phone: '', notes: '' })
+  const [form, setForm]   = useState(EMPTY_FORM)
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
   const [syncNote, setSyncNote] = useState(null)  // non-blocking contact sync feedback
+  const [contact, setContact] = useState(null)
+  const [contactState, setContactState] = useState('idle')  // idle | loading | ready | error
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadErr, setUploadErr] = useState(null)
+  const contactFieldsTouched = useRef(false)
+  const fileRef = useRef(null)
   const [fetchedUnits, setFetchedUnits] = useState([])
   const queryClient = useQueryClient()
 
@@ -88,6 +133,7 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
     if (!isOpen) return
     if (initialData) {
       setForm({
+        ...EMPTY_FORM,
         full_name:  initialData.full_name  || '',
         email:      initialData.email      || '',
         unit_id:    resolvedUnitId          || '',
@@ -96,11 +142,46 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
         notes:      initialData.notes      || '',
       })
     } else {
-      setForm({ full_name: '', email: '', unit_id: '', shift_type: 'Variable', phone: '', notes: '' })
+      setForm(EMPTY_FORM)
     }
+    contactFieldsTouched.current = false
+    setContact(null)
+    setContactState('idle')
     setError(null)
     setSyncNote(null)
+    setUploadErr(null)
   }, [isOpen, initialData]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Look up the contact for the typed email. Its title and photo fill the form
+  // until the user changes either, after which a later lookup never overwrites them.
+  const emailKey = normalizeEmail(form.email)
+  const emailUsable = EMAIL_SHAPE.test(emailKey)
+  useEffect(() => {
+    if (!isOpen || !emailUsable) { setContact(null); setContactState('idle'); return }
+    let cancelled = false
+    setContactState('loading')
+    const timer = setTimeout(async () => {
+      try {
+        const found = await findContact(emailKey)
+        if (cancelled) return
+        setContact(found)
+        setContactState('ready')
+        if (!contactFieldsTouched.current) {
+          const role = found?.role || ''
+          const { options, allowsFreeText } = titleChoices(found, role)
+          setForm(p => ({
+            ...p,
+            role,
+            role_custom: Boolean(role) && !options.includes(role) && allowsFreeText,
+            avatar_url: found?.avatar_url || '',
+          }))
+        }
+      } catch {
+        if (!cancelled) { setContact(null); setContactState('error') }
+      }
+    }, 350)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [isOpen, emailKey, emailUsable])
 
   // On the fetch path the units arrive AFTER the form has initialised, so the
   // resolved unit has to be adopted once they land. Done during render (React's
@@ -121,6 +202,28 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
   if (!isOpen) return null
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const setContactField = (patch) => {
+    contactFieldsTouched.current = true
+    setForm(p => ({ ...p, ...patch }))
+  }
+
+  const { options: titleOptions, allowsFreeText, legacy: legacyTitle } = titleChoices(contact, form.role)
+  const handleTitleSelect = (value) => {
+    if (value === CUSTOM_TITLE) setContactField({ role_custom: true, role: '' })
+    else setContactField({ role_custom: false, role: value })
+  }
+
+  async function handlePhotoUpload(e) {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+    setUploadErr(null)
+    setUploadingPhoto(true)
+    const { url, error: err } = await uploadContactAvatar(supabase, file, contact?.id)
+    setUploadingPhoto(false)
+    if (err) { setUploadErr(err); return }
+    setContactField({ avatar_url: url })
+  }
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -185,9 +288,10 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
       // Non-blocking: preceptor is already saved. 409 = already in Contacts (fine).
       // Any other failure shows a brief warning and auto-closes - never blocks the save.
       if (result.data?.email) {
-        const sync = await ensurePreceptorContact(result.data)
+        const sync = await syncPreceptorContact(result.data, { role: form.role, avatar_url: form.avatar_url })
+        queryClient.invalidateQueries({ queryKey: ['preceptor_contact_details'] })
         if (sync.status === 'error') {
-          setSyncNote('Preceptor saved. Contact sync did not complete, use Sync Preceptors in Contacts if needed.')
+          setSyncNote(`Preceptor saved. The title and photo were not saved to the contact${sync.message ? `: ${sync.message}` : '.'} You can set them in ASPIRE Connect > Contacts.`)
           queryClient.invalidateQueries({ queryKey: ['preceptors'] })
           onSaved?.(result.data)
           setSaving(false)
@@ -292,6 +396,71 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
               </div>
             </div>
 
+            {/* PRECEPTOR-TITLE-PHOTO-1: both fields are the contact's, so they
+                need an email to find or create that contact. */}
+            <div className="form-grid form-grid-2">
+              <div className="form-field">
+                <label className="form-label" htmlFor="preceptor-title-select">Role/Title</label>
+                <select
+                  id="preceptor-title-select"
+                  className="form-select"
+                  data-testid="preceptor-title-select"
+                  value={form.role_custom ? CUSTOM_TITLE : (form.role || '')}
+                  onChange={e => handleTitleSelect(e.target.value)}
+                  disabled={!emailUsable}
+                >
+                  <option value="">Not specified</option>
+                  {titleOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  {legacyTitle && !form.role_custom && <option value={legacyTitle}>{legacyTitle}</option>}
+                  {allowsFreeText && <option value={CUSTOM_TITLE}>Other</option>}
+                </select>
+                {form.role_custom && (
+                  <input
+                    className="form-input preceptor-form-custom-title"
+                    value={form.role}
+                    onChange={e => setContactField({ role: e.target.value })}
+                    placeholder="Type the role or title"
+                    aria-label="Custom role or title"
+                    maxLength={120}
+                  />
+                )}
+              </div>
+              <div className="form-field">
+                <span className="form-label" id="preceptor-photo-label">Photo</span>
+                <div className="preceptor-form-photo" role="group" aria-labelledby="preceptor-photo-label">
+                  <span className="preceptor-dir-avatar" aria-hidden="true">
+                    {form.avatar_url && <img src={form.avatar_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} />}
+                    <span>{preceptorInitials(form.full_name)}</span>
+                  </span>
+                  <div className="preceptor-form-photo-actions">
+                    <button type="button" className="btn btn-outline-modal preceptor-form-photo-btn"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={!emailUsable || uploadingPhoto}>
+                      {uploadingPhoto ? 'Uploading…' : form.avatar_url ? 'Change' : 'Upload'}
+                    </button>
+                    {form.avatar_url && !uploadingPhoto && (
+                      <button type="button" className="btn btn-outline-modal preceptor-form-photo-btn"
+                        onClick={() => { setContactField({ avatar_url: '' }); setUploadErr(null) }}>
+                        Remove
+                      </button>
+                    )}
+                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden
+                      data-testid="preceptor-photo-input" onChange={handlePhotoUpload} />
+                  </div>
+                </div>
+                {uploadErr && <div className="preceptor-form-error" role="alert">{uploadErr}</div>}
+              </div>
+            </div>
+            <p className="preceptor-form-hint" data-testid="preceptor-contact-hint">
+              {!emailUsable
+                ? 'Add an email to set a role/title or photo.'
+                : contactState === 'loading'
+                  ? 'Looking up the ASPIRE Connect contact…'
+                  : contact
+                    ? `Role/Title and photo are saved on ${contact.full_name}'s ASPIRE Connect contact. ${CONTACT_AVATAR_HINT}.`
+                    : `Role/Title and photo are saved to a new ASPIRE Connect contact. ${CONTACT_AVATAR_HINT}.`}
+            </p>
+
             <div className="form-field">
               <label className="form-label">Notes</label>
               <textarea
@@ -306,7 +475,7 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
           <div className="modal-footer">
             <button type="button" className="btn btn-outline-modal" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving || !!syncNote}>
+            <button type="submit" className="btn btn-primary" disabled={saving || uploadingPhoto || !!syncNote}>
               {saving ? 'Saving…' : initialData ? 'Save Changes' : 'Add Preceptor'}
             </button>
           </div>

@@ -9,6 +9,7 @@ import UnitLeaderPreceptorManager from '../portal/unit/UnitLeaderPreceptorManage
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { mutateStaffPreceptorAssignment } from '../lib/staffPreceptorAssignmentApi'
 import { sortPreceptorDirectoryRows } from '../lib/preceptorDirectory'
+import { buildContactMaps } from '../lib/preceptorContact'
 
 function fmtDate(d) {
   if (!d) return '-'
@@ -19,27 +20,19 @@ function fmtDate(d) {
 export default function PreceptorsTable({ students = [], units = [], cohortId, toast }) {
   const { data: preceptors = [], isLoading, error } = usePreceptors()
 
-  // Fetch avatar_url from contacts by email for display-only avatar resolution.
-  // Preceptors imported into Contacts carry avatar_url on the contacts row.
-  // This is read-only; no mutation occurs here.
-  const { data: contactAvatarMap = {} } = useQuery({
-    queryKey: ['preceptor_contact_avatars'],
+  // PRECEPTOR-TITLE-PHOTO-1: a preceptor's photo and Role/Title live on their
+  // ASPIRE Connect contact. Read-only here, matched by lowercase email; the
+  // form writes them through /api/contacts-upsert and invalidates this key.
+  const { data: contactMaps = { avatars: {}, titles: {} } } = useQuery({
+    queryKey: ['preceptor_contact_details'],
     queryFn: async () => {
       const { data } = await supabase
         .from('contacts')
-        .select('email, avatar_url')
-        .not('avatar_url', 'is', null)
+        .select('email, avatar_url, role')
         .not('email', 'is', null)
-      if (!data) return {}
-      // Build a lowercase-email → avatar_url map (first match wins)
-      const map = {}
-      for (const c of data) {
-        const key = c.email.toLowerCase().trim()
-        if (!map[key]) map[key] = c.avatar_url
-      }
-      return map
+      return buildContactMaps(data)
     },
-    staleTime: 5 * 60 * 1000, // 5-minute cache; avatars don't change often
+    staleTime: 5 * 60 * 1000,
   })
 
   const queryClient = useQueryClient()
@@ -281,7 +274,8 @@ export default function PreceptorsTable({ students = [], units = [], cohortId, t
               onManagePreceptorAssignments={openAssignmentManager}
               onEditPreceptor={setEditTarget}
               onDeletePreceptor={setDeleteTarget}
-              contactAvatarMap={contactAvatarMap}
+              contactAvatarMap={contactMaps.avatars}
+              contactTitleMap={contactMaps.titles}
               showCohorts
               showLastActive
               showAdminActions
