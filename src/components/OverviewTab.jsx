@@ -14,7 +14,7 @@ import { listCohortResponseTargets, createCohortResponseTargets } from '../lib/c
 import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
 import { UNIT_LEADERSHIP_ROLES } from '../lib/contactCategories'
 import UnitSetupPanel from './UnitSetupPanel'
-import { capacitySlotsFor } from '../lib/capacitySlots'
+import { capacitySlotsFor, applyUnitSetup } from '../lib/capacitySlots'
 import { canPerformMatching } from '../lib/permissions'
 import { canonicalUnitKey } from '../lib/canonicalUnit'
 import { writeLaunchContext, readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
@@ -158,9 +158,10 @@ const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
 function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showToast, onView }) {
   const [expanded, setExpanded] = useState(false)
-  const status    = response.response_status
-  const isHosting = status === 'submitted_hosting'
-  const isDecline = status === 'submitted_not_hosting'
+  // HOSTING-STATUS-SETUP-1: status follows Set Up Units (applyUnitSetup); response_status stays the form's.
+  const status    = response.capacity_status
+  const isHosting = status === 'hosting'
+  const isDecline = status === 'not_hosting'
   const isPending = status === 'pending'
   const desc      = getUnit(response.unit_name)?.description
   const lead      = primaryLeadMap[response.unit_name]
@@ -171,9 +172,12 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
     || (isPending ? null : 'Submitted')
   const tsIso   = response.last_updated_at || response.submitted_at
   const tsLabel = tsIso ? new Date(tsIso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null
-  const provenance = isPending
-    ? 'Awaiting response'
-    : [submitterLabel ? `Submitted by ${submitterLabel}` : null, tsLabel].filter(Boolean).join(' · ')
+  const provenance = [
+    response.submitted
+      ? [submitterLabel ? `Submitted by ${submitterLabel}` : null, tsLabel].filter(Boolean).join(' · ')
+      : (response.synthetic && !isPending ? null : 'Awaiting response'),
+    response.setup_note,
+  ].filter(Boolean).join(' · ')
 
   const slotInfo = capacitySlotsFor(response, units)
 
@@ -209,7 +213,7 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
               <span data-testid="capacity-slot-pill" style={{ background:'#C8D5C0', color:'#2D4A2B', fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:12, whiteSpace:'nowrap' }}>
                 {slotInfo.slots} slot{slotInfo.slots === 1 ? '' : 's'}
               </span>
-              {slotInfo.adjusted && (
+              {slotInfo.adjusted && response.response_status === 'submitted_hosting' && (
                 <span data-testid="capacity-slot-offered" style={{ fontSize:10.5, color:'#9ca3af', whiteSpace:'nowrap' }}
                   title={`The unit leader offered ${slotInfo.offered}; capacity was changed in Set Up Units.`}>
                   {slotInfo.offered} offered
@@ -238,7 +242,7 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
               Remind
             </button>
           )}
-          {!isPending && (
+          {response.submitted && (
             <button
               onClick={(e) => { e.stopPropagation(); onView?.(response) }}
               style={{ background:'none', border:'1px solid #d1d5db', borderRadius:6, padding:'2px 8px', fontSize:10.5, fontWeight:600, color:'var(--nightfall,#1D2567)', cursor:'pointer', whiteSpace:'nowrap' }}>
@@ -268,9 +272,9 @@ function PlacementCapacityPanel({
 
   // Apply status filter
   const filtered = statusFilter === 'all' ? unitResponses : unitResponses.filter(r => {
-    if (statusFilter === 'hosting')     return r.response_status === 'submitted_hosting'
-    if (statusFilter === 'not_hosting') return r.response_status === 'submitted_not_hosting'
-    if (statusFilter === 'pending')     return r.response_status === 'pending'
+    if (statusFilter === 'hosting')     return r.capacity_status === 'hosting'
+    if (statusFilter === 'not_hosting') return r.capacity_status === 'not_hosting'
+    if (statusFilter === 'pending')     return r.capacity_status === 'pending'
     return true
   })
 
@@ -308,7 +312,7 @@ function PlacementCapacityPanel({
     <div className="ov-groups">
       {divisionsToShow.map(div => {
         const divRows     = byDiv[div] || []
-        const divHosting  = divRows.filter(r => r.response_status === 'submitted_hosting')
+        const divHosting  = divRows.filter(r => r.capacity_status === 'hosting')
         const divSlots    = divHosting.reduce((s, r) => s + capacitySlotsFor(r, units).slots, 0)
         const uninvited   = statusFilter === 'all'
           ? (catalogByDiv[div] || []).filter(name => !responseByName[name]).length
@@ -542,6 +546,10 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       }))
     return synthetic.length ? [...unitResponses, ...synthetic] : unitResponses
   }, [unitMetrics, unitResponses])
+
+  // HOSTING-STATUS-SETUP-1: every capacity surface (pills, filters, rows, division totals, the
+  // pending reminder) reads capacity_status, which Set Up Units decides for units it knows.
+  const capacityView = useMemo(() => applyUnitSetup(capacityRows, units), [capacityRows, units])
 
   // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: full school placement responses for the active cohort,
   // powering the read-only School Form Response drawer. DISTINCT query key from the date-only
@@ -796,7 +804,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // context is cleared silently on return).
   const handleLaunchPendingReminder = () => {
     const pendingCanon = new Set(
-      capacityRows.filter(r => r.response_status === 'pending').map(r => canonicalUnitKey(r.unit_name)))
+      capacityView.filter(r => r.capacity_status === 'pending').map(r => canonicalUnitKey(r.unit_name)))
     if (pendingCanon.size === 0) { showToast('No pending units right now.'); return }
     const rows = buildCapacityOutreachRows({
       catalog: getEligibleUnits(true),
@@ -1077,11 +1085,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               <div className="ov-panel-title">Placement Capacity</div>
               <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:7 }}>
                 {(() => {
-                  const n = (s) => capacityRows.filter(r => r.response_status === s).length
+                  const n = (s) => capacityView.filter(r => r.capacity_status === s).length
                   const chips = [
-                    { key:'all',         label:'All',         count: capacityRows.length,        activeBg:'#1D2567', activeTxt:'#fff'    },
-                    { key:'hosting',     label:'Hosting',     count: n('submitted_hosting'),     activeBg:'#C8D5C0', activeTxt:'#2D4A2B' },
-                    { key:'not_hosting', label:'Not Hosting', count: n('submitted_not_hosting'), activeBg:'#E8E8E8', activeTxt:'#555'    },
+                    { key:'all',         label:'All',         count: capacityView.length,        activeBg:'#1D2567', activeTxt:'#fff'    },
+                    { key:'hosting',     label:'Hosting',     count: n('hosting'),               activeBg:'#C8D5C0', activeTxt:'#2D4A2B' },
+                    { key:'not_hosting', label:'Not Hosting', count: n('not_hosting'),           activeBg:'#E8E8E8', activeTxt:'#555'    },
                     { key:'pending',     label:'Pending',     count: n('pending'),               activeBg:'#f3f4f6', activeTxt:'#6b7280' },
                   ]
                   return chips.map(c => {
@@ -1180,9 +1188,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
           {/* ── Placement Capacity panel (body only) ── */}
           <div className="ov-panel-body">
-            {capacityRows.length > 0
+            {capacityView.length > 0
               ? <PlacementCapacityPanel
-                  unitResponses={capacityRows}
+                  unitResponses={capacityView}
                   filledByUnit={filledByUnit}
                   units={units}
                   unitGroupsOpen={unitGroupsOpen}
