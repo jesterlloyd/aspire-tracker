@@ -17,7 +17,7 @@ import ResidencyCohortList from './scope/ResidencyCohortList'
 import UniversalSearch from './UniversalSearch'
 import HeaderActions from './HeaderActions'
 import {
-  residencyCohortLabel, residencyCohortLive, residencyLabelIsState,
+  residencyCohortLabel, cohortDotStatus, residencyLabelIsState,
   INTERNSHIP_EXPERIENCE, RESIDENCY_EXPERIENCE,
 } from '../../lib/scopePickerLabels'
 
@@ -42,7 +42,7 @@ export default function Header({ cohort, search, actions, experience, residencyC
   const scope = inResidency && residencyCohort
     ? {
         cohortLabel: residencyCohortLabel(residencyCohort),
-        cohortLive: residencyCohortLive(residencyCohort.activeCycle),
+        cohortStatus: cohortDotStatus(residencyCohort.activeCycle),
         cohortLabelDimmed: residencyLabelIsState(residencyCohort),
         /* NGRP-PLANNING-2: the residency pane now carries the same Edit/Add footer
            the ASPIRE pane has. Its handlers and canManage arrive inside
@@ -51,7 +51,9 @@ export default function Header({ cohort, search, actions, experience, residencyC
       }
     : {
         cohortLabel: cohort.activeCohort?.name || 'Select cohort',
-        cohortLive: Boolean(cohort.activeCohort?.accepting_submissions),
+        // SCOPE-DOT-1: the dot reads status, not the accepting flag; a Planning
+        // cohort that is accepting stays yellow and the row's Accepting badge says so.
+        cohortStatus: cohortDotStatus(cohort.activeCohort),
         cohortLabelDimmed: !cohort.activeCohort,
         pane: (
           <InternshipCohortList
@@ -84,7 +86,7 @@ export default function Header({ cohort, search, actions, experience, residencyC
           activeExperience={activeExperience}
           onSwitchExperience={experience?.onSwitch}
           cohortLabel={scope.cohortLabel}
-          cohortLive={scope.cohortLive}
+          cohortStatus={scope.cohortStatus}
           cohortLabelDimmed={scope.cohortLabelDimmed}
           cohortPane={scope.pane}
         />

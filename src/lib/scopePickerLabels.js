@@ -14,10 +14,27 @@
 // inside ResidencyCohortPicker's render; it is here now so the PILL and the pane
 // cannot drift apart about what is true.
 
-// Residency cohort statuses that mean the cohort is live right now. Drives the green
-// dot, which is the same signal accepting_submissions drives on the ASPIRE side.
+// SCOPE-DOT-1 (Owner, 2026-09-14): the pill's dot and the rows' status pills read the
+// cohort's STATUS, on both experiences and on both surfaces (staff header, Residency
+// Portal header). Active is green, Planning is yellow even while it accepts
+// submissions (the blue Accepting badge on the row carries that fact), Completed is a
+// muted rose, never the alert red the badge counters use. Anything else, including a
+// missing cohort or a retired residency value, is the neutral grey. One rule, read by
+// the dot and by both lists, so they cannot drift apart.
+export const COHORT_STATUS_TONE = Object.freeze({
+  Active:    Object.freeze({ dot: '#5DD39E', halo: 'rgba(93,211,158,0.2)',   bg: '#dcfce7', color: '#166534' }),
+  Planning:  Object.freeze({ dot: '#F5C451', halo: 'rgba(245,196,81,0.25)',  bg: '#fef3c7', color: '#92400e' }),
+  Completed: Object.freeze({ dot: '#E39A9E', halo: 'rgba(227,154,158,0.22)', bg: '#fbe9ea', color: '#9b3b41' }),
+  Archived:  Object.freeze({ dot: '#9ca3af', halo: 'none',                   bg: '#f3f4f6', color: '#9ca3af' }),
+})
+export const NEUTRAL_TONE = Object.freeze({ dot: '#9ca3af', halo: 'none', bg: '#f3f4f6', color: '#6b7280' })
+export function cohortStatusTone(status) {
+  return COHORT_STATUS_TONE[status] || NEUTRAL_TONE
+}
+
+// Residency cohort statuses that mean the cohort is live right now.
 // NGRP-CYCLE-STATUS-CANON: five of the old nine statuses meant "live"; 'Active' is now
-// the single one, matching what an ASPIRE cohort's green dot means.
+// the single one.
 // The two experiences the Scope picker offers. The ONE spelling of each program's name:
 // the staff header and the Residency Portal's header both read these, so the picker in
 // either place names the programs identically.
@@ -45,9 +62,12 @@ export function residencyCohortLabel({ status, cycles = [], activeCycle = null }
   return activeCycle?.name || 'Select cohort'
 }
 
-/** Green dot for Residency: a real selected cycle whose status is open. */
-export function residencyCohortLive(activeCycle) {
-  return Boolean(activeCycle) && RESIDENCY_OPEN_STATUSES.has(activeCycle.status)
+/**
+ * The status the pill's dot reads for the selected cohort or cycle. Null when there
+ * is no selection, so the dot is neutral rather than guessing.
+ */
+export function cohortDotStatus(selected) {
+  return selected?.status || null
 }
 
 /** Is the residency label a state rather than a chosen cohort? Dims the pill value. */

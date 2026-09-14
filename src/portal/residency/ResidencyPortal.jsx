@@ -31,7 +31,7 @@ import { orderCyclesForSelector, resolveSelectedCycle } from '../../lib/ngrp/ngr
 import { ngrpCycleStorageKey } from '../../lib/ngrp/ngrpAccess'
 import { NgrpSurfaceProvider, RESIDENCY_PORTAL_SURFACE } from '../../lib/ngrp/ngrpSurface'
 import {
-  RESIDENCY_EXPERIENCE, residencyCohortLabel, residencyCohortLive, residencyLabelIsState,
+  RESIDENCY_EXPERIENCE, residencyCohortLabel, cohortDotStatus, residencyLabelIsState,
 } from '../../lib/scopePickerLabels'
 import { PortalHeaderControls } from '../PortalHeaderSlots'
 
@@ -81,7 +81,7 @@ export default function ResidencyPortal({ canManage = false }) {
           activeExperience={RESIDENCY_EXPERIENCE.id}
           onSwitchExperience={stayInResidency}
           cohortLabel={residencyCohortLabel(residencyCohort)}
-          cohortLive={residencyCohortLive(activeCycle)}
+          cohortStatus={cohortDotStatus(activeCycle)}
           cohortLabelDimmed={residencyLabelIsState(residencyCohort)}
           cohortPane={<ResidencyCohortList {...residencyCohort} />}
         />

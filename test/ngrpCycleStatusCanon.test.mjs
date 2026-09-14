@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path'
 import { CYCLE_STATUSES, FORM_ACTIVE_STATUSES, CYCLE_CLOSED_STATUSES, orderCyclesForSelector } from '../src/lib/ngrp/ngrpStates.js'
 import { CYCLE_STATUSES as SERVER_STATUSES, FORM_ACTIVE_STATUSES as SERVER_FORM_ACTIVE, validateStatusTransition } from '../lib/server/ngrpPlanning.js'
 import { COHORT_STATUSES } from '../src/lib/constants.js'
-import { cycleDatesLine, fmtDateRange, RESIDENCY_OPEN_STATUSES } from '../src/lib/scopePickerLabels.js'
+import { cycleDatesLine, fmtDateRange, RESIDENCY_OPEN_STATUSES, COHORT_STATUS_TONE } from '../src/lib/scopePickerLabels.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(root, p), 'utf8')
@@ -59,12 +59,14 @@ test('no retired status survives anywhere in the app', () => {
 })
 
 test('the picker colors exactly the four, and matches the ASPIRE list', () => {
+  // SCOPE-DOT-1: the colours live in ONE rule (cohortStatusTone in scopePickerLabels)
+  // and both lists read it, so "matches" is now structural rather than hex-by-hex.
+  for (const s of CYCLE_STATUSES) assert.ok(s in COHORT_STATUS_TONE, `${s} needs a color`)
   const list = strip(read(LIST))
-  for (const s of CYCLE_STATUSES) assert.match(list, new RegExp(`${s}:\\s*\\{`), `${s} needs a color`)
-  // Same four hex pairs InternshipCohortList uses: one dropdown, one language.
-  const internship = read('src/components/Header/scope/InternshipCohortList.jsx')
-  for (const hex of ['#dbeafe', '#1d4ed8', '#dcfce7', '#166534', '#f3f4f6', '#6b7280', '#9ca3af']) {
-    assert.ok(list.includes(hex) && internship.includes(hex), `both lists must use ${hex}`)
+  const internship = strip(read('src/components/Header/scope/InternshipCohortList.jsx'))
+  for (const src of [list, internship]) {
+    assert.ok(src.includes('const sc = cohortStatusTone(c.status)'))
+    assert.ok(!/STATUS_COLORS\s*=\s*\{/.test(src), 'no colour map of its own')
   }
 })
 

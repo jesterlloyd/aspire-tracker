@@ -22,7 +22,7 @@
 // scopePillValue in src/lib/scopePickerLabels.js for why.
 import { useState, useRef, useEffect, isValidElement, cloneElement } from 'react'
 import Tooltip from '../../ui/Tooltip'
-import { scopePillValue } from '../../../lib/scopePickerLabels'
+import { scopePillValue, cohortStatusTone } from '../../../lib/scopePickerLabels'
 
 function HeaderChevron() {
   return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
@@ -34,7 +34,9 @@ function HeaderChevron() {
  * @param activeExperience   id of the current experience
  * @param onSwitchExperience (id) => void; navigates, so it also closes the picker
  * @param cohortLabel        the cohort half of the pill (may be a state, not a name)
- * @param cohortLive         green dot: accepting submissions / an open residency cycle
+ * @param cohortStatus       the selected cohort's status; the dot reads it through
+ *                           cohortStatusTone (SCOPE-DOT-1: Active green, Planning
+ *                           yellow, Completed muted rose, otherwise neutral)
  * @param cohortLabelDimmed  the label is a state ("Cohorts unavailable"), not a choice
  * @param cohortPane         the cohort list for the CURRENT experience
  */
@@ -43,11 +45,12 @@ export default function ScopePicker({
   activeExperience,
   onSwitchExperience,
   cohortLabel,
-  cohortLive = false,
+  cohortStatus = null,
   cohortLabelDimmed = false,
   cohortPane = null,
 }) {
   const [open, setOpen] = useState(false)
+  const tone = cohortStatusTone(cohortStatus)
   const areaRef = useRef(null)
   const triggerRef = useRef(null)
 
@@ -92,7 +95,7 @@ export default function ScopePicker({
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
         >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: cohortLive ? '#5DD39E' : '#9ca3af', boxShadow: cohortLive ? '0 0 0 3px rgba(93,211,158,0.2)' : 'none' }} />
+          <span data-cohort-status={cohortStatus || 'none'} style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: tone.dot, boxShadow: tone.halo === 'none' ? 'none' : `0 0 0 3px ${tone.halo}` }} />
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 2, flexShrink: 0 }}>Scope</span>
           <span style={{ fontSize: 12.5, fontWeight: 600, opacity: cohortLabelDimmed ? 0.7 : 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
           <span style={{ opacity: 0.5, lineHeight: 0, marginLeft: 2, flexShrink: 0 }}><HeaderChevron /></span>

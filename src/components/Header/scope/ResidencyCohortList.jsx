@@ -26,19 +26,12 @@
 // tab); Add Cohort opens the create dialog. Both are gated on ngrp_manage, the way the
 // ASPIRE footer is gated on canEdit - a viewer sees the list and no footer at all.
 import { CYCLE_CLOSED_STATUSES } from '../../../lib/ngrp/ngrpStates'
-import { residencyUnavailable, cycleDatesLine } from '../../../lib/scopePickerLabels'
+import { residencyUnavailable, cycleDatesLine, cohortStatusTone } from '../../../lib/scopePickerLabels'
 import SeasonMark from './SeasonMark'
 
-// NGRP-CYCLE-STATUS-CANON: the four ASPIRE cohort statuses and the four ASPIRE cohort
-// colors, byte for byte what InternshipCohortList renders. Two lists sitting in one
-// dropdown should not speak different languages, and the nine-value vocabulary this
-// replaced also needed two colors the ASPIRE side never used.
-const STATUS_COLORS = {
-  Planning:  { bg: '#dbeafe', color: '#1d4ed8' },
-  Active:    { bg: '#dcfce7', color: '#166534' },
-  Completed: { bg: '#f3f4f6', color: '#6b7280' },
-  Archived:  { bg: '#f3f4f6', color: '#9ca3af' },
-}
+// NGRP-CYCLE-STATUS-CANON: the four ASPIRE cohort statuses in the four ASPIRE cohort
+// colors, the same ones InternshipCohortList renders. SCOPE-DOT-1: both lists and the
+// pill's dot now read ONE rule, cohortStatusTone, so they cannot drift apart.
 
 export default function ResidencyCohortList({
   status, cycles = [], activeCycle, onSelectCycle, onDone,
@@ -82,7 +75,7 @@ export default function ResidencyCohortList({
         // `cycles` arrives ordered (active -> planned/open chronologically ->
         // completed/archived) from orderCyclesForSelector.
         const isSel = c.id === activeCycle?.id
-        const sc = STATUS_COLORS[c.status] || { bg: '#f3f4f6', color: '#6b7280' }
+        const sc = cohortStatusTone(c.status)
         const done = CYCLE_CLOSED_STATUSES.includes(c.status)
         const dates = cycleDatesLine(c)
         return (

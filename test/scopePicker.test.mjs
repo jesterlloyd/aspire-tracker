@@ -23,7 +23,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
-  residencyCohortLabel, residencyCohortLive, residencyLabelIsState,
+  residencyCohortLabel, cohortDotStatus, cohortStatusTone, COHORT_STATUS_TONE, NEUTRAL_TONE, residencyLabelIsState,
   residencyUnavailable, scopePillValue,
 } from '../src/lib/scopePickerLabels.js'
 
@@ -59,16 +59,41 @@ test('every residency cohort state is distinct, and none reads as a chosen cohor
   assert.equal(residencyCohortLabel({ status: 'ready', cycles: [cycle], activeCycle: cycle }), 'January 2027')
 })
 
-test('a failure never shows a live dot, and every non-choice label is dimmed', () => {
-  // NGRP-CYCLE-STATUS-CANON: five of the old nine statuses meant live; 'Active' is now
-  // the only one, matching what a green dot means on the ASPIRE side.
-  assert.equal(residencyCohortLive({ status: 'Active' }), true)
-  assert.equal(residencyCohortLive({ status: 'Planning' }), false)
-  assert.equal(residencyCohortLive({ status: 'Completed' }), false)
-  // A row still holding a retired value is NOT live: it is unmigrated data, and
-  // guessing that it is live would be inventing a fact.
-  assert.equal(residencyCohortLive({ status: 'Application Open' }), false)
-  assert.equal(residencyCohortLive(null), false, 'no cycle is never live')
+test('SCOPE-DOT-1: the dot and the pills read status; Active green, Planning yellow, Completed muted rose', () => {
+  // Owner, 2026-09-14. Before this the dot was binary: green for an accepting ASPIRE
+  // cohort or an open residency cycle, grey for everything else, so the Active cohort
+  // read grey and a Planning cohort that was accepting read green.
+  assert.deepEqual(Object.keys(COHORT_STATUS_TONE), ['Active', 'Planning', 'Completed', 'Archived'])
+  assert.equal(cohortStatusTone('Active').dot, '#5DD39E', 'the green the header already used')
+  assert.equal(cohortStatusTone('Planning').dot, '#F5C451')
+  assert.equal(cohortStatusTone('Completed').dot, '#E39A9E', 'muted rose, not the badge-counter red')
+  assert.notEqual(cohortStatusTone('Completed').dot.toUpperCase(), '#DC2626')
+  assert.notEqual(cohortStatusTone('Completed').dot.toUpperCase(), '#EF4444')
+  // Pills match the dots: one family per status, so the dropdown and the pill agree.
+  assert.deepEqual(cohortStatusTone('Active'), { dot: '#5DD39E', halo: 'rgba(93,211,158,0.2)', bg: '#dcfce7', color: '#166534' })
+  assert.deepEqual(cohortStatusTone('Planning'), { dot: '#F5C451', halo: 'rgba(245,196,81,0.25)', bg: '#fef3c7', color: '#92400e' })
+  assert.deepEqual(cohortStatusTone('Completed'), { dot: '#E39A9E', halo: 'rgba(227,154,158,0.22)', bg: '#fbe9ea', color: '#9b3b41' })
+  // A retired value is unmigrated data, and no selection is no selection: neutral.
+  assert.equal(cohortStatusTone('Application Open'), NEUTRAL_TONE)
+  assert.equal(cohortStatusTone(null), NEUTRAL_TONE)
+  assert.equal(NEUTRAL_TONE.halo, 'none')
+  assert.equal(cohortDotStatus({ status: 'Planning', accepting_submissions: true }), 'Planning', 'accepting does not turn a Planning cohort green')
+  assert.equal(cohortDotStatus(null), null)
+  // The wiring: one rule, four readers, no local colour maps left behind.
+  const picker = read('src/components/Header/scope/ScopePicker.jsx')
+  assert.match(picker, /const tone = cohortStatusTone\(cohortStatus\)/)
+  assert.match(picker, /background: tone\.dot, boxShadow: tone\.halo === 'none' \? 'none' : `0 0 0 3px \$\{tone\.halo\}`/)
+  assert.doesNotMatch(picker, /cohortLive/)
+  const header = read('src/components/Header/Header.jsx')
+  assert.match(header, /cohortStatus: cohortDotStatus\(residencyCohort\.activeCycle\)/)
+  assert.match(header, /cohortStatus: cohortDotStatus\(cohort\.activeCohort\)/)
+  assert.doesNotMatch(header, /accepting_submissions/, 'the header no longer reads the accepting flag for the dot')
+  assert.match(read('src/portal/residency/ResidencyPortal.jsx'), /cohortStatus=\{cohortDotStatus\(activeCycle\)\}/, 'the Residency Portal header follows the same rule')
+  for (const f of ['src/components/Header/scope/InternshipCohortList.jsx', 'src/components/Header/scope/ResidencyCohortList.jsx']) {
+    const src = read(f)
+    assert.match(src, /const sc = cohortStatusTone\(c\.status\)/, f)
+    assert.doesNotMatch(src, /STATUS_COLORS = \{/, `${f} keeps no colour map of its own`)
+  }
   for (const s of [{ status: 'loading' }, { status: 'error' }, { status: 'ready', cycles: [] }]) {
     assert.equal(residencyLabelIsState(s), true, JSON.stringify(s))
   }

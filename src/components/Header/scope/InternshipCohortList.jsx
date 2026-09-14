@@ -15,13 +15,8 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabase'
 import { groupRotationRowsByCohort, resolveCohortPickerRange } from '../../../lib/schoolResponseDisplay'
 import SeasonMark from './SeasonMark'
-
-const COHORT_STATUS_COLORS = {
-  Planning:  { bg: '#dbeafe', color: '#1d4ed8' },
-  Active:    { bg: '#dcfce7', color: '#166534' },
-  Completed: { bg: '#f3f4f6', color: '#6b7280' },
-  Archived:  { bg: '#f3f4f6', color: '#9ca3af' },
-}
+// SCOPE-DOT-1: status pill colours come from the one rule the pill's dot reads.
+import { cohortStatusTone } from '../../../lib/scopePickerLabels'
 
 function fmtCohortDate(d) {
   if (!d) return ''
@@ -66,7 +61,7 @@ export default function InternshipCohortList({
       <div className="chart-scope-rows" role="listbox" aria-label="ASPIRE cohorts">
         {sortedCohorts.map(c => {
           const isSel = c.id === activeCohortId
-          const sc = COHORT_STATUS_COLORS[c.status] || { bg: '#f3f4f6', color: '#6b7280' }
+          const sc = cohortStatusTone(c.status)
           return (
             // Native button: Enter/Space activation for free, matching the residency
             // list. The old ASPIRE rows were plain divs and were keyboard-unreachable.
