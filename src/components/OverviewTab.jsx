@@ -14,6 +14,7 @@ import { listCohortResponseTargets, createCohortResponseTargets } from '../lib/c
 import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
 import { UNIT_LEADERSHIP_ROLES } from '../lib/contactCategories'
 import UnitSetupPanel from './UnitSetupPanel'
+import { capacitySlotsFor } from '../lib/capacitySlots'
 import { canPerformMatching } from '../lib/permissions'
 import { canonicalUnitKey } from '../lib/canonicalUnit'
 import { writeLaunchContext, readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
@@ -174,6 +175,8 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
     ? 'Awaiting response'
     : [submitterLabel ? `Submitted by ${submitterLabel}` : null, tsLabel].filter(Boolean).join(' · ')
 
+  const slotInfo = capacitySlotsFor(response, units)
+
   const filledCount = (() => {
     const unitRow = units.find(u => u.id === response.unit_id)
     return unitRow ? (filledByUnit[unitRow.id] || 0) : 0
@@ -202,9 +205,16 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
         <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, flexWrap:'wrap', justifyContent:'flex-end' }}>
           {isHosting && (
             <>
-              <span style={{ background:'#C8D5C0', color:'#2D4A2B', fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:12, whiteSpace:'nowrap' }}>
-                {response.slots_offered} slot{response.slots_offered === 1 ? '' : 's'}
+              {/* CAPACITY-LIVE-SLOTS-1: the unit's live slots (Set Up Units), not the form offer. */}
+              <span data-testid="capacity-slot-pill" style={{ background:'#C8D5C0', color:'#2D4A2B', fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:12, whiteSpace:'nowrap' }}>
+                {slotInfo.slots} slot{slotInfo.slots === 1 ? '' : 's'}
               </span>
+              {slotInfo.adjusted && (
+                <span data-testid="capacity-slot-offered" style={{ fontSize:10.5, color:'#9ca3af', whiteSpace:'nowrap' }}
+                  title={`The unit leader offered ${slotInfo.offered}; capacity was changed in Set Up Units.`}>
+                  {slotInfo.offered} offered
+                </span>
+              )}
               {filledCount > 0 && (
                 <span style={{ fontSize:10.5, color:'#166534', whiteSpace:'nowrap' }}>{filledCount} placed</span>
               )}
@@ -299,7 +309,7 @@ function PlacementCapacityPanel({
       {divisionsToShow.map(div => {
         const divRows     = byDiv[div] || []
         const divHosting  = divRows.filter(r => r.response_status === 'submitted_hosting')
-        const divSlots    = divHosting.reduce((s, r) => s + (r.slots_offered || 0), 0)
+        const divSlots    = divHosting.reduce((s, r) => s + capacitySlotsFor(r, units).slots, 0)
         const uninvited   = statusFilter === 'all'
           ? (catalogByDiv[div] || []).filter(name => !responseByName[name]).length
           : 0
