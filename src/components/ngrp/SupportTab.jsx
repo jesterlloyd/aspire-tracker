@@ -1,30 +1,28 @@
 // RESIDENCY-SUPPORT-1: the Support tab, before and during residency.
 //
 // Owner decisions, 2026-09-11. Before residency: Résumé Review, Town Hall,
-// Interview Bootcamp, Placement Advising. During residency: Weekly Email
-// Check-ins (sent through ASPIRE Connect, Send to One, and counted from what
-// Connect records) and Mentorship Sessions with the resident's assigned NPD-P.
+// Interview Bootcamp, Placement Advising. During residency: Mentorship
+// Sessions with the resident's assigned NPD-P and, since RESIDENCY-REFLECTION-1
+// (Owner, 2026-09-13), the bi-weekly Clinical Orientation Progress and
+// Reflection Tool, started here with a button and sent to each resident by
+// personal link. It REPLACED the weekly email check-in this tab used to count.
 // Only the ASPIRE team records support; Talent Acquisition sees it read-only.
 // Taking part is always optional and never affects eligibility.
 //
 // Every number derives from the same roster rows the Profiles tab renders and
 // the recorded entries (src/lib/ngrp/ngrpSupportView.js). A wrong entry is
 // voided, never deleted.
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Plus, Send } from 'lucide-react'
+import { Fragment, useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 import { useNgrpApplicants, useNgrpSupport, postNgrpSupport } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows } from '../../lib/ngrp/ngrpStates'
-import { activitiesFor, supportActivity, WEEKLY_CHECKIN_LABEL } from '../../lib/ngrp/ngrpSupportActivities'
+import { activitiesFor, supportActivity } from '../../lib/ngrp/ngrpSupportActivities'
 import { beforeResidency, duringResidency } from '../../lib/ngrp/ngrpSupportView'
+import { DIFFICULTY_AREAS } from '../../lib/ngrp/ngrpReflectionForm'
 import { displayName } from '../../lib/utils'
 import { F, btn } from '../../lib/ngrp/ngrpCohortForm'
-import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
-import { ngrpPath } from '../../lib/ngrp/ngrpTabs'
-import { writeLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
-import { RESIDENT_CHECKIN_TEMPLATE_KEY } from '../../lib/connect/templateRegistry'
 
 const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`
 const fmtDay = d => {
@@ -307,47 +305,203 @@ function MentorCell({ resident, canRecord, onSaved, toast }) {
   )
 }
 
+// ── RESIDENCY-REFLECTION-1: the bi-weekly reflection, per resident ──────────
+const REFLECTION_ERRORS = {
+  already_started: 'Reflections were already started for this resident.',
+  not_a_resident: 'Only a hired, current resident can be started.',
+  run_ended: 'This run has ended, so it cannot be started again.',
+  run_not_found: 'No reflections have been started for this resident.',
+  aspire_team_only: 'Only the ASPIRE team can do that.',
+}
+const reflectionError = res => REFLECTION_ERRORS[res.error] || errorText(res)
+
+// What the resident has done so far, in one cell.
+function ReflectionCell({ resident }) {
+  const r = resident.reflection
+  if (!r.started) return <span className="ngrp-glance-muted">Not started</span>
+  const next = r.next
+  const line = r.stopped ? 'Stopped'
+    : r.done ? 'Complete'
+    : next ? (next.sent_at ? `Period ${next.period_number} due ${fmtDay(next.due_on)}` : `Period ${next.period_number} goes out ${fmtDay(next.send_on)}`)
+    : ''
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+      <span>{r.submitted} of {r.total} submitted</span>
+      {line && <span className="ngrp-glance-muted">{line}</span>}
+      {r.overdue > 0 && <span className="ngrp-glance-pill ngrp-glance-pill-due">{plural(r.overdue, 'period')} overdue</span>}
+    </span>
+  )
+}
+
+// A submitted reflection, read-only, section for section as the tool lays it out.
+function SubmissionView({ payload }) {
+  const p = payload || {}
+  const head = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6B7785', margin: '12px 0 4px', fontFamily: F }
+  const txt = (label, v) => (v ? (
+    <div key={label} style={{ fontSize: 12.5, margin: '0 0 5px', fontFamily: F }}>
+      <span style={{ color: '#6B7785' }}>{label}: </span><span style={{ whiteSpace: 'pre-wrap' }}>{v}</span>
+    </div>
+  ) : null)
+  const areaLabel = k => DIFFICULTY_AREAS.find(a => a.key === k)?.label || k
+  return (
+    <div style={{ padding: '6px 0 2px' }}>
+      {p.about && (<><div style={head}>About</div>
+        {txt('Unit', p.about.unit)}{txt('Preceptor(s)', p.about.preceptor_names)}{txt('Schedule', p.about.work_schedule)}{txt('Questions', p.about.questions)}</>)}
+      <div style={head}>Shifts</div>
+      {(p.shifts || []).length === 0 && <div className="ngrp-glance-muted" style={{ fontSize: 12.5 }}>None recorded</div>}
+      {(p.shifts || []).map((s, i) => (
+        <div key={i} style={{ borderLeft: '3px solid #EDEEF4', padding: '2px 0 2px 10px', margin: '0 0 8px' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, fontFamily: F }}>
+            Shift {i + 1}{s.date ? ` · ${fmtDay(s.date)}` : ''}{s.patients != null ? ` · ${s.patients} pts` : ''}{s.tsam_tier ? ` · TSAM ${s.tsam_tier}` : ''}
+          </div>
+          {txt('Diagnoses', s.diagnoses)}{txt('Went well', s.went_well)}{txt('Improve', s.improve)}
+        </div>
+      ))}
+      {(p.skills?.communication || p.skills?.technical) && (<><div style={head}>Skills</div>
+        {txt('Communication', p.skills.communication)}{txt('Technical', p.skills.technical)}</>)}
+      {(p.goals || []).length > 0 && (<><div style={head}>Goals</div>
+        {p.goals.map((g, i) => txt(`Goal ${i + 1}${g.met ? ` (${g.met === 'met' ? 'met' : 'not met'}${g.carry_forward ? ', carried forward' : ''})` : ''}`, g.text))}</>)}
+      {(p.development?.ana_standards || p.development?.caritas) && (<><div style={head}>Development</div>
+        {txt('ANA Standards', p.development.ana_standards)}{txt('Caritas Processes', p.development.caritas)}</>)}
+      <div style={head}>Finding it hard</div>
+      {(p.difficulty_areas || []).length
+        ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{p.difficulty_areas.map(k => <span key={k} className="ngrp-glance-pill ngrp-glance-pill-due">{areaLabel(k)}</span>)}</div>
+        : <div className="ngrp-glance-muted" style={{ fontSize: 12.5 }}>Nothing flagged</div>}
+      {(p.workshops || p.support_needed || p.competencies_on_track != null) && (<><div style={head}>Anything else</div>
+        {txt('Workshops', p.workshops)}{txt('Support needed', p.support_needed)}
+        {p.competencies_on_track != null && txt('Competencies / Kahuna on track', p.competencies_on_track ? 'Yes' : 'No')}</>)}
+    </div>
+  )
+}
+
+// One resident's periods, with any submitted one openable.
+function ReflectionsPanel({ resident, canRecord, onChanged, toast, onClose }) {
+  const [openId, setOpenId] = useState(null)
+  const [loaded, setLoaded] = useState({})
+  const [busy, setBusy] = useState(false)
+  const [confirmStop, setConfirmStop] = useState(false)
+  const r = resident.reflection
+  const open = async (period) => {
+    if (openId === period.id) { setOpenId(null); return }
+    setOpenId(period.id)
+    if (loaded[period.id]) return
+    const res = await postNgrpSupport('reflection_view', { period_id: period.id })
+    setLoaded(m => ({ ...m, [period.id]: res.ok ? (res.submission || null) : { error: reflectionError(res) } }))
+  }
+  const stop = async () => {
+    setBusy(true)
+    const res = await postNgrpSupport('reflection_stop', { candidate_id: resident.row.candidate_id })
+    setBusy(false)
+    if (!res.ok) { toast?.error?.('Not stopped', reflectionError(res)); return }
+    toast?.success?.('Reflections stopped', `${displayName(resident.row.student)} will receive no further periods. Submitted reflections are kept.`)
+    setConfirmStop(false)
+    onChanged()
+  }
+  return (
+    <section className="snap ngrp-glance-panel" aria-label={`Reflections for ${displayName(resident.row.student)}`}>
+      <div className="aggregate-panel-hdr">
+        <div>
+          <div className="ov-panel-title">Reflections · {displayName(resident.row.student)}</div>
+          <div className="ov-panel-sub">
+            {r.submitted} of {r.total} submitted{r.stopped ? ' · stopped' : r.done ? ' · complete' : ''}
+            {resident.run?.started_on ? ` · started ${fmtDay(resident.run.started_on)}` : ''}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {canRecord && !r.stopped && !r.done && (confirmStop ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontFamily: F }}>
+              Stop sending periods? <button type="button" style={btn(true)} disabled={busy} onClick={stop}>{busy ? 'Stopping…' : 'Yes, stop'}</button>
+              <button type="button" className="ngrp-linkbtn" onClick={() => setConfirmStop(false)}>No</button>
+            </span>
+          ) : (
+            <button type="button" className="ngrp-linkbtn" onClick={() => setConfirmStop(true)}>Stop</button>
+          ))}
+          <button type="button" className="ngrp-linkbtn" onClick={onClose}>Close</button>
+        </div>
+      </div>
+      <div className="ngrp-glance-scroll">
+        <table className="ngrp-glance-table">
+          <thead>
+            <tr>
+              <th className="aspire-th">Period</th>
+              <th className="aspire-th">Opens</th>
+              <th className="aspire-th">Due</th>
+              <th className="aspire-th">Status</th>
+              <th className="aspire-th aspire-th-right"><span className="sr-only">Open</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {resident.periods.map(p => (
+              <Fragment key={p.id}>
+                <tr>
+                  <td>{p.period_number}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{fmtDay(p.opens_on)}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{fmtDay(p.due_on)}</td>
+                  <td>
+                    {p.status === 'submitted' ? `Submitted ${fmtDay(p.submitted_at)}`
+                      : p.sent_at ? (p.status === 'sent' ? 'Sent, not opened' : p.status === 'opened' ? 'Opened' : 'In progress')
+                      : `Goes out ${fmtDay(p.send_on)}`}
+                  </td>
+                  <td className="num">
+                    {p.status === 'submitted' && (
+                      <button type="button" className="ngrp-linkbtn" onClick={() => open(p)}>{openId === p.id ? 'Hide' : 'Open'}</button>
+                    )}
+                  </td>
+                </tr>
+                {openId === p.id && (
+                  <tr>
+                    <td colSpan={5} style={{ background: '#FCFBF9' }}>
+                      {!loaded[p.id] ? <span className="ngrp-glance-muted">Loading…</span>
+                        : loaded[p.id].error ? <span style={{ color: '#B3282D' }}>{loaded[p.id].error}</span>
+                        : <SubmissionView payload={loaded[p.id].payload} />}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 function DuringPanel({ cycle, rows, support, toast }) {
   const [sessionFor, setSessionFor] = useState(null)
-  const navigate = useNavigate()
-  // Sending runs through ASPIRE Connect, which only the staff app has.
-  const { staffApp, base } = useNgrpSurface()
-  // RESIDENCY-SUPPORT-1: the weekly check-in goes out from Connect, one
-  // resident at a time (Send to One), so a resident from an EARLIER ASPIRE
-  // cohort is still reachable. Connect records the send, and the count above
-  // is read back from that record - nothing is written here.
-  const sendCheckin = (r) => {
-    const studentId = r.row.student?.id || r.row.id
-    writeLaunchContext({
-      kind: LAUNCH_KINDS.RESIDENT_CHECKIN,
-      cycleId: cycle.id,
-      cycleName: cycle.name,
-      cohortId: r.row.student?.cohort_id || null,
-      templateKey: RESIDENT_CHECKIN_TEMPLATE_KEY,
-      source: 'residency_support',
-      returnPath: ngrpPath('support', 'during', base),
-      recipient: { studentId },
-      studentIds: [studentId],
-    })
-    navigate(`/connect/outreach?launch=1&mode=message&recipientType=student&recipientId=${studentId}`)
-  }
+  const [openFor, setOpenFor] = useState(null)
+  const [starting, setStarting] = useState(null)   // candidate_id awaiting confirm
+  const [busy, setBusy] = useState(false)
   const view = useMemo(() => duringResidency(rows, {
-    entries: support.entries, mentors: support.mentors, checkins: support.checkins,
-    cycleStart: cycle.residency_start_date, today: support.today,
-  }), [rows, support.entries, support.mentors, support.checkins, cycle.residency_start_date, support.today])
+    entries: support.entries, mentors: support.mentors, reflections: support.reflections, today: support.today,
+  }), [rows, support.entries, support.mentors, support.reflections, support.today])
   const sessions = support.entries.filter(e => e.activity === 'mentorship_session')
+  const reflectionsReady = support.reflections?.provisioned !== false
+  const openResident = openFor ? view.residents.find(r => r.row.candidate_id === openFor) || null : null
+
+  // Starting sends period 1 to the resident right now, so it asks first.
+  const start = async (r) => {
+    setBusy(true)
+    const res = await postNgrpSupport('reflection_start', { candidate_id: r.row.candidate_id })
+    setBusy(false)
+    setStarting(null)
+    if (!res.ok) { toast?.error?.('Not started', reflectionError(res)); return }
+    toast?.success?.('Reflections started', `Period 1 of ${res.run?.period_count || 5} is on its way to ${displayName(r.row.student)}. The rest follow every other Friday.`)
+    support.refetch()
+  }
+
   return (
     <>
       <section className="snap" aria-label="Support during residency snapshot" style={{ margin: '14px 0' }}>
         <div className="snap-head">
           <span className="ov-panel-title">Support During Residency</span>
-          <span className="snap-sub">{cycle.name} · {WEEKLY_CHECKIN_LABEL}s are sent from ASPIRE Connect</span>
+          <span className="snap-sub">{cycle.name} · the bi-weekly reflection goes out every other Friday for ten weeks</span>
         </div>
         <div className="glance-kpis snap-kpis">
           <KPICell value={view.kpis.residents} label="Residents" sub="Hired, not separated" />
           <KPICell value={view.kpis.withMentor} label="With a Mentor" sub={`of ${plural(view.kpis.residents, 'resident')}`} accent="sage" />
-          <KPICell value={view.kpis.overdue} label="Check-ins Overdue" sub="More than 7 days" accent={view.kpis.overdue ? 'warning' : undefined} />
-          <KPICell value={view.kpis.checkins} label="Check-ins Sent" sub="Through ASPIRE Connect" />
+          <KPICell value={view.kpis.reflecting} label="Reflecting" sub="Started, still active" />
+          <KPICell value={view.kpis.submitted} label="Reflections Submitted" sub="Across all residents" />
+          <KPICell value={view.kpis.overdue} label="Periods Overdue" sub="Sent, past due, not submitted" accent={view.kpis.overdue ? 'warning' : undefined} />
           <KPICell value={view.kpis.sessions} label="Mentorship Sessions" sub="Recorded" />
         </div>
       </section>
@@ -362,7 +516,11 @@ function DuringPanel({ cycle, rows, support, toast }) {
         <div className="aggregate-panel-hdr">
           <div>
             <div className="ov-panel-title">Residents</div>
-            <div className="ov-panel-sub">A weekly check-in is due every 7 days once the residency starts</div>
+            <div className="ov-panel-sub">
+              {reflectionsReady
+                ? 'Start sends period 1 now; periods 2 to 5 go out on their own, each due the Sunday that closes it'
+                : 'Reflections switch on once migration 20260917000000 is applied'}
+            </div>
           </div>
         </div>
         {view.residents.length === 0 ? (
@@ -375,8 +533,7 @@ function DuringPanel({ cycle, rows, support, toast }) {
                   <th className="aspire-th">Resident</th>
                   <th className="aspire-th">Unit</th>
                   <th className="aspire-th">Mentor</th>
-                  <th className="aspire-th">Last Check-in</th>
-                  <th className="aspire-th aspire-th-right">Check-ins</th>
+                  <th className="aspire-th">Reflections</th>
                   <th className="aspire-th aspire-th-right">Sessions</th>
                   {support.canRecord && <th className="aspire-th aspire-th-right"><span className="sr-only">Actions</span></th>}
                 </tr>
@@ -387,18 +544,26 @@ function DuringPanel({ cycle, rows, support, toast }) {
                     <td><Name row={r.row} sub={r.row.outcome?.cs_email || 'No Cedars-Sinai email yet'} /></td>
                     <td>{r.row.outcome?.hired_unit || r.row.assigned_unit || ''}</td>
                     <td><MentorCell resident={r} canRecord={support.canRecord} onSaved={support.refetch} toast={toast} /></td>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      {r.lastCheckin ? fmtDay(r.lastCheckin) : <span className="ngrp-glance-muted">{r.started ? 'None yet' : 'Starts with residency'}</span>}
-                      {r.overdue && <span className="ngrp-glance-pill ngrp-glance-pill-due" style={{ marginLeft: 6 }}>Overdue</span>}
-                    </td>
-                    <td className="num">{r.checkins}</td>
+                    <td><ReflectionCell resident={r} /></td>
                     <td className="num">{r.sessions}{r.lastSession && <span className="ngrp-glance-muted"> · {fmtDay(r.lastSession)}</span>}</td>
                     {support.canRecord && (
                       <td className="num" style={{ width: 'auto', whiteSpace: 'nowrap' }}>
-                        {staffApp && (
-                          <button type="button" className="ngrp-linkbtn" style={{ marginRight: 10 }} onClick={() => sendCheckin(r)}>
-                            <Send size={12} aria-hidden="true" style={{ marginRight: 4, verticalAlign: '-1px' }} />
-                            Send Check-in
+                        {reflectionsReady && !r.reflection.started && (
+                          starting === r.row.candidate_id ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontFamily: F, marginRight: 10 }}>
+                              Send period 1 now?
+                              <button type="button" style={btn(true)} disabled={busy} onClick={() => start(r)}>{busy ? 'Sending…' : 'Yes'}</button>
+                              <button type="button" className="ngrp-linkbtn" onClick={() => setStarting(null)}>No</button>
+                            </span>
+                          ) : (
+                            <button type="button" className="ngrp-linkbtn" style={{ marginRight: 10 }} onClick={() => setStarting(r.row.candidate_id)}>
+                              Start Reflections
+                            </button>
+                          )
+                        )}
+                        {r.reflection.started && (
+                          <button type="button" className="ngrp-linkbtn" style={{ marginRight: 10 }} onClick={() => setOpenFor(openFor === r.row.candidate_id ? null : r.row.candidate_id)}>
+                            {openFor === r.row.candidate_id ? 'Hide' : 'View'}
                           </button>
                         )}
                         <button type="button" className="ngrp-linkbtn" onClick={() => setSessionFor(r)}>Record Session</button>
@@ -411,6 +576,11 @@ function DuringPanel({ cycle, rows, support, toast }) {
           </div>
         )}
       </section>
+
+      {openResident && (
+        <ReflectionsPanel resident={openResident} canRecord={support.canRecord} toast={toast}
+          onChanged={support.refetch} onClose={() => setOpenFor(null)} />
+      )}
 
       <RecentEntries entries={sessions} rows={rows} canRecord={support.canRecord} onChanged={support.refetch} toast={toast} />
     </>

@@ -192,8 +192,9 @@ export async function postNgrpSupport(action, payload = {}) {
   }
 }
 
-// Recorded support, mentors, and check-ins for one residency cohort. Empty
-// (and the tab shows its placeholder) until migration 20260914000000 is applied.
+// Recorded support, mentors, and reflection runs for one residency cohort. Empty
+// (and the tab shows its placeholder) until migration 20260914000000 is applied;
+// reflections.provisioned is false until 20260917000000 is.
 export function useNgrpSupport(cycleId, { enabled = true } = {}) {
   const query = useQuery({
     queryKey: ['ngrp_workspace', 'support', cycleId],
@@ -208,7 +209,7 @@ export function useNgrpSupport(cycleId, { enabled = true } = {}) {
     status: deriveStatus(query),
     entries: ready ? (query.data.entries || []) : [],
     mentors: ready ? (query.data.mentors || []) : [],
-    checkins: ready ? (query.data.checkins || []) : [],
+    reflections: ready ? (query.data.reflections || { provisioned: false, runs: [], periods: [] }) : { provisioned: false, runs: [], periods: [] },
     canRecord: ready && query.data.canRecord === true,
     today: ready ? query.data.today : null,
     refetch: query.refetch,

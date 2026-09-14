@@ -13,23 +13,44 @@
 //                     -> the ASPIRE team only (Owner, 2026-09-11): staff with
 //                        the NGRP manage capability. Talent Acquisition sees
 //                        support but never records it.
+//   reflection_start  { candidate_id }  -> RESIDENCY-REFLECTION-1: begins the
+//                        resident's bi-weekly reflection run and sends period 1
+//                        now. Retries the first send if it failed; refuses a
+//                        second run.
+//   reflection_stop   { candidate_id }  -> ends the run; live links die with it.
+//   reflection_view   { period_id }     -> one submitted reflection, for the
+//                        ASPIRE team. Sharing beyond the team is deferred.
 //
-// Entries are voided, never deleted. Weekly check-ins are not recorded here:
-// they are sent through ASPIRE Connect and counted from what Connect already
-// records (lib/server/ngrpSupportCheckins.js).
-// A missing table reads as { provisioned: false } until 20260914000000 is applied.
+// Entries are voided, never deleted. The weekly email check-in this tab used to
+// count is gone (Owner, 2026-09-13): the reflection replaces it.
+// A missing table reads as { provisioned: false } until 20260914000000 is applied;
+// the reflection actions need 20260917000000 as well.
+/* global process */
+import { Resend } from 'resend'
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { loadApplicantsPayload, isMissingNgrpTable } from '../lib/server/ngrpApplicants.js'
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 import { validateSupportEntry, validateAttendance, validateMentor, validateVoid } from '../lib/server/ngrpSupport.js'
-import { fetchResidentCheckins } from '../lib/server/ngrpSupportCheckins.js'
+import { generateToken } from '../lib/server/evaluation/tokens.js'
+import { emailBaseUrl } from '../lib/server/appUrl.js'
+import { buildReflectionEmail } from '../lib/server/email/ngrpReflectionEmail.js'
+import { isHired } from '../lib/server/ngrpResidencyRecipient.js'
+import {
+  startReflectionRun, stopReflectionRun, sendReflectionPeriod,
+  RUNS as REFLECTION_RUNS, PERIODS as REFLECTION_PERIODS, SUBMISSIONS as REFLECTION_SUBMISSIONS,
+  RUN_FIELDS, PERIOD_FIELDS, NOTIFICATION_TYPE as REFLECTION_NOTIFICATION_TYPE, TEMPLATE_KEY as REFLECTION_TEMPLATE_KEY,
+} from '../lib/server/ngrpReflection.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['summary', 'record', 'record_attendance', 'void', 'set_mentor'])
-const WRITES = new Set(['record', 'record_attendance', 'void', 'set_mentor'])
+const ACTIONS = new Set(['summary', 'record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view'])
+const WRITES = new Set(['record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop'])
+// Reading a resident's answers is the ASPIRE team's until the Owner decides
+// how sharing works; it is a read, so it needs no manage capability.
+const TEAM_ONLY = new Set([...WRITES, 'reflection_view'])
 const ENTRIES = 'ngrp_support_entries'
 const MENTORS = 'ngrp_resident_mentors'
+const FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
 const ENTRY_FIELDS = 'id, cycle_id, candidate_id, student_id, activity, occurred_on, note, mentor_name, event_id, recorded_at'
 
 const unprovisioned = res => res.status(200).json({ provisioned: false })
@@ -53,8 +74,8 @@ export default async function handler(req, res) {
   const caller = await verifyNgrpCaller(req, { manage: WRITES.has(action) })
   if (!caller.ok) return res.status(caller.status).json({ error: caller.reason })
   const isTA = caller.audience === TALENT_ACQUISITION
-  // Only the ASPIRE team records support.
-  if (WRITES.has(action) && isTA) return res.status(403).json({ error: 'aspire_team_only' })
+  // Only the ASPIRE team records support, or reads a resident's reflections.
+  if (TEAM_ONLY.has(action) && isTA) return res.status(403).json({ error: 'aspire_team_only' })
 
   const db = getServiceDb()
   const actorId = caller.profile.id
@@ -88,8 +109,27 @@ export default async function handler(req, res) {
         const probe = await db.from(ENTRIES).select('id').limit(1)
         if (probe.error) return isMissingNgrpTable(probe.error) ? unprovisioned(res) : internal(res)
       }
-      const checkins = await fetchResidentCheckins(db, studentIds)
-      if (checkins.error) return internal(res)
+      // RESIDENCY-REFLECTION-1: each resident's run and periods, status only,
+      // never a payload. Absent until 20260917000000 is applied, which the tab
+      // reads as "Start is not available yet" rather than as an error.
+      let runs = []
+      let periods = []
+      let reflectionsProvisioned = true
+      if (candidateIds.length) {
+        const r = await db.from(REFLECTION_RUNS).select(RUN_FIELDS).in('candidate_id', candidateIds)
+        if (r.error) {
+          if (!isMissingNgrpTable(r.error)) return internal(res)
+          reflectionsProvisioned = false
+        } else {
+          runs = r.data || []
+          if (runs.length) {
+            const p = await db.from(REFLECTION_PERIODS).select(PERIOD_FIELDS).in('run_id', runs.map(x => x.id)).order('period_number')
+            if (p.error) return internal(res)
+            periods = p.data || []
+          }
+        }
+      }
+      void studentIds
 
       return res.status(200).json({
         provisioned: true,
@@ -97,8 +137,96 @@ export default async function handler(req, res) {
         today,
         entries,
         mentors,
-        checkins: checkins.rows,
+        reflections: { provisioned: reflectionsProvisioned, runs, periods },
       })
+    }
+
+    // ── reflection_view: one submitted period, the ASPIRE team only ─────────
+    if (action === 'reflection_view') {
+      const periodId = typeof body.period_id === 'string' && UUID.test(body.period_id) ? body.period_id : null
+      if (!periodId) return res.status(422).json({ error: 'invalid_period_id' })
+      const period = await db.from(REFLECTION_PERIODS).select(PERIOD_FIELDS).eq('id', periodId).maybeSingle()
+      if (period.error) return isMissingNgrpTable(period.error) ? unprovisioned(res) : internal(res)
+      if (!period.data) return res.status(404).json({ error: 'period_not_found' })
+      const sub = await db.from(REFLECTION_SUBMISSIONS).select('payload, submitted_at').eq('period_id', periodId).maybeSingle()
+      if (sub.error) return internal(res)
+      return res.status(200).json({ ok: true, period: period.data, submission: sub.data || null })
+    }
+
+    // ── reflection_start / reflection_stop ───────────────────────────────────
+    if (action === 'reflection_start' || action === 'reflection_stop') {
+      const candidateId = typeof body.candidate_id === 'string' && UUID.test(body.candidate_id) ? body.candidate_id : null
+      if (!candidateId) return res.status(422).json({ error: 'invalid_candidate_id' })
+      const cand = await db.from('ngrp_candidates').select('id, cycle_id, student_id').eq('id', candidateId).maybeSingle()
+      if (cand.error) return isMissingNgrpTable(cand.error) ? unprovisioned(res) : internal(res)
+      if (!cand.data) return res.status(404).json({ error: 'candidate_not_found' })
+      const nowIso = new Date().toISOString()
+      const existing = await db.from(REFLECTION_RUNS).select(RUN_FIELDS).eq('candidate_id', candidateId).maybeSingle()
+      if (existing.error) return isMissingNgrpTable(existing.error) ? unprovisioned(res) : internal(res)
+
+      if (action === 'reflection_stop') {
+        if (!existing.data) return res.status(404).json({ error: 'run_not_found' })
+        const stopped = await stopReflectionRun(db, { run: existing.data, actorProfileId: actorId, nowIso })
+        if (!stopped.ok) return internal(res)
+        return res.status(200).json({ ok: true, idempotent: stopped.idempotent === true })
+      }
+
+      // Only a resident (hired, not separated) receives reflections, at the
+      // residency address (Cedars-Sinai first, never the school).
+      const [outcome, student] = await Promise.all([
+        db.from('ngrp_residency_outcomes').select('candidate_id, hired_at, separated_at, cs_email').eq('candidate_id', candidateId).maybeSingle(),
+        db.from('students').select('id, first_name, last_name, preferred_first_name, name, personal_email').eq('id', cand.data.student_id).maybeSingle(),
+      ])
+      if (outcome.error || student.error || !student.data) return internal(res)
+      if (!isHired(outcome.data)) return res.status(422).json({ error: 'not_a_resident' })
+
+      let run = existing.data
+      let periods = []
+      if (run) {
+        const p = await db.from(REFLECTION_PERIODS).select(PERIOD_FIELDS).eq('run_id', run.id).order('period_number')
+        if (p.error) return internal(res)
+        periods = p.data || []
+        // A run whose first period went out is already started; one whose
+        // first send failed is retried rather than duplicated.
+        if (run.status !== 'active') return res.status(409).json({ error: 'run_ended' })
+        if (periods[0]?.sent_at) return res.status(409).json({ error: 'already_started' })
+      } else {
+        const started = await startReflectionRun(db, { candidate: cand.data, actorProfileId: actorId, startedOn: today })
+        if (!started.ok) {
+          if (started.reason === 'already_started') return res.status(409).json({ error: 'already_started' })
+          return isMissingNgrpTable(started.error) ? unprovisioned(res) : internal(res)
+        }
+        run = started.run
+        periods = started.periods
+      }
+
+      const resendClient = new Resend(process.env.RESEND_API_KEY)
+      const sendEmail = async ({ to, subject, html, idempotencyKey }) => {
+        try {
+          const { data, error } = await resendClient.emails.send({ from: FROM, to, subject, html }, { idempotencyKey })
+          if (error) return { ok: false, reason: 'provider_rejected' }
+          return { ok: true, providerId: data?.id || null }
+        } catch {
+          return { ok: false, reason: 'provider_error' }
+        }
+      }
+      const sent = await sendReflectionPeriod({
+        db, run, period: periods[0], student: student.data, outcome: outcome.data,
+        actorProfileId: actorId, generateToken, sendEmail, buildEmail: buildReflectionEmail,
+        baseUrl: emailBaseUrl(req), nowIso,
+      })
+      if (sent.outcome === 'sent') {
+        // Display ledger only (Sent History). Never the URL, never the token.
+        await db.from('notification_log').insert({
+          notification_type: REFLECTION_NOTIFICATION_TYPE, audience: 'student', recipient_email: sent.to,
+          recipient_name: student.data.name || `${student.data.first_name || ''} ${student.data.last_name || ''}`.trim(),
+          recipient_role: 'Student', subject: sent.subject, status: 'sent', resend_email_id: sent.providerId,
+          sent_at: nowIso, recipient_type: 'student', student_id: cand.data.student_id,
+          metadata: { template_key: REFLECTION_TEMPLATE_KEY, period_number: 1, token_hash_prefix: sent.tokenHashPrefix, sent_by_user_id: actorId },
+        })
+      }
+      const ok = sent.outcome === 'sent' || sent.outcome === 'repaired'
+      return res.status(ok ? 200 : 502).json({ ok, run, periods, send: { outcome: sent.outcome, reason: sent.reason || null } })
     }
 
     // ── record one activity for one alumnus ─────────────────────────────────

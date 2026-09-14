@@ -32,6 +32,7 @@ import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
 import StudentEvaluationPage from './pages/StudentEvaluationPage'
 import PostRotationEvaluationPage from './pages/PostRotationEvaluationPage'
 import NgrpTransitionFormPage from './pages/NgrpTransitionFormPage'
+import NgrpReflectionPage from './pages/NgrpReflectionPage'
 import UnitFormPage from './components/UnitFormPage'
 import { applyReviewTotals } from './lib/studentTotals'
 import { applyPreceptorProjection } from './lib/preceptorProjection'
@@ -1853,6 +1854,8 @@ export default function App() {
           /* wildcard like every public form, so an alumnus's secure link renders
           outside the authed shell; the raw token travels only in the fragment. */}
       <Route path="/ngrp/transition/*" element={<div data-theme-lock="light"><NgrpTransitionFormPage /></div>} />
+      {/* RESIDENCY-REFLECTION-1: the resident's bi-weekly reflection, by personal link. */}
+      <Route path="/ngrp/reflection/*" element={<div data-theme-lock="light"><NgrpReflectionPage /></div>} />
       {/* RECOVERY-PASSWORD-SCREEN-1: public password-recovery landing (Supabase reset link target).
           Must precede the /* wildcard so it renders outside AuthedShell even with a recovery session. */}
       <Route path="/auth/reset-password"   element={<div data-theme-lock="light"><ResetPasswordPage /></div>} />

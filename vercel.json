@@ -79,6 +79,10 @@
     {
       "path": "/api/cron/portal-feedback-delivery-worker",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/resident-reflections",
+      "schedule": "0 2,3,4 * * 6"
     }
   ],
   "functions": {
@@ -94,6 +98,7 @@
     "api/admin-users.js":                 { "maxDuration": 10 },
     "api/unit-form-submit.js":            { "maxDuration": 15 },
     "api/cron/teams-invite-reminders.js": { "maxDuration": 60 },
+    "api/cron/resident-reflections.js":   { "maxDuration": 60 },
     "api/cron/interview-reminders.js":             { "maxDuration": 60 },
     "api/admin/resend-interview-reminders.js":     { "maxDuration": 60 },
     "api/cron/coordinator-weekly-digest.js":       { "maxDuration": 60 },

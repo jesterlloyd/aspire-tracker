@@ -1,8 +1,9 @@
 // RESIDENCY-SUPPORT-1: the Support tab's rules. Owner decisions, 2026-09-11:
 // Before = Résumé Review, Town Hall, Interview Bootcamp, Placement Advising;
-// During = Weekly Email Check-ins (sent through Connect, counted from its log)
-// and Mentorship Sessions with the resident's assigned NPD-P. Only the ASPIRE
-// team records; Talent Acquisition sees. Voided, never deleted.
+// During = Mentorship Sessions with the resident's assigned NPD-P and, since
+// RESIDENCY-REFLECTION-1 (2026-09-13), the bi-weekly reflection that replaced
+// the weekly email check-in. Only the ASPIRE team records; Talent Acquisition
+// sees. Voided, never deleted.
 // Run: node --test test/residencySupport.test.mjs
 
 import test from 'node:test'
@@ -84,7 +85,7 @@ test('before residency: per-alumnus cells and KPI counts; voided entries never c
   assert.equal(b.rows[2].total, 0)
 })
 
-test('during residency: residents, mentors, check-ins from Connect, overdue after 7 days', () => {
+test('during residency: residents, mentors, reflections, and sessions', () => {
   const hired = { hired_at: '2027-01-05T00:00:00Z', residency_start_date: '2027-01-11' }
   const rows = [
     row('11', { outcome: hired }),
@@ -93,29 +94,42 @@ test('during residency: residents, mentors, check-ins from Connect, overdue afte
     row('14'),
   ]
   assert.equal(isResident(rows[2]), false, 'separated residents drop off')
+  // RESIDENCY-REFLECTION-1: ana's run has two periods sent, one submitted and
+  // one past due; ben has not been started.
   const d = duringResidency(rows, {
-    today: '2027-01-25',
+    today: '2027-02-10',
     mentors: [{ candidate_id: 'k11', mentor_name: 'Jester Lloyd Bautista' }],
-    checkins: [{ student_id: ID('11'), sent_at: '2027-01-20T16:00:00Z' }, { student_id: ID('11'), sent_at: '2027-01-13T16:00:00Z' }],
+    reflections: {
+      runs: [{ id: 'run11', candidate_id: 'k11', status: 'active', period_count: 5 }],
+      periods: [
+        { run_id: 'run11', period_number: 1, due_on: '2027-01-24', sent_at: '2027-01-11T00:00:00Z', status: 'submitted' },
+        { run_id: 'run11', period_number: 2, due_on: '2027-02-07', sent_at: '2027-01-22T00:00:00Z', status: 'opened' },
+        { run_id: 'run11', period_number: 3, due_on: '2027-02-21', sent_at: null, status: 'pending' },
+      ],
+    },
     entries: [{ student_id: ID('11'), activity: 'mentorship_session', occurred_on: '2027-01-15' }],
   })
   assert.equal(d.residents.length, 2)
   const [ana, ben] = d.residents
   assert.equal(ana.mentor.mentor_name, 'Jester Lloyd Bautista')
-  assert.equal(ana.checkins, 2)
-  assert.equal(ana.lastCheckin, '2027-01-20')
-  assert.equal(ana.overdue, false, '5 days since the last one')
+  assert.equal(ana.reflection.sent, 2)
+  assert.equal(ana.reflection.submitted, 1)
+  assert.equal(ana.reflection.overdue, 1, 'period 2 was due 2027-02-07 and is still open')
+  assert.equal(ana.reflection.next.period_number, 2)
+  assert.equal(ana.overdue, true)
   assert.equal(ana.sessions, 1)
-  assert.equal(ben.overdue, true, 'started 14 days ago with no check-in')
-  assert.deepEqual(d.kpis, { residents: 2, withMentor: 1, overdue: 1, checkins: 2, sessions: 1 })
-  const early = duringResidency(rows, { today: '2027-01-08' })
-  assert.equal(early.residents.every(r => !r.overdue && !r.started), true, 'nothing is due before the residency starts')
+  assert.equal(ben.reflection.started, false)
+  assert.equal(ben.overdue, false, 'nothing is due for someone who has not been started')
+  assert.deepEqual(d.kpis, { residents: 2, withMentor: 1, reflecting: 1, submitted: 1, overdue: 1, sessions: 1 })
 })
 
 test('the endpoint: Talent Acquisition reads the narrowed roster and never writes; entries are voided', () => {
   const api = read('api/ngrp-support.js')
   assert.match(api, /verifyNgrpCaller\(req, \{ manage: WRITES\.has\(action\) \}\)/)
-  assert.match(api, /if \(WRITES\.has\(action\) && isTA\) return res\.status\(403\)\.json\(\{ error: 'aspire_team_only' \}\)/)
+  // RESIDENCY-REFLECTION-1 widened the team-only set to include reading a
+  // resident's reflection; every write is still in it.
+  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view'\]\)/)
+  assert.match(api, /if \(TEAM_ONLY\.has\(action\) && isTA\) return res\.status\(403\)\.json\(\{ error: 'aspire_team_only' \}\)/)
   assert.match(api, /const view = isTA \? narrowPayloadForTalentAcquisition\(payload\) : payload/)
   assert.match(api, /\.is\('voided_at', null\)/)
   assert.doesNotMatch(api, /\.delete\(/, 'nothing is ever deleted')

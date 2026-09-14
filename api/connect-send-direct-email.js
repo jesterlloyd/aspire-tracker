@@ -51,13 +51,12 @@ import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { verifyPlacementSend } from './lib/placementSendGuard.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
-import { RESIDENT_CHECKIN_TEMPLATE_KEY } from '../lib/server/ngrpSupportCheckins.js';
-import { residencyRecipient } from '../lib/server/ngrpResidencyRecipient.js';
 
-// RESIDENCY-SUPPORT-1: templates a send may declare. The marker never changes
-// the body; it records WHICH template this was, so Residency > Support can count
-// check-ins from the send itself, and it selects the residency address rule.
-const TEMPLATE_KEYS = new Set([RESIDENT_CHECKIN_TEMPLATE_KEY]);
+// Templates a send may declare by key. The marker never changes the body; it
+// records WHICH template this was. Empty since RESIDENCY-REFLECTION-1 retired
+// the weekly check-in (2026-09-13); the allowlist stays so a future template
+// has one place to be declared and an undeclared key is still refused.
+const TEMPLATE_KEYS = new Set([]);
 
 // CONNECT-COMMS-1D: seeded fallback signatures for the two known leads (by email), used when a
 // sender has not configured their own connect_signature yet. (signatures.js has no phone field.)
@@ -377,38 +376,7 @@ async function _handler(req, res, startMs) {
       hardError = { status: 404, error: 'Student not found' };
       recipientSource = 'missing';
     } else {
-      let resolved = resolveStudentCorrespondenceRecipient(student, null, {});
-      // RESIDENCY-SUPPORT-1 (Owner, 2026-09-11): residency mail never uses the
-      // school address - alumni lose it after graduation. A hired resident is
-      // reached at their Cedars-Sinai address, with the personal email as the
-      // backup; anyone else at their personal address.
-      if (templateKey === RESIDENT_CHECKIN_TEMPLATE_KEY) {
-        const full = await supabaseAdmin
-          .from('ngrp_residency_outcomes')
-          .select('hired_at, separated_at, cs_email')
-          .eq('student_id', recipientId)
-          .not('hired_at', 'is', null)
-          .order('hired_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        // Before 20260915000000 the column does not exist; the rule then falls
-        // through to the personal email rather than failing the send.
-        const lite = full.error
-          ? await supabaseAdmin
-            .from('ngrp_residency_outcomes')
-            .select('hired_at, separated_at')
-            .eq('student_id', recipientId)
-            .not('hired_at', 'is', null)
-            .order('hired_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          : null;
-        const outcome = full.error ? (lite?.data || null) : (full.data || null);
-        const pick = residencyRecipient({ outcome, student });
-        resolved = pick.email
-          ? { email: pick.email, type: pick.source, reason: null, warning: null }
-          : { email: null, type: 'missing', reason: pick.reason, warning: null };
-      }
+      const resolved = resolveStudentCorrespondenceRecipient(student, null, {});
       recipientEmail       = resolved.email;
       recipientName        = `${student.first_name || ''} ${student.last_name || ''}`.trim() || null;
       recipientRole        = 'Student';
