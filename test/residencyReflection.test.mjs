@@ -462,7 +462,7 @@ test('the refined questionnaire: sample answers in every text field, four (i) te
   assert.match(phone, /\.ngrpr-goal \.ngrpr-opts \{ display: grid; grid-template-columns: 1fr 1fr; \}/)
   assert.match(phone, /\.ngrpr-daymenu \.ngrpr-btn \{ flex: 1 1 0; min-height: 44px; \}/)
   assert.match(page, /\.ngrpr-cal-nav button \{ min-width: 44px; min-height: 40px;/)
-  assert.match(page, /\.ngrpr-link \{[^}]*min-height: 40px;/)
+  assert.match(page, /\.ngrpr-link \{[^\n]*min-height: 40px;/)
   assert.match(page, /<div className="tier" key=\{t\.tier\}>/, 'the TSAM ladder is one block per tier, readable at any width')
   assert.match(page, /<label htmlFor=\{id\}><span className="lt">\{label\}\{helpKey && <> \{help\(helpKey\)\}<\/>\}<\/span>\{hint && <span className="lh">\{hint\}<\/span>\}<\/label>/, 'the (i) travels with the label text')
   // The renamed line and the retired textarea.
