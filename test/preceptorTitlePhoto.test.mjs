@@ -78,6 +78,15 @@ test('both fields need an email, and a user edit is never overwritten by a looku
   assert.match(modal, /Add an email to set a role\/title or photo\./)
 })
 
+test('the photo leads the form like a contact card, with the upload prompt inside the empty circle', () => {
+  const card = modal.indexOf('data-testid="preceptor-photo-card"')
+  assert.ok(card > 0 && card < modal.indexOf('Full Name *'), 'photo card comes before Full Name')
+  assert.match(modal, /: <><Camera size=\{20\}[^>]*\/><span>Upload Photo<\/span><\/>\)/)
+  assert.match(modal, /aria-label=\{form\.avatar_url \? 'Change photo' : 'Upload photo'\}/)
+  // Full Name and Role/Title share the first row.
+  assert.match(modal, /Full Name \*<\/label>[\s\S]{0,400}htmlFor="preceptor-title-select">Role\/Title/)
+})
+
 test('Rotation > Preceptors shows a Role/Title column; other hosts do not', () => {
   assert.match(table, /contactTitleMap=\{contactMaps\.titles\}/)
   assert.match(dir, /contactTitleMap = null,/)

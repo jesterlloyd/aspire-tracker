@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { Camera } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { buildUnitOptions, optionLabel, resolveUnitName } from '../lib/preceptorUnitOptions'
-import { preceptorInitials } from '../lib/preceptorDirectory'
 import { uploadContactAvatar, CONTACT_AVATAR_HINT } from '../lib/contactAvatarUpload'
 import {
   CUSTOM_TITLE, normalizeEmail, pickContactByEmail, titleChoices, buildContactPatch,
@@ -330,15 +330,85 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
               </div>
             )}
 
-            <div className="form-field">
-              <label className="form-label">Full Name *</label>
-              <input
-                className="form-input"
-                value={form.full_name}
-                onChange={e => set('full_name', e.target.value)}
-                placeholder="Jane Smith"
-                autoFocus
-              />
+            {/* PRECEPTOR-TITLE-PHOTO-1: the photo leads the form like a contact
+                card. Photo and Role/Title are the contact's, so both need an
+                email to find or create that contact. */}
+            <div className="preceptor-form-card" data-testid="preceptor-photo-card">
+              <button
+                type="button"
+                className={`preceptor-form-photo-circle${form.avatar_url ? ' has-photo' : ''}`}
+                data-testid="preceptor-photo-button"
+                onClick={() => fileRef.current?.click()}
+                disabled={!emailUsable || uploadingPhoto}
+                aria-label={form.avatar_url ? 'Change photo' : 'Upload photo'}
+              >
+                {form.avatar_url && <img src={form.avatar_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} />}
+                {!form.avatar_url && (uploadingPhoto
+                  ? <span>Uploading…</span>
+                  : <><Camera size={20} strokeWidth={1.75} aria-hidden="true" /><span>Upload Photo</span></>)}
+              </button>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden
+                data-testid="preceptor-photo-input" onChange={handlePhotoUpload} />
+              {form.avatar_url && (
+                <div className="preceptor-form-photo-links">
+                  {uploadingPhoto ? <span>Uploading…</span> : (
+                    <>
+                      <button type="button" className="preceptor-form-link" onClick={() => fileRef.current?.click()}>Change</button>
+                      <button type="button" className="preceptor-form-link"
+                        onClick={() => { setContactField({ avatar_url: '' }); setUploadErr(null) }}>Remove</button>
+                    </>
+                  )}
+                </div>
+              )}
+              {uploadErr && <div className="preceptor-form-error" role="alert">{uploadErr}</div>}
+              <p className="preceptor-form-hint" data-testid="preceptor-contact-hint">
+                {!emailUsable
+                  ? 'Add an email to set a role/title or photo.'
+                  : contactState === 'loading'
+                    ? 'Looking up the ASPIRE Connect contact…'
+                    : contact
+                      ? `Role/Title and photo are saved on ${contact.full_name}'s ASPIRE Connect contact. ${CONTACT_AVATAR_HINT}.`
+                      : `Role/Title and photo are saved to a new ASPIRE Connect contact. ${CONTACT_AVATAR_HINT}.`}
+              </p>
+            </div>
+
+            <div className="form-grid form-grid-2">
+              <div className="form-field">
+                <label className="form-label">Full Name *</label>
+                <input
+                  className="form-input"
+                  value={form.full_name}
+                  onChange={e => set('full_name', e.target.value)}
+                  placeholder="Jane Smith"
+                  autoFocus
+                />
+              </div>
+              <div className="form-field">
+                <label className="form-label" htmlFor="preceptor-title-select">Role/Title</label>
+                <select
+                  id="preceptor-title-select"
+                  className="form-select"
+                  data-testid="preceptor-title-select"
+                  value={form.role_custom ? CUSTOM_TITLE : (form.role || '')}
+                  onChange={e => handleTitleSelect(e.target.value)}
+                  disabled={!emailUsable}
+                >
+                  <option value="">Not specified</option>
+                  {titleOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  {legacyTitle && !form.role_custom && <option value={legacyTitle}>{legacyTitle}</option>}
+                  {allowsFreeText && <option value={CUSTOM_TITLE}>Other</option>}
+                </select>
+                {form.role_custom && (
+                  <input
+                    className="form-input preceptor-form-custom-title"
+                    value={form.role}
+                    onChange={e => setContactField({ role: e.target.value })}
+                    placeholder="Type the role or title"
+                    aria-label="Custom role or title"
+                    maxLength={120}
+                  />
+                )}
+              </div>
             </div>
 
             <div className="form-grid form-grid-2">
@@ -395,71 +465,6 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
                 </select>
               </div>
             </div>
-
-            {/* PRECEPTOR-TITLE-PHOTO-1: both fields are the contact's, so they
-                need an email to find or create that contact. */}
-            <div className="form-grid form-grid-2">
-              <div className="form-field">
-                <label className="form-label" htmlFor="preceptor-title-select">Role/Title</label>
-                <select
-                  id="preceptor-title-select"
-                  className="form-select"
-                  data-testid="preceptor-title-select"
-                  value={form.role_custom ? CUSTOM_TITLE : (form.role || '')}
-                  onChange={e => handleTitleSelect(e.target.value)}
-                  disabled={!emailUsable}
-                >
-                  <option value="">Not specified</option>
-                  {titleOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                  {legacyTitle && !form.role_custom && <option value={legacyTitle}>{legacyTitle}</option>}
-                  {allowsFreeText && <option value={CUSTOM_TITLE}>Other</option>}
-                </select>
-                {form.role_custom && (
-                  <input
-                    className="form-input preceptor-form-custom-title"
-                    value={form.role}
-                    onChange={e => setContactField({ role: e.target.value })}
-                    placeholder="Type the role or title"
-                    aria-label="Custom role or title"
-                    maxLength={120}
-                  />
-                )}
-              </div>
-              <div className="form-field">
-                <span className="form-label" id="preceptor-photo-label">Photo</span>
-                <div className="preceptor-form-photo" role="group" aria-labelledby="preceptor-photo-label">
-                  <span className="preceptor-dir-avatar" aria-hidden="true">
-                    {form.avatar_url && <img src={form.avatar_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} />}
-                    <span>{preceptorInitials(form.full_name)}</span>
-                  </span>
-                  <div className="preceptor-form-photo-actions">
-                    <button type="button" className="btn btn-outline-modal preceptor-form-photo-btn"
-                      onClick={() => fileRef.current?.click()}
-                      disabled={!emailUsable || uploadingPhoto}>
-                      {uploadingPhoto ? 'Uploading…' : form.avatar_url ? 'Change' : 'Upload'}
-                    </button>
-                    {form.avatar_url && !uploadingPhoto && (
-                      <button type="button" className="btn btn-outline-modal preceptor-form-photo-btn"
-                        onClick={() => { setContactField({ avatar_url: '' }); setUploadErr(null) }}>
-                        Remove
-                      </button>
-                    )}
-                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden
-                      data-testid="preceptor-photo-input" onChange={handlePhotoUpload} />
-                  </div>
-                </div>
-                {uploadErr && <div className="preceptor-form-error" role="alert">{uploadErr}</div>}
-              </div>
-            </div>
-            <p className="preceptor-form-hint" data-testid="preceptor-contact-hint">
-              {!emailUsable
-                ? 'Add an email to set a role/title or photo.'
-                : contactState === 'loading'
-                  ? 'Looking up the ASPIRE Connect contact…'
-                  : contact
-                    ? `Role/Title and photo are saved on ${contact.full_name}'s ASPIRE Connect contact. ${CONTACT_AVATAR_HINT}.`
-                    : `Role/Title and photo are saved to a new ASPIRE Connect contact. ${CONTACT_AVATAR_HINT}.`}
-            </p>
 
             <div className="form-field">
               <label className="form-label">Notes</label>
