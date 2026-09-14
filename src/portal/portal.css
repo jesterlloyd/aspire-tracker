@@ -1923,8 +1923,13 @@ img.ptl-detail-photo {
   padding: 9px 10px; color: #191919; background: #fff; font: inherit; font-size: 13px;
 }
 
+/* STUDENT-CAL-TOUCH-1 (Owner, 2026-09-14: "remove the Plan Shift in each block of
+   date ... It looks so crowded"). The per-day pill only ever shows on hover with a
+   mouse. A touch screen has no hover, and this rule used to show it on every empty
+   day at once; there it is hidden, a tap selects the day, and the Plan Shift button
+   beside the calendar plans it. */
 @media (hover: none) {
-  .ptl-student-cal-add { opacity: 1; }
+  .ptl-student-cal-add { display: none; }
 }
 
 @media (max-width: 760px) {

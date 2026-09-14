@@ -385,7 +385,11 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
                   onClick={() => {
                     setSelectedDate(ymd)
                     setCancelConfirm(false)
-                    if (empty && !readOnly) openPlan(ymd)
+                    // STUDENT-CAL-TOUCH-1 (Owner, 2026-09-14): on a touch screen a tap
+                    // only chooses the day; the Plan Shift button beside the calendar
+                    // plans it. A mouse can still open the planner from an empty day.
+                    const touch = typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches
+                    if (empty && !readOnly && !touch) openPlan(ymd)
                   }}
                 >
                   {log && (
@@ -396,7 +400,14 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
                       ariaLabel={`Logged shift${log.preceptor_name ? ` with ${log.preceptor_name}` : ''}`}
                     />
                   )}
-                  {plan && <span className="ptl-student-cal-plan">Shift {firstNameOf(plan.preceptor_name) ? `with ${firstNameOf(plan.preceptor_name)}` : ''}</span>}
+                  {/* STUDENT-CAL-TOUCH-1 (Owner): a planned shift reads "Planned Shift with
+                      <preceptor>", first name on the chip as the logged chip does, the full
+                      name on hover. */}
+                  {plan && (
+                    <span className="ptl-student-cal-plan" title={plan.preceptor_name ? `Planned Shift with ${plan.preceptor_name}` : 'Planned Shift'}>
+                      Planned Shift{firstNameOf(plan.preceptor_name) ? ` with ${firstNameOf(plan.preceptor_name)}` : ''}
+                    </span>
+                  )}
                   {dayHolidays.slice(0, 1).map(holiday => <span className="ptl-student-cal-holiday" key={holiday.name}>{holiday.name}</span>)}
                   {/* EVENT-AUDIENCE-1: the event's own colour, as staff chose it, so the same
                       event reads the same here as on the staff calendar. Never the holiday
@@ -418,7 +429,7 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
         </div>
         <div className="ptl-cal-legend">
           <span><span className="ptl-cal-chip" aria-hidden="true">Shift</span> Logged shift</span>
-          <span><span className="ptl-student-cal-plan" aria-hidden="true">Shift</span> Planned shift</span>
+          <span><span className="ptl-student-cal-plan" aria-hidden="true">Planned Shift</span> Planned shift</span>
           <span><span className="ptl-student-cal-holiday" aria-hidden="true">Holiday</span> Federal holiday</span>
           <span><span className="ptl-student-cal-event" aria-hidden="true" style={{ background: '#1d25671a', color: '#1D2567' }}>Event</span> ASPIRE event</span>
           <span><span className="ptl-student-cal-blackout" aria-hidden="true">Blackout</span> School blackout</span>

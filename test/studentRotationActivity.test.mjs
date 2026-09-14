@@ -107,6 +107,14 @@ test('Rotation Activity reuses the canonical calendar and shows nonblocking date
   assert.match(component, /> Plan Shift</)
   assert.match(component, /disabled=\{readOnly\}/)
   assert.match(component, /\{empty && <span className="ptl-student-cal-add"/)
+  // STUDENT-CAL-TOUCH-1 (Owner, 2026-09-14): on a touch screen the per-day pill is
+  // hidden, a tap only selects the day, and the chip says what the shift is.
+  const portalCss = read('src/portal/portal.css')
+  assert.match(portalCss, /@media \(hover: none\) \{\s*\.ptl-student-cal-add \{ display: none; \}/)
+  assert.doesNotMatch(portalCss, /^\s*\.ptl-student-cal-add \{ opacity: 1; \}/m, 'the touch rule that lit every pill is back')
+  assert.match(component, /const touch = typeof window !== 'undefined' && window\.matchMedia\?\.\('\(hover: none\)'\)\.matches/)
+  assert.match(component, /if \(empty && !readOnly && !touch\) openPlan\(ymd\)/)
+  assert.match(component, /Planned Shift\{firstNameOf\(plan\.preceptor_name\) \? ` with \$\{firstNameOf\(plan\.preceptor_name\)\}` : ''\}/)
   assert.match(component, /It does not log clinical hours/)
   assert.match(component, /submit the actual shift through the Shift Log/)
   assert.match(component, /School blackout dates and federal holidays are informational/)
