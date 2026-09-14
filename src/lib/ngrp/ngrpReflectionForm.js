@@ -48,6 +48,101 @@ export const DIFFICULTY_AREA_KEYS = Object.freeze(DIFFICULTY_AREAS.map(a => a.ke
 
 export const GOAL_STATES = Object.freeze(['met', 'not_met'])
 
+// RESIDENCY-REFLECTION-2 (Owner, 2026-09-14): the form explains its own terms.
+//
+// TSAM is the Tiered Skills Acquisition Model, the framework the unit's
+// orientation runs on: five tiers from basic supervision to independent
+// practice, each adding to the one before. The ladder below is the Owner's own
+// slide, transcribed. The field is a Tier 1 to 5 choice rather than free text,
+// so answers stay comparable across residents.
+export const TSAM_TIERS = Object.freeze([
+  { tier: 1, orientee: ['Shadow', 'Observation'],
+    preceptor: ['Introduce orientee', 'Tour the unit', 'Encourage questions'] },
+  { tier: 2, orientee: ['Assessment', 'Documentation'],
+    preceptor: ['Assess and watch charting', 'Identify resources and review policies, procedures, and protocols', 'Narrate patient care'] },
+  { tier: 3, orientee: ['Medication management', 'Safety', 'Orders and labs'],
+    preceptor: ['Coach 5 nights', 'Add tasks as objectives are met', 'Build on tier 2', 'Model time management'] },
+  { tier: 4, orientee: ['Changes in patient condition', 'Alarm management', 'Quality'],
+    preceptor: ['Seek opportunities for complex nursing care', 'Debrief after each shift'] },
+  { tier: 5, orientee: ['Delegation, teamwork, and communication', 'Admissions, discharges, and transfers'],
+    preceptor: ['Coach and support during handoff', 'Model prioritization and delegation'] },
+])
+
+export const HELP = Object.freeze({
+  tsam: {
+    title: 'TSAM tier',
+    body: 'The Tiered Skills Acquisition Model is the structured, competence-based framework your orientation follows. It guides you from basic supervision to independent practice in five tiers, each adding skills to the tier before. Choose the tier you are working in this shift.',
+    tiers: TSAM_TIERS,
+  },
+  ana: {
+    title: 'ANA Scope and Standards',
+    body: 'The American Nurses Association Scope and Standards of Practice are the standards every registered nurse practices to. Name the standards you applied this period. Refer to your ANA Scope and Standards bookmark.',
+  },
+  caritas: {
+    title: 'Caritas Processes',
+    body: 'The Caritas Processes come from Dr. Jean Watson’s Human Caring Theory: ways of caring for yourself and your patients. Name the processes you practiced this period. Refer to your Caritas Processes bookmark.',
+  },
+  cslink: {
+    title: 'CS Link',
+    body: 'CS Link is Cedars-Sinai’s electronic health record, where you chart.',
+  },
+})
+
+// Greyed sample answers (Owner). Each is an example in the voice of a new
+// graduate, drawn from the paper tool's own prompts; it disappears the moment
+// they type. Keyed by the field id the page renders.
+export const PLACEHOLDERS = Object.freeze({
+  unit: 'For example: 5 SCCT',
+  preceptor_names: 'For example: Ana Lim, RN and Marcus Reed, RN',
+  questions: 'For example: When is the chest tube workshop? Who do I ask about my badge access?',
+  diagnoses: 'For example: CHF exacerbation, post-op CABG day 2, COPD',
+  went_well: 'For example: My handoff to the night RN was complete and organized. I caught a potassium of 3.1 before morning meds.',
+  improve: 'For example: I fell behind on 1000 meds when a dressing change ran long. Next time I will ask for help earlier.',
+  communication: 'For example: Called the hospitalist with a clear SBAR about a potassium result. Talked a family through discharge timing.',
+  technical: 'For example: Two IV starts, heparin drip titration, a chest tube dressing change with my preceptor.',
+  goal: 'For example: Take a full 3-patient assignment with my preceptor observing only',
+  ana_standards: 'For example: Standard 1, Assessment, and Standard 5, Implementation. I prioritized an abnormal lab and coordinated the replacement order.',
+  caritas: 'For example: Caritas Process 4. I stayed with a patient through a hard conversation about pain instead of moving on to the next task.',
+  workshops: 'For example: Oct 8 (Cardiac), Oct 22 (Devices)',
+  support_needed: 'For example: A second CS Link session would help. I would like to shadow a charge nurse for one shift.',
+})
+
+// ── The schedule (Owner, 2026-09-14) ────────────────────────────────────────
+// One calendar per resident. A mark means "I work, or worked, this day".
+export const SCHEDULE_SHIFTS = Object.freeze(['Day', 'Night', 'Mid'])
+export const RESIDENT_SHIFTS = Object.freeze(['Day', 'Night', 'Mid', 'Variable'])
+
+// A period's two weeks, the marks that belong to it.
+export function periodWindow(period) {
+  return { from: period.opens_on, to: period.due_on }
+}
+
+export function marksInWindow(marks = [], window) {
+  return (marks || []).filter(m => m.on_date >= window.from && m.on_date <= window.to)
+}
+
+/**
+ * Seed a shift card for every marked day inside the period that has no card
+ * yet, so a date is never typed twice. Existing cards are kept as they are;
+ * new ones are empty except for the date. Cards sort by date, undated last.
+ * A card that only carries a seeded date can be submitted as it is: a future
+ * shift's card simply waits (Owner).
+ */
+export function seedShiftCards(shifts = [], marks = [], window) {
+  const have = new Set((shifts || []).map(s => s?.date).filter(Boolean))
+  const out = (shifts || []).map(s => ({ ...EMPTY_SHIFT, ...s }))
+  for (const m of marksInWindow(marks, window)) {
+    if (have.has(m.on_date) || out.length >= MAX_SHIFTS) continue
+    out.push({ ...EMPTY_SHIFT, date: m.on_date })
+    have.add(m.on_date)
+  }
+  // Drop the one blank starter card once real dates exist.
+  const dated = out.filter(s => s.date)
+  const blank = out.filter(s => !s.date && (s.diagnoses || s.went_well || s.improve || s.patients !== '' || s.tsam_tier))
+  const result = [...dated.sort((a, b) => a.date.localeCompare(b.date)), ...blank]
+  return result.length ? result : [{ ...EMPTY_SHIFT }]
+}
+
 export const EMPTY_SHIFT = Object.freeze({ date: '', patients: '', tsam_tier: '', diagnoses: '', went_well: '', improve: '' })
 export const EMPTY_GOAL = Object.freeze({ text: '', met: null, carry_forward: false })
 
@@ -131,12 +226,16 @@ const realDate = v => {
 }
 
 const shiftIsBlank = s => !s.date && s.patients === null && !s.tsam_tier && !s.diagnoses && !s.went_well && !s.improve
+const tierOrNull = v => {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v
+  return Number.isInteger(n) && n >= 1 && n <= TSAM_TIERS.length ? n : null
+}
 
 /**
  * validateReflection(payload, { periodNumber, requireComplete })
  * Returns { ok:true, payload } (canonical) or { ok:false, errors:[{field,message}] }.
- * A draft is never refused for being incomplete; a submission needs at least
- * one dated shift, the on-track answer, and (in period 1) the unit.
+ * A draft is never refused for being incomplete; a submission needs the
+ * on-track answer and (in period 1) the unit. Shifts are never required.
  */
 export function validateReflection(raw, { periodNumber = 1, requireComplete = true } = {}) {
   const p = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {}
@@ -149,7 +248,8 @@ export function validateReflection(raw, { periodNumber = 1, requireComplete = tr
     return {
       date: realDate(o.date),
       patients: intOrNull(o.patients),
-      tsam_tier: str(o.tsam_tier, 20),
+      // RESIDENCY-REFLECTION-2: a Tier 1 to 5 choice, not free text.
+      tsam_tier: tierOrNull(o.tsam_tier),
       diagnoses: str(o.diagnoses, 1000),
       went_well: str(o.went_well, 2000),
       improve: str(o.improve, 2000),
@@ -188,8 +288,10 @@ export function validateReflection(raw, { periodNumber = 1, requireComplete = tr
 
   const errors = []
   if (requireComplete) {
+    // RESIDENCY-REFLECTION-2 (Owner): a seeded card for a future shift must never
+    // block a submission, so no shift is required at all. Only the unit (period
+    // 1) and the on-track answer are.
     if (periodNumber === 1 && !canonical.about.unit) errors.push({ field: 'about.unit', message: 'Enter the unit you are orienting on.' })
-    if (!canonical.shifts.some(s => s.date)) errors.push({ field: 'shifts', message: 'Add at least one shift with its date.' })
     if (canonical.competencies_on_track === null) errors.push({ field: 'competencies_on_track', message: 'Answer whether your orientation competencies are on track.' })
   }
   if (errors.length) return { ok: false, errors }

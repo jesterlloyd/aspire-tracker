@@ -256,5 +256,5 @@ test('the roster degrades honestly while the migration is unapplied', () => {
   // Widest first, then one group at a time: each fallback is a real deploy state.
   assert.match(src, /const full = await read\(`\$\{CANDIDATE_FIELDS\}, \$\{PLACEMENT_FIELDS\}, \$\{ROSTER_FIELDS\}`\)/)
   assert.match(src, /const placement = await read\(`\$\{CANDIDATE_FIELDS\}, \$\{PLACEMENT_FIELDS\}`\)/)
-  assert.match(src, /const full = await read\(`\$\{OUTCOME_FIELDS\}, cs_email, not_selected_at, offer_declined_at`\)/)
+  assert.match(src, /await read\(`\$\{OUTCOME_FIELDS\}, cs_email, not_selected_at, offer_declined_at`\)/)
 })

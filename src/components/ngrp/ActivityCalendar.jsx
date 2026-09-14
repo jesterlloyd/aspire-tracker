@@ -33,9 +33,16 @@ import {
 } from '../shared/CanonicalCalendarFoundation'
 import { F } from '../../lib/ngrp/ngrpCohortForm'
 import {
-  initialActivityMonth, monthRange, EVENT_ACTION, EVENT_ACTION_HOVER, HOLIDAY_COLOR,
+  initialActivityMonth, monthRange, EVENT_ACTION, EVENT_ACTION_HOVER, HOLIDAY_COLOR, shiftColor,
 } from '../../lib/ngrp/ngrpActivity'
 import { ModalShell } from './NgrpFormUi'
+// RESIDENCY-REFLECTION-2: residents' marked working days, from their own
+// reflection calendars, shown here for the team.
+import { useNgrpApplicants, postNgrpSupport } from '../../lib/ngrp/useNgrpData'
+import { deriveApplicantRows } from '../../lib/ngrp/ngrpStates'
+import { shiftBadge } from '../../lib/shiftStatus'
+import { displayName } from '../../lib/utils'
+import { firstNameOf } from '../../lib/greeting'
 
 const MONTH_FMT = { month: 'long', year: 'numeric' }
 const longDate = d => new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -64,7 +71,23 @@ function AddEventButton({ onClick, style }) {
 
 // One day's events and holidays, opened by clicking a date. The interview
 // calendar opens its Day Manager the same way; this is the events-only version.
-function DayModal({ date, events, holidays, canManage, onAdd, onEdit, onClose }) {
+// One resident's marked day, as a chip: first name and the shift glyph, in the
+// shift's colour. The full name and shift on hover.
+function ShiftMark({ mark }) {
+  const color = shiftColor(mark.shift)
+  const badge = shiftBadge(mark.shift)
+  return (
+    <span
+      className="ngrp-shift-mark"
+      title={`${mark.name} · ${mark.shift ? badge.label : 'shift not recorded'}`}
+      style={{ background: `${color}1a`, color }}
+    >
+      {firstNameOf(mark.name) || mark.name} {mark.shift ? badge.label.split(' ')[0] : ''}
+    </span>
+  )
+}
+
+function DayModal({ date, events, holidays, marks = [], canManage, onAdd, onEdit, onClose }) {
   return (
     <ModalShell label={`Activity on ${longDate(date)}`} onClose={onClose} width={560}>
       <div style={{ flexShrink: 0, padding: '16px 20px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -100,7 +123,14 @@ function DayModal({ date, events, holidays, canManage, onAdd, onEdit, onClose })
             </span>
           </button>
         ))}
-        {!events.length && !holidays.length && (
+        {marks.map(m => (
+          <div key={m.candidate_id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 0', borderBottom: '1px solid #F3F4F6' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: shiftColor(m.shift), flexShrink: 0 }} aria-hidden="true" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{m.name}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#8B8F99' }}>{m.shift ? `${shiftBadge(m.shift).label} shift` : 'Working, shift not recorded'}</span>
+          </div>
+        ))}
+        {!events.length && !holidays.length && !marks.length && (
           <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#9CA3AF' }}>Nothing scheduled.</p>
         )}
       </div>
@@ -153,6 +183,37 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
   // US holidays are client-computed, read-only, and never persisted - the same
   // contract the masthead and the interview calendar use.
   const holidays = useMemo(() => getUsHolidaysForRange(from, to), [from, to])
+
+  // RESIDENCY-REFLECTION-2: residents' marked working days for the visible
+  // month. Names come from the roster rows this workspace already holds; the
+  // schedule endpoint returns ids and dates only.
+  const applicants = useNgrpApplicants(cycle?.id)
+  const nameByCandidate = useMemo(() => {
+    const rows = deriveApplicantRows(applicants.payload?.students, applicants.payload?.candidates)
+    return new Map(rows.filter(r => r.candidate_id).map(r => [r.candidate_id, displayName(r.student)]))
+  }, [applicants.payload])
+  const { data: schedule } = useQuery({
+    queryKey: ['ngrp_activity_schedule', cycle?.id, from, to],
+    queryFn: () => postNgrpSupport('schedule', { cycle_id: cycle.id, from, to }),
+    enabled: Boolean(cycle?.id) && location.pathname.startsWith(`${base}/residency/activity`),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
+  const marksByDate = useMemo(() => {
+    const map = new Map()
+    for (const m of schedule?.marks || []) {
+      const item = {
+        candidate_id: m.candidate_id, on_date: m.on_date,
+        name: nameByCandidate.get(m.candidate_id) || 'Resident',
+        // A Variable resident names the shift per day; everyone else's mark
+        // reads the hire record.
+        shift: m.shift || schedule?.shifts?.[m.candidate_id] || null,
+      }
+      map.set(m.on_date, [...(map.get(m.on_date) || []), item])
+    }
+    return map
+  }, [schedule, nameByCandidate])
+  const marksOn = useCallback(date => marksByDate.get(date) || [], [marksByDate])
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['ngrp_activity_events'] })
@@ -237,7 +298,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
             <CanonicalCalendarTodayPanel
               dateLabel={longDate(selected)}
               summary={(() => {
-                const n = eventsOn(selected).length + holidaysOn(selected).length
+                const n = eventsOn(selected).length + holidaysOn(selected).length + marksOn(selected).length
                 return n ? `${n} item${n === 1 ? '' : 's'}` : null
               })()}
               emptyLabel="Nothing scheduled."
@@ -267,6 +328,13 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
                   </span>
                 </button>
               ))}
+              {marksOn(selected).map(m => (
+                <div key={m.candidate_id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', fontFamily: F, fontSize: 13 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: shiftColor(m.shift), flexShrink: 0 }} aria-hidden="true" />
+                  <span style={{ fontWeight: 600, color: '#374151' }}>{m.name}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#6B7785' }}>{m.shift ? shiftBadge(m.shift).label : 'Working'}</span>
+                </div>
+              ))}
             </CanonicalCalendarTodayPanel>
           </CanonicalCalendarSidebar>
         }
@@ -285,7 +353,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
                   isToday={date === today}
                   isSelected={date === selected}
                   isFuture={date > today}
-                  ariaLabel={`${longDate(date)}, ${eventsOn(date).length} events`}
+                  ariaLabel={`${longDate(date)}, ${eventsOn(date).length} events, ${marksOn(date).length} residents working`}
                   onClick={() => openDay(date)}
                 >
                   {/* Holidays are AMBER, as they are on the Interviews calendar:
@@ -294,6 +362,10 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
                   {holidaysOn(date).map(h => (
                     <span key={h.name} className="ngrp-holiday-chip" title={`${h.name} · US Holiday`}>{h.name}</span>
                   ))}
+                  {marksOn(date).slice(0, 3).map(m => <ShiftMark key={m.candidate_id} mark={m} />)}
+                  {marksOn(date).length > 3 && (
+                    <span className="ngrp-shift-mark" style={{ background: '#F3F4F6', color: '#6B7785' }}>+{marksOn(date).length - 3} working</span>
+                  )}
                   {eventsOn(date).slice(0, 2).map(ev => (
                     <CanonicalActivityChip key={ev.id} label={ev.title} />
                   ))}
@@ -321,6 +393,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
           date={dayOpen}
           events={eventsOn(dayOpen)}
           holidays={holidaysOn(dayOpen)}
+          marks={marksOn(dayOpen)}
           canManage={canManage}
           onAdd={() => { setEditing({ isNew: true, on: dayOpen }); setDayOpen(null) }}
           onEdit={ev => { setEditing(ev); setDayOpen(null) }}

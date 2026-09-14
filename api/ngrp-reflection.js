@@ -11,23 +11,34 @@
 // Unknown and revoked tokens return the same generic 410.
 //
 // Actions (POST { action, token, ... }):
-//   load        -> period meta + the form's config + draft or submission
-//   save_draft  -> the one autosave draft on the period row
-//   submit      -> validate + one immutable submission (a second is refused)
+//   load            -> period meta + the form's config + draft or submission
+//                      + the resident's schedule marks and hired shift
+//   save_draft      -> the one autosave draft on the period row
+//   submit          -> validate + one immutable submission (a second is refused)
+//   schedule_add    -> mark a day worked { date, shift? }  (RESIDENCY-REFLECTION-2)
+//   schedule_remove -> unmark a day { date }
+// The schedule belongs to the RESIDENT, not the period: marking days stays
+// open while the run is active even after this period has closed or been
+// submitted, because the next period reads the same calendar.
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { hashToken, isWellFormedRawToken } from '../lib/server/evaluation/tokens.js'
 import { bucketKey, extractClientIp } from '../lib/server/evaluation/rate_limit.js'
-import { resolveReflectionToken, periodClosesAt, PERIODS, SUBMISSIONS, TOKENS } from '../lib/server/ngrpReflection.js'
+import {
+  resolveReflectionToken, periodClosesAt, PERIODS, SUBMISSIONS, TOKENS,
+  loadSchedule, addScheduleDay, removeScheduleDay, residentShift,
+} from '../lib/server/ngrpReflection.js'
 import { validateReflection, DIFFICULTY_AREAS, closesOn } from '../src/lib/ngrp/ngrpReflectionForm.js'
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 
 const LINK_INVALID = 'This reflection link is no longer valid.'
 const WINDOW_CLOSED = 'This reflection period has closed.'
-const ACTIONS = new Set(['load', 'save_draft', 'submit'])
+const ACTIONS = new Set(['load', 'save_draft', 'submit', 'schedule_add', 'schedule_remove'])
 const RATE = {
-  load:       { window: 60, max: 20 },
-  save_draft: { window: 60, max: 30 },
-  submit:     { window: 60, max: 5 },
+  load:            { window: 60, max: 20 },
+  save_draft:      { window: 60, max: 30 },
+  submit:          { window: 60, max: 5 },
+  schedule_add:    { window: 60, max: 40 },
+  schedule_remove: { window: 60, max: 40 },
 }
 
 export default async function handler(req, res) {
@@ -67,6 +78,39 @@ export default async function handler(req, res) {
       .select('payload, submitted_at').eq('period_id', period.id).maybeSingle()
     if (submission.error) return res.status(500).json({ error: 'Internal error' })
 
+    // The hire record: the unit for the masthead line and the shift that
+    // colours the schedule. Before 20260918000000 the shift column is absent;
+    // the calendar then shows plain marks rather than failing.
+    let outcome = null
+    {
+      const full = await supabaseAdmin.from('ngrp_residency_outcomes')
+        .select('hired_unit, shift').eq('candidate_id', run.candidate_id).maybeSingle()
+      if (full.error) {
+        const lite = await supabaseAdmin.from('ngrp_residency_outcomes')
+          .select('hired_unit').eq('candidate_id', run.candidate_id).maybeSingle()
+        outcome = lite.data || null
+      } else outcome = full.data || null
+    }
+    const shiftType = residentShift(outcome)
+
+    // ── schedule_add / schedule_remove ───────────────────────────────────────
+    // Not gated on the period's closure: the calendar is the resident's, and
+    // the next period reads it. The token being active is the only gate.
+    if (action === 'schedule_add' || action === 'schedule_remove') {
+      const onDate = typeof body.date === 'string' ? body.date : ''
+      const result = action === 'schedule_add'
+        ? await addScheduleDay(supabaseAdmin, { run, onDate, shift: body.shift, residentShiftType: shiftType })
+        : await removeScheduleDay(supabaseAdmin, { run, onDate })
+      if (!result.ok) {
+        if (result.reason === 'invalid_date') return res.status(422).json({ error: 'Choose a valid date.' })
+        if (result.reason === 'shift_required') return res.status(422).json({ error: 'Say whether that day is a Day, Night or Mid shift.' })
+        return res.status(500).json({ error: 'Internal error' })
+      }
+      const schedule = await loadSchedule(supabaseAdmin, run.candidate_id)
+      if (schedule.error) return res.status(500).json({ error: 'Internal error' })
+      return res.status(200).json({ ok: true, schedule: schedule.rows })
+    }
+
     // ── load ─────────────────────────────────────────────────────────────────
     if (action === 'load') {
       // First-open bookkeeping, never after closure and never after submission.
@@ -87,8 +131,6 @@ export default async function handler(req, res) {
       const stu = await supabaseAdmin.from('students')
         .select('first_name, last_name, preferred_first_name, name').eq('id', run.student_id).maybeSingle()
       if (stu.error || !stu.data) return res.status(500).json({ error: 'Internal error' })
-      const unit = await supabaseAdmin.from('ngrp_residency_outcomes')
-        .select('hired_unit').eq('candidate_id', run.candidate_id).maybeSingle()
       // Period 1's own "About you" answer, when it exists, names the unit for
       // every later period so the resident does not retype it.
       let priorUnit = ''
@@ -97,12 +139,16 @@ export default async function handler(req, res) {
           .select('payload').eq('candidate_id', run.candidate_id).order('submitted_at', { ascending: true }).limit(1).maybeSingle()
         priorUnit = first.data?.payload?.about?.unit || ''
       }
+      // The schedule is absent (not an error) before 20260918000000.
+      const schedule = await loadSchedule(supabaseAdmin, run.candidate_id)
 
       return res.status(200).json({
         state: submission.data ? 'submitted' : resolved.closed ? 'closed' : 'form',
         residentName: (stu.data.preferred_first_name || stu.data.first_name || '').trim(),
         residentFullName: stu.data.name || `${stu.data.first_name || ''} ${stu.data.last_name || ''}`.trim(),
-        unit: unit.data?.hired_unit || priorUnit || '',
+        unit: outcome?.hired_unit || priorUnit || '',
+        residentShift: shiftType,
+        schedule: schedule.error ? null : schedule.rows,
         periodNumber: period.period_number,
         periodCount: run.period_count,
         opensOn: period.opens_on,

@@ -40,10 +40,14 @@ import {
   startReflectionRun, stopReflectionRun, sendReflectionPeriod,
   RUNS as REFLECTION_RUNS, PERIODS as REFLECTION_PERIODS, SUBMISSIONS as REFLECTION_SUBMISSIONS,
   RUN_FIELDS, PERIOD_FIELDS, NOTIFICATION_TYPE as REFLECTION_NOTIFICATION_TYPE, TEMPLATE_KEY as REFLECTION_TEMPLATE_KEY,
+  SCHEDULE, SCHEDULE_FIELDS,
 } from '../lib/server/ngrpReflection.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['summary', 'record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view'])
+//   schedule          { cycle_id, from, to } -> RESIDENCY-REFLECTION-2: the days
+//                        residents marked as working, for Residency > Activity.
+//                        Both audiences: a schedule names no answer.
+const ACTIONS = new Set(['summary', 'record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view', 'schedule'])
 const WRITES = new Set(['record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop'])
 // Reading a resident's answers is the ASPIRE team's until the Owner decides
 // how sharing works; it is a read, so it needs no manage capability.
@@ -139,6 +143,26 @@ export default async function handler(req, res) {
         mentors,
         reflections: { provisioned: reflectionsProvisioned, runs, periods },
       })
+    }
+
+    // ── schedule: residents' marked days in a date range, for the calendar ───
+    if (action === 'schedule') {
+      const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
+      const from = typeof body.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.from) ? body.from : null
+      const to = typeof body.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.to) ? body.to : null
+      if (!cycleId || !from || !to || from > to) return res.status(422).json({ error: 'invalid_range' })
+      const cands = await db.from('ngrp_candidates').select('id, student_id').eq('cycle_id', cycleId)
+      if (cands.error) return isMissingNgrpTable(cands.error) ? unprovisioned(res) : internal(res)
+      const ids = (cands.data || []).map(c => c.id)
+      if (!ids.length) return res.status(200).json({ provisioned: true, marks: [], shifts: {} })
+      const [marks, outcomes] = await Promise.all([
+        db.from(SCHEDULE).select(SCHEDULE_FIELDS).in('candidate_id', ids).gte('on_date', from).lte('on_date', to).order('on_date'),
+        db.from('ngrp_residency_outcomes').select('candidate_id, shift').in('candidate_id', ids),
+      ])
+      if (marks.error) return isMissingNgrpTable(marks.error) ? res.status(200).json({ provisioned: false, marks: [], shifts: {} }) : internal(res)
+      // Before 20260918000000 the shift column is absent; marks then read as plain.
+      const shifts = outcomes.error ? {} : Object.fromEntries((outcomes.data || []).filter(o => o.shift).map(o => [o.candidate_id, o.shift]))
+      return res.status(200).json({ provisioned: true, marks: marks.data || [], shifts })
     }
 
     // ── reflection_view: one submitted period, the ASPIRE team only ─────────

@@ -356,7 +356,7 @@ function SubmissionView({ payload }) {
       {(p.shifts || []).map((s, i) => (
         <div key={i} style={{ borderLeft: '3px solid #EDEEF4', padding: '2px 0 2px 10px', margin: '0 0 8px' }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, fontFamily: F }}>
-            Shift {i + 1}{s.date ? ` · ${fmtDay(s.date)}` : ''}{s.patients != null ? ` · ${s.patients} pts` : ''}{s.tsam_tier ? ` · TSAM ${s.tsam_tier}` : ''}
+            Shift {i + 1}{s.date ? ` · ${fmtDay(s.date)}` : ''}{s.patients != null ? ` · ${s.patients} pts` : ''}{s.tsam_tier ? ` · TSAM Tier ${s.tsam_tier}` : ''}
           </div>
           {txt('Diagnoses', s.diagnoses)}{txt('Went well', s.went_well)}{txt('Improve', s.improve)}
         </div>

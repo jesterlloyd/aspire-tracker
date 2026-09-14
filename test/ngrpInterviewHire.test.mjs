@@ -91,7 +91,11 @@ test('an empty outcome is valid, because the record accumulates over months', ()
     not_selected_at: null, offer_declined_at: null,
     // RESIDENCY-SUPPORT-1 (Owner, 2026-09-11): where a hired resident is
     // reached. Optional, because the account often does not exist on day one.
-    residency_start_date: null, hired_unit: null, cs_email: null,
+    residency_start_date: null, hired_unit: null,
+    // RESIDENCY-REFLECTION-2 (Owner, 2026-09-14): the shift they were hired
+    // into; null until the team records it.
+    shift: null,
+    cs_email: null,
   })
   // A residency start must be a calendar date, not a timestamp.
   assert.equal(validateOutcomePayload({ residency_start_date: '2027-02-02T00:00:00Z' }).errors[0].field, 'residency_start_date')

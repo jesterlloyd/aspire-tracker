@@ -32,6 +32,21 @@ export const EVENT_ACTION_HOVER = '#5B21B6'
 // context, not something anyone scheduled, and nothing can be added to them.
 export const HOLIDAY_COLOR = '#D97706'
 
+// RESIDENCY-REFLECTION-2 (Owner, 2026-09-14): residents' marked working days,
+// coloured by shift. Day blue, Night purple, Mid teal, and a plain slate for a
+// resident whose shift is not on the hire record yet. Read by Residency >
+// Activity and by the resident's own reflection calendar, so both agree.
+export const SHIFT_COLORS = Object.freeze({
+  Day: '#2563EB',
+  Night: '#7C3AED',
+  Mid: '#0F766E',
+  Variable: '#6B7280',
+  unspecified: '#6B7280',
+})
+export function shiftColor(shift) {
+  return SHIFT_COLORS[shift] || SHIFT_COLORS.unspecified
+}
+
 // The month window a cursor covers, as the date-only strings the events endpoint
 // and the holiday helper both take.
 export function monthRange({ year, month }) {

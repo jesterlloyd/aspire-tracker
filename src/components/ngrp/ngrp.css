@@ -195,6 +195,22 @@
   white-space: nowrap;
 }
 
+/* RESIDENCY-REFLECTION-2: a resident's marked working day on the Activity
+   calendar. Colour comes inline from the shift; the shape matches the event
+   chip beside it. */
+.ngrp-shift-mark {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* RESIDENCY-ROSTER-1: the Status band on At a Glance. One number per state, in
    the arc's own order, sitting under the snapshot's KPI cells. */
 .ngrp-statusband {

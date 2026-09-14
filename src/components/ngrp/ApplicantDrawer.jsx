@@ -17,6 +17,8 @@ import {
   NOT_PROCEEDING_REASONS, NOT_PROCEEDING_REASON_KEYS, REASON_REQUIRING_NOTE,
 } from '../../lib/ngrp/ngrpStates'
 import { displayName } from '../../lib/utils'
+import { shiftBadge } from '../../lib/shiftStatus'
+import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const fmt = ts => {
@@ -477,6 +479,9 @@ function OutcomeSection({ row, canManage, onSave }) {
     hired_unit: o.hired_unit || row.assigned_unit || '',
     residency_start_date: dateOnly(o.residency_start_date),
     cs_email: o.cs_email || '',
+    // RESIDENCY-REFLECTION-2: the shift they were hired into; colours their
+    // schedule marks on Residency > Activity and on their reflection form.
+    shift: o.shift || '',
   }
   const [form, setForm] = useState(init)
   const [busy, setBusy] = useState(false)
@@ -519,6 +524,7 @@ function OutcomeSection({ row, canManage, onSave }) {
                     ? <Row label="Offer extended">{fmt(o.offer_extended_at)}</Row>
                     : <Row label="Status"><span style={{ fontWeight: 400, color: '#9CA3AF' }}>Nothing recorded yet</span></Row>}
           {o.residency_start_date && <Row label="Residency starts">{o.residency_start_date}</Row>}
+          {o.shift && <Row label="Shift">{shiftBadge(o.shift).label}</Row>}
           {o.cs_email && <Row label="Cedars-Sinai email">{o.cs_email}</Row>}
 
           {canManage && (
@@ -547,6 +553,13 @@ function OutcomeSection({ row, canManage, onSave }) {
                 <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Residency start date</span>
                 <input type="date" style={field} value={form.residency_start_date} onChange={e => set('residency_start_date', e.target.value)} />
               </label>
+              <label style={{ display: 'block' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Shift</span>
+                <select style={field} value={form.shift} onChange={e => set('shift', e.target.value)}>
+                  <option value="">Not recorded yet</option>
+                  {RESIDENT_SHIFTS.map(s => <option key={s} value={s}>{shiftBadge(s).label}</option>)}
+                </select>
+              </label>
               {/* Where residency correspondence goes once they are hired (Owner,
                   2026-09-11). Optional: until the account exists, the personal
                   email is the backup. The school address is never used. */}
@@ -572,6 +585,7 @@ function OutcomeSection({ row, canManage, onSave }) {
                       hired_unit: form.hired_unit.trim() || null,
                       residency_start_date: form.residency_start_date || null,
                       cs_email: form.cs_email.trim() || null,
+                      shift: form.shift || null,
                     })
                     setBusy(false)
                   }}

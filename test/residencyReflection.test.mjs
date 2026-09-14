@@ -13,10 +13,16 @@ import { dirname, join } from 'node:path'
 import {
   buildSchedule, closesOn, validateReflection, summarizeReflections, addDays, weekdayOf,
   PERIOD_COUNT, PERIOD_DAYS, GRACE_DAYS, DIFFICULTY_AREA_KEYS, MAX_SHIFTS,
+  TSAM_TIERS, HELP, PLACEHOLDERS, SCHEDULE_SHIFTS, RESIDENT_SHIFTS, periodWindow, marksInWindow, seedShiftCards, EMPTY_SHIFT,
 } from '../src/lib/ngrp/ngrpReflectionForm.js'
 import {
   sendReflectionPeriod, resolveReflectionToken, periodsToSend, periodClosesAt, reflectionRecipient,
+  addScheduleDay, removeScheduleDay, loadSchedule, residentShift, isRealDay, SCHEDULE,
 } from '../lib/server/ngrpReflection.js'
+import { validateOutcomePayload } from '../lib/server/ngrpPlanning.js'
+import { shiftColor, SHIFT_COLORS } from '../src/lib/ngrp/ngrpActivity.js'
+import { shiftBadge } from '../src/lib/shiftStatus.js'
+import { CANONICAL_SHIFTS } from '../src/lib/preceptorProjection.js'
 import { buildReflectionEmail } from '../lib/server/email/ngrpReflectionEmail.js'
 import { NGRP_AUDIT_EVENTS } from '../lib/server/ngrpAudit.js'
 import { duringResidency } from '../src/lib/ngrp/ngrpSupportView.js'
@@ -65,11 +71,14 @@ test('the schedule: five periods, Sunday due dates, Friday sends, from the day S
 
 // ── The form ────────────────────────────────────────────────────────────────
 
-test('validation: a draft is never refused; a submission needs a dated shift, the on-track answer, and (period 1) the unit', () => {
+test('validation: a draft is never refused; a submission needs the on-track answer and (period 1) the unit, never a shift', () => {
   assert.equal(validateReflection({}, { periodNumber: 2, requireComplete: false }).ok, true)
   const bad = validateReflection({}, { periodNumber: 1, requireComplete: true })
   assert.equal(bad.ok, false)
-  assert.deepEqual(bad.errors.map(e => e.field), ['about.unit', 'shifts', 'competencies_on_track'])
+  // RESIDENCY-REFLECTION-2 (Owner, 2026-09-14): seeded shift cards must never
+  // hold up a submission, so no shift is required at all.
+  assert.deepEqual(bad.errors.map(e => e.field), ['about.unit', 'competencies_on_track'])
+  assert.equal(validateReflection({ competencies_on_track: true }, { periodNumber: 2 }).ok, true, 'period 2 with no shift at all submits')
   const ok = validateReflection({
     about: { unit: ' 5 SCCT ', preceptor_names: 'Ana Lim', work_schedule: 'M/T/W', questions: '' },
     shifts: [
@@ -86,6 +95,7 @@ test('validation: a draft is never refused; a submission needs a dated shift, th
   assert.equal(ok.payload.about.unit, '5 SCCT')
   assert.equal(ok.payload.shifts.length, 2, 'the blank shift is dropped')
   assert.equal(ok.payload.shifts[0].patients, 3)
+  assert.equal(ok.payload.shifts[0].tsam_tier, 2, 'the tier is a number 1..5')
   assert.equal(ok.payload.shifts[1].date, null, 'an impossible date is null, not a crash')
   assert.deepEqual(ok.payload.goals.map(g => g.met), ['not_met', null])
   assert.deepEqual(ok.payload.difficulty_areas, ['time_management', 'critical_thinking'])
@@ -273,9 +283,10 @@ test('the public endpoint: shape gate before db, fail-closed rate limit, one sub
   const page = read('src/pages/NgrpReflectionPage.jsx')
   assert.match(page, /fetch\('\/api\/ngrp-reflection'/)
   assert.match(page, /window\.history\.replaceState\(null, '', window\.location\.pathname\)/, 'the token leaves the address bar')
-  for (const s of ['About you', 'Your shifts', 'Skills this period', 'Goals for this two-week period', 'Professional and personal development', 'Where are you finding it hard?', 'Kahuna on track']) {
+  for (const s of ['About you', 'Your schedule', 'Your shifts', 'Skills this period', 'Goals for this two-week period', 'Professional and personal development', 'Where are you finding it hard?', 'Orientation competencies on track?']) {
     assert.ok(page.includes(s), s)
   }
+  assert.ok(!page.includes('Kahuna'), 'Kahuna is not used (Owner, 2026-09-14)')
   assert.ok(!page.includes('mergency contact'), 'the emergency-contact line is deliberately not collected')
 })
 
@@ -404,7 +415,191 @@ test('no em dash in anything this change added', () => {
     'api/ngrp-reflection.js', 'api/cron/resident-reflections.js', 'src/pages/NgrpReflectionPage.jsx',
     'supabase/migrations/20260917000000_ngrp_reflections.sql', 'db/audit/ngrp_reflections_checks.sql',
     'src/lib/ngrp/reflectionPreviewFixture.js',
+    'supabase/migrations/20260918000000_ngrp_resident_schedule.sql', 'db/audit/ngrp_resident_schedule_checks.sql',
+    'src/lib/ngrp/ngrpActivity.js',
   ]) {
     assert.doesNotMatch(read(f), /—/, f)
   }
+})
+
+// ── RESIDENCY-REFLECTION-2 (Owner, 2026-09-14) ──────────────────────────────
+// The refined questionnaire and the resident's schedule.
+
+test('the refined questionnaire: sample answers in every text field, four (i) terms, the TSAM ladder, Met/Not met aligned', () => {
+  // Every placeholder is a greyed example, never an instruction.
+  for (const [k, v] of Object.entries(PLACEHOLDERS)) assert.match(v, /^For example: /, k)
+  assert.deepEqual(Object.keys(HELP), ['tsam', 'ana', 'caritas', 'cslink'], 'the four unfamiliar terms')
+  assert.equal(HELP.tsam.tiers, TSAM_TIERS)
+  assert.equal(TSAM_TIERS.length, 5)
+  assert.deepEqual(TSAM_TIERS.map(t => t.tier), [1, 2, 3, 4, 5])
+  assert.match(HELP.tsam.body, /Tiered Skills Acquisition Model/)
+  assert.match(HELP.tsam.body, /structured, competence-based framework/, "the Owner's own words")
+  assert.deepEqual(TSAM_TIERS[0].orientee, ['Shadow', 'Observation'])
+  assert.deepEqual(TSAM_TIERS[4].orientee, ['Delegation, teamwork, and communication', 'Admissions, discharges, and transfers'])
+  for (const t of TSAM_TIERS) assert.ok(t.orientee.length && t.preceptor.length, `tier ${t.tier} has both columns`)
+  assert.match(HELP.cslink.body, /electronic health record/)
+  assert.match(HELP.caritas.body, /Jean Watson/)
+  // The tier is a number; anything else is null.
+  for (const [input, want] of [['2', 2], [3, 3], ['0', null], ['6', null], ['', null], ['two', null], [null, null]]) {
+    assert.equal(validateReflection({ shifts: [{ date: '2026-09-21', tsam_tier: input }] }, { periodNumber: 2, requireComplete: false }).payload.shifts[0]?.tsam_tier ?? null, want, String(input))
+  }
+  const page = read('src/pages/NgrpReflectionPage.jsx')
+  for (const k of Object.keys(PLACEHOLDERS)) assert.ok(page.includes(`PLACEHOLDERS.${k}`), `the page uses PLACEHOLDERS.${k}`)
+  for (const k of ['tsam', 'ana', 'caritas', 'cslink']) assert.ok(page.includes(`help('${k}'`) || page.includes(`helpKey: '${k}'`), `the (i) for ${k}`)
+  assert.match(page, /<option value="">Choose a tier<\/option>/)
+  assert.match(page, /TSAM_TIERS\.map\(t => <option key=\{t\.tier\} value=\{t\.tier\}>Tier \{t\.tier\}: \{t\.orientee\.join\(', '\)\}<\/option>\)/)
+  assert.match(page, /\.ngrpr-help\[aria-expanded="true"\]/, 'the (i) shows which one is open')
+  assert.match(page, /className="ngrpr-help" aria-label=\{`What is \$\{HELP\[key\]\.title\}\?`\}/)
+  // Met | Not met sits under its own label so its row lines up with the goal input.
+  assert.match(page, /<label id=\{`go\$\{i\}`\}>Outcome<\/label>/)
+  assert.match(page, /\.ngrpr-goal \.ngrpr-opt \{ min-height: 40px;/)
+  assert.match(page, /\.ngrpr-field select \{[\s\S]*?min-height: 40px;/)
+  // The renamed line and the retired textarea.
+  assert.ok(page.includes('Orientation competencies on track? <span className="req">*</span>'))
+  assert.ok(!page.includes('Current work schedule'), 'the calendar replaced the free-text schedule')
+  assert.ok(!page.includes("'work_schedule'"), 'the page no longer writes work_schedule')
+  // Helpers stay plain functions (a component inside render loses focus on each keystroke).
+  assert.match(page, /const text = \(\{ id, label, value, onChange, rows, hint, placeholder, helpKey \}\) =>/)
+  assert.match(page, /const help = \(key, inst\) =>/)
+  assert.doesNotMatch(page, /function (Text|Help|Calendar)\(/)
+})
+
+test("the resident's schedule: one calendar, any date, Add/Dismiss then Delete/Cancel, marks coloured by the hired shift", () => {
+  assert.deepEqual([...RESIDENT_SHIFTS], [...CANONICAL_SHIFTS], "Rotation's own vocabulary")
+  assert.deepEqual([...SCHEDULE_SHIFTS], ['Day', 'Night', 'Mid'], 'a Variable resident names one of these per day')
+  // Colours and glyphs: one source, the app's own badge.
+  assert.equal(shiftColor('Day'), SHIFT_COLORS.Day)
+  assert.equal(shiftColor(null), SHIFT_COLORS.unspecified)
+  assert.equal(shiftColor('bogus'), SHIFT_COLORS.unspecified)
+  assert.notEqual(SHIFT_COLORS.Day, SHIFT_COLORS.Night)
+  assert.equal(shiftBadge('Day').label.split(' ')[0], '☀')
+  assert.equal(shiftBadge('Night').label.split(' ')[0], '☾')
+  assert.equal(shiftBadge('Mid').label.split(' ')[0], '◐')
+  // The window and the seeding.
+  const period = { opens_on: '2026-09-18', due_on: '2026-10-04' }
+  assert.deepEqual(periodWindow(period), { from: '2026-09-18', to: '2026-10-04' })
+  const marks = [{ on_date: '2026-09-17' }, { on_date: '2026-09-18' }, { on_date: '2026-09-22', shift: 'Night' }, { on_date: '2026-10-04' }, { on_date: '2026-10-05' }]
+  assert.deepEqual(marksInWindow(marks, periodWindow(period)).map(m => m.on_date), ['2026-09-18', '2026-09-22', '2026-10-04'], 'inclusive on both ends')
+  const seeded = seedShiftCards([{ ...EMPTY_SHIFT }], marks, periodWindow(period))
+  assert.deepEqual(seeded.map(s => s.date), ['2026-09-18', '2026-09-22', '2026-10-04'], 'one card per marked day in the window, the blank starter dropped')
+  assert.deepEqual(seeded[0], { ...EMPTY_SHIFT, date: '2026-09-18' }, 'a seeded card is empty apart from its date')
+  // Seeding is idempotent and keeps what the resident already wrote.
+  const written = [{ ...EMPTY_SHIFT, date: '2026-09-22', went_well: 'Handoff' }, { ...EMPTY_SHIFT, diagnoses: 'undated but written' }]
+  const again = seedShiftCards(written, marks, periodWindow(period))
+  assert.deepEqual(again.map(s => s.date), ['2026-09-18', '2026-09-22', '2026-10-04', ''])
+  assert.equal(again[1].went_well, 'Handoff')
+  assert.equal(again[3].diagnoses, 'undated but written', 'an undated card with words survives')
+  assert.deepEqual(seedShiftCards(again, marks, periodWindow(period)), again, 'idempotent')
+  // Never past the six cards.
+  const many = Array.from({ length: 9 }, (_, i) => ({ on_date: addDays('2026-09-18', i) }))
+  assert.equal(seedShiftCards([], many, periodWindow(period)).length, MAX_SHIFTS)
+  assert.deepEqual(seedShiftCards([], [], periodWindow(period)), [{ ...EMPTY_SHIFT }], 'no marks: the one blank card')
+  // A seeded card never blocks submission: dates alone, nothing else, submits.
+  const sub = validateReflection({ shifts: seeded, competencies_on_track: true }, { periodNumber: 2 })
+  assert.equal(sub.ok, true)
+  assert.equal(sub.payload.shifts.length, 3, 'dated-only cards are kept as the record of days worked')
+  // The page: every period, the Plan Shift interaction, no portal CSS.
+  const page = read('src/pages/NgrpReflectionPage.jsx')
+  assert.match(page, /\{calendar\}\s*\n\s*<section className="ngrpr-sec">\s*\n\s*<h2>Your shifts<\/h2>/, 'the schedule sits above the shifts in every period')
+  assert.ok(page.indexOf('{calendar}') > page.indexOf('{n === 1 && ('), 'after About you, which only period 1 shows')
+  assert.match(page, /import \{ monthGrid, monthLabel, pacificToday \} from '\.\.\/lib\/rotationCalendarDates\.js'/, 'the Plan Shift calendar date math')
+  assert.doesNotMatch(page, /ptl-|CanonicalMonthCell/, 'portal CSS is not loaded on public pages; the calendar is self-contained')
+  for (const s of ['>Add<', '>Dismiss<', '>Delete<', '>Cancel<']) assert.ok(page.includes(s), s)
+  assert.match(page, /post\('schedule_add', \{ date: ymd, shift: shift \|\| undefined \}\)/)
+  assert.match(page, /post\('schedule_remove', \{ date: ymd \}\)/)
+  assert.match(page, /residentShift === 'Variable' && \(/, 'a Variable resident picks the shift per day')
+  assert.match(page, /disabled=\{calBusy \|\| \(residentShift === 'Variable' && !dayPick\.shift\)\}/, 'Add waits for that pick')
+  assert.match(page, /tag: shift \? shiftBadge\(shift\)\.label\.split\(' '\)\[0\] : 'ON'/, "plain ON until the shift is on file")
+  assert.match(page, /if \(body\.state === 'form'\) merged\.shifts = seedShiftCards\(merged\.shifts, marks, periodWindow\(/, 'seeded on load')
+  assert.match(page, /const next = \{ \.\.\.p, shifts: seedShiftCards\(p\.shifts, marks, window_\) \}/, 'and after each Add')
+  assert.match(page, /aria-label="Previous month"/)
+  assert.match(page, /aria-label="Next month"/)
+})
+
+test('the schedule endpoint: token-gated, rate-limited, not closed by the period, shift only for Variable, idempotent add', async () => {
+  const api = read('api/ngrp-reflection.js')
+  assert.match(api, /const ACTIONS = new Set\(\['load', 'save_draft', 'submit', 'schedule_add', 'schedule_remove'\]\)/)
+  assert.match(api, /schedule_add:\s+\{ window: 60, max: 40 \}/)
+  assert.match(api, /schedule_remove:\s+\{ window: 60, max: 40 \}/)
+  assert.ok(api.indexOf("if (action === 'schedule_add' || action === 'schedule_remove')") < api.indexOf("if (action === 'load')"), 'the schedule branch sits before the closed-period gates')
+  assert.doesNotMatch(api, /schedule_add[^]*?resolved\.closed[^]*?WINDOW_CLOSED[^]*?if \(action === 'load'\)/, 'never refused for a closed period')
+  assert.match(api, /residentShift: shiftType,\s*\n\s*schedule: schedule\.error \? null : schedule\.rows,/, 'load returns the marks and the hired shift')
+  assert.match(api, /\.select\('hired_unit, shift'\)/)
+  assert.match(api, /\.select\('hired_unit'\)/, 'and still loads before the migration')
+  // The helpers.
+  assert.equal(SCHEDULE, 'ngrp_resident_schedule_days')
+  assert.equal(residentShift({ shift: 'Night' }), 'Night')
+  assert.equal(residentShift({ shift: 'bogus' }), null)
+  assert.equal(residentShift(null), null)
+  assert.equal(isRealDay('2026-02-30'), false)
+  assert.equal(isRealDay('2026-09-22'), true)
+  assert.equal(isRealDay('2026-9-2'), false)
+  const inserts = []
+  const db = fakeDb(s => {
+    if (s.table === SCHEDULE && s.op === 'insert') { inserts.push(s.payload); return { error: inserts.length > 1 ? { code: '23505' } : null } }
+    if (s.table === SCHEDULE && s.op === 'delete') return { error: null }
+    if (s.table === SCHEDULE) return { data: [{ on_date: '2026-09-22', shift: null }] }
+    return { data: null, error: null }
+  })
+  assert.deepEqual(await addScheduleDay(db, { run: RUN, onDate: 'nope' }), { ok: false, reason: 'invalid_date' })
+  assert.deepEqual(await addScheduleDay(db, { run: RUN, onDate: '2026-09-22', shift: 'Night', residentShiftType: 'Day' }), { ok: true, mark: { on_date: '2026-09-22', shift: null } }, 'a Day resident\'s mark carries no shift of its own, whatever the body says')
+  assert.deepEqual(inserts[0], { candidate_id: 'k1', student_id: 's1', on_date: '2026-09-22', shift: null }, 'ids come from the run, never the body')
+  assert.deepEqual(await addScheduleDay(db, { run: RUN, onDate: '2026-09-22', residentShiftType: 'Day' }), { ok: true, idempotent: true }, 'marking a marked day is fine')
+  assert.deepEqual(await addScheduleDay(db, { run: RUN, onDate: '2026-09-23', residentShiftType: 'Variable' }), { ok: false, reason: 'shift_required' })
+  assert.deepEqual(await addScheduleDay(db, { run: RUN, onDate: '2026-09-23', shift: 'Weekend', residentShiftType: 'Variable' }), { ok: false, reason: 'shift_required' })
+  assert.deepEqual(await removeScheduleDay(db, { run: RUN, onDate: '2026-09-22' }), { ok: true })
+  assert.deepEqual(await removeScheduleDay(db, { run: RUN, onDate: '22/09/2026' }), { ok: false, reason: 'invalid_date' })
+  assert.deepEqual(await loadSchedule(db, 'k1'), { rows: [{ on_date: '2026-09-22', shift: null }] })
+  // The hire record.
+  assert.equal(validateOutcomePayload({ shift: 'Variable' }).outcome.shift, 'Variable')
+  assert.equal(validateOutcomePayload({ shift: ' Night ' }).outcome.shift, 'Night')
+  const badShift = validateOutcomePayload({ shift: 'Weekend' })
+  assert.equal(badShift.ok, false)
+  assert.ok(badShift.errors.some(e => e.field === 'shift'), 'an unknown shift is refused')
+  assert.equal(validateOutcomePayload({ shift: '' }).outcome.shift, null, 'empty means not recorded yet')
+  assert.equal(validateOutcomePayload({}).outcome.shift, null)
+  const drawer = read('src/components/ngrp/ApplicantDrawer.jsx')
+  assert.match(drawer, /RESIDENT_SHIFTS\.map\(s => <option key=\{s\} value=\{s\}>\{shiftBadge\(s\)\.label\}<\/option>\)/, 'the drawer offers the four shifts with the app\'s glyphs')
+  assert.match(drawer, /shift: form\.shift \|\| null,/)
+  assert.match(drawer, /\{o\.shift && <Row label="Shift">\{shiftBadge\(o\.shift\)\.label\}<\/Row>\}/)
+  assert.match(read('lib/server/ngrpApplicants.js'), /cs_email, not_selected_at, offer_declined_at, shift`\)/, 'readOutcomes reads the shift with a fallback')
+})
+
+test('Residency > Activity shows the marks: a read action for both audiences, first-name chips in the shift colour', () => {
+  const api = read('api/ngrp-support.js')
+  assert.match(api, /'reflection_view', 'schedule'\]\)/, 'schedule is an action')
+  assert.doesNotMatch(api, /TEAM_ONLY = new Set\(\[[^\]]*'schedule'/, 'a schedule names no answer: both audiences read it')
+  assert.match(api, /if \(action === 'schedule'\) \{/)
+  assert.match(api, /\.gte\('on_date', from\)\.lte\('on_date', to\)/)
+  assert.match(api, /if \(!cycleId \|\| !from \|\| !to \|\| from > to\) return res\.status\(422\)/)
+  assert.match(api, /provisioned: false, marks: \[\], shifts: \{\}/, 'before the migration the calendar is simply empty')
+  const cal = read('src/components/ngrp/ActivityCalendar.jsx')
+  assert.match(cal, /postNgrpSupport\('schedule', \{ cycle_id: cycle\.id, from, to \}\)/)
+  assert.match(cal, /shift: m\.shift \|\| schedule\?\.shifts\?\.\[m\.candidate_id\] \|\| null/, 'a per-day shift wins, else the hire record')
+  assert.match(cal, /marksOn\(date\)\.slice\(0, 3\)\.map\(m => <ShiftMark key=\{m\.candidate_id\} mark=\{m\} \/>\)/)
+  assert.match(cal, /\{firstNameOf\(mark\.name\) \|\| mark\.name\} \{mark\.shift \? badge\.label\.split\(' '\)\[0\] : ''\}/)
+  assert.match(cal, /marks=\{marksOn\(dayOpen\)\}/, 'the day modal lists them too')
+  assert.match(read('src/components/ngrp/ngrp.css'), /\.ngrp-shift-mark \{/)
+})
+
+test('migration 20260918: the schedule table, the hire shift, DELETE for service_role only here, and its checks', () => {
+  const sql = read('supabase/migrations/20260918000000_ngrp_resident_schedule.sql')
+  const body = code(sql)
+  assert.match(body, /CREATE TABLE IF NOT EXISTS public\.ngrp_resident_schedule_days/)
+  assert.match(body, /candidate_id\s+uuid\s+NOT NULL REFERENCES public\.ngrp_candidates\(id\) ON DELETE CASCADE/)
+  assert.match(body, /on_date\s+date\s+NOT NULL/)
+  assert.match(body, /REVOKE ALL PRIVILEGES ON TABLE public\.ngrp_resident_schedule_days FROM PUBLIC, anon, authenticated, service_role;/)
+  assert.match(body, /shift\s+text\s+CHECK \(shift IS NULL OR shift IN \('Day', 'Night', 'Mid'\)\)/)
+  assert.match(body, /CONSTRAINT uq_ngrp_resident_schedule_day UNIQUE \(candidate_id, on_date\)/)
+  assert.match(body, /ALTER TABLE public\.ngrp_residency_outcomes\s+ADD COLUMN IF NOT EXISTS shift text/)
+  assert.match(body, /CHECK \(shift IS NULL OR shift IN \('Day', 'Night', 'Mid', 'Variable'\)\)/)
+  assert.match(body, /ENABLE ROW LEVEL SECURITY/)
+  assert.match(body, /GRANT SELECT, INSERT, DELETE ON TABLE public\.ngrp_resident_schedule_days TO service_role/, 'a mark is a plan, not a record: removing one is a DELETE')
+  assert.doesNotMatch(body, /GRANT[^;]*UPDATE[^;]*ngrp_resident_schedule_days/, 'no UPDATE: a changed mark is a delete and an add')
+  assert.doesNotMatch(body, /TO (anon|authenticated|PUBLIC)/i)
+  assert.doesNotMatch(body, /ngrp_audit_events/, 'no audit change in this migration')
+  const checks = read('db/audit/ngrp_resident_schedule_checks.sql')
+  for (const s of ['PRE 1', 'POST 1', 'POST 2', 'POST 3', 'POST 4', 'POST 5']) assert.ok(checks.includes(s), s)
+  assert.match(checks, /DELETE,INSERT,SELECT/)
+  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /20260918000000_ngrp_resident_schedule\.sql/)
 })
