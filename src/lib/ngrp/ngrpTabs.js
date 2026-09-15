@@ -27,8 +27,13 @@ export const NGRP_TABS = [
   { id: 'overview',   label: 'At a Glance',         chip: 'A'  },
   { id: 'support',    label: 'Support',             chip: 'S',
     subTabs: [
-      { id: 'before', label: 'Before residency' },
-      { id: 'during', label: 'During residency' },
+      { id: 'before', label: 'Before Residency' },
+      // MENTORSHIP-1 (Owner, 2026-09-14): the ten-week Clinical Orientation
+      // Progress and Reflection Tool is orientation, so it has its own sub-tab;
+      // During Residency is the mentorship record. The 'during' id is kept, so
+      // existing links land on the mentorship record.
+      { id: 'start',  label: 'At the Start of Residency' },
+      { id: 'during', label: 'During Residency' },
     ] },
   { id: 'profiles',   label: 'Profiles & Interest', chip: 'PI' },
   { id: 'residency',  label: 'Residency',           chip: 'R',

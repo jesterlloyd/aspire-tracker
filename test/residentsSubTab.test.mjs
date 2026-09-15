@@ -125,5 +125,6 @@ test('the migration is additive, Owner-gated and in the ledger', () => {
   }
   assert.match(migration, /APPLY MANUALLY \(Owner\/Jester\)\. Claude Code has applied NOTHING\./)
   assert.doesNotMatch(migration, /^\s*(DROP|DELETE|UPDATE)\b/m)
-  assert.match(gate, /\| 20260919000000_ngrp_resident_details\.sql \| RESIDENTS-1, .*\*\*AWAITING OWNER APPLY\.\*\*/)
+  // Applied by the Owner 2026-09-14, every check as expected.
+  assert.match(gate, /\| 20260919000000_ngrp_resident_details\.sql \| RESIDENTS-1, .*\*\*APPLIED 2026-09-14 by the Owner\.\*\*/)
 })

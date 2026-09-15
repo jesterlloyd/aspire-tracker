@@ -29,7 +29,7 @@
 import { Resend } from 'resend'
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
-import { loadApplicantsPayload, isMissingNgrpTable } from '../lib/server/ngrpApplicants.js'
+import { loadApplicantsPayload, isMissingNgrpTable, isMissingNgrpColumn } from '../lib/server/ngrpApplicants.js'
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 import { validateSupportEntry, validateAttendance, validateMentor, validateVoid } from '../lib/server/ngrpSupport.js'
 import { generateToken } from '../lib/server/evaluation/tokens.js'
@@ -60,6 +60,8 @@ const ENTRIES = 'ngrp_support_entries'
 const MENTORS = 'ngrp_resident_mentors'
 const FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
 const ENTRY_FIELDS = 'id, cycle_id, candidate_id, student_id, activity, occurred_on, note, mentor_name, event_id, recorded_at'
+// MENTORSHIP-1: the mentorship session record's own columns (20260920000000).
+const SESSION_FIELDS = 'session_format, duration_minutes, topics, next_steps, logged_by'
 
 const unprovisioned = res => res.status(200).json({ provisioned: false })
 const internal = res => res.status(500).json({ error: 'internal_error' })
@@ -104,11 +106,20 @@ export default async function handler(req, res) {
 
       let entries = []
       let mentors = []
+      // MENTORSHIP-1: widest first. Before 20260920000000 the session columns
+      // are absent; sessions then read with date, mentor and note only.
+      let sessionDetailsProvisioned = true
       if (candidateIds.length) {
-        const [e, m] = await Promise.all([
-          db.from(ENTRIES).select(ENTRY_FIELDS).in('candidate_id', candidateIds).is('voided_at', null).order('occurred_on', { ascending: false }),
+        const readEntries = cols => db.from(ENTRIES).select(cols).in('candidate_id', candidateIds).is('voided_at', null).order('occurred_on', { ascending: false })
+        const [first, m] = await Promise.all([
+          readEntries(`${ENTRY_FIELDS}, ${SESSION_FIELDS}`),
           db.from(MENTORS).select('candidate_id, mentor_name, mentor_profile_id, assigned_at').in('candidate_id', candidateIds),
         ])
+        let e = first
+        if (e.error && isMissingNgrpColumn(e.error)) {
+          sessionDetailsProvisioned = false
+          e = await readEntries(ENTRY_FIELDS)
+        }
         if (e.error) return isMissingNgrpTable(e.error) ? unprovisioned(res) : internal(res)
         if (m.error) return isMissingNgrpTable(m.error) ? unprovisioned(res) : internal(res)
         entries = e.data || []
@@ -116,6 +127,8 @@ export default async function handler(req, res) {
       } else {
         const probe = await db.from(ENTRIES).select('id').limit(1)
         if (probe.error) return isMissingNgrpTable(probe.error) ? unprovisioned(res) : internal(res)
+        const columns = await db.from(ENTRIES).select('logged_by').limit(1)
+        if (columns.error && isMissingNgrpColumn(columns.error)) sessionDetailsProvisioned = false
       }
       // RESIDENCY-REFLECTION-1: each resident's run and periods, status only,
       // never a payload. Absent until 20260917000000 is applied, which the tab
@@ -145,6 +158,7 @@ export default async function handler(req, res) {
         today,
         entries,
         mentors,
+        sessionDetailsProvisioned,
         reflections: { provisioned: reflectionsProvisioned, runs, periods },
       })
     }
@@ -288,9 +302,12 @@ export default async function handler(req, res) {
         candidate_id: cand.data.id,
         student_id: cand.data.student_id,
         recorded_by_profile_id: actorId,
-      }).select(ENTRY_FIELDS).maybeSingle()
+      }).select('id').maybeSingle()
       if (ins.error) {
         if (isUnique(ins.error)) return res.status(409).json({ error: 'already_recorded' })
+        // MENTORSHIP-1: a session's details need 20260920000000. Refused with a
+        // reason rather than stored without them.
+        if (isMissingNgrpColumn(ins.error)) return res.status(200).json({ provisioned: false, error: 'session_details_unavailable' })
         return isMissingNgrpTable(ins.error) ? unprovisioned(res) : internal(res)
       }
       return res.status(200).json({ ok: true, entry: ins.data })

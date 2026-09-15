@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import { SUPPORT_ACTIVITIES, SUPPORT_ACTIVITY_KEYS, activitiesFor } from '../src/lib/ngrp/ngrpSupportActivities.js'
-import { beforeResidency, duringResidency, isResident } from '../src/lib/ngrp/ngrpSupportView.js'
+import { beforeResidency, startOfResidency, duringResidency, isResident } from '../src/lib/ngrp/ngrpSupportView.js'
 import { validateSupportEntry, validateAttendance, validateMentor, validateVoid, ATTENDANCE_MAX } from '../lib/server/ngrpSupport.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -45,7 +45,8 @@ test('the migration\'s activity CHECK is exactly the shared list; server-only; n
 test('an entry: a real, past date; notes bounded; mentor name only on a mentorship session', () => {
   const ok = validateSupportEntry({ activity: 'resume_review', occurred_on: '2026-09-10', note: '  Tightened the summary. ', mentor_name: 'X' }, { today: '2026-09-11' })
   assert.deepEqual(ok, { ok: true, entry: { activity: 'resume_review', occurred_on: '2026-09-10', note: 'Tightened the summary.', mentor_name: null, event_id: null } })
-  assert.equal(validateSupportEntry({ activity: 'mentorship_session', occurred_on: '2026-09-11', mentor_name: 'Jester' }, { today: '2026-09-11' }).entry.mentor_name, 'Jester')
+  // MENTORSHIP-1: a session also needs its format and topics.
+  assert.equal(validateSupportEntry({ activity: 'mentorship_session', occurred_on: '2026-09-11', mentor_name: 'Jester', session_format: 'virtual', topics: 'Nights' }, { today: '2026-09-11' }).entry.mentor_name, 'Jester')
   assert.equal(validateSupportEntry({ activity: 'unit_advising', occurred_on: '2026-09-10' }).ok, false)
   assert.equal(validateSupportEntry({ activity: 'town_hall', occurred_on: '2026-02-30' }).ok, false, 'not a real date')
   assert.equal(validateSupportEntry({ activity: 'town_hall', occurred_on: '2026-09-12' }, { today: '2026-09-11' }).ok, false, 'not in the future')
@@ -95,10 +96,10 @@ test('during residency: residents, mentors, reflections, and sessions', () => {
   ]
   assert.equal(isResident(rows[2]), false, 'separated residents drop off')
   // RESIDENCY-REFLECTION-1: ana's run has two periods sent, one submitted and
-  // one past due; ben has not been started.
-  const d = duringResidency(rows, {
+  // one past due; ben has not been started. MENTORSHIP-1 (2026-09-14): the
+  // reflection tool is At the Start of Residency; mentorship is During.
+  const s = startOfResidency(rows, {
     today: '2027-02-10',
-    mentors: [{ candidate_id: 'k11', mentor_name: 'Jester Lloyd Bautista' }],
     reflections: {
       runs: [{ id: 'run11', candidate_id: 'k11', status: 'active', period_count: 5 }],
       periods: [
@@ -107,20 +108,35 @@ test('during residency: residents, mentors, reflections, and sessions', () => {
         { run_id: 'run11', period_number: 3, due_on: '2027-02-21', sent_at: null, status: 'pending' },
       ],
     },
-    entries: [{ student_id: ID('11'), activity: 'mentorship_session', occurred_on: '2027-01-15' }],
   })
-  assert.equal(d.residents.length, 2)
-  const [ana, ben] = d.residents
-  assert.equal(ana.mentor.mentor_name, 'Jester Lloyd Bautista')
+  assert.equal(s.residents.length, 2)
+  const [ana, ben] = s.residents
   assert.equal(ana.reflection.sent, 2)
   assert.equal(ana.reflection.submitted, 1)
   assert.equal(ana.reflection.overdue, 1, 'period 2 was due 2027-02-07 and is still open')
   assert.equal(ana.reflection.next.period_number, 2)
   assert.equal(ana.overdue, true)
-  assert.equal(ana.sessions, 1)
   assert.equal(ben.reflection.started, false)
   assert.equal(ben.overdue, false, 'nothing is due for someone who has not been started')
-  assert.deepEqual(d.kpis, { residents: 2, withMentor: 1, reflecting: 1, submitted: 1, overdue: 1, sessions: 1 })
+  assert.deepEqual(s.kpis, { residents: 2, reflecting: 1, submitted: 1, overdue: 1, complete: 0 })
+
+  const d = duringResidency(rows, {
+    mentors: [{ candidate_id: 'k11', mentor_name: 'Jester Lloyd Bautista' }],
+    entries: [
+      { student_id: ID('11'), activity: 'mentorship_session', occurred_on: '2027-01-15', duration_minutes: 45 },
+      { student_id: ID('11'), activity: 'mentorship_session', occurred_on: '2027-02-01', duration_minutes: 30 },
+      { student_id: ID('13'), activity: 'mentorship_session', occurred_on: '2027-01-20', duration_minutes: 60 },
+      { student_id: ID('12'), activity: 'mentorship_session', occurred_on: '2027-01-21', voided_at: '2027-01-22T00:00:00Z' },
+    ],
+  })
+  assert.equal(d.residents.length, 2)
+  assert.equal(d.residents[0].mentor.mentor_name, 'Jester Lloyd Bautista')
+  assert.equal(d.residents[0].sessions, 2)
+  assert.equal(d.residents[0].latest.occurred_on, '2027-02-01', 'latest first')
+  assert.equal(d.residents[1].latest, null)
+  // The log keeps the separated resident's session; counts are current residents only.
+  assert.deepEqual(d.sessions.map(e => e.occurred_on), ['2027-02-01', '2027-01-20', '2027-01-15'])
+  assert.deepEqual(d.kpis, { residents: 2, withMentor: 1, sessions: 2, minutes: 75, withoutSession: 1 })
 })
 
 test('the endpoint: Talent Acquisition reads the narrowed roster and never writes; entries are voided', () => {

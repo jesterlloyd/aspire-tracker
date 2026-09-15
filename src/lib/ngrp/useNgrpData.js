@@ -233,6 +233,8 @@ export function useNgrpSupport(cycleId, { enabled = true } = {}) {
     mentors: ready ? (query.data.mentors || []) : [],
     reflections: ready ? (query.data.reflections || { provisioned: false, runs: [], periods: [] }) : { provisioned: false, runs: [], periods: [] },
     canRecord: ready && query.data.canRecord === true,
+    // MENTORSHIP-1: false until migration 20260920000000 adds the session columns.
+    sessionDetailsProvisioned: ready && query.data.sessionDetailsProvisioned !== false,
     today: ready ? query.data.today : null,
     refetch: query.refetch,
   }

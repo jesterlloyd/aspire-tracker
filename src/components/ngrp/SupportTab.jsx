@@ -24,7 +24,11 @@ import { SAMPLE_PATH } from '../../lib/ngrp/reflectionSample'
 import { useNgrpApplicants, useNgrpSupport, postNgrpSupport } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows } from '../../lib/ngrp/ngrpStates'
 import { activitiesFor, supportActivity } from '../../lib/ngrp/ngrpSupportActivities'
-import { beforeResidency, duringResidency } from '../../lib/ngrp/ngrpSupportView'
+import { beforeResidency, startOfResidency, duringResidency } from '../../lib/ngrp/ngrpSupportView'
+import {
+  SESSION_FORMATS, sessionFormatLabel, sessionLoggerLabel,
+  DURATION_MIN, DURATION_MAX, TOPICS_MAX, NEXT_STEPS_MAX,
+} from '../../lib/ngrp/ngrpMentorshipSession'
 import { DIFFICULTY_AREAS } from '../../lib/ngrp/ngrpReflectionForm'
 import { displayName } from '../../lib/utils'
 import { F, btn } from '../../lib/ngrp/ngrpCohortForm'
@@ -73,7 +77,6 @@ function RecordForm({ cycle, rows, today, phase, preset, onDone, toast }) {
   const [single, setSingle] = useState(preset?.candidateId || '')
   const [group, setGroup] = useState(() => new Set())
   const [note, setNote] = useState('')
-  const [mentorName, setMentorName] = useState(preset?.mentorName || '')
   const [busy, setBusy] = useState(false)
   const isGroup = supportActivity(activity)?.mode === 'group'
   const choices = rows.filter(r => r.candidate_id)
@@ -84,7 +87,7 @@ function RecordForm({ cycle, rows, today, phase, preset, onDone, toast }) {
     const base = { activity, occurred_on: occurredOn, note: note.trim() || null }
     const res = isGroup
       ? await postNgrpSupport('record_attendance', { ...base, cycle_id: cycle.id, candidate_ids: [...group] })
-      : await postNgrpSupport('record', { ...base, candidate_id: single, mentor_name: mentorName.trim() || null })
+      : await postNgrpSupport('record', { ...base, candidate_id: single })
     setBusy(false)
     if (!res.ok) { toast?.error?.('Not saved', errorText(res)); return }
     const what = supportActivity(activity).label
@@ -109,17 +112,11 @@ function RecordForm({ cycle, rows, today, phase, preset, onDone, toast }) {
         </label>
         {!isGroup && (
           <label style={{ margin: 0 }}>
-            <span style={label}>{phase === 'during' ? 'Resident' : 'Alumnus'}</span>
+            <span style={label}>Alumnus</span>
             <select style={field} value={single} onChange={e => setSingle(e.target.value)} required disabled={Boolean(preset?.candidateId)}>
               <option value="">Choose…</option>
               {choices.map(r => <option key={r.candidate_id} value={r.candidate_id}>{displayName(r.student)}</option>)}
             </select>
-          </label>
-        )}
-        {activity === 'mentorship_session' && (
-          <label style={{ margin: 0 }}>
-            <span style={label}>Mentor</span>
-            <input style={field} value={mentorName} maxLength={120} onChange={e => setMentorName(e.target.value)} placeholder="Who led the session" />
           </label>
         )}
       </div>
@@ -471,18 +468,18 @@ function ReflectionsPanel({ resident, canRecord, onChanged, toast, onClose }) {
   )
 }
 
-function DuringPanel({ cycle, rows, support, toast }) {
-  const [sessionFor, setSessionFor] = useState(null)
+// ── MENTORSHIP-1: At the Start of Residency, the ten-week reflection tool ────
+function StartPanel({ cycle, rows, support, toast }) {
   const [openFor, setOpenFor] = useState(null)
   const [starting, setStarting] = useState(null)   // candidate_id awaiting confirm
   const [busy, setBusy] = useState(false)
   // Renders a synthetic copy of the reflection email. No network, no resident,
   // no token; it cannot send anything.
   const [showEmailPreview, setShowEmailPreview] = useState(false)
-  const view = useMemo(() => duringResidency(rows, {
-    entries: support.entries, mentors: support.mentors, reflections: support.reflections, today: support.today,
-  }), [rows, support.entries, support.mentors, support.reflections, support.today])
-  const sessions = support.entries.filter(e => e.activity === 'mentorship_session')
+  const view = useMemo(
+    () => startOfResidency(rows, { reflections: support.reflections, today: support.today }),
+    [rows, support.reflections, support.today],
+  )
   const reflectionsReady = support.reflections?.provisioned !== false
   const openResident = openFor ? view.residents.find(r => r.row.candidate_id === openFor) || null : null
 
@@ -499,26 +496,19 @@ function DuringPanel({ cycle, rows, support, toast }) {
 
   return (
     <>
-      <section className="snap" aria-label="Support during residency snapshot" style={{ margin: '14px 0' }}>
+      <section className="snap" aria-label="Support at the start of residency snapshot" style={{ margin: '14px 0' }}>
         <div className="snap-head">
-          <span className="ov-panel-title">Support During Residency</span>
-          <span className="snap-sub">{cycle.name} · the bi-weekly reflection goes out every other Friday for ten weeks</span>
+          <span className="ov-panel-title">Support at the Start of Residency</span>
+          <span className="snap-sub">{cycle.name} · the Clinical Orientation Progress and Reflection Tool goes out every other Friday for ten weeks</span>
         </div>
         <div className="glance-kpis snap-kpis">
           <KPICell value={view.kpis.residents} label="Residents" sub="Hired, not separated" />
-          <KPICell value={view.kpis.withMentor} label="With a Mentor" sub={`of ${plural(view.kpis.residents, 'resident')}`} accent="sage" />
           <KPICell value={view.kpis.reflecting} label="Reflecting" sub="Started, still active" />
           <KPICell value={view.kpis.submitted} label="Reflections Submitted" sub="Across all residents" />
           <KPICell value={view.kpis.overdue} label="Periods Overdue" sub="Sent, past due, not submitted" accent={view.kpis.overdue ? 'warning' : undefined} />
-          <KPICell value={view.kpis.sessions} label="Mentorship Sessions" sub="Recorded" />
+          <KPICell value={view.kpis.complete} label="Completed" sub="Every period submitted" accent="sage" />
         </div>
       </section>
-
-      {sessionFor && (
-        <RecordForm cycle={cycle} rows={rows} today={support.today} phase="during" toast={toast}
-          preset={{ activity: 'mentorship_session', candidateId: sessionFor.row.candidate_id, mentorName: sessionFor.mentor?.mentor_name || '' }}
-          onDone={() => { setSessionFor(null); support.refetch() }} />
-      )}
 
       <section className="snap ngrp-glance-panel" aria-label="Residents">
         <div className="aggregate-panel-hdr">
@@ -570,9 +560,8 @@ function DuringPanel({ cycle, rows, support, toast }) {
                 <tr>
                   <th className="aspire-th">Resident</th>
                   <th className="aspire-th">Unit</th>
-                  <th className="aspire-th">Mentor</th>
+                  <th className="aspire-th">Residency Start</th>
                   <th className="aspire-th">Reflections</th>
-                  <th className="aspire-th aspire-th-right">Sessions</th>
                   {support.canRecord && <th className="aspire-th aspire-th-right"><span className="sr-only">Actions</span></th>}
                 </tr>
               </thead>
@@ -581,9 +570,8 @@ function DuringPanel({ cycle, rows, support, toast }) {
                   <tr key={r.row.id}>
                     <td><Name row={r.row} sub={r.row.outcome?.cs_email || 'No Cedars-Sinai email yet'} /></td>
                     <td>{r.row.outcome?.hired_unit || r.row.assigned_unit || ''}</td>
-                    <td><MentorCell resident={r} canRecord={support.canRecord} onSaved={support.refetch} toast={toast} /></td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{r.row.outcome?.residency_start_date ? fmtDay(r.row.outcome.residency_start_date) : <span className="ngrp-glance-muted">Not recorded</span>}</td>
                     <td><ReflectionCell resident={r} /></td>
-                    <td className="num">{r.sessions}{r.lastSession && <span className="ngrp-glance-muted"> · {fmtDay(r.lastSession)}</span>}</td>
                     {support.canRecord && (
                       <td className="num" style={{ width: 'auto', whiteSpace: 'nowrap' }}>
                         {reflectionsReady && !r.reflection.started && (
@@ -604,7 +592,6 @@ function DuringPanel({ cycle, rows, support, toast }) {
                             {openFor === r.row.candidate_id ? 'Hide' : 'View'}
                           </button>
                         )}
-                        <button type="button" className="ngrp-linkbtn" onClick={() => setSessionFor(r)}>Record Session</button>
                       </td>
                     )}
                   </tr>
@@ -620,8 +607,6 @@ function DuringPanel({ cycle, rows, support, toast }) {
           onChanged={support.refetch} onClose={() => setOpenFor(null)} />
       )}
 
-      <RecentEntries entries={sessions} rows={rows} canRecord={support.canRecord} onChanged={support.refetch} toast={toast} />
-
       {showEmailPreview && (
         <AutomationEmailPreviewDrawer
           title="NGRP Bi-Weekly Reflection"
@@ -630,6 +615,257 @@ function DuringPanel({ cycle, rows, support, toast }) {
           onClose={() => setShowEmailPreview(false)}
         />
       )}
+    </>
+  )
+}
+
+// ── MENTORSHIP-1: During Residency, the mentorship record ────────────────────
+// Every session between a resident (mentee) and their mentor. It replaces
+// Cedars-Sinai's mentorship platform. The ASPIRE team logs sessions today; the
+// record's shape (src/lib/ngrp/ngrpMentorshipSession.js) is the one a future
+// mentor or resident self-logging path will write.
+const SESSION_UNAVAILABLE = 'Session details switch on once migration 20260920000000 is applied.'
+
+function SessionForm({ residents, today, preset, detailsReady, onDone, toast }) {
+  const mentorOf = id => residents.find(r => r.row.candidate_id === id)?.mentor?.mentor_name || ''
+  const [candidateId, setCandidateId] = useState(preset?.candidateId || '')
+  const [mentorName, setMentorName] = useState(preset?.candidateId ? mentorOf(preset.candidateId) : '')
+  const [occurredOn, setOccurredOn] = useState(today || '')
+  const [format, setFormat] = useState('')
+  const [duration, setDuration] = useState('')
+  const [topics, setTopics] = useState('')
+  const [nextSteps, setNextSteps] = useState('')
+  const [busy, setBusy] = useState(false)
+  const area = { ...field, height: 'auto', minHeight: 68, padding: '8px 10px', resize: 'vertical', lineHeight: 1.45 }
+
+  const chooseResident = (id) => {
+    setCandidateId(id)
+    if (!mentorName.trim()) setMentorName(mentorOf(id))
+  }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    const res = await postNgrpSupport('record', {
+      activity: 'mentorship_session',
+      candidate_id: candidateId,
+      occurred_on: occurredOn,
+      mentor_name: mentorName.trim() || null,
+      session_format: format,
+      duration_minutes: duration === '' ? null : Number(duration),
+      topics,
+      next_steps: nextSteps,
+    })
+    setBusy(false)
+    if (res.ok && res.provisioned === false) { toast?.error?.('Not saved', SESSION_UNAVAILABLE); return }
+    if (!res.ok) { toast?.error?.('Not saved', errorText(res)); return }
+    const who = residents.find(r => r.row.candidate_id === candidateId)
+    toast?.success?.('Session logged', `The mentorship session with ${who ? displayName(who.row.student) : 'the resident'} is on record.`)
+    onDone()
+  }
+
+  return (
+    <form className="snap ngrp-glance-panel" onSubmit={submit} style={{ padding: '16px 18px' }} aria-label="Log a mentorship session" data-testid="session-form">
+      <div className="ov-panel-title" style={{ marginBottom: 12 }}>Log a Mentorship Session</div>
+      {!detailsReady && <p style={{ margin: '0 0 12px', fontSize: 12, color: '#92400E', fontFamily: F }}>{SESSION_UNAVAILABLE}</p>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 12 }}>
+        <label style={{ margin: 0 }}>
+          <span style={label}>Resident</span>
+          <select style={field} value={candidateId} onChange={e => chooseResident(e.target.value)} required disabled={Boolean(preset?.candidateId)}>
+            <option value="">Choose…</option>
+            {residents.map(r => <option key={r.row.candidate_id} value={r.row.candidate_id}>{displayName(r.row.student)}</option>)}
+          </select>
+        </label>
+        <label style={{ margin: 0 }}>
+          <span style={label}>Date</span>
+          <input style={field} type="date" value={occurredOn} max={today || undefined} onChange={e => setOccurredOn(e.target.value)} required />
+        </label>
+        <label style={{ margin: 0 }}>
+          <span style={label}>Mentor</span>
+          <input style={field} value={mentorName} maxLength={120} onChange={e => setMentorName(e.target.value)} placeholder="Who led the session" />
+        </label>
+        <label style={{ margin: 0 }}>
+          <span style={label}>Format</span>
+          <select style={field} value={format} onChange={e => setFormat(e.target.value)} required>
+            <option value="">Choose…</option>
+            {SESSION_FORMATS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+          </select>
+        </label>
+        <label style={{ margin: 0 }}>
+          <span style={label}>Duration (minutes)</span>
+          <input style={field} type="number" inputMode="numeric" min={DURATION_MIN} max={DURATION_MAX} step={5}
+            value={duration} onChange={e => setDuration(e.target.value)} placeholder="Optional" />
+        </label>
+      </div>
+      <label style={{ display: 'block', margin: '0 0 12px' }}>
+        <span style={label}>Topics discussed</span>
+        <textarea style={area} value={topics} maxLength={TOPICS_MAX} required onChange={e => setTopics(e.target.value)}
+          placeholder="For example: first weeks on nights, time management, a hard family conversation" />
+      </label>
+      <label style={{ display: 'block', margin: '0 0 12px' }}>
+        <span style={label}>Next steps (optional)</span>
+        <textarea style={area} value={nextSteps} maxLength={NEXT_STEPS_MAX} onChange={e => setNextSteps(e.target.value)}
+          placeholder="What the resident will try before the next session" />
+      </label>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button type="button" style={btn()} onClick={onDone}>Cancel</button>
+        <button type="submit" style={btn(true)} disabled={busy || !detailsReady || !candidateId || !occurredOn || !format || !topics.trim()}>
+          {busy ? 'Saving…' : 'Log Session'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function SessionLog({ sessions, rows, canRecord, onChanged, toast }) {
+  const nameOf = useMemo(() => new Map(rows.map(r => [r.student?.id || r.id, displayName(r.student)])), [rows])
+  const voidSession = async (entry) => {
+    const res = await postNgrpSupport('void', { entry_id: entry.id })
+    if (!res.ok) { toast?.error?.('Not voided', errorText(res)); return }
+    toast?.success?.('Session voided', 'It no longer counts. The record of it is kept.')
+    onChanged()
+  }
+  const muted = text => <span className="ngrp-glance-muted">{text}</span>
+  return (
+    <section className="snap ngrp-glance-panel" aria-label="Mentorship session log">
+      <div className="aggregate-panel-hdr">
+        <div>
+          <div className="ov-panel-title">Session Log</div>
+          <div className="ov-panel-sub">{plural(sessions.length, 'session')} on record, newest first</div>
+        </div>
+      </div>
+      {sessions.length === 0 ? (
+        <p className="ngrp-glance-empty">No mentorship sessions logged yet.</p>
+      ) : (
+        <div className="ngrp-glance-scroll">
+          <table className="ngrp-glance-table" data-testid="session-log">
+            <thead>
+              <tr>
+                <th className="aspire-th">Date</th>
+                <th className="aspire-th">Resident</th>
+                <th className="aspire-th">Mentor</th>
+                <th className="aspire-th">Format</th>
+                <th className="aspire-th aspire-th-right">Minutes</th>
+                <th className="aspire-th">Topics Discussed</th>
+                <th className="aspire-th">Next Steps</th>
+                <th className="aspire-th">Logged By</th>
+                {canRecord && <th className="aspire-th aspire-th-right"><span className="sr-only">Actions</span></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map(e => (
+                <tr key={e.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{fmtDay(e.occurred_on)}</td>
+                  <td>{nameOf.get(e.student_id) || ''}</td>
+                  <td>{e.mentor_name || muted('Not recorded')}</td>
+                  <td>{sessionFormatLabel(e.session_format) || muted('Not recorded')}</td>
+                  <td className="num">{e.duration_minutes ?? ''}</td>
+                  <td style={{ minWidth: 200, whiteSpace: 'pre-wrap' }}>{e.topics || e.note || muted('Not recorded')}</td>
+                  <td style={{ minWidth: 180, whiteSpace: 'pre-wrap' }}>{e.next_steps || ''}</td>
+                  <td>{sessionLoggerLabel(e.logged_by || 'aspire_team')}</td>
+                  {canRecord && (
+                    <td className="num">
+                      <button type="button" className="ngrp-linkbtn" onClick={() => voidSession(e)}>Void</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function MentorshipPanel({ cycle, rows, support, toast }) {
+  const [logging, setLogging] = useState(null)   // null | { candidateId? }
+  const view = useMemo(
+    () => duringResidency(rows, { entries: support.entries, mentors: support.mentors }),
+    [rows, support.entries, support.mentors],
+  )
+  const hours = Math.round((view.kpis.minutes / 60) * 10) / 10
+  return (
+    <>
+      <section className="snap" aria-label="Mentorship during residency snapshot" style={{ margin: '14px 0' }}>
+        <div className="snap-head">
+          <span className="ov-panel-title">Mentorship During Residency</span>
+          <span className="snap-sub">{cycle.name} · every session between a resident and their mentor, on record</span>
+        </div>
+        <div className="glance-kpis snap-kpis">
+          <KPICell value={view.kpis.residents} label="Residents" sub="Hired, not separated" />
+          <KPICell value={view.kpis.withMentor} label="With a Mentor" sub={`of ${plural(view.kpis.residents, 'resident')}`} accent="sage" />
+          <KPICell value={view.kpis.sessions} label="Sessions Logged" sub="Across all residents" />
+          <KPICell value={hours} label="Hours of Mentorship" sub="From recorded durations" />
+          <KPICell value={view.kpis.withoutSession} label="No Session Yet" sub="Residents to reach" accent={view.kpis.withoutSession ? 'warning' : undefined} />
+        </div>
+      </section>
+
+      {logging && (
+        <SessionForm
+          key={logging.candidateId || 'new'}
+          residents={view.residents}
+          today={support.today}
+          preset={logging}
+          detailsReady={support.sessionDetailsProvisioned}
+          toast={toast}
+          onDone={() => { setLogging(null); support.refetch() }}
+        />
+      )}
+
+      <section className="snap ngrp-glance-panel" aria-label="Residents and their mentors">
+        <div className="aggregate-panel-hdr ngrp-residents-hdr" data-testid="mentorship-hdr">
+          <div>
+            <div className="ov-panel-title">Residents</div>
+            <div className="ov-panel-sub">Each resident&apos;s mentor and their latest session</div>
+          </div>
+          {support.canRecord && !logging && view.residents.length > 0 && (
+            <button type="button" style={{ ...btn(true), whiteSpace: 'nowrap' }} onClick={() => setLogging({})}>
+              <Plus size={14} strokeWidth={2.2} aria-hidden="true" /> Log Session
+            </button>
+          )}
+        </div>
+        {view.residents.length === 0 ? (
+          <p className="ngrp-glance-empty">No residents yet. Alumni appear here once their hire is recorded on the Placement Board.</p>
+        ) : (
+          <div className="ngrp-glance-scroll">
+            <table className="ngrp-glance-table" data-testid="mentorship-residents">
+              <thead>
+                <tr>
+                  <th className="aspire-th">Resident</th>
+                  <th className="aspire-th">Unit</th>
+                  <th className="aspire-th">Mentor</th>
+                  <th className="aspire-th aspire-th-right">Sessions</th>
+                  <th className="aspire-th">Latest Session</th>
+                  {support.canRecord && <th className="aspire-th aspire-th-right"><span className="sr-only">Actions</span></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {view.residents.map(r => (
+                  <tr key={r.row.id}>
+                    <td><Name row={r.row} /></td>
+                    <td>{r.row.outcome?.hired_unit || r.row.assigned_unit || ''}</td>
+                    <td><MentorCell resident={r} canRecord={support.canRecord} onSaved={support.refetch} toast={toast} /></td>
+                    <td className="num">{r.sessions}</td>
+                    <td>
+                      {r.latest
+                        ? <>{fmtDay(r.latest.occurred_on)}<span className="ngrp-glance-muted">{[sessionFormatLabel(r.latest.session_format), r.latest.duration_minutes ? `${r.latest.duration_minutes} min` : ''].filter(Boolean).map(s => ` · ${s}`).join('')}</span></>
+                        : <span className="ngrp-glance-muted">No session yet</span>}
+                    </td>
+                    {support.canRecord && (
+                      <td className="num" style={{ whiteSpace: 'nowrap' }}>
+                        <button type="button" className="ngrp-linkbtn" onClick={() => setLogging({ candidateId: r.row.candidate_id })}>Log Session</button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <SessionLog sessions={view.sessions} rows={rows} canRecord={support.canRecord} onChanged={support.refetch} toast={toast} />
     </>
   )
 }
@@ -664,7 +900,8 @@ export default function SupportTab({ cycle, subTab, toast }) {
       </div>
     )
   }
-  return subTab === 'during'
-    ? <DuringPanel cycle={cycle} rows={rows} support={support} toast={toast} />
-    : <BeforePanel cycle={cycle} rows={rows} support={support} toast={toast} />
+  // MENTORSHIP-1: Before Residency | At the Start of Residency | During Residency.
+  if (subTab === 'start') return <StartPanel cycle={cycle} rows={rows} support={support} toast={toast} />
+  if (subTab === 'during') return <MentorshipPanel cycle={cycle} rows={rows} support={support} toast={toast} />
+  return <BeforePanel cycle={cycle} rows={rows} support={support} toast={toast} />
 }

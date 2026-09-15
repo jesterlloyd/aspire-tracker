@@ -157,7 +157,8 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
 
         {tab === 'profiles' && <ProfilesTab cycle={cycle} canManage={canManage} toast={toast} onSelectCycle={onSelectCycle} />}
 
-        {/* RESIDENCY-SUPPORT-1: built. Before and During residency. */}
+        {/* RESIDENCY-SUPPORT-1 + MENTORSHIP-1: Before Residency, At the Start of
+            Residency (the reflection tool) and During Residency (mentorship). */}
         {tab === 'support' && <SupportTab cycle={cycle} subTab={subTab} toast={toast} />}
 
         {tab === 'residency' && subTab === 'board' && (

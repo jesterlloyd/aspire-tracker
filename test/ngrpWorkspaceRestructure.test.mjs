@@ -43,7 +43,8 @@ test('five tabs, and the chips still spell ASPIRE', () => {
 
 test('only Support and Residency carry sub-tabs, and each has a default', () => {
   // RESIDENCY-SUPPORT-1 (Owner, 2026-09-11): "After residency" is "During residency".
-  assert.deepEqual(ngrpSubTabs('support').map(s => s.id), ['before', 'during'])
+  // MENTORSHIP-1 (Owner, 2026-09-14): Before | At the Start | During Residency.
+  assert.deepEqual(ngrpSubTabs('support').map(s => s.id), ['before', 'start', 'during'])
   // RESIDENTS-1 (Owner, 2026-09-14): Placement Board | Residents | Activity.
   assert.deepEqual(ngrpSubTabs('residency').map(s => s.id), ['board', 'residents', 'activity'])
   for (const id of ['overview', 'profiles', 'evaluation']) {

@@ -42,27 +42,23 @@ export function isResident(r) {
   return Boolean(r.outcome?.hired_at) && !r.outcome?.separated_at
 }
 
-// During residency: each resident's mentor, reflections, and mentorship
-// sessions. A reflection period is overdue when it was sent, is past its due
-// date, and has not been submitted.
-export function duringResidency(rows = [], { entries = [], mentors = [], reflections = { runs: [], periods: [] }, today }) {
-  const mentorByCandidate = new Map(mentors.map(m => [m.candidate_id, m]))
+// MENTORSHIP-1 (Owner, 2026-09-14): Support is Before Residency | At the Start
+// of Residency | During Residency.
+
+// At the Start of Residency: each resident's ten-week Clinical Orientation
+// Progress and Reflection Tool. A period is overdue when it was sent, is past
+// its due date, and has not been submitted.
+export function startOfResidency(rows = [], { reflections = { runs: [], periods: [] }, today } = {}) {
   const runByCandidate = new Map((reflections?.runs || []).map(x => [x.candidate_id, x]))
   const periods = reflections?.periods || []
-  const sessions = live(entries).filter(e => e.activity === 'mentorship_session')
   const residents = rows.filter(isResident).map((r) => {
-    const sid = r.student?.id || r.id
-    const mine = sessions.filter(e => e.student_id === sid).map(e => e.occurred_on).sort()
     const run = runByCandidate.get(r.candidate_id) || null
     const reflection = summarizeReflections(run, periods, today)
     return {
       row: r,
-      mentor: mentorByCandidate.get(r.candidate_id) || null,
       run,
       periods: run ? periods.filter(p => p.run_id === run.id) : [],
       reflection,
-      sessions: mine.length,
-      lastSession: mine[mine.length - 1] || null,
       overdue: reflection.overdue > 0,
     }
   })
@@ -70,11 +66,44 @@ export function duringResidency(rows = [], { entries = [], mentors = [], reflect
     residents,
     kpis: {
       residents: residents.length,
-      withMentor: residents.filter(x => x.mentor).length,
       reflecting: residents.filter(x => x.reflection.started && !x.reflection.stopped).length,
       submitted: residents.reduce((s, x) => s + x.reflection.submitted, 0),
       overdue: residents.reduce((s, x) => s + x.reflection.overdue, 0),
+      complete: residents.filter(x => x.reflection.started && x.reflection.done).length,
+    },
+  }
+}
+
+// During Residency: the mentorship record. Each current resident's mentor,
+// session count and latest session, plus the whole session log, newest first.
+// The log keeps a separated resident's sessions: the record does not shrink
+// when someone leaves. Counts are for current residents.
+export function duringResidency(rows = [], { entries = [], mentors = [] } = {}) {
+  const mentorByCandidate = new Map(mentors.map(m => [m.candidate_id, m]))
+  const residentRows = rows.filter(isResident)
+  const residentStudents = new Set(residentRows.map(r => r.student?.id || r.id))
+  const sessions = live(entries)
+    .filter(e => e.activity === 'mentorship_session')
+    .sort((a, b) => String(b.occurred_on).localeCompare(String(a.occurred_on)))
+  const residents = residentRows.map((r) => {
+    const sid = r.student?.id || r.id
+    const mine = sessions.filter(e => e.student_id === sid)
+    return {
+      row: r,
+      mentor: mentorByCandidate.get(r.candidate_id) || null,
+      sessions: mine.length,
+      latest: mine[0] || null,
+    }
+  })
+  return {
+    residents,
+    sessions,
+    kpis: {
+      residents: residents.length,
+      withMentor: residents.filter(x => x.mentor).length,
       sessions: residents.reduce((s, x) => s + x.sessions, 0),
+      minutes: sessions.filter(e => residentStudents.has(e.student_id)).reduce((s, e) => s + (Number(e.duration_minutes) || 0), 0),
+      withoutSession: residents.filter(x => x.sessions === 0).length,
     },
   }
 }

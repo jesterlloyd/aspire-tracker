@@ -25,7 +25,7 @@ import { shiftBadge } from '../src/lib/shiftStatus.js'
 import { CANONICAL_SHIFTS } from '../src/lib/preceptorProjection.js'
 import { buildReflectionEmail } from '../lib/server/email/ngrpReflectionEmail.js'
 import { NGRP_AUDIT_EVENTS } from '../lib/server/ngrpAudit.js'
-import { duringResidency } from '../src/lib/ngrp/ngrpSupportView.js'
+import { startOfResidency } from '../src/lib/ngrp/ngrpSupportView.js'
 import { AUTOMATION_CATALOG } from '../src/lib/automationCatalog.js'
 import { getPreviewFixture } from '../src/lib/notifications/previewFixtures.js'
 import { NGRP_REFLECTION_PREVIEW } from '../src/lib/ngrp/reflectionPreviewFixture.js'
@@ -293,7 +293,7 @@ test('the public endpoint: shape gate before db, fail-closed rate limit, one sub
 
 // ── Support: Start, the view, and the retired check-in ─────────────────────
 
-test('Support > During residency: Start sends period 1 after a confirm; View opens the periods; the check-in is gone', () => {
+test('Support > At the Start of Residency: Start sends period 1 after a confirm; View opens the periods; the check-in is gone', () => {
   const tab = read('src/components/ngrp/SupportTab.jsx')
   assert.match(tab, /postNgrpSupport\('reflection_start', \{ candidate_id: r\.row\.candidate_id \}\)/)
   assert.match(tab, /Send period 1 now\?/)
@@ -309,14 +309,14 @@ test('Support > During residency: Start sends period 1 after a confirm; View ope
   assert.match(api, /if \(periods\[0\]\?\.sent_at\) return res\.status\(409\)\.json\(\{ error: 'already_started' \}\)/, 'a failed first send is retried, a sent one is not duplicated')
   assert.doesNotMatch(api, /fetchResidentCheckins|checkins/)
   // The view math.
-  const d = duringResidency([{ id: 'x', candidate_id: 'k1', student: { id: 's1' }, outcome: HIRED }], {
+  const d = startOfResidency([{ id: 'x', candidate_id: 'k1', student: { id: 's1' }, outcome: HIRED }], {
     today: '2026-10-20',
     reflections: { runs: [RUN], periods: [
       { run_id: 'run1', period_number: 1, due_on: '2026-10-04', sent_at: 'x', status: 'submitted' },
       { run_id: 'run1', period_number: 2, due_on: '2026-10-18', sent_at: 'x', status: 'opened' },
     ] },
   })
-  assert.deepEqual(d.kpis, { residents: 1, withMentor: 0, reflecting: 1, submitted: 1, overdue: 1, sessions: 0 })
+  assert.deepEqual(d.kpis, { residents: 1, reflecting: 1, submitted: 1, overdue: 1, complete: 0 })
   assert.equal(summarizeReflections(null, [], '2026-10-20').started, false)
 })
 
