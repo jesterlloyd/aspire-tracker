@@ -18,6 +18,7 @@ import AtAGlanceTab from './AtAGlanceTab'
 import ProfilesTab from './ProfilesTab'
 import ActivityCalendar from './ActivityCalendar'
 import PlacementBoard from './PlacementBoard'
+import ResidentsTab from './ResidentsTab'
 import SupportTab from './SupportTab'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import './ngrp.css'
@@ -161,6 +162,10 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
 
         {tab === 'residency' && subTab === 'board' && (
           <PlacementBoard cycle={cycle} canManage={canManage} toast={toast} />
+        )}
+        {/* RESIDENTS-1: the hired new grads and the retention tracker. */}
+        {tab === 'residency' && subTab === 'residents' && (
+          <ResidentsTab cycle={cycle} canManage={canManage} toast={toast} />
         )}
         {tab === 'residency' && subTab === 'activity' && (
           <ActivityCalendar cycle={cycle} canManage={canManage} />

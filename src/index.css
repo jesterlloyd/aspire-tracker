@@ -1863,6 +1863,17 @@ button.ov-group-row {
      the full width so the warning keeps its explanation. */
   .glance-kpis > *:last-child { grid-column: 1 / -1; }
 }
+/* RESIDENTS-1: the Residents snapshot has four cards, so its grid is four wide
+   (two on tablets and phones) and never leaves an empty cell beside them. */
+.glance-kpis.ngrp-residents-kpis { grid-template-columns: repeat(4, 1fr); }
+/* The cohort | Aggregate toggle drops under the title when the header runs out of room. */
+.aggregate-panel-hdr.ngrp-residents-hdr { flex-wrap: wrap; }
+@media (max-width: 900px) {
+  .glance-kpis.ngrp-residents-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .glance-kpis.ngrp-residents-kpis > *:last-child { grid-column: auto; }
+}
 @media (max-width: 480px) {
   .ov-hero { grid-template-columns: 1fr 1fr; gap: 10px; }
   .ov-hero-num { font-size: 34px; }

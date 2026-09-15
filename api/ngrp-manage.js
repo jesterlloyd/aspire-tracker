@@ -27,6 +27,9 @@
 //   not_proceeding_set      { candidate_id, reason, note } -> leaves the Applicant Pool
 //   application_reinstate   { candidate_id }          -> undoes the above
 //   unit_preferences_set    { candidate_id, preferences } -> staff ranking of unit choices
+//   resident_details_set    { candidate_id, position_title, preceptor_name, phone,
+//                             separated_on, separation_reason } -> RESIDENTS-1: the
+//                             Residents tab's partial edit of a recorded hire
 //
 // RESIDENCY-ROSTER-1 (Owner, 2026-09-12): pool membership is DERIVED, not
 // stored. Nothing here confirms an application any more; lib/server/ngrpPool.js
@@ -47,6 +50,7 @@ import {
   liveAssignmentForCandidate, revokeTokensById, recalculateEligibility,
 } from '../lib/server/ngrpTransition.js'
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
+import { validateResidentDetails } from '../src/lib/ngrp/ngrpResidents.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // DEFECT FIXED 2026-09-12 (RESIDENCY-ROSTER-1): assign_unit, interview_set and
@@ -63,6 +67,8 @@ const ACTIONS = new Set([
   'assign_unit', 'interview_set', 'outcome_set',
   // RESIDENCY-ROSTER-1
   'not_proceeding_set', 'application_reinstate', 'unit_preferences_set',
+  // RESIDENTS-1
+  'resident_details_set',
 ])
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
@@ -411,6 +417,27 @@ export default async function handler(req, res) {
         // Link metadata ONLY - hash prefixes, never anything usable as a link.
         tokens,
       })
+    }
+
+    // RESIDENTS-1 (Owner, 2026-09-14): what Residency > Residents edits on a
+    // RECORDED hire: position/title, the preceptor and phone overrides, and the
+    // separation the retention tracker reads. A partial update of five columns;
+    // outcome_set rewrites the whole record and would clear the offer dates.
+    if (action === 'resident_details_set') {
+      const existing = await db.from('ngrp_residency_outcomes')
+        .select('candidate_id, hired_at').eq('candidate_id', candidateId).maybeSingle()
+      if (existing.error) return isMissingNgrpTable(existing.error) ? unprovisioned(res) : internal(res)
+      if (!existing.data?.hired_at) {
+        return invalid(res, [{ field: 'candidate', message: 'Record the hire on the Placement Board before adding resident details.' }])
+      }
+      const v = validateResidentDetails(body, { hiredAt: existing.data.hired_at })
+      if (!v.ok) return invalid(res, v.errors)
+      const upd = await db.from('ngrp_residency_outcomes')
+        .update({ ...v.details, recorded_by_profile_id: actorId, updated_at: nowIso })
+        .eq('candidate_id', candidateId)
+      // Before 20260919000000 the three detail columns are absent.
+      if (upd.error) return isMissingNgrpColumn(upd.error) ? unprovisioned(res) : internal(res)
+      return res.status(200).json({ ok: true, details: v.details })
     }
 
     if (action === 'eligibility_recalculate') {

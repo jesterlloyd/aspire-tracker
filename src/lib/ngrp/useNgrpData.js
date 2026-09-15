@@ -192,6 +192,28 @@ export async function postNgrpSupport(action, payload = {}) {
   }
 }
 
+// RESIDENTS-1: Residency > Residents. scope 'cohort' reads the selected residency
+// cohort; 'aggregate' reads every cohort. detailsProvisioned is false until
+// migration 20260919000000 adds position/title, preceptor and phone.
+export function useNgrpResidents(cycleId, { scope = 'cohort', enabled = true } = {}) {
+  const aggregate = scope === 'aggregate'
+  const query = useQuery({
+    queryKey: ['ngrp_workspace', 'residents', aggregate ? 'aggregate' : cycleId],
+    queryFn: () => authedPost('/api/ngrp-support', 'residents', aggregate ? { scope: 'aggregate' } : { cycle_id: cycleId }),
+    enabled: (aggregate || Boolean(cycleId)) && enabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    retry: noAuthRetry,
+  })
+  const ready = Boolean(query.data) && query.data.provisioned !== false
+  return {
+    status: deriveStatus(query),
+    residents: ready ? (query.data.residents || []) : [],
+    detailsProvisioned: ready && query.data.detailsProvisioned === true,
+    refetch: query.refetch,
+  }
+}
+
 // Recorded support, mentors, and reflection runs for one residency cohort. Empty
 // (and the tab shows its placeholder) until migration 20260914000000 is applied;
 // reflections.provisioned is false until 20260917000000 is.

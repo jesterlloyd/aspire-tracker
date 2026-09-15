@@ -36,6 +36,7 @@ import { generateToken } from '../lib/server/evaluation/tokens.js'
 import { emailBaseUrl } from '../lib/server/appUrl.js'
 import { buildReflectionEmail } from '../lib/server/email/ngrpReflectionEmail.js'
 import { isHired } from '../lib/server/ngrpResidencyRecipient.js'
+import { loadResidents } from '../lib/server/ngrpResidents.js'
 import {
   startReflectionRun, stopReflectionRun, sendReflectionPeriod,
   RUNS as REFLECTION_RUNS, PERIODS as REFLECTION_PERIODS, SUBMISSIONS as REFLECTION_SUBMISSIONS,
@@ -47,7 +48,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 //   schedule          { cycle_id, from, to } -> RESIDENCY-REFLECTION-2: the days
 //                        residents marked as working, for Residency > Activity.
 //                        Both audiences: a schedule names no answer.
-const ACTIONS = new Set(['summary', 'record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view', 'schedule'])
+//   residents         { cycle_id } | { scope: 'aggregate' } -> RESIDENTS-1: the
+//                        hired residents and their affiliation, for Residency >
+//                        Residents. Both audiences; Talent Acquisition narrowed.
+const ACTIONS = new Set(['summary', 'residents', 'record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view', 'schedule'])
 const WRITES = new Set(['record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop'])
 // Reading a resident's answers is the ASPIRE team's until the Owner decides
 // how sharing works; it is a read, so it needs no manage capability.
@@ -142,6 +146,22 @@ export default async function handler(req, res) {
         entries,
         mentors,
         reflections: { provisioned: reflectionsProvisioned, runs, periods },
+      })
+    }
+
+    // ── residents: the hired new grads, per cohort or across all cohorts ────
+    if (action === 'residents') {
+      const aggregate = body.scope === 'aggregate'
+      const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
+      if (!aggregate && !cycleId) return res.status(422).json({ error: 'invalid_cycle_id' })
+      const loaded = await loadResidents(db, { cycleId: aggregate ? null : cycleId, talentAcquisition: isTA })
+      if (loaded.state === 'unprovisioned') return unprovisioned(res)
+      if (loaded.state !== 'ok') return internal(res)
+      return res.status(200).json({
+        provisioned: true,
+        scope: aggregate ? 'aggregate' : 'cohort',
+        detailsProvisioned: loaded.detailsProvisioned,
+        residents: loaded.residents,
       })
     }
 

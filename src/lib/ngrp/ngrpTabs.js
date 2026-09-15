@@ -33,8 +33,10 @@ export const NGRP_TABS = [
   { id: 'profiles',   label: 'Profiles & Interest', chip: 'PI' },
   { id: 'residency',  label: 'Residency',           chip: 'R',
     subTabs: [
-      { id: 'board',    label: 'Placement board' },
-      { id: 'activity', label: 'Activity' },
+      { id: 'board',     label: 'Placement Board' },
+      // RESIDENTS-1 (Owner, 2026-09-14): the hired new grads and the retention tracker.
+      { id: 'residents', label: 'Residents' },
+      { id: 'activity',  label: 'Activity' },
     ] },
   { id: 'evaluation', label: 'Evaluation',          chip: 'E'  },
 ]
