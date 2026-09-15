@@ -19,7 +19,9 @@ const code = strip(connect)
 const polling = read('../src/lib/messages/messagesPolling.js')
 const workspace = read('../src/components/connect/messages/MessagesWorkspace.jsx')
 const auth = read('../src/contexts/AuthContext.jsx')
-const app = read('../src/App.jsx')
+// PORTAL-SPLIT Phase 1: AuthedShell and MainApp live in their own chunk now.
+// The router assertions further down still read ../src/App.jsx inline.
+const app = read('../src/staff/StaffApp.jsx')
 
 test('Connect authorization gate', async (t) => {
   await t.test('requires BOTH an owner/admin role AND an active profile', () => {

@@ -142,7 +142,7 @@ test('the module is null-safe', () => {
 // ── READY mode matches the placement guard exactly ─────────────────────────
 
 test("READY is precisely the set createMatch accepts - no student bounces on a toast", () => {
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /const needsException = !\['Interviewed', 'Placed'\]\.includes\(student\.status\)/,
     'the guard still requires Interviewed (or an already-Placed student)')
   // Every READY student passes that guard; nobody else does (a Placed student
@@ -176,7 +176,7 @@ test('createMatch honours the confirmed exception and records it, without weaken
   // NOTE: read RAW. App.jsx contains a '/*' sequence inside a literal, so a
   // block-comment stripper would swallow real code here. The patterns below are
   // executable statements that a comment could not satisfy.
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   // Strictly true, never a truthy accident, and scoped to students who
   // actually need an exception (see placementExceptionPath.test.mjs, which
   // proves the behavior rather than the spelling).
@@ -276,9 +276,9 @@ test('the interview-to-placement handoff cannot select a student the pool exclud
 // ── No migration was required ──────────────────────────────────────────────
 
 test('NO schema change: the exception is a per-action decision on existing tables', () => {
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   // It is recorded through the pre-existing activity log helper.
-  assert.match(app, /import \{ logActivity \} from '\.\/lib\/logActivity'/)
+  assert.match(app, /import \{ logActivity \} from '\.\.\/lib\/logActivity'/)
   // Nothing in this feature introduces a migration or a new table.
   const readinessCode = read('src/lib/placementReadiness.js')
     .split('\n').filter(l => !l.trim().startsWith('//')).join('\n')

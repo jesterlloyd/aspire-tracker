@@ -11,7 +11,7 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const sql = read('supabase/migrations/20260821130000_automatic_student_completion.sql')
 const cron = read('api/cron/student-completion-reconciliation.js')
 const sidePanel = read('src/components/StudentSidePanel.jsx')
-const app = read('src/App.jsx')
+const app = read('src/staff/StaffApp.jsx')
 const vercel = JSON.parse(read('vercel.json'))
 
 test('the database function owns the canonical Active Rotation to Completed transition', () => {

@@ -221,7 +221,7 @@ test('the Placement Board RENDERS the assigned preceptor name (it previously ren
 })
 
 test('the decision result reaches App state on BOTH assignment surfaces', () => {
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /const applyPreceptorAssignment = useCallback\(\(studentId, preceptor\) => \{\s*\n?\s*setStudents\(prev => applyPreceptorProjection\(prev, studentId, preceptor\)\)/)
   // Threaded to Rotation (Placement Board) AND Student Profiles.
   const rot = app.slice(app.indexOf('<RotationTab'), app.indexOf('</div>', app.indexOf('<RotationTab')))
@@ -245,7 +245,7 @@ test("NEGATIVE CONTROL: the modal's React Query invalidation alone cannot refres
   const modal = read('src/components/PreceptorAssignmentModal.jsx')
   assert.match(modal, /invalidateQueries\(\{ queryKey: \['students', student\.cohort_id\] \}\)/,
     'the invalidation still exists...')
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   // ...but nothing owns that key: students are App useState.
   assert.match(app, /const \[students,\s+setStudents\]\s+= useState\(\[\]\)/)
   assert.doesNotMatch(app, /useQuery\(\{\s*queryKey:\s*\['students',/)

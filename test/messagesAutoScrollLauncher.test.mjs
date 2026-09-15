@@ -26,7 +26,7 @@ const hook = read('src/lib/messages/useThreadAutoScroll.js')
 const staff = read('src/components/connect/messages/MessagesWorkspace.jsx')
 const portal = read('src/portal/messages/PortalMessagesThread.jsx')
 const launcher = read('src/components/MainMessagesLauncher.jsx')
-const app = read('src/App.jsx')
+const app = read('src/staff/StaffApp.jsx')
 const css = read('src/portal/portal.css')
 
 // ── The pure near-bottom predicate ───────────────────────────────────────────

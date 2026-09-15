@@ -40,7 +40,7 @@ const portalApp  = read('src/portal/PortalApp.jsx')
 const portalNav  = read('src/portal/PortalNav.jsx')
 const studentUpd = read('api/student-update.js')
 const sidePanel  = read('src/components/StudentSidePanel.jsx')
-const appJsx     = read('src/App.jsx')
+const appJsx     = read('src/staff/StaffApp.jsx')
 
 // ── The canonical lock condition ─────────────────────────────────────────────────────
 

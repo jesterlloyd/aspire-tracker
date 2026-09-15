@@ -39,7 +39,7 @@ const HEADER = 'src/components/Header/Header.jsx'
 const SCOPE = 'src/components/Header/scope/ScopePicker.jsx'
 const INT_LIST = 'src/components/Header/scope/InternshipCohortList.jsx'
 const RES_LIST = 'src/components/Header/scope/ResidencyCohortList.jsx'
-const APP = 'src/App.jsx'
+const APP = 'src/staff/StaffApp.jsx'
 
 // ── 1. The label module, functionally ────────────────────────────────────────
 

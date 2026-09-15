@@ -22,7 +22,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, p), 'utf8')
 
 const engineSrc = read('../src/components/CustomOnboardingTour.jsx')
-const appSrc = read('../src/App.jsx')
+const appSrc = read('../src/staff/StaffApp.jsx')
 const toursHelpSrc = read('../src/components/settings/ToursHelpPanel.jsx')
 
 // ── Ledger parse / serialize ─────────────────────────────────────────────────
@@ -350,7 +350,7 @@ test('CustomOnboardingTour engine behavior', async (t) => {
 
 test('App.jsx staff auto-start wiring', async (t) => {
   await t.test('uses shouldAutoStartTour for staff instead of a bare TOUR_VERSION compare', () => {
-    assert.match(appSrc, /import \{ shouldAutoStartTour \} from '\.\/lib\/onboardingTours'/)
+    assert.match(appSrc, /import \{ shouldAutoStartTour \} from '\.\.\/lib\/onboardingTours'/)
     assert.match(appSrc, /shouldAutoStartTour\(currentUserProfile, 'staff'\)/)
     // The old bare-version compare is gone; TOUR_VERSION itself may still be
     // named in an explanatory comment, so assert against the pattern, not the token.

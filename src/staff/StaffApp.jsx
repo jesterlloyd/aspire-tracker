@@ -1,0 +1,1706 @@
+// PORTAL-SPLIT Phase 1 (2026-09-15): the staff app, in its own chunk.
+//
+// MainApp and AuthedShell moved here verbatim from App.jsx, with the imports
+// only they use. App.jsx keeps the router, the public site, the token forms,
+// /login and /portal, and loads this module through lazyReload when a staff
+// route renders. Before this every portal visitor downloaded all of it: 961 KB
+// gzipped of first load against the 99 KB a portal actually needs
+// (docs/product/PORTAL_STAFF_SPLIT_PLAN.md).
+//
+// The default export IS AuthedShell: what App.jsx used to render at /*, with
+// its behaviour unchanged.
+//
+// TAB_TO_PATH and PORTAL_STAFF_ROLES live in src/lib/staffRoutes.js because the
+// router needs them too; importing them from here would pull this chunk back
+// into the entry.
+
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
+import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStudentAvailability, updateUnitPreferences, updateStatus, updateInterviewOutcome } from '../lib/studentProxy'
+import { displayName } from '../lib/utils'
+import { clearPrimaryPreceptor } from '../lib/staffPreceptorAssignmentApi'
+import { planUnmatch, unmatchStudentPatch } from '../lib/unmatchPlan'
+import { deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal } from '../lib/attention'
+import {
+  CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE,
+} from '../lib/placementNotificationState'
+import OverviewTab from '../components/OverviewTab'
+import StudentProfilesTab from '../components/StudentProfilesTab'
+import InterviewRubricTab from '../components/InterviewRubricTab'
+import RotationTab from '../components/RotationTab'
+import EvaluationTab from '../components/EvaluationTab'
+import AddStudentModal from '../components/AddStudentModal'
+import UnifiedNav from '../components/UnifiedNav'
+import Header from '../components/Header/Header'
+import SettingsShell from '../components/settings/SettingsShell'
+import NewCohortModal from '../components/NewCohortModal'
+import ManageCohortModal from '../components/ManageCohortModal'
+import { useAuth } from '../contexts/AuthContext'
+import LoginNew from '../pages/Login'
+import { applyReviewTotals } from '../lib/studentTotals'
+import { applyPreceptorProjection } from '../lib/preceptorProjection'
+import InterviewersModal from '../components/InterviewersModal'
+import ActionCenter from '../components/ActionCenter'
+import SchedulingLinkReturnConfirm from '../components/connect/SchedulingLinkReturnConfirm'
+import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
+import { buildSchedulingLinkLaunch, resolveSchedulingLinkReturnPath } from '../lib/schedulingLinkFlow'
+import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
+import { useStaffNotifications } from '../hooks/useStaffNotifications'
+import { unreadSupportBellCount } from '../lib/support/supportRequests'
+import CustomOnboardingTour from '../components/CustomOnboardingTour'
+import { shouldAutoStartTour } from '../lib/onboardingTours'
+import Keith from '../components/Keith'
+import MainMessagesLauncher from '../components/MainMessagesLauncher'
+import FeedbackPanel from '../components/FeedbackPanel'
+import { logEvent, eventExists } from '../lib/logEvent'
+import { useToast } from '../hooks/useToast'
+import { ToastContainer } from '../components/Toast'
+import { logActivity } from '../lib/logActivity'
+import { safeWrite } from '../lib/safeWrite'
+import { cleanupStudentFiles } from '../lib/studentFileClient'
+import ConnectPage from '../pages/Connect'
+import CatalogPage from '../components/catalog/CatalogPage'
+import NgrpNav from '../components/ngrp/NgrpNav'
+import NgrpWorkspace from '../components/ngrp/NgrpWorkspace'
+import CohortSettingsModal from '../components/ngrp/CohortSettingsModal'
+import CreateCohortDialog from '../components/ngrp/CreateCohortDialog'
+import { resolveNgrpPath, resolveNgrpEntryPath, ngrpPath } from '../lib/ngrp/ngrpTabs'
+import { compareCohortsChrono } from '../lib/cohortSeason'
+import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from '../lib/ngrp/ngrpAccess'
+import {
+  lastTabKey, lastNgrpTabKey, aspireCohortKey, LAST_AUTH_USER_KEY, consumeSignedOutMarker,
+} from '../lib/sessionKeys'
+import { orderCyclesForSelector, resolveSelectedCycle } from '../lib/ngrp/ngrpStates'
+import { useNgrpCycles } from '../lib/ngrp/useNgrpData'
+import { TAB_TO_PATH, PORTAL_STAFF_ROLES } from '../lib/staffRoutes'
+
+/*
+  COHORT ISOLATION CONTRACT
+
+  Every data query MUST filter by activeCohortId.
+  Every new record MUST include cohort_id: activeCohortId.
+  Switching cohorts MUST clear all local state and refetch.
+  App rules (constants, logic, validation) are NEVER cohort-specific.
+  Public forms use the cohort where accepting_submissions = true.
+
+  To add a new data type: always include cohort_id in the table,
+  always filter by activeCohortId in queries,
+  always pass activeCohortId when creating records.
+*/
+
+function computeMatchSummary(matchList) {
+  const total  = matchList.length
+  const top    = matchList.filter(m => m.match_quality === 'top_choice').length
+  const second = matchList.filter(m => m.match_quality === 'second_choice').length
+  return {
+    total_matched:            total,
+    top_choice_count:         top,
+    second_choice_count:      second,
+    other_count:              total - top - second,
+    top_choice_percentage:    total > 0 ? Math.round((top    / total) * 100) : 0,
+    second_choice_percentage: total > 0 ? Math.round((second / total) * 100) : 0,
+  }
+}
+
+const PATH_TO_TAB = {
+  '/aggregate':  'overview',
+  '/students':   'profiles',
+  '/interviews': 'interviews',
+  '/evaluation': 'evaluation',
+  // /rotation/* handled by startsWith in activeTab derivation below
+}
+
+const LEGACY_COHORT_KEY = 'aspire_active_cohort_id'
+
+function MainApp({ onLogout }) {
+  const { toasts, removeToast, toast } = useToast()
+  const { user, userProfile: currentUserProfile, canEdit } = useAuth()
+
+  // One-time cleanup of old shared-password auth storage keys
+  useEffect(() => {
+    ['aspire_auth', 'aspire_password', 'app_authenticated', 'isAuthenticated'].forEach(key => {
+      localStorage.removeItem(key)
+      sessionStorage.removeItem(key)
+    })
+    // Migrate old 'matching' tab id saved in localStorage
+    if (localStorage.getItem('aspire_active_tab') === 'matching') {
+      localStorage.setItem('aspire_active_tab', 'rotation')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const queryClient = useQueryClient()
+
+  // Cohorts list - org-wide, fetched once at startup
+  const { data: cohorts = [] } = useQuery({
+    queryKey: ['cohorts_all'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('cohorts').select('*').order('created_at', { ascending: false })
+      if (error) {
+        setDbError(error.message)
+        setLoading(false)
+        throw error
+      }
+      return data || []
+    },
+    retry: (failureCount, err) =>
+      failureCount < 1 && (err?.message?.toLowerCase().includes('lock') || err?.code === 'PGRST301'),
+    retryDelay: 1500,
+  })
+
+  const [activeCohortId,   setActiveCohortId]   = useState(null)
+  const [showNewCohort,    setShowNewCohort]    = useState(false)
+  const [showManageCohort, setShowManageCohort] = useState(false)
+  // NGRP-PLANNING-2: the residency equivalents. Owned here, beside the ASPIRE
+  // pair, because both the header's Scope footer and the Planning tab open them.
+  const [showNgrpCohortSettings, setShowNgrpCohortSettings] = useState(false)
+  const [showNgrpNewCohort,      setShowNgrpNewCohort]      = useState(false)
+  const [confirmLogout,    setConfirmLogout]    = useState(false)
+
+  // ── Header: cohort picker state ──────────────────────────────────────────────
+  // SCOPE-PICKER-1: the header's scope dropdown owns its own open state, ref,
+  // outside-click and Escape handling, like the pickers NGRP introduced. App no longer
+  // carries cohortOpen / setCohortOpen / cohortPickerRef.
+  const bellRef            = useRef(null)
+  const prevWorkspacePath  = useRef('/aggregate')
+
+  // ── Header: search state ─────────────────────────────────────────────────────
+  const [searchQuery,     setSearchQuery]     = useState('')
+  const [searchOpen,      setSearchOpen]      = useState(false)
+  const [searchResults,   setSearchResults]   = useState({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] })
+  const [searchLoading,   setSearchLoading]   = useState(false)
+  const [searchActiveIdx, setSearchActiveIdx] = useState(-1)
+  const [searchFocused,   setSearchFocused]   = useState(false)
+  const searchAreaRef  = useRef(null)
+  const searchInputRef = useRef(null)
+  const searchTimer    = useRef(null)
+
+  const [students,  setStudents]  = useState([])
+  const [units,     setUnits]     = useState([])
+  const [matches,   setMatches]   = useState([])
+  const [interviews, setInterviews] = useState([])
+  const [ivSessions,    setIvSessions]    = useState([])
+  const [ivSlots,       setIvSlots]       = useState([])
+  const [communications,setCommunications]= useState([])
+  // ACTION-OWNERSHIP-1: interview_reminder rows from notification_log (what the
+  // cron sent) plus a loaded flag, so the attention engine never guesses.
+  const [acSchoolRotations,setAcSchoolRotations]= useState([])
+  const [reminderDeliveries,setReminderDeliveries]= useState([])
+  const [reminderDeliveriesLoaded,setReminderDeliveriesLoaded]= useState(false)
+  const [showActionCenter, setShowActionCenter] = useState(false)
+  // Live count reported by the open Action Center panel (includes lazy-loaded tasks).
+  // null when the panel is closed → badge falls back to the eager + lazy count below.
+  const [panelActionCount, setPanelActionCount] = useState(null)
+  // Minimal raw data for the lazy attention tasks (Student Not Logged Recently,
+  // Disposition Follow-up), so the CLOSED bell badge can count them too. The
+  // shared engine in lib/attention.js derives the tasks from these rows.
+  const [acShiftLogs,        setAcShiftLogs]        = useState([])
+  const [acLazyLoaded,       setAcLazyLoaded]       = useState(false)
+  const [acPendingFollowups, setAcPendingFollowups] = useState([])
+  const [acActiveDispoIds,   setAcActiveDispoIds]   = useState([])
+  const [tourRunning,      setTourRunning]      = useState(false)
+  const [loading,   setLoading]   = useState(true)
+  const [dbError,   setDbError]   = useState(null)
+
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const activeTab = (() => {
+    const p = location.pathname
+    if (p.startsWith('/rotation')) return 'rotation'
+    if (p.startsWith('/ngrp'))     return 'ngrp'     // NGRP-WORKSPACE-1: sibling workspace
+    if (p.startsWith('/connect'))  return 'connect'
+    if (p.startsWith('/catalog'))  return 'catalog'  // CATALOG-1: app-level utility section
+    if (p.startsWith('/settings')) return 'settings' // WS2.1: app-level utility section
+    return PATH_TO_TAB[p] || 'overview'
+  })()
+
+  // Track the last non-Connect path for the workspace back affordance.
+  // Stored in a ref so it never triggers re-renders.
+  useEffect(() => {
+    // WS2.1: Settings (like Connect) is an app-level utility, not a workspace - exclude
+    // it so Back-to-workspace returns to the prior operational tab, not /settings.
+    if (!location.pathname.startsWith('/connect') && !location.pathname.startsWith('/settings') && !location.pathname.startsWith('/catalog')) {
+      // NGRP-WORKSPACE-1 (correction): record the search string too, so
+      // returning from Connect restores the Applicants filters (which live in
+      // the URL). The five ASPIRE tabs carry no search params, so their
+      // back-navigation is unchanged.
+      prevWorkspacePath.current = location.pathname + (location.search || '')
+    }
+  }, [location.pathname, location.search])
+
+  // ASPIRE-CHART: consistent staff route titles in the browser tab. Staff
+  // routes are noindex, so this is purely orientation for the human reader.
+  useEffect(() => {
+    const ROUTE_TITLES = {
+      overview: 'At a Glance', profiles: 'Student Profiles', interviews: 'Interviews',
+      rotation: 'Rotation', evaluation: 'Evaluation', connect: 'ASPIRE Connect',
+      catalog: 'Catalog', settings: 'Settings', ngrp: 'NGRP',
+    }
+    const label = ROUTE_TITLES[activeTab]
+    document.title = label ? `${label} · ASPIRE Intelligence` : 'ASPIRE Intelligence'
+    return () => { document.title = 'ASPIRE Intelligence' }
+  }, [activeTab])
+
+  // Derive back-navigation label from the stored path
+  const backPath  = prevWorkspacePath.current || '/aggregate'
+  const backLabel = backPath.startsWith('/rotation') ? 'Rotation'
+    : backPath.startsWith('/ngrp') ? 'NGRP'
+    : backPath === '/students'   ? 'Student Profiles'
+    : backPath === '/interviews' ? 'Interviews'
+    : backPath === '/evaluation' ? 'Evaluation'
+    : 'At a Glance'
+
+  // Redirect / to the last visited tab, or /aggregate as default
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (location.pathname === '/') {
+      // AUTH-UX-1: restore THIS user's own saved tab only (MainApp renders only when `user`
+      // is present). No saved value (new user / different account) → default to Aggregate.
+      const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null
+      // migrate old 'matching' tab id
+      const resolved = saved === 'matching' ? 'rotation' : saved
+      navigate(TAB_TO_PATH[resolved] || '/aggregate', { replace: true })
+    }
+    if (location.pathname === '/rotation') {
+      navigate('/rotation/matrix', { replace: true })
+    }
+  }, [location.pathname])
+
+  // Where a SIGN-IN lands.
+  //
+  // Signing out does not change the URL: App renders <LoginNew /> in place, so the
+  // browser sits on whatever route you left. Signing back in therefore re-rendered the
+  // workspace exactly there, which is the defect FRESH-LOGIN-HOME-1 fixes.
+  //
+  // Two triggers, one behavior:
+  //   AUTH-UX-1B  a DIFFERENT account signed in on this browser.
+  //   FRESH-LOGIN-HOME-1  a sign-out happened here, deliberate or an expired session.
+  //     The marker is consumed on read, so it fires once per sign-in and a later
+  //     navigation in the same session is never mistaken for a fresh arrival.
+  //
+  // A REFRESH with a live session matches neither and keeps its route, which is the
+  // "unless I never logged out" half of the requirement.
+  //
+  // THE ONE URL THAT WINS. ?student= is the only query in the staff app that names a
+  // specific record, so it is the only way a route can mean "someone sent me here"
+  // rather than "here is where I happened to be". Every genuinely external deep link
+  // (evaluation and activation emails, the public forms, the portals) has its own route
+  // outside AuthedShell and never renders this screen, so none of them is at risk here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!user?.id) return
+    const prevAuthId = localStorage.getItem(LAST_AUTH_USER_KEY)
+    const differentUser = Boolean(prevAuthId) && prevAuthId !== user.id
+    // Consumed unconditionally: a marker left set would fire on some later render.
+    const afterSignOut = consumeSignedOutMarker()
+    if (differentUser || afterSignOut) {
+      const linkedToRecord = new URLSearchParams(location.search).has('student')
+      if (!linkedToRecord) navigate('/aggregate', { replace: true })
+    }
+    if (prevAuthId !== user.id) {
+      localStorage.setItem(LAST_AUTH_USER_KEY, user.id)
+    }
+  }, [user?.id])
+
+  const [profilesView, setProfilesView] = useState('records')
+  const [accessFocusId, setAccessFocusId] = useState(null)
+  const [showAddModal,       setShowAddModal]       = useState(false)
+  const [showInterviewersModal, setShowInterviewersModal] = useState(false)
+  const [focusStudentId,     setFocusStudentId]     = useState(null)
+  // ROTATION-ACTIVITY-NAV: pending student to focus (expand + scroll) in Rotation > Activity,
+  // set when an On Campus Now student is clicked in Aggregate.
+  const [focusActivityStudentId, setFocusActivityStudentId] = useState(null)
+  // SUPPORT-REQUEST-ACTION-CENTER-2: exact shift the Action Center wants Rotation > Activity to open.
+  const [focusActivityShiftLogId, setFocusActivityShiftLogId] = useState(null)
+  // ASPIRE-CHART: student the Placement Board should pre-select (interview handoff).
+  const [focusMatchStudentId, setFocusMatchStudentId] = useState(null)
+  // Ref for Connect soft-refresh - ConnectPage registers its handleRefresh here so the
+  // toolbar RefreshHint can call it without a full page reload.
+  const connectRefreshRef = useRef(null)
+  const [highlightUnitId,    setHighlightUnitId]    = useState(null)
+  const [search,  setSearch]  = useState('')
+  const [filters, setFilters] = useState({ school: '', status: '', cohort: '' })
+
+  // Initialize activeCohortId when the cohorts list first loads from useQuery
+  useEffect(() => {
+    if (activeCohortId) return  // already set
+    if (!cohorts.length) { setLoading(false); return }
+    // Per-user key, so wait for the authenticated user rather than resolving against a
+    // null key and then never re-running (the guard above fires once a cohort is set).
+    if (!user?.id) return
+    let saved = null
+    try {
+      saved = localStorage.getItem(aspireCohortKey(user.id))
+      localStorage.removeItem(LEGACY_COHORT_KEY)   // one-time cleanup, never adopted
+    } catch { /* storage unavailable */ }
+    const restored = saved && cohorts.find(c => c.id === saved)
+    setActiveCohortId(restored ? restored.id : (cohorts.find(c => c.status === 'Active') || cohorts[0]).id)
+  }, [cohorts, user?.id]) // eslint-disable-line
+
+  // Lightweight fetch of the lazy Action Center task data (count-only fields) so the
+  // CLOSED bell badge can include Student Not Logged Recently /
+  // Disposition Follow-up. Declared before the cohort-load effect that calls it.
+  // Disposition data is owner/admin-gated.
+  const fetchLazyActionData = async (id) => {
+    if (!id) return
+    const reads = [
+      // NO-SHIFT-WEEK-1: shift_date is the canon for "when did the shift
+      // happen" (submitted_at is only when the row was entered), and
+      // lifecycle_state feeds the countable-shift guard.
+      supabase.from('student_shift_logs').select('student_id, status, reviewed_at, submitted_at, shift_date, lifecycle_state').eq('cohort_id', id),
+      // Rotation windows + school blackout dates, one row per school. Small
+      // table; the weekly rule needs it to avoid flagging partial weeks.
+      supabase.from('cohort_school_rotations').select('id, school_name, rotation_start_date, rotation_end_date, blackout_dates').eq('cohort_id', id),
+      canEdit
+        ? supabase.from('student_disposition_followups').select('student_id, disposition_id').eq('cohort_id', id).eq('status', 'pending')
+        : Promise.resolve({ data: [] }),
+      canEdit
+        ? supabase.from('student_active_disposition').select('id').eq('cohort_id', id)
+        : Promise.resolve({ data: [] }),
+    ]
+    const [logsRes, rotRes, fuRes, adRes] = await Promise.all(reads)
+    // ASPIRE-CHART: raw rows only - the shared attention engine
+    // (lib/attention.js) derives the tasks, so this fetch and the Action
+    // Center panel can never disagree about what counts.
+    setAcShiftLogs(logsRes.data || [])
+    setAcSchoolRotations(rotRes.data || [])
+    setAcPendingFollowups(fuRes.data || [])
+    setAcActiveDispoIds((adRes.data || []).map(d => d.id))
+    setAcLazyLoaded(true)
+  }
+
+  useEffect(() => {
+    if (!activeCohortId) return
+    // Clear stale data from previous cohort immediately so no cross-cohort bleed
+    setStudents([]); setUnits([]); setMatches([]); setInterviews([]); setIvSessions([]); setIvSlots([]); setCommunications([]); setReminderDeliveries([]); setReminderDeliveriesLoaded(false)
+    setAcShiftLogs([]); setAcLazyLoaded(false)
+    setLoading(true); setDbError(null)
+    Promise.all([
+      fetchStudents(activeCohortId), fetchUnits(activeCohortId),
+      fetchMatches(activeCohortId),  fetchInterviews(activeCohortId),
+      fetchIvSessions(activeCohortId), fetchIvSlots(activeCohortId),
+      fetchCommunications(activeCohortId), fetchLazyActionData(activeCohortId),
+      fetchReminderDeliveries(activeCohortId),
+    ]).finally(() => setLoading(false))
+  }, [activeCohortId])
+
+  const fetchStudents  = async id => {
+    const { data: rows, error } = await supabase
+      .from('students')
+      .select('*')
+      .eq('cohort_id', id).order('school').order('name')
+    if (error) { setDbError(error.message); return }
+
+    const { data: dispositions } = await supabase
+      .from('student_active_disposition')
+      .select('student_id, disposition_type, reason_category, effective_date, decision_origin, recorded_by_name')
+      .eq('cohort_id', id)
+
+    const byStudent = new Map((dispositions || []).map(d => [d.student_id, d]))
+    setStudents(rows.map(s => ({ ...s, active_disposition: byStudent.get(s.id) || null })))
+  }
+  const fetchUnits     = async id => {
+    const { data } = await supabase.from('units').select('*').eq('cohort_id', id).order('unit_name')
+    setUnits(data || [])
+  }
+  const fetchMatches   = async id => {
+    const { data } = await supabase.from('matches').select('*').eq('cohort_id', id)
+    setMatches(data || [])
+  }
+  const fetchInterviews = async id => {
+    const { data, error } = await supabase.rpc('list_interview_rubrics_for_cohort', {
+      p_cohort_id: id,
+    })
+    if (error) {
+      setInterviews([])
+      setDbError(error.message)
+      return
+    }
+    setInterviews(data || [])
+  }
+  const fetchIvSessions = async id => {
+    const { data } = await supabase.from('interview_sessions').select('*').eq('cohort_id', id)
+    setIvSessions(data || [])
+  }
+  const fetchIvSlots = async id => {
+    const { data } = await supabase.from('interview_slots').select('*').eq('cohort_id', id)
+    setIvSlots(data || [])
+  }
+  const updateIvSession = (studentId, updates) => {
+    setIvSessions(prev => {
+      const exists = prev.find(s => s.student_id === studentId)
+      if (exists) return prev.map(s => s.student_id === studentId ? { ...s, ...updates } : s)
+      return [...prev, { student_id: studentId, cohort_id: activeCohortId, ...updates }]
+    })
+  }
+  const fetchCommunications = async id => {
+    const { data } = await supabase.from('communications').select('*').eq('cohort_id', id).order('sent_at', { ascending: false })
+    setCommunications(data || [])
+  }
+  // ACTION-OWNERSHIP-1: what the interview-reminder cron actually sent.
+  // The cron records into notification_log, never into communications, so this
+  // is the only source that can tell a delivered reminder from a missing one.
+  // Scoped to the one notification type the attention engine reasons about.
+  const fetchReminderDeliveries = async id => {
+    const { data, error } = await supabase
+      .from('notification_log')
+      .select('student_id, notification_type, status, sent_at')
+      .eq('notification_type', 'interview_reminder')
+      // notification_log.cohort_id is stamped from interview_sessions.cohort_id,
+      // not from the student, so a session missing it would hide a genuine send
+      // behind a plain .eq and the engine would report a false miss. Rows are
+      // still narrowed to the student in the engine.
+      .or(`cohort_id.eq.${id},cohort_id.is.null`)
+    // On error leave the loaded flag false: the engine then reports UNKNOWN and
+    // raises no action, rather than claiming every reminder went unsent.
+    if (error) { setReminderDeliveriesLoaded(false); return }
+    setReminderDeliveries(data || [])
+    setReminderDeliveriesLoaded(true)
+  }
+  const logCommunication = comm => {
+    setCommunications(prev => [comm, ...prev])
+  }
+  const refreshAll = () => {
+    if (!activeCohortId) return
+    fetchStudents(activeCohortId); fetchUnits(activeCohortId)
+    fetchMatches(activeCohortId);  fetchInterviews(activeCohortId)
+    fetchIvSessions(activeCohortId); fetchIvSlots(activeCohortId)
+    fetchCommunications(activeCohortId)
+    fetchLazyActionData(activeCohortId)
+    // ACTION-OWNERSHIP-2: without this the delivery set went stale on every
+    // refresh, so a reminder the cron sent after page load kept reading as
+    // "not sent" until the cohort was switched or the app reloaded.
+    fetchReminderDeliveries(activeCohortId)
+  }
+
+  // Stable handler for the Action Center's count report. When the panel reports null
+  // (it closed), refetch the lazy data so the CLOSED badge is fresh - preventing both the
+  // open→close bounce to stale data and lingering counts after in-session resolution.
+  const handleActionCount = useCallback((n) => {
+    setPanelActionCount(n)
+    if (n === null && activeCohortId) fetchLazyActionData(activeCohortId)
+  }, [activeCohortId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Cohort CRUD ──────────────────────────────────────────────
+  const createCohort = async d => {
+    const { data, error } = await safeWrite(
+      () => supabase.from('cohorts').insert(d).select().single(),
+      { name: 'create cohort' }
+    )
+    if (!error && data) {
+      queryClient.setQueryData(['cohorts_all'], prev => [data, ...(prev || [])])
+      try { if (user?.id) localStorage.setItem(aspireCohortKey(user.id), data.id) } catch { /* storage unavailable */ }
+      setActiveCohortId(data.id)
+      setStudents([]); setUnits([]); setMatches([]); setInterviews([])
+      setShowNewCohort(false)
+    }
+    return error || null
+  }
+  const updateCohort = async (id, updates) => {
+    if (updates.accepting_submissions === true) {
+      // Clearing the flag elsewhere must SUCCEED before we set it here. This
+      // result used to be discarded, so a failed clear (an RLS refusal, a lost
+      // connection) still fell through to the write below and left TWO cohorts
+      // accepting. That is not a cosmetic inconsistency: accepting_submissions
+      // is the server-side cohort router for every anonymous public form, so a
+      // second accepting cohort makes the routing ambiguous for student intake,
+      // the unit form, the school form, and interview scheduling at once.
+      const { error: clearError } = await safeWrite(
+        () => supabase.from('cohorts').update({ accepting_submissions: false }).neq('id', id),
+        { name: 'deactivate other cohorts' }
+      )
+      if (clearError) {
+        return new Error('Could not close submissions on the other cohorts, so this cohort was not opened. Nothing was changed. Please try again.')
+      }
+      queryClient.setQueryData(['cohorts_all'], prev =>
+        (prev || []).map(c => c.id !== id ? { ...c, accepting_submissions: false } : c))
+    }
+    const { error } = await safeWrite(
+      () => supabase.from('cohorts').update(updates).eq('id', id),
+      { name: 'update cohort' }
+    )
+    if (error) {
+      // 23505 is the partial unique index from migration 20260902000000, which
+      // enforces the same one-at-a-time rule in the database. Reaching it means
+      // the clear above did not cover every accepting cohort. Translate it: the
+      // raw driver text names an index the reader has no reason to know about.
+      if (error.code === '23505') {
+        return new Error('Another cohort is already accepting submissions. Turn that off first, then open this one.')
+      }
+      return error
+    }
+    queryClient.setQueryData(['cohorts_all'], prev =>
+      (prev || []).map(c => c.id === id ? { ...c, ...updates } : c))
+    return null
+  }
+  const handleCohortSwitch = id => {
+    try { if (user?.id) localStorage.setItem(aspireCohortKey(user.id), id) } catch { /* storage unavailable */ }
+    setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
+    // Invalidate every cohort-scoped query so all tabs refetch with the new cohort
+    ;[
+      'embed_student_pool', 'embed_unit_pool', 'embed_matches',
+      'kpi_stats', 'clinical_placement_availability', 'student_placement_requests',
+      // ASPIRE-CHART: 'on_campus_today' and 'todays_priorities' removed - no
+      // live query owns either key (the campus queries use 'on_campus_now*';
+      // priorities.js was dead code, deleted in this commit).
+      'on_campus_now', 'on_campus_now_lifecycle',
+      'program_events',
+      'availability_blocks', 'interview_sessions', 'interview_slots', 'preference_counts',
+      'students_in_cohort', 'interview_calendar', 'todays_interviews',
+      'interview_setup_checklist', 'unit_availability',
+      // Child-component queries missing from original list (Fix 2)
+      'unit_cohort_responses', 'rubric_support_data', 'units_cohort', 'cohort_school_rotation',
+    ].forEach(key => queryClient.invalidateQueries({ queryKey: [key] }))
+  }
+
+  // Auto-start welcome tour - re-evaluates whenever the key tour fields change in context
+  useEffect(() => {
+    if (!currentUserProfile?.auth_user_id || !activeCohortId) return
+
+    // WELCOME-TOUR-PORTALS-1: acknowledgement now lives in the per-experience
+    // ledger in onboarding_tour_version (parseTourAcks / isTourAcknowledged),
+    // so the version-scoped-reset behavior from WELCOME-TOUR-REFRESH-RESET is
+    // preserved through shouldAutoStartTour(profile, 'staff') rather than a
+    // bare TOUR_VERSION string compare here. Wait until the tour fields are
+    // loaded (undefined = profile/migration not ready yet) before deciding.
+    if (currentUserProfile.onboarding_tour_completed === undefined) return
+
+    if (!shouldAutoStartTour(currentUserProfile, 'staff')) {
+      setTourRunning(false)  // ensure tour is off if user refreshes after acknowledging
+      return
+    }
+
+    switchTab('overview')
+    setTimeout(() => setTourRunning(true), 700)
+  }, [ // eslint-disable-line
+    currentUserProfile?.auth_user_id,
+    currentUserProfile?.onboarding_tour_completed,
+    currentUserProfile?.onboarding_tour_version,
+    currentUserProfile?.onboarding_tour_dismissed,
+    activeCohortId,
+  ])
+
+  // NGRP-WORKSPACE-1: Experience switch from the header picker (Internship =
+  // the ASPIRE workspace, Residency = the NGRP workspace) - plain navigation,
+  // never a scroll or swipe. EACH experience restores the user's last-used
+  // operational tab (lastTabKey / lastNgrpTabKey), and neither direction
+  // touches the OTHER experience's scope: the ASPIRE cohort pick and the
+  // per-user residency-cohort pref are separate state.
+  const switchExperience = exp => {
+    if (exp === 'residency') {
+      let savedNgrp = null
+      try { savedNgrp = user?.id ? localStorage.getItem(lastNgrpTabKey(user.id)) : null } catch { /* storage unavailable */ }
+      // NGRP-WORKSPACE-2: the saved id may be a RETIRED one; resolveNgrpEntryPath
+      // maps it forward and appends the tab's default sub-tab.
+      navigate(resolveNgrpEntryPath(savedNgrp))
+      return
+    }
+    const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null
+    const resolved = saved === 'matching' ? 'rotation' : saved
+    navigate(TAB_TO_PATH[resolved] || '/aggregate')
+  }
+  // Active NGRP sub-tab for the nav, derived from the URL like activeTab is.
+  // NGRP-WORKSPACE-2: one resolver owns which tab a path names, including the
+  // retired ids. Switching a tab lands on that tab's default sub-tab.
+  const ngrpActiveTab = resolveNgrpPath(location.pathname).tab
+  const switchNgrpTab = id => navigate(ngrpPath(id))
+  // Persist the last VALID NGRP sub-tab actually visited, however the route
+  // was reached - nav click, direct URL, browser Back/Forward, or
+  // programmatic navigation. Synchronizing external storage with resolved
+  // route state is exactly what an effect is for; an unknown /ngrp/* segment
+  // yields null and never overwrites the saved value.
+  useEffect(() => {
+    if (activeTab !== 'ngrp' || !user?.id) return
+    const tab = resolveNgrpPath(location.pathname).tab
+    if (!tab) return
+    try { localStorage.setItem(lastNgrpTabKey(user.id), tab) } catch { /* storage unavailable */ }
+  }, [activeTab, location.pathname, user?.id])
+
+  // ── NGRP access + cycle scope (correction pass) ─────────────────────────────
+  // Access is the ONE capability definition (lib/server/access.js via
+  // canAccessNgrp): active Owner capability, Admin, or Co-Lead. canEdit is
+  // deliberately NOT used - it omits Co-Lead and is not this role model.
+  const ngrpAllowed = canAccessNgrp(currentUserProfile)
+  // Unauthorized direct navigation to /ngrp/* leaves once the profile has
+  // resolved; until it resolves, nothing NGRP renders (fail closed below).
+  useEffect(() => {
+    if (activeTab === 'ngrp' && currentUserProfile && !canAccessNgrp(currentUserProfile)) {
+      navigate('/aggregate', { replace: true })
+    }
+  }, [activeTab, currentUserProfile]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cycle list is fetched only inside the workspace, by an authorized caller.
+  const ngrpCyclesQuery = useNgrpCycles({ enabled: ngrpAllowed && activeTab === 'ngrp' })
+  // Per-authenticated-user cycle preference (never a browser-global key):
+  // restore the saved cycle if it still exists, else the active cycle, else
+  // the first configured one. Only an explicit selection writes.
+  const [ngrpCyclePref, setNgrpCyclePref] = useState(() => {
+    try {
+      const k = ngrpCycleStorageKey(user?.id)
+      return k ? localStorage.getItem(k) : null
+    } catch { return null }
+  })
+  // Plan §3.2 selector order: active first, then planned/open chronologically,
+  // then Completed/Archived; a still-valid saved selection is preserved.
+  const orderedNgrpCycles = orderCyclesForSelector(ngrpCyclesQuery.cycles)
+  const activeNgrpCycle = resolveSelectedCycle(ngrpCyclesQuery.cycles, ngrpCyclePref)
+  const selectNgrpCycle = id => {
+    setNgrpCyclePref(id)
+    try {
+      const k = ngrpCycleStorageKey(user?.id)
+      if (k) localStorage.setItem(k, id)
+    } catch { /* storage unavailable: selection still applies this session */ }
+  }
+
+  const switchTab = tab => {
+    // AUTH-UX-1: persist under THIS user's scoped key so it cannot leak to another account.
+    if (user?.id) localStorage.setItem(lastTabKey(user.id), tab)
+    navigate(TAB_TO_PATH[tab] || '/aggregate')
+    // Refresh the lazy Action Center count on navigation so the closed bell badge updates
+    // after a Disposition / Shift Log task is resolved on another surface (event handler,
+    // not an effect).
+    if (activeCohortId) fetchLazyActionData(activeCohortId)
+  }
+
+  // ROTATION-ACTIVITY-NAV: from Aggregate > On Campus Now, route to Rotation > Activity and
+  // flag the student so RotationActivity expands + scrolls their Active Rotation Progress card.
+  const goToActivityStudent = id => { setFocusActivityStudentId(id); navigate('/rotation/activity') }
+  // ASPIRE-CHART interview-to-placement handoff: route to the Placement Board
+  // with the student pre-selected in the pool. Cohort context is unchanged.
+  const goToPlacementStudent = id => { setFocusMatchStudentId(id); navigate('/rotation/matrix') }
+  // Action Center support item -> Rotation > Activity, expand the student AND auto-open the exact
+  // shift's Details modal (which is where the read receipt is written after the text renders).
+  const goToActivityShift = (studentId, shiftLogId) => {
+    setFocusActivityStudentId(studentId)
+    setFocusActivityShiftLogId(shiftLogId)
+    navigate('/rotation/activity')
+    setShowActionCenter(false)
+  }
+
+  // CONNECT-SCHEDULING-LINK-1: the Action Center's scheduling task uses the SAME launch as the
+  // Interviews worklist and Student Profiles. The panel is a global overlay, so the return workspace
+  // is resolved from where the Owner currently is (falling back to Interviews) rather than pinned -
+  // never a Connect route, which would pop the confirmation while they are still in the composer.
+  // Launching writes nothing; the confirmed return records the Scheduling Link Sent entry.
+  const launchSchedulingLinkFromActionCenter = (student) => {
+    const ctx = buildSchedulingLinkLaunch({
+      student,
+      cohortId: activeCohortId,
+      cohortName: activeCohort?.name || '',
+      source: 'action_center',
+      returnPath: resolveSchedulingLinkReturnPath(location.pathname),
+    })
+    if (!ctx) { toast?.error('Scheduling link', 'This student has no school email on file.'); return }
+    writeLaunchContext({ kind: LAUNCH_KINDS.INTERVIEW_SCHEDULING_LINK, ...ctx })
+    navigate('/connect/outreach?launch=1')
+  }
+
+  // WS2.3/WS2.4: single source of truth for the tour-restart behavior. WS2.4 removed the
+  // UserMenu duplicate, so the Settings → Tours & Help panel is now the sole consumer.
+  // Behavior is unchanged: jump to the Aggregate/overview workspace, then start the tour.
+  const restartTour = () => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) }
+
+  // Refetch students and units whenever the Aggregate tab becomes active
+  useEffect(() => {
+    if (activeTab === 'overview' && activeCohortId) {
+      fetchStudents(activeCohortId)
+      fetchUnits(activeCohortId)
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateCohortMatchSummary = (newMatchList) => {
+    const summary = computeMatchSummary(newMatchList)
+    safeWrite(
+      () => supabase.from('cohorts').update({ match_quality_summary: summary }).eq('id', activeCohortId),
+      { name: 'update cohort match summary' }
+    ).catch(err => console.warn('[App] match summary update failed:', err.message))
+    queryClient.setQueryData(['cohorts_all'], prev =>
+      (prev || []).map(c => c.id === activeCohortId ? { ...c, match_quality_summary: summary } : c))
+  }
+
+  const switchToAccess = (studentId) => {
+    switchTab('profiles')
+    setProfilesView('access')
+    setAccessFocusId(studentId)
+    setTimeout(() => {
+      document.getElementById(`access-row-${studentId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 150)
+  }
+
+  // ── Student CRUD ─────────────────────────────────────────────
+  // loadedUpdatedAt is the updated_at timestamp the caller had when they loaded the
+  // student.  When supplied, the save API enforces OCC: if the row changed since
+  // then, it returns a conflict error instead of silently overwriting.
+  // WS1e-A4: explicit field→action router (replaces the generic update wrapper).
+  // Every field maps to one explicit, server-validated action; there is NO generic
+  // fallback - an unmapped field throws. The local students-state merge is preserved.
+  // (Preceptor/shift/interview_outcome are routed at the component level (A2/A3b);
+  // this router covers the remaining staff domains.)
+  // SHIFT-LOG-REVIEW-1: a review decision recomputed approved/pending totals
+  // server-side. Canonical students live HERE (useState, not React Query), so
+  // the decision result is applied deterministically to this state - both
+  // review surfaces update immediately, no refetch or Realtime needed.
+  const applyStudentReviewTotals = useCallback((result) => {
+    setStudents(prev => applyReviewTotals(prev, result))
+  }, [setStudents])
+
+  // PRECEPTOR-ASSIGNMENT-PROJECTION-1: the assignment RPC + trigger have already
+  // written the canonical projection server-side. Canonical students live HERE
+  // (useState, not React Query - the modal's ['students', cohortId]
+  // invalidation matches no query), so the same projection is applied to this
+  // state from the preceptor record the modal already holds. Placement Board
+  // and Student Profiles both update immediately, with no refetch.
+  const applyPreceptorAssignment = useCallback((studentId, preceptor) => {
+    setStudents(prev => applyPreceptorProjection(prev, studentId, preceptor))
+  }, [setStudents])
+
+  const updateStudent = useCallback(async (id, updates, _loadedUpdatedAt) => {
+    const DOMAINS = [
+      { keys: ['personal_email', 'phone'], helper: updateContact },
+      { keys: ['first_name', 'last_name', 'preferred_first_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'course_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url'], helper: updateProfile },
+      { keys: ['hours_required'], helper: updateRequirements },
+      { keys: ['cs_cedars_status', 'cs_stage1_action', 'cs_stage1_submitted', 'cs_stage1_submitted_date', 'cs_stage1_complete', 'cs_stage1_complete_date', 'cs_link_requested', 'cs_link_requested_date', 'cs_link_complete', 'cs_link_complete_date', 'cs_access_notes'], helper: updateCslink },
+      { keys: ['ngrp_cohort_target', 'ngrp_outcome'], helper: updateNgrp },
+      { keys: ['badge_created'], helper: updateBadge },
+      { keys: ['notes'], helper: updateNotes },
+      // UNIT-PREFS-SAVE-1: the side panel's Unit Placement Preferences (no route existed since 2026-06-09).
+      { keys: ['unit_preference_1', 'unit_preference_2', 'unit_preference_3'], helper: updateUnitPreferences },
+      // STUDENT-PORTAL-PROFILE-1: staff correction of the student-sourced availability block.
+      { keys: ['unavailable_weekdays', 'unavailable_weekdays_reason', 'personal_blackout_dates', 'weekends_available', 'nights_available', 'preferred_days', 'availability_notes'], helper: updateStudentAvailability },
+      { keys: ['matched_preceptor', 'shift_assigned', 'preceptor_email'], helper: updatePreceptorAssignment },
+    ]
+    try {
+      const keys = Object.keys(updates || {})
+      if (keys.length === 0) return null
+
+      // Status (with optional decline_reason) → administrative status action.
+      if (keys.every(k => k === 'status' || k === 'decline_reason')) {
+        await updateStatus(id, updates.status, updates.decline_reason)
+      } else if (keys.length === 1 && keys[0] === 'interview_outcome') {
+        await updateInterviewOutcome(id, updates.interview_outcome)
+      } else {
+        const domain = DOMAINS.find(d => keys.every(k => d.keys.includes(k)))
+        if (!domain) throw new Error(`No explicit action for fields: ${keys.join(', ')}`)
+        await domain.helper(id, updates)
+      }
+      setStudents(prev => prev.map(s => (s.id === id ? { ...s, ...updates } : s)))
+      return null
+    } catch (err) {
+      return err
+    }
+  }, [])
+
+  const addStudent = async student => {
+    if (!activeCohortId) return { message: 'No active cohort.' }
+    const { data, error } = await safeWrite(
+      () => supabase.from('students').insert({ ...student, cohort_id: activeCohortId }).select().single(),
+      { name: 'add student' }
+    )
+    if (!error && data) {
+      setStudents(prev => [...prev, data].sort((a, b) => (a.school + a.name).localeCompare(b.school + b.name)))
+      setShowAddModal(false)
+    }
+    return error || null
+  }
+
+  const deleteStudent = async id => {
+    // WAVE F-2: capture the cohort before deletion so post-delete storage cleanup
+    // can address the student's folder once the row is gone.
+    const cohortId = students.find(s => s.id === id)?.cohort_id || null
+    await safeWrite(() => supabase.from('students').delete().eq('id', id), { name: 'delete student' })
+    // Belt-and-suspenders: explicitly remove related records in case CASCADE is not yet applied
+    await safeWrite(() => supabase.from('interviews').delete().eq('student_id', id), { name: 'delete student interviews' })
+    await safeWrite(() => supabase.from('interview_rubrics').delete().eq('student_id', id), { name: 'delete student rubrics' })
+    await safeWrite(() => supabase.from('matches').delete().eq('student_id', id), { name: 'delete student matches' })
+    await safeWrite(() => supabase.from('interview_sessions').delete().eq('student_id', id), { name: 'delete student sessions' })
+    // WAVE F-2: storage cleanup runs ONLY after the database deletion, so a DB
+    // failure can never orphan an active record. It is best-effort and never
+    // throws; a durable orphan-retry sweep remains part of the controlled Pass 2
+    // cleanup. A missing cohort id (older row without one) simply skips cleanup.
+    if (cohortId) cleanupStudentFiles({ studentId: id, action: 'delete_student', cohortId })
+    // Refetch all affected state so every tab reflects the deletion immediately
+    setStudents(prev => prev.filter(s => s.id !== id))
+    setInterviews(prev => prev.filter(iv => iv.student_id !== id))
+    setMatches(prev => prev.filter(m => m.student_id !== id))
+    // Update ivSessions immediately so the I·R tab badge recalculates without a reload
+    setIvSessions(prev => prev.filter(s => s.student_id !== id))
+  }
+
+  // ── Unit CRUD ────────────────────────────────────────────────
+  const deleteUnit = async unit => {
+    const matchedIds = students.filter(s => s.matched_unit_id === unit.id).map(s => s.id)
+    if (matchedIds.length > 0) {
+      // PHASE-2D: end every matched student's primary relationship through the
+      // canonical guarded path BEFORE any revert mutation. One failure aborts
+      // the entire unit delete so no student is left half-reverted and no
+      // canonical primary silently survives.
+      for (const sid of matchedIds) {
+        const cleared = await clearPrimaryPreceptor(sid, 'unit delete match revert')
+        if (!cleared.ok) {
+          toast.error('Unit not deleted', 'A primary preceptor could not be cleared, so no changes were made. Please try again.')
+          return
+        }
+      }
+      await safeWrite(
+        () => supabase.from('students').update({ matched_unit_id: null, shift_assigned: '', interview_outcome: 'Pending Interview' }).in('id', matchedIds),
+        { name: 'clear matched students on unit delete' }
+      )
+      await safeWrite(
+        () => supabase.from('matches').delete().eq('unit_id', unit.id),
+        { name: 'delete unit matches' }
+      )
+    }
+    await safeWrite(
+      () => supabase.from('units').delete().eq('id', unit.id),
+      { name: 'delete unit' }
+    )
+    setStudents(prev => prev.map(s =>
+      matchedIds.includes(s.id)
+        // Preceptor fields: local echo of the canonical server-side clear.
+        ? { ...s, matched_unit_id: null, preceptor_id: null, matched_preceptor: '', preceptor_email: '', shift_assigned: '', interview_outcome: 'Pending Interview' }
+        : s
+    ))
+    const newMatchList = matches.filter(m => m.unit_id !== unit.id)
+    updateCohortMatchSummary(newMatchList)
+    setMatches(prev => prev.filter(m => m.unit_id !== unit.id))
+    setUnits(prev => prev.filter(u => u.id !== unit.id))
+  }
+
+  // ── Matching ─────────────────────────────────────────────────
+  const createMatch = async (student, unit, options = {}) => {
+    if (!activeCohortId) return
+    // Guard: only place students who have completed an interview.
+    //
+    // PLACEMENT-POOL-READINESS-1: the ONE exception is an approved
+    // pre-interview placement, and it is only ever reachable after the staff
+    // member explicitly confirmed it in the Placement Board dialog. The flag
+    // is never derived from a preference, an open slot, or employment - it is
+    // a human decision, recorded below in the activity log.
+    const needsException = !['Interviewed', 'Placed'].includes(student.status)
+    const isApprovedException = needsException && options.placementException === true
+    if (needsException && !isApprovedException) {
+      toast.warning('Interview required', `${student.first_name} has not completed an interview yet. Complete the interview before placing.`)
+      return
+    }
+    // The original values are read BEFORE any write, so the audit below reports
+    // the state at the moment of the decision even though it is written later.
+    const statusAtPlacement = student.status || null
+    const match_quality = unit.unit_name === student.unit_preference_1 ? 'top_choice'
+      : unit.unit_name === student.unit_preference_2 ? 'second_choice'
+      : 'other'
+    const { data: m, error } = await safeWrite(
+      () => supabase.from('matches').insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId, match_quality }).select().single(),
+      { name: 'create match' }
+    )
+    if (error) { console.error(error); return }
+    // PLACEMENT-POOL-READINESS-1: the exception audit is written ONLY here,
+    // after the match row actually exists. Written any earlier, a failed insert
+    // (the early return above) would leave an activity entry claiming a
+    // placement that never happened.
+    if (isApprovedException) {
+      logActivity({
+        userProfile: currentUserProfile,
+        actionType: 'placement_exception_confirmed',
+        entityType: 'student',
+        entityId: student.id,
+        cohortId: activeCohortId,
+        description: `${currentUserProfile?.full_name || 'A staff member'} placed ${student.first_name} ${student.last_name} into ${unit.unit_name} as an approved exception (status was ${statusAtPlacement || 'not set'}, not Interviewed).`,
+        metadata: {
+          unit_id: unit.id,
+          unit_name: unit.unit_name,
+          status_at_placement: statusAtPlacement,
+          match_id: m?.id ?? null,
+        },
+      })
+    }
+    // Derive slots_remaining from actual match count so the field self-corrects
+    // even if it was previously initialised incorrectly (e.g., stuck at 0).
+    const currentMatchCount = matches.filter(m => m.unit_id === unit.id).length  // before new match
+    const newRemaining = Math.max(0, unit.total_slots - (currentMatchCount + 1))
+    // Phase 2A.1 (May 26, 2026): renamed from 'Accepted' to 'Recommend' as part of
+    // interview_outcome vocabulary cleanup. This handler still overwrites whatever
+    // the rubric set, which is a design smell flagged for Phase 2B disposition work.
+    //
+    // PLACEMENT-POOL-READINESS-1: an approved PRE-interview exception has no
+    // interview, so writing 'Recommend' would fabricate an interview outcome
+    // that no one ever recorded. Only the normal Interviewed path writes it.
+    // Omitting the key leaves the stored value untouched.
+    const studentPatch = {
+      matched_unit_id: unit.id,
+      match_quality,
+      status: 'Placed',
+      ...(isApprovedException ? {} : { interview_outcome: 'Recommend' }),
+    }
+    await safeWrite(
+      () => supabase.from('students').update(studentPatch).eq('id', student.id),
+      { name: 'update student on match' }
+    )
+    await safeWrite(
+      () => supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id),
+      { name: 'update unit slots on match' }
+    )
+    updateCohortMatchSummary([...matches, m])
+    setMatches(prev => [...prev, m])
+    // Same patch as the canonical write above, so the local projection cannot
+    // drift from the database (an exception placement keeps its existing
+    // interview_outcome in both places).
+    setStudents(prev => prev.map(s =>
+      s.id === student.id ? { ...s, ...studentPatch } : s
+    ))
+    setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
+    const alreadyPlaced = await eventExists(supabase, student.id, 'placement')
+    if (!alreadyPlaced) {
+      await logEvent(supabase, { studentId: student.id, cohortId: activeCohortId, eventType: 'placement', notes: `Placed in ${unit.unit_name}`, auto: true })
+    }
+    toast.success('Student placed', `${student.first_name} matched to ${unit.unit_name}.`)
+    logActivity({ userProfile: currentUserProfile, actionType:'student_matched', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} matched ${student.first_name} ${student.last_name} to ${unit.unit_name}`, metadata:{ unit: unit.unit_name } })
+  }
+
+  const unmatch = async (student, unit) => {
+    // UNIT-POOL-REFINEMENT-1 (unmatch correction): what this removal may touch
+    // depends on what SURVIVES. planUnmatch (src/lib/unmatchPlan.js) decides:
+    //   'additional'            - another placement survives and the pointer
+    //                             names a different unit. ONLY the match row and
+    //                             the unit's slots change; the student row, the
+    //                             primary preceptor, and the status are not
+    //                             touched at all.
+    //   'primary_with_survivor' - the pointer named this unit and another
+    //                             placement survives. The pointer moves to the
+    //                             successor; the applied sync trigger mirrors
+    //                             that write into student_unit_assignments
+    //                             (end removed primary -> promote successor)
+    //                             atomically - the canonical transition, owned
+    //                             by the database, not re-implemented here.
+    //                             Status is untouched: a placed student stays
+    //                             placed, an Active Rotation student stays on
+    //                             rotation.
+    //   'final'                 - nothing survives. The existing disposition-
+    //                             and rubric-aware revert applies, unchanged.
+    const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
+    const plan = planUnmatch({ student, match, matches })
+
+    if (plan.kind === 'additional') {
+      // The removed placement was not the primary: the student-level record
+      // describes the SURVIVING primary placement, so none of it may change -
+      // no pointer write, no status change, and NO primary-preceptor clear
+      // (that relationship belongs to the placement that survives). The
+      // removed placement's own preceptor lives on its match row and ends with
+      // the row; its notification evidence stays in the ledger as history that
+      // no longer applies, keyed to a match id that no longer exists.
+      if (match) await safeWrite(() => supabase.from('matches').delete().eq('id', match.id), { name: 'delete additional match on unmatch' })
+      const additionalCount = matches.filter(m => m.unit_id === unit.id).length  // before removal
+      const additionalRemaining = Math.min(unit.total_slots, unit.total_slots - Math.max(0, additionalCount - 1))
+      await safeWrite(
+        () => supabase.from('units').update({ slots_remaining: additionalRemaining }).eq('id', unit.id),
+        { name: 'update unit slots on unmatch' }
+      )
+      updateCohortMatchSummary(match ? matches.filter(m => m.id !== match.id) : matches)
+      if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
+      setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: additionalRemaining } : u))
+      toast.info('Placement removed', `${student.first_name} no longer has a ${unit.unit_name} placement. Their primary placement is unchanged.`)
+      logActivity({ userProfile: currentUserProfile, actionType:'match_removed', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} removed ${student.first_name} ${student.last_name} from ${unit.unit_name} (additional placement; primary unchanged)` })
+      return
+    }
+
+    // The rubric lookup only matters when the student is actually leaving
+    // placed state - a survivor case never reverts status.
+    let revertStatus = null
+    if (plan.kind === 'final') {
+      // Check for existing interview rubrics to determine correct revert status
+      const { data: rubrics } = await supabase
+        .from('interview_rubrics')
+        .select('id')
+        .eq('student_id', student.id)
+        .limit(1)
+      const hasInterview = rubrics && rubrics.length > 0
+      // Phase 2B.2e: disposition is the source of truth for program status.
+      // Unmatching releases the unit slot but must NOT undo a documented program
+      // decision - preserve 'Not Proceeding' when the student has an active
+      // disposition; otherwise revert as before.
+      revertStatus = student.active_disposition?.disposition_type
+        ? 'Not Proceeding'
+        : (hasInterview ? 'Interviewed' : 'Form Received')
+    }
+
+    // PHASE-2D: end the primary preceptor relationship FIRST, through the one
+    // canonical guarded path (clear_primary_preceptor via the staff endpoint).
+    // The 2B trigger soft-ends the active-primary row and clears
+    // matched_preceptor / preceptor_email / the single same-cohort match FK
+    // server-side; already-clear students no-op. A failed clear aborts the
+    // whole revert before anything is mutated.
+    //
+    // Reached only for 'final' and 'primary_with_survivor': in both, the
+    // student-level primary relationship described the placement being removed.
+    // It is ENDED, never transferred - the survivor's preceptor stays on the
+    // survivor's own match row, and promoting anyone to the student-level
+    // primary is an explicit staff act on the assignment surface.
+    const cleared = await clearPrimaryPreceptor(student.id, 'match revert')
+    if (!cleared.ok) {
+      toast.error('Unmatch blocked', 'The primary preceptor could not be cleared, so no changes were made. Please try again.')
+      return
+    }
+    if (match) await safeWrite(() => supabase.from('matches').delete().eq('id', match.id), { name: 'delete match on unmatch' })
+    // The one student write either case is allowed: the successor projection,
+    // or the full revert. unmatchStudentPatch is the tested single source of
+    // what each kind may contain - a survivor patch NEVER carries status or
+    // interview_outcome.
+    const studentPatch = unmatchStudentPatch(plan, { revertStatus })
+    await safeWrite(
+      () => supabase.from('students').update(studentPatch).eq('id', student.id),
+      { name: 'update student on unmatch' }
+    )
+    // Derive from actual count so the field self-corrects if it was stale
+    const currentMatchCount = matches.filter(m => m.unit_id === unit.id).length  // before removal
+    const newRemaining = Math.min(unit.total_slots, unit.total_slots - Math.max(0, currentMatchCount - 1))
+    await safeWrite(
+      () => supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id),
+      { name: 'update unit slots on unmatch' }
+    )
+    updateCohortMatchSummary(match ? matches.filter(m => m.id !== match.id) : matches)
+    if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
+    setStudents(prev => prev.map(s =>
+      s.id === student.id
+        // The preceptor fields are the local echo of the server-side clear (the
+        // trigger's exact result), not an independent write.
+        ? { ...s, ...studentPatch, preceptor_id: null, matched_preceptor: '', preceptor_email: '' }
+        : s
+    ))
+    setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
+    if (plan.kind === 'primary_with_survivor') {
+      const successorUnit = units.find(u => u.id === plan.successor?.unit_id)
+      toast.info('Placement removed', `${student.first_name} no longer has a ${unit.unit_name} placement. ${successorUnit?.unit_name || 'Their remaining unit'} is now their primary placement.`)
+    } else {
+      toast.info('Student unmatched', `${student.first_name} moved back to ${revertStatus}.`)
+    }
+    logActivity({ userProfile: currentUserProfile, actionType:'match_removed', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} removed ${student.first_name} ${student.last_name} from ${unit.unit_name}${plan.kind === 'primary_with_survivor' ? ' (primary moved to the surviving placement)' : ''}` })
+  }
+
+  // Returns the error (or null). PLACEMENT-COMMUNICATION-HANDOFF-1: the notified
+  // confirmations need to know whether the write actually landed, so they can
+  // leave the task visible and actionable instead of claiming a success that did
+  // not happen. Existing callers ignore the return value and are unaffected.
+  const updateMatch = async (matchId, studentId, updates) => {
+    const { error } = await safeWrite(
+      () => supabase.from('matches').update(updates).eq('id', matchId),
+      { name: 'update match' }
+    )
+    if (!error) {
+      setMatches(prev => prev.map(m => m.id === matchId ? { ...m, ...updates } : m))
+      const su = {}
+      if (updates.preceptor_assigned !== undefined) su.matched_preceptor = updates.preceptor_assigned
+      if (updates.shift_assigned     !== undefined) su.shift_assigned     = updates.shift_assigned
+      if (Object.keys(su).length) {
+        // WS1e-A2: explicit placement action (was generic proxyUpdateStudent).
+        updatePreceptorAssignment(studentId, su).catch(err => console.error('Match student update:', err.message))
+        setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...su } : s))
+      }
+    }
+    return error || null
+  }
+
+  // PLACEMENT-NOTIFICATION-CONTROL-1: bring the in-memory match projection into
+  // step AFTER the notification endpoint has already written. This performs no
+  // database write of its own - the server is the writer, and the endpoint has
+  // proved the placement before touching anything. Without this the panel and
+  // the board would keep showing a task the database no longer agrees with
+  // until the next full load.
+  const syncMatchLocal = (matchId, patch) => {
+    if (!matchId || !patch) return
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, ...patch } : m))
+  }
+
+  // ── CSV export ───────────────────────────────────────────────
+  const exportCSV = () => {
+    const headers = ['Name','School Email','Personal Email','Phone','School','ASPIRE Cohort',
+      'Term Dates','Hours Required','Hours Completed','Unit','Preceptor','ASPIRE Status',
+      'NGRP Cohort Target','NGRP Outcome','GPA Verified','BLS Current','Health Cleared',
+      'Background Check','Coordinators','Notes',
+      'Interview Date','Interviewer Name','CJ Score','PP Score','GA Score',
+      'Composite Score','Overall Recommendation','Interviewer Suggested Unit','Summary Comments']
+    const rows = students.map(s => [
+      displayName(s),s.school_email,s.personal_email,s.phone,s.school,s.aspire_cohort,
+      s.term_dates,s.hours_required,s.approved_hours,s.unit,s.preceptor_name,
+      s.status,s.ngrp_cohort_target,s.ngrp_outcome,
+      s.gpa_verified?'Yes':'No',s.bls_current?'Yes':'No',
+      s.health_cleared?'Yes':'No',s.background_check?'Yes':'No',
+      s.coordinators,s.notes,
+      s.interview_date||'',s.interviewer_name||'',
+      s.cj_score||'',s.pp_score||'',s.ga_score||'',
+      s.composite_score||'',s.overall_recommendation||'',
+      s.interviewer_suggested_unit||'',s.summary_comments||''])
+    const csv = [headers,...rows]
+      .map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const cohortSlug = (activeCohort?.name || 'cohort').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')
+    const dateSlug = new Date().toISOString().slice(0,10)
+    a.href=url; a.download=`aspire_students_${cohortSlug}_${dateSlug}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const setFilter = (k, v) => setFilters(p => ({ ...p, [k]: v }))
+  const filteredStudents = students.filter(s => {
+    if (search) {
+      const q = search.toLowerCase()
+      if (!s.name?.toLowerCase().includes(q) &&
+          !s.school_email?.toLowerCase().includes(q) &&
+          !s.personal_email?.toLowerCase().includes(q)) return false
+    }
+    if (filters.school && s.school !== filters.school) return false
+    if (filters.status && s.status !== filters.status)  return false
+    if (filters.cohort && s.aspire_cohort !== filters.cohort) return false
+    return true
+  })
+
+  const activeCohort = cohorts.find(c => c.id === activeCohortId)
+
+  // PRECEPTOR-NOTIFICATION-ACTION-CENTER-1: the closed bell and open Action
+  // Center read the same placement-confirmation ledger as Rotation > Unit Pool.
+  // React Query shares this exact key with MatchingTab, so navigating between
+  // the two surfaces does not create a second source of state.
+  const {
+    data: placementNotificationRows = [],
+    isSuccess: placementNotificationsLoaded,
+  } = useQuery({
+    queryKey: ['placement_notification_state', activeCohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_log')
+        .select('id, notification_type, status, sent_at, created_at, metadata')
+        .in('notification_type', [CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE])
+        .eq('metadata->>placement_cohort_id', activeCohortId)
+        .order('sent_at', { ascending: true })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!activeCohortId && canEdit,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  })
+
+  // ── Action Center badge count - must be after activeCohort ───
+  // ── Header: click-outside for search (the scope picker handles its own) ──────
+  useEffect(() => {
+    const handler = e => {
+      if (searchAreaRef.current && !searchAreaRef.current.contains(e.target)) { setSearchOpen(false); setSearchActiveIdx(-1) }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // ── Header: derived + search handler ─────────────────────────────────────────
+  // COHORT-ORDER-1: ordered by the cohort NAME's season and year. This used to
+  // localeCompare cohorts.start_date, which is a free-text TEXT column holding
+  // values like "May 4, 2026"; alphabetical order over those put Winter 2027
+  // above Fall 2026. See lib/cohortSeason.js.
+  const sortedCohorts = [...cohorts].sort(compareCohortsChrono)
+
+  const runSearch = useCallback(async q => {
+    if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
+    setSearchLoading(true); setSearchOpen(true)
+    // UNIVERSAL-SEARCH-1: every query below is an EXISTING-RLS-backed client read - permissioning is
+    // the table's own RLS (students/units cohort-scoped; contacts is_active; preceptors authenticated
+    // read; catalog Owner/Admin/Interviewer-tiered). No new endpoint, no schema, read-only.
+    const [stuRes, unitRes, contRes, precRes, catRes] = await Promise.all([
+      supabase.from('students').select('id, first_name, last_name, preferred_first_name, school, school_email, status, headshot_url')
+        .eq('cohort_id', activeCohortId)
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,preferred_first_name.ilike.%${q}%,school_email.ilike.%${q}%,personal_email.ilike.%${q}%,phone.ilike.%${q}%,school.ilike.%${q}%`).limit(6),
+      supabase.from('units').select('id, unit_name, division, contact_person, slots_remaining, total_slots')
+        .eq('cohort_id', activeCohortId).or(`unit_name.ilike.%${q}%,contact_person.ilike.%${q}%`).limit(6),
+      supabase.from('contacts').select('id, full_name, preferred_name, email, role, category, avatar_url, organization, school_name, unit_name')
+        .eq('is_active', true)
+        .or(`full_name.ilike.%${q}%,preferred_name.ilike.%${q}%,email.ilike.%${q}%,role.ilike.%${q}%,school_name.ilike.%${q}%,unit_name.ilike.%${q}%,category.ilike.%${q}%,organization.ilike.%${q}%`).limit(5),
+      // Preceptors: operational roster (global, not cohort-scoped). RLS = authenticated_read_preceptors.
+      supabase.from('preceptors').select('id, full_name, email, unit_name, shift_type')
+        .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,unit_name.ilike.%${q}%`).limit(5),
+      // Catalog: SAFE metadata only - slug (routing), title, description, category, tags. storage_path
+      // is NEVER selected. RLS returns only rows this role may see; client-filtered below (text[] tags).
+      supabase.from('catalog_resources').select('id, slug, title, description, category, tags')
+        .eq('is_active', true).limit(100),
+    ])
+    const ql = q.toLowerCase()
+    const placements = students.filter(s => {
+      if (!s.matched_unit_id) return false
+      const u = units.find(u => u.id === s.matched_unit_id)
+      return `${s.last_name} ${s.first_name}`.toLowerCase().includes(ql) || (u?.unit_name||'').toLowerCase().includes(ql)
+    }).map(s => ({ student: s, unit: units.find(u => u.id === s.matched_unit_id) })).slice(0, 5)
+    // Cohorts: filter the already-loaded (RLS-backed) cohort list in-memory; no extra query.
+    const cohortMatches = (cohorts || []).filter(c => (c.name||'').toLowerCase().includes(ql)).slice(0, 5)
+    // Catalog metadata match across title/description/category/tags (tags is text[] → client filter).
+    const catalogMatches = (catRes.data || []).filter(r => {
+      const hay = [r.title, r.description, r.category, ...(Array.isArray(r.tags) ? r.tags : [])].join(' ').toLowerCase()
+      return hay.includes(ql)
+    }).slice(0, 5)
+    setSearchResults({
+      students: stuRes.data||[], units: unitRes.data||[], placements, contacts: contRes.data||[],
+      preceptors: precRes.data||[], cohorts: cohortMatches, catalog: catalogMatches,
+    })
+    setSearchLoading(false); setSearchActiveIdx(-1)
+  }, [activeCohortId, students, units, cohorts]) // eslint-disable-line
+
+  const handleSearchChange = e => {
+    const q = e.target.value; setSearchQuery(q)
+    clearTimeout(searchTimer.current)
+    if (q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
+    searchTimer.current = setTimeout(() => runSearch(q), 300)
+  }
+
+  const searchFlat = [
+    ...searchResults.students.map(s => ({ type:'student', data:s })),
+    ...searchResults.units.map(u => ({ type:'unit', data:u })),
+    ...searchResults.placements.map(p => ({ type:'placement', data:p })),
+    ...searchResults.contacts.map(c => ({ type:'contact', data:c })),
+    ...searchResults.preceptors.map(p => ({ type:'preceptor', data:p })),
+    ...searchResults.cohorts.map(c => ({ type:'cohort', data:c })),
+    ...searchResults.catalog.map(r => ({ type:'catalog', data:r })),
+  ]
+
+  const handleSearchKey = e => {
+    if (!searchOpen) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSearchActiveIdx(i => Math.min(i+1, searchFlat.length-1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSearchActiveIdx(i => Math.max(i-1, 0)) }
+    else if (e.key === 'Enter' && searchActiveIdx >= 0) handleSearchResult(searchFlat[searchActiveIdx])
+    else if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); searchInputRef.current?.blur() }
+  }
+
+  const handleSearchResult = item => {
+    setSearchOpen(false); setSearchQuery(''); setSearchActiveIdx(-1)
+    if (item.type === 'student') { switchTab('profiles'); setFocusStudentId(item.data.id) }
+    else if (item.type === 'unit') { setHighlightUnitId(item.data.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
+    else if (item.type === 'placement') { setHighlightUnitId(item.data.unit?.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
+    else if (item.type === 'contact') { navigate(`/connect/contacts?contactId=${item.data.id}`) }
+    // UNIVERSAL-SEARCH-1 - existing safe destinations only; no file access, no secure URLs.
+    else if (item.type === 'preceptor') { navigate('/rotation/preceptors') }
+    else if (item.type === 'cohort') { handleCohortSwitch(item.data.id) }
+    else if (item.type === 'catalog') { navigate(`/catalog?resource=${encodeURIComponent(item.data.slug)}`) }
+  }
+
+  // ASPIRE-CHART: the closed bell badge derives from the SAME canonical
+  // attention engine (lib/attention.js) the open Action Center panel uses.
+  // The four hand-mirrored predicate copies that previously lived here are
+  // gone; a predicate edit in the module changes both surfaces at once, so
+  // there is nothing left to hand-synchronize. The lazy sets stay empty until
+  // their data has actually loaded, so the badge never briefly over-counts.
+  const attentionNow = new Date()
+  const eagerAttention = deriveEagerAttention({
+    students, matches, communications, activeCohort, canEdit, now: attentionNow,
+    reminderDeliveries, deliveriesLoaded: reminderDeliveriesLoaded,
+    ivSessions, ivSlots,
+    placementNotifications: placementNotificationRows,
+    placementNotificationsLoaded,
+  })
+  const lazyAttention = deriveLazyAttention({
+    students,
+    shiftLogs: acShiftLogs, shiftLogsLoaded: acLazyLoaded,
+    schoolRotations: acSchoolRotations,
+    dispositionFollowups: acPendingFollowups, activeDispositionIds: acActiveDispoIds,
+    dispositionLoaded: acLazyLoaded,
+    canEdit, now: attentionNow,
+  })
+
+  // SUPPORT-REQUEST-ACTION-CENTER-2: current user's unread support requests contribute to the bell.
+  // Cohort-scoped shift logs with support text + the current user's receipts -> one count per unread
+  // shift. The open Action Center reports the same support items inside panelActionCount, so the
+  // closed (here) and open counts stay consistent and this is never double-counted.
+  const supportProfileId = currentUserProfile?.id
+  const { receipts: supportReceipts } = useSupportRequestReads(supportProfileId)
+  const { data: supportShiftLogs = [] } = useQuery({
+    queryKey: ['support_shift_logs', activeCohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_shift_logs')
+        .select('id, student_id, support_needed')
+        .eq('cohort_id', activeCohortId)
+      if (error) throw error
+      return (data || []).filter(l => (l.support_needed || '').trim())
+    },
+    enabled: !!activeCohortId && canEdit,
+    staleTime: 30 * 1000,
+  })
+  const supportUnreadCount = unreadSupportBellCount(supportShiftLogs, supportProfileId, supportReceipts)
+
+  // PHASE 2C: durable staff_notifications (Owner/Admin preceptor activity) power the Notifications
+  // tab of the Action Center and add their unread count to the SAME bell badge as the task list.
+  // Hoisted here so the badge updates while the panel is closed. Read-state changes go through the
+  // mark_staff_notifications_read RPC inside the hook.
+  const staffNotifications = useStaffNotifications({ enabled: canEdit })
+  const notificationsUnread = staffNotifications.unreadCount || 0
+
+  // While the panel is open it reports its exact visible-task count (including support items); the
+  // badge uses that. When closed, fall back to the shared engine's total so all task types are
+  // reflected. Support requests are counted exactly once (never inside eager/lazy).
+  const actionBadgeCount = panelActionCount != null
+    ? panelActionCount
+    : attentionBadgeTotal({ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount })
+
+  return (
+    <div className="app">
+      <div className="top-section">
+        {/* ── Application header (WS2.0: extracted to components/Header) ── */}
+        <Header
+          cohort={{ cohorts, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
+          search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
+          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread }}
+          /* SCOPE-PICKER-1: `experience` is passed ONLY for profiles holding
+             ngrp_access. Its absence means one experience, which the Scope pill
+             renders as the cohort name alone - a caller with no Residency has no
+             second term for "Internship" to contrast with. `residencyCohort` is
+             passed only while IN the residency workspace, so the cohort pane always
+             describes where the user already is and residency cycles are still
+             fetched only by an authorized caller inside that workspace. */
+          experience={ngrpAllowed ? { active: activeTab === 'ngrp' ? 'residency' : 'internship', onSwitch: switchExperience } : null}
+          residencyCohort={ngrpAllowed && activeTab === 'ngrp' ? {
+            status: ngrpCyclesQuery.status,
+            cycles: orderedNgrpCycles,
+            activeCycle: activeNgrpCycle,
+            onSelectCycle: selectNgrpCycle,
+            /* NGRP-PLANNING-2: the same Edit/Add footer the ASPIRE pane has,
+               gated on ngrp_manage rather than the ASPIRE canEdit. */
+            canManage: canManageNgrp(currentUserProfile),
+            onManageCycle: () => setShowNgrpCohortSettings(true),
+            onNewCycle: () => setShowNgrpNewCohort(true),
+          } : null}
+        />
+
+        {/* NGRP-WORKSPACE-1: the NGRP workspace has its own six-tab nav in the
+            same sticky band; the ASPIRE nav is untouched for every other tab. */}
+        {ngrpAllowed && activeTab === 'ngrp' && (
+          <NgrpNav activeTab={ngrpActiveTab} onSwitchTab={switchNgrpTab} />
+        )}
+        {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && activeTab !== 'ngrp' && (
+          <UnifiedNav
+            cohorts={cohorts}
+            activeCohortId={activeCohortId}
+            activeCohort={activeCohort}
+            activeTab={activeTab}
+            ivSessions={ivSessions}
+            onSelectCohort={handleCohortSwitch}
+            onNewCohort={() => setShowNewCohort(true)}
+            onEditCohort={() => setShowManageCohort(true)}
+            onSwitchTab={switchTab}
+            students={students}
+            units={units}
+            matches={matches}
+            cohortId={activeCohortId}
+            onSelectStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+            onSelectUnit={id => {
+              setHighlightUnitId(id)
+              switchTab('rotation')
+              setTimeout(() => setHighlightUnitId(null), 2500)
+            }}
+          />
+        )}
+      </div>
+
+      <main className="app-main">
+        {/* WS2.1: Settings is an app-level utility section (available regardless of
+            cohorts); it renders here while the operational tabs stay mounted+hidden. */}
+        {activeTab === 'settings' && (
+          <SettingsShell backPath={backPath} backLabel={backLabel} onRestartTour={restartTour} />
+        )}
+        {cohorts.length === 0 && !loading && activeTab !== 'settings' && (
+          <div className="state-box" style={{ marginTop: 40 }}>
+            <p style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Welcome to ASPIRE Intelligence</p>
+            <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Get started by creating your first cohort.</p>
+            {/* S-04: every other cohort control is behind canEdit (see CohortPicker); this
+                empty-state button was the one that was not. cohorts writes are now active
+                Owner/Admin/Co-Lead only, so an ungated button here would fail opaquely. */}
+            {canEdit && <button className="btn btn-primary" onClick={() => setShowNewCohort(true)}>+ Create First Cohort</button>}
+          </div>
+        )}
+        {loading && cohorts.length > 0 && <div className="state-box"><div className="spinner" /><p>Loading…</p></div>}
+        {dbError && (
+          <div className="state-box error-box">
+            <p><strong>Unable to load data.</strong></p>
+            <p style={{ marginTop: 8, fontSize: 13, color: '#6b7280' }}>
+              {dbError.toLowerCase().includes('jwt') || dbError.toLowerCase().includes('auth')
+                ? 'Your session may have expired. Try signing out and back in.'
+                : 'Check your connection or contact the ASPIRE team if this persists.'}
+            </p>
+            <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={refreshAll}>Retry</button>
+          </div>
+        )}
+
+        {/* All five tabs mount simultaneously once initial data is ready.
+            Tab switching only changes CSS display, no unmount/remount,
+            so queries, local state, and scroll position persist instantly. */}
+        {!loading && !dbError && cohorts.length > 0 && (
+          <>
+            <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
+              <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast}
+                onRefreshUnits={() => fetchUnits(activeCohortId)}
+                onSelectStudent={goToActivityStudent}
+                /* ASPIRE-CHART: Today's digest reads the SAME attention sets as
+                   the bell badge, so the two can never disagree. */
+                attention={{ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount }}
+                onOpenActionCenter={() => setShowActionCenter(true)}
+                currentUserId={user?.id} />
+            </div>
+
+            <div style={{ display: activeTab === 'profiles' ? 'block' : 'none' }}>
+              <StudentProfilesTab
+                students={students}
+                units={units} cohortId={activeCohortId}
+                onUpdate={updateStudent} onDelete={deleteStudent}
+                onRefresh={() => { fetchStudents(activeCohortId); fetchLazyActionData(activeCohortId) }}
+                onSwitchToAccess={switchToAccess}
+                view={profilesView} onViewChange={setProfilesView}
+                accessFocusId={accessFocusId}
+                onExportCSV={exportCSV}
+                onAddStudent={() => setShowAddModal(true)}
+                onReviewDecided={applyStudentReviewTotals}
+                onPreceptorAssigned={applyPreceptorAssignment}
+                focusStudentId={focusStudentId}
+                onClearFocusStudent={() => setFocusStudentId(null)}
+                toast={toast}
+              />
+            </div>
+
+            <div style={{ display: activeTab === 'interviews' ? 'block' : 'none' }}>
+              <InterviewRubricTab
+                students={students}
+                rubrics={interviews}
+                cohortId={activeCohortId}
+                cohort={activeCohort}
+                sessions={ivSessions}
+                slots={ivSlots}
+                communications={communications}
+                onStudentUpdate={updateStudent}
+                onRubricsChange={() => fetchInterviews(activeCohortId)}
+                onRefreshStudents={() => fetchStudents(activeCohortId)}
+                onManageInterviewers={() => setShowInterviewersModal(true)}
+                onUpdateSession={updateIvSession}
+                onRefreshSlots={() => fetchIvSlots(activeCohortId)}
+                onNavigateToPlacement={goToPlacementStudent}
+                toast={toast}
+              />
+            </div>
+
+            <div style={{ display: activeTab === 'rotation' ? 'block' : 'none' }}>
+              <RotationTab
+                students={students} units={units} matches={matches}
+                cohortId={activeCohortId} cohort={activeCohort}
+                onMatch={createMatch} onUnmatch={unmatch} onUpdateMatch={updateMatch}
+                onMatchLocalSync={syncMatchLocal}
+                onRefreshUnits={() => fetchUnits(activeCohortId)}
+                onDeleteUnit={deleteUnit}
+                highlightUnitId={highlightUnitId}
+                onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+                onReviewDecided={applyStudentReviewTotals}
+                onPreceptorAssigned={applyPreceptorAssignment}
+                focusActivityStudentId={focusActivityStudentId}
+                onFocusActivityConsumed={() => setFocusActivityStudentId(null)}
+                focusActivityShiftLogId={focusActivityShiftLogId}
+                onFocusActivityShiftConsumed={() => setFocusActivityShiftLogId(null)}
+                focusMatchStudentId={focusMatchStudentId}
+                onFocusMatchConsumed={() => setFocusMatchStudentId(null)}
+                toast={toast}
+              />
+            </div>
+
+            <div style={{ display: activeTab === 'evaluation' ? 'block' : 'none' }}>
+              <EvaluationTab cohortId={activeCohortId} />
+            </div>
+
+            {activeTab === 'connect' && (
+              <ConnectPage
+                cohortId={activeCohortId}
+                onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+                refreshRef={connectRefreshRef}
+                backPath={backPath}
+                backLabel={backLabel}
+              />
+            )}
+
+            {/* CATALOG-1: read-only ASPIRE Catalog (Owner/Admin gated by RLS + endpoint). */}
+            {activeTab === 'catalog' && (
+              <CatalogPage backPath={backPath} backLabel={backLabel} />
+            )}
+
+            {/* NGRP-WORKSPACE-1 (correction): the NGRP workspace, rendered
+                ONLY for authorized profiles. Statically imported (see the
+                import note) and receiving the residency-cohort scope resolved
+                above - never the cohort-scoped students state, which would
+                silently shrink "All ASPIRE Cohorts" to one cohort. */}
+            {ngrpAllowed && activeTab === 'ngrp' && (
+              <NgrpWorkspace
+                cyclesStatus={ngrpCyclesQuery.status}
+                cyclesCount={ngrpCyclesQuery.cycles.length}
+                cycle={activeNgrpCycle}
+                canManage={canManageNgrp(currentUserProfile)}
+                toast={toast}
+                onEditCohort={() => setShowNgrpCohortSettings(true)}
+                onAddCohort={() => setShowNgrpNewCohort(true)}
+                onSelectCycle={selectNgrpCycle}
+              />
+            )}
+          </>
+        )}
+      </main>
+
+      {showAddModal && <AddStudentModal cohortId={activeCohortId} onAdd={addStudent} onClose={() => setShowAddModal(false)} />}
+      {showNewCohort && <NewCohortModal onSave={createCohort} onClose={() => setShowNewCohort(false)} />}
+      {/* NGRP-PLANNING-2: residency cohort administration, rendered at app level
+          beside the ASPIRE pair. It is opened from the header's Scope footer AND
+          from the Planning tab, so neither of those can own the state. */}
+      {showNgrpCohortSettings && activeNgrpCycle && (
+        <CohortSettingsModal
+          cycle={activeNgrpCycle}
+          canManage={canManageNgrp(currentUserProfile)}
+          toast={toast}
+          onClose={() => setShowNgrpCohortSettings(false)}
+        />
+      )}
+      {showNgrpNewCohort && (
+        <CreateCohortDialog
+          onClose={() => setShowNgrpNewCohort(false)}
+          onCreated={(created) => {
+            setShowNgrpNewCohort(false)
+            toast?.success?.('Residency cohort added', `${created.name} is ready to configure.`)
+            queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] })
+            selectNgrpCycle(created.id)
+            // Straight into its settings: a new cohort is never usable as created.
+            setShowNgrpCohortSettings(true)
+          }}
+        />
+      )}
+      {showManageCohort && activeCohort && (
+        <ManageCohortModal cohort={activeCohort} onSave={updateCohort} onClose={() => setShowManageCohort(false)} />
+      )}
+      {showInterviewersModal && (
+        <InterviewersModal isOpen={showInterviewersModal} onClose={() => setShowInterviewersModal(false)} toast={toast} />
+      )}
+      {showActionCenter && (
+        <ActionCenter
+          isOpen={showActionCenter}
+          onClose={() => setShowActionCenter(false)}
+          anchorEl={bellRef.current}
+          students={students}
+          units={units}
+          matches={matches}
+          cohortId={activeCohortId}
+          activeCohort={activeCohort}
+          communications={communications}
+          placementNotifications={placementNotificationRows}
+          placementNotificationsLoaded={placementNotificationsLoaded}
+          reminderDeliveries={reminderDeliveries}
+          reminderDeliveriesLoaded={reminderDeliveriesLoaded}
+          ivSessions={ivSessions}
+          ivSlots={ivSlots}
+          schoolRotations={acSchoolRotations}
+          onNavigateToActivityStudent={id => { goToActivityStudent(id); setShowActionCenter(false) }}
+          onNavigateToUnitPool={unitId => {
+            setHighlightUnitId(unitId || null)
+            navigate('/rotation/matrix')
+            if (unitId) setTimeout(() => setHighlightUnitId(null), 2500)
+            setShowActionCenter(false)
+          }}
+          onLogCommunication={logCommunication}
+          onMatchLocalSync={syncMatchLocal}
+          onStudentUpdate={updateStudent}
+          onActionCountChange={handleActionCount}
+          onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
+          onNavigateToActivityShift={goToActivityShift}
+          onLaunchSchedulingLink={launchSchedulingLinkFromActionCenter}
+          onNavigateNotificationDestination={destination => { navigate(destination); setShowActionCenter(false) }}
+          notifications={staffNotifications}
+          toast={toast}
+        />
+      )}
+      {/* CONNECT-SCHEDULING-LINK-1: one shared return confirmation for both scheduling-link launch
+          points (Interviews worklist, Student Profiles). Mounted at the shell so the two workspaces
+          use the same completion mechanism; it renders nothing unless the Owner returns to the
+          launching workspace with a scheduling-link context that Connect reported as sent. */}
+      <SchedulingLinkReturnConfirm
+        students={students}
+        cohortId={activeCohortId}
+        onLogCommunication={logCommunication}
+        onRefreshCommunications={() => fetchCommunications(activeCohortId)}
+        toast={toast}
+      />
+      <Keith
+        activeTab={activeTab}
+        setActiveTab={switchTab}
+        cohortName={activeCohort?.name}
+        cohortId={activeCohortId}
+        supabase={supabase}
+        isAuthenticated={true}
+      />
+      {/* MESSAGES-AUTOSCROLL-1: the canonical Messages shortcut, directly above
+          the Keith orb in the lower-right stack (self-gated to owner/admin). */}
+      <MainMessagesLauncher />
+      <FeedbackPanel
+        activeTab={activeTab}
+        cohortName={activeCohort?.name}
+        isAuthenticated={true}
+      />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <CustomOnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} experience="staff" />
+      {/* WS2.2: People & Access re-homed to Settings → /settings/accounts.
+          The legacy UserManagement modal render (formerly here) was removed; the
+          modal wrapper component is retained in its file for direct callers/rollback. */}
+    </div>
+  )
+}
+
+// Auth shell - rendered for all authenticated paths (everything except the five public forms)
+function AuthedShell() {
+  const { user, userProfile, loading, signOut } = useAuth()
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#F4F1EC',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '14px', color: '#9ca3af' }}>
+          Loading ASPIRE Intelligence...
+        </div>
+      </div>
+    )
+  }
+
+  // Not signed in → show login page
+  if (!user) return <LoginNew />
+
+  // Signed in but profile is inactive
+  if (user && userProfile && !userProfile.is_active) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#F4F1EC',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+      }}>
+        <div style={{ textAlign: 'center', color: '#991b1b' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>Account Deactivated</div>
+          <div style={{ fontSize: '14px', color: '#6b7280' }}>Contact JesterLloyd.Bautista@cshs.org for access.</div>
+        </div>
+      </div>
+    )
+  }
+
+  // PHASE2-PORTAL: portal accounts (role 'portal', non-staff) never enter the
+  // staff shell; a portal user following a staff deep link lands on /portal.
+  // UX routing only: RLS (Phase 0B Wave E) is the actual security boundary.
+  if (userProfile && userProfile.is_owner !== true &&
+      !PORTAL_STAFF_ROLES.includes(userProfile.role)) {
+    return <Navigate to="/portal" replace />
+  }
+
+  return <MainApp onLogout={signOut} />
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE1-PUBLIC-SITE: routing contract for the public site and portal entry.
+//   /        -> ALWAYS the public homepage, even for authenticated users
+//   /login   -> authentication; already-signed-in visitors bounce to /portal
+//   /portal  -> role-aware entry: staff go to their last tab (or /aggregate);
+//               future portal roles (Phase 2) will render PortalShell here
+// All pre-existing routes and deep links are untouched; unauthenticated users
+// hitting a staff path still see the login screen in place (AuthedShell).
+
+
+
+export default AuthedShell

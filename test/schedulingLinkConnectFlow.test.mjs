@@ -40,7 +40,7 @@ const interviewsTab = read('src/components/InterviewRubricTab.jsx')
 const sidePanel     = read('src/components/StudentSidePanel.jsx')
 const actionCenter  = read('src/components/ActionCenter.jsx')
 const returnConfirm = read('src/components/connect/SchedulingLinkReturnConfirm.jsx')
-const appShell      = read('src/App.jsx')
+const appShell      = read('src/staff/StaffApp.jsx')
 const composer      = read('src/components/connect/BulkManualComposer.jsx')
 
 // The three surfaces that may start a scheduling-link send.

@@ -52,7 +52,7 @@ test('the heading composes with a name and stands alone without one', () => {
 
 test('the A-name decision: tab renamed, mnemonic and route preserved', async (t) => {
   const nav = read('src/components/UnifiedNav.jsx')
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
 
   await t.test('the first workspace tab is At a Glance with the A chip', () => {
     assert.match(nav, /\{ id: 'overview',\s+label: 'At a Glance',\s+chip: 'A'\s+\}/)
@@ -60,7 +60,7 @@ test('the A-name decision: tab renamed, mnemonic and route preserved', async (t)
   })
 
   await t.test('the /aggregate route is unchanged', () => {
-    assert.match(app, /overview:\s+'\/aggregate'/)
+    assert.match(read('src/lib/staffRoutes.js'), /overview:\s+'\/aggregate'/)
   })
 
   await t.test('the document title follows the tab name', () => {

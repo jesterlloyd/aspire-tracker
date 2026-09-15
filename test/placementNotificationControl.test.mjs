@@ -491,7 +491,7 @@ test('PROOF 22: the Action Center uses the same state, writer and semantics', ()
   assert.ok(!ac.includes("markDonePayload:{type:'preceptor_welcome'}"),
     'opening Action Center can no longer create a competing completion record')
 
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /queryKey: \['placement_notification_state', activeCohortId\]/)
   assert.match(app, /placementNotifications=\{placementNotificationRows\}/)
 })
@@ -509,7 +509,7 @@ test('PROOF 22b: an audited correction restores the task', () => {
   for (const f of ['src/components/ActionCenter.jsx', 'src/components/MatchingTab.jsx']) {
     assert.match(strip(read(f)), /onMatchLocalSync\?\.\(/, `${f} syncs the projection locally`)
   }
-  const app = strip(read('src/App.jsx'))
+  const app = strip(read('src/staff/StaffApp.jsx'))
   const sync = app.slice(app.indexOf('const syncMatchLocal'), app.indexOf('const exportCSV'))
   assert.ok(!sync.includes('supabase'), 'the local sync performs no database write')
 })

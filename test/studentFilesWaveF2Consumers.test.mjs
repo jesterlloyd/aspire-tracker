@@ -23,7 +23,7 @@ const rubric     = read('src/components/RubricSession.jsx')
 const recipient  = read('src/components/connect/RecipientProfileCard.jsx')
 const portal     = read('src/portal/StudentPortal.jsx')
 const avatar     = read('src/components/StudentAvatar.jsx')
-const app        = read('src/App.jsx')
+const app        = read('src/staff/StaffApp.jsx')
 
 test('the ASPIRE-CHART refactor deletions are not revived by Wave F-2', () => {
   for (const gone of ['src/components/StudentRow.jsx', 'src/components/StudentList.jsx', 'src/components/InterviewSession.jsx']) {

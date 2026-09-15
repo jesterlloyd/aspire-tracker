@@ -83,12 +83,31 @@ routes, `/login`, `/portal`, and the auth pages. `MainApp` (App.jsx:159-1690),
 `AuthedShell`, and every import only they use move to `src/staff/StaffApp.jsx`,
 loaded with `lazyReload(() => import('./staff/StaffApp'), 'StaffApp')`.
 
-**Also in Phase 1:** move `import './index.css'` out of `main.jsx` into
-`StaffApp.jsx`. Portal and public routes then load only their own stylesheets.
+**The stylesheet does NOT move in Phase 1.** The plan first said it would; the
+split proved otherwise. `ResetPasswordPage`, `ActivateAccountPage`,
+`EvaluationPage`, `UnitFormPage`, `SchoolFormPage`, `StudentIntakeFormPage`,
+`InterviewSchedulePage`, `NgrpTransitionFormPage` and `ShiftLogLifecycle` import
+no stylesheet of their own: hundreds of class names (`uf-card`, `sf-card`,
+`ngrpf-card`, `eval-branded-band`, `error-msg`) are styled by the global
+`index.css` that `main.jsx` loads. Moving it would strip every token form.
+Extracting those rules into a sheet the token pages import is its own step,
+sized in Phase 2b below.
 
-**Expected after:** portal user ~290 KB gz of JavaScript and ~20 KB gz of CSS;
-staff first load unchanged in bytes (the same code, one extra request, warmed the
-moment a staff route renders).
+**BUILT AND MEASURED 2026-09-15.** Actual, from `scripts/chunkReport.mjs`:
+
+| | before | after |
+|---|---|---|
+| First load (every visitor) | 961 KB gz | **216 KB gz** |
+| of which the entry chunk | 881 KB gz | 162 KB gz |
+| `StaffApp` chunk (staff only, on demand) | n/a | 600 KB gz |
+| `PortalApp` chunk (portal only) | 63 KB gz | 63 KB gz |
+| **A portal / public / sign-in visitor** | ~1,024 KB gz | **~279 KB gz** |
+
+A 745 KB cut to the first load, 73% less. The entry chunk now holds react-dom,
+react-router and the token forms; Connect, tiptap, Settings, FullCalendar and the
+Residency workspace are all gone from it, which is the gate this phase had to
+pass. `CustomOnboardingTour` fell out as its own 107 KB chunk, loaded by whichever
+shell starts a tour.
 
 **Files:** `src/App.jsx` (split), new `src/staff/StaffApp.jsx`, `src/main.jsx`
 (stylesheet import), `src/lib/staffAppLoader.js` (one importer, mirroring

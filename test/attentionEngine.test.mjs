@@ -271,11 +271,11 @@ test('the badge total adds support exactly once', () => {
 })
 
 test('consumers share the engine - no private predicate copies remain', async (t) => {
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   const ac = read('src/components/ActionCenter.jsx')
 
   await t.test('App.jsx derives the closed badge from the module', () => {
-    assert.match(app, /import \{ deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal \} from '\.\/lib\/attention'/)
+    assert.match(app, /import \{ deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal \} from '\.\.\/lib\/attention'/)
     assert.match(app, /attentionBadgeTotal\(\{ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount \}\)/)
     assert.doesNotMatch(app, /Keep the two in sync/)
     assert.doesNotMatch(app, /eagerActionBadgeCount|lazyActionBadgeCount/)
@@ -632,7 +632,7 @@ test('weekly: the card and navigation follow the canon', () => {
   assert.ok(!/Student Not Logged Recently/.test(panel), 'the vague title is retired')
   assert.match(panel, /actionType === 'no_shift_last_week'\) return 'View Rotation Activity'/)
   assert.match(panel, /onNavigateToActivityStudent\?\.\(item\.studentId\)/)
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /onNavigateToActivityStudent=\{id => \{ goToActivityStudent\(id\); setShowActionCenter\(false\) \}\}/)
   // The badge fetch now reads the day the shift HAPPENED, not just when it was entered.
   assert.match(app, /select\('student_id, status, reviewed_at, submitted_at, shift_date, lifecycle_state'\)/)

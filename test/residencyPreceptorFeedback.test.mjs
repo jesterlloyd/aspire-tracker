@@ -217,7 +217,7 @@ test('the notification link switches to the applicant\'s residency cohort first'
   assert.match(tab, /if \(res\.ok && res\.cycle_id !== cycle\?\.id\) onSelectCycle\(res\.cycle_id\)/)
   assert.match(tab, /if \(locatedRef\.current === linkedCandidate\) return/, 'looked up once, never in a loop')
   assert.match(read('src/components/ngrp/NgrpWorkspace.jsx'), /<ProfilesTab [^>]*onSelectCycle=\{onSelectCycle\}/)
-  assert.match(read('src/App.jsx'), /onSelectCycle=\{selectNgrpCycle\}/)
+  assert.match(read('src/staff/StaffApp.jsx'), /onSelectCycle=\{selectNgrpCycle\}/)
   assert.match(read('src/portal/residency/ResidencyPortal.jsx'), /onSelectCycle=\{selectCycle\}/)
 })
 

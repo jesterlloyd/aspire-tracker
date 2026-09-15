@@ -7,7 +7,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const migrationPath = new URL('../supabase/migrations/20260822010000_interview_rubric_authorization.sql', import.meta.url)
-const appPath = new URL('../src/App.jsx', import.meta.url)
+// PORTAL-SPLIT Phase 1: the staff app is its own module now.
+const appPath = new URL('../src/staff/StaffApp.jsx', import.meta.url)
 const sessionPath = new URL('../src/components/RubricSession.jsx', import.meta.url)
 
 const writeLibPath = new URL('../src/lib/interviewRubricWrite.js', import.meta.url)

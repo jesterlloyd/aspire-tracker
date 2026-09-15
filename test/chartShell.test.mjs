@@ -20,7 +20,7 @@ const search = read('src/components/Header/UniversalSearch.jsx')
 const scopePicker = read('src/components/Header/scope/ScopePicker.jsx')
 const nav = read('src/components/UnifiedNav.jsx')
 const toast = read('src/components/Toast.jsx')
-const app = read('src/App.jsx')
+const app = read('src/staff/StaffApp.jsx')
 
 test('the chart token layer', async (t) => {
   await t.test('loads after theme.css in the staff stylesheet', () => {

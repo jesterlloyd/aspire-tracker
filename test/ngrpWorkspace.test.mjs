@@ -39,7 +39,7 @@ const outcomesDeleteRepair = read('supabase/migrations/20260903010000_ngrp_resid
 const endpoint    = read('api/ngrp-workspace.js')
 const ngrpAuth    = read('api/lib/ngrpAuth.js')
 const serverCore  = read('lib/server/ngrpApplicants.js')
-const appJsx      = read('src/App.jsx')
+const appJsx      = read('src/staff/StaffApp.jsx')
 const headerJsx   = read('src/components/Header/Header.jsx')
 // SCOPE-PICKER-1: the Experience and Cohort pills merged into one Scope picker.
 // ExperiencePicker/CohortPicker/ResidencyCohortPicker are retired; their behavior lives
@@ -639,8 +639,8 @@ test('pickers: Escape closes and refocuses the trigger; options are native butto
 // ── Bundle and reliability ───────────────────────────────────────────────────
 
 test('bundle: NgrpWorkspace is statically imported (the lazy chunk regressed the entry to ~3 MB)', () => {
-  assert.match(appJsx, /import NgrpWorkspace from '\.\/components\/ngrp\/NgrpWorkspace'/)
-  assert.doesNotMatch(appJsx, /lazy\(\(\) => import\('\.\/components\/ngrp/)
+  assert.match(appJsx, /import NgrpWorkspace from '\.\.\/components\/ngrp\/NgrpWorkspace'/)
+  assert.doesNotMatch(appJsx, /lazy\(\(\) => import\('\.\.\/components\/ngrp/)
 })
 
 test('states: cycle errors, no-cohorts, no-mappings, unprovisioned, and unauthorized are all distinct', () => {

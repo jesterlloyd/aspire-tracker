@@ -126,7 +126,7 @@ test('the staff editor exposes course_type through the allowlisted profile domai
   const endpoint = read('api/student-update.js')
   assert.match(endpoint, /'program_type', 'course_type', 'shift_availability'/)
   assert.match(endpoint, /case 'course_type':/)
-  const routing = read('src/App.jsx')
+  const routing = read('src/staff/StaffApp.jsx')
   assert.match(routing, /'program_type', 'course_type', 'shift_availability'/)
   const panel = read('src/components/StudentSidePanel.jsx')
   assert.match(panel, /Course Type/)

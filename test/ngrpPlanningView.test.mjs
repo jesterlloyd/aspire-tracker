@@ -30,7 +30,7 @@ const createDlg = read('src/components/ngrp/CreateCohortDialog.jsx')
 const formUi = read('src/components/ngrp/NgrpFormUi.jsx')
 const resList = read('src/components/Header/scope/ResidencyCohortList.jsx')
 const workspace = read('src/components/ngrp/NgrpWorkspace.jsx')
-const app = read('src/App.jsx')
+const app = read('src/staff/StaffApp.jsx')
 
 const CYCLE = {
   application_open_date: '2026-09-01',

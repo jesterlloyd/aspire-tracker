@@ -275,7 +275,7 @@ test('S-04: interviewer day and availability controls are NOT gated by role', ()
 test('S-04: controls the database will refuse, for roles with no legitimate use, are hidden', () => {
   // Only the two that pass the self-service test: neither a Viewer nor an Interviewer ever has
   // a reason to delete a student or to create the first cohort.
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /\{canEdit && <button className="btn btn-primary" onClick=\{\(\) => setShowNewCohort\(true\)\}/, 'create first cohort')
 
   const panel = read('src/components/StudentSidePanel.jsx')

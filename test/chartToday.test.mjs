@@ -15,7 +15,7 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const overview = read('src/components/OverviewTab.jsx')
 const campusStrip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
 const masthead = read('src/components/TodayMasthead.jsx')
-const app = read('src/App.jsx')
+const app = read('src/staff/StaffApp.jsx')
 const css = read('src/index.css')
 
 test('masthead-first hierarchy', async (t) => {

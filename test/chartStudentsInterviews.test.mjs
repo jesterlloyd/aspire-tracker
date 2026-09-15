@@ -17,7 +17,7 @@ const access = read('src/components/AccessTab.jsx')
 const listPanel = read('src/components/StudentListPanel.jsx')
 const irt = read('src/components/InterviewRubricTab.jsx')
 const matching = read('src/components/MatchingTab.jsx')
-const app = read('src/App.jsx')
+const app = read('src/staff/StaffApp.jsx')
 const css = read('src/index.css')
 
 test('Students URL state', async (t) => {

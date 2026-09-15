@@ -222,7 +222,7 @@ test('units are threaded from App through to both preceptor form modals', () => 
   for (const m of modalUses) assert.match(m, /units=\{units\}/, 'each receives units')
 
   // App already loads units for the active cohort only - the source of truth.
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /from\('units'\)\.select\('\*'\)\.eq\('cohort_id', id\)/)
   assert.match(app, /<RotationTab[\s\S]{0,400}units=\{units\}/)
 })

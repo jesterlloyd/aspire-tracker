@@ -601,7 +601,7 @@ test('applyReviewTotals: deterministic, immutable, and safe on unusable input', 
 })
 
 test('the decision result reaches the ACTUAL owners of student state on both surfaces', () => {
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   // App owns canonical students in useState and applies the result there:
   assert.match(app, /const \[students,\s+setStudents\]\s+= useState/)
   assert.match(app, /const applyStudentReviewTotals = useCallback\(\(result\) => \{\s*\n?\s*setStudents\(prev => applyReviewTotals\(prev, result\)\)/)
@@ -637,7 +637,7 @@ test("NEGATIVE CONTROL: invalidating a ['students'] query key is provably insuff
   assert.match(panel, /onReviewDecided\?\.\(result\)/)
   // ...and it WOULD be useless: no React Query anywhere holds ['students'] -
   // the canonical collection is App useState, unreachable by invalidation.
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   assert.doesNotMatch(app, /useQuery\(\{\s*queryKey:\s*\['students'\]/)
   // The queue and the shift list DO live in React Query and are refreshed:
   assert.match(panel, /invalidateQueries\(\{ queryKey: \['student_shift_logs', data\.id\] \}\)/)

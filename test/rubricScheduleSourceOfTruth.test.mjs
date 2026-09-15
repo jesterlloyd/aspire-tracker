@@ -147,7 +147,7 @@ test('the rubric keeps a snapshot in step, so the export and rubric cards stay h
   // interview_rubrics.interview_date still feeds the roster export and the rubric card,
   // so a successful move mirrors onto the row instead of leaving it contradicting.
   assert.match(rubric, /interview_date: appliedDate, interview_time: appliedTime/)
-  assert.match(read('src/App.jsx'), /s\.interview_date\|\|''/)
+  assert.match(read('src/staff/StaffApp.jsx'), /s\.interview_date\|\|''/)
   // A new rubric seeds from the booking rather than stamping the day it was opened.
   assert.match(rubric, /\.\.\.\(bookedDate \? \{ interview_date: bookedDate \} : \{\}\)/)
   // Completeness follows the appointment wherever it lives.

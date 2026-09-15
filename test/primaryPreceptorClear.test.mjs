@@ -25,7 +25,7 @@ const mig2c   = read('supabase/migrations/20260723000000_preceptor_assignment_au
 const mig2b   = read('supabase/migrations/20260722000000_preceptor_mirror_repair_and_sync.sql')
 const api     = read('api/preceptor-assignment-manage.js')
 const lib     = read('src/lib/staffPreceptorAssignmentApi.js')
-const appjs   = read('src/App.jsx')
+const appjs   = read('src/staff/StaffApp.jsx')
 
 // ── RPC contract ─────────────────────────────────────────────────────────────
 

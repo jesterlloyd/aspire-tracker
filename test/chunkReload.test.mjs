@@ -62,6 +62,31 @@ test('every lazy import in src goes through lazyReload, with a stable chunk name
   }
 })
 
+test('PORTAL-SPLIT Phase 1: the staff app is its own chunk and App.jsx never imports it back', () => {
+  const app = read('src/App.jsx')
+  assert.match(app, /const StaffApp = lazyReload\(loadStaffApp, 'StaffApp'\)/)
+  assert.match(app, /import \{ loadStaffApp \} from '\.\/lib\/staffAppLoader'/)
+  assert.match(app, /<Route path="\/\*"\s+element=\{<Suspense fallback=\{<ShellSplash \/>\}><StaffApp \/><\/Suspense>\} \/>/)
+  // The saving is the whole point: a portal, public or login visitor must not
+  // pull the staff tree into the entry. One static import of any of these undoes
+  // ~745 KB gzipped (961 KB first load -> 216 KB, measured 2026-09-15).
+  for (const staffOnly of [
+    './components/OverviewTab', './components/Header/Header', './pages/Connect',
+    './components/settings/SettingsShell', './components/ngrp/NgrpWorkspace',
+    './components/RotationTab', './components/EvaluationTab', './components/Keith',
+  ]) {
+    assert.doesNotMatch(app, new RegExp(`from '${staffOnly.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`), `App.jsx must not import ${staffOnly}`)
+  }
+  // Values both halves need live in their own module, not in either chunk.
+  const shared = read('src/lib/staffRoutes.js')
+  assert.match(shared, /export const TAB_TO_PATH/)
+  assert.match(shared, /export const PORTAL_STAFF_ROLES/)
+  assert.doesNotMatch(shared, /^import /m, 'staffRoutes must stay dependency-free so it costs the entry nothing')
+  const staff = read('src/staff/StaffApp.jsx')
+  assert.match(staff, /export default AuthedShell/)
+  assert.match(staff, /import \{ TAB_TO_PATH, PORTAL_STAFF_ROLES \} from '\.\.\/lib\/staffRoutes'/)
+})
+
 test('the boundary wraps the app, and the portal chunk is warmed when the profile menu opens', () => {
   const main = read('src/main.jsx')
   assert.match(main, /<AppErrorBoundary>\s*<App \/>\s*<\/AppErrorBoundary>/)

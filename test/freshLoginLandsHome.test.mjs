@@ -26,7 +26,7 @@ import { dirname, join } from 'node:path'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(root, p), 'utf8')
 
-const APP = 'src/App.jsx'
+const APP = 'src/staff/StaffApp.jsx'
 const AUTH = 'src/contexts/AuthContext.jsx'
 const KEYS = 'src/lib/sessionKeys.js'
 
@@ -158,7 +158,7 @@ test('the keys have one owner, and it says what sign-out keeps', () => {
   // App must not redefine them alongside the module.
   const app = read(APP)
   assert.doesNotMatch(app, /const lastTabKey = |const lastNgrpTabKey = |const aspireCohortKey = /)
-  assert.match(app, /from '\.\/lib\/sessionKeys'/)
+  assert.match(app, /from '\.\.\/lib\/sessionKeys'/)
   // Cohort is documented as deliberately kept, so a future reader does not "fix" it.
   assert.match(keys, /Deliberately NOT cleared on sign-out/)
 })

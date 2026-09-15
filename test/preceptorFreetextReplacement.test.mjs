@@ -21,7 +21,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const panel = read('src/components/StudentSidePanel.jsx')
 const modal = read('src/components/PreceptorAssignmentModal.jsx')
-const appjs = read('src/App.jsx')
+const appjs = read('src/staff/StaffApp.jsx')
 
 // ── Read-only legacy display ─────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ test('already-linked students keep the canonical Change preceptor flow', () => {
 
 test('match-revert never writes the canonical identity directly', () => {
   assert.doesNotMatch(appjs, /update\(\{[^}]*preceptor_id/, 'no direct client write of students.preceptor_id')
-  assert.match(appjs, /import \{ clearPrimaryPreceptor \} from '\.\/lib\/staffPreceptorAssignmentApi'/)
+  assert.match(appjs, /import \{ clearPrimaryPreceptor \} from '\.\.\/lib\/staffPreceptorAssignmentApi'/)
 })
 
 // ── Existing workflows stay pinned ───────────────────────────────────────────

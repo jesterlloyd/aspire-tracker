@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 const api = read('api/student-update.js')
 const proxy = read('src/lib/studentProxy.js')
-const app = read('src/App.jsx')
+const app = read('src/staff/StaffApp.jsx')
 const panel = read('src/components/StudentSidePanel.jsx')
 const action = api.slice(api.indexOf("if (action === 'update_unit_preferences')"),
   api.indexOf("if (action === 'update_student_availability')"))
@@ -39,7 +39,7 @@ test('the rubric workflow still writes preferences through its own action', () =
 
 test('the client routes the three preference fields to the new action', () => {
   assert.match(proxy, /export const updateUnitPreferences = domainHelper\('update_unit_preferences'\)/)
-  assert.match(app, /import \{[^}]*\bupdateUnitPreferences\b[^}]*\} from '\.\/lib\/studentProxy'/)
+  assert.match(app, /import \{[^}]*\bupdateUnitPreferences\b[^}]*\} from '\.\.\/lib\/studentProxy'/)
   assert.match(app, /\{ keys: \['unit_preference_1', 'unit_preference_2', 'unit_preference_3'\], helper: updateUnitPreferences \}/)
 })
 

@@ -232,7 +232,7 @@ test('the Interview chip counts exactly the reminder items that are actions', ()
 test('both consumers feed the engine the same automation source', () => {
   // App.jsx (closed bell badge) and ActionCenter.jsx (open panel) must agree, or
   // the badge and the list disagree about the same card.
-  for (const p of ['../src/App.jsx', '../src/components/ActionCenter.jsx']) {
+  for (const p of ['../src/staff/StaffApp.jsx', '../src/components/ActionCenter.jsx']) {
     const src = readFileSync(new URL(p, import.meta.url), 'utf8')
     assert.match(src, /ivSessions,\s*ivSlots,/, `${p} must pass the cron's own rows`)
   }

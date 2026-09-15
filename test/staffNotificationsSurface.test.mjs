@@ -18,7 +18,7 @@ const hook    = read('src/hooks/useStaffNotifications.js')
 const panel   = read('src/components/StaffNotificationsPanel.jsx')
 const actionC = read('src/components/ActionCenter.jsx')
 const headerA = read('src/components/Header/HeaderActions.jsx')
-const app     = read('src/App.jsx')
+const app     = read('src/staff/StaffApp.jsx')
 const nav     = read('src/lib/staffNotificationNavigation.js')
 
 // ── The read hook: own rows via RLS, read-state only through the RPC ──────────

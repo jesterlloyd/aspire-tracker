@@ -40,7 +40,7 @@ const BOARD = () => strip(read('src/components/MatchingTab.jsx'))
 const OVERVIEW = () => strip(read('src/components/OverviewTab.jsx'))
 // App.jsx carries glob-like strings ('**/*') that a comment-stripper would eat
 // along with the code after them, so App assertions run against the raw source.
-const APP = () => read('src/App.jsx')
+const APP = () => read('src/staff/StaffApp.jsx')
 
 // ── 1-4. The board is not a unit-management surface ─────────────────────────
 
@@ -727,7 +727,7 @@ test('MUTATION CONTROLS: each forbidden change trips its named proof', () => {
     'PROOF 14+15 would fail against this build')
 
   // 4. Unmatching ALL of a multi-unit student's placements → PROOF 11.
-  const app = read('src/App.jsx')
+  const app = read('src/staff/StaffApp.jsx')
   const sweeping = app.replace(
     "if (match) await safeWrite(() => supabase.from('matches').delete().eq('id', match.id), { name: 'delete match on unmatch' })",
     "await safeWrite(() => supabase.from('matches').delete().eq('student_id', student.id), { name: 'delete match on unmatch' })")

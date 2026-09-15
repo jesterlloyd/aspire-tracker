@@ -135,7 +135,7 @@ test('invariant: the interview error stays a human sentence, not a code', () => 
 // ── The client no longer proceeds past a failed clear ────────────────────────
 
 test('invariant: updateCohort aborts when the clearing write fails', () => {
-  const code = strip(read('src/App.jsx'))
+  const code = strip(read('src/staff/StaffApp.jsx'))
   const start = code.indexOf('const updateCohort =')
   assert.ok(start > 0, 'updateCohort not found')
   const body = code.slice(start, start + 2200)

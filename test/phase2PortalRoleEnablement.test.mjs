@@ -135,8 +135,10 @@ test('portal role cannot escalate to staff (applied-migration posture)', async (
   })
 
   await t.test('client routing does not treat portal as a staff role', () => {
-    const app = readFileSync(join(here, '../src/App.jsx'), 'utf8')
-    const listLine = app.match(/const PORTAL_STAFF_ROLES = \[([^\]]*)\]/)
+    // PORTAL-SPLIT Phase 1: the list moved to src/lib/staffRoutes.js, which the
+    // router and the staff chunk both read.
+    const app = readFileSync(join(here, '../src/lib/staffRoutes.js'), 'utf8')
+    const listLine = app.match(/const PORTAL_STAFF_ROLES = Object\.freeze\(\s*\[([^\]]*)\]/)
     assert.ok(listLine, 'PORTAL_STAFF_ROLES found')
     assert.doesNotMatch(listLine[1], /'portal'/, 'portal must not be a staff routing role')
   })

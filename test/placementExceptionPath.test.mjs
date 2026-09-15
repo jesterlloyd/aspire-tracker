@@ -32,7 +32,7 @@ const DECL = 'const createMatch = async (student, unit, options = {}) => {'
 
 /** Pull the real createMatch out of App.jsx and make it callable. */
 function loadCreateMatch(deps) {
-  const src = fs.readFileSync(path.join(root, 'src/App.jsx'), 'utf8')
+  const src = fs.readFileSync(path.join(root, 'src/staff/StaffApp.jsx'), 'utf8')
   const start = src.indexOf(DECL)
   assert.notEqual(start, -1, 'createMatch declaration not found - update DECL')
   // The handler is declared at two-space indent inside the component, so its
@@ -158,7 +158,7 @@ test('the audit is ordered AFTER the match insert, never before', async () => {
   // Negative control for the ordering itself: with the insert failing, the
   // handler must exit before ever reaching the audit. Proven above. Here the
   // structural guarantee is pinned so the call cannot drift back upward.
-  const src = fs.readFileSync(path.join(root, 'src/App.jsx'), 'utf8')
+  const src = fs.readFileSync(path.join(root, 'src/staff/StaffApp.jsx'), 'utf8')
   const body = src.slice(src.indexOf(DECL), src.indexOf('\n  }\n', src.indexOf(DECL)))
   const insertAt = body.indexOf("from('matches').insert")
   const guardAt = body.indexOf('if (error) { console.error(error); return }')
