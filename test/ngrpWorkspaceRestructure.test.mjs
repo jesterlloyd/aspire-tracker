@@ -157,16 +157,15 @@ test('Activity is a third caller of the shared calendar, not a third calendar', 
   assert.match(activity, /\{canManage && \(/)
 })
 
-test('the activity calendar opens on the cohort year, not on today', () => {
-  // A cohort whose applications open in August should not land the reader in
-  // whatever month they happen to be reading in.
-  assert.deepEqual(initialActivityMonth({ application_open_date: '2026-08-15' }, '2027-03-02'), { year: 2026, month: 7 })
+test('the activity calendar opens on today, whatever month the cohort opens (Owner, 2026-09-14)', () => {
+  // Winter 2027 applications open in November; on September 14 the calendar must
+  // show September, matching the mini calendar and the Today panel.
+  assert.deepEqual(initialActivityMonth({ application_open_date: '2026-11-09' }, '2026-09-14'), { year: 2026, month: 8 })
+  assert.deepEqual(initialActivityMonth({ application_open_date: '2026-08-15' }, '2027-03-02'), { year: 2027, month: 2 })
   // Date-only strings are split, never parsed through Date, so the first of a
   // month does not slide into the previous one west of Greenwich.
-  assert.deepEqual(initialActivityMonth({ application_open_date: '2026-01-01' }, '2026-06-01'), { year: 2026, month: 0 })
-  // No open date set, or a malformed one, falls back to the current month.
-  assert.deepEqual(initialActivityMonth({}, '2026-06-15'), { year: 2026, month: 5 })
-  assert.deepEqual(initialActivityMonth({ application_open_date: 'TBD' }, '2026-06-15'), { year: 2026, month: 5 })
+  assert.deepEqual(initialActivityMonth({}, '2026-06-01'), { year: 2026, month: 5 })
+  assert.deepEqual(initialActivityMonth(null, '2026-01-01'), { year: 2026, month: 0 })
 })
 
 // ── Unbuilt surfaces are honest ──────────────────────────────────────────────

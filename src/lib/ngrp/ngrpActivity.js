@@ -4,20 +4,20 @@
 const dayStr = d => (typeof d === 'string' ? d.split('T')[0] : '')
 
 /**
- * The month the activity calendar opens on: the month the cohort's applications
- * open, so the tab lands where the cohort's own year starts rather than on
- * whatever month it happens to be today. Falls back to the current month for a
- * cohort with no open date set.
+ * The month the activity calendar opens on: TODAY's month, the same month the
+ * mini calendar and the selected day already show (Owner, 2026-09-14). It used to
+ * open on the cohort's application-open month, which put Winter 2027 on November
+ * while the side panel said September 14. The cohort argument is kept so callers
+ * are unchanged; it no longer decides the month.
  *
- * Date-only strings are split, never parsed through Date, so a cohort opening on
- * the first of a month does not slide into the previous one west of Greenwich.
+ * Date-only strings are split, never parsed through Date, so the first of a
+ * month does not slide into the previous one west of Greenwich.
  */
-export function initialActivityMonth(cycle, todayStr) {
-  const anchor = dayStr(cycle?.application_open_date) || todayStr
-  const [y, m] = String(anchor).split('-').map(Number)
+export function initialActivityMonth(_cycle, todayStr) {
+  const [y, m] = String(dayStr(todayStr) || '').split('-').map(Number)
   if (!y || !m || m < 1 || m > 12) {
-    const [ty, tm] = String(todayStr).split('-').map(Number)
-    return { year: ty, month: tm - 1 }
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() }
   }
   return { year: y, month: m - 1 }
 }
