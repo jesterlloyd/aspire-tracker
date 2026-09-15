@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query'
 import './index.css'
 import App from './App.jsx'
+import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { PresenceProvider } from './contexts/PresenceContext.jsx'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
@@ -30,7 +31,9 @@ createRoot(document.getElementById('root')).render(
         <ThemeProvider>
           <AuthProvider>
             <PresenceProvider>
-              <App />
+              <AppErrorBoundary>
+                <App />
+              </AppErrorBoundary>
             </PresenceProvider>
           </AuthProvider>
         </ThemeProvider>

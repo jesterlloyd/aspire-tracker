@@ -19,7 +19,8 @@
 // polling or marking anything read. Refresh, back, and forward now work
 // because the view derives from the location instead of transient state.
 
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { lazyReload } from '../lib/lazyReload'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -29,7 +30,7 @@ import FeedbackPanel from '../components/FeedbackPanel'
 import MainMessagesLauncher from '../components/MainMessagesLauncher'
 import PortalNav from './PortalNav'
 // STUDENT-SHIFT-TAB-1: loaded on first visit; it carries the shift-log views.
-const StudentShiftLog = lazy(() => import('./StudentShiftLog'))
+const StudentShiftLog = lazyReload(() => import('./StudentShiftLog'), 'StudentShiftLog')
 import StudentPortal from './StudentPortal'
 import MyProfile from './MyProfile'
 import UnitLeaderPortal from './UnitLeaderPortal'

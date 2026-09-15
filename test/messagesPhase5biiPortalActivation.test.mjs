@@ -97,7 +97,7 @@ test('activation: the workspace is mounted inside the portal boundary', async (t
     assert.match(app, /location\.pathname\.startsWith\('\/portal\/messages'\)/)
     // App.jsx routes the whole /portal/* subtree to the SAME guarded
     // PortalRoute; the workspace itself is still only imported by PortalApp.
-    assert.match(rootApp, /const PortalApp = lazy\(\(\) => import\('\.\/portal\/PortalApp'\)\)/)
+    assert.match(rootApp, /const PortalApp = lazyReload\(loadPortalApp, 'PortalApp'\)/)
     assert.match(rootApp, /<Route path="\/portal\/\*"\s+element=\{<PortalRoute \/>\} \/>/)
     assert.doesNotMatch(strip(rootApp), /PortalMessagesWorkspace/)
   })

@@ -105,7 +105,7 @@ test('the fourth tab, its routes, and the Home button all lead to the same place
   assert.match(nav, /data-tour="portal-nav-shiftlog"/)
   assert.match(nav, /<span className="ptl-nav-label">Shift Log<\/span>/)
   assert.match(nav, /onShiftLog, messagesEnabled = true/)
-  assert.match(app, /const StudentShiftLog = lazy\(\(\) => import\('\.\/StudentShiftLog'\)\)/)
+  assert.match(app, /const StudentShiftLog = lazyReload\(\(\) => import\('\.\/StudentShiftLog'\), 'StudentShiftLog'\)/)
   assert.match(app, /location\.pathname\.startsWith\('\/portal\/shift-log'\) \|\| location\.pathname\.startsWith\('\/portal\/student\/shift-log'\) \? 'shiftlog'/)
   assert.match(app, /const goShiftLog = useCallback\(\(\) => navigate\(staffPreview \? '\/portal\/student\/shift-log' : '\/portal\/shift-log'\)/)
   assert.match(app, /onShiftLog=\{goShiftLog\}/)

@@ -14,7 +14,8 @@
 // answers, certificates, uploaded onboarding documents, internal staff notes, and
 // private support narratives are never requested by any call in this file.
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazyReload } from '../lib/lazyReload'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
@@ -53,12 +54,12 @@ import {
 } from '../lib/unitParticipationForm'
 import { useReportPortalFailure } from './portalAccessSignal'
 
-const UnitRotationCalendar = lazy(() => import('./unit/UnitRotationCalendar'))
-const UnitPreceptorsWorkspace = lazy(() => import('./unit/UnitPreceptorsWorkspace'))
-const UnitLeaderPreceptorManager = lazy(() => import('./unit/UnitLeaderPreceptorManager'))
+const UnitRotationCalendar = lazyReload(() => import('./unit/UnitRotationCalendar'), 'UnitRotationCalendar')
+const UnitPreceptorsWorkspace = lazyReload(() => import('./unit/UnitPreceptorsWorkspace'), 'UnitPreceptorsWorkspace')
+const UnitLeaderPreceptorManager = lazyReload(() => import('./unit/UnitLeaderPreceptorManager'), 'UnitLeaderPreceptorManager')
 // UL-EVAL: the Evaluations workspace is lazy-loaded like the other heavy screens, so its
 // chunk (and the shared reporting components) download only when a Unit Leader opens the tab.
-const UnitEvaluationsWorkspace = lazy(() => import('./unit/UnitEvaluationsWorkspace'))
+const UnitEvaluationsWorkspace = lazyReload(() => import('./unit/UnitEvaluationsWorkspace'), 'UnitEvaluationsWorkspace')
 
 // A stable empty array so StudentRoster can call the photo hook with no work when a parent
 // already supplies resolved photos (one batch for the whole Home instead of two).

@@ -81,7 +81,7 @@ test('reviewed-log edits preserve review history and require a fresh approval', 
 })
 
 test('Student Home and navigation match the approved information architecture', () => {
-  assert.match(portal, /lazy\(\(\) => import\('\.\/StudentRotationActivity'\)\)/)
+  assert.match(portal, /lazyReload\(\(\) => import\('\.\/StudentRotationActivity'\), 'StudentRotationActivity'\)/)
   assert.match(portal, /<StudentRotationActivity/)
   assert.match(portal, />Rotation Progress<\/h2>/)
   assert.match(portal, />Placement Progress<\/h2>/)

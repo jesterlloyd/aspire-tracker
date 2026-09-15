@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { lazyReload } from './lib/lazyReload'
+import { loadPortalApp } from './lib/portalAppLoader'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
@@ -85,9 +87,12 @@ import { useNgrpCycles } from './lib/ngrp/useNgrpData'
 // PHASE1-PUBLIC-SITE: the public marketing site is a lazy chunk so the staff
 // bundle does not grow and public visitors do not download the staff app UI
 // up front (data access was never in the public chunk; there is none).
-const PublicSite = lazy(() => import('./public-site/PublicSite'))
-// PHASE2-PORTAL: the portal app is its own lazy chunk for the same reason.
-const PortalApp = lazy(() => import('./portal/PortalApp'))
+// CHUNK-RELOAD-1: lazyReload, not lazy, so a chunk whose name changed under an
+// open tab reloads the page once instead of leaving it blank.
+const PublicSite = lazyReload(() => import('./public-site/PublicSite'), 'PublicSite')
+// PHASE2-PORTAL: the portal app is its own lazy chunk for the same reason. The
+// importer is shared with the profile menu, which warms it when the menu opens.
+const PortalApp = lazyReload(loadPortalApp, 'PortalApp')
 
 /*
   COHORT ISOLATION CONTRACT

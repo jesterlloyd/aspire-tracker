@@ -19,10 +19,12 @@ const portalCode = stripJs(portal)
 const api = read('src/portal/unit/unitLeaderApi.js')
 
 test('Unit Leader route-only surfaces are lazy-loaded behind Suspense', () => {
-  assert.match(portal, /import \{ lazy, Suspense,[^}]+ \} from 'react'/)
-  assert.match(portal, /const UnitRotationCalendar = lazy\(\(\) => import\('\.\/unit\/UnitRotationCalendar'\)\)/)
-  assert.match(portal, /const UnitPreceptorsWorkspace = lazy\(\(\) => import\('\.\/unit\/UnitPreceptorsWorkspace'\)\)/)
-  assert.match(portal, /const UnitLeaderPreceptorManager = lazy\(\(\) => import\('\.\/unit\/UnitLeaderPreceptorManager'\)\)/)
+  // CHUNK-RELOAD-1: lazy() lives in src/lib/lazyReload.js now; the portal imports the wrapper.
+  assert.match(portal, /import \{ Suspense,[^}]+ \} from 'react'/)
+  assert.match(portal, /import \{ lazyReload \} from '\.\.\/lib\/lazyReload'/)
+  assert.match(portal, /const UnitRotationCalendar = lazyReload\(\(\) => import\('\.\/unit\/UnitRotationCalendar'\), 'UnitRotationCalendar'\)/)
+  assert.match(portal, /const UnitPreceptorsWorkspace = lazyReload\(\(\) => import\('\.\/unit\/UnitPreceptorsWorkspace'\), 'UnitPreceptorsWorkspace'\)/)
+  assert.match(portal, /const UnitLeaderPreceptorManager = lazyReload\(\(\) => import\('\.\/unit\/UnitLeaderPreceptorManager'\), 'UnitLeaderPreceptorManager'\)/)
   assert.doesNotMatch(portal, /import UnitRotationCalendar from '\.\/unit\/UnitRotationCalendar'/)
   assert.doesNotMatch(portal, /import UnitPreceptorsWorkspace from '\.\/unit\/UnitPreceptorsWorkspace'/)
   assert.doesNotMatch(portal, /import UnitLeaderPreceptorManager from '\.\/unit\/UnitLeaderPreceptorManager'/)

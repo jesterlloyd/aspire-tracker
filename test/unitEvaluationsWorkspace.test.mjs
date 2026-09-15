@@ -75,7 +75,7 @@ test('exactly the two approved instruments render, with the required privacy wor
 
 test('the portal mounts the workspace lazily in place of the placeholder', () => {
   const portal = read('src/portal/UnitLeaderPortal.jsx')
-  assert.match(portal, /const UnitEvaluationsWorkspace = lazy\(\(\) => import\('\.\/unit\/UnitEvaluationsWorkspace'\)\)/)
+  assert.match(portal, /const UnitEvaluationsWorkspace = lazyReload\(\(\) => import\('\.\/unit\/UnitEvaluationsWorkspace'\), 'UnitEvaluationsWorkspace'\)/)
   assert.match(portal, /<Suspense[\s\S]*?<UnitEvaluationsWorkspace unitKeys=\{unitKeys\} \/>[\s\S]*?<\/Suspense>/)
   // The placeholder is no longer imported or mounted.
   assert.ok(!portal.includes('UnitEvaluationsPlaceholder'))

@@ -12,6 +12,7 @@ import {
 import Tooltip from './ui/Tooltip';
 import { CANONICAL_APP_URL } from '../lib/appUrl';
 import { PORTAL_LINKS } from '../lib/portalLinks';
+import { preloadPortalApp } from '../lib/portalAppLoader';
 
 const ROLE_LABELS = {
   owner:       { label: 'Owner',       bg: '#1D2567', color: '#ffffff' },
@@ -36,6 +37,13 @@ export default function UserMenu() {
   const [isOpen,    setIsOpen]    = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // PORTAL-PREFETCH: the Portals group is in this menu, so opening it is the
+  // earliest signal that a portal chunk may be wanted. Start it now; the click
+  // then mounts an already-downloaded chunk instead of showing a loading screen.
+  useEffect(() => {
+    if (isOpen) preloadPortalApp();
+  }, [isOpen]);
 
   // UI-0.5: mutual dismiss - close this dropdown when another floating panel
   // (e.g. the Keith panel) announces it is opening.

@@ -19,7 +19,8 @@
 // Student-facing vocabulary (display only; API fields are untouched):
 //   Evaluations -> Surveys, Documents -> Badge & Certificate,
 //   Need help? -> Support.
-import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
+import { Suspense, useState, useEffect, useRef, useMemo } from 'react'
+import { lazyReload } from '../lib/lazyReload'
 import {
   MapPin, Clock, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail,
   ChevronRight, Copy, Download, Award, IdCard,
@@ -45,7 +46,7 @@ import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
 const SUPPORT = 'aspire@cshs.org'
 const CONTACT_SUBJECT = 'ASPIRE Student Support Request'
-const StudentRotationActivity = lazy(() => import('./StudentRotationActivity'))
+const StudentRotationActivity = lazyReload(() => import('./StudentRotationActivity'), 'StudentRotationActivity')
 
 const EVAL_STATUS_LABELS = {
   draft: 'Not yet sent', sent: 'Waiting for you', opened: 'In progress',

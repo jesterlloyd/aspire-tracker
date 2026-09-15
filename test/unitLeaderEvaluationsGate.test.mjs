@@ -29,7 +29,7 @@ test('the Evaluations view now renders the activated read-only workspace', () =>
   // verified, so the tab mounts the released workspace. The placeholder file is retained on
   // disk only as a rollback target, and the test below still proves it stays inert.
   assert.match(portal, /view === 'evaluations'[\s\S]*?<UnitEvaluationsWorkspace unitKeys=\{unitKeys\} \/>/)
-  assert.match(portal, /const UnitEvaluationsWorkspace = lazy\(\(\) => import\('\.\/unit\/UnitEvaluationsWorkspace'\)\)/)
+  assert.match(portal, /const UnitEvaluationsWorkspace = lazyReload\(\(\) => import\('\.\/unit\/UnitEvaluationsWorkspace'\), 'UnitEvaluationsWorkspace'\)/)
   assert.ok(!portal.includes('UnitEvaluationsPlaceholder'))
 })
 
