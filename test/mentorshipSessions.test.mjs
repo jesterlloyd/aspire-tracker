@@ -34,7 +34,8 @@ test('the migration lists are exactly the shared lists, and nothing else changes
   assert.match(migration, /ADD COLUMN IF NOT EXISTS logged_by text NOT NULL DEFAULT 'aspire_team'/)
   assert.match(migration, /activity = 'mentorship_session'\s+OR \(session_format IS NULL AND duration_minutes IS NULL AND topics IS NULL AND next_steps IS NULL\)/)
   assert.doesNotMatch(migration, /GRANT|DELETE FROM|UPDATE public|CREATE TABLE/)
-  assert.match(gate, /\| 20260920000000_ngrp_mentorship_session_details\.sql \| MENTORSHIP-1, .*\*\*AWAITING OWNER APPLY\.\*\*/)
+  // Applied by the Owner 2026-09-15, every check as expected.
+  assert.match(gate, /\| 20260920000000_ngrp_mentorship_session_details\.sql \| MENTORSHIP-1, .*\*\*APPLIED 2026-09-15 by the Owner\.\*\*/)
 })
 
 test('a session needs its format and topics; duration and next steps are optional', () => {
