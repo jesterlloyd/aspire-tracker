@@ -53,7 +53,10 @@ test('every lazy import in src goes through lazyReload, with a stable chunk name
   assert.deepEqual(offenders, [])
   for (const [file, names] of [
     ['src/App.jsx', ['PublicSite', 'PortalApp']],
-    ['src/portal/PortalApp.jsx', ['StudentShiftLog']],
+    // PORTAL-SPLIT Phase 3: one chunk per portal, so a visitor downloads the one
+    // their role resolves to instead of all five.
+    ['src/portal/PortalApp.jsx', ['StudentShiftLog', 'StudentPortal', 'MyProfile', 'UnitLeaderPortal',
+      'AcademicPartnerPortal', 'NursingAcademicsPortal', 'ResidencyPortal']],
     ['src/portal/StudentPortal.jsx', ['StudentRotationActivity']],
     ['src/portal/UnitLeaderPortal.jsx', ['UnitRotationCalendar', 'UnitPreceptorsWorkspace', 'UnitLeaderPreceptorManager', 'UnitEvaluationsWorkspace']],
   ]) {

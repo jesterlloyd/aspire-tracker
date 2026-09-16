@@ -191,14 +191,65 @@ and the only `connect` left in it is 6.8 KB, which is
 
 ## Phase 3: one chunk per portal
 
-`PortalApp` becomes a router that lazily loads `StudentPortal`,
-`UnitLeaderPortal`, `AcademicPartnerPortal`, `NursingAcademicsPortal` and
-`ResidencyPortal`, each with its own tree (`src/portal/na`, `src/portal/unit`,
-`src/portal/ap`, `src/components/ngrp`). Messages is shared by three portals, so
-it becomes its own chunk rather than being duplicated.
+**BUILT AND MEASURED 2026-09-16.** `PortalApp` keeps the shell, the navs and the
+chrome, and loads each portal body when the visitor's role resolves.
 
-**Target (the Owner's):** a portal user under 250 KB gz total; a student, who
-needs none of NGRP, `na`, `unit` or `ap`, closer to 150 KB.
+**First, a correction to the Phase 2 record.** Phase 2 reported a portal visitor
+at ~301 KB gz. That was a hand-sum of the first load plus the `PortalApp` chunk
+plus the stylesheets, and it OMITTED the ~63 KB of shared chunks that `PortalApp`
+statically imports and the browser therefore fetches with it. Phase 2's live
+check only measured the first load, so it could not catch the gap. Measured
+properly (the deduplicated union of the first load, everything statically
+reachable from `PortalApp`, the portal CSS and the visitor's own portal body,
+`scratchpad/portalCost.mjs`), the real figures are:
+
+| a portal visitor | before Phase 3 | after |
+|---|---|---|
+| Shared base (first load + shell + its static deps + CSS) | 376.1 KB gz | 299.1 KB gz |
+| a student | 376.1 KB gz | **321.4 KB gz** |
+| a unit leader | 376.1 KB gz | 326.0 KB gz |
+| an academic partner | 376.1 KB gz | 319.7 KB gz |
+| Nursing Education & Leadership | 376.1 KB gz | 336.4 KB gz |
+| Residency (Talent Acquisition) | 376.1 KB gz | 309.8 KB gz |
+
+Every visitor used to download the identical 376.1 KB because all five portals
+sat in one chunk. The shared `PortalApp` chunk fell from **64.0 KB gz to 15.5 KB**
+(542.5 KB of mapped source to 108.0 KB), and each portal body is now its own
+chunk: Unit Leader 15.0, Student 11.6, NEL 11.5, Academic Partner 8.2, Residency
+1.1. `PortalMessagesWorkspace` split out on its own at 7.2 KB, shared by the
+shell and the three portals that mount it rather than duplicated into each.
+
+**The Owner's 250 KB / 150 KB target is NOT reached, and Phase 3 cannot reach
+it.** A student is 321.4 KB, of which **217.8 KB is the first load every visitor
+takes before any portal code**: the entry chunk (161 KB: react-dom, react-router,
+and the public token pages, which are PUBLIC routes and so cannot be lazy behind
+auth), `supabase` (23.4 KB) and `index.css` (27.1 KB). The portal-specific part
+is now only ~104 KB. Getting under 250 KB means shrinking the entry, which is the
+`index.css` extraction (Phase 2b below) plus splitting the public token pages:
+that is a different piece of work from the portal split, and it benefits every
+visitor including the public site.
+
+**Files:** `src/portal/PortalApp.jsx` (six lazy boundaries plus a `PortalLoading`
+fallback), `test/chunkReload.test.mjs` (the pin now lists all seven portal
+chunks). The navs and chrome stay static deliberately: they render with the shell
+before the body arrives, they are small, and `UnitLeaderChrome`'s shared states
+are used by the Academic Partner portal too.
+
+**Gate:** no portal body in the `PortalApp` chunk. Measured after: the shell holds
+`PortalApp.jsx`, `PortalShell`, `PortalNav`, `PortalUtilityLayer`,
+`PortalTeamMessagesPanel` and `ChangePhotoDialog`, and none of
+`StudentPortal.jsx`, `UnitLeaderPortal.jsx`, `AcademicPartnerPortal.jsx`,
+`src/portal/na`, `src/portal/unit`, `src/portal/ap` or `src/portal/residency`.
+
+## Phase 2b (not built): the entry chunk
+
+What is left is shared by everyone, so it is worth more than another portal pass:
+`index.css` (27.1 KB gz) loads for every visitor although the portals need only
+`aspireBrand` + `aspireTable` + `portal.css`, and the public token pages
+(`StudentIntakeFormPage` alone is 60 KB of source) sit in the entry because they
+are public routes. Phase 1 proved `index.css` cannot simply move: those token
+pages import no stylesheet of their own and take hundreds of class names from it.
+Extracting those rules into a sheet the token pages import is the unit of work.
 
 ---
 

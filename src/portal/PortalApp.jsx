@@ -31,18 +31,29 @@ import MainMessagesLauncher from '../components/MainMessagesLauncher'
 import PortalNav from './PortalNav'
 // STUDENT-SHIFT-TAB-1: loaded on first visit; it carries the shift-log views.
 const StudentShiftLog = lazyReload(() => import('./StudentShiftLog'), 'StudentShiftLog')
-import StudentPortal from './StudentPortal'
-import MyProfile from './MyProfile'
-import UnitLeaderPortal from './UnitLeaderPortal'
+// PORTAL-SPLIT Phase 3 (2026-09-16): one chunk per portal.
+//
+// All five were static imports, so every portal visitor downloaded all five. A
+// student on a phone carried the Unit Leader workspace, the Academic Partner
+// portal and the Nursing Education & Leadership reports before their own home
+// screen could paint, and none of it is reachable from their role. Each portal
+// now loads when its own role resolves, one role per visitor.
+//
+// The navs and chrome stay STATIC: they render with the shell before the body
+// arrives, they are small, and UnitLeaderChrome's shared states (EmptyState,
+// LoadingState) are used by the Academic Partner portal too.
+const StudentPortal          = lazyReload(() => import('./StudentPortal'), 'StudentPortal')
+const MyProfile              = lazyReload(() => import('./MyProfile'), 'MyProfile')
+const UnitLeaderPortal       = lazyReload(() => import('./UnitLeaderPortal'), 'UnitLeaderPortal')
+const AcademicPartnerPortal  = lazyReload(() => import('./AcademicPartnerPortal'), 'AcademicPartnerPortal')
+const NursingAcademicsPortal = lazyReload(() => import('./na/NursingAcademicsPortal'), 'NursingAcademicsPortal')
+const ResidencyPortal        = lazyReload(() => import('./residency/ResidencyPortal'), 'ResidencyPortal')
 import { EmptyState, UnitLeaderNav } from './unit/UnitLeaderChrome'
 import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
-import AcademicPartnerPortal from './AcademicPartnerPortal'
 // NURSING-ACADEMICS-1: the fourth portal experience (organization-wide, view only).
 import { NursingAcademicsNav } from './na/NursingAcademicsChrome'
-import NursingAcademicsPortal from './na/NursingAcademicsPortal'
 // RESIDENCY-PORTAL-1: the fifth portal experience (Cedars-Sinai Talent Acquisition).
 import { ResidencyNav } from './residency/ResidencyChrome'
-import ResidencyPortal from './residency/ResidencyPortal'
 import { resolveNgrpPath, ngrpPath, RESIDENCY_PORTAL_BASE } from '../lib/ngrp/ngrpTabs'
 import { canManageNgrp } from '../lib/ngrp/ngrpAccess'
 import PortalCohortLoginHint from './PortalCohortLoginHint'
@@ -69,6 +80,13 @@ import { portalKeyFromPath, MAIN_APP_PATH, STAFF_SETTINGS_PATH } from '../lib/po
 import '../styles/aspireBrand.css'
 import '../styles/aspireTable.css'
 import './portal.css'
+
+// PORTAL-SPLIT Phase 3: what a portal shows while its own chunk arrives. The
+// same card the Shift Log tab already uses, so a portal opening for the first
+// time looks like one waiting for its data rather than a broken page.
+function PortalLoading({ label }) {
+  return <div className="ptl-card ptl-activity-loading" role="status">{label}</div>
+}
 
 // /portal/messages/abc -> 'abc'; /portal/messages -> null; /portal -> null.
 function threadIdFromPath(pathname) {
@@ -566,16 +584,18 @@ export default function PortalApp() {
           />
         )}>
         <div style={{ display: ['home', 'placement'].includes(studentView) ? 'block' : 'none' }}>
-          <StudentPortal
-            active={['home', 'placement'].includes(studentView)}
-            view={studentView}
-            onOpenProfile={goProfile}
-            onOpenShiftLog={goShiftLog}
-            previewStudentId={previewStudentId}
-            previewStudents={previewStudents}
-            onPreviewStudentChange={setPreviewStudentId}
-            readOnlyPreview={staffPreview}
-          />
+          <Suspense fallback={<PortalLoading label="Loading your portal" />}>
+            <StudentPortal
+              active={['home', 'placement'].includes(studentView)}
+              view={studentView}
+              onOpenProfile={goProfile}
+              onOpenShiftLog={goShiftLog}
+              previewStudentId={previewStudentId}
+              previewStudents={previewStudents}
+              onPreviewStudentChange={setPreviewStudentId}
+              readOnlyPreview={staffPreview}
+            />
+          </Suspense>
         </div>
         {!staffPreview && <div style={{ display: studentView === 'messages' ? 'block' : 'none' }}>
           <PortalMessagesWorkspace
@@ -600,7 +620,9 @@ export default function PortalApp() {
         )}
         {/* STUDENT-PORTAL-PROFILE-1: mounted only while visited (it fetches on
             activation), unlike the always-mounted Home/Messages pair. */}
-        {!staffPreview && studentView === 'profile' && <MyProfile active />}
+        {!staffPreview && studentView === 'profile' && (
+          <Suspense fallback={<PortalLoading label="Loading your profile" />}><MyProfile active /></Suspense>
+        )}
         {!staffPreview && photoDialog}
         {tourOverlay}
       </PortalShell>
@@ -641,16 +663,18 @@ export default function PortalApp() {
             onOpenMessages={goMessages}
           />
         )}>
-        <UnitLeaderPortal
-          view={unitView}
-          composeIntent={unitHandoff}
-          onNavigate={goUnitSection}
-          threadId={threadId}
-          onSelectThread={openThread}
-          onBackToList={backToList}
-          messagesEnabled={!staffPreview}
-          staffPreview={staffPreview}
-        />
+        <Suspense fallback={<PortalLoading label="Loading your portal" />}>
+          <UnitLeaderPortal
+            view={unitView}
+            composeIntent={unitHandoff}
+            onNavigate={goUnitSection}
+            threadId={threadId}
+            onSelectThread={openThread}
+            onBackToList={backToList}
+            messagesEnabled={!staffPreview}
+            staffPreview={staffPreview}
+          />
+        </Suspense>
         {!staffPreview && photoDialog}
         {!staffPreview && cohortLoginHint}
         {tourOverlay}
@@ -693,9 +717,11 @@ export default function PortalApp() {
             schools={access?.school_keys || []}
           />
         )}>
-        <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
-          messagesEnabled={apMessagesEnabled}
-          threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
+        <Suspense fallback={<PortalLoading label="Loading your portal" />}>
+          <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
+            messagesEnabled={apMessagesEnabled}
+            threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
+        </Suspense>
         {!staffPreview && photoDialog}
         {!staffPreview && cohortLoginHint}
         {tourOverlay}
@@ -738,9 +764,11 @@ export default function PortalApp() {
             onOpenMessages={() => goNaSection('messages')}
           />
         )}>
-        <NursingAcademicsPortal view={naView}
-          messagesEnabled={naMessagesEnabled}
-          threadId={naThreadId} onSelectThread={openNaThread} onBackToList={naBackToList} />
+        <Suspense fallback={<PortalLoading label="Loading your portal" />}>
+          <NursingAcademicsPortal view={naView}
+            messagesEnabled={naMessagesEnabled}
+            threadId={naThreadId} onSelectThread={openNaThread} onBackToList={naBackToList} />
+        </Suspense>
         {!staffPreview && photoDialog}
         {tourOverlay}
       </PortalShell>
@@ -769,7 +797,9 @@ export default function PortalApp() {
         {/* Joint ownership (Owner): Talent Acquisition manages residency records and cohort
             settings alongside the ASPIRE team. A staff preview shows what that staff member
             may manage. The server decides either way. */}
-        <ResidencyPortal canManage={staffPreview ? canManageNgrp(userProfile) : true} />
+        <Suspense fallback={<PortalLoading label="Loading the residency workspace" />}>
+          <ResidencyPortal canManage={staffPreview ? canManageNgrp(userProfile) : true} />
+        </Suspense>
         {!staffPreview && photoDialog}
       </PortalShell>
       </PortalAccessSignalContext.Provider>
