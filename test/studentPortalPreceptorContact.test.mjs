@@ -15,10 +15,11 @@ import { dirname, join } from 'node:path'
 
 import {
   PRECEPTOR_ROLE_LABEL, ASPIRE_TEAM_EMAIL,
-  orderPreceptorContacts, emailablePreceptors, buildPreceptorRecipients,
+  orderPreceptorContacts, emailablePreceptors, buildPreceptorRecipients, buildPreceptorEmailDraft,
 } from '../src/lib/placementContacts.js'
 import { selectUnitLeadershipCc } from '../src/lib/placementLeadership.js'
 import { buildMailtoUrl, buildOutlookComposeUrl } from '../src/lib/outlookCompose.js'
+const composeSrc = readFileSync(new URL('../src/lib/outlookCompose.js', import.meta.url), 'utf8')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -195,7 +196,12 @@ test('Support shows Email ASPIRE Team and Email Preceptor with a keyboard-comple
   assert.match(portal, />All preceptors</)
   assert.match(portal, /e\.key === 'Escape'/)
   assert.match(portal, /preceptorBtnRef\.current\?\.focus\(\)/)
-  assert.match(portal, /composePortalEmail\(\{ to, cc: recipients\.cc\.join\(','\), subject: PRECEPTOR_SUBJECT, body, loginEmail \}\)/)
+  assert.match(portal, /const \{ subject, body \} = buildPreceptorEmailDraft\(\{/)
+  // PRECEPTOR-CONTACT-2: Email Preceptor never takes the Outlook-on-the-web
+  // route (its compose link drops CC); Email ASPIRE Team keeps its routing.
+  assert.match(portal, /composePortalMailto\(\{ to, cc, subject, body, loginEmail \}\)/)
+  assert.doesNotMatch(portal, /composePortalEmail\(\{ to, cc/)
+  assert.doesNotMatch(portal, /Name: \$\{name \|\| 'not available'\}\\nUnit:/, 'the old field-list draft is gone')
 })
 
 test('new portal styles are scoped and read the radius token', () => {
@@ -210,4 +216,68 @@ test('new portal styles are scoped and read the radius token', () => {
 test('the browser-side rules module carries no catalog imports (bundle cost)', () => {
   assert.doesNotMatch(clientRules, /^import /m, 'placementContacts.js must stay import-free')
   assert.doesNotMatch(portal, /placementLeadership/, 'the portal never imports the leadership selector')
+})
+
+// ── Email Preceptor draft (PRECEPTOR-CONTACT-2) ──────────────────────────────
+
+const STEVEN = {
+  preceptorNames: ['Fabian Reynoso'], studentName: 'Steven Li',
+  school: 'West Coast University North Hollywood', cohort: 'Fall 2026', unit: '7 SCCT',
+  rotationWindow: 'Sep 1, 2026 to Dec 15, 2026', phone: '(818) 555-0142', status: 'Placed',
+}
+
+test('before the rotation the draft is a personal introduction', () => {
+  const { subject, body } = buildPreceptorEmailDraft(STEVEN)
+  assert.equal(subject, 'Introduction: ASPIRE Student Steven Li, 7 SCCT')
+  assert.equal(body, [
+    'Hello Fabian,',
+    '',
+    'My name is Steven Li, and I am an ASPIRE student from West Coast University North Hollywood in the Fall 2026 cohort. I am excited to start my rotation with you at 7 SCCT. My rotation runs Sep 1, 2026 to Dec 15, 2026.',
+    '',
+    'My learning goals for this rotation are:',
+    '1. ',
+    '2. ',
+    '3. ',
+    '',
+    'Could you please let me know when I can come in for my first shift, and whether there is anything I should review or prepare beforehand?',
+    '',
+    'Thank you, and I look forward to working with you.',
+    '',
+    'Steven Li',
+    '(818) 555-0142',
+  ].join('\n'))
+})
+
+test('greets every chosen preceptor by first name', () => {
+  assert.match(buildPreceptorEmailDraft({ ...STEVEN, preceptorNames: ['Fabian Reynoso', 'Maria Santos'] }).body, /^Hello Fabian and Maria,/)
+  assert.match(buildPreceptorEmailDraft({ ...STEVEN, preceptorNames: ['Fabian Reynoso', 'Maria Santos', 'Kai Lee'] }).body, /^Hello Fabian, Maria, and Kai,/)
+})
+
+test('missing facts are left out, never written as "not available"', () => {
+  const { body } = buildPreceptorEmailDraft({ preceptorNames: ['Fabian Reynoso'], studentName: 'Steven Li', unit: '7 SCCT', status: 'Placed' })
+  assert.doesNotMatch(body, /not available|undefined|null/)
+  assert.match(body, /I am an ASPIRE student\. I am excited to start my rotation with you at 7 SCCT\.\n/)
+  assert.doesNotMatch(body, /My rotation runs/)
+  assert.match(body, /\n\nSteven Li$/)
+})
+
+test('once the rotation is under way the draft is a short open note, not a first-shift request', () => {
+  for (const status of ['Active Rotation', 'Completed']) {
+    const { subject, body } = buildPreceptorEmailDraft({ ...STEVEN, status })
+    assert.equal(subject, 'ASPIRE Student: Steven Li, 7 SCCT')
+    assert.equal(body, 'Hello Fabian,\n\n\n\nThank you,\nSteven Li\n(818) 555-0142')
+    assert.doesNotMatch(body, /first shift|learning goals/)
+  }
+})
+
+test('the compose note shows who belongs on CC and offers Copy CC addresses', () => {
+  assert.match(portal, /setCompose\(\{ kind: 'sent', cc \}\)/)
+  assert.match(portal, /Your unit leadership and the ASPIRE team should be on the CC line/)
+  assert.equal((portal.match(/<Copy size=\{13\} \/> Copy CC addresses<\/button>/g) || []).length, 2, 'both the opened and the blocked notes')
+})
+
+test('the mail-app compose always builds a mailto URL, whatever the login domain', () => {
+  const fn = composeSrc.slice(composeSrc.indexOf('export function composePortalMailto'), composeSrc.indexOf('export function composePortalEmail'))
+  assert.match(fn, /openInNewTab\(buildMailtoUrl\(\{ to, cc, subject, body \}\)\)/)
+  assert.doesNotMatch(fn, /buildOutlookComposeUrl|isMicrosoft365Email/)
 })

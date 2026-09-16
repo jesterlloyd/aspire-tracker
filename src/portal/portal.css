@@ -795,6 +795,12 @@
 }
 .ptl-compose-blocked { display: block; background: #fff7f7; border-color: #fca5a5; color: #991b1b; }
 .ptl-compose-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+/* STUDENT-PORTAL-PRECEPTOR-CONTACT-2: the CC reminder under an Email Preceptor
+   compose note takes its own full-width line inside the wrapping note row. */
+.ptl-compose-cc {
+  flex-basis: 100%; order: 2; display: flex; align-items: center; flex-wrap: wrap;
+  gap: 4px 10px; font-size: 12.5px; color: #3b4470;
+}
 
 /* ── ASPIRE MESSAGES, PHASE 5B-i: Student Portal Messages workspace ──────────
    DORMANT: these rules style components that no routed portal page mounts yet.

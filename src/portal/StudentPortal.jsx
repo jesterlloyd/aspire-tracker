@@ -37,8 +37,8 @@ import ShiftNumberBadge from '../components/ShiftNumberBadge'
 import ShiftLogHistoryDrawer from './ShiftLogHistoryDrawer'
 import { portalShiftStatus } from '../lib/portalShiftStatus'
 import { shiftDrivesState } from '../lib/shiftLifecycle'
-import { composePortalEmail } from '../lib/outlookCompose'
-import { PRECEPTOR_ROLE_LABEL, emailablePreceptors, buildPreceptorRecipients } from '../lib/placementContacts'
+import { composePortalEmail, composePortalMailto } from '../lib/outlookCompose'
+import { PRECEPTOR_ROLE_LABEL, emailablePreceptors, buildPreceptorRecipients, buildPreceptorEmailDraft } from '../lib/placementContacts'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import SkylineCard from '../components/SkylineCard'
@@ -59,13 +59,6 @@ const EVAL_WAITING = new Set(['sent', 'opened', 'reminder_due'])
 const TIMEPOINT_LABELS = {
   baseline: 'Baseline', early_rotation_baseline: 'Early rotation',
   midpoint: 'Midpoint', post_rotation: 'Post-rotation',
-}
-
-// STUDENT-PORTAL-PRECEPTOR-CONTACT-1: the Email Preceptor subject and opener.
-// Same non-sensitive rule as the support body: name, unit, and cohort only.
-const PRECEPTOR_SUBJECT = 'ASPIRE Student Message'
-function buildPreceptorBody({ name, unit, cohort, greetingNames } = {}) {
-  return `Hello ${greetingNames || 'there'},\n\n\n\nName: ${name || 'not available'}\nUnit: ${unit || 'not available'}\nCohort: ${cohort || 'not available'}\n\nThank you.`
 }
 
 // Approved, non-sensitive support message body (no ids, notes, scores, or history).
@@ -339,14 +332,26 @@ export default function StudentPortal({
     const recipients = buildPreceptorRecipients({ preceptors, leadership: student.unit_leadership, choice })
     if (!recipients) return
     const chosen = choice === 'all' ? mailablePreceptors : mailablePreceptors.filter(p => p.id === choice)
-    const greetingNames = chosen.map(p => p.name.split(/\s+/)[0]).join(' and ')
     setPreceptorPickerOpen(false)
-    const body = buildPreceptorBody({ name: fullName, unit: student.unit_name, cohort: cohortName, greetingNames })
+    const { subject, body } = buildPreceptorEmailDraft({
+      preceptorNames: chosen.map(p => p.name),
+      studentName: fullName,
+      school: student.school,
+      cohort: cohortName,
+      unit: student.unit_name,
+      rotationWindow: rotationWindow === TBC ? '' : rotationWindow,
+      phone: student.phone,
+      status: student.status,
+    })
     const to = recipients.to.join(',')
-    const res = composePortalEmail({ to, cc: recipients.cc.join(','), subject: PRECEPTOR_SUBJECT, body, loginEmail })
-    if (!res.opened) setCompose({ kind: 'blocked', body, to })
-    else if (res.mode === 'outlook') setCompose({ kind: 'outlook', loginEmail: res.loginEmail })
-    else setCompose({ kind: 'sent' })
+    const cc = recipients.cc.join(', ')
+    // PRECEPTOR-CONTACT-2: always the mail app, never Outlook on the web, whose
+    // compose link dropped the entire CC line in production.
+    const res = composePortalMailto({ to, cc, subject, body, loginEmail })
+    // cc travels with the note so a mail app that still drops the CC line can be
+    // fixed by hand (Copy CC addresses) instead of silently leaving leadership out.
+    if (!res.opened) setCompose({ kind: 'blocked', body, to, cc })
+    else setCompose({ kind: 'sent', cc })
   }
   const onEmailPreceptor = () => {
     if (mailablePreceptors.length === 1) emailPreceptor(mailablePreceptors[0].id)
@@ -811,6 +816,7 @@ function ComposeNote({ compose, onDismiss, onCopyEmail, onCopyMessage }) {
         <div className="ptl-compose-actions">
           <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={onCopyEmail}><Copy size={13} /> Copy email address</button>
           <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={() => onCopyMessage(compose.body)}><Copy size={13} /> Copy message</button>
+          {compose.cc && <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={() => onCopyMessage(compose.cc)}><Copy size={13} /> Copy CC addresses</button>}
           <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={onDismiss}>Dismiss</button>
         </div>
       </div>
@@ -824,6 +830,12 @@ function ComposeNote({ compose, onDismiss, onCopyEmail, onCopyMessage }) {
   return (
     <div className="ptl-compose-note" role="status">
       <span>{text}</span>
+      {compose.cc && (
+        <span className="ptl-compose-cc">
+          Your unit leadership and the ASPIRE team should be on the CC line. If they are missing, copy them in.
+          <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={() => onCopyMessage(compose.cc)}><Copy size={13} /> Copy CC addresses</button>
+        </span>
+      )}
       <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={onDismiss}>Dismiss</button>
     </div>
   )

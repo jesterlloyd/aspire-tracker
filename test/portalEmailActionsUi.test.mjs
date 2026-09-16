@@ -19,7 +19,9 @@ const shell = read('src/portal/PortalShell.jsx')
 
 test('Contact ASPIRE uses the centralized compose helper', async (t) => {
   await t.test('imports and calls composePortalEmail (no ad hoc mailto in the component)', () => {
-    assert.match(portal, /import \{ composePortalEmail \} from '\.\.\/lib\/outlookCompose'/)
+    // PRECEPTOR-CONTACT-2: the same central helper also supplies composePortalMailto
+    // (Email Preceptor needs mailto for its CC line); both come from one import.
+    assert.match(portal, /import \{ composePortalEmail(, composePortalMailto)? \} from '\.\.\/lib\/outlookCompose'/)
     assert.match(portal, /composePortalEmail\(\{ to: SUPPORT, subject: CONTACT_SUBJECT, body, loginEmail \}\)/)
     assert.doesNotMatch(portal, /href=\{mailto\}/, 'no leftover mailto anchors')
     assert.doesNotMatch(portal, /`mailto:\$\{SUPPORT\}\?subject/, 'no inline mailto URL building')

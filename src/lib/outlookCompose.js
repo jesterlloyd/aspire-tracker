@@ -104,6 +104,19 @@ export function composePublicEmail({ to, subject, body } = {}) {
   return { mode: useOutlook ? 'outlook' : 'mailto', opened }
 }
 
+// STUDENT-PORTAL-PRECEPTOR-CONTACT-2: compose through the mail app (mailto)
+// regardless of the login domain. For any email that NEEDS a CC line: Outlook on
+// the web's compose deeplink has no supported cc parameter, and in production it
+// opened Email Preceptor with the To line and body but silently dropped every CC
+// address (confirmed 2026-09-16). mailto carries cc reliably (verified in Apple
+// Mail), including when Outlook on the web is the browser's mailto handler. Same
+// click-gesture and never-navigate-this-tab rules as composePortalEmail.
+// Returns { mode: 'mailto', opened: boolean, loginEmail }.
+export function composePortalMailto({ to, cc, subject, body, loginEmail } = {}) {
+  const opened = openInNewTab(buildMailtoUrl({ to, cc, subject, body }))
+  return { mode: 'mailto', opened, loginEmail: String(loginEmail || '').trim() }
+}
+
 // Compose a portal email. MUST be called synchronously from a user click so the
 // browser attributes the popup to the gesture. Never logs the composed URL (it
 // may carry student context) and never navigates the current ASPIRE tab.

@@ -89,3 +89,62 @@ export function buildPreceptorRecipients({ preceptors, leadership, choice } = {}
   }
   return { to, cc }
 }
+
+// ── Email Preceptor draft ─────────────────────────────────────────────────────
+// Before the rotation starts the draft is a personal introduction with blank
+// learning goals and a first-shift question. Once the rotation is under way it
+// is a short, open note (asking about a first shift would be wrong by then).
+// Only facts the student already sees on their own page are used, and any that
+// are missing are left out rather than written as "not available".
+const ROTATION_UNDERWAY = new Set(['Active Rotation', 'Completed'])
+
+function joinNames(names) {
+  const list = names.filter(Boolean)
+  if (list.length <= 1) return list[0] || 'there'
+  if (list.length === 2) return `${list[0]} and ${list[1]}`
+  return `${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`
+}
+
+export function buildPreceptorEmailDraft({
+  preceptorNames = [], studentName, school, cohort, unit, rotationWindow, phone, status,
+} = {}) {
+  const name = clean(studentName)
+  const unitName = clean(unit)
+  const greeting = joinNames(preceptorNames.map(n => clean(n).split(/\s+/)[0]))
+  const signature = [name, clean(phone)].filter(Boolean).join('\n')
+  const subjectTail = [name, unitName].filter(Boolean).join(', ')
+
+  if (ROTATION_UNDERWAY.has(clean(status))) {
+    return {
+      subject: `ASPIRE Student${subjectTail ? `: ${subjectTail}` : ''}`,
+      body: `Hello ${greeting},\n\n\n\nThank you,\n${signature}`,
+    }
+  }
+
+  const from = [clean(school) && `from ${clean(school)}`, clean(cohort) && `in the ${clean(cohort)} cohort`]
+    .filter(Boolean).join(' ')
+  const intro = `My name is ${name || '[your name]'}, and I am an ASPIRE student${from ? ` ${from}` : ''}.`
+  const window = clean(rotationWindow)
+  const where = unitName ? ` at ${unitName}` : ''
+  const excited = `I am excited to start my rotation with you${where}.${window ? ` My rotation runs ${window}.` : ''}`
+
+  return {
+    subject: `Introduction: ASPIRE Student${subjectTail ? ` ${subjectTail}` : ''}`,
+    body: [
+      `Hello ${greeting},`,
+      '',
+      `${intro} ${excited}`,
+      '',
+      'My learning goals for this rotation are:',
+      '1. ',
+      '2. ',
+      '3. ',
+      '',
+      'Could you please let me know when I can come in for my first shift, and whether there is anything I should review or prepare beforehand?',
+      '',
+      'Thank you, and I look forward to working with you.',
+      '',
+      signature,
+    ].join('\n'),
+  }
+}
