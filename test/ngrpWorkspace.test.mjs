@@ -638,9 +638,25 @@ test('pickers: Escape closes and refocuses the trigger; options are native butto
 
 // ── Bundle and reliability ───────────────────────────────────────────────────
 
-test('bundle: NgrpWorkspace is statically imported (the lazy chunk regressed the entry to ~3 MB)', () => {
-  assert.match(appJsx, /import NgrpWorkspace from '\.\.\/components\/ngrp\/NgrpWorkspace'/)
+test('bundle: the Residency workspace is ONE lazy chunk behind ONE loader, never a bare lazy()', () => {
+  // Why this test exists, and why it inverted. A bare lazy(() => import('../components/ngrp/…'))
+  // in the old App.jsx HOISTED the shared graph into the entry chunk and took it from 585 KB to
+  // ~3 MB, so the rule became "import it statically". That rule then had a cost of its own: the
+  // workspace was reachable from BOTH eager shells, so the bundler merged 273 KB of it into a
+  // chunk every portal visitor downloaded, students included.
+  //
+  // PORTAL-SPLIT Phase 2 splits it the other way: one bundle module behind one dynamic
+  // specifier, loaded by the staff app and the Residency Portal alike. Measured 2026-09-15:
+  // its own 47.6 KB gz chunk, entry unchanged at 162 KB gz, no src/components/ngrp in the
+  // entry composition at all.
+  assert.match(appJsx, /import \{ ngrpPart \} from '\.\.\/lib\/ngrpWorkspaceLoader'/)
+  assert.match(appJsx, /const NgrpWorkspace {7}= lazyReload\(ngrpPart\('NgrpWorkspace'\), 'NgrpWorkspace'\)/)
+  // The original trap: any lazy() that is not the shared loader.
   assert.doesNotMatch(appJsx, /lazy\(\(\) => import\('\.\.\/components\/ngrp/)
+  // One specifier, or the staff app and the portal stop sharing a chunk and ship two copies.
+  assert.match(read('src/lib/ngrpWorkspaceLoader.js'),
+    /export const loadNgrpWorkspace = \(\) => import\('\.\.\/components\/ngrp\/ngrpWorkspaceBundle'\)/)
+  assert.match(read('src/portal/residency/ResidencyPortal.jsx'), /ngrpPart\('NgrpWorkspace'\)/)
 })
 
 test('states: cycle errors, no-cohorts, no-mappings, unprovisioned, and unauthorized are all distinct', () => {

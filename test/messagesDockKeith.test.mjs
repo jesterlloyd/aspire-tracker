@@ -37,8 +37,11 @@ test('the launcher opens docked Messages; Connect is a restrained secondary acti
 })
 
 test('the panel hosts the ONE workspace in docked mode - no duplicate implementation', () => {
-  assert.match(dock, /import MessagesWorkspace from '\.\/connect\/messages\/MessagesWorkspace'/)
-  assert.match(dock, /<MessagesWorkspace\n {16}docked\n {16}initialSelectedId=\{lastSelectedId\}\n {16}onSelectionChange=\{setLastSelectedId\}\n {14}\/>/)
+  // PORTAL-SPLIT Phase 2: still the ONE workspace, now fetched when the dock
+  // first opens instead of riding along with the 52px launcher button that is
+  // mounted on every staff screen.
+  assert.match(dock, /const MessagesWorkspace = lazyReload\(\(\) => import\('\.\/connect\/messages\/MessagesWorkspace'\), 'MessagesWorkspace'\)/)
+  assert.match(dock, /<MessagesWorkspace\n {18}docked\n {18}initialSelectedId=\{lastSelectedId\}\n {18}onSelectionChange=\{setLastSelectedId\}\n {16}\/>/)
   assert.doesNotMatch(dock, /MessageBubble|useInfiniteQuery|getStaffThread|MessagesInbox|ThreadPanel/)
   // The page stays visible behind a transparent backdrop.
   assert.match(dock, /background: 'transparent' \}\} \/>/)

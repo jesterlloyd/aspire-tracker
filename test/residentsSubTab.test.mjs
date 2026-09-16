@@ -28,7 +28,11 @@ test('Residency reads Placement Board | Residents | Activity', () => {
 test('one component serves both surfaces: the portal mounts the same workspace', () => {
   assert.match(workspace, /import ResidentsTab from '\.\/ResidentsTab'/)
   assert.match(workspace, /tab === 'residency' && subTab === 'residents' && \(\s*<ResidentsTab cycle=\{cycle\} canManage=\{canManage\} toast=\{toast\} \/>/)
-  assert.match(portal, /import NgrpWorkspace from '\.\.\/\.\.\/components\/ngrp\/NgrpWorkspace'/)
+  // PORTAL-SPLIT Phase 2: still the SAME workspace, now reached through the one
+  // loader both the staff app and this portal use, so they share a chunk rather
+  // than each holding a copy.
+  assert.match(portal, /import \{ ngrpPart \} from '\.\.\/\.\.\/lib\/ngrpWorkspaceLoader'/)
+  assert.match(portal, /const NgrpWorkspace {7}= lazyReload\(ngrpPart\('NgrpWorkspace'\), 'NgrpWorkspace'\)/)
 })
 
 test('the title list and the edit validator', () => {

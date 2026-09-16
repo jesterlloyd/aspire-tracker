@@ -129,18 +129,65 @@ does not ship.
 
 ## Phase 2: split the heavy staff areas
 
-Inside the staff chunk, each of these loads when its route opens:
+Each heavy area loads when its own route opens, instead of riding along with
+every staff sign-in.
 
-| candidate | entry share today | route |
+**BUILT AND MEASURED 2026-09-15.** Actual, from `scripts/chunkReport.mjs`:
+
+| a staff member signing in | before (Phase 1) | after |
 |---|---|---|
-| ASPIRE Connect + `@tiptap` + `prosemirror` | ~18.5% | `/connect/*` |
-| Settings | 6.2% | `/settings/*` |
-| Interview calendar (`@fullcalendar`) | 5%+ | `/interviews` |
-| Evaluation | 2.6% | `/evaluation` |
-| Residency workspace (`components/ngrp`, `lib/ngrp`) | 5.0% | `/ngrp/*` |
+| Shared first load (entry + preloads) | 215.9 KB gz | 217.1 KB gz |
+| `StaffApp` chunk | 599.9 KB gz | **118.9 KB gz** |
+| `CustomOnboardingTour`, a static import of both shells | 107.3 KB gz | not loaded |
+| **Total to reach At a Glance** | **923.1 KB gz** | **336.0 KB gz** |
 
-**Target:** staff first load under 400 KB gz. **Gate:** the same report, plus the
-staff app's own first paint no slower than Phase 1.
+Under the 400 KB target, and 64% less than Phase 1 left it. What each area now
+costs, only when it is opened:
+
+| chunk | gzipped | fetched when |
+|---|---|---|
+| `Connect` (tiptap + prosemirror + linkifyjs) | 225.6 KB | `/connect/*` opens |
+| `InterviewRubricTab` (FullCalendar) | 111.1 KB | Interviews is first visited |
+| `SettingsShell` | 71.4 KB | `/settings/*` opens |
+| `ngrpWorkspaceBundle` | 47.6 KB | `/ngrp/*` opens |
+| `EvaluationTab` | 40.7 KB | Evaluation is first visited |
+| `ActionCenter` | 14.0 KB | the bell opens the panel |
+| `CatalogPage` | 10.1 KB | `/catalog` opens |
+| `MessagesWorkspace` | 9.7 KB | the Messages dock first opens |
+
+**A portal visitor gained 102 KB without Phase 3.** The Residency workspace was
+reachable from both eager shells, so the bundler merged 273 KB of
+`src/components/ngrp` into the chunk it named after another shared module:
+`CustomOnboardingTour`, a static import of `PortalApp`, which every portal
+visitor downloaded (407 KB raw / 107.3 KB gz). A student on a phone paid for a
+residency workspace they can never open. Both sides now reach it through
+`src/lib/ngrpWorkspaceLoader.js`, so it is one shared chunk fetched on demand;
+the tour chunk is 7.6 KB raw. Portal visitor: 403.7 KB gz to 301.2 KB gz.
+
+**Two tabs changed when they mount.** The five ASPIRE tabs used to mount
+together at boot. Interviews and Evaluation now mount on first visit and stay
+mounted, so switching between visited tabs is as instant as before; only the
+first open waits, behind the same `.state-box` spinner the app already uses for
+loading rows. Overview, Student Profiles and Rotation are untouched.
+
+**Files:** `src/staff/StaffApp.jsx`, `src/portal/residency/ResidencyPortal.jsx`,
+`src/components/MainMessagesLauncher.jsx`, new
+`src/components/ngrp/ngrpWorkspaceBundle.js` and `src/lib/ngrpWorkspaceLoader.js`.
+
+**The inverted test.** `ngrpWorkspace.test.mjs` used to REQUIRE a static import
+of `NgrpWorkspace`, because a bare `lazy(() => import('../components/ngrp/…'))`
+in the old `App.jsx` once hoisted the shared graph into the entry (585 KB to
+~3 MB). That guard now pins the loader instead: one bundle module behind one
+dynamic specifier. The entry chunk is unchanged at 162 KB gz either way, which
+is the evidence that the old failure did not recur.
+
+**Gate:** `scripts/chunkReport.mjs`. `src/components/connect`, `@tiptap/*`,
+`prosemirror-*`, `@fullcalendar/*`, `src/components/settings`,
+`src/components/evaluation`, `src/components/ngrp` and `src/components/catalog`
+must all be ABSENT from both the entry chunk and the `StaffApp` chunk. Measured
+after: the staff chunk holds 1,012 KB of mapped source against 5,090 KB before,
+and the only `connect` left in it is 6.8 KB, which is
+`SchedulingLinkReturnConfirm`, mounted on every staff screen by design.
 
 ## Phase 3: one chunk per portal
 

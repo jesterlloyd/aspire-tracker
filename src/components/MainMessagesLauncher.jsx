@@ -22,14 +22,19 @@
 // New message action and the inbox's unread affordances. A restrained
 // "Open in ASPIRE Connect" action deep-links to the full workspace; it is no
 // longer the launcher's primary behavior.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MessageCircle, ExternalLink, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useStaffUnreadCount, IDLE_UNREAD_POLL_MS } from '../lib/messages/messagesPolling'
 import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed, onFloatingPanelClosed } from '../lib/floatingPanels'
-import MessagesWorkspace from './connect/messages/MessagesWorkspace'
+import { lazyReload } from '../lib/lazyReload'
+// PORTAL-SPLIT Phase 2: the launcher is mounted on every staff screen, but the
+// workspace inside it renders only once the dock is open. Loading it with the
+// button meant every staff session downloaded the whole Messages tree to show
+// a 52px circle.
+const MessagesWorkspace = lazyReload(() => import('./connect/messages/MessagesWorkspace'), 'MessagesWorkspace')
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
@@ -184,11 +189,13 @@ export default function MainMessagesLauncher() {
               </button>
             </div>
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 0 0' }}>
-              <MessagesWorkspace
-                docked
-                initialSelectedId={lastSelectedId}
-                onSelectionChange={setLastSelectedId}
-              />
+              <Suspense fallback={<div role="status" style={{ padding: '16px', fontFamily: F, fontSize: 13, color: '#6b7280' }}>Loading messages…</div>}>
+                <MessagesWorkspace
+                  docked
+                  initialSelectedId={lastSelectedId}
+                  onSelectionChange={setLastSelectedId}
+                />
+              </Suspense>
             </div>
           </div>
         </>

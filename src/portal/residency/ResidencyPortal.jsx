@@ -16,14 +16,13 @@
 //
 // Access is decided server-side by the Residency endpoints. This component
 // renders whatever they allow and never widens it.
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer } from '../../components/Toast'
-import NgrpWorkspace from '../../components/ngrp/NgrpWorkspace'
-import CohortSettingsModal from '../../components/ngrp/CohortSettingsModal'
-import CreateCohortDialog from '../../components/ngrp/CreateCohortDialog'
+import { lazyReload } from '../../lib/lazyReload'
+import { ngrpPart } from '../../lib/ngrpWorkspaceLoader'
 import ScopePicker from '../../components/Header/scope/ScopePicker'
 import ResidencyCohortList from '../../components/Header/scope/ResidencyCohortList'
 import { useNgrpCycles } from '../../lib/ngrp/useNgrpData'
@@ -34,6 +33,14 @@ import {
   RESIDENCY_EXPERIENCE, residencyCohortLabel, cohortDotStatus, residencyLabelIsState,
 } from '../../lib/scopePickerLabels'
 import { PortalHeaderControls } from '../PortalHeaderSlots'
+
+// PORTAL-SPLIT Phase 2: the same chunk the staff app loads, through the same
+// loader, fetched when this portal renders. While these were static imports the
+// residency workspace was merged into a chunk EVERY portal downloaded, so a
+// student on a phone paid for a workspace they can never open.
+const NgrpWorkspace       = lazyReload(ngrpPart('NgrpWorkspace'), 'NgrpWorkspace')
+const CohortSettingsModal = lazyReload(ngrpPart('CohortSettingsModal'), 'CohortSettingsModal')
+const CreateCohortDialog  = lazyReload(ngrpPart('CreateCohortDialog'), 'CreateCohortDialog')
 
 const EXPERIENCES = [RESIDENCY_EXPERIENCE]
 const stayInResidency = () => {}
@@ -88,37 +95,41 @@ export default function ResidencyPortal({ canManage = false }) {
       </PortalHeaderControls>
       <div className="ptl-page ptl-residency-page">
         <h1 className="ptl-visually-hidden">Residency Portal</h1>
-        <NgrpWorkspace
-          cyclesStatus={cyclesQuery.status}
-          cyclesCount={cyclesQuery.cycles.length}
-          cycle={activeCycle}
-          canManage={canManage}
-          toast={toast}
-          onEditCohort={() => setShowSettings(true)}
-          onAddCohort={() => setShowNewCohort(true)}
-          onSelectCycle={selectCycle}
-        />
+        <Suspense fallback={<div className="ptl-card" role="status">Loading residency workspace…</div>}>
+          <NgrpWorkspace
+            cyclesStatus={cyclesQuery.status}
+            cyclesCount={cyclesQuery.cycles.length}
+            cycle={activeCycle}
+            canManage={canManage}
+            toast={toast}
+            onEditCohort={() => setShowSettings(true)}
+            onAddCohort={() => setShowNewCohort(true)}
+            onSelectCycle={selectCycle}
+          />
+        </Suspense>
       </div>
-      {showSettings && activeCycle && (
-        <CohortSettingsModal
-          cycle={activeCycle}
-          canManage={canManage}
-          toast={toast}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
-      {showNewCohort && (
-        <CreateCohortDialog
-          onClose={() => setShowNewCohort(false)}
-          onCreated={(created) => {
-            setShowNewCohort(false)
-            toast?.success?.('Residency cohort added', `${created.name} is ready to configure.`)
-            queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] })
-            selectCycle(created.id)
-            setShowSettings(true)
-          }}
-        />
-      )}
+      <Suspense fallback={null}>
+        {showSettings && activeCycle && (
+          <CohortSettingsModal
+            cycle={activeCycle}
+            canManage={canManage}
+            toast={toast}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
+        {showNewCohort && (
+          <CreateCohortDialog
+            onClose={() => setShowNewCohort(false)}
+            onCreated={(created) => {
+              setShowNewCohort(false)
+              toast?.success?.('Residency cohort added', `${created.name} is ready to configure.`)
+              queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] })
+              selectCycle(created.id)
+              setShowSettings(true)
+            }}
+          />
+        )}
+      </Suspense>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </NgrpSurfaceProvider>
   )

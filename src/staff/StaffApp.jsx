@@ -14,7 +14,9 @@
 // router needs them too; importing them from here would pull this chunk back
 // into the entry.
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { lazyReload } from '../lib/lazyReload'
+import { ngrpPart } from '../lib/ngrpWorkspaceLoader'
 import { Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -28,13 +30,10 @@ import {
 } from '../lib/placementNotificationState'
 import OverviewTab from '../components/OverviewTab'
 import StudentProfilesTab from '../components/StudentProfilesTab'
-import InterviewRubricTab from '../components/InterviewRubricTab'
 import RotationTab from '../components/RotationTab'
-import EvaluationTab from '../components/EvaluationTab'
 import AddStudentModal from '../components/AddStudentModal'
 import UnifiedNav from '../components/UnifiedNav'
 import Header from '../components/Header/Header'
-import SettingsShell from '../components/settings/SettingsShell'
 import NewCohortModal from '../components/NewCohortModal'
 import ManageCohortModal from '../components/ManageCohortModal'
 import { useAuth } from '../contexts/AuthContext'
@@ -42,14 +41,12 @@ import LoginNew from '../pages/Login'
 import { applyReviewTotals } from '../lib/studentTotals'
 import { applyPreceptorProjection } from '../lib/preceptorProjection'
 import InterviewersModal from '../components/InterviewersModal'
-import ActionCenter from '../components/ActionCenter'
 import SchedulingLinkReturnConfirm from '../components/connect/SchedulingLinkReturnConfirm'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { buildSchedulingLinkLaunch, resolveSchedulingLinkReturnPath } from '../lib/schedulingLinkFlow'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { useStaffNotifications } from '../hooks/useStaffNotifications'
 import { unreadSupportBellCount } from '../lib/support/supportRequests'
-import CustomOnboardingTour from '../components/CustomOnboardingTour'
 import { shouldAutoStartTour } from '../lib/onboardingTours'
 import Keith from '../components/Keith'
 import MainMessagesLauncher from '../components/MainMessagesLauncher'
@@ -60,12 +57,6 @@ import { ToastContainer } from '../components/Toast'
 import { logActivity } from '../lib/logActivity'
 import { safeWrite } from '../lib/safeWrite'
 import { cleanupStudentFiles } from '../lib/studentFileClient'
-import ConnectPage from '../pages/Connect'
-import CatalogPage from '../components/catalog/CatalogPage'
-import NgrpNav from '../components/ngrp/NgrpNav'
-import NgrpWorkspace from '../components/ngrp/NgrpWorkspace'
-import CohortSettingsModal from '../components/ngrp/CohortSettingsModal'
-import CreateCohortDialog from '../components/ngrp/CreateCohortDialog'
 import { resolveNgrpPath, resolveNgrpEntryPath, ngrpPath } from '../lib/ngrp/ngrpTabs'
 import { compareCohortsChrono } from '../lib/cohortSeason'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from '../lib/ngrp/ngrpAccess'
@@ -75,6 +66,37 @@ import {
 import { orderCyclesForSelector, resolveSelectedCycle } from '../lib/ngrp/ngrpStates'
 import { useNgrpCycles } from '../lib/ngrp/useNgrpData'
 import { TAB_TO_PATH, PORTAL_STAFF_ROLES } from '../lib/staffRoutes'
+
+// PORTAL-SPLIT Phase 2 (2026-09-15): the heavy staff areas are their own chunks.
+//
+// Each of these used to be a static import, so opening ANY staff route
+// downloaded all of them at once: the rich-text editor, the interview calendar,
+// Settings, Evaluation and the Residency workspace, 600 KB gzipped measured by
+// scripts/chunkReport.mjs. They load when their own route opens instead.
+//
+// lazyReload, never lazy: a chunk whose name changed under an open tab reloads
+// the page once instead of blanking it (CHUNK-RELOAD-1).
+const ConnectPage          = lazyReload(() => import('../pages/Connect'), 'ConnectPage')
+const SettingsShell        = lazyReload(() => import('../components/settings/SettingsShell'), 'SettingsShell')
+const CatalogPage          = lazyReload(() => import('../components/catalog/CatalogPage'), 'CatalogPage')
+const InterviewRubricTab   = lazyReload(() => import('../components/InterviewRubricTab'), 'InterviewRubricTab')
+const EvaluationTab        = lazyReload(() => import('../components/EvaluationTab'), 'EvaluationTab')
+const ActionCenter         = lazyReload(() => import('../components/ActionCenter'), 'ActionCenter')
+const CustomOnboardingTour = lazyReload(() => import('../components/CustomOnboardingTour'), 'CustomOnboardingTour')
+// The Residency workspace is ONE chunk, shared with the Residency Portal: both
+// go through ngrpWorkspaceLoader, so neither holds a second copy and no portal
+// that has nothing to do with residency pays for it.
+const NgrpNav             = lazyReload(ngrpPart('NgrpNav'), 'NgrpNav')
+const NgrpWorkspace       = lazyReload(ngrpPart('NgrpWorkspace'), 'NgrpWorkspace')
+const CohortSettingsModal = lazyReload(ngrpPart('CohortSettingsModal'), 'CohortSettingsModal')
+const CreateCohortDialog  = lazyReload(ngrpPart('CreateCohortDialog'), 'CreateCohortDialog')
+
+// What a workspace shows while its chunk arrives. The staff app already uses
+// .state-box + .spinner for "waiting for rows", so a tab opening for the first
+// time looks like a tab waiting for its data rather than like a broken screen.
+function ChunkLoading({ label = 'Loading' }) {
+  return <div className="state-box"><div className="spinner" /><p>{label}…</p></div>
+}
 
 /*
   COHORT ISOLATION CONTRACT
@@ -199,6 +221,12 @@ function MainApp({ onLogout }) {
   const [acPendingFollowups, setAcPendingFollowups] = useState([])
   const [acActiveDispoIds,   setAcActiveDispoIds]   = useState([])
   const [tourRunning,      setTourRunning]      = useState(false)
+  // PORTAL-SPLIT Phase 2: the five ASPIRE tabs used to mount together at boot,
+  // which is why switching between them is instant and their state survives.
+  // Interviews and Evaluation are their own chunks now, so they mount on first
+  // visit rather than at boot; once visited they stay mounted exactly as before,
+  // and every other tab is unchanged.
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set())
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
 
@@ -213,6 +241,11 @@ function MainApp({ onLogout }) {
     if (p.startsWith('/settings')) return 'settings' // WS2.1: app-level utility section
     return PATH_TO_TAB[p] || 'overview'
   })()
+
+  // Adjusted during render rather than in an effect: the tab has to be mounted
+  // on the SAME render that activates it. From an effect, a deep link straight
+  // into /interviews would paint an empty workspace for one frame first.
+  if (!visitedTabs.has(activeTab)) setVisitedTabs(prev => new Set(prev).add(activeTab))
 
   // Track the last non-Connect path for the workspace back affordance.
   // Stored in a ref so it never triggers re-renders.
@@ -1366,9 +1399,13 @@ function MainApp({ onLogout }) {
 
         {/* NGRP-WORKSPACE-1: the NGRP workspace has its own six-tab nav in the
             same sticky band; the ASPIRE nav is untouched for every other tab. */}
-        {ngrpAllowed && activeTab === 'ngrp' && (
-          <NgrpNav activeTab={ngrpActiveTab} onSwitchTab={switchNgrpTab} />
-        )}
+        {/* PORTAL-SPLIT Phase 2: the boundary sits OUTSIDE the gate so the gate
+            itself stays the one readable authorization condition. */}
+        <Suspense fallback={null}>
+          {ngrpAllowed && activeTab === 'ngrp' && (
+            <NgrpNav activeTab={ngrpActiveTab} onSwitchTab={switchNgrpTab} />
+          )}
+        </Suspense>
         {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && activeTab !== 'ngrp' && (
           <UnifiedNav
             cohorts={cohorts}
@@ -1398,7 +1435,9 @@ function MainApp({ onLogout }) {
         {/* WS2.1: Settings is an app-level utility section (available regardless of
             cohorts); it renders here while the operational tabs stay mounted+hidden. */}
         {activeTab === 'settings' && (
-          <SettingsShell backPath={backPath} backLabel={backLabel} onRestartTour={restartTour} />
+          <Suspense fallback={<ChunkLoading label="Loading Settings" />}>
+            <SettingsShell backPath={backPath} backLabel={backLabel} onRestartTour={restartTour} />
+          </Suspense>
         )}
         {cohorts.length === 0 && !loading && activeTab !== 'settings' && (
           <div className="state-box" style={{ marginTop: 40 }}>
@@ -1458,25 +1497,31 @@ function MainApp({ onLogout }) {
               />
             </div>
 
-            <div style={{ display: activeTab === 'interviews' ? 'block' : 'none' }}>
-              <InterviewRubricTab
-                students={students}
-                rubrics={interviews}
-                cohortId={activeCohortId}
-                cohort={activeCohort}
-                sessions={ivSessions}
-                slots={ivSlots}
-                communications={communications}
-                onStudentUpdate={updateStudent}
-                onRubricsChange={() => fetchInterviews(activeCohortId)}
-                onRefreshStudents={() => fetchStudents(activeCohortId)}
-                onManageInterviewers={() => setShowInterviewersModal(true)}
-                onUpdateSession={updateIvSession}
-                onRefreshSlots={() => fetchIvSlots(activeCohortId)}
-                onNavigateToPlacement={goToPlacementStudent}
-                toast={toast}
-              />
-            </div>
+            {/* Interviews carries FullCalendar, the single heaviest dependency
+                in the staff app. It mounts on first visit and stays mounted. */}
+            {visitedTabs.has('interviews') && (
+              <div style={{ display: activeTab === 'interviews' ? 'block' : 'none' }}>
+                <Suspense fallback={<ChunkLoading label="Loading Interviews" />}>
+                  <InterviewRubricTab
+                    students={students}
+                    rubrics={interviews}
+                    cohortId={activeCohortId}
+                    cohort={activeCohort}
+                    sessions={ivSessions}
+                    slots={ivSlots}
+                    communications={communications}
+                    onStudentUpdate={updateStudent}
+                    onRubricsChange={() => fetchInterviews(activeCohortId)}
+                    onRefreshStudents={() => fetchStudents(activeCohortId)}
+                    onManageInterviewers={() => setShowInterviewersModal(true)}
+                    onUpdateSession={updateIvSession}
+                    onRefreshSlots={() => fetchIvSlots(activeCohortId)}
+                    onNavigateToPlacement={goToPlacementStudent}
+                    toast={toast}
+                  />
+                </Suspense>
+              </div>
+            )}
 
             <div style={{ display: activeTab === 'rotation' ? 'block' : 'none' }}>
               <RotationTab
@@ -1500,23 +1545,31 @@ function MainApp({ onLogout }) {
               />
             </div>
 
-            <div style={{ display: activeTab === 'evaluation' ? 'block' : 'none' }}>
-              <EvaluationTab cohortId={activeCohortId} />
-            </div>
+            {visitedTabs.has('evaluation') && (
+              <div style={{ display: activeTab === 'evaluation' ? 'block' : 'none' }}>
+                <Suspense fallback={<ChunkLoading label="Loading Evaluation" />}>
+                  <EvaluationTab cohortId={activeCohortId} />
+                </Suspense>
+              </div>
+            )}
 
             {activeTab === 'connect' && (
-              <ConnectPage
-                cohortId={activeCohortId}
-                onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
-                refreshRef={connectRefreshRef}
-                backPath={backPath}
-                backLabel={backLabel}
-              />
+              <Suspense fallback={<ChunkLoading label="Loading ASPIRE Connect" />}>
+                <ConnectPage
+                  cohortId={activeCohortId}
+                  onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+                  refreshRef={connectRefreshRef}
+                  backPath={backPath}
+                  backLabel={backLabel}
+                />
+              </Suspense>
             )}
 
             {/* CATALOG-1: read-only ASPIRE Catalog (Owner/Admin gated by RLS + endpoint). */}
             {activeTab === 'catalog' && (
-              <CatalogPage backPath={backPath} backLabel={backLabel} />
+              <Suspense fallback={<ChunkLoading label="Loading Catalog" />}>
+                <CatalogPage backPath={backPath} backLabel={backLabel} />
+              </Suspense>
             )}
 
             {/* NGRP-WORKSPACE-1 (correction): the NGRP workspace, rendered
@@ -1524,18 +1577,20 @@ function MainApp({ onLogout }) {
                 import note) and receiving the residency-cohort scope resolved
                 above - never the cohort-scoped students state, which would
                 silently shrink "All ASPIRE Cohorts" to one cohort. */}
-            {ngrpAllowed && activeTab === 'ngrp' && (
-              <NgrpWorkspace
-                cyclesStatus={ngrpCyclesQuery.status}
-                cyclesCount={ngrpCyclesQuery.cycles.length}
-                cycle={activeNgrpCycle}
-                canManage={canManageNgrp(currentUserProfile)}
-                toast={toast}
-                onEditCohort={() => setShowNgrpCohortSettings(true)}
-                onAddCohort={() => setShowNgrpNewCohort(true)}
-                onSelectCycle={selectNgrpCycle}
-              />
-            )}
+            <Suspense fallback={<ChunkLoading label="Loading Residency" />}>
+              {ngrpAllowed && activeTab === 'ngrp' && (
+                <NgrpWorkspace
+                  cyclesStatus={ngrpCyclesQuery.status}
+                  cyclesCount={ngrpCyclesQuery.cycles.length}
+                  cycle={activeNgrpCycle}
+                  canManage={canManageNgrp(currentUserProfile)}
+                  toast={toast}
+                  onEditCohort={() => setShowNgrpCohortSettings(true)}
+                  onAddCohort={() => setShowNgrpNewCohort(true)}
+                  onSelectCycle={selectNgrpCycle}
+                />
+              )}
+            </Suspense>
           </>
         )}
       </main>
@@ -1545,70 +1600,77 @@ function MainApp({ onLogout }) {
       {/* NGRP-PLANNING-2: residency cohort administration, rendered at app level
           beside the ASPIRE pair. It is opened from the header's Scope footer AND
           from the Planning tab, so neither of those can own the state. */}
-      {showNgrpCohortSettings && activeNgrpCycle && (
-        <CohortSettingsModal
-          cycle={activeNgrpCycle}
-          canManage={canManageNgrp(currentUserProfile)}
-          toast={toast}
-          onClose={() => setShowNgrpCohortSettings(false)}
-        />
-      )}
-      {showNgrpNewCohort && (
-        <CreateCohortDialog
-          onClose={() => setShowNgrpNewCohort(false)}
-          onCreated={(created) => {
-            setShowNgrpNewCohort(false)
-            toast?.success?.('Residency cohort added', `${created.name} is ready to configure.`)
-            queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] })
-            selectNgrpCycle(created.id)
-            // Straight into its settings: a new cohort is never usable as created.
-            setShowNgrpCohortSettings(true)
-          }}
-        />
-      )}
+      {/* Both residency dialogs come from the same chunk as the workspace, so
+          one boundary covers them; fallback null, since a modal that has not
+          arrived yet should show nothing rather than a spinner over the app. */}
+      <Suspense fallback={null}>
+        {showNgrpCohortSettings && activeNgrpCycle && (
+          <CohortSettingsModal
+            cycle={activeNgrpCycle}
+            canManage={canManageNgrp(currentUserProfile)}
+            toast={toast}
+            onClose={() => setShowNgrpCohortSettings(false)}
+          />
+        )}
+        {showNgrpNewCohort && (
+          <CreateCohortDialog
+            onClose={() => setShowNgrpNewCohort(false)}
+            onCreated={(created) => {
+              setShowNgrpNewCohort(false)
+              toast?.success?.('Residency cohort added', `${created.name} is ready to configure.`)
+              queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] })
+              selectNgrpCycle(created.id)
+              // Straight into its settings: a new cohort is never usable as created.
+              setShowNgrpCohortSettings(true)
+            }}
+          />
+        )}
+      </Suspense>
       {showManageCohort && activeCohort && (
         <ManageCohortModal cohort={activeCohort} onSave={updateCohort} onClose={() => setShowManageCohort(false)} />
       )}
       {showInterviewersModal && (
         <InterviewersModal isOpen={showInterviewersModal} onClose={() => setShowInterviewersModal(false)} toast={toast} />
       )}
-      {showActionCenter && (
-        <ActionCenter
-          isOpen={showActionCenter}
-          onClose={() => setShowActionCenter(false)}
-          anchorEl={bellRef.current}
-          students={students}
-          units={units}
-          matches={matches}
-          cohortId={activeCohortId}
-          activeCohort={activeCohort}
-          communications={communications}
-          placementNotifications={placementNotificationRows}
-          placementNotificationsLoaded={placementNotificationsLoaded}
-          reminderDeliveries={reminderDeliveries}
-          reminderDeliveriesLoaded={reminderDeliveriesLoaded}
-          ivSessions={ivSessions}
-          ivSlots={ivSlots}
-          schoolRotations={acSchoolRotations}
-          onNavigateToActivityStudent={id => { goToActivityStudent(id); setShowActionCenter(false) }}
-          onNavigateToUnitPool={unitId => {
-            setHighlightUnitId(unitId || null)
-            navigate('/rotation/matrix')
-            if (unitId) setTimeout(() => setHighlightUnitId(null), 2500)
-            setShowActionCenter(false)
-          }}
-          onLogCommunication={logCommunication}
-          onMatchLocalSync={syncMatchLocal}
-          onStudentUpdate={updateStudent}
-          onActionCountChange={handleActionCount}
-          onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
-          onNavigateToActivityShift={goToActivityShift}
-          onLaunchSchedulingLink={launchSchedulingLinkFromActionCenter}
-          onNavigateNotificationDestination={destination => { navigate(destination); setShowActionCenter(false) }}
-          notifications={staffNotifications}
-          toast={toast}
-        />
-      )}
+      <Suspense fallback={null}>
+        {showActionCenter && (
+          <ActionCenter
+            isOpen={showActionCenter}
+            onClose={() => setShowActionCenter(false)}
+            anchorEl={bellRef.current}
+            students={students}
+            units={units}
+            matches={matches}
+            cohortId={activeCohortId}
+            activeCohort={activeCohort}
+            communications={communications}
+            placementNotifications={placementNotificationRows}
+            placementNotificationsLoaded={placementNotificationsLoaded}
+            reminderDeliveries={reminderDeliveries}
+            reminderDeliveriesLoaded={reminderDeliveriesLoaded}
+            ivSessions={ivSessions}
+            ivSlots={ivSlots}
+            schoolRotations={acSchoolRotations}
+            onNavigateToActivityStudent={id => { goToActivityStudent(id); setShowActionCenter(false) }}
+            onNavigateToUnitPool={unitId => {
+              setHighlightUnitId(unitId || null)
+              navigate('/rotation/matrix')
+              if (unitId) setTimeout(() => setHighlightUnitId(null), 2500)
+              setShowActionCenter(false)
+            }}
+            onLogCommunication={logCommunication}
+            onMatchLocalSync={syncMatchLocal}
+            onStudentUpdate={updateStudent}
+            onActionCountChange={handleActionCount}
+            onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
+            onNavigateToActivityShift={goToActivityShift}
+            onLaunchSchedulingLink={launchSchedulingLinkFromActionCenter}
+            onNavigateNotificationDestination={destination => { navigate(destination); setShowActionCenter(false) }}
+            notifications={staffNotifications}
+            toast={toast}
+          />
+        )}
+      </Suspense>
       {/* CONNECT-SCHEDULING-LINK-1: one shared return confirmation for both scheduling-link launch
           points (Interviews worklist, Student Profiles). Mounted at the shell so the two workspaces
           use the same completion mechanism; it renders nothing unless the Owner returns to the
@@ -1637,7 +1699,13 @@ function MainApp({ onLogout }) {
         isAuthenticated={true}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <CustomOnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} experience="staff" />
+      {/* The tour renders null unless it is running, so mounting it only while
+          it runs costs nothing and keeps its chunk out of the staff load. */}
+      {tourRunning && (
+        <Suspense fallback={null}>
+          <CustomOnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} experience="staff" />
+        </Suspense>
+      )}
       {/* WS2.2: People & Access re-homed to Settings → /settings/accounts.
           The legacy UserManagement modal render (formerly here) was removed; the
           modal wrapper component is retained in its file for direct callers/rollback. */}
