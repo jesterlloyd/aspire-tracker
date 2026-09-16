@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path'
 
 import {
   PRECEPTOR_ROLE_LABEL, ASPIRE_TEAM_EMAIL,
-  orderPreceptorContacts, emailablePreceptors, buildPreceptorRecipients, buildPreceptorEmailDraft,
+  orderPreceptorContacts, emailablePreceptors, buildPreceptorRecipients, buildPreceptorEmailDraft, formatDraftPhone,
 } from '../src/lib/placementContacts.js'
 import { selectUnitLeadershipCc } from '../src/lib/placementLeadership.js'
 import { buildMailtoUrl, buildOutlookComposeUrl } from '../src/lib/outlookCompose.js'
@@ -280,4 +280,17 @@ test('the mail-app compose always builds a mailto URL, whatever the login domain
   const fn = composeSrc.slice(composeSrc.indexOf('export function composePortalMailto'), composeSrc.indexOf('export function composePortalEmail'))
   assert.match(fn, /openInNewTab\(buildMailtoUrl\(\{ to, cc, subject, body \}\)\)/)
   assert.doesNotMatch(fn, /buildOutlookComposeUrl|isMicrosoft365Email/)
+})
+
+test('the draft signature formats a US phone and leaves anything else as stored', () => {
+  assert.equal(formatDraftPhone('2137601510'), '(213) 760-1510')
+  assert.equal(formatDraftPhone('1-213-760-1510'), '(213) 760-1510')
+  assert.equal(formatDraftPhone('213.760.1510'), '(213) 760-1510')
+  assert.equal(formatDraftPhone('(818) 555-0142'), '(818) 555-0142')
+  assert.equal(formatDraftPhone('213-760-1510 ext 4'), '213-760-1510 ext 4')
+  assert.equal(formatDraftPhone('+44 20 7946 0958'), '+44 20 7946 0958')
+  assert.equal(formatDraftPhone('76015'), '76015')
+  assert.equal(formatDraftPhone(null), '')
+  const { body } = buildPreceptorEmailDraft({ ...STEVEN, phone: '2137601510' })
+  assert.match(body, /\n\nSteven Li\n\(213\) 760-1510$/)
 })

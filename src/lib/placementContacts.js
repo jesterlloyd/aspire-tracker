@@ -105,13 +105,24 @@ function joinNames(names) {
   return `${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`
 }
 
+// A US phone for the draft signature: 10 digits, or 11 with a leading 1, reads
+// as (213) 760-1510. Anything else (an extension, an international number, a
+// partial entry) is returned exactly as stored rather than guessed at.
+export function formatDraftPhone(value) {
+  const raw = clean(value)
+  const digits = raw.replace(/\D/g, '')
+  const ten = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits
+  if (ten.length !== 10 || /[a-z]/i.test(raw)) return raw
+  return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`
+}
+
 export function buildPreceptorEmailDraft({
   preceptorNames = [], studentName, school, cohort, unit, rotationWindow, phone, status,
 } = {}) {
   const name = clean(studentName)
   const unitName = clean(unit)
   const greeting = joinNames(preceptorNames.map(n => clean(n).split(/\s+/)[0]))
-  const signature = [name, clean(phone)].filter(Boolean).join('\n')
+  const signature = [name, formatDraftPhone(phone)].filter(Boolean).join('\n')
   const subjectTail = [name, unitName].filter(Boolean).join(', ')
 
   if (ROTATION_UNDERWAY.has(clean(status))) {
