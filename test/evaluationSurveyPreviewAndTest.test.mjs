@@ -310,7 +310,10 @@ test('the test route is registered above the wildcard', () => {
   const route = app.indexOf('path="/evaluation/test/:workflowKey"')
   const wildcard = app.indexOf('path="/*"')
   assert.ok(route > -1 && wildcard > -1 && route < wildcard)
-  assert.match(app, /import SurveyTestModePage from '\.\/pages\/SurveyTestModePage'/)
+  // PORTAL-SPLIT Phase 2b: still wired from App.jsx, now lazily. The ordering
+  // above the wildcard is the property under test and is unchanged; the page
+  // itself must not sit in the entry chunk every visitor downloads.
+  assert.match(app, /const SurveyTestModePage\s+= lazyReload\(\(\) => import\('\.\/pages\/SurveyTestModePage'\), 'SurveyTestModePage'\)/)
 })
 
 // ── House style ────────────────────────────────────────────────────────────

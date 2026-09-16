@@ -52,7 +52,13 @@ test('every lazy import in src goes through lazyReload, with a stable chunk name
   }
   assert.deepEqual(offenders, [])
   for (const [file, names] of [
-    ['src/App.jsx', ['PublicSite', 'PortalApp']],
+    // PORTAL-SPLIT Phase 2b: the public token pages are lazy too, so a visitor
+    // who never opens one never downloads it.
+    ['src/App.jsx', ['PublicSite', 'PortalApp', 'StudentIntakeFormPage', 'NgrpReflectionPage',
+      'ShiftLogLifecycle', 'SchoolFormPage', 'UnitFormPage', 'InterviewSchedulePage',
+      'EvaluationPage', 'PreceptorEvaluationPage', 'StudentEvaluationPage',
+      'PostRotationEvaluationPage', 'NgrpTransitionFormPage', 'ResetPasswordPage',
+      'ActivateAccountPage', 'SurveyTestModePage']],
     // PORTAL-SPLIT Phase 3: one chunk per portal, so a visitor downloads the one
     // their role resolves to instead of all five.
     ['src/portal/PortalApp.jsx', ['StudentShiftLog', 'StudentPortal', 'MyProfile', 'UnitLeaderPortal',

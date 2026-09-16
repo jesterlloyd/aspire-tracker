@@ -241,15 +241,67 @@ are used by the Academic Partner portal too.
 `StudentPortal.jsx`, `UnitLeaderPortal.jsx`, `AcademicPartnerPortal.jsx`,
 `src/portal/na`, `src/portal/unit`, `src/portal/ap` or `src/portal/residency`.
 
-## Phase 2b (not built): the entry chunk
+## Phase 2b: the entry chunk
 
-What is left is shared by everyone, so it is worth more than another portal pass:
-`index.css` (27.1 KB gz) loads for every visitor although the portals need only
-`aspireBrand` + `aspireTable` + `portal.css`, and the public token pages
-(`StudentIntakeFormPage` alone is 60 KB of source) sit in the entry because they
-are public routes. Phase 1 proved `index.css` cannot simply move: those token
-pages import no stylesheet of their own and take hundreds of class names from it.
-Extracting those rules into a sheet the token pages import is the unit of work.
+Two separate pieces of weight, shared by everyone. The first is BUILT; the second
+is measured and specified but deliberately not built.
+
+### 2b-i: the public pages leave the entry (BUILT AND MEASURED 2026-09-16)
+
+`App.jsx` imported fifteen public pages statically, so every visitor downloaded
+the intake form, the four evaluation forms, the school and unit forms, the
+shift-log lifecycle and both NGRP forms before any route rendered. They are
+public routes, so unlike the staff app they cannot hide behind auth, but they can
+load when their own tokenized link is opened, which is the only time anyone has
+one. Each is now `lazyReload` behind one `Suspense` around the route table.
+
+| | before | after |
+|---|---|---|
+| First load (every visitor) | 217.8 KB gz | **140.4 KB gz** |
+| Entry chunk mapped source | 1,610.7 KB | 1,038.2 KB |
+| Portal base (shared) | 299.1 KB gz | 223.4 KB gz |
+| **A student** | 321.4 KB gz | **247.1 KB gz** |
+| A unit leader | 326.0 KB gz | 257.1 KB gz |
+| An academic partner | 319.8 KB gz | 253.2 KB gz |
+| Nursing Education & Leadership | 336.4 KB gz | 268.2 KB gz |
+| Residency | 309.8 KB gz | 236.4 KB gz |
+
+The entry is now react-dom (51%), react-router (35%), query-core (6%) and little
+else: `App.jsx`, `AuthContext` and `Login`, which is deliberately still static
+because `/login` is the most-visited route in the app.
+
+`ShiftLogPage` was also imported by `App.jsx` and NEVER rendered there (the file
+routes `ShiftLogLifecycle`, which imports it itself). The dead import cost the
+entry 28 KB of source and one pre-existing lint error; both are gone.
+
+**Gate:** none of `StudentIntakeFormPage`, the four evaluation pages,
+`NgrpReflectionPage`, `NgrpTransitionFormPage`, `SchoolFormPage`, `UnitFormPage`,
+`InterviewSchedulePage`, `shift-log-lifecycle`, `ActivateAccountPage`,
+`ResetPasswordPage`, `SurveyTestModePage` or `DispositionModal` may appear in the
+entry composition. Measured after: all absent.
+
+### 2b-ii: index.css (NOT built, and it is not a move)
+
+`index.css` (27.1 KB gz, 190 KB raw) is imported by `src/main.jsx` alone, so it
+loads for every visitor although the portals import their own three sheets.
+Phase 1 guessed the token pages were the blocker. Measured (`scratchpad/cssDeps.mjs`,
+which compares class names used per surface against the rules each sheet defines),
+the blocker is wider than that:
+
+- **the portals use 15 class names defined ONLY in `index.css`**: `btn`,
+  `btn-primary`, `btn-outline-modal`, `form-field`, `form-grid`, `form-grid-2`,
+  `form-input`, `form-label`, `form-select`, `modal`, `modal-close`,
+  `modal-footer`, `error-msg`, `canonical-calendar-kicker`, `active`;
+- the public site uses 2 (`ps-btn`, `ps-header`).
+
+So this is a rule EXTRACTION, not a move: the shared form, button and modal rules
+belong in a sheet (`src/styles/aspireForms.css`) that `index.css`, `portal.css`
+and the public site all import, after which `main.jsx` can stop loading
+`index.css` globally and it can attach to the staff chunk and the token pages
+instead. Worth ~27 KB gz for every portal and public visitor. It needs rendered
+before/after comparison of a portal, the public site and a token form, per the
+visual canon's "measure, never compute" rule, which is why it is not folded into
+2b-i.
 
 ---
 

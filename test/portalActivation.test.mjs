@@ -140,7 +140,10 @@ test('the activation route is mounted above the wildcard', () => {
   assert.ok(wildcard > -1)
   assert.ok(activate < wildcard,
     'activation must resolve before the authed shell, or the invitee falls through with no password')
-  assert.match(app, /import ActivateAccountPage from '\.\/pages\/ActivateAccountPage'/)
+  // PORTAL-SPLIT Phase 2b: still wired from App.jsx, now lazily. What matters
+  // here is that the route resolves ABOVE the wildcard (asserted above), not
+  // whether the page rides in the entry chunk.
+  assert.match(app, /const ActivateAccountPage\s+= lazyReload\(\(\) => import\('\.\/pages\/ActivateAccountPage'\), 'ActivateAccountPage'\)/)
 })
 
 test('the portal is only reachable after the password is created', () => {

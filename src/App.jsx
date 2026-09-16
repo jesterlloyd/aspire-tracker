@@ -6,22 +6,35 @@ import { TAB_TO_PATH, PORTAL_STAFF_ROLES } from './lib/staffRoutes'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import ActivateAccountPage from './pages/ActivateAccountPage'
-import SurveyTestModePage from './pages/SurveyTestModePage'
-import DevDispositionModal from './pages/DevDispositionModal'
-import EvaluationPage from './pages/EvaluationPage'
-import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
-import StudentEvaluationPage from './pages/StudentEvaluationPage'
-import PostRotationEvaluationPage from './pages/PostRotationEvaluationPage'
-import NgrpTransitionFormPage from './pages/NgrpTransitionFormPage'
-import NgrpReflectionPage from './pages/NgrpReflectionPage'
-import UnitFormPage from './components/UnitFormPage'
-import SchoolFormPage from './components/SchoolFormPage'
-import StudentIntakeFormPage from './components/StudentIntakeFormPage'
-import InterviewSchedulePage from './components/InterviewSchedulePage'
-import ShiftLogPage from './components/ShiftLogPage'
-import ShiftLogLifecycle from './components/shift-log-lifecycle/ShiftLogLifecycle'
+// PORTAL-SPLIT Phase 2b (2026-09-16): the public pages leave the entry chunk.
+//
+// These are PUBLIC routes, so unlike the staff app they cannot sit behind auth,
+// and they were static imports: EVERY visitor downloaded the intake form, the
+// four evaluation forms, the school and unit forms, the shift-log lifecycle and
+// both NGRP forms before any route could render. A student opening the portal
+// carried the preceptor evaluation form they will never see. Each now loads when
+// its own tokenized link is opened, which is the only time anyone has one.
+//
+// LoginNew stays STATIC above: /login is the most-visited route in the app and
+// the page is small, so a round trip there would cost more than it saves.
+const ResetPasswordPage          = lazyReload(() => import('./pages/ResetPasswordPage'), 'ResetPasswordPage')
+const ActivateAccountPage        = lazyReload(() => import('./pages/ActivateAccountPage'), 'ActivateAccountPage')
+const SurveyTestModePage         = lazyReload(() => import('./pages/SurveyTestModePage'), 'SurveyTestModePage')
+const DevDispositionModal        = lazyReload(() => import('./pages/DevDispositionModal'), 'DevDispositionModal')
+const EvaluationPage             = lazyReload(() => import('./pages/EvaluationPage'), 'EvaluationPage')
+const PreceptorEvaluationPage    = lazyReload(() => import('./pages/PreceptorEvaluationPage'), 'PreceptorEvaluationPage')
+const StudentEvaluationPage      = lazyReload(() => import('./pages/StudentEvaluationPage'), 'StudentEvaluationPage')
+const PostRotationEvaluationPage = lazyReload(() => import('./pages/PostRotationEvaluationPage'), 'PostRotationEvaluationPage')
+const NgrpTransitionFormPage     = lazyReload(() => import('./pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
+const NgrpReflectionPage         = lazyReload(() => import('./pages/NgrpReflectionPage'), 'NgrpReflectionPage')
+const UnitFormPage               = lazyReload(() => import('./components/UnitFormPage'), 'UnitFormPage')
+const SchoolFormPage             = lazyReload(() => import('./components/SchoolFormPage'), 'SchoolFormPage')
+const StudentIntakeFormPage      = lazyReload(() => import('./components/StudentIntakeFormPage'), 'StudentIntakeFormPage')
+const InterviewSchedulePage      = lazyReload(() => import('./components/InterviewSchedulePage'), 'InterviewSchedulePage')
+const ShiftLogLifecycle          = lazyReload(() => import('./components/shift-log-lifecycle/ShiftLogLifecycle'), 'ShiftLogLifecycle')
+// ShiftLogPage was imported here and NEVER rendered: this file routes
+// ShiftLogLifecycle, which imports ShiftLogPage itself. The unused import cost
+// the entry 28 KB of source. The component and its other callers are untouched.
 // NGRP-WORKSPACE-1 (correction): the NGRP workspace. Its Applicants roster is
 // served by /api/ngrp-workspace (cycle-scoped, multi-cohort), NOT by the
 // cohort-scoped students state below - the ASPIRE cohort never constrains the
@@ -149,6 +162,10 @@ function publicPage(page) {
 
 export default function App() {
   return (
+    // PORTAL-SPLIT Phase 2b: ONE boundary for every lazy page in the table
+    // below. The inner boundaries (the public site, the portal, the staff app)
+    // stay where they are, so their fallbacks are unchanged.
+    <Suspense fallback={<ShellSplash />}>
     <Routes>
       {/* PHASE1-PUBLIC-SITE: public marketing site (no data access) */}
       <Route path="/"            element={publicPage('home')} />
@@ -204,5 +221,6 @@ export default function App() {
           above as of PHASE1-PUBLIC-SITE; deep links behave exactly as before.) */}
       <Route path="/*"                    element={<Suspense fallback={<ShellSplash />}><StaffApp /></Suspense>} />
     </Routes>
+    </Suspense>
   )
 }
