@@ -65,12 +65,15 @@ export function isMicrosoft365Email(email) {
   return MICROSOFT_365_DOMAINS.has(emailDomain(email))
 }
 
-// Plain mailto URL (used only for the non-Microsoft fallback).
-export function buildMailtoUrl({ to, subject, body } = {}) {
+// Plain mailto URL (used only for the non-Microsoft fallback). `to` and `cc`
+// may each be one address or a comma/semicolon-separated list.
+export function buildMailtoUrl({ to, cc, subject, body } = {}) {
   const params = []
+  const ccList = normalizeRecipients(cc)
+  if (ccList) params.push(`cc=${encodeURIComponent(ccList)}`)
   if (subject) params.push(`subject=${encodeURIComponent(subject)}`)
   if (body) params.push(`body=${encodeURIComponent(body)}`)
-  return `mailto:${to || ''}${params.length ? `?${params.join('&')}` : ''}`
+  return `mailto:${normalizeRecipients(to)}${params.length ? `?${params.join('&')}` : ''}`
 }
 
 // Open a URL in a NEW blank tab, sever the opener, then navigate that tab. This
@@ -105,15 +108,15 @@ export function composePublicEmail({ to, subject, body } = {}) {
 // browser attributes the popup to the gesture. Never logs the composed URL (it
 // may carry student context) and never navigates the current ASPIRE tab.
 // Returns { mode: 'outlook' | 'mailto', opened: boolean, loginEmail }.
-export function composePortalEmail({ to, subject, body, loginEmail } = {}) {
+export function composePortalEmail({ to, cc, subject, body, loginEmail } = {}) {
   const login = String(loginEmail || '').trim()
   if (isMicrosoft365Email(login)) {
     // No login_hint: the Outlook compose deeplink does not support one without
     // breaking the URL, and Outlook uses the active session / prompts for an
     // account. The caller shows a confirm-your-account note instead.
-    const opened = openInNewTab(buildOutlookComposeUrl({ to, subject, body }))
+    const opened = openInNewTab(buildOutlookComposeUrl({ to, cc, subject, body }))
     return { mode: 'outlook', opened, loginEmail: login }
   }
-  const opened = openInNewTab(buildMailtoUrl({ to, subject, body }))
+  const opened = openInNewTab(buildMailtoUrl({ to, cc, subject, body }))
   return { mode: 'mailto', opened, loginEmail: login }
 }

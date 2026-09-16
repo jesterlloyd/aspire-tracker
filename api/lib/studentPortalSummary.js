@@ -2,6 +2,11 @@
 // performed by the calling endpoint; this module only resolves an already
 // authorized student-id set into the portal-safe payload.
 
+// STUDENT-PORTAL-PRECEPTOR-CONTACT-1: shared pure rules for the preceptor
+// contact rows and the Connect unit leadership copied on Email Preceptor.
+import { orderPreceptorContacts } from '../../src/lib/placementContacts.js'
+import { selectUnitLeadershipCc } from '../../src/lib/placementLeadership.js'
+
 const STUDENT_COLUMNS = [
   'id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
   'school', 'status', 'unit', 'preceptor_name', 'term_dates',
@@ -54,9 +59,10 @@ export async function buildStudentPortalSummary(db, studentIds) {
   }
 
   const assignmentsByStudent = {}
+  const assignmentRowsByStudent = {}
   const { data: assignments, error: aErr } = await db
     .from('student_preceptor_assignments')
-    .select('student_id, role, status, start_date, preceptor_id, preceptors ( full_name )')
+    .select('student_id, role, status, start_date, preceptor_id, preceptors ( id, full_name, email, phone )')
     .in('student_id', studentIds)
     .eq('status', 'active')
   if (!aErr && assignments) {
@@ -67,6 +73,33 @@ export async function buildStudentPortalSummary(db, studentIds) {
           role: assignment.role,
           preceptor_name: assignment.preceptors?.full_name || null,
         }
+      }
+      ;(assignmentRowsByStudent[assignment.student_id] ||= []).push({
+        role: assignment.role,
+        preceptor: assignment.preceptors,
+      })
+    }
+  }
+
+  // STUDENT-PORTAL-PRECEPTOR-CONTACT-1: a preceptor row without a phone takes
+  // the phone from its ASPIRE Connect profile (the contact with the same email).
+  // Only the student's own active preceptors are looked up.
+  // Both the stored spelling and its lowercase form are matched: Connect keeps
+  // mixed-case addresses, and PostgREST's in() filter is case-sensitive.
+  const preceptorEmails = [...new Set(Object.values(assignmentRowsByStudent).flat()
+    .map(r => String(r.preceptor?.email || '').trim()).filter(Boolean)
+    .flatMap(e => [e, e.toLowerCase()]))]
+  const profilePhoneByEmail = {}
+  if (preceptorEmails.length > 0) {
+    const { data: profiles, error: pErr } = await db
+      .from('contacts')
+      .select('email, phone')
+      .in('email', preceptorEmails)
+      .not('phone', 'is', null)
+    if (!pErr && profiles) {
+      for (const c of profiles) {
+        const key = String(c.email || '').trim().toLowerCase()
+        if (key && c.phone && !profilePhoneByEmail[key]) profilePhoneByEmail[key] = c.phone
       }
     }
   }
@@ -85,6 +118,23 @@ export async function buildStudentPortalSummary(db, studentIds) {
     }
   }
 
+  // STUDENT-PORTAL-PRECEPTOR-CONTACT-1: ASPIRE Connect Unit Leader contacts are
+  // the leadership source (not the legacy unit_leaders table). One read for the
+  // whole student set; selectUnitLeadershipCc narrows it to each student's own
+  // unit(s) and to AD / ANM / NPD-P / CNS titles, exposing name, title, email.
+  let leadershipContacts = []
+  if ((students || []).length > 0) {
+    const { data: leaders, error: lErr } = await db
+      .from('contacts')
+      .select('full_name, preferred_name, category, role, email, unit_name, related_units, is_active')
+      .in('category', ['Unit Leader', 'Unit Leadership'])
+      .eq('is_active', true)
+    if (!lErr && leaders) leadershipContacts = leaders
+  }
+  const studentUnits = (student) => (unitsByStudent[student.id]?.length
+    ? unitsByStudent[student.id]
+    : [student.unit].filter(Boolean))
+
   return {
     students: (students || []).map(student => ({
       id: student.id,
@@ -99,6 +149,8 @@ export async function buildStudentPortalSummary(db, studentIds) {
       unit_name: unitsByStudent[student.id]?.[0] || student.unit || null,
       unit_names: unitsByStudent[student.id] || [],
       preceptor_name: assignmentsByStudent[student.id]?.preceptor_name || student.preceptor_name || null,
+      preceptors: orderPreceptorContacts(assignmentRowsByStudent[student.id], profilePhoneByEmail),
+      unit_leadership: selectUnitLeadershipCc(leadershipContacts, studentUnits(student)),
       term_dates: student.term_dates || null,
       rotation: rotationById[student.cohort_school_rotation_id] || null,
       cohort: cohortsById[student.cohort_id]

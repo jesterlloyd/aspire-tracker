@@ -586,6 +586,32 @@
 .ptl-help-action:hover .ptl-help-action-chev { color: #1D2567; }
 .ptl-help-email { margin-top: 12px; }
 
+/* STUDENT-PORTAL-PRECEPTOR-CONTACT-1: preceptor contact lines in Placement
+   Progress and the Email Preceptor chooser in Support. Own .ptl-precontact-*
+   classes (never shared with another component); radii from the canon tokens. */
+.ptl-precontact-name { display: block; }
+.ptl-precontact-lines { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-top: 3px; }
+.ptl-precontact-line { font-size: 12.5px; font-weight: 500; color: #6b7280; overflow-wrap: anywhere; }
+.ptl-precontact-tel { color: #1D2567; text-decoration: none; }
+.ptl-precontact-tel:hover { text-decoration: underline; }
+.ptl-precontact-tel:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; }
+.ptl-precontact-action { display: flex; flex-direction: column; gap: 8px; }
+.ptl-precontact-picker {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px;
+  border: 1px solid #e7e1d6; border-radius: var(--aspire-radius-control); background: #fff;
+}
+.ptl-precontact-picker-title { font-size: 12.5px; font-weight: 600; color: #6b7280; padding: 0 2px 2px; }
+.ptl-precontact-choice {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; min-height: 44px; padding: 8px 12px; text-align: left; cursor: pointer;
+  border: 1px solid #e7e1d6; border-radius: var(--aspire-radius-control); background: #fbfaf6;
+  font-family: inherit; color: #232842;
+}
+.ptl-precontact-choice:hover { background: #f4f1e9; border-color: #d7d2c7; }
+.ptl-precontact-choice:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; }
+.ptl-precontact-choice-name { font-size: 14px; font-weight: 600; }
+.ptl-precontact-choice-role { font-size: 12px; color: #6b7280; }
+
 /* Documents: two clearly separated document rows (bordered mini-panels) with
    aligned status badges and consistent action placement. */
 .ptl-doc-list { display: flex; flex-direction: column; gap: 12px; }

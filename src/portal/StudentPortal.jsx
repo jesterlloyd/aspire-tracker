@@ -23,7 +23,7 @@ import { Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { lazyReload } from '../lib/lazyReload'
 import {
   MapPin, Clock, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail,
-  ChevronRight, Copy, Download, Award, IdCard,
+  ChevronRight, Copy, Download, Award, IdCard, Stethoscope,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -38,6 +38,7 @@ import ShiftLogHistoryDrawer from './ShiftLogHistoryDrawer'
 import { portalShiftStatus } from '../lib/portalShiftStatus'
 import { shiftDrivesState } from '../lib/shiftLifecycle'
 import { composePortalEmail } from '../lib/outlookCompose'
+import { PRECEPTOR_ROLE_LABEL, emailablePreceptors, buildPreceptorRecipients } from '../lib/placementContacts'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import SkylineCard from '../components/SkylineCard'
@@ -58,6 +59,13 @@ const EVAL_WAITING = new Set(['sent', 'opened', 'reminder_due'])
 const TIMEPOINT_LABELS = {
   baseline: 'Baseline', early_rotation_baseline: 'Early rotation',
   midpoint: 'Midpoint', post_rotation: 'Post-rotation',
+}
+
+// STUDENT-PORTAL-PRECEPTOR-CONTACT-1: the Email Preceptor subject and opener.
+// Same non-sensitive rule as the support body: name, unit, and cohort only.
+const PRECEPTOR_SUBJECT = 'ASPIRE Student Message'
+function buildPreceptorBody({ name, unit, cohort, greetingNames } = {}) {
+  return `Hello ${greetingNames || 'there'},\n\n\n\nName: ${name || 'not available'}\nUnit: ${unit || 'not available'}\nCohort: ${cohort || 'not available'}\n\nThank you.`
 }
 
 // Approved, non-sensitive support message body (no ids, notes, scores, or history).
@@ -113,6 +121,9 @@ export default function StudentPortal({
     if (badgeFiles) { URL.revokeObjectURL(badgeFiles.frontUrl); URL.revokeObjectURL(badgeFiles.backUrl) }
   }, [badgeFiles])
   const editBtnRef = useRef(null)
+
+  const [preceptorPickerOpen, setPreceptorPickerOpen] = useState(false)
+  const preceptorBtnRef = useRef(null)
 
   const contactAspire = (ctx) => {
     const body = buildContactBody(ctx)
@@ -294,7 +305,7 @@ export default function StudentPortal({
             matching the no-access card in PortalApp. */}
         <p className="ptl-muted">There is no ASPIRE student record connected to this account. If you think this is a mistake, the ASPIRE team can help. Email <a href={`mailto:${SUPPORT}`}>{SUPPORT}</a>.</p>
         <button type="button" className="ptl-btn ptl-btn-sm" onClick={() => contactAspire({})} aria-label="Contact ASPIRE (opens an email compose in a new tab)"><Mail size={15} /> Contact ASPIRE</button>
-        <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
+        <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(compose?.to || SUPPORT)} onCopyMessage={copy} />
       </div>
     )
   }
@@ -317,6 +328,34 @@ export default function StudentPortal({
   // student logs their first shift from here too, and that shift is what promotes them.
   const canLogShift = placedMoment || activeRotation
   const onContact = () => contactAspire({ name: fullName, school: student.school, cohort: cohortName, status: student.status })
+
+  // STUDENT-PORTAL-PRECEPTOR-CONTACT-1: every active preceptor (Primary,
+  // Secondary, Coverage). Email Preceptor offers a choice of preceptor or all of
+  // them; one emailable preceptor composes directly. Unit leadership from ASPIRE
+  // Connect and the ASPIRE team are always copied.
+  const preceptors = Array.isArray(student.preceptors) ? student.preceptors : []
+  const mailablePreceptors = emailablePreceptors(preceptors)
+  const emailPreceptor = (choice) => {
+    const recipients = buildPreceptorRecipients({ preceptors, leadership: student.unit_leadership, choice })
+    if (!recipients) return
+    const chosen = choice === 'all' ? mailablePreceptors : mailablePreceptors.filter(p => p.id === choice)
+    const greetingNames = chosen.map(p => p.name.split(/\s+/)[0]).join(' and ')
+    setPreceptorPickerOpen(false)
+    const body = buildPreceptorBody({ name: fullName, unit: student.unit_name, cohort: cohortName, greetingNames })
+    const to = recipients.to.join(',')
+    const res = composePortalEmail({ to, cc: recipients.cc.join(','), subject: PRECEPTOR_SUBJECT, body, loginEmail })
+    if (!res.opened) setCompose({ kind: 'blocked', body, to })
+    else if (res.mode === 'outlook') setCompose({ kind: 'outlook', loginEmail: res.loginEmail })
+    else setCompose({ kind: 'sent' })
+  }
+  const onEmailPreceptor = () => {
+    if (mailablePreceptors.length === 1) emailPreceptor(mailablePreceptors[0].id)
+    else setPreceptorPickerOpen(open => !open)
+  }
+  const closePreceptorPicker = () => {
+    setPreceptorPickerOpen(false)
+    preceptorBtnRef.current?.focus()
+  }
 
   const shiftCount = myLogs.length
   // SHIFT-SEQUENCE-1: the student sees the same shift numbers staff and their
@@ -382,7 +421,7 @@ export default function StudentPortal({
         </div>
       )}
 
-      <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
+      <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(compose?.to || SUPPORT)} onCopyMessage={copy} />
 
       {view === 'home' && (
         <Suspense fallback={<div className="ptl-card ptl-activity-loading" role="status">Loading Rotation Activity</div>}>
@@ -420,9 +459,28 @@ export default function StudentPortal({
                 ? student.unit_names.join(' · ')
                 : (student.unit_name || TBC)
             }</dd></div>
-            <div><dt>Preceptor</dt><dd>{student.preceptor_name || TBC}</dd></div>
+            {/* STUDENT-PORTAL-PRECEPTOR-CONTACT-1: one row per active preceptor with
+                the email and phone on their ASPIRE Connect profile. The School row
+                was removed (the header already names the school). */}
+            {preceptors.length === 0 ? (
+              <div><dt>Preceptor</dt><dd>{student.preceptor_name || TBC}</dd></div>
+            ) : preceptors.map(p => (
+              <div key={p.id}>
+                <dt>{p.role ? `${PRECEPTOR_ROLE_LABEL[p.role]} Preceptor` : 'Preceptor'}</dt>
+                <dd>
+                  <span className="ptl-precontact-name">{p.name}</span>
+                  {(p.email || p.phone) && (
+                    <span className="ptl-precontact-lines">
+                      {p.email && <span className="ptl-precontact-line">{p.email}</span>}
+                      {p.phone && (
+                        <a className="ptl-precontact-line ptl-precontact-tel" href={`tel:${p.phone.replace(/[^\d+]/g, '')}`}>{p.phone}</a>
+                      )}
+                    </span>
+                  )}
+                </dd>
+              </div>
+            ))}
             <div><dt>Rotation window</dt><dd>{rotationWindow}</dd></div>
-            <div><dt>School</dt><dd>{student.school || TBC}</dd></div>
           </dl>
         </section>
 
@@ -644,14 +702,58 @@ export default function StudentPortal({
             <h2 className="ptl-section-title">Support</h2>
           </div>
           <div className="ptl-help-actions">
-            <button type="button" className="ptl-help-action" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)">
+            <button type="button" className="ptl-help-action" onClick={onContact} aria-label="Email ASPIRE Team (opens an email compose in a new tab)">
               <span className="ptl-help-action-icon" aria-hidden="true"><Mail size={16} /></span>
               <span className="ptl-help-action-text">
-                <span className="ptl-help-action-title">Contact ASPIRE</span>
+                <span className="ptl-help-action-title">Email ASPIRE Team</span>
                 <span className="ptl-help-action-desc">General questions and anything else. We are glad to help.</span>
               </span>
               <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
             </button>
+            {mailablePreceptors.length > 0 && (
+              <div className="ptl-precontact-action">
+                <button
+                  type="button"
+                  ref={preceptorBtnRef}
+                  className="ptl-help-action"
+                  onClick={onEmailPreceptor}
+                  aria-label={mailablePreceptors.length === 1
+                    ? `Email Preceptor ${mailablePreceptors[0].name} (opens an email compose in a new tab)`
+                    : 'Email Preceptor (choose who to email)'}
+                  {...(mailablePreceptors.length > 1
+                    ? { 'aria-expanded': preceptorPickerOpen, 'aria-controls': 'ptl-precontact-picker' }
+                    : {})}
+                >
+                  <span className="ptl-help-action-icon" aria-hidden="true"><Stethoscope size={16} /></span>
+                  <span className="ptl-help-action-text">
+                    <span className="ptl-help-action-title">Email Preceptor</span>
+                    <span className="ptl-help-action-desc">Your unit leadership and the ASPIRE team are copied.</span>
+                  </span>
+                  <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
+                </button>
+                {preceptorPickerOpen && mailablePreceptors.length > 1 && (
+                  <div
+                    id="ptl-precontact-picker"
+                    className="ptl-precontact-picker"
+                    role="group"
+                    aria-label="Choose who to email"
+                    onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); closePreceptorPicker() } }}
+                  >
+                    <div className="ptl-precontact-picker-title">Who would you like to email?</div>
+                    {mailablePreceptors.map(p => (
+                      <button key={p.id} type="button" className="ptl-precontact-choice" onClick={() => emailPreceptor(p.id)}>
+                        <span className="ptl-precontact-choice-name">{p.name}</span>
+                        {p.role && <span className="ptl-precontact-choice-role">{PRECEPTOR_ROLE_LABEL[p.role]}</span>}
+                      </button>
+                    ))}
+                    <button type="button" className="ptl-precontact-choice" onClick={() => emailPreceptor('all')}>
+                      <span className="ptl-precontact-choice-name">All preceptors</span>
+                      <span className="ptl-precontact-choice-role">{mailablePreceptors.length}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {!readOnlyPreview && <button type="button" ref={editBtnRef} className="ptl-help-action" onClick={() => onOpenProfile?.()}>
               <span className="ptl-help-action-icon" aria-hidden="true"><Pencil size={16} /></span>
               <span className="ptl-help-action-text">
@@ -705,7 +807,7 @@ function ComposeNote({ compose, onDismiss, onCopyEmail, onCopyMessage }) {
   if (compose.kind === 'blocked') {
     return (
       <div className="ptl-compose-note ptl-compose-blocked" role="alert">
-        <div>Your browser blocked the email window. Allow pop-ups or copy {SUPPORT}.</div>
+        <div>Your browser blocked the email window. Allow pop-ups or copy {compose.to || SUPPORT}.</div>
         <div className="ptl-compose-actions">
           <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={onCopyEmail}><Copy size={13} /> Copy email address</button>
           <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={() => onCopyMessage(compose.body)}><Copy size={13} /> Copy message</button>
