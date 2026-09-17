@@ -32,9 +32,10 @@ Rules that follow from the table:
    Vertical margins do not collapse in a flex column, so a bottom margin plus a top margin
    makes 32px, and a missing top margin makes 0px. Both have shipped; neither should again.
 3. **No literal radii, gaps, or header sizes.** `border-radius: 8px` in CSS or
-   `borderRadius: 8` in JSX is a canon violation unless it is a pill (`999px`), a circle
-   (`50%`), or a chip inside a card. `test/uiCanonRatchet.test.mjs` counts literal radii
-   across `src/` and fails if the count goes UP. Lower it when you can; never raise it.
+   `borderRadius: 8` in JSX is a canon violation unless it is a pill
+   (`var(--aspire-radius-pill)`), a circle (`50%`), or a chip inside a card.
+   `test/uiCanonRatchet.test.mjs` counts literal radii across `src/` and fails if the
+   count goes UP. Lower it when you can; never raise it.
 4. **The navy `.tab-bar` is app-level brand chrome and stays navy.** Section navs
    (`.chart-nav`, `.ngrp` nav, `.ptl-nav`) are light with the shared hairline.
 5. **Titles are Title Case; sentences are not.** Section, panel, card, chart and drawer
@@ -45,6 +46,73 @@ Rules that follow from the table:
    real stylesheets against the real sibling order and read `getComputedStyle` and
    `getBoundingClientRect`. Source reading missed two cascade overrides on the day this
    canon shipped; a browser caught both.
+
+## Materials (PLACEMENT-BOARD-FELT-1, 2026-09-17)
+
+A **material** says what a surface is made of. It never sets structure: corner, gap and
+edge still come from the table above, so a textured card is a card. The colours and
+textures are tokens in `src/styles/aspireBrand.css` (`--aspire-board`, `--aspire-leather-cream`,
+`--aspire-on-navy`, `--aspire-piping`, `--aspire-noise-*`, `--aspire-rank-*`); the classes
+that apply them are in `src/styles/aspireMaterials.css`, which a screen imports where it
+uses them (Rotation > Placement Board imports it through
+`src/components/placement/placementBoard.css`). Textures are inline SVG noise, never
+image files, and the materials look the same in light and dark mode; the page around them
+follows the theme.
+
+- `.material-board` (a PALE tint from the KPI filter family, textured with a soft-light
+  whisper - it started as a deep blue felt and read too heavy), `.material-board-head`
+  (a unit board's own header: one step deeper, nightfall ink, no piping),
+  `.material-navy-flat` (a FLAT nightfall header with white ink and the gold piping below
+  it; textured leather and its dashed stitching were cut the same day, for the same
+  reason), `.material-leather-cream`, `.paper-note`, `.material-pin`, `.material-ribbon`.
+- **Nightfall means a pool header.** On the Placement Board it marks the Student Pool and
+  Unit Pool headers and nothing else; a unit board's header is pastel, or the board
+  out-weighs everything inside it and repeats the chrome above it.
+- **A state class must beat `:hover`.** `.pb-unit:hover` is two selectors; `.pb-unit-focused`
+  is one, so hover silently erased the selection ring exactly when the pointer was on the
+  board it marked. Every selected/dragged/focused rule pairs itself with `:hover`.
+- **Keep it quiet.** Every one of those corrections went the same way: less texture, less
+  contrast, less weight. A material is a surface, not a statement; if a new one needs a
+  multiply blend or a saturated ground to read, it is wrong for this app.
+- **Paper is the one square surface.** `.paper-note` has `border-radius: 0` by Owner
+  decision: a rounded sheet reads as a card. Cards, panels and controls keep the tokens.
+- A rank is never colour alone: a pin shows its number, a ribbon and a chip show words.
+  `--aspire-rank-*` are the nearest AA-passing shades to the approved mockup (white on
+  them measures at least 4.5:1); `test/placementBoardFelt.test.mjs` re-measures them.
+- The Student Pool shows every ELIGIBLE student, ordered by `orderPool`
+  (`src/lib/placementBoardView.js`): preference for a focused unit, then interviewed
+  before not-yet-interviewed, then last name. The ASPIRE Status pill is the readiness
+  indicator; there is no readiness filter, and the availability pill appears only for
+  Review or Highly restricted.
+- The Placement Board owns the `pb-*` classes. The NGRP board still wears `embed-*` and
+  `euc-*`; never share a class between the two, and never restyle theirs.
+
+## Placement rank (PLACEMENT-BOARD-FELT-1)
+
+`matches.match_quality` stores `top_choice`, `second_choice`, `third_choice` or `other`,
+decided ONCE at placement by `matchQualityFor` in `src/lib/placementDisplay.js`. Displays
+read the stored value through `matchRankOf`; a rank is never re-derived from unit names,
+and an absent value reads "Match rank not recorded". Placements made before 2026-09-17
+stored a 3rd choice as `other` and keep it. Before shipping any change to these values,
+run `db/audit/match_quality_third_choice_preflight.sql` (read-only): a CHECK constraint
+or enum that does not list the new value would refuse the write in production.
+
+## Unmatching is held, not undone (PLACEMENT-BOARD-FELT-1)
+
+An unmatch cannot be reversed by placing the student again: it clears the primary
+preceptor, reverts the ASPIRE status, and leaves the Notified confirmations keyed to a
+deleted match row. So the board HOLDS the write for `UNDO_WINDOW_MS` instead of offering
+an undo that would quietly lose all three: `src/lib/pendingUnmatch.js` owns the rules
+(one hold at a time, commit before any other write, commit on cohort switch and on
+unmount, Undo only while waiting). If the page closes inside the window nothing was
+written and the student stays placed. Never replace this with a re-placement "undo".
+
+**There is no confirmation dialog** (Owner, 2026-09-17). Pulling a pin pulls the student;
+the window is the safeguard, which is why it is 10s and not 6. What the dialog used to
+promise moved to the Undo toast, which names the consequences of the branch that WILL run
+from the same `planUnmatch` - the successor unit for a survivor case, the cleared
+preceptor for a final one - while the write can still be taken back. A dialog is dismissed
+on reflex; an Undo that is still on screen is not.
 
 ## Tables (UI-CONSISTENCY-3)
 

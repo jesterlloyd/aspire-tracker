@@ -66,8 +66,21 @@ export function totalOpenSlots(units, matches) {
 export const MATCH_RANK_CONFIG = {
   top:          { label: '★ 1st choice match',      color: '#065F46', bg: '#D1FAE5', border: '#059669' },
   second:       { label: '2nd choice match',        color: '#7C5A1F', bg: '#FCEFD4', border: '#B5895A' },
+  third:        { label: '3rd choice match',        color: '#1E2A6E', bg: '#FFFFFF', border: '#1E2A6E' },
   other:        { label: 'Other placement',         color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
   not_recorded: { label: 'Match rank not recorded', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
+}
+
+// PLACEMENT-BOARD-FELT-1: the value createMatch STORES, decided once at the
+// moment of placement from the student's preferences as they stand then. This
+// is the write side of the rank rule above: the name comparison happens here,
+// once, and every later display reads what was stored. Before 2026-09-17 a 3rd
+// choice was stored as 'other'; those rows keep 'other' and display as Other.
+export function matchQualityFor(student, unitName) {
+  if (unitName && unitName === student?.unit_preference_1) return 'top_choice'
+  if (unitName && unitName === student?.unit_preference_2) return 'second_choice'
+  if (unitName && unitName === student?.unit_preference_3) return 'third_choice'
+  return 'other'
 }
 
 /**
@@ -79,18 +92,20 @@ export function matchRankOf(student, match) {
   const q = match?.match_quality ?? student?.match_quality
   if (q === 'top_choice') return 'top'
   if (q === 'second_choice') return 'second'
+  if (q === 'third_choice') return 'third'
   if (q === 'other') return 'other'
   return 'not_recorded'
 }
 
 /** Preference-match counts over placed students, from stored ranks only. */
 export function derivePrefCounts(matchedStudents, matches) {
-  const counts = { top: 0, second: 0, other: 0, notRecorded: 0 }
+  const counts = { top: 0, second: 0, third: 0, other: 0, notRecorded: 0 }
   for (const s of matchedStudents || []) {
     const match = (matches || []).find(m => m.student_id === s.id)
     const rank = matchRankOf(s, match)
     if (rank === 'top') counts.top++
     else if (rank === 'second') counts.second++
+    else if (rank === 'third') counts.third++
     else if (rank === 'other') counts.other++
     else counts.notRecorded++
   }

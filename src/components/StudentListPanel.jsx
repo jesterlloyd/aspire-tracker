@@ -198,18 +198,23 @@ export default function StudentListPanel({
           const matchedUnit = s.matched_unit_id ? units.find(u => u.id === s.matched_unit_id) : null
           const isPlaced    = !!matchedUnit
 
-          // Fix: match_quality is stored as 'top_choice'/'second_choice'/'other'
-          // (set by createMatch in App.jsx). Previously compared against '1st'/'2nd'/'3rd'
-          // which never matched, causing all placed students to show "Other unit."
+          // Fix: match_quality is stored as 'top_choice'/'second_choice'/'third_choice'/'other'
+          // (set by createMatch through matchQualityFor). Previously compared against
+          // '1st'/'2nd'/'3rd', which never matched, causing all placed students to show
+          // "Other unit." PLACEMENT-BOARD-FELT-1: a 3rd choice has its own value since
+          // 2026-09-17; placements made before then stay 'other' and read "Other".
           const mqLabel = s.match_quality === 'top_choice'    ? '1st choice'
                         : s.match_quality === 'second_choice' ? '2nd choice'
-                        : s.match_quality === 'other'         ? '3rd+'
+                        : s.match_quality === 'third_choice'  ? '3rd choice'
+                        : s.match_quality === 'other'         ? 'Other'
                         : null
           const mqBg    = s.match_quality === 'top_choice'    ? '#dcfce7'
                         : s.match_quality === 'second_choice' ? '#fef3c7'
+                        : s.match_quality === 'third_choice'  ? '#e0e7ff'
                         : '#f3f4f6'
           const mqColor = s.match_quality === 'top_choice'    ? '#166534'
                         : s.match_quality === 'second_choice' ? '#92400e'
+                        : s.match_quality === 'third_choice'  ? '#1E2A6E'
                         : '#6b7280'
 
           // Always show the saved preference value; never substitute a catalog label.

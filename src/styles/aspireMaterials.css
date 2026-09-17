@@ -1,0 +1,121 @@
+/* PLACEMENT-BOARD-FELT-1: reusable material surfaces.
+   Every value is a token from aspireBrand.css. A material says what a surface is made
+   of; its corner, gap and edge still come from the card canon, so a felt card is a card.
+   Import this sheet from the screen that uses it (the Placement Board imports it through
+   src/components/placement/placementBoard.css); it is not part of the entry stylesheet.
+   The materials do not change with the theme. */
+
+/* ── Board surface: pale, lightly textured ─────────────────────────────────── */
+/* Owner, 2026-09-17: this was a deep blue felt. It read too heavy beside the rest of
+   the app, so the surface is now a pale tint from the same family as the KPI filter
+   cards, with the noise dropped to a soft-light whisper. White paper still sits on it,
+   with a lighter shadow to match. */
+.material-board {
+  background-color: var(--aspire-board);
+  background-image:
+    var(--aspire-noise-fine),
+    linear-gradient(var(--aspire-board), var(--aspire-board-deep));
+  background-blend-mode: soft-light, normal;
+  /* The inset hairline is what separates the board from its own header, now that
+     the two are both pastel and the gold piping is gone. */
+  box-shadow: inset 0 1px 0 rgba(29, 37, 103, 0.10), inset 0 2px 4px rgba(29, 37, 103, 0.05);
+  color: var(--aspire-on-board);
+}
+
+/* ── Pastel board header ───────────────────────────────────────────────────── */
+/* A unit board's own header. One step deeper than the board it caps, with nightfall
+   ink: it belongs to the board, not to the app chrome, and it carries no piping. */
+.material-board-head {
+  background: var(--aspire-board-head);
+  color: var(--aspire-on-board-strong);
+}
+.material-board-head .material-soft { color: var(--aspire-on-board); }
+.material-board-head .material-chip { color: var(--aspire-on-board-strong); }
+
+/* ── Flat nightfall, finished with gold piping ─────────────────────────────── */
+/* Owner, 2026-09-17: the textured leather header read too heavy above the felt and
+   the cream, so the header is flat nightfall with white ink. The gold piping stays:
+   it is what separates the header from the material below it. */
+.material-navy-flat {
+  position: relative;
+  background: var(--aspire-navy);
+  color: var(--aspire-on-navy);
+  padding-bottom: 14px;
+}
+/* The gold piping: a 3px strip directly below the header. */
+.material-navy-flat::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -3px; height: 3px;
+  background: linear-gradient(var(--aspire-piping), var(--aspire-piping-deep));
+  pointer-events: none;
+  z-index: 1;
+}
+.material-navy-flat .material-soft { color: var(--aspire-on-navy-soft); }
+.material-navy-flat .material-ok   { color: var(--aspire-on-navy-ok); }
+/* Controls sit on the navy as white inlays. */
+.material-navy-flat select,
+.material-navy-flat input,
+.material-navy-flat button.material-inlay {
+  background-color: rgba(255, 255, 255, 0.92);
+  color: var(--aspire-paper-ink);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  border-radius: var(--aspire-radius-control);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Cream leather ─────────────────────────────────────────────────────────── */
+.material-leather-cream {
+  background-color: var(--aspire-leather-cream);
+  background-image:
+    var(--aspire-noise-grain),
+    var(--aspire-noise-fine),
+    linear-gradient(var(--aspire-leather-cream), var(--aspire-leather-cream-deep));
+  background-blend-mode: soft-light, soft-light, normal;
+  box-shadow: inset 0 2px 6px rgba(80, 60, 20, 0.18);
+}
+.material-cream-label {
+  color: var(--aspire-on-cream-label);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── White paper ───────────────────────────────────────────────────────────── */
+/* A plain rectangle with SHARP corners (Owner, 2026-09-17): a rounded sheet reads
+   as a card, and this is meant to read as paper. No folded corner either. Cards,
+   panels and controls keep the radius tokens; paper is the one square surface. */
+.paper-note {
+  background: var(--aspire-paper);
+  color: var(--aspire-paper-ink);
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--aspire-shadow-note);
+}
+.paper-note .material-soft { color: var(--aspire-paper-ink-soft); }
+
+/* ── Pins and ribbons ──────────────────────────────────────────────────────── */
+.material-pin {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: 50%;
+  color: #fff;
+  font: 700 12px/1 var(--aspire-sans);
+  box-shadow:
+    0 3px 4px rgba(0, 0, 0, 0.3),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.25),
+    inset 2px 2px 3px rgba(255, 255, 255, 0.45);
+}
+.material-ribbon {
+  display: inline-block;
+  padding: 5px 10px 9px;
+  color: #fff;
+  font: 700 10px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  white-space: nowrap;
+}
+.material-rank-first  { background-color: var(--aspire-rank-first); }
+.material-rank-second { background-color: var(--aspire-rank-second); }
+.material-rank-third  { background-color: var(--aspire-rank-third); }
+.material-rank-other  { background-color: var(--aspire-rank-other); }

@@ -24,7 +24,7 @@ test('initial server state cannot overwrite or manufacture a browser draft befor
 test('the shared toast API remains stable when toast state changes', () => {
   assert.match(toastSource, /useMemo/)
   assert.match(toastSource, /const toast = useMemo\(\(\) => \(\{/)
-  assert.match(toastSource, /\}\), \[addToast\]\)/)
+  assert.match(toastSource, /\}\), \[addToast(, removeToast)?\]\)/)
 })
 
 test('auto-filled interviewer identity is not treated as draft content', () => {

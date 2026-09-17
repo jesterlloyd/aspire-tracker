@@ -30,7 +30,9 @@ export default function RotationTab(props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '0 20px 12px', flexShrink: 0 }}>
+      {/* UI canon: a section nav sits --aspire-page-top (24px) above the first card,
+          and a card carries --aspire-gap-card (16px) itself - so the nav contributes 8. */}
+      <div style={{ padding: '0 20px 8px', flexShrink: 0 }}>
         <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--border-input,rgba(29,37,103,0.10))', overflow: 'hidden', width: 'fit-content' }}>
           {/* ASPIRE-CHART approved rename: the visible label is honest - this
               is a click-to-place board, not a matrix. Route unchanged. */}
