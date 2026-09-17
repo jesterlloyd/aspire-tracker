@@ -610,7 +610,7 @@ export default function EmbedUnitCard({
         <span id={hintId} className="sr-only">{boardHint}</span>
 
         {/* ── Leather header: identity, capacity, unit-leader status ── */}
-        <header className="material-navy-flat pb-unit-hdr">
+        <header className="material-board-head pb-unit-hdr">
           <div className="pb-unit-hdr-top">
             <h3 className="pb-unit-name">{unit.unit_name}</h3>
             {/* Owner, 2026-09-17: the division pill left the board. The Division

@@ -60,10 +60,17 @@ image files, and the materials look the same in light and dark mode; the page ar
 follows the theme.
 
 - `.material-board` (a PALE tint from the KPI filter family, textured with a soft-light
-  whisper - it started as a deep blue felt and read too heavy), `.material-navy-flat`
-  (a FLAT nightfall header with white ink and the gold piping below it; textured leather
-  and its dashed stitching were cut the same day, for the same reason),
-  `.material-leather-cream`, `.paper-note`, `.material-pin`, `.material-ribbon`.
+  whisper - it started as a deep blue felt and read too heavy), `.material-board-head`
+  (a unit board's own header: one step deeper, nightfall ink, no piping),
+  `.material-navy-flat` (a FLAT nightfall header with white ink and the gold piping below
+  it; textured leather and its dashed stitching were cut the same day, for the same
+  reason), `.material-leather-cream`, `.paper-note`, `.material-pin`, `.material-ribbon`.
+- **Nightfall means a pool header.** On the Placement Board it marks the Student Pool and
+  Unit Pool headers and nothing else; a unit board's header is pastel, or the board
+  out-weighs everything inside it and repeats the chrome above it.
+- **A state class must beat `:hover`.** `.pb-unit:hover` is two selectors; `.pb-unit-focused`
+  is one, so hover silently erased the selection ring exactly when the pointer was on the
+  board it marked. Every selected/dragged/focused rule pairs itself with `:hover`.
 - **Keep it quiet.** Every one of those corrections went the same way: less texture, less
   contrast, less weight. A material is a surface, not a statement; if a new one needs a
   multiply blend or a saturated ground to read, it is wrong for this app.

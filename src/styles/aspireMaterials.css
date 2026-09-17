@@ -20,6 +20,16 @@
   color: var(--aspire-on-board);
 }
 
+/* ── Pastel board header ───────────────────────────────────────────────────── */
+/* A unit board's own header. One step deeper than the board it caps, with nightfall
+   ink: it belongs to the board, not to the app chrome, and it carries no piping. */
+.material-board-head {
+  background: var(--aspire-board-head);
+  color: var(--aspire-on-board-strong);
+}
+.material-board-head .material-soft { color: var(--aspire-on-board); }
+.material-board-head .material-chip { color: var(--aspire-on-board-strong); }
+
 /* ── Flat nightfall, finished with gold piping ─────────────────────────────── */
 /* Owner, 2026-09-17: the textured leather header read too heavy above the felt and
    the cream, so the header is flat nightfall with white ink. The gold piping stays:

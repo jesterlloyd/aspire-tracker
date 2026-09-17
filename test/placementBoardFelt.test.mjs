@@ -216,7 +216,7 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
     assert.ok(brand.includes(t), `${t} is a brand token`)
   }
   const materials = read('src/styles/aspireMaterials.css')
-  for (const c of ['.material-board', '.material-navy-flat', '.material-leather-cream', '.paper-note', '.material-pin', '.material-ribbon']) {
+  for (const c of ['.material-board', '.material-board-head', '.material-navy-flat', '.material-leather-cream', '.paper-note', '.material-pin', '.material-ribbon']) {
     assert.ok(materials.includes(`${c} {`), `${c} exists`)
   }
   for (const [name, css] of [['aspireMaterials.css', materials], ['placementBoard.css', CSS()]]) {
@@ -233,6 +233,11 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
   assert.match(materials, /\.material-navy-flat \{[^}]*background: var\(--aspire-navy\);[^}]*color: var\(--aspire-on-navy\);/)
   // Owner, 2026-09-17: the board surface is a PALE tint, textured with soft-light only.
   assert.match(materials, /\.material-board \{[^}]*background-blend-mode: soft-light, normal;/)
+  // A unit board's header is pastel with nightfall ink, and carries no piping: on this
+  // board nightfall means a POOL header and nothing else.
+  assert.match(materials, /\.material-board-head \{[^}]*background: var\(--aspire-board-head\);[^}]*color: var\(--aspire-on-board-strong\);/)
+  assert.match(read('src/components/EmbedUnitCard.jsx'), /<header className="material-board-head pb-unit-hdr">/)
+  assert.ok(!/\.material-board-head[^{]*\{[^}]*::before/.test(materials), 'no piping on a board header')
   assert.ok(!/multiply/.test(materials), 'no multiply blend: that is what made the felt heavy')
   assert.ok(!materials.includes('noise') || !/\.material-navy-flat \{[^}]*noise/.test(materials),
     'no texture on the header')
@@ -273,7 +278,10 @@ test('A11Y 1: boards and notes are keyboard targets with the specified labels', 
   assert.match(note, /role=\{interactive \? 'button' : undefined\}/)
   assert.match(note, /tabIndex=\{interactive \? 0 : undefined\}/)
   assert.match(TAB(), /role="status" aria-live="polite" data-testid="board-announcer"/)
-  assert.match(CSS(), /\.pb-unit:focus-visible,\s*\.pb-unit-focused \{ box-shadow: 0 0 0 3px var\(--pb-ring\)/)
+  // The ring must survive a hover: `.pb-unit:hover` is the more specific selector, so
+  // without the :hover pair the selection outline vanished under the pointer.
+  assert.match(CSS(), /\.pb-unit:focus-visible,\s*\.pb-unit-focused,\s*\.pb-unit-focused:hover \{ box-shadow: 0 0 0 3px var\(--pb-ring\)/)
+  assert.match(CSS(), /\.pb-unit-drop,\s*\.pb-unit-drop:hover \{/)
 })
 
 test('A11Y 2: rank is never colour alone - pins carry a number, ribbons and chips carry words', () => {

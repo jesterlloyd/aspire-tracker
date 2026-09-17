@@ -85,14 +85,19 @@
      screen uses them. Structure still comes from the tokens above: a material changes
      what a surface is made of, never its radius, gap or edge. Materials look the same
      in light and dark mode; the page around them follows the theme.
-     Textures are inline SVG noise, so no image file ships. Two Owner corrections on
-     2026-09-17, three Owner corrections: the dashed stitching went (the gold piping
-     already separated the header from the material below it); the header went FLAT
-     nightfall with white ink; and the deep blue felt became a PALE board surface from
-     the same tint family as the KPI filter cards, because the felt read too heavy for
-     the rest of the app. The texture survives as a whisper, not a weave. */
-  --aspire-board: #EDF0F7;
-  --aspire-board-deep: #E4E9F5;
+     Textures are inline SVG noise, so no image file ships.
+     Four Owner corrections on 2026-09-17, all pulling the same way - quieter:
+       1. the dashed stitching went; the gold piping already separated the pool header
+          from the material below it;
+       2. the pool header went FLAT nightfall with white ink, not textured leather;
+       3. the deep blue felt became a PALE board surface from the same tint family as
+          the KPI filter cards, its texture a whisper rather than a weave;
+       4. a unit board's own header went pastel too, because nightfall there repeated
+          the Student Pool / Unit Pool headers and out-weighed everything inside it.
+     Nightfall now means ONE thing on this board: a pool header. */
+  --aspire-board: #EFF2F9;
+  --aspire-board-deep: #E7ECF6;
+  --aspire-board-head: #DFE5F3;
   --aspire-board-line: rgba(29, 37, 103, 0.22);
   --aspire-leather-cream: #F4ECD8;
   --aspire-leather-cream-deep: #E9DDC0;
@@ -103,6 +108,7 @@
   --aspire-on-navy-ok: #8BE3B6;
   --aspire-on-cream-label: #5A4A22;
   --aspire-on-board: #4A5560;
+  --aspire-on-board-strong: #1D2567;
   --aspire-paper: #FFFFFF;
   --aspire-paper-ink: #18203F;
   --aspire-paper-ink-soft: #5E6480;
