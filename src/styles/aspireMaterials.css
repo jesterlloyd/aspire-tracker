@@ -5,16 +5,19 @@
    src/components/placement/placementBoard.css); it is not part of the entry stylesheet.
    The materials do not change with the theme. */
 
-/* ── Blue felt ─────────────────────────────────────────────────────────────── */
-.material-felt {
-  background-color: var(--aspire-felt);
+/* ── Board surface: pale, lightly textured ─────────────────────────────────── */
+/* Owner, 2026-09-17: this was a deep blue felt. It read too heavy beside the rest of
+   the app, so the surface is now a pale tint from the same family as the KPI filter
+   cards, with the noise dropped to a soft-light whisper. White paper still sits on it,
+   with a lighter shadow to match. */
+.material-board {
+  background-color: var(--aspire-board);
   background-image:
     var(--aspire-noise-fine),
-    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.12), transparent 70%),
-    linear-gradient(var(--aspire-felt), var(--aspire-felt-deep));
-  background-blend-mode: multiply, normal, normal;
-  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  color: var(--aspire-on-felt);
+    linear-gradient(var(--aspire-board), var(--aspire-board-deep));
+  background-blend-mode: soft-light, normal;
+  box-shadow: inset 0 1px 3px rgba(29, 37, 103, 0.10);
+  color: var(--aspire-on-board);
 }
 
 /* ── Flat nightfall, finished with gold piping ─────────────────────────────── */

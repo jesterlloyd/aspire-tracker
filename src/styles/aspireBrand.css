@@ -86,11 +86,14 @@
      what a surface is made of, never its radius, gap or edge. Materials look the same
      in light and dark mode; the page around them follows the theme.
      Textures are inline SVG noise, so no image file ships. Two Owner corrections on
-     2026-09-17: the dashed stitching went (the gold piping already separated the
-     header from the material below it), and the header itself went FLAT nightfall with
-     white ink, because textured leather read too heavy above the felt and the cream. */
-  --aspire-felt: #2A56A3;
-  --aspire-felt-deep: #1D3F7E;
+     2026-09-17, three Owner corrections: the dashed stitching went (the gold piping
+     already separated the header from the material below it); the header went FLAT
+     nightfall with white ink; and the deep blue felt became a PALE board surface from
+     the same tint family as the KPI filter cards, because the felt read too heavy for
+     the rest of the app. The texture survives as a whisper, not a weave. */
+  --aspire-board: #EDF0F7;
+  --aspire-board-deep: #E4E9F5;
+  --aspire-board-line: rgba(29, 37, 103, 0.22);
   --aspire-leather-cream: #F4ECD8;
   --aspire-leather-cream-deep: #E9DDC0;
   --aspire-piping: #C9B27A;
@@ -99,13 +102,12 @@
   --aspire-on-navy-soft: rgba(255, 255, 255, 0.78);
   --aspire-on-navy-ok: #8BE3B6;
   --aspire-on-cream-label: #5A4A22;
-  /* 0.92, not 0.8: at 0.8 the slot label measured 4.49:1 on felt, just under AA. */
-  --aspire-on-felt: rgba(244, 236, 216, 0.92);
+  --aspire-on-board: #4A5560;
   --aspire-paper: #FFFFFF;
   --aspire-paper-ink: #18203F;
   --aspire-paper-ink-soft: #5E6480;
-  --aspire-shadow-note: 0 1px 1px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.28);
-  --aspire-shadow-note-lift: 0 2px 2px rgba(0, 0, 0, 0.2), 0 8px 16px rgba(0, 0, 0, 0.3);
+  --aspire-shadow-note: 0 1px 2px rgba(16, 24, 64, 0.10), 0 6px 14px rgba(16, 24, 64, 0.12);
+  --aspire-shadow-note-lift: 0 2px 4px rgba(16, 24, 64, 0.12), 0 10px 22px rgba(16, 24, 64, 0.16);
   /* Rank colours for pins and ribbons. White numbers sit on them, so each is the nearest
      shade to the approved mockup that measures at least 4.5:1 against white (the mockup's
      #14935E, #C07A12 and #8A90A2 measured 3.9, 3.5 and 3.2). The rank is always also

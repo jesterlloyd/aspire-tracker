@@ -69,17 +69,7 @@
   white-space: nowrap; flex-shrink: 0;
 }
 
-/* Theme-following strips between the leather and the pool body. */
-.pb-helper {
-  flex-shrink: 0;
-  display: flex; align-items: center; gap: 8px;
-  margin: 10px 14px 12px;
-  padding: 9px 12px;
-  border: 1px dashed var(--pb-page-line);
-  border-radius: var(--aspire-radius-control);
-  font-size: 12px; line-height: 1.45;
-  color: var(--pb-page-ink);
-}
+/* The pin legend sits between the header and the boards. */
 .pb-legend {
   flex-shrink: 0;
   display: flex; flex-wrap: wrap; gap: 6px 16px;
@@ -283,7 +273,7 @@
 .pb-pin-anchor { position: absolute; top: -11px; left: 50%; display: block; line-height: 0; transform: translateX(-50%); z-index: 2; }
 .pb-pin { cursor: pointer; transition: transform 0.15s ease; }
 .pb-pin:hover, .pb-pin:focus-visible { transform: translateY(-3px); }
-.pb-pin:focus-visible { outline: 3px solid var(--aspire-leather-cream); outline-offset: 2px; }
+.pb-pin:focus-visible { outline: 3px solid var(--aspire-navy); outline-offset: 2px; }
 .pb-pin-static { cursor: default; }
 .pb-pin-static:hover { transform: none; }
 .pb-pinned-note { padding: 18px 16px 14px; cursor: default; }
@@ -326,24 +316,36 @@
 .pb-open-slot {
   display: flex; align-items: center; justify-content: center;
   min-height: 52px;
-  border: 2px dashed rgba(244, 236, 216, 0.6);
+  border: 2px dashed var(--aspire-board-line);
   border-radius: var(--aspire-radius-control);
-  color: var(--aspire-on-felt);
+  color: var(--aspire-on-board);
   font: 600 11px/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   letter-spacing: 0.12em; text-transform: uppercase;
 }
 
 /* The drag badge: a pin-sized green (+) that follows the cursor while a dragged
    note is over a board with an open slot. Hidden otherwise, and never a drop target. */
-/* Bigger than a pin, ringed in white, and above everything: the browser's own drag
-   image is suppressed (see MatchingTab) so this is the only thing under the cursor. */
-.pb-drag-badge {
+/* What the board draws under the cursor during a drag: the student's name, and the
+   green (+) once the board underneath has an open slot. The browser's own drag image
+   is suppressed (see MatchingTab), so this is the only thing following the pointer. */
+.pb-drag-ghost {
   position: fixed; top: 0; left: 0; z-index: 2147483647;
-  width: 28px; height: 28px;
-  font-size: 15px;
-  box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(0, 0, 0, 0.45);
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  background: var(--aspire-paper); color: var(--aspire-paper-ink);
+  box-shadow: var(--aspire-shadow-note-lift);
+  font-family: var(--aspire-sans); font-size: 13px; font-weight: 700;
+  white-space: nowrap;
   opacity: 0;
   pointer-events: none;
+  transform: translate3d(-9999px, -9999px, 0);
+  transition: opacity 0.12s ease;
+}
+.pb-drag-badge {
+  width: 26px; height: 26px;
+  font-size: 15px;
+  flex-shrink: 0;
+  opacity: 0;
   transition: opacity 0.1s ease;
 }
 /* The note being dragged recedes, so it is clear which one is moving. */

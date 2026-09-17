@@ -153,7 +153,6 @@ export default function Tooltip({
         top:        pos.top,
         left:       pos.left,
         background: tone === 'contrast' ? 'rgba(9, 12, 28, 0.94)' : '#1D2567',
-        border:     tone === 'contrast' ? '1px solid rgba(255, 255, 255, 0.22)' : 'none',
         color:      '#ffffff',
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize:   '12px',

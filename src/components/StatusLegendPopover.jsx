@@ -141,7 +141,10 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
           top: tooltipPos.top,
           left: tooltipPos.left,
           transform: 'translateX(-50%)',
-          background: '#1D2567', color: '#ffffff',
+          // On a nightfall header the default nightfall bubble disappears into its
+          // own background, so the dark surfaces get the near-black one (same as the
+          // Placement Board's tooltips).
+          background: dark ? 'rgba(9, 12, 28, 0.94)' : '#1D2567', color: '#ffffff',
           fontFamily: 'Plus Jakarta Sans', fontSize: '11px', fontWeight: 500,
           padding: '4px 10px', borderRadius: '6px',
           whiteSpace: 'nowrap', pointerEvents: 'none',

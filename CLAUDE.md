@@ -50,8 +50,8 @@ Rules that follow from the table:
 ## Materials (PLACEMENT-BOARD-FELT-1, 2026-09-17)
 
 A **material** says what a surface is made of. It never sets structure: corner, gap and
-edge still come from the table above, so a felt card is a card. The colours and textures
-are tokens in `src/styles/aspireBrand.css` (`--aspire-felt`, `--aspire-leather-cream`,
+edge still come from the table above, so a textured card is a card. The colours and
+textures are tokens in `src/styles/aspireBrand.css` (`--aspire-board`, `--aspire-leather-cream`,
 `--aspire-on-navy`, `--aspire-piping`, `--aspire-noise-*`, `--aspire-rank-*`); the classes
 that apply them are in `src/styles/aspireMaterials.css`, which a screen imports where it
 uses them (Rotation > Placement Board imports it through
@@ -59,10 +59,14 @@ uses them (Rotation > Placement Board imports it through
 image files, and the materials look the same in light and dark mode; the page around them
 follows the theme.
 
-- `.material-felt`, `.material-navy-flat` (a FLAT nightfall header with white ink and the
-  gold piping below it; textured leather and its dashed stitching were both cut on
-  2026-09-17 for reading too heavy), `.material-leather-cream`, `.paper-note`,
-  `.material-pin`, `.material-ribbon`.
+- `.material-board` (a PALE tint from the KPI filter family, textured with a soft-light
+  whisper - it started as a deep blue felt and read too heavy), `.material-navy-flat`
+  (a FLAT nightfall header with white ink and the gold piping below it; textured leather
+  and its dashed stitching were cut the same day, for the same reason),
+  `.material-leather-cream`, `.paper-note`, `.material-pin`, `.material-ribbon`.
+- **Keep it quiet.** Every one of those corrections went the same way: less texture, less
+  contrast, less weight. A material is a surface, not a statement; if a new one needs a
+  multiply blend or a saturated ground to read, it is wrong for this app.
 - **Paper is the one square surface.** `.paper-note` has `border-radius: 0` by Owner
   decision: a rounded sheet reads as a card. Cards, panels and controls keep the tokens.
 - A rank is never colour alone: a pin shows its number, a ribbon and a chip show words.

@@ -7,7 +7,7 @@ import StudentMatchingCard from './StudentMatchingCard'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
-import { Users, MapPin, Info } from 'lucide-react'
+import { Users, MapPin } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { canPerformMatching } from '../lib/permissions'
@@ -628,8 +628,20 @@ export default function MatchingTab({
   const [draggingStudentId, setDraggingStudentId] = useState(null)
   const [pullRequest, setPullRequest] = useState(null)
 
+  // The board draws what follows the cursor. The browser's own drag image is
+  // suppressed (a 1x1 transparent GIF) because it covered the badge, and with it
+  // suppressed nothing was visibly moving - so this element carries BOTH: the
+  // student's name, and the green (+) that appears over a board with an open slot.
+  const ghostRef = useRef(null)
+  const ghostNameRef = useRef(null)
   const badgeRef = useRef(null)
   const badgeWanted = useRef(false)
+  const moveGhost = (e) => {
+    const ghost = ghostRef.current
+    if (!ghost || (!e.clientX && !e.clientY)) return   // the last drag event reports 0,0
+    ghost.style.transform = `translate3d(${e.clientX + 14}px, ${e.clientY + 14}px, 0)`
+    ghost.style.opacity = '1'
+  }
   // A 1x1 transparent GIF, built once: it replaces the browser's own drag image,
   // which is a translucent copy of the note and used to cover the badge.
   const [dragGhost] = useState(() => {
@@ -640,25 +652,36 @@ export default function MatchingTab({
   })
   const showBadgeAt = (e) => {
     badgeWanted.current = true
-    const badge = badgeRef.current
-    if (!badge) return
-    badge.style.transform = `translate3d(${e.clientX + 14}px, ${e.clientY + 14}px, 0)`
-    badge.style.opacity = '1'
+    moveGhost(e)
+    if (badgeRef.current) badgeRef.current.style.opacity = '1'
   }
   const hideBadge = () => {
-    const badge = badgeRef.current
-    if (badge) badge.style.opacity = '0'
+    if (badgeRef.current) badgeRef.current.style.opacity = '0'
+  }
+  const hideGhost = () => {
+    if (ghostRef.current) {
+      ghostRef.current.style.opacity = '0'
+      ghostRef.current.style.transform = 'translate3d(-9999px, -9999px, 0)'
+    }
+    hideBadge()
   }
 
   // Runs last (document is the end of the bubble path), so it sees whether any board
   // asked for the badge during THIS dragover and hides it when none did.
-  const onDocumentDragOver = () => {
+  const onDocumentDragOver = (e) => {
+    // Keeps the ghost with the cursor over drop targets, which swallow `drag`.
+    moveGhost(e)
     if (!badgeWanted.current) hideBadge()
     badgeWanted.current = false
   }
+  // `drag` fires on the source throughout, so the ghost moves everywhere, not only
+  // over a board.
+  const onDocumentDrag = (e) => moveGhost(e)
 
   const startDrag = (e, payload) => {
+    if (ghostNameRef.current) ghostNameRef.current.textContent = payload.name
     document.addEventListener('dragover', onDocumentDragOver)
+    document.addEventListener('drag', onDocumentDrag)
     dragRef.current = payload
     setDragKind(payload.kind)
     setDraggingStudentId(payload.studentId)
@@ -671,8 +694,9 @@ export default function MatchingTab({
   const endDrag = () => {
     setDraggingStudentId(null)
     document.removeEventListener('dragover', onDocumentDragOver)
+    document.removeEventListener('drag', onDocumentDrag)
     badgeWanted.current = false
-    hideBadge()
+    hideGhost()
     dragRef.current = null
     setDragKind(null)
     setDropUnitId(null)
@@ -803,9 +827,13 @@ export default function MatchingTab({
         poolSchools={poolSchools}
       />
 
-      {/* The drag badge. Hidden until a dragged note is over a board with an open
-          slot; moved by the dragover handler, never by a re-render. */}
-      <span ref={badgeRef} className="pb-drag-badge material-pin material-rank-first" aria-hidden="true">+</span>
+      {/* What follows the cursor during a drag: the student's name, plus the green
+          (+) once the board underneath has an open slot. Moved imperatively, so a
+          drag at 60Hz never re-renders the board. */}
+      <div ref={ghostRef} className="pb-drag-ghost" aria-hidden="true">
+        <span ref={ghostNameRef} className="pb-drag-ghost-name" />
+        <span ref={badgeRef} className="pb-drag-badge material-pin material-rank-first">+</span>
+      </div>
 
       {/* Screen-reader announcements for selections, placements and unmatches. */}
       <div className="sr-only" role="status" aria-live="polite" data-testid="board-announcer">{announcement}</div>
@@ -836,10 +864,6 @@ export default function MatchingTab({
               </select>
             </header>
 
-            <div className="pb-helper">
-              <Info size={14} aria-hidden="true" />
-              <span>Click a student to see their top 3 units. Drag a note onto a board, or click a student and then a board.</span>
-            </div>
 
             <div className="material-leather-cream pb-pool-body">
               {focusedUnit && (
@@ -922,10 +946,6 @@ export default function MatchingTab({
               <span><i className="pb-dot material-rank-second" aria-hidden="true" />2nd choice</span>
               <span><i className="pb-dot material-rank-third" aria-hidden="true" />3rd choice</span>
               <span><i className="pb-dot material-rank-other" aria-hidden="true" />Other</span>
-            </div>
-            <div className="pb-helper">
-              <Info size={14} aria-hidden="true" />
-              <span>Click a unit to surface students who picked it as their top choice, ranked by preference.</span>
             </div>
 
             <div className="pb-units-body">

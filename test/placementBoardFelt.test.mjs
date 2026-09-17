@@ -210,13 +210,13 @@ test('LAYOUT 3: the NGRP board keeps its own classes; this board shares none of 
 
 test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal radius', () => {
   const brand = read('src/styles/aspireBrand.css')
-  for (const t of ['--aspire-felt:', '--aspire-felt-deep:', '--aspire-on-navy:',
+  for (const t of ['--aspire-board:', '--aspire-board-deep:', '--aspire-on-navy:',
     '--aspire-leather-cream:', '--aspire-piping:', '--aspire-noise-fine:', '--aspire-noise-grain:',
     '--aspire-radius-pill:']) {
     assert.ok(brand.includes(t), `${t} is a brand token`)
   }
   const materials = read('src/styles/aspireMaterials.css')
-  for (const c of ['.material-felt', '.material-navy-flat', '.material-leather-cream', '.paper-note', '.material-pin', '.material-ribbon']) {
+  for (const c of ['.material-board', '.material-navy-flat', '.material-leather-cream', '.paper-note', '.material-pin', '.material-ribbon']) {
     assert.ok(materials.includes(`${c} {`), `${c} exists`)
   }
   for (const [name, css] of [['aspireMaterials.css', materials], ['placementBoard.css', CSS()]]) {
@@ -231,6 +231,9 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
   assert.match(materials, /\.material-navy-flat::before \{[^}]*var\(--aspire-piping\)/)
   // Owner, 2026-09-17: the header is FLAT nightfall with white ink, not textured leather.
   assert.match(materials, /\.material-navy-flat \{[^}]*background: var\(--aspire-navy\);[^}]*color: var\(--aspire-on-navy\);/)
+  // Owner, 2026-09-17: the board surface is a PALE tint, textured with soft-light only.
+  assert.match(materials, /\.material-board \{[^}]*background-blend-mode: soft-light, normal;/)
+  assert.ok(!/multiply/.test(materials), 'no multiply blend: that is what made the felt heavy')
   assert.ok(!materials.includes('noise') || !/\.material-navy-flat \{[^}]*noise/.test(materials),
     'no texture on the header')
   assert.ok(!/url\((?!"data:|%23|\s*var)/.test(materials + CSS()), 'textures are inline data URIs, no image files')
@@ -247,6 +250,9 @@ test('MATERIAL 2: white numbers on every rank colour meet WCAG AA (4.5:1)', () =
     const ratio = 1.05 / (lum(hex) + 0.05)
     assert.ok(ratio >= 4.5, `white on ${rank} ${hex} is ${ratio.toFixed(2)}:1`)
   }
+  // The slot label on the pale board surface.
+  const onBoard = lum('#4A5560'), board = lum('#EDF0F7')
+  assert.ok((board + 0.05) / (onBoard + 0.05) >= 4.5, 'slot label on the board surface')
   // White ink, and the soft variant, on the flat nightfall header.
   const navy = lum('#1D2567')
   assert.ok(1.05 / (navy + 0.05) >= 4.5, 'white text on nightfall')
@@ -334,7 +340,7 @@ test('POOL ORDER: alphabetical, not-yet-interviewed last, and a pick outranks bo
 
 test('POOL HEADER: only the School filter, and it sits after the spacer', () => {
   const tab = TAB()
-  const header = tab.slice(tab.indexOf('aria-label="Student Pool"'), tab.indexOf('<div className="pb-helper">'))
+  const header = tab.slice(tab.indexOf('aria-label="Student Pool"'), tab.indexOf('pb-pool-body'))
   for (const gone of ['pb-search', 'pool-readiness', 'Sort students', 'pb-stepper', 'Previous student']) {
     assert.ok(!header.includes(gone), `${gone} left the Student Pool header`)
   }
@@ -347,6 +353,9 @@ test('POOL HEADER: only the School filter, and it sits after the spacer', () => 
 test('UNIT HEADER: only the Division filter, no sort, no Export CSV, no division pills', () => {
   const tab = TAB()
   const header = tab.slice(tab.indexOf('aria-label="Unit Pool"'), tab.indexOf('<div className="pb-legend"'))
+  // Owner, 2026-09-17: both helper strips are gone; the board explains itself.
+  assert.ok(!tab.includes('pb-helper'), 'no helper strip remains')
+  assert.ok(!tab.includes('Click a unit to surface'), 'and neither does its copy')
   assert.ok(header.indexOf('<span className="pb-hdr-spacer" />') < header.indexOf('aria-label="Division"'),
     'the Division filter is on the far right')
   for (const gone of ['Sort units', 'Export CSV', 'exportCSV']) {
@@ -370,15 +379,23 @@ test('NOTE: status pill always, availability pill only when it warrants a look, 
   assert.match(css, /\.pb-note-top3 \{[^}]*max-width: 46%;/, 'the list is a column beside the name, not under it')
 })
 
-test('DRAG BADGE: shown only over a board with an open slot, and it never re-renders the board', () => {
+test('DRAG GHOST: the board draws what follows the cursor, badge only over an open slot', () => {
   const tab = TAB()
   const over = tab.slice(tab.indexOf('onBoardDragOver:'), tab.indexOf('onBoardDragLeave:'))
   assert.match(over, /const room = live\.matches\.filter\(m => m\.unit_id === unit\.id\)\.length < unit\.total_slots/)
   assert.match(over, /if \(room\) showBadgeAt\(e\); else hideBadge\(\)/)
   assert.match(over, /dropEffect = room \? 'move' : 'none'/)
   // Moved imperatively through a ref: a dragover at 60Hz must not set state.
-  assert.match(tab, /badge\.style\.transform = `translate3d\(/)
+  assert.match(tab, /ghost\.style\.transform = `translate3d\(/)
   assert.ok(!/showBadgeAt[\s\S]{0,200}setState|setBadge/.test(tab), 'no badge state')
-  assert.match(tab, /<span ref=\{badgeRef\} className="pb-drag-badge material-pin material-rank-first" aria-hidden="true">\+<\/span>/)
-  assert.match(CSS(), /\.pb-drag-badge \{[^}]*position: fixed;[^}]*opacity: 0;[^}]*pointer-events: none;/)
+  // The browser's own drag image is suppressed, so the board MUST draw something:
+  // otherwise nothing visibly moves (the Owner saw exactly that).
+  assert.match(tab, /setDragImage\(dragGhost, 0, 0\)/)
+  assert.match(tab, /<div ref=\{ghostRef\} className="pb-drag-ghost" aria-hidden="true">/)
+  assert.match(tab, /<span ref=\{ghostNameRef\} className="pb-drag-ghost-name" \/>/)
+  assert.match(tab, /<span ref=\{badgeRef\} className="pb-drag-badge material-pin material-rank-first">\+<\/span>/)
+  assert.match(tab, /ghostNameRef\.current\.textContent = payload\.name/)
+  // `drag` fires on the source everywhere; `dragover` covers drop targets that swallow it.
+  assert.match(tab, /document\.addEventListener\('drag', onDocumentDrag\)/)
+  assert.match(CSS(), /\.pb-drag-ghost \{[^}]*position: fixed;[^}]*opacity: 0;[^}]*pointer-events: none;/)
 })

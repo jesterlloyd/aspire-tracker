@@ -659,7 +659,7 @@ export default function EmbedUnitCard({
         </header>
 
         {/* ── Felt body: pinned notes, then open slots ── */}
-        <div className="material-felt pb-unit-body">
+        <div className="material-board pb-unit-body">
           {highlightRank && (
             <span
               className={`material-ribbon material-rank-${RANK_TONE[highlightRank]} pb-ribbon`}
