@@ -57,7 +57,7 @@ function shiftPreferenceChip(shiftAvailability) {
 
 export default function StudentMatchingCard({
   student, isSelected, onSelect, isReadOnly,
-  isFading, isFadingIn, isDimmed = false, isPending = false,
+  isFading, isFadingIn, isDimmed = false, isPending = false, isDragging = false,
   units, matches, focusedUnit, rotation,
   onDragStart, onDragEnd,
 }) {
@@ -91,6 +91,7 @@ export default function StudentMatchingCard({
     isSelected ? 'pb-note-selected' : '',
     isDimmed   ? 'pb-note-dimmed'   : '',
     isPending  ? 'pb-note-pending'  : '',
+    isDragging ? 'pb-note-dragging' : '',
     interactive ? 'pb-note-interactive' : '',
     isFading   ? 'smc-exit'  : '',
     isFadingIn ? 'smc-enter' : '',

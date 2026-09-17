@@ -59,7 +59,7 @@
 }
 .pb-pool-hdr .pb-select:focus-visible,
 .pb-pool-hdr button:focus-visible {
-  outline: 3px solid var(--aspire-on-leather);
+  outline: 3px solid var(--aspire-on-navy);
   outline-offset: 1px;
 }
 .pb-hdr-spacer { flex: 1 1 0; }
@@ -204,7 +204,10 @@
   /* At least 270px a board, and never more than two across. */
   grid-template-columns: repeat(auto-fill, minmax(max(270px, calc((100% - var(--aspire-gap-card)) / 2)), 1fr));
   gap: var(--aspire-gap-card);
-  align-items: start;
+  /* Owner, 2026-09-17: boards in a row are the same height, so reordering for a
+     selected student never leaves a ragged gap. The felt body stretches; a board
+     with one slot simply has more felt under it. */
+  align-items: stretch;
 }
 
 .pb-unit {
@@ -248,10 +251,10 @@
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0;
   border: 0; border-radius: var(--aspire-radius-control);
-  background: rgba(255, 255, 255, 0.12); color: var(--aspire-on-leather);
+  background: rgba(255, 255, 255, 0.12); color: var(--aspire-on-navy);
   cursor: pointer;
 }
-.pb-icon-btn:focus-visible { outline: 3px solid var(--aspire-on-leather); outline-offset: 1px; }
+.pb-icon-btn:focus-visible { outline: 3px solid var(--aspire-on-navy); outline-offset: 1px; }
 .pb-count-badge {
   position: absolute; top: -4px; right: -5px;
   min-width: 13px; height: 13px; padding: 0 3px;
@@ -332,12 +335,19 @@
 
 /* The drag badge: a pin-sized green (+) that follows the cursor while a dragged
    note is over a board with an open slot. Hidden otherwise, and never a drop target. */
+/* Bigger than a pin, ringed in white, and above everything: the browser's own drag
+   image is suppressed (see MatchingTab) so this is the only thing under the cursor. */
 .pb-drag-badge {
-  position: fixed; top: 0; left: 0; z-index: 9997;
+  position: fixed; top: 0; left: 0; z-index: 2147483647;
+  width: 28px; height: 28px;
+  font-size: 15px;
+  box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(0, 0, 0, 0.45);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.1s ease;
 }
+/* The note being dragged recedes, so it is clear which one is moving. */
+.pb-note-dragging, .pb-note-dragging:hover { opacity: 0.4; }
 
 /* ── Empty state and the card's own notice ─────────────────────────────────── */
 .pb-empty { padding: 24px 8px 8px; }

@@ -51,17 +51,18 @@ Rules that follow from the table:
 
 A **material** says what a surface is made of. It never sets structure: corner, gap and
 edge still come from the table above, so a felt card is a card. The colours and textures
-are tokens in `src/styles/aspireBrand.css` (`--aspire-felt`, `--aspire-leather`,
-`--aspire-stitch`, `--aspire-piping`, `--aspire-noise-*`, `--aspire-rank-*`); the classes
+are tokens in `src/styles/aspireBrand.css` (`--aspire-felt`, `--aspire-leather-cream`,
+`--aspire-on-navy`, `--aspire-piping`, `--aspire-noise-*`, `--aspire-rank-*`); the classes
 that apply them are in `src/styles/aspireMaterials.css`, which a screen imports where it
 uses them (Rotation > Placement Board imports it through
 `src/components/placement/placementBoard.css`). Textures are inline SVG noise, never
 image files, and the materials look the same in light and dark mode; the page around them
 follows the theme.
 
-- `.material-felt`, `.material-leather-navy` (gold piping included; the dashed stitching
-  was cut on 2026-09-17 as a second line doing the piping's job), `.material-leather-cream`,
-  `.paper-note`, `.material-pin`, `.material-ribbon`.
+- `.material-felt`, `.material-navy-flat` (a FLAT nightfall header with white ink and the
+  gold piping below it; textured leather and its dashed stitching were both cut on
+  2026-09-17 for reading too heavy), `.material-leather-cream`, `.paper-note`,
+  `.material-pin`, `.material-ribbon`.
 - **Paper is the one square surface.** `.paper-note` has `border-radius: 0` by Owner
   decision: a rounded sheet reads as a card. Cards, panels and controls keep the tokens.
 - A rank is never colour alone: a pin shows its number, a ribbon and a chip show words.

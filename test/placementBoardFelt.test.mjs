@@ -1,5 +1,5 @@
-// PLACEMENT-BOARD-FELT-1 (2026-09-17): Rotation > Placement Board as felt, leather
-// and paper. Functional proofs for the Undo window, the 3rd-choice rank, and the
+// PLACEMENT-BOARD-FELT-1 (2026-09-17): Rotation > Placement Board as felt, cream
+// leather, flat nightfall headers and paper. Functional proofs for the Undo window, the 3rd-choice rank, and the
 // board's ordering and grouping; source proofs for the layout, the materials, the
 // accessibility contract, and the boundaries that must not move (NGRP's classes,
 // no invented AI recommendation, one write path).
@@ -210,13 +210,13 @@ test('LAYOUT 3: the NGRP board keeps its own classes; this board shares none of 
 
 test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal radius', () => {
   const brand = read('src/styles/aspireBrand.css')
-  for (const t of ['--aspire-felt:', '--aspire-felt-deep:', '--aspire-leather:', '--aspire-leather-hi:',
+  for (const t of ['--aspire-felt:', '--aspire-felt-deep:', '--aspire-on-navy:',
     '--aspire-leather-cream:', '--aspire-piping:', '--aspire-noise-fine:', '--aspire-noise-grain:',
     '--aspire-radius-pill:']) {
     assert.ok(brand.includes(t), `${t} is a brand token`)
   }
   const materials = read('src/styles/aspireMaterials.css')
-  for (const c of ['.material-felt', '.material-leather-navy', '.material-leather-cream', '.paper-note', '.material-pin', '.material-ribbon']) {
+  for (const c of ['.material-felt', '.material-navy-flat', '.material-leather-cream', '.paper-note', '.material-pin', '.material-ribbon']) {
     assert.ok(materials.includes(`${c} {`), `${c} exists`)
   }
   for (const [name, css] of [['aspireMaterials.css', materials], ['placementBoard.css', CSS()]]) {
@@ -225,10 +225,14 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
   // Owner, 2026-09-17: paper has SHARP corners, and it is the only square surface.
   assert.match(materials, /\.paper-note \{[^}]*border: 0;[^}]*border-radius: 0;/)
   assert.match(CSS(), /\.pb-unit \{[^}]*border-radius: var\(--aspire-radius-card\);/, 'boards stay rounded')
-  // The dashed stitching retired: the gold piping is the leather's only edge.
+  // The dashed stitching retired: the gold piping is the header's only edge.
   assert.ok(!materials.includes('::after'), 'no stitching rule remains')
   assert.ok(!materials.includes('--aspire-stitch'), 'and its token went with it')
-  assert.match(materials, /\.material-leather-navy::before \{[^}]*var\(--aspire-piping\)/)
+  assert.match(materials, /\.material-navy-flat::before \{[^}]*var\(--aspire-piping\)/)
+  // Owner, 2026-09-17: the header is FLAT nightfall with white ink, not textured leather.
+  assert.match(materials, /\.material-navy-flat \{[^}]*background: var\(--aspire-navy\);[^}]*color: var\(--aspire-on-navy\);/)
+  assert.ok(!materials.includes('noise') || !/\.material-navy-flat \{[^}]*noise/.test(materials),
+    'no texture on the header')
   assert.ok(!/url\((?!"data:|%23|\s*var)/.test(materials + CSS()), 'textures are inline data URIs, no image files')
   assert.match(CSS(), /@media \(prefers-reduced-motion: reduce\)/)
 })
@@ -243,9 +247,13 @@ test('MATERIAL 2: white numbers on every rank colour meet WCAG AA (4.5:1)', () =
     const ratio = 1.05 / (lum(hex) + 0.05)
     assert.ok(ratio >= 4.5, `white on ${rank} ${hex} is ${ratio.toFixed(2)}:1`)
   }
-  // Cream text on navy leather, measured at the lighter top of the gradient.
-  const cream = lum('#F4ECD8'), hi = lum('#2C3B8C')
-  assert.ok((cream + 0.05) / (hi + 0.05) >= 4.5, 'cream text on leather')
+  // White ink, and the soft variant, on the flat nightfall header.
+  const navy = lum('#1D2567')
+  assert.ok(1.05 / (navy + 0.05) >= 4.5, 'white text on nightfall')
+  const soft = 0.78 * 255 + 0.22 * 0x1D   // the .78 white blend over navy, per channel
+  assert.ok((lum('#' + [soft, 0.78 * 255 + 0.22 * 0x25, 0.78 * 255 + 0.22 * 0x67]
+    .map(v => Math.round(v).toString(16).padStart(2, '0')).join('')) + 0.05) / (navy + 0.05) >= 4.5,
+    'the soft secondary text on nightfall')
 })
 
 // ── 5. Accessibility and interaction contract (source) ──────────────────────

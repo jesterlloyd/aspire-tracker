@@ -625,10 +625,19 @@ export default function MatchingTab({
   const [dragKind, setDragKind] = useState(null)
   const [dropUnitId, setDropUnitId] = useState(null)
   const [poolDropActive, setPoolDropActive] = useState(false)
+  const [draggingStudentId, setDraggingStudentId] = useState(null)
   const [pullRequest, setPullRequest] = useState(null)
 
   const badgeRef = useRef(null)
   const badgeWanted = useRef(false)
+  // A 1x1 transparent GIF, built once: it replaces the browser's own drag image,
+  // which is a translucent copy of the note and used to cover the badge.
+  const [dragGhost] = useState(() => {
+    if (typeof Image === 'undefined') return null
+    const img = new Image()
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    return img
+  })
   const showBadgeAt = (e) => {
     badgeWanted.current = true
     const badge = badgeRef.current
@@ -652,12 +661,15 @@ export default function MatchingTab({
     document.addEventListener('dragover', onDocumentDragOver)
     dragRef.current = payload
     setDragKind(payload.kind)
+    setDraggingStudentId(payload.studentId)
     try {
       e.dataTransfer.effectAllowed = 'move'
       e.dataTransfer.setData('text/plain', payload.name)
+      if (dragGhost) e.dataTransfer.setDragImage(dragGhost, 0, 0)
     } catch { /* some browsers restrict dataTransfer; the ref carries the payload */ }
   }
   const endDrag = () => {
+    setDraggingStudentId(null)
     document.removeEventListener('dragover', onDocumentDragOver)
     badgeWanted.current = false
     hideBadge()
@@ -757,6 +769,7 @@ export default function MatchingTab({
         onSelect={handleStudentSelect}
         isReadOnly={!canMatch}
         isPending={s.id === returningStudentId}
+        isDragging={s.id === draggingStudentId}
         isFading={fadingStudentIds.has(s.id)}
         isFadingIn={fadeInStudentIds.has(s.id)}
         units={participating}
@@ -806,7 +819,7 @@ export default function MatchingTab({
             aria-label="Student Pool"
             {...poolDropHandlers}
           >
-            <header className="material-leather-navy pb-pool-hdr">
+            <header className="material-navy-flat pb-pool-hdr">
               <h2 className="pb-pool-title">Student Pool</h2>
               <span className="pb-count material-soft">
                 {selectedStudent
@@ -887,7 +900,7 @@ export default function MatchingTab({
 
           {/* Right: Units panel */}
           <section className="pb-pool pb-pool-units" aria-label="Unit Pool">
-            <header className="material-leather-navy pb-pool-hdr">
+            <header className="material-navy-flat pb-pool-hdr">
               <h2 className="pb-pool-title">Unit Pool</h2>
               {(selectedStudent || focusedUnit) && (
                 <span className="pb-hdr-hint material-soft">
@@ -947,6 +960,7 @@ export default function MatchingTab({
                       isDimmed={!!selectedStudent && !highlights.has(unit.id)}
                       isDropTarget={dropUnitId === unit.id}
                       canDrag={canMatch}
+                      draggingStudentId={draggingStudentId}
                       onNoteDragStart={handlePinnedNoteDragStart}
                       onNoteDragEnd={endDrag}
                       {...boardDragHandlers(unit)}

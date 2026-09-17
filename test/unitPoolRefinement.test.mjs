@@ -148,7 +148,8 @@ test('PROOF 8: the unmatch control is a real, labelled button (the pin)', () => 
   // PLACEMENT-BOARD-FELT-1 (Owner-approved spec): pulling the pin replaced the
   // circled X. It is still a real <button> with an exact, specific label.
   assert.match(card, /aria-label=\{`Pull pin: unmatch \$\{name\} from \$\{unit\.unit_name\}`\}/)
-  assert.match(card, /<Tooltip label="Pull pin" placement="top">/)
+  // tone="contrast": the tooltip opens over nightfall, where the default bubble is nightfall.
+  assert.match(card, /<Tooltip label="Pull pin" placement="top" tone="contrast">/)
   assert.match(card, /<button\s+type="button"\s+data-testid="pull-pin"/)
   assert.ok(!/XCircle/.test(card), 'the circled X is gone')
   // An adequate target: a 24px round pin, not a bare glyph.
@@ -521,7 +522,7 @@ test('GROUP 3-5: the badge and label carry the exact eligible count, never fille
   assert.match(card, /\{unnotifiedStudents\.length\}\s*<\/span>/,
     'the badge is the unnotified count')
   assert.match(card, /aria-label=\{groupNotifyLabel\}/)
-  assert.match(card, /<Tooltip label=\{groupNotifyLabel\} placement="top">/)
+  assert.match(card, /<Tooltip label=\{groupNotifyLabel\} placement="top" tone="contrast">/)
   // NEGATIVE CONTROL: neither the badge nor the label reads filledCount. The
   // slice starts AT the trigger so the capacity text beside it (which honestly
   // says "filled") is not misread as the badge's source.

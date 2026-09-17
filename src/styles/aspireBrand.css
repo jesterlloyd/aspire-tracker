@@ -85,20 +85,19 @@
      screen uses them. Structure still comes from the tokens above: a material changes
      what a surface is made of, never its radius, gap or edge. Materials look the same
      in light and dark mode; the page around them follows the theme.
-     Textures are inline SVG noise, so no image file ships. The leather's edge is the
-     gold piping alone: the dashed stitching it used to carry was a second line saying
-     the same thing, and the Owner cut it on 2026-09-17. */
+     Textures are inline SVG noise, so no image file ships. Two Owner corrections on
+     2026-09-17: the dashed stitching went (the gold piping already separated the
+     header from the material below it), and the header itself went FLAT nightfall with
+     white ink, because textured leather read too heavy above the felt and the cream. */
   --aspire-felt: #2A56A3;
   --aspire-felt-deep: #1D3F7E;
-  --aspire-leather: #1E2A6E;
-  --aspire-leather-hi: #2C3B8C;
   --aspire-leather-cream: #F4ECD8;
   --aspire-leather-cream-deep: #E9DDC0;
   --aspire-piping: #C9B27A;
   --aspire-piping-deep: #8E7A45;
-  --aspire-on-leather: #F4ECD8;
-  --aspire-on-leather-soft: rgba(244, 236, 216, 0.78);
-  --aspire-on-leather-ok: #8BE3B6;
+  --aspire-on-navy: #FFFFFF;
+  --aspire-on-navy-soft: rgba(255, 255, 255, 0.78);
+  --aspire-on-navy-ok: #8BE3B6;
   --aspire-on-cream-label: #5A4A22;
   /* 0.92, not 0.8: at 0.8 the slot label measured 4.49:1 on felt, just under AA. */
   --aspire-on-felt: rgba(244, 236, 216, 0.92);

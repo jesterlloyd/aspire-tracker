@@ -52,7 +52,7 @@ function PinnedNote({
   student, match, unit, onUnmatch, onNotify, onAssignPreceptor, placement, onEmailPreceptor,
   unitLeaderNotifyState, preceptorNotifyState, unitLeaderName, canCorrect,
   onConfirmNotified, onCorrectNotified,
-  tilt, isPulling, isPinningIn, canDrag, onDragStart, onDragEnd,
+  tilt, isPulling, isPinningIn, isDragging, canDrag, onDragStart, onDragEnd,
 }) {
   const qCfg       = MATCH_RANK_CONFIG[matchRankOf(student, match)]
   const pin        = pinFor(student, match)
@@ -72,12 +72,13 @@ function PinnedNote({
     tilt === 'b' ? 'pb-tilt-b' : 'pb-tilt-a',
     isPulling ? 'pb-pull' : '',
     isPinningIn ? 'pb-pin-in' : '',
+    isDragging ? 'pb-note-dragging' : '',
   ].filter(Boolean).join(' ')
 
   return (
     <div className={wrapClass}>
       <span className="pb-pin-anchor">
-        <Tooltip label="Pull pin" placement="top">
+        <Tooltip label="Pull pin" placement="top" tone="contrast">
           <button
             type="button"
             data-testid="pull-pin"
@@ -226,7 +227,7 @@ export default function EmbedUnitCard({
   // student's 1st/2nd/3rd choice; the drag handlers belong to MatchingTab, which
   // owns what is being dragged.
   onActivate = null, highlightRank = null, isDimmed = false, isDropTarget = false,
-  canDrag = false, onNoteDragStart = null, onNoteDragEnd = null,
+  canDrag = false, onNoteDragStart = null, onNoteDragEnd = null, draggingStudentId = null,
   onBoardDragOver = null, onBoardDragLeave = null, onBoardDrop = null,
   pullingMatchId = null, pinningStudentIds = null,
   // A pinned note dragged back to the Student Pool asks THIS card to open its
@@ -609,7 +610,7 @@ export default function EmbedUnitCard({
         <span id={hintId} className="sr-only">{boardHint}</span>
 
         {/* ── Leather header: identity, capacity, unit-leader status ── */}
-        <header className="material-leather-navy pb-unit-hdr">
+        <header className="material-navy-flat pb-unit-hdr">
           <div className="pb-unit-hdr-top">
             <h3 className="pb-unit-name">{unit.unit_name}</h3>
             {/* Owner, 2026-09-17: the division pill left the board. The Division
@@ -626,7 +627,7 @@ export default function EmbedUnitCard({
             </span>
             {unnotifiedStudents.length >= 2 && (
               <span onClick={e => e.stopPropagation()} className="pb-unit-envelope">
-                <Tooltip label={groupNotifyLabel} placement="top">
+                <Tooltip label={groupNotifyLabel} placement="top" tone="contrast">
                   <button
                     type="button"
                     className="pb-icon-btn"
@@ -679,6 +680,7 @@ export default function EmbedUnitCard({
                 tilt={i % 2 === 0 ? 'a' : 'b'}
                 isPulling={!!match && match.id === pullingMatchId}
                 isPinningIn={!!pinningStudentIds?.has?.(student.id)}
+                isDragging={student.id === draggingStudentId}
                 canDrag={canDrag}
                 onDragStart={(e, s, m) => onNoteDragStart?.(e, s, m, unit)}
                 onDragEnd={onNoteDragEnd}

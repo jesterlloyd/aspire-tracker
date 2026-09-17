@@ -17,21 +17,18 @@
   color: var(--aspire-on-felt);
 }
 
-/* ── Navy leather, finished with gold piping ───────────────────────────────── */
-.material-leather-navy {
+/* ── Flat nightfall, finished with gold piping ─────────────────────────────── */
+/* Owner, 2026-09-17: the textured leather header read too heavy above the felt and
+   the cream, so the header is flat nightfall with white ink. The gold piping stays:
+   it is what separates the header from the material below it. */
+.material-navy-flat {
   position: relative;
-  background-color: var(--aspire-leather);
-  background-image:
-    var(--aspire-noise-grain),
-    var(--aspire-noise-fine),
-    linear-gradient(var(--aspire-leather-hi), var(--aspire-leather));
-  background-blend-mode: soft-light, soft-light, normal;
-  color: var(--aspire-on-leather);
-  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+  background: var(--aspire-navy);
+  color: var(--aspire-on-navy);
   padding-bottom: 14px;
 }
-/* The gold piping: a 3px strip directly below the leather. */
-.material-leather-navy::before {
+/* The gold piping: a 3px strip directly below the header. */
+.material-navy-flat::before {
   content: '';
   position: absolute;
   left: 0; right: 0; bottom: -3px; height: 3px;
@@ -39,20 +36,18 @@
   pointer-events: none;
   z-index: 1;
 }
-.material-leather-navy .material-soft { color: var(--aspire-on-leather-soft); }
-.material-leather-navy .material-ok   { color: var(--aspire-on-leather-ok); }
-/* Controls sit on the leather as white inlays: no pressed-in text shadow on them. */
-.material-leather-navy select,
-.material-leather-navy input,
-.material-leather-navy button.material-inlay {
+.material-navy-flat .material-soft { color: var(--aspire-on-navy-soft); }
+.material-navy-flat .material-ok   { color: var(--aspire-on-navy-ok); }
+/* Controls sit on the navy as white inlays. */
+.material-navy-flat select,
+.material-navy-flat input,
+.material-navy-flat button.material-inlay {
   background-color: rgba(255, 255, 255, 0.92);
   color: var(--aspire-paper-ink);
   border: 1px solid rgba(0, 0, 0, 0.4);
   border-radius: var(--aspire-radius-control);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
-  text-shadow: none;
 }
-.material-leather-navy .material-chip { text-shadow: none; }
 
 /* ── Cream leather ─────────────────────────────────────────────────────────── */
 .material-leather-cream {
