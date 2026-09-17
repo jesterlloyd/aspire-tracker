@@ -98,7 +98,10 @@ export const getNominations = (unitKey, signal) =>
 export const getUnitPreceptors = (signal) =>
   apiFetch('/api/portal/unit-preceptors', { signal })
 
-export const createUnitPreceptor = ({ full_name, email, phone, unit_key, shift, requestId }) =>
+// UL-PRECEPTOR-TITLE-PHOTO-1: role (Role/Title) and photo ({ content_type,
+// data_base64 }) are optional; the server saves them on the preceptor's ASPIRE
+// Connect contact after the scoped create succeeds and reports contact_sync.
+export const createUnitPreceptor = ({ full_name, email, phone, unit_key, shift, role, photo, requestId }) =>
   apiFetch('/api/portal/unit-preceptor-manage', {
     method: 'POST',
     body: {
@@ -109,6 +112,8 @@ export const createUnitPreceptor = ({ full_name, email, phone, unit_key, shift, 
       phone,
       unit_key,
       shift,
+      ...(role ? { role } : {}),
+      ...(photo ? { photo } : {}),
     },
   })
 

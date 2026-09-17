@@ -13,10 +13,17 @@
 //   change_primary   { student_id, preceptor_id, reason? }
 //   set_secondary    { student_id, role: secondary|coverage, op: add|replace|end,
 //                      preceptor_id?, assignment_id?, reason?, notes? }
-//   create_preceptor { full_name, email, unit_key, shift, phone? }
+//   create_preceptor { full_name, email, unit_key, shift, phone?, role?, photo? }
+//
+// UL-PRECEPTOR-TITLE-PHOTO-1: create_preceptor also accepts the preceptor's
+// Role/Title and a photo ({ content_type, data_base64 }). Both are validated
+// BEFORE the RPC, and saved onto the ASPIRE Connect contact only AFTER the
+// scoped create succeeds (api/lib/unitPreceptorContactSync.js). The contact
+// save is non-blocking; its outcome is returned as contact_sync.
 
 import { verifyPortalUnitLeaderCaller } from '../lib/unitLeaderScope.js'
 import { mapRpcStatus, mapRpcError } from '../lib/unitLeaderRpcErrors.js'
+import { readPreceptorTitle, readPreceptorPhoto, syncUnitPreceptorContact } from '../lib/unitPreceptorContactSync.js'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -33,6 +40,7 @@ export default async function handler(req, res) {
   if (!requestId) return res.status(400).json({ error: 'request_id_required' })
 
   let rpc, args
+  let contactFields = null
   if (action === 'change_primary') {
     rpc = 'assign_primary_preceptor'
     args = {
@@ -62,6 +70,11 @@ export default async function handler(req, res) {
       p_request_id: requestId,
     }
   } else if (action === 'create_preceptor') {
+    const title = readPreceptorTitle(body.role)
+    if (!title.ok) return res.status(title.status).json({ error: title.error })
+    const photo = readPreceptorPhoto(body.photo)
+    if (!photo.ok) return res.status(photo.status).json({ error: photo.error })
+    contactFields = { role: title.role, photo: photo.photo }
     rpc = 'create_unit_preceptor'
     args = {
       p_actor_profile_id: profile.id,
@@ -80,6 +93,13 @@ export default async function handler(req, res) {
   if (error) {
     console.log('[unit-preceptor-manage] rpc error', { request_id: requestId, action, code: error.code })
     return res.status(mapRpcStatus(error)).json({ error: mapRpcError(error) })
+  }
+  // The contact save runs only once the scoped create has succeeded, keyed on
+  // the preceptor id the RPC returned. It never fails the create.
+  if (contactFields && data?.preceptor_id) {
+    const sync = await syncUnitPreceptorContact(db, { preceptorId: data.preceptor_id, ...contactFields })
+    if (sync.status === 'error') console.log('[unit-preceptor-manage] contact sync failed', { request_id: requestId })
+    return res.status(200).json({ result: data, contact_sync: sync.status })
   }
   return res.status(200).json({ result: data })
 }
