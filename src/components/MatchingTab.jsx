@@ -601,10 +601,19 @@ export default function MatchingTab({
         setFadeInStudentIds(prev => { const n = new Set(prev); n.delete(id); return n })
       }, 450)
     }
+    // The confirmation dialog is gone, so the consequences of the branch that WILL
+    // run are said here, while Undo is still on screen.
+    const successor = plan.kind === 'primary_with_survivor'
+      ? (unitNameById[plan.successor?.unit_id] || 'their remaining placement')
+      : null
     const title = plan.kind === 'final'
       ? `${name} returned to the Student Pool.`
       : `${name} removed from ${unit.unit_name}.`
-    const message = plan.kind === 'final' ? null : 'Their other placement is unchanged.'
+    const message = plan.kind === 'final'
+      ? 'The slot reopens and the preceptor assignment for this placement is cleared.'
+      : plan.kind === 'primary_with_survivor'
+        ? `${successor} is now their primary placement; their status does not change.`
+        : 'Their primary placement is unchanged.'
     undoToastId.current = live.toast?.info?.(title, message, {
       duration: UNDO_WINDOW_MS,
       action: { label: 'Undo', onClick: handleUndo },
@@ -963,7 +972,6 @@ export default function MatchingTab({
                       onPreceptorAssigned={onPreceptorAssigned}
                       matches={boardMatches}
                       studentMap={studentMap}
-                      unitNameById={unitNameById}
                       rotationRows={rotationRows}
                       preceptorsById={preceptorsById}
                       unitLeaders={unitLeaderRows}

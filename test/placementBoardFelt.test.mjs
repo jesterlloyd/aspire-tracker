@@ -43,7 +43,9 @@ test('UNDO 1: nothing is written while the window is open, and Undo writes nothi
   const held = createPendingUnmatch({ ...clock, onChange: s => states.push(s) })
   held.hold({ matchId: 'm1', studentId: 's1' }, async () => { commits++ })
   assert.equal(clock.pending()[0].ms, UNDO_WINDOW_MS)
-  assert.equal(UNDO_WINDOW_MS, 6000, 'the Owner-approved window is 6 seconds')
+  // Ten, not six: this window is the board's only safeguard now that the
+  // confirmation dialog is gone (Owner, 2026-09-17).
+  assert.equal(UNDO_WINDOW_MS, 10000, 'the Owner-approved window is 10 seconds')
   assert.equal(commits, 0)
   assert.equal(held.current().phase, 'waiting')
   assert.equal(held.undo(), true)
@@ -301,10 +303,15 @@ test('FLOW 1: every placement path goes through requestPlacement, which writes a
   assert.match(tab, /const handleBoardActivate = unit => \{\s*if \(selectedStudent\) \{ handleSlotClick\(unit\); return \}\s*handleUnitFocus\(unit\)/)
 })
 
-test('FLOW 2: the pin and the drag-back both open the SAME dialog; the write is held, then committed', () => {
+test('FLOW 2: the pin and the drag-back both unmatch directly; the write is held, then committed', () => {
   const card = CARD()
-  assert.match(card, /const confirmUnmatch = pinConfirm \|\| pulledStudent/)
-  assert.match(card, /onUnmatch=\{\(\) => setConfirmUnmatch\(student\)\}/)
+  // Owner, 2026-09-17: no confirmation dialog on this board. The pin pulls the
+  // student, the drag-back does the same thing, and the Undo window is the safeguard.
+  assert.ok(!card.includes('unmatch-confirm-modal'), 'the confirmation dialog is gone')
+  assert.ok(!card.includes('confirmUnmatch'), 'and so is its state')
+  assert.match(card, /onUnmatch=\{\(\) => onUnmatch\(student\)\}/)
+  assert.match(card, /onUnmatch\(resolveMatchedStudent\(match, studentMap\) \|\| pulledRaw\)/,
+    'the drag-back path takes the same handler')
   const tab = TAB()
   const un = tab.slice(tab.indexOf('const handleUnmatch = async'), tab.indexOf('const handleUndo'))
   assert.ok(un.indexOf('await flushPending()') > -1)

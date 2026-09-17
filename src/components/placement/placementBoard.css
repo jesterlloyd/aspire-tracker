@@ -73,7 +73,7 @@
 .pb-legend {
   flex-shrink: 0;
   display: flex; flex-wrap: wrap; gap: 6px 16px;
-  padding: 14px 16px 18px;   /* even above, a little more below */
+  padding: 14px 16px 12px;   /* + the units body's 6px = 18 below, 17 above */
   font-size: 12px; color: var(--pb-page-ink);
 }
 .pb-dot {
@@ -188,7 +188,10 @@
 .pb-chip-rank-third  { background: #fff;    color: #1E2A6E; border-color: #1E2A6E; }
 
 /* ── Unit Pool body and boards ─────────────────────────────────────────────── */
-.pb-units-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 80px; }
+/* padding-top 6px: the scroll container used to clip the 3px selection ring off the
+   top row of boards. The legend's own padding drops by the same amount, so the gap
+   above the first board is unchanged. */
+.pb-units-body { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 16px 80px; }
 .pb-unit-grid {
   display: grid;
   /* At least 270px a board, and never more than two across. */
@@ -321,8 +324,10 @@
 .pb-open-slot {
   display: flex; align-items: center; justify-content: center;
   min-height: 52px;
-  border: 2px dashed var(--aspire-board-line);
+  /* Solid, not dashed (Owner, 2026-09-17): a dashed edge read as unfinished. */
+  border: 1px solid var(--aspire-board-line);
   border-radius: var(--aspire-radius-control);
+  background: rgba(255, 255, 255, 0.55);
   color: var(--aspire-on-board);
   font: 600 11px/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   letter-spacing: 0.12em; text-transform: uppercase;

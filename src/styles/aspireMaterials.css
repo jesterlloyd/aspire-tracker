@@ -16,7 +16,9 @@
     var(--aspire-noise-fine),
     linear-gradient(var(--aspire-board), var(--aspire-board-deep));
   background-blend-mode: soft-light, normal;
-  box-shadow: inset 0 1px 3px rgba(29, 37, 103, 0.10);
+  /* The inset hairline is what separates the board from its own header, now that
+     the two are both pastel and the gold piping is gone. */
+  box-shadow: inset 0 1px 0 rgba(29, 37, 103, 0.10), inset 0 2px 4px rgba(29, 37, 103, 0.05);
   color: var(--aspire-on-board);
 }
 

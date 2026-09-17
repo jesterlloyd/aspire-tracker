@@ -4,9 +4,13 @@
 // WHY THE WRITE WAITS. An unmatch cannot be reversed by placing the student
 // again: it clears the primary preceptor, reverts ASPIRE status, and leaves the
 // Notified confirmations keyed to a match row that no longer exists. A second
-// placement would look like an undo and quietly lose all three. So after the
-// confirmation dialog the board HOLDS the unmatch for UNDO_WINDOW_MS: the note
-// leaves the board on screen, nothing is written, and Undo simply lets go.
+// placement would look like an undo and quietly lose all three. So pulling a pin
+// HOLDS the unmatch for UNDO_WINDOW_MS: the note leaves the board on screen,
+// nothing is written, and Undo simply lets go.
+//
+// This window is the board's ONLY safeguard (Owner, 2026-09-17: the confirmation
+// dialog was removed, because a dialog is dismissed on reflex and an Undo is not),
+// which is why it is ten seconds rather than six.
 //
 // The rules this module owns, and nothing else:
 //   - One held unmatch at a time. The board commits a held one before it places
@@ -22,7 +26,7 @@
 //   - If the page closes during the window, nothing was written and the student
 //     stays placed. That is the safe failure.
 
-export const UNDO_WINDOW_MS = 6000
+export const UNDO_WINDOW_MS = 10000
 
 export function createPendingUnmatch({
   delayMs = UNDO_WINDOW_MS,

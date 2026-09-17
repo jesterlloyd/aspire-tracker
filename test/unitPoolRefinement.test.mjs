@@ -159,49 +159,34 @@ test('PROOF 8: the unmatch control is a real, labelled button (the pin)', () => 
   assert.ok(!/>\s*×\s*<\/button>\s*<\/Tooltip>/.test(card), 'no bare × action remains on the rows')
 })
 
-test('PROOF 9+10: the dialog states the consequences of the branch that will run', () => {
+test('PROOF 9+10: the consequences of the branch that will run are stated, and the write is held', () => {
+  // PLACEMENT-BOARD-FELT-1 (Owner, 2026-09-17): the confirmation dialog is gone. What
+  // it guaranteed has not changed hands - it has moved to the Undo toast, which states
+  // the consequences of the branch that WILL run, computed from the SAME planUnmatch,
+  // while the write is still held and can still be taken back. A dialog is dismissed on
+  // reflex; a ten-second Undo is not.
   const card = CARD()
-  const dlg = card.slice(card.indexOf('data-testid="unmatch-confirm-modal"'),
-    card.indexOf('<PreceptorAssignmentModal'))
-  // The dialog computes the SAME plan the removal consumes - it cannot promise
-  // one behavior while App performs another.
-  assert.match(card, /const unmatchPlanned = planUnmatch\(\{ student: confirmUnmatch, match: unmatchMatch, matches \}\)/)
-  assert.match(dlg, /data-plan-kind=\{unmatchPlanned\.kind\}/)
-  assert.match(dlg, /studentNaturalName\(confirmUnmatch\)/, 'names the student')
-  assert.match(dlg, /unit\.unit_name/, 'names the unit')
+  const board = BOARD()
+  assert.ok(!card.includes('unmatch-confirm-modal'), 'no confirmation dialog remains')
+  assert.ok(!card.includes('Unmatch Student'), 'nor its copy')
 
-  // FINAL: the classic revert copy, unchanged in meaning.
-  assert.match(dlg, /The placement ends and the slot reopens\./)
-  assert.match(dlg, /returns to the pool with their pre-match status/)
-  assert.match(dlg, /preceptor assignment for this placement is cleared/)
-  assert.match(dlg, /notification records for this placement[\s\S]{0,160}no longer apply/)
+  // One plan, read before anything is written.
+  assert.match(board, /const plan = planUnmatch\(\{ student, match, matches: live\.matches \}\)/)
+  // FINAL: the pool, the slot and the preceptor assignment.
+  assert.match(board, /`\$\{name\} returned to the Student Pool\.`/)
+  assert.match(board, /The slot reopens and the preceptor assignment for this placement is cleared\./)
+  // PRIMARY WITH SURVIVOR: the successor is NAMED and the status does not change.
+  assert.match(board, /plan\.kind === 'primary_with_survivor'\s*\?\s*\(unitNameById\[plan\.successor\?\.unit_id\]/)
+  assert.match(board, /\$\{successor\} is now their primary placement; their status does not change\./)
+  // ADDITIONAL: the primary is explicitly unchanged.
+  assert.match(board, /'Their primary placement is unchanged\.'/)
 
-  // ADDITIONAL: primary explicitly unchanged; no status change; primary
-  // preceptor untouched.
-  assert.match(dlg, /Their primary placement is unchanged/)
-  assert.match(dlg, /The primary preceptor relationship is not touched/)
-
-  // PRIMARY WITH SURVIVOR: the successor is NAMED, status does not change,
-  // the relationship is ended and never transferred.
-  assert.match(dlg, /\{successorName\}<\/strong> becomes their primary placement/)
-  assert.match(dlg, /is ended - never transferred/)
-  assert.match(dlg, /surviving\s+placement&rsquo;s\s+records are unaffected/)
-
-  // Both survivor branches say the student stays placed.
-  const stays = dlg.match(/the student stays placed,\s+and their status does not change/g) || []
-  assert.equal(stays.length, 2)
-
-  // NEGATIVE CONTROL: the old unconditional copy is gone - no branchless
-  // "returns to the pool" claim can reach a survivor case.
-  assert.match(dlg, /unmatchPlanned\.kind === 'final' && \(<>[\s\S]{0,200}returns to the pool/)
-
-  assert.match(dlg, />\s*Unmatch Student\s*<\/button>/, 'exact primary action')
-  assert.match(dlg, />Cancel<\/button>/, 'exact secondary action')
-  // The trigger only OPENS the dialog; the dialog's confirm is the only caller.
+  // And none of it is written yet: the pin holds the unmatch behind Undo.
+  assert.match(board, /scheduler\.hold\(/)
+  assert.match(board, /action: \{ label: 'Undo', onClick: handleUndo \}/)
+  assert.match(board, /duration: UNDO_WINDOW_MS/)
+  // The pin itself calls the handler and nothing else.
   assert.match(card, /data-testid="pull-pin"[\s\S]{0,400}onClick=\{e => \{ e\.stopPropagation\(\); onUnmatch\(student\) \}\}/)
-  assert.match(card, /onUnmatch=\{\(\) => setConfirmUnmatch\(student\)\}/,
-    'the row prop opens the modal, never the removal itself')
-  assert.match(dlg, /onClick=\{\(\) => \{ onUnmatch\(confirmUnmatch\); setConfirmUnmatch\(null\) \}\}/)
 })
 
 test('PROOF 11: unmatch removes only the selected placement (semantics unchanged)', () => {

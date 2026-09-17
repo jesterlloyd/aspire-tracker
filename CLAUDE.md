@@ -101,11 +101,18 @@ or enum that does not list the new value would refuse the write in production.
 
 An unmatch cannot be reversed by placing the student again: it clears the primary
 preceptor, reverts the ASPIRE status, and leaves the Notified confirmations keyed to a
-deleted match row. So the board HOLDS the write for `UNDO_WINDOW_MS` (6s) instead of
-offering an undo that would quietly lose all three: `src/lib/pendingUnmatch.js` owns the
-rules (one hold at a time, commit before any other write, commit on cohort switch and on
+deleted match row. So the board HOLDS the write for `UNDO_WINDOW_MS` instead of offering
+an undo that would quietly lose all three: `src/lib/pendingUnmatch.js` owns the rules
+(one hold at a time, commit before any other write, commit on cohort switch and on
 unmount, Undo only while waiting). If the page closes inside the window nothing was
 written and the student stays placed. Never replace this with a re-placement "undo".
+
+**There is no confirmation dialog** (Owner, 2026-09-17). Pulling a pin pulls the student;
+the window is the safeguard, which is why it is 10s and not 6. What the dialog used to
+promise moved to the Undo toast, which names the consequences of the branch that WILL run
+from the same `planUnmatch` - the successor unit for a survivor case, the cleared
+preceptor for a final one - while the write can still be taken back. A dialog is dismissed
+on reflex; an Undo that is still on screen is not.
 
 ## Tables (UI-CONSISTENCY-3)
 

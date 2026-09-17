@@ -1,4 +1,4 @@
-import { useState, useCallback, useId } from 'react'
+import { useState, useCallback, useEffect, useId } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Tooltip from './ui/Tooltip'
 import { displayName } from '../lib/utils'
@@ -22,7 +22,6 @@ import { MATCH_RANK_CONFIG, matchRankOf } from '../lib/placementDisplay'
 import { pinFor, RANK_TONE } from '../lib/placementBoardView'
 import NotificationControl from './placement/NotificationControl'
 import { NOTIFICATION_TARGETS, notificationStateFor } from '../lib/placementNotificationState'
-import { planUnmatch } from '../lib/unmatchPlan'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 
 // PLACEMENT-BOARD-FELT-1 (2026-09-17): a unit is a board. Stitched navy leather
@@ -240,9 +239,6 @@ export default function EmbedUnitCard({
   cohortId = null, cohortName = '',
   // PLACEMENT-NOTIFICATION-CONTROL-1: the shared confirmation ledger index and
   // the two writers. Both rows read the same index and call the same handlers.
-  // UNIT-POOL-REFINEMENT-1: unit names for the branched unmatch dialog (the
-  // successor's name when a primary removal promotes a surviving placement).
-  unitNameById = null,
   notificationIndex = null, canCorrectNotifications = false,
   onConfirmNotified = null, onCorrectNotified = null,
   // UNIT-POOL-REFINEMENT-1: the batch writer for the consolidated confirmation.
@@ -252,7 +248,6 @@ export default function EmbedUnitCard({
 }) {
   const navigate = useNavigate()
   const hintId = useId()
-  const [pinConfirm,      setPinConfirm]      = useState(null)
   const [toast,           setToast]           = useState(null)
   const [assignStudent,   setAssignStudent]   = useState(null)
   // The unit-leader notice awaiting confirmation, when the placement is missing
@@ -277,20 +272,19 @@ export default function EmbedUnitCard({
   const emptyCount  = Math.max(0, unit.total_slots - filledCount)
   const isFull      = emptyCount === 0
 
-  // The student whose unmatch dialog is open: from this board's pin, or from a
-  // pinned note dragged back to the Student Pool (PLACEMENT-BOARD-FELT-1). Both
-  // open the SAME dialog, plan and copy. Closing it clears whichever opened it.
+  // PLACEMENT-BOARD-FELT-1 (Owner, 2026-09-17): there is no confirmation dialog on
+  // this board. Pulling the pin pulls the student, and the Undo window is the safety
+  // mechanism - a real one, unlike a dialog that is dismissed on reflex. A pinned note
+  // dragged back to the Student Pool takes exactly the same path.
   const pulledRaw = pullRequest && String(pullRequest.unitId) === String(unit.id)
     ? matchedStudents.find(s => s.id === pullRequest.studentId) || null
     : null
-  const pulledStudent = pulledRaw
-    ? resolveMatchedStudent(matches.find(m => m.student_id === pulledRaw.id && m.unit_id === unit.id), studentMap) || pulledRaw
-    : null
-  const confirmUnmatch = pinConfirm || pulledStudent
-  const setConfirmUnmatch = (student) => {
-    setPinConfirm(student)
-    if (!student && pullRequest) onPullRequestConsumed?.()
-  }
+  useEffect(() => {
+    if (!pulledRaw) return
+    const match = matches.find(m => m.student_id === pulledRaw.id && m.unit_id === unit.id)
+    onUnmatch(resolveMatchedStudent(match, studentMap) || pulledRaw)
+    onPullRequestConsumed?.()
+  }, [pulledRaw?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Notification state - derived from the SAME confirmation ledger the rows
   // render, so the count can never disagree with the statuses beside it.
@@ -685,7 +679,7 @@ export default function EmbedUnitCard({
                 onDragStart={(e, s, m) => onNoteDragStart?.(e, s, m, unit)}
                 onDragEnd={onNoteDragEnd}
                 placement={placementByStudent[student.id] || factsFor(student)}
-                onUnmatch={() => setConfirmUnmatch(student)}
+                onUnmatch={() => onUnmatch(student)}
                 onNotify={handleNotifyOne}
                 onAssignPreceptor={s => setAssignStudent(s)}
                 onEmailPreceptor={preceptorHandoff === 'busy' ? undefined : handleEmailPreceptor}
@@ -859,72 +853,6 @@ export default function EmbedUnitCard({
           </div>
         </div>
       )}
-
-      {/* UNIT-POOL-REFINEMENT-1: the unmatch confirmation names the student,
-          the unit, and the consequences OF THE BRANCH THAT WILL ACTUALLY RUN -
-          the same planUnmatch the removal itself consumes, so the dialog can
-          never promise one behavior while the code performs another. Nothing
-          changes before "Unmatch Student" is pressed; Cancel closes with zero
-          writes. */}
-      {confirmUnmatch && (() => {
-        const unmatchMatch = matches.find(m => m.student_id === confirmUnmatch.id && m.unit_id === unit.id)
-        const unmatchPlanned = planUnmatch({ student: confirmUnmatch, match: unmatchMatch, matches })
-        const successorName = unmatchPlanned.kind === 'primary_with_survivor'
-          ? (unitNameById?.[unmatchPlanned.successor?.unit_id] || 'their remaining placement')
-          : null
-        return (
-        <div className="modal-overlay" onClick={() => setConfirmUnmatch(null)}>
-          <div className="modal confirm-delete-modal" data-testid="unmatch-confirm-modal" data-plan-kind={unmatchPlanned.kind} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Unmatch Student</h2>
-              <button className="modal-close" onClick={() => setConfirmUnmatch(null)}>×</button>
-            </div>
-            <div className="modal-body">
-              <p className="confirm-delete-warning" style={{ marginBottom: 8 }}>
-                Remove <strong>{studentNaturalName(confirmUnmatch)}</strong> from{' '}
-                <strong>{unit.unit_name}</strong>?
-              </p>
-              <ul style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 12.5, color: '#4b5563', lineHeight: 1.7, margin: 0, paddingLeft: 18 }}>
-                {unmatchPlanned.kind === 'additional' && (<>
-                  <li>This {unit.unit_name} placement ends and its slot reopens.</li>
-                  <li>Their primary placement is unchanged - the student stays placed,
-                      and their status does not change.</li>
-                  <li>The primary preceptor relationship is not touched; this
-                      placement&rsquo;s own preceptor ends with it.</li>
-                  <li>Notification records for this placement stay in the audit
-                      history but no longer apply.</li>
-                </>)}
-                {unmatchPlanned.kind === 'primary_with_survivor' && (<>
-                  <li>This {unit.unit_name} placement ends and its slot reopens.</li>
-                  <li><strong>{successorName}</strong> becomes their primary placement -
-                      the student stays placed, and their status does not change.</li>
-                  <li>The primary preceptor relationship, which described this
-                      placement, is ended - never transferred. The surviving
-                      placement&rsquo;s own preceptor is untouched.</li>
-                  <li>Notification records for this placement stay in the audit
-                      history but no longer apply. The surviving placement&rsquo;s
-                      records are unaffected.</li>
-                </>)}
-                {unmatchPlanned.kind === 'final' && (<>
-                  <li>The placement ends and the slot reopens.</li>
-                  <li>The student returns to the pool with their pre-match status.</li>
-                  <li>The preceptor assignment for this placement is cleared.</li>
-                  <li>Unit-leader and preceptor notification records for this placement
-                      stay in the audit history but no longer apply, because the
-                      placement they describe ends.</li>
-                </>)}
-              </ul>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline-modal" data-testid="unmatch-cancel" onClick={() => setConfirmUnmatch(null)}>Cancel</button>
-              <button className="btn btn-destructive-filled" data-testid="unmatch-confirm" onClick={() => { onUnmatch(confirmUnmatch); setConfirmUnmatch(null) }}>
-                Unmatch Student
-              </button>
-            </div>
-          </div>
-        </div>
-        )
-      })()}
 
       <PreceptorAssignmentModal
         isOpen={!!assignStudent}
