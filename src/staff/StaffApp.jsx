@@ -24,6 +24,9 @@ import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirem
 import { displayName } from '../lib/utils'
 import { clearPrimaryPreceptor } from '../lib/staffPreceptorAssignmentApi'
 import { planUnmatch, unmatchStudentPatch } from '../lib/unmatchPlan'
+import { matchQualityFor } from '../lib/placementDisplay'
+import { matchPhrase } from '../lib/placementBoardView'
+import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal } from '../lib/attention'
 import {
   CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE,
@@ -918,9 +921,9 @@ function MainApp({ onLogout }) {
     // The original values are read BEFORE any write, so the audit below reports
     // the state at the moment of the decision even though it is written later.
     const statusAtPlacement = student.status || null
-    const match_quality = unit.unit_name === student.unit_preference_1 ? 'top_choice'
-      : unit.unit_name === student.unit_preference_2 ? 'second_choice'
-      : 'other'
+    // PLACEMENT-BOARD-FELT-1: a 3rd choice is now stored as 'third_choice'
+    // (it used to fall into 'other'). One shared rule, lib/placementDisplay.js.
+    const match_quality = matchQualityFor(student, unit.unit_name)
     const { data: m, error } = await safeWrite(
       () => supabase.from('matches').insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId, match_quality }).select().single(),
       { name: 'create match' }
@@ -985,7 +988,7 @@ function MainApp({ onLogout }) {
     if (!alreadyPlaced) {
       await logEvent(supabase, { studentId: student.id, cohortId: activeCohortId, eventType: 'placement', notes: `Placed in ${unit.unit_name}`, auto: true })
     }
-    toast.success('Student placed', `${student.first_name} matched to ${unit.unit_name}.`)
+    toast.success('Student placed', `${getStudentPreferredFullName(student)} pinned to ${unit.unit_name} (${matchPhrase(match_quality)}).`)
     logActivity({ userProfile: currentUserProfile, actionType:'student_matched', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} matched ${student.first_name} ${student.last_name} to ${unit.unit_name}`, metadata:{ unit: unit.unit_name } })
   }
 

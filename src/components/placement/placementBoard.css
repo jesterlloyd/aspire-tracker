@@ -1,0 +1,360 @@
+/* PLACEMENT-BOARD-FELT-1 (2026-09-17): Rotation > Placement Board.
+   Materials come from aspireMaterials.css; structure comes from the card canon in
+   aspireBrand.css (radius, gap, shadow edge, no borders on cards). Every class here is
+   pb-* and belongs to this board only: the NGRP placement board still wears the embed-*
+   classes, and a shared class would restyle it too. */
+@import '../../styles/aspireMaterials.css';
+
+/* ── Page frame ────────────────────────────────────────────────────────────── */
+.matching-tab.pb-tab {
+  gap: 0;
+  padding: 0;
+  --pb-ring: var(--aspire-navy);
+  --pb-page-ink: var(--color-text-secondary, #4A5560);
+  --pb-page-line: var(--chart-line, rgba(29, 37, 103, 0.08));
+}
+[data-theme="dark"] .matching-tab.pb-tab { --pb-ring: #9FAFF8; }
+
+/* The KPI band is the shared .snap card; the board follows it and carries the gap. */
+.pb-board {
+  flex: 1; min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--aspire-gap-card);
+  margin: var(--aspire-gap-card) 20px 0;
+}
+
+/* ── Pools ─────────────────────────────────────────────────────────────────── */
+.pb-pool {
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
+  background: var(--chart-card, var(--aspire-card));
+  border: 0;
+  border-radius: var(--aspire-radius-card);
+  box-shadow: var(--aspire-shadow-card);
+  overflow: hidden;
+  font-family: var(--aspire-sans);
+  transition: box-shadow 0.18s ease;
+}
+.pb-pool-drop { box-shadow: 0 0 0 3px var(--pb-ring), 0 10px 28px rgba(0, 0, 0, 0.22); }
+
+.pb-pool-hdr {
+  flex-shrink: 0;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 14px 16px 22px;
+  margin-bottom: 3px; /* the gold piping's own band */
+  border-radius: var(--aspire-radius-card) var(--aspire-radius-card) 0 0;
+}
+.pb-pool-title {
+  margin: 0 6px 0 0;
+  font-size: 18px; font-weight: 700; line-height: 1.2;
+  white-space: nowrap;
+}
+.pb-search, .pb-select, .pb-btn {
+  height: 30px;
+  font-family: var(--aspire-sans); font-size: 12px;
+  outline: none;
+}
+.pb-search { flex: 1 1 110px; min-width: 90px; padding: 0 9px; box-sizing: border-box; }
+.pb-select { padding: 0 8px; cursor: pointer; flex-shrink: 0; }
+.pb-btn { padding: 0 11px; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.pb-pool-hdr :is(.pb-search, .pb-select, .pb-btn, .pb-step):focus-visible,
+.pb-pool-hdr button:focus-visible {
+  outline: 3px solid var(--aspire-on-leather);
+  outline-offset: 1px;
+}
+.pb-hdr-spacer { flex: 1 1 0; }
+.pb-hdr-hint { font-size: 11px; font-style: italic; white-space: nowrap; }
+.pb-count {
+  font: 12px/1.3 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  white-space: nowrap; flex-shrink: 0;
+}
+.pb-hidden-note { margin-left: 6px; color: #F5C98B; }
+.pb-stepper { display: flex; align-items: center; gap: 4px; }
+.pb-step {
+  width: 26px; height: 26px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.pb-step:disabled { opacity: 0.45; cursor: default; }
+.pb-keys { font-size: 10px; white-space: nowrap; }
+
+/* Theme-following strips between the leather and the pool body. */
+.pb-helper {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 14px 12px;
+  padding: 9px 12px;
+  border: 1px dashed var(--pb-page-line);
+  border-radius: var(--aspire-radius-control);
+  font-size: 12px; line-height: 1.45;
+  color: var(--pb-page-ink);
+}
+.pb-legend {
+  flex-shrink: 0;
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  padding: 10px 16px 0;
+  font-size: 12px; color: var(--pb-page-ink);
+}
+.pb-dot {
+  display: inline-block; width: 10px; height: 10px;
+  border-radius: 50%; margin-right: 6px; vertical-align: -1px;
+}
+
+/* ── Student Pool body (cream leather) ─────────────────────────────────────── */
+.pb-pool-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--aspire-gap-card);
+  padding: 18px 16px 80px;
+}
+.pb-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-navy); color: #fff;
+  font-size: 13px;
+  box-shadow: var(--aspire-shadow-note);
+}
+.pb-banner-clear {
+  background: transparent; color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--aspire-radius-control);
+  padding: 4px 12px;
+  font: 600 12px var(--aspire-sans);
+  cursor: pointer;
+}
+.pb-banner-clear:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.pb-group-label { font-size: 11px; font-weight: 700; margin: 0 0 10px; }
+.pb-group-dimmed .pb-note-list { opacity: 0.5; }
+.pb-note-list { display: flex; flex-direction: column; gap: var(--aspire-gap-card); }
+
+/* ── Paper notes (both pools) ──────────────────────────────────────────────── */
+.pb-note {
+  position: relative;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px 16px;
+  font-family: var(--aspire-sans);
+  text-shadow: none;
+}
+.pb-pool-note {
+  --pb-tilt: 0.4deg;
+  transform: rotate(var(--pb-tilt));
+  transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.18s ease, opacity 0.18s ease;
+}
+.pb-note-slot:nth-child(even) .pb-pool-note { --pb-tilt: -0.4deg; }
+.pb-note-interactive { cursor: pointer; }
+.pb-note-interactive[draggable="true"] { cursor: grab; }
+.pb-note-interactive:hover {
+  transform: translateY(-2px) rotate(var(--pb-tilt));
+  box-shadow: var(--aspire-shadow-note-lift);
+}
+.pb-note-selected,
+.pb-note-selected:hover {
+  outline: 3px solid var(--aspire-navy);
+  transform: translateY(-3px) rotate(var(--pb-tilt));
+  box-shadow: var(--aspire-shadow-note-lift);
+}
+.pb-note-interactive:focus-visible { outline: 3px solid var(--aspire-navy); outline-offset: 2px; }
+.pb-note-dimmed { opacity: 0.5; }
+.pb-note-pending { opacity: 0.72; cursor: default; }
+.pb-note-pending-caption { font-size: 11.5px; font-style: italic; }
+
+.pb-note-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pb-note-id-text { min-width: 0; }
+.pb-note-name {
+  font-size: 16px; font-weight: 700; line-height: 1.25;
+  color: var(--aspire-paper-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pb-note-school {
+  font-size: 13px; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pb-note-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pb-note-top3 {
+  font: 12px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color: var(--aspire-paper-ink-soft);
+}
+
+/* Chips are pills inside a card. White by default; tones for state. */
+.pb-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px;
+  border-radius: var(--aspire-radius-pill);
+  border: 1px solid #D5D8E3;
+  background: #fff; color: #3A4060;
+  font-family: var(--aspire-sans); font-size: 11.5px; font-weight: 600; line-height: 1.5;
+  white-space: nowrap;
+  text-shadow: none;
+}
+.pb-chip-warn { align-self: flex-start; background: #FEF3C7; color: #92400e; border-color: #fde68a; font-size: 10.5px; font-weight: 700; }
+.pb-chip-ready-confirmed  { background: #F0FDF4; color: #166534; border-color: #BBF7D0; }
+.pb-chip-ready-pending    { background: #F9FAFB; color: #4B5563; border-color: #E5E7EB; }
+.pb-chip-ready-review     { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+.pb-chip-ready-restricted { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
+.pb-chip-rank-first  { background: #D1FAE5; color: #065F46; border-color: #059669; }
+.pb-chip-rank-second { background: #FCEFD4; color: #7C5A1F; border-color: #B5895A; }
+.pb-chip-rank-third  { background: #fff;    color: #1E2A6E; border-color: #1E2A6E; }
+
+/* ── Unit Pool body and boards ─────────────────────────────────────────────── */
+.pb-units-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 80px; }
+.pb-unit-grid {
+  display: grid;
+  /* At least 270px a board, and never more than two across. */
+  grid-template-columns: repeat(auto-fill, minmax(max(270px, calc((100% - var(--aspire-gap-card)) / 2)), 1fr));
+  gap: var(--aspire-gap-card);
+  align-items: start;
+}
+
+.pb-unit {
+  position: relative;
+  display: flex; flex-direction: column;
+  border: 0;
+  border-radius: var(--aspire-radius-card);
+  box-shadow: var(--aspire-shadow-card);
+  outline: none;
+  cursor: pointer;
+  font-family: var(--aspire-sans);
+  transition: opacity 0.18s ease, box-shadow 0.18s ease, transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.pb-unit:hover { transform: translateY(-2px); box-shadow: var(--aspire-shadow-card-hover); }
+.pb-unit:focus-visible,
+.pb-unit-focused { box-shadow: 0 0 0 3px var(--pb-ring), 0 6px 18px rgba(0, 0, 0, 0.18); }
+.pb-unit-drop { transform: translateY(-2px); box-shadow: 0 0 0 3px var(--pb-ring), 0 10px 28px rgba(0, 0, 0, 0.28); }
+.pb-unit-dimmed { opacity: 0.55; }
+.pb-unit-flash { animation: unit-highlight 2s ease-out; }
+
+.pb-unit-hdr {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px 22px;
+  margin-bottom: 3px; /* the gold piping's own band */
+  border-radius: var(--aspire-radius-card) var(--aspire-radius-card) 0 0;
+}
+.pb-unit-hdr-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.pb-unit-name {
+  margin: 0; min-width: 0;
+  font-size: 17px; font-weight: 700; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pb-unit-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; flex-shrink: 0; }
+.pb-unit-desc { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-unit-capacity { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-height: 26px; }
+.pb-unit-capacity-text { font: 12.5px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+.pb-unit-notified { margin-left: auto; font-size: 12.5px; font-weight: 700; }
+.pb-unit-envelope { display: inline-flex; }
+.pb-icon-btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  border: 0; border-radius: var(--aspire-radius-control);
+  background: rgba(255, 255, 255, 0.12); color: var(--aspire-on-leather);
+  cursor: pointer;
+}
+.pb-icon-btn:focus-visible { outline: 3px solid var(--aspire-on-leather); outline-offset: 1px; }
+.pb-count-badge {
+  position: absolute; top: -4px; right: -5px;
+  min-width: 13px; height: 13px; padding: 0 3px;
+  border-radius: var(--aspire-radius-pill);
+  font: 700 9px/13px var(--aspire-sans);
+  text-align: center; pointer-events: none; text-shadow: none;
+}
+
+.pb-unit-body {
+  position: relative;
+  flex: 1;
+  min-height: 170px;
+  display: flex; flex-direction: column; gap: var(--aspire-gap-card);
+  padding: 22px 14px 16px;
+  border-radius: 0 0 var(--aspire-radius-card) var(--aspire-radius-card);
+}
+.pb-ribbon { position: absolute; top: 0; right: 14px; z-index: 2; pointer-events: none; }
+
+/* A pinned note: the pin sits centred on the note's top edge. */
+.pb-pinned {
+  position: relative;
+  --pb-tilt: 1.1deg;
+  transform: rotate(var(--pb-tilt));
+}
+.pb-tilt-b { --pb-tilt: -1.3deg; }
+.pb-pin-anchor { position: absolute; top: -11px; left: 50%; display: block; line-height: 0; transform: translateX(-50%); z-index: 2; }
+.pb-pin { cursor: pointer; transition: transform 0.15s ease; }
+.pb-pin:hover, .pb-pin:focus-visible { transform: translateY(-3px); }
+.pb-pin:focus-visible { outline: 3px solid var(--aspire-leather-cream); outline-offset: 2px; }
+.pb-pin-static { cursor: default; }
+.pb-pin-static:hover { transform: none; }
+.pb-pinned-note { padding: 18px 16px 14px; cursor: default; }
+.pb-pinned-note[draggable="true"] { cursor: grab; }
+.pb-pull { animation: pb-pull 300ms ease-in forwards; pointer-events: none; }
+@keyframes pb-pull {
+  to { transform: translateY(-18px) rotate(7deg); opacity: 0; }
+}
+.pb-pin-in { animation: pb-pin-in 350ms cubic-bezier(0.3, 1.5, 0.5, 1); }
+@keyframes pb-pin-in {
+  from { transform: translateY(-14px) rotate(var(--pb-tilt)); opacity: 0; }
+  60%  { opacity: 1; }
+  to   { transform: translateY(0) rotate(var(--pb-tilt)); opacity: 1; }
+}
+
+/* The two action rows share one grid, so both controls sit on one vertical line. */
+.pb-note-rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px; row-gap: 2px;
+}
+.pb-note-row-label { min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-note-row-action { display: flex; align-items: center; justify-content: flex-end; min-height: 26px; }
+.pb-link {
+  background: none; border: 0; padding: 0;
+  font: inherit; color: var(--aspire-navy);
+  text-decoration: underline; text-align: left;
+  cursor: pointer;
+}
+.pb-link:focus-visible { outline: 3px solid var(--aspire-navy); outline-offset: 2px; }
+.pb-preceptor {
+  max-width: 100%;
+  color: var(--aspire-paper-ink-soft); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pb-preceptor:disabled { cursor: default; }
+.pb-warn { color: #B45309; }
+
+.pb-open-slot {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 52px;
+  border: 2px dashed rgba(244, 236, 216, 0.6);
+  border-radius: var(--aspire-radius-control);
+  color: var(--aspire-on-felt);
+  font: 600 11px/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+
+/* ── Empty state and the card's own notice ─────────────────────────────────── */
+.pb-empty { padding: 24px 8px 8px; }
+.pb-empty-note { align-items: center; text-align: center; padding: 22px 18px 18px; }
+.pb-empty-title { font-size: 15px; font-weight: 700; color: var(--aspire-paper-ink); }
+.pb-empty-text { margin: 0; font-size: 13px; }
+.pb-card-toast {
+  position: fixed; top: 80px; right: 24px; z-index: 9999;
+  max-width: 340px;
+  padding: 10px 16px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--nightfall); color: var(--pearl);
+  font-size: 13px; font-weight: 500; line-height: 1.5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Narrow screens: Student Pool first, then Unit Pool ────────────────────── */
+@media (max-width: 900px) {
+  .pb-board { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .pb-pool-body, .pb-units-body { overflow: visible; padding-bottom: 16px; }
+  .pb-unit-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-tab *, .pb-tab *::before, .pb-tab *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -55,6 +55,22 @@ function ToastItem({ toast, onRemove }) {
           </div>
         )}
       </div>
+      {/* PLACEMENT-BOARD-FELT-1: one optional action (the Placement Board's Undo).
+          Pressing it runs the action and closes the toast. */}
+      {toast.action && (
+        <button
+          type="button"
+          data-testid="toast-action"
+          onClick={() => { toast.action.onClick?.(); onRemove(toast.id) }}
+          style={{
+            flexShrink: 0, alignSelf: 'center', background: 'none', cursor: 'pointer',
+            border: `1px solid ${style.textColor}`, borderRadius: 'var(--aspire-radius-control)',
+            padding: '4px 10px', color: style.titleColor,
+            fontFamily: 'Plus Jakarta Sans', fontSize: '12px', fontWeight: 700,
+          }}>
+          {toast.action.label}
+        </button>
+      )}
       <button onClick={() => onRemove(toast.id)}
         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: style.textColor, opacity: 0.5, flexShrink: 0, lineHeight: 1 }}>
         <X size={14} />

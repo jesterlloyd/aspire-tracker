@@ -1,0 +1,118 @@
+/* PLACEMENT-BOARD-FELT-1: reusable material surfaces.
+   Every value is a token from aspireBrand.css. A material says what a surface is made
+   of; its corner, gap and edge still come from the card canon, so a felt card is a card.
+   Import this sheet from the screen that uses it (the Placement Board imports it through
+   src/components/placement/placementBoard.css); it is not part of the entry stylesheet.
+   The materials do not change with the theme. */
+
+/* ── Blue felt ─────────────────────────────────────────────────────────────── */
+.material-felt {
+  background-color: var(--aspire-felt);
+  background-image:
+    var(--aspire-noise-fine),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.12), transparent 70%),
+    linear-gradient(var(--aspire-felt), var(--aspire-felt-deep));
+  background-blend-mode: multiply, normal, normal;
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  color: var(--aspire-on-felt);
+}
+
+/* ── Stitched navy leather ─────────────────────────────────────────────────── */
+.material-leather-navy {
+  position: relative;
+  background-color: var(--aspire-leather);
+  background-image:
+    var(--aspire-noise-grain),
+    var(--aspire-noise-fine),
+    linear-gradient(var(--aspire-leather-hi), var(--aspire-leather));
+  background-blend-mode: soft-light, soft-light, normal;
+  color: var(--aspire-on-leather);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+  padding-bottom: 22px;
+}
+/* The stitching: a dashed thread 9px above the bottom edge, inset 10px each side. */
+.material-leather-navy::after {
+  content: '';
+  position: absolute;
+  left: 10px; right: 10px; bottom: 9px;
+  border-bottom: 2px dashed var(--aspire-stitch);
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+}
+/* The gold piping: a 3px strip directly below the leather. */
+.material-leather-navy::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -3px; height: 3px;
+  background: linear-gradient(var(--aspire-piping), var(--aspire-piping-deep));
+  pointer-events: none;
+  z-index: 1;
+}
+.material-leather-navy .material-soft { color: var(--aspire-on-leather-soft); }
+.material-leather-navy .material-ok   { color: var(--aspire-on-leather-ok); }
+/* Controls sit on the leather as white inlays: no pressed-in text shadow on them. */
+.material-leather-navy select,
+.material-leather-navy input,
+.material-leather-navy button.material-inlay {
+  background-color: rgba(255, 255, 255, 0.92);
+  color: var(--aspire-paper-ink);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  border-radius: var(--aspire-radius-control);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  text-shadow: none;
+}
+.material-leather-navy .material-chip { text-shadow: none; }
+
+/* ── Cream leather ─────────────────────────────────────────────────────────── */
+.material-leather-cream {
+  background-color: var(--aspire-leather-cream);
+  background-image:
+    var(--aspire-noise-grain),
+    var(--aspire-noise-fine),
+    linear-gradient(var(--aspire-leather-cream), var(--aspire-leather-cream-deep));
+  background-blend-mode: soft-light, soft-light, normal;
+  box-shadow: inset 0 2px 6px rgba(80, 60, 20, 0.18);
+}
+.material-cream-label {
+  color: var(--aspire-on-cream-label);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── White paper ───────────────────────────────────────────────────────────── */
+/* A plain rectangle: no folded corner. Its corner is the card token. */
+.paper-note {
+  background: var(--aspire-paper);
+  color: var(--aspire-paper-ink);
+  border: 0;
+  border-radius: var(--aspire-radius-card);
+  box-shadow: var(--aspire-shadow-note);
+}
+.paper-note .material-soft { color: var(--aspire-paper-ink-soft); }
+
+/* ── Pins and ribbons ──────────────────────────────────────────────────────── */
+.material-pin {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: 50%;
+  color: #fff;
+  font: 700 12px/1 var(--aspire-sans);
+  box-shadow:
+    0 3px 4px rgba(0, 0, 0, 0.3),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.25),
+    inset 2px 2px 3px rgba(255, 255, 255, 0.45);
+}
+.material-ribbon {
+  display: inline-block;
+  padding: 5px 10px 9px;
+  color: #fff;
+  font: 700 10px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  white-space: nowrap;
+}
+.material-rank-first  { background-color: var(--aspire-rank-first); }
+.material-rank-second { background-color: var(--aspire-rank-second); }
+.material-rank-third  { background-color: var(--aspire-rank-third); }
+.material-rank-other  { background-color: var(--aspire-rank-other); }

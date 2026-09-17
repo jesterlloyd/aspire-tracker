@@ -27,6 +27,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const { matchQualityFor } = await import('../src/lib/placementDisplay.js')
+const { matchPhrase } = await import('../src/lib/placementBoardView.js')
+const { getStudentPreferredFullName } = await import('../src/lib/studentNameFormatters.js')
 
 const DECL = 'const createMatch = async (student, unit, options = {}) => {'
 
@@ -107,6 +110,9 @@ function harness({ matchInsertFails = false } = {}) {
       error: (t, b) => calls.toasts.push({ kind: 'error', t, b }),
     },
     updateCohortMatchSummary: () => {},
+    matchQualityFor,
+    matchPhrase,
+    getStudentPreferredFullName,
     setMatches: () => {},
     setUnits: () => {},
     setStudents: (fn) => { calls.localStudents = fn(students) },
@@ -202,6 +208,20 @@ test('ordinary Interviewed placement still writes Recommend', async () => {
   assert.equal(local.interview_outcome, 'Recommend')
   // A normal placement is not an exception, so it logs no exception entry.
   assert.equal(exceptionLogs(calls).length, 0)
+})
+
+test('PLACEMENT-BOARD-FELT-1: a 3rd-choice placement stores third_choice and says so', async () => {
+  const { calls, createMatch } = harness()
+  const third = {
+    ...STUDENT_INTERVIEWED, id: 'stu-3', first_name: 'Xing', preferred_first_name: 'Steven', last_name: 'Li',
+    unit_preference_1: 'ICU', unit_preference_2: 'ED', unit_preference_3: 'PACU',
+  }
+  await createMatch(third, UNIT)
+  assert.equal(calls.studentUpdates[0].match_quality, 'third_choice',
+    'a 3rd choice is no longer stored as other')
+  const placed = calls.toasts.find(t => t.kind === 'success')
+  assert.equal(placed.b, 'Steven Li pinned to PACU (3rd choice match).',
+    'the toast names the student by preferred name, the unit, and the stored rank')
 })
 
 test('an unconfirmed pre-interview placement (cancel) changes nothing at all', async () => {

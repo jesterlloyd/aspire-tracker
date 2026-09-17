@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useId } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Tooltip from './ui/Tooltip'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
@@ -14,25 +14,23 @@ import {
 } from '../lib/placementCommunication'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { resolveRequiredAttachments } from '../lib/connect/catalogAttachments'
-import { XCircle, Mail } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
-import { CARD } from '../lib/designTokens'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import { MATCH_RANK_CONFIG, matchRankOf } from '../lib/placementDisplay'
+import { pinFor, RANK_TONE } from '../lib/placementBoardView'
 import NotificationControl from './placement/NotificationControl'
 import { NOTIFICATION_TARGETS, notificationStateFor } from '../lib/placementNotificationState'
 import { planUnmatch } from '../lib/unmatchPlan'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 
-// ── Choice / match-quality config ────────────────────────────────────────────
-
-const CHOICE_STYLES = {
-  '1st': { border:'#059669', chipBg:'#D1FAE5', chipText:'#065F46', label:'★ 1st choice' },
-  '2nd': { border:'#B5895A', chipBg:'#FCEFD4', chipText:'#7C5A1F', label:'★ 2nd choice' },
-  '3rd': { border:'#7C8FD9', chipBg:'#E0E7FF', chipText:'#3730A3', label:'★ 3rd choice' },
-}
+// PLACEMENT-BOARD-FELT-1 (2026-09-17): a unit is a board. Stitched navy leather
+// on top (name, chips, capacity, unit-leader status), blue felt below, where
+// each placement is a white paper note held by a push pin. Pulling the pin is
+// the unmatch control; it only ever OPENS the confirmation dialog below.
+// Visual rules live in src/components/placement/placementBoard.css.
 
 // ASPIRE-CHART honest match rank: display comes from the STORED match_quality
 // (lib/placementDisplay), never re-derived from unit names - renaming a unit
@@ -44,28 +42,22 @@ const resolveMatchedStudent = (match, studentMap) => {
   return null
 }
 
-// ── Compact placement row ─────────────────────────────────────────────────────
+// ── Pinned note ───────────────────────────────────────────────────────────────
 //
-// UNIT-POOL-REFINEMENT-1: one grid, two lines, one action column.
-//
-// The row is a 2×2 grid. The left column holds identity (the student, then the
-// preceptor indented beneath them); the right column holds actions. Each action
-// cell is itself a fixed two-slot grid - [notification control][28px slot] -
-// where the student line's slot carries the Unmatch control and the preceptor
-// line's slot is an empty spacer of the same width. That is what keeps the two
-// notification controls on one vertical line instead of drifting with whatever
-// happens to sit beside them: alignment is a property of the grid, not of how
-// wide each neighbour rendered today.
+// One placement. The pin shows the STORED rank (1, 2, 3, or a dot for other and
+// not recorded) and is a real button. The note's two action rows share ONE
+// two-column grid, so the preceptor and unit-leader controls always sit on one
+// vertical line, whatever width the names beside them render at.
 
-const ACTION_SLOT = 28   // the fixed right slot: unmatch on line 1, spacer on line 2
-
-function CompactPlacementRow({
+function PinnedNote({
   student, match, unit, onUnmatch, onNotify, onAssignPreceptor, placement, onEmailPreceptor,
   unitLeaderNotifyState, preceptorNotifyState, unitLeaderName, canCorrect,
   onConfirmNotified, onCorrectNotified,
+  tilt, isPulling, isPinningIn, canDrag, onDragStart, onDragEnd,
 }) {
-  const [rowHovered, setRowHovered] = useState(false)
   const qCfg       = MATCH_RANK_CONFIG[matchRankOf(student, match)]
+  const pin        = pinFor(student, match)
+  const name       = getStudentPreferredFullName(student)
   // PLACEMENT-COMMUNICATION-HANDOFF-1: presence comes ONLY from the PLACEMENT's
   // resolved preceptor (this student, in THIS unit). The student-level fields are
   // deliberately not consulted here: for a multi-unit student they name whoever
@@ -76,186 +68,171 @@ function CompactPlacementRow({
   const preceptorEmail = placement?.preceptorEmail || ''
   const hasPreceptor = !!preceptorName
 
-  return (
-    <div
-      onMouseEnter={() => setRowHovered(true)}
-      onMouseLeave={() => setRowHovered(false)}
-      data-testid="placement-row"
-      data-match-id={match?.id || ''}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) auto',
-        columnGap: 8, rowGap: 2,
-        alignItems: 'center',
-        padding: '6px 4px 6px 6px',
-        borderRadius: 8,
-        background: rowHovered ? '#F4F1EC' : 'transparent',
-        transition: 'background 120ms ease',
-      }}
-    >
-      {/* ── Line 1, left: the student. flexWrap lets the chips drop under the
-          name on a narrow card instead of running under the action column. ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap', overflow: 'hidden' }}>
-        <StudentAvatar student={student} size={24} style={{ flexShrink: 0 }} />
-        <span style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, fontWeight: 500, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-          {getStudentPreferredFullName(student)}
-        </span>
-        {student.shift_assigned && (
-          <span style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 10.5, fontWeight: 500, color: '#9CA3AF', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {student.shift_assigned === 'Day'       ? '☀ Day'
-            : student.shift_assigned === 'Night'    ? '☾ Night'
-            : student.shift_assigned === 'Mid'      ? '◐ Mid'
-            : student.shift_assigned === 'Variable' ? '☀ / ☾ Variable'
-            : student.shift_assigned}
-          </span>
-        )}
-        <span style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: qCfg.bg, color: qCfg.color, border: `1px solid ${qCfg.border}`, whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {qCfg.label}
-        </span>
-      </div>
+  const wrapClass = [
+    'pb-pinned',
+    tilt === 'b' ? 'pb-tilt-b' : 'pb-tilt-a',
+    isPulling ? 'pb-pull' : '',
+    isPinningIn ? 'pb-pin-in' : '',
+  ].filter(Boolean).join(' ')
 
-      {/* ── Line 1, right: unit-leader notification, then Unmatch in the fixed slot ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: `auto ${ACTION_SLOT}px`, alignItems: 'center', justifyItems: 'end' }}>
-        <NotificationControl
-          target={NOTIFICATION_TARGETS.UNIT_LEADER}
-          state={unitLeaderNotifyState}
-          personName={unitLeaderName}
-          studentName={studentNaturalName(student)}
-          unitName={unit.unit_name}
-          onOpenDraft={() => onNotify(student, match)}
-          onConfirm={() => onConfirmNotified?.({
-            target: NOTIFICATION_TARGETS.UNIT_LEADER, student, match, placement,
-          })}
-          onCorrect={canCorrect ? (reason) => onCorrectNotified?.({
-            target: NOTIFICATION_TARGETS.UNIT_LEADER, student, match, placement, reason,
-          }) : null}
-        />
-        {/* UNIT-POOL-REFINEMENT-1: Unmatch is a real, visible control now. The
-            old ✕ was 14px of pale grey that looked like the (since removed)
-            unit-delete ✕ one row up. A circled X in its own slot, separated
-            from the notification cluster, destructive only on hover - and it
-            only ever OPENS the confirmation dialog below. */}
-        <Tooltip label="Unmatch Student" placement="top">
+  return (
+    <div className={wrapClass}>
+      <span className="pb-pin-anchor">
+        <Tooltip label="Pull pin" placement="top">
           <button
             type="button"
-            data-testid="unmatch-student"
-            aria-label="Unmatch Student"
+            data-testid="pull-pin"
+            className={`material-pin material-rank-${pin.tone} pb-pin`}
+            aria-label={`Pull pin: unmatch ${name} from ${unit.unit_name}`}
             onClick={e => { e.stopPropagation(); onUnmatch(student) }}
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 26, height: 26, borderRadius: 6, border: '1px solid transparent',
-              background: 'none', padding: 0, lineHeight: 1, cursor: 'pointer', color: '#b9bec7' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#dc1e34'; e.currentTarget.style.background = '#FEF2F2' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#b9bec7'; e.currentTarget.style.background = 'none' }}
-            onFocus={e => { e.currentTarget.style.color = '#dc1e34' }}
-            onBlur={e => { e.currentTarget.style.color = '#b9bec7' }}
           >
-            <XCircle size={15} strokeWidth={2} aria-hidden="true" />
+            <span aria-hidden="true">{pin.glyph}</span>
           </button>
         </Tooltip>
-      </div>
+      </span>
 
-      {/* ── Line 2, left: the preceptor, indented under the student's name ── */}
-      <div style={{ paddingLeft: 30, minWidth: 0 }}>
-        {!hasPreceptor && onAssignPreceptor ? (
-          <button
-            onClick={e => { e.stopPropagation(); onAssignPreceptor(student) }}
-            style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textAlign: 'left' }}
-          >
-            + Assign preceptor
-          </button>
-        ) : !hasPreceptor ? (
-          <div style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11, color: '#B45309' }}>
-            {'⚠'} Preceptor needed
+      <div
+        className="paper-note pb-note pb-pinned-note"
+        data-testid="placement-row"
+        data-match-id={match?.id || ''}
+        data-pb-note=""
+        draggable={!!canDrag}
+        onDragStart={canDrag ? (e => onDragStart?.(e, student, match)) : undefined}
+        onDragEnd={canDrag ? onDragEnd : undefined}
+      >
+        <div className="pb-note-id">
+          <StudentAvatar student={student} size={40} />
+          <div className="pb-note-id-text">
+            <div className="pb-note-name">{name}</div>
+            {student.school && <div className="pb-note-school material-soft">{student.school}</div>}
           </div>
-        ) : (
-          /* PRECEPTOR-ASSIGNMENT-PROJECTION-1: matched_preceptor is the
-             trigger-maintained projection of the canonical preceptors row, so
-             the name is available without the board loading the roster.
-             Clicking re-opens the same assignment modal to change it. */
-          <button
-            data-testid="placement-preceptor-name"
-            onClick={e => { e.stopPropagation(); onAssignPreceptor?.(student) }}
-            disabled={!onAssignPreceptor}
-            title={onAssignPreceptor ? 'Change preceptor' : undefined}
-            style={{ fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11, color: '#4b5563', background: 'none',
-              border: 'none', padding: 0, textAlign: 'left', maxWidth: '100%',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              cursor: onAssignPreceptor ? 'pointer' : 'default' }}
-          >
-            {'\u{1F464}'} {preceptorName}
-          </button>
-        )}
-      </div>
+        </div>
 
-      {/* ── Line 2, right: preceptor notification in the SAME action column ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: `auto ${ACTION_SLOT}px`, alignItems: 'center', justifyItems: 'end' }}>
-        {hasPreceptor && onEmailPreceptor ? (
-          /* PLACEMENT-NOTIFICATION-CONTROL-1: one shared control, identical to
-             the unit-leader line's. The envelope opens the ASPIRE Connect
-             handoff and writes nothing; the check is the only path to notified
-             state, and it always asks first. */
-          <NotificationControl
-            target={NOTIFICATION_TARGETS.PRECEPTOR}
-            state={preceptorNotifyState}
-            personName={preceptorName}
-            studentName={studentNaturalName(student)}
-            unitName={unit.unit_name}
-            disabledReason={preceptorEmail ? '' : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
-            onOpenDraft={() => onEmailPreceptor(student, match, placement)}
-            onConfirm={() => onConfirmNotified?.({
-              target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement,
-            })}
-            onCorrect={canCorrect ? (reason) => onCorrectNotified?.({
-              target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement, reason,
-            }) : null}
-          />
-        ) : <span />}
-        {/* The empty spacer that keeps this control on the unit-leader
-            control's vertical line. Same width as the Unmatch slot above. */}
-        <span aria-hidden="true" />
+        <div className="pb-note-chips">
+          {student.shift_assigned && (
+            <span className="pb-chip">
+              {student.shift_assigned === 'Day'       ? '☀ Day'
+              : student.shift_assigned === 'Night'    ? '☾ Night'
+              : student.shift_assigned === 'Mid'      ? '◐ Mid'
+              : student.shift_assigned === 'Variable' ? '☀ / ☾ Variable'
+              : student.shift_assigned}
+            </span>
+          )}
+          <span
+            className="pb-chip pb-rank-chip"
+            data-testid="placement-rank-chip"
+            style={{ background: qCfg.bg, color: qCfg.color, borderColor: qCfg.border }}
+          >
+            {qCfg.label}
+          </span>
+        </div>
+
+        <div className="pb-note-rows">
+          {/* ── Preceptor line ── */}
+          <div className="pb-note-row-label">
+            {!hasPreceptor && onAssignPreceptor ? (
+              <button
+                type="button"
+                className="pb-link"
+                onClick={e => { e.stopPropagation(); onAssignPreceptor(student) }}
+              >
+                + Assign preceptor
+              </button>
+            ) : !hasPreceptor ? (
+              <span className="pb-warn">
+                {'⚠'} Preceptor needed
+              </span>
+            ) : (
+              /* PRECEPTOR-ASSIGNMENT-PROJECTION-1: matched_preceptor is the
+                 trigger-maintained projection of the canonical preceptors row, so
+                 the name is available without the board loading the roster.
+                 Clicking re-opens the same assignment modal to change it. */
+              <button
+                type="button"
+                data-testid="placement-preceptor-name"
+                className="pb-link pb-preceptor"
+                onClick={e => { e.stopPropagation(); onAssignPreceptor?.(student) }}
+                disabled={!onAssignPreceptor}
+                title={onAssignPreceptor ? 'Change preceptor' : undefined}
+              >
+                {'\u{1F464}'} {preceptorName}
+              </button>
+            )}
+          </div>
+          <div className="pb-note-row-action">
+            {hasPreceptor && onEmailPreceptor ? (
+              /* PLACEMENT-NOTIFICATION-CONTROL-1: one shared control, identical to
+                 the unit-leader line's. The envelope opens the ASPIRE Connect
+                 handoff and writes nothing; the check is the only path to notified
+                 state, and it always asks first. */
+              <NotificationControl
+                target={NOTIFICATION_TARGETS.PRECEPTOR}
+                state={preceptorNotifyState}
+                personName={preceptorName}
+                studentName={studentNaturalName(student)}
+                unitName={unit.unit_name}
+                disabledReason={preceptorEmail ? '' : `No email address on file for ${preceptorName || 'this preceptor'}. Add one in Rotation → Preceptors first.`}
+                onOpenDraft={() => onEmailPreceptor(student, match, placement)}
+                onConfirm={() => onConfirmNotified?.({
+                  target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement,
+                })}
+                onCorrect={canCorrect ? (reason) => onCorrectNotified?.({
+                  target: NOTIFICATION_TARGETS.PRECEPTOR, student, match, placement, reason,
+                }) : null}
+              />
+            ) : <span aria-hidden="true" />}
+          </div>
+
+          {/* ── Unit-leader line: was this unit's leader told about THIS student ── */}
+          <div className="pb-note-row-label material-soft">Unit Leader</div>
+          <div className="pb-note-row-action">
+            <NotificationControl
+              target={NOTIFICATION_TARGETS.UNIT_LEADER}
+              state={unitLeaderNotifyState}
+              personName={unitLeaderName}
+              studentName={studentNaturalName(student)}
+              unitName={unit.unit_name}
+              onOpenDraft={() => onNotify(student, match)}
+              onConfirm={() => onConfirmNotified?.({
+                target: NOTIFICATION_TARGETS.UNIT_LEADER, student, match, placement,
+              })}
+              onCorrect={canCorrect ? (reason) => onCorrectNotified?.({
+                target: NOTIFICATION_TARGETS.UNIT_LEADER, student, match, placement, reason,
+              }) : null}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-// ── Compact open slot button ──────────────────────────────────────────────────
+// ── Open slot ─────────────────────────────────────────────────────────────────
+//
+// Not a button: the whole board is the placement target (click, Enter, or drop).
 
-function CompactOpenSlot({ selectedStudent, compat, onClick }) {
-  const [hovered, setHovered] = useState(false)
-  const isReady = !!selectedStudent && !!onClick
-  return (
-    <button
-      onClick={isReady ? e => { e.stopPropagation(); onClick() } : undefined}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-        width: '100%', height: 32,
-        borderRadius: 8,
-        border: `1px solid ${hovered && isReady ? '#c8c8c8' : '#E5E5E5'}`,
-        background: hovered && isReady ? '#F4F1EC' : '#ffffff',
-        fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, fontWeight: 500,
-        color: isReady ? '#191919' : '#9ca3af',
-        cursor: isReady ? 'pointer' : 'default',
-        transition: 'background 150ms ease, border-color 150ms ease',
-        outline: 'none',
-      }}
-    >
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-      {isReady ? 'Place in this slot' : '+ Open slot'}
-    </button>
-  )
+function OpenSlot() {
+  return <div className="pb-open-slot" aria-hidden="true">Open slot</div>
 }
 
 // ── Main card ─────────────────────────────────────────────────────────────────
 
 export default function EmbedUnitCard({
   unit, matchedStudents, matches, studentMap, selectedStudent,
-  onSlotClick, onUnmatch, isHighlighted,
-  isFocusedUnit, onFocusUnit, onPreceptorAssigned,
+  onUnmatch, isHighlighted,
+  isFocusedUnit, onPreceptorAssigned,
+  // PLACEMENT-BOARD-FELT-1: the board surface. All optional, so the card still
+  // renders without them. onActivate is a click or Enter on the board (place the
+  // selected student, or focus the unit); highlightRank ribbons the selected
+  // student's 1st/2nd/3rd choice; the drag handlers belong to MatchingTab, which
+  // owns what is being dragged.
+  onActivate = null, highlightRank = null, isDimmed = false, isDropTarget = false,
+  canDrag = false, onNoteDragStart = null, onNoteDragEnd = null,
+  onBoardDragOver = null, onBoardDragLeave = null, onBoardDrop = null,
+  pullingMatchId = null, pinningStudentIds = null,
+  // A pinned note dragged back to the Student Pool asks THIS card to open its
+  // unmatch dialog, the same one the pin opens. { studentId, unitId }
+  pullRequest = null, onPullRequestConsumed = null,
   // PLACEMENT-COMMUNICATION-HANDOFF-1 canonical inputs. All optional: without
   // them the card still renders, the notice simply reports the values it could
   // not resolve instead of inventing them.
@@ -274,9 +251,9 @@ export default function EmbedUnitCard({
   onBatchConfirmNotified = null,
 }) {
   const navigate = useNavigate()
-  const [confirmUnmatch,  setConfirmUnmatch]  = useState(null)
+  const hintId = useId()
+  const [pinConfirm,      setPinConfirm]      = useState(null)
   const [toast,           setToast]           = useState(null)
-  const [cardHovered,     setCardHovered]     = useState(false)
   const [assignStudent,   setAssignStudent]   = useState(null)
   // The unit-leader notice awaiting confirmation, when the placement is missing
   // canonical values. { students, missing, message, onConfirm } - see handleNotify*.
@@ -301,14 +278,20 @@ export default function EmbedUnitCard({
   const emptyCount  = Math.max(0, unit.total_slots - filledCount)
   const isFull      = emptyCount === 0
 
-  // Choice level for the currently selected student
-  const compat = selectedStudent
-    ? (selectedStudent.unit_preference_1 === unit.unit_name ? '1st'
-      : selectedStudent.unit_preference_2 === unit.unit_name ? '2nd'
-      : selectedStudent.unit_preference_3 === unit.unit_name ? '3rd'
-      : null)
+  // The student whose unmatch dialog is open: from this board's pin, or from a
+  // pinned note dragged back to the Student Pool (PLACEMENT-BOARD-FELT-1). Both
+  // open the SAME dialog, plan and copy. Closing it clears whichever opened it.
+  const pulledRaw = pullRequest && String(pullRequest.unitId) === String(unit.id)
+    ? matchedStudents.find(s => s.id === pullRequest.studentId) || null
     : null
-  const choiceStyle = compat ? CHOICE_STYLES[compat] : null
+  const pulledStudent = pulledRaw
+    ? resolveMatchedStudent(matches.find(m => m.student_id === pulledRaw.id && m.unit_id === unit.id), studentMap) || pulledRaw
+    : null
+  const confirmUnmatch = pinConfirm || pulledStudent
+  const setConfirmUnmatch = (student) => {
+    setPinConfirm(student)
+    if (!student && pullRequest) onPullRequestConsumed?.()
+  }
 
   // Notification state - derived from the SAME confirmation ledger the rows
   // render, so the count can never disagree with the statuses beside it.
@@ -574,218 +557,161 @@ export default function EmbedUnitCard({
     })
   }
 
-  // ── Card border / shadow / opacity ────────────────────────────────────────
 
-  const borderColor = choiceStyle
-    ? choiceStyle.border
-    : isFocusedUnit
-    ? '#1D2567'
-    : '#E5E5E5'
+  const boardClasses = [
+    'pb-unit',
+    isFocusedUnit ? 'pb-unit-focused' : '',
+    isDropTarget ? 'pb-unit-drop' : '',
+    isDimmed ? 'pb-unit-dimmed' : '',
+    isHighlighted ? 'pb-unit-flash' : '',
+  ].filter(Boolean).join(' ')
 
-  const borderLeft = choiceStyle || isFocusedUnit
-    ? `3px solid ${borderColor}`
-    : '1px solid #E5E5E5'
+  const boardHint = selectedStudent
+    ? `Press Enter to place ${getStudentPreferredFullName(selectedStudent)} on ${unit.unit_name}.`
+    : `Press Enter to show the students who picked ${unit.unit_name}.`
 
-  const boxShadow = (isFocusedUnit || isHighlighted)
-    ? '0 4px 16px rgba(29,37,103,0.18)'
-    : cardHovered
-    ? CARD.shadowHover
-    : CARD.shadowRest
-
-  const transform = (isFocusedUnit || cardHovered) ? `translateY(${CARD.hoverLiftPx}px)` : 'none'
-
-  // Incompatible: when a student is selected but this unit is not one of their choices
-  const isIncompatible = !!selectedStudent && !compat
-  const cardOpacity = isIncompatible ? (isFull ? 0.45 : 0.7) : 1
+  const shiftChips = (() => {
+    const sp = unit.shift_preference
+    if (!sp || !sp.trim())               return [<span key="s" className="pb-chip material-chip">Shift not specified</span>]
+    if (sp === 'Day Shift')              return [<span key="d" className="pb-chip material-chip">☀ Day</span>]
+    if (sp === 'Night Shift')            return [<span key="n" className="pb-chip material-chip">☾ Night</span>]
+    if (sp === 'Either / No Preference') return [
+      <span key="d" className="pb-chip material-chip">☀ Day</span>,
+      <span key="n" className="pb-chip material-chip">☾ Night</span>,
+    ]
+    return [<span key="v" className="pb-chip material-chip">Verify shift</span>]
+  })()
 
   return (
     <>
       {/* Toast */}
-      {toast && (
-        <div style={{
-          position: 'fixed', top: 80, right: 24, zIndex: 9999,
-          background: 'var(--nightfall)', color: 'var(--pearl)',
-          fontSize: 13, fontWeight: 500, padding: '10px 16px',
-          borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-          maxWidth: 340, lineHeight: 1.5,
-        }}>{toast}</div>
-      )}
+      {toast && <div className="pb-card-toast" role="status">{toast}</div>}
 
-      <div
-        style={{
-          position: 'relative',
-          background: '#ffffff',
-          borderRadius: CARD.radius,
-          border: `1px solid ${borderColor}`,
-          borderLeft,
-          boxShadow,
-          opacity: cardOpacity,
-          transform,
-          transition: `box-shadow ${CARD.hoverDuration} ease, transform ${CARD.hoverDuration} ease, opacity ${CARD.hoverDuration} ease, border-color ${CARD.hoverDuration} ease`,
-          cursor: 'pointer',
-          animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
-          fontFamily: 'Plus Jakarta Sans,sans-serif',
-          overflow: 'hidden',
+      <section
+        className={boardClasses}
+        data-pb-board=""
+        data-unit-id={unit.id}
+        role="group"
+        tabIndex={0}
+        aria-label={`${unit.unit_name} board, ${filledCount} of ${unit.total_slots} filled`}
+        aria-describedby={hintId}
+        // A click inside a portalled dialog (NotificationControl) still bubbles
+        // through React to here; only a click on the board itself activates it.
+        onClick={e => { if (e.currentTarget.contains(e.target)) onActivate?.() }}
+        onKeyDown={e => {
+          if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+            e.preventDefault()
+            onActivate?.()
+          }
         }}
-        onMouseEnter={() => setCardHovered(true)}
-        onMouseLeave={() => setCardHovered(false)}
-        onClick={() => onFocusUnit?.()}
+        onDragOver={onBoardDragOver || undefined}
+        onDragLeave={onBoardDragLeave || undefined}
+        onDrop={onBoardDrop || undefined}
       >
+        <span id={hintId} className="sr-only">{boardHint}</span>
 
-        {/* ── Zone 1: Identity ── */}
-        <div style={{ padding: '16px 14px 10px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, fontSize: 16, color: '#191919', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
-              {unit.unit_name}
+        {/* ── Leather header: identity, capacity, unit-leader status ── */}
+        <header className="material-leather-navy pb-unit-hdr">
+          <div className="pb-unit-hdr-top">
+            <h3 className="pb-unit-name">{unit.unit_name}</h3>
+            <div className="pb-unit-chips">
+              {division && <span className="pb-chip material-chip">{division}</span>}
+              {shiftChips}
             </div>
-            {desc && (
-              <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {desc}
-              </div>
-            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-            {division && (
-              <span style={{ fontSize: 10, fontWeight: 600, color: '#475467', border: '1px solid #E5E5E5', borderRadius: 6, padding: '2px 7px', background: '#fafafa', whiteSpace: 'nowrap' }}>
-                {division}
-              </span>
-            )}
-            {(() => {
-              const sp = unit.shift_preference
-              const s = { fontSize: 10, fontWeight: 500, color: '#475467', border: '1px solid #E5E5E5', borderRadius: 6, padding: '2px 7px', background: '#fafafa', whiteSpace: 'nowrap' }
-              if (!sp || !sp.trim())           return <span style={s}>Shift not specified</span>
-              if (sp === 'Day Shift')          return <span style={s}>☀ Day</span>
-              if (sp === 'Night Shift')        return <span style={s}>☾ Night</span>
-              if (sp === 'Either / No Preference') return <><span style={s}>☀ Day</span><span style={s}>☾ Night</span></>
-              return <span style={s}>Verify shift</span>
-            })()}
-            {isFocusedUnit && (
-              <span style={{ fontSize: 10, fontWeight: 600, color: '#1D2567', border: '1px solid #c7d2fe', borderRadius: 6, padding: '2px 7px', background: '#e0e7ff', whiteSpace: 'nowrap' }}>
-                Filtering
-              </span>
-            )}
-            {/* UNIT-POOL-REFINEMENT-1: the delete-unit ✕ is GONE from this card.
-                A hosting unit is a cohort-level decision managed from At a
-                Glance → Placement Capacity → Set Up Units; the operational board
-                where placements are worked must not be able to destroy one, and
-                the tiny ✕ up here was one hover away from the unmatch control
-                below it. No alternate action on this surface deletes a unit. */}
-          </div>
-        </div>
+          {desc && <div className="pb-unit-desc material-soft">{desc}</div>}
 
-        {/* ── Zone 2: Capacity ── */}
-        <div style={{ padding: '0 14px 12px' }}>
-          {/* Dot indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
-            {Array.from({ length: Math.max(unit.total_slots, 1) }).map((_, i) => (
-              i < filledCount
-                ? <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#86EFAC', flexShrink: 0, display: 'inline-block' }} />
-                : <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', border: '1.5px solid #E5E7EB', flexShrink: 0, display: 'inline-block' }} />
-            ))}
-            {/* Choice chip inline */}
-            {choiceStyle && (
-              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: choiceStyle.chipBg, color: choiceStyle.chipText, whiteSpace: 'nowrap' }}>
-                {choiceStyle.label}
-              </span>
-            )}
-          </div>
-
-          {/* Text descriptor + the group envelope, one line. The icon adds no
-              row and no height: it sits in the capacity summary, 26px, with the
-              house count badge. Clicking it opens the SAME review-then-draft-
-              then-confirm flow as before - only the trigger shrank. */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 26 }}>
-            <div style={{ fontSize: 12, color: '#9ca3af' }}>
+          {/* Capacity + the group envelope + the all-notified summary, one line.
+              The envelope opens the SAME review-then-draft-then-confirm flow. */}
+          <div className="pb-unit-capacity">
+            <span className="pb-unit-capacity-text material-soft">
               {filledCount} of {unit.total_slots} filled{isFull ? ' · Full' : ` · ${emptyCount} open`}
-            </div>
+            </span>
             {unnotifiedStudents.length >= 2 && (
-              <span onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
+              <span onClick={e => e.stopPropagation()} className="pb-unit-envelope">
                 <Tooltip label={groupNotifyLabel} placement="top">
                   <button
                     type="button"
+                    className="pb-icon-btn"
                     data-testid="notify-unit-leader-consolidated"
                     aria-label={groupNotifyLabel}
                     onClick={handleNotifyAll}
-                    style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      width: 26, height: 26, borderRadius: 6, border: '1px solid transparent',
-                      background: 'none', padding: 0, lineHeight: 1, cursor: 'pointer', color: '#475467' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#eef0f7' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                   >
                     <Mail size={15} strokeWidth={2} aria-hidden="true" />
                     <span
                       data-testid="notify-consolidated-count"
                       aria-hidden="true"
-                      style={{ position: 'absolute', top: -4, right: -5, minWidth: 13, height: 13,
-                        borderRadius: 8, padding: '0 3px', background: BADGE_COUNT_BG, color: BADGE_COUNT_FG,
-                        fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 9, fontWeight: 700, lineHeight: '13px',
-                        textAlign: 'center', pointerEvents: 'none' }}>
+                      className="pb-count-badge"
+                      style={{ background: BADGE_COUNT_BG, color: BADGE_COUNT_FG }}>
                       {unnotifiedStudents.length}
                     </span>
                   </button>
                 </Tooltip>
               </span>
             )}
+            {filledCount > 0 && allNotified && (
+              <span
+                data-testid="unit-leader-all-notified"
+                className="pb-unit-notified material-ok"
+                title={`The unit leader has been notified for ${filledCount === 1 ? 'this placement' : `all ${filledCount} placements`}. Preceptor notification is tracked per row.`}>
+                ✓ Unit Leader Notified · {notifiedCount} of {filledCount}
+              </span>
+            )}
           </div>
+        </header>
 
-          {filledCount > 0 && allNotified && (
-            <div
-              data-testid="unit-leader-all-notified"
-              title={`The unit leader has been notified for ${filledCount === 1 ? 'this placement' : `all ${filledCount} placements`}. Preceptor notification is tracked per row.`}
-              style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 11.5, fontWeight: 600, color: '#166534' }}>
-              ✓ Unit Leader Notified · {notifiedCount} of {filledCount}
-            </div>
+        {/* ── Felt body: pinned notes, then open slots ── */}
+        <div className="material-felt pb-unit-body">
+          {highlightRank && (
+            <span
+              className={`material-ribbon material-rank-${RANK_TONE[highlightRank]} pb-ribbon`}
+              data-testid="choice-ribbon"
+            >
+              #{highlightRank} choice{isFull ? ' · Full' : ''}
+            </span>
           )}
-        </div>
-
-        {/* ── Zone 3: Placements ── */}
-        {(filledCount > 0 || emptyCount > 0) && (
-          <div style={{ borderTop: '1px solid rgba(29,37,103,0.06)', padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {matchedStudents.map(raw => {
-              const match   = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
-              const student = resolveMatchedStudent(match, studentMap) || raw
-              return (
-                <CompactPlacementRow
-                  key={student.id}
-                  student={student}
-                  match={match}
-                  unit={unit}
-                  placement={placementByStudent[student.id] || factsFor(student)}
-                  onUnmatch={() => setConfirmUnmatch(student)}
-                  onNotify={handleNotifyOne}
-                  onAssignPreceptor={s => setAssignStudent(s)}
-                  onEmailPreceptor={preceptorHandoff === 'busy' ? undefined : handleEmailPreceptor}
-                  /* Both states are judged against the placement as it stands
-                     NOW: this match row's id, and for the preceptor the person
-                     currently resolved for it. A recreated match or a replaced
-                     preceptor therefore starts unnotified, because neither can
-                     match an older confirmation. */
-                  unitLeaderNotifyState={notificationStateFor(notificationIndex, {
-                    target: NOTIFICATION_TARGETS.UNIT_LEADER, matchId: match?.id,
-                  }, { legacyNotified: !!match?.notification_sent })}
-                  preceptorNotifyState={notificationStateFor(notificationIndex, {
-                    target: NOTIFICATION_TARGETS.PRECEPTOR, matchId: match?.id,
-                    preceptorId: (placementByStudent[student.id] || factsFor(student)).preceptorId,
-                  })}
-                  unitLeaderName={leaderGreeting.name || unit.contact_person || ''}
-                  canCorrect={canCorrectNotifications}
-                  onConfirmNotified={onConfirmNotified}
-                  onCorrectNotified={onCorrectNotified}
-                />
-              )
-            })}
-            {Array.from({ length: emptyCount }).map((_, i) => (
-              <CompactOpenSlot
-                key={i}
-                selectedStudent={selectedStudent}
-                compat={compat}
-                onClick={selectedStudent ? onSlotClick : undefined}
+          {matchedStudents.map((raw, i) => {
+            const match   = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
+            const student = resolveMatchedStudent(match, studentMap) || raw
+            return (
+              <PinnedNote
+                key={student.id}
+                student={student}
+                match={match}
+                unit={unit}
+                tilt={i % 2 === 0 ? 'a' : 'b'}
+                isPulling={!!match && match.id === pullingMatchId}
+                isPinningIn={!!pinningStudentIds?.has?.(student.id)}
+                canDrag={canDrag}
+                onDragStart={(e, s, m) => onNoteDragStart?.(e, s, m, unit)}
+                onDragEnd={onNoteDragEnd}
+                placement={placementByStudent[student.id] || factsFor(student)}
+                onUnmatch={() => setConfirmUnmatch(student)}
+                onNotify={handleNotifyOne}
+                onAssignPreceptor={s => setAssignStudent(s)}
+                onEmailPreceptor={preceptorHandoff === 'busy' ? undefined : handleEmailPreceptor}
+                /* Both states are judged against the placement as it stands
+                   NOW: this match row's id, and for the preceptor the person
+                   currently resolved for it. A recreated match or a replaced
+                   preceptor therefore starts unnotified, because neither can
+                   match an older confirmation. */
+                unitLeaderNotifyState={notificationStateFor(notificationIndex, {
+                  target: NOTIFICATION_TARGETS.UNIT_LEADER, matchId: match?.id,
+                }, { legacyNotified: !!match?.notification_sent })}
+                preceptorNotifyState={notificationStateFor(notificationIndex, {
+                  target: NOTIFICATION_TARGETS.PRECEPTOR, matchId: match?.id,
+                  preceptorId: (placementByStudent[student.id] || factsFor(student)).preceptorId,
+                })}
+                unitLeaderName={leaderGreeting.name || unit.contact_person || ''}
+                canCorrect={canCorrectNotifications}
+                onConfirmNotified={onConfirmNotified}
+                onCorrectNotified={onCorrectNotified}
               />
-            ))}
-          </div>
-        )}
-      </div>
+            )
+          })}
+          {Array.from({ length: emptyCount }).map((_, i) => <OpenSlot key={i} />)}
+        </div>
+      </section>
 
       {/* PLACEMENT-COMMUNICATION-HANDOFF-1: gaps are shown BEFORE the draft opens.
           The message will print "To be confirmed" for each of these, so the Owner

@@ -111,13 +111,18 @@ test('PROOF 5: unit filtering and capacity calculations are untouched', () => {
 
 test('PROOF 6: both lines place their actions in the same fixed-slot grid', () => {
   const card = CARD()
-  // The alignment is structural: each action cell is [control][ACTION_SLOT px].
-  assert.match(card, /const ACTION_SLOT = 28/)
-  const cells = card.match(/gridTemplateColumns: `auto \$\{ACTION_SLOT\}px`/g) || []
-  assert.equal(cells.length, 2, 'exactly the student line and the preceptor line')
-  // Line 1's slot is the unmatch control; line 2's is the same-width spacer.
-  assert.match(card, /data-testid="unmatch-student"/)
-  assert.match(card, /<span aria-hidden="true" \/>/)
+  // PLACEMENT-BOARD-FELT-1: the alignment is still structural, and stronger. The
+  // preceptor line and the unit-leader line are rows of ONE two-column grid
+  // (.pb-note-rows), so both controls sit in the same column by construction.
+  const note = card.slice(card.indexOf('function PinnedNote'), card.indexOf('// ── Open slot'))
+  assert.equal((note.match(/className="pb-note-rows"/g) || []).length, 1, 'one shared grid')
+  assert.equal((note.match(/className="pb-note-row-action"/g) || []).length, 2, 'two action cells in it')
+  const css = read('src/components/placement/placementBoard.css')
+  assert.match(css, /\.pb-note-rows \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/)
+  // A placement with no preceptor keeps the column with a spacer, not a gap.
+  assert.match(note, /<span aria-hidden="true" \/>/)
+  // The unmatch control is the pin, outside the rows.
+  assert.match(note, /data-testid="pull-pin"/)
 })
 
 // ── 7. Notification controls unchanged ───────────────────────────────────────
@@ -138,13 +143,16 @@ test('PROOF 7: the shared NotificationControl and its labels are untouched', () 
 
 // ── 8-12. Unmatch ────────────────────────────────────────────────────────────
 
-test('PROOF 8: Unmatch Student is a real control with the exact label', () => {
+test('PROOF 8: the unmatch control is a real, labelled button (the pin)', () => {
   const card = CARD()
-  assert.match(card, /aria-label="Unmatch Student"/)
-  assert.match(card, /<Tooltip label="Unmatch Student" placement="top">/)
-  assert.match(card, /<XCircle size=\{15\}/)
-  // An adequate target: 26px button, not a bare glyph.
-  assert.match(card, /data-testid="unmatch-student"[\s\S]{0,700}width: 26, height: 26/)
+  // PLACEMENT-BOARD-FELT-1 (Owner-approved spec): pulling the pin replaced the
+  // circled X. It is still a real <button> with an exact, specific label.
+  assert.match(card, /aria-label=\{`Pull pin: unmatch \$\{name\} from \$\{unit\.unit_name\}`\}/)
+  assert.match(card, /<Tooltip label="Pull pin" placement="top">/)
+  assert.match(card, /<button\s+type="button"\s+data-testid="pull-pin"/)
+  assert.ok(!/XCircle/.test(card), 'the circled X is gone')
+  // An adequate target: a 24px round pin, not a bare glyph.
+  assert.match(read('src/styles/aspireMaterials.css'), /\.material-pin \{[^}]*width: 24px; height: 24px;/)
   // NEGATIVE CONTROL: the old faint × glyph as an unmatch trigger is gone.
   assert.ok(!/Unmatch student/.test(card), 'the old lowercase label has zero occurrences')
   assert.ok(!/>\s*×\s*<\/button>\s*<\/Tooltip>/.test(card), 'no bare × action remains on the rows')
@@ -189,7 +197,7 @@ test('PROOF 9+10: the dialog states the consequences of the branch that will run
   assert.match(dlg, />\s*Unmatch Student\s*<\/button>/, 'exact primary action')
   assert.match(dlg, />Cancel<\/button>/, 'exact secondary action')
   // The trigger only OPENS the dialog; the dialog's confirm is the only caller.
-  assert.match(card, /data-testid="unmatch-student"[\s\S]{0,400}onClick=\{e => \{ e\.stopPropagation\(\); onUnmatch\(student\) \}\}/)
+  assert.match(card, /data-testid="pull-pin"[\s\S]{0,400}onClick=\{e => \{ e\.stopPropagation\(\); onUnmatch\(student\) \}\}/)
   assert.match(card, /onUnmatch=\{\(\) => setConfirmUnmatch\(student\)\}/,
     'the row prop opens the modal, never the removal itself')
   assert.match(dlg, /onClick=\{\(\) => \{ onUnmatch\(confirmUnmatch\); setConfirmUnmatch\(null\) \}\}/)
@@ -463,9 +471,12 @@ test('MULTI 13: the pool, the projection, and the writers are untouched', () => 
   const board = BOARD()
   // The Student Pool still filters by readiness from the students list.
   assert.match(board, /filterPoolByReadiness/)
-  // Both card sites derive from the shared helper with the cohort pinned.
-  const sites = board.match(/studentsMatchedToUnit\(unit, matches, studentMap, cohortId\)/g) || []
-  assert.equal(sites.length, 2)
+  // The one card site derives from the shared helper with the cohort pinned.
+  // PLACEMENT-BOARD-FELT-1: it reads boardMatches, which is `matches` minus ONLY
+  // the placement whose unmatch is held in the Undo window.
+  const sites = board.match(/studentsMatchedToUnit\(unit, boardMatches, studentMap, cohortId\)/g) || []
+  assert.equal(sites.length, 1)
+  assert.match(board, /const boardMatches = heldMatchId \? matches\.filter\(m => m\.id !== heldMatchId\) : matches/)
   assert.ok(!board.includes('students.filter(s => s.matched_unit_id === unit.id)'),
     'the pointer-based derivation has zero occurrences on the board')
   // App's unmatch consumes the ONE tested plan; the final-revert projection
@@ -564,8 +575,8 @@ test('GROUP 10: MUTATION CONTROL - a one-student card-level action fails these p
   // order. The guarding test slices the trigger region and checks the fill and
   // the padding independently, so this reordered restoration trips it too.
   const big = raw.replace(
-    "background: 'none', padding: 0, lineHeight: 1, cursor: 'pointer', color: '#475467' }}",
-    "background: '#1D2567', padding: '6px 12px', borderRadius: 8, color: '#fff' }}")
+    'onClick={handleNotifyAll}\n',
+    "onClick={handleNotifyAll}\n style={{ background: '#1D2567', padding: '6px 12px', color: '#fff' }}\n")
   assert.notEqual(big, raw)
   const bigStripped = strip(big)
   const bigTrigger = bigStripped.slice(bigStripped.indexOf('data-testid="notify-unit-leader-consolidated"'),
@@ -701,8 +712,8 @@ test('MUTATION CONTROLS: each forbidden change trips its named proof', () => {
   const board = read('src/components/MatchingTab.jsx')
 
   // 1. Restoring the unit delete button → PROOF 2 catches it.
-  const withDelete = card.replace('{isFocusedUnit && (',
-    '<Tooltip label="Delete unit" placement="top"><button aria-label="Delete unit">✕</button></Tooltip>{isFocusedUnit && (')
+  const withDelete = card.replace('<div className="pb-unit-chips">',
+    '<div className="pb-unit-chips"><Tooltip label="Delete unit" placement="top"><button aria-label="Delete unit">✕</button></Tooltip>')
   assert.notEqual(withDelete, card)
   assert.ok(strip(withDelete).includes('"Delete unit"'), 'PROOF 2 would fail against this build')
 

@@ -32,9 +32,10 @@ Rules that follow from the table:
    Vertical margins do not collapse in a flex column, so a bottom margin plus a top margin
    makes 32px, and a missing top margin makes 0px. Both have shipped; neither should again.
 3. **No literal radii, gaps, or header sizes.** `border-radius: 8px` in CSS or
-   `borderRadius: 8` in JSX is a canon violation unless it is a pill (`999px`), a circle
-   (`50%`), or a chip inside a card. `test/uiCanonRatchet.test.mjs` counts literal radii
-   across `src/` and fails if the count goes UP. Lower it when you can; never raise it.
+   `borderRadius: 8` in JSX is a canon violation unless it is a pill
+   (`var(--aspire-radius-pill)`), a circle (`50%`), or a chip inside a card.
+   `test/uiCanonRatchet.test.mjs` counts literal radii across `src/` and fails if the
+   count goes UP. Lower it when you can; never raise it.
 4. **The navy `.tab-bar` is app-level brand chrome and stays navy.** Section navs
    (`.chart-nav`, `.ngrp` nav, `.ptl-nav`) are light with the shared hairline.
 5. **Titles are Title Case; sentences are not.** Section, panel, card, chart and drawer
@@ -45,6 +46,46 @@ Rules that follow from the table:
    real stylesheets against the real sibling order and read `getComputedStyle` and
    `getBoundingClientRect`. Source reading missed two cascade overrides on the day this
    canon shipped; a browser caught both.
+
+## Materials (PLACEMENT-BOARD-FELT-1, 2026-09-17)
+
+A **material** says what a surface is made of. It never sets structure: corner, gap and
+edge still come from the table above, so a felt card is a card. The colours and textures
+are tokens in `src/styles/aspireBrand.css` (`--aspire-felt`, `--aspire-leather`,
+`--aspire-stitch`, `--aspire-piping`, `--aspire-noise-*`, `--aspire-rank-*`); the classes
+that apply them are in `src/styles/aspireMaterials.css`, which a screen imports where it
+uses them (Rotation > Placement Board imports it through
+`src/components/placement/placementBoard.css`). Textures are inline SVG noise, never
+image files, and the materials look the same in light and dark mode; the page around them
+follows the theme.
+
+- `.material-felt`, `.material-leather-navy` (stitching and gold piping included),
+  `.material-leather-cream`, `.paper-note`, `.material-pin`, `.material-ribbon`.
+- A rank is never colour alone: a pin shows its number, a ribbon and a chip show words.
+  `--aspire-rank-*` are the nearest AA-passing shades to the approved mockup (white on
+  them measures at least 4.5:1); `test/placementBoardFelt.test.mjs` re-measures them.
+- The Placement Board owns the `pb-*` classes. The NGRP board still wears `embed-*` and
+  `euc-*`; never share a class between the two, and never restyle theirs.
+
+## Placement rank (PLACEMENT-BOARD-FELT-1)
+
+`matches.match_quality` stores `top_choice`, `second_choice`, `third_choice` or `other`,
+decided ONCE at placement by `matchQualityFor` in `src/lib/placementDisplay.js`. Displays
+read the stored value through `matchRankOf`; a rank is never re-derived from unit names,
+and an absent value reads "Match rank not recorded". Placements made before 2026-09-17
+stored a 3rd choice as `other` and keep it. Before shipping any change to these values,
+run `db/audit/match_quality_third_choice_preflight.sql` (read-only): a CHECK constraint
+or enum that does not list the new value would refuse the write in production.
+
+## Unmatching is held, not undone (PLACEMENT-BOARD-FELT-1)
+
+An unmatch cannot be reversed by placing the student again: it clears the primary
+preceptor, reverts the ASPIRE status, and leaves the Notified confirmations keyed to a
+deleted match row. So the board HOLDS the write for `UNDO_WINDOW_MS` (6s) instead of
+offering an undo that would quietly lose all three: `src/lib/pendingUnmatch.js` owns the
+rules (one hold at a time, commit before any other write, commit on cohort switch and on
+unmount, Undo only while waiting). If the page closes inside the window nothing was
+written and the student stays placed. Never replace this with a re-placement "undo".
 
 ## Tables (UI-CONSISTENCY-3)
 

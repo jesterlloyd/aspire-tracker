@@ -18,7 +18,6 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const rotationTab = read('src/components/RotationTab.jsx')
 const matching = read('src/components/MatchingTab.jsx')
-const banner = read('src/components/MatchingBanner.jsx')
 const smc = read('src/components/StudentMatchingCard.jsx')
 const embed = read('src/components/EmbedUnitCard.jsx')
 const coverage = read('src/components/StudentCoverage.jsx')
@@ -42,7 +41,8 @@ test('capacity: one calculation source (functional)', () => {
 
 test('capacity: no display source reads the drift-prone stored field', () => {
   // The write path for slots_remaining is untouched; displays no longer read it.
-  for (const [name, src] of [['MatchingBanner', banner], ['StudentMatchingCard', smc]]) {
+  // PLACEMENT-BOARD-FELT-1 retired MatchingBanner (the board's ribbons carry its content).
+  for (const [name, src] of [['StudentMatchingCard', smc]]) {
     assert.doesNotMatch(src, /slots_remaining/, `${name} reads live capacity only`)
     assert.match(src, /unitOpenSlots/, `${name} uses the shared helper`)
   }
@@ -53,20 +53,22 @@ test('capacity: no display source reads the drift-prone stored field', () => {
 test('match rank honesty (functional)', () => {
   assert.equal(matchRankOf({ match_quality: 'top_choice' }, null), 'top')
   assert.equal(matchRankOf({}, { match_quality: 'second_choice' }), 'second')
+  assert.equal(matchRankOf({ match_quality: 'third_choice' }, null), 'third')
   assert.equal(matchRankOf({ match_quality: 'other' }, null), 'other')
   assert.equal(matchRankOf({}, null), 'not_recorded', 'absent data says so, never a false Other')
   const counts = derivePrefCounts(
     [{ id: 'a', match_quality: 'top_choice' }, { id: 'b' }],
     [{ student_id: 'b' }],
   )
-  assert.deepEqual(counts, { top: 1, second: 0, other: 0, notRecorded: 1 })
+  assert.deepEqual(counts, { top: 1, second: 0, third: 0, other: 0, notRecorded: 1 })
 })
 
 test('match rank honesty (source): historical rank never re-derives from names', () => {
   // The PLACED-student row (historical record) reads the stored rank. The
   // live preference indicator for a student being placed right now may still
   // compare current preferences - that is a present-tense fact, not history.
-  const placedRow = embed.slice(embed.indexOf('function CompactPlacementRow'), embed.indexOf('// ── Compact'))
+  const placedRow = embed.slice(embed.indexOf('function PinnedNote'), embed.indexOf('// ── Open slot'))
+  assert.ok(placedRow.length > 200, 'the pinned-note slice still resolves')
   assert.doesNotMatch(placedRow, /unit_preference_1 === unit\.unit_name/)
   assert.match(embed, /matchRankOf\(student, match\)/)
   assert.match(matching, /derivePrefCounts\(matchedStudents, matches\)/)

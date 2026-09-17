@@ -217,7 +217,7 @@ test('PROOF 5: opening either envelope performs no database write', () => {
   }
 
   const precOpener = board.slice(board.indexOf('const handleEmailPreceptor'),
-    board.indexOf('const borderColor'))
+    board.indexOf('const boardClasses'))
   assert.ok(!precOpener.includes('.insert('), 'the preceptor handoff writes no row')
   assert.ok(!precOpener.includes('.update('))
   assert.ok(!precOpener.includes('notification_sent'))

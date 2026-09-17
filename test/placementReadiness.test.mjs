@@ -158,11 +158,14 @@ test("READY is precisely the set createMatch accepts - no student bounces on a t
 
 test('placing a non-interviewed student requires explicit confirmation first', () => {
   const tab = strip(read('src/components/MatchingTab.jsx'))
-  // The slot click DIVERTS to a confirmation instead of matching.
-  assert.match(tab, /if \(needsPlacementException\(selectedStudent\)\) \{\s*\n?\s*setExceptionPlacement\(\{ student: selectedStudent, unit \}\)\s*\n?\s*return/)
+  // Every way of placing (board click, Enter, drop) DIVERTS to a confirmation
+  // instead of matching. PLACEMENT-BOARD-FELT-1: they all arrive at requestPlacement.
+  assert.match(tab, /if \(needsPlacementException\(student\)\) \{\s*\n?\s*setExceptionPlacement\(\{ student, unit \}\)\s*\n?\s*return/)
+  assert.match(tab, /const handleSlotClick = unit => requestPlacement\(selectedStudent, unit\)/)
+  assert.match(tab, /if \(student\) requestPlacement\(student, unit\)/, 'a drop takes the same path')
   // Only the confirm button commits, and it is the ONLY place that passes true.
   assert.match(tab, /commitPlacement\(student, unit, true\)/)
-  assert.match(tab, /commitPlacement\(selectedStudent, unit, false\)/)
+  assert.match(tab, /commitPlacement\(student, unit, false\)/)
   assert.equal((tab.match(/commitPlacement\([^)]*true\)/g) || []).length, 1,
     'exactly one confirmed-exception commit site')
   assert.match(tab, /data-testid="placement-exception-dialog"/)
@@ -243,7 +246,8 @@ test('non-interviewed students are clearly labelled, and only in the broader mod
   // un-interviewed student looked ordinary. The label must sit OUTSIDE that
   // block. Proven positionally: it must appear before the block opens.
   const labelAt = card.indexOf('data-testid="card-not-interviewed"')
-  const unitGateAt = card.indexOf('{focusedUnit && (')
+  // PLACEMENT-BOARD-FELT-1: the one unit-dependent block on the note is the #N pick chip.
+  const unitGateAt = card.indexOf('{pickRank && (')
   assert.ok(labelAt > -1 && unitGateAt > -1, 'both anchors still exist')
   assert.ok(
     labelAt < unitGateAt,
