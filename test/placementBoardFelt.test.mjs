@@ -180,12 +180,15 @@ const TAB = () => strip(read('src/components/MatchingTab.jsx'))
 const CARD = () => strip(read('src/components/EmbedUnitCard.jsx'))
 const CSS = () => read('src/components/placement/placementBoard.css')
 
-test('LAYOUT 1: Student Pool on the left (about 40%), Unit Pool on the right (about 60%), stacked below 900px', () => {
+test('LAYOUT 1: Students on the left (about 40%), Units on the right (about 60%), stacked below 900px', () => {
   const tab = TAB()
   const board = tab.slice(tab.indexOf('className={`pb-board'))
-  assert.ok(board.indexOf('aria-label="Student Pool"') > -1)
-  assert.ok(board.indexOf('aria-label="Student Pool"') < board.indexOf('aria-label="Unit Pool"'),
-    'the Student Pool comes first in the grid')
+  // INTERVIEW-BOARD-1 (Owner, 2026-09-17): "Pool" left every matching board's
+  // vocabulary. A column is named for what it holds.
+  assert.ok(!tab.includes('Student Pool') && !tab.includes('Unit Pool'))
+  assert.ok(board.indexOf('aria-label="Students"') > -1)
+  assert.ok(board.indexOf('aria-label="Students"') < board.indexOf('aria-label="Units"'),
+    'the students come first in the grid')
   const css = CSS()
   assert.match(css, /\.pb-board \{[^}]*grid-template-columns: minmax\(0, 2fr\) minmax\(0, 3fr\);/)
   assert.match(css, /@media \(max-width: 900px\) \{\s*\.pb-board \{ grid-template-columns: minmax\(0, 1fr\);/)
@@ -353,11 +356,11 @@ test('POOL ORDER: alphabetical, not-yet-interviewed last, and a pick outranks bo
   assert.deepEqual(orderPool(tie, { unit_name: '6 NE' }).map(s => s.last_name), ['Chen', 'Park'])
 })
 
-test('POOL HEADER: only the School filter, and it sits after the spacer', () => {
+test('STUDENTS HEADER: only the School filter, and it sits after the spacer', () => {
   const tab = TAB()
-  const header = tab.slice(tab.indexOf('aria-label="Student Pool"'), tab.indexOf('pb-pool-body'))
+  const header = tab.slice(tab.indexOf('aria-label="Students"'), tab.indexOf('pb-pool-body'))
   for (const gone of ['pb-search', 'pool-readiness', 'Sort students', 'pb-stepper', 'Previous student']) {
-    assert.ok(!header.includes(gone), `${gone} left the Student Pool header`)
+    assert.ok(!header.includes(gone), `${gone} left the students header`)
   }
   assert.ok(header.indexOf('<span className="pb-hdr-spacer" />') < header.indexOf('aria-label="School"'),
     'the School filter is on the far right')
@@ -365,9 +368,9 @@ test('POOL HEADER: only the School filter, and it sits after the spacer', () => 
   assert.match(header, /student\$\{sortedPool\.length !== 1 \? 's' : ''\}/, 'the count stays')
 })
 
-test('UNIT HEADER: only the Division filter, no sort, no Export CSV, no division pills', () => {
+test('UNITS HEADER: only the Division filter, no sort, no Export CSV, no division pills', () => {
   const tab = TAB()
-  const header = tab.slice(tab.indexOf('aria-label="Unit Pool"'), tab.indexOf('<div className="pb-legend"'))
+  const header = tab.slice(tab.indexOf('aria-label="Units"'), tab.indexOf('<div className="pb-legend"'))
   // Owner, 2026-09-17: both helper strips are gone; the board explains itself.
   assert.ok(!tab.includes('pb-helper'), 'no helper strip remains')
   assert.ok(!tab.includes('Click a unit to surface'), 'and neither does its copy')
@@ -394,23 +397,33 @@ test('NOTE: status pill always, availability pill only when it warrants a look, 
   assert.match(css, /\.pb-note-top3 \{[^}]*max-width: 46%;/, 'the list is a column beside the name, not under it')
 })
 
-test('DRAG GHOST: the board draws what follows the cursor, badge only over an open slot', () => {
+test('DRAG GHOST: one shared implementation draws it, badge only over a target with room', () => {
+  // INTERVIEW-BOARD-1: dragging lives in useBoardDrag so the Placement Board and the
+  // Interview Board cannot drift apart. The board supplies only what it MEANS.
+  const drag = strip(read('src/components/placement/useBoardDrag.jsx'))
   const tab = TAB()
-  const over = tab.slice(tab.indexOf('onBoardDragOver:'), tab.indexOf('onBoardDragLeave:'))
-  assert.match(over, /const room = live\.matches\.filter\(m => m\.unit_id === unit\.id\)\.length < unit\.total_slots/)
-  assert.match(over, /if \(room\) showBadgeAt\(e\); else hideBadge\(\)/)
-  assert.match(over, /dropEffect = room \? 'move' : 'none'/)
-  // Moved imperatively through a ref: a dragover at 60Hz must not set state.
-  assert.match(tab, /ghost\.style\.transform = `translate3d\(/)
-  assert.ok(!/showBadgeAt[\s\S]{0,200}setState|setBadge/.test(tab), 'no badge state')
-  // The browser's own drag image is suppressed, so the board MUST draw something:
+  assert.match(tab, /useBoardDrag\(\{/)
+  assert.match(tab, /hasRoom: \(unitId\) => \{[\s\S]{0,260}length < unit\.total_slots/)
+  assert.match(tab, /\{dragLayer\}/, 'the shared layer is rendered')
+  assert.ok(!tab.includes('pb-drag-ghost'), 'the board no longer hand-rolls the ghost')
+
+  // The browser's own drag image is suppressed, so the layer MUST draw something:
   // otherwise nothing visibly moves (the Owner saw exactly that).
-  assert.match(tab, /setDragImage\(dragGhost, 0, 0\)/)
-  assert.match(tab, /<div ref=\{ghostRef\} className="pb-drag-ghost" aria-hidden="true">/)
-  assert.match(tab, /<span ref=\{ghostNameRef\} className="pb-drag-ghost-name" \/>/)
-  assert.match(tab, /<span ref=\{badgeRef\} className="pb-drag-badge material-pin material-rank-first">\+<\/span>/)
-  assert.match(tab, /ghostNameRef\.current\.textContent = payload\.name/)
+  assert.match(drag, /setDragImage\(dragImage, 0, 0\)/)
+  assert.match(drag, /<div ref=\{ghostRef\} className="pb-drag-ghost" aria-hidden="true">/)
+  assert.match(drag, /<span ref=\{ghostNameRef\} className="pb-drag-ghost-name" \/>/)
+  assert.match(drag, /<span ref=\{badgeRef\} className="pb-drag-badge material-pin material-rank-first">\+<\/span>/)
+  assert.match(drag, /ghostNameRef\.current\.textContent = payload\.name/)
+  // The badge appears only where a drop will be accepted.
+  assert.match(drag, /if \(room\) showBadgeAt\(e\); else hideBadge\(\)/)
+  assert.match(drag, /dropEffect = room \? 'move' : 'none'/)
+  // Moved imperatively through refs: a dragover at 60Hz must not set state.
+  assert.match(drag, /ghost\.style\.transform = `translate3d\(/)
+  assert.ok(!/showBadgeAt[\s\S]{0,200}setState|setBadge/.test(drag), 'no badge state')
   // `drag` fires on the source everywhere; `dragover` covers drop targets that swallow it.
-  assert.match(tab, /document\.addEventListener\('drag', onDocumentDrag\)/)
+  assert.match(drag, /document\.addEventListener\('drag', onDocumentDrag\)/)
+  // A target's dragleave arrives AFTER the next target's dragover, so leave events
+  // must never decide the badge.
+  assert.match(drag, /const onDocumentDragOver = \(e\) => \{[\s\S]{0,220}if \(!badgeWanted\.current\) hideBadge\(\)/)
   assert.match(CSS(), /\.pb-drag-ghost \{[^}]*position: fixed;[^}]*opacity: 0;[^}]*pointer-events: none;/)
 })

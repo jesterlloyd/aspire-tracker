@@ -162,7 +162,7 @@ test('placing a non-interviewed student requires explicit confirmation first', (
   // instead of matching. PLACEMENT-BOARD-FELT-1: they all arrive at requestPlacement.
   assert.match(tab, /if \(needsPlacementException\(student\)\) \{\s*\n?\s*setExceptionPlacement\(\{ student, unit \}\)\s*\n?\s*return/)
   assert.match(tab, /const handleSlotClick = unit => requestPlacement\(selectedStudent, unit\)/)
-  assert.match(tab, /if \(student\) requestPlacement\(student, unit\)/, 'a drop takes the same path')
+  assert.match(tab, /if \(student && unit\) requestPlacement\(student, unit\)/, 'a drop takes the same path')
   // Only the confirm button commits, and it is the ONLY place that passes true.
   assert.match(tab, /commitPlacement\(student, unit, true\)/)
   assert.match(tab, /commitPlacement\(student, unit, false\)/)

@@ -21,13 +21,15 @@ import {
 import { supabase as supabaseClient } from '../lib/supabase'
 import { planUnmatch } from '../lib/unmatchPlan'
 import { createPendingUnmatch, UNDO_WINDOW_MS } from '../lib/pendingUnmatch'
+import { useBoardDrag } from './placement/useBoardDrag'
 import { orderUnitsForStudent, groupPoolForUnit, orderPool, RANK_WORD } from '../lib/placementBoardView'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { TAB_TO_PATH } from '../lib/staffRoutes'
 import './placement/placementBoard.css'
 
 // PLACEMENT-BOARD-FELT-1 (2026-09-17): the board is felt, leather and paper.
-// Student Pool on the left (about 40%), Unit Pool on the right (about 60%).
+// Students on the left (about 40%), Units on the right (about 60%). INTERVIEW-BOARD-1
+// (Owner, 2026-09-17) took "Pool" out of every matching board's vocabulary.
 // Every write still goes through the same handlers as before: onMatch (App's
 // createMatch) and onUnmatch (App's unmatch), behind the same dialogs. What is
 // new is how a placement is made (drag a note, or select then click a board)
@@ -146,7 +148,7 @@ export default function MatchingTab({
   const [divFilter,         setDivFilter]         = useState('')
   const [fadingStudentIds,  setFadingStudentIds]  = useState(new Set())
   const [fadeInStudentIds,  setFadeInStudentIds]  = useState(new Set())
-  // Focused unit drives Student Pool tier-sort without affecting placement logic
+  // Focused unit drives the student order without affecting placement logic
   const [focusedUnit,       setFocusedUnit]       = useState(null)
 
 
@@ -607,7 +609,7 @@ export default function MatchingTab({
       ? (unitNameById[plan.successor?.unit_id] || 'their remaining placement')
       : null
     const title = plan.kind === 'final'
-      ? `${name} returned to the Student Pool.`
+      ? `${name} moved back to Students.`
       : `${name} removed from ${unit.unit_name}.`
     const message = plan.kind === 'final'
       ? 'The slot reopens and the preceptor assignment for this placement is cleared.'
@@ -628,144 +630,32 @@ export default function MatchingTab({
 
   // ── Drag and drop ──────────────────────────────────────────────────────────
   // A pool note dropped on a board places (same path as click). A pinned note
-  // dropped on the Student Pool opens that board's unmatch dialog (same path as
-  // the pin). Touch and keyboard use select-then-board instead.
-  const dragRef = useRef(null)
-  const [dragKind, setDragKind] = useState(null)
-  const [dropUnitId, setDropUnitId] = useState(null)
-  const [poolDropActive, setPoolDropActive] = useState(false)
-  const [draggingStudentId, setDraggingStudentId] = useState(null)
+  // dropped on Students unmatches it (the same path as the pin). Touch and
+  // keyboard use select-then-board instead.
+  // INTERVIEW-BOARD-1: dragging is the shared behaviour, in
+  // src/components/placement/useBoardDrag.jsx, so this board and the Interview Board
+  // cannot drift apart. What a board MEANS is still this board's business: whether a
+  // unit has room, and what a drop does.
   const [pullRequest, setPullRequest] = useState(null)
-
-  // The board draws what follows the cursor. The browser's own drag image is
-  // suppressed (a 1x1 transparent GIF) because it covered the badge, and with it
-  // suppressed nothing was visibly moving - so this element carries BOTH: the
-  // student's name, and the green (+) that appears over a board with an open slot.
-  const ghostRef = useRef(null)
-  const ghostNameRef = useRef(null)
-  const badgeRef = useRef(null)
-  const badgeWanted = useRef(false)
-  const moveGhost = (e) => {
-    const ghost = ghostRef.current
-    if (!ghost || (!e.clientX && !e.clientY)) return   // the last drag event reports 0,0
-    ghost.style.transform = `translate3d(${e.clientX + 14}px, ${e.clientY + 14}px, 0)`
-    ghost.style.opacity = '1'
-  }
-  // A 1x1 transparent GIF, built once: it replaces the browser's own drag image,
-  // which is a translucent copy of the note and used to cover the badge.
-  const [dragGhost] = useState(() => {
-    if (typeof Image === 'undefined') return null
-    const img = new Image()
-    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-    return img
-  })
-  const showBadgeAt = (e) => {
-    badgeWanted.current = true
-    moveGhost(e)
-    if (badgeRef.current) badgeRef.current.style.opacity = '1'
-  }
-  const hideBadge = () => {
-    if (badgeRef.current) badgeRef.current.style.opacity = '0'
-  }
-  const hideGhost = () => {
-    if (ghostRef.current) {
-      ghostRef.current.style.opacity = '0'
-      ghostRef.current.style.transform = 'translate3d(-9999px, -9999px, 0)'
-    }
-    hideBadge()
-  }
-
-  // Runs last (document is the end of the bubble path), so it sees whether any board
-  // asked for the badge during THIS dragover and hides it when none did.
-  const onDocumentDragOver = (e) => {
-    // Keeps the ghost with the cursor over drop targets, which swallow `drag`.
-    moveGhost(e)
-    if (!badgeWanted.current) hideBadge()
-    badgeWanted.current = false
-  }
-  // `drag` fires on the source throughout, so the ghost moves everywhere, not only
-  // over a board.
-  const onDocumentDrag = (e) => moveGhost(e)
-
-  const startDrag = (e, payload) => {
-    if (ghostNameRef.current) ghostNameRef.current.textContent = payload.name
-    document.addEventListener('dragover', onDocumentDragOver)
-    document.addEventListener('drag', onDocumentDrag)
-    dragRef.current = payload
-    setDragKind(payload.kind)
-    setDraggingStudentId(payload.studentId)
-    try {
-      e.dataTransfer.effectAllowed = 'move'
-      e.dataTransfer.setData('text/plain', payload.name)
-      if (dragGhost) e.dataTransfer.setDragImage(dragGhost, 0, 0)
-    } catch { /* some browsers restrict dataTransfer; the ref carries the payload */ }
-  }
-  const endDrag = () => {
-    setDraggingStudentId(null)
-    document.removeEventListener('dragover', onDocumentDragOver)
-    document.removeEventListener('drag', onDocumentDrag)
-    badgeWanted.current = false
-    hideGhost()
-    dragRef.current = null
-    setDragKind(null)
-    setDropUnitId(null)
-    setPoolDropActive(false)
-  }
-  const handlePoolNoteDragStart = (e, student) => startDrag(e, {
-    kind: 'pool', studentId: student.id, name: getStudentPreferredFullName(student),
-  })
-  const handlePinnedNoteDragStart = (e, student, match, unit) => {
-    e.stopPropagation()
-    startDrag(e, {
-      kind: 'board', studentId: student.id, unitId: unit.id, matchId: match?.id || null,
-      name: getStudentPreferredFullName(student),
-    })
-  }
-  const boardDragHandlers = (unit) => ({
-    onBoardDragOver: (e) => {
-      if (dragRef.current?.kind !== 'pool') return
-      e.preventDefault()
+  const {
+    dragLayer, dragKind, draggingId: draggingStudentId,
+    dropTargetId: dropUnitId, listDropActive: poolDropActive,
+    startListDrag, startTargetDrag, endDrag, targetHandlers, listHandlers,
+  } = useBoardDrag({
+    hasRoom: (unitId) => {
       const live = latest.current
-      const room = live.matches.filter(m => m.unit_id === unit.id).length < unit.total_slots
-      e.dataTransfer.dropEffect = room ? 'move' : 'none'
-      // The badge says "this slot will take them", so it appears only where that is
-      // true. Over a full board there is no badge, and the drop is refused with the
-      // same message the click path gives.
-      if (room) showBadgeAt(e); else hideBadge()
-      setDropUnitId(unit.id)
+      const unit = live.units.find(u => u.id === unitId)
+      return !!unit && live.matches.filter(m => m.unit_id === unitId).length < unit.total_slots
     },
-    onBoardDragLeave: (e) => {
-      if (e.currentTarget.contains(e.relatedTarget)) return
-      setDropUnitId(prev => (prev === unit.id ? null : prev))
+    onDropOnTarget: (studentId, unitId) => {
+      const live = latest.current
+      const student = live.students.find(x => x.id === studentId)
+      const unit = live.units.find(u => u.id === unitId)
+      if (student && unit) requestPlacement(student, unit)
     },
-    onBoardDrop: (e) => {
-      const drag = dragRef.current
-      if (drag?.kind !== 'pool') return
-      e.preventDefault()
-      endDrag()
-      const student = latest.current.students.find(s => s.id === drag.studentId)
-      if (student) requestPlacement(student, unit)
-    },
+    // A pinned note dropped back on Students unmatches it, the same path as its pin.
+    onDropOnList: (studentId, unitId) => setPullRequest({ studentId, unitId }),
   })
-  const poolDropHandlers = {
-    onDragOver: (e) => {
-      if (dragRef.current?.kind !== 'board') return
-      e.preventDefault()
-      e.dataTransfer.dropEffect = 'move'
-      setPoolDropActive(true)
-    },
-    onDragLeave: (e) => {
-      if (e.currentTarget.contains(e.relatedTarget)) return
-      setPoolDropActive(false)
-    },
-    onDrop: (e) => {
-      const drag = dragRef.current
-      if (drag?.kind !== 'board') return
-      e.preventDefault()
-      endDrag()
-      setPullRequest({ studentId: drag.studentId, unitId: drag.unitId })
-    },
-  }
 
   // Clicking empty space (not a note, board, control or dialog) clears the
   // selection and the unit focus.
@@ -809,7 +699,7 @@ export default function MatchingTab({
         matches={boardMatches}
         focusedUnit={focusedUnit}
         rotation={rotationById[s.cohort_school_rotation_id]}
-        onDragStart={canMatch ? handlePoolNoteDragStart : undefined}
+        onDragStart={canMatch ? ((e, student) => startListDrag(e, { id: student.id, name: getStudentPreferredFullName(student) })) : undefined}
         onDragEnd={endDrag}
       />
     </div>
@@ -837,27 +727,23 @@ export default function MatchingTab({
       />
 
       {/* What follows the cursor during a drag: the student's name, plus the green
-          (+) once the board underneath has an open slot. Moved imperatively, so a
-          drag at 60Hz never re-renders the board. */}
-      <div ref={ghostRef} className="pb-drag-ghost" aria-hidden="true">
-        <span ref={ghostNameRef} className="pb-drag-ghost-name" />
-        <span ref={badgeRef} className="pb-drag-badge material-pin material-rank-first">+</span>
-      </div>
+          (+) once the board underneath has an open slot (useBoardDrag). */}
+      {dragLayer}
 
       {/* Screen-reader announcements for selections, placements and unmatches. */}
       <div className="sr-only" role="status" aria-live="polite" data-testid="board-announcer">{announcement}</div>
 
-      {/* ── The board: Student Pool left, Unit Pool right ── */}
+      {/* ── The board: Students left, Units right ── */}
       <div className={`pb-board${dragKind ? ` pb-dragging-${dragKind}` : ''}`} onClick={handleEmptySpaceClick}>
 
           {/* Left: Student pool */}
           <section
             className={`pb-pool pb-pool-students${poolDropActive ? ' pb-pool-drop' : ''}`}
-            aria-label="Student Pool"
-            {...poolDropHandlers}
+            aria-label="Students"
+            {...listHandlers}
           >
             <header className="material-navy-flat pb-pool-hdr">
-              <h2 className="pb-pool-title">Student Pool</h2>
+              <h2 className="pb-pool-title">Students</h2>
               <span className="pb-count material-soft">
                 {selectedStudent
                   ? `${selectedIndex + 1} of ${sortedPool.length}`
@@ -932,9 +818,9 @@ export default function MatchingTab({
           </section>
 
           {/* Right: Units panel */}
-          <section className="pb-pool pb-pool-units" aria-label="Unit Pool">
+          <section className="pb-pool pb-pool-units" aria-label="Units">
             <header className="material-navy-flat pb-pool-hdr">
-              <h2 className="pb-pool-title">Unit Pool</h2>
+              <h2 className="pb-pool-title">Units</h2>
               {(selectedStudent || focusedUnit) && (
                 <span className="pb-hdr-hint material-soft">
                   {selectedStudent ? 'Reordered by preference' : `By preference for ${focusedUnit?.unit_name}`}
@@ -960,7 +846,7 @@ export default function MatchingTab({
             <div className="pb-units-body">
               {participating.length === 0 ? (
                 <EmptyState icon={<MapPin />}
-                  heading="No units in the pool"
+                  heading="No units yet"
                   subtext="Add participating units and their slots from At a Glance → Placement Capacity → Set Up Units." />
               ) : (
                 <div className="pb-unit-grid">
@@ -989,9 +875,11 @@ export default function MatchingTab({
                       isDropTarget={dropUnitId === unit.id}
                       canDrag={canMatch}
                       draggingStudentId={draggingStudentId}
-                      onNoteDragStart={handlePinnedNoteDragStart}
+                      onNoteDragStart={(e, student, match, u) => startTargetDrag(e, {
+                        id: student.id, targetId: u.id, name: getStudentPreferredFullName(student),
+                      })}
                       onNoteDragEnd={endDrag}
-                      {...boardDragHandlers(unit)}
+                      boardDragHandlers={targetHandlers(unit.id)}
                       pullingMatchId={pullingMatchId}
                       pinningStudentIds={pinningStudentIds}
                       pullRequest={pullRequest}

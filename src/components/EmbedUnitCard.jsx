@@ -227,10 +227,11 @@ export default function EmbedUnitCard({
   // owns what is being dragged.
   onActivate = null, highlightRank = null, isDimmed = false, isDropTarget = false,
   canDrag = false, onNoteDragStart = null, onNoteDragEnd = null, draggingStudentId = null,
-  onBoardDragOver = null, onBoardDragLeave = null, onBoardDrop = null,
+  // One object from useBoardDrag's targetHandlers(unitId): onDragOver / onDragLeave / onDrop.
+  boardDragHandlers = null,
   pullingMatchId = null, pinningStudentIds = null,
-  // A pinned note dragged back to the Student Pool asks THIS card to open its
-  // unmatch dialog, the same one the pin opens. { studentId, unitId }
+  // A pinned note dragged back to Students asks THIS card to unmatch it, exactly
+  // as its own pin does. { studentId, unitId }
   pullRequest = null, onPullRequestConsumed = null,
   // PLACEMENT-COMMUNICATION-HANDOFF-1 canonical inputs. All optional: without
   // them the card still renders, the notice simply reports the values it could
@@ -275,7 +276,7 @@ export default function EmbedUnitCard({
   // PLACEMENT-BOARD-FELT-1 (Owner, 2026-09-17): there is no confirmation dialog on
   // this board. Pulling the pin pulls the student, and the Undo window is the safety
   // mechanism - a real one, unlike a dialog that is dismissed on reflex. A pinned note
-  // dragged back to the Student Pool takes exactly the same path.
+  // dragged back to Students takes exactly the same path.
   const pulledRaw = pullRequest && String(pullRequest.unitId) === String(unit.id)
     ? matchedStudents.find(s => s.id === pullRequest.studentId) || null
     : null
@@ -597,9 +598,7 @@ export default function EmbedUnitCard({
             onActivate?.()
           }
         }}
-        onDragOver={onBoardDragOver || undefined}
-        onDragLeave={onBoardDragLeave || undefined}
-        onDrop={onBoardDrop || undefined}
+        {...(boardDragHandlers || {})}
       >
         <span id={hintId} className="sr-only">{boardHint}</span>
 
@@ -608,7 +607,7 @@ export default function EmbedUnitCard({
           <div className="pb-unit-hdr-top">
             <h3 className="pb-unit-name">{unit.unit_name}</h3>
             {/* Owner, 2026-09-17: the division pill left the board. The Division
-                filter in the Unit Pool header is where a division is chosen. */}
+                filter in the Units header is where a division is chosen. */}
             <div className="pb-unit-chips">{shiftChips}</div>
           </div>
           {desc && <div className="pb-unit-desc material-soft">{desc}</div>}

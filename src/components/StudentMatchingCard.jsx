@@ -1,5 +1,5 @@
 /**
- * StudentMatchingCard - a student in the Placement Board's Student Pool.
+ * StudentMatchingCard - a student in the Placement Board's Students column.
  *
  * PLACEMENT-BOARD-FELT-1 (2026-09-17): a white paper note on cream leather.
  * Owner decisions on content, in order:
@@ -105,7 +105,7 @@ export default function StudentMatchingCard({
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       aria-pressed={interactive ? !!isSelected : undefined}
-      aria-label={`${name}${student.school ? `, ${student.school}` : ''}${isPending ? ', returning to the pool' : ''}`}
+      aria-label={`${name}${student.school ? `, ${student.school}` : ''}${isPending ? ', moving back to Students' : ''}`}
       draggable={interactive && !!onDragStart}
       onDragStart={interactive && onDragStart ? (e) => onDragStart(e, student) : undefined}
       onDragEnd={interactive && onDragEnd ? onDragEnd : undefined}
@@ -170,7 +170,7 @@ export default function StudentMatchingCard({
 
       {isPending && (
         <div className="pb-note-pending-caption material-soft">
-          Returning to the pool. Undo is in the message below.
+          Moving back to Students. Undo is in the message below.
         </div>
       )}
     </div>
