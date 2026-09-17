@@ -2,10 +2,9 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import Tooltip from './ui/Tooltip'
 import EmbedUnitCard from './EmbedUnitCard'
 import StudentMatchingCard from './StudentMatchingCard'
-import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
+import { UNIT_DIVISION_MAP } from '../lib/constants'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import { Users, MapPin, Info } from 'lucide-react'
@@ -14,10 +13,7 @@ import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { canPerformMatching } from '../lib/permissions'
 import { KPICell } from './KPIBand'
 import { unitOpenSlots, totalOpenSlots, derivePrefCounts, studentsMatchedToUnit } from '../lib/placementDisplay'
-import {
-  READINESS_MODES, DEFAULT_READINESS_MODE, filterPoolByReadiness,
-  needsPlacementException, exceptionCount, isPoolEligible,
-} from '../lib/placementReadiness'
+import { filterPoolByReadiness, needsPlacementException, isPoolEligible } from '../lib/placementReadiness'
 import {
   notificationStateIndex, NOTIFICATION_TARGETS,
   CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE,
@@ -25,7 +21,7 @@ import {
 import { supabase as supabaseClient } from '../lib/supabase'
 import { planUnmatch } from '../lib/unmatchPlan'
 import { createPendingUnmatch, UNDO_WINDOW_MS } from '../lib/pendingUnmatch'
-import { orderUnitsForStudent, groupPoolForUnit, RANK_WORD } from '../lib/placementBoardView'
+import { orderUnitsForStudent, groupPoolForUnit, orderPool, RANK_WORD } from '../lib/placementBoardView'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { TAB_TO_PATH } from '../lib/staffRoutes'
 import './placement/placementBoard.css'
@@ -132,30 +128,22 @@ export default function MatchingTab({
     if (s && isPoolEligible(s)) setSelectedStudent(s)
     onFocusMatchConsumed?.()
   }, [focusMatchStudentId]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [poolSearch,        setPoolSearch]        = useState('')
   const [poolSchool,        setPoolSchool]        = useState('')
-  const [poolSort,          setPoolSort]          = useState('last_name_asc')
-  // Readiness is a FILTER, deliberately separate from the sort above.
-  const [readiness,         setReadiness]         = useState(DEFAULT_READINESS_MODE)
   // Pending approved-exception placement: { student, unit } awaiting confirmation.
   const [exceptionPlacement, setExceptionPlacement] = useState(null)
 
-  // PLACEMENT-POOL-READINESS-1: a cohort switch returns the pool to the safe
-  // default. The broader exception view is a deliberate, per-cohort choice and
-  // must never silently persist into a different cohort's placement work; any
-  // half-finished exception confirmation is dropped with it.
+  // PLACEMENT-POOL-READINESS-1: a cohort switch drops any half-finished exception
+  // confirmation. It is a per-cohort, per-student decision and must never carry into
+  // a different cohort's placement work.
   //
-  // Adjusted during render (React's documented pattern for resetting state when
-  // a prop changes) rather than in an effect, so the pool never paints one
-  // frame of the previous cohort's mode.
-  const [readinessCohort, setReadinessCohort] = useState(cohortId)
-  if (cohortId !== readinessCohort) {
-    setReadinessCohort(cohortId)
-    setReadiness(DEFAULT_READINESS_MODE)
+  // Adjusted during render (React's documented pattern for resetting state when a prop
+  // changes) rather than in an effect, so the board never paints one frame of it.
+  const [exceptionCohort, setExceptionCohort] = useState(cohortId)
+  if (cohortId !== exceptionCohort) {
+    setExceptionCohort(cohortId)
     setExceptionPlacement(null)
   }
   const [divFilter,         setDivFilter]         = useState('')
-  const [sortMode,          setSortMode]          = useState('alpha')
   const [fadingStudentIds,  setFadingStudentIds]  = useState(new Set())
   const [fadeInStudentIds,  setFadeInStudentIds]  = useState(new Set())
   // Focused unit drives Student Pool tier-sort without affecting placement logic
@@ -369,13 +357,12 @@ export default function MatchingTab({
   })
 
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
-  // PLACEMENT-POOL-READINESS-1: 'Ready to place' (the default) is exactly the
-  // set createMatch accepts; 'All eligible students' restores the previous
-  // contents for approved pre-interview exceptions. Neither mode can include a
-  // Not Proceeding, Placed, Active Rotation, Completed, or Declined student.
-  const unmatchedAll    = filterPoolByReadiness(students, readiness)
-  const eligibleAll     = students.filter(isPoolEligible)
-  const hiddenExceptions = readiness === 'ready' ? exceptionCount(students) : 0
+  // The pool is every ELIGIBLE student (Owner, 2026-09-17): the readiness filter is
+  // gone, so a student who has not interviewed yet is visible here, at the bottom of
+  // the list, wearing their ASPIRE Status pill. Placing one is still an approved
+  // exception and still asks first. No mode can include a Not Proceeding, Placed,
+  // Active Rotation, Completed or Declined student.
+  const eligibleAll     = filterPoolByReadiness(students, 'all')
   const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
   // ASPIRE-CHART: counts come from STORED match ranks (shared module), never
@@ -446,82 +433,33 @@ export default function MatchingTab({
   const boardMatches = heldMatchId ? matches.filter(m => m.id !== heldMatchId) : matches
   const returningStudentId = pending?.planKind === 'final' ? pending.studentId : null
 
-  // Filter + sort units
+  // Filter, then alphabetical. The sort control is gone (Owner, 2026-09-17); a
+  // selected student still reorders the boards by their preferences below.
   let displayUnits = [...participating]
   if (divFilter) {
     displayUnits = displayUnits.filter(u =>
       (u.division || UNIT_DIVISION_MAP[u.unit_name] || 'Medical') === divFilter
     )
   }
-  if (sortMode === 'alpha') {
-    displayUnits.sort((a, b) => a.unit_name.localeCompare(b.unit_name))
-  } else if (sortMode === 'division') {
-    displayUnits.sort((a, b) => {
-      const da = a.division || UNIT_DIVISION_MAP[a.unit_name] || 'Medical'
-      const db = b.division || UNIT_DIVISION_MAP[b.unit_name] || 'Medical'
-      return da.localeCompare(db) || a.unit_name.localeCompare(b.unit_name)
-    })
-  } else if (sortMode === 'most-available') {
-    displayUnits.sort((a, b) => (unitOpenSlots(b, matches) ?? 0) - (unitOpenSlots(a, matches) ?? 0))
-  }
+  displayUnits.sort((a, b) => a.unit_name.localeCompare(b.unit_name))
 
   // Pool: include fading-out students temporarily for exit animation, and a
   // student whose unmatch is held (shown, not actionable).
   const poolIds = new Set()
   const poolBase = [
-    ...unmatchedAll,
+    ...eligibleAll,
     ...students.filter(s => fadingStudentIds.has(s.id) && s.matched_unit_id),
     ...students.filter(s => s.id === returningStudentId),
   ].filter(s => (poolIds.has(s.id) ? false : poolIds.add(s.id)))
   const filteredPool = poolBase.filter(s => {
     if (fadingStudentIds.has(s.id)) return true // always show during exit animation
-    if (poolSearch && !`${s.first_name||''} ${s.preferred_first_name||''} ${s.last_name||''} ${s.name||''}`.toLowerCase().includes(poolSearch.toLowerCase())) return false
     if (poolSchool && s.school !== poolSchool) return false
     return true
   })
 
-  // Choice tier for the currently focused unit (1–3 = preference rank, 4 = not picked)
-  const tierOf = (student) => {
-    if (!focusedUnit) return 4
-    if (student.unit_preference_1 === focusedUnit.unit_name) return 1
-    if (student.unit_preference_2 === focusedUnit.unit_name) return 2
-    if (student.unit_preference_3 === focusedUnit.unit_name) return 3
-    return 4
-  }
-
-  // Baseline sort (existing logic, unchanged)
-  const baselinePool = [...filteredPool].sort((a, b) => {
-    // Fading students stay sorted normally (they vanish in <300ms anyway)
-    const la = (a.last_name || a.name || '').toLowerCase()
-    const lb = (b.last_name || b.name || '').toLowerCase()
-    switch (poolSort) {
-      case 'last_name_desc': return lb.localeCompare(la)
-      case 'school_asc':     return (a.school||'').localeCompare(b.school||'') || la.localeCompare(lb)
-      case 'gpa_desc': {
-        const ga = parseFloat(a.cumulative_gpa)||0, gb = parseFloat(b.cumulative_gpa)||0
-        return gb - ga || la.localeCompare(lb)
-      }
-      case 'score_desc': {
-        const sa = parseFloat(a.avg_composite_score)||0, sb = parseFloat(b.avg_composite_score)||0
-        return sb - sa || la.localeCompare(lb)
-      }
-      case 'status': {
-        const ia = ASPIRE_STATUS_SORT_ORDER.indexOf(a.status)
-        const ib = ASPIRE_STATUS_SORT_ORDER.indexOf(b.status)
-        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || la.localeCompare(lb)
-      }
-      default: return la.localeCompare(lb) // last_name_asc
-    }
-  })
-
-  // When a unit is focused, stable-sort by tier on top of the baseline
-  // (tier first, then baseline index preserves the existing sort within each tier)
-  const sortedPool = focusedUnit
-    ? baselinePool
-        .map((s, i) => ({ s, tier: tierOf(s), i }))
-        .sort((a, b) => a.tier - b.tier || a.i - b.i)
-        .map(({ s }) => s)
-    : baselinePool
+  // One order for the pool, and it lives in lib/placementBoardView.js: preference for
+  // the focused unit, then interviewed before not-yet-interviewed, then last name A-Z.
+  const sortedPool = orderPool(filteredPool, focusedUnit)
 
   // Groups for a focused unit: picked it 1st, picked it 2nd or 3rd, everyone else
   // (dimmed). The sort above already ranks them; grouping only adds the labels.
@@ -544,13 +482,6 @@ export default function MatchingTab({
       .map(r => next[`unit_preference_${r}`] ? `${RANK_WORD[r]} ${next[`unit_preference_${r}`]}` : null)
       .filter(Boolean)
     announce(`${getStudentPreferredFullName(next)} selected.${picks.length ? ` Top choices: ${picks.join(', ')}. Their boards are listed first.` : ''}`)
-  }
-
-  const handlePrevStudent = () => {
-    if (selectedIndex > 0) handleStudentSelect(sortedPool[selectedIndex - 1])
-  }
-  const handleNextStudent = () => {
-    if (selectedIndex < sortedPool.length - 1) handleStudentSelect(sortedPool[selectedIndex + 1])
   }
 
   const handleUnitFocus = (unit) => {
@@ -696,7 +627,29 @@ export default function MatchingTab({
   const [poolDropActive, setPoolDropActive] = useState(false)
   const [pullRequest, setPullRequest] = useState(null)
 
+  const badgeRef = useRef(null)
+  const badgeWanted = useRef(false)
+  const showBadgeAt = (e) => {
+    badgeWanted.current = true
+    const badge = badgeRef.current
+    if (!badge) return
+    badge.style.transform = `translate3d(${e.clientX + 14}px, ${e.clientY + 14}px, 0)`
+    badge.style.opacity = '1'
+  }
+  const hideBadge = () => {
+    const badge = badgeRef.current
+    if (badge) badge.style.opacity = '0'
+  }
+
+  // Runs last (document is the end of the bubble path), so it sees whether any board
+  // asked for the badge during THIS dragover and hides it when none did.
+  const onDocumentDragOver = () => {
+    if (!badgeWanted.current) hideBadge()
+    badgeWanted.current = false
+  }
+
   const startDrag = (e, payload) => {
+    document.addEventListener('dragover', onDocumentDragOver)
     dragRef.current = payload
     setDragKind(payload.kind)
     try {
@@ -705,6 +658,9 @@ export default function MatchingTab({
     } catch { /* some browsers restrict dataTransfer; the ref carries the payload */ }
   }
   const endDrag = () => {
+    document.removeEventListener('dragover', onDocumentDragOver)
+    badgeWanted.current = false
+    hideBadge()
     dragRef.current = null
     setDragKind(null)
     setDropUnitId(null)
@@ -724,7 +680,13 @@ export default function MatchingTab({
     onBoardDragOver: (e) => {
       if (dragRef.current?.kind !== 'pool') return
       e.preventDefault()
-      e.dataTransfer.dropEffect = 'move'
+      const live = latest.current
+      const room = live.matches.filter(m => m.unit_id === unit.id).length < unit.total_slots
+      e.dataTransfer.dropEffect = room ? 'move' : 'none'
+      // The badge says "this slot will take them", so it appears only where that is
+      // true. Over a full board there is no badge, and the drop is refused with the
+      // same message the click path gives.
+      if (room) showBadgeAt(e); else hideBadge()
       setDropUnitId(unit.id)
     },
     onBoardDragLeave: (e) => {
@@ -769,21 +731,6 @@ export default function MatchingTab({
     if (focusedUnit) setFocusedUnit(null)
   }
 
-  const exportCSV = () => {
-    const headers = ['Student Name','School','School Email','Personal Email','Phone','Matched Unit','Match Quality','Preceptor Assigned','Shift Assigned','Unit Contact','Notes']
-    const rows = matchedStudents.map(s => {
-      const unit  = units.find(u => u.id === s.matched_unit_id)
-      const match = matches.find(m => m.student_id === s.id)
-      return [s.name, s.school, s.school_email, s.personal_email, s.phone,
-        unit?.unit_name || '', match?.match_quality || s.match_quality || '',
-        match?.preceptor_assigned || '', match?.shift_assigned || '',
-        unit?.contact_person || '', match?.notes || '']
-    })
-    const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href=url; a.download=`aspire-matches-${new Date().toISOString().slice(0,10)}.csv`; a.click()
-    URL.revokeObjectURL(url)
-  }
 
   const studentMap = (() => {
     const map = {}
@@ -800,16 +747,12 @@ export default function MatchingTab({
 
   const studentsCount  = students.length
   const matchedCount   = matchedStudents.length
-  const unmatchedCount = unmatchedAll.length
+  const unmatchedCount = eligibleAll.length
 
   const renderPoolNote = (s) => (
     <div key={s.id} ref={el => { cardRefs.current[s.id] = el }} className="pb-note-slot">
       <StudentMatchingCard
         student={s}
-        /* PLACEMENT-POOL-READINESS-1: in the broader mode a
-           student who has not been interviewed is labelled, so
-           an exception is never made by accident. */
-        needsException={needsPlacementException(s)}
         isSelected={selectedStudent?.id === s.id}
         onSelect={handleStudentSelect}
         isReadOnly={!canMatch}
@@ -847,6 +790,10 @@ export default function MatchingTab({
         poolSchools={poolSchools}
       />
 
+      {/* The drag badge. Hidden until a dragged note is over a board with an open
+          slot; moved by the dragover handler, never by a re-render. */}
+      <span ref={badgeRef} className="pb-drag-badge material-pin material-rank-first" aria-hidden="true">+</span>
+
       {/* Screen-reader announcements for selections, placements and unmatches. */}
       <div className="sr-only" role="status" aria-live="polite" data-testid="board-announcer">{announcement}</div>
 
@@ -861,65 +808,19 @@ export default function MatchingTab({
           >
             <header className="material-leather-navy pb-pool-hdr">
               <h2 className="pb-pool-title">Student Pool</h2>
-              <input
-                className="pb-search"
-                value={poolSearch}
-                onChange={e => setPoolSearch(e.target.value)}
-                placeholder="Search…"
-                aria-label="Search students"
-              />
-              <select value={poolSchool} onChange={e => setPoolSchool(e.target.value)} className="pb-select" aria-label="School">
-                <option value="">All Schools</option>
-                {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <Tooltip label="Which students to show" placement="bottom">
-              <select
-                value={readiness}
-                onChange={e => setReadiness(e.target.value)}
-                className="pb-select"
-                aria-label="Placement readiness"
-                data-testid="pool-readiness"
-              >
-                {READINESS_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-              </Tooltip>
-              <Tooltip label="Sort students" placement="bottom">
-              <select value={poolSort} onChange={e => setPoolSort(e.target.value)} className="pb-select" aria-label="Sort students">
-                <option value="last_name_asc">Last Name A–Z</option>
-                <option value="last_name_desc">Last Name Z–A</option>
-                <option value="school_asc">School A–Z</option>
-                <option value="gpa_desc">GPA High–Low</option>
-                <option value="score_desc">Score High–Low</option>
-                <option value="status">ASPIRE Status</option>
-              </select>
-              </Tooltip>
-              <span className="pb-hdr-spacer" />
               <span className="pb-count material-soft">
                 {selectedStudent
                   ? `${selectedIndex + 1} of ${sortedPool.length}`
                   : `${sortedPool.length} student${sortedPool.length !== 1 ? 's' : ''}`}
-                {!selectedStudent && hiddenExceptions > 0 && (
-                  <span data-testid="pool-hidden-note" className="pb-hidden-note">
-                    · {hiddenExceptions} not yet interviewed
-                  </span>
-                )}
               </span>
+              {/* The legend explains the ASPIRE Status pills, which are now the pool's
+                  only readiness indicator. */}
               <StatusLegendPopover position="bottom-right" dark />
-              {sortedPool.length > 0 && (
-                <div className="pb-stepper">
-                  <Tooltip label="Previous student" placement="top">
-                  <button type="button" className="pb-step material-inlay" onClick={handlePrevStudent} disabled={!selectedStudent || selectedIndex <= 0} aria-label="Previous student">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-                  </button>
-                  </Tooltip>
-                  <Tooltip label="Next student" placement="top">
-                  <button type="button" className="pb-step material-inlay" onClick={handleNextStudent} disabled={!selectedStudent || selectedIndex >= sortedPool.length - 1} aria-label="Next student">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-                  </button>
-                  </Tooltip>
-                  {selectedStudent && <span className="pb-keys material-soft">↑↓·Esc</span>}
-                </div>
-              )}
+              <span className="pb-hdr-spacer" />
+              <select value={poolSchool} onChange={e => setPoolSchool(e.target.value)} className="pb-select" aria-label="School">
+                <option value="">All Schools</option>
+                {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </header>
 
             <div className="pb-helper">
@@ -961,12 +862,10 @@ export default function MatchingTab({
                   : (
                     <div className="paper-note pb-note pb-empty-note">
                       <EmptyState icon={<Users />}
-                        heading={readiness === 'ready' ? 'No students ready to place' : 'No students match this search'}
-                        subtext={readiness === 'ready'
-                          ? (hiddenExceptions > 0
-                              ? `Students appear here after completing their interview. ${hiddenExceptions} eligible student${hiddenExceptions !== 1 ? 's have' : ' has'} not been interviewed yet - switch to "All eligible students" to place one as an approved exception.`
-                              : 'Students appear here after completing their interview and being recommended for placement.')
-                          : 'No eligible students match the current search or school filter.'} />
+                        heading={poolSchool ? 'No students match this filter' : 'No students to place'}
+                        subtext={poolSchool
+                          ? 'No eligible students from this school are waiting for a placement.'
+                          : 'Students appear here once their form is in and they have not been placed yet.'} />
                     </div>
                   )
               ) : (
@@ -990,6 +889,12 @@ export default function MatchingTab({
           <section className="pb-pool pb-pool-units" aria-label="Unit Pool">
             <header className="material-leather-navy pb-pool-hdr">
               <h2 className="pb-pool-title">Unit Pool</h2>
+              {(selectedStudent || focusedUnit) && (
+                <span className="pb-hdr-hint material-soft">
+                  {selectedStudent ? 'Reordered by preference' : `By preference for ${focusedUnit?.unit_name}`}
+                </span>
+              )}
+              <span className="pb-hdr-spacer" />
               <select value={divFilter} onChange={e => setDivFilter(e.target.value)} className="pb-select" aria-label="Division">
                 <option value="">All Divisions</option>
                 <option value="Surgical">Surgical</option>
@@ -997,22 +902,6 @@ export default function MatchingTab({
                 <option value="Critical Care">Critical Care</option>
                 <option value="Specialty">Specialty</option>
               </select>
-              <select value={sortMode} onChange={e => setSortMode(e.target.value)} className="pb-select" aria-label="Sort units">
-                <option value="alpha">A–Z</option>
-                <option value="division">By Division</option>
-                <option value="most-available">Most Available</option>
-              </select>
-              {(selectedStudent || focusedUnit) && (
-                <span className="pb-hdr-hint material-soft">
-                  {selectedStudent ? 'Reordered by preference' : `By preference for ${focusedUnit?.unit_name}`}
-                </span>
-              )}
-              <span className="pb-hdr-spacer" />
-              {/* UNIT-POOL-REFINEMENT-1: unit setup left this surface. The board
-                  is where placements are worked, not where hosting units are
-                  configured - Set Up Units now lives beside the hosting
-                  decisions it belongs to, in At a Glance → Placement Capacity. */}
-              <button type="button" className="pb-btn material-inlay" onClick={exportCSV}>↓ Export CSV</button>
             </header>
 
             <div className="pb-legend" aria-label="Pin colours show the match rank">

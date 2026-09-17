@@ -79,20 +79,21 @@
   --aspire-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
   --aspire-nav-line: rgba(29, 37, 103, 0.08);
 
-  /* PLACEMENT-BOARD-FELT-1 (2026-09-17): materials. Blue felt, stitched navy leather,
+  /* PLACEMENT-BOARD-FELT-1 (2026-09-17): materials. Blue felt, navy leather,
      cream leather and white paper, first worn by Rotation > Placement Board. The classes
      that apply them live in src/styles/aspireMaterials.css; import that sheet where a
      screen uses them. Structure still comes from the tokens above: a material changes
      what a surface is made of, never its radius, gap or edge. Materials look the same
      in light and dark mode; the page around them follows the theme.
-     Textures are inline SVG noise, so no image file ships. */
+     Textures are inline SVG noise, so no image file ships. The leather's edge is the
+     gold piping alone: the dashed stitching it used to carry was a second line saying
+     the same thing, and the Owner cut it on 2026-09-17. */
   --aspire-felt: #2A56A3;
   --aspire-felt-deep: #1D3F7E;
   --aspire-leather: #1E2A6E;
   --aspire-leather-hi: #2C3B8C;
   --aspire-leather-cream: #F4ECD8;
   --aspire-leather-cream-deep: #E9DDC0;
-  --aspire-stitch: rgba(250, 240, 215, 0.85);
   --aspire-piping: #C9B27A;
   --aspire-piping-deep: #8E7A45;
   --aspire-on-leather: #F4ECD8;

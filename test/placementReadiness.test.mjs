@@ -206,70 +206,62 @@ test('createMatch honours the confirmed exception and records it, without weaken
 
 // ── The UI wiring ──────────────────────────────────────────────────────────
 
-test('readiness is a FILTER, separate from the existing sort, defaulting to Ready to place', () => {
+test('the pool holds every eligible student, with no readiness filter to hide any of them', () => {
+  // PLACEMENT-BOARD-FELT-1 (Owner, 2026-09-17): the readiness picker, the search and
+  // the sort control all left the header. The pool is the BROAD set at all times, so
+  // a student who has not interviewed yet is visible - at the bottom, wearing their
+  // ASPIRE Status pill - instead of hidden behind a mode nobody switched to.
   const tab = read('src/components/MatchingTab.jsx')
-  assert.match(tab, /data-testid="pool-readiness"/)
-  assert.match(tab, /useState\(DEFAULT_READINESS_MODE\)/)
-  assert.match(tab, /aria-label="Placement readiness"/)
-  // The sort control still exists, untouched and independent.
-  assert.match(tab, /aria-label="Sort students"/)
-  assert.match(tab, /value=\{poolSort\}/)
-  for (const opt of ['last_name_asc', 'last_name_desc', 'school_asc', 'gpa_desc', 'score_desc', 'status']) {
-    assert.ok(tab.includes(`"${opt}"`), `sort option ${opt} preserved`)
+  assert.match(tab, /filterPoolByReadiness\(students, 'all'\)/)
+  for (const gone of ['pool-readiness', 'Placement readiness', 'Sort students', 'poolSort', 'poolSearch']) {
+    assert.ok(!tab.includes(gone), `${gone} left the board`)
   }
+  // The module keeps both modes; the board simply always asks for the broad one.
   assert.deepEqual(READINESS_MODES.map(m => m.value), ['ready', 'all'])
+  assert.equal(filterPoolByReadiness([student('Form Sent'), student('Interviewed')], 'all').length, 2)
+  // And the broad set is still a set of ELIGIBLE students only.
+  assert.equal(filterPoolByReadiness([student('Placed'), student('Declined')], 'all').length, 0)
 })
 
-test('a cohort switch resets to the safe default and drops any pending exception', () => {
+test('a cohort switch drops any pending exception', () => {
   const tab = read('src/components/MatchingTab.jsx')
-  assert.match(tab, /if \(cohortId !== readinessCohort\) \{\s*\n?\s*setReadinessCohort\(cohortId\)\s*\n?\s*setReadiness\(DEFAULT_READINESS_MODE\)\s*\n?\s*setExceptionPlacement\(null\)/)
+  assert.match(tab, /if \(cohortId !== exceptionCohort\) \{\s*\n?\s*setExceptionCohort\(cohortId\)\s*\n?\s*setExceptionPlacement\(null\)/)
   // NEGATIVE CONTROL: without this, the broader view would persist across
   // cohorts - MatchingTab is never unmounted or re-keyed on a cohort switch.
   const rotationTab = read('src/components/RotationTab.jsx')
   assert.doesNotMatch(rotationTab, /<MatchingTab[^>]*key=/, 'the component is not remounted per cohort')
 })
 
-test('non-interviewed students are clearly labelled, and only in the broader mode', () => {
-  const tab = read('src/components/MatchingTab.jsx')
-  assert.match(tab, /needsException=\{needsPlacementException\(s\)\}/)
+test('a non-interviewed student is identified by their ASPIRE Status pill, on every note', () => {
+  // PLACEMENT-BOARD-FELT-1 (Owner, 2026-09-17): the amber "exception required" chip
+  // retired in favour of the canonical status pill, which every note now carries and
+  // the header legend explains. The pill is NOT conditional on a unit being focused -
+  // that was the original defect this test caught - and the confirmation dialog
+  // remains the thing that actually stops an accidental pre-interview placement.
   const card = read('src/components/StudentMatchingCard.jsx')
-  assert.match(card, /data-testid="card-not-interviewed"/)
-  assert.match(card, /Not interviewed · exception required/)
-  assert.match(card, /needsException = false/, 'defaults off, so no other caller shows it')
-  // In READY mode nothing is labelled, because nothing there needs an exception.
-  assert.equal(filterPoolByReadiness([student('Form Sent')], 'ready').length, 0)
-
-  // REGRESSION (found in fixture QC, not by the tests above). The label was
-  // first placed inside the `focusedUnit &&` block, which renders the
-  // tier/shift chips only once a unit is selected. The warning then vanished
-  // in exactly the state staff browse the pool in - no unit picked - so an
-  // un-interviewed student looked ordinary. The label must sit OUTSIDE that
-  // block. Proven positionally: it must appear before the block opens.
-  const labelAt = card.indexOf('data-testid="card-not-interviewed"')
-  // PLACEMENT-BOARD-FELT-1: the one unit-dependent block on the note is the #N pick chip.
+  assert.match(card, /data-testid="pool-status-pill"/)
+  assert.match(card, /ASPIRE_STATUS_CONFIG\[student\.status\]/)
+  assert.ok(!card.includes('card-not-interviewed'), 'the amber chip is gone')
+  const pillAt = card.indexOf('data-testid="pool-status-pill"')
   const unitGateAt = card.indexOf('{pickRank && (')
-  assert.ok(labelAt > -1 && unitGateAt > -1, 'both anchors still exist')
-  assert.ok(
-    labelAt < unitGateAt,
-    'the exception label must render outside (before) the focusedUnit-only block, ' +
-    'so it does not depend on a unit being selected',
-  )
+  assert.ok(pillAt > -1 && unitGateAt > -1, 'both anchors still exist')
+  assert.ok(pillAt < unitGateAt, 'the pill renders before (outside) the focused-unit block')
+  // The guard itself is untouched: the board still asks before an exception placement.
+  const tab = read('src/components/MatchingTab.jsx')
+  assert.match(tab, /if \(needsPlacementException\(student\)\) \{/)
+  assert.match(tab, /data-testid="placement-exception-dialog"/)
 })
 
 test('the default never hides students silently, and preserves the existing pool mechanics', () => {
   const tab = read('src/components/MatchingTab.jsx')
-  // The count line names what the default is holding back.
-  assert.match(tab, /data-testid="pool-hidden-note"/)
-  assert.match(tab, /not yet interviewed/)
-  // "All students matched" is measured against EVERY eligible student, so an
-  // empty ready-list cannot masquerade as a finished cohort.
+  // Nothing is held back any more, so there is nothing to disclose in the count line.
+  assert.ok(!tab.includes('pool-hidden-note'))
+  // "All students placed" is still measured against EVERY eligible student.
   assert.match(tab, /eligibleAll\.length === 0/)
-  // Preserved: school filter, search, preference tier sort, selection stepper.
+  // Preserved: the school filter, the one pool order, and the selection counter.
   assert.match(tab, /setPoolSchool\(e\.target\.value\)/)
-  assert.match(tab, /setPoolSearch\(e\.target\.value\)/)
-  assert.match(tab, /const tierOf = \(student\) =>/)
-  assert.match(tab, /a\.tier - b\.tier \|\| a\.i - b\.i/, 'preference ranking untouched')
-  assert.match(tab, /selectedIndex \+ 1\} of \$\{sortedPool\.length/, 'stepper preserved')
+  assert.match(tab, /orderPool\(filteredPool, focusedUnit\)/, 'one ordering rule, in one module')
+  assert.match(tab, /selectedIndex \+ 1\} of \$\{sortedPool\.length/, 'the selection counter stays')
 })
 
 test('the interview-to-placement handoff cannot select a student the pool excludes', () => {

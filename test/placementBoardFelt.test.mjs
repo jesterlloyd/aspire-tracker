@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path'
 import { createPendingUnmatch, UNDO_WINDOW_MS } from '../src/lib/pendingUnmatch.js'
 import { matchQualityFor, matchRankOf, derivePrefCounts } from '../src/lib/placementDisplay.js'
 import {
-  preferenceRankOf, orderUnitsForStudent, groupPoolForUnit, pinFor, matchPhrase,
+  preferenceRankOf, orderUnitsForStudent, groupPoolForUnit, orderPool, pinFor, matchPhrase,
 } from '../src/lib/placementBoardView.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -211,7 +211,7 @@ test('LAYOUT 3: the NGRP board keeps its own classes; this board shares none of 
 test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal radius', () => {
   const brand = read('src/styles/aspireBrand.css')
   for (const t of ['--aspire-felt:', '--aspire-felt-deep:', '--aspire-leather:', '--aspire-leather-hi:',
-    '--aspire-leather-cream:', '--aspire-stitch:', '--aspire-piping:', '--aspire-noise-fine:', '--aspire-noise-grain:',
+    '--aspire-leather-cream:', '--aspire-piping:', '--aspire-noise-fine:', '--aspire-noise-grain:',
     '--aspire-radius-pill:']) {
     assert.ok(brand.includes(t), `${t} is a brand token`)
   }
@@ -222,8 +222,13 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
   for (const [name, css] of [['aspireMaterials.css', materials], ['placementBoard.css', CSS()]]) {
     assert.ok(!/border-radius:\s*[0-9.]+px/.test(css), `${name} writes no literal px radius`)
   }
-  assert.match(materials, /\.paper-note \{[^}]*border: 0;[^}]*border-radius: var\(--aspire-radius-card\);/,
-    'a paper note is a card: token corner, no border, no folded corner')
+  // Owner, 2026-09-17: paper has SHARP corners, and it is the only square surface.
+  assert.match(materials, /\.paper-note \{[^}]*border: 0;[^}]*border-radius: 0;/)
+  assert.match(CSS(), /\.pb-unit \{[^}]*border-radius: var\(--aspire-radius-card\);/, 'boards stay rounded')
+  // The dashed stitching retired: the gold piping is the leather's only edge.
+  assert.ok(!materials.includes('::after'), 'no stitching rule remains')
+  assert.ok(!materials.includes('--aspire-stitch'), 'and its token went with it')
+  assert.match(materials, /\.material-leather-navy::before \{[^}]*var\(--aspire-piping\)/)
   assert.ok(!/url\((?!"data:|%23|\s*var)/.test(materials + CSS()), 'textures are inline data URIs, no image files')
   assert.match(CSS(), /@media \(prefers-reduced-motion: reduce\)/)
 })
@@ -295,4 +300,77 @@ test('FLOW 3: the toast can carry one action and be dismissed by id', () => {
   assert.match(hook, /return id;/)
   assert.match(hook, /dismiss: \(id\) => removeToast\(id\)/)
   assert.match(read('src/components/Toast.jsx'), /onClick=\{\(\) => \{ toast\.action\.onClick\?\.\(\); onRemove\(toast\.id\) \}\}/)
+})
+
+// ── 6. The Owner's refinements (2026-09-17) ─────────────────────────────────
+
+test('POOL ORDER: alphabetical, not-yet-interviewed last, and a pick outranks both', () => {
+  const pool = [
+    { id: 'z', last_name: 'Zane', status: 'Interviewed' },
+    { id: 'a', last_name: 'Adams', status: 'Form Received' },      // not interviewed
+    { id: 'b', last_name: 'Brooks', status: 'Interviewed' },
+    { id: 'n', last_name: 'Nair', status: 'Form Sent', unit_preference_1: '4 North' },
+  ]
+  assert.deepEqual(orderPool(pool, null).map(s => s.last_name), ['Brooks', 'Zane', 'Adams', 'Nair'],
+    'alphabetical, with the not-yet-interviewed at the bottom')
+  assert.deepEqual(orderPool(pool, { unit_name: '4 North' }).map(s => s.last_name),
+    ['Nair', 'Brooks', 'Zane', 'Adams'],
+    'a not-interviewed student who picked the unit outranks interviewed students who did not')
+  // Within one preference tier, interviewed still comes first.
+  const tie = [
+    { id: 'p', last_name: 'Park', status: 'Form Received', unit_preference_1: '6 NE' },
+    { id: 'c', last_name: 'Chen', status: 'Interviewed', unit_preference_1: '6 NE' },
+  ]
+  assert.deepEqual(orderPool(tie, { unit_name: '6 NE' }).map(s => s.last_name), ['Chen', 'Park'])
+})
+
+test('POOL HEADER: only the School filter, and it sits after the spacer', () => {
+  const tab = TAB()
+  const header = tab.slice(tab.indexOf('aria-label="Student Pool"'), tab.indexOf('<div className="pb-helper">'))
+  for (const gone of ['pb-search', 'pool-readiness', 'Sort students', 'pb-stepper', 'Previous student']) {
+    assert.ok(!header.includes(gone), `${gone} left the Student Pool header`)
+  }
+  assert.ok(header.indexOf('<span className="pb-hdr-spacer" />') < header.indexOf('aria-label="School"'),
+    'the School filter is on the far right')
+  assert.match(header, /<StatusLegendPopover position="bottom-right" dark \/>/, 'the legend explains the pills')
+  assert.match(header, /student\$\{sortedPool\.length !== 1 \? 's' : ''\}/, 'the count stays')
+})
+
+test('UNIT HEADER: only the Division filter, no sort, no Export CSV, no division pills', () => {
+  const tab = TAB()
+  const header = tab.slice(tab.indexOf('aria-label="Unit Pool"'), tab.indexOf('<div className="pb-legend"'))
+  assert.ok(header.indexOf('<span className="pb-hdr-spacer" />') < header.indexOf('aria-label="Division"'),
+    'the Division filter is on the far right')
+  for (const gone of ['Sort units', 'Export CSV', 'exportCSV']) {
+    assert.ok(!tab.includes(gone), `${gone} left the board`)
+  }
+  // The pill on each board header is gone; the shift chips stay.
+  const card = CARD()
+  assert.match(card, /<div className="pb-unit-chips">\{shiftChips\}<\/div>/)
+  assert.ok(!card.includes('UNIT_DIVISION_MAP'), 'the card no longer resolves a division at all')
+})
+
+test('NOTE: status pill always, availability pill only when it warrants a look, top 3 down the side', () => {
+  const note = strip(read('src/components/StudentMatchingCard.jsx'))
+  assert.match(note, /const availabilityWarning = readiness\.level === 'review' \|\| readiness\.level === 'restricted'/)
+  assert.match(note, /\{availabilityWarning && \(/)
+  assert.ok(!note.includes('Availability confirmed'), 'the confirmed state says nothing on the board')
+  assert.match(note, /<ol className="pb-note-top3" aria-label="Top 3 units">/)
+  assert.match(note, /open === 0 \? ' \(Full\)' : ''/)
+  const css = CSS()
+  assert.match(css, /\.pb-note-main \{ display: flex;/)
+  assert.match(css, /\.pb-note-top3 \{[^}]*max-width: 46%;/, 'the list is a column beside the name, not under it')
+})
+
+test('DRAG BADGE: shown only over a board with an open slot, and it never re-renders the board', () => {
+  const tab = TAB()
+  const over = tab.slice(tab.indexOf('onBoardDragOver:'), tab.indexOf('onBoardDragLeave:'))
+  assert.match(over, /const room = live\.matches\.filter\(m => m\.unit_id === unit\.id\)\.length < unit\.total_slots/)
+  assert.match(over, /if \(room\) showBadgeAt\(e\); else hideBadge\(\)/)
+  assert.match(over, /dropEffect = room \? 'move' : 'none'/)
+  // Moved imperatively through a ref: a dragover at 60Hz must not set state.
+  assert.match(tab, /badge\.style\.transform = `translate3d\(/)
+  assert.ok(!/showBadgeAt[\s\S]{0,200}setState|setBadge/.test(tab), 'no badge state')
+  assert.match(tab, /<span ref=\{badgeRef\} className="pb-drag-badge material-pin material-rank-first" aria-hidden="true">\+<\/span>/)
+  assert.match(CSS(), /\.pb-drag-badge \{[^}]*position: fixed;[^}]*opacity: 0;[^}]*pointer-events: none;/)
 })

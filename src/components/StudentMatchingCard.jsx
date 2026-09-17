@@ -2,11 +2,15 @@
  * StudentMatchingCard - a student in the Placement Board's Student Pool.
  *
  * PLACEMENT-BOARD-FELT-1 (2026-09-17): a white paper note on cream leather.
- * Owner decision on content: the mockup's note (avatar, name, school, shift
- * chip, top 3) PLUS the cues that gate a placement decision - the
- * not-interviewed exception warning, the availability readiness badge, and
- * "Full" after any choice that has no open slot. ASPIRE status and GPA left the
- * note; they still sort the pool.
+ * Owner decisions on content, in order:
+ *   - avatar, name, school, shift chip, and the top 3 stacked down the right side
+ *     with "Full" after any choice that has no open slot;
+ *   - the ASPIRE Status pill on every note. It is the pool's readiness indicator now
+ *     that the readiness filter is gone, which is why the amber "exception required"
+ *     chip retired: the confirmation dialog is still the guard;
+ *   - the availability pill ONLY when it warrants a look (Review / Highly restricted).
+ *     Confirmed and pending say nothing a placement decision needs.
+ * GPA is not on the note.
  *
  * Styling lives in src/components/placement/placementBoard.css (pb-note-*),
  * which reads the material and card tokens. No radius or gap is written here.
@@ -24,11 +28,12 @@
  * @param {Array}    matches      - live placements, for Full after a choice
  * @param {Object}   focusedUnit  - the unit the pool is grouped for; adds the #N pick chip
  * @param {Object}   rotation     - the student's cohort_school_rotations row
- * @param {boolean}  needsException - not yet interviewed: placing is an approved exception
  * @param {Function} onDragStart / onDragEnd - drag a note onto a board
  */
 
 import StudentAvatar from './StudentAvatar'
+import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { unitOpenSlots } from '../lib/placementDisplay'
 import { getAvailabilityReadiness } from '../lib/availability'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
@@ -54,7 +59,6 @@ export default function StudentMatchingCard({
   student, isSelected, onSelect, isReadOnly,
   isFading, isFadingIn, isDimmed = false, isPending = false,
   units, matches, focusedUnit, rotation,
-  needsException = false,
   onDragStart, onDragEnd,
 }) {
   const name = getStudentPreferredFullName(student)
@@ -65,10 +69,25 @@ export default function StudentMatchingCard({
     .map(rank => ({ rank, unitName: student[`unit_preference_${rank}`] }))
     .filter(p => p.unitName && p.unitName.trim())
 
+  // AVAILABILITY-CANON-1D, shown only when it changes a decision.
   const readiness = getAvailabilityReadiness({ student, rotation })
+  const availabilityWarning = readiness.level === 'review' || readiness.level === 'restricted'
+
+  // The ASPIRE Status pill, in the canonical colours the legend explains. A
+  // Not Proceeding student cannot reach this pool, but the disposition mapping is
+  // kept so the pill never renders a status without its own colour.
+  const dispositionType = student.status === 'Not Proceeding' ? student.active_disposition?.disposition_type : null
+  const statusStyle = student.status
+    ? (dispositionType
+        ? (DISPOSITION_PILL_COLORS[dispositionType] || DISPOSITION_PILL_COLORS['not_selected'])
+        : (ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']))
+    : null
+  const statusLabel = dispositionType ? (DISPOSITION_TYPES[dispositionType] || student.status) : student.status
 
   const classes = [
-    'student-match-card', 'paper-note', 'pb-note', 'pb-pool-note',
+    // Deliberately NOT .student-match-card: that legacy rule paints its own
+    // background, border and radius, and in dark mode it repainted the paper.
+    'paper-note', 'pb-note', 'pb-pool-note',
     isSelected ? 'pb-note-selected' : '',
     isDimmed   ? 'pb-note-dimmed'   : '',
     isPending  ? 'pb-note-pending'  : '',
@@ -94,55 +113,59 @@ export default function StudentMatchingCard({
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(student) }
       } : undefined}
     >
-      {/* PLACEMENT-POOL-READINESS-1: shown in the broader "All eligible
-          students" mode, where a not-yet-interviewed student is visible and
-          placing them is an approved exception. It does not depend on whether
-          a unit happens to be selected. */}
-      {needsException && (
-        <div
-          data-testid="card-not-interviewed"
-          title="Placing this student requires an approved exception"
-          className="pb-chip pb-chip-warn"
-        >
-          Not interviewed · exception required
-        </div>
-      )}
+      <div className="pb-note-main">
+        <div className="pb-note-left">
+          <div className="pb-note-id">
+            <StudentAvatar student={student} size={40} />
+            <div className="pb-note-id-text">
+              <div className="pb-note-name">{name}</div>
+              {student.school && <div className="pb-note-school material-soft">{student.school}</div>}
+            </div>
+          </div>
 
-      <div className="pb-note-id">
-        <StudentAvatar student={student} size={40} />
-        <div className="pb-note-id-text">
-          <div className="pb-note-name">{name}</div>
-          {student.school && <div className="pb-note-school material-soft">{student.school}</div>}
+          <div className="pb-note-chips">
+            {statusStyle && (
+              <span
+                className="pb-chip pb-chip-status"
+                data-testid="pool-status-pill"
+                style={{ background: statusStyle.bg, color: statusStyle.text, borderColor: statusStyle.border }}
+              >
+                {statusLabel}
+              </span>
+            )}
+            <span className="pb-chip">{shiftPreferenceChip(student.shift_availability)}</span>
+            {availabilityWarning && (
+              /* Privacy-safe: the tooltip shows structural facts, never free text. */
+              <span
+                className={`pb-chip pb-chip-ready-${readiness.level}`}
+                data-testid="pool-availability-warning"
+                title={readiness.facts.join(' · ')}
+              >
+                {readiness.label}
+              </span>
+            )}
+            {pickRank && (
+              <span className={`pb-chip pb-chip-rank-${RANK_TONE[pickRank]}`} data-testid="pool-pick-chip">
+                #{pickRank} pick
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      <div className="pb-note-chips">
-        <span className="pb-chip">{shiftPreferenceChip(student.shift_availability)}</span>
-        {/* AVAILABILITY-CANON-1D readiness badge (readiness/review only). Privacy-safe:
-            the tooltip shows structural facts, never free text. */}
-        <span className={`pb-chip pb-chip-ready-${readiness.level || 'pending'}`} title={readiness.facts.join(' · ')}>
-          {readiness.label}
-        </span>
-        {pickRank && (
-          <span className={`pb-chip pb-chip-rank-${RANK_TONE[pickRank]}`} data-testid="pool-pick-chip">
-            #{pickRank} pick
-          </span>
+        {prefs.length > 0 && (
+          <ol className="pb-note-top3" aria-label="Top 3 units">
+            {prefs.map(({ rank, unitName }) => {
+              const open = getOpenCount(unitName, units, matches)
+              return (
+                <li key={rank} className="pb-note-top3-row">
+                  <span className="pb-note-top3-rank" aria-hidden="true">{rank}.</span>
+                  <span className="pb-note-top3-unit">{unitName}{open === 0 ? ' (Full)' : ''}</span>
+                </li>
+              )
+            })}
+          </ol>
         )}
       </div>
-
-      {prefs.length > 0 && (
-        <div className="pb-note-top3" aria-label="Top 3 units">
-          {prefs.map(({ rank, unitName }, i) => {
-            const open = getOpenCount(unitName, units, matches)
-            return (
-              <span key={rank}>
-                {i > 0 && ' · '}
-                {rank}. {unitName}{open === 0 ? ' (Full)' : ''}
-              </span>
-            )
-          })}
-        </div>
-      )}
 
       {isPending && (
         <div className="pb-note-pending-caption material-soft">

@@ -17,7 +17,7 @@
   color: var(--aspire-on-felt);
 }
 
-/* ── Stitched navy leather ─────────────────────────────────────────────────── */
+/* ── Navy leather, finished with gold piping ───────────────────────────────── */
 .material-leather-navy {
   position: relative;
   background-color: var(--aspire-leather);
@@ -28,16 +28,7 @@
   background-blend-mode: soft-light, soft-light, normal;
   color: var(--aspire-on-leather);
   text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
-  padding-bottom: 22px;
-}
-/* The stitching: a dashed thread 9px above the bottom edge, inset 10px each side. */
-.material-leather-navy::after {
-  content: '';
-  position: absolute;
-  left: 10px; right: 10px; bottom: 9px;
-  border-bottom: 2px dashed var(--aspire-stitch);
-  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6));
-  pointer-events: none;
+  padding-bottom: 14px;
 }
 /* The gold piping: a 3px strip directly below the leather. */
 .material-leather-navy::before {
@@ -81,12 +72,14 @@
 }
 
 /* ── White paper ───────────────────────────────────────────────────────────── */
-/* A plain rectangle: no folded corner. Its corner is the card token. */
+/* A plain rectangle with SHARP corners (Owner, 2026-09-17): a rounded sheet reads
+   as a card, and this is meant to read as paper. No folded corner either. Cards,
+   panels and controls keep the radius tokens; paper is the one square surface. */
 .paper-note {
   background: var(--aspire-paper);
   color: var(--aspire-paper-ink);
   border: 0;
-  border-radius: var(--aspire-radius-card);
+  border-radius: 0;
   box-shadow: var(--aspire-shadow-note);
 }
 .paper-note .material-soft { color: var(--aspire-paper-ink-soft); }

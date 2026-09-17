@@ -1,7 +1,6 @@
 import { useState, useCallback, useId } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Tooltip from './ui/Tooltip'
-import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import {
   buildUnitLeaderPlacementMessage, normalizeEmailForLookup, escapeLikePattern,
@@ -272,7 +271,6 @@ export default function EmbedUnitCard({
 
   const unitMeta  = getUnit(unit.unit_name)
   const desc      = unitMeta?.description || null
-  const division  = unit.division || UNIT_DIVISION_MAP[unit.unit_name] || unitMeta?.division || null
 
   const filledCount = matchedStudents.length
   const emptyCount  = Math.max(0, unit.total_slots - filledCount)
@@ -614,10 +612,9 @@ export default function EmbedUnitCard({
         <header className="material-leather-navy pb-unit-hdr">
           <div className="pb-unit-hdr-top">
             <h3 className="pb-unit-name">{unit.unit_name}</h3>
-            <div className="pb-unit-chips">
-              {division && <span className="pb-chip material-chip">{division}</span>}
-              {shiftChips}
-            </div>
+            {/* Owner, 2026-09-17: the division pill left the board. The Division
+                filter in the Unit Pool header is where a division is chosen. */}
+            <div className="pb-unit-chips">{shiftChips}</div>
           </div>
           {desc && <div className="pb-unit-desc material-soft">{desc}</div>}
 

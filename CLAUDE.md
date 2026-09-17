@@ -59,11 +59,19 @@ uses them (Rotation > Placement Board imports it through
 image files, and the materials look the same in light and dark mode; the page around them
 follows the theme.
 
-- `.material-felt`, `.material-leather-navy` (stitching and gold piping included),
-  `.material-leather-cream`, `.paper-note`, `.material-pin`, `.material-ribbon`.
+- `.material-felt`, `.material-leather-navy` (gold piping included; the dashed stitching
+  was cut on 2026-09-17 as a second line doing the piping's job), `.material-leather-cream`,
+  `.paper-note`, `.material-pin`, `.material-ribbon`.
+- **Paper is the one square surface.** `.paper-note` has `border-radius: 0` by Owner
+  decision: a rounded sheet reads as a card. Cards, panels and controls keep the tokens.
 - A rank is never colour alone: a pin shows its number, a ribbon and a chip show words.
   `--aspire-rank-*` are the nearest AA-passing shades to the approved mockup (white on
   them measures at least 4.5:1); `test/placementBoardFelt.test.mjs` re-measures them.
+- The Student Pool shows every ELIGIBLE student, ordered by `orderPool`
+  (`src/lib/placementBoardView.js`): preference for a focused unit, then interviewed
+  before not-yet-interviewed, then last name. The ASPIRE Status pill is the readiness
+  indicator; there is no readiness filter, and the availability pill appears only for
+  Review or Highly restricted.
 - The Placement Board owns the `pb-*` classes. The NGRP board still wears `embed-*` and
   `euc-*`; never share a class between the two, and never restyle theirs.
 

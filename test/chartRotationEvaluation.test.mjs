@@ -47,7 +47,14 @@ test('capacity: no display source reads the drift-prone stored field', () => {
     assert.match(src, /unitOpenSlots/, `${name} uses the shared helper`)
   }
   assert.match(matching, /const slotsRemaining\s*=\s*totalOpenSlots\(participating, matches\)/)
-  assert.match(matching, /unitOpenSlots\(b, matches\).*unitOpenSlots\(a, matches\)/, 'availability sort uses live counts')
+  // PLACEMENT-BOARD-FELT-1: the unit sort control retired (Owner, 2026-09-17), so the
+  // most-available sort that used live counts went with it. Boards are alphabetical,
+  // and a selected student reorders them by preference. Capacity itself is unchanged:
+  // no display reads the drift-prone stored field.
+  assert.match(matching, /displayUnits\.sort\(\(a, b\) => a\.unit_name\.localeCompare\(b\.unit_name\)\)/)
+  // Comments explaining why the stored field is not read do not count as reading it.
+  const matchingCode = matching.replace(/^\s*\/\/[^\n]*$/gm, '')
+  assert.ok(!matchingCode.includes('slots_remaining'), 'the board reads live counts only')
 })
 
 test('match rank honesty (functional)', () => {

@@ -8,6 +8,7 @@
 //     renamed unit or an edited preference cannot rewrite a placement.
 
 import { matchRankOf } from './placementDisplay.js'
+import { needsPlacementException } from './placementReadiness.js'
 
 export const RANK_WORD = { 1: '1st', 2: '2nd', 3: '3rd' }
 export const RANK_TONE = { 1: 'first', 2: 'second', 3: 'third' }
@@ -65,6 +66,29 @@ export function groupPoolForUnit(pool, unit) {
     { key: 'lower', label: 'Picked as 2nd or 3rd choice', students: lower, dimmed: false },
     { key: 'rest', label: 'All other students', students: rest, dimmed: true },
   ].filter(g => g.students.length > 0)
+}
+
+/**
+ * The Student Pool's order (Owner, 2026-09-17). Three keys, in this order:
+ *   1. preference for the focused unit, when one is focused (1st, 2nd, 3rd, then the rest)
+ *   2. interviewed before not-yet-interviewed
+ *   3. last name A-Z
+ * So the pool reads alphabetically with the not-yet-interviewed at the bottom, and a
+ * student who picked the focused unit outranks an interviewed student who did not -
+ * even when that student has not interviewed yet. Ties keep the incoming order.
+ */
+export function orderPool(pool, focusedUnit) {
+  const lastName = (s) => (s?.last_name || s?.name || '').toLowerCase()
+  const tier = (s) => (focusedUnit ? (preferenceRankOf(s, focusedUnit.unit_name) || 4) : 4)
+  return [...(pool || [])]
+    .map((student, index) => ({ student, index }))
+    .sort((a, b) => (
+      tier(a.student) - tier(b.student)
+      || (needsPlacementException(a.student) ? 1 : 0) - (needsPlacementException(b.student) ? 1 : 0)
+      || lastName(a.student).localeCompare(lastName(b.student))
+      || a.index - b.index
+    ))
+    .map(({ student }) => student)
 }
 
 /** The pin on a placed note: its visible glyph, colour tone and spoken rank. */
