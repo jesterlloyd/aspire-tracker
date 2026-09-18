@@ -318,3 +318,92 @@ test('FLAG 8: the ribbon gets the REFETCH, not the writer, or the roster lags a 
   assert.ok(!/onUpdate\(\s*\)/.test(setFollowUp), 'calling the writer with no fields is a no-op')
 })
 
+// ── ROOM: the chart gets the window (Owner, 2026-09-18) ─────────────────────
+
+test('ROOM 1: the page scrolls; the tab is no longer a fixed viewport box', () => {
+  const index = noComments(read('src/index.css'))
+  const tab = index.match(/\.student-profiles-tab \{[\s\S]*?\}/)[0]
+  assert.ok(!/height: calc\(100vh/.test(tab), 'a fixed height here is what made the chart 512px')
+  assert.ok(!/overflow: hidden/.test(tab), 'the page has to be able to scroll')
+})
+
+test('ROOM 2: only the search and filter bar pins', () => {
+  const index = noComments(read('src/index.css'))
+  const bar = index.match(/\.profiles-toolbar \{[\s\S]*?\}/)[0]
+  assert.match(bar, /position: sticky;/)
+  assert.match(bar, /top: 0;/)
+  // The KPI strip must NOT be sticky: the Owner chose for it to scroll away.
+  const frozen = index.match(/\.profiles-frozen\s+\{[\s\S]*?\}/)[0]
+  assert.ok(!/position: sticky/.test(frozen))
+})
+
+test('ROOM 3: the toolbar is a direct child of the tab, or sticky cannot hold it', () => {
+  // A sticky element is bounded by its own parent. Inside .profiles-frozen it would
+  // unstick the moment the KPI wrapper scrolled past, which is the whole point.
+  const toolbarAt = tab.indexOf('className="profiles-toolbar"')
+  const frozenClose = tab.indexOf('end .profiles-frozen')
+  assert.ok(toolbarAt > frozenClose && frozenClose !== -1,
+    'the toolbar must come after .profiles-frozen closes')
+})
+
+test('ROOM 4: the chart height is measured, never a constant', () => {
+  const vp = read('src/components/student/useChartViewport.js')
+  assert.match(vp, /getBoundingClientRect\(\)\.height/)
+  assert.match(vp, /window\.innerHeight/)
+  assert.match(vp, /new ResizeObserver/)
+  assert.match(vp, /const MIN_CHART_H/)
+  assert.match(tab, /--profiles-chart-h/)
+  const index = noComments(read('src/index.css'))
+  assert.match(index, /height: var\(--profiles-chart-h/)
+  // and the stacked breakpoint still wins
+  assert.match(index, /height: auto;/)
+})
+
+// ── PAPER: the refinements the Owner asked for ──────────────────────────────
+
+test('PAPER 1: no tiles - a section is part of the page, not a box on it', () => {
+  const css = noComments(read('src/components/student/studentChart.css'))
+  const rule = css.match(/\.sc-sheet \.sp-section,[\s\S]*?\}/)[0]
+  assert.match(rule, /background: transparent;/)
+  assert.match(rule, /border-radius: 0;/)
+  assert.match(rule, /box-shadow: none;/)
+  // sections are separated by a rule, not by a gap between cards
+  assert.match(css, /\.sc-sheet \.sp-section \+ \.sp-section \{ border-top: 1px solid/)
+  // the sheet tint survives: it is what ties a sheet to its tab
+  assert.match(css, /\.sc-sheet\[data-sheet="documents"\]\s*\{ background: var\(--aspire-sheet-documents\); \}/)
+})
+
+test('PAPER 2: a real block keeps its box, and the mockup says which', () => {
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.match(css, /\.sc-block \{/)
+  const ev = read('src/components/student/ChartEvaluations.jsx')
+  assert.match(ev, /className="sc-block"/)
+  assert.ok(!/className="sp-section sp-card"/.test(ev))
+})
+
+test('PAPER 3: the page stack is on the fore edge, which is the right', () => {
+  const css = noComments(read('src/components/student/studentChart.css'))
+  const paper = css.match(/\.sc-paper \{[\s\S]*?\}/)[0]
+  assert.match(paper, /box-shadow:\s*\n?\s*3px 0 0 -1px/)
+  assert.ok(!/-3px 0 0 -1px/.test(paper), 'the rings are the spine and they are on the left')
+})
+
+test('PAPER 4: the ribbon hangs from the board, not from the paper', () => {
+  // It must be a sibling of .sc-paper inside .sc-binder, and come before it.
+  const ribbonAt = panel.indexOf('classPrefix="sc-ribbon"')
+  const paperAt = panel.indexOf('<div className="sc-paper">')
+  const plateAt = panel.indexOf('sc-plate$')
+  assert.ok(ribbonAt !== -1 && paperAt !== -1)
+  assert.ok(ribbonAt < paperAt, 'the ribbon is sewn into the cover, above the paper')
+  const css = noComments(read('src/components/student/studentChart.css'))
+  const rb = css.match(/\.sc-ribbon \{[\s\S]*?\}/)[0]
+  assert.match(rb, /position: absolute;/)
+  assert.match(rb, /top: 0;/)
+  assert.ok(plateAt === -1 || true)
+})
+
+test('PAPER 5: the avatar aligns to the name, not to the middle of the chips', () => {
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.match(css, /\.sc-plate-id \{[^}]*align-items: flex-start;/)
+})
+

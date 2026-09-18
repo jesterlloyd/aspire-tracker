@@ -1931,13 +1931,36 @@ button.ov-group-row {
 /* ================================================================
    STUDENT PROFILES TAB
    ================================================================ */
+/* STUDENT-CHART-1 (2026-09-18): the page scrolls, and the chart gets what is left.
+   It used to be a fixed viewport-height box with `overflow: hidden`, which meant the KPI
+   strip and the toolbar ate 228px off the top and the chart was left with 512px of a
+   950px window - measured - with its index rail already 6px short of its own tabs. Now
+   the page scrolls, the KPI cards and the sub-tabs scroll away, the toolbar pins to the
+   top, and the split takes the rest of the viewport. Nothing is removed; the room is
+   simply spent on the record instead of on filters the reader has finished with. */
 .student-profiles-tab {
   display: flex; flex-direction: column;
-  height: calc(100vh - 164px); overflow: hidden;
-  padding: 0 20px;  /* matches aggregate-sticky-header/scrollable-content 20px side padding */
+  /* The bottom padding is what gives the binder's bottom cover air. Without it the page
+     runs out of scroll exactly at the binder's last pixel, the cover sits flush on the
+     window edge, and the sticky bar never quite reaches its own top offset. */
+  padding: 0 20px 12px;  /* sides match aggregate-sticky-header/scrollable-content */
 }
-.profiles-frozen      { flex-shrink: 0; padding-top: 8px; padding-bottom: 8px; }
-.profiles-scroll-area { flex: 1; overflow-y: auto; min-height: 0; }
+.profiles-frozen      { flex-shrink: 0; padding-top: 8px; }
+/* The one thing that stays (Owner, 2026-09-18): search, school, view and the actions.
+   It has to be a direct child of the tab, not of .profiles-frozen: a sticky element is
+   bounded by its own parent, so inside the KPI wrapper it would unstick the moment that
+   wrapper scrolled past. */
+.profiles-toolbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 12px; margin: 8px 0 10px;
+  background: var(--bg-card,#fff);
+  border: 1px solid var(--border-card,rgba(29,37,103,0.08));
+  border-radius: var(--aspire-radius-control);
+  /* Content scrolls under it, so it needs an edge of its own. */
+  box-shadow: 0 6px 12px -8px rgba(29,37,103,0.35);
+}
+.profiles-scroll-area { min-height: 0; }
 .profiles-view-toggle { display: flex; gap: 0; margin-bottom: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; width: fit-content; }
 
 /* Full-width list (no student selected) */
@@ -1951,7 +1974,10 @@ button.ov-group-row {
 .profiles-slide-container {
   --profiles-grid-flex:   1;   /* matches PROFILES_SPLIT.gridFlex   */
   --profiles-drawer-flex: 1;   /* matches PROFILES_SPLIT.drawerFlex */
-  display: flex; height: calc(100vh - 164px); overflow: hidden;
+  /* The height is measured, not guessed: the toolbar wraps at narrow widths, so its
+     height is not a constant. useChartViewport writes --profiles-chart-h from the real
+     pinned bar. The calc is the fallback for a first paint before that lands. */
+  display: flex; height: var(--profiles-chart-h, calc(100vh - 164px)); overflow: hidden;
   gap: 24px;  /* sand background visible between the two cards */
 }
 .profiles-list-narrow {
@@ -1995,14 +2021,15 @@ button.ov-group-row {
   .profiles-kpis { grid-template-columns: repeat(4, 1fr); }
 }
 @media (max-width: 980px) {
-  .student-profiles-tab { height: auto; overflow: visible; padding: 0 12px; }
+  .student-profiles-tab { padding: 0 12px; }
   .profiles-frozen { position: static; }
   .profiles-slide-container {
     flex-direction: column;
-    height: auto;
+    height: auto;   /* beats --profiles-chart-h: stacked, the page scrolls instead */
     overflow: visible;
     gap: 16px;
   }
+  .profiles-toolbar { position: static; box-shadow: none; }
   .profiles-list-narrow {
     min-width: 0;
     height: auto;

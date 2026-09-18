@@ -1191,6 +1191,21 @@ export default function StudentSidePanel({
           <i className="sc-ring" /><i className="sc-ring" />
         </div>
 
+        {/* The ribbon is sewn into the BOARD, not printed on the page, so it is a child
+            of the binder and hangs down over the paper - the same relationship the
+            rubric's red ribbon has with its brown cover. */}
+        <FlagRibbon
+          flagged={followUpFlagged}
+          disabled={!canEdit || !flagAvailable || flagSaving}
+          onFlag={() => setFollowUp(true)}
+          onUnflag={() => setFollowUp(false)}
+          classPrefix="sc-ribbon"
+          labelOn={`${plateName} is flagged for follow-up. Pull the ribbon up, or press, to remove the flag.`}
+          labelOff={flagAvailable
+            ? `Pull the ribbon down, or press, to flag ${plateName} for follow-up.`
+            : 'The follow-up flag is not enabled on this database yet.'}
+        />
+
         <div className="sc-paper">
           {/* Sighted readers learn which record and which sheet they are on from the plate
               and the index; a screen reader is told the same two facts here. Polite, so it
@@ -1201,18 +1216,6 @@ export default function StudentSidePanel({
 
           {/* ── Name plate: fixed above the sheets, lifts once paper travels under it ── */}
           <div className={`sc-plate${chartLifted ? ' sc-plate-lifted' : ''}`}>
-            <FlagRibbon
-              flagged={followUpFlagged}
-              disabled={!canEdit || !flagAvailable || flagSaving}
-              onFlag={() => setFollowUp(true)}
-              onUnflag={() => setFollowUp(false)}
-              classPrefix="sc-ribbon"
-              labelOn={`${plateName} is flagged for follow-up. Pull the ribbon up, or press, to remove the flag.`}
-              labelOff={flagAvailable
-                ? `Pull the ribbon down, or press, to flag ${plateName} for follow-up.`
-                : 'The follow-up flag is not enabled on this database yet.'}
-            />
-
             <div className={`sc-plate-id sc-fade${chartFading ? ' sc-fade-out' : ''}`}>
               <StudentAvatar student={data} size={72}
                 style={{ border:'3px solid var(--aspire-page)', boxShadow:'0 2px 10px rgba(29,37,103,0.16)', fontSize:'22px' }} />
