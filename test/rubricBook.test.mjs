@@ -12,7 +12,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
-  bookMetrics, PAGE_WIDTH, SPREAD_WIDTH, SPREAD_FLOOR, LEGIBLE_SCALE, MIN_PAGE, MIN_BOOK_H, CHROME,
+  bookMetrics, CHROME, SPREAD_MIN, LEFT_SHARE, RIGHT_SHARE, COVER_PAD, COVER_PAD_X,
+  RAIL_WIDTH, MIN_BOOK_H, BOTTOM_GAP,
 } from '../src/components/rubric/useBookScale.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -22,60 +23,68 @@ const session = read('src/components/RubricSession.jsx')
 const bookCss = read('src/components/rubric/rubricBook.css')
 const ribbon  = read('src/components/rubric/FlagRibbon.jsx')
 const indexCss = read('src/index.css')
-const BODY_PX = 14   // .rb-choice, the page's body size
+const boardCss = read('src/components/placement/placementBoard.css')
 
-// ── 1. One layout, scaled, with two floors ──────────────────────────────────
+// ── 1. The book takes the room it is given, and the PAGES absorb the change ─
 
-test('BOOK 1: a wide window gets the spread at its natural size', () => {
-  const m = bookMetrics(1600, 1000)
-  assert.equal(m.mode, 'spread')
-  assert.equal(m.scale, 1)
-  assert.equal(m.pageWidth, PAGE_WIDTH)
+test('BOOK 1: the book is the Placement Board\'s column, not the window', () => {
+  // The board sits inside .app-main with a 20px gutter; the book does the same, so
+  // the two workspaces line up with each other and with the cards above them.
+  assert.match(boardCss, /\.pb-board \{[\s\S]*?margin: var\(--aspire-gap-card\) 20px 0;/)
+  assert.match(bookCss, /\.rb-stage \{[\s\S]*?padding: 0 20px var\(--aspire-gap-card\);/)
+  assert.match(indexCss, /\.app-main \{ width: min\(100% - 140px, 1580px\)/)
+  // The book fills that column: no width of its own, no cap competing with it.
+  assert.match(bookCss, /\.rb-book \{\s*\n\s*width: 100%;/)
+  assert.ok(!/\.rb-book \{[^}]*max-width/.test(bookCss), 'the book carries its own max-width again')
 })
 
-test('BOOK 2: the spread scales down rather than reflowing, until it stops being readable', () => {
-  const mid = bookMetrics(1300, 1000)
-  assert.equal(mid.mode, 'spread')
-  assert.ok(mid.scale < 1 && mid.scale > SPREAD_FLOOR, `expected a scaled spread, got ${mid.scale}`)
-  // The floor is where the spread turns into one page, and it is a floor on LEGIBILITY.
-  const atFloor = bookMetrics(Math.round(SPREAD_WIDTH * SPREAD_FLOOR) + 2, 1000)
-  assert.equal(atFloor.mode, 'spread')
-  const belowFloor = bookMetrics(Math.round(SPREAD_WIDTH * SPREAD_FLOOR) - 20, 1000)
-  assert.equal(belowFloor.mode, 'single')
+test('BOOK 2: nothing is scaled; resizing changes the pages, not the book', () => {
+  // Owner, 2026-09-17: the cover keeps one thickness at every width.
+  assert.ok(!bookCss.includes('transform: scale('), 'the book is being transform-scaled again')
+  assert.ok(!bookCss.includes('--rb-scale'), 'the scale variable is back')
+  assert.match(bookCss, /--rb-cover-pad: 14px/)
+  assert.match(bookCss, /--rb-cover-pad-x: calc\(var\(--rb-cover-pad\) \+ var\(--rb-stack-w\)\)/)
+  assert.equal(COVER_PAD_X, COVER_PAD + 8)
+  // The paper flexes in the proportion the pages were designed in.
+  assert.match(bookCss, /minmax\(var\(--rb-left-min\), var\(--rb-left-share\)\)/)
+  assert.match(bookCss, /--rb-left-share: 42\.5fr/)
+  assert.match(bookCss, /--rb-right-share: 57\.5fr/)
+  assert.equal(LEFT_SHARE + RIGHT_SHARE, 100)
 })
 
-test('BOOK 3: one page never renders body text below 12px, from a tablet down to a phone', () => {
-  for (const width of [1000, 900, 820, 768, 600, 430, 390]) {
+test('BOOK 3: the pages take everything the cover and the index do not', () => {
+  for (const width of [1540, 1332, 1144, 1004]) {
     const m = bookMetrics(width, 900)
-    assert.equal(m.mode, 'single', `${width} should be a single page`)
-    const rendered = BODY_PX * m.scale
-    assert.ok(rendered >= 11.9, `at ${width}px the body text renders at ${rendered.toFixed(1)}px`)
+    assert.equal(m.mode, 'spread')
+    assert.equal(m.pages.left + m.pages.right, width - CHROME, `${width}px: the paper does not add up`)
+    // The cover and the index never move with the width.
+    assert.equal(CHROME, RAIL_WIDTH + (2 * COVER_PAD_X))
   }
 })
 
-test('BOOK 4: the page fits the window it is given, and never scrolls sideways', () => {
-  for (const width of [1600, 1200, 1000, 768, 430, 390, 320]) {
-    const m = bookMetrics(width, 900)
-    const natural = (m.mode === 'spread' ? SPREAD_WIDTH : m.pageWidth + CHROME)
-    assert.ok(natural * m.scale <= width + 1, `${width}px: the book renders ${Math.round(natural * m.scale)}px wide`)
-    assert.ok(m.pageWidth >= MIN_PAGE, `${width}px: page shrank to ${m.pageWidth}`)
-    assert.ok(m.pageWidth <= PAGE_WIDTH, `${width}px: page grew past its design width`)
-  }
+test('BOOK 4: below SPREAD_MIN the book shows one page instead of two narrow ones', () => {
+  assert.equal(bookMetrics(SPREAD_MIN, 900).mode, 'spread')
+  assert.equal(bookMetrics(SPREAD_MIN - 1, 900).mode, 'single')
+  const single = bookMetrics(760, 900)
+  assert.equal(single.pages.left, 0)
+  assert.equal(single.pages.right, 760 - CHROME)
 })
 
-test('BOOK 5: the book fills the height it is given, and a short window gets a minimum', () => {
-  const tall = bookMetrics(1600, 1200)
-  assert.equal(tall.bookHeight, 1200)            // scale 1, so the book IS the stage
-  const scaled = bookMetrics(1300, 900)
-  assert.equal(scaled.bookHeight, Math.round(900 / scaled.scale))
-  assert.equal(bookMetrics(1600, 200).bookHeight, MIN_BOOK_H)
+test('BOOK 5: the whole book is on screen, bottom cover included', () => {
+  // The shell claims what is left below its own top edge, less a gap, rather than
+  // guessing the chrome above it with calc(100vh - 164px).
+  assert.match(session, /\$\{shellHeight\}px/)
+  assert.match(bookCss, /height: var\(--rb-shell-h, calc\(100vh - 164px\)\)/)
+  const hook = read('src/components/rubric/useBookScale.js')
+  assert.match(hook, /window\.innerHeight - top - BOTTOM_GAP/)
+  assert.ok(BOTTOM_GAP > 0)
 })
 
 test('BOOK 6: a missing measurement never produces a broken book', () => {
   for (const m of [bookMetrics(0, 0), bookMetrics(undefined, undefined), bookMetrics(NaN, NaN)]) {
-    assert.ok(m.scale > 0 && m.scale <= 1)
-    assert.ok(m.pageWidth >= MIN_PAGE)
+    assert.ok(m.pages.right >= 0)
     assert.ok(m.bookHeight >= MIN_BOOK_H)
+    assert.ok(m.mode === 'single' || m.mode === 'spread')
   }
 })
 
@@ -96,7 +105,9 @@ test('SPREAD 1: a cover, two pages, a seam and an index, in that order', () => {
 
 test('SPREAD 2: the candidate is on the LEFT and the rubric on the RIGHT, as on the Placement Board', () => {
   assert.ok(session.indexOf('aria-label="Candidate"') < session.indexOf('aria-label="Rubric"'))
-  assert.match(bookCss, /grid-template-columns: var\(--rb-left-w\) var\(--rb-right-w\) var\(--rb-rail-w\)/)
+  assert.match(bookCss, /\.rb-page-left  \{ grid-column: 1;/)
+  assert.match(bookCss, /\.rb-page-right \{ grid-column: 2;/)
+  assert.match(bookCss, /\.rb-index      \{ grid-column: 3;/)
 })
 
 test('SPREAD 3: the left page carries the facts an interviewer reads while listening', () => {
@@ -314,8 +325,10 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   assert.match(seam, /width: 28px/)
   assert.match(seam, /var\(--aspire-book-seam\)/)
   assert.ok((seam.match(/rgba\(20, 24, 36/g) || []).length >= 6, 'the fold lost its falloff')
-  // Paper is square, like the Placement Board's notes.
-  assert.match(bookCss, /border-radius: 0;\n  overflow: hidden;/)
+  // Paper is square, like the Placement Board's notes, and nothing clips the spread
+  // any more, so the ribbon can hang over the cover.
+  assert.match(bookCss, /\.rb-spread \{[\s\S]*?border-radius: 0;/)
+  assert.ok(!/\.rb-spread \{[^}]*overflow: hidden/.test(bookCss), 'the spread clips again')
   // The pages underneath show at both fore edges.
   assert.match(bookCss, /\.rb-cover::before,\n\.rb-cover::after/)
   assert.match(bookCss, /repeating-linear-gradient\(90deg, #FFFFFF 0 1\.5px/)
@@ -327,10 +340,52 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
     'the cover is wearing the coarse grain again')
 })
 
-test('RIBBON 4: pulled, the ribbon hangs further down the page than it rests', () => {
-  const idle = Number(bookCss.match(/\.rb-ribbon \{[\s\S]*?padding: 10px 0 (\d+)px/)?.[1])
-  const flagged = Number(bookCss.match(/\.rb-ribbon-on,\n\.rb-ribbon-on:hover \{[\s\S]*?padding-bottom: (\d+)px/)?.[1])
-  assert.ok(flagged > idle * 2, `flagged ${flagged}px should hang well below the idle ${idle}px`)
+test('RIBBON 4: pulled, the ribbon hangs lower and the word travels with it', () => {
+  const idle = bookCss.match(/\.rb-ribbon \{[\s\S]*?padding: (\d+)px 0 (\d+)px/)
+  const flagged = bookCss.match(/\.rb-ribbon-on,\n\.rb-ribbon-on:hover \{[\s\S]*?padding: (\d+)px 0 (\d+)px/)
+  assert.ok(idle && flagged, 'the ribbon lost its two states')
+  const idleLen = Number(idle[1]) + Number(idle[2])
+  const flaggedLen = Number(flagged[1]) + Number(flagged[2])
+  assert.ok(flaggedLen > idleLen * 2, `flagged ${flaggedLen}px should hang well below the idle ${idleLen}px`)
+  // The label travels with it rather than staying pinned to the top.
+  assert.ok(Number(flagged[1]) > Number(idle[1]), 'the word did not move down with the ribbon')
+})
+
+test('RIBBON 5: it hangs from the BOOK, so scrolling the page never carries it away', () => {
+  // It is a sibling of the pages, not a child of the one that scrolls.
+  const spread = session.slice(session.indexOf('<div className="rb-spread">'), session.indexOf('aria-label="Candidate"'))
+  assert.match(spread, /<FlagRibbon/)
+  assert.match(bookCss, /\.rb-ribbon \{[\s\S]*?grid-column: 1;/)
+  assert.match(bookCss, /\.rb-ribbon \{[\s\S]*?justify-self: end;/)
+  // And it overhangs the cover the way a sewn bookmark does.
+  assert.match(bookCss, /margin-top: calc\(-1 \* var\(--rb-cover-pad\)\)/)
+})
+
+test('GUIDE 1: the scoring guide opens from the head, reachable at any scroll position', () => {
+  const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('className="rb-scroll"'))
+  assert.match(head, /data-testid="rb-guide-toggle"/)
+  assert.match(head, /Scoring Guide/)
+  // The panel is a sibling of the scroller, so scrolling the page cannot hide it.
+  assert.ok(session.indexOf('rb-guide-drawer') < session.indexOf('className="rb-scroll"'))
+  assert.match(bookCss, /\.rb-guide-drawer \{[\s\S]*?flex-shrink: 0;/)
+  // The five steps are the ones the scale uses.
+  assert.match(session, /\{SCORE_GUIDE\.map\(row =>/)
+})
+
+test('ORDER 1: Section 1 comes first, and the opening script no longer repeats Section 2', () => {
+  const scroll = session.slice(session.indexOf('className="rb-scroll"'))
+  assert.ok(scroll.indexOf('Section 1: Interview Info') < scroll.indexOf('Interview Opening Script'),
+    'the script still stands between the reader and the first field')
+  assert.ok(scroll.indexOf('Interview Opening Script') < scroll.indexOf('Section 2: Unit Preferences'))
+  assert.ok(!session.includes('can you share your top three unit choices and tell me'),
+    'the script asks for the top three again')
+  // Section 2 still asks it, which is why the script does not.
+  assert.match(session, /Section 2: Unit Preferences and Rationale[\s\S]*?can you share your top three unit choices and why/)
+})
+
+test('SCROLLBAR 1: a page\'s scrollbar is the fold\'s grey, not a black bar on paper', () => {
+  assert.match(bookCss, /scrollbar-color: rgba\(24, 32, 63, 0\.18\) transparent/)
+  assert.match(bookCss, /::-webkit-scrollbar-thumb \{\s*\n\s*background: rgba\(24, 32, 63, 0\.18\)/)
 })
 
 test('SCRIPT 1: the closing script says only what the page does not', () => {

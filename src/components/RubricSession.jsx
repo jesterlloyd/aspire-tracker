@@ -450,7 +450,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const timerRef = useRef(null)
   // RUBRIC-BOOK-1: one layout at every width, scaled; below the legibility floor
   // the spread shows one page at a time and the toolbar offers the switch.
-  const { stageRef, mode, scale, bookHeight, pageWidth } = useBookScale()
+  const { shellRef, stageRef, shellHeight, mode } = useBookScale()
   const [page, setPage] = useState('right')
 
 
@@ -1103,11 +1103,12 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   return (
     <div
       className="rb-shell"
+      ref={shellRef}
       data-rubric-book=""
       data-rb-mode={mode}
       data-rb-page={page}
       data-rb-readonly={readOnly ? 'true' : 'false'}
-      style={{ '--rb-scale': scale, '--rb-book-h': `${bookHeight}px`, '--rb-page-w': `${pageWidth}px` }}
+      style={shellHeight ? { '--rb-shell-h': `${shellHeight}px` } : undefined}
     >
       {!readOnly && (
         <div className="rb-toolbar">
@@ -1129,16 +1130,16 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       <div className="rb-stage" ref={stageRef}>
         <div className="rb-book">
           <div className="rb-cover material-leather-tan">
-            <div className="rb-clasp rb-clasp-top" aria-hidden="true"><span /><span /></div>
-            <div className="rb-clasp rb-clasp-bottom" aria-hidden="true"><span /><span /></div>
             <div className="rb-spread">
+
+              {/* The ribbon is sewn into the book, so it stays put while the page
+                  under it scrolls. */}
+              {!readOnly && (
+                <FlagRibbon flagged={isFlagged} onFlag={handleFlag} onUnflag={handleUnflag} />
+              )}
 
               {/* ── Left page: the candidate ───────────────────────────────── */}
               <section className="rb-page rb-page-left" aria-label="Candidate">
-                {!readOnly && (
-                  <FlagRibbon flagged={isFlagged} onFlag={handleFlag} onUnflag={handleUnflag} />
-                )}
-
                 <div className="rb-id">
                   <div className="rb-avatar">
                     <StudentAvatar student={student} size={96} style={{ fontSize: '30px' }} />
@@ -1287,6 +1288,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   <span className="rb-head-rec" data-testid="rb-recommendation">
                     {student.interview_outcome || form.individual_recommendation || 'Not recorded'}
                   </span>
+                  <button type="button" className="rb-head-guide" data-testid="rb-guide-toggle"
+                    aria-expanded={legendOpen} onClick={() => setLegendOpen(p => !p)}>
+                    {legendOpen ? '▾' : '▸'} Scoring Guide
+                  </button>
                   <span className="rb-head-score">
                     {!readOnly && saveIndicator}
                     <span className="rb-head-key">Composite</span>
@@ -1294,6 +1299,17 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                     <span className="rb-head-den">/ 15</span>
                   </span>
                 </header>
+
+                {/* Open from the head, so a 4 can be looked up from anywhere on the page. */}
+                {legendOpen && (
+                  <div className="rb-guide-drawer" data-testid="scoring-guide">
+                    {SCORE_GUIDE.map(row => (
+                      <p key={row.s}>
+                        <span className="rb-guide-head">{row.s} · {row.label}:</span> {row.desc}
+                      </p>
+                    ))}
+                  </div>
+                )}
 
                 <div className="rb-scroll" id="rb-scroll" ref={scrollRef}>
                   {!locked && !form.interviewer_name && (
@@ -1321,37 +1337,6 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                       </div>
                     )
                   })()}
-
-                  <button type="button" className="rb-disclosure" onClick={() => setScriptOpen(p => !p)} aria-expanded={scriptOpen}>
-                    <span className="rb-disclosure-mark">{scriptOpen ? '▾' : '▸'}</span>Interview Opening Script
-                  </button>
-                  {scriptOpen && (
-                    <div className="rb-guide">
-                      <p className="rb-guide-head">Getting started</p>
-                      <p>Begin by introducing yourself and your role. Then invite the student to briefly introduce themselves.</p>
-                      <p>Once you are both settled, say:</p>
-                      <p className="rb-quote">"Thanks for being here today. The goal of this interview is to get a better sense of your clinical readiness and explore how we can best support your transition into professional nursing practice."</p>
-                      <p className="rb-guide-head">Introduce ASPIRE</p>
-                      <p className="rb-quote">"ASPIRE offers senior nursing students the opportunity to complete their final clinical rotation at Cedars-Sinai Medical Center. It is designed to support a seamless transition into our New Graduate RN Residency Program through personalized unit and preceptor matching, mentorship, application guidance, and connection to a strong nursing community."</p>
-                      <p className="rb-guide-head">Explain the interview format</p>
-                      <p className="rb-quote">"This is a structured, rubric-based interview. I will be asking at least one question in each of three areas: Clinical Judgment, Professional Presence, and Goal Alignment. These are grounded in the AACN Essentials for nursing practice. There are no right or wrong answers. We simply want to hear your honest thoughts and experiences. I may take notes as we go, and we will close with a brief recommendation. Take all the time you need before answering. Ready to begin?"</p>
-                      <p>Then ask:</p>
-                      <p className="rb-quote">"Before we dive in, can you share your top three unit choices and tell me a bit about why you are interested in rotating there?"</p>
-                    </div>
-                  )}
-
-                  <button type="button" className="rb-disclosure" onClick={() => setLegendOpen(p => !p)} aria-expanded={legendOpen}>
-                    <span className="rb-disclosure-mark">{legendOpen ? '▾' : '▸'}</span>Scoring Guide
-                  </button>
-                  {legendOpen && (
-                    <div className="rb-guide" data-testid="scoring-guide">
-                      {SCORE_GUIDE.map(row => (
-                        <p key={row.s}>
-                          <span className="rb-guide-head">{row.s} · {row.label}:</span> {row.desc}
-                        </p>
-                      ))}
-                    </div>
-                  )}
 
                   {/* ── Section 1 ── */}
                   <section className="rb-section" id="s1">
@@ -1390,6 +1375,22 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                       </p>
                     )}
                   </section>
+
+                  <button type="button" className="rb-disclosure" onClick={() => setScriptOpen(p => !p)} aria-expanded={scriptOpen}>
+                    <span className="rb-disclosure-mark">{scriptOpen ? '▾' : '▸'}</span>Interview Opening Script
+                  </button>
+                  {scriptOpen && (
+                    <div className="rb-guide">
+                      <p className="rb-guide-head">Getting started</p>
+                      <p>Begin by introducing yourself and your role. Then invite the student to briefly introduce themselves.</p>
+                      <p>Once you are both settled, say:</p>
+                      <p className="rb-quote">"Thanks for being here today. The goal of this interview is to get a better sense of your clinical readiness and explore how we can best support your transition into professional nursing practice."</p>
+                      <p className="rb-guide-head">Introduce ASPIRE</p>
+                      <p className="rb-quote">"ASPIRE offers senior nursing students the opportunity to complete their final clinical rotation at Cedars-Sinai Medical Center. It is designed to support a seamless transition into our New Graduate RN Residency Program through personalized unit and preceptor matching, mentorship, application guidance, and connection to a strong nursing community."</p>
+                      <p className="rb-guide-head">Explain the interview format</p>
+                      <p className="rb-quote">"This is a structured, rubric-based interview. I will be asking at least one question in each of three areas: Clinical Judgment, Professional Presence, and Goal Alignment. These are grounded in the AACN Essentials for nursing practice. There are no right or wrong answers. We simply want to hear your honest thoughts and experiences. I may take notes as we go, and we will close with a brief recommendation. Take all the time you need before answering. Ready to begin?"</p>
+                    </div>
+                  )}
 
                   {/* ── Section 2 ── */}
                   <section className="rb-section" id="s2">

@@ -5,11 +5,13 @@
  * never change roles: the left page is the candidate (fixed reference), the right
  * page is the score (everything you type). A spread says that with no labels.
  *
- * HOW IT SIZES. The book has ONE layout at every width (Owner, 2026-09-17). It is
- * laid out at its natural size and scaled with a transform, so the type keeps its
- * proportions instead of reflowing into a different design. useBookScale.js measures
- * the stage and writes --rb-scale and --rb-book-h; below the legibility floor it
- * switches data-rb-mode to "single" and the spread shows one page at a time.
+ * HOW IT SIZES (Owner, 2026-09-17, revised). The book fills the room it is given, and
+ * resizing changes the PAGES, not the book: the cover is the same thickness at every
+ * width, the index keeps its width, and the two pages share what is left in the
+ * proportion they were designed in. Nothing is transform-scaled, so type never shrinks.
+ * useBookScale.js measures the stage, sets the shell's height so the whole book is on
+ * screen, and switches data-rb-mode to "single" below SPREAD_MIN, where the book shows
+ * one page at a time instead of two that are too narrow to write in.
  *
  * Materials come from src/styles/aspireMaterials.css, which this sheet imports, and
  * every colour, radius and shadow is a token from aspireBrand.css. The materials do
@@ -19,18 +21,24 @@
 @import '../../styles/aspireMaterials.css';
 
 .rb-shell {
-  --rb-left-w: 600px;
-  --rb-right-w: 810px;
+  /* The paper's proportions, not its pixels: 600 and 810 were the design widths, and
+     they stay the SHARE each page takes of whatever room the book has. */
+  --rb-left-share: 42.5fr;
+  --rb-right-share: 57.5fr;
+  --rb-left-min: 300px;
+  --rb-right-min: 340px;
   --rb-rail-w: 58px;
   --rb-cover-pad: 14px;
-  --rb-scale: 1;
-  --rb-book-h: 860px;
+  /* The fore edges carry the page stack, so the side needs the stack's width on top
+     of the leather to read as thick as the top and the bottom. */
+  --rb-stack-w: 8px;
+  --rb-cover-pad-x: calc(var(--rb-cover-pad) + var(--rb-stack-w));
   display: flex;
   flex-direction: column;
-  /* The same height the old session claimed: the viewport less the app header and the
-     section nav. The rubric owns the screen while it is open, and the pages scroll
-     inside the book rather than the page scrolling behind it. */
-  height: calc(100vh - 164px);
+  /* useBookScale measures what is left below the shell's own top edge and sets
+     --rb-shell-h, so the whole book is on screen, bottom cover included, whatever
+     chrome sits above it. The fallback is the old fixed offset. */
+  height: var(--rb-shell-h, calc(100vh - 164px));
   min-height: 520px;
   font-family: var(--aspire-sans);
 }
@@ -63,44 +71,47 @@
 .rb-switch button[aria-pressed='true'] { background: var(--aspire-navy); color: var(--aspire-on-navy); }
 
 /* ── The stage, the cover, the spread ──────────────────────────────────────── */
+/* The book takes the Placement Board's width, because it is the same screen furniture:
+   .app-main is min(100% - 140px, 1580px), and the board sits inside it with a 20px
+   gutter (margin: var(--aspire-gap-card) 20px 0). The book does the same, so the two
+   workspaces line up with each other and with the cards above them. */
 .rb-stage {
   flex: 1;
   min-height: 0;
   display: flex;
   justify-content: center;
-  padding: 0 20px 20px;
+  padding: 0 20px var(--aspire-gap-card);
 }
+/* Owner, 2026-09-17: the book takes the room it is given, and resizing changes the
+   PAGES, not the book. Nothing is transform-scaled: the cover is the same thickness
+   at every width, the index keeps its width, and the paper absorbs the difference. */
 .rb-book {
-  width: calc(var(--rb-left-w) + var(--rb-right-w) + var(--rb-rail-w) + (2 * var(--rb-cover-pad)));
-  height: var(--rb-book-h);
-  transform: scale(var(--rb-scale));
-  transform-origin: top center;
-  flex-shrink: 0;
-}
-.rb-shell[data-rb-mode='single'] {
-  /* One page takes the width it is given, so the type stays readable instead of
-     shrinking with the window. */
-  --rb-right-w: var(--rb-page-w, 810px);
-}
-.rb-shell[data-rb-mode='single'] .rb-book {
-  width: calc(var(--rb-right-w) + var(--rb-rail-w) + (2 * var(--rb-cover-pad)));
+  width: 100%;
+  height: 100%;
+  min-height: var(--rb-book-min-h, 560px);
 }
 
 .rb-cover {
   position: relative;
   height: 100%;
-  padding: var(--rb-cover-pad);
+  padding: var(--rb-cover-pad) var(--rb-cover-pad-x);
   border-radius: var(--aspire-radius-book);
 }
 .rb-spread {
   position: relative;
   height: 100%;
   display: grid;
-  grid-template-columns: var(--rb-left-w) var(--rb-right-w) var(--rb-rail-w);
+  /* The two pages share the paper in the proportion they were designed in, and the
+     index down the fore edge is the one fixed column. */
+  grid-template-columns:
+    minmax(var(--rb-left-min), var(--rb-left-share))
+    minmax(var(--rb-right-min), var(--rb-right-share))
+    var(--rb-rail-w);
   /* Paper is square: a rounded sheet reads as a card, which is the same rule the
-     Placement Board's notes follow. */
+     Placement Board's notes follow. Nothing is clipped here any more, so the ribbon
+     can hang over the top edge of the cover the way a sewn bookmark does; each page
+     clips its own scrolling content. */
   border-radius: 0;
-  overflow: hidden;
   background: var(--aspire-page);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
 }
@@ -112,23 +123,53 @@
   position: absolute;
   top: calc(var(--rb-cover-pad) + 5px);
   bottom: calc(var(--rb-cover-pad) + 5px);
-  width: 8px;
+  width: var(--rb-stack-w);
   background: repeating-linear-gradient(90deg, #FFFFFF 0 1.5px, #CBC6BA 1.5px 2.5px);
   pointer-events: none;
 }
 .rb-cover::before {
-  left: calc(var(--rb-cover-pad) - 8px);
+  left: calc(var(--rb-cover-pad-x) - var(--rb-stack-w));
   box-shadow: inset 1px 0 2px rgba(60, 50, 34, 0.25);
 }
 .rb-cover::after {
-  right: calc(var(--rb-cover-pad) - 8px);
+  right: calc(var(--rb-cover-pad-x) - var(--rb-stack-w));
   box-shadow: inset -1px 0 2px rgba(60, 50, 34, 0.25);
 }
-.rb-shell[data-rb-mode='single'] .rb-spread { grid-template-columns: var(--rb-right-w) var(--rb-rail-w); }
+/* Every child is placed by hand: the seam and the ribbon share the candidate page's
+   cell, so auto-placement would push the pages and the index into a second row. */
+.rb-page-left  { grid-column: 1; grid-row: 1; }
+.rb-page-right { grid-column: 2; grid-row: 1; }
+.rb-index      { grid-column: 3; grid-row: 1; }
+
+.rb-shell[data-rb-mode='single'] .rb-spread { grid-template-columns: minmax(0, 1fr) var(--rb-rail-w); }
 .rb-shell[data-rb-mode='single'] .rb-page-left,
 .rb-shell[data-rb-mode='single'] .rb-page-right { grid-column: 1; grid-row: 1; }
+.rb-shell[data-rb-mode='single'] .rb-index { grid-column: 2; grid-row: 1; }
 .rb-shell[data-rb-mode='single'][data-rb-page='left'] .rb-page-right,
 .rb-shell[data-rb-mode='single'][data-rb-page='right'] .rb-page-left { display: none; }
+/* A page's scrollbar is part of the paper, so it is the fold's own grey rather than
+   the platform's black bar sitting on a white page. */
+.rb-page,
+.rb-scroll,
+.rb-index {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(24, 32, 63, 0.18) transparent;
+}
+.rb-page::-webkit-scrollbar,
+.rb-scroll::-webkit-scrollbar,
+.rb-index::-webkit-scrollbar { width: 8px; height: 8px; }
+.rb-page::-webkit-scrollbar-track,
+.rb-scroll::-webkit-scrollbar-track,
+.rb-index::-webkit-scrollbar-track { background: transparent; }
+.rb-page::-webkit-scrollbar-thumb,
+.rb-scroll::-webkit-scrollbar-thumb,
+.rb-index::-webkit-scrollbar-thumb {
+  background: rgba(24, 32, 63, 0.18);
+  border-radius: var(--aspire-radius-pill);
+}
+.rb-page::-webkit-scrollbar-thumb:hover,
+.rb-scroll::-webkit-scrollbar-thumb:hover { background: rgba(24, 32, 63, 0.30); }
+
 .rb-page {
   position: relative;
   min-width: 0;
@@ -142,15 +183,18 @@
 .rb-page-right { background: linear-gradient(270deg, var(--aspire-page) 92%, #FAFAFC 100%); }
 
 /* The seam is what makes two pages; one page has no seam. */
-/* The seam is what makes two pages; one page has no seam. */
 .rb-shell[data-rb-mode='single'] .rb-seam { display: none; }
 
+/* The fold sits at the right edge of the candidate page, whatever width that page
+   currently has, so it is a grid item rather than an absolute offset. */
 .rb-seam {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(var(--rb-left-w) - 14px);
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  justify-self: end;
+  align-self: stretch;
   width: 28px;
+  margin-right: -14px;
   /* The fold, as a bound book shows it: the paper turns into the gutter from both
      sides and meets in one dark line. A hairline alone read as a rule between two
      panels rather than as two halves of one sheet. */
@@ -168,19 +212,24 @@
   pointer-events: none;
   z-index: 2;
 }
-.rb-clasp {
+/* The binding: two small clasps at the top and the bottom of the fold. They ride the
+   seam, so they follow the page width with it. */
+.rb-seam::before,
+.rb-seam::after {
+  content: '';
   position: absolute;
-  left: calc(var(--rb-cover-pad) + var(--rb-left-w) - 14px);
-  width: 28px;
-  height: 8px;
-  display: flex;
-  justify-content: space-between;
-  pointer-events: none;
+  left: 7px;
+  width: 14px;
+  height: 3px;
+  background: var(--aspire-book-edge);
+  border-radius: var(--aspire-radius-pill);
+  opacity: 0.55;
 }
-.rb-clasp span { width: 2px; height: 100%; background: var(--aspire-book-edge); border-radius: var(--aspire-radius-pill); }
-.rb-clasp-top { top: 9px; }
-.rb-clasp-bottom { bottom: 9px; }
-.rb-shell[data-rb-mode='single'] .rb-clasp { display: none; }
+.rb-seam::before { top: 10px; }
+.rb-seam::after { bottom: 10px; }
+/* On one page the ribbon belongs to the candidate, so it shows only on that page. */
+.rb-shell[data-rb-mode='single'][data-rb-page='right'] .rb-ribbon { display: none; }
+.rb-shell[data-rb-mode='single'] .rb-ribbon { grid-column: 1; }
 
 /* ── Left page: the candidate ──────────────────────────────────────────────── */
 .rb-id { padding: 34px 44px 22px; text-align: center; }
@@ -287,12 +336,19 @@
 
 /* The flag ribbon, top right of the left page. It hangs over the page edge, and
    pulling it down (or pressing it) flags the candidate for the placement huddle. */
+/* The ribbon is sewn into the book, not printed on the page: it hangs from the spread,
+   so scrolling the candidate page never carries it away, and it rides the page's right
+   edge whatever width that page has. */
 .rb-ribbon {
-  position: absolute;
-  top: -2px;
-  right: 30px;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+  align-self: start;
+  margin-right: 30px;
+  /* Up over the leather: the ribbon is sewn into the spine, not printed on the page. */
+  margin-top: calc(-1 * var(--rb-cover-pad));
   width: 54px;
-  padding: 10px 0 14px;
+  padding: 9px 0 14px;
   border: 0;
   border-radius: 0;
   background: var(--aspire-ribbon-idle);
@@ -306,12 +362,13 @@
   touch-action: none;
   z-index: 3;
 }
-.rb-ribbon:hover { padding-bottom: 20px; }
-/* Pulled, it hangs down the page: the flag should be visible from across a desk. */
+.rb-ribbon:hover { padding: 9px 0 20px; }
+/* Pulled, it hangs down the page, and the word travels with it: a label pinned to the
+   top of a longer ribbon reads as a ribbon that did not move. */
 .rb-ribbon-on,
 .rb-ribbon-on:hover {
   background: var(--aspire-red-editorial);
-  padding-bottom: 42px;
+  padding: 26px 0 30px;
   cursor: grab;
 }
 .rb-ribbon-dragging { cursor: grabbing; transition: none; }
@@ -349,6 +406,33 @@
   font: 700 11.5px/1.4 var(--aspire-sans);
   cursor: pointer;
 }
+
+/* ── The scoring guide, kept in the head ───────────────────────────────────── */
+/* It answers "what does a 4 mean?", which is asked at the bottom of the page as often
+   as at the top, so it lives in the head and opens over the page rather than being
+   something you scroll back to. */
+.rb-head-guide {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--aspire-navy);
+  font: 700 12.5px/1 var(--aspire-sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rb-head-guide:hover { text-decoration: underline; }
+.rb-head-guide:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 3px; }
+.rb-guide-drawer {
+  flex-shrink: 0;
+  padding: 14px 34px 16px;
+  background: var(--aspire-navy-tint);
+  border-bottom: 1px solid var(--aspire-page-rule);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--aspire-paper-ink);
+}
+.rb-guide-drawer p { margin: 0 0 6px; }
+.rb-guide-drawer p:last-child { margin-bottom: 0; }
 
 .rb-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 26px 34px 90px; }
 .rb-section { margin-bottom: 34px; scroll-margin-top: 12px; }

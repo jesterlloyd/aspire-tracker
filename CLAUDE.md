@@ -119,20 +119,25 @@ while you write; the right page is the rubric. The stylesheet is
 `src/components/rubric/rubricBook.css`, which imports the materials and reads the tokens;
 nothing about the book lives in `index.css`.
 
-- **One layout at every width** (Owner). The book is laid out at its natural size and
-  SCALED with a transform, so it never reflows into a second design.
-  `src/components/rubric/useBookScale.js` owns the arithmetic and has two floors: below
-  0.72 the spread turns into one page (the rubric by default, the candidate a tap away),
-  and one page then takes the width it is given so body text never renders below about
-  12px. Nothing scrolls sideways at any width. Change the numbers there, not in a
-  component, and `test/rubricBook.test.mjs` re-measures them.
+- **The book is the Placement Board's column, and the PAGES flex** (Owner, revised
+  2026-09-17). It sits inside `.app-main` with the board's own 20px gutter, and nothing
+  is transform-scaled: the cover keeps one thickness, the index keeps its width, and the
+  two pages share what is left at 42.5 / 57.5. Below `SPREAD_MIN` (1000px of stage) the
+  book shows one page at a time rather than two too narrow to write in.
+  `src/components/rubric/useBookScale.js` owns those numbers and also measures what is
+  left below the shell's own top edge, so the whole book including its bottom cover is on
+  screen whatever chrome sits above it. `test/rubricBook.test.mjs` re-measures all of it.
 - **Read-only is the same book.** A finished rubric and a colleague's rubric render the
   same spread with the inputs replaced by their values. There is no second layout to keep
   in step.
+- **The scoring guide lives in the head**, as a drawer above the scroller: "what does a
+  4 mean?" is asked at the bottom of the page as often as at the top.
 - **The head reports the rubric, not the student.** ASPIRE status is on the candidate
   page, so the head carries completion (counted against the same nine answers that gate
   Mark Complete), the recommendation, the save state and the live composite.
-- **Pulling the ribbon IS the flag** (Owner, 2026-09-17), and a flag carries NO note.
+- **The ribbon hangs from the book, not the page.** It is a grid item beside the pages
+  that overhangs the top cover, so scrolling the candidate page never carries it away.
+  **Pulling it IS the flag** (Owner, 2026-09-17), and a flag carries NO note.
   `flag_note` is no longer written; a note stored before this change is still shown until
   the flag is removed. The ribbon is a real button, so Enter, Space and a click do what
   the pull does.
