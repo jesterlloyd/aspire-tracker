@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { installDemoScope } from './demoScope.js'
 import { installDemoApiHeader } from './demoFetch.js'
+import { createTimeoutFetch } from './supabaseFetch.js'
 
 const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -38,13 +39,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     headers: { 'x-application-name': 'aspire-intelligence' },
-    fetch: (...args) => {
-      // 12 second abort timeout on every Supabase request
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 12000)
-      return fetch(...args, { signal: controller.signal })
-        .finally(() => clearTimeout(timeout))
-    },
+    // A 12 second abort on every Supabase request. This was
+    // written inline and was broken from the day it was written: it appended the signal
+    // as a THIRD argument, which fetch ignores, so nothing was ever aborted. It lives in
+    // its own module now because a closure inside an options object cannot be tested,
+    // and this one needed to be.
+    fetch: createTimeoutFetch(),
   },
 })
 
