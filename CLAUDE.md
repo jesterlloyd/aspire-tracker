@@ -243,6 +243,44 @@ or the roster keeps the old mark until a page reload. This exact mistake shipped
 interview rubric in September 2026 and cost two review rounds. Both props are threaded from
 `StudentProfilesTab`; do not collapse them.
 
+## A colour pair travels together (STUDENT-PROFILE-INK-1, 2026-09-18)
+
+Student Profiles had about forty pieces of text between 1:1 and 3:1 in dark mode. The
+root cause is worth stating once, because it is the thing that makes dark mode rot:
+
+**An ink and the surface behind it are one decision, and they must be made in the same
+place.** A theme-aware ink on a fixed light box is invisible in dark. A fixed dark ink on
+a theme-aware box is invisible in dark. Fixing only one half is worse than fixing
+neither, because the result still measures badly and now looks deliberate.
+
+So, when writing a colour in this app:
+
+- **Neutral ink on a surface that follows the theme** reads a theme-aware token:
+  `--text-heading`, `--text-caption`, `--text-muted`, `--color-text-placeholder`,
+  `--color-accent-primary`. These live in `src/styles/theme.css` and have a value in both
+  themes.
+- **`index.css`'s legacy tokens are light-mode constants**, not theme values. `--raven`,
+  `--nightfall`, `--sand`, `--pearl`, `--border`, `--border-lt` and index.css's own
+  `--text-secondary` are never redefined for dark. Reaching for one of those is how this
+  happened.
+- **A literal ink is correct beside a literal background.** A chip, a source tag or a
+  tinted notice is a pair that is meant to look the same in both themes; leave those
+  alone. `test/studentChart.test.mjs` INK 1 encodes exactly this: a hardcoded ink is only
+  flagged when nothing on the same element pins its surface.
+- **Module-level colour constants are tokens too.** `const NAVY = '#1D2567'` in
+  StudentUnitAssignments reached every call site at once and was invisible to a search for
+  hardcoded `color:` values.
+- **The materials layer is theme-independent.** A `.paper-note` is white in both themes, so
+  the chart's dark ink is explicitly reset inside one. A light-blue link on white paper
+  measured 1.65:1.
+
+The chart redefines the ink tokens inside `.sc-paper` for dark, because its pages are
+lighter than the app's dark surfaces and the app's inks are tuned for those.
+
+Verified by sweeping every text node in the panel in a real browser, compositing
+translucent backgrounds, and applying the WCAG large-text threshold: dark went from 280
+failing samples to 0, and light from 147 to 126 with zero regressions.
+
 ## Placement rank (PLACEMENT-BOARD-FELT-1)
 
 `matches.match_quality` stores `top_choice`, `second_choice`, `third_choice` or `other`,

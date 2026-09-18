@@ -112,26 +112,26 @@ export default function AdditionalPreceptors({ student, preceptors = [], canEdit
   // Non-admins (RLS returns no rows) with nothing to show: render nothing.
   if (!canEdit && rows.length === 0) return null
 
-  const link = { fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontFamily: 'Plus Jakarta Sans,sans-serif' }
+  const link = { fontSize: 11, color: 'var(--color-accent-primary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontFamily: 'Plus Jakarta Sans,sans-serif' }
   const input = { fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid #e5e7eb', fontFamily: 'Plus Jakarta Sans,sans-serif', width: '100%' }
 
   return (
     <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #ececec' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 6 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase', color: 'var(--color-text-placeholder)', marginBottom: 6 }}>
         Additional preceptors
       </div>
 
       {loading ? (
-        <div style={{ fontSize: 12, color: '#9ca3af' }}>Loading…</div>
+        <div style={{ fontSize: 12, color: 'var(--color-text-placeholder)' }}>Loading…</div>
       ) : rows.length === 0 ? (
-        <div style={{ fontSize: 12, color: '#9ca3af' }}>No additional preceptors.</div>
+        <div style={{ fontSize: 12, color: 'var(--color-text-placeholder)' }}>No additional preceptors.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {rows.map(r => {
             const p = precById.get(r.preceptor_id)
             return (
               <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{p?.full_name || '(preceptor)'}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>{p?.full_name || '(preceptor)'}</span>
                 <span style={{ fontSize: 10.5, fontWeight: 700, color: '#3730a3', background: '#eef2ff', padding: '1px 6px', borderRadius: 4 }}>
                   {ROLE_LABELS[r.role] || r.role}
                 </span>
@@ -180,7 +180,7 @@ export default function AdditionalPreceptors({ student, preceptors = [], canEdit
               {busy ? 'Saving…' : 'Assign'}
             </button>
             <button onClick={() => { setFormOpen(false); setMsg(null) }} disabled={busy}
-              style={{ fontSize: 12, fontWeight: 600, color: '#374151', background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans,sans-serif' }}>
+              style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-heading)', background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans,sans-serif' }}>
               Cancel
             </button>
           </div>

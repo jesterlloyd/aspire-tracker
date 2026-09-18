@@ -464,6 +464,44 @@
   --aspire-sheet-card: rgba(0, 0, 0, 0.18);
 }
 [data-theme="dark"] .sc-paper { color: var(--aspire-paper-ink); }
+/* STUDENT-PROFILE-INK-1: the chart redefines the ink tokens INSIDE itself, because its
+   dark pages are lighter than the app's dark surfaces and the app's inks are tuned for
+   those. Everything below inherits these, including inline styles that read the same
+   variables, so one block fixes the sub-panels too. Measured against the worst of the
+   seven tints: muted 6.84:1, caption 8.9:1, accent 8.25:1. */
+[data-theme="dark"] .sc-paper {
+  --text-muted: #A8AEC6;
+  --color-text-muted: #A8AEC6;
+  --color-text-placeholder: #A8AEC6;
+  --text-caption: #C2C8D8;
+  --color-text-secondary: #C2C8D8;
+  --text-heading: var(--aspire-paper-ink);
+  --text-body: var(--aspire-paper-ink);
+  --color-text-primary: var(--aspire-paper-ink);
+  --color-accent-primary: #A9BEFF;
+  /* index.css's --text-secondary is a fixed #6b7280 that no theme redefines, and 17
+     places in the panel read it. Scoped here rather than app-wide. */
+  --text-secondary: #C2C8D8;
+}
+/* The materials are theme-independent by design: a paper note is white in BOTH themes,
+   so the ink above must not reach inside one. Measured: the chart's light-blue accent on
+   a white note was 1.65:1. These put the light values back, which is what a white
+   surface needs whatever the page around it is doing. */
+[data-theme="dark"] .sc-paper .paper-note,
+[data-theme="dark"] .sc-paper .material-board,
+[data-theme="dark"] .sc-paper .material-leather-cream,
+[data-theme="dark"] .sc-paper .material-leather-tan {
+  --text-muted: #6B7785;
+  --color-text-muted: #6B7785;
+  --color-text-placeholder: #9CA3AF;
+  --text-caption: #4A5560;
+  --color-text-secondary: #4A5560;
+  --text-secondary: #6b7280;
+  --text-heading: #191919;
+  --text-body: #191919;
+  --color-text-primary: #191919;
+  --color-accent-primary: #1D2567;
+}
 /* Ink for dark paper, measured against every one of the seven tints rather than assumed:
    the title clears 7.2:1 on the worst and the soft ink 5.9:1. The light theme's greys,
    which the tabs and field labels inherit by default, measured 2.2:1 and 4.34:1 here. */

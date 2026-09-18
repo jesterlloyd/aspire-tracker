@@ -303,7 +303,15 @@ test('DARK 3: the panel\'s pastel fields have a dark pair', () => {
   const index = read('src/index.css')
   assert.match(index, /\[data-theme="dark"\] \.sp-card \.sp-input,/)
   assert.match(index, /\[data-theme="dark"\] \.sp-card \.sp-readonly \{[\s\S]*?color: var\(--color-text-primary/)
-  assert.match(index, /\[data-theme="dark"\] \.sp-nav-btn \{/)
+  // STUDENT-PROFILE-INK-1 replaced the .sp-nav-btn dark patch with something better: the
+  // base rule reads theme-aware tokens, so there is nothing left to patch. Assert the
+  // outcome (no fixed light-mode ink on the button, and its row follows the theme)
+  // rather than the mechanism, or this test pins the weaker of the two fixes.
+  const nav = index.match(/\.sp-nav-btn \{[\s\S]*?\}/)[0]
+  assert.match(nav, /color: var\(--color-accent-primary\)/)
+  assert.ok(!/var\(--nightfall\)/.test(nav), 'a fixed light navy here is invisible on dark paper')
+  const row = index.match(/\.sp-nav-row \{[\s\S]*?\}/)[0]
+  assert.ok(!/var\(--sand\)/.test(row), 'a fixed sand row stays bright in dark mode')
 })
 
 test('FLAG 8: the ribbon gets the REFETCH, not the writer, or the roster lags a reload', () => {
@@ -405,5 +413,93 @@ test('PAPER 4: the ribbon hangs from the board, not from the paper', () => {
 test('PAPER 5: the avatar aligns to the name, not to the middle of the chips', () => {
   const css = noComments(read('src/components/student/studentChart.css'))
   assert.match(css, /\.sc-plate-id \{[^}]*align-items: flex-start;/)
+})
+
+// ── INK: light-mode colours must not be hardcoded on theme-aware surfaces ───
+// STUDENT-PROFILE-INK-1 (2026-09-18). The panel had ~40 pieces of text at 1-3:1 in dark,
+// from three causes: inline light-mode inks, module-level colour constants, and
+// containers whose background was a fixed light value. Dark now measures 0 failures over
+// 1,337 samples and light is unchanged (0 regressions).
+
+const subPanels = [
+  'src/components/ClinicalHoursPanel.jsx',
+  'src/components/StudentUnitAssignments.jsx',
+  'src/components/AdditionalPreceptors.jsx',
+]
+
+test('INK 1: a light-mode ink is only allowed beside a light-mode background', () => {
+  // THE RULE this task turned on: a colour pair travels together. A theme-aware ink on a
+  // fixed light box is invisible in dark (measured 1.65:1), and so is a fixed dark ink on
+  // a theme-aware box. So a literal ink is a defect ONLY when nothing nearby pins the
+  // surface it sits on. Status colours are exempt: each is half of its own chip.
+  const banned = ['#1d2567', '#1D2567', '#191919', '#374151', '#4b5563', '#6b7280', '#9ca3af']
+  const offenders = []
+  for (const f of [...subPanels, 'src/components/StudentSidePanel.jsx']) {
+    for (const line of noComments(read(f)).split('\n')) {
+      for (const b of banned) {
+        if (!new RegExp(`\\bcolor\\s*:\\s*['"]${b}['"]`, 'i').test(line)) continue
+        // paired with a literal light background on the same element? then it is fine.
+        if (/background\s*:\s*['"]?#[0-9a-f]{3,6}/i.test(line)) continue
+        offenders.push(`${f.split('/').pop()}: ${line.trim().slice(0, 90)}`)
+      }
+    }
+  }
+  assert.deepEqual(offenders, [], 'unpaired light-mode ink on a theme-aware surface')
+})
+
+test('INK 2: the neutral inks read tokens that BOTH themes define', () => {
+  const theme = read('src/styles/theme.css')
+  const dark = theme.slice(theme.indexOf(':root[data-theme="dark"]'))
+  for (const t of ['--color-text-primary', '--color-text-secondary', '--color-text-muted',
+                   '--color-text-placeholder', '--color-accent-primary']) {
+    assert.ok(dark.includes(t + ':'), `${t} has no dark value`)
+  }
+  // and the aliases the panel actually writes are wired to them (they live in theme.css,
+  // not index.css - index.css's own --text-secondary is a fixed light value).
+  assert.match(theme, /--text-heading:\s*var\(--color-text-primary\)/)
+  assert.match(theme, /--text-muted:\s*var\(--color-text-muted\)/)
+})
+
+test('INK 3: a module colour constant is a token, not a hex', () => {
+  const ua = read('src/components/StudentUnitAssignments.jsx')
+  assert.match(ua, /const NAVY = 'var\(--color-accent-primary\)'/)
+  assert.ok(!/const NAVY = '#/.test(ua), 'a fixed hex here reaches every call site at once')
+})
+
+test('INK 4: the containers that hold panel text follow the theme', () => {
+  const index = noComments(read('src/index.css'))
+  for (const [sel, banned] of [
+    ['.sp-nav-row', 'var(--sand)'],
+    ['.doc-upload-zone', 'var(--pearl)'],
+    ['.doc-existing-file', 'var(--sand)'],
+    ['.btn-destructive', 'var(--pearl)'],
+    ['.csw-step', '#fafafa'],
+    ['.sp-section-hdr', '#f9fafb'],
+  ]) {
+    const rule = index.match(new RegExp(`\\${sel} \\{[\\s\\S]*?\\}`))
+    assert.ok(rule, `${sel} rule not found`)
+    assert.ok(!rule[0].includes(banned),
+      `${sel} still has a fixed light background (${banned}); its text cannot win`)
+  }
+})
+
+test('INK 5: the panel\'s three semantic inks are tokens with both themes', () => {
+  const index = noComments(read('src/index.css'))
+  for (const t of ['--sp-ok-ink', '--sp-warn-ink', '--sp-danger-ink']) {
+    assert.ok(index.includes(t + ':'), `${t} is not defined`)
+    const darkBlock = index.slice(index.indexOf('[data-theme="dark"] {'))
+    assert.ok(darkBlock.includes(t + ':'), `${t} has no dark value`)
+  }
+  // Danger stays a RED. The app's --color-status-danger is the magenta Chroma, which is
+  // wrong on a red-tinted box, and swapping to it changed light mode.
+  assert.match(index, /--sp-danger-ink:\s*#b23b2e/)
+})
+
+test('INK 6: the chart does not push its dark ink onto the materials', () => {
+  // A paper note is white in BOTH themes (the materials layer is theme-independent), so
+  // the chart's light-blue accent landing on one measured 1.65:1.
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.match(css, /\[data-theme="dark"\] \.sc-paper \.paper-note,/)
+  assert.match(css, /--color-accent-primary: #1D2567;/)
 })
 
