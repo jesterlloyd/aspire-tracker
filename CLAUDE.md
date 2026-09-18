@@ -135,6 +135,13 @@ nothing about the book lives in `index.css`.
 - **The head reports the rubric, not the student.** ASPIRE status is on the candidate
   page, so the head carries completion (counted against the same nine answers that gate
   Mark Complete), the recommendation, the save state and the live composite.
+- **The flag lives on the student record, and this screen reads it.** It used to seed a
+  local state from the prop once, write, and never refresh the roster, so leaving the
+  rubric and returning showed a flag that had actually saved. A write now refreshes the
+  parent (`onStudentUpdate`) and a refused one is caught and toasted: a Co-Lead cannot
+  write this field at all, which was exactly the case that looked like it worked. The
+  flag surfaces in Interviews as the Flagged card, the row chip and the Review Flag
+  action.
 - **The ribbon hangs from the book, not the page.** It is a grid item beside the pages
   that overhangs the top cover, so scrolling the candidate page never carries it away.
   **Pulling it IS the flag** (Owner, 2026-09-17), and a flag carries NO note.

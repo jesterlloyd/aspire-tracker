@@ -115,7 +115,7 @@ test('SPREAD 3: the left page carries the facts an interviewer reads while liste
     'Scheduled Interview', 'Submitted Preferences', 'Current role',
     '1st: {d1} · 2nd: {d2} · 3rd: {d3}',
     'This unit is full. Consider exploring alternatives during the interview.',
-    'GPA {parseFloat(student.cumulative_gpa).toFixed(2)}', 'View resume',
+    'GPA {parseFloat(student.cumulative_gpa).toFixed(2)}', 'resumeActionLabel(student.resume_url)',
   ]) {
     assert.ok(session.includes(fact), `the left page lost: ${fact}`)
   }
@@ -168,9 +168,18 @@ test('INDEX 3: the index follows the page being read, and a click scrolls to it'
   assert.match(session, /el\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/)
   // On one page, jumping to a section also turns to the page that holds it.
   assert.match(session, /if \(mode === 'single'\) setPage\('right'\)/)
-  // A short book makes the index scroll, so the tab you are on is kept in view.
-  assert.match(session, /tab\?\.scrollIntoView\(\{ block: 'nearest' \}\)/)
-  assert.match(bookCss, /justify-content: safe center/)
+  // The index NEVER scrolls (Owner, 2026-09-17): the seven tabs divide the fore edge
+  // between them, and a label too long for its share ends in an ellipsis.
+  assert.ok(!session.includes('scrollIntoView({ block'), 'the index scrolls again')
+  assert.match(bookCss, /\.rb-tab \{[\s\S]*?flex-basis: 0;/)
+  // A tab's share follows the length of its own word, so the long one is not given the
+  // same room as "Goal" and then clipped.
+  assert.match(session, /flexGrow: s\.label\.length \+ 5/)
+  assert.match(bookCss, /\.rb-tab > span \{ min-height: 0; overflow: hidden; text-overflow: ellipsis; \}/)
+  assert.ok(!/\.rb-index \{[^}]*overflow-y: auto/.test(bookCss), 'the index can scroll again')
+  // Too short a window for seven words: the numbers carry it, and the aria-label still
+  // says the section's name.
+  assert.match(bookCss, /@media \(max-height: 899px\) \{\s*\n\s*\.rb-tab > span:not\(\.rb-tab-num\) \{ display: none; \}/)
 })
 
 // ── 4. The scale ────────────────────────────────────────────────────────────
@@ -214,12 +223,11 @@ test('RIBBON 1: a pull down flags, a pull up unflags, and both have a keyboard e
 })
 
 test('RIBBON 2: a new flag carries NO note (Owner, 2026-09-17)', () => {
-  const handler = session.slice(session.indexOf('const handleFlag'), session.indexOf('const handleUnflag'))
-  assert.match(handler, /flagged_for_second_interview: true \}\)/)
-  assert.doesNotMatch(handler, /flag_note/)
-  // Removing a flag still clears whatever note the record carried.
-  const unflag = session.slice(session.indexOf('const handleUnflag'), session.indexOf('const handleRubricEdit'))
-  assert.match(unflag, /flagged_for_second_interview: false, flag_note: ''/)
+  const setFlag = session.slice(session.indexOf('const setFlag'), session.indexOf('const handleFlag'))
+  assert.match(setFlag, /\? \{ flagged_for_second_interview: true \}/)
+  // Setting a flag writes the flag ALONE; only removing one clears an older note.
+  assert.match(setFlag, /: \{ flagged_for_second_interview: false, flag_note: '' \}/)
+  assert.ok(!/true \}[^\n]*flag_note/.test(setFlag), 'a new flag writes a note again')
   // A note written before this change is still shown rather than quietly dropped.
   assert.match(session, /data-testid="flag-legacy-note">Earlier note/)
 })
@@ -255,8 +263,9 @@ test('KEPT 1: the 30-second auto-save, the browser draft and the session refresh
 
 test('KEPT 2: Section 1 still moves the real booking, and reports a refusal', () => {
   assert.match(session, /moveInterviewBooking\(student\.id, \{ date: nextDate, time: nextTime \}\)/)
-  assert.match(session, /Changing the date or time moves the booked interview/)
-  assert.match(session, /\{reschedError \|\|/)
+  // The explanatory sentence is gone; the refusal is not.
+  assert.ok(!session.includes('Changing the date or time moves the booked interview'))
+  assert.match(session, /<p className="rb-note-band rb-note-band-err">\{reschedError\}<\/p>/)
 })
 
 test('KEPT 3: one row per interviewer, created on the first meaningful edit', () => {
@@ -408,4 +417,51 @@ test('CANON 4: the book does not follow the theme, controls included', () => {
   assert.match(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-textarea/)
   assert.match(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-choice/)
   assert.match(indexCss, /\[data-theme="dark"\] select,/)   // the rule being out-ranked
+})
+
+// ── 9. The Owner's refinements, 2026-09-17 ──────────────────────────────────
+
+test('HEAD 2: completion left, the guide centred, the score and its recommendation right', () => {
+  const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('</header>'))
+  assert.ok(head.indexOf('rb-completion') < head.indexOf('rb-guide-toggle'), 'completion is not first')
+  assert.ok(head.indexOf('rb-guide-toggle') < head.indexOf('rb-head-score'), 'the guide is not in the middle')
+  // The recommendation reads UNDER the composite, so the score is the headline.
+  const score = head.slice(head.indexOf('rb-head-score'))
+  assert.ok(score.indexOf('rb-composite') < score.indexOf('rb-recommendation'))
+  assert.match(bookCss, /\.rb-head-score \{ flex: 1 1 0; display: flex; flex-direction: column;/)
+  assert.match(bookCss, /\.rb-head-side \{ flex: 1 1 0;/)
+})
+
+test('SCRIPT 2: the closing script sits between the last question and the decision', () => {
+  const scroll = session.slice(session.indexOf('className="rb-scroll"'))
+  const s6 = scroll.indexOf('Section 6: Student Questions')
+  const closing = scroll.indexOf('Interview Closing Script')
+  const s7 = scroll.indexOf('Section 7: Your Recommendation')
+  assert.ok(s6 < closing && closing < s7, 'the closing script is not between Sections 6 and 7')
+})
+
+test('FLAG 1: the record is the truth, and a refused write is reported', () => {
+  // The screen no longer keeps its own copy of the flag: it reads the student row, so
+  // leaving the rubric and coming back cannot show a flag that was saved as gone.
+  assert.match(session, /const isFlagged = flagPending \?\? !!student\.flagged_for_second_interview/)
+  assert.ok(!session.includes('setIsFlagged('), 'the flag keeps a second copy again')
+  // The write refreshes the roster, which is where the flag is read.
+  const setFlag = session.slice(session.indexOf('const setFlag'), session.indexOf('const handleFlag'))
+  assert.match(setFlag, /if \(onStudentUpdate\) await onStudentUpdate\(\)/)
+  assert.match(setFlag, /catch \(e\)/)
+  assert.match(setFlag, /toast\?\.error\(/)
+  assert.match(setFlag, /finally \{\s*\n\s*setFlagPending\(null\)/)
+})
+
+test('RESUME 1: the button says what it will actually do', () => {
+  const fileUtils = read('src/lib/fileUtils.js')
+  assert.match(fileUtils, /export function resumeActionLabel/)
+  assert.match(session, /\{resumeActionLabel\(student\.resume_url\)\}/)
+})
+
+test('QUIET 1: no Refresh control, and the schedule band speaks only on a refusal', () => {
+  // Opening the rubric IS the refresh, so the button that repeated it is gone.
+  assert.ok(!session.includes('loadUnitAvailability'), 'the Refresh control is back')
+  assert.ok(!session.includes('Changing the date or time moves the booked interview'),
+    'the reschedule notice is back')
 })

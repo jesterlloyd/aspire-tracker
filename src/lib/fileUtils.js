@@ -20,3 +20,15 @@ export function buildStudentFilename(student, type) {
   if (type === 'resume')   return `${last}_${first}_${school}_resume`
   return `${last}_${first}_file`
 }
+
+// RUBRIC-BOOK-1 (Owner, 2026-09-17): a resume button must say what it will actually do.
+// A browser renders a PDF in the tab it is opened in; it has no renderer for a Word
+// document, so .doc and .docx always land in the downloads folder however they are
+// opened. The label follows the stored file rather than our intention for it.
+export function resumeOpensInTab(resumeUrl) {
+  const name = String(resumeUrl || '').split(/[?#]/)[0]
+  return !/\.docx?$/i.test(name)
+}
+export function resumeActionLabel(resumeUrl) {
+  return resumeOpensInTab(resumeUrl) ? 'View resume' : 'Download resume'
+}

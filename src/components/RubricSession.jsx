@@ -16,6 +16,7 @@ import { logEvent, eventExists } from '../lib/logEvent'
 import { logActivity } from '../lib/logActivity'
 import { useAuth } from '../contexts/AuthContext'
 import { openStudentFile } from '../lib/useStudentFile'
+import { resumeActionLabel } from '../lib/fileUtils'
 // WS1e-A3b: rubric outcomes persist through the explicit save_interview_outcome
 // action (Owner/Admin/Interviewer) instead of the generic onStudentUpdate path.
 import { saveInterviewOutcome } from '../lib/studentProxy'
@@ -441,7 +442,13 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const [legendOpen,     setLegendOpen]     = useState(false)
   const [closingOpen,    setClosingOpen]    = useState(false)
   const [flagNote,       setFlagNote]       = useState(student.flag_note || '')
-  const [isFlagged,      setIsFlagged]      = useState(!!student.flagged_for_second_interview)
+  // RUBRIC-BOOK-1 fix: the flag lives on the student RECORD, and this screen reads it
+  // rather than keeping its own copy. It used to seed a state from the prop once, write,
+  // and never refresh the parent: the row in memory stayed false, so leaving the rubric
+  // and coming back showed the flag gone even though the database had it. flagPending is
+  // only the optimistic beat between the click and the refetch.
+  const [flagPending, setFlagPending] = useState(null)
+  const isFlagged = flagPending ?? !!student.flagged_for_second_interview
   const [prefs, setPrefs] = useState({
     unit_preference_1: student.unit_preference_1 || '',
     unit_preference_2: student.unit_preference_2 || '',
@@ -511,7 +518,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const availUnits   = interviewer_unit_data?.availUnits   || []
 
   // Unit Availability snapshot for the student's 3 preferences - cached per student+cohort+prefs
-  const { data: unitAvailability = [null, null, null], isLoading: availLoading, refetch: loadUnitAvailability } = useQuery({
+  const { data: unitAvailability = [null, null, null], isLoading: availLoading } = useQuery({
     queryKey: ['unit_availability', cohortId, student.id,
       student.unit_preference_1, student.unit_preference_2, student.unit_preference_3],
     queryFn: async () => {
@@ -765,14 +772,32 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // RUBRIC-BOOK-1 (Owner, 2026-09-17): pulling the ribbon IS the flag. There is no
   // reason field any more, so a new flag writes the flag alone; a note written before
   // this change stays on the record until the flag is removed.
-  const handleFlag = async () => {
-    setIsFlagged(true)
-    await saveInterviewOutcome(student.id, { flagged_for_second_interview: true })
+  //
+  // A refused write used to pass silently (saveInterviewOutcome throws, nothing caught
+  // it), so the ribbon could sit there red with nothing saved. A Co-Lead is not allowed
+  // to write this field at all, which is exactly the case that looked like it worked.
+  const setFlag = async (next) => {
+    setFlagPending(next)
+    try {
+      await saveInterviewOutcome(student.id, next
+        ? { flagged_for_second_interview: true }
+        : { flagged_for_second_interview: false, flag_note: '' })
+      // The Interviews list reads this field for its Flagged card, its row chip and its
+      // Review Flag action, so the roster is refreshed rather than left stale.
+      if (onStudentUpdate) await onStudentUpdate()
+      toast?.success(next ? 'Flagged' : 'Flag removed',
+        next
+          ? `${getStudentPreferredFullName(student)} is flagged for the placement huddle.`
+          : `${getStudentPreferredFullName(student)} is no longer flagged.`)
+    } catch (e) {
+      toast?.error(next ? 'Not flagged' : 'Flag not removed',
+        e?.message || 'The change could not be saved. Your role may not include this.')
+    } finally {
+      setFlagPending(null)   // whatever happened, the record is the answer
+    }
   }
-  const handleUnflag = async () => {
-    setIsFlagged(false)
-    await saveInterviewOutcome(student.id, { flagged_for_second_interview: false, flag_note: '' })
-  }
+  const handleFlag = () => setFlag(true)
+  const handleUnflag = () => setFlag(false)
 
   const handleRubricEdit = async (rubricId, updates) => {
     const targetRubric = studentRubrics.find(r => r.id === rubricId)
@@ -957,7 +982,6 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       }
       if (draft.prefs)                       setPrefs(draft.prefs)
       if (draft.flagNote   !== undefined)    setFlagNote(draft.flagNote)
-      if (draft.isFlagged  !== undefined)    setIsFlagged(draft.isFlagged)
       if (draft.otherClicked !== undefined)  setOtherClicked(draft.otherClicked)
 
       const time = new Date(draft.savedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -1039,14 +1063,6 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     })
     return () => io.disconnect()
   }, [])
-
-  // On a short book the index is taller than the fore edge, so it scrolls. Keep the
-  // tab you are on in view, or the reader loses their place in their own index.
-  const indexRef = useRef(null)
-  useEffect(() => {
-    const tab = indexRef.current?.querySelector(`[data-testid="rb-tab-${activeStep}"]`)
-    tab?.scrollIntoView({ block: 'nearest' })
-  }, [activeStep])
 
   const goToSection = (id) => {
     const el = scrollRef.current?.querySelector(`#${id}`)
@@ -1158,8 +1174,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                           only for someone entitled to this cohort's files. */}
                       {canViewStudentResumeInCohort(cohortId) && student.resume_url && (
                         <button type="button" className="rb-chip rb-chip-quiet rb-chip-btn"
+                          data-testid="resume-button"
                           onClick={() => openStudentFile({ studentId: student.id, kind: 'resume' })}>
-                          View resume
+                          {resumeActionLabel(student.resume_url)}
                         </button>
                       )}
                     </div>
@@ -1212,14 +1229,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 </div>
 
                 <div className="rb-block">
-                  <div className="rb-block-label" style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <span>Submitted Preferences</span>
-                    {!readOnly && (
-                      <button type="button" className="rb-mini-btn" onClick={loadUnitAvailability} disabled={availLoading}>
-                        {availLoading ? 'Refreshing…' : 'Refresh'}
-                      </button>
-                    )}
-                  </div>
+                  {/* No Refresh control: the availability query runs when the rubric opens,
+                      which is the only moment an interviewer would have pressed it. */}
+                  <div className="rb-block-label">Submitted Preferences</div>
                   {prefRows.every(r => !r.pref) && <div className="rb-empty">Not submitted</div>}
                   {prefRows.filter(r => r.pref).map(({ pref, rank, unit, d1, d2, d3, slots, highDemand }) => (
                     <div className="rb-pref" key={rank} data-testid="pref-block">
@@ -1278,25 +1290,34 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
               {/* ── Right page: the rubric ─────────────────────────────────── */}
               <section className="rb-page rb-page-right" aria-label="Rubric">
+                {/* Left to right: how much of THIS rubric is done, the guide that explains
+                    the scale, and the score it adds up to with the recommendation under it.
+                    The ASPIRE status is not repeated here; it is on the candidate page, a
+                    hand's width to the left. */}
                 <header className="rb-head" data-testid="rb-head">
-                  {/* The ASPIRE status is on the candidate page, a hand's width to the
-                      left, so the head answers the question the left page cannot: how
-                      much of THIS rubric is done. */}
-                  <span className="rb-head-key">Completion</span>
-                  <span className="rb-head-rec" data-testid="rb-completion">{completion}%</span>
-                  <span className="rb-head-key">Recommendation</span>
-                  <span className="rb-head-rec" data-testid="rb-recommendation">
-                    {student.interview_outcome || form.individual_recommendation || 'Not recorded'}
+                  <span className="rb-head-side">
+                    <span className="rb-head-key">Completion</span>
+                    <span className="rb-head-pct" data-testid="rb-completion">{completion}%</span>
+                    {!readOnly && saveIndicator}
                   </span>
+
                   <button type="button" className="rb-head-guide" data-testid="rb-guide-toggle"
                     aria-expanded={legendOpen} onClick={() => setLegendOpen(p => !p)}>
                     {legendOpen ? '▾' : '▸'} Scoring Guide
                   </button>
+
                   <span className="rb-head-score">
-                    {!readOnly && saveIndicator}
-                    <span className="rb-head-key">Composite</span>
-                    <span className="rb-head-num" data-testid="rb-composite">{composite}</span>
-                    <span className="rb-head-den">/ 15</span>
+                    <span className="rb-head-line">
+                      <span className="rb-head-key">Composite</span>
+                      <span className="rb-head-num" data-testid="rb-composite">{composite}</span>
+                      <span className="rb-head-den">/ 15</span>
+                    </span>
+                    <span className="rb-head-line">
+                      <span className="rb-head-key">Recommendation</span>
+                      <span className="rb-head-rec" data-testid="rb-recommendation">
+                        {student.interview_outcome || form.individual_recommendation || 'Not recorded'}
+                      </span>
+                    </span>
                   </span>
                 </header>
 
@@ -1369,10 +1390,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                           : <div className="rb-readonly">{bookedTime || form.interview_time || '-'}</div>}
                       </div>
                     </div>
-                    {canReschedule && !readOnly && (
-                      <p className={`rb-note-band${reschedError ? ' rb-note-band-err' : ''}`}>
-                        {reschedError || 'Changing the date or time moves the booked interview, so the calendar and the interview list both follow.'}
-                      </p>
+                    {/* The band speaks only when the move was refused. That the date moves the
+                        booking is not news to anyone who just changed it (Owner, 2026-09-17). */}
+                    {canReschedule && !readOnly && reschedError && (
+                      <p className="rb-note-band rb-note-band-err">{reschedError}</p>
                     )}
                   </section>
 
@@ -1534,6 +1555,20 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                           onChange={e => saveText('student_questions', e.target.value)} />}
                   </section>
 
+                  <button type="button" className="rb-disclosure" onClick={() => setClosingOpen(p => !p)} aria-expanded={closingOpen}>
+                    <span className="rb-disclosure-mark">{closingOpen ? '▾' : '▸'}</span>Interview Closing Script
+                  </button>
+                  {closingOpen && (
+                    <div className="rb-guide">
+                      {/* Owner, 2026-09-17: the script says only what Section 6 does not.
+                          The closing question, the note-taking instruction and the
+                          résumé reminder all live elsewhere, so they are not repeated. */}
+                      <p className="rb-guide-head">Closing the interview</p>
+                      <p className="rb-quote">"Thank you so much for your time today. It was wonderful speaking with you. From here, our team will review your rubric and work with unit leadership to find a preceptor who is a great fit for your learning goals. Once a placement is confirmed, we will reach out with your rotation schedule and orientation details.</p>
+                      <p className="rb-quote">You will hear from us either way. If anything comes up before then, please reach out. It was a pleasure meeting you."</p>
+                    </div>
+                  )}
+
                   {/* ── Section 7 ── */}
                   <section className="rb-section" id="s7">
                     <div className="rb-title">Section 7: Your Recommendation</div>
@@ -1572,20 +1607,6 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                             onChange={e => saveText('summary_comments', e.target.value)} />}
                     </div>
                   </section>
-
-                  <button type="button" className="rb-disclosure" onClick={() => setClosingOpen(p => !p)} aria-expanded={closingOpen}>
-                    <span className="rb-disclosure-mark">{closingOpen ? '▾' : '▸'}</span>Interview Closing Script
-                  </button>
-                  {closingOpen && (
-                    <div className="rb-guide">
-                      {/* Owner, 2026-09-17: the script says only what Section 6 does not.
-                          The closing question, the note-taking instruction and the
-                          résumé reminder all live elsewhere, so they are not repeated. */}
-                      <p className="rb-guide-head">Closing the interview</p>
-                      <p className="rb-quote">"Thank you so much for your time today. It was wonderful speaking with you. From here, our team will review your rubric and work with unit leadership to find a preceptor who is a great fit for your learning goals. Once a placement is confirmed, we will reach out with your rotation schedule and orientation details.</p>
-                      <p className="rb-quote">You will hear from us either way. If anything comes up before then, please reach out. It was a pleasure meeting you."</p>
-                    </div>
-                  )}
 
                   {!locked && (
                     <>
@@ -1653,12 +1674,14 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               </section>
 
               {/* ── The index down the fore edge ───────────────────────────── */}
-              <nav className="rb-index" aria-label="Rubric sections" ref={indexRef}>
+              <nav className="rb-index" aria-label="Rubric sections">
                 {/* The number leads, as it does on a real index. How much is done is
                     a percentage in the head now, so a tab carries no second mark. */}
                 {steps.map((s, i) => (
                   <button type="button" key={s.id} data-testid={`rb-tab-${s.id}`}
                     className={`rb-tab${activeStep === s.id ? ' rb-tab-active' : ''}`}
+                    /* A tab's share of the edge follows the length of its own word. */
+                    style={{ flexGrow: s.label.length + 5 }}
                     aria-current={activeStep === s.id ? 'true' : undefined}
                     aria-label={`Section ${i + 1}: ${s.label}`}
                     onClick={() => goToSection(s.id)}>
