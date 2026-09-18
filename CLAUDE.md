@@ -132,9 +132,13 @@ nothing about the book lives in `index.css`.
   in step.
 - **The scoring guide lives in the head**, as a drawer above the scroller: "what does a
   4 mean?" is asked at the bottom of the page as often as at the top.
-- **The head reports the rubric, not the student.** ASPIRE status is on the candidate
-  page, so the head carries completion (counted against the same nine answers that gate
-  Mark Complete), the recommendation, the save state and the live composite.
+- **The head is one line and carries three things**: completion (counted against the same
+  nine answers that gate Mark Complete), the scoring guide, and the live composite. The
+  ASPIRE status is on the candidate page and the recommendation is Section 7's own answer;
+  neither is repeated, and the save state sits in the toolbar so the head stays thin.
+- **The candidate page opens with Background**, then Submitted Preferences, the Interest
+  Statement, and Availability when the student answered those questions. The appointment
+  is NOT repeated there: Section 1 owns it, and it is editable.
 - **The flag lives on the student record, and this screen reads it.** It used to seed a
   local state from the prop once, write, and never refresh the roster, so leaving the
   rubric and returning showed a flag that had actually saved. A write now refreshes the

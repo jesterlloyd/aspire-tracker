@@ -16,6 +16,7 @@ import { logEvent, eventExists } from '../lib/logEvent'
 import { logActivity } from '../lib/logActivity'
 import { useAuth } from '../contexts/AuthContext'
 import { openStudentFile } from '../lib/useStudentFile'
+import { getAvailabilityReadiness } from '../lib/availability'
 import { resumeActionLabel } from '../lib/fileUtils'
 // WS1e-A3b: rubric outcomes persist through the explicit save_interview_outcome
 // action (Owner/Admin/Interviewer) instead of the generic onStudentUpdate path.
@@ -384,22 +385,6 @@ function AspireStatusPill({ student }) {
       {label}
     </span>
   )
-}
-
-// The booked appointment, as the left page writes it: "Aug 4, 2026" and "2:30 PM".
-function fmtBookedDate(ymd) {
-  if (!ymd) return '-'
-  const [y, m, d] = String(ymd).split('-').map(Number)
-  if (!y || !m || !d) return String(ymd)
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-function fmtBookedTime(hms) {
-  if (!hms) return ''
-  const [h, min] = String(hms).split(':').map(Number)
-  if (Number.isNaN(h)) return String(hms)
-  const suffix = h >= 12 ? 'PM' : 'AM'
-  const hour12 = h % 12 === 0 ? 12 : h % 12
-  return `${hour12}:${String(min || 0).padStart(2, '0')} ${suffix}`
 }
 
 export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
@@ -1116,6 +1101,27 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const currentRole = [student.cs_role, student.cs_department].filter(Boolean).join(', ')
     || student.cs_affiliation || ''
 
+  // The left page opens with who this person already is: the role they hold here, the
+  // affiliation that role sits in, whatever healthcare work came before it, and the shift
+  // they asked for. Anything unanswered is left out rather than shown as a blank.
+  const backgroundRows = [
+    ['Current role', currentRole],
+    ['Cedars-Sinai affiliation', student.cs_affiliation],
+    ['Healthcare experience', student.prior_healthcare_experience],
+    ['Shift preference', student.shift_availability],
+  ].filter(([, v]) => v)
+
+  // AVAILABILITY-CANON-1B: structural facts only, never a reason or a note. The rotation
+  // row is not loaded here, so the program's minimum days is simply absent from the facts.
+  const availabilityAnswered = student.availability_ack != null
+    || (Array.isArray(student.unavailable_weekdays) && student.unavailable_weekdays.length > 0)
+    || (Array.isArray(student.preferred_days) && student.preferred_days.length > 0)
+    || student.nights_available != null
+    || student.weekends_available != null
+    || (Array.isArray(student.personal_blackout_dates) && student.personal_blackout_dates.length > 0)
+  const availability = availabilityAnswered ? getAvailabilityReadiness({ student }) : null
+
+
   return (
     <div
       className="rb-shell"
@@ -1129,6 +1135,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       {!readOnly && (
         <div className="rb-toolbar">
           <BackButton label="Back to Interview List" onClick={onBack} />
+          {saveIndicator}
           {mode === 'single' && (
             <div className="rb-switch" role="group" aria-label="Which page">
               <button type="button" aria-pressed={page === 'left'}  onClick={() => setPage('left')}>Candidate</button>
@@ -1195,38 +1202,20 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   )}
                 </div>
 
-                <div className="rb-block">
-                  <div className="rb-block-label">Scheduled Interview</div>
-                  {student.interview_scheduled_date ? (
-                    <>
-                      <div className="rb-kv">
-                        <span className="rb-kv-key">Date</span>
-                        <span className="rb-kv-val">{fmtBookedDate(student.interview_scheduled_date)}</span>
+                {/* The appointment is Section 1's, editable there; repeating it here as
+                    read-only text told the interviewer nothing twice (Owner, 2026-09-17).
+                    What the left page opens with instead is who this person already is. */}
+                {backgroundRows.length > 0 && (
+                  <div className="rb-block">
+                    <div className="rb-block-label">Background</div>
+                    {backgroundRows.map(([label, value]) => (
+                      <div className="rb-kv" key={label}>
+                        <span className="rb-kv-key">{label}</span>
+                        <span className="rb-kv-val">{value}</span>
                       </div>
-                      <div className="rb-kv">
-                        <span className="rb-kv-key">Time</span>
-                        <span className="rb-kv-val">
-                          {fmtBookedTime(student.interview_scheduled_time)}
-                          {student.interview_duration_minutes ? ` · ${student.interview_duration_minutes} min` : ''}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="rb-empty">Not scheduled</div>
-                  )}
-                  {(form.interviewer_name || userProfile?.full_name) && (
-                    <div className="rb-kv">
-                      <span className="rb-kv-key">Interviewer</span>
-                      <span className="rb-kv-val">{form.interviewer_name || userProfile?.full_name}</span>
-                    </div>
-                  )}
-                  {currentRole && (
-                    <div className="rb-kv">
-                      <span className="rb-kv-key">Current role</span>
-                      <span className="rb-kv-val">{currentRole}</span>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="rb-block">
                   {/* No Refresh control: the availability query runs when the rubric opens,
@@ -1265,23 +1254,28 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   </div>
                 )}
 
-                {[
-                  ['Shift', student.shift_availability],
-                  ['Healthcare experience', student.prior_healthcare_experience],
-                  ['Cedars-Sinai affiliation', student.cs_affiliation],
-                ].some(([, v]) => v) && (
+                {/* AVAILABILITY-CANON-1B: what the student answered on the form, in the
+                    same privacy-safe structural terms the Placement Board uses. Shown only
+                    when they answered something; there is nothing to report otherwise. */}
+                {availability && (
                   <div className="rb-block">
-                    <div className="rb-block-label">Background</div>
-                    {[
-                      ['Shift', student.shift_availability],
-                      ['Healthcare experience', student.prior_healthcare_experience],
-                      ['Cedars-Sinai affiliation', student.cs_affiliation],
-                    ].map(([lbl, val]) => val ? (
-                      <div className="rb-kv" key={lbl}>
-                        <span className="rb-kv-key">{lbl}</span>
-                        <span className="rb-kv-val">{val}</span>
-                      </div>
-                    ) : null)}
+                    <div className="rb-block-label">Availability</div>
+                    <div className="rb-chiprow" style={{ justifyContent: 'flex-start', marginBottom: 10 }}>
+                      <span className={`rb-chip rb-chip-avail-${availability.level}`} data-testid="availability-level">
+                        {availability.label}
+                      </span>
+                    </div>
+                    {availability.facts.map(fact => {
+                      const at = fact.indexOf(':')
+                      const key = at === -1 ? fact : fact.slice(0, at)
+                      const val = at === -1 ? '' : fact.slice(at + 1).trim()
+                      return (
+                        <div className="rb-kv" key={fact}>
+                          <span className="rb-kv-key">{key}</span>
+                          <span className="rb-kv-val">{val}</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </section>
@@ -1290,15 +1284,14 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
               {/* ── Right page: the rubric ─────────────────────────────────── */}
               <section className="rb-page rb-page-right" aria-label="Rubric">
-                {/* Left to right: how much of THIS rubric is done, the guide that explains
-                    the scale, and the score it adds up to with the recommendation under it.
-                    The ASPIRE status is not repeated here; it is on the candidate page, a
-                    hand's width to the left. */}
+                {/* Three things, and the head stays one line: how much of THIS rubric is
+                    done, the guide that explains the scale, and the score it adds up to.
+                    The recommendation is Section 7's own answer and the ASPIRE status is on
+                    the candidate page; neither is repeated here (Owner, 2026-09-17). */}
                 <header className="rb-head" data-testid="rb-head">
                   <span className="rb-head-side">
                     <span className="rb-head-key">Completion</span>
                     <span className="rb-head-pct" data-testid="rb-completion">{completion}%</span>
-                    {!readOnly && saveIndicator}
                   </span>
 
                   <button type="button" className="rb-head-guide" data-testid="rb-guide-toggle"
@@ -1307,17 +1300,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   </button>
 
                   <span className="rb-head-score">
-                    <span className="rb-head-line">
-                      <span className="rb-head-key">Composite</span>
-                      <span className="rb-head-num" data-testid="rb-composite">{composite}</span>
-                      <span className="rb-head-den">/ 15</span>
-                    </span>
-                    <span className="rb-head-line">
-                      <span className="rb-head-key">Recommendation</span>
-                      <span className="rb-head-rec" data-testid="rb-recommendation">
-                        {student.interview_outcome || form.individual_recommendation || 'Not recorded'}
-                      </span>
-                    </span>
+                    <span className="rb-head-key">Composite</span>
+                    <span className="rb-head-num" data-testid="rb-composite">{composite}</span>
+                    <span className="rb-head-den">/ 15</span>
                   </span>
                 </header>
 

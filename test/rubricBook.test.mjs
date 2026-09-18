@@ -112,27 +112,44 @@ test('SPREAD 2: the candidate is on the LEFT and the rubric on the RIGHT, as on 
 
 test('SPREAD 3: the left page carries the facts an interviewer reads while listening', () => {
   for (const fact of [
-    'Scheduled Interview', 'Submitted Preferences', 'Current role',
+    'Background', 'Submitted Preferences', 'Interest Statement', 'Availability', 'Current role',
     '1st: {d1} · 2nd: {d2} · 3rd: {d3}',
     'This unit is full. Consider exploring alternatives during the interview.',
     'GPA {parseFloat(student.cumulative_gpa).toFixed(2)}', 'resumeActionLabel(student.resume_url)',
   ]) {
     assert.ok(session.includes(fact), `the left page lost: ${fact}`)
   }
+  // In that order, and WITHOUT the appointment: Section 1 owns the date and time, and
+  // repeating them here as read-only text said nothing twice (Owner, 2026-09-17).
+  const left = session.slice(session.indexOf('aria-label="Candidate"'), session.indexOf('className="rb-seam"'))
+  const at = (label) => left.indexOf(`>${label}</div>`)
+  assert.ok(at('Background') < at('Submitted Preferences'), 'Background does not open the page')
+  assert.ok(at('Submitted Preferences') < at('Interest Statement'))
+  assert.ok(at('Interest Statement') < at('Availability'))
+  assert.ok(!left.includes('Scheduled Interview'), 'the appointment is repeated on the left page')
+  // Background is exactly the four answers the Owner named.
+  const rows = session.slice(session.indexOf('const backgroundRows'), session.indexOf('].filter(([, v]) => v)'))
+  for (const label of ['Current role', 'Cedars-Sinai affiliation', 'Healthcare experience', 'Shift preference']) {
+    assert.ok(rows.includes(label), `Background lost ${label}`)
+  }
   // WAVE F-2 is unchanged: the resume is still gated on the cohort entitlement.
   assert.match(session, /canViewStudentResumeInCohort\(cohortId\) && student\.resume_url/)
   assert.match(session, /openStudentFile\(\{ studentId: student\.id, kind: 'resume' \}\)/)
 })
 
-test('SPREAD 4: the head states completion, the recommendation and the live composite', () => {
-  const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('className="rb-scroll"'))
-  // The ASPIRE status is on the candidate page and is NOT repeated here.
+test('SPREAD 4: the head states completion, the guide and the live composite, and nothing else', () => {
+  const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('</header>'))
+  // Neither the ASPIRE status nor the recommendation is repeated here: the first is on
+  // the candidate page, the second is Section 7's own answer (Owner, 2026-09-17).
   assert.ok(!head.includes('AspireStatusPill'), 'the status pill is back in the head')
+  assert.ok(!head.includes('rb-recommendation'), 'the recommendation is back in the head')
   assert.match(head, /Completion/)
   assert.match(head, /data-testid="rb-completion">\{completion\}%/)
-  assert.match(head, /Recommendation/)
+  assert.match(head, /data-testid="rb-guide-toggle"/)
   assert.match(head, /data-testid="rb-composite">\{composite\}/)
   assert.match(head, /\/ 15/)
+  // The save state moved to the toolbar rather than costing the head a second line.
+  assert.match(session, /<BackButton label="Back to Interview List" onClick=\{onBack\} \/>\s*\n\s*\{saveIndicator\}/)
   // The composite is still the sum of the three domains, computed in one place.
   assert.match(session, /const composite = \(form\.cj_score \|\| 0\) \+ \(form\.pp_score \|\| 0\) \+ \(form\.ga_score \|\| 0\)/)
 })
@@ -421,15 +438,35 @@ test('CANON 4: the book does not follow the theme, controls included', () => {
 
 // ── 9. The Owner's refinements, 2026-09-17 ──────────────────────────────────
 
-test('HEAD 2: completion left, the guide centred, the score and its recommendation right', () => {
+test('HEAD 2: completion left, the guide centred, the composite right, on ONE line', () => {
   const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('</header>'))
   assert.ok(head.indexOf('rb-completion') < head.indexOf('rb-guide-toggle'), 'completion is not first')
   assert.ok(head.indexOf('rb-guide-toggle') < head.indexOf('rb-head-score'), 'the guide is not in the middle')
-  // The recommendation reads UNDER the composite, so the score is the headline.
-  const score = head.slice(head.indexOf('rb-head-score'))
-  assert.ok(score.indexOf('rb-composite') < score.indexOf('rb-recommendation'))
-  assert.match(bookCss, /\.rb-head-score \{ flex: 1 1 0; display: flex; flex-direction: column;/)
-  assert.match(bookCss, /\.rb-head-side \{ flex: 1 1 0;/)
+  // One row, and a padding that keeps it to one line.
+  assert.match(bookCss, /\.rb-head-score \{ flex: 1 1 0; display: flex; align-items: baseline; justify-content: flex-end;/)
+  assert.match(bookCss, /\.rb-head \{[\s\S]*?padding: 9px 34px;/)
+  assert.ok(!bookCss.includes('.rb-head-line'), 'the head is stacking again')
+})
+
+test('HEAD 3: the right page is ruled like the left one', () => {
+  assert.match(bookCss, /\.rb-section \{[\s\S]*?border-top: 1px solid var\(--aspire-page-rule\);/)
+  assert.match(bookCss, /\.rb-scroll > \.rb-section:first-of-type \{ padding-top: 0; border-top: 0; \}/)
+})
+
+test('AVAILABILITY 1: the form answers appear when there are any, as structural facts', () => {
+  assert.match(session, /getAvailabilityReadiness\(\{ student \}\)/)
+  assert.match(session, /const availabilityAnswered = student\.availability_ack != null/)
+  assert.match(session, /availability && \(/)
+  // AVAILABILITY-CANON-1B: the facts are the shared helper's, which are structural only.
+  const avail = read('src/lib/availability.js')
+  assert.match(avail, /PRIVACY-SAFE structural facts only/)
+  assert.match(session, /data-testid="availability-level"/)
+})
+
+test('FLAG 2: a flagged row wears the ribbon\'s red, not amber', () => {
+  const list = read('src/components/InterviewRubricTab.jsx')
+  assert.match(list, /var\(--aspire-red-editorial, #B3282D\)/)
+  assert.ok(!list.includes("'#F59E0B'"), 'the flag strip is amber again')
 })
 
 test('SCRIPT 2: the closing script sits between the last question and the decision', () => {
