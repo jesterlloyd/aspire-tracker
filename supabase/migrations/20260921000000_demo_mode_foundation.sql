@@ -45,6 +45,7 @@ DECLARE
     'student_preceptor_assignments','student_unit_assignments',
     'student_active_disposition','evaluation_assignments',
     'interview_slots','interview_sessions','interview_rubrics',
+    'preceptor_cohort_participation',
     'cohort_school_rotations','unit_capacity_submissions',
     'unit_placement_requests','unit_cohort_responses'
   ];
@@ -60,6 +61,7 @@ DECLARE
     ['interview_slots','cohorts','cohort_id'],
     ['interview_sessions','students','student_id'],
     ['interview_rubrics','students','student_id'],
+    ['preceptor_cohort_participation','preceptors','preceptor_id'],
     ['cohort_school_rotations','cohorts','cohort_id'],
     ['unit_capacity_submissions','cohorts','cohort_id'],
     ['unit_placement_requests','cohorts','cohort_id'],
@@ -88,7 +90,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  RAISE NOTICE 'DEMO-MODE-1 preflight passed: 19 tables, 14 parent keys.';
+  RAISE NOTICE 'DEMO-MODE-1 preflight passed: 20 tables, 15 parent keys.';
 END
 $preflight$;
 
@@ -106,6 +108,7 @@ BEGIN
     'student_preceptor_assignments','student_unit_assignments',
     'student_active_disposition','evaluation_assignments',
     'interview_slots','interview_sessions','interview_rubrics',
+    'preceptor_cohort_participation',
     'cohort_school_rotations','unit_capacity_submissions',
     'unit_placement_requests','unit_cohort_responses'
   ] LOOP
@@ -182,6 +185,7 @@ DECLARE
     ['interview_slots','cohorts','cohort_id'],
     ['interview_sessions','students','student_id'],
     ['interview_rubrics','students','student_id'],
+    ['preceptor_cohort_participation','preceptors','preceptor_id'],
     ['cohort_school_rotations','cohorts','cohort_id'],
     ['unit_capacity_submissions','cohorts','cohort_id'],
     ['unit_placement_requests','cohorts','cohort_id'],
@@ -272,6 +276,7 @@ ORDER BY indexname;
 --     'student_preceptor_assignments','student_unit_assignments',
 --     'student_active_disposition','evaluation_assignments',
 --     'interview_slots','interview_sessions','interview_rubrics',
+--     'preceptor_cohort_participation',
 --     'cohort_school_rotations','unit_capacity_submissions',
 --     'unit_placement_requests','unit_cohort_responses'
 --   ] LOOP
@@ -283,6 +288,7 @@ ORDER BY indexname;
 --     'student_preceptor_assignments','student_unit_assignments',
 --     'student_active_disposition','evaluation_assignments',
 --     'interview_slots','interview_sessions','interview_rubrics',
+--     'preceptor_cohort_participation',
 --     'cohort_school_rotations','unit_capacity_submissions',
 --     'unit_placement_requests','unit_cohort_responses'
 --   ] LOOP

@@ -72,6 +72,11 @@ export const DEMO_SCOPED_TABLES = Object.freeze([
   'interview_slots',
   'interview_sessions',
   'interview_rubrics',
+  // Children of a preceptor. A preceptor is a SHARED entity carrying identity only, so
+  // which cohorts they took part in, and with what status, lives here rather than on
+  // preceptors. src/hooks/usePreceptors.js embeds this table to render a preceptor's
+  // cohort beside their name.
+  'preceptor_cohort_participation',
   // Children of a cohort.
   'cohort_school_rotations',
   // Children of a unit.

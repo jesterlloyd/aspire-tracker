@@ -85,6 +85,8 @@ DECLARE
     ['preceptors','full_name'], ['preceptors','email'], ['preceptors','unit_name'],
     ['preceptors','shift_type'], ['preceptors','is_active'],
     ['contacts','full_name'], ['contacts','email'], ['contacts','category'],
+    ['preceptor_cohort_participation','preceptor_id'], ['preceptor_cohort_participation','cohort_id'],
+    ['preceptor_cohort_participation','status'], ['preceptor_cohort_participation','started_at'],
     ['matches','student_id'], ['matches','unit_id'], ['matches','preceptor_id'],
     ['student_shift_logs','shift_date'], ['student_shift_logs','lifecycle_state'],
     ['student_shift_logs','total_hours'], ['student_shift_logs','status'],
@@ -118,6 +120,7 @@ $preflight$;
 -- ─────────────────────────────────────────────────────────────────────
 DELETE FROM student_preceptor_assignments WHERE is_demo;
 DELETE FROM student_shift_logs            WHERE is_demo;
+DELETE FROM preceptor_cohort_participation WHERE is_demo;
 DELETE FROM matches                       WHERE is_demo;
 DELETE FROM cohort_school_rotations       WHERE is_demo;
 DELETE FROM students                      WHERE is_demo;
@@ -209,6 +212,24 @@ VALUES
    'Henrietta Fowles', 'henrietta.fowles@demo.aspire.invalid', '8 South', 'Day', true, true),
   ('0de0d000-0000-4000-8000-000000000006',
    'Ravi Chandrasekar', 'ravi.chandrasekar@demo.aspire.invalid', '4 SCCT', 'Night', true, true);
+
+-- Cohort participation. This is the row that puts "Demo Cohort, active" beside a
+-- preceptor's name: preceptors itself carries no cohort and no status, because a
+-- preceptor is shared across cohorts and is never duplicated per cohort.
+--
+-- started_at is a real DATE here, unlike students.interview_scheduled_date and
+-- student_shift_logs.shift_date, which are TEXT. Confirmed from the live CHECK
+-- constraint, which matches migration_preceptor_schema_v2.sql:143 exactly, so that
+-- file is the definition and started_at DATE is the live type. No ::text.
+--
+-- status must be one of active / inactive / completed
+-- (preceptor_cohort_participation_status_check).
+INSERT INTO preceptor_cohort_participation (id, preceptor_id, cohort_id, status, started_at, is_demo)
+SELECT
+  ('0de0b000-0000-4000-8000-0000000000' || lpad(row_number() OVER (ORDER BY p.id)::text, 2, '0'))::uuid,
+  p.id, '0de00000-0000-4000-8000-000000000001', 'active', CURRENT_DATE - 21, true
+FROM preceptors p
+WHERE p.is_demo;
 
 INSERT INTO contacts (id, full_name, email, category, role, organization, unit_name, is_active, is_demo)
 VALUES
@@ -420,6 +441,7 @@ UNION ALL SELECT 'cohorts', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER
 UNION ALL SELECT 'units',   count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM units
 UNION ALL SELECT 'matches', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM matches
 UNION ALL SELECT 'preceptors', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM preceptors
+UNION ALL SELECT 'preceptor_cohort_participation', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM preceptor_cohort_participation
 UNION ALL SELECT 'student_shift_logs', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM student_shift_logs
 ORDER BY t;
 
@@ -445,7 +467,9 @@ UNION ALL SELECT 'student -> unit', s.id FROM students s JOIN units u ON u.id = 
 UNION ALL SELECT 'student -> preceptor', s.id FROM students s JOIN preceptors p ON p.id = s.preceptor_id
   WHERE s.is_demo AND NOT p.is_demo
 UNION ALL SELECT 'match -> unit', m.id FROM matches m JOIN units u ON u.id = m.unit_id
-  WHERE m.is_demo AND NOT u.is_demo;
+  WHERE m.is_demo AND NOT u.is_demo
+UNION ALL SELECT 'participation -> cohort', pcp.id FROM preceptor_cohort_participation pcp
+  JOIN cohorts c ON c.id = pcp.cohort_id WHERE pcp.is_demo AND NOT c.is_demo;
 
 -- V5. On Campus Now has somebody on it. EXPECT: 2 rows (Amara, Priya).
 SELECT s.first_name, s.last_name, l.unit_name, l.checked_in_at

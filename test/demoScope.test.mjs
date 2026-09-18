@@ -119,7 +119,11 @@ test('the migration installs one inheritance trigger per child table', () => {
     'happens to be the writer. Server endpoints and rpcs would write it wrong.')
 
   for (const [, child, parent, fk] of children) {
-    assert.ok(['students', 'cohorts', 'units'].includes(parent),
+    // A child may inherit from any ROOT, that is, any table that owns its own is_demo
+    // rather than deriving it. preceptor_cohort_participation inherits from preceptors
+    // because it IS a preceptor's history; the cohort id would give the same answer for
+    // well-formed data, but the preceptor is the entity the row belongs to.
+    assert.ok(['students', 'cohorts', 'units', 'preceptors'].includes(parent),
       `${child} inherits from ${parent}, which is not a root table`)
     assert.ok(fk.endsWith('_id'), `${child}.${fk} does not look like a foreign key`)
   }

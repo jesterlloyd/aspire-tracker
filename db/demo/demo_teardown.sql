@@ -48,6 +48,7 @@ DELETE FROM evaluation_assignments        WHERE is_demo;
 DELETE FROM interview_rubrics             WHERE is_demo;
 DELETE FROM interview_sessions            WHERE is_demo;
 DELETE FROM interview_slots               WHERE is_demo;
+DELETE FROM preceptor_cohort_participation WHERE is_demo;
 DELETE FROM matches                       WHERE is_demo;
 DELETE FROM unit_cohort_responses         WHERE is_demo;
 DELETE FROM unit_placement_requests       WHERE is_demo;
@@ -69,6 +70,7 @@ UNION ALL SELECT 'cohorts',    count(*) FILTER (WHERE is_demo), count(*) FROM co
 UNION ALL SELECT 'units',      count(*) FILTER (WHERE is_demo), count(*) FROM units
 UNION ALL SELECT 'contacts',   count(*) FILTER (WHERE is_demo), count(*) FROM contacts
 UNION ALL SELECT 'preceptors', count(*) FILTER (WHERE is_demo), count(*) FROM preceptors
+UNION ALL SELECT 'preceptor_cohort_participation', count(*) FILTER (WHERE is_demo), count(*) FROM preceptor_cohort_participation
 UNION ALL SELECT 'matches',    count(*) FILTER (WHERE is_demo), count(*) FROM matches
 UNION ALL SELECT 'student_shift_logs', count(*) FILTER (WHERE is_demo), count(*) FROM student_shift_logs
 UNION ALL SELECT 'student_preceptor_assignments', count(*) FILTER (WHERE is_demo), count(*) FROM student_preceptor_assignments

@@ -19,14 +19,15 @@ Three steps, in this order. Doing step 2 before step 1 breaks production.
 `supabase/migrations/20260921000000_demo_mode_foundation.sql`
 
 Additive and explicitly transactional. It adds `is_demo boolean NOT NULL DEFAULT false`
-to nineteen tables, installs fourteen inheritance triggers, and creates five partial
+to twenty tables, installs fifteen inheritance triggers, and creates five partial
 indexes. Every existing row becomes a real row, and the app behaves exactly as before.
 
-It asserts before it alters: six of those nineteen tables were created through the Supabase
+It asserts before it alters: six of those twenty tables were created through the Supabase
 dashboard and have no `CREATE TABLE` in this repo, so the file verifies every table and
 every parent key exists and rolls back whole rather than applying in part.
 
-Run its **V1 through V4** verification queries. V2 must show `demo_rows = 0` everywhere.
+Run its **V1 through V4** verification queries. V2 must show `demo_rows = 0` everywhere, and
+V3 must list fifteen triggers.
 
 ### 2. Switch the boundary on
 
@@ -93,7 +94,7 @@ accumulates fabricated people nobody remembers creating.
 | Area | Covered |
 |---|---|
 | Every client read and write in `src/` | Yes, all 121 call sites, via one wrapper on the one Supabase client |
-| Nineteen tables: students, cohorts, units, contacts, preceptors, matches, shift logs and plans, preceptor and unit assignments, disposition, evaluation assignments, interview slots/sessions/rubrics, rotations, unit capacity/requests/responses | Yes |
+| Twenty tables: students, cohorts, units, contacts, preceptors, preceptor cohort participation, matches, shift logs and plans, preceptor and unit assignments, disposition, evaluation assignments, interview slots/sessions/rubrics, rotations, unit capacity/requests/responses | Yes |
 | Placement Board, rosters, Rotation Activity, On Campus Now, evaluations | Yes |
 | Writes during a live demo | Yes. `is_demo` is in the WHERE clause of every UPDATE and DELETE, so a write in demo mode cannot reach a real row even when handed a real row's id |
 | Outbound email | Yes. All 31 send sites go through `lib/server/email/mailer.js`, which holds anything addressed to `@demo.aspire.invalid` and never calls Resend |
@@ -117,7 +118,7 @@ Stated plainly so you know before the room is full, not after.
    their own scope inside their roster endpoints rather than through the student catalog,
    and those endpoints are not demo-filtered yet. Only the Student Portal is.
 4. **Connect message history, notification log, messaging, program events and the
-   Masthead's event feed** are outside the nineteen scoped tables and show real data.
+   Masthead's event feed** are outside the twenty scoped tables and show real data.
 5. **Six rpc functions** carry no table to filter and sit outside the boundary. They are
    listed in `DEMO_UNSCOPED_RPCS` in `src/lib/demoScope.js` and pinned by a test, so the
    gap cannot silently grow.
