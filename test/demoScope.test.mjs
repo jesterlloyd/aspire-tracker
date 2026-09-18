@@ -110,7 +110,7 @@ test('the migration installs one inheritance trigger per child table', () => {
 
   // Roots own their is_demo value. Everything else must inherit it, or a row written by
   // an rpc or a server endpoint would be stamped by nobody.
-  const ROOTS = new Set(['cohorts', 'students', 'units', 'contacts', 'preceptors', 'schools'])
+  const ROOTS = new Set(['cohorts', 'students', 'units', 'contacts', 'preceptors'])
   const expectedChildren = DEMO_SCOPED_TABLES.filter(t => !ROOTS.has(t)).sort()
   const actualChildren = children.map(m => m[1]).sort()
 

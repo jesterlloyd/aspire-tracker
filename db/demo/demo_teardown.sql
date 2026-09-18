@@ -57,7 +57,6 @@ DELETE FROM students                      WHERE is_demo;
 DELETE FROM preceptors                    WHERE is_demo;
 DELETE FROM units                         WHERE is_demo;
 DELETE FROM contacts                      WHERE is_demo;
-DELETE FROM schools                       WHERE is_demo;
 DELETE FROM cohorts                       WHERE is_demo;
 
 COMMIT;
@@ -70,7 +69,6 @@ UNION ALL SELECT 'cohorts',    count(*) FILTER (WHERE is_demo), count(*) FROM co
 UNION ALL SELECT 'units',      count(*) FILTER (WHERE is_demo), count(*) FROM units
 UNION ALL SELECT 'contacts',   count(*) FILTER (WHERE is_demo), count(*) FROM contacts
 UNION ALL SELECT 'preceptors', count(*) FILTER (WHERE is_demo), count(*) FROM preceptors
-UNION ALL SELECT 'schools',    count(*) FILTER (WHERE is_demo), count(*) FROM schools
 UNION ALL SELECT 'matches',    count(*) FILTER (WHERE is_demo), count(*) FROM matches
 UNION ALL SELECT 'student_shift_logs', count(*) FILTER (WHERE is_demo), count(*) FROM student_shift_logs
 UNION ALL SELECT 'student_preceptor_assignments', count(*) FILTER (WHERE is_demo), count(*) FROM student_preceptor_assignments

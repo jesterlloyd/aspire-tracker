@@ -54,7 +54,12 @@ export const DEMO_SCOPED_TABLES = Object.freeze([
   'units',
   'contacts',
   'preceptors',
-  'schools',
+  // NOTE: 'schools' is deliberately absent. The canonical schools catalog does not
+  // exist on this instance (gate item 13, 20260712000012_phase4_school_portal.sql, was
+  // never applied), and api/lib/schoolScope.js already tolerates that: it derives the
+  // same boundary from the school names carried on student records. A student's school
+  // is students.school, a TEXT column that IS inside the boundary, so nothing about the
+  // demo is weaker for this.
   // Children of a student. is_demo is inherited from the parent by trigger, so a row
   // written by an rpc or by a server endpoint is stamped correctly too.
   'matches',

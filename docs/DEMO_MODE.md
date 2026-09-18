@@ -19,10 +19,10 @@ Three steps, in this order. Doing step 2 before step 1 breaks production.
 `supabase/migrations/20260921000000_demo_mode_foundation.sql`
 
 Additive and explicitly transactional. It adds `is_demo boolean NOT NULL DEFAULT false`
-to twenty tables, installs fourteen inheritance triggers, and creates five partial
+to nineteen tables, installs fourteen inheritance triggers, and creates five partial
 indexes. Every existing row becomes a real row, and the app behaves exactly as before.
 
-It asserts before it alters: six of those twenty tables were created through the Supabase
+It asserts before it alters: six of those nineteen tables were created through the Supabase
 dashboard and have no `CREATE TABLE` in this repo, so the file verifies every table and
 every parent key exists and rolls back whole rather than applying in part.
 
@@ -49,7 +49,8 @@ left behind by a later build cannot put the Demo badge on screen over real data.
 
 `db/demo/demo_seed.sql`
 
-Twenty-one students across nine stages, three schools, five units, six preceptors, a
+Twenty-one students across nine stages, three schools (by name, not by catalog row), five
+units, six preceptors, a
 placement board, three weeks of shift history and two people on campus right now.
 
 **This SQL has never been executed.** There is no PostgreSQL in this repo's toolchain, so
@@ -92,7 +93,7 @@ accumulates fabricated people nobody remembers creating.
 | Area | Covered |
 |---|---|
 | Every client read and write in `src/` | Yes, all 121 call sites, via one wrapper on the one Supabase client |
-| Twenty tables: students, cohorts, units, contacts, preceptors, schools, matches, shift logs and plans, preceptor and unit assignments, disposition, evaluation assignments, interview slots/sessions/rubrics, rotations, unit capacity/requests/responses | Yes |
+| Nineteen tables: students, cohorts, units, contacts, preceptors, matches, shift logs and plans, preceptor and unit assignments, disposition, evaluation assignments, interview slots/sessions/rubrics, rotations, unit capacity/requests/responses | Yes |
 | Placement Board, rosters, Rotation Activity, On Campus Now, evaluations | Yes |
 | Writes during a live demo | Yes. `is_demo` is in the WHERE clause of every UPDATE and DELETE, so a write in demo mode cannot reach a real row even when handed a real row's id |
 | Outbound email | Yes. All 31 send sites go through `lib/server/email/mailer.js`, which holds anything addressed to `@demo.aspire.invalid` and never calls Resend |
@@ -103,21 +104,27 @@ accumulates fabricated people nobody remembers creating.
 
 Stated plainly so you know before the room is full, not after.
 
-1. **`user_profiles` and the Accounts directory** show real staff in both modes. This is
+1. **There is no `schools` table on this instance.** The canonical schools catalog (gate
+   item 13) was never applied, which `api/lib/schoolScope.js` already tolerates by
+   deriving the boundary from the school names on student records. A demo student's
+   school is `students.school`, a TEXT column inside the boundary, so nothing is weaker
+   for it. If that catalog is ever applied, add `schools` back to the registry and to a
+   follow-up migration together.
+2. **`user_profiles` and the Accounts directory** show real staff in both modes. This is
    deliberate: filtering `user_profiles` would make your own session profile invisible and
    break permissions, the greeting and the avatar. Avoid Settings > Accounts on stage.
-2. **Unit Leader, Academic Partner, Nursing Academics and Residency previews** resolve
+3. **Unit Leader, Academic Partner, Nursing Academics and Residency previews** resolve
    their own scope inside their roster endpoints rather than through the student catalog,
    and those endpoints are not demo-filtered yet. Only the Student Portal is.
-3. **Connect message history, notification log, messaging, program events and the
-   Masthead's event feed** are outside the twenty scoped tables and show real data.
-4. **Six rpc functions** carry no table to filter and sit outside the boundary. They are
+4. **Connect message history, notification log, messaging, program events and the
+   Masthead's event feed** are outside the nineteen scoped tables and show real data.
+5. **Six rpc functions** carry no table to filter and sit outside the boundary. They are
    listed in `DEMO_UNSCOPED_RPCS` in `src/lib/demoScope.js` and pinned by a test, so the
    gap cannot silently grow.
-5. **Realtime** pushes rows rather than answering filtered requests.
+6. **Realtime** pushes rows rather than answering filtered requests.
    `realtimePayloadInScope()` exists for subscribers to use, but no subscriber calls it
    yet, so a colleague editing a real student mid-presentation could surface.
-6. **Settings, email templates and the knowledge library** are workspace configuration
+7. **Settings, email templates and the knowledge library** are workspace configuration
    and are shown as they really are in both modes.
 
 Extending coverage means adding a table to `DEMO_SCOPED_TABLES` **and** to the migration

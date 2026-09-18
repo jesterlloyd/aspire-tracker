@@ -70,7 +70,7 @@ DO $preflight$
 DECLARE
   needed text[][] := ARRAY[
     ['cohorts','is_demo'], ['students','is_demo'], ['units','is_demo'],
-    ['contacts','is_demo'], ['preceptors','is_demo'], ['schools','is_demo'],
+    ['contacts','is_demo'], ['preceptors','is_demo'],
     ['matches','is_demo'], ['student_shift_logs','is_demo'],
     ['student_preceptor_assignments','is_demo'], ['cohort_school_rotations','is_demo'],
     -- Columns this file actually writes. Several of these tables were created through
@@ -124,7 +124,6 @@ DELETE FROM students                      WHERE is_demo;
 DELETE FROM preceptors                    WHERE is_demo;
 DELETE FROM units                         WHERE is_demo;
 DELETE FROM contacts                      WHERE is_demo;
-DELETE FROM schools                       WHERE is_demo;
 DELETE FROM cohorts                       WHERE is_demo;
 
 -- ─────────────────────────────────────────────────────────────────────
@@ -138,12 +137,15 @@ VALUES ('0de00000-0000-4000-8000-000000000001',
         true, true);
 
 -- ─────────────────────────────────────────────────────────────────────
--- 3. Schools. Invented, and deliberately not the real partner schools.
+-- 3. Schools.
+--
+--    There is no schools row here, because this instance has no schools table: the
+--    canonical catalog (gate item 13) was never applied, and api/lib/schoolScope.js is
+--    written to tolerate exactly that, deriving the school boundary from the names on
+--    student records instead. A demo student's school is students.school, a TEXT column
+--    inside the boundary, and the rotation windows below key off the same names.
+--    The three invented schools are therefore defined by their use, not by a catalog row.
 -- ─────────────────────────────────────────────────────────────────────
-INSERT INTO schools (id, canonical_name, is_active, is_demo) VALUES
-  ('0de0f000-0000-4000-8000-000000000001', 'Pacific Crest University',        true, true),
-  ('0de0f000-0000-4000-8000-000000000002', 'Harbor View College of Nursing',  true, true),
-  ('0de0f000-0000-4000-8000-000000000003', 'Valley State University',         true, true);
 
 -- Rotation windows per school. The Rotation Timeline column on every roster reads these.
 INSERT INTO cohort_school_rotations

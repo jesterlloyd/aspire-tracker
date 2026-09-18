@@ -40,7 +40,7 @@ BEGIN;
 DO $preflight$
 DECLARE
   required_tables text[] := ARRAY[
-    'cohorts','students','units','contacts','preceptors','schools',
+    'cohorts','students','units','contacts','preceptors',
     'matches','student_shift_logs','student_shift_plans',
     'student_preceptor_assignments','student_unit_assignments',
     'student_active_disposition','evaluation_assignments',
@@ -88,7 +88,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  RAISE NOTICE 'DEMO-MODE-1 preflight passed: 20 tables, 14 parent keys.';
+  RAISE NOTICE 'DEMO-MODE-1 preflight passed: 19 tables, 14 parent keys.';
 END
 $preflight$;
 
@@ -101,7 +101,7 @@ DECLARE
   t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'cohorts','students','units','contacts','preceptors','schools',
+    'cohorts','students','units','contacts','preceptors',
     'matches','student_shift_logs','student_shift_plans',
     'student_preceptor_assignments','student_unit_assignments',
     'student_active_disposition','evaluation_assignments',
@@ -278,7 +278,7 @@ ORDER BY indexname;
 --     EXECUTE format('DROP TRIGGER IF EXISTS aspire_demo_inherit_trg ON public.%I', t);
 --   END LOOP;
 --   FOREACH t IN ARRAY ARRAY[
---     'cohorts','students','units','contacts','preceptors','schools',
+--     'cohorts','students','units','contacts','preceptors',
 --     'matches','student_shift_logs','student_shift_plans',
 --     'student_preceptor_assignments','student_unit_assignments',
 --     'student_active_disposition','evaluation_assignments',
