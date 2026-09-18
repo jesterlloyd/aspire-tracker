@@ -14,6 +14,7 @@
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveUnitScopes } from '../lib/portalAuth.js'
 import { resolveAcceptingCohort } from '../lib/intakeStudentLookup.js'
 import { performUnitResponseUpsert } from '../lib/unitResponseUpsert.js'
+import { serviceDbForRequest } from '../../lib/server/demoScope.js'
 
 const ALLOWED_BODY_KEYS = [
   'unit_name', 'submitter_role',
@@ -46,7 +47,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
   }
 
-  const db = getServiceDb()
+  // DEMO-MODE-2: this is the one Unit Leader endpoint that resolves its caller itself
+  // rather than through verifyPortalUnitLeaderCaller, so it applies the boundary here.
+  // The units upsert below matches on (cohort_id, unit_name), and a demo unit carries a
+  // demo cohort_id, so nothing could cross today; this keeps that true by rule rather
+  // than by the accident of which cohort is accepting.
+  const db = serviceDbForRequest(getServiceDb(), req)
 
   // ── Authorization: active unit_leader grant plus unit in scope ─────────────
   const isUnitLeader = await hasActiveRoleGrant(db, auth.profile.id, 'unit_leader')

@@ -29,7 +29,7 @@
 
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
@@ -400,4 +400,82 @@ test('the resolver coverage assertion is real', () => {
   const bare = "import { getServiceDb } from './lib/portalAuth.js'\nconst db = getServiceDb()\n"
   assert.match(bare, /^\s*(const|let)\s+db\s*=\s*getServiceDb\(\)\s*$/m,
     'the shape the section-4 test forbids must actually be detectable')
+})
+
+// ─────────────────────────────────────────────────────────────────────
+// 9. The audit: nothing in a portal reads a scoped table outside the boundary
+// ─────────────────────────────────────────────────────────────────────
+// The boundary filters BOTH ways, so this section is as much about real work as about
+// a demo: with demo mode OFF the client asks for is_demo = false, and a fabricated
+// student must never appear on a real Unit Leader's roster or a real partner's school
+// list. That only holds if every portal endpoint reading a scoped table goes through a
+// resolver that applies the boundary.
+//
+// Ten do not, and each one is safe for a reason that is written down here rather than
+// rediscovered. A new endpoint that is not on this list fails the test by name.
+const OUTSIDE_THE_WRAPPER = {
+  // Phase 4: these two carry the scope as a QUERY PARAMETER instead, and
+  // admin-student-preview additionally refuses an id from the other population.
+  'admin-preview-access.js': 'carries ?demo= (phase 4)',
+  'admin-student-preview.js': 'carries ?demo= and checks the id (phase 4)',
+
+  // SELF-SCOPED. Every one of these resolves the caller's OWN student id from
+  // user_student_links and reads by that id. A demo student has no account, no profile
+  // and no link, so these endpoints cannot reach one however the mode is set. That is
+  // safety by construction, which is stronger than a filter, and the assertion below
+  // pins the premise it rests on.
+  'my-avatar.js': 'self-scoped to the caller\'s own student',
+  'my-profile.js': 'self-scoped',
+  'my-profile-file-sign.js': 'self-scoped',
+  'my-rotation-activity.js': 'self-scoped',
+  'my-shift-lifecycle.js': 'self-scoped',
+  'my-shift-log-manage.js': 'self-scoped',
+  'update-profile.js': 'self-scoped',
+  'student-file-access.js': 'self-scoped',
+}
+
+test('every portal endpoint reading a scoped table is inside the boundary, or listed', () => {
+  const VIA = /verifyPortalUnitLeaderCaller|verifyPortalAcademicPartnerCaller|verifyPortalNursingAcademicCaller|serviceDbForRequest/
+  const scoped = new Set(DEMO_SCOPED_TABLES)
+  const dir = join(root, 'api/portal')
+  const strays = []
+
+  for (const file of readdirSync(dir).filter(f => f.endsWith('.js'))) {
+    const src = read(join('api/portal', file))
+    if (VIA.test(src)) continue
+    // Every quote style, not just the one this repo happens to use today. A detector
+    // that misses .from("students") is a gate that cannot fail, and this one silently
+    // passed a deliberately planted stray endpoint until it was mutation-tested.
+    const tables = [...new Set([...src.matchAll(/\.from\(\s*['"\`]([a-z_]+)['"\`]\s*\)/g)].map(m => m[1]))]
+      .filter(t => scoped.has(t))
+    if (tables.length && !(file in OUTSIDE_THE_WRAPPER)) strays.push(`${file} reads ${tables.join(', ')}`)
+  }
+
+  assert.deepEqual(strays, [],
+    'These portal endpoints read a table inside the demo boundary without going through a\n' +
+    'resolver that applies it. In demo mode they answer with real people; in real mode they\n' +
+    'answer with fabricated ones. Either route them through one, or add them to\n' +
+    'OUTSIDE_THE_WRAPPER above WITH the reason they are safe.')
+})
+
+test('the premise the self-scoped endpoints rest on: a demo student has no account', () => {
+  // If the seed ever created a user_profiles row or a user_student_link for a demo
+  // student, every "self-scoped is safe by construction" argument above would quietly
+  // stop being true, and there would be no filter behind it to catch that.
+  const seed = read('db/demo/demo_seed.sql')
+  for (const table of ['user_profiles', 'user_student_links', 'user_role_grants', 'user_unit_scopes', 'user_school_scopes']) {
+    assert.doesNotMatch(seed, new RegExp(`INSERT INTO ${table}\\b`),
+      `the seed must never give a fabricated person an account (${table})`)
+  }
+})
+
+test('real mode is a filter, not an absence of one', () => {
+  // The direction that is easy to forget. Demo mode hiding real students is the
+  // headline; real mode hiding DEMO students is what keeps twenty-one fabricated
+  // people off a real Unit Leader's roster the morning after a conference.
+  const { client, calls } = probeClient()
+  const db = serviceDbForRequest(client, { headers: { 'x-aspire-demo': '0' } })
+  return db.from('students').select('id').then(() => {
+    assert.match(calls[0].url, /is_demo=eq\.false/)
+  })
 })
