@@ -197,8 +197,8 @@ export default function ResidentsTab({ cycle, canManage, toast }) {
       return (
         <p className="ngrp-glance-empty">
           {aggregate
-            ? 'No residents yet. New grads appear here once their hire is recorded on the Placement Board.'
-            : `No residents in ${cycle?.name || 'this cohort'} yet. New grads appear here once their hire is recorded on the Placement Board.`}
+            ? 'No residents yet. New grads appear here once their hire is recorded on the Interview Board.'
+            : `No residents in ${cycle?.name || 'this cohort'} yet. New grads appear here once their hire is recorded on the Interview Board.`}
         </p>
       )
     }

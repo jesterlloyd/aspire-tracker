@@ -826,7 +826,7 @@ function MentorshipPanel({ cycle, rows, support, toast }) {
           )}
         </div>
         {view.residents.length === 0 ? (
-          <p className="ngrp-glance-empty">No residents yet. Alumni appear here once their hire is recorded on the Placement Board.</p>
+          <p className="ngrp-glance-empty">No residents yet. Alumni appear here once their hire is recorded on the Interview Board.</p>
         ) : (
           <div className="ngrp-glance-scroll">
             <table className="ngrp-glance-table" data-testid="mentorship-residents">

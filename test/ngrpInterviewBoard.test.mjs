@@ -1,4 +1,4 @@
-// NGRP-PLACEMENT-BOARD-1: Unit Pool | Applicant Pool.
+// NGRP-PLACEMENT-BOARD-1, renamed by INTERVIEW-BOARD-1: Interviewees | Hiring Units.
 //
 // ONE RULE ABOVE ALL OTHERS, and the plan states it outright (section 147):
 // "HR-assigned unit only; never substitute a ranked preference". A preference is
@@ -24,13 +24,14 @@ import { dirname, join } from 'node:path'
 import {
   placeableRows, preferencesOf, assignedRank, unitPool, placementSummary, orderApplicants,
   preferenceCounts, topChoicePct, preferenceRankFor, orderForFocus,
+  orderInterviewees, groupIntervieweesForUnit, pinForAssignment,
 } from '../src/lib/ngrp/ngrpPlacement.js'
 import { isMissingNgrpColumn, isMissingNgrpSchema } from '../lib/server/ngrpApplicants.js'
 import { NGRP_AUDIT_EVENTS } from '../lib/server/ngrpAudit.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = p => readFileSync(join(here, '..', p), 'utf8')
-const board = read('src/components/ngrp/PlacementBoard.jsx')
+const board = read('src/components/ngrp/InterviewBoard.jsx')
 const manageApi = read('api/ngrp-manage.js')
 const migration = read('supabase/migrations/20260906000000_ngrp_assignment_interview.sql')
 const workspace = read('src/components/ngrp/NgrpWorkspace.jsx')
@@ -171,7 +172,7 @@ test('applicants sort by what still needs doing, never against each other', () =
   assert.ok(added.length > 0)
   for (const col of added) assert.doesNotMatch(col, /score|rubric/i, col)
   // And it says so out loud, because the absence is the promise.
-  assert.match(board, /No interview rubric or score is stored\s+anywhere in ASPIRE/)
+  assert.match(board, /No interview\s+rubric or score is stored anywhere in ASPIRE/)
 })
 
 // ── The write path ───────────────────────────────────────────────────────────
@@ -237,31 +238,59 @@ test('the migration is additive and needs no backfill', () => {
   assert.match(migration, /-- {3}SELECT/, 'a verification query ships with it')
 })
 
-test('the board is wired as the Residency board sub-tab', () => {
-  assert.match(workspace, /import PlacementBoard from '\.\/PlacementBoard'/)
+test('the board is wired as the Residency board sub-tab, and IS the Placement Board', () => {
+  assert.match(workspace, /import InterviewBoard from '\.\/InterviewBoard'/)
   assert.match(workspace, /tab === 'residency' && subTab === 'board'/)
-  // Two panels, one screen, built on the ASPIRE board's own panel system and
-  // named as it names them (bar the one word that had to change).
-  assert.match(board, /<span className="embed-panel-title-light">Unit Pool<\/span>/)
-  assert.match(board, /<span className="embed-panel-title-light">Applicant Pool<\/span>/)
-  for (const cls of ['embed-units-panel', 'embed-unit-grid', 'embed-students-panel', 'embed-student-grid', 'embed-light-hdr', 'euc-card', 'euc-fill-badge', 'ov-panel-title']) {
-    assert.match(board, new RegExp(cls), `${cls} is reused, not reinvented`)
+  // INTERVIEW-BOARD-1 (Owner, 2026-09-17): one matching board in this app, wearing
+  // the nouns of whichever side it serves. Interviewees LEFT, Hiring Units RIGHT,
+  // the same order the Placement Board puts students and units in.
+  assert.match(board, /<h2 className="pb-pool-title">Interviewees<\/h2>/)
+  assert.match(board, /<h2 className="pb-pool-title">Hiring Units<\/h2>/)
+  assert.ok(board.indexOf('aria-label="Interviewees"') < board.indexOf('aria-label="Hiring Units"'),
+    'the people come first, as they do on the Placement Board')
+  // "Pool" is gone from the vocabulary of both boards.
+  assert.ok(!board.includes('Applicant Pool') && !board.includes('Unit Pool'))
+  for (const cls of ['pb-board', 'pb-pool-hdr', 'pb-unit', 'pb-unit-body', 'pb-note', 'paper-note',
+    'material-board', 'material-board-head', 'material-navy-flat', 'material-leather-cream',
+    'glance-kpis', 'material-pin', 'material-ribbon']) {
+    assert.ok(board.includes(cls), `${cls} is shared with the Placement Board, not reinvented`)
   }
-  // Neither rejected name is rendered. The header comment explains why they
-  // were rejected, which is not the same as using them.
-  assert.doesNotMatch(board.slice(board.indexOf('  return (')), /Student Pool|Candidate Pool/)
+  // The KPI band carries no title row, exactly as the Placement Board's does not.
+  assert.match(board, /<section className="snap pb-glance"/)
+  assert.ok(!board.includes('ov-panel-title'))
 })
 
 test('focus runs both ways, which is what makes it a board', () => {
-  // Clicking a unit reorders the applicants who ranked it; clicking an
-  // applicant lights up the units they asked for. Neither hides the other side.
+  // Clicking a unit regroups the interviewees who ranked it; selecting an
+  // interviewee ribbons and reorders the units they asked for. Neither hides the
+  // other side.
   assert.match(board, /const \[focusedUnit, setFocusedUnit\]/)
-  assert.match(board, /const \[selectedApplicant, setSelectedApplicant\]/)
-  assert.match(board, /ngrp-uc-wanted/, 'a unit the selected applicant ranked is marked')
-  assert.match(board, /ngrp-ac-dim/, 'an applicant who did not rank the focused unit recedes')
-  assert.match(board, /Place \{nameOf\(selectedApplicant\)\} here/, 'an open seat places the selection')
-  // The focused unit reports its preference tally, as the ASPIRE board does.
-  assert.match(board, /Preferences for <b>\{focusedUnit\}<\/b>/)
+  assert.match(board, /const \[selected, setSelected\]/)
+  assert.match(board, /data-testid="choice-ribbon"/, 'a unit the selection ranked is ribboned')
+  assert.match(board, /pb-unit-dimmed/, 'the units they did not rank recede')
+  assert.match(board, /groupIntervieweesForUnit\(waiting, focusedUnit\)/)
+  assert.match(board, /Showing interviewees for <strong>\{focusedUnit\}<\/strong>/)
+  // Selecting then clicking a board pairs them, the same as a drop.
+  assert.match(board, /if \(selected\) \{ pair\(selected, unitName\); return \}/)
+})
+
+test('unpairing writes immediately, because it destroys nothing, and offers Undo', () => {
+  // The Placement Board HOLDS an unmatch for ten seconds because it clears a
+  // preceptor, reverts a status and orphans notification records. None of that is
+  // true here: one field, one endpoint. So the write goes through and the Undo
+  // simply pairs them again (Owner, 2026-09-17).
+  assert.match(board, /const unpair = async \(row\) => \{/)
+  assert.match(board, /action: \{ label: 'Undo', onClick: \(\) => setUnit\(\{ \.\.\.row, assigned_unit: null \}, was, \{ silent: true \}\) \}/)
+  assert.ok(!board.includes('pendingUnmatch'), 'no held-write machinery on this board')
+  // The pin is the unpair control, labelled with what it will do.
+  assert.match(board, /data-testid="pull-pin"/)
+  assert.match(board, /aria-label=\{`Pull pin: unpair \$\{nameOf\(row\)\} from \$\{u\.unit_name\} \(\$\{pin\.spoken\}\)`\}/)
+  // A pin says which ranked choice the pairing matched, and says "not one they
+  // ranked" plainly when HR paired someone with a unit they never asked for.
+  assert.deepEqual(pinForAssignment({ assigned_unit: 'A', unit_preference_1: 'A' }),
+    { glyph: '1', tone: 'first', spoken: 'ranked 1st' })
+  assert.deepEqual(pinForAssignment({ assigned_unit: 'Z', unit_preference_1: 'A' }),
+    { glyph: '•', tone: 'other', spoken: 'not one they ranked' })
 })
 
 test('the preference breakdown is honest about what was not ranked', () => {
@@ -279,18 +308,19 @@ test('the preference breakdown is honest about what was not ranked', () => {
   assert.equal(topChoicePct(c), 50)
   // And when nothing was ranked, the answer is "not recorded", never 0%.
   assert.equal(topChoicePct({ top: 0, second: 0, other: 0, notRecorded: 4 }), null)
-  assert.match(board, /No assignment matched a ranked choice/)
+  assert.match(board, /No pairing matched a ranked choice/)
 })
 
 test('an open seat is drawn as a seat, not as absence', () => {
-  // A unit hiring three with one assigned should LOOK two short.
-  assert.match(board, /Array\.from\(\{ length: Math\.max\(0, u\.seats - u\.assigned\) \}/)
-  assert.match(read('src/components/ngrp/ngrp.css'), /\.ngrp-uc-slot-open \{[\s\S]{0,120}dashed/)
+  // A unit hiring three with one paired should LOOK two short, in the shared
+  // open-slot the Placement Board uses.
+  assert.match(board, /const openSeats = u\.seats == null \? 0 : Math\.max\(0, u\.seats - u\.assigned\)/)
+  assert.match(board, /Array\.from\(\{ length: openSeats \}\)[\s\S]{0,160}className="pb-open-slot"/)
   // A unit with no number set says so rather than drawing zero seats.
-  assert.match(board, /No number of new grads set for this unit/)
+  assert.match(board, /No seat count set/)
 })
 
-test('a focused unit reorders applicants by the choice it was for them', () => {
+test('a focused unit reorders interviewees by the choice it was for them', () => {
   const name = r => r.n
   const rows = [
     { n: 'Zed', unit_preference_1: 'B' },
@@ -307,7 +337,7 @@ test('a focused unit reorders applicants by the choice it was for them', () => {
 
 test('no em dash in anything this change added', () => {
   for (const f of [
-    'src/lib/ngrp/ngrpPlacement.js', 'src/components/ngrp/PlacementBoard.jsx',
+    'src/lib/ngrp/ngrpPlacement.js', 'src/components/ngrp/InterviewBoard.jsx',
     'supabase/migrations/20260906000000_ngrp_assignment_interview.sql',
   ]) {
     assert.doesNotMatch(read(f), /—/, `${f} must not contain an em dash`)

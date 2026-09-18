@@ -1,12 +1,14 @@
-// NGRP-PLACEMENT-BOARD-1: the pure derivations behind the placement board.
+// NGRP-PLACEMENT-BOARD-1: the pure derivations behind the Interview Board.
 //
-// Two panels, the way the ASPIRE board has always been laid out: Unit Pool on
-// the left, Applicant Pool on the right. The words carry over deliberately.
-// Units are units, so "Unit Pool" is unchanged; the right side is "Applicant"
-// and NOT "Candidate", because this codebase already spends both words on
-// different things - ngrp_candidates and "prospective candidates" mean an
-// alumnus who might apply, while "Application confirmed / Official NGRP list"
-// is someone actually in play. Only the second group belongs on this board.
+// INTERVIEW-BOARD-1 (Owner, 2026-09-17): this board pairs people with the unit that
+// will INTERVIEW them, so it is the Interview Board, and its two columns are
+// Interviewees and Hiring Units - in that order, the same way the Placement Board
+// puts the people on the left and the boards on the right. "Pool" left the
+// vocabulary of both boards.
+//
+// The word is "interviewee" and NOT "candidate", because this codebase already
+// spends both "candidate" and "prospective candidate" on an alumnus who might
+// apply. Only someone actually in play belongs on this board.
 //
 // A RANKED PREFERENCE IS NOT AN ASSIGNMENT. The plan says so in as many words,
 // and everything here keeps them apart: preferences come from the applicant's
@@ -148,4 +150,46 @@ export function orderForFocus(rows, unitName, nameOf) {
     if (placed) return placed
     return String(nameOf(a) || '').localeCompare(String(nameOf(b) || ''))
   })
+}
+
+// ── INTERVIEW-BOARD-1 ───────────────────────────────────────────────────────
+
+// Interviewees waiting for a unit, in the order the board shows them: whoever
+// ranked the focused unit first (by rank), then alphabetically. Paired people are
+// not here - they are notes on their unit's board, the way a placed student is.
+export function orderInterviewees(rows, unitName, nameOf) {
+  return [...(rows || [])].sort((a, b) => (
+    (unitName ? preferenceRankFor(a, unitName) - preferenceRankFor(b, unitName) : 0)
+    || String(nameOf(a) || '').localeCompare(String(nameOf(b) || ''))
+  ))
+}
+
+// The interviewees regrouped for a focused unit, mirroring the Placement Board's
+// groups exactly. Empty groups are dropped.
+export function groupIntervieweesForUnit(rows, unitName) {
+  const list = Array.isArray(rows) ? rows : []
+  if (!unitName) return [{ key: 'all', label: null, rows: list, dimmed: false }]
+  const first = [], lower = [], rest = []
+  for (const r of list) {
+    const rank = preferenceRankFor(r, unitName)
+    if (rank === 1) first.push(r)
+    else if (rank === 2 || rank === 3) lower.push(r)
+    else rest.push(r)
+  }
+  return [
+    { key: 'first', label: `Ranked ${unitName} 1st`, rows: first, dimmed: false },
+    { key: 'lower', label: 'Ranked it 2nd or 3rd', rows: lower, dimmed: false },
+    { key: 'rest', label: 'All other interviewees', rows: rest, dimmed: true },
+  ].filter(g => g.rows.length > 0)
+}
+
+// The pin on a paired note: the rank HR's assignment matched. assignedRank returns
+// 0 when they assigned a unit the interviewee never ranked, which is a legitimate
+// outcome the board states plainly rather than hiding.
+export function pinForAssignment(row) {
+  const rank = assignedRank(row)
+  if (rank === 1) return { glyph: '1', tone: 'first',  spoken: 'ranked 1st' }
+  if (rank === 2) return { glyph: '2', tone: 'second', spoken: 'ranked 2nd' }
+  if (rank === 3) return { glyph: '3', tone: 'third',  spoken: 'ranked 3rd' }
+  return { glyph: '•', tone: 'other', spoken: 'not one they ranked' }
 }

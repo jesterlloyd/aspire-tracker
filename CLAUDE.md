@@ -65,9 +65,10 @@ follows the theme.
   `.material-navy-flat` (a FLAT nightfall header with white ink and the gold piping below
   it; textured leather and its dashed stitching were cut the same day, for the same
   reason), `.material-leather-cream`, `.paper-note`, `.material-pin`, `.material-ribbon`.
-- **Nightfall means a pool header.** On the Placement Board it marks the Student Pool and
-  Unit Pool headers and nothing else; a unit board's header is pastel, or the board
-  out-weighs everything inside it and repeats the chrome above it.
+- **Nightfall means a column header.** It marks the two column headers (Students and
+  Units; Interviewees and Hiring Units on the Interview Board) and nothing else; a unit
+  board's header is pastel, or the board out-weighs everything inside it and repeats the
+  chrome above it.
 - **A state class must beat `:hover`.** `.pb-unit:hover` is two selectors; `.pb-unit-focused`
   is one, so hover silently erased the selection ring exactly when the pointer was on the
   board it marked. Every selected/dragged/focused rule pairs itself with `:hover`.
@@ -79,13 +80,35 @@ follows the theme.
 - A rank is never colour alone: a pin shows its number, a ribbon and a chip show words.
   `--aspire-rank-*` are the nearest AA-passing shades to the approved mockup (white on
   them measures at least 4.5:1); `test/placementBoardFelt.test.mjs` re-measures them.
-- The Student Pool shows every ELIGIBLE student, ordered by `orderPool`
+- The Students column shows every ELIGIBLE student, ordered by `orderPool`
   (`src/lib/placementBoardView.js`): preference for a focused unit, then interviewed
   before not-yet-interviewed, then last name. The ASPIRE Status pill is the readiness
   indicator; there is no readiness filter, and the availability pill appears only for
   Review or Highly restricted.
-- The Placement Board owns the `pb-*` classes. The NGRP board still wears `embed-*` and
-  `euc-*`; never share a class between the two, and never restyle theirs.
+- The `pb-*` classes belong to both matching boards (see below). The Rotation board's
+  unit cards still wear `embed-*` and `euc-*` for the parts it shares with Overview;
+  never restyle those from a board sheet.
+
+## One board, two vocabularies (INTERVIEW-BOARD-1, 2026-09-17)
+
+There are two matching boards, and they are the same board: Rotation > Placement Board
+(students to units) and Residency > Interview Board (interviewees to hiring units).
+Owner's rule, in as many words: "all matching boards must be the same across the app".
+Both wear `src/components/placement/placementBoard.css`, both put the people on the LEFT
+and the boards on the RIGHT, and both drag through `src/components/placement/useBoardDrag.jsx`
+(suppressed browser drag image, self-drawn ghost, a green (+) only over a board with room,
+badge decided by a document-level `dragover` because `dragleave` arrives after the next
+`dragover`). A change to the look or the interaction lands in the shared file and reaches
+both, or it does not land.
+
+The word **Pool** is not in either board's vocabulary (Owner, 2026-09-17): the columns are
+Students / Units and Interviewees / Hiring Units. "Applicant Pool" survives elsewhere in
+Residency because it names a membership rule (`lib/server/ngrpPool.js`), not a column.
+
+What the two boards do NOT share is the cost of undoing. On the Placement Board an unmatch
+is destructive, so the write is held (below). On the Interview Board unpairing writes one
+nullable column, so it writes immediately and Undo simply pairs them again. Same gesture,
+same ten seconds, different mechanism - do not unify them.
 
 ## Placement rank (PLACEMENT-BOARD-FELT-1)
 

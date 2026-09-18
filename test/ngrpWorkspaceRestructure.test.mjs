@@ -45,7 +45,8 @@ test('only Support and Residency carry sub-tabs, and each has a default', () => 
   // RESIDENCY-SUPPORT-1 (Owner, 2026-09-11): "After residency" is "During residency".
   // MENTORSHIP-1 (Owner, 2026-09-14): Before | At the Start | During Residency.
   assert.deepEqual(ngrpSubTabs('support').map(s => s.id), ['before', 'start', 'during'])
-  // RESIDENTS-1 (Owner, 2026-09-14): Placement Board | Residents | Activity.
+  // RESIDENTS-1 (Owner, 2026-09-14): the board | Residents | Activity. INTERVIEW-BOARD-1
+  // renamed the first one to Interview Board; its id is unchanged.
   assert.deepEqual(ngrpSubTabs('residency').map(s => s.id), ['board', 'residents', 'activity'])
   for (const id of ['overview', 'profiles', 'evaluation']) {
     assert.deepEqual(ngrpSubTabs(id), [], `${id} has none`)
@@ -183,7 +184,7 @@ test('a surface that does not exist yet says so, and is never an empty success',
   // NGRP-PLACEMENT-BOARD-1: the board is BUILT now, so it is no longer one of
   // the described-but-unbuilt surfaces; it renders the real component.
   assert.doesNotMatch(workspace, /'residency\/board':/)
-  assert.match(workspace, /<PlacementBoard cycle=\{cycle\} canManage=\{canManage\} toast=\{toast\} \/>/)
+  assert.match(workspace, /<InterviewBoard cycle=\{cycle\} canManage=\{canManage\} toast=\{toast\} \/>/)
   // At a Glance stays reachable with no cohorts, because it is where the first
   // one is set up; every other tab explains the requirement.
   assert.match(workspace, /cyclesCount === 0 && tab !== 'overview'/)

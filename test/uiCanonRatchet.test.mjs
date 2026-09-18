@@ -23,8 +23,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 // Frozen on 2026-09-03 from the tree as of 852cba5. Lower these as rules migrate to the
 // tokens. Never raise them: that is the whole point.
 const BASELINE = {
-  cssRadiusLiterals: 438,   // border-radius: <n>px in any src/**/*.css
-  jsxRadiusLiterals: 1251,  // borderRadius: <n> in any src/**/*.jsx
+  cssRadiusLiterals: 428,   // border-radius: <n>px in any src/**/*.css
+  jsxRadiusLiterals: 1247,  // borderRadius: <n> in any src/**/*.jsx
 }
 
 function walk(dir, out = []) {

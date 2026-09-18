@@ -81,7 +81,7 @@
   border-radius: 50%; margin-right: 6px; vertical-align: -1px;
 }
 
-/* ── Student Pool body (cream leather) ─────────────────────────────────────── */
+/* ── Students column body (cream leather) ──────────────────────────────────── */
 .pb-pool-body {
   flex: 1; min-height: 0; overflow-y: auto;
   display: flex; flex-direction: column; gap: var(--aspire-gap-card);
@@ -187,7 +187,7 @@
 .pb-chip-rank-second { background: #FCEFD4; color: #7C5A1F; border-color: #B5895A; }
 .pb-chip-rank-third  { background: #fff;    color: #1E2A6E; border-color: #1E2A6E; }
 
-/* ── Unit Pool body and boards ─────────────────────────────────────────────── */
+/* ── Units column body and boards ──────────────────────────────────────────── */
 /* padding-top 6px: the scroll container used to clip the 3px selection ring off the
    top row of boards. The legend's own padding drops by the same amount, so the gap
    above the first board is unchanged. */
@@ -313,6 +313,10 @@
   cursor: pointer;
 }
 .pb-link:focus-visible { outline: 3px solid var(--aspire-navy); outline-offset: 2px; }
+/* The Interview Board's one extra affordance on a note: it opens the applicant
+   drawer where an interview or a hire is recorded. It reads at chip scale so
+   four of them down the column stay quiet beside the names they belong to. */
+.pb-note-record { font-size: 11.5px; font-weight: 600; margin-top: 2px; }
 .pb-preceptor {
   max-width: 100%;
   color: var(--aspire-paper-ink-soft); text-decoration: none;
@@ -366,6 +370,12 @@
 .pb-empty-note { align-items: center; text-align: center; padding: 22px 18px 18px; }
 .pb-empty-title { font-size: 15px; font-weight: 700; color: var(--aspire-paper-ink); }
 .pb-empty-text { margin: 0; font-size: 13px; }
+/* INTERVIEW-BOARD-1: the Interview Board's standing note about what a pairing is. */
+.pb-footnote {
+  margin: var(--aspire-gap-card) 20px 0;
+  font-size: 11.5px; line-height: 1.55;
+  color: var(--pb-page-ink);
+}
 .pb-card-toast {
   position: fixed; top: 80px; right: 24px; z-index: 9999;
   max-width: 340px;
@@ -376,7 +386,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
-/* ── Narrow screens: Student Pool first, then Unit Pool ────────────────────── */
+/* ── Narrow screens: Students first, then Units ────────────────────────────── */
 @media (max-width: 900px) {
   .pb-board { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   .pb-pool-body, .pb-units-body { overflow: visible; padding-bottom: 16px; }

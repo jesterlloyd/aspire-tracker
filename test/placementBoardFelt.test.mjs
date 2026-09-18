@@ -205,12 +205,21 @@ test('LAYOUT 2: Placement at a Glance has no title row and is the shared snapsho
   assert.equal((overview.match(/<KPICell\b/g) || []).length, 5)
 })
 
-test('LAYOUT 3: the NGRP board keeps its own classes; this board shares none of them', () => {
+test('LAYOUT 3: both matching boards wear the SAME classes (INTERVIEW-BOARD-1)', () => {
+  // This was the opposite assertion until 2026-09-17: the NGRP board kept the old
+  // embed-* system while this one moved on. The Owner's rule is that every matching
+  // board in the app is the same board, so the Interview Board now shares pb-*, the
+  // materials, and the drag hook - and neither board wears embed-* any more.
   const tab = TAB()
-  assert.ok(!/className="embed-(units|students)-panel|embed-unit-grid|embed-student-grid|embed-light-hdr|euc-card/.test(tab),
-    'the felt board does not wear the classes the NGRP board uses')
+  const interview = read('src/components/ngrp/InterviewBoard.jsx')
+  for (const src of [tab, interview]) {
+    assert.ok(!/className="embed-(units|students)-panel|embed-unit-grid|embed-student-grid|embed-light-hdr|euc-card/.test(src))
+  }
   assert.ok(!/\.embed-|\.euc-/.test(CSS()), 'the board stylesheet restyles no embed-* or euc-* class')
-  assert.match(read('src/components/ngrp/PlacementBoard.jsx'), /embed-units-panel/)
+  for (const cls of ['pb-board', 'pb-pool', 'pb-unit', 'pb-note', 'material-board', 'material-navy-flat', 'paper-note']) {
+    assert.ok(interview.includes(cls), `the Interview Board uses ${cls}`)
+  }
+  assert.match(interview, /import \{ useBoardDrag \} from '\.\.\/placement\/useBoardDrag'/)
 })
 
 test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal radius', () => {
