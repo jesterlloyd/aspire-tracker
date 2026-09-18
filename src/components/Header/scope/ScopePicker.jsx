@@ -48,6 +48,7 @@ export default function ScopePicker({
   onSwitchExperience,
   cohortLabel,
   cohortStatus = null,
+  cohortIsDemo = false,
   cohortLabelDimmed = false,
   cohortPane = null,
 }) {
