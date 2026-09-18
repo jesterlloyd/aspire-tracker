@@ -349,8 +349,11 @@ test('the seed creates the unit assignments the roster is authorized by', () => 
     'RAISES on a value that disagrees')
   assert.match(insert, /WHERE s\.is_demo/,
     'and the statement can only ever build rows for demo students')
-  assert.match(insert, /'planned'[\s\S]*'active'|CASE WHEN s\.status = 'Placed'/,
-    'a Placed student is planned, not active: both are live, and the difference is the bucket')
+  assert.doesNotMatch(insert, /'planned'/,
+    'every row must be ACTIVE. trg_sync_matched_unit_from_assignments reads the student\'s ' +
+    'PRIMARY + ACTIVE assignment and writes students.matched_unit_id from it, so a planned ' +
+    'row sets that column to NULL for exactly the Placed students this file just placed.')
+  assert.match(insert, /'active',/, 'and the status must actually be there')
 })
 
 test('the seed gives every placed demo student a rotation window', () => {

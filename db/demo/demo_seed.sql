@@ -441,9 +441,21 @@ INSERT INTO student_unit_assignments
 SELECT
   ('0de0e000-0000-4000-8000-0000000000' || lpad(row_number() OVER (ORDER BY s.id)::text, 2, '0'))::uuid,
   s.id, s.cohort_id, s.matched_unit_id, 'primary',
-  -- Placed is the student who has not started: planned, not active. Both are LIVE, so
-  -- both authorize the roster; the distinction is what the Upcoming bucket reads.
-  CASE WHEN s.status = 'Placed' THEN 'planned' ELSE 'active' END,
+  -- ACTIVE for every row, including the Placed students who have not started yet, and
+  -- the reason is a trigger rather than a preference.
+  --
+  -- trg_sync_matched_unit_from_assignments fires AFTER INSERT on this table and sets
+  -- students.matched_unit_id from the student's PRIMARY + ACTIVE assignment. Insert a
+  -- 'planned' row and that lookup finds nothing, so it writes NULL: the three Placed
+  -- students would lose the matched unit this file just gave them, their match rows
+  -- would point at a unit their student record no longer names, and every later section
+  -- that joins units ON units.id = s.matched_unit_id would skip them.
+  --
+  -- It is also what the app itself produces. trg_sync_primary_preceptor_mirror's unit
+  -- counterpart creates primary/active whatever the student's status is; 'planned' is
+  -- for a future period entered deliberately through the planner. The Upcoming bucket
+  -- on the roster reads students.status, not this column, so nothing is lost by it.
+  'active',
   r.rotation_start_date, r.rotation_end_date,
   'demo cast'
 FROM students s
@@ -593,8 +605,8 @@ UNION ALL SELECT 'unit assignment', ua.id FROM student_unit_assignments ua
 -- V7. What the Unit Leader Portal will actually show in demo mode. This is the query
 --     api/lib/unitLeaderScope.js authorizes on, not an approximation of it: LIVE rows
 --     only, which is why an 'ended' assignment would not appear.
---     EXPECT: 6 NE 2, 5 North 2, 8 South 2, 4 SCCT 1, and 7 North ABSENT - the unfilled
---     unit is unfilled here too, which is the point of it.
+--     EXPECT: 6 NE 3, 5 North 3, 8 South 2, 4 SCCT 2, all active, and 7 North ABSENT -
+--     the unfilled unit is unfilled here too, which is the point of it.
 SELECT ua.unit_key, ua.status, count(*)
 FROM student_unit_assignments ua
 WHERE ua.is_demo AND ua.status IN ('planned','active')
