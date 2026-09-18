@@ -161,6 +161,62 @@ nothing about the book lives in `index.css`.
   the browser draft and its restore notice, Section 1 moving the real booking, and one
   rubric row per interviewer created on the first meaningful edit.
 
+## The student record is a binder (STUDENT-CHART-1, 2026-09-18)
+
+Student Profiles' detail panel is a black leather ring binder holding loose sheets. It is
+the app's second bound object, and it is deliberately not the rubric's tan book: a book is
+written once and closed, a binder is added to and taken from for months, which is what a
+student record is. They share the leather grammar (`--aspire-noise-fine`, a thin board,
+sharp paper) through `.material-leather-black` beside `.material-leather-tan`, and nothing
+else. The chart lives in `src/components/student/`.
+
+- **The binder is chrome. The form inside it is the one that was already there.** Every
+  one of the fifteen sections is still editable in the same place, behind the same
+  `canEdit`, saving down the same route. `studentChart.css` styles containers and never
+  restyles `.sp-input`, `.sp-select` or `.sp-textarea`. A redesign that turns the chart
+  read-only is a different product, not a refinement; `test/studentChart.test.mjs` fails if
+  the fields disappear or if a section is dropped.
+- **Seven sheets, in lifecycle order**, defined once in `chartSheets.js`: Profile,
+  Background, Placement, Hours, Documents, Evaluations, Notes. The mockup drew five;
+  fifteen sections do not fit five, and dropping ten was never on the table. Each sheet and
+  its die-cut tab wear one tint, which is how a reader knows which tab opens what.
+- **The index scrolls; it never mounts.** Every sheet is in the DOM all the time, so a
+  half-typed field three sheets up survives a trip to the index and back. `.sc-scroller`
+  must keep `position: relative`: a sheet's `offsetTop` is measured from its offsetParent,
+  and without it every jump overshoots by the height of the name plate.
+- **The binder holds still when the reader turns to another student.** `.profiles-panel-slide`
+  carries no `key`, because keying it remounted the panel and replayed its slide-in on
+  every click. Only what is written on the paper cross-fades.
+
+### The follow-up flag is not the interview flag (STUDENT-CHART-1)
+
+Two ribbons, the same gesture, two different columns, and they must never be merged.
+
+| | column | means | reaches |
+|---|---|---|---|
+| Interview rubric | `flagged_for_second_interview` | bring this candidate back for a second interview | Interview Recommendations, Action Center |
+| Student chart | `flagged_for_followup` | come back to this student | the roster row, and nothing else |
+
+Neither carries a note: the pull is the whole interaction. One component,
+`src/components/rubric/FlagRibbon.jsx`, serves both; the rubric's values are its defaults,
+so the chart passes `classPrefix` and its own labels and the rubric's call site is
+unchanged.
+
+`flagged_for_followup` is added by `db/migrations/20260921000000_student_followup_flag.sql`,
+which is Owner-gated. The UI ships first and is correct on both sides of it:
+`followUpFlagAvailable()` reads an absent column as "not enabled" and renders the ribbon
+inert, and `/api/student-update`'s `set_followup_flag` turns Postgres' 42703 into a plain
+409 instead of an opaque 500. `fetchStudents` selects `*`, so applying the migration
+switches the ribbon on with no redeploy.
+
+**`onUpdate` is a writer; `onRefreshStudents` is the refetch.** `onUpdate` is
+`updateStudent(id, updates)`, which routes by field name and returns immediately when
+called with nothing; it has no route for this column and refreshes nothing. The roster
+reads the app's `students` array, so a flag write must paint locally AND await the refetch
+or the roster keeps the old mark until a page reload. This exact mistake shipped in the
+interview rubric in September 2026 and cost two review rounds. Both props are threaded from
+`StudentProfilesTab`; do not collapse them.
+
 ## Placement rank (PLACEMENT-BOARD-FELT-1)
 
 `matches.match_quality` stores `top_choice`, `second_choice`, `third_choice` or `other`,

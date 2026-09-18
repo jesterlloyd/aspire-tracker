@@ -11,6 +11,7 @@ import EmptyState from './EmptyState'
 import { Users } from 'lucide-react'
 import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { useAuth } from '../contexts/AuthContext'
+import { isFollowUpFlagged } from '../lib/studentFollowUpFlag'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
 import StudentCard from './StudentCard'
 import { formatSchoolProgram } from '../lib/displayFormatters'
@@ -294,6 +295,17 @@ export default function StudentListPanel({
               <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3, paddingTop:3, minWidth:0 }}>
                 {gpaOk && <Chip label={`GPA ${gpaVal.toFixed(2)}`} bg={gpaBg} color={gpaColor} />}
                 <Chip label={acc.label} bg={acc.bg} color={acc.text} />
+                {/* STUDENT-CHART-1: the follow-up flag the chart's ribbon sets, so a
+                    coordinator can see who they marked without opening each record. It is
+                    read-only here; the ribbon is the only place it is set. The word is in
+                    the label, not the glyph alone, because colour and shape are not a
+                    name. Absent before the migration, and absent is not flagged. */}
+                {isFollowUpFlagged(s) && (
+                  <span title="Flagged for follow-up"
+                    style={{ fontSize:9.5, fontWeight:700, color:'var(--aspire-red-editorial,#B3282D)', whiteSpace:'nowrap' }}>
+                    <span aria-hidden="true">⚑</span> Follow-up
+                  </span>
+                )}
               </div>
             </div>
           )

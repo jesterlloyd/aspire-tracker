@@ -2130,6 +2130,30 @@ button.ov-group-row {
   border-color: rgba(0,0,0,0.10);
 }
 .sp-card .sp-copy-btn:hover { background: rgba(255,255,255,0.70); }
+/* STUDENT-CHART-1 (2026-09-18): the same four rules, for dark.
+   They were written when the panel was light only, so in dark mode a .sp-card field kept
+   its 55%-white background while the theme turned the text near-white: measured
+   rgb(242,245,248) on rgba(255,255,255,0.55), about 1.1:1, which is invisible. The defect
+   predates the binder (a bare .sp-card outside it measures the same) and is fixed here,
+   beside the rules that cause it, rather than patched in the chart's own sheet. */
+[data-theme="dark"] .sp-card .sp-input,
+[data-theme="dark"] .sp-card .sp-select,
+[data-theme="dark"] .sp-card .sp-textarea {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.18);
+}
+/* .sp-readonly also carries its own dark ink (--raven, #191919), which nothing in the
+   dark theme overrides, so it needs the text colour as well as the field. */
+[data-theme="dark"] .sp-card .sp-readonly {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+  color: var(--color-text-primary, #F2F5F8);
+}
+[data-theme="dark"] .sp-card .sp-copy-btn {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.14);
+}
+[data-theme="dark"] .sp-card .sp-copy-btn:hover { background: rgba(255,255,255,0.12); }
 .sp-field      { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .sp-field-lbl  { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
 .sp-input      { padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; color: var(--raven); background: var(--pearl); outline: none; transition: border-color 0.12s; }
@@ -2155,6 +2179,13 @@ button.ov-group-row {
 }
 .sp-nav-btn:hover:not(:disabled) { background: var(--sand); }
 .sp-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* STUDENT-CHART-1: the nav button's ink is the brand navy, which nothing in the dark
+   theme lifts, so on dark paper it measured 1.15:1. Same class, same shape, readable ink. */
+[data-theme="dark"] .sp-nav-btn {
+  color: var(--color-text-primary, #F2F5F8);
+  border-color: rgba(255,255,255,0.22);
+}
+[data-theme="dark"] .sp-nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.10); }
 
 /* CS-Link workflow steps in side panel */
 .csw-step { padding: 12px; background: #fafafa; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; }
@@ -2321,6 +2352,9 @@ button.ov-group-row {
 .am-step-note { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
 .sn-link { position: relative; /* contains the .sr-only hint, so a table scroller clips it instead of the page widening */ display: inline-flex; align-items: center; gap: 3px; font: inherit; font-weight: 600; color: var(--color-accent-primary, #1D2567); text-decoration: none; white-space: nowrap; }
 .sn-link:hover { text-decoration: underline; }
+/* STUDENT-CHART-1: the accent navy is a link colour for light paper. On the chart's dark
+   Documents sheet it measured 2.9:1, so dark gets the theme's own link ink. */
+[data-theme="dark"] .sn-link { color: var(--color-accent-on-dark, #9FB0F5); }
 .am-checkbox { width: 15px; height: 15px; accent-color: #16a34a; cursor: pointer; flex-shrink: 0; }
 .am-date-input {
   width: 116px; padding: 3px 7px;

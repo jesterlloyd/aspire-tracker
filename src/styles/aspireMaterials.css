@@ -138,3 +138,27 @@
 .material-rank-second { background-color: var(--aspire-rank-second); }
 .material-rank-third  { background-color: var(--aspire-rank-third); }
 .material-rank-other  { background-color: var(--aspire-rank-other); }
+
+/* ── Black leather (a ring binder) ─────────────────────────────────────────── */
+/* STUDENT-CHART-1 (2026-09-18): the student chart's cover. The rubric's tan book is
+   written once and closed; a student record is added to and taken from for months, so
+   it is a binder, and the binder is black. Same finish discipline as the tan cover:
+   the fine noise only, no coarse grain (that read as wood), over a raking gradient so
+   one edge catches light the way a real cover does. The inset highlight along the top
+   is the leather's rolled edge, and the deep drop is the whole object standing off the
+   page. Rings are not drawn here: they are the binder's own elements. */
+.material-leather-black {
+  background-color: var(--aspire-leather-black);
+  background-image:
+    var(--aspire-noise-fine),
+    linear-gradient(145deg,
+      var(--aspire-leather-black-lift),
+      var(--aspire-leather-black) 45%,
+      var(--aspire-leather-black-deep) 75%,
+      var(--aspire-leather-black-lift));
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 16px 34px rgba(24, 32, 63, 0.28);
+}

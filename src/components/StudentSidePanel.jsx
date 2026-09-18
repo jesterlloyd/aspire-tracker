@@ -9,6 +9,13 @@ import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/util
 import ServiceNowLink from './shared/ServiceNowLink'
 import { SERVICENOW_LINKS, STAGE1_REQUESTS, stage1RequestsFor, tickedStage1Request, isLegacyNotApplicable, stage1ResetFor, tickPatch } from '../lib/csLinkServiceNow'
 import StudentAvatar from './StudentAvatar'
+// STUDENT-CHART-1: the binder this panel is bound into.
+import './student/studentChart.css'
+import FlagRibbon from './rubric/FlagRibbon'
+import ChartEvaluations from './student/ChartEvaluations'
+import { CHART_SHEETS } from './student/chartSheets'
+import { useChartScroll, useCrossFade } from './student/useChartScroll'
+import { isFollowUpFlagged, followUpFlagAvailable, setFollowUpFlag } from '../lib/studentFollowUpFlag'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
   SHIFT_OPTIONS, COHORTS, COURSE_TYPES,
@@ -214,6 +221,7 @@ function Field({ label, children, fieldKey }) {
 export default function StudentSidePanel({
   student, sortedStudents, onSelectStudent, onClose,
   onUpdate, onDelete, onReviewDecided, onPreceptorAssigned, units, toast,
+  onRefreshStudents,
 }) {
   const [data,             setData]             = useState({ ...student })
   const [saveStatus,       setSaveStatus]       = useState('idle')
@@ -1092,6 +1100,74 @@ export default function StudentSidePanel({
     toast?.info('Student declined', `${student.first_name} has been marked as declined.`)
   }
 
+
+  // ── STUDENT-CHART-1: the binder ────────────────────────────────────────────
+  // The panel is a black leather ring binder holding loose sheets. These few lines are
+  // the whole of its state: where the reader is, whether the plate is over paper, and
+  // whether the record underneath is being swapped. Everything else on screen is the
+  // form that was already here.
+  const {
+    scrollerRef: chartScrollerRef, activeSheet: chartSheet,
+    goToSheet: goToChartSheet, lifted: chartLifted,
+  } = useChartScroll(student.id)
+  const chartFading = useCrossFade(student.id)
+
+  // Hoisted out of what used to be the hero's IIFE: the plate and the Profile sheet are
+  // two places on the binder now rather than one block, and both read these.
+  const completion = calculateProfileCompletion(data)
+  const matchedUnitInDrawer = data.matched_unit_id
+    ? (typeof units?.find === 'function' ? units.find(u => u.id === data.matched_unit_id)?.unit_name : null) || '(loading)'
+    : null
+  const nextAction = (() => {
+    if (!data.personal_email && !data.school_email) return 'Add a contact email'
+    if (data.status === 'Pending Outreach') return 'Send the student form'
+    if (data.status === 'Form Sent') return 'Awaiting the student form'
+    if (data.status === 'Form Received') return 'Schedule an interview'
+    if (data.status === 'Interview Scheduled') return 'Conduct interview'
+    if (data.status === 'Interviewed' && !data.matched_unit_id) return 'Match to a unit'
+    if (data.matched_unit_id && data.status === 'Placed') return 'Confirm rotation start date'
+    return null
+  })()
+
+  // ── The follow-up flag ─────────────────────────────────────────────────────
+  // NOT the interview flag. `flagged_for_second_interview` sends a candidate back for a
+  // second interview and reddens their Interview Recommendations row; this one says
+  // "come back to this student" and reaches nothing else. It carries no note.
+  //
+  // The column is Owner-gated (db/migrations/20260921000000_student_followup_flag.sql).
+  // Until it is applied `followUpFlagAvailable` is false, the ribbon renders disabled and
+  // says why, and nothing is written. `fetchStudents` selects '*', so applying the
+  // migration switches the ribbon on with no redeploy.
+  const flagAvailable = followUpFlagAvailable(student)
+  const [flagPending, setFlagPending] = useState(null)
+  const [flagSaving,  setFlagSaving]  = useState(false)
+  const followUpFlagged = flagPending ?? isFollowUpFlagged(data)
+  const plateName = getStudentPreferredFullName(data) || displayName(data)
+
+  const setFollowUp = async (next) => {
+    if (!canEdit || !flagAvailable || flagSaving) return
+    setFlagPending(next); setFlagSaving(true)
+    try {
+      const r = await setFollowUpFlag(student.id, next)
+      if (!r.ok && r.notEnabled) {
+        setFlagPending(null)
+        toast?.info('Follow-up flag not enabled', 'The database column has not been added yet.')
+        return
+      }
+      // The panel and the roster have to agree. setData alone moves the ribbon but leaves
+      // the roster row showing the old flag until the next page load, because the roster
+      // reads the app's students array. So: paint locally, then refetch.
+      setData(p => ({ ...p, flagged_for_followup: next }))
+      if (onRefreshStudents) await onRefreshStudents()
+      toast?.success(next ? 'Flagged for follow-up' : 'Follow-up flag removed', plateName)
+    } catch (e) {
+      setFlagPending(null)
+      toast?.error(next ? 'Not flagged' : 'Flag not removed', e?.message || 'Please try again.')
+    } finally {
+      setFlagSaving(false)
+    }
+  }
+
   return (
     <>
       {/* OCC conflict dialog - rendered above everything else */}
@@ -1105,166 +1181,62 @@ export default function StudentSidePanel({
         />
       )}
 
-      <div className="sp-container" style={{ position:'relative' }}>
-        {/* Scrollable content */}
-        <FieldSavedCtx.Provider value={fieldSaved}>
-        <div className="sp-content">
+      {/* ── The binder (STUDENT-CHART-1) ────────────────────────────────────────
+          Black leather, five rings, sharp paper. The chrome is new; the form inside it
+          is the one that has always been here, with every field, permission and save
+          path unchanged. ──────────────────────────────────────────────────────── */}
+      <div className="sc-binder material-leather-black">
+        <div className="sc-rings" aria-hidden="true">
+          <i className="sc-ring" /><i className="sc-ring" /><i className="sc-ring" />
+          <i className="sc-ring" /><i className="sc-ring" />
+        </div>
 
-          {/* Remote-update banner - shown when another user saved while this user is editing */}
-          {remoteUpdateBanner && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: '#fffbeb', border: '1px solid #fde68a',
-              borderRadius: 8, padding: '8px 14px', margin: '0 0 12px',
-              fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12,
-            }}>
-              <span style={{ color: '#92400e', fontWeight: 600 }}>
-                ⚠ This record was just updated by another user.
-              </span>
-              <button
-                onClick={handleConflictDiscard}
-                style={{
-                  marginLeft: 12, fontSize: 11, fontWeight: 700, color: '#1D2567',
-                  background: 'none', border: '1px solid #1D2567', borderRadius: 6,
-                  padding: '3px 10px', cursor: 'pointer',
-                }}
-              >
-                Reload
-              </button>
-            </div>
-          )}
+        <div className="sc-paper">
+          {/* Sighted readers learn which record and which sheet they are on from the plate
+              and the index; a screen reader is told the same two facts here. Polite, so it
+              waits for a gap rather than interrupting a field the user is reading. */}
+          <div className="sr-only" role="status" aria-live="polite">
+            {plateName}, {CHART_SHEETS.find(s => s.id === chartSheet)?.title || 'Profile'}
+          </div>
 
-          {/* ── Compact hero card ── */}
-          {(() => {
-            const completion = calculateProfileCompletion(data)
-            const compColors = getCompletionColor(completion.status)
+          {/* ── Name plate: fixed above the sheets, lifts once paper travels under it ── */}
+          <div className={`sc-plate${chartLifted ? ' sc-plate-lifted' : ''}`}>
+            <FlagRibbon
+              flagged={followUpFlagged}
+              disabled={!canEdit || !flagAvailable || flagSaving}
+              onFlag={() => setFollowUp(true)}
+              onUnflag={() => setFollowUp(false)}
+              classPrefix="sc-ribbon"
+              labelOn={`${plateName} is flagged for follow-up. Pull the ribbon up, or press, to remove the flag.`}
+              labelOff={flagAvailable
+                ? `Pull the ribbon down, or press, to flag ${plateName} for follow-up.`
+                : 'The follow-up flag is not enabled on this database yet.'}
+            />
 
-            // Next recommended action
-            const nextAction = (() => {
-              if (!data.cs_cedars_status && !data.cs_link_complete)
-                return 'Complete CS-Link account activation'
-              if (['Pending Outreach', 'Form Sent'].includes(data.status))
-                return 'Send intake form to student'
-              if (data.status === 'Form Received')
-                return 'Schedule interview'
-              if (data.status === 'Interview Scheduled')
-                return 'Conduct interview'
-              if (data.status === 'Interviewed' && !data.matched_unit_id)
-                return 'Match to a unit'
-              if (data.matched_unit_id && data.status === 'Placed')
-                return 'Confirm rotation start date'
-              if (completion.percentage === 100)
-                return null // complete
-              return null
-            })()
-
-            const interviewLabel = (() => {
-              if (['Interviewed', 'Placed', 'Active Rotation', 'Completed'].includes(data.status)) return 'Completed'
-              if (data.status === 'Interview Scheduled') return 'Scheduled'
-              return 'Not scheduled'
-            })()
-
-            const matchedUnitInDrawer = data.matched_unit_id
-              ? (typeof units?.find === 'function' ? units.find(u => u.id === data.matched_unit_id)?.unit_name : null) || '(loading)'
-              : null
-
-            return (
-              <>
-                {/* ── Hero - fills the top of the drawer card; gradient flows into rounded corners ── */}
-                <div style={{
-                  margin:0, borderRadius:'16px 16px 0 0',
-                  background:'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)',
-                  padding:'28px 24px 20px',
-                  textAlign:'center', position:'relative' }}>
-                  {/* Large photo */}
-                  <div style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
-                    <StudentAvatar student={data} size={96}
-                      style={{ border:'4px solid var(--pearl)', boxShadow:'0 4px 18px rgba(29,37,103,0.16)', fontSize:'34px' }} />
-                  </div>
-                  {/* Name - legal display, surfacing the preferred first name as First “Preferred” Last. */}
-                  <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4, lineHeight:1.2 }}>
-                    {getStudentLegalDisplayName(data)}
-                  </div>
-                  {/* School · Program */}
-                  <div style={{ fontSize:13, color:'#6b7280', marginBottom:8 }}>
-                    {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
-                  </div>
+            <div className={`sc-plate-id sc-fade${chartFading ? ' sc-fade-out' : ''}`}>
+              <StudentAvatar student={data} size={72}
+                style={{ border:'3px solid var(--aspire-page)', boxShadow:'0 2px 10px rgba(29,37,103,0.16)', fontSize:'22px' }} />
+              <div className="sc-plate-head">
+                <h1 className="sc-plate-name">{getStudentLegalDisplayName(data)}</h1>
+                <div className="sc-plate-school">
+                  {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
+                </div>
+                <div className="sc-plate-chips">
                   {/* ASPIRE status pill - precise disposition for Not Proceeding */}
                   {data.status && (() => {
-                    const heroPillDispType = data.status === 'Not Proceeding' ? activeDisposition?.disposition_type : null
-                    if (heroPillDispType) {
-                      const c = DISPOSITION_PILL_COLORS[heroPillDispType] || DISPOSITION_PILL_COLORS['not_selected']
-                      return <div style={{ marginBottom:12 }}>
-                        <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
-                          background:c.bg, color:c.text, border:`1px solid ${c.border}` }}>
-                          {DISPOSITION_TYPES[heroPillDispType] || data.status}
-                        </span>
-                      </div>
-                    }
-                    const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
-                    return <div style={{ marginBottom:12 }}>
+                    const pillDispType = data.status === 'Not Proceeding' ? activeDisposition?.disposition_type : null
+                    const c = pillDispType
+                      ? (DISPOSITION_PILL_COLORS[pillDispType] || DISPOSITION_PILL_COLORS['not_selected'])
+                      : (ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach'])
+                    const label = pillDispType ? (DISPOSITION_TYPES[pillDispType] || data.status) : data.status
+                    return (
                       <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
-                        background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>
-                        {data.status}
+                        background:c.bg, color:c.text, border:`1px solid ${c.border}` }}>
+                        {label}
                       </span>
-                    </div>
+                    )
                   })()}
-                  {/* Contact actions */}
-                  <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', marginBottom:10 }}>
-                    <ProfileActionButton
-                      variant="primary"
-                      icon={<Mail size={15} aria-hidden="true" />}
-                      label="Email"
-                      onClick={() => navigate(
-                        `/connect/outreach?mode=message&recipientType=student&recipientId=${data.id}`,
-                        { state: { fromStudent: {
-                            id:    data.id,
-                            name:  `${data.first_name || ''} ${data.last_name || ''}`.trim(),
-                            email: data.personal_email || data.school_email || null,
-                            school: data.school || null,
-                          }
-                        }}
-                      )}
-                      disabled={!data.personal_email && !data.school_email}
-                      disabledReason="No email on file"
-                    />
-                    <ProfileActionButton
-                      variant="secondary"
-                      icon={<Phone size={15} aria-hidden="true" />}
-                      label="Call"
-                      href={data.phone ? `tel:${data.phone}` : undefined}
-                      disabled={!data.phone}
-                      disabledReason="No phone on file"
-                    />
-                    {canEdit && (
-                      <ProfileActionButton
-                        variant="secondary"
-                        icon={<Pencil size={15} aria-hidden="true" />}
-                        label="Edit"
-                        onClick={() => {
-                          const inp = document.querySelector('.sp-content .sp-input')
-                          if (inp) { inp.scrollIntoView({ behavior:'smooth', block:'center' }); inp.focus() }
-                        }}
-                      />
-                    )}
-                  </div>
-                  {canEdit && <button onClick={handleCopySummary}
-                    style={{
-                      display:'flex', alignItems:'center', gap:'6px',
-                      padding:'6px 14px', borderRadius:'8px',
-                      border:`1px solid ${summaryCopied ? '#86efac' : '#e5e7eb'}`,
-                      background: summaryCopied ? '#f0fdf4' : '#f9fafb',
-                      fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:'12px',
-                      color: summaryCopied ? '#166534' : '#374151',
-                      cursor:'pointer', transition:'all 0.2s ease',
-                      width:'100%', justifyContent:'center',
-                    }}>
-                    {summaryCopied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy Student Summary</>}
-                  </button>}
-                </div>
 
-                {/* ── Status snapshot - 5 chips (no ASPIRE status; hero pill carries it) ── */}
-                <div style={{ margin:'22px 18px 0', display:'flex', flexWrap:'wrap', gap:6 }}>
                   {(() => {
                     const gpaVal = parseFloat(data.cumulative_gpa)
                     const gpaOk  = !isNaN(gpaVal) && gpaVal > 0
@@ -1315,7 +1287,87 @@ export default function StudentSidePanel({
                     ))
                   })()}
                 </div>
+              </div>
+            </div>
 
+            <div className="sc-plate-acts">
+
+                  <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+                    <ProfileActionButton
+                      variant="primary"
+                      icon={<Mail size={15} aria-hidden="true" />}
+                      label="Email"
+                      onClick={() => navigate(
+                        `/connect/outreach?mode=message&recipientType=student&recipientId=${data.id}`,
+                        { state: { fromStudent: {
+                            id:    data.id,
+                            name:  `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+                            email: data.personal_email || data.school_email || null,
+                            school: data.school || null,
+                          }
+                        }}
+                      )}
+                      disabled={!data.personal_email && !data.school_email}
+                      disabledReason="No email on file"
+                    />
+                    <ProfileActionButton
+                      variant="secondary"
+                      icon={<Phone size={15} aria-hidden="true" />}
+                      label="Call"
+                      href={data.phone ? `tel:${data.phone}` : undefined}
+                      disabled={!data.phone}
+                      disabledReason="No phone on file"
+                    />
+                    {canEdit && (
+                      <ProfileActionButton
+                        variant="secondary"
+                        icon={<Pencil size={15} aria-hidden="true" />}
+                        label="Edit"
+                        onClick={() => {
+                          const inp = document.querySelector('.sc-scroller .sp-input')
+                          if (inp) { inp.scrollIntoView({ behavior:'smooth', block:'center' }); inp.focus() }
+                        }}
+                      />
+                    )}
+                  </div>
+            </div>
+          </div>
+
+          <div className="sc-main">
+            <div className="sc-scroller" ref={chartScrollerRef}>
+              <FieldSavedCtx.Provider value={fieldSaved}>
+              <div className={`sc-fade${chartFading ? ' sc-fade-out' : ''}`}>
+
+
+          {/* Remote-update banner - shown when another user saved while this user is editing */}
+          {remoteUpdateBanner && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#fffbeb', border: '1px solid #fde68a',
+              borderRadius: 8, padding: '8px 14px', margin: '0 0 12px',
+              fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12,
+            }}>
+              <span style={{ color: '#92400e', fontWeight: 600 }}>
+                ⚠ This record was just updated by another user.
+              </span>
+              <button
+                onClick={handleConflictDiscard}
+                style={{
+                  marginLeft: 12, fontSize: 11, fontWeight: 700, color: '#1D2567',
+                  background: 'none', border: '1px solid #1D2567', borderRadius: 6,
+                  padding: '3px 10px', cursor: 'pointer',
+                }}
+              >
+                Reload
+              </button>
+            </div>
+          )}
+
+
+          {/* ── Profile ── */}
+          <section className="sc-sheet" id="sc-sheet-profile" data-sheet="profile" aria-label="Profile">
+            <div className="sc-sheet-label">Student record</div>
+            <h2 className="sc-sheet-title">Profile</h2>
                 {/* ── Profile Completion block ── */}
                 {(() => {
                   const pct = completion.percentage
@@ -1358,12 +1410,19 @@ export default function StudentSidePanel({
                     </div>
                   )
                 })()}
-              </>
-            )
-          })()}
-
-          {/* ── Unified section container with pastel section cards ── */}
-          <div style={{ margin:'22px 14px 0', background:'var(--bg-card,#fff)', borderRadius:14, padding:'12px 12px 4px', boxShadow:'0 1px 4px rgba(29,37,103,0.05)' }}>
+                  {canEdit && <button onClick={handleCopySummary}
+                    style={{
+                      display:'flex', alignItems:'center', gap:'6px',
+                      padding:'6px 14px', borderRadius:'8px',
+                      border:`1px solid ${summaryCopied ? '#86efac' : '#e5e7eb'}`,
+                      background: summaryCopied ? '#f0fdf4' : '#f9fafb',
+                      fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:'12px',
+                      color: summaryCopied ? '#166534' : '#374151',
+                      cursor:'pointer', transition:'all 0.2s ease',
+                      width:'100%', justifyContent:'center',
+                    }}>
+                    {summaryCopied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy Student Summary</>}
+                  </button>}
 
           {/* 1. Contact Information */}
           <div className="sp-section sp-card sp-zone-contact">
@@ -1521,141 +1580,65 @@ export default function StudentSidePanel({
               <Field label="Est. Graduation"><div className="sp-readonly">{data.estimated_graduation||'-'}</div></Field>
             </div>
           </div>
+          </section>
 
-          {/* 3b. Rotation Dates - STUDENT-PROFILE-CANON-1B: the single canonical placement-window
-              block, sourced from the coordinator-owned cohort_school_rotations row. Always rendered
-              (shows "pending review" when no linked/valid row) so it is the one date source of truth. */}
-          <div className="sp-section sp-card sp-zone-program">
-              <SectionHeader title="Rotation Dates" icon={<CalendarDays size={13} />}>
-                <SourceTag label="Source: Coordinator school form" tone="coordinator" />
-                {canEdit && rotationRow && !isSentinel && !editingRotation && (
-                  <button
-                    onClick={handleOpenRotationEdit}
-                    style={{ fontSize:11, fontWeight:600, padding:'2px 10px', borderRadius:6,
-                      background:'#f0f3ff', border:'1px solid #e0e7ff', color:'#1D2567',
-                      cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
-                    Edit
-                  </button>
-                )}
-              </SectionHeader>
 
-              {(rotationLoading && student.cohort_school_rotation_id) ? (
-                <div style={{ fontSize:12, color:'var(--text-caption,#6b7280)', fontFamily:'Plus Jakarta Sans' }}>Loading…</div>
-              ) : rotationPending ? (
-                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 12px',
-                  background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8,
-                  fontFamily:'Plus Jakarta Sans', fontSize:12.5, color:'#583733', fontWeight:600 }}>
-                  <span>&#9651;</span>
-                  Rotation Dates: Pending coordinator/admin review
-                </div>
-              ) : !editingRotation ? (
-                <>
-                  <div className="sp-grid-2">
-                    <div>
-                      <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
-                        textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>Start</div>
-                      <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
-                        {fmtRotDate(rotationRow?.rotation_start_date)}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
-                        textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>End</div>
-                      <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
-                        {fmtRotDate(rotationRow?.rotation_end_date)}
-                      </div>
-                    </div>
-                    {rotationRow?.school_name && (
-                      <div style={{ gridColumn:'1 / -1' }}>
-                        <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
-                          textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>School</div>
-                        <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
-                          {rotationRow.school_name}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {/* Coordinator provenance - this date window is coordinator-owned (school form). */}
-                  <div style={{ marginTop:8, fontSize:11, color:'var(--text-caption,#6b7280)',
-                    fontFamily:'Plus Jakarta Sans', fontStyle:'italic' }}>
-                    {rotationRow?.coordinator_name
-                      ? `Submitted by ${rotationRow.coordinator_name}${rotationRow.coordinator_email ? `, ${rotationRow.coordinator_email}` : ''}`
-                      : 'Coordinator-submitted via school form'}
-                  </div>
-                </>
-              ) : (
-                <div>
-                  {rotEditError && (
-                    <div style={{ fontSize:12, color:'#991b1b', background:'#fee2e2', border:'1px solid #fca5a5',
-                      borderRadius:6, padding:'6px 10px', marginBottom:8 }}>{rotEditError}</div>
-                  )}
-                  <div className="sp-grid-2" style={{ marginBottom:10 }}>
-                    <div>
-                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-caption,#6b7280)',
-                        textTransform:'uppercase', letterSpacing:'0.06em', display:'block', marginBottom:4 }}>
-                        Start *
-                      </label>
-                      <input type="date" className="sp-input"
-                        value={rotEditStart} onChange={e => { setRotEditStart(e.target.value); setRotEditError(null) }}
-                        style={{ colorScheme:'light' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-caption,#6b7280)',
-                        textTransform:'uppercase', letterSpacing:'0.06em', display:'block', marginBottom:4 }}>
-                        End *
-                      </label>
-                      <input type="date" className="sp-input"
-                        value={rotEditEnd} onChange={e => { setRotEditEnd(e.target.value); setRotEditError(null) }}
-                        style={{ colorScheme:'light' }} />
-                    </div>
-                  </div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <button onClick={handleSaveRotationDates}
-                      style={{ padding:'6px 16px', background:'#1D2567', border:'none', borderRadius:8,
-                        fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:12, color:'#fff', cursor:'pointer' }}>
-                      Save
-                    </button>
-                    <button onClick={() => { setEditingRotation(false); setRotEditError(null) }}
-                      style={{ padding:'6px 14px', background:'#f9fafb', border:'1px solid #e5e7eb',
-                        borderRadius:8, fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:12,
-                        color:'#374151', cursor:'pointer' }}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+          {/* ── Background ── */}
+          <section className="sc-sheet" id="sc-sheet-background" data-sheet="background" aria-label="Background">
+            <div className="sc-sheet-label">Experience and intent</div>
+            <h2 className="sc-sheet-title">Background</h2>
 
-              {/* Confirmation modal: shows affected student count */}
-              {rotConfirmModal && (
-                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:2999,
-                  display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-                  <div style={{ background:'#fff', borderRadius:14, maxWidth:420, width:'100%',
-                    padding:'24px 24px 20px', fontFamily:'Plus Jakarta Sans, sans-serif',
-                    boxShadow:'0 20px 50px rgba(0,0,0,0.18)' }}>
-                    <div style={{ fontWeight:700, fontSize:15, color:'#1D2567', marginBottom:10 }}>
-                      Update rotation dates?
-                    </div>
-                    <p style={{ fontSize:13, color:'#374151', lineHeight:1.6, margin:'0 0 16px' }}>
-                      This will update rotation dates for{' '}
-                      <strong>{rotConfirmModal.count} student{rotConfirmModal.count !== 1 ? 's' : ''}</strong>
-                      {rotationRow?.school_name ? ` from ${rotationRow.school_name}` : ''}.
-                    </p>
-                    <div style={{ display:'flex', gap:10 }}>
-                      <button onClick={() => setRotConfirmModal(null)} disabled={rotSaving}
-                        style={{ flex:1, height:38, borderRadius:8, border:'1px solid #e5e7eb',
-                          background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:13,
-                          cursor:'pointer', color:'#374151' }}>Cancel</button>
-                      <button onClick={handleConfirmRotationSave} disabled={rotSaving}
-                        style={{ flex:1, height:38, borderRadius:8, border:'none',
-                          background:'#1D2567', fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:13,
-                          cursor:'pointer', color:'#fff' }}>
-                        {rotSaving ? 'Saving...' : 'Confirm'}
-                      </button>
-                    </div>
-                  </div>
+          {/* 4. Background and Affiliation */}
+          <div className="sp-section sp-card sp-zone-student">
+            <SectionHeader title="Background and Affiliation" icon={<Briefcase size={13} />}>
+              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
+            </SectionHeader>
+            <Field label="Prior Healthcare Experience">
+              <input className="sp-input" value={data.prior_healthcare_experience||''} onChange={e => handleText('prior_healthcare_experience', e.target.value)} placeholder="e.g. CNA, EMT" />
+            </Field>
+            <Field label="CS Affiliation">
+              <select className="sp-select" value={data.cs_affiliation||''} onChange={e => handleSelect('cs_affiliation', e.target.value)}>
+                <option value="">Select…</option>
+                {CS_AFFILIATIONS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </Field>
+            {CS_WITH_DEPT.includes(data.cs_affiliation) && (
+              <div className="sp-grid-2">
+                <Field label="CS Department">
+                  <input className="sp-input" value={data.cs_department||''} onChange={e => handleText('cs_department', e.target.value)} />
+                </Field>
+                <Field label="CS Role / Job Title">
+                  <input className="sp-input" value={data.cs_role||''} onChange={e => handleText('cs_role', e.target.value)} />
+                </Field>
+              </div>
+            )}
+          </div>
+
+          {/* 7. Interest Statement */}
+          <div className="sp-section sp-card sp-zone-student">
+            <SectionHeader title="Interest Statement" icon={<MessageSquare size={13} />}>
+              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
+            </SectionHeader>
+            {!editingInterest ? (
+              <div onClick={() => setEditingInterest(true)}
+                style={{ fontFamily:'Plus Jakarta Sans', fontSize:'13px', color:data.interest_statement?'#374151':'#9ca3af', lineHeight:1.6, padding:'10px 12px', borderRadius:'8px', border:'1px solid transparent', cursor:'text', minHeight:'80px', transition:'border-color 0.15s ease, background 0.15s ease' }}
+                onMouseEnter={e=>{ e.currentTarget.style.borderColor='#e5e7eb'; e.currentTarget.style.background='#f9fafb' }}
+                onMouseLeave={e=>{ e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent' }}>
+                {data.interest_statement || 'Click to add interest statement...'}
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <textarea value={interestDraft} onChange={e=>setInterestDraft(e.target.value)} autoFocus rows={5}
+                  style={{ width:'100%', padding:'10px 12px', border:'1px solid #0ea5e9', borderRadius:8, fontFamily:'Plus Jakarta Sans', fontSize:13, color:'#374151', lineHeight:1.6, resize:'vertical', outline:'none', boxSizing:'border-box' }} />
+                <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                  <button onClick={() => { setInterestDraft(data.interest_statement||''); setEditingInterest(false) }}
+                    style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #e5e7eb', background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontSize:12, cursor:'pointer' }}>Cancel</button>
+                  <button onClick={async () => { const err = await onUpdate(student.id, { interest_statement: interestDraft }); if (!err) setData(p=>({...p, interest_statement:interestDraft})); setEditingInterest(false) }}
+                    style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#0ea5e9', color:'#fff', fontFamily:'Plus Jakarta Sans', fontSize:12, fontWeight:600, cursor:'pointer' }}>Save</button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
 
           {/* 3c. Availability & Scheduling (AVAILABILITY-CANON-1C) - display only, two
               provenance-labeled sub-blocks: coordinator program constraints (cohort_school_rotations)
@@ -1819,32 +1802,148 @@ export default function StudentSidePanel({
             </div>
             )}
           </div>
+          </section>
 
-          {/* 4. Background and Affiliation */}
-          <div className="sp-section sp-card sp-zone-student">
-            <SectionHeader title="Background and Affiliation" icon={<Briefcase size={13} />}>
-              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
-            </SectionHeader>
-            <Field label="Prior Healthcare Experience">
-              <input className="sp-input" value={data.prior_healthcare_experience||''} onChange={e => handleText('prior_healthcare_experience', e.target.value)} placeholder="e.g. CNA, EMT" />
-            </Field>
-            <Field label="CS Affiliation">
-              <select className="sp-select" value={data.cs_affiliation||''} onChange={e => handleSelect('cs_affiliation', e.target.value)}>
-                <option value="">Select…</option>
-                {CS_AFFILIATIONS.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </Field>
-            {CS_WITH_DEPT.includes(data.cs_affiliation) && (
-              <div className="sp-grid-2">
-                <Field label="CS Department">
-                  <input className="sp-input" value={data.cs_department||''} onChange={e => handleText('cs_department', e.target.value)} />
-                </Field>
-                <Field label="CS Role / Job Title">
-                  <input className="sp-input" value={data.cs_role||''} onChange={e => handleText('cs_role', e.target.value)} />
-                </Field>
-              </div>
-            )}
-          </div>
+
+          {/* ── Placement ── */}
+          <section className="sc-sheet" id="sc-sheet-placement" data-sheet="placement" aria-label="Placement">
+            <div className="sc-sheet-label">Rotation placement</div>
+            <h2 className="sc-sheet-title">Placement</h2>
+
+          {/* 3b. Rotation Dates - STUDENT-PROFILE-CANON-1B: the single canonical placement-window
+              block, sourced from the coordinator-owned cohort_school_rotations row. Always rendered
+              (shows "pending review" when no linked/valid row) so it is the one date source of truth. */}
+          <div className="sp-section sp-card sp-zone-program">
+              <SectionHeader title="Rotation Dates" icon={<CalendarDays size={13} />}>
+                <SourceTag label="Source: Coordinator school form" tone="coordinator" />
+                {canEdit && rotationRow && !isSentinel && !editingRotation && (
+                  <button
+                    onClick={handleOpenRotationEdit}
+                    style={{ fontSize:11, fontWeight:600, padding:'2px 10px', borderRadius:6,
+                      background:'#f0f3ff', border:'1px solid #e0e7ff', color:'#1D2567',
+                      cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                    Edit
+                  </button>
+                )}
+              </SectionHeader>
+
+              {(rotationLoading && student.cohort_school_rotation_id) ? (
+                <div style={{ fontSize:12, color:'var(--text-caption,#6b7280)', fontFamily:'Plus Jakarta Sans' }}>Loading…</div>
+              ) : rotationPending ? (
+                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 12px',
+                  background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8,
+                  fontFamily:'Plus Jakarta Sans', fontSize:12.5, color:'#583733', fontWeight:600 }}>
+                  <span>&#9651;</span>
+                  Rotation Dates: Pending coordinator/admin review
+                </div>
+              ) : !editingRotation ? (
+                <>
+                  <div className="sp-grid-2">
+                    <div>
+                      <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                        textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>Start</div>
+                      <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
+                        {fmtRotDate(rotationRow?.rotation_start_date)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                        textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>End</div>
+                      <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
+                        {fmtRotDate(rotationRow?.rotation_end_date)}
+                      </div>
+                    </div>
+                    {rotationRow?.school_name && (
+                      <div style={{ gridColumn:'1 / -1' }}>
+                        <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                          textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>School</div>
+                        <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
+                          {rotationRow.school_name}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Coordinator provenance - this date window is coordinator-owned (school form). */}
+                  <div style={{ marginTop:8, fontSize:11, color:'var(--text-caption,#6b7280)',
+                    fontFamily:'Plus Jakarta Sans', fontStyle:'italic' }}>
+                    {rotationRow?.coordinator_name
+                      ? `Submitted by ${rotationRow.coordinator_name}${rotationRow.coordinator_email ? `, ${rotationRow.coordinator_email}` : ''}`
+                      : 'Coordinator-submitted via school form'}
+                  </div>
+                </>
+              ) : (
+                <div>
+                  {rotEditError && (
+                    <div style={{ fontSize:12, color:'#991b1b', background:'#fee2e2', border:'1px solid #fca5a5',
+                      borderRadius:6, padding:'6px 10px', marginBottom:8 }}>{rotEditError}</div>
+                  )}
+                  <div className="sp-grid-2" style={{ marginBottom:10 }}>
+                    <div>
+                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                        textTransform:'uppercase', letterSpacing:'0.06em', display:'block', marginBottom:4 }}>
+                        Start *
+                      </label>
+                      <input type="date" className="sp-input"
+                        value={rotEditStart} onChange={e => { setRotEditStart(e.target.value); setRotEditError(null) }}
+                        style={{ colorScheme:'light' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                        textTransform:'uppercase', letterSpacing:'0.06em', display:'block', marginBottom:4 }}>
+                        End *
+                      </label>
+                      <input type="date" className="sp-input"
+                        value={rotEditEnd} onChange={e => { setRotEditEnd(e.target.value); setRotEditError(null) }}
+                        style={{ colorScheme:'light' }} />
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button onClick={handleSaveRotationDates}
+                      style={{ padding:'6px 16px', background:'#1D2567', border:'none', borderRadius:8,
+                        fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:12, color:'#fff', cursor:'pointer' }}>
+                      Save
+                    </button>
+                    <button onClick={() => { setEditingRotation(false); setRotEditError(null) }}
+                      style={{ padding:'6px 14px', background:'#f9fafb', border:'1px solid #e5e7eb',
+                        borderRadius:8, fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:12,
+                        color:'#374151', cursor:'pointer' }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Confirmation modal: shows affected student count */}
+              {rotConfirmModal && (
+                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:2999,
+                  display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+                  <div style={{ background:'#fff', borderRadius:14, maxWidth:420, width:'100%',
+                    padding:'24px 24px 20px', fontFamily:'Plus Jakarta Sans, sans-serif',
+                    boxShadow:'0 20px 50px rgba(0,0,0,0.18)' }}>
+                    <div style={{ fontWeight:700, fontSize:15, color:'#1D2567', marginBottom:10 }}>
+                      Update rotation dates?
+                    </div>
+                    <p style={{ fontSize:13, color:'#374151', lineHeight:1.6, margin:'0 0 16px' }}>
+                      This will update rotation dates for{' '}
+                      <strong>{rotConfirmModal.count} student{rotConfirmModal.count !== 1 ? 's' : ''}</strong>
+                      {rotationRow?.school_name ? ` from ${rotationRow.school_name}` : ''}.
+                    </p>
+                    <div style={{ display:'flex', gap:10 }}>
+                      <button onClick={() => setRotConfirmModal(null)} disabled={rotSaving}
+                        style={{ flex:1, height:38, borderRadius:8, border:'1px solid #e5e7eb',
+                          background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:13,
+                          cursor:'pointer', color:'#374151' }}>Cancel</button>
+                      <button onClick={handleConfirmRotationSave} disabled={rotSaving}
+                        style={{ flex:1, height:38, borderRadius:8, border:'none',
+                          background:'#1D2567', fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:13,
+                          cursor:'pointer', color:'#fff' }}>
+                        {rotSaving ? 'Saving...' : 'Confirm'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
           {/* 5. Unit Placement Preferences */}
           <div className="sp-section sp-card sp-zone-student">
@@ -1867,285 +1966,6 @@ export default function StudentSidePanel({
               ))}
             </div>
           </div>
-
-          {/* 6. Documents */}
-          <div className="sp-section sp-card sp-zone-student">
-            <SectionHeader title="Documents" icon={<FileText size={13} />}>
-              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
-            </SectionHeader>
-            <div className="doc-section">
-              <div className="doc-upload-area">
-                <div className="doc-area-label">Resume</div>
-                <input ref={resumeRef} type="file" style={{ display:'none' }} accept=".pdf,.doc,.docx" onChange={e => handleResumeUpload(e.target.files[0])} />
-                {/* WAVE F-2: resume View/Download show for anyone who may view this
-                    student's files (active Owner/Admin any cohort, or an entitled active
-                    interviewer for this cohort). Upload/Replace stay Owner/Admin only.
-                    A caller who can neither view nor manage sees nothing at all, so file
-                    existence is never revealed. */}
-                {(data.resume_url && (canViewResume || canManageStudentFiles)) ? (
-                  <div className="doc-existing-file">
-                    {canViewResume && (
-                      <>
-                        <button type="button" className="doc-file-link" onClick={openResume} disabled={openingResume}
-                          style={{ background:'none', border:'none', padding:0, font:'inherit', textAlign:'left', cursor:'pointer' }}>
-                          {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
-                        </button>
-                        <button onClick={handleResumeDownload} disabled={dlResume}
-                          style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
-                          {dlResume ? '…' : '↓ Resume'}
-                        </button>
-                      </>
-                    )}
-                    {canManageStudentFiles && (
-                      <button className="doc-replace-btn" disabled={uploadingRes} onClick={() => resumeRef.current?.click()}>Replace</button>
-                    )}
-                  </div>
-                ) : (!data.resume_url && canManageStudentFiles) ? (
-                  <div className="doc-upload-zone" onClick={() => resumeRef.current?.click()}>
-                    <span className="doc-zone-icon">📄</span>
-                    <span className="doc-zone-text">Upload Resume (PDF/Word, max 10MB)</span>
-                    <button type="button" className="doc-zone-btn" onClick={e=>{ e.stopPropagation(); resumeRef.current?.click() }}>Choose File</button>
-                  </div>
-                ) : null}
-                {uploadingRes && <span className="doc-status doc-uploading">Uploading…</span>}
-                {resumeMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
-                {resumeMsg && resumeMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{resumeMsg}</span>}
-              </div>
-              <div className="doc-upload-area">
-                <div className="doc-area-label">Headshot</div>
-                <input ref={headshotRef} type="file" style={{ display:'none' }} accept=".jpg,.jpeg,.png" onChange={e => handleHeadshotUpload(e.target.files[0])} />
-                {(data.headshot_url && (canViewPhoto || canManageStudentFiles)) ? (
-                  <div className="doc-existing-file">
-                    {headshotSignedUrl && <img src={headshotSignedUrl} alt="Headshot" className="doc-headshot-preview" />}
-                    {/* Badge generation is active Owner/Admin only (canGenerateBadge). An
-                        entitled interviewer may view the photo but never the badge, and sees
-                        the exact restriction message in its place. */}
-                    {canGenerateBadge ? (
-                      <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
-                      <button
-                        onClick={handleDownloadBadge}
-                        disabled={!!badgeDisabledReason || generatingBadge}
-                        aria-label={badgeDisabledReason || 'Download badge'}
-                        style={{
-                          background: badgeDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
-                          border: badgeDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
-                          color: badgeDisabledReason ? '#9ca3af' : '#fff',
-                          fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
-                          cursor: (badgeDisabledReason || generatingBadge) ? 'not-allowed' : 'pointer',
-                          flexShrink:0, fontFamily:'Plus Jakarta Sans,sans-serif',
-                        }}>
-                        {generatingBadge ? 'Generating...' : 'Download Badge'}
-                      </button>
-                      </Tooltip>
-                    ) : canViewPhoto ? (
-                      <span className="doc-badge-restricted" style={{ fontSize:11, color:'#6b7280', fontStyle:'italic' }}>
-                        Badge generation/view restricted to Owner/Admin.
-                      </span>
-                    ) : null}
-                    {canManageStudentFiles && (
-                      <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
-                    )}
-                  </div>
-                ) : (!data.headshot_url && canManageStudentFiles) ? (
-                  <div className="doc-upload-zone" onClick={() => headshotRef.current?.click()}>
-                    <span className="doc-zone-icon">🖼</span>
-                    <span className="doc-zone-text">Upload Headshot (JPG/PNG, max 5MB)</span>
-                    <button type="button" className="doc-zone-btn" onClick={e=>{ e.stopPropagation(); headshotRef.current?.click() }}>Choose File</button>
-                  </div>
-                ) : null}
-                {uploadingHead && <span className="doc-status doc-uploading">Uploading…</span>}
-                {headMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
-                {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
-              </div>
-
-              {/* Download Certificate of Completion - Owner/Admin. Enabled once the certificate
-                  is unlocked (post-rotation evaluation submitted); disabled with a tooltip otherwise. */}
-              {canEdit && (
-                <div className="doc-upload-area">
-                  <div className="doc-area-label">Certificate of Completion</div>
-                  <Tooltip label={certDisabledReason || 'Download the Certificate of Completion'} placement="top">
-                    <button
-                      onClick={handleDownloadCertificate}
-                      disabled={!!certDisabledReason || downloadingCert}
-                      aria-label={certDisabledReason || 'Download Certificate of Completion'}
-                      style={{
-                        background: certDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
-                        border: certDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
-                        color: certDisabledReason ? '#9ca3af' : '#fff',
-                        fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
-                        cursor: (certDisabledReason || downloadingCert) ? 'not-allowed' : 'pointer',
-                        fontFamily:'Plus Jakarta Sans,sans-serif',
-                      }}>
-                      {downloadingCert ? 'Preparing…' : 'Download Certificate of Completion'}
-                    </button>
-                  </Tooltip>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 7. Interest Statement */}
-          <div className="sp-section sp-card sp-zone-student">
-            <SectionHeader title="Interest Statement" icon={<MessageSquare size={13} />}>
-              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
-            </SectionHeader>
-            {!editingInterest ? (
-              <div onClick={() => setEditingInterest(true)}
-                style={{ fontFamily:'Plus Jakarta Sans', fontSize:'13px', color:data.interest_statement?'#374151':'#9ca3af', lineHeight:1.6, padding:'10px 12px', borderRadius:'8px', border:'1px solid transparent', cursor:'text', minHeight:'80px', transition:'border-color 0.15s ease, background 0.15s ease' }}
-                onMouseEnter={e=>{ e.currentTarget.style.borderColor='#e5e7eb'; e.currentTarget.style.background='#f9fafb' }}
-                onMouseLeave={e=>{ e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent' }}>
-                {data.interest_statement || 'Click to add interest statement...'}
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                <textarea value={interestDraft} onChange={e=>setInterestDraft(e.target.value)} autoFocus rows={5}
-                  style={{ width:'100%', padding:'10px 12px', border:'1px solid #0ea5e9', borderRadius:8, fontFamily:'Plus Jakarta Sans', fontSize:13, color:'#374151', lineHeight:1.6, resize:'vertical', outline:'none', boxSizing:'border-box' }} />
-                <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
-                  <button onClick={() => { setInterestDraft(data.interest_statement||''); setEditingInterest(false) }}
-                    style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #e5e7eb', background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontSize:12, cursor:'pointer' }}>Cancel</button>
-                  <button onClick={async () => { const err = await onUpdate(student.id, { interest_statement: interestDraft }); if (!err) setData(p=>({...p, interest_statement:interestDraft})); setEditingInterest(false) }}
-                    style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#0ea5e9', color:'#fff', fontFamily:'Plus Jakarta Sans', fontSize:12, fontWeight:600, cursor:'pointer' }}>Save</button>
-                </div>
-              </div>
-            )}
-          </div>
-
-
-          {/* 8. CS-Link Access Workflow - editors only */}
-          {canEdit && <div className="sp-section sp-card sp-zone-admin">
-            <SectionHeader title="CS-Link Access" icon={<CheckCircle2 size={13} />}>
-              <SourceTag label="Source: ASPIRE/admin" tone="admin" />
-              <span style={{ fontSize:11, fontWeight:600, padding:'2px 9px', borderRadius:20, background:csStatusCfg.bg, color:csStatusCfg.text }}>
-                {csStatusCfg.label}
-              </span>
-            </SectionHeader>
-
-            {/* Step 1: Cedars-Sinai History */}
-            <div className="csw-step">
-              <div className="csw-step-label">Step 1: Cedars-Sinai Status</div>
-              <select className="sp-select" value={data.cs_cedars_status||''}
-                onChange={e => {
-                  const v = e.target.value
-                  // CSLINK-SERVICENOW-1: every status, employees included, starts at Step 2.
-                  const extras = stage1ResetFor(v)
-                  setData(p => ({ ...p, cs_cedars_status:v, ...extras }))
-                  onUpdate(student.id, { cs_cedars_status:v, ...extras })
-                }}>
-                <option value="">Select status…</option>
-                {CEDARS_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Step 2: Stage 1 Action */}
-            {data.cs_cedars_status && (
-              <div className={`csw-step${!data.cs_cedars_status ? ' csw-step-dim' : ''}`}>
-                <div className="csw-step-label">Step 2: Service Center Request</div>
-
-                {/* CSLINK-SERVICENOW-1: each request is a tickbox beside its ServiceNow link. The
-                    link only opens the form; the tick records that the request was sent. */}
-                {isLegacyNotApplicable(data) ? (
-                  <div className="csw-info-green">Not required. This record was marked complete when current employees skipped this step.</div>
-                ) : (
-                  <>
-                    <p className="csw-note" style={{ marginTop:0, marginBottom:8 }}>
-                      {data.cs_cedars_status === 'new'
-                        ? 'Submit an Add Non-Employee request in ServiceNow, then tick it.'
-                        : 'Submit an Update or Reactivate Non-Employee request in ServiceNow, then tick the one you sent.'}
-                    </p>
-                    {stage1RequestsFor(data.cs_cedars_status).map(action => {
-                      const on = tickedStage1Request(data) === action
-                      return (
-                        <div key={action} className="csw-check-row" style={{ marginTop:6 }}>
-                          <input type="checkbox" checked={on}
-                            aria-label={`${STAGE1_REQUESTS[action].label} submitted`}
-                            onChange={() => handleCsRequest(action)}
-                            style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
-                          <ServiceNowLink href={STAGE1_REQUESTS[action].href}>{STAGE1_REQUESTS[action].label}</ServiceNowLink>
-                          {on && (
-                            <CsLinkDateField value={data.cs_stage1_submitted_date}
-                              onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
-                          )}
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Step 3: Account Active Confirmation */}
-            {data.cs_stage1_submitted && (
-              <div className="csw-step">
-                <div className="csw-step-label">Step 3: Contingent Worker Account Active</div>
-                {isLegacyNotApplicable(data) ? (
-                  <div className="csw-info-gray">Not applicable: marked complete when current employees skipped this step.</div>
-                ) : (
-                  <>
-                    <div className="csw-check-row">
-                      <label className="csw-check-label">
-                        <input type="checkbox" checked={data.cs_stage1_complete||false}
-                          onChange={e => handleCsTick('cs_stage1_complete', e.target.checked)}
-                          style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
-                        Account is active in the system
-                      </label>
-                      {data.cs_stage1_complete && (
-                        <CsLinkDateField value={data.cs_stage1_complete_date}
-                          onChange={e => handleText('cs_stage1_complete_date', e.target.value)} />
-                      )}
-                    </div>
-                    <p className="csw-note">Confirm the Service Center request was processed and the student's account is active before adding CS-Link.</p>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Step 4: CS-Link Access */}
-            {data.cs_stage1_complete && (
-              <div className="csw-step">
-                <div className="csw-step-label">Step 4: Add CS-Link Access</div>
-                <div className="csw-check-row">
-                  {/* CSLINK-SERVICENOW-1: unticked, the label is a link to the ServiceNow cart. */}
-                  <input type="checkbox" id={`sp-cs-req-${student.id}`} aria-label="CS-Link access requested"
-                    checked={data.cs_link_requested||false}
-                    onChange={e => handleCsTick('cs_link_requested', e.target.checked)}
-                    style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
-                  {data.cs_link_requested
-                    ? <label htmlFor={`sp-cs-req-${student.id}`} className="csw-check-label">CS-Link access requested</label>
-                    : <ServiceNowLink href={SERVICENOW_LINKS.csLinkRequest}>Request CS-Link access</ServiceNowLink>}
-                  {data.cs_link_requested && (
-                    <CsLinkDateField value={data.cs_link_requested_date}
-                      onChange={e => handleText('cs_link_requested_date', e.target.value)} />
-                  )}
-                </div>
-                {data.cs_link_requested && (
-                  <div className="csw-check-row" style={{ marginTop:6 }}>
-                    <label className="csw-check-label">
-                      <input type="checkbox" checked={data.cs_link_complete||false}
-                        onChange={e => handleCsTick('cs_link_complete', e.target.checked)}
-                        style={{ accentColor:'#16a34a', width:14, height:14 }} />
-                      CS-Link confirmed active and working
-                    </label>
-                    {data.cs_link_complete && (
-                      <CsLinkDateField value={data.cs_link_complete_date}
-                        onChange={e => handleText('cs_link_complete_date', e.target.value)} />
-                    )}
-                  </div>
-                )}
-                <p className="csw-note">Only mark as complete once the student has confirmed their CS-Link access is working.</p>
-                {data.cs_link_complete && (
-                  <div className="csw-success-banner">✓ Access setup complete for this student.</div>
-                )}
-              </div>
-            )}
-
-            {/* Notes */}
-            <div style={{ marginTop:12 }}>
-              <Field label="Access Notes">
-                <textarea className="sp-textarea" rows={2} value={data.cs_access_notes||''}
-                  onChange={e => handleText('cs_access_notes', e.target.value)} placeholder="Add notes…" />
-              </Field>
-            </div>
-          </div>}
 
           {/* 9. Placement and Outcomes */}
           <div className="sp-section sp-card sp-zone-admin">
@@ -2291,6 +2111,432 @@ export default function StudentSidePanel({
               {data.badge_created && <span style={{ fontSize:12, color:'#166534', fontWeight:600 }}>✓ Badge Created</span>}
             </label>
           </div>
+          </section>
+
+
+          {/* ── Hours ── */}
+          <section className="sc-sheet" id="sc-sheet-hours" data-sheet="hours" aria-label="Hours">
+            <div className="sc-sheet-label">Clinical hours</div>
+            <h2 className="sc-sheet-title">Hours</h2>
+
+
+          {/* Clinical Hours */}
+          <div className="sp-section">
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:700, fontSize:12, color:'#374151', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                Clinical Hours
+              </span>
+              <SyncIndicator display={hoursSyncDisplay} align="right" />
+            </div>
+            {/* ROTATION-ACTIVITY-CLINICAL-HOURS-DETAILS: extracted to the shared ClinicalHoursPanel
+                (totals + shift-log table + Shift Details modal). Same component now also powers
+                Rotation > Activity > Active Rotation Progress. */}
+            <ClinicalHoursPanel
+                  student={data}
+                  shiftLogs={shiftLogs}
+                  /* SHIFT-LOG-REVIEW-1: a decision's authoritative totals land in
+                     the panel's LOCAL copy immediately AND in App's canonical
+                     students state (the callback threaded from App). */
+                  onReviewDecided={(result) => {
+                    const approved = parseFloat(result?.approved_hours)
+                    const pending = parseFloat(result?.pending_hours)
+                    if (Number.isFinite(approved) && Number.isFinite(pending)) {
+                      setData(d => ({ ...d, approved_hours: approved, pending_hours: pending }))
+                    }
+                    onReviewDecided?.(result)
+                  }}
+                />
+          </div>
+          </section>
+
+
+          {/* ── Documents ── */}
+          <section className="sc-sheet" id="sc-sheet-documents" data-sheet="documents" aria-label="Documents">
+            <div className="sc-sheet-label">Documents and access</div>
+            <h2 className="sc-sheet-title">Documents</h2>
+
+          {/* 6. Documents */}
+          <div className="sp-section sp-card sp-zone-student">
+            <SectionHeader title="Documents" icon={<FileText size={13} />}>
+              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
+            </SectionHeader>
+            <div className="doc-section">
+              <div className="doc-upload-area">
+                <div className="doc-area-label">Resume</div>
+                <input ref={resumeRef} type="file" style={{ display:'none' }} accept=".pdf,.doc,.docx" onChange={e => handleResumeUpload(e.target.files[0])} />
+                {/* WAVE F-2: resume View/Download show for anyone who may view this
+                    student's files (active Owner/Admin any cohort, or an entitled active
+                    interviewer for this cohort). Upload/Replace stay Owner/Admin only.
+                    A caller who can neither view nor manage sees nothing at all, so file
+                    existence is never revealed. */}
+                {(data.resume_url && (canViewResume || canManageStudentFiles)) ? (
+                  <div className="doc-existing-file">
+                    {canViewResume && (
+                      <>
+                        <button type="button" className="doc-file-link" onClick={openResume} disabled={openingResume}
+                          style={{ background:'none', border:'none', padding:0, font:'inherit', textAlign:'left', cursor:'pointer' }}>
+                          {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
+                        </button>
+                        <button onClick={handleResumeDownload} disabled={dlResume}
+                          style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
+                          {dlResume ? '…' : '↓ Resume'}
+                        </button>
+                      </>
+                    )}
+                    {canManageStudentFiles && (
+                      <button className="doc-replace-btn" disabled={uploadingRes} onClick={() => resumeRef.current?.click()}>Replace</button>
+                    )}
+                  </div>
+                ) : (!data.resume_url && canManageStudentFiles) ? (
+                  <div className="doc-upload-zone" onClick={() => resumeRef.current?.click()}>
+                    <span className="doc-zone-icon">📄</span>
+                    <span className="doc-zone-text">Upload Resume (PDF/Word, max 10MB)</span>
+                    <button type="button" className="doc-zone-btn" onClick={e=>{ e.stopPropagation(); resumeRef.current?.click() }}>Choose File</button>
+                  </div>
+                ) : null}
+                {uploadingRes && <span className="doc-status doc-uploading">Uploading…</span>}
+                {resumeMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
+                {resumeMsg && resumeMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{resumeMsg}</span>}
+              </div>
+              <div className="doc-upload-area">
+                <div className="doc-area-label">Headshot</div>
+                <input ref={headshotRef} type="file" style={{ display:'none' }} accept=".jpg,.jpeg,.png" onChange={e => handleHeadshotUpload(e.target.files[0])} />
+                {(data.headshot_url && (canViewPhoto || canManageStudentFiles)) ? (
+                  <div className="doc-existing-file">
+                    {headshotSignedUrl && <img src={headshotSignedUrl} alt="Headshot" className="doc-headshot-preview" />}
+                    {/* Badge generation is active Owner/Admin only (canGenerateBadge). An
+                        entitled interviewer may view the photo but never the badge, and sees
+                        the exact restriction message in its place. */}
+                    {canGenerateBadge ? (
+                      <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
+                      <button
+                        onClick={handleDownloadBadge}
+                        disabled={!!badgeDisabledReason || generatingBadge}
+                        aria-label={badgeDisabledReason || 'Download badge'}
+                        style={{
+                          background: badgeDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
+                          border: badgeDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
+                          color: badgeDisabledReason ? '#9ca3af' : '#fff',
+                          fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
+                          cursor: (badgeDisabledReason || generatingBadge) ? 'not-allowed' : 'pointer',
+                          flexShrink:0, fontFamily:'Plus Jakarta Sans,sans-serif',
+                        }}>
+                        {generatingBadge ? 'Generating...' : 'Download Badge'}
+                      </button>
+                      </Tooltip>
+                    ) : canViewPhoto ? (
+                      <span className="doc-badge-restricted" style={{ fontSize:11, color:'#6b7280', fontStyle:'italic' }}>
+                        Badge generation/view restricted to Owner/Admin.
+                      </span>
+                    ) : null}
+                    {canManageStudentFiles && (
+                      <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
+                    )}
+                  </div>
+                ) : (!data.headshot_url && canManageStudentFiles) ? (
+                  <div className="doc-upload-zone" onClick={() => headshotRef.current?.click()}>
+                    <span className="doc-zone-icon">🖼</span>
+                    <span className="doc-zone-text">Upload Headshot (JPG/PNG, max 5MB)</span>
+                    <button type="button" className="doc-zone-btn" onClick={e=>{ e.stopPropagation(); headshotRef.current?.click() }}>Choose File</button>
+                  </div>
+                ) : null}
+                {uploadingHead && <span className="doc-status doc-uploading">Uploading…</span>}
+                {headMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
+                {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
+              </div>
+
+              {/* Download Certificate of Completion - Owner/Admin. Enabled once the certificate
+                  is unlocked (post-rotation evaluation submitted); disabled with a tooltip otherwise. */}
+              {canEdit && (
+                <div className="doc-upload-area">
+                  <div className="doc-area-label">Certificate of Completion</div>
+                  <Tooltip label={certDisabledReason || 'Download the Certificate of Completion'} placement="top">
+                    <button
+                      onClick={handleDownloadCertificate}
+                      disabled={!!certDisabledReason || downloadingCert}
+                      aria-label={certDisabledReason || 'Download Certificate of Completion'}
+                      style={{
+                        background: certDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
+                        border: certDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
+                        color: certDisabledReason ? '#9ca3af' : '#fff',
+                        fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
+                        cursor: (certDisabledReason || downloadingCert) ? 'not-allowed' : 'pointer',
+                        fontFamily:'Plus Jakarta Sans,sans-serif',
+                      }}>
+                      {downloadingCert ? 'Preparing…' : 'Download Certificate of Completion'}
+                    </button>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
+          </div>
+
+
+          {/* 8. CS-Link Access Workflow - editors only */}
+          {canEdit && <div className="sp-section sp-card sp-zone-admin">
+            <SectionHeader title="CS-Link Access" icon={<CheckCircle2 size={13} />}>
+              <SourceTag label="Source: ASPIRE/admin" tone="admin" />
+              <span style={{ fontSize:11, fontWeight:600, padding:'2px 9px', borderRadius:20, background:csStatusCfg.bg, color:csStatusCfg.text }}>
+                {csStatusCfg.label}
+              </span>
+            </SectionHeader>
+
+            {/* Step 1: Cedars-Sinai History */}
+            <div className="csw-step">
+              <div className="csw-step-label">Step 1: Cedars-Sinai Status</div>
+              <select className="sp-select" value={data.cs_cedars_status||''}
+                onChange={e => {
+                  const v = e.target.value
+                  // CSLINK-SERVICENOW-1: every status, employees included, starts at Step 2.
+                  const extras = stage1ResetFor(v)
+                  setData(p => ({ ...p, cs_cedars_status:v, ...extras }))
+                  onUpdate(student.id, { cs_cedars_status:v, ...extras })
+                }}>
+                <option value="">Select status…</option>
+                {CEDARS_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            {/* Step 2: Stage 1 Action */}
+            {data.cs_cedars_status && (
+              <div className={`csw-step${!data.cs_cedars_status ? ' csw-step-dim' : ''}`}>
+                <div className="csw-step-label">Step 2: Service Center Request</div>
+
+                {/* CSLINK-SERVICENOW-1: each request is a tickbox beside its ServiceNow link. The
+                    link only opens the form; the tick records that the request was sent. */}
+                {isLegacyNotApplicable(data) ? (
+                  <div className="csw-info-green">Not required. This record was marked complete when current employees skipped this step.</div>
+                ) : (
+                  <>
+                    <p className="csw-note" style={{ marginTop:0, marginBottom:8 }}>
+                      {data.cs_cedars_status === 'new'
+                        ? 'Submit an Add Non-Employee request in ServiceNow, then tick it.'
+                        : 'Submit an Update or Reactivate Non-Employee request in ServiceNow, then tick the one you sent.'}
+                    </p>
+                    {stage1RequestsFor(data.cs_cedars_status).map(action => {
+                      const on = tickedStage1Request(data) === action
+                      return (
+                        <div key={action} className="csw-check-row" style={{ marginTop:6 }}>
+                          <input type="checkbox" checked={on}
+                            aria-label={`${STAGE1_REQUESTS[action].label} submitted`}
+                            onChange={() => handleCsRequest(action)}
+                            style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                          <ServiceNowLink href={STAGE1_REQUESTS[action].href}>{STAGE1_REQUESTS[action].label}</ServiceNowLink>
+                          {on && (
+                            <CsLinkDateField value={data.cs_stage1_submitted_date}
+                              onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Account Active Confirmation */}
+            {data.cs_stage1_submitted && (
+              <div className="csw-step">
+                <div className="csw-step-label">Step 3: Contingent Worker Account Active</div>
+                {isLegacyNotApplicable(data) ? (
+                  <div className="csw-info-gray">Not applicable: marked complete when current employees skipped this step.</div>
+                ) : (
+                  <>
+                    <div className="csw-check-row">
+                      <label className="csw-check-label">
+                        <input type="checkbox" checked={data.cs_stage1_complete||false}
+                          onChange={e => handleCsTick('cs_stage1_complete', e.target.checked)}
+                          style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                        Account is active in the system
+                      </label>
+                      {data.cs_stage1_complete && (
+                        <CsLinkDateField value={data.cs_stage1_complete_date}
+                          onChange={e => handleText('cs_stage1_complete_date', e.target.value)} />
+                      )}
+                    </div>
+                    <p className="csw-note">Confirm the Service Center request was processed and the student's account is active before adding CS-Link.</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Step 4: CS-Link Access */}
+            {data.cs_stage1_complete && (
+              <div className="csw-step">
+                <div className="csw-step-label">Step 4: Add CS-Link Access</div>
+                <div className="csw-check-row">
+                  {/* CSLINK-SERVICENOW-1: unticked, the label is a link to the ServiceNow cart. */}
+                  <input type="checkbox" id={`sp-cs-req-${student.id}`} aria-label="CS-Link access requested"
+                    checked={data.cs_link_requested||false}
+                    onChange={e => handleCsTick('cs_link_requested', e.target.checked)}
+                    style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                  {data.cs_link_requested
+                    ? <label htmlFor={`sp-cs-req-${student.id}`} className="csw-check-label">CS-Link access requested</label>
+                    : <ServiceNowLink href={SERVICENOW_LINKS.csLinkRequest}>Request CS-Link access</ServiceNowLink>}
+                  {data.cs_link_requested && (
+                    <CsLinkDateField value={data.cs_link_requested_date}
+                      onChange={e => handleText('cs_link_requested_date', e.target.value)} />
+                  )}
+                </div>
+                {data.cs_link_requested && (
+                  <div className="csw-check-row" style={{ marginTop:6 }}>
+                    <label className="csw-check-label">
+                      <input type="checkbox" checked={data.cs_link_complete||false}
+                        onChange={e => handleCsTick('cs_link_complete', e.target.checked)}
+                        style={{ accentColor:'#16a34a', width:14, height:14 }} />
+                      CS-Link confirmed active and working
+                    </label>
+                    {data.cs_link_complete && (
+                      <CsLinkDateField value={data.cs_link_complete_date}
+                        onChange={e => handleText('cs_link_complete_date', e.target.value)} />
+                    )}
+                  </div>
+                )}
+                <p className="csw-note">Only mark as complete once the student has confirmed their CS-Link access is working.</p>
+                {data.cs_link_complete && (
+                  <div className="csw-success-banner">✓ Access setup complete for this student.</div>
+                )}
+              </div>
+            )}
+
+            {/* Notes */}
+            <div style={{ marginTop:12 }}>
+              <Field label="Access Notes">
+                <textarea className="sp-textarea" rows={2} value={data.cs_access_notes||''}
+                  onChange={e => handleText('cs_access_notes', e.target.value)} placeholder="Add notes…" />
+              </Field>
+            </div>
+          </div>}
+          </section>
+
+
+          {/* ── Evaluations ── */}
+          <section className="sc-sheet" id="sc-sheet-evaluations" data-sheet="evaluations" aria-label="Evaluations">
+            <div className="sc-sheet-label">Rubrics and reviews</div>
+            <h2 className="sc-sheet-title">Evaluations</h2>
+            <ChartEvaluations studentId={student.id} canRead={canEdit} />
+          </section>
+
+
+          {/* ── Notes ── */}
+          <section className="sc-sheet" id="sc-sheet-notes" data-sheet="notes" aria-label="Notes">
+            <div className="sc-sheet-label">Record of contact</div>
+            <h2 className="sc-sheet-title">Notes</h2>
+
+          {/* 10. Notes */}
+          <div className="sp-section sp-card sp-zone-records">
+            <SectionHeader title="Notes" icon={<ClipboardList size={13} />} />
+            <Field label="" fieldKey="notes">
+              <textarea className="sp-textarea" rows={4} value={data.notes||''} onChange={e => handleText('notes', e.target.value)} placeholder="Add notes…" />
+            </Field>
+          </div>
+
+          {/* Program Timeline - data collection in program_events continues; UI not rendered */}
+          {false && <div className="sp-section">
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                Program Timeline
+              </div>
+              <button onClick={() => setShowEventForm(p => !p)}
+                style={{ fontSize:12, color:'var(--nightfall)', background:'none', border:'1px solid var(--nightfall)', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                {showEventForm ? 'Cancel' : '+ Add Event'}
+              </button>
+            </div>
+
+            {showEventForm && (
+              <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:8, padding:12, marginBottom:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                  <div>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Event Type</label>
+                    <select className="sp-select" value={newEvent.event_type}
+                      onChange={e => setNewEvent(p => ({ ...p, event_type: e.target.value }))}>
+                      {EVENT_TYPES.filter(t => t.manual).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Date *</label>
+                    <input className="sp-input" type="date" value={newEvent.event_date}
+                      onChange={e => setNewEvent(p => ({ ...p, event_date: e.target.value }))} />
+                  </div>
+                </div>
+                <div style={{ marginBottom:8 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Time (optional)</label>
+                  <input className="sp-input" type="time" value={newEvent.event_time}
+                    onChange={e => setNewEvent(p => ({ ...p, event_time: e.target.value }))} style={{ maxWidth:130 }} />
+                </div>
+                <div style={{ marginBottom:10 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Notes (optional)</label>
+                  <input className="sp-input" type="text" value={newEvent.notes}
+                    onChange={e => setNewEvent(p => ({ ...p, notes: e.target.value }))} placeholder="Optional note…" />
+                </div>
+                <button onClick={handleAddEvent} disabled={!newEvent.event_date || savingEvent}
+                  style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:6, padding:'6px 14px', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+                  {savingEvent ? 'Saving…' : 'Save Event'}
+                </button>
+              </div>
+            )}
+
+            {studentEvents.length === 0 ? (
+              <p style={{ fontSize:13, color:'#9ca3af', fontStyle:'italic', margin:0 }}>No events logged yet.</p>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {studentEvents.map(ev => (
+                  <div key={ev.id} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+                    <div style={{ width:10, height:10, borderRadius:'50%', background:getEventColor(ev.event_type), marginTop:3, flexShrink:0 }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#1d2567', fontFamily:'Plus Jakarta Sans,sans-serif', display:'flex', alignItems:'center', gap:4 }}>
+                        {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
+                        {ev.created_by === 'system' && (
+                          <span style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, fontWeight:600, background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd', borderRadius:4, padding:'1px 5px', textTransform:'uppercase', letterSpacing:'0.05em' }}>Auto</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize:12, color:'#6b7280', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                        {ev.event_date}{ev.event_time ? ` · ${ev.event_time}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}
+                      </div>
+                    </div>
+                    <Tooltip label="Delete event" placement="top">
+                    <button onClick={() => handleDeleteEvent(ev.id)}
+                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d1d5db', padding:'0 2px', lineHeight:1 }}
+                      aria-label="Delete event"
+                      onMouseEnter={e => e.currentTarget.style.color='#991b1b'}
+                      onMouseLeave={e => e.currentTarget.style.color='#d1d5db'}>✕</button>
+                    </Tooltip>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>}
+
+          {/* Communication History (Phase D.2) - recent notification_log sends, all-time, latest 5 */}
+          {/* STUDENT-PROFILE-UX-1B: wrapped as a records-zone card to match Notes (styling only). */}
+          <div className="sp-section sp-card sp-zone-records">
+            <SectionHeader title="Recent Communications" icon={<MessageSquare size={13} />} />
+            {recentComms.length === 0 ? (
+              <div style={{ fontSize:12, color:'var(--text-secondary,#6b7280)', fontFamily:'Plus Jakarta Sans,sans-serif', padding:'2px 0 8px' }}>
+                No communications recorded yet for this student.
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
+                {recentComms.map(c => (
+                  <div key={c.id} style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#374151', fontFamily:'Plus Jakarta Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {c.subject || commTypeLabel(c.notification_type)}
+                    </div>
+                    <div style={{ fontSize:11, color:'#9ca3af', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                      {commTypeLabel(c.notification_type)} · {c.status || 'unknown'} · {fmtCommDate(c.sent_at)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => navigate(`/connect/outreach?tab=sent_history&student_id=${student.id}`)}
+              style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:11, fontWeight:600, color:'#1D2567', fontFamily:'Plus Jakarta Sans,sans-serif' }}
+            >
+              View all communications for this student →
+            </button>
+          </div>
+
 
           {/* ── Program Disposition (Phase 2B.2b) ─────────────────────────── */}
           <div className="sp-section sp-card sp-zone-admin">
@@ -2574,151 +2820,10 @@ export default function StudentSidePanel({
               </div>
             )}
           </div>
+          </section>
 
-
-          {/* Clinical Hours */}
-          <div className="sp-section">
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:700, fontSize:12, color:'#374151', textTransform:'uppercase', letterSpacing:'0.05em' }}>
-                Clinical Hours
-              </span>
-              <SyncIndicator display={hoursSyncDisplay} align="right" />
-            </div>
-            {/* ROTATION-ACTIVITY-CLINICAL-HOURS-DETAILS: extracted to the shared ClinicalHoursPanel
-                (totals + shift-log table + Shift Details modal). Same component now also powers
-                Rotation > Activity > Active Rotation Progress. */}
-            <ClinicalHoursPanel
-                  student={data}
-                  shiftLogs={shiftLogs}
-                  /* SHIFT-LOG-REVIEW-1: a decision's authoritative totals land in
-                     the panel's LOCAL copy immediately AND in App's canonical
-                     students state (the callback threaded from App). */
-                  onReviewDecided={(result) => {
-                    const approved = parseFloat(result?.approved_hours)
-                    const pending = parseFloat(result?.pending_hours)
-                    if (Number.isFinite(approved) && Number.isFinite(pending)) {
-                      setData(d => ({ ...d, approved_hours: approved, pending_hours: pending }))
-                    }
-                    onReviewDecided?.(result)
-                  }}
-                />
-          </div>
-
-          {/* 10. Notes */}
-          <div className="sp-section sp-card sp-zone-records">
-            <SectionHeader title="Notes" icon={<ClipboardList size={13} />} />
-            <Field label="" fieldKey="notes">
-              <textarea className="sp-textarea" rows={4} value={data.notes||''} onChange={e => handleText('notes', e.target.value)} placeholder="Add notes…" />
-            </Field>
-          </div>
-
-          {/* Program Timeline - data collection in program_events continues; UI not rendered */}
-          {false && <div className="sp-section">
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
-                Program Timeline
-              </div>
-              <button onClick={() => setShowEventForm(p => !p)}
-                style={{ fontSize:12, color:'var(--nightfall)', background:'none', border:'1px solid var(--nightfall)', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
-                {showEventForm ? 'Cancel' : '+ Add Event'}
-              </button>
-            </div>
-
-            {showEventForm && (
-              <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:8, padding:12, marginBottom:12 }}>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
-                  <div>
-                    <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Event Type</label>
-                    <select className="sp-select" value={newEvent.event_type}
-                      onChange={e => setNewEvent(p => ({ ...p, event_type: e.target.value }))}>
-                      {EVENT_TYPES.filter(t => t.manual).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Date *</label>
-                    <input className="sp-input" type="date" value={newEvent.event_date}
-                      onChange={e => setNewEvent(p => ({ ...p, event_date: e.target.value }))} />
-                  </div>
-                </div>
-                <div style={{ marginBottom:8 }}>
-                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Time (optional)</label>
-                  <input className="sp-input" type="time" value={newEvent.event_time}
-                    onChange={e => setNewEvent(p => ({ ...p, event_time: e.target.value }))} style={{ maxWidth:130 }} />
-                </div>
-                <div style={{ marginBottom:10 }}>
-                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Notes (optional)</label>
-                  <input className="sp-input" type="text" value={newEvent.notes}
-                    onChange={e => setNewEvent(p => ({ ...p, notes: e.target.value }))} placeholder="Optional note…" />
-                </div>
-                <button onClick={handleAddEvent} disabled={!newEvent.event_date || savingEvent}
-                  style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:6, padding:'6px 14px', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:13, cursor:'pointer' }}>
-                  {savingEvent ? 'Saving…' : 'Save Event'}
-                </button>
-              </div>
-            )}
-
-            {studentEvents.length === 0 ? (
-              <p style={{ fontSize:13, color:'#9ca3af', fontStyle:'italic', margin:0 }}>No events logged yet.</p>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {studentEvents.map(ev => (
-                  <div key={ev.id} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
-                    <div style={{ width:10, height:10, borderRadius:'50%', background:getEventColor(ev.event_type), marginTop:3, flexShrink:0 }} />
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#1d2567', fontFamily:'Plus Jakarta Sans,sans-serif', display:'flex', alignItems:'center', gap:4 }}>
-                        {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
-                        {ev.created_by === 'system' && (
-                          <span style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, fontWeight:600, background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd', borderRadius:4, padding:'1px 5px', textTransform:'uppercase', letterSpacing:'0.05em' }}>Auto</span>
-                        )}
-                      </div>
-                      <div style={{ fontSize:12, color:'#6b7280', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
-                        {ev.event_date}{ev.event_time ? ` · ${ev.event_time}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}
-                      </div>
-                    </div>
-                    <Tooltip label="Delete event" placement="top">
-                    <button onClick={() => handleDeleteEvent(ev.id)}
-                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d1d5db', padding:'0 2px', lineHeight:1 }}
-                      aria-label="Delete event"
-                      onMouseEnter={e => e.currentTarget.style.color='#991b1b'}
-                      onMouseLeave={e => e.currentTarget.style.color='#d1d5db'}>✕</button>
-                    </Tooltip>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>}
-
-          {/* Communication History (Phase D.2) - recent notification_log sends, all-time, latest 5 */}
-          {/* STUDENT-PROFILE-UX-1B: wrapped as a records-zone card to match Notes (styling only). */}
-          <div className="sp-section sp-card sp-zone-records">
-            <SectionHeader title="Recent Communications" icon={<MessageSquare size={13} />} />
-            {recentComms.length === 0 ? (
-              <div style={{ fontSize:12, color:'var(--text-secondary,#6b7280)', fontFamily:'Plus Jakarta Sans,sans-serif', padding:'2px 0 8px' }}>
-                No communications recorded yet for this student.
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
-                {recentComms.map(c => (
-                  <div key={c.id} style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:'#374151', fontFamily:'Plus Jakarta Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {c.subject || commTypeLabel(c.notification_type)}
-                    </div>
-                    <div style={{ fontSize:11, color:'#9ca3af', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
-                      {commTypeLabel(c.notification_type)} · {c.status || 'unknown'} · {fmtCommDate(c.sent_at)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={() => navigate(`/connect/outreach?tab=sent_history&student_id=${student.id}`)}
-              style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:11, fontWeight:600, color:'#1D2567', fontFamily:'Plus Jakarta Sans,sans-serif' }}
-            >
-              View all communications for this student →
-            </button>
-          </div>
-
-          </div>{/* end unified section container */}
+          {/* ── Not a sheet: the footer of the binder ── */}
+          <div className="sc-tail">
 
           {/* Delete - STUDENT-PROFILE-UX-1B: intentional, labeled danger zone, visually separated
               from the Prev/Next footer. Button behavior + confirm modal unchanged. */}
@@ -2752,9 +2857,27 @@ export default function StudentSidePanel({
               {nextStudent ? displayName(nextStudent) : 'No next'} →
             </button>
           </div>
-        </div>
-        </FieldSavedCtx.Provider>
-      </div>
+          </div>{/* end sc-tail */}
+              </div>{/* end the page that fades */}
+              </FieldSavedCtx.Provider>
+            </div>{/* end sc-scroller */}
+
+            {/* ── The index: die-cut tabs down the fore edge. Clicking one SCROLLS; it
+                never swaps a panel, so a half-typed field three sheets up is never
+                unmounted by a trip to the index. ──────────────────────────────────── */}
+            <nav className="sc-index" aria-label="Chart sections">
+              {CHART_SHEETS.map(s => (
+                <button key={s.id} type="button" className="sc-tab" data-sheet={s.id}
+                  aria-current={chartSheet === s.id}
+                  onClick={() => goToChartSheet(s.id)}>
+                  {s.label}
+                </button>
+              ))}
+            </nav>
+          </div>{/* end sc-main */}
+        </div>{/* end sc-paper */}
+      </div>{/* end sc-binder */}
+
 
       <PreceptorAssignmentModal
         isOpen={assignModalOpen}

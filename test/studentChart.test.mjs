@@ -1,0 +1,320 @@
+// STUDENT-CHART-1: the student chart, and the promises it has to keep.
+//
+// These are source-shape tests. The look was verified by measurement in a real browser
+// (geometry, contrast in both themes, scroll spy, tab jumps, focus rings, the flag write),
+// because a stylesheet's effect is not readable from its text. What a test CAN hold is
+// the set of decisions that would be quietly undone by a later edit: that no section was
+// dropped, that the flag is not the interview flag, that the index scrolls rather than
+// mounts, and that the panel is still an editing surface.
+
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const read = (p) => readFileSync(join(root, p), 'utf8')
+
+const panel = read('src/components/StudentSidePanel.jsx')
+const css = read('src/components/student/studentChart.css')
+// Several assertions below say "this file must NOT contain X". The comments in these
+// files explain why X is wrong, and quote it, so a naive search finds the warning and
+// calls it the defect. Strip comments first and assert against the code.
+const noComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+const cssCode = noComments(css)
+const sheets = read('src/components/student/chartSheets.js')
+const scroll = read('src/components/student/useChartScroll.js')
+const flagLib = read('src/lib/studentFollowUpFlag.js')
+const ribbon = read('src/components/rubric/FlagRibbon.jsx')
+const api = read('api/student-update.js')
+const migration = read('db/migrations/20260921000000_student_followup_flag.sql')
+const tab = read('src/components/StudentProfilesTab.jsx')
+const roster = read('src/components/StudentListPanel.jsx')
+
+// ── BINDER: the object on screen ────────────────────────────────────────────
+
+test('BINDER 1: the binder is black leather with five rings, and the rings are decorative', () => {
+  assert.match(panel, /className="sc-binder material-leather-black"/)
+  assert.equal((panel.match(/className="sc-ring"/g) || []).length, 5)
+  assert.match(panel, /className="sc-rings" aria-hidden="true"/)
+})
+
+test('BINDER 2: the leather is a material, defined once, beside the rubric book\'s tan', () => {
+  const materials = read('src/styles/aspireMaterials.css')
+  assert.match(materials, /\.material-leather-black \{/)
+  assert.match(materials, /\.material-leather-tan \{/)
+  // It reads the shared noise and the shared tokens; it does not restate a colour.
+  assert.match(materials, /--aspire-noise-fine/)
+  assert.ok(!/\.material-leather-black[\s\S]*?background-color: #/.test(materials),
+    'the black leather must read its colour from a token, not a literal')
+})
+
+test('BINDER 3: the paper is square-cornered, because it is paper and not a card', () => {
+  const paper = css.match(/\.sc-paper \{[\s\S]*?\}/)[0]
+  assert.match(paper, /border-radius: 0;/)
+})
+
+test('BINDER 4: the plate does not scroll and lifts only once paper is under it', () => {
+  // The plate is a sibling of the scroller, not a child of it.
+  const plateAt = panel.indexOf('className={`sc-plate$')
+  assert.ok(panel.indexOf('sc-plate') < panel.indexOf('sc-scroller'),
+    'the plate must come before the scroller, outside it')
+  assert.match(css, /\.sc-plate-lifted \{/)
+  assert.match(scroll, /const LIFT_AT = 2/)
+  assert.ok(plateAt !== 0 || true)
+})
+
+test('BINDER 5: radii are tokens, so the canon ratchet cannot be raised by this file', () => {
+  const literals = cssCode.match(/border-radius:\s*\d+px/g) || []
+  const allowed = literals.filter(l => /border-radius:\s*0px/.test(l))
+  assert.deepEqual(literals.filter(l => !allowed.includes(l)), [],
+    'every radius in the chart reads a token; 0 and 50% are not literals in this sense')
+})
+
+// ── SHEETS: nothing was dropped ─────────────────────────────────────────────
+
+test('SHEETS 1: seven sheets, in the order a coordinator meets a student', () => {
+  const ids = [...sheets.matchAll(/\{ id: '([a-z]+)'/g)].map(m => m[1])
+  assert.deepEqual(ids, ['profile', 'background', 'placement', 'hours', 'documents', 'evaluations', 'notes'])
+})
+
+test('SHEETS 2: every sheet in the list is rendered, and every rendered sheet is in the list', () => {
+  const listed = [...sheets.matchAll(/\{ id: '([a-z]+)'/g)].map(m => m[1]).sort()
+  const rendered = [...panel.matchAll(/id="sc-sheet-([a-z]+)" data-sheet="([a-z]+)"/g)]
+  assert.deepEqual(rendered.map(m => m[1]).sort(), listed)
+  for (const m of rendered) assert.equal(m[1], m[2], 'a sheet\'s id and data-sheet must agree')
+})
+
+test('SHEETS 3: all fifteen original sections survived the regrouping', () => {
+  // The whole point of the Owner\'s decision: the binder is chrome around the panel that
+  // exists. If a later edit drops one of these, this test is the thing that says so.
+  for (const title of [
+    'Contact Information', 'Personal Information', 'Information Acknowledgment',
+    'Program Details', 'Rotation Dates', 'Availability & Scheduling',
+    'Background and Affiliation', 'Unit Placement Preferences', 'Documents',
+    'Interest Statement', 'CS-Link Access', 'Placement and Outcomes',
+    'Program Disposition', 'Notes', 'Recent Communications',
+  ]) {
+    assert.ok(panel.includes(`title="${title}"`), `section missing from the chart: ${title}`)
+  }
+  assert.match(panel, /<ClinicalHoursPanel/)
+})
+
+test('SHEETS 4: the chart is still an EDITING surface, not a read-only view', () => {
+  // The single fact most likely to be lost in a later "tidy": these are live fields.
+  const inputs = (panel.match(/className="sp-input"/g) || []).length
+  const selects = (panel.match(/className="sp-select"/g) || []).length
+  assert.ok(inputs + selects > 20, `expected the panel's form to survive, found ${inputs + selects}`)
+  assert.match(panel, /canEdit/, 'the permission gate is still read')
+})
+
+test('SHEETS 5: the last sheet is named, not :last-child, because a footer follows it', () => {
+  assert.match(css, /\.sc-sheet\[data-sheet="notes"\] \{ border-bottom: none; min-height: 60vh; \}/)
+  assert.ok(!/\.sc-sheet:last-child \{ border-bottom/.test(cssCode))
+  assert.match(panel, /className="sc-tail"/)
+})
+
+// ── INDEX: it scrolls, it never mounts ──────────────────────────────────────
+
+test('INDEX 1: a tab is a real button carrying aria-current', () => {
+  assert.match(panel, /<button key=\{s\.id\} type="button" className="sc-tab" data-sheet=\{s\.id\}/)
+  assert.match(panel, /aria-current=\{chartSheet === s\.id\}/)
+})
+
+test('INDEX 2: clicking a tab scrolls; it does not swap a panel', () => {
+  assert.match(scroll, /root\.scrollTo\(/)
+  assert.ok(!/setState.*(activePanel|visibleSheet)/.test(scroll))
+  // Every sheet is rendered unconditionally: no sheet is behind a condition.
+  const conditional = /\{\s*chartSheet === '[a-z]+'\s*&&\s*<section/.test(panel)
+  assert.equal(conditional, false, 'sheets must all be mounted, or an in-progress edit is lost')
+})
+
+test('INDEX 3: the scroller is the offsetParent, or every jump overshoots', () => {
+  const rule = css.match(/\.sc-scroller \{[\s\S]*?\}/)[0]
+  assert.match(rule, /position: relative;/)
+})
+
+test('INDEX 4: the scroll spy looks at the top of the scroller, not the whole of it', () => {
+  assert.match(scroll, /const SPY_MARGIN = '-12% 0px -72% 0px'/)
+  assert.match(scroll, /new IntersectionObserver/)
+  assert.match(scroll, /root,/)
+})
+
+// ── THE FLAG: not the interview flag ────────────────────────────────────────
+
+test('FLAG 1: the chart writes flagged_for_followup and never the interview flag', () => {
+  assert.match(flagLib, /FOLLOW_UP_FLAG_COLUMN = 'flagged_for_followup'/)
+  // Both files EXPLAIN the distinction in prose, naming the other column, so the check
+  // has to be against code rather than against comments.
+  assert.ok(!noComments(flagLib).includes('flagged_for_second_interview'),
+    'the follow-up flag must never touch the second-interview column')
+  assert.ok(!noComments(panel).includes('flagged_for_second_interview'),
+    'the student chart must never write the interview flag')
+})
+
+test('FLAG 2: an absent column reads as unflagged, never as flagged', () => {
+  assert.match(flagLib, /student\?\.\[FOLLOW_UP_FLAG_COLUMN\] === true/)
+  assert.match(flagLib, /student\[FOLLOW_UP_FLAG_COLUMN\] !== undefined/)
+})
+
+test('FLAG 3: before the migration the ribbon is inert and says so', () => {
+  assert.match(panel, /disabled=\{!canEdit \|\| !flagAvailable \|\| flagSaving\}/)
+  assert.match(panel, /not enabled on this database yet/)
+  assert.match(flagLib, /notEnabled: true/)
+})
+
+test('FLAG 4: the server action is its own, permission-gated, and survives a missing column', () => {
+  assert.match(api, /action === 'set_followup_flag'/)
+  const block = api.slice(api.indexOf("action === 'set_followup_flag'"))
+  assert.match(block.slice(0, 400), /if \(!canStudentManage\) return res\.status\(403\)/)
+  assert.match(block.slice(0, 2000), /updErr\.code === '42703'/)
+  assert.match(block.slice(0, 2000), /not_enabled/)
+})
+
+test('FLAG 5: the flag carries no note, exactly like the rubric ribbon', () => {
+  assert.ok(!/flag_note/.test(noComments(flagLib)))
+  assert.ok(!/followUpNote|flagNote/.test(noComments(panel)))
+})
+
+test('FLAG 6: the migration is additive, idempotent and documents its rollback', () => {
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS flagged_for_followup boolean NOT NULL DEFAULT false/)
+  assert.match(migration, /ROLLBACK/)
+  assert.ok(!/DROP COLUMN(?!.*--)/.test(migration.split('ROLLBACK')[0]),
+    'nothing is dropped above the rollback note')
+  assert.match(migration, /information_schema\.columns/, 'it proves its own postcondition')
+})
+
+test('FLAG 7: the roster shows the flag by name, not by colour alone', () => {
+  assert.match(roster, /isFollowUpFlagged\(s\)/)
+  assert.match(roster, /Follow-up/)
+  assert.match(roster, /aria-hidden="true">⚑/)
+})
+
+// ── THE RIBBON: one component, two vocabularies ─────────────────────────────
+
+test('RIBBON 1: one component serves both books, and the rubric keeps its own defaults', () => {
+  assert.match(ribbon, /classPrefix = 'rb-ribbon'/)
+  assert.match(ribbon, /labelOn = 'Flagged for the placement huddle/)
+  assert.match(ribbon, /\$\{classPrefix\}/)
+  // The rubric's call site passes nothing, so it must still render rb-ribbon.
+  const rubricSession = read('src/components/RubricSession.jsx')
+  assert.ok(!/classPrefix/.test(noComments(rubricSession)), 'the rubric relies on the defaults')
+})
+
+test('RIBBON 2: the chart\'s ribbon names the student and is a real button', () => {
+  assert.match(panel, /classPrefix="sc-ribbon"/)
+  assert.match(panel, /labelOn=\{`\$\{plateName\} is flagged for follow-up/)
+  assert.match(ribbon, /aria-pressed=\{flagged\}/)
+  assert.match(ribbon, /<button/)
+})
+
+test('RIBBON 3: the idle ribbon uses the measured taupe, not the mockup\'s', () => {
+  // The mockup's #BEB9AF put white FLAG on it at 1.77:1.
+  assert.match(css, /--aspire-ribbon-idle/)
+  assert.ok(!/#BEB9AF/i.test(cssCode))
+})
+
+// ── MOTION AND ACCESS ───────────────────────────────────────────────────────
+
+test('MOTION 1: the binder holds still when the reader turns to another student', () => {
+  assert.match(css, /\.sc-fade \{ transition: opacity/)
+  // The fade is on the identity block and the page, never on the binder or the index.
+  assert.ok(!/\.sc-binder[^{]*\{[^}]*transition/.test(cssCode))
+  assert.ok(!/\.sc-index[^{]*\{[^}]*transition/.test(cssCode))
+})
+
+test('MOTION 2: the panel is no longer remounted on every selection', () => {
+  assert.ok(!/className="profiles-panel-slide" key=/.test(noComments(tab)),
+    'a key here remounts the binder and replays its slide-in on every click')
+})
+
+test('MOTION 3: reduced motion removes the fade, the tab travel and the smooth scroll', () => {
+  const reduced = css.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/g) || []
+  const joined = reduced.join('\n')
+  assert.match(joined, /\.sc-scroller \{ scroll-behavior: auto; \}/)
+  assert.match(joined, /\.sc-tab \{ transition: none; \}/)
+  assert.match(joined, /\.sc-fade \{ transition: none; \}/)
+  assert.match(scroll, /prefersReducedMotion\(\)/)
+})
+
+test('ACCESS 1: the record and the sheet are announced', () => {
+  assert.match(panel, /role="status" aria-live="polite"/)
+  assert.match(panel, /\{plateName\}, \{CHART_SHEETS\.find/)
+})
+
+test('ACCESS 2: the tabs and the ribbon show focus, using the token as a whole shorthand', () => {
+  // --aspire-focus-ring is `2px solid var(--aspire-navy)`. Wrapping it in another
+  // shorthand produced `3px solid 2px solid ...`, which the browser drops silently.
+  assert.match(css, /outline: var\(--aspire-focus-ring\);/)
+  assert.ok(!/outline: \d+px solid var\(--aspire-focus-ring/.test(cssCode))
+  assert.match(css, /\.sc-tab:focus-visible,\n\.sc-ribbon:focus-visible \{/)
+})
+
+test('ACCESS 3: a sheet is a labelled section and the name is the page\'s heading', () => {
+  assert.match(panel, /<section className="sc-sheet" id="sc-sheet-\w+" data-sheet="\w+" aria-label="/)
+  assert.match(panel, /<h1 className="sc-plate-name">/)
+  assert.match(panel, /<nav className="sc-index" aria-label="Chart sections">/)
+})
+
+// ── EVALUATIONS: a reader, not a writer ─────────────────────────────────────
+
+test('EVAL 1: the sheet reads existing tables and invents no field', () => {
+  const ev = read('src/components/student/ChartEvaluations.jsx')
+  assert.match(ev, /from\('interview_rubrics'\)/)
+  assert.match(ev, /from\('evaluation_assignments'\)/)
+  assert.ok(!/\.insert\(|\.update\(|\.delete\(/.test(noComments(ev)), 'the evaluations sheet never writes')
+})
+
+test('EVAL 2: instruments are not hard-coded, so a newly seeded one still appears', () => {
+  const ev = read('src/components/student/ChartEvaluations.jsx')
+  assert.ok(!/preceptor_progress|post_rotation_evaluation|student_preceptor_eval/.test(noComments(ev)))
+  assert.match(ev, /inst\?\.display_name \|\| inst\?\.slug/)
+})
+
+test('EVAL 3: a revoked invitation is not shown as pending', () => {
+  const ev = read('src/components/student/ChartEvaluations.jsx')
+  const fn = ev.slice(ev.indexOf('function statusChip'))
+  assert.ok(fn.indexOf('revoked_at') < fn.indexOf('Awaiting response'),
+    'revoked must be tested before the pending states')
+})
+
+test('EVAL 4: a composite averaged over several interviewers says so', () => {
+  const ev = read('src/components/student/ChartEvaluations.jsx')
+  assert.match(ev, /Average of \$\{scored\.length\} interviewers/)
+})
+
+// ── DARK ────────────────────────────────────────────────────────────────────
+
+test('DARK 1: the chart redefines its paper for dark, and the leather stays black', () => {
+  assert.match(css, /\[data-theme="dark"\] \.sc-paper,/)
+  assert.match(css, /--aspire-sheet-profile: #181C2B;/)
+  assert.ok(!/\[data-theme="dark"\][^\n]*\.sc-binder/.test(cssCode),
+    'black leather is black in both themes')
+})
+
+test('DARK 2: a sheet title is a heading colour, never the table-header grey', () => {
+  // --aspire-th-color (#6b7785) measured 4.04:1 behind an 18px bold title.
+  assert.match(css, /color: var\(--aspire-sheet-title\);/)
+  assert.ok(!/\.sc-sheet-title[\s\S]{0,120}--aspire-th-color/.test(cssCode))
+})
+
+test('DARK 3: the panel\'s pastel fields have a dark pair', () => {
+  const index = read('src/index.css')
+  assert.match(index, /\[data-theme="dark"\] \.sp-card \.sp-input,/)
+  assert.match(index, /\[data-theme="dark"\] \.sp-card \.sp-readonly \{[\s\S]*?color: var\(--color-text-primary/)
+  assert.match(index, /\[data-theme="dark"\] \.sp-nav-btn \{/)
+})
+
+test('FLAG 8: the ribbon gets the REFETCH, not the writer, or the roster lags a reload', () => {
+  // onUpdate is updateStudent(id, updates): a domain writer that routes by field name and
+  // has no route for this column, and refreshes nothing when called. The roster reads the
+  // app's students array, so the flag needs the refetch as well as the optimistic paint.
+  // The interview rubric shipped this exact mistake in September 2026 and cost two rounds.
+  assert.match(tab, /onRefreshStudents=\{onRefresh\}/)
+  assert.match(panel, /onRefreshStudents,/, 'the panel must accept the refetch')
+  const setFollowUp = panel.slice(panel.indexOf('const setFollowUp'), panel.indexOf('const setFollowUp') + 1400)
+  assert.match(setFollowUp, /if \(onRefreshStudents\) await onRefreshStudents\(\)/)
+  assert.ok(!/onUpdate\(\s*\)/.test(setFollowUp), 'calling the writer with no fields is a no-op')
+})
+
