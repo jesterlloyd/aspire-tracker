@@ -263,3 +263,47 @@ test('values bound for TEXT date columns are cast to text', () => {
     'the seed. students.interview_scheduled_date and student_shift_logs.shift_date are ' +
     'both TEXT; see the type table at the top of db/demo/demo_seed.sql.')
 })
+
+// ─────────────────────────────────────────────────────────────────────
+// 6. The demo cohort must never be the live intake router
+// ─────────────────────────────────────────────────────────────────────
+test('the demo cohort does not accept public submissions', () => {
+  // cohorts.accepting_submissions is the ROUTER for every public form:
+  // api/student-intake-submit.js, api/school-form-submit.js,
+  // api/school-form-existing-request.js and api/unit-form-submit.js all resolve their
+  // destination cohort from it. A demo cohort holding that flag would take a real
+  // student's intake form and file it against fabricated records, where the boundary
+  // would then hide it from everyone doing real work.
+  //
+  // The partial unique index cohorts_one_accepting_submissions refused an earlier draft
+  // of this seed, which is the only reason it was caught. This test means the database
+  // does not have to be the last line of defence a second time.
+  const block = code(seed).slice(
+    code(seed).indexOf('INSERT INTO cohorts'),
+    code(seed).indexOf(';', code(seed).indexOf('INSERT INTO cohorts')),
+  )
+  assert.ok(block.includes('accepting_submissions'),
+    'the cohort insert should set accepting_submissions explicitly rather than relying on a default')
+  assert.match(block, /false,\s*true\)/,
+    'the demo cohort must be inserted with accepting_submissions = false. It is the ' +
+    'router for public intake, school placement requests and unit capacity submissions.')
+  assert.doesNotMatch(block, /true,\s*true\)/,
+    'accepting_submissions = true would make the demo cohort the live intake destination')
+})
+
+test('the seed respects the partial unique indexes on the tables it writes', () => {
+  const c = code(seed)
+
+  // uq_shift_logs_one_open_per_student: ON student_shift_logs(student_id)
+  //   WHERE lifecycle_state = 'in_progress'. At most ONE open shift per student.
+  const openStudents = [...c.matchAll(/'(0de05000-[0-9a-f-]+)'[^;]*?'in_progress'/g)].map(m => m[1])
+  assert.equal(new Set(openStudents).size, openStudents.length,
+    'two in_progress shift logs for the same student violate uq_shift_logs_one_open_per_student')
+
+  // preceptors_email_lower_unique_idx: ON preceptors (lower(trim(email))).
+  const block = c.slice(c.indexOf('INSERT INTO preceptors'), c.indexOf('INSERT INTO preceptor_cohort_participation'))
+  const emails = [...block.matchAll(/'([a-z.]+@demo\.aspire\.invalid)'/g)].map(m => m[1].toLowerCase())
+  assert.ok(emails.length >= 6, `expected the preceptor emails, found ${emails.length}`)
+  assert.equal(new Set(emails).size, emails.length,
+    'duplicate preceptor emails violate preceptors_email_lower_unique_idx')
+})

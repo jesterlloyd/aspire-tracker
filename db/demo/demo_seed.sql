@@ -132,12 +132,30 @@ DELETE FROM cohorts                       WHERE is_demo;
 -- ─────────────────────────────────────────────────────────────────────
 -- 2. The cohort. Mid-rotation on purpose: started three weeks ago, five to run.
 --    That is the only moment where every stage is visible at once.
+--
+--    accepting_submissions IS false, AND MUST STAY false.
+--
+--    This is not a workaround for the partial unique index
+--    cohorts_one_accepting_submissions (which permits exactly one accepting cohort at a
+--    time, and correctly refused an earlier draft of this file). It is the only correct
+--    value. That flag is the ROUTER for public form submissions: api/student-intake-submit.js,
+--    api/school-form-submit.js, api/school-form-existing-request.js and
+--    api/unit-form-submit.js all resolve their destination cohort from it. A demo cohort
+--    holding that flag would take real students' intake forms, real schools' placement
+--    requests and real units' capacity submissions and file them against fabricated
+--    records, where the boundary would then hide them from everyone in normal use.
+--
+--    The constraint caught this. Nothing else would have.
+--
+--    Nothing in a demo needs it: the cast already exists, and the scope picker's dot
+--    reads cohort STATUS, not this flag (SCOPE-DOT-1), so the Demo Cohort still shows as
+--    Active with a green dot.
 -- ─────────────────────────────────────────────────────────────────────
 INSERT INTO cohorts (id, name, status, start_date, end_date, accepting_submissions, is_demo)
 VALUES ('0de00000-0000-4000-8000-000000000001',
         'Demo Cohort', 'Active',
         (CURRENT_DATE - 21)::text, (CURRENT_DATE + 35)::text,
-        true, true);
+        false, true);
 
 -- ─────────────────────────────────────────────────────────────────────
 -- 3. Schools.
