@@ -17,6 +17,20 @@
 --
 -- Run one section at a time and read the result before moving on.
 
+-- ── Section 0. Prove the object naming before trusting any filter below ─────
+-- The path is cohortId/studentId/kind.ext (canonicalPath in lib/server/studentFiles.js),
+-- so a resume is ".../resume.pdf" and NOT a folder called resume. This section exists
+-- because the first version of this audit filtered on '%/resume/%' and returned zero
+-- rows, which reads like "nothing is wrong" and actually meant "nothing matched".
+-- Expected: a handful of rows, mostly resume.pdf and headshot.jpg.
+SELECT split_part(o.name, '/', 3) AS file_name,
+       COUNT(*)                   AS objects
+FROM   storage.objects o
+WHERE  o.bucket_id = 'student-files'
+GROUP  BY 1
+ORDER  BY objects DESC
+LIMIT  20;
+
 -- ── Section 1. What mime types are stored for resumes? ───────────────────────
 -- Expected healthy result: every row reads application/pdf, application/msword or
 -- the wordprocessingml type. Any application/octet-stream (or NULL) is a file the
@@ -27,7 +41,7 @@ SELECT COALESCE(o.metadata ->> 'mimetype', '(none)') AS stored_mimetype,
        MAX(o.created_at)                              AS newest
 FROM   storage.objects o
 WHERE  o.bucket_id = 'student-files'
-  AND  o.name LIKE '%/resume/%'
+  AND  o.name LIKE '%/resume.%'
 GROUP  BY 1
 ORDER  BY objects DESC;
 
@@ -42,7 +56,7 @@ SELECT o.name                                              AS object_path,
        o.updated_at
 FROM   storage.objects o
 WHERE  o.bucket_id = 'student-files'
-  AND  o.name LIKE '%/resume/%'
+  AND  o.name LIKE '%/resume.%'
   AND  COALESCE(o.metadata ->> 'mimetype', '') <> 'application/pdf'
 ORDER  BY o.created_at;
 
@@ -56,7 +70,7 @@ FROM   public.students s
 JOIN   storage.objects o
   ON   o.bucket_id = 'student-files'
  AND   s.resume_url LIKE '%' || o.name
-WHERE  o.name LIKE '%/resume/%'
+WHERE  o.name LIKE '%/resume.%'
   AND  lower(right(o.name, 4)) = '.pdf'
   AND  COALESCE(o.metadata ->> 'mimetype', '') <> 'application/pdf'
 GROUP  BY s.cohort_id
@@ -72,14 +86,14 @@ ORDER  BY s.cohort_id;
 -- UPDATE storage.objects
 --    SET metadata = jsonb_set(metadata, '{mimetype}', '"application/pdf"'::jsonb)
 --  WHERE bucket_id = 'student-files'
---    AND name LIKE '%/resume/%'
+--    AND name LIKE '%/resume.%'
 --    AND lower(right(name, 4)) = '.pdf'
 --    AND COALESCE(metadata ->> 'mimetype', '') <> 'application/pdf';
 -- -- Postcondition: this must return ZERO rows before COMMIT.
 -- SELECT COUNT(*) AS still_wrong
 --   FROM storage.objects
 --  WHERE bucket_id = 'student-files'
---    AND name LIKE '%/resume/%'
+--    AND name LIKE '%/resume.%'
 --    AND lower(right(name, 4)) = '.pdf'
 --    AND COALESCE(metadata ->> 'mimetype', '') <> 'application/pdf';
 -- COMMIT;
