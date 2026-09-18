@@ -81,6 +81,25 @@
   letter-spacing: 0.1em;
 }
 
+/* ── Tan leather (a cover) ─────────────────────────────────────────────────── */
+/* RUBRIC-BOOK-1: the Interview Rubric's cover. Deeper than the cream leather because
+   it is the outside of the object, not a surface inside it, and finished with the
+   same gilt the pool headers use so the two materials read as one family. */
+/* Owner, 2026-09-17: the coarse grain read as WOOD, so the cover keeps only the fine
+   noise and a flat vertical gradient. It is a thin board around the pages, not a
+   plank: the edge that shows is a few pixels of leather, not a frame. */
+.material-leather-tan {
+  background-color: var(--aspire-leather-tan);
+  background-image:
+    var(--aspire-noise-fine),
+    linear-gradient(var(--aspire-leather-tan), var(--aspire-leather-tan-deep));
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px var(--aspire-book-edge),
+    0 14px 34px rgba(40, 34, 20, 0.20);
+}
+
 /* ── White paper ───────────────────────────────────────────────────────────── */
 /* A plain rectangle with SHARP corners (Owner, 2026-09-17): a rounded sheet reads
    as a card, and this is meant to read as paper. No folded corner either. Cards,

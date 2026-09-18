@@ -9,6 +9,9 @@ import StudentAvatar from './StudentAvatar'
 import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import ScoreFlag from './ScoreFlag'
+import FlagRibbon from './rubric/FlagRibbon'
+import { useBookScale } from './rubric/useBookScale'
+import './rubric/rubricBook.css'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { logActivity } from '../lib/logActivity'
 import { useAuth } from '../contexts/AuthContext'
@@ -51,19 +54,33 @@ const DOMAIN_REF = {
   pp: { desc:'Demonstrates professional behavior, emotional intelligence, and readiness to function as part of a healthcare team.', basis:'QSEN competencies for teamwork, communication, and patient-centered care.', listen:'Self-reflection, receptiveness to feedback, professionalism under stress, accountability.' },
   ga: { desc:"Alignment of the student's learning goals, career intentions, and values with ASPIRE's mission.", basis:"Cedars-Sinai's Nursing Professional Practice Model and ASPIRE's mission.", listen:'Clarity of purpose, motivation for ASPIRE, learning goals, cultural fit, post-graduation plans.' },
 }
-const SCORE_LABELS = ['','Not Yet Ready','Emerging','Competent','Strong','Highly Aligned']
-const SCORE_COLORS = [null,
-  { bg:'#fee2e2', color:'#991b1b', border:'#991b1b' },
-  { bg:'#fef3c7', color:'#92400e', border:'#92400e' },
-  { bg:'#e0f2fe', color:'#0369a1', border:'#0369a1' },
-  { bg:'#dcfce7', color:'#166534', border:'#166534' },
-  { bg:'#1d2567', color:'#ffffff', border:'#1d2567' },
+// RUBRIC-BOOK-1: the scale reads as five steps of the same journey (Owner, from the
+// approved mockup). The stored value is the NUMBER, so the flag thresholds, the
+// averages and every report are untouched by this wording.
+const SCORE_LABELS = ['', 'Limited', 'Developing', 'Adequate', 'Strong', 'Highly Aligned']
+const SCORE_GUIDE = [
+  { s: 1, label: 'Limited',        desc: 'Response is vague, unclear, unsafe, or lacks insight' },
+  { s: 2, label: 'Developing',     desc: 'Some awareness is present but reasoning or insight is limited' },
+  { s: 3, label: 'Adequate',       desc: 'Response is appropriate, safe, and acceptable for student level' },
+  { s: 4, label: 'Strong',         desc: 'Response is thoughtful, clear, and demonstrates good judgment or maturity' },
+  { s: 5, label: 'Highly Aligned', desc: 'Response is insightful, well-articulated, reflective, and strongly aligned with expected readiness' },
 ]
 const REC_OPTIONS = [
   { value:'Recommend',                     label:'Recommend',                     bg:'#dcfce7', color:'#166534', border:'#a7f3d0' },
   { value:'Recommend with Reservations',   label:'Recommend with Reservations',   bg:'#fef3c7', color:'#92400e', border:'#fde68a' },
   { value:'Do Not Recommend at This Time', label:'Do Not Recommend at This Time', bg:'#fee2e2', color:'#991b1b', border:'#fecaca' },
 ]
+
+// The three scored domains, in the order the interview runs.
+const DOMAINS = [
+  { key: 'cj', snum: 3, title: 'Clinical Judgment',     questions: CJ_QUESTIONS },
+  { key: 'pp', snum: 4, title: 'Professional Presence', questions: PP_QUESTIONS },
+  { key: 'ga', snum: 5, title: 'Goal Alignment',        questions: GA_QUESTIONS },
+]
+const SECTION_IDS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7']
+// The nine answers Mark Complete insists on. The head reports progress against this
+// same number, so the percentage and the gate can never tell different stories.
+const REQUIRED_ANSWERS = 9
 
 const initForm = () => ({
   interview_date: new Date().toISOString().slice(0,10),
@@ -350,6 +367,40 @@ function RubricCard({ r, interviewers, onSave, canEdit, canView, canChangeInterv
   )
 }
 
+// The candidate's ASPIRE status, in the canonical colours the legend explains. A
+// Not Proceeding student carries their disposition instead, which is the same pill
+// with the disposition's own words.
+function AspireStatusPill({ student }) {
+  if (!student?.status) return null
+  const dispositionType = student.status === 'Not Proceeding' ? student.active_disposition?.disposition_type : null
+  const c = dispositionType
+    ? (DISPOSITION_PILL_COLORS[dispositionType] || DISPOSITION_PILL_COLORS['not_selected'])
+    : (ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach'])
+  const label = dispositionType ? (DISPOSITION_TYPES[dispositionType] || student.status) : student.status
+  return (
+    <span className="rb-chip" data-testid="rb-status-pill"
+      style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}` }}>
+      {label}
+    </span>
+  )
+}
+
+// The booked appointment, as the left page writes it: "Aug 4, 2026" and "2:30 PM".
+function fmtBookedDate(ymd) {
+  if (!ymd) return '-'
+  const [y, m, d] = String(ymd).split('-').map(Number)
+  if (!y || !m || !d) return String(ymd)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+function fmtBookedTime(hms) {
+  if (!hms) return ''
+  const [h, min] = String(hms).split(':').map(Number)
+  if (Number.isNaN(h)) return String(hms)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h % 12 === 0 ? 12 : h % 12
+  return `${hour12}:${String(min || 0).padStart(2, '0')} ${suffix}`
+}
+
 export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
   const { userProfile, canViewStudentResumeInCohort } = useAuth()
   const normalizedRole = normalizeStaffRole(userProfile?.role)
@@ -389,7 +440,6 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const [scriptOpen,     setScriptOpen]     = useState(false)
   const [legendOpen,     setLegendOpen]     = useState(false)
   const [closingOpen,    setClosingOpen]    = useState(false)
-  const [flagging,       setFlagging]       = useState(false)
   const [flagNote,       setFlagNote]       = useState(student.flag_note || '')
   const [isFlagged,      setIsFlagged]      = useState(!!student.flagged_for_second_interview)
   const [prefs, setPrefs] = useState({
@@ -398,6 +448,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     unit_preference_3: student.unit_preference_3 || '',
   })
   const timerRef = useRef(null)
+  // RUBRIC-BOOK-1: one layout at every width, scaled; below the legibility floor
+  // the spread shows one page at a time and the toolbar offers the switch.
+  const { shellRef, stageRef, shellHeight, mode } = useBookScale()
+  const [page, setPage] = useState('right')
+
 
   // ── Auto-save and session protection ─────────────────────────────────────
   // lastSavedAt: timestamp of the most recent successful persist() call.
@@ -707,9 +762,12 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     if (onRubricsChange) onRubricsChange()
   }
 
+  // RUBRIC-BOOK-1 (Owner, 2026-09-17): pulling the ribbon IS the flag. There is no
+  // reason field any more, so a new flag writes the flag alone; a note written before
+  // this change stays on the record until the flag is removed.
   const handleFlag = async () => {
-    setIsFlagged(true); setFlagging(false)
-    await saveInterviewOutcome(student.id, { flagged_for_second_interview: true, flag_note: flagNote })
+    setIsFlagged(true)
+    await saveInterviewOutcome(student.id, { flagged_for_second_interview: true })
   }
   const handleUnflag = async () => {
     setIsFlagged(false)
@@ -933,7 +991,8 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     { id:'s7', label:'Recommendation', status: stepSt(!!form.individual_recommendation, false) },
   ]
 
-  // Validation errors - computed live, gate Mark Complete
+  // Validation errors - computed live, gate Mark Complete, and feed the completion
+  // percentage in the head. REQUIRED_ANSWERS is the length of this list.
   const validationErrors = !locked ? [
     !form.interviewer_name                       && 'Interviewer name is required in Section 1',
     !(bookedDate || form.interview_date)         && 'Date of interview is required in Section 1',
@@ -946,6 +1005,12 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     !form.individual_recommendation              && 'Overall recommendation is required',
   ].filter(Boolean) : []
 
+  // How much of the rubric is done, counted against the same nine answers that gate
+  // Mark Complete. A submitted rubric is finished by definition.
+  const completion = locked
+    ? 100
+    : Math.round(((REQUIRED_ANSWERS - validationErrors.length) / REQUIRED_ANSWERS) * 100)
+
   // ESC closes the rubric view modal
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -955,723 +1020,655 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     return () => document.removeEventListener('keydown', onKey)
   }, [viewingRubric])
 
+  // ── The index down the fore edge follows whichever section is being read ──
+  const scrollRef = useRef(null)
+  const [activeStep, setActiveStep] = useState('s1')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const root = scrollRef.current
+    if (!root || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(entries => {
+      const visible = entries
+        .filter(e => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      if (visible[0]?.target?.id) setActiveStep(visible[0].target.id)
+    }, { root, rootMargin: '0px 0px -72% 0px', threshold: 0 })
+    SECTION_IDS.forEach(id => {
+      const el = root.querySelector(`#${id}`)
+      if (el) io.observe(el)
+    })
+    return () => io.disconnect()
+  }, [])
+
+  // On a short book the index is taller than the fore edge, so it scrolls. Keep the
+  // tab you are on in view, or the reader loses their place in their own index.
+  const indexRef = useRef(null)
+  useEffect(() => {
+    const tab = indexRef.current?.querySelector(`[data-testid="rb-tab-${activeStep}"]`)
+    tab?.scrollIntoView({ block: 'nearest' })
+  }, [activeStep])
+
+  const goToSection = (id) => {
+    const el = scrollRef.current?.querySelector(`#${id}`)
+    if (!el) return
+    if (mode === 'single') setPage('right')
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setActiveStep(id)
+  }
+
+  const saveIndicator = (
+    <>
+      {saveStatus === 'saving' && <span className="rb-save">Saving…</span>}
+      {saveStatus === 'saved'  && <span className="rb-save rb-save-ok">Saved{lastSavedAt ? ` ${fmtSaveTime(lastSavedAt)}` : ''}</span>}
+      {saveStatus === 'idle' && lastSavedAt && <span className="rb-save">Saved {fmtSaveTime(lastSavedAt)}</span>}
+      {saveStatus === 'error' && (
+        <button type="button" className="rb-save-err" onClick={() => persistRef.current?.(formRef.current, !rubricIdRef.current)}>
+          Save failed · retry
+        </button>
+      )}
+    </>
+  )
+
+  // The three ranked units, with what the cohort already knows about each one.
+  const prefRows = [
+    { pref: student.unit_preference_1, rank: '1st', idx: 0 },
+    { pref: student.unit_preference_2, rank: '2nd', idx: 1 },
+    { pref: student.unit_preference_3, rank: '3rd', idx: 2 },
+  ].map(row => {
+    const avail = unitAvailability[row.idx]
+    const unit  = avail?.unit ?? null
+    const slots = unit?.slots_remaining ?? 0
+    return {
+      ...row,
+      unit,
+      d1: avail?.demand1 ?? 0,
+      d2: avail?.demand2 ?? 0,
+      d3: avail?.demand3 ?? 0,
+      slots,
+      // A unit is in high demand when more people want it first than it can take.
+      highDemand: !!unit && (avail?.demand1 ?? 0) >= slots + 2,
+    }
+  })
+  const seatChip = (unit, slots) => {
+    if (!unit) return null
+    if (slots > 1)  return <span className="rb-chip rb-chip-open" data-testid="seat-chip">{slots} open</span>
+    if (slots === 1) return <span className="rb-chip rb-chip-demand" data-testid="seat-chip">1 left</span>
+    return <span className="rb-chip rb-chip-full" data-testid="seat-chip">Full</span>
+  }
+  // The role the candidate already holds here, when we hold one. There is no
+  // years-of-service field in ASPIRE, so the book says the role, not a tenure.
+  const currentRole = [student.cs_role, student.cs_department].filter(Boolean).join(', ')
+    || student.cs_affiliation || ''
+
   return (
-    <div className="rub-session">
-      {/* Back button + save indicator - hidden in readOnly (modal provides its own close) */}
+    <div
+      className="rb-shell"
+      ref={shellRef}
+      data-rubric-book=""
+      data-rb-mode={mode}
+      data-rb-page={page}
+      data-rb-readonly={readOnly ? 'true' : 'false'}
+      style={shellHeight ? { '--rb-shell-h': `${shellHeight}px` } : undefined}
+    >
       {!readOnly && (
-        <div className="rub-topbar">
+        <div className="rb-toolbar">
           <BackButton label="Back to Interview List" onClick={onBack} />
-          <span className="iv-save-indicator">
-            {saveStatus === 'saving' && (
-              <span className="iv-saving">Saving…</span>
-            )}
-            {saveStatus === 'saved' && (
-              <span className="iv-saved">
-                ✓ Saved{lastSavedAt ? ` at ${fmtSaveTime(lastSavedAt)}` : ''}
-              </span>
-            )}
-            {saveStatus === 'error' && (
-              <Tooltip label="Retry save" placement="top">
-              <span
-                style={{ fontSize:11, fontWeight:700, color:'#991b1b', background:'#fee2e2',
-                  border:'1px solid #fca5a5', borderRadius:6, padding:'2px 8px', cursor:'pointer' }}
-                onClick={() => persistRef.current?.(formRef.current, !!rubricIdRef.current ? false : true)}
-              >
-                ⚠ Save failed · retry
-              </span>
-              </Tooltip>
-            )}
-            {saveStatus === 'idle' && lastSavedAt && (
-              <span style={{ fontSize:11, color:'#9ca3af' }}>
-                Saved {fmtSaveTime(lastSavedAt)}
-              </span>
-            )}
-          </span>
-          {locked && <button className="btn btn-outline-modal" style={{ marginLeft:'auto' }} onClick={() => setConfirmUnlock(true)}>Unlock to Edit</button>}
+          {mode === 'single' && (
+            <div className="rb-switch" role="group" aria-label="Which page">
+              <button type="button" aria-pressed={page === 'left'}  onClick={() => setPage('left')}>Candidate</button>
+              <button type="button" aria-pressed={page === 'right'} onClick={() => setPage('right')}>Rubric</button>
+            </div>
+          )}
+          {locked && (
+            <div className="rb-toolbar-right">
+              <button type="button" className="rb-btn" onClick={() => setConfirmUnlock(true)}>Unlock to Edit</button>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="rub-panels">
-        {/* ── Left panel ── */}
-        <div className="rub-left">
-          {/* Contact-style header - gradient card, centered, read-only reference */}
-          <div style={{ flexShrink:0, padding:'12px 12px 0' }}>
-          <div style={{
-            borderRadius:16,
-            background:'linear-gradient(to bottom, #dceff8, #ffffff)',
-            textAlign:'center', padding:'20px 16px 16px',
-            boxShadow:'0 2px 8px rgba(29,37,103,0.08)', overflow:'hidden',
-          }}>
-            {/* Photo 80px */}
-            <div style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
-              <StudentAvatar student={student} size={80}
-                style={{ border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)', fontSize:'28px' }}
-              />
-            </div>
-            {/* Preferred first + legal last: the interviewer is about to speak to this
-                person, and a student whose legal name is Xing may introduce himself as Steven. */}
-            <div style={{ fontSize:20, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>
-              {getStudentPreferredFullName(student)}
-            </div>
-            {/* School · Program */}
-            <div style={{ fontSize:13, color:'#6b7280', marginBottom:8 }}>
-              {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
-            </div>
-            {/* ASPIRE Status pill */}
-            {student.status && (() => {
-              const rsDispType = student.status === 'Not Proceeding' ? student.active_disposition?.disposition_type : null
-              if (rsDispType) {
-                const c = DISPOSITION_PILL_COLORS[rsDispType] || DISPOSITION_PILL_COLORS['not_selected']
-                return <span style={{ fontSize:11, fontWeight:700, padding:'2px 9px', borderRadius:20,
-                  background:c.bg, color:c.text, border:`1px solid ${c.border}`, display:'inline-block' }}>
-                  {DISPOSITION_TYPES[rsDispType] || rsDispType}
-                </span>
-              }
-              const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
-              return <span style={{ fontSize:11, fontWeight:700, padding:'2px 9px', borderRadius:20,
-                background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, display:'inline-block' }}>
-                {student.status}
-              </span>
-            })()}
-          </div>
-          </div>{/* end header card wrapper */}
+      <div className="rb-stage" ref={stageRef}>
+        <div className="rb-book">
+          <div className="rb-cover material-leather-tan">
+            <div className="rb-spread">
 
-          {/* GPA + Resume link below gradient header */}
-          {(student.cumulative_gpa != null || student.resume_url) && (
-            <div style={{ padding:'8px 14px', display:'flex', flexWrap:'wrap', gap:6, borderBottom:'1px solid #f0f0f0', flexShrink:0 }}>
-              {student.cumulative_gpa != null && (
-                <span style={{ fontSize:11, fontWeight:600, background:'#dcfce7', color:'#166534', padding:'2px 8px', borderRadius:4 }}>
-                  GPA: {parseFloat(student.cumulative_gpa).toFixed(2)}
-                </span>
+              {/* The ribbon is sewn into the book, so it stays put while the page
+                  under it scrolls. */}
+              {!readOnly && (
+                <FlagRibbon flagged={isFlagged} onFlag={handleFlag} onUnflag={handleUnflag} />
               )}
-              {/* WAVE F-2: resume opens through the server access endpoint. Shown to
-                  anyone who may view this cohort's files: active Owner/Admin, or an
-                  interviewer with an active entitlement for this interview's cohort.
-                  Unentitled callers never see it; the server denies them regardless. */}
-              {canViewStudentResumeInCohort(cohortId) && student.resume_url && (
-                <button type="button" onClick={() => openStudentFile({ studentId: student.id, kind: 'resume' })}
-                  style={{ fontSize:11, fontWeight:600, color:'var(--nightfall)', border:'1px solid var(--nightfall)',
-                    borderRadius:4, padding:'2px 8px', background:'transparent', cursor:'pointer', fontFamily:'inherit' }}>
-                  📄 View Resume
-                </button>
-              )}
-            </div>
-          )}
 
-          {/* Scheduled info */}
-          <div className="rub-divider" />
-          <div className="rub-left-section">
-            <div className="rub-left-lbl">Scheduled Interview</div>
-            {student.interview_scheduled_date
-              ? <div style={{ fontSize:13, color:'var(--nightfall)', fontWeight:500 }}>
-                  📅 {student.interview_scheduled_date} {student.interview_scheduled_time && `at ${student.interview_scheduled_time}`}
-                  {student.interview_duration_minutes && ` (${student.interview_duration_minutes} min)`}
-                </div>
-              : <div style={{ fontSize:13, color:'#9ca3af' }}>Not scheduled</div>
-            }
-          </div>
-
-          {/* Preferences with availability */}
-          <div className="rub-divider" />
-          <div className="rub-left-section">
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-              <div className="rub-left-lbl" style={{ marginBottom:0 }}>Submitted Preferences</div>
-              <button onClick={loadUnitAvailability} disabled={availLoading}
-                style={{ fontSize:12, fontWeight:500, color:'var(--nightfall)', background:'none', border:'none', cursor:availLoading?'default':'pointer', display:'flex', alignItems:'center', gap:4, padding:0, opacity:availLoading?0.5:1 }}>
-                <span style={{ display:'inline-block', animation: availLoading ? 'spin 1s linear infinite' : 'none' }}>↻</span> Refresh
-              </button>
-            </div>
-            {[
-              { pref: student.unit_preference_1, rank: '1st Choice', idx: 0 },
-              { pref: student.unit_preference_2, rank: '2nd Choice', idx: 1 },
-              { pref: student.unit_preference_3, rank: '3rd Choice', idx: 2 },
-            ].map(({ pref, rank, idx }) => {
-              const avail = unitAvailability[idx]
-              const unit  = avail?.unit ?? null
-              const d1 = avail?.demand1 ?? 0, d2 = avail?.demand2 ?? 0, d3 = avail?.demand3 ?? 0
-              const slots = unit?.slots_remaining ?? 0
-              const highDemand = unit && d1 >= slots + 2
-
-              const slotsBadge = unit
-                ? slots > 1  ? { label:`${slots} slots open`, bg:'#dcfce7', color:'#166534' }
-                : slots === 1 ? { label:'1 slot left',        bg:'#fef3c7', color:'#92400e' }
-                :               { label:'Full',               bg:'#fee2e2', color:'#991b1b', bold:true }
-                : null
-
-              return (
-                <div key={rank} style={{ marginBottom:12, paddingBottom:10, borderBottom:'1px solid #f0f0f0' }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
-                    <div style={{ fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>{rank}</div>
-                    {highDemand && <span style={{ fontSize:10, fontWeight:600, padding:'1px 6px', borderRadius:4, background:'#fef3c7', color:'#92400e' }}>High demand</span>}
+              {/* ── Left page: the candidate ───────────────────────────────── */}
+              <section className="rb-page rb-page-left" aria-label="Candidate">
+                <div className="rb-id">
+                  <div className="rb-avatar">
+                    <StudentAvatar student={student} size={96} style={{ fontSize: '30px' }} />
                   </div>
-                  {!pref ? (
-                    <div style={{ fontSize:12, color:'#9ca3af', fontStyle:'italic' }}>Not submitted</div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize:13, fontWeight:600, color:'var(--nightfall)', marginBottom:4 }}>{pref}</div>
-                      {availLoading ? (
-                        <div className="avail-skeleton" />
-                      ) : !unit ? (
-                        <div style={{ fontSize:11, color:'#9ca3af', fontStyle:'italic' }}>Not participating this cycle</div>
-                      ) : (
-                        <>
-                          <div style={{ marginBottom:3 }}>
-                            <span style={{ fontSize:11, fontWeight: slotsBadge.bold ? 700 : 600, padding:'1px 7px', borderRadius:4, background:slotsBadge.bg, color:slotsBadge.color }}>
-                              {slotsBadge.label}
-                            </span>
-                          </div>
-                          <div style={{ fontSize:11, color:'#6b7280' }}>1st: {d1} · 2nd: {d2} · 3rd: {d3}</div>
-                          {slots === 0 && (
-                            <div style={{ marginTop:6, padding:'8px 10px', background:'#fee2e2', borderLeft:'3px solid var(--cs-red)', borderRadius:4, fontSize:12, color:'#991b1b', lineHeight:1.5 }}>
-                              This unit is currently full. Consider exploring alternatives during the interview.
-                            </div>
-                          )}
-                        </>
+                  <div className="rb-name">{getStudentPreferredFullName(student)}</div>
+                  <div className="rb-sub">
+                    {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
+                  </div>
+                  <div className="rb-chiprow"><AspireStatusPill student={student} /></div>
+                  {(student.cumulative_gpa != null || (canViewStudentResumeInCohort(cohortId) && student.resume_url)) && (
+                    <div className="rb-chiprow" style={{ marginTop: 10 }}>
+                      {student.cumulative_gpa != null && (
+                        <span className="rb-chip rb-chip-quiet">GPA {parseFloat(student.cumulative_gpa).toFixed(2)}</span>
                       )}
-                    </>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Interest statement */}
-          <div className="rub-divider" />
-          <div className="rub-left-section">
-            <div className="rub-left-lbl">Interest Statement</div>
-            {student.interest_statement
-              ? <div style={{ fontSize:13, color:'var(--raven)', lineHeight:1.6 }}>{student.interest_statement}</div>
-              : <div style={{ fontSize:13, color:'#9ca3af', fontStyle:'italic' }}>Not submitted</div>
-            }
-          </div>
-
-          {/* Background */}
-          <div className="rub-divider" />
-          <div className="rub-left-section">
-            <div className="rub-left-lbl">Background</div>
-            {[
-              ['Shift', student.shift_availability],
-              ['Program', student.program_type],
-              ['Healthcare Exp.', student.prior_healthcare_experience],
-              ['CS Affiliation', student.cs_affiliation],
-            ].map(([lbl, val]) => val ? (
-              <div key={lbl} style={{ fontSize:12, marginBottom:3 }}>
-                <span style={{ color:'#6b7280', fontWeight:600 }}>{lbl}: </span>
-                <span style={{ color:'var(--raven)' }}>{val}</span>
-              </div>
-            ) : null)}
-          </div>
-
-          {/* Flag toggle - hidden in readOnly view */}
-          {!readOnly && <div className="rub-divider" />}
-          {!readOnly && (
-          <div className="rub-left-section">
-            {isFlagged ? (
-              <div className="rub-flag-banner">
-                <div style={{ fontWeight:700, marginBottom:6 }}>⚑ Flagged for Second Interview</div>
-                <input className="form-input" style={{ fontSize:12, marginBottom:8 }} value={flagNote}
-                  onChange={e => setFlagNote(e.target.value)} placeholder="Flag note…" />
-                <div style={{ display:'flex', gap:8 }}>
-                  <button className="btn btn-outline-modal" style={{ fontSize:12 }}
-                    onClick={async () => { await saveInterviewOutcome(student.id, { flag_note: flagNote }) }}>Save Note</button>
-                  <button className="btn btn-outline-modal" style={{ fontSize:12 }} onClick={handleUnflag}>Unflag</button>
-                </div>
-              </div>
-            ) : flagging ? (
-              <div>
-                <input className="form-input" style={{ fontSize:12, marginBottom:8 }} value={flagNote}
-                  onChange={e => setFlagNote(e.target.value)} placeholder="Reason for second interview…" />
-                <div style={{ display:'flex', gap:8 }}>
-                  <button className="btn btn-primary" style={{ fontSize:12 }} onClick={handleFlag}>Confirm Flag</button>
-                  <button className="btn btn-outline-modal" style={{ fontSize:12 }} onClick={() => setFlagging(false)}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <button className="rub-flag-btn" onClick={() => setFlagging(true)}>
-                Flag for Second Interview
-              </button>
-            )}
-          </div>
-          )}
-        </div>
-
-        {/* ── Right panel ── */}
-        <div className="rub-right" id="rub-right-scroll">
-          {/* Sticky progress bar */}
-          <div className="rub-progress-bar">
-            {steps.map((s, i) => {
-              const done    = s.status === 'complete'
-              const partial = s.status === 'partial'
-              const circleStyle = done
-                ? { borderColor:'#16a34a', background:'#dcfce7', color:'#166534' }
-                : partial
-                ? { borderColor:'#ca8a04', background:'#fef3c7', color:'#92400e' }
-                : {}
-              return (
-                <div key={s.id} className="rub-step" onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior:'smooth', block:'start' })}>
-                  <div className="rub-step-circle" style={circleStyle}>{done ? '✓' : i+1}</div>
-                  <span className="rub-step-label">{s.label}</span>
-                </div>
-              )
-            })}
-            <div className="rub-save-dot">
-              {saveStatus === 'saving' && <span style={{ color:'#6b7280', fontSize:11 }}>…</span>}
-              {saveStatus === 'saved'  && <span style={{ color:'#16a34a', fontSize:11 }}>✓</span>}
-            </div>
-          </div>
-
-          {/* Student status banner */}
-          {(student.status || student.interview_outcome) && (
-            <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', background:'var(--sand)', border:'1px solid var(--border)', borderRadius:6, padding:'8px 14px', marginBottom:12, fontSize:12 }}>
-              {student.status && (() => {
-                const rsDispType2 = student.status === 'Not Proceeding' ? student.active_disposition?.disposition_type : null
-                if (rsDispType2) {
-                  const c = DISPOSITION_PILL_COLORS[rsDispType2] || DISPOSITION_PILL_COLORS['not_selected']
-                  return <><span style={{ color:'var(--text-secondary)', fontWeight:500 }}>ASPIRE Status:</span><span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20, background:c.bg, color:c.text, border:`1px solid ${c.border}` }}>{DISPOSITION_TYPES[rsDispType2] || rsDispType2}</span></>
-                }
-                const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
-                return <><span style={{ color:'var(--text-secondary)', fontWeight:500 }}>ASPIRE Status:</span><span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>{student.status}</span></>
-              })()}
-              {student.interview_outcome && (
-                <>
-                  <span style={{ color:'var(--text-secondary)', fontWeight:500, marginLeft:4 }}>Interview Recommendation:</span>
-                  <span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20,
-                    background: student.interview_outcome === 'Recommend' ? '#dcfce7' : student.interview_outcome === 'Recommend with Reservations' ? '#fef3c7' : student.interview_outcome === 'Do Not Recommend' ? '#fee2e2' : '#f3f4f6',
-                    color: student.interview_outcome === 'Recommend' ? '#166534' : student.interview_outcome === 'Recommend with Reservations' ? '#92400e' : student.interview_outcome === 'Do Not Recommend' ? '#991b1b' : '#6b7280' }}>
-                    {student.interview_outcome}
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* No-name banner - shown until interviewer selects their name */}
-          {!locked && !form.interviewer_name && (
-            <div style={{ background:'var(--sand)', border:'1px solid var(--border)', borderRadius:6, padding:'10px 14px', marginBottom:12, fontSize:13, color:'var(--nightfall)', fontWeight:500 }}>
-              Select your name in Section 1 to begin saving your rubric.
-            </div>
-          )}
-
-          {/* Existing rubrics banner */}
-          {!readOnly && (() => {
-            // RUBRIC-RESUME-OWN-1: this banner reports OTHER people's work. It used to
-            // count every rubric for the student, the reader's own included, so an
-            // author who could not reopen their own draft was told a rubric was in
-            // progress and invited to add another. It was describing their own row back
-            // to them. Your own rubric is the form on screen; it is not news.
-            const others     = studentRubrics.filter(r => !isOwnRubricRow(r, { fullName: userProfile?.full_name }))
-            const submitted  = others.filter(r => r.status === 'Completed').length
-            const unfinished = others.filter(r => r.status !== 'Completed')
-            if (!submitted && !unfinished.length) return null
-            const parts = []
-            if (submitted) parts.push(`${submitted} rubric${submitted !== 1 ? 's' : ''} already submitted`)
-            if (unfinished.length) {
-              // Name whoever holds an unfinished rubric, so a colleague knows who to ask
-              // rather than seeing an anonymous count. interviewer_name is the one field
-              // list_interview_rubrics_for_cohort returns unmasked, so naming the author
-              // discloses nothing the caller could not already read; the rubric itself
-              // stays closed to them.
-              const who = [...new Set(unfinished.map(r => String(r.interviewer_name || '').trim()).filter(Boolean))]
-              parts.push(`${unfinished.length} rubric${unfinished.length !== 1 ? 's' : ''} in progress`
-                + (who.length ? ` (${who.join(', ')})` : ''))
-            }
-            return (
-              <div style={{ background:'var(--marina)', border:'1px solid #b8d8eb', borderRadius:6, padding:'10px 14px', margin:'0 0 16px', fontSize:13, color:'var(--nightfall)' }}>
-                <strong>{parts.join(' and ')}</strong> for this student.
-                {!rubricId && ' You are adding a new rubric. Each interviewer scores independently.'}
-              </div>
-            )
-          })()}
-
-          <div className="rub-form-body">
-
-            {/* ── Opening Script ── */}
-            <div className="rub-script-card">
-              <button className="rub-script-toggle" onClick={() => setScriptOpen(p => !p)}>
-                {scriptOpen ? '▾ Hide Script' : '▸ Show Script'}&nbsp;&nbsp;<span style={{ fontWeight:400 }}>Interview Opening Script</span>
-              </button>
-              {scriptOpen && (
-                <div className="rub-script-body">
-                  <p className="rub-script-heading">Getting Started</p>
-                  <p>Begin by introducing yourself and your role. Then invite the student to briefly introduce themselves.</p>
-                  <p>Once you are both settled, say:</p>
-                  <p className="rub-script-quote">"Thanks for being here today. The goal of this interview is to get a better sense of your clinical readiness and explore how we can best support your transition into professional nursing practice."</p>
-                  <p className="rub-script-heading">Introduce ASPIRE</p>
-                  <p className="rub-script-quote">"ASPIRE offers senior nursing students the opportunity to complete their final clinical rotation at Cedars-Sinai Medical Center. It is designed to support a seamless transition into our New Graduate RN Residency Program through personalized unit and preceptor matching, mentorship, application guidance, and connection to a strong nursing community."</p>
-                  <p className="rub-script-heading">Explain the Interview Format</p>
-                  <p className="rub-script-quote">"This is a structured, rubric-based interview. I will be asking at least one question in each of three areas: Clinical Judgment, Professional Presence, and Goal Alignment. These are grounded in the AACN Essentials for nursing practice. There are no right or wrong answers. We simply want to hear your honest thoughts and experiences. I may take notes as we go, and we will close with a brief recommendation. Take all the time you need before answering. Ready to begin?"</p>
-                  <p>Then ask:</p>
-                  <p className="rub-script-quote">"Before we dive in, can you share your top three unit choices and tell me a bit about why you are interested in rotating there?"</p>
-                </div>
-              )}
-            </div>
-
-            {/* ── Domain Ratings Legend ── */}
-            <div className="rub-script-card">
-              <button className="rub-script-toggle" onClick={() => setLegendOpen(p => !p)}>
-                {legendOpen ? '▾ Hide Scoring Guide' : '▸ Show Scoring Guide'}&nbsp;&nbsp;<span style={{ fontWeight:400 }}>Scoring Guide</span>
-              </button>
-              {legendOpen && (
-                <div className="rub-legend-card">
-                  <table className="rub-legend-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width:48 }}>Score</th>
-                        <th style={{ width:160 }}>Label</th>
-                        <th>Description</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { s:1, bg:'#fee2e2', color:'#991b1b', label:'Not Yet Ready',             desc:'Response is vague, unclear, unsafe, or lacks insight' },
-                        { s:2, bg:'#fef3c7', color:'#92400e', label:'Emerging',                  desc:'Some awareness is present but reasoning or insight is limited' },
-                        { s:3, bg:'#e0f2fe', color:'#0369a1', label:'Competent',                 desc:'Response is appropriate, safe, and acceptable for student level' },
-                        { s:4, bg:'#dcfce7', color:'#166534', label:'Strong',                    desc:'Response is thoughtful, clear, and demonstrates good judgment or maturity' },
-                        { s:5, bg:'#1d2567', color:'#ffffff', label:'Highly Aligned / Practice-Ready', desc:'Response is insightful, well-articulated, reflective, and strongly aligned with expected readiness' },
-                      ].map(row => (
-                        <tr key={row.s} style={{ background: row.bg }}>
-                          <td style={{ color: row.color, fontWeight:700, fontSize:14, textAlign:'center' }}>{row.s}</td>
-                          <td style={{ color: row.color, fontWeight:600, fontSize:13 }}>{row.label}</td>
-                          <td style={{ color: row.color, fontSize:13 }}>{row.desc}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Section 1: Interview Info */}
-            <div className="iv-section" id="s1">
-              <div className="iv-section-title">Section 1: Interview Info</div>
-              <div className="iv-grid-2">
-                <div className="iv-field">
-                  <label className="iv-label">Date of Interview</label>
-                  {canReschedule && !readOnly
-                    ? <input className="iv-input" type="date" disabled={rescheduling}
-                        value={bookedDate}
-                        onChange={e => reschedule('date', e.target.value)} />
-                    : <div className="iv-readonly">{bookedDate || form.interview_date || '-'}</div>}
-                </div>
-                <div className="iv-field">
-                  <label className="iv-label">Interviewer Name</label>
-                  {locked || isInterviewerOnly ? <div className="iv-readonly">{form.interviewer_name || userProfile?.full_name || '-'}</div>
-                    : <select className="iv-input" value={form.interviewer_name} onChange={e => handleInterviewerChange(e.target.value)}>
-                        <option value="">Select interviewer…</option>
-                        {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>}
-                </div>
-                <div className="iv-field">
-                  <label className="iv-label">Interview Time</label>
-                  {canReschedule && !readOnly
-                    ? <input className="iv-input" type="time" step="60" disabled={rescheduling}
-                        value={bookedTime}
-                        onChange={e => reschedule('time', e.target.value)} />
-                    : <div className="iv-readonly">{bookedTime || form.interview_time || '-'}</div>}
-                </div>
-              </div>
-              {canReschedule && !readOnly && (
-                <p className="iv-sched-note">
-                  {reschedError
-                    ? reschedError
-                    : 'Changing the date or time moves the booked interview, so the calendar and the interview list both follow.'}
-                </p>
-              )}
-            </div>
-
-            {/* Section 2: Unit Preferences */}
-            <div className="iv-section" id="s2">
-              <div className="iv-section-title">Section 2: Unit Preferences and Rationale</div>
-              <p className="iv-prompt">"Before we dive in, can you share your top three unit choices and why?"</p>
-              <div className="iv-grid-3" style={{ marginBottom:14 }}>
-                {(['unit_preference_1','unit_preference_2','unit_preference_3']).map((f, i) => (
-                  <div className="iv-field" key={f}>
-                    <label className="iv-label">{['1st','2nd','3rd'][i]} Choice</label>
-                    {locked ? <div className="iv-readonly">{prefs[f] || '-'}</div>
-                      : <select className="iv-input" value={prefs[f]} onChange={e => savePreference(f, e.target.value)}>
-                          <option value="">Not specified</option>
-                          {availUnits.map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>}
-                  </div>
-                ))}
-              </div>
-              <div className="iv-field">
-                <label className="iv-label">Unit Preferences, Rationale, and Introduction Notes</label>
-                {locked ? <div className="iv-readonly iv-readonly-tall">{form.unit_preferences_rationale || '-'}</div>
-                  : <textarea className="iv-textarea iv-notes-textarea" rows={4} value={form.unit_preferences_rationale}
-                      onChange={e => saveText('unit_preferences_rationale', e.target.value)}
-                      placeholder="Capture rationale, introduction observations…" />}
-              </div>
-            </div>
-
-            {/* Sections 3-5: Domains */}
-            {[
-              { key:'cj', snum:3, title:'Clinical Judgment',    color:'#1d2567', questions:CJ_QUESTIONS },
-              { key:'pp', snum:4, title:'Professional Presence', color:'#0d7a8a', questions:PP_QUESTIONS },
-              { key:'ga', snum:5, title:'Goal Alignment',        color:'#166534', questions:GA_QUESTIONS },
-            ].map(({ key, snum, title, color, questions }) => {
-              const qField = `${key}_question_asked`
-              const sField = `${key}_score`
-              const nField = `${key}_notes`
-              const ref    = DOMAIN_REF[key]
-
-              // Other is active when explicitly clicked or when a loaded rubric has a custom question
-              const isOtherActive = otherClicked[key] || (!!form[qField] && !questions.includes(form[qField]))
-
-              return (
-                <div className="iv-domain-card" key={key} id={`s${snum}`} style={{ borderTopColor: color }}>
-                  <div className="iv-domain-header">
-                    <div className="iv-domain-title" style={{ color }}>Section {snum}: {title}</div>
-                    <span className="iv-domain-badge" style={{ background: color }}>Domain {snum-2}</span>
-                  </div>
-                  <button className="iv-ref-toggle" style={{ color, borderColor: color }} onClick={() => setRefOpen(p => ({ ...p, [key]: !p[key] }))}>
-                    <span className="iv-ref-chevron">{refOpen[key] ? '▾' : '▸'}</span>
-                    {refOpen[key] ? 'Hide Interview Guide' : 'Show Interview Guide'}
-                  </button>
-                  {refOpen[key] && (
-                    <div className="iv-ref-panel">
-                      <p className="iv-ref-row"><strong>Description:</strong> {ref.desc}</p>
-                      <p className="iv-ref-row"><strong>Basis:</strong> {ref.basis}</p>
-                      <p className="iv-ref-row"><strong>Listen for:</strong> {ref.listen}</p>
+                      {/* WAVE F-2: the resume opens through the server access endpoint, and
+                          only for someone entitled to this cohort's files. */}
+                      {canViewStudentResumeInCohort(cohortId) && student.resume_url && (
+                        <button type="button" className="rb-chip rb-chip-quiet rb-chip-btn"
+                          onClick={() => openStudentFile({ studentId: student.id, kind: 'resume' })}>
+                          View resume
+                        </button>
+                      )}
                     </div>
                   )}
+                  {!readOnly && (
+                    <p className="rb-flagnote" data-testid="flag-caption">
+                      {isFlagged
+                        ? 'Flagged for the placement huddle. The ASPIRE team sees this candidate first.'
+                        : 'Not flagged. Pull the ribbon down to flag for the placement huddle.'}
+                    </p>
+                  )}
+                  {/* A reason written before RUBRIC-BOOK-1 is still on the record, so it
+                      is still shown. New flags carry no note. */}
+                  {isFlagged && flagNote && (
+                    <p className="rb-flagnote" data-testid="flag-legacy-note">Earlier note: {flagNote}</p>
+                  )}
+                </div>
 
-                  <p className="iv-prompt">Ask at least one of the following:</p>
-
-                  <div className="iv-questions">
-                    {/* Preset question tiles - always fully clickable */}
-                    {questions.map((q, qi) => {
-                      const sel = form[qField] === q && !isOtherActive
-                      if (locked && !sel) return null
-                      return (
-                        <div key={qi}
-                          className={`iv-question-card${sel ? ' iv-question-card-sel' : ''}`}
-                          style={{ borderColor: sel ? color : '#d1d5db', background: sel ? color : '#fff', cursor: locked ? 'default' : 'pointer' }}
-                          onClick={!locked ? () => {
-                            setOtherClicked(p => ({ ...p, [key]: false }))
-                            saveMeaningful(qField, q)
-                          } : undefined}>
-                          <div className="iv-question-radio"
-                            style={{ border:`2px solid ${sel ? '#fff' : '#9ca3af'}`, background: sel ? '#fff' : 'transparent', flexShrink:0 }}>
-                            {sel && <div className="iv-question-radio-dot" style={{ background: color }} />}
-                          </div>
-                          <span style={{ fontSize:14, color: sel ? '#fff' : '#191919' }}>{q}</span>
-                        </div>
-                      )
-                    })}
-
-                    {/* Other / Custom Question tile */}
-                    {(!locked || isOtherActive) && (
-                      <div>
-                        <div
-                          className={`iv-question-card${isOtherActive ? ' iv-question-card-sel' : ''}`}
-                          style={{ borderColor: isOtherActive ? color : '#d1d5db', background: isOtherActive ? color : '#fff', cursor: locked ? 'default' : 'pointer' }}
-                          onClick={!locked ? () => {
-                            setOtherClicked(p => ({ ...p, [key]: true }))
-                            // Clear any preset selection so only Other shows as active
-                            if (questions.includes(form[qField])) {
-                              setForm(p => ({ ...p, [qField]: '' }))
-                            }
-                          } : undefined}>
-                          <div className="iv-question-radio"
-                            style={{ border:`2px solid ${isOtherActive ? '#fff' : '#9ca3af'}`, background: isOtherActive ? '#fff' : 'transparent', flexShrink:0 }}>
-                            {isOtherActive && <div className="iv-question-radio-dot" style={{ background: color }} />}
-                          </div>
-                          <span style={{ fontWeight:500, fontSize:14, color: isOtherActive ? '#fff' : '#191919' }}>
-                            Other / Custom Question
-                          </span>
-                        </div>
-                        {isOtherActive && (
-                          <div style={{ marginTop:8 }}>
-                            <label style={{ display:'block', fontSize:13, fontWeight:500, color:'var(--raven)', marginBottom:6 }}>
-                              Type the custom question asked:
-                            </label>
-                            {locked
-                              ? <div className="iv-readonly">{form[qField] || '-'}</div>
-                              : <textarea
-                                  className="iv-textarea iv-notes-textarea"
-                                  rows={3}
-                                  placeholder="Enter the question you asked the student…"
-                                  value={form[qField]}
-                                  onChange={e => saveText(qField, e.target.value)}
-                                />
-                            }
-                          </div>
-                        )}
+                <div className="rb-block">
+                  <div className="rb-block-label">Scheduled Interview</div>
+                  {student.interview_scheduled_date ? (
+                    <>
+                      <div className="rb-kv">
+                        <span className="rb-kv-key">Date</span>
+                        <span className="rb-kv-val">{fmtBookedDate(student.interview_scheduled_date)}</span>
                       </div>
+                      <div className="rb-kv">
+                        <span className="rb-kv-key">Time</span>
+                        <span className="rb-kv-val">
+                          {fmtBookedTime(student.interview_scheduled_time)}
+                          {student.interview_duration_minutes ? ` · ${student.interview_duration_minutes} min` : ''}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rb-empty">Not scheduled</div>
+                  )}
+                  {(form.interviewer_name || userProfile?.full_name) && (
+                    <div className="rb-kv">
+                      <span className="rb-kv-key">Interviewer</span>
+                      <span className="rb-kv-val">{form.interviewer_name || userProfile?.full_name}</span>
+                    </div>
+                  )}
+                  {currentRole && (
+                    <div className="rb-kv">
+                      <span className="rb-kv-key">Current role</span>
+                      <span className="rb-kv-val">{currentRole}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rb-block">
+                  <div className="rb-block-label" style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <span>Submitted Preferences</span>
+                    {!readOnly && (
+                      <button type="button" className="rb-mini-btn" onClick={loadUnitAvailability} disabled={availLoading}>
+                        {availLoading ? 'Refreshing…' : 'Refresh'}
+                      </button>
                     )}
                   </div>
-
-                  {/* Notes */}
-                  <div className="iv-field" style={{ marginTop:14 }}>
-                    <label className="iv-label iv-score-label">Notes and Response Summary</label>
-                    {locked ? <div className="iv-readonly iv-readonly-tall">{form[nField] || '-'}</div>
-                      : <textarea className="iv-textarea iv-notes-textarea" rows={3} value={form[nField]} onChange={e => saveText(nField, e.target.value)} placeholder="Key points from the student's response…" />}
-                  </div>
-
-                  {/* Score tiles */}
-                  <div className="iv-field" style={{ marginTop:14 }}>
-                    <label className="iv-label iv-score-label">Rate this domain:</label>
-                    <div className="iv-score-tiles">
-                      {[1,2,3,4,5].map(s => {
-                        const sel = form[sField] === s; const c = SCORE_COLORS[s]
-                        return (!locked || sel) ? (
-                          <div key={s} className="iv-score-tile"
-                            style={{ background: sel ? c.bg : '#fff', borderColor: sel ? c.border : '#d1d5db', cursor: locked ? 'default' : 'pointer' }}
-                            onClick={!locked ? () => saveMeaningful(sField, s) : undefined}>
-                            <div className="iv-score-num" style={{ color: sel ? c.color : '#191919' }}>{s}</div>
-                            <div className="iv-score-desc" style={{ color: sel ? c.color : '#6b7280' }}>{SCORE_LABELS[s]}</div>
+                  {prefRows.every(r => !r.pref) && <div className="rb-empty">Not submitted</div>}
+                  {prefRows.filter(r => r.pref).map(({ pref, rank, unit, d1, d2, d3, slots, highDemand }) => (
+                    <div className="rb-pref" key={rank} data-testid="pref-block">
+                      <div className="rb-pref-top">
+                        <div style={{ minWidth: 0 }}>
+                          <div className="rb-pref-name">
+                            <span className="rb-pref-rank">{rank}</span>{pref}
                           </div>
-                        ) : null
-                      })}
+                          {unit && (
+                            <div className="rb-pref-counts">1st: {d1} · 2nd: {d2} · 3rd: {d3}</div>
+                          )}
+                        </div>
+                        {highDemand && <span className="rb-chip rb-chip-demand" data-testid="demand-chip">High demand</span>}
+                      </div>
+                      {availLoading && !unit
+                        ? <div className="avail-skeleton" />
+                        : !unit
+                          ? <div className="rb-empty">Not participating this cycle</div>
+                          : <div className="rb-pref-chips">{seatChip(unit, slots)}</div>}
+                      {unit && slots === 0 && (
+                        <div className="rb-warn">This unit is full. Consider exploring alternatives during the interview.</div>
+                      )}
                     </div>
+                  ))}
+                </div>
+
+                {student.interest_statement && (
+                  <div className="rb-block">
+                    <div className="rb-block-label">Interest Statement</div>
+                    <div className="rb-quote-block">{student.interest_statement}</div>
                   </div>
-                </div>
-              )
-            })}
+                )}
 
-            {/* Composite score card */}
-            <div className="iv-composite-card" id="s6-anchor">
-              <div className="iv-composite-label">Live Composite Score</div>
-              <div className="iv-composite-num">{composite}<span className="iv-composite-denom"> / 15</span></div>
-              <div className="iv-composite-breakdown">
-                <div style={{ color:'#1d2567' }}>Clinical Judgment: <strong>{form.cj_score||0}/5</strong></div>
-                <div style={{ color:'#0d7a8a' }}>Professional Presence: <strong>{form.pp_score||0}/5</strong></div>
-                <div style={{ color:'#166534' }}>Goal Alignment: <strong>{form.ga_score||0}/5</strong></div>
-              </div>
-            </div>
+                {[
+                  ['Shift', student.shift_availability],
+                  ['Healthcare experience', student.prior_healthcare_experience],
+                  ['Cedars-Sinai affiliation', student.cs_affiliation],
+                ].some(([, v]) => v) && (
+                  <div className="rb-block">
+                    <div className="rb-block-label">Background</div>
+                    {[
+                      ['Shift', student.shift_availability],
+                      ['Healthcare experience', student.prior_healthcare_experience],
+                      ['Cedars-Sinai affiliation', student.cs_affiliation],
+                    ].map(([lbl, val]) => val ? (
+                      <div className="rb-kv" key={lbl}>
+                        <span className="rb-kv-key">{lbl}</span>
+                        <span className="rb-kv-val">{val}</span>
+                      </div>
+                    ) : null)}
+                  </div>
+                )}
+              </section>
 
-            {/* Section 6: Student Questions */}
-            <div className="iv-section" id="s6">
-              <div className="iv-section-title">Section 6: Student Questions</div>
-              <p className="iv-prompt">"Before we wrap up, what questions do you have for us?"</p>
-              {locked ? <div className="iv-readonly iv-readonly-tall">{form.student_questions || '-'}</div>
-                : <textarea className="iv-textarea iv-notes-textarea" rows={3} value={form.student_questions}
-                    onChange={e => saveText('student_questions', e.target.value)}
-                    placeholder="Student questions and notable comments (optional)…" />}
-            </div>
+              <div className="rb-seam" aria-hidden="true" />
 
-            {/* Section 7: Recommendation */}
-            <div className="iv-rec-section" id="s7">
-              <div className="iv-rec-heading">Section 7: Your Recommendation</div>
-              <p className="iv-rec-subtext">This is your individual recommendation. Do not share your decision with the student.</p>
-              <div className="iv-rec-tiles">
-                {REC_OPTIONS.map(opt => {
-                  const sel = form.individual_recommendation === opt.value
-                  return locked
-                    ? sel && <div key={opt.value} className="iv-rec-tile" style={{ background:opt.bg, color:opt.color, border:`2px solid ${opt.border}` }}>{opt.label}</div>
-                    : <div key={opt.value} className="iv-rec-tile"
-                        style={{ background: sel ? opt.bg : '#fff', color: sel ? opt.color : 'var(--text-secondary)', border:`2px solid ${sel ? opt.border : 'var(--border)'}`, cursor:'pointer' }}
-                        onClick={() => saveMeaningful('individual_recommendation', opt.value)}>{opt.label}</div>
-                })}
-              </div>
-              <p style={{ fontSize:12, color:'#6b7280', marginTop:10, lineHeight:1.5 }}>
-                The final recommendation is determined automatically by averaging all interviewers' composite scores. Your individual recommendation is recorded but the auto-calculated result drives the student's interview outcome.
-              </p>
-              <div className="iv-field" style={{ marginTop:14 }}>
-                <label className="iv-label">Suggested Unit</label>
-                {locked ? <div className="iv-readonly">{form.suggested_unit || '-'}</div>
-                  : <input className="iv-input" value={form.suggested_unit} onChange={e => saveText('suggested_unit', e.target.value)} placeholder="Unit you would suggest" />}
-              </div>
-              <div className="iv-field" style={{ marginTop:12 }}>
-                <label className="iv-label">Summary Comments</label>
-                {locked ? <div className="iv-readonly iv-readonly-tall">{form.summary_comments || '-'}</div>
-                  : <textarea className="iv-textarea iv-notes-textarea" rows={4} value={form.summary_comments} onChange={e => saveText('summary_comments', e.target.value)} placeholder="Overall impressions, strengths, areas for development…" />}
-              </div>
-            </div>
+              {/* ── Right page: the rubric ─────────────────────────────────── */}
+              <section className="rb-page rb-page-right" aria-label="Rubric">
+                <header className="rb-head" data-testid="rb-head">
+                  {/* The ASPIRE status is on the candidate page, a hand's width to the
+                      left, so the head answers the question the left page cannot: how
+                      much of THIS rubric is done. */}
+                  <span className="rb-head-key">Completion</span>
+                  <span className="rb-head-rec" data-testid="rb-completion">{completion}%</span>
+                  <span className="rb-head-key">Recommendation</span>
+                  <span className="rb-head-rec" data-testid="rb-recommendation">
+                    {student.interview_outcome || form.individual_recommendation || 'Not recorded'}
+                  </span>
+                  <button type="button" className="rb-head-guide" data-testid="rb-guide-toggle"
+                    aria-expanded={legendOpen} onClick={() => setLegendOpen(p => !p)}>
+                    {legendOpen ? '▾' : '▸'} Scoring Guide
+                  </button>
+                  <span className="rb-head-score">
+                    {!readOnly && saveIndicator}
+                    <span className="rb-head-key">Composite</span>
+                    <span className="rb-head-num" data-testid="rb-composite">{composite}</span>
+                    <span className="rb-head-den">/ 15</span>
+                  </span>
+                </header>
 
-            {/* ── Closing Script ── */}
-            <div className="rub-script-card">
-              <button className="rub-script-toggle" onClick={() => setClosingOpen(p => !p)}>
-                {closingOpen ? '▾ Hide Script' : '▸ Show Script'}&nbsp;&nbsp;<span style={{ fontWeight:400 }}>Interview Closing Script</span>
-              </button>
-              {closingOpen && (
-                <div className="rub-script-body">
-                  <p className="rub-script-heading">Closing the Interview</p>
-                  <p>Invite the student to ask any questions they may have:</p>
-                  <p className="rub-script-quote">"Before we wrap up, what questions do you have for us?"</p>
-                  <p>Take notes on any notable questions or comments in the Student Questions section above.</p>
-                  <p>Then close with:</p>
-                  <p className="rub-script-quote">"Thank you so much for your time today. It was wonderful speaking with you. From here, our team will review your rubric and work with unit leadership to find a preceptor who is a great fit for your learning goals. Once a placement is confirmed, we will reach out with your rotation schedule and orientation details.</p>
-                  <p className="rub-script-quote">If you have not already, please email Jester a copy of your résumé and a professional headshot. We also use headshots for your badge, so a clear, professional photo works best.</p>
-                  <p className="rub-script-quote">Matching can take some time depending on unit availability, so we appreciate your patience. You will hear from us regardless of the outcome. In the meantime, feel free to reach out if you have any questions. We are rooting for you!"</p>
-                </div>
-              )}
-            </div>
-
-            {/* Action buttons */}
-            {!locked && (
-              <div className="iv-complete-zone">
-                {/* Validation summary panel */}
-                {showValidation && validationErrors.length > 0 && (
-                  <div style={{ background:'var(--marina)', borderLeft:'3px solid var(--cs-red)', borderRadius:6, padding:'12px 16px', marginBottom:14 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:'#dc1e34', marginBottom:8 }}>Please complete the following before submitting:</div>
-                    {validationErrors.map((e, i) => (
-                      <div key={i} style={{ fontSize:14, color:'var(--nightfall)', lineHeight:1.6 }}>• {e}</div>
+                {/* Open from the head, so a 4 can be looked up from anywhere on the page. */}
+                {legendOpen && (
+                  <div className="rb-guide-drawer" data-testid="scoring-guide">
+                    {SCORE_GUIDE.map(row => (
+                      <p key={row.s}>
+                        <span className="rb-guide-head">{row.s} · {row.label}:</span> {row.desc}
+                      </p>
                     ))}
                   </div>
                 )}
-                <div className="iv-action-row">
-                  <button className="iv-reset-btn" onClick={() => setConfirmReset(true)}>Reset Form</button>
-                  <button className="iv-complete-btn"
-                    style={{ opacity: validationErrors.length > 0 ? 0.5 : 1 }}
-                    onClick={() => {
-                      if (validationErrors.length > 0) { setShowValidation(true); return }
-                      setShowValidation(false); setConfirmComplete(true)
-                    }}>
-                    Mark My Rubric Complete
-                  </button>
-                </div>
-              </div>
-            )}
-            {locked && (
-              <div className="iv-locked-notice">✓ Your rubric is marked Complete. Click "Unlock to Edit" to make changes.</div>
-            )}
 
-            {/* All rubrics for this student - hidden in readOnly view */}
-            {!readOnly && completedRubrics.length > 0 && (
-              <div className="rub-all-section">
-                <div className="rub-all-title">All Rubrics for This Student ({completedRubrics.length})</div>
-                {completedRubrics.map(r => {
-                  const canViewRubric = canManageAllRubrics || r.can_view_details === true
-                  const canEditRubric = canManageAllRubrics || r.can_edit === true
-                  return (
-                    <RubricCard key={r.id} r={r} interviewers={interviewers} onSave={handleRubricEdit}
-                      canView={canViewRubric}
-                      canEdit={canEditRubric}
-                      canChangeInterviewer={canManageAllRubrics}
-                      onView={() => { if (canViewRubric) setViewingRubric(r) }} />
-                  )
-                })}
-                <div className="rub-avg-display">
-                  <span>Average Composite: <strong>{(() => {
-                    // Compute live from rubric rows so the value is correct even when
-                    // student.avg_composite_score hasn't been written back yet (e.g., N=1).
-                    const scored = completedRubrics.filter(r => (r.composite_score || 0) > 0)
-                    if (!scored.length) {
-                      console.log('[RubricSession] average composite is null for student', student.id,
-                        { rubrics: completedRubrics.map(r => ({ status: r.status, score: r.composite_score })) })
-                      return '-'
+                <div className="rb-scroll" id="rb-scroll" ref={scrollRef}>
+                  {!locked && !form.interviewer_name && (
+                    <div className="rb-banner">Select your name in Section 1 to begin saving your rubric.</div>
+                  )}
+
+                  {/* Other people's rubrics for this student. Your own is the form on
+                      screen, so it is never counted back to you. */}
+                  {!readOnly && (() => {
+                    const others     = studentRubrics.filter(r => !isOwnRubricRow(r, { fullName: userProfile?.full_name }))
+                    const submitted  = others.filter(r => r.status === 'Completed').length
+                    const unfinished = others.filter(r => r.status !== 'Completed')
+                    if (!submitted && !unfinished.length) return null
+                    const parts = []
+                    if (submitted) parts.push(`${submitted} rubric${submitted !== 1 ? 's' : ''} already submitted`)
+                    if (unfinished.length) {
+                      const who = [...new Set(unfinished.map(r => String(r.interviewer_name || '').trim()).filter(Boolean))]
+                      parts.push(`${unfinished.length} rubric${unfinished.length !== 1 ? 's' : ''} in progress`
+                        + (who.length ? ` (${who.join(', ')})` : ''))
                     }
-                    const avg = scored.reduce((s, r) => s + (r.composite_score || 0), 0) / scored.length
-                    return avg.toFixed(1)
-                  })()}/15</strong></span>
-                  {student.auto_recommendation && (() => {
-                    const rec = student.auto_recommendation
-                    const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : '#991b1b'
-                    const recBg    = rec === 'Recommend' ? '#dcfce7' : rec === 'Recommend with Reservations' ? '#fef3c7' : '#fee2e2'
                     return (
-                      <span style={{ marginLeft:16, display:'inline-flex', alignItems:'center', gap:4 }}>
-                        <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:recBg, color:recColor }}>
-                          {rec === 'Recommend' ? 'Recommend' : rec === 'Recommend with Reservations' ? 'With Reservations' : 'Do Not Recommend'}
-                        </span>
-                        <ScoreFlag message={student.score_flag ? student.score_flag_message : ''} />
-                      </span>
+                      <div className="rb-banner">
+                        <strong>{parts.join(' and ')}</strong> for this student.
+                        {!rubricId && ' You are adding a new rubric. Each interviewer scores independently.'}
+                      </div>
                     )
                   })()}
+
+                  {/* ── Section 1 ── */}
+                  <section className="rb-section" id="s1">
+                    <div className="rb-title">Section 1: Interview Info</div>
+                    <div className="rb-grid-2">
+                      <div className="rb-field">
+                        <label className="rb-label" htmlFor="rb-date">Date of interview</label>
+                        {canReschedule && !readOnly
+                          ? <input id="rb-date" className="rb-input rb-input-mono" type="date" disabled={rescheduling}
+                              value={bookedDate} onChange={e => reschedule('date', e.target.value)} />
+                          : <div className="rb-readonly">{bookedDate || form.interview_date || '-'}</div>}
+                      </div>
+                      <div className="rb-field">
+                        <label className="rb-label" htmlFor="rb-interviewer">Interviewer name</label>
+                        {locked || isInterviewerOnly
+                          ? <div className="rb-readonly">{form.interviewer_name || userProfile?.full_name || '-'}</div>
+                          : <select id="rb-interviewer" className="rb-input" value={form.interviewer_name}
+                              onChange={e => handleInterviewerChange(e.target.value)}>
+                              <option value="">Select interviewer…</option>
+                              {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>}
+                      </div>
+                    </div>
+                    <div className="rb-grid-2">
+                      <div className="rb-field">
+                        <label className="rb-label" htmlFor="rb-time">Interview time</label>
+                        {canReschedule && !readOnly
+                          ? <input id="rb-time" className="rb-input rb-input-mono" type="time" step="60" disabled={rescheduling}
+                              value={bookedTime} onChange={e => reschedule('time', e.target.value)} />
+                          : <div className="rb-readonly">{bookedTime || form.interview_time || '-'}</div>}
+                      </div>
+                    </div>
+                    {canReschedule && !readOnly && (
+                      <p className={`rb-note-band${reschedError ? ' rb-note-band-err' : ''}`}>
+                        {reschedError || 'Changing the date or time moves the booked interview, so the calendar and the interview list both follow.'}
+                      </p>
+                    )}
+                  </section>
+
+                  <button type="button" className="rb-disclosure" onClick={() => setScriptOpen(p => !p)} aria-expanded={scriptOpen}>
+                    <span className="rb-disclosure-mark">{scriptOpen ? '▾' : '▸'}</span>Interview Opening Script
+                  </button>
+                  {scriptOpen && (
+                    <div className="rb-guide">
+                      <p className="rb-guide-head">Getting started</p>
+                      <p>Begin by introducing yourself and your role. Then invite the student to briefly introduce themselves.</p>
+                      <p>Once you are both settled, say:</p>
+                      <p className="rb-quote">"Thanks for being here today. The goal of this interview is to get a better sense of your clinical readiness and explore how we can best support your transition into professional nursing practice."</p>
+                      <p className="rb-guide-head">Introduce ASPIRE</p>
+                      <p className="rb-quote">"ASPIRE offers senior nursing students the opportunity to complete their final clinical rotation at Cedars-Sinai Medical Center. It is designed to support a seamless transition into our New Graduate RN Residency Program through personalized unit and preceptor matching, mentorship, application guidance, and connection to a strong nursing community."</p>
+                      <p className="rb-guide-head">Explain the interview format</p>
+                      <p className="rb-quote">"This is a structured, rubric-based interview. I will be asking at least one question in each of three areas: Clinical Judgment, Professional Presence, and Goal Alignment. These are grounded in the AACN Essentials for nursing practice. There are no right or wrong answers. We simply want to hear your honest thoughts and experiences. I may take notes as we go, and we will close with a brief recommendation. Take all the time you need before answering. Ready to begin?"</p>
+                    </div>
+                  )}
+
+                  {/* ── Section 2 ── */}
+                  <section className="rb-section" id="s2">
+                    <div className="rb-title">Section 2: Unit Preferences and Rationale</div>
+                    <p className="rb-prompt">"Before we dive in, can you share your top three unit choices and why?"</p>
+                    <div className="rb-grid-3">
+                      {(['unit_preference_1','unit_preference_2','unit_preference_3']).map((f, i) => (
+                        <div className="rb-field" key={f}>
+                          <label className="rb-label" htmlFor={`rb-${f}`}>{['1st','2nd','3rd'][i]} choice</label>
+                          {locked
+                            ? <div className="rb-readonly">{prefs[f] || '-'}</div>
+                            : <select id={`rb-${f}`} className="rb-input" value={prefs[f]} onChange={e => savePreference(f, e.target.value)}>
+                                <option value="">Not specified</option>
+                                {availUnits.map(u => <option key={u} value={u}>{u}</option>)}
+                              </select>}
+                          {prefRows[i]?.unit && (
+                            <div className="rb-pref-chips">{seatChip(prefRows[i].unit, prefRows[i].slots)}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rb-field">
+                      <label className="rb-label" htmlFor="rb-rationale">Unit preferences, rationale, and introduction notes</label>
+                      {locked
+                        ? <div className="rb-readonly rb-readonly-tall">{form.unit_preferences_rationale || '-'}</div>
+                        : <textarea id="rb-rationale" className="rb-textarea" rows={4} value={form.unit_preferences_rationale}
+                            onChange={e => saveText('unit_preferences_rationale', e.target.value)}
+                            placeholder="Capture rationale, introduction observations…" />}
+                    </div>
+                  </section>
+
+                  {/* ── Sections 3 to 5: the scored domains ── */}
+                  {DOMAINS.map(({ key, snum, title, questions }) => {
+                    const qField = `${key}_question_asked`
+                    const sField = `${key}_score`
+                    const nField = `${key}_notes`
+                    const ref    = DOMAIN_REF[key]
+                    const isOtherActive = otherClicked[key] || (!!form[qField] && !questions.includes(form[qField]))
+
+                    return (
+                      <section className="rb-section" id={`s${snum}`} key={key}>
+                        <div className="rb-eyebrow">Domain {snum - 2}</div>
+                        <div className="rb-title">Section {snum}: {title}</div>
+
+                        <button type="button" className="rb-disclosure" aria-expanded={!!refOpen[key]}
+                          onClick={() => setRefOpen(p => ({ ...p, [key]: !p[key] }))}>
+                          <span className="rb-disclosure-mark">{refOpen[key] ? '▾' : '▸'}</span>Show interview guide
+                        </button>
+                        {refOpen[key] && (
+                          <div className="rb-guide">
+                            <p><span className="rb-guide-head">Description:</span> {ref.desc}</p>
+                            <p><span className="rb-guide-head">Basis:</span> {ref.basis}</p>
+                            <p><span className="rb-guide-head">Listen for:</span> {ref.listen}</p>
+                          </div>
+                        )}
+
+                        <p className="rb-label">Ask at least one of the following</p>
+                        <div className="rb-choices" role="radiogroup" aria-label={`Question asked for ${title}`}>
+                          {questions.map((q, qi) => {
+                            const sel = form[qField] === q && !isOtherActive
+                            if (locked && !sel) return null
+                            return (
+                              <button type="button" key={qi} role="radio" aria-checked={sel} disabled={locked}
+                                className={`rb-choice${sel ? ' rb-choice-sel' : ''}`}
+                                onClick={!locked ? () => {
+                                  setOtherClicked(p => ({ ...p, [key]: false }))
+                                  saveMeaningful(qField, q)
+                                } : undefined}>
+                                {q}
+                              </button>
+                            )
+                          })}
+                          {(!locked || isOtherActive) && (
+                            <button type="button" role="radio" aria-checked={isOtherActive} disabled={locked}
+                              className={`rb-choice${isOtherActive ? ' rb-choice-sel' : ''}`}
+                              data-testid={`other-${key}`}
+                              onClick={!locked ? () => {
+                                setOtherClicked(p => ({ ...p, [key]: true }))
+                                if (questions.includes(form[qField])) setForm(p => ({ ...p, [qField]: '' }))
+                              } : undefined}>
+                              Other / custom question
+                            </button>
+                          )}
+                        </div>
+
+                        {isOtherActive && (
+                          <div className="rb-field" style={{ marginTop: 14 }}>
+                            <label className="rb-label" htmlFor={`rb-${qField}`}>Type the custom question asked</label>
+                            {locked
+                              ? <div className="rb-readonly">{form[qField] || '-'}</div>
+                              : <textarea id={`rb-${qField}`} className="rb-textarea" rows={2} value={form[qField]}
+                                  placeholder="Enter the question you asked the student…"
+                                  onChange={e => saveText(qField, e.target.value)} />}
+                          </div>
+                        )}
+
+                        <div className="rb-field" style={{ marginTop: 14 }}>
+                          <label className="rb-label" htmlFor={`rb-${nField}`}>Notes and response summary</label>
+                          {locked
+                            ? <div className="rb-readonly rb-readonly-tall">{form[nField] || '-'}</div>
+                            : <textarea id={`rb-${nField}`} className="rb-textarea" rows={3} value={form[nField]}
+                                placeholder="Key points from the student's response…"
+                                onChange={e => saveText(nField, e.target.value)} />}
+                        </div>
+
+                        <div className="rb-field">
+                          <span className="rb-label">Rate this domain</span>
+                          <div className="rb-scale" role="radiogroup" aria-label={`Rate ${title}`}>
+                            {[1,2,3,4,5].map(s => {
+                              const sel = form[sField] === s
+                              return (
+                                <button type="button" key={s} role="radio" aria-checked={sel} disabled={locked}
+                                  className={`rb-score${sel ? ' rb-score-sel' : ''}`}
+                                  data-testid={`score-${key}-${s}`}
+                                  onClick={!locked ? () => saveMeaningful(sField, s) : undefined}>
+                                  <span className="rb-score-num">{s}</span>
+                                  <span className="rb-score-lbl">{SCORE_LABELS[s]}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </section>
+                    )
+                  })}
+
+                  <div className="rb-scores-line" data-testid="rb-breakdown">
+                    <span>Clinical Judgment <strong>{form.cj_score || 0}/5</strong></span>
+                    <span>Professional Presence <strong>{form.pp_score || 0}/5</strong></span>
+                    <span>Goal Alignment <strong>{form.ga_score || 0}/5</strong></span>
+                  </div>
+
+                  {/* ── Section 6 ── */}
+                  <section className="rb-section" id="s6" style={{ marginTop: 34 }}>
+                    <div className="rb-title">Section 6: Student Questions</div>
+                    <p className="rb-prompt">"Before we wrap up, what questions do you have for us?"</p>
+                    {locked
+                      ? <div className="rb-readonly rb-readonly-tall">{form.student_questions || '-'}</div>
+                      : <textarea className="rb-textarea" rows={3} value={form.student_questions}
+                          placeholder="Student questions and notable comments (optional)…"
+                          onChange={e => saveText('student_questions', e.target.value)} />}
+                  </section>
+
+                  {/* ── Section 7 ── */}
+                  <section className="rb-section" id="s7">
+                    <div className="rb-title">Section 7: Your Recommendation</div>
+                    <p className="rb-label">This is your individual recommendation. Do not share your decision with the student.</p>
+                    <div className="rb-recs" role="radiogroup" aria-label="Your recommendation">
+                      {REC_OPTIONS.map(opt => {
+                        const sel = form.individual_recommendation === opt.value
+                        if (locked && !sel) return null
+                        return (
+                          <button type="button" key={opt.value} role="radio" aria-checked={sel} disabled={locked}
+                            className={`rb-rec${sel ? ' rb-rec-sel' : ''}`}
+                            style={sel ? { background: opt.bg, color: opt.color } : undefined}
+                            onClick={!locked ? () => saveMeaningful('individual_recommendation', opt.value) : undefined}>
+                            {opt.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <p className="rb-note-band">
+                      The final recommendation is averaged from every interviewer's composite score. Yours is recorded, and the averaged result is what drives the student's interview outcome.
+                    </p>
+                    <div className="rb-field" style={{ marginTop: 16 }}>
+                      <label className="rb-label" htmlFor="rb-suggested">Suggested unit</label>
+                      {locked
+                        ? <div className="rb-readonly">{form.suggested_unit || '-'}</div>
+                        : <input id="rb-suggested" className="rb-input" value={form.suggested_unit}
+                            placeholder="Unit you would suggest"
+                            onChange={e => saveText('suggested_unit', e.target.value)} />}
+                    </div>
+                    <div className="rb-field">
+                      <label className="rb-label" htmlFor="rb-summary">Summary comments</label>
+                      {locked
+                        ? <div className="rb-readonly rb-readonly-tall">{form.summary_comments || '-'}</div>
+                        : <textarea id="rb-summary" className="rb-textarea" rows={4} value={form.summary_comments}
+                            placeholder="Overall impressions, strengths, areas for development…"
+                            onChange={e => saveText('summary_comments', e.target.value)} />}
+                    </div>
+                  </section>
+
+                  <button type="button" className="rb-disclosure" onClick={() => setClosingOpen(p => !p)} aria-expanded={closingOpen}>
+                    <span className="rb-disclosure-mark">{closingOpen ? '▾' : '▸'}</span>Interview Closing Script
+                  </button>
+                  {closingOpen && (
+                    <div className="rb-guide">
+                      {/* Owner, 2026-09-17: the script says only what Section 6 does not.
+                          The closing question, the note-taking instruction and the
+                          résumé reminder all live elsewhere, so they are not repeated. */}
+                      <p className="rb-guide-head">Closing the interview</p>
+                      <p className="rb-quote">"Thank you so much for your time today. It was wonderful speaking with you. From here, our team will review your rubric and work with unit leadership to find a preceptor who is a great fit for your learning goals. Once a placement is confirmed, we will reach out with your rotation schedule and orientation details.</p>
+                      <p className="rb-quote">You will hear from us either way. If anything comes up before then, please reach out. It was a pleasure meeting you."</p>
+                    </div>
+                  )}
+
+                  {!locked && (
+                    <>
+                      {showValidation && validationErrors.length > 0 && (
+                        <div className="rb-errors" data-testid="rb-validation">
+                          <div className="rb-errors-head">Please complete the following before submitting:</div>
+                          {validationErrors.map((e, i) => <div key={i}>• {e}</div>)}
+                        </div>
+                      )}
+                      <div className="rb-actions">
+                        <button type="button" className="rb-btn" onClick={() => setConfirmReset(true)}>Reset Form</button>
+                        <button type="button" className="rb-btn rb-btn-primary"
+                          style={{ opacity: validationErrors.length > 0 ? 0.55 : 1 }}
+                          onClick={() => {
+                            if (validationErrors.length > 0) { setShowValidation(true); return }
+                            setShowValidation(false); setConfirmComplete(true)
+                          }}>
+                          Mark My Rubric Complete
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {locked && (
+                    <div className="rb-locked">Your rubric is marked Complete. Use Unlock to Edit to make changes.</div>
+                  )}
+
+                  {!readOnly && completedRubrics.length > 0 && (
+                    <div className="rb-others">
+                      <div className="rb-others-title">All Rubrics for This Student ({completedRubrics.length})</div>
+                      {completedRubrics.map(r => {
+                        const canViewRubric = canManageAllRubrics || r.can_view_details === true
+                        const canEditRubric = canManageAllRubrics || r.can_edit === true
+                        return (
+                          <RubricCard key={r.id} r={r} interviewers={interviewers} onSave={handleRubricEdit}
+                            canView={canViewRubric}
+                            canEdit={canEditRubric}
+                            canChangeInterviewer={canManageAllRubrics}
+                            onView={() => { if (canViewRubric) setViewingRubric(r) }} />
+                        )
+                      })}
+                      <div className="rub-avg-display">
+                        <span>Average Composite: <strong>{(() => {
+                          const scored = completedRubrics.filter(r => (r.composite_score || 0) > 0)
+                          if (!scored.length) return '-'
+                          const avg = scored.reduce((s, r) => s + (r.composite_score || 0), 0) / scored.length
+                          return avg.toFixed(1)
+                        })()}/15</strong></span>
+                        {student.auto_recommendation && (() => {
+                          const rec = student.auto_recommendation
+                          const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : '#991b1b'
+                          const recBg    = rec === 'Recommend' ? '#dcfce7' : rec === 'Recommend with Reservations' ? '#fef3c7' : '#fee2e2'
+                          return (
+                            <span style={{ marginLeft:16, display:'inline-flex', alignItems:'center', gap:4 }}>
+                              <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:'var(--aspire-radius-pill)', background:recBg, color:recColor }}>
+                                {rec === 'Recommend' ? 'Recommend' : rec === 'Recommend with Reservations' ? 'With Reservations' : 'Do Not Recommend'}
+                              </span>
+                              <ScoreFlag message={student.score_flag ? student.score_flag_message : ''} />
+                            </span>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              </section>
+
+              {/* ── The index down the fore edge ───────────────────────────── */}
+              <nav className="rb-index" aria-label="Rubric sections" ref={indexRef}>
+                {/* The number leads, as it does on a real index. How much is done is
+                    a percentage in the head now, so a tab carries no second mark. */}
+                {steps.map((s, i) => (
+                  <button type="button" key={s.id} data-testid={`rb-tab-${s.id}`}
+                    className={`rb-tab${activeStep === s.id ? ' rb-tab-active' : ''}`}
+                    aria-current={activeStep === s.id ? 'true' : undefined}
+                    aria-label={`Section ${i + 1}: ${s.label}`}
+                    onClick={() => goToSection(s.id)}>
+                    <span className="rb-tab-num">{String(i + 1).padStart(2, '0')}</span>
+                    <span>{s.label}</span>
+                  </button>
+                ))}
+              </nav>
+
+            </div>
           </div>
         </div>
       </div>
@@ -1714,7 +1711,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         </div>
       )}
 
-      {/* Read-only rubric view modal */}
+      {/* A colleague's rubric opens in the same book, with the pen put down. */}
       {viewingRubric && (canManageAllRubrics || viewingRubric.can_view_details === true) && (
         <div className="modal-overlay" onMouseDown={() => setViewingRubric(null)}>
           <div className="modal-rubric-view" onMouseDown={e => e.stopPropagation()}>
