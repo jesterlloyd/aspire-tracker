@@ -137,13 +137,27 @@
   gap: 6px;
   margin-top: 8px;
 }
+/* The actions live INSIDE the identity block now (Owner, 2026-09-18), so they start at the
+   name's left edge rather than at the avatar's, and they are sized for a plate rather than
+   for a page: the old 36px-tall buttons were the largest thing on the chart. */
 .sc-plate-acts {
-  margin-left: auto;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  flex: 0 0 auto;
+  margin-top: 10px;
 }
+.sc-plate-acts > div { justify-content: flex-start !important; gap: 6px !important; }
+.sc-plate-acts button,
+.sc-plate-acts a {
+  min-height: 28px !important;
+  min-width: 0 !important;
+  padding: 4px 10px !important;
+  font-size: 11.5px !important;
+  gap: 5px !important;
+}
+.sc-plate-acts button svg,
+.sc-plate-acts a svg { width: 13px; height: 13px; }
+.sc-plate-acts span { font-size: 13px !important; }
 
 /* On a narrow page the actions take their own row instead of squeezing the identity
    block. Measured at 1280x720: keeping them on one line crushed the chips column to
@@ -152,7 +166,6 @@
    gives back 134px. */
 @container chart-paper (max-width: 760px) {
   .sc-plate { flex-wrap: wrap; }
-  .sc-plate-acts { margin-left: 0; width: 100%; justify-content: flex-start; }
 }
 
 /* ── The flag ribbon ───────────────────────────────────────────────────────── */
@@ -186,8 +199,11 @@
   display: grid;
   justify-items: center;
   cursor: pointer;
-  transition: padding 0.18s ease, transform 0.18s ease;
+  /* Padding is NOT transitioned: the flagged/unflagged change is a real state change and
+     should land, but the ribbon must never resize under a pointer that is merely hovering. */
+  transition: background 0.18s ease, box-shadow 0.18s ease;
 }
+
 /* Unpulled, the ribbon is tucked up and taupe. The idle colour is the rubric's measured
    one, not the mockup's #BEB9AF, which put white FLAG on it at 1.77:1. */
 .sc-ribbon[aria-pressed="false"] {
@@ -195,6 +211,11 @@
   background: linear-gradient(var(--aspire-ribbon-idle), var(--aspire-ribbon-idle));
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
 }
+/* After the state rules, and specific enough to beat them: `.sc-ribbon:hover` and
+   `.sc-ribbon[aria-pressed="false"]` have identical specificity, so the one written later
+   wins. Written above, the hover shadow silently never applied. */
+.sc-ribbon:hover,
+.sc-ribbon[aria-pressed="false"]:hover { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.32); }
 .sc-ribbon-dragging { transition: none; }
 .sc-ribbon:disabled { cursor: not-allowed; opacity: 0.55; }
 
@@ -243,19 +264,12 @@
 .sc-sheet[data-sheet="evaluations"] { background: var(--aspire-sheet-evaluations); }
 .sc-sheet[data-sheet="notes"]       { background: var(--aspire-sheet-notes); }
 
-.sc-sheet-label {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 10px;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--aspire-paper-ink-soft);
-}
 .sc-sheet-title {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 18px;
   font-weight: 700;
   color: var(--aspire-sheet-title);
-  margin: 2px 0 14px;
+  margin: 0 0 14px;
 }
 
 /* NO TILES (Owner, 2026-09-18). A section is not a box: it is part of the page. Every
@@ -297,6 +311,31 @@
 .sc-sheet .sp-card .sp-textarea { background: var(--aspire-page); }
 .sc-sheet .sp-card .sp-readonly { background: transparent; }
 
+/* Profile completion: one line, a bar, one note. It was a 150px amber panel carrying
+   four restatements of the same fact; it is ~54px now. The amber-on-amber it used also
+   measured 2.02:1, which was the worst text in the panel in either theme. */
+.sc-completion {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  margin-bottom: var(--aspire-gap-card);
+  border: 1px solid var(--aspire-page-rule);
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-sheet-card);
+}
+.sc-completion-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sc-completion-label { font-size: 12px; font-weight: 700; color: var(--aspire-sheet-title); }
+.sc-completion-pct { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--aspire-sheet-title); }
+.sc-completion-bar { height: 5px; border-radius: var(--aspire-radius-pill); background: rgba(0, 0, 0, 0.10); overflow: hidden; }
+.sc-completion-bar i { display: block; height: 100%; border-radius: var(--aspire-radius-pill); background: var(--sp-ok-ink); transition: width 0.3s ease; }
+.sc-completion[data-state="near"]  .sc-completion-bar i { background: var(--sp-warn-ink); }
+.sc-completion[data-state="early"] .sc-completion-bar i { background: var(--color-status-danger); }
+.sc-completion-note { font-size: 11px; color: var(--aspire-sheet-note); }
+.sc-completion-note:empty { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sc-completion-bar i { transition: none; }
+}
+
 /* The exception the mockup keeps: things that are genuinely a block, not a section.
    Profile completion, the hours log, the document and evaluation lists. */
 .sc-block {
@@ -307,6 +346,51 @@
   margin-bottom: var(--aspire-gap-card);
 }
 .sc-block:last-child { margin-bottom: 0; }
+
+/* ── Documents, as a list ──────────────────────────────────────────────────── */
+/* Owner, 2026-09-18: "I just need a list and a download button. I don't need to see their
+   profile picture there again." So inside a sheet the two upload areas stack into rows,
+   the drop zones lose their 110px of empty space, and the headshot preview goes: the
+   avatar is already on the plate. Everything still uploads and replaces exactly as before. */
+.sc-sheet .doc-section {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.sc-sheet .doc-upload-area {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--aspire-page-rule);
+}
+.sc-sheet .doc-upload-area:last-child { border-bottom: 0; }
+.sc-sheet .doc-area-label {
+  flex: 0 0 auto;
+  min-width: 150px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.sc-sheet .doc-existing-file {
+  flex: 1;
+  min-height: 0;
+  padding: 4px 10px;
+  background: transparent;
+  border: 0;
+}
+.sc-sheet .doc-upload-zone {
+  flex: 1;
+  min-height: 0;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 6px 10px;
+  text-align: left;
+  border-width: 1px;
+}
+.sc-sheet .doc-zone-icon { font-size: 15px; }
+.sc-sheet .doc-zone-text { font-size: 12px; }
+/* The photo is on the plate. It does not need to be here too. */
+.sc-sheet .doc-headshot-preview { display: none; }
 
 /* ── The index ─────────────────────────────────────────────────────────────── */
 /* Die-cut tabs: no border, each one the colour of the sheet it opens, reading bottom to
@@ -345,7 +429,7 @@
   background: var(--aspire-page);
   cursor: pointer;
   box-shadow: -2px 2px 4px rgba(24, 32, 63, 0.18);
-  transition: translate 0.14s ease, box-shadow 0.14s ease;
+  transition: color 0.14s ease, box-shadow 0.14s ease;
   /* A tab NEVER shrinks below its own word. With `flex: 0 1 auto` the rail squeezed all
      seven to fit and every label was cut: measured at 1280x720, "Background" rendered
      66px of ink into 42px of room. An unreadable tab is worse than a rail that has to
@@ -360,11 +444,14 @@
 .sc-tab[data-sheet="documents"]   { background: var(--aspire-sheet-documents); }
 .sc-tab[data-sheet="evaluations"] { background: var(--aspire-sheet-evaluations); }
 .sc-tab[data-sheet="notes"]       { background: var(--aspire-sheet-notes); }
-.sc-tab:hover { translate: -2px 0; z-index: 3; }
+.sc-tab:hover { z-index: 3; box-shadow: -4px 2px 7px rgba(24, 32, 63, 0.26); }
+/* The current tab does NOT slide (Owner, 2026-09-18). It used to travel 6px, and since the
+   scroll spy changes which tab is current as you read, the whole rail twitched the entire
+   way down the record. The rubric's index says the same thing with colour and weight and
+   holds still; this now matches it. */
 .sc-tab[aria-current="true"] {
   color: var(--aspire-sheet-title);
   font-weight: 700;
-  translate: -6px 0;
   z-index: 5;
   box-shadow: -6px 3px 9px rgba(24, 32, 63, 0.24);
 }
@@ -436,12 +523,27 @@
     margin-left: -4px;
   }
   .sc-tab:first-child { margin-left: 0; }
-  .sc-tab:hover { translate: 0 -2px; }
-  .sc-tab[aria-current="true"] { translate: 0 -3px; }
+  .sc-tab[aria-current="true"] { box-shadow: 0 -3px 7px rgba(24, 32, 63, 0.24); }
   .sc-plate { padding: 12px 14px; }
   .sc-plate-name { font-size: 20px; }
   .sc-sheet[data-sheet="notes"] { min-height: 0; }
 }
+
+/* The chart's pages are TINTED, not white, so the app's quietest greys lose a little
+   contrast on them: measured 2.28:1 for the placeholder grey on an empty state and 4.15
+   for the muted grey on the hours captions. The chart owns the surface, so it owns the
+   ink here exactly as it does in dark. Only the quiet end moves; headings and body are
+   already the app's own and pass everywhere. */
+.sc-paper {
+  --color-text-placeholder: #5F6673;
+  --text-muted: #5F6673;
+  --color-text-muted: #5F6673;
+  --text-secondary: #5F6673;
+}
+/* A real input placeholder stays quiet: it is a hint, not content, and the rule above is
+   about greys used AS text. */
+.sc-paper .sp-input::placeholder,
+.sc-paper .sp-textarea::placeholder { color: #9CA3AF; }
 
 /* ── Dark ──────────────────────────────────────────────────────────────────── */
 /* The binder itself does not change: black leather is black in both themes, and the
@@ -464,12 +566,51 @@
   --aspire-sheet-card: rgba(0, 0, 0, 0.18);
 }
 [data-theme="dark"] .sc-paper { color: var(--aspire-paper-ink); }
+/* STUDENT-PROFILE-INK-1: the chart redefines the ink tokens INSIDE itself, because its
+   dark pages are lighter than the app's dark surfaces and the app's inks are tuned for
+   those. Everything below inherits these, including inline styles that read the same
+   variables, so one block fixes the sub-panels too. Measured against the worst of the
+   seven tints: muted 6.84:1, caption 8.9:1, accent 8.25:1. */
+[data-theme="dark"] .sc-paper {
+  --text-muted: #A8AEC6;
+  --color-text-muted: #A8AEC6;
+  --color-text-placeholder: #A8AEC6;
+  --text-caption: #C2C8D8;
+  --color-text-secondary: #C2C8D8;
+  --text-heading: var(--aspire-paper-ink);
+  --text-body: var(--aspire-paper-ink);
+  --color-text-primary: var(--aspire-paper-ink);
+  --color-accent-primary: #A9BEFF;
+  /* index.css's --text-secondary is a fixed #6b7280 that no theme redefines, and 17
+     places in the panel read it. Scoped here rather than app-wide. */
+  --text-secondary: #C2C8D8;
+}
+/* The materials are theme-independent by design: a paper note is white in BOTH themes,
+   so the ink above must not reach inside one. Measured: the chart's light-blue accent on
+   a white note was 1.65:1. These put the light values back, which is what a white
+   surface needs whatever the page around it is doing. */
+[data-theme="dark"] .sc-paper .paper-note,
+[data-theme="dark"] .sc-paper .material-board,
+[data-theme="dark"] .sc-paper .material-leather-cream,
+[data-theme="dark"] .sc-paper .material-leather-tan {
+  --text-muted: #6B7785;
+  --color-text-muted: #6B7785;
+  --color-text-placeholder: #9CA3AF;
+  --text-caption: #4A5560;
+  --color-text-secondary: #4A5560;
+  --text-secondary: #6b7280;
+  --text-heading: #191919;
+  --text-body: #191919;
+  --color-text-primary: #191919;
+  --color-accent-primary: #1D2567;
+}
 /* Ink for dark paper, measured against every one of the seven tints rather than assumed:
    the title clears 7.2:1 on the worst and the soft ink 5.9:1. The light theme's greys,
    which the tabs and field labels inherit by default, measured 2.2:1 and 4.34:1 here. */
 [data-theme="dark"] .sc-paper,
 [data-theme="dark"] .sc-tab {
   --aspire-sheet-title: #9FB0F5;
+  --aspire-sheet-note: #C2C8D8;
   --aspire-sheet-tab-ink: #9CA1BA;
 }
 [data-theme="dark"] .sc-tab[aria-current="true"] { color: #C3CCFB; }
@@ -477,6 +618,5 @@
 [data-theme="dark"] .sc-sheet .sp-section-hdr { color: var(--aspire-paper-ink-soft); }
 [data-theme="dark"] .sc-index { background: linear-gradient(-90deg, #10131F, #141828); }
 [data-theme="dark"] .sc-plate-name { color: var(--aspire-paper-ink); }
-[data-theme="dark"] .sc-plate-school,
-[data-theme="dark"] .sc-sheet-label { color: var(--aspire-paper-ink-soft); }
+[data-theme="dark"] .sc-plate-school { color: var(--aspire-paper-ink-soft); }
 [data-theme="dark"] .sc-sheet-title { color: var(--aspire-paper-ink); }

@@ -7,20 +7,20 @@
 // what they have done, what is on file, how they were assessed, and what we have said
 // about them.
 //
-// `label` is what the index tab reads. `eyebrow` is the small caps line at the top of the
-// sheet, and it names the record, not the tab, which is why "Profile" is introduced by
-// "Student record" and not by "Profile".
+// `label` is what the index tab reads; `title` is the heading on the sheet itself. There
+// used to be an `eyebrow` above each title as well ("Student record / Profile"), which was
+// the same word twice, and it was dropped (Owner, 2026-09-18).
 //
 // Plain data, no React, so both the chart and its tests read the same list.
 
 export const CHART_SHEETS = [
-  { id: 'profile',     label: 'Profile',     eyebrow: 'Student record',        title: 'Profile' },
-  { id: 'background',  label: 'Background',  eyebrow: 'Experience and intent', title: 'Background' },
-  { id: 'placement',   label: 'Placement',   eyebrow: 'Rotation placement',    title: 'Placement' },
-  { id: 'hours',       label: 'Hours',       eyebrow: 'Clinical hours',        title: 'Hours' },
-  { id: 'documents',   label: 'Documents',   eyebrow: 'Documents and access',  title: 'Documents' },
-  { id: 'evaluations', label: 'Evaluations', eyebrow: 'Rubrics and reviews',   title: 'Evaluations' },
-  { id: 'notes',       label: 'Notes',       eyebrow: 'Record of contact',     title: 'Notes' },
+  { id: 'profile',     label: 'Profile',        title: 'Profile' },
+  { id: 'background',  label: 'Background', title: 'Background' },
+  { id: 'placement',   label: 'Placement',    title: 'Placement' },
+  { id: 'hours',       label: 'Hours',        title: 'Hours' },
+  { id: 'documents',   label: 'Documents',  title: 'Documents' },
+  { id: 'evaluations', label: 'Evaluations',   title: 'Evaluations' },
+  { id: 'notes',       label: 'Notes',     title: 'Notes' },
 ]
 
 export const FIRST_SHEET = CHART_SHEETS[0].id

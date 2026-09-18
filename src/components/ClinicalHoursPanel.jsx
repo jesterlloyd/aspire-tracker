@@ -56,8 +56,8 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 10 }}>
         {[['Required', req], ['Approved', apv], ['Pending', pnd], ['Remaining', rem]].map(([lbl, val]) => (
           <div key={lbl} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--nightfall)', lineHeight: 1 }}>{val}</div>
-            <div style={{ fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{lbl}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-accent-primary)', lineHeight: 1 }}>{val}</div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{lbl}</div>
           </div>
         ))}
       </div>
@@ -71,7 +71,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
 
       {/* Shift log table */}
       {shiftLogs.length === 0 ? (
-        <p style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>No shifts logged yet.</p>
+        <p style={{ fontSize: 13, color: 'var(--color-text-placeholder)', fontStyle: 'italic', margin: 0 }}>No shifts logged yet.</p>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -91,9 +91,9 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
                   <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
                     {log.shift_date ? new Date(log.shift_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
                   </td>
-                  <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--nightfall)' }}>{log.total_hours}</td>
-                  <td style={{ padding: '6px 8px', color: '#6b7280', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.unit_name || '-'}</td>
-                  <td style={{ padding: '6px 8px', color: '#6b7280', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.preceptor_name || '-'}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--color-accent-primary)' }}>{log.total_hours}</td>
+                  <td style={{ padding: '6px 8px', color: 'var(--text-muted)', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.unit_name || '-'}</td>
+                  <td style={{ padding: '6px 8px', color: 'var(--text-muted)', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.preceptor_name || '-'}</td>
                   <td style={{ padding: '6px 8px' }}>
                     <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10,
                       background: log.shift_type === 'Night' ? '#1d2567' : '#eff6ff',
@@ -125,7 +125,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
                       onClick={() => setSelectedShift(log)}
                       aria-label="View shift details"
                       title="View shift details"
-                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, verticalAlign: 'middle' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-placeholder)', padding: 2, verticalAlign: 'middle' }}
                     >
                       <Info size={16} />
                     </button>
@@ -148,7 +148,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
                           Review
                         </button>
                       ) : (
-                        <span style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic' }}
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}
                           title="Awaiting an Owner/Admin review decision.">
                           Pending review
                         </span>

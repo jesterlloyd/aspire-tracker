@@ -139,7 +139,7 @@ test('SPREAD 3: the left page carries the facts an interviewer reads while liste
 })
 
 test('SPREAD 4: the head states completion, the guide and the live composite, and nothing else', () => {
-  const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('</header>'))
+  const head = session.slice(session.indexOf('data-testid="rb-head"'), session.indexOf('</header>'))
   // Neither the ASPIRE status nor the recommendation is repeated here: the first is on
   // the candidate page, the second is Section 7's own answer (Owner, 2026-09-17).
   assert.ok(!head.includes('AspireStatusPill'), 'the status pill is back in the head')
@@ -389,7 +389,7 @@ test('RIBBON 5: it hangs from the BOOK, so scrolling the page never carries it a
 })
 
 test('GUIDE 1: the scoring guide opens from the head, reachable at any scroll position', () => {
-  const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('className="rb-scroll"'))
+  const head = session.slice(session.indexOf('data-testid="rb-head"'), session.indexOf('className="rb-scroll"'))
   assert.match(head, /data-testid="rb-guide-toggle"/)
   assert.match(head, /Scoring Guide/)
   // The panel is a sibling of the scroller, so scrolling the page cannot hide it.
@@ -440,7 +440,7 @@ test('CANON 4: the book does not follow the theme, controls included', () => {
 // ── 9. The Owner's refinements, 2026-09-17 ──────────────────────────────────
 
 test('HEAD 2: completion left, the guide centred, the composite right, on ONE line', () => {
-  const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('</header>'))
+  const head = session.slice(session.indexOf('data-testid="rb-head"'), session.indexOf('</header>'))
   assert.ok(head.indexOf('rb-completion') < head.indexOf('rb-guide-toggle'), 'completion is not first')
   assert.ok(head.indexOf('rb-guide-toggle') < head.indexOf('rb-head-score'), 'the guide is not in the middle')
   // One row, and a padding that keeps it to one line.

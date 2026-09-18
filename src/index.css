@@ -143,16 +143,19 @@ body { min-height: 100vh; }
 
 /* Destructive - Pearl bg, cs-red border; hover fills red */
 .btn-destructive {
-  background: var(--pearl); color: var(--cs-red);
+  background: var(--bg-card); color: var(--cs-red);
   border: 1.5px solid var(--cs-red);
   padding: 8px 16px; border-radius: 4px;
   font-size: 14px; font-weight: 600; cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
-.btn-destructive:hover:not(:disabled) { background: var(--cs-red); color: var(--pearl); }
+.btn-destructive:hover:not(:disabled) { background: var(--cs-red); color: #fff; }
+/* STUDENT-PROFILE-INK-1: the brand red measures 3.46:1 on the dark surface. Light keeps
+   #dc1e34; dark gets the lightest tint of the same hue that clears 4.5 (measured 7.83). */
+[data-theme="dark"] .btn-destructive { color: #FF8FA0; border-color: #FF8FA0; }
 
 .btn-clear {
-  background: none; border: none; color: var(--nightfall);
+  background: none; border: none; color: var(--color-accent-primary);
   font-size: 14px; font-weight: 600; cursor: pointer;
   padding: 8px 10px; border-radius: 4px;
 }
@@ -1614,19 +1617,19 @@ body { min-height: 100vh; }
 .doc-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
 .doc-upload-area { display: flex; flex-direction: column; gap: 8px; }
-.doc-area-label  { font-size: 14px; font-weight: 600; color: var(--raven); }
+.doc-area-label  { font-size: 14px; font-weight: 600; color: var(--text-heading); }
 
 .doc-upload-zone {
   border: 2px dashed var(--border); border-radius: 6px;
   padding: 20px 16px; text-align: center; cursor: pointer;
-  background: var(--pearl);
+  background: var(--bg-card);
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   transition: border-color 0.12s, background 0.12s;
   min-height: 110px; justify-content: center;
 }
 .doc-upload-zone:hover { border-color: var(--nightfall); background: rgba(29,37,103,0.02); }
 .doc-zone-icon { font-size: 22px; }
-.doc-zone-text { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.doc-zone-text { font-size: 13px; color: var(--text-caption); line-height: 1.4; }
 .doc-zone-btn {
   background: var(--pearl); color: var(--nightfall);
   border: 1.5px solid var(--nightfall); border-radius: 4px;
@@ -1637,25 +1640,25 @@ body { min-height: 100vh; }
 
 .doc-existing-file {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; background: var(--sand);
-  border-radius: 6px; border: 1px solid var(--border-lt);
+  padding: 10px 14px; background: var(--bg-hover);
+  border-radius: 6px; border: 1px solid var(--border-divider);
   min-height: 110px;
 }
 .doc-file-link {
-  font-size: 13px; font-weight: 600; color: var(--nightfall);
+  font-size: 13px; font-weight: 600; color: var(--color-accent-primary);
   flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   text-decoration: none;
 }
 a.doc-file-link:hover { text-decoration: underline; }
 .doc-headshot-preview { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--border); }
 .doc-replace-btn {
-  background: none; border: 1px solid var(--border); border-radius: 4px;
-  color: var(--raven); font-size: 12px; font-weight: 600;
+  background: none; border: 1px solid var(--border-input); border-radius: 4px;
+  color: var(--text-heading); font-size: 12px; font-weight: 600;
   cursor: pointer; padding: 4px 10px; white-space: nowrap;
   transition: background 0.12s, border-color 0.12s;
   flex-shrink: 0;
 }
-.doc-replace-btn:hover { background: var(--pearl); border-color: var(--nightfall); }
+.doc-replace-btn:hover { background: var(--bg-card); border-color: var(--color-accent-primary); }
 .doc-replace-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .doc-status { font-size: 12px; font-weight: 600; }
@@ -1951,7 +1954,11 @@ button.ov-group-row {
    bounded by its own parent, so inside the KPI wrapper it would unstick the moment that
    wrapper scrolled past. */
 .profiles-toolbar {
-  position: sticky; top: 0; z-index: 20;
+  /* It pins BELOW the app chrome, not at the top of the window. `.top-section` is sticky
+     too and sits at z-index 200, so `top: 0` here parked the toolbar behind the header
+     and took the binder's first 40px with it. The offset is measured, not the
+     --app-chrome-height token: that token says 112px and the real height is 110. */
+  position: sticky; top: var(--profiles-toolbar-top, 0px); z-index: 20;
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 8px 12px; margin: 8px 0 10px;
   background: var(--bg-card,#fff);
@@ -2080,6 +2087,11 @@ button.ov-group-row {
 }
 .pl-row:hover { background: rgba(244,241,236,0.6); }
 .pl-row.pl-selected { border-left: 4px solid var(--nightfall); background: var(--sand); }
+/* STUDENT-CHART-1 (2026-09-18): a follow-up flag reads the same way in both lists - a red
+   edge on the row, like the one Interview Recommendations already uses. Selection still
+   wins the edge, because "which row am I on" has to survive whatever else is true. */
+.pl-row.pl-followup { border-left: 4px solid var(--aspire-red-editorial, #B3282D); }
+.pl-row.pl-followup.pl-selected { border-left-color: var(--nightfall); }
 .pl-avatar-img      { width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0; }
 .pl-avatar-initials { width:40px; height:40px; border-radius:50%; background:var(--nightfall); color:var(--pearl); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; flex-shrink:0; }
 .pl-center { flex: 1; padding: 0 12px; min-width: 0; }
@@ -2121,6 +2133,22 @@ button.ov-group-row {
 .sp-zone-admin    { background: rgba(150,120,150,0.06); }   /* Admin workflow */
 .sp-zone-records  { background: rgba(120,124,134,0.05); }   /* Notes & communications (records) */
 
+/* STUDENT-PROFILE-INK-1 (2026-09-18): the panel's three semantic inks, as tokens.
+   The app's --color-status-* family would have worked for dark, but its LIGHT values are
+   a different hue (danger is the magenta Chroma, not a red), and this panel's light
+   appearance is not up for change. So: light values are exactly what was hardcoded, dark
+   values are measured against the surfaces they actually sit on. */
+:root {
+  --sp-ok-ink:     #166534;
+  --sp-warn-ink:   #92400e;
+  --sp-danger-ink: #b23b2e;
+}
+[data-theme="dark"] {
+  --sp-ok-ink:     #6BBF6F;
+  --sp-warn-ink:   #E8B86A;
+  --sp-danger-ink: #F08CB8;
+}
+
 /* STUDENT-PROFILE-UX-1B: labeled destructive-action container, separated from footer nav. */
 .sp-danger-zone {
   margin: 14px 12px 8px; padding: 12px 14px;
@@ -2128,13 +2156,13 @@ button.ov-group-row {
 }
 .sp-danger-zone-label {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-  color: #b23b2e; margin-bottom: 8px;
+  color: var(--sp-danger-ink); margin-bottom: 8px;
 }
 .sp-section-hdr {
   display: flex; align-items: center; justify-content: space-between;
-  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  font-size: 12px; font-weight: 600; color: var(--text-caption);
   text-transform: uppercase; letter-spacing: 0.05em;
-  background: #f9fafb; padding: 8px 16px; margin: -16px -16px 14px;
+  background: var(--color-bg-hover); padding: 8px 16px; margin: -16px -16px 14px;
 }
 /* Inside a pastel card, the header inherits the panel background */
 .sp-card .sp-section-hdr {
@@ -2189,40 +2217,33 @@ button.ov-group-row {
 .sp-textarea   { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; color: var(--raven); background: var(--pearl); outline: none; resize: vertical; line-height: 1.5; }
 .sp-textarea:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
 .sp-readonly   { padding: 7px 10px; background: var(--sand); border: 1px solid var(--border-lt); border-radius: 4px; font-size: 14px; color: var(--raven); min-height: 34px; }
-.sp-copy-btn   { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; color: var(--text-secondary); }
+.sp-copy-btn   { background: none; border: 1px solid var(--border-input); border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; color: var(--text-caption); }
 .sp-copy-btn:hover { background: var(--sand); }
 .sp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .sp-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .sp-access-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
 .sp-nav-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; border-top: 1px solid #e5e7eb; background: var(--sand); flex-shrink: 0;
+  padding: 12px 16px; border-top: 1px solid var(--border-divider); background: var(--bg-app); flex-shrink: 0;
 }
 .sp-nav-btn {
-  background: none; border: 1px solid var(--border); border-radius: 4px;
-  padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--nightfall);
+  background: none; border: 1px solid var(--border-input); border-radius: 4px;
+  padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--color-accent-primary);
   cursor: pointer; transition: background 0.1s; max-width: 180px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.sp-nav-btn:hover:not(:disabled) { background: var(--sand); }
+.sp-nav-btn:hover:not(:disabled) { background: var(--bg-hover); }
 .sp-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-/* STUDENT-CHART-1: the nav button's ink is the brand navy, which nothing in the dark
-   theme lifts, so on dark paper it measured 1.15:1. Same class, same shape, readable ink. */
-[data-theme="dark"] .sp-nav-btn {
-  color: var(--color-text-primary, #F2F5F8);
-  border-color: rgba(255,255,255,0.22);
-}
-[data-theme="dark"] .sp-nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.10); }
 
 /* CS-Link workflow steps in side panel */
-.csw-step { padding: 12px; background: #fafafa; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; }
+.csw-step { padding: 12px; background: var(--color-bg-hover); border: 1px solid var(--border-divider); border-radius: 6px; margin-bottom: 8px; }
 .csw-step-dim { opacity: 0.45; pointer-events: none; }
-.csw-step-label { font-size: 13px; font-weight: 600; color: var(--nightfall); margin-bottom: 8px; }
+.csw-step-label { font-size: 13px; font-weight: 600; color: var(--color-accent-primary); margin-bottom: 8px; }
 .csw-check-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .csw-check-label { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--raven); }
 .csw-date-input { padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; color: var(--raven); background: var(--pearl); outline: none; width: 110px; }
 .csw-date-input:focus { border-color: var(--nova); }
-.csw-note { font-size: 12px; color: #6b7280; margin-top: 6px; line-height: 1.5; }
+.csw-note { font-size: 12px; color: var(--text-caption); margin-top: 6px; line-height: 1.5; }
 .csw-info-green { background: #f0fdf4; border: 1px solid #a7f3d0; border-radius: 4px; padding: 8px 12px; font-size: 13px; color: #166534; line-height: 1.5; }
 .csw-info-gray  { background: var(--sand); border: 1px solid var(--border-lt); border-radius: 4px; padding: 8px 12px; font-size: 13px; color: var(--text-secondary); font-style: italic; }
 .csw-success-banner { background: #dcfce7; border: 1px solid #a7f3d0; border-radius: 4px; padding: 8px 12px; font-size: 13px; font-weight: 700; color: #166534; margin-top: 8px; }
@@ -2379,9 +2400,7 @@ button.ov-group-row {
 .am-step-note { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
 .sn-link { position: relative; /* contains the .sr-only hint, so a table scroller clips it instead of the page widening */ display: inline-flex; align-items: center; gap: 3px; font: inherit; font-weight: 600; color: var(--color-accent-primary, #1D2567); text-decoration: none; white-space: nowrap; }
 .sn-link:hover { text-decoration: underline; }
-/* STUDENT-CHART-1: the accent navy is a link colour for light paper. On the chart's dark
-   Documents sheet it measured 2.9:1, so dark gets the theme's own link ink. */
-[data-theme="dark"] .sn-link { color: var(--color-accent-on-dark, #9FB0F5); }
+
 .am-checkbox { width: 15px; height: 15px; accent-color: #16a34a; cursor: pointer; flex-shrink: 0; }
 .am-date-input {
   width: 116px; padding: 3px 7px;

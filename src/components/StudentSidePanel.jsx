@@ -32,8 +32,7 @@ import { logEvent, eventExists } from '../lib/logEvent'
 import { updatePreceptorAssignment, updateInterviewOutcome } from '../lib/studentProxy'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { formatWeekdays, formatDates, formatBooleanYesNo, formatBooleanAvailable, formatText, formatMinDays, WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
-import { generateStudentSummary } from '../lib/generateSummary'
-import { Copy, Check, Mail, Pencil, Phone, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
+import { Check, Mail, Pencil, Phone, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { openOutlookCompose } from '../lib/outlookCompose'
@@ -231,7 +230,6 @@ export default function StudentSidePanel({
   const [showDeclineModal,     setShowDeclineModal]     = useState(false)
   const [declineReason,        setDeclineReason]        = useState('')
   const [showDispositionModal, setShowDispositionModal] = useState(false)
-  const [summaryCopied,    setSummaryCopied]    = useState(false)
   const { canEdit, canManageStudentFiles, canGenerateBadge, canViewStudentResumeInCohort, canViewStudentPhotoInCohort, userProfile } = useAuth()
   // WAVE F-2: per-cohort file-view checks. Resume view: active Owner/Admin or an
   // entitled active interviewer. Photo view additionally includes an active Viewer.
@@ -431,7 +429,6 @@ export default function StudentSidePanel({
   useEffect(() => {
     setInterestDraft(student?.interest_statement || '')
     setEditingInterest(false)
-    setSummaryCopied(false)
   }, [student?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Real-time subscription: student row ──────────────────────────────────
@@ -464,15 +461,6 @@ export default function StudentSidePanel({
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [student.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleCopySummary = async () => {
-    const unitNameForSummary = matchedUnitName !== '-' ? matchedUnitName : null
-    const summary = generateStudentSummary(student, unitNameForSummary, student.aspire_cohort)
-    await navigator.clipboard.writeText(summary)
-    setSummaryCopied(true)
-    toast?.success('Summary copied', 'Student summary is ready to paste.')
-    setTimeout(() => setSummaryCopied(false), 2500)
-  }
 
   const [adjustingId,  setAdjustingId]  = useState(null)
   const [adjustHours,  setAdjustHours]  = useState('')
@@ -1261,12 +1249,12 @@ export default function StudentSidePanel({
                           : null
                         return { label:`Interview: ${dateStr||'Scheduled'}`, bg:'#dbeafe', color:'#1d4ed8' }
                       }
-                      return { label:'Interview: Not Scheduled', bg:'#f3f4f6', color:'#6b7280' }
+                      return { label:'Interview: Not Scheduled', bg:'#f3f4f6', color:'var(--text-muted)' }
                     })()
 
                     // Placement chip: unit name + match quality
                     const plChip = (() => {
-                      if (!matchedUnitInDrawer) return { label:'Not placed', bg:'#f3f4f6', color:'#6b7280' }
+                      if (!matchedUnitInDrawer) return { label:'Not placed', bg:'#f3f4f6', color:'var(--text-muted)' }
                       const uname = matchedUnitInDrawer
                       const q = data.unit_preference_1 === uname ? '1st'
                         : data.unit_preference_2 === uname ? '2nd'
@@ -1276,10 +1264,10 @@ export default function StudentSidePanel({
                     })()
 
                     const chips = [
-                      gpaOk ? { label:`GPA ${gpaVal.toFixed(2)}`, bg:gpaVal>=3.5?'#dcfce7':'#f3f4f6', color:gpaVal>=3.5?'#166534':'#6b7280' } : null,
+                      gpaOk ? { label:`GPA ${gpaVal.toFixed(2)}`, bg:gpaVal>=3.5?'#dcfce7':'#f3f4f6', color:gpaVal>=3.5?'#166534':'#4A5560' } : null,
                       ivChip,
                       plChip,
-                      { label:csAcc?.label||'CS-Link Unknown', bg:csAcc?.bg||'#f3f4f6', color:csAcc?.text||'#6b7280' },
+                      { label:csAcc?.label||'CS-Link Unknown', bg:csAcc?.bg||'#f3f4f6', color:csAcc?.text||'#4A5560' },
                       data.hours_required>0 ? { label:`${data.approved_hours||0}/${data.hours_required} hrs`, bg:'#f0f6fa', color:'#1e3a5f' } : null,
                     ].filter(Boolean)
 
@@ -1290,10 +1278,7 @@ export default function StudentSidePanel({
                     ))
                   })()}
                 </div>
-              </div>
-            </div>
-
-            <div className="sc-plate-acts">
+                <div className="sc-plate-acts">
 
                   <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
                     <ProfileActionButton
@@ -1332,9 +1317,11 @@ export default function StudentSidePanel({
                         }}
                       />
                     )}
-                  </div>
-            </div>
-          </div>
+                  </div>{/* end the action row */}
+                </div>{/* end .sc-plate-acts */}
+              </div>{/* end .sc-plate-head */}
+            </div>{/* end .sc-plate-id */}
+          </div>{/* end .sc-plate */}
 
           <div className="sc-main">
             <div className="sc-scroller" ref={chartScrollerRef}>
@@ -1356,7 +1343,7 @@ export default function StudentSidePanel({
               <button
                 onClick={handleConflictDiscard}
                 style={{
-                  marginLeft: 12, fontSize: 11, fontWeight: 700, color: '#1D2567',
+                  marginLeft: 12, fontSize: 11, fontWeight: 700, color: 'var(--color-accent-primary)',
                   background: 'none', border: '1px solid #1D2567', borderRadius: 6,
                   padding: '3px 10px', cursor: 'pointer',
                 }}
@@ -1369,63 +1356,31 @@ export default function StudentSidePanel({
 
           {/* ── Profile ── */}
           <section className="sc-sheet" id="sc-sheet-profile" data-sheet="profile" aria-label="Profile">
-            <div className="sc-sheet-label">Student record</div>
             <h2 className="sc-sheet-title">Profile</h2>
-                {/* ── Profile Completion block ── */}
+                {/* Profile completion, said once (Owner, 2026-09-18). It used to carry a
+                    percentage, a bar, a provenance tag the Documents sheet already lists,
+                    and a separate "Ready to proceed" line - four ways of saying how far
+                    along this record is. One line, one bar, one note. */}
                 {(() => {
                   const pct = completion.percentage
-                  const barClr = pct >= 100 ? '#16a34a' : pct >= 67 ? '#f59e0b' : '#E2569C'
-                  const blockBg = pct >= 100 ? 'rgba(22,163,74,0.06)' : pct >= 67 ? 'rgba(245,158,11,0.08)' : 'rgba(226,86,156,0.06)'
+                  const state = pct >= 100 ? 'done' : pct >= 67 ? 'near' : 'early'
                   return (
-                    <div style={{ margin:'18px 18px 0', padding:'12px 14px', background:blockBg, border:`1px solid ${barClr}33`, borderRadius:10 }}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:7 }}>
-                        <span style={{ fontSize:12, fontWeight:700, color:barClr }}>Profile Completion</span>
-                        <span style={{ fontSize:13, fontWeight:800, color:barClr }}>{pct}%</span>
+                    <div className="sc-completion" data-state={state}>
+                      <div className="sc-completion-row">
+                        <span className="sc-completion-label">Profile completion</span>
+                        <span className="sc-completion-pct">{pct}%</span>
                       </div>
-                      <div style={{ height:5, borderRadius:3, background:'rgba(0,0,0,0.10)', marginBottom:9 }}>
-                        <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:barClr, transition:'width 0.3s ease' }} />
+                      <div className="sc-completion-bar"><i style={{ width: `${pct}%` }} /></div>
+                      <div className="sc-completion-note">
+                        {pct >= 100
+                          ? 'Ready to proceed'
+                          : [completion.missing.length ? `Missing ${completion.missing.join(', ')}` : null,
+                             nextAction ? `Next: ${nextAction}` : null].filter(Boolean).join(' · ')}
                       </div>
-                      {/* STUDENT-PROFILE-CANON-1F: student-form completion indicator (conservative). */}
-                      <div style={{ marginBottom:8 }}>
-                        {(() => {
-                          const chip = studentFormReceived
-                            ? { label: 'Student form received', tone: 'student' }
-                            : (pct > 0
-                                ? { label: 'Profile partially complete', tone: 'pending' }
-                                : { label: 'Student form pending', tone: 'muted' })
-                          return <SourceTag label={chip.label} tone={chip.tone} />
-                        })()}
-                      </div>
-                      {completion.missing.length > 0 && (
-                        <div style={{ marginBottom:8 }}>
-                          <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-muted,#6b7280)', marginBottom:4 }}>Missing</div>
-                          <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-                            {completion.missing.map(m => (
-                              <span key={m} style={{ fontSize:10, padding:'1px 7px', borderRadius:10, background:'rgba(0,0,0,0.06)', color:'var(--text-muted,#6b7280)', fontWeight:600 }}>{m}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {pct === 100
-                        ? <div style={{ fontSize:11, fontWeight:600, color:'#166534' }}>✓ Ready to proceed</div>
-                        : nextAction && <div style={{ fontSize:11, color:'var(--text-caption,#475467)', fontStyle:'italic' }}>Next: {nextAction}</div>
-                      }
                     </div>
                   )
                 })()}
-                  {canEdit && <button onClick={handleCopySummary}
-                    style={{
-                      display:'flex', alignItems:'center', gap:'6px',
-                      padding:'6px 14px', borderRadius:'8px',
-                      border:`1px solid ${summaryCopied ? '#86efac' : '#e5e7eb'}`,
-                      background: summaryCopied ? '#f0fdf4' : '#f9fafb',
-                      fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:'12px',
-                      color: summaryCopied ? '#166534' : '#374151',
-                      cursor:'pointer', transition:'all 0.2s ease',
-                      width:'100%', justifyContent:'center',
-                    }}>
-                    {summaryCopied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy Student Summary</>}
-                  </button>}
+
 
           {/* 1. Contact Information */}
           <div className="sp-section sp-card sp-zone-contact">
@@ -1461,10 +1416,20 @@ export default function StudentSidePanel({
               )
             })()}
             <Field label="Personal Email" fieldKey="personal_email">
-              <input className="sp-input" value={data.personal_email||''} onChange={e => handleText('personal_email', e.target.value)} />
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <input className="sp-input" style={{ flex:1, minWidth:0 }} value={data.personal_email||''} onChange={e => handleText('personal_email', e.target.value)} />
+                {data.personal_email && (
+                  <Tooltip label="Copy email" placement="top"><button type="button" className="sp-copy-btn" aria-label="Copy personal email" onClick={() => navigator.clipboard?.writeText(data.personal_email)}>⎘</button></Tooltip>
+                )}
+              </div>
             </Field>
             <Field label="Phone" fieldKey="phone">
-              <input className="sp-input" value={data.phone||''} onChange={e => handleText('phone', e.target.value)} />
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <input className="sp-input" style={{ flex:1, minWidth:0 }} value={data.phone||''} onChange={e => handleText('phone', e.target.value)} />
+                {data.phone && (
+                  <Tooltip label="Copy phone" placement="top"><button type="button" className="sp-copy-btn" aria-label="Copy phone" onClick={() => navigator.clipboard?.writeText(data.phone)}>⎘</button></Tooltip>
+                )}
+              </div>
             </Field>
           </div>
 
@@ -1588,7 +1553,6 @@ export default function StudentSidePanel({
 
           {/* ── Background ── */}
           <section className="sc-sheet" id="sc-sheet-background" data-sheet="background" aria-label="Background">
-            <div className="sc-sheet-label">Experience and intent</div>
             <h2 className="sc-sheet-title">Background</h2>
 
           {/* 4. Background and Affiliation */}
@@ -1624,15 +1588,15 @@ export default function StudentSidePanel({
             </SectionHeader>
             {!editingInterest ? (
               <div onClick={() => setEditingInterest(true)}
-                style={{ fontFamily:'Plus Jakarta Sans', fontSize:'13px', color:data.interest_statement?'#374151':'#9ca3af', lineHeight:1.6, padding:'10px 12px', borderRadius:'8px', border:'1px solid transparent', cursor:'text', minHeight:'80px', transition:'border-color 0.15s ease, background 0.15s ease' }}
-                onMouseEnter={e=>{ e.currentTarget.style.borderColor='#e5e7eb'; e.currentTarget.style.background='#f9fafb' }}
+                style={{ fontFamily:'Plus Jakarta Sans', fontSize:'13px', color:data.interest_statement?'var(--text-heading)':'var(--color-text-placeholder)', lineHeight:1.6, padding:'10px 12px', borderRadius:'8px', border:'1px solid transparent', cursor:'text', minHeight:'80px', transition:'border-color 0.15s ease, background 0.15s ease' }}
+                onMouseEnter={e=>{ e.currentTarget.style.borderColor='var(--border-divider)'; e.currentTarget.style.background='var(--color-bg-hover)' }}
                 onMouseLeave={e=>{ e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent' }}>
                 {data.interest_statement || 'Click to add interest statement...'}
               </div>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 <textarea value={interestDraft} onChange={e=>setInterestDraft(e.target.value)} autoFocus rows={5}
-                  style={{ width:'100%', padding:'10px 12px', border:'1px solid #0ea5e9', borderRadius:8, fontFamily:'Plus Jakarta Sans', fontSize:13, color:'#374151', lineHeight:1.6, resize:'vertical', outline:'none', boxSizing:'border-box' }} />
+                  style={{ width:'100%', padding:'10px 12px', border:'1px solid #0ea5e9', borderRadius:8, fontFamily:'Plus Jakarta Sans', fontSize:13, color:'var(--text-heading)', lineHeight:1.6, resize:'vertical', outline:'none', boxSizing:'border-box' }} />
                 <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
                   <button onClick={() => { setInterestDraft(data.interest_statement||''); setEditingInterest(false) }}
                     style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #e5e7eb', background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontSize:12, cursor:'pointer' }}>Cancel</button>
@@ -1692,7 +1656,7 @@ export default function StudentSidePanel({
               </div>
             )}
             {data.availability_ack !== true && (
-              <div style={{ fontSize:11.5, color:'#92400e', fontStyle:'italic', marginBottom:8 }}>
+              <div style={{ fontSize:11.5, color:'var(--sp-warn-ink)', fontStyle:'italic', marginBottom:8 }}>
                 Student availability not yet confirmed
               </div>
             )}
@@ -1752,7 +1716,7 @@ export default function StudentSidePanel({
                         {d}
                         <button type="button" aria-label={`Remove ${d}`}
                           onClick={() => setAvail('personal_blackout_dates', availDraft.personal_blackout_dates.filter(x => x !== d))}
-                          style={{ background:'none', border:'none', cursor:'pointer', color:'#6b7280', fontWeight:700, padding:0 }}>×</button>
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontWeight:700, padding:0 }}>×</button>
                       </span>
                     ))}
                   </div>
@@ -1810,7 +1774,6 @@ export default function StudentSidePanel({
 
           {/* ── Placement ── */}
           <section className="sc-sheet" id="sc-sheet-placement" data-sheet="placement" aria-label="Placement">
-            <div className="sc-sheet-label">Rotation placement</div>
             <h2 className="sc-sheet-title">Placement</h2>
 
           {/* 3b. Rotation Dates - STUDENT-PROFILE-CANON-1B: the single canonical placement-window
@@ -1909,7 +1872,7 @@ export default function StudentSidePanel({
                     <button onClick={() => { setEditingRotation(false); setRotEditError(null) }}
                       style={{ padding:'6px 14px', background:'#f9fafb', border:'1px solid #e5e7eb',
                         borderRadius:8, fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:12,
-                        color:'#374151', cursor:'pointer' }}>
+                        color:'var(--text-heading)', cursor:'pointer' }}>
                       Cancel
                     </button>
                   </div>
@@ -1923,10 +1886,10 @@ export default function StudentSidePanel({
                   <div style={{ background:'#fff', borderRadius:14, maxWidth:420, width:'100%',
                     padding:'24px 24px 20px', fontFamily:'Plus Jakarta Sans, sans-serif',
                     boxShadow:'0 20px 50px rgba(0,0,0,0.18)' }}>
-                    <div style={{ fontWeight:700, fontSize:15, color:'#1D2567', marginBottom:10 }}>
+                    <div style={{ fontWeight:700, fontSize:15, color:'var(--color-accent-primary)', marginBottom:10 }}>
                       Update rotation dates?
                     </div>
-                    <p style={{ fontSize:13, color:'#374151', lineHeight:1.6, margin:'0 0 16px' }}>
+                    <p style={{ fontSize:13, color:'var(--text-heading)', lineHeight:1.6, margin:'0 0 16px' }}>
                       This will update rotation dates for{' '}
                       <strong>{rotConfirmModal.count} student{rotConfirmModal.count !== 1 ? 's' : ''}</strong>
                       {rotationRow?.school_name ? ` from ${rotationRow.school_name}` : ''}.
@@ -1935,7 +1898,7 @@ export default function StudentSidePanel({
                       <button onClick={() => setRotConfirmModal(null)} disabled={rotSaving}
                         style={{ flex:1, height:38, borderRadius:8, border:'1px solid #e5e7eb',
                           background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:13,
-                          cursor:'pointer', color:'#374151' }}>Cancel</button>
+                          cursor:'pointer', color:'var(--text-heading)' }}>Cancel</button>
                       <button onClick={handleConfirmRotationSave} disabled={rotSaving}
                         style={{ flex:1, height:38, borderRadius:8, border:'none',
                           background:'#1D2567', fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:13,
@@ -2031,23 +1994,23 @@ export default function StudentSidePanel({
                 {resolved.source === 'normalized' ? (
                   <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
-                      <span style={{ fontSize:13, fontWeight:600, color:'#111' }}>{resolved.name}</span>
+                      <span style={{ fontSize:13, fontWeight:600, color:'var(--text-heading)' }}>{resolved.name}</span>
                       {resolved.shift_type && (
-                        <span style={{ fontSize:11, color:'#6b7280', background:'#f3f4f6', padding:'1px 6px', borderRadius:4 }}>{resolved.shift_type}</span>
+                        <span style={{ fontSize:11, color:'var(--text-muted)', background:'#f3f4f6', padding:'1px 6px', borderRadius:4 }}>{resolved.shift_type}</span>
                       )}
                     </div>
                     {resolved.email && (
-                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#6b7280' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'var(--text-muted)' }}>
                         <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openOutlookCompose({ to: resolved.email })}>✉</button></Tooltip>
                         {resolved.email}
                       </div>
                     )}
                     {resolved.unit_name && (
-                      <div style={{ fontSize:12, color:'#9ca3af' }}>{resolved.unit_name}</div>
+                      <div style={{ fontSize:12, color:'var(--color-text-placeholder)' }}>{resolved.unit_name}</div>
                     )}
                     {canEdit && (
                       <button onClick={() => setAssignModalOpen(true)}
-                        style={{ alignSelf:'flex-start', marginTop:2, fontSize:11, color:'#1D2567', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', padding:0, fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                        style={{ alignSelf:'flex-start', marginTop:2, fontSize:11, color:'var(--color-accent-primary)', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', padding:0, fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                         Change preceptor
                       </button>
                     )}
@@ -2062,10 +2025,10 @@ export default function StudentSidePanel({
                       Unlinked legacy entry
                     </span>
                     {resolved.name && (
-                      <span style={{ fontSize:13, fontWeight:600, color:'#111' }}>{resolved.name}</span>
+                      <span style={{ fontSize:13, fontWeight:600, color:'var(--text-heading)' }}>{resolved.name}</span>
                     )}
                     {resolved.email && (
-                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#6b7280' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'var(--text-muted)' }}>
                         <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openOutlookCompose({ to: resolved.email })}>✉</button></Tooltip>
                         {resolved.email}
                       </div>
@@ -2084,7 +2047,7 @@ export default function StudentSidePanel({
                       + Assign preceptor
                     </button>
                   ) : (
-                    <span style={{ fontSize:13, color:'#9ca3af' }}>No preceptor assigned</span>
+                    <span style={{ fontSize:13, color:'var(--color-text-placeholder)' }}>No preceptor assigned</span>
                   )
                 )}
                 {/* PRECEPTOR-MODEL-3: additive secondary/coverage display + Owner/Admin assign flow.
@@ -2106,12 +2069,12 @@ export default function StudentSidePanel({
                 </select>
               </Field>
             </div>
-            <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, cursor:'pointer', fontSize:13, color:'var(--raven)' }}>
+            <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, cursor:'pointer', fontSize:13, color:'var(--text-heading)' }}>
               <input type="checkbox" checked={!!data.badge_created}
                 onChange={e => { handleSelect('badge_created', e.target.checked); if (e.target.checked) { toast?.success('Badge issued', `Badge marked as created for ${student.first_name}.`); logActivity({ userProfile, actionType:'badge_issued', entityType:'student', entityId:student.id, cohortId:student.cohort_id, description:`${userProfile?.full_name} marked badge as created for ${student.first_name} ${student.last_name}` }) } }}
                 style={{ width:16, height:16, accentColor:'#16a34a' }} />
               <span>Badge Created</span>
-              {data.badge_created && <span style={{ fontSize:12, color:'#166534', fontWeight:600 }}>✓ Badge Created</span>}
+              {data.badge_created && <span style={{ fontSize:12, color:'var(--sp-ok-ink)', fontWeight:600 }}>✓ Badge Created</span>}
             </label>
           </div>
           </section>
@@ -2119,14 +2082,13 @@ export default function StudentSidePanel({
 
           {/* ── Hours ── */}
           <section className="sc-sheet" id="sc-sheet-hours" data-sheet="hours" aria-label="Hours">
-            <div className="sc-sheet-label">Clinical hours</div>
             <h2 className="sc-sheet-title">Hours</h2>
 
 
           {/* Clinical Hours */}
           <div className="sp-section">
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:700, fontSize:12, color:'#374151', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:700, fontSize:12, color:'var(--text-heading)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 Clinical Hours
               </span>
               <SyncIndicator display={hoursSyncDisplay} align="right" />
@@ -2155,7 +2117,6 @@ export default function StudentSidePanel({
 
           {/* ── Documents ── */}
           <section className="sc-sheet" id="sc-sheet-documents" data-sheet="documents" aria-label="Documents">
-            <div className="sc-sheet-label">Documents and access</div>
             <h2 className="sc-sheet-title">Documents</h2>
 
           {/* 6. Documents */}
@@ -2181,7 +2142,7 @@ export default function StudentSidePanel({
                           {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
                         </button>
                         <button onClick={handleResumeDownload} disabled={dlResume}
-                          style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
+                          style={{ background:'var(--bg-card)', border:'1px solid var(--color-accent-primary)', color:'var(--color-accent-primary)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
                           {dlResume ? '…' : '↓ Resume'}
                         </button>
                       </>
@@ -2228,7 +2189,7 @@ export default function StudentSidePanel({
                       </button>
                       </Tooltip>
                     ) : canViewPhoto ? (
-                      <span className="doc-badge-restricted" style={{ fontSize:11, color:'#6b7280', fontStyle:'italic' }}>
+                      <span className="doc-badge-restricted" style={{ fontSize:11, color:'var(--text-muted)', fontStyle:'italic' }}>
                         Badge generation/view restricted to Owner/Admin.
                       </span>
                     ) : null}
@@ -2259,9 +2220,9 @@ export default function StudentSidePanel({
                       disabled={!!certDisabledReason || downloadingCert}
                       aria-label={certDisabledReason || 'Download Certificate of Completion'}
                       style={{
-                        background: certDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
-                        border: certDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
-                        color: certDisabledReason ? '#9ca3af' : '#fff',
+                        background: certDisabledReason ? 'var(--color-bg-hover)' : 'var(--color-accent-primary)',
+                        border: certDisabledReason ? '1px solid var(--border-divider)' : '1px solid var(--color-accent-primary)',
+                        color: certDisabledReason ? 'var(--text-caption)' : 'var(--color-text-inverse)',
                         fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
                         cursor: (certDisabledReason || downloadingCert) ? 'not-allowed' : 'pointer',
                         fontFamily:'Plus Jakarta Sans,sans-serif',
@@ -2415,7 +2376,6 @@ export default function StudentSidePanel({
 
           {/* ── Evaluations ── */}
           <section className="sc-sheet" id="sc-sheet-evaluations" data-sheet="evaluations" aria-label="Evaluations">
-            <div className="sc-sheet-label">Rubrics and reviews</div>
             <h2 className="sc-sheet-title">Evaluations</h2>
             <ChartEvaluations studentId={student.id} canRead={canEdit} />
           </section>
@@ -2423,7 +2383,6 @@ export default function StudentSidePanel({
 
           {/* ── Notes ── */}
           <section className="sc-sheet" id="sc-sheet-notes" data-sheet="notes" aria-label="Notes">
-            <div className="sc-sheet-label">Record of contact</div>
             <h2 className="sc-sheet-title">Notes</h2>
 
           {/* 10. Notes */}
@@ -2437,11 +2396,11 @@ export default function StudentSidePanel({
           {/* Program Timeline - data collection in program_events continues; UI not rendered */}
           {false && <div className="sp-section">
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              <div style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 Program Timeline
               </div>
               <button onClick={() => setShowEventForm(p => !p)}
-                style={{ fontSize:12, color:'var(--nightfall)', background:'none', border:'1px solid var(--nightfall)', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                style={{ fontSize:12, color:'var(--color-accent-primary)', background:'none', border:'1px solid var(--nightfall)', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                 {showEventForm ? 'Cancel' : '+ Add Event'}
               </button>
             </div>
@@ -2450,25 +2409,25 @@ export default function StudentSidePanel({
               <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:8, padding:12, marginBottom:12 }}>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
                   <div>
-                    <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Event Type</label>
+                    <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', display:'block', marginBottom:3 }}>Event Type</label>
                     <select className="sp-select" value={newEvent.event_type}
                       onChange={e => setNewEvent(p => ({ ...p, event_type: e.target.value }))}>
                       {EVENT_TYPES.filter(t => t.manual).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Date *</label>
+                    <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', display:'block', marginBottom:3 }}>Date *</label>
                     <input className="sp-input" type="date" value={newEvent.event_date}
                       onChange={e => setNewEvent(p => ({ ...p, event_date: e.target.value }))} />
                   </div>
                 </div>
                 <div style={{ marginBottom:8 }}>
-                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Time (optional)</label>
+                  <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', display:'block', marginBottom:3 }}>Time (optional)</label>
                   <input className="sp-input" type="time" value={newEvent.event_time}
                     onChange={e => setNewEvent(p => ({ ...p, event_time: e.target.value }))} style={{ maxWidth:130 }} />
                 </div>
                 <div style={{ marginBottom:10 }}>
-                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Notes (optional)</label>
+                  <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', display:'block', marginBottom:3 }}>Notes (optional)</label>
                   <input className="sp-input" type="text" value={newEvent.notes}
                     onChange={e => setNewEvent(p => ({ ...p, notes: e.target.value }))} placeholder="Optional note…" />
                 </div>
@@ -2480,20 +2439,20 @@ export default function StudentSidePanel({
             )}
 
             {studentEvents.length === 0 ? (
-              <p style={{ fontSize:13, color:'#9ca3af', fontStyle:'italic', margin:0 }}>No events logged yet.</p>
+              <p style={{ fontSize:13, color:'var(--color-text-placeholder)', fontStyle:'italic', margin:0 }}>No events logged yet.</p>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {studentEvents.map(ev => (
                   <div key={ev.id} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
                     <div style={{ width:10, height:10, borderRadius:'50%', background:getEventColor(ev.event_type), marginTop:3, flexShrink:0 }} />
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#1d2567', fontFamily:'Plus Jakarta Sans,sans-serif', display:'flex', alignItems:'center', gap:4 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'var(--color-accent-primary)', fontFamily:'Plus Jakarta Sans,sans-serif', display:'flex', alignItems:'center', gap:4 }}>
                         {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
                         {ev.created_by === 'system' && (
                           <span style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, fontWeight:600, background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd', borderRadius:4, padding:'1px 5px', textTransform:'uppercase', letterSpacing:'0.05em' }}>Auto</span>
                         )}
                       </div>
-                      <div style={{ fontSize:12, color:'#6b7280', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                      <div style={{ fontSize:12, color:'var(--text-muted)', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                         {ev.event_date}{ev.event_time ? ` · ${ev.event_time}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}
                       </div>
                     </div>
@@ -2522,10 +2481,10 @@ export default function StudentSidePanel({
               <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
                 {recentComms.map(c => (
                   <div key={c.id} style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:'#374151', fontFamily:'Plus Jakarta Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'var(--text-heading)', fontFamily:'Plus Jakarta Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {c.subject || commTypeLabel(c.notification_type)}
                     </div>
-                    <div style={{ fontSize:11, color:'#9ca3af', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                    <div style={{ fontSize:11, color:'var(--color-text-placeholder)', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                       {commTypeLabel(c.notification_type)} · {c.status || 'unknown'} · {fmtCommDate(c.sent_at)}
                     </div>
                   </div>
@@ -2534,7 +2493,7 @@ export default function StudentSidePanel({
             )}
             <button
               onClick={() => navigate(`/connect/outreach?tab=sent_history&student_id=${student.id}`)}
-              style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:11, fontWeight:600, color:'#1D2567', fontFamily:'Plus Jakarta Sans,sans-serif' }}
+              style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:11, fontWeight:600, color:'var(--color-accent-primary)', fontFamily:'Plus Jakarta Sans,sans-serif' }}
             >
               View all communications for this student →
             </button>
@@ -2623,7 +2582,7 @@ export default function StudentSidePanel({
                             <div style={{ marginTop:6, marginLeft:23, background:'#f9fafb', borderRadius:8, padding:'10px 12px', border:'1px solid #e5e7eb' }}>
                               {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type) ? (
                                 <>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:4 }}>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
                                     How was this sent? <span style={{ color:'#ef4444' }}>*</span>
                                   </div>
                                   <div style={{ display:'flex', gap:5, marginBottom:8, flexWrap:'wrap' }}>
@@ -2643,7 +2602,7 @@ export default function StudentSidePanel({
                                       </button>
                                     ))}
                                   </div>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:4 }}>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
                                     Note <span style={{ color:'#ef4444' }}>*</span>
                                   </div>
                                   <textarea
@@ -2653,7 +2612,7 @@ export default function StudentSidePanel({
                                     rows={2}
                                     style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
                                   />
-                                  <div style={{ fontSize:11, color:'#6b7280', marginTop:6, marginBottom:6, fontStyle:'italic' }}>
+                                  <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6, marginBottom:6, fontStyle:'italic' }}>
                                     I confirm this notification has already occurred and is being documented here.
                                   </div>
                                   <div style={{ display:'flex', gap:6 }}>
@@ -2673,7 +2632,7 @@ export default function StudentSidePanel({
                                     </button>
                                     <button
                                       onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'var(--text-muted)', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
                                     >
                                       Cancel
                                     </button>
@@ -2681,7 +2640,7 @@ export default function StudentSidePanel({
                                 </>
                               ) : f.followup_type === 'leadership_review' ? (
                                 <>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:4 }}>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
                                     Note <span style={{ color:'#ef4444' }}>*</span>
                                   </div>
                                   <textarea
@@ -2708,7 +2667,7 @@ export default function StudentSidePanel({
                                     </button>
                                     <button
                                       onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'var(--text-muted)', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
                                     >
                                       Cancel
                                     </button>
@@ -2716,7 +2675,7 @@ export default function StudentSidePanel({
                                 </>
                               ) : f.followup_type === 'documentation_review' ? (
                                 <>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:4 }}>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
                                     Note <span style={{ color:'#ef4444' }}>*</span>
                                   </div>
                                   <textarea
@@ -2743,7 +2702,7 @@ export default function StudentSidePanel({
                                     </button>
                                     <button
                                       onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'var(--text-muted)', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
                                     >
                                       Cancel
                                     </button>
@@ -2853,7 +2812,7 @@ export default function StudentSidePanel({
             <button className="sp-nav-btn" disabled={!prevStudent} onClick={() => prevStudent && onSelectStudent(prevStudent.id)}>
               ← {prevStudent ? displayName(prevStudent) : 'No previous'}
             </button>
-            <span style={{ fontSize:12, color:'var(--text-secondary)' }}>
+            <span style={{ fontSize:12, color:'var(--text-caption)' }}>
               {currentIndex + 1} / {sortedStudents.length}
             </span>
             <button className="sp-nav-btn" disabled={!nextStudent} onClick={() => nextStudent && onSelectStudent(nextStudent.id)}>
@@ -2944,10 +2903,10 @@ export default function StudentSidePanel({
             padding:'22px 24px 20px', fontFamily:'Plus Jakarta Sans, sans-serif',
             boxShadow:'0 20px 50px rgba(0,0,0,0.18)' }}
             onMouseDown={e => e.stopPropagation()}>
-            <div style={{ fontWeight:700, fontSize:16, color:'#1D2567', marginBottom:10 }}>
+            <div style={{ fontWeight:700, fontSize:16, color:'var(--color-accent-primary)', marginBottom:10 }}>
               Clear Disposition
             </div>
-            <div style={{ fontSize:13, color:'#374151', lineHeight:1.6, marginBottom:12 }}>
+            <div style={{ fontSize:13, color:'var(--text-heading)', lineHeight:1.6, marginBottom:12 }}>
               <div style={{ marginBottom:6 }}>
                 <strong>{getStudentPreferredFullName(student)}</strong>
               </div>
@@ -2968,7 +2927,7 @@ export default function StudentSidePanel({
             )}
 
             <label style={{ display:'block', fontSize:11, fontWeight:700, textTransform:'uppercase',
-              letterSpacing:'0.05em', color:'#6b7280', marginBottom:5 }}>
+              letterSpacing:'0.05em', color:'var(--text-muted)', marginBottom:5 }}>
               Reason (optional)
             </label>
             <textarea
@@ -2989,7 +2948,7 @@ export default function StudentSidePanel({
               <button onClick={() => setShowClearModal(false)} disabled={clearing}
                 style={{ padding:'9px 18px', borderRadius:8, border:'1px solid #e5e7eb',
                   background:'#f9fafb', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:13,
-                  cursor: clearing ? 'not-allowed' : 'pointer', color:'#374151' }}>
+                  cursor: clearing ? 'not-allowed' : 'pointer', color:'var(--text-heading)' }}>
                 Cancel
               </button>
               <button onClick={handleConfirmClearDisposition} disabled={clearing}
@@ -3015,10 +2974,10 @@ export default function StudentSidePanel({
             padding: 28, width: 400,
             boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
           }}>
-            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 18, color: '#1d2567', marginBottom: 8 }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 18, color: 'var(--color-accent-primary)', marginBottom: 8 }}>
               Decline Student
             </div>
-            <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 14, color: '#6b7280', marginBottom: 20 }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
               Please select a reason for declining this student. This will be recorded for program reporting.
             </div>
             <select

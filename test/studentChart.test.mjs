@@ -187,7 +187,7 @@ test('FLAG 6: the migration is additive, idempotent and documents its rollback',
 
 test('FLAG 7: the roster shows the flag by name, not by colour alone', () => {
   assert.match(roster, /isFollowUpFlagged\(s\)/)
-  assert.match(roster, /Follow-up/)
+  assert.match(roster, /Flagged for follow up/)
   assert.match(roster, /aria-hidden="true">⚑/)
 })
 
@@ -303,7 +303,15 @@ test('DARK 3: the panel\'s pastel fields have a dark pair', () => {
   const index = read('src/index.css')
   assert.match(index, /\[data-theme="dark"\] \.sp-card \.sp-input,/)
   assert.match(index, /\[data-theme="dark"\] \.sp-card \.sp-readonly \{[\s\S]*?color: var\(--color-text-primary/)
-  assert.match(index, /\[data-theme="dark"\] \.sp-nav-btn \{/)
+  // STUDENT-PROFILE-INK-1 replaced the .sp-nav-btn dark patch with something better: the
+  // base rule reads theme-aware tokens, so there is nothing left to patch. Assert the
+  // outcome (no fixed light-mode ink on the button, and its row follows the theme)
+  // rather than the mechanism, or this test pins the weaker of the two fixes.
+  const nav = index.match(/\.sp-nav-btn \{[\s\S]*?\}/)[0]
+  assert.match(nav, /color: var\(--color-accent-primary\)/)
+  assert.ok(!/var\(--nightfall\)/.test(nav), 'a fixed light navy here is invisible on dark paper')
+  const row = index.match(/\.sp-nav-row \{[\s\S]*?\}/)[0]
+  assert.ok(!/var\(--sand\)/.test(row), 'a fixed sand row stays bright in dark mode')
 })
 
 test('FLAG 8: the ribbon gets the REFETCH, not the writer, or the roster lags a reload', () => {
@@ -331,7 +339,8 @@ test('ROOM 2: only the search and filter bar pins', () => {
   const index = noComments(read('src/index.css'))
   const bar = index.match(/\.profiles-toolbar \{[\s\S]*?\}/)[0]
   assert.match(bar, /position: sticky;/)
-  assert.match(bar, /top: 0;/)
+  // It pins BELOW the app chrome, which is sticky too; the offset is measured at runtime.
+  assert.match(bar, /top: var\(--profiles-toolbar-top/)
   // The KPI strip must NOT be sticky: the Owner chose for it to scroll away.
   const frozen = index.match(/\.profiles-frozen\s+\{[\s\S]*?\}/)[0]
   assert.ok(!/position: sticky/.test(frozen))
@@ -405,5 +414,201 @@ test('PAPER 4: the ribbon hangs from the board, not from the paper', () => {
 test('PAPER 5: the avatar aligns to the name, not to the middle of the chips', () => {
   const css = noComments(read('src/components/student/studentChart.css'))
   assert.match(css, /\.sc-plate-id \{[^}]*align-items: flex-start;/)
+})
+
+// ── INK: light-mode colours must not be hardcoded on theme-aware surfaces ───
+// STUDENT-PROFILE-INK-1 (2026-09-18). The panel had ~40 pieces of text at 1-3:1 in dark,
+// from three causes: inline light-mode inks, module-level colour constants, and
+// containers whose background was a fixed light value. Dark now measures 0 failures over
+// 1,337 samples and light is unchanged (0 regressions).
+
+const subPanels = [
+  'src/components/ClinicalHoursPanel.jsx',
+  'src/components/StudentUnitAssignments.jsx',
+  'src/components/AdditionalPreceptors.jsx',
+]
+
+test('INK 1: a light-mode ink is only allowed beside a light-mode background', () => {
+  // THE RULE this task turned on: a colour pair travels together. A theme-aware ink on a
+  // fixed light box is invisible in dark (measured 1.65:1), and so is a fixed dark ink on
+  // a theme-aware box. So a literal ink is a defect ONLY when nothing nearby pins the
+  // surface it sits on. Status colours are exempt: each is half of its own chip.
+  const banned = ['#1d2567', '#1D2567', '#191919', '#374151', '#4b5563', '#6b7280', '#9ca3af']
+  const offenders = []
+  for (const f of [...subPanels, 'src/components/StudentSidePanel.jsx']) {
+    for (const line of noComments(read(f)).split('\n')) {
+      for (const b of banned) {
+        if (!new RegExp(`\\bcolor\\s*:\\s*['"]${b}['"]`, 'i').test(line)) continue
+        // paired with a literal light background on the same element? then it is fine.
+        if (/background\s*:\s*['"]?#[0-9a-f]{3,6}/i.test(line)) continue
+        offenders.push(`${f.split('/').pop()}: ${line.trim().slice(0, 90)}`)
+      }
+    }
+  }
+  assert.deepEqual(offenders, [], 'unpaired light-mode ink on a theme-aware surface')
+})
+
+test('INK 2: the neutral inks read tokens that BOTH themes define', () => {
+  const theme = read('src/styles/theme.css')
+  const dark = theme.slice(theme.indexOf(':root[data-theme="dark"]'))
+  for (const t of ['--color-text-primary', '--color-text-secondary', '--color-text-muted',
+                   '--color-text-placeholder', '--color-accent-primary']) {
+    assert.ok(dark.includes(t + ':'), `${t} has no dark value`)
+  }
+  // and the aliases the panel actually writes are wired to them (they live in theme.css,
+  // not index.css - index.css's own --text-secondary is a fixed light value).
+  assert.match(theme, /--text-heading:\s*var\(--color-text-primary\)/)
+  assert.match(theme, /--text-muted:\s*var\(--color-text-muted\)/)
+})
+
+test('INK 3: a module colour constant is a token, not a hex', () => {
+  const ua = read('src/components/StudentUnitAssignments.jsx')
+  assert.match(ua, /const NAVY = 'var\(--color-accent-primary\)'/)
+  assert.ok(!/const NAVY = '#/.test(ua), 'a fixed hex here reaches every call site at once')
+})
+
+test('INK 4: the containers that hold panel text follow the theme', () => {
+  const index = noComments(read('src/index.css'))
+  for (const [sel, banned] of [
+    ['.sp-nav-row', 'var(--sand)'],
+    ['.doc-upload-zone', 'var(--pearl)'],
+    ['.doc-existing-file', 'var(--sand)'],
+    ['.btn-destructive', 'var(--pearl)'],
+    ['.csw-step', '#fafafa'],
+    ['.sp-section-hdr', '#f9fafb'],
+  ]) {
+    const rule = index.match(new RegExp(`\\${sel} \\{[\\s\\S]*?\\}`))
+    assert.ok(rule, `${sel} rule not found`)
+    assert.ok(!rule[0].includes(banned),
+      `${sel} still has a fixed light background (${banned}); its text cannot win`)
+  }
+})
+
+test('INK 5: the panel\'s three semantic inks are tokens with both themes', () => {
+  const index = noComments(read('src/index.css'))
+  for (const t of ['--sp-ok-ink', '--sp-warn-ink', '--sp-danger-ink']) {
+    assert.ok(index.includes(t + ':'), `${t} is not defined`)
+    const darkBlock = index.slice(index.indexOf('[data-theme="dark"] {'))
+    assert.ok(darkBlock.includes(t + ':'), `${t} has no dark value`)
+  }
+  // Danger stays a RED. The app's --color-status-danger is the magenta Chroma, which is
+  // wrong on a red-tinted box, and swapping to it changed light mode.
+  assert.match(index, /--sp-danger-ink:\s*#b23b2e/)
+})
+
+test('INK 6: the chart does not push its dark ink onto the materials', () => {
+  // A paper note is white in BOTH themes (the materials layer is theme-independent), so
+  // the chart's light-blue accent landing on one measured 1.65:1.
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.match(css, /\[data-theme="dark"\] \.sc-paper \.paper-note,/)
+  assert.match(css, /--color-accent-primary: #1D2567;/)
+})
+
+// ── CALM: nothing moves that the reader did not move (Owner, 2026-09-18) ────
+
+test('CALM 1: neither ribbon resizes or travels on hover', () => {
+  const chart = noComments(read('src/components/student/studentChart.css'))
+  const book  = noComments(read('src/components/rubric/rubricBook.css'))
+  // The rubric's ribbon used to grow 6px on hover, so the thing you were about to click
+  // moved out from under the pointer. Both now lift a shadow and hold their position.
+  assert.ok(!/\.rb-ribbon:hover \{[^}]*padding/.test(book), 'the rubric ribbon must not resize on hover')
+  assert.ok(!/\.sc-ribbon:hover \{[^}]*(padding|translate|transform)/.test(chart))
+  assert.match(book, /\.rb-ribbon:hover,[\s\S]{0,80}box-shadow/)
+  assert.match(chart, /\.sc-ribbon:hover,[\s\S]{0,90}box-shadow/)
+})
+
+test('CALM 2: the hover rule sits AFTER the state rules it must beat', () => {
+  // Equal specificity means source order decides. Written above [aria-pressed="false"],
+  // the hover shadow silently never applied - measured, not assumed.
+  const chart = noComments(read('src/components/student/studentChart.css'))
+  assert.ok(chart.indexOf('.sc-ribbon:hover') > chart.indexOf('.sc-ribbon[aria-pressed="false"]'))
+  const book = noComments(read('src/components/rubric/rubricBook.css'))
+  assert.ok(book.indexOf('.rb-ribbon:hover') > book.indexOf('.rb-ribbon-on'))
+})
+
+test('CALM 3: the index tab does not travel when the scroll spy changes', () => {
+  const chart = noComments(read('src/components/student/studentChart.css'))
+  const current = chart.match(/\.sc-tab\[aria-current="true"\] \{[\s\S]*?\}/)[0]
+  assert.ok(!/translate/.test(current), 'a travelling current tab twitches the whole rail as you read')
+  assert.match(current, /font-weight: 700/)
+})
+
+test('CALM 4: the rubric head lifts on scroll, like the chart plate', () => {
+  const book = noComments(read('src/components/rubric/rubricBook.css'))
+  assert.match(book, /\.rb-head-lifted \{/)
+  const session = read('src/components/RubricSession.jsx')
+  assert.match(session, /setHeadLifted\(root\.scrollTop > 2\)/)
+  assert.match(session, /rb-head-lifted/)
+  // and it is the SAME shadow the plate uses
+  const chart = noComments(read('src/components/student/studentChart.css'))
+  const plate = chart.match(/\.sc-plate-lifted \{[\s\S]*?\}/)[0]
+  const head  = book.match(/\.rb-head-lifted \{[\s\S]*?\}/)[0]
+  const norm = t => t.replace(/\s+/g, ' ').replace(/^[^{]*\{/, '')
+  assert.equal(norm(head), norm(plate), 'the two books must lift identically')
+})
+
+// ── ROOM 5: the chart clears the sticky app chrome ─────────────────────────
+
+test('ROOM 5: the pinned stack is the chrome PLUS the toolbar', () => {
+  const vp = read('src/components/student/useChartViewport.js')
+  // .top-section is position:sticky, so it never leaves. Measuring only the toolbar put
+  // it behind the header and hid the binder's first 40px.
+  assert.match(vp, /\.top-section/)
+  assert.match(vp, /getComputedStyle\(chrome\)\.position === 'sticky'/)
+  assert.match(vp, /chromeH \+ bar\.getBoundingClientRect\(\)\.height \+ margins/)
+  const tab = read('src/components/StudentProfilesTab.jsx')
+  assert.match(tab, /--profiles-toolbar-top/)
+})
+
+// ── QUIET: the panel says each thing once ──────────────────────────────────
+
+test('QUIET 1: the sheets have no eyebrow above their own title', () => {
+  assert.ok(!panel.includes('sc-sheet-label'), '"Student record / Profile" said it twice')
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.ok(!/\.sc-sheet-label \{/.test(css))
+})
+
+test('QUIET 2: profile completion is one line, not four restatements', () => {
+  assert.match(panel, /className="sc-completion"/)
+  // The provenance tag, the Missing pills and the separate "Ready to proceed" line are gone.
+  const block = panel.slice(panel.indexOf('className="sc-completion"'), panel.indexOf('className="sc-completion"') + 900)
+  assert.ok(!/SourceTag/.test(block))
+  assert.match(block, /Ready to proceed/)
+  assert.match(block, /completion\.missing\.join/)
+})
+
+test('QUIET 3: the full-width Copy Student Summary bar is gone, copies sit beside values', () => {
+  assert.ok(!panel.includes('handleCopySummary'), 'the summary bar and its handler both go')
+  assert.ok(!panel.includes('generateStudentSummary'))
+  // and the fields a coordinator actually copies each have their own button
+  for (const label of ['Copy personal email', 'Copy phone', 'Copy email']) {
+    assert.ok(panel.includes(label), `missing a copy control: ${label}`)
+  }
+})
+
+test('QUIET 4: Documents is a list and does not repeat the student photo', () => {
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.match(css, /\.sc-sheet \.doc-headshot-preview \{ display: none; \}/)
+  assert.match(css, /\.sc-sheet \.doc-section \{[\s\S]*?grid-template-columns: 1fr;/)
+})
+
+// ── FLAGS: one wording, both lists ─────────────────────────────────────────
+
+test('FLAG 9: both lists show the follow-up flag, and say the same thing', () => {
+  const recs = read('src/components/InterviewRubricTab.jsx')
+  assert.match(recs, /isFollowUpFlagged\(s\)/)
+  assert.match(recs, /Flagged for follow up/)
+  assert.match(roster, /Flagged for follow up/)
+  // and the roster gets the red edge the recommendations table already had
+  const index = noComments(read('src/index.css'))
+  assert.match(index, /\.pl-row\.pl-followup \{ border-left: 4px solid var\(--aspire-red-editorial/)
+  assert.match(index, /\.pl-row\.pl-followup\.pl-selected \{ border-left-color: var\(--nightfall\); \}/)
+})
+
+test('FLAG 10: the two flags stay different things in the recommendations table', () => {
+  const recs = noComments(read('src/components/InterviewRubricTab.jsx'))
+  // the red edge is still driven by the INTERVIEW flag, not the follow-up one
+  assert.match(recs, /flagInfo\s*\?\s*\(flagInfo\.critical/)
+  assert.match(recs, /flagged_for_second_interview/)
 })
 

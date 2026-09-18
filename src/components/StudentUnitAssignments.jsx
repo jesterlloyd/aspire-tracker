@@ -28,12 +28,14 @@ import { listStudentUnitAssignments, manageStudentUnitAssignment } from '../lib/
 import { canonicalUnitName } from '../lib/unitNameCanon'
 
 const F = 'Plus Jakarta Sans, sans-serif'
-const NAVY = '#1D2567'
+// STUDENT-PROFILE-INK-1: the theme's accent, not a fixed navy. Identical in light
+// (#1D2567); in dark it lifts, instead of painting navy onto a dark page.
+const NAVY = 'var(--color-accent-primary)'
 
 const STATUS_CHIP = {
   active:  { label: 'Active',  bg: '#dcfce7', color: '#166534', border: '#86efac' },
   planned: { label: 'Planned', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-  ended:   { label: 'Ended',   bg: '#f3f4f6', color: '#6b7280', border: '#d1d5db' },
+  ended:   { label: 'Ended',   bg: '#f3f4f6', color: 'var(--text-muted)', border: '#d1d5db' },
   removed: { label: 'Removed', bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
 }
 
@@ -213,8 +215,8 @@ export default function StudentUnitAssignments({ studentId, units = [], canManag
         style={{ ...selStyle(), width: '100%', boxSizing: 'border-box', marginBottom: 6 }}
       />
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-        <button disabled={busy} onClick={() => setEditingId(null)} style={btnStyle('#fff', '#6b7280')}>Cancel</button>
-        <button disabled={busy} onClick={() => submitEdit(a)} style={btnStyle(NAVY, '#fff')}>Save changes</button>
+        <button disabled={busy} onClick={() => setEditingId(null)} style={btnStyle('var(--bg-card)', 'var(--text-caption)')}>Cancel</button>
+        <button disabled={busy} onClick={() => submitEdit(a)} style={btnStyle(NAVY, 'var(--color-text-inverse)')}>Save changes</button>
       </div>
       {a.status === 'ended' && (
         <div style={{ fontSize: 10, color: '#8B5E1A', fontFamily: F, marginTop: 5, lineHeight: 1.4 }}>
@@ -233,14 +235,14 @@ export default function StudentUnitAssignments({ studentId, units = [], canManag
         border: `1px solid ${type === 'remove' ? '#fca5a5' : '#f0c9b0'}`,
         background: type === 'remove' ? '#FEF2F2' : '#FBF5E8',
       }}>
-        <div style={{ fontSize: 11.5, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 3 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-heading)', fontFamily: F, marginBottom: 3 }}>
           {copy.title}
         </div>
-        <div style={{ fontSize: 10.5, color: '#4b5563', fontFamily: F, lineHeight: 1.45, marginBottom: 7 }}>
+        <div style={{ fontSize: 10.5, color: 'var(--text-caption)', fontFamily: F, lineHeight: 1.45, marginBottom: 7 }}>
           {copy.body}
         </div>
         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-          <button disabled={busy} onClick={() => setConfirming(null)} style={btnStyle('#fff', '#6b7280')}>Cancel</button>
+          <button disabled={busy} onClick={() => setConfirming(null)} style={btnStyle('var(--bg-card)', 'var(--text-caption)')}>Cancel</button>
           <button disabled={busy} onClick={runConfirmed}
             style={btnStyle(type === 'remove' ? '#b91c1c' : NAVY, '#fff')}>
             {copy.confirmLabel}
@@ -263,30 +265,30 @@ export default function StudentUnitAssignments({ studentId, units = [], canManag
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#191919', fontFamily: F }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-heading)', fontFamily: F }}>
                 {canonicalUnitName(a.unit_key)}
               </span>
               <span style={chip(role)}>{role.label}</span>
               <span style={chip(status)}>{status.label}</span>
             </div>
-            <div style={{ fontSize: 10.5, color: '#6b7280', fontFamily: F, marginTop: 2 }}>{fmtRange(a)}</div>
-            {a.notes ? <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>{a.notes}</div> : null}
+            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontFamily: F, marginTop: 2 }}>{fmtRange(a)}</div>
+            {a.notes ? <div style={{ fontSize: 10, color: 'var(--color-text-placeholder)', fontFamily: F, marginTop: 2 }}>{a.notes}</div> : null}
           </div>
           {editable && (
             <div style={{ display: 'flex', gap: 5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button disabled={busy} onClick={() => openEdit(a)}
                 title="Edit dates and notes"
-                style={btnStyle('#fff', NAVY)}>Edit</button>
+                style={btnStyle('var(--bg-card)', NAVY)}>Edit</button>
               {isLive && a.role !== 'primary' && (
                 <button disabled={busy} onClick={() => { setEditingId(null); setConfirming({ type: 'set_primary', a }) }}
                   title="Make this the primary unit"
-                  style={btnStyle('#fff', NAVY)}>Make primary</button>
+                  style={btnStyle('var(--bg-card)', NAVY)}>Make primary</button>
               )}
               {isLive && (
                 <>
                   <button disabled={busy} onClick={() => { setEditingId(null); setConfirming({ type: 'end', a }) }}
                     title="End this assignment (kept as history)"
-                    style={btnStyle('#fff', '#6b7280')}>End</button>
+                    style={btnStyle('var(--bg-card)', 'var(--text-caption)')}>End</button>
                   <button disabled={busy} onClick={() => { setEditingId(null); setConfirming({ type: 'remove', a }) }}
                     title="Remove: the record was entered in error"
                     style={btnStyle('#fff', '#b91c1c')}>Remove</button>
@@ -308,7 +310,7 @@ export default function StudentUnitAssignments({ studentId, units = [], canManag
           Unit assignments
         </span>
         {canManage && (
-          <button disabled={busy} onClick={() => setAdding(v => !v)} style={{ ...btnStyle('#fff', NAVY), marginLeft: 'auto' }}>
+          <button disabled={busy} onClick={() => setAdding(v => !v)} style={{ ...btnStyle('var(--bg-card)', NAVY), marginLeft: 'auto' }}>
             {adding ? 'Cancel' : 'Add unit'}
           </button>
         )}
@@ -346,7 +348,7 @@ export default function StudentUnitAssignments({ studentId, units = [], canManag
             {addRole === 'additional' && (
               <label style={dateLabel()}>End <input type="date" value={addEnd} onChange={e => setAddEnd(e.target.value)} style={selStyle()} /></label>
             )}
-            <button disabled={busy || !addUnitId} onClick={submitAdd} style={{ ...btnStyle(NAVY, '#fff'), marginLeft: 'auto', opacity: (!addUnitId || busy) ? 0.6 : 1 }}>
+            <button disabled={busy || !addUnitId} onClick={submitAdd} style={{ ...btnStyle(NAVY, 'var(--color-text-inverse)'), marginLeft: 'auto', opacity: (!addUnitId || busy) ? 0.6 : 1 }}>
               {addRole === 'primary' ? 'Set primary' : 'Add assignment'}
             </button>
           </div>
@@ -360,19 +362,19 @@ export default function StudentUnitAssignments({ studentId, units = [], canManag
       )}
 
       {assignments === null ? (
-        <div style={{ fontSize: 11, color: '#9ca3af' }}>Loading unit assignments…</div>
+        <div style={{ fontSize: 11, color: 'var(--color-text-placeholder)' }}>Loading unit assignments…</div>
       ) : error ? (
         <div style={{ fontSize: 11, color: '#b91c1c' }}>Could not load assignments ({error}).</div>
       ) : (
         <>
           {live.length === 0 && (
-            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 5 }}>No live unit assignment.</div>
+            <div style={{ fontSize: 11, color: 'var(--text-caption)', marginBottom: 5 }}>No live unit assignment.</div>
           )}
           {live.map(row)}
           {history.length > 0 && (
             <button onClick={() => setShowHistory(v => !v)} style={{
               background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-              fontSize: 10.5, fontWeight: 600, color: '#6b7280', fontFamily: F, marginTop: 2,
+              fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)', fontFamily: F, marginTop: 2,
             }}>
               {showHistory ? 'Hide' : 'Show'} history ({history.length})
             </button>
@@ -393,9 +395,9 @@ function btnStyle(bg, color) {
 function selStyle() {
   return {
     padding: '4px 7px', border: '1.5px solid #e5e7eb', borderRadius: 6,
-    fontSize: 11, fontFamily: F, color: '#191919', background: '#fff',
+    fontSize: 11, fontFamily: F, color: 'var(--text-heading)', background: '#fff',
   }
 }
 function dateLabel() {
-  return { display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: '#374151', fontFamily: F }
+  return { display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text-heading)', fontFamily: F }
 }

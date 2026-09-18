@@ -175,6 +175,9 @@
      palest tint, which is a fail: 18px bold is just under WCAG's large-text threshold,
      so it owes the full 4.5. The app's navy owes 12.3:1 on the worst of the seven. */
   --aspire-sheet-title: #1D2567;
+  /* Secondary line inside a sheet (a completion note, an empty state). Measured 6.44:1
+     on the worst of the seven tints; the chart lifts it for dark. */
+  --aspire-sheet-note: #4b5675;
   --aspire-sheet-tab-ink: #4b5675;
   --aspire-binder-rail: linear-gradient(-90deg, #DCDFE9, #E7E9F1);
   --aspire-noise-fine: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
