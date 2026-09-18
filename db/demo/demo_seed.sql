@@ -88,7 +88,8 @@ DECLARE
     ['preceptor_cohort_participation','preceptor_id'], ['preceptor_cohort_participation','cohort_id'],
     ['preceptor_cohort_participation','status'], ['preceptor_cohort_participation','started_at'],
     ['matches','student_id'], ['matches','unit_id'], ['matches','preceptor_id'],
-    ['student_shift_logs','shift_date'], ['student_shift_logs','lifecycle_state'],
+    ['student_shift_logs','school_email'], ['student_shift_logs','shift_date'],
+    ['student_shift_logs','lifecycle_state'],
     ['student_shift_logs','total_hours'], ['student_shift_logs','status'],
     ['student_shift_logs','support_needed'], ['student_shift_logs','unit_name'],
     ['cohort_school_rotations','school_name'], ['cohort_school_rotations','rotation_start_date'],
@@ -398,11 +399,12 @@ WHERE s.is_demo AND s.matched_unit_id IS NOT NULL;
 
 -- Completed history: six past shifts each for the five rotating students.
 INSERT INTO student_shift_logs
-  (id, cohort_id, student_id, shift_date, shift_type, unit_name, preceptor_name,
+  (id, cohort_id, student_id, school_email, shift_date, shift_type, unit_name, preceptor_name,
    total_hours, expected_hours, status, lifecycle_state, support_needed, submitted_at, is_demo)
 SELECT
   ('0de07000-0000-4000-8000-' || lpad((row_number() OVER (ORDER BY s.id, g))::text, 12, '0'))::uuid,
   s.cohort_id, s.id,
+  s.school_email,
   (CURRENT_DATE - (g * 3))::text,
   s.shift_assigned,
   u.unit_name,
@@ -417,32 +419,33 @@ WHERE s.is_demo AND s.status = 'Active Rotation';
 
 -- Today. Amara and Priya are on the unit right now.
 INSERT INTO student_shift_logs
-  (id, cohort_id, student_id, shift_date, shift_type, unit_name, preceptor_name,
+  (id, cohort_id, student_id, school_email, shift_date, shift_type, unit_name, preceptor_name,
    total_hours, expected_hours, status, lifecycle_state, support_needed, checked_in_at, is_demo)
 VALUES
   ('0de07000-0000-4000-8000-000000009001','0de00000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000001',
-   CURRENT_DATE::text,'Day','6 NE','Solomon Adeyemi',12,12,'Auto-Accepted','in_progress',false,
+   'amara.okonkwo@demo.aspire.invalid',CURRENT_DATE::text,'Day','6 NE','Solomon Adeyemi',12,12,'Auto-Accepted','in_progress',false,
    (CURRENT_DATE + TIME '06:45')::timestamptz, true),
   ('0de07000-0000-4000-8000-000000009002','0de00000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000003',
-   CURRENT_DATE::text,'Day','5 North','Mateo Carrasco',12,12,'Auto-Accepted','in_progress',false,
+   'priya.raghunathan@demo.aspire.invalid',CURRENT_DATE::text,'Day','5 North','Mateo Carrasco',12,12,'Auto-Accepted','in_progress',false,
    (CURRENT_DATE + TIME '06:50')::timestamptz, true);
 
 -- Friction: Kayla flagged that she needed support on her last shift.
 INSERT INTO student_shift_logs
-  (id, cohort_id, student_id, shift_date, shift_type, unit_name, preceptor_name,
+  (id, cohort_id, student_id, school_email, shift_date, shift_type, unit_name, preceptor_name,
    total_hours, expected_hours, status, lifecycle_state, support_needed, submitted_at, is_demo)
 VALUES
   ('0de07000-0000-4000-8000-000000009003','0de00000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000004',
-   (CURRENT_DATE - 1)::text,'Day','5 North','Ngozi Balogun',12,12,'Approved','completed',true,
+   'kayla.brennan@demo.aspire.invalid',(CURRENT_DATE - 1)::text,'Day','5 North','Ngozi Balogun',12,12,'Approved','completed',true,
    (CURRENT_DATE - 1 + TIME '19:40')::timestamptz, true);
 
 -- Completed students carry a full record so their hours add up to what their profile says.
 INSERT INTO student_shift_logs
-  (id, cohort_id, student_id, shift_date, shift_type, unit_name, preceptor_name,
+  (id, cohort_id, student_id, school_email, shift_date, shift_type, unit_name, preceptor_name,
    total_hours, expected_hours, status, lifecycle_state, support_needed, submitted_at, is_demo)
 SELECT
   ('0de07000-0000-4000-8000-' || lpad((8000 + row_number() OVER (ORDER BY s.id, g))::text, 12, '0'))::uuid,
   s.cohort_id, s.id,
+  s.school_email,
   (CURRENT_DATE - 20 + g)::text,
   s.shift_assigned, u.unit_name, s.matched_preceptor,
   12, 12, 'Approved', 'completed', false,

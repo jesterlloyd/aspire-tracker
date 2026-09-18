@@ -321,3 +321,31 @@ test('the seed does not write assignment rows the database makes itself', () => 
   assert.match(code(seed), /DELETE FROM student_preceptor_assignments\s+WHERE is_demo/,
     'the teardown-before-insert must still clear it, or a re-run leaves stale rows')
 })
+
+// ─────────────────────────────────────────────────────────────────────
+// 7. Required columns, which is a different question from existing ones
+// ─────────────────────────────────────────────────────────────────────
+test('the seed supplies every NOT NULL column that has no default', () => {
+  // The miss this pins: student_shift_logs.school_email is NOT NULL with no default and
+  // is read by NO select anywhere in the app, so deriving the column list from select
+  // strings could never surface it. Confirmed against information_schema in production
+  // on 2026-09-18; these four are the complete set for the tables the seed writes.
+  const REQUIRED = {
+    students: ['cohort_id'],
+    units: ['cohort_id'],
+    student_shift_logs: ['school_email', 'shift_date'],
+  }
+
+  for (const [table, columns] of Object.entries(REQUIRED)) {
+    const re = new RegExp(`INSERT INTO ${table}\\s*\\(([^)]*)\\)`, 'g')
+    const inserts = [...code(seed).matchAll(re)]
+    assert.ok(inserts.length > 0, `expected at least one INSERT INTO ${table}`)
+    for (const [, colBlock] of inserts) {
+      for (const col of columns) {
+        assert.ok(new RegExp(`\\b${col}\\b`).test(colBlock),
+          `INSERT INTO ${table} omits ${col}, which is NOT NULL with no default. ` +
+          `The insert will fail with 23502.`)
+      }
+    }
+  }
+})
