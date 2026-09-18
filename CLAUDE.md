@@ -110,6 +110,36 @@ is destructive, so the write is held (below). On the Interview Board unpairing w
 nullable column, so it writes immediately and Undo simply pairs them again. Same gesture,
 same ten seconds, different mechanism - do not unify them.
 
+## The rubric is a book (RUBRIC-BOOK-1, 2026-09-17)
+
+Interviews > a student's rubric is a bound two-page spread, built from the same materials
+as the matching boards: a tan leather cover (`.material-leather-tan`), two white pages, a
+seam, and an index down the fore edge. The left page is the candidate and never changes
+while you write; the right page is the rubric. The stylesheet is
+`src/components/rubric/rubricBook.css`, which imports the materials and reads the tokens;
+nothing about the book lives in `index.css`.
+
+- **One layout at every width** (Owner). The book is laid out at its natural size and
+  SCALED with a transform, so it never reflows into a second design.
+  `src/components/rubric/useBookScale.js` owns the arithmetic and has two floors: below
+  0.72 the spread turns into one page (the rubric by default, the candidate a tap away),
+  and one page then takes the width it is given so body text never renders below about
+  12px. Nothing scrolls sideways at any width. Change the numbers there, not in a
+  component, and `test/rubricBook.test.mjs` re-measures them.
+- **Read-only is the same book.** A finished rubric and a colleague's rubric render the
+  same spread with the inputs replaced by their values. There is no second layout to keep
+  in step.
+- **Pulling the ribbon IS the flag** (Owner, 2026-09-17), and a flag carries NO note.
+  `flag_note` is no longer written; a note stored before this change is still shown until
+  the flag is removed. The ribbon is a real button, so Enter, Space and a click do what
+  the pull does.
+- **The scale reads Limited, Developing, Adequate, Strong, Highly Aligned.** Only the
+  words changed: the stored value is still the number, so the 12/15 and 8/15 thresholds,
+  the averages, the score flag and every report are untouched.
+- What a redesign may not quietly drop, and what the tests hold: the 30-second auto-save,
+  the browser draft and its restore notice, Section 1 moving the real booking, and one
+  rubric row per interviewer created on the first meaningful edit.
+
 ## Placement rank (PLACEMENT-BOARD-FELT-1)
 
 `matches.match_quality` stores `top_choice`, `second_choice`, `third_choice` or `other`,

@@ -1,0 +1,615 @@
+/* RUBRIC-BOOK-1 (2026-09-17): the Interview Rubric as a bound book.
+ *
+ * WHY A BOOK. The rubric is the one staff screen used while a person is sitting
+ * across from you. It is read and written at the same time, and the two halves
+ * never change roles: the left page is the candidate (fixed reference), the right
+ * page is the score (everything you type). A spread says that with no labels.
+ *
+ * HOW IT SIZES. The book has ONE layout at every width (Owner, 2026-09-17). It is
+ * laid out at its natural size and scaled with a transform, so the type keeps its
+ * proportions instead of reflowing into a different design. useBookScale.js measures
+ * the stage and writes --rb-scale and --rb-book-h; below the legibility floor it
+ * switches data-rb-mode to "single" and the spread shows one page at a time.
+ *
+ * Materials come from src/styles/aspireMaterials.css, which this sheet imports, and
+ * every colour, radius and shadow is a token from aspireBrand.css. The materials do
+ * not follow the theme; the chrome around the book does.
+ */
+
+@import '../../styles/aspireMaterials.css';
+
+.rb-shell {
+  --rb-left-w: 600px;
+  --rb-right-w: 810px;
+  --rb-rail-w: 58px;
+  --rb-cover-pad: 26px;
+  --rb-scale: 1;
+  --rb-book-h: 860px;
+  display: flex;
+  flex-direction: column;
+  /* The same height the old session claimed: the viewport less the app header and the
+     section nav. The rubric owns the screen while it is open, and the pages scroll
+     inside the book rather than the page scrolling behind it. */
+  height: calc(100vh - 164px);
+  min-height: 520px;
+  font-family: var(--aspire-sans);
+}
+
+/* ── The chrome above the book ─────────────────────────────────────────────── */
+.rb-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 12px;
+}
+.rb-toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* The page switcher, single-page mode only. */
+.rb-switch {
+  display: inline-flex;
+  border-radius: var(--aspire-radius-control);
+  overflow: hidden;
+  border: 1px solid var(--aspire-nav-line);
+}
+.rb-switch button {
+  border: 0;
+  background: var(--aspire-card);
+  color: var(--aspire-ink-soft);
+  font: 600 12px/1 var(--aspire-sans);
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.rb-switch button[aria-pressed='true'] { background: var(--aspire-navy); color: var(--aspire-on-navy); }
+
+/* ── The stage, the cover, the spread ──────────────────────────────────────── */
+.rb-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px 20px;
+}
+.rb-book {
+  width: calc(var(--rb-left-w) + var(--rb-right-w) + var(--rb-rail-w) + (2 * var(--rb-cover-pad)));
+  height: var(--rb-book-h);
+  transform: scale(var(--rb-scale));
+  transform-origin: top center;
+  flex-shrink: 0;
+}
+.rb-shell[data-rb-mode='single'] {
+  /* One page takes the width it is given, so the type stays readable instead of
+     shrinking with the window. */
+  --rb-right-w: var(--rb-page-w, 810px);
+}
+.rb-shell[data-rb-mode='single'] .rb-book {
+  width: calc(var(--rb-right-w) + var(--rb-rail-w) + (2 * var(--rb-cover-pad)));
+}
+
+.rb-cover {
+  position: relative;
+  height: 100%;
+  padding: var(--rb-cover-pad);
+  border-radius: var(--aspire-radius-book);
+}
+.rb-spread {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-columns: var(--rb-left-w) var(--rb-right-w) var(--rb-rail-w);
+  border-radius: var(--aspire-radius-page);
+  overflow: hidden;
+  background: var(--aspire-page);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.rb-shell[data-rb-mode='single'] .rb-spread { grid-template-columns: var(--rb-right-w) var(--rb-rail-w); }
+.rb-shell[data-rb-mode='single'] .rb-page-left,
+.rb-shell[data-rb-mode='single'] .rb-page-right { grid-column: 1; grid-row: 1; }
+.rb-shell[data-rb-mode='single'][data-rb-page='left'] .rb-page-right,
+.rb-shell[data-rb-mode='single'][data-rb-page='right'] .rb-page-left { display: none; }
+/* The seam is what makes two pages; one page has no seam. */
+.rb-shell[data-rb-mode='single'] .rb-seam { display: none; }
+
+.rb-page {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--aspire-page);
+  color: var(--aspire-paper-ink);
+}
+.rb-page-left { background: linear-gradient(90deg, var(--aspire-page) 88%, #FBFAF7 100%); }
+.rb-page-right { background: linear-gradient(270deg, var(--aspire-page) 92%, #FAFAFC 100%); }
+
+/* The fold: a shadow where the two pages meet, and the two binding clasps. */
+.rb-seam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--rb-left-w);
+  width: 1px;
+  background: var(--aspire-book-seam);
+  box-shadow: -8px 0 14px -10px rgba(24, 32, 63, 0.45), 8px 0 14px -10px rgba(24, 32, 63, 0.45);
+  pointer-events: none;
+}
+.rb-clasp {
+  position: absolute;
+  left: calc(var(--rb-cover-pad) + var(--rb-left-w) - 14px);
+  width: 28px;
+  height: 8px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.rb-clasp span { width: 2px; height: 100%; background: var(--aspire-book-edge); border-radius: var(--aspire-radius-pill); }
+.rb-clasp-top { top: 9px; }
+.rb-clasp-bottom { bottom: 9px; }
+.rb-shell[data-rb-mode='single'] .rb-clasp { display: none; }
+
+/* ── Left page: the candidate ──────────────────────────────────────────────── */
+.rb-id { padding: 34px 44px 22px; text-align: center; }
+.rb-avatar { display: flex; justify-content: center; margin-bottom: 16px; }
+.rb-name {
+  font-size: 27px;
+  font-weight: 700;
+  color: var(--aspire-navy);
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+.rb-sub { font-size: 13px; color: var(--aspire-paper-ink-soft); margin-bottom: 10px; }
+.rb-chiprow { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.rb-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--aspire-radius-pill);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.rb-chip-quiet {
+  border: 1px solid var(--aspire-page-rule);
+  color: var(--aspire-paper-ink);
+  background: var(--aspire-page);
+  font-weight: 600;
+}
+.rb-chip-btn { cursor: pointer; font-family: inherit; }
+.rb-chip-btn:hover { background: var(--aspire-navy-tint); }
+.rb-flagnote {
+  margin: 14px auto 0;
+  max-width: 320px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--aspire-paper-ink-soft);
+}
+
+.rb-block { padding: 20px 44px; border-top: 1px solid var(--aspire-page-rule); }
+.rb-block-label {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--aspire-ink-soft);
+  margin-bottom: 12px;
+}
+.rb-kv { display: flex; align-items: baseline; gap: 12px; padding: 5px 0; font-size: 13px; }
+.rb-kv-key { color: var(--aspire-paper-ink-soft); }
+.rb-kv-val { margin-left: auto; text-align: right; color: var(--aspire-paper-ink); font-weight: 500; }
+.rb-empty { font-size: 13px; color: var(--aspire-ink-soft); font-style: italic; }
+/* A quiet text button beside a block label (Refresh). */
+.rb-mini-btn {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--aspire-navy);
+  font: 600 10.5px/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.rb-mini-btn:disabled { color: var(--aspire-ink-soft); cursor: default; }
+
+/* A ranked unit, with what the board knows about it. */
+.rb-pref { margin-bottom: 14px; padding-left: 12px; border-left: 3px solid var(--aspire-navy); }
+.rb-pref:last-child { margin-bottom: 0; }
+.rb-pref-top { display: flex; align-items: flex-start; gap: 10px; }
+.rb-pref-name { font-size: 15px; font-weight: 700; color: var(--aspire-navy); }
+.rb-pref-rank {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--aspire-ink-soft);
+  margin-right: 8px;
+}
+.rb-pref-counts {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--aspire-paper-ink-soft);
+  margin-top: 3px;
+}
+.rb-pref-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rb-chip-demand { background: var(--aspire-wait-bg); color: var(--aspire-wait-fg); }
+.rb-chip-open { background: var(--aspire-ok-bg); color: var(--aspire-ok-fg); }
+.rb-chip-full { background: var(--aspire-err-bg); color: var(--aspire-err-fg); }
+.rb-warn {
+  margin-top: 8px;
+  padding: 9px 12px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-err-bg);
+  color: var(--aspire-err-fg);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.rb-quote-block {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--aspire-paper-ink);
+}
+
+/* The flag ribbon, top right of the left page. It hangs over the page edge, and
+   pulling it down (or pressing it) flags the candidate for the placement huddle. */
+.rb-ribbon {
+  position: absolute;
+  top: -2px;
+  right: 30px;
+  width: 54px;
+  padding: 10px 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--aspire-ribbon-idle);
+  color: #FFFFFF;
+  font: 700 10px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+  cursor: grab;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+  transition: background 0.14s ease, transform 0.14s ease, padding 0.14s ease;
+  touch-action: none;
+  z-index: 3;
+}
+.rb-ribbon:hover { padding-bottom: 20px; }
+.rb-ribbon-on {
+  background: var(--aspire-red-editorial);
+  padding-bottom: 26px;
+  cursor: grab;
+}
+.rb-ribbon-on:hover { padding-bottom: 20px; }
+.rb-ribbon-dragging { cursor: grabbing; transition: none; }
+.rb-ribbon:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 3px; }
+
+/* ── Right page: the rubric ────────────────────────────────────────────────── */
+.rb-page-right { display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; }
+.rb-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 34px;
+  background: var(--aspire-page-band);
+  border-bottom: 1px solid var(--aspire-page-rule);
+  font-size: 13px;
+  color: var(--aspire-paper-ink);
+}
+/* On the band, the soft grey measures 4.28:1 against #EEF1F8, which is under AA for
+   13px text. The inset-band token is the same family, two steps darker, and passes. */
+.rb-head-key { color: var(--aspire-th-color-inset); }
+.rb-head-rec { font-weight: 700; color: var(--aspire-navy); }
+.rb-head-score { margin-left: auto; display: flex; align-items: baseline; gap: 8px; }
+.rb-head-num { font-size: 27px; font-weight: 700; color: var(--aspire-navy); line-height: 1; font-variant-numeric: tabular-nums; }
+.rb-head-den { font-size: 13px; color: var(--aspire-th-color-inset); }
+.rb-save { font-size: 11.5px; font-weight: 600; color: var(--aspire-ink-soft); }
+.rb-save-ok { color: var(--aspire-rank-first); }
+.rb-save-err {
+  color: var(--aspire-err-fg);
+  background: var(--aspire-err-bg);
+  border-radius: var(--aspire-radius-pill);
+  padding: 2px 9px;
+  border: 0;
+  font: 700 11.5px/1.4 var(--aspire-sans);
+  cursor: pointer;
+}
+
+.rb-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 26px 34px 90px; }
+.rb-section { margin-bottom: 34px; scroll-margin-top: 12px; }
+.rb-eyebrow {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--aspire-ink-soft);
+  margin-bottom: 6px;
+}
+.rb-title { font-size: 23px; font-weight: 700; color: var(--aspire-navy); line-height: 1.2; margin-bottom: 16px; }
+.rb-label { display: block; font-size: 13px; color: var(--aspire-paper-ink-soft); margin-bottom: 7px; }
+.rb-field { margin-bottom: 16px; }
+.rb-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.rb-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+.rb-input,
+.rb-textarea {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--aspire-page-rule);
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-page);
+  color: var(--aspire-paper-ink);
+  font: 400 14px/1.5 var(--aspire-sans);
+  box-shadow: inset 0 1px 2px rgba(24, 32, 63, 0.04);
+}
+.rb-input-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: 0.02em; }
+.rb-textarea { min-height: 92px; resize: vertical; }
+.rb-input:focus-visible,
+.rb-textarea:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 1px; border-color: var(--aspire-navy); }
+.rb-input::placeholder,
+.rb-textarea::placeholder { color: #9AA0B4; }
+.rb-readonly {
+  padding: 11px 14px;
+  border-radius: var(--aspire-radius-control);
+  background: #FAFBFD;
+  border: 1px solid var(--aspire-page-rule);
+  font-size: 14px;
+  color: var(--aspire-paper-ink);
+  white-space: pre-wrap;
+  min-height: 42px;
+}
+.rb-readonly-tall { min-height: 92px; }
+
+/* A disclosure: the interview guide, the opening script, the scoring guide. */
+.rb-disclosure {
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 13px 16px;
+  border: 1px solid var(--aspire-page-rule);
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-page);
+  color: var(--aspire-navy);
+  font: 700 13.5px/1.2 var(--aspire-sans);
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+.rb-disclosure:hover { background: var(--aspire-navy-tint); }
+.rb-disclosure-mark { display: inline-block; width: 14px; color: var(--aspire-ink-soft); }
+.rb-guide {
+  margin: -8px 0 18px;
+  padding: 16px 18px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-navy-tint);
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--aspire-paper-ink);
+}
+.rb-guide p { margin: 0 0 8px; }
+.rb-guide p:last-child { margin-bottom: 0; }
+.rb-guide-head { font-weight: 700; color: var(--aspire-navy); }
+.rb-quote {
+  font-style: italic;
+  padding-left: 12px;
+  border-left: 3px solid rgba(29, 37, 103, 0.25);
+}
+.rb-prompt {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-navy-tint);
+  color: var(--aspire-navy);
+  font-size: 13.5px;
+  font-style: italic;
+  line-height: 1.55;
+}
+.rb-note-band {
+  margin: 12px 0 0;
+  padding: 11px 16px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-wait-bg);
+  color: var(--aspire-wait-fg);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.rb-note-band-err { background: var(--aspire-err-bg); color: var(--aspire-err-fg); }
+
+/* The questions. One is asked; the last one is whatever you actually asked. */
+.rb-choices { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.rb-choice {
+  width: 100%;
+  text-align: left;
+  padding: 13px 16px;
+  border: 1px solid var(--aspire-page-rule);
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-page);
+  color: var(--aspire-paper-ink);
+  font: 400 14px/1.45 var(--aspire-sans);
+  cursor: pointer;
+}
+.rb-choice:hover { background: #FAFBFE; }
+.rb-choice-sel,
+.rb-choice-sel:hover {
+  border: 2px solid var(--aspire-navy);
+  padding: 12px 15px;
+  background: var(--aspire-navy-tint);
+  font-weight: 600;
+}
+.rb-choice:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 2px; }
+
+/* The scale. Five tiles, the chosen one ringed in navy. */
+.rb-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.rb-score {
+  padding: 14px 6px;
+  border: 1px solid var(--aspire-page-rule);
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-page);
+  text-align: center;
+  cursor: pointer;
+  font-family: var(--aspire-sans);
+}
+.rb-score:hover { background: #FAFBFE; }
+.rb-score-num { display: block; font-size: 19px; font-weight: 700; color: var(--aspire-paper-ink); line-height: 1.1; }
+.rb-score-lbl { display: block; font-size: 11.5px; color: var(--aspire-paper-ink-soft); margin-top: 5px; line-height: 1.3; }
+.rb-score-sel,
+.rb-score-sel:hover {
+  border: 2px solid var(--aspire-navy);
+  padding: 13px 5px;
+  background: var(--aspire-navy-tint);
+}
+.rb-score-sel .rb-score-num,
+.rb-score-sel .rb-score-lbl { color: var(--aspire-navy); }
+.rb-score:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 2px; }
+
+/* Section 7 reads as a decision, so its three options are wide and stacked. */
+.rb-recs { display: flex; flex-direction: column; gap: 10px; }
+.rb-rec {
+  padding: 14px 16px;
+  border: 1px solid var(--aspire-page-rule);
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-page);
+  font: 600 14px/1.3 var(--aspire-sans);
+  color: var(--aspire-paper-ink);
+  cursor: pointer;
+  text-align: left;
+}
+.rb-rec:hover { background: #FAFBFE; }
+.rb-rec-sel, .rb-rec-sel:hover { border: 2px solid currentColor; padding: 13px 15px; font-weight: 700; }
+.rb-rec:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 2px; }
+
+.rb-scores-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--aspire-page-rule);
+  font-size: 12.5px;
+  color: var(--aspire-paper-ink-soft);
+}
+.rb-scores-line strong { color: var(--aspire-navy); }
+
+.rb-actions { display: flex; align-items: center; gap: 12px; margin-top: 26px; }
+.rb-btn {
+  border-radius: var(--aspire-radius-control);
+  border: 1px solid var(--aspire-page-rule);
+  background: var(--aspire-page);
+  color: var(--aspire-paper-ink);
+  font: 600 13.5px/1 var(--aspire-sans);
+  padding: 12px 18px;
+  cursor: pointer;
+}
+.rb-btn:hover { background: #FAFBFE; }
+.rb-btn-primary {
+  margin-left: auto;
+  background: var(--aspire-navy);
+  border-color: var(--aspire-navy);
+  color: var(--aspire-on-navy);
+}
+.rb-btn-primary:hover { background: var(--aspire-navy-deep); }
+.rb-btn:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 2px; }
+.rb-locked {
+  margin-top: 20px;
+  padding: 13px 16px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-ok-bg);
+  color: var(--aspire-ok-fg);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.rb-errors {
+  margin-top: 18px;
+  padding: 13px 16px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-err-bg);
+  color: var(--aspire-err-fg);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.rb-errors-head { font-weight: 700; margin-bottom: 4px; }
+
+/* ── The index down the fore edge ──────────────────────────────────────────── */
+.rb-index {
+  display: flex;
+  flex-direction: column;
+  /* `safe` so a short book never centres the tabs past its own top edge, where the
+     first tab would be clipped and unreachable. */
+  justify-content: safe center;
+  gap: 5px;
+  padding: 14px 0 14px 6px;
+  background: var(--aspire-page-band);
+  border-left: 1px solid var(--aspire-page-rule);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.rb-index::-webkit-scrollbar { display: none; }
+/* Each tab is as long as its own word, so nothing is ever clipped: a tab that read
+   "ferences" because the rail divided its height evenly is not a tab. */
+.rb-tab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  border: 0;
+  border-radius: var(--aspire-radius-control) 0 0 var(--aspire-radius-control);
+  background: #F7F8FC;
+  color: var(--aspire-ink-soft);
+  font: 600 11px/1 var(--aspire-sans);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  cursor: pointer;
+  padding: 14px 0;
+  white-space: nowrap;
+}
+.rb-tab:hover { background: var(--aspire-page); color: var(--aspire-navy); }
+.rb-tab-num {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+/* The section you are in reads as the page you have open: it joins the page. */
+.rb-tab-active,
+.rb-tab-active:hover {
+  background: var(--aspire-page);
+  color: var(--aspire-navy);
+  font-weight: 700;
+  box-shadow: -2px 0 6px -2px rgba(24, 32, 63, 0.18);
+}
+/* A section you have finished carries a mark, not a colour. */
+.rb-tab-done .rb-tab-num::after { content: ' ✓'; color: var(--aspire-rank-first); }
+.rb-tab:focus-visible { outline: var(--aspire-focus-ring); outline-offset: -3px; }
+
+/* ── Other interviewers' rubrics, at the end of the right page ─────────────── */
+.rb-others { margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--aspire-page-rule); }
+.rb-others-title { font-size: 13.5px; font-weight: 700; color: var(--aspire-navy); margin-bottom: 12px; }
+.rb-banner {
+  padding: 11px 16px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--aspire-navy-tint);
+  color: var(--aspire-navy);
+  font-size: 13px;
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+/* ── Read-only: the same book with the pen put down ────────────────────────── */
+.rb-shell[data-rb-readonly='true'] .rb-stage { padding: 0; }
+.rb-shell[data-rb-readonly='true'] .rb-cover { border-radius: 0; }
+
+/* The modal that shows a colleague's rubric gives the book its own height. */
+.modal-rubric-view .rb-shell { height: 78vh; min-height: 0; }
+
+/* ── A narrow page stacks what it cannot sit side by side ──────────────────── */
+/* Only ever reached in single-page mode, where the page takes the width it is given.
+   The design does not change: the same fields in the same order, one per line. */
+@container (max-width: 560px) {
+  .rb-scroll { padding: 20px 20px 80px; }
+  .rb-head { padding: 14px 20px; }
+  .rb-grid-2, .rb-grid-3 { grid-template-columns: 1fr; }
+  .rb-scale { gap: 6px; }
+  .rb-score { padding: 10px 2px; }
+  .rb-score-lbl { font-size: 9.5px; }
+  .rb-title { font-size: 20px; }
+}

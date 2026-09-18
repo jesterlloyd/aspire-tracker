@@ -2229,9 +2229,6 @@ button.ov-group-row {
 .iv-session-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .iv-back-btn { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--nightfall); font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 16px; transition: background 0.12s; }
 .iv-back-btn:hover { background: var(--sand); }
-.iv-save-indicator { font-size: 13px; font-weight: 600; }
-.iv-saving { color: var(--text-secondary); }
-.iv-saved  { color: #16a34a; }
 
 .iv-student-bar {
   background: var(--nightfall); border-radius: 8px;
@@ -2246,56 +2243,6 @@ button.ov-group-row {
 
 /* General sections (non-domain) */
 .iv-form-body { display: flex; flex-direction: column; gap: 0; }
-.iv-section { background: var(--pearl); border: 1px solid var(--border); border-radius: 8px; padding: 28px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-
-/* Section headings (CHANGE 5) */
-.iv-section-title {
-  font-size: 20px; font-weight: 700; color: var(--nightfall);
-  margin-bottom: 16px; padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-lt);
-}
-
-/* Domain cards (CHANGE 4) */
-.iv-domain-card {
-  background: var(--pearl);
-  border: 1px solid var(--border-lt);
-  border-top: 2px solid; /* accent color set inline */
-  border-radius: 8px;
-  padding: 28px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-.iv-domain-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
-.iv-domain-title  { font-size: 22px; font-weight: 700; line-height: 1.2; }
-.iv-domain-badge  { font-size: 12px; font-weight: 700; color: #fff; padding: 3px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; margin-left: 12px; margin-top: 2px; }
-
-/* Reference panel (CHANGE 4) */
-.iv-ref-toggle {
-  background: none; border: 1.5px solid currentColor; border-radius: 4px;
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  padding: 7px 14px; margin-bottom: 16px;
-  display: inline-flex; align-items: center; gap: 6px;
-  transition: opacity 0.12s;
-}
-.iv-ref-toggle:hover { opacity: 0.75; }
-.iv-ref-chevron { font-size: 13px; }
-.iv-ref-panel {
-  background: var(--marina); border-radius: 6px;
-  padding: 16px 18px; margin-bottom: 18px;
-  display: flex; flex-direction: column; gap: 8px;
-}
-.iv-ref-row { font-size: 15px; color: var(--nightfall); line-height: 1.7; }
-
-.iv-prompt { font-size: 15px; color: var(--nightfall); font-style: italic; line-height: 1.6; margin-bottom: 14px; background: var(--nova-tint); padding: 12px 16px; border-radius: 4px; border-left: 3px solid var(--nova); }
-
-/* Grids */
-.iv-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.iv-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-
-/* Fields and inputs (CHANGE 5 - 15px, min-heights) */
-.iv-field { display: flex; flex-direction: column; gap: 6px; }
-.iv-label { font-size: 15px; font-weight: 600; color: var(--raven); line-height: 1.4; }
-.iv-score-label { font-size: 15px; font-weight: 600; color: var(--raven); margin-bottom: 6px; }
 .iv-input {
   padding: 10px 13px; min-height: 48px;
   border: 1px solid var(--border); border-radius: 6px;
@@ -2318,25 +2265,8 @@ button.ov-group-row {
   border: 1px solid var(--border-lt); border-radius: 6px;
   font-size: 15px; color: var(--raven); min-height: 48px; line-height: 1.6;
 }
-.iv-readonly-tall { min-height: 100px; white-space: pre-wrap; }
 /* RUBRIC-SCHEDULE-1: the line under Section 1 saying these two fields move the real
    booking, and carrying the server's refusal when there is no open slot. */
-.iv-sched-note { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary, #6b7280); }
-
-/* Question tiles (CHANGE 4 - radio circle, 16px, 8px radius) */
-.iv-questions { display: flex; flex-direction: column; gap: 8px; }
-.iv-question-card {
-  display: flex; align-items: flex-start; gap: 14px;
-  padding: 16px; border: 1.5px solid; border-radius: 8px;
-  font-size: 16px; line-height: 1.6; transition: border-color 0.12s, background 0.12s;
-}
-.iv-question-card:not(.iv-question-card-sel):hover { background: rgba(244,241,236,0.6); }
-.iv-question-radio {
-  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  margin-top: 2px; transition: border-color 0.12s;
-}
-.iv-question-radio-dot { width: 10px; height: 10px; border-radius: 50%; }
 .iv-other-input {
   width: 100%; padding: 8px 12px;
   border: 1.5px solid rgba(255,255,255,0.6); border-radius: 4px;
@@ -2345,65 +2275,9 @@ button.ov-group-row {
 }
 .iv-other-input::placeholder { color: rgba(255,255,255,0.55); }
 .iv-other-input:focus { border-color: rgba(255,255,255,0.9); }
-
-/* Score tiles (CHANGE 4 - 80px tall, 28px number) */
-.iv-score-tiles { display: flex; gap: 10px; margin-top: 8px; }
-.iv-score-tile {
-  flex: 1; min-height: 80px; padding: 12px 6px;
-  text-align: center; border-radius: 8px;
-  border: 1.5px solid; transition: all 0.12s;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-}
-.iv-score-num  { font-size: 28px; font-weight: 700; line-height: 1; }
-.iv-score-desc { font-size: 13px; font-weight: 500; line-height: 1.4; max-width: 80px; }
-
-/* Composite card (CHANGE 4 - bigger, left border, colored breakdown) */
-.iv-composite-card {
-  background: var(--pearl);
-  border: 1px solid var(--border-lt);
-  border-left: 6px solid var(--nightfall);
-  border-radius: 8px; padding: 24px 28px;
-  margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.iv-composite-label { font-size: 14px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-.iv-composite-num   { font-size: 40px; font-weight: 700; color: var(--nightfall); line-height: 1; margin-bottom: 12px; }
-.iv-composite-denom { font-size: 22px; font-weight: 400; color: var(--text-secondary); }
-.iv-composite-breakdown { display: flex; flex-direction: column; gap: 4px; font-size: 15px; font-weight: 500; }
-
-/* Recommendation section */
-.iv-rec-section {
-  background: var(--pearl); border: 1px solid var(--border);
-  border-top: 3px solid var(--nightfall);
-  border-radius: 8px; padding: 28px;
-  margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.iv-rec-heading { font-size: 20px; font-weight: 700; color: var(--raven); margin-bottom: 8px; }
-.iv-rec-subtext { font-size: 13px; color: #6b7280; margin-bottom: 20px; line-height: 1.6; }
-.iv-rec-tiles { display: flex; gap: 12px; }
-.iv-rec-tile  { flex: 1; padding: 18px 12px; text-align: center; border-radius: 8px; font-size: 15px; font-weight: 700; border: 2px solid; transition: all 0.12s; line-height: 1.35; }
-
-/* Action zone (CHANGE 1) */
-.iv-complete-zone { margin-top: 8px; margin-bottom: 20px; }
-.iv-action-row { display: flex; gap: 12px; align-items: center; }
-.iv-reset-btn {
-  background: var(--pearl); color: var(--cs-red);
-  border: 1.5px solid var(--cs-red); border-radius: 6px;
-  padding: 14px 24px; font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: background 0.12s;
-  white-space: nowrap;
-}
-.iv-reset-btn:hover { background: #fff5f5; }
-.iv-complete-btn {
-  flex: 1; background: var(--nightfall); color: var(--pearl);
-  border: none; border-radius: 6px;
-  padding: 16px; font-size: 16px; font-weight: 700;
-  cursor: pointer; transition: background 0.12s;
-}
-.iv-complete-btn:hover { background: var(--nightfall85); }
 .iv-confirm-box { background: var(--marina); border: 1.5px solid var(--nightfall); border-radius: 6px; padding: 18px 20px; margin-bottom: 8px; }
 .iv-confirm-msg { font-size: 15px; color: var(--raven); line-height: 1.6; margin-bottom: 14px; }
 .iv-confirm-actions { display: flex; gap: 10px; }
-.iv-locked-notice { text-align: center; font-size: 14px; font-weight: 600; color: #16a34a; padding: 14px; background: #f0fdf4; border-radius: 6px; margin-bottom: 16px; }
 
 /* Interview summary in StudentRow */
 .iv-summary-readonly { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border-lt); border-radius: 6px; overflow: hidden; }
@@ -2941,60 +2815,11 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
 .ir-wl-col-action    { flex: 1 1 0;  }
 /* Flag strip - 6px left edge colored indicator */
 .ir-wl-flag-strip { width: 6px; flex-shrink: 0; align-self: stretch; border-radius: 3px 0 0 3px; }
-
-/* Two-panel session */
-.rub-session {
-  display: flex; flex-direction: column;
-  height: calc(100vh - 164px); min-height: 500px;
-}
-.rub-topbar { flex-shrink: 0; display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.rub-panels {
-  flex: 1; min-height: 0;
-  display: flex; flex-direction: row;
-  border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;
-}
-
-/* Left panel - fixed, never scrolls with right panel */
-.rub-left {
-  width: 35%; height: 100%; flex-shrink: 0;
-  border-right: 1px solid #e5e7eb;
-  background: var(--pearl); padding: 20px;
-  overflow-y: auto;
-  display: flex; flex-direction: column;
-}
 .rub-student-card { text-align: center; padding-bottom: 16px; }
 .rub-headshot { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px; display: block; }
 .rub-initials { width: 64px; height: 64px; border-radius: 50%; background: var(--nightfall); color: var(--pearl); font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
 .rub-student-name  { font-size: 18px; font-weight: 700; color: var(--nightfall); margin-bottom: 3px; }
 .rub-student-school { font-size: 14px; color: #6b7280; margin-bottom: 6px; }
-.rub-divider { height: 1px; background: #e5e7eb; margin: 14px 0; }
-.rub-left-section { margin-bottom: 4px; }
-.rub-left-lbl { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-.rub-flag-banner { background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; padding: 10px 12px; color: #991b1b; font-size: 13px; }
-.rub-flag-btn { background: none; border: 1.5px solid var(--cs-red); color: var(--cs-red); border-radius: 4px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; transition: background 0.12s; }
-.rub-flag-btn:hover { background: #fff5f5; }
-
-/* Right panel */
-.rub-right { flex: 1; height: 100%; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; background: var(--sand); }
-.rub-progress-bar {
-  position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; gap: 4px;
-  padding: 8px 16px; background: var(--pearl); border-bottom: 1px solid #e5e7eb;
-  flex-wrap: wrap;
-}
-.rub-step { display: flex; align-items: center; gap: 5px; cursor: pointer; transition: opacity 0.1s; }
-.rub-step:hover { opacity: 0.75; }
-.rub-step-circle {
-  width: 22px; height: 22px; border-radius: 50%; border: 2px solid #d1d5db;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; color: var(--text-secondary); background: #fff;
-  flex-shrink: 0;
-}
-.rub-step-done { border-color: #16a34a; background: #dcfce7; color: #166534; }
-.rub-step-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; padding-right: 8px; border-right: 1px solid #e5e7eb; margin-right: 4px; }
-.rub-step:last-of-type .rub-step-label { border-right: none; }
-.rub-save-dot { margin-left: auto; font-size: 11px; }
-.rub-form-body { padding: 16px; display: flex; flex-direction: column; gap: 0; }
 
 /* ── Availability Section (inline collapsible in I·R tab) ──── */
 .avail-section {
@@ -3116,10 +2941,6 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
   animation: shimmer 1.4s ease-in-out infinite;
   margin-bottom: 4px;
 }
-
-/* All rubrics section */
-.rub-all-section { background: var(--pearl); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 16px; }
-.rub-all-title { font-size: 14px; font-weight: 700; color: var(--nightfall); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-lt); }
 .rub-rubric-card { background: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
 .rub-rc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .rub-rc-name  { font-size: 13px; font-weight: 700; color: var(--raven); flex: 1; }
@@ -3128,24 +2949,12 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
 .rub-rc-scores { display: flex; gap: 12px; font-size: 12px; color: var(--text-secondary); font-weight: 600; margin-bottom: 6px; }
 .rub-rc-comments { font-size: 12px; color: var(--raven); line-height: 1.5; margin-top: 4px; }
 .rub-avg-display { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-lt); font-size: 14px; color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-
-/* Script cards */
-.rub-script-card { background: var(--pearl); border: 1px solid var(--border-lt); border-radius: 6px; margin-bottom: 12px; overflow: hidden; }
-.rub-script-toggle { width: 100%; background: none; border: none; padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--nightfall); cursor: pointer; text-align: left; transition: background 0.1s; }
-.rub-script-toggle:hover { background: var(--sand); }
-.rub-script-body { background: var(--marina); border-left: 4px solid var(--nightfall); border-radius: 0 0 6px 6px; padding: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: var(--raven); line-height: 1.7; }
-.rub-script-heading { font-size: 14px; font-weight: 700; color: var(--nightfall); margin-top: 6px; }
-.rub-script-quote { font-style: italic; padding-left: 12px; border-left: 3px solid rgba(29,37,103,0.25); margin: 4px 0; }
-.rub-legend-card { padding: 16px; border-top: 3px solid var(--nightfall); background: var(--pearl); }
 .rub-legend-table { width: 100%; border-collapse: collapse; font-family: 'Plus Jakarta Sans', sans-serif; }
 .rub-legend-table th { font-size: var(--aspire-th-size); font-weight: var(--aspire-th-weight); color: var(--aspire-th-color); text-transform: uppercase; letter-spacing: var(--aspire-th-tracking); padding: var(--aspire-th-pad); border-bottom: var(--aspire-row-line); }
 .rub-legend-table td { padding: 8px 10px; border-bottom: 1px solid rgba(0,0,0,0.06); }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .rub-session { height: auto; }
-  .rub-panels { flex-direction: column; }
-  .rub-left { width: 100%; height: auto; border-right: none; border-bottom: 1px solid #e5e7eb; }
   .week-cal-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -3497,11 +3306,6 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
 [data-theme="dark"] .interview-tab {
   background: var(--color-bg-page); color: var(--color-text-primary);
 }
-[data-theme="dark"] .rub-form,
-[data-theme="dark"] .rub-form-body {
-  background: var(--color-bg-surface); color: var(--color-text-primary);
-}
-
 /* Workload list (interview queue) */
 [data-theme="dark"] .ir-wl-thead {
   background: var(--color-bg-elevated);
@@ -3516,44 +3320,11 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
 [data-theme="dark"] .ir-wl-row:hover {
   background: var(--color-bg-hover);
 }
-
-/* Rubric session two-panel layout */
-[data-theme="dark"] .rub-panels {
-  border-color: var(--color-border-default);
-}
-[data-theme="dark"] .rub-left {
-  background: var(--color-bg-surface);
-  border-right-color: var(--color-border-default);
-  color: var(--color-text-primary);
-}
-[data-theme="dark"] .rub-right {
-  background: var(--color-bg-page);
-  color: var(--color-text-primary);
-}
-[data-theme="dark"] .rub-progress-bar {
-  background: var(--color-bg-surface);
-  border-bottom-color: var(--color-border-default);
-}
-[data-theme="dark"] .rub-step-circle {
-  background: var(--color-bg-elevated);
-  border-color: var(--color-border-default);
-  color: var(--color-text-muted);
-}
-[data-theme="dark"] .rub-step-label {
-  color: var(--color-text-secondary);
-  border-right-color: var(--color-border-default);
-}
-[data-theme="dark"] .rub-divider {
-  background: var(--color-border-default);
-}
 [data-theme="dark"] .rub-student-name {
   color: var(--color-text-primary);
 }
 [data-theme="dark"] .rub-student-school {
   color: var(--color-text-secondary);
-}
-[data-theme="dark"] .rub-left-lbl {
-  color: var(--color-text-muted);
 }
 
 /* ── Embed (Matching) tab ────────────────────────────────────────── */
@@ -3695,18 +3466,6 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
   flex-direction: column;
   overflow: hidden;
   position: relative;
-}
-
-.modal-rubric-view .rub-session {
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-rubric-view .rub-panels {
-  flex: 1;
-  overflow: hidden;
 }
 
 /* ── Shared ASPIRE feedback panel ───────────────────────────────── */
