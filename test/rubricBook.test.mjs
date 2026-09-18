@@ -24,6 +24,7 @@ const bookCss = read('src/components/rubric/rubricBook.css')
 const ribbon  = read('src/components/rubric/FlagRibbon.jsx')
 const indexCss = read('src/index.css')
 const boardCss = read('src/components/placement/placementBoard.css')
+const constants = await import('../src/lib/constants.js')
 
 // ── 1. The book takes the room it is given, and the PAGES absorb the change ─
 
@@ -460,7 +461,53 @@ test('AVAILABILITY 1: the form answers appear when there are any, as structural 
   // AVAILABILITY-CANON-1B: the facts are the shared helper's, which are structural only.
   const avail = read('src/lib/availability.js')
   assert.match(avail, /PRIVACY-SAFE structural facts only/)
-  assert.match(session, /data-testid="availability-level"/)
+  // Owner, 2026-09-17: no readiness pill and no acknowledgement line. In the room, what
+  // matters is which days the student can work; the rest is the Placement Board's.
+  assert.ok(!session.includes('availability-level'), 'the readiness pill is back')
+  assert.match(session, /facts\.filter\(f => !f\.startsWith\('Acknowledged'\)\)/)
+  assert.ok(!bookCss.includes('rb-chip-avail-'), 'the pill styles are back')
+})
+
+test('GPA 1: the chip is banded, and below the 3.0 floor it reads red', () => {
+  const { gpaBand, GPA_BAND_COLORS, GPA_FLOOR } = constants
+  assert.equal(GPA_FLOOR, 3.0)
+  assert.equal(gpaBand(3.9), 'strong')
+  assert.equal(gpaBand(3.5), 'strong')
+  assert.equal(gpaBand(3.2), 'watch')
+  assert.equal(gpaBand(3.0), 'watch')
+  assert.equal(gpaBand(2.88), 'below')      // Wynter Brown, Winter 2027
+  assert.equal(gpaBand(0), null)
+  assert.equal(gpaBand(null), null)
+  assert.equal(gpaBand('not a number'), null)
+  assert.equal(GPA_BAND_COLORS.below.color, '#991b1b')
+  // One rule, used by the book and by the roster list.
+  assert.match(session, /rb-chip-gpa-\$\{gpaBand\(student\.cumulative_gpa\)\}/)
+  assert.match(read('src/components/StudentListPanel.jsx'), /GPA_BAND_COLORS\[gpaBand\(s\.cumulative_gpa\)\]/)
+})
+
+test('SCROLL 1: the rubric page has no scrollbar; the index is the position', () => {
+  assert.match(bookCss, /\.rb-scroll \{ scrollbar-width: none; \}/)
+  assert.match(bookCss, /\.rb-scroll::-webkit-scrollbar \{ display: none; \}/)
+  // The candidate page keeps its quiet one.
+  assert.match(bookCss, /\.rb-page \{\s*\n\s*scrollbar-width: thin;/)
+})
+
+test('RULE 1: a section rule spans the page, as the left page\'s rules do', () => {
+  assert.match(bookCss, /\.rb-section \{\s*\n\s*margin: 0 -34px 30px;\s*\n\s*padding: 22px 34px 0;/)
+})
+
+test('FLAG 3: the rubric refreshes through onRefreshStudents, never the writer', () => {
+  // onStudentUpdate is updateStudent(id, updates): called with no arguments it returns
+  // immediately, which is why the ribbon used to spring back until a page reload.
+  const setFlag = session.slice(session.indexOf('const setFlag'), session.indexOf('const handleFlag'))
+  assert.match(setFlag, /if \(onRefreshStudents\) await onRefreshStudents\(\)/)
+  assert.ok(!/await onStudentUpdate\(/.test(setFlag), 'the flag calls the writer again')
+  // The reschedule path had the same no-op call, and is fixed with it.
+  const resched = session.slice(session.indexOf('const reschedule ='), session.indexOf('const handleReset'))
+  assert.match(resched, /if \(onRefreshStudents\) await onRefreshStudents\(\)/)
+  // And the tab hands down a real refetch, awaited.
+  assert.match(read('src/components/InterviewRubricTab.jsx'),
+    /onRefreshStudents=\{async \(\) => \{ await onRefreshStudents\?\.\(\) \}\}/)
 })
 
 test('FLAG 2: a flagged row wears the ribbon\'s red, not amber', () => {
@@ -484,7 +531,7 @@ test('FLAG 1: the record is the truth, and a refused write is reported', () => {
   assert.ok(!session.includes('setIsFlagged('), 'the flag keeps a second copy again')
   // The write refreshes the roster, which is where the flag is read.
   const setFlag = session.slice(session.indexOf('const setFlag'), session.indexOf('const handleFlag'))
-  assert.match(setFlag, /if \(onStudentUpdate\) await onStudentUpdate\(\)/)
+  assert.match(setFlag, /if \(onRefreshStudents\) await onRefreshStudents\(\)/)
   assert.match(setFlag, /catch \(e\)/)
   assert.match(setFlag, /toast\?\.error\(/)
   assert.match(setFlag, /finally \{\s*\n\s*setFlagPending\(null\)/)

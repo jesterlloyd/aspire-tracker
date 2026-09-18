@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
-import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG, gpaBand } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import ScoreFlag from './ScoreFlag'
 import FlagRibbon from './rubric/FlagRibbon'
@@ -387,7 +387,7 @@ function AspireStatusPill({ student }) {
   )
 }
 
-export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
+export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRefreshStudents, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
   const { userProfile, canViewStudentResumeInCohort } = useAuth()
   const normalizedRole = normalizeStaffRole(userProfile?.role)
   const canManageAllRubrics = userProfile?.is_owner === true
@@ -721,7 +721,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         )
       }
       toast?.success('Interview moved', `Now ${appliedDate} at ${appliedTime}.`)
-      if (onStudentUpdate) await onStudentUpdate()
+      if (onRefreshStudents) await onRefreshStudents()
       if (onRubricsChange) onRubricsChange()
     } catch (err) {
       setReschedError(err.message || 'Could not move the interview.')
@@ -768,8 +768,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         ? { flagged_for_second_interview: true }
         : { flagged_for_second_interview: false, flag_note: '' })
       // The Interviews list reads this field for its Flagged card, its row chip and its
-      // Review Flag action, so the roster is refreshed rather than left stale.
-      if (onStudentUpdate) await onStudentUpdate()
+      // Review Flag action, so the roster is refetched rather than left stale. This is
+      // onRefreshStudents, NOT onStudentUpdate: the latter is a writer that ignores a
+      // call with no fields, which is why the ribbon used to spring back.
+      if (onRefreshStudents) await onRefreshStudents()
       toast?.success(next ? 'Flagged' : 'Flag removed',
         next
           ? `${getStudentPreferredFullName(student)} is flagged for the placement huddle.`
@@ -1175,7 +1177,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   {(student.cumulative_gpa != null || (canViewStudentResumeInCohort(cohortId) && student.resume_url)) && (
                     <div className="rb-chiprow" style={{ marginTop: 10 }}>
                       {student.cumulative_gpa != null && (
-                        <span className="rb-chip rb-chip-quiet">GPA {parseFloat(student.cumulative_gpa).toFixed(2)}</span>
+                        <span className={`rb-chip rb-chip-quiet${gpaBand(student.cumulative_gpa) ? ` rb-chip-gpa-${gpaBand(student.cumulative_gpa)}` : ''}`}
+                          data-testid="gpa-chip">
+                          GPA {parseFloat(student.cumulative_gpa).toFixed(2)}
+                        </span>
                       )}
                       {/* WAVE F-2: the resume opens through the server access endpoint, and
                           only for someone entitled to this cohort's files. */}
@@ -1260,12 +1265,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 {availability && (
                   <div className="rb-block">
                     <div className="rb-block-label">Availability</div>
-                    <div className="rb-chiprow" style={{ justifyContent: 'flex-start', marginBottom: 10 }}>
-                      <span className={`rb-chip rb-chip-avail-${availability.level}`} data-testid="availability-level">
-                        {availability.label}
-                      </span>
-                    </div>
-                    {availability.facts.map(fact => {
+                    {/* The readiness pill and the acknowledgement line are the Placement
+                        Board's business, not the interviewer's (Owner, 2026-09-17): in the
+                        room, what matters is which days the student can actually work. */}
+                    {availability.facts.filter(f => !f.startsWith('Acknowledged')).map(fact => {
                       const at = fact.indexOf(':')
                       const key = at === -1 ? fact : fact.slice(0, at)
                       const val = at === -1 ? '' : fact.slice(at + 1).trim()

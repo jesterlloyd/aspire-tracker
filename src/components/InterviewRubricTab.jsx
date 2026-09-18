@@ -346,6 +346,13 @@ export default function InterviewRubricTab({
         cohortId={cohortId}
         onBack={() => selectStudent(null)}
         onStudentUpdate={onStudentUpdate}
+        /* RUBRIC-BOOK-1 fix: onStudentUpdate is updateStudent(id, updates), a WRITER.
+           Called with no arguments it returns immediately, so the rubric's "refresh the
+           student after we changed it" calls were doing nothing: a flag looked like it
+           had reverted until the page was reloaded. This is the refetch, and it is
+           AWAITED rather than routed through triggerRefresh, whose effect fires after
+           the caller has already moved on. */
+        onRefreshStudents={async () => { await onRefreshStudents?.() }}
         onRubricsChange={onRubricsChange}
         toast={toast}
       />
