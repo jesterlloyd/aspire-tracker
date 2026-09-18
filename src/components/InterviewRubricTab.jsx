@@ -717,8 +717,11 @@ export default function InterviewRubricTab({
                     aria-label={flagInfo?.reason || undefined}
                     onClick={flagInfo ? e => e.stopPropagation() : undefined}
                     style={{
+                      // RUBRIC-BOOK-1 (Owner, 2026-09-17): a flag is a flag. The strip is
+                      // the ribbon's own red, so the mark in the list and the ribbon in the
+                      // book are visibly the same act. Critical keeps the louder red.
                       background: flagInfo
-                        ? (flagInfo.critical ? '#DC1E34' : '#F59E0B')
+                        ? (flagInfo.critical ? '#DC1E34' : 'var(--aspire-red-editorial, #B3282D)')
                         : 'transparent',
                     }}
                   />

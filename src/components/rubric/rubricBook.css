@@ -150,20 +150,16 @@
 /* A page's scrollbar is part of the paper, so it is the fold's own grey rather than
    the platform's black bar sitting on a white page. */
 .rb-page,
-.rb-scroll,
-.rb-index {
+.rb-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(24, 32, 63, 0.18) transparent;
 }
 .rb-page::-webkit-scrollbar,
-.rb-scroll::-webkit-scrollbar,
-.rb-index::-webkit-scrollbar { width: 8px; height: 8px; }
+.rb-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
 .rb-page::-webkit-scrollbar-track,
-.rb-scroll::-webkit-scrollbar-track,
-.rb-index::-webkit-scrollbar-track { background: transparent; }
+.rb-scroll::-webkit-scrollbar-track { background: transparent; }
 .rb-page::-webkit-scrollbar-thumb,
-.rb-scroll::-webkit-scrollbar-thumb,
-.rb-index::-webkit-scrollbar-thumb {
+.rb-scroll::-webkit-scrollbar-thumb {
   background: rgba(24, 32, 63, 0.18);
   border-radius: var(--aspire-radius-pill);
 }
@@ -319,6 +315,10 @@
 .rb-chip-demand { background: var(--aspire-wait-bg); color: var(--aspire-wait-fg); }
 .rb-chip-open { background: var(--aspire-ok-bg); color: var(--aspire-ok-fg); }
 .rb-chip-full { background: var(--aspire-err-bg); color: var(--aspire-err-fg); }
+.rb-chip-avail-confirmed { background: var(--aspire-ok-bg); color: var(--aspire-ok-fg); }
+.rb-chip-avail-review,
+.rb-chip-avail-pending { background: var(--aspire-wait-bg); color: var(--aspire-wait-fg); }
+.rb-chip-avail-restricted { background: var(--aspire-err-bg); color: var(--aspire-err-fg); }
 .rb-warn {
   margin-top: 8px;
   padding: 9px 12px;
@@ -382,7 +382,7 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 16px 34px;
+  padding: 9px 34px;
   background: var(--aspire-page-band);
   border-bottom: 1px solid var(--aspire-page-rule);
   font-size: 13px;
@@ -390,10 +390,14 @@
 }
 /* On the band, the soft grey measures 4.28:1 against #EEF1F8, which is under AA for
    13px text. The inset-band token is the same family, two steps darker, and passes. */
+/* Three groups: completion on the left, the guide centred by the two flexible sides,
+   and the score with its recommendation under it on the right. */
+.rb-head-side { flex: 1 1 0; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
 .rb-head-key { color: var(--aspire-th-color-inset); }
+.rb-head-pct { font-size: 14px; font-weight: 700; color: var(--aspire-navy); font-variant-numeric: tabular-nums; }
 .rb-head-rec { font-weight: 700; color: var(--aspire-navy); }
-.rb-head-score { margin-left: auto; display: flex; align-items: baseline; gap: 8px; }
-.rb-head-num { font-size: 27px; font-weight: 700; color: var(--aspire-navy); line-height: 1; font-variant-numeric: tabular-nums; }
+.rb-head-score { flex: 1 1 0; display: flex; align-items: baseline; justify-content: flex-end; gap: 8px; }
+.rb-head-num { font-size: 21px; font-weight: 700; color: var(--aspire-navy); line-height: 1; font-variant-numeric: tabular-nums; }
 .rb-head-den { font-size: 13px; color: var(--aspire-th-color-inset); }
 .rb-save { font-size: 11.5px; font-weight: 600; color: var(--aspire-ink-soft); }
 .rb-save-ok { color: var(--aspire-rank-first); }
@@ -412,6 +416,7 @@
    as at the top, so it lives in the head and opens over the page rather than being
    something you scroll back to. */
 .rb-head-guide {
+  flex: 0 0 auto;
   border: 0;
   background: none;
   padding: 0;
@@ -435,7 +440,15 @@
 .rb-guide-drawer p:last-child { margin-bottom: 0; }
 
 .rb-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 26px 34px 90px; }
-.rb-section { margin-bottom: 34px; scroll-margin-top: 12px; }
+/* The right page is ruled like the left one: a hairline above each section, so the
+   seven parts read as parts rather than as one long column. */
+.rb-section {
+  margin-bottom: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--aspire-page-rule);
+  scroll-margin-top: 12px;
+}
+.rb-scroll > .rb-section:first-of-type { padding-top: 0; border-top: 0; }
 .rb-eyebrow {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 10.5px;
@@ -648,25 +661,27 @@
 .rb-errors-head { font-weight: 700; margin-bottom: 4px; }
 
 /* ── The index down the fore edge ──────────────────────────────────────────── */
+/* The seven tabs divide the fore edge between them and never scroll (Owner,
+   2026-09-17): each takes an equal share of the height, and a label too long for its
+   share ends in an ellipsis rather than pushing the last tab out of the book. */
 .rb-index {
   display: flex;
   flex-direction: column;
-  /* `safe` so a short book never centres the tabs past its own top edge, where the
-     first tab would be clipped and unreachable. */
-  justify-content: safe center;
-  gap: 5px;
-  padding: 14px 0 14px 6px;
+  gap: 3px;
+  padding: 10px 0 10px 6px;
   background: var(--aspire-page-band);
   border-left: 1px solid var(--aspire-page-rule);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
+  overflow: hidden;
 }
-.rb-index::-webkit-scrollbar { display: none; }
 /* Each tab is as long as its own word, so nothing is ever clipped: a tab that read
    "ferences" because the rail divided its height evenly is not a tab. */
+/* Each tab's share of the fore edge is proportional to the word it carries, so
+   "Recommendation" is not given the same room as "Goal" and then clipped. */
 .rb-tab {
-  flex: 0 0 auto;
+  flex-basis: 0;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -675,18 +690,20 @@
   border-radius: var(--aspire-radius-control) 0 0 var(--aspire-radius-control);
   background: #F7F8FC;
   color: var(--aspire-ink-soft);
-  font: 600 11px/1 var(--aspire-sans);
+  font: 600 10px/1 var(--aspire-sans);
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   cursor: pointer;
-  padding: 14px 0;
+  padding: 6px 0;
   white-space: nowrap;
 }
+.rb-tab > span { min-height: 0; overflow: hidden; text-overflow: ellipsis; }
+.rb-tab-num { flex: 0 0 auto; }
 .rb-tab:hover { background: var(--aspire-page); color: var(--aspire-navy); }
 .rb-tab-num {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
   opacity: 0.8;
 }
 /* The section you are in reads as the page you have open: it joins the page. */
@@ -698,6 +715,15 @@
   box-shadow: -2px 0 6px -2px rgba(24, 32, 63, 0.18);
 }
 .rb-tab:focus-visible { outline: var(--aspire-focus-ring); outline-offset: -3px; }
+
+/* A short window cannot hold seven words down one edge. Rather than clip all of them,
+   the index keeps the numbers and drops the words; every tab still says its full name
+   to a screen reader through its aria-label. */
+@media (max-height: 899px) {
+  .rb-tab > span:not(.rb-tab-num) { display: none; }
+  .rb-tab { flex-grow: 1 !important; }
+  .rb-tab-num { font-size: 10.5px; }
+}
 
 /* ── Other interviewers' rubrics, at the end of the right page ─────────────── */
 .rb-others { margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--aspire-page-rule); }

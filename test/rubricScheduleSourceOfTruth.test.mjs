@@ -157,9 +157,11 @@ test('the rubric keeps a snapshot in step, so the export and rubric cards stay h
 test('a refusal is shown to the user rather than swallowed', () => {
   assert.match(booking, /throw new Error\(data\.message \|\| 'Could not move the interview\.'\)/)
   assert.match(rubric, /setReschedError\(err\.message/)
-  // RUBRIC-BOOK-1: the note under Section 1 is the book's own band, and it turns red
-  // when the move was refused rather than disappearing.
-  assert.match(rubric, /rb-note-band\$\{reschedError \? ' rb-note-band-err' : ''\}/)
+  // RUBRIC-BOOK-1: the band under Section 1 speaks ONLY when the move was refused
+  // (Owner, 2026-09-17: that a date change moves the booking is not news). The refusal
+  // itself is still shown rather than swallowed.
+  assert.match(rubric, /canReschedule && !readOnly && reschedError && \(/)
+  assert.match(rubric, /<p className="rb-note-band rb-note-band-err">\{reschedError\}<\/p>/)
   assert.match(read('src/components/rubric/rubricBook.css'), /\.rb-note-band-err/)
   // A successful move refreshes both the student and the rubric list.
   assert.match(rubric, /if \(onStudentUpdate\) await onStudentUpdate\(\)/)
