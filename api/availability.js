@@ -24,6 +24,7 @@ import { randomUUID } from 'crypto';
 // "does this interviewer hold this cohort" question has one answer everywhere.
 import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { toPacificDateStr } from '../shared/dateUtils.js'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'delete_slot', 'cancel_booking', 'move_booking'];
@@ -652,7 +653,7 @@ export default async function handler(req, res) {
       if (current.cohort_id) {
         const { error: logErr } = await db.from('program_events').insert({
           student_id: studentId, cohort_id: current.cohort_id, event_type: 'interview_rescheduled',
-          event_date: new Date().toISOString().split('T')[0],
+          event_date: toPacificDateStr(),
           notes: `Interview moved from ${current.slot_date} ${String(current.slot_time).slice(0, 5)} to ${claimed.slot_date} ${String(claimed.slot_time).slice(0, 5)}${claimed.interviewer_name ? ` with ${claimed.interviewer_name}` : ''}.`,
         });
         if (logErr) console.warn('[availability] move_booking log failed (non-fatal)', { request_id: requestId, errorCode: logErr.code });
@@ -751,7 +752,7 @@ export default async function handler(req, res) {
       if (eventCohort) {
         const { error: logErr } = await db.from('program_events').insert({
           student_id: bookedStudentId, cohort_id: eventCohort, event_type: 'interview_cancelled',
-          event_date: new Date().toISOString().split('T')[0], notes: 'Interview booking cancelled.',
+          event_date: toPacificDateStr(), notes: 'Interview booking cancelled.',
           created_by: auth.fullName || 'Coordinator',
         });
         if (logErr) console.warn('[availability] event log error', { request_id: requestId, errorCode: logErr.code });

@@ -37,6 +37,7 @@ import {
   sanitizeSubmitMode, mergeAvailabilityCols, preservedAvailabilityFields,
   describeExistingRequest, AVAILABILITY_COLUMNS,
 } from '../../src/lib/placementResubmission.js'
+import { toPacificDateStr } from '../../shared/dateUtils.js'
 
 // PLACEMENT-RESUBMIT-1: the stored rotation row for (cohort, school), or null.
 // Both submit paths read it BEFORE writing so a blank cannot erase a stored
@@ -394,7 +395,7 @@ export async function performSchoolPlacementUpsert(db, {
       student_id:  added[0].id,
       cohort_id:   cohortId,
       event_type:  'rotation_created',
-      event_date:  new Date().toISOString().split('T')[0],
+      event_date:  toPacificDateStr(),
       notes:       `[Auto-logged] Rotation row created/updated for ${schoolName}. Dates: ${rotationStartDate} to ${rotationEndDate}.`,
       created_by:  'system',
     })

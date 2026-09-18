@@ -24,3 +24,29 @@ export function toLocalDateStr(date = new Date()) {
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
+
+/**
+ * The current date (or a given date) as YYYY-MM-DD in PACIFIC time, regardless of where
+ * the code runs.
+ *
+ * WHY THIS EXISTS ALONGSIDE toLocalDateStr, WHICH LOOKS LIKE IT WOULD DO
+ *
+ * toLocalDateStr reads the RUNTIME's timezone. In a browser that is the user's, which
+ * is Pacific, so it is correct there. On Vercel the runtime is UTC, so toLocalDateStr
+ * returns exactly what the UTC-derived date returns and swapping one for the other in
+ * api/ changes nothing at all: a cosmetic edit that looks like a fix.
+ *
+ * So server-side calendar-date columns need an explicit zone. This is the pattern
+ * api/keith.js and api/ngrp-support.js already use inline; it lives here now so the
+ * next caller does not have to rediscover it.
+ *
+ * en-CA formats as YYYY-MM-DD, which is why that locale and not en-US.
+ *
+ * @param {Date} [date=new Date()]
+ * @returns {string} e.g. "2026-09-18"
+ */
+export function toPacificDateStr(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date)
+}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Camera } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { toLocalDateStr } from '../../shared/dateUtils.js'
 import { safeWrite } from '../lib/safeWrite'
 import { buildUnitOptions, optionLabel, resolveUnitName } from '../lib/preceptorUnitOptions'
 import { uploadContactAvatar, CONTACT_AVATAR_HINT } from '../lib/contactAvatarUpload'
@@ -271,7 +272,9 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
       // Create cohort participation record when adding a new preceptor with cohort context
       if (cohortId && !initialData && result.data) {
-        const today = new Date().toISOString().split('T')[0]
+        // The LOCAL date, via the shared helper. The UTC-derived date is already
+        // tomorrow after ~5pm Pacific, which would file started_at a day late.
+        const today = toLocalDateStr()
         const { error: partErr } = await safeWrite(
           () => supabase.from('preceptor_cohort_participation').insert({
             preceptor_id: result.data.id,
