@@ -163,6 +163,8 @@ test('a refusal is shown to the user rather than swallowed', () => {
   assert.match(rubric, /canReschedule && !readOnly && reschedError && \(/)
   assert.match(rubric, /<p className="rb-note-band rb-note-band-err">\{reschedError\}<\/p>/)
   assert.match(read('src/components/rubric/rubricBook.css'), /\.rb-note-band-err/)
-  // A successful move refreshes both the student and the rubric list.
-  assert.match(rubric, /if \(onStudentUpdate\) await onStudentUpdate\(\)/)
+  // A successful move refreshes both the student and the rubric list. RUBRIC-BOOK-1:
+  // through onRefreshStudents, because onStudentUpdate is updateStudent(id, updates), a
+  // writer that returns immediately when it is called with no fields.
+  assert.match(rubric, /if \(onRefreshStudents\) await onRefreshStudents\(\)/)
 })

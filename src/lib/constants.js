@@ -299,3 +299,21 @@ export function getCompatibility(student, unitName) {
   if (unitArea && prefs.some(p => UNIT_AREAS[p] === unitArea)) return 'yellow'
   return 'gray'
 }
+
+// RUBRIC-BOOK-1 (Owner, 2026-09-17): one GPA colour rule for every surface that shows a
+// GPA chip. ASPIRE's eligibility floor is a cumulative 3.0, so below it reads RED rather
+// than grey: it is a fact about the application, not a missing value.
+export const GPA_STRONG = 3.5
+export const GPA_FLOOR = 3.0
+export function gpaBand(gpa) {
+  const n = Number.parseFloat(gpa)
+  if (!Number.isFinite(n) || n <= 0) return null
+  if (n >= GPA_STRONG) return 'strong'
+  if (n >= GPA_FLOOR) return 'watch'
+  return 'below'
+}
+export const GPA_BAND_COLORS = {
+  strong: { bg: '#dcfce7', color: '#166534' },
+  watch:  { bg: '#fef3c7', color: '#92400e' },
+  below:  { bg: '#fee2e2', color: '#991b1b' },
+}

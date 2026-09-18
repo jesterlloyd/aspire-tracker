@@ -5,7 +5,7 @@ import { useState } from 'react'
 import StudentAvatar from './StudentAvatar'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
-import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { ASPIRE_STATUS_CONFIG, gpaBand, GPA_BAND_COLORS } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import EmptyState from './EmptyState'
 import { Users } from 'lucide-react'
@@ -186,10 +186,14 @@ export default function StudentListPanel({
           const sel      = s.id === selectedStudentId
           const isUnread = unreadIds.has(s.id)
 
+          // RUBRIC-BOOK-1: one GPA rule for every surface (src/lib/constants.js). Below
+          // ASPIRE's 3.0 floor now reads RED rather than grey: it is a fact about the
+          // application, not a missing value.
           const gpaVal   = parseFloat(s.cumulative_gpa)
           const gpaOk    = !isNaN(gpaVal) && gpaVal > 0
-          const gpaBg    = gpaOk && gpaVal >= 3.5 ? '#dcfce7' : gpaOk && gpaVal >= 3.0 ? '#fef3c7' : 'var(--color-bg-elevated,#f3f4f6)'
-          const gpaColor = gpaOk && gpaVal >= 3.5 ? '#166534' : gpaOk && gpaVal >= 3.0 ? '#92400e' : 'var(--text-muted,#6b7280)'
+          const gpaTone  = GPA_BAND_COLORS[gpaBand(s.cumulative_gpa)] || null
+          const gpaBg    = gpaTone?.bg || 'var(--color-bg-elevated,#f3f4f6)'
+          const gpaColor = gpaTone?.color || 'var(--text-muted,#6b7280)'
 
           // ASPIRE status - now lives in the Identity column
           const dispType = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null

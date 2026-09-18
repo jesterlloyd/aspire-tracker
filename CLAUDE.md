@@ -141,8 +141,10 @@ nothing about the book lives in `index.css`.
   is NOT repeated there: Section 1 owns it, and it is editable.
 - **The flag lives on the student record, and this screen reads it.** It used to seed a
   local state from the prop once, write, and never refresh the roster, so leaving the
-  rubric and returning showed a flag that had actually saved. A write now refreshes the
-  parent (`onStudentUpdate`) and a refused one is caught and toasted: a Co-Lead cannot
+  rubric and returning showed a flag that had actually saved. **`onStudentUpdate` is
+  `updateStudent(id, updates)`, a WRITER: called with no arguments it returns immediately.**
+  Anything in this screen that means "refetch the student" must call `onRefreshStudents`,
+  which the Interviews tab hands down and awaits. A refused write is caught and toasted: a Co-Lead cannot
   write this field at all, which was exactly the case that looked like it worked. The
   flag surfaces in Interviews as the Flagged card, the row chip and the Review Flag
   action.
