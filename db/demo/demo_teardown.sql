@@ -39,6 +39,35 @@ $preflight$;
 
 -- Children before parents. Several of these would cascade anyway; being explicit means
 -- the counts below are honest about what this removed.
+-- The residency rows first. ngrp_cycle_source_cohorts.cohort_id and
+-- ngrp_residency_outcomes.student_id are ON DELETE RESTRICT, so either one left
+-- behind blocks the cohort and student deletes below and the teardown half-finishes.
+--
+-- RUN THIS AS THE OWNER. 20260903010000 REVOKEs DELETE on ngrp_residency_outcomes
+-- from service_role, deliberately: a hire record is durable employment history and
+-- the application is not allowed to erase one. The table owner still can, which is
+-- who you are in the SQL editor, but an automated teardown running as service_role
+-- would fail on exactly this line.
+-- FOUR tables that a LIVE demo can create rows in and the seed never does:
+-- sending a Transition Form writes a delivery, logging a support activity writes an
+-- entry, and the reflections cron writes runs and submissions. Every one of them holds
+-- an ON DELETE RESTRICT key to a demo cycle, candidate or student, so a single row left
+-- here blocks everything below and the teardown half-finishes.
+--
+-- They carry no is_demo of their own, and do not need one: each is reached only through
+-- a parent the boundary DOES filter, which is the same argument that keeps them out of
+-- the registry. The predicate names that parent explicitly so it can still only ever
+-- match a fabricated row.
+DELETE FROM ngrp_reflection_submissions WHERE candidate_id IN (SELECT id FROM ngrp_candidates WHERE is_demo);
+DELETE FROM ngrp_reflection_runs        WHERE cycle_id IN (SELECT id FROM ngrp_cycles WHERE is_demo);
+DELETE FROM ngrp_support_entries        WHERE cycle_id IN (SELECT id FROM ngrp_cycles WHERE is_demo);
+DELETE FROM ngrp_transition_deliveries  WHERE cycle_id IN (SELECT id FROM ngrp_cycles WHERE is_demo);
+DELETE FROM ngrp_transition_revisions     WHERE is_demo;
+DELETE FROM ngrp_transition_assignments   WHERE is_demo;
+DELETE FROM ngrp_residency_outcomes       WHERE is_demo;
+DELETE FROM ngrp_candidates               WHERE is_demo;
+DELETE FROM ngrp_cycle_source_cohorts     WHERE is_demo;
+DELETE FROM ngrp_cycles                   WHERE is_demo;
 DELETE FROM student_preceptor_assignments WHERE is_demo;
 DELETE FROM student_shift_logs            WHERE is_demo;
 DELETE FROM student_shift_plans           WHERE is_demo;

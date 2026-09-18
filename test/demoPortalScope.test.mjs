@@ -375,7 +375,8 @@ test('the teardown removes them too', () => {
 test('the registry has exactly one copy', () => {
   // It moved to shared/ so the server could read it. A second literal list is a list
   // that drifts, and the drift shows up as a real student on a projector.
-  assert.equal(DEMO_SCOPED_TABLES.length, 19)
+  // 19 from the foundation, 6 from the residency migration.
+  assert.equal(DEMO_SCOPED_TABLES.length, 25)
   assert.doesNotMatch(read('src/lib/demoScope.js'), /'student_shift_logs'/,
     'src/lib/demoScope.js must re-export the shared registry, not restate it')
   assert.doesNotMatch(read('lib/server/demoScope.js'), /'student_shift_logs'/,

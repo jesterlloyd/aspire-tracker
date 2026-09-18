@@ -60,11 +60,24 @@ test('the teardown deletes on is_demo and nothing else', () => {
   const deletes = [...code(teardown).matchAll(/DELETE FROM\s+(\w+)\s+([^;]*);/gi)]
   assert.ok(deletes.length >= 15, 'expected the teardown to clear every seeded table')
 
+  // One alternative form is allowed, for the four residency tables that a live demo can
+  // write but that carry no is_demo of their own (a Transition Form delivery, a support
+  // entry, a reflection run or submission). Each holds an ON DELETE RESTRICT key, so
+  // leaving it behind half-finishes the teardown. The subquery names a demo PARENT, so
+  // the safety property is unchanged: it can only ever match a fabricated row.
+  const VIA_DEMO_PARENT = /^WHERE\s+\w+ IN \(SELECT id FROM (\w+) WHERE is_demo\)$/i
+
   for (const [, table, predicate] of deletes) {
-    assert.match(predicate.trim(), /^WHERE\s+is_demo$/i,
-      `DELETE FROM ${table} is predicated on "${predicate.trim()}". The ONLY safe predicate ` +
-      `is WHERE is_demo: a name or id-prefix predicate deletes real rows, and misses rows ` +
-      `the app itself created during a live demo.`)
+    const p = predicate.trim()
+    if (/^WHERE\s+is_demo$/i.test(p)) continue
+    const via = p.match(VIA_DEMO_PARENT)
+    assert.ok(via,
+      `DELETE FROM ${table} is predicated on "${p}". The ONLY safe predicates are ` +
+      `WHERE is_demo, or a subquery selecting a demo parent: a name or id-prefix ` +
+      `predicate deletes real rows, and misses rows the app itself created during a live demo.`)
+    assert.ok(DEMO_SCOPED_TABLES.includes(via[1]),
+      `DELETE FROM ${table} scopes itself through ${via[1]}, which the boundary does not ` +
+      `filter, so "WHERE is_demo" on it means nothing.`)
   }
 })
 
@@ -347,5 +360,196 @@ test('the seed supplies every NOT NULL column that has no default', () => {
           `The insert will fail with 23502.`)
       }
     }
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────
+// The residency funnel (sections 9 and 10)
+// ─────────────────────────────────────────────────────────────────────
+// Every constraint checked here is one the database enforces, and every one of them
+// would abort the WHOLE file at 3am the night before a talk rather than fail a row.
+// That is the argument for checking them statically: the seed is run by hand, once,
+// under time pressure, and a CHECK violation in section 10 rolls back sections 1-8 too.
+
+/** Split an INSERT's VALUES into row tuples, respecting quotes and nested parens. */
+function valueRows(sql, table) {
+  const start = sql.indexOf(`INSERT INTO ${table}`)
+  if (start < 0) return []
+  const stmt = sql.slice(start, sql.indexOf(';', start))
+  const body = stmt.slice(stmt.indexOf('VALUES') + 6)
+  const rows = []
+  let depth = 0, cur = '', quoted = false
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]
+    if (ch === "'") quoted = !quoted
+    if (!quoted && ch === '(') { depth++; if (depth === 1) { cur = ''; continue } }
+    if (!quoted && ch === ')') { depth--; if (depth === 0) { rows.push(cur); continue } }
+    if (depth >= 1) cur += ch
+  }
+  return rows
+}
+
+/** The column list of an INSERT, lowercased. */
+function columnsOf(sql, table) {
+  const start = sql.indexOf(`INSERT INTO ${table}`)
+  if (start < 0) return []
+  const open = sql.indexOf('(', start)
+  return sql.slice(open + 1, sql.indexOf(')', open)).split(',').map(s => s.trim().toLowerCase())
+}
+
+/** Row tuples as {column: rawValue} objects. */
+function rowObjects(sql, table) {
+  const cols = columnsOf(sql, table)
+  return valueRows(sql, table).map((row) => {
+    const parts = []
+    let depth = 0, cur = '', quoted = false
+    for (const ch of row) {
+      if (ch === "'") quoted = !quoted
+      if (!quoted && ch === '(') depth++
+      if (!quoted && ch === ')') depth--
+      if (!quoted && depth === 0 && ch === ',') { parts.push(cur.trim()); cur = ''; continue }
+      cur += ch
+    }
+    parts.push(cur.trim())
+    return Object.fromEntries(cols.map((c, i) => [c, (parts[i] ?? '').replace(/\s+/g, ' ')]))
+  })
+}
+
+const isNull = (v) => v === undefined || v === '' || v.toUpperCase() === 'NULL'
+
+test('the demo residency cycle is not the workspace default', () => {
+  // ngrp_cycles_one_active is a partial unique index ON (is_active) WHERE is_active,
+  // the same shape as cohorts_one_accepting_submissions, which this seed has already
+  // been caught by once. is_active means "the default cycle for the workspace", a real
+  // operational role. A demo cycle taking it either aborts this file on the index or
+  // silently takes the default away from Talent Acquisition.
+  const rows = rowObjects(code(seed), 'ngrp_cycles')
+  assert.equal(rows.length, 1, 'expected exactly one demo residency cycle')
+  assert.match(rows[0].is_active, /^false$/i,
+    'the demo cycle must not be is_active. In demo mode it is the only cycle the ' +
+    'boundary returns, so the picker selects it anyway.')
+  assert.match(rows[0].status, /^'(Planning|Active|Completed|Archived)'$/,
+    "20260905000000 collapsed the cycle statuses to four. 'Residency Active' is no longer legal.")
+})
+
+test('every candidate state carries the timestamps its CHECK constraint demands', () => {
+  // ngrp_application_state_times, and ngrp_not_proceeding_requires_reason_time.
+  const rows = rowObjects(code(seed), 'ngrp_candidates')
+  assert.ok(rows.length >= 8, `expected a full funnel, found ${rows.length} candidates`)
+
+  for (const r of rows) {
+    const status = r.application_status
+    if (status === "'confirmed'") {
+      assert.ok(!isNull(r.application_confirmed_at),
+        'a confirmed candidate needs application_confirmed_at (ngrp_application_state_times)')
+    }
+    if (status === "'not_confirmed'") {
+      assert.ok(isNull(r.application_confirmed_at),
+        'a not_confirmed candidate must have NO application_confirmed_at')
+    }
+    if (status === "'not_proceeding'") {
+      assert.ok(!isNull(r.not_proceeding_at) && !isNull(r.not_proceeding_reason),
+        'not_proceeding needs both a reason and a moment (ngrp_not_proceeding_requires_reason_time)')
+      assert.notEqual(r.not_proceeding_reason, "'other'",
+        "reason 'other' additionally requires a note (ngrp_not_proceeding_other_needs_note)")
+    }
+  }
+
+  // The funnel is worth demonstrating only if it has more than one state in it.
+  const states = new Set(rows.map(r => r.application_status))
+  assert.ok(states.size >= 3, `the demo funnel has only ${states.size} application states`)
+  const eligibility = new Set(rows.map(r => r.eligibility_calculated))
+  assert.ok(eligibility.size >= 3, 'the Eligibility cards need more than one answer to show')
+})
+
+test('every transition form state carries the timestamps its CHECK constraint demands', () => {
+  // ngrp_assignment_state_times: each status names exactly which timestamps must be
+  // present, and 'submitted' additionally requires revision_count >= 1.
+  const c = code(seed)
+  const rows = rowObjects(c, 'ngrp_transition_assignments')
+  assert.ok(rows.length >= 4, 'expected several transition assignments')
+
+  const revisions = rowObjects(c, 'ngrp_transition_revisions')
+  const revisionFor = new Set(revisions.map(r => r.assignment_id))
+
+  for (const r of rows) {
+    const status = r.status
+    if (status === "'pending'") assert.ok(isNull(r.sent_at), 'pending must have no sent_at')
+    else assert.ok(!isNull(r.sent_at), `${status} requires sent_at`)
+
+    if (status === "'opened'" || status === "'in_progress'") {
+      assert.ok(!isNull(r.opened_at), `${status} requires opened_at`)
+    }
+    if (status === "'submitted'") {
+      assert.ok(!isNull(r.submitted_at), 'submitted requires submitted_at')
+      assert.ok(Number(r.revision_count) >= 1,
+        'submitted requires revision_count >= 1, which the CHECK enforces')
+      assert.ok(revisionFor.has(r.id),
+        `assignment ${r.id} claims a submission but no ngrp_transition_revisions row exists for it, ` +
+        'so the roster would show a submitted form with nothing in it')
+    }
+  }
+})
+
+test('a hire record agrees with its candidate about whose attempt it was', () => {
+  // ngrp_outcomes_candidate_identity is a composite FK to
+  // ngrp_candidates (id, student_id, cycle_id): the database makes a mismatch
+  // unrepresentable, so getting it wrong aborts the file rather than drifting.
+  const c = code(seed)
+  const candidates = new Map(rowObjects(c, 'ngrp_candidates').map(r => [r.id, r]))
+  const outcomes = rowObjects(c, 'ngrp_residency_outcomes')
+  assert.ok(outcomes.length >= 3, 'expected several outcomes')
+
+  for (const o of outcomes) {
+    const cand = candidates.get(o.candidate_id)
+    assert.ok(cand, `outcome ${o.id} references a candidate the seed never creates`)
+    assert.equal(o.student_id, cand.student_id, 'outcome and candidate disagree about the student')
+    assert.equal(o.cycle_id, cand.cycle_id, 'outcome and candidate disagree about the cycle')
+
+    // ngrp_outcomes_accept_requires_offer / ngrp_outcomes_separation_requires_hire.
+    if (!isNull(o.offer_accepted_at)) assert.ok(!isNull(o.offer_extended_at),
+      'an accepted offer requires an extended one')
+    if (!isNull(o.separated_at)) assert.ok(!isNull(o.hired_at),
+      'a separation requires a hire')
+  }
+
+  // The retention card needs somebody who left, or the rate is always 100%.
+  const hired = outcomes.filter(o => !isNull(o.hired_at))
+  assert.ok(hired.length >= 2, 'the Residents tab needs more than one resident')
+  assert.ok(hired.some(o => !isNull(o.separated_at)),
+    'without a separation the retention tracker reads 100% and demonstrates nothing')
+})
+
+test('the residency child rows let the triggers stamp them', () => {
+  // Same argument as the preceptor assignments: a row the seed marks itself proves
+  // nothing about aspire_demo_inherit. Only ngrp_cycles is a root and says is_demo.
+  const c = code(seed)
+  for (const table of ['ngrp_candidates', 'ngrp_cycle_source_cohorts', 'ngrp_residency_outcomes',
+    'ngrp_transition_assignments', 'ngrp_transition_revisions']) {
+    assert.ok(!columnsOf(c, table).includes('is_demo'),
+      `${table} is a child; aspire_demo_inherit sets its is_demo. Passing it here would ` +
+      'test the seed instead of the trigger.')
+  }
+  assert.ok(columnsOf(c, 'ngrp_cycles').includes('is_demo'),
+    'ngrp_cycles is a root and owns its own value')
+})
+
+test('the seed and the teardown both clear the residency rows, children first', () => {
+  // ngrp_cycle_source_cohorts.cohort_id and ngrp_residency_outcomes.student_id are
+  // ON DELETE RESTRICT: either one left behind blocks deleting the demo cohort and the
+  // demo student, and the teardown half-finishes.
+  for (const [name, sql] of [['seed', seed], ['teardown', teardown]]) {
+    const order = [...code(sql).matchAll(/DELETE FROM\s+(\w+)\s+WHERE is_demo/g)].map(m => m[1])
+    for (const t of ['ngrp_transition_revisions', 'ngrp_transition_assignments',
+      'ngrp_residency_outcomes', 'ngrp_candidates', 'ngrp_cycle_source_cohorts', 'ngrp_cycles']) {
+      assert.ok(order.includes(t), `${name} never clears ${t}`)
+    }
+    const at = (t) => order.indexOf(t)
+    assert.ok(at('ngrp_transition_revisions') < at('ngrp_transition_assignments'), `${name}: revisions before assignments`)
+    assert.ok(at('ngrp_residency_outcomes') < at('ngrp_candidates'), `${name}: outcomes before candidates`)
+    assert.ok(at('ngrp_candidates') < at('ngrp_cycles'), `${name}: candidates before cycles`)
+    assert.ok(at('ngrp_cycle_source_cohorts') < at('ngrp_cycles'), `${name}: mappings before cycles`)
+    assert.ok(at('ngrp_residency_outcomes') < at('students'), `${name}: outcomes before students (RESTRICT)`)
+    assert.ok(at('ngrp_cycle_source_cohorts') < at('cohorts'), `${name}: mappings before cohorts (RESTRICT)`)
   }
 })

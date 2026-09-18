@@ -93,7 +93,27 @@ DECLARE
     ['student_shift_logs','total_hours'], ['student_shift_logs','status'],
     ['student_shift_logs','support_needed'], ['student_shift_logs','unit_name'],
     ['cohort_school_rotations','school_name'], ['cohort_school_rotations','rotation_start_date'],
-    ['cohort_school_rotations','rotation_end_date']
+    ['cohort_school_rotations','rotation_end_date'],
+    -- Sections 9 and 10. These need 20260922000000_demo_mode_residency.sql, not the
+    -- foundation, and the message below says which one by looking at the name.
+    ['ngrp_cycles','is_demo'], ['ngrp_cycle_source_cohorts','is_demo'],
+    ['ngrp_candidates','is_demo'], ['ngrp_residency_outcomes','is_demo'],
+    ['ngrp_transition_assignments','is_demo'], ['ngrp_transition_revisions','is_demo'],
+    ['students','rotation_end_date'], ['students','rotation_completed_at'],
+    ['students','cumulative_gpa'], ['students','name'],
+    ['ngrp_cycles','name'], ['ngrp_cycles','status'], ['ngrp_cycles','is_active'],
+    ['ngrp_cycles','application_open_date'], ['ngrp_cycles','residency_start_date'],
+    ['ngrp_cycle_source_cohorts','cycle_id'], ['ngrp_cycle_source_cohorts','cohort_id'],
+    ['ngrp_candidates','interest'], ['ngrp_candidates','eligibility_calculated'],
+    ['ngrp_candidates','application_status'], ['ngrp_candidates','application_confirmed_at'],
+    ['ngrp_candidates','not_proceeding_reason'], ['ngrp_candidates','not_proceeding_at'],
+    ['ngrp_transition_assignments','status'], ['ngrp_transition_assignments','revision_count'],
+    ['ngrp_transition_assignments','submitted_at'], ['ngrp_transition_assignments','deadline_at'],
+    ['ngrp_transition_revisions','payload'], ['ngrp_transition_revisions','revision_number'],
+    ['ngrp_residency_outcomes','hired_at'], ['ngrp_residency_outcomes','hired_unit'],
+    ['ngrp_residency_outcomes','separated_at'], ['ngrp_residency_outcomes','not_selected_at'],
+    ['ngrp_residency_outcomes','cs_email'], ['ngrp_residency_outcomes','shift'],
+    ['ngrp_residency_outcomes','position_title']
   ];
   i int;
 BEGIN
@@ -104,7 +124,10 @@ BEGIN
     ) THEN
       IF needed[i][2] = 'is_demo' THEN
         RAISE EXCEPTION
-          'DEMO SEED: %.is_demo does not exist. Apply supabase/migrations/20260921000000_demo_mode_foundation.sql FIRST. Seeding without it would create rows nothing can tell apart from real ones.', needed[i][1];
+          'DEMO SEED: %.is_demo does not exist. Apply supabase/migrations/% FIRST. Seeding without it would create rows nothing can tell apart from real ones.',
+          needed[i][1],
+          CASE WHEN needed[i][1] LIKE 'ngrp%' THEN '20260922000000_demo_mode_residency.sql'
+               ELSE '20260921000000_demo_mode_foundation.sql' END;
       ELSE
         RAISE EXCEPTION
           'DEMO SEED: %.% does not exist. The live schema differs from what this seed was written against; fix the column list before running.', needed[i][1], needed[i][2];
@@ -119,6 +142,29 @@ $preflight$;
 -- 1. Clear any previous demo cast, so this file is re-runnable.
 --    Children first. Nothing here can touch a real row: every predicate is is_demo.
 -- ─────────────────────────────────────────────────────────────────────
+-- The residency rows come out first: ngrp_cycle_source_cohorts.cohort_id and
+-- ngrp_residency_outcomes.student_id are both ON DELETE RESTRICT, so leaving either
+-- behind would block the cohort and student deletes further down this list.
+-- FOUR tables that a LIVE demo can create rows in and the seed never does:
+-- sending a Transition Form writes a delivery, logging a support activity writes an
+-- entry, and the reflections cron writes runs and submissions. Every one of them holds
+-- an ON DELETE RESTRICT key to a demo cycle, candidate or student, so a single row left
+-- here blocks everything below and the teardown half-finishes.
+--
+-- They carry no is_demo of their own, and do not need one: each is reached only through
+-- a parent the boundary DOES filter, which is the same argument that keeps them out of
+-- the registry. The predicate names that parent explicitly so it can still only ever
+-- match a fabricated row.
+DELETE FROM ngrp_reflection_submissions WHERE candidate_id IN (SELECT id FROM ngrp_candidates WHERE is_demo);
+DELETE FROM ngrp_reflection_runs        WHERE cycle_id IN (SELECT id FROM ngrp_cycles WHERE is_demo);
+DELETE FROM ngrp_support_entries        WHERE cycle_id IN (SELECT id FROM ngrp_cycles WHERE is_demo);
+DELETE FROM ngrp_transition_deliveries  WHERE cycle_id IN (SELECT id FROM ngrp_cycles WHERE is_demo);
+DELETE FROM ngrp_transition_revisions     WHERE is_demo;
+DELETE FROM ngrp_transition_assignments   WHERE is_demo;
+DELETE FROM ngrp_residency_outcomes       WHERE is_demo;
+DELETE FROM ngrp_candidates               WHERE is_demo;
+DELETE FROM ngrp_cycle_source_cohorts     WHERE is_demo;
+DELETE FROM ngrp_cycles                   WHERE is_demo;
 DELETE FROM student_unit_assignments      WHERE is_demo;
 DELETE FROM student_preceptor_assignments WHERE is_demo;
 DELETE FROM student_shift_logs            WHERE is_demo;
@@ -531,6 +577,224 @@ JOIN units u ON u.id = s.matched_unit_id
 CROSS JOIN generate_series(1, 10) AS g
 WHERE s.is_demo AND s.status = 'Completed';
 
+-- ─────────────────────────────────────────────────────────────────────
+-- 9. The ALUMNI cohort, and the residency cycle that draws from it.
+--
+--    WHY A SECOND COHORT. The residency applicant pool is
+--    students.status = 'Completed' inside the cohorts mapped to a cycle
+--    (lib/server/ngrpApplicants.js). The cohort in section 2 is mid-rotation on
+--    purpose, and turning ten of its students into alumni would destroy the one
+--    thing it exists to show. A residency cycle draws from people who FINISHED,
+--    which in the real program is a prior cohort, so that is what this is.
+--
+--    These ten have no matched_unit_id, and that is deliberate: their rotation is
+--    over, so they carry no live unit assignment and correctly appear on no Unit
+--    Leader roster. They exist for the Residency workspace.
+--
+--    PREREQUISITE: supabase/migrations/20260922000000_demo_mode_residency.sql.
+--    Without it ngrp_cycles has no is_demo column and the inserts below fail.
+-- ─────────────────────────────────────────────────────────────────────
+INSERT INTO cohorts (id, name, status, start_date, end_date, accepting_submissions, is_demo)
+VALUES ('0de00000-0000-4000-8000-000000000002',
+        'Demo Cohort (Prior Year)', 'Completed',
+        (CURRENT_DATE - 400)::text, (CURRENT_DATE - 280)::text,
+        false, true);
+
+INSERT INTO students
+  (id, cohort_id, name, first_name, last_name, preferred_first_name,
+   school_email, personal_email, school, program_type, status,
+   hours_required, approved_hours, rotation_end_date, rotation_completed_at,
+   cumulative_gpa, is_demo)
+VALUES
+('0de05000-0000-4000-8000-000000000022','0de00000-0000-4000-8000-000000000002','Rosalie Tanaka','Rosalie','Tanaka',NULL,
+ 'rosalie.tanaka@demo.aspire.invalid','rosalie.tanaka.personal@demo.aspire.invalid','Pacific Crest University','BSN Semester','Completed',
+ 120,120,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.88,true),
+('0de05000-0000-4000-8000-000000000023','0de00000-0000-4000-8000-000000000002','Emeka Nwachukwu','Emeka','Nwachukwu',NULL,
+ 'emeka.nwachukwu@demo.aspire.invalid','emeka.n.personal@demo.aspire.invalid','Harbor View College of Nursing','Accelerated BSN','Completed',
+ 135,135,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.71,true),
+('0de05000-0000-4000-8000-000000000024','0de00000-0000-4000-8000-000000000002','Sofia Vargas','Sofia','Vargas',NULL,
+ 'sofia.vargas@demo.aspire.invalid','sofia.vargas.personal@demo.aspire.invalid','Valley State University','BSN Quarter','Completed',
+ 120,120,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.44,true),
+('0de05000-0000-4000-8000-000000000025','0de00000-0000-4000-8000-000000000002','Declan Whitfield','Declan','Whitfield',NULL,
+ 'declan.whitfield@demo.aspire.invalid','declan.w.personal@demo.aspire.invalid','Pacific Crest University','BSN Semester','Completed',
+ 120,120,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.62,true),
+('0de05000-0000-4000-8000-000000000026','0de00000-0000-4000-8000-000000000002','Beatriz Costa','Beatriz','Costa','Bea',
+ 'beatriz.costa@demo.aspire.invalid','bea.costa.personal@demo.aspire.invalid','Harbor View College of Nursing','BSN Trimester','Completed',
+ 120,120,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.19,true),
+('0de05000-0000-4000-8000-000000000027','0de00000-0000-4000-8000-000000000002','Jonas Ekstrom','Jonas','Ekstrom',NULL,
+ 'jonas.ekstrom@demo.aspire.invalid','jonas.e.personal@demo.aspire.invalid','Valley State University','BSN Quarter','Completed',
+ 120,120,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.55,true),
+('0de05000-0000-4000-8000-000000000028','0de00000-0000-4000-8000-000000000002','Nadia Haddad','Nadia','Haddad',NULL,
+ 'nadia.haddad@demo.aspire.invalid','nadia.h.personal@demo.aspire.invalid','Pacific Crest University','BSN Semester','Completed',
+ 120,120,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,2.94,true),
+('0de05000-0000-4000-8000-000000000029','0de00000-0000-4000-8000-000000000002','Marcus Delacroix','Marcus','Delacroix',NULL,
+ 'marcus.delacroix@demo.aspire.invalid','marcus.d.personal@demo.aspire.invalid','Harbor View College of Nursing','Accelerated BSN','Completed',
+ 135,135,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.33,true),
+('0de05000-0000-4000-8000-000000000030','0de00000-0000-4000-8000-000000000002','Yuki Watanabe','Yuki','Watanabe',NULL,
+ 'yuki.watanabe@demo.aspire.invalid','yuki.w.personal@demo.aspire.invalid','Valley State University','BSN Quarter','Completed',
+ 120,120,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.80,true),
+('0de05000-0000-4000-8000-000000000031','0de00000-0000-4000-8000-000000000002','Zainab Adeleke','Zainab','Adeleke',NULL,
+ 'zainab.adeleke@demo.aspire.invalid','zainab.a.personal@demo.aspire.invalid','Harbor View College of Nursing','BSN Trimester','Completed',
+ 120,120,CURRENT_DATE - 280,(CURRENT_DATE - 280 + TIME '16:00')::timestamptz,3.67,true);
+
+-- The cycle. is_active is FALSE, and that is not an oversight.
+--
+-- ngrp_cycles_one_active is a partial unique index on (is_active) WHERE is_active,
+-- the same pattern as cohorts_one_accepting_submissions. is_active means "the
+-- workspace default cycle", a REAL operational role. A demo cycle claiming it would
+-- either collide with the real active cycle and abort this file, or quietly take the
+-- default away from real Talent Acquisition work. Nothing in the demo needs it: in
+-- demo mode this is the ONLY cycle the boundary returns, so the picker selects it
+-- anyway (resolveSelectedCycle falls through to the first cycle).
+--
+-- status is one of exactly four values since 20260905000000_ngrp_cycle_status_canon
+-- collapsed nine to four. 'Residency Active' is no longer legal; 'Active' is.
+INSERT INTO ngrp_cycles
+  (id, name, status, application_open_date, application_deadline,
+   interview_window_start, interview_window_end, licensure_deadline,
+   residency_start_date, is_active, notes, is_demo)
+VALUES ('0de0f000-0000-4000-8000-000000000001',
+        'Demo Residency Cohort', 'Active',
+        CURRENT_DATE - 260, CURRENT_DATE - 200,
+        CURRENT_DATE - 190, CURRENT_DATE - 170,
+        CURRENT_DATE - 140, CURRENT_DATE - 120,
+        false, 'Fabricated cycle for conference demonstrations.', true);
+
+INSERT INTO ngrp_cycle_source_cohorts (id, cycle_id, cohort_id)
+VALUES ('0de01000-0000-4000-8000-000000000001',
+        '0de0f000-0000-4000-8000-000000000001',
+        '0de00000-0000-4000-8000-000000000002');
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 10. The residency funnel. Ten alumni, every stage of it represented.
+--
+--     is_demo is absent from every column list below, on purpose: these are all
+--     CHILD tables and 20260922000000 installed aspire_demo_inherit on each of
+--     them. The candidates and the hire records inherit from the STUDENT, the
+--     transition rows chain from their candidate. V11 proves it worked.
+--
+--     eligibility_reasons is left at its default empty array. The stored shape is
+--     {code, label, met, status, detail, deadline} and those codes come from the
+--     engine in lib/server/ngrpEligibility.js, which builds them from a submitted
+--     form. Inventing codes it does not use would render as nonsense in the
+--     drawer, so the demo shows the RESULT and leaves the reasoning empty rather
+--     than fabricating a rationale the product would never produce.
+-- ─────────────────────────────────────────────────────────────────────
+INSERT INTO ngrp_candidates
+  (id, cycle_id, student_id, interest, eligibility_calculated,
+   application_status, application_confirmed_at,
+   not_proceeding_reason, not_proceeding_at, notes)
+VALUES
+-- Hired (3). Interested, eligible, confirmed, form submitted.
+('0de02000-0000-4000-8000-000000000001','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000022',
+ 'interested','eligible','confirmed',(CURRENT_DATE - 205 + TIME '09:12')::timestamptz,NULL,NULL,NULL),
+('0de02000-0000-4000-8000-000000000002','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000023',
+ 'interested','eligible','confirmed',(CURRENT_DATE - 204 + TIME '14:31')::timestamptz,NULL,NULL,NULL),
+('0de02000-0000-4000-8000-000000000003','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000024',
+ 'interested','eligible','confirmed',(CURRENT_DATE - 203 + TIME '08:04')::timestamptz,NULL,NULL,NULL),
+-- Offer out, not yet accepted.
+('0de02000-0000-4000-8000-000000000004','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000025',
+ 'interested','eligible','confirmed',(CURRENT_DATE - 202 + TIME '11:47')::timestamptz,NULL,NULL,NULL),
+-- Conditionally eligible: the friction case the Eligibility card exists for.
+('0de02000-0000-4000-8000-000000000005','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000026',
+ 'interested','conditionally_eligible','confirmed',(CURRENT_DATE - 201 + TIME '16:20')::timestamptz,NULL,NULL,
+ 'Licensure pending at the application deadline.'),
+-- Undecided, form not yet returned.
+('0de02000-0000-4000-8000-000000000006','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000027',
+ 'undecided','eligible','not_confirmed',NULL,NULL,NULL,NULL),
+-- Interested but not eligible.
+('0de02000-0000-4000-8000-000000000007','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000028',
+ 'interested','not_eligible','not_confirmed',NULL,NULL,NULL,
+ 'Clinical hours short of the cycle minimum.'),
+-- Never answered. The Form Not Sent card is not an empty card in this demo.
+('0de02000-0000-4000-8000-000000000008','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000029',
+ 'no_response','pending','not_confirmed',NULL,NULL,NULL,NULL),
+-- Removed from the pool, with the reason the record requires.
+('0de02000-0000-4000-8000-000000000009','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000030',
+ 'not_interested','eligible','not_proceeding',NULL,'position_elsewhere',(CURRENT_DATE - 175 + TIME '10:05')::timestamptz,
+ 'Accepted a role at another facility.'),
+-- Interviewed, not selected.
+('0de02000-0000-4000-8000-000000000010','0de0f000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000031',
+ 'interested','eligible','confirmed',(CURRENT_DATE - 200 + TIME '07:58')::timestamptz,NULL,NULL,NULL);
+
+-- Transition Forms. ngrp_assignment_state_times is explicit about which
+-- timestamps each status requires, and 'submitted' additionally requires
+-- revision_count >= 1 with a matching revision row below.
+INSERT INTO ngrp_transition_assignments
+  (id, candidate_id, status, sent_at, opened_at, submitted_at, revision_count, deadline_at)
+VALUES
+('0de03000-0000-4000-8000-000000000001','0de02000-0000-4000-8000-000000000001','submitted',
+ (CURRENT_DATE - 210 + TIME '08:00')::timestamptz,(CURRENT_DATE - 209 + TIME '19:22')::timestamptz,
+ (CURRENT_DATE - 205 + TIME '09:12')::timestamptz,1,(CURRENT_DATE - 200 + TIME '23:59')::timestamptz),
+('0de03000-0000-4000-8000-000000000002','0de02000-0000-4000-8000-000000000002','submitted',
+ (CURRENT_DATE - 210 + TIME '08:00')::timestamptz,(CURRENT_DATE - 208 + TIME '07:41')::timestamptz,
+ (CURRENT_DATE - 204 + TIME '14:31')::timestamptz,1,(CURRENT_DATE - 200 + TIME '23:59')::timestamptz),
+('0de03000-0000-4000-8000-000000000003','0de02000-0000-4000-8000-000000000003','submitted',
+ (CURRENT_DATE - 210 + TIME '08:00')::timestamptz,(CURRENT_DATE - 207 + TIME '21:03')::timestamptz,
+ (CURRENT_DATE - 203 + TIME '08:04')::timestamptz,1,(CURRENT_DATE - 200 + TIME '23:59')::timestamptz),
+('0de03000-0000-4000-8000-000000000004','0de02000-0000-4000-8000-000000000010','submitted',
+ (CURRENT_DATE - 210 + TIME '08:00')::timestamptz,(CURRENT_DATE - 206 + TIME '12:15')::timestamptz,
+ (CURRENT_DATE - 200 + TIME '07:58')::timestamptz,1,(CURRENT_DATE - 200 + TIME '23:59')::timestamptz),
+-- Sent, opened, nothing returned: the chase list.
+('0de03000-0000-4000-8000-000000000005','0de02000-0000-4000-8000-000000000004','opened',
+ (CURRENT_DATE - 210 + TIME '08:00')::timestamptz,(CURRENT_DATE - 205 + TIME '18:30')::timestamptz,
+ NULL,0,(CURRENT_DATE - 200 + TIME '23:59')::timestamptz),
+('0de03000-0000-4000-8000-000000000006','0de02000-0000-4000-8000-000000000005','sent',
+ (CURRENT_DATE - 210 + TIME '08:00')::timestamptz,NULL,NULL,0,(CURRENT_DATE - 200 + TIME '23:59')::timestamptz);
+
+-- The submitted payloads. identity.preferred_phone is the path the Residents tab
+-- reads for a resident's phone (phoneFromForm in src/lib/ngrp/ngrpResidents.js);
+-- 555-01xx is the reserved fictional range, like the .invalid addresses.
+INSERT INTO ngrp_transition_revisions (id, assignment_id, revision_number, payload, submitted_at)
+VALUES
+('0de04000-0000-4000-8000-000000000001','0de03000-0000-4000-8000-000000000001',1,
+ '{"identity":{"preferred_phone":"555-0142"}}'::jsonb,(CURRENT_DATE - 205 + TIME '09:12')::timestamptz),
+('0de04000-0000-4000-8000-000000000002','0de03000-0000-4000-8000-000000000002',1,
+ '{"identity":{"preferred_phone":"555-0177"}}'::jsonb,(CURRENT_DATE - 204 + TIME '14:31')::timestamptz),
+('0de04000-0000-4000-8000-000000000003','0de03000-0000-4000-8000-000000000003',1,
+ '{"identity":{"preferred_phone":"555-0163"}}'::jsonb,(CURRENT_DATE - 203 + TIME '08:04')::timestamptz),
+('0de04000-0000-4000-8000-000000000004','0de03000-0000-4000-8000-000000000004',1,
+ '{"identity":{"preferred_phone":"555-0198"}}'::jsonb,(CURRENT_DATE - 200 + TIME '07:58')::timestamptz);
+
+-- The durable outcomes. Offer, acceptance, hire and separation are distinct facts
+-- with their own constraints: ngrp_outcomes_accept_requires_offer and
+-- ngrp_outcomes_separation_requires_hire. The composite foreign key means
+-- (candidate_id, student_id, cycle_id) must agree with the candidate row exactly,
+-- so a hire record can never disagree about whose attempt it was.
+--
+-- cs_email is a Cedars-Sinai address in real data. Here it is at the reserved
+-- demo domain like every other address in this file, so V3 still passes and no
+-- cron could ever reach it.
+INSERT INTO ngrp_residency_outcomes
+  (id, candidate_id, student_id, cycle_id,
+   offer_extended_at, offer_accepted_at, hired_at, hired_unit, residency_start_date,
+   separated_at, separation_reason, not_selected_at, cs_email, shift, position_title)
+VALUES
+-- Hired and still here.
+('0de09000-0000-4000-8000-000000000001','0de02000-0000-4000-8000-000000000001','0de05000-0000-4000-8000-000000000022','0de0f000-0000-4000-8000-000000000001',
+ (CURRENT_DATE - 165 + TIME '10:00')::timestamptz,(CURRENT_DATE - 160 + TIME '16:42')::timestamptz,
+ (CURRENT_DATE - 150 + TIME '09:00')::timestamptz,'6 NE',CURRENT_DATE - 120,
+ NULL,NULL,NULL,'rosalie.tanaka@demo.aspire.invalid','Day','Registered Nurse I'),
+('0de09000-0000-4000-8000-000000000002','0de02000-0000-4000-8000-000000000002','0de05000-0000-4000-8000-000000000023','0de0f000-0000-4000-8000-000000000001',
+ (CURRENT_DATE - 165 + TIME '10:00')::timestamptz,(CURRENT_DATE - 159 + TIME '11:08')::timestamptz,
+ (CURRENT_DATE - 150 + TIME '09:00')::timestamptz,'5 North',CURRENT_DATE - 120,
+ NULL,NULL,NULL,'emeka.nwachukwu@demo.aspire.invalid','Night','Registered Nurse I'),
+-- Hired and separated. The retention tracker needs somebody who left, or the
+-- rate is always 100% and the card says nothing.
+('0de09000-0000-4000-8000-000000000003','0de02000-0000-4000-8000-000000000003','0de05000-0000-4000-8000-000000000024','0de0f000-0000-4000-8000-000000000001',
+ (CURRENT_DATE - 165 + TIME '10:00')::timestamptz,(CURRENT_DATE - 158 + TIME '09:55')::timestamptz,
+ (CURRENT_DATE - 150 + TIME '09:00')::timestamptz,'8 South',CURRENT_DATE - 120,
+ (CURRENT_DATE - 30 + TIME '17:00')::timestamptz,'Relocated out of state',NULL,
+ 'sofia.vargas@demo.aspire.invalid','Day','Registered Nurse I'),
+-- Offer extended, no answer yet: hired_at NULL, so not a resident.
+('0de09000-0000-4000-8000-000000000004','0de02000-0000-4000-8000-000000000004','0de05000-0000-4000-8000-000000000025','0de0f000-0000-4000-8000-000000000001',
+ (CURRENT_DATE - 165 + TIME '10:00')::timestamptz,NULL,NULL,NULL,NULL,
+ NULL,NULL,NULL,NULL,NULL,NULL),
+-- Interviewed, not selected.
+('0de09000-0000-4000-8000-000000000005','0de02000-0000-4000-8000-000000000010','0de05000-0000-4000-8000-000000000031','0de0f000-0000-4000-8000-000000000001',
+ NULL,NULL,NULL,NULL,NULL,
+ NULL,NULL,(CURRENT_DATE - 168 + TIME '13:30')::timestamptz,NULL,NULL,NULL);
+
 COMMIT;
 
 -- ═════════════════════════════════════════════════════════════════════
@@ -568,7 +832,9 @@ UNION ALL SELECT 'preceptors.email', email FROM preceptors
 UNION ALL SELECT 'contacts.email', email FROM contacts
   WHERE is_demo AND email NOT LIKE '%@demo.aspire.invalid'
 UNION ALL SELECT 'units.contact_email', contact_email FROM units
-  WHERE is_demo AND contact_email NOT LIKE '%@demo.aspire.invalid';
+  WHERE is_demo AND contact_email NOT LIKE '%@demo.aspire.invalid'
+UNION ALL SELECT 'ngrp_residency_outcomes.cs_email', cs_email FROM ngrp_residency_outcomes
+  WHERE is_demo AND cs_email IS NOT NULL AND cs_email NOT LIKE '%@demo.aspire.invalid';
 
 -- V4. No demo row points at a real one, which would make the embedded-select gap in
 --     src/lib/demoScope.js leak. EXPECT: zero rows.
@@ -618,3 +884,46 @@ ORDER BY ua.unit_key, ua.status;
 SELECT s.first_name, s.last_name, s.school
 FROM students s
 WHERE s.is_demo AND s.matched_unit_id IS NOT NULL AND s.cohort_school_rotation_id IS NULL;
+
+-- V9. The residency funnel. EXPECT 10 candidates: 6 confirmed, 3 not_confirmed,
+--     1 not_proceeding; eligibility 7 eligible, 1 conditionally, 1 not, 1 pending.
+SELECT c.application_status, c.interest, c.eligibility_calculated, count(*)
+FROM ngrp_candidates c
+WHERE c.is_demo
+GROUP BY 1, 2, 3
+ORDER BY 1, 2, 3;
+
+-- V10. What the Residency Portal will show. EXPECT: pool 10 (every alumnus is
+--      Completed and their cohort is mapped to the cycle), hired 3, still
+--      affiliated 2, so the retention card reads 67%.
+SELECT
+  (SELECT count(*) FROM students s
+     JOIN ngrp_cycle_source_cohorts m ON m.cohort_id = s.cohort_id
+    WHERE s.is_demo AND s.status = 'Completed'
+      AND m.cycle_id = '0de0f000-0000-4000-8000-000000000001')            AS applicant_pool,
+  (SELECT count(*) FROM ngrp_residency_outcomes WHERE is_demo AND hired_at IS NOT NULL)      AS hired,
+  (SELECT count(*) FROM ngrp_residency_outcomes WHERE is_demo AND hired_at IS NOT NULL
+      AND separated_at IS NULL)                                                             AS still_affiliated,
+  (SELECT count(*) FROM ngrp_transition_assignments WHERE is_demo AND status = 'submitted')  AS forms_submitted;
+
+-- V11. The residency inheritance triggers did their job: every child row is demo
+--      because its parent is, not because this file said so. is_demo appears in NO
+--      column list in sections 9 and 10 except on ngrp_cycles, which is a root.
+--      EXPECT: zero rows.
+SELECT 'candidate' AS t, c.id FROM ngrp_candidates c JOIN students s ON s.id = c.student_id
+  WHERE s.is_demo AND NOT c.is_demo
+UNION ALL SELECT 'source cohort', m.id FROM ngrp_cycle_source_cohorts m
+  JOIN ngrp_cycles cy ON cy.id = m.cycle_id WHERE cy.is_demo AND NOT m.is_demo
+UNION ALL SELECT 'outcome', o.id FROM ngrp_residency_outcomes o JOIN students s ON s.id = o.student_id
+  WHERE s.is_demo AND NOT o.is_demo
+UNION ALL SELECT 'assignment', a.id FROM ngrp_transition_assignments a
+  JOIN ngrp_candidates c ON c.id = a.candidate_id WHERE c.is_demo AND NOT a.is_demo
+UNION ALL SELECT 'revision', r.id FROM ngrp_transition_revisions r
+  JOIN ngrp_transition_assignments a ON a.id = r.assignment_id WHERE a.is_demo AND NOT r.is_demo;
+
+-- V12. The demo cycle is NOT the workspace default, and no demo cohort is the
+--      public intake router. Both are partial unique indexes over a REAL
+--      operational role, and a demo row holding one would take it from real work.
+--      EXPECT: zero rows.
+SELECT 'cycle is_active' AS problem, name FROM ngrp_cycles WHERE is_demo AND is_active
+UNION ALL SELECT 'cohort accepting_submissions', name FROM cohorts WHERE is_demo AND accepting_submissions;

@@ -54,4 +54,19 @@ export const DEMO_SCOPED_TABLES = Object.freeze([
   'unit_capacity_submissions',
   'unit_placement_requests',
   'unit_cohort_responses',
+  // ── The residency workspace (DEMO-MODE-2, 20260922000000) ────────────────────
+  // SIX of twenty-one ngrp_* tables, and the other fifteen are a deliberate omission
+  // rather than an oversight: every read of them is already scoped by an id that is
+  // filtered here (a cycle id, a candidate id, an assignment id). ngrp_cycles is the
+  // one genuinely unscoped LIST read in the whole family, which is what makes a demo
+  // see only its own residency cycle. The rest of these carry the column because the
+  // SEED writes them and the teardown must be able to find its own rows: the source
+  // cohort mapping and the hire record both hold ON DELETE RESTRICT keys, so without
+  // a marker they would block deleting the demo cohort and the demo student.
+  'ngrp_cycles',
+  'ngrp_cycle_source_cohorts',
+  'ngrp_candidates',
+  'ngrp_residency_outcomes',
+  'ngrp_transition_assignments',
+  'ngrp_transition_revisions',
 ])

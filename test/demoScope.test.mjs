@@ -78,15 +78,41 @@ beforeEach(() => {
 // ─────────────────────────────────────────────────────────────────────
 // 1. Lockstep: the registry and the migration name the same tables.
 // ─────────────────────────────────────────────────────────────────────
-test('every scoped table gets is_demo in the migration, and vice versa', () => {
-  const sql = readFileSync(
-    join(root, 'supabase/migrations/20260921000000_demo_mode_foundation.sql'), 'utf8',
-  )
+// The boundary is spread over more than one migration now: the foundation covers the
+// ASPIRE spine, DEMO-MODE-2 adds the residency workspace. Both are read, because a
+// registry entry is satisfied by ANY of them and a table named by any of them must be
+// in the registry.
+const DEMO_MIGRATIONS = [
+  'supabase/migrations/20260921000000_demo_mode_foundation.sql',
+  'supabase/migrations/20260922000000_demo_mode_residency.sql',
+]
 
-  // The preflight block is the migration's own statement of what it covers.
-  const block = sql.match(/required_tables text\[\] := ARRAY\[([\s\S]*?)\];/)
-  assert.ok(block, 'could not find required_tables in the migration')
-  const inMigration = [...block[1].matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort()
+/** Every table named in a migration's own preflight statement of what it covers. */
+function tablesInMigrations() {
+  const out = []
+  for (const file of DEMO_MIGRATIONS) {
+    const sql = readFileSync(join(root, file), 'utf8')
+    const block = sql.match(/required_tables text\[\] := ARRAY\[([\s\S]*?)\];/)
+    assert.ok(block, `could not find required_tables in ${file}`)
+    out.push(...[...block[1].matchAll(/'([a-z_]+)'/g)].map(m => m[1]))
+  }
+  return out
+}
+
+/** Every (child, parent, fk) inheritance trigger the migrations install. */
+function triggerSpecs() {
+  const out = []
+  for (const file of DEMO_MIGRATIONS) {
+    const sql = readFileSync(join(root, file), 'utf8')
+    const spec = sql.match(/spec text\[\]\[\] := ARRAY\[([\s\S]*?)\];/)
+    assert.ok(spec, `could not find the trigger spec in ${file}`)
+    out.push(...[...spec[1].matchAll(/\['([a-z_]+)','([a-z_]+)','([a-z_]+)'\]/g)])
+  }
+  return out
+}
+
+test('every scoped table gets is_demo in a migration, and vice versa', () => {
+  const inMigration = tablesInMigrations().sort()
   const inRegistry = [...DEMO_SCOPED_TABLES].sort()
 
   const missingFromMigration = inRegistry.filter(t => !inMigration.includes(t))
@@ -100,17 +126,13 @@ test('every scoped table gets is_demo in the migration, and vice versa', () => {
     'leak real rows into a demo. Add them to DEMO_SCOPED_TABLES.')
 })
 
-test('the migration installs one inheritance trigger per child table', () => {
-  const sql = readFileSync(
-    join(root, 'supabase/migrations/20260921000000_demo_mode_foundation.sql'), 'utf8',
-  )
-  const spec = sql.match(/spec text\[\]\[\] := ARRAY\[([\s\S]*?)\];/)
-  assert.ok(spec, 'could not find the trigger spec')
-  const children = [...spec[1].matchAll(/\['([a-z_]+)','([a-z_]+)','([a-z_]+)'\]/g)]
+test('the migrations install one inheritance trigger per child table', () => {
+  const children = triggerSpecs()
 
   // Roots own their is_demo value. Everything else must inherit it, or a row written by
-  // an rpc or a server endpoint would be stamped by nobody.
-  const ROOTS = new Set(['cohorts', 'students', 'units', 'contacts', 'preceptors'])
+  // an rpc or a server endpoint would be stamped by nobody. ngrp_cycles is a root for
+  // the same reason cohorts is: a residency cycle belongs to no larger thing.
+  const ROOTS = new Set(['cohorts', 'students', 'units', 'contacts', 'preceptors', 'ngrp_cycles'])
   const expectedChildren = DEMO_SCOPED_TABLES.filter(t => !ROOTS.has(t)).sort()
   const actualChildren = children.map(m => m[1]).sort()
 
@@ -123,8 +145,14 @@ test('the migration installs one inheritance trigger per child table', () => {
     // rather than deriving it. preceptor_cohort_participation inherits from preceptors
     // because it IS a preceptor's history; the cohort id would give the same answer for
     // well-formed data, but the preceptor is the entity the row belongs to.
-    assert.ok(['students', 'cohorts', 'units', 'preceptors'].includes(parent),
-      `${child} inherits from ${parent}, which is not a root table`)
+    // A parent must be a table that CARRIES is_demo by the time the child is written.
+    // A root always does. A scoped child does too, because its own BEFORE INSERT
+    // trigger resolved it when that row was inserted, which the foreign key forces to
+    // happen first. That is what lets the transition rows chain: an assignment inherits
+    // from its candidate, a revision from its assignment, and neither has a student_id
+    // of its own to inherit from directly.
+    assert.ok(ROOTS.has(parent) || DEMO_SCOPED_TABLES.includes(parent),
+      `${child} inherits from ${parent}, which carries no is_demo of its own`)
     assert.ok(fk.endsWith('_id'), `${child}.${fk} does not look like a foreign key`)
   }
 })

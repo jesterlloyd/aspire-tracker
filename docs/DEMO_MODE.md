@@ -96,7 +96,7 @@ resolves its own population server-side and each one is inside the boundary:
 | Unit Leader | The five demo units, and only the students assigned to them |
 | Academic Partner | The three invented schools, derived from the demo students themselves |
 | Nursing Education & Leadership | Demo cohorts, rotations, contacts and community-benefit figures |
-| Residency | An applicant pool drawn from demo students only (see gap 3) |
+| Residency | Its own fabricated cycle, ten alumni across the whole funnel, three hired |
 
 Two things look empty on purpose. **7 North** has no roster: it is the unfilled unit, and
 the gap is the point. And there is **no accepting cycle** in demo mode, so the Unit Leader
@@ -121,7 +121,7 @@ accumulates fabricated people nobody remembers creating.
 | Crons and scheduled digests | They may read demo rows, but cannot email them |
 | Student Portal preview | Yes |
 | Unit Leader, Academic Partner and Nursing Education & Leadership previews | Yes, via one boundary on the service client each of their endpoints already shares |
-| Residency Portal preview | The people, yes. The cycles, no: see gap 3 |
+| Residency Portal preview | Yes, including its own cycle. Six of the twenty-one `ngrp_*` tables carry `is_demo`; the other fifteen are reached only through an id one of those six filters |
 
 ## What it does not cover
 
@@ -147,16 +147,24 @@ Stated plainly so you know before the room is full, not after.
    only because the directory and the session read different RPCs
    (`get_all_user_profiles` vs `get_my_profile`), and a test fails if those ever
    converge.
-3. **The residency CYCLES are real, and its candidate rows carry no demo marker.** The
-   `ngrp_*` tables have no `is_demo` column, so the cohort picker in the Residency Portal
-   names real residency cycles even in demo mode. The PEOPLE are filtered: the applicant
-   pool is drawn from `students`, which is inside the boundary, and a hire record whose
-   student is outside the population is dropped rather than rendered with a blank name
-   over its own real Cedars-Sinai address. What this costs is that a demo Residency
-   Portal is largely EMPTY: no demo residency cycle exists, because creating one would
-   put a fabricated cohort in front of real Talent Acquisition work. Populating it needs
-   `is_demo` on the `ngrp_*` tables and a seeded cycle, which is a migration, not a code
-   change.
+3. **Fifteen of the twenty-one `ngrp_*` tables carry no `is_demo`, deliberately.** Six
+   do: `ngrp_cycles`, `ngrp_cycle_source_cohorts`, `ngrp_candidates`,
+   `ngrp_residency_outcomes`, `ngrp_transition_assignments` and
+   `ngrp_transition_revisions`. Every read of the other fifteen is already scoped by an
+   id one of those six filters (a cycle id, a candidate id, an assignment id), which was
+   established by reading every `.from('ngrp_*')` in `api/` and `lib/server/` rather than
+   assumed; the list is in the header of
+   `supabase/migrations/20260922000000_demo_mode_residency.sql`. `ngrp_cycles` is the one
+   genuinely unscoped list read in the whole family, which is what makes a demo see only
+   its own cycle.
+
+   Two consequences worth knowing. A row a LIVE demo creates in one of the other fifteen
+   (a Transition Form delivery, a support entry, a reflection) is a real row about a
+   fabricated person; the teardown removes those by naming their demo parent. And the
+   demo cycle is deliberately **not** `is_active`: that flag is the workspace default and
+   a partial unique index allows exactly one, so a demo holding it would take it from
+   real Talent Acquisition work. In demo mode it is the only cycle the boundary returns,
+   so the picker lands on it anyway.
 4. **Connect message history, notification log, messaging, program events and the
    Masthead's event feed** are outside the nineteen scoped tables and show real data.
 5. **Six rpc functions** carry no table to filter and sit outside the boundary. They are
@@ -212,6 +220,7 @@ anything.
 | `src/lib/demoFetch.js` | The header that tells a server endpoint which population to answer for |
 | `shared/demoTables.js` | The one registry of scoped tables, read by both halves of the boundary |
 | `supabase/migrations/20260921000000_demo_mode_foundation.sql` | The column, the triggers, the indexes |
+| `supabase/migrations/20260922000000_demo_mode_residency.sql` | The same, for the six residency tables |
 | `db/demo/demo_seed.sql` | The cast |
 | `db/demo/demo_teardown.sql` | Removing it |
 | `test/demoScope.test.mjs` | Boundary, lockstep with the migration, the gate |
