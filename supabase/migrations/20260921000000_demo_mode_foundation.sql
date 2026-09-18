@@ -43,7 +43,7 @@ DECLARE
     'cohorts','students','units','contacts','preceptors',
     'matches','student_shift_logs','student_shift_plans',
     'student_preceptor_assignments','student_unit_assignments',
-    'student_active_disposition','evaluation_assignments',
+    'evaluation_assignments',
     'interview_slots','interview_sessions','interview_rubrics',
     'preceptor_cohort_participation',
     'cohort_school_rotations','unit_capacity_submissions',
@@ -56,7 +56,6 @@ DECLARE
     ['student_shift_plans','students','student_id'],
     ['student_preceptor_assignments','students','student_id'],
     ['student_unit_assignments','students','student_id'],
-    ['student_active_disposition','students','student_id'],
     ['evaluation_assignments','students','student_id'],
     ['interview_slots','cohorts','cohort_id'],
     ['interview_sessions','students','student_id'],
@@ -67,13 +66,33 @@ DECLARE
     ['unit_placement_requests','cohorts','cohort_id'],
     ['unit_cohort_responses','cohorts','cohort_id']
   ];
+  problems text[] := ARRAY[]::text[];
   t text;
+  kind text;
   i int;
 BEGIN
+  -- EVERY problem, in ONE run. The first version of this raised on the first fault,
+  -- which meant discovering a schema one exception at a time: a missing table, then a
+  -- view, then whatever came next, with a round trip between each. Collecting them and
+  -- raising once is the difference between one conversation and five.
   FOREACH t IN ARRAY required_tables LOOP
-    IF to_regclass('public.' || quote_ident(t)) IS NULL THEN
-      RAISE EXCEPTION
-        'DEMO-MODE-1 preflight: table public.% does not exist. Remove it from this migration AND from DEMO_SCOPED_TABLES in src/lib/demoScope.js before applying.', t;
+    SELECT c.relkind::text INTO kind
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public' AND c.relname = t;
+
+    IF kind IS NULL THEN
+      problems := problems || format('MISSING: public.%s does not exist', t);
+    ELSIF kind NOT IN ('r', 'p') THEN
+      -- to_regclass() is not enough on its own: it happily resolves a view, and the
+      -- failure then surfaces as "ADD COLUMN cannot be performed on relation" halfway
+      -- through section 2. relkind is the question actually being asked.
+      problems := problems || format(
+        'NOT A TABLE: public.%s is a %s, so a column cannot be added to it', t,
+        CASE kind WHEN 'v' THEN 'view'
+                  WHEN 'm' THEN 'materialized view'
+                  WHEN 'f' THEN 'foreign table'
+                  ELSE 'relation of kind ' || kind END);
     END IF;
   END LOOP;
 
@@ -84,13 +103,19 @@ BEGIN
         AND table_name   = required_keys[i][1]
         AND column_name  = required_keys[i][3]
     ) THEN
-      RAISE EXCEPTION
-        'DEMO-MODE-1 preflight: %.% does not exist, so it cannot inherit is_demo from %.',
-        required_keys[i][1], required_keys[i][3], required_keys[i][2];
+      problems := problems || format(
+        'MISSING KEY: %s.%s does not exist, so it cannot inherit is_demo from %s',
+        required_keys[i][1], required_keys[i][3], required_keys[i][2]);
     END IF;
   END LOOP;
 
-  RAISE NOTICE 'DEMO-MODE-1 preflight passed: 20 tables, 15 parent keys.';
+  IF array_length(problems, 1) > 0 THEN
+    RAISE EXCEPTION E'DEMO-MODE-1 preflight found % problem(s). NOTHING was applied:\n  %',
+      array_length(problems, 1), array_to_string(problems, E'\n  ');
+  END IF;
+
+  RAISE NOTICE 'DEMO-MODE-1 preflight passed: % tables, % parent keys.',
+    array_length(required_tables, 1), array_length(required_keys, 1);
 END
 $preflight$;
 
@@ -106,7 +131,7 @@ BEGIN
     'cohorts','students','units','contacts','preceptors',
     'matches','student_shift_logs','student_shift_plans',
     'student_preceptor_assignments','student_unit_assignments',
-    'student_active_disposition','evaluation_assignments',
+    'evaluation_assignments',
     'interview_slots','interview_sessions','interview_rubrics',
     'preceptor_cohort_participation',
     'cohort_school_rotations','unit_capacity_submissions',
@@ -180,7 +205,6 @@ DECLARE
     ['student_shift_plans','students','student_id'],
     ['student_preceptor_assignments','students','student_id'],
     ['student_unit_assignments','students','student_id'],
-    ['student_active_disposition','students','student_id'],
     ['evaluation_assignments','students','student_id'],
     ['interview_slots','cohorts','cohort_id'],
     ['interview_sessions','students','student_id'],
@@ -274,7 +298,7 @@ ORDER BY indexname;
 --   FOREACH t IN ARRAY ARRAY[
 --     'matches','student_shift_logs','student_shift_plans',
 --     'student_preceptor_assignments','student_unit_assignments',
---     'student_active_disposition','evaluation_assignments',
+--     'evaluation_assignments',
 --     'interview_slots','interview_sessions','interview_rubrics',
 --     'preceptor_cohort_participation',
 --     'cohort_school_rotations','unit_capacity_submissions',
@@ -286,7 +310,7 @@ ORDER BY indexname;
 --     'cohorts','students','units','contacts','preceptors',
 --     'matches','student_shift_logs','student_shift_plans',
 --     'student_preceptor_assignments','student_unit_assignments',
---     'student_active_disposition','evaluation_assignments',
+--     'evaluation_assignments',
 --     'interview_slots','interview_sessions','interview_rubrics',
 --     'preceptor_cohort_participation',
 --     'cohort_school_rotations','unit_capacity_submissions',

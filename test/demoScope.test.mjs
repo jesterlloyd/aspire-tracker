@@ -18,7 +18,7 @@
 
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { execSync } from 'node:child_process'
@@ -350,4 +350,58 @@ test('the flag ships OFF, so the code is safe to deploy before the SQL is applie
   assert.equal(DEMO_BOUNDARY_LIVE, false,
     'DEMO_BOUNDARY_LIVE is true. Confirm 20260921000000_demo_mode_foundation.sql is ' +
     'applied in production, then change this assertion to true in the same commit.')
+})
+
+// ─────────────────────────────────────────────────────────────────────
+// 7. A view can never enter the boundary again
+// ─────────────────────────────────────────────────────────────────────
+test('no scoped relation is a view', () => {
+  // student_active_disposition got into the registry and through the preflight, because
+  // to_regclass() resolves a view perfectly happily. The failure surfaced halfway
+  // through the migration as "ADD COLUMN cannot be performed on relation ... This
+  // operation is not supported for views."
+  //
+  // The migration now checks relkind rather than mere existence. This is the same check
+  // one step earlier, against the views this repository actually defines, so the
+  // mistake is caught while writing rather than while applying.
+  const views = new Set()
+  for (const dir of ['supabase/migrations', 'migrations']) {
+    let entries = []
+    try { entries = readdirSync(join(root, dir)) }
+    catch (err) { if (err.code === 'ENOENT') continue; throw err }
+    for (const f of entries) {
+      if (!f.endsWith('.sql')) continue
+      const sql = readFileSync(join(root, dir, f), 'utf8')
+      for (const m of sql.matchAll(/CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(?:public\.)?([a-z_]+)/gi)) {
+        views.add(m[1].toLowerCase())
+      }
+    }
+  }
+  assert.ok(views.size > 5, `expected to find this repo's views, found ${views.size}`)
+
+  const offenders = DEMO_SCOPED_TABLES.filter(t => views.has(t))
+  assert.deepEqual(offenders, [],
+    'These are VIEWS, not tables. A view cannot carry an is_demo column, so the ' +
+    'migration will fail on ALTER TABLE, and the client would filter on a column the ' +
+    'view does not expose. Scope the view\'s BASE TABLE instead, or leave it out when ' +
+    'every read of it is already scoped by a parent the boundary filters.')
+})
+
+test('the migration checks relkind, not just existence', () => {
+  const sql = readFileSync(
+    join(root, 'supabase/migrations/20260921000000_demo_mode_foundation.sql'), 'utf8')
+  assert.match(sql, /relkind/,
+    'the preflight must verify each relation is an ordinary table; to_regclass() alone ' +
+    'resolves views and defers the failure to ALTER TABLE')
+  assert.match(sql, /NOT IN \('r', 'p'\)/, 'ordinary and partitioned tables are the accepted kinds')
+})
+
+test('the preflight reports every problem in one run', () => {
+  const sql = readFileSync(
+    join(root, 'supabase/migrations/20260921000000_demo_mode_foundation.sql'), 'utf8')
+  // Raising on the first fault means discovering a schema one exception and one round
+  // trip at a time. It cost two of those before this was fixed.
+  assert.match(sql, /problems text\[\]/, 'faults must be collected, not raised immediately')
+  assert.match(sql, /array_length\(problems, 1\) > 0/, 'and raised once at the end')
+  assert.match(sql, /array_to_string\(problems/, 'with all of them in the message')
 })

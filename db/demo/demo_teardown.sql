@@ -42,7 +42,6 @@ $preflight$;
 DELETE FROM student_preceptor_assignments WHERE is_demo;
 DELETE FROM student_shift_logs            WHERE is_demo;
 DELETE FROM student_shift_plans           WHERE is_demo;
-DELETE FROM student_active_disposition    WHERE is_demo;
 DELETE FROM student_unit_assignments      WHERE is_demo;
 DELETE FROM evaluation_assignments        WHERE is_demo;
 DELETE FROM interview_rubrics             WHERE is_demo;

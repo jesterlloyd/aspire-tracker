@@ -67,7 +67,11 @@ export const DEMO_SCOPED_TABLES = Object.freeze([
   'student_shift_plans',
   'student_preceptor_assignments',
   'student_unit_assignments',
-  'student_active_disposition',
+  // NOTE: 'student_active_disposition' is deliberately absent. It is a VIEW over
+  // student_dispositions (WHERE is_active), so it cannot carry a column, and it does not
+  // need to: every read of it is already scoped by cohort_id or student_id, both of
+  // which the boundary filters, so it can only ever return rows belonging to a
+  // population the caller can already see.
   'evaluation_assignments',
   'interview_slots',
   'interview_sessions',
