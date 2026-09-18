@@ -393,14 +393,29 @@ export default function StudentProfilesTab({
           </div>
 
           {/* Right column: Drawer (always open) */}
-          <div className="profiles-panel-slide" key={selectedStudentId || 'empty'}>
+          {/* STUDENT-CHART-1: NO key here. Keying this on the student id remounted the
+              whole panel on every selection, which replayed the container's slide-in, and
+              a binder that slides in from the right on every click says a new object has
+              arrived when the reader has only turned to a different record. The panel
+              already resets its own state on student.id (three effects in
+              StudentSidePanel), so the key was buying the animation and nothing else. The
+              chart cross-fades what is written on the paper instead, and the binder holds
+              still. */}
+          <div className="profiles-panel-slide">
             {selectedStudent ? (
+              /* STUDENT-CHART-1: onUpdate is a WRITER (updateStudent(id, updates)). It
+                 refreshes nothing by itself and has no route for the follow-up column, so
+                 the chart's ribbon also needs onRefreshStudents, the refetch, or the
+                 roster row keeps showing the old flag until the page is reloaded. Passing
+                 the writer where the refetch belongs has shipped once already, in the
+                 interview rubric; the two are different props for a reason. */
               <StudentSidePanel
                 student={selectedStudent}
                 sortedStudents={displayedStudents}
                 onSelectStudent={selectStudent}
                 onClose={() => {}} // no-op; drawer is always open
                 onUpdate={onUpdate}
+                onRefreshStudents={onRefresh}
                 onDelete={onDelete}
                 onReviewDecided={onReviewDecided}
                 onPreceptorAssigned={onPreceptorAssigned}

@@ -19,7 +19,21 @@ export const PULL_TO_FLAG = 18     // px down, from the top of the ribbon
 export const PULL_TO_UNFLAG = 12   // px up, when it is already hanging
 const CLICK_SLOP = 4               // a pointer that moved less than this is a click
 
-export default function FlagRibbon({ flagged, disabled = false, onFlag, onUnflag }) {
+// STUDENT-CHART-1 (2026-09-18): the student chart sews the same ribbon into its binder,
+// so the gesture, the thresholds and the keyboard parity are defined once here and the
+// two surfaces differ only in what they are named and what they write. The defaults are
+// the rubric's, so the rubric's own call site did not change: `rb-ribbon`,
+// `rb-ribbon-on` and `rb-ribbon-dragging` are still exactly the classes it renders.
+export default function FlagRibbon({
+  flagged,
+  disabled = false,
+  onFlag,
+  onUnflag,
+  classPrefix = 'rb-ribbon',
+  text = 'FLAG',
+  labelOn = 'Flagged for the placement huddle. Pull the ribbon up, or press, to remove the flag.',
+  labelOff = 'Pull the ribbon down, or press, to flag this candidate for the placement huddle.',
+}) {
   const startY = useRef(null)
   const moved = useRef(0)
   const [pull, setPull] = useState(0)
@@ -61,13 +75,11 @@ export default function FlagRibbon({ flagged, disabled = false, onFlag, onUnflag
     <button
       type="button"
       data-testid="flag-ribbon"
-      className={`rb-ribbon${flagged ? ' rb-ribbon-on' : ''}${pull ? ' rb-ribbon-dragging' : ''}`}
+      className={`${classPrefix}${flagged ? ` ${classPrefix}-on` : ''}${pull ? ` ${classPrefix}-dragging` : ''}`}
       style={pull ? { transform: `translateY(${pull}px)` } : undefined}
       aria-pressed={flagged}
       disabled={disabled}
-      aria-label={flagged
-        ? 'Flagged for the placement huddle. Pull the ribbon up, or press, to remove the flag.'
-        : 'Pull the ribbon down, or press, to flag this candidate for the placement huddle.'}
+      aria-label={flagged ? labelOn : labelOff}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -76,7 +88,7 @@ export default function FlagRibbon({ flagged, disabled = false, onFlag, onUnflag
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
       }}
     >
-      FLAG
+      {text}
     </button>
   )
 }

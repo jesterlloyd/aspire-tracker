@@ -616,6 +616,48 @@ export default async function handler(req, res) {
       return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: NOTES_FIELDS, label: 'notes update' })
     }
 
+    // STUDENT-CHART-1 (2026-09-18): the follow-up flag the student chart's ribbon pulls.
+    // Deliberately its OWN action and its OWN column. `flagged_for_second_interview` is
+    // the rubric's second-interview flag and drives Interview Recommendations; a
+    // coordinator flagging a student mid-rotation means something else entirely, so the
+    // two never share a column. It carries no note, exactly like the rubric's ribbon.
+    //
+    // This does not use handleDomainUpdate because it has to survive its own column not
+    // existing. db/migrations/20260921000000_student_followup_flag.sql is Owner-gated, so
+    // the UI ships first: until the migration runs, Postgres answers 42703 and this
+    // returns a plain, honest 409 that the ribbon renders as "not enabled yet" instead of
+    // an opaque 500.
+    if (action === 'set_followup_flag') {
+      if (!canStudentManage) return res.status(403).json({ error: 'forbidden' })
+      const ALLOWED = ['action', 'student_id', 'flagged_for_followup']
+      const unexpected = Object.keys(req.body || {}).filter(k => !ALLOWED.includes(k))
+      if (unexpected.length > 0) return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+      const { student_id, flagged_for_followup } = payload
+      if (!student_id || typeof student_id !== 'string') return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      if (typeof flagged_for_followup !== 'boolean') {
+        return res.status(400).json({ error: 'invalid_request', field: 'flagged_for_followup', message: 'Invalid value for this field.' })
+      }
+      const { data: stu, error: stuErr } = await db.from('students')
+        .select('id, cohort_id').eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+      const { error: updErr } = await db.from('students')
+        .update({ flagged_for_followup }).eq('id', student_id)
+      if (updErr) {
+        if (updErr.code === '42703') {
+          console.log('[student-update] follow-up flag unavailable: column not migrated', { request_id: requestId })
+          return res.status(409).json({
+            error: 'not_enabled',
+            message: 'The follow-up flag is not enabled yet. Apply db/migrations/20260921000000_student_followup_flag.sql.',
+          })
+        }
+        console.log('[student-update] follow-up flag failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] follow-up flag', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null, flagged: flagged_for_followup })
+      return res.status(200).json({ success: true, flagged_for_followup })
+    }
+
     // UNIT-PREFS-SAVE-1 (2026-09-10): staff correction of the student's unit placement
     // preferences. When WS1e-A5 removed the generic `update` action (2026-06-09) these three
     // fields stayed writable only through save_interview_outcome (the rubric workflow), so the

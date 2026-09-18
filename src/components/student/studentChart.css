@@ -1,0 +1,407 @@
+/* STUDENT-CHART-1 (2026-09-18): the student chart.
+ *
+ * The Student Profiles detail panel is a black leather ring binder holding loose sheets,
+ * with a name plate screwed to the top and die-cut index tabs down the fore edge.
+ *
+ * WHAT THIS IS NOT. It is not a read-only view of the record. Every field the panel
+ * could edit before is still editable in the same place, with the same permission gate
+ * and the same save path (Owner, 2026-09-18). The binder is chrome; the form inside it
+ * is the one that has always been there. That is why this file styles containers and
+ * never restyles `.sp-input`, `.sp-select` or `.sp-textarea` themselves.
+ *
+ * THE SHEETS. Fifteen sections do not fit the five sheets the mockup drew, so they group
+ * into seven, in the order a coordinator meets a student: Profile, Background, Placement,
+ * Hours, Documents, Evaluations, Notes. Each sheet and its tab wear one tint, which is
+ * how a reader knows which tab belongs to what is on screen.
+ *
+ * SCROLLING. One continuous column, not a tab panel: the reader scrolls the whole record
+ * and the index follows them. Clicking a tab scrolls that sheet to the top. This is a
+ * scroll position, never a mount, so a half-typed field three sheets up is never
+ * unmounted by moving the index.
+ */
+
+/* ── The cover ─────────────────────────────────────────────────────────────── */
+/* The binder replaces `.profiles-panel-slide`'s own card treatment: that class supplies
+   the pearl card this used to be, so inside a binder it hands over its background,
+   border and radius and keeps only its size and its slide-in. */
+.profiles-panel-slide:has(.sc-binder) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.sc-binder {
+  position: relative;
+  height: 100%;
+  display: flex;
+  border-radius: var(--aspire-radius-binder);
+  /* Rings live in the left gutter, so the left board is wider than the other three. */
+  padding: 14px 14px 14px 30px;
+}
+
+/* Five rings down the spine. Decorative: the binder is a picture of a binder, and a
+   screen reader is told nothing about them. */
+.sc-rings {
+  position: absolute;
+  left: 8px;
+  top: 26px;
+  bottom: 26px;
+  width: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.sc-ring {
+  display: block;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--aspire-binder-ring);
+  background: linear-gradient(180deg, var(--aspire-binder-ring-face), var(--aspire-binder-ring) 45%, var(--aspire-binder-ring-base));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ── The paper ─────────────────────────────────────────────────────────────── */
+/* Square corners, because this is paper and not a card (the same rule the rubric's page
+   follows). The two stacked shadows on the left are the edges of the sheets underneath. */
+.sc-paper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--aspire-page);
+  border: 1px solid var(--aspire-binder-edge);
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow:
+    -3px 0 0 -1px var(--aspire-page-band),
+    -4px 0 0 -1px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+/* ── The name plate ────────────────────────────────────────────────────────── */
+/* Fixed to the top of the paper, above the index rail, and it does not scroll: the one
+   thing a reader must never lose track of is whose record this is. */
+/* The plate does NOT wrap. It is the one fixed thing on the paper, so every row it grows
+   by is a row the record loses, and letting it wrap put the three action buttons on a
+   line of their own and cost 80px. The identity block takes what is left and its chips
+   wrap inside it instead; the actions never move. */
+.sc-plate {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: nowrap;
+  padding: 16px 18px;
+  background: var(--aspire-sheet-placement);
+  border-bottom: 1px solid var(--aspire-page-rule);
+  transition: box-shadow 0.18s ease;
+}
+/* The plate lifts only once paper has travelled under it, so at rest the chart is flat. */
+.sc-plate-lifted {
+  box-shadow:
+    0 6px 10px -6px rgba(24, 32, 63, 0.45),
+    0 1px 0 rgba(24, 32, 63, 0.10);
+}
+.sc-plate-id { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 auto; }
+.sc-plate-head { min-width: 0; }
+.sc-plate-name {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--aspire-paper-ink);
+  margin: 0;
+}
+.sc-plate-school {
+  font-size: 13px;
+  color: var(--aspire-paper-ink-soft);
+  margin-top: 2px;
+}
+.sc-plate-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sc-plate-acts {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+/* ── The flag ribbon ───────────────────────────────────────────────────────── */
+/* Sewn into the top right of the plate, and it stays there: it belongs to the student,
+   not to whichever sheet happens to be in view. Same component and same gesture as the
+   rubric's ribbon (src/components/rubric/FlagRibbon.jsx); a different colour would make
+   two flags look like two mechanisms. */
+.sc-ribbon {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  z-index: 6;
+  width: 40px;
+  padding: 20px 0 10px;
+  border: 0;
+  background: linear-gradient(#C0392B, #96271C);
+  color: #fff;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.28);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  display: grid;
+  justify-items: center;
+  cursor: pointer;
+  transition: padding 0.18s ease, transform 0.18s ease;
+}
+/* Unpulled, the ribbon is tucked up and taupe. The idle colour is the rubric's measured
+   one, not the mockup's #BEB9AF, which put white FLAG on it at 1.77:1. */
+.sc-ribbon[aria-pressed="false"] {
+  padding: 8px 0 10px;
+  background: linear-gradient(var(--aspire-ribbon-idle), var(--aspire-ribbon-idle));
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
+}
+.sc-ribbon-dragging { transition: none; }
+.sc-ribbon:disabled { cursor: not-allowed; opacity: 0.55; }
+
+/* ── Sheets ────────────────────────────────────────────────────────────────── */
+.sc-main {
+  display: grid;
+  grid-template-columns: 1fr 46px;
+  min-height: 0;
+  overflow: hidden;
+}
+/* `position: relative` is load-bearing, not decoration. A sheet's offsetTop is measured
+   from its offsetParent, and without this the nearest positioned ancestor is .sc-paper,
+   so every tab jump overshot by the height of the name plate (measured: 144px too far).
+   Making the scroller the offsetParent is what makes "scroll this sheet to the top of the
+   scroller" mean what it says. */
+.sc-scroller {
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  min-width: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-scroller { scroll-behavior: auto; }
+}
+
+.sc-sheet {
+  padding: 18px 20px 22px;
+  border-bottom: 1px solid var(--aspire-page-rule);
+  scroll-margin-top: 0;
+}
+/* The last sheet has to be able to reach the top of the scroller, or its tab can never
+   become current and clicking that tab appears to do nothing. Named, not `:last-child`:
+   the danger zone and the prev/next footer follow the sheets inside the scroller, so the
+   last sheet is not the last element. */
+.sc-sheet[data-sheet="notes"] { border-bottom: none; min-height: 60vh; }
+
+/* The footer that is not a sheet: Danger Zone, the download toast, prev/next. */
+.sc-tail { padding: 4px 8px 20px; }
+
+.sc-sheet[data-sheet="profile"]     { background: var(--aspire-sheet-profile); }
+.sc-sheet[data-sheet="background"]  { background: var(--aspire-sheet-background); }
+.sc-sheet[data-sheet="placement"]   { background: var(--aspire-sheet-placement); }
+.sc-sheet[data-sheet="hours"]       { background: var(--aspire-sheet-hours); }
+.sc-sheet[data-sheet="documents"]   { background: var(--aspire-sheet-documents); }
+.sc-sheet[data-sheet="evaluations"] { background: var(--aspire-sheet-evaluations); }
+.sc-sheet[data-sheet="notes"]       { background: var(--aspire-sheet-notes); }
+
+.sc-sheet-label {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--aspire-paper-ink-soft);
+}
+.sc-sheet-title {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--aspire-sheet-title);
+  margin: 2px 0 14px;
+}
+
+/* The existing section cards sit on tinted stock, so they read as paper laid on paper
+   rather than as the opaque white cards they were on a plain background. Only the
+   backdrop changes: radius, padding and every control inside are untouched. */
+.sc-sheet .sp-section.sp-card {
+  background: var(--aspire-sheet-card);
+  margin-bottom: var(--aspire-gap-card);
+}
+.sc-sheet .sp-section.sp-card:last-child { margin-bottom: 0; }
+/* The zone tints did the grouping before the sheets existed. The sheet now carries that
+   job, so the per-section tints stand down rather than fighting it. */
+.sc-sheet .sp-zone-contact,
+.sc-sheet .sp-zone-program,
+.sc-sheet .sp-zone-student,
+.sc-sheet .sp-zone-admin,
+.sc-sheet .sp-zone-records { background: var(--aspire-sheet-card); }
+/* A bare `.sp-section` (the clinical hours block) has a bottom rule meant for a flat
+   stack; inside a sheet the sheet's own rule already separates it. */
+.sc-sheet .sp-section:not(.sp-card) { border-bottom: 0; padding-left: 0; padding-right: 0; }
+
+/* ── The index ─────────────────────────────────────────────────────────────── */
+/* Die-cut tabs: no border, each one the colour of the sheet it opens, reading bottom to
+   top. They overlap the way a stack of tabbed dividers does. */
+.sc-index {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 12px 0;
+  background: var(--aspire-binder-rail);
+  box-shadow: inset 5px 0 7px -7px rgba(24, 32, 63, 0.45);
+  overflow: hidden;
+}
+.sc-tab {
+  position: relative;
+  z-index: 1;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  border: 0;
+  border-radius: var(--aspire-radius-tab) 0 0 var(--aspire-radius-tab);
+  margin-top: -5px;
+  padding: 14px 6px;
+  font-family: inherit;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--aspire-sheet-tab-ink);
+  background: var(--aspire-page);
+  cursor: pointer;
+  box-shadow: -2px 2px 4px rgba(24, 32, 63, 0.18);
+  transition: translate 0.14s ease, box-shadow 0.14s ease;
+  /* Seven tabs share the rail's height, and a word must never be clipped. Each tab asks
+     for room in proportion to its label, and the rail is allowed to shrink them evenly
+     rather than cutting the longest one off. */
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.sc-tab:first-child { margin-top: 0; }
+.sc-tab[data-sheet="profile"]     { background: var(--aspire-sheet-profile); }
+.sc-tab[data-sheet="background"]  { background: var(--aspire-sheet-background); }
+.sc-tab[data-sheet="placement"]   { background: var(--aspire-sheet-placement); }
+.sc-tab[data-sheet="hours"]       { background: var(--aspire-sheet-hours); }
+.sc-tab[data-sheet="documents"]   { background: var(--aspire-sheet-documents); }
+.sc-tab[data-sheet="evaluations"] { background: var(--aspire-sheet-evaluations); }
+.sc-tab[data-sheet="notes"]       { background: var(--aspire-sheet-notes); }
+.sc-tab:hover { translate: -2px 0; z-index: 3; }
+.sc-tab[aria-current="true"] {
+  color: var(--aspire-sheet-title);
+  font-weight: 700;
+  translate: -6px 0;
+  z-index: 5;
+  box-shadow: -6px 3px 9px rgba(24, 32, 63, 0.24);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-tab { transition: none; }
+}
+
+/* A die-cut tab has no border and a ribbon is a shape, so neither shows focus on its own.
+   The app has no blanket :focus-visible rule, so both say it themselves, using the same
+   token and the same shape as the rubric book's ribbon.
+   --aspire-focus-ring is a WHOLE shorthand (`2px solid var(--aspire-navy)`), not a colour.
+   Writing `outline: 3px solid var(--aspire-focus-ring)` expands to `3px solid 2px solid
+   #1D2567`, which is invalid, so the browser drops the declaration and the ring silently
+   disappears. The fallback never fires either, because the token IS defined. Measured in
+   the browser after the fact, not assumed. */
+.sc-tab:focus-visible,
+.sc-ribbon:focus-visible {
+  outline: var(--aspire-focus-ring);
+  outline-offset: 2px;
+  z-index: 7;
+}
+[data-theme="dark"] .sc-tab:focus-visible,
+[data-theme="dark"] .sc-ribbon:focus-visible {
+  outline-color: #9FB0F5;
+}
+
+/* ── Cross-fade on switching students ──────────────────────────────────────── */
+/* The plate band, the index and the binder hold still; only what is written on them
+   changes. Moving the binder would say a new object had arrived, and it has not: the
+   reader turned to a different record in the same one. */
+.sc-fade { transition: opacity 0.16s ease, transform 0.16s ease; }
+.sc-fade-out { opacity: 0; transform: translateY(4px); }
+@media (prefers-reduced-motion: reduce) {
+  .sc-fade { transition: none; }
+  .sc-fade-out { opacity: 1; transform: none; }
+}
+
+/* ── Stacked, below 1000px ─────────────────────────────────────────────────── */
+/* The binder survives at phone width, thinner, and the index becomes a strip of tabs
+   above the sheets rather than a rail beside them. Nothing is removed. */
+@media (max-width: 1000px) {
+  .sc-binder { padding: 8px 8px 8px 22px; }
+  .sc-rings { left: 5px; top: 18px; bottom: 18px; width: 12px; }
+  .sc-ring { height: 12px; }
+  .sc-main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .sc-index {
+    grid-row: 1;
+    flex-direction: row;
+    padding: 8px;
+    overflow-x: auto;
+    box-shadow: none;
+    border-bottom: 1px solid var(--aspire-page-rule);
+  }
+  .sc-tab {
+    writing-mode: horizontal-tb;
+    transform: none;
+    border-radius: var(--aspire-radius-control);
+    padding: 6px 10px;
+    margin-top: 0;
+    margin-left: -4px;
+  }
+  .sc-tab:first-child { margin-left: 0; }
+  .sc-tab:hover { translate: 0 -2px; }
+  .sc-tab[aria-current="true"] { translate: 0 -3px; }
+  .sc-plate { padding: 12px 14px; }
+  .sc-plate-name { font-size: 20px; }
+  .sc-sheet[data-sheet="notes"] { min-height: 0; }
+}
+
+/* ── Dark ──────────────────────────────────────────────────────────────────── */
+/* The binder itself does not change: black leather is black in both themes, and the
+   rings still catch light. The paper does, because paper is the reading surface.
+   Values are the mockup's, and each was measured against the ink that sits on it. */
+[data-theme="dark"] .sc-paper,
+[data-theme="dark"] .sc-tab {
+  --aspire-page: #181C2B;
+  --aspire-page-rule: #2B3046;
+  --aspire-page-band: #161A28;
+  --aspire-paper-ink: #E9EAF2;
+  --aspire-paper-ink-soft: #9CA1BA;
+  --aspire-sheet-profile: #181C2B;
+  --aspire-sheet-background: #221F33;
+  --aspire-sheet-placement: #1E2540;
+  --aspire-sheet-hours: #16291F;
+  --aspire-sheet-documents: #2A2517;
+  --aspire-sheet-evaluations: #221F33;
+  --aspire-sheet-notes: #1B1F2E;
+  --aspire-sheet-card: rgba(0, 0, 0, 0.18);
+}
+[data-theme="dark"] .sc-paper { color: var(--aspire-paper-ink); }
+/* Ink for dark paper, measured against every one of the seven tints rather than assumed:
+   the title clears 7.2:1 on the worst and the soft ink 5.9:1. The light theme's greys,
+   which the tabs and field labels inherit by default, measured 2.2:1 and 4.34:1 here. */
+[data-theme="dark"] .sc-paper,
+[data-theme="dark"] .sc-tab {
+  --aspire-sheet-title: #9FB0F5;
+  --aspire-sheet-tab-ink: #9CA1BA;
+}
+[data-theme="dark"] .sc-tab[aria-current="true"] { color: #C3CCFB; }
+[data-theme="dark"] .sc-sheet .sp-field-lbl,
+[data-theme="dark"] .sc-sheet .sp-section-hdr { color: var(--aspire-paper-ink-soft); }
+[data-theme="dark"] .sc-index { background: linear-gradient(-90deg, #10131F, #141828); }
+[data-theme="dark"] .sc-plate-name { color: var(--aspire-paper-ink); }
+[data-theme="dark"] .sc-plate-school,
+[data-theme="dark"] .sc-sheet-label { color: var(--aspire-paper-ink-soft); }
+[data-theme="dark"] .sc-sheet-title { color: var(--aspire-paper-ink); }
