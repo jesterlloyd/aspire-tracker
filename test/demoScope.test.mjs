@@ -456,3 +456,46 @@ test('user_profiles is not in the demo boundary, deliberately', () => {
     'user_profiles must never be scoped: the session profile would vanish and the app ' +
     'would lose permissions rather than merely showing demo data')
 })
+
+// ─────────────────────────────────────────────────────────────────────
+// 9. The marker has to read on chrome that is three different colours
+// ─────────────────────────────────────────────────────────────────────
+test('demo mode announces itself through the scope light, not a second badge', () => {
+  const labels = readFileSync(join(root, 'src/lib/scopePickerLabels.js'), 'utf8')
+  const picker = readFileSync(join(root, 'src/components/Header/scope/ScopePicker.jsx'), 'utf8')
+  const header = readFileSync(join(root, 'src/components/Header/Header.jsx'), 'utf8')
+
+  // The first version hung a separate amber pill beside the wordmark. It was a second
+  // thing to look at, and being a translucent tint it also inherited whatever chrome was
+  // behind it, which is white in some portals and navy in the staff app. The scope
+  // control already has a status light the viewer has learned to read; a fourth colour
+  // in that one light says the same thing with nothing added.
+  assert.match(labels, /export const DEMO_TONE/, 'the demo tone must live with the status tones')
+  assert.match(labels, /cohortStatusTone\(status, isDemo = false\)/,
+    'one tone function, with the demo case inside it, or the two rules drift')
+  assert.match(labels, /if \(isDemo\) return DEMO_TONE/,
+    'demo must WIN over status: a demo cohort is Active, but that is not what matters while presenting')
+  assert.match(picker, /cohortStatusTone\(cohortStatus, cohortIsDemo\)/)
+  assert.match(header, /cohortIsDemo: cohort\.activeCohort\?\.is_demo === true/)
+
+  // And the pill is gone for good.
+  assert.doesNotMatch(header, /DemoModeBadge/, 'the separate badge must not come back')
+})
+
+test('the demo cohort gets a mark in the scope picker', () => {
+  const mark = readFileSync(join(root, 'src/components/Header/scope/SeasonMark.jsx'), 'utf8')
+  const list = readFileSync(join(root, 'src/components/Header/scope/InternshipCohortList.jsx'), 'utf8')
+
+  // Every other cohort is named for a season and gets an icon. "Demo Cohort" is named
+  // for none, so it was the one row with an empty slot beside a list of marked ones.
+  assert.match(mark, /Presentation/, 'the demo cohort needs its own icon')
+  assert.match(mark, /isDemo \? Presentation/,
+    'the demo mark must WIN over a season, so a cohort named "Spring Demo" still reads as the demo')
+  assert.match(list, /<SeasonMark name=\{c\.name\} isDemo=\{c\.is_demo\} \/>/,
+    'the ASPIRE cohort list must pass the flag through')
+
+  // Monochrome, like the seasons. The header pill carries the STATE; this is
+  // punctuation, and two things shouting the same thing is worse than one.
+  assert.doesNotMatch(mark, /#A855F7|DEMO_TONE/,
+    'the mark is monochrome punctuation; the purple scope light is what carries the state')
+})

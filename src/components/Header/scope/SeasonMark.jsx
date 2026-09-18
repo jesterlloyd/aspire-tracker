@@ -14,14 +14,23 @@
 // The slot is FIXED WIDTH and renders empty for a name that states no single
 // season, so a list mixing "Fall 2026" with a differently-named cohort keeps one
 // left edge instead of ragging.
-import { Sun, Leaf, Snowflake, Flower2 } from 'lucide-react'
+//
+// DEMO-MODE-1: the demo cohort is the one row that is named for no season, so it was
+// the one row with an empty slot while every neighbour had a mark. It gets the same
+// Presentation icon the Settings rail uses, in the same monochrome as the seasons,
+// because it is reinforcement for scanning exactly as they are. The Demo pill in the
+// header is what carries the STATE; this is punctuation, and colouring it would make
+// two things shout the same thing.
+import { Sun, Leaf, Snowflake, Flower2, Presentation } from 'lucide-react'
 import { seasonOf } from '../../../lib/cohortSeason'
 
 const SEASON_ICONS = { summer: Sun, fall: Leaf, winter: Snowflake, spring: Flower2 }
 
-export default function SeasonMark({ name }) {
+export default function SeasonMark({ name, isDemo = false }) {
   const season = seasonOf(name)
-  const Icon = season ? SEASON_ICONS[season] : null
+  // The demo mark wins over a season, so a demo cohort someone names "Spring Demo"
+  // still reads as the demo rather than as spring.
+  const Icon = isDemo ? Presentation : (season ? SEASON_ICONS[season] : null)
   return (
     // aria-hidden: the season is spoken as part of the cohort's own name, so
     // announcing it twice would be noise.

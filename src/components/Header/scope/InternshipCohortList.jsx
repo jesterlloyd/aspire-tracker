@@ -85,7 +85,7 @@ export default function InternshipCohortList({
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 15, fontWeight: 600, color: '#374151' }}>
                 {/* aria-hidden: the season is spoken as part of the cohort's own name,
                     so announcing it twice would be noise. */}
-                <SeasonMark name={c.name} />
+                <SeasonMark name={c.name} isDemo={c.is_demo} />
                 <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 }}>

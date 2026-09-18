@@ -34,6 +34,8 @@ function HeaderChevron() {
  * @param activeExperience   id of the current experience
  * @param onSwitchExperience (id) => void; navigates, so it also closes the picker
  * @param cohortLabel        the cohort half of the pill (may be a state, not a name)
+ * @param cohortIsDemo       the selected cohort is the fabricated one; turns the status
+ *                           light purple, which is how demo mode announces itself
  * @param cohortStatus       the selected cohort's status; the dot reads it through
  *                           cohortStatusTone (SCOPE-DOT-1: Active green, Planning
  *                           yellow, Completed muted rose, otherwise neutral)
@@ -50,7 +52,8 @@ export default function ScopePicker({
   cohortPane = null,
 }) {
   const [open, setOpen] = useState(false)
-  const tone = cohortStatusTone(cohortStatus)
+  // DEMO-MODE-1: the demo cohort turns this light purple. See DEMO_TONE.
+  const tone = cohortStatusTone(cohortStatus, cohortIsDemo)
   const areaRef = useRef(null)
   const triggerRef = useRef(null)
 
@@ -95,7 +98,7 @@ export default function ScopePicker({
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
         >
-          <span data-cohort-status={cohortStatus || 'none'} style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: tone.dot, boxShadow: tone.halo === 'none' ? 'none' : `0 0 0 3px ${tone.halo}` }} />
+          <span data-cohort-status={cohortIsDemo ? 'demo' : (cohortStatus || 'none')} style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: tone.dot, boxShadow: tone.halo === 'none' ? 'none' : `0 0 0 3px ${tone.halo}` }} />
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 2, flexShrink: 0 }}>Scope</span>
           <span style={{ fontSize: 12.5, fontWeight: 600, opacity: cohortLabelDimmed ? 0.7 : 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
           <span style={{ opacity: 0.5, lineHeight: 0, marginLeft: 2, flexShrink: 0 }}><HeaderChevron /></span>

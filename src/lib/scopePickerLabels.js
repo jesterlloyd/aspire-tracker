@@ -28,7 +28,36 @@ export const COHORT_STATUS_TONE = Object.freeze({
   Archived:  Object.freeze({ dot: '#9ca3af', halo: 'none',                   bg: '#f3f4f6', color: '#9ca3af' }),
 })
 export const NEUTRAL_TONE = Object.freeze({ dot: '#9ca3af', halo: 'none', bg: '#f3f4f6', color: '#6b7280' })
-export function cohortStatusTone(status) {
+
+/**
+ * DEMO-MODE-1: the demo cohort's tone.
+ *
+ * Demo mode used to announce itself with a separate amber pill in the header. This is
+ * better, and it is the Owner's idea: the scope control ALREADY has a status light, and
+ * a viewer has already learned to read it. Green is Active, yellow is Planning, pink is
+ * Completed. A fourth colour in the same light says "this scope is different" using
+ * vocabulary that is already on screen, instead of adding a second thing to look at.
+ *
+ * Purple because nothing else in this map is purple, and because it is the one hue no
+ * ASPIRE status pill uses, so it cannot be misread as a cohort state.
+ *
+ * The halo is deliberately stronger than the status tones (0.35 against their 0.2-0.25).
+ * The others distinguish one real cohort from another; this one has to be noticeable
+ * from across a room, because the cost of missing it is presenting real data believing
+ * you are not.
+ */
+export const DEMO_TONE = Object.freeze({
+  dot: '#A855F7', halo: 'rgba(168,85,247,0.35)', bg: '#f3e8ff', color: '#6b21a8',
+})
+
+/**
+ * The tone the scope light reads.
+ *
+ * `isDemo` wins over status, because a demo cohort's own status ('Active') is true but
+ * is not the thing worth signalling while presenting.
+ */
+export function cohortStatusTone(status, isDemo = false) {
+  if (isDemo) return DEMO_TONE
   return COHORT_STATUS_TONE[status] || NEUTRAL_TONE
 }
 

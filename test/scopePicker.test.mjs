@@ -81,7 +81,10 @@ test('SCOPE-DOT-1: the dot and the pills read status; Active green, Planning yel
   assert.equal(cohortDotStatus(null), null)
   // The wiring: one rule, four readers, no local colour maps left behind.
   const picker = read('src/components/Header/scope/ScopePicker.jsx')
-  assert.match(picker, /const tone = cohortStatusTone\(cohortStatus\)/)
+  // DEMO-MODE-1 added a second argument: the demo cohort turns this light purple. The
+  // contract this pins is that the picker reads ONE tone function rather than branching
+  // on status itself, and that still holds.
+  assert.match(picker, /const tone = cohortStatusTone\(cohortStatus, cohortIsDemo\)/)
   assert.match(picker, /background: tone\.dot, boxShadow: tone\.halo === 'none' \? 'none' : `0 0 0 3px \$\{tone\.halo\}`/)
   assert.doesNotMatch(picker, /cohortLive/)
   const header = read('src/components/Header/Header.jsx')
@@ -279,7 +282,11 @@ test('the season mark is decoration: monochrome, aligned, and never announced', 
 test('both cohort lists mark seasons, from one shared component', () => {
   for (const f of [INT_LIST, RES_LIST]) {
     assert.match(read(f), /import SeasonMark from '\.\/SeasonMark'/, f)
-    assert.match(read(f), /<SeasonMark name=\{c\.name\} \/>/, f)
+    // Prefix match, not an exact one. The ASPIRE list also passes isDemo, and this
+    // test is about BOTH lists reading one shared component rather than about the exact
+    // prop list. The exact match failed the day the demo cohort got its own mark, which
+    // is the assertion being too literal rather than a real drift.
+    assert.match(read(f), /<SeasonMark name=\{c\.name\}/, f)
     // The icon table lives in SeasonMark alone.
     assert.doesNotMatch(read(f), /SEASON_ICONS/, `${f} must not keep its own icon table`)
   }

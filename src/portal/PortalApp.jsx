@@ -79,7 +79,6 @@ import { PortalAccessSignalContext } from './portalAccessSignal'
 import { portalKeyFromPath, MAIN_APP_PATH, STAFF_SETTINGS_PATH } from '../lib/portalLinks'
 import '../styles/aspireBrand.css'
 import '../styles/aspireTable.css'
-import '../styles/demoMode.css'
 import './portal.css'
 import { demoScopeParam } from '../lib/demoMode'
 

@@ -142,13 +142,18 @@ test('the client sends the scope on both preview requests', () => {
   }
 })
 
-test('the portal chrome wears the same marker as the staff header', () => {
-  const shell = read('src/portal/PortalShell.jsx')
-  assert.match(shell, /import DemoModeBadge/)
-  assert.match(shell, /<DemoModeBadge \/>/)
-
-  // The shared sheet has to reach the portal bundle, which loads its own CSS and never
-  // loads index.css. Without this import the badge renders as unstyled text.
-  assert.match(read('src/portal/PortalApp.jsx'), /styles\/demoMode\.css/,
-    'the portal must import the shared demo sheet, or the badge has no styling at all')
+test('the portals carry no demo marker, and that is a known gap', () => {
+  // HONEST RECORD, not an aspiration. Demo mode now signals through the Scope control's
+  // status light, and only the STAFF header renders that control (Residency aside). The
+  // Student Portal preview therefore has no demo indicator at all.
+  //
+  // Judged acceptable because a portal preview is only ever REACHED from the staff app,
+  // where the purple light is visible, and the preview shows its own "Viewing student"
+  // picker. It is still a gap: a screenshot of a portal carries nothing saying it is
+  // fabricated. If that ever matters, the fix is a marker in PortalShell, not a second
+  // mechanism bolted onto the boundary.
+  const shell = readFileSync(join(root, 'src/portal/PortalShell.jsx'), 'utf8')
+  assert.doesNotMatch(shell, /DemoModeBadge/,
+    'the badge was removed deliberately; if a portal marker returns, update this test ' +
+    'and say what it is')
 })
