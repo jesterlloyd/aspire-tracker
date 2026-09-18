@@ -13,6 +13,7 @@
 
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, isOwnerAdminProfile } from './portalAuth.js'
 import { resolveSchoolAliases } from './schoolAliases.js'
+import { demoScopeFromRequest, scopedServiceDb } from '../../lib/server/demoScope.js'
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[.,&/-]/g, ' ').replace(/\s+/g, ' ').trim()
 
@@ -24,17 +25,30 @@ export async function verifyPortalAcademicPartnerCaller(req) {
   if (!auth.authenticated) {
     return { ok: false, status: auth.status === 403 ? 403 : 401, reason: auth.status === 403 ? 'forbidden' : 'unauthorized' }
   }
+  // DEMO-MODE-2: the boundary for this whole preview, applied once to the client every
+  // endpoint below shares. A demo presentation must not show a real student, and real
+  // work must not show a fabricated one; when the request carries no scope at all the
+  // client is returned untouched and nothing here behaves differently than it did
+  // before demo mode existed. See lib/server/demoScope.js.
+  const demoScope = demoScopeFromRequest(req)
   let db
-  try { db = getServiceDb() } catch { return { ok: false, status: 500, reason: 'internal_error' } }
+  try { db = scopedServiceDb(getServiceDb(), demoScope) } catch { return { ok: false, status: 500, reason: 'internal_error' } }
 
   // Owner/Admin preview uses the active canonical school catalog as its scope.
   // The authenticated staff profile remains the actor; no partner grant is
   // synthesized or persisted.
   if (isOwnerAdminProfile(auth.profile)) {
-    const { data: catalogRows, error: catalogError } = await db
-      .from('schools')
-      .select('canonical_name, is_active')
-      .eq('is_active', true)
+    // DEMO-MODE-2: the canonical schools catalog carries no is_demo column, so it can
+    // only ever describe the real world. A demo's schools are the ones its fabricated
+    // students name, which is the SAME derivation this function already falls back to
+    // on an instance that has no catalog - so the demo takes that path deliberately
+    // rather than reaching a catalog that could never contain Pacific Crest University.
+    const { data: catalogRows, error: catalogError } = demoScope === true
+      ? { data: null, error: { message: 'demo scope derives schools from students' } }
+      : await db
+        .from('schools')
+        .select('canonical_name, is_active')
+        .eq('is_active', true)
 
     // Some environments predate the canonical schools catalog. Staff preview
     // can still derive the same read-only boundary from the schools already

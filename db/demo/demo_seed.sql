@@ -119,6 +119,7 @@ $preflight$;
 -- 1. Clear any previous demo cast, so this file is re-runnable.
 --    Children first. Nothing here can touch a real row: every predicate is is_demo.
 -- ─────────────────────────────────────────────────────────────────────
+DELETE FROM student_unit_assignments      WHERE is_demo;
 DELETE FROM student_preceptor_assignments WHERE is_demo;
 DELETE FROM student_shift_logs            WHERE is_demo;
 DELETE FROM preceptor_cohort_participation WHERE is_demo;
@@ -389,6 +390,68 @@ WHERE s.is_demo AND s.matched_unit_id IS NOT NULL;
 -- browser anywhere near it, is stamped correctly. V6 proves it.
 
 -- ─────────────────────────────────────────────────────────────────────
+-- 7b. The UNIT assignments, and the rotation window every roster reads.
+--
+--     WHY THIS IS AN EXPLICIT INSERT, when section 7 argued the opposite.
+--
+--     student_preceptor_assignments is created for us by a trigger, so the seed does
+--     not write it. The unit equivalent looks like the same story and is not:
+--
+--       trg_sync_assignments_from_matched_unit
+--         AFTER UPDATE OF matched_unit_id ON students
+--
+--     AFTER UPDATE. This seed INSERTS students with matched_unit_id already set, so
+--     that trigger never fires for a single one of them, and until this section existed
+--     the demo cast had no unit assignments at all.
+--
+--     That is not a cosmetic gap. api/lib/unitLeaderScope.js authorizes the Unit Leader
+--     Portal ONLY through LIVE student_unit_assignments rows (status planned or active);
+--     students.matched_unit_id has not been the authorization path since
+--     MULTI-UNIT-STUDENT-PLACEMENTS-2. With no rows here, every unit roster in demo mode
+--     is empty, and empty looks exactly like a broken demo boundary.
+--
+--     is_demo is deliberately absent from the column list: aspire_demo_inherit is a
+--     BEFORE INSERT trigger that reads it from the parent student. unit_key is absent for
+--     the same kind of reason - trg_sua_enforce_unit_identity snapshots it from
+--     units.unit_name, and passing a value that disagrees raises rather than drifting.
+-- ─────────────────────────────────────────────────────────────────────
+
+-- The canonical rotation window, matched on the school name its row was keyed to. The
+-- Rotation Timeline column on the Unit Leader and Academic Partner rosters reads this
+-- through students.cohort_school_rotation_id, and shows nothing without it.
+UPDATE students s
+   SET cohort_school_rotation_id = r.id
+  FROM cohort_school_rotations r
+ WHERE s.is_demo
+   AND r.is_demo
+   AND r.cohort_id   = s.cohort_id
+   AND r.school_name = s.school;
+
+-- A completed student stays visible to their unit for COMPLETED_VISIBILITY_DAYS (90),
+-- measured from this date. Without it completedStillVisible fails CLOSED and the two
+-- Completed students are invisible to the portal that is supposed to demonstrate the
+-- window. Ten days ago: recently finished, comfortably inside it.
+UPDATE students
+   SET rotation_end_date     = CURRENT_DATE - 10,
+       rotation_completed_at = (CURRENT_DATE - 10 + TIME '16:00')::timestamptz
+ WHERE is_demo AND status = 'Completed';
+
+INSERT INTO student_unit_assignments
+  (id, student_id, cohort_id, unit_id, role, status, start_date, end_date, notes)
+SELECT
+  ('0de0e000-0000-4000-8000-0000000000' || lpad(row_number() OVER (ORDER BY s.id)::text, 2, '0'))::uuid,
+  s.id, s.cohort_id, s.matched_unit_id, 'primary',
+  -- Placed is the student who has not started: planned, not active. Both are LIVE, so
+  -- both authorize the roster; the distinction is what the Upcoming bucket reads.
+  CASE WHEN s.status = 'Placed' THEN 'planned' ELSE 'active' END,
+  r.rotation_start_date, r.rotation_end_date,
+  'demo cast'
+FROM students s
+JOIN units u ON u.id = s.matched_unit_id
+LEFT JOIN cohort_school_rotations r ON r.id = s.cohort_school_rotation_id
+WHERE s.is_demo AND s.matched_unit_id IS NOT NULL;
+
+-- ─────────────────────────────────────────────────────────────────────
 -- 8. Shift logs.
 --
 --    Approved history for the rotating students, then TODAY'S shifts. Two students are
@@ -477,6 +540,9 @@ UNION ALL SELECT 'student_shift_logs', count(*) FILTER (WHERE NOT is_demo), coun
 -- student with a preceptor (5 rotating + 3 placed + 2 completed, and the Declined and
 -- unmatched students have none).
 UNION ALL SELECT 'student_preceptor_assignments', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM student_preceptor_assignments
+-- EXPECT 10 demo rows: one per student with a matched unit. This is the row the Unit
+-- Leader Portal authorizes on, so a 0 here means every demo unit roster is empty.
+UNION ALL SELECT 'student_unit_assignments', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM student_unit_assignments
 ORDER BY t;
 
 -- V3. EVERY demo address is at the reserved domain. EXPECT: zero rows.
@@ -520,4 +586,23 @@ UNION ALL SELECT 'match', m.id FROM matches m JOIN students s ON s.id = m.studen
 -- seed, so this line is the real proof that aspire_demo_inherit stamps a row written by
 -- a database trigger with no client involved.
 UNION ALL SELECT 'preceptor assignment', a.id FROM student_preceptor_assignments a
-  JOIN students s ON s.id = a.student_id WHERE s.is_demo AND NOT a.is_demo;
+  JOIN students s ON s.id = a.student_id WHERE s.is_demo AND NOT a.is_demo
+UNION ALL SELECT 'unit assignment', ua.id FROM student_unit_assignments ua
+  JOIN students s ON s.id = ua.student_id WHERE s.is_demo AND NOT ua.is_demo;
+
+-- V7. What the Unit Leader Portal will actually show in demo mode. This is the query
+--     api/lib/unitLeaderScope.js authorizes on, not an approximation of it: LIVE rows
+--     only, which is why an 'ended' assignment would not appear.
+--     EXPECT: 6 NE 2, 5 North 2, 8 South 2, 4 SCCT 1, and 7 North ABSENT - the unfilled
+--     unit is unfilled here too, which is the point of it.
+SELECT ua.unit_key, ua.status, count(*)
+FROM student_unit_assignments ua
+WHERE ua.is_demo AND ua.status IN ('planned','active')
+GROUP BY ua.unit_key, ua.status
+ORDER BY ua.unit_key, ua.status;
+
+-- V8. The rotation window every roster's Timeline column reads. EXPECT: zero rows.
+--     A row here is a demo student whose roster line would show no dates.
+SELECT s.first_name, s.last_name, s.school
+FROM students s
+WHERE s.is_demo AND s.matched_unit_id IS NOT NULL AND s.cohort_school_rotation_id IS NULL;

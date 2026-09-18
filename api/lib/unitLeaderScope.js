@@ -36,6 +36,7 @@
 // here for authorization.
 
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveUnitScopes, isOwnerAdminProfile } from './portalAuth.js'
+import { serviceDbForRequest } from '../../lib/server/demoScope.js'
 import {
   UL_STUDENT_COLUMNS,
   ROSTER_STATUSES,
@@ -69,8 +70,13 @@ export async function verifyPortalUnitLeaderCaller(req) {
     return { ok: false, status: caller.status || 401, reason: caller.reason || 'unauthenticated' }
   }
 
+  // DEMO-MODE-2: the boundary for this whole preview, applied once to the client every
+  // endpoint below shares. A demo presentation must not show a real student, and real
+  // work must not show a fabricated one; when the request carries no scope at all the
+  // client is returned untouched and nothing here behaves differently than it did
+  // before demo mode existed. See lib/server/demoScope.js.
   let db
-  try { db = getServiceDb() } catch { return { ok: false, status: 500, reason: 'server_misconfigured' } }
+  try { db = serviceDbForRequest(getServiceDb(), req) } catch { return { ok: false, status: 500, reason: 'server_misconfigured' } }
 
   // Owner/Admin preview is organization-wide but still server-derived. The
   // browser receives the same unit-safe payload as a Unit Leader and can only

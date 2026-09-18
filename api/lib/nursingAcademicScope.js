@@ -17,6 +17,7 @@
 // expiration take effect on the very next call.
 
 import { verifyPortalCaller, getServiceDb, getActiveRoleGrant, isOwnerAdminProfile } from './portalAuth.js'
+import { serviceDbForRequest } from '../../lib/server/demoScope.js'
 
 export { getServiceDb }
 
@@ -30,8 +31,13 @@ export async function verifyPortalNursingAcademicCaller(req) {
     return { ok: false, status: caller.status || 401, reason: caller.reason || 'unauthenticated' }
   }
 
+  // DEMO-MODE-2: the boundary for this whole preview, applied once to the client every
+  // endpoint below shares. A demo presentation must not show a real student, and real
+  // work must not show a fabricated one; when the request carries no scope at all the
+  // client is returned untouched and nothing here behaves differently than it did
+  // before demo mode existed. See lib/server/demoScope.js.
   let db
-  try { db = getServiceDb() } catch { return { ok: false, status: 500, reason: 'server_misconfigured' } }
+  try { db = serviceDbForRequest(getServiceDb(), req) } catch { return { ok: false, status: 500, reason: 'server_misconfigured' } }
 
   // Owner/Admin may open this organization-wide portal with their existing
   // staff identity. Contacts management remains attributable to that profile.

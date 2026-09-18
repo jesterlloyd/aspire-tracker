@@ -51,6 +51,7 @@ import {
 } from '../lib/server/ngrpTransition.js'
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 import { validateResidentDetails } from '../src/lib/ngrp/ngrpResidents.js'
+import { serviceDbForRequest } from '../lib/server/demoScope.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // DEFECT FIXED 2026-09-12 (RESIDENCY-ROSTER-1): assign_unit, interview_set and
@@ -173,7 +174,12 @@ export default async function handler(req, res) {
   const action = typeof body.action === 'string' ? body.action : null
   if (!action || !ACTIONS.has(action)) return res.status(400).json({ error: 'invalid_action' })
 
-  const db = getServiceDb()
+  // DEMO-MODE-2: the residency workspace is the staff one mounted in a portal, so it
+  // reads through this client too. Filtering it here keeps a demo's applicant pool and
+  // resident list drawn from fabricated students only. The ngrp_* tables themselves
+  // carry no is_demo column, so a row written here during a demo is a real row about a
+  // fabricated student; it disappears with that student when the demo is torn down.
+  const db = serviceDbForRequest(getServiceDb(), req)
   const nowIso = new Date().toISOString()
 
   try {

@@ -70,18 +70,38 @@ one.
 **Settings > Demo Mode**, Owner only. One switch. Per user, per device, so a shared
 workstation never hands the next person a mode they did not choose.
 
-While it is on, a small amber **DEMO** pill sits beside the ASPIRE wordmark, in the staff
-header and in every portal's chrome. It is deliberately small: a screenshot cropped to a
-card, board, chart or drawer never contains it, and a capture of the whole window
-contains it exactly once. If you cannot see it, you are looking at real data.
+While it is on, the **scope picker's status light turns purple**. That light normally
+reports the cohort's status (green Active, amber Planning, red Closed); in demo mode the
+demo cohort overrides it, and the cohort row in the picker carries a presentation mark
+instead of its season icon. It is deliberately quiet: a screenshot cropped to a card,
+board, chart or drawer never contains it, and a capture of the whole window contains it
+exactly once.
+
+The light lives on the staff header and on the Residency Portal, which renders the same
+control. The Student, Unit Leader, Academic Partner and Nursing Education & Leadership
+portals have no scope picker and therefore no marker, so a screenshot of one of those
+does not say on its face that it is fabricated. The names do: every demo address is
+`@demo.aspire.invalid`.
 
 **Before a talk, re-run the seed.** Dates are anchored to `CURRENT_DATE`, so a cohort
 seeded in March looks finished by May. The seed clears and rebuilds its own rows, so
 re-running is safe and idempotent.
 
-**Portals:** go to `/portal/student` as the Owner. The existing staff preview gives a
-read-only Student Portal with a student picker, and in demo mode that picker lists only
-fabricated students.
+**Portals:** open any of them as the Owner through the portal switcher. Every preview
+resolves its own population server-side and each one is inside the boundary:
+
+| Portal | What demo mode shows |
+|---|---|
+| Student | The picker lists only fabricated students; a stale id from the other population is refused |
+| Unit Leader | The five demo units, and only the students assigned to them |
+| Academic Partner | The three invented schools, derived from the demo students themselves |
+| Nursing Education & Leadership | Demo cohorts, rotations, contacts and community-benefit figures |
+| Residency | An applicant pool drawn from demo students only (see gap 3) |
+
+Two things look empty on purpose. **7 North** has no roster: it is the unfilled unit, and
+the gap is the point. And there is **no accepting cycle** in demo mode, so the Unit Leader
+participation form has nothing to submit to: the demo cohort must never be the live public
+intake router, which a partial unique index enforces.
 
 **After a conference**, run `db/demo/demo_teardown.sql`. Demo rows cost nothing to leave
 (invisible outside demo mode, skipped by every cron), but leaving them is how a database
@@ -100,6 +120,8 @@ accumulates fabricated people nobody remembers creating.
 | Outbound email | Yes. All 31 send sites go through `lib/server/email/mailer.js`, which holds anything addressed to `@demo.aspire.invalid` and never calls Resend |
 | Crons and scheduled digests | They may read demo rows, but cannot email them |
 | Student Portal preview | Yes |
+| Unit Leader, Academic Partner and Nursing Education & Leadership previews | Yes, via one boundary on the service client each of their endpoints already shares |
+| Residency Portal preview | The people, yes. The cycles, no: see gap 3 |
 
 ## What it does not cover
 
@@ -125,9 +147,16 @@ Stated plainly so you know before the room is full, not after.
    only because the directory and the session read different RPCs
    (`get_all_user_profiles` vs `get_my_profile`), and a test fails if those ever
    converge.
-3. **Unit Leader, Academic Partner, Nursing Academics and Residency previews** resolve
-   their own scope inside their roster endpoints rather than through the student catalog,
-   and those endpoints are not demo-filtered yet. Only the Student Portal is.
+3. **The residency CYCLES are real, and its candidate rows carry no demo marker.** The
+   `ngrp_*` tables have no `is_demo` column, so the cohort picker in the Residency Portal
+   names real residency cycles even in demo mode. The PEOPLE are filtered: the applicant
+   pool is drawn from `students`, which is inside the boundary, and a hire record whose
+   student is outside the population is dropped rather than rendered with a blank name
+   over its own real Cedars-Sinai address. What this costs is that a demo Residency
+   Portal is largely EMPTY: no demo residency cycle exists, because creating one would
+   put a fabricated cohort in front of real Talent Acquisition work. Populating it needs
+   `is_demo` on the `ngrp_*` tables and a seeded cycle, which is a migration, not a code
+   change.
 4. **Connect message history, notification log, messaging, program events and the
    Masthead's event feed** are outside the nineteen scoped tables and show real data.
 5. **Six rpc functions** carry no table to filter and sit outside the boundary. They are
@@ -180,11 +209,13 @@ anything.
 | `lib/server/demoScope.js` | The server half, for endpoints the browser wrapper cannot reach |
 | `src/components/DemoModeBadge.jsx` | The marker |
 | `src/components/settings/DemoModePanel.jsx` | Settings > Demo Mode |
-| `src/styles/demoMode.css` | The badge's styling, imported by both halves of the app |
+| `src/lib/demoFetch.js` | The header that tells a server endpoint which population to answer for |
+| `shared/demoTables.js` | The one registry of scoped tables, read by both halves of the boundary |
 | `supabase/migrations/20260921000000_demo_mode_foundation.sql` | The column, the triggers, the indexes |
 | `db/demo/demo_seed.sql` | The cast |
 | `db/demo/demo_teardown.sql` | Removing it |
 | `test/demoScope.test.mjs` | Boundary, lockstep with the migration, the gate |
 | `test/demoMailer.test.mjs` | The mail guard and its structural ratchets |
 | `test/demoSeed.test.mjs` | What can be proven about the seed without a database |
-| `test/demoServerScope.test.mjs` | The portal preview |
+| `test/demoServerScope.test.mjs` | The Student Portal preview |
+| `test/demoPortalScope.test.mjs` | The other four portals, the header, and the seed rows the Unit Leader roster needs |

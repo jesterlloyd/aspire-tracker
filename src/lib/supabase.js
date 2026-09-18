@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { installDemoScope } from './demoScope.js'
+import { installDemoApiHeader } from './demoFetch.js'
 
 const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -52,6 +53,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // object, which is why the boundary is one call rather than 121 edits. See
 // src/lib/demoScope.js for what it covers and, just as importantly, what it does not.
 installDemoScope(supabase)
+
+// DEMO-MODE-2: the other half of the same boundary. The Supabase wrapper above covers
+// every direct table read; this covers the /api/ endpoints the portals go through,
+// which the wrapper cannot reach because they run on a server with no session. One
+// header, added to same-origin /api/ requests only. See src/lib/demoFetch.js.
+installDemoApiHeader()
 
 export async function ensureHealthyConnection() {
   if (!supabase.realtime.isConnected() && !supabase.realtime.isConnecting()) {

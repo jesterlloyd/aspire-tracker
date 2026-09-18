@@ -31,6 +31,7 @@ import {
   PRECEPTOR_FEEDBACK_FORM_TYPE, REQUEST_NOTE_MAX, shapePreceptorFeedback, buildFeedbackSummary,
 } from '../lib/server/ngrpPreceptorFeedback.js'
 import { notifyRequesterOfDecision } from '../lib/server/ngrpPreceptorFeedbackNotify.js'
+import { serviceDbForRequest } from '../lib/server/demoScope.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ACTIONS = new Set(['summary', 'request', 'decide', 'view'])
@@ -76,7 +77,12 @@ export default async function handler(req, res) {
   const action = typeof body.action === 'string' ? body.action : null
   if (!action || !ACTIONS.has(action)) return res.status(400).json({ error: 'invalid_action' })
 
-  const db = getServiceDb()
+  // DEMO-MODE-2: the residency workspace is the staff one mounted in a portal, so it
+  // reads through this client too. Filtering it here keeps a demo's applicant pool and
+  // resident list drawn from fabricated students only. The ngrp_* tables themselves
+  // carry no is_demo column, so a row written here during a demo is a real row about a
+  // fabricated student; it disappears with that student when the demo is torn down.
+  const db = serviceDbForRequest(getServiceDb(), req)
 
   try {
     // ── summary ─────────────────────────────────────────────────────────────

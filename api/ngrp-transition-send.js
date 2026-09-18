@@ -39,6 +39,7 @@ import { isMissingNgrpTable, sanitizeStudent } from '../lib/server/ngrpApplicant
 // only ever passes Completed students, so every recipient here is in that branch.
 import { getStudentBulkEmailRoute } from '../src/lib/studentBulkEmail.js'
 import { openReadiness } from '../lib/server/ngrpPlanning.js'
+import { serviceDbForRequest } from '../lib/server/demoScope.js'
 
 const CONFIRMATION = 'SEND MESSAGES'
 const MAX_RECIPIENTS = 75
@@ -126,7 +127,12 @@ export default async function handler(req, res) {
   if (closeParsed.error) return res.status(422).json({ error: closeParsed.error })
   const formCloseAt = closeParsed.closeAt
 
-  const db = getServiceDb()
+  // DEMO-MODE-2: the residency workspace is the staff one mounted in a portal, so it
+  // reads through this client too. Filtering it here keeps a demo's applicant pool and
+  // resident list drawn from fabricated students only. The ngrp_* tables themselves
+  // carry no is_demo column, so a row written here during a demo is a real row about a
+  // fabricated student; it disappears with that student when the demo is torn down.
+  const db = serviceDbForRequest(getServiceDb(), req)
 
   const cyc = await db.from('ngrp_cycles').select('*').eq('id', cycleId).maybeSingle()
   if (cyc.error) {

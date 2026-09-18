@@ -36,6 +36,7 @@ import { emailBaseUrl } from '../lib/server/appUrl.js'
 import { buildReflectionEmail } from '../lib/server/email/ngrpReflectionEmail.js'
 import { isHired } from '../lib/server/ngrpResidencyRecipient.js'
 import { loadResidents } from '../lib/server/ngrpResidents.js'
+import { serviceDbForRequest } from '../lib/server/demoScope.js'
 import {
   startReflectionRun, stopReflectionRun, sendReflectionPeriod,
   RUNS as REFLECTION_RUNS, PERIODS as REFLECTION_PERIODS, SUBMISSIONS as REFLECTION_SUBMISSIONS,
@@ -86,7 +87,12 @@ export default async function handler(req, res) {
   // Only the ASPIRE team records support, or reads a resident's reflections.
   if (TEAM_ONLY.has(action) && isTA) return res.status(403).json({ error: 'aspire_team_only' })
 
-  const db = getServiceDb()
+  // DEMO-MODE-2: the residency workspace is the staff one mounted in a portal, so it
+  // reads through this client too. Filtering it here keeps a demo's applicant pool and
+  // resident list drawn from fabricated students only. The ngrp_* tables themselves
+  // carry no is_demo column, so a row written here during a demo is a real row about a
+  // fabricated student; it disappears with that student when the demo is torn down.
+  const db = serviceDbForRequest(getServiceDb(), req)
   const actorId = caller.profile.id
   const today = pacificToday()
 
