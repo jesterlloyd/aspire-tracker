@@ -178,7 +178,7 @@ function getActionLabel(item) {
   if (item.actionType === 'support_request') return 'Open Details'
   if (item.actionType === 'selection_decision') return 'Open Interview Review'
   if (item.actionType === 'no_shift_last_week') return 'View Rotation Activity'
-  if (item.navigateToUnitPool) return 'Open Unit Pool'
+  if (item.navigateToUnitPool) return 'Open Placement Board'
   if (item.navigateToProfile && !item.canMarkDone) return 'Open Profile'
   if (item.markDoneType === 'update_field') return 'Mark Complete'
   // CONNECT-SCHEDULING-LINK-1: the scheduling task offers its action only when the launch is
@@ -948,7 +948,7 @@ ${KR_SIG}`
     }) : []),
     ...act5.map(s => {
       const unit = units.find(u => u.id === (s.attentionUnitId || s.matched_unit_id))
-      return { id:`${s.attentionMatchId || s.id}-pw`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Preceptor Welcome Email', description:`${s.attentionPreceptorName || s.matched_preceptor || 'Assigned preceptor'} · ${unit?.unit_name || 'Unit Pool'} · notification not confirmed.`, actionType:'preceptor_notification_needed', canMarkDone:false, markDoneType:null, navigateToUnitPool:true, matchId:s.attentionMatchId, unitId:s.attentionUnitId || s.matched_unit_id || null, preceptorId:s.attentionPreceptorId || null }
+      return { id:`${s.attentionMatchId || s.id}-pw`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Preceptor Welcome Email', description:`${s.attentionPreceptorName || s.matched_preceptor || 'Assigned preceptor'} · ${unit?.unit_name || 'Unassigned unit'} · notification not confirmed.`, actionType:'preceptor_notification_needed', canMarkDone:false, markDoneType:null, navigateToUnitPool:true, matchId:s.attentionMatchId, unitId:s.attentionUnitId || s.matched_unit_id || null, preceptorId:s.attentionPreceptorId || null }
     }),
     ...(canEdit ? act17.map(s => ({ id:`${s.id}-prec`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:(s.status === 'Active Rotation' ? 'urgent' : 'high'), title:'No Preceptor Assigned', description:`${s.status}, no preceptor linked yet.`, actionType:'preceptor_needed', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     // CS-Link

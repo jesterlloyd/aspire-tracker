@@ -38,7 +38,10 @@ export const NGRP_TABS = [
   { id: 'profiles',   label: 'Profiles & Interest', chip: 'PI' },
   { id: 'residency',  label: 'Residency',           chip: 'R',
     subTabs: [
-      { id: 'board',     label: 'Placement Board' },
+      // INTERVIEW-BOARD-1 (Owner, 2026-09-17): the board pairs someone with the unit
+      // that will INTERVIEW them, so it says so. The id is unchanged, because it is in
+      // people's bookmarks and in the URL contract.
+      { id: 'board',     label: 'Interview Board' },
       // RESIDENTS-1 (Owner, 2026-09-14): the hired new grads and the retention tracker.
       { id: 'residents', label: 'Residents' },
       { id: 'activity',  label: 'Activity' },

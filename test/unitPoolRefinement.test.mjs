@@ -173,7 +173,7 @@ test('PROOF 9+10: the consequences of the branch that will run are stated, and t
   // One plan, read before anything is written.
   assert.match(board, /const plan = planUnmatch\(\{ student, match, matches: live\.matches \}\)/)
   // FINAL: the pool, the slot and the preceptor assignment.
-  assert.match(board, /`\$\{name\} returned to the Student Pool\.`/)
+  assert.match(board, /`\$\{name\} moved back to Students\.`/)
   assert.match(board, /The slot reopens and the preceptor assignment for this placement is cleared\./)
   // PRIMARY WITH SURVIVOR: the successor is NAMED and the status does not change.
   assert.match(board, /plan\.kind === 'primary_with_survivor'\s*\?\s*\(unitNameById\[plan\.successor\?\.unit_id\]/)

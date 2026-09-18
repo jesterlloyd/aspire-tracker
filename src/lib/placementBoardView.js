@@ -46,7 +46,7 @@ export function orderUnitsForStudent(units, student) {
 }
 
 /**
- * The Student Pool regrouped for a selected unit. The input is already sorted
+ * The students regrouped for a selected unit. The input is already sorted
  * (the pool's own sort), and each group keeps that order. Empty groups are
  * dropped. There is no AI recommendation group: ASPIRE stores no AI placement
  * recommendation (checked 2026-09-17), and the board does not invent one.
@@ -69,7 +69,7 @@ export function groupPoolForUnit(pool, unit) {
 }
 
 /**
- * The Student Pool's order (Owner, 2026-09-17). Three keys, in this order:
+ * The student order (Owner, 2026-09-17). Three keys, in this order:
  *   1. preference for the focused unit, when one is focused (1st, 2nd, 3rd, then the rest)
  *   2. interviewed before not-yet-interviewed
  *   3. last name A-Z

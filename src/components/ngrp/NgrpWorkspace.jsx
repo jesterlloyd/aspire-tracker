@@ -17,7 +17,7 @@ import SegmentedTabs from '../ui/SegmentedTabs'
 import AtAGlanceTab from './AtAGlanceTab'
 import ProfilesTab from './ProfilesTab'
 import ActivityCalendar from './ActivityCalendar'
-import PlacementBoard from './PlacementBoard'
+import InterviewBoard from './InterviewBoard'
 import ResidentsTab from './ResidentsTab'
 import SupportTab from './SupportTab'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
@@ -162,7 +162,7 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
         {tab === 'support' && <SupportTab cycle={cycle} subTab={subTab} toast={toast} />}
 
         {tab === 'residency' && subTab === 'board' && (
-          <PlacementBoard cycle={cycle} canManage={canManage} toast={toast} />
+          <InterviewBoard cycle={cycle} canManage={canManage} toast={toast} />
         )}
         {/* RESIDENTS-1: the hired new grads and the retention tracker. */}
         {tab === 'residency' && subTab === 'residents' && (

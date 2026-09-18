@@ -1,6 +1,6 @@
 // src/lib/placementReadiness.js
 //
-// PLACEMENT-POOL-READINESS-1: who belongs in the Placement Board Student Pool.
+// PLACEMENT-POOL-READINESS-1: who belongs in the Placement Board's Students column.
 //
 // THE DEFECT THIS FIXES. The pool listed every unmatched student whose status
 // was not already terminal - Pending Outreach, Form Sent, Form Received,

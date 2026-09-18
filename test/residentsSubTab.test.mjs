@@ -19,9 +19,9 @@ const loader = read('lib/server/ngrpResidents.js')
 const migration = read('supabase/migrations/20260919000000_ngrp_resident_details.sql')
 const gate = read('docs/security/OWNER_SQL_GATE.md')
 
-test('Residency reads Placement Board | Residents | Activity', () => {
+test('Residency reads Interview Board | Residents | Activity', () => {
   assert.deepEqual(ngrpSubTabs('residency').map(s => [s.id, s.label]), [
-    ['board', 'Placement Board'], ['residents', 'Residents'], ['activity', 'Activity'],
+    ['board', 'Interview Board'], ['residents', 'Residents'], ['activity', 'Activity'],
   ])
 })
 
