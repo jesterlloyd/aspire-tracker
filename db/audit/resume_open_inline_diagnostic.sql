@@ -16,6 +16,17 @@
 -- downloads no matter what the app does.
 --
 -- Run one section at a time and read the result before moving on.
+--
+-- RESULT, run by the Owner 2026-09-17: STORAGE IS CLEAN. 49 resumes, and every one
+-- is typed correctly: 43 resume.pdf as application/pdf, 6 resume.docx as the
+-- wordprocessingml type. Section 3 returned zero rows, so no PDF is mistyped and
+-- there is nothing to repair. Section 4 was NOT run and must not be.
+--
+-- Which means a resume that downloads is one of two things, neither of them storage:
+--   1. it is one of the six .docx files, which no browser renders inline; or
+--   2. Chrome is set to "Download PDFs instead of automatically opening them"
+--      (chrome://settings/content/pdfDocuments), which overrides the served type.
+-- Keep this file as the check to repeat if resumes ever start downloading again.
 
 -- ── Section 0. Prove the object naming before trusting any filter below ─────
 -- The path is cohortId/studentId/kind.ext (canonicalPath in lib/server/studentFiles.js),
