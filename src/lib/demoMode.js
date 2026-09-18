@@ -109,6 +109,19 @@ export function reconcileDemoModeForUser(userId) {
   return setDemoMode(next, userId)
 }
 
+/**
+ * The demo scope as a request parameter, or null when there is none to send.
+ *
+ * A server endpoint cannot discover demo mode, so the requests that need it carry it.
+ * null while the boundary is not live, which is what lets those endpoints keep behaving
+ * exactly as they did before is_demo existed: see lib/server/demoScope.js for why
+ * "absent" and "false" have to mean different things there.
+ */
+export function demoScopeParam() {
+  if (!DEMO_BOUNDARY_LIVE) return null
+  return demoOn ? '1' : '0'
+}
+
 /** Subscribe to changes. Returns an unsubscribe function. */
 export function subscribeDemoMode(fn) {
   listeners.add(fn)

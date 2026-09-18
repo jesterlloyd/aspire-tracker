@@ -4,6 +4,7 @@
 // roster endpoints, while Nursing Education & Leadership is organization-wide.
 
 import { getServiceDb, verifyOwnerAdminCaller } from '../lib/portalAuth.js'
+import { demoScopeFromRequest, applyDemoScope } from '../../lib/server/demoScope.js'
 
 const PREVIEW_ROLES = new Set(['student', 'unit_leader', 'academic_partner', 'nursing_academic', 'talent_acquisition'])
 
@@ -31,15 +32,21 @@ export default async function handler(req, res) {
   let db
   try { db = getServiceDb() } catch { return res.status(500).json({ error: 'internal_error' }) }
 
-  const studentResult = await db
+  // DEMO-MODE-1: this catalog is the ENTRY POINT to every student-portal preview.
+  // Everything downstream (admin-student-preview and the my-* endpoints it feeds)
+  // is scoped by the student id chosen here, so filtering this one list is what keeps
+  // a real student out of a demo, and a fabricated one out of real work.
+  const demoScope = demoScopeFromRequest(req)
+
+  const studentResult = await applyDemoScope(db
     .from('students')
-    .select('id, cohort_id, first_name, preferred_first_name, last_name, school, status')
+    .select('id, cohort_id, first_name, preferred_first_name, last_name, school, status'), demoScope)
   if (studentResult.error) return res.status(500).json({ error: 'student_catalog_unavailable' })
 
   const cohortIds = [...new Set((studentResult.data || []).map(student => student.cohort_id).filter(Boolean))]
   let cohortRows = []
   if (cohortIds.length > 0) {
-    const cohortResult = await db.from('cohorts').select('id, name').in('id', cohortIds)
+    const cohortResult = await applyDemoScope(db.from('cohorts').select('id, name'), demoScope).in('id', cohortIds)
     if (cohortResult.error) return res.status(500).json({ error: 'cohort_catalog_unavailable' })
     cohortRows = cohortResult.data || []
   }

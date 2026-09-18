@@ -81,6 +81,7 @@ import '../styles/aspireBrand.css'
 import '../styles/aspireTable.css'
 import '../styles/demoMode.css'
 import './portal.css'
+import { demoScopeParam } from '../lib/demoMode'
 
 // PORTAL-SPLIT Phase 3: what a portal shows while its own chunk arrives. The
 // same card the Shift Log tab already uses, so a portal opening for the first
@@ -336,7 +337,11 @@ export default function PortalApp() {
           const { data: sessionData } = await supabase.auth.getSession()
           const token = sessionData?.session?.access_token
           if (!token) throw new Error('unauthenticated')
-          const response = await fetch(`/api/portal/admin-preview-access?role=${encodeURIComponent(previewRole)}`, {
+          // DEMO-MODE-1: the catalog must list the population being presented, not
+          // whatever exists. Omitted entirely while the boundary is off.
+          const demoParam = demoScopeParam()
+          const demoQuery = demoParam === null ? '' : `&demo=${demoParam}`
+          const response = await fetch(`/api/portal/admin-preview-access?role=${encodeURIComponent(previewRole)}${demoQuery}`, {
             headers: { Authorization: `Bearer ${token}` },
           })
           if (!response.ok) throw new Error('preview_access_failed')

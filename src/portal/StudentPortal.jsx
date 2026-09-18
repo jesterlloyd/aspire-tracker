@@ -44,6 +44,7 @@ import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import SkylineCard from '../components/SkylineCard'
 import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
+import { demoScopeParam } from '../lib/demoMode'
 
 const SUPPORT = 'aspire@cshs.org'
 const CONTACT_SUBJECT = 'ASPIRE Student Support Request'
@@ -194,7 +195,12 @@ export default function StudentPortal({
         if (!previewStudentId) {
           setSummary({ students: [] }); setLogs([]); setEvals([]); setCerts([]); setLoading(false); return
         }
-        const previewRes = await fetch(`/api/portal/admin-student-preview?student_id=${encodeURIComponent(previewStudentId)}`, {
+        // DEMO-MODE-1: carried so the endpoint can refuse an id from the other
+        // population, which is how a stale preview id stops being able to open a
+        // real student's portal mid-demo.
+        const demoParam = demoScopeParam()
+        const demoQuery = demoParam === null ? '' : `&demo=${demoParam}`
+        const previewRes = await fetch(`/api/portal/admin-student-preview?student_id=${encodeURIComponent(previewStudentId)}${demoQuery}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (!previewRes.ok) {
