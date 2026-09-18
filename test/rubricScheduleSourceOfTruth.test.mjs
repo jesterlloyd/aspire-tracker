@@ -127,7 +127,15 @@ test('the destination is matched by INTERVIEWER, across all of that day\'s block
   assert.match(move, /No open interview slot at/)
   // A student with no booking is refused, not given one.
   assert.match(move, /has no booked interview to move/)
-  assert.doesNotMatch(move, /\.insert\(\{[\s\S]{0,200}slot_date/, 'a move never creates a slot')
+  // A move REUSES an existing open slot; it must never create one. Asserted against the
+  // table being inserted into, not against character distance: the previous form forbade
+  // ".insert({ ... slot_date" within 200 characters, which fired the day an unrelated
+  // line got SHORTER and pulled `current.slot_date` (in the notes template of the
+  // program_events insert) inside that window. Proximity is not the contract.
+  const inserts = [...move.matchAll(/\.from\('(\w+)'\)[\s\S]{0,400}?\.insert\(/g)].map(m => m[1])
+  assert.deepEqual([...new Set(inserts)], ['program_events'],
+    'a move may only insert an audit event; creating an interview_slots row would mean ' +
+    'it is not moving a booking but minting one')
 })
 
 test('bookability is is_booked alone, the same test the public page applies', () => {

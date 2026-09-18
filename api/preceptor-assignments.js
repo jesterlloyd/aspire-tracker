@@ -22,6 +22,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { can as canAccess } from '../lib/server/access.js'
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js'
+import { toPacificDateStr } from '../shared/dateUtils.js'
 
 const ROLES_ALLOWED   = new Set(['secondary', 'coverage'])  // never 'primary'
 const END_STATUSES    = new Set(['ended', 'removed'])
@@ -114,7 +115,7 @@ export default async function handler(req, res) {
       }
 
       const patch = { status, updated_at: new Date().toISOString() }
-      if (status === 'ended') patch.end_date = new Date().toISOString().slice(0, 10)
+      if (status === 'ended') patch.end_date = toPacificDateStr()
 
       const { data: updated, error: upErr } = await admin
         .from('student_preceptor_assignments')

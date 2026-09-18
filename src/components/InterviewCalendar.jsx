@@ -139,7 +139,7 @@ function CreatePopover({ date, startTime, endTime, triggerRect, interviewerProfi
   const initialStart = startTime || nextHalfHourFrom()
   const INITIAL_LENGTH = 30
   const [form, setForm] = useState({
-    block_date:       date || new Date().toISOString().slice(0, 10),
+    block_date:       date || toLocalDateStr(),
     start_time:       initialStart,
     end_time:         endTime || toHHMM((minutesOf(initialStart) ?? 0) + INITIAL_LENGTH),
     duration_minutes: INITIAL_LENGTH,

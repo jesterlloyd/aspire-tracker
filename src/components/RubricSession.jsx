@@ -26,6 +26,7 @@ import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { toInterviewRubricWrite, toInterviewRubricInsert, resolveDraftRubricId,
   isOwnRubricRow, isSelfInterviewerName, selectResumableRubric } from '../lib/interviewRubricWrite'
 import { moveInterviewBooking } from '../lib/interviewBooking'
+import { toLocalDateStr } from '../../shared/dateUtils.js'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -85,7 +86,7 @@ const SECTION_IDS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7']
 const REQUIRED_ANSWERS = 9
 
 const initForm = () => ({
-  interview_date: new Date().toISOString().slice(0,10),
+  interview_date: toLocalDateStr(),
   interviewer_name: '', interview_time: '',
   unit_preferences_rationale: '',
   cj_question_asked:'', cj_score:0, cj_notes:'',

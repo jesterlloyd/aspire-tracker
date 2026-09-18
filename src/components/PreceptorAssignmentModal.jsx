@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { toLocalDateStr } from '../../shared/dateUtils.js'
 import { safeWrite } from '../lib/safeWrite'
 import { createPreceptorRequestIdController } from '../lib/preceptorRequestId'
 import PreceptorFormModal from './PreceptorFormModal'
@@ -108,7 +109,9 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
     if (!selected || !student) return
     setError(null)
 
-    const today = new Date().toISOString().split('T')[0]
+    // The LOCAL date, via the shared helper. The UTC-derived date is already
+    // tomorrow after ~5pm Pacific, which would file started_at a day late.
+    const today = toLocalDateStr()
 
     // Set the primary through the audited RPC endpoint. The 2B trigger keeps the display
     // fields (matched_preceptor, preceptor_email) and the current-cohort match FK in sync.
