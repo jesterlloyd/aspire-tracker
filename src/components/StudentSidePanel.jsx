@@ -47,6 +47,7 @@ import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import AdditionalPreceptors from './AdditionalPreceptors'
 import DispositionModal from './DispositionModal'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS, DECISION_ORIGINS, FOLLOWUP_TYPES, REASON_CATEGORIES_BY_TYPE } from '../lib/dispositions'
+import { realtimePayloadInScope } from '../lib/demoScope'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -437,6 +438,11 @@ export default function StudentSidePanel({
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'students', filter: `id=eq.${student.id}` },
         (payload) => {
+          // DEMO-MODE-2: this callback merges the pushed row STRAIGHT into panel state,
+          // so it is the one subscription where an out-of-population row would be
+          // displayed rather than merely trigger a refetch. The id filter above means
+          // that cannot happen today; the guard is what keeps it true.
+          if (!realtimePayloadInScope(payload)) return
           if (saveStatus === 'idle') {
             // No pending edit - silently absorb the remote data
             setData(d => ({ ...d, ...payload.new }))

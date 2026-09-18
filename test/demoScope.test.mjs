@@ -527,3 +527,55 @@ test('the demo cohort gets a mark in the scope picker', () => {
   assert.doesNotMatch(mark, /#A855F7|DEMO_TONE/,
     'the mark is monochrome punctuation; the purple scope light is what carries the state')
 })
+
+// ─────────────────────────────────────────────────────────────────────
+// Realtime: the guard is installed, not merely available
+// ─────────────────────────────────────────────────────────────────────
+// realtimePayloadInScope() existed from phase 1 and was called by nothing but this file
+// for a week, which is the worst state for a safety function to be in: it looks handled.
+//
+// WHAT WAS ACTUALLY AT RISK, stated honestly because it is narrower than the docs first
+// claimed. All four postgres_changes subscriptions filter on an id the current scope owns
+// (cohort_id=eq.<active cohort>, or id=eq.<open student>), and in demo mode that id
+// belongs to a demo row, so a real row could not arrive through them anyway. The
+// separation was INCIDENTAL - a property of filters written for other reasons. The guard
+// makes it deliberate, and this test makes the next subscription inherit it.
+test('every realtime subscription passes its payload through the boundary', () => {
+  const files = []
+  const walk = (dir) => {
+    for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
+      const rel = `${dir}/${entry.name}`
+      if (entry.isDirectory()) walk(rel)
+      else if (/\.(js|jsx)$/.test(entry.name)) files.push(rel)
+    }
+  }
+  walk('src')
+
+  const offenders = []
+  for (const rel of files) {
+    const src = readFileSync(join(root, rel), 'utf8')
+    const subscriptions = (src.match(/'postgres_changes'/g) || []).length
+    if (!subscriptions) continue
+    const guards = (src.match(/realtimePayloadInScope\(/g) || []).length
+    if (guards < subscriptions) offenders.push(`${rel}: ${subscriptions} subscription(s), ${guards} guard(s)`)
+  }
+
+  assert.deepEqual(offenders, [],
+    'These files subscribe to postgres_changes without passing the payload through\n' +
+    'realtimePayloadInScope(). Realtime is the one read path the query wrapper cannot\n' +
+    'reach: the server PUSHES rows instead of answering a filtered request, so a row from\n' +
+    'the other population arrives whatever mode the browser is in.')
+})
+
+test('the realtime gate can fail', () => {
+  // A file with a subscription and no guard must be detectable, or the test above is
+  // decoration. Proven on a string rather than by breaking a real component.
+  const unguarded = "supabase.channel('x').on('postgres_changes', { table: 'students' }, (p) => setRow(p.new))"
+  const guarded = unguarded.replace('(p) =>', '(p) => { if (!realtimePayloadInScope(p)) return; }; (p) =>')
+  const count = (s, re) => (s.match(re) || []).length
+  assert.ok(count(unguarded, /'postgres_changes'/g) > count(unguarded, /realtimePayloadInScope\(/g),
+    'the detector must flag a subscription with no guard')
+  assert.ok(count(guarded, /'postgres_changes'/g) <= count(guarded, /realtimePayloadInScope\(/g),
+    'and must not flag one that has it')
+})

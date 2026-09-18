@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext'
 import OnCampusNow from './oncampus/OnCampusNow'
 import StudentAvatar from './StudentAvatar'
 import { scopeInterviewsForViewer, sortInterviews, buildInterviewRows } from '../lib/interviewsToday'
+import { realtimePayloadInScope } from '../lib/demoScope'
 
 export default function TodaysInterviews({ cohortId, onStartRubric }) {
   const { userProfile, isAdmin } = useAuth()
@@ -91,7 +92,16 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'interview_slots', filter: `cohort_id=eq.${cohortId}` },
-        () => { fetchToday() }
+        (payload) => {
+          // DEMO-MODE-2: realtime is the one read path the query wrapper cannot reach,
+          // because the server PUSHES rows rather than answering a filtered request.
+          // The cohort filter above already keeps the populations apart today, since a
+          // demo cohort id and a real one are different ids; this makes that explicit
+          // rather than incidental, so a future subscription without a cohort filter
+          // does not quietly inherit the assumption.
+          if (!realtimePayloadInScope(payload)) return
+          fetchToday()
+        }
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }

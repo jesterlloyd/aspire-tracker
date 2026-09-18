@@ -170,9 +170,17 @@ Stated plainly so you know before the room is full, not after.
 5. **Six rpc functions** carry no table to filter and sit outside the boundary. They are
    listed in `DEMO_UNSCOPED_RPCS` in `src/lib/demoScope.js` and pinned by a test, so the
    gap cannot silently grow.
-6. **Realtime** pushes rows rather than answering filtered requests.
-   `realtimePayloadInScope()` exists for subscribers to use, but no subscriber calls it
-   yet, so a colleague editing a real student mid-presentation could surface.
+6. **Realtime** pushes rows rather than answering filtered requests, so the query
+   wrapper cannot reach it. All four `postgres_changes` subscriptions now pass their
+   payload through `realtimePayloadInScope()`, and a test fails if a new one does not.
+
+   Worth stating accurately, because this gap was described here as worse than it was:
+   every one of those four already filtered on an id the current scope owns
+   (`cohort_id=eq.<active cohort>`, or `id=eq.<open student>`), and in demo mode that id
+   belongs to a demo row, so a real row could not arrive through them. The separation was
+   INCIDENTAL, a side effect of filters written for other reasons. The guard makes it
+   deliberate. DELETE events carry only the primary key unless the table is REPLICA
+   IDENTITY FULL, so they have no `is_demo` to read and are treated as in scope.
 7. **Settings, email templates and the knowledge library** are workspace configuration
    and are shown as they really are in both modes.
 

@@ -21,6 +21,7 @@ import StatusLegendPopover from './StatusLegendPopover'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { canSendSchedulingLink, buildSchedulingLinkLaunch } from '../lib/schedulingLinkFlow'
 import { buildInterviewerNameByStudent } from '../lib/interviewsToday'
+import { realtimePayloadInScope } from '../lib/demoScope'
 
 function IrAvatar({ student }) {
   return (
@@ -284,7 +285,10 @@ export default function InterviewRubricTab({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'interview_rubrics', filter: `cohort_id=eq.${cohortId}` },
-        () => {
+        (payload) => {
+          // DEMO-MODE-2: see TodaysInterviews. The cohort filter separates the
+          // populations today; this says so in code.
+          if (!realtimePayloadInScope(payload)) return
           // While an interviewer is filling out a rubric, suppress realtime-driven
           // refreshes for this table - persist() already calls onRubricsChange()
           // after each successful save, so the list stays up to date when the user
@@ -302,7 +306,10 @@ export default function InterviewRubricTab({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'interview_sessions', filter: `cohort_id=eq.${cohortId}` },
-        () => { triggerRefresh() }
+        (payload) => {
+          if (!realtimePayloadInScope(payload)) return
+          triggerRefresh()
+        }
       )
       .subscribe()
     return () => {
