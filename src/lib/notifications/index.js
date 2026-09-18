@@ -1,3 +1,4 @@
+/* global process */
 // src/lib/notifications/index.js
 // Server-side only - imported by API routes, never by frontend components.
 // Requires RESEND_API_KEY and SUPABASE_SERVICE_ROLE_KEY environment variables.

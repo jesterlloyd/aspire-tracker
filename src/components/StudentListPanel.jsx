@@ -25,17 +25,6 @@ function Chip({ label, bg, color, border }) {
 }
 
 // ── Email copy button ─────────────────────────────────────────────────────────
-function EmailCopyBtn({ email }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(email).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000) }) }}
-      title={copied?'Copied!':'Copy email'}
-      style={{ background:copied?'#EEF7F0':'none', border:'none', cursor:'pointer', padding:'1px 3px', borderRadius:3, color:copied?'#2F7D5C':'var(--text-muted,#9ca3af)', display:'inline-flex', alignItems:'center', transition:'all 0.15s', flexShrink:0 }}>
-      {copied ? <Check size={10} /> : <Copy size={10} />}
-    </button>
-  )
-}
-
 // ── Progress bar color ────────────────────────────────────────────────────────
 function barColor(pct) {
   if (pct >= 100) return 'var(--color-status-success,#166534)'

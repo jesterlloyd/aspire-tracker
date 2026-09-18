@@ -1,3 +1,4 @@
+/* global process */
 // src/lib/notifications/recipients.js
 // Resolves who receives each notification type.
 // Server-side only - imported by API routes and the notification library.
