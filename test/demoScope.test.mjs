@@ -418,3 +418,41 @@ test('the preflight reports every problem in one run', () => {
   assert.match(sql, /array_length\(problems, 1\) > 0/, 'and raised once at the end')
   assert.match(sql, /array_to_string\(problems/, 'with all of them in the message')
 })
+
+// ─────────────────────────────────────────────────────────────────────
+// 8. The one panel that substitutes instead of filtering
+// ─────────────────────────────────────────────────────────────────────
+test('the staff directory substitutes, and the session profile never does', () => {
+  // Comments stripped: the directory's own comment EXPLAINS that AuthContext reads
+  // get_my_profile, and matching that prose would make this test pass or fail on
+  // documentation rather than on code. It failed exactly that way when first written.
+  const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(?<!:)\/\/[^\n]*/g, '')
+  const dir = strip(readFileSync(join(root, 'src/components/settings/AccountsDirectory.jsx'), 'utf8'))
+  const auth = strip(readFileSync(join(root, 'src/contexts/AuthContext.jsx'), 'utf8'))
+
+  // The substitution is safe ONLY because these are two different RPCs. If the session
+  // ever starts reading its own profile out of get_all_user_profiles, or the directory
+  // starts reading get_my_profile, swapping one would change the other and this whole
+  // exception collapses.
+  assert.match(dir, /get_all_user_profiles/, 'the directory reads the list RPC')
+  assert.doesNotMatch(dir, /get_my_profile/,
+    'the directory must not read the session profile RPC; the substitution would then ' +
+    'change who the app thinks you are')
+  assert.match(auth, /get_my_profile/, 'the session reads its own profile RPC')
+  assert.doesNotMatch(auth, /get_all_user_profiles/,
+    'AuthContext must never resolve the session from the substituted list')
+
+  // And the substitution itself.
+  assert.match(dir, /if \(demoMode\) return demoStaffRows\(\)/)
+  assert.match(dir, /queryKey: \['people_access_users', demoMode\]/,
+    'the mode must be in the query key, or flipping it serves a cached real directory')
+})
+
+test('user_profiles is not in the demo boundary, deliberately', () => {
+  // Filtering it would hide the signed-in user's own row, which resolves permissions,
+  // the Owner/Admin flags, the greeting and the avatar. src/lib/demoStaff.js exists
+  // precisely because this table cannot be filtered.
+  assert.ok(!DEMO_SCOPED_TABLES.includes('user_profiles'),
+    'user_profiles must never be scoped: the session profile would vanish and the app ' +
+    'would lose permissions rather than merely showing demo data')
+})

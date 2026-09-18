@@ -36,6 +36,8 @@ import InviteUserModal from './InviteUserModal'
 import GrantPortalAccessModal from './GrantPortalAccessModal'
 import AccountDetailsDrawer from './AccountDetailsDrawer'
 import AccountProfileModal from './AccountProfileModal'
+import { isDemoMode, subscribeDemoMode } from '../../lib/demoMode'
+import { demoStaffRows } from '../../lib/demoStaff'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const DEFAULT_COLOR = '#1D2567'
@@ -202,12 +204,28 @@ export default function AccountsDirectory() {
   const [toast, setToast] = useState(null)
   const triggerRef = useRef(null)
 
+  // Live, because demo mode can be flipped in another tab or from Settings while this
+  // panel is open.
+  const [demoMode, setDemoMode] = useState(isDemoMode)
+  useEffect(() => subscribeDemoMode(setDemoMode), [])
+
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3200) }
 
   // ── Staff data (unchanged source + payloads) ─────────────────────────────
   const { data: allUsers = [], isLoading: staffLoading, error: staffErr } = useQuery({
-    queryKey: ['people_access_users'],
-    queryFn: async () => { const { data, error } = await supabase.rpc('get_all_user_profiles'); if (error) throw error; return data || [] },
+    // DEMO-MODE-1: the one place the boundary substitutes rather than filters.
+    // user_profiles cannot be filtered on is_demo, because the signed-in user's own row
+    // is what resolves permissions, the Owner/Admin flags, the greeting and the avatar.
+    // This panel escapes that only because it does not share a path with the session:
+    // AuthContext reads get_my_profile (always real), this reads get_all_user_profiles.
+    // Swapping the second changes what one panel draws and nothing about who you are.
+    // The mode is in the queryKey so flipping it refetches instead of serving a cached
+    // real directory to a demo, or the reverse.
+    queryKey: ['people_access_users', demoMode],
+    queryFn: async () => {
+      if (demoMode) return demoStaffRows()
+      const { data, error } = await supabase.rpc('get_all_user_profiles'); if (error) throw error; return data || []
+    },
     enabled: !!isAdmin,
   })
   const refetchStaff = () => queryClient.invalidateQueries({ queryKey: ['people_access_users'] })

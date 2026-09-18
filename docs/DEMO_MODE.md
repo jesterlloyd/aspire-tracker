@@ -117,9 +117,14 @@ Stated plainly so you know before the room is full, not after.
    school is `students.school`, a TEXT column inside the boundary, so nothing is weaker
    for it. If that catalog is ever applied, add `schools` back to the registry and to a
    follow-up migration together.
-2. **`user_profiles` and the Accounts directory** show real staff in both modes. This is
-   deliberate: filtering `user_profiles` would make your own session profile invisible and
-   break permissions, the greeting and the avatar. Avoid Settings > Accounts on stage.
+2. **`user_profiles` is not filtered, and never will be.** Your own profile row resolves
+   permissions, the Owner/Admin flags, the greeting and the avatar, so hiding it would
+   stop the app working rather than show demo data. Settings > Accounts is safe to show
+   anyway: it is the one panel that SUBSTITUTES instead of filtering, listing six
+   fabricated colleagues from `src/lib/demoStaff.js` while demo mode is on. That works
+   only because the directory and the session read different RPCs
+   (`get_all_user_profiles` vs `get_my_profile`), and a test fails if those ever
+   converge.
 3. **Unit Leader, Academic Partner, Nursing Academics and Residency previews** resolve
    their own scope inside their roster endpoints rather than through the student catalog,
    and those endpoints are not demo-filtered yet. Only the Student Portal is.
