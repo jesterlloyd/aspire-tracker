@@ -45,6 +45,10 @@ export const SETTINGS_SECTIONS = [
   // The old path stays ROUTABLE so existing links, bookmarks and any saved deep
   // link keep working - SettingsShell redirects it to /settings/keith/knowledge.
   { key: 'knowledge',  label: 'Knowledge Center',  path: '/settings/knowledge',  implemented: true, inRail: false, visible: r => r.isAdmin }, // KT-3a-1: Owner/Admin only; legacy route // KEITH-SKILLS-1: Owner/Admin only (rail groups are contiguous, so this sits with the other Administration sections)
+  // DEMO-MODE-1: Owner only, and grouped with Diagnostics because it is the other
+  // switch that changes what every screen reports rather than changing the program
+  // itself. Per user, per device; nothing here is a workspace setting.
+  { key: 'demoMode', label: 'Demo Mode', path: '/settings/demo-mode', group: 'Diagnostics', implemented: true, visible: r => r.isOwner },
   { key: 'preceptorParity', label: 'Preceptor Parity', path: '/settings/preceptor-parity', group: 'Diagnostics', implemented: true, visible: r => r.isOwner }, // PRECEPTOR-INTEGRITY-1: read-only integrity monitor for out-of-band SQL drift, Owner only
   { key: 'tours',      label: 'Tours & Help',      path: '/settings/tours',      group: 'Support',        implemented: true,  visible: () => true, inRail: false },     // WS2.3: all authenticated users; now a General subsetting
   // Future sections (NOT rendered yet - no disabled/"coming soon" placeholders):

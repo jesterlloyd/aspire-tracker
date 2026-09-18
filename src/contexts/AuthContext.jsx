@@ -4,6 +4,7 @@ import { setStudentPhotoCacheScope, clearStudentPhotoCache } from '../lib/studen
 import { normalizeStaffRole } from '../lib/permissions';
 import { clearPortalCohortHintSession } from '../lib/portalCohortHint';
 import { clearLastLocationOnSignOut } from '../lib/sessionKeys';
+import { reconcileDemoModeForUser } from '../lib/demoMode';
 
 // Roles that READ student files across every cohort, with no entitlement needed.
 // Co-Lead joined Owner/Admin here on 2026-08-05: near-Owner for student access.
@@ -203,6 +204,14 @@ export function AuthProvider({ children }) {
       .catch(() => { if (!cancelled) setInterviewerCohortIds([]); });
     return () => { cancelled = true; };
   }, [userProfile?.id, userProfile?.role, userProfile?.is_active]);
+
+  // DEMO-MODE-1: demo mode answers synchronously from a browser-level marker so the
+  // first queries of a session are already filtered, before this context resolves. Once
+  // the user id IS known, settle that marker against this user's own stored choice, so
+  // a second account on a shared machine never inherits the previous presenter's mode.
+  useEffect(() => {
+    if (user?.id) reconcileDemoModeForUser(user.id);
+  }, [user?.id]);
 
   // ASPIRE-CHART performance: the context value is memoized so every provider
   // render no longer hands consumers a brand-new object (which re-rendered

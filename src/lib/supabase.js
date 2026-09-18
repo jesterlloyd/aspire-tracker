@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { installDemoScope } from './demoScope.js'
 
 const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -45,6 +46,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     },
   },
 })
+
+// DEMO-MODE-1: installed here, on the line after the client exists, so no importer can
+// ever hold an unfiltered client. Every read and write in src/ goes through this one
+// object, which is why the boundary is one call rather than 121 edits. See
+// src/lib/demoScope.js for what it covers and, just as importantly, what it does not.
+installDemoScope(supabase)
 
 export async function ensureHealthyConnection() {
   if (!supabase.realtime.isConnected() && !supabase.realtime.isConnecting()) {

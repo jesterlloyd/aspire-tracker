@@ -79,6 +79,7 @@ import { PortalAccessSignalContext } from './portalAccessSignal'
 import { portalKeyFromPath, MAIN_APP_PATH, STAFF_SETTINGS_PATH } from '../lib/portalLinks'
 import '../styles/aspireBrand.css'
 import '../styles/aspireTable.css'
+import '../styles/demoMode.css'
 import './portal.css'
 
 // PORTAL-SPLIT Phase 3: what a portal shows while its own chunk arrives. The
