@@ -369,14 +369,23 @@ SELECT
 FROM students s
 WHERE s.is_demo AND s.matched_unit_id IS NOT NULL;
 
--- Preceptor assignments, the canonical relationship the roster's Preceptor(s) column reads.
-INSERT INTO student_preceptor_assignments
-  (id, cohort_id, student_id, preceptor_id, role, status, start_date, is_demo)
-SELECT
-  ('0de09000-0000-4000-8000-0000000000' || lpad(row_number() OVER (ORDER BY s.id)::text, 2, '0'))::uuid,
-  s.cohort_id, s.id, s.preceptor_id, 'primary', 'active', CURRENT_DATE - 21, true
-FROM students s
-WHERE s.is_demo AND s.preceptor_id IS NOT NULL;
+-- Preceptor assignments are NOT inserted here. The database already made them.
+--
+-- trg_sync_primary_preceptor_mirror is AFTER INSERT OR UPDATE OF preceptor_id ON
+-- students, and it creates exactly one active PRIMARY row in
+-- student_preceptor_assignments for every student whose preceptor_id is set, skipping
+-- those where it is NULL. So by the time section 6 finished, the eleven matched students
+-- already had their assignment rows, and an explicit INSERT here collided with
+-- uq_spa_one_active_primary_per_student_cohort.
+--
+-- Letting the trigger own it is better than ON CONFLICT DO NOTHING would have been: the
+-- rows are then created by the same path the app itself uses, with the same invariant,
+-- rather than by a seed that happens to agree with it today.
+--
+-- Those rows still come out marked, which is the demo boundary's own design working:
+-- aspire_demo_inherit is a BEFORE INSERT trigger on student_preceptor_assignments that
+-- reads is_demo from the parent student. A row written by a database trigger, with no
+-- browser anywhere near it, is stamped correctly. V6 proves it.
 
 -- ─────────────────────────────────────────────────────────────────────
 -- 8. Shift logs.
@@ -461,6 +470,10 @@ UNION ALL SELECT 'matches', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER
 UNION ALL SELECT 'preceptors', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM preceptors
 UNION ALL SELECT 'preceptor_cohort_participation', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM preceptor_cohort_participation
 UNION ALL SELECT 'student_shift_logs', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM student_shift_logs
+-- EXPECT 11 demo rows here, made by the trigger rather than by this file: one per
+-- student with a preceptor (5 rotating + 3 placed + 2 completed, and the Declined and
+-- unmatched students have none).
+UNION ALL SELECT 'student_preceptor_assignments', count(*) FILTER (WHERE NOT is_demo), count(*) FILTER (WHERE is_demo) FROM student_preceptor_assignments
 ORDER BY t;
 
 -- V3. EVERY demo address is at the reserved domain. EXPECT: zero rows.
@@ -499,4 +512,9 @@ WHERE l.is_demo AND l.lifecycle_state = 'in_progress';
 SELECT 'shift log' AS t, l.id FROM student_shift_logs l JOIN students s ON s.id = l.student_id
   WHERE s.is_demo AND NOT l.is_demo
 UNION ALL SELECT 'match', m.id FROM matches m JOIN students s ON s.id = m.student_id
-  WHERE s.is_demo AND NOT m.is_demo;
+  WHERE s.is_demo AND NOT m.is_demo
+-- The assignment rows are created by trg_sync_primary_preceptor_mirror, not by this
+-- seed, so this line is the real proof that aspire_demo_inherit stamps a row written by
+-- a database trigger with no client involved.
+UNION ALL SELECT 'preceptor assignment', a.id FROM student_preceptor_assignments a
+  JOIN students s ON s.id = a.student_id WHERE s.is_demo AND NOT a.is_demo;

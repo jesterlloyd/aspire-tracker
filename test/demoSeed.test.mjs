@@ -307,3 +307,17 @@ test('the seed respects the partial unique indexes on the tables it writes', () 
   assert.equal(new Set(emails).size, emails.length,
     'duplicate preceptor emails violate preceptors_email_lower_unique_idx')
 })
+
+test('the seed does not write assignment rows the database makes itself', () => {
+  // trg_sync_primary_preceptor_mirror (AFTER INSERT OR UPDATE OF preceptor_id ON
+  // students) already creates exactly one active PRIMARY row per student with a
+  // preceptor. An explicit INSERT here collides with
+  // uq_spa_one_active_primary_per_student_cohort, which is how this was found.
+  //
+  // The DELETE stays: a previous run's rows, trigger-made or not, still have to go.
+  assert.doesNotMatch(code(seed), /INSERT INTO student_preceptor_assignments/,
+    'student_preceptor_assignments is populated by trg_sync_primary_preceptor_mirror. ' +
+    'Do not insert into it here; the trigger owns that invariant.')
+  assert.match(code(seed), /DELETE FROM student_preceptor_assignments\s+WHERE is_demo/,
+    'the teardown-before-insert must still clear it, or a re-run leaves stale rows')
+})
