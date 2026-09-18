@@ -359,11 +359,16 @@
   text-align: center;
   cursor: grab;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
-  transition: background 0.14s ease, transform 0.14s ease, padding 0.14s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.20);
+  transition: background 0.14s ease, box-shadow 0.14s ease;
   touch-action: none;
   z-index: 3;
 }
-.rb-ribbon:hover { padding: 9px 0 20px; }
+/* RIBBON-CALM-1 (Owner, 2026-09-18): a ribbon does not grow when you point at it. The
+   hover used to add 6px of padding, so the thing you were about to click moved out from
+   under the pointer. It lifts its shadow instead, which says "this is live" without
+   changing where it is. Same treatment on the student chart's ribbon. */
+
 /* Pulled, it hangs down the page, and the word travels with it: a label pinned to the
    top of a longer ribbon reads as a ribbon that did not move. */
 .rb-ribbon-on,
@@ -372,6 +377,9 @@
   padding: 26px 0 30px;
   cursor: grab;
 }
+/* Below the -on rules, for the same cascade reason as the chart's. */
+.rb-ribbon:hover,
+.rb-ribbon-on:hover { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.32); }
 .rb-ribbon-dragging { cursor: grabbing; transition: none; }
 .rb-ribbon:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 3px; }
 
@@ -388,6 +396,19 @@
   border-bottom: 1px solid var(--aspire-page-rule);
   font-size: 13px;
   color: var(--aspire-paper-ink);
+  /* RIBBON-CALM-1: the same lift the student chart's name plate has, so the two books
+     behave alike when you scroll. Flat at the top, shadowed once paper is under it. */
+  position: relative;
+  z-index: 3;
+  transition: box-shadow 0.18s ease;
+}
+.rb-head-lifted {
+  box-shadow:
+    0 6px 10px -6px rgba(24, 32, 63, 0.45),
+    0 1px 0 rgba(24, 32, 63, 0.10);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rb-head { transition: none; }
 }
 /* On the band, the soft grey measures 4.28:1 against #EEF1F8, which is under AA for
    13px text. The inset-band token is the same family, two steps darker, and passes. */

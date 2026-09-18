@@ -214,6 +214,30 @@ a `@media` query carries no specificity, so placed ABOVE the rules it modifies i
 nothing; and `--aspire-focus-ring` is a whole shorthand, so wrapping it in another one
 produces invalid CSS the browser drops silently.
 
+### Nothing moves that the reader did not move (RIBBON-CALM-1, 2026-09-18)
+
+A ribbon does not grow when you point at it, and an index tab does not travel when the
+scroll spy changes. Both shipped doing exactly that: the rubric's ribbon added 6px of
+padding on hover, so the thing you were about to click moved out from under the pointer,
+and the chart's current tab slid 6px, so the whole rail twitched the length of the record.
+Hover lifts a shadow; the current tab is named by colour and weight. Both books lift the
+same scroll shadow on their top bar (`.sc-plate-lifted` and `.rb-head-lifted` are the same
+declaration, and a test asserts they stay identical).
+
+**A `:hover` rule must sit AFTER the state rules it has to beat.** `.sc-ribbon:hover` and
+`.sc-ribbon[aria-pressed="false"]` have identical specificity, so source order decides;
+written above, the hover shadow silently never applied. Same trap as a `@media` query
+placed above the rules it modifies.
+
+### Two things are pinned above the chart, not one (STUDENT-CHART-1)
+
+`.top-section` (the app header plus the section nav) is `position: sticky`, so the
+toolbar has to pin BELOW it and the chart's height has to subtract both. Pinning the
+toolbar at `top: 0` put it behind the header and hid the binder's first 40px; the chart
+looked cut off because its top was under the chrome. `useChartViewport` measures the
+chrome rather than trusting `--app-chrome-height`, which says 112px where the real height
+is 110.
+
 ### The follow-up flag is not the interview flag (STUDENT-CHART-1)
 
 Two ribbons, the same gesture, two different columns, and they must never be merged.

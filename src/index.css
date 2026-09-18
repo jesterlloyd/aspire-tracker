@@ -1954,7 +1954,11 @@ button.ov-group-row {
    bounded by its own parent, so inside the KPI wrapper it would unstick the moment that
    wrapper scrolled past. */
 .profiles-toolbar {
-  position: sticky; top: 0; z-index: 20;
+  /* It pins BELOW the app chrome, not at the top of the window. `.top-section` is sticky
+     too and sits at z-index 200, so `top: 0` here parked the toolbar behind the header
+     and took the binder's first 40px with it. The offset is measured, not the
+     --app-chrome-height token: that token says 112px and the real height is 110. */
+  position: sticky; top: var(--profiles-toolbar-top, 0px); z-index: 20;
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 8px 12px; margin: 8px 0 10px;
   background: var(--bg-card,#fff);
@@ -2083,6 +2087,11 @@ button.ov-group-row {
 }
 .pl-row:hover { background: rgba(244,241,236,0.6); }
 .pl-row.pl-selected { border-left: 4px solid var(--nightfall); background: var(--sand); }
+/* STUDENT-CHART-1 (2026-09-18): a follow-up flag reads the same way in both lists - a red
+   edge on the row, like the one Interview Recommendations already uses. Selection still
+   wins the edge, because "which row am I on" has to survive whatever else is true. */
+.pl-row.pl-followup { border-left: 4px solid var(--aspire-red-editorial, #B3282D); }
+.pl-row.pl-followup.pl-selected { border-left-color: var(--nightfall); }
 .pl-avatar-img      { width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0; }
 .pl-avatar-initials { width:40px; height:40px; border-radius:50%; background:var(--nightfall); color:var(--pearl); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; flex-shrink:0; }
 .pl-center { flex: 1; padding: 0 12px; min-width: 0; }

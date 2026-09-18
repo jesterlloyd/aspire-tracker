@@ -368,7 +368,7 @@ export default function StudentUnitAssignments({ studentId, units = [], canManag
       ) : (
         <>
           {live.length === 0 && (
-            <div style={{ fontSize: 11, color: 'var(--color-text-placeholder)', marginBottom: 5 }}>No live unit assignment.</div>
+            <div style={{ fontSize: 11, color: 'var(--text-caption)', marginBottom: 5 }}>No live unit assignment.</div>
           )}
           {live.map(row)}
           {history.length > 0 && (

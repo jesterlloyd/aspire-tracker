@@ -5,6 +5,7 @@ import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
+import { isFollowUpFlagged } from '../lib/studentFollowUpFlag'
 import RubricSession from './RubricSession'
 import InterviewCalendar from './InterviewCalendar'
 import TodaysInterviews from './TodaysInterviews'
@@ -752,6 +753,18 @@ export default function InterviewRubricTab({
                         <div style={{ fontSize:11, color:'var(--color-text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:2, fontFamily:'Plus Jakarta Sans,sans-serif' }}>
                           {formatSchoolProgram(s.school, s.program_type)}
                         </div>
+                        {/* STUDENT-CHART-1 (Owner, 2026-09-18): the student chart's follow-up
+                            flag, shown here as well so the two lists read alike. It is NOT the
+                            same flag as the red edge on this row: that one means "bring this
+                            candidate back for a second interview" and drives the Flagged count
+                            above. Two flags, two meanings, both visible. Read-only here; the
+                            chart's ribbon is the only place it is set. */}
+                        {isFollowUpFlagged(s) && (
+                          <div title="Flagged for follow up"
+                            style={{ fontSize:10.5, fontWeight:700, color:'var(--aspire-red-editorial,#B3282D)', marginTop:3, whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                            <span aria-hidden="true">⚑</span> Flagged for follow up
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

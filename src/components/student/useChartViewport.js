@@ -5,15 +5,15 @@
 // the chart. The reader spends the screen on the record, not on filters they have
 // finished using.
 //
-// This has to be measured rather than written as a constant. The pinned bar wraps at
-// narrow widths - the search field, the school select, the view toggle and three action
-// buttons do not always fit on one line - so its height is anywhere from one row to
-// three. The old layout hard-coded `calc(100vh - 164px)` and was wrong at every width:
-// at 1600x950 it left the chart 512px and the index rail 6px shorter than its own tabs.
+// TWO THINGS SIT ABOVE THE CHART, not one. `.top-section` (the app header plus the
+// section nav) is `position: sticky; top: 0`, so it never leaves. The first version of
+// this hook only measured the toolbar and pinned it at `top: 0`, which put the toolbar
+// *underneath* the header and hid the first 40px of the binder behind it (measured at
+// 1600x950). The chart looked cut off because it was: its top was under the chrome.
 //
-// It reports a number, and the stylesheet decides what to do with it. Below 980px the
-// split stacks and the media query overrides the variable outright, so this keeps
-// measuring and is simply ignored.
+// So the pinned stack is: sticky chrome + the toolbar. Both are measured, because the
+// chrome's height is 110px and the `--app-chrome-height` token says 112, and neither is
+// a number this file should be guessing at.
 
 import { useEffect, useRef, useState } from 'react'
 
@@ -23,30 +23,45 @@ const MIN_CHART_H = 420
 // A gap under the binder so its bottom cover is never flush with the window edge.
 const BOTTOM_GAP = 12
 
+/** The height of whatever is pinned above this page's own content. */
+function stickyChromeHeight() {
+  if (typeof document === 'undefined') return 0
+  const chrome = document.querySelector('.top-section')
+  if (chrome && getComputedStyle(chrome).position === 'sticky') {
+    return Math.round(chrome.getBoundingClientRect().height)
+  }
+  return 0
+}
+
 export function useChartViewport() {
   const barRef = useRef(null)
   const [chartHeight, setChartHeight] = useState(null)
+  const [toolbarTop, setToolbarTop] = useState(0)
 
   useEffect(() => {
     const bar = barRef.current
     if (!bar) return undefined
 
     const measure = () => {
-      // The bar is sticky at top: 0, so once pinned its height IS the chrome above the
-      // chart. Its margins count too: they are the gap the chart starts after.
+      const chromeH = stickyChromeHeight()
+      // The bar's margins count: they are the gap the chart starts after.
       const style = window.getComputedStyle(bar)
       const margins = parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0)
-      const pinned = bar.getBoundingClientRect().height + margins
+      const pinned = chromeH + bar.getBoundingClientRect().height + margins
       const next = Math.max(MIN_CHART_H, Math.round(window.innerHeight - pinned - BOTTOM_GAP))
       setChartHeight(prev => (prev === next ? prev : next))
+      setToolbarTop(prev => (prev === chromeH ? prev : chromeH))
     }
 
     measure()
     window.addEventListener('resize', measure)
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
     ro?.observe(bar)
+    // The chrome can change height too (a wrapped nav on a narrow window).
+    const chrome = document.querySelector('.top-section')
+    if (chrome && ro) ro.observe(chrome)
     return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
   }, [])
 
-  return { barRef, chartHeight }
+  return { barRef, chartHeight, toolbarTop }
 }

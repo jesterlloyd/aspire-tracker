@@ -187,7 +187,7 @@ test('FLAG 6: the migration is additive, idempotent and documents its rollback',
 
 test('FLAG 7: the roster shows the flag by name, not by colour alone', () => {
   assert.match(roster, /isFollowUpFlagged\(s\)/)
-  assert.match(roster, /Follow-up/)
+  assert.match(roster, /Flagged for follow up/)
   assert.match(roster, /aria-hidden="true">⚑/)
 })
 
@@ -339,7 +339,8 @@ test('ROOM 2: only the search and filter bar pins', () => {
   const index = noComments(read('src/index.css'))
   const bar = index.match(/\.profiles-toolbar \{[\s\S]*?\}/)[0]
   assert.match(bar, /position: sticky;/)
-  assert.match(bar, /top: 0;/)
+  // It pins BELOW the app chrome, which is sticky too; the offset is measured at runtime.
+  assert.match(bar, /top: var\(--profiles-toolbar-top/)
   // The KPI strip must NOT be sticky: the Owner chose for it to scroll away.
   const frozen = index.match(/\.profiles-frozen\s+\{[\s\S]*?\}/)[0]
   assert.ok(!/position: sticky/.test(frozen))
@@ -501,5 +502,113 @@ test('INK 6: the chart does not push its dark ink onto the materials', () => {
   const css = noComments(read('src/components/student/studentChart.css'))
   assert.match(css, /\[data-theme="dark"\] \.sc-paper \.paper-note,/)
   assert.match(css, /--color-accent-primary: #1D2567;/)
+})
+
+// ── CALM: nothing moves that the reader did not move (Owner, 2026-09-18) ────
+
+test('CALM 1: neither ribbon resizes or travels on hover', () => {
+  const chart = noComments(read('src/components/student/studentChart.css'))
+  const book  = noComments(read('src/components/rubric/rubricBook.css'))
+  // The rubric's ribbon used to grow 6px on hover, so the thing you were about to click
+  // moved out from under the pointer. Both now lift a shadow and hold their position.
+  assert.ok(!/\.rb-ribbon:hover \{[^}]*padding/.test(book), 'the rubric ribbon must not resize on hover')
+  assert.ok(!/\.sc-ribbon:hover \{[^}]*(padding|translate|transform)/.test(chart))
+  assert.match(book, /\.rb-ribbon:hover,[\s\S]{0,80}box-shadow/)
+  assert.match(chart, /\.sc-ribbon:hover,[\s\S]{0,90}box-shadow/)
+})
+
+test('CALM 2: the hover rule sits AFTER the state rules it must beat', () => {
+  // Equal specificity means source order decides. Written above [aria-pressed="false"],
+  // the hover shadow silently never applied - measured, not assumed.
+  const chart = noComments(read('src/components/student/studentChart.css'))
+  assert.ok(chart.indexOf('.sc-ribbon:hover') > chart.indexOf('.sc-ribbon[aria-pressed="false"]'))
+  const book = noComments(read('src/components/rubric/rubricBook.css'))
+  assert.ok(book.indexOf('.rb-ribbon:hover') > book.indexOf('.rb-ribbon-on'))
+})
+
+test('CALM 3: the index tab does not travel when the scroll spy changes', () => {
+  const chart = noComments(read('src/components/student/studentChart.css'))
+  const current = chart.match(/\.sc-tab\[aria-current="true"\] \{[\s\S]*?\}/)[0]
+  assert.ok(!/translate/.test(current), 'a travelling current tab twitches the whole rail as you read')
+  assert.match(current, /font-weight: 700/)
+})
+
+test('CALM 4: the rubric head lifts on scroll, like the chart plate', () => {
+  const book = noComments(read('src/components/rubric/rubricBook.css'))
+  assert.match(book, /\.rb-head-lifted \{/)
+  const session = read('src/components/RubricSession.jsx')
+  assert.match(session, /setHeadLifted\(root\.scrollTop > 2\)/)
+  assert.match(session, /rb-head-lifted/)
+  // and it is the SAME shadow the plate uses
+  const chart = noComments(read('src/components/student/studentChart.css'))
+  const plate = chart.match(/\.sc-plate-lifted \{[\s\S]*?\}/)[0]
+  const head  = book.match(/\.rb-head-lifted \{[\s\S]*?\}/)[0]
+  const norm = t => t.replace(/\s+/g, ' ').replace(/^[^{]*\{/, '')
+  assert.equal(norm(head), norm(plate), 'the two books must lift identically')
+})
+
+// ── ROOM 5: the chart clears the sticky app chrome ─────────────────────────
+
+test('ROOM 5: the pinned stack is the chrome PLUS the toolbar', () => {
+  const vp = read('src/components/student/useChartViewport.js')
+  // .top-section is position:sticky, so it never leaves. Measuring only the toolbar put
+  // it behind the header and hid the binder's first 40px.
+  assert.match(vp, /\.top-section/)
+  assert.match(vp, /getComputedStyle\(chrome\)\.position === 'sticky'/)
+  assert.match(vp, /chromeH \+ bar\.getBoundingClientRect\(\)\.height \+ margins/)
+  const tab = read('src/components/StudentProfilesTab.jsx')
+  assert.match(tab, /--profiles-toolbar-top/)
+})
+
+// ── QUIET: the panel says each thing once ──────────────────────────────────
+
+test('QUIET 1: the sheets have no eyebrow above their own title', () => {
+  assert.ok(!panel.includes('sc-sheet-label'), '"Student record / Profile" said it twice')
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.ok(!/\.sc-sheet-label \{/.test(css))
+})
+
+test('QUIET 2: profile completion is one line, not four restatements', () => {
+  assert.match(panel, /className="sc-completion"/)
+  // The provenance tag, the Missing pills and the separate "Ready to proceed" line are gone.
+  const block = panel.slice(panel.indexOf('className="sc-completion"'), panel.indexOf('className="sc-completion"') + 900)
+  assert.ok(!/SourceTag/.test(block))
+  assert.match(block, /Ready to proceed/)
+  assert.match(block, /completion\.missing\.join/)
+})
+
+test('QUIET 3: the full-width Copy Student Summary bar is gone, copies sit beside values', () => {
+  assert.ok(!panel.includes('handleCopySummary'), 'the summary bar and its handler both go')
+  assert.ok(!panel.includes('generateStudentSummary'))
+  // and the fields a coordinator actually copies each have their own button
+  for (const label of ['Copy personal email', 'Copy phone', 'Copy email']) {
+    assert.ok(panel.includes(label), `missing a copy control: ${label}`)
+  }
+})
+
+test('QUIET 4: Documents is a list and does not repeat the student photo', () => {
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.match(css, /\.sc-sheet \.doc-headshot-preview \{ display: none; \}/)
+  assert.match(css, /\.sc-sheet \.doc-section \{[\s\S]*?grid-template-columns: 1fr;/)
+})
+
+// ── FLAGS: one wording, both lists ─────────────────────────────────────────
+
+test('FLAG 9: both lists show the follow-up flag, and say the same thing', () => {
+  const recs = read('src/components/InterviewRubricTab.jsx')
+  assert.match(recs, /isFollowUpFlagged\(s\)/)
+  assert.match(recs, /Flagged for follow up/)
+  assert.match(roster, /Flagged for follow up/)
+  // and the roster gets the red edge the recommendations table already had
+  const index = noComments(read('src/index.css'))
+  assert.match(index, /\.pl-row\.pl-followup \{ border-left: 4px solid var\(--aspire-red-editorial/)
+  assert.match(index, /\.pl-row\.pl-followup\.pl-selected \{ border-left-color: var\(--nightfall\); \}/)
+})
+
+test('FLAG 10: the two flags stay different things in the recommendations table', () => {
+  const recs = noComments(read('src/components/InterviewRubricTab.jsx'))
+  // the red edge is still driven by the INTERVIEW flag, not the follow-up one
+  assert.match(recs, /flagInfo\s*\?\s*\(flagInfo\.critical/)
+  assert.match(recs, /flagged_for_second_interview/)
 })
 

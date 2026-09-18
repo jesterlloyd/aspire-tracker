@@ -222,7 +222,7 @@ export default function StudentListPanel({
             // ASPIRE-CHART: rows are real keyboard targets - focusable, Enter/
             // Space activate, and selection is announced via aria-current.
             <div key={s.id}
-              className={`pl-row${sel ? ' pl-selected' : ''}`}
+              className={`pl-row${sel ? ' pl-selected' : ''}${isFollowUpFlagged(s) ? ' pl-followup' : ''}`}
               role="button"
               tabIndex={0}
               aria-current={sel ? 'true' : undefined}
@@ -301,9 +301,9 @@ export default function StudentListPanel({
                     the label, not the glyph alone, because colour and shape are not a
                     name. Absent before the migration, and absent is not flagged. */}
                 {isFollowUpFlagged(s) && (
-                  <span title="Flagged for follow-up"
+                  <span title="Flagged for follow up"
                     style={{ fontSize:9.5, fontWeight:700, color:'var(--aspire-red-editorial,#B3282D)', whiteSpace:'nowrap' }}>
-                    <span aria-hidden="true">⚑</span> Follow-up
+                    <span aria-hidden="true">⚑</span> Flagged for follow up
                   </span>
                 )}
               </div>

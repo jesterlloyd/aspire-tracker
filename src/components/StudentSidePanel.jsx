@@ -32,8 +32,7 @@ import { logEvent, eventExists } from '../lib/logEvent'
 import { updatePreceptorAssignment, updateInterviewOutcome } from '../lib/studentProxy'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { formatWeekdays, formatDates, formatBooleanYesNo, formatBooleanAvailable, formatText, formatMinDays, WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
-import { generateStudentSummary } from '../lib/generateSummary'
-import { Copy, Check, Mail, Pencil, Phone, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
+import { Check, Mail, Pencil, Phone, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { openOutlookCompose } from '../lib/outlookCompose'
@@ -231,7 +230,6 @@ export default function StudentSidePanel({
   const [showDeclineModal,     setShowDeclineModal]     = useState(false)
   const [declineReason,        setDeclineReason]        = useState('')
   const [showDispositionModal, setShowDispositionModal] = useState(false)
-  const [summaryCopied,    setSummaryCopied]    = useState(false)
   const { canEdit, canManageStudentFiles, canGenerateBadge, canViewStudentResumeInCohort, canViewStudentPhotoInCohort, userProfile } = useAuth()
   // WAVE F-2: per-cohort file-view checks. Resume view: active Owner/Admin or an
   // entitled active interviewer. Photo view additionally includes an active Viewer.
@@ -431,7 +429,6 @@ export default function StudentSidePanel({
   useEffect(() => {
     setInterestDraft(student?.interest_statement || '')
     setEditingInterest(false)
-    setSummaryCopied(false)
   }, [student?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Real-time subscription: student row ──────────────────────────────────
@@ -464,15 +461,6 @@ export default function StudentSidePanel({
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [student.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleCopySummary = async () => {
-    const unitNameForSummary = matchedUnitName !== '-' ? matchedUnitName : null
-    const summary = generateStudentSummary(student, unitNameForSummary, student.aspire_cohort)
-    await navigator.clipboard.writeText(summary)
-    setSummaryCopied(true)
-    toast?.success('Summary copied', 'Student summary is ready to paste.')
-    setTimeout(() => setSummaryCopied(false), 2500)
-  }
 
   const [adjustingId,  setAdjustingId]  = useState(null)
   const [adjustHours,  setAdjustHours]  = useState('')
@@ -1290,10 +1278,7 @@ export default function StudentSidePanel({
                     ))
                   })()}
                 </div>
-              </div>
-            </div>
-
-            <div className="sc-plate-acts">
+                <div className="sc-plate-acts">
 
                   <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
                     <ProfileActionButton
@@ -1332,9 +1317,11 @@ export default function StudentSidePanel({
                         }}
                       />
                     )}
-                  </div>
-            </div>
-          </div>
+                  </div>{/* end the action row */}
+                </div>{/* end .sc-plate-acts */}
+              </div>{/* end .sc-plate-head */}
+            </div>{/* end .sc-plate-id */}
+          </div>{/* end .sc-plate */}
 
           <div className="sc-main">
             <div className="sc-scroller" ref={chartScrollerRef}>
@@ -1369,63 +1356,31 @@ export default function StudentSidePanel({
 
           {/* ── Profile ── */}
           <section className="sc-sheet" id="sc-sheet-profile" data-sheet="profile" aria-label="Profile">
-            <div className="sc-sheet-label">Student record</div>
             <h2 className="sc-sheet-title">Profile</h2>
-                {/* ── Profile Completion block ── */}
+                {/* Profile completion, said once (Owner, 2026-09-18). It used to carry a
+                    percentage, a bar, a provenance tag the Documents sheet already lists,
+                    and a separate "Ready to proceed" line - four ways of saying how far
+                    along this record is. One line, one bar, one note. */}
                 {(() => {
                   const pct = completion.percentage
-                  const barClr = pct >= 100 ? '#16a34a' : pct >= 67 ? '#f59e0b' : '#E2569C'
-                  const blockBg = pct >= 100 ? 'rgba(22,163,74,0.06)' : pct >= 67 ? 'rgba(245,158,11,0.08)' : 'rgba(226,86,156,0.06)'
+                  const state = pct >= 100 ? 'done' : pct >= 67 ? 'near' : 'early'
                   return (
-                    <div style={{ margin:'18px 18px 0', padding:'12px 14px', background:blockBg, border:`1px solid ${barClr}33`, borderRadius:10 }}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:7 }}>
-                        <span style={{ fontSize:12, fontWeight:700, color:barClr }}>Profile Completion</span>
-                        <span style={{ fontSize:13, fontWeight:800, color:barClr }}>{pct}%</span>
+                    <div className="sc-completion" data-state={state}>
+                      <div className="sc-completion-row">
+                        <span className="sc-completion-label">Profile completion</span>
+                        <span className="sc-completion-pct">{pct}%</span>
                       </div>
-                      <div style={{ height:5, borderRadius:3, background:'rgba(0,0,0,0.10)', marginBottom:9 }}>
-                        <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:barClr, transition:'width 0.3s ease' }} />
+                      <div className="sc-completion-bar"><i style={{ width: `${pct}%` }} /></div>
+                      <div className="sc-completion-note">
+                        {pct >= 100
+                          ? 'Ready to proceed'
+                          : [completion.missing.length ? `Missing ${completion.missing.join(', ')}` : null,
+                             nextAction ? `Next: ${nextAction}` : null].filter(Boolean).join(' · ')}
                       </div>
-                      {/* STUDENT-PROFILE-CANON-1F: student-form completion indicator (conservative). */}
-                      <div style={{ marginBottom:8 }}>
-                        {(() => {
-                          const chip = studentFormReceived
-                            ? { label: 'Student form received', tone: 'student' }
-                            : (pct > 0
-                                ? { label: 'Profile partially complete', tone: 'pending' }
-                                : { label: 'Student form pending', tone: 'muted' })
-                          return <SourceTag label={chip.label} tone={chip.tone} />
-                        })()}
-                      </div>
-                      {completion.missing.length > 0 && (
-                        <div style={{ marginBottom:8 }}>
-                          <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-muted,#6b7280)', marginBottom:4 }}>Missing</div>
-                          <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-                            {completion.missing.map(m => (
-                              <span key={m} style={{ fontSize:10, padding:'1px 7px', borderRadius:10, background:'rgba(0,0,0,0.06)', color:'var(--text-muted,#6b7280)', fontWeight:600 }}>{m}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {pct === 100
-                        ? <div style={{ fontSize:11, fontWeight:600, color:'#166534' }}>✓ Ready to proceed</div>
-                        : nextAction && <div style={{ fontSize:11, color:'var(--text-caption,#475467)', fontStyle:'italic' }}>Next: {nextAction}</div>
-                      }
                     </div>
                   )
                 })()}
-                  {canEdit && <button onClick={handleCopySummary}
-                    style={{
-                      display:'flex', alignItems:'center', gap:'6px',
-                      padding:'6px 14px', borderRadius:'8px',
-                      border:`1px solid ${summaryCopied ? 'var(--sp-ok-ink)' : 'var(--border-divider)'}`,
-                      background: summaryCopied ? 'var(--color-status-success-bg)' : 'var(--color-bg-hover)',
-                      fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:'12px',
-                      color: summaryCopied ? 'var(--sp-ok-ink)' : 'var(--text-heading)',
-                      cursor:'pointer', transition:'all 0.2s ease',
-                      width:'100%', justifyContent:'center',
-                    }}>
-                    {summaryCopied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy Student Summary</>}
-                  </button>}
+
 
           {/* 1. Contact Information */}
           <div className="sp-section sp-card sp-zone-contact">
@@ -1461,10 +1416,20 @@ export default function StudentSidePanel({
               )
             })()}
             <Field label="Personal Email" fieldKey="personal_email">
-              <input className="sp-input" value={data.personal_email||''} onChange={e => handleText('personal_email', e.target.value)} />
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <input className="sp-input" style={{ flex:1, minWidth:0 }} value={data.personal_email||''} onChange={e => handleText('personal_email', e.target.value)} />
+                {data.personal_email && (
+                  <Tooltip label="Copy email" placement="top"><button type="button" className="sp-copy-btn" aria-label="Copy personal email" onClick={() => navigator.clipboard?.writeText(data.personal_email)}>⎘</button></Tooltip>
+                )}
+              </div>
             </Field>
             <Field label="Phone" fieldKey="phone">
-              <input className="sp-input" value={data.phone||''} onChange={e => handleText('phone', e.target.value)} />
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <input className="sp-input" style={{ flex:1, minWidth:0 }} value={data.phone||''} onChange={e => handleText('phone', e.target.value)} />
+                {data.phone && (
+                  <Tooltip label="Copy phone" placement="top"><button type="button" className="sp-copy-btn" aria-label="Copy phone" onClick={() => navigator.clipboard?.writeText(data.phone)}>⎘</button></Tooltip>
+                )}
+              </div>
             </Field>
           </div>
 
@@ -1588,7 +1553,6 @@ export default function StudentSidePanel({
 
           {/* ── Background ── */}
           <section className="sc-sheet" id="sc-sheet-background" data-sheet="background" aria-label="Background">
-            <div className="sc-sheet-label">Experience and intent</div>
             <h2 className="sc-sheet-title">Background</h2>
 
           {/* 4. Background and Affiliation */}
@@ -1810,7 +1774,6 @@ export default function StudentSidePanel({
 
           {/* ── Placement ── */}
           <section className="sc-sheet" id="sc-sheet-placement" data-sheet="placement" aria-label="Placement">
-            <div className="sc-sheet-label">Rotation placement</div>
             <h2 className="sc-sheet-title">Placement</h2>
 
           {/* 3b. Rotation Dates - STUDENT-PROFILE-CANON-1B: the single canonical placement-window
@@ -2119,7 +2082,6 @@ export default function StudentSidePanel({
 
           {/* ── Hours ── */}
           <section className="sc-sheet" id="sc-sheet-hours" data-sheet="hours" aria-label="Hours">
-            <div className="sc-sheet-label">Clinical hours</div>
             <h2 className="sc-sheet-title">Hours</h2>
 
 
@@ -2155,7 +2117,6 @@ export default function StudentSidePanel({
 
           {/* ── Documents ── */}
           <section className="sc-sheet" id="sc-sheet-documents" data-sheet="documents" aria-label="Documents">
-            <div className="sc-sheet-label">Documents and access</div>
             <h2 className="sc-sheet-title">Documents</h2>
 
           {/* 6. Documents */}
@@ -2261,7 +2222,7 @@ export default function StudentSidePanel({
                       style={{
                         background: certDisabledReason ? 'var(--color-bg-hover)' : 'var(--color-accent-primary)',
                         border: certDisabledReason ? '1px solid var(--border-divider)' : '1px solid var(--color-accent-primary)',
-                        color: certDisabledReason ? 'var(--text-muted)' : 'var(--color-text-inverse)',
+                        color: certDisabledReason ? 'var(--text-caption)' : 'var(--color-text-inverse)',
                         fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
                         cursor: (certDisabledReason || downloadingCert) ? 'not-allowed' : 'pointer',
                         fontFamily:'Plus Jakarta Sans,sans-serif',
@@ -2415,7 +2376,6 @@ export default function StudentSidePanel({
 
           {/* ── Evaluations ── */}
           <section className="sc-sheet" id="sc-sheet-evaluations" data-sheet="evaluations" aria-label="Evaluations">
-            <div className="sc-sheet-label">Rubrics and reviews</div>
             <h2 className="sc-sheet-title">Evaluations</h2>
             <ChartEvaluations studentId={student.id} canRead={canEdit} />
           </section>
@@ -2423,7 +2383,6 @@ export default function StudentSidePanel({
 
           {/* ── Notes ── */}
           <section className="sc-sheet" id="sc-sheet-notes" data-sheet="notes" aria-label="Notes">
-            <div className="sc-sheet-label">Record of contact</div>
             <h2 className="sc-sheet-title">Notes</h2>
 
           {/* 10. Notes */}
@@ -2853,7 +2812,7 @@ export default function StudentSidePanel({
             <button className="sp-nav-btn" disabled={!prevStudent} onClick={() => prevStudent && onSelectStudent(prevStudent.id)}>
               ← {prevStudent ? displayName(prevStudent) : 'No previous'}
             </button>
-            <span style={{ fontSize:12, color:'var(--text-secondary)' }}>
+            <span style={{ fontSize:12, color:'var(--text-caption)' }}>
               {currentIndex + 1} / {sortedStudents.length}
             </span>
             <button className="sp-nav-btn" disabled={!nextStudent} onClick={() => nextStudent && onSelectStudent(nextStudent.id)}>

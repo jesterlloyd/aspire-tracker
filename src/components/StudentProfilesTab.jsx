@@ -69,7 +69,7 @@ export default function StudentProfilesTab({
   toast,
 }) {
   const { userProfile, canEdit } = useAuth()
-  const { barRef: toolbarRef, chartHeight } = useChartViewport()
+  const { barRef: toolbarRef, chartHeight, toolbarTop } = useChartViewport()
   const queryClient = useQueryClient()
   // ASPIRE-CHART URL state: selection and the KPI filter initialize
   // from the querystring (refresh-persistent, shareable) and write back on
@@ -225,7 +225,10 @@ export default function StudentProfilesTab({
     : (Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter)
 
   return (
-    <div className="student-profiles-tab" style={{ '--profiles-chart-h': chartHeight ? `${chartHeight}px` : undefined }}>
+    <div className="student-profiles-tab" style={{
+      '--profiles-chart-h': chartHeight ? `${chartHeight}px` : undefined,
+      '--profiles-toolbar-top': `${toolbarTop}px`,
+    }}>
 
       {/* ── Section picker: Profiles / CS-Link Access. Sits above the KPI cards like the
           Rotation and Evaluation pickers, with the same wrapper and button style. ── */}

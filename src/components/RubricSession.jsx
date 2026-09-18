@@ -433,6 +433,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // and never refresh the parent: the row in memory stayed false, so leaving the rubric
   // and coming back showed the flag gone even though the database had it. flagPending is
   // only the optimistic beat between the click and the refetch.
+  // RIBBON-CALM-1: the head lifts once the rubric has scrolled under it, exactly as the
+  // student chart's name plate does. Same threshold, same shadow.
+  const [headLifted, setHeadLifted] = useState(false)
   const [flagPending, setFlagPending] = useState(null)
   const isFlagged = flagPending ?? !!student.flagged_for_second_interview
   const [prefs, setPrefs] = useState({
@@ -1049,7 +1052,12 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       const el = root.querySelector(`#${id}`)
       if (el) io.observe(el)
     })
-    return () => io.disconnect()
+    // RIBBON-CALM-1: same threshold the student chart's plate uses, so both books lift at
+    // the same moment. It rides this effect because it watches the same scroller.
+    const onScroll = () => setHeadLifted(root.scrollTop > 2)
+    onScroll()
+    root.addEventListener('scroll', onScroll, { passive: true })
+    return () => { io.disconnect(); root.removeEventListener('scroll', onScroll) }
   }, [])
 
   const goToSection = (id) => {
@@ -1292,7 +1300,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                     done, the guide that explains the scale, and the score it adds up to.
                     The recommendation is Section 7's own answer and the ASPIRE status is on
                     the candidate page; neither is repeated here (Owner, 2026-09-17). */}
-                <header className="rb-head" data-testid="rb-head">
+                <header className={`rb-head${headLifted ? ' rb-head-lifted' : ''}`} data-testid="rb-head">
                   <span className="rb-head-side">
                     <span className="rb-head-key">Completion</span>
                     <span className="rb-head-pct" data-testid="rb-completion">{completion}%</span>
