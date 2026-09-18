@@ -11,6 +11,7 @@
 // the header is where "which experience am I in" is already known; ScopePicker itself
 // stays presentational and knows nothing about NGRP.
 import HeaderBrand from './HeaderBrand'
+import DemoModeBadge from '../DemoModeBadge'
 import ScopePicker from './scope/ScopePicker'
 import InternshipCohortList from './scope/InternshipCohortList'
 import ResidencyCohortList from './scope/ResidencyCohortList'
@@ -71,8 +72,11 @@ export default function Header({ cohort, search, actions, experience, residencyC
 
   return (
     <header className="chart-header">
-      {/* Zone 1: Brand */}
+      {/* Zone 1: Brand. DEMO-MODE-1 puts its marker here, inside Zone 1, so that a
+          screenshot cropped to any card, board or drawer never contains it and a
+          capture of the whole window contains it exactly once. */}
       <HeaderBrand />
+      <DemoModeBadge />
 
       <div className="chart-header-spacer" />
 

@@ -35,7 +35,7 @@
 // content, still derived entirely from server state.
 
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { createMailer } from '../lib/server/email/mailer.js';
 import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js'
 import { extractClientIp, bucketKey } from '../lib/server/evaluation/rate_limit.js'
 import { CANONICAL_APP_URL, LEGACY_APP_URL } from '../src/lib/appUrl.js'
@@ -283,7 +283,7 @@ export default async function handler(req, res) {
           duration:        slot.duration_minutes,
           interviewerName: slot.interviewer_name,
         })
-        const { data, error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        const { data, error } = await createMailer().emails.send({
           from:     BOOKING_NOTICE_FROM,
           reply_to: BOOKING_NOTICE_REPLY_TO,
           to:       recipients,

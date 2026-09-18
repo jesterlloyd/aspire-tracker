@@ -334,9 +334,12 @@ test('both endpoints resolve attachments BEFORE constructing the Resend client',
   for (const f of ['api/connect-send-direct-email.js', 'api/connect-send-bulk-message.js']) {
     const src = read(f)
     const resolveAt = src.indexOf('const att = await resolveAttachments(')
-    const clientAt = src.indexOf('new Resend(process.env.RESEND_API_KEY)')
+    // DEMO-MODE-1: the provider client is now built by createMailer() (the demo
+    // recipient guard). The ordering contract is unchanged: attachments must resolve
+    // before any provider client exists.
+    const clientAt = src.indexOf('createMailer()')
     assert.ok(resolveAt > -1, `${f} resolves attachments`)
-    assert.ok(clientAt > -1, `${f} constructs a Resend client`)
+    assert.ok(clientAt > -1, `${f} builds its provider client through createMailer`)
     assert.ok(resolveAt < clientAt,
       `${f}: a bad attachment must fail before the provider client exists`)
     // And the failure returns rather than continuing.

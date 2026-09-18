@@ -18,7 +18,7 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { templates } from '../src/lib/notifications/templates/index.js';
 import { redactArchiveHtml } from './lib/messageArchive.js';
 import { buildSecureLinkSnapshot } from './lib/secureLinkSnapshot.js';
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 // Template-backed types renderable from stored context. All verified to contain only static program
@@ -135,7 +135,7 @@ async function providerPreview(resendEmailId) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !resendEmailId) return null;
   try {
-    const { data, error } = await new Resend(apiKey).emails.get(resendEmailId);
+    const { data, error } = await createMailer(apiKey).emails.get(resendEmailId);
     if (error || !data) return null;
 
     // Use the same redact-then-verify gate as secure archive writes for EVERY

@@ -32,7 +32,7 @@
 //   confirmation_phrase - required, must exactly equal 'SEND SURVEYS'
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import {
   buildStudentInvitationEmail,
@@ -215,7 +215,7 @@ async function _handler(req, res, startMs) {
   });
 
   // ── 5. Sequential send loop ───────────────────────────────────────────────────
-  const resend  = new Resend(process.env.RESEND_API_KEY);
+  const resend  = createMailer();
   const sent    = [];
   const skipped = [];
   const failed  = [];

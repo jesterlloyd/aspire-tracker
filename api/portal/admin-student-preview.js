@@ -3,6 +3,7 @@
 // preview record but grants no authority to a non-staff caller.
 
 import { getServiceDb, verifyOwnerAdminCaller } from '../lib/portalAuth.js'
+import { demoScopeFromRequest } from '../../lib/server/demoScope.js'
 import { buildStudentPortalSummary } from '../lib/studentPortalSummary.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -24,6 +25,17 @@ export default async function handler(req, res) {
   try { db = getServiceDb() } catch { return res.status(500).json({ error: 'internal_error' }) }
 
   try {
+    // DEMO-MODE-1: an id outlives the mode that produced it. A preview student id held
+    // in component state, or a bookmarked preview URL, would otherwise open a real
+    // student's portal in the middle of a demo. Everything below is scoped by this id,
+    // so checking it once here covers the whole projection.
+    const demoScope = demoScopeFromRequest(req)
+    if (demoScope !== null) {
+      const modeCheck = await db.from('students').select('id').eq('id', studentId).eq('is_demo', demoScope).maybeSingle()
+      if (modeCheck.error) return res.status(500).json({ error: 'internal_error' })
+      if (!modeCheck.data) return res.status(404).json({ error: 'not_found' })
+    }
+
     const summary = await buildStudentPortalSummary(db, [studentId])
     if (!summary.students.length) return res.status(404).json({ error: 'not_found' })
 

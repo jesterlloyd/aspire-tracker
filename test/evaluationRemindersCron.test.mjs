@@ -53,6 +53,10 @@ writeFileSync(join(dir, 'fake.mjs'), `
   export function __ops() { return ops }
   export function __sends() { return sends }
 
+  export function createMailer(apiKey) { return new Resend(apiKey); }
+  // DEMO-MODE-1: handlers now obtain their client from lib/server/email/mailer.js
+  // instead of constructing Resend. The fake supplies the same factory so these
+  // tests keep intercepting sends exactly as they did.
   export class Resend {
     constructor() {
       this.emails = { send: async (payload, options) => {
@@ -141,6 +145,7 @@ writeFileSync(join(dir, 'fake.mjs'), `
 const src = read('api/cron/evaluation-reminders.js')
   .replace(/from '@supabase\/supabase-js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
   .replace(/from 'resend'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
+  .replace(/from '[^']*mailer\.js'/g, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
   .replace(/from '\.\.\/lib\/cronRuns\.js'/, `from ${abs('api/lib/cronRuns.js')}`)
   // S-12: the cron auth guard now lives in a shared helper.
   .replace(/from '\.\.\/lib\/cronAuth\.js'/, `from ${abs('api/lib/cronAuth.js')}`)

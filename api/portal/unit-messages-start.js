@@ -19,7 +19,7 @@
 // this endpoint uses for the concern path does not exist before then; the RPC
 // rejects it with MS400 and the endpoint reports a 400 rather than failing oddly.
 
-import { Resend } from 'resend'
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { methodGuard, readJsonBody, mapRpcError, rateLimitResponse, logApiError } from '../lib/messagesApi.js'
 import { validateBody, validateSubject, validateCategory, isUuid } from '../../lib/server/messages/validation.js'
 import { consumeNewConversation, consumeMessage } from '../../lib/server/messages/rateLimitUtil.js'
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
   const rateMsg = await consumeMessage(db, profile.id)
   if (!rateMsg.allowed) return rateLimitResponse(res, rateMsg)
 
-  const deps = { db, resend: new Resend(process.env.RESEND_API_KEY) }
+  const deps = { db, resend: createMailer() }
 
   try {
     let out

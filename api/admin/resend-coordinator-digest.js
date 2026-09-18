@@ -24,7 +24,7 @@
 //   curl ... -d '{"contact_ids":["uuid1","uuid2"]}'
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
 import { archiveSentMessage } from '../lib/messageArchive.js';
 import {
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
 
   try {
     const db     = getServiceClient();
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const resend = createMailer();
 
     // 1. Events in window
     const { data: events, error: eventsErr } = await db

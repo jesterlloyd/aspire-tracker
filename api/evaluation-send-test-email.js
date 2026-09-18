@@ -35,7 +35,7 @@
 //   500 - server error, Resend failure, or Owner email not configured
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import {
   buildStudentInvitationTestEmail,
@@ -229,7 +229,7 @@ async function _handler(req, res, startMs) {
   // The survey_url (containing the raw token in its hash fragment) is passed to
   // the template builder and transmitted in the email body. It is not logged in
   // console anywhere in this file. The assignment_id is sufficient for diagnostics.
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  const resend = createMailer();
 
   let resendMessageId = null;
   let sendError       = null;

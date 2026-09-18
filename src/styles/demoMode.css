@@ -1,0 +1,47 @@
+/* src/styles/demoMode.css
+   DEMO-MODE-1: the demo marker, in one sheet that BOTH halves of the app import, the
+   same arrangement aspireTable.css uses. The badge appears in the staff header and in
+   every portal's chrome, so its rule cannot live in index.css (the portal never loads
+   it) or in portal.css (the staff app never loads it).
+
+   No literal radius, no literal gap: the pill reads --aspire-radius-pill and the
+   colours read the demo tokens, both from aspireBrand.css. */
+
+.demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 10px;
+  padding: 3px 10px;
+  border-radius: var(--aspire-radius-pill);
+  background: var(--aspire-demo-bg);
+  box-shadow: inset 0 0 0 1px var(--aspire-demo-edge);
+  color: var(--aspire-demo-ink);
+  font-family: var(--aspire-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The dot is a circle, which the canon exempts, but writing 50% here rather than in a
+   JSX style keeps it out of the inline-style count and next to the rule it belongs to. */
+.demo-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--aspire-demo-dot);
+  flex-shrink: 0;
+}
+
+/* Dark mode: the tinted background disappears against a dark chrome, so the badge
+   keeps its shape by leaning on the edge and brightening the ink instead. */
+:root[data-theme="dark"] .demo-badge {
+  background: rgba(245, 158, 11, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.40);
+  color: #FCD34D;
+}
+:root[data-theme="dark"] .demo-badge-dot { background: #FBBF24; }

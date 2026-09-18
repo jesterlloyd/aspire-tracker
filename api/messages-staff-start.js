@@ -8,8 +8,7 @@
 // conversation if portal access is inactive. The notification targets the portal
 // account's user_profiles.email, never students.school_email or personal_email.
 
-/* global process */
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import { verifyStaffCaller, getServiceDb } from './lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, logApiError } from './lib/messagesApi.js';
 import { validateSubject, validateBody, validateCategory, isUuid } from '../lib/server/messages/validation.js';
@@ -48,7 +47,7 @@ export default async function handler(req, res) {
     if (!target?.email) return res.status(409).json({ error: 'conflict', reason: 'participant_email_unavailable' });
 
     const out = await startConversationForStaff(
-      { db, resend: new Resend(process.env.RESEND_API_KEY) },
+      { db, resend: createMailer() },
       {
         profile: caller.profile,
         participantProfileId,

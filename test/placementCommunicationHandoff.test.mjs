@@ -1024,7 +1024,9 @@ test('an incomplete placement reference is NOT recorded at all', () => {
 test('the guard runs BEFORE the mail provider, and the log write after the send', () => {
   const api = strip(read('api/connect-send-direct-email.js'))
   const guardIdx = api.indexOf('await verifyPlacementSend({')
-  const resendIdx = api.indexOf('const resend = new Resend(')
+  // DEMO-MODE-1: construction moved behind createMailer(); the guard-before-provider
+  // ordering this test pins is unchanged.
+  const resendIdx = api.indexOf('const resend = createMailer(')
   const failIdx = api.indexOf('if (sendError) {')
   const logIdx = api.indexOf("from('notification_log')")
   assert.ok(guardIdx > 0 && resendIdx > guardIdx,
@@ -1048,7 +1050,7 @@ test('the endpoint never builds the metadata from the request body', () => {
 
 test('a rejected placement returns a reason and sends nothing', () => {
   const api = strip(read('api/connect-send-direct-email.js'))
-  const gate = api.slice(api.indexOf('if (placementRefRaw) {'), api.indexOf('const resend = new Resend('))
+  const gate = api.slice(api.indexOf('if (placementRefRaw) {'), api.indexOf('const resend = createMailer('))
   assert.match(gate, /if \(!verdict\.ok\) \{[\s\S]{0,300}?return res\.status\(verdict\.status\)/,
     'the rejection must return, not continue')
   assert.match(gate, /placement_error: verdict\.code/, 'and name what disagreed')

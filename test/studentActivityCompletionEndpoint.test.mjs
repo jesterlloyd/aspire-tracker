@@ -37,6 +37,10 @@ writeFileSync(join(dir, 'fake.mjs'), `
   export function __seed(rows) { ledger = rows.slice(); }
 
   // Any send attempt is recorded so a test can prove none happened.
+  export function createMailer(apiKey) { return new Resend(apiKey); }
+  // DEMO-MODE-1: handlers now obtain their client from lib/server/email/mailer.js
+  // instead of constructing Resend. The fake supplies the same factory so these
+  // tests keep intercepting sends exactly as they did.
   export class Resend {
     constructor() { this.emails = { send: async (p) => { sends.push(p); return { data: { id: 're_1' }, error: null }; } }; }
   }

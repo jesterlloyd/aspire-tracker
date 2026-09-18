@@ -1,6 +1,5 @@
-/* global process */
 
-import { Resend } from 'resend';
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { verifyPortalUnitLeaderCaller } from '../lib/unitLeaderScope.js';
 import { verifyPortalStudentCaller, getServiceDb } from '../lib/messagesAuth.js';
 import { verifyPortalCaller, hasActiveRoleGrant } from '../lib/portalAuth.js';
@@ -91,7 +90,7 @@ async function verifyPortalFeedbackCaller(req) {
 export function createPortalFeedbackSubmitHandler({
   verifyCaller = verifyPortalFeedbackCaller,
   submit = submitPortalFeedback,
-  makeResend = () => new Resend(process.env.RESEND_API_KEY),
+  makeResend = () => createMailer(),
 } = {}) {
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');

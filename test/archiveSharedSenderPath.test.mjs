@@ -28,6 +28,10 @@ writeFileSync(join(dir, 'fake.mjs'), `
   export let sends = [], archives = [], logs = [], opts = {};
   export function __reset(o = {}) { sends = []; archives = []; logs = []; opts = o; }
   export function __state() { return { sends, archives, logs }; }
+  export function createMailer(apiKey) { return new Resend(apiKey); }
+  // DEMO-MODE-1: handlers now obtain their client from lib/server/email/mailer.js
+  // instead of constructing Resend. The fake supplies the same factory so these
+  // tests keep intercepting sends exactly as they did.
   export class Resend {
     constructor() {
       this.emails = { send: async (p) => {
@@ -53,6 +57,7 @@ writeFileSync(join(dir, 'fake.mjs'), `
 `)
 const src = read('src/lib/notifications/index.js')
   .replace(/from 'resend'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
+  .replace(/from '[^']*mailer\.js'/g, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
   .replace(/from '@supabase\/supabase-js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
   .replace(/from '\.\/templates\/index\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'src/lib/notifications/templates/index.js')).href)}`)
   .replace(/from '\.\/recipients\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'src/lib/notifications/recipients.js')).href)}`)

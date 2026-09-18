@@ -9,8 +9,7 @@
 // never grants access: the RPC re-validates live participant access and returns
 // a non-enumerating 404 otherwise.
 
-/* global process */
-import { Resend } from 'resend';
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { verifyPortalMessagesCaller, getServiceDb } from '../lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, rateLimitResponse, notFound, logApiError } from '../lib/messagesApi.js';
 import { validateBody, isUuid } from '../../lib/server/messages/validation.js';
@@ -55,7 +54,7 @@ export default async function handler(req, res) {
     const counterpart = await loadDirectCounterpart(db, conversationId, caller.profile.id);
     if (counterpart) {
       const direct = await replyForPortalDirect(
-        { db, resend: new Resend(process.env.RESEND_API_KEY) },
+        { db, resend: createMailer() },
         {
           profile: caller.profile,
           actorKind: caller.actorKind,
@@ -82,7 +81,7 @@ export default async function handler(req, res) {
     // persisted with the caller's true author_role (student, unit_leader, or
     // academic_partner). Server-derived only - never read from the request.
     const out = await replyForPortal(
-      { db, resend: new Resend(process.env.RESEND_API_KEY) },
+      { db, resend: createMailer() },
       { profile: caller.profile, actorKind: caller.actorKind, conversationId, conversation: ctx, body: body.value },
     );
     if (out.rpcError) {

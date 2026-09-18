@@ -36,6 +36,10 @@ writeFileSync(join(dir, 'fake.mjs'), `
   export let sends = [], logInserts = [], archives = [];
   export function __reset() { sends = []; logInserts = []; archives = []; }
 
+  export function createMailer(apiKey) { return new Resend(apiKey); }
+  // DEMO-MODE-1: handlers now obtain their client from lib/server/email/mailer.js
+  // instead of constructing Resend. The fake supplies the same factory so these
+  // tests keep intercepting sends exactly as they did.
   export class Resend {
     constructor() {
       this.emails = { send: async (p) => { sends.push(p); return { data: { id: 're_' + sends.length }, error: null }; } };
@@ -109,6 +113,7 @@ function instrument(guardHref) {
   return read('api/connect-send-bulk-message.js')
     .replace(/from '@supabase\/supabase-js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
     .replace(/from 'resend'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
+    .replace(/from '[^']*mailer\.js'/g, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
     .replace(/from '\.\.\/lib\/server\/evaluation\/supabase_admin\.js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
     .replace(/from '\.\.\/lib\/server\/connect\/emailTemplates\.js'/, `from ${abs('lib/server/connect/emailTemplates.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/studentRecipient\.js'/, `from ${abs('src/lib/notifications/studentRecipient.js')}`)

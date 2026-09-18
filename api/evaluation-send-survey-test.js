@@ -25,7 +25,7 @@
 // unexpected field is a 400.
 
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { createMailer } from '../lib/server/email/mailer.js';
 import { appUrl } from '../lib/server/appUrl.js'
 import { aspireEmailShell } from '../lib/server/email/aspireShell.js'
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
@@ -145,7 +145,7 @@ export default async function handler(req, res) {
       })
       sentSubject = subject
       sentHtml = html
-      const resend = new Resend(process.env.RESEND_API_KEY)
+      const resend = createMailer()
       const { error } = await resend.emails.send({
         from: FROM, to: auth.email, replyTo: REPLY_TO, subject, html,
       })

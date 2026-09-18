@@ -13,6 +13,7 @@ import { PORTAL_LINKS } from '../lib/portalLinks'
 import { useAuth } from '../contexts/AuthContext'
 import { PortalRefreshProvider } from './PortalRefresh'
 import { PortalHeaderSlotsContext } from './PortalHeaderSlots'
+import DemoModeBadge from '../components/DemoModeBadge'
 
 // PORTAL-SWITCHER-1: the same icon per portal as the staff UserMenu, so a portal is
 // recognizable from either menu. The labels and paths come from the shared list.
@@ -179,6 +180,11 @@ export default function PortalShell({
             <div className="ptl-header-brand">
               <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
               <span className="ptl-header-divider" aria-hidden="true" />
+              {/* DEMO-MODE-1: the same marker the staff header wears, in the same place
+                  relative to the wordmark, so switching into a portal never looks like
+                  leaving demo mode. Its styling comes from src/styles/demoMode.css,
+                  which PortalApp imports alongside the other shared sheets. */}
+              <DemoModeBadge />
               <div className="ptl-header-title">
                 <span className="ptl-header-aspire">ASPIRE</span>
                 <span className="ptl-header-sub">{title}<span className="ptl-header-scope" ref={setScopeSlot} /></span>

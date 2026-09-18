@@ -4,6 +4,7 @@
 @import './styles/theme.css';
 @import './styles/aspireBrand.css';
 @import './styles/aspireTable.css';
+@import './styles/demoMode.css';
 /* ASPIRE-CHART: staff functional tokens + shell (loads aspireBrand core) */
 @import './styles/chartTokens.css';
 

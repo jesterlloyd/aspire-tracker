@@ -13,8 +13,7 @@
 // The client supplies only subject, category, and body. It never supplies a
 // delivery payload, recipient, event type, idempotency key, snapshot, or CTA.
 
-/* global process */
-import { Resend } from 'resend';
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { verifyPortalStudentCaller, getServiceDb } from '../lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, rateLimitResponse, logApiError } from '../lib/messagesApi.js';
 import { validateSubject, validateBody, validateCategory } from '../../lib/server/messages/validation.js';
@@ -55,7 +54,7 @@ export default async function handler(req, res) {
 
   try {
     const out = await startConversationForPortal(
-      { db, resend: new Resend(process.env.RESEND_API_KEY) },
+      { db, resend: createMailer() },
       { profile: caller.profile, studentId, subject: subject.value, category: category.value, body: body.value },
     );
     if (out.rpcError) {

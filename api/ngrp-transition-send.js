@@ -20,8 +20,7 @@
 //
 // Modes: { preview:true } classifies the selection without sending anything;
 // the send mode requires confirmation 'SEND MESSAGES' exactly.
-/* global process */
-import { Resend } from 'resend'
+import { createMailer } from '../lib/server/email/mailer.js';
 import { getServiceDb, verifyPortalCaller } from './lib/portalAuth.js'
 import { can } from '../lib/server/access.js'
 import { generateToken } from '../lib/server/evaluation/tokens.js'
@@ -190,7 +189,7 @@ export default async function handler(req, res) {
   const batchId = typeof body.batch_id === 'string' && UUID.test(body.batch_id) ? body.batch_id : null
   if (!batchId) return res.status(422).json({ error: 'invalid_batch_id' })
 
-  const resendClient = new Resend(process.env.RESEND_API_KEY)
+  const resendClient = createMailer()
   const baseUrl = emailBaseUrl(req)
   const nowIsoBatch = new Date().toISOString()
 

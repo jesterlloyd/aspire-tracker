@@ -13,7 +13,7 @@
 
 /* global process */
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { runDeliveryWorker } from '../../lib/server/messages/deliveryService.js';
 import { CLAIM_BATCH_LIMIT, CLAIM_STALE_SECONDS } from '../../lib/server/messages/config.js';
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
   const runId = await startCronRun(supabase, CRON_NAME);
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const resend = createMailer();
     // A per-invocation worker id lets stale-claim recovery distinguish holders.
     const worker = `${CRON_NAME}:${runId || 'unknown'}`;
     const counts = await runDeliveryWorker(supabase, resend, {

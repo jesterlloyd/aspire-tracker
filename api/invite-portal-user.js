@@ -36,7 +36,7 @@
 // must be applied before this endpoint can succeed.
 
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { createMailer } from '../lib/server/email/mailer.js';
 import { randomUUID } from 'crypto'
 import { appUrl } from '../lib/server/appUrl.js'
 import { UNIT_CATALOG } from '../src/lib/unitCatalog.js'
@@ -59,7 +59,7 @@ async function sendPortalInvitation({ to, firstName, activationLink, expiresAt, 
   try {
     if (!process.env.RESEND_API_KEY || !activationLink) return false
     const { subject, html } = portalInvitationEmail({ firstName, activationLink, expiresAt, role })
-    const resend = new Resend(process.env.RESEND_API_KEY)
+    const resend = createMailer()
     const { error } = await resend.emails.send({ from: EMAIL_FROM, to, replyTo: EMAIL_REPLY_TO, subject, html })
     if (error) { console.log('[invite-portal-user] branded invite email failed', { request_id: requestId }); return false }
     return true

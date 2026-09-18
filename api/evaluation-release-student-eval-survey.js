@@ -21,7 +21,7 @@
 // POST /api/evaluation-release-student-eval-survey   Body: { student_id }
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import { archiveSentMessage } from './lib/messageArchive.js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
@@ -304,7 +304,7 @@ async function _handler(req, res) {
   const studentFirstName = getStudentPreferredFirstName(student);  // preferred → legal; '' keeps 'Hello,' fallback
 
   // ── 11. Send via Resend. ─────────────────────────────────────────────────────────
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  const resend = createMailer();
   const { subject, html } = buildStudentEvalInvitationEmail({ studentFirstName, expiresAtHuman, surveyUrl });
 
   let resendMessageId = null;

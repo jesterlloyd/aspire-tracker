@@ -18,7 +18,7 @@
 // due date has not is still sent on the next run.
 /* global process */
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js'
 import { isAutomationEnabled } from '../lib/automationSettings.js'
 import { isAuthorizedCronRequest } from '../lib/cronAuth.js'
@@ -94,7 +94,7 @@ export default async function handler(req, res) {
     const outcomeByCandidate = new Map((outcomes.data || []).map(o => [o.candidate_id, o]))
     const studentById = new Map((students.data || []).map(s => [s.id, s]))
 
-    const resendClient = new Resend(process.env.RESEND_API_KEY)
+    const resendClient = createMailer()
     const baseUrl = emailBaseUrl(req)
     const sendEmail = async ({ to, subject, html, idempotencyKey }) => {
       try {

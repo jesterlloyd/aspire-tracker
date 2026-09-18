@@ -36,7 +36,7 @@
 // Authorization: Bearer <session-token>
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
 import { isValidEmail } from '../src/lib/notifications/studentRecipient.js';
@@ -394,7 +394,7 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
     return res.status(att.status || 400).json({ success: false, error: att.error });
   }
 
-  const resend  = new Resend(process.env.RESEND_API_KEY);
+  const resend  = createMailer();
   let attemptedSend = false;    // gate pacing so we only delay around real Resend calls
 
   // ── S7. Send loop - runs ONLY over the validated allowlist. ──
