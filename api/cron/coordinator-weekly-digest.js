@@ -25,7 +25,7 @@
 // Auth (CRON_SECRET) is still required in dry-run mode.
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
 
   try {
     const db     = getServiceClient();
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const resend = createMailer();
 
     const { windowStart, windowEnd } = getDigestWindow(now);
     console.log(`[coordinator-digest] window: ${windowStart.toISOString()} → ${windowEnd.toISOString()}`);

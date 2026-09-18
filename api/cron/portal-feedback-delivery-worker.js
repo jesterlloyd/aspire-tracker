@@ -1,7 +1,7 @@
 /* global process */
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { runPortalFeedbackDeliveryWorker } from '../../lib/server/portalFeedback/deliveryService.js';
 import {
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   const runId = await startCronRun(supabase, CRON_NAME);
   try {
-    const counts = await runPortalFeedbackDeliveryWorker(supabase, new Resend(process.env.RESEND_API_KEY), {
+    const counts = await runPortalFeedbackDeliveryWorker(supabase, createMailer(), {
       worker: `${CRON_NAME}:${runId || 'unknown'}`,
       limit: PORTAL_FEEDBACK_CLAIM_BATCH_LIMIT,
       staleSeconds: PORTAL_FEEDBACK_CLAIM_STALE_SECONDS,

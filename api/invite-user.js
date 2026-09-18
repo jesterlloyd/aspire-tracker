@@ -28,7 +28,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import { appUrl } from '../lib/server/appUrl.js';
 import { staffInvitationEmail } from '../lib/server/email/staffInvitation.js';
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
@@ -62,7 +62,7 @@ async function sendStaffInvitation({ to, firstName, activationLink, role, reques
   try {
     if (!process.env.RESEND_API_KEY || !activationLink) return false;
     const { subject, html } = staffInvitationEmail({ firstName, activationLink, role });
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const resend = createMailer();
     const { error } = await resend.emails.send({ from: EMAIL_FROM, to, replyTo: EMAIL_REPLY_TO, subject, html });
     if (error) { console.log('[invite-user] branded staff email failed', { request_id: requestId }); return false; }
     return true;

@@ -9,7 +9,7 @@
 
 /* global process */
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js'
 import { runStaffNotificationWorker } from '../../lib/server/staffNotifications/deliveryService.js'
 import { CLAIM_BATCH_LIMIT, CLAIM_STALE_SECONDS } from '../../lib/server/staffNotifications/config.js'
@@ -31,7 +31,7 @@ function createServiceDb(env) {
 export function createStaffNotificationWorkerHandler({
   env = process.env,
   getDb = () => createServiceDb(env),
-  getResend = apiKey => new Resend(apiKey),
+  getResend = apiKey => createMailer(apiKey),
   startRun = startCronRun,
   finishSuccess = finishCronRunSuccess,
   finishError = finishCronRunError,

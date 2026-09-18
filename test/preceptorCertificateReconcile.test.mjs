@@ -103,13 +103,18 @@ function buildHarness(fake) {
   writeFileSync(join(dir, 'fake-appurl.mjs'),
     `export const emailBaseUrl = () => 'https://aspireintelligence.app';\n`)
   writeFileSync(join(dir, 'fake-resend.mjs'),
-    `export class Resend { constructor() {} get emails() { return { send: async (m) => { globalThis.__FAKE__._sends.push(m); return { data: { id: 'mock-email' }, error: null } } } } }\n`)
+    `export function createMailer(apiKey) { return new Resend(apiKey); }
+  // DEMO-MODE-1: handlers now obtain their client from lib/server/email/mailer.js
+  // instead of constructing Resend. The fake supplies the same factory so these
+  // tests keep intercepting sends exactly as they did.
+  export class Resend { constructor() {} get emails() { return { send: async (m) => { globalThis.__FAKE__._sends.push(m); return { data: { id: 'mock-email' }, error: null } } } } }\n`)
   writeFileSync(join(dir, 'fake-message-archive.mjs'),
     `export const archiveSentMessage = async () => ({ status: 'archived' });\n`)
 
   // unlockPreceptorCertificate: real logic, faked Resend + email template path.
   let unlockSrc = readFileSync(join(repo, 'lib/server/certificates/unlockPreceptorCertificate.js'), 'utf8')
   unlockSrc = unlockSrc.replace("from 'resend'", "from './fake-resend.mjs'")
+    .replace(/from '[^']*mailer\.js'/g, "from './fake-resend.mjs'")
     .replace("from '../evaluation/preceptorCertificateEmail.js'",
              `from ${JSON.stringify(pathToFileURL(join(repo, 'lib/server/evaluation/preceptorCertificateEmail.js')).href)}`)
     .replace("from '../../../api/lib/messageArchive.js'", "from './fake-message-archive.mjs'")

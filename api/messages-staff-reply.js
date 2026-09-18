@@ -9,8 +9,7 @@
 // Replying to a resolved conversation reopens it inside the RPC. Staff are not
 // rate-limited through the portal-user mechanism.
 
-/* global process */
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import { verifyStaffCaller, getServiceDb } from './lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, notFound, logApiError } from './lib/messagesApi.js';
 import { validateBody, isUuid } from '../lib/server/messages/validation.js';
@@ -63,7 +62,7 @@ export default async function handler(req, res) {
     }
 
     const out = await replyForStaff(
-      { db, resend: new Resend(process.env.RESEND_API_KEY) },
+      { db, resend: createMailer() },
       {
         profile: caller.profile,
         conversationId,

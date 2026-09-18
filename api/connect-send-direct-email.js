@@ -41,7 +41,7 @@
 //   500 - Resend failure or server error
 
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { createMailer } from '../lib/server/email/mailer.js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
 import { archiveManualMessage } from './lib/messageArchive.js';
@@ -453,7 +453,7 @@ async function _handler(req, res, startMs) {
 
   // ── 5c. Resolve attachments BEFORE any provider client exists ────────────────
   // OUTREACH-ATTACHMENTS-1: an invalid, missing, inactive, unauthorized or
-  // oversized attachment fails HERE - before new Resend(...) and before the
+  // oversized attachment fails HERE - before createMailer(...) and before the
   // recipient is emailed. Slugs in, validated bytes out.
   const att = await resolveAttachments({ db: supabaseAdmin, slugs: body.attachment_slugs });
   if (!att.ok) {
@@ -481,7 +481,7 @@ async function _handler(req, res, startMs) {
   }
 
   // ── 6. Send via Resend ────────────────────────────────────────────────────────
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  const resend = createMailer();
 
   let resendMessageId = null;
   let sendError       = null;

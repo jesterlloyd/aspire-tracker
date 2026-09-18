@@ -25,8 +25,7 @@
 // count is gone (Owner, 2026-09-13): the reflection replaces it.
 // A missing table reads as { provisioned: false } until 20260914000000 is applied;
 // the reflection actions need 20260917000000 as well.
-/* global process */
-import { Resend } from 'resend'
+import { createMailer } from '../lib/server/email/mailer.js';
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { loadApplicantsPayload, isMissingNgrpTable, isMissingNgrpColumn } from '../lib/server/ngrpApplicants.js'
@@ -258,7 +257,7 @@ export default async function handler(req, res) {
         periods = started.periods
       }
 
-      const resendClient = new Resend(process.env.RESEND_API_KEY)
+      const resendClient = createMailer()
       const sendEmail = async ({ to, subject, html, idempotencyKey }) => {
         try {
           const { data, error } = await resendClient.emails.send({ from: FROM, to, subject, html }, { idempotencyKey })

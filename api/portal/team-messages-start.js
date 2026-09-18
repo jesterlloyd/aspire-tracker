@@ -18,8 +18,7 @@
 // capability is reported. A single-school AP auto-resolves; a multi-school AP must supply the selected
 // school, which is verified here; a missing/invalid selection fails closed.
 
-/* global process */
-import { Resend } from 'resend';
+import { createMailer } from '../../lib/server/email/mailer.js';
 import { verifyPortalMessagesCaller, getServiceDb } from '../lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, logApiError } from '../lib/messagesApi.js';
 import { validateBody, isUuid } from '../../lib/server/messages/validation.js';
@@ -91,7 +90,7 @@ export default async function handler(req, res) {
 
   try {
     const out = await startGeneralTeamConversationForPortal(
-      { db: getServiceDb(), resend: new Resend(process.env.RESEND_API_KEY) },
+      { db: getServiceDb(), resend: createMailer() },
       {
         profile: caller.profile,
         actorKind: caller.actorKind,

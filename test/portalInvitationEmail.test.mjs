@@ -56,7 +56,13 @@ test('invite endpoint sends the branded email, not the default Supabase mailer',
     assert.doesNotMatch(endpoint, /properties\?\.action_link/)
   })
   await t.test('sends via the ASPIRE Resend helper with a support reply-to', () => {
-    assert.match(endpoint, /import \{ Resend \} from 'resend'/)
+    // DEMO-MODE-1: the endpoint no longer constructs Resend itself. It obtains a
+    // guarded client from lib/server/email/mailer.js, which refuses fabricated demo
+    // recipients before the provider is reached. The contract this test pins is
+    // unchanged (a branded ASPIRE send with a support reply-to); only where the
+    // client comes from moved, and it must come from there.
+    assert.match(endpoint, /import \{ createMailer \} from '[^']*mailer\.js'/)
+    assert.doesNotMatch(endpoint, /new Resend\s*\(/)
     assert.match(endpoint, /portalInvitationEmail/)
     assert.match(endpoint, /replyTo: EMAIL_REPLY_TO/)
     assert.match(endpoint, /const EMAIL_REPLY_TO = 'aspire@cshs\.org'/)
