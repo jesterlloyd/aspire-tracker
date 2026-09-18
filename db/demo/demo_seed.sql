@@ -83,7 +83,7 @@ DECLARE
     ['units','unit_name'], ['units','division'], ['units','total_slots'],
     ['units','slots_remaining'], ['units','is_participating'], ['units','cohort_id'],
     ['preceptors','full_name'], ['preceptors','email'], ['preceptors','unit_name'],
-    ['preceptors','shift_type'], ['preceptors','status'], ['preceptors','cohort_id'],
+    ['preceptors','shift_type'], ['preceptors','is_active'],
     ['contacts','full_name'], ['contacts','email'], ['contacts','category'],
     ['matches','student_id'], ['matches','unit_id'], ['matches','preceptor_id'],
     ['student_shift_logs','shift_date'], ['student_shift_logs','lifecycle_state'],
@@ -188,21 +188,27 @@ VALUES
 --    directory identity in contacts; a preceptor missing from contacts shows up
 --    on the roster but nowhere in Connect.
 -- ─────────────────────────────────────────────────────────────────────
+--    preceptors carries IDENTITY ONLY on this instance: no cohort_id, no status, no
+--    started_at. Those live on preceptor_cohort_participation, which is how a shared
+--    preceptor can take part in several cohorts without being duplicated. Verified
+--    against the live schema, not inferred: every preceptors select in the app reads
+--    only id, full_name, email, unit_name, phone, shift_type and unit_id, and
+--    src/hooks/usePreceptors.js reaches the rest through the embed.
 INSERT INTO preceptors
-  (id, cohort_id, full_name, email, unit_name, shift_type, status, is_active, started_at, is_demo)
+  (id, full_name, email, unit_name, shift_type, is_active, is_demo)
 VALUES
-  ('0de0d000-0000-4000-8000-000000000001', '0de00000-0000-4000-8000-000000000001',
-   'Solomon Adeyemi',  'solomon.adeyemi@demo.aspire.invalid',  '6 NE',    'Day',   'active', true, CURRENT_DATE - 21, true),
-  ('0de0d000-0000-4000-8000-000000000002', '0de00000-0000-4000-8000-000000000001',
-   'Birgitta Lindqvist','birgitta.lindqvist@demo.aspire.invalid','6 NE',  'Night', 'active', true, CURRENT_DATE - 21, true),
-  ('0de0d000-0000-4000-8000-000000000003', '0de00000-0000-4000-8000-000000000001',
-   'Mateo Carrasco',   'mateo.carrasco@demo.aspire.invalid',   '5 North', 'Day',   'active', true, CURRENT_DATE - 21, true),
-  ('0de0d000-0000-4000-8000-000000000004', '0de00000-0000-4000-8000-000000000001',
-   'Ngozi Balogun',    'ngozi.balogun@demo.aspire.invalid',    '5 North', 'Day',   'active', true, CURRENT_DATE - 21, true),
-  ('0de0d000-0000-4000-8000-000000000005', '0de00000-0000-4000-8000-000000000001',
-   'Henrietta Fowles', 'henrietta.fowles@demo.aspire.invalid', '8 South', 'Day',   'active', true, CURRENT_DATE - 21, true),
-  ('0de0d000-0000-4000-8000-000000000006', '0de00000-0000-4000-8000-000000000001',
-   'Ravi Chandrasekar','ravi.chandrasekar@demo.aspire.invalid','4 SCCT',  'Night', 'active', true, CURRENT_DATE - 21, true);
+  ('0de0d000-0000-4000-8000-000000000001',
+   'Solomon Adeyemi', 'solomon.adeyemi@demo.aspire.invalid', '6 NE', 'Day', true, true),
+  ('0de0d000-0000-4000-8000-000000000002',
+   'Birgitta Lindqvist', 'birgitta.lindqvist@demo.aspire.invalid', '6 NE', 'Night', true, true),
+  ('0de0d000-0000-4000-8000-000000000003',
+   'Mateo Carrasco', 'mateo.carrasco@demo.aspire.invalid', '5 North', 'Day', true, true),
+  ('0de0d000-0000-4000-8000-000000000004',
+   'Ngozi Balogun', 'ngozi.balogun@demo.aspire.invalid', '5 North', 'Day', true, true),
+  ('0de0d000-0000-4000-8000-000000000005',
+   'Henrietta Fowles', 'henrietta.fowles@demo.aspire.invalid', '8 South', 'Day', true, true),
+  ('0de0d000-0000-4000-8000-000000000006',
+   'Ravi Chandrasekar', 'ravi.chandrasekar@demo.aspire.invalid', '4 SCCT', 'Night', true, true);
 
 INSERT INTO contacts (id, full_name, email, category, role, organization, unit_name, is_active, is_demo)
 VALUES
