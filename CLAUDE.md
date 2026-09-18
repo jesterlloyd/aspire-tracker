@@ -188,6 +188,32 @@ else. The chart lives in `src/components/student/`.
   carries no `key`, because keying it remounted the panel and replayed its slide-in on
   every click. Only what is written on the paper cross-fades.
 
+### The chart gets the window (STUDENT-CHART-1, 2026-09-18)
+
+The page scrolls. The KPI filter cards and the Profiles/CS-Link sub-tabs scroll away, the
+search and filter bar pins to the top, and the split takes everything left in the
+viewport. `.student-profiles-tab` used to be a fixed `calc(100vh - 164px)` box with
+`overflow: hidden`, which left the chart 512px of a 950px window and an index rail 6px
+shorter than its own tabs; it is 868px now. The height is measured by `useChartViewport`
+and published as `--profiles-chart-h`, because the pinned bar wraps at narrow widths and
+is not a constant. `.profiles-toolbar` must stay a DIRECT child of the tab: a sticky
+element is bounded by its own parent, so inside the KPI wrapper it unsticks the moment
+that wrapper scrolls past.
+
+A section is part of the page, not a box on it. Fields sit on the sheet's tint with one
+hairline rule between sections; only a real block keeps a container (`.sc-block`:
+completion, the hours log, the document and evaluation lists). The sheet tint stays,
+because a tab is the colour of the sheet it opens.
+
+An index tab never shrinks below its own word (`flex: 0 0 auto`). Squeezing seven tabs to
+fit clipped every label; below an 880px window they tighten instead, and below roughly
+700px the rail scrolls. A rail that scrolls beats a word you cannot read.
+
+Two cascade traps this cost, both found by measuring and neither visible in the source:
+a `@media` query carries no specificity, so placed ABOVE the rules it modifies it does
+nothing; and `--aspire-focus-ring` is a whole shorthand, so wrapping it in another one
+produces invalid CSS the browser drops silently.
+
 ### The follow-up flag is not the interview flag (STUDENT-CHART-1)
 
 Two ribbons, the same gesture, two different columns, and they must never be merged.

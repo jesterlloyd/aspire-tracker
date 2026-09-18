@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import StudentListPanel from './StudentListPanel'
+// STUDENT-CHART-1: measures the pinned bar so the chart can take the rest of the window.
+import { useChartViewport } from './student/useChartViewport'
 import StudentSidePanel from './StudentSidePanel'
 import AccessTab from './AccessTab'
 import { supabase } from '../lib/supabase'
@@ -67,6 +69,7 @@ export default function StudentProfilesTab({
   toast,
 }) {
   const { userProfile, canEdit } = useAuth()
+  const { barRef: toolbarRef, chartHeight } = useChartViewport()
   const queryClient = useQueryClient()
   // ASPIRE-CHART URL state: selection and the KPI filter initialize
   // from the querystring (refresh-persistent, shareable) and write back on
@@ -222,7 +225,7 @@ export default function StudentProfilesTab({
     : (Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter)
 
   return (
-    <div className="student-profiles-tab">
+    <div className="student-profiles-tab" style={{ '--profiles-chart-h': chartHeight ? `${chartHeight}px` : undefined }}>
 
       {/* ── Section picker: Profiles / CS-Link Access. Sits above the KPI cards like the
           Rotation and Evaluation pickers, with the same wrapper and button style. ── */}
@@ -262,9 +265,10 @@ export default function StudentProfilesTab({
             </>
           )}
         </div>
+      </div>{/* end .profiles-frozen: the KPI strip scrolls away */}
 
         {/* ── Unified toolbar: legend, search, school, view and actions in one row ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 12px', background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:10, marginBottom:10, flexWrap:'wrap' }}>
+        <div className="profiles-toolbar" ref={toolbarRef}>
 
           {/* Status legend popover */}
           <StatusLegendPopover position="bottom-left" />
@@ -356,7 +360,7 @@ export default function StudentProfilesTab({
             </Tooltip>
           )}
         </div>
-      </div>
+
 
       {/* ── Profiles: always-open split view ── */}
       {view === 'records' && (

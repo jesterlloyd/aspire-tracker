@@ -125,7 +125,7 @@ export default function ChartEvaluations({ studentId, canRead }) {
 
   return (
     <>
-      <div className="sp-section sp-card">
+      <div className="sc-block">
         <div className="sp-section-hdr">Interview rubric</div>
         {rubrics.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--aspire-paper-ink-soft)', padding: '4px 0' }}>
@@ -146,7 +146,7 @@ export default function ChartEvaluations({ studentId, canRead }) {
         )}
       </div>
 
-      <div className="sp-section sp-card">
+      <div className="sc-block">
         <div className="sp-section-hdr">Rotation evaluations</div>
         {assignments.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--aspire-paper-ink-soft)', padding: '4px 0' }}>

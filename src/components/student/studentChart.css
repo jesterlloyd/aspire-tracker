@@ -64,11 +64,18 @@
 
 /* ── The paper ─────────────────────────────────────────────────────────────── */
 /* Square corners, because this is paper and not a card (the same rule the rubric's page
-   follows). The two stacked shadows on the left are the edges of the sheets underneath. */
+   follows). The stacked shadows sit on the RIGHT (Owner, 2026-09-18): the rings are the
+   spine, the spine is on the left, so the loose fore edges of the sheets underneath can
+   only show on the other side. They were on the left, which drew a binder bound down its
+   open edge. */
 .sc-paper {
   position: relative;
   flex: 1;
   min-width: 0;
+  /* The plate reflows against the PAPER's width, not the window's: the chart is one half
+     of a split, so a wide window can still hand it a narrow page. */
+  container-type: inline-size;
+  container-name: chart-paper;
   display: grid;
   grid-template-rows: auto 1fr;
   background: var(--aspire-page);
@@ -76,8 +83,8 @@
   border-radius: 0;
   overflow: hidden;
   box-shadow:
-    -3px 0 0 -1px var(--aspire-page-band),
-    -4px 0 0 -1px rgba(0, 0, 0, 0.35),
+    3px 0 0 -1px var(--aspire-page-band),
+    4px 0 0 -1px rgba(0, 0, 0, 0.35),
     0 0 0 1px rgba(0, 0, 0, 0.25);
 }
 
@@ -106,7 +113,10 @@
     0 6px 10px -6px rgba(24, 32, 63, 0.45),
     0 1px 0 rgba(24, 32, 63, 0.10);
 }
-.sc-plate-id { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 auto; }
+/* The avatar sits against the NAME (Owner, 2026-09-18). Centring it on a block that also
+   contains two wrapped rows of chips floated it halfway down the plate, level with
+   nothing. */
+.sc-plate-id { display: flex; align-items: flex-start; gap: 14px; min-width: 0; flex: 1 1 auto; }
 .sc-plate-head { min-width: 0; }
 .sc-plate-name {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -135,26 +145,44 @@
   flex: 0 0 auto;
 }
 
+/* On a narrow page the actions take their own row instead of squeezing the identity
+   block. Measured at 1280x720: keeping them on one line crushed the chips column to
+   119px, stacked six chips into 170px, and left the plate 326px tall - which took the
+   index rail down to 282px and clipped the tab words. Wrapping costs one 44px row and
+   gives back 134px. */
+@container chart-paper (max-width: 760px) {
+  .sc-plate { flex-wrap: wrap; }
+  .sc-plate-acts { margin-left: 0; width: 100%; justify-content: flex-start; }
+}
+
 /* ── The flag ribbon ───────────────────────────────────────────────────────── */
-/* Sewn into the top right of the plate, and it stays there: it belongs to the student,
-   not to whichever sheet happens to be in view. Same component and same gesture as the
-   rubric's ribbon (src/components/rubric/FlagRibbon.jsx); a different colour would make
-   two flags look like two mechanisms. */
+/* Sewn into the BLACK BOARD and hanging down over the paper (Owner, 2026-09-18), exactly
+   as the rubric's ribbon hangs from its brown cover. It was pinned to the top of the
+   paper, which made it look printed on the page rather than part of the binder. It is a
+   child of .sc-binder now, so top: 0 is the top of the leather, and it belongs to the
+   student rather than to whichever sheet is in view. Same component and same gesture as
+   the rubric's (src/components/rubric/FlagRibbon.jsx); a different colour would make two
+   flags look like two mechanisms. */
 .sc-ribbon {
   position: absolute;
   top: 0;
-  right: 16px;
+  right: 34px;
   z-index: 6;
-  width: 40px;
-  padding: 20px 0 10px;
+  /* Sized against the rubric's ribbon rather than the mockup's, so the two read as one
+     object in two places: 48px wide, 10px caps, and a flagged drop long enough to be a
+     ribbon hanging down the page rather than a tab stuck to the top. Measured idle 36px,
+     flagged 68px, against the rubric's 35 and 68. */
+  width: 48px;
+  padding: 26px 0 30px;
   border: 0;
   background: linear-gradient(#C0392B, #96271C);
   color: #fff;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.28);
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 8.5px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   display: grid;
   justify-items: center;
   cursor: pointer;
@@ -163,7 +191,7 @@
 /* Unpulled, the ribbon is tucked up and taupe. The idle colour is the rubric's measured
    one, not the mockup's #BEB9AF, which put white FLAG on it at 1.77:1. */
 .sc-ribbon[aria-pressed="false"] {
-  padding: 8px 0 10px;
+  padding: 10px 0 14px;
   background: linear-gradient(var(--aspire-ribbon-idle), var(--aspire-ribbon-idle));
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
 }
@@ -230,24 +258,55 @@
   margin: 2px 0 14px;
 }
 
-/* The existing section cards sit on tinted stock, so they read as paper laid on paper
-   rather than as the opaque white cards they were on a plain background. Only the
-   backdrop changes: radius, padding and every control inside are untouched. */
-.sc-sheet .sp-section.sp-card {
-  background: var(--aspire-sheet-card);
-  margin-bottom: var(--aspire-gap-card);
-}
-.sc-sheet .sp-section.sp-card:last-child { margin-bottom: 0; }
-/* The zone tints did the grouping before the sheets existed. The sheet now carries that
-   job, so the per-section tints stand down rather than fighting it. */
+/* NO TILES (Owner, 2026-09-18). A section is not a box: it is part of the page. Every
+   section used to sit in a pale translucent card on a pale tinted sheet, which read as an
+   off-white smudge on an off-lilac page and made the record look like a stack of tiles
+   rather than a sheet of paper. The mockup puts its fields straight on the page and keeps
+   a box only for things that really are blocks, and this follows it.
+   The sheet tint stays: it is what tells a reader which index tab they are under. */
+.sc-sheet .sp-section,
+.sc-sheet .sp-section.sp-card,
 .sc-sheet .sp-zone-contact,
 .sc-sheet .sp-zone-program,
 .sc-sheet .sp-zone-student,
 .sc-sheet .sp-zone-admin,
-.sc-sheet .sp-zone-records { background: var(--aspire-sheet-card); }
-/* A bare `.sp-section` (the clinical hours block) has a bottom rule meant for a flat
-   stack; inside a sheet the sheet's own rule already separates it. */
-.sc-sheet .sp-section:not(.sp-card) { border-bottom: 0; padding-left: 0; padding-right: 0; }
+.sc-sheet .sp-zone-records {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  /* Full bleed to the sheet's own gutter, so the rule between sections spans the page. */
+  margin: 0 -20px;
+  padding: 18px 20px 0;
+}
+/* One hairline between sections, and none above the first: the sheet's heading is
+   already the separator there. */
+.sc-sheet .sp-section + .sp-section { border-top: 1px solid var(--aspire-page-rule); }
+.sc-sheet .sp-section:last-child { padding-bottom: 4px; }
+
+/* Field labels were sitting on a translucent white tile; on the bare tint they measured
+   4.40:1 on the worst sheet, just under. This is the app's own label-on-an-inset-band
+   colour, and it clears 6.44:1 on the worst of the seven. */
+.sc-sheet .sp-field-lbl,
+.sc-sheet .sp-section-hdr { color: var(--aspire-th-color-inset); }
+
+/* The fields inside were tuned for a translucent card. On bare paper they take the
+   ordinary control treatment, or they read as slightly-grey boxes for no reason. */
+.sc-sheet .sp-card .sp-input,
+.sc-sheet .sp-card .sp-select,
+.sc-sheet .sp-card .sp-textarea { background: var(--aspire-page); }
+.sc-sheet .sp-card .sp-readonly { background: transparent; }
+
+/* The exception the mockup keeps: things that are genuinely a block, not a section.
+   Profile completion, the hours log, the document and evaluation lists. */
+.sc-block {
+  background: var(--aspire-sheet-card);
+  border: 1px solid var(--aspire-page-rule);
+  border-radius: var(--aspire-radius-control);
+  padding: 14px;
+  margin-bottom: var(--aspire-gap-card);
+}
+.sc-block:last-child { margin-bottom: 0; }
 
 /* ── The index ─────────────────────────────────────────────────────────────── */
 /* Die-cut tabs: no border, each one the colour of the sheet it opens, reading bottom to
@@ -260,8 +319,15 @@
   padding: 12px 0;
   background: var(--aspire-binder-rail);
   box-shadow: inset 5px 0 7px -7px rgba(24, 32, 63, 0.45);
-  overflow: hidden;
+  /* The last resort, and only below roughly a 700px window: the tabs keep their words and
+     the rail scrolls rather than clipping them. At the sizes this app is actually used at
+     the tabs fit with room to spare (measured: 543px of tabs in a 671px rail at 1600x950). */
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+.sc-index::-webkit-scrollbar { width: 0; height: 0; }
+
 .sc-tab {
   position: relative;
   z-index: 1;
@@ -280,11 +346,11 @@
   cursor: pointer;
   box-shadow: -2px 2px 4px rgba(24, 32, 63, 0.18);
   transition: translate 0.14s ease, box-shadow 0.14s ease;
-  /* Seven tabs share the rail's height, and a word must never be clipped. Each tab asks
-     for room in proportion to its label, and the rail is allowed to shrink them evenly
-     rather than cutting the longest one off. */
-  flex: 0 1 auto;
-  min-height: 0;
+  /* A tab NEVER shrinks below its own word. With `flex: 0 1 auto` the rail squeezed all
+     seven to fit and every label was cut: measured at 1280x720, "Background" rendered
+     66px of ink into 42px of room. An unreadable tab is worse than a rail that has to
+     scroll, so the word wins and the rail gives way. */
+  flex: 0 0 auto;
 }
 .sc-tab:first-child { margin-top: 0; }
 .sc-tab[data-sheet="profile"]     { background: var(--aspire-sheet-profile); }
@@ -304,6 +370,15 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-tab { transition: none; }
+}
+
+/* Short windows: tighten the tabs so the words still fit without the rail scrolling.
+   This MUST come after the .sc-tab rules above. A media query carries no extra
+   specificity, so the same selector later in the file wins; sitting above them it did
+   nothing at all (measured 10.5px/14px at a 720px window when it should have been
+   9.5px/8px). */
+@media (max-height: 880px) {
+  .sc-tab { padding: 8px 5px; font-size: 9.5px; letter-spacing: 0.02em; }
 }
 
 /* A die-cut tab has no border and a ribbon is a shape, so neither shows focus on its own.
