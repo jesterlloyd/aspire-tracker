@@ -302,22 +302,29 @@ test('subscribers are notified only on a real change', () => {
 // ─────────────────────────────────────────────────────────────────────
 // 6. The gate. These are the tests that matter while the migration is unapplied.
 // ─────────────────────────────────────────────────────────────────────
-test('while the boundary is not live, nothing can believe it is in a demo', () => {
-  if (DEMO_BOUNDARY_LIVE) return // the gate is open; the tests above are the live contract
-
-  // The switch can be armed, and storage remembers it.
+test('the gate decides what every consumer is told', () => {
+  // Deliberately written to assert something in BOTH states rather than returning early
+  // when the flag is on. A test that silently no-ops is a gate that cannot fail, and
+  // this repository has shipped one of those before.
   setDemoMode(true, 'owner')
-  assert.equal(isDemoModeArmed(), true, 'the stored switch position is honoured')
+  assert.equal(isDemoModeArmed(), true, 'the stored switch position is always honoured')
 
-  // But every consumer is told NO. This is what stops a flag left behind by an earlier
-  // build from putting the Demo badge on screen over real student data.
-  assert.equal(isDemoMode(), false, 'the gated answer overrides stored state')
-  assert.equal(isDemoModeAvailable(), false)
+  if (DEMO_BOUNDARY_LIVE) {
+    // Live: the armed switch is the answer, and the feature is offered.
+    assert.equal(isDemoMode(), true)
+    assert.equal(isDemoModeAvailable(), true)
+
+    setDemoMode(false, 'owner')
+    assert.equal(isDemoMode(), false, 'turning it off must actually turn it off')
+  } else {
+    // Not live: every consumer is told NO regardless of storage. This is what stops a
+    // marker left behind by a later build from putting the Demo badge over real data.
+    assert.equal(isDemoMode(), false, 'the gate overrides stored state')
+    assert.equal(isDemoModeAvailable(), false)
+  }
 })
 
-test('while the boundary is not live, installDemoScope does not touch the client', async () => {
-  if (DEMO_BOUNDARY_LIVE) return
-
+test('installDemoScope follows the gate', async () => {
   const calls = []
   const client = createClient('https://probe.supabase.co', 'anon-key', {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -328,28 +335,34 @@ test('while the boundary is not live, installDemoScope does not touch the client
       },
     },
   })
+  setDemoMode(false, 'owner')
   installDemoScope(client)
 
-  // No is_demo anywhere. The app must be byte-identical to a build with no demo mode,
-  // because the column this would filter on does not exist in the database yet and a
-  // filter on a missing column is a 400 on every screen.
   await client.from('students').select('*')
   await client.from('students').update({ status: 'x' }).eq('id', 'y')
-  await client.from('students').insert({ first_name: 'z' })
-  for (const c of calls) assert.doesNotMatch(c.url, /is_demo/)
+
+  if (DEMO_BOUNDARY_LIVE) {
+    // Live: the boundary is installed, so real mode asks for is_demo = false explicitly.
+    for (const c of calls) assert.match(c.url, /is_demo=eq\.false/)
+  } else {
+    // Not live: byte-identical to a build with no demo mode, because the column this
+    // would filter on does not exist yet and a filter on a missing column is a 400.
+    for (const c of calls) assert.doesNotMatch(c.url, /is_demo/)
+  }
 })
 
-test('the flag ships OFF, so the code is safe to deploy before the SQL is applied', () => {
+test('the flag is ON, which is only correct while the migration is applied', () => {
   const src = readFileSync(join(root, 'src/lib/demoBoundaryFlag.js'), 'utf8')
   assert.match(src, /export const DEMO_BOUNDARY_LIVE = (true|false)/)
 
-  // This assertion is a reminder, not a prohibition. Flipping it to true is the correct
-  // second step, AFTER 20260921000000 is applied and verified. If you are here because
-  // this failed, confirm the migration is live in production, then update this test in
-  // the same commit that flips the flag.
-  assert.equal(DEMO_BOUNDARY_LIVE, false,
-    'DEMO_BOUNDARY_LIVE is true. Confirm 20260921000000_demo_mode_foundation.sql is ' +
-    'applied in production, then change this assertion to true in the same commit.')
+  // A reminder, not a prohibition, and it now points the other way. The flag went true
+  // once 20260921000000 was applied and its V1-V4 confirmed in production. If you are
+  // here because this failed, you set it back to false: that is a legitimate way to
+  // disable the feature, but any seeded demo rows then become visible in normal use, so
+  // run db/demo/demo_teardown.sql first and update this assertion in the same commit.
+  assert.equal(DEMO_BOUNDARY_LIVE, true,
+    'DEMO_BOUNDARY_LIVE is false. If that is deliberate, tear the demo rows out with ' +
+    'db/demo/demo_teardown.sql, because nothing filters them while the flag is off.')
 })
 
 // ─────────────────────────────────────────────────────────────────────
