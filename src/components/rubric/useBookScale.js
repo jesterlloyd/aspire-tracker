@@ -21,10 +21,10 @@ import { useEffect, useRef, useState } from 'react'
 export const PAGE_WIDTH = 810     // the rubric page, at its natural size
 export const LEFT_WIDTH = 600     // the candidate page
 export const RAIL_WIDTH = 58      // the index down the fore edge
-export const COVER_PAD = 26       // leather showing on each side
+export const COVER_PAD = 14       // leather showing on each side
 export const CHROME = RAIL_WIDTH + (2 * COVER_PAD)
-export const SPREAD_WIDTH = LEFT_WIDTH + PAGE_WIDTH + CHROME   // 1520
-export const SINGLE_WIDTH = PAGE_WIDTH + CHROME                // 920
+export const SPREAD_WIDTH = LEFT_WIDTH + PAGE_WIDTH + CHROME   // 1496
+export const SINGLE_WIDTH = PAGE_WIDTH + CHROME                // 896
 export const SPREAD_FLOOR = 0.72  // below this the spread is not worth showing
 export const LEGIBLE_SCALE = 0.86 // 14px * 0.86 is 12px, the floor the Owner named
 export const MIN_PAGE = 340       // a page narrower than this is not a page

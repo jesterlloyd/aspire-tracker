@@ -129,6 +129,9 @@ nothing about the book lives in `index.css`.
 - **Read-only is the same book.** A finished rubric and a colleague's rubric render the
   same spread with the inputs replaced by their values. There is no second layout to keep
   in step.
+- **The head reports the rubric, not the student.** ASPIRE status is on the candidate
+  page, so the head carries completion (counted against the same nine answers that gate
+  Mark Complete), the recommendation, the save state and the live composite.
 - **Pulling the ribbon IS the flag** (Owner, 2026-09-17), and a flag carries NO note.
   `flag_note` is no longer written; a note stored before this change is still shown until
   the flag is removed. The ribbon is a real button, so Enter, Space and a click do what

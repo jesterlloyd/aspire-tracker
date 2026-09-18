@@ -22,7 +22,7 @@
   --rb-left-w: 600px;
   --rb-right-w: 810px;
   --rb-rail-w: 58px;
-  --rb-cover-pad: 26px;
+  --rb-cover-pad: 14px;
   --rb-scale: 1;
   --rb-book-h: 860px;
   display: flex;
@@ -97,19 +97,38 @@
   height: 100%;
   display: grid;
   grid-template-columns: var(--rb-left-w) var(--rb-right-w) var(--rb-rail-w);
-  border-radius: var(--aspire-radius-page);
+  /* Paper is square: a rounded sheet reads as a card, which is the same rule the
+     Placement Board's notes follow. */
+  border-radius: 0;
   overflow: hidden;
   background: var(--aspire-page);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+/* The pages underneath the two that are open. Three hairlines at each fore edge,
+   set a little short of the top and bottom so they read as sheets, not as a border. */
+.rb-cover::before,
+.rb-cover::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--rb-cover-pad) + 5px);
+  bottom: calc(var(--rb-cover-pad) + 5px);
+  width: 8px;
+  background: repeating-linear-gradient(90deg, #FFFFFF 0 1.5px, #CBC6BA 1.5px 2.5px);
+  pointer-events: none;
+}
+.rb-cover::before {
+  left: calc(var(--rb-cover-pad) - 8px);
+  box-shadow: inset 1px 0 2px rgba(60, 50, 34, 0.25);
+}
+.rb-cover::after {
+  right: calc(var(--rb-cover-pad) - 8px);
+  box-shadow: inset -1px 0 2px rgba(60, 50, 34, 0.25);
 }
 .rb-shell[data-rb-mode='single'] .rb-spread { grid-template-columns: var(--rb-right-w) var(--rb-rail-w); }
 .rb-shell[data-rb-mode='single'] .rb-page-left,
 .rb-shell[data-rb-mode='single'] .rb-page-right { grid-column: 1; grid-row: 1; }
 .rb-shell[data-rb-mode='single'][data-rb-page='left'] .rb-page-right,
 .rb-shell[data-rb-mode='single'][data-rb-page='right'] .rb-page-left { display: none; }
-/* The seam is what makes two pages; one page has no seam. */
-.rb-shell[data-rb-mode='single'] .rb-seam { display: none; }
-
 .rb-page {
   position: relative;
   min-width: 0;
@@ -122,16 +141,32 @@
 .rb-page-left { background: linear-gradient(90deg, var(--aspire-page) 88%, #FBFAF7 100%); }
 .rb-page-right { background: linear-gradient(270deg, var(--aspire-page) 92%, #FAFAFC 100%); }
 
-/* The fold: a shadow where the two pages meet, and the two binding clasps. */
+/* The seam is what makes two pages; one page has no seam. */
+/* The seam is what makes two pages; one page has no seam. */
+.rb-shell[data-rb-mode='single'] .rb-seam { display: none; }
+
 .rb-seam {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: var(--rb-left-w);
-  width: 1px;
-  background: var(--aspire-book-seam);
-  box-shadow: -8px 0 14px -10px rgba(24, 32, 63, 0.45), 8px 0 14px -10px rgba(24, 32, 63, 0.45);
+  left: calc(var(--rb-left-w) - 14px);
+  width: 28px;
+  /* The fold, as a bound book shows it: the paper turns into the gutter from both
+     sides and meets in one dark line. A hairline alone read as a rule between two
+     panels rather than as two halves of one sheet. */
+  background:
+    linear-gradient(90deg,
+      rgba(20, 24, 36, 0) 0%,
+      rgba(20, 24, 36, 0.06) 18%,
+      rgba(20, 24, 36, 0.20) 36%,
+      rgba(20, 24, 36, 0.42) 46%,
+      var(--aspire-book-seam) 50%,
+      rgba(20, 24, 36, 0.42) 54%,
+      rgba(20, 24, 36, 0.20) 64%,
+      rgba(20, 24, 36, 0.06) 82%,
+      rgba(20, 24, 36, 0) 100%);
   pointer-events: none;
+  z-index: 2;
 }
 .rb-clasp {
   position: absolute;
@@ -272,12 +307,13 @@
   z-index: 3;
 }
 .rb-ribbon:hover { padding-bottom: 20px; }
-.rb-ribbon-on {
+/* Pulled, it hangs down the page: the flag should be visible from across a desk. */
+.rb-ribbon-on,
+.rb-ribbon-on:hover {
   background: var(--aspire-red-editorial);
-  padding-bottom: 26px;
+  padding-bottom: 42px;
   cursor: grab;
 }
-.rb-ribbon-on:hover { padding-bottom: 20px; }
 .rb-ribbon-dragging { cursor: grabbing; transition: none; }
 .rb-ribbon:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 3px; }
 
@@ -567,7 +603,7 @@
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 10px;
   letter-spacing: 0.08em;
-  opacity: 0.75;
+  opacity: 0.8;
 }
 /* The section you are in reads as the page you have open: it joins the page. */
 .rb-tab-active,
@@ -577,8 +613,6 @@
   font-weight: 700;
   box-shadow: -2px 0 6px -2px rgba(24, 32, 63, 0.18);
 }
-/* A section you have finished carries a mark, not a colour. */
-.rb-tab-done .rb-tab-num::after { content: ' ✓'; color: var(--aspire-rank-first); }
 .rb-tab:focus-visible { outline: var(--aspire-focus-ring); outline-offset: -3px; }
 
 /* ── Other interviewers' rubrics, at the end of the right page ─────────────── */
@@ -600,6 +634,33 @@
 
 /* The modal that shows a colleague's rubric gives the book its own height. */
 .modal-rubric-view .rb-shell { height: 78vh; min-height: 0; }
+
+/* ── The book does not follow the theme ────────────────────────────────────── */
+/* Paper is paper in both themes, which is the same rule the Placement Board's materials
+   follow. The app's dark-mode input rules are element selectors on [data-theme="dark"],
+   so the book has to out-rank them for its own controls, or a white page fills up with
+   black fields. */
+[data-theme='dark'] .rb-shell .rb-input,
+[data-theme='dark'] .rb-shell .rb-textarea,
+[data-theme='dark'] .rb-shell select.rb-input,
+[data-theme='dark'] .rb-shell input.rb-input {
+  background: var(--aspire-page);
+  color: var(--aspire-paper-ink);
+  border-color: var(--aspire-page-rule);
+}
+[data-theme='dark'] .rb-shell .rb-readonly { background: #FAFBFD; color: var(--aspire-paper-ink); }
+[data-theme='dark'] .rb-shell .rb-choice,
+[data-theme='dark'] .rb-shell .rb-score,
+[data-theme='dark'] .rb-shell .rb-rec,
+[data-theme='dark'] .rb-shell .rb-disclosure,
+[data-theme='dark'] .rb-shell .rb-btn {
+  background: var(--aspire-page);
+  color: var(--aspire-paper-ink);
+}
+[data-theme='dark'] .rb-shell .rb-btn-primary {
+  background: var(--aspire-navy);
+  color: var(--aspire-on-navy);
+}
 
 /* ── A narrow page stacks what it cannot sit side by side ──────────────────── */
 /* Only ever reached in single-page mode, where the page takes the width it is given.

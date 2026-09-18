@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
-  bookMetrics, PAGE_WIDTH, SPREAD_WIDTH, SPREAD_FLOOR, LEGIBLE_SCALE, MIN_PAGE, MIN_BOOK_H,
+  bookMetrics, PAGE_WIDTH, SPREAD_WIDTH, SPREAD_FLOOR, LEGIBLE_SCALE, MIN_PAGE, MIN_BOOK_H, CHROME,
 } from '../src/components/rubric/useBookScale.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -56,7 +56,7 @@ test('BOOK 3: one page never renders body text below 12px, from a tablet down to
 test('BOOK 4: the page fits the window it is given, and never scrolls sideways', () => {
   for (const width of [1600, 1200, 1000, 768, 430, 390, 320]) {
     const m = bookMetrics(width, 900)
-    const natural = (m.mode === 'spread' ? SPREAD_WIDTH : m.pageWidth + 110)
+    const natural = (m.mode === 'spread' ? SPREAD_WIDTH : m.pageWidth + CHROME)
     assert.ok(natural * m.scale <= width + 1, `${width}px: the book renders ${Math.round(natural * m.scale)}px wide`)
     assert.ok(m.pageWidth >= MIN_PAGE, `${width}px: page shrank to ${m.pageWidth}`)
     assert.ok(m.pageWidth <= PAGE_WIDTH, `${width}px: page grew past its design width`)
@@ -113,9 +113,12 @@ test('SPREAD 3: the left page carries the facts an interviewer reads while liste
   assert.match(session, /openStudentFile\(\{ studentId: student\.id, kind: 'resume' \}\)/)
 })
 
-test('SPREAD 4: the head states the status, the recommendation and the live composite', () => {
+test('SPREAD 4: the head states completion, the recommendation and the live composite', () => {
   const head = session.slice(session.indexOf('className="rb-head"'), session.indexOf('className="rb-scroll"'))
-  assert.match(head, /ASPIRE status/)
+  // The ASPIRE status is on the candidate page and is NOT repeated here.
+  assert.ok(!head.includes('AspireStatusPill'), 'the status pill is back in the head')
+  assert.match(head, /Completion/)
+  assert.match(head, /data-testid="rb-completion">\{completion\}%/)
   assert.match(head, /Recommendation/)
   assert.match(head, /data-testid="rb-composite">\{composite\}/)
   assert.match(head, /\/ 15/)
@@ -134,12 +137,18 @@ test('INDEX 1: seven tabs, numbered, labelled, and pointing at the seven section
   assert.match(session, /steps\.map\(\(s, i\) =>/)
 })
 
-test('INDEX 2: the tab you are reading is marked, and a finished section carries a mark', () => {
+test('INDEX 2: the number leads, the tab you are reading is marked, and nothing else is', () => {
+  // Owner, 2026-09-17: "01 Info", not "Info 01", and no check mark. Progress is a
+  // percentage in the head, so a tab carries one job: where you are.
+  const tab = session.slice(session.indexOf('steps.map((s, i) =>'), session.indexOf('</nav>'))
+  const numberSpan = tab.indexOf('<span className="rb-tab-num">')
+  const labelSpan = tab.indexOf('<span>{s.label}</span>')
+  assert.ok(numberSpan > -1 && labelSpan > numberSpan, 'the label still comes before the number')
+  assert.match(tab, /\{String\(i \+ 1\)\.padStart\(2, '0'\)\}/)
   assert.match(session, /rb-tab-active/)
-  assert.match(session, /s\.status === 'complete' \? ' rb-tab-done' : ''/)
-  assert.match(bookCss, /\.rb-tab-done \.rb-tab-num::after \{ content: ' ✓'/)
-  // The mark is never colour alone: the tab also says which section it is.
-  assert.match(session, /aria-label=\{`Section \$\{i \+ 1\}: \$\{s\.label\}/)
+  assert.ok(!session.includes('rb-tab-done'), 'the finished mark is back on the tabs')
+  assert.ok(!bookCss.includes("content: ' ✓'"), 'the check mark is back in the sheet')
+  assert.match(session, /aria-label=\{`Section \$\{i \+ 1\}: \$\{s\.label\}`\}/)
 })
 
 test('INDEX 3: the index follows the page being read, and a click scrolls to it', () => {
@@ -287,4 +296,61 @@ test('CANON 3: the book is one stylesheet, imported by the component that uses i
   assert.match(session, /import '\.\/rubric\/rubricBook\.css'/)
   assert.match(bookCss, /@import '\.\.\/\.\.\/styles\/aspireMaterials\.css'/)
   assert.ok(!indexCss.includes('.rb-'), 'book rules leaked into the entry stylesheet')
+})
+
+test('HEAD 1: completion counts the same nine answers that gate Mark Complete', () => {
+  assert.match(session, /const REQUIRED_ANSWERS = 9/)
+  assert.match(session, /const completion = locked\s*\n\s*\? 100\s*\n\s*: Math\.round\(\(\(REQUIRED_ANSWERS - validationErrors\.length\) \/ REQUIRED_ANSWERS\) \* 100\)/)
+  // The gate really does list nine, so the percentage cannot drift from it.
+  const list = session.slice(session.indexOf('const validationErrors'), session.indexOf('].filter(Boolean) : []'))
+  assert.equal((list.match(/&& '/g) || []).length, 9, 'the gate no longer asks for nine answers')
+  // The candidate page keeps the status pill; only the head gave it up.
+  assert.match(session, /<div className="rb-chiprow"><AspireStatusPill student=\{student\} \/><\/div>/)
+})
+
+test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of sheets', () => {
+  // The gutter is a band that darkens into one line, not a hairline.
+  const seam = bookCss.slice(bookCss.indexOf('.rb-seam {'), bookCss.indexOf('.rb-clasp {'))
+  assert.match(seam, /width: 28px/)
+  assert.match(seam, /var\(--aspire-book-seam\)/)
+  assert.ok((seam.match(/rgba\(20, 24, 36/g) || []).length >= 6, 'the fold lost its falloff')
+  // Paper is square, like the Placement Board's notes.
+  assert.match(bookCss, /border-radius: 0;\n  overflow: hidden;/)
+  // The pages underneath show at both fore edges.
+  assert.match(bookCss, /\.rb-cover::before,\n\.rb-cover::after/)
+  assert.match(bookCss, /repeating-linear-gradient\(90deg, #FFFFFF 0 1\.5px/)
+  // The cover is a thin board, and it is leather rather than grain.
+  assert.match(bookCss, /--rb-cover-pad: 14px/)
+  assert.ok(!read('src/styles/aspireMaterials.css').slice(
+    read('src/styles/aspireMaterials.css').indexOf('.material-leather-tan'),
+    read('src/styles/aspireMaterials.css').indexOf('.paper-note')).includes('--aspire-noise-grain'),
+    'the cover is wearing the coarse grain again')
+})
+
+test('RIBBON 4: pulled, the ribbon hangs further down the page than it rests', () => {
+  const idle = Number(bookCss.match(/\.rb-ribbon \{[\s\S]*?padding: 10px 0 (\d+)px/)?.[1])
+  const flagged = Number(bookCss.match(/\.rb-ribbon-on,\n\.rb-ribbon-on:hover \{[\s\S]*?padding-bottom: (\d+)px/)?.[1])
+  assert.ok(flagged > idle * 2, `flagged ${flagged}px should hang well below the idle ${idle}px`)
+})
+
+test('SCRIPT 1: the closing script says only what the page does not', () => {
+  const closing = session.slice(session.indexOf('Closing the interview'), session.indexOf('{!locked && ('))
+  // Section 6 already asks the closing question and takes the notes.
+  assert.ok(!closing.includes('what questions do you have for us'), 'the closing question is repeated')
+  assert.ok(!closing.includes('Take notes'), 'the note-taking instruction is back')
+  assert.ok(!closing.includes('résumé'), 'the resume paragraph is back')
+  assert.ok(!closing.includes('Matching can take some time'), 'the patience line is back')
+  assert.match(closing, /You will hear from us either way/)
+  // Section 6 is where that question lives, and it still does.
+  assert.match(session, /Section 6: Student Questions[\s\S]*?what questions do you have for us/)
+})
+
+test('CANON 4: the book does not follow the theme, controls included', () => {
+  // The materials are theme-independent by canon. The app's dark rules are element
+  // selectors, so the book names its own controls to out-rank them; without this a
+  // white page fills with black fields in dark mode.
+  assert.match(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-input/)
+  assert.match(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-textarea/)
+  assert.match(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-choice/)
+  assert.match(indexCss, /\[data-theme="dark"\] select,/)   // the rule being out-ranked
 })

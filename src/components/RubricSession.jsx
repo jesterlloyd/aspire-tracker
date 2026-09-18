@@ -78,6 +78,9 @@ const DOMAINS = [
   { key: 'ga', snum: 5, title: 'Goal Alignment',        questions: GA_QUESTIONS },
 ]
 const SECTION_IDS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7']
+// The nine answers Mark Complete insists on. The head reports progress against this
+// same number, so the percentage and the gate can never tell different stories.
+const REQUIRED_ANSWERS = 9
 
 const initForm = () => ({
   interview_date: new Date().toISOString().slice(0,10),
@@ -988,7 +991,8 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     { id:'s7', label:'Recommendation', status: stepSt(!!form.individual_recommendation, false) },
   ]
 
-  // Validation errors - computed live, gate Mark Complete
+  // Validation errors - computed live, gate Mark Complete, and feed the completion
+  // percentage in the head. REQUIRED_ANSWERS is the length of this list.
   const validationErrors = !locked ? [
     !form.interviewer_name                       && 'Interviewer name is required in Section 1',
     !(bookedDate || form.interview_date)         && 'Date of interview is required in Section 1',
@@ -1000,6 +1004,12 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     !form.ga_score                               && 'A score must be selected for Goal Alignment',
     !form.individual_recommendation              && 'Overall recommendation is required',
   ].filter(Boolean) : []
+
+  // How much of the rubric is done, counted against the same nine answers that gate
+  // Mark Complete. A submitted rubric is finished by definition.
+  const completion = locked
+    ? 100
+    : Math.round(((REQUIRED_ANSWERS - validationErrors.length) / REQUIRED_ANSWERS) * 100)
 
   // ESC closes the rubric view modal
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1268,8 +1278,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               {/* ── Right page: the rubric ─────────────────────────────────── */}
               <section className="rb-page rb-page-right" aria-label="Rubric">
                 <header className="rb-head" data-testid="rb-head">
-                  <span className="rb-head-key">ASPIRE status</span>
-                  <AspireStatusPill student={student} />
+                  {/* The ASPIRE status is on the candidate page, a hand's width to the
+                      left, so the head answers the question the left page cannot: how
+                      much of THIS rubric is done. */}
+                  <span className="rb-head-key">Completion</span>
+                  <span className="rb-head-rec" data-testid="rb-completion">{completion}%</span>
                   <span className="rb-head-key">Recommendation</span>
                   <span className="rb-head-rec" data-testid="rb-recommendation">
                     {student.interview_outcome || form.individual_recommendation || 'Not recorded'}
@@ -1564,14 +1577,12 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   </button>
                   {closingOpen && (
                     <div className="rb-guide">
+                      {/* Owner, 2026-09-17: the script says only what Section 6 does not.
+                          The closing question, the note-taking instruction and the
+                          résumé reminder all live elsewhere, so they are not repeated. */}
                       <p className="rb-guide-head">Closing the interview</p>
-                      <p>Invite the student to ask any questions they may have:</p>
-                      <p className="rb-quote">"Before we wrap up, what questions do you have for us?"</p>
-                      <p>Take notes on any notable questions or comments in Section 6.</p>
-                      <p>Then close with:</p>
                       <p className="rb-quote">"Thank you so much for your time today. It was wonderful speaking with you. From here, our team will review your rubric and work with unit leadership to find a preceptor who is a great fit for your learning goals. Once a placement is confirmed, we will reach out with your rotation schedule and orientation details.</p>
-                      <p className="rb-quote">If you have not already, please email Jester a copy of your résumé and a professional headshot. We also use headshots for your badge, so a clear, professional photo works best.</p>
-                      <p className="rb-quote">Matching can take some time depending on unit availability, so we appreciate your patience. You will hear from us regardless of the outcome. In the meantime, feel free to reach out if you have any questions. We are rooting for you!"</p>
+                      <p className="rb-quote">You will hear from us either way. If anything comes up before then, please reach out. It was a pleasure meeting you."</p>
                     </div>
                   )}
 
@@ -1642,14 +1653,16 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
               {/* ── The index down the fore edge ───────────────────────────── */}
               <nav className="rb-index" aria-label="Rubric sections" ref={indexRef}>
+                {/* The number leads, as it does on a real index. How much is done is
+                    a percentage in the head now, so a tab carries no second mark. */}
                 {steps.map((s, i) => (
                   <button type="button" key={s.id} data-testid={`rb-tab-${s.id}`}
-                    className={`rb-tab${activeStep === s.id ? ' rb-tab-active' : ''}${s.status === 'complete' ? ' rb-tab-done' : ''}`}
+                    className={`rb-tab${activeStep === s.id ? ' rb-tab-active' : ''}`}
                     aria-current={activeStep === s.id ? 'true' : undefined}
-                    aria-label={`Section ${i + 1}: ${s.label}${s.status === 'complete' ? ', complete' : ''}`}
+                    aria-label={`Section ${i + 1}: ${s.label}`}
                     onClick={() => goToSection(s.id)}>
-                    <span>{s.label}</span>
                     <span className="rb-tab-num">{String(i + 1).padStart(2, '0')}</span>
+                    <span>{s.label}</span>
                   </button>
                 ))}
               </nav>
