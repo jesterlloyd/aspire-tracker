@@ -404,6 +404,34 @@ leads with the shared columns in that order, shows ASPIRE Status as the canonica
 legend, and keeps its numbers on the right. Table titles are Title Case ("Your Students",
 "Student Detail").
 
+## Calendars are one planner (PLANNER-CALENDAR-1, 2026-09-19)
+
+All six calendars are the same object: a two-ring notepad holding the mini calendar and
+the day panel, a stacked sheet holding the calendar, both on a coloured desk pad. One
+component, `CanonicalCalendarFoundation`, one stylesheet, `src/components/shared/
+plannerCalendar.css`, which the component imports so it reaches BOTH bundles (neither
+`index.css` nor `portal.css` does).
+
+1. **Paper follows the subject, not the audience.** `paper="slate"` Interviews,
+   `"tan"` anything about shifts (staff Rotation Activity, Unit Leader, Student Portal),
+   `"forest"` anything about the residency or academics. A shift reads the same sheet
+   whoever opens it. Omitting `paper` renders the old shell, unchanged.
+2. **The box is a constant size.** `.pl-calbox` is a fixed height and the views fit
+   INSIDE it: a month grid divides it by `--weeks`, a week view and the Academics
+   timeline scroll within it, and the notepad's day panel scrolls too. Nothing about the
+   panel moves when the view, the month or the selected day changes. The notepad's sheet
+   is `position: absolute` above 960px precisely so the CALENDAR sizes the row.
+3. **Colour is a shape, never the ink.** An event's type colour is a 3px left rule and a
+   wash; the text is `--paper-ink`. Painting text in a colour staff chose makes contrast
+   a property of that choice, and three event colours already failed on white.
+4. **A pale fixed fill keeps a fixed ink.** `--paper-muted` lifts to a pale grey in dark,
+   so a themed ink on a fixed pale card is unreadable there. Theme the ink only where the
+   background is the paper.
+5. **Anything that reads a portal literal needs a planner rule.** The portal calendars
+   predate the planner; `--ptl-ink`, `--ptl-muted` and `--ptl-line` are redefined on
+   `.pl-planner` (a descendant definition always wins for its subtree), and the rules
+   that hardcode a colour are repointed by name.
+
 ## Student Portal on phones (STUDENT-PHONE-1)
 
 Students open the portal on their phones first. Below 760px the Rotation Activity calendar is
