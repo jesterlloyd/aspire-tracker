@@ -14,7 +14,31 @@
 // ROLE-SAFETY IS THE CALLER'S JOB. These primitives are presentation only. They hold
 // no data, no authorization, and no staff controls. What a role may render inside a
 // cell (a staff capacity card, or a Unit Leader activity chip) is passed as children.
+//
+// PLANNER-CALENDAR-1: the desk-planner chrome and the three papers live in the stylesheet
+// below. It is imported HERE rather than added to index.css or portal.css, because a
+// stylesheet a component imports travels into whichever bundle pulls the component in.
+// That is what lets one paper serve the staff app and the portals at the same time, which
+// the inline-style rule above was written to work around.
 
+import './plannerCalendar.css'
+
+/**
+ * PLANNER-CALENDAR-1: the shell can be a desk planner.
+ *
+ * `paper` picks the surface's paper, and it is a property of the SURFACE, not a user
+ * setting: Interviews is slate, anything about shifts is tan, anything about residency is
+ * forest. The notepad holds the sidebar under two chrome rings; the calendar sits on its
+ * own sheet beside it; both have pages stacked under them. Every value lives in
+ * `plannerCalendar.css`, which this file imports so it reaches the staff bundle and the
+ * portal bundles alike.
+ *
+ * IT IS OPT-IN, PER SURFACE, ON PURPOSE. Five calendars already render through this
+ * layout. If the planner were the default, adopting it would repaint all of them in one
+ * commit, and the Owner asked to see Interviews first and approve it before the others
+ * move. A caller that passes no `paper` gets exactly the shell it got yesterday, which is
+ * also what makes each adoption reviewable on its own.
+ */
 export function CanonicalCalendarLayout({
   title,
   description,
@@ -24,31 +48,77 @@ export function CanonicalCalendarLayout({
   footer,
   labelledBy = 'canonical-calendar-title',
   titleVisuallyHidden = false,
+  paper = null,
 }) {
-  return (
-    <section className="canonical-calendar-shell" aria-labelledby={labelledBy}>
-      <div className="canonical-calendar-sidebar">
-        {sidebar}
+  const main = (
+    <div className="canonical-calendar-main">
+      <div className="canonical-calendar-toolbar">
+        {title && (
+          <h3
+            id={labelledBy}
+            className={titleVisuallyHidden ? 'ptl-visually-hidden' : 'canonical-calendar-title'}
+          >
+            {title}
+          </h3>
+        )}
+        {description && !titleVisuallyHidden && (
+          <p className="canonical-calendar-description">{description}</p>
+        )}
+        {toolbar}
       </div>
-      <div className="canonical-calendar-main">
-        <div className="canonical-calendar-toolbar">
-          {title && (
-            <h3
-              id={labelledBy}
-              className={titleVisuallyHidden ? 'ptl-visually-hidden' : 'canonical-calendar-title'}
-            >
-              {title}
-            </h3>
-          )}
-          {description && !titleVisuallyHidden && (
-            <p className="canonical-calendar-description">{description}</p>
-          )}
-          {toolbar}
+      {children}
+      {footer}
+    </div>
+  )
+
+  if (!paper) {
+    return (
+      <section className="canonical-calendar-shell" aria-labelledby={labelledBy}>
+        <div className="canonical-calendar-sidebar">
+          {sidebar}
         </div>
-        {children}
-        {footer}
+        {main}
+      </section>
+    )
+  }
+
+  return (
+    <div className="pl-planner" data-paper={paper}>
+      <div className="pl-spread">
+        <section className="canonical-calendar-shell" aria-labelledby={labelledBy}>
+          {/* The notepad. The rings straddle the sheet's TOP EDGE, so they are a sibling
+              of the sheet inside the wrapper that carries the page stack, never a child
+              of the sheet, which would clip them. */}
+          <div className="pl-padwrap">
+            <span className="pl-rings" aria-hidden="true"><i /><i /></span>
+            <div className="pl-sheet canonical-calendar-sidebar">
+              {sidebar}
+            </div>
+          </div>
+          {/* The calendar sheet. Nothing holds it down. */}
+          <div className="pl-holder">
+            <div className="pl-sheet canonical-calendar-main">
+              <div className="canonical-calendar-toolbar">
+                {title && (
+                  <h3
+                    id={labelledBy}
+                    className={titleVisuallyHidden ? 'ptl-visually-hidden' : 'canonical-calendar-title'}
+                  >
+                    {title}
+                  </h3>
+                )}
+                {description && !titleVisuallyHidden && (
+                  <p className="canonical-calendar-description">{description}</p>
+                )}
+                {toolbar}
+              </div>
+              {children}
+              {footer}
+            </div>
+          </div>
+        </section>
       </div>
-    </section>
+    </div>
   )
 }
 
@@ -94,14 +164,15 @@ export function CanonicalCalendarNav({
   nextDisabled = false,
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e5e7eb', borderRadius: '9px', overflow: 'hidden', height: '32px' }}>
+    <div className="pl-nav" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="pl-nav-group" style={{ display: 'flex', alignItems: 'center', border: '1px solid #e5e7eb', borderRadius: '9px', overflow: 'hidden', height: '32px' }}>
         <button
           type="button"
           onClick={onPrev}
           disabled={prevDisabled}
           title={prevTitle}
           aria-label={prevAriaLabel || prevTitle}
+          className="pl-nav-btn"
           style={{ width: '34px', height: '32px', background: 'none', border: 'none', borderRight: '1px solid #e5e7eb', cursor: prevDisabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: prevDisabled ? '#d1d5db' : '#374151', transition: 'background 0.15s ease' }}
           onMouseEnter={e => { if (!prevDisabled) e.currentTarget.style.background = '#f9fafb' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
@@ -114,6 +185,7 @@ export function CanonicalCalendarNav({
           disabled={nextDisabled}
           title={nextTitle}
           aria-label={nextAriaLabel || nextTitle}
+          className="pl-nav-btn"
           style={{ width: '34px', height: '32px', background: 'none', border: 'none', cursor: nextDisabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: nextDisabled ? '#d1d5db' : '#374151', transition: 'background 0.15s ease' }}
           onMouseEnter={e => { if (!nextDisabled) e.currentTarget.style.background = '#f9fafb' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
@@ -124,6 +196,7 @@ export function CanonicalCalendarNav({
       <button
         type="button"
         onClick={onToday}
+        className="pl-nav-today"
         style={{ height: '32px', padding: '0 14px', background: 'none', border: '1px solid #e5e7eb', borderRadius: '9px', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px', color: '#374151', transition: 'all 0.15s ease' }}
         onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#d1d5db' }}
         onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = '#e5e7eb' }}
@@ -150,9 +223,12 @@ export function CanonicalCalendarMonthTitle({ children, ariaLive }) {
  */
 export function CanonicalWeekdayHeader({ days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #f3f4f6' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--rule, #f3f4f6)' }}>
       {days.map((d, i) => (
-        <div key={i} style={{ padding: '8px 0', textAlign: 'center', fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280' }}>
+        // `var(--paper-muted, #6b7280)`: inside a planner the header reads the paper's own
+        // quiet ink, and outside one the fallback is the exact literal it used to carry,
+        // so the five calendars that have not adopted paper are pixel identical.
+        <div key={i} style={{ padding: '8px 0', textAlign: 'center', fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--paper-muted, #6b7280)' }}>
           {d}
         </div>
       ))}

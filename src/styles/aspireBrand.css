@@ -157,6 +157,11 @@
   /* The die-cut index tab's own corner: it is a tab, not a card or a control, and the
      shape is part of what makes it read as one. A token so the ratchet stays honest. */
   --aspire-radius-tab: 3px;
+  /* PLANNER-CALENDAR-1: a notepad ring, and the shadow it throws where it crosses the
+     paper's edge. Two values rather than one, because the shadow is only the ring's
+     lower half and squares off at the top. */
+  --aspire-radius-ring: 7px;
+  --aspire-radius-ring-shadow: 0 0 6px 6px;
   /* One tint per index tab. Each sheet and its die-cut tab wear the same colour, which is
      how a reader knows which tab belongs to what they are reading. Kept very pale so body
      ink stays at full contrast on every one. These are the light values; this file is

@@ -1,0 +1,323 @@
+/* PLANNER-CALENDAR-1: every ASPIRE calendar is a desk planner.
+ *
+ * A two-ring notepad holding the mini calendar and the day detail, a stacked calendar
+ * sheet beside it, both resting on a colored desk pad. ONE component; the only thing
+ * that changes per surface is the paper, set by `data-paper` on the planner root.
+ *
+ * WHY THIS FILE EXISTS AT ALL, AND WHY IT IS IMPORTED BY THE COMPONENT.
+ * The foundation's primitives were inline-styled on purpose, because "portal CSS is not
+ * in the staff bundle and staff CSS is not in the portal bundle: a shared class here
+ * would silently render unstyled on one side or the other". That is true of `index.css`
+ * and `portal.css`. It is NOT true of a stylesheet the component imports itself: Vite
+ * puts it in whichever chunk pulls the component in, so it travels to both. The student
+ * chart's `studentChart.css` already works this way. That is what makes it possible for
+ * six calendars to share one paper instead of two.
+ *
+ * THE PAPER IS A PROPERTY OF THE SURFACE, NOT A USER SETTING (Owner, 2026-09-18).
+ * Interviews is slate, anything about shifts is tan, anything about residency is forest.
+ * A shift record reads the same whether staff, a unit leader or the student opens it.
+ * There is deliberately no paper picker in the app; the mockup's Slate/Tan/Forest segment
+ * exists only so the three can be compared side by side in `docs/mockups/`.
+ *
+ * WHAT DOES NOT CHANGE PER PAPER: chips and statuses. Navy, green, amber and red are
+ * constant on all three papers, so a scheduled interview reads as scheduled everywhere.
+ * Only the surface moves.
+ */
+
+/* ── Paper themes ──────────────────────────────────────────────────────────── */
+/* Slate is the default and needs no attribute. The tokens are scoped to the planner
+   rather than :root, so a calendar cannot repaint the page around it. */
+.pl-planner {
+  --paper: #FDFCFA;
+  --paper-2: #F6F5F2;
+  --paper-ink: #1B2140;
+  --paper-muted: #61667E;
+  --rule: rgba(30, 42, 110, 0.12);
+  --pad-a: #5A6280;
+  --pad-b: #434A60;
+  --pad-c: #373D51;
+  --pad-base: #4A5168;
+}
+.pl-planner[data-paper="tan"] {
+  --paper: #FBF3E2;
+  --paper-2: #F3E8D0;
+  --paper-ink: #3A2E1C;
+  --paper-muted: #7A6647;
+  --rule: rgba(120, 90, 40, 0.22);
+  --pad-a: #C9A470;
+  --pad-b: #A87F4C;
+  --pad-c: #8A6538;
+  --pad-base: #A87F4C;
+}
+.pl-planner[data-paper="forest"] {
+  --paper: #F7F7F1;
+  --paper-2: #EDEDE3;
+  --paper-ink: #1E2A22;
+  --paper-muted: #5C6A5E;
+  --rule: rgba(30, 60, 40, 0.16);
+  --pad-a: #3E5A48;
+  --pad-b: #2E4636;
+  --pad-c: #23372A;
+  --pad-base: #2E4636;
+}
+
+/* ── The desk pad ──────────────────────────────────────────────────────────── */
+/* The padding is asymmetric ON PURPOSE and must not be normalized: the page stacks under
+   both sheets extend to the right and below, so those two margins need the extra room or
+   the pad looks pinched on the right (Owner's brief, section 2).
+   The noise is the brand's own `--aspire-noise-fine` rather than a second copy of the
+   same feTurbulence: the materials layer already ships one, and the canon says read the
+   token rather than restate the value. */
+.pl-planner {
+  position: relative;
+  border-radius: var(--aspire-radius-page, 4px);
+  padding: 20px 24px 28px 16px;
+  background-color: var(--pad-base);
+  background-image:
+    var(--aspire-noise-fine),
+    linear-gradient(180deg, var(--pad-a), var(--pad-b) 55%, var(--pad-c));
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 3px rgba(24, 32, 63, 0.35),
+    0 10px 22px rgba(24, 32, 63, 0.18);
+}
+/* Dark mode is one pad for every theme. The papers are a light-mode distinction: in dark
+   the room is already dark, and three different dark pads would read as three bugs. */
+[data-theme="dark"] .pl-planner {
+  background-image: none;
+  background: linear-gradient(180deg, #2B3145, #1E2333 55%, #181C29);
+}
+[data-theme="dark"] .pl-planner,
+[data-theme="dark"] .pl-planner[data-paper="tan"],
+[data-theme="dark"] .pl-planner[data-paper="forest"] {
+  --paper: #1C1F2C;
+  --paper-2: #191C28;
+  --paper-ink: #E9EAF2;
+  --paper-muted: #A0A4BC;
+  --rule: rgba(159, 176, 245, 0.14);
+}
+
+/* ── The spread ────────────────────────────────────────────────────────────── */
+.pl-spread {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--pl-notepad-w, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+/* Below 960px the sheets stack, notepad first. The rings are hidden further down, in the
+   media block that comes AFTER `.pl-rings` sets `display: flex`: a media query carries no
+   specificity, so hiding them here left the base rule to win and the rings stayed on a
+   stacked spread they no longer bind. */
+@media (max-width: 960px) {
+  .pl-spread { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── The sheets, and the pages under them ──────────────────────────────────── */
+/* Square corners: this is paper, not a card. The stack pseudo-elements live on a WRAPPER
+   rather than on the sheet itself, so nothing clips the rings. */
+.pl-sheet {
+  position: relative;
+  z-index: 1;
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.32),
+    0 10px 24px rgba(0, 0, 0, 0.34);
+}
+.pl-padwrap,
+.pl-holder {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+.pl-padwrap::before,
+.pl-padwrap::after,
+.pl-holder::before,
+.pl-holder::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  background: var(--paper-2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.pl-padwrap::before { left: 5px; right: -6px; top: 10px; bottom: -7px; filter: brightness(0.94); }
+.pl-padwrap::after  { left: 3px; right: -3px; top: 6px;  bottom: -3px; filter: brightness(0.98); }
+.pl-holder::before  { left: 6px; right: -7px; top: 9px;  bottom: -8px; filter: brightness(0.94); }
+.pl-holder::after   { left: 3px; right: -3px; top: 5px;  bottom: -4px; filter: brightness(0.98); }
+
+/* ── The rings ─────────────────────────────────────────────────────────────── */
+/* Two chrome rings straddling the top edge of the notepad, 120px apart. Decorative: the
+   planner is a picture of a planner, and a screen reader is told nothing about them. */
+.pl-rings {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -11px;
+  height: 28px;
+  display: flex;
+  justify-content: center;
+  gap: 120px;
+  z-index: 6;
+  pointer-events: none;
+}
+.pl-rings i {
+  position: relative;
+  width: 15px;
+  height: 27px;
+}
+.pl-rings i::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--aspire-radius-ring);
+  background: linear-gradient(90deg, #7F8794 0%, #DDE2EA 20%, #FFFFFF 36%, #C2C8D3 58%, #787F8B 80%, #AEB4BF 100%);
+  box-shadow:
+    0 2px 3px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset -2px 0 3px rgba(0, 0, 0, 0.28);
+}
+/* The shadow each ring throws onto the paper where it crosses the edge. */
+.pl-rings i::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 17px;
+  height: 11px;
+  border-radius: var(--aspire-radius-ring-shadow);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.08));
+  filter: blur(1.4px);
+}
+
+/* ── The shared shell, on paper ────────────────────────────────────────────── */
+/* `.canonical-calendar-*` keeps its names: this is the same shell six calendars already
+   render through, wearing paper. Everything below reads --paper-ink, --paper-muted and
+   --rule, which is the whole reason one component can serve three surfaces. */
+.pl-planner .canonical-calendar-shell {
+  display: contents;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.pl-planner .canonical-calendar-sidebar {
+  padding: 30px 18px 16px;
+  border-right: 0;
+  /* The PAPER, not `none`. `.pl-sheet` sets it too, but this selector is more specific
+     and would otherwise clear it: the sheet went transparent and the pad showed through
+     wherever a cell did not paint over it. Both selectors say the same thing now. */
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.pl-planner .canonical-calendar-main {
+  padding: 18px 26px;
+  background: var(--paper);
+  color: var(--paper-ink);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* A surface that carries its own toolbar inside `children` (Interviews does: its toolbar
+   holds the schedule scope, the add actions and the view toggle, all wired to its own
+   state) leaves the layout's toolbar slot empty. An empty slot must not spend 14px of
+   the sheet. */
+.pl-planner .canonical-calendar-toolbar:empty { display: none; margin: 0; }
+.pl-planner .canonical-calendar-title,
+.pl-planner .canonical-calendar-today-date {
+  color: var(--paper-ink);
+}
+.pl-planner .canonical-calendar-description,
+.pl-planner .canonical-calendar-kicker,
+.pl-planner .canonical-calendar-today-summary {
+  color: var(--paper-muted);
+}
+.pl-planner .canonical-calendar-today {
+  border-top: 1px solid var(--rule);
+}
+.pl-planner .canonical-calendar-empty {
+  background: rgba(30, 42, 110, 0.05);
+  color: var(--paper-muted);
+}
+[data-theme="dark"] .pl-planner .canonical-calendar-empty {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Paper controls ────────────────────────────────────────────────────────── */
+/* On a sheet a control is a mark ON the paper, not a chip of app chrome sitting on top of
+   it. White at 55% over the paper, a hairline in --rule, navy on hover. The primitives
+   still carry their geometry inline, because six calendars depend on those exact sizes;
+   only the colours move here, and only inside a planner. `!important` is the price of
+   that split: an inline style beats a class, and the alternative is deleting inline
+   values that five other calendars are still matching against. */
+.pl-planner .pl-nav-group,
+.pl-planner .pl-nav-today {
+  border-color: var(--rule) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+}
+.pl-planner .pl-nav-btn {
+  border-right-color: var(--rule) !important;
+  color: var(--paper-ink) !important;
+}
+.pl-planner .pl-nav-today { color: var(--paper-ink) !important; }
+.pl-planner .pl-nav-group:hover,
+.pl-planner .pl-nav-today:hover { border-color: var(--navy, #1E2A6E) !important; }
+[data-theme="dark"] .pl-planner .pl-nav-group,
+[data-theme="dark"] .pl-planner .pl-nav-today {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+/* The view segment: the active one is solid navy, the resting one is paper. */
+.pl-planner .pl-viewseg-btn[aria-pressed="false"] { color: var(--paper-muted) !important; }
+
+/* ── The calendar box is a CONSTANT size ───────────────────────────────────── */
+/* Owner, 2026-09-18: "I want that the outline or calendar size does not change when I
+   switch from month to week view, to give the illusion that it's an object."
+   So the box is fixed and the views fit INSIDE it: the month grid divides the height by
+   however many week rows the month needs, and the week view scrolls its hours within the
+   same box. Nothing about the panel moves when the view changes. */
+.pl-planner .pl-calbox {
+  height: var(--pl-calbox-h, 560px);
+  min-height: var(--pl-calbox-h, 560px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pl-planner .pl-calbox-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+/* A month grid fills the box: `--weeks` is set by the renderer from the row count, so a
+   five-row month and a six-row month both end exactly at the bottom of the sheet. */
+.pl-planner .pl-monthgrid {
+  display: grid;
+  grid-template-rows: repeat(var(--weeks, 6), minmax(0, 1fr));
+  flex: 1;
+  min-height: 0;
+}
+.pl-planner .pl-monthgrid > * { min-height: 0; }
+
+@media (max-width: 960px) {
+  /* A ring binding two sheets that are no longer side by side is a picture of nothing. */
+  .pl-rings { display: none; }
+  .pl-planner { padding: 14px 16px 18px 14px; }
+  .pl-planner .canonical-calendar-main { padding: 14px; }
+  .pl-planner .canonical-calendar-sidebar { padding: 16px 14px 12px; }
+}
+/* The portals are phone-first (STUDENT-PHONE-1). Paper does not change that: below 760px
+   the pad thins to a frame and the sheets take the width. */
+@media (max-width: 760px) {
+  .pl-planner { padding: 10px 10px 14px 10px; }
+  .pl-planner .pl-calbox {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pl-planner * { transition: none !important; }
+}

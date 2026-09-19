@@ -45,7 +45,7 @@ test('the canonical primitives carry the main-app visual values verbatim', () =>
 })
 
 test('both calendars consume the shared nav and weekday-header primitives', () => {
-  assert.match(staffCalendar, /import \{ CanonicalCalendarNav, CanonicalWeekdayHeader \} from '\.\/shared\/CanonicalCalendarFoundation'/)
+  assert.match(staffCalendar, /import \{[^}]*\bCanonicalCalendarNav\b[^}]*\bCanonicalWeekdayHeader\b[^}]*\} from '\.\/shared\/CanonicalCalendarFoundation'/)
   assert.match(staffCalendar, /<CanonicalCalendarNav /)
   assert.match(staffCalendar, /<CanonicalWeekdayHeader /)
   assert.match(unitCalendar, /CanonicalCalendarNav/)

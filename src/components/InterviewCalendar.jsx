@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 import CalendarSidebar from './CalendarSidebar'
-import { CanonicalCalendarNav, CanonicalWeekdayHeader } from './shared/CanonicalCalendarFoundation'
+import { CanonicalCalendarLayout, CanonicalCalendarNav, CanonicalWeekdayHeader } from './shared/CanonicalCalendarFoundation'
 import InterviewDayDrawer from './InterviewDayDrawer'
 import {
   INTERVIEW_LENGTHS, BREAK_OPTIONS, DEFAULT_BREAK_MINUTES, interviewLengthLabel, breakLabel,
@@ -803,14 +803,19 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
 
   const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
+  // PLANNER-CALENDAR-1: the panel is a constant size, so the month divides the box by its
+  // own row count rather than stacking fixed 88px rows. A five-row month and a six-row
+  // month both end exactly at the bottom of the sheet, and switching to Week moves nothing.
+  const weekRows = Math.ceil(cells.length / 7)
+
   return (
-    <div>
+    <div className="pl-calbox">
       <CanonicalWeekdayHeader days={DAYS} />
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)' }}>
+      <div className="pl-monthgrid" style={{ gridTemplateColumns:'repeat(7, 1fr)', '--weeks': weekRows }}>
         {cells.map((cell, idx) => {
           const { dateStr, day, isOtherMonth } = cell
           if (isOtherMonth) {
-            return <div key={idx} style={{ height:88, borderRight:'1px solid #f3f4f6', borderBottom:'1px solid #f3f4f6', background:'#fafafa' }} />
+            return <div key={idx} style={{ height:'100%', minHeight:0, borderRight:'1px solid var(--rule)', borderBottom:'1px solid var(--rule)', background:'transparent' }} />
           }
 
           const daySlots   = (slots||[]).filter(s => s.slot_date === dateStr)
@@ -852,10 +857,11 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
               onMouseEnter={() => setHoveredDate(dateStr)}
               onMouseLeave={() => setHoveredDate(null)}
               style={{
-                height:88,
+                height:'100%',
+                minHeight:0,
                 padding:'5px 6px',
-                borderRight:'1px solid #f3f4f6',
-                borderBottom:'1px solid #f3f4f6',
+                borderRight:'1px solid var(--rule)',
+                borderBottom:'1px solid var(--rule)',
                 cursor: 'pointer',
                 borderLeft: isSel ? '3px solid #1D2567' : '1px solid transparent',
                 background: isHovered ? '#f0f4ff' : isSel ? 'rgba(29,37,103,0.04)' : 'transparent',
@@ -869,7 +875,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 borderRadius:'50%',
                 background: isToday ? '#1D2567' : isSel ? '#1D2567' : 'transparent',
                 fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:12,
-                color: isToday || isSel ? '#fff' : '#374151', flexShrink:0,
+                color: isToday || isSel ? '#fff' : 'var(--paper-ink)', flexShrink:0,
               }}>{day}</div>
 
               {/* US holidays - subtle amber read-only chips (non-interactive; never open the ASPIRE
@@ -893,7 +899,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                     <AspireEventChip key={ev.id} ev={ev} compact onClick={onEventClick} />
                   ))}
                   {dayEvents.length > 2 && (
-                    <span style={{ fontSize:8, fontWeight:600, color:'#6B7280', paddingLeft:2 }}>+{dayEvents.length - 2} more</span>
+                    <span style={{ fontSize:8, fontWeight:600, color:'var(--paper-muted)', paddingLeft:2 }}>+{dayEvents.length - 2} more</span>
                   )}
                 </div>
               )}
@@ -908,7 +914,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                   {isFullyBooked ? (
                     <>
                       <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:10, fontWeight:700, color:'#930045', lineHeight:1.2 }}>Fully Booked</div>
-                      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, color:'#6B7280', lineHeight:1.2 }}>{scheduled.length} interview{scheduled.length!==1?'s':''}</div>
+                      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, color:'var(--paper-muted)', lineHeight:1.2 }}>{scheduled.length} interview{scheduled.length!==1?'s':''}</div>
                     </>
                   ) : (
                     <>
@@ -940,7 +946,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                         }}>{getInitials(name)}</span>
                       ))}
                       {interviewers.length > 3 && (
-                        <span style={{ fontSize:8, color:'#6B7280', fontWeight:600 }}>+{interviewers.length-3}</span>
+                        <span style={{ fontSize:8, color:'var(--paper-muted)', fontWeight:600 }}>+{interviewers.length-3}</span>
                       )}
                     </div>
                   )}
@@ -1122,16 +1128,20 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', fontFamily:'Plus Jakarta Sans, sans-serif', border:'1px solid #E5E7EB', borderRadius:8, overflow:'hidden' }}>
+    // PLANNER-CALENDAR-1: the same constant box the month uses. The hours are unchanged,
+    // 7 AM to 8 PM at full height, and the body scrolls to reach the evening rather than
+    // the panel growing by 1,300px. Owner: the calendar must not change size when the
+    // view does, so it reads as one object rather than two screens.
+    <div className="pl-calbox" style={{ fontFamily:'Plus Jakarta Sans, sans-serif', border:'1px solid var(--rule)', borderRadius:8, overflow:'hidden' }}>
       {/* Day headers */}
-      <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)', background:'#F9FAFB', borderBottom:'1px solid #E5E7EB', flexShrink:0 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)', background:'rgba(30,42,110,.04)', borderBottom:'1px solid var(--rule)', flexShrink:0 }}>
         <div />
         {days.map(day => {
           const ds = day.toLocaleDateString('en-CA')
           const isToday = ds === todayStr
           return (
-            <div key={ds} style={{ borderLeft:'1px solid #E5E7EB', padding:'8px 0', textAlign:'center' }}>
-              <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5, color:'#6B7280' }}>
+            <div key={ds} style={{ borderLeft:'1px solid var(--rule)', padding:'8px 0', textAlign:'center' }}>
+              <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5, color:'var(--paper-muted)' }}>
                 {day.toLocaleDateString('en-US', { weekday:'short' })}
               </div>
               <div style={{ width:28, height:28, borderRadius:'50%', margin:'4px auto 0', background: isToday ? '#1D2567' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color: isToday ? '#fff' : '#1D2567' }}>
@@ -1145,28 +1155,29 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
       {/* ASPIRE events row - all-day/point program events, kept out of the timed hour grid so they
           never read as interview slots. */}
       {events.length > 0 && (
-        <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)', background:'#fff', borderBottom:'1px solid #E5E7EB', flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', paddingRight:5, fontSize:8, fontWeight:700, letterSpacing:0.4, color:'#9CA3AF', textTransform:'uppercase' }}>Events</div>
+        <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)', background:'transparent', borderBottom:'1px solid var(--rule)', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', paddingRight:5, fontSize:8, fontWeight:700, letterSpacing:0.4, color:'var(--paper-muted)', textTransform:'uppercase' }}>Events</div>
           {days.map(day => {
             const ds = day.toLocaleDateString('en-CA')
             const dayEvents = (events||[]).filter(ev => eventOnDate(ev, ds))
             return (
-              <div key={ds} style={{ borderLeft:'1px solid #E5E7EB', padding:4, display:'flex', flexDirection:'column', gap:3, minHeight:26 }}>
+              <div key={ds} style={{ borderLeft:'1px solid var(--rule)', padding:4, display:'flex', flexDirection:'column', gap:3, minHeight:26 }}>
                 {dayEvents.slice(0, 3).map(ev => <AspireEventChip key={ev.id} ev={ev} onClick={onEventClick} />)}
-                {dayEvents.length > 3 && <span style={{ fontSize:9, fontWeight:600, color:'#6B7280' }}>+{dayEvents.length - 3}</span>}
+                {dayEvents.length > 3 && <span style={{ fontSize:9, fontWeight:600, color:'var(--paper-muted)' }}>+{dayEvents.length - 3}</span>}
               </div>
             )
           })}
         </div>
       )}
 
-      {/* Scrollable body - outer maxHeight unchanged; inner rows taller */}
-      <div style={{ overflowY:'auto', maxHeight:500 }}>
+      {/* Scrollable body. It takes whatever the constant box has left after the day
+          headers and the all-day row, instead of a fixed maxHeight. */}
+      <div className="pl-calbox-scroll">
         <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)' }}>
           {/* Hour labels */}
           <div>
             {HOURS.map(h => (
-              <div key={h} style={{ height:HOUR_HEIGHT, borderBottom:'1px solid #F3F4F6', display:'flex', alignItems:'flex-start', justifyContent:'flex-end', paddingRight:5, paddingTop:5, fontSize:9, color:'#9CA3AF', fontWeight:600, letterSpacing:0.2 }}>
+              <div key={h} style={{ height:HOUR_HEIGHT, borderBottom:'1px solid var(--rule)', display:'flex', alignItems:'flex-start', justifyContent:'flex-end', paddingRight:5, paddingTop:5, fontSize:9, color:'var(--paper-muted)', fontWeight:600, letterSpacing:0.2 }}>
                 {fmtHour(h)}
               </div>
             ))}
@@ -1181,7 +1192,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
             return (
               <div
                 key={ds}
-                style={{ borderLeft:'1px solid #E5E7EB', position:'relative', height: HOURS.length * HOUR_HEIGHT, cursor:'pointer' }}
+                style={{ borderLeft:'1px solid var(--rule)', position:'relative', height: HOURS.length * HOUR_HEIGHT, cursor:'pointer' }}
                 onClick={e => {
                   const rect = e.currentTarget.getBoundingClientRect()
                   const y = e.clientY - rect.top
@@ -1196,7 +1207,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
                 {HOURS.map(h => (
                   <div key={h}>
                     <div style={{ position:'absolute', top:(h-START_HOUR)*HOUR_HEIGHT, left:0, right:0, height:HOUR_HEIGHT/2, borderBottom:'1px dashed #F3F4F6', pointerEvents:'none' }} />
-                    <div style={{ position:'absolute', top:(h-START_HOUR)*HOUR_HEIGHT + HOUR_HEIGHT/2, left:0, right:0, height:HOUR_HEIGHT/2, borderBottom:'1px solid #F3F4F6', pointerEvents:'none' }} />
+                    <div style={{ position:'absolute', top:(h-START_HOUR)*HOUR_HEIGHT + HOUR_HEIGHT/2, left:0, right:0, height:HOUR_HEIGHT/2, borderBottom:'1px solid var(--rule)', pointerEvents:'none' }} />
                   </div>
                 ))}
 
@@ -1604,22 +1615,16 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         <div onClick={closeAll} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
       )}
 
-      {/* Single unified calendar module */}
-      <div style={{
-        display: 'flex', background: '#ffffff',
-        borderRadius: '16px', border: '1px solid #f3f4f6',
-        boxShadow: '0 2px 12px rgba(29,37,103,0.07)',
-        overflow: 'hidden', marginBottom: '12px',
-      }}>
-        {/* Left sidebar panel - fixed height so TODAY pills can't push the card taller */}
-        <div style={{
-          width: '260px', flexShrink: 0,
-          borderRight: '1px solid #f3f4f6',
-          padding: '20px 18px',
-          display: 'flex', flexDirection: 'column',
-          overflowY: 'auto',
-          maxHeight: '620px',
-        }}>
+      {/* PLANNER-CALENDAR-1: the Interviews calendar is the first surface on the desk
+          planner. The shell, the notepad, the rings and the page stacks come from the
+          shared CanonicalCalendarLayout; `paper="slate"` is what makes this surface
+          slate and is the ONLY per-surface style difference. Everything inside, the
+          toolbar, both views, every booking interaction, is the code that was already
+          here. */}
+      <CanonicalCalendarLayout
+        paper="slate"
+        labelledBy="interview-calendar-title"
+        sidebar={(
           <CalendarSidebar
             blocks={blocks}
             slots={slots}
@@ -1627,10 +1632,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             selectedDate={selectedDate}
             onSelectDate={handleMiniCalendarSelect}
           />
-        </div>
-
-        {/* Right calendar panel */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        )}
+      >
 
           {/* Custom Calendar Toolbar */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px 12px', borderBottom:'1px solid #f3f4f6' }}>
@@ -1682,6 +1685,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                   return (
                     <button
                       key={view}
+                      aria-pressed={isActive}
+                      className="pl-viewseg-btn"
                       onClick={() => {
                         if (view === 'timeGridWeek' && currentView === 'dayGridMonth') {
                           setWeekStart(getWeekStart(displayDate))
@@ -1835,8 +1840,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               height={0}
             />
           </div>
-        </div>
-      </div>
+      </CanonicalCalendarLayout>
 
 
       {createPopover && (
