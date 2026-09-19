@@ -47,12 +47,28 @@ for (const f of [UL_CAL, STAFF_CAL]) {
     assert.match(src, /\{shift\.student_name \|\| 'Student'\}/)
   })
 
-  test(`${f}: the legend swatches say Student, not sample initials`, () => {
+  test(`${f}: the legend names states, never a person`, () => {
     const src = strip(read(f))
+    // The point of this test: a legend swatch must not carry initials or a name that a
+    // reader could take for a real student. PLANNER-CALENDAR-1 made the swatches plain
+    // colour blocks, matching the Interviews legend, so there is no name at all now,
+    // which satisfies that more completely than the word "Student" did.
     assert.doesNotMatch(src, />AR<|label="AR"/)
-    assert.equal((src.match(/Completed shift/g) || []).length >= 1, true)
-    assert.match(src, /(>Student<\/span> Completed shift|label="Student" \/> Completed shift)/)
-    assert.match(src, /(>Student<\/span> On shift now|label="Student" live \/> On shift now)/)
+    assert.match(src, /Completed shift/)
+    assert.match(src, /On shift now/)
+    // Either shape is fine: the planner's colour swatches (staff Rotation) or the
+    // `label="Student"` chip the portal still uses. What is NOT fine is a real name.
+    // Find the legend by its CONTAINER, never by searching for its words: "Completed
+    // shift" also appears in the day list, where it sits beside a real shift's name, and
+    // slicing around that text tested the wrong element entirely.
+    const at = ['className="pl-legend"', 'className="ptl-cal-legend"']
+      .map(c => src.indexOf(c)).find(i => i > 0)
+    assert.ok(at > 0, 'the legend has no container to anchor on')
+    const legend = src.slice(at, src.indexOf('</div>', at) + 6)
+    assert.ok(legend.includes('Completed shift') && legend.includes('On shift now'),
+      'both shift states belong in the legend')
+    assert.doesNotMatch(legend, /student_name|shift\.student|first_name/,
+      'a legend swatch never renders a real name')
   })
 }
 

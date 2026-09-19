@@ -35,8 +35,12 @@ test('the shared foundation exports the canonical calendar primitives', () => {
 test('the canonical primitives carry the main-app visual values verbatim', () => {
   // Grouped prev/next pill + Today button geometry.
   assert.match(foundation, /border: '1px solid #e5e7eb', borderRadius: '9px'/)
-  // Fixed 88px month cell with a 22px round day-number badge, navy fill.
-  assert.match(foundation, /height: 88/)
+  // 88px month cell with a 22px round day-number badge, navy fill. PLANNER-CALENDAR-1 made
+  // the height a token so a planner can fill a constant box with it, but 88px is still the
+  // DEFAULT, which is what keeps every calendar that has not adopted paper identical.
+  assert.match(foundation, /height: 'var\(--pl-cell-h, 88px\)'/)
+  assert.equal((foundation.match(/height: 'var\(--pl-cell-h, 88px\)'/g) || []).length, 2,
+    'both the in-month and out-of-month cells keep the same default')
   assert.match(foundation, /width: 22, height: 22/)
   assert.match(foundation, /background: \(isToday \|\| isSelected\) \? '#1D2567' : 'transparent'/)
   // Uppercase weekday header, Sunday-first default.

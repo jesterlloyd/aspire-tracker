@@ -51,7 +51,7 @@ import { ordinalWord } from '../../lib/ordinalWord'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
-const MUTED = '#6b7280'
+const MUTED = 'var(--paper-muted, #6b7280)'
 
 // Sunday-first, matching the Interviews calendar week start. The main grid uses the
 // three-letter labels; the mini calendar uses the first letter of each.
@@ -115,7 +115,7 @@ const miniCellStyle = ({ inMonth, isToday, selected }) => ({
   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
   aspectRatio: '1 / 1', padding: 0, borderRadius: 7, fontSize: 11, lineHeight: 1,
   fontWeight: isToday || selected ? 700 : 500,
-  color: selected ? '#fff' : inMonth ? '#374151' : '#d1d5db',
+  color: selected ? '#fff' : inMonth ? 'var(--paper-ink, #374151)' : 'var(--paper-muted, #d1d5db)',
   background: selected ? NAVY : isToday ? 'rgba(29,37,103,0.08)' : 'transparent',
   border: isToday && !selected ? `1px solid ${NAVY}` : '1px solid transparent',
 })
@@ -128,7 +128,7 @@ function MiniCalendar({ cells, byDay, selectedDate, today, onSelectDate }) {
         style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 2 }}>
         {DOW.map(day => (
           <div key={day} role="columnheader"
-            style={{ fontSize: 9, fontWeight: 700, color: '#d1d5db', textAlign: 'center', paddingBottom: 3, fontFamily: F }}>
+            style={{ fontSize: 9, fontWeight: 700, color: 'var(--paper-muted, #d1d5db)', textAlign: 'center', paddingBottom: 3, fontFamily: F }}>
             {day[0]}
           </div>
         ))}
@@ -187,7 +187,7 @@ function SelectedDayActivity({ shifts, onSelectShift }) {
               boxShadow: live ? 'inset 0 0 0 1px #86efac' : 'none',
             }}>{initials(shift.student_name)}</span>
             <span style={{ minWidth: 0 }}>
-              <b style={{ display: 'block', fontSize: 12.5, color: '#191919', fontWeight: 700 }}>
+              <b style={{ display: 'block', fontSize: 12.5, color: 'var(--paper-ink, #191919)', fontWeight: 700 }}>
                 {shift.student_name || 'Student'}
               </b>
               <small style={{ display: 'block', fontSize: 11, color: MUTED, marginTop: 1 }}>{detail}</small>
@@ -273,12 +273,21 @@ export default function RotationActivityCalendar({
     <CanonicalCalendarSidebar>
       <MiniCalendar cells={cells} byDay={byDay} selectedDate={selectedDate} today={today} onSelectDate={setSelectedDate} />
       <CanonicalCalendarTodayPanel
+        kicker={selectedDate === today ? 'Today' : 'Selected day'}
         dateLabel={formatLongDate(selectedDate)}
         summary={`${selectedShifts.length} student activit${selectedShifts.length === 1 ? 'y' : 'ies'} recorded`}
         emptyLabel="No student activity recorded for this day."
       >
         {selectedShifts.length > 0 && <SelectedDayActivity shifts={selectedShifts} onSelectShift={onSelectShift} />}
       </CanonicalCalendarTodayPanel>
+      {/* The notepad closes with this surface's kinds, the way the Interviews one does.
+          A shift is a RECORD: there is no "scheduled" here, because ASPIRE holds no
+          forward schedule, and the legend must not imply one. */}
+      <div className="pl-legend">
+        <span><i aria-hidden="true" style={{ background: '#e8eaf6', borderLeft: '3px solid #1d2567' }} />Completed shift</span>
+        <span><i aria-hidden="true" style={{ background: '#dcfce7', borderLeft: '3px solid #166534' }} />On shift now</span>
+        <span><i aria-hidden="true" style={{ background: '#FEF3C7', borderLeft: '3px solid #D97706' }} />US holiday</span>
+      </div>
     </CanonicalCalendarSidebar>
   )
 
@@ -302,6 +311,10 @@ export default function RotationActivityCalendar({
 
   return (
     <CanonicalCalendarLayout
+      // PLANNER-CALENDAR-1: tan, because the paper follows the SUBJECT and this surface is
+      // shifts. The Unit Leader and Student Portal calendars show the same shift records
+      // and will wear the same paper, so a shift reads the same whoever opens it.
+      paper="tan"
       title="Rotation Activity"
       titleVisuallyHidden
       labelledBy="rotation-activity-cal-title"
@@ -317,9 +330,11 @@ export default function RotationActivityCalendar({
         <p role="status" style={{ color: MUTED, fontSize: 12.5, fontFamily: F }}>Loading rotation activity</p>
       ) : (
         <>
-          <div role="grid" aria-label={`Rotation activity for ${monthLabel(cursor.y, cursor.m)}`}>
+          <div className="pl-calbox" role="grid" aria-label={`Rotation activity for ${monthLabel(cursor.y, cursor.m)}`}>
             <CanonicalWeekdayHeader days={DOW} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+            {/* The panel is a constant size, so the month divides the box by however many
+                week rows it needs rather than stacking fixed rows. */}
+            <div className="pl-monthgrid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', '--weeks': Math.ceil(cells.length / 7) }}>
               {cells.map(({ ymd, inMonth }) => {
                 const day = byDay.get(ymd) || []
                 const isToday = ymd === today
@@ -356,7 +371,7 @@ export default function RotationActivityCalendar({
                       />
                     ))}
                     {day.length > MAX_CHIPS_PER_DAY && (
-                      <span style={{ fontSize: 9.5, color: '#9ca3af', fontFamily: F }}>
+                      <span style={{ fontSize: 9.5, color: 'var(--paper-muted, #9ca3af)', fontFamily: F }}>
                         +{day.length - MAX_CHIPS_PER_DAY}
                       </span>
                     )}
@@ -372,14 +387,6 @@ export default function RotationActivityCalendar({
             </p>
           )}
 
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10, fontSize: 11.5, color: MUTED, alignItems: 'center', fontFamily: F }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <CanonicalActivityChip label="Student" /> Completed shift
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <CanonicalActivityChip label="Student" live /> On shift now
-            </span>
-          </div>
         </>
       )}
     </CanonicalCalendarLayout>

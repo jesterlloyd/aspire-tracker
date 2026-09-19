@@ -24,6 +24,23 @@
  * Only the surface moves.
  */
 
+/* A visually hidden heading, defined HERE so it reaches every bundle.
+   `titleVisuallyHidden` used `ptl-visually-hidden`, which is declared in portal.css and
+   therefore absent from the staff bundle: the staff Rotation calendar has been rendering
+   its "hidden" title in plain sight. This is the same hazard the foundation's own comment
+   warns about, and the same answer: a stylesheet the component imports travels with it. */
+.pl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ── Paper themes ──────────────────────────────────────────────────────────── */
 /* Slate is the default and needs no attribute. The tokens are scoped to the planner
    rather than :root, so a calendar cannot repaint the page around it. */
@@ -434,6 +451,18 @@
   border: 1px solid var(--rule);
   flex: none;
 }
+
+/* Inside a planner a CanonicalMonthCell fills its row rather than measuring 88px, and an
+   out-of-month cell is a paler patch of the same paper rather than a grey tile. The
+   primitives read these with the shipped values as fallbacks, so the calendars that have
+   not adopted paper are pixel identical. */
+.pl-planner {
+  --pl-title-size: 20px;
+  --pl-cell-h: 100%;
+  --pl-cell-out: transparent;
+  --pl-cell-future: var(--paper-muted);
+}
+.pl-planner .canonical-month-cell:hover { background: rgba(30, 42, 110, 0.05) !important; }
 
 /* A month grid fills the box: `--weeks` is set by the renderer from the row count, so a
    five-row month and a six-row month both end exactly at the bottom of the sheet. */

@@ -56,7 +56,7 @@ export function CanonicalCalendarLayout({
         {title && (
           <h3
             id={labelledBy}
-            className={titleVisuallyHidden ? 'ptl-visually-hidden' : 'canonical-calendar-title'}
+            className={titleVisuallyHidden ? 'pl-sr-only' : 'canonical-calendar-title'}
           >
             {title}
           </h3>
@@ -102,7 +102,7 @@ export function CanonicalCalendarLayout({
                 {title && (
                   <h3
                     id={labelledBy}
-                    className={titleVisuallyHidden ? 'ptl-visually-hidden' : 'canonical-calendar-title'}
+                    className={titleVisuallyHidden ? 'pl-sr-only' : 'canonical-calendar-title'}
                   >
                     {title}
                   </h3>
@@ -130,10 +130,16 @@ export function CanonicalCalendarSidebar({ children }) {
   )
 }
 
-export function CanonicalCalendarTodayPanel({ dateLabel, summary, emptyLabel, children }) {
+/**
+ * `kicker` names the day being shown. It defaults to "Today" so every existing caller is
+ * unchanged, but a panel that follows a SELECTION has to be able to say so: it was
+ * labelled "Today" above whatever date the reader had picked (PLANNER-CALENDAR-1).
+ * `.pl-daypanel` is what lets it scroll inside a planner's fixed-height notepad.
+ */
+export function CanonicalCalendarTodayPanel({ dateLabel, summary, emptyLabel, children, kicker = 'Today' }) {
   return (
-    <section className="canonical-calendar-today" aria-labelledby="canonical-calendar-today-title">
-      <div className="canonical-calendar-kicker">Today</div>
+    <section className="canonical-calendar-today pl-daypanel" aria-labelledby="canonical-calendar-today-title">
+      <div className="canonical-calendar-kicker">{kicker}</div>
       <h4 id="canonical-calendar-today-title" className="canonical-calendar-today-date">{dateLabel}</h4>
       {summary && <p className="canonical-calendar-today-summary">{summary}</p>}
       {children || (
@@ -210,7 +216,11 @@ export function CanonicalCalendarMonthTitle({ children, ariaLive }) {
   return (
     <span
       aria-live={ariaLive}
-      style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '15px', color: '#1D2567', letterSpacing: '-0.01em' }}
+      className="pl-cal-title"
+      // Navy on a dark sheet measured 1.18:1, and 15px reads as a caption on a planner.
+      // Both are tokens with the shipped values as fallbacks, so a calendar that has not
+      // adopted paper renders exactly as it did.
+      style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: 'var(--pl-title-size, 15px)', color: 'var(--paper-ink, #1D2567)', letterSpacing: '-0.01em' }}
     >
       {children}
     </span>
@@ -262,11 +272,11 @@ export function CanonicalMonthCell({
       <div
         role="gridcell"
         aria-hidden="true"
-        style={{ height: 88, borderRight: '1px solid #f3f4f6', borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}
+        style={{ height: 'var(--pl-cell-h, 88px)', minHeight: 0, borderRight: '1px solid var(--rule, #f3f4f6)', borderBottom: '1px solid var(--rule, #f3f4f6)', background: 'var(--pl-cell-out, #fafafa)' }}
       />
     )
   }
-  const numColor = (isToday || isSelected) ? '#fff' : (isFuture ? '#c7c2b8' : '#374151')
+  const numColor = (isToday || isSelected) ? '#fff' : (isFuture ? 'var(--pl-cell-future, #c7c2b8)' : 'var(--paper-ink, #374151)')
   return (
     <button
       type="button"
@@ -275,10 +285,13 @@ export function CanonicalMonthCell({
       onClick={onClick}
       aria-label={ariaLabel}
       style={{
-        height: 88,
+        // `var(--pl-cell-h, 88px)`: inside a planner the CSS sets 100% so the grid divides
+        // a constant box by its row count; everywhere else the 88px that shipped.
+        height: 'var(--pl-cell-h, 88px)',
+        minHeight: 0,
         padding: '5px 6px',
-        borderRight: '1px solid #f3f4f6',
-        borderBottom: '1px solid #f3f4f6',
+        borderRight: '1px solid var(--rule, #f3f4f6)',
+        borderBottom: '1px solid var(--rule, #f3f4f6)',
         borderTop: '1px solid transparent',
         borderLeft: isSelected ? '3px solid #1D2567' : '1px solid transparent',
         background: isSelected ? 'rgba(29,37,103,0.04)' : 'transparent',
