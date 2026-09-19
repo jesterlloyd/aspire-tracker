@@ -85,9 +85,13 @@ test('match rank honesty (source): historical rank never re-derives from names',
 })
 
 test('Placement Board: honest name, routed preceptor subviews', () => {
-  assert.match(rotationTab, />\s*Placement Board\s*</)
+  // SEGMENTED-PICKER-1: the three views are options on the shared control now, so the
+  // label is a string in a list rather than a button's text child. Same words, same
+  // routes, and the honest name is still the honest name.
+  assert.match(rotationTab, /label: 'Placement Board'/)
+  assert.doesNotMatch(rotationTab, /label: 'Matrix'/)
   assert.doesNotMatch(rotationTab, />\s*Matrix\s*<\/button>/)
-  assert.match(rotationTab, /navigate\('\/rotation\/preceptors\/coverage'\)/)
+  assert.match(rotationTab, /'\/rotation\/preceptors\/coverage'/)
   assert.match(rotationTab, /location\.pathname === '\/rotation\/preceptors\/coverage' \? 'coverage' : 'directory'/)
   assert.doesNotMatch(rotationTab, /setPrecView/, 'inner view is routed, not component state')
 })

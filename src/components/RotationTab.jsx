@@ -4,6 +4,7 @@ import MatchingTab from './MatchingTab'
 import PreceptorsTable from './PreceptorsTable'
 import StudentCoverage from './StudentCoverage'
 import RotationActivity from './RotationActivity'
+import SegmentedPicker from './shared/SegmentedPicker'
 
 export default function RotationTab(props) {
   const navigate     = useNavigate()
@@ -19,35 +20,24 @@ export default function RotationTab(props) {
       : 'matrix'
   const precView = location.pathname === '/rotation/preceptors/coverage' ? 'coverage' : 'directory'
 
-  const btnStyle = (key) => ({
-    height: 32, padding: '0 13px', display: 'flex', alignItems: 'center',
-    border: 'none', cursor: 'pointer', fontSize: 12,
-    fontFamily: 'Plus Jakarta Sans,sans-serif', fontWeight: 500,
-    background: activeSubTab === key ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-    color: activeSubTab === key ? '#fff' : 'var(--text-secondary,#4A5560)',
-    transition: 'all 0.12s',
-  })
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* UI canon: a section nav sits --aspire-page-top (24px) above the first card,
           and a card carries --aspire-gap-card (16px) itself - so the nav contributes 8. */}
       <div style={{ padding: '0 20px 8px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--border-input,rgba(29,37,103,0.10))', overflow: 'hidden', width: 'fit-content' }}>
-          {/* ASPIRE-CHART approved rename: the visible label is honest - this
-              is a click-to-place board, not a matrix. Route unchanged. */}
-          <button onClick={() => navigate('/rotation/matrix')} style={btnStyle('matrix')}>
-            Placement Board
-          </button>
-          <button onClick={() => navigate('/rotation/preceptors')} style={btnStyle('preceptors')}>
-            Preceptors
-          </button>
-          {canEdit && (
-            <button onClick={() => navigate('/rotation/activity')} style={btnStyle('activity')}>
-              Activity
-            </button>
-          )}
-        </div>
+        {/* SEGMENTED-PICKER-1: the shared control. The ASPIRE-CHART approved rename
+            stands - the visible label is honest, this is a click-to-place board and not
+            a matrix - and the route is unchanged. */}
+        <SegmentedPicker
+          ariaLabel="Rotation views"
+          value={activeSubTab}
+          onChange={key => navigate(`/rotation/${key}`)}
+          options={[
+            { value: 'matrix', label: 'Placement Board' },
+            { value: 'preceptors', label: 'Preceptors' },
+            ...(canEdit ? [{ value: 'activity', label: 'Activity' }] : []),
+          ]}
+        />
       </div>
 
       <div style={{ display: activeSubTab === 'matrix' ? 'block' : 'none', flex: 1, minHeight: 0 }}>
@@ -56,14 +46,15 @@ export default function RotationTab(props) {
       <div style={{ display: activeSubTab === 'preceptors' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
         {/* Routed inner views: /rotation/preceptors and /rotation/preceptors/coverage */}
         <div style={{ padding: '0 20px 10px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--border-input,rgba(29,37,103,0.10))', overflow: 'hidden', width: 'fit-content' }}>
-            <button onClick={() => navigate('/rotation/preceptors')} style={btnStyle(precView === 'directory' ? 'preceptors' : '_x')}>
-              Preceptor Directory
-            </button>
-            <button onClick={() => navigate('/rotation/preceptors/coverage')} style={btnStyle(precView === 'coverage' ? 'preceptors' : '_x')}>
-              Student Coverage
-            </button>
-          </div>
+          <SegmentedPicker
+            ariaLabel="Preceptor views"
+            value={precView}
+            onChange={v => navigate(v === 'coverage' ? '/rotation/preceptors/coverage' : '/rotation/preceptors')}
+            options={[
+              { value: 'directory', label: 'Preceptor Directory' },
+              { value: 'coverage', label: 'Student Coverage' },
+            ]}
+          />
         </div>
         <div style={{ display: precView === 'directory' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
           <PreceptorsTable

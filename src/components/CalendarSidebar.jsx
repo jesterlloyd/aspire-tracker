@@ -123,14 +123,24 @@ export function MiniCalendar({ blocks = [], slots = [], aspireEvents = [], selec
           const cellTitle = activeKeys.length
             ? `${dayLabel}: ${activeKeys.map(k => MINI_DOT[k].label).join(', ')}`
             : undefined
+          // A full date for a screen reader, which "18" alone is not.
+          const fullLabel = new Date(viewMonth.year, viewMonth.month, day)
+            .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
           return (
-            <div
+            // PLANNER-CALENDAR-1: a real <button> with aria-pressed. It was a div with an
+            // onClick, so the keyboard could not reach a day and nothing announced which
+            // one was chosen, on the one control whose entire job is choosing a day.
+            <button
               key={dateStr}
+              type="button"
               onClick={() => onSelectDate(dateStr)}
               title={cellTitle}
+              aria-pressed={isSelected}
+              aria-label={cellTitle ? `${fullLabel}. ${cellTitle.split(': ')[1]}` : fullLabel}
               style={{
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-                height:'28px', borderRadius:'6px', cursor:'pointer',
+                height:'28px', borderRadius:'6px', cursor:'pointer', border:'none', padding:0,
+                font:'inherit',
                 background: isSelected ? '#1D2567' : isToday ? '#e0e7ff' : 'transparent',
                 transition:'background 0.1s',
               }}
@@ -152,7 +162,7 @@ export function MiniCalendar({ blocks = [], slots = [], aspireEvents = [], selec
                   ))}
                 </div>
               )}
-            </div>
+            </button>
           )
         })}
       </div>
@@ -163,19 +173,30 @@ export function MiniCalendar({ blocks = [], slots = [], aspireEvents = [], selec
 // ─── Today Snapshot ───────────────────────────────────────────────────────────
 const MAX_VISIBLE_PILLS = 5
 
-function TodaySnapshot({ slots }) {
+// PLANNER-CALENDAR-1 (Owner, 2026-09-18): this panel follows the SELECTED day, not just
+// today. Picking a date in the mini calendar or in the grid changes what is written here,
+// which is the whole point of having a mini calendar that can look ahead. When the
+// selection IS today it still says Today, because that is the common case and the word
+// carries information the date alone does not.
+function TodaySnapshot({ slots, selectedDate }) {
   const today = toLocalDateStr()
+  const day = selectedDate || today
+  const isToday = day === today
   const [showAll, setShowAll] = useState(false)
+  // The expansion belongs to the day that was open. Derived during render rather than in
+  // an effect, so a new day never paints expanded for a frame first.
+  const [shownFor, setShownFor] = useState(day)
+  if (shownFor !== day) { setShownFor(day); setShowAll(false) }
 
-  const todayLabel = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })
+  const dayLabel = new Date(`${day}T00:00:00`).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })
 
   const scheduledSlots = useMemo(() =>
-    (slots || []).filter(s => s.slot_date === today && s.is_booked),
-  [slots, today])
+    (slots || []).filter(s => s.slot_date === day && s.is_booked),
+  [slots, day])
 
   const openSlots = useMemo(() =>
-    (slots || []).filter(s => s.slot_date === today && !s.is_booked),
-  [slots, today])
+    (slots || []).filter(s => s.slot_date === day && !s.is_booked),
+  [slots, day])
 
   const openByInterviewer = useMemo(() => {
     const groups = {}
@@ -194,12 +215,12 @@ function TodaySnapshot({ slots }) {
     : '-'
 
   return (
-    <div style={{ marginTop:'20px', paddingTop:'16px', borderTop:'1px solid #f3f4f6' }}>
+    <div className="pl-daypanel" style={{ marginTop:'20px', paddingTop:'16px', borderTop:'1px solid var(--rule)' }}>
       <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'10px', color:'var(--paper-muted)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'8px' }}>
-        Today
+        {isToday ? 'Today' : 'Selected day'}
       </div>
       <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'12px', color:'var(--paper-ink)', marginBottom:'4px' }}>
-        {todayLabel}
+        {dayLabel}
       </div>
       <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'11px', color:'var(--paper-muted)', marginBottom:'12px' }}>
         {scheduledSlots.length} scheduled · {openSlots.length} open slot{openSlots.length !== 1 ? 's' : ''}
@@ -208,7 +229,7 @@ function TodaySnapshot({ slots }) {
       {scheduledSlots.length === 0 && openSlots.length === 0 ? (
         <div style={{ background:'rgba(30,42,110,.05)', borderRadius:'10px', padding:'12px', textAlign:'center' }}>
           <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'11px', color:'var(--paper-muted)', lineHeight:1.5 }}>
-            No interviews today.
+            {isToday ? 'No interviews today.' : 'No interviews or open slots on this day.'}
           </div>
         </div>
       ) : (
@@ -256,7 +277,11 @@ function TodaySnapshot({ slots }) {
                   <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'11px', color:'var(--paper-ink)' }}>
                     {group.slots.length} open slot{group.slots.length !== 1 ? 's' : ''}
                   </div>
-                  <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'10px', color:'var(--paper-muted)', marginTop:'2px' }}>
+                  {/* The pill's OWN ink, one step darker than the sheet's muted grey.
+                      `--paper-muted` on this tinted pill measured 4.31:1 on tan paper;
+                      the brief's rule for a failing chip is to move the chip's text, not
+                      the palette every other label reads. */}
+                  <div className="pl-slot-sub" style={{ fontFamily:'Plus Jakarta Sans', fontSize:'10px', marginTop:'2px' }}>
                     {fmt(group.slots[0]?.slot_time)} · {group.interviewer}
                   </div>
                 </div>
@@ -269,12 +294,39 @@ function TodaySnapshot({ slots }) {
   )
 }
 
+// ─── The legend ───────────────────────────────────────────────────────────────
+// PLANNER-CALENDAR-1: the notepad closes with the surface's entry kinds. These are the
+// four an Interviews reader meets, in the colours they wear in the grid, and they do NOT
+// change with the paper: a scheduled interview is the same navy on slate, tan or forest.
+const LEGEND = [
+  { fill: '#EFF3FB', edge: '#1E2A6E', label: 'Scheduled interview' },
+  { fill: '#E1F3EA', edge: '#0F7A4D', label: 'Open availability' },
+  { fill: '#FBF4E6', edge: '#8F5A0A', label: 'ASPIRE event' },
+  { fill: '#FEF3C7', edge: 'transparent', label: 'Federal holiday' },
+]
+
+function CalendarLegend() {
+  return (
+    <div className="pl-legend">
+      {LEGEND.map(({ fill, edge, label }) => (
+        <span key={label}>
+          <i aria-hidden="true" style={{ background: fill, borderLeft: `3px solid ${edge}` }} />
+          {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main Sidebar Export ──────────────────────────────────────────────────────
 export default function CalendarSidebar({ blocks, slots, aspireEvents, selectedDate, onSelectDate }) {
   return (
     <CanonicalCalendarSidebar>
+      {/* The mini calendar and the legend hold still; only the day's entries scroll, so
+          a day with twenty slots leaves the notepad exactly as tall as a day with none. */}
       <MiniCalendar blocks={blocks} slots={slots} aspireEvents={aspireEvents} selectedDate={selectedDate} onSelectDate={onSelectDate} />
-      <TodaySnapshot slots={slots} />
+      <TodaySnapshot slots={slots} selectedDate={selectedDate} />
+      <CalendarLegend />
     </CanonicalCalendarSidebar>
   )
 }

@@ -32,17 +32,18 @@ const safeServerError = (json, fallback) => json?.message || fallback
 // ASPIRE-EVENTS-CALENDAR-2B: local 'YYYY-MM-DD' for a Date (calendar range bounds).
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-// Calendar action colors. The two create actions read as one consistent family everywhere they
-// appear (header toolbar + date-cell hover chips): Availability is ASPIRE navy, Event is an
-// accessible dark purple. These are ACTION colors only - they never recolor per-type event chips.
-//   Availability: #1D2567 (--nightfall navy), hover #141928 - unchanged.
-//   Event:        #6D28D9 (violet-700, ~6.7:1 on white), hover #5B21B6 (violet-800, ~8:1).
-const AVAIL_ACTION = '#1D2567'
-const AVAIL_ACTION_HOVER = '#141928'
+// Calendar action colors. The two create actions still read as one family everywhere they
+// appear (header toolbar + date-cell hover chips), and they are still ACTION colors only:
+// they never recolor a per-type event chip. What changed is WHERE they live.
+// PLANNER-CALENDAR-1: the add controls are paper now, so these two no longer paint a
+// button. Availability's navy survives as the HOVER cue on `.pl-ghost-avail`, beside the
+// event amber on `.pl-ghost-event`; both live in plannerCalendar.css with the rest of the
+// sheet. The violet EVENT_ACTION is untouched in lib/ngrp/ngrpActivity.js, because the
+// Residency calendar still paints with it and has not been reviewed yet.
 // NGRP-ACTIVITY-PARITY-1: moved to lib/ngrp/ngrpActivity.js so the Residency
 // Activity calendar offers the same act in the same colour from one definition.
-import { EVENT_ACTION, EVENT_ACTION_HOVER } from '../lib/ngrp/ngrpActivity'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
+import SegmentedPicker from './shared/SegmentedPicker'
 
 // Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
@@ -957,19 +958,21 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                   Owner/admin also get Add Event (prefilled to this date). */}
               {isHovered && daySlots.length === 0 && (
                 <div style={{ position:'absolute', bottom:4, right:4, display:'flex', gap:4, alignItems:'center' }}>
+                  {/* The toolbar's paper controls, in miniature. They were two solid
+                      pills, one navy and one violet, dropped onto the page; on paper the
+                      quick-add is a mark you could have written on the day yourself. The
+                      colour that tells them apart now arrives on hover. */}
                   <button
+                    className="pl-ghost pl-ghost-avail pl-ghost-mini"
                     onClick={e => { e.stopPropagation(); onAddAvailability(dateStr, e.currentTarget.getBoundingClientRect()) }}
-                    style={{ background:'rgba(29,37,103,0.92)', color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'Plus Jakarta Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
                   >
                     + Availability
                   </button>
                   {isAdmin && onAddEvent && (
                     <button
+                      className="pl-ghost pl-ghost-event pl-ghost-mini"
                       onClick={e => { e.stopPropagation(); onAddEvent(dateStr) }}
                       title="Add ASPIRE event"
-                      style={{ background:EVENT_ACTION, color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'Plus Jakarta Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
-                      onMouseEnter={e => e.currentTarget.style.background = EVENT_ACTION_HOVER}
-                      onMouseLeave={e => e.currentTarget.style.background = EVENT_ACTION}
                     >
                       + Event
                     </button>
@@ -1644,7 +1647,9 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
             {/* Center: title + filtered pill */}
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'15px', color:'#1D2567', letterSpacing:'-0.01em' }}>
+              {/* The mockup's title: 20px, the paper's own ink. 15px read as a caption
+                  on a sheet this size, and the month is the thing the eye lands on. */}
+              <span className="pl-cal-title" style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'20px', color:'var(--paper-ink)', letterSpacing:'-0.01em' }}>
                 {displayTitle}
               </span>
               {scheduleScope === 'mine' && (
@@ -1659,9 +1664,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
               <button
                 onClick={handleAddAvailabilityClick}
-                style={{ height:'32px', padding:'0 14px', background:AVAIL_ACTION, border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
-                onMouseEnter={e => e.currentTarget.style.background = AVAIL_ACTION_HOVER}
-                onMouseLeave={e => e.currentTarget.style.background = AVAIL_ACTION}
+                className="pl-ghost pl-ghost-avail"
+                style={{ height:'32px', padding:'0 14px', borderRadius:'9px', cursor:'pointer', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'12px', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease, border-color 0.15s ease, color 0.15s ease' }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Add Availability
@@ -1670,38 +1674,34 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                 <button
                   onClick={() => setEventModal({ event: null, defaultDate: selectedDate })}
                   title="Add a custom ASPIRE event"
-                  style={{ height:'32px', padding:'0 14px', background:EVENT_ACTION, border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
-                  onMouseEnter={e => e.currentTarget.style.background = EVENT_ACTION_HOVER}
-                  onMouseLeave={e => e.currentTarget.style.background = EVENT_ACTION}
+                  className="pl-ghost pl-ghost-event"
+                  style={{ height:'32px', padding:'0 14px', borderRadius:'9px', cursor:'pointer', fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:'12px', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease, border-color 0.15s ease, color 0.15s ease' }}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add Event
                 </button>
               )}
 
-              <div style={{ display:'flex', alignItems:'center', background:'#f3f4f6', borderRadius:'9px', padding:'3px', gap:'2px', height:'32px', boxSizing:'border-box' }}>
-                {[{ view:'dayGridMonth', label:'Month' }, { view:'timeGridWeek', label:'Week' }].map(({ view, label }) => {
-                  const isActive = currentView === view
-                  return (
-                    <button
-                      key={view}
-                      aria-pressed={isActive}
-                      className="pl-viewseg-btn"
-                      onClick={() => {
-                        if (view === 'timeGridWeek' && currentView === 'dayGridMonth') {
-                          setWeekStart(getWeekStart(displayDate))
-                          setCurrentView('timeGridWeek')
-                        } else if (view === 'dayGridMonth') {
-                          setCurrentView('dayGridMonth')
-                        }
-                      }}
-                      style={{ height:'26px', padding:'0 14px', background: isActive ? '#1D2567' : 'transparent', border:'none', borderRadius:'7px', fontFamily:'Plus Jakarta Sans', fontWeight: isActive ? 700 : 500, fontSize:'12px', color: isActive ? '#ffffff' : '#6b7280', cursor:'pointer', transition:'all 0.15s ease', whiteSpace:'nowrap' }}
-                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#e5e7eb' }}
-                      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-                    >{label}</button>
-                  )
-                })}
-              </div>
+              {/* SEGMENTED-PICKER-1: the same conjoined control Rotation and Student
+                  Profiles use, in its paper variant. Switching to Week from Month sets the
+                  week to whatever month page the reader is looking at. */}
+              <SegmentedPicker
+                paper
+                ariaLabel="Calendar view"
+                value={currentView}
+                onChange={view => {
+                  if (view === 'timeGridWeek' && currentView === 'dayGridMonth') {
+                    setWeekStart(getWeekStart(displayDate))
+                    setCurrentView('timeGridWeek')
+                  } else if (view === 'dayGridMonth') {
+                    setCurrentView('dayGridMonth')
+                  }
+                }}
+                options={[
+                  { value: 'dayGridMonth', label: 'Month' },
+                  { value: 'timeGridWeek', label: 'Week' },
+                ]}
+              />
             </div>
           </div>
 

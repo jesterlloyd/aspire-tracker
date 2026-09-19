@@ -132,6 +132,20 @@
   display: grid;
   min-width: 0;
 }
+/* THE CALENDAR SIZES THE SPREAD, NOT THE NOTEPAD.
+   A grid row is as tall as its tallest item, so a day with seven entries made the notepad
+   outgrow the calendar and the whole planner jumped from 705px to 834px: the panel was
+   never going to scroll while it was free to expand. Taking the notepad's sheet OUT of
+   flow means the notepad contributes nothing to the row's height, the row is measured
+   from the calendar alone, and `align-items: stretch` then hands the notepad exactly that
+   height to scroll inside. Only above 960px, because below it the sheets stack and each
+   one is allowed to be as tall as it needs. */
+@media (min-width: 961px) {
+  .pl-padwrap > .pl-sheet {
+    position: absolute;
+    inset: 0;
+  }
+}
 .pl-padwrap::before,
 .pl-padwrap::after,
 .pl-holder::before,
@@ -207,6 +221,9 @@
 .pl-planner .canonical-calendar-sidebar {
   padding: 30px 18px 16px;
   border-right: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   /* The PAPER, not `none`. `.pl-sheet` sets it too, but this selector is more specific
      and would otherwise clear it: the sheet went transparent and the pad showed through
      wherever a cell did not paint over it. Both selectors say the same thing now. */
@@ -269,8 +286,39 @@
 [data-theme="dark"] .pl-planner .pl-nav-today {
   background: rgba(255, 255, 255, 0.06) !important;
 }
-/* The view segment: the active one is solid navy, the resting one is paper. */
-.pl-planner .pl-viewseg-btn[aria-pressed="false"] { color: var(--paper-muted) !important; }
+/* The add controls. Owner, 2026-09-18: both plain paper as drawn, and "please not that
+   bright violet for the +Event". So the two are identical at rest and the distinction
+   arrives on HOVER, in the colour each entry type already wears in the grid and the
+   legend: navy for availability, the event amber for an ASPIRE event. No violet. */
+.pl-planner .pl-ghost {
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--paper-ink);
+}
+[data-theme="dark"] .pl-planner .pl-ghost { background: rgba(255, 255, 255, 0.06); }
+.pl-planner .pl-ghost-avail:hover {
+  border-color: var(--aspire-navy, #1D2567);
+  color: var(--aspire-navy, #1D2567);
+  background: rgba(30, 42, 110, 0.08);
+}
+.pl-planner .pl-ghost-event:hover {
+  border-color: #8F5A0A;
+  color: #8F5A0A;
+  background: rgba(143, 90, 10, 0.10);
+}
+[data-theme="dark"] .pl-planner .pl-ghost-avail:hover { border-color: #9FB0F5; color: #9FB0F5; }
+[data-theme="dark"] .pl-planner .pl-ghost-event:hover { border-color: #E6A544; color: #E6A544; }
+/* The same control in miniature, for the quick-add that appears on an empty day. */
+.pl-planner .pl-ghost-mini {
+  border-radius: var(--aspire-radius-pill);
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  line-height: 1.4;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+}
 
 /* ── The calendar box is a CONSTANT size ───────────────────────────────────── */
 /* Owner, 2026-09-18: "I want that the outline or calendar size does not change when I
@@ -291,6 +339,54 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+/* ── The notepad holds still too ───────────────────────────────────────────── */
+/* Owner, 2026-09-18: the day panel follows the selection, and it must not resize the
+   sheet when a busy day is picked. So the notepad is the same constant height as the
+   calendar box, the mini calendar and the legend are fixed, and ONLY the day's entries
+   scroll. Pick a day with twenty slots or one with none: the planner does not move. */
+.pl-planner .canonical-calendar-sidebar-stack {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pl-planner .pl-daypanel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+.pl-legend {
+  flex: none;
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--paper-muted);
+}
+/* A pill's secondary line. `--paper-muted` is tuned for bare paper and lands at 4.31:1 on
+   the open-slot pill's tint on tan, so this line gets its own ink, which is the brief's
+   rule for a failing chip: move the chip's text, not the palette.
+   An EXPLICIT value, not a `color-mix`: color-mix computes to `color(srgb 0.69 0.70 0.78)`,
+   whose components are 0-1 floats rather than 0-255, and a contrast sweep that assumes
+   0-255 reads that as near-black and reports a 1.29:1 failure that is not there. A value
+   this file can be read for is worth more than one it can be clever about.
+   Measured on the pill: 7.95 slate, 7.41 tan, 7.63 forest, 6.56 dark. */
+.pl-planner .pl-slot-sub { color: #4A4636; }
+[data-theme="dark"] .pl-planner .pl-slot-sub { color: var(--paper-muted); }
+.pl-legend span { display: flex; gap: 7px; align-items: center; }
+.pl-legend i {
+  width: 16px;
+  height: 12px;
+  border-radius: var(--aspire-radius-tab);
+  display: inline-block;
+  border: 1px solid var(--rule);
+  flex: none;
+}
+
 /* A month grid fills the box: `--weeks` is set by the renderer from the row count, so a
    five-row month and a six-row month both end exactly at the bottom of the sheet. */
 .pl-planner .pl-monthgrid {

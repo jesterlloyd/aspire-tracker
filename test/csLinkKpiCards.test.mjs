@@ -48,11 +48,15 @@ test('the CS-Link filter is its own state, in the URL as a fixed key, cleared by
 })
 
 test('the Profiles / CS-Link Access picker sits above the KPI cards, not in the toolbar', () => {
-  const picker = spt.indexOf("onClick={() => changeView('records')}")
+  // SEGMENTED-PICKER-1: the picker is the shared control, so it is one element with an
+  // options list rather than two hand-styled buttons. Position and uniqueness are what
+  // this test is for, and both are still checked.
+  const picker = spt.indexOf('ariaLabel="Student Profiles views"')
   const kpis = spt.indexOf('className="profiles-kpis"')
   const toolbar = spt.indexOf('Unified toolbar')
   const split = spt.indexOf('Profiles: always-open split view')
   assert.ok(picker > 0 && picker < kpis, 'picker renders before the KPI strip')
-  assert.ok(!spt.slice(toolbar, split).includes('changeView('), 'the toolbar no longer carries the view toggle')
-  assert.equal((spt.match(/changeView\('access'\)/g) || []).length, 1, 'exactly one CS-Link Access button')
+  assert.ok(!spt.slice(toolbar, split).includes('SegmentedPicker'), 'the toolbar no longer carries the view toggle')
+  assert.equal((spt.match(/label: 'CS-Link Access'/g) || []).length, 1, 'exactly one CS-Link Access segment')
+  assert.match(spt, /onChange=\{changeView\}/, 'it still drives the same view change')
 })

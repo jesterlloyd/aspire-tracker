@@ -176,25 +176,28 @@ test('action order is Availability then Event in the header toolbar', () => {
   assert.ok(availAt < eventAt, 'Add Availability must precede Add Event in the header')
 })
 
-test('action colors are a single converged family: Availability navy, Event dark purple', () => {
-  assert.match(staffCalendar, /const AVAIL_ACTION = '#1D2567'/)
-  // NGRP-ACTIVITY-PARITY-1: the palette moved to lib/ngrp/ngrpActivity.js so the
-  // Residency Activity calendar offers the same act in the same colour from ONE
-  // definition rather than a hex repeated in two files.
-  assert.match(staffCalendar, /import \{ EVENT_ACTION, EVENT_ACTION_HOVER \} from '\.\.\/lib\/ngrp\/ngrpActivity'/)
+test('action colors are a single converged family, defined once', () => {
+  // PLANNER-CALENDAR-1 (Owner, 2026-09-18): the Interviews add controls are PAPER now,
+  // "both plain paper as drawn", with the distinction on hover and explicitly not the
+  // bright violet. So this calendar no longer paints with the action palette. What the
+  // test was protecting is untouched and still asserted: the palette has exactly one
+  // definition, and the calendar that still uses it reads it rather than restating it.
   assert.match(read('src/lib/ngrp/ngrpActivity.js'), /export const EVENT_ACTION = '#6D28D9'/)
   assert.match(read('src/lib/ngrp/ngrpActivity.js'), /export const EVENT_ACTION_HOVER = '#5B21B6'/)
-  // And the Activity calendar reads it rather than restating it.
   const activity = read('src/components/ngrp/ActivityCalendar.jsx')
   assert.match(activity, /EVENT_ACTION, EVENT_ACTION_HOVER/)
   assert.doesNotMatch(activity, /#6D28D9/, 'no second copy of the hex')
-  // Both the header Event button and the date-cell "+ Event" chip use the token (≥2 uses).
-  const uses = staffCalendar.match(/background:\s*EVENT_ACTION\b/g) || []
-  assert.ok(uses.length >= 2, `expected ≥2 EVENT_ACTION backgrounds, found ${uses.length}`)
-  // The old light purple is gone as an action background (still allowed as a type/badge color).
+  const uses = activity.match(/background:\s*EVENT_ACTION\b/g) || []
+  assert.ok(uses.length >= 1, `expected the Residency calendar to paint with it, found ${uses.length}`)
+  // The Interviews calendar carries no hardcoded action hex of its own either.
   assert.doesNotMatch(staffCalendar, /background:\s*'#7C3AED'/)
-  // Availability keeps its navy in the cell chip.
-  assert.match(staffCalendar, /rgba\(29,37,103,0\.92\)/)
+  // Strip comments first: a "must NOT contain" assertion happily matches the comment that
+  // explains why the value is wrong, and this file's header used to quote the hex.
+  const staffCode = staffCalendar.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  assert.doesNotMatch(staffCode, /#6D28D9/, 'the violet never gets copied back in')
+  // Its add controls are paper, and the hover cue is the event amber, not a violet.
+  assert.match(staffCalendar, /className="pl-ghost pl-ghost-event/)
+  assert.match(read('src/components/shared/plannerCalendar.css'), /\.pl-ghost-event:hover \{[\s\S]*?#8F5A0A/)
 })
 
 test('regression: type chip colors are untouched by the action recolor', () => {

@@ -17,6 +17,7 @@ import Tooltip from './ui/Tooltip'
 import StatusLegendPopover from './StatusLegendPopover'
 import { getCsLinkStatus } from '../lib/utils'
 import { summarizeCsLink } from '../lib/derivations/csLink'
+import SegmentedPicker from './shared/SegmentedPicker'
 
 // ── ASPIRE-CHART: URL state (approved) ────────────────────────────────────────
 // /students?student=<id>&filter=<bucket>&cslink=<stage> is shareable and survives
@@ -233,20 +234,15 @@ export default function StudentProfilesTab({
       {/* ── Section picker: Profiles / CS-Link Access. Sits above the KPI cards like the
           Rotation and Evaluation pickers, with the same wrapper and button style. ── */}
       <div style={{ padding:'0 0 12px', flexShrink:0 }}>
-        <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', width:'fit-content' }}>
-          <button onClick={() => changeView('records')}
-            style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
-              background: view==='records' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-              color: view==='records' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
-            Profiles
-          </button>
-          <button onClick={() => changeView('access')}
-            style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:500,
-              background: view==='access' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-              color: view==='access' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
-            CS-Link Access
-          </button>
-        </div>
+        <SegmentedPicker
+          ariaLabel="Student Profiles views"
+          value={view}
+          onChange={changeView}
+          options={[
+            { value: 'records', label: 'Profiles' },
+            { value: 'access', label: 'CS-Link Access' },
+          ]}
+        />
       </div>
 
       {/* ── KPI filter strip (frozen; column count lives in CSS so it reflows).

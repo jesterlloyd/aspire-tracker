@@ -566,7 +566,7 @@ export default function InterviewRubricTab({
       </div>
 
       {/* Interview Recommendations header strip */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', padding:'4px 16px 0' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', padding:'4px 0 0' }}>
         <span style={{ fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, fontSize:18, color:'var(--text-heading,#191919)' }}>
           Interview Recommendations
         </span>
@@ -599,7 +599,10 @@ export default function InterviewRubricTab({
       </div>
 
       {/* 6 filter cards - color story: Nightfall=anchor, Marina=in motion, Sage=positive, Dawn=needs action, Chroma=alert */}
-      <div className="ir-kpis" style={{ display:'grid', gap:10, padding:'10px 16px 12px' }}>
+      {/* The tab's own 20px gutter is the gutter. These used to add 16px more, so the
+          filters and the strip above them were narrower than the calendar and the
+          worklist they sit between (Owner, 2026-09-18). */}
+      <div className="ir-kpis" style={{ display:'grid', gap:10, padding:'10px 0 12px' }}>
         <FilterKPICard value={total}        label="Total"         accent="nightfall"  active={activeFilter === null}            onClick={() => setActiveFilter(null)} />
         <FilterKPICard value={scheduled}    label="Scheduled"     accent="marina"     active={activeFilter === 'scheduled'}    onClick={() => handleCardClick('scheduled')} />
         <FilterKPICard value={completed}    label="Completed"     accent="sage"       active={activeFilter === 'completed'}    onClick={() => handleCardClick('completed')} />
