@@ -32,15 +32,22 @@ const F = 'Plus Jakarta Sans, sans-serif'
 // (#1D2567); in dark it lifts, instead of painting navy onto a dark page.
 const NAVY = 'var(--color-accent-primary)'
 
+// STUDENT-PROFILE-INK-1: every chip here is a PAIR, fixed ink on fixed box, so it reads
+// the same in both themes. Two of them were not, and both were found by rendering a
+// student who actually HAS unit assignments: `ended` carried `var(--text-muted)`, which
+// is #A8AEC6 on #f3f4f6 in dark (2.0:1) and a marginal 4.15:1 even in light, and
+// `primary` carried NAVY, which lifts to #A9BEFF on #EEF2FB in dark (1.63:1). A token ink
+// belongs on a token surface; NAVY stays a token everywhere below, where it sits on
+// `var(--bg-card)` or fills a button against `--color-text-inverse`.
 const STATUS_CHIP = {
   active:  { label: 'Active',  bg: '#dcfce7', color: '#166534', border: '#86efac' },
   planned: { label: 'Planned', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-  ended:   { label: 'Ended',   bg: '#f3f4f6', color: 'var(--text-muted)', border: '#d1d5db' },
+  ended:   { label: 'Ended',   bg: '#f3f4f6', color: '#4b5675', border: '#d1d5db' },
   removed: { label: 'Removed', bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
 }
 
 const ROLE_BADGE = {
-  primary:    { label: 'Primary',    bg: '#EEF2FB', color: NAVY, border: '#c3cdf0' },
+  primary:    { label: 'Primary',    bg: '#EEF2FB', color: '#1D2567', border: '#c3cdf0' },
   additional: { label: 'Additional', bg: '#FEF3C7', color: '#92400e', border: '#fde68a' },
 }
 
@@ -394,8 +401,10 @@ function btnStyle(bg, color) {
 }
 function selStyle() {
   return {
-    padding: '4px 7px', border: '1.5px solid #e5e7eb', borderRadius: 6,
-    fontSize: 11, fontFamily: F, color: 'var(--text-heading)', background: '#fff',
+    // The ink follows the theme, so the surface must too: `#fff` behind
+    // `var(--text-heading)` is a white box carrying near-white text in dark (1.1:1).
+    padding: '4px 7px', border: '1.5px solid var(--border-divider)', borderRadius: 6,
+    fontSize: 11, fontFamily: F, color: 'var(--text-heading)', background: 'var(--bg-card)',
   }
 }
 function dateLabel() {

@@ -179,8 +179,10 @@ export default function AdditionalPreceptors({ student, preceptors = [], canEdit
               style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: busy ? '#9ca3af' : '#1D2567', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'Plus Jakarta Sans,sans-serif' }}>
               {busy ? 'Saving…' : 'Assign'}
             </button>
+            {/* The ink follows the theme, so the surface must too: `#f3f4f6` behind
+                `var(--text-heading)` is a pale box carrying near-white text in dark. */}
             <button onClick={() => { setFormOpen(false); setMsg(null) }} disabled={busy}
-              style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-heading)', background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans,sans-serif' }}>
+              style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-heading)', background: 'var(--color-bg-hover)', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans,sans-serif' }}>
               Cancel
             </button>
           </div>

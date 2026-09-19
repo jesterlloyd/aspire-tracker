@@ -440,7 +440,9 @@ test('INK 1: a light-mode ink is only allowed beside a light-mode background', (
       for (const b of banned) {
         if (!new RegExp(`\\bcolor\\s*:\\s*['"]${b}['"]`, 'i').test(line)) continue
         // paired with a literal light background on the same element? then it is fine.
-        if (/background\s*:\s*['"]?#[0-9a-f]{3,6}/i.test(line)) continue
+        // `bg:` counts: a chip config table writes the pair as { bg, color, border }, and
+        // reading only `background:` called a correctly-paired chip a defect.
+        if (/(?:background(?:Color)?|\bbg)\s*:\s*['"]?#[0-9a-f]{3,6}/i.test(line)) continue
         offenders.push(`${f.split('/').pop()}: ${line.trim().slice(0, 90)}`)
       }
     }
@@ -749,4 +751,32 @@ test('TIDY 9: the CS-Link checklist reads inks both themes define', () => {
 test('TIDY 10: the Availability header is legible on a tinted sheet', () => {
   // --aspire-th-color is tuned for a white table band and measures 4.15:1 on the sheet.
   assert.match(cssCode, /\.sc-sheet \.sc-avail \.aspire-th \{[\s\S]*?color: var\(--aspire-paper-ink-soft\);/)
+})
+
+test('INK 7: no component in the chart puts a themed ink on a fixed box', () => {
+  // The mechanical form of "a colour pair travels together", and the one thing a contrast
+  // sweep cannot be trusted to find: a sweep only measures what the RECORD renders, and
+  // every instance below was invisible to one. The "Ended" unit chip needed a student with
+  // an ended assignment, the <select> needed an open edit form, the Cancel button needed an
+  // open add form, and the CS-Link tick labels needed a student past step 1. Each measured
+  // between 1.09:1 and 2.0:1 in dark while the sweep reported the panel clean.
+  const files = [
+    'src/components/StudentSidePanel.jsx',
+    'src/components/StudentUnitAssignments.jsx',
+    'src/components/AdditionalPreceptors.jsx',
+    'src/components/ClinicalHoursPanel.jsx',
+    'src/components/student/ChartEvaluations.jsx',
+  ]
+  const bg = /(?:bg|background(?:Color)?)\s*:\s*'(#[0-9a-fA-F]{3,8})'/
+  const ink = /colou?r\s*:\s*'(var\(--[a-z-]+\))'/
+  const bad = []
+  for (const f of files) {
+    const lines = noComments(read(f)).split('\n')
+    lines.forEach((line, i) => {
+      const b = bg.exec(line), k = ink.exec(line)
+      if (b && k) bad.push(`${f}:${i + 1}  ${b[1]} behind ${k[1]}`)
+    })
+  }
+  assert.deepEqual(bad, [],
+    `a fixed background carrying a themed ink is invisible in one theme:\n  ${bad.join('\n  ')}`)
 })
