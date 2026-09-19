@@ -161,6 +161,43 @@ nothing about the book lives in `index.css`.
   the browser draft and its restore notice, Section 1 moving the real booking, and one
   rubric row per interviewer created on the first meaningful edit.
 
+## How a bound thing shows its pages (BOOK-FORE-1, 2026-09-19)
+
+Three objects in this app hold paper, and they do not all show it the same way. One
+sheet, `src/styles/pageStack.css`, holds both forms; a surface says where its top sheet
+sits with four inset tokens and picks the form that matches what it IS.
+
+- **`material-pagestack`, offset sheets.** Loose paper on a surface: two sheets peeking
+  down and to the right. The six calendars (on a desk pad) and the student chart (a ring
+  binder holding loose sheets) use this. Whatever holds it must reserve the overhang on
+  its RIGHT and BOTTOM padding.
+- **`material-forestack`, a fore edge.** A sewn block seen edge-on: many thin page edges
+  packed tight, on both sides, and NOTHING at the bottom, because an open book has no
+  loose bottom edge. The rubric book uses this. Whatever holds it reserves `--fore-w` on
+  each side.
+
+**Pitch and contrast fight each other.** A fore edge at a ~2px pitch is sub-pixel on a 1x
+display. Wide contrast between adjacent lines aliases into a barcode, which is why the
+book's first fore edge was thrown out; a narrow range of four tones at four unequal
+widths blurs into paper instead. Judge one magnified, never at 1x.
+
+**The spine is the fold.** The rubric's cover is tan leather with one dark BROWN band
+down the gutter and the crease inside it (Owner, from the macOS Contacts book: the
+leather is tan and only the spine is dark). Near-black on tan reads as a gap rather than
+as leather turning. The band aligns with `.rb-seam`, which sits on the boundary between
+the two page columns and is NOT the geometric centre of the cover, so it is a child of
+the spread and not a background on the leather. One page has no gutter, so single-page
+mode has no fold.
+
+**A drop shadow must fit the room it has.** `.profiles-detail-col` is `overflow-y: auto`,
+and that clips BOTH axes. The binder's `0 16px 34px` needed about fifty pixels of
+clearance, so its sides were cut flush while its bottom smeared onto the page below. A
+shadow on anything inside a scroll container carries a negative spread and stays under
+its object.
+
+**One edge per sheet.** A border AND a ring shadow is two rules, and the pair holds the
+page apart from the sheets behind it. Keep the border, which is inside the box.
+
 ## The student record is a binder (STUDENT-CHART-1, 2026-09-18)
 
 Student Profiles' detail panel is a black leather ring binder holding loose sheets. It is
