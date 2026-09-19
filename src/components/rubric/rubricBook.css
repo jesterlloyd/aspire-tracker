@@ -32,12 +32,13 @@
   --rb-cover-pad: 14px;
   /* The fore edges carry the page stack, so the side needs the stack's width on top
      of the leather to read as thick as the top and the bottom. */
-  --rb-stack-w: 8px;
-  /* The sheets underneath fall down as well as out (PAGE-STACK-1), so the BOTTOM board
-     needs the same allowance the two sides have always had. */
-  --rb-stack-h: 8px;
+  /* How thick the book is. Each fore edge is a BLOCK of page edges, so a side board
+     carries it on top of its own leather (BOOK-FORE-1, Owner, 2026-09-19). There is no
+     bottom allowance: an open book is sewn at the spine and cropped at the head and
+     tail, so it has no loose bottom edge to show. */
+  --rb-stack-w: 13px;
   --rb-cover-pad-x: calc(var(--rb-cover-pad) + var(--rb-stack-w));
-  --rb-cover-pad-b: calc(var(--rb-cover-pad) + var(--rb-stack-h));
+  --rb-spine-w: 38px;
   display: flex;
   flex-direction: column;
   /* useBookScale measures what is left below the shell's own top edge and sets
@@ -99,7 +100,7 @@
 .rb-cover {
   position: relative;
   height: 100%;
-  padding: var(--rb-cover-pad) var(--rb-cover-pad-x) var(--rb-cover-pad-b);
+  padding: var(--rb-cover-pad) var(--rb-cover-pad-x);
   border-radius: var(--aspire-radius-book);
 }
 .rb-spread {
@@ -123,21 +124,53 @@
      without this the page stack draws ON TOP of the open pages. */
   z-index: 1;
 }
-/* The pages underneath the two that are open (PAGE-STACK-1, Owner, 2026-09-19).
-   These were two striped fore edges, a repeating gradient of hairlines standing in for
-   page edges seen side on. The calendars draw offset sheets instead, and the Owner's
-   verdict was that theirs is the more realistic of the two, so the book reads the
-   calendars' definition from src/styles/pageStack.css rather than keeping its own.
-   The sheets sit behind the whole spread rather than behind each page: a stack peeking
-   out to the right of the LEFT page would surface in the seam, which is the one place an
-   open book has no loose edge. `--rb-stack-w` still reserves the room in the cover's
-   padding, and the four inset tokens put the sheets inside that padding. */
-.rb-cover.material-pagestack {
+/* The pages underneath (BOOK-FORE-1, Owner, 2026-09-19, from a photograph of the
+   Contacts book). Three rounds got here. First a fore edge of this book's own making,
+   which was a flat 2.5px repeat and read as a barcode. Then the calendars' offset
+   sheets, which are right for loose paper on a desk and wrong for a sewn book, and
+   which fell below the page where an open book has no edge at all. This is the third
+   answer and the one the photograph shows: a BLOCK of many page edges on each fore
+   edge, left and right, and nothing at the bottom.
+   `material-forestack` in src/styles/pageStack.css. The insets say where the spread's
+   box is, so the blocks land in the cover's own padding, which `--rb-stack-w` sizes. */
+.rb-cover.material-forestack {
   --stack-inset-t: var(--rb-cover-pad);
   --stack-inset-r: var(--rb-cover-pad-x);
-  --stack-inset-b: var(--rb-cover-pad-b);
+  --stack-inset-b: var(--rb-cover-pad);
   --stack-inset-l: var(--rb-cover-pad-x);
-  --stack-paper: var(--aspire-page-band, #EEF1F8);
+  --fore-w: var(--rb-stack-w);
+}
+
+/* ── The spine ─────────────────────────────────────────────────────────────── */
+/* Owner, 2026-09-19: the Contacts book is tan leather and only its SPINE is dark, and
+   the fold runs down that band. The band is a child of the spread rather than a
+   background on the cover, so it aligns with the SEAM, which sits on the boundary
+   between the two page columns and is not the geometric centre of the leather. It
+   reaches past the spread's top and bottom into the cover's padding, which is the only
+   place it is visible; nothing clips the spread, which is why that works. It is first
+   in DOM order and carries no z-index, so every page paints over it.
+   Two highlights either side of one dark line is what a fold looks like on a hide. */
+.rb-spine {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+  align-self: stretch;
+  width: var(--rb-spine-w);
+  margin-right: calc(var(--rb-spine-w) / -2);
+  margin-top: calc(-1 * var(--rb-cover-pad));
+  margin-bottom: calc(-1 * var(--rb-cover-pad));
+  pointer-events: none;
+  background-image:
+    var(--aspire-noise-fine),
+    linear-gradient(90deg,
+      var(--aspire-leather-tan-deep) 0%,
+      var(--aspire-book-spine-edge) 16%,
+      var(--aspire-book-spine) 36%,
+      var(--aspire-book-spine-crease) 50%,
+      var(--aspire-book-spine) 64%,
+      var(--aspire-book-spine-edge) 84%,
+      var(--aspire-leather-tan-deep) 100%);
+  background-blend-mode: soft-light, normal;
 }
 /* Every child is placed by hand: the seam and the ribbon share the candidate page's
    cell, so auto-placement would push the pages and the index into a second row. */
@@ -184,6 +217,10 @@
 
 /* The seam is what makes two pages; one page has no seam. */
 .rb-shell[data-rb-mode='single'] .rb-seam { display: none; }
+/* One page is a page, not a spread: there is no gutter, so there is no fold to show
+   either. Without this the spine would sit at the right edge of the single page,
+   which is where its fore edge is. */
+.rb-shell[data-rb-mode='single'] .rb-spine { display: none; }
 
 /* The fold sits at the right edge of the candidate page, whatever width that page
    currently has, so it is a grid item rather than an absolute offset. */
@@ -395,8 +432,25 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 9px 34px;
-  background: var(--aspire-page-band);
+  --rb-head-pad-x: 34px;
+  padding: 9px var(--rb-head-pad-x);
+  /* The strip curves into the gutter at its left end (Owner, 2026-09-19). The page under
+     it already does: `.rb-seam` shades the paper as it turns into the fold. The head
+     sits at z-index 3 and the seam at 2, so the head was painting OVER that shading and
+     stopping flat at the gutter, which is the one place on the spread that should never
+     look flat. This is the seam's own falloff continued across the band, so the strip
+     turns with the paper it is printed on. It is a background and not a transform,
+     because the numbers in here are read, and read text does not get skewed.
+     The shading ENDS before the text begins, and says so in terms of the padding rather
+     than in a number that could drift away from it: ink on this band measures 6.43:1,
+     and none of it should ever have to be measured against the dark end instead. */
+  background-image: linear-gradient(90deg,
+    rgba(20, 24, 36, 0.30) 0,
+    rgba(20, 24, 36, 0.16) 5px,
+    rgba(20, 24, 36, 0.07) 11px,
+    rgba(20, 24, 36, 0.02) calc(var(--rb-head-pad-x) * 0.6),
+    rgba(20, 24, 36, 0) calc(var(--rb-head-pad-x) - 4px));
+  background-color: var(--aspire-page-band);
   border-bottom: 1px solid var(--aspire-page-rule);
   font-size: 13px;
   color: var(--aspire-paper-ink);

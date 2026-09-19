@@ -73,6 +73,74 @@
   filter: brightness(0.98);
 }
 
+/* ── A bound block, seen from its fore edge ────────────────────────────────── */
+/* The offset sheets above are loose paper on a desk. A BOUND book does not show its
+   pages that way: they are sewn at the spine and what you see is the fore edge, many
+   thin edges packed together into a block (Owner, 2026-09-19, from a photograph of the
+   Contacts book: "make the stack closer together and more. like a thick or many page
+   book"). So this is its own form rather than a variant of the one above, because it
+   shares none of its geometry: it has width instead of offsets, it sits on BOTH sides,
+   and it never falls below the page, because an open book has no loose bottom edge.
+ *
+ * The book used to draw a fore edge of its own and it was replaced for good reason: a
+ * flat two-and-a-half pixel repeat of white and grey aliases into a barcode. What makes
+ * this one read as paper is that no two adjacent lines are the same width or the same
+ * colour, and a wash across the block turns it away from the light, the way a real fore
+ * edge curves. Judge it magnified: at 1x these are sub-pixel and the browser will decide
+ * what you actually see.
+ *
+ * `--fore-w` is how thick the book is. The board holding it must reserve at least that
+ * much padding on each side, or the block lands on the cover's outer edge.
+ */
+
+.material-forestack {
+  position: relative;
+  --stack-inset-t: 0px;
+  --stack-inset-r: 0px;
+  --stack-inset-b: 0px;
+  --stack-inset-l: 0px;
+  --fore-w: 13px;
+  /* How far the block stops short of the page's own top and bottom. A block exactly as
+     tall as the page reads as a border; a little shorter reads as paper. */
+  --fore-crop: 6px;
+}
+
+.material-forestack::before,
+.material-forestack::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: calc(var(--stack-inset-t) + var(--fore-crop));
+  bottom: calc(var(--stack-inset-b) + var(--fore-crop));
+  width: var(--fore-w);
+  pointer-events: none;
+  /* Four bands of unequal width and four tones, so the period is 1.9px and no two
+     neighbours match. Over thirteen pixels that is nearly seven repeats, about thirteen
+     sheets: "closer together and more, like a thick or many page book" (Owner, from the
+     photograph). The tones are close together on purpose. Wide contrast at this pitch
+     aliases into a barcode on a 1x display, which is what sank the first attempt at a
+     fore edge; a narrow range blurs into paper instead. */
+  background-image:
+    linear-gradient(var(--fore-turn, 90deg), rgba(58, 48, 32, 0) 45%, rgba(58, 48, 32, 0.22) 100%),
+    repeating-linear-gradient(90deg,
+      #FDFCF8 0, #FDFCF8 0.7px,
+      #E6E1D5 0.7px, #E6E1D5 1.0px,
+      #FFFFFF 1.0px, #FFFFFF 1.6px,
+      #DAD4C6 1.6px, #DAD4C6 1.9px);
+}
+
+/* The left block turns its shading the other way, because the light is the same light. */
+.material-forestack::before {
+  left: calc(var(--stack-inset-l) - var(--fore-w));
+  --fore-turn: 270deg;
+  box-shadow: inset -1px 0 2px rgba(58, 48, 32, 0.28);
+}
+
+.material-forestack::after {
+  right: calc(var(--stack-inset-r) - var(--fore-w));
+  box-shadow: inset 1px 0 2px rgba(58, 48, 32, 0.28);
+}
+
 /* The notepad's stack is a hair tighter than the calendar's, because the rings hold its
    top edge and paper bound at the top cannot fan as far. */
 .material-pagestack-bound::before {

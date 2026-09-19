@@ -111,12 +111,15 @@
   display: grid;
   grid-template-rows: auto 1fr;
   background: var(--aspire-page);
-  border: 1px solid var(--aspire-binder-edge);
   border-radius: 0;
   overflow: hidden;
-  /* Just the page's own edge. The sheets underneath are drawn by `.sc-binder::after`,
-     in the board's padding, where loose paper actually sits. */
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  /* ONE edge (Owner, 2026-09-19: "there is like an additional shadow or outline around
+     the rectangle profile. remove it so the stack is more part of the effect"). There
+     were two: a 1px border AND a 1px ring shadow, drawn one outside the other, which
+     read as a double rule and cut the page off from the sheets behind it. The ring goes
+     and the border stays, because a border is inside the element's box and so the
+     sheets underneath meet the paper instead of meeting a shadow. */
+  border: 1px solid var(--aspire-binder-edge);
 }
 
 /* ── The name plate ────────────────────────────────────────────────────────── */

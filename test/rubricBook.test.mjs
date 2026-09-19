@@ -356,18 +356,41 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   // any more, so the ribbon can hang over the cover.
   assert.match(bookCss, /\.rb-spread \{[\s\S]*?border-radius: 0;/)
   assert.ok(!/\.rb-spread \{[^}]*overflow: hidden/.test(bookCss), 'the spread clips again')
-  // The pages underneath (PAGE-STACK-1, Owner, 2026-09-19). They used to be two striped
-  // fore edges of this book's own making; they are now the calendars' offset sheets, one
-  // definition in src/styles/pageStack.css that the book, the chart and the six calendars
-  // all read. What this test is for is unchanged: the book must SHOW the sheets it holds.
+  // The pages underneath (BOOK-FORE-1, Owner, 2026-09-19). A sewn book shows its pages
+  // as FORE EDGES, a block of many edges on each side, and shows nothing at the bottom,
+  // because an open book has no loose bottom edge. What this test is for is unchanged:
+  // the book must SHOW the sheets it holds.
   assert.match(bookCss, /@import '\.\.\/\.\.\/styles\/pageStack\.css';/)
-  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-tan material-pagestack"/)
-  assert.match(bookCss, /\.rb-cover\.material-pagestack \{[\s\S]*?--stack-inset-r: var\(--rb-cover-pad-x\);/)
-  // The sheets fall down as well as out, so the bottom board carries the same allowance
-  // the sides do, and the spread out-paints a pseudo-element that paints after it.
-  assert.match(bookCss, /--rb-cover-pad-b: calc\(var\(--rb-cover-pad\) \+ var\(--rb-stack-h\)\);/)
-  assert.match(bookCss, /padding: var\(--rb-cover-pad\) var\(--rb-cover-pad-x\) var\(--rb-cover-pad-b\);/)
+  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-tan material-forestack"/)
+  assert.match(bookCss, /\.rb-cover\.material-forestack \{[\s\S]*?--fore-w: var\(--rb-stack-w\);/)
+  // Both fore edges, and NOTHING below: the cover's padding is two values, so the bottom
+  // board is the same leather as the top and holds no overhang.
+  const shared = read('src/styles/pageStack.css')
+  assert.match(shared, /\.material-forestack::before \{[\s\S]*?left: calc\(var\(--stack-inset-l\) - var\(--fore-w\)\);/)
+  assert.match(shared, /\.material-forestack::after \{[\s\S]*?right: calc\(var\(--stack-inset-r\) - var\(--fore-w\)\);/)
+  assert.match(bookCss, /padding: var\(--rb-cover-pad\) var\(--rb-cover-pad-x\);/)
+  assert.ok(!bookCss.includes('--rb-cover-pad-b'), 'the book grew a bottom edge again')
   assert.match(bookCss, /\.rb-spread \{[\s\S]*?z-index: 1;/)
+  // The spine: tan leather with one dark band down the gutter, aligned to the SEAM
+  // rather than to the middle of the cover, and reaching into the leather above and
+  // below the pages, which is the only place it shows.
+  assert.match(read('src/components/RubricSession.jsx'), /<i className="rb-spine" aria-hidden="true" \/>/)
+  const spine = bookCss.match(/\.rb-spine \{[\s\S]*?\n\}/)[0]
+  assert.match(spine, /grid-column: 1;/)
+  assert.match(spine, /justify-self: end;/)
+  assert.match(spine, /margin-top: calc\(-1 \* var\(--rb-cover-pad\)\);/)
+  assert.match(spine, /margin-bottom: calc\(-1 \* var\(--rb-cover-pad\)\);/)
+  assert.match(spine, /var\(--aspire-book-spine-crease\) 50%/)
+  // One page has no gutter, so it has no fold.
+  assert.match(bookCss, /\.rb-shell\[data-rb-mode='single'\] \.rb-spine \{ display: none; \}/)
+  // The strip at the head turns into the gutter with the paper it is printed on.
+  const head = bookCss.match(/\.rb-head \{[\s\S]*?\n\}/)[0]
+  assert.match(head, /background-image: linear-gradient\(90deg,/)
+  // The shading stops BEFORE the text starts, and is written from the same token as the
+  // padding so the two cannot drift. Ink on this band is 6.43:1 and must never have to
+  // be measured against the dark end of a gradient instead.
+  assert.match(head, /padding: 9px var\(--rb-head-pad-x\);/)
+  assert.match(head, /rgba\(20, 24, 36, 0\) calc\(var\(--rb-head-pad-x\) - 4px\)/)
   // The cover is a thin board, and it is leather rather than grain.
   assert.match(bookCss, /--rb-cover-pad: 14px/)
   assert.ok(!read('src/styles/aspireMaterials.css').slice(
@@ -454,7 +477,11 @@ test('HEAD 2: completion left, the guide centred, the composite right, on ONE li
   assert.ok(head.indexOf('rb-guide-toggle') < head.indexOf('rb-head-score'), 'the guide is not in the middle')
   // One row, and a padding that keeps it to one line.
   assert.match(bookCss, /\.rb-head-score \{ flex: 1 1 0; display: flex; align-items: baseline; justify-content: flex-end;/)
-  assert.match(bookCss, /\.rb-head \{[\s\S]*?padding: 9px 34px;/)
+  // The gutter's shading is written from the same token as the padding (BOOK-FORE-1),
+  // so that the strip can turn into the fold without the text ever landing on the
+  // dark end of it.
+  assert.match(bookCss, /\.rb-head \{[\s\S]*?--rb-head-pad-x: 34px;/)
+  assert.match(bookCss, /\.rb-head \{[\s\S]*?padding: 9px var\(--rb-head-pad-x\);/)
   assert.ok(!bookCss.includes('.rb-head-line'), 'the head is stacking again')
 })
 

@@ -431,6 +431,28 @@ test('PAPER 3: the page stack is on the fore edge, which is the right', () => {
   assert.match(paper, /z-index: 1;/)
 })
 
+test('PAPER 3b: the page has ONE edge, and the binder does not smudge the surface', () => {
+  // Owner, 2026-09-19: "there is like an additional shadow or outline around the
+  // rectangle profile. remove it so the stack is more part of the effect." There were
+  // two edges, a border and a 1px ring shadow drawn just outside it, which read as a
+  // double rule and cut the page off from the sheets behind it.
+  const css = noComments(read('src/components/student/studentChart.css'))
+  const paper = css.match(/\.sc-paper \{[\s\S]*?\n\}/)[0]
+  assert.match(paper, /border: 1px solid var\(--aspire-binder-edge\);/)
+  assert.ok(!/box-shadow: 0 0 0 1px/.test(paper), 'the page grew a second edge again')
+  // "there is a shadow at the bottom of the chart on either side, it looks off on the
+  // right edge". `.profiles-detail-col` is overflow-y:auto, which clips BOTH axes, so a
+  // wide low shadow was cut off flush at the sides and free to smear below. A negative
+  // spread keeps the whole shadow under the leather.
+  const materials = noComments(read('src/styles/aspireMaterials.css'))
+  const black = materials.match(/\.material-leather-black \{[\s\S]*?\n\}/)[0]
+  const drop = black.match(/0 (\d+)px (\d+)px (-?\d+)px rgba\(24, 32, 63/)
+  assert.ok(drop, 'the binder lost its drop shadow')
+  const [, y, blur, spread] = drop.map(Number)
+  assert.ok(y + blur + spread <= 20, `the shadow reaches ${y + blur + spread}px past the leather; it has no room for that`)
+  assert.ok(Number(spread) < 0, 'the shadow needs a negative spread to stay under the object')
+})
+
 test('PAPER 4: the ribbon hangs from the board, not from the paper', () => {
   // It must be a sibling of .sc-paper inside .sc-binder, and come before it.
   const ribbonAt = panel.indexOf('classPrefix="sc-ribbon"')

@@ -157,8 +157,15 @@
       var(--aspire-leather-black-deep) 75%,
       var(--aspire-leather-black-lift));
   background-blend-mode: soft-light, normal;
+  /* A shadow that HUGS the object (Owner, 2026-09-19: "there is a shadow at the bottom
+     of the chart on either side, it looks off on the right edge"). It was 34px of blur
+     thrown 16px down, which needs about fifty pixels of clearance to land in. The binder
+     gets none: `.profiles-detail-col` is `overflow-y: auto`, which clips both axes, so
+     the sides were cut off flush while the bottom was free to smear onto the page below.
+     A negative spread keeps the whole shadow under the leather, where no container can
+     crop half of it. */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    0 16px 34px rgba(24, 32, 63, 0.28);
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 8px 16px -6px rgba(24, 32, 63, 0.34);
 }
