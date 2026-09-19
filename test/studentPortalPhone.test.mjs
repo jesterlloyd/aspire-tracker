@@ -51,6 +51,25 @@ test('on a phone, the mini calendar and day panel are the calendar', () => {
   assert.match(activity, /<StudentMiniCalendar cells=\{cells\}/)
 })
 
+test('PLANNER-CALENDAR-1: the phone order is re-stated for the elements the planner makes items', () => {
+  // portal.css puts `order` on `.canonical-calendar-main` / `-sidebar`. On paper the shell
+  // is `display: contents` and the spread's items are `.pl-holder` (the calendar sheet)
+  // and `.pl-padwrap` (the notepad), so an order on the old elements applies to nothing
+  // and the phone would open on a hidden grid. Same contract, aimed at the real items.
+  const planner = read('src/components/shared/plannerCalendar.css')
+  const i = planner.indexOf('STUDENT-PHONE-1, on paper')
+  assert.ok(i > 0, 'the planner re-states the phone contract and says so')
+  const block = planner.slice(planner.indexOf('@media (max-width: 760px)', i))
+  assert.match(block, /\.pl-planner:has\(\.ptl-student-cal-grid\) \.pl-holder \{ order: 1; \}/)
+  assert.match(block, /\.pl-planner:has\(\.ptl-student-cal-grid\) \.pl-padwrap \{ order: 2; \}/)
+  // The key describes chips on the grid; with the grid hidden it goes too.
+  assert.match(block, /\.pl-planner:has\(\.ptl-student-cal-grid\) \.pl-legend \{ display: none; \}/)
+  // The calendar still carries the marker the portal.css hiding rules select on.
+  const activity = read('src/portal/StudentRotationActivity.jsx')
+  assert.match(activity, /className="ptl-student-cal-grid pl-monthgrid"/)
+  assert.match(activity, /paper="tan"/)
+})
+
 test('Refresh is desktop chrome: the phone bottom bar hides it with a selector that outranks the span rule', () => {
   assert.match(css, /\.ptl-nav > span \{ display: contents; \}/)
   assert.match(css, /\.ptl-nav > \.ptl-nav-refresh \{ display: none; \}/)

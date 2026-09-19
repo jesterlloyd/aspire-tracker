@@ -228,6 +228,12 @@ export default function AcademicsCalendarView({ active = true }) {
       </div>
 
       <CanonicalCalendarLayout
+        // PLANNER-CALENDAR-1: forest, the residency/academics paper (Owner confirmed all
+        // six surfaces adopt the planner). This one is a TIMELINE of rotation windows
+        // rather than a month grid, so it has no week rows to divide a box by; it gets
+        // the same constant height and scrolls its rows inside it, which keeps the panel
+        // the same size whether two schools are in view or twelve.
+        paper="forest"
         title="Rotation Calendar"
         description="School rotation windows from every ASPIRE cohort, one rotation per row."
         sidebar={(
@@ -259,7 +265,8 @@ export default function AcademicsCalendarView({ active = true }) {
           </>
         )}
       >
-        <div className="ptl-na-timeline">
+        <div className="pl-calbox">
+        <div className="ptl-na-timeline pl-calbox-scroll">
           <div className="ptl-na-axis" aria-hidden="true">
             {[1, 8, 15, 22, daysInMonth].map(day => (
               <span key={day} className="ptl-na-axis-tick" style={{ left: `${dayPct(day)}%` }}>{day}</span>
@@ -315,6 +322,7 @@ export default function AcademicsCalendarView({ active = true }) {
               </div>
             )
           })}
+        </div>
         </div>
       </CanonicalCalendarLayout>
 

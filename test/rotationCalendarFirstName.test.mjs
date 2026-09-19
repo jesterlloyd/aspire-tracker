@@ -88,8 +88,23 @@ test('the staff feed ships student_first_name through the same formatter', () =>
 test('the Student Portal calendar keeps "Shift with <preceptor>" and its legend', () => {
   const src = strip(read(STUDENT_CAL))
   assert.match(src, /<CanonicalActivityChip\s+label="Shift"/)
-  assert.match(src, /className="ptl-cal-chip" aria-hidden="true">Shift<\/span> Logged shift/)
+  // The signed-in student is the only reader, so the cell never names them and the
+  // feed's first name never reaches this file.
   assert.doesNotMatch(src, /chipName|student_first_name/)
+  // PLANNER-CALENDAR-1 moved the key onto the notepad and made every swatch a plain
+  // colour block, as the other five planners do. Anchor on the CONTAINER: "Logged shift"
+  // also appears in the day panel, beside a real preceptor's name.
+  const at = src.indexOf('className="pl-legend"')
+  assert.ok(at > 0, 'the legend has no container to anchor on')
+  const legend = src.slice(at, src.indexOf('</div>', at) + 6)
+  for (const kind of ['Logged shift', 'Planned shift', 'ASPIRE event', 'US holiday', 'School blackout']) {
+    assert.ok(legend.includes(kind), `the legend names ${kind}`)
+  }
+  // CALENDAR-HOLIDAY-CANON: the app says "US holiday" everywhere. "Federal holiday" was
+  // only ever on this one calendar.
+  assert.ok(!legend.includes('Federal holiday'), 'the holiday wording is the canon one')
+  assert.doesNotMatch(legend, /student_name|preceptor_name|first_name/,
+    'a legend swatch never renders a real name')
 })
 
 test('no em dash in anything this change touched', () => {

@@ -400,17 +400,6 @@
    notepad on a key, and the key is the least important thing on the sheet. Two columns
    halve its height and give the rows back to the day. The columns are invisible: no rule
    between them, just the grid. */
-.pl-legend {
-  flex: none;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px 10px;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--rule);
-  font-size: 11px;
-  color: var(--paper-muted);
-}
 /* A pill's secondary line, on any of the four capacity fills. Those fills are FIXED, so
    this ink is fixed too: `--paper-muted` is themed and lifted to a pale grey on a pale
    card in dark, measuring 2.26:1. ONE value for all four, because the pill already says
@@ -489,6 +478,105 @@
     height: auto;
     min-height: 0;
   }
+}
+
+/* ── The portal calendars' own inks, on paper ──────────────────────────────── */
+/* The Unit Leader and Student calendars were built before the planner and paint their
+   mini calendar, their day list and their footnote in portal.css literals: a #d1d5db
+   weekday letter, a #fff day card, a #6b7280 caption. Those were chosen against a white
+   card. On tan or forest they are a white rectangle floating on paper.
+   Every one of them is repointed at the paper tokens here rather than edited in
+   portal.css, because portal.css also serves the SIX portal surfaces that are not
+   calendars, and those are still white cards. Two classes beats portal.css's one, so
+   these win wherever the two sheets land in the bundle. */
+/* The three portal ink TOKENS are redefined on the planner itself. `.ptl-page` sets them
+   for the whole portal; a definition on a descendant always wins for that subtree no
+   matter what the specificities are, so everything under the planner that already reads
+   a token, including the whole Nursing Academics timeline, lands on paper with no rule
+   of its own. The literals below are the rules that never read a token. */
+.pl-planner {
+  --ptl-ink: var(--paper-ink);
+  --ptl-muted: var(--paper-muted);
+  --ptl-line: var(--rule);
+}
+.pl-planner .ptl-cal-mini-dow { color: var(--paper-muted); }
+.pl-planner .ptl-cal-mini-cell { color: var(--paper-ink); }
+.pl-planner .ptl-cal-mini-out { color: var(--paper-muted); }
+.pl-planner .ptl-cal-mini-cell:hover { background: rgba(30, 42, 110, 0.08); }
+.pl-planner .ptl-cal-mini-today {
+  background: rgba(29, 37, 103, 0.08);
+  color: var(--paper-ink);
+  box-shadow: inset 0 0 0 1px var(--navy, #1E2A6E);
+}
+/* The selected day stays solid navy with white on it on every paper: "which day am I
+   looking at" must not change meaning between one calendar and another, and it is the
+   same navy the staff mini calendars use. */
+.pl-planner .ptl-cal-mini-selected { background: var(--navy, #1E2A6E); color: #fff; box-shadow: none; }
+[data-theme="dark"] .pl-planner .ptl-cal-mini-today { background: rgba(159, 176, 245, 0.12); box-shadow: inset 0 0 0 1px rgba(159, 176, 245, 0.45); }
+[data-theme="dark"] .pl-planner .ptl-cal-mini-cell:hover { background: rgba(159, 176, 245, 0.12); }
+[data-theme="dark"] .pl-planner .ptl-cal-mini-selected { background: #2B3573; color: #fff; }
+
+/* The day list: a ruled entry on the sheet rather than a card on a card. */
+.pl-planner .ptl-cal-today-list li {
+  background: transparent;
+  border: 0;
+  border-left: 3px solid var(--rule);
+  border-radius: 0;
+  padding: 6px 0 6px 9px;
+}
+.pl-planner .ptl-cal-today-list b { color: var(--paper-ink); }
+.pl-planner .ptl-cal-today-list small { color: var(--paper-muted); }
+.pl-planner .ptl-cal-more { color: var(--paper-muted); }
+/* `.ptl-muted` is the portal's general quiet text and hardcodes #6b7280 rather than
+   reading `--ptl-muted`, so the token redefinition above cannot reach it. On tan it
+   measured 4.38:1; on paper's own muted ink it is 4.98 (tan) and 5.31 (forest). */
+.pl-planner .ptl-muted { color: var(--paper-muted); }
+/* The Nursing Academics timeline scrolls its rows inside the same constant box the month
+   grids use, so a month with twelve rotations is the same object as a month with two. The
+   day ruler is the only thing every bar is measured against, so it stays put while they
+   scroll; it needs its own background to do that, and the paper's is the one behind it. */
+.pl-planner .ptl-na-axis {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--paper);
+  flex: none;
+}
+/* The five day-panel entries are pale CARDS with fixed fills (#eef2fb logged, #f8faff
+   planned, #fffbeb holiday, #fff1f2 blackout), so their inks are fixed too and must NOT
+   be themed: a themed muted ink lifts to a pale grey in dark and then sits on a pale
+   card. The event entry was the only one with no fill of its own, which left its navy
+   title on the dark sheet at 1.18:1. It gets a fill like its four siblings, and then one
+   rule covers all five in both themes.
+   Measured on the five fills: title 12.4 to 13.4, caption 4.58 to 4.92, unchanged
+   between light and dark because every value in the pair is fixed. */
+.pl-planner .ptl-student-cal-detail { background: #F3F4F8; }
+/* The caption's shipped #6b7280 measures 4.31 to 4.66 across those five fills, so it has
+   been under 4.5 on three of them since the day it shipped. One ink that clears all five:
+   4.88 on the darkest (#eef2fb), 5.27 on the lightest (#fffbeb). */
+.pl-planner .ptl-student-cal-detail span { color: #616A78; }
+/* The footnote is already inside the sheet's padding; its own 18px side margin would
+   inset it from a gutter that is no longer there. */
+.pl-planner .ptl-student-cal-foot { margin: 10px 0 0; color: var(--paper-muted); }
+.pl-planner .ptl-student-cal-day { margin-top: 2px; }
+
+/* ── STUDENT-PHONE-1, on paper ─────────────────────────────────────────────── */
+/* The contract (Owner, 2026-09-05): below 760px the mini calendar and its day panel ARE
+   the Student Portal calendar, and the month grid, the legend and the footnote hide.
+   portal.css states that by putting `order: 1` on `.canonical-calendar-main`. Inside the
+   planner that element is no longer a flex item: `.canonical-calendar-shell` is
+   `display: contents`, and the items of the spread are `.pl-holder` (the calendar sheet)
+   and `.pl-padwrap` (the notepad). An `order` on a non-item does nothing, so the sheets
+   would have kept their desktop order and the phone would have opened on a hidden grid.
+   The same two rules, aimed at the elements that are now the items.
+   The hiding rules in portal.css still apply untouched: they select descendants of the
+   shell, which is still there and still wraps both sheets. */
+@media (max-width: 760px) {
+  .pl-planner:has(.ptl-student-cal-grid) .pl-holder { order: 1; }
+  .pl-planner:has(.ptl-student-cal-grid) .pl-padwrap { order: 2; }
+  /* The key describes chips that live on the grid. With the grid gone it describes
+     nothing, so it goes with it. */
+  .pl-planner:has(.ptl-student-cal-grid) .pl-legend { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

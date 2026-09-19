@@ -334,6 +334,15 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
           )}
         </div>
       </CanonicalCalendarTodayPanel>
+      {/* The notepad closes with this surface's kinds. "US holiday" is what the rest of
+          the app calls it (CALENDAR-HOLIDAY-CANON); "Federal holiday" was only ever here. */}
+      <div className="pl-legend">
+        <span><i aria-hidden="true" style={{ background: '#e8eaf6', borderLeft: '3px solid #1d2567' }} />Logged shift</span>
+        <span><i aria-hidden="true" style={{ background: '#f8faff', borderLeft: '3px solid #8f9bd1' }} />Planned shift</span>
+        <span><i aria-hidden="true" style={{ background: 'rgba(71,85,105,0.12)', borderLeft: '3px solid #475569' }} />ASPIRE event</span>
+        <span><i aria-hidden="true" style={{ background: '#FEF3C7', borderLeft: '3px solid #D97706' }} />US holiday</span>
+        <span><i aria-hidden="true" style={{ background: '#fff1f2', borderLeft: '3px solid #9f1239' }} />School blackout</span>
+      </div>
     </CanonicalCalendarSidebar>
   )
 
@@ -348,6 +357,12 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
   return (
     <>
       <CanonicalCalendarLayout
+        // PLANNER-CALENDAR-1: tan, the shift paper, the same sheet the staff Rotation
+        // Activity and the Unit Leader calendars use. A student's planned and logged
+        // shifts are the same records those two show.
+        // STUDENT-PHONE-1 is unchanged and is re-stated for paper in plannerCalendar.css:
+        // below 760px the notepad comes first and the grid, the key and the footnote hide.
+        paper="tan"
         title="Rotation Activity"
         description="Plan upcoming shifts and see completed shift logs in one calendar."
         labelledBy="student-rotation-activity-title"
@@ -356,9 +371,9 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
         footer={<p className="ptl-muted ptl-student-cal-foot">School blackout dates and federal holidays are informational. They do not prevent planning or logging a shift.</p>}
       >
         {loadError && <div className="ptl-student-cal-notice" role="status">{loadError}</div>}
-        <div role="grid" aria-label={`Rotation Activity for ${monthLabel(cursor.y, cursor.m)}`}>
+        <div className="pl-calbox" role="grid" aria-label={`Rotation Activity for ${monthLabel(cursor.y, cursor.m)}`}>
           <CanonicalWeekdayHeader days={DOW} />
-          <div className="ptl-student-cal-grid">
+          <div className="ptl-student-cal-grid pl-monthgrid" style={{ '--weeks': Math.ceil(cells.length / 7) }}>
             {cells.map(({ ymd, inMonth }) => {
               if (!inMonth) return <CanonicalMonthCell key={ymd} isOtherMonth />
               const items = byDay.get(ymd) || []
@@ -411,12 +426,19 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
                   {dayHolidays.slice(0, 1).map(holiday => <span className="ptl-student-cal-holiday" key={holiday.name}>{holiday.name}</span>)}
                   {/* EVENT-AUDIENCE-1: the event's own colour, as staff chose it, so the same
                       event reads the same here as on the staff calendar. Never the holiday
-                      amber and never the shift navy. */}
+                      amber and never the shift navy.
+                      PLANNER-CALENDAR-1: the colour is carried by a 3px left rule and a 14%
+                      wash, and the TEXT is the paper's ink, which is the recipe
+                      CanonicalActivityChip already uses on the Residency calendar. Painting
+                      the title in the event colour made the chip's contrast a property of
+                      whichever colour staff picked: Orientation's #C2410C measured 4.48:1 on
+                      white and 4.08 on tan. The type is still legible at a glance, from the
+                      rule, and the title is legible full stop. */}
                   {(eventsByDay.get(ymd) || []).slice(0, 2).map(ev => (
                     <span
                       key={ev.id}
                       className="ptl-student-cal-event"
-                      style={{ background: `${eventColor(ev)}1a`, color: eventColor(ev) }}
+                      style={{ background: `${eventColor(ev)}24`, color: 'var(--paper-ink, #1D2567)', borderLeft: `3px solid ${eventColor(ev)}` }}
                       title={ev.title}
                     >{ev.title}</span>
                   ))}
@@ -426,13 +448,6 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
               )
             })}
           </div>
-        </div>
-        <div className="ptl-cal-legend">
-          <span><span className="ptl-cal-chip" aria-hidden="true">Shift</span> Logged shift</span>
-          <span><span className="ptl-student-cal-plan" aria-hidden="true">Planned Shift</span> Planned shift</span>
-          <span><span className="ptl-student-cal-holiday" aria-hidden="true">Holiday</span> Federal holiday</span>
-          <span><span className="ptl-student-cal-event" aria-hidden="true" style={{ background: '#1d25671a', color: '#1D2567' }}>Event</span> ASPIRE event</span>
-          <span><span className="ptl-student-cal-blackout" aria-hidden="true">Blackout</span> School blackout</span>
         </div>
       </CanonicalCalendarLayout>
       <PlanDialog form={form} preceptors={preceptors} busy={busy} error={formError} onChange={setForm} onSave={savePlan} onClose={() => setForm(null)} />

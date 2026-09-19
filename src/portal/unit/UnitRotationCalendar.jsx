@@ -192,12 +192,20 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
     <CanonicalCalendarSidebar>
       <UnitMiniCalendar cells={cells} byDay={byDay} selectedDate={selectedDate} today={today} onSelectDate={setSelectedDate} />
       <CanonicalCalendarTodayPanel
+        kicker={selectedDate === today ? 'Today' : 'Selected day'}
         dateLabel={formatLongDate(selectedDate)}
         summary={`${selectedShifts.length} student activit${selectedShifts.length === 1 ? 'y' : 'ies'} recorded`}
         emptyLabel="No student activity recorded for this day."
       >
         {selectedShifts.length > 0 && <SelectedDayActivity shifts={selectedShifts} />}
       </CanonicalCalendarTodayPanel>
+      {/* The notepad closes with this surface's kinds, as the staff Rotation Activity
+          planner does, and in the same words: the two calendars read the same records. */}
+      <div className="pl-legend">
+        <span><i aria-hidden="true" style={{ background: '#e8eaf6', borderLeft: '3px solid #1d2567' }} />Completed shift</span>
+        <span><i aria-hidden="true" style={{ background: '#dcfce7', borderLeft: '3px solid #166534' }} />On shift now</span>
+        <span><i aria-hidden="true" style={{ background: '#FEF3C7', borderLeft: '3px solid #D97706' }} />US holiday</span>
+      </div>
     </CanonicalCalendarSidebar>
   )
 
@@ -222,6 +230,10 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
 
   return (
     <CanonicalCalendarLayout
+      // PLANNER-CALENDAR-1: tan, the shift paper. This shows the same shift records the
+      // staff Rotation > Activity calendar does, so it wears the same paper and a shift
+      // reads identically whether staff or a unit leader opens it.
+      paper="tan"
       title="Rotation Activity"
       titleVisuallyHidden
       labelledBy="ul-cal-title"
@@ -238,9 +250,9 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
         <p className="ptl-muted" role="status">Loading rotation activity</p>
       ) : (
         <>
-          <div role="grid" aria-label={`Rotation Activity for ${monthLabel(cursor.y, cursor.m)}`}>
+          <div className="pl-calbox" role="grid" aria-label={`Rotation Activity for ${monthLabel(cursor.y, cursor.m)}`}>
             <CanonicalWeekdayHeader days={DOW} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+            <div className="pl-monthgrid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', '--weeks': Math.ceil(cells.length / 7) }}>
               {cells.map(({ ymd, inMonth }) => {
                 const day = byDay.get(ymd) || []
                 const isToday = ymd === today
@@ -289,10 +301,6 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
             </p>
           )}
 
-          <div className="ptl-cal-legend">
-            <span><span className="ptl-cal-chip" aria-hidden="true">Student</span> Completed shift</span>
-            <span><span className="ptl-cal-chip ptl-cal-chip-live" aria-hidden="true">Student</span> On shift now</span>
-          </div>
         </>
       )}
     </CanonicalCalendarLayout>

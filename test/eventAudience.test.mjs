@@ -233,7 +233,14 @@ test('events are fetched for exactly the visible grid, and refetched when it mov
 test('an event is announced and shaped, not carried by colour alone', () => {
   const src = strip(read(CALENDAR))
   assert.match(src, /labelParts\.push\(`\$\{eventTypeLabel\(ev\.event_type\)\}: \$\{ev\.title\}`\)/)
-  assert.match(src, /background: `\$\{eventColor\(ev\)\}1a`, color: eventColor\(ev\)/)
+  // The event's own colour still comes from its TYPE, so the same event reads the same
+  // here as on the staff calendar. PLANNER-CALENDAR-1 moved it from the TEXT to a 3px
+  // left rule and a wash: painting the title in the type colour made the chip's contrast
+  // a property of whichever colour staff picked (Orientation's #C2410C measured 4.48:1 on
+  // white, 4.08 on tan). The shape still carries the type; the text is now legible too.
+  assert.match(src, /background: `\$\{eventColor\(ev\)\}24`/)
+  assert.match(src, /borderLeft: `3px solid \$\{eventColor\(ev\)\}`/)
+  assert.doesNotMatch(src, /color: eventColor\(ev\)/, 'the title is not painted in the event colour')
   assert.match(src, /ASPIRE event<\/span>|ASPIRE event/, 'the legend names it')
 })
 
