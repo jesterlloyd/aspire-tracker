@@ -187,6 +187,39 @@ else. The chart lives in `src/components/student/`.
 - **The binder holds still when the reader turns to another student.** `.profiles-panel-slide`
   carries no `key`, because keying it remounted the panel and replayed its slide-in on
   every click. Only what is written on the paper cross-fades.
+- **A section lives on the sheet that its neighbours point at.** Placement already told the
+  reader to "use Program Disposition to record dispositions", so Program Disposition is on
+  the Placement sheet, not under Notes. Placement is where a student's standing is decided
+  and a disposition is the end of that story; Notes is notes.
+
+### A column is a promise (STUDENT-CHART-1, 2026-09-18)
+
+Things that repeat down a sheet line up, and the value is what fills the row, never the
+control beside it.
+
+- **Contact Information is one column of values.** `.sp-copyrow` gives the value cell
+  (`.sp-input` or `.sp-readonly` alike) `flex: 1 1 auto; min-width: 0` and the copy button
+  `flex: none`, so the buttons land on one vertical line instead of chasing the length of
+  each address.
+- **Documents is `name | what is on file | ↓ Download | Replace`.** The two action columns
+  are fixed widths (`--sc-doc-dl`, `--sc-doc-rep`) and the button fills its column, so
+  every Download is the same size in the same place. A row with nothing to replace still
+  holds the replace column. Uploaded documents (Resume, Headshot) get both controls;
+  GENERATED ones (ID Badge, Certificate of Completion) get Download alone, and the reason
+  a disabled row is disabled reads in the row rather than only in a tooltip.
+- **Download and Replace are one CSS rule.** Two rules drift. A `<button>` also brings the
+  browser's own font with it, so the shared rule takes it back with `font-family: inherit`
+  and pins `line-height`, or a label containing "↓" renders a pixel taller than its
+  neighbour.
+- **Availability is one comparison, not two halves.** A row per constraint, a column per
+  source (Program / Student), each column keeping its `SourceTag`. A dash means "this side
+  does not set this constraint"; the formatters' "Not provided" means "this side was asked
+  and has not answered". Still no risk logic: the table reports both sides, it does not
+  judge the fit.
+- **One GPA rule for every surface**, `gpaBand` + `GPA_BAND_COLORS` in `src/lib/constants.js`:
+  3.5+ green, 3.0-3.49 amber, below ASPIRE's 3.0 floor RED. A surface that paints its own
+  thresholds will paint the floor grey and hide it, which is what the chart's name plate
+  did until it was made to read the canon.
 
 ### The chart gets the window (STUDENT-CHART-1, 2026-09-18)
 
@@ -304,6 +337,14 @@ lighter than the app's dark surfaces and the app's inks are tuned for those.
 Verified by sweeping every text node in the panel in a real browser, compositing
 translucent backgrounds, and applying the WCAG large-text threshold: dark went from 280
 failing samples to 0, and light from 147 to 126 with zero regressions.
+
+**A sweep only sees what the record renders.** The first sweep ran against a student with
+no CS-Link status, so only step 1 existed and the tick labels were never sampled: they were
+`var(--raven)` on a dark step, 1.15:1, and passed the audit by being absent. A sweep's
+student needs every conditional branch open, and a background the sweep cannot read is a
+sample it will score against the wrong surface (a `linear-gradient` between two identical
+stops is a solid fill that `backgroundColor` reports as transparent, which made the flag
+ribbon look like a failure it was not).
 
 ## Placement rank (PLACEMENT-BOARD-FELT-1)
 

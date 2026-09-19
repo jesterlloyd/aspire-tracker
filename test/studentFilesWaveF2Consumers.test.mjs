@@ -54,8 +54,12 @@ test('StudentSidePanel: file controls by cohort-view, entitled-interviewer badge
   // (active Owner/Admin any cohort, or an entitled active interviewer this cohort).
   assert.match(sidePanel, /const canViewResume = canViewStudentResumeInCohort\(data\?\.cohort_id\)/)
   assert.match(sidePanel, /const canViewPhoto  = canViewStudentPhotoInCohort\(data\?\.cohort_id\)/)
-  assert.match(sidePanel, /\{canViewResume && \(\s*\n\s*<>\s*\n\s*<button type="button" className="doc-file-link" onClick=\{openResume\}/)
+  assert.match(sidePanel, /canViewResume\s*\n?\s*\? <button type="button" className="doc-file-link doc-file-open" onClick=\{openResume\}/)
   assert.match(sidePanel, /downloadStudentFile\(\{ studentId: student\.id, kind: 'resume'/)
+  // STUDENT-CHART-1: the headshot row gained a download of its own, through the same
+  // server access endpoint as everything else here.
+  assert.match(sidePanel, /downloadStudentFile\(\{ studentId: student\.id, kind: 'headshot'/)
+  assert.match(sidePanel, /openStudentFile\(\{ studentId: student\.id, kind: 'headshot' \}\)/)
   // Upload/replace gated on canManageStudentFiles (Owner/Admin only).
   assert.match(sidePanel, /canManageStudentFiles && \(\s*\n\s*<button className="doc-replace-btn"/)
   // Badge is canGenerateBadge; a photo-viewer (Viewer or entitled interviewer) sees the message.
@@ -65,9 +69,13 @@ test('StudentSidePanel: file controls by cohort-view, entitled-interviewer badge
   // Existence is never leaked: resume rows need resume-view or manage; photo rows need photo-view or manage.
   assert.match(sidePanel, /\(data\.resume_url && \(canViewResume \|\| canManageStudentFiles\)\) \?/)
   assert.match(sidePanel, /\(data\.headshot_url && \(canViewPhoto \|\| canManageStudentFiles\)\) \?/)
-  // Badge headshot and preview come from the server access endpoint.
+  // The badge's headshot comes from the server access endpoint.
   assert.match(sidePanel, /fetchStudentFileUrl\(\{ studentId: student\.id, kind: 'headshot' \}\)/)
-  assert.match(sidePanel, /headshotSignedUrl && <img src=\{headshotSignedUrl\}/)
+  // STUDENT-CHART-1 (Owner, 2026-09-18): the 48px preview is gone from Documents - the
+  // photo is on the name plate, where the shared StudentAvatar resolves it through the
+  // same endpoint (asserted below). What must never come back is the leak the preview
+  // was written to avoid: a stored headshot_url bound straight into an <img>.
+  assert.doesNotMatch(sidePanel, /<img\s[^>]*src=\{[^}]*headshot_url/)
   // No direct student-files storage call remains here.
   assert.doesNotMatch(sidePanel, /storage\.from\('student-files'\)/)
 })

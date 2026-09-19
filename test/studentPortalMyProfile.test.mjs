@@ -283,7 +283,14 @@ test('staff availability correction: Owner/Admin action with canonical sanitizer
 
 test('side panel: intentional Edit mode with Save/Cancel; review never mutates', () => {
   assert.match(sidePanel, /const \[availDraft, setAvailDraft\] = useState\(null\)/)
-  assert.match(sidePanel, /canEdit && !availDraft && \(/)
+  // STUDENT-CHART-1: the read view is a comparison table and the Edit control lives in
+  // its Student column, so "not while a draft is open" is now proved by CONTAINMENT
+  // rather than by a repeated `!availDraft` literal: the control is inside the read
+  // branch of the switch, which does not render at all while a draft exists.
+  const switchAt = sidePanel.indexOf('{!availDraft ? (')
+  assert.ok(switchAt > 0, 'the read/edit switch is gone')
+  const readBranch = sidePanel.slice(switchAt, sidePanel.indexOf('\n            ) : (', switchAt))
+  assert.match(readBranch, /onClick=\{startAvailabilityEdit\}/)
   assert.match(sidePanel, /onClick=\{startAvailabilityEdit\}/)
   assert.match(sidePanel, /\{availSaving \? 'Saving…' : 'Save'\}/)
   assert.match(sidePanel, /onClick=\{\(\) => setAvailDraft\(null\)\}/)
@@ -297,7 +304,12 @@ test('side panel: intentional Edit mode with Save/Cancel; review never mutates',
 test('side panel shows when the student last changed their profile', () => {
   assert.match(sidePanel, /queryKey: \['student_profile_self_update', student\.id\]/)
   assert.match(sidePanel, /action_type', 'student_profile_self_update'\)|\.eq\('action_type', 'student_profile_self_update'\)/)
-  assert.match(sidePanel, /Student last updated their profile/)
+  // The fact, not the sentence: the timestamp is rendered, and it says where it came
+  // from. It now sits on the availability acknowledgment line rather than on one of its
+  // own, because the section says each thing once (Owner, 2026-09-18).
+  assert.match(sidePanel, /studentSelfUpdate\?\.created_at/)
+  assert.match(sidePanel, /Last updated \$\{new Date\(studentSelfUpdate\.created_at\)/)
+  assert.match(sidePanel, /via the Student Portal/)
 })
 
 test('App routes the availability domain to the dedicated action', () => {

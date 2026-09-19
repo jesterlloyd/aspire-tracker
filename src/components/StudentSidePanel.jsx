@@ -18,14 +18,14 @@ import { useChartScroll, useCrossFade } from './student/useChartScroll'
 import { isFollowUpFlagged, followUpFlagAvailable, setFollowUpFlag } from '../lib/studentFollowUpFlag'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
-  SHIFT_OPTIONS, COHORTS, COURSE_TYPES,
+  SHIFT_OPTIONS, COHORTS, COURSE_TYPES, gpaBand, GPA_BAND_COLORS,
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import StudentUnitAssignments from './StudentUnitAssignments'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { buildStudentFilename } from '../lib/fileUtils'
-import { signAndUploadStaffFile, cleanupStudentFiles, classifyStoredFileRef, fetchStudentFileUrl } from '../lib/studentFileClient'
-import { useStudentFileUrl, openStudentFile, downloadStudentFile } from '../lib/useStudentFile'
+import { signAndUploadStaffFile, cleanupStudentFiles, fetchStudentFileUrl } from '../lib/studentFileClient'
+import { openStudentFile, downloadStudentFile } from '../lib/useStudentFile'
 import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
@@ -90,6 +90,12 @@ const PROGRAM_TYPES = [
   "Entry-Level Master's in Nursing (ELMN)",
   'Other',
 ]
+
+// STUDENT-PROFILE-INK-1: a neutral chip is a PAIR. `#f3f4f6` with `var(--text-muted)` is a
+// FIXED light background carrying a THEMED ink, so in dark it renders pale grey on pale
+// grey (measured 2.0:1). Both halves are fixed here, which is what the evaluation list's
+// neutral chip already does, so the chip reads the same in both themes.
+const NEUTRAL_CHIP = { bg: 'var(--aspire-th-bg-inset)', color: 'var(--aspire-th-color-inset)' }
 
 const CS_AFFILIATIONS = ['Current Employee','Former Employee','Volunteer','No prior affiliation']
 const CS_WITH_DEPT    = ['Current Employee','Former Employee','Volunteer']
@@ -376,7 +382,6 @@ export default function StudentSidePanel({
   // Set to true when a real-time update arrives from another user/tab
   const [remoteUpdateBanner, setRemoteUpdateBanner] = useState(false)
 
-  const [dlHeadshotHeader, setDlHeadshotHeader] = useState(false)
   const [dlResume,         setDlResume]         = useState(false)
   const [dlPhotoDoc,       setDlPhotoDoc]       = useState(false)
   const [downloadErr,      setDownloadErr]      = useState(null)
@@ -404,16 +409,25 @@ export default function StudentSidePanel({
     if (!r.ok) showDlError()
     setTimeout(() => setDlResume(false), 1000)
   }
+  // Owner, 2026-09-18: every row in Documents ends in the same "Download". The headshot
+  // had no download of its own, only the badge built FROM it, so saving the photo meant
+  // right-clicking a 48px preview. Same server access endpoint as the resume, so the
+  // permission decision is the server's, exactly as before.
+  const openHeadshot = async () => {
+    const r = await openStudentFile({ studentId: student.id, kind: 'headshot' })
+    if (!r.ok) showDlError()
+  }
+  const handleHeadshotDownload = async () => {
+    setDlPhotoDoc(true)
+    const r = await downloadStudentFile({ studentId: student.id, kind: 'headshot', filename: buildStudentFilename(student, 'headshot') })
+    if (!r.ok) showDlError()
+    setTimeout(() => setDlPhotoDoc(false), 1000)
+  }
 
-  // WAVE F-2: the headshot preview resolves through the same server access
-  // endpoint. A stored value (legacy public URL or canonical path) means a photo
-  // exists; the signed URL is what actually renders.
-  const headshotHasStored = classifyStoredFileRef(data.headshot_url) !== 'empty'
-  const { url: headshotSignedUrl } = useStudentFileUrl({
-    studentId: student.id, kind: 'headshot',
-    enabled: Boolean(student.id) && headshotHasStored,
-    refreshKey: data.headshot_url,
-  })
+  // The 48px headshot preview in Documents is gone (Owner, 2026-09-18: the photo is
+  // already on the plate), and with it the only thing that read this signed URL. The
+  // plate's StudentAvatar and the badge generator each resolve their own through the
+  // same WAVE F-2 server endpoint, so nothing here needs a third copy.
 
   // Reset data when student changes (prev/next navigation)
   useEffect(() => {
@@ -1229,8 +1243,11 @@ export default function StudentSidePanel({
                   })()}
 
                   {(() => {
-                    const gpaVal = parseFloat(data.cumulative_gpa)
-                    const gpaOk  = !isNaN(gpaVal) && gpaVal > 0
+                    const gpaVal  = parseFloat(data.cumulative_gpa)
+                    // RUBRIC-BOOK-1's GPA canon, read rather than restated: 3.5+ green,
+                    // 3.0-3.49 amber, below ASPIRE's 3.0 floor red. The plate used to paint
+                    // everything under 3.5 the same grey, which hid the floor entirely.
+                    const gpaColors = GPA_BAND_COLORS[gpaBand(data.cumulative_gpa)] || null
                     const csAcc  = CS_LINK_STATUS_CONFIG[getCsLinkStatus(data)]
 
                     // Interview chip: show actual date if available, else status text
@@ -1249,12 +1266,12 @@ export default function StudentSidePanel({
                           : null
                         return { label:`Interview: ${dateStr||'Scheduled'}`, bg:'#dbeafe', color:'#1d4ed8' }
                       }
-                      return { label:'Interview: Not Scheduled', bg:'#f3f4f6', color:'var(--text-muted)' }
+                      return { label:'Interview: Not Scheduled', bg:NEUTRAL_CHIP.bg, color:NEUTRAL_CHIP.color }
                     })()
 
                     // Placement chip: unit name + match quality
                     const plChip = (() => {
-                      if (!matchedUnitInDrawer) return { label:'Not placed', bg:'#f3f4f6', color:'var(--text-muted)' }
+                      if (!matchedUnitInDrawer) return { label:'Not placed', bg:NEUTRAL_CHIP.bg, color:NEUTRAL_CHIP.color }
                       const uname = matchedUnitInDrawer
                       const q = data.unit_preference_1 === uname ? '1st'
                         : data.unit_preference_2 === uname ? '2nd'
@@ -1264,7 +1281,7 @@ export default function StudentSidePanel({
                     })()
 
                     const chips = [
-                      gpaOk ? { label:`GPA ${gpaVal.toFixed(2)}`, bg:gpaVal>=3.5?'#dcfce7':'#f3f4f6', color:gpaVal>=3.5?'#166534':'#4A5560' } : null,
+                      gpaColors ? { label:`GPA ${gpaVal.toFixed(2)}`, bg:gpaColors.bg, color:gpaColors.color } : null,
                       ivChip,
                       plChip,
                       { label:csAcc?.label||'CS-Link Unknown', bg:csAcc?.bg||'#f3f4f6', color:csAcc?.text||'#4A5560' },
@@ -1385,8 +1402,11 @@ export default function StudentSidePanel({
           {/* 1. Contact Information */}
           <div className="sp-section sp-card sp-zone-contact">
             <SectionHeader title="Contact Information" icon={<Mail size={13} />} />
+            {/* Owner, 2026-09-18: the three contact values are one column, so their copy
+                buttons line up. The value cell (readonly or input) takes the row; the
+                button is the only thing that sizes to itself. */}
             <Field label="School Email">
-              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+              <div className="sp-copyrow">
                 <div className="sp-readonly">{data.school_email || '-'}</div>
                 {data.school_email && (
                   <Tooltip label="Copy email" placement="top"><button className="sp-copy-btn" aria-label="Copy email" onClick={() => navigator.clipboard?.writeText(data.school_email)}>⎘</button></Tooltip>
@@ -1416,16 +1436,16 @@ export default function StudentSidePanel({
               )
             })()}
             <Field label="Personal Email" fieldKey="personal_email">
-              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                <input className="sp-input" style={{ flex:1, minWidth:0 }} value={data.personal_email||''} onChange={e => handleText('personal_email', e.target.value)} />
+              <div className="sp-copyrow">
+                <input className="sp-input" value={data.personal_email||''} onChange={e => handleText('personal_email', e.target.value)} />
                 {data.personal_email && (
                   <Tooltip label="Copy email" placement="top"><button type="button" className="sp-copy-btn" aria-label="Copy personal email" onClick={() => navigator.clipboard?.writeText(data.personal_email)}>⎘</button></Tooltip>
                 )}
               </div>
             </Field>
             <Field label="Phone" fieldKey="phone">
-              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                <input className="sp-input" style={{ flex:1, minWidth:0 }} value={data.phone||''} onChange={e => handleText('phone', e.target.value)} />
+              <div className="sp-copyrow">
+                <input className="sp-input" value={data.phone||''} onChange={e => handleText('phone', e.target.value)} />
                 {data.phone && (
                   <Tooltip label="Copy phone" placement="top"><button type="button" className="sp-copy-btn" aria-label="Copy phone" onClick={() => navigator.clipboard?.writeText(data.phone)}>⎘</button></Tooltip>
                 )}
@@ -1607,71 +1627,99 @@ export default function StudentSidePanel({
             )}
           </div>
 
-          {/* 3c. Availability & Scheduling (AVAILABILITY-CANON-1C) - display only, two
-              provenance-labeled sub-blocks: coordinator program constraints (cohort_school_rotations)
-              and student availability (students). Null-safe; no risk logic in this phase. */}
+          {/* 3c. Availability & Scheduling (AVAILABILITY-CANON-1C).
+              Owner, 2026-09-18: this was two labelled halves, coordinator above and student
+              below, asking the same five questions twice and leaving the reader to pair them
+              up by eye. It is now ONE table: a row per constraint, a column per source, so
+              "the program allows nights / the student is not available nights" is a single
+              glance instead of a hunt. Same fields, same provenance tags, same null-safe
+              formatters, and still no risk logic: the table reports what each side said, it
+              does not judge the fit. Editing is unchanged - staff enter the same intentional
+              Save/Cancel session, which replaces the table while it is open. */}
           <div className="sp-section sp-card sp-zone-program">
             <SectionHeader title="Availability & Scheduling" icon={<CalendarDays size={13} />} />
-            <p style={{ fontSize:11.5, color:'var(--text-caption,#6b7280)', lineHeight:1.5, margin:'0 0 12px' }}>
+            <p className="sc-avail-note">
               Availability is considered during matching but does not guarantee a specific unit, preceptor, or shift.
             </p>
-
-            {/* Sub-block 1: Coordinator Program Constraints */}
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-              <span style={{ fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--text-caption,#6b7280)' }}>
-                Coordinator Program Constraints
-              </span>
-              <SourceTag label="Source: Coordinator school form" tone="coordinator" />
-            </div>
-            <div className="sp-grid-2">
-              <Field label="Program unavailable weekdays"><div className="sp-readonly">{formatWeekdays(rotationRow?.unavailable_weekdays)}</div></Field>
-              <Field label="Minimum clinical days/week"><div className="sp-readonly">{formatMinDays(rotationRow?.min_days_per_week)}</div></Field>
-              <Field label="Weekend rotations allowed"><div className="sp-readonly">{formatBooleanYesNo(rotationRow?.weekends_allowed)}</div></Field>
-              <Field label="Night shifts allowed"><div className="sp-readonly">{formatBooleanYesNo(rotationRow?.nights_allowed)}</div></Field>
-              <Field label="School blackout dates"><div className="sp-readonly">{formatDates(rotationRow?.blackout_dates)}</div></Field>
-              <Field label="Coordinator scheduling notes"><div className="sp-readonly">{formatText(rotationRow?.scheduling_notes)}</div></Field>
-            </div>
-
-            {/* Sub-block 2: Student Availability.
-                STUDENT-PORTAL-PROFILE-1: review stays read-only (accidental edits during
-                review are impossible); Owner/Admin enter an INTENTIONAL Edit session with
-                Save/Cancel. Works on locked profiles too - staff correction is the
-                approved path once the student's own editing has locked. */}
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:14, marginBottom:8,
-              paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
-              <span style={{ fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--text-caption,#6b7280)' }}>
-                Student Availability
-              </span>
-              <SourceTag label="Source: Student form" tone="student" />
-              {canEdit && !availDraft && (
-                <button type="button" className="sp-copy-btn" style={{ marginLeft:'auto', fontSize:11, padding:'2px 10px' }}
-                  onClick={startAvailabilityEdit}>
-                  Edit
-                </button>
-              )}
-            </div>
-            {studentSelfUpdate?.created_at && (
-              <div style={{ fontSize:11.5, color:'var(--text-caption,#6b7280)', marginBottom:8 }}>
-                Student last updated their profile {new Date(studentSelfUpdate.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })} via the Student Portal.
-              </div>
-            )}
-            {data.availability_ack !== true && (
-              <div style={{ fontSize:11.5, color:'var(--sp-warn-ink)', fontStyle:'italic', marginBottom:8 }}>
-                Student availability not yet confirmed
-              </div>
-            )}
             {!availDraft ? (
-            <div className="sp-grid-2">
-              <Field label="Shift preference"><div className="sp-readonly">{formatText(data.shift_availability)}</div></Field>
-              <Field label="Student unavailable weekdays"><div className="sp-readonly">{formatWeekdays(data.unavailable_weekdays)}</div></Field>
-              <Field label="Reason / details"><div className="sp-readonly">{formatText(data.unavailable_weekdays_reason)}</div></Field>
-              <Field label="Personal blackout dates"><div className="sp-readonly">{formatDates(data.personal_blackout_dates)}</div></Field>
-              <Field label="Weekend availability"><div className="sp-readonly">{formatBooleanAvailable(data.weekends_available)}</div></Field>
-              <Field label="Night availability"><div className="sp-readonly">{formatBooleanAvailable(data.nights_available)}</div></Field>
-              <Field label="Preferred days"><div className="sp-readonly">{formatWeekdays(data.preferred_days)}</div></Field>
-              <Field label="Availability acknowledgment"><div className="sp-readonly">{data.availability_ack === true ? 'Completed' : 'Not completed'}</div></Field>
-              <Field label="Student availability notes"><div className="sp-readonly">{formatText(data.availability_notes)}</div></Field>
-            </div>
+            <>
+            <table className="sc-avail">
+              <thead>
+                <tr>
+                  <th className="aspire-th" scope="col">Constraint</th>
+                  <th className="aspire-th" scope="col">
+                    Program
+                    <span className="sc-avail-src"><SourceTag label="Source: Coordinator school form" tone="coordinator" /></span>
+                  </th>
+                  <th className="aspire-th" scope="col">
+                    Student
+                    {canEdit && (
+                      <button type="button" className="sp-copy-btn sc-avail-edit" onClick={startAvailabilityEdit}>Edit</button>
+                    )}
+                    <span className="sc-avail-src"><SourceTag label="Source: Student form" tone="student" /></span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th className="sc-avail-rh" scope="row">Unavailable weekdays</th>
+                  <td>{formatWeekdays(rotationRow?.unavailable_weekdays)}</td>
+                  <td>
+                    {formatWeekdays(data.unavailable_weekdays)}
+                    {/* The reason belongs to the days it explains, not to a row of its own. */}
+                    {data.unavailable_weekdays_reason && (
+                      <span className="sc-avail-why">{formatText(data.unavailable_weekdays_reason)}</span>
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <th className="sc-avail-rh" scope="row">Minimum clinical days/week</th>
+                  <td>{formatMinDays(rotationRow?.min_days_per_week)}</td>
+                  <td className="sc-avail-na">—</td>
+                </tr>
+                <tr>
+                  <th className="sc-avail-rh" scope="row">Weekends</th>
+                  <td>{formatBooleanYesNo(rotationRow?.weekends_allowed)}</td>
+                  <td>{formatBooleanAvailable(data.weekends_available)}</td>
+                </tr>
+                <tr>
+                  <th className="sc-avail-rh" scope="row">Nights</th>
+                  <td>{formatBooleanYesNo(rotationRow?.nights_allowed)}</td>
+                  <td>{formatBooleanAvailable(data.nights_available)}</td>
+                </tr>
+                <tr>
+                  <th className="sc-avail-rh" scope="row">Blackout dates</th>
+                  <td>{formatDates(rotationRow?.blackout_dates)}</td>
+                  <td>{formatDates(data.personal_blackout_dates)}</td>
+                </tr>
+                <tr>
+                  <th className="sc-avail-rh" scope="row">Preferred days</th>
+                  <td className="sc-avail-na">—</td>
+                  <td>{formatWeekdays(data.preferred_days)}</td>
+                </tr>
+                <tr>
+                  <th className="sc-avail-rh" scope="row">Shift preference</th>
+                  <td className="sc-avail-na">—</td>
+                  <td>{formatText(data.shift_availability)}</td>
+                </tr>
+                <tr>
+                  <th className="sc-avail-rh" scope="row">Scheduling notes</th>
+                  <td>{formatText(rotationRow?.scheduling_notes)}</td>
+                  <td>{formatText(data.availability_notes)}</td>
+                </tr>
+              </tbody>
+            </table>
+            {/* The acknowledgment was a field that said "Completed" AND, separately, a warning
+                line that said it was not. One line, always present, says it once. */}
+            <p className={`sc-avail-ack${data.availability_ack === true ? '' : ' sc-avail-ack-open'}`}>
+              {data.availability_ack === true
+                ? 'Student confirmed their availability.'
+                : 'Student availability not yet confirmed.'}
+              {studentSelfUpdate?.created_at
+                ? ` Last updated ${new Date(studentSelfUpdate.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })} via the Student Portal.`
+                : ''}
+            </p>
+            </>
             ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <Field label="Student unavailable weekdays">
@@ -1996,7 +2044,7 @@ export default function StudentSidePanel({
                     <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
                       <span style={{ fontSize:13, fontWeight:600, color:'var(--text-heading)' }}>{resolved.name}</span>
                       {resolved.shift_type && (
-                        <span style={{ fontSize:11, color:'var(--text-muted)', background:'#f3f4f6', padding:'1px 6px', borderRadius:4 }}>{resolved.shift_type}</span>
+                        <span style={{ fontSize:11, color:NEUTRAL_CHIP.color, background:NEUTRAL_CHIP.bg, padding:'1px 6px', borderRadius:4 }}>{resolved.shift_type}</span>
                       )}
                     </div>
                     {resolved.email && (
@@ -2077,6 +2125,294 @@ export default function StudentSidePanel({
               {data.badge_created && <span style={{ fontSize:12, color:'var(--sp-ok-ink)', fontWeight:600 }}>✓ Badge Created</span>}
             </label>
           </div>
+
+          {/* ── Program Disposition (Phase 2B.2b) ──────────────────────────────────
+              Owner, 2026-09-18: this sheet already tells the reader to "use Program
+              Disposition to record dispositions", so the section it names lives here
+              rather than three sheets away under Notes. Placement is where a student's
+              standing is decided; a disposition is the end of that story, not a note
+              about it. Nothing inside the section changed. ─────────────────────── */}
+          <div className="sp-section sp-card sp-zone-admin">
+            <SectionHeader title="Program Disposition" icon={<Flag size={13} />}>
+              <SourceTag label="Source: ASPIRE/admin" tone="admin" />
+            </SectionHeader>
+            {activeDisposition ? (
+              <>
+                <Field label="Disposition Type">
+                  <div className="sp-readonly">{DISPOSITION_TYPES[activeDisposition.disposition_type] || activeDisposition.disposition_type}</div>
+                </Field>
+                <Field label="Reason">
+                  <div className="sp-readonly">{REASON_CATEGORIES_BY_TYPE[activeDisposition.disposition_type]?.[activeDisposition.reason_category] || activeDisposition.reason_category}</div>
+                </Field>
+                <Field label="Effective Date">
+                  <div className="sp-readonly">
+                    {activeDisposition.effective_date
+                      ? (() => { const [y,m,d] = activeDisposition.effective_date.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) })()
+                      : '-'}
+                  </div>
+                </Field>
+                <Field label="Decision Origin">
+                  <div className="sp-readonly">{DECISION_ORIGINS[activeDisposition.decision_origin] || activeDisposition.decision_origin}</div>
+                </Field>
+                <Field label="Recorded By">
+                  <div className="sp-readonly">{activeDisposition.recorded_by_name || activeDisposition.decided_by_name || '-'}</div>
+                </Field>
+                {canEdit && dispositionFollowups.length > 0 && (
+                  <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
+                    <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-secondary,#6b7280)', marginBottom:8 }}>
+                      Follow-up Tasks
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                      {dispositionFollowups.map(f => (
+                        <div key={f.id}>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13 }}>
+                            <span style={{ fontSize:15, lineHeight:1, flexShrink:0 }}>{f.status === 'completed' ? '☑' : '☐'}</span>
+                            <span style={{ color: f.status === 'completed' ? 'var(--text-secondary,#6b7280)' : 'var(--raven,#111827)', textDecoration: f.status === 'completed' ? 'line-through' : 'none', flex:1 }}>
+                              {FOLLOWUP_TYPES[f.followup_type] || f.followup_type}
+                            </span>
+                            {f.status === 'completed' && (
+                              <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', whiteSpace:'nowrap' }}>
+                                {[
+                                  f.completion_method
+                                    ? `Documented via ${{ email:'Email', phone:'Phone', in_person:'In Person', other:'Other' }[f.completion_method] || f.completion_method}`
+                                    : 'Documented',
+                                  f.completed_at && new Date(f.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+                                  f.completed_by_name,
+                                ].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
+                            {f.status === 'pending' && !canEdit && (
+                              <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Pending</span>
+                            )}
+                            {f.status === 'pending' && canEdit && (
+                              ['notify_student','notify_school_coordinator','notify_unit_leader','leadership_review','documentation_review'].includes(f.followup_type) ? (
+                                <button
+                                  onClick={() => {
+                                    setCompletingFollowupId(completingFollowupId === f.id ? null : f.id)
+                                    setCompletionNote('')
+                                    setCompletionMethod('')
+                                  }}
+                                  style={{ fontSize:11, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:5, padding:'2px 8px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}
+                                >
+                                  {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type)
+                                    ? 'Document Notification'
+                                    : f.followup_type === 'leadership_review'
+                                      ? 'Document Review'
+                                      : 'Confirm Review'}
+                                </button>
+                              ) : (
+                                <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', fontStyle:'italic', flexShrink:0 }}>Manual action required</span>
+                              )
+                            )}
+                            {f.status === 'waived'        && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Waived</span>}
+                            {f.status === 'cancelled'     && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Cancelled</span>}
+                            {f.status === 'not_applicable'&& <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>N/A</span>}
+                          </div>
+                          {/* Type-specific completion form - explicit 4-branch routing */}
+                          {completingFollowupId === f.id && (
+                            <div style={{ marginTop:6, marginLeft:23, background:'#f9fafb', borderRadius:8, padding:'10px 12px', border:'1px solid #e5e7eb' }}>
+                              {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type) ? (
+                                <>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
+                                    How was this sent? <span style={{ color:'#ef4444' }}>*</span>
+                                  </div>
+                                  <div style={{ display:'flex', gap:5, marginBottom:8, flexWrap:'wrap' }}>
+                                    {[['email','Email'],['phone','Phone'],['in_person','In Person'],['other','Other']].map(([val, label]) => (
+                                      <button
+                                        key={val}
+                                        onClick={() => setCompletionMethod(val)}
+                                        style={{
+                                          fontSize:11, padding:'3px 9px', borderRadius:5, cursor:'pointer',
+                                          fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600,
+                                          background: completionMethod === val ? '#1D2567' : '#f0f3ff',
+                                          color: completionMethod === val ? '#fff' : '#1D2567',
+                                          border: `1px solid ${completionMethod === val ? '#1D2567' : '#e0e7ff'}`,
+                                        }}
+                                      >
+                                        {label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
+                                    Note <span style={{ color:'#ef4444' }}>*</span>
+                                  </div>
+                                  <textarea
+                                    value={completionNote}
+                                    onChange={e => setCompletionNote(e.target.value)}
+                                    placeholder="e.g. Email sent 05/28/2026…"
+                                    rows={2}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                  />
+                                  <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6, marginBottom:6, fontStyle:'italic' }}>
+                                    I confirm this notification has already occurred and is being documented here.
+                                  </div>
+                                  <div style={{ display:'flex', gap:6 }}>
+                                    <button
+                                      onClick={() => handleCompleteFollowup(f.id)}
+                                      disabled={completingFollowup || !completionMethod || !completionNote.trim()}
+                                      style={{
+                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
+                                        cursor: (completingFollowup || !completionMethod || !completionNote.trim()) ? 'default' : 'pointer',
+                                        fontFamily:'Plus Jakarta Sans,sans-serif',
+                                        background: (!completionMethod || !completionNote.trim()) ? '#f3f4f6' : '#f0fdf4',
+                                        color:      (!completionMethod || !completionNote.trim()) ? '#9ca3af' : '#166534',
+                                        border:     `1px solid ${(!completionMethod || !completionNote.trim()) ? '#e5e7eb' : '#bbf7d0'}`,
+                                      }}
+                                    >
+                                      {completingFollowup ? '…' : 'Document Notification Completed'}
+                                    </button>
+                                    <button
+                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:NEUTRAL_CHIP.bg, color:NEUTRAL_CHIP.color, border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : f.followup_type === 'leadership_review' ? (
+                                <>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
+                                    Note <span style={{ color:'#ef4444' }}>*</span>
+                                  </div>
+                                  <textarea
+                                    value={completionNote}
+                                    onChange={e => setCompletionNote(e.target.value)}
+                                    placeholder="e.g. Reviewed by leadership on 05/28/2026…"
+                                    rows={2}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                  />
+                                  <div style={{ display:'flex', gap:6, marginTop:6 }}>
+                                    <button
+                                      onClick={() => handleCompleteFollowup(f.id)}
+                                      disabled={completingFollowup || !completionNote.trim()}
+                                      style={{
+                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
+                                        cursor: (completingFollowup || !completionNote.trim()) ? 'default' : 'pointer',
+                                        fontFamily:'Plus Jakarta Sans,sans-serif',
+                                        background: !completionNote.trim() ? '#f3f4f6' : '#f0fdf4',
+                                        color:      !completionNote.trim() ? '#9ca3af' : '#166534',
+                                        border:     `1px solid ${!completionNote.trim() ? '#e5e7eb' : '#bbf7d0'}`,
+                                      }}
+                                    >
+                                      {completingFollowup ? '…' : 'Document Review Completed'}
+                                    </button>
+                                    <button
+                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:NEUTRAL_CHIP.bg, color:NEUTRAL_CHIP.color, border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : f.followup_type === 'documentation_review' ? (
+                                <>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
+                                    Note <span style={{ color:'#ef4444' }}>*</span>
+                                  </div>
+                                  <textarea
+                                    value={completionNote}
+                                    onChange={e => setCompletionNote(e.target.value)}
+                                    placeholder="e.g. Documentation reviewed and filed…"
+                                    rows={2}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                  />
+                                  <div style={{ display:'flex', gap:6, marginTop:6 }}>
+                                    <button
+                                      onClick={() => handleCompleteFollowup(f.id)}
+                                      disabled={completingFollowup || !completionNote.trim()}
+                                      style={{
+                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
+                                        cursor: (completingFollowup || !completionNote.trim()) ? 'default' : 'pointer',
+                                        fontFamily:'Plus Jakarta Sans,sans-serif',
+                                        background: !completionNote.trim() ? '#f3f4f6' : '#f0fdf4',
+                                        color:      !completionNote.trim() ? '#9ca3af' : '#166534',
+                                        border:     `1px solid ${!completionNote.trim() ? '#e5e7eb' : '#bbf7d0'}`,
+                                      }}
+                                    >
+                                      {completingFollowup ? '…' : 'Confirm Documentation Reviewed'}
+                                    </button>
+                                    <button
+                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:NEUTRAL_CHIP.bg, color:NEUTRAL_CHIP.color, border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : null /* safety, button guard blocks unsupported types from reaching this */}
+                            </div>
+                          )}
+                          {/* Completion note display (for completed followups with notes) */}
+                          {f.status === 'completed' && f.note && (
+                            <div style={{ marginLeft:23, marginTop:2, fontSize:11, color:'var(--text-secondary,#6b7280)', fontStyle:'italic' }}>
+                              "{f.note}"
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {/* All follow-ups complete badge */}
+                    {dispositionFollowups.every(f => f.status !== 'pending') && (
+                      <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#166534', fontWeight:600 }}>
+                        <span>✓</span><span>All follow-ups complete</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Internal note (Owner/Admin only - RLS-gated) - Phase 2B.2f */}
+                {canEdit && privateNote?.internal_note && (
+                  <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
+                    <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-secondary,#6b7280)', marginBottom:8 }}>
+                      Internal Note · Owner/Admin only
+                    </div>
+                    <div style={{ background:'rgba(244,220,176,0.18)', border:'1px solid #f0c9b0', borderRadius:8, padding:'10px 12px', fontSize:13, lineHeight:1.55, color:'var(--raven,#111827)', whiteSpace:'pre-wrap' }}>
+                      {privateNote.internal_note}
+                    </div>
+                    <div style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', marginTop:6 }}>
+                      Recorded by {privateNote.created_by_name || '-'} on {new Date(privateNote.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+                      {privateNote.updated_at && privateNote.updated_at !== privateNote.created_at && (
+                        <> · Updated {new Date(privateNote.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {canEdit && (
+                  <div style={{ marginTop:14, display:'flex', gap:8, flexWrap:'wrap' }}>
+                    <button
+                      onClick={handleUpdateDisposition}
+                      style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
+                    >
+                      Update Disposition
+                    </button>
+                    <button
+                      onClick={handleOpenClearDisposition}
+                      style={{ fontSize:12, color:'#92400e', background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
+                    >
+                      Clear Disposition
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:10, padding:'4px 0' }}>
+                {/* STUDENT-PROFILE-CANON-1E: status/disposition inconsistency warning (non-blocking). */}
+                {data.status === 'Not Proceeding' && (
+                  <div style={{ background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8, padding:'8px 12px', fontSize:12.5, lineHeight:1.5, color:'#583733', fontWeight:600 }}>
+                    This student’s status is Not Proceeding but there is no active disposition. Verify this is intentional.
+                  </div>
+                )}
+                <span style={{ fontSize:13, color:'var(--text-secondary,#6b7280)' }}>No disposition recorded.</span>
+                {canEdit && (
+                  <button
+                    onClick={handleUpdateDisposition}
+                    style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
+                  >
+                    Update Program Disposition
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           </section>
 
 
@@ -2124,6 +2460,12 @@ export default function StudentSidePanel({
             <SectionHeader title="Documents" icon={<FileText size={13} />}>
               <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
             </SectionHeader>
+            {/* Owner, 2026-09-18: one shape for every document. The name, what is on file,
+                then the same two controls in the same two columns: "↓ Download", and
+                "Replace" for the two the coordinator uploads. The badge and the certificate
+                are GENERATED from the record rather than uploaded, so they have nothing to
+                replace and their second column stays empty. Every permission gate below is
+                the one that was already here; the server endpoint is still the real one. */}
             <div className="doc-section">
               <div className="doc-upload-area">
                 <div className="doc-area-label">Resume</div>
@@ -2134,23 +2476,27 @@ export default function StudentSidePanel({
                     A caller who can neither view nor manage sees nothing at all, so file
                     existence is never revealed. */}
                 {(data.resume_url && (canViewResume || canManageStudentFiles)) ? (
-                  <div className="doc-existing-file">
-                    {canViewResume && (
-                      <>
-                        <button type="button" className="doc-file-link" onClick={openResume} disabled={openingResume}
-                          style={{ background:'none', border:'none', padding:0, font:'inherit', textAlign:'left', cursor:'pointer' }}>
-                          {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
+                  <>
+                    <div className="doc-existing-file">
+                      {canViewResume
+                        ? <button type="button" className="doc-file-link doc-file-open" onClick={openResume} disabled={openingResume}>
+                            {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
+                          </button>
+                        : <span className="doc-file-link">On file</span>}
+                    </div>
+                    <div className="doc-act">
+                      {canViewResume && (
+                        <button className="doc-dl-btn" onClick={handleResumeDownload} disabled={dlResume} aria-label="Download resume">
+                          {dlResume ? '…' : '↓ Download'}
                         </button>
-                        <button onClick={handleResumeDownload} disabled={dlResume}
-                          style={{ background:'var(--bg-card)', border:'1px solid var(--color-accent-primary)', color:'var(--color-accent-primary)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
-                          {dlResume ? '…' : '↓ Resume'}
-                        </button>
-                      </>
-                    )}
-                    {canManageStudentFiles && (
-                      <button className="doc-replace-btn" disabled={uploadingRes} onClick={() => resumeRef.current?.click()}>Replace</button>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                    <div className="doc-act">
+                      {canManageStudentFiles && (
+                        <button className="doc-replace-btn" disabled={uploadingRes} onClick={() => resumeRef.current?.click()}>Replace</button>
+                      )}
+                    </div>
+                  </>
                 ) : (!data.resume_url && canManageStudentFiles) ? (
                   <div className="doc-upload-zone" onClick={() => resumeRef.current?.click()}>
                     <span className="doc-zone-icon">📄</span>
@@ -2158,45 +2504,38 @@ export default function StudentSidePanel({
                     <button type="button" className="doc-zone-btn" onClick={e=>{ e.stopPropagation(); resumeRef.current?.click() }}>Choose File</button>
                   </div>
                 ) : null}
-                {uploadingRes && <span className="doc-status doc-uploading">Uploading…</span>}
-                {resumeMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
-                {resumeMsg && resumeMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{resumeMsg}</span>}
+                {(uploadingRes || resumeMsg) && (
+                  <div className="doc-row-status">
+                    {uploadingRes && <span className="doc-status doc-uploading">Uploading…</span>}
+                    {resumeMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
+                    {resumeMsg && resumeMsg !== 'success' && <span className="doc-status doc-error">{resumeMsg}</span>}
+                  </div>
+                )}
               </div>
+
               <div className="doc-upload-area">
                 <div className="doc-area-label">Headshot</div>
                 <input ref={headshotRef} type="file" style={{ display:'none' }} accept=".jpg,.jpeg,.png" onChange={e => handleHeadshotUpload(e.target.files[0])} />
                 {(data.headshot_url && (canViewPhoto || canManageStudentFiles)) ? (
-                  <div className="doc-existing-file">
-                    {headshotSignedUrl && <img src={headshotSignedUrl} alt="Headshot" className="doc-headshot-preview" />}
-                    {/* Badge generation is active Owner/Admin only (canGenerateBadge). An
-                        entitled interviewer may view the photo but never the badge, and sees
-                        the exact restriction message in its place. */}
-                    {canGenerateBadge ? (
-                      <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
-                      <button
-                        onClick={handleDownloadBadge}
-                        disabled={!!badgeDisabledReason || generatingBadge}
-                        aria-label={badgeDisabledReason || 'Download badge'}
-                        style={{
-                          background: badgeDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
-                          border: badgeDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
-                          color: badgeDisabledReason ? '#9ca3af' : '#fff',
-                          fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
-                          cursor: (badgeDisabledReason || generatingBadge) ? 'not-allowed' : 'pointer',
-                          flexShrink:0, fontFamily:'Plus Jakarta Sans,sans-serif',
-                        }}>
-                        {generatingBadge ? 'Generating...' : 'Download Badge'}
+                  <>
+                    <div className="doc-existing-file">
+                      {(canViewPhoto || canManageStudentFiles)
+                        ? <button type="button" className="doc-file-link doc-file-open" onClick={openHeadshot}>
+                            {decodeURIComponent(data.headshot_url.split('/').pop()?.split('?')[0] || 'Headshot')}
+                          </button>
+                        : <span className="doc-file-link">On file</span>}
+                    </div>
+                    <div className="doc-act">
+                      <button className="doc-dl-btn" onClick={handleHeadshotDownload} disabled={dlPhotoDoc} aria-label="Download headshot">
+                        {dlPhotoDoc ? '…' : '↓ Download'}
                       </button>
-                      </Tooltip>
-                    ) : canViewPhoto ? (
-                      <span className="doc-badge-restricted" style={{ fontSize:11, color:'var(--text-muted)', fontStyle:'italic' }}>
-                        Badge generation/view restricted to Owner/Admin.
-                      </span>
-                    ) : null}
-                    {canManageStudentFiles && (
-                      <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
-                    )}
-                  </div>
+                    </div>
+                    <div className="doc-act">
+                      {canManageStudentFiles && (
+                        <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
+                      )}
+                    </div>
+                  </>
                 ) : (!data.headshot_url && canManageStudentFiles) ? (
                   <div className="doc-upload-zone" onClick={() => headshotRef.current?.click()}>
                     <span className="doc-zone-icon">🖼</span>
@@ -2204,32 +2543,63 @@ export default function StudentSidePanel({
                     <button type="button" className="doc-zone-btn" onClick={e=>{ e.stopPropagation(); headshotRef.current?.click() }}>Choose File</button>
                   </div>
                 ) : null}
-                {uploadingHead && <span className="doc-status doc-uploading">Uploading…</span>}
-                {headMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
-                {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
+                {(uploadingHead || headMsg) && (
+                  <div className="doc-row-status">
+                    {uploadingHead && <span className="doc-status doc-uploading">Uploading…</span>}
+                    {headMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
+                    {headMsg && headMsg !== 'success' && <span className="doc-status doc-error">{headMsg}</span>}
+                  </div>
+                )}
               </div>
 
-              {/* Download Certificate of Completion - Owner/Admin. Enabled once the certificate
-                  is unlocked (post-rotation evaluation submitted); disabled with a tooltip otherwise. */}
+              {/* ID Badge - generated in the browser from the headshot and the rotation
+                  dates. Badge generation is active Owner/Admin only (canGenerateBadge); an
+                  entitled interviewer may view the photo but never the badge, and reads the
+                  exact restriction in the row instead of finding a button that refuses. */}
+              {(canGenerateBadge || canViewPhoto) && (
+                <div className="doc-upload-area">
+                  <div className="doc-area-label">ID Badge</div>
+                  <div className="doc-existing-file">
+                    <span className="doc-row-note">
+                      {canGenerateBadge ? (badgeDisabledReason || 'Front and back, from the headshot and the rotation dates.') : 'Badge generation/view restricted to Owner/Admin.'}
+                    </span>
+                  </div>
+                  <div className="doc-act">
+                    {canGenerateBadge && (
+                      <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
+                        <button className="doc-dl-btn" onClick={handleDownloadBadge}
+                          disabled={!!badgeDisabledReason || generatingBadge}
+                          aria-label={badgeDisabledReason || 'Download badge'}>
+                          {generatingBadge ? '…' : '↓ Download'}
+                        </button>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <div className="doc-act" />
+                </div>
+              )}
+
+              {/* Certificate of Completion - Owner/Admin. Enabled once the certificate is
+                  unlocked (post-rotation evaluation submitted); the gate reads in the row
+                  rather than only in a tooltip nobody hovers. */}
               {canEdit && (
                 <div className="doc-upload-area">
                   <div className="doc-area-label">Certificate of Completion</div>
-                  <Tooltip label={certDisabledReason || 'Download the Certificate of Completion'} placement="top">
-                    <button
-                      onClick={handleDownloadCertificate}
-                      disabled={!!certDisabledReason || downloadingCert}
-                      aria-label={certDisabledReason || 'Download Certificate of Completion'}
-                      style={{
-                        background: certDisabledReason ? 'var(--color-bg-hover)' : 'var(--color-accent-primary)',
-                        border: certDisabledReason ? '1px solid var(--border-divider)' : '1px solid var(--color-accent-primary)',
-                        color: certDisabledReason ? 'var(--text-caption)' : 'var(--color-text-inverse)',
-                        fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
-                        cursor: (certDisabledReason || downloadingCert) ? 'not-allowed' : 'pointer',
-                        fontFamily:'Plus Jakarta Sans,sans-serif',
-                      }}>
-                      {downloadingCert ? 'Preparing…' : 'Download Certificate of Completion'}
-                    </button>
-                  </Tooltip>
+                  <div className="doc-existing-file">
+                    <span className="doc-row-note">
+                      {certDisabledReason || `Certificate ${certState.certificate?.certificate_number || 'issued'}`}
+                    </span>
+                  </div>
+                  <div className="doc-act">
+                    <Tooltip label={certDisabledReason || 'Download the Certificate of Completion'} placement="top">
+                      <button className="doc-dl-btn" onClick={handleDownloadCertificate}
+                        disabled={!!certDisabledReason || downloadingCert}
+                        aria-label={certDisabledReason || 'Download Certificate of Completion'}>
+                        {downloadingCert ? '…' : '↓ Download'}
+                      </button>
+                    </Tooltip>
+                  </div>
+                  <div className="doc-act" />
                 </div>
               )}
             </div>
@@ -2500,288 +2870,6 @@ export default function StudentSidePanel({
           </div>
 
 
-          {/* ── Program Disposition (Phase 2B.2b) ─────────────────────────── */}
-          <div className="sp-section sp-card sp-zone-admin">
-            <SectionHeader title="Program Disposition" icon={<Flag size={13} />}>
-              <SourceTag label="Source: ASPIRE/admin" tone="admin" />
-            </SectionHeader>
-            {activeDisposition ? (
-              <>
-                <Field label="Disposition Type">
-                  <div className="sp-readonly">{DISPOSITION_TYPES[activeDisposition.disposition_type] || activeDisposition.disposition_type}</div>
-                </Field>
-                <Field label="Reason">
-                  <div className="sp-readonly">{REASON_CATEGORIES_BY_TYPE[activeDisposition.disposition_type]?.[activeDisposition.reason_category] || activeDisposition.reason_category}</div>
-                </Field>
-                <Field label="Effective Date">
-                  <div className="sp-readonly">
-                    {activeDisposition.effective_date
-                      ? (() => { const [y,m,d] = activeDisposition.effective_date.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) })()
-                      : '-'}
-                  </div>
-                </Field>
-                <Field label="Decision Origin">
-                  <div className="sp-readonly">{DECISION_ORIGINS[activeDisposition.decision_origin] || activeDisposition.decision_origin}</div>
-                </Field>
-                <Field label="Recorded By">
-                  <div className="sp-readonly">{activeDisposition.recorded_by_name || activeDisposition.decided_by_name || '-'}</div>
-                </Field>
-                {canEdit && dispositionFollowups.length > 0 && (
-                  <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
-                    <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-secondary,#6b7280)', marginBottom:8 }}>
-                      Follow-up Tasks
-                    </div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                      {dispositionFollowups.map(f => (
-                        <div key={f.id}>
-                          <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13 }}>
-                            <span style={{ fontSize:15, lineHeight:1, flexShrink:0 }}>{f.status === 'completed' ? '☑' : '☐'}</span>
-                            <span style={{ color: f.status === 'completed' ? 'var(--text-secondary,#6b7280)' : 'var(--raven,#111827)', textDecoration: f.status === 'completed' ? 'line-through' : 'none', flex:1 }}>
-                              {FOLLOWUP_TYPES[f.followup_type] || f.followup_type}
-                            </span>
-                            {f.status === 'completed' && (
-                              <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', whiteSpace:'nowrap' }}>
-                                {[
-                                  f.completion_method
-                                    ? `Documented via ${{ email:'Email', phone:'Phone', in_person:'In Person', other:'Other' }[f.completion_method] || f.completion_method}`
-                                    : 'Documented',
-                                  f.completed_at && new Date(f.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
-                                  f.completed_by_name,
-                                ].filter(Boolean).join(' · ')}
-                              </span>
-                            )}
-                            {f.status === 'pending' && !canEdit && (
-                              <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Pending</span>
-                            )}
-                            {f.status === 'pending' && canEdit && (
-                              ['notify_student','notify_school_coordinator','notify_unit_leader','leadership_review','documentation_review'].includes(f.followup_type) ? (
-                                <button
-                                  onClick={() => {
-                                    setCompletingFollowupId(completingFollowupId === f.id ? null : f.id)
-                                    setCompletionNote('')
-                                    setCompletionMethod('')
-                                  }}
-                                  style={{ fontSize:11, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:5, padding:'2px 8px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}
-                                >
-                                  {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type)
-                                    ? 'Document Notification'
-                                    : f.followup_type === 'leadership_review'
-                                      ? 'Document Review'
-                                      : 'Confirm Review'}
-                                </button>
-                              ) : (
-                                <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', fontStyle:'italic', flexShrink:0 }}>Manual action required</span>
-                              )
-                            )}
-                            {f.status === 'waived'        && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Waived</span>}
-                            {f.status === 'cancelled'     && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Cancelled</span>}
-                            {f.status === 'not_applicable'&& <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>N/A</span>}
-                          </div>
-                          {/* Type-specific completion form - explicit 4-branch routing */}
-                          {completingFollowupId === f.id && (
-                            <div style={{ marginTop:6, marginLeft:23, background:'#f9fafb', borderRadius:8, padding:'10px 12px', border:'1px solid #e5e7eb' }}>
-                              {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type) ? (
-                                <>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
-                                    How was this sent? <span style={{ color:'#ef4444' }}>*</span>
-                                  </div>
-                                  <div style={{ display:'flex', gap:5, marginBottom:8, flexWrap:'wrap' }}>
-                                    {[['email','Email'],['phone','Phone'],['in_person','In Person'],['other','Other']].map(([val, label]) => (
-                                      <button
-                                        key={val}
-                                        onClick={() => setCompletionMethod(val)}
-                                        style={{
-                                          fontSize:11, padding:'3px 9px', borderRadius:5, cursor:'pointer',
-                                          fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600,
-                                          background: completionMethod === val ? '#1D2567' : '#f0f3ff',
-                                          color: completionMethod === val ? '#fff' : '#1D2567',
-                                          border: `1px solid ${completionMethod === val ? '#1D2567' : '#e0e7ff'}`,
-                                        }}
-                                      >
-                                        {label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
-                                    Note <span style={{ color:'#ef4444' }}>*</span>
-                                  </div>
-                                  <textarea
-                                    value={completionNote}
-                                    onChange={e => setCompletionNote(e.target.value)}
-                                    placeholder="e.g. Email sent 05/28/2026…"
-                                    rows={2}
-                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
-                                  />
-                                  <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6, marginBottom:6, fontStyle:'italic' }}>
-                                    I confirm this notification has already occurred and is being documented here.
-                                  </div>
-                                  <div style={{ display:'flex', gap:6 }}>
-                                    <button
-                                      onClick={() => handleCompleteFollowup(f.id)}
-                                      disabled={completingFollowup || !completionMethod || !completionNote.trim()}
-                                      style={{
-                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
-                                        cursor: (completingFollowup || !completionMethod || !completionNote.trim()) ? 'default' : 'pointer',
-                                        fontFamily:'Plus Jakarta Sans,sans-serif',
-                                        background: (!completionMethod || !completionNote.trim()) ? '#f3f4f6' : '#f0fdf4',
-                                        color:      (!completionMethod || !completionNote.trim()) ? '#9ca3af' : '#166534',
-                                        border:     `1px solid ${(!completionMethod || !completionNote.trim()) ? '#e5e7eb' : '#bbf7d0'}`,
-                                      }}
-                                    >
-                                      {completingFollowup ? '…' : 'Document Notification Completed'}
-                                    </button>
-                                    <button
-                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'var(--text-muted)', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </>
-                              ) : f.followup_type === 'leadership_review' ? (
-                                <>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
-                                    Note <span style={{ color:'#ef4444' }}>*</span>
-                                  </div>
-                                  <textarea
-                                    value={completionNote}
-                                    onChange={e => setCompletionNote(e.target.value)}
-                                    placeholder="e.g. Reviewed by leadership on 05/28/2026…"
-                                    rows={2}
-                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
-                                  />
-                                  <div style={{ display:'flex', gap:6, marginTop:6 }}>
-                                    <button
-                                      onClick={() => handleCompleteFollowup(f.id)}
-                                      disabled={completingFollowup || !completionNote.trim()}
-                                      style={{
-                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
-                                        cursor: (completingFollowup || !completionNote.trim()) ? 'default' : 'pointer',
-                                        fontFamily:'Plus Jakarta Sans,sans-serif',
-                                        background: !completionNote.trim() ? '#f3f4f6' : '#f0fdf4',
-                                        color:      !completionNote.trim() ? '#9ca3af' : '#166534',
-                                        border:     `1px solid ${!completionNote.trim() ? '#e5e7eb' : '#bbf7d0'}`,
-                                      }}
-                                    >
-                                      {completingFollowup ? '…' : 'Document Review Completed'}
-                                    </button>
-                                    <button
-                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'var(--text-muted)', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </>
-                              ) : f.followup_type === 'documentation_review' ? (
-                                <>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text-heading)', marginBottom:4 }}>
-                                    Note <span style={{ color:'#ef4444' }}>*</span>
-                                  </div>
-                                  <textarea
-                                    value={completionNote}
-                                    onChange={e => setCompletionNote(e.target.value)}
-                                    placeholder="e.g. Documentation reviewed and filed…"
-                                    rows={2}
-                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'Plus Jakarta Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
-                                  />
-                                  <div style={{ display:'flex', gap:6, marginTop:6 }}>
-                                    <button
-                                      onClick={() => handleCompleteFollowup(f.id)}
-                                      disabled={completingFollowup || !completionNote.trim()}
-                                      style={{
-                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
-                                        cursor: (completingFollowup || !completionNote.trim()) ? 'default' : 'pointer',
-                                        fontFamily:'Plus Jakarta Sans,sans-serif',
-                                        background: !completionNote.trim() ? '#f3f4f6' : '#f0fdf4',
-                                        color:      !completionNote.trim() ? '#9ca3af' : '#166534',
-                                        border:     `1px solid ${!completionNote.trim() ? '#e5e7eb' : '#bbf7d0'}`,
-                                      }}
-                                    >
-                                      {completingFollowup ? '…' : 'Confirm Documentation Reviewed'}
-                                    </button>
-                                    <button
-                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
-                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'var(--text-muted)', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif' }}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </>
-                              ) : null /* safety, button guard blocks unsupported types from reaching this */}
-                            </div>
-                          )}
-                          {/* Completion note display (for completed followups with notes) */}
-                          {f.status === 'completed' && f.note && (
-                            <div style={{ marginLeft:23, marginTop:2, fontSize:11, color:'var(--text-secondary,#6b7280)', fontStyle:'italic' }}>
-                              "{f.note}"
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {/* All follow-ups complete badge */}
-                    {dispositionFollowups.every(f => f.status !== 'pending') && (
-                      <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#166534', fontWeight:600 }}>
-                        <span>✓</span><span>All follow-ups complete</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {/* Internal note (Owner/Admin only - RLS-gated) - Phase 2B.2f */}
-                {canEdit && privateNote?.internal_note && (
-                  <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
-                    <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-secondary,#6b7280)', marginBottom:8 }}>
-                      Internal Note · Owner/Admin only
-                    </div>
-                    <div style={{ background:'rgba(244,220,176,0.18)', border:'1px solid #f0c9b0', borderRadius:8, padding:'10px 12px', fontSize:13, lineHeight:1.55, color:'var(--raven,#111827)', whiteSpace:'pre-wrap' }}>
-                      {privateNote.internal_note}
-                    </div>
-                    <div style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', marginTop:6 }}>
-                      Recorded by {privateNote.created_by_name || '-'} on {new Date(privateNote.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
-                      {privateNote.updated_at && privateNote.updated_at !== privateNote.created_at && (
-                        <> · Updated {new Date(privateNote.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {canEdit && (
-                  <div style={{ marginTop:14, display:'flex', gap:8, flexWrap:'wrap' }}>
-                    <button
-                      onClick={handleUpdateDisposition}
-                      style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
-                    >
-                      Update Disposition
-                    </button>
-                    <button
-                      onClick={handleOpenClearDisposition}
-                      style={{ fontSize:12, color:'#92400e', background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
-                    >
-                      Clear Disposition
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:10, padding:'4px 0' }}>
-                {/* STUDENT-PROFILE-CANON-1E: status/disposition inconsistency warning (non-blocking). */}
-                {data.status === 'Not Proceeding' && (
-                  <div style={{ background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8, padding:'8px 12px', fontSize:12.5, lineHeight:1.5, color:'#583733', fontWeight:600 }}>
-                    This student’s status is Not Proceeding but there is no active disposition. Verify this is intentional.
-                  </div>
-                )}
-                <span style={{ fontSize:13, color:'var(--text-secondary,#6b7280)' }}>No disposition recorded.</span>
-                {canEdit && (
-                  <button
-                    onClick={handleUpdateDisposition}
-                    style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600 }}
-                  >
-                    Update Program Disposition
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
           </section>
 
           {/* ── Not a sheet: the footer of the binder ── */}

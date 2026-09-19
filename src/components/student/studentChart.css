@@ -359,23 +359,52 @@
 .sc-sheet .doc-upload-area {
   flex-direction: row;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 9px 0;
   border-bottom: 1px solid var(--aspire-page-rule);
 }
 .sc-sheet .doc-upload-area:last-child { border-bottom: 0; }
 .sc-sheet .doc-area-label {
-  flex: 0 0 auto;
-  min-width: 150px;
+  flex: 0 0 var(--sc-doc-name);
   font-size: 13px;
   font-weight: 600;
 }
 .sc-sheet .doc-existing-file {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  padding: 4px 10px;
+  padding: 4px 0;
   background: transparent;
   border: 0;
+}
+/* Owner, 2026-09-18: the two action columns are FIXED, so "↓ Download" starts on the same
+   vertical line on every row and a document with nothing to replace leaves a gap rather
+   than sliding its download over to fill it. The button fills its column, so the four
+   Download buttons are one width whatever their row says. */
+.sc-sheet .doc-section {
+  --sc-doc-name: 180px;
+  --sc-doc-dl: 112px;
+  --sc-doc-rep: 84px;
+}
+.sc-sheet .doc-act { flex: 0 0 var(--sc-doc-dl); }
+.sc-sheet .doc-act + .doc-act { flex: 0 0 var(--sc-doc-rep); }
+.sc-sheet .doc-act > .doc-dl-btn,
+.sc-sheet .doc-act > .doc-replace-btn { width: 100%; text-align: center; }
+/* Why a row is disabled, in the row. The tooltip still says it on hover; this says it
+   without one. */
+.sc-sheet .doc-row-note {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--aspire-paper-ink-soft);
+}
+/* Upload progress drops to its own line instead of stealing an action column. */
+.sc-sheet .doc-row-status { flex: 1 0 100%; }
+/* A narrow chart puts the name on its own line and lets the columns shrink rather than
+   pushing the buttons off the page. */
+@container chart-paper (max-width: 700px) {
+  .sc-sheet .doc-section { --sc-doc-name: 100%; --sc-doc-dl: 104px; --sc-doc-rep: 78px; }
+  .sc-sheet .doc-upload-area { row-gap: 6px; }
 }
 .sc-sheet .doc-upload-zone {
   flex: 1;
@@ -391,6 +420,85 @@
 .sc-sheet .doc-zone-text { font-size: 12px; }
 /* The photo is on the plate. It does not need to be here too. */
 .sc-sheet .doc-headshot-preview { display: none; }
+
+/* ── CS-Link, as a checklist ───────────────────────────────────────────────── */
+/* Owner, 2026-09-18: "CS-Link is still two boxed panels." Four steps in four filled,
+   bordered boxes read as panels stacked on a page rather than as one list of things to
+   do, and the sheet already lost its tiles in round 2. On the sheet they become
+   hairline-separated rows, the same shape as the documents above them. Nothing about the
+   workflow, the ticks, the dates or the ServiceNow links changes. */
+.sc-sheet .csw-step {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--aspire-page-rule);
+  border-radius: 0;
+  padding: 12px 0 0;
+  margin-bottom: 12px;
+}
+.sc-sheet .csw-step:first-of-type { border-top: 0; padding-top: 2px; }
+.sc-sheet .csw-step:last-of-type { margin-bottom: 0; }
+/* The step number is a label on a list, not a heading on a panel. */
+.sc-sheet .csw-step-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+/* ── Availability, as one comparison ───────────────────────────────────────── */
+/* Owner, 2026-09-18: a row per constraint, a column per source. The header is the canon's
+   `.aspire-th` (one header class for every table in the app), with its band taken off
+   because a sheet has no tiles on it - the hairline under the row is the header's edge. */
+.sc-avail { width: 100%; border-collapse: collapse; }
+.sc-sheet .sc-avail .aspire-th {
+  background: transparent;
+  white-space: normal;
+  vertical-align: bottom;
+  padding: 0 10px 8px 0;
+  border-bottom: 1px solid var(--aspire-page-rule);
+  /* The table token's grey is tuned for a white table band. On a tinted sheet it measures
+     4.15:1, so the header reads the sheet's own soft ink like everything else here. */
+  color: var(--aspire-paper-ink-soft);
+}
+.sc-avail-src { display: block; margin-top: 5px; }
+.sc-avail-edit { margin-left: 8px; vertical-align: middle; }
+.sc-avail th,
+.sc-avail td { text-align: left; }
+.sc-avail tbody th,
+.sc-avail tbody td {
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid var(--aspire-page-rule);
+  font-size: 13px;
+  line-height: 1.45;
+  vertical-align: top;
+}
+.sc-avail tbody tr:last-child th,
+.sc-avail tbody tr:last-child td { border-bottom: 0; }
+.sc-avail-rh { width: 34%; font-weight: 600; }
+/* A dash means "this side does not set this constraint". It is NOT the formatters'
+   "Not provided", which means "this side was asked and has not answered". */
+.sc-avail-na { color: var(--aspire-paper-ink-soft); }
+.sc-avail-why {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--aspire-paper-ink-soft);
+}
+.sc-avail-note,
+.sc-avail-ack {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--aspire-paper-ink-soft);
+}
+.sc-avail-note { margin: 0 0 12px; }
+.sc-avail-ack { margin: 10px 0 0; }
+.sc-avail-ack-open { color: var(--sp-warn-ink); font-style: italic; }
+@container chart-paper (max-width: 700px) {
+  .sc-avail-rh { width: 30%; }
+  .sc-avail tbody th,
+  .sc-avail tbody td { font-size: 12px; }
+}
 
 /* ── The index ─────────────────────────────────────────────────────────────── */
 /* Die-cut tabs: no border, each one the colour of the sheet it opens, reading bottom to

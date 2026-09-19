@@ -612,3 +612,141 @@ test('FLAG 10: the two flags stay different things in the recommendations table'
   assert.match(recs, /flagged_for_second_interview/)
 })
 
+
+// ── TIDY: round five, the small consistencies (Owner, 2026-09-18) ───────────
+
+test('TIDY 1: the three contact values are one column, so the copy buttons line up', () => {
+  const index = noComments(read('src/index.css'))
+  // One class does it, and it makes the VALUE take the row - not the button.
+  assert.match(index, /\.sp-copyrow \{ display: flex; align-items: center; gap: 6px; \}/)
+  assert.match(index, /\.sp-copyrow > \.sp-input,\s*\n\.sp-copyrow > \.sp-readonly \{ flex: 1 1 auto; min-width: 0; \}/)
+  assert.match(index, /\.sp-copyrow > \.sp-copy-btn \{ flex: none; \}/)
+  // and all three rows use it, readonly and editable alike
+  assert.equal((panel.match(/className="sp-copyrow"/g) || []).length, 3)
+  // the inline width that used to do this by hand is gone
+  assert.ok(!/style=\{\{ display:'flex', gap:6, alignItems:'center' \}\}/.test(noComments(panel)))
+})
+
+test('TIDY 2: every document row ends in the same "↓ Download"', () => {
+  const code = noComments(panel)
+  // Four rows, four identical labels. A row that says something else has drifted.
+  assert.equal((code.match(/↓ Download/g) || []).length, 4)
+  assert.ok(!code.includes('↓ Resume'), 'the resume row used to name itself in its button')
+  assert.ok(!code.includes('Download Certificate of Completion<'), 'the certificate row too')
+  for (const label of ['Resume', 'Headshot', 'ID Badge', 'Certificate of Completion']) {
+    assert.ok(code.includes(`<div className="doc-area-label">${label}</div>`), `missing row: ${label}`)
+  }
+  // Download and Replace are ONE rule, so they cannot drift apart in size or corner.
+  const index = noComments(read('src/index.css'))
+  assert.match(index, /\.doc-replace-btn,\s*\n\.doc-dl-btn \{/)
+  // A <button> brings its own font; the shared rule takes it back.
+  assert.match(index, /\.doc-replace-btn,\s*\n\.doc-dl-btn \{[\s\S]*?font-family: inherit;/)
+})
+
+test('TIDY 3: the action columns are fixed, so the buttons land on one line', () => {
+  assert.match(cssCode, /--sc-doc-dl: \d+px;/)
+  assert.match(cssCode, /--sc-doc-rep: \d+px;/)
+  assert.match(cssCode, /\.sc-sheet \.doc-act \{ flex: 0 0 var\(--sc-doc-dl\); \}/)
+  assert.match(cssCode, /\.sc-sheet \.doc-act \+ \.doc-act \{ flex: 0 0 var\(--sc-doc-rep\); \}/)
+  // The button fills its column, so four buttons are one width.
+  assert.match(cssCode, /\.sc-sheet \.doc-act > \.doc-dl-btn,[\s\S]{0,80}?width: 100%;/)
+  // A row with nothing to replace still HOLDS the replace column, or the one above it
+  // would slide right and the column would bend.
+  assert.equal((noComments(panel).match(/<div className="doc-act" \/>/g) || []).length, 2)
+})
+
+test('TIDY 4: the plate GPA chip reads the canon instead of its own thresholds', () => {
+  const code = noComments(panel)
+  assert.match(code, /gpaBand, GPA_BAND_COLORS,?\s*\n?\} from '\.\.\/lib\/constants'/)
+  assert.match(code, /GPA_BAND_COLORS\[gpaBand\(data\.cumulative_gpa\)\]/)
+  // the old two-tone rule, which painted everything under 3.5 the same grey and hid
+  // ASPIRE's 3.0 floor entirely, is gone
+  assert.ok(!/gpaVal>=3\.5\?/.test(code), 'the chip is deciding its own colours again')
+  // and the canon still has three bands, not two
+  const constants = read('src/lib/constants.js')
+  for (const band of ['strong', 'watch', 'below']) {
+    assert.ok(constants.includes(`  ${band}:`), `GPA_BAND_COLORS lost its ${band} band`)
+  }
+})
+
+test('TIDY 5: Program Disposition is on the Placement sheet, with the rule that names it', () => {
+  const placement = panel.slice(
+    panel.indexOf('id="sc-sheet-placement"'),
+    panel.indexOf('id="sc-sheet-hours"'),
+  )
+  assert.match(placement, /title="Program Disposition"/)
+  // the pointer that made this the right sheet is in the same sheet
+  assert.match(placement, /Use Program Disposition section to record dispositions/)
+  // and it is NOT left behind under Notes
+  const notes = panel.slice(panel.indexOf('id="sc-sheet-notes"'))
+  assert.ok(!notes.includes('title="Program Disposition"'))
+})
+
+test('TIDY 6: Availability is one comparison, not two labelled halves', () => {
+  const code = noComments(panel)
+  // one row per constraint, both sources on the row
+  assert.match(code, /<table className="sc-avail">/)
+  for (const row of ['Unavailable weekdays', 'Minimum clinical days/week', 'Weekends',
+    'Nights', 'Blackout dates', 'Preferred days', 'Shift preference', 'Scheduling notes']) {
+    assert.ok(code.includes(`scope="row">${row}<`), `missing constraint row: ${row}`)
+  }
+  // the two uppercase half-headings are gone
+  assert.ok(!code.includes('Coordinator Program Constraints'))
+  assert.ok(!code.includes('>\n                Student Availability\n'))
+  // provenance survives the merge: each column still says where it came from
+  assert.match(code, /SourceTag label="Source: Coordinator school form" tone="coordinator"/)
+  assert.match(code, /SourceTag label="Source: Student form" tone="student"/)
+  // and the canon's one header class is what the header is made of
+  assert.match(code, /<th className="aspire-th" scope="col">/)
+  // the acknowledgment is one line, not a field that says Completed AND a warning that
+  // says it is not
+  assert.ok(!code.includes('Availability acknowledgment'))
+  assert.match(code, /Student confirmed their availability\./)
+  // still descriptive: the table reports both sides, it does not judge the fit
+  assert.ok(!/conflict/i.test(code.slice(code.indexOf('<table className="sc-avail">'),
+    code.indexOf('</table>'))), 'no risk logic belongs in this phase')
+})
+
+test('TIDY 7: CS-Link is a checklist on the sheet, not stacked panels', () => {
+  // The shared rule still draws a box, because outside the chart it IS a panel.
+  const index = noComments(read('src/index.css'))
+  assert.match(index, /\.csw-step \{[^}]*border: 1px solid/)
+  // Inside a sheet it loses the fill and the border and keeps only a hairline, the same
+  // shape the document rows above it have.
+  const rule = cssCode.match(/\.sc-sheet \.csw-step \{[\s\S]*?\}/)
+  assert.ok(rule, '.sc-sheet .csw-step is gone')
+  assert.match(rule[0], /background: transparent;/)
+  assert.match(rule[0], /border: 0;/)
+  assert.match(rule[0], /border-top: 1px solid var\(--aspire-page-rule\);/)
+  assert.match(cssCode, /\.sc-sheet \.csw-step:first-of-type \{ border-top: 0;/)
+})
+
+test('TIDY 8: a neutral chip is a pair, and both halves are fixed', () => {
+  const code = noComments(panel)
+  // The defect: a FIXED light background carrying a THEMED ink. In dark that is pale grey
+  // on pale grey (measured 2.0:1 on the plate's "Not placed" chip).
+  assert.ok(!/background:\s*'#f3f4f6',\s*color:\s*'var\(--text-muted\)'/.test(code))
+  assert.ok(!/bg:\s*'#f3f4f6',\s*color:\s*'var\(--text-muted\)'/.test(code))
+  assert.match(code, /const NEUTRAL_CHIP = \{ bg: 'var\(--aspire-th-bg-inset\)', color: 'var\(--aspire-th-color-inset\)' \}/)
+  // and it is used everywhere the old pair was
+  assert.ok((code.match(/NEUTRAL_CHIP\.(bg|color)/g) || []).length >= 10)
+})
+
+test('TIDY 9: the CS-Link checklist reads inks both themes define', () => {
+  const index = noComments(read('src/index.css'))
+  // --raven and --pearl are light-mode CONSTANTS no theme redefines, so a tick label in
+  // --raven measured 1.15:1 on a dark step.
+  const label = index.match(/\.csw-check-label \{[^}]*\}/)
+  assert.ok(label && !label[0].includes('var(--raven)'), '.csw-check-label is on a light-only ink')
+  assert.match(label[0], /color: var\(--text-heading\)/)
+  const date = index.match(/\.csw-date-input \{[^}]*\}/)
+  assert.ok(date && !date[0].includes('var(--pearl)'), '.csw-date-input is a white box on dark paper')
+  // ink and surface move together or neither move
+  assert.match(date[0], /color: var\(--text-heading\)/)
+  assert.match(date[0], /background: var\(--bg-card\)/)
+})
+
+test('TIDY 10: the Availability header is legible on a tinted sheet', () => {
+  // --aspire-th-color is tuned for a white table band and measures 4.15:1 on the sheet.
+  assert.match(cssCode, /\.sc-sheet \.sc-avail \.aspire-th \{[\s\S]*?color: var\(--aspire-paper-ink-soft\);/)
+})

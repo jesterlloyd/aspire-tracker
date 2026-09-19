@@ -1650,16 +1650,45 @@ body { min-height: 100vh; }
   text-decoration: none;
 }
 a.doc-file-link:hover { text-decoration: underline; }
+/* The file name is a button when it opens the file. A <button> brings the browser's own
+   font, size and centring with it, which is how a sortable column once rendered in a
+   different typeface from its neighbours; strip all of that and let the class decide. */
+.doc-file-open {
+  background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; font-size: 13px; font-weight: 600;
+  text-align: left; cursor: pointer;
+}
+.doc-file-open:hover:not(:disabled) { text-decoration: underline; }
+.doc-file-open:disabled { cursor: progress; }
 .doc-headshot-preview { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--border); }
-.doc-replace-btn {
+/* Download and Replace are siblings, so they are one rule: same height, padding, weight
+   and corner. Only the fill tells them apart (Owner, 2026-09-18). */
+.doc-replace-btn,
+.doc-dl-btn {
   background: none; border: 1px solid var(--border-input); border-radius: 4px;
-  color: var(--text-heading); font-size: 12px; font-weight: 600;
+  color: var(--text-heading); font-family: inherit; font-size: 12px; font-weight: 600;
+  /* An explicit line box: "↓ Download" carries an arrow whose fallback font is taller
+     than the Latin glyphs, and `line-height: normal` let that make the button 1px taller
+     than its neighbour. A button's height is not the business of the characters in it. */
+  line-height: 1.35;
   cursor: pointer; padding: 4px 10px; white-space: nowrap;
   transition: background 0.12s, border-color 0.12s;
   flex-shrink: 0;
 }
 .doc-replace-btn:hover { background: var(--bg-card); border-color: var(--color-accent-primary); }
 .doc-replace-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.doc-dl-btn {
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
+  color: var(--color-text-inverse);
+}
+.doc-dl-btn:hover:not(:disabled) { background: var(--nightfall); border-color: var(--nightfall); }
+.doc-dl-btn:disabled {
+  background: var(--color-bg-hover);
+  border-color: var(--border-divider);
+  color: var(--text-caption);
+  cursor: not-allowed;
+}
 
 .doc-status { font-size: 12px; font-weight: 600; }
 .doc-uploading { color: var(--text-secondary); }
@@ -2219,6 +2248,14 @@ button.ov-group-row {
 .sp-readonly   { padding: 7px 10px; background: var(--sand); border: 1px solid var(--border-lt); border-radius: 4px; font-size: 14px; color: var(--raven); min-height: 34px; }
 .sp-copy-btn   { background: none; border: 1px solid var(--border-input); border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; color: var(--text-caption); }
 .sp-copy-btn:hover { background: var(--sand); }
+/* STUDENT-CHART-1 (Owner, 2026-09-18): a value with a copy button beside it. The value
+   cell fills the row whatever it is - a readonly div sizes to its text, an input to its
+   `size` attribute - so the buttons down the Contact Information column land on one
+   vertical line instead of chasing each address's length. */
+.sp-copyrow { display: flex; align-items: center; gap: 6px; }
+.sp-copyrow > .sp-input,
+.sp-copyrow > .sp-readonly { flex: 1 1 auto; min-width: 0; }
+.sp-copyrow > .sp-copy-btn { flex: none; }
 .sp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .sp-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .sp-access-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
@@ -2240,8 +2277,13 @@ button.ov-group-row {
 .csw-step-dim { opacity: 0.45; pointer-events: none; }
 .csw-step-label { font-size: 13px; font-weight: 600; color: var(--color-accent-primary); margin-bottom: 8px; }
 .csw-check-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.csw-check-label { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--raven); }
-.csw-date-input { padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; color: var(--raven); background: var(--pearl); outline: none; width: 110px; }
+/* STUDENT-PROFILE-INK-1: --raven and --pearl are light-mode CONSTANTS that no theme
+   redefines, so a tick label written in --raven was #191919 on a dark step (1.15:1) and a
+   date input was a white box on dark paper. Both read tokens both themes define, and the
+   input's ink and surface move together. Found by sweeping every text node in the chart
+   with all four CS-Link steps open; the earlier sweep only ever rendered step 1. */
+.csw-check-label { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-heading); }
+.csw-date-input { padding: 4px 8px; border: 1px solid var(--border-divider); border-radius: 4px; font-size: 12px; color: var(--text-heading); background: var(--bg-card); outline: none; width: 110px; }
 .csw-date-input:focus { border-color: var(--nova); }
 .csw-note { font-size: 12px; color: var(--text-caption); margin-top: 6px; line-height: 1.5; }
 .csw-info-green { background: #f0fdf4; border: 1px solid #a7f3d0; border-radius: 4px; padding: 8px 12px; font-size: 13px; color: #166534; line-height: 1.5; }

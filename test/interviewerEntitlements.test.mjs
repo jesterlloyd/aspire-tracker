@@ -184,7 +184,15 @@ test('StudentSidePanel: resume by canViewResume, photo by canViewPhoto, badge me
   assert.match(sidePanel, /\(data\.resume_url && \(canViewResume \|\| canManageStudentFiles\)\) \?/)
   assert.match(sidePanel, /\(data\.headshot_url && \(canViewPhoto \|\| canManageStudentFiles\)\) \?/)
   assert.match(sidePanel, /Badge generation\/view restricted to Owner\/Admin\./)
-  assert.match(sidePanel, /canGenerateBadge \? \([\s\S]*?\) : canViewPhoto \? \(/)
+  // STUDENT-CHART-1: Documents is a list of rows now, so the badge is its own row rather
+  // than a branch inside the headshot's. The guarantee is unchanged and asserted directly:
+  // the ONLY thing that can start a badge download is gated on canGenerateBadge, and a
+  // reader who may see the photo but not the badge reads the restriction instead.
+  const badgeCalls = sidePanel.match(/onClick=\{handleDownloadBadge\}/g) || []
+  assert.equal(badgeCalls.length, 1, 'exactly one control starts a badge download')
+  const badgeRow = sidePanel.slice(sidePanel.indexOf('<div className="doc-area-label">ID Badge</div>'))
+  assert.match(badgeRow.slice(0, badgeRow.indexOf('onClick={handleDownloadBadge}')), /\{canGenerateBadge && \(/)
+  assert.match(sidePanel, /\{canGenerateBadge \? \(badgeDisabledReason[\s\S]{0,120}?\) : 'Badge generation\/view restricted to Owner\/Admin\.'\}/)
 })
 
 test('RubricSession: resume gated by cohort resume-view, opens via the endpoint', () => {
