@@ -356,9 +356,18 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   // any more, so the ribbon can hang over the cover.
   assert.match(bookCss, /\.rb-spread \{[\s\S]*?border-radius: 0;/)
   assert.ok(!/\.rb-spread \{[^}]*overflow: hidden/.test(bookCss), 'the spread clips again')
-  // The pages underneath show at both fore edges.
-  assert.match(bookCss, /\.rb-cover::before,\n\.rb-cover::after/)
-  assert.match(bookCss, /repeating-linear-gradient\(90deg, #FFFFFF 0 1\.5px/)
+  // The pages underneath (PAGE-STACK-1, Owner, 2026-09-19). They used to be two striped
+  // fore edges of this book's own making; they are now the calendars' offset sheets, one
+  // definition in src/styles/pageStack.css that the book, the chart and the six calendars
+  // all read. What this test is for is unchanged: the book must SHOW the sheets it holds.
+  assert.match(bookCss, /@import '\.\.\/\.\.\/styles\/pageStack\.css';/)
+  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-tan material-pagestack"/)
+  assert.match(bookCss, /\.rb-cover\.material-pagestack \{[\s\S]*?--stack-inset-r: var\(--rb-cover-pad-x\);/)
+  // The sheets fall down as well as out, so the bottom board carries the same allowance
+  // the sides do, and the spread out-paints a pseudo-element that paints after it.
+  assert.match(bookCss, /--rb-cover-pad-b: calc\(var\(--rb-cover-pad\) \+ var\(--rb-stack-h\)\);/)
+  assert.match(bookCss, /padding: var\(--rb-cover-pad\) var\(--rb-cover-pad-x\) var\(--rb-cover-pad-b\);/)
+  assert.match(bookCss, /\.rb-spread \{[\s\S]*?z-index: 1;/)
   // The cover is a thin board, and it is leather rather than grain.
   assert.match(bookCss, /--rb-cover-pad: 14px/)
   assert.ok(!read('src/styles/aspireMaterials.css').slice(

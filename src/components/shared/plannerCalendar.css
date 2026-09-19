@@ -1,3 +1,4 @@
+@import '../../styles/pageStack.css';
 /* PLANNER-CALENDAR-1: every ASPIRE calendar is a desk planner.
  *
  * A two-ring notepad holding the mini calendar and the day detail, a stacked calendar
@@ -82,13 +83,29 @@
 /* The padding is asymmetric ON PURPOSE and must not be normalized: the page stacks under
    both sheets extend to the right and below, so those two margins need the extra room or
    the pad looks pinched on the right (Owner's brief, section 2).
+   It is now WRITTEN as that rule rather than as four numbers. The desktop values were
+   derived correctly and then restated as literals in the two narrow blocks, where the
+   right and bottom were given the same value as the left and top: on a phone the stack
+   overhangs 7px into a 10px margin, which left 3px of pad on the right against 10px on
+   the left (Owner, 2026-09-19, from a phone). A media query now changes only the two
+   BASE values, and the overhang is added by the same calc at every width.
+   `--pl-stack-x/y` are the widest and deepest overhang any of the four stack layers
+   draws (`.pl-holder::before` at -7px and -8px), plus a pixel.
    The noise is the brand's own `--aspire-noise-fine` rather than a second copy of the
    same feTurbulence: the materials layer already ships one, and the canon says read the
    token rather than restate the value. */
 .pl-planner {
+  --pl-pad-y: 20px;
+  --pl-pad-x: 16px;
+  --pl-stack-x: 8px;
+  --pl-stack-y: 8px;
   position: relative;
   border-radius: var(--aspire-radius-page, 4px);
-  padding: 20px 24px 28px 16px;
+  padding:
+    var(--pl-pad-y)
+    calc(var(--pl-pad-x) + var(--pl-stack-x))
+    calc(var(--pl-pad-y) + var(--pl-stack-y))
+    var(--pl-pad-x);
   background-color: var(--pad-base);
   background-image:
     var(--aspire-noise-fine),
@@ -163,21 +180,13 @@
     inset: 0;
   }
 }
-.pl-padwrap::before,
-.pl-padwrap::after,
-.pl-holder::before,
-.pl-holder::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  background: var(--paper-2);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  pointer-events: none;
-}
-.pl-padwrap::before { left: 5px; right: -6px; top: 10px; bottom: -7px; filter: brightness(0.94); }
-.pl-padwrap::after  { left: 3px; right: -3px; top: 6px;  bottom: -3px; filter: brightness(0.98); }
-.pl-holder::before  { left: 6px; right: -7px; top: 9px;  bottom: -8px; filter: brightness(0.94); }
-.pl-holder::after   { left: 3px; right: -3px; top: 5px;  bottom: -4px; filter: brightness(0.98); }
+/* The sheets underneath are `material-pagestack` from src/styles/pageStack.css, which the
+   rubric book and the student chart now read too (PAGE-STACK-1). This was the original
+   copy; the shared sheet is it, moved, with the offsets unchanged. All the calendar adds
+   is its own paper colour and, on the notepad, the tighter bound-at-the-top variant. The
+   wrappers ARE the sheet's box, so the four inset tokens stay at their zero default. */
+.pl-padwrap.material-pagestack,
+.pl-holder.material-pagestack { --stack-paper: var(--paper-2); }
 
 /* ── The rings ─────────────────────────────────────────────────────────────── */
 /* Two chrome rings straddling the top edge of the notepad, 120px apart. Decorative: the
@@ -466,14 +475,14 @@
 @media (max-width: 960px) {
   /* A ring binding two sheets that are no longer side by side is a picture of nothing. */
   .pl-rings { display: none; }
-  .pl-planner { padding: 14px 16px 18px 14px; }
+  .pl-planner { --pl-pad-y: 14px; --pl-pad-x: 14px; }
   .pl-planner .canonical-calendar-main { padding: 14px; }
   .pl-planner .canonical-calendar-sidebar { padding: 16px 14px 12px; }
 }
 /* The portals are phone-first (STUDENT-PHONE-1). Paper does not change that: below 760px
    the pad thins to a frame and the sheets take the width. */
 @media (max-width: 760px) {
-  .pl-planner { padding: 10px 10px 14px 10px; }
+  .pl-planner { --pl-pad-y: 10px; --pl-pad-x: 10px; }
   .pl-planner .pl-calbox {
     height: auto;
     min-height: 0;

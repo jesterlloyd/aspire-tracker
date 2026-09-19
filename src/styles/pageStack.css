@@ -1,0 +1,89 @@
+/* PAGE-STACK-1 (Owner, 2026-09-19): loose sheets under a sheet, in one definition.
+ *
+ * "I like the stack of paper effect in the calendars. it's more realistic than the
+ * interview rubric page and the student profile chart. reuse it for both."
+ *
+ * The calendars draw two paper-coloured rectangles behind the sheet, each a little
+ * further down and to the right, each with its own drop shadow and a touch less light on
+ * it. The rubric and the chart drew a striped fore edge instead: a repeating gradient of
+ * hairlines standing in for page edges seen side on. That reads as a printed pattern at
+ * any size, and the calendar's reads as paper, so the calendar's wins.
+ *
+ * WHY THIS IS ITS OWN SHEET and not part of aspireMaterials.css, where a material
+ * normally lives: this one is used by the calendar foundation, which is in BOTH the staff
+ * and the portal bundles. The materials sheet is 8.2 KB of leather, felt, pins and
+ * ribbons that no portal renders, and the portals' first load is measured and budgeted
+ * (see scripts/portalCost.mjs). Half a kilobyte of stack is worth carrying there; eight
+ * of upholstery is not. Anything that already imports the materials sheet gets this one
+ * through it.
+ *
+ * HOW TO USE IT. Put `material-pagestack` on the element whose box the sheets should sit
+ * behind, and give the sheet itself `z-index: 1`. A parent's `::after` paints AFTER its
+ * children, so without that the underneath sheets draw ON TOP of the page; this is the
+ * same trap the chart's own comment already warns about.
+ *
+ * WHERE THE SHEETS SIT. Four inset tokens say where the sheet is inside the element:
+ * zero on a wrapper that IS the sheet's box (the calendars), and the board's padding on a
+ * cover or a binder that holds the sheet inside it (the rubric, the chart). The offsets
+ * are then measured from there, so one definition serves both shapes.
+ *
+ * A consumer PAIRS its override with this class (`.rb-cover.material-pagestack`), because
+ * `.rb-cover` alone and `.material-pagestack` are both one class and a tie is settled by
+ * source order. That is not a safe thing to rely on here: Vite's dev server injects an
+ * imported sheet in a different order from the one the production build inlines it in, so
+ * the same override that worked in a build silently did nothing in dev.
+ */
+
+.material-pagestack {
+  position: relative;
+  /* Where the top sheet's box is, measured from this element's padding box. */
+  --stack-inset-t: 0px;
+  --stack-inset-r: 0px;
+  --stack-inset-b: 0px;
+  --stack-inset-l: 0px;
+  /* The paper underneath. A shade off the top sheet, never white on white. */
+  --stack-paper: var(--aspire-page-band, #EEF1F8);
+}
+
+.material-pagestack::before,
+.material-pagestack::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  background: var(--stack-paper);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+/* The lower sheet: further down, further right, and the least light on it. */
+.material-pagestack::before {
+  left: calc(var(--stack-inset-l) + 6px);
+  right: calc(var(--stack-inset-r) - 7px);
+  top: calc(var(--stack-inset-t) + 9px);
+  bottom: calc(var(--stack-inset-b) - 8px);
+  filter: brightness(0.94);
+}
+
+/* The sheet immediately under the top one. */
+.material-pagestack::after {
+  left: calc(var(--stack-inset-l) + 3px);
+  right: calc(var(--stack-inset-r) - 3px);
+  top: calc(var(--stack-inset-t) + 5px);
+  bottom: calc(var(--stack-inset-b) - 4px);
+  filter: brightness(0.98);
+}
+
+/* The notepad's stack is a hair tighter than the calendar's, because the rings hold its
+   top edge and paper bound at the top cannot fan as far. */
+.material-pagestack-bound::before {
+  left: calc(var(--stack-inset-l) + 5px);
+  right: calc(var(--stack-inset-r) - 6px);
+  top: calc(var(--stack-inset-t) + 10px);
+  bottom: calc(var(--stack-inset-b) - 7px);
+}
+.material-pagestack-bound::after {
+  left: calc(var(--stack-inset-l) + 3px);
+  right: calc(var(--stack-inset-r) - 3px);
+  top: calc(var(--stack-inset-t) + 6px);
+  bottom: calc(var(--stack-inset-b) - 3px);
+}

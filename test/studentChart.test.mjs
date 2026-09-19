@@ -35,7 +35,7 @@ const roster = read('src/components/StudentListPanel.jsx')
 // ── BINDER: the object on screen ────────────────────────────────────────────
 
 test('BINDER 1: the binder is black leather with five rings, and the rings are decorative', () => {
-  assert.match(panel, /className="sc-binder material-leather-black"/)
+  assert.match(panel, /className="sc-binder material-leather-black material-pagestack"/)
   assert.equal((panel.match(/className="sc-ring"/g) || []).length, 5)
   assert.match(panel, /className="sc-rings" aria-hidden="true"/)
 })
@@ -392,24 +392,41 @@ test('PAPER 2: a real block keeps its box, and the mockup says which', () => {
 
 test('PAPER 3: the page stack is on the fore edge, which is the right', () => {
   const css = noComments(read('src/components/student/studentChart.css'))
-  // Round 6 (Owner): offset box-shadows drew a smear down the page's full height, which
-  // reads as a second border. The stack is the rubric's fore edge now - hairlines in the
-  // BOARD's padding, set short of the top and bottom so they read as loose sheets.
+  // PAGE-STACK-1 (Owner, 2026-09-19): "I like the stack of paper effect in the calendars.
+  // it's more realistic." The striped fore edge is gone and the binder reads the
+  // calendars' offset sheets from src/styles/pageStack.css. What this test protects is
+  // unchanged and is in its name: the sheets show on the RIGHT, because the rings are the
+  // spine and the spine is on the left.
   const paper = css.match(/\.sc-paper \{[\s\S]*?\}/)[0]
   assert.ok(!/box-shadow:[^;]*\dpx 0 0 -1px/.test(paper), 'the paper is drawing the stack again')
-  const stack = css.match(/\.sc-binder::after \{[\s\S]*?\}/)
+  assert.match(css, /@import '\.\.\/\.\.\/styles\/pageStack\.css';/)
+  const stack = css.match(/\.sc-binder\.material-pagestack \{[\s\S]*?\}/)
   assert.ok(stack, 'the sheet stack is gone')
-  assert.match(stack[0], /right: var\(--sc-board-pad\);/, 'the rings are the spine and they are on the left')
-  assert.ok(!/\bleft:/.test(stack[0]), 'a binder bound down its open edge')
-  assert.match(stack[0], /repeating-linear-gradient/, 'sheets are hairlines, not a smear')
-  assert.match(stack[0], /top: calc\(var\(--sc-board-pad\) \+ 5px\)/)
-  // The board must hold exactly the width the stack draws, or the sheets land on top of
-  // the page. Every rule that sets the padding derives it from the same two tokens.
+  // The shared definition only ever offsets down and to the right, so a stack that reads
+  // its inset tokens can never draw down the binder's bound edge.
+  const shared = noComments(read('src/styles/pageStack.css'))
+  for (const which of ['::before', '::after']) {
+    // Find the rule by what it CONTAINS, not by where it starts: the shared
+    // `::before, ::after` block puts `.material-pagestack::after {` at the start of a
+    // line too, and it carries no offsets, so both an anchor and a lazy match find it
+    // first. The offset rules are the ones that position from the inset tokens.
+    const found = shared.match(new RegExp(`\\.material-pagestack${which} \\{[^}]*--stack-inset-l[^}]*\\}`))
+    assert.ok(found, `the ${which} offsets are gone`)
+    const rule = found[0]
+    assert.match(rule, /right: calc\(var\(--stack-inset-r\) - \d+px\)/, 'the sheets stopped reaching past the right edge')
+    assert.match(rule, /bottom: calc\(var\(--stack-inset-b\) - \d+px\)/, 'the sheets stopped falling below')
+    assert.match(rule, /left: calc\(var\(--stack-inset-l\) \+ \d+px\)/, 'a binder bound down its open edge')
+  }
+  // The board must hold the room the stack draws into, on BOTH the right and the bottom,
+  // or the sheets land outside the leather. Every rule that sets the padding derives it
+  // from the same three tokens.
   for (const m of css.matchAll(/\.sc-binder \{[\s\S]*?\}/g)) {
     if (!/padding:/.test(m[0])) continue
-    assert.match(m[0], /padding: var\(--sc-board-pad\) calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-w\)\)/,
+    assert.match(m[0], /padding: var\(--sc-board-pad\) calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-w\)\) calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-h\)\)/,
       'a hand-written padding here and the stack disagree')
   }
+  assert.match(stack[0], /--stack-inset-r: calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-w\)\);/)
+  assert.match(stack[0], /--stack-inset-b: calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-h\)\);/)
   // and the page is above the pseudo-element whatever happens
   assert.match(paper, /z-index: 1;/)
 })

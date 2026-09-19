@@ -1183,7 +1183,7 @@ export default function StudentSidePanel({
           Black leather, five rings, sharp paper. The chrome is new; the form inside it
           is the one that has always been here, with every field, permission and save
           path unchanged. ──────────────────────────────────────────────────────── */}
-      <div className="sc-binder material-leather-black">
+      <div className="sc-binder material-leather-black material-pagestack">
         <div className="sc-rings" aria-hidden="true">
           <i className="sc-ring" /><i className="sc-ring" /><i className="sc-ring" />
           <i className="sc-ring" /><i className="sc-ring" />

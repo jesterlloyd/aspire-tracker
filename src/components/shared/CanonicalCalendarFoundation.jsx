@@ -89,14 +89,14 @@ export function CanonicalCalendarLayout({
           {/* The notepad. The rings straddle the sheet's TOP EDGE, so they are a sibling
               of the sheet inside the wrapper that carries the page stack, never a child
               of the sheet, which would clip them. */}
-          <div className="pl-padwrap">
+          <div className="pl-padwrap material-pagestack material-pagestack-bound">
             <span className="pl-rings" aria-hidden="true"><i /><i /></span>
             <div className="pl-sheet canonical-calendar-sidebar">
               {sidebar}
             </div>
           </div>
           {/* The calendar sheet. Nothing holds it down. */}
-          <div className="pl-holder">
+          <div className="pl-holder material-pagestack">
             <div className="pl-sheet canonical-calendar-main">
               <div className="canonical-calendar-toolbar">
                 {title && (

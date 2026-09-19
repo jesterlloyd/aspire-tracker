@@ -1163,7 +1163,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
       <div className="rb-stage" ref={stageRef}>
         <div className="rb-book">
-          <div className="rb-cover material-leather-tan">
+          <div className="rb-cover material-leather-tan material-pagestack">
             <div className="rb-spread">
 
               {/* The ribbon is sewn into the book, so it stays put while the page

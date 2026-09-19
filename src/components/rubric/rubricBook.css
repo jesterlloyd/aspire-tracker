@@ -19,6 +19,7 @@
  */
 
 @import '../../styles/aspireMaterials.css';
+@import '../../styles/pageStack.css';
 
 .rb-shell {
   /* The paper's proportions, not its pixels: 600 and 810 were the design widths, and
@@ -32,7 +33,11 @@
   /* The fore edges carry the page stack, so the side needs the stack's width on top
      of the leather to read as thick as the top and the bottom. */
   --rb-stack-w: 8px;
+  /* The sheets underneath fall down as well as out (PAGE-STACK-1), so the BOTTOM board
+     needs the same allowance the two sides have always had. */
+  --rb-stack-h: 8px;
   --rb-cover-pad-x: calc(var(--rb-cover-pad) + var(--rb-stack-w));
+  --rb-cover-pad-b: calc(var(--rb-cover-pad) + var(--rb-stack-h));
   display: flex;
   flex-direction: column;
   /* useBookScale measures what is left below the shell's own top edge and sets
@@ -94,7 +99,7 @@
 .rb-cover {
   position: relative;
   height: 100%;
-  padding: var(--rb-cover-pad) var(--rb-cover-pad-x);
+  padding: var(--rb-cover-pad) var(--rb-cover-pad-x) var(--rb-cover-pad-b);
   border-radius: var(--aspire-radius-book);
 }
 .rb-spread {
@@ -114,26 +119,25 @@
   border-radius: 0;
   background: var(--aspire-page);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  /* Above the sheets underneath. `.rb-cover::after` paints AFTER its children, so
+     without this the page stack draws ON TOP of the open pages. */
+  z-index: 1;
 }
-/* The pages underneath the two that are open. Three hairlines at each fore edge,
-   set a little short of the top and bottom so they read as sheets, not as a border. */
-.rb-cover::before,
-.rb-cover::after {
-  content: '';
-  position: absolute;
-  top: calc(var(--rb-cover-pad) + 5px);
-  bottom: calc(var(--rb-cover-pad) + 5px);
-  width: var(--rb-stack-w);
-  background: repeating-linear-gradient(90deg, #FFFFFF 0 1.5px, #CBC6BA 1.5px 2.5px);
-  pointer-events: none;
-}
-.rb-cover::before {
-  left: calc(var(--rb-cover-pad-x) - var(--rb-stack-w));
-  box-shadow: inset 1px 0 2px rgba(60, 50, 34, 0.25);
-}
-.rb-cover::after {
-  right: calc(var(--rb-cover-pad-x) - var(--rb-stack-w));
-  box-shadow: inset -1px 0 2px rgba(60, 50, 34, 0.25);
+/* The pages underneath the two that are open (PAGE-STACK-1, Owner, 2026-09-19).
+   These were two striped fore edges, a repeating gradient of hairlines standing in for
+   page edges seen side on. The calendars draw offset sheets instead, and the Owner's
+   verdict was that theirs is the more realistic of the two, so the book reads the
+   calendars' definition from src/styles/pageStack.css rather than keeping its own.
+   The sheets sit behind the whole spread rather than behind each page: a stack peeking
+   out to the right of the LEFT page would surface in the seam, which is the one place an
+   open book has no loose edge. `--rb-stack-w` still reserves the room in the cover's
+   padding, and the four inset tokens put the sheets inside that padding. */
+.rb-cover.material-pagestack {
+  --stack-inset-t: var(--rb-cover-pad);
+  --stack-inset-r: var(--rb-cover-pad-x);
+  --stack-inset-b: var(--rb-cover-pad-b);
+  --stack-inset-l: var(--rb-cover-pad-x);
+  --stack-paper: var(--aspire-page-band, #EEF1F8);
 }
 /* Every child is placed by hand: the seam and the ribbon share the candidate page's
    cell, so auto-placement would push the pages and the index into a second row. */

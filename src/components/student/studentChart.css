@@ -1,3 +1,5 @@
+@import '../../styles/aspireMaterials.css';
+@import '../../styles/pageStack.css';
 /* STUDENT-CHART-1 (2026-09-18): the student chart.
  *
  * The Student Profiles detail panel is a black leather ring binder holding loose sheets,
@@ -38,28 +40,31 @@
   border-radius: var(--aspire-radius-binder);
   --sc-board-pad: 14px;
   --sc-stack-w: 7px;
+  /* The sheets underneath fall down as well as out (PAGE-STACK-1), so the bottom board
+     needs the allowance the right board already had. */
+  --sc-stack-h: 8px;
   /* Rings live in the left gutter, so the left board is wider than the other three, and
      the right board carries the extra width the sheet stack needs. */
-  padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) var(--sc-board-pad) 30px;
+  padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) calc(var(--sc-board-pad) + var(--sc-stack-h)) 30px;
 }
 
 /* ── The sheets underneath ─────────────────────────────────────────────────── */
-/* The rubric's fore edge, borrowed (Owner, 2026-09-18). Offset box-shadows drew a smear
-   down the full height of the page, which reads as a second border rather than as paper;
-   hairlines set short of the top and bottom read as loose sheets, which is what they are.
-   The rings are the spine and the spine is on the left, so the stack can only show here. */
-.sc-binder::after {
-  content: '';
-  position: absolute;
-  top: calc(var(--sc-board-pad) + 5px);
-  bottom: calc(var(--sc-board-pad) + 5px);
-  right: var(--sc-board-pad);
-  width: var(--sc-stack-w);
-  background: repeating-linear-gradient(90deg,
-    var(--aspire-page) 0 1.5px,
-    var(--aspire-page-band) 1.5px 2.5px);
-  box-shadow: inset -1px 0 2px rgba(0, 0, 0, 0.30);
-  pointer-events: none;
+/* The calendars' page stack (PAGE-STACK-1, Owner, 2026-09-19): "I like the stack of paper
+   effect in the calendars. it's more realistic." This was a striped fore edge, borrowed
+   on 2026-09-18 from the rubric, which now reads the same shared definition, so the
+   three bound objects in the app show paper the same way. It is
+   src/styles/pageStack.css.
+   The offsets go down and to the RIGHT, which keeps the Owner's 2026-09-18 decision
+   intact: the rings are the spine, the spine is on the left, and the loose fore edges of
+   the sheets underneath can only show on the other side.
+   `--sc-stack-w` still reserves the room in the right board, and the inset tokens put the
+   sheets inside the board's padding rather than at the binder's own outer edge. */
+.sc-binder.material-pagestack {
+  --stack-inset-t: var(--sc-board-pad);
+  --stack-inset-r: calc(var(--sc-board-pad) + var(--sc-stack-w));
+  --stack-inset-b: calc(var(--sc-board-pad) + var(--sc-stack-h));
+  --stack-inset-l: 30px;
+  --stack-paper: var(--aspire-page-band, #EEF1F8);
 }
 
 /* Five rings down the spine. Decorative: the binder is a picture of a binder, and a
@@ -660,7 +665,7 @@
   .sc-binder {
     --sc-board-pad: 8px;
     --sc-stack-w: 5px;
-    padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) var(--sc-board-pad) 22px;
+    padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) calc(var(--sc-board-pad) + var(--sc-stack-h)) 22px;
   }
   .sc-rings { left: 5px; top: 18px; bottom: 18px; width: 12px; }
   .sc-ring { height: 12px; }
