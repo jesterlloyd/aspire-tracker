@@ -4,7 +4,7 @@ import { toLocalDateStr } from '../lib/designTokens'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 import { eventOnDate } from '../lib/aspireEvents'
 import { CanonicalCalendarSidebar } from './shared/CanonicalCalendarFoundation'
-import { INTERVIEW_LEGEND } from '../lib/interviewCalendarLegend'
+import { INTERVIEW_LEGEND, CAPACITY_STATES } from '../lib/interviewCalendarLegend'
 
 // ASPIRE-POLISH-6B: mini-calendar day indicators. Subtle 3px dots, priority-ordered, max 3 per day.
 // Colors: holiday = amber (matches the holiday chip); interview/booked = navy accent; ASPIRE event =
@@ -244,11 +244,16 @@ function TodaySnapshot({ slots, selectedDate }) {
                   const student = Array.isArray(s.students) ? s.students[0] : s.students
                   const name    = student ? `${student.first_name} ${student.last_name}` : 'Booked'
                   return (
-                    <div key={s.id} style={{ padding:'8px 10px', background:'#f0fdf4', borderRadius:'8px', borderLeft:'3px solid #16a34a' }}>
-                      <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'11px', color:'#166534', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                    // A BOOKED interview, so it wears the scheduled state, not the green
+                    // one that means a slot is still open.
+                    <div key={s.id} style={{ padding:'8px 10px', background:CAPACITY_STATES.scheduled.bg, borderRadius:'8px', borderLeft:`3px solid ${CAPACITY_STATES.scheduled.accent}` }}>
+                      <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'11px', color:CAPACITY_STATES.scheduled.accent, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                         {name}
                       </div>
-                      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'10px', color:'var(--paper-muted)', marginTop:'2px' }}>
+                      {/* The same sub-line class the open pill uses: a FIXED ink, because
+                          the pill's fill is fixed. `--paper-muted` here measured 2.26:1 in
+                          dark, lifting to a pale grey on a pale blue card. */}
+                      <div className="pl-slot-sub" style={{ fontFamily:'Plus Jakarta Sans', fontSize:'10px', marginTop:'2px' }}>
                         {fmt(s.slot_time)} · {s.interviewer_name || 'ASPIRE Team'}
                       </div>
                     </div>
@@ -274,8 +279,10 @@ function TodaySnapshot({ slots, selectedDate }) {
                 Open Slots
               </div>
               {openByInterviewer.map((group, i) => (
-                <div key={i} style={{ padding:'7px 10px', background:'rgba(30,42,110,.08)', borderRadius:'8px', borderLeft:'3px solid #1D2567', marginBottom:'3px' }}>
-                  <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'11px', color:'var(--paper-ink)' }}>
+                // An OPEN slot, so it wears the available state. It was a navy wash,
+                // which is the colour the legend gives a scheduled interview.
+                <div key={i} style={{ padding:'7px 10px', background:CAPACITY_STATES.available.bg, borderRadius:'8px', borderLeft:`3px solid ${CAPACITY_STATES.available.accent}`, marginBottom:'3px' }}>
+                  <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'11px', color:CAPACITY_STATES.available.accent }}>
                     {group.slots.length} open slot{group.slots.length !== 1 ? 's' : ''}
                   </div>
                   {/* The pill's OWN ink, one step darker than the sheet's muted grey.

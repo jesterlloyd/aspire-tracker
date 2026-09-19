@@ -44,7 +44,7 @@ const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 // Activity calendar offers the same act in the same colour from one definition.
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import SegmentedPicker from './shared/SegmentedPicker'
-import { CAPACITY_STATES, capacityState } from '../lib/interviewCalendarLegend'
+import { CAPACITY_STATES, capacityState, slotStyle } from '../lib/interviewCalendarLegend'
 
 // Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
@@ -771,10 +771,12 @@ function groupOverlapping(items) {
   })
   return groups
 }
+// PLANNER-CALENDAR-1: one definition, shared with the month cell and the legend. This
+// used to paint BOOKED green and OPEN blue, the opposite of both, so the legend's "green
+// means open availability" was contradicted by every booked interview on the week grid.
 function slotBg(status) {
-  if (status === 'booked')  return { bg:'#DCFCE7', bdr:'#86EFAC', txt:'#065F46' }
-  if (status === 'blocked') return { bg:'#FEF3C7', bdr:'#FCD34D', txt:'#92400E' }
-  return                           { bg:'#DBEAFE', bdr:'#BFDBFE', txt:'#1E3A8A' }
+  const st = slotStyle(status)
+  return { bg: st.bg, bdr: st.border, txt: st.accent }
 }
 
 function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability, events = [], onEventClick, isAdmin = false, onAddEvent, holidays = [] }) {

@@ -379,30 +379,56 @@
   overflow-x: hidden;
   scrollbar-width: thin;
 }
+/* Six kinds in TWO columns (Owner, 2026-09-19): one column was spending a third of the
+   notepad on a key, and the key is the least important thing on the sheet. Two columns
+   halve its height and give the rows back to the day. The columns are invisible: no rule
+   between them, just the grid. */
 .pl-legend {
   flex: none;
   display: grid;
-  gap: 6px;
-  margin-top: 14px;
-  padding-top: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--rule);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--paper-muted);
 }
-/* A pill's secondary line. `--paper-muted` is tuned for bare paper and lands at 4.31:1 on
-   the open-slot pill's tint on tan, so this line gets its own ink, which is the brief's
-   rule for a failing chip: move the chip's text, not the palette.
-   An EXPLICIT value, not a `color-mix`: color-mix computes to `color(srgb 0.69 0.70 0.78)`,
-   whose components are 0-1 floats rather than 0-255, and a contrast sweep that assumes
-   0-255 reads that as near-black and reports a 1.29:1 failure that is not there. A value
-   this file can be read for is worth more than one it can be clever about.
-   Measured on the pill: 7.95 slate, 7.41 tan, 7.63 forest, 6.56 dark. */
-.pl-planner .pl-slot-sub { color: #4A4636; }
-[data-theme="dark"] .pl-planner .pl-slot-sub { color: var(--paper-muted); }
-.pl-legend span { display: flex; gap: 7px; align-items: center; }
+/* A pill's secondary line, on any of the four capacity fills. Those fills are FIXED, so
+   this ink is fixed too: `--paper-muted` is themed and lifted to a pale grey on a pale
+   card in dark, measuring 2.26:1. ONE value for all four, because the pill already says
+   which state it is and a second colour saying it again buys nothing.
+   Measured: 6.96 scheduled, 7.24 available, 7.14 blocked, 6.93 fully booked, in both
+   themes, because both halves of the pair are fixed.
+   There used to be a SECOND copy of this rule further down, left from the round that
+   introduced it, and being later it won. One rule now. */
+.pl-planner .pl-slot-sub { color: #475569; }
+
+.pl-legend {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-size: 11px;
+  color: var(--paper-muted);
+}
+.pl-legend span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  /* A label that does not fit its column is clipped rather than wrapping to a second
+     line, which would make one column taller than the other and reopen the gap. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .pl-legend i {
-  width: 16px;
-  height: 12px;
+  width: 14px;
+  height: 11px;
   border-radius: var(--aspire-radius-tab);
   display: inline-block;
   border: 1px solid var(--rule);

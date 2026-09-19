@@ -18,10 +18,22 @@
 
 /** The month cell's capacity card, by the state of the day. */
 export const CAPACITY_STATES = {
-  fullyBooked: { bg: '#FEF2F2', accent: '#7F1D1D', label: 'Fully booked' },
-  blocked:     { bg: '#FFF7ED', accent: '#7C2D12', label: 'Blocked time' },
-  scheduled:   { bg: '#EFF6FF', accent: '#1E3A8A', label: 'Scheduled interview' },
-  available:   { bg: '#F0FDF4', accent: '#065F46', label: 'Open availability' },
+  fullyBooked: { bg: '#FEF2F2', accent: '#7F1D1D', border: '#FECACA', label: 'Fully booked' },
+  blocked:     { bg: '#FFF7ED', accent: '#7C2D12', border: '#FED7AA', label: 'Blocked time' },
+  scheduled:   { bg: '#EFF6FF', accent: '#1E3A8A', border: '#BFDBFE', label: 'Scheduled interview' },
+  available:   { bg: '#F0FDF4', accent: '#065F46', border: '#86EFAC', label: 'Open availability' },
+}
+
+/**
+ * One slot, in the colours of the state it is in. The week view and the day panel used to
+ * paint a BOOKED slot green and an OPEN one blue, which is the exact opposite of both the
+ * month cell and the legend: the same page said green meant two different things (Owner,
+ * 2026-09-19). A slot's status maps onto the same four states everything else uses.
+ */
+export function slotStyle(status) {
+  if (status === 'booked')  return CAPACITY_STATES.scheduled
+  if (status === 'blocked') return CAPACITY_STATES.blocked
+  return CAPACITY_STATES.available
 }
 
 /**
