@@ -80,7 +80,10 @@ function ShiftMark({ mark }) {
     <span
       className="ngrp-shift-mark"
       title={`${mark.name} · ${mark.shift ? badge.label : 'shift not recorded'}`}
-      style={{ background: `${color}1a`, color }}
+      // The shift's colour is the EDGE, and the words are the paper's ink. Colouring the
+      // text the same hue as its own 10% tint can only ever be low contrast: measured
+      // 3.73:1 on forest paper. The event chips beside it already work this way.
+      style={{ background: `${color}1a`, color: 'var(--paper-ink, #374151)', borderLeft: `3px solid ${color}` }}
     >
       {firstNameOf(mark.name) || mark.name} {mark.shift ? badge.label.split(' ')[0] : ''}
     </span>
@@ -92,7 +95,7 @@ function DayModal({ date, events, holidays, marks = [], canManage, onAdd, onEdit
     <ModalShell label={`Activity on ${longDate(date)}`} onClose={onClose} width={560}>
       <div style={{ flexShrink: 0, padding: '16px 20px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#8B8F99' }}>Activity</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--paper-muted, #8B8F99)' }}>Activity</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#1D2567', marginTop: 2 }}>{longDate(date)}</div>
         </div>
         {canManage && <AddEventButton onClick={onAdd} style={{ marginLeft: 'auto' }} />}
@@ -101,8 +104,8 @@ function DayModal({ date, events, holidays, marks = [], canManage, onAdd, onEdit
         {holidays.map(h => (
           <div key={h.name} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 0', borderBottom: '1px solid #F3F4F6' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: HOLIDAY_COLOR, flexShrink: 0 }} aria-hidden="true" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{h.name}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#8B8F99' }}>US Holiday</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--paper-ink, #374151)' }}>{h.name}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--paper-muted, #8B8F99)' }}>US Holiday</span>
           </div>
         ))}
         {events.map(ev => (
@@ -118,20 +121,20 @@ function DayModal({ date, events, holidays, marks = [], canManage, onAdd, onEdit
           >
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: eventColor(ev), flexShrink: 0 }} aria-hidden="true" />
             <span style={{ minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151' }}>{ev.title}</span>
-              <span style={{ display: 'block', fontSize: 11.5, color: '#6B7785' }}>{eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}</span>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--paper-ink, #374151)' }}>{ev.title}</span>
+              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--paper-muted, #6B7785)' }}>{eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}</span>
             </span>
           </button>
         ))}
         {marks.map(m => (
           <div key={m.candidate_id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 0', borderBottom: '1px solid #F3F4F6' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: shiftColor(m.shift), flexShrink: 0 }} aria-hidden="true" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{m.name}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#8B8F99' }}>{m.shift ? `${shiftBadge(m.shift).label} shift` : 'Working, shift not recorded'}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--paper-ink, #374151)' }}>{m.name}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--paper-muted, #8B8F99)' }}>{m.shift ? `${shiftBadge(m.shift).label} shift` : 'Working, shift not recorded'}</span>
           </div>
         ))}
         {!events.length && !holidays.length && !marks.length && (
-          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#9CA3AF' }}>Nothing scheduled.</p>
+          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: 'var(--paper-muted, #9CA3AF)' }}>Nothing scheduled.</p>
         )}
       </div>
     </ModalShell>
@@ -244,6 +247,9 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
   return (
     <>
       <CanonicalCalendarLayout
+        // PLANNER-CALENDAR-1: forest, the residency paper. Same component as Interviews
+        // and Rotation; the paper is the only per-surface style difference.
+        paper="forest"
         title="Activity"
         description={cycle?.name ? `Workshops, town halls and bootcamps across ${cycle.name}.` : 'Workshops, town halls and bootcamps.'}
         labelledBy="ngrp-activity-title"
@@ -296,6 +302,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
               }) }}
             />
             <CanonicalCalendarTodayPanel
+              kicker={selected === today ? 'Today' : 'Selected day'}
               dateLabel={longDate(selected)}
               summary={(() => {
                 const n = eventsOn(selected).length + holidaysOn(selected).length + marksOn(selected).length
@@ -306,7 +313,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
               {holidaysOn(selected).map(h => (
                 <div key={h.name} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', fontFamily: F }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: HOLIDAY_COLOR, flexShrink: 0 }} aria-hidden="true" />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{h.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--paper-ink, #374151)' }}>{h.name}</span>
                 </div>
               ))}
               {eventsOn(selected).map(ev => (
@@ -319,11 +326,11 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
                     padding: '6px 0', cursor: canManage ? 'pointer' : 'default', fontFamily: F,
                   }}
                 >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: 'var(--paper-ink, #374151)' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: eventColor(ev), flexShrink: 0 }} aria-hidden="true" />
                     {ev.title}
                   </span>
-                  <span style={{ display: 'block', fontSize: 11.5, color: '#6B7785', marginLeft: 15 }}>
+                  <span style={{ display: 'block', fontSize: 11.5, color: 'var(--paper-muted, #6B7785)', marginLeft: 15 }}>
                     {eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}
                   </span>
                 </button>
@@ -331,16 +338,24 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
               {marksOn(selected).map(m => (
                 <div key={m.candidate_id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', fontFamily: F, fontSize: 13 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: shiftColor(m.shift), flexShrink: 0 }} aria-hidden="true" />
-                  <span style={{ fontWeight: 600, color: '#374151' }}>{m.name}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#6B7785' }}>{m.shift ? shiftBadge(m.shift).label : 'Working'}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--paper-ink, #374151)' }}>{m.name}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--paper-muted, #6B7785)' }}>{m.shift ? shiftBadge(m.shift).label : 'Working'}</span>
                 </div>
               ))}
             </CanonicalCalendarTodayPanel>
+            <div className="pl-legend">
+              <span title="An event is coloured by its type: Workshop, Town Hall, Bootcamp and the rest.">
+                <i aria-hidden="true" style={{ background: 'rgba(71,85,105,0.14)', borderLeft: '3px solid #475569' }} />Residency event
+              </span>
+              <span><i aria-hidden="true" style={{ background: 'rgba(29,37,103,0.10)', borderLeft: '3px solid #1D2567' }} />Resident working</span>
+              <span><i aria-hidden="true" style={{ background: '#FEF3C7', borderLeft: '3px solid #D97706' }} />US holiday</span>
+            </div>
           </CanonicalCalendarSidebar>
         }
       >
+        <div className="pl-calbox">
         <CanonicalWeekdayHeader />
-        <div role="grid" aria-label={`${monthName} activity`} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+        <div className="pl-monthgrid" role="grid" aria-label={`${monthName} activity`} style={{ gridTemplateColumns: 'repeat(7, 1fr)', '--weeks': Math.ceil(cells.length / 7) }}>
           {cells.map((date, i) => date === null
             ? <CanonicalMonthCell key={`pad-${i}`} isOtherMonth />
             : (
@@ -364,10 +379,14 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
                   ))}
                   {marksOn(date).slice(0, 3).map(m => <ShiftMark key={m.candidate_id} mark={m} />)}
                   {marksOn(date).length > 3 && (
-                    <span className="ngrp-shift-mark" style={{ background: '#F3F4F6', color: '#6B7785' }}>+{marksOn(date).length - 3} working</span>
+                    <span className="ngrp-shift-mark" style={{ background: 'rgba(30,42,110,0.06)', color: 'var(--paper-muted, #6B7785)' }}>+{marksOn(date).length - 3} working</span>
                   )}
+                  {/* Tinted by the event's own type, the way the Interviews calendar
+                      draws one. A workshop, a town hall and a bootcamp are three of the
+                      eleven ASPIRE event types, not a taxonomy of their own, so the chip
+                      reads the type rather than inventing a kind. */}
                   {eventsOn(date).slice(0, 2).map(ev => (
-                    <CanonicalActivityChip key={ev.id} label={ev.title} />
+                    <CanonicalActivityChip key={ev.id} label={ev.title} color={eventColor(ev)} />
                   ))}
                   {eventsOn(date).length > 2 && (
                     <CanonicalActivityChip label={`+${eventsOn(date).length - 2} more`} secondary />
@@ -385,6 +404,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
                 )}
               </div>
             ))}
+        </div>
         </div>
       </CanonicalCalendarLayout>
 

@@ -357,11 +357,22 @@ export function CanonicalHolidayChip({ name, observed = false }) {
  * carries the full accessible meaning ("Jordan Cruz with Susie, fourth logged shift") while the
  * compact visual (initials + secondary + ordinal badge) can truncate on narrow cells.
  */
-export function CanonicalActivityChip({ label, live = false, secondary = null, ordinal = null, ariaLabel = null }) {
+/**
+ * `color` tints the chip by the thing it represents, which is how the Interviews calendar
+ * already draws an ASPIRE event: the colour comes from the event's TYPE. Passing none
+ * keeps the exact navy-on-wash chip every current caller renders.
+ */
+export function CanonicalActivityChip({ label, live = false, secondary = null, ordinal = null, ariaLabel = null, color = null }) {
+  const tint = (hex, a) => {
+    const h = String(hex).replace('#', '')
+    const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
+  }
   const base = {
     display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: '100%',
-    background: live ? '#dcfce7' : '#e8eaf6',
-    color: live ? '#166534' : '#1d2567',
+    background: color ? tint(color, 0.14) : (live ? '#dcfce7' : '#e8eaf6'),
+    color: color ? 'var(--paper-ink, #1d2567)' : (live ? '#166534' : '#1d2567'),
+    borderLeft: color ? `3px solid ${color}` : undefined,
     boxShadow: live ? 'inset 0 0 0 1px #86efac' : 'none',
     fontSize: 9, fontWeight: 700, letterSpacing: '0.02em',
     padding: '1px 5px', borderRadius: 4, lineHeight: 1.4, whiteSpace: 'nowrap',
