@@ -100,9 +100,13 @@
   --stack-inset-b: 0px;
   --stack-inset-l: 0px;
   --fore-w: 13px;
-  /* How far the block stops short of the page's own top and bottom. A block exactly as
-     tall as the page reads as a border; a little shorter reads as paper. */
-  --fore-crop: 6px;
+  /* How far the block stops short of the page's own top and bottom. Owner, 2026-09-19:
+     at 6px "it feels like the page is not laying on top of the stack because it's too
+     low on top and too high at the bottom", which is right, and is what a physical book
+     does NOT do: the top sheet and the block under it are the same height, and you see
+     the block because it is WIDER, not because it is taller or shorter. 1px is enough to
+     keep the corners from reading as one square block with the page. */
+  --fore-crop: 1px;
 }
 
 .material-forestack::before,

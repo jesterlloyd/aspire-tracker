@@ -368,6 +368,25 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   const shared = read('src/styles/pageStack.css')
   assert.match(shared, /\.material-forestack::before \{[\s\S]*?left: calc\(var\(--stack-inset-l\) - var\(--fore-w\)\);/)
   assert.match(shared, /\.material-forestack::after \{[\s\S]*?right: calc\(var\(--stack-inset-r\) - var\(--fore-w\)\);/)
+  // The page LAYS ON the block (Owner, 2026-09-19): at a 6px crop "it feels like the page
+  // is not laying on top of the stack because it's too low on top and too high at the
+  // bottom". A physical book's top sheet and the block under it are the same height; you
+  // see the block because it is WIDER. One pixel, not six.
+  const crop = shared.match(/--fore-crop: (\d+)px;/)
+  assert.ok(crop && Number(crop[1]) <= 2, `the block sits ${crop?.[1]}px in from the page; it should lie under it`)
+  // The cover is hide, not cork: a uniform fine speckle on a flat tone is what cork is.
+  const materials = read('src/styles/aspireMaterials.css')
+  const tan = materials.match(/\.material-leather-tan \{[\s\S]*?\n\}/)[0]
+  assert.match(tan, /var\(--aspire-noise-hide\)/, 'the cover went back to dust')
+  assert.ok(!tan.includes('--aspire-noise-fine'), 'the fine speckle is what read as cork')
+  // Lit from one side: the same texture twice, offset, is what makes a relief out of a
+  // pattern. One copy is not a grain, it is a stain.
+  assert.equal((tan.match(/var\(--aspire-noise-hide\)/g) || []).length, 2)
+  assert.match(tan, /background-position: -2px -2px, 2px 2px/)
+  const brand = read('src/styles/aspireBrand.css')
+  const hide = brand.match(/--aspire-noise-hide:[^\n]*/)[0]
+  const freq = Number(hide.match(/baseFrequency='\.(\d+)'/)[1].padEnd(2, '0')) / 100
+  assert.ok(freq > 0.1 && freq < 0.4, `a ${(1 / freq).toFixed(1)}px cell is dust or cloud, not a pebble`)
   assert.match(bookCss, /padding: var\(--rb-cover-pad\) var\(--rb-cover-pad-x\);/)
   assert.ok(!bookCss.includes('--rb-cover-pad-b'), 'the book grew a bottom edge again')
   assert.match(bookCss, /\.rb-spread \{[\s\S]*?z-index: 1;/)

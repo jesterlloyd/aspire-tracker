@@ -252,7 +252,11 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
   assert.match(materials, /\.material-board-head \{[^}]*background: var\(--aspire-board-head\);[^}]*color: var\(--aspire-on-board-strong\);/)
   assert.match(read('src/components/EmbedUnitCard.jsx'), /<header className="material-board-head pb-unit-hdr">/)
   assert.ok(!/\.material-board-head[^{]*\{[^}]*::before/.test(materials), 'no piping on a board header')
-  assert.ok(!/multiply/.test(materials), 'no multiply blend: that is what made the felt heavy')
+  // The RULE is about declarations, not prose. A comment that records why multiply was
+  // rejected on a surface is exactly what should survive in this file, and the first
+  // draft of this test failed one written on the leather. Strip comments, then look.
+  const decls = materials.replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.ok(!/multiply/.test(decls), 'no multiply blend: that is what made the felt heavy')
   assert.ok(!materials.includes('noise') || !/\.material-navy-flat \{[^}]*noise/.test(materials),
     'no texture on the header')
   assert.ok(!/url\((?!"data:|%23|\s*var)/.test(materials + CSS()), 'textures are inline data URIs, no image files')
