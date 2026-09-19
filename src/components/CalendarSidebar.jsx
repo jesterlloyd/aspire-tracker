@@ -4,6 +4,7 @@ import { toLocalDateStr } from '../lib/designTokens'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 import { eventOnDate } from '../lib/aspireEvents'
 import { CanonicalCalendarSidebar } from './shared/CanonicalCalendarFoundation'
+import { INTERVIEW_LEGEND } from '../lib/interviewCalendarLegend'
 
 // ASPIRE-POLISH-6B: mini-calendar day indicators. Subtle 3px dots, priority-ordered, max 3 per day.
 // Colors: holiday = amber (matches the holiday chip); interview/booked = navy accent; ASPIRE event =
@@ -295,21 +296,15 @@ function TodaySnapshot({ slots, selectedDate }) {
 }
 
 // ─── The legend ───────────────────────────────────────────────────────────────
-// PLANNER-CALENDAR-1: the notepad closes with the surface's entry kinds. These are the
-// four an Interviews reader meets, in the colours they wear in the grid, and they do NOT
-// change with the paper: a scheduled interview is the same navy on slate, tan or forest.
-const LEGEND = [
-  { fill: '#EFF3FB', edge: '#1E2A6E', label: 'Scheduled interview' },
-  { fill: '#E1F3EA', edge: '#0F7A4D', label: 'Open availability' },
-  { fill: '#FBF4E6', edge: '#8F5A0A', label: 'ASPIRE event' },
-  { fill: '#FEF3C7', edge: 'transparent', label: 'Federal holiday' },
-]
+// The entries come from src/lib/interviewCalendarLegend.js, which the month cell reads
+// too. A legend with swatches of its own invents a code the grid does not use, which is
+// what the first version did: four colours, none of them the ones a cell paints.
 
 function CalendarLegend() {
   return (
     <div className="pl-legend">
-      {LEGEND.map(({ fill, edge, label }) => (
-        <span key={label}>
+      {INTERVIEW_LEGEND.map(({ fill, edge, label, note }) => (
+        <span key={label} title={note || undefined}>
           <i aria-hidden="true" style={{ background: fill, borderLeft: `3px solid ${edge}` }} />
           {label}
         </span>

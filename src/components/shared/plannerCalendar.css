@@ -320,6 +320,28 @@
   backdrop-filter: blur(2px);
 }
 
+/* ── SEGMENTED-PICKER-1, on paper ──────────────────────────────────────────── */
+/* The pressed segment is NIGHTFALL and white, which is the canon the Rotation and Student
+   Profiles pickers set; a paper sheet does not get to invent a different pressed state.
+   It is a fixed navy rather than `--color-accent-primary`, because that token lifts to
+   #6B8EFF in dark and white on it measures 3.03:1.
+   The resting segment is the same wash as the other paper controls: 55% white on a light
+   sheet, 6% on a dark one, NOT a near-white block dropped on dark paper. */
+/* Only the frame. The radius and the clipping are the component's, set once for both
+   variants, and restating them here would be a second copy of the picker's geometry. */
+.pl-seg { border: 1px solid var(--rule); }
+.pl-seg-btn {
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--paper-muted);
+}
+.pl-seg-btn:hover[aria-pressed="false"] { color: var(--paper-ink); }
+.pl-seg-btn[aria-pressed="true"] {
+  background: #1D2567;
+  color: #fff;
+}
+[data-theme="dark"] .pl-seg-btn { background: rgba(255, 255, 255, 0.06); }
+[data-theme="dark"] .pl-seg-btn[aria-pressed="true"] { background: #2B3573; color: #fff; }
+
 /* ── The calendar box is a CONSTANT size ───────────────────────────────────── */
 /* Owner, 2026-09-18: "I want that the outline or calendar size does not change when I
    switch from month to week view, to give the illusion that it's an object."

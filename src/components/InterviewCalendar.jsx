@@ -44,6 +44,7 @@ const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 // Activity calendar offers the same act in the same colour from one definition.
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import SegmentedPicker from './shared/SegmentedPicker'
+import { CAPACITY_STATES, capacityState } from '../lib/interviewCalendarLegend'
 
 // Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
@@ -62,7 +63,7 @@ function AspireEventChip({ ev, compact = false, onClick }) {
         overflow: 'hidden', fontFamily: 'Plus Jakarta Sans, sans-serif',
       }}
     >
-      <span style={{ fontSize: compact ? 9 : 11, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <span style={{ fontSize: compact ? 9 : 11, fontWeight: 600, color: 'var(--paper-ink, #374151)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {ev.title}
       </span>
     </button>
@@ -840,14 +841,13 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
           const interviewers = [...ivMap.entries()]
 
           // Card tint per dominant state
-          const cardBg = isFullyBooked ? '#FEF2F2'
-            : blocked.length > 0   ? '#FFF7ED'
-            : scheduled.length > 0 ? '#EFF6FF'
-            : '#F0FDF4'
-          const accentColor = isFullyBooked ? '#7F1D1D'
-            : blocked.length > 0   ? '#7C2D12'
-            : scheduled.length > 0 ? '#1E3A8A'
-            : '#065F46'
+          // PLANNER-CALENDAR-1: one definition, shared with the legend, so the swatch a
+          // reader is taught is the fill the day actually wears.
+          const capacity = CAPACITY_STATES[capacityState({
+            scheduled: scheduled.length, available: available.length, blocked: blocked.length,
+          })]
+          const cardBg = capacity.bg
+          const accentColor = capacity.accent
 
           const isHovered = hoveredDate === dateStr
 
@@ -915,7 +915,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                   {isFullyBooked ? (
                     <>
                       <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:10, fontWeight:700, color:'#930045', lineHeight:1.2 }}>Fully Booked</div>
-                      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, color:'var(--paper-muted)', lineHeight:1.2 }}>{scheduled.length} interview{scheduled.length!==1?'s':''}</div>
+                      <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:9, color:accentColor, opacity:0.85, lineHeight:1.2 }}>{scheduled.length} interview{scheduled.length!==1?'s':''}</div>
                     </>
                   ) : (
                     <>
@@ -947,7 +947,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                         }}>{getInitials(name)}</span>
                       ))}
                       {interviewers.length > 3 && (
-                        <span style={{ fontSize:8, color:'var(--paper-muted)', fontWeight:600 }}>+{interviewers.length-3}</span>
+                        <span style={{ fontSize:8, color:accentColor, fontWeight:600 }}>+{interviewers.length-3}</span>
                       )}
                     </div>
                   )}
@@ -1691,7 +1691,11 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                 value={currentView}
                 onChange={view => {
                   if (view === 'timeGridWeek' && currentView === 'dayGridMonth') {
-                    setWeekStart(getWeekStart(displayDate))
+                    // The week the READER is on, which is the selected day's week and
+                    // defaults to today's. `displayDate` is the month cursor, and month
+                    // navigation parks it on the 1st: opening Week from September landed
+                    // on "Aug 30 - Sep 5", a week already gone.
+                    setWeekStart(getWeekStart(selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date()))
                     setCurrentView('timeGridWeek')
                   } else if (view === 'dayGridMonth') {
                     setCurrentView('dayGridMonth')
