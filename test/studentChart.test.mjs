@@ -392,9 +392,26 @@ test('PAPER 2: a real block keeps its box, and the mockup says which', () => {
 
 test('PAPER 3: the page stack is on the fore edge, which is the right', () => {
   const css = noComments(read('src/components/student/studentChart.css'))
+  // Round 6 (Owner): offset box-shadows drew a smear down the page's full height, which
+  // reads as a second border. The stack is the rubric's fore edge now - hairlines in the
+  // BOARD's padding, set short of the top and bottom so they read as loose sheets.
   const paper = css.match(/\.sc-paper \{[\s\S]*?\}/)[0]
-  assert.match(paper, /box-shadow:\s*\n?\s*3px 0 0 -1px/)
-  assert.ok(!/-3px 0 0 -1px/.test(paper), 'the rings are the spine and they are on the left')
+  assert.ok(!/box-shadow:[^;]*\dpx 0 0 -1px/.test(paper), 'the paper is drawing the stack again')
+  const stack = css.match(/\.sc-binder::after \{[\s\S]*?\}/)
+  assert.ok(stack, 'the sheet stack is gone')
+  assert.match(stack[0], /right: var\(--sc-board-pad\);/, 'the rings are the spine and they are on the left')
+  assert.ok(!/\bleft:/.test(stack[0]), 'a binder bound down its open edge')
+  assert.match(stack[0], /repeating-linear-gradient/, 'sheets are hairlines, not a smear')
+  assert.match(stack[0], /top: calc\(var\(--sc-board-pad\) \+ 5px\)/)
+  // The board must hold exactly the width the stack draws, or the sheets land on top of
+  // the page. Every rule that sets the padding derives it from the same two tokens.
+  for (const m of css.matchAll(/\.sc-binder \{[\s\S]*?\}/g)) {
+    if (!/padding:/.test(m[0])) continue
+    assert.match(m[0], /padding: var\(--sc-board-pad\) calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-w\)\)/,
+      'a hand-written padding here and the stack disagree')
+  }
+  // and the page is above the pseudo-element whatever happens
+  assert.match(paper, /z-index: 1;/)
 })
 
 test('PAPER 4: the ribbon hangs from the board, not from the paper', () => {
@@ -636,7 +653,8 @@ test('TIDY 2: every document row ends in the same "↓ Download"', () => {
   assert.ok(!code.includes('↓ Resume'), 'the resume row used to name itself in its button')
   assert.ok(!code.includes('Download Certificate of Completion<'), 'the certificate row too')
   for (const label of ['Resume', 'Headshot', 'ID Badge', 'Certificate of Completion']) {
-    assert.ok(code.includes(`<div className="doc-area-label">${label}</div>`), `missing row: ${label}`)
+    assert.ok(new RegExp(`className="doc-area-label">\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(code),
+      `missing row: ${label}`)
   }
   // Download and Replace are ONE rule, so they cannot drift apart in size or corner.
   const index = noComments(read('src/index.css'))
@@ -689,7 +707,7 @@ test('TIDY 6: Availability is one comparison, not two labelled halves', () => {
   // one row per constraint, both sources on the row
   assert.match(code, /<table className="sc-avail">/)
   for (const row of ['Unavailable weekdays', 'Minimum clinical days/week', 'Weekends',
-    'Nights', 'Blackout dates', 'Preferred days', 'Shift preference', 'Scheduling notes']) {
+    'Nights', 'Blackout dates', 'Preferred days', 'Scheduling notes']) {
     assert.ok(code.includes(`scope="row">${row}<`), `missing constraint row: ${row}`)
   }
   // the two uppercase half-headings are gone
@@ -779,4 +797,62 @@ test('INK 7: no component in the chart puts a themed ink on a fixed box', () => 
   }
   assert.deepEqual(bad, [],
     `a fixed background carrying a themed ink is invisible in one theme:\n  ${bad.join('\n  ')}`)
+})
+
+// ── TIDY, round six (Owner, 2026-09-18) ────────────────────────────────────
+
+test('TIDY 11: shift preference is a scheduling constraint, and sits with the others', () => {
+  const code = noComments(panel)
+  const background = code.slice(code.indexOf('id="sc-sheet-background"'), code.indexOf('id="sc-sheet-placement"'))
+  const profile = code.slice(code.indexOf('id="sc-sheet-profile"'), code.indexOf('id="sc-sheet-background"'))
+  assert.match(background, /htmlFor=\{`sp-shift-\$\{student\.id\}`\}/)
+  assert.match(background, /handleSelect\('shift_availability'/)
+  assert.ok(!/shift_availability/.test(profile), 'it is back under Personal Information')
+  // It is still EDITABLE, and it sits in the Student column of the table rather than in a
+  // row parked underneath it, which lined up with nothing.
+  assert.match(background, /<select id=\{`sp-shift-\$\{student\.id\}`\} className="sp-select sc-avail-select"/)
+  assert.match(background, /<th className="sc-avail-rh" scope="row">\s*\n\s*<label htmlFor=\{`sp-shift-/)
+  // and it says the program does not set it, like every other one-sided row
+  const row = background.slice(background.indexOf('sp-shift-'))
+  assert.match(row.slice(0, 400), /className="sc-avail-na">—<\/td>/)
+})
+
+test('TIDY 12: a generated document carries its note under its name', () => {
+  const code = noComments(panel)
+  for (const [label, note] of [
+    ['ID Badge', 'Needs headshot and rotation dates.'],
+    ['Certificate of Completion', 'Available after post-rotation evaluation completion.'],
+  ]) {
+    const at = code.search(new RegExp(`className="doc-area-label">\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+    assert.ok(at > 0, `${label} row is gone`)
+    const block = code.slice(at, at + 600)
+    assert.match(block, /className="doc-row-note"/, `${label}'s note left its name column`)
+    assert.ok(block.includes(note), `${label}'s note is not the Owner's wording`)
+    // the middle column stays, empty, so the action columns do not move
+    assert.match(block, /<div className="doc-existing-file" \/>/)
+  }
+  const css = noComments(read('src/components/student/studentChart.css'))
+  assert.match(css, /\.sc-sheet \.doc-row-note \{[\s\S]*?display: block;/)
+  // A long note must never wrap the row: a flex line wraps on hypothetical sizes before
+  // it shrinks anything, so the middle column's basis is ZERO, not auto.
+  assert.match(css, /\.sc-sheet \.doc-existing-file \{[\s\S]*?flex: 1 1 0;/)
+})
+
+test('TIDY 13: the binder ends on paper, not on a band of bare page', () => {
+  const css = noComments(read('src/components/student/studentChart.css'))
+  const tail = css.match(/\.sc-tail \{[\s\S]*?\}/)
+  assert.ok(tail, '.sc-tail is gone')
+  assert.match(tail[0], /background: var\(--aspire-sheet-notes\);/,
+    'a transparent tail shows the page white under a tinted sheet')
+})
+
+test('TIDY 14: the prev/next footer is gone, and so are the props that fed it', () => {
+  const code = noComments(panel)
+  assert.ok(!code.includes('sp-nav-row'), 'the second navigation is back at the end of the record')
+  assert.ok(!code.includes('sortedStudents'), 'the roster prop outlived the control that used it')
+  assert.ok(!code.includes('onSelectStudent'))
+  // and the call site stopped passing them
+  assert.ok(!noComments(tab).includes('sortedStudents={'))
+  // the Danger Zone is still the last thing in the binder
+  assert.match(code, /sp-danger-zone/)
 })

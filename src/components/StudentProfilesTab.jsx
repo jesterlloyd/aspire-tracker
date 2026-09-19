@@ -418,8 +418,6 @@ export default function StudentProfilesTab({
                  interview rubric; the two are different props for a reason. */
               <StudentSidePanel
                 student={selectedStudent}
-                sortedStudents={displayedStudents}
-                onSelectStudent={selectStudent}
                 onClose={() => {}} // no-op; drawer is always open
                 onUpdate={onUpdate}
                 onRefreshStudents={onRefresh}

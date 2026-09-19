@@ -36,8 +36,30 @@
   height: 100%;
   display: flex;
   border-radius: var(--aspire-radius-binder);
-  /* Rings live in the left gutter, so the left board is wider than the other three. */
-  padding: 14px 14px 14px 30px;
+  --sc-board-pad: 14px;
+  --sc-stack-w: 7px;
+  /* Rings live in the left gutter, so the left board is wider than the other three, and
+     the right board carries the extra width the sheet stack needs. */
+  padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) var(--sc-board-pad) 30px;
+}
+
+/* ── The sheets underneath ─────────────────────────────────────────────────── */
+/* The rubric's fore edge, borrowed (Owner, 2026-09-18). Offset box-shadows drew a smear
+   down the full height of the page, which reads as a second border rather than as paper;
+   hairlines set short of the top and bottom read as loose sheets, which is what they are.
+   The rings are the spine and the spine is on the left, so the stack can only show here. */
+.sc-binder::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--sc-board-pad) + 5px);
+  bottom: calc(var(--sc-board-pad) + 5px);
+  right: var(--sc-board-pad);
+  width: var(--sc-stack-w);
+  background: repeating-linear-gradient(90deg,
+    var(--aspire-page) 0 1.5px,
+    var(--aspire-page-band) 1.5px 2.5px);
+  box-shadow: inset -1px 0 2px rgba(0, 0, 0, 0.30);
+  pointer-events: none;
 }
 
 /* Five rings down the spine. Decorative: the binder is a picture of a binder, and a
@@ -70,6 +92,11 @@
    open edge. */
 .sc-paper {
   position: relative;
+  /* Above `.sc-binder::after`. Both are positioned with `z-index: auto`, so paint order
+     is DOM order and a pseudo-element is always last: the sheets would draw ON TOP of the
+     page the moment the board's padding and the stack's width ever disagreed. The ribbon
+     sits at 6 and still hangs over everything. */
+  z-index: 1;
   flex: 1;
   min-width: 0;
   /* The plate reflows against the PAPER's width, not the window's: the chart is one half
@@ -82,10 +109,9 @@
   border: 1px solid var(--aspire-binder-edge);
   border-radius: 0;
   overflow: hidden;
-  box-shadow:
-    3px 0 0 -1px var(--aspire-page-band),
-    4px 0 0 -1px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(0, 0, 0, 0.25);
+  /* Just the page's own edge. The sheets underneath are drawn by `.sc-binder::after`,
+     in the board's padding, where loose paper actually sits. */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
 }
 
 /* ── The name plate ────────────────────────────────────────────────────────── */
@@ -253,8 +279,14 @@
    last sheet is not the last element. */
 .sc-sheet[data-sheet="notes"] { border-bottom: none; min-height: 60vh; }
 
-/* The footer that is not a sheet: Danger Zone, the download toast, prev/next. */
-.sc-tail { padding: 4px 8px 20px; }
+/* The footer that is not a sheet: the Danger Zone and the download toast. It is not a
+   sheet, but it is still ON the last one, so it carries the Notes tint. Left transparent
+   it showed the paper's own white under a tinted sheet, which read at the bottom of the
+   binder as a band of shadow rather than as the end of the page (Owner, 2026-09-18). */
+.sc-tail {
+  padding: 4px 8px 20px;
+  background: var(--aspire-sheet-notes);
+}
 
 .sc-sheet[data-sheet="profile"]     { background: var(--aspire-sheet-profile); }
 .sc-sheet[data-sheet="background"]  { background: var(--aspire-sheet-background); }
@@ -370,8 +402,12 @@
   font-size: 13px;
   font-weight: 600;
 }
+/* `flex-basis: 0`, not `auto`. A flex line wraps on the items' HYPOTHETICAL sizes before
+   it shrinks anything, so with `auto` a long note made the row measure wider than the
+   sheet and threw the action columns onto a second line, left-aligned, while the short
+   rows above stayed intact. At zero the middle column never votes on wrapping. */
 .sc-sheet .doc-existing-file {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
   padding: 4px 0;
@@ -383,7 +419,7 @@
    than sliding its download over to fill it. The button fills its column, so the four
    Download buttons are one width whatever their row says. */
 .sc-sheet .doc-section {
-  --sc-doc-name: 180px;
+  --sc-doc-name: 224px;
   --sc-doc-dl: 112px;
   --sc-doc-rep: 84px;
 }
@@ -392,10 +428,14 @@
 .sc-sheet .doc-act > .doc-dl-btn,
 .sc-sheet .doc-act > .doc-replace-btn { width: 100%; text-align: center; }
 /* Why a row is disabled, in the row. The tooltip still says it on hover; this says it
-   without one. */
+   without one. It sits UNDER the document's name (Owner, 2026-09-18) so a note of any
+   length costs one column, not the whole row. */
 .sc-sheet .doc-row-note {
+  display: block;
+  margin-top: 2px;
   font-size: 11.5px;
-  line-height: 1.45;
+  font-weight: 400;
+  line-height: 1.4;
   color: var(--aspire-paper-ink-soft);
 }
 /* Upload progress drops to its own line instead of stealing an action column. */
@@ -493,6 +533,10 @@
 }
 .sc-avail-note { margin: 0 0 12px; }
 .sc-avail-ack { margin: 10px 0 0; }
+/* The one editable value in the table sits in the Student column with the readings, so
+   the reader's eye does not have to leave the column to find the thing they can change. */
+.sc-avail-select { max-width: 240px; width: 100%; }
+.sc-avail-rh label { cursor: pointer; }
 .sc-avail-ack-open { color: var(--sp-warn-ink); font-style: italic; }
 @container chart-paper (max-width: 700px) {
   .sc-avail-rh { width: 30%; }
@@ -610,7 +654,14 @@
 /* The binder survives at phone width, thinner, and the index becomes a strip of tabs
    above the sheets rather than a rail beside them. Nothing is removed. */
 @media (max-width: 1000px) {
-  .sc-binder { padding: 8px 8px 8px 22px; }
+  /* The board gets thinner, and the stack thins with it. Writing the padding as a number
+     here instead left the fore edge 8px wide while `::after` still expected 21, which put
+     the sheets UNDER the page they are supposed to sit behind. */
+  .sc-binder {
+    --sc-board-pad: 8px;
+    --sc-stack-w: 5px;
+    padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) var(--sc-board-pad) 22px;
+  }
   .sc-rings { left: 5px; top: 18px; bottom: 18px; width: 12px; }
   .sc-ring { height: 12px; }
   .sc-main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }

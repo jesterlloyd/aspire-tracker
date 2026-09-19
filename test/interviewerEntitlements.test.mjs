@@ -190,7 +190,7 @@ test('StudentSidePanel: resume by canViewResume, photo by canViewPhoto, badge me
   // reader who may see the photo but not the badge reads the restriction instead.
   const badgeCalls = sidePanel.match(/onClick=\{handleDownloadBadge\}/g) || []
   assert.equal(badgeCalls.length, 1, 'exactly one control starts a badge download')
-  const badgeRow = sidePanel.slice(sidePanel.indexOf('<div className="doc-area-label">ID Badge</div>'))
+  const badgeRow = sidePanel.slice(sidePanel.search(/className="doc-area-label">\s*ID Badge/))
   assert.match(badgeRow.slice(0, badgeRow.indexOf('onClick={handleDownloadBadge}')), /\{canGenerateBadge && \(/)
   assert.match(sidePanel, /\{canGenerateBadge \? \(badgeDisabledReason[\s\S]{0,120}?\) : 'Badge generation\/view restricted to Owner\/Admin\.'\}/)
 })

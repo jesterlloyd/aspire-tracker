@@ -224,7 +224,7 @@ function Field({ label, children, fieldKey }) {
 }
 
 export default function StudentSidePanel({
-  student, sortedStudents, onSelectStudent, onClose,
+  student, onClose,
   onUpdate, onDelete, onReviewDecided, onPreceptorAssigned, units, toast,
   onRefreshStudents,
 }) {
@@ -785,10 +785,6 @@ export default function StudentSidePanel({
     queryClient.setQueryData(['student_program_events', student.id], (prev = []) =>
       prev.filter(e => e.id !== id))
   }
-
-  const currentIndex = sortedStudents.findIndex(s => s.id === student.id)
-  const prevStudent  = currentIndex > 0 ? sortedStudents[currentIndex - 1] : null
-  const nextStudent  = currentIndex < sortedStudents.length - 1 ? sortedStudents[currentIndex + 1] : null
 
   // doSave - OCC-protected field save.
   // Passes loadedUpdatedAt so the API can detect concurrent edits.
@@ -1500,12 +1496,6 @@ export default function StudentSidePanel({
                   )}
                 </div>
               </Field>
-              <Field label="Shift Preference">
-                <select className="sp-select" value={data.shift_availability||''} onChange={e => handleSelect('shift_availability', e.target.value)}>
-                  <option value="">Select…</option>
-                  {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </Field>
             </div>
           </div>
 
@@ -1697,10 +1687,26 @@ export default function StudentSidePanel({
                   <td className="sc-avail-na">—</td>
                   <td>{formatWeekdays(data.preferred_days)}</td>
                 </tr>
+                {/* Owner, 2026-09-18: shift preference is a scheduling constraint, so it
+                    belongs here rather than under Personal Information, where it sat between
+                    Gender and Date of Birth. It is the one value in this table staff set
+                    directly, so its Student cell holds the control instead of the reading of
+                    it, which also keeps it in the Student COLUMN: a row parked under the
+                    table lined up with nothing, because an auto table does not split its
+                    remaining width the way a grid does. Same save route as before. */}
                 <tr>
-                  <th className="sc-avail-rh" scope="row">Shift preference</th>
+                  <th className="sc-avail-rh" scope="row">
+                    <label htmlFor={`sp-shift-${student.id}`}>Shift preference</label>
+                  </th>
                   <td className="sc-avail-na">—</td>
-                  <td>{formatText(data.shift_availability)}</td>
+                  <td>
+                    <select id={`sp-shift-${student.id}`} className="sp-select sc-avail-select"
+                      value={data.shift_availability||''}
+                      onChange={e => handleSelect('shift_availability', e.target.value)}>
+                      <option value="">Select…</option>
+                      {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
                 </tr>
                 <tr>
                   <th className="sc-avail-rh" scope="row">Scheduling notes</th>
@@ -2558,12 +2564,16 @@ export default function StudentSidePanel({
                   exact restriction in the row instead of finding a button that refuses. */}
               {(canGenerateBadge || canViewPhoto) && (
                 <div className="doc-upload-area">
-                  <div className="doc-area-label">ID Badge</div>
-                  <div className="doc-existing-file">
+                  {/* A generated document has no file name, so its note goes UNDER its
+                      name rather than in the middle column, and the row keeps its two
+                      action columns exactly where the uploaded rows put theirs. */}
+                  <div className="doc-area-label">
+                    ID Badge
                     <span className="doc-row-note">
-                      {canGenerateBadge ? (badgeDisabledReason || 'Front and back, from the headshot and the rotation dates.') : 'Badge generation/view restricted to Owner/Admin.'}
+                      {canGenerateBadge ? (badgeDisabledReason || 'Needs headshot and rotation dates.') : 'Badge generation/view restricted to Owner/Admin.'}
                     </span>
                   </div>
+                  <div className="doc-existing-file" />
                   <div className="doc-act">
                     {canGenerateBadge && (
                       <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
@@ -2584,12 +2594,15 @@ export default function StudentSidePanel({
                   rather than only in a tooltip nobody hovers. */}
               {canEdit && (
                 <div className="doc-upload-area">
-                  <div className="doc-area-label">Certificate of Completion</div>
-                  <div className="doc-existing-file">
+                  <div className="doc-area-label">
+                    Certificate of Completion
                     <span className="doc-row-note">
-                      {certDisabledReason || `Certificate ${certState.certificate?.certificate_number || 'issued'}`}
+                      {certDisabledReason
+                        ? 'Available after post-rotation evaluation completion.'
+                        : `Certificate ${certState.certificate?.certificate_number || 'issued'}`}
                     </span>
                   </div>
+                  <div className="doc-existing-file" />
                   <div className="doc-act">
                     <Tooltip label={certDisabledReason || 'Download the Certificate of Completion'} placement="top">
                       <button className="doc-dl-btn" onClick={handleDownloadCertificate}
@@ -2887,7 +2900,6 @@ export default function StudentSidePanel({
             </div>
           )}
 
-          {/* Prev / Next */}
           {/* Download error toast */}
           {downloadErr && (
             <div style={{ margin:'8px 16px', padding:'10px 14px', background:'#fee2e2',
@@ -2896,17 +2908,11 @@ export default function StudentSidePanel({
             </div>
           )}
 
-          <div className="sp-nav-row">
-            <button className="sp-nav-btn" disabled={!prevStudent} onClick={() => prevStudent && onSelectStudent(prevStudent.id)}>
-              ← {prevStudent ? displayName(prevStudent) : 'No previous'}
-            </button>
-            <span style={{ fontSize:12, color:'var(--text-caption)' }}>
-              {currentIndex + 1} / {sortedStudents.length}
-            </span>
-            <button className="sp-nav-btn" disabled={!nextStudent} onClick={() => nextStudent && onSelectStudent(nextStudent.id)}>
-              {nextStudent ? displayName(nextStudent) : 'No next'} →
-            </button>
-          </div>
+          {/* The Prev/Next footer is gone (Owner, 2026-09-18). The roster is beside the
+              binder and always visible, so stepping through students one at a time from
+              the bottom of a seven-sheet scroll was the long way round to a list that is
+              already on screen. It also put a second, competing navigation at the end of
+              every record, below the Danger Zone. */}
           </div>{/* end sc-tail */}
               </div>{/* end the page that fades */}
               </FieldSavedCtx.Provider>
