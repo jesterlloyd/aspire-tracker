@@ -325,6 +325,17 @@
   margin: 10px 0 0;
 }
 
+/* The instrument's scoring rule, printed under the scale so the reader knows what a band
+   means before reading it. */
+.rp-scoring {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--paper-muted);
+  max-width: 78ch;
+  margin: 6px auto 0;
+  text-shadow: 0 0 3px var(--paper), 0 0 7px var(--paper);
+}
+
 /* ── Table view: the same figures as a real table ───────────────────────── */
 .rp-tv {
   width: 100%;

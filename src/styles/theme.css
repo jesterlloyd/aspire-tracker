@@ -74,14 +74,17 @@
   --color-focus-ring: #4F6DA8;
 
   /* ── Sheet family: printed-paper surfaces (RESPONSES-PACKET-1, table canon) ──
-     One paper for every DataSheet and results packet. The planner's calendars
-     redefine --paper on .pl-planner[data-paper] and keep their own colours; a
-     descendant definition always wins for its subtree. */
-  --paper:        #FCFDFA;
-  --paper-2:      #F1F4EE;
-  --paper-ink:    #1B2140;
-  --paper-muted:  #61667E;
-  --rule:         rgba(30, 42, 110, 0.13);
+     One paper for every DataSheet and results packet, and it is the SAME slate
+     paper the Review & Release clipboard reads (--aspire-paper, below): Owner
+     decision, 2026-09-20, one paper family for the app. The mockup's faintly
+     green sheet is not used. The planner's calendars redefine --paper on
+     .pl-planner[data-paper] and keep their own colours; a descendant definition
+     always wins for its subtree. */
+  --paper:        var(--aspire-paper);
+  --paper-2:      var(--aspire-paper-2);
+  --paper-ink:    var(--aspire-paper-ink);
+  --paper-muted:  var(--aspire-paper-muted);
+  --rule:         var(--aspire-rule);
   --grid:         rgba(15, 122, 77, 0.085);
   --grid-5:       rgba(15, 122, 77, 0.15);
   --band:         rgba(15, 122, 77, 0.045);
@@ -191,12 +194,12 @@
   /* Focus */
   --color-focus-ring: #8FA9FF;
 
-  /* Sheet family, dark. */
-  --paper:        #1C1F2C;
-  --paper-2:      #171A25;
-  --paper-ink:    #E9EAF2;
-  --paper-muted:  #A0A4BC;
-  --rule:         rgba(159, 176, 245, 0.16);
+  /* Sheet family, dark: the same slate paper as the clipboard. */
+  --paper:        var(--aspire-paper);
+  --paper-2:      var(--aspire-paper-2);
+  --paper-ink:    var(--aspire-paper-ink);
+  --paper-muted:  var(--aspire-paper-muted);
+  --rule:         var(--aspire-rule);
   --grid:         rgba(60, 203, 138, 0.06);
   --grid-5:       rgba(60, 203, 138, 0.11);
   --band:         rgba(60, 203, 138, 0.055);

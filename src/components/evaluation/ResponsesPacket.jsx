@@ -105,7 +105,7 @@ function SubscaleRow({ s, paired, labels }) {
 // The same figures as a real table, with a caption a screen reader gets. Required, not
 // optional: the neutral segment sits below 3:1 against the sheet.
 export function TableView({ distribution }) {
-  const { paired, subscales, title } = distribution
+  const { paired, subscales, title, heads } = distribution
   return (
     <table className="rp-tv">
       <caption className="sr-only">{title} as a table</caption>
@@ -122,9 +122,9 @@ export function TableView({ distribution }) {
           ) : (
             <th className="aspire-th" scope="col">Mean</th>
           )}
-          <th className="aspire-th" scope="col">{paired ? 'Higher' : '3.5 or above'}</th>
-          <th className="aspire-th" scope="col">{paired ? 'Same' : '3.0 to 3.4'}</th>
-          <th className="aspire-th" scope="col">{paired ? 'Lower' : 'Below 3.0'}</th>
+          <th className="aspire-th" scope="col">{heads.up}</th>
+          <th className="aspire-th" scope="col">{heads.same}</th>
+          <th className="aspire-th" scope="col">{heads.down}</th>
           {paired && <th className="aspire-th" scope="col">Net</th>}
         </tr>
       </thead>
@@ -202,6 +202,7 @@ export function AnalysisSheet({
           <SubscaleRow key={s.key} s={s} paired={distribution.paired} labels={distribution.labels} />
         ))}
         {showRows && <p className="rp-scale">{distribution.scaleLabel}</p>}
+        {showRows && distribution.scoringNote && <p className="rp-scoring">{distribution.scoringNote}</p>}
         {showRows && tableView && <TableView distribution={distribution} />}
 
         <div className="rp-sheetfoot">

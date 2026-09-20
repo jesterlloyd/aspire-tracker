@@ -81,7 +81,7 @@ function renderCell(col, row) {
     case 'pill':   return <Pill tone={row.pill.tone}>{row.pill.label}</Pill>
     case 'num': {
       const v = row.scores[col.scoreKey]
-      return <span className="ds-num">{v == null ? <Missing /> : v.toFixed(2)}</span>
+      return <span className="ds-num">{v == null ? <Missing /> : v.toFixed(col.decimals ?? 2)}</span>
     }
     default: return row[col.key] ?? <Missing />
   }

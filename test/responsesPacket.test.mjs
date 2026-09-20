@@ -14,7 +14,7 @@ import {
   effectiveStatus, statusGroup, statusPill,
   buildInstrumentTabs, buildBasis, buildDistribution, buildFollowUp,
   buildRosterRows, rosterColumns, rosterSortValue, buildBubbleSheet, buildPacket,
-  subscaleMean, bandOf, segmentText, LICENSED_NOTE,
+  subscaleMean, bandOf, segmentText, LICENSED_NOTE, ITEM_NOT_OUTCOME_NOTE, LIKERT_BANDS, LIKERT_NOTE,
 } from '../src/lib/evaluation/responsesPacketModel.js'
 import { buildCaseyFinkComparison, caseyFinkResponsesByStudent } from '../src/lib/evaluation/caseyFinkComparison.js'
 
@@ -201,14 +201,20 @@ test('paired distribution: up, same, down and net per subscale over matched pair
   assert.equal(segmentText(cps.up, cps.total, d.labels.up), '2 of 3 higher post score')
 })
 
-test('single-timepoint distribution: score bands instead of change, and a mean instead of a delta', () => {
-  assert.equal(bandOf(3.5), 'up'); assert.equal(bandOf(3.49), 'same'); assert.equal(bandOf(3.0), 'same'); assert.equal(bandOf(2.99), 'down'); assert.equal(bandOf(null), null)
+test("single-timepoint distribution: the preceptor instrument's own anchors are the bands, and 1 is not a rating", () => {
+  // The stored definition: 1 Not Observed / Unable to Assess, 2 Needs Close Support,
+  // 3 Developing, 4 Meeting, 5 Exceeding Expected Student Level.
+  assert.equal(bandOf(5, PP), 'up'); assert.equal(bandOf(4, PP), 'up'); assert.equal(bandOf(3, PP), 'same'); assert.equal(bandOf(2, PP), 'down')
+  assert.equal(bandOf(null, PP), null); assert.equal(bandOf(3, CF), null, 'a paired instrument has no bands')
+  assert.deepEqual(PP.naValues, [1])
   const d = buildPacket(COHORT, PP.slug, { now: NOW }).distribution
   assert.equal(d.paired, false)
   assert.match(d.subtitle, /no baseline to compare against/)
   assert.match(d.subtitle, /2 preceptor responses/)
-  assert.match(d.subtitle, /scale 1 to 5/)
-  assert.deepEqual(d.labels, { up: 'rated 3.5 or above', same: 'rated 3.0 to 3.4', down: 'rated below 3.0' })
+  assert.match(d.subtitle, /scale 1 Not Observed \/ Unable to Assess to 5 Exceeding Expected Student Level/)
+  assert.deepEqual(d.labels, { up: 'meeting or exceeding expected level', same: 'developing', down: 'needing close support' })
+  assert.deepEqual(d.heads, { up: 'Meeting or above', same: 'Developing', down: 'Close support' })
+  assert.match(d.scoringNote, /excluded from every mean and count/)
   const cj = d.subscales.find(s => s.key === 'clinical_judgment')
   assert.deepEqual([cj.up, cj.same, cj.down, cj.total], [2, 0, 0, 2])
   assert.equal(cj.mean, 4.5)
@@ -216,6 +222,30 @@ test('single-timepoint distribution: score bands instead of change, and a mean i
   const tcc = d.subscales.find(s => s.key === 'teamwork_communication_collaboration')
   assert.deepEqual([tcc.up, tcc.same, tcc.down], [0, 1, 1])
   assert.equal(tcc.delta, null)
+  // A rating of 1 is excluded from the mean and from the count, like an N/A answer.
+  const notObserved = pp({ sid: 'z', ratings: { clinical_judgment: 1, patient_centered_care: 5, safety_quality: 1, teamwork_communication_collaboration: 1, professionalism_accountability: 1, advanced_beginner_readiness: 1 } })
+  const cjSub = PP.subscales.find(s => s.key === 'clinical_judgment')
+  assert.equal(subscaleMean(PP, cjSub, notObserved.evaluation_responses[0]), null)
+  const d2 = buildPacket([...COHORT, notObserved], PP.slug, { now: NOW }).distribution
+  assert.equal(d2.subscales.find(s => s.key === 'clinical_judgment').total, 2, 'still two rated responses')
+  assert.equal(d2.subscales.find(s => s.key === 'patient_centered_care').total, 3)
+  // A one-item subscale prints as an integer rating in the roster.
+  assert.equal(rosterColumns(PP)[4].decimals, 0); assert.equal(rosterColumns(CF)[4].decimals, 2)
+})
+
+test('the two student instruments read a mean on the Likert rule: agreed at 4.0, neutral from 3.0, disagreed below', () => {
+  assert.equal(SF.bands, LIKERT_BANDS); assert.equal(AP.bands, LIKERT_BANDS)
+  assert.equal(bandOf(4.0, SF), 'up'); assert.equal(bandOf(3.99, SF), 'same'); assert.equal(bandOf(3.0, AP), 'same'); assert.equal(bandOf(2.99, AP), 'down')
+  const d = buildPacket(COHORT, SF.slug, { now: NOW }).distribution
+  assert.deepEqual(d.labels, { up: 'agreed', same: 'neutral', down: 'disagreed' })
+  assert.equal(d.scoringNote, LIKERT_NOTE)
+  assert.match(d.subtitle, /scale 1 Strongly Disagree to 5 Strongly Agree/)
+  // Casey-Fink prints its published rule and its anchors.
+  const cf = buildPacket(COHORT, CF.slug, { now: NOW }).distribution
+  assert.match(cf.scoringNote, /Casey-Fink scoring instructions \(2024\)/)
+  assert.match(cf.scoringNote, /No individual item is an outcome measure/)
+  assert.match(cf.subtitle, /scale 1 Strongly Disagree to 4 Strongly Agree/)
+  assert.deepEqual(cf.heads, { up: 'Higher', same: 'Same', down: 'Lower' })
 })
 
 test('a domain mean skips n/a and blanks rather than counting them as zero', () => {
@@ -311,7 +341,7 @@ test('a Casey-Fink row opens both timepoints, item by item, with the shift; the 
   assert.equal(sheet.paired, true)
   assert.equal(sheet.scaleMax, 4)
   assert.equal(sheet.subtitle, 'Casey-Fink Readiness for Practice · Pre-Rotation and Post-Rotation')
-  assert.equal(sheet.note, LICENSED_NOTE)
+  assert.equal(sheet.note, `${LICENSED_NOTE} ${ITEM_NOT_OUTCOME_NOTE}`)
   assert.deepEqual(sheet.groups.map(g => [g.label, g.items.length]), [['Clinical Problem-Solving', 6], ['Learning Activities', 5], ['Practice Readiness', 4]])
   const q1 = sheet.groups[0].items[0]
   assert.deepEqual([q1.label, q1.pre, q1.post, q1.shift], ['Item 1', 2, 4, 2])
@@ -350,7 +380,11 @@ test('a stored-content instrument reads its stems from the loaded definition, an
   assert.equal(bare.subtitle, "Preceptor's Assessment of Student Readiness · Post-Rotation · completed by R. Sanchez")
   assert.equal(bare.groups[0].items[0].label, 'Item 1')
   assert.equal(bare.groups[0].items[0].post, 5)
-  assert.equal(bare.note, null)
+  assert.match(bare.note, /A rating of 1 \(Not Observed \/ Unable to Assess\) is shown but excluded/)
+  // A not-observed rating is drawn as the answer it is, and named as excluded.
+  const z = buildRosterRows(PP, [pp({ sid: 'z', ratings: { clinical_judgment: 1, patient_centered_care: 5, safety_quality: 3, teamwork_communication_collaboration: 3, professionalism_accountability: 3, advanced_beginner_readiness: 3 } })], {}, NOW)[0]
+  const zs = buildBubbleSheet(PP, z, null, null)
+  assert.deepEqual([zs.groups[0].items[0].post, zs.groups[0].items[0].excluded, zs.groups[1].items[0].excluded], [1, true, false])
   const content = { section2: { items: { clinical_judgment: { label: 'Uses sound clinical judgment' } } } }
   const named = buildBubbleSheet(PP, row, null, content)
   assert.equal(named.groups[0].label, 'Uses sound clinical judgment')
@@ -379,15 +413,23 @@ test("Student's Feedback on ASPIRE resolves its stems from the instrument module
 
 // ── What lives in CSS and markup ─────────────────────────────────────────────
 
-test('B1: the tokens are in the theme file, light then dark, and down is amber, never red', () => {
+test('B1: the tokens are in the theme file, light then dark, the paper is the slate clipboard paper, and down is amber, never red', () => {
   const theme = read('src/styles/theme.css')
   const light = theme.slice(theme.indexOf(':root,'), theme.indexOf(':root[data-theme="dark"]'))
   const dark = theme.slice(theme.indexOf(':root[data-theme="dark"]'))
-  for (const [k, v] of [['--paper', '#FCFDFA'], ['--paper-2', '#F1F4EE'], ['--grid', 'rgba(15, 122, 77, 0.085)'], ['--grid-5', 'rgba(15, 122, 77, 0.15)'],
+  // Owner, 2026-09-20: one paper family. The sheet reads the clipboard's slate, not the
+  // mockup's faint green, so the two can never drift.
+  for (const block of [light, dark]) {
+    for (const [k, v] of [['--paper', '--aspire-paper'], ['--paper-2', '--aspire-paper-2'], ['--paper-ink', '--aspire-paper-ink'], ['--paper-muted', '--aspire-paper-muted'], ['--rule', '--aspire-rule']]) {
+      assert.match(block, new RegExp(`${k.replace(/-/g, '\\-')}:\\s*var\\(${v.replace(/-/g, '\\-')}\\);`), `${k} aliases ${v}`)
+    }
+  }
+  assert.match(light, /--aspire-paper:\s*#FDFCFA;/); assert.match(dark, /--aspire-paper:\s*#1C1F2C;/)
+  for (const [k, v] of [['--grid', 'rgba(15, 122, 77, 0.085)'], ['--grid-5', 'rgba(15, 122, 77, 0.15)'],
     ['--band', 'rgba(15, 122, 77, 0.045)'], ['--hole', '#EDEAE2'], ['--hole-in', '#DAD5C8'], ['--up', '#0F7A4D'], ['--same', '#767D97'], ['--down', '#8F5A0A']]) {
     assert.match(light, new RegExp(`${k.replace(/-/g, '\\-')}:\\s*${v.replace(/[().]/g, '\\$&')};`), `light ${k}`)
   }
-  for (const [k, v] of [['--paper', '#1C1F2C'], ['--paper-2', '#171A25'], ['--grid', 'rgba(60, 203, 138, 0.06)'], ['--grid-5', 'rgba(60, 203, 138, 0.11)'],
+  for (const [k, v] of [['--grid', 'rgba(60, 203, 138, 0.06)'], ['--grid-5', 'rgba(60, 203, 138, 0.11)'],
     ['--band', 'rgba(60, 203, 138, 0.055)'], ['--hole', '#12151F'], ['--hole-in', '#0C0E16'], ['--up', '#3CCB8A'], ['--same', '#9198B4'], ['--down', '#E6A544']]) {
     assert.match(dark, new RegExp(`${k.replace(/-/g, '\\-')}:\\s*${v.replace(/[().]/g, '\\$&')};`), `dark ${k}`)
   }

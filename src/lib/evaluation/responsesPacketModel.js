@@ -23,6 +23,19 @@
 // PAIRING. A student is matched when a completed pre-rotation and a completed post-rotation
 // Casey-Fink response both exist with all three Section I scores in range. That decision is
 // made once, in caseyFinkComparison.js, and read here.
+//
+// SCORING (Owner, 2026-09-20: use what is canon in the instruments; create a rule where none
+// exists). Each instrument carries its own rule, printed on the sheet:
+//   Casey-Fink   its published scoring instructions (2024): a subscale is the mean of its
+//                items on the 1 to 4 agreement scale, higher is more agreement, and no
+//                individual item is an outcome measure. The sheet compares subscale means.
+//   Preceptor    the stored definition's own anchors: 4 and 5 are meeting or exceeding the
+//                expected student level, 3 is developing, 2 is needing close support, and 1
+//                is "Not Observed / Unable to Assess", which is excluded from every mean and
+//                count exactly as an N/A answer is.
+//   Student x2   five-point agreement scales with Neutral at 3, no rule on file, so the
+//                ASPIRE rule created here is the standard Likert read of a mean: agreed at
+//                4.0 or above, neutral from 3.0, disagreed below 3.0. N/A is excluded.
 
 import {
   CASEY_FINK_SLUG,
@@ -119,6 +132,8 @@ export function statusPill(status) {
 // ── The four instruments ──────────────────────────────────────────────────────
 
 const ratingIn = (v, max) => Number.isInteger(v) && v >= 1 && v <= max
+// A rating the instrument itself says is not an assessment (the preceptor scale's 1).
+const isExcluded = (instrument, v) => (instrument.naValues || []).includes(v)
 
 // Rating items of Student's Feedback on ASPIRE, grouped as the instrument groups them.
 // The stems are read from the same module the survey renders from; none are copied here.
@@ -134,6 +149,16 @@ const ASPIRE_SUBSCALES = POST_ROTATION_CONTENT.sections
 const ASPIRE_ITEM_LABELS = Object.fromEntries(
   POST_ROTATION_CONTENT.sections.flatMap(s => s.items).map(item => [item.key, item.label]),
 )
+
+// The ASPIRE scoring rule for a five-point agreement scale with Neutral at 3 (created
+// 2026-09-20; neither student instrument had a rule on file). A mean is read where it lands
+// on the instrument's own anchors: at or above Agree, around Neutral, or below it.
+export const LIKERT_BANDS = Object.freeze([
+  { key: 'up',   label: 'agreed',    head: 'Agreed',    test: v => v >= 4 },
+  { key: 'same', label: 'neutral',   head: 'Neutral',   test: v => v >= 3 },
+  { key: 'down', label: 'disagreed', head: 'Disagreed', test: () => true },
+])
+export const LIKERT_NOTE = 'ASPIRE scoring rule: a mean of 4.0 or above reads as agreed, 3.0 to 3.9 as neutral, below 3.0 as disagreed. N/A answers are excluded from every mean.'
 
 // Student's Feedback on Unit and Preceptor: the stored definition keys its sections
 // section1..section4 in this order (StudentEvalResponseDetail reads them the same way).
@@ -154,6 +179,10 @@ export const PACKET_INSTRUMENTS = Object.freeze([
     respondentNoun: 'student',
     title: 'Readiness: Pre-to-Post Change',
     scaleLabel: 'Section I mean score (1 to 4)',
+    anchors: ['Strongly Disagree', 'Disagree', 'Agree', 'Strongly Agree'],
+    naValues: [],
+    bands: null,
+    scoringNote: 'Scored per the Casey-Fink scoring instructions (2024): each subscale is the mean of its items on the 1 to 4 agreement scale, and a higher mean is more agreement. No individual item is an outcome measure.',
     // A5: this wording stays. It is the honest frame for a self-report instrument.
     caveat: 'Observed change in student-reported readiness. This does not independently measure retention, objective competence, or financial savings.',
     itemText: 'licensed',
@@ -172,7 +201,15 @@ export const PACKET_INSTRUMENTS = Object.freeze([
     scaleMax: 5,
     respondentNoun: 'preceptor',
     title: 'Preceptor Ratings of Student Readiness',
-    scaleLabel: 'Competency rating (1 to 5)',
+    scaleLabel: 'Competency rating (2 to 5; 1 is not observed)',
+    anchors: ['Not Observed / Unable to Assess', 'Needs Close Support', 'Developing', 'Meeting Expected Student Level', 'Exceeding Expected Student Level'],
+    naValues: [1],
+    bands: Object.freeze([
+      { key: 'up',   label: 'meeting or exceeding expected level', head: 'Meeting or above', test: v => v >= 4 },
+      { key: 'same', label: 'developing',                          head: 'Developing',       test: v => v >= 3 },
+      { key: 'down', label: 'needing close support',               head: 'Close support',    test: () => true },
+    ]),
+    scoringNote: "Read on the instrument's own scale: 4 and 5 are meeting or exceeding the expected student level, 3 is developing, 2 is needing close support. A rating of 1, Not Observed / Unable to Assess, is excluded from every mean and count.",
     caveat: "Preceptor ratings of student progress at the midpoint and the end of the rotation. Each rating is one preceptor's judgement of one student.",
     itemText: 'stored',
     // One competency is one rated item; the sheet shows each competency as a row.
@@ -197,6 +234,10 @@ export const PACKET_INSTRUMENTS = Object.freeze([
     respondentNoun: 'student',
     title: 'Experience of Unit and Preceptor',
     scaleLabel: 'Domain mean score (1 to 5)',
+    anchors: ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'],
+    naValues: [],
+    bands: LIKERT_BANDS,
+    scoringNote: LIKERT_NOTE,
     caveat: 'Student-reported experience of the unit and preceptor. Responses reach unit leaders only through Review & Release.',
     itemText: 'stored',
     subscales: [
@@ -216,8 +257,12 @@ export const PACKET_INSTRUMENTS = Object.freeze([
     timepointsLabel: 'Post-Rotation',
     scaleMax: 5,
     respondentNoun: 'student',
-    title: 'Experience of the ASPIRE Program',
+    title: 'Experience of ASPIRE',
     scaleLabel: 'Item mean score (1 to 5)',
+    anchors: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'],
+    naValues: [],
+    bands: LIKERT_BANDS,
+    scoringNote: LIKERT_NOTE,
     caveat: 'Program-level feedback. It gates no certificate, so a low response rate holds nothing else up.',
     itemText: 'inline',
     subscales: ASPIRE_SUBSCALES.map(s => Object.freeze(s)),
@@ -258,7 +303,7 @@ export function subscaleMean(instrument, subscale, response) {
   const values = []
   for (const code of subscale.itemCodes) {
     const v = instrument.readItem(response.responses, code, subscale)
-    if (ratingIn(v, instrument.scaleMax)) values.push(v)
+    if (ratingIn(v, instrument.scaleMax) && !isExcluded(instrument, v)) values.push(v)
   }
   if (values.length === 0) return null
   return values.reduce((sum, v) => sum + v, 0) / values.length
@@ -337,13 +382,19 @@ export function buildBasis(instrument, rows, comparison, now = Date.now()) {
 // ── The finding: distribution first, means second ────────────────────────────
 
 export const PAIR_LABELS = Object.freeze({ up: 'higher post score', same: 'no change', down: 'lower post score' })
-export const BAND_LABELS = Object.freeze({ up: 'rated 3.5 or above', same: 'rated 3.0 to 3.4', down: 'rated below 3.0' })
+export const PAIR_HEADS = Object.freeze({ up: 'Higher', same: 'Same', down: 'Lower' })
 
-export function bandOf(mean) {
-  if (mean == null || !Number.isFinite(mean)) return null
-  if (mean >= 3.5) return 'up'
-  if (mean >= 3.0) return 'same'
-  return 'down'
+// Which band a subscale mean falls in, by the instrument's own rule (first band whose
+// test passes). null when the instrument has no bands (a paired instrument) or no mean.
+export function bandOf(mean, instrument) {
+  if (mean == null || !Number.isFinite(mean) || !instrument?.bands) return null
+  return instrument.bands.find(b => b.test(mean))?.key || null
+}
+export function bandLabels(instrument) {
+  return Object.fromEntries((instrument.bands || []).map(b => [b.key, b.label]))
+}
+export function bandHeads(instrument) {
+  return Object.fromEntries((instrument.bands || []).map(b => [b.key, b.head]))
 }
 
 const plural = (n, one, many) => (n === 1 ? one : many)
@@ -354,9 +405,11 @@ export function buildDistribution(instrument, rows, comparison, content = null, 
     return {
       paired: true,
       title: instrument.title,
-      subtitle: `Matched student responses · ${n} paired ${plural(n, 'student', 'students')} · Section I mean, scale 1 to ${instrument.scaleMax}`,
+      subtitle: `Matched student responses · ${n} paired ${plural(n, 'student', 'students')} · Section I mean, scale 1 ${instrument.anchors[0]} to ${instrument.scaleMax} ${instrument.anchors[instrument.scaleMax - 1]}`,
       scaleLabel: instrument.scaleLabel,
+      scoringNote: instrument.scoringNote,
       labels: PAIR_LABELS,
+      heads: PAIR_HEADS,
       total: n,
       subscales: (comparison?.metrics || []).map(m => {
         const up = m.changeCounts?.higherPost || 0
@@ -379,7 +432,7 @@ export function buildDistribution(instrument, rows, comparison, content = null, 
     const means = completed.map(r => subscaleMean(instrument, s, r)).filter(v => v != null)
     let up = 0, same = 0, down = 0
     for (const m of means) {
-      const band = bandOf(m)
+      const band = bandOf(m, instrument)
       if (band === 'up') up += 1
       else if (band === 'same') same += 1
       else down += 1
@@ -395,9 +448,11 @@ export function buildDistribution(instrument, rows, comparison, content = null, 
   return {
     paired: false,
     title: instrument.title,
-    subtitle: `Single timepoint · ${n} ${instrument.respondentNoun} ${plural(n, 'response', 'responses')} · no baseline to compare against · scale 1 to ${instrument.scaleMax}`,
+    subtitle: `Single timepoint · ${n} ${instrument.respondentNoun} ${plural(n, 'response', 'responses')} · no baseline to compare against · scale 1 ${instrument.anchors[0]} to ${instrument.scaleMax} ${instrument.anchors[instrument.scaleMax - 1]}`,
     scaleLabel: instrument.scaleLabel,
-    labels: BAND_LABELS,
+    scoringNote: instrument.scoringNote,
+    labels: bandLabels(instrument),
+    heads: bandHeads(instrument),
     total: n,
     subscales,
   }
@@ -482,6 +537,7 @@ export function rosterColumns(instrument) {
     ...instrument.subscales.map(s => ({
       key: `score:${s.key}`, label: s.short, title: s.label, kind: 'num', align: 'right',
       width: '58px', min: 58, priority: 3, scoreKey: s.key,
+      decimals: s.itemCodes.length === 1 ? 0 : 2,
     })),
   ]
 }
@@ -511,6 +567,8 @@ export function itemNumber(instrument, code) {
 }
 
 export const LICENSED_NOTE = 'Item text is licensed and is not reproduced here. Open the response to read each item in full.'
+// The Casey-Fink scoring instructions: no individual item is an outcome measure.
+export const ITEM_NOT_OUTCOME_NOTE = 'Per the Casey-Fink scoring instructions, no individual item is an outcome measure; the subscale mean is the score.'
 
 // Which submitted responses a row opens. A Casey-Fink row opens its own side and the
 // student's other side from the pairing map, so a pending post-rotation row still shows
@@ -550,6 +608,7 @@ export function buildBubbleSheet(instrument, row, byStudent, content = null) {
       const q = ratingIn(rawPost, instrument.scaleMax) ? rawPost : null
       const n = itemNumber(instrument, code)
       const stem = instrument.itemText === 'licensed' ? null : instrument.itemLabel(content, code, s)
+      const excluded = isExcluded(instrument, q) || isExcluded(instrument, p)
       return {
         code,
         number: n,
@@ -557,7 +616,8 @@ export function buildBubbleSheet(instrument, row, byStudent, content = null) {
         pre: p,
         post: q,
         na: rawPost === 'na' || rawPre === 'na',
-        shift: p != null && q != null ? q - p : null,
+        excluded,
+        shift: p != null && q != null && !excluded ? q - p : null,
       }
     }),
   }))
@@ -570,7 +630,7 @@ export function buildBubbleSheet(instrument, row, byStudent, content = null) {
     scaleMax: instrument.scaleMax,
     subtitle,
     groups,
-    note: instrument.itemText === 'licensed' ? LICENSED_NOTE : null,
+    note: instrument.itemText === 'licensed' ? `${LICENSED_NOTE} ${ITEM_NOT_OUTCOME_NOTE}` : (instrument.naValues?.length ? `A rating of 1 (${instrument.anchors[0]}) is shown but excluded from every mean.` : null),
     message: null,
   }
 }

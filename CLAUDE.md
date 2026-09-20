@@ -583,10 +583,10 @@ session, in the spec's order. Evaluation > Responses is the first build.
   `--aspire-radius-sheet-plain` (8px), `--aspire-radius-filetab` (9px). `--aspire-radius-tab`
   is the student chart's die-cut index tab and a different shape. Chart-mark radii (a bar
   segment's ends, a delta chip) are component properties on `.rp-packet`, not brand tokens.
-- Two paper families exist as of 2026-09-19: `--paper` (the sheet family, faintly green under
-  the grid) and `--aspire-paper` (the planner's slate, lifted for the Review & Release
-  clipboard). The Owner has not said whether the clipboard should go green; do not merge them
-  without that decision.
+- **One paper family** (Owner, 2026-09-20). `--paper`, `--paper-2`, `--paper-ink`,
+  `--paper-muted` and `--rule` alias the clipboard's `--aspire-paper` tokens in both themes,
+  so the sheet and the Review & Release slips are the same slate paper. The mockup's faintly
+  green sheet is not used; do not reintroduce a second paper.
 
 ## Evaluation > Responses is a printed packet (RESPONSES-PACKET-1, 2026-09-19)
 
@@ -618,6 +618,16 @@ ResponsesPacket.jsx`, `BubbleSheet.jsx`, `responsesPacket.css`, and the tab.
   (`itemText: 'licensed'`); the other three resolve stems from the stored definition or the
   instrument module, and no stem is copied into the repo. The Owner/Admin response viewer is
   still the place to read a Casey-Fink item in full.
+- **Each instrument carries its scoring rule, and the sheet prints it** (Owner, 2026-09-20:
+  use what is canon in the instrument; create a rule where none exists). Casey-Fink follows its
+  published 2024 scoring instructions: a subscale is the mean of its items on the 1 to 4
+  agreement scale, higher is more agreement, and no individual item is an outcome measure
+  (the bubble sheet says so). The preceptor instrument's bands are its own anchors: 4 and 5
+  meeting or exceeding the expected student level, 3 developing, 2 needing close support, and
+  **1 is "Not Observed / Unable to Assess", excluded from every mean and count** like an N/A.
+  The two student instruments had no rule on file, so `LIKERT_BANDS` is the ASPIRE rule: a
+  mean of 4.0 or above reads as agreed, 3.0 to 3.9 neutral, below 3.0 disagreed. Anchors come
+  from the stored definitions in `lib/server/evaluation/content/`; never invent a scale.
 - The CSV export keeps its columns, its filename and its old timepoint words; only its rows
   changed to mirror the roster. The roster's timepoint filter offers one option per label
   (`timepointMatches`), so "Pre-Rotation" is never listed twice.

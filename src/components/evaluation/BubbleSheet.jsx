@@ -35,11 +35,13 @@ function ItemRow({ item, scaleMax, paired }) {
   const points = Array.from({ length: scaleMax }, (_, i) => i + 1)
   const spoken = item.na
     ? 'not applicable'
-    : paired
+    : item.excluded
+      ? `rated ${item.post ?? item.pre}, not observed, excluded from the mean`
+      : paired
       ? `before ${item.pre ?? 'no answer'}, after ${item.post ?? 'no answer'}`
       : `answer ${item.post ?? item.pre ?? 'none'}`
   const shiftClass = item.shift == null ? 'same' : item.shift > 0 ? 'up' : item.shift < 0 ? 'down' : 'same'
-  const shiftText = item.na ? 'n/a' : item.shift == null ? '' : `${item.shift > 0 ? '+' : ''}${item.shift}`
+  const shiftText = item.na ? 'n/a' : item.excluded ? 'n/o' : item.shift == null ? '' : `${item.shift > 0 ? '+' : ''}${item.shift}`
   return (
     <div className="rp-item">
       <span className="rp-q">{item.label}</span>
