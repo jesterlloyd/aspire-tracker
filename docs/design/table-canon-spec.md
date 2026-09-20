@@ -45,7 +45,7 @@ These hold at all three levels. They matter more than the holes.
 5. **Status is one word in a pill.** Four tones only: green settled, amber waiting on someone, blue in progress, grey inactive. A status needing a sentence goes in the expanded detail.
 6. **Missing is an en dash** in muted ink, never an empty cell. An empty cell reads as a rendering bug.
 7. **Expansion opens a bordered panel:** `--paper-2` background, 3px navy left border, label-value pairs with mono uppercase labels. Same shape everywhere.
-8. **Pagination is a crease**, on the full sheet only: a full-bleed dashed rule with a soft gradient and the word "continued" on a `--paper` chip. Not numbered page buttons.
+8. **Pagination is a crease**, on the full sheet only: a full-bleed dashed rule with a soft gradient and the word "continued" on a `--paper` chip, every **ten** rows so the creases count by tens (Owner, 2026-09-20; the first build used eight). Not numbered page buttons.
 
 ## 4. Tokens
 
@@ -71,7 +71,7 @@ dark:
 .holes.l{ left:0; border-right:1px dashed var(--rule); }
 .holes.r{ right:0; border-left:1px dashed var(--rule); }
 ```
-Crease every 8 rows. Header row sits on a 1.5px `--paper-ink` rule.
+Crease every 10 rows. Header row sits on a 1.5px `--paper-ink` rule. Content is inset 20px inside the hole strips (`--ds-inset`), so a title never sits against the holes and a button never sits against the edge; the crease stays full-bleed.
 
 **Plain sheet:** same rows, `border-radius:8px`, `padding:0 14px`, no holes, no crease, no outer shadow.
 
@@ -79,11 +79,11 @@ Crease every 8 rows. Header row sits on a 1.5px `--paper-ink` rule.
 
 ## 6. Grid
 
-Columns are declared once as a template string and reused by the header and every row, so they cannot drift:
+Columns are declared once and reused by the header and every row, so they cannot drift. Each column declares a minimum width and a share of the spare width, and its track is `minmax(min, grow fr)`:
 ```js
-const GRID = COLS.map(c => c.w).join(' ') + ' 28px';  // trailing 28px is the expand chevron
+const GRID = COLS.map(c => `minmax(${c.min}px, ${c.grow}fr)`).join(' ') + ' 28px';  // trailing 28px is the expand chevron
 ```
-Text columns truncate with `text-overflow: ellipsis` and a `title` attribute. Rows never wrap, and the page never scrolls sideways. Below the component's breakpoint, drop the lowest-priority columns rather than shrinking all of them.
+**Weighted spread** (Owner, 2026-09-20): every column grows from its minimum in proportion, so the name column stays widest (grow 2.2), the school next (1.4), the date and status less (1), and each figure least (0.7). Nothing bunches at one edge and the figures stay right-aligned under their headers. Text columns truncate with `text-overflow: ellipsis` and a `title` attribute. Rows never wrap, and the page never scrolls sideways. Below the width the visible columns need, drop the lowest-priority columns whole (priority 1 is never dropped) rather than shrinking all of them.
 
 ## 7. Accessibility
 

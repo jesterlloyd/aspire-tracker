@@ -8,6 +8,9 @@
    ============================================================================ */
 
 .ds {
+  /* Content inset inside the sheet's own padding, so the title clears the hole strip and
+     a button clears the edge (Owner, 2026-09-20). DataSheet.jsx mirrors these per level. */
+  --ds-inset: 20px;
   position: relative;
   background: var(--paper);
   color: var(--paper-ink);
@@ -25,12 +28,14 @@
   box-shadow: 0 1px 1px rgba(24, 32, 63, 0.10), 0 10px 26px rgba(24, 32, 63, 0.13);
 }
 .ds[data-level="plain"] {
+  --ds-inset: 8px;
   border: 1px solid var(--rule);
   border-radius: var(--aspire-radius-sheet-plain);
   padding: 0 14px;
   overflow: hidden;
 }
 .ds[data-level="inline"] {
+  --ds-inset: 0px;
   background: none;
   padding: 0;
 }
@@ -59,7 +64,7 @@
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
-  padding: 13px 0 9px;
+  padding: 13px var(--ds-inset) 9px;
 }
 .ds-title { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
 .ds-head h3 { font-size: 15.5px; font-weight: 600; margin: 0; color: var(--paper-ink); }
@@ -114,12 +119,11 @@
   display: grid;
   gap: 10px;
   align-items: center;
-  padding: 7px 8px;
+  padding: 7px var(--ds-inset);
   border-bottom: 1px solid var(--rule);
   min-width: 0;
 }
 .ds-row > * { min-width: 0; }
-.ds[data-level="inline"] .ds-row { padding-inline: 0; }
 .ds-hrow { border-bottom: 1.5px solid var(--paper-ink); padding-block: 6px; }
 .ds[data-level="inline"] .ds-hrow { border-bottom: 1px solid var(--rule); }
 
@@ -147,7 +151,7 @@
    by the component, so an open detail panel cannot shift the rhythm. */
 .ds-row[data-band="1"] { background: var(--band); }
 
-.ds-empty { padding: 22px 8px; color: var(--paper-muted); font-size: 13px; }
+.ds-empty { padding: 22px var(--ds-inset); color: var(--paper-muted); font-size: 13px; }
 
 /* ── Cells ──────────────────────────────────────────────────────────────── */
 .ds-nm { display: flex; gap: 7px; align-items: baseline; min-width: 0; }
@@ -201,7 +205,7 @@
 }
 .ds-exp:hover { background: var(--rule); color: var(--paper-ink); }
 
-/* ── Crease: pagination on the full sheet (§3.8) ────────────────────────── */
+/* ── Crease: pagination on the full sheet (§3.8), every ten rows ─────────── */
 .ds-crease {
   position: relative;
   margin: 0 -38px;
@@ -247,7 +251,7 @@
 
 /* ── Foot ───────────────────────────────────────────────────────────────── */
 .ds-foot {
-  padding: 9px 0 12px;
+  padding: 9px var(--ds-inset) 12px;
   font-size: 12px;
   color: var(--paper-muted);
   display: flex;

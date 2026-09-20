@@ -21,8 +21,12 @@
 // banded whatever is open.
 //
 // COLUMNS are one array shared by the header and every row (spec §6), so they cannot
-// drift. Below the width the visible columns need, the lowest-priority columns are dropped
-// whole (priority 1 is never dropped); nothing shrinks and nothing scrolls sideways.
+// drift. Each column declares a minimum (`min`, px) and a share of the spare width
+// (`grow`), and the template is `minmax(min, grow fr)`: a WEIGHTED SPREAD (Owner,
+// 2026-09-20). Every column grows from its minimum in proportion, so the name column stays
+// widest and the figures never bunch at one edge. Below the width the visible columns need,
+// the lowest-priority columns are dropped whole (priority 1 is never dropped); nothing
+// shrinks and nothing scrolls sideways.
 //
 // SORT is client-side over the rows it is given. Controlled (`sort` + `onSortChange`) when
 // the caller needs the order too, for an export that mirrors the view; uncontrolled
@@ -36,7 +40,18 @@ import './dataSheet.css'
 
 const CHEVRON_W = 28
 const GAP = 10
-const PAD = 16
+// The content inset inside the sheet's own padding (the hole strips on a full sheet), so a
+// title never sits against the holes and a button never sits against the edge. Mirrors
+// --ds-inset in dataSheet.css per level.
+const INSET = { full: 20, plain: 8, inline: 0 }
+
+// One column's track. A column may still pass a literal `width`; the canon form is min + grow.
+export function columnTrack(col) {
+  if (col.width) return col.width
+  const min = col.min || 80
+  const grow = col.grow ?? 1
+  return grow > 0 ? `minmax(${min}px, ${grow}fr)` : `${min}px`
+}
 
 export function Pill({ tone = 'off', children }) {
   return <span className={`ds-pill ds-pill-${tone}`}>{children}</span>
@@ -57,7 +72,7 @@ export function DetailField({ label, children }) {
 }
 
 // Drop the lowest-priority columns whole until what is left fits the container.
-function useVisibleColumns(columns, expandable, ref) {
+function useVisibleColumns(columns, expandable, ref, inset) {
   const [width, setWidth] = useState(null)
   useEffect(() => {
     const el = ref.current
@@ -71,7 +86,7 @@ function useVisibleColumns(columns, expandable, ref) {
   }, [ref])
   if (width == null) return columns
   const need = cols =>
-    cols.reduce((s, c) => s + (c.min || 80), 0) + GAP * (cols.length - 1 + (expandable ? 1 : 0)) + PAD + (expandable ? CHEVRON_W : 0)
+    cols.reduce((s, c) => s + (c.min || 80), 0) + GAP * (cols.length - 1 + (expandable ? 1 : 0)) + inset * 2 + (expandable ? CHEVRON_W : 0)
   let visible = columns
   while (need(visible) > width) {
     const droppable = visible.filter(c => (c.priority ?? 1) > 1)
@@ -109,9 +124,9 @@ export default function DataSheet({
   const [innerSort, setInnerSort] = useState(defaultSort)
   const [live, setLive] = useState('')
   const activeSort = sort === undefined ? innerSort : sort
-  const visible = useVisibleColumns(columns, expandable, ref)
+  const visible = useVisibleColumns(columns, expandable, ref, INSET[level] ?? INSET.full)
   const sorted = sortRows(rows, columns, activeSort)
-  const grid = visible.map(c => c.width || 'minmax(80px,1fr)').join(' ') + (expandable ? ` ${CHEVRON_W}px` : '')
+  const grid = visible.map(columnTrack).join(' ') + (expandable ? ` ${CHEVRON_W}px` : '')
   const colCount = visible.length + (expandable ? 1 : 0)
   const full = level === 'full'
 
@@ -129,7 +144,7 @@ export default function DataSheet({
     setLive(`${expandLabel ? expandLabel(row) : 'Row detail'}: ${opening ? 'shown' : 'hidden'}`)
   }
 
-  // A page break every eight rows renders as a crease, on the full sheet only.
+  // A page break every ten rows renders as a crease, on the full sheet only.
   const pages = []
   if (full && pageRows > 0) {
     for (let i = 0; i < sorted.length; i += pageRows) pages.push(sorted.slice(i, i + pageRows))

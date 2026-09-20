@@ -323,6 +323,9 @@ test('columns follow the canon: Student first, then School, Submitted, Status, t
   assert.deepEqual(cols.map(c => c.label), ['Student', 'School', 'Submitted', 'Status', 'CPS', 'LA', 'PR'])
   assert.equal(cols[0].priority, 1, 'the name column is never dropped')
   for (const c of cols.slice(4)) { assert.equal(c.align, 'right'); assert.equal(c.kind, 'num') }
+  // The weighted spread: min + grow, no literal widths; name widest, figures least.
+  assert.deepEqual(cols.map(c => c.grow), [2.2, 1.4, 1, 1, 0.7, 0.7, 0.7])
+  assert.ok(cols.every(c => c.width === undefined && c.min > 0))
   assert.deepEqual(rosterColumns(PP).slice(4).map(c => c.label), ['CJ', 'PCC', 'SQ', 'TCC', 'PA', 'ABR'])
   const p = buildPacket(COHORT, CF.slug, { now: NOW })
   const rows = buildRosterRows(CF, p.rows, {}, NOW)
@@ -475,6 +478,12 @@ test('B2 to B5: the sheet, the tabs, the roster chrome and the mandatory seconda
   assert.match(ds, /\.ds-holes \{[^}]*width: 38px;[^}]*radial-gradient\(circle at 19px 13px, var\(--hole-in\) 0 5\.5px, transparent 6px\);[^}]*background-size: 38px 26px;/s)
   assert.match(ds, /\.ds-holes-l \{ left: 0; border-right: 1px dashed var\(--rule\); \}/)
   assert.match(ds, /\.ds-hrow \{ border-bottom: 1\.5px solid var\(--paper-ink\);/)
+  // Content is inset inside the hole strips; the crease stays full-bleed.
+  assert.match(ds, /\.ds \{[^}]*--ds-inset: 20px;/s)
+  assert.match(ds, /\.ds-head \{[^}]*padding: 13px var\(--ds-inset\) 9px;/s)
+  assert.match(ds, /\.ds-row \{[^}]*padding: 7px var\(--ds-inset\);/s)
+  assert.match(ds, /\.ds-crease \{[^}]*margin: 0 -38px;/s)
+  assert.match(read('src/components/shared/dataSheetSort.js'), /export const PAGE_ROWS = 10/)
   assert.match(ds, /\.ds-crease \{[^}]*border-top: 1px dashed var\(--rule\);[^}]*linear-gradient\(180deg, rgba\(24, 32, 63, 0\.055\), transparent 55%\);/s)
   assert.match(ds, /\.ds-detail \{[^}]*background: var\(--paper-2\);[^}]*border-left: 3px solid var\(--color-accent-primary\);/s)
   assert.doesNotMatch(ds, /border-radius:\s*[0-9.]+px/, 'the sheet reads radius tokens, never numbers')

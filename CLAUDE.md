@@ -577,7 +577,7 @@ both.
 `docs/design/table-canon-spec.md` is the standard and `docs/mockups/table-canon.html` renders
 it. The component is `src/components/shared/DataSheet.jsx` with `dataSheet.css`, at one of
 three levels the spec's three questions decide: **full** (stands alone, holds a record you
-read or export: tractor holes, a crease every eight rows, paired bands), **plain** (inside a
+read or export: tractor holes, a crease every ten rows, paired bands), **plain** (inside a
 card or panel: bands and rules, no holes), **inline** (five rows or fewer: bands only). The
 eight invariants hold at every level; convert other screens by swapping markup, one screen per
 session, in the spec's order. Evaluation > Responses is the first build.
@@ -589,6 +589,11 @@ session, in the spec's order. Evaluation > Responses is the first build.
   min-content, so the roster's minimum width stretched the packet past a 375px viewport and
   nothing ever shrank. A block lets the sheet measure itself and drop columns by `priority`
   (1 is never dropped; the highest number goes first). Nothing shrinks, nothing scrolls sideways.
+- **Columns are a weighted spread** (Owner, 2026-09-20): a column is `min` plus `grow`, its
+  track `minmax(min, grow fr)`, so every column grows from its minimum in proportion
+  (name 2.2, school 1.4, date and status 1, each figure 0.7) and nothing bunches at one
+  edge. Content is inset `--ds-inset` (20px on a full sheet) inside the hole strips; the
+  crease is full-bleed and comes every ten rows so the "continued" lines count by tens.
 - **Sort lives in `dataSheetSort.js`.** `sortRows` is what the sheet uses and what an export
   that mirrors the view must call; nulls sort last in both directions; the arrow renders only
   on the active column.

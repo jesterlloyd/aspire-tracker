@@ -528,15 +528,17 @@ export function buildRosterRows(instrument, rows, { timepoint = 'All', status = 
 
 // Column descriptors, JSX-free. The component attaches a renderer per `kind`. The first
 // column is name · qualifier; every figure has its own right-aligned column (table canon).
+// Widths are a minimum plus a share of the spare width (the weighted spread): the name
+// column grows most, the school next, the date and status less, and the figures least.
 export function rosterColumns(instrument) {
   return [
-    { key: 'student',   label: 'Student',   kind: 'name',   width: 'minmax(150px,1fr)',  min: 150, priority: 1 },
-    { key: 'school',    label: 'School',    kind: 'school', width: 'minmax(118px,148px)', min: 118, priority: 4 },
-    { key: 'submitted', label: 'Submitted', kind: 'date',   width: '104px',              min: 104, priority: 2 },
-    { key: 'status',    label: 'Status',    kind: 'pill',   width: '92px',               min: 92,  priority: 2 },
+    { key: 'student',   label: 'Student',   kind: 'name',   min: 150, grow: 2.2, priority: 1 },
+    { key: 'school',    label: 'School',    kind: 'school', min: 118, grow: 1.4, priority: 4 },
+    { key: 'submitted', label: 'Submitted', kind: 'date',   min: 104, grow: 1,   priority: 2 },
+    { key: 'status',    label: 'Status',    kind: 'pill',   min: 92,  grow: 1,   priority: 2 },
     ...instrument.subscales.map(s => ({
       key: `score:${s.key}`, label: s.short, title: s.label, kind: 'num', align: 'right',
-      width: '58px', min: 58, priority: 3, scoreKey: s.key,
+      min: 58, grow: 0.7, priority: 3, scoreKey: s.key,
       decimals: s.itemCodes.length === 1 ? 0 : 2,
     })),
   ]

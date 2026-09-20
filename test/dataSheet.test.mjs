@@ -30,13 +30,13 @@ function render(Component, props, label) {
 const count = (html, re) => (html.match(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')) || []).length
 
 const COLS = [
-  { key: 'name',   label: 'Student', width: 'minmax(150px,1fr)', min: 150, priority: 1, sortValue: r => r.name,   render: r => React.createElement('span', { className: 'ds-nm' }, r.name) },
-  { key: 'status', label: 'Status',  width: '92px', min: 92, priority: 2, sortValue: r => r.status, render: r => React.createElement('span', { className: `ds-pill ds-pill-${r.tone}` }, r.status) },
-  { key: 'score',  label: 'Score',   width: '58px', min: 58, priority: 3, align: 'right', sortValue: r => r.score, render: r => React.createElement('span', { className: 'ds-num' }, r.score == null ? '–' : r.score.toFixed(2)) },
+  { key: 'name',   label: 'Student', min: 150, grow: 2.2, priority: 1, sortValue: r => r.name,   render: r => React.createElement('span', { className: 'ds-nm' }, r.name) },
+  { key: 'status', label: 'Status',  min: 92,  grow: 1,   priority: 2, sortValue: r => r.status, render: r => React.createElement('span', { className: `ds-pill ds-pill-${r.tone}` }, r.status) },
+  { key: 'score',  label: 'Score',   min: 58,  grow: 0.7, priority: 3, align: 'right', sortValue: r => r.score, render: r => React.createElement('span', { className: 'ds-num' }, r.score == null ? '–' : r.score.toFixed(2)) },
 ]
-const ROWS = Array.from({ length: 10 }, (_, i) => ({ id: `r${i + 1}`, name: `Row ${i + 1}`, status: i % 3 ? 'Completed' : 'Sent', tone: i % 3 ? 'ok' : 'info', score: i === 4 ? null : 3 + i / 10 }))
+const ROWS = Array.from({ length: 14 }, (_, i) => ({ id: `r${i + 1}`, name: `Row ${String(i + 1).padStart(2, '0')}`, status: i % 3 ? 'Completed' : 'Sent', tone: i % 3 ? 'ok' : 'info', score: i === 4 ? null : 3 + i / 10 }))
 
-test('full sheet: holes, a sorted header with one arrow, paired bands, a crease after eight rows, an en dash', async () => {
+test('full sheet: holes, a sorted header with one arrow, paired bands, a crease after ten rows, an en dash', async () => {
   const { default: DataSheet } = await load('/src/components/shared/DataSheet.jsx')
   const html = render(DataSheet, { level: 'full', title: 'Individual Responses', columns: COLS, rows: ROWS, sort: { key: 'name', dir: 'asc' }, expandable: true, expandedKeys: new Set(), renderExpanded: () => null }, 'DataSheet(full)')
   assert.equal(count(html, /ds-holes-l/), 1); assert.equal(count(html, /ds-holes-r/), 1)
@@ -48,14 +48,16 @@ test('full sheet: holes, a sorted header with one arrow, paired bands, a crease 
   assert.equal(count(html, / ↓/), 0)
   assert.match(html, /aria-label="Sort by Student descending"/, 'the active header offers the reverse')
   assert.match(html, /aria-label="Sort by Score ascending"/)
-  // Bands: rows 1, 2, 5, 6 of the first page; the second page restarts.
+  // Bands: rows 1, 2, 5, 6, 9, 10 of the first page; the second page restarts.
   const bands = [...html.matchAll(/data-band="(\d)"/g)].map(m => m[1]).join('')
-  assert.equal(bands, '1100110011')
-  assert.equal(count(html, /ds-crease/), 1, 'one crease after eight rows')
+  assert.equal(bands, '11001100111100')
+  assert.equal(count(html, /ds-crease/), 1, 'one crease after ten rows')
   assert.match(html, />continued</)
   assert.equal(count(html, /role="rowgroup"/), 3, 'header, page one, page two')
   assert.match(html, /<span class="ds-num">–<\/span>/, 'missing is an en dash')
-  assert.equal(count(html, /aria-expanded="false"/), 10)
+  assert.equal(count(html, /aria-expanded="false"/), 14)
+  // The weighted spread: every track is minmax(min, grow fr), the chevron is fixed.
+  assert.match(html, /grid-template-columns:minmax\(150px, 2\.2fr\) minmax\(92px, 1fr\) minmax\(58px, 0\.7fr\) 28px/)
   assert.equal(count(html, /class="ds-detail"/), 0)
   assert.match(html, /aria-live="polite"/)
 })
@@ -66,9 +68,9 @@ test('an expanded row opens a bordered panel, and the bands do not shift beneath
   assert.equal(count(html, /aria-expanded="true"/), 1)
   assert.equal(count(html, /class="ds-detail"/), 1)
   assert.match(html, /aria-colspan="4"/)
-  assert.match(html, /aria-label="Answers for Row 1"/)
+  assert.match(html, /aria-label="Answers for Row 01"/)
   const bands = [...html.matchAll(/data-band="(\d)"/g)].map(m => m[1]).join('')
-  assert.equal(bands, '1100110011', 'an open panel is a sibling row; the attribute keeps the rhythm')
+  assert.equal(bands, '11001100111100', 'an open panel is a sibling row; the attribute keeps the rhythm')
 })
 
 test('plain and inline sheets drop the holes and the crease; sort and expansion still work', async () => {
@@ -80,7 +82,7 @@ test('plain and inline sheets drop the holes and the crease; sort and expansion 
   assert.equal(count(plain, / ↓/), 1)
   // Descending by score, nulls last: the null row is the final row.
   const names = [...plain.matchAll(/class="ds-nm">(Row \d+)</g)].map(m => m[1])
-  assert.equal(names[0], 'Row 10'); assert.equal(names[names.length - 1], 'Row 5')
+  assert.equal(names[0], 'Row 14'); assert.equal(names[names.length - 1], 'Row 05')
   const inline = render(DataSheet, { level: 'inline', columns: COLS, rows: ROWS.slice(0, 3) }, 'DataSheet(inline)')
   assert.equal(count(inline, /ds-holes/), 0)
   assert.match(inline, /data-level="inline"/)
@@ -96,7 +98,7 @@ test('sortRows: reversing the active column, nulls last both ways, ties keep the
   const asc = sortRows(ROWS, COLS, { key: 'score', dir: 'asc' }).map(r => r.id)
   const desc = sortRows(ROWS, COLS, { key: 'score', dir: 'desc' }).map(r => r.id)
   assert.equal(asc[asc.length - 1], 'r5'); assert.equal(desc[desc.length - 1], 'r5')
-  assert.equal(asc[0], 'r1'); assert.equal(desc[0], 'r10')
+  assert.equal(asc[0], 'r1'); assert.equal(desc[0], 'r14')
 })
 
 // ── The packet, rendered ─────────────────────────────────────────────────────

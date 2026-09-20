@@ -4,7 +4,8 @@
 // that needs the same order the sheet shows (an export that mirrors the view) runs the
 // same code, and so DataSheet.jsx exports components only.
 
-export const PAGE_ROWS = 8
+// A crease every ten rows (Owner, 2026-09-20: the "continued" lines count by tens).
+export const PAGE_ROWS = 10
 
 export function nextSort(sort, key) {
   if (sort?.key === key) return { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
