@@ -103,7 +103,7 @@ function eligibilityReason(row) {
   return REFUSAL_REASON[row?.status] || null;
 }
 
-const STUDENT_COLUMNS = 'id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, aspire_status, approved_hours, personal_email, school_email';
+const STUDENT_COLUMNS = 'id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, status, approved_hours, personal_email, school_email';
 
 async function getCohortEligibility(req, res) {
   const cohortId = typeof req.query?.cohort_id === 'string' ? req.query.cohort_id.trim() : '';

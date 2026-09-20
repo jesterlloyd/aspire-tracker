@@ -303,8 +303,9 @@ test('the nav row contains exactly one control, so no button is nested in a butt
 })
 
 test('the survey preview is distinct from the pre-existing email preview', () => {
-  assert.match(queueCode, /Preview Survey/)
-  assert.match(queueCode, /Preview Email/)
+  // REVIEW-RELEASE-2: both previews are icon buttons on the board's head.
+  assert.match(queueCode, /aria-label="Open a sample of the survey"/)
+  assert.match(queueCode, /aria-label="Preview the invitation email"/)
   assert.match(dashCode, /<SurveyPreviewDrawer/)
   assert.match(dashCode, /<AutomationEmailPreviewDrawer/)
 })

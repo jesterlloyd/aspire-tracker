@@ -18,7 +18,7 @@ import { getReviewQueue } from '../evaluationReviewApi'
 
 const STUDENT_COLUMNS = [
   'id', 'first_name', 'last_name', 'preferred_first_name', 'school', 'program_type',
-  'matched_unit_id', 'aspire_status', 'approved_hours', 'hours_required', 'pending_hours',
+  'matched_unit_id', 'status', 'approved_hours', 'hours_required', 'pending_hours',
   'personal_email', 'school_email', 'preceptor_id', 'preceptor_email', 'matched_preceptor',
 ].join(', ')
 

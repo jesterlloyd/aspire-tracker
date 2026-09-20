@@ -260,22 +260,21 @@ test('the nav row is a single button again', () => {
   assert.equal((row.match(/<button/g) || []).length, 1, 'exactly one control per row')
 })
 
-test('the three actions live in one labelled Survey tools group', () => {
-  // REVIEW-RELEASE-1: the group is rendered by the queue (section 6.3, one tool row).
+test('the two previews are icon buttons in one labelled Survey tools group; the test send sits in the tool row', () => {
+  // REVIEW-RELEASE-2 (Owner, 2026-09-19): the canon from Residency > Support. Each appears once.
   assert.match(queueCode, /role="group" aria-label="Survey tools"/)
-  for (const action of ['Preview Survey', 'Preview Email', 'Send test to me']) {
-    assert.equal((queueCode.match(new RegExp(action, 'g')) || []).length, 1,
+  for (const action of ['aria-label="Preview the invitation email"', 'aria-label="Open a sample of the survey"', 'Send test to me']) {
+    assert.equal((queueCode.match(new RegExp(action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length, 1,
       `${action} must appear exactly once, not be duplicated elsewhere`)
   }
 })
 
-test('Preview Survey has the strongest visual priority', () => {
-  const tools = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('Send test to me') + 60)
-  const survey = tools.indexOf('Preview Survey')
-  const email = tools.indexOf('Preview Email')
-  assert.ok(survey > -1 && email > survey, 'Preview Survey must come first')
-  assert.match(tools.slice(0, survey), /rr-tool-primary/)
-  assert.match(tools.slice(survey, email), /rr-tool-secondary/)
+test('the eye precedes the square-arrow, as in Residency > Support, and neither is a text button', () => {
+  const group = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('rq-meta-line'))
+  const email = group.indexOf('Preview the invitation email'), survey = group.indexOf('Open a sample of the survey')
+  assert.ok(email > -1 && survey > email, 'eye (email) first, square-arrow (survey) second')
+  assert.equal((group.match(/className="rq-iconbtn"/g) || []).length, 2)
+  assert.doesNotMatch(group, /rr-tool-primary|rr-tool-secondary/)
 })
 
 test('Send test to me is styled distinctly from a production release', () => {
@@ -283,8 +282,8 @@ test('Send test to me is styled distinctly from a production release', () => {
   // A dashed amber control, deliberately not the solid green Release treatment.
   // REVIEW-RELEASE-2: the dashed control now lives in the clipboard stylesheet.
   assert.match(clipCss, /\.rq-board \.rr-tool-test \{ border-style: dashed; \}/)
-  const tools = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('</div>', queueCode.indexOf('Send test to me')))
-  assert.ok(!/Release/.test(tools), 'the toolbar must contain no release control')
+  const tools = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('Re-run detection'))
+  assert.ok(!/Release/.test(tools), 'the head and the tool row must contain no release control')
 })
 
 test('the toolbar stays usable on a phone', () => {

@@ -84,27 +84,26 @@ test('JetBrains Mono is the third self-hosted family: declared, licensed, named 
   assert.match(cssCode, /--rr-mono: var\(--aspire-mono\);/)
 })
 
-test('the stylesheet takes every corner from a token and reuses the page stack', () => {
+test('the stylesheet takes every corner from a token, and a slip is one sheet', () => {
   assert.match(dash, /import '\.\/reviewReleaseClipboard\.css'/)
-  assert.match(css, /^@import '\.\.\/\.\.\/styles\/pageStack\.css';/m)
   const literalRadii = cssCode.match(/border-radius:\s*[0-9.]+px/g) || []
   assert.deepEqual(literalRadii, [], 'no literal radius: card, control, pill, or a named chip token')
   assert.match(cssCode, /\.rq-board \{[^}]*border-radius: var\(--aspire-radius-card\);/)
   assert.match(cssCode, /\.rq-tape \{[^}]*border-radius: 0 0 var\(--aspire-radius-card\) var\(--aspire-radius-card\);/)
   assert.match(cssCode, /\.rq-card \{[^}]*border-radius: 0;/, 'paper is the one square surface')
   assert.match(cssCode, /\.rq-pbtn \{[^}]*border-radius: var\(--aspire-radius-control\);/)
-  // The carbon copy is the shared stack's single-sheet form, on the WRAPPER.
-  assert.match(stack, /\.material-pagestack-single::before \{ display: none; \}/)
-  assert.match(queue, /<div className="rq-slip material-pagestack material-pagestack-single">/)
-  assert.match(cssCode, /\.rq-card \{[^}]*z-index: 1;/)
-  assert.match(cssCode, /\.rq-slip \{ --stack-paper: var\(--aspire-paper-2\);/)
+  // No stack under a slip (Owner, 2026-09-19): one student is one sheet on a clipboard.
+  assert.doesNotMatch(queue, /material-pagestack/)
+  assert.doesNotMatch(css, /pageStack|pagestack/)
+  assert.doesNotMatch(stack, /pagestack-single/)
 })
 
-test('the rail and the board meet at the same top edge, and the rail stacks above the board below 900px', () => {
+test('the rail meets the board at the top edge, keeps its own height, stays pinned while the board scrolls, and stacks below 900px', () => {
   assert.match(cssCode, /\.rr-nav \{[^}]*margin-top: 14px;/)
   assert.match(cssCode, /\.rq-board \{[^}]*margin-top: 14px;/)
-  assert.match(cssCode, /\.rr-layout \{[^}]*align-items: stretch;/)
-  assert.match(cssCode, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}\s*\.rr-nav \{ margin-top: 0; \}/)
+  assert.match(cssCode, /\.rr-layout \{[^}]*align-items: start;/)
+  assert.match(cssCode, /\.rr-nav \{[^}]*position: sticky; top: var\(--app-chrome-height, 0px\); align-self: start;/)
+  assert.match(cssCode, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}\s*\.rr-nav \{ margin-top: 0; position: static; \}/)
   assert.doesNotMatch(dash, /rr-nav-mobile|<optgroup|<select/)
 })
 
@@ -131,6 +130,14 @@ test('the clipboard markup carries no inline presentation, and nothing from Part
   assert.match(queue, /no manual Remind yet/)
   assert.match(clipboardPart, /Sent from this clipboard/)
   assert.match(clipboardPart, /Read the feedback/)
+  // The previews are icon buttons on the head, eye then square-arrow (Residency > Support);
+  // no slip carries a preview, and the head is one quiet line rather than three chips.
+  const head = clipboardPart.slice(clipboardPart.indexOf('aria-label="Survey tools"'), clipboardPart.indexOf('rq-meta-line'))
+  assert.ok(head.indexOf('aria-label="Preview the invitation email"') < head.indexOf('aria-label="Open a sample of the survey"'))
+  assert.match(head, /<Eye size=\{15\}[^]*<ExternalLink size=\{15\}/)
+  assert.doesNotMatch(clipboardPart, /Preview email|Preview Survey|Preview Email|rq-chip|Human-approved/)
+  assert.match(clipboardPart, /<p className="rq-meta-line">To \{survey\.to\}/)
+  assert.match(cssCode, /\.rq-iconbtn \{[^}]*width: 28px; height: 28px;/)
   assert.doesNotMatch(dash, /<style>\{CSS\}<\/style>|const CSS = `/)
   // The hold alert lives on the board now, in the status pair.
   assert.match(clipboardPart, /releaseLocked && \(\s*<p role="alert" className="rq-notice err">/)

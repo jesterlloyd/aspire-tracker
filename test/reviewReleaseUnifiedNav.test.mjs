@@ -79,7 +79,7 @@ test('the left rail has both sections, grouped as the brief names them', () => {
   assert.match(dash, /aria-pressed=\{selected\}/)
   // REVIEW-RELEASE-2 (brief, section 10): below 900px the rail itself stacks above the
   // board and loses its top margin. The narrow-screen <select> it replaced is gone.
-  assert.match(css, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}\s*\.rr-nav \{ margin-top: 0; \}/)
+  assert.match(css, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}\s*\.rr-nav \{ margin-top: 0; position: static; \}/)
   assert.doesNotMatch(dash, /rr-nav-mobile|<optgroup/)
 })
 
@@ -152,18 +152,15 @@ test('the console file is unchanged and keeps every release behavior (no longer 
 
 // ── EVAL-RR-RAIL-C-1: the Owner-approved Settings-style compact rail ─────────────────
 
-test('the rail is one Settings-style card, the same height as the board, not sticky', () => {
-  // REVIEW-RELEASE-1 (section 5): the rail is the same height as the main panel and
-  // starts at the same top edge, and it is NOT sticky. 270px because the six names are
-  // the Owner's full names.
-  // REVIEW-RELEASE-2: the rules moved to the clipboard stylesheet and read the canon
-  // tokens (card corner, shadow-as-edge, control corner); the rail and the board share
-  // the same 14px top margin so their top edges meet.
-  assert.match(css, /\.rr-layout \{ display: grid; grid-template-columns: 270px minmax\(0, 1fr\); gap: 20px; align-items: stretch; \}/)
-  assert.match(css, /\.rr-nav \{[^}]*margin-top: 14px;[^}]*border: 0; border-radius: var\(--aspire-radius-card\);[^}]*box-shadow: var\(--aspire-shadow-card\);/)
+test('the rail is one Settings-style card at its own height, pinned while the board scrolls', () => {
+  // REVIEW-RELEASE-1 (section 5) asked for the same height as the board and no sticky;
+  // the Owner reversed both on 2026-09-19 from production: "when I scroll on the right,
+  // the side panel on the left should stay showing" and its outline "should not be as
+  // long as the clipboard". 270px because the six names are the Owner's full names.
+  assert.match(css, /\.rr-layout \{ display: grid; grid-template-columns: 270px minmax\(0, 1fr\); gap: 20px; align-items: start; \}/)
+  assert.match(css, /\.rr-nav \{[^}]*margin-top: 14px;[^}]*position: sticky; top: var\(--app-chrome-height, 0px\); align-self: start;[^}]*border: 0; border-radius: var\(--aspire-radius-card\);[^}]*box-shadow: var\(--aspire-shadow-card\);/)
   assert.match(css, /\.rq-board \{[^}]*margin-top: 14px;/)
   assert.match(css, /\.rr-row-select \{[^}]*border: 0;\s*border-radius: var\(--aspire-radius-control\);/)
-  assert.ok(!/\.rr-nav \{[^}]*position: ?sticky/.test(css), 'the rail is not sticky any more')
   // Sections separated by a hairline, Settings-style.
   assert.match(css, /\.rr-nav \.rr-nav-group:not\(:first-child\) \{ margin-top: 6px; border-top: 1px solid var\(--aspire-rule\);/)
 })

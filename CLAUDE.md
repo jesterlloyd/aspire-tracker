@@ -485,9 +485,19 @@ action); the four classifiers are untouched and the release endpoints keep every
   period; the adapter keeps the earlier period and names the next gate.
 - **The board is a pressboard clipboard** (`src/components/evaluation/reviewReleaseClipboard.css`),
   presentation only. Corners come from the canon tokens; the three chip radii the mockup
-  needs are named once at the top of the sheet and read by var(). Paper is square. The
-  carbon copy under a slip is `material-pagestack-single` from `pageStack.css`, on the
-  WRAPPER, with the slip at `z-index: 1`.
+  needs are named once at the top of the sheet and read by var(). Paper is square, and a
+  slip has NO stack under it: one student is one sheet, already on a clipboard (Owner,
+  2026-09-19).
+- **The rail is pinned, at its own height.** `position: sticky; top: var(--app-chrome-height)`,
+  `align-items: start`; it does not stretch to the board (Owner, 2026-09-19, reversing the
+  brief). Below 900px it is static and stacks above the board.
+- **Previews are icon buttons on the board's head**, the canon from Residency > Support:
+  the eye previews the email, the square-arrow opens a sample of the survey. A slip
+  carries no preview. The head is a title, one mono meta line, and a thin tool row.
+- **`students.status` is the ASPIRE status.** There is no `students.aspire_status`; that
+  name belongs to `unit_preceptor_responses`, and selecting it took every detection down
+  on 2026-09-19. `test/reviewReleaseQueue.test.mjs` now refuses any students column that
+  no other production select names.
 - **Paper is one definition.** `--aspire-paper*` and `--aspire-rule` live in `theme.css`,
   light and dark; the planner's slate paper and the clipboard both read them. Status
   inks are `--aspire-ok/warn/bad` with `-soft` tints; the board and the tape are

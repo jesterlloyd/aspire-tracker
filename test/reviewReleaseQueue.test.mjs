@@ -20,6 +20,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import * as fsSync from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -99,7 +100,7 @@ test('workflow 1 detects on ASPIRE status: three eligible, four not yet, three n
   assert.deepEqual(never, ['Completed', 'Declined', 'Not Proceeding'])
   assert.equal(PRE_ROTATION_TIMEPOINT, 'baseline')
 
-  const students = ASPIRE_STATUSES.map((st, i) => ({ id: `s${i}`, first_name: 'A', last_name: st, aspire_status: st, personal_email: `s${i}@x.org` }))
+  const students = ASPIRE_STATUSES.map((st, i) => ({ id: `s${i}`, first_name: 'A', last_name: st, status: st, personal_email: `s${i}@x.org` }))
   const { rows, summary } = classifyCaseyFinkPreRotationCohort({ students, assignments: [], nowMs: NOW })
   assert.equal(summary.due_sendable, 3)
   assert.equal(summary.not_due, 4)
@@ -113,9 +114,9 @@ test('workflow 1 detects on ASPIRE status: three eligible, four not yet, three n
 
 test('workflow 1: a missing email blocks, a live survey is sent, an expired one is reissued', () => {
   const students = [
-    { id: 'a', first_name: 'A', last_name: 'One', aspire_status: 'Placed' },                                        // no email
-    { id: 'b', first_name: 'B', last_name: 'Two', aspire_status: 'Interviewed', personal_email: 'b@x.org' },      // live
-    { id: 'c', first_name: 'C', last_name: 'Three', aspire_status: 'Active Rotation', school_email: 'c@x.org' }, // expired
+    { id: 'a', first_name: 'A', last_name: 'One', status: 'Placed' },                                        // no email
+    { id: 'b', first_name: 'B', last_name: 'Two', status: 'Interviewed', personal_email: 'b@x.org' },      // live
+    { id: 'c', first_name: 'C', last_name: 'Three', status: 'Active Rotation', school_email: 'c@x.org' }, // expired
   ]
   const assignments = [
     asg({ student_id: 'b', status: 'sent' }),
@@ -219,11 +220,11 @@ function assertShape(items, workflowId) {
 }
 
 const STUDENTS = [
-  { id: 's1', first_name: 'Priya', last_name: 'Raman', program_type: 'BSN', aspire_status: 'Active Rotation', approved_hours: 135, hours_required: 135, personal_email: 'p@x.org', preceptor_id: 'p1', matched_unit_name: '6 South' },
-  { id: 's2', first_name: 'Ben', last_name: 'Ortega', program_type: 'ABSN', aspire_status: 'Placed', approved_hours: 0, hours_required: 90, preceptor_id: 'p2', matched_unit_name: '4 NW' },      // no email
-  { id: 's3', first_name: 'Ethan', last_name: 'Cole', program_type: 'ABSN', aspire_status: 'Active Rotation', approved_hours: 112, hours_required: 108, personal_email: 'e@x.org', preceptor_id: 'p1', matched_unit_name: '5 NW' },
-  { id: 's4', first_name: 'Zoe', last_name: 'Martin', program_type: 'BSN', aspire_status: 'Form Sent', approved_hours: 10, hours_required: 135, personal_email: 'z@x.org', preceptor_id: 'p1' },
-  { id: 's5', first_name: 'Sofia', last_name: 'Alvarez', program_type: 'BSN', aspire_status: 'Active Rotation', approved_hours: 108, hours_required: 108, personal_email: 'so@x.org', preceptor_id: 'p3', matched_unit_name: '6 NW' },
+  { id: 's1', first_name: 'Priya', last_name: 'Raman', program_type: 'BSN', status: 'Active Rotation', approved_hours: 135, hours_required: 135, personal_email: 'p@x.org', preceptor_id: 'p1', matched_unit_name: '6 South' },
+  { id: 's2', first_name: 'Ben', last_name: 'Ortega', program_type: 'ABSN', status: 'Placed', approved_hours: 0, hours_required: 90, preceptor_id: 'p2', matched_unit_name: '4 NW' },      // no email
+  { id: 's3', first_name: 'Ethan', last_name: 'Cole', program_type: 'ABSN', status: 'Active Rotation', approved_hours: 112, hours_required: 108, personal_email: 'e@x.org', preceptor_id: 'p1', matched_unit_name: '5 NW' },
+  { id: 's4', first_name: 'Zoe', last_name: 'Martin', program_type: 'BSN', status: 'Form Sent', approved_hours: 10, hours_required: 135, personal_email: 'z@x.org', preceptor_id: 'p1' },
+  { id: 's5', first_name: 'Sofia', last_name: 'Alvarez', program_type: 'BSN', status: 'Active Rotation', approved_hours: 108, hours_required: 108, personal_email: 'so@x.org', preceptor_id: 'p3', matched_unit_name: '6 NW' },
 ]
 const PRECEPTORS = [
   { id: 'p1', full_name: 'Romelyn Sanchez', email: 'r@x.org', unit_name: '6 South', is_active: true },
@@ -450,4 +451,36 @@ test('no em dash in anything this change wrote', () => {
   ]) {
     assert.ok(!read(f).includes(EM), `${f} contains an em dash`)
   }
+})
+
+// ── The column guard (REVIEW-RELEASE-2) ──────────────────────────────────────
+// Part 1 shipped selecting students.aspire_status, which does not exist (that name belongs to
+// unit_preceptor_responses); production answered "column students.aspire_status does not
+// exist" on every detection. The students table predates the tracked migrations, so the
+// schema cannot be read here; what can be read is every explicit students select the rest
+// of the code base makes. A column this workflow names must already be selected somewhere
+// else, or it is a name someone invented.
+test('every students column the loader and the endpoint select is one production already selects', () => {
+  const { readdirSync, statSync } = fsSync
+  const known = new Set()
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      if (/ \d+\.[a-z]+$/.test(name)) continue
+      const p = join(here, '..', dir, name)
+      const rel = join(dir, name)
+      if (statSync(p).isDirectory()) { walk(rel); continue }
+      if (!/\.(js|jsx)$/.test(name)) continue
+      if (/reviewQueueLoaders|casey-fink-pre-rotation/.test(rel)) continue
+      const text = readFileSync(p, 'utf8')
+      for (const m of text.matchAll(/\.from\('students'\)\s*\.select\(\s*(['`])([^'`]+)\1/g)) {
+        for (const col of m[2].split(',')) { const c = col.trim().split(/\s|\(/)[0]; if (/^[a-z_]+$/.test(c)) known.add(c) }
+      }
+    }
+  }
+  for (const dir of ['api', 'lib', 'src/lib', 'src/components']) walk(dir)
+  assert.ok(known.has('status') && known.has('approved_hours'), 'the guard itself sees the real columns')
+  assert.ok(!known.has('aspire_status'), 'no production select names students.aspire_status')
+  const loader = read('src/lib/evaluation/reviewQueueLoaders.js').match(/const STUDENT_COLUMNS = \[([\s\S]*?)\]\.join/)[1].match(/'([a-z_]+)'/g).map(x => x.slice(1, -1))
+  const endpoint = read('api/evaluation-release-casey-fink-pre-rotation-survey.js').match(/const STUDENT_COLUMNS = '([^']+)'/)[1].split(',').map(x => x.trim())
+  for (const c of [...loader, ...endpoint]) assert.ok(known.has(c), `students.${c} is selected nowhere else in production code`)
 })

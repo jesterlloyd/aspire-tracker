@@ -2,11 +2,17 @@
  *
  * Part 1 made it one queue; this sheet makes it look like the thing it is. The workspace
  * is a dark pressboard with a steel clip on its top edge. Each person is a paper slip
- * with a coloured band down its left, one carbon copy under it, a stamp in the corner,
- * a chain strip across the middle and its one action at the bottom. Slips that can be
- * acted on sit on white; slips that are waiting on something sit one step back on the
- * second paper. Everything sent from this board is on a perforated tape at the bottom.
- * The rail beside it stays a surface card, matched to the board's height and top edge.
+ * with a coloured band down its left, a stamp in the corner, a chain strip across the
+ * middle and its one action at the bottom. Slips that can be acted on sit on white;
+ * slips that are waiting on something sit one step back on the second paper. Everything
+ * sent from this board is on a perforated tape at the bottom. The rail beside it stays a
+ * surface card at its own height, pinned beneath the app chrome while the board scrolls
+ * (Owner, 2026-09-19, reversing the brief's "same height, not sticky").
+ *
+ * WHAT IS NOT HERE, BY DECISION. No stack under a slip: one student is one sheet, and it
+ * is already on a clipboard. No preview on a slip: the two previews are icon buttons on
+ * the board's head, the canon from Residency > Support (eye for the email, square-arrow
+ * for the form), so the head carries a title, one quiet line and a thin tool row.
  *
  * WHAT THIS SHEET OWNS AND WHAT IT READS. It owns presentation only: the queue's markup
  * gained class hooks and lost its inline styles, and nothing about detection, release,
@@ -23,17 +29,11 @@
  * it measures 5:1 or better against the board's lightest tone; the harness re-measures
  * it in both themes.
  *
- * THE SHEET UNDER A SLIP is `material-pagestack-single` from pageStack.css on the slip's
- * WRAPPER, with the slip itself at `z-index: 1`: a pseudo-element paints after its
- * host's children, so a sheet drawn by the slip's own ::after would land on top of the
- * text. Same trap the chart and the rubric already document.
- *
  * MOTION. A released slip slides right and fades (220ms) before the refetch removes it,
  * and a jump target pulses an amber ring once. Under prefers-reduced-motion the slip
  * simply disappears and the target wears a static ring while it is highlighted.
  */
 
-@import '../../styles/pageStack.css';
 
 /* ── Root ─────────────────────────────────────────────────────────────────── */
 .rr-clipboard {
@@ -58,10 +58,13 @@
 .rr-summary b.g { color: var(--aspire-ok); }
 .rr-summary b.a { color: var(--aspire-warn); }
 
-/* ── Two columns: rail and board, same top edge, same height ───────────────── */
-.rr-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 20px; align-items: stretch; }
+/* ── Two columns: rail and board, same top edge; the rail is pinned ─────────── */
+.rr-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 20px; align-items: start; }
 .rr-nav {
   min-width: 0; margin-top: 14px; display: flex; flex-direction: column; gap: 2px; align-content: start;
+  /* Its own height, and it stays in view while the board scrolls: pinned just under the
+     sticky app chrome, the same offset every in-page sidebar uses. */
+  position: sticky; top: var(--app-chrome-height, 0px); align-self: start;
   background: var(--color-bg-surface); border: 0; border-radius: var(--aspire-radius-card);
   padding: 10px; box-shadow: var(--aspire-shadow-card);
 }
@@ -123,18 +126,22 @@
 .rq-clip i:first-child { left: 22px; }
 .rq-clip i:last-child { right: 22px; }
 
-/* Board head: name, old name, chips, tools, policy. All ink on the board. */
+/* Board head: name and old name, two icon previews at the right, one quiet meta line,
+   a thin tool row, the policy. All ink on the board. */
 .rq { font-family: var(--rr-sans); color: var(--aspire-pressboard-ink); min-width: 0; }
-.rq-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.rq-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.rq-head-main { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
 .rq-head h2 { font-size: 19px; font-weight: 700; margin: 0; color: inherit; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
 .rq-was { font-family: var(--rr-mono); font-size: 10.5px; letter-spacing: 0.02em; color: var(--rr-board-ink-muted); }
-.rq-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.rq-chip {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 2px 9px;
-  border-radius: var(--aspire-radius-pill); background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--aspire-pressboard-ink);
+.rq-head-icons { display: flex; gap: 4px; margin-left: auto; }
+/* The canon icon button (Residency > Support): 28px square, no chrome until hovered. */
+.rq-iconbtn {
+  width: 28px; height: 28px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 0; padding: 0; cursor: pointer; border-radius: var(--aspire-radius-control);
+  color: var(--rr-board-ink-muted);
 }
-.rq-chip.gate { background: rgba(230, 165, 68, 0.16); border-color: rgba(230, 165, 68, 0.4); color: #F4D9A6; }
+.rq-iconbtn:hover { background: rgba(255, 255, 255, 0.12); color: var(--aspire-pressboard-ink); }
+.rq-meta-line { font-family: var(--rr-mono); font-size: 11px; line-height: 1.5; margin: 0 0 10px; color: var(--rr-board-ink-muted); }
 .rq-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .rq-board .rr-tool-primary, .rq-board .rr-tool-secondary, .rq-board .rr-tool-test {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; cursor: pointer;
@@ -147,7 +154,7 @@
 .rq-board .rr-tool-test { border-style: dashed; }
 .rq-board .rr-tool-secondary:disabled, .rq-board .rr-tool-test:disabled { opacity: 0.6; cursor: default; }
 .rq-board .rr-tool-primary:focus-visible, .rq-board .rr-tool-secondary:focus-visible, .rq-board .rr-tool-test:focus-visible,
-.rq-board .rq-policy button:focus-visible, .rq-tape-head button:focus-visible, .rq-eligible summary:focus-visible {
+.rq-board .rq-policy button:focus-visible, .rq-tape-head button:focus-visible, .rq-eligible summary:focus-visible, .rq-iconbtn:focus-visible {
   outline: 3px solid #F4D9A6; outline-offset: 2px;
 }
 .rq-meta { margin-left: auto; font-family: var(--rr-mono); font-size: 11px; color: var(--rr-board-ink-muted); }
@@ -179,9 +186,8 @@
 .rq-empty { font-size: 13px; color: var(--rr-board-ink-muted); padding: 10px 0; text-align: center; }
 
 /* ── Slips ────────────────────────────────────────────────────────────────── */
-.rq-slip { --stack-paper: var(--aspire-paper-2); min-width: 0; }
 .rq-card {
-  position: relative; z-index: 1; min-width: 0; display: grid; gap: 8px;
+  position: relative; min-width: 0; display: grid; gap: 8px;
   background: var(--aspire-paper); color: var(--aspire-paper-ink); padding: 11px 14px 11px 18px;
   border: 0; border-radius: 0; /* paper is the one square surface */
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.26), 0 7px 15px rgba(0, 0, 0, 0.24);
@@ -303,7 +309,7 @@
    scrolls sideways: its children shrink (min-width: 0) and its long lines wrap. */
 @media (max-width: 900px) {
   .rr-layout { grid-template-columns: 1fr; }
-  .rr-nav { margin-top: 0; }
+  .rr-nav { margin-top: 0; position: static; }
 }
 @media (max-width: 700px) {
   .rq-eligible ul { columns: 1; }

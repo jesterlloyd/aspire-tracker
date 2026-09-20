@@ -58,7 +58,7 @@ const STATE_PRECEDENCE = {
 
 // Classify one cohort. All inputs are already loaded; this function does no I/O.
 //   students     - [{ id, first_name, last_name, preferred_first_name, school, program_type,
-//                     aspire_status, matched_unit_name, personal_email, school_email }]
+//                     status (the ASPIRE status), matched_unit_name, personal_email, school_email }]
 //   assignments  - casey_fink_readiness_2024 assignments at timepoint baseline for the cohort
 //                  ONLY: [{ id, student_id, status, revoked_at, completed_at, expires_at,
 //                  sent_at, created_at, notes }]
@@ -103,7 +103,9 @@ export function classifyCaseyFinkPreRotationCohort({
   }
 
   for (const s of students) {
-    const aspireStatus = (s.aspire_status || '').trim()
+    // The ASPIRE status lives in students.status (there is no aspire_status column on
+    // students; that name belongs to unit_preceptor_responses). REVIEW-RELEASE-2 fix.
+    const aspireStatus = (s.status || '').trim()
     const eligibleStatus = PRE_ROTATION_ELIGIBLE_STATUSES.includes(aspireStatus)
     const pendingStatus = PRE_ROTATION_PENDING_STATUSES.includes(aspireStatus)
     const asg = asgByStudent.get(s.id) || null

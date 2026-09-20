@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Eye, Mail, Send, RefreshCw, ExternalLink } from 'lucide-react'
+import { Eye, Send, RefreshCw, ExternalLink } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { surveyByKey } from '../../lib/evaluation/surveyCatalog'
 import { PERIOD_LABELS } from '../../lib/evaluation/preceptorDueDetection'
@@ -64,13 +64,13 @@ function Stamp({ stamp }) {
 
 // A slip. The band's colour is the stamp's tone: ready is green, a wait or a step behind
 // is amber, a data fix or a wait older than seven days is red (the adapters decide the
-// tone; the slip only wears it). The wrapper carries the carbon copy under the paper.
-function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, onAction, onJump, onPreviewEmail, onReadFeedback }) {
+// tone; the slip only wears it). One student, one sheet: no stack under it (Owner,
+// 2026-09-19, "it's single student and it's in a clipboard already").
+function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, onAction, onJump, onReadFeedback }) {
   const ready = item.state === 'ready'
   const b = item.blocker
   const tone = item.stamp?.tone === 'ok' ? 'ok' : item.stamp?.tone === 'late' ? 'late' : 'soon'
   return (
-    <div className="rq-slip material-pagestack material-pagestack-single">
       <article
         className={`rq-card rq-card-${item.state} rq-band-${tone}${highlighted ? ' rq-card-flash' : ''}${leaving ? ' rq-card-gone' : ''}`}
         data-item-id={item.id}
@@ -98,9 +98,10 @@ function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, o
         <div className="rq-actions">
           {ready ? (
             <>
+              {/* No preview here: the previews live on the board's head (Owner, 2026-09-19). */}
               {workflow.key === 'unitLeaderRelease'
                 ? <button type="button" className="rq-pbtn" onClick={() => onReadFeedback?.(item)}>Read the feedback</button>
-                : <button type="button" className="rq-pbtn" onClick={onPreviewEmail}>Preview email</button>}
+                : <span className="rq-why">{item.sendTo ? `To ${item.sendTo}` : ''}</span>}
               <button type="button" className="rq-pbtn go" disabled={busy || locked}
                 title={locked ? 'Releases are paused until you re-run detection.' : undefined}
                 onClick={() => onRelease(item)}>
@@ -129,7 +130,6 @@ function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, o
           )}
         </div>
       </article>
-    </div>
   )
 }
 
@@ -183,31 +183,32 @@ export default function ReviewReleaseQueue({
 
   const cardProps = (it) => ({
     item: it, workflow: survey, busy: busyItemId === it.id, locked: releaseLocked, leaving: leavingItemId === it.id,
-    highlighted: highlightItemId === it.id, onRelease, onAction, onJump, onPreviewEmail: tools?.onPreviewEmail, onReadFeedback,
+    highlighted: highlightItemId === it.id, onRelease, onAction, onJump, onReadFeedback,
   })
 
   return (
     <div className="rq">
-      {/* 1. Name, with the old name beside it for one release cycle. */}
+      {/* 1. Name, with the old name beside it for one release cycle, and the two previews as
+          icon buttons at the top right: the canon from Residency > Support (Owner,
+          2026-09-19), the eye for the email and the square-arrow for the form. */}
       <div className="rq-head">
-        <h2>{survey.label}</h2>
-        <span className="rq-was">{survey.was ? `currently “${survey.was}”` : 'new'}</span>
-      </div>
-      {/* 2. Three chips. */}
-      <div className="rq-chips">
-        {[['To', survey.recipient], ['Trigger', survey.trigger]].map(([k, v]) => (
-          <span key={k} className="rq-chip">{k}: {v}</span>
-        ))}
-        <span className="rq-chip gate">{survey.gate}</span>
-      </div>
-      {/* 3. One tool row. */}
-      <div className="rq-tools" role="group" aria-label="Survey tools">
+        <div className="rq-head-main">
+          <h2>{survey.label}</h2>
+          <span className="rq-was">{survey.was ? `currently “${survey.was}”` : 'new'}</span>
+        </div>
         {survey.slug && (
-          <>
-            <button type="button" className="rr-tool-primary" onClick={tools?.onPreviewSurvey} aria-label="Preview the survey questions for the selected workflow"><Eye size={15} aria-hidden="true" /> Preview Survey</button>
-            <button type="button" className="rr-tool-secondary" onClick={tools?.onPreviewEmail} aria-label="Preview the invitation email for the selected workflow"><Mail size={14} aria-hidden="true" /> Preview Email</button>
-            <button type="button" className="rr-tool-test" disabled={tools?.testState?.busy} onClick={tools?.onSendTest} aria-label="Send a test of the selected survey to my own email"><Send size={14} aria-hidden="true" /> {tools?.testState?.busy ? 'Preparing…' : 'Send test to me'}</button>
-          </>
+          <div className="rq-head-icons" role="group" aria-label="Survey tools">
+            <button type="button" className="rq-iconbtn" onClick={tools?.onPreviewEmail} title="Preview the invitation email" aria-label="Preview the invitation email"><Eye size={15} aria-hidden="true" /></button>
+            <button type="button" className="rq-iconbtn" onClick={tools?.onPreviewSurvey} title="Open a sample of the survey" aria-label="Open a sample of the survey"><ExternalLink size={15} aria-hidden="true" /></button>
+          </div>
+        )}
+      </div>
+      {/* 2. One quiet line: who it goes to, what triggers it, what it gates. */}
+      <p className="rq-meta-line">To {survey.to} {'·'} {survey.trigger} {'·'} {survey.gate}</p>
+      {/* 3. The tool row: a test send and detection, with the stamp at the right. */}
+      <div className="rq-tools">
+        {survey.slug && (
+          <button type="button" className="rr-tool-test" disabled={tools?.testState?.busy} onClick={tools?.onSendTest} aria-label="Send a test of the selected survey to my own email"><Send size={14} aria-hidden="true" /> {tools?.testState?.busy ? 'Preparing…' : 'Send test to me'}</button>
         )}
         <button type="button" className="rr-tool-secondary" onClick={onRerun} disabled={loading}><RefreshCw size={14} aria-hidden="true" /> {loading ? 'Detecting…' : 'Re-run detection'}</button>
         <span className="rq-meta">{detectedAtMs ? `Detected ${new Date(detectedAtMs).toLocaleString('en-US')}` : ''}</span>
@@ -223,9 +224,8 @@ export default function ReviewReleaseQueue({
           )}
         </div>
       )}
-      {/* 4. Human-approved sends only, with the policy collapsed. */}
+      {/* 4. The policy, collapsed. */}
       <div className="rq-policy">
-        <span>Human-approved sends only.</span>
         <button type="button" aria-expanded={policyOpen} onClick={() => setPolicyOpen(o => !o)}>
           {policyOpen ? 'Hide' : 'How release works'}
         </button>
