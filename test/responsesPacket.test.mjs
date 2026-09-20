@@ -230,7 +230,10 @@ test("single-timepoint distribution: the preceptor instrument's own anchors are 
   assert.equal(d2.subscales.find(s => s.key === 'clinical_judgment').total, 2, 'still two rated responses')
   assert.equal(d2.subscales.find(s => s.key === 'patient_centered_care').total, 3)
   // A one-item subscale prints as an integer rating in the roster.
-  assert.equal(rosterColumns(PP)[4].decimals, 0); assert.equal(rosterColumns(CF)[4].decimals, 2)
+  assert.equal(rosterColumns(PP)[5].decimals, 0); assert.equal(rosterColumns(CF)[4].decimals, 2)
+  const ppRows = buildRosterRows(PP, buildPacket(COHORT, PP.slug, { now: NOW }).rows, {}, NOW)
+  assert.equal(ppRows.find(r => r.studentId === 'a').respondent, 'R. Sanchez')
+  assert.equal(rosterSortValue(ppRows.find(r => r.studentId === 'a'), rosterColumns(PP)[2]), 'r. sanchez')
 })
 
 test('the two student instruments read a mean on the Likert rule: agreed at 4.0, neutral from 3.0, disagreed below', () => {
@@ -332,7 +335,11 @@ test('columns follow the canon: Student first, then School, Status, Date, then o
   // The weighted spread: min + grow, no literal widths; name widest, figures least.
   assert.deepEqual(cols.map(c => c.grow), [2.2, 1.4, 1, 1, 0.7, 0.7, 0.7])
   assert.ok(cols.every(c => c.width === undefined && c.min > 0))
-  assert.deepEqual(rosterColumns(PP).slice(4).map(c => c.label), ['CJ', 'PCC', 'SQ', 'TCC', 'PA', 'ABR'])
+  // A preceptor-answered instrument names the respondent, and its six figures tighten.
+  assert.deepEqual(rosterColumns(PP).map(c => c.label), ['Student', 'School', 'Respondent', 'Status', 'Date', 'CJ', 'PCC', 'SQ', 'TCC', 'PA', 'ABR'])
+  assert.equal(rosterColumns(PP)[2].kind, 'text')
+  assert.deepEqual(rosterColumns(PP).slice(5).map(c => [c.min, c.grow]), Array(6).fill([48, 0.55]))
+  assert.equal(rosterColumns(SF).find(c => c.key === 'respondent'), undefined, 'a student-answered instrument has no respondent column')
   const p = buildPacket(COHORT, CF.slug, { now: NOW })
   const rows = buildRosterRows(CF, p.rows, {}, NOW)
   const row = rows.find(r => r.studentId === 'a' && r.timepoint === 'post_rotation')
@@ -462,11 +469,14 @@ test('B2 to B5: the sheet, the tabs, the roster chrome and the mandatory seconda
   assert.match(css, /\.rp-sheethead \{[^}]*border-bottom: 2px solid var\(--paper-ink\);/s)
   // File tabs on the frame's band: 9px top corners via token, no bottom border, no overlap
   // with the page; the selected one rises to the band and joins it; the meter is a block.
-  assert.match(css, /\.rp-tab \{[^}]*top: 3px;[^}]*z-index: 0;/s)
-  assert.match(css, /\.rp-tab-main \{[^}]*background: var\(--folder-deep\);[^}]*border-bottom: none;[^}]*border-radius: var\(--aspire-radius-filetab\) var\(--aspire-radius-filetab\) 0 0;/s)
+  // Every tab is paper, the four share the width equally, and the selected one joins the
+  // sheet with no gap and no seam.
+  assert.match(css, /\.rp-tab \{[^}]*top: 3px;[^}]*z-index: 0;[^}]*flex: 1 1 0;/s)
+  assert.doesNotMatch(css, /\.rp-tab \{[^}]*max-width/s)
+  assert.match(css, /\.rp-tab-main \{[^}]*background: var\(--paper\);[^}]*border: 1px solid var\(--rule\);[^}]*border-bottom: none;[^}]*border-radius: var\(--aspire-radius-filetab\) var\(--aspire-radius-filetab\) 0 0;/s)
+  assert.doesNotMatch(css, /folder-deep\)/, 'no tab is manila any more')
   assert.doesNotMatch(css, /margin-bottom: -11px/)
-  // The selected tab IS the sheet: paper, the sheet's own rule, no gap, no seam.
-  assert.match(css, /\.rp-tab\[data-selected="true"\] \.rp-tab-main \{[^}]*background: var\(--paper\);[^}]*border-color: var\(--rule\);[^}]*margin-bottom: -1px;/s)
+  assert.match(css, /\.rp-tab\[data-selected="true"\] \.rp-tab-main \{[^}]*margin-bottom: -1px;/s)
   assert.match(css, /\.rp-sheet \{[^}]*margin-top: 0;/s)
   assert.match(css, /\.rp-tab-preview \{[^}]*position: absolute;[^}]*top: 6px;[^}]*right: 6px;/s)
   assert.match(css, /\.rp-meter \{\n\s*display: block;/)

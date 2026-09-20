@@ -46,33 +46,34 @@
   padding: 8px 0 0;
   margin: 0;
 }
-/* A tab is a wrapper (the preview icon cannot live inside the tab's button). Unselected
-   tabs sit 3px lower and behind the sheet, in the folder's deeper manila. */
+/* A tab is a wrapper (the preview icon cannot live inside the tab's button). Every tab is
+   paper (Owner, 2026-09-20): the four share the width equally, so the last one ends at the
+   sheet's right edge and no title stands out. Unselected tabs sit 3px lower and behind the
+   sheet with muted ink; hierarchy comes from position and shadow, not colour. */
 .rp-tab {
   position: relative;
   top: 3px;
   z-index: 0;
-  flex: 1 1 190px;
-  max-width: 340px;
+  flex: 1 1 0;
   min-width: 0;
 }
 .rp-tab-main {
   display: block;
   width: 100%;
-  background: var(--folder-deep);
-  border: 1px solid var(--folder-edge);
+  background: var(--paper);
+  border: 1px solid var(--rule);
   border-bottom: none;
   border-radius: var(--aspire-radius-filetab) var(--aspire-radius-filetab) 0 0;
   padding: 8px 40px 9px 15px;
   text-align: left;
-  color: var(--folder-ink-muted);
+  color: var(--paper-muted);
   font: inherit;
   cursor: pointer;
 }
 .rp-tab-main b {
   display: block;
   font-size: 13.5px;
-  color: var(--folder-ink-muted);
+  color: var(--paper-muted);
   font-weight: 600;
 }
 .rp-tab-main .rp-n {
@@ -86,7 +87,7 @@
   display: block;
   height: 4px;
   border-radius: var(--aspire-radius-pill);
-  background: var(--folder-edge);
+  background: var(--rule);
   margin-top: 6px;
   overflow: hidden;
 }
@@ -96,7 +97,7 @@
   border-radius: var(--aspire-radius-pill);
   background: var(--same);
 }
-.rp-tab-main:hover b { color: var(--folder-ink); }
+.rp-tab-main:hover b { color: var(--paper-ink); }
 /* The selected tab IS the sheet: paper-coloured, no grid, the same rule as the sheet's
    edge, and a -1px overlap that erases the sheet's top border beneath it. */
 .rp-tab[data-selected="true"] {
@@ -104,15 +105,11 @@
   z-index: 2;
 }
 .rp-tab[data-selected="true"] .rp-tab-main {
-  background: var(--paper);
-  color: var(--paper-muted);
-  border-color: var(--rule);
   padding-bottom: 12px;
   margin-bottom: -1px;
   box-shadow: 0 -2px 6px rgba(24, 32, 63, 0.08), 6px 0 10px -6px rgba(24, 32, 63, 0.22), -6px 0 10px -6px rgba(24, 32, 63, 0.22);
 }
 .rp-tab[data-selected="true"] .rp-tab-main b { color: var(--paper-ink); }
-.rp-tab[data-selected="true"] .rp-meter { background: var(--rule); }
 .rp-tab[data-selected="true"] .rp-meter i { background: var(--up); }
 /* The square-arrow at the tab's top right opens a sample of the survey. */
 .rp-tab-preview {
@@ -128,12 +125,10 @@
   border: 0;
   padding: 0;
   border-radius: var(--aspire-radius-control);
-  color: var(--folder-ink-muted);
+  color: var(--paper-muted);
   cursor: pointer;
 }
-.rp-tab-preview:hover { background: rgba(24, 32, 63, 0.08); color: var(--folder-ink); }
-.rp-tab[data-selected="true"] .rp-tab-preview { color: var(--paper-muted); }
-.rp-tab[data-selected="true"] .rp-tab-preview:hover { color: var(--paper-ink); }
+.rp-tab-preview:hover { background: var(--band); color: var(--paper-ink); }
 
 /* ── The gridded analysis sheet, inside the frame ───────────────────────── */
 .rp-sheet {
@@ -525,7 +520,7 @@
   .rp-item { grid-template-columns: 1fr auto; }
   .rp-item .rp-shift { display: none; }
   .rp-bs-legend { margin-left: 0; }
-  .rp-tab { flex: 1 1 140px; max-width: none; }
+  .rp-tab { flex: 1 1 140px; }
   .rp-tab-main { padding-right: 34px; }
 }
 

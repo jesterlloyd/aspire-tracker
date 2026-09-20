@@ -79,6 +79,7 @@ function renderCell(col, row) {
   switch (col.kind) {
     case 'name':   return <NameCell row={row} />
     case 'school': return row.school ? <span className="ds-txt ds-dim" title={row.school}>{row.school}</span> : <Missing />
+    case 'text':   return row[col.key] ? <span className="ds-txt" title={row[col.key]}>{row[col.key]}</span> : <Missing />
     case 'date':   return row.date ? <span className="ds-date" title={`${row.dateKind} ${fmtDate(row.date)}`}>{fmtDate(row.date)}</span> : <Missing />
     case 'pill':   return <Pill tone={row.pill.tone}>{row.pill.label}</Pill>
     case 'num': {

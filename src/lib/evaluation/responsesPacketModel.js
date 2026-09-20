@@ -534,7 +534,7 @@ export function rosterRow(instrument, assignment, now = Date.now()) {
     status,
     pill: statusPill(status),
     timepoint: assignment.timepoint,
-    respondent: assignment.respondent_type === 'preceptor' ? (assignment.respondent_name || 'Preceptor') : null,
+    respondent: assignment.respondent_type === 'preceptor' ? (assignment.respondent_name || null) : null,
     scores,
   }
 }
@@ -551,15 +551,19 @@ export function buildRosterRows(instrument, rows, { timepoint = 'All', status = 
 // column is name · qualifier; every figure has its own right-aligned column (table canon).
 // Widths are a minimum plus a share of the spare width (the weighted spread): the name
 // column grows most, the school next, the date and status less, and the figures least.
+// A preceptor-answered instrument also names the respondent (Owner, 2026-09-20): who
+// answered, or who a pending survey is waiting on. Its six figures tighten to make room.
 export function rosterColumns(instrument) {
+  const askedOfPreceptor = instrument.respondentNoun === 'preceptor'
   return [
     { key: 'student', label: 'Student', kind: 'name',   min: 150, grow: 2.2, priority: 1 },
     { key: 'school',  label: 'School',  kind: 'school', min: 118, grow: 1.4, priority: 4 },
+    ...(askedOfPreceptor ? [{ key: 'respondent', label: 'Respondent', kind: 'text', min: 120, grow: 1.3, priority: 2 }] : []),
     { key: 'status',  label: 'Status',  kind: 'pill',   min: 92,  grow: 1,   priority: 2 },
     { key: 'date',    label: 'Date',    kind: 'date',   min: 104, grow: 1,   priority: 2 },
     ...instrument.subscales.map(s => ({
       key: `score:${s.key}`, label: s.short, title: s.label, kind: 'num', align: 'right',
-      min: 58, grow: 0.7, priority: 3, scoreKey: s.key,
+      min: askedOfPreceptor ? 48 : 58, grow: askedOfPreceptor ? 0.55 : 0.7, priority: 3, scoreKey: s.key,
       decimals: s.itemCodes.length === 1 ? 0 : 2,
     })),
   ]
@@ -570,6 +574,7 @@ export function rosterSortValue(row, column) {
     case 'name':   return row.sortName
     case 'school': return (row.school || '').toLowerCase() || null
     case 'date':   return row.date || null
+    case 'text':   return (row[column.key] || '').toLowerCase() || null
     case 'pill':   return statusSortIndex(row.status)
     case 'num':    return row.scores[column.scoreKey] ?? null
     default:       return row[column.key] ?? null
