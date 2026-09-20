@@ -46,6 +46,7 @@ import { canonicalRotationWindow } from './rotationWindow.js'
 import {
   formatWeekdays, formatDates, sanitizeWeekdays, sanitizeIsoDates,
 } from './availability.js'
+import { unitNameKey } from './unitNameCanon.js'
 
 export const TO_BE_CONFIRMED = 'To be confirmed'
 
@@ -366,7 +367,8 @@ const NOT_A_NAME = /^[A-Z]{2,6}(-[A-Z]{2,3})?$/
 /**
  * The greeting name for the unit leader actually being emailed.
  *
- * 1. unit_leaders, matched on the RECIPIENT address first (so the greeting names
+ * 1. Unit leader rows (ASPIRE Connect > Contacts, via unitLeadersFromConnect.js),
+ *    matched on the RECIPIENT address first (so the greeting names
  *    the person the message goes to), then on the unit's active primary lead.
  *    preferred_name wins over full_name - the canonical greeting rule already
  *    used by lib/notifications/greetings.js.
@@ -383,7 +385,7 @@ export function resolveUnitLeaderGreetingName({ unit, leaders, recipientEmails }
     (Array.isArray(recipientEmails) ? recipientEmails : [])
       .map(e => trim(e).toLowerCase()).filter(Boolean),
   )
-  const forUnit = rows.filter(l => trim(l.unit_name).toLowerCase() === unitName.toLowerCase())
+  const forUnit = rows.filter(l => unitNameKey(l.unit_name) === unitNameKey(unitName))
 
   const byRecipient = wanted.size
     ? forUnit.find(l => wanted.has(trim(l.email).toLowerCase()))

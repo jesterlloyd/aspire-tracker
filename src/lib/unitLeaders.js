@@ -1,48 +1,43 @@
 // src/lib/unitLeaders.js
-// Frontend-only helper for querying the unit_leaders table.
-// Uses the browser anon client (public read via RLS policy).
-// For server-side (notification routing), recipients.js queries directly via service role.
+//
+// Browser-side unit leadership, read from ASPIRE Connect > Contacts (UNIT-LEADERS-RETIRE-1,
+// Owner 2026-09-20). The legacy `unit_leaders` table is not read here or anywhere else; the
+// pure adapter in unitLeadersFromConnect.js turns Unit Leader contacts into the row shape
+// these helpers always returned, so callers did not change. Server-side readers
+// (notification routing, Keith) select the same columns with the service role and run the
+// same adapter.
 
 import { supabase } from './supabase.js';
+import {
+  UNIT_LEADER_CONTACT_COLUMNS, UNIT_LEADER_CATEGORY_VALUES, unitLeaderRows,
+  findPrimaryLead, findOperationalLeaders,
+} from './unitLeadersFromConnect.js';
 
+export { findPrimaryLead, findOperationalLeaders };
+
+/** Active Unit Leader contacts, as stored. Errors are reported and read as "no leaders". */
+export async function fetchUnitLeaderContacts() {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select(UNIT_LEADER_CONTACT_COLUMNS)
+    .in('category', [...UNIT_LEADER_CATEGORY_VALUES])
+    .eq('is_active', true);
+  if (error) {
+    console.error('[unitLeaders] contacts fetch error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+/** One unit's leaders, lead first. */
 export async function getUnitLeaders(unitName) {
-  const { data, error } = await supabase
-    .from('unit_leaders')
-    .select('*')
-    .eq('unit_name', unitName)
-    .eq('is_active', true)
-    .order('is_primary_lead', { ascending: false });
-
-  if (error) {
-    console.error('[unitLeaders] fetch error:', error);
-    return [];
-  }
-  return data || [];
+  if (!unitName) return [];
+  return unitLeaderRows(await fetchUnitLeaderContacts(), { unitName });
 }
 
+/** Every unit's leaders, by unit, lead first. */
 export async function getAllUnitLeaders() {
-  const { data, error } = await supabase
-    .from('unit_leaders')
-    .select('*')
-    .eq('is_active', true)
-    .order('unit_name')
-    .order('is_primary_lead', { ascending: false });
-
-  if (error) {
-    console.error('[unitLeaders] fetch all error:', error);
-    return [];
-  }
-  return data || [];
-}
-
-export function findPrimaryLead(leaders) {
-  return leaders.find(l => l.is_primary_lead) || null;
-}
-
-export function findOperationalLeaders(leaders) {
-  return leaders.filter(l =>
-    ['Assistant Nurse Manager', 'NPD Practitioner', 'Clinical Nurse Specialist'].includes(l.role)
-  );
+  return unitLeaderRows(await fetchUnitLeaderContacts());
 }
 
 export function isSubmitterPrimaryLead(leaders, submitterEmail) {

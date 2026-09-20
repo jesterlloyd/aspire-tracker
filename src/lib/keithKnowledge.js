@@ -9,6 +9,7 @@
  *   - Never expose API key in VITE_ prefixed variables
  */
 
+import { UNIT_LEADER_CONTACT_COLUMNS, UNIT_LEADER_CATEGORY_VALUES, unitLeaderRows } from './unitLeadersFromConnect.js';
 import { appUrl } from './appUrl.js'
 
 export const ASPIRE_KNOWLEDGE = {
@@ -1193,11 +1194,13 @@ export async function getUnitResponseStats(supabase, cohortId) {
 }
 
 export async function getUnitLeadersForKeith(supabase) {
+  // UNIT-LEADERS-RETIRE-1: ASPIRE Connect > Contacts is the roster. Same row shape as
+  // before (unit_name, full_name, preferred_name, email, role, role_qualifier,
+  // is_primary_lead), by unit, lead first.
   const { data } = await supabase
-    .from('unit_leaders')
-    .select('unit_name, full_name, preferred_name, email, role, role_qualifier, is_primary_lead')
-    .eq('is_active', true)
-    .order('unit_name')
-    .order('is_primary_lead', { ascending: false });
-  return data || [];
+    .from('contacts')
+    .select(UNIT_LEADER_CONTACT_COLUMNS)
+    .in('category', [...UNIT_LEADER_CATEGORY_VALUES])
+    .eq('is_active', true);
+  return unitLeaderRows(data || []);
 }

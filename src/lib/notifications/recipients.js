@@ -8,6 +8,9 @@
 // not through direct email notifications.
 
 import { createClient } from '@supabase/supabase-js';
+import {
+  UNIT_LEADER_CONTACT_COLUMNS, UNIT_LEADER_CATEGORY_VALUES, unitLeaderRows, selectUnitFormCc,
+} from '../unitLeadersFromConnect.js';
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -307,39 +310,23 @@ async function resolveUnitFormReceived(context) {
     return recipients;
   }
 
-  // Query unit_leaders for CC routing (service role for server-side access)
+  // CC routing from ASPIRE Connect > Contacts (UNIT-LEADERS-RETIRE-1): the unit's Unit
+  // Leader contacts, adapted to leader rows, then the one routing rule in selectUnitFormCc.
+  // Service role for server-side access. A failed read is non-fatal: the submitter still
+  // gets their confirmation, with no CC.
   let ccList = [];
   try {
     const db = getDb();
     if (db && unitName) {
-      const { data: leaders } = await db
-        .from('unit_leaders')
-        .select('full_name, preferred_name, email, role, is_primary_lead')
-        .eq('unit_name', unitName)
-        .eq('is_active', true)
-        .order('is_primary_lead', { ascending: false });
-
-      if (leaders && leaders.length > 0) {
-        const primaryLead = leaders.find(l => l.is_primary_lead) || null;
-        const submitterIsPrimary = primaryLead &&
-          primaryLead.email.toLowerCase() === submitterEmail.toLowerCase().trim();
-
-        let ccLeaders = [];
-        if (submitterIsPrimary) {
-          ccLeaders = leaders.filter(l =>
-            ['Assistant Nurse Manager', 'NPD Practitioner', 'Clinical Nurse Specialist'].includes(l.role)
-          );
-        } else if (primaryLead) {
-          ccLeaders = [primaryLead];
-        }
-
-        ccList = ccLeaders
-          .filter(l => l.email.toLowerCase() !== submitterEmail.toLowerCase().trim())
-          .map(l => ({ name: l.full_name, preferred_name: l.preferred_name || null, email: l.email }));
-      }
+      const { data: contacts } = await db
+        .from('contacts')
+        .select(UNIT_LEADER_CONTACT_COLUMNS)
+        .in('category', [...UNIT_LEADER_CATEGORY_VALUES])
+        .eq('is_active', true);
+      ccList = selectUnitFormCc({ leaders: unitLeaderRows(contacts || [], { unitName }), submitterEmail });
     }
   } catch (err) {
-    console.warn('[notifications/recipients] unit_leaders lookup failed (non-fatal):', err.message);
+    console.warn('[notifications/recipients] unit leadership lookup failed (non-fatal):', err.message);
   }
 
   // Submitter confirmation email (with CC to unit team)

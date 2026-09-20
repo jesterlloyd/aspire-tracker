@@ -4,6 +4,8 @@ import Tooltip from './ui/Tooltip'
 import { useQuery } from '@tanstack/react-query'
 import { useUpdatedLabel, KPICell } from './KPIBand'
 import { supabase } from '../lib/supabase'
+import { getAllUnitLeaders } from '../lib/unitLeaders'
+import { unitNameKey } from '../lib/unitNameCanon'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
@@ -164,7 +166,7 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
   const isDecline = status === 'not_hosting'
   const isPending = status === 'pending'
   const desc      = getUnit(response.unit_name)?.description
-  const lead      = primaryLeadMap[response.unit_name]
+  const lead      = primaryLeadMap[unitNameKey(response.unit_name)]
 
   // UNIT-FORM-RESPONSE-VISIBILITY: lightweight submitter provenance line.
   const submitterLabel = (response.submitted_by_name || '').trim()
@@ -237,7 +239,7 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
             <button
               onClick={() => showToast(lead
                 ? `Contact ${lead.full_name} at ${lead.email} for ${response.unit_name}.`
-                : `No primary lead found for ${response.unit_name}. Check unit_leaders table.`)}
+                : `No unit lead is on file for ${response.unit_name}. Add the Associate Director in ASPIRE Connect, Contacts.`)}
               style={{ background:'none', border:'1px dashed #d1d5db', borderRadius:6, padding:'2px 7px', fontSize:10.5, color:'#9ca3af', cursor:'pointer', whiteSpace:'nowrap' }}>
               Remind
             </button>
@@ -583,25 +585,20 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     staleTime: 30000,
   })
 
-  // Unit leaders - ALL active leaders. CAPACITY-FILTER-REMINDER-1 preselects role-based recipients
-  // (Associate Director, Assistant Nurse Manager, Unit NPD-P) per unit, so the query no longer
-  // narrows to primary leads; the primary-lead map below still derives from is_primary_lead.
+  // Unit leaders - ALL active Unit Leader contacts in ASPIRE Connect (UNIT-LEADERS-RETIRE-1),
+  // as leader rows. CAPACITY-FILTER-REMINDER-1 preselects role-based recipients (Associate
+  // Director, Assistant Nurse Manager, NPD Practitioner) per unit; the lead map below reads
+  // the derived is_primary_lead (the unit's Associate Director, else its Director).
   const { data: unitLeadersData = [] } = useQuery({
-    queryKey: ['unit_leaders_active_all'],
-    queryFn:  async () => {
-      const { data, error } = await supabase
-        .from('unit_leaders')
-        .select('unit_name, full_name, email, role, is_primary_lead')
-        .eq('is_active', true)
-      if (error) throw error
-      return data || []
-    },
+    queryKey: ['unit_leader_contacts'],
+    queryFn:  getAllUnitLeaders,
     staleTime: 300000,
   })
 
-  // Build primary lead map: unit_name → { full_name, email }
+  // Build the lead map keyed on the unit-name canon, so '6NE' on a contact still finds the
+  // '6 NE' response: unit key → { full_name, email }
   const primaryLeadMap = {}
-  unitLeadersData.forEach(l => { if (l.is_primary_lead && !primaryLeadMap[l.unit_name]) primaryLeadMap[l.unit_name] = l })
+  unitLeadersData.forEach(l => { const k = unitNameKey(l.unit_name); if (l.is_primary_lead && k && !primaryLeadMap[k]) primaryLeadMap[k] = l })
 
 
   const showToast = msg => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000) }

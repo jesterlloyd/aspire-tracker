@@ -796,7 +796,9 @@ test('the board reads the coordinator rotation dates it needs', () => {
   const src = strip(read('src/components/MatchingTab.jsx'))
   assert.match(src, /from\('cohort_school_rotations'\)[\s\S]{0,300}rotation_start_date, rotation_end_date/)
   assert.match(src, /from\('preceptors'\)/)
-  assert.match(src, /from\('unit_leaders'\)/)
+  // UNIT-LEADERS-RETIRE-1: leadership comes from Connect through the shared helper.
+  assert.match(src, /queryFn: getAllUnitLeaders/)
+  assert.doesNotMatch(src, /from\('unit_leaders'\)/)
 })
 
 test('the Action Center shortcut resolves the same canonical facts', () => {

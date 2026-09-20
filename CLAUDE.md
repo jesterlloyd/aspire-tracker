@@ -574,6 +574,36 @@ Unit Leader and Student portals and the staff response viewers map the slug thro
   separate Microsoft Forms readiness survey, and Keith's retrieval aliases keep the old
   spellings because the governed documents still use them.
 
+## Unit leadership is Connect (UNIT-LEADERS-RETIRE-1, 2026-09-20)
+
+"Whatever is in ASPIRE Connect > Contacts is the canon" (Owner). Unit leadership is read from
+Connect contacts in the Unit Leader category, active, with an email, and from nowhere else;
+the hand-seeded `public.unit_leaders` table is read by NOTHING and waits for its Owner-gated
+drop (`db/audit/unit_leaders_vs_connect_preflight.sql` shows what changed per unit; run it
+before writing that migration). Rows that only ever lived in the old table are not carried
+over.
+
+- **One adapter, the old shape.** `src/lib/unitLeadersFromConnect.js` turns contacts into the
+  rows the six readers always understood (`unit_name, full_name, preferred_name, email, role,
+  role_qualifier, is_primary_lead`), one row per unit a contact holds (`unit_name` plus
+  `related_units`), so notification routing, the placement greeting, the Overview lead map,
+  the capacity outreach selector, the board and Keith kept their logic. Browser readers go
+  through `src/lib/unitLeaders.js`; server readers select `UNIT_LEADER_CONTACT_COLUMNS` with
+  the service role and run the same adapter. Do not add a reader that queries `contacts` for
+  leadership on its own.
+- **The lead is derived, never flagged.** The unit's Associate Director (interim or acting),
+  else its Director, else an Executive Director over it; ties break on name. An ANM or an
+  NPD Practitioner is never promoted, so a unit with only those has no lead and the surface
+  says so ("No unit lead is on file for X. Add the Associate Director in ASPIRE Connect,
+  Contacts."). The Student Portal's `placementLeadership.js` reads the same contacts for a
+  narrower purpose (who is copied on Email Preceptor) and keeps its own tiering on purpose.
+- **The CC rule did not change**, it moved: `selectUnitFormCc` is the pure form of what
+  `resolveUnitFormReceived` did (the lead submitted it: copy ANM, NPD-P, CNS; anyone else:
+  copy the lead; never the submitter). Unit names compare through `unitNameKey`, so a
+  contact filed under '6NE' still routes the '6 NE' form.
+- `test/unitLeadersFromConnect.test.mjs` sweeps `api/`, `lib/` and `src/` for any
+  `from('unit_leaders')` and fails on one.
+
 ## Student Portal on phones (STUDENT-PHONE-1)
 
 Students open the portal on their phones first. Below 760px the Rotation Activity calendar is

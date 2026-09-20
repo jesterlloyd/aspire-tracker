@@ -19,6 +19,7 @@ import {
   CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE,
 } from '../lib/placementNotificationState'
 import { supabase as supabaseClient } from '../lib/supabase'
+import { getAllUnitLeaders } from '../lib/unitLeaders'
 import { planUnmatch } from '../lib/unmatchPlan'
 import { createPendingUnmatch, UNDO_WINDOW_MS } from '../lib/pendingUnmatch'
 import { useBoardDrag } from './placement/useBoardDrag'
@@ -341,19 +342,13 @@ export default function MatchingTab({
   }
 
 
-  // Active unit leaders, for the ONE thing the placement notice needs from them:
-  // a reliable greeting name (preferred_name first). Recipient addressing is
-  // unchanged - the notice still bccs units.contact_email.
+  // Active unit leaders from ASPIRE Connect > Contacts (UNIT-LEADERS-RETIRE-1), for the
+  // ONE thing the placement notice needs from them: a reliable greeting name
+  // (preferred_name first). Recipient addressing is unchanged - the notice still bccs
+  // units.contact_email.
   const { data: unitLeaderRows = [] } = useQuery({
-    queryKey: ['placement_unit_leaders'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('unit_leaders')
-        .select('unit_name, full_name, preferred_name, email, is_primary_lead, is_active')
-        .eq('is_active', true)
-      if (error) throw error
-      return data || []
-    },
+    queryKey: ['unit_leader_contacts'],
+    queryFn: getAllUnitLeaders,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   })
